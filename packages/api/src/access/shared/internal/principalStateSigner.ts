@@ -1,10 +1,10 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
-import { users } from "@symcrypt/api-shared/schema";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import { users } from "@tearleads/api-shared/schema";
 import {
   type SignedPrincipalState,
   throwPrincipalPolicyValidationError,
-} from "@symcrypt/crypto";
-import { base64ToBytes } from "@symcrypt/encoding";
+} from "@tearleads/crypto";
+import { base64ToBytes } from "@tearleads/encoding";
 import { eq } from "drizzle-orm";
 
 export async function loadPrincipalStateSigner(

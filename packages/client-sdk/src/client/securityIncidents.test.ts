@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { KeyingVerificationError } from "@symcrypt/crypto";
-import { createTestExecSql } from "@symcrypt/test-utils";
+import { KeyingVerificationError } from "@tearleads/crypto";
+import { createTestExecSql } from "@tearleads/test-utils";
 import {
   reportAndRethrowKeyingVerificationError,
   throwKeyingVerificationErrorWithContext,

@@ -2,15 +2,15 @@ import type {
   BlobInfoInput,
   BlobInfoList,
   BlobStore,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { useCallback } from "react";
 import { MiniAppRoot } from "../../components/mini-app/MiniAppLayout";
 import { useWindowFileMenuItem } from "../../components/window/WindowMenuContext";
 import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
 import {
-  useSymCrypt,
-  useSymCryptRuntime,
-} from "../../providers/sdk/SymCryptProvider";
+  useTearleads,
+  useTearleadsRuntime,
+} from "../../providers/sdk/TearleadsProvider";
 import {
   DEFAULT_DOCUMENT_ID,
   DocumentsProvider,
@@ -107,8 +107,8 @@ function NotesEditorOrBlobPicker(params: {
 function NotesAppContent(props: NotesAppProps) {
   const { setSidebar } = useWindowSidebar();
   const model = useNotesAppModel(props, setSidebar);
-  const appData = useSymCryptRuntime();
-  const { containerContents, organizations } = useSymCrypt();
+  const appData = useTearleadsRuntime();
+  const { containerContents, organizations } = useTearleads();
   const loadBlobInfo = useCallback(
     (query?: BlobInfoInput | undefined) =>
       containerContents.listBlobInfo(query),

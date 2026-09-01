@@ -2,9 +2,9 @@ import {
   AES_GCM_TAG_BYTES,
   assertAesGcmIv,
   CONTENT_RECORD_ENCRYPTION_SUITE,
-} from "@symcrypt/crypto";
-import { base64ToBytes } from "@symcrypt/encoding";
-import { isPlainObject as isPlainRecord } from "@symcrypt/validators/isPlainObject";
+} from "@tearleads/crypto";
+import { base64ToBytes } from "@tearleads/encoding";
+import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
 import {
   assertOnlyRecordKeys,
   readRecordPositiveInteger,

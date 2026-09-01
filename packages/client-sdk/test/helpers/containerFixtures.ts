@@ -1,5 +1,5 @@
 import { expect } from "bun:test";
-import type { ContainerMutationAuthor } from "@symcrypt/client-sdk";
+import type { ContainerMutationAuthor } from "@tearleads/client-sdk";
 import {
   type AccessEvent,
   type ContainerAccessEventBody,
@@ -25,9 +25,9 @@ import {
   type VerifiedContainerKekState,
   verifyContainerAccessManifest,
   verifySignedAccessEvent,
-} from "@symcrypt/crypto";
-import { createContainerManifestFixture as createCryptoContainerManifestFixture } from "@symcrypt/crypto/test-fixtures";
-import type { ContainerWriterProjectionResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import { createContainerManifestFixture as createCryptoContainerManifestFixture } from "@tearleads/crypto/test-fixtures";
+import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import {
   createAuthor,
   createUserContainerWrap,
@@ -37,7 +37,7 @@ import {
   createTestTrustedUserIdentityResolver,
 } from "./trustedUserIdentity";
 
-export { createContainerMutationResponseFromRequest as createMutationResponseFromRequest } from "@symcrypt/test-utils";
+export { createContainerMutationResponseFromRequest as createMutationResponseFromRequest } from "@tearleads/test-utils";
 export {
   createAuthor,
   createDeepNonCanonicalRecord,

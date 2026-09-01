@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { bytesToBase64 } from "@symcrypt/encoding";
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
   encodeVersionVector,
@@ -7,8 +7,8 @@ import {
   exportUpdatesSince,
   getUpdateVersionVectors,
   importSnapshot,
-} from "@symcrypt/loro";
-import { createTestExecSql } from "@symcrypt/test-utils";
+} from "@tearleads/loro";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentsPersistence } from "./documentsPersistence";
 
 test("a rejected recovery checkpoint rolls back its whole document mutation", async () => {

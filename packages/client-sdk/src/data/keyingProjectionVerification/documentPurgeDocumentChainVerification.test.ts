@@ -1,14 +1,14 @@
 import { expect, test } from "bun:test";
-import { makeVerifiedContainerAccessManifest } from "@symcrypt/crypto";
+import { makeVerifiedContainerAccessManifest } from "@tearleads/crypto";
 import {
   createContainerWriterProjectionFixture,
   createTestExecSql,
-} from "@symcrypt/test-utils";
+} from "@tearleads/test-utils";
 import type {
   ContainerWriterProjectionResponse,
   DocumentLinkSetMutationResponse,
   DocumentWriterProjectionResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { createMaterializedSyncFixture } from "../../../test/helpers/documentFixtures";
 import { createDocumentPurgeProof } from "../../../test/helpers/documentPurge";
 import { createLinkSetResponseFromRequest } from "../../../test/helpers/documentResponseFixtures";

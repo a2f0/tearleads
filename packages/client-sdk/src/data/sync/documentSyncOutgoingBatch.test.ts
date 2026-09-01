@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
-import type { DocumentSyncRequest } from "@symcrypt/validators/request";
+import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import {
   MAX_DOCUMENT_SYNC_OUTGOING_UPDATES,
   MAX_DOCUMENT_SYNC_REQUEST_BYTES,
-} from "@symcrypt/validators/util";
+} from "@tearleads/validators/util";
 import {
   DocumentSyncRequestLimitError,
   limitDocumentSyncRequestBytes,

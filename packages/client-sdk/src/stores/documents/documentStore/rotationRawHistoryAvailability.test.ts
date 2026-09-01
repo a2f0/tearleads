@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { computeDocumentContentKeyTargetHash } from "@symcrypt/crypto";
-import { createTestExecSql } from "@symcrypt/test-utils";
+import { computeDocumentContentKeyTargetHash } from "@tearleads/crypto";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { createMutationResponseFromRequest } from "../../../../test/helpers/containerFixtures";
 import { buildRotatedDocumentContentKeyBundle } from "../../../data/documents/shared/projection";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";

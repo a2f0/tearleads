@@ -3,7 +3,7 @@ import type {
   ContainerShareAccessLevel,
   OrganizationDirectoryAndGroups,
   OrganizationGroupSummary,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { useEffect, useRef } from "react";
 import { unknownErrorMessage } from "../../../../utils/unknownErrorMessage";
 

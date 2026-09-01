@@ -2,7 +2,7 @@ import type {
   PrincipalPolicyBundleResponse,
   PrincipalProjectionMemberResponse,
   PrincipalStateResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 
 export type OrganizationPrincipalMemberChangeType =
   | "added"

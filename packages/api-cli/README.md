@@ -1,15 +1,15 @@
-# @symcrypt/api-cli
+# @tearleads/api-cli
 
-Server-side operations CLI for the SymCrypt API, shipped as a standalone Bun
-executable (`symcrypt-api-cli`) deployed to `/opt/symcrypt/bin` alongside the
+Server-side operations CLI for the Tearleads API, shipped as a standalone Bun
+executable (`tearleads-api-cli`) deployed to `/opt/tearleads/bin` alongside the
 API server.
 
-It is a separate deployable entry package: it depends on `@symcrypt/api-shared`
+It is a separate deployable entry package: it depends on `@tearleads/api-shared`
 for server infrastructure and **must not** import `packages/api` (enforced by the
 `api-cli-does-not-depend-on-api` dependency-cruiser rule).
 
 ```text
-Usage: symcrypt-api-cli <command>
+Usage: tearleads-api-cli <command>
 
 Commands:
   blob-store:list-keys [--prefix <prefix>] [--with-size]    List configured S3 blob store keys
@@ -26,13 +26,13 @@ prints only `Unknown command: <name>` — no usage — and exits `1`. `-h` /
 
 Runs the Drizzle migrations for the API's Postgres, local SQLite, or remote
 Turso database. Defaults `API_DATABASE` to `postgres` when unset, then calls
-`initializeApiDatabase` from `@symcrypt/api-shared/postgres`. Turso uses the
+`initializeApiDatabase` from `@tearleads/api-shared/postgres`. Turso uses the
 SQLite migration bundle.
 
 In the compiled executable both dialects' migration files are **embedded** — the
 build bundles `packages/api-shared/{drizzle,drizzle-sqlite}/**/*.{sql,json}` as
 assets. The command materializes only the selected dialect into a temp directory
-(`symcrypt-api-migrations-*`), passes it as `migrationsFolder`, and removes it
+(`tearleads-api-migrations-*`), passes it as `migrationsFolder`, and removes it
 afterwards. Run from source, no files are embedded and `initializeApiDatabase`
 uses its own dialect-specific default folder.
 
@@ -41,7 +41,7 @@ the database and remove the temp folder; each attempt is guarded, so a failing
 close or `rm` is reported rather than masking the other. The paths differ in
 which error wins: when the migration itself fails, that error propagates and the
 cleanup error is only logged; when the migration succeeds, a cleanup failure is
-thrown. Cleanup is not reached at all if the `@symcrypt/api-shared/postgres`
+thrown. Cleanup is not reached at all if the `@tearleads/api-shared/postgres`
 import fails, which happens after the temp folder is created.
 
 Locally, prefer the wrapper — it fails early with setup instructions when no
@@ -56,7 +56,7 @@ On deploy, `packages/api/scripts/deployStagingApi.sh` and its production sibling
 run it over SSH with the server's environment loaded:
 
 ```bash
-set -a && . /etc/symcrypt/api.env && set +a && /opt/symcrypt/bin/symcrypt-api-cli migrate
+set -a && . /etc/tearleads/api.env && set +a && /opt/tearleads/bin/tearleads-api-cli migrate
 ```
 
 ### `blob-store:list-keys`
@@ -89,7 +89,7 @@ Requires these environment variables (read at command time, all validated):
 With neither credential set, the AWS SDK's default credential chain applies.
 
 For the deployed Garage buckets, use the repo wrapper — it resolves the server
-over Tailscale SSH, sources `/etc/symcrypt/api.env`, and invokes this command
+over Tailscale SSH, sources `/etc/tearleads/api.env`, and invokes this command
 remotely:
 
 ```bash
@@ -108,7 +108,7 @@ bun run test                                 # bun test src
 ## Build and deploy
 
 ```bash
-bun run build                                # packages/api-cli/dist/symcrypt-api-cli
+bun run build                                # packages/api-cli/dist/tearleads-api-cli
 ```
 
 `scripts/buildApiCliExecutable.ts` compiles from the repo root to a single
@@ -117,7 +117,7 @@ executable. The target defaults to `bun-linux-x64` and can be overridden with
 anything else throws. Targets are Linux-only because the executable exists to run
 on the servers.
 
-Deploy scripts build and `rsync` the executable to `/opt/symcrypt/bin` on the
+Deploy scripts build and `rsync` the executable to `/opt/tearleads/bin` on the
 selected server (both are on `PATH` after sourcing `scripts/session.sh`):
 
 ```bash

@@ -1,7 +1,7 @@
 import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 
 export type TestUser = {
   signing: ReturnType<typeof generateSigningSeedAndKeyPair>;

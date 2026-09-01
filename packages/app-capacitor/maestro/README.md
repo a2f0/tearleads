@@ -49,12 +49,12 @@ bun run build                                   # web assets
 CAPACITOR_BUILD_CONFIGURATION=Debug bunx cap sync ios
 xcodebuild -project ios/App/App.xcodeproj -scheme App \
   -configuration Debug -sdk iphonesimulator \
-  -derivedDataPath "$TMPDIR/symcrypt-maestro-derived-data" \
+  -derivedDataPath "$TMPDIR/tearleads-maestro-derived-data" \
   -destination 'generic/platform=iOS Simulator' \
   CODE_SIGNING_ALLOWED=NO build
 xcrun simctl boot 'iPhone 16' || true
 xcrun simctl install booted \
-  "$TMPDIR/symcrypt-maestro-derived-data/Build/Products/Debug-iphonesimulator/App.app"
+  "$TMPDIR/tearleads-maestro-derived-data/Build/Products/Debug-iphonesimulator/App.app"
 
 # Run the flows
 maestro --platform ios test maestro/offline-second-identity.yaml
@@ -85,7 +85,7 @@ review-ready screen once for each subscription record. Maestro verifies every
 product title and price first; the runner uses `simctl` for the final files
 because its framebuffer capture preserves Apple's exact accepted dimensions.
 
-The runner creates and reuses a dedicated `SymCrypt Subscription Review`
+The runner creates and reuses a dedicated `Tearleads Subscription Review`
 iPhone 16 simulator so it never authenticates an unrelated simulator identity
 against production. Its first run creates one production screenshot identity;
 later runs reuse it. Set `IOS_SCREENSHOT_RUNTIME_VERSION` to override the tested

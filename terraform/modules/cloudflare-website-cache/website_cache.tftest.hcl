@@ -5,7 +5,7 @@ run "primary_hostname_rules" {
 
   variables {
     zone_id              = "00000000000000000000000000000000"
-    hostname             = "symcrypt.com"
+    hostname             = "tearleads.com"
     additional_hostnames = []
   }
 
@@ -36,11 +36,11 @@ run "additional_hostnames_are_deduplicated" {
 
   variables {
     zone_id  = "00000000000000000000000000000000"
-    hostname = "symcrypt.com"
+    hostname = "tearleads.com"
     additional_hostnames = [
-      "website-staging.symcrypt.com",
-      "website-staging.symcrypt.com",
-      "symcrypt.com",
+      "website-staging.tearleads.com",
+      "website-staging.tearleads.com",
+      "tearleads.com",
     ]
   }
 
@@ -51,8 +51,8 @@ run "additional_hostnames_are_deduplicated" {
 
   assert {
     condition = (
-      cloudflare_ruleset.website_cache.rules[2].ref == "website_gallery_edge_cache_website-staging_symcrypt_com" &&
-      cloudflare_ruleset.website_cache.rules[3].ref == "website_html_edge_cache_website-staging_symcrypt_com"
+      cloudflare_ruleset.website_cache.rules[2].ref == "website_gallery_edge_cache_website-staging_tearleads_com" &&
+      cloudflare_ruleset.website_cache.rules[3].ref == "website_html_edge_cache_website-staging_tearleads_com"
     )
     error_message = "Additional hostname refs must be deterministic and unique."
   }

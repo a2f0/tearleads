@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
-import { db, getDefaultApiDatabaseKind } from "@symcrypt/api-shared/postgres";
+import { db, getDefaultApiDatabaseKind } from "@tearleads/api-shared/postgres";
 import {
   attachmentBindings,
   blobContentKeyEpochs,
   blobs,
   documents,
-} from "@symcrypt/api-shared/schema";
-import { createTestUser } from "@symcrypt/bob-and-alice";
+} from "@tearleads/api-shared/schema";
+import { createTestUser } from "@tearleads/bob-and-alice";
 import { and, eq, isNull } from "drizzle-orm";
 import { authenticate } from "../../../../test/helpers/authenticate";
 import {

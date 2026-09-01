@@ -1,4 +1,4 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
   accessManifests,
   attachmentBindings,
@@ -11,7 +11,7 @@ import {
   documentContainerLinks,
   documentContentWriteHeaders,
   documents,
-} from "@symcrypt/api-shared/schema";
+} from "@tearleads/api-shared/schema";
 import { and, eq, inArray } from "drizzle-orm";
 import { organizationPurgeBatches } from "./organizationPurgeBatches";
 

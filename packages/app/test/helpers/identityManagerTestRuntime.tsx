@@ -1,5 +1,5 @@
-import type { SymCrypt } from "@symcrypt/client-sdk";
-import { createSQLiteRuntime } from "@symcrypt/client-sdk/sqlite";
+import type { Tearleads } from "@tearleads/client-sdk";
+import { createSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
 import { cleanup } from "@testing-library/react";
 import { type PropsWithChildren, useEffect } from "react";
 import {
@@ -8,7 +8,7 @@ import {
   createAppHostConfig,
 } from "../../src/host/AppHostConfig";
 import { AppRuntimeProvider } from "../../src/providers/AppRuntimeProvider";
-import { useSymCrypt } from "../../src/providers/sdk/SymCryptProvider";
+import { useTearleads } from "../../src/providers/sdk/TearleadsProvider";
 import { withManualIdentity } from "./manualIdentityProfile";
 import { MockWorker } from "./mockWorker";
 import { createSharedMemoryLocalKeyringFactory } from "./sharedMemoryLocalKeyring";
@@ -54,12 +54,16 @@ export class TestWebSocket extends EventTarget {
   close() {}
 }
 
-function SymCryptProbe({ onReady }: { onReady: (symcrypt: SymCrypt) => void }) {
-  const symcrypt = useSymCrypt();
+function TearleadsProbe({
+  onReady,
+}: {
+  onReady: (tearleads: Tearleads) => void;
+}) {
+  const tearleads = useTearleads();
 
   useEffect(() => {
-    onReady(symcrypt);
-  }, [onReady, symcrypt]);
+    onReady(tearleads);
+  }, [onReady, tearleads]);
 
   return null;
 }
@@ -67,14 +71,14 @@ function SymCryptProbe({ onReady }: { onReady: (symcrypt: SymCrypt) => void }) {
 export function IdentityManagerTestRuntime({
   children,
   hostConfig,
-  onSymCryptReady,
+  onTearleadsReady,
 }: PropsWithChildren<{
   hostConfig: AppHostConfig;
-  onSymCryptReady: (symcrypt: SymCrypt) => void;
+  onTearleadsReady: (tearleads: Tearleads) => void;
 }>) {
   return (
     <AppRuntimeProvider autoProvisionEnabled={false} hostConfig={hostConfig}>
-      <SymCryptProbe onReady={onSymCryptReady} />
+      <TearleadsProbe onReady={onTearleadsReady} />
       {children}
     </AppRuntimeProvider>
   );
@@ -82,7 +86,7 @@ export function IdentityManagerTestRuntime({
 
 export async function cleanupIdentityManagerTestEnvironment(): Promise<void> {
   cleanup();
-  // cleanup() unmounts the tree, which only queues SymCryptProvider's dispose
+  // cleanup() unmounts the tree, which only queues TearleadsProvider's dispose
   // (a macrotask, so a StrictMode remount can cancel it). Flush it before the
   // next test starts: with a keyring the database really boots, so an
   // undisposed coordinator would keep issuing requests and sharing the keyring

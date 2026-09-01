@@ -2,7 +2,7 @@ import {
   isListOrganizationGroupMembersOperationResponse,
   listOrganizationGroupMembersOperation,
   operationRequestPath,
-} from "@symcrypt/validators/operation";
+} from "@tearleads/validators/operation";
 
 export const listOrganizationGroupMembers = {
   isResponse: isListOrganizationGroupMembersOperationResponse,

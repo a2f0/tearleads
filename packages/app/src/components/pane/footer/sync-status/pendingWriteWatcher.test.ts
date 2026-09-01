@@ -2,7 +2,7 @@ import { expect, mock, test } from "bun:test";
 import type {
   PendingWriteQueueItem,
   PendingWriteQueueOperation,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { createPendingWriteWatcher } from "./pendingWriteWatcher";
 
 type WatchedItems = ReadonlyArray<PendingWriteQueueItem>;

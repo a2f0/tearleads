@@ -11,7 +11,7 @@ import type { AppNavigationMode } from "./AppNavigationMode";
  * `pointer: fine`; a coarse-pointer query would leave every control at its dense
  * desktop size on that device.
  *
- * See `:root[data-navigation-mode="routed"]` rules in @symcrypt/ui's
+ * See `:root[data-navigation-mode="routed"]` rules in @tearleads/ui's
  * styles.css and across the mini-app component stylesheets.
  */
 export function useNavigationModeDocumentAttribute(

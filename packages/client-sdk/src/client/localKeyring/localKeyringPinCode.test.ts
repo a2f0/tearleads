@@ -11,7 +11,7 @@ import { createPinCodeWrappingKeyKeystore } from "./localKeyringPinCode";
 
 const scope: LocalKeyringScope = {
   accountId: "user-1",
-  namespace: "symcrypt-test",
+  namespace: "tearleads-test",
   signingFingerprint: "signing-fingerprint-1",
 };
 

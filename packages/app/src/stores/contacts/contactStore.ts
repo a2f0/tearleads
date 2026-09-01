@@ -1,4 +1,4 @@
-import type { DomainScope } from "@symcrypt/client-sdk";
+import type { DomainScope } from "@tearleads/client-sdk";
 import {
   type ContactEntry,
   type ContactEntryPatch,

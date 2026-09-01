@@ -1,4 +1,4 @@
-import type { DocumentSyncResponse } from "@symcrypt/validators/response";
+import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import type { MaterializedDocumentSyncPlan } from "../../data/documents/shared/types";
 import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";
 import { limitDocumentSyncRequestBytes } from "../../data/sync/documentSyncOutgoingBatch";

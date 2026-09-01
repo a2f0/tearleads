@@ -32,7 +32,7 @@ export function authChallengeSigningBytes(input: {
 
   return TEXT_ENCODER.encode(
     serializeKeyingCanonicalJson({
-      domain: "symcrypt.auth.challenge.v1",
+      domain: "tearleads.auth.challenge.v1",
       payload: {
         challenge: input.challengeHex,
         fingerprint: input.fingerprint,

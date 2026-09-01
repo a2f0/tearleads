@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import { db } from "@symcrypt/api-shared/postgres";
-import { blobAuditObjects } from "@symcrypt/api-shared/schema";
-import type { BlobAttachmentBindRequest } from "@symcrypt/validators/request";
+import { db } from "@tearleads/api-shared/postgres";
+import { blobAuditObjects } from "@tearleads/api-shared/schema";
+import type { BlobAttachmentBindRequest } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
 import { assertStoredBlobOrganizationMatches } from "./authorization";
 import { promoteStagedBlobIfPresent } from "./persistence";

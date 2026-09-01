@@ -1,6 +1,6 @@
-import type { ApiDatabase } from "@symcrypt/api-shared/postgres";
-import type { CommitOrganizationGroupPolicyRequest } from "@symcrypt/validators/request";
-import type { CommitOrganizationGroupPolicyResponse } from "@symcrypt/validators/response";
+import type { ApiDatabase } from "@tearleads/api-shared/postgres";
+import type { CommitOrganizationGroupPolicyRequest } from "@tearleads/validators/request";
+import type { CommitOrganizationGroupPolicyResponse } from "@tearleads/validators/response";
 import { toMutationError } from "../containers/mutations/errors";
 import { OrganizationManagerError } from "../organizations/errors";
 import { lockOrganizationGroupMutationInTransaction } from "./principalMutationLock";

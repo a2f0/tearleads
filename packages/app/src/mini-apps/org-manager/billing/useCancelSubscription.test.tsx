@@ -1,6 +1,6 @@
 import { afterEach, expect, mock, spyOn, test } from "bun:test";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
-import * as SymCryptProvider from "../../../providers/sdk/SymCryptProvider";
+import * as TearleadsProvider from "../../../providers/sdk/TearleadsProvider";
 import { useCancelSubscription } from "./useCancelSubscription";
 
 const spies: { mockRestore: () => void }[] = [];
@@ -14,7 +14,7 @@ afterEach(() => {
 
 function stubCancel(cancelStripeSubscription: unknown) {
   spies.push(
-    spyOn(SymCryptProvider, "useSymCrypt").mockReturnValue({
+    spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
       organizations: { cancelStripeSubscription },
     } as never),
   );
@@ -103,7 +103,7 @@ test("a refresh failure after a successful cancel is not reported as a failure",
   // GET) must not revert to the confirm step and show "Could not cancel".
   const refresh = mock(() => Promise.reject(new Error("read failed")));
   spies.push(
-    spyOn(SymCryptProvider, "useSymCrypt").mockReturnValue({
+    spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
       organizations: {
         cancelStripeSubscription: () =>
           Promise.resolve({ cancelAt: 1893456000 }),

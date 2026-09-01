@@ -1,7 +1,7 @@
-import type { DocumentSummary } from "@symcrypt/client-sdk";
+import type { DocumentSummary } from "@tearleads/client-sdk";
 import { useCallback, useMemo } from "react";
-import { useSymCrypt } from "../../../providers/sdk/SymCryptProvider";
-import { useSymCryptExternalStoreSnapshot } from "../../../providers/sdk/useSymCryptSubscription";
+import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
+import { useTearleadsExternalStoreSnapshot } from "../../../providers/sdk/useTearleadsSubscription";
 import { useUserSystemContainers } from "../../../providers/system-bootstrap/UserSystemContainersProvider";
 import { useDeviceFirstContainerContents } from "../../../stores/device-first/DeviceFirstProvider";
 import {
@@ -34,9 +34,9 @@ interface DocumentTrash {
 // shared device-first store; both the lazy Trash create and move persist locally
 // before their remote sync lanes converge.
 export function useDocumentTrash(): DocumentTrash {
-  const symcrypt = useSymCrypt();
+  const tearleads = useTearleads();
   const { containerStore: store, runtime } = useDeviceFirstContainerContents();
-  const snapshot = useSymCryptExternalStoreSnapshot(store);
+  const snapshot = useTearleadsExternalStoreSnapshot(store);
 
   const systemContainers = useUserSystemContainers();
   const trashSystemSlot = findTrashSystemContainerSlot(systemContainers);
@@ -88,7 +88,7 @@ export function useDocumentTrash(): DocumentTrash {
         return null;
       }
 
-      const documentLinks = symcrypt.containerContents.documentLinks();
+      const documentLinks = tearleads.containerContents.documentLinks();
       const result = await documentLinks.moveDocumentToContainer({
         expandNode: () => undefined,
         mergeDocumentSummary: () => undefined,
@@ -100,7 +100,7 @@ export function useDocumentTrash(): DocumentTrash {
       });
       return result.note;
     },
-    [currentOrganizationId, snapshot.ready, store, symcrypt, trashSystemSlot],
+    [currentOrganizationId, snapshot.ready, store, tearleads, trashSystemSlot],
   );
 
   return { isContainerTrashed, moveToTrash, ready: snapshot.ready };

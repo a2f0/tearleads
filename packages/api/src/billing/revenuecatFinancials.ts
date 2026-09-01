@@ -1,4 +1,4 @@
-import type { RevenueCatWebhookEvent } from "@symcrypt/validators/request";
+import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 
 const POSTGRES_INTEGER_MIN = -2_147_483_648;
 const POSTGRES_INTEGER_MAX = 2_147_483_647;

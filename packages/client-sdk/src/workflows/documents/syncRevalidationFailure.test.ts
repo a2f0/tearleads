@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@symcrypt/test-utils";
-import { DOCUMENT_PROJECTION_ERROR_CODES } from "@symcrypt/validators/response";
+import { createTestExecSql } from "@tearleads/test-utils";
+import { DOCUMENT_PROJECTION_ERROR_CODES } from "@tearleads/validators/response";
 import { createMaterializedSyncFixture } from "../../../test/helpers/documentFixtures";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../test/helpers/documentSync";
 import { describeDocumentRevalidationFailure } from "./syncFailureClassification";

@@ -1,5 +1,5 @@
 import { test as bunTest, expect } from "bun:test";
-import { db } from "@symcrypt/api-shared/postgres";
+import { db } from "@tearleads/api-shared/postgres";
 import {
   attachmentBindings,
   blobContentKeyEpochs,
@@ -15,8 +15,8 @@ import {
   organizationBilling,
   organizations,
   users,
-} from "@symcrypt/api-shared/schema";
-import { createTestUser, type TestUser } from "@symcrypt/bob-and-alice";
+} from "@tearleads/api-shared/schema";
+import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import type {
   AccessEvent,
   ContainerAccessEventBody,
@@ -35,7 +35,7 @@ import type {
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
   VerifiedPrincipalPolicy,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import {
   computeAccessEventBodyHash,
   computeAccessEventHash,
@@ -51,20 +51,20 @@ import {
   toFingerprint,
   verifyContainerKekState,
   verifySignedAccessEvent,
-} from "@symcrypt/crypto";
-import { bytesToBase64 } from "@symcrypt/encoding";
+} from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import type {
   AccessManifestBundleWire,
   ContainerMutationRequest,
   DocumentCreateRequest,
-} from "@symcrypt/validators/request";
+} from "@tearleads/validators/request";
 import {
   type ContainerMutationResponse,
   isContainerCreateWithMetadataDocumentResponse,
   isContainerDeleteResponse,
   isContainerMutationResponse,
   type PrincipalPolicyMutationResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";

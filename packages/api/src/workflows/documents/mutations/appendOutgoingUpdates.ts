@@ -1,8 +1,8 @@
 import { Buffer } from "node:buffer";
-import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
-import { documentUpdates } from "@symcrypt/api-shared/schema";
-import type { WriteHeader } from "@symcrypt/crypto";
-import type { DocumentOutgoingUpdate } from "@symcrypt/validators/request";
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import { documentUpdates } from "@tearleads/api-shared/schema";
+import type { WriteHeader } from "@tearleads/crypto";
+import type { DocumentOutgoingUpdate } from "@tearleads/validators/request";
 import { inArray } from "drizzle-orm";
 import { listDocumentContentWriteHeaders } from "../../../access/read/documentContentKeyStore";
 import { storeDocumentContentWriteHeader } from "../../../access/write/documentContentKeyStore";

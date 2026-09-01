@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import type { AccessEvent } from "@symcrypt/crypto";
-import { createTestExecSql } from "@symcrypt/test-utils";
+import type { AccessEvent } from "@tearleads/crypto";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { createMultipartBlobStageFixture } from "../../../test/helpers/blobUploadFixtures";
 import { createMaterializedSyncFixture } from "../../../test/helpers/documentFixtures";
 import type { BlobBytes } from "../../data/blobContracts";

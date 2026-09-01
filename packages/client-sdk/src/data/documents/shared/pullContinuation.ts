@@ -1,7 +1,7 @@
 import {
   isWalLsnString,
   MAX_DOCUMENT_SYNC_PULL_CURSOR_LENGTH,
-} from "@symcrypt/validators/util";
+} from "@tearleads/validators/util";
 
 export type DocumentSyncCommitLsnMode = "tracked" | "untracked";
 

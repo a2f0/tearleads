@@ -6,11 +6,11 @@ import type {
   NetworkStatusSource,
   PurchasesCapability,
   WrappingKeyMaterialStorage,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import type {
   SQLiteRuntime,
   StoragePersistencePolicy,
-} from "@symcrypt/client-sdk/sqlite";
+} from "@tearleads/client-sdk/sqlite";
 import type { AppNavigationMode } from "../navigation/AppNavigationMode";
 import type { AppBuildInfo } from "./AppBuildInfo";
 import type { CreateFileViewerFn } from "./FileViewer";

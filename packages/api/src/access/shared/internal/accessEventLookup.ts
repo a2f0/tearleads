@@ -1,11 +1,11 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
-import { accessEvents } from "@symcrypt/api-shared/schema";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import { accessEvents } from "@tearleads/api-shared/schema";
 import type {
   AccessEventType,
   AccessObjectKind,
   VerifiedAccessEvent,
-} from "@symcrypt/crypto";
-import { makeVerifiedAccessEvent } from "@symcrypt/crypto";
+} from "@tearleads/crypto";
+import { makeVerifiedAccessEvent } from "@tearleads/crypto";
 import { and, eq, inArray } from "drizzle-orm";
 import { readKeyingCanonicalJson } from "../../../utils/canonicalJson";
 import {

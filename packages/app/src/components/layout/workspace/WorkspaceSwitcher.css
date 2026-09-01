@@ -8,6 +8,6 @@
    graphite emphasis chip — a step above the muted pane footer, so the active
    workspace still reads as raised rather than receding into the bar. */
 .workspace-button.workspace-button--active {
-  background: var(--symcrypt-action-hover-surface);
-  color: var(--symcrypt-action-hover-text);
+  background: var(--tearleads-action-hover-surface);
+  color: var(--tearleads-action-hover-text);
 }

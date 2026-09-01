@@ -3,8 +3,8 @@ import {
   computeContentRecordNonceDomainHash,
   computeDocumentContentRecordMetadataHash,
   serializeKeyingCanonicalJson,
-} from "@symcrypt/crypto";
-import { bytesToBase64 } from "@symcrypt/encoding";
+} from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import { DOCUMENT_ENCRYPTED_LORO_UPDATE_FORMAT } from "../../src/data/documents/shared/types";
 
 export async function createDocumentEncryptedUpdateFixture(input: {

@@ -4,13 +4,13 @@ import type {
   ContainerNode,
   PendingWriteQueueItem,
   PendingWriteQueueOperation,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import {
   createDomainScope,
   getDomainSyncCoordinatorSnapshot,
   getOrCreateDomainSyncCoordinator,
   syncedContainerDocumentObjectSyncState,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import {
   act,
   cleanup,

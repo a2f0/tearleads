@@ -1,4 +1,4 @@
-import { bytesToBase64 } from "@symcrypt/encoding";
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
   encodeVersionVector,
@@ -6,7 +6,7 @@ import {
   exportFullHistorySnapshot,
   exportUpdatesSince,
   getUpdateVersionVectors,
-} from "@symcrypt/loro";
+} from "@tearleads/loro";
 import {
   createMaterializedSyncFixture,
   createPendingUpdateRecord,

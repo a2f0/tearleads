@@ -1,15 +1,15 @@
 import type {
   ApiDatabase,
   DatabaseTransaction,
-} from "@symcrypt/api-shared/postgres";
-import { organizationBilling, users } from "@symcrypt/api-shared/schema";
-import { serializeKeyingCanonicalJson } from "@symcrypt/crypto";
-import { base64ToBytes } from "@symcrypt/encoding";
-import type { CreateOrganizationRequest } from "@symcrypt/validators/request";
+} from "@tearleads/api-shared/postgres";
+import { organizationBilling, users } from "@tearleads/api-shared/schema";
+import { serializeKeyingCanonicalJson } from "@tearleads/crypto";
+import { base64ToBytes } from "@tearleads/encoding";
+import type { CreateOrganizationRequest } from "@tearleads/validators/request";
 import {
   type CreateOrganizationResponse,
   isCreateOrganizationResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { and, eq, isNull } from "drizzle-orm";
 import { readKeyingCanonicalJson } from "../../utils/canonicalJson";
 import { sha256Hex } from "../../utils/sha256";
@@ -41,7 +41,7 @@ const ADDITIONAL_ORGANIZATION_OPTIONS: ProvisionOrganizationOptions = {
 
 function nativeRestoreRequestSha256(input: CreateOrganizationRequest): string {
   return sha256Hex(
-    `symcrypt.native-restore-provisioning-request.v1\0${serializeKeyingCanonicalJson(
+    `tearleads.native-restore-provisioning-request.v1\0${serializeKeyingCanonicalJson(
       readKeyingCanonicalJson(input, "native restore provisioning request"),
     )}`,
   );

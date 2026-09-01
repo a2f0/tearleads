@@ -1,4 +1,4 @@
-import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
+import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { ContainerState } from "./syncAgent";
 import type { ContainerContentsStoreState } from "./types";
 

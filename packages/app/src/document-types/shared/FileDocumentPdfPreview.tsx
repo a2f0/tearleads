@@ -1,5 +1,5 @@
 import { FilePdfIcon } from "@phosphor-icons/react/dist/csr/FilePdf";
-import type { BlobStore, DocumentAttachment } from "@symcrypt/client-sdk";
+import type { BlobStore, DocumentAttachment } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   MiniAppButton,

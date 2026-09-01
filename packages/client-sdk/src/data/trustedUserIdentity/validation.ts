@@ -3,9 +3,9 @@ import {
   ML_DSA87_PUBLIC_KEY_BYTES,
   ML_KEM1024_PUBLIC_KEY_BYTES,
   toFingerprint,
-} from "@symcrypt/crypto";
-import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
-import { isUuidV4String } from "@symcrypt/validators/util";
+} from "@tearleads/crypto";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { isUuidV4String } from "@tearleads/validators/util";
 import type {
   LocalUserIdentityCandidate,
   RemoteUserIdentityCandidate,

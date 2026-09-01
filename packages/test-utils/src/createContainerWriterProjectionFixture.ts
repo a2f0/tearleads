@@ -16,9 +16,9 @@ import {
   type KeyingCanonicalJson,
   signAccessEvent,
   wrapDekForRecipients,
-} from "@symcrypt/crypto";
-import { bytesToBase64 } from "@symcrypt/encoding";
-import type { ContainerWriterProjectionResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
+import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 
 const projectionKekMaterials = new WeakMap<
   ContainerWriterProjectionResponse,

@@ -1,13 +1,13 @@
 import { expect, test } from "bun:test";
-import { makeVerifiedPrincipalPolicy } from "@symcrypt/crypto";
+import { makeVerifiedPrincipalPolicy } from "@tearleads/crypto";
 import {
   createContainerMutationResponseFromRequest,
   createTestExecSql,
-} from "@symcrypt/test-utils";
+} from "@tearleads/test-utils";
 import type {
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import {
   createMaterializedSyncFixture,
   createResponse,

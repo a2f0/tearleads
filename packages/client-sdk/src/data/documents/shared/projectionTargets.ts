@@ -1,13 +1,13 @@
-import type { DocumentContentKeyTarget } from "@symcrypt/crypto";
-import { isPlainObject as isPlainRecord } from "@symcrypt/validators/isPlainObject";
+import type { DocumentContentKeyTarget } from "@tearleads/crypto";
+import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
 import type {
   ContainerManifestRef,
   DocumentContentKeyTargetEnvelope,
-} from "@symcrypt/validators/request";
+} from "@tearleads/validators/request";
 import type {
   ContainerWriterProjectionResponse,
   DocumentWriterProjectionResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import {
   normalizeDocumentKekTargetResponse,
   readManifestContainerId,

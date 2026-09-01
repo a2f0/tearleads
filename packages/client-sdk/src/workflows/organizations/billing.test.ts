@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { OrganizationBillingResponse } from "@symcrypt/validators/response";
+import type { OrganizationBillingResponse } from "@tearleads/validators/response";
 import {
   checkNativePurchaseEligibility,
   claimNativeOrganizationSubscription,

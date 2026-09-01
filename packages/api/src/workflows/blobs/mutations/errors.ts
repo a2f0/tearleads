@@ -1,4 +1,4 @@
-import { KeyingVerificationError } from "@symcrypt/crypto";
+import { KeyingVerificationError } from "@tearleads/crypto";
 import { BlobKekTargetError } from "../../../access/read/blobKekTargets";
 import { BlobContentKeyBundleError } from "../../../access/write/blobContentKeyStore";
 import { keyingVerificationHttpStatus } from "../../../keyingProjectionRecords";

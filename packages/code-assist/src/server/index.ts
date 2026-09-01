@@ -46,4 +46,4 @@ const server = Bun.serve({
   },
 });
 
-console.log(`symcrypt-code-assist listening on :${server.port}`);
+console.log(`tearleads-code-assist listening on :${server.port}`);

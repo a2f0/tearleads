@@ -3,19 +3,19 @@ import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   toFingerprint,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import {
   createDocument,
   encodeVersionVector,
   importUpdates,
-} from "@symcrypt/loro";
-import { createTestExecSql } from "@symcrypt/test-utils";
+} from "@tearleads/loro";
+import { createTestExecSql } from "@tearleads/test-utils";
 import {
   isDocumentSyncRequest,
   isProvisionedDocumentRequest,
   type ProvisionedDocumentRequest,
   type RegistrationRequest,
-} from "@symcrypt/validators/request";
+} from "@tearleads/validators/request";
 import { execSqlClientFromExecSql } from "../../../test/helpers/execSqlClient";
 import { respondToRegistration } from "../../../test/helpers/organizationProvisioningResponder";
 import { readStoredDocumentState } from "../../data/documents/documentKinds";

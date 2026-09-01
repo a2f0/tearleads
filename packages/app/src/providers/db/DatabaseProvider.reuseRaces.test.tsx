@@ -28,7 +28,7 @@ function installDeferredOpfsRemoval() {
       storage: {
         getDirectory: async () => ({
           async getDirectoryHandle(name: string) {
-            expect(name).toBe("symcrypt-sqlite");
+            expect(name).toBe("tearleads-sqlite");
             return {
               async removeEntry(leaf: string) {
                 expect(leaf).toBe(`app-identity-${FIRST_FINGERPRINT}.db`);

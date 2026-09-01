@@ -1,7 +1,7 @@
 import type {
   ApiDatabase,
   DatabaseTransaction,
-} from "@symcrypt/api-shared/postgres";
+} from "@tearleads/api-shared/postgres";
 import {
   attachmentBindings,
   blobAuditObjects,
@@ -9,7 +9,7 @@ import {
   blobContentKeyTargets,
   blobContentWriteHeaders,
   blobs,
-} from "@symcrypt/api-shared/schema";
+} from "@tearleads/api-shared/schema";
 import {
   and,
   asc,

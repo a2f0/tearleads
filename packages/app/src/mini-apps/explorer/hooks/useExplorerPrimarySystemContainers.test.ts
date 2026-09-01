@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import type { ContainerNode } from "@symcrypt/client-sdk";
-import { syncedContainerDocumentObjectSyncState } from "@symcrypt/client-sdk";
+import type { ContainerNode } from "@tearleads/client-sdk";
+import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import { resolveExplorerPrimarySystemContainerIds } from "./useExplorerPrimarySystemContainers";
 
 const CONTACTS_SLOT = "sys_v1_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";

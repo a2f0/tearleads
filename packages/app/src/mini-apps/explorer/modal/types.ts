@@ -1,4 +1,4 @@
-import type { ContainerNode, DocumentSummary } from "@symcrypt/client-sdk";
+import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import type { Dispatch, FormEvent, RefObject, SetStateAction } from "react";
 import type { ExplorerContainerRulesContext } from "../model/containerRules";
 import type { MoveTargetOption } from "../model/targetOptions";

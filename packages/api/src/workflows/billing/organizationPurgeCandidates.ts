@@ -1,8 +1,8 @@
 import type {
   ApiDatabase,
   DatabaseSession,
-} from "@symcrypt/api-shared/postgres";
-import { organizationBilling } from "@symcrypt/api-shared/schema";
+} from "@tearleads/api-shared/postgres";
+import { organizationBilling } from "@tearleads/api-shared/schema";
 import { and, asc, eq, isNull, lte, or } from "drizzle-orm";
 
 const DEFAULT_PURGE_LIMIT = 25;

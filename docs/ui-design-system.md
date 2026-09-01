@@ -66,7 +66,7 @@ devices and must pad by the cutout insets. The insets are tokenized in
 `env(safe-area-inset-*)`; 0 everywhere else). Policy: **the chrome element that
 touches a screen edge absorbs that edge's inset**:
 
-- top — the frame header (`.symcrypt-header`);
+- top — the frame header (`.tearleads-header`);
 - bottom — the routed taskbar and bottom sheet (`RoutedPane.css`), and the
   frame footer when present;
 - left — the tablet nav rail, or the app bar / taskbar / main content on the
@@ -84,7 +84,7 @@ observes the same `<html data-theme>` attribute the CSS keys off.
 ## Tokens and theming
 
 `packages/ui/src/styles.css` is the single token sheet: color roles
-(`--color-*`, `--emphasis-*`, `--symcrypt-*` chrome bands), typography scale,
+(`--color-*`, `--emphasis-*`, `--tearleads-*` chrome bands), typography scale,
 spacing scale (`--space-2xs` through `--space-md`), control sizing
 (`--control-height`, `--control-padding-*`, `--form-measure`), row-height
 rhythm, borders (`--border`, `--border-strong`), opacity scale, overlays, and
@@ -158,8 +158,8 @@ The de-facto component library is `packages/app/src/components`:
   `MiniAppClipboardButton` for copy affordances. Do not re-declare the button
   recipe in feature CSS; keep a feature class only for layout deltas (width,
   grid placement, media-query behavior) layered on top of the component.
-  Exception: window/pane/routed chrome and the `@symcrypt/ui` header
-  (`.symcrypt-action-button`) own their own button chrome deliberately.
+  Exception: window/pane/routed chrome and the `@tearleads/ui` header
+  (`.tearleads-action-button`) own their own button chrome deliberately.
 - **Layout**: `MiniAppRoot` / `MiniAppHeader` / `MiniAppSection` /
   `MiniAppPanel` / `MiniAppSidebar` / `MiniAppToolbar`
   (`components/mini-app/layout/*`), modal/sheet via

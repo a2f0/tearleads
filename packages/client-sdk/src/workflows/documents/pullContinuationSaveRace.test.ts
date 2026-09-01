@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { bytesToBase64 } from "@symcrypt/encoding";
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
   encodeVersionVector,
@@ -8,8 +8,8 @@ import {
   getTextValue,
   importSnapshot,
   satisfiesVersionVector,
-} from "@symcrypt/loro";
-import { createTestExecSql } from "@symcrypt/test-utils";
+} from "@tearleads/loro";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { loadPersistedDocumentContent } from "./historyContent";

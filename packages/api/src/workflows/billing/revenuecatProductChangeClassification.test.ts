@@ -1,5 +1,5 @@
 import { expect, spyOn, test } from "bun:test";
-import type { RevenueCatWebhookEvent } from "@symcrypt/validators/request";
+import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import {
   classifyRevenueCatEvent,
   NON_NATIVE_REVENUECAT_PRODUCT_CHANGE_REASON,

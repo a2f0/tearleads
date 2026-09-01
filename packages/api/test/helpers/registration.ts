@@ -34,16 +34,16 @@ import {
   toFingerprint,
   type UnsignedAccessEvent,
   wrapDekForRecipients,
-} from "@symcrypt/crypto";
-import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
+} from "@tearleads/crypto";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import type {
   ContainerMutationRequest,
   CreateOrganizationGroupRequest,
   DocumentCreateRequest,
   ProvisionedDocumentRequest,
   ProvisionedSystemContainerRequest,
-} from "@symcrypt/validators/request";
-import type { ContainerWriterProjectionResponse } from "@symcrypt/validators/response";
+} from "@tearleads/validators/request";
+import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import {
   createOptionalProvisionedDocumentFixture,
   createProvisionedDocumentFixture,

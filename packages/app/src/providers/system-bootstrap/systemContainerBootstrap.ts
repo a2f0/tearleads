@@ -1,7 +1,7 @@
 import type {
   ContainerContentsStore,
   ContainerNode,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { findExplorerSystemNode } from "../../stores/explorer/ExplorerSystemContainers";
 import type { UserSystemContainer } from "../../stores/systemContainers";
 

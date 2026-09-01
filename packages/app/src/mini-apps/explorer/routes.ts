@@ -1,4 +1,4 @@
-import type { ContainerNode } from "@symcrypt/client-sdk";
+import type { ContainerNode } from "@tearleads/client-sdk";
 import { isExplorerOrphanedDocumentsId } from "../../stores/explorer/orphanedDocuments";
 
 export type ExplorerRoute =

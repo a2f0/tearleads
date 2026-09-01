@@ -2,9 +2,9 @@ import { expect, test } from "bun:test";
 import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
-} from "@symcrypt/crypto";
-import { createTestExecSql } from "@symcrypt/test-utils";
-import type { CreateOrganizationRequest } from "@symcrypt/validators/request";
+} from "@tearleads/crypto";
+import { createTestExecSql } from "@tearleads/test-utils";
+import type { CreateOrganizationRequest } from "@tearleads/validators/request";
 import { execSqlClientFromExecSql } from "../../../test/helpers/execSqlClient";
 import { respondToOrganizationProvisioning } from "../../../test/helpers/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";

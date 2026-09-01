@@ -1,4 +1,4 @@
-import type { SymCrypt } from "@symcrypt/client-sdk";
+import type { Tearleads } from "@tearleads/client-sdk";
 import { handleOrganizationReadModelInterestAcknowledgement } from "../organizationReadModelRealtime";
 
 export const ORGANIZATION_A = "00000000-0000-4000-8000-00000000000a";
@@ -26,7 +26,7 @@ export function createRuntimeHarness(input?: {
     reconcileCalls += 1;
     return input?.loadDirectoryAndGroups ? input.loadDirectoryAndGroups() : {};
   };
-  const symcrypt = {
+  const tearleads = {
     containerContents: {
       openTree: () => {
         containerCalls += 1;
@@ -54,7 +54,7 @@ export function createRuntimeHarness(input?: {
         state: { domainScope, online },
       }),
     },
-  } as unknown as SymCrypt;
+  } as unknown as Tearleads;
 
   return {
     get containerCalls() {
@@ -75,7 +75,7 @@ export function createRuntimeHarness(input?: {
     transitionDomainScope() {
       domainScope = {};
     },
-    symcrypt,
+    tearleads,
   };
 }
 
@@ -95,7 +95,7 @@ export function parsedMessages(messages: readonly string[]) {
 }
 
 export function acknowledgeLatestDeclaration(
-  symcrypt: SymCrypt,
+  tearleads: Tearleads,
   socket: ReturnType<typeof fakeOpenSocket>,
   authorized = true,
 ): void {
@@ -111,7 +111,7 @@ export function acknowledgeLatestDeclaration(
     throw new Error("Expected an organization interest declaration");
   }
   handleOrganizationReadModelInterestAcknowledgement(
-    symcrypt,
+    tearleads,
     socket.ws,
     declaration.declarationId,
     typeof declaration.organizationIds[0] === "string"

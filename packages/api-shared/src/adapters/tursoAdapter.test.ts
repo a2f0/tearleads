@@ -397,7 +397,7 @@ test.skipIf(
 )(
   "Turso adapter runs from a compiled API binary without native libSQL",
   async () => {
-    const directory = await mkdtemp(join(tmpdir(), "symcrypt-turso-binary-"));
+    const directory = await mkdtemp(join(tmpdir(), "tearleads-turso-binary-"));
     const outfile = join(directory, "turso-adapter-smoke");
     try {
       const target: Bun.Build.CompileTarget =

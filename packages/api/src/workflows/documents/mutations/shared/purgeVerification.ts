@@ -1,12 +1,12 @@
-import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import type {
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
   VerifiedDocumentLinkSetManifest,
   VerifiedPrincipalPolicy,
-} from "@symcrypt/crypto";
-import { verifyDocumentPurgeEvent } from "@symcrypt/crypto";
-import type { DocumentPurgeRequest } from "@symcrypt/validators/request";
+} from "@tearleads/crypto";
+import { verifyDocumentPurgeEvent } from "@tearleads/crypto";
+import type { DocumentPurgeRequest } from "@tearleads/validators/request";
 import { loadPrincipalPoliciesForContainerPaths } from "../../../principals/principalPolicyProjection";
 import { DocumentMutationError } from "../errors";
 import {

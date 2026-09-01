@@ -1,7 +1,7 @@
 # Security Guarantees
 
 This document describes the security and validation invariants of the
-SymCrypt protocol.
+Tearleads protocol.
 
 For shared protocol terminology, see [glossary.md](./glossary.md).
 
@@ -229,13 +229,13 @@ recipient private key, a principal secret key, or an object DEK to decrypt.
 
 The content-record suite `aes-256-gcm-hkdf-sha256-record-key` applies only to
 document and blob payload records. Document and blob content-key wraps use
-explicit `symcrypt.*.content-key-wrap.aes-256-gcm-container-kek` suites, while
+explicit `tearleads.*.content-key-wrap.aes-256-gcm-container-kek` suites, while
 container KEK wraps use ML-KEM-1024 plus AES-GCM for principals or AES-GCM
 under a parent or successor KEK. Rotations write two artifacts: a write-once
 predecessor bridge under the
-`symcrypt.container-kek-wrap.aes-256-gcm-predecessor-kek` suite (the
+`tearleads.container-kek-wrap.aes-256-gcm-predecessor-kek` suite (the
 append-only log) and the complete predecessor key history sealed under the
-`symcrypt.container-kek-keyring.aes-256-gcm-current-kek` suite (the snapshot
+`tearleads.container-kek-keyring.aes-256-gcm-current-kek` suite (the snapshot
 current clients open for history). Each rotation event signs both canonical
 hashes; AES-GCM additionally binds the container and epoch ids during
 decryption, and the sealed keyring's ciphertext length is an equality in the
@@ -308,7 +308,7 @@ scoped outside the principal cap and rank ahead of principal envelopes, so the
 anchors needing no policy state at all are never what a cap costs.
 
 All container KEK epochs use a
-`symcrypt.container-kek.v1.sha256:<hash>` id, clients verify that the
+`tearleads.container-kek.v1.sha256:<hash>` id, clients verify that the
 decrypted KEK material matches the signed epoch id before using that KEK to
 wrap document or blob content keys. Non-prefixed ids are rejected because they
 do not commit to the decrypted key material.

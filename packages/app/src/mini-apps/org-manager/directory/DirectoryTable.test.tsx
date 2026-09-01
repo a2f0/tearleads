@@ -2,7 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import type {
   OrganizationDirectory,
   OrganizationDirectoryUser,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { ROUTED_TABLET_QUERY } from "../../../navigation/breakpoints";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";

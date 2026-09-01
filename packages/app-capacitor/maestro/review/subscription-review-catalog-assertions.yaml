@@ -1,6 +1,6 @@
 # Shared production catalog assertions for the navigation and post-capture
 # flows. Keep the localized US storefront prices aligned with billing.ts.
-appId: com.symcrypt.app
+appId: com.tearleads.app
 ---
 - assertVisible: "Sync billing"
 - assertVisible: "Solo"

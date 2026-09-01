@@ -3,7 +3,7 @@ import { FileIcon } from "@phosphor-icons/react/dist/csr/File";
 import {
   getStoredDocumentTypeLabel,
   type StoredDocumentKind,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import type { ComponentType } from "react";
 import { AudioDocumentApp } from "./audio/AudioDocumentApp";
 import { AUDIO_DOCUMENT_KIND } from "./audio/audioDocumentDefinition";

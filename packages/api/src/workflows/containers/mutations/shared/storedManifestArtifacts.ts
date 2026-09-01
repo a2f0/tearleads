@@ -1,9 +1,9 @@
-import type { VerifiedContainerAccessManifest } from "@symcrypt/crypto";
+import type { VerifiedContainerAccessManifest } from "@tearleads/crypto";
 import {
   computeAccessManifestHash,
   deriveContainerAccessManifest,
-} from "@symcrypt/crypto";
-import type { AccessManifestBundleWire } from "@symcrypt/validators/request";
+} from "@tearleads/crypto";
+import type { AccessManifestBundleWire } from "@tearleads/validators/request";
 import { canonicalJsonEquals } from "../../../../utils/canonicalJson";
 import { loadContainerManifestBundleByHash } from "../../writerProjection/accessPaths";
 import { verifyStoredContainerManifest } from "../../writerProjection/storedManifestVerification";

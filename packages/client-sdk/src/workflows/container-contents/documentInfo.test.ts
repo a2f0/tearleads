@@ -1,16 +1,16 @@
 import { expect, test } from "bun:test";
-import { bytesToBase64 } from "@symcrypt/encoding";
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
   derivePeerId,
   encodeVersionVector,
   exportFullHistorySnapshot,
-} from "@symcrypt/loro";
-import { createTestExecSql } from "@symcrypt/test-utils";
+} from "@tearleads/loro";
+import { createTestExecSql } from "@tearleads/test-utils";
 import type {
   BlobContentKeyBundleResponse,
   DocumentWriterProjectionResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { loadDocumentInfo } from "./documentInfo";
 

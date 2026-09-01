@@ -1,11 +1,11 @@
-import { db } from "@symcrypt/api-shared/postgres";
+import { db } from "@tearleads/api-shared/postgres";
 import {
   accessEvents,
   accessManifestDocumentLinkProjection,
   accessManifestHeads,
   accessManifests,
   documents,
-} from "@symcrypt/api-shared/schema";
+} from "@tearleads/api-shared/schema";
 import {
   computeAccessEventBodyHash,
   computeAccessEventHash,
@@ -18,7 +18,7 @@ import {
   makeVerifiedDocumentLinkSetManifest,
   signAccessEvent,
   type UnsignedAccessEvent,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
 import { storeVerifiedAccessManifest } from "../../src/access/write/accessManifestStore";
 import { accessManifestCheckpoint } from "../../src/keyingProjectionRecords";

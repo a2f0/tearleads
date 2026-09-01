@@ -3,9 +3,9 @@ import {
   type EncapsulationKeyPair,
   generateKemSeedAndKeyPair,
   wrapDekForRecipients,
-} from "@symcrypt/crypto";
-import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
-import type { PrincipalPolicyBundleResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import type { DocumentCreateAuthor } from "../../src/data/documents/shared/types";
 import { buildInitialGroupPolicyRequest } from "../../src/workflows/organizations/principalPolicy";
 import { createSuccessorGroupPolicyBundle } from "./groupPolicyFixtures";

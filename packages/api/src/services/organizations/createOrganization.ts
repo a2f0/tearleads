@@ -1,5 +1,5 @@
-import type { CreateOrganizationRequest } from "@symcrypt/validators/request";
-import type { CreateOrganizationResponse } from "@symcrypt/validators/response";
+import type { CreateOrganizationRequest } from "@tearleads/validators/request";
+import type { CreateOrganizationResponse } from "@tearleads/validators/response";
 import { publishBestEffort } from "../../utils/publishBestEffort";
 import { runCreateOrganizationWorkflow } from "../../workflows/organizations/createOrganization";
 import { OrganizationProvisioningError } from "../../workflows/organizations/provisionOrganizationError";

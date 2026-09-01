@@ -2,7 +2,7 @@ import type {
   LocalOrganizationSummary,
   SessionContext,
   SessionCreateOrganizationResult,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { useCallback, useLayoutEffect, useMemo, useRef } from "react";
 import type {
   OrgSwitcherControllerInput,

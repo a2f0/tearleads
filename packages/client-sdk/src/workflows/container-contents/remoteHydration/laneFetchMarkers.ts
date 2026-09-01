@@ -1,4 +1,4 @@
-import type { ListContainersResponse } from "@symcrypt/validators/response";
+import type { ListContainersResponse } from "@tearleads/validators/response";
 import {
   type ContainerSyncWatermarkLane,
   markContainerSyncLaneChecked,

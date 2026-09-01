@@ -1,5 +1,5 @@
-import type { VerifiedContainerAccessManifest } from "@symcrypt/crypto";
-import type { ContainerWriterProjectionResponse } from "@symcrypt/validators/response";
+import type { VerifiedContainerAccessManifest } from "@tearleads/crypto";
+import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import {
   type PrincipalPolicyCache,
   verifyContainerWriterProjection,

@@ -2,11 +2,11 @@ import {
   bindBlobAttachmentOperation,
   detachBlobAttachmentOperation,
   operationRoutePath,
-} from "@symcrypt/validators/operation";
+} from "@tearleads/validators/operation";
 import type {
   BlobAttachmentBindResponse,
   BlobAttachmentDetachResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";

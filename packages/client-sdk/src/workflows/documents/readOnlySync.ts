@@ -2,12 +2,12 @@ import type {
   DocumentCreateResponse,
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import {
   isAccessManifestBundleWireResponse,
   isDocumentContentKeyBundleResponse,
   isDocumentKekTargetsResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import type {
   DocumentSyncUpdateIsolationError,
   IncomingDocumentSyncUpdateValidator,

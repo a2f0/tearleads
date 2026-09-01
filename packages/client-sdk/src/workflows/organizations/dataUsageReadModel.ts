@@ -1,5 +1,8 @@
-import type { RequestResult, RequestResultOptions } from "@symcrypt/api-client";
-import type { OrganizationDataUsageResponse } from "@symcrypt/validators/response";
+import type {
+  RequestResult,
+  RequestResultOptions,
+} from "@tearleads/api-client";
+import type { OrganizationDataUsageResponse } from "@tearleads/validators/response";
 import {
   loadOrganizationDataUsageProjection,
   purgeOrganizationDataUsageProjection,

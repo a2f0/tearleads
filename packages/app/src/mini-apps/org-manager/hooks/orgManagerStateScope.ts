@@ -1,11 +1,11 @@
 import type {
   OrganizationDirectory,
   OrganizationUserDetail,
-} from "@symcrypt/client-sdk";
-import type { useSymCryptRuntime } from "../../../providers/sdk/SymCryptProvider";
+} from "@tearleads/client-sdk";
+import type { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
 
 export function getOrgManagerStateScopeKey(
-  appData: ReturnType<typeof useSymCryptRuntime>,
+  appData: ReturnType<typeof useTearleadsRuntime>,
 ): string {
   return JSON.stringify([
     appData.auth.isAuthenticated,
@@ -19,7 +19,7 @@ export function getOrgManagerStateScopeKey(
 }
 
 export function getOrgManagerDataUsageScopeKey(
-  appData: ReturnType<typeof useSymCryptRuntime>,
+  appData: ReturnType<typeof useTearleadsRuntime>,
 ): string {
   return JSON.stringify([
     appData.auth.isAuthenticated,

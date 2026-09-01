@@ -2,7 +2,7 @@ import type {
   ContainerNode,
   OrganizationDirectoryUser,
   Organizations,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import {
   createContext,
   type PropsWithChildren,
@@ -17,9 +17,9 @@ import {
   projectBoundFacade,
 } from "../../providers/sdk/projectFacade";
 import {
-  useSymCrypt,
-  useSymCryptRuntime,
-} from "../../providers/sdk/SymCryptProvider";
+  useTearleads,
+  useTearleadsRuntime,
+} from "../../providers/sdk/TearleadsProvider";
 import { useDeviceFirstContainerContents } from "../device-first/DeviceFirstProvider";
 import { useOrganizationProfileContainers } from "./organizationProfileContainers";
 import {
@@ -125,8 +125,8 @@ function useOrgManagerOperationScope(): Pick<
   OrgManagerBehavior,
   "captureOperationScope" | "isOperationScopeActive"
 > {
-  const symcrypt = useSymCrypt();
-  const runtime = useSymCryptRuntime();
+  const tearleads = useTearleads();
+  const runtime = useTearleadsRuntime();
   const scopeGeneration = useMemo(
     () => ({}),
     [
@@ -151,19 +151,19 @@ function useOrgManagerOperationScope(): Pick<
   const captureOperationScope = useCallback(
     () =>
       captureOrgManagerOperationScope(
-        symcrypt.runtime.input(),
+        tearleads.runtime.input(),
         scopeGeneration,
       ),
-    [scopeGeneration, symcrypt],
+    [scopeGeneration, tearleads],
   );
   const isOperationScopeActive = useCallback(
     (scope: OrgManagerOperationScope) =>
       isOrgManagerOperationScopeActive(
         scope,
-        symcrypt.runtime.input(),
+        tearleads.runtime.input(),
         committedScopeGenerationRef.current,
       ),
-    [symcrypt],
+    [tearleads],
   );
   return { captureOperationScope, isOperationScopeActive };
 }
@@ -176,7 +176,7 @@ function useEnsureRosterProfileDocument(
     | "isOperationScopeActive"
   >,
 ): OrgManagerBehavior["ensureRosterProfileDocument"] {
-  const { documents, organizations, userIdentities } = useSymCrypt();
+  const { documents, organizations, userIdentities } = useTearleads();
   const {
     captureOperationScope,
     ensureRosterProfileContainer,
@@ -235,7 +235,7 @@ function useEnsureOrganizationProfileDocument(
     | "isOperationScopeActive"
   >,
 ): OrgManagerBehavior["ensureOrganizationProfileDocument"] {
-  const { documents, organizations } = useSymCrypt();
+  const { documents, organizations } = useTearleads();
   const {
     captureOperationScope,
     ensureOrganizationMetadataContainer,
@@ -279,7 +279,7 @@ function useEnsureOrganizationProfileDocument(
 }
 
 export function OrgManagerProvider({ children }: PropsWithChildren) {
-  const { organizations } = useSymCrypt();
+  const { organizations } = useTearleads();
   const { captureOperationScope, isOperationScopeActive } =
     useOrgManagerOperationScope();
   const { containerStore: containerContentsStore } =

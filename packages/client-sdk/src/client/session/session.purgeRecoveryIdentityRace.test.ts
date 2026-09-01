@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import type { ApiClient } from "@symcrypt/api-client";
-import { createTestExecSql } from "@symcrypt/test-utils";
-import type { CreateOrganizationRequest } from "@symcrypt/validators/request";
+import type { ApiClient } from "@tearleads/api-client";
+import { createTestExecSql } from "@tearleads/test-utils";
+import type { CreateOrganizationRequest } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
 import {
   createSqlClient,

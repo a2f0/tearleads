@@ -1,23 +1,23 @@
-import type { TestUser } from "@symcrypt/bob-and-alice";
+import type { TestUser } from "@tearleads/bob-and-alice";
 import type {
   DocumentAccessEventBody,
   DocumentLinkAccessEventBody,
   DocumentLinkSetManifestState,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import {
   computeAccessManifestHash,
   computeDocumentContentKeyTargetHash,
   deriveDocumentLinkSetManifest,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import type {
   AccessManifestBundleWire,
   DocumentLinkSetMutationRequest,
-} from "@symcrypt/validators/request";
+} from "@tearleads/validators/request";
 import type {
   ContainerMutationResponse,
   DocumentCreateResponse,
   DocumentLinkSetMutationResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { createSignedAtomicRotationBaseline } from "./documentUpdateRequests";
 import {
   accessManifestFromContainerResponse,

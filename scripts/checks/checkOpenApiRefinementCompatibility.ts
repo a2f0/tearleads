@@ -2,7 +2,7 @@
  * Fail when a revision spec changes an operation contract in a direction that
  * existing clients can observe but the pinned oasdiff does not detect.
  *
- * oasdiff ignores x-symcrypt-runtime-refinements, so these server-side rules
+ * oasdiff ignores x-tearleads-runtime-refinements, so these server-side rules
  * invisible to the JSON Schema would otherwise change with a green
  * compatibility check. Direction depends on which side a refinement
  * constrains: adding or rewording a `request.` refinement rejects previously
@@ -23,7 +23,7 @@
 import { createHash } from "node:crypto";
 import process from "node:process";
 
-const REFINEMENTS_KEY = "x-symcrypt-runtime-refinements";
+const REFINEMENTS_KEY = "x-tearleads-runtime-refinements";
 
 const HTTP_METHODS = new Set([
   "delete",

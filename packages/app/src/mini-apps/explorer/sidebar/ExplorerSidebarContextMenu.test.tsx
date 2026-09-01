@@ -2,8 +2,8 @@ import { afterEach, expect, test } from "bun:test";
 import type {
   ContainerDocumentQueries,
   ContainerNode,
-} from "@symcrypt/client-sdk";
-import { syncedContainerDocumentObjectSyncState } from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
+import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import {
   type MouseEvent as ReactMouseEvent,

@@ -1,15 +1,15 @@
 import { Buffer } from "node:buffer";
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
-import { documentAuditCheckpoints } from "@symcrypt/api-shared/schema";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import { documentAuditCheckpoints } from "@tearleads/api-shared/schema";
 import {
   computeDocumentContentRecordMetadataHash,
   type DocumentContentKeyTarget,
   type WriteHeader,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import {
   MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES,
   MAX_DOCUMENT_SYNC_RESPONSE_UPDATE_PAGE_BYTES,
-} from "@symcrypt/validators/util";
+} from "@tearleads/validators/util";
 import { inArray } from "drizzle-orm";
 import { listDocumentContentWriteHeaders } from "../../../access/read/documentContentKeyStore";
 import { isAuthenticatedReplayableBaseline } from "../../../documents/documentReplayableBaseline";

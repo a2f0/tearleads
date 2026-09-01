@@ -1,9 +1,9 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
-import type { PrincipalPolicySignerPublicKey } from "@symcrypt/crypto";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import type { PrincipalPolicySignerPublicKey } from "@tearleads/crypto";
 import type {
   PrincipalPolicyBundleResponse,
   PrincipalPolicySnapshotResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { loadSignerPublicKey } from "../signerPublicKey";
 import { buildPrincipalPolicyForStateWithExecutor } from "./principalPolicyBundleRecords";

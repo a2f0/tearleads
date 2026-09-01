@@ -4,8 +4,8 @@ import {
   getDocumentAttributionOperation,
   listDocumentAttributionRangesOperation,
   operationRoutePath,
-} from "@symcrypt/validators/operation";
-import type { ListDocumentEditAttributionRangesResponse } from "@symcrypt/validators/response";
+} from "@tearleads/validators/operation";
+import type { ListDocumentEditAttributionRangesResponse } from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import { compress } from "hono/compress";

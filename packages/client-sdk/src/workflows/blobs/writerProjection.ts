@@ -1,4 +1,4 @@
-import type { DocumentWriterProjectionResponse } from "@symcrypt/validators/response";
+import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { readDocumentManifestIdentity } from "../../data/documents/blob/shared/readers";
 import type {
   BlobAttachmentApi,

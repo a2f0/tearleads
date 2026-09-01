@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
-import { bytesToBase64 } from "@symcrypt/encoding";
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
   encodeVersionVector,
   exportFullHistorySnapshot,
-} from "@symcrypt/loro";
+} from "@tearleads/loro";
 import { openSharedDocumentPersistenceConnections } from "../../../../test/helpers/sharedDocumentPersistence";
 import { sqlDocumentsPersistence } from "./documentsPersistence";
 import { loadStoredDocumentWithHistoryRestoreState } from "./internal/documentHistoryStatePersistence";

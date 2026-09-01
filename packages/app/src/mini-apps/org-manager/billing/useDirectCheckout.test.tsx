@@ -2,17 +2,17 @@ import { afterEach, expect, mock, spyOn, test } from "bun:test";
 import type {
   DirectCheckoutCapability,
   DirectCheckoutSession,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
 import { createAppHostConfig } from "../../../host/AppHostConfig";
 import { DirectCheckoutProvider } from "../../../providers/direct-checkout/DirectCheckoutProvider";
 import { AppHostConfigProvider } from "../../../providers/host/AppHostConfigProvider";
-import * as SymCryptProvider from "../../../providers/sdk/SymCryptProvider";
+import * as TearleadsProvider from "../../../providers/sdk/TearleadsProvider";
 import { useDirectCheckoutFlow } from "./useDirectCheckout";
 
 // spyOn patches the shared module namespace; bun runs every test file in one
-// process, so an unrestored spy would hand OTHER suites a stub SymCrypt
+// process, so an unrestored spy would hand OTHER suites a stub Tearleads
 // client (and fail them on a missing store). Restore after each test.
 const spies: { mockRestore: () => void }[] = [];
 afterEach(() => {
@@ -33,7 +33,7 @@ const OPTION = {
 };
 type MountInput = Parameters<DirectCheckoutCapability["mount"]>[0];
 
-function stubSymCrypt(overrides?: {
+function stubTearleads(overrides?: {
   createStripeCheckout?: () => Promise<unknown>;
 }) {
   const organizations = {
@@ -47,7 +47,7 @@ function stubSymCrypt(overrides?: {
       ),
   };
   spies.push(
-    spyOn(SymCryptProvider, "useSymCrypt").mockReturnValue({
+    spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
       organizations,
     } as never),
   );
@@ -105,7 +105,7 @@ function renderFlow(
 }
 
 test("loads the purchasable option when the platform supports checkout", async () => {
-  stubSymCrypt();
+  stubTearleads();
   const { capability } = capabilityWith({});
   const { result } = renderFlow(capability);
 
@@ -115,7 +115,7 @@ test("loads the purchasable option when the platform supports checkout", async (
 });
 
 test("begin trims the email and mounts into the panel's host", async () => {
-  stubSymCrypt();
+  stubTearleads();
   const { capability, mounted } = capabilityWith({});
   const { result, host } = renderFlow(capability);
   await waitFor(() => expect(result.current.option).toEqual(OPTION));
@@ -130,7 +130,7 @@ test("begin trims the email and mounts into the panel's host", async () => {
 });
 
 test("a declined card keeps the element mounted so it can be corrected", async () => {
-  stubSymCrypt();
+  stubTearleads();
   const unmount = mock(() => undefined);
   const { capability } = capabilityWith({
     confirm: () =>
@@ -150,7 +150,7 @@ test("a declined card keeps the element mounted so it can be corrected", async (
 });
 
 test("a successful payment tears down and hands off to activation", async () => {
-  stubSymCrypt();
+  stubTearleads();
   const unmount = mock(() => undefined);
   const onActivated = mock(() => undefined);
   const { capability } = capabilityWith({
@@ -174,7 +174,7 @@ test("a successful payment tears down and hands off to activation", async () => 
 });
 
 test("cancel unmounts the element and returns to idle", async () => {
-  stubSymCrypt();
+  stubTearleads();
   const unmount = mock(() => undefined);
   const { capability } = capabilityWith({ unmount });
   const { result } = renderFlow(capability);
@@ -190,7 +190,7 @@ test("cancel unmounts the element and returns to idle", async () => {
 });
 
 test("unmounting the panel tears the element down", async () => {
-  stubSymCrypt();
+  stubTearleads();
   const unmount = mock(() => undefined);
   const { capability } = capabilityWith({ unmount });
   const { result, unmount: unmountHook } = renderFlow(capability);
@@ -204,7 +204,7 @@ test("unmounting the panel tears the element down", async () => {
 });
 
 test("a failed checkout start surfaces an error and stays idle", async () => {
-  stubSymCrypt({
+  stubTearleads({
     createStripeCheckout: () => Promise.reject(new Error("500")),
   });
   const { capability } = capabilityWith({});
@@ -218,7 +218,7 @@ test("a failed checkout start surfaces an error and stays idle", async () => {
 });
 
 test("a paid checkout marks activation pending rather than a lone refresh", async () => {
-  stubSymCrypt();
+  stubTearleads();
   const onPaid = mock(() => undefined);
   const { capability } = capabilityWith({
     confirm: () => Promise.resolve({ kind: "succeeded" }),
@@ -236,7 +236,7 @@ test("a paid checkout marks activation pending rather than a lone refresh", asyn
 });
 
 test("switching organizations tears down an in-flight checkout", async () => {
-  stubSymCrypt();
+  stubTearleads();
   const unmount = mock(() => undefined);
   const { capability } = capabilityWith({ unmount });
   const hostConfig = createAppHostConfig({
@@ -275,7 +275,7 @@ test("switching organizations tears down an in-flight checkout", async () => {
 });
 
 test("disabling the checkout mid-flow tears the element down", async () => {
-  stubSymCrypt();
+  stubTearleads();
   const unmount = mock(() => undefined);
   const { capability } = capabilityWith({ unmount });
   const hostConfig = createAppHostConfig({
@@ -315,7 +315,7 @@ test("disabling the checkout mid-flow tears the element down", async () => {
 });
 
 test("begin is a no-op while a session is already mounted", async () => {
-  stubSymCrypt();
+  stubTearleads();
   const { capability, mounted } = capabilityWith({});
   const { result } = renderFlow(capability);
   await waitFor(() => expect(result.current.option).toEqual(OPTION));
@@ -351,7 +351,7 @@ test("a begin that fails after a newer one started does not disturb it", async (
     }),
   };
   spies.push(
-    spyOn(SymCryptProvider, "useSymCrypt").mockReturnValue({
+    spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
       organizations,
     } as never),
   );
@@ -380,7 +380,7 @@ test("a double-clicked Pay confirms exactly once", async () => {
   // re-render — two clicks in one batch must not reach the provider twice.
   let settle: ((outcome: { kind: "succeeded" }) => void) | undefined;
   let confirms = 0;
-  stubSymCrypt();
+  stubTearleads();
   const { capability } = capabilityWith({
     confirm: () => {
       confirms += 1;
@@ -410,7 +410,7 @@ test("a cancelled confirmation releases the session so begin works again", async
   // The web capability does not return `cancelled` today, but the contract
   // permits it; a stale sessionRef would make begin a permanent no-op.
   const unmount = mock(() => undefined);
-  stubSymCrypt();
+  stubTearleads();
   const { capability, mounted } = capabilityWith({
     confirm: () => Promise.resolve({ kind: "cancelled" }),
     unmount,
@@ -446,7 +446,7 @@ test("a double-clicked Subscribe starts exactly one checkout", async () => {
     }),
   };
   spies.push(
-    spyOn(SymCryptProvider, "useSymCrypt").mockReturnValue({
+    spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
       organizations,
     } as never),
   );
@@ -483,7 +483,7 @@ test("a failed start releases the guard so the buyer can retry", async () => {
     }),
   };
   spies.push(
-    spyOn(SymCryptProvider, "useSymCrypt").mockReturnValue({
+    spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
       organizations,
     } as never),
   );

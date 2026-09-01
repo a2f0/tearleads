@@ -1,8 +1,8 @@
-import { computePrincipalStateHash } from "@symcrypt/crypto";
+import { computePrincipalStateHash } from "@tearleads/crypto";
 import type {
   OrganizationProvisioningRequest,
   PutPrincipalPolicyRequest,
-} from "@symcrypt/validators/request";
+} from "@tearleads/validators/request";
 import { parseOrganizationAuthorityDescriptor } from "./organizationAuthorityDescriptor";
 import { groupHeadsEqual } from "./organizationGroupDirectoryValidation";
 import { OrganizationProvisioningError } from "./provisionOrganizationError";

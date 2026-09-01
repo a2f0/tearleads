@@ -4,12 +4,12 @@ import {
   createDomainScope,
   type DocumentsPersistence,
   getOrCreateDomainSyncCoordinator,
-} from "@symcrypt/client-sdk";
-import { generateKemSeedAndKeyPair } from "@symcrypt/crypto";
-import { base64ToBytes } from "@symcrypt/encoding";
-import { getImportBlobMetadata } from "@symcrypt/loro";
-import type { DocumentSyncRequest } from "@symcrypt/validators/request";
-import type { DocumentSyncResponse } from "@symcrypt/validators/response";
+} from "@tearleads/client-sdk";
+import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import { base64ToBytes } from "@tearleads/encoding";
+import { getImportBlobMetadata } from "@tearleads/loro";
+import type { DocumentSyncRequest } from "@tearleads/validators/request";
+import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import { cloneDocumentsTestRuntime } from "../../../../test/helpers/document-store/documentStoreSyncFixtures";
 import { createDocumentsPersistence } from "../../../../test/helpers/document-store/documentStoreSyncPersistence";
 import { createSyncRuntime } from "../../../../test/helpers/document-store/documentStoreSyncRuntime";

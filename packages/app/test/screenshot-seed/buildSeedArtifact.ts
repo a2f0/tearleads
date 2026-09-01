@@ -5,9 +5,9 @@ import {
   defaultDocumentsPersistence,
   type Logger,
   type StoredDocumentKind,
-  SymCrypt,
-} from "@symcrypt/client-sdk";
-import type { ExecSql } from "@symcrypt/client-sdk/sqlite";
+  Tearleads,
+} from "@tearleads/client-sdk";
+import type { ExecSql } from "@tearleads/client-sdk/sqlite";
 import { DRIVER_LICENSE_ATTACHMENT_SLOTS } from "../../src/document-types/drivers-license/driverLicenseDocument";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../src/document-types/projectors";
 import { createBackupPayload } from "../../src/providers/db/localBackupData";
@@ -87,7 +87,7 @@ function resolveDriverLicenseSlotId(slot: string): string {
 }
 
 type SeedDocumentLinks = ReturnType<
-  InstanceType<typeof SymCrypt>["containerContents"]["documentLinks"]
+  InstanceType<typeof Tearleads>["containerContents"]["documentLinks"]
 >;
 type OpenSeedDocument = (
   kind: StoredDocumentKind,
@@ -99,7 +99,7 @@ type OpenSeedDocument = (
 // restore. Offline + unauthenticated, ensureSystemContainer takes the local
 // device-first path (no remote probe).
 async function ensureContactsContainer(
-  sdk: InstanceType<typeof SymCrypt>,
+  sdk: InstanceType<typeof Tearleads>,
   signingPrivateKey: Uint8Array,
 ): Promise<string> {
   const systemContainers = await deriveUserSystemContainers(signingPrivateKey);
@@ -170,7 +170,7 @@ export async function buildSeedArtifact(
   spec: SeedSpec,
   deps: BuildSeedArtifactDeps,
 ): Promise<SeedArtifact> {
-  const sdk = new SymCrypt({
+  const sdk = new Tearleads({
     blobStoreFactory: () => deps.blobStore,
     database: { execSql: deps.execSql, id: SEED_DATABASE_ID },
     documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,

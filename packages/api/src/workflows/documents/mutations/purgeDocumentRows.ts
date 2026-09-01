@@ -1,4 +1,4 @@
-import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import {
   accessEventDependencyProjection,
   accessEvents,
@@ -20,7 +20,7 @@ import {
   documentUpdateAuditEvents,
   documentUpdateSpans,
   documentUpdates,
-} from "@symcrypt/api-shared/schema";
+} from "@tearleads/api-shared/schema";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { wallClockNowExpression } from "../../../utils/sqlDialect";
 import { DocumentMutationError } from "./errors";

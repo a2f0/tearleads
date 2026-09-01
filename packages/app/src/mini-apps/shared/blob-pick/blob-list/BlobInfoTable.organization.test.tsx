@@ -1,9 +1,9 @@
 import { afterEach, expect, test } from "bun:test";
-import type { BlobInfo, BlobStore } from "@symcrypt/client-sdk";
+import type { BlobInfo, BlobStore } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { BlobInfoTable } from "./BlobInfoTable";
 
-const STORAGE_KEY = "symcrypt.blob-browser:hidden-columns:v3";
+const STORAGE_KEY = "tearleads.blob-browser:hidden-columns:v3";
 
 afterEach(() => {
   cleanup();

@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
-import { createTestUser } from "@symcrypt/bob-and-alice";
+import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   generateKemSeedAndKeyPair,
   toFingerprint,
   wrapDekForRecipients,
-} from "@symcrypt/crypto";
-import { bytesToBase64 } from "@symcrypt/encoding";
-import { isCommitOrganizationGroupPolicyResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
+import { isCommitOrganizationGroupPolicyResponse } from "@tearleads/validators/response";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { prepareUserForAdminGroup } from "../../../test/helpers/organizationAdmin";

@@ -1,7 +1,7 @@
 import type {
   DocumentAttachmentUpload,
   StoredDocumentKind,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { AUDIO_DOCUMENT_KIND } from "./audio/audioDocumentDefinition";
 import {
   ENV_FILE_DOCUMENT_KIND,

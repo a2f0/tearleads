@@ -61,7 +61,7 @@ jobs:
       - name: Build Capacitor web assets
         working-directory: packages/app-capacitor
         env:
-          VITE_API_BASE_URL: https://api-staging.symcrypt.com
+          VITE_API_BASE_URL: https://api-staging.tearleads.com
         run: bun run build
 
       - name: Synchronize Android project
@@ -98,7 +98,7 @@ jobs:
       - name: Build Capacitor web assets
         working-directory: packages/app-capacitor
         env:
-          VITE_API_BASE_URL: https://api-staging.symcrypt.com
+          VITE_API_BASE_URL: https://api-staging.tearleads.com
         run: bun run build
 
       - name: Synchronize iOS project

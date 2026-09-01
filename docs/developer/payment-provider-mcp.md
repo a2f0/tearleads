@@ -1,6 +1,6 @@
 # Payment Provider MCP and CLI Operations
 
-This is the shared operator guide for provisioning and auditing the SymCrypt
+This is the shared operator guide for provisioning and auditing the Tearleads
 billing catalog. The implementation contract lives in
 [revenuecat-billing.md](./revenuecat-billing.md); this document explains which
 provider tools an agent can use and which account-owner steps remain outside
@@ -18,11 +18,11 @@ catalog work unless real subscribers exist when the change is made.
 - Native stores use fixed products, never Stripe-style quantity. Stripe also
   uses the same fixed tiers with subscription-item quantity `1`.
 - Cancellation is routed to the store of record. Either client can open the
-  provider management surface, and either client can call the SymCrypt Stripe
+  provider management surface, and either client can call the Tearleads Stripe
   cancellation endpoint. Provider webhooks keep server access in sync.
 - A Stripe Customer must carry the checkout billing email. The public no-code
   Stripe portal uses that address for authentication when the buyer has lost
-  the key-derived SymCrypt identity.
+  the key-derived Tearleads identity.
 
 | Tier | USD/month | Capacity | Product stem | RevenueCat package | Apple level |
 | --- | ---: | ---: | --- | --- | ---: |
@@ -30,9 +30,10 @@ catalog work unless real subscribers exist when the change is made.
 | Team 5 | $10 | 5 | `sync_team_5_monthly` | `team_5` | 2 |
 | Team 10 | $20 | 10 | `sync_team_10_monthly` | `team_10` | 1 |
 
-SymCrypt App Store products prefix the stem with `symcrypt_` because Apple
-product IDs are account-global and the unprefixed IDs remain owned by the old
-Tearleads app records. Staging Apple and Google product IDs append `_staging`.
+The restored Tearleads App Store records use the unprefixed product stems they
+already own. The superseded SymCrypt records used `symcrypt_` prefixes; the API
+continues to recognize those receipts during the cutover. Staging Apple and
+Google product IDs append `_staging`.
 Google appends the `monthly` base-plan ID when the product is represented in
 RevenueCat, for example `sync_solo_monthly_staging:monthly`.
 
@@ -66,12 +67,12 @@ starts. Never put the token value in `~/.codex/config.toml` or commit it.
 codex mcp remove revenuecat
 codex mcp add revenuecat \
   --url https://mcp.revenuecat.ai/mcp \
-  --bearer-token-env-var SYMCRYPT_REVENUECAT_MCP_TOKEN
+  --bearer-token-env-var TEARLEADS_REVENUECAT_MCP_TOKEN
 
 codex mcp remove stripe
 codex mcp add stripe \
   --url https://mcp.stripe.com \
-  --bearer-token-env-var SYMCRYPT_STRIPE_MCP_RESTRICTED_KEY
+  --bearer-token-env-var TEARLEADS_STRIPE_MCP_RESTRICTED_KEY
 ```
 
 The environment variable must be present in the process that launches Codex.

@@ -40,13 +40,13 @@ export const ORG_MANAGER_LABELS = {
     "The payment form could not be started. Try again in a moment.",
   billingCurrentPlan: "Current plan",
   billingCustomOrganizationWebOnly:
-    "Custom organizations subscribe on the web. Open SymCrypt in a browser to choose a plan.",
+    "Custom organizations subscribe on the web. Open Tearleads in a browser to choose a plan.",
   billingDeleting: "Deleting remote data",
   billingDisabled: "Sync disabled",
   billingDowngradePlan: "Downgrade",
   billingEmail: "Billing email",
   billingEmailHint:
-    "Stripe uses this email to let you manage or cancel your subscription if you lose your SymCrypt keys.",
+    "Stripe uses this email to let you manage or cancel your subscription if you lose your Tearleads keys.",
   billingHistoryActivityTab: "Activity",
   billingHistoryEmpty: "No billing events yet.",
   billingHistoryEventsTab: "Events",
@@ -109,7 +109,7 @@ export const ORG_MANAGER_LABELS = {
   billingRetryOptions: "Retry plans",
   billingSubscriptionMoveTitle: "Restore to a new organization?",
   billingSubscriptionMoveMessage:
-    "This checks the Apple or Google account on this device, creates a new organization, and moves the SymCrypt subscription there. The previous organization will stop syncing, and its remote sync data becomes eligible for permanent deletion after 30 days. Its encrypted data and identity keys are not moved. If you need that data, cancel and recover the original identity in Identity Manager first.",
+    "This checks the Apple or Google account on this device, creates a new organization, and moves the Tearleads subscription there. The previous organization will stop syncing, and its remote sync data becomes eligible for permanent deletion after 30 days. Its encrypted data and identity keys are not moved. If you need that data, cancel and recover the original identity in Identity Manager first.",
   billingSubscriptionMoveConfirm: "Restore to new organization",
   billingStartTrial: "Start free trial",
   billingStartingTrial: "Starting trial...",

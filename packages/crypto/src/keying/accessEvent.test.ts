@@ -64,7 +64,7 @@ test("verifySignedAccessEvent rejects tampered bodies and wrong domain hashes", 
   expectVerificationError(tamperedBodyResult, "hash_mismatch");
 
   const wrongDomainBodyHash = await computeKeyingDomainHash(
-    "symcrypt.keying.document-content-key-targets",
+    "tearleads.keying.document-content-key-targets",
     [{ action: "grant" }],
   );
   const wrongDomainFixture = await createSignedContainerEvent({

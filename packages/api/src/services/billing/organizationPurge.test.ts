@@ -1,5 +1,5 @@
 import { expect, spyOn, test } from "bun:test";
-import { db } from "@symcrypt/api-shared/postgres";
+import { db } from "@tearleads/api-shared/postgres";
 import {
   blobAuditObjects,
   blobs,
@@ -15,8 +15,8 @@ import {
   principalStatePayloads,
   principalStates,
   users,
-} from "@symcrypt/api-shared/schema";
-import { createTestUser } from "@symcrypt/bob-and-alice";
+} from "@tearleads/api-shared/schema";
+import { createTestUser } from "@tearleads/bob-and-alice";
 import { and, eq, inArray } from "drizzle-orm";
 import invariant from "invariant";
 import { uploadBlobObject } from "../../../test/helpers/blobObjectStore";

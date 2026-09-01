@@ -1,17 +1,17 @@
 import { expect, test } from "bun:test";
-import { db, getDefaultApiDatabaseKind } from "@symcrypt/api-shared/postgres";
+import { db, getDefaultApiDatabaseKind } from "@tearleads/api-shared/postgres";
 import {
   accessManifestHeads,
   documentUpdates,
   organizationReadModelHeads,
-} from "@symcrypt/api-shared/schema";
-import { createTestUser } from "@symcrypt/bob-and-alice";
-import type { ContainerMutationRequest } from "@symcrypt/validators/request";
-import type { ContainerMutationResponse } from "@symcrypt/validators/response";
+} from "@tearleads/api-shared/schema";
+import { createTestUser } from "@tearleads/bob-and-alice";
+import type { ContainerMutationRequest } from "@tearleads/validators/request";
+import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import {
   DOCUMENT_SYNC_ERROR_CODES,
   isContainerWriterProjectionResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
 import {
   createOrganizationRequestBody,

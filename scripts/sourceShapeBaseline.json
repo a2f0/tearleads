@@ -36,11 +36,11 @@
   "fileSizes": {
     ".claude/skills/cross-agent-review/SKILL.md": {
       "lines": 428,
-      "bytes": 23889
+      "bytes": 23890
     },
     ".claude/skills/ship-pr/SKILL.md": {
       "lines": 524,
-      "bytes": 31983
+      "bytes": 31984
     },
     "dependency-cruiser.config.ts": {
       "lines": 658,
@@ -48,11 +48,11 @@
     },
     "docs/developer/client-sdk.md": {
       "lines": 564,
-      "bytes": 26693
+      "bytes": 26708
     },
     "docs/developer/revenuecat-billing.md": {
-      "lines": 359,
-      "bytes": 20292
+      "lines": 360,
+      "bytes": 20391
     },
     "docs/developer/revenuecat-native-stores.md": {
       "lines": 364,
@@ -76,7 +76,7 @@
     },
     "docs/openapi.json": {
       "lines": 55762,
-      "bytes": 2313601
+      "bytes": 2313642
     },
     "docs/protocol-specification.md": {
       "lines": 585,
@@ -96,7 +96,7 @@
     },
     "packages/api-client/src/ApiClient.ts": {
       "lines": 1866,
-      "bytes": 60377
+      "bytes": 60381
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 567,
@@ -176,7 +176,7 @@
     },
     "packages/api/src/services/blobs/blobMutations.test.ts": {
       "lines": 1289,
-      "bytes": 38820
+      "bytes": 38827
     },
     "packages/api/src/workflows/containers/mutations/shared/persistence.ts": {
       "lines": 655,
@@ -246,7 +246,7 @@
       "lines": 815,
       "bytes": 24041
     },
-    "packages/client-sdk/src/client/SymCrypt.test.ts": {
+    "packages/client-sdk/src/client/Tearleads.test.ts": {
       "lines": 1001,
       "bytes": 31624
     },
@@ -320,7 +320,7 @@
     },
     "packages/crypto/src/keying/containerAccess.ts": {
       "lines": 1332,
-      "bytes": 38333
+      "bytes": 38337
     },
     "packages/crypto/src/keying/containerKek.test.ts": {
       "lines": 650,
@@ -352,7 +352,7 @@
     },
     "packages/crypto/src/keying/types.ts": {
       "lines": 1163,
-      "bytes": 36405
+      "bytes": 36433
     },
     "packages/sqlite-worker/src/crossTabRuntime.ts": {
       "lines": 555,
@@ -360,7 +360,7 @@
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
       "lines": 21422,
-      "bytes": 885355
+      "bytes": 885362
     },
     "packages/validators/src/response/response.test.ts": {
       "lines": 1159,

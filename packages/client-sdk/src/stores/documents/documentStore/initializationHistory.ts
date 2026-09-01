@@ -1,5 +1,5 @@
-import { base64ToBytes } from "@symcrypt/encoding";
-import { getImportBlobMetadata, importSnapshot } from "@symcrypt/loro";
+import { base64ToBytes } from "@tearleads/encoding";
+import { getImportBlobMetadata, importSnapshot } from "@tearleads/loro";
 import {
   type DocumentsPersistence,
   importDocumentHistoryTailUpdates,

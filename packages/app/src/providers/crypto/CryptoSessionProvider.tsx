@@ -14,8 +14,8 @@ import { useAppHostConfig } from "../host/AppHostConfigProvider";
 import { useIdentity } from "../identity/IdentityProvider";
 import { useLocalKeyringLock } from "../local-keyring/LocalKeyringLockProvider";
 import { useLog } from "../logging/LogProvider";
-import { useSymCrypt } from "../sdk/SymCryptProvider";
-import { useSymCryptStoreSnapshot } from "../sdk/useSymCryptSubscription";
+import { useTearleads } from "../sdk/TearleadsProvider";
+import { useTearleadsStoreSnapshot } from "../sdk/useTearleadsSubscription";
 import {
   type LocalCryptoSessionPersistence,
   type PersistedCryptoSessionContext,
@@ -68,7 +68,7 @@ function useResetCryptoSession(
 
 function useBootstrapCryptoSessionContainer(
   containerBootstrapped: MutableRefObject<string | null>,
-  symcrypt: ReturnType<typeof useSymCrypt>,
+  tearleads: ReturnType<typeof useTearleads>,
   containerId: string | null,
   signingFingerprint: string | null,
   dbStatus: ReturnType<typeof useDatabase>["status"],
@@ -94,29 +94,36 @@ function useBootstrapCryptoSessionContainer(
 
     void (async () => {
       try {
-        await symcrypt.session.bootstrapLocalRootContainer();
+        await tearleads.session.bootstrapLocalRootContainer();
       } catch (error: unknown) {
         containerBootstrapped.current = null;
         logError("Failed to bootstrap root container", error);
       }
     })();
-  }, [dbStatus, dbClient, containerId, logError, signingFingerprint, symcrypt]);
+  }, [
+    dbStatus,
+    dbClient,
+    containerId,
+    logError,
+    signingFingerprint,
+    tearleads,
+  ]);
 }
 
-function useCryptoAuthActions(symcrypt: ReturnType<typeof useSymCrypt>) {
+function useCryptoAuthActions(tearleads: ReturnType<typeof useTearleads>) {
   const logout = useCallback(() => {
-    symcrypt.session.logout();
-  }, [symcrypt]);
+    tearleads.session.logout();
+  }, [tearleads]);
 
   const authenticate = useCallback(
     async (challengeHex?: string): Promise<boolean> => {
-      if (!symcrypt.identity.signingKeyPair) {
+      if (!tearleads.identity.signingKeyPair) {
         return false;
       }
 
-      return symcrypt.session.login(challengeHex);
+      return tearleads.session.login(challengeHex);
     },
-    [symcrypt],
+    [tearleads],
   );
   const login = useCallback(() => authenticate(), [authenticate]);
 
@@ -136,7 +143,7 @@ function useRestorePersistedSession(input: {
   readonly logError: (message: string, error: unknown) => void;
   readonly sessionState: PersistedCryptoSessionContext;
   readonly signingFingerprint: string | null;
-  readonly symcrypt: ReturnType<typeof useSymCrypt>;
+  readonly tearleads: ReturnType<typeof useTearleads>;
 }) {
   const {
     localPersistence,
@@ -144,7 +151,7 @@ function useRestorePersistedSession(input: {
     logError,
     sessionState: { authToken },
     signingFingerprint,
-    symcrypt,
+    tearleads,
   } = input;
   const [checkedFingerprint, setCheckedFingerprint] = useState<string | null>(
     null,
@@ -195,7 +202,7 @@ function useRestorePersistedSession(input: {
         // consumer reacting to `sessionRestoreSettled` already sees the restored
         // userId (and does not, e.g., auto-register over a live session).
         if (persistedSession) {
-          symcrypt.session.setContext(persistedSession);
+          tearleads.session.setContext(persistedSession);
           log("Restored persisted crypto session");
         }
         setCheckedFingerprint(signingFingerprint);
@@ -219,7 +226,7 @@ function useRestorePersistedSession(input: {
     localPersistence,
     logError,
     signingFingerprint,
-    symcrypt,
+    tearleads,
   ]);
 
   return checkedFingerprint;
@@ -297,29 +304,29 @@ function usePersistCryptoSession(input: {
 }
 
 function useSdkBackedCryptoSessionState(
-  symcrypt: ReturnType<typeof useSymCrypt>,
+  tearleads: ReturnType<typeof useTearleads>,
 ) {
-  const snapshot = useSymCryptStoreSnapshot(symcrypt.session);
+  const snapshot = useTearleadsStoreSnapshot(tearleads.session);
   const setUserId = useCallback(
     (value: string | null) => {
-      symcrypt.session.setUserId(value);
+      tearleads.session.setUserId(value);
     },
-    [symcrypt],
+    [tearleads],
   );
   const setOrganizationId = useCallback(
     (value: string | null) => {
-      symcrypt.session.setOrganizationId(value);
+      tearleads.session.setOrganizationId(value);
     },
-    [symcrypt],
+    [tearleads],
   );
   const setContainerId = useCallback(
     (value: string | null) => {
-      symcrypt.session.setContainerId(value);
+      tearleads.session.setContainerId(value);
     },
-    [symcrypt],
+    [tearleads],
   );
   const resetSession = useCallback(() => {
-    symcrypt.session.setContext({
+    tearleads.session.setContext({
       authToken: null,
       containerId: null,
       defaultOrganizationId: null,
@@ -327,7 +334,7 @@ function useSdkBackedCryptoSessionState(
       organizationId: null,
       userId: null,
     });
-  }, [symcrypt]);
+  }, [tearleads]);
 
   return {
     authToken: snapshot.authToken,
@@ -382,7 +389,7 @@ function useCryptoSessionContextValue(
 }
 
 export function CryptoSessionProvider({ children }: PropsWithChildren) {
-  const symcrypt = useSymCrypt();
+  const tearleads = useTearleads();
   const { log, logError } = useLog();
   const hostConfig = useAppHostConfig();
   const {
@@ -393,7 +400,7 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
   const { signingFingerprint, signingKeyPair } = useIdentity();
   const localKeyringLock = useLocalKeyringLock();
   const containerBootstrapped = useRef<string | null>(null);
-  const sessionState = useSdkBackedCryptoSessionState(symcrypt);
+  const sessionState = useSdkBackedCryptoSessionState(tearleads);
   const localSessionPersistence = useLocalCryptoSessionPersistence({
     createLocalKeyring: localKeyringLock.createLocalKeyring,
     namespace: localKeyringLock.isLocked
@@ -415,7 +422,7 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
   );
   useBootstrapCryptoSessionContainer(
     containerBootstrapped,
-    symcrypt,
+    tearleads,
     sessionState.containerId,
     signingFingerprint,
     dbStatus,
@@ -428,7 +435,7 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
     logError,
     sessionState,
     signingFingerprint,
-    symcrypt,
+    tearleads,
   });
   usePersistCryptoSession({
     checkedFingerprint: checkedPersistedSessionFingerprint,
@@ -439,7 +446,7 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
   });
   const sessionRestoreSettled =
     checkedPersistedSessionFingerprint === signingFingerprint;
-  const actions = useCryptoAuthActions(symcrypt);
+  const actions = useCryptoAuthActions(tearleads);
   const contextValue = useCryptoSessionContextValue(
     sessionState,
     sessionRestoreSettled,

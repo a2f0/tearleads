@@ -6,9 +6,9 @@ import {
   computeDocumentContentRecordPlaintextHash,
   createAesGcmIv,
   serializeKeyingCanonicalJson,
-} from "@symcrypt/crypto";
-import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
-import type { DocumentSyncResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import type { PendingUpdateRecord } from "../../sqlite/documentPersistence";
 import { contentRecordAdditionalDataBytes } from "./contentRecordAdditionalData";
 import {

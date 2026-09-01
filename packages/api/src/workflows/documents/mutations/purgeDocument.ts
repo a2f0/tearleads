@@ -1,15 +1,15 @@
 import type {
   ApiDatabase,
   DatabaseTransaction,
-} from "@symcrypt/api-shared/postgres";
+} from "@tearleads/api-shared/postgres";
 import {
   attachmentBindings,
   containerDocumentSyncTombstones,
   containerMetadataDocuments,
   documentContainerLinks,
   documents,
-} from "@symcrypt/api-shared/schema";
-import type { DocumentPurgeRequest } from "@symcrypt/validators/request";
+} from "@tearleads/api-shared/schema";
+import type { DocumentPurgeRequest } from "@tearleads/validators/request";
 import { and, eq, inArray, isNull, ne } from "drizzle-orm";
 import { lockAccessManifestHeadsForUpdate } from "../../../access/read/accessManifestStore";
 import { storeVerifiedAccessEventInTransaction } from "../../../access/write/accessManifestStore";

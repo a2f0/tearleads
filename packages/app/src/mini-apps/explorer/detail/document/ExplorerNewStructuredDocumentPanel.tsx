@@ -1,4 +1,4 @@
-import type { ContainerNode, StoredDocumentKind } from "@symcrypt/client-sdk";
+import type { ContainerNode, StoredDocumentKind } from "@tearleads/client-sdk";
 import {
   MiniAppButton,
   MiniAppHeader,

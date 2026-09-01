@@ -1,15 +1,15 @@
 import { expect, test } from "bun:test";
-import { createContainerContentsStore as createExplorerStore } from "@symcrypt/client-sdk";
+import { createContainerContentsStore as createExplorerStore } from "@tearleads/client-sdk";
 import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   toFingerprint,
-} from "@symcrypt/crypto";
-import { bytesToBase64 } from "@symcrypt/encoding";
+} from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createContainerParentLaneBatchMock,
   createMockApiClient,
-} from "@symcrypt/test-utils";
+} from "@tearleads/test-utils";
 import {
   createExplorerMetadataContainerProjection,
   listContainersResponse,

@@ -41,10 +41,10 @@ assert_api_deploy_ordering() {
   local start_line
 
   verify_line="$(awk 'index($0, "test -x") { print NR; exit }' "$deploy_file")"
-  stop_line="$(awk 'index($0, "systemctl stop symcrypt-api") { print NR; exit }' "$deploy_file")"
+  stop_line="$(awk 'index($0, "systemctl stop tearleads-api") { print NR; exit }' "$deploy_file")"
   install_line="$(awk 'index($0, "mv -f") { print NR; exit }' "$deploy_file")"
-  migration_line="$(awk 'index($0, "symcrypt-api-cli migrate") { print NR; exit }' "$deploy_file")"
-  start_line="$(awk 'index($0, "systemctl start symcrypt-api") { print NR; exit }' "$deploy_file")"
+  migration_line="$(awk 'index($0, "tearleads-api-cli migrate") { print NR; exit }' "$deploy_file")"
+  start_line="$(awk 'index($0, "systemctl start tearleads-api") { print NR; exit }' "$deploy_file")"
 
   if [ -z "$verify_line" ] || [ -z "$stop_line" ] || [ -z "$install_line" ] ||
     [ -z "$migration_line" ] || [ -z "$start_line" ] ||

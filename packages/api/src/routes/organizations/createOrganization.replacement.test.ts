@@ -1,16 +1,16 @@
 import { expect, test } from "bun:test";
-import { db } from "@symcrypt/api-shared/postgres";
+import { db } from "@tearleads/api-shared/postgres";
 import {
   organizationBilling,
   organizations,
   users,
-} from "@symcrypt/api-shared/schema";
-import { createTestUser } from "@symcrypt/bob-and-alice";
-import { authChallengeSigningBytes, sign } from "@symcrypt/crypto";
+} from "@tearleads/api-shared/schema";
+import { createTestUser } from "@tearleads/bob-and-alice";
+import { authChallengeSigningBytes, sign } from "@tearleads/crypto";
 import {
   isCreateOrganizationResponse,
   isVerifyResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import {

@@ -2,15 +2,15 @@ import { expect, test } from "bun:test";
 import {
   buildInitialGroupPolicyRequest,
   buildInitialOrganizationPolicyRequest,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   toFingerprint,
-} from "@symcrypt/crypto";
-import { bytesToBase64 } from "@symcrypt/encoding";
-import { createTestExecSql } from "@symcrypt/test-utils";
-import type { PrincipalPolicyBundleResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
+import { createTestExecSql } from "@tearleads/test-utils";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import {
   cacheReferencedPolicies,
   createPrincipalPolicyBundle,

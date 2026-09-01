@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { FileIcon } from "@phosphor-icons/react/dist/csr/File";
-import { ORGANIZATION_PROFILE_DOCUMENT_KIND } from "@symcrypt/client-sdk";
+import { ORGANIZATION_PROFILE_DOCUMENT_KIND } from "@tearleads/client-sdk";
 import {
   APP_DOCUMENT_PROJECTOR_DEFINITIONS,
   APP_DOCUMENT_TYPE_PROJECTOR_DEFINITIONS,

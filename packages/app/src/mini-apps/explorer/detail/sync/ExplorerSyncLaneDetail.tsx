@@ -1,7 +1,7 @@
 import type {
   DomainSyncSnapshot,
   SyncLaneSnapshot,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import type { ReactNode } from "react";
 import { useEffect, useId, useState } from "react";
 import {

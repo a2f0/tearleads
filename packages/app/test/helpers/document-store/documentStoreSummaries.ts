@@ -1,4 +1,4 @@
-import type { DocumentRecord, DocumentSummary } from "@symcrypt/client-sdk";
+import type { DocumentRecord, DocumentSummary } from "@tearleads/client-sdk";
 
 export function buildMemoryDocumentSummaries(
   document: DocumentRecord | null,

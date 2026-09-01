@@ -1,8 +1,8 @@
 ---
 - name: Deploy blob GC systemd service
   ansible.builtin.template:
-    src: etc/systemd/system/symcrypt-blob-gc.service.j2
-    dest: /etc/systemd/system/symcrypt-blob-gc.service
+    src: etc/systemd/system/tearleads-blob-gc.service.j2
+    dest: /etc/systemd/system/tearleads-blob-gc.service
     owner: root
     group: root
     mode: "0644"
@@ -10,8 +10,8 @@
 
 - name: Deploy blob GC systemd timer
   ansible.builtin.template:
-    src: etc/systemd/system/symcrypt-blob-gc.timer.j2
-    dest: /etc/systemd/system/symcrypt-blob-gc.timer
+    src: etc/systemd/system/tearleads-blob-gc.timer.j2
+    dest: /etc/systemd/system/tearleads-blob-gc.timer
     owner: root
     group: root
     mode: "0644"
@@ -19,15 +19,15 @@
 
 - name: Enable blob GC systemd timer
   ansible.builtin.systemd:
-    name: symcrypt-blob-gc.timer
+    name: tearleads-blob-gc.timer
     daemon_reload: true
     enabled: true
     state: started
 
 - name: Deploy Stripe seat sync systemd service
   ansible.builtin.template:
-    src: etc/systemd/system/symcrypt-stripe-seat-sync.service.j2
-    dest: /etc/systemd/system/symcrypt-stripe-seat-sync.service
+    src: etc/systemd/system/tearleads-stripe-seat-sync.service.j2
+    dest: /etc/systemd/system/tearleads-stripe-seat-sync.service
     owner: root
     group: root
     mode: "0644"
@@ -35,8 +35,8 @@
 
 - name: Deploy Stripe seat sync systemd timer
   ansible.builtin.template:
-    src: etc/systemd/system/symcrypt-stripe-seat-sync.timer.j2
-    dest: /etc/systemd/system/symcrypt-stripe-seat-sync.timer
+    src: etc/systemd/system/tearleads-stripe-seat-sync.timer.j2
+    dest: /etc/systemd/system/tearleads-stripe-seat-sync.timer
     owner: root
     group: root
     mode: "0644"
@@ -44,7 +44,7 @@
 
 - name: Enable Stripe seat sync systemd timer
   ansible.builtin.systemd:
-    name: symcrypt-stripe-seat-sync.timer
+    name: tearleads-stripe-seat-sync.timer
     daemon_reload: true
     enabled: true
     state: started

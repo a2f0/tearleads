@@ -1,12 +1,12 @@
-import { bytesToBase64 } from "@symcrypt/encoding";
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
   type createDocument,
   encodeVersionVector,
   exportFullHistorySnapshot,
   getTextValue,
-} from "@symcrypt/loro";
-import type { DocumentSyncRequest } from "@symcrypt/validators/request";
-import type { DocumentSyncResponse } from "@symcrypt/validators/response";
+} from "@tearleads/loro";
+import type { DocumentSyncRequest } from "@tearleads/validators/request";
+import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { createDomainScope } from "../../../data/domainScope";

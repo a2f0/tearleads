@@ -1,4 +1,4 @@
-import { purgeOpfsBlobStore } from "@symcrypt/client-sdk";
+import { purgeOpfsBlobStore } from "@tearleads/client-sdk";
 import { useCallback, useState } from "react";
 
 export interface LogoutOptions {

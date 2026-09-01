@@ -1,4 +1,4 @@
-import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
   assertWrappedLocalSecretEnvelope,
   canonicalLocalSecretContext,
@@ -34,7 +34,7 @@ const AES_GCM_IV_BYTES = 12;
 const PIN_CODE_SALT_BYTES = 16;
 const DEFAULT_PIN_CODE_KDF_ITERATIONS = 310_000;
 const PIN_CODE_WRAPPING_KEY_FORMAT =
-  "symcrypt.local-keyring.pin-code-wrapping-key";
+  "tearleads.local-keyring.pin-code-wrapping-key";
 const PIN_CODE_WRAPPING_KEY_ID_PREFIX = "pin-code:";
 
 export function randomAesGcmIv(): Uint8Array<ArrayBuffer> {

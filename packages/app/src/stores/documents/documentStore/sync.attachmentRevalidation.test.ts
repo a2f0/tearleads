@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
-import { createDocumentStore } from "@symcrypt/client-sdk";
-import { generateKemSeedAndKeyPair } from "@symcrypt/crypto";
-import { createMockApiClient } from "@symcrypt/test-utils";
-import { DOCUMENT_NOT_FOUND_ERROR_CODE } from "@symcrypt/validators/response";
+import { createDocumentStore } from "@tearleads/client-sdk";
+import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import { createMockApiClient } from "@tearleads/test-utils";
+import { DOCUMENT_NOT_FOUND_ERROR_CODE } from "@tearleads/validators/response";
 import { cloneDocumentsTestRuntime } from "../../../../test/helpers/document-store/documentStoreSyncFixtures";
 import { createDocumentsPersistence } from "../../../../test/helpers/document-store/documentStoreSyncPersistence";
 import { createSyncRuntime } from "../../../../test/helpers/document-store/documentStoreSyncRuntime";

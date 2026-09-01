@@ -1,7 +1,7 @@
 import {
   PurgedOrganizationRecoveryBillingRequiredError,
   resolveOrganizationBillingView,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import {
   type Dispatch,
   type SetStateAction,
@@ -13,7 +13,7 @@ import {
 } from "react";
 import { useOrganizationBillingState } from "../../../providers/billing/BillingProvider";
 import { useIdentity } from "../../../providers/identity/IdentityProvider";
-import { useSymCrypt } from "../../../providers/sdk/SymCryptProvider";
+import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
 
 interface RecoveryTarget {
@@ -69,24 +69,24 @@ function recoveryMessage(state: ScopedRecoveryState): string | null {
 
 function useReplacementBilling(
   targetOrganizationId: string | null,
-  symcrypt: ReturnType<typeof useSymCrypt>,
+  tearleads: ReturnType<typeof useTearleads>,
 ) {
   const client = useMemo(
     () => ({
       organizations: {
         loadBilling: () =>
           targetOrganizationId
-            ? symcrypt.organizations.loadBillingForOrganization(
+            ? tearleads.organizations.loadBillingForOrganization(
                 targetOrganizationId,
               )
             : Promise.resolve(null),
         startTrial: () =>
           targetOrganizationId
-            ? symcrypt.organizations.startTrial(targetOrganizationId)
+            ? tearleads.organizations.startTrial(targetOrganizationId)
             : Promise.resolve(null),
       },
     }),
-    [symcrypt, targetOrganizationId],
+    [tearleads, targetOrganizationId],
   );
   const billing = useOrganizationBillingState(client, targetOrganizationId);
   return {
@@ -153,7 +153,7 @@ interface RecoveryAttemptInput {
   readonly persistSession: () => Promise<boolean>;
   readonly scopeKey: string;
   readonly setState: RecoveryStateSetter;
-  readonly symcrypt: ReturnType<typeof useSymCrypt>;
+  readonly tearleads: ReturnType<typeof useTearleads>;
   readonly userId: string | null;
 }
 
@@ -175,7 +175,7 @@ async function resolveRecoveryExecution(
     return { stateScopeKey: input.scopeKey, target: input.persistenceTarget };
   }
   if (!input.userId) return null;
-  const recovered = await input.symcrypt.session.recoverPurgedOrganization(
+  const recovered = await input.tearleads.session.recoverPurgedOrganization(
     input.organizationId,
     { organizationProfileName: ORG_MANAGER_LABELS.recoveredOrganizationName },
   );
@@ -309,7 +309,7 @@ export function usePurgedOrganizationRecovery(input: {
   };
   readonly userId: string | null;
 }) {
-  const symcrypt = useSymCrypt();
+  const tearleads = useTearleads();
   const { persistSession } = useIdentity();
   const scopeKey = recoveryScopeKey(
     input.userId ?? "signed-out",
@@ -322,7 +322,7 @@ export function usePurgedOrganizationRecovery(input: {
   const targetOrganizationId = currentState.target?.organizationId ?? null;
   const replacementBilling = useReplacementBilling(
     targetOrganizationId,
-    symcrypt,
+    tearleads,
   );
   const attemptedSignalRef = useRef<unknown>(null);
   const recoveryAttemptInput = useMemo(
@@ -334,7 +334,7 @@ export function usePurgedOrganizationRecovery(input: {
       persistSession,
       scopeKey,
       setState,
-      symcrypt,
+      tearleads,
       userId: input.userId,
     }),
     [
@@ -344,7 +344,7 @@ export function usePurgedOrganizationRecovery(input: {
       input.userId,
       persistSession,
       scopeKey,
-      symcrypt,
+      tearleads,
     ],
   );
   const runRecovery = useRecoveryAttempt(recoveryAttemptInput);

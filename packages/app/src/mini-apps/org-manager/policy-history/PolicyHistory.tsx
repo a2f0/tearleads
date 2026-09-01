@@ -3,7 +3,7 @@ import type {
   OrganizationDirectoryUser,
   OrganizationGroupPolicyHistory,
   OrganizationPolicyHistory,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import {
   MiniAppSection,
   MiniAppSectionHeading,

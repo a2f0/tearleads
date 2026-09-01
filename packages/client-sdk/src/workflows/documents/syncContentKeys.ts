@@ -1,7 +1,7 @@
 import type {
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { importContentKeyMaterial } from "../../data/documents/shared/contentRecordKeys";
 import { encryptDocumentPendingUpdate } from "../../data/documents/shared/crypto";
 import { assertDocumentSyncUpdateEncryptedRecord } from "../../data/documents/shared/documentSyncUpdateDecryption";

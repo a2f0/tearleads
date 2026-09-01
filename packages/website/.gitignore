@@ -1,4 +1,4 @@
-# Favicon assets generated from @symcrypt/ui by scripts/buildWebImages.sh
+# Favicon assets generated from @tearleads/ui by scripts/buildWebImages.sh
 # (runs on predev/prebuild). Regenerated on every dev/build, so not committed.
 /public/favicon.svg
 /public/favicon.ico

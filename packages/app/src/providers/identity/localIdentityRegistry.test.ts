@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   IDENTITY_KEY_PACKAGE_FORMAT,
   type IdentityKeyPackage,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { createSharedMemoryLocalKeyringFactory } from "../../../test/helpers/sharedMemoryLocalKeyring";
 import { localIdentityScope } from "../local-keyring/localKeyringScopes";
 import {

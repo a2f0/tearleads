@@ -1,13 +1,13 @@
 import { expect, test } from "bun:test";
-import { db } from "@symcrypt/api-shared/postgres";
+import { db } from "@tearleads/api-shared/postgres";
 import {
   containerMetadataDocuments,
   containers,
   organizationRosterEntries,
   users,
-} from "@symcrypt/api-shared/schema";
-import { createTestUser, type TestUser } from "@symcrypt/bob-and-alice";
-import { deriveOrganizationRosterProfileContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
+} from "@tearleads/api-shared/schema";
+import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
+import { deriveOrganizationRosterProfileContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { and, eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";

@@ -1,8 +1,8 @@
-import pgClient from "@symcrypt/api-shared/postgres";
+import pgClient from "@tearleads/api-shared/postgres";
 import { closeRedisClient } from "../src/adapters/redis";
 import { closeRedisPubSub } from "../src/adapters/redisPubSub";
 
-const cleanupPromiseKey = Symbol.for("symcrypt.apiTestCleanupPromise");
+const cleanupPromiseKey = Symbol.for("tearleads.apiTestCleanupPromise");
 
 type ApiTestCleanupGlobal = typeof globalThis & {
   [cleanupPromiseKey]?: Promise<void>;

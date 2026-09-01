@@ -1,5 +1,5 @@
-export const LOCAL_KEYRING_MANIFEST_FORMAT = "symcrypt.local-keyring.manifest";
-export const WRAPPED_LOCAL_SECRET_FORMAT = "symcrypt.wrapped-local-secret";
+export const LOCAL_KEYRING_MANIFEST_FORMAT = "tearleads.local-keyring.manifest";
+export const WRAPPED_LOCAL_SECRET_FORMAT = "tearleads.wrapped-local-secret";
 
 export type LocalKeyringManifestFormat = typeof LOCAL_KEYRING_MANIFEST_FORMAT;
 export type WrappedLocalSecretFormat = typeof WRAPPED_LOCAL_SECRET_FORMAT;

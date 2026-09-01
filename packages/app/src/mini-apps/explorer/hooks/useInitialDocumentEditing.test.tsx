@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { DEFAULT_DOCUMENT_KIND } from "@symcrypt/client-sdk";
+import { DEFAULT_DOCUMENT_KIND } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { useInitialDocumentEditing } from "./useInitialDocumentEditing";
 

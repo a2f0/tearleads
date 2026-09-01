@@ -17,18 +17,18 @@ interface SyncModeContextValue {
   readonly mode: SyncMode;
   /** Convenience boolean: whether sync mode is selected (`mode === "sync"`). */
   readonly syncEnabled: boolean;
-  /** Choose a mode; persisted and pushed into the SDK by {@link SymCryptProvider}. */
+  /** Choose a mode; persisted and pushed into the SDK by {@link TearleadsProvider}. */
   readonly setMode: (mode: SyncMode) => void;
 }
 
 const SyncModeContext = createContext<SyncModeContextValue | null>(null);
 
 /**
- * Owns the local-only vs sync mode preference. Kept above `SymCryptProvider`
+ * Owns the local-only vs sync mode preference. Kept above `TearleadsProvider`
  * (pure React state, no SDK dependency) so the SDK bridge and the events
  * WebSocket gate can consume it; the preference persists across reloads.
  *
- * This provider only records *intent*. `SymCryptProvider` mirrors it onto
+ * This provider only records *intent*. `TearleadsProvider` mirrors it onto
  * `session.setSyncEnabled`, which the resolved runtime `state.online` folds in
  * so every server-sync path pauses in local-only mode. Actual replication also
  * requires being signed in and online, and the server enforces org billing.

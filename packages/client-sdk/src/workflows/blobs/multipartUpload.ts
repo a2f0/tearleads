@@ -1,9 +1,9 @@
-import { bytesToHex } from "@symcrypt/crypto";
+import { bytesToHex } from "@tearleads/crypto";
 import type {
   InitiateMultipartBlobStageResponse,
   MultipartBlobStagePart,
   MultipartBlobStageStatusResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { MAX_BLOB_CHUNK_COUNT } from "../../data/documents/blob/shared/blobEnvelopeV2";
 import type { BlobEncryptionPlan } from "../../data/documents/blob/shared/crypto";
 import type {

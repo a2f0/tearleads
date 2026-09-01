@@ -2,13 +2,13 @@ import { expect, test } from "bun:test";
 import {
   generateKemSeedAndKeyPair,
   KeyingVerificationError,
-} from "@symcrypt/crypto";
-import { bytesToBase64 } from "@symcrypt/encoding";
+} from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createContainerWriterProjectionFixture,
   createMockApiClient,
   createTestExecSql,
-} from "@symcrypt/test-utils";
+} from "@tearleads/test-utils";
 import { createAuthor } from "../../../../test/helpers/containerFixtures";
 import { createSuccessorGroupPolicyBundle } from "../../../../test/helpers/groupPolicyFixtures";
 import {

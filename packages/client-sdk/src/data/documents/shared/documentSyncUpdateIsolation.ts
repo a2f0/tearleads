@@ -5,8 +5,8 @@ import {
   importUpdates,
   LoroImportUnresolvedDependenciesError,
   updateMatchesDocumentHistory,
-} from "@symcrypt/loro";
-import type { DocumentSyncResponse } from "@symcrypt/validators/response";
+} from "@tearleads/loro";
+import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import type {
   DecryptedDocumentSyncUpdate,
   SyncRemoteDocumentResult,

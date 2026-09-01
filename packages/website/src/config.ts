@@ -2,8 +2,8 @@ const publicEnvironment = import.meta.env.PUBLIC_ENVIRONMENT;
 export const isStaging = publicEnvironment === "staging";
 
 export const appUrl = isStaging
-  ? "https://app-staging.symcrypt.com"
-  : "https://app.symcrypt.com";
+  ? "https://app-staging.tearleads.com"
+  : "https://app.tearleads.com";
 
 export function resolveStripeCustomerPortalUrl(
   rawValue: string | undefined,

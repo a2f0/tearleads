@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import type {
   DocumentProjection,
   DocumentRowSummary,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import {
   isValidWeightMeasurement,
   toWeightUnit,

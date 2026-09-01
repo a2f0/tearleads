@@ -1,11 +1,11 @@
 import type {
   OrganizationContainerGrantResponse,
   OrganizationContainerGrantsResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import {
   isOrganizationContainerGrantSubjectType,
   isOrganizationGroupContainerAccessLevel,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { asc, eq } from "drizzle-orm";
 import { organizationReadModelContainerGrants } from "../../sqlite/organizationReadModelSchema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";

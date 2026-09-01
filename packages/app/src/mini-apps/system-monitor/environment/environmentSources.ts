@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ReadNativeBuildNumberFn } from "../../../host/AppHostConfig";
-import { useSymCryptExternalValue } from "../../../providers/sdk/useSymCryptSubscription";
+import { useTearleadsExternalValue } from "../../../providers/sdk/useTearleadsSubscription";
 import { formatByteSize } from "../../../utils/formatByteSize";
 import { UNKNOWN_ENVIRONMENT_VALUE } from "./environment";
 
@@ -89,7 +89,7 @@ function useMediaQuery(query: string): boolean | null {
     [query],
   );
 
-  return useSymCryptExternalValue(subscribe, getSnapshot);
+  return useTearleadsExternalValue(subscribe, getSnapshot);
 }
 
 export function useOsColorScheme(): string {
@@ -135,7 +135,7 @@ export function useViewportLabel(): string {
     [],
   );
 
-  return useSymCryptExternalValue(subscribe, getSnapshot);
+  return useTearleadsExternalValue(subscribe, getSnapshot);
 }
 
 export function useStorageEstimateLabel(): string {

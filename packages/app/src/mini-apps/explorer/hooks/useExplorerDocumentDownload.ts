@@ -1,4 +1,4 @@
-import type { BlobStore, DocumentInfo } from "@symcrypt/client-sdk";
+import type { BlobStore, DocumentInfo } from "@tearleads/client-sdk";
 import { useCallback } from "react";
 import { downloadResolvedAttachment } from "../../../document-types/shared/fileDownload";
 import { useFileSaver } from "../../../providers/file-saver/FileSaverProvider";

@@ -1,5 +1,5 @@
-import type { createDocument } from "@symcrypt/loro";
-import type { DocumentWriterProjectionResponse } from "@symcrypt/validators/response";
+import type { createDocument } from "@tearleads/loro";
+import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import {
   canWriteEffectiveAccessLevel,
   normalizeEffectiveAccessLevel,

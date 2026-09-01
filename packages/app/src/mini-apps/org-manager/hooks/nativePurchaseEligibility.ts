@@ -1,8 +1,8 @@
-import type { NativeSubscriptionStore } from "@symcrypt/validators/billing";
+import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
 import type {
   OrganizationNativePurchaseEligibilityResponse,
   OrganizationNativePurchaseIneligibilityReason,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { ORG_MANAGER_LABELS } from "../labels";
 
 export type CheckNativePurchaseEligibility = (

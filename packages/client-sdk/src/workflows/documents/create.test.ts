@@ -1,18 +1,18 @@
 import { expect, test } from "bun:test";
-import { unwrapDocumentContentKeyTarget } from "@symcrypt/client-sdk";
+import { unwrapDocumentContentKeyTarget } from "@tearleads/client-sdk";
 import {
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
   generateKemSeedAndKeyPair,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import {
   createContainerWriterProjectionFixture,
   createTestExecSql,
-} from "@symcrypt/test-utils";
+} from "@tearleads/test-utils";
 import {
   type DocumentCreateRequest,
   isDocumentCreateRequest,
-} from "@symcrypt/validators/request";
-import type { DocumentWriterProjectionResponse } from "@symcrypt/validators/response";
+} from "@tearleads/validators/request";
+import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import {
   createParentProjection,
   createParentProjectionUserKeyResolver,

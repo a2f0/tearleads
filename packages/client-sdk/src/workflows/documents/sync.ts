@@ -1,5 +1,5 @@
-import { KeyingVerificationError } from "@symcrypt/crypto";
-import type { DocumentWriterProjectionResponse } from "@symcrypt/validators/response";
+import { KeyingVerificationError } from "@tearleads/crypto";
+import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { isDocumentUpdateCreatedEvent } from "../../data/documents/documentSync";
 import { isDocumentSyncUpdateIsolationError } from "../../data/documents/shared/documentSyncUpdateIsolation";
 import {

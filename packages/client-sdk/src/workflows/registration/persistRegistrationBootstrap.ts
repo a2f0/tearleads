@@ -2,9 +2,9 @@ import {
   createDocument,
   encodeVersionVector,
   importUpdates,
-} from "@symcrypt/loro";
-import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
-import type { PrincipalPolicyBundleResponse } from "@symcrypt/validators/response";
+} from "@tearleads/loro";
+import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
 import type { DocumentProjectorRegistryInput } from "../../data/documents/documentKinds";
 import { createPendingUpdateFields } from "../../data/documents/documentSync";

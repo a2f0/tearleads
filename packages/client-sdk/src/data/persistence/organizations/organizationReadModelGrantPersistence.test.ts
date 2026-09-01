@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@symcrypt/test-utils";
+import { createTestExecSql } from "@tearleads/test-utils";
 import type {
   OrganizationContainerGrantResponse,
   OrganizationContainerGrantsResponse,
   OrganizationReadModelDeltaResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { organizationReadModelSnapshot } from "../../../../test/helpers/organizationReadModelPersistenceFixtures";
 import {
   applyOrganizationReadModelResponse,

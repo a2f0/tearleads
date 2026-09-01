@@ -1,5 +1,5 @@
-import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
-import { groups } from "@symcrypt/api-shared/schema";
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import { groups } from "@tearleads/api-shared/schema";
 import { inArray, sql } from "drizzle-orm";
 import { uniqueSortedStrings } from "../../utils/array";
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";

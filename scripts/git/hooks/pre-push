@@ -6,7 +6,7 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 
 # Source session.sh to get script paths for shellcheck.
 # shellcheck disable=SC2034
-symcrypt_repo_root=$REPO_ROOT
+tearleads_repo_root=$REPO_ROOT
 # shellcheck disable=SC1091
 . "$REPO_ROOT/scripts/session.sh"
 

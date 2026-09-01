@@ -2,12 +2,12 @@ import { beforeAll, expect, mock, spyOn, test } from "bun:test";
 import type {
   OrganizationDirectoryAndGroups,
   OrganizationDirectoryUser,
-} from "@symcrypt/client-sdk";
-import { deriveOrganizationRosterProfileContainerSystemSlot } from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
+import { deriveOrganizationRosterProfileContainerSystemSlot } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { useEffect } from "react";
-import type { RuntimeSnapshot } from "../../../providers/sdk/SymCryptProvider";
-import * as SymCryptProvider from "../../../providers/sdk/SymCryptProvider";
+import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
+import * as TearleadsProvider from "../../../providers/sdk/TearleadsProvider";
 import * as DeviceFirstProvider from "../../../stores/device-first/DeviceFirstProvider";
 import { useExplorerAttributionProfileHydration } from "../hooks/useExplorerOrganizationPresentation";
 
@@ -87,7 +87,7 @@ function runtimeSnapshot(
   } as unknown as RuntimeSnapshot;
 }
 
-function createSymCryptHarness(
+function createTearleadsHarness(
   remoteSync: (documentId: string) => Promise<boolean> = async () => true,
 ) {
   const requestRemoteSyncAndWait = mock(remoteSync);
@@ -96,15 +96,15 @@ function createSymCryptHarness(
     requestRemoteSyncAndWait: () =>
       requestRemoteSyncAndWait(input.documentId ?? ""),
   }));
-  const symcrypt = {
+  const tearleads = {
     documents: { findLocalIdByDocumentId, open },
     logError: mock(() => undefined),
-  } as unknown as ReturnType<typeof SymCryptProvider.useSymCrypt>;
+  } as unknown as ReturnType<typeof TearleadsProvider.useTearleads>;
   return {
     findLocalIdByDocumentId,
     open,
     requestRemoteSyncAndWait,
-    symcrypt,
+    tearleads,
   };
 }
 
@@ -184,12 +184,12 @@ function installHarnesses(
   initiallyReady: boolean,
   remoteSync?: (documentId: string) => Promise<boolean>,
 ) {
-  const symcrypt = createSymCryptHarness(remoteSync);
+  const tearleads = createTearleadsHarness(remoteSync);
   const containers = createContainerStoreHarness(initiallyReady);
-  const useSymCryptSpy = spyOn(
-    SymCryptProvider,
-    "useSymCrypt",
-  ).mockImplementation(() => symcrypt.symcrypt);
+  const useTearleadsSpy = spyOn(
+    TearleadsProvider,
+    "useTearleads",
+  ).mockImplementation(() => tearleads.tearleads);
   const useDeviceFirstSpy = spyOn(
     DeviceFirstProvider,
     "useDeviceFirstContainerContents",
@@ -201,12 +201,14 @@ function installHarnesses(
   );
   return {
     containers,
+    open: tearleads.open,
+    requestRemoteSyncAndWait: tearleads.requestRemoteSyncAndWait,
     restore() {
       cleanup();
       useDeviceFirstSpy.mockRestore();
-      useSymCryptSpy.mockRestore();
+      useTearleadsSpy.mockRestore();
     },
-    symcrypt,
+    tearleads,
   };
 }
 test("attribution hydration retries as prerequisites become ready", async () => {
@@ -228,16 +230,16 @@ test("attribution hydration retries as prerequisites become ready", async () => 
       }, [requestHydration]);
     });
     await act(async () => Promise.resolve());
-    expect(harness.symcrypt.open).toHaveBeenCalledTimes(0);
+    expect(harness.open).toHaveBeenCalledTimes(0);
     expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(0);
     act(() => harness.containers.setReady(true));
     await act(async () => Promise.resolve());
-    expect(harness.symcrypt.open).toHaveBeenCalledTimes(0);
+    expect(harness.open).toHaveBeenCalledTimes(0);
     appData = runtimeSnapshot();
     view.rerender();
-    await waitFor(() => expect(harness.symcrypt.open).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(harness.open).toHaveBeenCalledTimes(1));
     expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(0);
-    expect(harness.symcrypt.requestRemoteSyncAndWait).toHaveBeenCalledTimes(1);
+    expect(harness.requestRemoteSyncAndWait).toHaveBeenCalledTimes(1);
   } finally {
     harness.restore();
   }
@@ -263,12 +265,12 @@ test("attribution hydration retries when a ready store gains its system containe
       }, [requestHydration]);
     });
     await act(async () => Promise.resolve());
-    expect(harness.symcrypt.open).toHaveBeenCalledTimes(0);
+    expect(harness.open).toHaveBeenCalledTimes(0);
     expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(0);
     act(() => harness.containers.setContainerAvailable(true));
-    await waitFor(() => expect(harness.symcrypt.open).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(harness.open).toHaveBeenCalledTimes(1));
     expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(0);
-    expect(harness.symcrypt.requestRemoteSyncAndWait).toHaveBeenCalledTimes(1);
+    expect(harness.requestRemoteSyncAndWait).toHaveBeenCalledTimes(1);
   } finally {
     harness.restore();
   }
@@ -289,14 +291,12 @@ test("each document keeps its own bounded attribution hydration selection", asyn
     act(() =>
       view.result.current({ contributorUserIds, documentId: "document-a" }),
     );
-    await waitFor(() =>
-      expect(harness.symcrypt.open).toHaveBeenCalledTimes(32),
-    );
+    await waitFor(() => expect(harness.open).toHaveBeenCalledTimes(32));
     act(() =>
       view.result.current({ contributorUserIds, documentId: "document-a" }),
     );
     await act(async () => Promise.resolve());
-    expect(harness.symcrypt.open).toHaveBeenCalledTimes(32);
+    expect(harness.open).toHaveBeenCalledTimes(32);
     act(() =>
       view.result.current({
         contributorUserIds: contributorUserIds.slice(0, 33),
@@ -304,12 +304,12 @@ test("each document keeps its own bounded attribution hydration selection", asyn
       }),
     );
     await act(async () => Promise.resolve());
-    expect(harness.symcrypt.open).toHaveBeenCalledTimes(32);
+    expect(harness.open).toHaveBeenCalledTimes(32);
     act(() =>
       view.result.current({ contributorUserIds, documentId: "document-a" }),
     );
     await act(async () => Promise.resolve());
-    expect(harness.symcrypt.open).toHaveBeenCalledTimes(32);
+    expect(harness.open).toHaveBeenCalledTimes(32);
   } finally {
     harness.restore();
   }
@@ -332,23 +332,21 @@ test("a shared profile retains its slot in a full hydration selection", async ()
         documentId: "document-a",
       }),
     );
-    await waitFor(() => expect(harness.symcrypt.open).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(harness.open).toHaveBeenCalledTimes(1));
     act(() =>
       view.result.current({
         contributorUserIds: users.map((user) => user.userId),
         documentId: "document-b",
       }),
     );
-    await waitFor(() =>
-      expect(harness.symcrypt.open).toHaveBeenCalledTimes(32),
-    );
+    await waitFor(() => expect(harness.open).toHaveBeenCalledTimes(32));
     expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(0);
-    expect(harness.symcrypt.requestRemoteSyncAndWait).toHaveBeenCalledTimes(32);
-    expect(harness.symcrypt.open).toHaveBeenCalledWith(
+    expect(harness.requestRemoteSyncAndWait).toHaveBeenCalledTimes(32);
+    expect(harness.open).toHaveBeenCalledWith(
       expect.objectContaining({ documentId: "profile-0" }),
       { remoteSyncMode: "on-demand" },
     );
-    expect(harness.symcrypt.open).not.toHaveBeenCalledWith(
+    expect(harness.open).not.toHaveBeenCalledWith(
       expect.objectContaining({ documentId: "profile-32" }),
       expect.anything(),
     );
@@ -389,7 +387,7 @@ test("an organization switch invalidates pending container resolution", async ()
       readModelProjection: projection([user], OTHER_ORGANIZATION_ID),
     });
     await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
-    expect(harness.symcrypt.open).toHaveBeenCalledTimes(0);
+    expect(harness.open).toHaveBeenCalledTimes(0);
     expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(0);
   } finally {
     harness.restore();
@@ -415,7 +413,7 @@ test("unmount invalidates pending container resolution", async () => {
     );
     view.unmount();
     await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
-    expect(harness.symcrypt.open).toHaveBeenCalledTimes(0);
+    expect(harness.open).toHaveBeenCalledTimes(0);
     expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(0);
   } finally {
     harness.restore();
@@ -452,7 +450,7 @@ test("profile sync exhausts each binding once per hydration scope", async () => 
       }),
     );
     await act(async () => Promise.resolve());
-    expect(harness.symcrypt.requestRemoteSyncAndWait).toHaveBeenCalledTimes(5);
+    expect(harness.requestRemoteSyncAndWait).toHaveBeenCalledTimes(5);
     expect(attemptsByDocumentId.get("profile-0")).toBe(2);
     expect(attemptsByDocumentId.get("profile-1")).toBe(3);
   } finally {
@@ -479,9 +477,7 @@ test("a later-page disabled contributor cannot displace a selected profile", asy
         documentId: "document-a",
       }),
     );
-    await waitFor(() =>
-      expect(harness.symcrypt.open).toHaveBeenCalledTimes(32),
-    );
+    await waitFor(() => expect(harness.open).toHaveBeenCalledTimes(32));
     act(() =>
       view.result.current({
         contributorUserIds: [users[32]?.userId ?? ""],
@@ -489,7 +485,7 @@ test("a later-page disabled contributor cannot displace a selected profile", asy
       }),
     );
     await act(async () => Promise.resolve());
-    expect(harness.symcrypt.open).toHaveBeenCalledTimes(32);
+    expect(harness.open).toHaveBeenCalledTimes(32);
   } finally {
     harness.restore();
   }

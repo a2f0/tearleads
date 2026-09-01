@@ -4,7 +4,7 @@
  * entitlement through receipt association. HTTP plumbing is in stripeHttp.ts.
  */
 
-import { getSyncBillingTierForSeatCount } from "@symcrypt/validators/billing";
+import { getSyncBillingTierForSeatCount } from "@tearleads/validators/billing";
 import {
   escapeSearchValue,
   prop,

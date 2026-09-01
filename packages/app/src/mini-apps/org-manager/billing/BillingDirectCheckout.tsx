@@ -7,7 +7,7 @@ import {
   MiniAppSection,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
-import { useSymCrypt } from "../../../providers/sdk/SymCryptProvider";
+import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { BillingPurchaseOption } from "./BillingPlanSwitcher";
 import { formatPrice } from "./billingFormatters";
@@ -37,7 +37,7 @@ function useHostedCheckout(organizationId: string): {
   readonly busy: boolean;
   readonly unavailable: boolean;
 } {
-  const symcrypt = useSymCrypt();
+  const tearleads = useTearleads();
   const [busy, setBusy] = useState(false);
   // A null/failed result would otherwise reset the link silently, leaving a
   // dead-feeling click — e.g. a co-admin whose org is already checking out, or
@@ -52,10 +52,11 @@ function useHostedCheckout(organizationId: string): {
     const tab = globalThis.open?.("about:blank", "_blank");
     void (async () => {
       try {
-        const result = await symcrypt.organizations.createStripeCheckoutSession(
-          globalThis.location?.href ?? "",
-          organizationId,
-        );
+        const result =
+          await tearleads.organizations.createStripeCheckoutSession(
+            globalThis.location?.href ?? "",
+            organizationId,
+          );
         if (result?.url) {
           if (tab) {
             // Sever the child's back-reference before it navigates
@@ -82,7 +83,7 @@ function useHostedCheckout(organizationId: string): {
         setBusy(false);
       }
     })();
-  }, [busy, organizationId, symcrypt]);
+  }, [busy, organizationId, tearleads]);
   return { open, busy, unavailable };
 }
 

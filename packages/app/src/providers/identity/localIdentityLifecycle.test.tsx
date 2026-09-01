@@ -1,10 +1,10 @@
 import { afterEach, expect, test } from "bun:test";
-import { createMemoryBlobStore, SymCrypt } from "@symcrypt/client-sdk";
-import { createIdentitySeedPhraseFromEntropy } from "@symcrypt/crypto";
+import { createMemoryBlobStore, Tearleads } from "@tearleads/client-sdk";
+import { createIdentitySeedPhraseFromEntropy } from "@tearleads/crypto";
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import { createSharedMemoryLocalKeyringFactory } from "../../../test/helpers/sharedMemoryLocalKeyring";
 import { localIdentityScope } from "../local-keyring/localKeyringScopes";
-import { useSymCryptStoreSnapshot } from "../sdk/useSymCryptSubscription";
+import { useTearleadsStoreSnapshot } from "../sdk/useTearleadsSubscription";
 import { useGenerateKey } from "./localIdentityGeneration";
 import { useLocalIdentityRestore } from "./localIdentityPersistence";
 import {
@@ -35,8 +35,8 @@ function createMemoryStorage(): LocalIdentityStorage {
   };
 }
 
-function createTestSymCrypt(): SymCrypt {
-  return new SymCrypt({ blobStore: createMemoryBlobStore() });
+function createTestTearleads(): Tearleads {
+  return new Tearleads({ blobStore: createMemoryBlobStore() });
 }
 
 test("identity generation stays in flight until registry persistence finishes", async () => {
@@ -44,8 +44,8 @@ test("identity generation stays in flight until registry persistence finishes", 
   const releasePersistence = createDeferred();
   const generationIdRef = { current: 0 };
   const generationInFlight = { current: false };
-  const symcrypt = createTestSymCrypt();
-  Reflect.set(symcrypt.session, "bootstrapLocalRootContainer", async () => ({
+  const tearleads = createTestTearleads();
+  Reflect.set(tearleads.session, "bootstrapLocalRootContainer", async () => ({
     containerId: "root",
     created: true,
   }));
@@ -59,7 +59,7 @@ test("identity generation stays in flight until registry persistence finishes", 
         persistenceStarted.resolve();
         await releasePersistence.promise;
       },
-      symcrypt,
+      tearleads,
     }),
   );
 
@@ -77,7 +77,7 @@ test("identity generation stays in flight until registry persistence finishes", 
   releasePersistence.resolve();
   expect(await generation).toBe(true);
   expect(generationInFlight.current).toBe(false);
-  symcrypt.dispose();
+  tearleads.dispose();
 });
 
 test("generates an identity key pair with the network down (offline)", async () => {
@@ -99,8 +99,8 @@ test("generates an identity key pair with the network down (offline)", async () 
   try {
     const generationIdRef = { current: 0 };
     const generationInFlight = { current: false };
-    const symcrypt = createTestSymCrypt();
-    Reflect.set(symcrypt.session, "bootstrapLocalRootContainer", async () => ({
+    const tearleads = createTestTearleads();
+    Reflect.set(tearleads.session, "bootstrapLocalRootContainer", async () => ({
       containerId: "root",
       created: true,
     }));
@@ -111,15 +111,15 @@ test("generates an identity key pair with the network down (offline)", async () 
         generationIdRef,
         generationInFlight,
         persistLocalIdentity: async () => undefined,
-        symcrypt,
+        tearleads,
       }),
     );
 
     expect(await view.result.current()).toBe(true);
-    expect(symcrypt.identity.signingKeyPair).not.toBeNull();
-    expect(symcrypt.identity.encapsulationKeyPair).not.toBeNull();
+    expect(tearleads.identity.signingKeyPair).not.toBeNull();
+    expect(tearleads.identity.encapsulationKeyPair).not.toBeNull();
     expect(fetchCalls).toBe(0);
-    symcrypt.dispose();
+    tearleads.dispose();
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -132,23 +132,23 @@ test("persisted identity restore completes after its key import rerenders", asyn
     storage: createMemoryStorage(),
     storageKey: "identities",
   });
-  const source = createTestSymCrypt();
+  const source = createTestTearleads();
   await source.identity.importSeedPhrase(
     createIdentitySeedPhraseFromEntropy(new Uint8Array(32).fill(0xab)),
   );
   const keyPackage = await source.identity.exportKeyPackage();
   await repository.upsert(keyPackage);
 
-  const target = createTestSymCrypt();
+  const target = createTestTearleads();
   const generationIdRef = { current: 0 };
   const generationInFlight = { current: false };
   const view = renderHook(() => {
-    useSymCryptStoreSnapshot(target.identity);
+    useTearleadsStoreSnapshot(target.identity);
     return useLocalIdentityRestore({
       generationIdRef,
       generationInFlight,
       localPersistence: repository,
-      symcrypt: target,
+      tearleads: target,
     });
   });
 
@@ -174,8 +174,8 @@ test("unlock reloads identity choices without replacing the live identity", asyn
     storage: createMemoryStorage(),
     storageKey: "identities",
   });
-  const identityA = createTestSymCrypt();
-  const identityB = createTestSymCrypt();
+  const identityA = createTestTearleads();
+  const identityB = createTestTearleads();
   await identityA.identity.importSeedPhrase(
     createIdentitySeedPhraseFromEntropy(new Uint8Array(32).fill(0xab)),
   );
@@ -195,7 +195,7 @@ test("unlock reloads identity choices without replacing the live identity", asyn
         generationIdRef,
         generationInFlight,
         localPersistence,
-        symcrypt: identityA,
+        tearleads: identityA,
       }),
     {
       initialProps: {

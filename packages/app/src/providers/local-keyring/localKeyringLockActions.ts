@@ -3,7 +3,7 @@ import type {
   LocalKeyringManifestStore,
   LocalKeyringScope,
   WrappingKeyMaterialStorage,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import {
   type Dispatch,
   type SetStateAction,

@@ -4,7 +4,7 @@ variable "account_id" {
 }
 
 variable "zone_name" {
-  description = "Cloudflare zone name (e.g., symcrypt.com)"
+  description = "Cloudflare zone name (e.g., tearleads.com)"
   type        = string
   default     = null
 }

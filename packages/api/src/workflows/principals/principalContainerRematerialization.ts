@@ -1,15 +1,15 @@
-import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import {
   accessManifestContainerGrantProjection,
   accessManifestHeads,
   accessManifestPrincipalHeadProjection,
-} from "@symcrypt/api-shared/schema";
+} from "@tearleads/api-shared/schema";
 import type {
   ContainerGrantPrincipalHead,
   PrincipalContainerGrant,
-} from "@symcrypt/crypto";
-import type { ContainerMutationRequest } from "@symcrypt/validators/request";
-import type { ContainerMutationResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import type { ContainerMutationRequest } from "@tearleads/validators/request";
+import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
 import {
   readProjectionAccessEvent,

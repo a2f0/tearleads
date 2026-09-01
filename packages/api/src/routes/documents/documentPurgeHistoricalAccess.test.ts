@@ -1,14 +1,14 @@
 import { expect, test } from "bun:test";
-import { db } from "@symcrypt/api-shared/postgres";
-import { documentManifestObservations } from "@symcrypt/api-shared/schema";
-import { createTestUser, type TestUser } from "@symcrypt/bob-and-alice";
-import type { VerifiedContainerKekState } from "@symcrypt/crypto";
-import type { AccessManifestBundleWire } from "@symcrypt/validators/request";
+import { db } from "@tearleads/api-shared/postgres";
+import { documentManifestObservations } from "@tearleads/api-shared/schema";
+import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
+import type { VerifiedContainerKekState } from "@tearleads/crypto";
+import type { AccessManifestBundleWire } from "@tearleads/validators/request";
 import {
   isContainerMutationResponse,
   isDocumentLinkSetMutationResponse,
   isDocumentPurgeProofResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { buildContainerGrantRequest } from "../../../test/helpers/containerGrantMutation";

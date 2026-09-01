@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
-import { db } from "@symcrypt/api-shared/postgres";
+import { db } from "@tearleads/api-shared/postgres";
 import {
   organizationReadModelChanges,
   organizationReadModelHeads,
-} from "@symcrypt/api-shared/schema";
+} from "@tearleads/api-shared/schema";
 import { asc, eq } from "drizzle-orm";
 import { appendOrganizationReadModelChangeInTransaction } from "./readModelChanges";
 import {

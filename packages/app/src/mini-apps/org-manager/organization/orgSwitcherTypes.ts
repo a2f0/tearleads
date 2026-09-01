@@ -3,7 +3,7 @@ import type {
   LocalOrganizationSummary,
   SessionContext,
   SessionCreateOrganizationResult,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 
 /** Stable view model consumed by the organization switcher UI. */
 export interface OrgSwitcherState extends CreateOrganizationDialogState {

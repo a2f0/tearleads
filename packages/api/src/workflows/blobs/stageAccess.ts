@@ -1,5 +1,5 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
-import { blobStages } from "@symcrypt/api-shared/schema";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import { blobStages } from "@tearleads/api-shared/schema";
 import { eq } from "drizzle-orm";
 
 type BlobStageAccessStatus = 403 | 404 | 409;

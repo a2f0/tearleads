@@ -20,7 +20,7 @@ export function PaneProvider({
     hostConfig;
   const paneLocalIdentityNamespace = disableLocalIdentityPersistence
     ? undefined
-    : `${localIdentityNamespace ?? "symcrypt.pane"}.${side}`;
+    : `${localIdentityNamespace ?? "tearleads.pane"}.${side}`;
   const paneHostConfig = useMemo(
     () =>
       hostConfig.withOverrides({

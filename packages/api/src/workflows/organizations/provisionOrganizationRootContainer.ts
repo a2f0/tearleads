@@ -1,4 +1,4 @@
-import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import {
   type ContainerKeyEpoch,
   type ContainerKeyWrap,
@@ -8,8 +8,8 @@ import {
   verifyContainerAccessManifest,
   verifyContainerKekState,
   verifySignedAccessEvent,
-} from "@symcrypt/crypto";
-import type { OrganizationProvisioningRequest } from "@symcrypt/validators/request";
+} from "@tearleads/crypto";
+import type { OrganizationProvisioningRequest } from "@tearleads/validators/request";
 import { storeVerifiedAccessManifestInTransaction } from "../../access/write/accessManifestStore";
 import { storeVerifiedContainerKekStateInTransaction } from "../../access/write/containerKekStore";
 import {

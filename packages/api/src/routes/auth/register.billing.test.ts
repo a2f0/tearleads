@@ -1,14 +1,14 @@
 import { expect, test } from "bun:test";
-import { db } from "@symcrypt/api-shared/postgres";
+import { db } from "@tearleads/api-shared/postgres";
 import {
   organizationBilling,
   organizationBillingLifecycleEvents,
-} from "@symcrypt/api-shared/schema";
+} from "@tearleads/api-shared/schema";
 import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
-} from "@symcrypt/crypto";
-import { isRegistrationResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import { isRegistrationResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { submitRegistration } from "../../../test/helpers/api";

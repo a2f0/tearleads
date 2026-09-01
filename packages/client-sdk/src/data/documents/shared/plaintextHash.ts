@@ -1,4 +1,4 @@
-import { computeDocumentContentRecordPlaintextHash } from "@symcrypt/crypto";
+import { computeDocumentContentRecordPlaintextHash } from "@tearleads/crypto";
 
 export async function assertDocumentUpdatePlaintextHash(
   updateData: Uint8Array,

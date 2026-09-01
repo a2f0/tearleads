@@ -1,4 +1,4 @@
-import type { OrganizationGroupSummary } from "@symcrypt/client-sdk";
+import type { OrganizationGroupSummary } from "@tearleads/client-sdk";
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { MiniAppStatus } from "../../../components/mini-app/MiniAppLayout";
 import {
@@ -158,7 +158,7 @@ const GROUP_TABLE_COLUMNS_CONFIG = {
   columnLabels: GROUP_COLUMN_LABELS,
   dataColumns: GROUP_TABLE_COLUMNS,
   menuOptions: GROUP_COLUMN_MENU_OPTIONS,
-  storageKey: "symcrypt.org-manager.groups:hidden-columns",
+  storageKey: "tearleads.org-manager.groups:hidden-columns",
   toggleableColumnIds: GROUP_TOGGLEABLE_COLUMN_IDS,
 };
 

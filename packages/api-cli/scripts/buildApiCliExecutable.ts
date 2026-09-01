@@ -36,7 +36,7 @@ const drizzleFiles = migrationAssetPatterns
 const result = await Bun.build({
   entrypoints: ["packages/api-cli/src/index.ts", ...drizzleFiles],
   compile: {
-    outfile: "packages/api-cli/dist/symcrypt-api-cli",
+    outfile: "packages/api-cli/dist/tearleads-api-cli",
     target: executableTarget,
   },
   loader: {

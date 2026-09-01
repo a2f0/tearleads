@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import type { OrganizationBillingHistoryEntry } from "@symcrypt/client-sdk";
+import type { OrganizationBillingHistoryEntry } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import {
   formatMiniAppDate,

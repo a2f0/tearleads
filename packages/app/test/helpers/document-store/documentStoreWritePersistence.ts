@@ -5,7 +5,7 @@ import type {
   LocalAttachmentRecord,
   PendingAttachmentRecord,
   PendingUpdateRecord,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { createMemoryAbsentDocumentCleanup } from "./documentStoreAbsentCleanup";
 import {
   canSaveMemoryDocument,

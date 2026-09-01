@@ -1,5 +1,5 @@
-import { bytesToBase64 } from "@symcrypt/encoding";
-import { encodeVersionVector, getTextValue } from "@symcrypt/loro";
+import { bytesToBase64 } from "@tearleads/encoding";
+import { encodeVersionVector, getTextValue } from "@tearleads/loro";
 import {
   projectStoredDocumentState,
   type StoredDocumentKind,

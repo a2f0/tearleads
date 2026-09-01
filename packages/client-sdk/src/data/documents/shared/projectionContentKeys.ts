@@ -4,15 +4,15 @@ import {
   decryptWithDek,
   encryptWithDek,
   type VerifiedContainerAccessManifest,
-} from "@symcrypt/crypto";
-import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
-import { isPlainObject as isPlainRecord } from "@symcrypt/validators/isPlainObject";
-import type { DocumentContentKeyTargetEnvelope } from "@symcrypt/validators/request";
+} from "@tearleads/crypto";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
+import type { DocumentContentKeyTargetEnvelope } from "@tearleads/validators/request";
 import type {
   ContainerWriterProjectionResponse,
   DocumentContentKeyBundleResponse,
   DocumentWriterProjectionResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import type { PrincipalPolicyCache } from "../../keyingProjectionVerification";
 import { throwKeyingVerificationErrorWithContext } from "../../keyingProjectionVerification/error";
 import type { ExecSql } from "../../sqlite/sqlSchema";

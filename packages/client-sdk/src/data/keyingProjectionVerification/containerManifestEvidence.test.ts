@@ -5,22 +5,22 @@ import type {
   ContainerGrantPrincipalHead,
   VerifiedContainerAccessManifest,
   VerifiedPrincipalPolicy,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import {
   computeAccessManifestHash,
   deriveContainerAccessManifest,
   generateSigningSeedAndKeyPair,
   toFingerprint,
   verifyContainerAccessManifest,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import {
   createContainerManifestFixture,
   createPrincipalPolicyFixture,
   createVerifiedContainerAccessEvent,
   fixtureHash,
-} from "@symcrypt/crypto/test-fixtures";
-import { createTestExecSql } from "@symcrypt/test-utils";
-import type { AccessManifestBundleWireResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto/test-fixtures";
+import { createTestExecSql } from "@tearleads/test-utils";
+import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import { createProjectionCheckpointContext } from "./checkpointContext";
 import { verifyContainerManifestPath } from "./containerProjectionVerification";

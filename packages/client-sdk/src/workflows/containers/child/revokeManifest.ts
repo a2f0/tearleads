@@ -2,12 +2,12 @@ import type {
   ContainerAccessManifestState,
   ContainerDirectGrant,
   ContainerGrantPrincipalHead,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import {
   computeAccessManifestHash,
   deriveContainerAccessManifest,
-} from "@symcrypt/crypto";
-import type { ContainerWriterProjectionResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import { readContainerState } from "../../../data/containers/shared/projection";
 import type { ContainerRevokePlan } from "../../../data/containers/shared/types";
 

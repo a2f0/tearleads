@@ -12,8 +12,8 @@ prepend_path() {
 
 if [ -n "${1:-}" ]; then
   repo_root=$1
-elif [ -n "${symcrypt_repo_root:-}" ]; then
-  repo_root=$symcrypt_repo_root
+elif [ -n "${tearleads_repo_root:-}" ]; then
+  repo_root=$tearleads_repo_root
 else
   repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || {
     echo "could not determine repo root; pass it explicitly:" >&2
@@ -46,5 +46,5 @@ EOF
 
 unset repo_root
 unset script_path
-unset symcrypt_repo_root
+unset tearleads_repo_root
 unset -f prepend_path 2>/dev/null || true

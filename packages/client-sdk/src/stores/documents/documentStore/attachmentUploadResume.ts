@@ -1,5 +1,5 @@
-import { createAesGcmIv } from "@symcrypt/crypto";
-import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
+import { createAesGcmIv } from "@tearleads/crypto";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import type { MultipartStageResolvedListener } from "../../../workflows/blobs";
 import type {
   PendingAttachmentRecord,

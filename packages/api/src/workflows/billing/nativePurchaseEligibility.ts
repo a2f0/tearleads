@@ -1,18 +1,18 @@
-import type { ApiDatabase } from "@symcrypt/api-shared/postgres";
+import type { ApiDatabase } from "@tearleads/api-shared/postgres";
 import {
   organizationBilling,
   organizationBillingStripeSeats,
   users,
-} from "@symcrypt/api-shared/schema";
+} from "@tearleads/api-shared/schema";
 import {
   getSyncBillingTierForNativeProduct,
   type NativeSubscriptionStore,
-} from "@symcrypt/validators/billing";
+} from "@tearleads/validators/billing";
 import type {
   OrganizationBillingStatus,
   OrganizationNativePurchaseEligibilityResponse,
   OrganizationNativePurchaseIneligibilityReason,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import { requireDirectOrganizationAccess } from "../organizations/access";
 import { OrganizationManagerError } from "../organizations/errors";

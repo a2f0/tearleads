@@ -1,5 +1,5 @@
-import { KeyingVerificationError } from "@symcrypt/crypto";
-import type { PrincipalStateResponse } from "@symcrypt/validators/response";
+import { KeyingVerificationError } from "@tearleads/crypto";
+import type { PrincipalStateResponse } from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
 import { principalPolicyOrganizations } from "../sqlite/schema";
 import type { ClientSQLiteTransactionScope } from "../sqlite/sqlitePersistenceRuntime";

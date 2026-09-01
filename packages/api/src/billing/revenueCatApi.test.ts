@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { RevenueCatWebhookEvent } from "@symcrypt/validators/request";
+import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import {
   fetchActiveRevenueCatNativeSubscription,
   fetchRevenueCatManagementUrl,

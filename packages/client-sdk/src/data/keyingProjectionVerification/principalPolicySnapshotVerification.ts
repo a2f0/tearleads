@@ -3,15 +3,15 @@ import type {
   PrincipalPolicySignerPublicKey,
   ReferencedPrincipalHead,
   VerifiedPrincipalPolicySnapshot,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import {
   KeyingVerificationError,
   principalPolicyMatchesReference,
   toFingerprint,
   verifyPrincipalPolicyCheckpoint,
   verifyPrincipalPolicySnapshot,
-} from "@symcrypt/crypto";
-import type { PrincipalPolicySnapshotResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import type { PrincipalPolicySnapshotResponse } from "@tearleads/validators/response";
 import { loadPrincipalPolicyCheckpoint } from "../persistence/keyingCheckpointPersistence";
 import { loadPrincipalPolicyBundleForReference } from "../persistence/principalPolicyReferencePersistence";
 import type { ExecSql } from "../sqlite/sqlSchema";

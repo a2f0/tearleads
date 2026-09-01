@@ -1,19 +1,19 @@
 import { expect, test } from "bun:test";
-import { db } from "@symcrypt/api-shared/postgres";
+import { db } from "@tearleads/api-shared/postgres";
 import {
   principalMemberEnvelopes,
   principalMembershipProjection,
   principalStatePayloads,
   principalStates,
-} from "@symcrypt/api-shared/schema";
-import { createTestUser, type TestUser } from "@symcrypt/bob-and-alice";
+} from "@tearleads/api-shared/schema";
+import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import {
   generateKemSeedAndKeyPair,
   toFingerprint,
   wrapDekForRecipients,
-} from "@symcrypt/crypto";
-import { bytesToBase64 } from "@symcrypt/encoding";
-import { isCommitOrganizationGroupPolicyResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
+import { isCommitOrganizationGroupPolicyResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";

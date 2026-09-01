@@ -1,5 +1,5 @@
-import type { AccessEventType } from "@symcrypt/crypto";
-import { isPlainObject } from "@symcrypt/validators/isPlainObject";
+import type { AccessEventType } from "@tearleads/crypto";
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import {
   type ContainerMutationPathParams,
   createContainerOperation,
@@ -10,16 +10,16 @@ import {
   rekeyContainerOperation,
   revokeContainerOperation,
   shareContainerOperation,
-} from "@symcrypt/validators/operation";
+} from "@tearleads/validators/operation";
 import type {
   ContainerCreateWithMetadataDocumentRequest,
   ContainerMutationRequest,
-} from "@symcrypt/validators/request";
+} from "@tearleads/validators/request";
 import type {
   ContainerCreateWithMetadataDocumentResponse,
   ContainerDeleteResponse,
   ContainerMutationResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import { isAccessEventType } from "../../keyingProjectionRecords";

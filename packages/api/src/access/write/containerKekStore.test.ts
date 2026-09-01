@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { db } from "@symcrypt/api-shared/postgres";
-import { containerKeyWraps } from "@symcrypt/api-shared/schema";
+import { db } from "@tearleads/api-shared/postgres";
+import { containerKeyWraps } from "@tearleads/api-shared/schema";
 import type {
   ContainerDirectGrant,
   ContainerKeyEpoch,
@@ -9,12 +9,12 @@ import type {
   ReferencedPrincipalHead,
   VerifiedContainerAccessManifest,
   VerifiedPrincipalPolicy,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import {
   createContainerKekPredecessorBridge,
   derivePrincipalRecipientKeyEpochId,
   verifyContainerKekState,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
 import {
   createTestContainerKekKeyring,

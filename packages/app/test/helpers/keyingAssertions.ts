@@ -5,8 +5,8 @@ import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
   type ContentObjectKind,
   type WriteHeader,
-} from "@symcrypt/crypto";
-import { isPlainObject } from "@symcrypt/validators/isPlainObject";
+} from "@tearleads/crypto";
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
 
 function isAccessEventType(value: unknown): value is AccessEventType {
   return (

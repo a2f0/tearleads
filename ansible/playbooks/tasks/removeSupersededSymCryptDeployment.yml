@@ -1,0 +1,35 @@
+---
+- name: Inspect superseded SymCrypt systemd units
+  ansible.builtin.stat:
+    path: "/etc/systemd/system/{{ item }}"
+  loop:
+    - symcrypt-api.service
+    - symcrypt-blob-gc.service
+    - symcrypt-blob-gc.timer
+    - symcrypt-code-assist.service
+    - symcrypt-stripe-seat-sync.service
+    - symcrypt-stripe-seat-sync.timer
+  register: superseded_symcrypt_units
+
+- name: Stop and disable superseded SymCrypt systemd units
+  ansible.builtin.systemd:
+    name: "{{ item.item }}"
+    enabled: false
+    state: stopped
+  loop: "{{ superseded_symcrypt_units.results }}"
+  when: item.stat.exists
+
+- name: Remove superseded SymCrypt systemd unit files
+  ansible.builtin.file:
+    path: "/etc/systemd/system/{{ item.item }}"
+    state: absent
+  loop: "{{ superseded_symcrypt_units.results }}"
+  when: item.stat.exists
+
+- name: Remove superseded SymCrypt application directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /opt/symcrypt
+    - /etc/symcrypt

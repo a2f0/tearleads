@@ -1,5 +1,5 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
-import type { AnyVerifiedPrincipalPolicy } from "@symcrypt/crypto";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import type { AnyVerifiedPrincipalPolicy } from "@tearleads/crypto";
 import type { ContainerWriterProjectionContext } from "./types";
 
 export function createContainerWriterProjectionContext(

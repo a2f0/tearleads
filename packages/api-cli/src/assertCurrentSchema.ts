@@ -1,8 +1,8 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
   organizationBilling,
   organizationBillingLifecycleEvents,
-} from "@symcrypt/api-shared/schema";
+} from "@tearleads/api-shared/schema";
 
 const RESET_REQUIRED_MESSAGE =
   "API database schema is not the current greenfield baseline; destroy and reprovision the database before deploying this release";

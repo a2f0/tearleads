@@ -5,7 +5,7 @@ import type {
   ContainerDirectGrant,
   DocumentLinkSetManifestState,
   ReferencedPrincipalHead,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import {
   accessManifestCheckpoint,
   containerAccessManifestStateRecord,

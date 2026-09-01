@@ -3,7 +3,7 @@ import type {
   DocumentAttributionRangesInput,
   DocumentAttributionRangesPage,
   DocumentInfo,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import {
   act,
   cleanup,

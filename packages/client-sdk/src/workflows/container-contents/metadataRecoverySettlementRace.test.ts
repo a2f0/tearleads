@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import { bytesToBase64 } from "@symcrypt/encoding";
-import { createDocument, exportAllUpdates } from "@symcrypt/loro";
-import { createTestExecSql } from "@symcrypt/test-utils";
+import { bytesToBase64 } from "@tearleads/encoding";
+import { createDocument, exportAllUpdates } from "@tearleads/loro";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { writeContainerMetadataValue } from "../../data/containers/containerMetadataDocument";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import {

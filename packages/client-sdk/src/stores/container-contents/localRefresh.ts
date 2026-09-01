@@ -1,4 +1,4 @@
-import { encodeVersionVector } from "@symcrypt/loro";
+import { encodeVersionVector } from "@tearleads/loro";
 import { errorMessage } from "../../data/errorMessage";
 import type { ContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import { loadLocalContainerStates } from "../../workflows/container-contents/localState";

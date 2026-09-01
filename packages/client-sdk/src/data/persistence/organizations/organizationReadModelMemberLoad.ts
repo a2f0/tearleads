@@ -2,7 +2,7 @@ import type {
   OrganizationGroupMemberResponse,
   OrganizationGroupMembersResponse,
   OrganizationRole,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { and, asc, eq } from "drizzle-orm";
 import {
   organizationReadModelGroupMembers,

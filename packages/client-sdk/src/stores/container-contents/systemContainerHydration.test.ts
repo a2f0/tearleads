@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { KeyingVerificationError } from "@symcrypt/crypto";
-import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
+import { KeyingVerificationError } from "@tearleads/crypto";
+import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { probeExistingSystemContainer } from "./systemContainerHydration";
 import type { ContainerContentsStoreState } from "./types";
 

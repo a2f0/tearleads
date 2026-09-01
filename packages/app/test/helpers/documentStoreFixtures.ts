@@ -1,11 +1,11 @@
-import type { DocumentsRuntime } from "@symcrypt/client-sdk";
+import type { DocumentsRuntime } from "@tearleads/client-sdk";
 import {
   createDocumentsWorkflowRuntime,
   createDomainScope,
   type DocumentsPersistence,
   type PendingUpdateInsert,
-} from "@symcrypt/client-sdk";
-import { createMockApiClient } from "@symcrypt/test-utils";
+} from "@tearleads/client-sdk";
+import { createMockApiClient } from "@tearleads/test-utils";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../src/document-types/projectors";
 import { createMemoryPullContinuationPersistence } from "./document-store/documentPullContinuationPersistence";
 import {

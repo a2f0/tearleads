@@ -1,9 +1,9 @@
-import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
-import type { ContainerCreateWithMetadataDocumentRequest } from "@symcrypt/validators/request";
+import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import type { ContainerCreateWithMetadataDocumentRequest } from "@tearleads/validators/request";
 import type {
   ContainerCreateWithMetadataDocumentResponse,
   ContainerWriterProjectionResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { locallyAcknowledgedContainerMutationHead } from "../../../data/containers/shared/mutationAcknowledgement";
 import {
   isContainerManifestAlreadyExistsConflict,

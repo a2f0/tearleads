@@ -1,7 +1,7 @@
 import type {
   BlobAttachmentBindResponse,
   BlobAttachmentDetachResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { uniqueSortedStrings } from "../../utils/array";
 import { publishBestEffort } from "../../utils/publishBestEffort";
 import { summarizeSha256Stream } from "../../utils/sha256";

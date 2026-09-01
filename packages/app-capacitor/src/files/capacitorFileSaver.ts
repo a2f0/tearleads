@@ -1,5 +1,5 @@
 import { Share } from "@capacitor/share";
-import type { FileSaver, SaveFileRequest } from "@symcrypt/client-sdk";
+import type { FileSaver, SaveFileRequest } from "@tearleads/client-sdk";
 import { deleteCacheFile, writeCacheFile } from "./capacitorCacheFile";
 
 // Capacitor runs inside a WebView (iOS WKWebView / Android System WebView) that

@@ -2,8 +2,8 @@ import { expect, test } from "bun:test";
 import {
   createDocumentStore,
   createMemoryBlobStore,
-} from "@symcrypt/client-sdk";
-import { generateKemSeedAndKeyPair } from "@symcrypt/crypto";
+} from "@tearleads/client-sdk";
+import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import { cloneDocumentsTestRuntime } from "../../../../test/helpers/document-store/documentStoreSyncFixtures";
 import { createDocumentsPersistence } from "../../../../test/helpers/document-store/documentStoreSyncPersistence";
 import { createOfflineAttachmentRuntime } from "../../../../test/helpers/document-store/documentStoreSyncRuntime";

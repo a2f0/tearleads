@@ -1,7 +1,7 @@
 # Durable User Identity Trust
 
 The client SDK applies trust on first use (TOFU) to complete user identity
-bundles. `symcrypt.userIdentities.resolve(userId)` fetches the
+bundles. `tearleads.userIdentities.resolve(userId)` fetches the
 `/auth/user-identity/:userId` resource, validates it, and returns canonical
 ML-DSA-87 and ML-KEM-1024 public keys plus both computed SHA-256 fingerprints.
 Every signature-verification and user-recipient encryption workflow uses the

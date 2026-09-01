@@ -2,9 +2,9 @@ import {
   type ContainerKekRecipientTarget,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
-} from "@symcrypt/crypto";
-import { createTestExecSql } from "@symcrypt/test-utils";
-import type { ContainerWriterProjectionResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import { createTestExecSql } from "@tearleads/test-utils";
+import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import {
   buildMaterializedContainerCreatePlan,
   childContainerWriterProjectionFromCreatePlan,

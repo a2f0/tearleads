@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { db } from "@symcrypt/api-shared/postgres";
+import { db } from "@tearleads/api-shared/postgres";
 import {
   containerMetadataDocuments,
   containers,
@@ -8,8 +8,8 @@ import {
   organizationRosterEntries,
   organizations,
   users,
-} from "@symcrypt/api-shared/schema";
-import { createTestUser, type TestUser } from "@symcrypt/bob-and-alice";
+} from "@tearleads/api-shared/schema";
+import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import {
   type CreateOrganizationRequest,
   type DocumentCreateRequest,
@@ -17,11 +17,11 @@ import {
   isProvisionedDocumentRequest,
   type ProvisionedDocumentRequest,
   type ProvisionedSystemContainerRequest,
-} from "@symcrypt/validators/request";
+} from "@tearleads/validators/request";
 import {
   isCreateOrganizationResponse,
   isDocumentSyncResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
 import invariant from "invariant";
 import {

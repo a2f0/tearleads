@@ -1,4 +1,4 @@
-import type { DocumentClientProjectionDefinition } from "@symcrypt/client-sdk";
+import type { DocumentClientProjectionDefinition } from "@tearleads/client-sdk";
 import { index, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { readCreditCardFieldsFromRecord } from "../document-types/credit-card/creditCardDocumentDefinition";
 import { createDocumentSqlProjection } from "./createDocumentSqlProjection";

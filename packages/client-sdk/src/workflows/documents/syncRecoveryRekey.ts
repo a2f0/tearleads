@@ -1,5 +1,5 @@
-import { base64ToBytes } from "@symcrypt/encoding";
-import type { DocumentSyncResponse } from "@symcrypt/validators/response";
+import { base64ToBytes } from "@tearleads/encoding";
+import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import type { DocumentSyncSubmitFailure } from "../../data/documents/shared/types";
 import {
   MAX_PENDING_UPDATE_REKEYS,

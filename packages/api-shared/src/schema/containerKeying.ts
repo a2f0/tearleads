@@ -1,4 +1,4 @@
-import type { KekRecipientKind } from "@symcrypt/crypto";
+import type { KekRecipientKind } from "@tearleads/crypto";
 import { sql } from "drizzle-orm";
 import {
   check,
@@ -26,7 +26,7 @@ import {
  * Columns:
  * - `id`: Crypto-level container key epoch id. This is the primary key and is
  *   referenced by content-key target rows. App-created ids use the
- *   `symcrypt.container-kek.v1.sha256:<hash>` format, which lets clients
+ *   `tearleads.container-kek.v1.sha256:<hash>` format, which lets clients
  *   verify unwrapped KEK material against the signed epoch id.
  * - `containerId`: Container whose KEK this epoch belongs to.
  * - `keyEpoch`: Monotonic numeric key epoch for the container.
@@ -121,8 +121,8 @@ export const containerKeyEpochs = pgTable(
  *   verification.
  * - `kemCipherText`: KEM ciphertext/capsule for principal recipients, or the
  *   AES-GCM IV for parent-container recipients. Principal wraps use
- *   `symcrypt.container-kek-wrap.ml-kem-1024-aes-256-gcm`; parent-container
- *   wraps use `symcrypt.container-kek-wrap.aes-256-gcm-parent-kek`.
+ *   `tearleads.container-kek-wrap.ml-kem-1024-aes-256-gcm`; parent-container
+ *   wraps use `tearleads.container-kek-wrap.aes-256-gcm-parent-kek`.
  * - `wrappedKey`: Encrypted container KEK material for this recipient.
  * - `wrapManifestHash`: Access manifest hash whose current target set
  *   authorized this wrap.

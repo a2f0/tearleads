@@ -1,5 +1,5 @@
 ---
-- name: Configure SymCrypt server
+- name: Configure Tearleads server
   hosts: all
   become: true
 
@@ -19,8 +19,8 @@
       - { key: "MaxAuthTries", value: "3" }
       - { key: "KbdInteractiveAuthentication", value: "no" }
     postgres_version: "16"
-    postgres_db: "{{ lookup('env', 'POSTGRES_DATABASE') | default('symcrypt', true) }}"
-    postgres_user: "{{ lookup('env', 'POSTGRES_USER') | default('symcrypt', true) }}"
+    postgres_db: "{{ lookup('env', 'POSTGRES_DATABASE') | default('tearleads', true) }}"
+    postgres_user: "{{ lookup('env', 'POSTGRES_USER') | default('tearleads', true) }}"
     postgres_password: >-
       {{ lookup('env', 'POSTGRES_PASSWORD') |
       default(lookup('ansible.builtin.password', playbook_dir +
@@ -73,7 +73,7 @@
     garage_metrics_token: "{{ lookup('env', 'GARAGE_METRICS_TOKEN') | default('', true) }}"
     blob_object_store_default: "{{ 's3' if garage_enabled | bool else 'memory' }}"
     blob_object_store: "{{ lookup('env', 'BLOB_OBJECT_STORE') | default(blob_object_store_default, true) }}"
-    blob_s3_bucket: "{{ lookup('env', 'BLOB_OBJECT_STORE_S3_BUCKET') | default('symcrypt-blobs', true) }}"
+    blob_s3_bucket: "{{ lookup('env', 'BLOB_OBJECT_STORE_S3_BUCKET') | default('tearleads-blobs', true) }}"
     blob_s3_region: "{{ lookup('env', 'BLOB_OBJECT_STORE_S3_REGION') | default('garage', true) }}"
     blob_s3_endpoint: "{{ lookup('env', 'BLOB_OBJECT_STORE_S3_ENDPOINT') | default('http://127.0.0.1:3900', true) }}"
     blob_s3_force_path_style: "{{ lookup('env', 'BLOB_OBJECT_STORE_S3_FORCE_PATH_STYLE') | default('true', true) }}"
@@ -324,42 +324,44 @@
         group: "{{ server_user }}"
         mode: "0755"
       loop:
-        - /opt/symcrypt
-        - /opt/symcrypt/bin
-        - /etc/symcrypt
+        - /opt/tearleads
+        - /opt/tearleads/bin
+        - /etc/tearleads
 
     - name: Configure Garage S3 object storage
       ansible.builtin.import_tasks: tasks/garage.yml
 
     - name: Deploy API environment file
       ansible.builtin.template:
-        src: etc/symcrypt/api.env.j2
-        dest: /etc/symcrypt/api.env
+        src: etc/tearleads/api.env.j2
+        dest: /etc/tearleads/api.env
         owner: root
         group: "{{ server_user }}"
         mode: "0640"
-      notify: Restart symcrypt-api
+      notify: Restart tearleads-api
       no_log: true
+    - name: Remove superseded SymCrypt deployment
+      ansible.builtin.import_tasks: tasks/removeSupersededSymCryptDeployment.yml
 
     - name: Deploy API systemd service
       ansible.builtin.template:
-        src: etc/systemd/system/symcrypt-api.service.j2
-        dest: /etc/systemd/system/symcrypt-api.service
+        src: etc/systemd/system/tearleads-api.service.j2
+        dest: /etc/systemd/system/tearleads-api.service
         owner: root
         group: root
         mode: "0644"
-      notify: Restart symcrypt-api
+      notify: Restart tearleads-api
 
     - name: Enable API systemd service
       ansible.builtin.systemd:
-        name: symcrypt-api
+        name: tearleads-api
         daemon_reload: true
         enabled: true
 
     - name: Configure API maintenance timers
       ansible.builtin.import_tasks: tasks/apiMaintenance.yml
 
-    - name: Configure symcrypt-code-assist
+    - name: Configure tearleads-code-assist
       ansible.builtin.import_tasks: tasks/codeAssist.yml
       when: code_assist_enabled | bool
 
@@ -469,30 +471,30 @@
         daemon_reload: true
         state: restarted
 
-    - name: Check if symcrypt-api binary exists
+    - name: Check if tearleads-api binary exists
       ansible.builtin.stat:
-        path: /opt/symcrypt/bin/symcrypt-api
-      register: symcrypt_api_bin
-      listen: Restart symcrypt-api
+        path: /opt/tearleads/bin/tearleads-api
+      register: tearleads_api_bin
+      listen: Restart tearleads-api
 
-    - name: Restart symcrypt-api service
+    - name: Restart tearleads-api service
       ansible.builtin.systemd:
-        name: symcrypt-api
+        name: tearleads-api
         daemon_reload: true
         state: restarted
-      when: symcrypt_api_bin.stat.exists | default(false)
-      listen: Restart symcrypt-api
+      when: tearleads_api_bin.stat.exists | default(false)
+      listen: Restart tearleads-api
 
-    - name: Check if symcrypt-code-assist binary exists
+    - name: Check if tearleads-code-assist binary exists
       ansible.builtin.stat:
-        path: /opt/symcrypt/bin/symcrypt-code-assist
-      register: symcrypt_code_assist_bin
-      listen: Restart symcrypt-code-assist
+        path: /opt/tearleads/bin/tearleads-code-assist
+      register: tearleads_code_assist_bin
+      listen: Restart tearleads-code-assist
 
-    - name: Restart symcrypt-code-assist service
+    - name: Restart tearleads-code-assist service
       ansible.builtin.systemd:
-        name: symcrypt-code-assist
+        name: tearleads-code-assist
         daemon_reload: true
         state: restarted
-      when: symcrypt_code_assist_bin.stat.exists | default(false)
-      listen: Restart symcrypt-code-assist
+      when: tearleads_code_assist_bin.stat.exists | default(false)
+      listen: Restart tearleads-code-assist

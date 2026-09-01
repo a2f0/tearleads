@@ -5,9 +5,9 @@ import {
   generateSigningSeedAndKeyPair,
   type PrincipalPolicySignerPublicKey,
   toFingerprint,
-} from "@symcrypt/crypto";
-import { createTestExecSql } from "@symcrypt/test-utils";
-import type { PrincipalPolicyBundleResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import { createTestExecSql } from "@tearleads/test-utils";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleAfterMutation,

@@ -4,14 +4,14 @@ import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   toFingerprint,
-} from "@symcrypt/crypto";
-import { createTestExecSql } from "@symcrypt/test-utils";
+} from "@tearleads/crypto";
+import { createTestExecSql } from "@tearleads/test-utils";
 import type {
   CreateOrganizationGroupRequest,
   ProvisionedDocumentRequest,
   ProvisionedSystemContainerRequest,
   RegistrationRequest,
-} from "@symcrypt/validators/request";
+} from "@tearleads/validators/request";
 import { execSqlClientFromExecSql } from "../../../test/helpers/execSqlClient";
 import { respondToRegistration } from "../../../test/helpers/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";

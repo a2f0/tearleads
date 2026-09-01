@@ -1,4 +1,4 @@
-import type { FileSaver } from "@symcrypt/client-sdk";
+import type { FileSaver } from "@tearleads/client-sdk";
 import { downloadBytesAsFile } from "../utils/downloadFile";
 
 const TEXT_ENCODER = new TextEncoder();
@@ -11,7 +11,7 @@ export function createSeedPhraseFileName(input: {
     ? `${input.signingFingerprint.slice(0, 12)}-`
     : "";
   const timestamp = input.timestamp ?? new Date();
-  return `symcrypt-seed-phrase-${fingerprintPrefix}${timestamp
+  return `tearleads-seed-phrase-${fingerprintPrefix}${timestamp
     .toISOString()
     .replaceAll(":", "-")}.txt`;
 }

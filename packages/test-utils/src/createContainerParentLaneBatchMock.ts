@@ -1,6 +1,6 @@
-import type { ApiClient } from "@symcrypt/api-client";
-import type { ListContainerParentLanesRequest } from "@symcrypt/validators/request";
-import type { ListContainersResponse } from "@symcrypt/validators/response";
+import type { ApiClient } from "@tearleads/api-client";
+import type { ListContainerParentLanesRequest } from "@tearleads/validators/request";
+import type { ListContainersResponse } from "@tearleads/validators/response";
 
 export type ContainerParentLaneBatchMockInput = Omit<
   ListContainerParentLanesRequest["lanes"][number],

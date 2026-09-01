@@ -1,4 +1,4 @@
-import { encodeVersionVector, exportUpdatesSince } from "@symcrypt/loro";
+import { encodeVersionVector, exportUpdatesSince } from "@tearleads/loro";
 import {
   getDefaultContainerName,
   readContainerMetadataValue,

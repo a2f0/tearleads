@@ -5,8 +5,8 @@ import {
   generateKemSeedAndKeyPair,
   verifyWriteHeader,
   type WriteHeader,
-} from "@symcrypt/crypto";
-import { bytesToBase64 } from "@symcrypt/encoding";
+} from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
   exportAllUpdates,
@@ -14,19 +14,19 @@ import {
   getTextValue,
   getUpdateVersionVectors,
   importUpdates,
-} from "@symcrypt/loro";
+} from "@tearleads/loro";
 import {
   createContainerWriterProjectionFixture,
   createTestExecSql,
-} from "@symcrypt/test-utils";
+} from "@tearleads/test-utils";
 import {
   type DocumentSyncRequest,
   isDocumentSyncRequest,
-} from "@symcrypt/validators/request";
+} from "@tearleads/validators/request";
 import {
   DOCUMENT_SYNC_ERROR_CODES,
   type DocumentWriterProjectionResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import {
   createParentProjection,
   createParentProjectionUserKeyResolver,

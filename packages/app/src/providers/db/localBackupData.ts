@@ -1,9 +1,9 @@
-import type { BlobBytes, BlobStore } from "@symcrypt/client-sdk";
+import type { BlobBytes, BlobStore } from "@tearleads/client-sdk";
 import {
   type ExecSql,
   runSerializedSqlMutation,
-} from "@symcrypt/client-sdk/sqlite";
-import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
+} from "@tearleads/client-sdk/sqlite";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
   preflightSecurityAnchorRestore,
   quoteSqlIdentifier,

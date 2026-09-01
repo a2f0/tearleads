@@ -3,7 +3,7 @@ import {
   AES_GCM_TAG_BYTES,
   type KeyingCanonicalJson,
   serializeKeyingCanonicalJson,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import type { BlobBytes } from "../../../blobContracts";
 import {
   type BLOB_ENCRYPTED_BYTES_FORMAT,

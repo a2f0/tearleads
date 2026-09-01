@@ -1,8 +1,8 @@
 import { expect } from "bun:test";
-import { createTestUser, type TestUser } from "@symcrypt/bob-and-alice";
-import { computeDocumentContentKeyTargetHash } from "@symcrypt/crypto";
-import type { DocumentCreateResponse } from "@symcrypt/validators/response";
-import { isContainerMutationResponse } from "@symcrypt/validators/response";
+import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
+import { computeDocumentContentKeyTargetHash } from "@tearleads/crypto";
+import type { DocumentCreateResponse } from "@tearleads/validators/response";
+import { isContainerMutationResponse } from "@tearleads/validators/response";
 import { routeApp } from "../../src/routeApp";
 import { authenticate } from "./authenticate";
 import {

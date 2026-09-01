@@ -9,7 +9,7 @@
     }
   },
   "info": {
-    "title": "SymCrypt Protocol API",
+    "title": "Tearleads Protocol API",
     "version": "0.1.0"
   },
   "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
@@ -11554,7 +11554,7 @@
           }
         },
         "security": [],
-        "x-symcrypt-runtime-refinements": [
+        "x-tearleads-runtime-refinements": [
           {
             "description": "authorizingContainerPathRefs is required when outgoingUpdates is non-empty",
             "id": "request.authorizing-paths-for-writes"
@@ -12635,7 +12635,7 @@
           }
         },
         "security": [],
-        "x-symcrypt-runtime-refinements": [
+        "x-tearleads-runtime-refinements": [
           {
             "description": "Authorization must match the configured RevenueCat webhook secret in constant time",
             "id": "request.revenuecat-webhook-authorization"
@@ -12759,7 +12759,7 @@
           }
         },
         "security": [],
-        "x-symcrypt-runtime-refinements": [
+        "x-tearleads-runtime-refinements": [
           {
             "description": "Stripe-Signature must authenticate the exact raw request body within the replay tolerance",
             "id": "request.stripe-webhook-signature"
@@ -13014,7 +13014,7 @@
           {
             "explode": false,
             "in": "header",
-            "name": "x-symcrypt-blob-part-byte-length",
+            "name": "x-tearleads-blob-part-byte-length",
             "required": true,
             "schema": {
               "maxLength": 9,
@@ -13027,7 +13027,7 @@
           {
             "explode": false,
             "in": "header",
-            "name": "x-symcrypt-blob-part-sha256",
+            "name": "x-tearleads-blob-part-sha256",
             "required": true,
             "schema": {
               "maxLength": 64,
@@ -13040,7 +13040,7 @@
           {
             "explode": false,
             "in": "header",
-            "name": "x-symcrypt-blob-upload-id",
+            "name": "x-tearleads-blob-upload-id",
             "required": true,
             "schema": {
               "type": "string",
@@ -13230,7 +13230,7 @@
             "bearerAuth": []
           }
         ],
-        "x-symcrypt-runtime-refinements": [
+        "x-tearleads-runtime-refinements": [
           {
             "description": "Declared multipart part byte length is at most 104857600",
             "id": "blobs.multipartPart.declaredByteLengthMax"
@@ -15166,7 +15166,7 @@
             },
             "description": "Successful binary response",
             "headers": {
-              "x-symcrypt-blob-byte-length": {
+              "x-tearleads-blob-byte-length": {
                 "required": false,
                 "schema": {
                   "maxLength": 16,
@@ -15174,14 +15174,14 @@
                   "type": "string"
                 }
               },
-              "x-symcrypt-blob-id": {
+              "x-tearleads-blob-id": {
                 "required": true,
                 "schema": {
                   "type": "string",
                   "minLength": 1
                 }
               },
-              "x-symcrypt-blob-sha256": {
+              "x-tearleads-blob-sha256": {
                 "required": true,
                 "schema": {
                   "type": "string",
@@ -15318,9 +15318,9 @@
             "bearerAuth": []
           }
         ],
-        "x-symcrypt-runtime-refinements": [
+        "x-tearleads-runtime-refinements": [
           {
-            "description": "Blob byte responses include X-SymCrypt-Blob-Byte-Length or Content-Length",
+            "description": "Blob byte responses include X-Tearleads-Blob-Byte-Length or Content-Length",
             "id": "blobs.bytes.byteLengthHeader"
           },
           {
@@ -15717,7 +15717,7 @@
             "bearerAuth": []
           }
         ],
-        "x-symcrypt-runtime-refinements": [
+        "x-tearleads-runtime-refinements": [
           {
             "description": "container parent-lane request lane ids must be unique",
             "id": "request.container-parent-lane-unique-ids"
@@ -17257,7 +17257,7 @@
             "bearerAuth": []
           }
         ],
-        "x-symcrypt-runtime-refinements": [
+        "x-tearleads-runtime-refinements": [
           {
             "description": "a container response keyring is null exactly for container key epoch 1",
             "id": "response.organization-provisioning-container-keyring"
@@ -17594,7 +17594,7 @@
             "bearerAuth": []
           }
         ],
-        "x-symcrypt-runtime-refinements": [
+        "x-tearleads-runtime-refinements": [
           {
             "description": "container-document watermark fields must be supplied together with a parseable date",
             "id": "request.container-documents-watermark"
@@ -17892,7 +17892,7 @@
             "bearerAuth": []
           }
         ],
-        "x-symcrypt-runtime-refinements": [
+        "x-tearleads-runtime-refinements": [
           {
             "description": "a container KEK log page contains at most one sealed keyring",
             "id": "response.container-kek-log-single-keyring"
@@ -18706,7 +18706,7 @@
             "bearerAuth": []
           }
         ],
-        "x-symcrypt-runtime-refinements": [
+        "x-tearleads-runtime-refinements": [
           {
             "description": "a container response keyring is null exactly for container key epoch 1",
             "id": "response.organization-provisioning-container-keyring"
@@ -19520,7 +19520,7 @@
             "bearerAuth": []
           }
         ],
-        "x-symcrypt-runtime-refinements": [
+        "x-tearleads-runtime-refinements": [
           {
             "description": "a container response keyring is null exactly for container key epoch 1",
             "id": "response.organization-provisioning-container-keyring"
@@ -20334,7 +20334,7 @@
             "bearerAuth": []
           }
         ],
-        "x-symcrypt-runtime-refinements": [
+        "x-tearleads-runtime-refinements": [
           {
             "description": "a container response keyring is null exactly for container key epoch 1",
             "id": "response.organization-provisioning-container-keyring"
@@ -21148,7 +21148,7 @@
             "bearerAuth": []
           }
         ],
-        "x-symcrypt-runtime-refinements": [
+        "x-tearleads-runtime-refinements": [
           {
             "description": "a container response keyring is null exactly for container key epoch 1",
             "id": "response.organization-provisioning-container-keyring"
@@ -21540,7 +21540,7 @@
             "bearerAuth": []
           }
         ],
-        "x-symcrypt-runtime-refinements": [
+        "x-tearleads-runtime-refinements": [
           {
             "description": "containerKeks must contain exactly one entry for every manifest in path",
             "id": "response.container-writer-projection-path-kek-count"
@@ -22539,7 +22539,7 @@
             "bearerAuth": []
           }
         ],
-        "x-symcrypt-runtime-refinements": [
+        "x-tearleads-runtime-refinements": [
           {
             "description": "a container response keyring is null exactly for container key epoch 1",
             "id": "response.organization-provisioning-container-keyring"
@@ -23330,7 +23330,7 @@
             "bearerAuth": []
           }
         ],
-        "x-symcrypt-runtime-refinements": [
+        "x-tearleads-runtime-refinements": [
           {
             "description": "document attribution segment start counters are less than end counters",
             "id": "response.document-attribution-counter-range"
@@ -23632,7 +23632,7 @@
             "bearerAuth": []
           }
         ],
-        "x-symcrypt-runtime-refinements": [
+        "x-tearleads-runtime-refinements": [
           {
             "description": "document attribution segment start counters are less than end counters",
             "id": "response.document-attribution-counter-range"
@@ -24530,7 +24530,7 @@
             "bearerAuth": []
           }
         ],
-        "x-symcrypt-runtime-refinements": [
+        "x-tearleads-runtime-refinements": [
           {
             "description": "authorizingContainerPathRefs and targetContainerPathRefs may contain at most 6400 references in total",
             "id": "request.post-link-authorization-path-total-references"
@@ -27455,7 +27455,7 @@
             "bearerAuth": []
           }
         ],
-        "x-symcrypt-runtime-refinements": [
+        "x-tearleads-runtime-refinements": [
           {
             "description": "authorizingContainerPathRefs is required when outgoingUpdates is non-empty",
             "id": "request.authorizing-paths-for-writes"
@@ -28393,7 +28393,7 @@
             "bearerAuth": []
           }
         ],
-        "x-symcrypt-runtime-refinements": [
+        "x-tearleads-runtime-refinements": [
           {
             "description": "authorizingContainerPathRefs and targetContainerPathRefs may contain at most 6400 references in total",
             "id": "request.post-link-authorization-path-total-references"
@@ -29170,7 +29170,7 @@
             "bearerAuth": []
           }
         ],
-        "x-symcrypt-runtime-refinements": [
+        "x-tearleads-runtime-refinements": [
           {
             "description": "containerKeks must contain exactly one entry for every manifest in path",
             "id": "response.container-writer-projection-path-kek-count"
@@ -31141,7 +31141,7 @@
             "bearerAuth": []
           }
         ],
-        "x-symcrypt-runtime-refinements": [
+        "x-tearleads-runtime-refinements": [
           {
             "description": "assignedSeatCount equals the number of assignedUserIds in the response",
             "id": "response.organization-billing-assigned-seats"
@@ -31517,7 +31517,7 @@
             "bearerAuth": []
           }
         ],
-        "x-symcrypt-runtime-refinements": [
+        "x-tearleads-runtime-refinements": [
           {
             "description": "returnUrl parses as HTTP(S) and its origin matches the configured app origins",
             "id": "request.stripe-return-url-origin"
@@ -32161,7 +32161,7 @@
             "bearerAuth": []
           }
         ],
-        "x-symcrypt-runtime-refinements": [
+        "x-tearleads-runtime-refinements": [
           {
             "description": "returnUrl parses as HTTP(S) and its origin matches the configured app origins",
             "id": "request.stripe-return-url-origin"
@@ -32448,7 +32448,7 @@
             "bearerAuth": []
           }
         ],
-        "x-symcrypt-runtime-refinements": [
+        "x-tearleads-runtime-refinements": [
           {
             "description": "assignedSeatCount equals the number of assignedUserIds in the response",
             "id": "response.organization-billing-assigned-seats"
@@ -32716,7 +32716,7 @@
             "bearerAuth": []
           }
         ],
-        "x-symcrypt-runtime-refinements": [
+        "x-tearleads-runtime-refinements": [
           {
             "description": "assignedSeatCount equals the number of assignedUserIds in the response",
             "id": "response.organization-billing-assigned-seats"
@@ -32958,7 +32958,7 @@
             "bearerAuth": []
           }
         ],
-        "x-symcrypt-runtime-refinements": [
+        "x-tearleads-runtime-refinements": [
           {
             "description": "totalByteLength equals the sum of document and blob byte lengths",
             "id": "response.organization-data-usage-total-byte-length"
@@ -36324,7 +36324,7 @@
             "bearerAuth": []
           }
         ],
-        "x-symcrypt-runtime-refinements": [
+        "x-tearleads-runtime-refinements": [
           {
             "description": "a container response keyring is null exactly for container key epoch 1",
             "id": "response.organization-provisioning-container-keyring"
@@ -38006,7 +38006,7 @@
             "bearerAuth": []
           }
         ],
-        "x-symcrypt-runtime-refinements": [
+        "x-tearleads-runtime-refinements": [
           {
             "description": "a container response keyring is null exactly for container key epoch 1",
             "id": "response.organization-provisioning-container-keyring"
@@ -40314,7 +40314,7 @@
             "bearerAuth": []
           }
         ],
-        "x-symcrypt-runtime-refinements": [
+        "x-tearleads-runtime-refinements": [
           {
             "description": "a container response keyring is null exactly for container key epoch 1",
             "id": "response.organization-provisioning-container-keyring"
@@ -41793,7 +41793,7 @@
             "bearerAuth": []
           }
         ],
-        "x-symcrypt-runtime-refinements": [
+        "x-tearleads-runtime-refinements": [
           {
             "description": "read-model lanes match the response organization; grants and memberships are unambiguous; snapshot lanes are complete and contain no deletions",
             "id": "response.organization-read-model-consistency"
@@ -53379,7 +53379,7 @@
             "bearerAuth": []
           }
         ],
-        "x-symcrypt-runtime-refinements": [
+        "x-tearleads-runtime-refinements": [
           {
             "description": "authorizingContainerPathRefs is required when outgoingUpdates is non-empty",
             "id": "request.authorizing-paths-for-writes"
@@ -55750,7 +55750,7 @@
             "bearerAuth": []
           }
         ],
-        "x-symcrypt-runtime-refinements": [
+        "x-tearleads-runtime-refinements": [
           {
             "description": "a container response keyring is null exactly for container key epoch 1",
             "id": "response.organization-provisioning-container-keyring"

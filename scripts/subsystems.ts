@@ -230,7 +230,7 @@ export const subsystems: readonly Subsystem[] = [
     package: "client-sdk",
     responsibility:
       "Client-side document open/list/delete, the per-scope document store, document workflow operations, persisted-document registry, and document summary/sync contracts.",
-    seam: "symcrypt.documents facade; workflows/documents",
+    seam: "tearleads.documents facade; workflows/documents",
     paths: [
       `${sdk}/workflows/documents/`,
       `${sdk}/data/documents/`,
@@ -244,7 +244,7 @@ export const subsystems: readonly Subsystem[] = [
     package: "client-sdk",
     responsibility:
       "Container tree projections, container metadata documents, document discovery/links/queries, blob info, and sync-state read models for product UI.",
-    seam: "symcrypt.containerContents facade; workflows/container-contents",
+    seam: "tearleads.containerContents facade; workflows/container-contents",
     paths: [
       `${sdk}/workflows/container-contents/`,
       `${sdk}/stores/container-contents/`,
@@ -265,7 +265,7 @@ export const subsystems: readonly Subsystem[] = [
     package: "client-sdk",
     responsibility:
       "Active blob store selection (ephemeral vs identity-namespaced), OPFS/memory byte stores, encrypted envelopes, and blob workflow operations.",
-    seam: "symcrypt.blobs facade; workflows/blobs; blobContracts",
+    seam: "tearleads.blobs facade; workflows/blobs; blobContracts",
     paths: [
       `${sdk}/workflows/blobs/`,
       `${sdk}/data/blobs/`,
@@ -278,7 +278,7 @@ export const subsystems: readonly Subsystem[] = [
     package: "client-sdk",
     responsibility:
       "Org directory/groups/grants/usage/user-detail read models, roster/profile mutations, and atomic principal-container rematerialization for the client.",
-    seam: "symcrypt.organizations facade; workflows/organizations",
+    seam: "tearleads.organizations facade; workflows/organizations",
     paths: [`${sdk}/workflows/organizations/`, `${sdk}/client/organizations/`],
   },
   {
@@ -302,7 +302,7 @@ export const subsystems: readonly Subsystem[] = [
     package: "client-sdk",
     responsibility:
       "The per-DomainScope sync coordinator (lanes, phases, coalescing), device-first local projection + background reconciliation, and the scope/peer-seed primitives that drive cache invalidation.",
-    seam: "symcrypt.deviceFirst facade; sync workflow facade snapshots",
+    seam: "tearleads.deviceFirst facade; sync workflow facade snapshots",
     paths: [
       `${sdk}/workflows/sync/`,
       `${sdk}/data/sync/`,
@@ -346,8 +346,8 @@ export const subsystems: readonly Subsystem[] = [
     name: "SQLite Runtime",
     package: "client-sdk",
     responsibility:
-      "The local SQLite executor, Drizzle schema, transaction serialization, and the @symcrypt/client-sdk/sqlite public worker-runtime entry point.",
-    seam: "@symcrypt/client-sdk/sqlite subpath; data/sqlite",
+      "The local SQLite executor, Drizzle schema, transaction serialization, and the @tearleads/client-sdk/sqlite public worker-runtime entry point.",
+    seam: "@tearleads/client-sdk/sqlite subpath; data/sqlite",
     paths: [`${sdk}/data/sqlite/`, `${sdk}/sqlite.ts`],
   },
   {
@@ -378,7 +378,7 @@ export const subsystems: readonly Subsystem[] = [
     package: "client-sdk",
     responsibility:
       "Durable, redacted detection records and host notifications for terminal client trust-boundary verification failures.",
-    seam: "symcrypt.securityIncidents facade; onSecurityIncident callback",
+    seam: "tearleads.securityIncidents facade; onSecurityIncident callback",
     paths: [
       `${sdk}/client/securityIncidents.ts`,
       `${sdk}/data/securityIncidents.ts`,
@@ -388,10 +388,10 @@ export const subsystems: readonly Subsystem[] = [
     name: "SDK Runtime & Composition Root",
     package: "client-sdk",
     responsibility:
-      "The SymCrypt facade that wires every SDK subsystem object, the runtime-snapshot projector, the SQLite database handle, the events/network state, logging, the platform I/O capability contracts (NetworkStatusSource, FileSaver), and the package root entry point.",
-    seam: "new SymCrypt(options); the package root index",
+      "The Tearleads facade that wires every SDK subsystem object, the runtime-snapshot projector, the SQLite database handle, the events/network state, logging, the platform I/O capability contracts (NetworkStatusSource, FileSaver), and the package root entry point.",
+    seam: "new Tearleads(options); the package root index",
     paths: [
-      `${sdk}/client/SymCrypt.ts`,
+      `${sdk}/client/Tearleads.ts`,
       `${sdk}/client/index.ts`,
       `${sdk}/client/rootContainerAdoption.ts`,
       `${sdk}/client/workflowRuntime.ts`,
@@ -530,7 +530,7 @@ export const subsystems: readonly Subsystem[] = [
     name: "Theming",
     package: "app",
     responsibility:
-      "Color themes: the theme registry, persisted selection, the `<html data-theme>` attribute stamp, and the footer theme toggle. The per-theme design-token blocks themselves live in @symcrypt/ui's styles.css.",
+      "Color themes: the theme registry, persisted selection, the `<html data-theme>` attribute stamp, and the footer theme toggle. The per-theme design-token blocks themselves live in @tearleads/ui's styles.css.",
     seam: "theme/ThemeProvider; theme/themes",
     paths: [`${app}/theme/`],
   },

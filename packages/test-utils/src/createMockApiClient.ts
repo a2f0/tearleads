@@ -1,5 +1,5 @@
-import { ApiClient, type RequestFailure } from "@symcrypt/api-client";
-import type { ListContainersResponse } from "@symcrypt/validators/response";
+import { ApiClient, type RequestFailure } from "@tearleads/api-client";
+import type { ListContainersResponse } from "@tearleads/validators/response";
 
 type PublicApiClient = Pick<ApiClient, keyof ApiClient>;
 

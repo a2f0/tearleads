@@ -1,12 +1,12 @@
 import { expect, spyOn, test } from "bun:test";
-import { db } from "@symcrypt/api-shared/postgres";
+import { db } from "@tearleads/api-shared/postgres";
 import {
   organizationBilling,
   revenuecatWebhookEvents,
   users,
-} from "@symcrypt/api-shared/schema";
-import { createTestUser, type TestUser } from "@symcrypt/bob-and-alice";
-import type { RevenueCatWebhookEvent } from "@symcrypt/validators/request";
+} from "@tearleads/api-shared/schema";
+import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
+import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { registerUser } from "../../../test/helpers/registerUser";
@@ -46,7 +46,7 @@ function appStorePurchase(input: {
     expiration_at_ms: now + THIRTY_DAYS_MS,
     id: input.eventId,
     original_transaction_id: input.eventId,
-    product_id: "com.symcrypt.sync.monthly",
+    product_id: "com.tearleads.sync.monthly",
     purchased_at_ms: now,
     store: input.store ?? "APP_STORE",
     // A native store purchase carries no transaction metadata, so the org is
@@ -172,7 +172,7 @@ test("a verified native binding accepts a delayed initial event outside the defa
     .set({
       provider: "revenuecat",
       providerCustomerId: user.userId,
-      providerProductId: "com.symcrypt.sync.monthly",
+      providerProductId: "com.tearleads.sync.monthly",
       providerSubscriptionId: eventId,
       seatCount: 1,
       status: "active",
@@ -186,7 +186,7 @@ test("a verified native binding accepts a delayed initial event outside the defa
     organizationId,
     originalTransactionId: eventId,
     outcome: "applied",
-    productId: "com.symcrypt.sync.monthly",
+    productId: "com.tearleads.sync.monthly",
     store: "TEST_STORE",
   });
 
@@ -315,7 +315,7 @@ test("a native product change stays pending until its effective event", async ()
 
   expect(outcome).toMatchObject({ organizationId, status: "applied" });
   expect(await readBillingStatus(organizationId)).toMatchObject({
-    providerProductId: "com.symcrypt.sync.monthly",
+    providerProductId: "com.tearleads.sync.monthly",
     seatCount: 1,
   });
   expect(
@@ -351,7 +351,7 @@ test("bound lifecycle grants reuse the immutable native tier", async () => {
     });
     expect(outcome).toMatchObject({ organizationId, status: "applied" });
     expect(await readBillingStatus(organizationId)).toMatchObject({
-      providerProductId: "com.symcrypt.sync.monthly",
+      providerProductId: "com.tearleads.sync.monthly",
       providerSubscriptionId: initial.original_transaction_id,
       seatCount: 1,
     });
@@ -405,7 +405,7 @@ test("an anonymous native buyer id is claimed without reaching the UUID query", 
 
   expect(outcome).toEqual({
     status: "ignored",
-    reason: "Native purchase buyer is not a SymCrypt user",
+    reason: "Native purchase buyer is not a Tearleads user",
   });
   expect(await readEventOutcome(eventId)).toBe("ignored");
 });

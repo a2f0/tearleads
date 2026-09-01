@@ -1,14 +1,14 @@
-import { users } from "@symcrypt/api-shared/schema";
+import { users } from "@tearleads/api-shared/schema";
 import {
   NATIVE_SUBSCRIPTION_STORES,
   type NativeSubscriptionStore,
-} from "@symcrypt/validators/billing";
+} from "@tearleads/validators/billing";
 import type {
   RevenueCatIncomingWebhookEvent,
   RevenueCatTransferWebhookEvent,
-} from "@symcrypt/validators/request";
-import { isRevenueCatTransferWebhookEvent } from "@symcrypt/validators/request";
-import { isUuidV4String } from "@symcrypt/validators/util";
+} from "@tearleads/validators/request";
+import { isRevenueCatTransferWebhookEvent } from "@tearleads/validators/request";
+import { isUuidV4String } from "@tearleads/validators/util";
 import { eq } from "drizzle-orm";
 import { isNativeSubscriptionMoveConflict } from "../../billing/databaseErrors";
 import {
@@ -249,7 +249,7 @@ async function processVerifiedRevenueCatTransfer(input: {
     if (!destination) {
       return ignoreRevenueCatTransfer({
         event: input.event,
-        reason: "Transfer destination is not a SymCrypt user",
+        reason: "Transfer destination is not a Tearleads user",
         runtime: input.runtime,
       });
     }
@@ -284,7 +284,7 @@ async function processVerifiedRevenueCatTransfer(input: {
   if (!destination) {
     return ignoreRevenueCatTransfer({
       event: input.event,
-      reason: "Transfer destination is not a SymCrypt user",
+      reason: "Transfer destination is not a Tearleads user",
       runtime: input.runtime,
     });
   }
@@ -343,7 +343,7 @@ async function processRevenueCatTransfer(
   if (!appUserId) {
     return ignoreRevenueCatTransfer({
       event,
-      reason: "Transfer destination is not a SymCrypt user",
+      reason: "Transfer destination is not a Tearleads user",
       runtime,
     });
   }

@@ -1,10 +1,10 @@
-import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
-import { containerBuiltinGrants } from "@symcrypt/api-shared/schema";
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import { containerBuiltinGrants } from "@tearleads/api-shared/schema";
 import type {
   OrganizationProvisioningRequest,
   ProvisionedSystemContainerRequest,
-} from "@symcrypt/validators/request";
-import type { ContainerCreateWithMetadataDocumentResponse } from "@symcrypt/validators/response";
+} from "@tearleads/validators/request";
+import type { ContainerCreateWithMetadataDocumentResponse } from "@tearleads/validators/response";
 import { createContainer } from "../containers/mutations/createContainer";
 import {
   applyContainerSystemSlot,

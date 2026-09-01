@@ -1,4 +1,4 @@
-import type { ContainerInfo, ContainerNode } from "@symcrypt/client-sdk";
+import type { ContainerInfo, ContainerNode } from "@tearleads/client-sdk";
 import { useState } from "react";
 import { MiniAppSelectMenu } from "../../../../components/mini-app/controls/MiniAppSelectMenu";
 import {

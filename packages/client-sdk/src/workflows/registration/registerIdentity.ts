@@ -8,15 +8,15 @@ import {
   signPrincipalState,
   toFingerprint,
   wrapDekForRecipients,
-} from "@symcrypt/crypto";
-import { bytesToBase64 } from "@symcrypt/encoding";
+} from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import type {
   CreateOrganizationGroupRequest,
   ProvisionedDocumentRequest,
   ProvisionedSystemContainerRequest,
   RegistrationRequest,
-} from "@symcrypt/validators/request";
-import type { RegistrationResponse } from "@symcrypt/validators/response";
+} from "@tearleads/validators/request";
+import type { RegistrationResponse } from "@tearleads/validators/response";
 import type { DocumentProjectorRegistryInput } from "../../data/documents/documentKinds";
 import { encodeOrganizationAuthorityDescriptor } from "../../data/principals/organizationAuthorityDescriptor";
 import type { ExecSqlClientLike } from "../../data/sqlite/sqlSchema";

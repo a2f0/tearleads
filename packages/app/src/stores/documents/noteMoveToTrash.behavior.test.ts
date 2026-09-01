@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { defaultDocumentsPersistence } from "@symcrypt/client-sdk";
-import { createTestExecSql } from "@symcrypt/test-utils";
+import { defaultDocumentsPersistence } from "@tearleads/client-sdk";
+import { createTestExecSql } from "@tearleads/test-utils";
 
 // Desired-behavior successor to the PR-1 characterization test that pinned the
 // Notes "Move to Trash" hard delete. Notes now moves a note into its org's Trash

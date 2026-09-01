@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploy the SymCrypt app-web static bundles to a server environment.
+# Deploy the Tearleads app-web static bundles to a server environment.
 
 set -euo pipefail
 

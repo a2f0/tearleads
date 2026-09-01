@@ -4,8 +4,8 @@ import {
   encodeVersionVector,
   exportAllUpdates,
   importUpdates,
-} from "@symcrypt/loro";
-import { createTestExecSql } from "@symcrypt/test-utils";
+} from "@tearleads/loro";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import {
   insertTestPendingUpdate,

@@ -1,4 +1,4 @@
-import type { SQLiteRuntime } from "@symcrypt/client-sdk/sqlite";
+import type { SQLiteRuntime } from "@tearleads/client-sdk/sqlite";
 
 interface Deferred<T = void> {
   promise: Promise<T>;

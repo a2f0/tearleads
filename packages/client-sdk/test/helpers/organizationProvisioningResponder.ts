@@ -1,6 +1,6 @@
-import type { ApiClient } from "@symcrypt/api-client";
-import type { OrganizationProvisioningRequest } from "@symcrypt/validators/request";
-import type { OrganizationProvisioningResponse } from "@symcrypt/validators/response";
+import type { ApiClient } from "@tearleads/api-client";
+import type { OrganizationProvisioningRequest } from "@tearleads/validators/request";
+import type { OrganizationProvisioningResponse } from "@tearleads/validators/response";
 import { createMutationResponseFromRequest } from "./containerFixtures";
 import { createResponseFromRequest } from "./documentFixtures";
 

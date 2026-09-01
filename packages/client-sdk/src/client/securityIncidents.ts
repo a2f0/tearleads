@@ -1,4 +1,4 @@
-import { isKeyingVerificationCode } from "@symcrypt/crypto";
+import { isKeyingVerificationCode } from "@tearleads/crypto";
 import { isKeyingVerificationError } from "../data/keyingProjectionVerification/error";
 import {
   appendSecurityIncident,

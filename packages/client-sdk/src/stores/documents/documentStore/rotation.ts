@@ -1,4 +1,4 @@
-import { encodeVersionVector, versionVectorsEqual } from "@symcrypt/loro";
+import { encodeVersionVector, versionVectorsEqual } from "@tearleads/loro";
 import {
   createDocumentWriterPublicKeyResolver,
   type DocumentSyncPullContinuation,

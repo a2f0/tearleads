@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@symcrypt/test-utils";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentsPersistence } from "./documentsPersistence";
 
 test("discovery and relink preserve malformed continuation recovery for the same identity", async () => {

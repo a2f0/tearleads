@@ -1,4 +1,7 @@
-import type { BlobStore, DocumentAttachmentUpload } from "@symcrypt/client-sdk";
+import type {
+  BlobStore,
+  DocumentAttachmentUpload,
+} from "@tearleads/client-sdk";
 import { useMemo } from "react";
 import { ContactAvatarControl } from "../../../document-types/contact/ContactAvatarControl";
 import { getContactDisplayName } from "../../../document-types/contact/contactDocumentModel";

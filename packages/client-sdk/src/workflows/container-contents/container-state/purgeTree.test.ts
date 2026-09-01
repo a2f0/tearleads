@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createTestExecSql } from "@symcrypt/test-utils";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/containers/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import type { ContainerState } from "../remoteHydration";

@@ -1,4 +1,4 @@
-import type { OrganizationGroupSummaryResponse } from "@symcrypt/validators/response";
+import type { OrganizationGroupSummaryResponse } from "@tearleads/validators/response";
 
 export function toGroupSummary(input: {
   createdAt: Date;

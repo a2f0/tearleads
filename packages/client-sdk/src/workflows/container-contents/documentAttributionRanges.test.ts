@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { ListDocumentEditAttributionRangesResponse } from "@symcrypt/validators/response";
+import type { ListDocumentEditAttributionRangesResponse } from "@tearleads/validators/response";
 import { loadDocumentAttributionRanges } from "./documentAttributionRanges";
 
 test("loadDocumentAttributionRanges forwards pagination and returns the page", async () => {

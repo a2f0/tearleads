@@ -3,8 +3,8 @@ import type {
   ContainerDocumentQueries,
   ContainerDocumentSidebarRow,
   ContainerNode,
-} from "@symcrypt/client-sdk";
-import { syncedContainerDocumentObjectSyncState } from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
+import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import {
   createExplorerOrphanedDocumentsNode,

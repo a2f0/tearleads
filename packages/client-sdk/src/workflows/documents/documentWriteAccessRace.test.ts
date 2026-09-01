@@ -3,9 +3,9 @@ import {
   createDocument,
   encodeVersionVector,
   exportUpdatesSince,
-} from "@symcrypt/loro";
-import { execDatabaseStatement } from "@symcrypt/sqlite-worker/load-sqlite3";
-import { initTestSqliteDatabase } from "@symcrypt/test-utils";
+} from "@tearleads/loro";
+import { execDatabaseStatement } from "@tearleads/sqlite-worker/load-sqlite3";
+import { initTestSqliteDatabase } from "@tearleads/test-utils";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { createPendingUpdateFields } from "../../data/documents/documentSync";
 import {

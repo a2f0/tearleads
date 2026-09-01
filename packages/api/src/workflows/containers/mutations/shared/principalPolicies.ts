@@ -1,15 +1,15 @@
-import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
-import { gatherWithExecutor } from "@symcrypt/api-shared/postgres";
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import { gatherWithExecutor } from "@tearleads/api-shared/postgres";
 import type {
   PrincipalPolicySignedState,
   PrincipalProjectionMember,
   ReferencedPrincipalHead,
   VerifiedPrincipalPolicy,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import {
   normalizePrincipalContainerGrants,
   normalizePrincipalProjectionMembers,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import {
   getCurrentPrincipalStates,
   listPrincipalProjectionMembersForStates,

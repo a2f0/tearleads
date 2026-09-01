@@ -1,16 +1,16 @@
-import { bytesToBase64 } from "@symcrypt/encoding";
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
   type createDocument,
   encodeVersionVector,
   exportFullHistorySnapshot,
   getTextValue,
   listVersionVectorSpans,
-} from "@symcrypt/loro";
+} from "@tearleads/loro";
 import type {
   ContainerWriterProjectionResponse,
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { sqlDocumentsPersistence } from "../../src/data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
 import { loadDocumentInfo } from "../../src/workflows/container-contents/documentInfo";

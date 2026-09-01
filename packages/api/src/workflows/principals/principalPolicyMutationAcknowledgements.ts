@@ -1,14 +1,14 @@
-import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
-import { principalPolicyMutationAcknowledgements } from "@symcrypt/api-shared/schema";
-import type { ReferencedPrincipalHead } from "@symcrypt/crypto";
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import { principalPolicyMutationAcknowledgements } from "@tearleads/api-shared/schema";
+import type { ReferencedPrincipalHead } from "@tearleads/crypto";
 import {
   type ContainerMutationRequest,
   isContainerMutationRequest,
-} from "@symcrypt/validators/request";
+} from "@tearleads/validators/request";
 import {
   type ContainerMutationResponse,
   isContainerMutationResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { and, asc, eq } from "drizzle-orm";
 import { readProjectionAccessEvent } from "../../keyingProjectionRecords";
 import { canonicalJsonEquals } from "../../utils/canonicalJson";

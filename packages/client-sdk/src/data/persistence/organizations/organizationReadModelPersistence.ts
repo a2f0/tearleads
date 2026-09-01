@@ -2,7 +2,7 @@ import type {
   ListOrganizationGroupsResponse,
   OrganizationReadModelDirectoryResponse,
   OrganizationReadModelResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import { organizationDataUsageTables } from "../../sqlite/organizationDataUsageSchema";
 import {

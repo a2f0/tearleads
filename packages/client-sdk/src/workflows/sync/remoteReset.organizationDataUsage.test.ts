@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import type { RequestResult } from "@symcrypt/api-client";
-import { createTestExecSql } from "@symcrypt/test-utils";
-import type { OrganizationDataUsageResponse } from "@symcrypt/validators/response";
+import type { RequestResult } from "@tearleads/api-client";
+import { createTestExecSql } from "@tearleads/test-utils";
+import type { OrganizationDataUsageResponse } from "@tearleads/validators/response";
 import {
   dataUsage,
   organizationId,

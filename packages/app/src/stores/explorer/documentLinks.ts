@@ -3,7 +3,7 @@ import type {
   DocumentSummary,
   MergeDocumentSummary,
   SetLinkedContainerIdsForDocument,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 
 export function canMutateSelectedDocument(appData: ContainerDocumentLinks) {
   return appData.canMutateDocumentLinks;

@@ -1,15 +1,15 @@
 import type {
   ApiDatabase,
   DatabaseSession,
-} from "@symcrypt/api-shared/postgres";
+} from "@tearleads/api-shared/postgres";
 import {
   organizationBilling,
   organizationBillingSeatAssignments,
   organizationBillingSeatEvents,
   organizationBillingStripeSeats,
   revenuecatWebhookEvents,
-} from "@symcrypt/api-shared/schema";
-import { getSyncBillingTierForNativeProduct } from "@symcrypt/validators/billing";
+} from "@tearleads/api-shared/schema";
+import { getSyncBillingTierForNativeProduct } from "@tearleads/validators/billing";
 import { and, eq, inArray, isNull, ne } from "drizzle-orm";
 import {
   LAPSED_BILLING_PURGE_GRACE_MS,

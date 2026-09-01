@@ -3,9 +3,9 @@ import {
   computeAccessManifestHash,
   type DocumentLinkSetManifestState,
   deriveDocumentLinkSetManifest,
-} from "@symcrypt/crypto";
-import { isPlainObject as isPlainRecord } from "@symcrypt/validators/isPlainObject";
-import type { DocumentCreateResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
+import type { DocumentCreateResponse } from "@tearleads/validators/response";
 import {
   canonicalKeyingJsonString,
   readCanonicalRecord,

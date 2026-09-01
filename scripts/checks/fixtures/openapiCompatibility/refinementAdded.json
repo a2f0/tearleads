@@ -29,7 +29,7 @@
             "description": "No content"
           }
         },
-        "x-symcrypt-runtime-refinements": [
+        "x-tearleads-runtime-refinements": [
           {
             "description": "name must not collide with an existing widget",
             "id": "request.unique-widget-name"

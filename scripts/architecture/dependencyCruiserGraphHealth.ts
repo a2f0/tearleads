@@ -4,7 +4,7 @@ const knownNpmEdge = {
 } as const;
 
 const knownWorkspaceEdge = {
-  module: "@symcrypt/encoding",
+  module: "@tearleads/encoding",
   resolved: "packages/encoding/src/index.ts",
   source: "packages/crypto/src/keying/accessEvent.ts",
 } as const;

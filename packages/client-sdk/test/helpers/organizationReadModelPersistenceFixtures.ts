@@ -7,7 +7,7 @@ import type {
   OrganizationReadModelGroupMembershipsResponse,
   OrganizationReadModelOrganizationPolicyResponse,
   OrganizationReadModelSnapshotResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 
 const CREATED_AT = "2026-07-16T12:00:00.000Z";
 

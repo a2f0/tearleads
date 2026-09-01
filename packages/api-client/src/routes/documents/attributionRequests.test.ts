@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   getDocumentAttributionOperation,
   listDocumentAttributionRangesOperation,
-} from "@symcrypt/validators/operation";
+} from "@tearleads/validators/operation";
 import {
   getDocumentAttribution,
   listDocumentAttributionRanges,

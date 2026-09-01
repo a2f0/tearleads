@@ -3,9 +3,9 @@ import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   toFingerprint,
-} from "@symcrypt/crypto";
-import { bytesToBase64 } from "@symcrypt/encoding";
-import { isRegistrationRequest } from "@symcrypt/validators/request";
+} from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
+import { isRegistrationRequest } from "@tearleads/validators/request";
 import type {
   DestroySessionResponse,
   ListContainerParentLanesResponse,
@@ -13,7 +13,7 @@ import type {
   OrganizationBillingResponse,
   UserIdentityResponse,
   VerifyResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { sql } from "drizzle-orm";
 import { HttpResponse, http, ws } from "msw";
 import { setupServer } from "msw/node";
@@ -90,11 +90,11 @@ const [appTestRuntimeModuleUrl, apiPostgresAdapterModuleUrl] = [
 ].map((path) => new URL(path, import.meta.url).href) as [string, string];
 
 const appTestProcessState = globalThis as typeof globalThis & {
-  __symcryptAppTestProcessState?: AppTestProcessState;
+  __tearleadsAppTestProcessState?: AppTestProcessState;
 };
 
 function getOrCreateTestProcessState(): AppTestProcessState {
-  const existing = appTestProcessState.__symcryptAppTestProcessState;
+  const existing = appTestProcessState.__tearleadsAppTestProcessState;
   if (existing) {
     return existing;
   }
@@ -102,7 +102,7 @@ function getOrCreateTestProcessState(): AppTestProcessState {
   const created: AppTestProcessState = {
     hasLoadedApiRuntimeModule: false,
   };
-  appTestProcessState.__symcryptAppTestProcessState = created;
+  appTestProcessState.__tearleadsAppTestProcessState = created;
   return created;
 }
 
@@ -554,7 +554,7 @@ async function ensureTestApiApp(): Promise<TestApiApp> {
     const runtime = {
       blobObjectStore: createMemoryBlobObjectStore(),
       db,
-      documentSyncCursorHmacKey: "symcrypt-test-document-sync-cursor-hmac-key",
+      documentSyncCursorHmacKey: "tearleads-test-document-sync-cursor-hmac-key",
       eventPublisher,
       keyValueStore,
       sessionTokenIssuer: {

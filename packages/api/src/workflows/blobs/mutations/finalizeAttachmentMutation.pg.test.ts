@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { db, getDefaultApiDatabaseKind } from "@symcrypt/api-shared/postgres";
-import { blobs, documents } from "@symcrypt/api-shared/schema";
+import { db, getDefaultApiDatabaseKind } from "@tearleads/api-shared/postgres";
+import { blobs, documents } from "@tearleads/api-shared/schema";
 import { eq, sql } from "drizzle-orm";
 import { finalizeAttachmentMutation } from "./finalizeAttachmentMutation";
 

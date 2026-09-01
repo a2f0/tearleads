@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { SymCrypt } from "@symcrypt/client-sdk";
+import type { Tearleads } from "@tearleads/client-sdk";
 import {
   attachOrganizationReadModelSocket,
   ensureOrganizationReadModelReconciliation,
@@ -30,7 +30,7 @@ function createRuntimeHarness(input?: {
       null
     );
   };
-  const symcrypt = {
+  const tearleads = {
     organizations: {
       loadDirectoryAndGroups,
       loadDirectoryAndGroupsAfterMutation,
@@ -46,7 +46,7 @@ function createRuntimeHarness(input?: {
         state: { domainScope, online },
       }),
     },
-  } as unknown as SymCrypt;
+  } as unknown as Tearleads;
 
   return {
     get reconcileCalls() {
@@ -55,7 +55,7 @@ function createRuntimeHarness(input?: {
     setOnline(nextOnline: boolean) {
       online = nextOnline;
     },
-    symcrypt,
+    tearleads,
   };
 }
 
@@ -71,7 +71,7 @@ function fakeOpenSocket() {
 }
 
 function acknowledgeLatestDeclaration(
-  symcrypt: SymCrypt,
+  tearleads: Tearleads,
   socket: ReturnType<typeof fakeOpenSocket>,
 ): void {
   const declaration = JSON.parse(socket.sent.at(-1) ?? "null") as {
@@ -86,7 +86,7 @@ function acknowledgeLatestDeclaration(
     throw new Error("Expected an organization interest declaration");
   }
   handleOrganizationReadModelInterestAcknowledgement(
-    symcrypt,
+    tearleads,
     socket.ws,
     declaration.declarationId,
     typeof declaration.organizationIds[0] === "string"
@@ -99,9 +99,12 @@ function acknowledgeLatestDeclaration(
 test("offline first demand stays local and reconciles once after resubscribe online", async () => {
   const runtime = createRuntimeHarness({ online: false });
   const socket = fakeOpenSocket();
-  const detach = attachOrganizationReadModelSocket(runtime.symcrypt, socket.ws);
+  const detach = attachOrganizationReadModelSocket(
+    runtime.tearleads,
+    socket.ws,
+  );
   const unsubscribeOffline = subscribeOrganizationReadModelRealtime(
-    runtime.symcrypt,
+    runtime.tearleads,
     ORGANIZATION_ID,
     () => undefined,
   );
@@ -113,13 +116,13 @@ test("offline first demand stays local and reconciles once after resubscribe onl
   unsubscribeOffline();
   runtime.setOnline(true);
   const unsubscribeOnline = subscribeOrganizationReadModelRealtime(
-    runtime.symcrypt,
+    runtime.tearleads,
     ORGANIZATION_ID,
     () => undefined,
   );
-  acknowledgeLatestDeclaration(runtime.symcrypt, socket);
+  acknowledgeLatestDeclaration(runtime.tearleads, socket);
   await ensureOrganizationReadModelReconciliation(
-    runtime.symcrypt,
+    runtime.tearleads,
     ORGANIZATION_ID,
   );
 
@@ -139,7 +142,7 @@ test("offline first demand stays local and reconciles once after resubscribe onl
 test("prolonged realtime outage falls back to one HTTP reconciliation", async () => {
   const runtime = createRuntimeHarness();
   const unsubscribe = subscribeOrganizationReadModelRealtime(
-    runtime.symcrypt,
+    runtime.tearleads,
     ORGANIZATION_ID,
     () => undefined,
   );
@@ -174,15 +177,18 @@ test("disconnected fallback trails an in-flight connected snapshot", async () =>
     },
   });
   const socket = fakeOpenSocket();
-  const detach = attachOrganizationReadModelSocket(runtime.symcrypt, socket.ws);
+  const detach = attachOrganizationReadModelSocket(
+    runtime.tearleads,
+    socket.ws,
+  );
   const unsubscribe = subscribeOrganizationReadModelRealtime(
-    runtime.symcrypt,
+    runtime.tearleads,
     ORGANIZATION_ID,
     () => undefined,
   );
-  acknowledgeLatestDeclaration(runtime.symcrypt, socket);
+  acknowledgeLatestDeclaration(runtime.tearleads, socket);
   const catchUp = ensureOrganizationReadModelReconciliation(
-    runtime.symcrypt,
+    runtime.tearleads,
     ORGANIZATION_ID,
   );
   await firstRequestStarted;
@@ -214,27 +220,27 @@ test("reconnect trails a catch-up that started before interest declaration", asy
   });
   const firstSocket = fakeOpenSocket();
   const detachFirst = attachOrganizationReadModelSocket(
-    runtime.symcrypt,
+    runtime.tearleads,
     firstSocket.ws,
   );
   detachFirst();
 
   const unsubscribe = subscribeOrganizationReadModelRealtime(
-    runtime.symcrypt,
+    runtime.tearleads,
     ORGANIZATION_ID,
     () => undefined,
   );
   const catchUp = ensureOrganizationReadModelReconciliation(
-    runtime.symcrypt,
+    runtime.tearleads,
     ORGANIZATION_ID,
   );
   await requestStarted;
   const secondSocket = fakeOpenSocket();
   const detachSecond = attachOrganizationReadModelSocket(
-    runtime.symcrypt,
+    runtime.tearleads,
     secondSocket.ws,
   );
-  acknowledgeLatestDeclaration(runtime.symcrypt, secondSocket);
+  acknowledgeLatestDeclaration(runtime.tearleads, secondSocket);
   releaseRequest?.();
   await catchUp;
   await Promise.resolve();
@@ -256,30 +262,30 @@ test("reconnect catches up again after a disconnected pass completed", async () 
   const runtime = createRuntimeHarness();
   const firstSocket = fakeOpenSocket();
   const detachFirst = attachOrganizationReadModelSocket(
-    runtime.symcrypt,
+    runtime.tearleads,
     firstSocket.ws,
   );
   detachFirst();
 
   const unsubscribe = subscribeOrganizationReadModelRealtime(
-    runtime.symcrypt,
+    runtime.tearleads,
     ORGANIZATION_ID,
     () => undefined,
   );
   await ensureOrganizationReadModelReconciliation(
-    runtime.symcrypt,
+    runtime.tearleads,
     ORGANIZATION_ID,
   );
   expect(runtime.reconcileCalls).toBe(1);
 
   const secondSocket = fakeOpenSocket();
   const detachSecond = attachOrganizationReadModelSocket(
-    runtime.symcrypt,
+    runtime.tearleads,
     secondSocket.ws,
   );
-  acknowledgeLatestDeclaration(runtime.symcrypt, secondSocket);
+  acknowledgeLatestDeclaration(runtime.tearleads, secondSocket);
   await ensureOrganizationReadModelReconciliation(
-    runtime.symcrypt,
+    runtime.tearleads,
     ORGANIZATION_ID,
   );
 
@@ -314,20 +320,23 @@ test("post-declaration catch-up waits out SDK reconciliation begun while disconn
     },
   });
   const unsubscribe = subscribeOrganizationReadModelRealtime(
-    runtime.symcrypt,
+    runtime.tearleads,
     ORGANIZATION_ID,
     () => undefined,
   );
   const disconnectedCatchUp =
-    runtime.symcrypt.organizations.loadDirectoryAndGroups();
+    runtime.tearleads.organizations.loadDirectoryAndGroups();
   await Promise.resolve();
   expect(underlyingRequests).toBe(1);
 
   const socket = fakeOpenSocket();
-  const detach = attachOrganizationReadModelSocket(runtime.symcrypt, socket.ws);
-  acknowledgeLatestDeclaration(runtime.symcrypt, socket);
+  const detach = attachOrganizationReadModelSocket(
+    runtime.tearleads,
+    socket.ws,
+  );
+  acknowledgeLatestDeclaration(runtime.tearleads, socket);
   const declaredCatchUp = ensureOrganizationReadModelReconciliation(
-    runtime.symcrypt,
+    runtime.tearleads,
     ORGANIZATION_ID,
   );
   await Promise.resolve();
@@ -360,30 +369,30 @@ test("reconnect retries a failed first-demand catch-up", async () => {
   });
   const firstSocket = fakeOpenSocket();
   const detachFirst = attachOrganizationReadModelSocket(
-    runtime.symcrypt,
+    runtime.tearleads,
     firstSocket.ws,
   );
   detachFirst();
 
   const unsubscribe = subscribeOrganizationReadModelRealtime(
-    runtime.symcrypt,
+    runtime.tearleads,
     ORGANIZATION_ID,
     () => undefined,
   );
   await ensureOrganizationReadModelReconciliation(
-    runtime.symcrypt,
+    runtime.tearleads,
     ORGANIZATION_ID,
   );
   expect(runtime.reconcileCalls).toBe(1);
 
   const secondSocket = fakeOpenSocket();
   const detachSecond = attachOrganizationReadModelSocket(
-    runtime.symcrypt,
+    runtime.tearleads,
     secondSocket.ws,
   );
-  acknowledgeLatestDeclaration(runtime.symcrypt, secondSocket);
+  acknowledgeLatestDeclaration(runtime.tearleads, secondSocket);
   await ensureOrganizationReadModelReconciliation(
-    runtime.symcrypt,
+    runtime.tearleads,
     ORGANIZATION_ID,
   );
 

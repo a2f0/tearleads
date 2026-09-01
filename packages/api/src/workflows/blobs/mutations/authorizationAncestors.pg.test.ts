@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import { db, getDefaultApiDatabaseKind } from "@symcrypt/api-shared/postgres";
-import { accessManifestHeads } from "@symcrypt/api-shared/schema";
-import { createTestUser } from "@symcrypt/bob-and-alice";
+import { db, getDefaultApiDatabaseKind } from "@tearleads/api-shared/postgres";
+import { accessManifestHeads } from "@tearleads/api-shared/schema";
+import { createTestUser } from "@tearleads/bob-and-alice";
 import { and, eq } from "drizzle-orm";
 import { authenticate } from "../../../../test/helpers/authenticate";
 import { gateTransactionExecuteAfterExecution } from "../../../../test/helpers/gateDatabaseExecute";

@@ -1,4 +1,4 @@
-import type { ContainerNode } from "@symcrypt/client-sdk";
+import type { ContainerNode } from "@tearleads/client-sdk";
 import {
   getMiniAppVirtualWindowRange,
   MINI_APP_VIRTUAL_SIDEBAR_ROW_HEIGHT,

@@ -1,9 +1,9 @@
 // After a local backup is restored, the SQLite database and its root container
 // have been replaced, but browser-local caches written BEFORE the restore still
 // point at the pre-restore root:
-//   - symcrypt.local-session:*  the persisted crypto session, which pins the
+//   - tearleads.local-session:*  the persisted crypto session, which pins the
 //     active root container (see localCryptoSessionPersistence.ts);
-//   - symcrypt.documents*, symcrypt.container-metadata*  the per-scope CRDT
+//   - tearleads.documents*, tearleads.container-metadata*  the per-scope CRDT
 //     peer seeds for the documents / container-metadata trees (see the
 //     DOCUMENTS_APP_KIND / CONTAINER_METADATA_APP_KIND scopes fed to
 //     getScopedPeerSeed in client-sdk's crdtPeerSeed.ts).
@@ -12,14 +12,14 @@
 // them lets the next reload re-derive the root container and read models from the
 // restored database.
 //
-// The identity registry (symcrypt.app.local-identity-*) is deliberately left
+// The identity registry (tearleads.app.local-identity-*) is deliberately left
 // intact so the same per-identity database file is reopened. This mirrors the
 // screenshot pipeline's clearStaleLocalState (packages/app-web/screenshots/
 // appShell.ts) — keep the two prefix lists in sync.
 const STALE_RESTORE_CACHE_PREFIXES = [
-  "symcrypt.local-session",
-  "symcrypt.documents",
-  "symcrypt.container-metadata",
+  "tearleads.local-session",
+  "tearleads.documents",
+  "tearleads.container-metadata",
 ] as const;
 
 type ClearableStorage = Pick<Storage, "key" | "length" | "removeItem">;

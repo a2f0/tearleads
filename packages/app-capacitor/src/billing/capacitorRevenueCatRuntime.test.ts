@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { STORE_REPLACEMENT_MODE } from "@revenuecat/purchases-capacitor";
-import type { PurchasesCapability } from "@symcrypt/client-sdk";
+import type { PurchasesCapability } from "@tearleads/client-sdk";
 import {
   getCachedCapacitorPurchases,
   setCachedCapacitorPurchases,

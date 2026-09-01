@@ -1,11 +1,11 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
   accessManifestDocumentLinkProjection,
   accessManifestHeads,
   containerMetadataDocuments,
   containers,
-} from "@symcrypt/api-shared/schema";
-import { deriveOrganizationRosterProfileContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
+} from "@tearleads/api-shared/schema";
+import { deriveOrganizationRosterProfileContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { and, eq, inArray } from "drizzle-orm";
 import { uniqueSortedStrings } from "../../utils/array";
 

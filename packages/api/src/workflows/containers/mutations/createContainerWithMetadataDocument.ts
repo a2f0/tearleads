@@ -1,7 +1,7 @@
-import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
-import { containers } from "@symcrypt/api-shared/schema";
-import type { ContainerCreateWithMetadataDocumentRequest } from "@symcrypt/validators/request";
-import type { ContainerCreateWithMetadataDocumentResponse } from "@symcrypt/validators/response";
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import { containers } from "@tearleads/api-shared/schema";
+import type { ContainerCreateWithMetadataDocumentRequest } from "@tearleads/validators/request";
+import type { ContainerCreateWithMetadataDocumentResponse } from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import { createDocumentWithExecutor } from "../../documents/mutations/createDocument";

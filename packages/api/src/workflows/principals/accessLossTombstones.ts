@@ -1,11 +1,11 @@
-import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import {
   accessManifestContainerGrantProjection,
   accessManifestHeads,
   containerSyncTombstones,
   containers,
   principalMembershipProjection,
-} from "@symcrypt/api-shared/schema";
+} from "@tearleads/api-shared/schema";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   getCurrentPrincipalStates,

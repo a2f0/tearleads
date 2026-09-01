@@ -18,17 +18,17 @@ function WorkspaceProbe() {
 }
 
 test("scopes the base namespace by workspace id", () => {
-  expect(localIdentityNamespaceForWorkspace("symcrypt.app", 1)).toBe(
-    "symcrypt.app.workspace-1",
+  expect(localIdentityNamespaceForWorkspace("tearleads.app", 1)).toBe(
+    "tearleads.app.workspace-1",
   );
-  expect(localIdentityNamespaceForWorkspace("symcrypt.app", 2)).toBe(
-    "symcrypt.app.workspace-2",
+  expect(localIdentityNamespaceForWorkspace("tearleads.app", 2)).toBe(
+    "tearleads.app.workspace-2",
   );
 });
 
 test("falls back to the default base when none is provided", () => {
   expect(localIdentityNamespaceForWorkspace(undefined, 1)).toBe(
-    "symcrypt.pane.workspace-1",
+    "tearleads.pane.workspace-1",
   );
 });
 

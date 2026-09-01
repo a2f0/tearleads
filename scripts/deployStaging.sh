@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Full staging deployment for SymCrypt
+# Full staging deployment for Tearleads
 #
 # Runs in order:
 #   1. terraform apply (staging server stack)
@@ -82,7 +82,7 @@ print_timing_summary() {
   printf '  %-12s %s\n' "total" "$(format_duration "$((SECONDS - DEPLOY_START))")"
 }
 
-echo "=== SymCrypt Staging Deployment ==="
+echo "=== Tearleads Staging Deployment ==="
 echo ""
 
 if [[ "$SKIP_INFRA" == true ]]; then

@@ -5,11 +5,11 @@ import {
   listDocumentAttributionRangesOperation,
   operationRequestPath,
   operationRequestPathWithQuery,
-} from "@symcrypt/validators/operation";
+} from "@tearleads/validators/operation";
 import type {
   DocumentEditAttributionResponse,
   ListDocumentEditAttributionRangesResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { BoundedCache } from "../../ApiCache";
 import { dedupedRequest } from "../../requestInternals";
 import type {

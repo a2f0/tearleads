@@ -6,11 +6,11 @@ import {
   type VerifiedDocumentLinkSetSnapshot,
   type VerifiedPrincipalPolicy,
   verifyDocumentLinkSetManifest,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import type {
   AccessManifestBundleWireResponse,
   DocumentWriterProjectionResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { readCanonicalJson } from "../keyingCanonicalJson";
 import type { ExecSql } from "../sqlite/sqlSchema";
 import {

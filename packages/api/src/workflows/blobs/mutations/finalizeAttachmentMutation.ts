@@ -1,4 +1,4 @@
-import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { touchDocumentAndLinkedContainers } from "../../documents/mutations/shared/documentRows";
 import { markBlobDereferencedIfInactive } from "./persistence";
 

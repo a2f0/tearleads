@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { KeyingVerificationError } from "@symcrypt/crypto";
+import { KeyingVerificationError } from "@tearleads/crypto";
 import { DocumentSyncUpdateIsolationError } from "../documents/shared/documentSyncUpdateIsolation";
 import { reportAndRethrowKeyingVerificationError } from "./error";
 

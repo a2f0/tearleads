@@ -1,5 +1,5 @@
-import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
-import { blobs } from "@symcrypt/api-shared/schema";
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import { blobs } from "@tearleads/api-shared/schema";
 import { asc, inArray } from "drizzle-orm";
 import { lockRowForUpdate } from "../../../utils/sqlDialect";
 

@@ -1,13 +1,13 @@
 import type {
   ApiDatabase,
   DatabaseSession,
-} from "@symcrypt/api-shared/postgres";
+} from "@tearleads/api-shared/postgres";
 import {
   organizationBilling,
   organizationBillingLifecycleEvents,
   organizationBillingSeatAssignments,
   organizationBillingSeatEvents,
-} from "@symcrypt/api-shared/schema";
+} from "@tearleads/api-shared/schema";
 import { and, asc, desc, eq, inArray, isNull, lte, or } from "drizzle-orm";
 import { LAPSED_BILLING_PURGE_GRACE_MS } from "../../billing/organizationBilling";
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";

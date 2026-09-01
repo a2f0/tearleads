@@ -1,4 +1,4 @@
-import { useSymCryptExternalValue } from "../providers/sdk/useSymCryptSubscription";
+import { useTearleadsExternalValue } from "../providers/sdk/useTearleadsSubscription";
 
 // A single shared MutationObserver fans out to every subscriber. This hook backs
 // every virtualized row/frame and every touch-only affordance (e.g. row kebabs),
@@ -60,7 +60,7 @@ function isWindowedLayoutSnapshot(): boolean {
  * touch.
  */
 export function useRoutedLayoutActive(): boolean {
-  return useSymCryptExternalValue(
+  return useTearleadsExternalValue(
     subscribeToNavigationMode,
     isRoutedLayoutSnapshot,
   );
@@ -80,7 +80,7 @@ export function useRoutedLayoutActive(): boolean {
  * routed (touch) shell keeps its compact styling.
  */
 export function useWindowedLayoutActive(): boolean {
-  return useSymCryptExternalValue(
+  return useTearleadsExternalValue(
     subscribeToNavigationMode,
     isWindowedLayoutSnapshot,
   );

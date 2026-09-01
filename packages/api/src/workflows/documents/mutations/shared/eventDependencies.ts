@@ -1,5 +1,5 @@
-import type { VerifiedAccessEvent } from "@symcrypt/crypto";
-import type { ContainerManifestRef } from "@symcrypt/validators/request";
+import type { VerifiedAccessEvent } from "@tearleads/crypto";
+import type { ContainerManifestRef } from "@tearleads/validators/request";
 import { uniqueSortedStrings } from "../../../../utils/array";
 import { DocumentMutationError } from "../errors";
 

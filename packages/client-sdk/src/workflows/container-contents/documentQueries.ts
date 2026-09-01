@@ -1,5 +1,5 @@
-import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
-import type { SyncWatermark } from "@symcrypt/validators/response";
+import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import type { SyncWatermark } from "@tearleads/validators/response";
 import type {
   DiscoveredDocumentInput,
   DocumentSummary,

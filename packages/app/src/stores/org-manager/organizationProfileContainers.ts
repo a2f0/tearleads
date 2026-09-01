@@ -1,14 +1,14 @@
 import type {
   ContainerContentsStore,
   ContainerNode,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import {
   deriveOrganizationMetadataContainerSystemSlot,
   deriveOrganizationRosterProfileContainerSystemSlot,
   ORGANIZATION_METADATA_CONTAINER_NAME,
   ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
-} from "@symcrypt/client-sdk";
-import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
+} from "@tearleads/client-sdk";
+import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { useCallback, useMemo } from "react";
 import type { OrgManagerOperationScope } from "./orgManagerOperationScope";
 

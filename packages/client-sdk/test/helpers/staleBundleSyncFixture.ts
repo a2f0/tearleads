@@ -1,7 +1,7 @@
-import { computeDocumentContentKeyTargetHash } from "@symcrypt/crypto";
-import { createDocument, exportFullHistorySnapshot } from "@symcrypt/loro";
-import { createContainerWriterProjectionFixture } from "@symcrypt/test-utils";
-import type { DocumentWriterProjectionResponse } from "@symcrypt/validators/response";
+import { computeDocumentContentKeyTargetHash } from "@tearleads/crypto";
+import { createDocument, exportFullHistorySnapshot } from "@tearleads/loro";
+import { createContainerWriterProjectionFixture } from "@tearleads/test-utils";
+import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import {
   createMaterializedSyncFixture,
   getOnlyTarget,

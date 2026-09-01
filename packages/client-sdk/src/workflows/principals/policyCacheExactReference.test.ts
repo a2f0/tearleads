@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@symcrypt/test-utils";
-import type { PrincipalPolicyBundleResponse } from "@symcrypt/validators/response";
+import { createTestExecSql } from "@tearleads/test-utils";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import {
   cacheReferencedPolicies,
   createPrincipalPolicyBundle,

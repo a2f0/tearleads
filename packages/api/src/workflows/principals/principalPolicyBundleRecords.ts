@@ -1,8 +1,8 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import type {
   PrincipalPolicyBundleResponse,
   PrincipalPolicySnapshotResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { listPrincipalMemberEnvelopesForState } from "../../access/read/principalMemberEnvelopes";
 import {
   getPrincipalStatePayloadForState,

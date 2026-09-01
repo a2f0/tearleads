@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { DocumentOutgoingUpdate } from "@symcrypt/validators/request";
+import type { DocumentOutgoingUpdate } from "@tearleads/validators/request";
 import {
   storedDocumentUpdateMatchesOutgoingContent,
   uniqueOutgoingUpdates,

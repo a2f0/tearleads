@@ -2,11 +2,11 @@ import type {
   ApiDatabase,
   DatabaseSession,
   DatabaseTransaction,
-} from "@symcrypt/api-shared/postgres";
+} from "@tearleads/api-shared/postgres";
 import {
   containerKeyEpochs,
   containerKeyWraps,
-} from "@symcrypt/api-shared/schema";
+} from "@tearleads/api-shared/schema";
 import type {
   ContainerKekKeyring,
   ContainerKekPredecessorBridge,
@@ -16,8 +16,8 @@ import type {
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
   VerifiedPrincipalPolicy,
-} from "@symcrypt/crypto";
-import { verifyContainerKekState } from "@symcrypt/crypto";
+} from "@tearleads/crypto";
+import { verifyContainerKekState } from "@tearleads/crypto";
 import { asc, desc, eq, inArray } from "drizzle-orm";
 import { uniqueSortedStrings } from "../../../utils/array";
 import {

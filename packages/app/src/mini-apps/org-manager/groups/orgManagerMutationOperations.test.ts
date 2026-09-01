@@ -2,7 +2,7 @@ import { expect, mock, test } from "bun:test";
 import type {
   OrganizationDirectory,
   OrganizationGroupMembers,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import type { Dispatch, SetStateAction } from "react";
 import { ORG_MANAGER_LABELS } from "../labels";
 import {

@@ -1,6 +1,6 @@
-import { bytesToBase64 } from "@symcrypt/encoding";
-import { getImportBlobMetadata, versionVectorsEqual } from "@symcrypt/loro";
-import { isPlainObject } from "@symcrypt/validators/isPlainObject";
+import { bytesToBase64 } from "@tearleads/encoding";
+import { getImportBlobMetadata, versionVectorsEqual } from "@tearleads/loro";
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import type { PendingUpdateFields } from "../sqlite/documentPersistence";
 
 interface DocumentUpdateCreatedEvent {

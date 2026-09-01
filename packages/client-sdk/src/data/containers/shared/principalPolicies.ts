@@ -1,4 +1,4 @@
-import type { VerifiedPrincipalPolicy } from "@symcrypt/crypto";
+import type { VerifiedPrincipalPolicy } from "@tearleads/crypto";
 import { readCanonicalRecord } from "../../keyingCanonicalJson";
 
 export function principalPolicyRequestRecord(

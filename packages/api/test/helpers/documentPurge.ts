@@ -1,12 +1,12 @@
-import type { TestUser } from "@symcrypt/bob-and-alice";
+import type { TestUser } from "@tearleads/bob-and-alice";
 import type {
   DocumentAccessEventBody,
   DocumentPurgeAccessEventBody,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import type {
   AccessManifestBundleWire,
   DocumentPurgeRequest,
-} from "@symcrypt/validators/request";
+} from "@tearleads/validators/request";
 import { routeApp } from "../../src/routeApp";
 import {
   asVerifiedContainerManifest,

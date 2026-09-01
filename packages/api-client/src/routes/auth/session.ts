@@ -10,7 +10,7 @@ import {
   operationRequestPath,
   userIdentityOperation,
   webSocketTicketOperation,
-} from "@symcrypt/validators/operation";
+} from "@tearleads/validators/operation";
 
 export const destroySession = {
   isResponse: isDestroySessionOperationResponse,

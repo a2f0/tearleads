@@ -1,4 +1,4 @@
-import type { AccessManifestBundleWireResponse } from "@symcrypt/validators/response";
+import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import { DocumentMutationError } from "./errors";
 
 export function selectDocumentManifestPredecessors(input: {

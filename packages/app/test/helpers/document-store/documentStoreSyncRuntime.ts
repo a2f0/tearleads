@@ -1,21 +1,27 @@
-import { createDomainScope, createMemoryBlobStore } from "@symcrypt/client-sdk";
-import { generateSigningSeedAndKeyPair, toFingerprint } from "@symcrypt/crypto";
-import { bytesToBase64 } from "@symcrypt/encoding";
+import {
+  createDomainScope,
+  createMemoryBlobStore,
+} from "@tearleads/client-sdk";
+import {
+  generateSigningSeedAndKeyPair,
+  toFingerprint,
+} from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createContainerParentLaneBatchMock,
   createMockApiClient,
-} from "@symcrypt/test-utils";
+} from "@tearleads/test-utils";
 import type {
   BlobAttachmentBindRequest,
   DocumentSyncRequest,
-} from "@symcrypt/validators/request";
+} from "@tearleads/validators/request";
 import type {
   BlobAttachmentBindResponse,
   BlobAttachmentSummary,
   ContainerWriterProjectionResponse,
   DocumentCreateResponse,
   DocumentWriterProjectionResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../src/document-types/projectors";
 import { createSqlRuntimeBase } from "../createSqlRuntime";
 import { createTestRuntimeTrustedUserIdentityResolver } from "../trustedUserIdentity";

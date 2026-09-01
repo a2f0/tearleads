@@ -1,10 +1,10 @@
-import { base64ToBytes } from "@symcrypt/encoding";
+import { base64ToBytes } from "@tearleads/encoding";
 import {
   createDocument,
   exportFullHistoryIdentity,
   importSnapshot,
   satisfiesVersionVector,
-} from "@symcrypt/loro";
+} from "@tearleads/loro";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { DocumentScope } from "./documentPersistenceTypes";
 import {

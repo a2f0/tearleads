@@ -1,4 +1,4 @@
-import type { NativeSubscriptionStore } from "@symcrypt/validators/billing";
+import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
 import { runWithSecurityIncidentReporting } from "../../data/keyingProjectionVerification/error";
 import {
   type addOrganizationGroupUser,

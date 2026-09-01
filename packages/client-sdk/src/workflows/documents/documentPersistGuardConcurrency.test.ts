@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { execDatabaseStatement } from "@symcrypt/sqlite-worker/load-sqlite3";
-import { initTestSqliteDatabase } from "@symcrypt/test-utils";
+import { execDatabaseStatement } from "@tearleads/sqlite-worker/load-sqlite3";
+import { initTestSqliteDatabase } from "@tearleads/test-utils";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { createClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import type { SqlArrayRow, SqlRow } from "../../data/sqlite/sqlSchema";

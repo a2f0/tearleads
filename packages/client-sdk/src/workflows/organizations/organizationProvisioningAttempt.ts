@@ -1,15 +1,15 @@
-import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
-import { isPlainObject } from "@symcrypt/validators/isPlainObject";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import {
   type CreateOrganizationRequest,
   isCreateOrganizationRequest,
-} from "@symcrypt/validators/request";
+} from "@tearleads/validators/request";
 import { sqlOrganizationProvisioningAttemptPersistence } from "../../data/persistence/organizations/organizationProvisioningAttemptPersistence";
 import type { ExecSql, ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
 import { createExecSql } from "../../data/sqlite/sqlSchema";
 import type { OrganizationProvisioningArtifacts } from "../registration/registerIdentity";
 
-const BYTE_MARKER = "__symcryptProvisioningBytes";
+const BYTE_MARKER = "__tearleadsProvisioningBytes";
 
 interface DurableOrganizationProvisioningAttempt {
   readonly artifacts: OrganizationProvisioningArtifacts;

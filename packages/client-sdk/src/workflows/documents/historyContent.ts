@@ -1,10 +1,10 @@
-import { base64ToBytes } from "@symcrypt/encoding";
+import { base64ToBytes } from "@tearleads/encoding";
 import {
   createDocument,
   getImportBlobMetadata,
   importSnapshot,
   importUpdates,
-} from "@symcrypt/loro";
+} from "@tearleads/loro";
 import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
 import {
   DOCUMENTS_APP_KIND,

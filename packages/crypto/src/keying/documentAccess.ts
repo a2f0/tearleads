@@ -1,4 +1,4 @@
-import { isPlainObject } from "@symcrypt/validators/isPlainObject";
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import {
   computeAccessManifestHash,
   verifyAccessManifest,
@@ -153,20 +153,20 @@ export async function computeDocumentLinkSetStructuralHash(
     normalizeDocumentLinkSetStructural(structural);
 
   return computeKeyingDomainHash(
-    "symcrypt.keying.document-link-set-structural",
+    "tearleads.keying.document-link-set-structural",
     payload,
   );
 }
 
 export async function computeDocumentLinkSetGrantRoot(): Promise<string> {
-  return computeKeyingDomainHash("symcrypt.keying.document-link-set-grants", {
+  return computeKeyingDomainHash("tearleads.keying.document-link-set-grants", {
     grants: [],
   });
 }
 
 export async function computeDocumentLinkSetKeyTargetHash(): Promise<string> {
   return computeKeyingDomainHash(
-    "symcrypt.keying.document-link-set-key-target",
+    "tearleads.keying.document-link-set-key-target",
     { targetMode: "current-linked-container-keks" },
   );
 }

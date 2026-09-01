@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
-import { bytesToBase64 } from "@symcrypt/encoding";
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
   encodeVersionVector,
   exportFullHistorySnapshot,
-} from "@symcrypt/loro";
-import { createTestExecSql } from "@symcrypt/test-utils";
+} from "@tearleads/loro";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { addDocumentAttachments } from "../../data/documents/documentContent";
 import { documentOrphanBlobReclaims } from "../../data/sqlite/documentOrphanBlobReclaims";
 import {

@@ -3,7 +3,7 @@ import type {
   DocumentStoreRelinkInput,
   Documents,
   ResolvedUserIdentity,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import {
   buildOrganizationProfileDocumentPatch,
   buildRosterProfileDocumentPatch,
@@ -11,7 +11,7 @@ import {
   getOrganizationProfileDocumentLocalId,
   getRosterProfileDocumentLocalId,
   ORGANIZATION_PROFILE_DOCUMENT_KIND,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 
 const PROFILE_DOCUMENT_SYNC_TIMEOUT_MS = 15_000;
 

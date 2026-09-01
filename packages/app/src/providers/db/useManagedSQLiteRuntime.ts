@@ -1,15 +1,15 @@
 import type {
   DatabaseSnapshot,
   DatabaseStatus,
-  SymCrypt,
-} from "@symcrypt/client-sdk";
+  Tearleads,
+} from "@tearleads/client-sdk";
 import type {
   DatabasePersistenceMode,
   SQLiteRuntime,
   StoragePersistencePolicy,
-} from "@symcrypt/client-sdk/sqlite";
+} from "@tearleads/client-sdk/sqlite";
 import { type RefObject, useCallback, useEffect, useRef } from "react";
-import { useSymCryptStoreSnapshot } from "../sdk/useSymCryptSubscription";
+import { useTearleadsStoreSnapshot } from "../sdk/useTearleadsSubscription";
 import type { ResolveSqliteCipherKey } from "./sqliteCipherKey";
 import { sqliteDbNameForSigningFingerprint } from "./sqliteDbName";
 import { startSQLiteRuntimeBoot } from "./sqliteRuntimeLifecycle";
@@ -104,7 +104,7 @@ function useSpawnSQLiteRuntimeForDbName(params: {
   runtimeOperationRef: RefObject<SQLiteRuntimeOperation | null>;
   runtimeRef: RefObject<SQLiteRuntime | null>;
   targetDbNameRef: RefObject<string>;
-  symcrypt: SymCrypt;
+  tearleads: Tearleads;
 }) {
   const {
     bootGenerationRef,
@@ -121,7 +121,7 @@ function useSpawnSQLiteRuntimeForDbName(params: {
     runtimeOperationRef,
     runtimeRef,
     targetDbNameRef,
-    symcrypt,
+    tearleads,
   } = params;
   const mountedRef = useRef(true);
 
@@ -150,7 +150,7 @@ function useSpawnSQLiteRuntimeForDbName(params: {
         reuseWorker,
         runtimeRef,
         targetDbNameRef,
-        symcrypt,
+        tearleads,
       });
     },
     [
@@ -167,7 +167,7 @@ function useSpawnSQLiteRuntimeForDbName(params: {
       reuseWorker,
       runtimeRef,
       targetDbNameRef,
-      symcrypt,
+      tearleads,
     ],
   );
 
@@ -205,7 +205,7 @@ function useEnsureReadyForDbName(params: {
   runtimeRef: RefObject<SQLiteRuntime | null>;
   spawnRuntimeForDbName: (nextDbName: string) => void;
   targetDbNameRef: RefObject<string>;
-  symcrypt: SymCrypt;
+  tearleads: Tearleads;
 }) {
   const {
     clearCurrentRuntime,
@@ -214,7 +214,7 @@ function useEnsureReadyForDbName(params: {
     runtimeRef,
     spawnRuntimeForDbName,
     targetDbNameRef,
-    symcrypt,
+    tearleads,
   } = params;
   const readinessGenerationRef = useRef(0);
   const readinessTargetDbNameRef = useRef<string | null>(null);
@@ -236,13 +236,13 @@ function useEnsureReadyForDbName(params: {
       }
       if (
         currentDbNameRef.current === nextDbName &&
-        symcrypt.database.status === "error"
+        tearleads.database.status === "error"
       ) {
         clearCurrentRuntime("idle");
       }
 
       return waitForReadySQLiteRuntime(
-        symcrypt,
+        tearleads,
         currentDbNameRef,
         readinessGenerationRef,
         readinessGeneration,
@@ -257,7 +257,7 @@ function useEnsureReadyForDbName(params: {
       runtimeRef,
       spawnRuntimeForDbName,
       targetDbNameRef,
-      symcrypt,
+      tearleads,
     ],
   );
 }
@@ -272,7 +272,7 @@ function useSQLiteRuntimeControls(params: {
   runtimeRef: RefObject<SQLiteRuntime | null>;
   spawnRuntimeForDbName: (nextDbName: string) => void;
   targetDbNameRef: RefObject<string>;
-  symcrypt: SymCrypt;
+  tearleads: Tearleads;
 }) {
   const {
     clearCurrentRuntime,
@@ -284,7 +284,7 @@ function useSQLiteRuntimeControls(params: {
     runtimeRef,
     spawnRuntimeForDbName,
     targetDbNameRef,
-    symcrypt,
+    tearleads,
   } = params;
   const ensureReadyForDbName = useEnsureReadyForDbName({
     clearCurrentRuntime,
@@ -293,7 +293,7 @@ function useSQLiteRuntimeControls(params: {
     runtimeRef,
     spawnRuntimeForDbName,
     targetDbNameRef,
-    symcrypt,
+    tearleads,
   });
 
   const spawnRuntime = useCallback(() => {
@@ -356,10 +356,10 @@ export function useManagedSQLiteRuntime(
   persistencePolicy: StoragePersistencePolicy,
   resolveCipherKey: ResolveSqliteCipherKey,
   log: (message: string) => void,
-  symcrypt: SymCrypt,
+  tearleads: Tearleads,
   reuseWorker = false,
 ): DatabaseContextValue {
-  const snapshot = useSymCryptStoreSnapshot(symcrypt.database);
+  const snapshot = useTearleadsStoreSnapshot(tearleads.database);
   const runtimeRef = useRef<SQLiteRuntime | null>(null);
   const bootGenerationRef = useRef(0);
   const bootingRef = useRef(false);
@@ -378,7 +378,7 @@ export function useManagedSQLiteRuntime(
       runtimeOperationRef,
       runtimeRef,
       targetDbNameRef,
-      symcrypt,
+      tearleads,
     });
   const onUnreadableDatabase = useUnreadableDatabaseRecovery({
     destroyCurrentRuntime,
@@ -407,7 +407,7 @@ export function useManagedSQLiteRuntime(
     runtimeOperationRef,
     runtimeRef,
     targetDbNameRef,
-    symcrypt,
+    tearleads,
   });
   useEffect(() => {
     spawnRuntimeRef.current = spawnRuntimeForDbName;
@@ -422,7 +422,7 @@ export function useManagedSQLiteRuntime(
     runtimeRef,
     spawnRuntimeForDbName,
     targetDbNameRef,
-    symcrypt,
+    tearleads,
   });
 
   useSQLiteRuntimeLifecycle(

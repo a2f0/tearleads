@@ -3,7 +3,7 @@ import type {
   ContainerItemSort,
   ContainerItemSortKey,
   ContainerNode,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { type DragEvent, type MouseEvent, useMemo } from "react";
 import {
   MiniAppColumnMenuButton,

@@ -1,8 +1,8 @@
 import {
   operationRoutePath,
   updateOrganizationProfileOperation,
-} from "@symcrypt/validators/operation";
-import type { OrganizationProfileResponse } from "@symcrypt/validators/response";
+} from "@tearleads/validators/operation";
+import type { OrganizationProfileResponse } from "@tearleads/validators/response";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
 import { updateOrganizationProfile } from "../../services/organizations/orgManager";

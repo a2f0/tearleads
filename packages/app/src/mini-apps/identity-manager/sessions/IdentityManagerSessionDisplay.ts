@@ -1,4 +1,4 @@
-import type { UserSession } from "@symcrypt/client-sdk";
+import type { UserSession } from "@tearleads/client-sdk";
 import { CURRENT_SESSION_MUTATION_ID } from "../IdentityManagerConstants";
 
 export function compactIdentifier(value: string | null | undefined): string {

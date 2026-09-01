@@ -1,4 +1,4 @@
-import { MAX_MULTIPART_BLOB_PART_BYTES } from "@symcrypt/validators/util";
+import { MAX_MULTIPART_BLOB_PART_BYTES } from "@tearleads/validators/util";
 import { sha256Hex } from "../utils/sha256";
 
 export interface BlobObjectPart {

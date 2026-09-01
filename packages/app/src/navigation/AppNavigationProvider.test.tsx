@@ -139,7 +139,7 @@ function NavigationProbe() {
 
 function createAppNavigationHistoryState(index: number, entries: number) {
   return {
-    __symcryptAppNavigation: {
+    __tearleadsAppNavigation: {
       entries,
       index,
     },
@@ -153,9 +153,9 @@ function readAppNavigationHistoryState(state: unknown) {
 
   return (
     state as {
-      __symcryptAppNavigation?: { entries: number; index: number };
+      __tearleadsAppNavigation?: { entries: number; index: number };
     }
-  ).__symcryptAppNavigation;
+  ).__tearleadsAppNavigation;
 }
 
 function spyPushState(

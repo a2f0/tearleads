@@ -1,6 +1,6 @@
-import type { ContainerGrantPrincipalHead } from "@symcrypt/crypto";
-import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
-import type { CreateOrganizationGroupRequest } from "@symcrypt/validators/request";
+import type { ContainerGrantPrincipalHead } from "@tearleads/crypto";
+import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import type { CreateOrganizationGroupRequest } from "@tearleads/validators/request";
 import { createInitializedContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
 import { deriveStableDocumentId } from "../../data/documents/shared/stableDocumentId";
 import {

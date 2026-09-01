@@ -12,7 +12,7 @@ import { AppHostConfigProvider } from "../../../providers/host/AppHostConfigProv
 import * as IdentityProvider from "../../../providers/identity/IdentityProvider";
 import { LogProvider } from "../../../providers/logging/LogProvider";
 import { PurchasesProvider } from "../../../providers/purchases/PurchasesProvider";
-import * as SymCryptProvider from "../../../providers/sdk/SymCryptProvider";
+import * as TearleadsProvider from "../../../providers/sdk/TearleadsProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { BillingPanel } from "./BillingPanel";
 
@@ -67,7 +67,7 @@ function stubEnvironment(
     } as ReturnType<typeof IdentityProvider.useIdentity>),
   );
   spies.push(
-    spyOn(SymCryptProvider, "useSymCrypt").mockReturnValue({
+    spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
       organizations: {
         claimNativeSubscription: () => Promise.resolve(null),
         loadStripeCheckoutOptions:

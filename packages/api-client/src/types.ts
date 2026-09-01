@@ -1,8 +1,8 @@
-import type { DocumentAttributionRangesQuery } from "@symcrypt/validators/operation";
+import type { DocumentAttributionRangesQuery } from "@tearleads/validators/operation";
 import type {
   PrincipalPolicyBundleResponse,
   SyncWatermark,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 
 export type HttpMethod = "DELETE" | "GET" | "POST" | "PUT";
 export type RequestBody = BodyInit;

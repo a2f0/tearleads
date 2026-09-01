@@ -1,8 +1,8 @@
 import {
   operationRoutePath,
   verifyOperation,
-} from "@symcrypt/validators/operation";
-import type { VerifyResponse } from "@symcrypt/validators/response";
+} from "@tearleads/validators/operation";
+import type { VerifyResponse } from "@tearleads/validators/response";
 import { Hono } from "hono";
 import {
   readRequestIpAddress,

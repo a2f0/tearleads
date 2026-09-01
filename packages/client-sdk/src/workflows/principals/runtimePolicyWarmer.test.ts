@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import type { ReferencedPrincipalHead } from "@symcrypt/crypto";
-import { createTestExecSql } from "@symcrypt/test-utils";
+import type { ReferencedPrincipalHead } from "@tearleads/crypto";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { createRuntimePrincipalPolicyWarmer } from "./runtimePolicyWarmer";
 
 const REFERENCE: ReferencedPrincipalHead = {

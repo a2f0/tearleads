@@ -1,4 +1,4 @@
-import { SymCryptFrame } from "@symcrypt/ui";
+import { TearleadsFrame } from "@tearleads/ui";
 import { type PropsWithChildren, useMemo } from "react";
 import type { AppHostConfig } from "../../host/AppHostConfig";
 import { MiniAppLauncherProvider } from "../../mini-apps/miniAppLauncher";
@@ -32,7 +32,7 @@ interface LayoutProps {
 // The single app-wide identity namespace for the shared runtime policy. Every
 // workspace and pane reuses the one hoisted runtime, so its persisted identity
 // (and SQLite db) live under one stable namespace rather than a per-pane one.
-const SHARED_RUNTIME_LOCAL_IDENTITY_NAMESPACE = "symcrypt.app";
+const SHARED_RUNTIME_LOCAL_IDENTITY_NAMESPACE = "tearleads.app";
 
 // The shared policy mounts ONE runtime (identity + SQLite db) above every
 // workspace, so all workspaces are the same user on the same local database and
@@ -105,7 +105,7 @@ function LayoutInner({ hostConfig }: LayoutProps) {
   // subtrees — so React keeps those mounted and the SQLite worker / SDK client /
   // websocket / keyring session survive the toggle instead of rebooting.
   return (
-    <SymCryptFrame
+    <TearleadsFrame
       className={
         routed
           ? "layout layout--routed"
@@ -129,7 +129,7 @@ function LayoutInner({ hostConfig }: LayoutProps) {
           />
         ))}
       </WorkspaceRuntimeHost>
-    </SymCryptFrame>
+    </TearleadsFrame>
   );
 }
 

@@ -38,7 +38,7 @@ export async function purgeOpfsSqliteDatabase(dbName: string): Promise<void> {
     return;
   }
 
-  // `directory` is an OPFS-absolute path like `/symcrypt-sqlite/<segment>`;
+  // `directory` is an OPFS-absolute path like `/tearleads-sqlite/<segment>`;
   // navigate it segment-by-segment from the OPFS root.
   const { directory } = persistentSahPoolStorageForDbName(dbName);
   const segments = directory.split("/").filter((segment) => segment.length > 0);

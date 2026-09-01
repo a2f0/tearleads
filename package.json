@@ -1,5 +1,5 @@
 {
-  "name": "symcrypt",
+  "name": "tearleads",
   "private": true,
   "packageManager": "bun@1.3.11",
   "catalog": {
@@ -25,7 +25,7 @@
     }
   },
   "scripts": {
-    "build:packages": "turbo run build --filter=@symcrypt/sqlite-instance --filter=@symcrypt/client-sdk",
+    "build:packages": "turbo run build --filter=@tearleads/sqlite-instance --filter=@tearleads/client-sdk",
     "check": "bun run build:packages && bun tsc --build --pretty false && bun run check:fast && bun run test:turbo",
     "check:affected": "bun run build:packages && bun tsc --build --pretty false && bun run check:fast && bun run test:turbo:affected",
     "check:fast": "bun run lint:biome && bun run lint:openapi && bun run lint:openapi:compatibility && bun run test:openapi:compatibility && bun run test:protocol-models && bun run check:protocol-models && bun run test:protocol-conformance && bun run lint:package-assertions && bun run lint:infrastructure-parity && bun run lint:knip:all && bun run lint:knip:production && bun run lint:architecture && bun run lint:files && bun run lint:source-shape && bun run lint:binary-files && bun run lint:ruby && bun run lint:scripts && bun run lint:markdown",

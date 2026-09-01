@@ -5,8 +5,8 @@ import {
   type PrincipalPolicySignerPublicKey,
   type ReferencedPrincipalHead,
   toFingerprint,
-} from "@symcrypt/crypto";
-import { createTestExecSql } from "@symcrypt/test-utils";
+} from "@tearleads/crypto";
+import { createTestExecSql } from "@tearleads/test-utils";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleAfterMutation,

@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
-import type { ContainerInfo, ContainerNode } from "@symcrypt/client-sdk";
-import { syncedContainerDocumentObjectSyncState } from "@symcrypt/client-sdk";
+import type { ContainerInfo, ContainerNode } from "@tearleads/client-sdk";
+import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { type ComponentProps, createElement } from "react";
 import type { MiniAppWindowPosition } from "../../types";

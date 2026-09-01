@@ -1,4 +1,4 @@
-import type { ContainerSyncTombstone } from "@symcrypt/validators/response";
+import type { ContainerSyncTombstone } from "@tearleads/validators/response";
 import type { ContainerChildIndex } from "./types";
 
 interface RemovedContainerCollection {

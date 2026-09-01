@@ -1,14 +1,14 @@
 import { expect, test } from "bun:test";
-import { bytesToBase64 } from "@symcrypt/encoding";
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
   encodeVersionVector,
   exportFullHistorySnapshot,
   getTextValue,
   importSnapshot,
-} from "@symcrypt/loro";
-import { createTestExecSql } from "@symcrypt/test-utils";
-import type { DocumentSyncResponse } from "@symcrypt/validators/response";
+} from "@tearleads/loro";
+import { createTestExecSql } from "@tearleads/test-utils";
+import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import {
   createRemoteHistoryFixture,

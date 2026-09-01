@@ -1,13 +1,13 @@
 import { expect, test } from "bun:test";
-import { db, getDefaultApiDatabaseKind } from "@symcrypt/api-shared/postgres";
+import { db, getDefaultApiDatabaseKind } from "@tearleads/api-shared/postgres";
 import {
   attachmentBindings,
   blobs,
   documentContainerLinks,
   documents,
-} from "@symcrypt/api-shared/schema";
-import { createTestUser } from "@symcrypt/bob-and-alice";
-import type { AccessManifestBundleWire } from "@symcrypt/validators/request";
+} from "@tearleads/api-shared/schema";
+import { createTestUser } from "@tearleads/bob-and-alice";
+import type { AccessManifestBundleWire } from "@tearleads/validators/request";
 import { eq, sql } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { createChildContainer } from "../../../test/helpers/keyingWriterProjectionChild";

@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
-import { bytesToBase64 } from "@symcrypt/encoding";
-import { createTestExecSql } from "@symcrypt/test-utils";
+import { bytesToBase64 } from "@tearleads/encoding";
+import { createTestExecSql } from "@tearleads/test-utils";
 import type {
   BlobAttachmentBindResponse,
   DocumentWriterProjectionResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import {
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,

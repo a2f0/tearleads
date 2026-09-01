@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
-import { bytesToBase64 } from "@symcrypt/encoding";
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
   encodeVersionVector,
   exportFullHistorySnapshot,
-} from "@symcrypt/loro";
-import { createTestExecSql } from "@symcrypt/test-utils";
+} from "@tearleads/loro";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentsPersistence } from "./documentsPersistence";
 
 test("later recovery accepts an exact settled rotation baseline in the tail", async () => {

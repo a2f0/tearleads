@@ -2,12 +2,12 @@ import type {
   ContainerDirectGrant,
   PrincipalContainerGrant,
   VerifiedPrincipalPolicy,
-} from "@symcrypt/crypto";
-import type { ContainerMutationRequest } from "@symcrypt/validators/request";
+} from "@tearleads/crypto";
+import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type {
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import type { AuthoredContainerMutationHead } from "../../data/containers/shared/mutationAcknowledgement";
 import { acknowledgeContainerMutationBatch } from "../../data/containers/shared/mutationAcknowledgement";
 import {

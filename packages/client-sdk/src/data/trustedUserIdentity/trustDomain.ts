@@ -1,4 +1,4 @@
-import { KeyingVerificationError } from "@symcrypt/crypto";
+import { KeyingVerificationError } from "@tearleads/crypto";
 
 interface IdentityTrustDomainInput {
   readonly apiBaseUrl: string | null | undefined;

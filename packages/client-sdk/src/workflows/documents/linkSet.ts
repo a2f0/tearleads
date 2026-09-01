@@ -6,18 +6,18 @@ import {
   type DocumentLinkSetManifestState,
   deriveDocumentLinkSetManifest,
   encryptWithDek,
-} from "@symcrypt/crypto";
-import { bytesToBase64 } from "@symcrypt/encoding";
-import { isPlainObject as isPlainRecord } from "@symcrypt/validators/isPlainObject";
-import type { DocumentContentKeyTargetEnvelope } from "@symcrypt/validators/request";
+} from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
+import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
+import type { DocumentContentKeyTargetEnvelope } from "@tearleads/validators/request";
 import type {
   ContainerWriterProjectionResponse,
   DocumentWriterProjectionResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import {
   MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS,
   MAX_DOCUMENT_SYNC_CONTENT_KEY_TARGETS,
-} from "@symcrypt/validators/util";
+} from "@tearleads/validators/util";
 import { buildDocumentLinkSetEventPlan } from "../../data/documents/shared/events";
 import {
   assertDocumentWriterProjectionConsistent,

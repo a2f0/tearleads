@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
-import { createMemoryBlobStore } from "@symcrypt/client-sdk";
-import type { WorkerRequest } from "@symcrypt/sqlite-worker/types";
+import { createMemoryBlobStore } from "@tearleads/client-sdk";
+import type { WorkerRequest } from "@tearleads/sqlite-worker/types";
 import { fireEvent, waitFor, within } from "@testing-library/react";
 import { openIdentityManagerFromPane } from "../../../../test/helpers/identityPaneTestUtils";
 import { MockWorker } from "../../../../test/helpers/mockWorker";
@@ -64,7 +64,7 @@ async function waitForPersistedSession(
   signingFingerprint: string,
 ): Promise<void> {
   const storageKey =
-    `symcrypt.local-session:${localIdentityNamespace}.left:` +
+    `tearleads.local-session:${localIdentityNamespace}.left:` +
     signingFingerprint;
   await waitFor(
     () => expect(globalThis.localStorage.getItem(storageKey)).not.toBeNull(),

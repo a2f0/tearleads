@@ -2,7 +2,7 @@ import {
   billingWebhookWireHeaderKeys,
   operationRoutePath,
   receiveStripeWebhookOperation,
-} from "@symcrypt/validators/operation";
+} from "@tearleads/validators/operation";
 import { Hono } from "hono";
 import { RevenueCatAssociationError } from "../../billing/revenueCatStripeAssociation";
 import { StripeApiError } from "../../billing/stripeApi";

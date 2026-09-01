@@ -1,5 +1,5 @@
 import { Buffer } from "node:buffer";
-import { db } from "@symcrypt/api-shared/postgres";
+import { db } from "@tearleads/api-shared/postgres";
 import type { BlobObjectStore } from "../adapters/blobObjectStore";
 import { createDefaultBlobObjectStore } from "../adapters/defaultBlobObjectStore";
 import { del, get, getdel, set } from "../adapters/redis";
@@ -34,7 +34,7 @@ export interface ApiServiceRuntime {
 const DOCUMENT_SYNC_CURSOR_HMAC_KEY_ENV =
   "DOCUMENT_SYNC_CURSOR_HMAC_KEY" as const;
 const DEVELOPMENT_DOCUMENT_SYNC_CURSOR_HMAC_KEY =
-  "symcrypt-development-document-sync-cursor-key";
+  "tearleads-development-document-sync-cursor-key";
 
 export function readDocumentSyncCursorHmacKey(
   env: NodeJS.ProcessEnv = process.env,

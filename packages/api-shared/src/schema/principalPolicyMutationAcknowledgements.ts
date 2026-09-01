@@ -1,4 +1,4 @@
-import type { ManagedRecipientPrincipalType } from "@symcrypt/crypto";
+import type { ManagedRecipientPrincipalType } from "@tearleads/crypto";
 import {
   index,
   integer,

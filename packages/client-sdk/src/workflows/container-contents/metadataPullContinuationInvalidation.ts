@@ -1,5 +1,5 @@
-import { base64ToBytes } from "@symcrypt/encoding";
-import { importUpdates } from "@symcrypt/loro";
+import { base64ToBytes } from "@tearleads/encoding";
+import { importUpdates } from "@tearleads/loro";
 import {
   type DocumentSyncPullContinuation,
   documentSyncPullContinuationsEqual,

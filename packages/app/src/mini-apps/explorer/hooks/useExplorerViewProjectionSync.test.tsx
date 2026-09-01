@@ -3,7 +3,7 @@ import type {
   DocumentSummary,
   LocalProjectionSnapshot,
   LocalProjectionView,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { useExplorerViewProjectionSync } from "./useExplorerViewProjectionSync";
 

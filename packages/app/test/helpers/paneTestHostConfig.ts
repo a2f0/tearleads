@@ -1,8 +1,11 @@
-import { createMemoryBlobStore, type LocalKeyring } from "@symcrypt/client-sdk";
+import {
+  createMemoryBlobStore,
+  type LocalKeyring,
+} from "@tearleads/client-sdk";
 import {
   type CreateSQLiteRuntimeOptions,
   createSQLiteRuntime,
-} from "@symcrypt/client-sdk/sqlite";
+} from "@tearleads/client-sdk/sqlite";
 import {
   type AppHostConfig,
   createAppHostConfig,

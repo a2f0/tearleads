@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@symcrypt/test-utils";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { invalidateDocumentSyncPullContinuation } from "../../sqlite/documentPersistence";
 import { sqlDocumentsPersistence } from "./documentsPersistence";
 

@@ -1,4 +1,4 @@
-import { createDocument } from "@symcrypt/loro";
+import { createDocument } from "@tearleads/loro";
 import { getScopedPeerSeed } from "../../../data/crdtPeerSeed";
 import { ensureDocumentAttachmentStructure } from "../../../data/documents/documentContent";
 import { ensureDocumentRowsStructure } from "../../../data/documents/documentRowList";

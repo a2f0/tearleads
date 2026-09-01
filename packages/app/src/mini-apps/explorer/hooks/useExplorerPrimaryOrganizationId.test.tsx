@@ -1,8 +1,8 @@
 import { afterEach, expect, test } from "bun:test";
-import type { ContainerNode } from "@symcrypt/client-sdk";
-import { syncedContainerDocumentObjectSyncState } from "@symcrypt/client-sdk";
+import type { ContainerNode } from "@tearleads/client-sdk";
+import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import { cleanup, renderHook } from "@testing-library/react";
-import type { RuntimeSnapshot } from "../../../providers/sdk/SymCryptProvider";
+import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import { useExplorerPrimaryOrganizationId } from "./useExplorerPrimaryOrganizationId";
 
 afterEach(cleanup);

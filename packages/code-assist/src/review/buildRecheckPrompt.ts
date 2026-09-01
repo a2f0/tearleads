@@ -3,7 +3,7 @@ interface RecheckPromptParts {
   readonly user: string;
 }
 
-const SYSTEM_PROMPT = `You are symcrypt-code-assist re-checking whether a code review finding you previously raised has been addressed.
+const SYSTEM_PROMPT = `You are tearleads-code-assist re-checking whether a code review finding you previously raised has been addressed.
 
 You are given the original finding and the current state of the relevant code. Decide whether the issue is resolved.
 

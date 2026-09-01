@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { generateKemSeedAndKeyPair } from "@symcrypt/crypto";
-import { createTestExecSql } from "@symcrypt/test-utils";
+import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import { createTestExecSql } from "@tearleads/test-utils";
 import {
   createAuthor,
   createMutationResponseFromRequest,
@@ -23,7 +23,7 @@ test("shareRemoteContainer rejects a response that drops the unchanged keyring",
   // Give the epoch a keyring, so the share has an immutable artifact to keep.
   const sealedKeyring = {
     version: 1,
-    sealingSuite: "symcrypt.container-kek-keyring.aes-256-gcm-current-kek",
+    sealingSuite: "tearleads.container-kek-keyring.aes-256-gcm-current-kek",
     containerId: parent.projection.containerId,
     containerKeyEpochId:
       parent.projection.containerKeks.at(-1)?.containerKeyEpochId ?? "",
@@ -82,7 +82,7 @@ test("shareRemoteContainer rejects a keyring injected into an epoch that had non
   // become the next writer projection's history, so it must be refused.
   const injected = {
     version: 1,
-    sealingSuite: "symcrypt.container-kek-keyring.aes-256-gcm-current-kek",
+    sealingSuite: "tearleads.container-kek-keyring.aes-256-gcm-current-kek",
     containerId: parent.projection.containerId,
     containerKeyEpochId:
       parent.projection.containerKeks.at(-1)?.containerKeyEpochId ?? "",

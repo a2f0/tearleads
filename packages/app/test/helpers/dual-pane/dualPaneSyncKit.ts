@@ -1,5 +1,5 @@
 import { expect } from "bun:test";
-import { DOCUMENT_SYNC_ERROR_CODES } from "@symcrypt/validators/response";
+import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import { act } from "@testing-library/react";
 import {
   type AppTestSyncLaneErrorBaseline,

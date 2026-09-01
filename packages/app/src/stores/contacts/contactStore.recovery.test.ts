@@ -7,8 +7,8 @@ import {
   openDocumentStore,
   type ResolvedUserIdentity,
   subscribeToPersistedDocuments,
-} from "@symcrypt/client-sdk";
-import { createMockApiClient } from "@symcrypt/test-utils";
+} from "@tearleads/client-sdk";
+import { createMockApiClient } from "@tearleads/test-utils";
 import { createSqlRuntimeBase } from "../../../test/helpers/createSqlRuntime";
 import { createDeferred } from "../../../test/helpers/databaseRuntimeFactories";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";

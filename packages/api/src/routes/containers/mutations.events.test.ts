@@ -1,6 +1,6 @@
 import { expect, mock, spyOn, test } from "bun:test";
-import type { ContainerMutationRequest } from "@symcrypt/validators/request";
-import type { ContainerMutationResponse } from "@symcrypt/validators/response";
+import type { ContainerMutationRequest } from "@tearleads/validators/request";
+import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import { publishContainerMutationCreated } from "./mutations";
 
 const request = {

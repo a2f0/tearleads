@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createDocument } from "@symcrypt/loro";
+import { createDocument } from "@tearleads/loro";
 import type {
   DocumentsPersistence,
   StoredDocumentRecord,

@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
-import type { ContainerNode, DocumentSummary } from "@symcrypt/client-sdk";
-import { syncedContainerDocumentObjectSyncState } from "@symcrypt/client-sdk";
+import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
+import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import { type ReactNode, useCallback } from "react";
 import { WindowStateProvider } from "../../../components/window/WindowStateProvider";

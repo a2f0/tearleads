@@ -163,7 +163,7 @@
    always defined here. It grows the app bar's back / forward / sidebar glyphs,
    the rail toggle's, and every registered toolbar action's icon off their
    `size={18}` attribute to the touch size — see the token's note in
-   @symcrypt/ui's styles.routed.css. */
+   @tearleads/ui's styles.routed.css. */
 .routed-pane-iconbutton svg {
   flex: 0 0 auto;
   width: var(--control-icon-size);
@@ -275,11 +275,11 @@
   cursor: pointer;
   /* Resting logo tones, theme-adaptive. The old #555/#999 literals were tuned
      for a light bar and vanished on the dark taskbar (--color-muted). Key both
-     off the foreground role — mirroring the .symcrypt-header remap — so the
+     off the foreground role — mirroring the .tearleads-header remap — so the
      mark stays legible on either surface: the "T" (secondary) is the full
      foreground glyph, the "L:" (primary) a dimmer tone mixed toward the bar. */
-  --symcrypt-logo-secondary: var(--color-dark);
-  --symcrypt-logo-primary: color-mix(
+  --tearleads-logo-secondary: var(--color-dark);
+  --tearleads-logo-primary: color-mix(
     in srgb,
     var(--color-dark) 62%,
     var(--color-muted)
@@ -291,12 +291,12 @@
 .routed-pane-taskbar-menu-button[aria-expanded="true"] {
   background: var(--emphasis-surface);
   color: var(--emphasis-text);
-  --symcrypt-logo-primary: color-mix(
+  --tearleads-logo-primary: color-mix(
     in srgb,
     var(--emphasis-text) 62%,
     var(--emphasis-surface)
   );
-  --symcrypt-logo-secondary: var(--emphasis-text);
+  --tearleads-logo-secondary: var(--emphasis-text);
 }
 
 .routed-pane-taskbar-menu-logo {
@@ -318,7 +318,7 @@
  * Touch sizing now flows from the routed-layout hook rather than a
  * `@media (pointer: coarse)` query: `--control-height` resolves to 44px
  * whenever the routed shell is active (see `:root[data-navigation-mode="routed"]`
- * in @symcrypt/ui's styles.css). The app-bar buttons, nav links, and
+ * in @tearleads/ui's styles.css). The app-bar buttons, nav links, and
  * system-menu actions above are all sized off `--control-height`, so they
  * already meet the 44px touch target — on phones AND on an iPad with a mouse
  * attached (which reports `pointer: fine` and a coarse-pointer query would

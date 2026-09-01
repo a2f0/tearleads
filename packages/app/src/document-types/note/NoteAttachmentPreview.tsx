@@ -1,7 +1,7 @@
 import { DownloadSimpleIcon } from "@phosphor-icons/react/dist/csr/DownloadSimple";
 import { TrashIcon } from "@phosphor-icons/react/dist/csr/Trash";
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
-import type { DocumentAttachment } from "@symcrypt/client-sdk";
+import type { DocumentAttachment } from "@tearleads/client-sdk";
 import { type ReactNode, type RefObject, useId, useRef } from "react";
 import { createPortal } from "react-dom";
 import {

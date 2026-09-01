@@ -4,7 +4,7 @@ import {
   principalMembershipProjection,
   principalStatePayloads,
   principalStates,
-} from "@symcrypt/api-shared/schema";
+} from "@tearleads/api-shared/schema";
 import {
   type ManagedRecipientPrincipalType,
   normalizePrincipalContainerGrants,
@@ -17,7 +17,7 @@ import {
   type PrincipalStateMemberEnvelope,
   type PrincipalStatePayloadCipherSuite,
   type SignedPrincipalState,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 
 export interface StoredPrincipalState extends SignedPrincipalState {
   stateHash: string;

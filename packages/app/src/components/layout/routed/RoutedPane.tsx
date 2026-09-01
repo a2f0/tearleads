@@ -1,4 +1,4 @@
-import { SymCryptLogo } from "@symcrypt/ui";
+import { TearleadsLogo } from "@tearleads/ui";
 import {
   type ComponentType,
   useCallback,
@@ -66,7 +66,7 @@ export function resolveRoutedActiveMiniAppId(
 
 /**
  * The routed shell's bottom taskbar — the routed counterpart of the windowed
- * pane footer. Present in both tiers: the centered SymCrypt logo is the menu
+ * pane footer. Present in both tiers: the centered Tearleads logo is the menu
  * affordance (opening the launcher sheet on mobile, revealing the rail on
  * tablet) and the corner hosts the windowed/routed switch so the layout can be
  * flipped back to windows from inside the routed shell. On mobile it is hidden
@@ -110,7 +110,7 @@ function RoutedPaneTaskBar({
         type="button"
         onClick={isMobile ? onToggleDrawer : onToggleRail}
       >
-        <SymCryptLogo className="routed-pane-taskbar-menu-logo" />
+        <TearleadsLogo className="routed-pane-taskbar-menu-logo" />
       </button>
       <div className="routed-pane-taskbar-end">
         <NavigationModeSwitch mode="routed" />

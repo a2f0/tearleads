@@ -1,7 +1,7 @@
 import type {
   OrganizationContainerGrant,
   OrganizationContainerGrants,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import {
   MiniAppButton,
   MiniAppHeader,

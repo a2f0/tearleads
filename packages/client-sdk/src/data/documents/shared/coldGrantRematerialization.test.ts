@@ -4,8 +4,8 @@ import {
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
   encryptWithDek,
   generateKemSeedAndKeyPair,
-} from "@symcrypt/crypto";
-import { bytesToBase64 } from "@symcrypt/encoding";
+} from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
   encodeVersionVector,
@@ -13,13 +13,13 @@ import {
   getTextValue,
   getUpdateVersionVectors,
   importUpdates,
-} from "@symcrypt/loro";
+} from "@tearleads/loro";
 import type {
   ContainerWriterProjectionResponse,
   DocumentContentKeyBundleResponse,
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { loadColdRecoveredDocumentInfo } from "../../../../test/helpers/coldDocumentInfo";
 import {
   createManagedContainerWrap,
