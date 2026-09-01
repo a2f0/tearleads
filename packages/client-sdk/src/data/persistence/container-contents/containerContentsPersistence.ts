@@ -138,7 +138,11 @@ async function hasPendingContainerMetadataUpdates(input: {
   return rows.length > 0;
 }
 
-type SqlPersistence = ContainerContentsPersistence & {
+type SqlPersistence = Omit<
+  ContainerContentsPersistence,
+  "recordCreateIntentError"
+> & {
+  recordCreateIntentError: typeof containerIntentPersistence.recordCreateIntentError;
   saveContainerWithPendingUpdate: NonNullable<
     ContainerContentsPersistence["saveContainerWithPendingUpdate"]
   >;

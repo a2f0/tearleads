@@ -7,10 +7,12 @@ import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
+import type { ExecSql } from "../../sqlite/sqlSchema";
 import {
   CONTAINER_CREATE_INTENT_TYPE,
   CONTAINER_MOVE_INTENT_TYPE,
   type ContainerContentsPersistence,
+  type ContainerCreateIntentErrorInput,
   type ContainerCreateIntentInput,
   type ContainerCreateIntentRecord,
   type ContainerCreateIntentSyncStatus,
@@ -298,7 +300,7 @@ type ContainerIntentPersistence = Pick<
   | "markMoveIntentSynced"
 >;
 
-export const containerIntentPersistence: ContainerIntentPersistence = {
+export const containerIntentPersistence = {
   async listPendingCreateIntents(execSql) {
     const { db } = getClientSQLitePersistenceRuntime(execSql);
     const rows = await db
@@ -354,7 +356,24 @@ export const containerIntentPersistence: ContainerIntentPersistence = {
 
     return rows.map((row) => mapContainerMoveIntentRecord(row));
   },
-  async recordCreateIntentError(execSql, input) {
+  async recordCreateIntentError(
+    execSql: ExecSql,
+    inputOrContainerId: ContainerCreateIntentErrorInput | string,
+    ...legacyMessage: [message?: string]
+  ) {
+    const legacy = typeof inputOrContainerId === "string";
+    const containerId = legacy
+      ? inputOrContainerId
+      : inputOrContainerId.containerId;
+    const message = legacy ? legacyMessage[0] : inputOrContainerId.message;
+    if (!message) throw new Error("Container create intent error is required");
+    const expectedIntentId = legacy
+      ? undefined
+      : inputOrContainerId.expectedIntentId;
+    const expectedUpdatedAt = legacy
+      ? undefined
+      : inputOrContainerId.expectedUpdatedAt;
+    const stillCurrent = legacy ? undefined : inputOrContainerId.stillCurrent;
     const runtime = getClientSQLitePersistenceRuntime(execSql);
     const record = async (tx: ClientSQLiteTransactionScope) => {
       const updatedAt = new Date().toISOString();
@@ -362,22 +381,26 @@ export const containerIntentPersistence: ContainerIntentPersistence = {
         .update(containerCreateIntents)
         .set({
           lastAttemptedAt: updatedAt,
-          lastError: input.message,
+          lastError: message,
           updatedAt,
         })
         .where(
           and(
-            eq(containerCreateIntents.containerId, input.containerId),
+            eq(containerCreateIntents.containerId, containerId),
             eq(containerCreateIntents.syncStatus, "pending"),
             eq(containerCreateIntents.intentType, CONTAINER_CREATE_INTENT_TYPE),
-            eq(containerCreateIntents.id, input.expectedIntentId),
-            eq(containerCreateIntents.updatedAt, input.expectedUpdatedAt),
+            ...(expectedIntentId
+              ? [eq(containerCreateIntents.id, expectedIntentId)]
+              : []),
+            ...(expectedUpdatedAt
+              ? [eq(containerCreateIntents.updatedAt, expectedUpdatedAt)]
+              : []),
           ),
         )
         .run();
     };
-    if (input.stillCurrent) {
-      await runtime.guardedTransaction(record, input.stillCurrent, {
+    if (stillCurrent) {
+      await runtime.guardedTransaction(record, stillCurrent, {
         behavior: "immediate",
       });
       return;
@@ -445,4 +468,4 @@ export const containerIntentPersistence: ContainerIntentPersistence = {
     );
     return outcome.committed && outcome.result === true;
   },
-};
+} satisfies ContainerIntentPersistence;

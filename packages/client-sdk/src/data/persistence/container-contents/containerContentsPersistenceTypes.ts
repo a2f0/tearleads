@@ -53,6 +53,21 @@ export interface ContainerMoveIntentInput {
   previousParentContainerId?: string | null | undefined;
 }
 
+export interface ContainerCreateIntentErrorInput {
+  containerId: string;
+  expectedIntentId: string;
+  expectedUpdatedAt: string;
+  message: string;
+  stillCurrent?: (() => boolean) | undefined;
+}
+
+export type ContainerCreateIntentErrorRecorder =
+  | ((
+      execSql: ExecSql,
+      input: ContainerCreateIntentErrorInput,
+    ) => Promise<void>)
+  | ((execSql: ExecSql, containerId: string, message: string) => Promise<void>);
+
 export interface LocalRootDescendantReparentInput {
   containerId: string;
   parentContainerId: string | null;
@@ -207,16 +222,7 @@ export interface ContainerContentsPersistence
     containerId: string,
   ) => Promise<PendingUpdateRecord[]>;
   rekeyPendingUpdate: (execSql: ExecSql, id: string) => Promise<string | null>;
-  recordCreateIntentError: (
-    execSql: ExecSql,
-    input: {
-      containerId: string;
-      expectedIntentId: string;
-      expectedUpdatedAt: string;
-      message: string;
-      stillCurrent?: (() => boolean) | undefined;
-    },
-  ) => Promise<void>;
+  recordCreateIntentError: ContainerCreateIntentErrorRecorder;
   recordMoveIntentError: (
     execSql: ExecSql,
     input: {

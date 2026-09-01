@@ -45,7 +45,12 @@ test("stale container create identity failures do not report into a replacement"
   const persistence: ContainerCreateIntentSyncState["persistence"] = {
     ...defaultContainerContentsPersistence,
     listPendingCreateIntents: async () => [intent],
-    recordCreateIntentError: async (_execSql, input) => {
+    recordCreateIntentError: async (
+      _execSql: ExecSql,
+      input: {
+        message: string;
+      },
+    ) => {
       recordedErrors.push(input.message);
     },
   };
@@ -235,7 +240,12 @@ test("container create sync heals lost-response conflicts with legacy void settl
   const persistence: ContainerCreateIntentSyncState["persistence"] = {
     ...defaultContainerContentsPersistence,
     listPendingCreateIntents: async () => [intent],
-    recordCreateIntentError: async (_execSql, input) => {
+    recordCreateIntentError: async (
+      _execSql: ExecSql,
+      input: {
+        message: string;
+      },
+    ) => {
       recordedErrors.push(input.message);
     },
     markCreateIntentSynced: async (_execSql, input) => {

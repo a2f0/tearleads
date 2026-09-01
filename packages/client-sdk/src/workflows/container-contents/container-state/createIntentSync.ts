@@ -7,6 +7,7 @@ import {
 } from "../metadataStateIsolation";
 import type { ContainerState } from "../remoteHydration";
 import { hasRemoteContainerMetadataState } from "../remoteHydration/reconciliation";
+import { recordContainerCreateIntentError } from "./createIntentErrorAdapter";
 import { CONTAINER_ALREADY_COMMITTED } from "./createWithMetadata";
 import { createRemoteContainer, deleteRemoteContainer } from "./remote";
 import type {
@@ -61,7 +62,8 @@ async function recordContainerCreateFailure(input: {
   if (!input.isCurrent()) {
     return "abandoned";
   }
-  await input.state.persistence.recordCreateIntentError(
+  await recordContainerCreateIntentError(
+    input.state.persistence,
     input.state.runtime.infra.execSql,
     {
       containerId: input.intent.containerId,
@@ -253,7 +255,8 @@ async function settleRemoteContainerCreate(input: {
     return "blocked";
   }
   if (!created) {
-    await state.persistence.recordCreateIntentError(
+    await recordContainerCreateIntentError(
+      state.persistence,
       state.runtime.infra.execSql,
       {
         containerId: intent.containerId,
@@ -360,7 +363,7 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
 
   if (!containerState || !parentState) {
     const execSql = state.runtime.infra.execSql;
-    await state.persistence.recordCreateIntentError(execSql, {
+    await recordContainerCreateIntentError(state.persistence, execSql, {
       containerId: intent.containerId,
       expectedIntentId: intent.id,
       expectedUpdatedAt: intent.updatedAt,

@@ -125,6 +125,7 @@ export function createContainerContentsStoreState(
     remoteHydrationPromise: null,
     remoteHydrationGeneration: null,
     remoteHydrationStructuralGeneration: null,
+    remoteReconnectRefreshPending: false,
     resolveProjectionUserKey:
       createContainerContentsProjectionUserKeyResolver(initialRuntime),
     rootLaneHydrated: false,
@@ -237,6 +238,9 @@ export function updateContainerContentsStoreRuntime(
       createContainerContentsProjectionUserKeyResolver(nextRuntime);
   }
   state.runtime = nextRuntime;
+  if (serverEventsConnectionChanged) {
+    state.remoteReconnectRefreshPending = true;
+  }
 
   if (nextRuntime.infra.dbStatus !== "ready") {
     if (state.snapshot.ready || state.initialized || state.initializePromise) {
@@ -282,12 +286,7 @@ export function updateContainerContentsStoreRuntime(
     syncAgent.scheduleSync();
   }
 
-  if (state.snapshot.ready && serverEventsConnectionChanged) {
-    // Re-list every reachable remote lane after reconnect. The local sync lane
-    // may legitimately skip clean metadata, while events missed between
-    // connections can describe new, moved, or deleted nested containers.
-    void syncAgent.refresh();
-  }
+  consumePendingContainerContentsReconnectRefresh(state, syncAgent.refresh);
 
   if (
     state.snapshot.ready &&
@@ -299,6 +298,25 @@ export function updateContainerContentsStoreRuntime(
     syncAgent.scheduleSync();
     syncAgent.scheduleRemoteHydration();
   }
+}
+
+export function consumePendingContainerContentsReconnectRefresh(
+  state: {
+    remoteReconnectRefreshPending: boolean;
+    snapshot: { ready: boolean };
+  },
+  refresh: () => Promise<boolean>,
+): void {
+  if (!state.snapshot.ready || !state.remoteReconnectRefreshPending) return;
+  state.remoteReconnectRefreshPending = false;
+  void refresh().then(
+    (refreshed) => {
+      if (!refreshed) state.remoteReconnectRefreshPending = true;
+    },
+    () => {
+      state.remoteReconnectRefreshPending = true;
+    },
+  );
 }
 
 export function updateContainerContentsStorePersistence(

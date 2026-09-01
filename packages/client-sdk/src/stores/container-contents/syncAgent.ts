@@ -24,6 +24,7 @@ import {
   hasStartupContainerSyncWork,
   scheduleStaleStartupRemoteHydration,
 } from "./startupHydration";
+import { consumePendingContainerContentsReconnectRefresh } from "./state";
 import type { ContainerContentsStoreSyncState } from "./syncAgentTypes";
 import { runContainerContentsStoreSyncIteration } from "./syncLaneIteration";
 
@@ -160,6 +161,7 @@ async function initializeContainerContentsStore(input: {
 function waitForStaleLocalRefreshBeforeInitialization(input: {
   handleRemoteEvents: () => void;
   host: RemoteContainerHydrationHost;
+  refreshAfterReconnect: () => Promise<boolean>;
   resumeRecoveryWork: () => Promise<void>;
   scheduleSync: () => void;
   state: ContainerContentsStoreSyncState;
@@ -198,6 +200,7 @@ function waitForStaleLocalRefreshBeforeInitialization(input: {
 function ensureContainerContentsStoreInitialized(input: {
   handleRemoteEvents: () => void;
   host: RemoteContainerHydrationHost;
+  refreshAfterReconnect: () => Promise<boolean>;
   resumeRecoveryWork: () => Promise<void>;
   scheduleSync: () => void;
   state: ContainerContentsStoreSyncState;
@@ -243,7 +246,12 @@ function ensureContainerContentsStoreInitialized(input: {
       }
       state.initializePromise = null;
       state.initializeGeneration = null;
-      if (!isCurrent() && state.runtime.infra.dbStatus === "ready") {
+      if (isCurrent()) {
+        consumePendingContainerContentsReconnectRefresh(
+          state,
+          input.refreshAfterReconnect,
+        );
+      } else if (state.runtime.infra.dbStatus === "ready") {
         ensureContainerContentsStoreInitialized(input);
       }
     });
@@ -282,6 +290,11 @@ export function createContainerContentsStoreSyncAgent(input: {
       scheduleSync,
       state,
     });
+  const refresh = () =>
+    refreshAllRemoteHydration({
+      requestHydration: requestRefreshHydration,
+      state,
+    });
   const handleRemoteEvents = () =>
     handleContainerContentsRemoteEvents({
       requestHydration,
@@ -314,6 +327,7 @@ export function createContainerContentsStoreSyncAgent(input: {
       ensureContainerContentsStoreInitialized({
         handleRemoteEvents,
         host,
+        refreshAfterReconnect: refresh,
         resumeRecoveryWork,
         scheduleSync,
         state,
@@ -325,11 +339,7 @@ export function createContainerContentsStoreSyncAgent(input: {
     primeDocumentsForSharedSubtree: (rootContainerId, isCurrent) =>
       primeStoreDocumentSubtree(state, rootContainerId, isCurrent),
     refreshLocalContainers: () => refreshLocalContainerStates({ host, state }),
-    refresh: () =>
-      refreshAllRemoteHydration({
-        requestHydration: requestRefreshHydration,
-        state,
-      }),
+    refresh,
     refreshRootLane: (options) =>
       refreshRootRemoteHydration({
         includeActiveRootChildLane: options?.includeActiveRootChildLane,

@@ -50,6 +50,7 @@ export interface ContainerContentsStoreSyncState {
   remoteHydrationPromise: Promise<void> | null;
   remoteHydrationGeneration: number | null;
   remoteHydrationStructuralGeneration: number | null;
+  remoteReconnectRefreshPending: boolean;
   resolveProjectionUserKey: ContainerContentsProjectionUserKeyResolver;
   /** True after this store has fully applied an authoritative root lane. */
   rootLaneHydrated: boolean;
