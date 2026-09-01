@@ -80,14 +80,18 @@ export async function resolvePersistedNativeSubscriptionStore(input: {
 /** Play plan changes can replace the purchase token before the next grant. */
 export async function hasAcceptedPlayReplacement(input: {
   readonly appUserId: string;
-  readonly currentSubscriptionId: string;
+  readonly currentSubscriptionId: string | null;
   readonly executor: DatabaseSession;
   readonly organizationId: string;
   readonly productId: string | null;
   readonly store: string | null;
   readonly subscriptionId: string | null;
 }): Promise<boolean> {
-  if (!input.subscriptionId || input.store?.toUpperCase() !== "PLAY_STORE") {
+  if (
+    !input.currentSubscriptionId ||
+    !input.subscriptionId ||
+    input.store?.toUpperCase() !== "PLAY_STORE"
+  ) {
     return false;
   }
   const [change] = await input.executor
