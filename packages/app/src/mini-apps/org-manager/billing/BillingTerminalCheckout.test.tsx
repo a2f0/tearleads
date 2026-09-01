@@ -59,6 +59,9 @@ function stubTerminalBilling(status: "deleting" | "purged") {
           }),
         loadStripeCheckoutOptions,
       },
+      session: {
+        recoverPurgedOrganization: () => new Promise(() => undefined),
+      },
     } as never),
   );
   return loadStripeCheckoutOptions;

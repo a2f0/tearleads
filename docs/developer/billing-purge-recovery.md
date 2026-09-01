@@ -17,7 +17,11 @@ the server reports `purged`. The session provisions a replacement personal
 organization in local-only billing state. Until that replacement has active
 billing and the current user has a sync seat, recovery throws
 `PurgedOrganizationRecoveryBillingRequiredError` with the stable replacement
-organization id; callers use that id for trial or checkout and retry recovery.
+organization and root-container ids; callers use the organization id for trial
+or checkout and retry recovery. The app's Organization Billing panel performs
+this handoff automatically. It keeps the purged organization active locally,
+targets every replacement billing read and purchase explicitly, and retries the
+same durable recovery after billing becomes sync-eligible.
 The old organization's local data and the server default-organization pointer
 remain bound to the old id during this billing wait, so re-authentication still
 opens the retained organization. Once the replacement is sync-eligible, the
@@ -27,6 +31,11 @@ server rechecks billing and the current user's sync seat before moving the
 default pointer. Only then does the session remove its durable attempt and
 resume under the new id. Lost responses and interrupted resets remain
 idempotent.
+
+SDK organization billing methods that can initiate a replacement purchase
+accept an explicit organization id. Hosts must use that target while recovery
+is waiting rather than temporarily switching the session, which would make a
+restart lose the purged source id before local rebind and server finalization.
 
 Only one replacement can win. When two devices race with different candidate
 organization ids, the server stores the first complete provisioning response

@@ -18,11 +18,12 @@ import { useOrganizationBilling } from "../../../providers/billing/BillingProvid
 import { useIdentity } from "../../../providers/identity/IdentityProvider";
 import { useSymCrypt } from "../../../providers/sdk/SymCryptProvider";
 import { useBillingActions } from "../hooks/useBillingActions";
+import { usePurgedOrganizationRecovery } from "../hooks/usePurgedOrganizationRecovery";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { BillingCancelSubscription } from "./BillingCancelSubscription";
 import { BillingDirectCheckout } from "./BillingDirectCheckout";
-import { BillingHistory } from "./BillingHistory";
-import { BillingView } from "./BillingView";
+import { OptionalBillingHistory } from "./BillingHistory";
+import { BillingRecoveryStatus, BillingView } from "./BillingView";
 import { useBillingHistory } from "./useBillingHistory";
 import {
   useBillingManagementUrl,
@@ -283,17 +284,21 @@ function BillingPanelSubscriptionControls(input: {
   );
 }
 
-function useRestoreOrganizationWiring(organizationId: string) {
+function useRestoreOrganizationWiring(
+  organizationId: string,
+  recovery: ReturnType<typeof usePurgedOrganizationRecovery>,
+) {
   const symcrypt = useSymCrypt();
   const { persistSession } = useIdentity();
-  const createRestoreOrganization = useCallback(
-    () =>
-      symcrypt.session.prepareNativeSubscriptionRestoreOrganization({
-        organizationProfileName:
-          ORG_MANAGER_LABELS.restoredSubscriptionOrganizationName,
-      }),
-    [symcrypt],
-  );
+  const createRestoreOrganization = useCallback(() => {
+    if (recovery.replacement) {
+      return Promise.resolve(recovery.replacement);
+    }
+    return symcrypt.session.prepareNativeSubscriptionRestoreOrganization({
+      organizationProfileName:
+        ORG_MANAGER_LABELS.restoredSubscriptionOrganizationName,
+    });
+  }, [recovery.replacement, symcrypt]);
   const claimNativeSubscription = useCallback(
     async (organizationId: string, store: NativeSubscriptionStore) =>
       (
@@ -314,19 +319,32 @@ function useRestoreOrganizationWiring(organizationId: string) {
   );
   const completeRestoreOrganization = useCallback(
     (organizationId: string) =>
-      symcrypt.session.completeNativeSubscriptionRestoreOrganization(
-        organizationId,
-      ),
-    [symcrypt],
+      recovery.replacement
+        ? Promise.resolve(
+            recovery.replacement.organizationId === organizationId,
+          )
+        : symcrypt.session.completeNativeSubscriptionRestoreOrganization(
+            organizationId,
+          ),
+    [recovery.replacement, symcrypt],
   );
   const activateRestoredOrganization = useCallback(
     async (organization: { containerId: string; organizationId: string }) => {
+      if (recovery.replacement) {
+        if (
+          recovery.replacement.organizationId !== organization.organizationId ||
+          !(await recovery.finalize())
+        ) {
+          throw new Error("Purged organization recovery did not finish");
+        }
+        return;
+      }
       symcrypt.session.setContext(organization);
       if (!(await persistSession())) {
         throw new Error("Restored organization session was not persisted");
       }
     },
-    [persistSession, symcrypt],
+    [persistSession, recovery, symcrypt],
   );
   return {
     activateRestoredOrganization,
@@ -337,30 +355,56 @@ function useRestoreOrganizationWiring(organizationId: string) {
   };
 }
 
+interface BillingPanelProps {
+  readonly isOrgAdmin: boolean;
+  readonly isPersonalOrganization?: boolean | null;
+  readonly organizationId: string;
+  readonly userId: string | null;
+}
+
+function useBillingPanelRecovery(props: BillingPanelProps) {
+  const sourceBilling = useOrganizationBilling();
+  return usePurgedOrganizationRecovery({
+    enabled: props.isOrgAdmin && props.isPersonalOrganization === true,
+    organizationId: props.organizationId,
+    sourceBilling,
+    userId: props.userId,
+  });
+}
+
+function useVoidRefresh(refresh: () => Promise<void>) {
+  return useCallback(() => void refresh(), [refresh]);
+}
+
 export function BillingPanel({
   isOrgAdmin,
   isPersonalOrganization = null,
   organizationId,
   userId,
-}: {
-  isOrgAdmin: boolean;
-  isPersonalOrganization?: boolean | null;
-  organizationId: string;
-  userId: string | null;
-}) {
-  const billing = useOrganizationBilling();
-  const restoreOrganization = useRestoreOrganizationWiring(organizationId);
-  const { refresh } = billing;
-  const handleRefresh = useCallback(() => {
-    void refresh();
-  }, [refresh]);
+}: BillingPanelProps) {
+  const recovery = useBillingPanelRecovery({
+    isOrgAdmin,
+    isPersonalOrganization,
+    organizationId,
+    userId,
+  });
+  const billing = recovery.billing;
+  const billingOrganizationId =
+    recovery.replacement?.organizationId ?? organizationId;
+  const restoreOrganization = useRestoreOrganizationWiring(
+    billingOrganizationId,
+    recovery,
+  );
+  const refresh = recovery.active ? recovery.refresh : billing.refresh;
+  const handleRefresh = useVoidRefresh(refresh);
   const subscriptionManagement = useOpenSubscriptionManagement(handleRefresh);
   // Resolve the owner of an existing subscription before offering provider
   // actions. Native plans may change tier through the store; an active Stripe
   // plan must never be duplicated by starting a second native subscription.
   const management = useBillingManagementUrl(
-    organizationId,
+    billingOrganizationId,
     isOrgAdmin &&
+      !recovery.active &&
       billing.view !== null &&
       !billing.view.isLocal &&
       !billing.view.isTrialing,
@@ -370,7 +414,7 @@ export function BillingPanel({
     billing.view !== null &&
     allowsNativePurchase({
       isActive: billing.view.isActive,
-      isPersonalOrganization,
+      isPersonalOrganization: recovery.active ? true : isPersonalOrganization,
       status: billing.view.status,
       subscriptionSource: management.subscriptionSource,
     });
@@ -383,21 +427,20 @@ export function BillingPanel({
     isOrgAdmin,
     nativePurchaseAllowed,
     checkoutHostRef,
-    organizationId,
+    organizationId: billingOrganizationId,
     refresh,
     startTrial: billing.startTrial,
     userId,
   });
-  // Pass the billing snapshot so a billing refresh (activation poll / Refresh)
-  // also refetches history, keeping the tabs current after a purchase.
+  // A billing refresh also refetches history after a purchase.
   const history = useBillingHistory(
-    organizationId,
-    isOrgAdmin,
+    billingOrganizationId,
+    isOrgAdmin && !recovery.active,
     billing.billing,
   );
   const direct = useDirectCheckoutWiring({
     isOrgAdmin,
-    organizationId,
+    organizationId: billingOrganizationId,
     userId,
     view: billing.view,
     refresh,
@@ -407,25 +450,23 @@ export function BillingPanel({
 
   return (
     <div>
+      <BillingRecoveryStatus {...recovery} onRetry={recovery.retry} />
       <BillingPanelSubscriptionControls
         actions={actions}
         billing={billing}
         checkoutHostRef={checkoutHostRef}
         direct={direct}
         isOrgAdmin={isOrgAdmin}
-        isPersonalOrganization={isPersonalOrganization}
+        isPersonalOrganization={recovery.active ? true : isPersonalOrganization}
         nativePurchaseAllowed={nativePurchaseAllowed}
         onRefresh={handleRefresh}
-        organizationId={organizationId}
+        organizationId={billingOrganizationId}
         subscriptionManagement={subscriptionManagement}
       />
-      {isOrgAdmin ? (
-        <BillingHistory
-          entries={history.entries}
-          error={history.error}
-          loading={history.loading}
-        />
-      ) : null}
+      <OptionalBillingHistory
+        enabled={isOrgAdmin && !recovery.active}
+        history={history}
+      />
     </div>
   );
 }
