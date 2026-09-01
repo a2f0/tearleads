@@ -243,8 +243,8 @@ export async function acknowledgeContainerMutation(input: {
   readonly plan: AuthoredContainerMutationHead;
   readonly response: ContainerMutationResponse;
   readonly stillCurrent?: (() => boolean) | undefined;
-}): Promise<void> {
-  await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
+}): Promise<boolean> {
+  return advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
     execSql: input.execSql,
     heads: [
       await locallyAcknowledgedContainerMutationHead({

@@ -9,7 +9,7 @@ import {
 } from "../../../data/containers/shared/projection";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import {
-  createRemoteContainer as createRemoteContainerMutation,
+  continueRemoteContainerCreateForMetadataDocument as createRemoteContainerMutation,
   moveRemoteContainer as moveRemoteContainerMutation,
   readContainerMutationMetadataDocumentId,
   referencedPrincipalHeadsFromContainerMutationResponse,

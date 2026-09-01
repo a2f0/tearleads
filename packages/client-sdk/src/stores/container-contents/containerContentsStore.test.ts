@@ -104,7 +104,7 @@ test("getOrCreateContainerContentsStore applies updated options to the cached sc
   expect(logs).toContain("Updated label: loaded 0 container(s)");
 });
 
-test("legacy container persistence adapters can create queued children", async () => {
+test("legacy container persistence adapters refuse queued child creation", async () => {
   const { close, execSql } = await createTestExecSql(
     "container-contents-legacy-persistence",
   );
@@ -130,10 +130,8 @@ test("legacy container persistence adapters can create queued children", async (
 
     const child = await store.createChild("legacy-root", "Legacy child");
 
-    expect(child).not.toBeNull();
-    expect(
-      await persistence.listPendingUpdates(execSql, child?.id ?? ""),
-    ).toHaveLength(1);
+    expect(child).toBeNull();
+    await expect(persistence.loadContainers(execSql)).resolves.toHaveLength(1);
   } finally {
     close();
   }

@@ -3,8 +3,6 @@ import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemS
 import { createInitializedContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
 import { createPendingUpdateFields } from "../../../data/documents/documentSync";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
-import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
-import { runSerializedSqlMutation } from "../../../data/sqlite/sqlSchema";
 import { deriveStableUuidV4Shaped } from "../../../data/stableUuid";
 import type {
   ContainerContentsPersistence,
@@ -182,6 +180,24 @@ function createInitialChildContainerDocumentRecord(input: {
   };
 }
 
+function resolveAtomicChildContainerSave(
+  persistence: ContainerContentsPersistence,
+): NonNullable<
+  ContainerContentsPersistence["saveContainerWithPendingUpdate"]
+> | null {
+  const saveContainerWithPendingUpdate =
+    persistence.saveContainerWithPendingUpdate;
+  if (!saveContainerWithPendingUpdate) return null;
+  const inheritedSqlAtomicSave =
+    saveContainerWithPendingUpdate ===
+      defaultContainerContentsPersistence.saveContainerWithPendingUpdate &&
+    (persistence.saveContainer !==
+      defaultContainerContentsPersistence.saveContainer ||
+      persistence.enqueuePendingUpdate !==
+        defaultContainerContentsPersistence.enqueuePendingUpdate);
+  return inheritedSqlAtomicSave ? null : saveContainerWithPendingUpdate;
+}
+
 async function persistCreatedChildContainer(input: {
   containerState: ContainerState;
   initialUpdate: Uint8Array;
@@ -211,56 +227,16 @@ async function persistCreatedChildContainer(input: {
   const pendingUpdate = shouldRequestSync
     ? createPendingUpdateFields(input.initialUpdate)
     : null;
-  const saveContainerWithPendingUpdate =
-    persistence.saveContainerWithPendingUpdate;
-  const inheritedSqlAtomicSave =
-    saveContainerWithPendingUpdate ===
-      defaultContainerContentsPersistence.saveContainerWithPendingUpdate &&
-    (persistence.saveContainer !==
-      defaultContainerContentsPersistence.saveContainer ||
-      persistence.enqueuePendingUpdate !==
-        defaultContainerContentsPersistence.enqueuePendingUpdate);
-  if (
-    pendingUpdate &&
-    saveContainerWithPendingUpdate &&
-    !inheritedSqlAtomicSave
-  ) {
+  if (pendingUpdate) {
+    const saveContainerWithPendingUpdate =
+      resolveAtomicChildContainerSave(persistence);
+    if (!saveContainerWithPendingUpdate) return null;
     containerState.container = await saveContainerWithPendingUpdate(
       runtime.infra.execSql,
       containerState.container,
       containerState.record,
       { ...saveOptions, pendingUpdate },
     );
-  } else if (pendingUpdate) {
-    const outcome = await runSerializedSqlMutation(
-      runtime.infra.execSql,
-      (lockedExecSql) =>
-        getClientSQLitePersistenceRuntime(lockedExecSql).guardedTransaction(
-          async () => {
-            if (input.stillCurrent?.() === false) {
-              return containerState.container;
-            }
-            const { stillCurrent: _outerGuard, ...legacySaveOptions } =
-              saveOptions ?? {};
-            const savedContainer = await persistence.saveContainer(
-              lockedExecSql,
-              containerState.container,
-              containerState.record,
-              legacySaveOptions,
-            );
-            if (input.stillCurrent?.() === false) return savedContainer;
-            await persistence.enqueuePendingUpdate(lockedExecSql, {
-              containerId: savedContainer.id,
-              ...pendingUpdate,
-            });
-            return savedContainer;
-          },
-          () => input.stillCurrent?.() !== false,
-          { behavior: "immediate" },
-        ),
-    );
-    if (!outcome.committed || !outcome.result) return null;
-    containerState.container = outcome.result;
   } else {
     containerState.container = await persistence.saveContainer(
       runtime.infra.execSql,
@@ -314,6 +290,13 @@ export async function createChildContainerState(input: {
     initialUpdate,
   });
   if (input.stillCurrent?.() === false) return null;
+  // An initial metadata update and its container identity are one durable unit.
+  // Refuse before any remote create when a legacy/custom adapter cannot provide
+  // that atomic operation; a SQLite transaction cannot roll back adapter-owned
+  // side effects.
+  if (queueRemoteSync && !resolveAtomicChildContainerSave(persistence)) {
+    return null;
+  }
 
   const remoteChildState = createRemote
     ? await buildRemoteContainerContentsChildContainerState({

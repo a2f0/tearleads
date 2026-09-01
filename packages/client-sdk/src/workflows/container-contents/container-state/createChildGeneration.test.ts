@@ -12,7 +12,7 @@ import {
 import { createChildContainerState } from "./createChild";
 import type { ContainerWorkflowRuntime } from "./types";
 
-test("decorated child persistence uses its overridden save atomically", async () => {
+test("decorated legacy child persistence refuses before remote mutation", async () => {
   const { close, execSql } = await createTestExecSql(
     "legacy-child-create-generation",
   );
@@ -28,24 +28,20 @@ test("decorated child persistence uses its overridden save atomically", async ()
       parentContainer,
       parentRecord,
     );
-    let current = true;
-    let childId: string | null = null;
+    let saveCalled = false;
     const persistence: ContainerContentsPersistence = {
       ...defaultContainerContentsPersistence,
       saveContainer: async (...args) => {
+        saveCalled = true;
         const saved = await defaultContainerContentsPersistence.saveContainer(
           ...args,
         );
-        if (saved.parentId !== null) {
-          childId = saved.id;
-          current = false;
-        }
         return saved;
       },
     };
 
     const result = await createChildContainerState({
-      createRemote: false,
+      createRemote: true,
       name: "Expired child",
       parentState: {
         container: parentContainer,
@@ -55,23 +51,14 @@ test("decorated child persistence uses its overridden save atomically", async ()
       persistence,
       resolveProjectionUserKey: async () => null,
       runtime: { infra: { execSql } } as ContainerWorkflowRuntime,
-      stillCurrent: () => current,
+      stillCurrent: () => true,
     });
 
     expect(result).toBeNull();
-    expect(childId).not.toBeNull();
-    expect(
-      await defaultContainerContentsPersistence.containerExists(
-        execSql,
-        childId ?? "",
-      ),
-    ).toBe(false);
-    expect(
-      await defaultContainerContentsPersistence.listPendingUpdates(
-        execSql,
-        childId ?? "",
-      ),
-    ).toEqual([]);
+    expect(saveCalled).toBe(false);
+    await expect(
+      defaultContainerContentsPersistence.loadContainers(execSql),
+    ).resolves.toHaveLength(1);
   } finally {
     close();
   }

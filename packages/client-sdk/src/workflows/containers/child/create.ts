@@ -42,10 +42,7 @@ import {
   type ProjectionVerificationOptions,
   projectionVerificationOptions,
 } from "../../../data/documents/shared/types";
-import {
-  readCanonicalRecord,
-  readCanonicalRecords,
-} from "../../../data/keyingCanonicalJson";
+import { readCanonicalRecord } from "../../../data/keyingCanonicalJson";
 import type {
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,
@@ -339,58 +336,7 @@ export async function buildMaterializedContainerCreatePlan(
   };
 }
 
-export function childContainerWriterProjectionFromCreatePlan(input: {
-  materializedPlan: MaterializedContainerCreatePlan;
-  parentProjection: ContainerWriterProjectionResponse;
-}): ContainerWriterProjectionResponse {
-  const { materializedPlan, parentProjection } = input;
-  const { plan } = materializedPlan;
-  const parentKek = getParentCreateContext(parentProjection).kek;
-
-  return {
-    containerId: plan.containerId,
-    organizationId: plan.state.organizationId,
-    path: [
-      ...parentProjection.path,
-      {
-        event: {
-          event: readCanonicalRecord(plan.event, "Container child event"),
-          body: readCanonicalRecord(plan.body, "Container child body"),
-          eventHash: plan.eventHash,
-        },
-        manifest: readCanonicalRecord(
-          plan.manifest,
-          "Container child manifest",
-        ),
-        manifestHash: plan.manifestHash,
-        state: readCanonicalRecord(plan.state, "Container child state"),
-      },
-    ],
-    containerKeks: [
-      ...parentProjection.containerKeks,
-      {
-        containerId: plan.containerId,
-        accessManifestHash: plan.manifestHash,
-        containerKeyEpochId: plan.containerKeyEpochId,
-        containerKeyEpoch: plan.keyEpoch.keyEpoch,
-        keyEpoch: readCanonicalRecord(
-          plan.keyEpoch,
-          "Container child key epoch",
-        ),
-        keyEpochHash: plan.keyEpochHash,
-        keyTargetHash: plan.keyTargetHash,
-        containerManifestHistory: [],
-        parentContainerKeyEpochId: parentKek.containerKeyEpochId,
-        keyring: null,
-        recipientTargets: readCanonicalRecords(
-          plan.recipientTargets,
-          "Container child recipient targets",
-        ),
-        wraps: readCanonicalRecords(plan.wraps, "Container child wraps"),
-      },
-    ],
-  };
-}
+export { childContainerWriterProjectionFromCreatePlan } from "./createProjection";
 
 async function createRemoteContainerWithRepairs(input: {
   readonly containerId: string;
@@ -401,7 +347,10 @@ async function createRemoteContainerWithRepairs(input: {
   readonly request: RemoteContainerCreateInput;
   readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
   readonly signedAt: string;
-}): Promise<CreateRemoteContainerResult | null> {
+}): Promise<{
+  readonly acknowledged: boolean;
+  readonly result: CreateRemoteContainerResult;
+} | null> {
   let parentProjection = input.parentProjection;
   const repairState: ContainerCreateRepairState = {
     didRepairStaleParent: false,
@@ -452,24 +401,31 @@ async function createRemoteContainerWithRepairs(input: {
       submitted.report();
       return null;
     }
-    await acknowledgeContainerMutation({
+    const acknowledged = await acknowledgeContainerMutation({
       execSql: input.request.execSql,
       plan: materializedPlan.plan,
       response: submitted.response,
       stillCurrent: input.request.stillCurrent,
     });
     return {
-      containerKey: materializedPlan.containerKey,
-      containerId: submitted.response.containerId,
-      metadataDocumentId: materializedPlan.plan.metadataDocumentId,
-      plan: materializedPlan.plan,
-      response: submitted.response,
+      acknowledged,
+      result: {
+        containerKey: materializedPlan.containerKey,
+        containerId: submitted.response.containerId,
+        metadataDocumentId: materializedPlan.plan.metadataDocumentId,
+        plan: materializedPlan.plan,
+        response: submitted.response,
+      },
     };
   }
 }
-export async function createRemoteContainer(
+
+async function createRemoteContainerOutcome(
   input: RemoteContainerCreateInput,
-): Promise<CreateRemoteContainerResult | null> {
+): Promise<{
+  readonly acknowledged: boolean;
+  readonly result: CreateRemoteContainerResult;
+} | null> {
   const resolveProjectionUserKey = requireProjectionUserKeyResolver(
     input.resolveProjectionUserKey,
     "Remote container create",
@@ -495,4 +451,23 @@ export async function createRemoteContainer(
       signedAt: input.signedAt ?? new Date().toISOString(),
     }),
   );
+}
+
+export async function createRemoteContainer(
+  input: RemoteContainerCreateInput,
+): Promise<CreateRemoteContainerResult | null> {
+  const outcome = await createRemoteContainerOutcome(input);
+  return outcome?.acknowledged ? outcome.result : null;
+}
+
+/**
+ * The legacy two-request create must finish its metadata document after the
+ * container POST commits, even when local generation acknowledgement loses.
+ * Keep that remote-only continuation separate from ordinary callers, which
+ * must never receive unacknowledged state as a normal create success.
+ */
+export async function continueRemoteContainerCreateForMetadataDocument(
+  input: RemoteContainerCreateInput,
+): Promise<CreateRemoteContainerResult | null> {
+  return (await createRemoteContainerOutcome(input))?.result ?? null;
 }

@@ -417,8 +417,8 @@ export interface ContainerContentsPersistence
   ) => Promise<ContainerRecord>;
   /**
    * Atomically saves a container and enqueues its first metadata update.
-   * Optional for adapters built before this operation existed; the SDK then
-   * composes the legacy save and enqueue methods in one guarded transaction.
+   * Optional for adapters built before this operation existed; create flows
+   * that need the compound write refuse before mutation when it is unavailable.
    */
   saveContainerWithPendingUpdate?:
     | ((
