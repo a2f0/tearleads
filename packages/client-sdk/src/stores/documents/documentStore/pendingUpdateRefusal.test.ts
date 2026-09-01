@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createCoverageFixture } from "../../../../test/helpers/syncOutgoingCoverage";
 import type { DocumentsPersistence } from "../../../workflows/documents";
 import { rebaseDocumentAfterPendingUpdateRefusal } from "./pendingUpdateRefusal";
+import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
 
 test("a refused enqueue atomically adopts and registers the winning identity", async () => {
   const fixture = await createCoverageFixture(
@@ -37,12 +38,14 @@ test("a refused enqueue atomically adopts and registers the winning identity", a
         registrations.push({ documentId, localId });
       },
     };
+    const generation = captureDocumentStoreSyncGeneration(
+      fixture.state,
+      fixture.document,
+    );
+    if (!generation) throw new Error("Expected a live document generation");
 
     expect(
-      await rebaseDocumentAfterPendingUpdateRefusal(
-        fixture.state,
-        fixture.generation,
-      ),
+      await rebaseDocumentAfterPendingUpdateRefusal(fixture.state, generation),
     ).toBe(true);
     expect(fixture.state.record?.documentId).toBe("replacement-document");
     expect(registrations).toEqual([

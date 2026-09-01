@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@tearleads/test-utils";
+import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import { createContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
 import type { DomainScope } from "../../data/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
@@ -36,6 +36,7 @@ test("zero-completion stale teardown still refreshes and re-primes", async () =>
     completedCount: 0,
     containerStatesAtStart: new Map(),
     purgedContainerIds: [],
+    remoteDeletedContainerIds: [],
     state,
     syncAgent: {
       refreshLocalContainers: async () => {
@@ -47,6 +48,87 @@ test("zero-completion stale teardown still refreshes and re-primes", async () =>
   expect(refreshes).toBe(1);
   expect(state.localContainersNeedRefresh).toBe(true);
   expect(state.documentStoresNeedPriming).toBe(true);
+});
+
+test("stale purge reconciles a remote delete whose local CAS rolls back", async () => {
+  const database = await createTestExecSql(
+    "container-purge-remote-local-conflict",
+  );
+  const container = createTestContainerState({
+    id: "remote-purge-conflict",
+    organizationId: "org-1",
+    parentId: "parent",
+  });
+  let current = true;
+  const remoteDeletedIds: string[] = [];
+  const apiClient = createMockApiClient({
+    deleteContainerResult: async (containerId) => {
+      remoteDeletedIds.push(containerId);
+      current = false;
+      return {
+        data: {
+          containerId,
+          deletedAt: "2026-09-01T00:00:00.000Z",
+        },
+        ok: true,
+      };
+    },
+  });
+
+  try {
+    await defaultContainerContentsPersistence.ensureSchema(database.execSql);
+    await defaultContainerContentsPersistence.saveContainer(
+      database.execSql,
+      container.container,
+      container.record,
+    );
+    const state = createContainerContentsStoreState(
+      createContainerContentsTestRuntime({
+        apiClient,
+        domainScope: {} as DomainScope,
+        execSql: database.execSql,
+      }),
+      defaultContainerContentsPersistence,
+    );
+    state.containersById.set(container.container.id, container);
+    state.initialized = true;
+    updateContainerContentsSnapshot(state);
+    const hydrationParentIds: Array<ReadonlyArray<string | null>> = [];
+    const syncAgent = {
+      refreshLocalContainers: async () => undefined,
+      requestRemoteHydration: async (
+        options: { parentIds?: ReadonlyArray<string | null> | undefined } = {},
+      ) => {
+        hydrationParentIds.push(options.parentIds ?? []);
+      },
+    } as unknown as ContainerContentsStoreSyncAgent;
+
+    await expect(
+      runContainerPurge(
+        state,
+        syncAgent,
+        container.container.id,
+        undefined,
+        () => current,
+        {
+          describeResult: () => "purged",
+          didSucceed: () => true,
+          validateTarget: () => true,
+        },
+      ),
+    ).resolves.toBe(false);
+    expect(remoteDeletedIds).toEqual([container.container.id]);
+    expect(hydrationParentIds).toEqual([[container.container.parentId]]);
+    expect(
+      await defaultContainerContentsPersistence.containerExists(
+        database.execSql,
+        container.container.id,
+      ),
+    ).toBe(true);
+    expect(state.containersById.get(container.container.id)).toBe(container);
+  } finally {
+    await database.close();
+  }
 });
 
 test("a partial purge refreshes current state after generation rollover", async () => {
@@ -218,6 +300,7 @@ test("stale remote purge reconciliation targets the replacement executor", async
       completedCount: 1,
       containerStatesAtStart,
       purgedContainerIds: [container.container.id],
+      remoteDeletedContainerIds: [container.container.id],
       state,
       syncAgent,
     });

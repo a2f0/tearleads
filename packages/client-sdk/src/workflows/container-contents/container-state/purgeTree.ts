@@ -11,9 +11,9 @@ import {
 } from "../documentPurge";
 import type { ContainerState } from "../remoteHydration";
 import type { ContainerContentsWorkflowRuntime } from "../runtime";
-import { deleteContainerState } from "./delete";
 import type { PurgeProgress } from "./purgeProgress";
 import { collectSubtreeLeafFirst } from "./purgeTreeCollection";
+import { deleteSubtreeContainers } from "./purgeTreeContainerDeletion";
 
 export { collectSubtreeLeafFirst } from "./purgeTreeCollection";
 
@@ -49,6 +49,7 @@ interface PurgeContainerTreeResult {
   readonly completedCount: number;
   readonly failedCount: number;
   readonly purgedContainerIds: readonly string[];
+  readonly remoteDeletedContainerIds: readonly string[];
   readonly totalCount: number;
 }
 
@@ -310,58 +311,6 @@ async function teardownSubtreeDocuments(input: {
   return { aborted: false };
 }
 
-interface SubtreeContainerDeletionResult {
-  readonly aborted: boolean;
-  readonly purgedContainerIds: string[];
-}
-
-// Delete leaf-first. A surviving document or child blocks its container and all
-// ancestors; cancellation stops at a container boundary.
-async function deleteSubtreeContainers(input: {
-  readonly persistence: PurgeContainerTreeInput["persistence"];
-  readonly reportStep: (ok: boolean) => void;
-  readonly runtime: PurgeContainerTreeRuntime;
-  readonly signal?: AbortSignal | undefined;
-  readonly stillCurrent?: (() => boolean) | undefined;
-  readonly subtreeStates: readonly ContainerState[];
-}): Promise<SubtreeContainerDeletionResult> {
-  const purgedContainerIds: string[] = [];
-  const blockedParentIds = new Set<string>();
-  for (const containerState of input.subtreeStates) {
-    if (purgeWasCancelled(input)) {
-      return { aborted: true, purgedContainerIds };
-    }
-    const containerId = containerState.container.id;
-    const parentId = containerState.container.parentId;
-    if (blockedParentIds.has(containerId)) {
-      if (parentId !== null) {
-        blockedParentIds.add(parentId);
-      }
-      input.reportStep(false);
-      continue;
-    }
-    const deleted = await deleteContainerState({
-      containerState,
-      persistence: input.persistence,
-      runtime: input.runtime,
-      stillCurrent: input.stillCurrent,
-    });
-    if (deleted === "deleted") {
-      purgedContainerIds.push(containerId);
-      input.reportStep(true);
-    } else {
-      if (deleted === "local-conflict" && purgeWasCancelled(input)) {
-        return { aborted: true, purgedContainerIds };
-      }
-      if (parentId !== null) {
-        blockedParentIds.add(parentId);
-      }
-      input.reportStep(false);
-    }
-  }
-  return { aborted: false, purgedContainerIds };
-}
-
 // Permanently destroy a folder that lives inside Trash, including everything
 // under it (or, with keepRootContainer, everything under the Trash bin while
 // leaving the bin in place — this is "Empty Trash"). Documents are destroyed only
@@ -449,6 +398,7 @@ export async function purgeContainerTree(
   });
 
   let purgedContainerIds: readonly string[] = [];
+  let remoteDeletedContainerIds: readonly string[] = [];
   let aborted = teardown.aborted;
   if (!teardown.aborted) {
     const deletion = await deleteSubtreeContainers({
@@ -460,6 +410,7 @@ export async function purgeContainerTree(
       subtreeStates: containerStatesToDelete,
     });
     purgedContainerIds = deletion.purgedContainerIds;
+    remoteDeletedContainerIds = deletion.remoteDeletedContainerIds;
     aborted = deletion.aborted;
   }
 
@@ -468,6 +419,7 @@ export async function purgeContainerTree(
     completedCount,
     failedCount,
     purgedContainerIds,
+    remoteDeletedContainerIds,
     totalCount,
   };
 }

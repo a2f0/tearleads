@@ -61,10 +61,14 @@ function createRuntime(
   });
 }
 
-test("a replaced store generation cannot submit a planned remote sync", async () => {
+test.each([
+  "document",
+  "api-client",
+  "container",
+] as const)("a replaced %s generation cannot submit a planned remote sync", async (replacement) => {
   const fixture = await createMaterializedSyncFixture();
   const { close, execSql } = await createTestExecSql(
-    "document-store-stale-sync-submit",
+    `document-store-stale-${replacement}-sync-submit`,
   );
 
   try {
@@ -77,7 +81,22 @@ test("a replaced store generation cannot submit a planned remote sync", async ()
     const apiClient = createMockApiClient({
       getDocumentWriterProjectionResult: async () => {
         projectionReads += 1;
-        state.doc = replacementDoc;
+        if (replacement === "document") {
+          state.doc = replacementDoc;
+        } else if (replacement === "api-client") {
+          state.runtime = {
+            ...state.runtime,
+            apiClient: createMockApiClient(),
+          };
+        } else {
+          state.runtime = {
+            ...state.runtime,
+            state: {
+              ...state.runtime.state,
+              containerId: "replacement-container",
+            },
+          };
+        }
         return { data: fixture.writerProjection, ok: true };
       },
       syncDocumentResult: async () => {
@@ -122,7 +141,9 @@ test("a replaced store generation cannot submit a planned remote sync", async ()
     expect(attempt).toBeNull();
     expect(projectionReads).toBe(1);
     expect(submissions).toBe(0);
-    expect(state.doc).toBe(replacementDoc);
+    expect(state.doc).toBe(
+      replacement === "document" ? replacementDoc : currentDoc,
+    );
   } finally {
     close();
   }

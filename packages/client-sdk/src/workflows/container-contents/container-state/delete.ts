@@ -6,6 +6,7 @@ import type { ContainerWorkflowRuntime } from "./types";
 type DeleteContainerStateResult =
   | "deleted"
   | "local-conflict"
+  | "remote-deleted"
   | "remote-failed";
 
 export async function deleteContainerState(input: {
@@ -45,7 +46,6 @@ export async function deleteContainerState(input: {
       stillCurrent: input.stillCurrent,
     },
   );
-  return deletedContainerIds.includes(containerId)
-    ? "deleted"
-    : "local-conflict";
+  if (deletedContainerIds.includes(containerId)) return "deleted";
+  return isRemoteContainer ? "remote-deleted" : "local-conflict";
 }

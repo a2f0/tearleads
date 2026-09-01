@@ -324,7 +324,11 @@ export async function deleteContainer(
   if (deleted === "remote-failed") {
     return null;
   }
-  if (deleted === "local-conflict" || !isCurrent()) {
+  if (
+    deleted === "local-conflict" ||
+    deleted === "remote-deleted" ||
+    !isCurrent()
+  ) {
     state.localContainersNeedRefresh = true;
     await syncAgent.refreshLocalContainers();
     // The delete committed before this operation lost its generation. Evict

@@ -349,6 +349,7 @@ test("purgeContainerTree reports zero completions after a later unlink fails", a
       completedCount: 0,
       failedCount: 1,
       purgedContainerIds: [],
+      remoteDeletedContainerIds: [],
       totalCount: 3,
     });
   } finally {

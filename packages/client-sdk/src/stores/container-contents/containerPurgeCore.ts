@@ -19,12 +19,15 @@ export async function refreshAfterStalePurge(input: {
   completedCount: number;
   containerStatesAtStart: ReadonlyMap<string, ContainerState>;
   purgedContainerIds: readonly string[];
+  remoteDeletedContainerIds: readonly string[];
   state: ContainerContentsStoreState;
   syncAgent: ContainerContentsStoreSyncAgent;
 }): Promise<void> {
   const remoteParentIds = new Set<string | null>();
-  for (const purgedContainerId of input.purgedContainerIds) {
-    const purgedState = input.containerStatesAtStart.get(purgedContainerId);
+  for (const remoteDeletedContainerId of input.remoteDeletedContainerIds) {
+    const purgedState = input.containerStatesAtStart.get(
+      remoteDeletedContainerId,
+    );
     if (purgedState?.record.documentId) {
       remoteParentIds.add(purgedState.container.parentId);
     }
@@ -114,11 +117,16 @@ export async function runContainerPurge(
   if (!result) {
     return false;
   }
-  if (!isCurrent()) {
+  const purgedContainerIds = new Set(result.purgedContainerIds);
+  const hasUnsettledRemoteDelete = result.remoteDeletedContainerIds.some(
+    (containerId) => !purgedContainerIds.has(containerId),
+  );
+  if (!isCurrent() || hasUnsettledRemoteDelete) {
     await refreshAfterStalePurge({
       completedCount: result.completedCount,
       containerStatesAtStart,
       purgedContainerIds: result.purgedContainerIds,
+      remoteDeletedContainerIds: result.remoteDeletedContainerIds,
       state,
       syncAgent,
     });
