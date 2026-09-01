@@ -79,7 +79,7 @@ resolve_tier_ssh_target() {
   )
 }
 
-ssh_target_host() {
+ssh_target_literal_host() {
   local host="${1##*@}"
   host="${host#[}"
   host="${host%]}"
@@ -87,11 +87,47 @@ ssh_target_host() {
   printf '%s\n' "$host" | tr '[:upper:]' '[:lower:]'
 }
 
-reject_shared_ssh_host() {
+ssh_target_configured_host() {
+  local target="$1"
+  local host
+  host="$(ssh -G "$target" 2>/dev/null | awk '$1 == "hostname" { print $2; exit }')" || host=""
+  if [[ -z "$host" ]]; then
+    host="$(ssh_target_literal_host "$target")"
+  fi
+  ssh_target_literal_host "$host"
+}
+
+resolve_ssh_host_addresses() {
+  local host="$1"
+  DEPLOY_EVERYTHING_RESOLVE_HOST="$host" bun -e '
+    const { lookup } = require("node:dns").promises;
+    const host = process.env.DEPLOY_EVERYTHING_RESOLVE_HOST;
+    const values = await lookup(host, { all: true, verbatim: true });
+    const addresses = [...new Set(values.map(({ address }) => address))];
+    console.log(addresses.sort().join("\n"));
+  '
+}
+
+ssh_address_sets_intersect() {
+  local left="$1"
+  local right="$2"
+  local left_address right_address
+
+  while IFS= read -r left_address; do
+    [[ -z "$left_address" ]] && continue
+    while IFS= read -r right_address; do
+      [[ -z "$right_address" ]] && continue
+      [[ "$left_address" == "$right_address" ]] && return 0
+    done <<< "$right"
+  done <<< "$left"
+  return 1
+}
+
+reject_same_ssh_host_name() {
   local staging_target="$1"
   local production_target="$2"
 
-  if [[ "$(ssh_target_host "$staging_target")" == "$(ssh_target_host "$production_target")" ]]; then
+  if [[ "$(ssh_target_literal_host "$staging_target")" == "$(ssh_target_literal_host "$production_target")" ]]; then
     echo "Error: staging and production resolve to the same SSH host:" >&2
     echo "  staging: $staging_target" >&2
     echo "  production: $production_target" >&2
@@ -99,8 +135,42 @@ reject_shared_ssh_host() {
   fi
 }
 
+reject_shared_ssh_host() {
+  local staging_target="$1"
+  local production_target="$2"
+  local staging_host production_host staging_addresses production_addresses
+
+  staging_host="$(ssh_target_configured_host "$staging_target")" || exit 1
+  production_host="$(ssh_target_configured_host "$production_target")" || exit 1
+  if [[ "$staging_host" == "$production_host" ]]; then
+    reject_same_ssh_host_name "$staging_target" "$production_target"
+  fi
+  staging_addresses="$(resolve_ssh_host_addresses "$staging_host")" || {
+    echo "Error: could not resolve staging SSH host: $staging_host" >&2
+    exit 1
+  }
+  if [[ -z "$staging_addresses" ]]; then
+    echo "Error: staging SSH host has no resolved addresses: $staging_host" >&2
+    exit 1
+  fi
+  production_addresses="$(resolve_ssh_host_addresses "$production_host")" || {
+    echo "Error: could not resolve production SSH host: $production_host" >&2
+    exit 1
+  }
+  if [[ -z "$production_addresses" ]]; then
+    echo "Error: production SSH host has no resolved addresses: $production_host" >&2
+    exit 1
+  fi
+  if ssh_address_sets_intersect "$staging_addresses" "$production_addresses"; then
+    echo "Error: staging and production SSH hosts resolve to the same address:" >&2
+    echo "  staging: $staging_target" >&2
+    echo "  production: $production_target" >&2
+    exit 1
+  fi
+}
+
 if [[ -n "${STAGING_SSH_TARGET:-}" && -n "${PRODUCTION_SSH_TARGET:-}" ]]; then
-  reject_shared_ssh_host "$STAGING_SSH_TARGET" "$PRODUCTION_SSH_TARGET"
+  reject_same_ssh_host_name "$STAGING_SSH_TARGET" "$PRODUCTION_SSH_TARGET"
 fi
 
 DEPLOY_START="$SECONDS"

@@ -93,6 +93,25 @@ async function runHarness(
     resolve(binDirectory, "terraform"),
     "#!/bin/sh\nexit 0\n",
   );
+  await writeExecutable(
+    resolve(binDirectory, "ssh"),
+    [
+      "#!/bin/sh",
+      'for argument in "$@"; do target="$argument"; done',
+      `host="\${target##*@}"`,
+      `printf 'hostname %s\\n' "$host"`,
+    ].join("\n"),
+  );
+  await writeExecutable(
+    resolve(binDirectory, "bun"),
+    [
+      "#!/bin/sh",
+      'case "$DEPLOY_EVERYTHING_RESOLVE_HOST" in',
+      "  staging-dns-alias|production-dns-alias) printf '100.64.0.9\\n' ;;",
+      `  *) printf '%s\\n' "$DEPLOY_EVERYTHING_RESOLVE_HOST" ;;`,
+      "esac",
+    ].join("\n"),
+  );
 
   const commandStub = [
     "#!/bin/sh",
@@ -241,6 +260,25 @@ test("rejects a single override matching the other resolved tier", async () => {
   });
   expect(run.exitCode).toBe(1);
   expect(run.stderr).toContain("staging-user@staging-host");
+  expect(run.calls.map((call) => call.split("|")[0])).toEqual([
+    "terraform-staging",
+    "deployStaging.sh",
+    "deployStagingCodeAssist.sh",
+    "uploadIosStagingRelease.sh",
+    "uploadAndroidStagingRelease.sh",
+    "terraform-production",
+  ]);
+});
+
+test("rejects different hostnames that resolve to one address", async () => {
+  const run = await runHarness({
+    environment: {
+      STAGING_SSH_TARGET: "staging@staging-dns-alias",
+      PRODUCTION_SSH_TARGET: "prod@production-dns-alias",
+    },
+  });
+  expect(run.exitCode).toBe(1);
+  expect(run.stderr).toContain("resolve to the same address");
   expect(run.calls.map((call) => call.split("|")[0])).toEqual([
     "terraform-staging",
     "deployStaging.sh",
