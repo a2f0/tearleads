@@ -38,9 +38,10 @@ Google appends the `monthly` base-plan ID when the product is represented in
 RevenueCat, for example `sync_solo_monthly_staging:monthly`.
 
 Legacy product aliases only preserve receipt-to-tier mapping. They do not
-forward provider traffic: each tier's RevenueCat and Stripe webhooks must be
-repointed to the Tearleads API hostname, and their matching signing secrets
-must be installed before the SymCrypt endpoints are retired.
+forward provider traffic: each deployment's RevenueCat and Stripe webhook
+integrations must be repointed to its Tearleads API hostname. Install the
+matching RevenueCat authorization header and Stripe endpoint signing secret
+before the SymCrypt endpoints are retired.
 
 ## Codex MCP setup
 
