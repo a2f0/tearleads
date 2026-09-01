@@ -287,6 +287,12 @@ export interface ContainerContentsPersistence
             remoteContainerId: string;
             remoteMetadataAccessStateHash: string;
             remoteMetadataDocumentId: string;
+            /**
+             * When present, an overtaking create revision is adopted as the
+             * desired local parent and converted to a move from this remotely
+             * committed parent instead of rejecting the remote identity.
+             */
+            supersededMovePreviousParentId?: string | null | undefined;
           }
         | undefined;
       moveIntentSettlement?:
@@ -349,6 +355,8 @@ export interface ContainerContentsPersistence
     record: ContainerMetadataRecord | null,
     options?: {
       createIntent?: ContainerCreateIntentInput;
+      pendingUpdate?: PendingUpdateFields | undefined;
+      stillCurrent?: (() => boolean) | undefined;
       localUpdatedAt?: string;
       moveIntent?: ContainerMoveIntentInput | undefined;
       serverTimestamps?:
@@ -377,6 +385,7 @@ export interface ContainerContentsPersistence
       remoteMetadataAccessStateHash: string;
       remoteMetadataDocumentId: string;
       stillCurrent: () => boolean;
+      supersededMovePreviousParentId?: string | null | undefined;
     },
   ) => Promise<boolean>;
   markMoveIntentSynced: (

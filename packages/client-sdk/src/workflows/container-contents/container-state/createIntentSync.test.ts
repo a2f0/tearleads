@@ -230,6 +230,7 @@ test("container create sync defers a lost-response conflict and heals on hydrati
   };
   const recordedErrors: string[] = [];
   const syncedIntents: string[] = [];
+  const syncedPreviousParentIds: Array<string | null | undefined> = [];
   const reconciliationRequests: Array<string | null> = [];
   const persistence: ContainerCreateIntentSyncState["persistence"] = {
     ...defaultContainerContentsPersistence,
@@ -239,6 +240,7 @@ test("container create sync defers a lost-response conflict and heals on hydrati
     },
     markCreateIntentSynced: async (_execSql, input) => {
       syncedIntents.push(input.containerId);
+      syncedPreviousParentIds.push(input.supersededMovePreviousParentId);
       return true;
     },
   };
@@ -296,6 +298,7 @@ test("container create sync defers a lost-response conflict and heals on hydrati
     });
     expect(secondCreated).toBe(1);
     expect(syncedIntents).toEqual([childContainerId]);
+    expect(syncedPreviousParentIds).toEqual([parentContainerId]);
     // No further submit and still no surfaced error across the whole recovery.
     expect(submitCount).toBe(1);
     expect(reported).toBe(false);

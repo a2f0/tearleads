@@ -178,6 +178,17 @@ test("a verified native binding accepts a delayed initial event outside the defa
       status: "active",
     })
     .where(eq(organizationBilling.organizationId, organizationId));
+  await db.insert(revenuecatWebhookEvents).values({
+    appUserId: user.userId,
+    eventId: crypto.randomUUID(),
+    eventTimestamp: new Date(0),
+    eventType: "INITIAL_PURCHASE",
+    organizationId,
+    originalTransactionId: eventId,
+    outcome: "applied",
+    productId: "com.symcrypt.sync.monthly",
+    store: "TEST_STORE",
+  });
 
   const outcome = await runRevenueCatWebhookWorkflow(
     db,
@@ -325,7 +336,6 @@ test("bound lifecycle grants reuse the immutable native tier", async () => {
 
   const types = [
     "UNCANCELLATION",
-    "NON_RENEWING_PURCHASE",
     "SUBSCRIPTION_EXTENDED",
     "TEMPORARY_ENTITLEMENT_GRANT",
   ];

@@ -230,11 +230,11 @@ function createContainerWriteMethods(
       ),
     purgeContainer: (containerId, options) =>
       chainContainerTask(state, false, (isCurrent) =>
-        purgeContainer(state, containerId, options, isCurrent),
+        purgeContainer(state, syncAgent, containerId, options, isCurrent),
       ),
     emptyTrash: (trashContainerId, options) =>
       chainContainerTask(state, false, (isCurrent) =>
-        emptyTrash(state, trashContainerId, options, isCurrent),
+        emptyTrash(state, syncAgent, trashContainerId, options, isCurrent),
       ),
     ensureSystemContainer: (systemSlot, name, options) =>
       chainContainerWrite(state, (isCurrent) =>

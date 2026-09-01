@@ -289,11 +289,13 @@ test("an old purchase completion cannot commit into or clear the new org", async
     organizationId: "org-1",
     packageId: OPTION.packageId,
     abortSignal: expect.any(AbortSignal),
+    onProviderPresented: expect.any(Function),
   });
   expect(purchaseSync).toHaveBeenNthCalledWith(2, {
     organizationId: "org-2",
     packageId: OPTION.packageId,
     abortSignal: expect.any(AbortSignal),
+    onProviderPresented: expect.any(Function),
   });
 
   // Org-1's abandoned purchase settling without an entitlement must neither

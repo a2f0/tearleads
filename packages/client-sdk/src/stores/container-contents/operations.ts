@@ -5,6 +5,10 @@ import {
   installContainerMetadataRecord,
   renameContainerMetadataStateFromRuntime,
 } from "../../workflows/container-contents/metadata";
+import {
+  createDetachedContainerMetadataState,
+  installDetachedContainerMetadataState,
+} from "../../workflows/container-contents/metadataStateIsolation";
 import { persistContainerState } from "./containerStatePersistence";
 import { getContainerContentsStoreLogLabel } from "./logLabel";
 import { removeMissingContainerState } from "./missingContainerState";
@@ -59,6 +63,7 @@ export async function createChildContainer(
     persistence: state.persistence,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     runtime: state.runtime,
+    stillCurrent: isCurrent,
   });
   if (!created || !isCurrent()) return null;
 
@@ -93,7 +98,7 @@ async function updateExistingSystemContainer(
             state,
             containerState,
             { icon },
-            true,
+            false,
             undefined,
             { localMetadataPatch: { icon }, localUpdate: update },
             { isCurrent },
@@ -241,6 +246,7 @@ export async function ensureSystemContainer(
     queueRemoteSync: !options.deferRemoteSync,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     runtime: state.runtime,
+    stillCurrent: isCurrent,
   });
   if (!created || !isCurrent()) return null;
 
@@ -301,7 +307,12 @@ export async function deleteContainer(
     persistence: state.persistence,
     runtime: state.runtime,
   });
-  if (!deleted || !isCurrent()) {
+  if (!deleted) {
+    return null;
+  }
+  if (!isCurrent()) {
+    state.localContainersNeedRefresh = true;
+    await syncAgent.refreshLocalContainers();
     return null;
   }
 
@@ -343,11 +354,15 @@ export async function renameContainer(
     return toContainerNode(existingState);
   }
 
+  const detachedState =
+    await createDetachedContainerMetadataState(existingState);
+  if (!isCurrent()) return null;
   const renamed = await renameContainerMetadataStateFromRuntime({
-    metadataState: existingState,
+    metadataState: detachedState,
     name: trimmedName,
     persistence: state.persistence,
     runtime: state.runtime,
+    stillCurrent: isCurrent,
   });
   if (!isCurrent()) return null;
   if (!renamed) {
@@ -355,8 +370,9 @@ export async function renameContainer(
     return null;
   }
 
-  existingState.container = renamed.container;
-  installContainerMetadataRecord(existingState, renamed.record);
+  detachedState.container = renamed.container;
+  installContainerMetadataRecord(detachedState, renamed.record);
+  installDetachedContainerMetadataState(existingState, detachedState);
   updateContainerContentsSnapshot(state);
   syncAgent.scheduleSync();
   state.runtime.util.log(

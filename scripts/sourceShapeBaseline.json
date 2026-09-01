@@ -47,8 +47,12 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 561,
-      "bytes": 26402
+      "lines": 564,
+      "bytes": 26693
+    },
+    "docs/developer/revenuecat-billing.md": {
+      "lines": 359,
+      "bytes": 20292
     },
     "docs/developer/revenuecat-native-stores.md": {
       "lines": 364,
@@ -71,8 +75,8 @@
       "bytes": 23535
     },
     "docs/openapi.json": {
-      "lines": 55609,
-      "bytes": 2309535
+      "lines": 55762,
+      "bytes": 2313601
     },
     "docs/protocol-specification.md": {
       "lines": 585,
@@ -91,8 +95,8 @@
       "bytes": 15169
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 1855,
-      "bytes": 60045
+      "lines": 1866,
+      "bytes": 60377
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 567,
@@ -355,8 +359,8 @@
       "bytes": 19200
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 21304,
-      "bytes": 881697
+      "lines": 21422,
+      "bytes": 885355
     },
     "packages/validators/src/response/response.test.ts": {
       "lines": 1159,

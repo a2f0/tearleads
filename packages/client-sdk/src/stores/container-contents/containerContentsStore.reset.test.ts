@@ -290,6 +290,18 @@ test("executor replacement prevents an in-flight create from entering the rebuil
     expect(store.getSnapshot().nodes.map((node) => node.id)).toEqual([
       "replacement-root",
     ]);
+    expect(
+      (
+        await defaultContainerContentsPersistence.loadContainers(
+          originalDatabase.execSql,
+        )
+      ).map(({ container }) => container.id),
+    ).toEqual(["original-root"]);
+    expect(
+      await originalDatabase.execSql(
+        "SELECT local_id FROM document_pending_updates",
+      ),
+    ).toEqual([]);
   } finally {
     await originalDatabase.close();
     await replacementDatabase.close();

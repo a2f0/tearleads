@@ -1,7 +1,10 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient } from "@symcrypt/test-utils";
 import type { BlobStore } from "../../data/blobContracts";
-import { createContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
+import {
+  createContainerMetadataDocument,
+  readContainerMetadataValue,
+} from "../../data/containers/containerMetadataDocument";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import type { DomainScope } from "../../data/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
@@ -125,5 +128,27 @@ test("a superseded system icon is identity-guarded before enqueue", async () => 
   expect(enqueueCalls).toBe(0);
   expect(capturedUpdateByteLength).toBeGreaterThan(0);
   expect(deleteAllCalls).toBe(0);
+  expect(syncRequests).toBe(0);
+  expect(readContainerMetadataValue(system.doc, "Contacts").icon).toBeNull();
+
+  let current = true;
+  expect(
+    await applySystemContainerIcon({
+      containerState: system,
+      icon: "contacts",
+      isCurrent: () => current,
+      persistIcon: async () => {
+        current = false;
+        return "persisted";
+      },
+      state,
+      syncAgent: {
+        scheduleSync: () => {
+          syncRequests += 1;
+        },
+      } as unknown as ContainerContentsStoreSyncAgent,
+    }),
+  ).toBe(false);
+  expect(readContainerMetadataValue(system.doc, "Contacts").icon).toBeNull();
   expect(syncRequests).toBe(0);
 });

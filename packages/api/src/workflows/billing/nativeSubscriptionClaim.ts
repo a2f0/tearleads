@@ -20,12 +20,15 @@ import { lockRowForUpdate } from "../../utils/sqlDialect";
 import { requireDirectOrganizationAccess } from "../organizations/access";
 import { OrganizationManagerError } from "../organizations/errors";
 import { withOrganizationAdminTransaction } from "../organizations/mutationAccess";
+import { assertNativeClaimEligibility } from "./nativeSubscriptionClaimEligibility";
 import { reconcileOrganizationBillingSeats } from "./organizationSeats";
-import { hasStripeBindingIdentity } from "./stripeBindingPolicy";
+import type { VerifiedPlayReplacement } from "./revenuecatPlayReplacement";
 
 async function lockBilling(executor: DatabaseSession, organizationId: string) {
   const query = executor
     .select({
+      checkoutAttemptExpiresAt: organizationBilling.checkoutAttemptExpiresAt,
+      checkoutAttemptId: organizationBilling.checkoutAttemptId,
       organizationId: organizationBilling.organizationId,
       nativeRestoreClaimedAt: organizationBilling.nativeRestoreClaimedAt,
       nativeRestoreUserId: organizationBilling.nativeRestoreUserId,
@@ -33,6 +36,7 @@ async function lockBilling(executor: DatabaseSession, organizationId: string) {
       providerCustomerId: organizationBilling.providerCustomerId,
       providerProductId: organizationBilling.providerProductId,
       providerSubscriptionId: organizationBilling.providerSubscriptionId,
+      providerTransactionId: organizationBilling.providerTransactionId,
       status: organizationBilling.status,
     })
     .from(organizationBilling)
@@ -66,26 +70,6 @@ async function findCurrentOwner(input: {
     .limit(1);
   const [owner] = await lockRowForUpdate(query);
   return owner ?? null;
-}
-
-async function assertNoStripeBinding(
-  executor: DatabaseSession,
-  organizationId: string,
-): Promise<void> {
-  const [binding] = await executor
-    .select({
-      subscriptionId: organizationBillingStripeSeats.subscriptionId,
-      subscriptionItemId: organizationBillingStripeSeats.subscriptionItemId,
-    })
-    .from(organizationBillingStripeSeats)
-    .where(eq(organizationBillingStripeSeats.organizationId, organizationId))
-    .limit(1);
-  if (hasStripeBindingIdentity(binding)) {
-    throw new OrganizationManagerError(
-      "Cancel the organization's web subscription before moving a native subscription",
-      409,
-    );
-  }
 }
 
 async function disablePreviousOwner(input: {
@@ -228,12 +212,12 @@ async function activateNewOwner(input: {
 
 async function applyNativeSubscriptionClaim(input: {
   readonly appUserId: string;
+  readonly deleteExpiredStripeBinding: boolean;
   readonly executor: DatabaseSession;
   readonly now: Date;
   readonly organizationId: string;
   readonly sourceId: string;
   readonly subscription: ActiveNativeSubscription;
-  readonly target: Awaited<ReturnType<typeof lockBilling>>;
 }): Promise<{ readonly sourceOrganizationId: string | null }> {
   const tier = getSyncBillingTierForNativeProduct(input.subscription.productId);
   if (!tier) {
@@ -242,24 +226,12 @@ async function applyNativeSubscriptionClaim(input: {
       409,
     );
   }
-  await assertNoStripeBinding(input.executor, input.organizationId);
-  if (
-    input.target.providerSubscriptionId !== null &&
-    input.target.providerSubscriptionId !== input.subscription.subscriptionId
-  ) {
-    throw new OrganizationManagerError(
-      "The organization already has a different subscription",
-      409,
-    );
-  }
-  if (
-    input.target.providerProductId !== null &&
-    getSyncBillingTierForNativeProduct(input.target.providerProductId) === null
-  ) {
-    throw new OrganizationManagerError(
-      "Cancel the organization's existing subscription before moving a native subscription",
-      409,
-    );
+  if (input.deleteExpiredStripeBinding) {
+    await input.executor
+      .delete(organizationBillingStripeSeats)
+      .where(
+        eq(organizationBillingStripeSeats.organizationId, input.organizationId),
+      );
   }
 
   const source = await findCurrentOwner({
@@ -405,6 +377,7 @@ export async function runClaimNativeSubscriptionWorkflow(input: {
   readonly requireSessionAccess: boolean;
   readonly sourceId: string;
   readonly subscription: ActiveNativeSubscription;
+  readonly verifiedReplacement?: VerifiedPlayReplacement | null | undefined;
 }): Promise<{
   readonly duplicate: boolean;
   readonly sourceOrganizationId: string | null;
@@ -420,6 +393,17 @@ export async function runClaimNativeSubscriptionWorkflow(input: {
         requireSessionAccess: input.requireSessionAccess,
         subscription: input.subscription,
       });
+    const now = input.now ?? new Date();
+    const { deleteExpiredStripeBinding } = await assertNativeClaimEligibility({
+      appUserId: input.appUserId,
+      executor: tx,
+      now,
+      productId: input.subscription.productId,
+      store: input.subscription.store,
+      subscriptionId: input.subscription.subscriptionId,
+      target,
+      verifiedReplacement: input.verifiedReplacement,
+    });
     if (input.recordAlreadyOwnedAudit === false && alreadyOwned) {
       return { duplicate: true, sourceOrganizationId: null };
     }
@@ -446,15 +430,14 @@ export async function runClaimNativeSubscriptionWorkflow(input: {
         return { duplicate: true, sourceOrganizationId: null };
       }
     }
-    const now = input.now ?? new Date();
     const applied = await applyNativeSubscriptionClaim({
       appUserId: input.appUserId,
+      deleteExpiredStripeBinding,
       executor: tx,
       now,
       organizationId: input.organizationId,
       sourceId: input.sourceId,
       subscription: input.subscription,
-      target,
     });
     if (input.requireRestoreIntent) {
       await tx

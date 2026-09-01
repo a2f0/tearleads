@@ -37,7 +37,10 @@ export interface ContainerContentsStoreSyncAgent {
   ensureInitialized: () => void;
   handleRemoteEvents: () => void;
   ingestRemoteContainer: (remoteContainer: RemoteContainer) => Promise<void>;
-  primeDocumentsForSharedSubtree: (rootContainerId: string) => Promise<void>;
+  primeDocumentsForSharedSubtree: (
+    rootContainerId: string,
+    isCurrent?: (() => boolean) | undefined,
+  ) => Promise<void>;
   refreshLocalContainers: () => Promise<void>;
   refresh: () => Promise<boolean>;
   refreshRootLane: (options?: RefreshRootLaneOptions) => Promise<boolean>;
@@ -317,8 +320,8 @@ export function createContainerContentsStoreSyncAgent(input: {
     },
     handleRemoteEvents,
     ingestRemoteContainer: remoteContainerIngestion.ingest,
-    primeDocumentsForSharedSubtree: (rootContainerId: string) =>
-      primeStoreDocumentSubtree(state, rootContainerId),
+    primeDocumentsForSharedSubtree: (rootContainerId, isCurrent) =>
+      primeStoreDocumentSubtree(state, rootContainerId, isCurrent),
     refreshLocalContainers: () => refreshLocalContainerStates({ host, state }),
     refresh: () =>
       refreshAllRemoteHydration({

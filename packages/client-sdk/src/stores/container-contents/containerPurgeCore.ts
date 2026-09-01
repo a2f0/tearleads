@@ -3,7 +3,10 @@ import { purgeContainerTree } from "../../workflows/container-contents/container
 import { prepareContainerDocumentRotationSnapshot } from "./documentRotation";
 import { getContainerContentsStoreLogLabel } from "./logLabel";
 import { updateContainerContentsSnapshot } from "./state";
-import type { ContainerState } from "./syncAgent";
+import type {
+  ContainerContentsStoreSyncAgent,
+  ContainerState,
+} from "./syncAgent";
 import type { ContainerContentsStoreState } from "./types";
 import type { ContainerWriteGuard } from "./writeGeneration";
 
@@ -18,6 +21,7 @@ type ContainerPurgeResult = NonNullable<
 // root container itself survives, and how the result is described/judged.
 export async function runContainerPurge(
   state: ContainerContentsStoreState,
+  syncAgent: ContainerContentsStoreSyncAgent,
   containerId: string,
   options: PurgeOptions | undefined,
   isCurrent: ContainerWriteGuard,
@@ -62,8 +66,16 @@ export async function runContainerPurge(
     rootContainerId: containerId,
     runtime: state.runtime,
     signal: options?.signal,
+    stillCurrent: isCurrent,
   });
-  if (!result || !isCurrent()) {
+  if (!result) {
+    return false;
+  }
+  if (!isCurrent()) {
+    if (result.purgedContainerIds.length > 0) {
+      state.localContainersNeedRefresh = true;
+      await syncAgent.refreshLocalContainers();
+    }
     return false;
   }
 

@@ -3,9 +3,9 @@ import { createRestoredAccessReconciler } from "./accessRestorationSweep";
 import type { RemoteHydrationRefreshOptions } from "./remoteHydrationRefresh";
 import type { ContainerContentsStoreSyncState } from "./syncAgentTypes";
 
-test("reset recovery forces only the sweep interrupted by the stale generation", async () => {
+test("reset recovery resumes the claimed final attempt without consuming another", async () => {
   const interruptedSweep = {
-    attemptCount: 0,
+    attemptCount: 4,
     generation: 1,
     lastAttemptedAt: null,
     organizationId: "organization-1",
@@ -14,7 +14,7 @@ test("reset recovery forces only the sweep interrupted by the stale generation",
   };
   const interruptedSweepInBackoff = {
     ...interruptedSweep,
-    attemptCount: 1,
+    attemptCount: 5,
     lastAttemptedAt: new Date().toISOString(),
   };
   const unrelatedSweepInBackoff = {
@@ -24,6 +24,8 @@ test("reset recovery forces only the sweep interrupted by the stale generation",
     organizationId: "organization-2",
   };
   const claimedOrganizations: string[] = [];
+  const completedOrganizations: string[] = [];
+  const probedOrganizations: string[] = [];
   let requestListCount = 0;
   let recreateCompletion: RemoteHydrationRefreshOptions["recreateOnFullyHydratedAfterReset"];
   const execSql = async () => [];
@@ -35,8 +37,19 @@ test("reset recovery forces only the sweep interrupted by the stale generation",
       claimedOrganizations.push(sweep.organizationId);
       return true;
     },
-    completeDormantMetadataSweepRequest: async () => {},
-    listDormantMetadataSweepCandidates: async () => [],
+    completeDormantMetadataSweepRequest: async (
+      _execSql: unknown,
+      sweep: typeof interruptedSweep,
+    ) => {
+      completedOrganizations.push(sweep.organizationId);
+    },
+    listDormantMetadataSweepCandidates: async (
+      _execSql: unknown,
+      sweep: typeof interruptedSweep,
+    ) => {
+      probedOrganizations.push(sweep.organizationId);
+      return [];
+    },
     listDormantMetadataSweepRequests: async () => {
       requestListCount += 1;
       return requestListCount === 1
@@ -75,5 +88,7 @@ test("reset recovery forces only the sweep interrupted by the stale generation",
   expect(completion).toBeDefined();
   await completion?.();
 
-  expect(claimedOrganizations).toEqual(["organization-1", "organization-1"]);
+  expect(claimedOrganizations).toEqual(["organization-1"]);
+  expect(probedOrganizations).toEqual(["organization-1"]);
+  expect(completedOrganizations).toEqual(["organization-1"]);
 });

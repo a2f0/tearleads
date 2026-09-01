@@ -96,8 +96,13 @@ async function createRemoteContainerWithSeparateMetadataDocument(input: {
   if (!createdContainer) {
     return null;
   }
-  if (input.stillCurrent?.() === false) return null;
 
+  // The legacy API commits the container and its metadata document in two
+  // requests. Once the container POST succeeds, finish the second phase even
+  // if the caller's local generation expired: abandoning here would leave a
+  // remote container that can never hydrate because its referenced metadata
+  // document does not exist. The caller still discards this stale result and
+  // lets the replacement generation reconcile the completed remote state.
   const createdMetadataDocument = await createRemoteDocument({
     apiClient,
     author,
@@ -106,13 +111,19 @@ async function createRemoteContainerWithSeparateMetadataDocument(input: {
     execSql,
     expectedOrganizationId: createdContainer.response.organizationId,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
-    stillCurrent: input.stillCurrent,
     targetSecretKey: parentSecretKey,
     warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
       input.runtime,
     ),
   });
   if (!createdMetadataDocument) {
+    // If the completion request is rejected before the metadata document is
+    // committed, remove the first-phase container so a later create intent can
+    // retry instead of colliding forever with an unusable remote orphan.
+    await deleteRemoteContainer({
+      containerId: createdContainer.containerId,
+      runtime: input.runtime,
+    });
     return null;
   }
 
@@ -196,6 +207,7 @@ export async function shareRemoteContainer(input: {
   recipientUserId: string;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<SharedRemoteContainerState | null> {
   const writer = resolveContainerWriterContext(
     input.runtime,
@@ -216,6 +228,7 @@ export async function shareRemoteContainer(input: {
     recipientUserId: input.recipientUserId,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
+    stillCurrent: input.stillCurrent,
     targetSecretKey,
     warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
       input.runtime,
@@ -239,6 +252,7 @@ export async function shareRemoteContainerWithGroup(input: {
   recipientGroupId: string;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<SharedRemoteContainerState | null> {
   const writer = resolveContainerWriterContext(
     input.runtime,
@@ -261,6 +275,7 @@ export async function shareRemoteContainerWithGroup(input: {
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
     signingKeyPair: input.runtime.crypto.signingKeyPair,
+    stillCurrent: input.stillCurrent,
     targetSecretKey,
     warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
       input.runtime,

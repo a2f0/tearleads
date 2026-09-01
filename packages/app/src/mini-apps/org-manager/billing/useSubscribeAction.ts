@@ -8,6 +8,7 @@ import {
   PurchasesUnavailableError,
   type SyncSubscriptionOption,
 } from "@symcrypt/client-sdk";
+import type { NativeSubscriptionStore } from "@symcrypt/validators/billing";
 import { type RefObject, useCallback } from "react";
 import { useLog } from "../../../providers/logging/LogProvider";
 import {
@@ -15,6 +16,12 @@ import {
   formatBillingPurchaseStage,
   formatBillingPurchaseSuccess,
 } from "../../../utils/billingPurchaseTrace";
+import {
+  type CheckNativePurchaseEligibility,
+  NativePurchaseEligibilityError,
+  nativePurchaseEligibilityErrorLabel,
+  requireNativePurchaseEligibility,
+} from "../hooks/nativePurchaseEligibility";
 import { ORG_MANAGER_LABELS } from "../labels";
 import {
   type BillingActionScope,
@@ -30,6 +37,33 @@ import {
  * the flow as a cancellation.
  */
 type CancelPurchaseRef = RefObject<(() => void) | null>;
+
+function retireNativeCancellation(
+  cancelPurchaseRef: CancelPurchaseRef,
+  cancelPurchase: () => void,
+  purchases: PurchasesCapability,
+): void {
+  if (
+    purchases.supportsEmbeddedCheckout !== true &&
+    cancelPurchaseRef.current === cancelPurchase
+  ) {
+    cancelPurchaseRef.current = null;
+  }
+}
+
+function retireLegacyNativeCancellation(
+  cancelPurchaseRef: CancelPurchaseRef,
+  cancelPurchase: () => void,
+  purchases: PurchasesCapability,
+): void {
+  if (
+    purchases.nativeStore !== null &&
+    purchases.supportsEmbeddedCheckout !== true &&
+    purchases.supportsProviderPresentationCallback !== true
+  ) {
+    retireNativeCancellation(cancelPurchaseRef, cancelPurchase, purchases);
+  }
+}
 
 function createAttemptHost(
   checkoutHost: HTMLElement | undefined,
@@ -96,6 +130,7 @@ function observeLatePurchase({
 export function useSubscribeAction({
   canSubscribe,
   cancelPurchaseRef,
+  checkNativePurchaseEligibility,
   checkoutHostRef,
   currentScope,
   purchases,
@@ -107,6 +142,7 @@ export function useSubscribeAction({
 }: {
   canSubscribe: boolean;
   cancelPurchaseRef: CancelPurchaseRef;
+  checkNativePurchaseEligibility: CheckNativePurchaseEligibility;
   checkoutHostRef: RefObject<HTMLElement | null> | undefined;
   currentScope: BillingActionScope;
   purchases: PurchasesCapability;
@@ -131,6 +167,7 @@ export function useSubscribeAction({
       }));
       void purchaseForOrganization({
         cancelPurchaseRef,
+        checkNativePurchaseEligibility,
         checkoutHost: checkoutHostRef?.current ?? undefined,
         option,
         purchases,
@@ -147,6 +184,7 @@ export function useSubscribeAction({
     [
       canSubscribe,
       cancelPurchaseRef,
+      checkNativePurchaseEligibility,
       checkoutHostRef,
       currentScope,
       log,
@@ -193,6 +231,7 @@ function isUnregisteredPurchaseBridge(error: unknown): boolean {
 
 function reportUnexpectedPurchaseError(error: unknown): void {
   if (
+    error instanceof NativePurchaseEligibilityError ||
     error instanceof PurchaseIdentityPendingError ||
     isUnregisteredPurchaseBridge(error)
   ) {
@@ -202,6 +241,8 @@ function reportUnexpectedPurchaseError(error: unknown): void {
 }
 
 function purchaseErrorLabel(error: unknown): string {
+  const eligibilityLabel = nativePurchaseEligibilityErrorLabel(error);
+  if (eligibilityLabel) return eligibilityLabel;
   if (error instanceof PurchaseIdentityPendingError) {
     return ORG_MANAGER_LABELS.billingIdentityPending;
   }
@@ -213,6 +254,82 @@ function purchaseErrorLabel(error: unknown): string {
   return error instanceof PurchaseProviderStalledError
     ? ORG_MANAGER_LABELS.billingProviderStalled
     : ORG_MANAGER_LABELS.failedSubscribe;
+}
+
+async function traceNativePurchaseEligibility(
+  check: CheckNativePurchaseEligibility,
+  store: NativeSubscriptionStore,
+  cancelSignal: Promise<never>,
+  trace: (line: string) => void,
+): Promise<void> {
+  const eligibility = requireNativePurchaseEligibility(check, store);
+  eligibility.catch(() => {
+    // A cancelled flow may leave the request settling after the panel is idle.
+  });
+  await Promise.race([eligibility, cancelSignal]);
+  trace(formatBillingPurchaseStage("eligibility-checked"));
+}
+
+function createPurchaseCancellation() {
+  let cancelled = false;
+  let rejectSignal: ((error: Error) => void) | undefined;
+  const signal = new Promise<never>((_, reject) => {
+    rejectSignal = reject;
+  });
+  signal.catch(() => {
+    // Cancellation before a race begins must not be unhandled.
+  });
+  const abortController = new AbortController();
+  const cancel = () => {
+    cancelled = true;
+    abortController.abort();
+    rejectSignal?.(new PurchaseCancelledError());
+  };
+  return {
+    abortController,
+    cancel,
+    isCancelled: () => cancelled,
+    signal,
+  };
+}
+
+function startProviderPurchase(input: {
+  readonly abortSignal: AbortSignal;
+  readonly attemptHost: HTMLDivElement | undefined;
+  readonly cancelPurchase: () => void;
+  readonly cancelPurchaseRef: CancelPurchaseRef;
+  readonly option: SyncSubscriptionOption;
+  readonly purchases: PurchasesCapability;
+  readonly scope: BillingActionScope;
+}) {
+  retireLegacyNativeCancellation(
+    input.cancelPurchaseRef,
+    input.cancelPurchase,
+    input.purchases,
+  );
+  return input.purchases.purchaseSync({
+    organizationId: input.scope.organizationId,
+    packageId: input.option.packageId,
+    abortSignal: input.abortSignal,
+    onProviderPresented: () => {
+      retireNativeCancellation(
+        input.cancelPurchaseRef,
+        input.cancelPurchase,
+        input.purchases,
+      );
+    },
+    ...(input.attemptHost ? { checkoutHost: input.attemptHost } : {}),
+  });
+}
+
+function retireCheckout(
+  updateActionState: UpdateActionState,
+  scope: BillingActionScope,
+): void {
+  updateActionState(scope, (current) => ({
+    ...current,
+    checkoutActive: false,
+  }));
 }
 
 /**
@@ -233,6 +350,7 @@ function purchaseErrorLabel(error: unknown): string {
  */
 async function purchaseForOrganization({
   cancelPurchaseRef,
+  checkNativePurchaseEligibility,
   checkoutHost,
   option,
   purchases,
@@ -246,6 +364,7 @@ async function purchaseForOrganization({
   onAlreadyOwned,
 }: {
   cancelPurchaseRef: CancelPurchaseRef;
+  checkNativePurchaseEligibility: CheckNativePurchaseEligibility;
   checkoutHost: HTMLElement | undefined;
   option: SyncSubscriptionOption;
   purchases: PurchasesCapability;
@@ -259,23 +378,8 @@ async function purchaseForOrganization({
   onAlreadyOwned: () => void;
 }): Promise<void> {
   trace(formatBillingPurchaseStage("started"));
-  let cancelled = false;
-  let rejectCancelSignal: ((error: Error) => void) | undefined;
-  const cancelSignal = new Promise<never>((_, reject) => {
-    rejectCancelSignal = reject;
-  });
-  cancelSignal.catch(() => {
-    // Cancellation before the race begins (during identify) must not surface
-    // as an unhandled rejection; the flow reads `cancelled` instead.
-  });
-  // Aborting tells the backend not to mount a checkout it has not mounted
-  // yet; it cannot stop a checkout that is already on screen (no SDK API).
-  const abortController = new AbortController();
-  const cancelPurchase = () => {
-    cancelled = true;
-    abortController.abort();
-    rejectCancelSignal?.(new PurchaseCancelledError());
-  };
+  const cancellation = createPurchaseCancellation();
+  const cancelPurchase = cancellation.cancel;
   cancelPurchaseRef.current = cancelPurchase;
   // Each attempt mounts into its own child of the panel's host. The SDK
   // empties its target element when a purchase finishes or fails — with a
@@ -284,6 +388,18 @@ async function purchaseForOrganization({
   // to the attempt's own (by then detached) element.
   const attemptHost = createAttemptHost(checkoutHost);
   try {
+    if (purchases.nativeStore) {
+      await traceNativePurchaseEligibility(
+        checkNativePurchaseEligibility,
+        purchases.nativeStore,
+        cancellation.signal,
+        trace,
+      );
+    }
+    if (!scopeMatches(scopeRef.current, scope)) {
+      trace(formatBillingPurchaseStage("superseded"));
+      return;
+    }
     // Raced so a hung identification cannot hold the panel busy with no way
     // out — Cancel settles the flow immediately even in this phase.
     const identify = purchases.identify({ userId });
@@ -291,9 +407,9 @@ async function purchaseForOrganization({
       // Outcome delivered through the race; without this handler a losing
       // identify would surface as an unhandled rejection.
     });
-    await Promise.race([identify, cancelSignal]);
+    await Promise.race([identify, cancellation.signal]);
     trace(formatBillingPurchaseStage("identified"));
-    if (cancelled) {
+    if (cancellation.isCancelled()) {
       trace(formatBillingPurchaseStage("cancelled"));
       return;
     }
@@ -302,17 +418,20 @@ async function purchaseForOrganization({
       return;
     }
     trace(formatBillingPurchaseStage("provider-started"));
-    const purchase = purchases.purchaseSync({
-      organizationId: scope.organizationId,
-      packageId: option.packageId,
-      abortSignal: abortController.signal,
-      ...(attemptHost ? { checkoutHost: attemptHost } : {}),
+    const purchase = startProviderPurchase({
+      abortSignal: cancellation.abortController.signal,
+      attemptHost,
+      cancelPurchase,
+      cancelPurchaseRef,
+      option,
+      purchases,
+      scope,
     });
     // A cancellation only dismisses the checkout UI. If the provider had
     // already taken payment, the promise can still settle after the local race.
     observeLatePurchase({
       cancelPurchaseRef,
-      isCancelled: () => cancelled,
+      isCancelled: cancellation.isCancelled,
       purchase,
       refresh,
       scope,
@@ -322,14 +441,11 @@ async function purchaseForOrganization({
       traceError,
       updateActionState,
     });
-    const result = await Promise.race([purchase, cancelSignal]);
+    const result = await Promise.race([purchase, cancellation.signal]);
     trace(formatBillingPurchaseSuccess(result.syncEntitlementActive));
     // The checkout is settled — Cancel has nothing left to reach, so retire
     // the affordance now rather than after the billing refresh below.
-    updateActionState(scope, (current) => ({
-      ...current,
-      checkoutActive: false,
-    }));
+    retireCheckout(updateActionState, scope);
     if (!scopeMatches(scopeRef.current, scope)) {
       return;
     }

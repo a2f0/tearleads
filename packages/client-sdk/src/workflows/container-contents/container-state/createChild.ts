@@ -1,12 +1,12 @@
 import { bytesToBase64 } from "@symcrypt/encoding";
 import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
 import { createInitializedContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
+import { createPendingUpdateFields } from "../../../data/documents/documentSync";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import { deriveStableUuidV4Shaped } from "../../../data/stableUuid";
-import type { ContainerDocumentRecord as DocumentRecord } from "../containerPersistence";
-import {
-  type ContainerContentsPersistence,
-  enqueuePendingContainerUpdate,
+import type {
+  ContainerContentsPersistence,
+  ContainerDocumentRecord as DocumentRecord,
 } from "../containerPersistence";
 import type { ContainerState } from "../remoteHydration";
 import { CONTAINER_ALREADY_COMMITTED } from "./createWithMetadata";
@@ -59,6 +59,7 @@ async function buildRemoteContainerContentsChildContainerState(input: {
   parentState: ContainerState;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
+  stillCurrent?: (() => boolean) | undefined;
   trimmedName: string;
 }): Promise<ContainerState | null> {
   const {
@@ -70,6 +71,7 @@ async function buildRemoteContainerContentsChildContainerState(input: {
     parentState,
     resolveProjectionUserKey,
     runtime,
+    stillCurrent,
     trimmedName,
   } = input;
   const parentProjection = await loadContainerWriterProjectionForState({
@@ -87,6 +89,7 @@ async function buildRemoteContainerContentsChildContainerState(input: {
     parentProjection,
     resolveProjectionUserKey,
     runtime,
+    stillCurrent,
   });
 
   if (!created || created === CONTAINER_ALREADY_COMMITTED) {
@@ -176,6 +179,45 @@ function createInitialChildContainerDocumentRecord(input: {
   };
 }
 
+async function persistCreatedChildContainer(input: {
+  containerState: ContainerState;
+  initialUpdate: Uint8Array;
+  persistence: ContainerContentsPersistence;
+  queueRemoteSync: boolean;
+  runtime: ContainerWorkflowRuntime;
+  stillCurrent?: (() => boolean) | undefined;
+}): Promise<boolean | null> {
+  const { containerState, persistence, queueRemoteSync, runtime } = input;
+  const createIntent =
+    queueRemoteSync &&
+    !containerState.record.documentId &&
+    containerState.container.parentId
+      ? { parentContainerId: containerState.container.parentId }
+      : undefined;
+  const shouldRequestSync =
+    queueRemoteSync &&
+    (!containerState.record.documentId ||
+      Boolean(containerState.record.contentKeyBundle));
+  containerState.container = await persistence.saveContainer(
+    runtime.infra.execSql,
+    containerState.container,
+    containerState.record,
+    createIntent || shouldRequestSync || input.stillCurrent
+      ? {
+          ...(createIntent ? { createIntent } : {}),
+          ...(shouldRequestSync
+            ? {
+                pendingUpdate:
+                  createPendingUpdateFields(input.initialUpdate) ?? undefined,
+              }
+            : {}),
+          stillCurrent: input.stillCurrent,
+        }
+      : undefined,
+  );
+  return input.stillCurrent?.() === false ? null : shouldRequestSync;
+}
+
 export async function createChildContainerState(input: {
   systemSlot?: ContainerSystemSlot | null | undefined;
   createRemote: boolean;
@@ -186,6 +228,7 @@ export async function createChildContainerState(input: {
   queueRemoteSync?: boolean | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<CreatedChildContainerState | null> {
   const {
     createRemote,
@@ -216,6 +259,7 @@ export async function createChildContainerState(input: {
     childId,
     initialUpdate,
   });
+  if (input.stillCurrent?.() === false) return null;
 
   const remoteChildState = createRemote
     ? await buildRemoteContainerContentsChildContainerState({
@@ -227,6 +271,7 @@ export async function createChildContainerState(input: {
         parentState,
         resolveProjectionUserKey,
         runtime,
+        stillCurrent: input.stillCurrent,
         trimmedName,
       })
     : null;
@@ -241,31 +286,15 @@ export async function createChildContainerState(input: {
       parentState,
       trimmedName,
     });
-  const createIntent =
-    queueRemoteSync &&
-    !containerState.record.documentId &&
-    containerState.container.parentId
-      ? { parentContainerId: containerState.container.parentId }
-      : undefined;
-  const execSql = runtime.infra.execSql;
-
-  containerState.container = await persistence.saveContainer(
-    execSql,
-    containerState.container,
-    containerState.record,
-    createIntent ? { createIntent } : undefined,
-  );
-
-  const shouldRequestSync =
-    queueRemoteSync &&
-    (!containerState.record.documentId ||
-      Boolean(containerState.record.contentKeyBundle));
-  if (shouldRequestSync) {
-    await enqueuePendingContainerUpdate(execSql, persistence, {
-      containerId: containerState.container.id,
-      update: initialUpdate,
-    });
-  }
+  const shouldRequestSync = await persistCreatedChildContainer({
+    containerState,
+    initialUpdate,
+    persistence,
+    queueRemoteSync,
+    runtime,
+    stillCurrent: input.stillCurrent,
+  });
+  if (shouldRequestSync === null) return null;
 
   return {
     containerState,

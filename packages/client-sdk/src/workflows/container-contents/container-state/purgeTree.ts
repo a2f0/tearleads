@@ -13,6 +13,9 @@ import type { ContainerState } from "../remoteHydration";
 import type { ContainerContentsWorkflowRuntime } from "../runtime";
 import { deleteContainerState } from "./delete";
 import type { PurgeProgress } from "./purgeProgress";
+import { collectSubtreeLeafFirst } from "./purgeTreeCollection";
+
+export { collectSubtreeLeafFirst } from "./purgeTreeCollection";
 
 // The store runtime satisfies the per-document purge/unlink workflows, so the
 // cascade reuses it verbatim.
@@ -34,6 +37,8 @@ interface PurgeContainerTreeInput {
   readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
   readonly rootContainerId: string;
   readonly runtime: PurgeContainerTreeRuntime;
+  /** Stops a stale store generation between complete destructive units. */
+  readonly stillCurrent?: (() => boolean) | undefined;
   // Checked at each unit boundary (between whole documents / whole containers),
   // never mid-remote-call, so a cancelled run stops on a consistent prefix.
   readonly signal?: AbortSignal | undefined;
@@ -45,50 +50,6 @@ interface PurgeContainerTreeResult {
   readonly failedCount: number;
   readonly purgedContainerIds: readonly string[];
   readonly totalCount: number;
-}
-
-// Collect the target and descendants leaf-first because container deletion is
-// leaf-only. The enqueued set guards self/cyclic parent chains.
-export function collectSubtreeLeafFirst(
-  containersById: ReadonlyMap<string, ContainerState>,
-  rootContainerId: string,
-): ContainerState[] {
-  const childIdsByParentId = new Map<string, string[]>();
-  for (const containerState of containersById.values()) {
-    const parentId = containerState.container.parentId;
-    if (parentId === null) {
-      continue;
-    }
-    const siblings = childIdsByParentId.get(parentId) ?? [];
-    siblings.push(containerState.container.id);
-    childIdsByParentId.set(parentId, siblings);
-  }
-
-  const ordered: ContainerState[] = [];
-  const enqueued = new Set<string>([rootContainerId]);
-  // Read through the queue with a head index rather than shift(): shift() is
-  // O(N) per call, which would make the whole walk O(N^2); a moving index keeps
-  // each dequeue O(1).
-  const queue = [rootContainerId];
-  for (let head = 0; head < queue.length; head++) {
-    const containerId = queue[head];
-    if (containerId === undefined) {
-      continue;
-    }
-    const containerState = containersById.get(containerId);
-    if (containerState) {
-      ordered.push(containerState);
-    }
-    for (const childId of childIdsByParentId.get(containerId) ?? []) {
-      if (!enqueued.has(childId)) {
-        enqueued.add(childId);
-        queue.push(childId);
-      }
-    }
-  }
-
-  // `ordered` is parents-before-children; reverse for leaf-first deletion.
-  return ordered.reverse();
 }
 
 interface SubtreeDocumentPlan {
@@ -297,6 +258,13 @@ interface SubtreeTeardownResult {
   readonly aborted: boolean;
 }
 
+function purgeWasCancelled(input: {
+  readonly signal?: AbortSignal | undefined;
+  readonly stillCurrent?: (() => boolean) | undefined;
+}): boolean {
+  return input.signal?.aborted === true || input.stillCurrent?.() === false;
+}
+
 // Tear down one whole document per progress step. A failed document is skipped,
 // leaving its container undeletable while the remaining subtree work continues.
 // Cancellation is honored only between complete document operations.
@@ -305,12 +273,13 @@ async function teardownSubtreeDocuments(input: {
   readonly plan: SubtreeDocumentPlan;
   readonly reportStep: (ok: boolean) => void;
   readonly signal?: AbortSignal | undefined;
+  readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<SubtreeTeardownResult> {
   for (const {
     document,
     containerIds,
   } of input.plan.unlinkByDocument.values()) {
-    if (input.signal?.aborted) {
+    if (purgeWasCancelled(input)) {
       return { aborted: true };
     }
     const unlinked = await input.documentOperations.unlink(
@@ -320,7 +289,7 @@ async function teardownSubtreeDocuments(input: {
     input.reportStep(unlinked);
   }
   for (const { document, unlinkContainerIds } of input.plan.purge) {
-    if (input.signal?.aborted) {
+    if (purgeWasCancelled(input)) {
       return { aborted: true };
     }
     if (
@@ -333,7 +302,7 @@ async function teardownSubtreeDocuments(input: {
     input.reportStep(await input.documentOperations.purgeRemote(document));
   }
   for (const document of input.plan.purgeLocal) {
-    if (input.signal?.aborted) {
+    if (purgeWasCancelled(input)) {
       return { aborted: true };
     }
     input.reportStep(await input.documentOperations.purgeLocal(document));
@@ -353,12 +322,13 @@ async function deleteSubtreeContainers(input: {
   readonly reportStep: (ok: boolean) => void;
   readonly runtime: PurgeContainerTreeRuntime;
   readonly signal?: AbortSignal | undefined;
+  readonly stillCurrent?: (() => boolean) | undefined;
   readonly subtreeStates: readonly ContainerState[];
 }): Promise<SubtreeContainerDeletionResult> {
   const purgedContainerIds: string[] = [];
   const blockedParentIds = new Set<string>();
   for (const containerState of input.subtreeStates) {
-    if (input.signal?.aborted) {
+    if (purgeWasCancelled(input)) {
       return { aborted: true, purgedContainerIds };
     }
     const containerId = containerState.container.id;
@@ -407,6 +377,9 @@ async function deleteSubtreeContainers(input: {
 export async function purgeContainerTree(
   input: PurgeContainerTreeInput,
 ): Promise<PurgeContainerTreeResult | null> {
+  if (purgeWasCancelled(input)) {
+    return null;
+  }
   const subtreeStates = collectSubtreeLeafFirst(
     input.containersById,
     input.rootContainerId,
@@ -422,6 +395,9 @@ export async function purgeContainerTree(
     execSql: input.runtime.infra.execSql,
     subtreeContainerIds,
   });
+  if (purgeWasCancelled(input)) {
+    return null;
+  }
 
   // Empty Trash keeps the Trash bin itself: tear down everything it holds, but
   // exclude the root from the container deletions (deleting a system container
@@ -465,6 +441,7 @@ export async function purgeContainerTree(
     plan,
     reportStep,
     signal: input.signal,
+    stillCurrent: input.stillCurrent,
   });
 
   let purgedContainerIds: readonly string[] = [];
@@ -475,6 +452,7 @@ export async function purgeContainerTree(
       reportStep,
       runtime: input.runtime,
       signal: input.signal,
+      stillCurrent: input.stillCurrent,
       subtreeStates: containerStatesToDelete,
     });
     purgedContainerIds = deletion.purgedContainerIds;

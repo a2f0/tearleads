@@ -13,6 +13,7 @@ import { createTestUser, type TestUser } from "@symcrypt/bob-and-alice";
 import { and, eq, isNull } from "drizzle-orm";
 import invariant from "invariant";
 import { registerUser } from "../../../test/helpers/registerUser";
+import { runNativePurchaseEligibilityWorkflow } from "./nativePurchaseEligibility";
 import { runClaimNativeSubscriptionWorkflow } from "./nativeSubscriptionClaim";
 import { runGetOrganizationBillingHistoryWorkflow } from "./organizationBillingHistory";
 
@@ -313,16 +314,28 @@ test("rejects unknown products and a different destination subscription", async 
   ).rejects.toThrow(
     "The native subscription product is not configured for sync billing",
   );
-
   await db
     .update(organizationBilling)
     .set({
       provider: "revenuecat",
+      providerCustomerId: destination.user.userId,
       providerProductId: "sync_solo_monthly:monthly",
-      providerSubscriptionId: `existing-${crypto.randomUUID()}`,
+      providerSubscriptionId: "existing-native-subscription",
       status: "active",
     })
     .where(eq(organizationBilling.organizationId, destination.organizationId));
+  await db.insert(revenuecatWebhookEvents).values({
+    appUserId: destination.user.userId,
+    eventId: crypto.randomUUID(),
+    eventTimestamp: new Date(),
+    eventType: "INITIAL_PURCHASE",
+    organizationId: destination.organizationId,
+    originalTransactionId: "existing-native-subscription",
+    outcome: "applied",
+    productId: "sync_solo_monthly:monthly",
+    store: "PLAY_STORE",
+    transactionId: "existing-native-subscription",
+  });
   await expect(
     runClaimNativeSubscriptionWorkflow({
       appUserId: destination.user.userId,
@@ -335,8 +348,16 @@ test("rejects unknown products and a different destination subscription", async 
   ).rejects.toThrow("The organization already has a different subscription");
 });
 
-test("rejects native claims for deleting and purged organization generations", async () => {
+test("revalidates terminal state after a successful purchase preflight", async () => {
   const destination = await registerPersonalOrganization();
+  expect(
+    await runNativePurchaseEligibilityWorkflow(
+      db,
+      destination.organizationId,
+      destination.user.userId,
+      "test_store",
+    ),
+  ).toEqual({ eligible: true, reason: null });
   for (const status of ["deleting", "purged"] as const) {
     await db
       .update(organizationBilling)
@@ -358,6 +379,79 @@ test("rejects native claims for deleting and purged organization generations", a
     );
   }
 });
+
+test("revalidates an active Stripe checkout after native preflight", async () => {
+  const destination = await registerPersonalOrganization();
+  expect(
+    await runNativePurchaseEligibilityWorkflow(
+      db,
+      destination.organizationId,
+      destination.user.userId,
+      "test_store",
+    ),
+  ).toEqual({ eligible: true, reason: null });
+  const now = new Date();
+  await db
+    .update(organizationBilling)
+    .set({
+      checkoutAttemptExpiresAt: new Date(now.getTime() + 60_000),
+      checkoutAttemptId: crypto.randomUUID(),
+    })
+    .where(eq(organizationBilling.organizationId, destination.organizationId));
+
+  expect(
+    await runNativePurchaseEligibilityWorkflow(
+      db,
+      destination.organizationId,
+      destination.user.userId,
+      "test_store",
+    ),
+  ).toEqual({ eligible: false, reason: "stripe_subscription_conflict" });
+  await expect(
+    runClaimNativeSubscriptionWorkflow({
+      appUserId: destination.user.userId,
+      db,
+      now,
+      organizationId: destination.organizationId,
+      requireSessionAccess: false,
+      sourceId: crypto.randomUUID(),
+      subscription: subscription(crypto.randomUUID()),
+    }),
+  ).rejects.toThrow("A web checkout is already in progress");
+});
+
+for (const conflict of [
+  { name: "past-due billing", values: { status: "past_due" as const } },
+  {
+    name: "active billing without provider identity",
+    values: { status: "active" as const },
+  },
+  {
+    name: "a partial provider identity",
+    values: { providerCustomerId: "stale-customer" },
+  },
+]) {
+  test(`claim revalidation rejects ${conflict.name}`, async () => {
+    const destination = await registerPersonalOrganization();
+    await db
+      .update(organizationBilling)
+      .set(conflict.values)
+      .where(
+        eq(organizationBilling.organizationId, destination.organizationId),
+      );
+
+    await expect(
+      runClaimNativeSubscriptionWorkflow({
+        appUserId: destination.user.userId,
+        db,
+        organizationId: destination.organizationId,
+        requireSessionAccess: false,
+        sourceId: crypto.randomUUID(),
+        subscription: subscription(crypto.randomUUID()),
+      }),
+    ).rejects.toThrow("Native subscription claim is ineligible");
+  });
+}
 
 /** The API package runs this concurrency case on memory and SQLite adapters. */
 test("the database matrix leaves one owner after concurrent claims", async () => {

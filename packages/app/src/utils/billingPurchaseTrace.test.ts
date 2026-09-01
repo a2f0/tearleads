@@ -10,6 +10,7 @@ test("formats purchase lifecycle stages as clipboard-safe telemetry", () => {
   const lines = [
     formatBillingPurchaseStage("started"),
     formatBillingPurchaseStage("aborted"),
+    formatBillingPurchaseStage("eligibility-checked"),
     formatBillingPurchaseStage("identified"),
     formatBillingPurchaseStage("provider-started"),
     formatBillingPurchaseStage("cancelled"),

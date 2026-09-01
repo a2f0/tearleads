@@ -23,10 +23,13 @@ const PRODUCT_CHANGE: RevenueCatWebhookEvent = {
   type: "PRODUCT_CHANGE",
 };
 const BOUND_SOLO_BILLING: LockedBillingIdentity = {
+  checkoutAttemptExpiresAt: null,
+  checkoutAttemptId: null,
   provider: "revenuecat",
   providerCustomerId: "buyer",
   providerProductId: "sync_solo_monthly",
   providerSubscriptionId: "native-subscription",
+  providerTransactionId: "native-transaction",
   seatCount: 1,
   status: "active",
 };
@@ -92,7 +95,7 @@ test("a product change rejects an unknown store explicitly", () => {
   });
 });
 
-test("a product change accepts a replacement Play purchase token", () => {
+test("a product change rejects an unbound Play purchase token", () => {
   expect(
     resolveProductChange({
       event: {
@@ -100,7 +103,10 @@ test("a product change accepts a replacement Play purchase token", () => {
         original_transaction_id: "replacement-purchase-token",
       },
     }),
-  ).toEqual({ kind: "schedule", fields: { status: "active" } });
+  ).toEqual({
+    kind: "ignore",
+    reason: PRODUCT_CHANGE_BOUND_SUBSCRIPTION_MISMATCH_REASON,
+  });
 });
 
 test("a product change accepts a chained configured source tier", () => {

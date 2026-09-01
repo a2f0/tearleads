@@ -68,11 +68,14 @@ function createPrimeHost(
 export async function primeStoreDocumentSubtree(
   state: DocumentRecoveryStoreState,
   rootContainerId: string,
+  isCurrent: () => boolean = () => true,
 ): Promise<void> {
+  if (!isCurrent()) return;
   const runtime = state.runtime;
   await primeDocumentsForContainerSubtree({
     containersById: state.containersById,
     host: createPrimeHost(runtime),
+    isCurrent,
     rootContainerId,
     runtime,
   });

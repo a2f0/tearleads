@@ -245,44 +245,49 @@ export const sqlDocumentMoveIntentPersistence = {
        */
       expectedUpdatedAt?: string | undefined;
       message: string;
+      stillCurrent?: (() => boolean) | undefined;
     },
   ): Promise<void> {
-    await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-      const updatedAt = new Date().toISOString();
-      await db
-        .update(documentMoveIntents)
-        .set({
-          lastAttemptedAt: updatedAt,
-          lastError: input.message,
-          syncStatus: input.denied
-            ? "denied"
-            : input.blocked
-              ? "blocked"
-              : "pending",
-          updatedAt,
-        })
-        .where(
-          and(
-            eq(documentMoveIntents.documentId, input.documentId),
-            // Blocked/denied rows must stay updatable: a retried intent
-            // records its fresh outcome, and a transient failure flips it
-            // back to pending instead of freezing it forever.
-            inArray(documentMoveIntents.syncStatus, [
-              "pending",
-              "blocked",
-              "denied",
-            ]),
-            eq(documentMoveIntents.intentType, DOCUMENT_MOVE_INTENT_TYPE),
-            ...(input.expectedIntentId
-              ? [eq(documentMoveIntents.id, input.expectedIntentId)]
-              : []),
-            ...(input.expectedUpdatedAt
-              ? [eq(documentMoveIntents.updatedAt, input.expectedUpdatedAt)]
-              : []),
-          ),
-        )
-        .run();
-    });
+    await getClientSQLitePersistenceRuntime(execSql).guardedTransaction(
+      async (db) => {
+        const updatedAt = new Date().toISOString();
+        await db
+          .update(documentMoveIntents)
+          .set({
+            lastAttemptedAt: updatedAt,
+            lastError: input.message,
+            syncStatus: input.denied
+              ? "denied"
+              : input.blocked
+                ? "blocked"
+                : "pending",
+            updatedAt,
+          })
+          .where(
+            and(
+              eq(documentMoveIntents.documentId, input.documentId),
+              // Blocked/denied rows must stay updatable: a retried intent
+              // records its fresh outcome, and a transient failure flips it
+              // back to pending instead of freezing it forever.
+              inArray(documentMoveIntents.syncStatus, [
+                "pending",
+                "blocked",
+                "denied",
+              ]),
+              eq(documentMoveIntents.intentType, DOCUMENT_MOVE_INTENT_TYPE),
+              ...(input.expectedIntentId
+                ? [eq(documentMoveIntents.id, input.expectedIntentId)]
+                : []),
+              ...(input.expectedUpdatedAt
+                ? [eq(documentMoveIntents.updatedAt, input.expectedUpdatedAt)]
+                : []),
+            ),
+          )
+          .run();
+      },
+      input.stillCurrent ?? (() => true),
+      { behavior: "immediate" },
+    );
   },
   /**
    * Evidence for the org-access-restored re-arm gate: a parked

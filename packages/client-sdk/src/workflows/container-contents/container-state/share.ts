@@ -50,7 +50,9 @@ async function resolveCurrentGroupKeyEpoch(input: {
   groupId: string;
   organizationId: string;
   runtime: ContainerWorkflowRuntime;
-}): Promise<number> {
+  stillCurrent?: (() => boolean) | undefined;
+}): Promise<number | null> {
+  if (input.stillCurrent?.() === false) return null;
   const verified = await loadVerifiedGroupSharePrincipalPolicy({
     apiClient: input.runtime.apiClient,
     execSql: input.runtime.infra.execSql,
@@ -58,11 +60,12 @@ async function resolveCurrentGroupKeyEpoch(input: {
     organizationId: input.organizationId,
     resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
   });
+  if (input.stillCurrent?.() === false) return null;
   // Commit the verification immediately: this read stands alone (no enclosing
   // mutation advances it later), and an unadvanced checkpoint would let a
   // newer same-epoch policy be rolled back on the next fetch.
   await advanceVerifiedSharePolicies(input.runtime.infra.execSql, verified);
-  return verified.policy.keyEpoch;
+  return input.stillCurrent?.() === false ? null : verified.policy.keyEpoch;
 }
 
 // A container's KEK is wrapped to a group's encapsulation key at a specific key
@@ -94,14 +97,16 @@ async function loadRemoteContainerShareContext(input: {
   forceExistingGrantRewrap?: boolean | undefined;
   requireExistingGrant?: boolean | undefined;
   runtime: ContainerWorkflowRuntime;
+  stillCurrent?: (() => boolean) | undefined;
   subjectId: string;
   subjectType: ContainerShareSubjectType;
 }): Promise<RemoteContainerShareContext | null> {
+  if (input.stillCurrent?.() === false) return null;
   const projection = await loadContainerWriterProjectionForState({
     containerState: input.containerState,
     runtime: input.runtime,
   });
-  if (!projection) {
+  if (!projection || input.stillCurrent?.() === false) {
     return null;
   }
 
@@ -145,17 +150,23 @@ async function loadRemoteContainerShareContext(input: {
       (head) =>
         head.principalType === "group" && head.principalId === input.subjectId,
     );
-    if (
-      !pinnedHead ||
-      groupGrantIsStale({
-        currentKeyEpoch: await resolveCurrentGroupKeyEpoch({
+    const currentKeyEpoch = pinnedHead
+      ? await resolveCurrentGroupKeyEpoch({
           groupId: input.subjectId,
           organizationId: remoteState.organizationId,
           runtime: input.runtime,
-        }),
-        referencedPrincipalHeads: remoteState.referencedPrincipalHeads,
-        subjectId: input.subjectId,
-      })
+          stillCurrent: input.stillCurrent,
+        })
+      : null;
+    if (input.stillCurrent?.() === false) return null;
+    if (
+      !pinnedHead ||
+      (currentKeyEpoch !== null &&
+        groupGrantIsStale({
+          currentKeyEpoch,
+          referencedPrincipalHeads: remoteState.referencedPrincipalHeads,
+          subjectId: input.subjectId,
+        }))
     ) {
       input.runtime.util.log(
         `Container contents: re-sharing container ${input.containerState.container.id} with group ${input.subjectId} because its key epoch advanced past the pinned grant`,
@@ -184,6 +195,7 @@ export async function prepareContainerStateGroupRewrap(input: {
   requireExistingGrant?: boolean | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<
   | { status: "not-granted" }
   | {
@@ -192,11 +204,12 @@ export async function prepareContainerStateGroupRewrap(input: {
     }
   | null
 > {
+  if (input.stillCurrent?.() === false) return null;
   const projection = await loadContainerWriterProjectionForState({
     containerState: input.containerState,
     runtime: input.runtime,
   });
-  if (!projection) {
+  if (!projection || input.stillCurrent?.() === false) {
     return null;
   }
 
@@ -209,6 +222,7 @@ export async function prepareContainerStateGroupRewrap(input: {
         input.runtime,
       ),
     });
+    if (input.stillCurrent?.() === false) return null;
     const verifiedState = readContainerState(
       getTargetContainerContext(projection).manifest,
     );
@@ -253,6 +267,7 @@ export async function prepareContainerStateGroupRewrap(input: {
       input.runtime,
     ),
   });
+  if (input.stillCurrent?.() === false) return null;
   const targetKek = keksByEpochId.get(target.kek.containerKeyEpochId);
   return targetKek
     ? {
@@ -271,15 +286,18 @@ export async function shareContainerState(input: {
   recipientUserId: string;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<SharedContainerStateResult | null> {
+  if (input.stillCurrent?.() === false) return null;
   const shareContext = await loadRemoteContainerShareContext({
     accessLevel: input.accessLevel,
     containerState: input.containerState,
     runtime: input.runtime,
+    stillCurrent: input.stillCurrent,
     subjectId: input.recipientUserId,
     subjectType: "user",
   });
-  if (!shareContext) {
+  if (!shareContext || input.stillCurrent?.() === false) {
     return null;
   }
   if (shareContext.matchingGrant) {
@@ -292,6 +310,7 @@ export async function shareContainerState(input: {
       persistence: input.persistence,
       projection: shareContext.projection,
       runtime: input.runtime,
+      stillCurrent: input.stillCurrent,
     });
   }
 
@@ -302,9 +321,10 @@ export async function shareContainerState(input: {
     recipientUserId: input.recipientUserId,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     runtime: input.runtime,
+    stillCurrent: input.stillCurrent,
   });
 
-  if (!shared) {
+  if (!shared || input.stillCurrent?.() === false) {
     return null;
   }
 
@@ -313,6 +333,7 @@ export async function shareContainerState(input: {
     persistence: input.persistence,
     runtime: input.runtime,
     shared,
+    stillCurrent: input.stillCurrent,
   });
 }
 
@@ -329,7 +350,9 @@ export async function shareContainerStateWithGroup(input: {
   requireExistingGrant?: boolean | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<SharedContainerStateResult | null> {
+  if (input.stillCurrent?.() === false) return null;
   const shareContext = await loadRemoteContainerShareContext({
     accessLevel: input.accessLevel,
     containerState: input.containerState,
@@ -337,10 +360,11 @@ export async function shareContainerStateWithGroup(input: {
       input.requireExistingGrant && input.knownContainerKeks !== undefined,
     requireExistingGrant: input.requireExistingGrant,
     runtime: input.runtime,
+    stillCurrent: input.stillCurrent,
     subjectId: input.recipientGroupId,
     subjectType: "group",
   });
-  if (!shareContext) {
+  if (!shareContext || input.stillCurrent?.() === false) {
     return null;
   }
   if (shareContext.matchingGrant) {
@@ -353,6 +377,7 @@ export async function shareContainerStateWithGroup(input: {
       persistence: input.persistence,
       projection: shareContext.projection,
       runtime: input.runtime,
+      stillCurrent: input.stillCurrent,
     });
   }
 
@@ -364,9 +389,10 @@ export async function shareContainerStateWithGroup(input: {
     recipientGroupId: input.recipientGroupId,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     runtime: input.runtime,
+    stillCurrent: input.stillCurrent,
   });
 
-  if (!shared) {
+  if (!shared || input.stillCurrent?.() === false) {
     return null;
   }
 
@@ -375,5 +401,6 @@ export async function shareContainerStateWithGroup(input: {
     persistence: input.persistence,
     runtime: input.runtime,
     shared,
+    stillCurrent: input.stillCurrent,
   });
 }

@@ -1,5 +1,12 @@
 import { expect, test } from "bun:test";
-import { createContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
+import { bytesToBase64 } from "@symcrypt/encoding";
+import { exportAllUpdates } from "@symcrypt/loro";
+import { createTestExecSql } from "@symcrypt/test-utils";
+import {
+  createContainerMetadataDocument,
+  readContainerMetadataValue,
+  writeContainerMetadataValue,
+} from "../../data/containers/containerMetadataDocument";
 import type { DomainScope } from "../../data/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
@@ -7,7 +14,7 @@ import {
   defaultContainerContentsPersistence,
 } from "../../workflows/container-contents/containerPersistence";
 import type { ContainerState } from "../../workflows/container-contents/remoteHydration";
-import { moveContainer, renameContainer } from "./operations";
+import { deleteContainer, moveContainer, renameContainer } from "./operations";
 import { createContainerContentsTestRuntime } from "./runtime.testFixtures";
 import { setContainerIcon } from "./setContainerIconOperation";
 import {
@@ -120,6 +127,50 @@ test.each([
   expect(logs).toEqual([]);
 });
 
+test("a completed deletion forces a current local refresh after generation rollover", async () => {
+  const execSql = (async () => []) as ExecSql;
+  let current = true;
+  const persistence: ContainerContentsPersistence = {
+    ...defaultContainerContentsPersistence,
+    deleteContainer: async () => {
+      current = false;
+    },
+  };
+  const state = createContainerContentsStoreState(
+    createContainerContentsTestRuntime({
+      domainScope: {} as DomainScope,
+      execSql,
+    }),
+    persistence,
+  );
+  const parent = await createState({
+    documentId: null,
+    id: "parent",
+    parentId: null,
+  });
+  const source = await createState({
+    documentId: null,
+    id: "source",
+    parentId: parent.container.id,
+  });
+  state.containersById.set(parent.container.id, parent);
+  state.containersById.set(source.container.id, source);
+  updateContainerContentsSnapshot(state);
+  let refreshes = 0;
+  const syncAgent = {
+    refreshLocalContainers: async () => {
+      refreshes += 1;
+    },
+  } as unknown as ContainerContentsStoreSyncAgent;
+
+  expect(
+    await deleteContainer(state, syncAgent, source.container.id, () => current),
+  ).toBeNull();
+  expect(refreshes).toBe(1);
+  expect(state.localContainersNeedRefresh).toBe(true);
+  expect(state.containersById.get(source.container.id)).toBe(source);
+});
+
 test("move fails explicitly and refreshes authoritative state when metadata identity wins", async () => {
   const logs: string[] = [];
   const execSql = (async () => []) as ExecSql;
@@ -191,4 +242,91 @@ test("move fails explicitly and refreshes authoritative state when metadata iden
   ).toBe("authoritative-parent");
   expect(syncRequests).toBe(0);
   expect(logs).toEqual([]);
+});
+
+test.each([
+  "rename",
+  "icon",
+] as const)("%s rolls back its detached edit when the structural generation expires", async (operation) => {
+  const database = await createTestExecSql(
+    `container-${operation}-generation-guard`,
+  );
+  try {
+    const source = await createState({
+      documentId: null,
+      id: "source",
+      parentId: "parent",
+    });
+    writeContainerMetadataValue(source.doc, {
+      icon: null,
+      name: "Before",
+    });
+    source.record.metadataUpdates = bytesToBase64(exportAllUpdates(source.doc));
+    await defaultContainerContentsPersistence.ensureSchema(database.execSql);
+    await defaultContainerContentsPersistence.saveContainer(
+      database.execSql,
+      source.container,
+      source.record,
+    );
+
+    let current = true;
+    const persistence: ContainerContentsPersistence = {
+      ...defaultContainerContentsPersistence,
+      commitMetadataMutation: async (...args) => {
+        current = false;
+        return defaultContainerContentsPersistence.commitMetadataMutation(
+          ...args,
+        );
+      },
+    };
+    const state = createContainerContentsStoreState(
+      createContainerContentsTestRuntime({
+        domainScope: {} as DomainScope,
+        execSql: database.execSql,
+      }),
+      persistence,
+    );
+    state.containersById.set(source.container.id, source);
+    updateContainerContentsSnapshot(state);
+    const syncAgent = {
+      scheduleSync: () => {
+        throw new Error("A stale metadata edit must not schedule sync");
+      },
+    } as unknown as ContainerContentsStoreSyncAgent;
+
+    const result =
+      operation === "rename"
+        ? await renameContainer(
+            state,
+            syncAgent,
+            source.container.id,
+            "After",
+            () => current,
+          )
+        : await setContainerIcon(
+            state,
+            syncAgent,
+            source.container.id,
+            "folder-special",
+            () => current,
+          );
+
+    expect(result).toBeNull();
+    expect(readContainerMetadataValue(source.doc, "source")).toEqual({
+      icon: null,
+      name: "Before",
+    });
+    expect(
+      (
+        await defaultContainerContentsPersistence.loadContainers(
+          database.execSql,
+        )
+      )[0]?.container,
+    ).toMatchObject({ icon: null, name: "source" });
+    expect(
+      await database.execSql("SELECT local_id FROM document_pending_updates"),
+    ).toEqual([]);
+  } finally {
+    database.close();
+  }
 });

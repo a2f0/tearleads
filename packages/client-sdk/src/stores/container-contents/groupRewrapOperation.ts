@@ -35,6 +35,7 @@ export async function prepareContainerGroupRewrap(
     requireExistingGrant: options?.requireExistingGrant,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     runtime: state.runtime,
+    stillCurrent: isCurrent,
   });
   return isCurrent() ? preparation : null;
 }

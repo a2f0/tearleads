@@ -7,6 +7,7 @@ import type {
   OrganizationBillingHistoryResponse,
   OrganizationBillingManagementUrlResponse,
   OrganizationBillingResponse,
+  OrganizationNativePurchaseEligibilityResponse,
 } from "@symcrypt/validators/response";
 import {
   serializeOrganizationBilling,
@@ -19,6 +20,7 @@ import {
 } from "../../billing/revenueCatApi";
 import type { StripeApiDeps } from "../../billing/stripeApi";
 import { getSyncBillingTierForStripePrice } from "../../billing/stripeHttp";
+import { runNativePurchaseEligibilityWorkflow } from "../../workflows/billing/nativePurchaseEligibility";
 import {
   runAuthorizeNativeSubscriptionClaimWorkflow,
   runClaimNativeSubscriptionWorkflow,
@@ -29,6 +31,7 @@ import {
   runStartOrganizationTrialWorkflow,
 } from "../../workflows/billing/organizationBilling";
 import { runGetOrganizationBillingHistoryWorkflow } from "../../workflows/billing/organizationBillingHistory";
+import { resolveVerifiedPlayReplacement } from "../../workflows/billing/revenuecatPlayReplacement";
 import { OrganizationManagerError } from "../../workflows/organizations/errors";
 import type { ApiServiceRuntime } from "../runtime";
 import { mapNativeSubscriptionClaimError } from "./nativeSubscriptionClaimError";
@@ -59,6 +62,20 @@ export async function getOrganizationBillingHistory(
       organizationId,
       sessionUserId,
     ),
+  );
+}
+
+export function getOrganizationNativePurchaseEligibility(
+  runtime: ApiServiceRuntime,
+  organizationId: string,
+  sessionUserId: string,
+  store: NativeSubscriptionStore,
+): Promise<OrganizationNativePurchaseEligibilityResponse> {
+  return runNativePurchaseEligibilityWorkflow(
+    runtime.db,
+    organizationId,
+    sessionUserId,
+    store,
   );
 }
 
@@ -214,6 +231,22 @@ export async function claimNativeOrganizationSubscription(
       "RevenueCat could not verify the subscription",
     );
   }
+  const replacementResolution =
+    store === "play_store"
+      ? await resolveVerifiedPlayReplacement({
+          appUserId: sessionUserId,
+          db: runtime.db,
+          deps,
+          organizationId,
+          productId: resolved.subscription.productId,
+          replacementSubscriptionId: resolved.subscription.subscriptionId,
+        })
+      : ({ kind: "none" } as const);
+  if (replacementResolution.kind === "unavailable") {
+    throw new OrganizationBillingProviderUnavailableError(
+      "RevenueCat could not verify the subscription replacement",
+    );
+  }
   const now = new Date();
   const sourceId = `native-claim:${randomUUID()}`;
   try {
@@ -228,6 +261,10 @@ export async function claimNativeOrganizationSubscription(
       requireSessionAccess: true,
       sourceId,
       subscription: resolved.subscription,
+      verifiedReplacement:
+        replacementResolution.kind === "verified"
+          ? replacementResolution.replacement
+          : null,
     });
   } catch (error) {
     const mapped = mapNativeSubscriptionClaimError(error);

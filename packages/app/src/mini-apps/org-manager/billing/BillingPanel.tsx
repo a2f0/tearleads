@@ -283,7 +283,7 @@ function BillingPanelSubscriptionControls(input: {
   );
 }
 
-function useRestoreOrganizationWiring() {
+function useRestoreOrganizationWiring(organizationId: string) {
   const symcrypt = useSymCrypt();
   const { persistSession } = useIdentity();
   const createRestoreOrganization = useCallback(
@@ -304,6 +304,14 @@ function useRestoreOrganizationWiring() {
       )?.organizationId === organizationId,
     [symcrypt],
   );
+  const checkNativePurchaseEligibility = useCallback(
+    (store: NativeSubscriptionStore) =>
+      symcrypt.organizations.checkNativePurchaseEligibility(
+        organizationId,
+        store,
+      ),
+    [organizationId, symcrypt],
+  );
   const completeRestoreOrganization = useCallback(
     (organizationId: string) =>
       symcrypt.session.completeNativeSubscriptionRestoreOrganization(
@@ -322,6 +330,7 @@ function useRestoreOrganizationWiring() {
   );
   return {
     activateRestoredOrganization,
+    checkNativePurchaseEligibility,
     claimNativeSubscription,
     completeRestoreOrganization,
     createRestoreOrganization,
@@ -340,7 +349,7 @@ export function BillingPanel({
   userId: string | null;
 }) {
   const billing = useOrganizationBilling();
-  const restoreOrganization = useRestoreOrganizationWiring();
+  const restoreOrganization = useRestoreOrganizationWiring(organizationId);
   const { refresh } = billing;
   const handleRefresh = useCallback(() => {
     void refresh();

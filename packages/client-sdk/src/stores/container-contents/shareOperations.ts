@@ -32,7 +32,8 @@ export async function shareContainerUsing(
     state.runtime.infra.dbStatus !== "ready" ||
     !state.snapshot.ready ||
     !state.runtime.auth.isAuthenticated ||
-    !state.runtime.state.online
+    !state.runtime.state.online ||
+    !isCurrent()
   ) {
     return null;
   }
@@ -59,7 +60,7 @@ export async function shareContainerUsing(
   updateContainerContentsSnapshot(state);
   if (shared.status === "identity-superseded") return null;
 
-  await syncAgent.primeDocumentsForSharedSubtree(containerId);
+  await syncAgent.primeDocumentsForSharedSubtree(containerId, isCurrent);
   if (!isCurrent()) return null;
   syncAgent.scheduleSync();
   state.runtime.util.log(
@@ -87,6 +88,7 @@ export async function shareContainerWithUser(
         recipientUserId: userId,
         resolveProjectionUserKey: state.resolveProjectionUserKey,
         runtime: state.runtime,
+        stillCurrent: isCurrent,
       }),
     `shared container ${containerId} with ${userId}`,
     isCurrent,
@@ -119,6 +121,7 @@ export async function shareContainerWithGroup(
         requireExistingGrant: options.requireExistingGrant,
         resolveProjectionUserKey: state.resolveProjectionUserKey,
         runtime: state.runtime,
+        stillCurrent: isCurrent,
       }),
     `shared container ${containerId} with group ${groupId}`,
     isCurrent,

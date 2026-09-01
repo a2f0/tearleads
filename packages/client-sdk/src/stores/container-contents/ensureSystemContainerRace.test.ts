@@ -95,17 +95,7 @@ test("a late local system create collapses into a remotely hydrated slot", async
     Parameters<ContainerContentsPersistence["reconcileLocalSystemContainer"]>[1]
   > = [];
   const persistence = {
-    enqueuePendingUpdate: async () => {
-      // Remote hydration wins after the local candidate is persisted but before
-      // createChildContainerState returns it to ensureSystemContainer.
-      // The stale runtime-default root and a foreign shared root both remain;
-      // adoption must still resolve against the authenticated organization.
-      state.containersById.set(foreignRoot.container.id, foreignRoot);
-      state.containersById.set(foreignSystem.container.id, foreignSystem);
-      state.containersById.set(remoteRoot.container.id, remoteRoot);
-      state.containersById.set(remoteSystem.container.id, remoteSystem);
-      updateContainerContentsSnapshot(state);
-    },
+    enqueuePendingUpdate: async () => {},
     reconcileLocalSystemContainer: async (
       _execSql: ExecSql,
       input: (typeof reconciliations)[number],
@@ -115,8 +105,19 @@ test("a late local system create collapses into a remotely hydrated slot", async
     saveContainer: async (
       _execSql: ExecSql,
       container: ContainerState["container"],
+      _record: ContainerState["record"],
+      options: Parameters<ContainerContentsPersistence["saveContainer"]>[3],
     ) => {
       createdLocalContainerId = container.id;
+      if (options?.pendingUpdate) {
+        // Remote hydration wins after the local candidate and its initial update
+        // are atomically persisted but before createChildContainerState returns.
+        state.containersById.set(foreignRoot.container.id, foreignRoot);
+        state.containersById.set(foreignSystem.container.id, foreignSystem);
+        state.containersById.set(remoteRoot.container.id, remoteRoot);
+        state.containersById.set(remoteSystem.container.id, remoteSystem);
+        updateContainerContentsSnapshot(state);
+      }
       return container;
     },
   } as unknown as ContainerContentsPersistence;
@@ -389,8 +390,12 @@ test("a root-first late create rebases before its remote system slot arrives", a
     });
     expect(saves[0]?.options).toEqual(
       deferRemoteSync
-        ? undefined
-        : { createIntent: { parentContainerId: localRoot.container.id } },
+        ? { stillCurrent: expect.any(Function) }
+        : {
+            createIntent: { parentContainerId: localRoot.container.id },
+            pendingUpdate: expect.any(Object),
+            stillCurrent: expect.any(Function),
+          },
     );
     expect(saves[1]?.container).toMatchObject({
       organizationId: "organization-id",

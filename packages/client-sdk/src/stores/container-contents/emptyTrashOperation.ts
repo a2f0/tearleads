@@ -1,5 +1,6 @@
 import type { PurgeOptions } from "../../workflows/container-contents/container-state/purgeProgress";
 import { runContainerPurge } from "./containerPurgeCore";
+import type { ContainerContentsStoreSyncAgent } from "./syncAgent";
 import type { ContainerContentsStoreState } from "./types";
 import type { ContainerWriteGuard } from "./writeGeneration";
 
@@ -14,16 +15,25 @@ import type { ContainerWriteGuard } from "./writeGeneration";
 // purge it is online-only when any of its contents are remote.
 export async function emptyTrash(
   state: ContainerContentsStoreState,
+  syncAgent: ContainerContentsStoreSyncAgent,
   trashContainerId: string,
   options?: PurgeOptions,
   isCurrent: ContainerWriteGuard = () => true,
 ): Promise<boolean> {
-  return runContainerPurge(state, trashContainerId, options, isCurrent, {
-    describeResult: (_target, result) =>
-      `emptied trash (${result.purgedContainerIds.length} container(s) removed, ${result.failedCount} failed)`,
-    // A clean empty: nothing failed and it ran to completion.
-    didSucceed: (result) => !result.aborted && result.failedCount === 0,
-    keepRootContainer: true,
-    validateTarget: (target) => (target.container.systemSlot ?? null) !== null,
-  });
+  return runContainerPurge(
+    state,
+    syncAgent,
+    trashContainerId,
+    options,
+    isCurrent,
+    {
+      describeResult: (_target, result) =>
+        `emptied trash (${result.purgedContainerIds.length} container(s) removed, ${result.failedCount} failed)`,
+      // A clean empty: nothing failed and it ran to completion.
+      didSucceed: (result) => !result.aborted && result.failedCount === 0,
+      keepRootContainer: true,
+      validateTarget: (target) =>
+        (target.container.systemSlot ?? null) !== null,
+    },
+  );
 }

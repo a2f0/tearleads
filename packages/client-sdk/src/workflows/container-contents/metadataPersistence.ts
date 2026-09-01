@@ -1,9 +1,4 @@
-import { bytesToBase64 } from "@symcrypt/encoding";
-import {
-  encodeVersionVector,
-  exportAllUpdates,
-  exportUpdatesSince,
-} from "@symcrypt/loro";
+import { encodeVersionVector, exportUpdatesSince } from "@symcrypt/loro";
 import {
   getDefaultContainerName,
   readContainerMetadataValue,
@@ -22,8 +17,12 @@ import {
   loadAuthoritativeContainerMetadataState,
   type PersistContainerMetadataStateInput,
   prepareContainerMetadataMutation,
-  type resolveMetadataSecurityContext,
 } from "./metadataMutationPreparation";
+import {
+  buildContainerMetadataRecord,
+  resolveContainerSystemSlot,
+  resolveMetadataDocumentId,
+} from "./metadataRecord";
 import { installContainerMetadataRecord } from "./metadataStateInstallation";
 import {
   type ExpectedContainerMetadataSyncState,
@@ -39,12 +38,6 @@ import type { ContainerContentsWorkflowSqlRuntime } from "./runtime";
 
 type ContainerMetadataPersistenceRuntime = ContainerContentsWorkflowSqlRuntime;
 const MAX_METADATA_MUTATION_COMMIT_ATTEMPTS = 8;
-type NullableContainerMetadataDocumentField =
-  | "accessStateHash"
-  | "lastCommitLsn"
-  | "contentKeyBundle"
-  | "documentKekTargets"
-  | "documentManifestBundle";
 type SaveContainerOptions = Parameters<
   ContainerContentsPersistence["saveContainer"]
 >[3];
@@ -56,29 +49,6 @@ export {
 export { installContainerMetadataRecord } from "./metadataStateInstallation";
 export { currentMetadataPullContinuation };
 
-function resolveContainerSystemSlot(
-  patch: Partial<ContainerMetadataPatch>,
-  container: ContainerRecord,
-): NonNullable<ContainerRecord["systemSlot"]> | null {
-  return patch.systemSlot ?? container.systemSlot ?? null;
-}
-function resolveMetadataDocumentId(
-  patch: Partial<ContainerMetadataPatch>,
-  container: ContainerRecord,
-): ContainerRecord["metadataDocumentId"] {
-  return (
-    patch.metadataDocumentId ?? patch.documentId ?? container.metadataDocumentId
-  );
-}
-function resolveNullableContainerMetadataDocumentField(
-  patch: Partial<ContainerMetadataPatch>,
-  key: NullableContainerMetadataDocumentField,
-  currentValue: string | null | undefined,
-  resetWhenUnpatched = false,
-): string | null {
-  if (Object.hasOwn(patch, key)) return patch[key] ?? null;
-  return resetWhenUnpatched ? null : (currentValue ?? null);
-}
 function invalidateMetadataWriterProjection(
   metadataState: ContainerMetadataState,
   securityContextChanged: boolean,
@@ -87,73 +57,6 @@ function invalidateMetadataWriterProjection(
     metadataState.metadataWriterProjection = null;
   }
 }
-function resolveMetadataPullState(
-  metadataState: ContainerMetadataState,
-  patch: Partial<ContainerMetadataPatch>,
-  securityContextChanged: boolean,
-): Pick<
-  DocumentRecord,
-  "pullContinuation" | "pullContinuationRecoveryRequired"
-> {
-  if (Object.hasOwn(patch, "pullContinuation")) {
-    return { pullContinuation: patch.pullContinuation ?? null };
-  }
-  if (securityContextChanged) {
-    return { pullContinuation: null };
-  }
-  if (metadataState.record.pullContinuationRecoveryRequired) {
-    return { pullContinuationRecoveryRequired: true };
-  }
-  return { pullContinuation: currentMetadataPullContinuation(metadataState) };
-}
-function buildContainerMetadataRecord(input: {
-  metadataState: ContainerMetadataState;
-  patch: Partial<ContainerMetadataPatch>;
-  securityContext: ReturnType<typeof resolveMetadataSecurityContext>;
-}): DocumentRecord {
-  const { metadataState, patch, securityContext } = input;
-  return {
-    id: metadataState.container.id,
-    documentId: securityContext.documentId,
-    metadataUpdates:
-      patch.metadataUpdates ??
-      bytesToBase64(exportAllUpdates(metadataState.doc)),
-    snapshotEndVersion: "",
-    accessEpoch: securityContext.accessEpoch,
-    accessStateHash: resolveNullableContainerMetadataDocumentField(
-      patch,
-      "accessStateHash",
-      metadataState.record.accessStateHash,
-      securityContext.changed,
-    ),
-    lastCommitLsn: resolveNullableContainerMetadataDocumentField(
-      patch,
-      "lastCommitLsn",
-      metadataState.record.lastCommitLsn,
-      securityContext.documentIdChanged,
-    ),
-    contentKeyBundle: resolveNullableContainerMetadataDocumentField(
-      patch,
-      "contentKeyBundle",
-      metadataState.record.contentKeyBundle,
-      securityContext.changed,
-    ),
-    documentKekTargets: resolveNullableContainerMetadataDocumentField(
-      patch,
-      "documentKekTargets",
-      metadataState.record.documentKekTargets,
-      securityContext.changed,
-    ),
-    documentManifestBundle: resolveNullableContainerMetadataDocumentField(
-      patch,
-      "documentManifestBundle",
-      metadataState.record.documentManifestBundle,
-      securityContext.changed,
-    ),
-    ...resolveMetadataPullState(metadataState, patch, securityContext.changed),
-  };
-}
-
 type PreparedContainerMetadataMutation = Awaited<
   ReturnType<typeof prepareContainerMetadataMutation>
 >;
@@ -446,6 +349,7 @@ async function writeContainerMetadataPatch(input: {
   metadataState: ContainerMetadataState;
   patch: Partial<Pick<ContainerMetadataPatch, "icon" | "name">>;
   persistence: ContainerContentsPersistence;
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<PersistedContainerMetadataState | null> {
   const { execSql, metadataState, patch, persistence } = input;
   const metadata = readContainerMetadataValue(
@@ -463,6 +367,7 @@ async function writeContainerMetadataPatch(input: {
     metadataState,
     patch,
     persistence,
+    stillCurrent: input.stillCurrent,
   });
 }
 
@@ -471,6 +376,7 @@ export async function renameContainerMetadataStateFromRuntime(input: {
   name: string;
   persistence: ContainerContentsPersistence;
   runtime: ContainerMetadataPersistenceRuntime;
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<PersistedContainerMetadataState | null> {
   const trimmedName = input.name.trim();
   if (!trimmedName) {
@@ -482,6 +388,7 @@ export async function renameContainerMetadataStateFromRuntime(input: {
     metadataState: input.metadataState,
     patch: { name: trimmedName },
     persistence: input.persistence,
+    stillCurrent: input.stillCurrent,
   });
 }
 
@@ -490,11 +397,13 @@ export async function setContainerIconMetadataStateFromRuntime(input: {
   metadataState: ContainerMetadataState;
   persistence: ContainerContentsPersistence;
   runtime: ContainerMetadataPersistenceRuntime;
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<PersistedContainerMetadataState | null> {
   return writeContainerMetadataPatch({
     execSql: input.runtime.infra.execSql,
     metadataState: input.metadataState,
     patch: { icon: input.icon?.trim() || null },
     persistence: input.persistence,
+    stillCurrent: input.stillCurrent,
   });
 }

@@ -4,6 +4,7 @@ export {
 } from "../../data/persistence/organizations/organizationReadModelInvalidation";
 export {
   cancelStripeSubscription,
+  checkNativePurchaseEligibility,
   claimNativeOrganizationSubscription,
   createStripeCheckout,
   createStripeCheckoutSession,
@@ -16,6 +17,7 @@ export {
   type OrganizationBillingHistoryEntry,
   type OrganizationBillingManagementUrl,
   type OrganizationBillingView,
+  type OrganizationNativePurchaseEligibility,
   resolveOrganizationBillingView,
   type StripeCheckoutIntent,
   type StripeCheckoutOptions,

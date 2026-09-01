@@ -4,6 +4,7 @@ import {
   OrganizationBillingHistoryResponseSchema,
   OrganizationBillingManagementUrlResponseSchema,
   OrganizationBillingResponseSchema,
+  OrganizationNativePurchaseEligibilityResponseSchema,
 } from "../response";
 import { openApiDocument } from "./openApi";
 import {
@@ -11,7 +12,9 @@ import {
   getOrganizationBillingHistoryOperation,
   getOrganizationBillingManagementUrlOperation,
   getOrganizationBillingOperation,
+  getOrganizationNativePurchaseEligibilityOperation,
   OrganizationBillingNativeClaimPathParamsSchema,
+  OrganizationBillingNativeEligibilityQuerySchema,
   OrganizationBillingPathParamsSchema,
   startOrganizationTrialOperation,
 } from "./organizationBilling";
@@ -83,6 +86,12 @@ test("organization billing operations own their wire contracts", () => {
   expect(getOrganizationBillingManagementUrlOperation.responses[200]).toBe(
     OrganizationBillingManagementUrlResponseSchema,
   );
+  expect(getOrganizationNativePurchaseEligibilityOperation).toMatchObject({
+    method: "GET",
+    path: "/organizations/{organizationId}/billing/native/eligibility",
+    query: OrganizationBillingNativeEligibilityQuerySchema,
+    responses: { 200: OrganizationNativePurchaseEligibilityResponseSchema },
+  });
   expect(startOrganizationTrialOperation).toMatchObject({
     method: "POST",
     path: "/organizations/{organizationId}/billing/trial",
@@ -103,6 +112,9 @@ test("organization billing operations document their handler failures", () => {
   expect(getOrganizationBillingManagementUrlOperation.failureStatuses).toEqual([
     400, 401, 403, 404, 500,
   ]);
+  expect(
+    getOrganizationNativePurchaseEligibilityOperation.failureStatuses,
+  ).toEqual([400, 401, 403, 404, 409, 500]);
   expect(startOrganizationTrialOperation.failureStatuses).toEqual([
     400, 401, 403, 404, 409, 500,
   ]);

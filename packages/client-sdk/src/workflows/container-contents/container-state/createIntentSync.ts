@@ -96,6 +96,7 @@ async function markContainerContentsContainerCreateIntentAlreadySynced(input: {
     remoteMetadataAccessStateHash,
     remoteMetadataDocumentId,
     stillCurrent: input.isCurrent,
+    supersededMovePreviousParentId: intent.parentContainerId,
   });
   return settled && input.isCurrent();
 }
@@ -163,9 +164,11 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
           remoteContainerId: created.containerId,
           remoteMetadataAccessStateHash: created.accessManifestHash,
           remoteMetadataDocumentId: created.metadataDocumentId,
+          supersededMovePreviousParentId: created.parentId,
         },
         expectedStateWhenMissing: containerState,
         isCurrent: input.isCurrent,
+        preserveDurableStructureWhenPending: true,
       },
     );
   } catch (error) {
@@ -196,7 +199,7 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
     systemSlot:
       created.systemSlot ?? containerState.container.systemSlot ?? null,
     organizationId: created.organizationId,
-    parentId: created.parentId,
+    parentId: persistenceCandidate.container.parentId,
     serverCreatedAt: created.createdAt,
     serverUpdatedAt: created.updatedAt,
     createdAt: created.createdAt,

@@ -2,6 +2,10 @@ import {
   installContainerMetadataRecord,
   setContainerIconMetadataStateFromRuntime,
 } from "../../workflows/container-contents/metadata";
+import {
+  createDetachedContainerMetadataState,
+  installDetachedContainerMetadataState,
+} from "../../workflows/container-contents/metadataStateIsolation";
 import { getContainerContentsStoreLogLabel } from "./logLabel";
 import { removeMissingContainerState } from "./missingContainerState";
 import { updateContainerContentsSnapshot } from "./state";
@@ -35,11 +39,15 @@ export async function setContainerIcon(
     return toContainerNode(existingState);
   }
 
+  const detachedState =
+    await createDetachedContainerMetadataState(existingState);
+  if (!isCurrent()) return null;
   const updated = await setContainerIconMetadataStateFromRuntime({
     icon: normalizedIcon,
-    metadataState: existingState,
+    metadataState: detachedState,
     persistence: state.persistence,
     runtime: state.runtime,
+    stillCurrent: isCurrent,
   });
   if (!isCurrent()) return null;
   if (!updated) {
@@ -47,8 +55,9 @@ export async function setContainerIcon(
     return null;
   }
 
-  existingState.container = updated.container;
-  installContainerMetadataRecord(existingState, updated.record);
+  detachedState.container = updated.container;
+  installContainerMetadataRecord(detachedState, updated.record);
+  installDetachedContainerMetadataState(existingState, detachedState);
   updateContainerContentsSnapshot(state);
   syncAgent.scheduleSync();
   state.runtime.util.log(

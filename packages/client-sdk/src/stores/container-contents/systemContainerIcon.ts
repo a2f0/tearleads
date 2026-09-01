@@ -4,7 +4,13 @@ import {
   readContainerMetadataValue,
   writeContainerMetadataValue,
 } from "../../data/containers/containerMetadataDocument";
+import {
+  createDetachedContainerMetadataState,
+  installDetachedContainerMetadataState,
+} from "../../workflows/container-contents/metadataStateIsolation";
 import type { PersistContainerStateResult } from "../../workflows/container-contents/remoteHydration";
+import { removeMissingContainerState } from "./missingContainerState";
+import { updateContainerContentsSnapshot } from "./state";
 import type {
   ContainerContentsStoreSyncAgent,
   ContainerState,
@@ -39,27 +45,41 @@ export async function applySystemContainerIcon(input: {
     return true;
   }
 
-  const metadata = readContainerMetadataValue(
-    input.containerState.doc,
-    getDefaultContainerName(input.containerState.container.parentId),
+  if (!isCurrent()) return false;
+  const persistenceCandidate = await createDetachedContainerMetadataState(
+    input.containerState,
   );
-  const sourceVersionVector = encodeVersionVector(input.containerState.doc);
-  writeContainerMetadataValue(input.containerState.doc, {
+  if (!isCurrent()) return false;
+  const metadata = readContainerMetadataValue(
+    persistenceCandidate.doc,
+    getDefaultContainerName(persistenceCandidate.container.parentId),
+  );
+  const sourceVersionVector = encodeVersionVector(persistenceCandidate.doc);
+  writeContainerMetadataValue(persistenceCandidate.doc, {
     ...metadata,
     icon,
   });
   const update = exportUpdatesSince(
-    input.containerState.doc,
+    persistenceCandidate.doc,
     sourceVersionVector,
   );
   const persistenceStatus = await input.persistIcon(
-    input.containerState,
+    persistenceCandidate,
     icon,
     update,
   );
+  if (persistenceStatus === "missing") {
+    removeMissingContainerState(input.state, input.containerState);
+  }
   if (persistenceStatus !== "persisted" || !isCurrent()) {
     return false;
   }
+  installDetachedContainerMetadataState(
+    input.containerState,
+    persistenceCandidate,
+    { preserveConcurrentMetadataEdit: true },
+  );
+  updateContainerContentsSnapshot(input.state);
   if (input.containerState.record.documentId) {
     input.syncAgent.scheduleSync();
   }

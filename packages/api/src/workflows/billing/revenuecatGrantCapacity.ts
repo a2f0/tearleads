@@ -95,13 +95,15 @@ function classifyBoundProductChange(input: {
       : null,
   );
   const sourceTier = getSyncBillingTierForNativeProduct(input.event.product_id);
-  // Play issues a replacement purchase token for a plan change, and chained
-  // changes may name the already-scheduled tier. Bind to buyer + configured
-  // current/source tiers rather than treating one transaction id as stable.
+  // PRODUCT_CHANGE identifies the bound predecessor. The effective Play event
+  // may later carry a replacement token, but this informational marker cannot
+  // select an organization without the exact current subscription identity.
   if (
     !input.billing ||
     !currentTier ||
     !sourceTier ||
+    input.billing.providerSubscriptionId !==
+      input.event.original_transaction_id ||
     input.billing.seatCount !== currentTier.seatLimit
   ) {
     return {

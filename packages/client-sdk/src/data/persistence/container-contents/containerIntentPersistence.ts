@@ -175,6 +175,60 @@ export async function markContainerCreateIntentRevisionSynced(input: {
   return updated.length > 0;
 }
 
+export async function settleContainerCreateIntentRevision(input: {
+  containerId: string;
+  expectedIntentId: string;
+  expectedUpdatedAt: string;
+  remoteContainerId: string;
+  remoteMetadataAccessStateHash: string;
+  remoteMetadataDocumentId: string;
+  supersededMovePreviousParentId?: string | null | undefined;
+  tx: ClientSQLiteTransactionScope;
+}): Promise<"converted-to-move" | "superseded" | "synced"> {
+  if (await markContainerCreateIntentRevisionSynced(input)) return "synced";
+  if (input.supersededMovePreviousParentId === undefined) {
+    return "superseded";
+  }
+
+  const [currentIntent] = await input.tx
+    .select({
+      id: containerCreateIntents.id,
+      parentContainerId: containerCreateIntents.parentContainerId,
+      updatedAt: containerCreateIntents.updatedAt,
+    })
+    .from(containerCreateIntents)
+    .where(
+      and(
+        eq(containerCreateIntents.containerId, input.containerId),
+        eq(containerCreateIntents.intentType, CONTAINER_CREATE_INTENT_TYPE),
+        eq(containerCreateIntents.syncStatus, "pending"),
+      ),
+    )
+    .limit(1);
+  if (!currentIntent?.id) return "superseded";
+
+  const adopted = await markContainerCreateIntentRevisionSynced({
+    ...input,
+    expectedIntentId: currentIntent.id,
+    expectedUpdatedAt: currentIntent.updatedAt,
+  });
+  if (!adopted) return "superseded";
+  if (
+    currentIntent.parentContainerId !== input.supersededMovePreviousParentId
+  ) {
+    await saveContainerMoveIntent({
+      containerId: input.containerId,
+      moveIntent: {
+        parentContainerId: currentIntent.parentContainerId,
+        previousParentContainerId: input.supersededMovePreviousParentId,
+      },
+      tx: input.tx,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+  return "converted-to-move";
+}
+
 export async function saveContainerMoveIntent(input: {
   tx: ClientSQLiteTransactionScope;
   containerId: string;
@@ -356,12 +410,12 @@ export const containerIntentPersistence: ContainerIntentPersistence = {
       execSql,
     ).guardedTransaction(
       async (tx) => {
-        return markContainerCreateIntentRevisionSynced({ ...input, tx });
+        return settleContainerCreateIntentRevision({ ...input, tx });
       },
       input.stillCurrent,
       { behavior: "immediate" },
     );
-    return outcome.committed && outcome.result === true;
+    return outcome.committed && outcome.result !== "superseded";
   },
   async markMoveIntentSynced(execSql, input) {
     const outcome = await getClientSQLitePersistenceRuntime(

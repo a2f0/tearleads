@@ -35,6 +35,7 @@ test("purchase failures emit an ordered error trace", async () => {
   await waitFor(() => expect(result.current.busy).toBe(null));
   expect(purchaseTraceEntries(result.current.logEntries)).toEqual([
     { level: "info", message: "billing purchase stage=started" },
+    { level: "info", message: "billing purchase stage=eligibility-checked" },
     { level: "info", message: "billing purchase stage=identified" },
     { level: "info", message: "billing purchase stage=provider-started" },
     {
@@ -43,6 +44,52 @@ test("purchase failures emit an ordered error trace", async () => {
         "billing purchase stage=failed code=product-unavailable native=none userCancelled=unknown",
     },
   ]);
+});
+
+test("server preflight blocks the provider before a native purchase", async () => {
+  const purchases = createPurchases({ syncEntitlementActive: true });
+  const { result } = renderBillingActions({
+    checkNativePurchaseEligibility: () =>
+      Promise.resolve({
+        eligible: false,
+        reason: "stripe_subscription_conflict",
+      }),
+    purchases,
+  });
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+
+  act(() => result.current.subscribe(OPTION));
+
+  await waitFor(() => expect(result.current.busy).toBe(null));
+  expect(result.current.actionError).toBe(
+    ORG_MANAGER_LABELS.billingEligibilityStripeConflict,
+  );
+  expect(purchases.purchaseSync).not.toHaveBeenCalled();
+  expect(purchaseTraceEntries(result.current.logEntries)).toEqual([
+    { level: "info", message: "billing purchase stage=started" },
+    {
+      level: "error",
+      message:
+        "billing purchase stage=failed code=other native=none userCancelled=unknown",
+    },
+  ]);
+});
+
+test("cancelCheckout settles a stalled server preflight", async () => {
+  const purchases = createPurchases({ syncEntitlementActive: true });
+  const { result } = renderBillingActions({
+    checkNativePurchaseEligibility: () => new Promise(() => undefined),
+    purchases,
+  });
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+
+  act(() => result.current.subscribe(OPTION));
+  await waitFor(() => expect(result.current.checkoutActive).toBe(true));
+  act(() => result.current.cancelCheckout());
+
+  await waitFor(() => expect(result.current.busy).toBe(null));
+  expect(result.current.actionError).toBe(null);
+  expect(purchases.purchaseSync).not.toHaveBeenCalled();
 });
 
 test("subscribe embeds the checkout in a child of the host element", async () => {
@@ -111,17 +158,18 @@ test("cancelCheckout settles a hung purchase silently and empties the host", asy
 
 test("a scope switch leaves a native purchase running", async () => {
   const purchaseResolvers: Array<(value: SyncPurchaseResult) => void> = [];
-  const purchaseSync = mock(
-    () =>
-      new Promise<SyncPurchaseResult>((resolve) => {
-        purchaseResolvers.push(resolve);
-      }),
-  );
+  const purchaseSync = mock((input: { onProviderPresented?: () => void }) => {
+    input.onProviderPresented?.();
+    return new Promise<SyncPurchaseResult>((resolve) => {
+      purchaseResolvers.push(resolve);
+    });
+  });
   const purchases: PurchasesCapability = {
     ...createPurchases({ syncEntitlementActive: true }),
     // A native platform: the purchase runs in a store sheet the app cannot
     // cancel, so lifecycle changes must not settle it as cancelled.
     supportsEmbeddedCheckout: false,
+    supportsProviderPresentationCallback: true,
     purchaseSync,
   };
   const { result, rerender } = renderBillingActions({ purchases });
@@ -154,7 +202,7 @@ test("a scope switch leaves a native purchase running", async () => {
   expect(result.current.activationPending).toBe(true);
 });
 
-test("a scope switch during native identification emits a terminal trace", async () => {
+test("a scope switch cancels native identification before provider start", async () => {
   let identifyCalls = 0;
   let resolvePurchaseIdentify: (() => void) | undefined;
   const identify = mock(() => {
@@ -186,8 +234,8 @@ test("a scope switch during native identification emits a terminal trace", async
   await waitFor(() => expect(result.current.busy).toBe(null));
   expect(purchases.purchaseSync).not.toHaveBeenCalled();
   expect(purchaseTraceEntries(result.current.logEntries).slice(-2)).toEqual([
-    { level: "info", message: "billing purchase stage=identified" },
-    { level: "info", message: "billing purchase stage=superseded" },
+    { level: "info", message: "billing purchase stage=eligibility-checked" },
+    { level: "info", message: "billing purchase stage=cancelled" },
   ]);
 });
 
@@ -359,6 +407,7 @@ test("a cancelled checkout clears the busy state without an error", async () => 
   expect(result.current.activationPending).toBe(false);
   expect(purchaseTraceEntries(result.current.logEntries)).toEqual([
     { level: "info", message: "billing purchase stage=started" },
+    { level: "info", message: "billing purchase stage=eligibility-checked" },
     { level: "info", message: "billing purchase stage=identified" },
     { level: "info", message: "billing purchase stage=provider-started" },
     { level: "info", message: "billing purchase stage=cancelled" },

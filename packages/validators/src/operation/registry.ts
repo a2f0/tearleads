@@ -58,6 +58,7 @@ import {
   getOrganizationBillingHistoryOperation,
   getOrganizationBillingManagementUrlOperation,
   getOrganizationBillingOperation,
+  getOrganizationNativePurchaseEligibilityOperation,
   startOrganizationTrialOperation,
 } from "./organizationBilling";
 import {
@@ -130,6 +131,7 @@ export const protocolOperations = [
   getOrganizationBillingOperation,
   getOrganizationBillingHistoryOperation,
   getOrganizationBillingManagementUrlOperation,
+  getOrganizationNativePurchaseEligibilityOperation,
   claimNativeOrganizationSubscriptionOperation,
   startOrganizationTrialOperation,
   getStripeCheckoutOptionsOperation,

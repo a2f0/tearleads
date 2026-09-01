@@ -1,5 +1,6 @@
 import { and, eq, inArray } from "drizzle-orm";
 import {
+  enqueueDocumentPendingUpdate,
   ensureDocumentProjectionTables,
   ensureDocumentTables,
 } from "../../sqlite/documentPersistence";
@@ -60,6 +61,7 @@ import {
 } from "./containerMetadataMutationPersistence";
 import { containerMetadataPullContinuationPersistence } from "./containerMetadataPullContinuationPersistence";
 import {
+  getContainerMetadataScope,
   saveContainerContentsContainerRows,
   selectContainerMetadataRecord,
 } from "./containerMetadataRows";
@@ -200,18 +202,38 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
         options?.localUpdatedAt ??
         options?.updatedAt ??
         new Date().toISOString();
-      return getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
-        async (tx) =>
-          saveContainerContentsContainerRows({
-            container,
-            createIntent: options?.createIntent,
-            moveIntent: options?.moveIntent,
-            record,
-            serverTimestamps: options?.serverTimestamps,
-            tx,
-            localUpdatedAt,
-          }),
+      const runtime = getClientSQLitePersistenceRuntime(lockedExecSql);
+      const save = async (tx: ClientSQLiteTransactionScope) => {
+        const saved = await saveContainerContentsContainerRows({
+          container,
+          createIntent: options?.createIntent,
+          moveIntent: options?.moveIntent,
+          record,
+          serverTimestamps: options?.serverTimestamps,
+          tx,
+          localUpdatedAt,
+        });
+        if (options?.pendingUpdate) {
+          await enqueueDocumentPendingUpdate(
+            lockedExecSql,
+            getContainerMetadataScope(container.id),
+            options.pendingUpdate,
+          );
+        }
+        return saved;
+      };
+      if (!options?.stillCurrent) {
+        return runtime.transaction(save);
+      }
+      const outcome = await runtime.guardedTransaction(
+        save,
+        options.stillCurrent,
+        { behavior: "immediate" },
       );
+      // Guarded callers recheck the same monotonic generation immediately after
+      // this await. Returning the untouched candidate keeps the long-standing
+      // non-null save contract while the transaction itself remains rolled back.
+      return outcome.result ?? container;
     });
   },
   async saveContainerAndDeletePendingUpdates(

@@ -218,3 +218,65 @@ test("purgeContainerTree unlinks extra internal links before remote purge", asyn
     close();
   }
 });
+
+test("purgeContainerTree stops at the next document when its generation expires", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "purge-tree-generation-boundary",
+  );
+  let current = true;
+  const purgedDocuments: string[] = [];
+
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    for (const id of ["local-document-a", "local-document-b"]) {
+      await sqlDocumentsPersistence.saveDocument(
+        execSql,
+        {
+          accessEpoch: 1,
+          accessStateHash: null,
+          containerId: "trashed",
+          documentId: null,
+          documentKind: "note",
+          id,
+          snapshotEndVersion: "",
+          text: "",
+          title: id,
+        },
+        { updatedAt: "2026-09-01T00:00:00.000Z" },
+      );
+    }
+
+    const result = await purgeContainerTree({
+      containersById: containersById([containerState("trashed", null)]),
+      documentOperations: {
+        purgeLocal: async (document) => {
+          purgedDocuments.push(document.id);
+          current = false;
+          return true;
+        },
+        purgeRemote: async () => {
+          throw new Error("Unexpected remote purge");
+        },
+        unlink: async () => {
+          throw new Error("Unexpected unlink");
+        },
+      },
+      persistence: {} as never,
+      prepareDocumentRotationSnapshot: async () => null,
+      resolveProjectionUserKey: async () => null,
+      rootContainerId: "trashed",
+      runtime: { infra: { execSql } } as never,
+      stillCurrent: () => current,
+    });
+
+    expect(purgedDocuments).toHaveLength(1);
+    expect(result).toMatchObject({
+      aborted: true,
+      completedCount: 1,
+      failedCount: 0,
+      totalCount: 3,
+    });
+  } finally {
+    close();
+  }
+});

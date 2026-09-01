@@ -28,7 +28,7 @@ import type {
 import {
   ContainerCreateIntentSupersededError,
   deleteContainerMoveIntentRevision,
-  markContainerCreateIntentRevisionSynced,
+  settleContainerCreateIntentRevision,
 } from "./containerIntentPersistence";
 import {
   getContainerMetadataScope,
@@ -360,10 +360,10 @@ export async function commitStoredMetadataMutation(
         });
         if (
           input.createIntentSettlement &&
-          !(await markContainerCreateIntentRevisionSynced({
+          (await settleContainerCreateIntentRevision({
             ...input.createIntentSettlement,
             tx,
-          }))
+          })) === "superseded"
         ) {
           throw new ContainerCreateIntentSupersededError();
         }

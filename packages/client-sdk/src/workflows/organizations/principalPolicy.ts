@@ -66,6 +66,7 @@ type PrepareGroupContainerMutations = (input: {
 async function commitAndCacheGroupPolicyMutation(input: {
   readonly afterPolicyCommitBeforeCache?: (() => Promise<void>) | undefined;
   readonly apiClient: PrincipalPolicyReadWriteApi;
+  readonly assertCanCommit?: (() => void) | undefined;
   readonly beforePolicyCommit?:
     | ((head: ReferencedPrincipalHead) => void)
     | undefined;
@@ -125,6 +126,7 @@ async function commitAndCacheGroupPolicyMutation(input: {
       signingFingerprint: input.policyContext.signingFingerprint,
       signingKeyPair: input.policyContext.signingKeyPair,
     });
+  input.assertCanCommit?.();
   const acknowledgedBundle = await commitGroupPolicyMutation({
     apiClient: input.apiClient,
     currentPolicy: input.currentPolicy,
@@ -377,6 +379,7 @@ export async function removeOrganizationGroupUser(input: {
 export async function setOrganizationGroupContainerGrant(input: {
   readonly accessLevel: "admin" | "read" | "write";
   readonly apiClient: PrincipalPolicyReadWriteApi;
+  readonly assertCanCommit?: (() => void) | undefined;
   readonly containerId: string;
   readonly execSql: ExecSql;
   readonly groupId: string;
@@ -404,6 +407,7 @@ export async function setOrganizationGroupContainerGrant(input: {
   });
   return commitAndCacheGroupPolicyMutation({
     apiClient: input.apiClient,
+    assertCanCommit: input.assertCanCommit,
     currentPolicy: policyContext.currentPolicy,
     execSql: input.execSql,
     externalAuthority: policyContext.externalAuthority,

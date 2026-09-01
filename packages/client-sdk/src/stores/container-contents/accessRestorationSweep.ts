@@ -220,6 +220,13 @@ async function claimDueRestorationSweeps(
     if (!session.isCurrent()) {
       return claimed;
     }
+    if (forcedRetrySweepIds?.has(restorationSweepIdentity(sweep))) {
+      // The interrupted generation already claimed and durably counted this
+      // attempt. Resume that exact attempt after reset instead of consuming a
+      // new one or retiring it at the limit before its completion ran.
+      claimed.push(sweep);
+      continue;
+    }
     if (sweep.attemptCount >= SWEEP_ATTEMPT_LIMIT) {
       await session.persistence.completeDormantMetadataSweepRequest(
         session.runtime.infra.execSql,
@@ -234,10 +241,7 @@ async function claimDueRestorationSweeps(
       );
       continue;
     }
-    if (
-      !forcedRetrySweepIds?.has(restorationSweepIdentity(sweep)) &&
-      !isSweepAttemptDue(sweep, now)
-    ) {
+    if (!isSweepAttemptDue(sweep, now)) {
       continue;
     }
     const didClaim = await session.persistence.claimDormantMetadataSweepAttempt(

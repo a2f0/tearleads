@@ -159,3 +159,54 @@ test("a replacement executor gets its own denied move replay", async () => {
     replacementDatabase.close();
   }
 });
+
+test("a generation change at error commit cannot park a document move", async () => {
+  const database = await createTestExecSql(
+    "document-move-intent-error-generation",
+  );
+  let current = true;
+  const guardedExecSql = (async (sql, bind, options) => {
+    const rows = await database.execSql(sql, bind, options);
+    if (
+      sql.toLowerCase().includes("update") &&
+      sql.includes("document_move_intents")
+    ) {
+      current = false;
+    }
+    return rows;
+  }) as ExecSql;
+
+  try {
+    await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(guardedExecSql, {
+      documentId: "remote-document",
+      localId: "local-document",
+      sourceContainerId: "source",
+      targetContainerId: "target",
+    });
+    const [intent] =
+      await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(
+        guardedExecSql,
+      );
+    if (!intent) throw new Error("missing document move intent");
+
+    await sqlDocumentMoveIntentPersistence.recordMoveIntentError(
+      guardedExecSql,
+      {
+        denied: true,
+        documentId: intent.documentId,
+        expectedIntentId: intent.id,
+        expectedUpdatedAt: intent.updatedAt,
+        message: "stale denial",
+        stillCurrent: () => current,
+      },
+    );
+
+    const rows = await database.execSql(
+      `SELECT sync_status AS syncStatus, last_error AS lastError
+       FROM document_move_intents`,
+    );
+    expect(rows).toEqual([{ lastError: null, syncStatus: "pending" }]);
+  } finally {
+    database.close();
+  }
+});

@@ -86,7 +86,7 @@ test("create intent settlement reports overtaking and generation races", async (
   }
 });
 
-test("an overtaking same-tick create rolls stale metadata settlement back", async () => {
+test("an overtaking create can atomically adopt remote identity as a move", async () => {
   const { close, execSql } = await createTestExecSql(
     "container-create-intent-atomic-settlement",
   );
@@ -186,6 +186,63 @@ test("an overtaking same-tick create rolls stale metadata settlement back", asyn
       expect.objectContaining({
         id: winningIntent.id,
         parentContainerId: "winning-parent",
+        syncStatus: "pending",
+      }),
+    ]);
+
+    const converted =
+      await sqlContainerContentsPersistence.commitMetadataMutation(execSql, {
+        acceptedPendingUpdateIds: [],
+        container: {
+          ...current.container,
+          metadataDocumentId: "remote-metadata",
+          parentId: "stale-parent",
+        },
+        createIntentSettlement: {
+          containerId: staleIntent.containerId,
+          expectedIntentId: staleIntent.id,
+          expectedUpdatedAt: staleIntent.updatedAt,
+          remoteContainerId: staleIntent.containerId,
+          remoteMetadataAccessStateHash: "remote-access",
+          remoteMetadataDocumentId: "remote-metadata",
+          supersededMovePreviousParentId: "stale-parent",
+        },
+        expectedContainer: current.container,
+        expectedRecord: current.record,
+        preserveDurableStructureWhenPending: true,
+        record: {
+          ...current.record,
+          accessEpoch: 1,
+          accessStateHash: "remote-access",
+          documentId: "remote-metadata",
+        },
+        settleAcceptedPendingOnConflict: false,
+      });
+
+    expect(converted.committed).toBe(true);
+    const adopted =
+      await sqlContainerContentsPersistence.loadContainerMetadataState(
+        execSql,
+        container.id,
+      );
+    expect(adopted?.container).toMatchObject({
+      metadataDocumentId: "remote-metadata",
+      parentId: "winning-parent",
+    });
+    expect(adopted?.record).toMatchObject({
+      accessStateHash: "remote-access",
+      documentId: "remote-metadata",
+    });
+    expect(
+      await sqlContainerContentsPersistence.listPendingCreateIntents(execSql),
+    ).toEqual([]);
+    expect(
+      await sqlContainerContentsPersistence.listUnsyncedMoveIntents(execSql),
+    ).toEqual([
+      expect.objectContaining({
+        containerId: container.id,
+        parentContainerId: "winning-parent",
+        previousParentContainerId: "stale-parent",
         syncStatus: "pending",
       }),
     ]);
