@@ -75,6 +75,7 @@ test("losing eligibility aborts native preparation before the store sheet", asyn
   const purchases: PurchasesCapability = {
     ...createPurchases({ syncEntitlementActive: true }),
     supportsEmbeddedCheckout: false,
+    supportsProviderPresentationCallback: true,
     purchaseSync: async (input): Promise<SyncPurchaseResult> => {
       await preparation;
       if (input.abortSignal?.aborted) throw new PurchaseAbortedError();

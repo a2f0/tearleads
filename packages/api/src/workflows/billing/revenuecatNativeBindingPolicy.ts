@@ -7,6 +7,7 @@ import {
   matchesLockedNativeSubscription,
 } from "./nativeSubscriptionIdentity";
 import { isNativeRevenueCatStore } from "./revenuecatBuyerPolicy";
+import type { VerifiedPlayReplacement } from "./revenuecatPlayReplacement";
 import {
   isNativePurchaseEventType,
   resolveNativeStripeConflictReason,
@@ -73,9 +74,8 @@ export async function resolveNativeProductChangeConflict(input: {
     organizationId: input.organizationId,
   });
   const matchesToken =
-    input.event.store?.toUpperCase() === "PLAY_STORE" ||
     input.billing.providerSubscriptionId ===
-      input.event.original_transaction_id;
+    input.event.original_transaction_id;
   return matchesStore && matchesToken
     ? null
     : NATIVE_EVENT_CONFLICTS_WITH_EXISTING_SUBSCRIPTION_REASON;
@@ -90,6 +90,7 @@ export async function resolveNativeGrantDisposition(input: {
   readonly skipSeatReconciliation: boolean;
   readonly transition: RevenueCatBillingTransition;
   readonly warning: string | null;
+  readonly verifiedReplacement?: VerifiedPlayReplacement | null | undefined;
 }): Promise<NativeGrantDisposition> {
   const nativeStripeConflict =
     input.transition.kind === "grant" && input.organizationId && input.billing
@@ -109,6 +110,7 @@ export async function resolveNativeGrantDisposition(input: {
       event: input.event,
       executor: input.executor,
       organizationId: input.organizationId,
+      verifiedReplacement: input.verifiedReplacement,
     }));
   const nativeBindingConflict =
     input.transition.kind === "grant" &&

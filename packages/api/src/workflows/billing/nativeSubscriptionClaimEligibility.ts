@@ -15,6 +15,7 @@ import {
   resolvePersistedNativeSubscriptionStore,
   revenueCatStoreForNativeStore,
 } from "./nativeSubscriptionIdentity";
+import type { VerifiedPlayReplacement } from "./revenuecatPlayReplacement";
 import {
   hasAppliedStripeExpiration,
   hasStripeBindingIdentity,
@@ -36,6 +37,7 @@ interface NativeClaimEligibilityInput {
   readonly store: NativeSubscriptionStore;
   readonly subscriptionId: string;
   readonly target: NativeClaimBilling;
+  readonly verifiedReplacement?: VerifiedPlayReplacement | null | undefined;
 }
 
 async function loadStripeBinding(
@@ -93,6 +95,7 @@ async function hasConflictingActiveNativeBinding(
     productId: input.productId,
     store: input.store,
     subscriptionId: input.subscriptionId,
+    verifiedReplacement: input.verifiedReplacement,
   }));
 }
 

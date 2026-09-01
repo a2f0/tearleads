@@ -7,6 +7,7 @@ import {
 import { createTestUser } from "@symcrypt/bob-and-alice";
 import type { RevenueCatWebhookEvent } from "@symcrypt/validators/request";
 import { eq } from "drizzle-orm";
+import { playReplacementApiDeps } from "../../../test/helpers/revenuecatPlayReplacement";
 import { registerAndAuthenticate } from "../../../test/helpers/revenuecatWebhook";
 import { runRevenueCatWebhookWorkflow } from "./revenuecatWebhook";
 
@@ -62,7 +63,7 @@ test.each([
     event_timestamp_ms: now + 1,
     id: crypto.randomUUID(),
     new_product_id: "sync_team_5_monthly",
-    original_transaction_id: oldReplacementToken,
+    original_transaction_id: initialToken,
     type: "PRODUCT_CHANGE" as const,
   };
   expect(await runRevenueCatWebhookWorkflow(db, productChange)).toMatchObject({
@@ -87,6 +88,15 @@ test.each([
         subscriptionId: oldReplacementToken,
         type: "RENEWAL",
       }),
+      undefined,
+      {
+        revenuecat: playReplacementApiDeps({
+          appUserId: admin.userId,
+          predecessorSubscriptionId: initialToken,
+          productId: "sync_team_5_monthly",
+          replacementSubscriptionId: oldReplacementToken,
+        }),
+      },
     ),
   ).toMatchObject({ status: "applied" });
   expect(

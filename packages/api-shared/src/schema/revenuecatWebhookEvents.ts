@@ -37,7 +37,7 @@ import {
  * - `transactionId` / `originalTransactionId`: Provider transaction ids used to
  *   correlate the applied billing row back to RevenueCat/store history.
  * - `sourceOriginalTransactionId`: For a Play `PRODUCT_CHANGE`, the locked
- *   subscription token present when the replacement token was processed.
+ *   predecessor token present when the change marker was processed.
  * - `organizationId`: Organization the event was applied to, resolved from the
  *   `orgId` subscriber attribute. Null when the event carried no resolvable org.
  * - `sourceOrganizationId`: Previous owner for a `TRANSFER` event. This lets

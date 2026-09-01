@@ -179,6 +179,41 @@ test("losing local eligibility clears a stalled restore before provider work", a
   expect(flow.state().actionError).toBeNull();
 });
 
+test("an invalidated restore cannot clear its replacement attempt", async () => {
+  type Eligibility = { readonly eligible: true; readonly reason: null };
+  const finishPreflights: Array<(result: Eligibility) => void> = [];
+  const restore = mock(() => Promise.resolve({ syncEntitlementActive: true }));
+  const flow = setup({
+    checkNativePurchaseEligibility: () =>
+      new Promise<Eligibility>((resolve) => {
+        finishPreflights.push(resolve);
+      }),
+    claim: () => Promise.resolve(true),
+    restore,
+  });
+
+  startMove(flow.view);
+  await waitFor(() => expect(finishPreflights).toHaveLength(1));
+  flow.view.rerender({ nativePurchaseAllowed: false });
+  await waitFor(() => expect(flow.state().busy).toBeNull());
+
+  flow.view.rerender({ nativePurchaseAllowed: true });
+  startMove(flow.view);
+  await waitFor(() => expect(finishPreflights).toHaveLength(2));
+  expect(flow.state().busy).toBe("restore");
+
+  await act(async () => {
+    finishPreflights[0]?.({ eligible: true, reason: null });
+    await Promise.resolve();
+  });
+  expect(restore).not.toHaveBeenCalled();
+  expect(flow.state().busy).toBe("restore");
+
+  finishPreflights[1]?.({ eligible: true, reason: null });
+  await waitFor(() => expect(flow.state().busy).toBeNull());
+  expect(restore).toHaveBeenCalledTimes(1);
+});
+
 function startMove(view: ReturnType<typeof setup>["view"]): void {
   act(() => view.result.current.request());
   act(() => view.result.current.confirm());

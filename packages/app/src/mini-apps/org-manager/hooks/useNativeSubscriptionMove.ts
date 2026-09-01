@@ -49,6 +49,12 @@ interface UseNativeSubscriptionMoveInput {
   readonly userId: string | null;
 }
 
+interface NativeMoveAttempt {
+  readonly scope: BillingActionScope;
+}
+
+type NativeMoveAttemptRef = RefObject<NativeMoveAttempt | null>;
+
 function nativeSubscriptionClaimErrorLabel(error: unknown): string {
   const eligibilityLabel = nativePurchaseEligibilityErrorLabel(error);
   if (eligibilityLabel) return eligibilityLabel;
@@ -100,6 +106,7 @@ function useNativeSubscriptionMoveDialog(
 }
 
 function useDismissDisallowedNativeMove(input: {
+  readonly attemptRef: NativeMoveAttemptRef;
   readonly currentScope: BillingActionScope;
   readonly dismiss: () => void;
   readonly nativePurchaseAllowed: boolean;
@@ -107,11 +114,13 @@ function useDismissDisallowedNativeMove(input: {
 }): void {
   useEffect(() => {
     if (input.nativePurchaseAllowed) return;
+    input.attemptRef.current = null;
     input.dismiss();
     input.updateActionState(input.currentScope, (current) =>
       current.busy === "restore" ? { ...current, busy: null } : current,
     );
   }, [
+    input.attemptRef,
     input.currentScope,
     input.dismiss,
     input.nativePurchaseAllowed,
@@ -119,7 +128,23 @@ function useDismissDisallowedNativeMove(input: {
   ]);
 }
 
+function nativeMoveIsCurrent(input: {
+  readonly attempt: NativeMoveAttempt;
+  readonly attemptRef: NativeMoveAttemptRef;
+  readonly nativePurchaseAllowedRef: RefObject<boolean>;
+  readonly scope: BillingActionScope;
+  readonly scopeRef: BillingScopeRef;
+}): boolean {
+  return (
+    input.attemptRef.current === input.attempt &&
+    input.nativePurchaseAllowedRef.current &&
+    scopeMatches(input.scopeRef.current, input.scope)
+  );
+}
+
 async function restoreClaimAndBindNativeSubscription(input: {
+  readonly attempt: NativeMoveAttempt;
+  readonly attemptRef: NativeMoveAttemptRef;
   readonly checkNativePurchaseEligibility: CheckNativePurchaseEligibility;
   readonly claimNativeSubscription: (
     organizationId: string,
@@ -139,36 +164,27 @@ async function restoreClaimAndBindNativeSubscription(input: {
     input.checkNativePurchaseEligibility,
     input.purchases.nativeStore,
   );
-  if (
-    !input.nativePurchaseAllowedRef.current ||
-    !scopeMatches(input.scopeRef.current, input.scope)
-  ) {
+  if (!nativeMoveIsCurrent(input)) {
     return null;
   }
   const preparedOrganizations: SessionCreateOrganizationResult[] = [];
   const move = await input.purchases.moveNativeSubscription({
     claim: async (organizationId, store) => {
-      if (
-        !input.nativePurchaseAllowedRef.current ||
-        !scopeMatches(input.scopeRef.current, input.scope)
-      ) {
+      if (!nativeMoveIsCurrent(input)) {
         return false;
       }
-      return input.claimNativeSubscription(organizationId, store);
+      const claimed = await input.claimNativeSubscription(
+        organizationId,
+        store,
+      );
+      return nativeMoveIsCurrent(input) && claimed;
     },
     prepareClaim: async () => {
-      if (
-        !input.nativePurchaseAllowedRef.current ||
-        !scopeMatches(input.scopeRef.current, input.scope)
-      ) {
+      if (!nativeMoveIsCurrent(input)) {
         return null;
       }
       const preparedOrganization = await input.createRestoreOrganization();
-      if (
-        !preparedOrganization ||
-        !input.nativePurchaseAllowedRef.current ||
-        !scopeMatches(input.scopeRef.current, input.scope)
-      ) {
+      if (!preparedOrganization || !nativeMoveIsCurrent(input)) {
         return null;
       }
       preparedOrganizations.push(preparedOrganization);
@@ -195,6 +211,8 @@ type NativeSubscriptionMoveExecution = Pick<
   | "updateActionState"
   | "userId"
 > & {
+  readonly attempt: NativeMoveAttempt;
+  readonly attemptRef: NativeMoveAttemptRef;
   readonly dismiss: () => void;
   readonly logError: (message: string) => void;
   readonly nativePurchaseAllowedRef: RefObject<boolean>;
@@ -208,8 +226,9 @@ async function runNativeSubscriptionMove(
     const restoredOrganization =
       await restoreClaimAndBindNativeSubscription(input);
     if (!restoredOrganization) return;
-    if (scopeMatches(input.scopeRef.current, input.scope)) {
+    if (nativeMoveIsCurrent(input)) {
       await input.activateRestoredOrganization(restoredOrganization);
+      if (!nativeMoveIsCurrent(input)) return;
       const completed = await input.completeRestoreOrganization(
         restoredOrganization.organizationId,
       );
@@ -218,22 +237,21 @@ async function runNativeSubscriptionMove(
       }
     }
   } catch (error) {
+    if (!nativeMoveIsCurrent(input)) return;
     input.logError(formatBillingPurchaseFailure(error, false));
-    if (
-      input.nativePurchaseAllowedRef.current &&
-      scopeMatches(input.scopeRef.current, input.scope)
-    ) {
-      input.updateActionState(input.scope, (current) => ({
-        ...current,
-        actionError: nativeSubscriptionClaimErrorLabel(error),
-      }));
-    }
-  } finally {
-    if (scopeMatches(input.scopeRef.current, input.scope)) input.dismiss();
     input.updateActionState(input.scope, (current) => ({
       ...current,
-      busy: null,
+      actionError: nativeSubscriptionClaimErrorLabel(error),
     }));
+  } finally {
+    if (input.attemptRef.current === input.attempt) {
+      input.attemptRef.current = null;
+      if (scopeMatches(input.scopeRef.current, input.scope)) input.dismiss();
+      input.updateActionState(input.scope, (current) => ({
+        ...current,
+        busy: null,
+      }));
+    }
   }
 }
 
@@ -255,6 +273,7 @@ export function useNativeSubscriptionMove(
     userId,
   } = input;
   const { logError } = useLog();
+  const attemptRef = useRef<NativeMoveAttempt | null>(null);
   const nativePurchaseAllowedRef = useAllowedRef(nativePurchaseAllowed);
   const { dismiss, open, request } = useNativeSubscriptionMoveDialog(
     currentScope,
@@ -262,6 +281,7 @@ export function useNativeSubscriptionMove(
   );
 
   useDismissDisallowedNativeMove({
+    attemptRef,
     currentScope,
     dismiss,
     nativePurchaseAllowed,
@@ -276,6 +296,14 @@ export function useNativeSubscriptionMove(
       dismiss();
       return;
     }
+    if (
+      attemptRef.current &&
+      scopeMatches(attemptRef.current.scope, currentScope)
+    ) {
+      return;
+    }
+    const attempt = { scope: currentScope };
+    attemptRef.current = attempt;
     updateActionState(currentScope, (current) => ({
       ...current,
       actionError: null,
@@ -283,6 +311,8 @@ export function useNativeSubscriptionMove(
     }));
     void runNativeSubscriptionMove({
       activateRestoredOrganization,
+      attempt,
+      attemptRef,
       checkNativePurchaseEligibility,
       claimNativeSubscription,
       completeRestoreOrganization,

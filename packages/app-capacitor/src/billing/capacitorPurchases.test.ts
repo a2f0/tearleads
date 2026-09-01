@@ -61,6 +61,9 @@ test("maps RevenueCat public keys and platforms to the claim store", () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "test_project_key");
   fixture.platform = "ios";
   expect(createCapacitorPurchases().nativeStore).toBe("test_store");
+  expect(createCapacitorPurchases().supportsProviderPresentationCallback).toBe(
+    true,
+  );
 
   resetCachedPurchases();
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "appl_project_key");

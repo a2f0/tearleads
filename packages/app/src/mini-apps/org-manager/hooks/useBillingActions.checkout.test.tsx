@@ -169,6 +169,7 @@ test("a scope switch leaves a native purchase running", async () => {
     // A native platform: the purchase runs in a store sheet the app cannot
     // cancel, so lifecycle changes must not settle it as cancelled.
     supportsEmbeddedCheckout: false,
+    supportsProviderPresentationCallback: true,
     purchaseSync,
   };
   const { result, rerender } = renderBillingActions({ purchases });

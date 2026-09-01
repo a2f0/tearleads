@@ -8,6 +8,7 @@ import {
 import { createTestUser } from "@symcrypt/bob-and-alice";
 import type { RevenueCatWebhookEvent } from "@symcrypt/validators/request";
 import { eq } from "drizzle-orm";
+import { playReplacementApiDeps } from "../../../test/helpers/revenuecatPlayReplacement";
 import { registerAndAuthenticate } from "../../../test/helpers/revenuecatWebhook";
 import { runNativePurchaseEligibilityWorkflow } from "./nativePurchaseEligibility";
 import { runRevenueCatWebhookWorkflow } from "./revenuecatWebhook";
@@ -314,7 +315,7 @@ test("a Play replacement-token renewal follows an accepted product change", asyn
       event_timestamp_ms: now + 1,
       id: crypto.randomUUID(),
       new_product_id: "sync_team_5_monthly",
-      original_transaction_id: replacementToken,
+      original_transaction_id: initialToken,
       type: "PRODUCT_CHANGE",
     }),
   ).toMatchObject({ status: "applied" });
@@ -327,15 +328,54 @@ test("a Play replacement-token renewal follows an accepted product change", asyn
 
   const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
   try {
+    const competingToken = `competing_${crypto.randomUUID()}`;
     expect(
-      await runRevenueCatWebhookWorkflow(db, {
-        ...initial,
-        event_timestamp_ms: now + 2,
-        id: crypto.randomUUID(),
-        original_transaction_id: replacementToken,
-        product_id: "sync_team_5_monthly",
-        type: "RENEWAL",
-      }),
+      await runRevenueCatWebhookWorkflow(
+        db,
+        {
+          ...initial,
+          event_timestamp_ms: now + 2,
+          id: crypto.randomUUID(),
+          original_transaction_id: competingToken,
+          product_id: "sync_team_5_monthly",
+          type: "RENEWAL",
+        },
+        undefined,
+        {
+          revenuecat: playReplacementApiDeps({
+            appUserId: admin.userId,
+            predecessorSubscriptionId: initialToken,
+            productId: "sync_team_5_monthly",
+            replacementRevenueCatSubscriptionId: "sub_competing_play_lineage",
+            replacementSubscriptionId: competingToken,
+          }),
+        },
+      ),
+    ).toEqual({
+      reason: "RevenueCat could not verify Play replacement lineage",
+      status: "retry",
+    });
+    expect(
+      await runRevenueCatWebhookWorkflow(
+        db,
+        {
+          ...initial,
+          event_timestamp_ms: now + 2,
+          id: crypto.randomUUID(),
+          original_transaction_id: replacementToken,
+          product_id: "sync_team_5_monthly",
+          type: "RENEWAL",
+        },
+        undefined,
+        {
+          revenuecat: playReplacementApiDeps({
+            appUserId: admin.userId,
+            predecessorSubscriptionId: initialToken,
+            productId: "sync_team_5_monthly",
+            replacementSubscriptionId: replacementToken,
+          }),
+        },
+      ),
     ).toMatchObject({ organizationId, status: "applied" });
   } finally {
     errorSpy.mockRestore();

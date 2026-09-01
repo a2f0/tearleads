@@ -96,6 +96,26 @@ test("configures the backend lazily and only once", async () => {
   expect(backend.calls.filter((call) => call === "configure")).toHaveLength(1);
 });
 
+test("advertises native provider presentation callbacks only when configured", () => {
+  expect(
+    createRevenueCatPurchases(createFakeBackend(), CONFIG)
+      .supportsProviderPresentationCallback,
+  ).toBe(false);
+  expect(
+    createRevenueCatPurchases(createFakeBackend(), {
+      ...CONFIG,
+      supportsProviderPresentationCallback: true,
+    }).supportsProviderPresentationCallback,
+  ).toBe(true);
+  expect(
+    createRevenueCatPurchases(createFakeBackend(), {
+      ...CONFIG,
+      nativeStore: null,
+      supportsProviderPresentationCallback: true,
+    }).supportsProviderPresentationCallback,
+  ).toBe(false);
+});
+
 test("retries configuration after a failed attempt instead of caching the rejection", async () => {
   const backend = createFakeBackend();
   let shouldFail = true;
@@ -413,10 +433,12 @@ test("observation-only RevenueCat disables purchases but preserves entitlement r
     ...CONFIG,
     purchasesEnabled: false,
     supportsEmbeddedCheckout: true,
+    supportsProviderPresentationCallback: true,
   });
 
   expect(purchases.isAvailable).toBe(false);
   expect(purchases.supportsEmbeddedCheckout).toBe(false);
+  expect(purchases.supportsProviderPresentationCallback).toBe(false);
   expect(await purchases.listSyncOptions()).toEqual([]);
   await expect(
     purchases.purchaseSync({ organizationId: "org-1", packageId: "monthly" }),

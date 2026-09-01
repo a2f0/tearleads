@@ -22,6 +22,7 @@ import { OrganizationManagerError } from "../organizations/errors";
 import { withOrganizationAdminTransaction } from "../organizations/mutationAccess";
 import { assertNativeClaimEligibility } from "./nativeSubscriptionClaimEligibility";
 import { reconcileOrganizationBillingSeats } from "./organizationSeats";
+import type { VerifiedPlayReplacement } from "./revenuecatPlayReplacement";
 
 async function lockBilling(executor: DatabaseSession, organizationId: string) {
   const query = executor
@@ -376,6 +377,7 @@ export async function runClaimNativeSubscriptionWorkflow(input: {
   readonly requireSessionAccess: boolean;
   readonly sourceId: string;
   readonly subscription: ActiveNativeSubscription;
+  readonly verifiedReplacement?: VerifiedPlayReplacement | null | undefined;
 }): Promise<{
   readonly duplicate: boolean;
   readonly sourceOrganizationId: string | null;
@@ -400,6 +402,7 @@ export async function runClaimNativeSubscriptionWorkflow(input: {
       store: input.subscription.store,
       subscriptionId: input.subscription.subscriptionId,
       target,
+      verifiedReplacement: input.verifiedReplacement,
     });
     if (input.recordAlreadyOwnedAudit === false && alreadyOwned) {
       return { duplicate: true, sourceOrganizationId: null };

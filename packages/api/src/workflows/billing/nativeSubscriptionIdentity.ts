@@ -6,6 +6,10 @@ import {
 } from "@symcrypt/validators/billing";
 import type { RevenueCatWebhookEvent } from "@symcrypt/validators/request";
 import { and, desc, eq, isNull, or } from "drizzle-orm";
+import {
+  matchesVerifiedPlayReplacement,
+  type VerifiedPlayReplacement,
+} from "./revenuecatPlayReplacement";
 import type { LockedBillingIdentity } from "./revenuecatStripeResolution";
 
 type NativeBindingIdentity = Pick<
@@ -86,11 +90,20 @@ export async function hasAcceptedPlayReplacement(input: {
   readonly productId: string | null;
   readonly store: string | null;
   readonly subscriptionId: string | null;
+  readonly verifiedReplacement?: VerifiedPlayReplacement | null | undefined;
 }): Promise<boolean> {
   if (
     !input.currentSubscriptionId ||
     !input.subscriptionId ||
-    input.store?.toUpperCase() !== "PLAY_STORE"
+    !input.productId ||
+    input.store?.toUpperCase() !== "PLAY_STORE" ||
+    !matchesVerifiedPlayReplacement(input.verifiedReplacement, {
+      appUserId: input.appUserId,
+      organizationId: input.organizationId,
+      predecessorSubscriptionId: input.currentSubscriptionId,
+      productId: input.productId,
+      replacementSubscriptionId: input.subscriptionId,
+    })
   ) {
     return false;
   }
@@ -98,7 +111,6 @@ export async function hasAcceptedPlayReplacement(input: {
     .select({
       outcome: revenuecatWebhookEvents.outcome,
       productId: revenuecatWebhookEvents.productId,
-      subscriptionId: revenuecatWebhookEvents.originalTransactionId,
     })
     .from(revenuecatWebhookEvents)
     .where(
@@ -118,6 +130,10 @@ export async function hasAcceptedPlayReplacement(input: {
           revenuecatWebhookEvents.sourceOriginalTransactionId,
           input.currentSubscriptionId,
         ),
+        eq(
+          revenuecatWebhookEvents.originalTransactionId,
+          input.currentSubscriptionId,
+        ),
       ),
     )
     .orderBy(
@@ -127,7 +143,7 @@ export async function hasAcceptedPlayReplacement(input: {
     )
     .limit(1);
   return Boolean(
-    change?.subscriptionId === input.subscriptionId &&
+    change &&
       (change.outcome === "ignored" ||
         !input.productId ||
         change.productId === input.productId),
@@ -140,6 +156,7 @@ export async function matchesLockedNativeSubscription(input: {
   readonly event: RevenueCatWebhookEvent;
   readonly executor: DatabaseSession;
   readonly organizationId: string;
+  readonly verifiedReplacement?: VerifiedPlayReplacement | null | undefined;
 }): Promise<boolean> {
   if (!(await matchesLockedNativeStore(input))) return false;
   if (!input.event.original_transaction_id) {
@@ -165,6 +182,7 @@ export async function matchesLockedNativeSubscription(input: {
     productId: input.event.product_id ?? null,
     store: input.event.store ?? null,
     subscriptionId: input.event.original_transaction_id ?? null,
+    verifiedReplacement: input.verifiedReplacement,
   });
 }
 

@@ -15,6 +15,7 @@ import {
 } from "../../billing/revenuecatWebhook";
 import { lockRowForUpdate } from "../../utils/sqlDialect";
 import { resolveRevenueCatBuyerIgnoredReason } from "./revenuecatBuyerPolicy";
+import type { VerifiedPlayReplacement } from "./revenuecatPlayReplacement";
 import type {
   ImmutableStripeStoreOrgResolution,
   LockedBillingIdentity,
@@ -140,6 +141,7 @@ export async function resolveRevenueCatIgnoredReason(input: {
   readonly executor: DatabaseSession;
   readonly organizationId: string | null;
   readonly transition: RevenueCatBillingTransition;
+  readonly verifiedReplacement?: VerifiedPlayReplacement | null | undefined;
 }): Promise<string | null> {
   if (input.transition.kind === "ignore") {
     return input.transition.reason;
@@ -167,6 +169,7 @@ export async function resolveRevenueCatIgnoredReason(input: {
       event: input.event,
       executor: input.executor,
       organizationId: input.organizationId,
+      verifiedReplacement: input.verifiedReplacement,
     });
     if (buyerIgnoredReason) {
       return buyerIgnoredReason;

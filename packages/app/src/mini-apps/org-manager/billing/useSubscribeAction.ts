@@ -51,6 +51,20 @@ function retireNativeCancellation(
   }
 }
 
+function retireLegacyNativeCancellation(
+  cancelPurchaseRef: CancelPurchaseRef,
+  cancelPurchase: () => void,
+  purchases: PurchasesCapability,
+): void {
+  if (
+    purchases.nativeStore !== null &&
+    purchases.supportsEmbeddedCheckout !== true &&
+    purchases.supportsProviderPresentationCallback !== true
+  ) {
+    retireNativeCancellation(cancelPurchaseRef, cancelPurchase, purchases);
+  }
+}
+
 function createAttemptHost(
   checkoutHost: HTMLElement | undefined,
 ): HTMLDivElement | undefined {
@@ -279,6 +293,45 @@ function createPurchaseCancellation() {
   };
 }
 
+function startProviderPurchase(input: {
+  readonly abortSignal: AbortSignal;
+  readonly attemptHost: HTMLDivElement | undefined;
+  readonly cancelPurchase: () => void;
+  readonly cancelPurchaseRef: CancelPurchaseRef;
+  readonly option: SyncSubscriptionOption;
+  readonly purchases: PurchasesCapability;
+  readonly scope: BillingActionScope;
+}) {
+  retireLegacyNativeCancellation(
+    input.cancelPurchaseRef,
+    input.cancelPurchase,
+    input.purchases,
+  );
+  return input.purchases.purchaseSync({
+    organizationId: input.scope.organizationId,
+    packageId: input.option.packageId,
+    abortSignal: input.abortSignal,
+    onProviderPresented: () => {
+      retireNativeCancellation(
+        input.cancelPurchaseRef,
+        input.cancelPurchase,
+        input.purchases,
+      );
+    },
+    ...(input.attemptHost ? { checkoutHost: input.attemptHost } : {}),
+  });
+}
+
+function retireCheckout(
+  updateActionState: UpdateActionState,
+  scope: BillingActionScope,
+): void {
+  updateActionState(scope, (current) => ({
+    ...current,
+    checkoutActive: false,
+  }));
+}
+
 /**
  * Runs one purchase attempt end to end. The embedded Web Billing checkout has
  * no provider-side abort API, which shapes everything here:
@@ -365,16 +418,14 @@ async function purchaseForOrganization({
       return;
     }
     trace(formatBillingPurchaseStage("provider-started"));
-    const purchase = purchases.purchaseSync({
-      organizationId: scope.organizationId,
-      packageId: option.packageId,
+    const purchase = startProviderPurchase({
       abortSignal: cancellation.abortController.signal,
-      onProviderPresented: () => {
-        // Preparation remains cancellable; only an actually presented native
-        // sheet is outside lifecycle control.
-        retireNativeCancellation(cancelPurchaseRef, cancelPurchase, purchases);
-      },
-      ...(attemptHost ? { checkoutHost: attemptHost } : {}),
+      attemptHost,
+      cancelPurchase,
+      cancelPurchaseRef,
+      option,
+      purchases,
+      scope,
     });
     // A cancellation only dismisses the checkout UI. If the provider had
     // already taken payment, the promise can still settle after the local race.
@@ -394,10 +445,7 @@ async function purchaseForOrganization({
     trace(formatBillingPurchaseSuccess(result.syncEntitlementActive));
     // The checkout is settled — Cancel has nothing left to reach, so retire
     // the affordance now rather than after the billing refresh below.
-    updateActionState(scope, (current) => ({
-      ...current,
-      checkoutActive: false,
-    }));
+    retireCheckout(updateActionState, scope);
     if (!scopeMatches(scopeRef.current, scope)) {
       return;
     }
