@@ -64,7 +64,16 @@ for (const fixture of fixtures) {
       );
       await writeExecutable(
         resolve(root, "terraform/scripts/common.sh"),
-        "load_secrets_env() { :; }\nvalidate_aws_env() { :; }\n",
+        [
+          "load_secrets_env() {",
+          '  case "$1" in',
+          '    staging) SSH_TARGET="$STAGING_SSH_TARGET" ;;',
+          '    prod) SSH_TARGET="$PRODUCTION_SSH_TARGET" ;;',
+          "  esac",
+          "  export SSH_TARGET",
+          "}",
+          "validate_aws_env() { :; }",
+        ].join("\n"),
       );
       for (const [name, path] of fixture.commands) {
         await writeExecutable(
@@ -78,7 +87,9 @@ for (const fixture of fixtures) {
         env: {
           ...process.env,
           PATH: `${binDirectory}:${environmentValue("PATH") ?? ""}`,
-          SSH_TARGET: "deploy-user@tier-host",
+          SSH_TARGET: "stale-user@wrong-tier-host",
+          STAGING_SSH_TARGET: "deploy-user@tier-host",
+          PRODUCTION_SSH_TARGET: "deploy-user@tier-host",
           DEPLOY_TIER_TEST_ROOT: root,
           DEPLOY_TIER_TEST_LOG: logPath,
         },

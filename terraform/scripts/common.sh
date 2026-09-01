@@ -51,8 +51,16 @@ _source_optional_env_file() {
 load_secrets_env() {
   local tier="${1:-}"
   local secrets_dir
-  local ssh_target_override="${SSH_TARGET:-}"
+  local ssh_target_override=""
+  case "$tier" in
+    staging) ssh_target_override="${STAGING_SSH_TARGET:-}" ;;
+    prod) ssh_target_override="${PRODUCTION_SSH_TARGET:-}" ;;
+  esac
   secrets_dir="$(get_repo_root)/.secrets"
+
+  if [[ -n "$tier" ]]; then
+    unset SSH_TARGET
+  fi
 
   _source_env_file "$secrets_dir/root.env"
 

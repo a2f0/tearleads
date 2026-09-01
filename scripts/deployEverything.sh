@@ -170,7 +170,7 @@ reject_shared_ssh_host() {
 }
 
 if [[ -n "${STAGING_SSH_TARGET:-}" && -n "${PRODUCTION_SSH_TARGET:-}" ]]; then
-  reject_same_ssh_host_name "$STAGING_SSH_TARGET" "$PRODUCTION_SSH_TARGET"
+  reject_shared_ssh_host "$STAGING_SSH_TARGET" "$PRODUCTION_SSH_TARGET"
 fi
 
 DEPLOY_START="$SECONDS"
@@ -196,10 +196,16 @@ run_step() {
 
 run_tier_step() {
   local label="$1"
-  local ssh_target="$2"
-  shift 2
+  local tier="$2"
+  local ssh_target="$3"
+  local target_variable
+  shift 3
 
-  run_step "$label" env SSH_TARGET="$ssh_target" "$@"
+  case "$tier" in
+    staging) target_variable="STAGING_SSH_TARGET" ;;
+    prod) target_variable="PRODUCTION_SSH_TARGET" ;;
+  esac
+  run_step "$label" env "$target_variable=$ssh_target" "$@"
 }
 
 print_timing_summary() {
@@ -220,9 +226,9 @@ run_step "terraform-staging" \
 STAGING_EFFECTIVE_SSH_TARGET="$(
   resolve_tier_ssh_target staging "${STAGING_SSH_TARGET:-}"
 )"
-run_tier_step "deploy-staging" "$STAGING_EFFECTIVE_SSH_TARGET" \
+run_tier_step "deploy-staging" staging "$STAGING_EFFECTIVE_SSH_TARGET" \
   "$SCRIPT_DIR/deployStaging.sh" --skip-terraform
-run_tier_step "code-assist-staging" "$STAGING_EFFECTIVE_SSH_TARGET" \
+run_tier_step "code-assist-staging" staging "$STAGING_EFFECTIVE_SSH_TARGET" \
   "$REPO_ROOT/packages/code-assist/scripts/deployStagingCodeAssist.sh"
 run_step "ios-staging" "$SCRIPT_DIR/uploadIosStagingRelease.sh"
 run_step "android-staging" "$SCRIPT_DIR/uploadAndroidStagingRelease.sh"
@@ -234,9 +240,9 @@ PRODUCTION_EFFECTIVE_SSH_TARGET="$(
 )"
 reject_shared_ssh_host \
   "$STAGING_EFFECTIVE_SSH_TARGET" "$PRODUCTION_EFFECTIVE_SSH_TARGET"
-run_tier_step "deploy-production" "$PRODUCTION_EFFECTIVE_SSH_TARGET" \
+run_tier_step "deploy-production" prod "$PRODUCTION_EFFECTIVE_SSH_TARGET" \
   "$SCRIPT_DIR/deployProduction.sh" --skip-terraform
-run_tier_step "code-assist-production" "$PRODUCTION_EFFECTIVE_SSH_TARGET" \
+run_tier_step "code-assist-production" prod "$PRODUCTION_EFFECTIVE_SSH_TARGET" \
   "$REPO_ROOT/packages/code-assist/scripts/deployProductionCodeAssist.sh"
 run_step "ios-production" "$SCRIPT_DIR/uploadIosRelease.sh"
 run_step "android-production" "$SCRIPT_DIR/uploadAndroidRelease.sh"

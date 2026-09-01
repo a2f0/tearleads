@@ -125,7 +125,12 @@ async function runHarness(
     '  terraform-production) touch "$DEPLOY_EVERYTHING_TEST_ROOT/production.applied" ;;',
     `  deployStaging.sh|deployProduction.sh) [ "\${1:-}" = "--skip-terraform" ] || exit 24 ;;`,
     "esac",
-    `printf '%s|%s|%s\\n' "$name" "\${SSH_TARGET:-}" "$PWD" >> "$DEPLOY_EVERYTHING_TEST_LOG"`,
+    'case "$name" in',
+    `  deployStaging.sh|deployStagingCodeAssist.sh) target="\${STAGING_SSH_TARGET:-}" ;;`,
+    `  deployProduction.sh|deployProductionCodeAssist.sh) target="\${PRODUCTION_SSH_TARGET:-}" ;;`,
+    `  *) target="\${SSH_TARGET:-}" ;;`,
+    "esac",
+    `printf '%s|%s|%s\\n' "$name" "$target" "$PWD" >> "$DEPLOY_EVERYTHING_TEST_LOG"`,
     `if [ "$name" = "\${DEPLOY_EVERYTHING_FAIL_AT:-}" ]; then exit 23; fi`,
   ].join("\n");
   for (const path of commandPaths) {
@@ -279,17 +284,10 @@ test("rejects different hostnames that resolve to one address", async () => {
   });
   expect(run.exitCode).toBe(1);
   expect(run.stderr).toContain("resolve to the same address");
-  expect(run.calls.map((call) => call.split("|")[0])).toEqual([
-    "terraform-staging",
-    "deployStaging.sh",
-    "deployStagingCodeAssist.sh",
-    "uploadIosStagingRelease.sh",
-    "uploadAndroidStagingRelease.sh",
-    "terraform-production",
-  ]);
+  expect(run.calls).toEqual([]);
 });
 
-test("secret loading preserves an inherited deployment target", async () => {
+test("secret loading accepts only the selected tier override", async () => {
   const root = await mkdtemp(resolve(tmpdir(), "tearleads-common-env-"));
   await mkdir(resolve(root, ".secrets"), { recursive: true });
   await Bun.write(
@@ -300,6 +298,10 @@ test("secret loading preserves an inherited deployment target", async () => {
     resolve(root, ".secrets/staging.env"),
     "SSH_TARGET=staging-target\n",
   );
+  await Bun.write(
+    resolve(root, ".secrets/prod.env"),
+    "SSH_TARGET=production-target\n",
+  );
   try {
     const child = Bun.spawn(
       [
@@ -308,7 +310,12 @@ test("secret loading preserves an inherited deployment target", async () => {
         [
           'source "$1"',
           "get_repo_root() { printf '%s\\n' \"$COMMON_TEST_ROOT\"; }",
-          "export SSH_TARGET=explicit-target",
+          "export SSH_TARGET=stale-staging-target",
+          "unset PRODUCTION_SSH_TARGET",
+          "load_secrets_env prod",
+          "printf '%s\\n' \"$SSH_TARGET\"",
+          "export SSH_TARGET=another-stale-target",
+          "export STAGING_SSH_TARGET=explicit-target",
           "load_secrets_env staging",
           "printf '%s\\n' \"$SSH_TARGET\"",
         ].join("\n"),
@@ -327,7 +334,10 @@ test("secret loading preserves an inherited deployment target", async () => {
       new Response(child.stderr).text(),
     ]);
     expect(exitCode, stderr).toBe(0);
-    expect(stdout.trim()).toBe("explicit-target");
+    expect(stdout.trim().split("\n")).toEqual([
+      "production-target",
+      "explicit-target",
+    ]);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
