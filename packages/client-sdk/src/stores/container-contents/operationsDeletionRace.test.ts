@@ -20,8 +20,10 @@ import { setContainerIcon } from "./setContainerIconOperation";
 import {
   createContainerContentsStoreState,
   updateContainerContentsSnapshot,
+  updateContainerContentsStoreRuntime,
 } from "./state";
 import type { ContainerContentsStoreSyncAgent } from "./syncAgent";
+import { captureContainerWriteGeneration } from "./writeGeneration";
 
 async function createState(input: {
   documentId: string | null;
@@ -125,6 +127,77 @@ test.each([
   );
   expect(syncRequests).toBe(0);
   expect(logs).toEqual([]);
+});
+
+test("an online transition does not roll back a local metadata write", async () => {
+  const database = await createTestExecSql("container-write-online-transition");
+  try {
+    const source = await createState({
+      documentId: null,
+      id: "source",
+      parentId: "parent",
+    });
+    writeContainerMetadataValue(source.doc, {
+      icon: null,
+      name: "Before",
+    });
+    source.record.metadataUpdates = bytesToBase64(exportAllUpdates(source.doc));
+    await defaultContainerContentsPersistence.ensureSchema(database.execSql);
+    await defaultContainerContentsPersistence.saveContainer(
+      database.execSql,
+      source.container,
+      source.record,
+    );
+    const domainScope = {} as DomainScope;
+    const offlineRuntime = createContainerContentsTestRuntime({
+      domainScope,
+      execSql: database.execSql,
+      online: false,
+    });
+    const state = createContainerContentsStoreState(
+      offlineRuntime,
+      defaultContainerContentsPersistence,
+    );
+    state.containersById.set(source.container.id, source);
+    state.initialized = true;
+    updateContainerContentsSnapshot(state);
+    const isCurrent = captureContainerWriteGeneration(state);
+    const syncAgent = {
+      ensureInitialized: () => {},
+      handleRemoteEvents: () => {},
+      refreshLocalContainers: async () => {},
+      scheduleRemoteHydration: () => {},
+      scheduleSync: () => {},
+    } as unknown as ContainerContentsStoreSyncAgent;
+
+    updateContainerContentsStoreRuntime(
+      state,
+      {
+        ...offlineRuntime,
+        state: { ...offlineRuntime.state, online: true },
+      },
+      syncAgent,
+    );
+    const renamed = await renameContainer(
+      state,
+      syncAgent,
+      source.container.id,
+      "After",
+      isCurrent,
+    );
+
+    expect(renamed?.name).toBe("After");
+    expect(isCurrent()).toBe(true);
+    expect(
+      (
+        await defaultContainerContentsPersistence.loadContainers(
+          database.execSql,
+        )
+      )[0]?.container.name,
+    ).toBe("After");
+  } finally {
+    database.close();
+  }
 });
 
 test("a completed deletion forces a current local refresh after generation rollover", async () => {

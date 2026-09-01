@@ -2,18 +2,50 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@symcrypt/test-utils";
 import { createContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
 import type { DomainScope } from "../../data/domainScope";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   type ContainerContentsPersistence,
   defaultContainerContentsPersistence,
 } from "../../workflows/container-contents/containerPersistence";
 import type { ContainerState } from "../../workflows/container-contents/remoteHydration";
-import { runContainerPurge } from "./containerPurgeCore";
+import {
+  refreshAfterStalePurge,
+  runContainerPurge,
+} from "./containerPurgeCore";
 import { createContainerContentsTestRuntime } from "./runtime.testFixtures";
 import {
   createContainerContentsStoreState,
   updateContainerContentsSnapshot,
 } from "./state";
 import type { ContainerContentsStoreSyncAgent } from "./syncAgent";
+
+test("completed document work re-primes after expiry before container deletion", async () => {
+  const state = createContainerContentsStoreState(
+    createContainerContentsTestRuntime({
+      domainScope: {} as DomainScope,
+      execSql: (async () => []) as ExecSql,
+    }),
+    defaultContainerContentsPersistence,
+  );
+  state.documentStoresNeedPriming = false;
+  let refreshes = 0;
+
+  await refreshAfterStalePurge({
+    completedCount: 1,
+    containerStatesAtStart: new Map(),
+    purgedContainerIds: [],
+    state,
+    syncAgent: {
+      refreshLocalContainers: async () => {
+        refreshes += 1;
+      },
+    } as unknown as ContainerContentsStoreSyncAgent,
+  });
+
+  expect(refreshes).toBe(1);
+  expect(state.localContainersNeedRefresh).toBe(true);
+  expect(state.documentStoresNeedPriming).toBe(true);
+});
 
 test("a partial purge refreshes current state after generation rollover", async () => {
   const database = await createTestExecSql("container-purge-generation-race");

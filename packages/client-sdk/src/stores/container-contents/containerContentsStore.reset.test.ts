@@ -242,9 +242,9 @@ test("executor replacement prevents an in-flight create from entering the rebuil
     });
     const persistence = {
       ...defaultContainerContentsPersistence,
-      saveContainer: async (
+      saveContainerWithPendingUpdate: async (
         ...args: Parameters<
-          typeof defaultContainerContentsPersistence.saveContainer
+          typeof defaultContainerContentsPersistence.saveContainerWithPendingUpdate
         >
       ) => {
         const [execSql, container] = args;
@@ -255,7 +255,9 @@ test("executor replacement prevents an in-flight create from entering the rebuil
           oldExecutorSaveStarted = true;
           await saveGate;
         }
-        return defaultContainerContentsPersistence.saveContainer(...args);
+        return defaultContainerContentsPersistence.saveContainerWithPendingUpdate(
+          ...args,
+        );
       },
     };
     const domainScope = createDomainScope();

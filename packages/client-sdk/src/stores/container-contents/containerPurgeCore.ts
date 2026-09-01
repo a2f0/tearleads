@@ -14,13 +14,15 @@ type ContainerPurgeResult = NonNullable<
   Awaited<ReturnType<typeof purgeContainerTree>>
 >;
 
-async function refreshAfterStalePurge(input: {
+/** @internal Reconciles any completed destructive prefix after expiry. */
+export async function refreshAfterStalePurge(input: {
+  completedCount: number;
   containerStatesAtStart: ReadonlyMap<string, ContainerState>;
   purgedContainerIds: readonly string[];
   state: ContainerContentsStoreState;
   syncAgent: ContainerContentsStoreSyncAgent;
 }): Promise<void> {
-  if (input.purgedContainerIds.length === 0) return;
+  if (input.completedCount === 0) return;
 
   input.state.localContainersNeedRefresh = true;
   await input.syncAgent.refreshLocalContainers();
@@ -101,6 +103,7 @@ export async function runContainerPurge(
   }
   if (!isCurrent()) {
     await refreshAfterStalePurge({
+      completedCount: result.completedCount,
       containerStatesAtStart,
       purgedContainerIds: result.purgedContainerIds,
       state,
