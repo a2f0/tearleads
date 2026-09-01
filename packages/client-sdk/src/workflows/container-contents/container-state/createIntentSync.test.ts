@@ -18,7 +18,7 @@ import { createTestContainerState } from "./containerState.testFixtures";
 import { syncPendingContainerCreateIntents } from "./createIntentSync";
 import type { ContainerCreateIntentSyncState } from "./types";
 
-test("container create sync propagates identity failures without recording a retry", async () => {
+test("stale container create identity failures do not report into a replacement", async () => {
   const integrityError = new KeyingVerificationError(
     "equivocation",
     "trusted identity changed",
@@ -128,9 +128,9 @@ test("container create sync propagates identity failures without recording a ret
       requestRemoteReconciliation: () => {},
       state,
     }),
-  ).rejects.toBe(integrityError);
+  ).resolves.toBe(0);
   expect(projectionRequests).toBe(1);
-  expect(incidents).toEqual([integrityError]);
+  expect(incidents).toEqual([]);
   expect(recordedErrors).toEqual([]);
 });
 

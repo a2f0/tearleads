@@ -233,6 +233,9 @@ async function movePendingRemoteContainer(input: {
     );
     return "moved";
   } catch (error: unknown) {
+    if (!syncInput.isCurrent()) {
+      return abandonAppliedMove();
+    }
     await reportAndRethrowKeyingVerificationError(
       error,
       state.runtime.util.reportSecurityIncident,

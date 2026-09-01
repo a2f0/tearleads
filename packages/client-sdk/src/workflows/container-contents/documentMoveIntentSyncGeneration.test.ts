@@ -1,9 +1,11 @@
 import { expect, test } from "bun:test";
+import { KeyingVerificationError } from "@symcrypt/crypto";
 import { createTestExecSql } from "@symcrypt/test-utils";
 import { waitFor } from "../../../test/helpers/waitFor";
 import { sqlDocumentMoveIntentPersistence } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { defaultDocumentsPersistence } from "../documents";
+import { createTestContainerState } from "./container-state/containerState.testFixtures";
 import { syncPendingDocumentMoveIntents } from "./documentMoveIntentSync";
 import type { ContainerContentsWorkflowRuntime } from "./runtime";
 
@@ -208,5 +210,85 @@ test("a generation change at error commit cannot park a document move", async ()
     expect(rows).toEqual([{ lastError: null, syncStatus: "pending" }]);
   } finally {
     database.close();
+  }
+});
+
+test("stale document move identity failures do not report into a replacement", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "document-move-intent-stale-identity-failure",
+  );
+  const integrityError = new KeyingVerificationError(
+    "equivocation",
+    "trusted identity changed",
+  );
+  try {
+    await defaultDocumentsPersistence.ensureSchema(execSql);
+    await defaultDocumentsPersistence.saveDocument(execSql, {
+      accessEpoch: 1,
+      accessStateHash: "access-document",
+      containerId: "source",
+      contentKeyBundle: null,
+      documentId: "document",
+      documentKekTargets: null,
+      documentKind: "note",
+      documentManifestBundle: null,
+      id: "local-document",
+      lastCommitLsn: null,
+      snapshotEndVersion: "",
+      text: "",
+      title: "Document",
+    });
+    await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
+      documentId: "document",
+      localId: "local-document",
+      sourceContainerId: "source",
+      targetContainerId: "target",
+    });
+    let current = true;
+    const incidents: unknown[] = [];
+
+    const synced = await syncPendingDocumentMoveIntents({
+      host: {
+        documentWorkflowRuntime: () => null,
+        openDocumentStore: () => ({
+          assertCanRotateContentKey: async () => {
+            current = false;
+            throw integrityError;
+          },
+          ensureInitialized: async () => true,
+          relink: async () => null,
+          requestSync: () => undefined,
+          updateRuntime: () => undefined,
+        }),
+      },
+      isCurrent: () => current,
+      isRemoteSyncBlocked: () => false,
+      state: {
+        containersById: new Map([
+          [
+            "target",
+            createTestContainerState({ id: "target", parentId: "root" }),
+          ],
+        ]),
+        resolveProjectionUserKey: async () => null,
+        runtime: {
+          infra: { execSql },
+          util: {
+            log: () => undefined,
+            reportSecurityIncident: async (error: unknown) => {
+              incidents.push(error);
+            },
+          },
+        } as unknown as ContainerContentsWorkflowRuntime,
+      },
+    });
+
+    expect(synced).toBe(0);
+    expect(incidents).toEqual([]);
+    expect(
+      await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql),
+    ).toHaveLength(1);
+  } finally {
+    close();
   }
 });

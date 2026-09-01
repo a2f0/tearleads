@@ -7,11 +7,12 @@ import {
   createParentProjectionUserKeyResolver,
 } from "../../../../test/helpers/containerFixtures";
 import { createResponseFromRequest } from "../../../../test/helpers/documentFixtures";
+import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
 import { CONTAINER_ALREADY_COMMITTED } from "./createWithMetadata";
 import { createRemoteContainer } from "./remote";
 import type { ContainerWorkflowRuntime } from "./types";
 
-test("legacy container create finishes its metadata document after generation expiry", async () => {
+test("legacy container create finishes its remote metadata document without stale local settlement", async () => {
   const parent = await createParentProjection();
   const database = await createTestExecSql(
     "legacy-container-create-generation",
@@ -19,6 +20,7 @@ test("legacy container create finishes its metadata document after generation ex
   let childProjection: ContainerWriterProjectionResponse | null = null;
   let current = true;
   let documentCreateCount = 0;
+  let projectionPrimed = false;
 
   const apiClient = {
     createContainer: async (
@@ -52,7 +54,9 @@ test("legacy container create finishes its metadata document after generation ex
         ? parent.projection
         : childProjection,
     getCurrentPrincipalPolicy: async () => null,
-    primeDocumentWriterProjection: () => undefined,
+    primeDocumentWriterProjection: () => {
+      projectionPrimed = true;
+    },
   } as unknown as ContainerWorkflowRuntime["apiClient"];
   const resolveIdentity = createParentProjectionUserKeyResolver(parent);
   const runtime = {
@@ -92,8 +96,17 @@ test("legacy container create finishes its metadata document after generation ex
     });
 
     expect(current).toBe(false);
-    expect(created).not.toBeNull();
+    expect(created).toBeNull();
     expect(documentCreateCount).toBe(1);
+    expect(projectionPrimed).toBe(false);
+    await expect(
+      loadAccessManifestCheckpoint(
+        database.execSql,
+        "container",
+        parent.projection.organizationId,
+        "legacy-child",
+      ),
+    ).resolves.toBeNull();
   } finally {
     database.close();
   }

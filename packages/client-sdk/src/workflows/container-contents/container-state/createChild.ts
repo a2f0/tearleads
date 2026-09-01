@@ -3,11 +3,12 @@ import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSl
 import { createInitializedContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
 import { createPendingUpdateFields } from "../../../data/documents/documentSync";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
+import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
+import { runSerializedSqlMutation } from "../../../data/sqlite/sqlSchema";
 import { deriveStableUuidV4Shaped } from "../../../data/stableUuid";
-import {
-  type ContainerContentsPersistence,
-  type ContainerDocumentRecord as DocumentRecord,
-  enqueuePendingContainerUpdate,
+import type {
+  ContainerContentsPersistence,
+  ContainerDocumentRecord as DocumentRecord,
 } from "../containerPersistence";
 import type { ContainerState } from "../remoteHydration";
 import { CONTAINER_ALREADY_COMMITTED } from "./createWithMetadata";
@@ -216,6 +217,36 @@ async function persistCreatedChildContainer(input: {
       containerState.record,
       { ...saveOptions, pendingUpdate },
     );
+  } else if (pendingUpdate) {
+    const outcome = await runSerializedSqlMutation(
+      runtime.infra.execSql,
+      (lockedExecSql) =>
+        getClientSQLitePersistenceRuntime(lockedExecSql).guardedTransaction(
+          async () => {
+            if (input.stillCurrent?.() === false) {
+              return containerState.container;
+            }
+            const { stillCurrent: _outerGuard, ...legacySaveOptions } =
+              saveOptions ?? {};
+            const savedContainer = await persistence.saveContainer(
+              lockedExecSql,
+              containerState.container,
+              containerState.record,
+              legacySaveOptions,
+            );
+            if (input.stillCurrent?.() === false) return savedContainer;
+            await persistence.enqueuePendingUpdate(lockedExecSql, {
+              containerId: savedContainer.id,
+              ...pendingUpdate,
+            });
+            return savedContainer;
+          },
+          () => input.stillCurrent?.() !== false,
+          { behavior: "immediate" },
+        ),
+    );
+    if (!outcome.committed || !outcome.result) return null;
+    containerState.container = outcome.result;
   } else {
     containerState.container = await persistence.saveContainer(
       runtime.infra.execSql,
@@ -223,12 +254,6 @@ async function persistCreatedChildContainer(input: {
       containerState.record,
       saveOptions,
     );
-    if (pendingUpdate && input.stillCurrent?.() !== false) {
-      await enqueuePendingContainerUpdate(runtime.infra.execSql, persistence, {
-        containerId: containerState.container.id,
-        update: input.initialUpdate,
-      });
-    }
   }
   return input.stillCurrent?.() === false ? null : shouldRequestSync;
 }

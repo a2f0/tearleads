@@ -117,6 +117,7 @@ async function buildMaterializedDocumentCreatePlanWithFreshProjection(input: {
   apiClient: DocumentCreateApi;
   author: DocumentCreateAuthor;
   containerId: string;
+  containerProjection?: ContainerWriterProjectionResponse | undefined;
   contentKey?: Uint8Array | undefined;
   contentKeyEpoch?: number | undefined;
   documentId?: string | undefined;
@@ -161,11 +162,13 @@ async function buildMaterializedDocumentCreatePlanWithFreshProjection(input: {
     };
   };
 
-  const containerProjection = await fetchContainerWriterProjectionForCreate({
-    apiClient: input.apiClient,
-    containerId: input.containerId,
-    onTerminalSubmitFailure: input.onTerminalSubmitFailure,
-  });
+  const containerProjection =
+    input.containerProjection ??
+    (await fetchContainerWriterProjectionForCreate({
+      apiClient: input.apiClient,
+      containerId: input.containerId,
+      onTerminalSubmitFailure: input.onTerminalSubmitFailure,
+    }));
   if (!containerProjection) {
     return null;
   }
@@ -198,6 +201,7 @@ interface RemoteDocumentCreateInput {
   apiClient: DocumentCreateApi;
   author: DocumentCreateAuthor;
   containerId: string;
+  containerProjection?: ContainerWriterProjectionResponse | undefined;
   contentKey?: Uint8Array | undefined;
   contentKeyEpoch?: number | undefined;
   documentId?: string | undefined;
@@ -214,6 +218,12 @@ interface RemoteDocumentCreateInput {
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
   stillCurrent?: (() => boolean) | undefined;
+  /**
+   * Complete a required remote POST even after a compound caller's local
+   * generation expires. Local acknowledgement, verification checkpoints, and
+   * cache priming remain guarded by `stillCurrent`.
+   */
+  submitWhenStale?: boolean | undefined;
   targetSecretKey: Uint8Array;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }
@@ -230,6 +240,7 @@ async function submitPlannedDocumentCreate(
       apiClient: input.apiClient,
       author: input.author,
       containerId: input.containerId,
+      containerProjection: input.containerProjection,
       contentKey: input.contentKey,
       contentKeyEpoch: input.contentKeyEpoch,
       documentId: input.documentId,
@@ -253,7 +264,7 @@ async function submitPlannedDocumentCreate(
     return null;
   }
 
-  if (input.stillCurrent?.() === false) return null;
+  if (!input.submitWhenStale && input.stillCurrent?.() === false) return null;
   let submission = await submitDocumentCreate(
     input.apiClient,
     createPlan.materializedPlan.plan.request,
@@ -262,6 +273,9 @@ async function submitPlannedDocumentCreate(
     isStaleDocumentCreateTargetConflict(submission) &&
     input.apiClient.evictContainerWriterProjection
   ) {
+    if (input.stillCurrent?.() === false) {
+      return { createPlan, submission };
+    }
     input.apiClient.evictContainerWriterProjection(input.containerId);
     const firstPlan = createPlan.materializedPlan;
     const refreshedPlan =
@@ -294,7 +308,7 @@ async function submitPlannedDocumentCreate(
       return null;
     }
     createPlan = refreshedPlan;
-    if (input.stillCurrent?.() === false) return null;
+    if (!input.submitWhenStale && input.stillCurrent?.() === false) return null;
     submission = await submitDocumentCreate(
       input.apiClient,
       createPlan.materializedPlan.plan.request,

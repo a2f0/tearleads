@@ -157,7 +157,7 @@ test("pending container move sync records per-intent failures and continues", as
   ]);
 });
 
-test("container move sync propagates identity failures without recording a retry", async () => {
+test("stale container move identity failures do not report into a replacement", async () => {
   const integrityError = new KeyingVerificationError(
     "equivocation",
     "trusted identity changed",
@@ -200,8 +200,8 @@ test("container move sync propagates identity failures without recording a retry
         projectionError: integrityError,
       }),
     }),
-  ).rejects.toBe(integrityError);
-  expect(incidents).toEqual([integrityError]);
+  ).resolves.toBe(0);
+  expect(incidents).toEqual([]);
   expect(errors).toEqual([]);
 });
 

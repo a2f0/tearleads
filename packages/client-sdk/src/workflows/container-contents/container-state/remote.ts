@@ -63,6 +63,65 @@ function resolveContainerWriterContext(
   };
 }
 
+function separateCreateResult(input: {
+  createdContainer: NonNullable<
+    Awaited<ReturnType<typeof createRemoteContainerMutation>>
+  >;
+  createdMetadataDocument: NonNullable<
+    Awaited<ReturnType<typeof createRemoteDocument>>
+  >;
+  systemSlot?: ContainerSystemSlot | null | undefined;
+}): CreatedRemoteContainerState {
+  const { createdContainer, createdMetadataDocument } = input;
+  return {
+    accessManifestHash: createdContainer.response.manifestHead.manifestHash,
+    systemSlot: input.systemSlot ?? null,
+    containerId: createdContainer.containerId,
+    createdAt: createdContainer.response.createdAt,
+    metadataDocumentId: createdMetadataDocument.documentId,
+    organizationId: createdContainer.response.organizationId,
+    parentId: createdContainer.response.parentId,
+    persistedMetadataState: createdMetadataDocument.persistedState,
+    updatedAt: createdContainer.response.updatedAt,
+  };
+}
+
+function assertLegacyContainerProjectionMatches(input: {
+  containerId: string;
+  parentContainerId: string;
+  parentProjection: ContainerWriterProjectionResponse;
+  projection: ContainerWriterProjectionResponse;
+}): void {
+  const state = readContainerState(
+    getTargetContainerContext(input.projection).manifest,
+  );
+  if (
+    input.projection.containerId !== input.containerId ||
+    input.projection.organizationId !== input.parentProjection.organizationId ||
+    state.containerId !== input.containerId ||
+    state.metadataDocumentId !== input.containerId ||
+    state.organizationId !== input.parentProjection.organizationId ||
+    state.parentContainerId !== input.parentContainerId
+  ) {
+    throw new Error("Pending legacy container create identity mismatch");
+  }
+}
+
+function childProjectionFromCreateResponse(input: {
+  parentProjection: ContainerWriterProjectionResponse;
+  response: ContainerMutationResponse;
+}): ContainerWriterProjectionResponse {
+  return {
+    containerId: input.response.containerId,
+    organizationId: input.response.organizationId,
+    path: [...input.parentProjection.path, input.response.accessManifest],
+    containerKeks: [
+      ...input.parentProjection.containerKeks,
+      input.response.containerKek,
+    ],
+  };
+}
+
 async function createRemoteContainerWithSeparateMetadataDocument(input: {
   systemSlot?: ContainerSystemSlot | null | undefined;
   containerId: string;
@@ -107,24 +166,24 @@ async function createRemoteContainerWithSeparateMetadataDocument(input: {
   if (!createdContainer && input.stillCurrent?.() === false) {
     return null;
   }
+  let metadataContainerProjection: ContainerWriterProjectionResponse;
   if (!createdContainer) {
     const existingProjection = await apiClient.getContainerWriterProjection(
       input.containerId,
     );
     if (!existingProjection) return null;
-    const existingState = readContainerState(
-      getTargetContainerContext(existingProjection).manifest,
-    );
-    if (
-      existingProjection.containerId !== input.containerId ||
-      existingProjection.organizationId !== parentProjection.organizationId ||
-      existingState.containerId !== input.containerId ||
-      existingState.metadataDocumentId !== input.containerId ||
-      existingState.organizationId !== parentProjection.organizationId ||
-      existingState.parentContainerId !== input.parentContainerId
-    ) {
-      throw new Error("Pending legacy container create identity mismatch");
-    }
+    assertLegacyContainerProjectionMatches({
+      containerId: input.containerId,
+      parentContainerId: input.parentContainerId,
+      parentProjection,
+      projection: existingProjection,
+    });
+    metadataContainerProjection = existingProjection;
+  } else {
+    metadataContainerProjection = childProjectionFromCreateResponse({
+      parentProjection,
+      response: createdContainer.response,
+    });
   }
 
   // The legacy API commits the container and its metadata document in two
@@ -137,12 +196,15 @@ async function createRemoteContainerWithSeparateMetadataDocument(input: {
     apiClient,
     author,
     containerId: createdContainer?.containerId ?? input.containerId,
+    containerProjection: metadataContainerProjection,
     documentId: createdContainer?.metadataDocumentId ?? input.containerId,
     execSql,
     expectedOrganizationId:
       createdContainer?.response.organizationId ??
       parentProjection.organizationId,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
+    stillCurrent: input.stillCurrent,
+    submitWhenStale: true,
     targetSecretKey: parentSecretKey,
     warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
       input.runtime,
@@ -152,18 +214,11 @@ async function createRemoteContainerWithSeparateMetadataDocument(input: {
     return null;
   }
   if (!createdContainer) return CONTAINER_ALREADY_COMMITTED;
-
-  return {
-    accessManifestHash: createdContainer.response.manifestHead.manifestHash,
-    systemSlot: input.systemSlot ?? null,
-    containerId: createdContainer.containerId,
-    createdAt: createdContainer.response.createdAt,
-    metadataDocumentId: createdMetadataDocument.documentId,
-    organizationId: createdContainer.response.organizationId,
-    parentId: createdContainer.response.parentId,
-    persistedMetadataState: createdMetadataDocument.persistedState,
-    updatedAt: createdContainer.response.updatedAt,
-  };
+  return separateCreateResult({
+    createdContainer,
+    createdMetadataDocument,
+    systemSlot: input.systemSlot,
+  });
 }
 
 export async function createRemoteContainer(input: {

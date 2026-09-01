@@ -380,7 +380,11 @@ export interface ContainerContentsPersistence
     record: ContainerMetadataRecord | null,
     options?: SaveContainerOptions,
   ) => Promise<ContainerRecord>;
-  /** Atomically saves a container and enqueues its first metadata update. */
+  /**
+   * Atomically saves a container and enqueues its first metadata update.
+   * Optional for adapters built before this operation existed; the SDK then
+   * composes the legacy save and enqueue methods in one guarded transaction.
+   */
   saveContainerWithPendingUpdate?:
     | ((
         execSql: ExecSql,

@@ -390,6 +390,7 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
     logSyncedDocumentMove(intent, state);
     return "moved";
   } catch (error: unknown) {
+    if (!input.isCurrent()) return "abandoned";
     await reportAndRethrowKeyingVerificationError(
       error,
       state.runtime.util.reportSecurityIncident,

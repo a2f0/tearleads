@@ -49,6 +49,9 @@ async function recordContainerCreateFailure(input: {
   readonly organizationId: string;
   readonly state: ContainerCreateIntentSyncState;
 }): Promise<"abandoned" | "failed"> {
+  if (!input.isCurrent()) {
+    return "abandoned";
+  }
   await reportContainerCreateIntegrityFailure({
     containerId: input.intent.containerId,
     error: input.error,
