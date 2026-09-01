@@ -493,5 +493,5 @@ export function createBackupFileName(payload: BackupPayload): string {
     ? `${payload.source.signingFingerprint.slice(0, 12)}-`
     : "";
 
-  return `tearleads-local-backup-${fingerprintPrefix}${timestamp}.scbackup.json`;
+  return `tearleads-local-backup-${fingerprintPrefix}${timestamp}.tlbackup.json`;
 }

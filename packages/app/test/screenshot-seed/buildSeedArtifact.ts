@@ -21,7 +21,7 @@ import type { SeedFile, SeedSpec } from "./seedTypes";
 
 // Core of the screenshot seeder: interpret a SeedSpec against the REAL client-sdk
 // write path (documents.open -> setStructuredFields/setText/attachFiles) and emit
-// an encrypted *.scbackup.json the app's backup-restore mini-app can restore.
+// an encrypted *.tlbackup.json the app's backup-restore mini-app can restore.
 //
 // Why this is the only correct write path (verified): the high-level store
 // mutators run the projection save on every write, populating the read models

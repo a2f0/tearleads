@@ -55,6 +55,25 @@ assert_api_deploy_ordering() {
   fi
 }
 
+assert_superseded_timer_ordering() {
+  local cleanup_file="$REPO_ROOT/ansible/playbooks/tasks/removeSupersededSymCryptDeployment.yml"
+  local timer_stop_line
+  local service_stop_line
+  local unit_removal_line
+
+  timer_stop_line="$(awk 'index($0, "Stop and disable superseded SymCrypt timers") { print NR; exit }' "$cleanup_file")"
+  service_stop_line="$(awk 'index($0, "Stop and disable superseded SymCrypt services") { print NR; exit }' "$cleanup_file")"
+  unit_removal_line="$(awk 'index($0, "Remove superseded SymCrypt systemd unit files") { print NR; exit }' "$cleanup_file")"
+
+  if [ -z "$timer_stop_line" ] || [ -z "$service_stop_line" ] ||
+    [ -z "$unit_removal_line" ] ||
+    [ "$timer_stop_line" -ge "$service_stop_line" ] ||
+    [ "$service_stop_line" -ge "$unit_removal_line" ]; then
+    echo "ERROR: Superseded SymCrypt timers must stop before services and unit removal." >&2
+    return 1
+  fi
+}
+
 assert_document_sync_ingress_cors() {
   local api_template="$REPO_ROOT/ansible/playbooks/templates/etc/nginx/sites-available/api.conf.j2"
   local render_dir
@@ -137,6 +156,7 @@ assert_api_deploy_ordering \
   "$REPO_ROOT/packages/api/scripts/deployStagingApi.sh"
 assert_api_deploy_ordering \
   "$REPO_ROOT/packages/api/scripts/deployProductionApi.sh"
+assert_superseded_timer_ordering
 assert_document_sync_ingress_cors
 
 echo "Infrastructure tier parity passed."

@@ -17,6 +17,7 @@ import { createBackupPayload, restoreBackupPayload } from "./localBackupData";
 import { restoreBackupDatabase } from "./localBackupDatabase";
 import {
   type BackupPayload,
+  createBackupFileName,
   decodeBackupFile,
   encodeBackupFile,
 } from "./localBackupFormat";
@@ -152,6 +153,7 @@ test("backup export and restore preserves SQLite rows, indexes, and blob bytes",
     expect(payload.database.indexes.map((index) => index.name)).toContain(
       "documents_title_idx",
     );
+    expect(createBackupFileName(payload).endsWith(".tlbackup.json")).toBe(true);
 
     const encoded = await encodeBackupFile({
       password: "test-password",

@@ -8,7 +8,7 @@
    checks can run.
 4. Run `source scripts/session.sh` to extend the path for scripts. Or,
    alternatively, add this to `~/.zshrc`:
-   `sc() { . /path/to/checkout/scripts/session.sh /path/to/checkout; } && sc`
+   `tl() { . /path/to/checkout/scripts/session.sh /path/to/checkout; } && tl`
 5. Run `buildSqliteMultipleCiphers.sh`.
 6. Run `install-hooks.sh` to install Git hooks.
 7. Run `bun run --filter=@tearleads/api dev` to start the API.
