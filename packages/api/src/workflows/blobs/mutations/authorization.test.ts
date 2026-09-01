@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { db, getDefaultApiDatabaseKind } from "@symcrypt/api-shared/postgres";
-import { accessManifestHeads } from "@symcrypt/api-shared/schema";
+import { db, getDefaultApiDatabaseKind } from "@tearleads/api-shared/postgres";
+import { accessManifestHeads } from "@tearleads/api-shared/schema";
 import {
   lockAccessManifestHeadsForShare,
   lockAccessManifestHeadsForUpdate,

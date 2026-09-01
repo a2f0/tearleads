@@ -1,4 +1,4 @@
-import type { NativeSubscriptionStore } from "@symcrypt/validators/billing";
+import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
 import { PurchasesUnavailableError } from "./purchaseErrors";
 import {
   RevenueCatOperationTimeoutError,

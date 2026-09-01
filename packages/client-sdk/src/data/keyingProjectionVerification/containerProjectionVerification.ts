@@ -9,11 +9,11 @@ import {
   type VerifiedContainerKekState,
   type VerifiedPrincipalPolicy,
   verifyContainerKekState,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import type {
   AccessManifestBundleWireResponse,
   ContainerWriterProjectionResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import type { ExecSql } from "../sqlite/sqlSchema";
 import { addBundleByHash } from "./bundleVerification";
 import {

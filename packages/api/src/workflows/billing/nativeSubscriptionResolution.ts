@@ -1,9 +1,9 @@
 import type {
   ApiDatabase,
   DatabaseSession,
-} from "@symcrypt/api-shared/postgres";
-import { organizationBilling, users } from "@symcrypt/api-shared/schema";
-import { getSyncBillingTierForNativeProduct } from "@symcrypt/validators/billing";
+} from "@tearleads/api-shared/postgres";
+import { organizationBilling, users } from "@tearleads/api-shared/schema";
+import { getSyncBillingTierForNativeProduct } from "@tearleads/validators/billing";
 import { and, eq, isNotNull } from "drizzle-orm";
 
 const NATIVE_BINDING_CONTINUATION_EVENT_TYPES: ReadonlySet<string> = new Set([

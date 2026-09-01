@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import { createDocumentStore } from "@symcrypt/client-sdk";
-import { generateKemSeedAndKeyPair } from "@symcrypt/crypto";
-import type { BlobAttachmentBindRequest } from "@symcrypt/validators/request";
+import { createDocumentStore } from "@tearleads/client-sdk";
+import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import type { BlobAttachmentBindRequest } from "@tearleads/validators/request";
 import { createDocumentsPersistence } from "../../../../test/helpers/document-store/documentStoreSyncPersistence";
 import {
   createRuntime,

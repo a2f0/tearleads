@@ -1,11 +1,11 @@
 import { Buffer } from "node:buffer";
 import { createHmac, timingSafeEqual } from "node:crypto";
-import type { DocumentSyncRequest } from "@symcrypt/validators/request";
-import type { DocumentSyncPullPageResponse } from "@symcrypt/validators/response";
+import type { DocumentSyncRequest } from "@tearleads/validators/request";
+import type { DocumentSyncPullPageResponse } from "@tearleads/validators/response";
 import {
   isUuidV4String,
   MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES,
-} from "@symcrypt/validators/util";
+} from "@tearleads/validators/util";
 import {
   type DocumentUpdateCursorPosition,
   DocumentUpdateReadError,
@@ -59,7 +59,7 @@ type RawSyncPullCursorWire = readonly [
   signature: string,
 ];
 
-const SYNC_PULL_CURSOR_HMAC_DOMAIN = "symcrypt.document-sync-pull-cursor.v1";
+const SYNC_PULL_CURSOR_HMAC_DOMAIN = "tearleads.document-sync-pull-cursor.v1";
 const BASE64URL_SHA256_PATTERN = /^[A-Za-z0-9_-]{43}$/u;
 
 /**

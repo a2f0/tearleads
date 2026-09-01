@@ -1,12 +1,12 @@
 import type {
   ApiDatabase,
   DatabaseTransaction,
-} from "@symcrypt/api-shared/postgres";
+} from "@tearleads/api-shared/postgres";
 import type {
   AccessEventType,
   VerifiedContainerAccessManifest,
-} from "@symcrypt/crypto";
-import type { ContainerMutationRequest } from "@symcrypt/validators/request";
+} from "@tearleads/crypto";
+import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type { getCurrentAccessManifestHead } from "../../../access/read/accessManifestStore";
 import type { ContainerWriterProjectionContext } from "../writerProjection/types";
 

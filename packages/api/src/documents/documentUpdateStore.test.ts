@@ -1,14 +1,14 @@
 import { expect, test } from "bun:test";
 import { Buffer } from "node:buffer";
-import { type DatabaseSession, db } from "@symcrypt/api-shared/postgres";
-import { documents, documentUpdates } from "@symcrypt/api-shared/schema";
+import { type DatabaseSession, db } from "@tearleads/api-shared/postgres";
+import { documents, documentUpdates } from "@tearleads/api-shared/schema";
 import {
   createDocument,
   encodeVersionVector,
   exportUpdatesSince,
   getUpdateVersionVectors,
   importUpdates,
-} from "@symcrypt/loro";
+} from "@tearleads/loro";
 import { insertDocumentUpdateSpans } from "./documentUpdateSpans";
 import {
   assertMinLsnSatisfied,

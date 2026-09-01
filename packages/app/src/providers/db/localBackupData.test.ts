@@ -5,18 +5,19 @@ import {
   type BlobStore,
   createBlobByteSource,
   readBlobByteSource,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import {
   type ExecSql,
   ensureSqlTables,
   runSerializedSqlMutation,
   type SqlTableSchema,
-} from "@symcrypt/client-sdk/sqlite";
-import { createTestExecSql } from "@symcrypt/test-utils";
+} from "@tearleads/client-sdk/sqlite";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { createBackupPayload, restoreBackupPayload } from "./localBackupData";
 import { restoreBackupDatabase } from "./localBackupDatabase";
 import {
   type BackupPayload,
+  createBackupFileName,
   decodeBackupFile,
   encodeBackupFile,
 } from "./localBackupFormat";
@@ -152,6 +153,7 @@ test("backup export and restore preserves SQLite rows, indexes, and blob bytes",
     expect(payload.database.indexes.map((index) => index.name)).toContain(
       "documents_title_idx",
     );
+    expect(createBackupFileName(payload).endsWith(".tlbackup.json")).toBe(true);
 
     const encoded = await encodeBackupFile({
       password: "test-password",

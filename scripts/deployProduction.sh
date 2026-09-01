@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Full production deployment for SymCrypt
+# Full production deployment for Tearleads
 #
 # Runs in order:
 #   1. terraform apply (production server stack)
@@ -82,7 +82,7 @@ print_timing_summary() {
   printf '  %-12s %s\n' "total" "$(format_duration "$((SECONDS - DEPLOY_START))")"
 }
 
-echo "=== SymCrypt Production Deployment ==="
+echo "=== Tearleads Production Deployment ==="
 echo ""
 
 if [[ "$SKIP_INFRA" == true ]]; then

@@ -1,5 +1,5 @@
 import { expect } from "bun:test";
-import { db } from "@symcrypt/api-shared/postgres";
+import { db } from "@tearleads/api-shared/postgres";
 import {
   accessEventDependencyProjection,
   accessEvents,
@@ -7,7 +7,7 @@ import {
   accessManifestHeads,
   accessManifestPrincipalHeadProjection,
   accessManifests,
-} from "@symcrypt/api-shared/schema";
+} from "@tearleads/api-shared/schema";
 import { and, eq } from "drizzle-orm";
 
 export async function expectDocumentAccessHistoryAbsent(

@@ -8,7 +8,7 @@ import {
 import {
   PurchaseAbortedError,
   PurchaseCancelledError,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import {
   createWebRevenueCatBackend,
   type RevenueCatWebPurchases,

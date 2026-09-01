@@ -1,13 +1,13 @@
 import type {
   DatabaseSession,
   DatabaseTransaction,
-} from "@symcrypt/api-shared/postgres";
-import { principalMemberEnvelopes, users } from "@symcrypt/api-shared/schema";
-import type { ManagedRecipientPrincipalType } from "@symcrypt/crypto";
+} from "@tearleads/api-shared/postgres";
+import { principalMemberEnvelopes, users } from "@tearleads/api-shared/schema";
+import type { ManagedRecipientPrincipalType } from "@tearleads/crypto";
 import {
   computePrincipalMemberEnvelopesRoot,
   throwPrincipalPolicyValidationError,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import { and, eq, inArray } from "drizzle-orm";
 import {
   getCurrentPrincipalState,

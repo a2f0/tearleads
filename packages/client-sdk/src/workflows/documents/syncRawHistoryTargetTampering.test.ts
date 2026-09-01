@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { computeDocumentContentKeyTargetHash } from "@symcrypt/crypto";
+import { computeDocumentContentKeyTargetHash } from "@tearleads/crypto";
 import {
   createMaterializedSyncFixture,
   createSignedSyncResponseUpdate,

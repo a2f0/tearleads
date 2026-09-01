@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
-import { db } from "@symcrypt/api-shared/postgres";
+import { db } from "@tearleads/api-shared/postgres";
 import {
   organizationBilling,
   revenuecatWebhookEvents,
   users,
-} from "@symcrypt/api-shared/schema";
-import { createTestUser } from "@symcrypt/bob-and-alice";
+} from "@tearleads/api-shared/schema";
+import { createTestUser } from "@tearleads/bob-and-alice";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { createOrganizationRequestBody } from "../../../test/helpers/api";
@@ -63,7 +63,7 @@ test("a store-specific transfer selects its exact binding for a multi-store buye
     .set({
       provider: "revenuecat",
       providerCustomerId: user.userId,
-      providerProductId: "com.symcrypt.sync.monthly",
+      providerProductId: "com.tearleads.sync.monthly",
       providerSubscriptionId: appleSubscriptionId,
       seatCount: 1,
       status: "active",
@@ -157,7 +157,7 @@ test("a pre-claim transfer retries across multiple retained bindings", async () 
     .set({
       provider: "revenuecat",
       providerCustomerId: user.userId,
-      providerProductId: "com.symcrypt.sync.monthly",
+      providerProductId: "com.tearleads.sync.monthly",
       providerSubscriptionId: firstSubscriptionId,
       seatCount: 1,
       status: "active",

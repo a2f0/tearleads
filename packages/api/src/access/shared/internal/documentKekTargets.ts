@@ -1,12 +1,12 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
   computeDocumentContentKeyTargetHash,
   type DocumentContentKeyTarget,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import {
   DOCUMENT_SYNC_ERROR_CODES,
   type DocumentSyncErrorCode,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import {
   getCurrentAccessManifestHead,
   listAccessManifestDocumentLinkProjection,

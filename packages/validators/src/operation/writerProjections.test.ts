@@ -92,7 +92,7 @@ test("OpenAPI declares the runtime-only path and KEK count invariant", () => {
     throw new Error("Container writer projection response schema is missing");
   }
 
-  expect(operation?.["x-symcrypt-runtime-refinements"]).toEqual(
+  expect(operation?.["x-tearleads-runtime-refinements"]).toEqual(
     writerProjectionResponseRuntimeRefinements,
   );
 

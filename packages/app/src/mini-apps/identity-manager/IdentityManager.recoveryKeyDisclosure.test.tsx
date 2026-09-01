@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { createIdentitySeedPhraseFromEntropy } from "@symcrypt/crypto";
+import { createIdentitySeedPhraseFromEntropy } from "@tearleads/crypto";
 import { act, fireEvent } from "@testing-library/react";
 import { TestWebSocket } from "../../../test/helpers/identityManagerTestRuntime";
 import {
@@ -64,7 +64,7 @@ test("cancelling the download acknowledgement exports nothing", async () => {
     Reflect.set(globalThis, "WebSocket", TestWebSocket);
     URL.createObjectURL = ((blob: Blob) => {
       downloaded.blob = blob;
-      return "blob:symcrypt-recovery-key-test";
+      return "blob:tearleads-recovery-key-test";
     }) as typeof URL.createObjectURL;
     URL.revokeObjectURL = (() => undefined) as typeof URL.revokeObjectURL;
     HTMLAnchorElement.prototype.click = () => undefined;
@@ -155,7 +155,7 @@ test("switching identities revokes an existing reveal", async () => {
 
   try {
     Reflect.set(globalThis, "WebSocket", TestWebSocket);
-    const { seedPhrase, symcrypt, view } = await renderRecoveryKeyView(0x22);
+    const { seedPhrase, tearleads, view } = await renderRecoveryKeyView(0x22);
 
     fireEvent.click(view.getByRole("button", { name: "Reveal Recovery Key" }));
     fireEvent.change(view.getByLabelText(ACKNOWLEDGEMENT_LABEL), {
@@ -170,7 +170,7 @@ test("switching identities revokes an existing reveal", async () => {
       new Uint8Array(32).fill(0x33),
     );
     await act(async () => {
-      await symcrypt.identity.importSeedPhrase(nextSeedPhrase);
+      await tearleads.identity.importSeedPhrase(nextSeedPhrase);
     });
 
     // The incoming key must never render off the previous key's acknowledgement.
@@ -191,7 +191,7 @@ test("returning to a previously revealed identity stays hidden", async () => {
 
   try {
     Reflect.set(globalThis, "WebSocket", TestWebSocket);
-    const { seedPhrase, symcrypt, view } = await renderRecoveryKeyView(0x66);
+    const { seedPhrase, tearleads, view } = await renderRecoveryKeyView(0x66);
 
     fireEvent.click(view.getByRole("button", { name: "Reveal Recovery Key" }));
     fireEvent.change(view.getByLabelText(ACKNOWLEDGEMENT_LABEL), {
@@ -206,10 +206,10 @@ test("returning to a previously revealed identity stays hidden", async () => {
       new Uint8Array(32).fill(0x77),
     );
     await act(async () => {
-      await symcrypt.identity.importSeedPhrase(otherSeedPhrase);
+      await tearleads.identity.importSeedPhrase(otherSeedPhrase);
     });
     await act(async () => {
-      await symcrypt.identity.importSeedPhrase(seedPhrase);
+      await tearleads.identity.importSeedPhrase(seedPhrase);
     });
 
     // The round trip must not restore the earlier acknowledgement.
@@ -228,7 +228,7 @@ test("a copy landing after an identity switch reports nothing", async () => {
   try {
     Reflect.set(globalThis, "WebSocket", TestWebSocket);
     const clipboard = installDeferredClipboardWriteMock();
-    const { seedPhrase, symcrypt, view } = await renderRecoveryKeyView(0x88);
+    const { seedPhrase, tearleads, view } = await renderRecoveryKeyView(0x88);
 
     fireEvent.click(view.getByRole("button", { name: "Copy recovery key" }));
     fireEvent.change(view.getByLabelText(ACKNOWLEDGEMENT_LABEL), {
@@ -243,7 +243,7 @@ test("a copy landing after an identity switch reports nothing", async () => {
       new Uint8Array(32).fill(0x99),
     );
     await act(async () => {
-      await symcrypt.identity.importSeedPhrase(nextSeedPhrase);
+      await tearleads.identity.importSeedPhrase(nextSeedPhrase);
     });
     await act(async () => {
       clipboard.settle();
@@ -294,7 +294,7 @@ test("switching identities discards a pending acknowledgement", async () => {
 
   try {
     Reflect.set(globalThis, "WebSocket", TestWebSocket);
-    const { symcrypt, view } = await renderRecoveryKeyView(0x44);
+    const { tearleads, view } = await renderRecoveryKeyView(0x44);
 
     fireEvent.click(view.getByRole("button", { name: "Reveal Recovery Key" }));
     fireEvent.change(view.getByLabelText(ACKNOWLEDGEMENT_LABEL), {
@@ -305,7 +305,7 @@ test("switching identities discards a pending acknowledgement", async () => {
       new Uint8Array(32).fill(0x55),
     );
     await act(async () => {
-      await symcrypt.identity.importSeedPhrase(nextSeedPhrase);
+      await tearleads.identity.importSeedPhrase(nextSeedPhrase);
     });
 
     // The dialog belonged to the previous identity; it cannot be spent here.

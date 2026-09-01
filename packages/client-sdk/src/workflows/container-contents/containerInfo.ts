@@ -1,11 +1,11 @@
 import type {
   ContainerAccessLevel,
   ContainerGrantSubjectType,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import type {
   ContainerWriterProjectionResponse,
   OrganizationGroupSummaryResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import {
   getTargetContainerContext,

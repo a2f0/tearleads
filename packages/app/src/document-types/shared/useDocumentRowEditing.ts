@@ -1,4 +1,4 @@
-import type { DocumentRow } from "@symcrypt/client-sdk";
+import type { DocumentRow } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useState } from "react";
 
 // A row-cell edit is committed to the document store asynchronously (it rides a

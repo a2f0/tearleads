@@ -1,6 +1,6 @@
-import { verifySignedAccessEvent } from "@symcrypt/crypto";
-import type { AccessManifestBundleWireResponse } from "@symcrypt/validators/response";
-import type { AccessEventBundleWireResponse } from "@symcrypt/validators/util";
+import { verifySignedAccessEvent } from "@tearleads/crypto";
+import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
+import type { AccessEventBundleWireResponse } from "@tearleads/validators/util";
 import {
   canonicalKeyingJsonString,
   readCanonicalJson,

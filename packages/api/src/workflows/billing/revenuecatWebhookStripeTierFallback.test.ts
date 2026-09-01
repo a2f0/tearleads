@@ -1,10 +1,10 @@
 import { expect, spyOn, test } from "bun:test";
-import { db } from "@symcrypt/api-shared/postgres";
+import { db } from "@tearleads/api-shared/postgres";
 import {
   organizationBilling,
   organizationBillingStripeSeats,
-} from "@symcrypt/api-shared/schema";
-import { createTestUser } from "@symcrypt/bob-and-alice";
+} from "@tearleads/api-shared/schema";
+import { createTestUser } from "@tearleads/bob-and-alice";
 import { eq } from "drizzle-orm";
 import { registerAndAuthenticate } from "../../../test/helpers/revenuecatWebhook";
 import { runRevenueCatWebhookWorkflow } from "./revenuecatWebhook";

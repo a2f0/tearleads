@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@symcrypt/test-utils";
-import { DOCUMENT_NOT_FOUND_ERROR_CODE } from "@symcrypt/validators/response";
+import { createTestExecSql } from "@tearleads/test-utils";
+import { DOCUMENT_NOT_FOUND_ERROR_CODE } from "@tearleads/validators/response";
 import {
   createMaterializedSyncFixture,
   createPendingUpdateRecord,

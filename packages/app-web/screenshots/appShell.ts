@@ -65,7 +65,7 @@ export async function openWindowedApp(
 // over the OS preference — so the screenshot run can capture a known theme rather
 // than whatever `prefers-color-scheme` happens to emulate. clearStaleLocalState
 // leaves this key untouched, so a pinned theme also survives the seed reload.
-const THEME_CHOICE_STORAGE_KEY = "symcrypt.theme.choice";
+const THEME_CHOICE_STORAGE_KEY = "tearleads.theme.choice";
 
 // Pins the app to `theme` ("light" | "dark") on the next boot. Runs in the page
 // context (page.evaluate), so it writes localStorage directly rather than
@@ -95,9 +95,9 @@ export async function clearStaleLocalState(page: Page): Promise<void> {
   await page.evaluate(() => {
     for (const key of Object.keys(localStorage)) {
       if (
-        key.startsWith("symcrypt.local-session") ||
-        key.startsWith("symcrypt.documents") ||
-        key.startsWith("symcrypt.container-metadata")
+        key.startsWith("tearleads.local-session") ||
+        key.startsWith("tearleads.documents") ||
+        key.startsWith("tearleads.container-metadata")
       ) {
         localStorage.removeItem(key);
       }

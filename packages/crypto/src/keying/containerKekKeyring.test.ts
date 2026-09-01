@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { AES_GCM_TAG_BYTES } from "../symmetric";
 import {
   assertSealedContainerKekKeyringLength,

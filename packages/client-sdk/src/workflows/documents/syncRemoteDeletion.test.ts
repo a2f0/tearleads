@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import type { VerifiedContainerAccessManifest } from "@symcrypt/crypto";
-import { createTestExecSql } from "@symcrypt/test-utils";
-import { DOCUMENT_NOT_FOUND_ERROR_CODE } from "@symcrypt/validators/response";
+import type { VerifiedContainerAccessManifest } from "@tearleads/crypto";
+import { createTestExecSql } from "@tearleads/test-utils";
+import { DOCUMENT_NOT_FOUND_ERROR_CODE } from "@tearleads/validators/response";
 import { createContainerRevokeManifestFixture } from "../../../test/helpers/containerFixtures";
 import {
   createMaterializedSyncFixture,

@@ -1,5 +1,5 @@
 import { expect, mock, test } from "bun:test";
-import { createTestExecSql } from "@symcrypt/test-utils";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { createDomainScope } from "../../data/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {

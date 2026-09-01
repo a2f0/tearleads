@@ -3,7 +3,7 @@
 # This flow intentionally runs against the real Capacitor shell. The browser
 # screenshot harness follows the web-only Stripe path and therefore is not valid
 # evidence of the RevenueCat/App Store purchase surface.
-appId: com.symcrypt.app
+appId: com.tearleads.app
 tags:
   - screenshots
   - subscriptions

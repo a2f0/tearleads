@@ -1,4 +1,4 @@
-.symcrypt-frame.layout {
+.tearleads-frame.layout {
   display: grid;
   grid-template:
     "banner banner" auto
@@ -11,43 +11,43 @@
    taskbar is never hidden behind the browser chrome; the plain vh declaration
    above is the fallback for engines without dvh support. */
 @supports (height: 100dvh) {
-  .symcrypt-frame.layout {
+  .tearleads-frame.layout {
     height: 100dvh;
   }
 }
 
-.symcrypt-frame.layout--split {
+.tearleads-frame.layout--split {
   grid-template:
     "banner banner" auto
     "left   right" 1fr
     / 1fr 1fr;
 }
 
-.symcrypt-frame.layout--routed {
+.tearleads-frame.layout--routed {
   grid-template:
     "banner" auto
     "left" 1fr
     / minmax(0, 1fr);
 }
 
-.symcrypt-frame.layout--demo-peer-split .pane-right {
+.tearleads-frame.layout--demo-peer-split .pane-right {
   border-left: var(--border-width) solid var(--color-hairline);
 }
 
 /* A billing warning is the topmost row and owns the top safe-area inset. Avoid
    applying the same inset again to the routed chrome directly below it. */
-.symcrypt-frame.layout:has(> .billing-banner) .routed-pane-appbar {
+.tearleads-frame.layout:has(> .billing-banner) .routed-pane-appbar {
   padding-top: var(--space-xs);
 }
 
-.symcrypt-frame.layout:has(> .billing-banner) .routed-pane-rail {
+.tearleads-frame.layout:has(> .billing-banner) .routed-pane-rail {
   padding-top: 0;
 }
 
 /* The mobile drawer normally starts below the top inset
    (RoutedPaneSidebar.css); under a banner the frame has already consumed that
    space, so the drawer can start at the routed pane's top edge. */
-.symcrypt-frame.layout:has(> .billing-banner) .routed-pane--mobile
+.tearleads-frame.layout:has(> .billing-banner) .routed-pane--mobile
   .routed-pane-sidebar {
   inset-block-start: 0;
 }

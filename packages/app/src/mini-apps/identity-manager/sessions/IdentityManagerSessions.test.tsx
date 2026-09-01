@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import type { UserSession } from "@symcrypt/client-sdk";
+import type { UserSession } from "@tearleads/client-sdk";
 import { cleanup, render } from "@testing-library/react";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
 import { SessionsSection } from "./IdentityManagerSessions";

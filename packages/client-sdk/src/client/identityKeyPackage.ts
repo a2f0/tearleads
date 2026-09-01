@@ -11,14 +11,14 @@ import {
   sign,
   toFingerprint,
   verify,
-} from "@symcrypt/crypto";
-import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
-import { isPlainObject } from "@symcrypt/validators/isPlainObject";
+} from "@tearleads/crypto";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
 
-export const IDENTITY_KEY_PACKAGE_FORMAT = "symcrypt.identity-key-package";
+export const IDENTITY_KEY_PACKAGE_FORMAT = "tearleads.identity-key-package";
 
 const KEY_PACKAGE_PROBE_MESSAGE = new TextEncoder().encode(
-  "symcrypt.identity-key-package.probe",
+  "tearleads.identity-key-package.probe",
 );
 
 export interface IdentityKeyPackage {

@@ -2,7 +2,7 @@ import {
   deleteOrganizationGroupOperation,
   isDeleteOrganizationGroupOperationResponse,
   operationRequestPath,
-} from "@symcrypt/validators/operation";
+} from "@tearleads/validators/operation";
 
 export const deleteOrganizationGroup = {
   isResponse: isDeleteOrganizationGroupOperationResponse,

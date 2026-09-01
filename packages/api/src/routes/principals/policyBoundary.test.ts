@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { createTestUser } from "@symcrypt/bob-and-alice";
-import { MAX_PRINCIPAL_STATE_VERSION } from "@symcrypt/validators/util";
+import { createTestUser } from "@tearleads/bob-and-alice";
+import { MAX_PRINCIPAL_STATE_VERSION } from "@tearleads/validators/util";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { createSignedPrincipalState } from "../../../test/helpers/principalPolicy";
 import { registerUser } from "../../../test/helpers/registerUser";

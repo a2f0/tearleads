@@ -1,5 +1,5 @@
-import { KeyingVerificationError } from "@symcrypt/crypto";
-import { DOCUMENT_SYNC_ERROR_CODES } from "@symcrypt/validators/response";
+import { KeyingVerificationError } from "@tearleads/crypto";
+import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import {
   isRetryableDocumentSyncConflict,
   isUpstreamDeletedDocumentSyncFailure,

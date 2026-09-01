@@ -1,4 +1,4 @@
-import type { ContainerNode } from "@symcrypt/client-sdk";
+import type { ContainerNode } from "@tearleads/client-sdk";
 import { type DragEvent, useCallback, useRef, useState } from "react";
 import { EXPLORER_LABELS, getExplorerUploadsWaitingStatus } from "../labels";
 import { getExplorerUploadStatusText } from "./explorerUploadState";

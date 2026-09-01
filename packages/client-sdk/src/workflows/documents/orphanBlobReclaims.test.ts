@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@symcrypt/test-utils";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { waitFor } from "../../../test/helpers/waitFor";
 import type { BlobBytes, BlobStore } from "../../data/blobContracts";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";

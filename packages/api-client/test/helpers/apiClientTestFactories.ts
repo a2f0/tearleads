@@ -9,7 +9,7 @@ import type {
   DocumentPurgeRequest,
   DocumentSyncRequest,
   PutPrincipalPolicyRequest,
-} from "@symcrypt/validators/request";
+} from "@tearleads/validators/request";
 import type {
   BlobAttachmentBindResponse,
   ContainerCreateWithMetadataDocumentResponse,
@@ -23,7 +23,7 @@ import type {
   DocumentWriterProjectionResponse,
   PrincipalPolicyBundleResponse,
   UserIdentityResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 
 export function createContainerMutationRequest(): ContainerMutationRequest {
   return {

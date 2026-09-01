@@ -11,7 +11,7 @@ import {
  * reach users who had never opened the columns menu. Hence a key per generation
  * of the defaults.
  */
-const STORAGE_KEY = "symcrypt.blob-browser:hidden-columns:v3";
+const STORAGE_KEY = "tearleads.blob-browser:hidden-columns:v3";
 
 // Two dimensions the list can show but does not lead with: attribution, which
 // only a multi-organization user reads, and the sync badge, whose narrow glyph

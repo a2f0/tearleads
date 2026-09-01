@@ -5,7 +5,7 @@ import type {
   PrincipalStateExternalAuthority,
   PrincipalStateMembershipMode,
   PrincipalStatePayloadCipherSuite,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import {
   index,
   integer,

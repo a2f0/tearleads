@@ -5,9 +5,9 @@ import {
   signPrincipalState,
   toFingerprint,
   wrapDekForRecipients,
-} from "@symcrypt/crypto";
-import { bytesToBase64 } from "@symcrypt/encoding";
-import type { RegistrationRequest } from "@symcrypt/validators/request";
+} from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
+import type { RegistrationRequest } from "@tearleads/validators/request";
 import { routeApp } from "../../../src/routeApp";
 import {
   createInitialAdminGroupRequest,

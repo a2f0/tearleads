@@ -1,10 +1,10 @@
-import { bytesToBase64 } from "@symcrypt/encoding";
-import { createDocument, exportAllUpdates } from "@symcrypt/loro";
+import { bytesToBase64 } from "@tearleads/encoding";
+import { createDocument, exportAllUpdates } from "@tearleads/loro";
 
 export {
   deriveOrganizationMetadataContainerSystemSlot,
   deriveOrganizationRosterProfileContainerSystemSlot,
-} from "@symcrypt/validators/containerSystemSlot";
+} from "@tearleads/validators/containerSystemSlot";
 
 import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
 import {

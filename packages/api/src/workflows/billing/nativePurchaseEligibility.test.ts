@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import type { NativeSubscriptionStore } from "@symcrypt/validators/billing";
-import type { OrganizationBillingStatus } from "@symcrypt/validators/response";
+import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
+import type { OrganizationBillingStatus } from "@tearleads/validators/response";
 import {
   blocksNativePurchaseForStripeCheckoutAttempt,
   resolveNativePurchaseEligibility,

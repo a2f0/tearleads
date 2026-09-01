@@ -1,9 +1,9 @@
-import type { ApiDatabase } from "@symcrypt/api-shared/postgres";
+import type { ApiDatabase } from "@tearleads/api-shared/postgres";
 import {
   organizationBilling,
   revenuecatWebhookEvents,
-} from "@symcrypt/api-shared/schema";
-import type { RevenueCatWebhookEvent } from "@symcrypt/validators/request";
+} from "@tearleads/api-shared/schema";
+import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { and, eq, isNull, or } from "drizzle-orm";
 import {
   type RevenueCatApiDeps,

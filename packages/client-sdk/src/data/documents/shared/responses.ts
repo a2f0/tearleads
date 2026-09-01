@@ -1,9 +1,9 @@
-import { isPlainObject as isPlainRecord } from "@symcrypt/validators/isPlainObject";
+import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
 import type {
   DocumentCreateResponse,
   DocumentLinkSetMutationResponse,
   DocumentWriterProjectionResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import {
   readRecordString,
   serializeCanonical,

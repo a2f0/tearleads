@@ -1,6 +1,6 @@
 import { expect } from "bun:test";
-import type { SymCrypt } from "@symcrypt/client-sdk";
-import { createIdentitySeedPhraseFromEntropy } from "@symcrypt/crypto";
+import type { Tearleads } from "@tearleads/client-sdk";
+import { createIdentitySeedPhraseFromEntropy } from "@tearleads/crypto";
 import {
   act,
   fireEvent,
@@ -95,15 +95,15 @@ export function installDeferredClipboardWriteMock(): {
  */
 export async function renderRecoveryKeyView(entropyByte: number): Promise<{
   readonly seedPhrase: string;
-  readonly symcrypt: SymCrypt;
+  readonly tearleads: Tearleads;
   readonly view: RenderResult;
 }> {
-  const symcryptRef: { current: SymCrypt | null } = { current: null };
+  const tearleadsRef: { current: Tearleads | null } = { current: null };
   const view = render(
     <IdentityManagerTestRuntime
       hostConfig={TEST_HOST_CONFIG}
-      onSymCryptReady={(sdk) => {
-        symcryptRef.current = sdk;
+      onTearleadsReady={(sdk) => {
+        tearleadsRef.current = sdk;
       }}
     >
       <IdentityManager />
@@ -113,21 +113,21 @@ export async function renderRecoveryKeyView(entropyByte: number): Promise<{
   fireEvent.click(view.getByRole("button", { name: "Recovery Key" }));
 
   await waitFor(() => {
-    expect(symcryptRef.current).toBeTruthy();
+    expect(tearleadsRef.current).toBeTruthy();
   });
 
-  const symcrypt = symcryptRef.current;
-  if (!symcrypt) {
-    throw new Error("Expected SymCrypt SDK to be available after render.");
+  const tearleads = tearleadsRef.current;
+  if (!tearleads) {
+    throw new Error("Expected Tearleads SDK to be available after render.");
   }
 
   const seedPhrase = createIdentitySeedPhraseFromEntropy(
     new Uint8Array(32).fill(entropyByte),
   );
   await act(async () => {
-    await symcrypt.identity.importSeedPhrase(seedPhrase);
+    await tearleads.identity.importSeedPhrase(seedPhrase);
   });
   await view.findByRole("button", { name: "Reveal Recovery Key" });
 
-  return { seedPhrase, symcrypt, view };
+  return { seedPhrase, tearleads, view };
 }

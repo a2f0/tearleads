@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
-import { createTestUser } from "@symcrypt/bob-and-alice";
+import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   type DocumentWriterProjectionResponse,
   isDocumentSyncResponse,
   isDocumentWriterProjectionResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { authenticate } from "../../test/helpers/authenticate";
 import { createSignedDocumentSyncRequest } from "../../test/helpers/documentUpdateRequests";
 import {

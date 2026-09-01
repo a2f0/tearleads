@@ -1,4 +1,4 @@
-import { KeyingVerificationError } from "@symcrypt/crypto";
+import { KeyingVerificationError } from "@tearleads/crypto";
 import { and, desc, eq, inArray, notInArray, or, type SQL } from "drizzle-orm";
 import {
   DEFAULT_DOCUMENT_ACCESS_EPOCH,

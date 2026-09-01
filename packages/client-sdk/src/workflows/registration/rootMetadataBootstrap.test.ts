@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { importUpdates } from "@symcrypt/loro";
+import { importUpdates } from "@tearleads/loro";
 import {
   createContainerMetadataDocument,
   readContainerMetadataValue,

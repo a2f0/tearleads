@@ -1,5 +1,5 @@
 {
-  "name": "@symcrypt/crypto",
+  "name": "@tearleads/crypto",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -14,8 +14,8 @@
     "@noble/hashes": "2.0.1",
     "@noble/post-quantum": "0.5.4",
     "@scure/bip39": "2.2.0",
-    "@symcrypt/encoding": "workspace:*",
-    "@symcrypt/validators": "workspace:*"
+    "@tearleads/encoding": "workspace:*",
+    "@tearleads/validators": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "catalog:"

@@ -1,18 +1,18 @@
-import type { TestUser } from "@symcrypt/bob-and-alice";
+import type { TestUser } from "@tearleads/bob-and-alice";
 import type {
   ContainerAccessEventBody,
   ContainerGrantSubjectType,
   ContainerKeyWrap,
   VerifiedContainerKekState,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import {
   computeContainerKekKeyringHash,
   computeContainerKekPredecessorBridgeHash,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import type {
   AccessManifestBundleWire,
   ContainerMutationRequest,
-} from "@symcrypt/validators/request";
+} from "@tearleads/validators/request";
 import {
   createRootContainerKeyEpoch,
   createTestContainerKekKeyring,

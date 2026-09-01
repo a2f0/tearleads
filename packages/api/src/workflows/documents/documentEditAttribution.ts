@@ -1,15 +1,15 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
   documentAuditCheckpoints,
   documentContentWriteHeaders,
   documents,
   documentUpdateSpans,
   documentUpdates,
-} from "@symcrypt/api-shared/schema";
+} from "@tearleads/api-shared/schema";
 import type {
   DocumentEditAttributionResponse,
   DocumentEditAttributionSegmentResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { and, eq, sql } from "drizzle-orm";
 import {
   type AttributionSpanInput,

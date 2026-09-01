@@ -1,7 +1,7 @@
 import type {
   DocumentRecord,
   DocumentsPersistence,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 
 export function invalidateMemoryDocumentPullContinuation(
   document: DocumentRecord | null,

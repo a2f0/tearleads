@@ -39,7 +39,7 @@ const appDocumentProjectionSourcePaths = new Set([
 ]);
 const appMiniAppBusSourcePath = `${appSrc}/mini-apps/bus.tsx`;
 const appPaneProviderSourcePath = `${appSrc}/components/pane/runtime/PaneProvider.tsx`;
-const appSymCryptSubscriptionHelperPath = `${appSrc}/providers/sdk/useSymCryptSubscription.ts`;
+const appTearleadsSubscriptionHelperPath = `${appSrc}/providers/sdk/useTearleadsSubscription.ts`;
 const appProductionSourceEntryPoints = [appSrc];
 const appTestSourceEntryPoints = [appSrc];
 const appTestHelperEntryPoints = ["packages/app/test/helpers"];
@@ -59,11 +59,11 @@ const directSyncExternalStorePattern = /\buseSyncExternalStore\b/;
 // the `ExecSql`/`execSql` names by design: if those symbols are renamed this
 // check silently stops matching, so rename in lockstep.
 const rawSqlExecutorPattern = /\b(?:ExecSql|execSql)\b/;
-// Forbids prefixed compatibility aliases (`... as SymCryptFoo`) on the SDK root
-// facade. Scanned line by line, so a rare multiline `as\n  SymCryptFoo` would
+// Forbids prefixed compatibility aliases (`... as TearleadsFoo`) on the SDK root
+// facade. Scanned line by line, so a rare multiline `as\n  TearleadsFoo` would
 // slip through — acceptable since the codebase keeps aliases on one line.
 const clientSdkPrefixedFacadeAliasPattern =
-  /\bas\s+(?:SymCrypt[A-Z][A-Za-z0-9_]*|SYMCRYPT_[A-Z0-9_]+)/;
+  /\bas\s+(?:Tearleads[A-Z][A-Za-z0-9_]*|TEARLEADS_[A-Z0-9_]+)/;
 // A deliberately-curated substring heuristic that keeps product/app-window
 // vocabulary out of SDK source. It is intentionally a *subset* of the mini-apps
 // (the words most likely to leak); it is NOT derived from miniAppNames because
@@ -82,12 +82,12 @@ async function listAppPresentationSourceFiles(
   );
 }
 
-async function listAppSourceFilesOutsideSymCryptSubscriptionHelper(
+async function listAppSourceFilesOutsideTearleadsSubscriptionHelper(
   dirPath: string,
 ): Promise<string[]> {
   const productionSourceFiles = await listProductionSourceFiles(dirPath);
   return productionSourceFiles.filter(
-    (filePath) => filePath !== appSymCryptSubscriptionHelperPath,
+    (filePath) => filePath !== appTearleadsSubscriptionHelperPath,
   );
 }
 
@@ -99,12 +99,12 @@ function isAppTestHelperImport(specifier: string): boolean {
   return /(?:^|\/)test\/helpers(?:\/|$)/.test(specifier);
 }
 
-// Matches an import of a `@symcrypt/client-sdk/<subpath>` package subpath
+// Matches an import of a `@tearleads/client-sdk/<subpath>` package subpath
 // (the subpath entry itself or anything beneath it).
 function clientSdkSubpathImport(
   subpath: string,
 ): (specifier: string) => boolean {
-  const entry = `@symcrypt/client-sdk/${subpath}`;
+  const entry = `@tearleads/client-sdk/${subpath}`;
   return (specifier) =>
     specifier === entry || specifier.startsWith(`${entry}/`);
 }
@@ -137,7 +137,7 @@ const appMiniAppSiblingImportPattern = new RegExp(
 
 function isAppMiniAppBusBoundaryImport(specifier: string): boolean {
   return (
-    specifier.startsWith("@symcrypt/") ||
+    specifier.startsWith("@tearleads/") ||
     /^\.\.\/(?:providers|stores|document-types)(?:\/|$)/.test(specifier) ||
     appMiniAppSiblingImportPattern.test(specifier)
   );
@@ -175,9 +175,9 @@ const architectureChecks: ArchitectureCheck[] = [
   }),
   createSourceTextCheck({
     entryPoints: appProductionSourceEntryPoints,
-    listFiles: listAppSourceFilesOutsideSymCryptSubscriptionHelper,
+    listFiles: listAppSourceFilesOutsideTearleadsSubscriptionHelper,
     message:
-      "App production code should centralize React external-store subscriptions in providers/sdk/useSymCryptSubscription.ts.",
+      "App production code should centralize React external-store subscriptions in providers/sdk/useTearleadsSubscription.ts.",
     name: "app-production-centralizes-use-sync-external-store",
     pattern: directSyncExternalStorePattern,
   }),
@@ -201,7 +201,7 @@ const architectureChecks: ArchitectureCheck[] = [
     entryPoints: appProductionSourceEntryPoints,
     matches: isClientSdkDataImport,
     message:
-      "App production code should import client SDK contracts from @symcrypt/client-sdk or @symcrypt/client-sdk/sqlite instead of @symcrypt/client-sdk/data/* internals.",
+      "App production code should import client SDK contracts from @tearleads/client-sdk or @tearleads/client-sdk/sqlite instead of @tearleads/client-sdk/data/* internals.",
     name: "app-production-uses-sdk-root-or-facades",
   }),
   createModuleSpecifierCheck({
@@ -215,7 +215,7 @@ const architectureChecks: ArchitectureCheck[] = [
     entryPoints: appProductionSourceEntryPoints,
     matches: isClientSdkDocumentsImport,
     message:
-      "App production code should import public document contracts from @symcrypt/client-sdk during the entrypoint consolidation migration.",
+      "App production code should import public document contracts from @tearleads/client-sdk during the entrypoint consolidation migration.",
     name: "app-production-uses-sdk-root-for-document-facade",
   }),
   createModuleSpecifierCheck({
@@ -236,21 +236,21 @@ const architectureChecks: ArchitectureCheck[] = [
     entryPoints: appTestHelperEntryPoints,
     matches: isClientSdkDataImport,
     message:
-      "App test helpers should import client SDK contracts from @symcrypt/client-sdk or @symcrypt/client-sdk/sqlite instead of @symcrypt/client-sdk/data/* internals.",
+      "App test helpers should import client SDK contracts from @tearleads/client-sdk or @tearleads/client-sdk/sqlite instead of @tearleads/client-sdk/data/* internals.",
     name: "app-test-helpers-use-sdk-root-or-facades",
   }),
   createModuleSpecifierCheck({
     entryPoints: appTestHelperEntryPoints,
     matches: isClientSdkDocumentsImport,
     message:
-      "App test helpers should import public document contracts from @symcrypt/client-sdk.",
+      "App test helpers should import public document contracts from @tearleads/client-sdk.",
     name: "app-test-helpers-use-sdk-root-for-document-facade",
   }),
   createModuleSpecifierCheck({
     entryPoints: appTestHelperEntryPoints,
     matches: isClientSdkStoreOrWorkflowImport,
     message:
-      "App test helpers should import public store and workflow facade symbols from @symcrypt/client-sdk.",
+      "App test helpers should import public store and workflow facade symbols from @tearleads/client-sdk.",
     name: "app-test-helpers-use-sdk-root-for-workflow-and-store-facades",
   }),
   createModuleSpecifierCheck({
@@ -258,7 +258,7 @@ const architectureChecks: ArchitectureCheck[] = [
     listFiles: listTestSourceFiles,
     matches: isClientSdkDataImport,
     message:
-      "App tests should import client SDK contracts from @symcrypt/client-sdk or @symcrypt/client-sdk/sqlite instead of @symcrypt/client-sdk/data/* internals.",
+      "App tests should import client SDK contracts from @tearleads/client-sdk or @tearleads/client-sdk/sqlite instead of @tearleads/client-sdk/data/* internals.",
     name: "app-tests-use-sdk-root-or-facades",
   }),
   createModuleSpecifierCheck({
@@ -266,7 +266,7 @@ const architectureChecks: ArchitectureCheck[] = [
     listFiles: listTestSourceFiles,
     matches: isClientSdkDocumentsImport,
     message:
-      "App tests should import public document contracts from @symcrypt/client-sdk.",
+      "App tests should import public document contracts from @tearleads/client-sdk.",
     name: "app-tests-use-sdk-root-for-document-facade",
   }),
   createModuleSpecifierCheck({
@@ -274,7 +274,7 @@ const architectureChecks: ArchitectureCheck[] = [
     listFiles: listTestSourceFiles,
     matches: isClientSdkStoreOrWorkflowImport,
     message:
-      "App tests should import public store and workflow facade symbols from @symcrypt/client-sdk.",
+      "App tests should import public store and workflow facade symbols from @tearleads/client-sdk.",
     name: "app-tests-use-sdk-root-for-workflow-and-store-facades",
   }),
   createModuleSpecifierCheck({
@@ -282,7 +282,7 @@ const architectureChecks: ArchitectureCheck[] = [
     listFiles: listTestSourceFiles,
     matches: isClientSdkDocumentsImport,
     message:
-      "Client SDK tests should import public document contracts from @symcrypt/client-sdk.",
+      "Client SDK tests should import public document contracts from @tearleads/client-sdk.",
     name: "client-sdk-tests-use-sdk-root-for-document-facade",
   }),
   createModuleSpecifierCheck({
@@ -290,21 +290,21 @@ const architectureChecks: ArchitectureCheck[] = [
     listFiles: listTestSourceFiles,
     matches: isClientSdkStoreOrWorkflowImport,
     message:
-      "Client SDK tests should import public store and workflow facade symbols from @symcrypt/client-sdk.",
+      "Client SDK tests should import public store and workflow facade symbols from @tearleads/client-sdk.",
     name: "client-sdk-tests-use-sdk-root-for-workflow-and-store-facades",
   }),
   createModuleSpecifierCheck({
     entryPoints: clientSdkTestHelperEntryPoints,
     matches: isClientSdkDocumentsImport,
     message:
-      "Client SDK test helpers should import public document contracts from @symcrypt/client-sdk.",
+      "Client SDK test helpers should import public document contracts from @tearleads/client-sdk.",
     name: "client-sdk-test-helpers-use-sdk-root-for-document-facade",
   }),
   createModuleSpecifierCheck({
     entryPoints: clientSdkTestHelperEntryPoints,
     matches: isClientSdkStoreOrWorkflowImport,
     message:
-      "Client SDK test helpers should import public store and workflow facade symbols from @symcrypt/client-sdk.",
+      "Client SDK test helpers should import public store and workflow facade symbols from @tearleads/client-sdk.",
     name: "client-sdk-test-helpers-use-sdk-root-for-workflow-and-store-facades",
   }),
   createListCheck({

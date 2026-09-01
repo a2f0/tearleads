@@ -4,7 +4,7 @@ import type {
   LocalProjectionView,
   PurgeOptions,
   ReconciliationService,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import type { BuiltInSystemContainer } from "../../../stores/systemContainers";
 
 export interface ExplorerModelExplorer {

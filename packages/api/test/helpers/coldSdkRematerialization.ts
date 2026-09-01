@@ -1,12 +1,12 @@
-import type { TestUser } from "@symcrypt/bob-and-alice";
+import type { TestUser } from "@tearleads/bob-and-alice";
 import {
   cacheReferencedPrincipalPolicies,
   createRemoteDocument,
   syncRemoteDocument,
   validateDocumentSyncUpdateImports,
-} from "@symcrypt/client-sdk";
-import { createTestTrustedUserIdentityResolver } from "@symcrypt/client-sdk/testing";
-import { bytesToBase64 } from "@symcrypt/encoding";
+} from "@tearleads/client-sdk";
+import { createTestTrustedUserIdentityResolver } from "@tearleads/client-sdk/testing";
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument as createLoroDocument,
   encodeVersionVector,
@@ -14,19 +14,19 @@ import {
   getTextValue,
   getUpdateVersionVectors,
   importUpdates,
-} from "@symcrypt/loro";
-import { createTestExecSql } from "@symcrypt/test-utils";
+} from "@tearleads/loro";
+import { createTestExecSql } from "@tearleads/test-utils";
 import type {
   DocumentCreateRequest,
   DocumentSyncRequest,
-} from "@symcrypt/validators/request";
+} from "@tearleads/validators/request";
 import {
   isContainerWriterProjectionResponse,
   isDocumentCreateResponse,
   isDocumentSyncResponse,
   isDocumentWriterProjectionResponse,
   isPrincipalPolicyBundleResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { routeApp } from "../../src/routeApp";
 
 export const COLD_DOCUMENT_TEXT = "cold login decrypts rotated group data";

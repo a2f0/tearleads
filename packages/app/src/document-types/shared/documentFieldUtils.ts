@@ -3,7 +3,7 @@ import type {
   DocumentProjection,
   DocumentProjectorInput,
   ValidatedDocumentFields,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 
 /**
  * The projector every string-structured document kind shares: validate the

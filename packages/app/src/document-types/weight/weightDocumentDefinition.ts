@@ -3,7 +3,7 @@ import {
   type DocumentFieldValidationIssue,
   type DocumentRowSummary,
   readStringDocumentField,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import type { AppDocumentProjectorDefinition } from "../types";
 
 export const WEIGHT_DOCUMENT_KIND = "weight";

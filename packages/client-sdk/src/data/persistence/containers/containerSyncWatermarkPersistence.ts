@@ -1,4 +1,4 @@
-import type { SyncWatermark } from "@symcrypt/validators/response";
+import type { SyncWatermark } from "@tearleads/validators/response";
 import { and, eq, inArray, or, type SQL } from "drizzle-orm";
 import {
   containerSyncLaneChecks,

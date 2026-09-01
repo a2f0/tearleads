@@ -1,5 +1,5 @@
-import type { TestUser } from "@symcrypt/bob-and-alice";
-import { authChallengeSigningBytes, sign } from "@symcrypt/crypto";
+import type { TestUser } from "@tearleads/bob-and-alice";
+import { authChallengeSigningBytes, sign } from "@tearleads/crypto";
 import invariant from "invariant";
 import { requestChallenge, submitVerify } from "./api";
 

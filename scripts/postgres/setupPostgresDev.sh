@@ -4,7 +4,7 @@ set -eu
 echo "Setting up Postgres for dev..."
 
 OS_NAME="$(uname -s)"
-DB_NAME="symcrypt_development"
+DB_NAME="tearleads_development"
 PG_USER="${USER:-${LOGNAME:-}}"
 
 match_postgres_formula() {

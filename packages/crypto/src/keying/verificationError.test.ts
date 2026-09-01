@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   isKeyingVerificationCode,
   KEYING_VERIFICATION_CODES,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 
 test("the public verification-code registry matches the runtime predicate", () => {
   expect(KEYING_VERIFICATION_CODES).not.toHaveLength(0);

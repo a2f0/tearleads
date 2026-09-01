@@ -1,7 +1,7 @@
 import type {
   ContainerWriterProjectionResponse,
   ReferencedPrincipalStateResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import type { ContainerContentsPersistence } from "../containerPersistence";
 import {

@@ -1,4 +1,4 @@
-import type { OrganizationGroupContainers } from "@symcrypt/client-sdk";
+import type { OrganizationGroupContainers } from "@tearleads/client-sdk";
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback } from "react";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";

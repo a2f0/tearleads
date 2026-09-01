@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import type { OrganizationBillingView } from "@symcrypt/client-sdk";
+import type { OrganizationBillingView } from "@tearleads/client-sdk";
 import { cleanup, render } from "@testing-library/react";
 import {
   MiniAppLauncherProvider,

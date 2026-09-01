@@ -1,4 +1,4 @@
-import type { ApiClient } from "@symcrypt/api-client";
+import type { ApiClient } from "@tearleads/api-client";
 import type { DocumentProjectorRegistry } from "../data/documents/documentKinds";
 import type { DomainScope } from "../data/domainScope";
 import { runWithSecurityIncidentReporting } from "../data/keyingProjectionVerification/error";
@@ -198,7 +198,7 @@ function createRuntimeInputFactory(
     const dbStatus = dependencies.database.status;
     const execSql =
       dbStatus === "ready"
-        ? dependencies.database.requireExecSql("symcrypt.runtime.input")
+        ? dependencies.database.requireExecSql("tearleads.runtime.input")
         : unavailableExecSql;
     const nextContainerId =
       (containerId === undefined
@@ -229,7 +229,7 @@ function createRuntimeInputFactory(
       domainScope: dependencies.getDomainScope(),
       events: dependencies.events.events,
       // Resolved sync-online: workflows treat local-only mode exactly like being
-      // offline (no server I/O), while `symcrypt.network` stays the truthful
+      // offline (no server I/O), while `tearleads.network` stays the truthful
       // connectivity signal for host/UI. See Session.syncEnabled.
       online: dependencies.network.online && dependencies.session.syncEnabled,
       peerScope: dependencies.peerScope ?? null,

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { bytesToBase64 } from "@symcrypt/encoding";
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
   encodeVersionVector,
@@ -7,7 +7,7 @@ import {
   exportUpdatesSince,
   getTextValue,
   importSnapshot,
-} from "@symcrypt/loro";
+} from "@tearleads/loro";
 import { createCoverageFixture } from "../../../../test/helpers/syncOutgoingCoverage";
 import type { DocumentsPersistence } from "../../../workflows/documents";
 import { reloadDocumentFromDurableHistory } from "./durableDocumentReload";

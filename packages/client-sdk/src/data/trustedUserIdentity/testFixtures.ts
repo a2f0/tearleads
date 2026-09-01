@@ -1,5 +1,5 @@
-import { base64ToBytes } from "@symcrypt/encoding";
-import type { UserIdentityResponse } from "@symcrypt/validators/response";
+import { base64ToBytes } from "@tearleads/encoding";
+import type { UserIdentityResponse } from "@tearleads/validators/response";
 import {
   brandTrustedUserIdentity,
   type TrustedUserIdentity,

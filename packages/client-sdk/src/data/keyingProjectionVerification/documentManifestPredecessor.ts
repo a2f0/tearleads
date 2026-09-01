@@ -1,7 +1,7 @@
 import type {
   VerifiedDocumentLinkSetManifest,
   VerifiedDocumentLinkSetSnapshot,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 
 export function requireVerifiedDocumentPredecessor(input: {
   readonly label: string;

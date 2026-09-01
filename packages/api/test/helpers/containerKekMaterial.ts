@@ -7,8 +7,8 @@ import {
   createContainerKekPredecessorBridge,
   sealContainerKekKeyring,
   type VerifiedContainerAccessManifest,
-} from "@symcrypt/crypto";
-import type { AccessManifestBundleWire } from "@symcrypt/validators/request";
+} from "@tearleads/crypto";
+import type { AccessManifestBundleWire } from "@tearleads/validators/request";
 
 export function createRootContainerKeyEpoch(input: {
   readonly containerKeyEpochId: string;

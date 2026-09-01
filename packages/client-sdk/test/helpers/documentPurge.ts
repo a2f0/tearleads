@@ -1,5 +1,5 @@
-import { type AccessEvent, computeAccessEventHash } from "@symcrypt/crypto";
-import type { DocumentPurgeProofResponse } from "@symcrypt/validators/response";
+import { type AccessEvent, computeAccessEventHash } from "@tearleads/crypto";
+import type { DocumentPurgeProofResponse } from "@tearleads/validators/response";
 import { buildDocumentPurgeRequest } from "../../src/workflows/documents/purge";
 import type { createMaterializedSyncFixture } from "./documentFixtures";
 

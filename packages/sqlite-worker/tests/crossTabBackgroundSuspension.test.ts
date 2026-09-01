@@ -11,7 +11,7 @@ import {
   withCrossTabGlobals,
 } from "./crossTabTestHarness";
 
-const OWNER_LOCK_NAME = "symcrypt-sqlite-worker-owner";
+const OWNER_LOCK_NAME = "tearleads-sqlite-worker-owner";
 
 function currentPortAwareWorker(): PortAwareWorker | null {
   return PortAwareWorker.lastConstructed;

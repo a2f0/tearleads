@@ -3,7 +3,7 @@ import {
   type DocumentFieldValidationIssue,
   readStringDocumentField,
   type ValidatedDocumentFields,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { structuredFieldsProjector } from "../shared/documentFieldUtils";
 import type { AppDocumentProjectorDefinition } from "../types";
 

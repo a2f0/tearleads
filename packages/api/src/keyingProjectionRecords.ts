@@ -8,10 +8,10 @@ import type {
   ManagedPrincipalKind,
   ReferencedPrincipalHead,
   VerifiedAccessEvent,
-} from "@symcrypt/crypto";
-import { makeVerifiedAccessEvent } from "@symcrypt/crypto";
-import { isPlainObject } from "@symcrypt/validators/isPlainObject";
-import type { AccessEventBundleWireResponse } from "@symcrypt/validators/util";
+} from "@tearleads/crypto";
+import { makeVerifiedAccessEvent } from "@tearleads/crypto";
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
+import type { AccessEventBundleWireResponse } from "@tearleads/validators/util";
 import { projectionReferencedPrincipalHeadRecord } from "./keyingProjectionManifestRecords";
 import { isKeyingCanonicalJson } from "./utils/canonicalJson";
 

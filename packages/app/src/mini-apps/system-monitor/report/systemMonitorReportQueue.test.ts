@@ -4,7 +4,7 @@ import type {
   PendingWriteQueueItem,
   PendingWriteQueueOperation,
   SyncLaneSnapshot,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import type { SystemStatusSnapshot } from "../../../components/pane/status/useSystemStatusSnapshot";
 import {
   formatSystemMonitorReport,

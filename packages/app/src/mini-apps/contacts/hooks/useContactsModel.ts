@@ -10,7 +10,7 @@ import {
 import { useCompactRoutedMode } from "../../../navigation/useCompactRoutedMode";
 import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";
 import { useLog } from "../../../providers/logging/LogProvider";
-import { useSymCryptRuntime } from "../../../providers/sdk/SymCryptProvider";
+import { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
 import { useContacts } from "../../../stores/contacts/ContactsProvider";
 import { useContactsSidebarPanel } from "../ContactsSidebar";
 import {
@@ -260,7 +260,7 @@ function useContactDrafts(input: {
 
 export function useContactsModel(setSidebar: (sidebar: ReactNode) => void) {
   const compactRoutedMode = useCompactRoutedMode();
-  const appData = useSymCryptRuntime();
+  const appData = useTearleadsRuntime();
   const {
     createContact,
     canWrite,

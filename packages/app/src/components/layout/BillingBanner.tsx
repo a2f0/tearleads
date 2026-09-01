@@ -1,4 +1,4 @@
-import type { OrganizationBillingView } from "@symcrypt/client-sdk";
+import type { OrganizationBillingView } from "@tearleads/client-sdk";
 import { useActiveMiniAppRoute } from "../../mini-apps/miniAppLauncher";
 import { useOrganizationBilling } from "../../providers/billing/BillingProvider";
 import { BILLING_LABELS } from "../../providers/billing/billingLabels";

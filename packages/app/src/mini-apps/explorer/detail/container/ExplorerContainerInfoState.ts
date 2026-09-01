@@ -2,7 +2,7 @@ import type {
   ContainerInfo,
   ContainerShareAccessLevel,
   OrganizationDirectoryAndGroups,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { type FormEvent, useCallback, useRef, useState } from "react";
 import { EXPLORER_LABELS } from "../../labels";
 import {

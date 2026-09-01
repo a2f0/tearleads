@@ -7,10 +7,10 @@ import {
   signPrincipalState,
   toFingerprint,
   wrapDekForRecipients,
-} from "@symcrypt/crypto";
-import { bytesToBase64 } from "@symcrypt/encoding";
-import { createTestExecSql } from "@symcrypt/test-utils";
-import type { PrincipalPolicyBundleResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
+import { createTestExecSql } from "@tearleads/test-utils";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import {
   ensurePrincipalPolicyTables,
   savePrincipalPolicyBundle,

@@ -1,7 +1,7 @@
 # Re-assert the captured App Store review surface immediately after simctl takes
 # the framebuffer image. This catches a system alert or backgrounded app that
 # dimensions and alpha-channel validation cannot detect.
-appId: com.symcrypt.app
+appId: com.tearleads.app
 tags:
   - screenshots
   - subscriptions

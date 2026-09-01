@@ -1,5 +1,5 @@
-import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
-import { users } from "@symcrypt/api-shared/schema";
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import { users } from "@tearleads/api-shared/schema";
 import type {
   ContainerKekKeyring,
   ContainerKekPredecessorBridge,
@@ -9,7 +9,7 @@ import type {
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
   VerifiedPrincipalPolicy,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import {
   assertSealedContainerKekKeyringLength,
   computeContainerKekKeyringHash,
@@ -18,8 +18,8 @@ import {
   MAX_CONTAINER_KEY_EPOCH,
   normalizeContainerAccessEventBody,
   verifyContainerKekState,
-} from "@symcrypt/crypto";
-import type { ContainerMutationRequest } from "@symcrypt/validators/request";
+} from "@tearleads/crypto";
+import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import { inArray } from "drizzle-orm";
 import {
   getContainerKeyEpochKeyring,

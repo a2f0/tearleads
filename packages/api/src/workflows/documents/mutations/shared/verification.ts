@@ -1,25 +1,25 @@
 import type {
   DatabaseSession,
   DatabaseTransaction,
-} from "@symcrypt/api-shared/postgres";
+} from "@tearleads/api-shared/postgres";
 import type {
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
   VerifiedDocumentLinkSetManifest,
   VerifiedPrincipalPolicy,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import {
   computeAccessManifestHash,
   deriveDocumentLinkSetManifest,
   verifyDocumentLinkSetManifest,
   verifySignedAccessEvent,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import type {
   ContainerManifestRef,
   DocumentCreateRequest,
   DocumentLinkSetMutationRequest,
   DocumentSyncRequest,
-} from "@symcrypt/validators/request";
+} from "@tearleads/validators/request";
 import {
   getAccessManifestBundles,
   getCurrentAccessManifestHead,

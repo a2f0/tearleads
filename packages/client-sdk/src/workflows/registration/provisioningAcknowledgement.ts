@@ -2,7 +2,7 @@ import type {
   ContainerCreateWithMetadataDocumentResponse,
   DocumentCreateResponse,
   OrganizationProvisioningResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { locallyAcknowledgedContainerMutationHead } from "../../data/containers/shared/mutationAcknowledgement";
 import { assertDocumentCreateResponseMatchesPlan } from "../../data/documents/shared/responses";
 import {

@@ -2,7 +2,7 @@ import type {
   AccessEventType,
   AccessObjectKind,
   KeyingCanonicalJson,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import {
   index,
   integer,

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { createDocument, encodeVersionVector } from "@symcrypt/loro";
-import { createTestExecSql } from "@symcrypt/test-utils";
+import { createDocument, encodeVersionVector } from "@tearleads/loro";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { defaultContainerContentsPersistence } from "./containerPersistence";
 import { primeDocumentsForContainerSubtree } from "./documentPriming";

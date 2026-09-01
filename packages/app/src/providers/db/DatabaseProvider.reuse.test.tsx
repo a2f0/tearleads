@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { PERSISTENT_STORAGE_POLICY } from "@symcrypt/client-sdk/sqlite";
+import { PERSISTENT_STORAGE_POLICY } from "@tearleads/client-sdk/sqlite";
 import { act, cleanup, waitFor } from "@testing-library/react";
 import { renderDatabaseProvider } from "../../../test/helpers/databaseProviderTestHarness";
 import { createReusableSQLiteRuntimeFactory } from "../../../test/helpers/databaseRuntimeFactories";

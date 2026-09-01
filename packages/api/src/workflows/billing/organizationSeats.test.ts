@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { db } from "@symcrypt/api-shared/postgres";
+import { db } from "@tearleads/api-shared/postgres";
 import {
   organizationBilling,
   organizationBillingSeatAssignments,
@@ -8,7 +8,7 @@ import {
   organizations,
   principalMembershipProjection,
   principalStates,
-} from "@symcrypt/api-shared/schema";
+} from "@tearleads/api-shared/schema";
 import { and, eq, isNull } from "drizzle-orm";
 import invariant from "invariant";
 import { reconcileOrganizationBillingSeats } from "./organizationSeats";

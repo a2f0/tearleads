@@ -1,10 +1,10 @@
-import { wrapDekForRecipients } from "@symcrypt/crypto";
-import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
+import { wrapDekForRecipients } from "@tearleads/crypto";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import type {
   PrincipalMemberEnvelopeRequest,
   PrincipalProjectionMemberRequest,
-} from "@symcrypt/validators/request";
-import type { PrincipalMemberEnvelopeResponse } from "@symcrypt/validators/response";
+} from "@tearleads/validators/request";
+import type { PrincipalMemberEnvelopeResponse } from "@tearleads/validators/response";
 import type { TrustedUserIdentity } from "../../data/trustedUserIdentity";
 
 type PrincipalRekeyRecipient = {

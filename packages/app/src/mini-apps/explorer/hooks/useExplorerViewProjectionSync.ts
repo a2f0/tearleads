@@ -1,7 +1,7 @@
 import type {
   DocumentSummary,
   LocalProjectionView,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { useEffect, useRef } from "react";
 import {
   computeContainerMembershipSignatures,

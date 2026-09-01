@@ -1,8 +1,8 @@
-import type { DatabaseStatus, SymCrypt } from "@symcrypt/client-sdk";
+import type { DatabaseStatus, Tearleads } from "@tearleads/client-sdk";
 import type {
   DatabasePersistenceMode,
   SQLiteRuntime,
-} from "@symcrypt/client-sdk/sqlite";
+} from "@tearleads/client-sdk/sqlite";
 import type { RefObject } from "react";
 import { unknownErrorMessage } from "../../utils/unknownErrorMessage";
 import {
@@ -40,11 +40,11 @@ function isUnreadableDatabaseError(error: unknown): boolean {
 }
 
 function configureSdkSQLiteRuntime(
-  symcrypt: SymCrypt,
+  tearleads: Tearleads,
   runtime: SQLiteRuntime,
   status?: SQLiteRuntimeStatus,
 ) {
-  symcrypt.database.configure({
+  tearleads.database.configure({
     client: runtime.client,
     id: runtime.id,
     status,
@@ -55,18 +55,18 @@ function completeSQLiteRuntimeBoot(params: {
   runtime: SQLiteRuntime;
   runtimeRef: RefObject<SQLiteRuntime | null>;
   bootingRef: RefObject<boolean>;
-  symcrypt: SymCrypt;
+  tearleads: Tearleads;
   dbName: string;
   log: (message: string) => void;
 }) {
-  const { runtime, runtimeRef, bootingRef, symcrypt, dbName, log } = params;
+  const { runtime, runtimeRef, bootingRef, tearleads, dbName, log } = params;
 
   if (runtimeRef.current !== runtime) {
     return;
   }
 
   bootingRef.current = false;
-  configureSdkSQLiteRuntime(symcrypt, runtime);
+  configureSdkSQLiteRuntime(tearleads, runtime);
   log(`Database initialized successfully: ${dbName}`);
   log("Worker spawned");
 }
@@ -75,10 +75,10 @@ function failSQLiteRuntimeBoot(params: {
   runtime: SQLiteRuntime;
   runtimeRef: RefObject<SQLiteRuntime | null>;
   bootingRef: RefObject<boolean>;
-  symcrypt: SymCrypt;
+  tearleads: Tearleads;
   error: unknown;
 }) {
-  const { runtime, runtimeRef, bootingRef, symcrypt, error } = params;
+  const { runtime, runtimeRef, bootingRef, tearleads, error } = params;
 
   if (runtimeRef.current !== runtime) {
     return;
@@ -86,7 +86,7 @@ function failSQLiteRuntimeBoot(params: {
 
   bootingRef.current = false;
   console.error("Failed to initialize database worker:", error);
-  symcrypt.database.clear("error");
+  tearleads.database.clear("error");
 }
 
 interface StartSQLiteRuntimeBootParams {
@@ -117,7 +117,7 @@ interface StartSQLiteRuntimeBootParams {
   resolveCipherKey: ResolveSqliteCipherKey;
   runtimeRef: RefObject<SQLiteRuntime | null>;
   targetDbNameRef: RefObject<string>;
-  symcrypt: SymCrypt;
+  tearleads: Tearleads;
   /**
    * Reuse an already-running worker for a database-name change instead of
    * tearing it down and constructing a new one. When a live runtime exists and
@@ -143,7 +143,7 @@ interface SettleSQLiteRuntimeBootParams {
   runtimeRef: RefObject<SQLiteRuntime | null>;
   bootingRef: RefObject<boolean>;
   targetDbNameRef: RefObject<string>;
-  symcrypt: SymCrypt;
+  tearleads: Tearleads;
   dbName: string;
   persistence: DatabasePersistenceMode;
   log: (message: string) => void;
@@ -177,17 +177,17 @@ function handleSQLiteRuntimeBootFailure(
     params.bootingRef.current = false;
     console.error("Failed to reset reusable database worker:", error);
     if (params.targetDbNameRef.current !== params.dbName) {
-      params.symcrypt.database.clear("idle");
+      params.tearleads.database.clear("idle");
       params.rebootForDbName(params.targetDbNameRef.current);
     } else {
-      params.symcrypt.database.clear("error");
+      params.tearleads.database.clear("error");
     }
     return;
   }
 
   if (params.targetDbNameRef.current !== params.dbName) {
     params.bootingRef.current = false;
-    params.symcrypt.database.clear("idle");
+    params.tearleads.database.clear("idle");
     params.rebootForDbName(params.targetDbNameRef.current);
     return;
   }
@@ -220,7 +220,7 @@ function handleSQLiteRuntimeBootFailure(
     runtime: params.runtime,
     runtimeRef: params.runtimeRef,
     bootingRef: params.bootingRef,
-    symcrypt: params.symcrypt,
+    tearleads: params.tearleads,
     error,
   });
 }
@@ -232,7 +232,7 @@ function settleSQLiteRuntimeBoot(params: SettleSQLiteRuntimeBootParams) {
     runtimeRef,
     bootingRef,
     targetDbNameRef,
-    symcrypt,
+    tearleads,
     dbName,
     log,
     onBootSucceeded,
@@ -248,7 +248,7 @@ function settleSQLiteRuntimeBoot(params: SettleSQLiteRuntimeBootParams) {
       onBootSucceeded?.(dbName);
       if (targetDbNameRef.current !== dbName) {
         bootingRef.current = false;
-        symcrypt.database.clear("idle");
+        tearleads.database.clear("idle");
         rebootForDbName(targetDbNameRef.current);
         return;
       }
@@ -257,7 +257,7 @@ function settleSQLiteRuntimeBoot(params: SettleSQLiteRuntimeBootParams) {
         runtime,
         runtimeRef,
         bootingRef,
-        symcrypt,
+        tearleads,
         dbName,
         log,
       });
@@ -280,7 +280,7 @@ function startFreshSQLiteRuntimeBoot(params: StartSQLiteRuntimeBootParams) {
     resolveCipherKey,
     runtimeRef,
     targetDbNameRef,
-    symcrypt,
+    tearleads,
   } = params;
 
   bootingRef.current = true;
@@ -290,7 +290,7 @@ function startFreshSQLiteRuntimeBoot(params: StartSQLiteRuntimeBootParams) {
   try {
     const runtime = createSQLiteRuntime();
     runtimeRef.current = runtime;
-    symcrypt.database.clear("idle");
+    tearleads.database.clear("idle");
 
     settleSQLiteRuntimeBoot({
       bootGeneration: bootGenerationRef.current,
@@ -306,7 +306,7 @@ function startFreshSQLiteRuntimeBoot(params: StartSQLiteRuntimeBootParams) {
       runtimeRef,
       bootingRef,
       targetDbNameRef,
-      symcrypt,
+      tearleads,
       dbName: nextDbName,
       persistence,
       log,
@@ -319,7 +319,7 @@ function startFreshSQLiteRuntimeBoot(params: StartSQLiteRuntimeBootParams) {
   } catch (error) {
     bootingRef.current = false;
     console.error("Failed to create database worker:", error);
-    symcrypt.database.clear("error");
+    tearleads.database.clear("error");
   }
 }
 
@@ -344,14 +344,14 @@ function bootReusableSQLiteRuntimeForDbName(
     resolveCipherKey,
     runtimeRef,
     targetDbNameRef,
-    symcrypt,
+    tearleads,
   } = params;
 
   bootingRef.current = true;
   targetDbNameRef.current = nextDbName;
   currentDbNameRef.current = nextDbName;
   // Detach the outgoing client while retaining the worker privately for reuse.
-  symcrypt.database.clear("idle");
+  tearleads.database.clear("idle");
 
   const bootPromise = (async () => {
     if (resetDatabase) {
@@ -383,7 +383,7 @@ function bootReusableSQLiteRuntimeForDbName(
     runtimeRef,
     bootingRef,
     targetDbNameRef,
-    symcrypt,
+    tearleads,
     dbName: nextDbName,
     persistence,
     log,
@@ -403,7 +403,7 @@ export function startSQLiteRuntimeBoot(params: StartSQLiteRuntimeBootParams) {
     log,
     nextDbName,
     runtimeRef,
-    symcrypt,
+    tearleads,
     reuseWorker,
   } = params;
 
@@ -420,10 +420,10 @@ export function startSQLiteRuntimeBoot(params: StartSQLiteRuntimeBootParams) {
     if (currentDbNameRef.current === nextDbName) {
       if (
         !bootingRef.current &&
-        (symcrypt.database.status !== "ready" ||
-          symcrypt.database.client !== existingRuntime.client)
+        (tearleads.database.status !== "ready" ||
+          tearleads.database.client !== existingRuntime.client)
       ) {
-        configureSdkSQLiteRuntime(symcrypt, existingRuntime);
+        configureSdkSQLiteRuntime(tearleads, existingRuntime);
       }
       return;
     }
@@ -442,7 +442,7 @@ export function startSQLiteRuntimeBoot(params: StartSQLiteRuntimeBootParams) {
       existingRuntime.terminateNow();
       runtimeRef.current = null;
       currentDbNameRef.current = null;
-      symcrypt.database.clear("idle");
+      tearleads.database.clear("idle");
       startSQLiteRuntimeBoot(params);
     }
     return;

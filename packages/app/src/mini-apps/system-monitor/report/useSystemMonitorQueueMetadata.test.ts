@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import type { PendingWriteQueueItem } from "@symcrypt/client-sdk";
-import { createDomainScope } from "@symcrypt/client-sdk";
+import type { PendingWriteQueueItem } from "@tearleads/client-sdk";
+import { createDomainScope } from "@tearleads/client-sdk";
 import { selectSystemMonitorWriteQueue } from "./useSystemMonitorQueueMetadata";
 
 const QUEUED_ITEM = {

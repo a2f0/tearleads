@@ -2,14 +2,14 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import type {
   ApiDatabase,
   DatabaseTransaction,
-} from "@symcrypt/api-shared/postgres";
+} from "@tearleads/api-shared/postgres";
 import {
   type OrganizationReadModelLane,
   type OrganizationReadModelOperation,
   organizationReadModelChanges,
   organizationReadModelHeads,
   organizationRosterEntries,
-} from "@symcrypt/api-shared/schema";
+} from "@tearleads/api-shared/schema";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { isSqliteApiDatabase, lockRowForUpdate } from "../../utils/sqlDialect";
 import { pruneOrganizationReadModelChangesInTransaction } from "./readModelRetention";

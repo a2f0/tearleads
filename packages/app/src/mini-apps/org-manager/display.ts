@@ -1,7 +1,7 @@
 import type {
   OrganizationContainerGrant,
   OrganizationGroupContainer,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { ORG_MANAGER_LABELS } from "./labels";
 
 const ACCESS_LEVEL_LABELS = {

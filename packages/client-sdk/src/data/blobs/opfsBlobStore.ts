@@ -102,7 +102,7 @@ class OpfsBlobStore implements BlobStore {
 
   private async createDirectory() {
     const rootDirectory = await navigator.storage.getDirectory();
-    const appDirectory = await rootDirectory.getDirectoryHandle("symcrypt", {
+    const appDirectory = await rootDirectory.getDirectoryHandle("tearleads", {
       create: true,
     });
 
@@ -132,7 +132,7 @@ export function createOpfsBlobStore(namespace: string): BlobStore {
 
 /**
  * Permanently remove the OPFS directory backing a namespace's blob store
- * (`symcrypt/<namespace>`), discarding every stored blob for that namespace.
+ * (`tearleads/<namespace>`), discarding every stored blob for that namespace.
  * Used to forget local data on logout. No-op when OPFS is unavailable or the
  * directory was never created; never throws on a missing directory.
  */
@@ -144,7 +144,7 @@ export async function purgeOpfsBlobStore(namespace: string): Promise<void> {
   const rootDirectory = await navigator.storage.getDirectory();
   let appDirectory: FileSystemDirectoryHandle;
   try {
-    appDirectory = await rootDirectory.getDirectoryHandle("symcrypt");
+    appDirectory = await rootDirectory.getDirectoryHandle("tearleads");
   } catch (error) {
     if (error instanceof DOMException && error.name === "NotFoundError") {
       return;

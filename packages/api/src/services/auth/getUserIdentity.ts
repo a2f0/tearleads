@@ -1,5 +1,5 @@
-import { users } from "@symcrypt/api-shared/schema";
-import type { UserIdentityResponse } from "@symcrypt/validators/response";
+import { users } from "@tearleads/api-shared/schema";
+import type { UserIdentityResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import type { ApiServiceRuntime } from "../runtime";
 

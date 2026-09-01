@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
-import { bytesToBase64 } from "@symcrypt/encoding";
-import { createDocument, exportAllUpdates } from "@symcrypt/loro";
-import { execDatabaseStatement } from "@symcrypt/sqlite-worker/load-sqlite3";
-import { initTestSqliteDatabase } from "@symcrypt/test-utils";
+import { bytesToBase64 } from "@tearleads/encoding";
+import { createDocument, exportAllUpdates } from "@tearleads/loro";
+import { execDatabaseStatement } from "@tearleads/sqlite-worker/load-sqlite3";
+import { initTestSqliteDatabase } from "@tearleads/test-utils";
 import {
   readContainerMetadataValue,
   writeContainerMetadataValue,

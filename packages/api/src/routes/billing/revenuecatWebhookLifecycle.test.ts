@@ -1,5 +1,5 @@
 import { beforeAll, expect, test } from "bun:test";
-import { createTestUser } from "@symcrypt/bob-and-alice";
+import { createTestUser } from "@tearleads/bob-and-alice";
 import invariant from "invariant";
 import {
   postRevenueCatWebhook as postWebhook,

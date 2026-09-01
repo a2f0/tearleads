@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import type { DocumentSummary } from "@symcrypt/client-sdk";
+import type { DocumentSummary } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { useSelectDocumentProjection } from "./useSelectedDocumentStructuralState";
 

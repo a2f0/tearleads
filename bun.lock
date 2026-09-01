@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "symcrypt",
+      "name": "tearleads",
       "devDependencies": {
         "@biomejs/biome": "2.4.8",
         "@commitlint/cli": "20.5.0",
@@ -22,51 +22,51 @@
       },
     },
     "packages/agent-tool": {
-      "name": "@symcrypt/agent-tool",
+      "name": "@tearleads/agent-tool",
       "version": "0.1.0",
       "devDependencies": {
         "@types/bun": "catalog:",
       },
     },
     "packages/api": {
-      "name": "@symcrypt/api",
+      "name": "@tearleads/api",
       "version": "0.1.0",
       "dependencies": {
         "@aws-sdk/client-s3": "3.1049.0",
-        "@symcrypt/api-shared": "workspace:*",
-        "@symcrypt/crypto": "workspace:*",
-        "@symcrypt/encoding": "workspace:*",
-        "@symcrypt/loro": "workspace:*",
-        "@symcrypt/validators": "workspace:*",
+        "@tearleads/api-shared": "workspace:*",
+        "@tearleads/crypto": "workspace:*",
+        "@tearleads/encoding": "workspace:*",
+        "@tearleads/loro": "workspace:*",
+        "@tearleads/validators": "workspace:*",
         "drizzle-orm": "0.45.1",
         "hono": "4.7.11",
         "redis": "5.11.0",
         "zod": "catalog:",
       },
       "devDependencies": {
-        "@symcrypt/bob-and-alice": "workspace:*",
-        "@symcrypt/client-sdk": "workspace:*",
-        "@symcrypt/test-utils": "workspace:*",
+        "@tearleads/bob-and-alice": "workspace:*",
+        "@tearleads/client-sdk": "workspace:*",
+        "@tearleads/test-utils": "workspace:*",
         "@types/bun": "catalog:",
       },
     },
     "packages/api-cli": {
-      "name": "@symcrypt/api-cli",
+      "name": "@tearleads/api-cli",
       "version": "0.1.0",
       "dependencies": {
         "@aws-sdk/client-s3": "3.1049.0",
-        "@symcrypt/api-shared": "workspace:*",
+        "@tearleads/api-shared": "workspace:*",
       },
       "devDependencies": {
         "@types/bun": "catalog:",
       },
     },
     "packages/api-client": {
-      "name": "@symcrypt/api-client",
+      "name": "@tearleads/api-client",
       "version": "0.1.0",
       "dependencies": {
-        "@symcrypt/crypto": "workspace:*",
-        "@symcrypt/validators": "workspace:*",
+        "@tearleads/crypto": "workspace:*",
+        "@tearleads/validators": "workspace:*",
       },
       "devDependencies": {
         "@types/bun": "catalog:",
@@ -74,13 +74,13 @@
       },
     },
     "packages/api-shared": {
-      "name": "@symcrypt/api-shared",
+      "name": "@tearleads/api-shared",
       "version": "0.1.0",
       "dependencies": {
         "@electric-sql/pglite": "0.4.1",
         "@libsql/client": "0.17.4",
-        "@symcrypt/crypto": "workspace:*",
-        "@symcrypt/loro": "workspace:*",
+        "@tearleads/crypto": "workspace:*",
+        "@tearleads/loro": "workspace:*",
         "drizzle-orm": "0.45.1",
         "pg": "8.19.0",
       },
@@ -95,20 +95,20 @@
       "version": "0.1.0",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
-        "@symcrypt/client-sdk": "workspace:*",
-        "@symcrypt/crypto": "workspace:*",
-        "@symcrypt/encoding": "workspace:*",
-        "@symcrypt/ui": "workspace:*",
-        "@symcrypt/validators": "workspace:*",
+        "@tearleads/client-sdk": "workspace:*",
+        "@tearleads/crypto": "workspace:*",
+        "@tearleads/encoding": "workspace:*",
+        "@tearleads/ui": "workspace:*",
+        "@tearleads/validators": "workspace:*",
         "drizzle-orm": "0.45.1",
         "react": "catalog:react",
         "react-dom": "catalog:react",
       },
       "devDependencies": {
         "@happy-dom/global-registrator": "catalog:testing",
-        "@symcrypt/loro": "workspace:*",
-        "@symcrypt/sqlite-worker": "workspace:*",
-        "@symcrypt/test-utils": "workspace:*",
+        "@tearleads/loro": "workspace:*",
+        "@tearleads/sqlite-worker": "workspace:*",
+        "@tearleads/test-utils": "workspace:*",
         "@testing-library/react": "catalog:testing",
         "@types/bun": "catalog:",
         "@types/react": "catalog:react",
@@ -134,9 +134,9 @@
         "@capawesome/capacitor-file-picker": "8.0.2",
         "@capgo/capacitor-native-biometric": "8.4.5",
         "@revenuecat/purchases-capacitor": "13.2.1",
-        "@symcrypt/client-sdk": "workspace:*",
-        "@symcrypt/encoding": "workspace:*",
-        "@symcrypt/validators": "workspace:*",
+        "@tearleads/client-sdk": "workspace:*",
+        "@tearleads/encoding": "workspace:*",
+        "@tearleads/validators": "workspace:*",
         "app": "workspace:*",
         "react": "catalog:react",
         "react-dom": "catalog:react",
@@ -145,7 +145,7 @@
         "@capacitor/android": "8.4.0",
         "@capacitor/cli": "8.4.0",
         "@capacitor/ios": "8.4.0",
-        "@symcrypt/sqlite-worker": "workspace:*",
+        "@tearleads/sqlite-worker": "workspace:*",
         "@types/bun": "catalog:",
         "@types/react": "catalog:react",
         "@types/react-dom": "catalog:react",
@@ -158,8 +158,8 @@
       "name": "app-electrobun",
       "version": "0.0.1",
       "dependencies": {
-        "@symcrypt/client-sdk": "workspace:*",
-        "@symcrypt/sqlite-worker": "workspace:*",
+        "@tearleads/client-sdk": "workspace:*",
+        "@tearleads/sqlite-worker": "workspace:*",
         "app": "workspace:*",
         "electrobun": "1.18.1",
         "react-dom": "catalog:react",
@@ -178,8 +178,8 @@
       "dependencies": {
         "@revenuecat/purchases-js": "1.47.0",
         "@stripe/stripe-js": "8.0.0",
-        "@symcrypt/client-sdk": "workspace:*",
-        "@symcrypt/sqlite-worker": "workspace:*",
+        "@tearleads/client-sdk": "workspace:*",
+        "@tearleads/sqlite-worker": "workspace:*",
         "app": "workspace:*",
         "react-dom": "catalog:react",
       },
@@ -190,34 +190,34 @@
       },
     },
     "packages/bob-and-alice": {
-      "name": "@symcrypt/bob-and-alice",
+      "name": "@tearleads/bob-and-alice",
       "version": "0.1.0",
       "dependencies": {
-        "@symcrypt/crypto": "workspace:*",
+        "@tearleads/crypto": "workspace:*",
       },
       "devDependencies": {
         "@types/bun": "catalog:",
       },
     },
     "packages/client-sdk": {
-      "name": "@symcrypt/client-sdk",
+      "name": "@tearleads/client-sdk",
       "version": "0.1.0",
       "dependencies": {
-        "@symcrypt/api-client": "workspace:*",
-        "@symcrypt/crypto": "workspace:*",
-        "@symcrypt/encoding": "workspace:*",
-        "@symcrypt/loro": "workspace:*",
-        "@symcrypt/sqlite-worker": "workspace:*",
-        "@symcrypt/validators": "workspace:*",
+        "@tearleads/api-client": "workspace:*",
+        "@tearleads/crypto": "workspace:*",
+        "@tearleads/encoding": "workspace:*",
+        "@tearleads/loro": "workspace:*",
+        "@tearleads/sqlite-worker": "workspace:*",
+        "@tearleads/validators": "workspace:*",
         "drizzle-orm": "0.45.1",
       },
       "devDependencies": {
-        "@symcrypt/test-utils": "workspace:*",
+        "@tearleads/test-utils": "workspace:*",
         "@types/bun": "catalog:",
       },
     },
     "packages/code-assist": {
-      "name": "@symcrypt/code-assist",
+      "name": "@tearleads/code-assist",
       "version": "0.1.0",
       "dependencies": {
         "@octokit/auth-app": "8.2.0",
@@ -230,31 +230,31 @@
       },
     },
     "packages/crypto": {
-      "name": "@symcrypt/crypto",
+      "name": "@tearleads/crypto",
       "version": "0.1.0",
       "dependencies": {
         "@noble/hashes": "2.0.1",
         "@noble/post-quantum": "0.5.4",
         "@scure/bip39": "2.2.0",
-        "@symcrypt/encoding": "workspace:*",
-        "@symcrypt/validators": "workspace:*",
+        "@tearleads/encoding": "workspace:*",
+        "@tearleads/validators": "workspace:*",
       },
       "devDependencies": {
         "@types/bun": "catalog:",
       },
     },
     "packages/encoding": {
-      "name": "@symcrypt/encoding",
+      "name": "@tearleads/encoding",
       "version": "0.1.0",
       "devDependencies": {
         "@types/bun": "catalog:",
       },
     },
     "packages/loro": {
-      "name": "@symcrypt/loro",
+      "name": "@tearleads/loro",
       "version": "0.1.0",
       "dependencies": {
-        "@symcrypt/encoding": "workspace:*",
+        "@tearleads/encoding": "workspace:*",
         "drizzle-orm": "0.45.1",
         "loro-crdt": "catalog:",
       },
@@ -263,37 +263,37 @@
       },
     },
     "packages/sqlite-instance": {
-      "name": "@symcrypt/sqlite-instance",
+      "name": "@tearleads/sqlite-instance",
       "devDependencies": {
         "@sqlite.org/sqlite-wasm": "3.51.2-build8",
         "@types/bun": "catalog:",
       },
     },
     "packages/sqlite-worker": {
-      "name": "@symcrypt/sqlite-worker",
+      "name": "@tearleads/sqlite-worker",
       "dependencies": {
-        "@symcrypt/sqlite-instance": "workspace:*",
+        "@tearleads/sqlite-instance": "workspace:*",
       },
       "devDependencies": {
         "@types/bun": "catalog:",
       },
     },
     "packages/test-utils": {
-      "name": "@symcrypt/test-utils",
+      "name": "@tearleads/test-utils",
       "version": "0.1.0",
       "dependencies": {
-        "@symcrypt/api-client": "workspace:*",
-        "@symcrypt/crypto": "workspace:*",
-        "@symcrypt/encoding": "workspace:*",
-        "@symcrypt/sqlite-worker": "workspace:*",
-        "@symcrypt/validators": "workspace:*",
+        "@tearleads/api-client": "workspace:*",
+        "@tearleads/crypto": "workspace:*",
+        "@tearleads/encoding": "workspace:*",
+        "@tearleads/sqlite-worker": "workspace:*",
+        "@tearleads/validators": "workspace:*",
       },
       "devDependencies": {
         "@types/bun": "catalog:",
       },
     },
     "packages/ui": {
-      "name": "@symcrypt/ui",
+      "name": "@tearleads/ui",
       "version": "0.1.0",
       "dependencies": {
         "react": "catalog:react",
@@ -303,7 +303,7 @@
       },
     },
     "packages/validators": {
-      "name": "@symcrypt/validators",
+      "name": "@tearleads/validators",
       "version": "0.1.0",
       "dependencies": {
         "zod": "catalog:",
@@ -320,7 +320,7 @@
       "dependencies": {
         "@astrojs/react": "5.0.6",
         "@phosphor-icons/react": "2.1.10",
-        "@symcrypt/ui": "workspace:*",
+        "@tearleads/ui": "workspace:*",
         "astro": "6.4.0",
         "react": "catalog:react",
         "react-dom": "catalog:react",
@@ -1031,37 +1031,37 @@
 
     "@stripe/stripe-js": ["@stripe/stripe-js@8.0.0", "", {}, "sha512-dLvD55KT1cBmrqzgYRgY42qNcw6zW4HS5oRZs0xRvHw9gBWig5yDnWNop/E+/t2JK+OZO30zsnupVBN2MqW2mg=="],
 
-    "@symcrypt/agent-tool": ["@symcrypt/agent-tool@workspace:packages/agent-tool"],
+    "@tearleads/agent-tool": ["@tearleads/agent-tool@workspace:packages/agent-tool"],
 
-    "@symcrypt/api": ["@symcrypt/api@workspace:packages/api"],
+    "@tearleads/api": ["@tearleads/api@workspace:packages/api"],
 
-    "@symcrypt/api-cli": ["@symcrypt/api-cli@workspace:packages/api-cli"],
+    "@tearleads/api-cli": ["@tearleads/api-cli@workspace:packages/api-cli"],
 
-    "@symcrypt/api-client": ["@symcrypt/api-client@workspace:packages/api-client"],
+    "@tearleads/api-client": ["@tearleads/api-client@workspace:packages/api-client"],
 
-    "@symcrypt/api-shared": ["@symcrypt/api-shared@workspace:packages/api-shared"],
+    "@tearleads/api-shared": ["@tearleads/api-shared@workspace:packages/api-shared"],
 
-    "@symcrypt/bob-and-alice": ["@symcrypt/bob-and-alice@workspace:packages/bob-and-alice"],
+    "@tearleads/bob-and-alice": ["@tearleads/bob-and-alice@workspace:packages/bob-and-alice"],
 
-    "@symcrypt/client-sdk": ["@symcrypt/client-sdk@workspace:packages/client-sdk"],
+    "@tearleads/client-sdk": ["@tearleads/client-sdk@workspace:packages/client-sdk"],
 
-    "@symcrypt/code-assist": ["@symcrypt/code-assist@workspace:packages/code-assist"],
+    "@tearleads/code-assist": ["@tearleads/code-assist@workspace:packages/code-assist"],
 
-    "@symcrypt/crypto": ["@symcrypt/crypto@workspace:packages/crypto"],
+    "@tearleads/crypto": ["@tearleads/crypto@workspace:packages/crypto"],
 
-    "@symcrypt/encoding": ["@symcrypt/encoding@workspace:packages/encoding"],
+    "@tearleads/encoding": ["@tearleads/encoding@workspace:packages/encoding"],
 
-    "@symcrypt/loro": ["@symcrypt/loro@workspace:packages/loro"],
+    "@tearleads/loro": ["@tearleads/loro@workspace:packages/loro"],
 
-    "@symcrypt/sqlite-instance": ["@symcrypt/sqlite-instance@workspace:packages/sqlite-instance"],
+    "@tearleads/sqlite-instance": ["@tearleads/sqlite-instance@workspace:packages/sqlite-instance"],
 
-    "@symcrypt/sqlite-worker": ["@symcrypt/sqlite-worker@workspace:packages/sqlite-worker"],
+    "@tearleads/sqlite-worker": ["@tearleads/sqlite-worker@workspace:packages/sqlite-worker"],
 
-    "@symcrypt/test-utils": ["@symcrypt/test-utils@workspace:packages/test-utils"],
+    "@tearleads/test-utils": ["@tearleads/test-utils@workspace:packages/test-utils"],
 
-    "@symcrypt/ui": ["@symcrypt/ui@workspace:packages/ui"],
+    "@tearleads/ui": ["@tearleads/ui@workspace:packages/ui"],
 
-    "@symcrypt/validators": ["@symcrypt/validators@workspace:packages/validators"],
+    "@tearleads/validators": ["@tearleads/validators@workspace:packages/validators"],
 
     "@testing-library/dom": ["@testing-library/dom@10.4.1", "", { "dependencies": { "@babel/code-frame": "^7.10.4", "@babel/runtime": "^7.12.5", "@types/aria-query": "^5.0.1", "aria-query": "5.3.0", "dom-accessibility-api": "^0.5.9", "lz-string": "^1.5.0", "picocolors": "1.1.1", "pretty-format": "^27.0.2" } }, "sha512-o4PXJQidqJl82ckFaXUeoAW+XysPLauYI43Abki5hABd853iMhitooc6znOnczgbTYmEP6U6/y1ZyKAIsvMKGg=="],
 

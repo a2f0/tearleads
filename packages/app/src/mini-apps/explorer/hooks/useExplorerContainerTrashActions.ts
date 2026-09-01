@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import type { RuntimeSnapshot } from "../../../providers/sdk/SymCryptProvider";
+import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import {
   isExplorerContainerUnderTrash,
   resolveExplorerDeleteTrashTarget,

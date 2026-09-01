@@ -1,12 +1,12 @@
-import { containerSyncTombstones } from "@symcrypt/api-shared/schema";
-import { isContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
+import { containerSyncTombstones } from "@tearleads/api-shared/schema";
+import { isContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type {
   ContainerSummary,
   ContainerSyncTombstone,
   ListContainersResponse,
   SyncWatermark,
-} from "@symcrypt/validators/response";
-import { isUuidV4String } from "@symcrypt/validators/util";
+} from "@tearleads/validators/response";
+import { isUuidV4String } from "@tearleads/validators/util";
 import { type SQL, sql } from "drizzle-orm";
 import { textExpression } from "../../utils/sqlDialect";
 import {

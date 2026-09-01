@@ -4,7 +4,7 @@
    and expanding, which `vh` does not — and the explicit height is what makes it
    do so, since `inset: 0` alone resolves against the *large* viewport on iOS.
    The height wins over `bottom` while both are set, so the safe-area padding
-   only stays inside the screen because @symcrypt/ui's global
+   only stays inside the screen because @tearleads/ui's global
    `* { box-sizing: border-box }` counts it within the 100dvh. */
 .mini-app-image-viewer {
   position: fixed;

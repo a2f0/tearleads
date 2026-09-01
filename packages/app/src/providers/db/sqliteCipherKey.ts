@@ -1,4 +1,4 @@
-import type { LocalKeyring } from "@symcrypt/client-sdk";
+import type { LocalKeyring } from "@tearleads/client-sdk";
 import type { LocalKeyringFactory } from "../local-keyring/localKeyringLockSupport";
 import { LOCAL_SQLITE_SCOPE_NAMESPACE } from "../local-keyring/localKeyringScopes";
 

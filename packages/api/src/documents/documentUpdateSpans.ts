@@ -1,6 +1,6 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
-import { documentUpdateSpans } from "@symcrypt/api-shared/schema";
-import { listVersionVectorSpans } from "@symcrypt/loro";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import { documentUpdateSpans } from "@tearleads/api-shared/schema";
+import { listVersionVectorSpans } from "@tearleads/loro";
 
 interface DocumentUpdateSpanSource {
   id: string;

@@ -1,5 +1,5 @@
-import type { ContainerNode } from "@symcrypt/client-sdk";
-import type { RuntimeSnapshot } from "../../../providers/sdk/SymCryptProvider";
+import type { ContainerNode } from "@tearleads/client-sdk";
+import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import { usePrimaryLocalOrganization } from "../../../providers/sdk/usePrimaryLocalOrganization";
 import { resolveExplorerPrimaryOrganizationId } from "../model/primaryOrganization";
 

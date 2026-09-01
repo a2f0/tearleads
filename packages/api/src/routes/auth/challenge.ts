@@ -1,11 +1,11 @@
 import {
   challengeOperation,
   operationRoutePath,
-} from "@symcrypt/validators/operation";
+} from "@tearleads/validators/operation";
 import type {
   ChallengeErrorResponse,
   ChallengeResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { Hono } from "hono";
 import {
   CreateChallengeError,

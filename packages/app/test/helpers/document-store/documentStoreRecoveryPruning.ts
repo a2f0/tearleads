@@ -1,12 +1,12 @@
-import type { DocumentsPersistence } from "@symcrypt/client-sdk";
-import { base64ToBytes } from "@symcrypt/encoding";
+import type { DocumentsPersistence } from "@tearleads/client-sdk";
+import { base64ToBytes } from "@tearleads/encoding";
 import {
   createDocument,
   exportFullHistoryIdentity,
   importSnapshot,
   satisfiesVersionVector,
   updateMatchesDocumentHistory,
-} from "@symcrypt/loro";
+} from "@tearleads/loro";
 
 interface RecoveryPendingUpdate {
   id: string;

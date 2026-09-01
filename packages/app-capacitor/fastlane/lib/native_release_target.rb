@@ -6,23 +6,23 @@ require 'uri'
 NATIVE_RELEASE_TARGETS = {
   'production' => {
     android_build_variant: 'release',
-    api_host: 'api.symcrypt.com',
-    app_identifier: 'com.symcrypt.app',
+    api_host: 'api.tearleads.com',
+    app_identifier: 'com.tearleads.app',
     capacitor_sync_script: 'cap:sync:release',
-    ios_archive_name: 'SymCrypt.xcarchive',
+    ios_archive_name: 'Tearleads.xcarchive',
     ios_configuration: 'Release',
-    ios_ipa_name: 'SymCrypt.ipa',
+    ios_ipa_name: 'Tearleads.ipa',
     ios_output_directory: 'output',
     ios_scheme: 'App'
   }.freeze,
   'staging' => {
     android_build_variant: 'staging',
-    api_host: 'api-staging.symcrypt.com',
-    app_identifier: 'com.symcrypt.staging.app',
+    api_host: 'api-staging.tearleads.com',
+    app_identifier: 'com.tearleads.staging.app',
     capacitor_sync_script: 'cap:sync:staging',
-    ios_archive_name: 'SymCrypt-Staging.xcarchive',
+    ios_archive_name: 'Tearleads-Staging.xcarchive',
     ios_configuration: 'Release-Staging',
-    ios_ipa_name: 'SymCrypt-Staging.ipa',
+    ios_ipa_name: 'Tearleads-Staging.ipa',
     ios_output_directory: 'output/staging',
     ios_scheme: 'App-Staging'
   }.freeze

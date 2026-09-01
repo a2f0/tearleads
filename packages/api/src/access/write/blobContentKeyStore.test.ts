@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { db } from "@symcrypt/api-shared/postgres";
+import { db } from "@tearleads/api-shared/postgres";
 import {
   accessEvents,
   accessManifestDocumentLinkProjection,
@@ -7,11 +7,11 @@ import {
   accessManifests,
   attachmentBindings,
   containerKeyEpochs,
-} from "@symcrypt/api-shared/schema";
+} from "@tearleads/api-shared/schema";
 import {
   computeBlobContentKeyTargetHash,
   computeKeyingDomainHash,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
 import {
   type BlobContentKeyTargetEnvelope,
@@ -24,7 +24,7 @@ import {
 } from "./blobContentKeyStore";
 
 async function hashOf(label: string): Promise<string> {
-  return computeKeyingDomainHash("symcrypt.keying.access-event-body", {
+  return computeKeyingDomainHash("tearleads.keying.access-event-body", {
     label,
   });
 }

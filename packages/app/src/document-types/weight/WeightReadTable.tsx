@@ -132,7 +132,7 @@ export function WeightReadTable(params: {
       actionsAriaLabel={(row) => `Entry ${row.index + 1} actions`}
       ariaLabel="Entries"
       buildRows={buildWeightRows}
-      columnStorageKey="symcrypt.weight.entries:hidden-columns:v2"
+      columnStorageKey="tearleads.weight.entries:hidden-columns:v2"
       currentAuthorId={currentAuthorId}
       detailFields={toWeightEntryDetailFields}
       detailLabel="Attribution"

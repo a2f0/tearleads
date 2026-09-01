@@ -1,6 +1,6 @@
-import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
-import type { DocumentSyncRequest } from "@symcrypt/validators/request";
-import { DOCUMENT_SYNC_ERROR_CODES } from "@symcrypt/validators/response";
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import type { DocumentSyncRequest } from "@tearleads/validators/request";
+import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import {
   getDocumentContentKeyBundle,
   getLatestDocumentContentKeyEpoch,

@@ -1,11 +1,11 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
-import { attachmentBindings } from "@symcrypt/api-shared/schema";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import { attachmentBindings } from "@tearleads/api-shared/schema";
 import type {
   DocumentLinkSetManifestState,
   ReferencedPrincipalHead,
   VerifiedPrincipalPolicy,
-} from "@symcrypt/crypto";
-import type { ReferencedPrincipalStateResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
 import { and, eq, isNull } from "drizzle-orm";
 import {
   getAccessManifestBundle,

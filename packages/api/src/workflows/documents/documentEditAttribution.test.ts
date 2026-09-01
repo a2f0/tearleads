@@ -1,22 +1,22 @@
 import { expect, test } from "bun:test";
-import { db } from "@symcrypt/api-shared/postgres";
+import { db } from "@tearleads/api-shared/postgres";
 import {
   documentAuditCheckpoints,
   documentContentWriteHeaders,
   documents,
   documentUpdateSpans,
   documentUpdates,
-} from "@symcrypt/api-shared/schema";
+} from "@tearleads/api-shared/schema";
 import type {
   ContentRecordEncryptionSuite,
   WriteHeader,
-} from "@symcrypt/crypto";
-import { computeDocumentContentRecordMetadataHash } from "@symcrypt/crypto";
+} from "@tearleads/crypto";
+import { computeDocumentContentRecordMetadataHash } from "@tearleads/crypto";
 import {
   createDocument,
   emptyVersionVector,
   encodeVersionVector,
-} from "@symcrypt/loro";
+} from "@tearleads/loro";
 import { eq } from "drizzle-orm";
 import {
   computeDocumentEditAttribution,

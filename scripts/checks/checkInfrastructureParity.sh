@@ -41,16 +41,35 @@ assert_api_deploy_ordering() {
   local start_line
 
   verify_line="$(awk 'index($0, "test -x") { print NR; exit }' "$deploy_file")"
-  stop_line="$(awk 'index($0, "systemctl stop symcrypt-api") { print NR; exit }' "$deploy_file")"
+  stop_line="$(awk 'index($0, "systemctl stop tearleads-api") { print NR; exit }' "$deploy_file")"
   install_line="$(awk 'index($0, "mv -f") { print NR; exit }' "$deploy_file")"
-  migration_line="$(awk 'index($0, "symcrypt-api-cli migrate") { print NR; exit }' "$deploy_file")"
-  start_line="$(awk 'index($0, "systemctl start symcrypt-api") { print NR; exit }' "$deploy_file")"
+  migration_line="$(awk 'index($0, "tearleads-api-cli migrate") { print NR; exit }' "$deploy_file")"
+  start_line="$(awk 'index($0, "systemctl start tearleads-api") { print NR; exit }' "$deploy_file")"
 
   if [ -z "$verify_line" ] || [ -z "$stop_line" ] || [ -z "$install_line" ] ||
     [ -z "$migration_line" ] || [ -z "$start_line" ] ||
     [ "$verify_line" -ge "$stop_line" ] || [ "$stop_line" -ge "$install_line" ] ||
     [ "$install_line" -ge "$migration_line" ] || [ "$migration_line" -ge "$start_line" ]; then
     echo "ERROR: API deploy must verify staged binaries, stop writers, install, migrate, and restart in that order: $deploy_file" >&2
+    return 1
+  fi
+}
+
+assert_superseded_timer_ordering() {
+  local cleanup_file="$REPO_ROOT/ansible/playbooks/tasks/removeSupersededSymCryptDeployment.yml"
+  local timer_stop_line
+  local service_stop_line
+  local unit_removal_line
+
+  timer_stop_line="$(awk 'index($0, "Stop and disable superseded SymCrypt timers") { print NR; exit }' "$cleanup_file")"
+  service_stop_line="$(awk 'index($0, "Stop and disable superseded SymCrypt services") { print NR; exit }' "$cleanup_file")"
+  unit_removal_line="$(awk 'index($0, "Remove superseded SymCrypt systemd unit files") { print NR; exit }' "$cleanup_file")"
+
+  if [ -z "$timer_stop_line" ] || [ -z "$service_stop_line" ] ||
+    [ -z "$unit_removal_line" ] ||
+    [ "$timer_stop_line" -ge "$service_stop_line" ] ||
+    [ "$service_stop_line" -ge "$unit_removal_line" ]; then
+    echo "ERROR: Superseded SymCrypt timers must stop before services and unit removal." >&2
     return 1
   fi
 }
@@ -137,6 +156,7 @@ assert_api_deploy_ordering \
   "$REPO_ROOT/packages/api/scripts/deployStagingApi.sh"
 assert_api_deploy_ordering \
   "$REPO_ROOT/packages/api/scripts/deployProductionApi.sh"
+assert_superseded_timer_ordering
 assert_document_sync_ingress_cors
 
 echo "Infrastructure tier parity passed."

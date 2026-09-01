@@ -3,7 +3,7 @@ import {
   type DocumentFieldValidationIssue,
   type DocumentRowSummary,
   readStringDocumentField,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import type { AppDocumentProjectorDefinition } from "../types";
 
 export const BLOOD_PRESSURE_DOCUMENT_KIND = "blood_pressure";

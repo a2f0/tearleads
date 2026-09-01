@@ -2,7 +2,7 @@ import {
   type Documents,
   getRosterProfileDocumentLocalId,
   type OrganizationDirectoryAndGroups,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import {
   getLocalRosterProfileDisplayNames,
   getRosterProfileBindingsByLocalId,

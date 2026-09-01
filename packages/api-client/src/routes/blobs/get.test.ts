@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { getBlobBytesOperation } from "@symcrypt/validators/operation";
+import { getBlobBytesOperation } from "@tearleads/validators/operation";
 import type {
   RequestFailure,
   ResponseRequestFn,
@@ -31,9 +31,9 @@ function mockRequest(response: Response): ResponseRequestFn {
 }
 
 const BLOB_HEADERS = (byteLength: number): Record<string, string> => ({
-  "X-SymCrypt-Blob-Id": "blob-1",
-  "X-SymCrypt-Blob-Byte-Length": String(byteLength),
-  "X-SymCrypt-Blob-Sha256": "sha256-1",
+  "X-Tearleads-Blob-Id": "blob-1",
+  "X-Tearleads-Blob-Byte-Length": String(byteLength),
+  "X-Tearleads-Blob-Sha256": "sha256-1",
 });
 
 test("uses the streaming response body when present (web / WKWebView fetch)", async () => {

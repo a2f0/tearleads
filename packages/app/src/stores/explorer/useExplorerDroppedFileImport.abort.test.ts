@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { StoredDocumentKind } from "@symcrypt/client-sdk";
+import type { StoredDocumentKind } from "@tearleads/client-sdk";
 import { importExplorerDroppedFiles } from "./useExplorerDroppedFileImport";
 
 const testImportLabels = {

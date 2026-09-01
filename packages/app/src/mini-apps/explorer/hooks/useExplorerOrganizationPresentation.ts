@@ -1,11 +1,11 @@
 import {
   deriveOrganizationRosterProfileContainerSystemSlot,
   type OrganizationDirectoryAndGroups,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { type RefObject, useCallback, useLayoutEffect, useRef } from "react";
-import type { RuntimeSnapshot } from "../../../providers/sdk/SymCryptProvider";
-import { useSymCrypt } from "../../../providers/sdk/SymCryptProvider";
-import { useSymCryptExternalStoreSnapshot } from "../../../providers/sdk/useSymCryptSubscription";
+import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
+import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
+import { useTearleadsExternalStoreSnapshot } from "../../../providers/sdk/useTearleadsSubscription";
 import { useDeviceFirstContainerContents } from "../../../stores/device-first/DeviceFirstProvider";
 import {
   type ExplorerAttributionHydrationDocumentSelection,
@@ -63,7 +63,7 @@ function selectionLedgerScopesMatch(
   );
 }
 
-type SymCryptClient = ReturnType<typeof useSymCrypt>;
+type TearleadsClient = ReturnType<typeof useTearleads>;
 type ContainerStore = ReturnType<
   typeof useDeviceFirstContainerContents
 >["containerStore"];
@@ -82,7 +82,7 @@ interface ProfileHydrationRequest {
     string,
     ExplorerAttributionHydrationDocumentSelection
   >;
-  readonly symcrypt: SymCryptClient;
+  readonly tearleads: TearleadsClient;
 }
 
 const MAX_PROFILE_HYDRATION_ATTEMPTS = 3;
@@ -141,7 +141,7 @@ async function hydrateTargetWithRetries(
     try {
       const completed = await hydrateExplorerAttributionProfileDocument({
         containerId,
-        documents: input.symcrypt.documents,
+        documents: input.tearleads.documents,
         organizationId: input.organizationId,
         signal: input.abortSignal,
         target,
@@ -150,7 +150,7 @@ async function hydrateTargetWithRetries(
         return true;
       }
     } catch (error) {
-      input.symcrypt.logError(
+      input.tearleads.logError(
         "Failed to hydrate explorer attribution roster profile",
         error,
       );
@@ -203,7 +203,7 @@ async function requestExplorerAttributionProfileHydration(
       setTargetReservations(targets, input.requestedBindingKeys, false);
     }
   } catch (error) {
-    input.symcrypt.logError(
+    input.tearleads.logError(
       "Failed to hydrate explorer attribution roster profiles",
       error,
     );
@@ -319,9 +319,9 @@ interface ExplorerAttributionProfileHydrationInput {
 export function useExplorerAttributionProfileHydration(
   input: ExplorerAttributionProfileHydrationInput,
 ): ExplorerAttributionProfileHydrationRequester {
-  const symcrypt = useSymCrypt();
+  const tearleads = useTearleads();
   const { containerStore } = useDeviceFirstContainerContents();
-  const containerSnapshot = useSymCryptExternalStoreSnapshot(containerStore);
+  const containerSnapshot = useTearleadsExternalStoreSnapshot(containerStore);
   const requestedBindingKeysRef = useRef(new Set<string>());
   const abortControllerRef = useRef(new AbortController());
   const selectionsByDocumentIdRef = useRef(
@@ -383,7 +383,7 @@ export function useExplorerAttributionProfileHydration(
         },
         requestedBindingKeys: requestedBindingKeysRef.current,
         selectionsByDocumentId: selectionsByDocumentIdRef.current,
-        symcrypt,
+        tearleads,
       });
     },
     [
@@ -397,7 +397,7 @@ export function useExplorerAttributionProfileHydration(
       input.readModelProjection,
       organizationId,
       syncPrerequisitesReady,
-      symcrypt,
+      tearleads,
       userId,
     ],
   );

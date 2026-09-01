@@ -8,8 +8,8 @@
 
 /* On the muted footer surface the frame's default #fff hover is nearly
    invisible; use the shared emphasis chip (and pair keyboard focus). */
-.pane-footer .symcrypt-action-button:hover,
-.pane-footer .symcrypt-action-button:focus-visible {
+.pane-footer .tearleads-action-button:hover,
+.pane-footer .tearleads-action-button:focus-visible {
   background: var(--emphasis-surface);
   color: var(--emphasis-text);
 }
@@ -24,7 +24,7 @@
   line-height: 1;
 }
 
-/* Icon-only "Start"-style button: the SymCrypt mark replaces the text label,
+/* Icon-only "Start"-style button: the Tearleads mark replaces the text label,
    matching the app's mobile drawer button (a square, borderless glyph over the
    footer) rather than the bordered text chips. */
 .pane-footer-menu-button {
@@ -37,8 +37,8 @@
   border: 0;
   /* Resting logo tones, theme-adaptive — mirror the mobile menu button so the
      mark stays legible on the muted footer surface in both themes. */
-  --symcrypt-logo-secondary: var(--color-dark);
-  --symcrypt-logo-primary: color-mix(
+  --tearleads-logo-secondary: var(--color-dark);
+  --tearleads-logo-primary: color-mix(
     in srgb,
     var(--color-dark) 62%,
     var(--color-muted)
@@ -55,12 +55,12 @@
 .pane-footer-menu-button:hover,
 .pane-footer-menu-button:focus-visible,
 .pane-footer-menu-button[aria-expanded="true"] {
-  --symcrypt-logo-primary: color-mix(
+  --tearleads-logo-primary: color-mix(
     in srgb,
     var(--emphasis-text) 62%,
     var(--emphasis-surface)
   );
-  --symcrypt-logo-secondary: var(--emphasis-text);
+  --tearleads-logo-secondary: var(--emphasis-text);
 }
 
 .pane-footer-menu-logo {

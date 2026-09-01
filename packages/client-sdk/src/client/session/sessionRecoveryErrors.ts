@@ -1,4 +1,4 @@
-import type { OrganizationBillingStatus } from "@symcrypt/validators/response";
+import type { OrganizationBillingStatus } from "@tearleads/validators/response";
 
 /** Recovery provisioned a replacement that must be activated before rebind. */
 export class PurgedOrganizationRecoveryBillingRequiredError extends Error {

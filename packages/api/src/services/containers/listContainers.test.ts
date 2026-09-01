@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
-import { db } from "@symcrypt/api-shared/postgres";
+import { db } from "@tearleads/api-shared/postgres";
 import {
   containers,
   organizationBilling,
   organizations,
   users,
-} from "@symcrypt/api-shared/schema";
-import { createTestUser } from "@symcrypt/bob-and-alice";
+} from "@tearleads/api-shared/schema";
+import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   type AccessEvent,
   type ContainerAccessManifestState,
@@ -22,8 +22,8 @@ import {
   toFingerprint,
   type UnsignedAccessEvent,
   type VerifiedContainerAccessManifest,
-} from "@symcrypt/crypto";
-import { bytesToBase64 } from "@symcrypt/encoding";
+} from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import { createPrincipalMemberEnvelopes } from "../../../test/helpers/principalMemberEnvelopes";
 import {
   createProjectionWithAdminSigner,

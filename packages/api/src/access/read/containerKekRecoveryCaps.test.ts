@@ -1,20 +1,20 @@
 import { expect, test } from "bun:test";
-import { db } from "@symcrypt/api-shared/postgres";
+import { db } from "@tearleads/api-shared/postgres";
 import {
   containerKeyEpochs,
   containerKeyWraps,
-} from "@symcrypt/api-shared/schema";
-import { recoverKeyringEntryFromWraps } from "@symcrypt/client-sdk";
+} from "@tearleads/api-shared/schema";
+import { recoverKeyringEntryFromWraps } from "@tearleads/client-sdk";
 import {
   computeContainerKekMaterialId,
   generateKemSeedAndKeyPair,
   wrapDekForRecipients,
-} from "@symcrypt/crypto";
-import { bytesToBase64 } from "@symcrypt/encoding";
+} from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
   CONTAINER_KEK_LOG_PRINCIPAL_SCOPE_LIMIT,
   CONTAINER_KEK_WRAPS_PER_EPOCH_LIMIT,
-} from "@symcrypt/validators/util";
+} from "@tearleads/validators/util";
 import {
   listContainerKeyWrapsByEpochId,
   toContainerKeyWrap,

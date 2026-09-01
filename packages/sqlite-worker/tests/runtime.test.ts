@@ -304,7 +304,7 @@ test("createModuleDatabaseRuntime creates a shared module worker when supplied",
 
   expect(MockSharedWorker.lastScriptUrl).toBe("/custom-worker.js");
   expect(MockSharedWorker.lastOptions).toEqual({
-    name: "symcrypt-sqlite-worker",
+    name: "tearleads-sqlite-worker",
     type: "module",
   });
   expect(port?.started).toBe(true);

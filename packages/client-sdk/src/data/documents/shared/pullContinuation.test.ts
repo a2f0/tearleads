@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { MAX_DOCUMENT_SYNC_PULL_CURSOR_LENGTH } from "@symcrypt/validators/util";
+import { MAX_DOCUMENT_SYNC_PULL_CURSOR_LENGTH } from "@tearleads/validators/util";
 import {
   deserializeDocumentSyncPullContinuation,
   serializeDocumentSyncPullContinuation,

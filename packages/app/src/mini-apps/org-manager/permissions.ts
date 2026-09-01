@@ -2,7 +2,7 @@ import type {
   OrganizationDirectory,
   OrganizationDirectoryUser,
   OrganizationGroupMembers,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 
 // A roster user can be disabled when disabling is available at all and the
 // target is an active user other than the operator themselves.

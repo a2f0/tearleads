@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@symcrypt/test-utils";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { createPrincipalPolicyBundle } from "../../../test/helpers/policyCacheFixtures";
 import { principalPolicyOrganizations } from "../sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../sqlite/sqlitePersistenceRuntime";

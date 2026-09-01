@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
-import type { OrganizationBilling } from "@symcrypt/client-sdk";
-import { SyncBillingGate } from "@symcrypt/client-sdk";
+import type { OrganizationBilling } from "@tearleads/client-sdk";
+import { SyncBillingGate } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { useOtherOrganizationBillingBlocked } from "./useOtherOrganizationBillingBlock";
 

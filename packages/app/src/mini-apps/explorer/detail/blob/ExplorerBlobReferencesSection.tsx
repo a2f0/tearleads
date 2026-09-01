@@ -1,5 +1,8 @@
 import { InfoIcon } from "@phosphor-icons/react/dist/csr/Info";
-import type { BlobInfo, BlobInfoDocumentReference } from "@symcrypt/client-sdk";
+import type {
+  BlobInfo,
+  BlobInfoDocumentReference,
+} from "@tearleads/client-sdk";
 import { type MouseEvent, useMemo } from "react";
 import { MiniAppInfoSection } from "../../../../components/mini-app/MiniAppLayout";
 import {

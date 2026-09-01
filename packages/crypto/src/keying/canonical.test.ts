@@ -20,16 +20,16 @@ test("suite identifiers distinguish content records from key wrapping", () => {
     "aes-256-gcm-hkdf-sha256-record-key",
   );
   expect(DOCUMENT_CONTENT_KEY_WRAP_SUITE).toBe(
-    "symcrypt.document.content-key-wrap.aes-256-gcm-container-kek",
+    "tearleads.document.content-key-wrap.aes-256-gcm-container-kek",
   );
   expect(BLOB_CONTENT_KEY_WRAP_SUITE).toBe(
-    "symcrypt.blob.content-key-wrap.aes-256-gcm-container-kek",
+    "tearleads.blob.content-key-wrap.aes-256-gcm-container-kek",
   );
   expect(CONTAINER_KEK_USER_WRAP_SUITE).toBe(
-    "symcrypt.container-kek-wrap.ml-kem-1024-aes-256-gcm",
+    "tearleads.container-kek-wrap.ml-kem-1024-aes-256-gcm",
   );
   expect(CONTAINER_KEK_PARENT_WRAP_SUITE).toBe(
-    "symcrypt.container-kek-wrap.aes-256-gcm-parent-kek",
+    "tearleads.container-kek-wrap.aes-256-gcm-parent-kek",
   );
 });
 
@@ -104,7 +104,7 @@ test("document plaintext HMAC uses the domain-framed bytes", async () => {
       key,
     ),
   ).resolves.toBe(
-    "96a66fd34eed03a604019b1a84d92b8a29092fb45d6cfae43a0e2a44770a8ad8",
+    "d37e1478496b72520180235a36fafbb1f0afc3a34382ed89f9ed53c5ad2bc447",
   );
 });
 

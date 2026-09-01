@@ -73,11 +73,11 @@ base_title=$(read_openapi_title "$base_spec_file") ||
 revision_title=$(read_openapi_title "$OPENAPI_PATH") ||
   fail "cannot read info.title from $OPENAPI_PATH."
 
-# The move to SymCrypt deliberately resets the wire contract. This condition
-# is self-expiring: once the default branch carries the SymCrypt title, future
-# SymCrypt-to-SymCrypt comparisons continue through the normal compatibility
+# The move to Tearleads deliberately resets the wire contract. This condition
+# is self-expiring: once the default branch carries the Tearleads title, future
+# Tearleads-to-Tearleads comparisons continue through the normal compatibility
 # checks below.
-if [ "$revision_title" = "SymCrypt Protocol API" ] &&
+if [ "$revision_title" = "Tearleads Protocol API" ] &&
   [ "$base_title" != "$revision_title" ]; then
   echo "Skipping compatibility for the clean-break transition to $revision_title."
   rm -f "$base_spec_file"

@@ -1,14 +1,14 @@
 import type {
   DatabaseWorkerClient,
   WorkerLike,
-} from "@symcrypt/sqlite-worker/client";
+} from "@tearleads/sqlite-worker/client";
 import {
   type CreateModuleDatabaseRuntimeOptions,
   createDatabaseRuntime,
   type DatabaseRuntime,
   type ModuleWorkerConstructor,
   type ModuleWorkerLike,
-} from "@symcrypt/sqlite-worker/runtime";
+} from "@tearleads/sqlite-worker/runtime";
 
 export type SQLiteWorkerClient = DatabaseWorkerClient;
 export type CreateSQLiteRuntimeOptions = CreateModuleDatabaseRuntimeOptions;
@@ -19,7 +19,7 @@ export interface SQLiteRuntimeWorker extends WorkerLike {
   terminate(): void;
 }
 
-export { createModuleDatabaseRuntime as createSQLiteRuntime } from "@symcrypt/sqlite-worker/runtime";
+export { createModuleDatabaseRuntime as createSQLiteRuntime } from "@tearleads/sqlite-worker/runtime";
 
 export function createSQLiteRuntimeFromWorker(
   worker: SQLiteRuntimeWorker,
@@ -27,8 +27,8 @@ export function createSQLiteRuntimeFromWorker(
   return createDatabaseRuntime(worker);
 }
 
-export { purgeOpfsSqliteDatabase } from "@symcrypt/sqlite-worker/purge-opfs-database";
-export type { DatabasePersistenceMode } from "@symcrypt/sqlite-worker/types";
+export { purgeOpfsSqliteDatabase } from "@tearleads/sqlite-worker/purge-opfs-database";
+export type { DatabasePersistenceMode } from "@tearleads/sqlite-worker/types";
 export { clientSQLiteSchema } from "./data/sqlite/schema";
 export {
   type ClientSQLiteDatabase as SQLiteDatabase,

@@ -93,7 +93,7 @@ export async function downloadPaneRecoveryKey(
   try {
     URL.createObjectURL = ((blob: Blob) => {
       downloaded.blob = blob;
-      return "blob:symcrypt-recovery-key-test";
+      return "blob:tearleads-recovery-key-test";
     }) as typeof URL.createObjectURL;
     URL.revokeObjectURL = (() => undefined) as typeof URL.revokeObjectURL;
     HTMLAnchorElement.prototype.click = () => undefined;

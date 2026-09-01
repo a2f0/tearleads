@@ -1,5 +1,5 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
-import { organizationGroupTombstones } from "@symcrypt/api-shared/schema";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import { organizationGroupTombstones } from "@tearleads/api-shared/schema";
 import { eq } from "drizzle-orm";
 
 export async function wasOrganizationGroupDeleted(input: {

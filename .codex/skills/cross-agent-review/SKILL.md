@@ -50,7 +50,7 @@ commit, repair rounds produce new commits to read.
 ## Prerequisites
 
 - `git`, `gh` (authenticated), `jq`, and POSIX `awk` on `PATH`.
-- The `@symcrypt/agent-tool` package: `packages/agent-tool/src/index.ts`.
+- The `@tearleads/agent-tool` package: `packages/agent-tool/src/index.ts`.
 - For Claude Code reviews: `claude` CLI authenticated.
 - For Codex reviews: `codex` CLI configured (`OPENAI_API_KEY`).
 - A feature branch (not the default branch) with commits to review. A PR **may

@@ -1,6 +1,6 @@
-import { base64ToBytes } from "@symcrypt/encoding";
-import { listSnapshotCharBlameSource } from "@symcrypt/loro";
-import type { DocumentEditAttributionResponse } from "@symcrypt/validators/response";
+import { base64ToBytes } from "@tearleads/encoding";
+import { listSnapshotCharBlameSource } from "@tearleads/loro";
+import type { DocumentEditAttributionResponse } from "@tearleads/validators/response";
 import {
   type DocumentBlameRange,
   type DocumentCharacterBlameSummary,

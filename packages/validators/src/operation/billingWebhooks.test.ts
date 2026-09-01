@@ -76,7 +76,7 @@ test("billing webhook OpenAPI declares provider authentication refinements", () 
     expect(operation.runtimeRefinements).toEqual([refinement]);
     expect(
       openApiDocument.paths[operation.path]?.post?.[
-        "x-symcrypt-runtime-refinements"
+        "x-tearleads-runtime-refinements"
       ],
     ).toEqual([refinement]);
     expect(openApiDocument.paths[operation.path]?.post?.security).toEqual([]);

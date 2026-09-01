@@ -1,4 +1,4 @@
-import type { ListDocumentEditAttributionRangesResponse } from "@symcrypt/validators/response";
+import type { ListDocumentEditAttributionRangesResponse } from "@tearleads/validators/response";
 import {
   type ComputedDocumentEditAttribution,
   createDocumentEditAttributionRangesPage,

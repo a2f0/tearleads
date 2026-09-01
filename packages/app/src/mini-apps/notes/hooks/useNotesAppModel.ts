@@ -1,4 +1,4 @@
-import type { DocumentSummary } from "@symcrypt/client-sdk";
+import type { DocumentSummary } from "@tearleads/client-sdk";
 import { useCompactRoutedMode } from "../../../navigation/useCompactRoutedMode";
 import { useMiniAppRouteState } from "../../../navigation/useMiniAppRouteState";
 import {

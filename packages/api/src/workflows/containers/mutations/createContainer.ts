@@ -1,4 +1,4 @@
-import type { ContainerMutationResponse } from "@symcrypt/validators/response";
+import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import { mutateContainerWithExecutor } from "./shared/mutationRunner";
 import type { ContainerMutationHandlerInput } from "./types";
 

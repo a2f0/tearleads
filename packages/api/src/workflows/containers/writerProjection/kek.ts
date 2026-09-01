@@ -1,13 +1,13 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
-import { users } from "@symcrypt/api-shared/schema";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import { users } from "@tearleads/api-shared/schema";
 import type {
   ContainerKeyWrap,
   ContainerUserRecipientKey,
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
   VerifiedPrincipalPolicy,
-} from "@symcrypt/crypto";
-import { verifyContainerKekState } from "@symcrypt/crypto";
+} from "@tearleads/crypto";
+import { verifyContainerKekState } from "@tearleads/crypto";
 import { inArray } from "drizzle-orm";
 import {
   getContainerKeyEpochById,

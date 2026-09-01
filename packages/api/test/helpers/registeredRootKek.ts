@@ -1,8 +1,8 @@
-import { db } from "@symcrypt/api-shared/postgres";
-import type { TestUser } from "@symcrypt/bob-and-alice";
-import type { ContainerKekKeyringEntry } from "@symcrypt/crypto";
-import { unwrapDek } from "@symcrypt/crypto";
-import { base64ToBytes } from "@symcrypt/encoding";
+import { db } from "@tearleads/api-shared/postgres";
+import type { TestUser } from "@tearleads/bob-and-alice";
+import type { ContainerKekKeyringEntry } from "@tearleads/crypto";
+import { unwrapDek } from "@tearleads/crypto";
+import { base64ToBytes } from "@tearleads/encoding";
 import invariant from "invariant";
 import { listCurrentPrincipalMemberEnvelopes } from "../../src/access/read/principalMemberEnvelopes";
 import type { StoredRootFixture } from "./keyingWriterProjectionKit";

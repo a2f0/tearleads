@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { OrganizationDataUsage } from "@symcrypt/client-sdk";
+import type { OrganizationDataUsage } from "@tearleads/client-sdk";
 import { resolveDataUsageRefresh } from "./dataUsageRefreshState";
 
 function usage(organizationId: string): OrganizationDataUsage {

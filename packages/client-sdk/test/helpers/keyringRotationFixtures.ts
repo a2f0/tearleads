@@ -5,12 +5,12 @@ import {
   computeContainerKeyEpochHash,
   createContainerKekPredecessorBridge,
   sealContainerKekKeyring,
-} from "@symcrypt/crypto";
-import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
+} from "@tearleads/crypto";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import type {
   ContainerKekLogEpochResponse,
   ContainerWriterProjectionResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { readContainerKeyEpoch } from "../../src/data/keyingProjectionVerification/readers";
 import {
   createUserContainerWrap,

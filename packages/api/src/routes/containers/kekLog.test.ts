@@ -1,16 +1,16 @@
 import { expect, test } from "bun:test";
-import { createTestUser, type TestUser } from "@symcrypt/bob-and-alice";
+import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import {
   type ContainerKekPredecessorBridge,
   computeContainerKekMaterialId,
   unwrapContainerKekPredecessorBridge,
-} from "@symcrypt/crypto";
-import type { AccessManifestBundleWire } from "@symcrypt/validators/request";
+} from "@tearleads/crypto";
+import type { AccessManifestBundleWire } from "@tearleads/validators/request";
 import {
   type ContainerKekLogResponse,
   type ContainerMutationResponse,
   isContainerKekLogResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { buildRootContainerRekeyMutation } from "../../../test/helpers/containerRekey";
 import {

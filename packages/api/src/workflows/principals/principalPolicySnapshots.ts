@@ -1,14 +1,14 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import type {
   PrincipalPolicyExternalAuthority,
   ReferencedPrincipalHead,
   VerifiedPrincipalPolicySnapshot,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import {
   principalPolicyMatchesReference,
   verifyPrincipalPolicySnapshot,
-} from "@symcrypt/crypto";
-import type { PrincipalPolicySnapshotResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import type { PrincipalPolicySnapshotResponse } from "@tearleads/validators/response";
 import {
   getPrincipalStatesForReferences,
   principalStateReferenceKey,

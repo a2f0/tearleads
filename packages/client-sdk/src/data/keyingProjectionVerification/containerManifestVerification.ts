@@ -4,8 +4,8 @@ import {
   principalPolicyMatchesReference,
   type VerifiedContainerAccessManifest,
   verifyContainerAccessManifest,
-} from "@symcrypt/crypto";
-import type { AccessManifestBundleWireResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import { readCanonicalJson, readCanonicalRecord } from "../keyingCanonicalJson";
 import {
   assertCanonicalEqual,

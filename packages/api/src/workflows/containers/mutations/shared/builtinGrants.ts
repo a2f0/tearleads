@@ -1,11 +1,11 @@
-import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
-import { containerBuiltinGrants } from "@symcrypt/api-shared/schema";
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import { containerBuiltinGrants } from "@tearleads/api-shared/schema";
 import type {
   ContainerDirectGrant,
   ContainerGrantSubjectType,
   KeyingCanonicalJson,
   VerifiedContainerAccessManifest,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import { and, eq } from "drizzle-orm";
 import { ContainerMutationError } from "../errors";
 

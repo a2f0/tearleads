@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build and ship every SymCrypt release artifact.
+# Build and ship every Tearleads release artifact.
 #
 # Runs in order:
 #   1. iOS release upload to TestFlight (scripts/uploadIosRelease.sh)
@@ -119,7 +119,7 @@ print_timing_summary() {
   printf '  %-12s %s\n' "total" "$(format_duration "$((SECONDS - RELEASE_START))")"
 }
 
-echo "=== SymCrypt Full Release ==="
+echo "=== Tearleads Full Release ==="
 echo ""
 
 # Staging store uploads are intentionally separate:

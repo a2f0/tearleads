@@ -1,9 +1,9 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import type {
   ReferencedPrincipalHead,
   VerifiedContainerAccessManifest,
   VerifiedPrincipalPolicy,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import {
   loadPrincipalPoliciesForContainerPaths,
   PrincipalPolicyProjectionError,

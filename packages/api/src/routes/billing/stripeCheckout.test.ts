@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, expect, spyOn, test } from "bun:test";
-import { db } from "@symcrypt/api-shared/postgres";
-import { organizationBilling, users } from "@symcrypt/api-shared/schema";
-import { createTestUser, type TestUser } from "@symcrypt/bob-and-alice";
+import { db } from "@tearleads/api-shared/postgres";
+import { organizationBilling, users } from "@tearleads/api-shared/schema";
+import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
@@ -401,7 +401,7 @@ test("the portal refuses return urls outside the app's origins", async () => {
   // app with explicit origins — exactly how production wires it.
   const app = createRouteApp(
     {},
-    { corsOrigins: ["https://app.symcrypt.example"] },
+    { corsOrigins: ["https://app.tearleads.example"] },
   );
 
   // billing.stripe.com redirects to returnUrl verbatim; a foreign origin
@@ -424,7 +424,7 @@ test("the portal refuses return urls outside the app's origins", async () => {
       method: "POST",
       headers: { ...authHeader(admin), "Content-Type": "application/json" },
       body: JSON.stringify({
-        returnUrl: "https://app.symcrypt.example/billing",
+        returnUrl: "https://app.tearleads.example/billing",
       }),
     },
   );

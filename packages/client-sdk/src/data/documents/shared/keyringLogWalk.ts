@@ -1,12 +1,12 @@
-import type { ContainerKekKeyringEntry } from "@symcrypt/crypto";
+import type { ContainerKekKeyringEntry } from "@tearleads/crypto";
 import {
   computeContainerKekMaterialId,
   normalizeContainerKekKeyring,
   normalizeContainerKekPredecessorBridge,
   openContainerKekKeyring,
   unwrapContainerKekPredecessorBridge,
-} from "@symcrypt/crypto";
-import type { ContainerKekLogEpochResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import type { ContainerKekLogEpochResponse } from "@tearleads/validators/response";
 
 /**
  * A whole rotation log assembled from pages. Distinct from the wire type,

@@ -2,7 +2,7 @@ import {
   DEFAULT_DOCUMENT_KIND,
   type DocumentSummary,
   type StoredDocumentKind,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import {
   type Dispatch,
   type SetStateAction,
@@ -12,9 +12,9 @@ import {
   useState,
 } from "react";
 import {
-  useSymCrypt,
-  useSymCryptRuntime,
-} from "../../providers/sdk/SymCryptProvider";
+  useTearleads,
+  useTearleadsRuntime,
+} from "../../providers/sdk/TearleadsProvider";
 
 type DocumentSummarySort = (
   left: DocumentSummary,
@@ -95,8 +95,8 @@ export function useDocumentSummaries({
   sortSummaries,
   subscriptionContainerId,
 }: UseDocumentSummariesInput) {
-  const appData = useSymCryptRuntime();
-  const symcrypt = useSymCrypt();
+  const appData = useTearleadsRuntime();
+  const tearleads = useTearleads();
   const [summaries, setSummaries] = useState<ReadonlyArray<DocumentSummary>>(
     [],
   );
@@ -121,7 +121,7 @@ export function useDocumentSummaries({
     let cancelled = false;
     void (async () => {
       try {
-        const persistedSummaries = await symcrypt.documents.list(
+        const persistedSummaries = await tearleads.documents.list(
           documentKind === undefined ? {} : { documentKind },
         );
 
@@ -148,18 +148,18 @@ export function useDocumentSummaries({
     appData.util.logError,
     documentKind,
     loadErrorMessage,
-    symcrypt,
+    tearleads,
   ]);
 
   useEffect(() => {
-    return symcrypt.documents.subscribe(mergeSummary, {
+    return tearleads.documents.subscribe(mergeSummary, {
       containerId: resolvedSubscriptionContainerId,
     });
   }, [
     appData.state.domainScope,
     mergeSummary,
     resolvedSubscriptionContainerId,
-    symcrypt,
+    tearleads,
   ]);
 
   const sortedSummaries = useMemo(

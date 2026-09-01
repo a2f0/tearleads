@@ -1,4 +1,4 @@
-import { base64ToBytes } from "@symcrypt/encoding";
+import { base64ToBytes } from "@tearleads/encoding";
 
 export interface OrganizationGroupHead {
   readonly keyEpoch: number;

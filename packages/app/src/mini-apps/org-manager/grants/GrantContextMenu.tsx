@@ -1,6 +1,6 @@
 import { EyeIcon } from "@phosphor-icons/react/dist/csr/Eye";
 import { TrashIcon } from "@phosphor-icons/react/dist/csr/Trash";
-import type { OrganizationContainerGrant } from "@symcrypt/client-sdk";
+import type { OrganizationContainerGrant } from "@tearleads/client-sdk";
 import type { MouseEvent, ReactNode } from "react";
 import { Menu, type MenuPosition } from "../../../components/shared/Menu";
 import { MenuItem } from "../../../components/shared/MenuItem";

@@ -1,12 +1,12 @@
-import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import {
   containerDocumentSyncTombstones,
   containerMetadataDocuments,
   containers,
   documentContainerLinks,
   documents,
-} from "@symcrypt/api-shared/schema";
-import type { VerifiedDocumentLinkSetManifest } from "@symcrypt/crypto";
+} from "@tearleads/api-shared/schema";
+import type { VerifiedDocumentLinkSetManifest } from "@tearleads/crypto";
 import { eq, inArray, sql } from "drizzle-orm";
 import {
   getCurrentAccessManifestHead,

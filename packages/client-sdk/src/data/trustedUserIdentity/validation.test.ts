@@ -4,8 +4,8 @@ import {
   generateSigningSeedAndKeyPair,
   ML_DSA87_PUBLIC_KEY_BYTES,
   toFingerprint,
-} from "@symcrypt/crypto";
-import { bytesToBase64 } from "@symcrypt/encoding";
+} from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
   isTrustedUserIdentity,
   type RemoteUserIdentityCandidate,

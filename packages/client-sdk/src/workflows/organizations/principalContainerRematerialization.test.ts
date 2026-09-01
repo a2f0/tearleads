@@ -4,9 +4,9 @@ import {
   makeVerifiedPrincipalPolicy,
   type PrincipalContainerGrant,
   unwrapDek,
-} from "@symcrypt/crypto";
-import { base64ToBytes } from "@symcrypt/encoding";
-import { createTestExecSql } from "@symcrypt/test-utils";
+} from "@tearleads/crypto";
+import { base64ToBytes } from "@tearleads/encoding";
+import { createTestExecSql } from "@tearleads/test-utils";
 import {
   createAuthor,
   SIGNED_AT,

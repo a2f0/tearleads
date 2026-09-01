@@ -1,5 +1,8 @@
-import { encodeVersionVector, exportFullHistorySnapshot } from "@symcrypt/loro";
-import type { DocumentWriterProjectionResponse } from "@symcrypt/validators/response";
+import {
+  encodeVersionVector,
+  exportFullHistorySnapshot,
+} from "@tearleads/loro";
+import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { readPullContinuation } from "../../data/documents/shared/syncPagination";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import {

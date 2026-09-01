@@ -1,10 +1,10 @@
-import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
+import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type {
   ContainerDeleteResponse,
   ContainerWriterProjectionResponse,
   PrincipalPolicyBundleResponse,
   ReferencedPrincipalStateResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import type { createInitializedContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import type { DocumentRecord } from "../../../data/sqlite/documentPersistence";

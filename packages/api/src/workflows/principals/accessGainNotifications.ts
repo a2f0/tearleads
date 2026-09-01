@@ -1,8 +1,8 @@
-import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import {
   accessManifestContainerGrantProjection,
   accessManifestHeads,
-} from "@symcrypt/api-shared/schema";
+} from "@tearleads/api-shared/schema";
 import { sql } from "drizzle-orm";
 import { uuidValue } from "../../utils/sqlDialect";
 

@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import { computeDocumentContentKeyTargetHash } from "@symcrypt/crypto";
-import { isDocumentLinkSetMutationRequest } from "@symcrypt/validators/request";
-import type { DocumentWriterProjectionResponse } from "@symcrypt/validators/response";
+import { computeDocumentContentKeyTargetHash } from "@tearleads/crypto";
+import { isDocumentLinkSetMutationRequest } from "@tearleads/validators/request";
+import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import {
   createAuthor,
   createLinkSetResponseFromRequest,

@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { createSQLiteRuntime } from "@symcrypt/client-sdk/sqlite";
+import { createSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import {
   createTestAppHostConfig,
@@ -33,13 +33,13 @@ test("normal App omits global chrome and keeps the lower layout switch", () => {
   enableSystemMonitorDeveloperMode();
   const view = render(<App hostConfig={createTestAppHostConfig()} />);
 
-  const frame = view.container.querySelector(".symcrypt-frame.layout");
+  const frame = view.container.querySelector(".tearleads-frame.layout");
   expect(frame?.classList.contains("layout--split")).toBe(false);
   // The regular app never splits, so there is no split/peer toggle in chrome.
   expect(view.queryByRole("button", { name: "Split" })).toBeNull();
   expect(view.queryByRole("button", { name: "Show Peer" })).toBeNull();
   expect(view.queryByRole("button", { name: /Navigation mode/i })).toBeNull();
-  expect(view.container.querySelector(".symcrypt-header")).toBeNull();
+  expect(view.container.querySelector(".tearleads-header")).toBeNull();
   expect(
     view.getByRole("button", { name: "Switch to iPad / mobile layout" }),
   ).toBeTruthy();
@@ -71,7 +71,7 @@ test("mobile routed App omits the global frame header", () => {
       />,
     );
 
-    expect(view.container.querySelector(".symcrypt-header")).toBeNull();
+    expect(view.container.querySelector(".tearleads-header")).toBeNull();
     expect(view.container.querySelector(".routed-pane-title")).toBeNull();
     view.unmount();
   } finally {
@@ -88,12 +88,12 @@ test("demo App starts split without global header controls", () => {
     />,
   );
 
-  const frame = view.container.querySelector(".symcrypt-frame.layout");
+  const frame = view.container.querySelector(".tearleads-frame.layout");
   expect(frame?.classList.contains("layout--split")).toBe(true);
   expect(frame?.classList.contains("layout--demo-peer-split")).toBe(true);
   expect(view.getByText("Peer 1")).toBeTruthy();
   expect(view.getByText("Peer 2")).toBeTruthy();
-  expect(view.container.querySelector(".symcrypt-header")).toBeNull();
+  expect(view.container.querySelector(".tearleads-header")).toBeNull();
   expect(view.queryByRole("button", { name: "Hide Peer" })).toBeNull();
   expect(view.queryByRole("button", { name: "Show Peer" })).toBeNull();
   view.unmount();
@@ -186,7 +186,7 @@ test("the shared runtime persists the local identity under a stable namespace", 
   // localIdentityPersistence.ts and Layout's
   // SHARED_RUNTIME_LOCAL_IDENTITY_NAMESPACE).
   const sharedIdentityStorageKey =
-    "symcrypt.local-identity-registry:symcrypt.app";
+    "tearleads.local-identity-registry:tearleads.app";
 
   try {
     Reflect.set(globalThis, "WebSocket", SilentWebSocket);

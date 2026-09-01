@@ -55,7 +55,7 @@ export function NavigationModeSwitch({
     <button
       aria-label={label}
       className={classNames(
-        "symcrypt-action-button symcrypt-action-button--icon",
+        "tearleads-action-button tearleads-action-button--icon",
         className,
       )}
       title={label}

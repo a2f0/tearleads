@@ -1,4 +1,4 @@
-import type { BlobInfo, BlobStore } from "@symcrypt/client-sdk";
+import type { BlobInfo, BlobStore } from "@tearleads/client-sdk";
 import { useCallback } from "react";
 import { useLog } from "../../providers/logging/LogProvider";
 import {

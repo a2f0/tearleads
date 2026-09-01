@@ -1,7 +1,7 @@
 /*
  * === Link normalization ===
  *
- * Companion to styles.css, imported immediately after it (see SymCryptFrame).
+ * Companion to styles.css, imported immediately after it (see TearleadsFrame).
  * Split out for the same reason styles.routed.css is: to keep each stylesheet
  * within the source-shape size budget.
  *

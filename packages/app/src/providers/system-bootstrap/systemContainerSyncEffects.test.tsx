@@ -2,7 +2,7 @@ import { afterEach, expect, mock, test } from "bun:test";
 import type {
   ContainerContentsStore,
   ContainerNode,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { cleanup, renderHook } from "@testing-library/react";
 import type { UserSystemContainer } from "../../stores/systemContainers";
 import { useProvisionedSystemContainerPull } from "./systemContainerSyncEffects";

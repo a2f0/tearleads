@@ -47,7 +47,7 @@
 
 /* No coarse-pointer touch bump needed: MiniAppButton keys its min-height off
    --control-height, which resolves to 44px whenever the routed shell is
-   active (see :root[data-navigation-mode="routed"] in @symcrypt/ui) — and
+   active (see :root[data-navigation-mode="routed"] in @tearleads/ui) — and
    unlike a `pointer: coarse` query that also covers an iPad with a mouse. */
 
 .backup-restore-details {

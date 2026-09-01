@@ -6,8 +6,8 @@ import {
   type OrganizationDirectoryAndGroups,
   type OrganizationDirectoryUser,
   openDocumentStore,
-} from "@symcrypt/client-sdk";
-import { createMockApiClient } from "@symcrypt/test-utils";
+} from "@tearleads/client-sdk";
+import { createMockApiClient } from "@tearleads/test-utils";
 import { createSqlRuntimeBase } from "../../../test/helpers/createSqlRuntime";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../document-types/projectors";
 import {

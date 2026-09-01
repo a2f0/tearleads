@@ -3,8 +3,8 @@ import {
   createContainerParentLaneBatchMock as batchParentLanes,
   createMockApiClient,
   createTestExecSql,
-} from "@symcrypt/test-utils";
-import type { ListContainersResponse } from "@symcrypt/validators/response";
+} from "@tearleads/test-utils";
+import type { ListContainersResponse } from "@tearleads/validators/response";
 import { waitFor } from "../../../test/helpers/waitFor";
 import type { DomainScope } from "../../data/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";

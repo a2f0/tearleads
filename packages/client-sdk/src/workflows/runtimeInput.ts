@@ -1,4 +1,4 @@
-import type { EncapsulationKeyPair, SigningKeyPair } from "@symcrypt/crypto";
+import type { EncapsulationKeyPair, SigningKeyPair } from "@tearleads/crypto";
 import type { BlobStore } from "../data/blobContracts";
 import type { DocumentProjectorRegistry } from "../data/documents/documentKinds";
 import type { DomainScope } from "../data/domainScope";

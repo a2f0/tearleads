@@ -1,4 +1,4 @@
-import type { ContainerNode } from "@symcrypt/client-sdk";
+import type { ContainerNode } from "@tearleads/client-sdk";
 
 export const EXPLORER_ORPHANED_DOCUMENTS_ID = "explorer:orphaned-documents";
 

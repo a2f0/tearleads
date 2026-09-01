@@ -18,15 +18,15 @@ import {
 test("declares organization interest only while a consumer has demand", async () => {
   const runtime = createRuntimeHarness();
   const { sent, ws } = fakeOpenSocket();
-  const detach = attachOrganizationReadModelSocket(runtime.symcrypt, ws);
+  const detach = attachOrganizationReadModelSocket(runtime.tearleads, ws);
 
-  handleOrganizationReadModelHint(runtime.symcrypt, ORGANIZATION_A, false);
+  handleOrganizationReadModelHint(runtime.tearleads, ORGANIZATION_A, false);
   await Promise.resolve();
   expect(sent).toEqual([]);
   expect(runtime.reconcileCalls).toBe(0);
 
   const unsubscribe = subscribeOrganizationReadModelRealtime(
-    runtime.symcrypt,
+    runtime.tearleads,
     ORGANIZATION_A,
     () => undefined,
   );
@@ -160,9 +160,12 @@ test("drops malformed read-model controls instead of entering domain sync", () =
 test("reconciliation waits for the matching organization declaration acknowledgement", async () => {
   const runtime = createRuntimeHarness();
   const socket = fakeOpenSocket();
-  const detach = attachOrganizationReadModelSocket(runtime.symcrypt, socket.ws);
+  const detach = attachOrganizationReadModelSocket(
+    runtime.tearleads,
+    socket.ws,
+  );
   const unsubscribe = subscribeOrganizationReadModelRealtime(
-    runtime.symcrypt,
+    runtime.tearleads,
     ORGANIZATION_A,
     () => undefined,
   );
@@ -170,7 +173,7 @@ test("reconciliation waits for the matching organization declaration acknowledge
   expect(runtime.reconcileCalls).toBe(0);
 
   handleOrganizationReadModelInterestAcknowledgement(
-    runtime.symcrypt,
+    runtime.tearleads,
     socket.ws,
     "stale-declaration",
     ORGANIZATION_A,
@@ -179,9 +182,9 @@ test("reconciliation waits for the matching organization declaration acknowledge
   await Promise.resolve();
   expect(runtime.reconcileCalls).toBe(0);
 
-  acknowledgeLatestDeclaration(runtime.symcrypt, socket);
+  acknowledgeLatestDeclaration(runtime.tearleads, socket);
   await ensureOrganizationReadModelReconciliation(
-    runtime.symcrypt,
+    runtime.tearleads,
     ORGANIZATION_A,
   );
   expect(runtime.reconcileCalls).toBe(1);
@@ -193,16 +196,19 @@ test("reconciliation waits for the matching organization declaration acknowledge
 test("denied declaration acknowledgement drives authoritative purge reconciliation", async () => {
   const runtime = createRuntimeHarness();
   const socket = fakeOpenSocket();
-  const detach = attachOrganizationReadModelSocket(runtime.symcrypt, socket.ws);
+  const detach = attachOrganizationReadModelSocket(
+    runtime.tearleads,
+    socket.ws,
+  );
   const unsubscribe = subscribeOrganizationReadModelRealtime(
-    runtime.symcrypt,
+    runtime.tearleads,
     ORGANIZATION_A,
     () => undefined,
   );
 
-  acknowledgeLatestDeclaration(runtime.symcrypt, socket, false);
+  acknowledgeLatestDeclaration(runtime.tearleads, socket, false);
   await ensureOrganizationReadModelReconciliation(
-    runtime.symcrypt,
+    runtime.tearleads,
     ORGANIZATION_A,
   );
 
@@ -214,13 +220,16 @@ test("denied declaration acknowledgement drives authoritative purge reconciliati
 test("same-task zero-demand cleanup does not start reconciliation", async () => {
   const runtime = createRuntimeHarness();
   const socket = fakeOpenSocket();
-  const detach = attachOrganizationReadModelSocket(runtime.symcrypt, socket.ws);
+  const detach = attachOrganizationReadModelSocket(
+    runtime.tearleads,
+    socket.ws,
+  );
   const unsubscribe = subscribeOrganizationReadModelRealtime(
-    runtime.symcrypt,
+    runtime.tearleads,
     ORGANIZATION_A,
     () => undefined,
   );
-  acknowledgeLatestDeclaration(runtime.symcrypt, socket);
+  acknowledgeLatestDeclaration(runtime.tearleads, socket);
   unsubscribe();
   await Promise.resolve();
   await Promise.resolve();
@@ -232,22 +241,25 @@ test("same-task zero-demand cleanup does not start reconciliation", async () => 
 test("same-task warm route remount retains one catch-up", async () => {
   const runtime = createRuntimeHarness();
   const socket = fakeOpenSocket();
-  const detach = attachOrganizationReadModelSocket(runtime.symcrypt, socket.ws);
+  const detach = attachOrganizationReadModelSocket(
+    runtime.tearleads,
+    socket.ws,
+  );
   const unsubscribeFirst = subscribeOrganizationReadModelRealtime(
-    runtime.symcrypt,
+    runtime.tearleads,
     ORGANIZATION_A,
     () => undefined,
   );
-  acknowledgeLatestDeclaration(runtime.symcrypt, socket);
+  acknowledgeLatestDeclaration(runtime.tearleads, socket);
   await ensureOrganizationReadModelReconciliation(
-    runtime.symcrypt,
+    runtime.tearleads,
     ORGANIZATION_A,
   );
   expect(runtime.reconcileCalls).toBe(1);
 
   unsubscribeFirst();
   const unsubscribeRemount = subscribeOrganizationReadModelRealtime(
-    runtime.symcrypt,
+    runtime.tearleads,
     ORGANIZATION_A,
     () => undefined,
   );

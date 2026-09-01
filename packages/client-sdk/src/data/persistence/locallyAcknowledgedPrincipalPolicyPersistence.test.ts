@@ -5,10 +5,10 @@ import {
   KeyingVerificationError,
   makeVerifiedPrincipalPolicy,
   toFingerprint,
-} from "@symcrypt/crypto";
-import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
-import { createTestExecSql } from "@symcrypt/test-utils";
-import type { PrincipalPolicyBundleResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { createTestExecSql } from "@tearleads/test-utils";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { policyBundleFromInitialRequest } from "../../../test/helpers/principalPolicyFixtures";
 import { buildInitialGroupPolicyRequest } from "../../workflows/organizations/principalPolicy";
 import { loadPrincipalPolicyCheckpoint } from "./keyingCheckpointPersistence";

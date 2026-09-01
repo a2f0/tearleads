@@ -3,14 +3,14 @@ import {
   type IdentityKeyPackage,
   type LocalKeyring,
   type LocalKeyringScope,
-} from "@symcrypt/client-sdk";
-import { isPlainObject } from "@symcrypt/validators/isPlainObject";
+} from "@tearleads/client-sdk";
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import {
   decryptLocalIdentityPayload,
   encryptLocalIdentityPayload,
 } from "./localIdentityPackageCrypto";
 
-const LOCAL_IDENTITY_REGISTRY_FORMAT = "symcrypt.app.local-identity-registry";
+const LOCAL_IDENTITY_REGISTRY_FORMAT = "tearleads.app.local-identity-registry";
 
 export type LocalIdentityStorage = Pick<
   Storage,

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createMockApiClient, createTestExecSql } from "@symcrypt/test-utils";
+import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import { createTestContainerState } from "./containerState.testFixtures";
 import { deleteContainerState } from "./delete";

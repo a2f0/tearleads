@@ -8,7 +8,7 @@ import {
   getUpdateVersionVectors,
   importUpdates,
   versionVectorsEqual,
-} from "@symcrypt/loro";
+} from "@tearleads/loro";
 import { createDomainScope } from "../../../data/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { DocumentRecord } from "../../../workflows/documents";

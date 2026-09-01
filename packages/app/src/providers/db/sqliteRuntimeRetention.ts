@@ -1,4 +1,4 @@
-import type { SQLiteRuntime } from "@symcrypt/client-sdk/sqlite";
+import type { SQLiteRuntime } from "@tearleads/client-sdk/sqlite";
 import { unknownErrorMessage } from "../../utils/unknownErrorMessage";
 
 const SQLITE_RUNTIME_RESET_TIMEOUT_MS = 1_000;

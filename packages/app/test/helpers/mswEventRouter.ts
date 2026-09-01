@@ -1,4 +1,4 @@
-import { isUuidV4String } from "@symcrypt/validators/util";
+import { isUuidV4String } from "@tearleads/validators/util";
 
 export interface MswSocketClient {
   addEventListener?: (

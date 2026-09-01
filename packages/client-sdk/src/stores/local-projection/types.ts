@@ -36,7 +36,7 @@ export interface LocalProjectionReconciledDelta {
     | undefined;
 }
 
-/** Read side of the app-facing `symcrypt.deviceFirst.open()` handle. */
+/** Read side of the app-facing `tearleads.deviceFirst.open()` handle. */
 export interface LocalProjectionView {
   getSnapshot: () => LocalProjectionSnapshot;
   subscribe: (listener: () => void) => () => void;

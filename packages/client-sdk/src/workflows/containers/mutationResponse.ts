@@ -1,7 +1,7 @@
 import {
   isReferencedPrincipalStateResponse,
   type ReferencedPrincipalStateResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 
 export function readContainerMutationMetadataDocumentId(input: {
   response: {

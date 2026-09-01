@@ -3,7 +3,7 @@ import {
   createBrowserLocalKeyring,
   createBrowserLocalKeyringManifestStore,
   createLocalStorageLocalKeyringManifestStore,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { useEffect } from "react";
 import {
@@ -23,8 +23,8 @@ import {
 } from "./localKeyringLockSupport";
 
 type LocalKeyringLock = ReturnType<typeof useLocalKeyringLock>;
-const BLOB_STORE_SCOPE = { namespace: "symcrypt.blob-store" };
-const IDENTITY_SCOPE = { namespace: "symcrypt.local-identity:test" };
+const BLOB_STORE_SCOPE = { namespace: "tearleads.blob-store" };
+const IDENTITY_SCOPE = { namespace: "tearleads.local-identity:test" };
 
 function LockProbe({
   onReady,

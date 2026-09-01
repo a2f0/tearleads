@@ -2,16 +2,16 @@ import { afterEach, expect, mock, spyOn, test } from "bun:test";
 import type {
   DomainScope,
   OrganizationDirectoryAndGroups,
-  SymCrypt,
-} from "@symcrypt/client-sdk";
-import { createDomainScope } from "@symcrypt/client-sdk";
+  Tearleads,
+} from "@tearleads/client-sdk";
+import { createDomainScope } from "@tearleads/client-sdk";
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import {
   attachOrganizationReadModelSocket,
   handleOrganizationReadModelInterestAcknowledgement,
 } from "../../../providers/sdk/organizationReadModelRealtime";
-import type { RuntimeSnapshot } from "../../../providers/sdk/SymCryptProvider";
-import * as SymCryptProvider from "../../../providers/sdk/SymCryptProvider";
+import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
+import * as TearleadsProvider from "../../../providers/sdk/TearleadsProvider";
 import { useExplorerOrganizationReadModelDemand } from "./useExplorerOrganizationReadModelDemand";
 
 const ORGANIZATION_ID = "00000000-0000-4000-8000-000000000001";
@@ -70,14 +70,14 @@ function createHarness(initialRuntime: RuntimeSnapshot) {
     blockReconciliation ? blockedReconciliation : Promise.resolve(readModel),
   );
   const loadLocalDirectoryAndGroups = mock(() => Promise.resolve(readModel));
-  const symcrypt = {
+  const tearleads = {
     organizations: {
       loadDirectoryAndGroups,
       loadDirectoryAndGroupsAfterMutation: loadDirectoryAndGroups,
       loadLocalDirectoryAndGroups,
     },
     runtime: { input: () => runtime },
-  } as unknown as SymCrypt;
+  } as unknown as Tearleads;
   return {
     blockFutureReconciliation() {
       blockReconciliation = true;
@@ -86,11 +86,11 @@ function createHarness(initialRuntime: RuntimeSnapshot) {
     setRuntime(nextRuntime: RuntimeSnapshot) {
       runtime = nextRuntime;
     },
-    symcrypt,
+    tearleads,
   };
 }
 
-function connectAcknowledgingSocket(symcrypt: SymCrypt): () => void {
+function connectAcknowledgingSocket(tearleads: Tearleads): () => void {
   let ws: WebSocket;
   ws = {
     readyState: WebSocket.OPEN,
@@ -108,7 +108,7 @@ function connectAcknowledgingSocket(symcrypt: SymCrypt): () => void {
       const organizationId = message.organizationIds[0];
       queueMicrotask(() => {
         handleOrganizationReadModelInterestAcknowledgement(
-          symcrypt,
+          tearleads,
           ws,
           message.declarationId as string,
           typeof organizationId === "string" ? organizationId : null,
@@ -117,18 +117,18 @@ function connectAcknowledgingSocket(symcrypt: SymCrypt): () => void {
       });
     },
   } as unknown as WebSocket;
-  return attachOrganizationReadModelSocket(symcrypt, ws);
+  return attachOrganizationReadModelSocket(tearleads, ws);
 }
 
 test("logout and database loss invalidate cached presentation while offline preserves it", async () => {
   const domainScope = createDomainScope();
   const initialRuntime = runtimeSnapshot({ domainScope });
   const harness = createHarness(initialRuntime);
-  const useSymCryptSpy = spyOn(
-    SymCryptProvider,
-    "useSymCrypt",
-  ).mockImplementation(() => harness.symcrypt);
-  const disconnect = connectAcknowledgingSocket(harness.symcrypt);
+  const useTearleadsSpy = spyOn(
+    TearleadsProvider,
+    "useTearleads",
+  ).mockImplementation(() => harness.tearleads);
+  const disconnect = connectAcknowledgingSocket(harness.tearleads);
 
   try {
     const view = renderHook(
@@ -176,7 +176,7 @@ test("logout and database loss invalidate cached presentation while offline pres
   } finally {
     cleanup();
     disconnect();
-    useSymCryptSpy.mockRestore();
+    useTearleadsSpy.mockRestore();
   }
 });
 
@@ -184,11 +184,11 @@ test("same-organization user transition invalidates revision-zero presentation",
   const domainScope = createDomainScope();
   const initialRuntime = runtimeSnapshot({ domainScope, userId: USER_A });
   const harness = createHarness(initialRuntime);
-  const useSymCryptSpy = spyOn(
-    SymCryptProvider,
-    "useSymCrypt",
-  ).mockImplementation(() => harness.symcrypt);
-  const disconnect = connectAcknowledgingSocket(harness.symcrypt);
+  const useTearleadsSpy = spyOn(
+    TearleadsProvider,
+    "useTearleads",
+  ).mockImplementation(() => harness.tearleads);
+  const disconnect = connectAcknowledgingSocket(harness.tearleads);
 
   try {
     const view = renderHook(
@@ -208,7 +208,7 @@ test("same-organization user transition invalidates revision-zero presentation",
   } finally {
     cleanup();
     disconnect();
-    useSymCryptSpy.mockRestore();
+    useTearleadsSpy.mockRestore();
   }
 });
 
@@ -216,11 +216,11 @@ test("same-identity domain transition invalidates revision-zero presentation", a
   const firstDomainScope = createDomainScope();
   const initialRuntime = runtimeSnapshot({ domainScope: firstDomainScope });
   const harness = createHarness(initialRuntime);
-  const useSymCryptSpy = spyOn(
-    SymCryptProvider,
-    "useSymCrypt",
-  ).mockImplementation(() => harness.symcrypt);
-  const disconnect = connectAcknowledgingSocket(harness.symcrypt);
+  const useTearleadsSpy = spyOn(
+    TearleadsProvider,
+    "useTearleads",
+  ).mockImplementation(() => harness.tearleads);
+  const disconnect = connectAcknowledgingSocket(harness.tearleads);
 
   try {
     const view = renderHook(
@@ -241,6 +241,6 @@ test("same-identity domain transition invalidates revision-zero presentation", a
   } finally {
     cleanup();
     disconnect();
-    useSymCryptSpy.mockRestore();
+    useTearleadsSpy.mockRestore();
   }
 });

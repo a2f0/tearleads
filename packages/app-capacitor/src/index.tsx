@@ -3,7 +3,7 @@ import { Capacitor } from "@capacitor/core";
 import {
   createSQLiteRuntime,
   PERSISTENT_STORAGE_POLICY,
-} from "@symcrypt/client-sdk/sqlite";
+} from "@tearleads/client-sdk/sqlite";
 import { renderApp } from "app/client";
 import {
   createAppBuildInfo,

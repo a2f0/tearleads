@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
-import { db } from "@symcrypt/api-shared/postgres";
-import { createTestUser } from "@symcrypt/bob-and-alice";
-import type { ContainerAccessManifestState } from "@symcrypt/crypto";
-import type { ContainerMutationRequest } from "@symcrypt/validators/request";
-import type { ContainerMutationResponse } from "@symcrypt/validators/response";
-import { isDocumentLinkSetMutationResponse } from "@symcrypt/validators/response";
+import { db } from "@tearleads/api-shared/postgres";
+import { createTestUser } from "@tearleads/bob-and-alice";
+import type { ContainerAccessManifestState } from "@tearleads/crypto";
+import type { ContainerMutationRequest } from "@tearleads/validators/request";
+import type { ContainerMutationResponse } from "@tearleads/validators/response";
+import { isDocumentLinkSetMutationResponse } from "@tearleads/validators/response";
 import { authenticate } from "../../test/helpers/authenticate";
 import { buildRekeyRequest } from "../../test/helpers/containerMutationRotations";
 import {

@@ -1,4 +1,4 @@
-import type { FileSaver } from "@symcrypt/client-sdk";
+import type { FileSaver } from "@tearleads/client-sdk";
 import { type ChangeEvent, useCallback, useRef, useState } from "react";
 import { clearRestoredLocalCaches } from "../../providers/db/clearRestoredLocalCaches";
 import {

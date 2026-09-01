@@ -1,4 +1,4 @@
-import type { OrganizationContainerGrant } from "@symcrypt/client-sdk";
+import type { OrganizationContainerGrant } from "@tearleads/client-sdk";
 import { type MouseEvent, useCallback, useState } from "react";
 import {
   MiniAppButton,

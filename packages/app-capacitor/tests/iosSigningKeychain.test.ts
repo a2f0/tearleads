@@ -119,7 +119,7 @@ end
 
 test("temporary signing keychain lifecycle preserves caller state", async () => {
   const temporaryDirectory = await mkdtemp(
-    join(tmpdir(), "symcrypt-keychain-lifecycle-"),
+    join(tmpdir(), "tearleads-keychain-lifecycle-"),
   );
   const lockPath = join(temporaryDirectory, "release.lock");
   const child = Bun.spawn(
@@ -188,7 +188,7 @@ test("temporary signing keychain lifecycle preserves caller state", async () => 
 
 test("temporary signing keychains serialize their global lifecycle", async () => {
   const temporaryDirectory = await mkdtemp(
-    join(tmpdir(), "symcrypt-keychain-lock-"),
+    join(tmpdir(), "tearleads-keychain-lock-"),
   );
   const lockPath = join(temporaryDirectory, "release.lock");
   const eventPath = join(temporaryDirectory, "events.jsonl");
@@ -248,7 +248,7 @@ test("temporary signing keychains serialize their global lifecycle", async () =>
 
 test("termination signals clean up the temporary signing keychain", async () => {
   const temporaryDirectory = await mkdtemp(
-    join(tmpdir(), "symcrypt-keychain-signal-"),
+    join(tmpdir(), "tearleads-keychain-signal-"),
   );
   const eventPath = join(temporaryDirectory, "events.txt");
   const child = Bun.spawn(

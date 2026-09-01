@@ -1,9 +1,9 @@
 import type {
   ApiDatabase,
   DatabaseTransaction,
-} from "@symcrypt/api-shared/postgres";
-import type { DocumentCreateRequest } from "@symcrypt/validators/request";
-import type { DocumentCreateResponse } from "@symcrypt/validators/response";
+} from "@tearleads/api-shared/postgres";
+import type { DocumentCreateRequest } from "@tearleads/validators/request";
+import type { DocumentCreateResponse } from "@tearleads/validators/response";
 import { resolveCurrentDocumentKekTargets } from "../../../access/read/documentKekTargets";
 import { storeVerifiedAccessManifestInTransaction } from "../../../access/write/accessManifestStore";
 import { storeDocumentContentKeyBundleInTransaction } from "../../../access/write/documentContentKeyStore";

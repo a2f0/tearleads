@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME } from "@symcrypt/client-sdk";
+import { DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME } from "@tearleads/client-sdk";
 import { act, cleanup, fireEvent, within } from "@testing-library/react";
 import { waitForAppTestRuntimeToSettle } from "../../../../test/helpers/appRuntimeIdle";
 import {

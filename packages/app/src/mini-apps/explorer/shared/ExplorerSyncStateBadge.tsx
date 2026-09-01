@@ -1,7 +1,7 @@
 import type {
   ContainerDocumentObjectSyncState,
   ContainerDocumentObjectSyncStatus,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import {
   SyncGlyph,
   type SyncGlyphTone,

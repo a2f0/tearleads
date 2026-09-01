@@ -62,7 +62,7 @@ test("help still rejects an invalid native release target", async () => {
 
 test("the shared runner guards and exports its tier before building", async () => {
   const temporaryDirectory = await mkdtemp(
-    resolve(tmpdir(), "symcrypt-native-release-command-"),
+    resolve(tmpdir(), "tearleads-native-release-command-"),
   );
   const bunStub = resolve(temporaryDirectory, "bun");
   const logPath = resolve(temporaryDirectory, "release.log");
@@ -84,7 +84,7 @@ test("the shared runner guards and exports its tier before building", async () =
 . "$1"
 native_release_guard_environment() {
   printf 'guard:%s:%s\\n' "$1" "$2" >> "$NATIVE_RELEASE_TEST_LOG"
-  export VITE_API_BASE_URL=https://api-staging.symcrypt.com
+  export VITE_API_BASE_URL=https://api-staging.tearleads.com
 }
 native_release_ensure_android_wrapper() {
   printf 'wrapper\\n' >> "$NATIVE_RELEASE_TEST_LOG"

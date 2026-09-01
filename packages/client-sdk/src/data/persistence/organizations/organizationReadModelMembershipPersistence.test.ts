@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@symcrypt/test-utils";
+import { createTestExecSql } from "@tearleads/test-utils";
 import type {
   ListOrganizationGroupsResponse,
   OrganizationDirectoryUserResponse,
@@ -9,7 +9,7 @@ import type {
   OrganizationReadModelGroupMembershipsResponse,
   OrganizationReadModelOrganizationPolicyResponse,
   OrganizationReadModelSnapshotResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import { loadPrincipalPolicyCheckpoint } from "../keyingCheckpointPersistence";
 import { loadOrganizationReadModelGroupMembers } from "./organizationReadModelMemberLoad";

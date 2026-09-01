@@ -11,8 +11,8 @@
     "test": "bun test src --pass-with-no-tests"
   },
   "dependencies": {
-    "@symcrypt/client-sdk": "workspace:*",
-    "@symcrypt/sqlite-worker": "workspace:*",
+    "@tearleads/client-sdk": "workspace:*",
+    "@tearleads/sqlite-worker": "workspace:*",
     "app": "workspace:*",
     "react-dom": "catalog:react",
     "electrobun": "1.18.1"

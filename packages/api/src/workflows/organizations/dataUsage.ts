@@ -1,7 +1,7 @@
 import type {
   ApiDatabase,
   DatabaseSession,
-} from "@symcrypt/api-shared/postgres";
+} from "@tearleads/api-shared/postgres";
 import {
   blobContentWriteHeaders,
   blobs,
@@ -10,13 +10,13 @@ import {
   documentUpdates,
   organizationRosterEntries,
   organizations,
-} from "@symcrypt/api-shared/schema";
+} from "@tearleads/api-shared/schema";
 import {
   ORGANIZATION_DOCUMENT_USAGE_CATEGORIES,
   type OrganizationDataUsageResponse,
   type OrganizationDocumentUsageCategory,
   type OrganizationDocumentUsageCategoryBreakdown,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { sql } from "drizzle-orm";
 import { uuidValue } from "../../utils/sqlDialect";
 import { requireDirectOrganizationAccess } from "./access";

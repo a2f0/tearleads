@@ -4,8 +4,8 @@ import type {
   OrganizationDirectoryAndGroups,
   OrganizationDirectoryUser,
   OrganizationGroupMembers,
-} from "@symcrypt/client-sdk";
-import { KeyingVerificationError } from "@symcrypt/crypto";
+} from "@tearleads/client-sdk";
+import { KeyingVerificationError } from "@tearleads/crypto";
 
 // Demo-only roster seeding. The demo panes each register their own personal
 // organization; this module decides whether the pane still owes an "add the peer

@@ -7,7 +7,7 @@ import { useCryptoSession } from "../providers/crypto/CryptoSessionProvider";
 import { useDatabase } from "../providers/db/DatabaseProvider";
 import { useAppHostConfig } from "../providers/host/AppHostConfigProvider";
 import { useIdentity } from "../providers/identity/IdentityProvider";
-import { useSymCrypt } from "../providers/sdk/SymCryptProvider";
+import { useTearleads } from "../providers/sdk/TearleadsProvider";
 
 export interface RegisterCurrentIdentityResult {
   canRegisterCurrentIdentity: boolean;
@@ -18,7 +18,7 @@ export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
   const { client: dbClient } = useDatabase();
   const { userId, containerId, loginWithChallenge } = useCryptoSession();
   const { encapsulationKeyPair, signingKeyPair } = useIdentity();
-  const symcrypt = useSymCrypt();
+  const tearleads = useTearleads();
   // Demo-only: name each pane's bootstrapped personal org after its peer label
   // ("Peer 1's Org"). usePaneSideOptional stays null in the regular app (whose
   // runtime mounts outside any PaneSideProvider), so the name is left undefined
@@ -48,7 +48,7 @@ export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
       return false;
     }
 
-    const response = await symcrypt.session.registerIdentity({
+    const response = await tearleads.session.registerIdentity({
       organizationProfileName,
       rosterProfileNickname,
     });
@@ -62,7 +62,7 @@ export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
     loginWithChallenge,
     organizationProfileName,
     rosterProfileNickname,
-    symcrypt,
+    tearleads,
   ]);
 
   return { canRegisterCurrentIdentity, registerCurrentIdentity };

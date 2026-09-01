@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { toFingerprint } from "@symcrypt/crypto";
+import { toFingerprint } from "@tearleads/crypto";
 import { createCurrentDocumentProjection } from "../../../test/helpers/currentProtocolProjection";
 import { registerServiceUser } from "../../../test/helpers/registerServiceUser";
 import {

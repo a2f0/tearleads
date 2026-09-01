@@ -3,7 +3,7 @@ import type {
   DocumentAttachmentUpload,
   DocumentSummary,
   StoredDocumentKind,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { importExplorerDroppedFiles } from "./useExplorerDroppedFileImport";
 
 interface CreatedImportStore {

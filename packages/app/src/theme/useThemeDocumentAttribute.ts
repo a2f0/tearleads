@@ -3,7 +3,7 @@ import type { ThemeId } from "./themes";
 
 /**
  * Mirrors the active theme onto `<html data-theme>` so CSS can select the
- * matching token block in @symcrypt/ui's styles.css. A document with no
+ * matching token block in @tearleads/ui's styles.css. A document with no
  * attribute falls back to the Light values in the base `:root`.
  *
  * This mirrors `useNavigationModeDocumentAttribute` — same reasoning for keying

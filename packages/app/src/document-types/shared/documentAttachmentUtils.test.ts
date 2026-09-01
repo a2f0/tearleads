@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
-import type { BlobInfo } from "@symcrypt/client-sdk";
+import type { BlobInfo } from "@tearleads/client-sdk";
 import {
   createBlobByteSource,
   createMemoryBlobStore,
   readBlobByteSource,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import {
   AUTOMATIC_BLOB_PREVIEW_MAX_BYTES,
   getDocumentAttachmentBlobName,

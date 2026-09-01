@@ -7,8 +7,8 @@ import {
   type VerifiedPrincipalPolicy,
   verifyAccessManifestLocalCheckpoint,
   verifyPrincipalPolicyCheckpoint,
-} from "@symcrypt/crypto";
-import type { PrincipalPolicyBundleResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import {
   keyingCheckpointTables,
   principalPolicyTables,

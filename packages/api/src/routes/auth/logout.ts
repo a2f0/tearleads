@@ -1,8 +1,8 @@
 import {
   logoutOperation,
   operationRoutePath,
-} from "@symcrypt/validators/operation";
-import type { DestroySessionResponse } from "@symcrypt/validators/response";
+} from "@tearleads/validators/operation";
+import type { DestroySessionResponse } from "@tearleads/validators/response";
 import type { Context, MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";

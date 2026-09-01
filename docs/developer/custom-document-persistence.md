@@ -59,7 +59,7 @@ a newer shell ahead of an edited row can strand unsynced work.
 
 ## On-demand document lifecycle
 
-The public `symcrypt.documents.findLocalIdByDocumentId(documentId)` performs
+The public `tearleads.documents.findLocalIdByDocumentId(documentId)` performs
 that local lookup only when SQLite is ready; `null` means unavailable or
 unknown, and no network work starts. A host may generate a local id when no row
 exists, then call `documents.open({ localId, documentId }, {

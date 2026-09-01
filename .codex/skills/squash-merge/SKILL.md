@@ -45,7 +45,7 @@ it, and delete the merged branch, so a shipped PR leaves no local leftovers.
 ## Prerequisites
 
 - `git`, `gh` (authenticated), and `jq` on `PATH`.
-- The `@symcrypt/agent-tool` package: `packages/agent-tool/src/index.ts`.
+- The `@tearleads/agent-tool` package: `packages/agent-tool/src/index.ts`.
 - `node_modules` installed (`bun install`) so the commitlint CLI is available.
 - An open, mergeable PR on the current branch.
 

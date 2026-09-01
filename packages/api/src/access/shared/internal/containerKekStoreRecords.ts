@@ -1,17 +1,17 @@
 import {
   type containerKeyEpochs,
   containerKeyWraps,
-} from "@symcrypt/api-shared/schema";
+} from "@tearleads/api-shared/schema";
 import type {
   ContainerKekKeyring,
   ContainerKekPredecessorBridge,
   ContainerKeyEpoch,
   ContainerKeyWrap,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import {
   CONTAINER_KEK_KEYRING_SEAL_SUITE,
   CONTAINER_KEK_PREDECESSOR_WRAP_SUITE,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import { and, eq } from "drizzle-orm";
 
 export interface StoredContainerKeyEpoch extends ContainerKeyEpoch {

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { db } from "@symcrypt/api-shared/postgres";
-import { documents } from "@symcrypt/api-shared/schema";
+import { db } from "@tearleads/api-shared/postgres";
+import { documents } from "@tearleads/api-shared/schema";
 import { eq } from "drizzle-orm";
 import { touchDocumentAndLinkedContainers } from "./documentRows";
 

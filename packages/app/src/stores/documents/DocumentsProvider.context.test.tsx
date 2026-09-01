@@ -1,5 +1,5 @@
 import { afterEach, expect, mock, test } from "bun:test";
-import type { DocumentStore } from "@symcrypt/client-sdk";
+import type { DocumentStore } from "@tearleads/client-sdk";
 import { cleanup, renderHook } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
 import {

@@ -5,7 +5,7 @@ import * as AppHostConfigProvider from "../host/AppHostConfigProvider";
 import * as IdentityProvider from "../identity/IdentityProvider";
 import * as LocalKeyringLockProvider from "../local-keyring/LocalKeyringLockProvider";
 import * as LogProvider from "../logging/LogProvider";
-import * as SymCryptProvider from "../sdk/SymCryptProvider";
+import * as TearleadsProvider from "../sdk/TearleadsProvider";
 import {
   type CryptoSessionContextValue,
   CryptoSessionProvider,
@@ -25,7 +25,7 @@ test("crypto session context changes only with its exposed state", async () => {
     organizationId: null,
     userId: null as string | null,
   };
-  const symcrypt = {
+  const tearleads = {
     identity,
     session: {
       bootstrapLocalRootContainer: () => Promise.resolve(),
@@ -43,9 +43,9 @@ test("crypto session context changes only with its exposed state", async () => {
         return () => undefined;
       },
     },
-  } as unknown as ReturnType<typeof SymCryptProvider.useSymCrypt>;
+  } as unknown as ReturnType<typeof TearleadsProvider.useTearleads>;
   const spies = [
-    spyOn(SymCryptProvider, "useSymCrypt").mockReturnValue(symcrypt),
+    spyOn(TearleadsProvider, "useTearleads").mockReturnValue(tearleads),
     spyOn(LogProvider, "useLog").mockReturnValue({
       entries: [],
       log: () => undefined,

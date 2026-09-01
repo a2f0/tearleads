@@ -1,7 +1,7 @@
 import type {
   OrganizationDirectory,
   OrganizationGroupSummary,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { unknownErrorMessage } from "../../utils/unknownErrorMessage";
 import type { OrgManagerView } from "./routes";
 

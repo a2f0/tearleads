@@ -1,11 +1,11 @@
 import type {
   DomainScope,
   OrganizationDirectoryAndGroups,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { useEffect, useMemo, useState } from "react";
 import { subscribeOrganizationReadModelRealtime } from "../../../providers/sdk/organizationReadModelRealtime";
-import type { RuntimeSnapshot } from "../../../providers/sdk/SymCryptProvider";
-import { useSymCrypt } from "../../../providers/sdk/SymCryptProvider";
+import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
+import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 
 export interface ExplorerOrganizationReadModelScope {
   readonly domainScope: DomainScope;
@@ -34,7 +34,7 @@ export function useExplorerOrganizationReadModelDemand(input: {
   readonly revision: number;
   readonly scope: ExplorerOrganizationReadModelScope | null;
 } {
-  const symcrypt = useSymCrypt();
+  const tearleads = useTearleads();
   const organizationId = input.appData.auth.organizationId;
   const userId = input.appData.auth.userId;
   const domainScope = input.appData.state.domainScope;
@@ -78,11 +78,11 @@ export function useExplorerOrganizationReadModelDemand(input: {
       return;
     }
     return subscribeOrganizationReadModelRealtime(
-      symcrypt,
+      tearleads,
       organizationId,
       async () => {
         const projection =
-          await symcrypt.organizations.loadLocalDirectoryAndGroups();
+          await tearleads.organizations.loadLocalDirectoryAndGroups();
         setProjectionState((current) => ({
           projection,
           revision:
@@ -93,7 +93,7 @@ export function useExplorerOrganizationReadModelDemand(input: {
         }));
       },
     );
-  }, [canDemandProjection, demanded, activeScope, organizationId, symcrypt]);
+  }, [canDemandProjection, demanded, activeScope, organizationId, tearleads]);
 
   if (!projectionState || !isSameScope(projectionState.scope, activeScope)) {
     return { projection: null, revision: 0, scope: activeScope };

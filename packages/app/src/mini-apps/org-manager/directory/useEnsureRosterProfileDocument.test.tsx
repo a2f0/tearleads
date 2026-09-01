@@ -4,7 +4,7 @@ import type {
   OrganizationDirectory,
   OrganizationDirectoryUser,
   OrganizationUserDetail,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { Dispatch, SetStateAction } from "react";
 import { useEnsureRosterProfileDocument } from "../hooks/useEnsureRosterProfileDocument";

@@ -1,5 +1,5 @@
 import type { Icon } from "@phosphor-icons/react";
-import type { DocumentProjectorDefinition } from "@symcrypt/client-sdk";
+import type { DocumentProjectorDefinition } from "@tearleads/client-sdk";
 
 export interface DocumentTypeAppProps {
   containerId?: string | null;

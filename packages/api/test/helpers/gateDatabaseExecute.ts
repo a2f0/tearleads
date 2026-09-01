@@ -1,7 +1,7 @@
 import type {
   ApiDatabase,
   DatabaseTransaction,
-} from "@symcrypt/api-shared/postgres";
+} from "@tearleads/api-shared/postgres";
 
 export function gateTransactionExecuteAfterExecution(input: {
   readonly database: ApiDatabase;

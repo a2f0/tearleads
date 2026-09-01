@@ -2,8 +2,8 @@ import { afterEach, expect, test } from "bun:test";
 import type {
   ContainerDocumentQueries,
   ContainerNode,
-} from "@symcrypt/client-sdk";
-import { syncedContainerDocumentObjectSyncState as syncedState } from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
+import { syncedContainerDocumentObjectSyncState as syncedState } from "@tearleads/client-sdk";
 import {
   act,
   cleanup,

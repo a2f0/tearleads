@@ -1,5 +1,5 @@
-import type { ContainerDocumentLinks } from "@symcrypt/client-sdk";
-import { useSymCrypt } from "../../providers/sdk/SymCryptProvider";
+import type { ContainerDocumentLinks } from "@tearleads/client-sdk";
+import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 import { useRuntimeScopedMemo } from "../../providers/sdk/useRuntimeScopedMemo";
 
 export function isDestroyedDatabaseWorkerError(error: unknown): boolean {
@@ -18,7 +18,7 @@ export function isIgnorableDatabaseWorkerError(error: unknown): boolean {
 }
 
 export function useExplorerDocumentLinks(): ContainerDocumentLinks {
-  const { containerContents } = useSymCrypt();
+  const { containerContents } = useTearleads();
 
   return useRuntimeScopedMemo(
     () => containerContents.documentLinks(),

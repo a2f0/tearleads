@@ -1,4 +1,4 @@
-import type { PrincipalPolicyBundleResponse } from "@symcrypt/validators/response";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { runGetCurrentPrincipalPolicyWorkflow } from "../../workflows/principals/getCurrentPrincipalPolicy";
 import type { ApiServiceRuntime } from "../runtime";
 

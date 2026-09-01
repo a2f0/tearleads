@@ -1,4 +1,4 @@
-import { serializeKeyingCanonicalJson } from "@symcrypt/crypto";
+import { serializeKeyingCanonicalJson } from "@tearleads/crypto";
 import { documentContentRecordDerivationPayload } from "./contentRecordKeys";
 import { DOCUMENT_CONTENT_RECORD_AAD_DOMAIN, TEXT_ENCODER } from "./types";
 

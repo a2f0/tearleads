@@ -1,13 +1,13 @@
 import { expect, test } from "bun:test";
-import { bytesToBase64 } from "@symcrypt/encoding";
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
   encodeVersionVector,
   exportAllUpdates,
   getTextValue,
-} from "@symcrypt/loro";
-import { createMockApiClient, createTestExecSql } from "@symcrypt/test-utils";
-import type { DocumentSyncRequest } from "@symcrypt/validators/request";
+} from "@tearleads/loro";
+import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
+import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import {
   createMaterializedSyncFixture,
   createSyncResponse,

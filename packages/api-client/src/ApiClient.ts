@@ -1,5 +1,5 @@
-import { authChallengeSigningBytes, sign } from "@symcrypt/crypto";
-import type { NativeSubscriptionStore } from "@symcrypt/validators/billing";
+import { authChallengeSigningBytes, sign } from "@tearleads/crypto";
+import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
 import type {
   BlobAttachmentBindRequest,
   BlobAttachmentDetachRequest,
@@ -20,7 +20,7 @@ import type {
   RegistrationRequest,
   UpdateOrganizationProfileRequest,
   UpdateOrganizationRosterEntryRequest,
-} from "@symcrypt/validators/request";
+} from "@tearleads/validators/request";
 import type {
   BlobAttachmentBindResponse,
   BlobAttachmentDetachResponse,
@@ -38,7 +38,7 @@ import type {
   OrganizationReadModelResponse,
   PrincipalPolicyBundleResponse,
   UserIdentityResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { BoundedCache } from "./ApiCache";
 import {
   bindPrototypeMethods,

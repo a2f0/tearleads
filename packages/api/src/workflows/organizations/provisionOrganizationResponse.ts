@@ -1,4 +1,4 @@
-import type { OrganizationProvisioningResponse } from "@symcrypt/validators/response";
+import type { OrganizationProvisioningResponse } from "@tearleads/validators/response";
 import type { ProvisionedOrganization } from "./provisionOrganization";
 
 /**

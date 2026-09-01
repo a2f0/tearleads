@@ -3,7 +3,7 @@
    below intentionally mirror Explorer.css: the row classes are also used by the
    Explorer's own tables, whose rules stay in Explorer.css, and duplicating the
    identical declarations here keeps the shared surface independent. Only global
-   design tokens (from @symcrypt/ui) are referenced. The sort controls are the
+   design tokens (from @tearleads/ui) are referenced. The sort controls are the
    shared table ones (see MiniAppTableSort.css), which every table already loads
    through the shared table components. */
 

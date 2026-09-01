@@ -1,4 +1,4 @@
-import { encodeVersionVector } from "@symcrypt/loro";
+import { encodeVersionVector } from "@tearleads/loro";
 import { importDecryptedDocumentSyncUpdates } from "../../../data/documents/shared/documentSyncUpdateIsolation";
 import type { DecryptedDocumentSyncUpdate } from "../../../data/documents/shared/types";
 import type { DocumentRecord } from "../../../workflows/documents";

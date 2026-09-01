@@ -4,7 +4,7 @@ import {
   exportFullHistorySnapshot,
   getTextValue,
   getUpdateVersionVectors,
-} from "@symcrypt/loro";
+} from "@tearleads/loro";
 import { applyIncomingContainerMetadataUpdates } from "./metadataIncomingUpdateIsolation";
 
 test("metadata live import applies rotation snapshots before ordinary updates", async () => {

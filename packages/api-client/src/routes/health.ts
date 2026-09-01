@@ -2,7 +2,7 @@ import {
   getHealthOperation,
   isGetHealthOperationResponse,
   operationRequestPath,
-} from "@symcrypt/validators/operation";
+} from "@tearleads/validators/operation";
 
 export const getHealth = {
   isResponse: isGetHealthOperationResponse,

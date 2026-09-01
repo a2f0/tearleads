@@ -2,11 +2,11 @@ import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   toFingerprint,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import type {
   PrincipalPolicyBundleResponse,
   PrincipalPolicySnapshotResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { buildInitialGroupPolicyRequest } from "../../src/workflows/organizations/principalPolicy";
 import {
   policyBundleFromInitialRequest,

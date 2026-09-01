@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
-import { createTestUser } from "@symcrypt/bob-and-alice";
-import type { DocumentSyncRequest } from "@symcrypt/validators/request";
+import { createTestUser } from "@tearleads/bob-and-alice";
+import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import {
   type DocumentLinkSetMutationResponse,
   type DocumentSyncResponse,
   isDocumentLinkSetMutationResponse,
   isDocumentSyncResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { authenticate } from "../../../test/helpers/authenticate";
 import {
   buildDocumentLinkRequest,

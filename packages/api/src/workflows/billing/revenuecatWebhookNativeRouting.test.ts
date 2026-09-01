@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
-import { db } from "@symcrypt/api-shared/postgres";
+import { db } from "@tearleads/api-shared/postgres";
 import {
   organizationBilling,
   revenuecatWebhookEvents,
   users,
-} from "@symcrypt/api-shared/schema";
-import { createTestUser, type TestUser } from "@symcrypt/bob-and-alice";
-import type { RevenueCatWebhookEvent } from "@symcrypt/validators/request";
+} from "@tearleads/api-shared/schema";
+import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
+import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { createOrganizationRequestBody } from "../../../test/helpers/api";
@@ -50,7 +50,7 @@ async function bindSubscription(input: {
     .set({
       provider: "revenuecat",
       providerCustomerId: input.buyerId,
-      providerProductId: input.productId ?? "com.symcrypt.sync.monthly",
+      providerProductId: input.productId ?? "com.tearleads.sync.monthly",
       providerSubscriptionId: input.subscriptionId,
       seatCount: 1,
       status: input.status ?? "active",
@@ -80,7 +80,7 @@ async function recordBindingStore(input: {
     organizationId: input.organizationId,
     originalTransactionId: input.subscriptionId,
     outcome: "applied",
-    productId: input.productId ?? "com.symcrypt.sync.monthly",
+    productId: input.productId ?? "com.tearleads.sync.monthly",
     store: input.store,
   });
 }
@@ -105,7 +105,7 @@ function nativeEvent(input: {
     ...(input.subscriptionId
       ? { original_transaction_id: input.subscriptionId }
       : {}),
-    product_id: input.productId ?? "com.symcrypt.sync.monthly",
+    product_id: input.productId ?? "com.tearleads.sync.monthly",
     purchased_at_ms: now,
     store: input.store,
     subscriber_attributes: { orgId: { value: input.organizationId } },
@@ -445,7 +445,7 @@ for (const eventType of ["INITIAL_PURCHASE", "RENEWAL"] as const) {
     await bindSubscription({
       buyerId: user.userId,
       organizationId: restoredId,
-      productId: "com.symcrypt.sync.monthly",
+      productId: "com.tearleads.sync.monthly",
       store: "PLAY_STORE",
       subscriptionId: `restored-solo-subscription-${caseId}`,
     });

@@ -2,7 +2,7 @@ import { TrashIcon } from "@phosphor-icons/react/dist/csr/Trash";
 import type {
   DocumentAttachment,
   DocumentAttachmentStatus,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { type ChangeEvent, useId, useRef } from "react";
 import { formatByteLength } from "../../utils/formatByteLength";
 import { AttachmentActionButton } from "./AttachmentActionButton";

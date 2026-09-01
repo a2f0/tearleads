@@ -11,7 +11,7 @@ const apiDatabaseEnvKey = "API_DATABASE";
 
 function usage(): string {
   return [
-    "Usage: symcrypt-api-cli <command>",
+    "Usage: tearleads-api-cli <command>",
     "",
     "Commands:",
     "  blob-store:list-keys [--prefix <prefix>] [--with-size]    List configured S3 blob store keys",
@@ -49,7 +49,7 @@ async function materializeEmbeddedMigrations(
   }
 
   const migrationsFolder = await mkdtemp(
-    join(tmpdir(), "symcrypt-api-migrations-"),
+    join(tmpdir(), "tearleads-api-migrations-"),
   );
 
   try {
@@ -104,7 +104,7 @@ async function runMigrations(): Promise<void> {
   const migrationsFolder =
     await materializeEmbeddedMigrations(migrationDialect);
   const { closeApiDatabase, db, initializeApiDatabase } = await import(
-    "@symcrypt/api-shared/postgres"
+    "@tearleads/api-shared/postgres"
   );
   const { assertCurrentApiSchema } = await import("./assertCurrentSchema");
 

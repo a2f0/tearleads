@@ -1,5 +1,5 @@
-import type { TestUser } from "@symcrypt/bob-and-alice";
-import type { CreateOrganizationRequest } from "@symcrypt/validators/request";
+import type { TestUser } from "@tearleads/bob-and-alice";
+import type { CreateOrganizationRequest } from "@tearleads/validators/request";
 import { routeApp } from "../../../src/routeApp";
 import { createRegistrationRequestBody } from "./submitRegistration";
 

@@ -1,9 +1,9 @@
 import type {
   ApiDatabase,
   DatabaseSession,
-} from "@symcrypt/api-shared/postgres";
-import type { VerifiedPrincipalPolicy } from "@symcrypt/crypto";
-import type { PrincipalPolicyBundleResponse } from "@symcrypt/validators/response";
+} from "@tearleads/api-shared/postgres";
+import type { VerifiedPrincipalPolicy } from "@tearleads/crypto";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import {
   getCurrentPrincipalState,
   type StoredPrincipalState,

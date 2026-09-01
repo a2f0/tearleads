@@ -2,7 +2,7 @@ import type {
   BlobBytes,
   FileSaver,
   SaveFileRequest,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 
 const TEXT_ENCODER = new TextEncoder();
 

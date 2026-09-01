@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import type { ContainerInfo } from "@symcrypt/client-sdk";
+import type { ContainerInfo } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { FormEvent } from "react";
 import {

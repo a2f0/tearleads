@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
-import { generateKemSeedAndKeyPair } from "@symcrypt/crypto";
-import { createDocument, exportFullHistorySnapshot } from "@symcrypt/loro";
+import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import { createDocument, exportFullHistorySnapshot } from "@tearleads/loro";
 import {
   createContainerWriterProjectionFixture,
   createTestExecSql,
-} from "@symcrypt/test-utils";
-import type { DocumentWriterProjectionResponse } from "@symcrypt/validators/response";
+} from "@tearleads/test-utils";
+import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import {
   createAuthor,
   createLinkSetResponseFromRequest,

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { CONTAINER_KEK_LOG_PAGE_LIMIT } from "@symcrypt/validators/util";
+import { CONTAINER_KEK_LOG_PAGE_LIMIT } from "@tearleads/validators/util";
 import {
   makeEpochBridge,
   makeEpochKeys,

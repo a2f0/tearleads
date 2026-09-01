@@ -24,7 +24,7 @@ import { DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE } from "../../shared/DestroyKey
 
 afterEach(cleanupPaneTestEnvironment);
 
-const LOCAL_CRYPTO_SESSION_STORAGE_PREFIX = "symcrypt.local-session:";
+const LOCAL_CRYPTO_SESSION_STORAGE_PREFIX = "tearleads.local-session:";
 
 function hasPaneLocalCryptoSession(namespace: string): boolean {
   const prefix = `${LOCAL_CRYPTO_SESSION_STORAGE_PREFIX}${namespace}.left:`;

@@ -1,7 +1,7 @@
 # Client Sync Ordering
 
 This document describes the client-side ordering used by
-`@symcrypt/client-sdk` when a domain has several kinds of queued sync work.
+`@tearleads/client-sdk` when a domain has several kinds of queued sync work.
 It complements the wire-protocol documents; it does not define new HTTP routes
 or server transactions.
 

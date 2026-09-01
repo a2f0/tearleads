@@ -9,7 +9,7 @@ async function createDistFixture(files: Record<string, string>): Promise<{
   cleanup: () => Promise<void>;
   distUrl: URL;
 }> {
-  const tempRoot = await mkdtemp(join(tmpdir(), "symcrypt-sw-"));
+  const tempRoot = await mkdtemp(join(tmpdir(), "tearleads-sw-"));
   const distDir = join(tempRoot, "dist");
   await mkdir(distDir, { recursive: true });
 
@@ -50,10 +50,10 @@ test("buildServiceWorker generates the offline precache contract", async () => {
     );
     const generatedSource = await Bun.file(new URL("sw.js", distUrl)).text();
 
-    expect(result.cacheName).toStartWith("symcrypt-app-web-");
+    expect(result.cacheName).toStartWith("tearleads-app-web-");
     expect(generatedSource).toBe(result.serviceWorkerSource);
     expect(result.serviceWorkerSource).toContain(
-      'const CACHE_PREFIX = "symcrypt-app-web-";',
+      'const CACHE_PREFIX = "tearleads-app-web-";',
     );
     expect(result.serviceWorkerSource).toContain(
       "key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME",

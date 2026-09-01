@@ -7,8 +7,8 @@ import {
   normalizeContainerKekKeyring,
   openContainerKekKeyring,
   verifyContainerKekKeyringEntry,
-} from "@symcrypt/crypto";
-import type { ContainerWriterProjectionResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import {
   readCanonicalJson,
   readCanonicalRecord,

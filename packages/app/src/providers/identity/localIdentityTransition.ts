@@ -1,4 +1,4 @@
-import type { IdentityKeyPackage, SymCrypt } from "@symcrypt/client-sdk";
+import type { IdentityKeyPackage, Tearleads } from "@tearleads/client-sdk";
 import type { MutableRefObject } from "react";
 import { prepareForIdentityTransition } from "./identityRuntimeTransition";
 import {
@@ -24,7 +24,7 @@ export interface IdentitySwitchDependencies {
   ) => void;
   readonly persistSessionBeforeIdentityTransition: () => Promise<void>;
   readonly setTransitionInFlight: (inFlight: boolean) => void;
-  readonly symcrypt: SymCrypt;
+  readonly tearleads: Tearleads;
   readonly transitionInFlightRef: MutableRefObject<boolean>;
 }
 
@@ -50,9 +50,10 @@ export function assertTransitionIsCurrent(
 async function loadPreviousIdentity(
   input: IdentitySwitchOperation,
 ): Promise<PreviousIdentity> {
-  const previousSigningFingerprint = input.symcrypt.identity.signingFingerprint;
+  const previousSigningFingerprint =
+    input.tearleads.identity.signingFingerprint;
   const previousKeyPackage = previousSigningFingerprint
-    ? await input.symcrypt.identity.exportKeyPackage()
+    ? await input.tearleads.identity.exportKeyPackage()
     : null;
   assertTransitionIsCurrent(input);
   if (
@@ -73,7 +74,7 @@ async function loadPreviousIdentity(
 async function clearPublishedIdentity(
   input: IdentitySwitchOperation,
 ): Promise<void> {
-  await input.symcrypt.identity.setKeyPairs({
+  await input.tearleads.identity.setKeyPairs({
     encapsulationKeyPair: null,
     signingKeyPair: null,
   });
@@ -85,7 +86,7 @@ async function importExpectedIdentity(
   keyPackage: IdentityKeyPackage,
   expectedFingerprint: string,
 ): Promise<void> {
-  const snapshot = await input.symcrypt.identity.importKeyPackage(keyPackage);
+  const snapshot = await input.tearleads.identity.importKeyPackage(keyPackage);
   assertTransitionIsCurrent(input);
   if (snapshot.signingFingerprint !== expectedFingerprint) {
     throw new Error("Identity fingerprint does not match its key package.");
@@ -101,18 +102,18 @@ async function activateTargetIdentity(
   // Dispose while the old fingerprint is still published so its domain
   // coordinator cannot survive the transition. Publishing null immediately
   // also invalidates any authentication request that began under that identity.
-  prepareForIdentityTransition(input.symcrypt);
+  prepareForIdentityTransition(input.tearleads);
   input.clearDatabase();
   await clearPublishedIdentity(input);
   await importExpectedIdentity(input, target, input.signingFingerprint);
   logIdentityTransitionPhase(
-    input.symcrypt,
+    input.tearleads,
     input.generationId,
     input.kind,
     "runtime-prepared",
   );
   logIdentityTransitionPhase(
-    input.symcrypt,
+    input.tearleads,
     input.generationId,
     input.kind,
     "database-wait-started",
@@ -120,7 +121,7 @@ async function activateTargetIdentity(
   await input.ensureIdentityDatabaseReady(input.signingFingerprint);
   assertTransitionIsCurrent(input);
   logIdentityTransitionPhase(
-    input.symcrypt,
+    input.tearleads,
     input.generationId,
     input.kind,
     "database-ready",
@@ -138,9 +139,9 @@ async function activateTargetIdentity(
 async function restorePreviousIdentity(
   input: IdentitySwitchOperation,
   previous: PreviousIdentity,
-  previousSession: SymCrypt["session"]["snapshot"],
+  previousSession: Tearleads["session"]["snapshot"],
 ): Promise<boolean> {
-  prepareForIdentityTransition(input.symcrypt);
+  prepareForIdentityTransition(input.tearleads);
   input.clearDatabase();
   await clearPublishedIdentity(input);
   if (!previous.keyPackage || !previous.signingFingerprint) {
@@ -155,7 +156,7 @@ async function restorePreviousIdentity(
   await input.ensureIdentityDatabaseReady(previous.signingFingerprint);
   assertTransitionIsCurrent(input);
   logIdentityTransitionPhase(
-    input.symcrypt,
+    input.tearleads,
     input.generationId,
     input.kind,
     "rollback-database-ready",
@@ -167,7 +168,7 @@ async function restorePreviousIdentity(
     assertTransitionIsCurrent(input);
     input.onIdentitiesChanged(identities);
   }
-  input.symcrypt.session.setContext(previousSession);
+  input.tearleads.session.setContext(previousSession);
   return true;
 }
 
@@ -183,15 +184,15 @@ export async function transitionLocalIdentity(
     await input.persistSessionBeforeIdentityTransition();
     assertTransitionIsCurrent(input);
     logIdentityTransitionPhase(
-      input.symcrypt,
+      input.tearleads,
       input.generationId,
       input.kind,
       "session-persisted",
     );
   } catch (error: unknown) {
-    input.symcrypt.logError("Failed to transition local identity", error);
+    input.tearleads.logError("Failed to transition local identity", error);
     logIdentityTransitionResult(
-      input.symcrypt,
+      input.tearleads,
       input.generationId,
       input.kind,
       { rollback: "not-needed", status: "failed" },
@@ -199,23 +200,23 @@ export async function transitionLocalIdentity(
     return false;
   }
 
-  const previousSession = { ...input.symcrypt.session.snapshot };
+  const previousSession = { ...input.tearleads.session.snapshot };
   try {
     await activateTargetIdentity(input, target, commitTarget, afterTargetReady);
     logIdentityTransitionResult(
-      input.symcrypt,
+      input.tearleads,
       input.generationId,
       input.kind,
       { status: "succeeded" },
     );
     return true;
   } catch (error: unknown) {
-    input.symcrypt.logError("Failed to transition local identity", error);
+    input.tearleads.logError("Failed to transition local identity", error);
   }
 
   if (input.generationIdRef.current === input.generationId) {
     logIdentityTransitionPhase(
-      input.symcrypt,
+      input.tearleads,
       input.generationId,
       input.kind,
       "rollback-started",
@@ -227,7 +228,7 @@ export async function transitionLocalIdentity(
         previousSession,
       );
       logIdentityTransitionResult(
-        input.symcrypt,
+        input.tearleads,
         input.generationId,
         input.kind,
         {
@@ -236,12 +237,12 @@ export async function transitionLocalIdentity(
         },
       );
     } catch (error: unknown) {
-      input.symcrypt.logError(
+      input.tearleads.logError(
         "Failed to restore the previous local identity",
         error,
       );
       logIdentityTransitionResult(
-        input.symcrypt,
+        input.tearleads,
         input.generationId,
         input.kind,
         { rollback: "failed", status: "failed" },
@@ -249,7 +250,7 @@ export async function transitionLocalIdentity(
     }
   } else {
     logIdentityTransitionResult(
-      input.symcrypt,
+      input.tearleads,
       input.generationId,
       input.kind,
       { rollback: "superseded", status: "failed" },

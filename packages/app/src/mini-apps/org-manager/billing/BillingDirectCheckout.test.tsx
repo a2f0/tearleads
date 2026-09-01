@@ -1,7 +1,7 @@
 import { afterEach, expect, mock, spyOn, test } from "bun:test";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { createRef } from "react";
-import * as SymCryptProvider from "../../../providers/sdk/SymCryptProvider";
+import * as TearleadsProvider from "../../../providers/sdk/TearleadsProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { BillingDirectCheckout } from "./BillingDirectCheckout";
 import { formatPrice } from "./billingFormatters";
@@ -18,7 +18,7 @@ afterEach(() => {
 });
 
 /** The idle checkout renders the hosted-link, which reads the SDK facade. */
-function stubSymCrypt(
+function stubTearleads(
   createStripeCheckoutSession: (
     returnUrl: string,
     organizationId?: string,
@@ -27,7 +27,7 @@ function stubSymCrypt(
   } | null> = () => Promise.resolve({ url: null }),
 ) {
   spies.push(
-    spyOn(SymCryptProvider, "useSymCrypt").mockReturnValue({
+    spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
       organizations: { createStripeCheckoutSession },
     } as never),
   );
@@ -124,7 +124,7 @@ test("surfaces an option-loading failure", () => {
 });
 
 test("idle offers the priced subscription and hides the element host", () => {
-  stubSymCrypt();
+  stubTearleads();
   const view = render(
     <BillingDirectCheckout checkout={state({})} disabled={false} />,
   );
@@ -135,7 +135,7 @@ test("idle offers the priced subscription and hides the element host", () => {
 });
 
 test("inline checkout requires and forwards a recovery email", () => {
-  stubSymCrypt();
+  stubTearleads();
   let receivedEmail: string | undefined;
   const view = render(
     <BillingDirectCheckout
@@ -163,7 +163,7 @@ test("inline checkout requires and forwards a recovery email", () => {
 });
 
 test("idle checkout actions use the standard button styling", () => {
-  stubSymCrypt();
+  stubTearleads();
   const view = render(
     <BillingDirectCheckout checkout={state({})} disabled={false} />,
   );
@@ -296,7 +296,7 @@ test("the hosted-checkout link opens the Stripe session in a new tab", async () 
     (_returnUrl: string, _organizationId?: string) =>
       Promise.resolve({ url: "https://checkout.stripe.com/pay/x" }),
   );
-  stubSymCrypt(createStripeCheckoutSession);
+  stubTearleads(createStripeCheckoutSession);
   const tab = fakeTab();
   const openMock = mock(() => tab);
   stubOpen(openMock);
@@ -326,7 +326,7 @@ test("a blocked pop-up falls back to same-tab navigation", async () => {
   const createStripeCheckoutSession = mock(() =>
     Promise.resolve({ url: "https://checkout.stripe.com/pay/x" }),
   );
-  stubSymCrypt(createStripeCheckoutSession);
+  stubTearleads(createStripeCheckoutSession);
   stubOpen(() => null);
   const assign = spyOn(globalThis.location, "assign").mockImplementation(
     () => undefined,
@@ -349,7 +349,7 @@ test("a null hosted session closes the tab and leaves the buyer on the page", as
   const createStripeCheckoutSession = mock(() =>
     Promise.resolve({ url: null }),
   );
-  stubSymCrypt(createStripeCheckoutSession);
+  stubTearleads(createStripeCheckoutSession);
   const tab = fakeTab();
   stubOpen(() => tab);
   const assign = spyOn(globalThis.location, "assign").mockImplementation(
@@ -385,7 +385,7 @@ test("a thrown hosted session closes the tab and surfaces the notice", async () 
   const createStripeCheckoutSession = mock(() =>
     Promise.reject(new Error("boom")),
   );
-  stubSymCrypt(createStripeCheckoutSession);
+  stubTearleads(createStripeCheckoutSession);
   const tab = fakeTab();
   stubOpen(() => tab);
   // The component logs the rejection; silence it so the run output stays clean.
@@ -406,7 +406,7 @@ test("a thrown hosted session closes the tab and surfaces the notice", async () 
 });
 
 test("the hosted-checkout link is not offered once the inline flow starts", () => {
-  stubSymCrypt();
+  stubTearleads();
   const view = render(
     <BillingDirectCheckout
       checkout={state({ phase: { kind: "collecting" } })}

@@ -1,12 +1,12 @@
 import type {
   ApiDatabase,
   DatabaseTransaction,
-} from "@symcrypt/api-shared/postgres";
-import type { DocumentSyncRequest } from "@symcrypt/validators/request";
+} from "@tearleads/api-shared/postgres";
+import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import {
   type DocumentSyncResponse,
   documentKekTargetsFromContentKeyBundle,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import {
   getDocumentContentKeyBundle,
   type StoredDocumentContentKeyBundle,

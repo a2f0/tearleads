@@ -2,7 +2,7 @@ import {
   getOrganizationReadModelOperation,
   isGetOrganizationReadModelOperationResponse,
   operationRequestPathWithQuery,
-} from "@symcrypt/validators/operation";
+} from "@tearleads/validators/operation";
 
 export const getOrganizationReadModel = {
   isResponse: isGetOrganizationReadModelOperationResponse,

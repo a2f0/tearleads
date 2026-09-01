@@ -1,18 +1,18 @@
 import { expect } from "bun:test";
-import type { TestUser } from "@symcrypt/bob-and-alice";
+import type { TestUser } from "@tearleads/bob-and-alice";
 import type {
   ContainerAccessEventBody,
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import type {
   AccessManifestBundleWire,
   ContainerMutationRequest,
-} from "@symcrypt/validators/request";
+} from "@tearleads/validators/request";
 import {
   type ContainerMutationResponse,
   isContainerMutationResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { routeApp } from "../../src/routeApp";
 import { createTestContainerKekMaterial } from "./containerKekMaterial";
 import {

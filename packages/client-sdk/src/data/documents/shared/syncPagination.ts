@@ -1,5 +1,5 @@
-import type { DocumentSyncResponse } from "@symcrypt/validators/response";
-import { parseWalLsn } from "@symcrypt/validators/util";
+import type { DocumentSyncResponse } from "@tearleads/validators/response";
+import { parseWalLsn } from "@tearleads/validators/util";
 import type {
   DocumentSyncCommitLsnMode,
   DocumentSyncPullContinuation,

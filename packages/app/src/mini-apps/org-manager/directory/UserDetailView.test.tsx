@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import type { OrganizationUserDetail } from "@symcrypt/client-sdk";
+import type { OrganizationUserDetail } from "@tearleads/client-sdk";
 import {
   cleanup,
   fireEvent,

@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
-import { SymCrypt } from "./SymCrypt";
+import { Tearleads } from "./Tearleads";
 
 test("a payment block in one organization does not stop another organization", () => {
-  const sdk = new SymCrypt({ online: true });
+  const sdk = new Tearleads({ online: true });
   // The active session can remain on the custom org while a mixed-org store
   // syncs a personal-org resource, so the predicate must use its argument.
   sdk.session.setOrganizationId("custom-org");

@@ -1,13 +1,13 @@
 import { expect, test } from "bun:test";
-import { createTestUser, type TestUser } from "@symcrypt/bob-and-alice";
-import { wrapDekForRecipients } from "@symcrypt/crypto";
-import { bytesToBase64 } from "@symcrypt/encoding";
+import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
+import { wrapDekForRecipients } from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
   isDocumentEditAttributionResponse,
   isDocumentWriterProjectionResponse,
   isListContainerDocumentsResponse,
   isPrincipalPolicyBundleResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import invariant from "invariant";
 import { authenticate } from "../../test/helpers/authenticate";
 import {

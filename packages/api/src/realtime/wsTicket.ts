@@ -1,6 +1,6 @@
-import { bytesToHex, generateChallenge } from "@symcrypt/crypto";
-import { isPlainObject } from "@symcrypt/validators/isPlainObject";
-import { hasStringProperty, isUuidV4String } from "@symcrypt/validators/util";
+import { bytesToHex, generateChallenge } from "@tearleads/crypto";
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
+import { hasStringProperty, isUuidV4String } from "@tearleads/validators/util";
 import { getdel, set } from "../adapters/redis";
 import { isLiveUserSession } from "../middleware/session";
 import { isSessionId } from "../validators/session";

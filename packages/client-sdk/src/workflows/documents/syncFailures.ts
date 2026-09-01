@@ -1,7 +1,7 @@
 import type {
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import {
   isUpstreamDeletedDocumentSyncFailure,
   submitDocumentSync,

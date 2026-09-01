@@ -1,10 +1,10 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import type {
   DocumentPurgeAccessEventBody,
   VerifiedContainerAccessManifest,
-} from "@symcrypt/crypto";
-import { resolveHistoricalContainerPathUserAccessLevel } from "@symcrypt/crypto";
-import type { AccessManifestBundleWireResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import { resolveHistoricalContainerPathUserAccessLevel } from "@tearleads/crypto";
+import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import { hasDocumentManifestObservation } from "../../../access/read/documentManifestObservationStore";
 import {
   ContainerWriterProjectionError,

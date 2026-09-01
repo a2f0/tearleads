@@ -4,7 +4,7 @@ import { DesktopTowerIcon } from "@phosphor-icons/react/dist/csr/DesktopTower";
 import { DeviceMobileIcon } from "@phosphor-icons/react/dist/csr/DeviceMobile";
 import { DeviceTabletIcon } from "@phosphor-icons/react/dist/csr/DeviceTablet";
 import type { Icon } from "@phosphor-icons/react/dist/lib/types";
-import { ThemeInvertIcon } from "@symcrypt/ui";
+import { ThemeInvertIcon } from "@tearleads/ui";
 import { projectLabel, themeLabel } from "./screenshotsManifest";
 
 const PROJECT_ICONS: Readonly<Record<string, Icon>> = {

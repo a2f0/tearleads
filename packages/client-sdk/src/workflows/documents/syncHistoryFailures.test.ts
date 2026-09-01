@@ -4,9 +4,9 @@ import {
   computeContainerKeyEpochHash,
   computeDocumentContentKeyTargetHash,
   sealContainerKekKeyring,
-} from "@symcrypt/crypto";
-import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
-import { createTestExecSql } from "@symcrypt/test-utils";
+} from "@tearleads/crypto";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { createMutationResponseFromRequest } from "../../../test/helpers/containerFixtures";
 import {
   createMaterializedSyncFixture,

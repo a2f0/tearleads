@@ -27,7 +27,7 @@ trap 'exit 1' HUP INT TERM
 
 git init --quiet --initial-branch=main "$TEST_ROOT"
 git -C "$TEST_ROOT" config commit.gpgsign false
-git -C "$TEST_ROOT" config user.email test@symcrypt.com
+git -C "$TEST_ROOT" config user.email test@tearleads.com
 git -C "$TEST_ROOT" config user.name "OpenAPI compatibility test"
 mkdir -p "$TEST_ROOT/docs"
 cp "$FIXTURE_ROOT/base.json" "$TEST_ROOT/docs/openapi.json"
@@ -285,7 +285,7 @@ cp "$FIXTURE_ROOT/breaking.json" "$TEST_ROOT/docs/openapi.json"
 bun -e '
   const path = Bun.argv[1];
   const spec = await Bun.file(path).json();
-  spec.info.title = "SymCrypt Protocol API";
+  spec.info.title = "Tearleads Protocol API";
   await Bun.write(path, JSON.stringify(spec, null, 2) + "\n");
 ' "$TEST_ROOT/docs/openapi.json"
 

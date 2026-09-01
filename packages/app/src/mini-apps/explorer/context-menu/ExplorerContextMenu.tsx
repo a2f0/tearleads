@@ -1,5 +1,5 @@
-import type { ContainerItemRow, ContainerNode } from "@symcrypt/client-sdk";
-import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
+import type { ContainerItemRow, ContainerNode } from "@tearleads/client-sdk";
+import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { type MouseEvent, useCallback, useMemo } from "react";
 import {
   type ContextMenuState,

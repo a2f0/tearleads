@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
-import { generateKemSeedAndKeyPair } from "@symcrypt/crypto";
+import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import {
   createContainerWriterProjectionFixture,
   createTestExecSql,
-} from "@symcrypt/test-utils";
+} from "@tearleads/test-utils";
 import {
   createAuthor,
   createMaterializedSyncFixture,

@@ -4,7 +4,7 @@ import {
   PurchaseCancelledError,
   type PurchasesCapability,
   type SyncPurchaseResult,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { act, cleanup, waitFor } from "@testing-library/react";
 import {
   createPurchases,

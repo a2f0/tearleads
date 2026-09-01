@@ -44,6 +44,7 @@ test("native product ids map exact production, staging, and Play base plans", ()
     ["sync_monthly", "solo"],
     ["sync_monthly_staging", "solo"],
     ["com.symcrypt.sync.monthly", "solo"],
+    ["com.tearleads.sync.monthly", "solo"],
     ["sync_solo_monthly", "solo"],
     ["sync_solo_monthly_staging", "solo"],
     ["symcrypt_sync_solo_monthly", "solo"],

@@ -1,5 +1,5 @@
-import { db } from "@symcrypt/api-shared/postgres";
-import type { TestUser } from "@symcrypt/bob-and-alice";
+import { db } from "@tearleads/api-shared/postgres";
+import type { TestUser } from "@tearleads/bob-and-alice";
 import type {
   ContainerAccessEventBody,
   ContainerAccessManifestState,
@@ -9,7 +9,7 @@ import type {
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
   VerifiedPrincipalPolicy,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import {
   computeAccessEventBodyHash,
   computeAccessManifestHash,
@@ -17,11 +17,11 @@ import {
   deriveContainerAccessManifest,
   signAccessEvent,
   verifySignedAccessEvent,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import type {
   AccessManifestBundleWire,
   ContainerMutationRequest,
-} from "@symcrypt/validators/request";
+} from "@tearleads/validators/request";
 import {
   createTestContainerKekId,
   createTestContainerKekPredecessorBridge,

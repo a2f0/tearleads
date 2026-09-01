@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { getOrganizationReadModelOperation } from "@symcrypt/validators/operation";
+import { getOrganizationReadModelOperation } from "@tearleads/validators/operation";
 import { Hono } from "hono";
 import { queryParamsValidator } from "./queryParams";
 

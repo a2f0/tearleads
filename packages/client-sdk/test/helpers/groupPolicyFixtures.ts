@@ -1,11 +1,11 @@
-import type { ContainerMutationAuthor } from "@symcrypt/client-sdk";
+import type { ContainerMutationAuthor } from "@tearleads/client-sdk";
 import {
   type generateKemSeedAndKeyPair,
   toFingerprint,
   wrapDekForRecipients,
-} from "@symcrypt/crypto";
-import { bytesToBase64 } from "@symcrypt/encoding";
-import type { PrincipalPolicyBundleResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { signedPrincipalPolicyBundle } from "./principalPolicyFixtures";
 
 export async function createSuccessorGroupPolicyBundle(input: {

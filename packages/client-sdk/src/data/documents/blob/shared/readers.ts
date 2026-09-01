@@ -1,6 +1,6 @@
-import { isPlainObject as isPlainRecord } from "@symcrypt/validators/isPlainObject";
-import type { BlobContentKeyTargetEnvelopeRequest } from "@symcrypt/validators/request";
-import type { DocumentWriterProjectionResponse } from "@symcrypt/validators/response";
+import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
+import type { BlobContentKeyTargetEnvelopeRequest } from "@tearleads/validators/request";
+import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import {
   readRecordPositiveInteger,
   readRecordString,

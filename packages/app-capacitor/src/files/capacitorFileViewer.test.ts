@@ -1,5 +1,5 @@
 import { afterEach, expect, mock, test } from "bun:test";
-import { base64ToBytes } from "@symcrypt/encoding";
+import { base64ToBytes } from "@tearleads/encoding";
 
 interface WriteCall {
   data: string;

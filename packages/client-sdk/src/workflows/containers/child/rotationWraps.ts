@@ -6,8 +6,8 @@ import type {
   ContainerUserRecipientKey,
   ReferencedPrincipalHead,
   VerifiedPrincipalPolicy,
-} from "@symcrypt/crypto";
-import type { ContainerKekResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import type { ContainerKekResponse } from "@tearleads/validators/response";
 import {
   wrapContainerKeyToManagedPrincipal,
   wrapContainerKeyToParent,

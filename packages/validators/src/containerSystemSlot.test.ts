@@ -13,12 +13,12 @@ test("organization system slots retain their deterministic namespaces", async ()
     await deriveOrganizationRosterProfileContainerSystemSlot({
       organizationId: ORGANIZATION_ID,
     }),
-  ).toBe("sys_v1_H9igqSJSUMomF4fC6IICQmDam2QC-Y-K_fmF_1ldkOE");
+  ).toBe("sys_v1_JD38_d_o8HZoET2G7K6ga0Xop6qjTqT0h1w4fb2RK4c");
   expect(
     await deriveOrganizationMetadataContainerSystemSlot({
       organizationId: ORGANIZATION_ID,
     }),
-  ).toBe("sys_v1_r5N-3AIAOxDJdAnlJ0YeRxx2Qi45Dy1vYThQno0Qryc");
+  ).toBe("sys_v1_vPgWEmQY7pwEgVLirgGJ3M9J3esua5Yxs1t0F0kCB8o");
 });
 
 test("derived organization slots satisfy the wire schema", async () => {

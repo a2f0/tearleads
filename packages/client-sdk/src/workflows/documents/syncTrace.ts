@@ -15,7 +15,7 @@ import {
   DOCUMENT_NOT_FOUND_ERROR_CODE,
   DOCUMENT_PROJECTION_ERROR_CODES,
   DOCUMENT_SYNC_ERROR_CODES,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 
 export type DocumentSyncTraceEmitter = (line: string) => void;
 

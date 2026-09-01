@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   createContainerDocumentObjectSyncState,
   syncedContainerDocumentObjectSyncState,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import {
   canProvisionExplorerSystemContainers,
   getExplorerSystemContainerId,

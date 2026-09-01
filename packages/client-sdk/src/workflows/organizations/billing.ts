@@ -1,5 +1,8 @@
-import type { RequestResult, RequestResultOptions } from "@symcrypt/api-client";
-import type { NativeSubscriptionStore } from "@symcrypt/validators/billing";
+import type {
+  RequestResult,
+  RequestResultOptions,
+} from "@tearleads/api-client";
+import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
 import type {
   OrganizationBillingHistoryResponse,
   OrganizationBillingManagementUrlResponse,
@@ -10,7 +13,7 @@ import type {
   StripeCheckoutIntentResponse,
   StripeCheckoutOptionsResponse,
   StripeCheckoutSessionResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 
 /** Per-organization sync-billing snapshot (the server wire shape). */
 export type OrganizationBilling = OrganizationBillingResponse;

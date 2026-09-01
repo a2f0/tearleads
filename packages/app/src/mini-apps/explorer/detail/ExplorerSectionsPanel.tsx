@@ -4,7 +4,7 @@ import type {
   ContainerDocumentQueries,
   ContainerNode,
   DomainScope,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { useCallback, useId } from "react";
 import {
   type MiniAppTabDescriptor,

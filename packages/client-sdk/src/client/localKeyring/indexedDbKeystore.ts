@@ -23,7 +23,7 @@ import type {
 const DEFAULT_WRAPPING_KEY_MATERIAL_STORAGE: WrappingKeyMaterialStorage =
   "crypto-key";
 const BROWSER_INDEXED_DB_PROVIDER = "browser-indexeddb";
-const BROWSER_KEYRING_DATABASE_NAME = "symcrypt-local-keyring";
+const BROWSER_KEYRING_DATABASE_NAME = "tearleads-local-keyring";
 const BROWSER_WRAPPING_KEYS_STORE_NAME = "wrappingKeys";
 
 export interface IndexedDbWrappingKeyKeystoreOptions {

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { Sqlite3Static } from "@symcrypt/sqlite-instance";
+import type { Sqlite3Static } from "@tearleads/sqlite-instance";
 import {
   execDatabaseStatement,
   initDatabase,
@@ -173,20 +173,20 @@ test("isAccessHandleContentionError matches the lock-contention failure only", (
 
 test("persistent SAHPool storage is stable and database-scoped", () => {
   expect(persistentSahPoolStorageForDbName("/app-identity-abcd.db")).toEqual({
-    directory: "/symcrypt-sqlite/app-identity-abcd.db",
-    vfsName: "symcrypt-opfs-sahpool-app-identity-abcd.db",
+    directory: "/tearleads-sqlite/app-identity-abcd.db",
+    vfsName: "tearleads-opfs-sahpool-app-identity-abcd.db",
   });
   expect(persistentSahPoolStorageForDbName("/other/identity.db")).toEqual({
-    directory: "/symcrypt-sqlite/other_identity.db",
-    vfsName: "symcrypt-opfs-sahpool-other_identity.db",
+    directory: "/tearleads-sqlite/other_identity.db",
+    vfsName: "tearleads-opfs-sahpool-other_identity.db",
   });
   expect(persistentSahPoolStorageForDbName(".")).toEqual({
-    directory: "/symcrypt-sqlite/default",
-    vfsName: "symcrypt-opfs-sahpool-default",
+    directory: "/tearleads-sqlite/default",
+    vfsName: "tearleads-opfs-sahpool-default",
   });
   expect(persistentSahPoolStorageForDbName("..")).toEqual({
-    directory: "/symcrypt-sqlite/default",
-    vfsName: "symcrypt-opfs-sahpool-default",
+    directory: "/tearleads-sqlite/default",
+    vfsName: "tearleads-opfs-sahpool-default",
   });
 });
 
@@ -199,7 +199,7 @@ test("persistent SAHPool storage is stable and database-scoped", () => {
 // a tick of the old worker's teardown, so a bounded retry must turn that
 // transient race into a successful boot.
 test("installSahPoolVfsWithRetry retries past transient access-handle contention", async () => {
-  const poolUtil = { vfsName: "symcrypt-opfs-sahpool" } as SahPoolUtil;
+  const poolUtil = { vfsName: "tearleads-opfs-sahpool" } as SahPoolUtil;
   let remainingFailures = 3;
   const { sqlite3, attempts, installOptions } = fakeSqlite3WithInstall(
     async () => {
@@ -215,19 +215,19 @@ test("installSahPoolVfsWithRetry retries past transient access-handle contention
   // of real time); the behavior under test is retry-until-success, not timing.
   await expect(
     installSahPoolVfsWithRetry(sqlite3, {
-      directory: "/symcrypt-sqlite/test-db",
+      directory: "/tearleads-sqlite/test-db",
       totalBudgetMs: 10_000,
       initialDelayMs: 1,
       maxDelayMs: 1,
-      vfsName: "symcrypt-opfs-sahpool-test-db",
+      vfsName: "tearleads-opfs-sahpool-test-db",
     }),
   ).resolves.toBe(poolUtil);
   // Three contention failures, then success on the fourth attempt.
   expect(attempts()).toBe(4);
   expect(installOptions()[0]).toMatchObject({
     clearOnInit: false,
-    directory: "/symcrypt-sqlite/test-db",
-    name: "symcrypt-opfs-sahpool-test-db",
+    directory: "/tearleads-sqlite/test-db",
+    name: "tearleads-opfs-sahpool-test-db",
   });
 });
 
@@ -329,7 +329,7 @@ test("installSahPoolVfsWithRetry surfaces a hung install as a bounded rejection"
 // tripped by the hang guard, and a *thrown* contention error is still retried in
 // place (desktop behaviour) rather than being mistaken for a hang.
 test("installSahPoolVfsWithRetry does not trip the hang guard on a healthy or throwing install", async () => {
-  const poolUtil = { vfsName: "symcrypt-opfs-sahpool" } as SahPoolUtil;
+  const poolUtil = { vfsName: "tearleads-opfs-sahpool" } as SahPoolUtil;
 
   // Healthy: resolves immediately, well within the hang timeout.
   const healthy = fakeSqlite3WithInstall(async () => poolUtil);

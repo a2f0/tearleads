@@ -1,12 +1,12 @@
 export {
-  SymCryptFooter,
-  type SymCryptFooterProps,
-  SymCryptFrame,
-  type SymCryptFrameProps,
-  SymCryptHeader,
-  type SymCryptHeaderProps,
-} from "./SymCryptFrame";
-export { SymCryptLogo } from "./SymCryptLogo";
+  TearleadsFooter,
+  type TearleadsFooterProps,
+  TearleadsFrame,
+  type TearleadsFrameProps,
+  TearleadsHeader,
+  type TearleadsHeaderProps,
+} from "./TearleadsFrame";
+export { TearleadsLogo } from "./TearleadsLogo";
 export {
   ThemeInvertIcon,
   type ThemeInvertIconProps,

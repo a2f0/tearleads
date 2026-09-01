@@ -1,4 +1,4 @@
-# SymCrypt
+# Tearleads
 
 ## Getting Started
 
@@ -8,17 +8,17 @@
    checks can run.
 4. Run `source scripts/session.sh` to extend the path for scripts. Or,
    alternatively, add this to `~/.zshrc`:
-   `sc() { . /path/to/checkout/scripts/session.sh /path/to/checkout; } && sc`
+   `tl() { . /path/to/checkout/scripts/session.sh /path/to/checkout; } && tl`
 5. Run `buildSqliteMultipleCiphers.sh`.
 6. Run `install-hooks.sh` to install Git hooks.
-7. Run `bun run --filter=@symcrypt/api dev` to start the API.
+7. Run `bun run --filter=@tearleads/api dev` to start the API.
 8. Run `bun run --filter=app-web dev` to start the dev server.
 
 ## Public Hostnames
 
-Production uses `symcrypt.com`, `app.symcrypt.com`, and `api.symcrypt.com`.
-Staging uses `website-staging.symcrypt.com`, `app-staging.symcrypt.com`, and
-`api-staging.symcrypt.com`. Realtime events share each tier's API hostname at
+Production uses `tearleads.com`, `app.tearleads.com`, and `api.tearleads.com`.
+Staging uses `website-staging.tearleads.com`, `app-staging.tearleads.com`, and
+`api-staging.tearleads.com`. Realtime events share each tier's API hostname at
 `/events`; code-assist shares it at `/code-assist/webhook`.
 
 ## Running Tests

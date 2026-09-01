@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import type { SymCrypt } from "@symcrypt/client-sdk";
+import type { Tearleads } from "@tearleads/client-sdk";
 import {
   act,
   fireEvent,
@@ -27,20 +27,20 @@ import {
   saveSystemMonitorMode,
   systemMonitorModeStorageKey,
 } from "../../../mini-apps/system-monitor/systemMonitorMode";
-import { useSymCrypt } from "../../../providers/sdk/SymCryptProvider";
+import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import { DualPaneProvider, PaneSideProvider } from "../dual-pane";
 import { PaneProvider } from "../runtime/PaneProvider";
 import { Pane } from "../shell/Pane";
 
 afterEach(cleanupPaneTestEnvironment);
 
-function SymCryptProbe({
+function TearleadsProbe({
   onReady,
 }: {
-  readonly onReady: (symcrypt: SymCrypt) => void;
+  readonly onReady: (tearleads: Tearleads) => void;
 }) {
-  const symcrypt = useSymCrypt();
-  useEffect(() => onReady(symcrypt), [onReady, symcrypt]);
+  const tearleads = useTearleads();
+  useEffect(() => onReady(tearleads), [onReady, tearleads]);
   return null;
 }
 
@@ -49,7 +49,7 @@ test(
   async () => {
     useTestApiAppHandlers();
     saveSystemMonitorMode(systemMonitorModeStorageKey("left"), "pinned");
-    const symcryptRef: { current: SymCrypt | null } = { current: null };
+    const tearleadsRef: { current: Tearleads | null } = { current: null };
     // Mirrors production composition: Layout mounts the developer-mode
     // provider above every Pane.
     const view = render(
@@ -60,9 +60,9 @@ test(
               autoProvisionEnabled={false}
               hostConfig={createTestHostConfig()}
             >
-              <SymCryptProbe
-                onReady={(nextSymCrypt) => {
-                  symcryptRef.current = nextSymCrypt;
+              <TearleadsProbe
+                onReady={(nextTearleads) => {
+                  tearleadsRef.current = nextTearleads;
                 }}
               />
               <Pane className="pane" />
@@ -72,10 +72,10 @@ test(
       </SystemMonitorDeveloperModeProvider>,
     );
 
-    await waitFor(() => expect(symcryptRef.current).not.toBeNull());
-    const symcrypt = symcryptRef.current;
-    invariant(symcrypt, "SymCrypt runtime was not captured");
-    const organizations = symcrypt.organizations;
+    await waitFor(() => expect(tearleadsRef.current).not.toBeNull());
+    const tearleads = tearleadsRef.current;
+    invariant(tearleads, "Tearleads runtime was not captured");
+    const organizations = tearleads.organizations;
     organizations.listLocalOrganizations = async () => [];
 
     await generateIdentityAndWaitForDb(view);
@@ -99,7 +99,7 @@ test(
   async () => {
     useTestApiAppHandlers();
     saveSystemMonitorMode(systemMonitorModeStorageKey("left"), "pinned");
-    const symcryptRef: { current: SymCrypt | null } = { current: null };
+    const tearleadsRef: { current: Tearleads | null } = { current: null };
     const view = render(
       <SystemMonitorDeveloperModeProvider>
         <DualPaneProvider>
@@ -108,9 +108,9 @@ test(
               autoProvisionEnabled
               hostConfig={createTestHostConfig()}
             >
-              <SymCryptProbe
-                onReady={(nextSymCrypt) => {
-                  symcryptRef.current = nextSymCrypt;
+              <TearleadsProbe
+                onReady={(nextTearleads) => {
+                  tearleadsRef.current = nextTearleads;
                 }}
               />
               <Pane className="pane" />
@@ -120,9 +120,9 @@ test(
       </SystemMonitorDeveloperModeProvider>,
     );
 
-    await waitFor(() => expect(symcryptRef.current).not.toBeNull());
-    const symcrypt = symcryptRef.current;
-    invariant(symcrypt, "SymCrypt runtime was not captured");
+    await waitFor(() => expect(tearleadsRef.current).not.toBeNull());
+    const tearleads = tearleadsRef.current;
+    invariant(tearleads, "Tearleads runtime was not captured");
 
     await generateIdentityAndWaitForDb(view);
     await registerAndWaitForUserId(view);
@@ -151,9 +151,9 @@ test(
       { timeout: 10_000 },
     );
 
-    const personalOrganizationId = symcrypt.session.defaultOrganizationId;
+    const personalOrganizationId = tearleads.session.defaultOrganizationId;
     invariant(personalOrganizationId, "Personal organization was not set");
-    const containerTree = symcrypt.containerContents.openTree({
+    const containerTree = tearleads.containerContents.openTree({
       logLabel: "Contacts custom-org regression",
     });
     let personalTrashId: string | null = null;
@@ -176,7 +176,7 @@ test(
     invariant(personalTrashId, "Personal Trash was not provisioned");
 
     const additionalOrganization = await act(() =>
-      symcrypt.session.createOrganization({
+      tearleads.session.createOrganization({
         organizationProfileName: "Custom Org",
       }),
     );
@@ -185,7 +185,7 @@ test(
       "Additional organization was not created",
     );
     act(() => {
-      symcrypt.session.setContext({
+      tearleads.session.setContext({
         containerId: additionalOrganization.containerId,
         organizationId: additionalOrganization.organizationId,
       });
@@ -249,7 +249,7 @@ test(
     );
     let createdContactId: string | null = null;
     await waitFor(async () => {
-      const contacts = await symcrypt.documents.list({
+      const contacts = await tearleads.documents.list({
         documentKind: "contact",
       });
       createdContactId =
@@ -277,7 +277,7 @@ test(
 
     await waitFor(
       async () => {
-        const movedContact = await symcrypt.containerContents
+        const movedContact = await tearleads.containerContents
           .documentQueries()
           .loadDocumentSummary(persistedContactId);
         expect(movedContact?.containerId).toBe(personalTrashId);

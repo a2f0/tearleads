@@ -1,7 +1,7 @@
 import type {
   ContainerKekResponse,
   ContainerWriterProjectionResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import {
   getParentKekForTarget,
   getTargetContainerContext,

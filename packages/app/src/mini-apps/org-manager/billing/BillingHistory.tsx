@@ -1,4 +1,4 @@
-import type { OrganizationBillingHistoryEntry } from "@symcrypt/client-sdk";
+import type { OrganizationBillingHistoryEntry } from "@tearleads/client-sdk";
 import { useId, useState } from "react";
 import {
   MiniAppSection,

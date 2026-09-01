@@ -1,7 +1,7 @@
 import type {
   ContainerItemSort,
   ContainerItemSortKey,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { MiniAppCompactSortMenu } from "../../../components/mini-app/MiniAppTable";
 import { EXPLORER_LABELS } from "../labels";
 

@@ -226,27 +226,27 @@ test("Android staging inherits the production release signing variant", async ()
   );
   expect(gradle).toMatch(/staging\s*\{[\s\S]*?initWith release/);
   expect(effectiveAndroidApplicationId(gradle, "debug")).toBe(
-    "com.symcrypt.app",
+    "com.tearleads.app",
   );
   expect(effectiveAndroidApplicationId(gradle, "release")).toBe(
-    "com.symcrypt.app",
+    "com.tearleads.app",
   );
   expect(effectiveAndroidApplicationId(gradle, "staging")).toBe(
-    "com.symcrypt.staging.app",
+    "com.tearleads.staging.app",
   );
   for (const buildType of androidBuildTypeNames(gradle)) {
     expect(
       namedBraceBlock(namedBraceBlock(gradle, "buildTypes"), buildType),
     ).toContain("applicationIdSuffix");
   }
-  expect(stagingStrings).toContain("com.symcrypt.staging.app");
-  expect(stagingStrings).toContain("SC Staging");
+  expect(stagingStrings).toContain("com.tearleads.staging.app");
+  expect(stagingStrings).toContain("TL Staging");
 });
 
 test("Capacitor pins production identity and rejects unknown release tiers", async () => {
   const productionIdentity = {
-    appId: "com.symcrypt.app",
-    iosKeychainPrefix: "com.symcrypt.app",
+    appId: "com.tearleads.app",
+    iosKeychainPrefix: "com.tearleads.app",
   };
   const defaultProduction = await readNativeIdentity(null);
   expect(defaultProduction.exitCode).toBe(0);
@@ -261,8 +261,8 @@ test("Capacitor pins production identity and rejects unknown release tiers", asy
   const staging = await readNativeIdentity(" Staging ");
   expect(staging.exitCode).toBe(0);
   expect(parseNativeIdentity(staging.stdout)).toEqual({
-    appId: "com.symcrypt.staging.app",
-    iosKeychainPrefix: "com.symcrypt.staging.app",
+    appId: "com.tearleads.staging.app",
+    iosKeychainPrefix: "com.tearleads.staging.app",
   });
   const unknown = await readNativeIdentity("preview");
   expect(unknown.exitCode).not.toBe(0);
@@ -285,7 +285,7 @@ test("iOS exposes a staging release configuration and shared scheme", async () =
 
   expect(project).toContain("Release-Staging");
   expect(project).toContain(
-    "PRODUCT_BUNDLE_IDENTIFIER = com.symcrypt.staging.app;",
+    "PRODUCT_BUNDLE_IDENTIFIER = com.tearleads.staging.app;",
   );
   const targetBuildSettings = Array.from(
     project.matchAll(
@@ -296,12 +296,12 @@ test("iOS exposes a staging release configuration and shared scheme", async () =
   expect(targetBuildSettings).toHaveLength(3);
   expect(
     targetBuildSettings.filter((settings) =>
-      settings.includes("APP_DISPLAY_NAME = SymCrypt;"),
+      settings.includes("APP_DISPLAY_NAME = Tearleads;"),
     ),
   ).toHaveLength(2);
   expect(
     targetBuildSettings.filter((settings) =>
-      settings.includes('APP_DISPLAY_NAME = "SC Staging";'),
+      settings.includes('APP_DISPLAY_NAME = "TL Staging";'),
     ),
   ).toHaveLength(1);
   expect(
@@ -309,7 +309,7 @@ test("iOS exposes a staging release configuration and shared scheme", async () =
       settings.includes("APP_DISPLAY_NAME ="),
     ),
   ).toBeTrue();
-  expect(infoPlist).toContain("$(APP_DISPLAY_NAME:default=SymCrypt)");
+  expect(infoPlist).toContain("$(APP_DISPLAY_NAME:default=Tearleads)");
   expect(scheme).toContain('buildConfiguration = "Release-Staging"');
 });
 
@@ -343,13 +343,13 @@ test("iOS staging release settings stay aligned with production", async () => {
   expect(withoutXcodeSettings(targetStaging, intendedDifferences)).toEqual(
     withoutXcodeSettings(targetRelease, intendedDifferences),
   );
-  expect(targetRelease).toContain("APP_DISPLAY_NAME = SymCrypt;");
+  expect(targetRelease).toContain("APP_DISPLAY_NAME = Tearleads;");
   expect(targetRelease).toContain(
-    "PRODUCT_BUNDLE_IDENTIFIER = com.symcrypt.app;",
+    "PRODUCT_BUNDLE_IDENTIFIER = com.tearleads.app;",
   );
-  expect(targetStaging).toContain('APP_DISPLAY_NAME = "SC Staging";');
+  expect(targetStaging).toContain('APP_DISPLAY_NAME = "TL Staging";');
   expect(targetStaging).toContain(
-    "PRODUCT_BUNDLE_IDENTIFIER = com.symcrypt.staging.app;",
+    "PRODUCT_BUNDLE_IDENTIFIER = com.tearleads.staging.app;",
   );
 });
 
@@ -362,8 +362,8 @@ test("Fastlane selects store identities from one shared release target", async (
   ]);
   const scripts = packageScripts(packageManifestValue);
 
-  expect(releaseTarget).toContain("'com.symcrypt.app'");
-  expect(releaseTarget).toContain("'com.symcrypt.staging.app'");
+  expect(releaseTarget).toContain("'com.tearleads.app'");
+  expect(releaseTarget).toContain("'com.tearleads.staging.app'");
   expect(releaseTarget).toContain("ios_scheme: 'App-Staging'");
   expect(releaseTarget).toContain("android_build_variant: 'staging'");
   expect(releaseTarget).toContain("'cap:sync:staging'");
@@ -441,9 +441,9 @@ test("native staging store identifiers stay aligned", async () => {
   };
 
   expect(identifiers).toEqual({
-    android: "com.symcrypt.staging.app",
-    capacitor: "com.symcrypt.staging.app",
-    fastlane: "com.symcrypt.staging.app",
-    xcode: "com.symcrypt.staging.app",
+    android: "com.tearleads.staging.app",
+    capacitor: "com.tearleads.staging.app",
+    fastlane: "com.tearleads.staging.app",
+    xcode: "com.tearleads.staging.app",
   });
 });

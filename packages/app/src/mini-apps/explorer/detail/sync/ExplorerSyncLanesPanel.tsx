@@ -3,7 +3,7 @@ import {
   type DomainScope,
   type DomainSyncSnapshot,
   requestAllDomainSyncLanes,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { useCallback, useMemo, useState } from "react";
 import {
   MiniAppActions,

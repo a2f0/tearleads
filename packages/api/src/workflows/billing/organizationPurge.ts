@@ -1,11 +1,11 @@
-import type { ApiDatabase } from "@symcrypt/api-shared/postgres";
+import type { ApiDatabase } from "@tearleads/api-shared/postgres";
 import {
   blobAuditObjects,
   blobContentWriteHeaders,
   containers,
   documentContentWriteHeaders,
   organizationBilling,
-} from "@symcrypt/api-shared/schema";
+} from "@tearleads/api-shared/schema";
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import {
   claimOrganizationForPurge,

@@ -2,7 +2,7 @@ import type {
   DomainSyncSnapshot,
   SyncLaneSnapshot,
   SyncLaneStatus,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { useMemo } from "react";
 import { classNames } from "../../../../components/shared/classNames";
 import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";

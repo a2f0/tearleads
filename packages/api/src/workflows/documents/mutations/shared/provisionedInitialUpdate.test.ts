@@ -3,8 +3,8 @@ import {
   createDocument,
   emptyVersionVector,
   encodeVersionVector,
-} from "@symcrypt/loro";
-import type { DocumentSyncRequest } from "@symcrypt/validators/request";
+} from "@tearleads/loro";
+import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import { assertProvisionedDocumentInitialUpdate } from "./provisionedInitialUpdate";
 
 function seedRequest(input: {

@@ -1,4 +1,4 @@
-import type { OrganizationDirectory } from "@symcrypt/client-sdk";
+import type { OrganizationDirectory } from "@tearleads/client-sdk";
 import { useEffect } from "react";
 
 export function useClearMissingOrgManagerUser(

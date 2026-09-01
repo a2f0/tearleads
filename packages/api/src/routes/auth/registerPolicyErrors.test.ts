@@ -3,8 +3,8 @@ import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   toFingerprint,
-} from "@symcrypt/crypto";
-import { bytesToBase64 } from "@symcrypt/encoding";
+} from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import { createRegistrationRequestBody } from "../../../test/helpers/api";
 import { del } from "../../adapters/redis";
 import { routeApp } from "../../routeApp";

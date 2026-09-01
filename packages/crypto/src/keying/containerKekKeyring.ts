@@ -1,10 +1,10 @@
-import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
   SEALED_CONTAINER_KEK_KEYRING_AEAD_OVERHEAD_BYTES,
   SEALED_CONTAINER_KEK_KEYRING_ENTRY_BYTES,
   SEALED_CONTAINER_KEK_KEYRING_HEADER_BYTES,
   sealedContainerKekKeyringBytes,
-} from "@symcrypt/validators/util";
+} from "@tearleads/validators/util";
 import { bytesToHex, hexToBytes } from "../hex";
 import {
   AES_GCM_TAG_BYTES,
@@ -42,7 +42,7 @@ const TEXT_ENCODER = new TextEncoder();
  * 64-byte record per predecessor epoch in ascending epoch order (32-byte
  * material-id hash, 32-byte key material). Entry ordinal i therefore IS key
  * epoch i + 1, and the sealed byte length for key epoch n is an equality,
- * never a bound. The arithmetic lives in @symcrypt/validators so request
+ * never a bound. The arithmetic lives in @tearleads/validators so request
  * and response guards share it.
  */
 export const CONTAINER_KEK_KEYRING_FORMAT_VERSION = 1;
@@ -83,7 +83,7 @@ function keyringAdditionalData(input: {
 }): Uint8Array<ArrayBuffer> {
   return TEXT_ENCODER.encode(
     serializeKeyingCanonicalJson({
-      domain: "symcrypt.container-kek-keyring.aad",
+      domain: "tearleads.container-kek-keyring.aad",
       payload: {
         version: 1,
         sealingSuite: CONTAINER_KEK_KEYRING_SEAL_SUITE,
@@ -223,7 +223,7 @@ export async function computeContainerKekKeyringHash(
   value: unknown,
 ): Promise<string> {
   const keyring = normalizeContainerKekKeyring(value);
-  return computeKeyingDomainHash("symcrypt.keying.container-kek-keyring", {
+  return computeKeyingDomainHash("tearleads.keying.container-kek-keyring", {
     version: keyring.version,
     sealingSuite: keyring.sealingSuite,
     containerId: keyring.containerId,

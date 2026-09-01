@@ -1,5 +1,5 @@
-import type { LocalKeyring, LocalKeyringScope } from "@symcrypt/client-sdk";
-import { isPlainObject } from "@symcrypt/validators/isPlainObject";
+import type { LocalKeyring, LocalKeyringScope } from "@tearleads/client-sdk";
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { useMemo } from "react";
 import { getLocalStorage } from "../../utils/storedPreference";
 import {
@@ -9,8 +9,8 @@ import {
 import { createHostLocalKeyring } from "../local-keyring/localKeyringLockSupport";
 import { localIdentityScope } from "../local-keyring/localKeyringScopes";
 
-const LOCAL_CRYPTO_SESSION_FORMAT = "symcrypt.app.crypto-session";
-const LOCAL_CRYPTO_SESSION_STORAGE_PREFIX = "symcrypt.local-session:";
+const LOCAL_CRYPTO_SESSION_FORMAT = "tearleads.app.crypto-session";
+const LOCAL_CRYPTO_SESSION_STORAGE_PREFIX = "tearleads.local-session:";
 
 interface CryptoSessionWriteState {
   generation: number;

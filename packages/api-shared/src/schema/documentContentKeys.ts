@@ -3,7 +3,7 @@ import type {
   DocumentContentKeyTarget,
   KeyingCanonicalJson,
   WriteHeader,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import {
   index,
   integer,
@@ -104,7 +104,7 @@ export const documentContentKeyEpochs = pgTable(
  * - `wrappedKey`: Document content key encrypted/wrapped for the container KEK.
  * - `wrappingMetadata`: Canonical metadata needed by the client to unwrap
  *   `wrappedKey`; current clients use suite
- *   `symcrypt.document.content-key-wrap.aes-256-gcm-container-kek` with an
+ *   `tearleads.document.content-key-wrap.aes-256-gcm-container-kek` with an
  *   AES-GCM IV.
  * - `createdAt`: Server-side insertion timestamp for the target row.
  *

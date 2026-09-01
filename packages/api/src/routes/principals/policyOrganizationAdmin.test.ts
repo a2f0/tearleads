@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
-import { db } from "@symcrypt/api-shared/postgres";
-import { groups } from "@symcrypt/api-shared/schema";
-import { createTestUser } from "@symcrypt/bob-and-alice";
-import { isCommitOrganizationGroupPolicyResponse } from "@symcrypt/validators/response";
+import { db } from "@tearleads/api-shared/postgres";
+import { groups } from "@tearleads/api-shared/schema";
+import { createTestUser } from "@tearleads/bob-and-alice";
+import { isCommitOrganizationGroupPolicyResponse } from "@tearleads/validators/response";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { addOrganizationMember } from "../../../test/helpers/organizationMembership";

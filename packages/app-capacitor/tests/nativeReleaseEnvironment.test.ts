@@ -122,8 +122,8 @@ function parseNativeReleaseSnapshot(stdout: string): NativeReleaseSnapshot {
 const stagingTarget = {
   androidBuildVariant: "staging",
   androidBuildVariantTask: "Staging",
-  appIdentifier: "com.symcrypt.staging.app",
-  iosArchiveRelativePath: "output/staging/SymCrypt-Staging.xcarchive",
+  appIdentifier: "com.tearleads.staging.app",
+  iosArchiveRelativePath: "output/staging/Tearleads-Staging.xcarchive",
   iosConfiguration: "Release-Staging",
   iosScheme: "App-Staging",
   releaseAabRelativePath: "bundle/staging/app-staging.aab",
@@ -140,7 +140,7 @@ async function readNativeReleaseEnvironmentResult(
 ) {
   await requireRubyBundle();
   const temporaryRoot = await mkdtemp(
-    join(tmpdir(), "symcrypt-native-release-target-"),
+    join(tmpdir(), "tearleads-native-release-target-"),
   );
   const copiedTargetPath = join(
     temporaryRoot,
@@ -250,7 +250,7 @@ describe("native release environments", () => {
       environment: {
         DEEPSEEK_API_KEY: null,
         NATIVE_TEST_VALUE: "root",
-        VITE_API_BASE_URL: "https://api-staging.symcrypt.com",
+        VITE_API_BASE_URL: "https://api-staging.tearleads.com",
         VITE_REVENUECAT_ANDROID_API_KEY: "goog_staging",
         VITE_REVENUECAT_IOS_API_KEY: "appl_staging",
         VITE_REVENUECAT_SYNC_ENTITLEMENT: "sync",
@@ -262,7 +262,7 @@ describe("native release environments", () => {
   test("warns when staging.env contains ignored Vite settings", async () => {
     const result = await readNativeReleaseEnvironmentResult(
       "VITE_REVENUECAT_SYNC_ENTITLEMENT=sync\n",
-      "VITE_WS_URL=wss://api-staging.symcrypt.com/events\n",
+      "VITE_WS_URL=wss://api-staging.tearleads.com/events\n",
     );
 
     expect(result.stderr).toContain(
@@ -278,7 +278,7 @@ describe("native release environments", () => {
       {
         NATIVE_TEST_VALUE: "process",
         VITE_REVENUECAT_IOS_API_KEY: "appl_process",
-        VITE_WS_URL: "wss://api-staging.symcrypt.com/events",
+        VITE_WS_URL: "wss://api-staging.tearleads.com/events",
       },
     );
 
@@ -288,11 +288,11 @@ describe("native release environments", () => {
       environment: {
         DEEPSEEK_API_KEY: null,
         NATIVE_TEST_VALUE: "process",
-        VITE_API_BASE_URL: "https://api-staging.symcrypt.com",
+        VITE_API_BASE_URL: "https://api-staging.tearleads.com",
         VITE_REVENUECAT_ANDROID_API_KEY: "goog_staging",
         VITE_REVENUECAT_IOS_API_KEY: "appl_process",
         VITE_REVENUECAT_SYNC_ENTITLEMENT: null,
-        VITE_WS_URL: "wss://api-staging.symcrypt.com/events",
+        VITE_WS_URL: "wss://api-staging.tearleads.com/events",
       },
     });
   });
@@ -343,7 +343,7 @@ describe("native release environments", () => {
       environment: {
         DEEPSEEK_API_KEY: null,
         NATIVE_TEST_VALUE: "root",
-        VITE_API_BASE_URL: "https://api-staging.symcrypt.com",
+        VITE_API_BASE_URL: "https://api-staging.tearleads.com",
         VITE_REVENUECAT_ANDROID_API_KEY: null,
         VITE_REVENUECAT_IOS_API_KEY: null,
         VITE_REVENUECAT_SYNC_ENTITLEMENT: null,
@@ -364,7 +364,7 @@ describe("native release environments", () => {
       environment: {
         DEEPSEEK_API_KEY: null,
         NATIVE_TEST_VALUE: null,
-        VITE_API_BASE_URL: "https://api-staging.symcrypt.com",
+        VITE_API_BASE_URL: "https://api-staging.tearleads.com",
         VITE_REVENUECAT_ANDROID_API_KEY: null,
         VITE_REVENUECAT_IOS_API_KEY: null,
         VITE_REVENUECAT_SYNC_ENTITLEMENT: "staging-sync",
@@ -375,7 +375,7 @@ describe("native release environments", () => {
 
   test("production keeps its default target and root release environment", async () => {
     const snapshot = await readNativeReleaseEnvironment(
-      "VITE_REVENUECAT_IOS_API_KEY=appl_root\nVITE_REVENUECAT_ANDROID_API_KEY=goog_root\nVITE_WS_URL=wss://api.symcrypt.com/events\nNATIVE_TEST_VALUE=root\n",
+      "VITE_REVENUECAT_IOS_API_KEY=appl_root\nVITE_REVENUECAT_ANDROID_API_KEY=goog_root\nVITE_WS_URL=wss://api.tearleads.com/events\nNATIVE_TEST_VALUE=root\n",
       "VITE_REVENUECAT_IOS_API_KEY=appl_staging\nDEEPSEEK_API_KEY=server-secret\n",
       {},
       null,
@@ -384,8 +384,8 @@ describe("native release environments", () => {
     expect(snapshot).toEqual({
       androidBuildVariant: "release",
       androidBuildVariantTask: "Release",
-      appIdentifier: "com.symcrypt.app",
-      iosArchiveRelativePath: "output/SymCrypt.xcarchive",
+      appIdentifier: "com.tearleads.app",
+      iosArchiveRelativePath: "output/Tearleads.xcarchive",
       productionIosStoreKey: "appl_root",
       releaseAabRelativePath: "bundle/release/app-release.aab",
       releaseMappingRelativePath: "mapping/release/mapping.txt",
@@ -394,11 +394,11 @@ describe("native release environments", () => {
       environment: {
         DEEPSEEK_API_KEY: null,
         NATIVE_TEST_VALUE: "root",
-        VITE_API_BASE_URL: "https://api.symcrypt.com",
+        VITE_API_BASE_URL: "https://api.tearleads.com",
         VITE_REVENUECAT_ANDROID_API_KEY: "goog_root",
         VITE_REVENUECAT_IOS_API_KEY: "appl_root",
         VITE_REVENUECAT_SYNC_ENTITLEMENT: null,
-        VITE_WS_URL: "wss://api.symcrypt.com/events",
+        VITE_WS_URL: "wss://api.tearleads.com/events",
       },
       iosConfiguration: "Release",
       iosScheme: "App",
@@ -408,36 +408,36 @@ describe("native release environments", () => {
   test("validates service URLs after dotenv and explicit values resolve", async () => {
     await expect(
       readNativeReleaseEnvironment(
-        "VITE_WS_URL=wss://api-staging.symcrypt.com/events\n",
+        "VITE_WS_URL=wss://api-staging.tearleads.com/events\n",
         "",
         {},
         null,
       ),
-    ).rejects.toThrow("VITE_WS_URL must use api.symcrypt.com");
+    ).rejects.toThrow("VITE_WS_URL must use api.tearleads.com");
 
     await expect(
       readNativeReleaseEnvironment("", "", {
-        VITE_API_BASE_URL: "https://api-staging.symcrypt.com/v1",
-        VITE_WS_URL: "wss://api-staging.symcrypt.com/events",
+        VITE_API_BASE_URL: "https://api-staging.tearleads.com/v1",
+        VITE_WS_URL: "wss://api-staging.tearleads.com/events",
       }),
     ).resolves.toMatchObject(stagingTarget);
 
     await expect(
       readNativeReleaseEnvironment("", "", {
-        VITE_API_BASE_URL: "https://api-staging.symcrypt.com",
-        VITE_WS_URL: "wss://api.symcrypt.com/events",
+        VITE_API_BASE_URL: "https://api-staging.tearleads.com",
+        VITE_WS_URL: "wss://api.tearleads.com/events",
       }),
-    ).rejects.toThrow("VITE_WS_URL must use api-staging.symcrypt.com");
+    ).rejects.toThrow("VITE_WS_URL must use api-staging.tearleads.com");
 
     await expect(
       readNativeReleaseEnvironment("", "", {
-        VITE_API_BASE_URL: "http://api-staging.symcrypt.com",
+        VITE_API_BASE_URL: "http://api-staging.tearleads.com",
       }),
     ).rejects.toThrow("VITE_API_BASE_URL must use the https scheme");
 
     await expect(
       readNativeReleaseEnvironment("", "", {
-        VITE_WS_URL: "ws://api-staging.symcrypt.com/socket",
+        VITE_WS_URL: "ws://api-staging.tearleads.com/socket",
       }),
     ).rejects.toThrow("VITE_WS_URL must use the wss scheme");
   });

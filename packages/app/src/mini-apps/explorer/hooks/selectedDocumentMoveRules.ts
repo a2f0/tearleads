@@ -2,7 +2,7 @@ import type {
   ContainerDocumentLinks,
   ContainerNode,
   DocumentSummary,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { canMutateUnsyncedSelectedDocument } from "../../../stores/explorer/documentLinks";
 import {
   canMoveDocumentToContainerByRules,

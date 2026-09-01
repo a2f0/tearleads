@@ -1,4 +1,4 @@
-import type { DomainScope, SyncLaneSnapshot } from "@symcrypt/client-sdk";
+import type { DomainScope, SyncLaneSnapshot } from "@tearleads/client-sdk";
 import { useMemo, useState } from "react";
 import {
   MiniAppButton,

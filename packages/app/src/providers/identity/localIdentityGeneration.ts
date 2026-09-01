@@ -1,9 +1,9 @@
-import type { SymCrypt } from "@symcrypt/client-sdk";
+import type { Tearleads } from "@tearleads/client-sdk";
 import {
   createIdentitySeedPhrase,
   generateIdentityKeyPairsFromSeedPhrase,
   toFingerprint,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import { type MutableRefObject, useCallback } from "react";
 import { prepareForIdentityTransition } from "./identityRuntimeTransition";
 
@@ -16,14 +16,14 @@ export function useGenerateKey(input: {
   readonly persistLocalIdentity: (
     shouldPersist?: () => boolean,
   ) => Promise<void>;
-  readonly symcrypt: SymCrypt;
+  readonly tearleads: Tearleads;
 }): () => Promise<boolean> {
   const {
     ensureIdentityDatabaseReady,
     generationIdRef,
     generationInFlight,
     persistLocalIdentity,
-    symcrypt,
+    tearleads,
   } = input;
 
   return useCallback(async () => {
@@ -47,13 +47,13 @@ export function useGenerateKey(input: {
         return false;
       }
 
-      prepareForIdentityTransition(symcrypt);
-      await symcrypt.identity.setKeyPairs({
+      prepareForIdentityTransition(tearleads);
+      await tearleads.identity.setKeyPairs({
         encapsulationKeyPair,
         seedPhrase,
         signingKeyPair,
       });
-      await symcrypt.session.bootstrapLocalRootContainer();
+      await tearleads.session.bootstrapLocalRootContainer();
       if (generationIdRef.current !== generationId) {
         return false;
       }
@@ -71,10 +71,10 @@ export function useGenerateKey(input: {
         return false;
       }
 
-      if (symcrypt.identity.signingKeyPair) {
-        symcrypt.identity.destroy();
+      if (tearleads.identity.signingKeyPair) {
+        tearleads.identity.destroy();
       }
-      symcrypt.logError("Failed to generate identity keys", error);
+      tearleads.logError("Failed to generate identity keys", error);
       return false;
     } finally {
       if (generationIdRef.current === generationId) {
@@ -86,6 +86,6 @@ export function useGenerateKey(input: {
     generationIdRef,
     generationInFlight,
     persistLocalIdentity,
-    symcrypt,
+    tearleads,
   ]);
 }

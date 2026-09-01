@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   generateKemSeedAndKeyPair,
   KeyingVerificationError,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import { createAuthor } from "../../../test/helpers/documentFixtures";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";

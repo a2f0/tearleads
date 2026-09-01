@@ -9,13 +9,13 @@ import {
   computeAccessEventHash,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
-} from "@symcrypt/crypto";
-import type { ContainerMutationRequest } from "@symcrypt/validators/request";
+} from "@tearleads/crypto";
+import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import {
   type ContainerMutationResponse,
   type ContainerWriterProjectionResponse,
   isAccessManifestBundleWireResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 
 type ProjectionKek = ContainerWriterProjectionResponse["containerKeks"][number];
 

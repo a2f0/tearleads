@@ -6,7 +6,7 @@ import {
 } from "../components/pane/dual-pane";
 import { useCryptoSession } from "../providers/crypto/CryptoSessionProvider";
 import { useLog } from "../providers/logging/LogProvider";
-import { useSymCryptRuntime } from "../providers/sdk/SymCryptProvider";
+import { useTearleadsRuntime } from "../providers/sdk/TearleadsProvider";
 import {
   ContactsProvider,
   useContacts,
@@ -131,7 +131,7 @@ function DemoPeerRosterSeeder({
 }): null {
   const side = usePaneSide();
   const peerUserId = usePeerUserId();
-  const runtime = useSymCryptRuntime();
+  const runtime = useTearleadsRuntime();
   const orgManagerActions = useOrgManagerActions();
   const { logError } = useLog();
   // Holds the peer id whose roster seed has settled, so a changed peer (a

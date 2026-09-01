@@ -1,8 +1,8 @@
-import type { ApiDatabase } from "@symcrypt/api-shared/postgres";
+import type { ApiDatabase } from "@tearleads/api-shared/postgres";
 import {
   type OrganizationBillingInvoiceReason,
   organizationBillingInvoiceEvents,
-} from "@symcrypt/api-shared/schema";
+} from "@tearleads/api-shared/schema";
 import { eq } from "drizzle-orm";
 
 export interface StripeInvoiceAuditInput {

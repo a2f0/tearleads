@@ -4,7 +4,7 @@ import type {
   LocalAttachmentRecord,
   PendingAttachmentRecord,
   PendingUpdateRecord,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { applyMemoryHistoryCheckpoint } from "./documentStoreRecoveryPruning";
 import { applyMemoryAttachmentRemoval } from "./documentStoreSyncPersistenceState";
 

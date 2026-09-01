@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
-import { createTestUser, type TestUser } from "@symcrypt/bob-and-alice";
-import type { VerifiedContainerKekState } from "@symcrypt/crypto";
-import type { AccessManifestBundleWire } from "@symcrypt/validators/request";
+import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
+import type { VerifiedContainerKekState } from "@tearleads/crypto";
+import type { AccessManifestBundleWire } from "@tearleads/validators/request";
 import {
   isContainerMutationResponse,
   isDocumentPurgeProofResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { buildContainerGrantRequest } from "../../../test/helpers/containerGrantMutation";
 import { buildRevokeRequest } from "../../../test/helpers/containerMutationRotations";

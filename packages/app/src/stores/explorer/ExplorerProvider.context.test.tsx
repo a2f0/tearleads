@@ -2,7 +2,7 @@ import { afterEach, expect, mock, test } from "bun:test";
 import {
   type ContainerContentsStore,
   syncedContainerDocumentObjectSyncState,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { cleanup, renderHook } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
 import { ExplorerContext, useExplorer } from "./ExplorerProvider";

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
   encodeVersionVector,
@@ -9,8 +9,8 @@ import {
   getUpdateVersionVectors,
   importSnapshot,
   satisfiesVersionVector,
-} from "@symcrypt/loro";
-import { createTestExecSql } from "@symcrypt/test-utils";
+} from "@tearleads/loro";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentsPersistence } from "./documentsPersistence";
 
 test("recovery quarantines a racing checkpoint before restart", async () => {

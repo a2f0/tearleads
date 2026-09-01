@@ -1,8 +1,8 @@
 import type {
   BlobAttachmentBindRequest,
   BlobAttachmentDetachRequest,
-} from "@symcrypt/validators/request";
-import type { BlobAttachmentDetachResponse } from "@symcrypt/validators/response";
+} from "@tearleads/validators/request";
+import type { BlobAttachmentDetachResponse } from "@tearleads/validators/response";
 
 type BlobMutationStatus = 400 | 403 | 404 | 409 | 503;
 

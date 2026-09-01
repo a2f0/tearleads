@@ -1,6 +1,6 @@
-import type { ContainerDocumentQueries } from "@symcrypt/client-sdk";
+import type { ContainerDocumentQueries } from "@tearleads/client-sdk";
 import { useMemo } from "react";
-import { useSymCrypt } from "../../providers/sdk/SymCryptProvider";
+import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 
 interface ExplorerDocumentQueriesRuntimeState {
   infra: { readonly dbStatus: string };
@@ -10,7 +10,7 @@ interface ExplorerDocumentQueriesRuntimeState {
 export function useExplorerDocumentQueries(
   appData: ExplorerDocumentQueriesRuntimeState,
 ): ContainerDocumentQueries {
-  const { containerContents } = useSymCrypt();
+  const { containerContents } = useTearleads();
 
   return useMemo(
     () => containerContents.documentQueries(),

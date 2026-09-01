@@ -1,9 +1,9 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
-import { organizationBillingStripeSeats } from "@symcrypt/api-shared/schema";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import { organizationBillingStripeSeats } from "@tearleads/api-shared/schema";
 import {
   getSyncBillingTierForNativeProduct,
   type NativeSubscriptionStore,
-} from "@symcrypt/validators/billing";
+} from "@tearleads/validators/billing";
 import { eq } from "drizzle-orm";
 import { OrganizationManagerError } from "../organizations/errors";
 import {

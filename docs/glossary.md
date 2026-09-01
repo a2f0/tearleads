@@ -1,6 +1,6 @@
 # Glossary
 
-This glossary defines shared protocol terms used across the SymCrypt docs. It
+This glossary defines shared protocol terms used across the Tearleads docs. It
 is a reading aid; executable request, response, and verifier behavior remains
 defined by the shared validators, crypto verifiers, API workflows, and app
 workflows named in [protocol-specification.md](./protocol-specification.md).

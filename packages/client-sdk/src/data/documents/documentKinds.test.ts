@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createDocument, encodeVersionVector } from "@symcrypt/loro";
+import { createDocument, encodeVersionVector } from "@tearleads/loro";
 import {
   createDocumentProjectorRegistry,
   type DocumentFieldValidationIssue,

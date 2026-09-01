@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@symcrypt/test-utils";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { clientSqlTables } from "../../data/sqlite/schema";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
 import { runOrganizationPresentationRead } from "../organizations/organizationPresentationAccessState";

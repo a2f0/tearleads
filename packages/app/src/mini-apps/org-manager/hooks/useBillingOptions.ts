@@ -3,7 +3,7 @@ import {
   PurchaseProviderStalledError,
   type PurchasesCapability,
   type SyncSubscriptionOption,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import {
   type Dispatch,
   type SetStateAction,

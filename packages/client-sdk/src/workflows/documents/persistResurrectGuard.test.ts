@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { createDocument } from "@symcrypt/loro";
-import { createTestExecSql } from "@symcrypt/test-utils";
+import { createDocument } from "@tearleads/loro";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { createDomainScope } from "../../data/domainScope";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";

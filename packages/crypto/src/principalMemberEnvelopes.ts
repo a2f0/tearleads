@@ -1,4 +1,4 @@
-import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
   ML_KEM1024_CIPHERTEXT_BYTES,
   ML_KEM1024_SECRET_KEY_BYTES,

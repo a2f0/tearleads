@@ -1,7 +1,7 @@
 import {
   type ContainerNode,
   syncedContainerDocumentObjectSyncState,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { useState } from "react";
 import type { ExplorerContextMenuModel } from "../hooks/explorerPanelStateTypes";
 import type {

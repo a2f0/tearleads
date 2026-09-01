@@ -1,5 +1,8 @@
 import { afterEach, expect, test } from "bun:test";
-import type { DocumentSummary, StoredDocumentKind } from "@symcrypt/client-sdk";
+import type {
+  DocumentSummary,
+  StoredDocumentKind,
+} from "@tearleads/client-sdk";
 import { cleanup, renderHook } from "@testing-library/react";
 import { useInlineDocumentAction } from "./useInlineDocumentAction";
 

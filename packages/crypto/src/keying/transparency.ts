@@ -1,5 +1,5 @@
-import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
-import { isPlainObject } from "@symcrypt/validators/isPlainObject";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { toFingerprint } from "../fingerprint";
 import { sign } from "../signing/sign";
 import { verify } from "../signing/verify";
@@ -268,11 +268,11 @@ export async function computeTransparencyLeafHash(
   const payload: KeyingCanonicalPayload<TransparencyLeaf> =
     normalizeTransparencyLeaf(leaf);
 
-  return computeKeyingDomainHash("symcrypt.keying.transparency-leaf", payload);
+  return computeKeyingDomainHash("tearleads.keying.transparency-leaf", payload);
 }
 
 async function computeTransparencyEmptyTreeHash(): Promise<string> {
-  return computeKeyingDomainHash("symcrypt.keying.transparency-empty-tree", {
+  return computeKeyingDomainHash("tearleads.keying.transparency-empty-tree", {
     version: 1,
   });
 }
@@ -281,7 +281,7 @@ async function computeTransparencyNodeHash(
   leftHash: string,
   rightHash: string,
 ): Promise<string> {
-  return computeKeyingDomainHash("symcrypt.keying.transparency-node", {
+  return computeKeyingDomainHash("tearleads.keying.transparency-node", {
     leftHash,
     rightHash,
     version: 1,
@@ -543,7 +543,7 @@ function transparencyTreeHeadSigningBytes(
     normalizeUnsignedTransparencyTreeHead(treeHead);
 
   return encodeDomainPayload(
-    "symcrypt.keying.transparency-tree-head-signing",
+    "tearleads.keying.transparency-tree-head-signing",
     payload,
   );
 }

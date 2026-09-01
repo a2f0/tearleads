@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { readCommitLsnMode, readCurrentCommitLsn } from "./commitLsn";
 
 test("Turso negotiates untracked LSNs without querying the database", async () => {
@@ -37,9 +37,9 @@ test("Turso negotiates untracked LSNs without querying the database", async () =
 test("sqlite commitLsn seeds from the latest persisted write's created_at", async () => {
   const commitLsnUrl = new URL("./commitLsn.ts", import.meta.url).href;
   const script = `
-    const { createDefaultManagedApiDatabase } = await import("@symcrypt/api-shared/postgres");
-    const { documentUpdates } = await import("@symcrypt/api-shared/schema");
-    const { parseWalLsn } = await import("@symcrypt/validators/util");
+    const { createDefaultManagedApiDatabase } = await import("@tearleads/api-shared/postgres");
+    const { documentUpdates } = await import("@tearleads/api-shared/schema");
+    const { parseWalLsn } = await import("@tearleads/validators/util");
     const { readCurrentCommitLsn } = await import(${JSON.stringify(commitLsnUrl)});
 
     const managed = createDefaultManagedApiDatabase({

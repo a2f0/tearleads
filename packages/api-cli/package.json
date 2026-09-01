@@ -1,5 +1,5 @@
 {
-  "name": "@symcrypt/api-cli",
+  "name": "@tearleads/api-cli",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1049.0",
-    "@symcrypt/api-shared": "workspace:*"
+    "@tearleads/api-shared": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "catalog:"

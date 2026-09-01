@@ -3,7 +3,7 @@ import {
   type ReferencedPrincipalHead,
   type VerifiedPrincipalPolicy,
   verifyPrincipalPolicyBundle,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import { PrincipalPolicyError } from "./shared";
 import type { StoredPrincipalPolicyVerificationSource } from "./storedPrincipalPolicySource";
 

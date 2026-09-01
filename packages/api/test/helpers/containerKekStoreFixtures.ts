@@ -4,13 +4,13 @@ import type {
   ReferencedPrincipalHead,
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
-} from "@symcrypt/crypto";
-import { computeKeyingDomainHash } from "@symcrypt/crypto";
+} from "@tearleads/crypto";
+import { computeKeyingDomainHash } from "@tearleads/crypto";
 
 export async function containerKekStoreFixtureHash(
   label: string,
 ): Promise<string> {
-  return computeKeyingDomainHash("symcrypt.keying.access-event-body", {
+  return computeKeyingDomainHash("tearleads.keying.access-event-body", {
     fixture: label,
   });
 }

@@ -1,4 +1,4 @@
-import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import {
   containerBuiltinGrants,
   containerMetadataDocuments,
@@ -6,16 +6,16 @@ import {
   groups,
   organizationReadModelHeads,
   organizations,
-} from "@symcrypt/api-shared/schema";
-import { normalizePrincipalContainerGrants } from "@symcrypt/crypto";
+} from "@tearleads/api-shared/schema";
+import { normalizePrincipalContainerGrants } from "@tearleads/crypto";
 import type {
   OrganizationProvisioningRequest,
   PutPrincipalPolicyRequest,
-} from "@symcrypt/validators/request";
+} from "@tearleads/validators/request";
 import type {
   ContainerCreateWithMetadataDocumentResponse,
   DocumentCreateResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { ContainerMutationError } from "../containers/mutations/errors";
 import {

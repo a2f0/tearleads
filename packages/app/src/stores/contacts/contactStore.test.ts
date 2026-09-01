@@ -1,19 +1,19 @@
 import { expect, test } from "bun:test";
-import type { ResolvedUserIdentity } from "@symcrypt/client-sdk";
+import type { ResolvedUserIdentity } from "@tearleads/client-sdk";
 import {
   createDocumentsWorkflowRuntime,
   defaultDocumentsPersistence,
   deletePersistedDocument,
   openDocumentStore,
-} from "@symcrypt/client-sdk";
-import { getSQLitePersistenceRuntime } from "@symcrypt/client-sdk/sqlite";
+} from "@tearleads/client-sdk";
+import { getSQLitePersistenceRuntime } from "@tearleads/client-sdk/sqlite";
 import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   toFingerprint,
-} from "@symcrypt/crypto";
-import { bytesToBase64 } from "@symcrypt/encoding";
-import { createMockApiClient } from "@symcrypt/test-utils";
+} from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
+import { createMockApiClient } from "@tearleads/test-utils";
 import { createSqlRuntimeBase } from "../../../test/helpers/createSqlRuntime";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
 import { contactProjection } from "../../document-projectors/contactClientProjection";

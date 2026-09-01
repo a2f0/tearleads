@@ -1,4 +1,4 @@
-import type { RevenueCatWebhookEvent } from "@symcrypt/validators/request";
+import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import {
   isRevenueCatGrantEventType,
   NON_NATIVE_REVENUECAT_PRODUCT_CHANGE_REASON,

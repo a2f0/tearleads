@@ -3,7 +3,7 @@ import type {
   DocumentsPersistence,
   PendingUpdateInsert,
   PendingUpdateRecord,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 
 interface MemoryHistoryState {
   checkpoint: { endVersionVector: string; snapshot: string } | null;

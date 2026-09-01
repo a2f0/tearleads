@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
-import type { SymCrypt } from "@symcrypt/client-sdk";
-import { createIdentitySeedPhraseFromEntropy } from "@symcrypt/crypto";
+import type { Tearleads } from "@tearleads/client-sdk";
+import { createIdentitySeedPhraseFromEntropy } from "@tearleads/crypto";
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import {
   createIdentityManagerHostConfig,
@@ -17,15 +17,15 @@ afterEach(cleanupRecoveryKeyTestEnvironment);
 
 test("identity manager exposes the recovery key for seed-backed identities", async () => {
   const originalWebSocket = globalThis.WebSocket;
-  const symcryptRef: { current: SymCrypt | null } = { current: null };
+  const tearleadsRef: { current: Tearleads | null } = { current: null };
 
   try {
     Reflect.set(globalThis, "WebSocket", TestWebSocket);
     const view = render(
       <IdentityManagerTestRuntime
         hostConfig={TEST_HOST_CONFIG}
-        onSymCryptReady={(sdk) => {
-          symcryptRef.current = sdk;
+        onTearleadsReady={(sdk) => {
+          tearleadsRef.current = sdk;
         }}
       >
         <IdentityManager />
@@ -44,12 +44,12 @@ test("identity manager exposes the recovery key for seed-backed identities", asy
     expect(view.queryByLabelText("Restore passphrase")).toBeNull();
 
     await waitFor(() => {
-      expect(symcryptRef.current).toBeTruthy();
+      expect(tearleadsRef.current).toBeTruthy();
     });
 
-    const symcrypt = symcryptRef.current;
-    if (!symcrypt) {
-      throw new Error("Expected SymCrypt SDK to be available after render.");
+    const tearleads = tearleadsRef.current;
+    if (!tearleads) {
+      throw new Error("Expected Tearleads SDK to be available after render.");
     }
 
     const seedPhrase = createIdentitySeedPhraseFromEntropy(
@@ -57,7 +57,7 @@ test("identity manager exposes the recovery key for seed-backed identities", asy
     );
 
     await act(async () => {
-      await symcrypt.identity.importSeedPhrase(seedPhrase);
+      await tearleads.identity.importSeedPhrase(seedPhrase);
     });
 
     expect(
@@ -79,15 +79,15 @@ test("identity manager exposes the recovery key for seed-backed identities", asy
 
 test("identity manager restores a recovery key from a typed passphrase", async () => {
   const originalWebSocket = globalThis.WebSocket;
-  const symcryptRef: { current: SymCrypt | null } = { current: null };
+  const tearleadsRef: { current: Tearleads | null } = { current: null };
 
   try {
     Reflect.set(globalThis, "WebSocket", TestWebSocket);
     const view = render(
       <IdentityManagerTestRuntime
         hostConfig={TEST_HOST_CONFIG}
-        onSymCryptReady={(sdk) => {
-          symcryptRef.current = sdk;
+        onTearleadsReady={(sdk) => {
+          tearleadsRef.current = sdk;
         }}
       >
         <IdentityManager />
@@ -98,12 +98,12 @@ test("identity manager restores a recovery key from a typed passphrase", async (
     fireEvent.click(view.getByRole("tab", { name: "Recovery" }));
 
     await waitFor(() => {
-      expect(symcryptRef.current).toBeTruthy();
+      expect(tearleadsRef.current).toBeTruthy();
     });
 
-    const symcrypt = symcryptRef.current;
-    if (!symcrypt) {
-      throw new Error("Expected SymCrypt SDK to be available after render.");
+    const tearleads = tearleadsRef.current;
+    if (!tearleads) {
+      throw new Error("Expected Tearleads SDK to be available after render.");
     }
 
     const seedPhrase = createIdentitySeedPhraseFromEntropy(
@@ -127,7 +127,7 @@ test("identity manager restores a recovery key from a typed passphrase", async (
     );
 
     await waitFor(() => {
-      expect(symcrypt.identity.seedPhrase).toBe(seedPhrase);
+      expect(tearleads.identity.seedPhrase).toBe(seedPhrase);
     });
     // A restored key is a new key: it stays hidden until acknowledged.
     fireEvent.click(view.getByRole("tab", { name: "Backup" }));

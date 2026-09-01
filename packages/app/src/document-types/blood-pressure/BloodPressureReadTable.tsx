@@ -94,7 +94,7 @@ export function BloodPressureReadTable(params: {
       actionsAriaLabel={(row) => `Reading ${row.index + 1} actions`}
       ariaLabel="Readings"
       buildRows={buildBloodPressureRows}
-      columnStorageKey="symcrypt.blood-pressure.readings:hidden-columns:v2"
+      columnStorageKey="tearleads.blood-pressure.readings:hidden-columns:v2"
       currentAuthorId={currentAuthorId}
       detailFields={toBloodPressureReadingDetailFields}
       detailLabel="Attribution"

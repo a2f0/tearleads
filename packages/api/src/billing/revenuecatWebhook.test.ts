@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { RevenueCatWebhookEvent } from "@symcrypt/validators/request";
+import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { LAPSED_BILLING_PURGE_GRACE_MS } from "./organizationBilling";
 import {
   BOUND_REVENUECAT_PRODUCT_CHANGE_REQUIRED_REASON,

@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
-import { bytesToBase64 } from "@symcrypt/encoding";
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
   encodeVersionVector,
   exportFullHistorySnapshot,
-} from "@symcrypt/loro";
-import { execDatabaseStatement } from "@symcrypt/sqlite-worker/load-sqlite3";
-import { initTestSqliteDatabase } from "@symcrypt/test-utils";
+} from "@tearleads/loro";
+import { execDatabaseStatement } from "@tearleads/sqlite-worker/load-sqlite3";
+import { initTestSqliteDatabase } from "@tearleads/test-utils";
 import {
   createDocumentProjectorRegistry,
   defaultDocumentProjectorRegistry,

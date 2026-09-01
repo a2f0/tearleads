@@ -4,7 +4,7 @@ import {
   OrganizationDataUsageResponseSchema,
   type OrganizationDocumentUsageCategory,
   type OrganizationDocumentUsageCategoryBreakdown,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
 import {
   ORGANIZATION_DATA_USAGE_PROJECTION_VERSION,

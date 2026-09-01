@@ -1,5 +1,5 @@
 import { expect, mock, test } from "bun:test";
-import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
+import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { ContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import type { ContainerState } from "../../workflows/container-contents/remoteHydration";
 import type { ContainerContentsWorkflowRuntime } from "../../workflows/container-contents/runtime";

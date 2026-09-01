@@ -104,7 +104,7 @@ test("document sync emits its operation registry as OpenAPI 3.1", () => {
   expect(syncPost.responses["413"]?.description).toBe(
     "Serialized document sync requests are limited to 16777216 bytes",
   );
-  expect(syncPost["x-symcrypt-runtime-refinements"]).toEqual(
+  expect(syncPost["x-tearleads-runtime-refinements"]).toEqual(
     documentSyncOperation.runtimeRefinements,
   );
 });

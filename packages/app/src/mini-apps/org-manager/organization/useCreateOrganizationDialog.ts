@@ -1,7 +1,7 @@
 import type {
   LocalOrganizationSummary,
   SessionCreateOrganizationResult,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ORG_MANAGER_LABELS } from "../labels";
 import type { CreateOrganizationDialogState } from "./orgSwitcherTypes";

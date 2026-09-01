@@ -393,7 +393,7 @@
   margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font-family: var(--symcrypt-font-family);
+  font-family: var(--tearleads-font-family);
   font-size: var(--font-size-sm);
   line-height: 1.45;
 }
@@ -421,7 +421,7 @@
  * a small bullet adrift in a 44px row rather than as the row's subject.
  * `--control-icon-size` (24px) is the shared touch glyph size the app bar,
  * menus, and the blob thumbnail already take — see the token's note in
- * @symcrypt/ui's styles.routed.css — and author CSS outranks the width/height
+ * @tearleads/ui's styles.routed.css — and author CSS outranks the width/height
  * presentation attribute Phosphor renders, so no call site changes. The two row
  * scopes cover every one: the sidebar tree row, and `.explorer-item-name`, the
  * leading visual of the container item list and of the linked-container rows in

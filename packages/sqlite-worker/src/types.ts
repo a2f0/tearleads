@@ -104,11 +104,11 @@ export interface WorkerRequestMap {
   };
 }
 
-export const WORKER_CONNECT_PORT_MESSAGE_TYPE = "symcrypt:sqlite-connect-port";
+export const WORKER_CONNECT_PORT_MESSAGE_TYPE = "tearleads:sqlite-connect-port";
 export const WORKER_DISCONNECT_PORT_MESSAGE_TYPE =
-  "symcrypt:sqlite-disconnect-port";
+  "tearleads:sqlite-disconnect-port";
 export const WORKER_PORT_DISCONNECTED_MESSAGE_TYPE =
-  "symcrypt:sqlite-port-disconnected";
+  "tearleads:sqlite-port-disconnected";
 
 export type WorkerMethod = keyof WorkerRequestMap;
 

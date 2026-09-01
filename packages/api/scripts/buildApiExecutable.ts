@@ -30,7 +30,7 @@ const executableTarget = readExecutableTarget();
 const result = await Bun.build({
   entrypoints: ["packages/api/src/index.ts"],
   compile: {
-    outfile: "packages/api/dist/symcrypt-api",
+    outfile: "packages/api/dist/tearleads-api",
     target: executableTarget,
   },
   target: "bun",

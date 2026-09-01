@@ -1,5 +1,5 @@
-import { bytesToBase64 } from "@symcrypt/encoding";
-import type { OrganizationProvisioningResponse } from "@symcrypt/validators/response";
+import { bytesToBase64 } from "@tearleads/encoding";
+import type { OrganizationProvisioningResponse } from "@tearleads/validators/response";
 import type { DocumentProjectorRegistryInput } from "../../data/documents/documentKinds";
 import { persistedDocumentCreateStateFromResponse } from "../../data/documents/shared/responses";
 import type { ExecSqlClientLike } from "../../data/sqlite/sqlSchema";

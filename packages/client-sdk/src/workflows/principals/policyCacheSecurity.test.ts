@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { KeyingVerificationError } from "@symcrypt/crypto";
-import { createTestExecSql } from "@symcrypt/test-utils";
+import { KeyingVerificationError } from "@tearleads/crypto";
+import { createTestExecSql } from "@tearleads/test-utils";
 import {
   cacheReferencedPolicies,
   createPrincipalPolicyBundle,
@@ -48,7 +48,7 @@ test("principal policy cache preserves foreign-instance integrity failures", asy
   try {
     const { bundle } = await createPrincipalPolicyBundle();
     // A KeyingVerificationError raised by a duplicate module instance of
-    // @symcrypt/crypto (e.g. a dist build loaded beside the source build)
+    // @tearleads/crypto (e.g. a dist build loaded beside the source build)
     // fails the `instanceof KeyingVerificationError` check while still being
     // an `Error` with the class's name — the exact shape
     // isKeyingVerificationError's name clause exists for. It must abort the

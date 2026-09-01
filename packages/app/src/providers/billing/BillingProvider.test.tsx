@@ -1,5 +1,5 @@
 import { afterEach, expect, mock, spyOn, test } from "bun:test";
-import type { OrganizationBilling } from "@symcrypt/client-sdk";
+import type { OrganizationBilling } from "@tearleads/client-sdk";
 import {
   act,
   cleanup,
@@ -8,7 +8,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import * as CryptoSessionProvider from "../crypto/CryptoSessionProvider";
-import * as SymCryptProvider from "../sdk/SymCryptProvider";
+import * as TearleadsProvider from "../sdk/TearleadsProvider";
 import {
   BillingProvider,
   syncBillingBlockAppliesToOrganization,
@@ -120,7 +120,7 @@ test("loads billing when authentication completes for the unchanged org", async 
     },
   );
   let isAuthenticated = false;
-  const symcrypt = {
+  const tearleads = {
     organizations: makeClient(loadBilling).organizations,
     syncBillingGate: {
       blockedOrganizationId: null,
@@ -129,7 +129,7 @@ test("loads billing when authentication completes for the unchanged org", async 
       isBlockedForOrganization: () => false,
       subscribe,
     },
-  } as unknown as ReturnType<typeof SymCryptProvider.useSymCrypt>;
+  } as unknown as ReturnType<typeof TearleadsProvider.useTearleads>;
   const cryptoSessionSpy = spyOn(
     CryptoSessionProvider,
     "useCryptoSession",
@@ -140,9 +140,10 @@ test("loads billing when authentication completes for the unchanged org", async 
         organizationId: "org-1",
       }) as ReturnType<typeof CryptoSessionProvider.useCryptoSession>,
   );
-  const symcryptSpy = spyOn(SymCryptProvider, "useSymCrypt").mockImplementation(
-    () => symcrypt,
-  );
+  const tearleadsSpy = spyOn(
+    TearleadsProvider,
+    "useTearleads",
+  ).mockImplementation(() => tearleads);
 
   try {
     const view = render(<BillingProvider>child</BillingProvider>);
@@ -165,7 +166,7 @@ test("loads billing when authentication completes for the unchanged org", async 
   } finally {
     cleanup();
     cryptoSessionSpy.mockRestore();
-    symcryptSpy.mockRestore();
+    tearleadsSpy.mockRestore();
   }
 });
 

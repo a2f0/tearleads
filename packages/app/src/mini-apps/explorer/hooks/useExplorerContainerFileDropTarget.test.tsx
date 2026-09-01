@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
-import type { ContainerNode } from "@symcrypt/client-sdk";
-import { syncedContainerDocumentObjectSyncState } from "@symcrypt/client-sdk";
+import type { ContainerNode } from "@tearleads/client-sdk";
+import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { EXPLORER_LABELS } from "../labels";
 import type { ExplorerFileImportRunState } from "./explorerUploadState";

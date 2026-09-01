@@ -1,8 +1,8 @@
-import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import {
   organizationRosterEntries,
   organizations,
-} from "@symcrypt/api-shared/schema";
+} from "@tearleads/api-shared/schema";
 import { and, eq, inArray } from "drizzle-orm";
 import { listUsersReachableFromCurrentPrincipal } from "../organizations/principalReachability";
 import { PrincipalPolicyError } from "./shared";

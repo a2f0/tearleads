@@ -6,8 +6,8 @@ import type {
   PrincipalProjectionMember,
   PrincipalStateExternalAuthority,
   VerifiedPrincipalPolicy,
-} from "@symcrypt/crypto";
-import type { ContainerMutationRequest } from "@symcrypt/validators/request";
+} from "@tearleads/crypto";
+import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import {
   readProjectionNullableString,
   readProjectionPlainRecord,

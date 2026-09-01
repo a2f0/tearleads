@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
-import { ApiClient } from "@symcrypt/api-client";
-import { documentSyncOperation } from "@symcrypt/validators/operation";
-import type { DocumentSyncRequest } from "@symcrypt/validators/request";
+import { ApiClient } from "@tearleads/api-client";
+import { documentSyncOperation } from "@tearleads/validators/operation";
+import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import {
   DOCUMENT_NOT_FOUND_ERROR_CODE,
   DOCUMENT_SYNC_ERROR_CODES,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import {
   isRetryableDocumentSyncConflict,
   isUpstreamDeletedDocumentSyncFailure,

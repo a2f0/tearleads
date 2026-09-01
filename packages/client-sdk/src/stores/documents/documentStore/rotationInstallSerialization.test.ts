@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { getTextValue } from "@symcrypt/loro";
-import { createTestExecSql } from "@symcrypt/test-utils";
+import { getTextValue } from "@tearleads/loro";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import type { DocumentsPersistence } from "../../../workflows/documents";
 import {

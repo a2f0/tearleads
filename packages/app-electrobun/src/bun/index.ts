@@ -1,12 +1,12 @@
 import { stat } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { getSqliteWasmAssetUrl } from "@symcrypt/sqlite-worker/assets";
+import { getSqliteWasmAssetUrl } from "@tearleads/sqlite-worker/assets";
 import { serve } from "bun";
 import { BrowserWindow, Utils } from "electrobun/bun";
 import { planSaveFileRequest } from "../saveFileHandler";
 
-const packageDirEnvName = "SYMCRYPT_ELECTROBUN_PACKAGE_DIR";
+const packageDirEnvName = "TEARLEADS_ELECTROBUN_PACKAGE_DIR";
 const isDev = process.env.NODE_ENV !== "production";
 // Keep Electrobun off app-web's default :3000 origin so stale app-web service
 // workers cannot control the desktop dev renderer.
@@ -59,7 +59,7 @@ function getPackageSourcePath(
 }
 
 // Resolve the SQLite WASM binary's real path. getSqliteWasmAssetUrl() resolves
-// relative to @symcrypt/sqlite-instance's module URL, which is correct from
+// relative to @tearleads/sqlite-instance's module URL, which is correct from
 // source but breaks in the dev build: Electrobun inlines this file into the
 // app bundle, so the asset URL points at <bundle>/dist/jswasm/sqlite3.wasm,
 // which does not exist. Serving that missing file as a streaming Bun.file
@@ -249,7 +249,7 @@ const appServer = serve({
 console.log(`Electrobun app server running at ${appServer.url}`);
 
 new BrowserWindow({
-  title: "SymCrypt",
+  title: "Tearleads",
   url: appServer.url.href,
   frame: {
     x: 0,

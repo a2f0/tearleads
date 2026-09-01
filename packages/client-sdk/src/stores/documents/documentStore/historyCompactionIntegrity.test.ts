@@ -1,13 +1,13 @@
 import { expect, test } from "bun:test";
-import { bytesToBase64 } from "@symcrypt/encoding";
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
   encodeVersionVector,
   exportFullHistorySnapshot,
   exportUpdatesSince,
   importSnapshot,
-} from "@symcrypt/loro";
-import { createTestExecSql } from "@symcrypt/test-utils";
+} from "@tearleads/loro";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { DOCUMENT_HISTORY_COMPACTION_MAX_ROWS } from "../../../data/sqlite/documentHistoryPersistence";
 import { openHistoryTestStore } from "./historyDurability.testFixtures";

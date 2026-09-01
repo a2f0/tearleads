@@ -11,12 +11,12 @@ if (nativeReleaseTier !== "production" && nativeReleaseTier !== "staging") {
 }
 const isStagingRelease = nativeReleaseTier === "staging";
 const appId = isStagingRelease
-  ? "com.symcrypt.staging.app"
-  : "com.symcrypt.app";
+  ? "com.tearleads.staging.app"
+  : "com.tearleads.app";
 
 const config: CapacitorConfig = {
   appId,
-  appName: isStagingRelease ? "SC Staging" : "SymCrypt",
+  appName: isStagingRelease ? "TL Staging" : "Tearleads",
   webDir: "dist",
   server: {
     androidScheme: "https",
@@ -28,7 +28,7 @@ const config: CapacitorConfig = {
     //
     // Why always-on: Capacitor serves the app from the custom-scheme origin
     // `https://localhost`, and the iOS WKWebView's own cross-origin `fetch` from
-    // that origin fails outright — every API request to https://api.symcrypt.com
+    // that origin fails outright — every API request to https://api.tearleads.com
     // throws "Load failed" (a network-layer TypeError), even though the server's
     // CORS/TLS are correct (verified: preflight + actual responses carry
     // `access-control-allow-origin: https://localhost`; TLS 1.3). That is exactly

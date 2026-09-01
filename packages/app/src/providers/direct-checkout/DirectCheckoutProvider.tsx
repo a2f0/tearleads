@@ -1,7 +1,7 @@
 import {
   createUnavailableDirectCheckout,
   type DirectCheckoutCapability,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import {
   createContext,
   type PropsWithChildren,

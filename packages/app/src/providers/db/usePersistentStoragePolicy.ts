@@ -2,7 +2,7 @@ import {
   requestPersistentStorage,
   resolveStoragePersistencePolicy,
   type StoragePersistencePolicy,
-} from "@symcrypt/client-sdk/sqlite";
+} from "@tearleads/client-sdk/sqlite";
 import { useEffect, useMemo } from "react";
 
 /**

@@ -1,10 +1,10 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
-import { revenuecatWebhookEvents } from "@symcrypt/api-shared/schema";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import { revenuecatWebhookEvents } from "@tearleads/api-shared/schema";
 import {
   getSyncBillingTierForNativeProduct,
   type NativeSubscriptionStore,
-} from "@symcrypt/validators/billing";
-import type { RevenueCatWebhookEvent } from "@symcrypt/validators/request";
+} from "@tearleads/validators/billing";
+import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { and, desc, eq, isNull, or } from "drizzle-orm";
 import {
   matchesVerifiedPlayReplacement,

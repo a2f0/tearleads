@@ -1,6 +1,6 @@
-import { db } from "@symcrypt/api-shared/postgres";
-import { containers } from "@symcrypt/api-shared/schema";
-import type { createTestUser } from "@symcrypt/bob-and-alice";
+import { db } from "@tearleads/api-shared/postgres";
+import { containers } from "@tearleads/api-shared/schema";
+import type { createTestUser } from "@tearleads/bob-and-alice";
 import {
   type AccessEvent,
   type ContainerAccessManifestState,
@@ -13,7 +13,7 @@ import {
   signAccessEvent,
   type UnsignedAccessEvent,
   type VerifiedContainerAccessManifest,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
 import { storeVerifiedAccessManifest } from "../../src/access/write/accessManifestStore";
 

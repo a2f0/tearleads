@@ -6,7 +6,7 @@ import {
   getTextValue,
   satisfiesVersionVector,
   versionVectorsEqual,
-} from "@symcrypt/loro";
+} from "@tearleads/loro";
 import { createCoverageFixture } from "../../../../test/helpers/syncOutgoingCoverage";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { listDeferredPendingWriteCandidates } from "../../../workflows/container-contents/pendingWrites/deferredTails";

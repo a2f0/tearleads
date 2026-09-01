@@ -1,4 +1,4 @@
-import type { DocumentAttachment } from "@symcrypt/client-sdk";
+import type { DocumentAttachment } from "@tearleads/client-sdk";
 import { type FormEvent, useId } from "react";
 import {
   MiniAppActions,

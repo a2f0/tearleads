@@ -155,7 +155,7 @@ test("OpenAPI declares the link-set runtime-only invariant", () => {
     openApiDocument.paths["/documents/{documentId}/link"]?.post,
     openApiDocument.paths["/documents/{documentId}/unlink"]?.post,
   ]) {
-    expect(operation?.["x-symcrypt-runtime-refinements"]).toEqual([
+    expect(operation?.["x-tearleads-runtime-refinements"]).toEqual([
       documentLinkSetPathRefinement,
       documentSyncRequestRotationRefinement,
     ]);

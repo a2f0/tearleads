@@ -1,4 +1,4 @@
-import { createSQLiteRuntime as createDefaultSQLiteRuntime } from "@symcrypt/client-sdk/sqlite";
+import { createSQLiteRuntime as createDefaultSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
 import {
   createContext,
   type PropsWithChildren,
@@ -8,8 +8,8 @@ import {
 import { useAppHostConfig } from "../host/AppHostConfigProvider";
 import { useLocalKeyringLock } from "../local-keyring/LocalKeyringLockProvider";
 import { useLog } from "../logging/LogProvider";
-import { useSymCrypt } from "../sdk/SymCryptProvider";
-import { useSymCryptStoreSnapshot } from "../sdk/useSymCryptSubscription";
+import { useTearleads } from "../sdk/TearleadsProvider";
+import { useTearleadsStoreSnapshot } from "../sdk/useTearleadsSubscription";
 import { createSqliteCipherKeyResolver } from "./sqliteCipherKey";
 import {
   sqliteDbNameForNamespace,
@@ -31,16 +31,16 @@ export function DatabaseProvider({ children }: PropsWithChildren) {
     storagePersistence,
   } = useAppHostConfig();
   const { createLocalKeyring } = useLocalKeyringLock();
-  const symcrypt = useSymCrypt();
+  const tearleads = useTearleads();
   const { log } = useLog();
-  const identity = useSymCryptStoreSnapshot(symcrypt.identity);
+  const identity = useTearleadsStoreSnapshot(tearleads.identity);
   const persistencePolicy = usePersistentStoragePolicy(storagePersistence, log);
   const resolveCipherKey = useMemo(
     () => createSqliteCipherKeyResolver(createLocalKeyring),
     [createLocalKeyring],
   );
   const dbName = sqliteDbNameForNamespace(
-    localIdentityNamespace ?? "symcrypt.app",
+    localIdentityNamespace ?? "tearleads.app",
   );
   const activeDbName = identity.signingFingerprint
     ? sqliteDbNameForSigningFingerprint(identity.signingFingerprint)
@@ -52,7 +52,7 @@ export function DatabaseProvider({ children }: PropsWithChildren) {
     persistencePolicy,
     resolveCipherKey,
     log,
-    symcrypt,
+    tearleads,
     reuseDatabaseWorker,
   );
 

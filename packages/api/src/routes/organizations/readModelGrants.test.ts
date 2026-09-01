@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
-import { db } from "@symcrypt/api-shared/postgres";
-import { users } from "@symcrypt/api-shared/schema";
-import { createTestUser } from "@symcrypt/bob-and-alice";
-import { isOrganizationReadModelResponse } from "@symcrypt/validators/response";
+import { db } from "@tearleads/api-shared/postgres";
+import { users } from "@tearleads/api-shared/schema";
+import { createTestUser } from "@tearleads/bob-and-alice";
+import { isOrganizationReadModelResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
