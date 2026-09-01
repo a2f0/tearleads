@@ -9,6 +9,7 @@ import {
   getDefaultContainerName,
   readContainerMetadataValue,
 } from "../../data/containers/containerMetadataDocument";
+import { metadataSyncSecurityContextMatches } from "./metadataSyncSettlement";
 import type { ContainerMetadataState } from "./metadataTypes";
 
 interface DetachedContainerMetadataState extends ContainerMetadataState {
@@ -20,6 +21,27 @@ interface DetachedContainerMetadataState extends ContainerMetadataState {
 interface DetachedContainerMetadataInstallOptions {
   readonly candidateRecord?: ContainerMetadataState["record"];
   readonly preserveConcurrentMetadataEdit?: boolean;
+}
+
+function mergeConcurrentMetadataRecord(
+  liveRecord: ContainerMetadataState["record"],
+  candidateRecord: ContainerMetadataState["record"],
+): ContainerMetadataState["record"] {
+  if (metadataSyncSecurityContextMatches(liveRecord, candidateRecord)) {
+    return liveRecord;
+  }
+
+  // The live document owns the concurrent CRDT frontier, but the candidate
+  // owns the newly committed remote identity. Carry only the fields that
+  // describe the live CRDT history across that identity boundary.
+  return {
+    ...candidateRecord,
+    metadataUpdates: liveRecord.metadataUpdates,
+    snapshotEndVersion: liveRecord.snapshotEndVersion,
+    ...(liveRecord.pendingBaseVersion === undefined
+      ? {}
+      : { pendingBaseVersion: liveRecord.pendingBaseVersion }),
+  };
 }
 
 /**
@@ -57,6 +79,9 @@ export function installDetachedContainerMetadataState(
     options.preserveConcurrentMetadataEdit === true &&
     liveMetadataVersion !== candidate.detachedSource.metadataVersion &&
     !satisfiesVersionVector(candidateMetadataVersion, liveMetadataVersion);
+  const installedRecord = preserveConcurrentLiveMetadata
+    ? mergeConcurrentMetadataRecord(liveRecord, candidateRecord)
+    : candidateRecord;
 
   if (preserveConcurrentLiveMetadata) {
     const metadata = readContainerMetadataValue(
@@ -74,8 +99,10 @@ export function installDetachedContainerMetadataState(
   }
   target.metadataWriterProjection = candidate.metadataWriterProjection;
   target.pullContinuation = preserveConcurrentLiveMetadata
-    ? livePullContinuation
+    ? metadataSyncSecurityContextMatches(liveRecord, candidateRecord)
+      ? livePullContinuation
+      : (candidateRecord.pullContinuation ?? null)
     : (candidateRecord.pullContinuation ?? null);
-  target.record = preserveConcurrentLiveMetadata ? liveRecord : candidateRecord;
+  target.record = installedRecord;
   target.rekeyOnlyPassCount = candidate.rekeyOnlyPassCount;
 }

@@ -59,36 +59,46 @@ function findCreatedSystemContainerRebaseRoot(input: {
 
 async function rebaseCreatedSystemContainerOntoRemoteRoot(input: {
   created: CreatedChildContainerState;
+  isCurrent: ContainerWriteGuard;
   remoteRoot: ContainerState;
   state: ContainerContentsStoreState;
 }): Promise<void> {
   const { created, remoteRoot, state } = input;
   const containerState = created.containerState;
-  containerState.container = await state.persistence.saveContainer(
+  const rebasedContainer = {
+    ...containerState.container,
+    organizationId: remoteRoot.container.organizationId,
+    parentId: remoteRoot.container.id,
+  };
+  const persistedContainer = await state.persistence.saveContainer(
     state.runtime.infra.execSql,
-    {
-      ...containerState.container,
-      organizationId: remoteRoot.container.organizationId,
-      parentId: remoteRoot.container.id,
-    },
+    rebasedContainer,
     containerState.record,
-    created.shouldRequestSync
-      ? { createIntent: { parentContainerId: remoteRoot.container.id } }
-      : undefined,
+    {
+      ...(created.shouldRequestSync
+        ? { createIntent: { parentContainerId: remoteRoot.container.id } }
+        : {}),
+      stillCurrent: input.isCurrent,
+    },
   );
+  if (!input.isCurrent()) return;
+  containerState.container = persistedContainer;
 }
 
 async function reconcileCreatedSystemContainerIntoTarget(input: {
   created: CreatedChildContainerState;
+  isCurrent: ContainerWriteGuard;
   remoteTarget: ContainerState;
   state: ContainerContentsStoreState;
 }): Promise<void> {
+  if (!input.isCurrent()) return;
   await input.state.persistence.reconcileLocalSystemContainer(
     input.state.runtime.infra.execSql,
     {
       localContainerId: input.created.containerState.container.id,
       remoteContainerId: input.remoteTarget.container.id,
       remoteOrganizationId: input.remoteTarget.container.organizationId,
+      stillCurrent: input.isCurrent,
     },
   );
 }
@@ -114,6 +124,7 @@ export async function finalizeCreatedSystemContainer(input: {
   if (remoteTarget) {
     await reconcileCreatedSystemContainerIntoTarget({
       created,
+      isCurrent,
       remoteTarget,
       state,
     });
@@ -127,6 +138,7 @@ export async function finalizeCreatedSystemContainer(input: {
   if (remoteRoot) {
     await rebaseCreatedSystemContainerOntoRemoteRoot({
       created,
+      isCurrent,
       remoteRoot,
       state,
     });
@@ -139,6 +151,7 @@ export async function finalizeCreatedSystemContainer(input: {
     if (remoteTarget) {
       await reconcileCreatedSystemContainerIntoTarget({
         created,
+        isCurrent,
         remoteTarget,
         state,
       });

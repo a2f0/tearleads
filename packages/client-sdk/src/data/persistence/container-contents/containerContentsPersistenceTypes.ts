@@ -221,6 +221,7 @@ export interface ContainerContentsPersistence
       localRootContainerId: string;
       remoteOrganizationId: string;
       remoteRootContainerId: string;
+      stillCurrent?: (() => boolean) | undefined;
       updatedAt?: string | undefined;
     },
   ) => Promise<void>;
@@ -230,6 +231,7 @@ export interface ContainerContentsPersistence
       localContainerId: string;
       remoteContainerId: string;
       remoteOrganizationId: string;
+      stillCurrent?: (() => boolean) | undefined;
       updatedAt?: string | undefined;
     },
   ) => Promise<void>;

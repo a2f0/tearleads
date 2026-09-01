@@ -69,43 +69,7 @@ export const containerReconcilePersistence: ContainerReconcilePersistence = {
     if (input.localRootContainerId === input.remoteRootContainerId) {
       return;
     }
-
-    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      const updatedAt = input.updatedAt ?? new Date().toISOString();
-      await ensureSqlTables(lockedExecSql, [
-        ...containerCreateIntentTables,
-        ...containerMoveIntentTables,
-        ...documentContainerProjectionTables,
-        ...documentMoveIntentTables,
-        ...documentProjectionTables,
-      ]);
-      await ensureContainerTables(lockedExecSql);
-      await ensureDocumentTables(lockedExecSql);
-      await sqlContainerSyncWatermarkPersistence.ensureSchema(lockedExecSql);
-      await getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
-        async (tx) => {
-          await updateReparentedDescendantContainers({
-            descendantReparents: input.descendantReparents,
-            remoteOrganizationId: input.remoteOrganizationId,
-            tx,
-            updatedAt,
-          });
-          await reassignContainerDocumentsInTransaction({
-            fromContainerId: input.localRootContainerId,
-            toContainerId: input.remoteRootContainerId,
-            tx,
-            updatedAt,
-          });
-          await deleteLocalContainerRows({
-            containerId: input.localRootContainerId,
-            tx,
-          });
-        },
-      );
-    });
-  },
-  async reconcileLocalSystemContainer(execSql, input) {
-    if (input.localContainerId === input.remoteContainerId) {
+    if (input.stillCurrent?.() === false) {
       return;
     }
 
@@ -121,27 +85,87 @@ export const containerReconcilePersistence: ContainerReconcilePersistence = {
       await ensureContainerTables(lockedExecSql);
       await ensureDocumentTables(lockedExecSql);
       await sqlContainerSyncWatermarkPersistence.ensureSchema(lockedExecSql);
-      await getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
-        async (tx) => {
-          await reparentLocalContainerChildren({
-            fromContainerId: input.localContainerId,
-            remoteOrganizationId: input.remoteOrganizationId,
-            toContainerId: input.remoteContainerId,
-            tx,
-            updatedAt,
-          });
-          await reassignContainerDocumentsInTransaction({
-            fromContainerId: input.localContainerId,
-            toContainerId: input.remoteContainerId,
-            tx,
-            updatedAt,
-          });
-          await deleteLocalContainerRows({
-            containerId: input.localContainerId,
-            tx,
-          });
-        },
-      );
+      if (input.stillCurrent?.() === false) {
+        return;
+      }
+      const runtime = getClientSQLitePersistenceRuntime(lockedExecSql);
+      const reconcile = async (
+        tx: Parameters<typeof updateReparentedDescendantContainers>[0]["tx"],
+      ) => {
+        await updateReparentedDescendantContainers({
+          descendantReparents: input.descendantReparents,
+          remoteOrganizationId: input.remoteOrganizationId,
+          tx,
+          updatedAt,
+        });
+        await reassignContainerDocumentsInTransaction({
+          fromContainerId: input.localRootContainerId,
+          toContainerId: input.remoteRootContainerId,
+          tx,
+          updatedAt,
+        });
+        await deleteLocalContainerRows({
+          containerId: input.localRootContainerId,
+          tx,
+        });
+      };
+      if (input.stillCurrent) {
+        await runtime.guardedTransaction(reconcile, input.stillCurrent);
+      } else {
+        await runtime.transaction(reconcile);
+      }
+    });
+  },
+  async reconcileLocalSystemContainer(execSql, input) {
+    if (input.localContainerId === input.remoteContainerId) {
+      return;
+    }
+    if (input.stillCurrent?.() === false) {
+      return;
+    }
+
+    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      const updatedAt = input.updatedAt ?? new Date().toISOString();
+      await ensureSqlTables(lockedExecSql, [
+        ...containerCreateIntentTables,
+        ...containerMoveIntentTables,
+        ...documentContainerProjectionTables,
+        ...documentMoveIntentTables,
+        ...documentProjectionTables,
+      ]);
+      await ensureContainerTables(lockedExecSql);
+      await ensureDocumentTables(lockedExecSql);
+      await sqlContainerSyncWatermarkPersistence.ensureSchema(lockedExecSql);
+      if (input.stillCurrent?.() === false) {
+        return;
+      }
+      const runtime = getClientSQLitePersistenceRuntime(lockedExecSql);
+      const reconcile = async (
+        tx: Parameters<typeof reparentLocalContainerChildren>[0]["tx"],
+      ) => {
+        await reparentLocalContainerChildren({
+          fromContainerId: input.localContainerId,
+          remoteOrganizationId: input.remoteOrganizationId,
+          toContainerId: input.remoteContainerId,
+          tx,
+          updatedAt,
+        });
+        await reassignContainerDocumentsInTransaction({
+          fromContainerId: input.localContainerId,
+          toContainerId: input.remoteContainerId,
+          tx,
+          updatedAt,
+        });
+        await deleteLocalContainerRows({
+          containerId: input.localContainerId,
+          tx,
+        });
+      };
+      if (input.stillCurrent) {
+        await runtime.guardedTransaction(reconcile, input.stillCurrent);
+      } else {
+        await runtime.transaction(reconcile);
+      }
     });
   },
 };

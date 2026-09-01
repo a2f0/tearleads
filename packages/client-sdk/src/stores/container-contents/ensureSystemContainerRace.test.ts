@@ -177,6 +177,7 @@ test("a late local system create collapses into a remotely hydrated slot", async
       localContainerId: persistedLocalContainerId,
       remoteContainerId: remoteSystem.container.id,
       remoteOrganizationId: "organization-id",
+      stillCurrent: expect.any(Function),
     },
   ]);
   expect(state.containersById.has(persistedLocalContainerId)).toBe(false);
@@ -403,8 +404,11 @@ test("a root-first late create rebases before its remote system slot arrives", a
     });
     expect(saves[1]?.options).toEqual(
       deferRemoteSync
-        ? undefined
-        : { createIntent: { parentContainerId: remoteRoot.container.id } },
+        ? { stillCurrent: expect.any(Function) }
+        : {
+            createIntent: { parentContainerId: remoteRoot.container.id },
+            stillCurrent: expect.any(Function),
+          },
     );
     expect(scheduleSyncCalls).toEqual(deferRemoteSync ? [] : ["sync"]);
 

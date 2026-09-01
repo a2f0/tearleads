@@ -147,3 +147,80 @@ test("detached settlement preserves a queued concurrent metadata edit", async ()
   expect(live.doc).toBe(liveDoc);
   expect(live.record).toBe(sourceRecord);
 });
+
+test("a concurrent edit cannot restore the detached state's old remote identity", async () => {
+  const container = createContainerRecord({
+    id: "metadata-identity-rotation-container",
+    parentId: "local-parent",
+  });
+  const doc = await createContainerMetadataDocument(container.id);
+  writeContainerMetadataValue(doc, { icon: null, name: "Before" });
+  const sourceRecord = createDocumentRecord({
+    accessEpoch: 1,
+    accessStateHash: "old-access-state",
+    documentId: "old-metadata-document",
+    id: container.id,
+    metadataUpdates: "old-durable-history",
+    pendingBaseVersion: "old-pending-base",
+    snapshotEndVersion: "old-snapshot-end",
+  });
+  const live = {
+    container,
+    doc,
+    pullContinuation: {
+      commitLsn: "0/1",
+      commitLsnMode: "tracked" as const,
+      cursor: "old-page",
+    },
+    record: sourceRecord,
+  };
+  const candidate = await createDetachedContainerMetadataState(live);
+  const candidateRecord = createDocumentRecord({
+    accessEpoch: 2,
+    accessStateHash: "new-access-state",
+    contentKeyBundle: "new-content-key-bundle",
+    documentId: "new-metadata-document",
+    documentKekTargets: "new-kek-targets",
+    documentManifestBundle: "new-manifest",
+    id: container.id,
+    lastCommitLsn: "0/2",
+    metadataUpdates: "new-identity-history",
+    pullContinuation: {
+      commitLsn: "0/2",
+      commitLsnMode: "tracked",
+      cursor: "new-page",
+    },
+  });
+
+  writeContainerMetadataValue(live.doc, {
+    icon: "archive",
+    name: "Concurrent rename",
+  });
+  live.record = {
+    ...sourceRecord,
+    metadataUpdates: "concurrent-durable-history",
+    pendingBaseVersion: "concurrent-pending-base",
+    snapshotEndVersion: "concurrent-snapshot-end",
+  };
+
+  installDetachedContainerMetadataState(live, candidate, {
+    candidateRecord,
+    preserveConcurrentMetadataEdit: true,
+  });
+
+  expect(readContainerMetadataValue(live.doc, "fallback")).toEqual({
+    icon: "archive",
+    name: "Concurrent rename",
+  });
+  expect(live.record).toEqual({
+    ...candidateRecord,
+    metadataUpdates: "concurrent-durable-history",
+    pendingBaseVersion: "concurrent-pending-base",
+    snapshotEndVersion: "concurrent-snapshot-end",
+  });
+  expect(live.pullContinuation).toEqual({
+    commitLsn: "0/2",
+    commitLsnMode: "tracked",
+    cursor: "new-page",
+  });
+});
