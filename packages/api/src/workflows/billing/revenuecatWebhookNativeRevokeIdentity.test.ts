@@ -15,7 +15,10 @@ const NATIVE_BINDING_CONFLICT_REASON =
 const MISSING_SUBSCRIPTION_REASON =
   "Native purchase is missing a subscription identifier";
 
-test("a tokenless native purchase cannot create an incomplete binding", async () => {
+test.each([
+  "INITIAL_PURCHASE",
+  "NON_RENEWING_PURCHASE",
+] as const)("a tokenless native %s cannot create an incomplete binding", async (type) => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
   const event: RevenueCatWebhookEvent = {
@@ -27,7 +30,7 @@ test("a tokenless native purchase cannot create an incomplete binding", async ()
     product_id: "sync_solo_monthly",
     store: "APP_STORE",
     subscriber_attributes: { orgId: { value: organizationId } },
-    type: "INITIAL_PURCHASE",
+    type,
   };
 
   const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);

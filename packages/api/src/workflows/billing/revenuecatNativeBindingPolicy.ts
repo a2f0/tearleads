@@ -45,6 +45,16 @@ function hasLiveNativeBinding(
   );
 }
 
+function hasRetainedNativeBinding(
+  billing: LockedBillingIdentity | undefined,
+): boolean {
+  return Boolean(
+    billing?.provider === "revenuecat" &&
+      billing.providerSubscriptionId &&
+      getSyncBillingTierForNativeProduct(billing.providerProductId),
+  );
+}
+
 export async function resolveNativeProductChangeConflict(input: {
   readonly billing: LockedBillingIdentity | undefined;
   readonly event: RevenueCatWebhookEvent;
@@ -102,8 +112,10 @@ export async function resolveNativeGrantDisposition(input: {
     }));
   const nativeBindingConflict =
     input.transition.kind === "grant" &&
-    hasLiveNativeBinding(input.billing) &&
-    !matchesNativeLifecycle;
+    hasRetainedNativeBinding(input.billing) &&
+    !matchesNativeLifecycle &&
+    (hasLiveNativeBinding(input.billing) ||
+      !isNativePurchaseEventType(input.event.type));
   const tokenlessNativePurchase =
     input.transition.kind === "grant" &&
     isNativeRevenueCatStore(input.event.store) &&

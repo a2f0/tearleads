@@ -125,6 +125,29 @@ async function resolvePlayProductChangeOrganization(
     : { kind: "blocked" };
 }
 
+async function resolveReceiptlessNativeOrganization(
+  db: DatabaseSession,
+  event: RevenueCatWebhookEvent,
+): Promise<NativeOrganizationResolution> {
+  if (!canInferNativeBindingWithoutReceiptId(event.type)) {
+    return canBootstrapNativeBinding(event.type)
+      ? { kind: "none" }
+      : { kind: "blocked" };
+  }
+  const retainedOrganizationId =
+    await resolveRetainedNativeSubscriptionOrganizationForUser(
+      db,
+      event.app_user_id,
+    );
+  if (retainedOrganizationId === "ambiguous") return { kind: "ambiguous" };
+  if (retainedOrganizationId) {
+    return { kind: "resolved", organizationId: retainedOrganizationId };
+  }
+  return canBootstrapNativeBinding(event.type)
+    ? { kind: "none" }
+    : { kind: "blocked" };
+}
+
 async function resolveBoundNativeOrganization(
   db: DatabaseSession,
   event: RevenueCatWebhookEvent,
@@ -133,20 +156,7 @@ async function resolveBoundNativeOrganization(
     return { kind: "none" };
   }
   if (!event.original_transaction_id) {
-    if (!canInferNativeBindingWithoutReceiptId(event.type)) {
-      return canBootstrapNativeBinding(event.type)
-        ? { kind: "none" }
-        : { kind: "blocked" };
-    }
-    const retainedOrganizationId =
-      await resolveRetainedNativeSubscriptionOrganizationForUser(
-        db,
-        event.app_user_id,
-      );
-    if (retainedOrganizationId === "ambiguous") return { kind: "ambiguous" };
-    return retainedOrganizationId
-      ? { kind: "resolved", organizationId: retainedOrganizationId }
-      : { kind: "blocked" };
+    return resolveReceiptlessNativeOrganization(db, event);
   }
   const [binding] = await db
     .select({ organizationId: organizationBilling.organizationId })

@@ -7,7 +7,7 @@ import type {
 } from "@symcrypt/client-sdk";
 import type { OrganizationNativePurchaseEligibilityResponse } from "@symcrypt/validators/response";
 import { renderHook } from "@testing-library/react";
-import type { PropsWithChildren, RefObject } from "react";
+import { type PropsWithChildren, type RefObject, useLayoutEffect } from "react";
 import {
   type CreatePurchasesFn,
   createAppHostConfig,
@@ -128,6 +128,7 @@ export function renderBillingActions(input: {
   createRestoreOrganization?: () => Promise<SessionCreateOrganizationResult | null>;
   refresh?: () => Promise<void>;
   startTrial?: () => Promise<boolean>;
+  observeLayout?: () => void;
 }) {
   return renderHook<
     BillingActions & {
@@ -182,6 +183,9 @@ export function renderBillingActions(input: {
         startTrial: input.startTrial ?? (() => Promise.resolve(true)),
         userId,
       });
+      useLayoutEffect(() => {
+        input.observeLayout?.();
+      }, [organizationId, userId]);
       const { entries } = useLog();
       return {
         ...actions,

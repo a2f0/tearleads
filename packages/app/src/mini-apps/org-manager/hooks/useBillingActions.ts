@@ -9,7 +9,6 @@ import {
   type RefObject,
   type SetStateAction,
   useCallback,
-  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -126,7 +125,7 @@ function useCheckoutCancellation(
   const cancelCheckout = useCallback(() => {
     cancelPurchaseRef.current?.();
   }, []);
-  useEffect(() => {
+  useLayoutEffect(() => {
     return () => {
       cancelPurchaseRef.current?.();
     };

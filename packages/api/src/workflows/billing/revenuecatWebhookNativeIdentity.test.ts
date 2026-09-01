@@ -126,6 +126,116 @@ test("a second native purchase cannot replace a live binding", async () => {
   expect(unclaimed).toBeUndefined();
 });
 
+test.each([
+  "RENEWAL",
+  "UNCANCELLATION",
+] as const)("an unrelated %s cannot replace a disabled native binding", async (type) => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  const now = Date.now();
+  const retainedSubscriptionId = `disabled_${crypto.randomUUID()}`;
+  expect(
+    await runRevenueCatWebhookWorkflow(
+      db,
+      nativeEvent({
+        appUserId: admin.userId,
+        eventTimestamp: now,
+        organizationId,
+        subscriptionId: retainedSubscriptionId,
+      }),
+    ),
+  ).toMatchObject({ status: "applied" });
+  await db
+    .update(organizationBilling)
+    .set({ status: "disabled" })
+    .where(eq(organizationBilling.organizationId, organizationId));
+
+  const conflicting = nativeEvent({
+    appUserId: admin.userId,
+    eventTimestamp: now + 1,
+    organizationId,
+    subscriptionId: `unrelated_${crypto.randomUUID()}`,
+    type,
+  });
+  const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
+  try {
+    expect(await runRevenueCatWebhookWorkflow(db, conflicting)).toEqual({
+      reason: NATIVE_BINDING_CONFLICT_REASON,
+      status: "retry",
+    });
+  } finally {
+    errorSpy.mockRestore();
+  }
+  const [billing] = await db
+    .select({
+      providerSubscriptionId: organizationBilling.providerSubscriptionId,
+      status: organizationBilling.status,
+    })
+    .from(organizationBilling)
+    .where(eq(organizationBilling.organizationId, organizationId));
+  expect(billing).toEqual({
+    providerSubscriptionId: retainedSubscriptionId,
+    status: "disabled",
+  });
+  const [unclaimed] = await db
+    .select({ id: revenuecatWebhookEvents.id })
+    .from(revenuecatWebhookEvents)
+    .where(eq(revenuecatWebhookEvents.eventId, conflicting.id));
+  expect(unclaimed).toBeUndefined();
+});
+
+test.each([
+  "INITIAL_PURCHASE",
+  "NON_RENEWING_PURCHASE",
+] as const)("an explicit %s can rebind a disabled native subscription", async (type) => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  const now = Date.now();
+  expect(
+    await runRevenueCatWebhookWorkflow(
+      db,
+      nativeEvent({
+        appUserId: admin.userId,
+        eventTimestamp: now,
+        organizationId,
+        subscriptionId: `expired_${crypto.randomUUID()}`,
+      }),
+    ),
+  ).toMatchObject({ status: "applied" });
+  await db
+    .update(organizationBilling)
+    .set({ status: "disabled" })
+    .where(eq(organizationBilling.organizationId, organizationId));
+
+  const replacementSubscriptionId = `replacement_${crypto.randomUUID()}`;
+  expect(
+    await runRevenueCatWebhookWorkflow(
+      db,
+      nativeEvent({
+        appUserId: admin.userId,
+        eventTimestamp: now + 1,
+        organizationId,
+        productId: "sync_team_5_monthly",
+        subscriptionId: replacementSubscriptionId,
+        type,
+      }),
+    ),
+  ).toMatchObject({ organizationId, status: "applied" });
+  const [billing] = await db
+    .select({
+      providerProductId: organizationBilling.providerProductId,
+      providerSubscriptionId: organizationBilling.providerSubscriptionId,
+      status: organizationBilling.status,
+    })
+    .from(organizationBilling)
+    .where(eq(organizationBilling.organizationId, organizationId));
+  expect(billing).toEqual({
+    providerProductId: "sync_team_5_monthly",
+    providerSubscriptionId: replacementSubscriptionId,
+    status: "active",
+  });
+});
+
 test("a tokenless native purchase cannot erase a live binding", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
