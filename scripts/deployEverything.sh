@@ -26,6 +26,13 @@ released Code Assist service are included for both tiers.
 
 Options:
   -h, --help    Show this help and exit.
+
+Environment:
+  STAGING_SSH_TARGET     Optional explicit SSH target for staging.
+  PRODUCTION_SSH_TARGET  Optional explicit SSH target for production.
+
+The generic SSH_TARGET variable is rejected because one value cannot safely
+select both deployment tiers.
 EOF
 }
 
@@ -42,6 +49,14 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [[ -n "${SSH_TARGET:-}" ]]; then
+  echo "Error: SSH_TARGET cannot select both deployment tiers." >&2
+  echo "Use STAGING_SSH_TARGET and PRODUCTION_SSH_TARGET instead." >&2
+  exit 1
+fi
+
+cd "$REPO_ROOT"
 
 DEPLOY_START="$SECONDS"
 STEP_TIMINGS=()
@@ -64,6 +79,18 @@ run_step() {
   echo ""
 }
 
+run_tier_step() {
+  local label="$1"
+  local ssh_target="$2"
+  shift 2
+
+  if [[ -n "$ssh_target" ]]; then
+    run_step "$label" env SSH_TARGET="$ssh_target" "$@"
+  else
+    run_step "$label" env -u SSH_TARGET "$@"
+  fi
+}
+
 print_timing_summary() {
   echo "--- Timing summary ---"
   local row
@@ -81,11 +108,13 @@ run_step "ios-staging" "$SCRIPT_DIR/uploadIosStagingRelease.sh"
 run_step "ios-production" "$SCRIPT_DIR/uploadIosRelease.sh"
 run_step "android-staging" "$SCRIPT_DIR/uploadAndroidStagingRelease.sh"
 run_step "android-production" "$SCRIPT_DIR/uploadAndroidRelease.sh"
-run_step "deploy-staging" "$SCRIPT_DIR/deployStaging.sh"
-run_step "code-assist-staging" \
+run_tier_step "deploy-staging" "${STAGING_SSH_TARGET:-}" \
+  "$SCRIPT_DIR/deployStaging.sh"
+run_tier_step "code-assist-staging" "${STAGING_SSH_TARGET:-}" \
   "$REPO_ROOT/packages/code-assist/scripts/deployStagingCodeAssist.sh"
-run_step "deploy-production" "$SCRIPT_DIR/deployProduction.sh"
-run_step "code-assist-production" \
+run_tier_step "deploy-production" "${PRODUCTION_SSH_TARGET:-}" \
+  "$SCRIPT_DIR/deployProduction.sh"
+run_tier_step "code-assist-production" "${PRODUCTION_SSH_TARGET:-}" \
   "$REPO_ROOT/packages/code-assist/scripts/deployProductionCodeAssist.sh"
 
 echo "=== Everything deployment finished ==="
