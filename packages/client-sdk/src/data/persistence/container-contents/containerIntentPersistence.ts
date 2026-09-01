@@ -278,45 +278,63 @@ export const containerIntentPersistence: ContainerIntentPersistence = {
     });
   },
   async markCreateIntentSynced(execSql, input) {
-    await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-      await db
-        .update(containerCreateIntents)
-        .set({
-          syncStatus: "synced",
-          remoteContainerId: input.remoteContainerId,
-          remoteMetadataDocumentId: input.remoteMetadataDocumentId,
-          remoteMetadataAccessStateHash: input.remoteMetadataAccessStateHash,
-          lastError: null,
-          updatedAt: new Date().toISOString(),
-        })
-        .where(
-          and(
-            eq(containerCreateIntents.containerId, input.containerId),
-            eq(containerCreateIntents.intentType, CONTAINER_CREATE_INTENT_TYPE),
-            // Only mark synced if the row is still the one this pass consumed. A
-            // user re-queue across the create network await rewrites the row with
-            // a fresh updatedAt; that intent must stay pending for the next pass.
-            eq(containerCreateIntents.updatedAt, input.expectedUpdatedAt),
-          ),
-        )
-        .run();
-    });
+    const outcome = await getClientSQLitePersistenceRuntime(
+      execSql,
+    ).guardedTransaction(
+      async (tx) => {
+        const updated = await tx
+          .update(containerCreateIntents)
+          .set({
+            syncStatus: "synced",
+            remoteContainerId: input.remoteContainerId,
+            remoteMetadataDocumentId: input.remoteMetadataDocumentId,
+            remoteMetadataAccessStateHash: input.remoteMetadataAccessStateHash,
+            lastError: null,
+            updatedAt: new Date().toISOString(),
+          })
+          .where(
+            and(
+              eq(containerCreateIntents.containerId, input.containerId),
+              eq(
+                containerCreateIntents.intentType,
+                CONTAINER_CREATE_INTENT_TYPE,
+              ),
+              // Only mark synced if the row is still the one this pass consumed.
+              // A user re-queue across the create network await rewrites the row
+              // with a fresh updatedAt; that intent must stay pending.
+              eq(containerCreateIntents.updatedAt, input.expectedUpdatedAt),
+            ),
+          )
+          .returning({ containerId: containerCreateIntents.containerId });
+        return updated.length > 0;
+      },
+      input.stillCurrent,
+      { behavior: "immediate" },
+    );
+    return outcome.committed && outcome.result === true;
   },
   async markMoveIntentSynced(execSql, input) {
-    await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-      await db
-        .delete(containerMoveIntents)
-        .where(
-          and(
-            eq(containerMoveIntents.containerId, input.containerId),
-            eq(containerMoveIntents.intentType, CONTAINER_MOVE_INTENT_TYPE),
-            // Only clear the intent this pass consumed. If the user re-queued the
-            // move during the network round-trip, the row's updatedAt advanced
-            // and this delete no-ops, preserving the new destination for sync.
-            eq(containerMoveIntents.updatedAt, input.expectedUpdatedAt),
-          ),
-        )
-        .run();
-    });
+    const outcome = await getClientSQLitePersistenceRuntime(
+      execSql,
+    ).guardedTransaction(
+      async (tx) => {
+        const deleted = await tx
+          .delete(containerMoveIntents)
+          .where(
+            and(
+              eq(containerMoveIntents.containerId, input.containerId),
+              eq(containerMoveIntents.intentType, CONTAINER_MOVE_INTENT_TYPE),
+              // Only clear the intent this pass consumed. If the user re-queued
+              // the move during the network round-trip, the fresh row survives.
+              eq(containerMoveIntents.updatedAt, input.expectedUpdatedAt),
+            ),
+          )
+          .returning({ containerId: containerMoveIntents.containerId });
+        return deleted.length > 0;
+      },
+      input.stillCurrent,
+      { behavior: "immediate" },
+    );
+    return outcome.committed && outcome.result === true;
   },
 };

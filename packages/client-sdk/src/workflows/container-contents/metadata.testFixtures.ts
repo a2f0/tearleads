@@ -58,8 +58,12 @@ const metadataTestPersistenceStubs = {
   async listUnsyncedMoveIntents() {
     return [];
   },
-  async markCreateIntentSynced() {},
-  async markMoveIntentSynced() {},
+  async markCreateIntentSynced() {
+    return true;
+  },
+  async markMoveIntentSynced() {
+    return true;
+  },
   async purgeDormantContainerMetadata() {},
   async purgeDormantContainerMetadataCandidates() {
     return 0;

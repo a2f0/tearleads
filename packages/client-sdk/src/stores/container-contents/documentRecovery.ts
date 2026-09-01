@@ -96,12 +96,18 @@ export async function primeStoreDocuments(
       organizationId: runtime.auth?.organizationId ?? null,
       runtime,
     });
-    if (!isCurrent()) return;
+    if (!isCurrent()) {
+      state.documentStoresNeedPriming = true;
+      return;
+    }
     runtime.util.log(
       `${getContainerContentsStoreLogLabel(state)}: document priming candidates=${result.candidateCount} roots=${result.rootCount} primed=${result.primedCount} orphaned=${result.orphanPrimedCount} unroutable=${result.unroutableCount}`,
     );
   } catch (error) {
-    if (!isCurrent()) return;
+    if (!isCurrent()) {
+      state.documentStoresNeedPriming = true;
+      return;
+    }
     state.documentStoresNeedPriming = true;
     throw error;
   }

@@ -346,6 +346,7 @@ test("an accepted remote move is not settled when local persistence observes del
     ...defaultContainerContentsPersistence,
     markMoveIntentSynced: async () => {
       settled = true;
+      return true;
     },
   };
   const state = createMoveIntentSyncState({ containersById, persistence });
@@ -391,6 +392,7 @@ test("a generation change during move persistence cannot settle on a replacement
     ...defaultContainerContentsPersistence,
     markMoveIntentSynced: async () => {
       settled = true;
+      return true;
     },
   };
   const state = createMoveIntentSyncState({
@@ -456,8 +458,9 @@ test("a generation change during move intent settlement leaves the live projecti
   let current = true;
   const persistence: ContainerMoveIntentSyncState["persistence"] = {
     ...defaultContainerContentsPersistence,
-    markMoveIntentSynced: async () => {
+    markMoveIntentSynced: async (_execSql, input) => {
       current = false;
+      return input.stillCurrent();
     },
   };
   const state = createMoveIntentSyncState({

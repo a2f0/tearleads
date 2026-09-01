@@ -111,6 +111,7 @@ export function createContainerContentsStoreState(
     initialized: false,
     localContainerRefreshPromise: null,
     localContainerRefreshGeneration: null,
+    localContainerRefreshStructuralGeneration: null,
     localContainersNeedRefresh: false,
     lifecycleGeneration: 0,
     lastEventCount: 0,
@@ -122,6 +123,7 @@ export function createContainerContentsStoreState(
     persistence,
     remoteHydrationPromise: null,
     remoteHydrationGeneration: null,
+    remoteHydrationStructuralGeneration: null,
     resolveProjectionUserKey:
       createContainerContentsProjectionUserKeyResolver(initialRuntime),
     rootLaneHydrated: false,
@@ -208,6 +210,7 @@ export function updateContainerContentsStoreRuntime(
   );
   if (runtimeReplaced) {
     state.structuralGeneration += 1;
+    state.localContainersNeedRefresh = true;
   }
   const contextChanged =
     previousRuntime.auth.organizationId !== nextRuntime.auth.organizationId ||
@@ -251,6 +254,7 @@ export function updateContainerContentsStoreRuntime(
   syncAgent.handleRemoteEvents();
 
   if (runtimeReplaced) {
+    void syncAgent.refreshLocalContainers();
     syncAgent.scheduleSync();
   }
 
@@ -276,5 +280,7 @@ export function updateContainerContentsStorePersistence(
   }
   state.persistence = nextPersistence;
   state.structuralGeneration += 1;
+  state.localContainersNeedRefresh = true;
+  void syncAgent.refreshLocalContainers();
   syncAgent.scheduleSync();
 }

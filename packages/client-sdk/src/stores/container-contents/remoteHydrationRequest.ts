@@ -18,10 +18,12 @@ type RemoteHydrationRequestState = RemoteContainerHydrationState &
     lifecycleGeneration: number;
     remoteHydrationGeneration: number | null;
     remoteHydrationPromise: Promise<void> | null;
+    remoteHydrationStructuralGeneration: number | null;
     rootLaneHydrated: boolean;
     snapshot: {
       ready: boolean;
     };
+    structuralGeneration: number;
   };
 
 interface RemoteHydrationRequestInput {
@@ -45,6 +47,18 @@ interface RemoteHydrationRequestInput {
 interface RecoveryHydrationRequest {
   input: RemoteHydrationRequestInput;
   lifecycleGeneration: number;
+  structuralGeneration: number;
+}
+
+function isRequestGenerationCurrent(input: {
+  lifecycleGeneration: number;
+  state: RemoteHydrationRequestState;
+  structuralGeneration: number;
+}): boolean {
+  return (
+    input.state.lifecycleGeneration === input.lifecycleGeneration &&
+    input.state.structuralGeneration === input.structuralGeneration
+  );
 }
 
 const recoveryHydrationRequestsByState = new WeakMap<
@@ -60,12 +74,17 @@ function queueRecoveryHydrationRequest(
       requests.push({
         input,
         lifecycleGeneration: input.state.lifecycleGeneration,
+        structuralGeneration: input.state.structuralGeneration,
       });
     }
     return;
   }
   recoveryHydrationRequestsByState.set(input.state, [
-    { input, lifecycleGeneration: input.state.lifecycleGeneration },
+    {
+      input,
+      lifecycleGeneration: input.state.lifecycleGeneration,
+      structuralGeneration: input.state.structuralGeneration,
+    },
   ]);
 }
 
@@ -109,10 +128,18 @@ function waitForActiveRemoteHydration(
     return null;
   }
   const requestLifecycleGeneration = state.lifecycleGeneration;
+  const requestStructuralGeneration = state.structuralGeneration;
   const needsCurrentGenerationHydration =
-    state.remoteHydrationGeneration !== state.lifecycleGeneration;
+    state.remoteHydrationGeneration !== state.lifecycleGeneration ||
+    state.remoteHydrationStructuralGeneration !== state.structuralGeneration;
   const requestQueuedHydration = () => {
-    if (requestLifecycleGeneration !== state.lifecycleGeneration) {
+    if (
+      !isRequestGenerationCurrent({
+        lifecycleGeneration: requestLifecycleGeneration,
+        state,
+        structuralGeneration: requestStructuralGeneration,
+      })
+    ) {
       return retryRemoteHydrationAfterReset(input);
     }
     return needsCurrentGenerationHydration ||
@@ -135,11 +162,15 @@ function waitForActiveInitialization(
     return null;
   }
   const requestLifecycleGeneration = state.lifecycleGeneration;
+  const requestStructuralGeneration = state.structuralGeneration;
   return activeInitialization.then(() => {
-    const recoveryInput =
-      requestLifecycleGeneration === state.lifecycleGeneration
-        ? input
-        : createResetRecoveryInput(input);
+    const recoveryInput = isRequestGenerationCurrent({
+      lifecycleGeneration: requestLifecycleGeneration,
+      state,
+      structuralGeneration: requestStructuralGeneration,
+    })
+      ? input
+      : createResetRecoveryInput(input);
     return resumeRetainedRecoveryHydration(recoveryInput);
   });
 }
@@ -165,7 +196,11 @@ export function resumeContainerContentsRecoveryHydration(
   }
   recoveryHydrationRequestsByState.delete(state);
   const inputs = requests.map((request) =>
-    request.lifecycleGeneration === state.lifecycleGeneration
+    isRequestGenerationCurrent({
+      lifecycleGeneration: request.lifecycleGeneration,
+      state,
+      structuralGeneration: request.structuralGeneration,
+    })
       ? request.input
       : createResetRecoveryInput(request.input),
   );
@@ -206,6 +241,26 @@ function waitForRemoteHydrationReadiness(
   return null;
 }
 
+function consumeQueuedHydrationScope(
+  state: RemoteHydrationRequestState,
+  followDiscoveredParentLanesOption: boolean | undefined,
+): {
+  followDiscoveredParentLanes: boolean;
+  parentIds: ReadonlyArray<string | null> | undefined;
+} {
+  const queuedParentIds = Array.from(state.containerParentIdsNeedingHydration);
+  const followDiscoveredParentLanes =
+    followDiscoveredParentLanesOption ?? queuedParentIds.length === 0;
+  state.containerParentIdsNeedingHydration.clear();
+  return {
+    followDiscoveredParentLanes,
+    parentIds:
+      followDiscoveredParentLanes || queuedParentIds.length === 0
+        ? undefined
+        : queuedParentIds,
+  };
+}
+
 export function requestContainerContentsRemoteHydration(
   input: RemoteHydrationRequestInput,
 ): Promise<void> {
@@ -216,20 +271,19 @@ export function requestContainerContentsRemoteHydration(
     return readinessBarrier;
   }
 
-  const queuedParentIds = Array.from(state.containerParentIdsNeedingHydration);
-  const followDiscoveredParentLanes =
-    input.followDiscoveredParentLanes ?? queuedParentIds.length === 0;
-  const parentIds = followDiscoveredParentLanes
-    ? undefined
-    : queuedParentIds.length === 0
-      ? undefined
-      : queuedParentIds;
-  state.containerParentIdsNeedingHydration.clear();
+  const { followDiscoveredParentLanes, parentIds } =
+    consumeQueuedHydrationScope(state, input.followDiscoveredParentLanes);
 
   let appliedRemoteContainerChange = false;
   let retainInterruptedHydration = false;
   const lifecycleGeneration = state.lifecycleGeneration;
-  const isCurrent = () => state.lifecycleGeneration === lifecycleGeneration;
+  const structuralGeneration = state.structuralGeneration;
+  const isCurrent = () =>
+    isRequestGenerationCurrent({
+      lifecycleGeneration,
+      state,
+      structuralGeneration,
+    });
   const onFullyHydrated = input.recreateOnFullyHydratedAtStart
     ? input.recreateOnFullyHydratedAfterReset?.()
     : input.onFullyHydrated;
@@ -239,6 +293,7 @@ export function requestContainerContentsRemoteHydration(
   });
   const rootLaneHydratedBeforeRequest = state.rootLaneHydrated;
   state.remoteHydrationGeneration = lifecycleGeneration;
+  state.remoteHydrationStructuralGeneration = structuralGeneration;
   const hydrationPromise = refreshLocalContainerStates({
     host: hydrationHost,
     state,
@@ -280,6 +335,7 @@ export function requestContainerContentsRemoteHydration(
       if (state.remoteHydrationPromise === hydrationPromise) {
         state.remoteHydrationPromise = null;
         state.remoteHydrationGeneration = null;
+        state.remoteHydrationStructuralGeneration = null;
       }
 
       if (

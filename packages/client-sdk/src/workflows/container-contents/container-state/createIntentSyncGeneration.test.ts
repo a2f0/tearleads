@@ -55,6 +55,7 @@ test("a generation change while settling create intents cannot reach a replaceme
       await new Promise<void>((resolve) => {
         releaseSettlement = resolve;
       });
+      return input.stillCurrent();
     },
   };
   const runtime = createContainerContentsWorkflowRuntime({

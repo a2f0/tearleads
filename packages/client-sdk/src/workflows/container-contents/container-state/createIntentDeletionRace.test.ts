@@ -22,6 +22,7 @@ import type { ContainerCreateIntentSyncState } from "./types";
 async function runCreatePersistenceOutcome(
   persistenceStatus:
     | "identity-superseded"
+    | "intent-superseded"
     | "missing"
     | "settlement-stale"
     | "stale-generation",
@@ -108,6 +109,8 @@ async function runCreatePersistenceOutcome(
     markCreateIntentSynced: async (_execSql, input) => {
       syncedIntents.push(input.containerId);
       if (persistenceStatus === "settlement-stale") current = false;
+      if (persistenceStatus === "intent-superseded") return false;
+      return input.stillCurrent();
     },
   };
   const parentState = createTestContainerState({
@@ -142,7 +145,10 @@ async function runCreatePersistenceOutcome(
         if (persistenceStatus === "stale-generation") {
           return { status: "stale-generation" };
         }
-        if (persistenceStatus === "settlement-stale") {
+        if (
+          persistenceStatus === "settlement-stale" ||
+          persistenceStatus === "intent-superseded"
+        ) {
           return { record: childState.record, status: "persisted" };
         }
         return {
@@ -199,4 +205,13 @@ test("a generation change during create intent settlement leaves the live projec
   expect(stale.createdCount).toBe(0);
   expect(stale.childState.container).toEqual(stale.originalContainer);
   expect(stale.syncedIntents).toEqual([stale.childContainerId]);
+});
+
+test("an overtaking create intent prevents stale live-state installation", async () => {
+  const overtaken = await runCreatePersistenceOutcome("intent-superseded");
+
+  expect(overtaken.createdCount).toBe(0);
+  expect(overtaken.childState.container).toEqual(overtaken.originalContainer);
+  expect(overtaken.syncedIntents).toEqual([overtaken.childContainerId]);
+  expect(overtaken.deletedRemoteIds).toEqual([]);
 });

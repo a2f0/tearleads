@@ -354,8 +354,9 @@ export interface ContainerContentsPersistence
       remoteContainerId: string;
       remoteMetadataAccessStateHash: string;
       remoteMetadataDocumentId: string;
+      stillCurrent: () => boolean;
     },
-  ) => Promise<void>;
+  ) => Promise<boolean>;
   markMoveIntentSynced: (
     execSql: ExecSql,
     input: {
@@ -363,6 +364,7 @@ export interface ContainerContentsPersistence
       // See markCreateIntentSynced: guards the delete against a move re-queued
       // during the network round-trip so the new destination is not discarded.
       expectedUpdatedAt: string;
+      stillCurrent: () => boolean;
     },
-  ) => Promise<void>;
+  ) => Promise<boolean>;
 }

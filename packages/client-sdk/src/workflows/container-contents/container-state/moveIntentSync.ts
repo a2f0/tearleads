@@ -52,11 +52,12 @@ async function markMoveIntentSynced(input: {
     return false;
   }
   const execSql = input.state.runtime.infra.execSql;
-  await input.state.persistence.markMoveIntentSynced(execSql, {
+  const settled = await input.state.persistence.markMoveIntentSynced(execSql, {
     containerId: input.containerId,
     expectedUpdatedAt: input.expectedUpdatedAt,
+    stillCurrent: input.isCurrent,
   });
-  return input.isCurrent();
+  return settled && input.isCurrent();
 }
 
 async function resolveMoveIntentLocalUpdatedAt(input: {

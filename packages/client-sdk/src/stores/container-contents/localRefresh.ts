@@ -24,9 +24,11 @@ export interface LocalContainerRefreshState {
   lifecycleGeneration: number;
   localContainerRefreshGeneration: number | null;
   localContainerRefreshPromise: Promise<void> | null;
+  localContainerRefreshStructuralGeneration: number | null;
   localContainersNeedRefresh: boolean;
   persistence: ContainerContentsPersistence;
   runtime: ContainerContentsWorkflowRuntime;
+  structuralGeneration: number;
 }
 
 interface LocalContainerRefreshBaseline {
@@ -158,18 +160,16 @@ export function refreshLocalContainerStates(input: {
   const { host, state } = input;
   if (state.localContainerRefreshPromise) {
     const activeRefresh = state.localContainerRefreshPromise;
-    if (state.localContainerRefreshGeneration === state.lifecycleGeneration) {
+    if (
+      state.localContainerRefreshGeneration === state.lifecycleGeneration &&
+      state.localContainerRefreshStructuralGeneration ===
+        state.structuralGeneration
+    ) {
       return activeRefresh;
     }
-
-    const refreshCurrentGeneration = () => {
-      state.localContainersNeedRefresh = true;
-      return refreshLocalContainerStates(input);
-    };
-    return activeRefresh.then(
-      refreshCurrentGeneration,
-      refreshCurrentGeneration,
-    );
+    // A stale refresh owns its replacement retry in `finally`, so callers can
+    // share that promise without scheduling a second replacement load.
+    return activeRefresh;
   }
 
   if (
@@ -181,7 +181,10 @@ export function refreshLocalContainerStates(input: {
   }
 
   const lifecycleGeneration = state.lifecycleGeneration;
-  const isCurrent = () => state.lifecycleGeneration === lifecycleGeneration;
+  const structuralGeneration = state.structuralGeneration;
+  const isCurrent = () =>
+    state.lifecycleGeneration === lifecycleGeneration &&
+    state.structuralGeneration === structuralGeneration;
   state.localContainersNeedRefresh = false;
   const liveStateBaselines = captureLocalContainerRefreshBaselines(
     state.containersById,
@@ -196,6 +199,7 @@ export function refreshLocalContainerStates(input: {
     }
   }
   state.localContainerRefreshGeneration = lifecycleGeneration;
+  state.localContainerRefreshStructuralGeneration = structuralGeneration;
   const refreshPromise = loadLocalContainerStates({
     persistence: state.persistence,
     runtime: state.runtime,
@@ -232,10 +236,17 @@ export function refreshLocalContainerStates(input: {
       );
     })
     .finally(() => {
+      const shouldRetryAfterReplacement = !isCurrent();
       if (state.localContainerRefreshPromise === refreshPromise) {
         state.localContainerRefreshPromise = null;
         state.localContainerRefreshGeneration = null;
+        state.localContainerRefreshStructuralGeneration = null;
       }
+      if (shouldRetryAfterReplacement) {
+        state.localContainersNeedRefresh = true;
+        return refreshLocalContainerStates(input);
+      }
+      return undefined;
     });
   state.localContainerRefreshPromise = refreshPromise;
 

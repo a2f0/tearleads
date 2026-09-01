@@ -237,6 +237,7 @@ test("container create sync defers a lost-response conflict and heals on hydrati
     },
     markCreateIntentSynced: async (_execSql, input) => {
       syncedIntents.push(input.containerId);
+      return true;
     },
   };
   const state: ContainerCreateIntentSyncState = {
@@ -317,6 +318,7 @@ test("container create sync keeps an intent pending while the container row lack
     listPendingCreateIntents: async () => [intent],
     markCreateIntentSynced: async (_execSql, input) => {
       syncedIntents.push(input.containerId);
+      return true;
     },
     recordCreateIntentError: async () => {
       throw new Error("unexpected intent error");

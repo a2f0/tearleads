@@ -128,6 +128,7 @@ interface SyncContainerMetadataStateInput {
    */
   locallyAcceptedUpdateIds?: Set<string> | undefined;
   metadataState: ContainerMetadataState;
+  onDurableStateNeedsReload?: (() => void) | undefined;
   persistence: ContainerContentsPersistence;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerMetadataSyncRuntime;
@@ -253,6 +254,7 @@ export async function syncContainerMetadataState(
     isCurrent,
     locallyAcceptedUpdateIds: input.locallyAcceptedUpdateIds,
     metadataState,
+    onDurableStateNeedsReload: input.onDurableStateNeedsReload,
     persistence,
     runtime,
     sentUpdateIds,
@@ -272,6 +274,7 @@ async function finalizeContainerMetadataSync(input: {
   isCurrent: () => boolean;
   locallyAcceptedUpdateIds: Set<string> | undefined;
   metadataState: ContainerMetadataState;
+  onDurableStateNeedsReload?: (() => void) | undefined;
   persistence: ContainerContentsPersistence;
   runtime: ContainerMetadataSyncRuntime;
   sentUpdateIds: readonly string[];
@@ -312,6 +315,7 @@ async function finalizeContainerMetadataSync(input: {
       record: syncAttempt.requestRecord,
     },
     metadataState,
+    onDurableStateNeedsReload: input.onDurableStateNeedsReload,
     patch: {
       ...synced.persistedState,
       documentId: input.documentId,

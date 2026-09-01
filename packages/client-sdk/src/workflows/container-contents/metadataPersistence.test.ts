@@ -4,7 +4,11 @@ import { createContainerMetadataDocument } from "../../data/containers/container
 import type { ContainerMetadataRecord } from "../../data/persistence/container-contents/containerContentsPersistence";
 import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import { createContainerContentsPersistence } from "./metadata.testFixtures";
+import {
+  createContainerContentsPersistence,
+  createContainerRecord,
+  createDocumentRecord,
+} from "./metadata.testFixtures";
 import {
   installContainerMetadataRecord,
   persistContainerMetadataStateFromRuntime,
@@ -16,6 +20,39 @@ import type {
 
 const execSql: ExecSql = async () => [];
 const runtime = { infra: { execSql } };
+
+test("a stale post-commit result requests a durable metadata reload", async () => {
+  const container = createContainerRecord({
+    id: "container-post-commit-race",
+    parentId: null,
+  });
+  const doc = await createContainerMetadataDocument(container.id);
+  const record = createDocumentRecord({ id: container.id });
+  let current = true;
+  let reloadCount = 0;
+  const basePersistence = createContainerContentsPersistence({
+    storedContainers: [{ container, record }],
+  });
+
+  const persisted = await persistContainerMetadataStateFromRuntime({
+    metadataState: { container, doc, record },
+    onDurableStateNeedsReload: () => {
+      reloadCount += 1;
+    },
+    persistence: {
+      ...basePersistence,
+      commitMetadataMutation: async (_execSql, input) => {
+        current = false;
+        return { committed: true, container: input.container };
+      },
+    },
+    runtime,
+    stillCurrent: () => current,
+  });
+
+  expect(persisted).toBeNull();
+  expect(reloadCount).toBe(1);
+});
 
 function createMetadataWriterProjection(
   documentId: string,

@@ -15,6 +15,7 @@ export interface ContainerContentsStoreSyncState {
   initialized: boolean;
   localContainerRefreshPromise: Promise<void> | null;
   localContainerRefreshGeneration: number | null;
+  localContainerRefreshStructuralGeneration: number | null;
   localContainersNeedRefresh: boolean;
   /** Invalidates asynchronous hydration work when this store is reset. */
   lifecycleGeneration: number;
@@ -46,6 +47,7 @@ export interface ContainerContentsStoreSyncState {
   persistence: ContainerContentsPersistence;
   remoteHydrationPromise: Promise<void> | null;
   remoteHydrationGeneration: number | null;
+  remoteHydrationStructuralGeneration: number | null;
   resolveProjectionUserKey: ContainerContentsProjectionUserKeyResolver;
   /** True after this store has fully applied an authoritative root lane. */
   rootLaneHydrated: boolean;

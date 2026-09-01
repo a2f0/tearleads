@@ -154,7 +154,9 @@ function waitForStaleLocalRefreshBeforeInitialization(input: {
   const activeRefresh = state.localContainerRefreshPromise;
   if (
     !activeRefresh ||
-    state.localContainerRefreshGeneration === state.lifecycleGeneration
+    (state.localContainerRefreshGeneration === state.lifecycleGeneration &&
+      state.localContainerRefreshStructuralGeneration ===
+        state.structuralGeneration)
   ) {
     return false;
   }

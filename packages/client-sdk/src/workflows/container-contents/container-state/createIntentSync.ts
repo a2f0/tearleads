@@ -84,14 +84,15 @@ async function markContainerContentsContainerCreateIntentAlreadySynced(input: {
   }
   const execSql = state.runtime.infra.execSql;
 
-  await state.persistence.markCreateIntentSynced(execSql, {
+  const settled = await state.persistence.markCreateIntentSynced(execSql, {
     containerId: intent.containerId,
     expectedUpdatedAt: intent.updatedAt,
     remoteContainerId: containerState.container.id,
     remoteMetadataAccessStateHash,
     remoteMetadataDocumentId,
+    stillCurrent: input.isCurrent,
   });
-  return input.isCurrent();
+  return settled && input.isCurrent();
 }
 
 async function persistCreatedRemoteContainerStateFromIntent(input: {
@@ -101,7 +102,13 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
   isCurrent: () => boolean;
   intent: ContainerCreateIntentSyncInput["intent"];
   state: ContainerCreateIntentSyncState;
-}): Promise<"abandoned" | "identity-superseded" | "missing" | "persisted"> {
+}): Promise<
+  | "abandoned"
+  | "identity-superseded"
+  | "intent-superseded"
+  | "missing"
+  | "persisted"
+> {
   const { containerState, created, host, intent, state } = input;
   if (!input.isCurrent()) {
     return "abandoned";
@@ -153,14 +160,16 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
   const { record: nextRecord } = persistenceResult;
   const execSql = state.runtime.infra.execSql;
 
-  await state.persistence.markCreateIntentSynced(execSql, {
+  const settled = await state.persistence.markCreateIntentSynced(execSql, {
     containerId: intent.containerId,
     expectedUpdatedAt: intent.updatedAt,
     remoteContainerId: created.containerId,
     remoteMetadataAccessStateHash: created.accessManifestHash,
     remoteMetadataDocumentId: created.metadataDocumentId,
+    stillCurrent: input.isCurrent,
   });
   if (!input.isCurrent()) return "abandoned";
+  if (!settled) return "intent-superseded";
 
   installDetachedContainerMetadataState(containerState, persistenceCandidate);
   installContainerMetadataRecord(containerState, nextRecord);
@@ -260,6 +269,12 @@ async function settleRemoteContainerCreate(input: {
     );
     return "blocked";
   }
+  if (persistenceStatus === "intent-superseded") {
+    state.runtime.util.log(
+      `Container contents: deferred create intent for ${intent.containerId}; a newer local intent superseded this pass.`,
+    );
+    return "blocked";
+  }
   state.runtime.util.log(
     `Container contents: synced local container create ${containerState.container.id}`,
   );
@@ -325,7 +340,7 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
         intent,
         state,
       });
-    return marked ? "created" : "abandoned";
+    return marked ? "created" : currentCreateResult(input.isCurrent, "blocked");
   }
 
   if (input.isRemoteSyncBlocked(parentState.container.organizationId)) {

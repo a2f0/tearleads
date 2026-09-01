@@ -407,6 +407,7 @@ type PersistContainerMetadataStateRuntimeInput = Omit<
   PersistContainerMetadataStateInput,
   "execSql"
 > & {
+  onDurableStateNeedsReload?: (() => void) | undefined;
   persistence: ContainerContentsPersistence;
   runtime: ContainerMetadataPersistenceRuntime;
 };
@@ -424,18 +425,20 @@ export function persistContainerMetadataStateFromRuntime(
 export async function persistContainerMetadataStateFromRuntime(
   input: PersistContainerMetadataStateRuntimeInput,
 ): Promise<PersistedContainerMetadataState | null> {
-  const { runtime, ...persistenceInput } = input;
+  const { onDurableStateNeedsReload, runtime, ...persistenceInput } = input;
   const execSql = runtime.infra.execSql;
-  return persistContainerMetadataState({
+  const persisted = await persistContainerMetadataState({
     ...persistenceInput,
     execSql,
   });
+  if (input.stillCurrent?.() === false) {
+    onDurableStateNeedsReload?.();
+    return null;
+  }
+  return persisted;
 }
 
-/**
- * Shared metadata-document write path: apply the patch to the doc, queue the
- * incremental update it produced, and persist the patched container state.
- */
+// Apply a metadata patch and persist the incremental update it produces.
 async function writeContainerMetadataPatch(input: {
   execSql: ExecSql;
   metadataState: ContainerMetadataState;
@@ -486,15 +489,11 @@ export async function setContainerIconMetadataStateFromRuntime(input: {
   persistence: ContainerContentsPersistence;
   runtime: ContainerMetadataPersistenceRuntime;
 }): Promise<PersistedContainerMetadataState | null> {
-  // Normalize to the same shape the metadata document stores: a trimmed,
-  // non-empty slug or null (the default folder). writeContainerMetadataValue
-  // deletes the icon key when null so it matches an icon-less container.
-  const normalizedIcon = input.icon?.trim() || null;
-
   return writeContainerMetadataPatch({
     execSql: input.runtime.infra.execSql,
     metadataState: input.metadataState,
-    patch: { icon: normalizedIcon },
+    // Null removes the icon key and restores the default folder.
+    patch: { icon: input.icon?.trim() || null },
     persistence: input.persistence,
   });
 }

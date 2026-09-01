@@ -96,6 +96,7 @@ test("an event snapshot does not re-arm structural sync", () => {
   const syncAgent = {
     ensureInitialized: () => {},
     handleRemoteEvents: () => {},
+    refreshLocalContainers: async () => {},
     scheduleSync,
   } as unknown as ContainerContentsStoreSyncAgent;
 
@@ -143,6 +144,7 @@ test("runtime ABA replacement invalidates and re-arms a structural pass", async 
   const syncAgent = {
     ensureInitialized: () => {},
     handleRemoteEvents: () => {},
+    refreshLocalContainers: async () => {},
     scheduleSync,
   } as unknown as ContainerContentsStoreSyncAgent;
   let releaseRestoration: () => void = () => {
@@ -198,6 +200,7 @@ test("persistence ABA replacement invalidates and re-arms a structural pass", as
   updateContainerContentsSnapshot(state);
   const scheduleSync = mock(() => {});
   const syncAgent = {
+    refreshLocalContainers: async () => {},
     scheduleSync,
   } as unknown as ContainerContentsStoreSyncAgent;
   let releaseRestoration: () => void = () => {

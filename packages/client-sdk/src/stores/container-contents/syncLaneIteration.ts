@@ -17,6 +17,7 @@ import { openDocumentStore, requestDomainDocumentSync } from "../documents";
 import { primeStoreDocuments, recoverStoreStaleRoot } from "./documentRecovery";
 import { runContainerDocumentWork } from "./documentWork";
 import {
+  bumpMetadataSyncSeq,
   clearMetadataSyncQueueIfUnchanged,
   readMetadataSyncSeq,
 } from "./metadataSyncSignal";
@@ -123,6 +124,16 @@ async function syncSingleContainerMetadata(input: {
     locallyAcceptedUpdateIds: state.locallyAcceptedMetadataUpdateIds,
     isCurrent,
     metadataState: containerState,
+    onDurableStateNeedsReload: () => {
+      const currentDocumentId = state.containersById.get(
+        containerState.container.id,
+      )?.record.documentId;
+      if (typeof currentDocumentId === "string") {
+        state.metadataDocumentIdsNeedingSync.add(currentDocumentId);
+        bumpMetadataSyncSeq(state.metadataSyncSignalSeqById, currentDocumentId);
+      }
+      requestContainerContentsStoreSync(state);
+    },
     persistence: state.persistence,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     runtime: state.runtime,

@@ -28,6 +28,7 @@ function createRefreshState(input: {
     lifecycleGeneration: 0,
     localContainerRefreshGeneration: null,
     localContainerRefreshPromise: null,
+    localContainerRefreshStructuralGeneration: null,
     localContainersNeedRefresh: true,
     persistence: {
       enqueuePendingUpdate: async () => {},
@@ -49,6 +50,7 @@ function createRefreshState(input: {
         log: input.log ?? (() => {}),
       },
     } as ContainerContentsWorkflowRuntime,
+    structuralGeneration: 0,
   };
 }
 
