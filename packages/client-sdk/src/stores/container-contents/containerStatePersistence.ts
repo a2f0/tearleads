@@ -21,6 +21,12 @@ type ContainerMetadataMutationOptions = Pick<
   "preserveDurableStructureWhenPending"
 >;
 type ContainerStateMutationOptions = ContainerMetadataMutationOptions & {
+  createIntentSettlement?: Parameters<
+    typeof persistContainerMetadataStateFromRuntime
+  >[0]["createIntentSettlement"];
+  moveIntentSettlement?: Parameters<
+    typeof persistContainerMetadataStateFromRuntime
+  >[0]["moveIntentSettlement"];
   expectedStateWhenMissing?: ContainerState | undefined;
   isCurrent?: (() => boolean) | undefined;
 };
@@ -40,6 +46,8 @@ export async function persistContainerState(
     localUpdate: localMutation?.localUpdate,
     patch,
     persistence: state.persistence,
+    createIntentSettlement: mutationOptions?.createIntentSettlement,
+    moveIntentSettlement: mutationOptions?.moveIntentSettlement,
     preserveDurableStructureWhenPending:
       mutationOptions?.preserveDurableStructureWhenPending,
     runtime: state.runtime,

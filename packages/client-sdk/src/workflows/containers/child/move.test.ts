@@ -83,3 +83,40 @@ test("moveRemoteContainer rejects bad destination projection signatures before s
   expect(moveCalled).toBe(false);
   database.close();
 });
+
+test("moveRemoteContainer does not submit after its generation expires", async () => {
+  const parent = await createParentProjection();
+  const { author } = await createAuthor({
+    organizationId: parent.projection.organizationId,
+    userId: parent.userId,
+  });
+  const database = await createTestExecSql("move-expired-generation");
+  let current = true;
+  let fetchCount = 0;
+  let moveCalled = false;
+
+  const moved = await moveRemoteContainer({
+    apiClient: {
+      getContainerWriterProjection: async () => {
+        fetchCount += 1;
+        if (fetchCount === 2) current = false;
+        return parent.projection;
+      },
+      moveContainer: async () => {
+        moveCalled = true;
+        throw new Error("Unexpected move call");
+      },
+    },
+    author,
+    containerId: parent.projection.containerId,
+    destinationParentContainerId: "destination-parent",
+    execSql: database.execSql,
+    resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+    stillCurrent: () => current,
+    targetSecretKey: parent.secretKey,
+  });
+
+  expect(moved).toBeNull();
+  expect(moveCalled).toBe(false);
+  database.close();
+});

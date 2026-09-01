@@ -16,6 +16,7 @@ import type {
   ContainerContentsStoreState,
 } from "./types";
 import { toContainerNode } from "./utils";
+import type { ContainerWriteGuard } from "./writeGeneration";
 
 export async function shareContainerUsing(
   state: ContainerContentsStoreState,
@@ -25,6 +26,7 @@ export async function shareContainerUsing(
     containerState: ContainerState,
   ) => Promise<SharedContainerStateResult | null>,
   logMessage: string,
+  isCurrent: ContainerWriteGuard = () => true,
 ) {
   if (
     state.runtime.infra.dbStatus !== "ready" ||
@@ -46,7 +48,7 @@ export async function shareContainerUsing(
   }
 
   const shared = await share(existingState);
-  if (!shared) return null;
+  if (!shared || !isCurrent()) return null;
   if (shared.status === "missing") {
     removeMissingContainerState(state, existingState);
     return null;
@@ -58,6 +60,7 @@ export async function shareContainerUsing(
   if (shared.status === "identity-superseded") return null;
 
   await syncAgent.primeDocumentsForSharedSubtree(containerId);
+  if (!isCurrent()) return null;
   syncAgent.scheduleSync();
   state.runtime.util.log(
     `${getContainerContentsStoreLogLabel(state)}: ${logMessage}`,
@@ -70,6 +73,7 @@ export async function shareContainerWithUser(
   syncAgent: ContainerContentsStoreSyncAgent,
   containerId: string,
   userId: string,
+  isCurrent: ContainerWriteGuard = () => true,
 ) {
   return shareContainerUsing(
     state,
@@ -85,6 +89,7 @@ export async function shareContainerWithUser(
         runtime: state.runtime,
       }),
     `shared container ${containerId} with ${userId}`,
+    isCurrent,
   );
 }
 
@@ -98,6 +103,7 @@ export async function shareContainerWithGroup(
     knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
     requireExistingGrant?: boolean | undefined;
   } = {},
+  isCurrent: ContainerWriteGuard = () => true,
 ) {
   return shareContainerUsing(
     state,
@@ -115,5 +121,6 @@ export async function shareContainerWithGroup(
         runtime: state.runtime,
       }),
     `shared container ${containerId} with group ${groupId}`,
+    isCurrent,
   );
 }

@@ -8,6 +8,7 @@ import type {
   ContainerContentsStoreState,
   EnsureSystemContainerOptions,
 } from "./types";
+import type { ContainerWriteGuard } from "./writeGeneration";
 
 export function hasAdvancedManagedPrincipalReference(
   containerState: ContainerState,
@@ -30,8 +31,10 @@ export async function promoteExistingLocalSystemContainerSync(input: {
   rootState: ContainerState | null;
   state: ContainerContentsStoreState;
   syncAgent: ContainerContentsStoreSyncAgent;
+  isCurrent?: ContainerWriteGuard | undefined;
 }): Promise<boolean> {
   const { containerState, options, rootState, state, syncAgent } = input;
+  const isCurrent = input.isCurrent ?? (() => true);
   const parentContainerId = containerState.container.parentId;
   if (
     options.deferRemoteSync ||
@@ -55,6 +58,7 @@ export async function promoteExistingLocalSystemContainerSync(input: {
     state.persistence.listPendingCreateIntents(execSql),
     state.persistence.listPendingUpdates(execSql, containerState.container.id),
   ]);
+  if (!isCurrent()) return false;
   const hasPendingCreateIntent = pendingCreateIntents.some(
     (intent) => intent.containerId === containerState.container.id,
   );
@@ -69,7 +73,7 @@ export async function promoteExistingLocalSystemContainerSync(input: {
       containerState,
       parentContainerId,
     );
-    if (!persisted) {
+    if (!persisted || !isCurrent()) {
       return false;
     }
   }
@@ -79,6 +83,7 @@ export async function promoteExistingLocalSystemContainerSync(input: {
       containerId: containerState.container.id,
       update: base64ToBytes(containerState.record.metadataUpdates),
     });
+    if (!isCurrent()) return false;
   }
 
   syncAgent.scheduleSync();

@@ -1,6 +1,7 @@
 import type { PurgeOptions } from "../../workflows/container-contents/container-state/purgeProgress";
 import { runContainerPurge } from "./containerPurgeCore";
 import type { ContainerContentsStoreState } from "./types";
+import type { ContainerWriteGuard } from "./writeGeneration";
 
 // Permanently destroy EVERYTHING under the Trash bin — every trashed folder's
 // whole subtree and every document deleted straight into Trash — while leaving
@@ -15,8 +16,9 @@ export async function emptyTrash(
   state: ContainerContentsStoreState,
   trashContainerId: string,
   options?: PurgeOptions,
+  isCurrent: ContainerWriteGuard = () => true,
 ): Promise<boolean> {
-  return runContainerPurge(state, trashContainerId, options, {
+  return runContainerPurge(state, trashContainerId, options, isCurrent, {
     describeResult: (_target, result) =>
       `emptied trash (${result.purgedContainerIds.length} container(s) removed, ${result.failedCount} failed)`,
     // A clean empty: nothing failed and it ran to completion.

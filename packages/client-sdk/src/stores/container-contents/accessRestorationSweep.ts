@@ -170,6 +170,7 @@ async function completeRestorationSweeps(
         session.runtime.infra.execSql,
         sweep,
         deletedContainerIds,
+        session.isCurrent,
       );
     if (!session.isCurrent()) {
       return;
@@ -184,6 +185,7 @@ async function completeRestorationSweeps(
         await session.persistence.completeDormantMetadataSweepRequest(
           session.runtime.infra.execSql,
           sweep,
+          session.isCurrent,
         );
         if (!session.isCurrent()) {
           return;
@@ -201,6 +203,7 @@ async function completeRestorationSweeps(
     await session.persistence.completeDormantMetadataSweepRequest(
       session.runtime.infra.execSql,
       sweep,
+      session.isCurrent,
     );
   }
 }
@@ -221,6 +224,7 @@ async function claimDueRestorationSweeps(
       await session.persistence.completeDormantMetadataSweepRequest(
         session.runtime.infra.execSql,
         sweep,
+        session.isCurrent,
       );
       if (!session.isCurrent()) {
         return claimed;
@@ -240,6 +244,7 @@ async function claimDueRestorationSweeps(
       session.runtime.infra.execSql,
       sweep,
       attemptedAt,
+      session.isCurrent,
     );
     if (!session.isCurrent()) {
       return claimed;

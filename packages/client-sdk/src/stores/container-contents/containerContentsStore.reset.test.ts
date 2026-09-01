@@ -8,7 +8,10 @@ import {
   markContainerSyncLaneChecked,
 } from "../../workflows/container-contents/containerPersistence";
 import { createContainerContentsStore } from "./containerContentsStore";
-import { createContainerContentsTestRuntime } from "./runtime.testFixtures";
+import {
+  createContainerContentsTestRuntime,
+  seedLocalRootContainer,
+} from "./runtime.testFixtures";
 import {
   createContainerContentsStoreState,
   updateContainerContentsSnapshot,
@@ -216,6 +219,81 @@ test("executor replacement retries initialization against the new database", asy
   expect(loadExecutors).toEqual([originalExecSql, replacementExecSql]);
   resolvers[1]?.([]);
   await waitFor(() => store.getSnapshot().ready);
+});
+
+test("executor replacement prevents an in-flight create from entering the rebuilt tree", async () => {
+  const originalDatabase = await createTestExecSql(
+    "container-write-reset-original",
+  );
+  const replacementDatabase = await createTestExecSql(
+    "container-write-reset-replacement",
+  );
+  try {
+    await seedLocalRootContainer(originalDatabase.execSql, {
+      rootContainerId: "original-root",
+    });
+    await seedLocalRootContainer(replacementDatabase.execSql, {
+      rootContainerId: "replacement-root",
+    });
+    let releaseSave = () => {};
+    let oldExecutorSaveStarted = false;
+    const saveGate = new Promise<void>((resolve) => {
+      releaseSave = resolve;
+    });
+    const persistence = {
+      ...defaultContainerContentsPersistence,
+      saveContainer: async (
+        ...args: Parameters<
+          typeof defaultContainerContentsPersistence.saveContainer
+        >
+      ) => {
+        const [execSql, container] = args;
+        if (
+          execSql === originalDatabase.execSql &&
+          container.parentId !== null
+        ) {
+          oldExecutorSaveStarted = true;
+          await saveGate;
+        }
+        return defaultContainerContentsPersistence.saveContainer(...args);
+      },
+    };
+    const domainScope = createDomainScope();
+    const originalRuntime = createRuntime({
+      dbStatus: "ready",
+      domainScope,
+      execSql: originalDatabase.execSql,
+    });
+    const replacementRuntime = createRuntime({
+      dbStatus: "ready",
+      domainScope,
+      execSql: replacementDatabase.execSql,
+    });
+    const store = createContainerContentsStore(originalRuntime, persistence);
+
+    store.updateRuntime(originalRuntime);
+    await waitFor(() => store.getSnapshot().ready);
+    const staleCreate = store.createChild("original-root", "Stale child");
+    await waitFor(() => oldExecutorSaveStarted);
+
+    store.updateRuntime(replacementRuntime);
+    await waitFor(
+      () =>
+        store.getSnapshot().ready &&
+        store
+          .getSnapshot()
+          .nodes.some((node) => node.id === "replacement-root"),
+    );
+    releaseSave();
+
+    await expect(staleCreate).resolves.toBeNull();
+    expect(store.getSnapshot().nodes.map((node) => node.id)).toEqual([
+      "replacement-root",
+    ]);
+  } finally {
+    await originalDatabase.close();
+    await replacementDatabase.close();
+  }
 });
 
 test("persistence replacement retries an in-flight initialization", async () => {

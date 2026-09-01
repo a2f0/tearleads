@@ -20,6 +20,7 @@ import {
   ensureDocumentStoreReady,
   relinkDocumentStore,
 } from "./documentStore/initialization";
+import { registerInternalDocumentRelink } from "./documentStore/internalRelink";
 import {
   setDocumentStructuredFields,
   setDocumentText,
@@ -271,6 +272,56 @@ function createLiveSyncLaneRequest(state: DocumentStoreState) {
   };
 }
 
+function registerBackingStoreInternalRelink(input: {
+  scheduleSync: () => void;
+  state: DocumentStoreState;
+  store: DocumentStore;
+  withLiveSyncLane: ReturnType<typeof createLiveSyncLaneRequest>;
+}): DocumentStore {
+  registerInternalDocumentRelink(input.store, (relinkInput, commitSideEffect) =>
+    input.withLiveSyncLane(() =>
+      relinkDocumentStore(
+        input.state,
+        relinkInput,
+        input.scheduleSync,
+        commitSideEffect,
+      ),
+    ),
+  );
+  return input.store;
+}
+
+function createBackingStoreContext(
+  localId: string,
+  runtime: DocumentsRuntime,
+  persistence: DocumentsPersistence,
+  documentId: string | null,
+  text: string,
+  documentKind: StoredDocumentKind,
+  remoteSyncMode: "on-demand" | "startup",
+) {
+  const state = createDocumentStoreState(
+    localId,
+    runtime,
+    persistence,
+    {
+      emitPersistedDocument,
+      registerDocumentIdentity: registerDocumentStoreIdentity,
+    },
+    documentId,
+    text,
+    documentKind,
+    remoteSyncMode === "startup",
+  );
+  refreshDocumentStoreSyncLane(state);
+  const scheduleSync = () => requestDocumentStoreSync(state);
+  return {
+    scheduleSync,
+    state,
+    withLiveSyncLane: createLiveSyncLaneRequest(state),
+  };
+}
+
 function createBackingDocumentStore(
   localId: string,
   initialRuntime: DocumentsRuntime,
@@ -280,24 +331,17 @@ function createBackingDocumentStore(
   initialDocumentKind: StoredDocumentKind = DEFAULT_DOCUMENT_KIND,
   remoteSyncMode: "on-demand" | "startup" = "startup",
 ): DocumentStore {
-  const state = createDocumentStoreState(
+  const { scheduleSync, state, withLiveSyncLane } = createBackingStoreContext(
     localId,
     initialRuntime,
     persistence,
-    {
-      emitPersistedDocument,
-      registerDocumentIdentity: registerDocumentStoreIdentity,
-    },
     initialDocumentId,
     initialText,
     initialDocumentKind,
-    remoteSyncMode === "startup",
+    remoteSyncMode,
   );
-  refreshDocumentStoreSyncLane(state);
-  const scheduleSync = () => requestDocumentStoreSync(state);
-  const withLiveSyncLane = createLiveSyncLaneRequest(state);
 
-  return {
+  const store: DocumentStore = {
     addRow: (fields) =>
       withLiveSyncLane(() =>
         addRowToDocumentStore(state, scheduleSync, fields),
@@ -359,6 +403,12 @@ function createBackingDocumentStore(
     updateRuntime: (runtime: DocumentsRuntime) =>
       updateDocumentStoreRuntime(state, runtime, scheduleSync),
   };
+  return registerBackingStoreInternalRelink({
+    scheduleSync,
+    state,
+    store,
+    withLiveSyncLane,
+  });
 }
 
 export function createDocumentStore(

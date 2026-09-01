@@ -35,6 +35,7 @@ import {
   healLocalAttachmentDetachState,
   recoverDroppedAttachmentSlots,
 } from "./initializationRecovery";
+import type { DocumentRelinkCommitSideEffect } from "./internalRelink";
 import { runDocumentOrphanMaintenance } from "./orphanMaintenance";
 import {
   advancePendingBaseVersion,
@@ -379,6 +380,7 @@ export async function relinkDocumentStore(
   state: DocumentStoreState,
   input: DocumentStoreRelinkInput,
   scheduleSync: () => void,
+  commitSideEffect?: DocumentRelinkCommitSideEffect,
 ): Promise<DocumentSummary | null> {
   if (
     input.stillCurrent?.() === false ||
@@ -441,7 +443,7 @@ export async function relinkDocumentStore(
         stillCurrent: input.stillCurrent,
       },
       generation,
-      input.commitSideEffect,
+      commitSideEffect,
     );
     if (result && currentDocumentId !== input.documentId) {
       state.writerProjection = null;

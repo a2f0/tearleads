@@ -425,6 +425,7 @@ async function createRemoteContainerWithRepairs(input: {
     const submitted = await submitRemoteContainerCreate({
       apiClient: input.request.apiClient,
       plan: materializedPlan.plan,
+      stillCurrent: input.request.stillCurrent,
     });
     if (!submitted) {
       return null;
@@ -454,6 +455,7 @@ async function createRemoteContainerWithRepairs(input: {
       execSql: input.request.execSql,
       plan: materializedPlan.plan,
       response: submitted.response,
+      stillCurrent: input.request.stillCurrent,
     });
     return {
       containerKey: materializedPlan.containerKey,
@@ -464,7 +466,6 @@ async function createRemoteContainerWithRepairs(input: {
     };
   }
 }
-
 export async function createRemoteContainer(
   input: RemoteContainerCreateInput,
 ): Promise<CreateRemoteContainerResult | null> {
@@ -480,7 +481,6 @@ export async function createRemoteContainer(
   if (!parentProjection) {
     return null;
   }
-
   const containerId = input.containerId ?? crypto.randomUUID();
   const containerKey =
     input.containerKey ?? crypto.getRandomValues(new Uint8Array(32));

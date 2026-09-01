@@ -59,6 +59,7 @@ test("listUnsyncedMoveIntents returns blocked moves until they sync", async () =
     expect(
       await persistence.markMoveIntentSynced(execSql, {
         containerId: "child-1",
+        expectedIntentId: blockedIntent?.id ?? "",
         expectedUpdatedAt: "stale-intent-version",
         stillCurrent: () => true,
       }),
@@ -68,6 +69,7 @@ test("listUnsyncedMoveIntents returns blocked moves until they sync", async () =
     expect(
       await persistence.markMoveIntentSynced(execSql, {
         containerId: "child-1",
+        expectedIntentId: blockedIntent?.id ?? "",
         expectedUpdatedAt: blockedIntent?.updatedAt ?? "",
         stillCurrent: () => false,
       }),
@@ -77,11 +79,105 @@ test("listUnsyncedMoveIntents returns blocked moves until they sync", async () =
     expect(
       await persistence.markMoveIntentSynced(execSql, {
         containerId: "child-1",
+        expectedIntentId: blockedIntent?.id ?? "",
         expectedUpdatedAt: blockedIntent?.updatedAt ?? "",
         stillCurrent: () => true,
       }),
     ).toBe(true);
     expect(await persistence.listUnsyncedMoveIntents(execSql)).toEqual([]);
+  } finally {
+    close();
+  }
+});
+
+test("an overtaking same-tick move rolls stale container persistence back", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "container-move-intent-atomic-settlement",
+  );
+  const sameUpdatedAt = "2026-09-01T00:00:00.000Z";
+  const metadataRecord = {
+    accessEpoch: 1,
+    accessStateHash: "access-1",
+    documentId: "metadata-1",
+    id: "child-atomic",
+    metadataUpdates: "",
+    snapshotEndVersion: "",
+  };
+  const container = {
+    effectiveAccessLevel: "admin" as const,
+    icon: null,
+    id: "child-atomic",
+    metadataDocumentId: metadataRecord.documentId,
+    name: "Child",
+    organizationId: "org-1",
+    parentId: "source",
+  };
+
+  try {
+    await persistence.ensureSchema(execSql);
+    await persistence.saveContainer(
+      execSql,
+      { ...container, parentId: "stale-target" },
+      metadataRecord,
+      {
+        localUpdatedAt: sameUpdatedAt,
+        moveIntent: {
+          parentContainerId: "stale-target",
+          previousParentContainerId: "source",
+        },
+      },
+    );
+    const [staleIntent] = await persistence.listUnsyncedMoveIntents(execSql);
+    expect(staleIntent).toBeDefined();
+    if (!staleIntent) return;
+
+    await persistence.saveContainer(
+      execSql,
+      { ...container, parentId: "winning-target" },
+      metadataRecord,
+      {
+        localUpdatedAt: sameUpdatedAt,
+        moveIntent: {
+          parentContainerId: "winning-target",
+          previousParentContainerId: "stale-target",
+        },
+      },
+    );
+    const [winningIntent] = await persistence.listUnsyncedMoveIntents(execSql);
+    const current = await persistence.loadContainerMetadataState(
+      execSql,
+      container.id,
+    );
+    expect(winningIntent?.updatedAt).toBe(staleIntent.updatedAt);
+    expect(winningIntent?.id).not.toBe(staleIntent.id);
+    if (!current?.record || !winningIntent) return;
+
+    await expect(
+      persistence.commitMetadataMutation(execSql, {
+        acceptedPendingUpdateIds: [],
+        moveIntentSettlement: {
+          containerId: staleIntent.containerId,
+          expectedIntentId: staleIntent.id,
+          expectedUpdatedAt: staleIntent.updatedAt,
+        },
+        container: { ...current.container, parentId: "stale-target" },
+        expectedContainer: current.container,
+        expectedRecord: current.record,
+        record: current.record,
+        settleAcceptedPendingOnConflict: false,
+      }),
+    ).rejects.toThrow("superseded before local settlement");
+
+    expect(
+      (await persistence.loadContainerMetadataState(execSql, container.id))
+        ?.container.parentId,
+    ).toBe("winning-target");
+    expect(await persistence.listUnsyncedMoveIntents(execSql)).toEqual([
+      expect.objectContaining({
+        id: winningIntent.id,
+        parentContainerId: "winning-target",
+      }),
+    ]);
   } finally {
     close();
   }

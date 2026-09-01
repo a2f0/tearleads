@@ -65,6 +65,7 @@ async function createRemoteContainerWithSeparateMetadataDocument(input: {
   parentProjection?: ContainerWriterProjectionResponse | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<CreatedRemoteContainerState | null> {
   const writer = resolveContainerWriterContext(
     input.runtime,
@@ -87,6 +88,7 @@ async function createRemoteContainerWithSeparateMetadataDocument(input: {
     reportSecurityIncident: input.runtime.util.reportSecurityIncident,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
+    stillCurrent: input.stillCurrent,
     warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
       input.runtime,
     ),
@@ -94,6 +96,7 @@ async function createRemoteContainerWithSeparateMetadataDocument(input: {
   if (!createdContainer) {
     return null;
   }
+  if (input.stillCurrent?.() === false) return null;
 
   const createdMetadataDocument = await createRemoteDocument({
     apiClient,
@@ -103,6 +106,7 @@ async function createRemoteContainerWithSeparateMetadataDocument(input: {
     execSql,
     expectedOrganizationId: createdContainer.response.organizationId,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
+    stillCurrent: input.stillCurrent,
     targetSecretKey: parentSecretKey,
     warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
       input.runtime,
@@ -132,6 +136,7 @@ export async function createRemoteContainer(input: {
   parentProjection?: ContainerWriterProjectionResponse | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<CreatedRemoteContainerState | ContainerAlreadyCommitted | null> {
   if (input.runtime.apiClient.createContainerWithMetadataDocument) {
     return createRemoteContainerWithMetadataDocument(input);
@@ -276,6 +281,7 @@ export async function moveRemoteContainer(input: {
   parentContainerId: string;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<RemoteContainer | null> {
   const writer = resolveContainerWriterContext(input.runtime, "container move");
   if (!writer) {
@@ -290,6 +296,7 @@ export async function moveRemoteContainer(input: {
     destinationParentContainerId: input.parentContainerId,
     execSql,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
+    stillCurrent: input.stillCurrent,
     targetSecretKey,
     warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
       input.runtime,

@@ -26,6 +26,8 @@ async function createRotationSnapshot(seed: string) {
 }
 
 async function runMoveRemoteContainerDocumentFixture(input: {
+  invalidateAfterLink?: boolean;
+  invalidateDuringInnerProjectionFetch?: boolean;
   rotationSnapshot: Uint8Array;
   testDbName: string;
 }) {
@@ -87,10 +89,13 @@ async function runMoveRemoteContainerDocumentFixture(input: {
       operation: "link" | "unlink";
       targetContainerId: string;
     }> = [];
+    let current = true;
+    let documentProjectionFetchCount = 0;
 
     const moved = await moveRemoteContainerDocument({
       currentContainerId: rootProjection.containerId,
       documentId: writerProjection.documentId,
+      isCurrent: () => current,
       noteId: "containerContents-note-1",
       resolveProjectionUserKey,
       rotationSnapshot: input.rotationSnapshot,
@@ -105,10 +110,18 @@ async function runMoveRemoteContainerDocumentFixture(input: {
             }
             return null;
           },
-          getDocumentWriterProjection: async (documentId) =>
-            documentId === writerProjection.documentId
+          getDocumentWriterProjection: async (documentId) => {
+            documentProjectionFetchCount += 1;
+            if (
+              input.invalidateDuringInnerProjectionFetch &&
+              documentProjectionFetchCount === 2
+            ) {
+              current = false;
+            }
+            return documentId === writerProjection.documentId
               ? writerProjection
-              : null,
+              : null;
+          },
           getCurrentPrincipalPolicy: async () => null,
           primeDocumentWriterProjection: () => {},
           linkDocument: async (documentId, request) => {
@@ -140,6 +153,7 @@ async function runMoveRemoteContainerDocumentFixture(input: {
               documentKekTargets: response.documentKekTargets,
               documentManifest: response.accessManifest,
             };
+            if (input.invalidateAfterLink) current = false;
             return response;
           },
           unlinkDocument: async (documentId, request) => {
@@ -275,4 +289,34 @@ test("moveRemoteContainerDocument completes an empty document move with a baseli
     fixture.siblingContainerId,
   ]);
   expect(fixture.linkedContainerIds).toEqual([fixture.siblingContainerId]);
+});
+
+test("a generation change after link prevents every unlink leg", async () => {
+  const fixture = await runMoveRemoteContainerDocumentFixture({
+    invalidateAfterLink: true,
+    rotationSnapshot: await createRotationSnapshot("move-generation"),
+    testDbName: "containerContents-document-move-generation-test",
+  });
+
+  expect(fixture.moved).toBeNull();
+  expect(fixture.submittedRequests).toEqual([
+    {
+      hasRotationBaseline: false,
+      operation: "link",
+      targetContainerId: fixture.siblingContainerId,
+    },
+  ]);
+  expect(fixture.linkedContainerIds).toEqual([fixture.rootContainerId]);
+});
+
+test("a generation change during link planning prevents the remote mutation", async () => {
+  const fixture = await runMoveRemoteContainerDocumentFixture({
+    invalidateDuringInnerProjectionFetch: true,
+    rotationSnapshot: await createRotationSnapshot("move-planning-generation"),
+    testDbName: "containerContents-document-move-planning-generation-test",
+  });
+
+  expect(fixture.moved).toBeNull();
+  expect(fixture.submittedRequests).toEqual([]);
+  expect(fixture.linkedContainerIds).toEqual([fixture.rootContainerId]);
 });

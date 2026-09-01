@@ -119,16 +119,22 @@ async function writeAcknowledgedHeads(
 export async function advanceLocallyAcknowledgedAccessManifestHeadsAtomically(input: {
   readonly execSql: ExecSql;
   readonly heads: readonly LocallyAcknowledgedAccessManifestHead[];
+  readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<void> {
   await ensureSqlTables(input.execSql, keyingCheckpointTables);
   const updatedAt = new Date().toISOString();
-  await getClientSQLitePersistenceRuntime(input.execSql).transaction(
-    async (tx) => {
-      const pending = await validateAcknowledgedHeads(tx, input.heads);
-      await writeAcknowledgedHeads(tx, pending, updatedAt);
-    },
-    { behavior: "immediate" },
-  );
+  const runtime = getClientSQLitePersistenceRuntime(input.execSql);
+  const acknowledge = async (tx: ClientSQLiteTransactionScope) => {
+    const pending = await validateAcknowledgedHeads(tx, input.heads);
+    await writeAcknowledgedHeads(tx, pending, updatedAt);
+  };
+  if (input.stillCurrent) {
+    await runtime.guardedTransaction(acknowledge, input.stillCurrent, {
+      behavior: "immediate",
+    });
+    return;
+  }
+  await runtime.transaction(acknowledge, { behavior: "immediate" });
 }
 
 function validateAcknowledgedPolicy(

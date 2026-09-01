@@ -26,6 +26,11 @@ import type {
   StoredContainerState,
 } from "./containerContentsPersistenceTypes";
 import {
+  ContainerCreateIntentSupersededError,
+  deleteContainerMoveIntentRevision,
+  markContainerCreateIntentRevisionSynced,
+} from "./containerIntentPersistence";
+import {
   getContainerMetadataScope,
   saveContainerContentsContainerRows,
   selectContainerMetadataRecord,
@@ -353,6 +358,27 @@ export async function commitStoredMetadataMutation(
           serverTimestamps: input.saveOptions?.serverTimestamps,
           tx,
         });
+        if (
+          input.createIntentSettlement &&
+          !(await markContainerCreateIntentRevisionSynced({
+            ...input.createIntentSettlement,
+            tx,
+          }))
+        ) {
+          throw new ContainerCreateIntentSupersededError();
+        }
+        if (input.moveIntentSettlement) {
+          if (
+            !(await deleteContainerMoveIntentRevision({
+              ...input.moveIntentSettlement,
+              tx,
+            }))
+          ) {
+            throw new Error(
+              "Container move intent was superseded before local settlement",
+            );
+          }
+        }
         return { committed: true as const, container: savedContainer };
       },
       () => !input.stillCurrent || input.stillCurrent(),

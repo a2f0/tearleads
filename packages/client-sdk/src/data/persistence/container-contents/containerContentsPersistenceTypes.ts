@@ -188,14 +188,20 @@ export interface ContainerContentsPersistence
   rekeyPendingUpdate: (execSql: ExecSql, id: string) => Promise<string | null>;
   recordCreateIntentError: (
     execSql: ExecSql,
-    containerId: string,
-    message: string,
+    input: {
+      containerId: string;
+      expectedIntentId: string;
+      expectedUpdatedAt: string;
+      message: string;
+    },
   ) => Promise<void>;
   recordMoveIntentError: (
     execSql: ExecSql,
     input: {
       blocked?: boolean | undefined;
       containerId: string;
+      expectedIntentId?: string | undefined;
+      expectedUpdatedAt?: string | undefined;
       message: string;
     },
   ) => Promise<void>;
@@ -273,6 +279,23 @@ export interface ContainerContentsPersistence
       container: ContainerRecord;
       expectedContainer: ContainerRecord;
       expectedRecord: ContainerMetadataRecord;
+      createIntentSettlement?:
+        | {
+            containerId: string;
+            expectedIntentId: string;
+            expectedUpdatedAt: string;
+            remoteContainerId: string;
+            remoteMetadataAccessStateHash: string;
+            remoteMetadataDocumentId: string;
+          }
+        | undefined;
+      moveIntentSettlement?:
+        | {
+            containerId: string;
+            expectedIntentId: string;
+            expectedUpdatedAt: string;
+          }
+        | undefined;
       pendingUpdate?: PendingUpdateFields | undefined;
       preserveDurableStructureWhenPending?: boolean | undefined;
       record: ContainerMetadataRecord;
@@ -347,9 +370,8 @@ export interface ContainerContentsPersistence
     execSql: ExecSql,
     input: {
       containerId: string;
-      // The intent row's updatedAt snapshotted when the pass listed it. The
-      // mark is a no-op if the row changed since (a user re-queued the intent
-      // across the create network await), so the re-queued intent stays pending.
+      // Every enqueue rotates this token; updatedAt is a secondary guard.
+      expectedIntentId: string;
       expectedUpdatedAt: string;
       remoteContainerId: string;
       remoteMetadataAccessStateHash: string;
@@ -361,8 +383,9 @@ export interface ContainerContentsPersistence
     execSql: ExecSql,
     input: {
       containerId: string;
-      // See markCreateIntentSynced: guards the delete against a move re-queued
-      // during the network round-trip so the new destination is not discarded.
+      // Every enqueue rotates this token. The timestamp remains a secondary
+      // diagnostic guard, but cannot distinguish moves queued in one clock tick.
+      expectedIntentId: string;
       expectedUpdatedAt: string;
       stillCurrent: () => boolean;
     },

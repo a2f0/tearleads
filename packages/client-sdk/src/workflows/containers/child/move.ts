@@ -330,6 +330,7 @@ export async function moveRemoteContainer(input: {
   execSql: ExecSql;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
+  stillCurrent?: (() => boolean) | undefined;
   targetSecretKey: Uint8Array;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<{
@@ -366,6 +367,7 @@ export async function moveRemoteContainer(input: {
     containerKey: materializedPlan.containerKey,
     execSql: input.execSql,
     plan: materializedPlan.plan,
+    stillCurrent: input.stillCurrent,
     submit: () =>
       input.apiClient.moveContainer(
         input.containerId,

@@ -11,6 +11,7 @@ import {
   findSystemContainerStateForRoot,
 } from "./systemContainerLookup";
 import type { ContainerContentsStoreState } from "./types";
+import type { ContainerWriteGuard } from "./writeGeneration";
 
 function findSystemContainerCreatedAfterRemoteHydrationTarget(
   state: ContainerContentsStoreState,
@@ -98,8 +99,10 @@ export async function finalizeCreatedSystemContainer(input: {
   state: ContainerContentsStoreState;
   syncAgent: ContainerContentsStoreSyncAgent;
   systemSlot: ContainerSystemSlot;
-}): Promise<{ adopted: boolean; containerState: ContainerState }> {
+  isCurrent?: ContainerWriteGuard | undefined;
+}): Promise<{ adopted: boolean; containerState: ContainerState } | null> {
   const { created, state, syncAgent, systemSlot } = input;
+  const isCurrent = input.isCurrent ?? (() => true);
   // Keep the no-target check and local insertion in one synchronous turn. If
   // we yielded between them, remote root hydration could delete the captured
   // parent in that gap and this create would land as an orphan afterward.
@@ -114,7 +117,7 @@ export async function finalizeCreatedSystemContainer(input: {
       remoteTarget,
       state,
     });
-    return { adopted: true, containerState: remoteTarget };
+    return isCurrent() ? { adopted: true, containerState: remoteTarget } : null;
   }
 
   // The remote root can arrive before its system child. Rebase the persisted
@@ -127,6 +130,7 @@ export async function finalizeCreatedSystemContainer(input: {
       remoteRoot,
       state,
     });
+    if (!isCurrent()) return null;
     remoteTarget = findSystemContainerCreatedAfterRemoteHydrationTarget(
       state,
       systemSlot,
@@ -138,10 +142,13 @@ export async function finalizeCreatedSystemContainer(input: {
         remoteTarget,
         state,
       });
-      return { adopted: true, containerState: remoteTarget };
+      return isCurrent()
+        ? { adopted: true, containerState: remoteTarget }
+        : null;
     }
   }
 
+  if (!isCurrent()) return null;
   state.containersById.set(
     created.containerState.container.id,
     created.containerState,

@@ -25,6 +25,8 @@ function currentMoveResult<
 async function recordPendingMoveIntentError(input: {
   blocked?: boolean | undefined;
   containerId: string;
+  expectedIntentId: string;
+  expectedUpdatedAt: string;
   isCurrent: () => boolean;
   message: string;
   state: ContainerMoveIntentSyncState;
@@ -36,27 +38,11 @@ async function recordPendingMoveIntentError(input: {
   await input.state.persistence.recordMoveIntentError(execSql, {
     blocked: input.blocked,
     containerId: input.containerId,
+    expectedIntentId: input.expectedIntentId,
+    expectedUpdatedAt: input.expectedUpdatedAt,
     message: input.message,
   });
   return input.isCurrent();
-}
-
-async function markMoveIntentSynced(input: {
-  containerId: string;
-  expectedUpdatedAt: string;
-  isCurrent: () => boolean;
-  state: ContainerMoveIntentSyncState;
-}): Promise<boolean> {
-  if (!input.isCurrent()) {
-    return false;
-  }
-  const execSql = input.state.runtime.infra.execSql;
-  const settled = await input.state.persistence.markMoveIntentSynced(execSql, {
-    containerId: input.containerId,
-    expectedUpdatedAt: input.expectedUpdatedAt,
-    stillCurrent: input.isCurrent,
-  });
-  return settled && input.isCurrent();
 }
 
 async function resolveMoveIntentLocalUpdatedAt(input: {
@@ -97,11 +83,16 @@ export async function persistAcceptedMoveIntent(input: {
   isCurrent: () => boolean;
   intent: ContainerMoveIntentSyncInput["intent"];
   moved: RemoteContainer;
+  requestRemoteReconciliation: (parentContainerId: string | null) => void;
   state: ContainerMoveIntentSyncState;
 }): Promise<boolean> {
   const { host, intent, moved, state } = input;
-  if (!input.isCurrent()) {
+  const abandon = () => {
+    input.requestRemoteReconciliation(moved.parentId);
     return false;
+  };
+  if (!input.isCurrent()) {
+    return abandon();
   }
   const containerState = state.containersById.get(intent.containerId);
   if (!containerState) {
@@ -113,7 +104,7 @@ export async function persistAcceptedMoveIntent(input: {
     references: moved.metadataReferencedPrincipals,
   });
   if (!input.isCurrent()) {
-    return false;
+    return abandon();
   }
   const localUpdatedAt = await resolveMoveIntentLocalUpdatedAt({
     containerId: intent.containerId,
@@ -122,12 +113,12 @@ export async function persistAcceptedMoveIntent(input: {
     state,
   });
   if (!input.isCurrent() || localUpdatedAt === null) {
-    return false;
+    return abandon();
   }
   const persistenceCandidate =
     await createDetachedContainerMetadataState(containerState);
   if (!input.isCurrent()) {
-    return false;
+    return abandon();
   }
   persistenceCandidate.container = {
     ...persistenceCandidate.container,
@@ -158,24 +149,18 @@ export async function persistAcceptedMoveIntent(input: {
     {
       expectedStateWhenMissing: containerState,
       isCurrent: input.isCurrent,
+      moveIntentSettlement: {
+        containerId: intent.containerId,
+        expectedIntentId: intent.id,
+        expectedUpdatedAt: intent.updatedAt,
+      },
     },
   );
   if (!input.isCurrent() || persistenceResult.status === "stale-generation") {
-    return false;
+    return abandon();
   }
   if (persistenceResult.status !== "persisted") return false;
   const { record: nextRecord } = persistenceResult;
-  if (
-    !(await markMoveIntentSynced({
-      containerId: intent.containerId,
-      expectedUpdatedAt: intent.updatedAt,
-      isCurrent: input.isCurrent,
-      state,
-    }))
-  ) {
-    return false;
-  }
-
   installDetachedContainerMetadataState(containerState, persistenceCandidate, {
     candidateRecord: nextRecord,
     preserveConcurrentMetadataEdit: true,
@@ -195,31 +180,44 @@ async function movePendingRemoteContainer(input: {
 }): Promise<MoveIntentSyncResult> {
   const { parentState, syncInput } = input;
   const { host, intent, state } = syncInput;
+  let remoteMoveApplied = false;
+  let remoteParentId: string | null = intent.parentContainerId;
+  const abandonAppliedMove = () => {
+    if (remoteMoveApplied) {
+      syncInput.requestRemoteReconciliation(remoteParentId);
+    }
+    return "abandoned" as const;
+  };
   try {
     const moved = await moveRemoteContainer({
       containerId: intent.containerId,
       parentContainerId: intent.parentContainerId,
       resolveProjectionUserKey: state.resolveProjectionUserKey,
       runtime: state.runtime,
+      stillCurrent: syncInput.isCurrent,
     });
-    if (!syncInput.isCurrent()) {
-      return "abandoned";
-    }
     if (!moved) {
+      if (!syncInput.isCurrent()) return "abandoned";
       await recordPendingMoveIntentError({
         containerId: intent.containerId,
+        expectedIntentId: intent.id,
+        expectedUpdatedAt: intent.updatedAt,
         isCurrent: syncInput.isCurrent,
         message: "Remote container move was rejected or unavailable",
         state,
       });
       return currentMoveResult(syncInput.isCurrent, "failed");
     }
+    remoteMoveApplied = true;
+    remoteParentId = moved.parentId;
+    if (!syncInput.isCurrent()) return abandonAppliedMove();
 
     const persisted = await persistAcceptedMoveIntent({
       host,
       isCurrent: syncInput.isCurrent,
       intent,
       moved,
+      requestRemoteReconciliation: syncInput.requestRemoteReconciliation,
       state,
     });
     if (!persisted) {
@@ -241,10 +239,12 @@ async function movePendingRemoteContainer(input: {
       },
     );
     if (!syncInput.isCurrent()) {
-      return "abandoned";
+      return abandonAppliedMove();
     }
     await recordPendingMoveIntentError({
       containerId: intent.containerId,
+      expectedIntentId: intent.id,
+      expectedUpdatedAt: intent.updatedAt,
       isCurrent: syncInput.isCurrent,
       message: `Failed to sync container move: ${errorMessage(error)}`,
       state,
@@ -267,6 +267,8 @@ async function trySyncPendingContainerMoveIntent(
     await recordPendingMoveIntentError({
       blocked: true,
       containerId: intent.containerId,
+      expectedIntentId: intent.id,
+      expectedUpdatedAt: intent.updatedAt,
       isCurrent: input.isCurrent,
       message: "Container move intent references a missing local container",
       state,
@@ -277,6 +279,8 @@ async function trySyncPendingContainerMoveIntent(
     await recordPendingMoveIntentError({
       blocked: true,
       containerId: intent.containerId,
+      expectedIntentId: intent.id,
+      expectedUpdatedAt: intent.updatedAt,
       isCurrent: input.isCurrent,
       message:
         "Container move intent references a missing destination parent container",
@@ -297,6 +301,8 @@ async function trySyncPendingContainerMoveIntent(
     // once the create lands.
     await recordPendingMoveIntentError({
       containerId: intent.containerId,
+      expectedIntentId: intent.id,
+      expectedUpdatedAt: intent.updatedAt,
       isCurrent: input.isCurrent,
       message: "Container move source is not synced yet",
       state,
@@ -306,6 +312,8 @@ async function trySyncPendingContainerMoveIntent(
   if (!hasRemoteContainerMetadataState(parentState)) {
     await recordPendingMoveIntentError({
       containerId: intent.containerId,
+      expectedIntentId: intent.id,
+      expectedUpdatedAt: intent.updatedAt,
       isCurrent: input.isCurrent,
       message: "Container move destination parent is not synced yet",
       state,
@@ -320,6 +328,7 @@ export async function syncPendingContainerMoveIntents(input: {
   host: ContainerMoveIntentSyncHost;
   isCurrent: () => boolean;
   isRemoteSyncBlocked: (organizationId: string) => boolean;
+  requestRemoteReconciliation: (parentContainerId: string | null) => void;
   state: ContainerMoveIntentSyncState;
 }): Promise<number> {
   if (!input.isCurrent()) {
@@ -344,6 +353,7 @@ export async function syncPendingContainerMoveIntents(input: {
       isCurrent: input.isCurrent,
       isRemoteSyncBlocked: input.isRemoteSyncBlocked,
       intent,
+      requestRemoteReconciliation: input.requestRemoteReconciliation,
       state,
     });
     if (result === "abandoned") {

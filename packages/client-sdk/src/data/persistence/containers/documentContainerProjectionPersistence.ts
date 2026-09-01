@@ -3,7 +3,10 @@ import {
   documentContainerProjection,
   documentContainerProjectionTables,
 } from "../../sqlite/schema";
-import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
+import {
+  type ClientSQLiteTransactionScope,
+  getClientSQLitePersistenceRuntime,
+} from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 
 interface DocumentContainerProjectionPersistence {
@@ -24,6 +27,7 @@ interface DocumentContainerProjectionPersistence {
     execSql: ExecSql,
     documentId: string,
     containerIds: ReadonlyArray<string>,
+    options?: { stillCurrent?: (() => boolean) | undefined },
   ) => Promise<void>;
   replaceDocumentLinksBatch: (
     execSql: ExecSql,
@@ -31,6 +35,7 @@ interface DocumentContainerProjectionPersistence {
       documentId: string;
       containerIds: ReadonlyArray<string>;
     }>,
+    options?: { stillCurrent?: (() => boolean) | undefined },
   ) => Promise<void>;
 }
 
@@ -104,13 +109,14 @@ export const sqlDocumentContainerProjectionPersistence: DocumentContainerProject
 
       return rows.map((row) => row.documentId);
     },
-    async replaceDocumentLinks(execSql, documentId, containerIds) {
+    async replaceDocumentLinks(execSql, documentId, containerIds, options) {
       await sqlDocumentContainerProjectionPersistence.replaceDocumentLinksBatch(
         execSql,
         [{ documentId, containerIds }],
+        options,
       );
     },
-    async replaceDocumentLinksBatch(execSql, inputs) {
+    async replaceDocumentLinksBatch(execSql, inputs, options) {
       await ensureSqlTables(execSql, documentContainerProjectionTables);
       const latestContainerIdsByDocumentId = new Map<
         string,
@@ -140,20 +146,24 @@ export const sqlDocumentContainerProjectionPersistence: DocumentContainerProject
           })),
       );
 
-      await getClientSQLitePersistenceRuntime(execSql).transaction(
-        async (tx) => {
-          await tx
-            .delete(documentContainerProjection)
-            .where(inArray(documentContainerProjection.documentId, documentIds))
-            .run();
+      const runtime = getClientSQLitePersistenceRuntime(execSql);
+      const replace = async (tx: ClientSQLiteTransactionScope) => {
+        await tx
+          .delete(documentContainerProjection)
+          .where(inArray(documentContainerProjection.documentId, documentIds))
+          .run();
 
-          if (projectionRows.length > 0) {
-            await tx
-              .insert(documentContainerProjection)
-              .values(projectionRows)
-              .run();
-          }
-        },
-      );
+        if (projectionRows.length > 0) {
+          await tx
+            .insert(documentContainerProjection)
+            .values(projectionRows)
+            .run();
+        }
+      };
+      if (options?.stillCurrent) {
+        await runtime.guardedTransaction(replace, options.stillCurrent);
+        return;
+      }
+      await runtime.transaction(replace);
     },
   };

@@ -4,16 +4,14 @@ import {
   type DocumentMoveIntentSyncHost,
   syncPendingDocumentMoveIntents,
 } from "../../workflows/container-contents/documentMoveIntentSync";
-import {
-  installContainerMetadataRecord,
-  syncContainerMetadataState,
-} from "../../workflows/container-contents/metadata";
+import { syncContainerMetadataState } from "../../workflows/container-contents/metadata";
 import type {
   ContainerState,
   RemoteContainerHydrationHost,
 } from "../../workflows/container-contents/remoteHydration";
 import { createContainerContentsDocumentsRuntime } from "../../workflows/container-contents/runtime";
 import { openDocumentStore, requestDomainDocumentSync } from "../documents";
+import { relinkDocumentStoreWithCommitSideEffect } from "../documents/documentStore/internalRelink";
 import { primeStoreDocuments, recoverStoreStaleRoot } from "./documentRecovery";
 import { runContainerDocumentWork } from "./documentWork";
 import {
@@ -30,6 +28,7 @@ import type {
 type ContainerContentsStorePrimeDocumentRuntime = ReturnType<
   typeof createContainerContentsDocumentsRuntime
 >;
+type SyncContainerMetadata = typeof syncContainerMetadataState;
 
 function requestContainerContentsStoreSync(
   state: ContainerContentsStoreSyncState,
@@ -74,13 +73,28 @@ function createContainerContentsStoreDocumentMoveHost(
   return {
     documentWorkflowRuntime: (containerId) =>
       createContainerContentsDocumentsRuntime(runtime, containerId),
-    openDocumentStore: ({ containerId, documentId, localId }) =>
-      openDocumentStore(
+    openDocumentStore: ({ containerId, documentId, localId }) => {
+      const store = openDocumentStore(
         domainScope,
         localId,
         createContainerContentsDocumentsRuntime(runtime, containerId),
         documentId,
-      ),
+      );
+      return {
+        assertCanRotateContentKey: () => store.assertCanRotateContentKey(),
+        ensureInitialized: () => store.ensureInitialized(),
+        relink: ({ commitSideEffect, ...input }) =>
+          commitSideEffect
+            ? relinkDocumentStoreWithCommitSideEffect(
+                store,
+                input,
+                commitSideEffect,
+              )
+            : store.relink(input),
+        requestSync: () => store.requestSync(),
+        updateRuntime: (nextRuntime) => store.updateRuntime(nextRuntime),
+      };
+    },
   };
 }
 
@@ -105,6 +119,7 @@ async function syncSingleContainerMetadata(input: {
   encapsulationKeyPair: NonNullable<
     ContainerContentsStoreRuntime["crypto"]["encapsulationKeyPair"]
   >;
+  syncContainerMetadata?: SyncContainerMetadata | undefined;
 }) {
   const { containerState, encapsulationKeyPair, host, isCurrent, state } =
     input;
@@ -117,7 +132,9 @@ async function syncSingleContainerMetadata(input: {
       readMetadataSyncSeq(state.metadataSyncSignalSeqById, metadataDocumentId),
     );
   }
-  const synced = await syncContainerMetadataState({
+  const synced = await (
+    input.syncContainerMetadata ?? syncContainerMetadataState
+  )({
     forceReadSync:
       typeof metadataDocumentId === "string" &&
       state.metadataDocumentIdsNeedingSync.has(metadataDocumentId),
@@ -161,8 +178,10 @@ async function syncSingleContainerMetadata(input: {
       });
     }
   }
-  containerState.container = synced.container;
-  installContainerMetadataRecord(containerState, synced.record);
+  // syncContainerMetadataState settles its detached candidate into this live
+  // object while preserving any metadata edit that completed or queued during
+  // the remote pass. Do not install its returned detached record again here:
+  // doing so would overwrite that preserved live edit.
   host.updateSnapshot();
 
   if (synced.shouldRequestFollowupSync) {
@@ -175,6 +194,7 @@ interface ContainerContentsStoreSyncIterationInput {
   reconcileRestoredAccess: (isCurrent: () => boolean) => Promise<void>;
   requestRemoteReconciliation: (parentContainerId: string | null) => void;
   state: ContainerContentsStoreSyncState;
+  syncContainerMetadata?: SyncContainerMetadata | undefined;
 }
 
 export async function runContainerContentsStoreSyncIteration(
@@ -221,6 +241,7 @@ export async function runContainerContentsStoreSyncIteration(
     host,
     isCurrent,
     isRemoteSyncBlocked: isOrganizationBlocked,
+    requestRemoteReconciliation,
     state,
   });
   if (!isCurrent()) {
@@ -240,6 +261,7 @@ export async function runContainerContentsStoreSyncIteration(
       host,
       isCurrent,
       state,
+      syncContainerMetadata: input.syncContainerMetadata,
     });
     if (!isCurrent()) {
       return;

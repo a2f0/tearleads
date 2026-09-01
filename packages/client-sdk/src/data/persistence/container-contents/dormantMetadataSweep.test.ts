@@ -60,6 +60,22 @@ test("sweeps preserve newer requests and post-request retentions", async () => {
       claimDormantMetadataSweepAttempt(
         execSql,
         firstSweep,
+        "2025-12-31T00:00:00.000Z",
+        () => false,
+      ),
+    ).resolves.toBe(false);
+    expect(
+      (
+        await listDormantMetadataSweepRequests(execSql, request.requesterUserId)
+      ).at(0),
+    ).toMatchObject({
+      attemptCount: 0,
+      lastAttemptedAt: null,
+    });
+    await expect(
+      claimDormantMetadataSweepAttempt(
+        execSql,
+        firstSweep,
         "2026-01-01T00:00:00.000Z",
       ),
     ).resolves.toBe(true);
@@ -115,6 +131,46 @@ test("sweeps preserve newer requests and post-request retentions", async () => {
     expect(
       await listDormantMetadataSweepRequests(execSql, "user-2"),
     ).toHaveLength(1);
+  } finally {
+    await close();
+  }
+});
+
+test("an expired generation cannot purge metadata or complete its sweep", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "dormant-metadata-sweep-expired-generation",
+  );
+  try {
+    await ensureContainerTables(execSql);
+    await execSql(
+      `INSERT INTO dormant_container_metadata
+        (container_id, organization_id, retained_at)
+       VALUES ('retained-marker', 'org-1', '2000-01-01T00:00:00.000Z')`,
+    );
+    await requestDormantMetadataRestorationSweeps(execSql, {
+      requesterUserId: "user-1",
+    });
+    const [sweep] = await listDormantMetadataSweepRequests(execSql, "user-1");
+    if (!sweep) throw new Error("Expected restoration sweep");
+
+    expect(
+      await purgeDormantContainerMetadataCandidates(
+        execSql,
+        sweep,
+        ["retained-marker"],
+        () => false,
+      ),
+    ).toBe(0);
+    await completeDormantMetadataSweepRequest(execSql, sweep, () => false);
+
+    expect(
+      await execSql(
+        "SELECT container_id FROM dormant_container_metadata ORDER BY container_id",
+      ),
+    ).toEqual([{ container_id: "retained-marker" }]);
+    expect(await listDormantMetadataSweepRequests(execSql, "user-1")).toEqual([
+      sweep,
+    ]);
   } finally {
     await close();
   }

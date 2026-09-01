@@ -112,6 +112,12 @@ export interface RemoteContainerHydrationHost {
     mutationOptions?: {
       expectedStateWhenMissing?: ContainerState | undefined;
       isCurrent?: (() => boolean) | undefined;
+      createIntentSettlement?: Parameters<
+        ContainerContentsPersistence["commitMetadataMutation"]
+      >[1]["createIntentSettlement"];
+      moveIntentSettlement?: Parameters<
+        ContainerContentsPersistence["commitMetadataMutation"]
+      >[1]["moveIntentSettlement"];
       preserveDurableStructureWhenPending?: boolean | undefined;
     },
   ) => Promise<PersistContainerStateResult>;

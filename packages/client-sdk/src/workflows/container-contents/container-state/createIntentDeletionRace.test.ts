@@ -10,6 +10,7 @@ import { createMemoryBlobStore } from "../../../data/blobs/memoryBlobStore";
 import { createContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { createDomainScope } from "../../../data/domainScope";
+import { ContainerCreateIntentSupersededError } from "../../../data/persistence/container-contents/containerIntentPersistence";
 import {
   type ContainerCreateIntentRecord,
   defaultContainerContentsPersistence,
@@ -25,6 +26,7 @@ async function runCreatePersistenceOutcome(
     | "identity-superseded"
     | "intent-superseded"
     | "missing"
+    | "planning-stale"
     | "response-stale"
     | "settlement-stale"
     | "stale-generation",
@@ -36,8 +38,10 @@ async function runCreatePersistenceOutcome(
     `container-create-intent-${persistenceStatus}-race`,
   );
   const deletedRemoteIds: string[] = [];
+  let remoteCreateCount = 0;
   const apiClient = createMockApiClient({
     createContainerWithMetadataDocument: async (request) => {
+      remoteCreateCount += 1;
       const response = {
         container: await createMutationResponseFromRequest(request.container),
         metadataDocument: await createResponseFromRequest(
@@ -54,8 +58,15 @@ async function runCreatePersistenceOutcome(
         deletedAt: "2026-08-24T00:00:00.000Z",
       };
     },
-    getContainerWriterProjection: async (containerId) =>
-      containerId === parentContainerId ? parent.projection : null,
+    getContainerWriterProjection: async (containerId) => {
+      if (
+        persistenceStatus === "planning-stale" &&
+        containerId === parentContainerId
+      ) {
+        current = false;
+      }
+      return containerId === parentContainerId ? parent.projection : null;
+    },
   });
   const runtime = createContainerContentsWorkflowRuntime({
     apiClient,
@@ -161,12 +172,16 @@ async function runCreatePersistenceOutcome(
         if (persistenceStatus === "stale-generation") {
           return { status: "stale-generation" };
         }
-        if (
-          persistenceStatus === "deleted-during-settlement" ||
-          persistenceStatus === "settlement-stale" ||
-          persistenceStatus === "intent-superseded"
-        ) {
-          return { record: childState.record, status: "persisted" };
+        if (persistenceStatus === "deleted-during-settlement") {
+          deleteContainerFromState();
+          return { status: "missing" };
+        }
+        if (persistenceStatus === "settlement-stale") {
+          current = false;
+          return { status: "stale-generation" };
+        }
+        if (persistenceStatus === "intent-superseded") {
+          throw new ContainerCreateIntentSupersededError();
         }
         return {
           record: childState.record,
@@ -190,6 +205,7 @@ async function runCreatePersistenceOutcome(
       deletedRemoteIds,
       originalContainer,
       reconciliationRequests,
+      remoteCreateCount,
       syncedIntents,
     };
   } finally {
@@ -234,12 +250,20 @@ test("a generation change after remote create requests replacement hydration", a
   ]);
 });
 
+test("a generation change during create planning prevents the remote create", async () => {
+  const stale = await runCreatePersistenceOutcome("planning-stale");
+
+  expect(stale.createdCount).toBe(0);
+  expect(stale.remoteCreateCount).toBe(0);
+  expect(stale.childState.container).toEqual(stale.originalContainer);
+});
+
 test("a generation change during create intent settlement leaves the live projection unchanged", async () => {
   const stale = await runCreatePersistenceOutcome("settlement-stale");
 
   expect(stale.createdCount).toBe(0);
   expect(stale.childState.container).toEqual(stale.originalContainer);
-  expect(stale.syncedIntents).toEqual([stale.childContainerId]);
+  expect(stale.syncedIntents).toEqual([]);
   expect(stale.reconciliationRequests).toEqual([
     stale.childState.container.parentId,
   ]);
@@ -250,7 +274,7 @@ test("an overtaking create intent prevents stale live-state installation", async
 
   expect(overtaken.createdCount).toBe(0);
   expect(overtaken.childState.container).toEqual(overtaken.originalContainer);
-  expect(overtaken.syncedIntents).toEqual([overtaken.childContainerId]);
+  expect(overtaken.syncedIntents).toEqual([]);
   expect(overtaken.deletedRemoteIds).toEqual([]);
 });
 
@@ -261,5 +285,5 @@ test("a local delete during create settlement discards the remote container", as
 
   expect(deleted.createdCount).toBe(0);
   expect(deleted.deletedRemoteIds).toEqual([deleted.childContainerId]);
-  expect(deleted.syncedIntents).toEqual([deleted.childContainerId]);
+  expect(deleted.syncedIntents).toEqual([]);
 });

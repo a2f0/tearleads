@@ -62,7 +62,6 @@ function resolveContainerSystemSlot(
 ): NonNullable<ContainerRecord["systemSlot"]> | null {
   return patch.systemSlot ?? container.systemSlot ?? null;
 }
-
 function resolveMetadataDocumentId(
   patch: Partial<ContainerMetadataPatch>,
   container: ContainerRecord,
@@ -71,7 +70,6 @@ function resolveMetadataDocumentId(
     patch.metadataDocumentId ?? patch.documentId ?? container.metadataDocumentId
   );
 }
-
 function resolveNullableContainerMetadataDocumentField(
   patch: Partial<ContainerMetadataPatch>,
   key: NullableContainerMetadataDocumentField,
@@ -81,7 +79,6 @@ function resolveNullableContainerMetadataDocumentField(
   if (Object.hasOwn(patch, key)) return patch[key] ?? null;
   return resetWhenUnpatched ? null : (currentValue ?? null);
 }
-
 function invalidateMetadataWriterProjection(
   metadataState: ContainerMetadataState,
   securityContextChanged: boolean,
@@ -90,7 +87,6 @@ function invalidateMetadataWriterProjection(
     metadataState.metadataWriterProjection = null;
   }
 }
-
 function resolveMetadataPullState(
   metadataState: ContainerMetadataState,
   patch: Partial<ContainerMetadataPatch>,
@@ -110,7 +106,6 @@ function resolveMetadataPullState(
   }
   return { pullContinuation: currentMetadataPullContinuation(metadataState) };
 }
-
 function buildContainerMetadataRecord(input: {
   metadataState: ContainerMetadataState;
   patch: Partial<ContainerMetadataPatch>;
@@ -222,11 +217,16 @@ async function settleSupersededMetadataMutation(input: {
       : {}),
   };
 }
-
 async function persistPreparedMetadataMutation(input: {
   clearSyncFailure?: boolean | undefined;
+  createIntentSettlement?: Parameters<
+    ContainerContentsPersistence["commitMetadataMutation"]
+  >[1]["createIntentSettlement"];
   execSql: ExecSql;
   metadataState: ContainerMetadataState;
+  moveIntentSettlement?: Parameters<
+    ContainerContentsPersistence["commitMetadataMutation"]
+  >[1]["moveIntentSettlement"];
   persistence: ContainerContentsPersistence;
   prepared: ApplicableContainerMetadataMutation;
   acceptedPendingUpdateIds?: readonly string[] | undefined;
@@ -286,8 +286,10 @@ async function persistPreparedMetadataMutation(input: {
     acceptedPendingUpdateIds: input.acceptedPendingUpdateIds ?? [],
     clearSyncFailure: input.clearSyncFailure,
     container: nextContainer,
+    createIntentSettlement: input.createIntentSettlement,
     expectedContainer: prepared.mutationContainer,
     expectedRecord: prepared.durableRecord,
+    moveIntentSettlement: input.moveIntentSettlement,
     pendingUpdate,
     preserveDurableStructureWhenPending:
       input.preserveDurableStructureWhenPending,
@@ -312,7 +314,6 @@ async function persistPreparedMetadataMutation(input: {
   );
   return { container: committed.container, record: nextRecord };
 }
-
 async function adoptMetadataCommitConflict(input: {
   currentState: Awaited<
     ReturnType<ContainerContentsPersistence["loadContainerMetadataState"]>
@@ -378,8 +379,10 @@ async function persistContainerMetadataState(
       const persisted = await persistPreparedMetadataMutation({
         acceptedPendingUpdateIds: input.acceptedPendingUpdateIds,
         clearSyncFailure: input.clearSyncFailure,
+        createIntentSettlement: input.createIntentSettlement,
         execSql: lockedExecSql,
         metadataState: input.metadataState,
+        moveIntentSettlement: input.moveIntentSettlement,
         persistence: input.persistence,
         prepared,
         preserveDurableStructureWhenPending:
@@ -438,7 +441,6 @@ export async function persistContainerMetadataStateFromRuntime(
   return persisted;
 }
 
-// Apply a metadata patch and persist the incremental update it produces.
 async function writeContainerMetadataPatch(input: {
   execSql: ExecSql;
   metadataState: ContainerMetadataState;
@@ -492,7 +494,6 @@ export async function setContainerIconMetadataStateFromRuntime(input: {
   return writeContainerMetadataPatch({
     execSql: input.runtime.infra.execSql,
     metadataState: input.metadataState,
-    // Null removes the icon key and restores the default folder.
     patch: { icon: input.icon?.trim() || null },
     persistence: input.persistence,
   });

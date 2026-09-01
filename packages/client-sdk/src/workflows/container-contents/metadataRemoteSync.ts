@@ -147,6 +147,7 @@ export async function syncRemoteContainerMetadata(
       runtime,
       writerKeyLabel: "metadata writer key",
     }),
+    stillCurrent: isCurrent,
     targetSecretKey: input.targetSecretKey,
     warmReferencedPrincipalPolicies:
       createRuntimePrincipalPolicyWarmer(runtime),

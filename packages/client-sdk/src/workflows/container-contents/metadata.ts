@@ -351,6 +351,7 @@ async function finalizeContainerMetadataSync(input: {
     metadataState.metadataWriterProjection = null;
     return { missing: true };
   }
+  metadataState.container = persisted.container;
   installContainerMetadataRecord(metadataState, persisted.record);
   if (persisted.pullContinuationSuperseded) {
     // The response's accepted IDs were not durably settled. Treat every

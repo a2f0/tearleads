@@ -211,6 +211,7 @@ interface RemoteDocumentCreateInput {
   onTerminalSubmitFailure?: DocumentCreateTerminalFailureHandler | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
+  stillCurrent?: (() => boolean) | undefined;
   targetSecretKey: Uint8Array;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }
@@ -249,6 +250,7 @@ async function submitPlannedDocumentCreate(
     return null;
   }
 
+  if (input.stillCurrent?.() === false) return null;
   let submission = await submitDocumentCreate(
     input.apiClient,
     createPlan.materializedPlan.plan.request,
@@ -288,6 +290,7 @@ async function submitPlannedDocumentCreate(
       return null;
     }
     createPlan = refreshedPlan;
+    if (input.stillCurrent?.() === false) return null;
     submission = await submitDocumentCreate(
       input.apiClient,
       createPlan.materializedPlan.plan.request,
@@ -312,6 +315,7 @@ export async function createRemoteDocument(
     return null;
   }
   const { createPlan, submission } = plannedSubmission;
+  if (input.stillCurrent?.() === false) return null;
   if (submission.ok) {
     const response = submission.data;
     const persistedState = persistedDocumentCreateStateFromResponse(
@@ -321,6 +325,7 @@ export async function createRemoteDocument(
     await acknowledgeDocumentMutation({
       execSql: input.execSql,
       plan: createPlan.materializedPlan.plan,
+      stillCurrent: input.stillCurrent,
     });
     const writerProjection = documentWriterProjectionFromCreateResponse({
       containerProjection: createPlan.containerProjection,
@@ -331,6 +336,7 @@ export async function createRemoteDocument(
       resolveProjectionUserKey,
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
+    if (input.stillCurrent?.() === false) return null;
     // Seed the projection the create response already gave us so the first read
     // after create (sync, blob attach, container-contents hydration) resolves
     // locally instead of a cold GET writer-projection.
@@ -355,6 +361,7 @@ export async function createRemoteDocument(
   // document instead of leaking a duplicate. Requires the stable id we sent, so
   // we can fetch its projection back.
   if (input.documentId && isDocumentManifestAlreadyExistsConflict(submission)) {
+    if (input.stillCurrent?.() === false) return null;
     const adopted = await adoptExistingRemoteDocument({
       apiClient: input.apiClient,
       documentId: input.documentId,

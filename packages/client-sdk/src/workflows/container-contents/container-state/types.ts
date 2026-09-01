@@ -154,5 +154,6 @@ export interface ContainerMoveIntentSyncInput {
   isCurrent: () => boolean;
   isRemoteSyncBlocked: (organizationId: string) => boolean;
   intent: ContainerMoveIntentRecord;
+  requestRemoteReconciliation: (parentContainerId: string | null) => void;
   state: ContainerMoveIntentSyncState;
 }

@@ -20,11 +20,12 @@ test("recording a create intent error stamps the attempt time", async () => {
       await sqlContainerContentsPersistence.listPendingCreateIntents(execSql);
     expect(before?.lastAttemptedAt).toBeNull();
 
-    await sqlContainerContentsPersistence.recordCreateIntentError(
-      execSql,
-      "container-1",
-      "create refused",
-    );
+    await sqlContainerContentsPersistence.recordCreateIntentError(execSql, {
+      containerId: "container-1",
+      expectedIntentId: "intent-1",
+      expectedUpdatedAt: "2026-01-01T00:00:00.000Z",
+      message: "create refused",
+    });
 
     const [after] =
       await sqlContainerContentsPersistence.listPendingCreateIntents(execSql);
@@ -51,6 +52,7 @@ test("create intent settlement reports overtaking and generation races", async (
     );
     const settlement = {
       containerId: "container-1",
+      expectedIntentId: "intent-1",
       expectedUpdatedAt: "2026-01-01T00:00:00.000Z",
       remoteContainerId: "container-1",
       remoteMetadataAccessStateHash: "access-state-1",
@@ -79,6 +81,114 @@ test("create intent settlement reports overtaking and generation races", async (
     expect(
       await sqlContainerContentsPersistence.listPendingCreateIntents(execSql),
     ).toEqual([]);
+  } finally {
+    close();
+  }
+});
+
+test("an overtaking same-tick create rolls stale metadata settlement back", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "container-create-intent-atomic-settlement",
+  );
+  const sameUpdatedAt = "2026-09-01T00:00:00.000Z";
+  const record = {
+    accessEpoch: 1,
+    accessStateHash: "local-access",
+    documentId: "local-metadata",
+    id: "child-atomic-create",
+    metadataUpdates: "",
+    snapshotEndVersion: "",
+  };
+  const container = {
+    effectiveAccessLevel: "admin" as const,
+    icon: null,
+    id: record.id,
+    metadataDocumentId: record.documentId,
+    name: "Child",
+    organizationId: "org-1",
+    parentId: "stale-parent",
+  };
+
+  try {
+    await sqlContainerContentsPersistence.ensureSchema(execSql);
+    await sqlContainerContentsPersistence.saveContainer(
+      execSql,
+      container,
+      record,
+      {
+        createIntent: { parentContainerId: "stale-parent" },
+        localUpdatedAt: sameUpdatedAt,
+      },
+    );
+    const [staleIntent] =
+      await sqlContainerContentsPersistence.listPendingCreateIntents(execSql);
+    if (!staleIntent) throw new Error("missing stale create intent");
+
+    await sqlContainerContentsPersistence.saveContainer(
+      execSql,
+      { ...container, parentId: "winning-parent" },
+      record,
+      {
+        createIntent: { parentContainerId: "winning-parent" },
+        localUpdatedAt: sameUpdatedAt,
+      },
+    );
+    const [winningIntent] =
+      await sqlContainerContentsPersistence.listPendingCreateIntents(execSql);
+    const current =
+      await sqlContainerContentsPersistence.loadContainerMetadataState(
+        execSql,
+        container.id,
+      );
+    expect(winningIntent?.updatedAt).toBe(staleIntent.updatedAt);
+    expect(winningIntent?.id).not.toBe(staleIntent.id);
+    if (!current?.record || !winningIntent) return;
+
+    await expect(
+      sqlContainerContentsPersistence.commitMetadataMutation(execSql, {
+        acceptedPendingUpdateIds: [],
+        container: {
+          ...current.container,
+          metadataDocumentId: "remote-metadata",
+          parentId: "stale-parent",
+        },
+        createIntentSettlement: {
+          containerId: staleIntent.containerId,
+          expectedIntentId: staleIntent.id,
+          expectedUpdatedAt: staleIntent.updatedAt,
+          remoteContainerId: staleIntent.containerId,
+          remoteMetadataAccessStateHash: "remote-access",
+          remoteMetadataDocumentId: "remote-metadata",
+        },
+        expectedContainer: current.container,
+        expectedRecord: current.record,
+        record: {
+          ...current.record,
+          accessEpoch: 1,
+          accessStateHash: "remote-access",
+          documentId: "remote-metadata",
+        },
+        settleAcceptedPendingOnConflict: false,
+      }),
+    ).rejects.toThrow("superseded before local settlement");
+
+    const durable =
+      await sqlContainerContentsPersistence.loadContainerMetadataState(
+        execSql,
+        container.id,
+      );
+    expect(durable?.container.parentId).toBe("winning-parent");
+    expect(durable?.container.metadataDocumentId).toBe(record.documentId);
+    expect(durable?.record).toMatchObject(record);
+    expect(
+      await sqlContainerContentsPersistence.listPendingCreateIntents(execSql),
+    ).toEqual([
+      expect.objectContaining({
+        id: winningIntent.id,
+        parentContainerId: "winning-parent",
+        syncStatus: "pending",
+      }),
+    ]);
   } finally {
     close();
   }

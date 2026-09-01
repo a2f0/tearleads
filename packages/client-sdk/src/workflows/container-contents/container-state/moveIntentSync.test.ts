@@ -142,6 +142,7 @@ test("pending container move sync records per-intent failures and continues", as
     },
     isCurrent: () => true,
     isRemoteSyncBlocked: () => false,
+    requestRemoteReconciliation: () => {},
     state: createMoveIntentSyncState({ containersById, persistence }),
   });
 
@@ -188,6 +189,7 @@ test("container move sync propagates identity failures without recording a retry
       },
       isCurrent: () => current,
       isRemoteSyncBlocked: () => false,
+      requestRemoteReconciliation: () => {},
       state: createMoveIntentSyncState({
         containersById,
         incidents,
@@ -269,6 +271,7 @@ test("a blocked organization does not prevent another organization's move from s
       checkedOrganizations.push(organizationId);
       return organizationId === "custom-organization";
     },
+    requestRemoteReconciliation: () => {},
     state: createMoveIntentSyncState({ containersById, persistence }),
   });
 
@@ -322,6 +325,7 @@ test("a move whose source is not synced yet stays pending and retryable", async 
     },
     isCurrent: () => true,
     isRemoteSyncBlocked: () => false,
+    requestRemoteReconciliation: () => {},
     state: createMoveIntentSyncState({ containersById, persistence }),
   });
 
@@ -370,6 +374,7 @@ test("an accepted remote move is not settled when local persistence observes del
       parentId: "parent",
       updatedAt: "2026-05-31T00:01:00.000Z",
     },
+    requestRemoteReconciliation: () => {},
     state,
   });
 
@@ -387,6 +392,7 @@ test("a generation change during move persistence cannot settle on a replacement
     throw new Error("persistence promise was not initialized");
   };
   let persistedGuard: (() => boolean) | undefined;
+  const reconciledParentIds: Array<string | null> = [];
   let settled = false;
   const persistence: ContainerMoveIntentSyncState["persistence"] = {
     ...defaultContainerContentsPersistence,
@@ -434,6 +440,9 @@ test("a generation change during move persistence cannot settle on a replacement
       parentId: "parent",
       updatedAt: "2026-05-31T00:01:00.000Z",
     },
+    requestRemoteReconciliation: (parentId) => {
+      reconciledParentIds.push(parentId);
+    },
     state,
   });
 
@@ -448,51 +457,6 @@ test("a generation change during move persistence cannot settle on a replacement
   await expect(persisted).resolves.toBe(false);
   expect(persistedGuard?.()).toBe(false);
   expect(settled).toBe(false);
-  expect(child.container).toEqual(originalContainer);
-});
-
-test("a generation change during move intent settlement leaves the live projection unchanged", async () => {
-  const child = createTestContainerState({ id: "child", parentId: "root" });
-  child.doc = await createContainerMetadataDocument(child.container.id);
-  const originalContainer = { ...child.container };
-  let current = true;
-  const persistence: ContainerMoveIntentSyncState["persistence"] = {
-    ...defaultContainerContentsPersistence,
-    markMoveIntentSynced: async (_execSql, input) => {
-      current = false;
-      return input.stillCurrent();
-    },
-  };
-  const state = createMoveIntentSyncState({
-    containersById: new Map([["child", child]]),
-    persistence,
-  });
-
-  await expect(
-    persistAcceptedMoveIntent({
-      host: {
-        persistContainerState: async () => ({
-          record: child.record,
-          status: "persisted",
-        }),
-        updateSnapshot: () => {},
-      },
-      isCurrent: () => current,
-      intent: moveIntentRecord({ containerId: "child" }),
-      moved: {
-        createdAt: "2026-05-31T00:00:00.000Z",
-        effectiveAccessLevel: "admin",
-        id: "child",
-        metadataAccessEpoch: 2,
-        metadataAccessStateHash: "access-after-move",
-        metadataDocumentId: "metadata-after-move",
-        metadataReferencedPrincipals: [],
-        organizationId: "organization",
-        parentId: "parent",
-        updatedAt: "2026-05-31T00:01:00.000Z",
-      },
-      state,
-    }),
-  ).resolves.toBe(false);
+  expect(reconciledParentIds).toEqual(["parent"]);
   expect(child.container).toEqual(originalContainer);
 });

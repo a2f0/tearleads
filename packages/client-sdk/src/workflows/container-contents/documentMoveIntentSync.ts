@@ -190,6 +190,7 @@ async function movePendingDocumentIntent<TRuntime>(input: {
       input.existingContainerId ??
       input.intent.targetContainerId,
     documentId: input.intent.documentId,
+    isCurrent: input.isCurrent,
     noteId: input.intent.localId,
     onFailure: input.onFailure,
     replaceLinkedContainers: input.intent.replaceLinkedContainers,

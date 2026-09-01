@@ -5,6 +5,7 @@ import { getContainerContentsStoreLogLabel } from "./logLabel";
 import { updateContainerContentsSnapshot } from "./state";
 import type { ContainerState } from "./syncAgent";
 import type { ContainerContentsStoreState } from "./types";
+import type { ContainerWriteGuard } from "./writeGeneration";
 
 type ContainerPurgeResult = NonNullable<
   Awaited<ReturnType<typeof purgeContainerTree>>
@@ -19,6 +20,7 @@ export async function runContainerPurge(
   state: ContainerContentsStoreState,
   containerId: string,
   options: PurgeOptions | undefined,
+  isCurrent: ContainerWriteGuard,
   operation: {
     describeResult: (
       target: ContainerState,
@@ -61,7 +63,7 @@ export async function runContainerPurge(
     runtime: state.runtime,
     signal: options?.signal,
   });
-  if (!result) {
+  if (!result || !isCurrent()) {
     return false;
   }
 

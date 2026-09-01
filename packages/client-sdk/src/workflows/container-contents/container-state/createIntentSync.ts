@@ -1,5 +1,6 @@
 import { errorMessage } from "../../../data/errorMessage";
 import { reportAndRethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
+import { ContainerCreateIntentSupersededError } from "../../../data/persistence/container-contents/containerIntentPersistence";
 import {
   createDetachedContainerMetadataState,
   installDetachedContainerMetadataState,
@@ -59,8 +60,12 @@ async function recordContainerCreateFailure(input: {
   }
   await input.state.persistence.recordCreateIntentError(
     input.state.runtime.infra.execSql,
-    input.intent.containerId,
-    `Remote container create failed: ${errorMessage(input.error)}`,
+    {
+      containerId: input.intent.containerId,
+      expectedIntentId: input.intent.id,
+      expectedUpdatedAt: input.intent.updatedAt,
+      message: `Remote container create failed: ${errorMessage(input.error)}`,
+    },
   );
   return currentCreateResult(input.isCurrent, "failed");
 }
@@ -85,6 +90,7 @@ async function markContainerContentsContainerCreateIntentAlreadySynced(input: {
 
   const settled = await state.persistence.markCreateIntentSynced(execSql, {
     containerId: intent.containerId,
+    expectedIntentId: intent.id,
     expectedUpdatedAt: intent.updatedAt,
     remoteContainerId: containerState.container.id,
     remoteMetadataAccessStateHash,
@@ -125,31 +131,49 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
     updatedAt: created.updatedAt,
   };
 
-  const persistenceResult = await host.persistContainerState(
-    persistenceCandidate,
-    {
-      accessEpoch: 1,
-      accessStateHash: created.accessManifestHash,
-      lastCommitLsn: null,
-      metadataDocumentId: created.metadataDocumentId,
-      systemSlot:
-        created.systemSlot ?? containerState.container.systemSlot ?? null,
-      organizationId: created.organizationId,
-      parentId: created.parentId,
-      ...created.persistedMetadataState,
-    },
-    false,
-    {
-      serverTimestamps: {
-        createdAt: created.createdAt,
-        updatedAt: created.updatedAt,
+  let persistenceResult: Awaited<
+    ReturnType<ContainerCreateIntentSyncHost["persistContainerState"]>
+  >;
+  try {
+    persistenceResult = await host.persistContainerState(
+      persistenceCandidate,
+      {
+        accessEpoch: 1,
+        accessStateHash: created.accessManifestHash,
+        lastCommitLsn: null,
+        metadataDocumentId: created.metadataDocumentId,
+        systemSlot:
+          created.systemSlot ?? containerState.container.systemSlot ?? null,
+        organizationId: created.organizationId,
+        parentId: created.parentId,
+        ...created.persistedMetadataState,
       },
-    },
-    {
-      expectedStateWhenMissing: containerState,
-      isCurrent: input.isCurrent,
-    },
-  );
+      false,
+      {
+        serverTimestamps: {
+          createdAt: created.createdAt,
+          updatedAt: created.updatedAt,
+        },
+      },
+      {
+        createIntentSettlement: {
+          containerId: intent.containerId,
+          expectedIntentId: intent.id,
+          expectedUpdatedAt: intent.updatedAt,
+          remoteContainerId: created.containerId,
+          remoteMetadataAccessStateHash: created.accessManifestHash,
+          remoteMetadataDocumentId: created.metadataDocumentId,
+        },
+        expectedStateWhenMissing: containerState,
+        isCurrent: input.isCurrent,
+      },
+    );
+  } catch (error) {
+    if (error instanceof ContainerCreateIntentSupersededError) {
+      return "intent-superseded";
+    }
+    throw error;
+  }
   if (!input.isCurrent() || persistenceResult.status === "stale-generation") {
     return "abandoned";
   }
@@ -157,21 +181,10 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
     return persistenceResult.status;
   }
   const { record: nextRecord } = persistenceResult;
-  const execSql = state.runtime.infra.execSql;
-
-  const settled = await state.persistence.markCreateIntentSynced(execSql, {
-    containerId: intent.containerId,
-    expectedUpdatedAt: intent.updatedAt,
-    remoteContainerId: created.containerId,
-    remoteMetadataAccessStateHash: created.accessManifestHash,
-    remoteMetadataDocumentId: created.metadataDocumentId,
-    stillCurrent: input.isCurrent,
-  });
   if (!input.isCurrent()) return "abandoned";
   const currentContainerState = state.containersById.get(intent.containerId);
   if (!currentContainerState) return "missing";
   if (currentContainerState !== containerState) return "identity-superseded";
-  if (!settled) return "intent-superseded";
 
   installDetachedContainerMetadataState(containerState, persistenceCandidate, {
     candidateRecord: nextRecord,
@@ -233,8 +246,12 @@ async function settleRemoteContainerCreate(input: {
   if (!created) {
     await state.persistence.recordCreateIntentError(
       state.runtime.infra.execSql,
-      intent.containerId,
-      "Remote container create was rejected or unavailable",
+      {
+        containerId: intent.containerId,
+        expectedIntentId: intent.id,
+        expectedUpdatedAt: intent.updatedAt,
+        message: "Remote container create was rejected or unavailable",
+      },
     );
     return currentCreateResult(syncInput.isCurrent, "failed");
   }
@@ -303,6 +320,7 @@ async function createPendingRemoteContainer(input: {
       parentContainerId: parentState.container.id,
       resolveProjectionUserKey: state.resolveProjectionUserKey,
       runtime: state.runtime,
+      stillCurrent: syncInput.isCurrent,
     });
   } catch (error) {
     return recordContainerCreateFailure({
@@ -332,11 +350,12 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
 
   if (!containerState || !parentState) {
     const execSql = state.runtime.infra.execSql;
-    await state.persistence.recordCreateIntentError(
-      execSql,
-      intent.containerId,
-      "Container create intent references a missing local container",
-    );
+    await state.persistence.recordCreateIntentError(execSql, {
+      containerId: intent.containerId,
+      expectedIntentId: intent.id,
+      expectedUpdatedAt: intent.updatedAt,
+      message: "Container create intent references a missing local container",
+    });
     return currentCreateResult(input.isCurrent, "failed");
   }
 

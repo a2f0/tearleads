@@ -29,12 +29,14 @@ import type {
   EnsureSystemContainerOptions,
 } from "./types";
 import { isContainerInSubtree, toContainerNode } from "./utils";
+import type { ContainerWriteGuard } from "./writeGeneration";
 
 export async function createChildContainer(
   state: ContainerContentsStoreState,
   syncAgent: ContainerContentsStoreSyncAgent,
   parentId: string,
   name: string,
+  isCurrent: ContainerWriteGuard = () => true,
 ) {
   const trimmedName = name.trim();
   if (
@@ -58,7 +60,7 @@ export async function createChildContainer(
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     runtime: state.runtime,
   });
-  if (!created) return null;
+  if (!created || !isCurrent()) return null;
 
   state.containersById.set(
     created.containerState.container.id,
@@ -79,6 +81,7 @@ async function updateExistingSystemContainer(
   syncAgent: ContainerContentsStoreSyncAgent,
   existing: ContainerState,
   options: EnsureSystemContainerOptions,
+  isCurrent: ContainerWriteGuard,
 ) {
   if ("icon" in options) {
     const iconApplied = await applySystemContainerIcon({
@@ -93,12 +96,14 @@ async function updateExistingSystemContainer(
             true,
             undefined,
             { localMetadataPatch: { icon }, localUpdate: update },
+            { isCurrent },
           )
         ).status,
       state,
       syncAgent,
+      isCurrent,
     });
-    if (!iconApplied) {
+    if (!iconApplied || !isCurrent()) {
       return null;
     }
   }
@@ -108,15 +113,24 @@ async function updateExistingSystemContainer(
     options,
     persistCreateIntent: async (containerState, parentContainerId) =>
       (
-        await persistContainerState(state, containerState, {}, true, {
-          createIntent: { parentContainerId },
-        })
+        await persistContainerState(
+          state,
+          containerState,
+          {},
+          true,
+          {
+            createIntent: { parentContainerId },
+          },
+          undefined,
+          { isCurrent },
+        )
       ).status === "persisted",
     rootState: findRootContainerState(state),
     state,
     syncAgent,
+    isCurrent,
   });
-  return promoted ? toContainerNode(existing) : null;
+  return promoted && isCurrent() ? toContainerNode(existing) : null;
 }
 
 function canEnsureSystemContainer(
@@ -128,52 +142,79 @@ function canEnsureSystemContainer(
   );
 }
 
+async function findOrHydrateSystemContainer(input: {
+  isCurrent: ContainerWriteGuard;
+  state: ContainerContentsStoreState;
+  syncAgent: ContainerContentsStoreSyncAgent;
+  systemSlot: ContainerSystemSlot;
+}): Promise<ContainerState | null> {
+  const { isCurrent, state, syncAgent, systemSlot } = input;
+  const existing = findSystemContainerStateForRoot(
+    state,
+    systemSlot,
+    findRootContainerState(state),
+  );
+  if (
+    existing ||
+    !state.runtime.auth.isAuthenticated ||
+    !state.runtime.state.online
+  ) {
+    return existing;
+  }
+  await probeExistingSystemContainer({
+    logLabel: getContainerContentsStoreLogLabel(state),
+    rootState: findRootContainerState(state),
+    state,
+    syncAgent,
+    systemSlot,
+  });
+  return isCurrent()
+    ? findSystemContainerStateForRoot(
+        state,
+        systemSlot,
+        findRootContainerState(state),
+      )
+    : null;
+}
+
 export async function ensureSystemContainer(
   state: ContainerContentsStoreState,
   syncAgent: ContainerContentsStoreSyncAgent,
   systemSlot: ContainerSystemSlot,
   name: string,
   options: EnsureSystemContainerOptions = {},
+  isCurrent: ContainerWriteGuard = () => true,
 ) {
   const trimmedName = name.trim();
   if (!canEnsureSystemContainer(state, trimmedName)) {
     return null;
   }
 
-  let rootState = findRootContainerState(state);
-  const existing = findSystemContainerStateForRoot(
-    state,
-    systemSlot,
-    rootState,
-  );
-  if (existing) {
-    return updateExistingSystemContainer(state, syncAgent, existing, options);
-  }
-
   const allowSynchronousRemoteBootstrap = !options.deferRemoteBootstrap;
-  if (
-    state.runtime.auth.isAuthenticated &&
-    state.runtime.state.online &&
-    allowSynchronousRemoteBootstrap
-  ) {
-    await probeExistingSystemContainer({
-      logLabel: getContainerContentsStoreLogLabel(state),
-      rootState: findRootContainerState(state),
+  const existing = allowSynchronousRemoteBootstrap
+    ? await findOrHydrateSystemContainer({
+        isCurrent,
+        state,
+        syncAgent,
+        systemSlot,
+      })
+    : findSystemContainerStateForRoot(
+        state,
+        systemSlot,
+        findRootContainerState(state),
+      );
+  if (!isCurrent()) return null;
+  if (existing) {
+    return updateExistingSystemContainer(
       state,
       syncAgent,
-      systemSlot,
-    });
-    rootState = findRootContainerState(state);
-    const hydrated = findSystemContainerStateForRoot(
-      state,
-      systemSlot,
-      rootState,
+      existing,
+      options,
+      isCurrent,
     );
-    if (hydrated) {
-      return updateExistingSystemContainer(state, syncAgent, hydrated, options);
-    }
   }
 
+  const rootState = findRootContainerState(state);
   if (!rootState) {
     return null;
   }
@@ -201,7 +242,7 @@ export async function ensureSystemContainer(
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     runtime: state.runtime,
   });
-  if (!created) return null;
+  if (!created || !isCurrent()) return null;
 
   const finalized = await finalizeCreatedSystemContainer({
     created,
@@ -209,13 +250,16 @@ export async function ensureSystemContainer(
     state,
     syncAgent,
     systemSlot,
+    isCurrent,
   });
+  if (!finalized || !isCurrent()) return null;
   if (finalized.adopted) {
     const updated = await updateExistingSystemContainer(
       state,
       syncAgent,
       finalized.containerState,
       options,
+      isCurrent,
     );
     if (!updated) return null;
   }
@@ -226,6 +270,7 @@ export async function deleteContainer(
   state: ContainerContentsStoreState,
   syncAgent: ContainerContentsStoreSyncAgent,
   containerId: string,
+  isCurrent: ContainerWriteGuard = () => true,
 ) {
   if (state.runtime.infra.dbStatus !== "ready" || !state.snapshot.ready) {
     return null;
@@ -256,7 +301,7 @@ export async function deleteContainer(
     persistence: state.persistence,
     runtime: state.runtime,
   });
-  if (!deleted) {
+  if (!deleted || !isCurrent()) {
     return null;
   }
 
@@ -278,6 +323,7 @@ export async function renameContainer(
   syncAgent: ContainerContentsStoreSyncAgent,
   containerId: string,
   name: string,
+  isCurrent: ContainerWriteGuard = () => true,
 ) {
   const trimmedName = name.trim();
   if (
@@ -303,6 +349,7 @@ export async function renameContainer(
     persistence: state.persistence,
     runtime: state.runtime,
   });
+  if (!isCurrent()) return null;
   if (!renamed) {
     removeMissingContainerState(state, existingState);
     return null;
@@ -323,6 +370,7 @@ export async function moveContainer(
   syncAgent: ContainerContentsStoreSyncAgent,
   containerId: string,
   parentId: string,
+  isCurrent: ContainerWriteGuard = () => true,
 ) {
   if (state.runtime.infra.dbStatus !== "ready" || !state.snapshot.ready) {
     return null;
@@ -355,8 +403,10 @@ export async function moveContainer(
       {
         createIntent: { parentContainerId: parentId },
       },
+      undefined,
+      { isCurrent },
     );
-    if (persisted.status !== "persisted") return null;
+    if (persisted.status !== "persisted" || !isCurrent()) return null;
     syncAgent.scheduleSync();
     state.runtime.util.log(
       `${getContainerContentsStoreLogLabel(state)}: moved container ${containerId} under ${parentId}`,
@@ -375,8 +425,10 @@ export async function moveContainer(
         previousParentContainerId: previousParentId,
       },
     },
+    undefined,
+    { isCurrent },
   );
-  if (persisted.status !== "persisted") return null;
+  if (persisted.status !== "persisted" || !isCurrent()) return null;
   syncAgent.scheduleSync();
   state.runtime.util.log(
     `${getContainerContentsStoreLogLabel(state)}: queued container move ${containerId} under ${parentId}`,

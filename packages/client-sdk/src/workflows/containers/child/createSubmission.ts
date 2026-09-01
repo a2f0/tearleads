@@ -39,6 +39,7 @@ export interface RemoteContainerCreateInput {
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   signedAt?: string | undefined;
+  stillCurrent?: (() => boolean) | undefined;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }
 
@@ -53,6 +54,7 @@ type ContainerCreateFailureRepair =
 export async function submitRemoteContainerCreate(input: {
   readonly apiClient: ContainerCreateApi;
   readonly plan: ContainerCreatePlan;
+  readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<
   | {
       readonly ok: true;
@@ -61,6 +63,7 @@ export async function submitRemoteContainerCreate(input: {
   | ContainerMutationSubmitFailure
   | null
 > {
+  if (input.stillCurrent?.() === false) return null;
   if (input.apiClient.createContainerResult) {
     const result = await input.apiClient.createContainerResult(
       input.plan.request,

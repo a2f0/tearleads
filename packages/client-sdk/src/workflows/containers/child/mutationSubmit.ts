@@ -16,12 +16,14 @@ export async function submitAcknowledgedContainerMutation<
   containerKey: Uint8Array;
   execSql: ExecSql;
   plan: TPlan;
+  stillCurrent?: (() => boolean) | undefined;
   submit: () => Promise<ContainerMutationResponse | null>;
 }): Promise<{
   containerKey: Uint8Array;
   plan: TPlan;
   response: ContainerMutationResponse;
 } | null> {
+  if (input.stillCurrent?.() === false) return null;
   const response = await input.submit();
   if (!response) {
     return null;
@@ -31,6 +33,7 @@ export async function submitAcknowledgedContainerMutation<
     execSql: input.execSql,
     plan: input.plan,
     response,
+    stillCurrent: input.stillCurrent,
   });
 
   return {

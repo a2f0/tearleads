@@ -295,3 +295,66 @@ test("persistence ABA replacement invalidates and re-arms a structural pass", as
   expect(state.snapshot).toEqual({ nodes: [], ready: false });
   expect(listPendingCreateIntents).not.toHaveBeenCalled();
 });
+
+test("the sync lane preserves metadata edits already settled by the workflow", async () => {
+  const keyPair = generateKemSeedAndKeyPair();
+  const persistence: ContainerContentsPersistence = {
+    ...defaultContainerContentsPersistence,
+    listPendingCreateIntents: async () => [],
+    listUnsyncedMoveIntents: async () => [],
+  };
+  const runtime = createContainerContentsTestRuntime({
+    domainScope: createDomainScope(),
+    encapsulationKeyPair: keyPair,
+    execSql: mock(async () => []),
+    organizationId: "org-1",
+  });
+  const state = createContainerContentsStoreState(runtime, persistence);
+  const containerState = createTestContainerState({
+    id: "container-1",
+    organizationId: "org-1",
+    parentId: null,
+  });
+  state.containersById.set(containerState.container.id, containerState);
+  state.documentStoresNeedPriming = false;
+  updateContainerContentsSnapshot(state);
+  const updateSnapshot = mock(() => updateContainerContentsSnapshot(state));
+  const syncContainerMetadata = mock(
+    async ({ metadataState }: { metadataState: typeof containerState }) => {
+      const staleContainer = {
+        ...metadataState.container,
+        name: "Remote result before the local edit",
+      };
+      const staleRecord = { ...metadataState.record, lastCommitLsn: "0/2" };
+      metadataState.container = {
+        ...metadataState.container,
+        name: "Concurrent local edit",
+      };
+      metadataState.record = {
+        ...metadataState.record,
+        lastCommitLsn: "0/3",
+      };
+      return {
+        container: staleContainer,
+        record: staleRecord,
+        shouldRequestFollowupSync: false,
+      };
+    },
+  );
+
+  await runContainerContentsStoreSyncIteration({
+    host: {
+      persistContainerState: async () => ({ status: "missing" }),
+      updateSnapshot,
+    },
+    reconcileRestoredAccess: async () => {},
+    requestRemoteReconciliation: () => {},
+    state,
+    syncContainerMetadata: syncContainerMetadata as never,
+  });
+
+  expect(syncContainerMetadata).toHaveBeenCalledTimes(1);
+  expect(containerState.container.name).toBe("Concurrent local edit");
+  expect(containerState.record.lastCommitLsn).toBe("0/3");
+  expect(updateSnapshot).toHaveBeenCalled();
+});

@@ -176,6 +176,7 @@ function resolveContainerDocumentMoveUnlinkIds(input: {
 
 export async function relinkRemoteContainerDocument(input: {
   documentId: string;
+  isCurrent?: (() => boolean) | undefined;
   noteId: string;
   onFailure?: DocumentLinkSetFailureHandler | undefined;
   operation: ContainerDocumentLinkOperation;
@@ -195,6 +196,7 @@ export async function relinkRemoteContainerDocument(input: {
   const author = resolveDocumentCreateAuthor(runtime);
   const targetSecretKey = runtime.crypto.encapsulationKeyPair?.secretKey;
   const execSql = runtime.infra.execSql;
+  if (input.isCurrent?.() === false) return null;
   if (!author || !targetSecretKey) {
     runtime.util.log(
       "Container contents: document mutation skipped because the local key context is unavailable",
@@ -216,6 +218,7 @@ export async function relinkRemoteContainerDocument(input: {
       operation,
       resolveProjectionUserKey,
       rotationSnapshot: input.rotationSnapshot,
+      stillCurrent: input.isCurrent,
       targetContainerId,
       targetSecretKey,
       warmReferencedPrincipalPolicies:
@@ -227,11 +230,13 @@ export async function relinkRemoteContainerDocument(input: {
       );
       return null;
     }
+    if (input.isCurrent?.() === false) return null;
 
     await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
       execSql,
       documentId,
       result.linkedContainerIds,
+      { stillCurrent: input.isCurrent },
     );
 
     return result;
@@ -256,6 +261,7 @@ export async function relinkRemoteContainerDocument(input: {
 
 export async function linkRemoteContainerDocument(input: {
   documentId: string;
+  isCurrent?: (() => boolean) | undefined;
   noteId: string;
   onFailure?: DocumentLinkSetFailureHandler | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
@@ -270,6 +276,7 @@ export async function linkRemoteContainerDocument(input: {
 
 export async function unlinkRemoteContainerDocument(input: {
   documentId: string;
+  isCurrent?: (() => boolean) | undefined;
   noteId: string;
   onFailure?: DocumentLinkSetFailureHandler | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
@@ -286,6 +293,7 @@ export async function unlinkRemoteContainerDocument(input: {
 export async function moveRemoteContainerDocument(input: {
   currentContainerId: string;
   documentId: string;
+  isCurrent?: (() => boolean) | undefined;
   noteId: string;
   onFailure?: DocumentLinkSetFailureHandler | undefined;
   replaceLinkedContainers?: boolean | undefined;
@@ -304,12 +312,13 @@ export async function moveRemoteContainerDocument(input: {
     runtime,
     targetContainerId,
   } = input;
+  if (input.isCurrent?.() === false) return null;
   const writerProjection = await fetchMoveWriterProjection({
     documentId,
     onFailure: input.onFailure,
     runtime,
   });
-  if (!writerProjection) {
+  if (!writerProjection || input.isCurrent?.() === false) {
     return null;
   }
   const initialLinkedContainerIds =
@@ -320,13 +329,14 @@ export async function moveRemoteContainerDocument(input: {
   if (!initialLinkedContainerIds.includes(targetContainerId)) {
     const linkedDocument = await linkRemoteContainerDocument({
       documentId,
+      isCurrent: input.isCurrent,
       noteId,
       onFailure: input.onFailure,
       resolveProjectionUserKey,
       runtime,
       targetContainerId,
     });
-    if (!linkedDocument) {
+    if (!linkedDocument || input.isCurrent?.() === false) {
       return null;
     }
 
@@ -343,8 +353,10 @@ export async function moveRemoteContainerDocument(input: {
 
   const failedUnlinkContainerIds: string[] = [];
   for (const unlinkContainerId of unlinkContainerIds) {
+    if (input.isCurrent?.() === false) return null;
     const unlinkedDocument = await unlinkRemoteContainerDocument({
       documentId,
+      isCurrent: input.isCurrent,
       noteId,
       onFailure: input.onFailure,
       resolveProjectionUserKey,
@@ -352,6 +364,7 @@ export async function moveRemoteContainerDocument(input: {
       runtime,
       targetContainerId: unlinkContainerId,
     });
+    if (input.isCurrent?.() === false) return null;
     if (!unlinkedDocument) {
       failedUnlinkContainerIds.push(unlinkContainerId);
       runtime.util.log(

@@ -66,7 +66,8 @@ type DocumentSyncAttemptSubmission =
       readonly pullComplete: boolean;
       readonly response: DocumentSyncResponse;
     }
-  | FailedDocumentSyncAction;
+  | FailedDocumentSyncAction
+  | "cancelled";
 
 async function resolveFailedDocumentSyncAction(input: {
   attempt: number;
@@ -165,12 +166,15 @@ async function submitDocumentSyncAttempt(input: {
   onTerminalSubmitFailure?: TerminalSubmitFailureHandler | undefined;
   pendingUpdates: readonly PendingUpdateRecord[];
   plan: DocumentSyncPlan;
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<DocumentSyncAttemptSubmission> {
+  if (input.stillCurrent?.() === false) return "cancelled";
   const submitted = await submitDocumentSync({
     apiClient: input.apiClient,
     expectedCommitLsnMode: input.expectedCommitLsnMode,
     plan: input.plan,
   });
+  if (input.stillCurrent?.() === false) return "cancelled";
   if (!submitted) {
     return "stop";
   }
@@ -216,6 +220,7 @@ export async function submitDocumentSyncAttemptIfAllowed(
   if (hasRemoteWrites && isRemoteSyncBlocked?.(input.plan.organizationId)) {
     return "stop";
   }
+  if (input.stillCurrent?.() === false) return "cancelled";
 
   onOutgoingUpdatesMaterialized?.(
     input.plan.request.outgoingUpdates.map(({ id }) => id),

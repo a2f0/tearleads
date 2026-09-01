@@ -45,8 +45,8 @@ test("container create sync propagates identity failures without recording a ret
   const persistence: ContainerCreateIntentSyncState["persistence"] = {
     ...defaultContainerContentsPersistence,
     listPendingCreateIntents: async () => [intent],
-    recordCreateIntentError: async (_execSql, _containerId, message) => {
-      recordedErrors.push(message);
+    recordCreateIntentError: async (_execSql, input) => {
+      recordedErrors.push(input.message);
     },
   };
   const state: ContainerCreateIntentSyncState = {
@@ -234,8 +234,8 @@ test("container create sync defers a lost-response conflict and heals on hydrati
   const persistence: ContainerCreateIntentSyncState["persistence"] = {
     ...defaultContainerContentsPersistence,
     listPendingCreateIntents: async () => [intent],
-    recordCreateIntentError: async (_execSql, _containerId, message) => {
-      recordedErrors.push(message);
+    recordCreateIntentError: async (_execSql, input) => {
+      recordedErrors.push(input.message);
     },
     markCreateIntentSynced: async (_execSql, input) => {
       syncedIntents.push(input.containerId);
