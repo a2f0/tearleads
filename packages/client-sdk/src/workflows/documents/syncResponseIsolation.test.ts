@@ -31,7 +31,7 @@ async function pendingUpdate(text: string, id: string) {
   });
 }
 
-test("isolated validation runs before conflict recovery mutates queued rows", async () => {
+test("response validation precedes guarded conflict recovery mutations", async () => {
   const { close, execSql } = await createTestExecSql("sync-response-isolation");
   try {
     const {
@@ -75,6 +75,7 @@ test("isolated validation runs before conflict recovery mutates queued rows", as
       updateId,
     });
     let rekeyCount = 0;
+    let current = true;
     const commonInput = {
       execSql,
       materializedPlan,
@@ -89,6 +90,7 @@ test("isolated validation runs before conflict recovery mutates queued rows", as
         signingPublicKey,
       }),
       response,
+      stillCurrent: () => current,
       targetSecretKey: secretKey,
       validateIncomingUpdates: () => undefined,
       writerProjection,
@@ -105,6 +107,15 @@ test("isolated validation runs before conflict recovery mutates queued rows", as
     expect(rekeyCount).toBe(0);
 
     await syncRemoteDocumentResultFromResponse(commonInput);
+    expect(rekeyCount).toBe(1);
+
+    current = true;
+    await syncRemoteDocumentResultFromResponse({
+      ...commonInput,
+      validateIncomingUpdates: () => {
+        current = false;
+      },
+    });
     expect(rekeyCount).toBe(1);
   } finally {
     close();

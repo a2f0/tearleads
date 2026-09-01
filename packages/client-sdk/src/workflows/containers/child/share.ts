@@ -347,8 +347,10 @@ export async function shareRemoteContainerWithGroup(
       verifiedPrincipalPolicy.bundle,
       new Date().toISOString(),
       input.author.organizationId,
+      { stillCurrent: input.stillCurrent },
     );
   }
+  if (input.stillCurrent?.() === false) return null;
 
   return {
     containerKey: materializedPlan.containerKey,

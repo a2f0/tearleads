@@ -94,6 +94,7 @@ export async function rekeyUnsettledRecoveryPendingUpdates(input: {
   recoveryPendingUpdatesById: ReadonlyMap<string, PendingUpdateRecord>;
   rekeyPendingUpdate?: RekeyPendingUpdate | undefined;
   settledPendingUpdateIds: readonly string[];
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<{
   exhaustedPendingUpdateIds: string[];
   rekeyedPendingUpdateIds: string[];
@@ -114,6 +115,9 @@ export async function rekeyUnsettledRecoveryPendingUpdates(input: {
     if ((record.rekeyCount ?? 0) >= MAX_PENDING_UPDATE_REKEYS) {
       exhaustedPendingUpdateIds.push(pendingUpdateId);
       continue;
+    }
+    if (input.stillCurrent?.() === false) {
+      break;
     }
     const nextId = await rekeyPendingUpdate(input.execSql, pendingUpdateId);
     if (nextId !== null) {

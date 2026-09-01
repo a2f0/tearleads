@@ -234,7 +234,6 @@ export function updateContainerContentsStoreRuntime(
     if (state.snapshot.ready || state.initialized || state.initializePromise) {
       resetContainerContentsStore(state);
     }
-    state.lastEventCount = nextRuntime.state.events.length;
     return;
   }
 

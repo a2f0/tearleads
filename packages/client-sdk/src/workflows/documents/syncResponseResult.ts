@@ -63,6 +63,7 @@ type SyncRemoteDocumentResultInput = {
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
   resolveWriterPublicKey: DocumentWriterPublicKeyResolver;
   response: DocumentSyncResponse;
+  stillCurrent?: (() => boolean) | undefined;
   targetSecretKey: Uint8Array;
   validateIncomingUpdates: IncomingDocumentSyncUpdateValidator;
   writerProjection: DocumentWriterProjectionResponse;
@@ -180,6 +181,7 @@ export async function syncRemoteDocumentResultFromResponse(
       recoveryPendingUpdatesById: input.recoveryPendingUpdatesById,
       rekeyPendingUpdate: input.rekeyPendingUpdate,
       settledPendingUpdateIds,
+      stillCurrent: input.stillCurrent,
     });
 
   return {

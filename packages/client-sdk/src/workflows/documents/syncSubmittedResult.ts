@@ -55,6 +55,7 @@ async function submittedDocumentSyncResult(
     rekeyPendingUpdate: input.sync.rekeyPendingUpdate,
     resolveWriterPublicKey: input.sync.resolveWriterPublicKey,
     response: input.response,
+    stillCurrent: input.sync.stillCurrent,
     targetSecretKey: input.sync.targetSecretKey,
     validateIncomingUpdates: input.sync.validateIncomingUpdates,
     writerProjection: input.writerProjection,
