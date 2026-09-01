@@ -1,3 +1,4 @@
+import type { VerifiedPrincipalPolicy } from "@tearleads/crypto";
 import type {
   PrincipalPolicyBundleResponse,
   ReferencedPrincipalStateResponse,
@@ -81,7 +82,8 @@ async function cacheReferencedPrincipalPolicy(
   loadExternalAdminPolicy: () => Promise<VerifiedExternalAdminPolicy | null>,
   organizationId: string | null | undefined,
   stillCurrent: (() => boolean) | undefined,
-): Promise<void> {
+  persistVerifiedPolicies: boolean,
+): Promise<VerifiedPrincipalPolicy[]> {
   const localCheckpoint = await loadPrincipalPolicyCheckpoint(
     execSql,
     reference.principalType,
@@ -104,7 +106,7 @@ async function cacheReferencedPrincipalPolicy(
     log?.(
       `Principal policy cache: failed to fetch ${getReferencedPrincipalKey(reference)}`,
     );
-    return;
+    return [];
   }
 
   const validation = await validatePrincipalPolicyBundleForCache({
@@ -118,18 +120,19 @@ async function cacheReferencedPrincipalPolicy(
     throw validation.error;
   }
 
-  await persistVerifiedPrincipalPolicyBundlesAtomically({
-    entries: [
-      ...(validation.externalAdminPolicy
-        ? externalAdminPolicyPersistenceEntries(validation.externalAdminPolicy)
-        : []),
-      { bundle, policy: validation.policy },
-    ],
-    execSql,
-    ...(organizationId ? { organizationId } : {}),
-    updatedAt: new Date().toISOString(),
-    stillCurrent,
-  });
+  const externalEntries = validation.externalAdminPolicy
+    ? externalAdminPolicyPersistenceEntries(validation.externalAdminPolicy)
+    : [];
+  if (persistVerifiedPolicies) {
+    await persistVerifiedPrincipalPolicyBundlesAtomically({
+      entries: [...externalEntries, { bundle, policy: validation.policy }],
+      execSql,
+      ...(organizationId ? { organizationId } : {}),
+      updatedAt: new Date().toISOString(),
+      stillCurrent,
+    });
+  }
+  return [...externalEntries.map(({ policy }) => policy), validation.policy];
 }
 
 async function cachePrincipalPolicyBundle(input: {
@@ -140,7 +143,7 @@ async function cachePrincipalPolicyBundle(input: {
   readonly organizationId: string | null | undefined;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   readonly stillCurrent?: (() => boolean) | undefined;
-}): Promise<void> {
+}): Promise<VerifiedPrincipalPolicy[]> {
   const reference = principalPolicyReferenceFromBundle(input.bundle);
   // The API supplied this bundle after rejecting a write, but local storage is
   // only updated after normal signature, signer, and checkpoint verification.
@@ -160,11 +163,12 @@ async function cachePrincipalPolicyBundle(input: {
     throw validation.error;
   }
 
+  const externalEntries = validation.externalAdminPolicy
+    ? externalAdminPolicyPersistenceEntries(validation.externalAdminPolicy)
+    : [];
   await persistVerifiedPrincipalPolicyBundlesAtomically({
     entries: [
-      ...(validation.externalAdminPolicy
-        ? externalAdminPolicyPersistenceEntries(validation.externalAdminPolicy)
-        : []),
+      ...externalEntries,
       { bundle: input.bundle, policy: validation.policy },
     ],
     execSql: input.execSql,
@@ -172,13 +176,14 @@ async function cachePrincipalPolicyBundle(input: {
     updatedAt: new Date().toISOString(),
     stillCurrent: input.stillCurrent,
   });
+  return [...externalEntries.map(({ policy }) => policy), validation.policy];
 }
 
-async function runPrincipalPolicyCache<Item>(input: {
+async function runPrincipalPolicyCache<Item, Result>(input: {
   readonly cacheItem: (
     item: Item,
     loadExternalAdminPolicy: () => Promise<VerifiedExternalAdminPolicy | null>,
-  ) => Promise<void>;
+  ) => Promise<readonly Result[]>;
   readonly dedupe: (items: ReadonlyArray<Item>) => Item[];
   readonly execSql: ExecSql;
   readonly getCurrentPrincipalPolicy: CacheReferencedPrincipalPoliciesOptions["getCurrentPrincipalPolicy"];
@@ -189,9 +194,10 @@ async function runPrincipalPolicyCache<Item>(input: {
   readonly reportSecurityIncident: SecurityIncidentReporter;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   readonly stillCurrent?: (() => boolean) | undefined;
-}): Promise<void> {
+  readonly persistVerifiedPolicies: boolean;
+}): Promise<Result[]> {
   if (!input.items || input.items.length === 0) {
-    return;
+    return [];
   }
 
   try {
@@ -204,18 +210,19 @@ async function runPrincipalPolicyCache<Item>(input: {
         execSql: input.execSql,
         getCurrentPrincipalPolicy: input.getCurrentPrincipalPolicy,
         organizationId: input.organizationId,
+        persistVerifiedPolicies: input.persistVerifiedPolicies,
         resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
         stillCurrent: input.stillCurrent,
       });
       return externalAdminPolicy;
     };
 
-    await Promise.all(
+    const results = await Promise.all(
       uniqueItems.map(async (item) => {
         try {
-          await input.cacheItem(item, loadExternalAdminPolicy);
+          return await input.cacheItem(item, loadExternalAdminPolicy);
         } catch (error) {
-          if (isProjectionVerificationCancelledError(error)) return;
+          if (isProjectionVerificationCancelledError(error)) return [];
           await reportAndRethrowKeyingVerificationError(
             error,
             input.reportSecurityIncident,
@@ -230,11 +237,13 @@ async function runPrincipalPolicyCache<Item>(input: {
           input.log?.(
             `Principal policy cache: failed to store ${input.itemKey(item)}: ${message}`,
           );
+          return [];
         }
       }),
     );
+    return results.flat();
   } catch (error) {
-    if (isProjectionVerificationCancelledError(error)) return;
+    if (isProjectionVerificationCancelledError(error)) return [];
     // Per-item verification failures were reported above before reaching this
     // initialization/aggregation boundary.
     rethrowKeyingVerificationError(error);
@@ -242,19 +251,23 @@ async function runPrincipalPolicyCache<Item>(input: {
     input.log?.(
       `Principal policy cache: failed to initialize cache: ${message}`,
     );
+    return [];
   }
 }
 
-export async function cacheReferencedPrincipalPolicies({
-  execSql,
-  getCurrentPrincipalPolicy,
-  log,
-  organizationId,
-  reportSecurityIncident,
-  references,
-  resolveTrustedUserIdentity,
-  stillCurrent,
-}: CacheReferencedPrincipalPoliciesOptions): Promise<void> {
+async function loadReferencedPrincipalPolicies(
+  {
+    execSql,
+    getCurrentPrincipalPolicy,
+    log,
+    organizationId,
+    reportSecurityIncident,
+    references,
+    resolveTrustedUserIdentity,
+    stillCurrent,
+  }: CacheReferencedPrincipalPoliciesOptions,
+  persistVerifiedPolicies: boolean,
+): Promise<VerifiedPrincipalPolicy[]> {
   return runPrincipalPolicyCache({
     cacheItem: (reference, loadExternalAdminPolicy) =>
       cacheReferencedPrincipalPolicy(
@@ -266,6 +279,7 @@ export async function cacheReferencedPrincipalPolicies({
         loadExternalAdminPolicy,
         organizationId,
         stillCurrent,
+        persistVerifiedPolicies,
       ),
     dedupe: dedupeReferencedPrincipalStates,
     execSql,
@@ -274,10 +288,23 @@ export async function cacheReferencedPrincipalPolicies({
     items: references,
     log,
     organizationId,
+    persistVerifiedPolicies,
     reportSecurityIncident,
     resolveTrustedUserIdentity,
     stillCurrent,
   });
+}
+
+export async function cacheReferencedPrincipalPolicies(
+  input: CacheReferencedPrincipalPoliciesOptions,
+): Promise<void> {
+  await loadReferencedPrincipalPolicies(input, true);
+}
+
+export async function verifyReferencedPrincipalPolicies(
+  input: CacheReferencedPrincipalPoliciesOptions,
+): Promise<VerifiedPrincipalPolicy[]> {
+  return loadReferencedPrincipalPolicies(input, false);
 }
 
 export async function cachePrincipalPolicyBundles({
@@ -290,7 +317,7 @@ export async function cachePrincipalPolicyBundles({
   resolveTrustedUserIdentity,
   stillCurrent,
 }: CachePrincipalPolicyBundlesOptions): Promise<void> {
-  return runPrincipalPolicyCache({
+  await runPrincipalPolicyCache({
     cacheItem: (bundle, loadExternalAdminPolicy) =>
       cachePrincipalPolicyBundle({
         bundle,
@@ -308,6 +335,7 @@ export async function cachePrincipalPolicyBundles({
     items: bundles,
     log,
     organizationId,
+    persistVerifiedPolicies: true,
     reportSecurityIncident,
     resolveTrustedUserIdentity,
     stillCurrent,

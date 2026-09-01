@@ -32,6 +32,7 @@ import {
 } from "./checkpointContext";
 import {
   filterUncachedPrincipalPolicyReferences,
+  principalPolicyCacheForVerifiedPolicies,
   referencedPrincipalPolicyKey,
   verifiedPrincipalPolicyContainsReference,
 } from "./principalPolicyCache";
@@ -423,6 +424,20 @@ export async function collectReferencedPrincipalPolicies(input: {
     if (uncached.length > 0) {
       assertProjectionVerificationCurrent(input.stillCurrent);
       await warmReferencedPrincipalPolicies({
+        ...(warmReferencedPrincipalPolicies.reportsVerifiedPolicies
+          ? {
+              onVerifiedPolicies: (verifiedPolicies) => {
+                for (const [
+                  cacheKey,
+                  policy,
+                ] of principalPolicyCacheForVerifiedPolicies(
+                  verifiedPolicies,
+                )) {
+                  input.principalPolicyCache.set(cacheKey, policy);
+                }
+              },
+            }
+          : {}),
         organizationId: input.organizationId,
         references: uncached,
       });

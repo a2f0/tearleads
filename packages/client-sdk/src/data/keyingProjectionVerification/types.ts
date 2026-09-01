@@ -14,13 +14,22 @@ export type PrincipalPolicyCache = Map<string, VerifiedPrincipalPolicy>;
 
 export interface ReferencedPrincipalPolicyWarmRequest {
   readonly organizationId: string;
+  /** Receives policies that were fully verified without durable persistence. */
+  readonly onVerifiedPolicies?:
+    | ((policies: readonly VerifiedPrincipalPolicy[]) => void)
+    | undefined;
   readonly references: readonly ReferencedPrincipalHead[];
   readonly stillCurrent?: (() => boolean) | undefined;
 }
 
-export type ReferencedPrincipalPolicyWarmer = (
+export type ReferencedPrincipalPolicyWarmer = ((
   input: ReferencedPrincipalPolicyWarmRequest,
-) => Promise<void>;
+) => Promise<void>) & {
+  readonly reportsVerifiedPolicies?: true | undefined;
+  readonly verifyWithoutPersistence?:
+    | ReferencedPrincipalPolicyWarmer
+    | undefined;
+};
 
 export class ProjectionVerificationCancelledError extends Error {
   constructor() {
@@ -67,11 +76,29 @@ export function generationGuardedPrincipalPolicyWarmer(
   stillCurrent: (() => boolean) | undefined,
 ): ReferencedPrincipalPolicyWarmer | undefined {
   if (!warmer || !stillCurrent) return warmer;
-  return async (input) => {
-    assertProjectionVerificationCurrent(stillCurrent);
-    await warmer({ ...input, stillCurrent });
-    assertProjectionVerificationCurrent(stillCurrent);
+  const guard =
+    (operation: ReferencedPrincipalPolicyWarmer) =>
+    async (input: ReferencedPrincipalPolicyWarmRequest) => {
+      assertProjectionVerificationCurrent(stillCurrent);
+      await operation({ ...input, stillCurrent });
+      assertProjectionVerificationCurrent(stillCurrent);
+    };
+  const guardWithCapabilities = (
+    operation: ReferencedPrincipalPolicyWarmer,
+  ): ReferencedPrincipalPolicyWarmer => {
+    const guarded = guard(operation);
+    return operation.reportsVerifiedPolicies
+      ? Object.assign(guarded, { reportsVerifiedPolicies: true as const })
+      : guarded;
   };
+  const guarded = guardWithCapabilities(warmer);
+  return warmer.verifyWithoutPersistence
+    ? Object.assign(guarded, {
+        verifyWithoutPersistence: guardWithCapabilities(
+          warmer.verifyWithoutPersistence,
+        ),
+      })
+    : guarded;
 }
 
 export function withGenerationGuardedPolicyWarmer<

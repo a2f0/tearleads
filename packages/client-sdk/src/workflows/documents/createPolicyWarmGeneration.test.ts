@@ -5,6 +5,7 @@ import {
   createAuthor,
   SIGNED_AT,
 } from "../../../test/helpers/containerFixtures";
+import { createResponseFromRequest } from "../../../test/helpers/documentFixtures";
 import { policyBundleFromInitialRequest } from "../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../test/helpers/trustedUserIdentity";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
@@ -17,7 +18,7 @@ import { buildInitialGroupPolicyRequest } from "../organizations/principalPolicy
 import { createRuntimePrincipalPolicyWarmer } from "../principals/runtimePolicyWarmer";
 import { createRemoteDocument } from "./create";
 
-test("stale required document create cannot warm a group policy", async () => {
+test("stale required document create verifies a group policy without caching it", async () => {
   const organizationId = "stale-document-create-organization";
   const userId = "stale-document-create-user";
   const groupId = "stale-document-create-admins";
@@ -40,7 +41,15 @@ test("stale required document create cannot warm a group policy", async () => {
     },
   });
   const groupPolicy = await policyBundleFromInitialRequest(adminGroup);
-  const root = await buildRootContainerCreatePlan({
+  const initialRoot = await buildRootContainerCreatePlan({
+    author,
+    containerId,
+    containerKey: crypto.getRandomValues(new Uint8Array(32)),
+    metadataDocumentId: `${containerId}-metadata`,
+    recipientEncapsulationPublicKey: memberKem.publicKey,
+    signedAt: SIGNED_AT,
+  });
+  const refreshedRoot = await buildRootContainerCreatePlan({
     adminGroup,
     author,
     containerId,
@@ -49,7 +58,12 @@ test("stale required document create cannot warm a group policy", async () => {
     recipientEncapsulationPublicKey: memberKem.publicKey,
     signedAt: SIGNED_AT,
   });
-  const projection = rootContainerWriterProjectionFromCreatePlan(root.plan);
+  const initialProjection = rootContainerWriterProjectionFromCreatePlan(
+    initialRoot.plan,
+  );
+  const refreshedProjection = rootContainerWriterProjectionFromCreatePlan(
+    refreshedRoot.plan,
+  );
   const resolveTrustedUserIdentity = createTestTrustedUserIdentityResolver({
     encapsulationPublicKey: memberKem.publicKey,
     signingKeyFingerprint: author.signerKeyFingerprint,
@@ -60,7 +74,9 @@ test("stale required document create cannot warm a group policy", async () => {
     "stale-document-create-policy-warm",
   );
   let policyGets = 0;
+  let projectionEvictions = 0;
   let submissions = 0;
+  let current = true;
   const warmReferencedPrincipalPolicies = createRuntimePrincipalPolicyWarmer({
     apiClient: {
       getCurrentPrincipalPolicy: async (principalType, principalId) => {
@@ -84,27 +100,52 @@ test("stale required document create cannot warm a group policy", async () => {
     const created = await createRemoteDocument({
       apiClient: {
         createDocument: async () => {
-          submissions += 1;
-          return null;
+          throw new Error("result-returning create should be used");
         },
-        getContainerWriterProjection: async () => projection,
+        createDocumentResult: async (request) => {
+          submissions += 1;
+          if (submissions === 1) {
+            current = false;
+            return {
+              message:
+                "POST /documents: 409 Conflict: targetContainerPathRefs[0] is stale",
+              ok: false as const,
+              report: () => undefined,
+              status: 409,
+            };
+          }
+          return {
+            data: await createResponseFromRequest(request),
+            ok: true as const,
+          };
+        },
+        evictContainerWriterProjection: () => {
+          projectionEvictions += 1;
+        },
+        getContainerWriterProjection: async () => refreshedProjection,
         primeDocumentWriterProjection: () => undefined,
       },
       author,
       containerId,
-      containerProjection: projection,
+      containerProjection: initialProjection,
       documentId: `${containerId}-metadata`,
       execSql,
+      knownContainerKeks: new Map([
+        [initialRoot.plan.containerKeyEpochId, initialRoot.containerKey],
+        [refreshedRoot.plan.containerKeyEpochId, refreshedRoot.containerKey],
+      ]),
       resolveProjectionUserKey: resolveTrustedUserIdentity,
-      stillCurrent: () => false,
+      stillCurrent: () => current,
       submitWhenStale: true,
       targetSecretKey: memberKem.secretKey,
       warmReferencedPrincipalPolicies,
     });
 
     expect(created).toBeNull();
-    expect(policyGets).toBe(0);
-    expect(submissions).toBe(0);
+    expect(current).toBe(false);
+    expect(policyGets).toBe(1);
+    expect(projectionEvictions).toBe(1);
+    expect(submissions).toBe(2);
     await expect(
       loadPrincipalPolicyBundle(execSql, "group", groupId),
     ).resolves.toBeNull();

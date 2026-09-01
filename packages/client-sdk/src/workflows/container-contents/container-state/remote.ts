@@ -122,6 +122,14 @@ function childProjectionFromCreateResponse(input: {
   };
 }
 
+function knownContainerKeksFromCreateResult(
+  created: Awaited<ReturnType<typeof createRemoteContainerMutation>>,
+): ReadonlyMap<string, Uint8Array> | undefined {
+  return created
+    ? new Map([[created.plan.containerKeyEpochId, created.containerKey]])
+    : undefined;
+}
+
 async function createRemoteContainerWithSeparateMetadataDocument(input: {
   systemSlot?: ContainerSystemSlot | null | undefined;
   containerId: string;
@@ -202,6 +210,7 @@ async function createRemoteContainerWithSeparateMetadataDocument(input: {
     expectedOrganizationId:
       createdContainer?.response.organizationId ??
       parentProjection.organizationId,
+    knownContainerKeks: knownContainerKeksFromCreateResult(createdContainer),
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     stillCurrent: input.stillCurrent,
     submitWhenStale: true,

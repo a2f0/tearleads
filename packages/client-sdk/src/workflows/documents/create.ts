@@ -24,7 +24,6 @@ import type {
   ReferencedPrincipalPolicyWarmer,
 } from "../../data/keyingProjectionVerification";
 import {
-  generationGuardedPrincipalPolicyWarmer,
   nullOnProjectionVerificationCancellation,
   requireProjectionUserKeyResolver,
 } from "../../data/keyingProjectionVerification";
@@ -130,6 +129,7 @@ async function buildMaterializedDocumentCreatePlanWithFreshProjection(input: {
   eventId?: string | undefined;
   execSql: ExecSql;
   expectedOrganizationId?: string | undefined;
+  knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
   onTerminalSubmitFailure?: DocumentCreateTerminalFailureHandler | undefined;
   persistVerificationCheckpoints?: boolean | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
@@ -160,6 +160,7 @@ async function buildMaterializedDocumentCreatePlanWithFreshProjection(input: {
         documentId: input.documentId,
         eventId: input.eventId,
         execSql: input.execSql,
+        knownContainerKeks: input.knownContainerKeks,
         persistVerificationCheckpoints: input.persistVerificationCheckpoints,
         resolveProjectionUserKey: input.resolveProjectionUserKey,
         signedAt: input.signedAt,
@@ -217,6 +218,7 @@ interface RemoteDocumentCreateInput {
   execSql: ExecSql;
   expectedOrganizationId?: string | undefined;
   isRemoteSyncBlocked?: ((organizationId: string) => boolean) | undefined;
+  knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
   /**
    * Invoked when the create submission fails terminally (not a benign
    * adopt/stale-target conflict) — e.g. the server denies the write. Callers
@@ -253,12 +255,9 @@ function documentCreateSubmissionVerificationOptions(
 function documentCreatePolicyWarmer(
   input: RemoteDocumentCreateInput,
 ): ReferencedPrincipalPolicyWarmer | undefined {
-  return input.submitWhenStale
-    ? generationGuardedPrincipalPolicyWarmer(
-        input.warmReferencedPrincipalPolicies,
-        input.stillCurrent,
-      )
-    : input.warmReferencedPrincipalPolicies;
+  const warmer = input.warmReferencedPrincipalPolicies;
+  if (!warmer || !input.submitWhenStale) return warmer;
+  return warmer.verifyWithoutPersistence;
 }
 
 async function submitPlannedDocumentCreate(
@@ -283,6 +282,7 @@ async function submitPlannedDocumentCreate(
       eventId: input.eventId,
       execSql: input.execSql,
       expectedOrganizationId: input.expectedOrganizationId,
+      knownContainerKeks: input.knownContainerKeks,
       onTerminalSubmitFailure: input.onTerminalSubmitFailure,
       resolveProjectionUserKey,
       signedAt: input.signedAt,
@@ -326,6 +326,7 @@ async function submitPlannedDocumentCreate(
         eventId: firstPlan.plan.event.eventId,
         execSql: input.execSql,
         expectedOrganizationId: input.expectedOrganizationId,
+        knownContainerKeks: input.knownContainerKeks,
         onTerminalSubmitFailure: input.onTerminalSubmitFailure,
         resolveProjectionUserKey,
         signedAt: firstPlan.plan.event.signedAt,

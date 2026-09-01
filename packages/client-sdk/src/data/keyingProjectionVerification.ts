@@ -8,7 +8,6 @@ export type {
   ReferencedPrincipalPolicyWarmer,
 } from "./keyingProjectionVerification/types";
 export {
-  generationGuardedPrincipalPolicyWarmer,
   isProjectionVerificationCancelledError,
   nullOnProjectionVerificationCancellation,
 } from "./keyingProjectionVerification/types";
