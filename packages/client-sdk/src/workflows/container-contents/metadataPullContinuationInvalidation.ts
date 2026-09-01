@@ -78,6 +78,7 @@ export async function invalidateContainerMetadataPullContinuation(input: {
             documentManifestBundle:
               metadataState.record.documentManifestBundle ?? null,
             lastCommitLsn: metadataState.record.lastCommitLsn ?? null,
+            stillCurrent: input.isCurrent,
           },
         );
       if (

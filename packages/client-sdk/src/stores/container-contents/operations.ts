@@ -116,17 +116,23 @@ async function updateExistingSystemContainer(
     containerState: existing,
     logLabel: getContainerContentsStoreLogLabel(state),
     options,
-    persistCreateIntent: async (containerState, parentContainerId) =>
+    persistPromotion: async (containerState, promotion) =>
       (
         await persistContainerState(
           state,
           containerState,
           {},
           true,
-          {
-            createIntent: { parentContainerId },
-          },
-          undefined,
+          promotion.queueCreateIntent
+            ? {
+                createIntent: {
+                  parentContainerId: promotion.parentContainerId,
+                },
+              }
+            : undefined,
+          promotion.metadataUpdate
+            ? { localUpdate: promotion.metadataUpdate }
+            : undefined,
           { isCurrent },
         )
       ).status === "persisted",

@@ -290,6 +290,7 @@ export interface ContainerContentsPersistence
       documentKekTargets: string | null;
       documentManifestBundle: string | null;
       lastCommitLsn: string | null;
+      stillCurrent?: (() => boolean) | undefined;
     },
   ) => Promise<ContainerMetadataRecord | null>;
   /**

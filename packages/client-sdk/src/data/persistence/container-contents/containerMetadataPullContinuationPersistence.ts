@@ -13,27 +13,32 @@ type MetadataPullContinuationPersistence = Pick<
 export const containerMetadataPullContinuationPersistence: MetadataPullContinuationPersistence =
   {
     async invalidateMetadataPullContinuation(execSql, input) {
-      return runSerializedSqlMutation(execSql, async (lockedExecSql) =>
-        getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
-          async () => {
-            await invalidateDocumentSyncPullContinuation(lockedExecSql, {
-              accessEpoch: input.accessEpoch,
-              accessStateHash: input.accessStateHash,
-              appKind: CONTAINER_METADATA_APP_KIND,
-              continuation: input.continuation,
-              contentKeyBundle: input.contentKeyBundle,
-              documentId: input.documentId,
-              documentKekTargets: input.documentKekTargets,
-              documentManifestBundle: input.documentManifestBundle,
-              lastCommitLsn: input.lastCommitLsn,
-              localId: input.containerId,
-            });
-            return selectContainerMetadataRecord(
-              lockedExecSql,
-              input.containerId,
-            );
-          },
-        ),
-      );
+      return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+        const runtime = getClientSQLitePersistenceRuntime(lockedExecSql);
+        const invalidate = async () => {
+          await invalidateDocumentSyncPullContinuation(lockedExecSql, {
+            accessEpoch: input.accessEpoch,
+            accessStateHash: input.accessStateHash,
+            appKind: CONTAINER_METADATA_APP_KIND,
+            continuation: input.continuation,
+            contentKeyBundle: input.contentKeyBundle,
+            documentId: input.documentId,
+            documentKekTargets: input.documentKekTargets,
+            documentManifestBundle: input.documentManifestBundle,
+            lastCommitLsn: input.lastCommitLsn,
+            localId: input.containerId,
+          });
+          return selectContainerMetadataRecord(
+            lockedExecSql,
+            input.containerId,
+          );
+        };
+        if (!input.stillCurrent) return runtime.transaction(invalidate);
+        const outcome = await runtime.guardedTransaction(
+          invalidate,
+          input.stillCurrent,
+        );
+        return outcome.result;
+      });
     },
   };

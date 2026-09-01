@@ -1,5 +1,4 @@
 import { base64ToBytes } from "@symcrypt/encoding";
-import { enqueuePendingContainerUpdate } from "../../workflows/container-contents/containerPersistence";
 import type {
   ContainerContentsStoreSyncAgent,
   ContainerState,
@@ -24,9 +23,13 @@ export async function promoteExistingLocalSystemContainerSync(input: {
   containerState: ContainerState;
   logLabel: string;
   options: EnsureSystemContainerOptions;
-  persistCreateIntent: (
+  persistPromotion: (
     containerState: ContainerState,
-    parentContainerId: string,
+    promotion: {
+      metadataUpdate?: Uint8Array | undefined;
+      parentContainerId: string;
+      queueCreateIntent: boolean;
+    },
   ) => Promise<boolean>;
   rootState: ContainerState | null;
   state: ContainerContentsStoreState;
@@ -68,22 +71,17 @@ export async function promoteExistingLocalSystemContainerSync(input: {
     return true;
   }
 
-  if (shouldQueueCreateIntent) {
-    const persisted = await input.persistCreateIntent(
-      containerState,
-      parentContainerId,
-    );
-    if (!persisted || !isCurrent()) {
-      return false;
-    }
-  }
-
-  if (shouldQueueMetadataUpdate) {
-    await enqueuePendingContainerUpdate(execSql, state.persistence, {
-      containerId: containerState.container.id,
-      update: base64ToBytes(containerState.record.metadataUpdates),
-    });
-    if (!isCurrent()) return false;
+  const persisted = await input.persistPromotion(containerState, {
+    ...(shouldQueueMetadataUpdate
+      ? {
+          metadataUpdate: base64ToBytes(containerState.record.metadataUpdates),
+        }
+      : {}),
+    parentContainerId,
+    queueCreateIntent: shouldQueueCreateIntent,
+  });
+  if (!persisted || !isCurrent()) {
+    return false;
   }
 
   syncAgent.scheduleSync();
