@@ -48,6 +48,45 @@ _source_optional_env_file() {
 #   - Always sources .secrets/root.env (shared infra creds).
 #   - When a tier is given, also sources .secrets/<tier>.env.
 #   - When present, also sources .secrets/<tier>.garage.env.
+#   - Tiered callers must use STAGING_SSH_TARGET or PRODUCTION_SSH_TARGET;
+#     generic SSH_TARGET is accepted only when it matches that tier override.
+validate_tier_ssh_target_override() {
+  local tier="$1"
+  local tier_variable
+  local tier_target
+
+  case "$tier" in
+    staging)
+      tier_variable="STAGING_SSH_TARGET"
+      tier_target="${STAGING_SSH_TARGET:-}"
+      ;;
+    prod)
+      tier_variable="PRODUCTION_SSH_TARGET"
+      tier_target="${PRODUCTION_SSH_TARGET:-}"
+      ;;
+    *)
+      echo "ERROR: Unknown deployment tier: $tier" >&2
+      return 1
+      ;;
+  esac
+
+  if [[ -z "${SSH_TARGET:-}" ]]; then
+    return 0
+  fi
+
+  if [[ -z "$tier_target" ]]; then
+    echo "ERROR: SSH_TARGET is unsupported for tiered deployments." >&2
+    echo "Use $tier_variable for the $tier deployment." >&2
+    return 1
+  fi
+
+  if [[ "$SSH_TARGET" != "$tier_target" ]]; then
+    echo "ERROR: SSH_TARGET conflicts with $tier_variable." >&2
+    echo "Unset SSH_TARGET and use only $tier_variable for the $tier deployment." >&2
+    return 1
+  fi
+}
+
 load_secrets_env() {
   local tier="${1:-}"
   local secrets_dir
@@ -59,6 +98,7 @@ load_secrets_env() {
   secrets_dir="$(get_repo_root)/.secrets"
 
   if [[ -n "$tier" ]]; then
+    validate_tier_ssh_target_override "$tier" || return 1
     unset SSH_TARGET
   fi
 

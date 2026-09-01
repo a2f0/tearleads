@@ -6,6 +6,7 @@ import { dirname, resolve } from "node:path";
 interface TierFixture {
   readonly name: "staging" | "production";
   readonly sourceScript: string;
+  readonly targetVariable: "STAGING_SSH_TARGET" | "PRODUCTION_SSH_TARGET";
   readonly commands: ReadonlyArray<readonly [name: string, path: string]>;
 }
 
@@ -13,6 +14,7 @@ const fixtures: readonly TierFixture[] = [
   {
     name: "staging",
     sourceScript: resolve(import.meta.dir, "../../../scripts/deployStaging.sh"),
+    targetVariable: "STAGING_SSH_TARGET",
     commands: [
       ["terraform", "terraform/stacks/staging/server/scripts/apply.sh"],
       ["ansible", "ansible/scripts/run-server-staging.sh"],
@@ -27,6 +29,7 @@ const fixtures: readonly TierFixture[] = [
       import.meta.dir,
       "../../../scripts/deployProduction.sh",
     ),
+    targetVariable: "PRODUCTION_SSH_TARGET",
     commands: [
       ["terraform", "terraform/stacks/prod/server/scripts/apply.sh"],
       ["ansible", "ansible/scripts/run-server-prod.sh"],
@@ -65,11 +68,9 @@ for (const fixture of fixtures) {
       await writeExecutable(
         resolve(root, "terraform/scripts/common.sh"),
         [
+          "validate_tier_ssh_target_override() { :; }",
           "load_secrets_env() {",
-          '  case "$1" in',
-          '    staging) SSH_TARGET="$STAGING_SSH_TARGET" ;;',
-          '    prod) SSH_TARGET="$PRODUCTION_SSH_TARGET" ;;',
-          "  esac",
+          '  SSH_TARGET="deploy-user@tier-host"',
           "  export SSH_TARGET",
           "}",
           "validate_aws_env() { :; }",
@@ -78,7 +79,7 @@ for (const fixture of fixtures) {
       for (const [name, path] of fixture.commands) {
         await writeExecutable(
           resolve(root, path),
-          `#!/bin/sh\nprintf '%s|%s\\n' '${name}' "\${SSH_TARGET:-}" >> "$DEPLOY_TIER_TEST_LOG"\n`,
+          `#!/bin/sh\nprintf '%s|%s|%s\\n' '${name}' "\${SSH_TARGET:-}" "\${${fixture.targetVariable}:-}" >> "$DEPLOY_TIER_TEST_LOG"\n`,
         );
       }
 
@@ -87,9 +88,9 @@ for (const fixture of fixtures) {
         env: {
           ...process.env,
           PATH: `${binDirectory}:${environmentValue("PATH") ?? ""}`,
-          SSH_TARGET: "stale-user@wrong-tier-host",
-          STAGING_SSH_TARGET: "deploy-user@tier-host",
-          PRODUCTION_SSH_TARGET: "deploy-user@tier-host",
+          SSH_TARGET: "",
+          STAGING_SSH_TARGET: "",
+          PRODUCTION_SSH_TARGET: "",
           DEPLOY_TIER_TEST_ROOT: root,
           DEPLOY_TIER_TEST_LOG: logPath,
         },
@@ -104,10 +105,10 @@ for (const fixture of fixtures) {
       expect(exitCode, stderr).toBe(0);
       expect(stdout).toContain("skipped (--skip-terraform)");
       expect((await readFile(logPath, "utf8")).trim().split("\n")).toEqual([
-        "ansible|deploy-user@tier-host",
-        "api|deploy-user@tier-host",
-        "website|deploy-user@tier-host",
-        "app-web|deploy-user@tier-host",
+        "ansible|deploy-user@tier-host|deploy-user@tier-host",
+        "api|deploy-user@tier-host|deploy-user@tier-host",
+        "website|deploy-user@tier-host|deploy-user@tier-host",
+        "app-web|deploy-user@tier-host|deploy-user@tier-host",
       ]);
     } finally {
       await rm(root, { recursive: true, force: true });

@@ -287,7 +287,7 @@ test("rejects different hostnames that resolve to one address", async () => {
   expect(run.calls).toEqual([]);
 });
 
-test("secret loading accepts only the selected tier override", async () => {
+test("secret loading rejects a generic target and preserves a tier override", async () => {
   const root = await mkdtemp(resolve(tmpdir(), "tearleads-common-env-"));
   await mkdir(resolve(root, ".secrets"), { recursive: true });
   await Bun.write(
@@ -312,9 +312,9 @@ test("secret loading accepts only the selected tier override", async () => {
           "get_repo_root() { printf '%s\\n' \"$COMMON_TEST_ROOT\"; }",
           "export SSH_TARGET=stale-staging-target",
           "unset PRODUCTION_SSH_TARGET",
-          "load_secrets_env prod",
-          "printf '%s\\n' \"$SSH_TARGET\"",
-          "export SSH_TARGET=another-stale-target",
+          "if load_secrets_env prod; then exit 91; fi",
+          "printf '%s\\n' generic-rejected",
+          "export SSH_TARGET=explicit-target",
           "export STAGING_SSH_TARGET=explicit-target",
           "load_secrets_env staging",
           "printf '%s\\n' \"$SSH_TARGET\"",
@@ -335,9 +335,10 @@ test("secret loading accepts only the selected tier override", async () => {
     ]);
     expect(exitCode, stderr).toBe(0);
     expect(stdout.trim().split("\n")).toEqual([
-      "production-target",
+      "generic-rejected",
       "explicit-target",
     ]);
+    expect(stderr).toContain("PRODUCTION_SSH_TARGET");
   } finally {
     await rm(root, { recursive: true, force: true });
   }

@@ -26,6 +26,12 @@ Options:
   --skip-terraform  Skip terraform but still configure the server with Ansible.
   --skip-infra  Skip terraform and ansible; deploy application artifacts only.
   -h, --help    Show this help and exit.
+
+Environment:
+  STAGING_SSH_TARGET  Optional explicit staging SSH target.
+
+SSH_TARGET is unsupported; use STAGING_SSH_TARGET so the deployment tier is
+explicit.
 EOF
 }
 
@@ -51,6 +57,12 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+# Reject an ambiguous generic target before Terraform changes infrastructure.
+# shellcheck source=../terraform/scripts/common.sh
+# shellcheck disable=SC1091
+. "$REPO_ROOT/terraform/scripts/common.sh"
+validate_tier_ssh_target_override staging
 
 DEPLOY_START="$SECONDS"
 STEP_TIMINGS=()
@@ -106,10 +118,7 @@ else
     --auto-approve
 fi
 
-# Resolve SSH_TARGET once (honoring a pre-set value) so sub-scripts reuse it
-# shellcheck source=../terraform/scripts/common.sh
-# shellcheck disable=SC1091
-. "$REPO_ROOT/terraform/scripts/common.sh"
+# Resolve SSH_TARGET once so sub-scripts reuse it.
 load_secrets_env staging
 validate_aws_env
 if [ -z "${SSH_TARGET:-}" ]; then
@@ -119,6 +128,8 @@ if [ -z "${SSH_TARGET:-}" ]; then
   SSH_TARGET="$(resolve_stack_ssh_target "$STACK_DIR")"
 fi
 export SSH_TARGET
+STAGING_SSH_TARGET="$SSH_TARGET"
+export STAGING_SSH_TARGET
 
 if [[ "$SKIP_INFRA" == true ]]; then
   skip_step "ansible"

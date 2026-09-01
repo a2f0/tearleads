@@ -10,6 +10,8 @@ PROD_STACK="$REPO_ROOT/terraform/stacks/prod/server"
 
 normalize_tier_names() {
   sed \
+    -e 's/STAGING_SSH_TARGET/ENVIRONMENT_SSH_TARGET/g' \
+    -e 's/PRODUCTION_SSH_TARGET/ENVIRONMENT_SSH_TARGET/g' \
     -e 's/Staging/Environment/g' \
     -e 's/Production/Environment/g' \
     -e 's/staging/environment/g' \
