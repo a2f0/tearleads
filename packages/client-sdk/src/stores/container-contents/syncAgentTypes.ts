@@ -21,6 +21,8 @@ export interface ContainerContentsStoreSyncState {
   lifecycleGeneration: number;
   /** Invalidates structural work when its runtime or persistence is replaced. */
   structuralGeneration: number;
+  /** Invalidates writes across write-relevant runtime ABA transitions. */
+  writeGeneration: number;
   lastEventCount: number;
   /**
    * Update ids this client sent for container metadata documents, registered

@@ -128,6 +128,7 @@ async function seedMetadataDocumentWriterProjection(input: {
   try {
     await assertDocumentWriterProjectionConsistent(projection, {
       execSql: input.execSql,
+      stillCurrent: input.stillCurrent,
       trustedLocalProjection: true,
     });
   } catch {
@@ -315,6 +316,7 @@ async function createRemoteContainerWithMetadataDocumentAttempt(input: {
     parentSecretKey: input.parentSecretKey,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     signedAt: input.containerSignedAt,
+    stillCurrent: input.stillCurrent,
     warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
       input.runtime,
     ),
@@ -334,6 +336,7 @@ async function createRemoteContainerWithMetadataDocumentAttempt(input: {
       [containerPlan.plan.containerKeyEpochId, containerPlan.containerKey],
     ]),
     signedAt: input.metadataSignedAt,
+    stillCurrent: input.stillCurrent,
     targetSecretKey: input.parentSecretKey,
     trustedLocalProjection: true,
   });

@@ -46,6 +46,7 @@ interface PrincipalContainerRematerializationInput {
   readonly nextPolicy: VerifiedPrincipalPolicy;
   readonly revokedContainerId?: string | undefined;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+  readonly stillCurrent?: (() => boolean) | undefined;
   readonly targetSecretKey: Uint8Array;
   readonly warmReferencedPrincipalPolicies?:
     | ReferencedPrincipalPolicyWarmer
@@ -96,6 +97,7 @@ async function loadGrantedContainerContext(
     resolveUserKey: createProjectionUserKeyResolver({
       resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
     }),
+    stillCurrent: input.stillCurrent,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
   const state = readContainerState(
@@ -177,6 +179,7 @@ async function buildPrincipalContainerRematerializationPlan(input: {
     execSql: rematerialization.execSql,
     previousProjection: projection,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
+    stillCurrent: rematerialization.stillCurrent,
     targetSecretKey: rematerialization.targetSecretKey,
     warmReferencedPrincipalPolicies:
       rematerialization.warmReferencedPrincipalPolicies,

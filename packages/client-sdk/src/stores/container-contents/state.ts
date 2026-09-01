@@ -15,6 +15,7 @@ import type {
   ContainerNode,
 } from "./types";
 import { getSnapshotNodes } from "./utils";
+import { didContainerWriteRuntimeChange } from "./writeGeneration";
 
 function areSyncStatesEqual(
   left: ContainerNode["syncState"],
@@ -134,6 +135,7 @@ export function createContainerContentsStoreState(
     },
     syncLane: null,
     structuralGeneration: 0,
+    writeGeneration: 0,
     writeChain: Promise.resolve<ContainerNode | null>(null),
   };
 }
@@ -213,8 +215,14 @@ export function updateContainerContentsStoreRuntime(
     previousRuntime,
     nextRuntime,
   );
+  if (didContainerWriteRuntimeChange(previousRuntime, nextRuntime)) {
+    state.writeGeneration += 1;
+  }
   const executorReplaced =
     previousRuntime.infra.execSql !== nextRuntime.infra.execSql;
+  const serverEventsConnectionChanged =
+    previousRuntime.state.serverEventsConnectionGeneration !==
+    nextRuntime.state.serverEventsConnectionGeneration;
   if (runtimeReplaced) {
     state.structuralGeneration += 1;
     state.localContainersNeedRefresh = true;
@@ -274,6 +282,13 @@ export function updateContainerContentsStoreRuntime(
     syncAgent.scheduleSync();
   }
 
+  if (state.snapshot.ready && serverEventsConnectionChanged) {
+    // Re-list every reachable remote lane after reconnect. The local sync lane
+    // may legitimately skip clean metadata, while events missed between
+    // connections can describe new, moved, or deleted nested containers.
+    void syncAgent.refresh();
+  }
+
   if (
     state.snapshot.ready &&
     didRegainSyncPrerequisites(previousRuntime, nextRuntime)
@@ -296,6 +311,7 @@ export function updateContainerContentsStorePersistence(
   }
   state.persistence = nextPersistence;
   state.structuralGeneration += 1;
+  state.writeGeneration += 1;
   // Persistence replacement changes the authoritative local data source even
   // when the SQLite executor itself is stable. Clear storage-backed state and
   // let initialization load the replacement before scheduling remote work.

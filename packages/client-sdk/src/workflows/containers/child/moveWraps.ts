@@ -20,6 +20,7 @@ async function collectContainerMovePrincipalPolicies(input: {
   execSql: ExecSql;
   previousProjection: ContainerWriterProjectionResponse;
   resolveUserKey: ProjectionUserKeyResolver;
+  stillCurrent?: (() => boolean) | undefined;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<VerifiedPrincipalPolicy[]> {
   const [sourcePolicies, destinationParentPolicies] = await Promise.all([
@@ -27,12 +28,14 @@ async function collectContainerMovePrincipalPolicies(input: {
       execSql: input.execSql,
       projection: input.previousProjection,
       resolveUserKey: input.resolveUserKey,
+      stillCurrent: input.stillCurrent,
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     }),
     collectContainerWriterProjectionPrincipalPolicies({
       execSql: input.execSql,
       projection: input.destinationParentProjection,
       resolveUserKey: input.resolveUserKey,
+      stillCurrent: input.stillCurrent,
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     }),
   ]);
@@ -53,6 +56,7 @@ export async function buildContainerMoveWraps(input: {
   previousProjection: ContainerWriterProjectionResponse;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   state: ContainerAccessManifestState;
+  stillCurrent?: (() => boolean) | undefined;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }) {
   const principalPolicies = await collectContainerMovePrincipalPolicies({
@@ -60,6 +64,7 @@ export async function buildContainerMoveWraps(input: {
     execSql: input.execSql,
     previousProjection: input.previousProjection,
     resolveUserKey: input.resolveProjectionUserKey,
+    stillCurrent: input.stillCurrent,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
   return {

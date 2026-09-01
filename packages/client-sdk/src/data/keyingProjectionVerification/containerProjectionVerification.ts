@@ -366,6 +366,7 @@ export async function collectContainerWriterProjectionPrincipalPolicies(input: {
   readonly principalPolicyCache?: PrincipalPolicyCache | undefined;
   readonly projection: ContainerWriterProjectionResponse;
   readonly resolveUserKey: ProjectionUserKeyResolver;
+  readonly stillCurrent?: (() => boolean) | undefined;
   readonly warmReferencedPrincipalPolicies?:
     | ReferencedPrincipalPolicyWarmer
     | undefined;
@@ -394,7 +395,7 @@ export async function collectContainerWriterProjectionPrincipalPolicies(input: {
     resolveUserKey: input.resolveUserKey,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
-  await commitProjectionCheckpoints(checkpointContext);
+  await commitProjectionCheckpoints(checkpointContext, input);
   return policies;
 }
 

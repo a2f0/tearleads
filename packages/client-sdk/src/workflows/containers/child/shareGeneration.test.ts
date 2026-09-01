@@ -15,13 +15,17 @@ import {
   principalPolicyHead,
 } from "../../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
+import {
+  loadAccessManifestCheckpoint,
+  loadPrincipalPolicyCheckpoint,
+} from "../../../data/persistence/keyingCheckpointPersistence";
 import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicyPersistence";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { buildInitialGroupPolicyRequest } from "../../organizations/principalPolicy";
 import { buildInitialOrganizationPolicyRequest } from "../../registration/registerIdentity";
 import { shareRemoteContainer, shareRemoteContainerWithGroup } from "./share";
 
-test("shareRemoteContainer does not submit after its generation expires during planning", async () => {
+test("share planning rolls back checkpoints after its generation expires", async () => {
   const parent = await createParentProjection();
   const { author } = await createAuthor({
     organizationId: parent.projection.organizationId,
@@ -29,17 +33,21 @@ test("shareRemoteContainer does not submit after its generation expires during p
   });
   const recipientKeyPair = generateKemSeedAndKeyPair();
   const database = await createTestExecSql("container-share-generation");
-  let current = true;
   let shareCallCount = 0;
+  let transactionStarted = false;
+  const guardedExecSql = (async (...args: Parameters<ExecSql>) => {
+    const rows = await database.execSql(...args);
+    if (args[0].trim().toUpperCase().startsWith("BEGIN")) {
+      transactionStarted = true;
+    }
+    return rows;
+  }) as ExecSql;
 
   try {
     const shared = await shareRemoteContainer({
       accessLevel: "write",
       apiClient: {
-        getContainerWriterProjection: async () => {
-          current = false;
-          return parent.projection;
-        },
+        getContainerWriterProjection: async () => parent.projection,
         shareContainer: async () => {
           shareCallCount += 1;
           throw new Error("A stale share must not be submitted");
@@ -47,7 +55,7 @@ test("shareRemoteContainer does not submit after its generation expires during p
       },
       author,
       containerId: parent.projection.containerId,
-      execSql: database.execSql,
+      execSql: guardedExecSql,
       recipientUserId: "user-2",
       resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
       resolveTrustedUserIdentity: createRecipientIdentityResolver({
@@ -55,12 +63,21 @@ test("shareRemoteContainer does not submit after its generation expires during p
         signingKeyFingerprint: author.signerKeyFingerprint,
         signingPublicKey: parent.signingPublicKey,
       }),
-      stillCurrent: () => current,
+      stillCurrent: () => !transactionStarted,
       targetSecretKey: parent.secretKey,
     });
 
     expect(shared).toBeNull();
+    expect(transactionStarted).toBe(true);
     expect(shareCallCount).toBe(0);
+    await expect(
+      loadAccessManifestCheckpoint(
+        database.execSql,
+        "container",
+        parent.projection.organizationId,
+        parent.projection.containerId,
+      ),
+    ).resolves.toBeNull();
   } finally {
     database.close();
   }

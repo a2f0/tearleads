@@ -3,7 +3,7 @@ import type { ContainerContentsStoreState } from "./types";
 
 export type ContainerWriteGuard = () => boolean;
 
-function didContainerWriteRuntimeChange(
+export function didContainerWriteRuntimeChange(
   previousRuntime: ContainerContentsStoreRuntime,
   currentRuntime: ContainerContentsStoreRuntime,
 ): boolean {
@@ -41,8 +41,10 @@ export function captureContainerWriteGeneration(
   const lifecycleGeneration = state.lifecycleGeneration;
   const persistence = state.persistence;
   const runtime = state.runtime;
+  const writeGeneration = state.writeGeneration;
   return () =>
     state.lifecycleGeneration === lifecycleGeneration &&
     state.persistence === persistence &&
+    state.writeGeneration === writeGeneration &&
     !didContainerWriteRuntimeChange(runtime, state.runtime);
 }

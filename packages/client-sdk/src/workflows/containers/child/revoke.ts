@@ -97,6 +97,7 @@ export async function collectContainerRevokePrincipalPolicies(input: {
   execSql: ExecSql;
   previousProjection: ContainerWriterProjectionResponse;
   resolveUserKey: ProjectionUserKeyResolver;
+  stillCurrent?: (() => boolean) | undefined;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<VerifiedPrincipalPolicy[]> {
   return uniquePrincipalPolicies(
@@ -104,6 +105,7 @@ export async function collectContainerRevokePrincipalPolicies(input: {
       execSql: input.execSql,
       projection: input.previousProjection,
       resolveUserKey: input.resolveUserKey,
+      stillCurrent: input.stillCurrent,
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     }),
   );
@@ -172,6 +174,7 @@ export async function buildMaterializedContainerRevokePlan(input: {
   revokedSubject: ContainerRevokeSubject;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
+  stillCurrent?: (() => boolean) | undefined;
   targetSecretKey: Uint8Array;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<MaterializedContainerRevokePlan> {
@@ -234,6 +237,7 @@ export async function buildMaterializedContainerRevokePlan(input: {
     execSql: input.execSql,
     previousProjection: input.previousProjection,
     resolveUserKey: resolveProjectionUserKey,
+    stillCurrent: input.stillCurrent,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
   const replacementPrincipalPolicy = input.replacementPrincipalPolicy;
@@ -295,6 +299,7 @@ export async function revokeRemoteContainer(input: {
   revokedSubject: ContainerRevokeSubject;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
+  stillCurrent?: (() => boolean) | undefined;
   targetSecretKey: Uint8Array;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<{
@@ -317,6 +322,7 @@ export async function revokeRemoteContainer(input: {
     revokedSubject: input.revokedSubject,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     signedAt: input.signedAt,
+    stillCurrent: input.stillCurrent,
     targetSecretKey: input.targetSecretKey,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
@@ -324,6 +330,7 @@ export async function revokeRemoteContainer(input: {
     containerKey: materializedPlan.containerKey,
     execSql: input.execSql,
     plan: materializedPlan.plan,
+    stillCurrent: input.stillCurrent,
     submit: () =>
       input.apiClient.revokeContainer(
         input.containerId,

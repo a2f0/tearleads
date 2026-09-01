@@ -6,6 +6,8 @@ import {
   createParentProjectionUserKeyResolver,
   tamperFirstProjectionEventSignature,
 } from "../../../../test/helpers/containerFixtures";
+import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { moveRemoteContainer } from "./move";
 
 test("moveRemoteContainer rejects bad source projection signatures before sending", async () => {
@@ -84,39 +86,53 @@ test("moveRemoteContainer rejects bad destination projection signatures before s
   database.close();
 });
 
-test("moveRemoteContainer does not submit after its generation expires", async () => {
+test("move planning rolls back checkpoints after its generation expires", async () => {
   const parent = await createParentProjection();
   const { author } = await createAuthor({
     organizationId: parent.projection.organizationId,
     userId: parent.userId,
   });
   const database = await createTestExecSql("move-expired-generation");
-  let current = true;
-  let fetchCount = 0;
   let moveCalled = false;
+  let transactionStarted = false;
+  const guardedExecSql = (async (...args: Parameters<ExecSql>) => {
+    const rows = await database.execSql(...args);
+    if (args[0].trim().toUpperCase().startsWith("BEGIN")) {
+      transactionStarted = true;
+    }
+    return rows;
+  }) as ExecSql;
 
-  const moved = await moveRemoteContainer({
-    apiClient: {
-      getContainerWriterProjection: async () => {
-        fetchCount += 1;
-        if (fetchCount === 2) current = false;
-        return parent.projection;
+  try {
+    const moved = await moveRemoteContainer({
+      apiClient: {
+        getContainerWriterProjection: async () => parent.projection,
+        moveContainer: async () => {
+          moveCalled = true;
+          throw new Error("Unexpected move call");
+        },
       },
-      moveContainer: async () => {
-        moveCalled = true;
-        throw new Error("Unexpected move call");
-      },
-    },
-    author,
-    containerId: parent.projection.containerId,
-    destinationParentContainerId: "destination-parent",
-    execSql: database.execSql,
-    resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
-    stillCurrent: () => current,
-    targetSecretKey: parent.secretKey,
-  });
+      author,
+      containerId: parent.projection.containerId,
+      destinationParentContainerId: "destination-parent",
+      execSql: guardedExecSql,
+      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+      stillCurrent: () => !transactionStarted,
+      targetSecretKey: parent.secretKey,
+    });
 
-  expect(moved).toBeNull();
-  expect(moveCalled).toBe(false);
-  database.close();
+    expect(moved).toBeNull();
+    expect(transactionStarted).toBe(true);
+    expect(moveCalled).toBe(false);
+    await expect(
+      loadAccessManifestCheckpoint(
+        database.execSql,
+        "container",
+        parent.projection.organizationId,
+        parent.projection.containerId,
+      ),
+    ).resolves.toBeNull();
+  } finally {
+    database.close();
+  }
 });

@@ -315,10 +315,10 @@ export async function buildMaterializedContainerCreatePlan(
         execSql: input.execSql,
         projection: input.parentProjection,
         resolveUserKey: input.resolveProjectionUserKey,
+        stillCurrent: input.stillCurrent,
         warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
       })
     : [];
-
   const plan = await buildContainerCreatePlan({
     author: input.author,
     containerId: input.containerId,
@@ -419,6 +419,7 @@ async function createRemoteContainerWithRepairs(input: {
       parentSecretKey: input.request.parentSecretKey,
       resolveProjectionUserKey: input.resolveProjectionUserKey,
       signedAt: input.signedAt,
+      stillCurrent: input.request.stillCurrent,
       warmReferencedPrincipalPolicies:
         input.request.warmReferencedPrincipalPolicies,
     });

@@ -126,6 +126,7 @@ async function buildMaterializedDocumentCreatePlanWithFreshProjection(input: {
   onTerminalSubmitFailure?: DocumentCreateTerminalFailureHandler | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
+  stillCurrent?: (() => boolean) | undefined;
   targetSecretKey: Uint8Array;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<MaterializedDocumentCreatePlanWithProjection | null> {
@@ -153,6 +154,7 @@ async function buildMaterializedDocumentCreatePlanWithFreshProjection(input: {
         execSql: input.execSql,
         resolveProjectionUserKey: input.resolveProjectionUserKey,
         signedAt: input.signedAt,
+        stillCurrent: input.stillCurrent,
         targetSecretKey: input.targetSecretKey,
         warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
       }),
@@ -237,6 +239,7 @@ async function submitPlannedDocumentCreate(
       onTerminalSubmitFailure: input.onTerminalSubmitFailure,
       resolveProjectionUserKey,
       signedAt: input.signedAt,
+      stillCurrent: input.stillCurrent,
       targetSecretKey: input.targetSecretKey,
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     },
@@ -276,6 +279,7 @@ async function submitPlannedDocumentCreate(
         onTerminalSubmitFailure: input.onTerminalSubmitFailure,
         resolveProjectionUserKey,
         signedAt: firstPlan.plan.event.signedAt,
+        stillCurrent: input.stillCurrent,
         targetSecretKey: input.targetSecretKey,
         warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
       });
@@ -373,6 +377,7 @@ export async function createRemoteDocument(
         input.expectedOrganizationId ??
         createPlan.containerProjection.organizationId,
       resolveProjectionUserKey,
+      stillCurrent: input.stillCurrent,
       targetSecretKey: input.targetSecretKey,
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });

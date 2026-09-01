@@ -92,6 +92,7 @@ export async function shareRemoteContainer(input: {
     },
     resolveProjectionUserKey,
     signedAt: input.signedAt,
+    stillCurrent: input.stillCurrent,
     targetSecretKey: input.targetSecretKey,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
@@ -161,6 +162,7 @@ async function prepareMissingGroupGrantMutations(input: {
     groupId: shareInput.recipientGroupId,
     nextPolicy,
     resolveTrustedUserIdentity: shareInput.resolveTrustedUserIdentity,
+    stillCurrent: shareInput.stillCurrent,
     targetSecretKey: shareInput.targetSecretKey,
     warmReferencedPrincipalPolicies: shareInput.warmReferencedPrincipalPolicies,
   });
@@ -318,6 +320,7 @@ export async function shareRemoteContainerWithGroup(
     },
     resolveProjectionUserKey,
     signedAt: input.signedAt,
+    stillCurrent: input.stillCurrent,
     targetSecretKey: input.targetSecretKey,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });

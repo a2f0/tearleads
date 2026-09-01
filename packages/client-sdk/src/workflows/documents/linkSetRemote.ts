@@ -236,6 +236,7 @@ export async function relinkRemoteDocument(input: {
     operation: input.operation,
     resolveProjectionUserKey,
     signedAt,
+    stillCurrent: input.stillCurrent,
     targetContainerProjection,
     targetSecretKey: input.targetSecretKey,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
