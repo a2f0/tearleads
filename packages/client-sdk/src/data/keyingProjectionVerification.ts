@@ -7,6 +7,11 @@ export type {
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,
 } from "./keyingProjectionVerification/types";
+export {
+  isProjectionVerificationCancelledError,
+  nullOnProjectionVerificationCancellation,
+  ProjectionVerificationCancelledError,
+} from "./keyingProjectionVerification/types";
 
 export function requireProjectionUserKeyResolver(
   resolveProjectionUserKey: ProjectionUserKeyResolver | null | undefined,

@@ -15,6 +15,7 @@ import type {
   RelinkRemoteDocumentResult,
 } from "../../data/documents/shared/types";
 import {
+  nullOnProjectionVerificationCancellation,
   type ProjectionUserKeyResolver,
   type ReferencedPrincipalPolicyWarmer,
   requireProjectionUserKeyResolver,
@@ -228,20 +229,23 @@ export async function relinkRemoteDocument(input: {
   if (input.stillCurrent?.() === false) return null;
 
   const signedAt = input.signedAt ?? new Date().toISOString();
-  const materializedPlan = await buildMaterializedDocumentLinkSetMutationPlan({
-    author: input.author,
-    contentKey: input.contentKey,
-    eventId: input.eventId,
-    execSql: input.execSql,
-    operation: input.operation,
-    resolveProjectionUserKey,
-    signedAt,
-    stillCurrent: input.stillCurrent,
-    targetContainerProjection,
-    targetSecretKey: input.targetSecretKey,
-    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-    writerProjection,
-  });
+  const materializedPlan = await nullOnProjectionVerificationCancellation(() =>
+    buildMaterializedDocumentLinkSetMutationPlan({
+      author: input.author,
+      contentKey: input.contentKey,
+      eventId: input.eventId,
+      execSql: input.execSql,
+      operation: input.operation,
+      resolveProjectionUserKey,
+      signedAt,
+      stillCurrent: input.stillCurrent,
+      targetContainerProjection,
+      targetSecretKey: input.targetSecretKey,
+      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+      writerProjection,
+    }),
+  );
+  if (!materializedPlan) return null;
   const request = await completeLinkSetMutationRequest({
     author: input.author,
     materializedPlan,

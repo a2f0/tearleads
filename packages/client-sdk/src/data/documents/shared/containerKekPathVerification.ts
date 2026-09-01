@@ -11,6 +11,7 @@ import { resolveProjectionVerifier } from "./types";
 export type UnwrapContainerKekPathInput = {
   execSql?: ExecSql | undefined;
   knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
+  persistVerificationCheckpoints?: boolean | undefined;
   principalPolicyCache?: PrincipalPolicyCache | undefined;
   projection: ContainerWriterProjectionResponse;
   secretKey: Uint8Array;
@@ -38,6 +39,7 @@ export async function verifyContainerKekPathProjection(
 
   await verifyContainerWriterProjection({
     execSql: input.execSql,
+    persistVerificationCheckpoints: input.persistVerificationCheckpoints,
     principalPolicyCache: input.principalPolicyCache,
     projection: input.projection,
     resolveUserKey: resolveProjectionUserKey,

@@ -54,7 +54,6 @@ export const DOCUMENT_ENCRYPTED_UPDATE_KEYS = new Set([
   "version",
 ]);
 export const TEXT_ENCODER = new TextEncoder();
-
 interface ProjectionVerificationBase {
   readonly stillCurrent?: (() => boolean) | undefined;
   readonly warmReferencedPrincipalPolicies?:
@@ -94,7 +93,6 @@ export function resolveProjectionVerifier(
   if (input.trustedLocalProjection === true) {
     return null;
   }
-
   throw new Error(
     `${label} requires projection key verification or an explicitly trusted local projection`,
   );

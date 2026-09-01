@@ -20,6 +20,7 @@ test("legacy container create finishes its remote metadata document without stal
   let childProjection: ContainerWriterProjectionResponse | null = null;
   let current = true;
   let documentCreateCount = 0;
+  let projectionEvictionCount = 0;
   let projectionPrimed = false;
 
   const apiClient = {
@@ -41,13 +42,29 @@ test("legacy container create finishes its remote metadata document without stal
       current = false;
       return response;
     },
-    createDocument: async (
+    createDocument: async () => null,
+    createDocumentResult: async (
       request: Parameters<
         ContainerWorkflowRuntime["apiClient"]["createDocument"]
       >[0],
     ) => {
       documentCreateCount += 1;
-      return createResponseFromRequest(request);
+      if (documentCreateCount === 1) {
+        return {
+          message:
+            "POST /documents: 409 Conflict: targetContainerPathRefs[0] is stale",
+          ok: false as const,
+          report: () => undefined,
+          status: 409,
+        };
+      }
+      return {
+        data: await createResponseFromRequest(request),
+        ok: true as const,
+      };
+    },
+    evictContainerWriterProjection: () => {
+      projectionEvictionCount += 1;
     },
     getContainerWriterProjection: async (containerId: string) =>
       containerId === parent.projection.containerId
@@ -97,7 +114,8 @@ test("legacy container create finishes its remote metadata document without stal
 
     expect(current).toBe(false);
     expect(created).toBeNull();
-    expect(documentCreateCount).toBe(1);
+    expect(documentCreateCount).toBe(2);
+    expect(projectionEvictionCount).toBe(1);
     expect(projectionPrimed).toBe(false);
     await expect(
       loadAccessManifestCheckpoint(

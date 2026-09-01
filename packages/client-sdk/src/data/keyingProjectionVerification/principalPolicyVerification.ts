@@ -40,7 +40,10 @@ import type {
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,
 } from "./types";
-import { generationGuardedPrincipalPolicyWarmer } from "./types";
+import {
+  assertProjectionVerificationCurrent,
+  generationGuardedPrincipalPolicyWarmer,
+} from "./types";
 
 function principalPolicyReferenceLabel(
   reference: ReferencedPrincipalHead,
@@ -418,30 +421,25 @@ export async function collectReferencedPrincipalPolicies(input: {
       references,
     });
     if (uncached.length > 0) {
-      if (input.stillCurrent?.() === false) return [];
+      assertProjectionVerificationCurrent(input.stillCurrent);
       await warmReferencedPrincipalPolicies({
         organizationId: input.organizationId,
         references: uncached,
       });
-      if (input.stillCurrent?.() === false) return [];
+      assertProjectionVerificationCurrent(input.stillCurrent);
     }
   }
 
-  try {
-    return await Promise.all(
-      references.map((reference) =>
-        verifyReferencedPrincipalPolicy({
-          checkpointContext: input.checkpointContext,
-          organizationId: input.organizationId,
-          principalPolicyCache: input.principalPolicyCache,
-          reference,
-          resolveUserKey: input.resolveUserKey,
-          warmReferencedPrincipalPolicies,
-        }),
-      ),
-    );
-  } catch (error) {
-    if (input.stillCurrent?.() === false) return [];
-    throw error;
-  }
+  return Promise.all(
+    references.map((reference) =>
+      verifyReferencedPrincipalPolicy({
+        checkpointContext: input.checkpointContext,
+        organizationId: input.organizationId,
+        principalPolicyCache: input.principalPolicyCache,
+        reference,
+        resolveUserKey: input.resolveUserKey,
+        warmReferencedPrincipalPolicies,
+      }),
+    ),
+  );
 }

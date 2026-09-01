@@ -16,6 +16,7 @@ import type {
   MaterializedContainerSharePlan,
 } from "../../../data/containers/shared/types";
 import {
+  nullOnProjectionVerificationCancellation,
   type ProjectionUserKeyResolver,
   type ReferencedPrincipalPolicyWarmer,
   requireProjectionUserKeyResolver,
@@ -38,6 +39,14 @@ import {
 } from "./sharePrincipalPolicy";
 
 class ContainerShareGenerationExpiredError extends Error {}
+
+async function buildCurrentContainerSharePlan(
+  input: Parameters<typeof buildMaterializedContainerSharePlan>[0],
+): Promise<MaterializedContainerSharePlan | null> {
+  return nullOnProjectionVerificationCancellation(() =>
+    buildMaterializedContainerSharePlan(input),
+  );
+}
 
 export async function shareRemoteContainer(input: {
   accessLevel: ContainerAccessLevel;
@@ -79,7 +88,7 @@ export async function shareRemoteContainer(input: {
     return null;
   }
 
-  const materializedPlan = await buildMaterializedContainerSharePlan({
+  const materializedPlan = await buildCurrentContainerSharePlan({
     accessLevel: input.accessLevel,
     author: input.author,
     eventId: input.eventId,
@@ -96,6 +105,7 @@ export async function shareRemoteContainer(input: {
     targetSecretKey: input.targetSecretKey,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
+  if (!materializedPlan) return null;
   return submitAcknowledgedContainerMutation({
     containerKey: materializedPlan.containerKey,
     execSql: input.execSql,
@@ -304,7 +314,7 @@ export async function shareRemoteContainerWithGroup(
     return commitMissingGroupGrant(input);
   }
 
-  const materializedPlan = await buildMaterializedContainerSharePlan({
+  const materializedPlan = await buildCurrentContainerSharePlan({
     accessLevel: input.accessLevel,
     author: input.author,
     eventId: input.eventId,
@@ -325,6 +335,7 @@ export async function shareRemoteContainerWithGroup(
     targetSecretKey: input.targetSecretKey,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
+  if (!materializedPlan) return null;
   if (input.stillCurrent?.() === false) return null;
   const response = await input.apiClient.shareContainer(
     input.containerId,

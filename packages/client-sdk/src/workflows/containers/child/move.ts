@@ -36,6 +36,7 @@ import { unwrapContainerKekPath } from "../../../data/documents/shared/projectio
 import { projectionVerificationOptions } from "../../../data/documents/shared/types";
 import { readCanonicalRecord } from "../../../data/keyingCanonicalJson";
 import {
+  nullOnProjectionVerificationCancellation,
   type ProjectionUserKeyResolver,
   type ReferencedPrincipalPolicyWarmer,
   requireProjectionUserKeyResolver,
@@ -356,18 +357,21 @@ export async function moveRemoteContainer(input: {
     return null;
   }
 
-  const materializedPlan = await buildMaterializedContainerMovePlan({
-    author: input.author,
-    eventId: input.eventId,
-    execSql: input.execSql,
-    previousProjection,
-    destinationParentProjection,
-    resolveProjectionUserKey,
-    signedAt: input.signedAt,
-    stillCurrent: input.stillCurrent,
-    targetSecretKey: input.targetSecretKey,
-    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-  });
+  const materializedPlan = await nullOnProjectionVerificationCancellation(() =>
+    buildMaterializedContainerMovePlan({
+      author: input.author,
+      eventId: input.eventId,
+      execSql: input.execSql,
+      previousProjection,
+      destinationParentProjection,
+      resolveProjectionUserKey,
+      signedAt: input.signedAt,
+      stillCurrent: input.stillCurrent,
+      targetSecretKey: input.targetSecretKey,
+      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+    }),
+  );
+  if (!materializedPlan) return null;
   return submitAcknowledgedContainerMutation({
     containerKey: materializedPlan.containerKey,
     execSql: input.execSql,

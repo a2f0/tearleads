@@ -50,6 +50,7 @@ export async function wrapDocumentContentKeyForCreate(
     contentKey: Uint8Array;
     execSql?: ExecSql | undefined;
     knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
+    persistVerificationCheckpoints?: boolean | undefined;
     projection: ContainerWriterProjectionResponse;
     secretKey: Uint8Array;
   } & ProjectionVerificationOptions,
@@ -57,6 +58,7 @@ export async function wrapDocumentContentKeyForCreate(
   const keksByEpochId = await unwrapContainerKekPath({
     execSql: input.execSql,
     knownContainerKeks: input.knownContainerKeks,
+    persistVerificationCheckpoints: input.persistVerificationCheckpoints,
     projection: input.projection,
     secretKey: input.secretKey,
     ...projectionVerificationOptions(input),

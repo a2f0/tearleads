@@ -23,7 +23,7 @@ import {
   type ProjectionCheckpointContext,
 } from "./checkpointContext";
 import { verifyContainerManifestBundle } from "./containerManifestVerification";
-import { rethrowDatabaseUnavailableError } from "./error";
+import { rethrowProjectionVerificationBoundaryError } from "./error";
 import { collectReferencedPrincipalPolicies } from "./principalPolicyVerification";
 import {
   readContainerKekRecipientTarget,
@@ -36,6 +36,7 @@ import type {
   ReferencedPrincipalPolicyWarmer,
 } from "./types";
 import {
+  assertProjectionVerificationCurrent,
   generationGuardedPrincipalPolicyWarmer,
   withGenerationGuardedPolicyWarmer,
 } from "./types";
@@ -224,6 +225,7 @@ export async function verifyContainerManifestPath(input: {
 
 interface ContainerWriterProjectionVerificationInput {
   readonly execSql: ExecSql;
+  readonly persistVerificationCheckpoints?: boolean | undefined;
   readonly principalPolicyCache?: PrincipalPolicyCache | undefined;
   readonly projection: ContainerWriterProjectionResponse;
   readonly resolveUserKey: ProjectionUserKeyResolver;
@@ -343,6 +345,7 @@ export async function verifyContainerWriterProjection(
   input: ContainerWriterProjectionVerificationInput,
 ): Promise<VerifiedContainerAccessManifest[]> {
   try {
+    assertProjectionVerificationCurrent(input.stillCurrent);
     const guardedInput = withGenerationGuardedPolicyWarmer(input);
     const checkpointContext = createProjectionCheckpointContext({
       execSql: input.execSql,
@@ -352,11 +355,14 @@ export async function verifyContainerWriterProjection(
       guardedInput,
       checkpointContext,
     );
-    await commitProjectionCheckpoints(checkpointContext, input);
+    assertProjectionVerificationCurrent(input.stillCurrent);
+    if (input.persistVerificationCheckpoints !== false) {
+      await commitProjectionCheckpoints(checkpointContext, input);
+    }
+    assertProjectionVerificationCurrent(input.stillCurrent);
     return verifiedPath;
   } catch (error) {
-    if (input.stillCurrent?.() === false) return [];
-    rethrowDatabaseUnavailableError(error);
+    rethrowProjectionVerificationBoundaryError(error);
     if (error instanceof KeyingVerificationError) {
       throw error;
     }
@@ -378,6 +384,7 @@ export async function collectContainerWriterProjectionPrincipalPolicies(input: {
     | undefined;
 }): Promise<VerifiedPrincipalPolicy[]> {
   try {
+    assertProjectionVerificationCurrent(input.stillCurrent);
     const warmReferencedPrincipalPolicies =
       generationGuardedPrincipalPolicyWarmer(
         input.warmReferencedPrincipalPolicies,
@@ -398,6 +405,7 @@ export async function collectContainerWriterProjectionPrincipalPolicies(input: {
       },
       checkpointContext,
     );
+    assertProjectionVerificationCurrent(input.stillCurrent);
 
     const policies = await collectPrincipalPoliciesForContainerPaths({
       checkpointContext,
@@ -407,10 +415,12 @@ export async function collectContainerWriterProjectionPrincipalPolicies(input: {
       resolveUserKey: input.resolveUserKey,
       warmReferencedPrincipalPolicies,
     });
+    assertProjectionVerificationCurrent(input.stillCurrent);
     await commitProjectionCheckpoints(checkpointContext, input);
+    assertProjectionVerificationCurrent(input.stillCurrent);
     return policies;
   } catch (error) {
-    if (input.stillCurrent?.() === false) return [];
+    rethrowProjectionVerificationBoundaryError(error);
     throw error;
   }
 }

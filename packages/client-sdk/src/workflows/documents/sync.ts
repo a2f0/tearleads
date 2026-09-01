@@ -14,6 +14,7 @@ import type {
 } from "../../data/documents/shared/types";
 import { projectionVerificationOptions } from "../../data/documents/shared/types";
 import {
+  isProjectionVerificationCancelledError,
   type ProjectionUserKeyResolver,
   requireProjectionUserKeyResolver,
 } from "../../data/keyingProjectionVerification";
@@ -428,7 +429,6 @@ async function syncRemoteDocumentInternal(
   if (input.stillCurrent?.() === false) return null;
   if (persistedSync.kind === "completed") return persistedSync.result;
   let pullContinuation = persistedSync.pullContinuation;
-
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     const outcome = await runRemoteDocumentSyncAttempt({
       attempt,
@@ -458,7 +458,6 @@ async function syncRemoteDocumentInternal(
     recoveryPendingUpdatesById = outcome.updates;
     pendingUpdates = [];
   }
-
   return abandonAfterRetryableConflicts(input);
 }
 
@@ -489,6 +488,7 @@ export async function syncRemoteDocument(
       }),
     });
   } catch (error) {
+    if (isProjectionVerificationCancelledError(error)) return null;
     if (
       input.stillCurrent?.() !== false &&
       isDocumentSyncUpdateIsolationError(error)

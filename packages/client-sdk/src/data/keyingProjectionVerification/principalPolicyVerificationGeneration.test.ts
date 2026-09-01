@@ -3,6 +3,7 @@ import type { ReferencedPrincipalHead } from "@symcrypt/crypto";
 import { createTestExecSql } from "@symcrypt/test-utils";
 import { createProjectionCheckpointContext } from "./checkpointContext";
 import { collectReferencedPrincipalPolicies } from "./principalPolicyVerification";
+import { ProjectionVerificationCancelledError } from "./types";
 
 const REFERENCE: ReferencedPrincipalHead = {
   keyEpoch: 1,
@@ -36,7 +37,9 @@ test("principal verification recognizes expiry after one warming pass", async ()
       },
     });
 
-    await expect(verification).resolves.toEqual([]);
+    await expect(verification).rejects.toBeInstanceOf(
+      ProjectionVerificationCancelledError,
+    );
     expect(warmCount).toBe(1);
   } finally {
     database.close();
@@ -68,7 +71,9 @@ test("principal verification does not invoke a legacy warmer after expiry", asyn
       },
     });
 
-    await expect(verification).resolves.toEqual([]);
+    await expect(verification).rejects.toBeInstanceOf(
+      ProjectionVerificationCancelledError,
+    );
     expect(warmCount).toBe(0);
   } finally {
     database.close();

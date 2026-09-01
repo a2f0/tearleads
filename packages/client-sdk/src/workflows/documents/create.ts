@@ -23,7 +23,10 @@ import type {
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,
 } from "../../data/keyingProjectionVerification";
-import { requireProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
+import {
+  nullOnProjectionVerificationCancellation,
+  requireProjectionUserKeyResolver,
+} from "../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { adoptExistingRemoteDocument } from "./createAdoption";
 import type { DocumentCreateTerminalFailureHandler } from "./createProjectionFetch";
@@ -43,6 +46,7 @@ export async function buildMaterializedDocumentCreatePlan(
     eventId?: string | undefined;
     execSql?: ExecSql | undefined;
     knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
+    persistVerificationCheckpoints?: boolean | undefined;
     signedAt?: string | undefined;
     targetSecretKey: Uint8Array;
   } & ProjectionVerificationOptions,
@@ -56,6 +60,7 @@ export async function buildMaterializedDocumentCreatePlan(
     contentKey,
     execSql: input.execSql,
     knownContainerKeks: input.knownContainerKeks,
+    persistVerificationCheckpoints: input.persistVerificationCheckpoints,
     projection: input.containerProjection,
     secretKey: input.targetSecretKey,
     ...projectionVerificationOptions(input),
@@ -125,6 +130,7 @@ async function buildMaterializedDocumentCreatePlanWithFreshProjection(input: {
   execSql: ExecSql;
   expectedOrganizationId?: string | undefined;
   onTerminalSubmitFailure?: DocumentCreateTerminalFailureHandler | undefined;
+  persistVerificationCheckpoints?: boolean | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
   stillCurrent?: (() => boolean) | undefined;
@@ -153,6 +159,7 @@ async function buildMaterializedDocumentCreatePlanWithFreshProjection(input: {
         documentId: input.documentId,
         eventId: input.eventId,
         execSql: input.execSql,
+        persistVerificationCheckpoints: input.persistVerificationCheckpoints,
         resolveProjectionUserKey: input.resolveProjectionUserKey,
         signedAt: input.signedAt,
         stillCurrent: input.stillCurrent,
@@ -221,11 +228,25 @@ interface RemoteDocumentCreateInput {
   /**
    * Complete a required remote POST even after a compound caller's local
    * generation expires. Local acknowledgement, verification checkpoints, and
-   * cache priming remain guarded by `stillCurrent`.
+   * document projection cache priming remain guarded by `stillCurrent`.
    */
   submitWhenStale?: boolean | undefined;
   targetSecretKey: Uint8Array;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
+}
+
+function documentCreateSubmissionVerificationOptions(
+  input: RemoteDocumentCreateInput,
+): {
+  readonly persistVerificationCheckpoints: boolean | undefined;
+  readonly stillCurrent: (() => boolean) | undefined;
+} {
+  return input.submitWhenStale
+    ? { persistVerificationCheckpoints: false, stillCurrent: undefined }
+    : {
+        persistVerificationCheckpoints: undefined,
+        stillCurrent: input.stillCurrent,
+      };
 }
 
 async function submitPlannedDocumentCreate(
@@ -235,6 +256,8 @@ async function submitPlannedDocumentCreate(
   readonly createPlan: MaterializedDocumentCreatePlanWithProjection;
   readonly submission: DocumentCreateSubmission;
 } | null> {
+  const verificationOptions =
+    documentCreateSubmissionVerificationOptions(input);
   let createPlan = await buildMaterializedDocumentCreatePlanWithFreshProjection(
     {
       apiClient: input.apiClient,
@@ -250,9 +273,9 @@ async function submitPlannedDocumentCreate(
       onTerminalSubmitFailure: input.onTerminalSubmitFailure,
       resolveProjectionUserKey,
       signedAt: input.signedAt,
-      stillCurrent: input.stillCurrent,
       targetSecretKey: input.targetSecretKey,
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+      ...verificationOptions,
     },
   );
   if (!createPlan) {
@@ -273,7 +296,7 @@ async function submitPlannedDocumentCreate(
     isStaleDocumentCreateTargetConflict(submission) &&
     input.apiClient.evictContainerWriterProjection
   ) {
-    if (input.stillCurrent?.() === false) {
+    if (!input.submitWhenStale && input.stillCurrent?.() === false) {
       return { createPlan, submission };
     }
     input.apiClient.evictContainerWriterProjection(input.containerId);
@@ -293,9 +316,9 @@ async function submitPlannedDocumentCreate(
         onTerminalSubmitFailure: input.onTerminalSubmitFailure,
         resolveProjectionUserKey,
         signedAt: firstPlan.plan.event.signedAt,
-        stillCurrent: input.stillCurrent,
         targetSecretKey: input.targetSecretKey,
         warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+        ...verificationOptions,
       });
     if (!refreshedPlan) {
       return null;
@@ -325,9 +348,8 @@ export async function createRemoteDocument(
     input.resolveProjectionUserKey,
     "Remote document create",
   );
-  const plannedSubmission = await submitPlannedDocumentCreate(
-    input,
-    resolveProjectionUserKey,
+  const plannedSubmission = await nullOnProjectionVerificationCancellation(() =>
+    submitPlannedDocumentCreate(input, resolveProjectionUserKey),
   );
   if (!plannedSubmission) {
     return null;

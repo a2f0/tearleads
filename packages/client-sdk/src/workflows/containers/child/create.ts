@@ -52,6 +52,7 @@ import type {
 } from "../../../data/keyingProjectionVerification";
 import {
   collectContainerWriterProjectionPrincipalPolicies,
+  nullOnProjectionVerificationCancellation,
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
@@ -481,20 +482,17 @@ export async function createRemoteContainer(
   if (!parentProjection) {
     return null;
   }
-  const containerId = input.containerId ?? crypto.randomUUID();
-  const containerKey =
-    input.containerKey ?? crypto.getRandomValues(new Uint8Array(32));
-  const eventId = input.eventId ?? crypto.randomUUID();
-  const metadataDocumentId = input.metadataDocumentId ?? crypto.randomUUID();
-  const signedAt = input.signedAt ?? new Date().toISOString();
-  return createRemoteContainerWithRepairs({
-    containerId,
-    containerKey,
-    eventId,
-    metadataDocumentId,
-    parentProjection,
-    request: input,
-    resolveProjectionUserKey,
-    signedAt,
-  });
+  return nullOnProjectionVerificationCancellation(() =>
+    createRemoteContainerWithRepairs({
+      containerId: input.containerId ?? crypto.randomUUID(),
+      containerKey:
+        input.containerKey ?? crypto.getRandomValues(new Uint8Array(32)),
+      eventId: input.eventId ?? crypto.randomUUID(),
+      metadataDocumentId: input.metadataDocumentId ?? crypto.randomUUID(),
+      parentProjection,
+      request: input,
+      resolveProjectionUserKey,
+      signedAt: input.signedAt ?? new Date().toISOString(),
+    }),
+  );
 }
