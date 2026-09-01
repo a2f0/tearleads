@@ -223,6 +223,7 @@ interface ContainerWriterProjectionVerificationInput {
   readonly principalPolicyCache?: PrincipalPolicyCache | undefined;
   readonly projection: ContainerWriterProjectionResponse;
   readonly resolveUserKey: ProjectionUserKeyResolver;
+  readonly stillCurrent?: (() => boolean) | undefined;
   readonly verifiedByHash?:
     | Map<string, VerifiedContainerAccessManifest>
     | undefined;
@@ -346,7 +347,7 @@ export async function verifyContainerWriterProjection(
       input,
       checkpointContext,
     );
-    await commitProjectionCheckpoints(checkpointContext);
+    await commitProjectionCheckpoints(checkpointContext, input);
     return verifiedPath;
   } catch (error) {
     rethrowDatabaseUnavailableError(error);

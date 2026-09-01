@@ -41,6 +41,7 @@ export async function verifyContainerKekPathProjection(
     principalPolicyCache: input.principalPolicyCache,
     projection: input.projection,
     resolveUserKey: resolveProjectionUserKey,
+    stillCurrent: input.stillCurrent,
     verifiedByHash: input.verifiedByHash,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });

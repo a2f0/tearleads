@@ -118,6 +118,7 @@ export async function containerStateHasCurrentGroupGrant(input: {
       principalPolicyCacheForVerifiedPolicies(checkpointPolicies),
     projection,
     resolveUserKey: input.resolveProjectionUserKey,
+    stillCurrent: input.stillCurrent,
     warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
       input.runtime,
     ),

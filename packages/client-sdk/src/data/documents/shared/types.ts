@@ -55,26 +55,26 @@ export const DOCUMENT_ENCRYPTED_UPDATE_KEYS = new Set([
 ]);
 export const TEXT_ENCODER = new TextEncoder();
 
-interface ProjectionPrincipalPolicyWarmOptions {
+interface ProjectionVerificationBase {
+  readonly stillCurrent?: (() => boolean) | undefined;
   readonly warmReferencedPrincipalPolicies?:
     | ReferencedPrincipalPolicyWarmer
     | undefined;
 }
 
-export type ProjectionVerificationOptions =
-  ProjectionPrincipalPolicyWarmOptions &
-    (
-      | {
-          readonly execSql: ExecSql;
-          readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
-          readonly trustedLocalProjection?: undefined;
-        }
-      | {
-          readonly execSql?: ExecSql | undefined;
-          readonly resolveProjectionUserKey?: undefined;
-          readonly trustedLocalProjection: true;
-        }
-    );
+export type ProjectionVerificationOptions = ProjectionVerificationBase &
+  (
+    | {
+        readonly execSql: ExecSql;
+        readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
+        readonly trustedLocalProjection?: undefined;
+      }
+    | {
+        readonly execSql?: ExecSql | undefined;
+        readonly resolveProjectionUserKey?: undefined;
+        readonly trustedLocalProjection: true;
+      }
+  );
 
 export function resolveProjectionVerifier(
   input: ProjectionVerificationOptions,
@@ -103,11 +103,11 @@ export function resolveProjectionVerifier(
 export function projectionVerificationOptions(
   input: ProjectionVerificationOptions,
 ): ProjectionVerificationOptions {
-  const policyWarmer = input.warmReferencedPrincipalPolicies
-    ? {
-        warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-      }
-    : {};
+  const warm = input.warmReferencedPrincipalPolicies;
+  const shared = {
+    ...(input.stillCurrent ? { stillCurrent: input.stillCurrent } : {}),
+    ...(warm ? { warmReferencedPrincipalPolicies: warm } : {}),
+  };
   if (input.resolveProjectionUserKey) {
     if (input.trustedLocalProjection === true) {
       throw new Error(
@@ -116,7 +116,7 @@ export function projectionVerificationOptions(
     }
     return {
       execSql: input.execSql,
-      ...policyWarmer,
+      ...shared,
       resolveProjectionUserKey: input.resolveProjectionUserKey,
     };
   }
@@ -124,10 +124,10 @@ export function projectionVerificationOptions(
     return input.execSql
       ? {
           execSql: input.execSql,
-          ...policyWarmer,
+          ...shared,
           trustedLocalProjection: true,
         }
-      : { ...policyWarmer, trustedLocalProjection: true };
+      : { ...shared, trustedLocalProjection: true };
   }
 
   throw new Error(

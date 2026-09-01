@@ -222,6 +222,7 @@ export async function prepareContainerStateGroupRewrap(input: {
       execSql: input.runtime.infra.execSql,
       projection,
       resolveUserKey: input.resolveProjectionUserKey,
+      stillCurrent: input.stillCurrent,
       warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
         input.runtime,
       ),

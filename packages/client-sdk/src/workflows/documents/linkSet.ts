@@ -216,6 +216,7 @@ async function verifyDocumentLinkSetTargetContainerProjection(
       principalPolicyCache: input.principalPolicyCache,
       projection: input.targetContainerProjection,
       resolveUserKey: input.resolveProjectionUserKey,
+      stillCurrent: input.stillCurrent,
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
   } catch (error) {
