@@ -49,7 +49,7 @@ test("a generation change while settling create intents cannot reach a replaceme
       createIntent("child-a"),
       createIntent("child-b"),
     ],
-    markCreateIntentSynced: async (_execSql, input) => {
+    markCreateIntentRevisionSynced: async (_execSql, input) => {
       settledContainerIds.push(input.containerId);
       settlementStarted = true;
       await new Promise<void>((resolve) => {

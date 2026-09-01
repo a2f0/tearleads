@@ -16,20 +16,19 @@ export async function settleContainerCreateIntent(input: {
 }): Promise<boolean> {
   if (input.alreadySettled) return input.isCurrent();
   if (!input.isCurrent()) return false;
-  const settled = await input.state.persistence.markCreateIntentSynced(
-    input.state.runtime.infra.execSql,
-    {
-      containerId: input.intent.containerId,
-      expectedIntentId: input.intent.id,
-      expectedUpdatedAt: input.intent.updatedAt,
-      remoteContainerId: input.remoteContainerId,
-      remoteMetadataAccessStateHash: input.remoteMetadataAccessStateHash,
-      remoteMetadataDocumentId: input.remoteMetadataDocumentId,
-      stillCurrent: input.isCurrent,
-      supersededMovePreviousParentId: input.supersededMovePreviousParentId,
-    },
-  );
-  return settled !== false && input.isCurrent();
+  const settleRevision = input.state.persistence.markCreateIntentRevisionSynced;
+  if (!settleRevision) return false;
+  const settled = await settleRevision(input.state.runtime.infra.execSql, {
+    containerId: input.intent.containerId,
+    expectedIntentId: input.intent.id,
+    expectedUpdatedAt: input.intent.updatedAt,
+    remoteContainerId: input.remoteContainerId,
+    remoteMetadataAccessStateHash: input.remoteMetadataAccessStateHash,
+    remoteMetadataDocumentId: input.remoteMetadataDocumentId,
+    stillCurrent: input.isCurrent,
+    supersededMovePreviousParentId: input.supersededMovePreviousParentId,
+  });
+  return settled && input.isCurrent();
 }
 
 export async function settlePersistedContainerCreateIntent(input: {

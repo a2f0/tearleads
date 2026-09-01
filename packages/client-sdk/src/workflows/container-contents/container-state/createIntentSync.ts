@@ -371,6 +371,21 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
     return currentCreateResult(input.isCurrent, "failed");
   }
 
+  if (typeof state.persistence.markCreateIntentRevisionSynced !== "function") {
+    await recordContainerCreateIntentError(
+      state.persistence,
+      state.runtime.infra.execSql,
+      {
+        containerId: intent.containerId,
+        expectedIntentId: intent.id,
+        expectedUpdatedAt: intent.updatedAt,
+        message: "Container create replay requires revision-CAS persistence",
+        stillCurrent: input.isCurrent,
+      },
+    );
+    return currentCreateResult(input.isCurrent, "failed");
+  }
+
   if (hasRemoteContainerMetadataState(containerState)) {
     const marked =
       await markContainerContentsContainerCreateIntentAlreadySynced({

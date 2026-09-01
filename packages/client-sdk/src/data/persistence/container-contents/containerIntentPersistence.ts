@@ -15,6 +15,7 @@ import {
   type ContainerCreateIntentErrorInput,
   type ContainerCreateIntentInput,
   type ContainerCreateIntentRecord,
+  type ContainerCreateIntentRevisionInput,
   type ContainerCreateIntentSyncStatus,
   type ContainerMoveIntentInput,
   type ContainerMoveIntentRecord,
@@ -359,6 +360,20 @@ async function markMoveIntentRevisionSynced(
   return outcome.committed && outcome.result === true;
 }
 
+async function markCreateIntentRevisionSynced(
+  execSql: ExecSql,
+  input: ContainerCreateIntentRevisionInput,
+): Promise<boolean> {
+  const outcome = await getClientSQLitePersistenceRuntime(
+    execSql,
+  ).guardedTransaction(
+    async (tx) => settleContainerCreateIntentRevision({ ...input, tx }),
+    input.stillCurrent,
+    { behavior: "immediate" },
+  );
+  return outcome.committed && outcome.result !== "superseded";
+}
+
 type ContainerIntentPersistence = Pick<
   ContainerContentsPersistence,
   | "listPendingCreateIntents"
@@ -366,6 +381,7 @@ type ContainerIntentPersistence = Pick<
   | "recordCreateIntentError"
   | "recordCreateIntentRevisionError"
   | "recordMoveIntentError"
+  | "markCreateIntentRevisionSynced"
   | "markCreateIntentSynced"
   | "markMoveIntentRevisionSynced"
   | "markMoveIntentSynced"
@@ -468,18 +484,8 @@ export const containerIntentPersistence = {
     }
     await runtime.transaction(record, { behavior: "immediate" });
   },
-  async markCreateIntentSynced(execSql, input) {
-    const outcome = await getClientSQLitePersistenceRuntime(
-      execSql,
-    ).guardedTransaction(
-      async (tx) => {
-        return settleContainerCreateIntentRevision({ ...input, tx });
-      },
-      input.stillCurrent,
-      { behavior: "immediate" },
-    );
-    return outcome.committed && outcome.result !== "superseded";
-  },
+  markCreateIntentRevisionSynced,
+  markCreateIntentSynced: markCreateIntentRevisionSynced,
   markMoveIntentRevisionSynced,
   markMoveIntentSynced: markMoveIntentRevisionSynced,
 } satisfies ContainerIntentPersistence;

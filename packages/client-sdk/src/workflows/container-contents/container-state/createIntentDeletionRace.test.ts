@@ -25,6 +25,7 @@ async function runCreatePersistenceOutcome(
     | "deleted-during-settlement"
     | "identity-superseded"
     | "intent-superseded"
+    | "legacy-capability-missing"
     | "legacy-persisted"
     | "missing"
     | "planning-stale"
@@ -119,6 +120,7 @@ async function runCreatePersistenceOutcome(
     syncStatus: "pending",
     updatedAt: "2026-08-24T00:00:00.000Z",
   };
+  const recordedErrors: string[] = [];
   const syncedIntents: string[] = [];
   const reconciliationRequests: Array<string | null> = [];
   let current = true;
@@ -126,16 +128,22 @@ async function runCreatePersistenceOutcome(
   const persistence: ContainerCreateIntentSyncState["persistence"] = {
     ...defaultContainerContentsPersistence,
     listPendingCreateIntents: async () => [intent],
-    markCreateIntentSynced: async (_execSql, input) => {
-      syncedIntents.push(input.containerId);
-      if (persistenceStatus === "settlement-stale") current = false;
-      if (persistenceStatus === "deleted-during-settlement") {
-        deleteContainerFromState();
-        return false;
-      }
-      if (persistenceStatus === "intent-superseded") return false;
-      return input.stillCurrent();
+    recordCreateIntentRevisionError: async (_execSql, input) => {
+      recordedErrors.push(input.message);
     },
+    markCreateIntentRevisionSynced:
+      persistenceStatus === "legacy-capability-missing"
+        ? undefined
+        : async (_execSql, input) => {
+            syncedIntents.push(input.containerId);
+            if (persistenceStatus === "settlement-stale") current = false;
+            if (persistenceStatus === "deleted-during-settlement") {
+              deleteContainerFromState();
+              return false;
+            }
+            if (persistenceStatus === "intent-superseded") return false;
+            return input.stillCurrent();
+          },
   };
   const parentState = createTestContainerState({
     id: parentContainerId,
@@ -219,6 +227,7 @@ async function runCreatePersistenceOutcome(
       createdCount,
       deletedRemoteIds,
       originalContainer,
+      recordedErrors,
       reconciliationRequests,
       remoteCreateCount,
       syncedIntents,
@@ -234,6 +243,17 @@ test("legacy create persistence settles the accepted intent explicitly", async (
   expect(legacy.createdCount).toBe(1);
   expect(legacy.syncedIntents).toEqual([legacy.childContainerId]);
   expect(legacy.deletedRemoteIds).toEqual([]);
+});
+
+test("legacy create adapters fail before issuing a remote mutation", async () => {
+  const legacy = await runCreatePersistenceOutcome("legacy-capability-missing");
+
+  expect(legacy.createdCount).toBe(0);
+  expect(legacy.remoteCreateCount).toBe(0);
+  expect(legacy.syncedIntents).toEqual([]);
+  expect(legacy.recordedErrors).toEqual([
+    "Container create replay requires revision-CAS persistence",
+  ]);
 });
 
 test("create persistence discards only when the local container is missing", async () => {

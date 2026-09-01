@@ -79,6 +79,14 @@ export interface ContainerMoveIntentRevisionInput {
   stillCurrent: () => boolean;
 }
 
+export interface ContainerCreateIntentRevisionInput
+  extends ContainerMoveIntentRevisionInput {
+  remoteContainerId: string;
+  remoteMetadataAccessStateHash: string;
+  remoteMetadataDocumentId: string;
+  supersededMovePreviousParentId?: string | null | undefined;
+}
+
 export interface LocalRootDescendantReparentInput {
   containerId: string;
   parentContainerId: string | null;
@@ -428,18 +436,18 @@ export interface ContainerContentsPersistence
   ) => Promise<ContainerRecord>;
   markCreateIntentSynced: (
     execSql: ExecSql,
-    input: {
-      containerId: string;
-      // Every enqueue rotates this token; updatedAt is a secondary guard.
-      expectedIntentId: string;
-      expectedUpdatedAt: string;
-      remoteContainerId: string;
-      remoteMetadataAccessStateHash: string;
-      remoteMetadataDocumentId: string;
-      stillCurrent: () => boolean;
-      supersededMovePreviousParentId?: string | null | undefined;
-    },
+    input: ContainerCreateIntentRevisionInput,
   ) => Promise<boolean> | Promise<void>;
+  /**
+   * Revision-CAS settlement used by asynchronous create replay. Legacy
+   * adapters without it are rejected before the remote mutation begins.
+   */
+  markCreateIntentRevisionSynced?:
+    | ((
+        execSql: ExecSql,
+        input: ContainerCreateIntentRevisionInput,
+      ) => Promise<boolean>)
+    | undefined;
   markMoveIntentSynced: (
     execSql: ExecSql,
     input: ContainerMoveIntentRevisionInput,
