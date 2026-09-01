@@ -51,12 +51,11 @@ export type {
 } from "./containerContentsPersistenceTypes";
 export { CONTAINER_METADATA_APP_KIND } from "./dormantContainerMetadata";
 
-import {
-  atomicMoveIntentSettlementCommitter,
-  type ContainerContentsPersistence,
-  type ContainerMetadataRecord,
-  type SaveContainerOptions,
-  type SaveContainerWithPendingUpdateOptions,
+import type {
+  ContainerContentsPersistence,
+  ContainerMetadataRecord,
+  SaveContainerOptions,
+  SaveContainerWithPendingUpdateOptions,
 } from "./containerContentsPersistenceTypes";
 import { deleteStoredContainers } from "./containerDeletionPersistence";
 import { commitStoredHydratedContainer } from "./containerHydrationPersistence";
@@ -319,7 +318,3 @@ export const sqlContainerContentsPersistence: SqlPersistence = {
     });
   },
 };
-
-atomicMoveIntentSettlementCommitter(
-  sqlContainerContentsPersistence.commitMetadataMutation,
-);

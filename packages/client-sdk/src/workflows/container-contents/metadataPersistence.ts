@@ -215,7 +215,13 @@ async function persistPreparedMetadataMutation(input: {
     metadataState,
     prepared.securityContext.changed,
   );
-  return { container: committed.container, record: nextRecord };
+  return {
+    container: committed.container,
+    record: nextRecord,
+    ...(committed.moveIntentSettled
+      ? { moveIntentSettled: true as const }
+      : {}),
+  };
 }
 async function adoptMetadataCommitConflict(input: {
   currentState: Awaited<

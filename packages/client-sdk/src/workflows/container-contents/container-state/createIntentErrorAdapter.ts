@@ -5,15 +5,16 @@ import {
 } from "../../../data/persistence/container-contents/containerContentsPersistenceTypes";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 
-/** Preserve adapters implementing the pre-generation-fence three-arg seam. */
-export function recordContainerCreateIntentError(
+export async function recordContainerCreateIntentError(
   persistence: ContainerContentsPersistence,
   execSql: ExecSql,
   input: ContainerCreateIntentErrorInput,
 ): Promise<void> {
   const record = persistence.recordCreateIntentError;
   if (usesRevisionGuardedCreateIntentErrorInput(record)) {
-    return record(execSql, input);
+    await record(execSql, input);
   }
-  return record(execSql, input.containerId, input.message);
+  // A legacy three-argument recorder cannot atomically compare either the
+  // intent revision or the generation. Dropping the diagnostic is safer than
+  // letting a delayed failure overwrite a newer queued intent.
 }

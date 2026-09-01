@@ -374,7 +374,11 @@ export interface ContainerContentsPersistence
       stillCurrent?: (() => boolean) | undefined;
     },
   ) => Promise<
-    | { committed: true; container: ContainerRecord }
+    | {
+        committed: true;
+        container: ContainerRecord;
+        moveIntentSettled?: true | undefined;
+      }
     | {
         committed: false;
         currentState: StoredContainerState | null;
@@ -450,22 +454,4 @@ export interface ContainerContentsPersistence
       stillCurrent: () => boolean;
     },
   ) => Promise<boolean> | Promise<void>;
-}
-
-const atomicMoveIntentSettlementCommitters = new WeakSet<
-  ContainerContentsPersistence["commitMetadataMutation"]
->();
-
-/** Opts a metadata committer into atomic move-intent settlement. */
-export function atomicMoveIntentSettlementCommitter<
-  Committer extends ContainerContentsPersistence["commitMetadataMutation"],
->(committer: Committer): Committer {
-  atomicMoveIntentSettlementCommitters.add(committer);
-  return committer;
-}
-
-export function usesAtomicMoveIntentSettlement(
-  committer: ContainerContentsPersistence["commitMetadataMutation"],
-): boolean {
-  return atomicMoveIntentSettlementCommitters.has(committer);
 }

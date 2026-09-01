@@ -100,7 +100,11 @@ export interface RemoteContainerHydrationState {
 export type PersistContainerStateResult =
   | { status: "identity-superseded"; record: ContainerDocumentRecord }
   | { status: "missing" }
-  | { status: "persisted"; record: ContainerDocumentRecord }
+  | {
+      status: "persisted";
+      record: ContainerDocumentRecord;
+      moveIntentSettled?: true | undefined;
+    }
   | { status: "stale-generation" };
 
 export interface RemoteContainerHydrationHost {

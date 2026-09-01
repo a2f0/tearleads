@@ -8,7 +8,7 @@ import {
 } from "../containerPersistence";
 import { recordContainerCreateIntentError } from "./createIntentErrorAdapter";
 
-test("create intent errors preserve the legacy three-argument adapter seam", async () => {
+test("guarded create intent errors skip legacy recorders without revision CAS", async () => {
   const execSql: ExecSql = async () => [];
   const calls: Array<{ containerId: string; message: string }> = [];
   const persistence: ContainerContentsPersistence = {
@@ -24,15 +24,13 @@ test("create intent errors preserve the legacy three-argument adapter seam", asy
 
   await recordContainerCreateIntentError(persistence, execSql, {
     containerId: "legacy-container",
-    expectedIntentId: "ignored-by-legacy-adapter",
+    expectedIntentId: "current-intent",
     expectedUpdatedAt: "2026-09-01T00:00:00.000Z",
     message: "legacy failure",
     stillCurrent: () => true,
   });
 
-  expect(calls).toEqual([
-    { containerId: "legacy-container", message: "legacy failure" },
-  ]);
+  expect(calls).toEqual([]);
 });
 
 test("create intent errors use the explicit revision-guarded adapter capability", async () => {

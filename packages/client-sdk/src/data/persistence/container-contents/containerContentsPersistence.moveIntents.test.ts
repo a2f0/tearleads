@@ -90,6 +90,77 @@ test("listUnsyncedMoveIntents returns blocked moves until they sync", async () =
   }
 });
 
+test("a decorated atomic committer reports successful move settlement", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "container-move-intent-decorated-settlement",
+  );
+  const metadataRecord = {
+    accessEpoch: 1,
+    accessStateHash: "access-decorated",
+    documentId: "metadata-decorated",
+    id: "child-decorated",
+    metadataUpdates: "",
+    snapshotEndVersion: "",
+  };
+  const container = {
+    effectiveAccessLevel: "admin" as const,
+    icon: null,
+    id: "child-decorated",
+    metadataDocumentId: metadataRecord.documentId,
+    name: "Child",
+    organizationId: "org-1",
+    parentId: "source",
+  };
+  const decoratedCommit: typeof persistence.commitMetadataMutation = async (
+    ...args
+  ) => persistence.commitMetadataMutation(...args);
+
+  try {
+    await persistence.ensureSchema(execSql);
+    await persistence.saveContainer(
+      execSql,
+      { ...container, parentId: "target" },
+      metadataRecord,
+      {
+        moveIntent: {
+          parentContainerId: "target",
+          previousParentContainerId: "source",
+        },
+      },
+    );
+    const [intent] = await persistence.listUnsyncedMoveIntents(execSql);
+    const current = await persistence.loadContainerMetadataState(
+      execSql,
+      container.id,
+    );
+    if (!intent || !current?.record) {
+      throw new Error("Expected a stored container move intent");
+    }
+
+    const result = await decoratedCommit(execSql, {
+      acceptedPendingUpdateIds: [],
+      container: current.container,
+      expectedContainer: current.container,
+      expectedRecord: current.record,
+      moveIntentSettlement: {
+        containerId: intent.containerId,
+        expectedIntentId: intent.id,
+        expectedUpdatedAt: intent.updatedAt,
+      },
+      record: current.record,
+      settleAcceptedPendingOnConflict: false,
+    });
+
+    expect(result).toMatchObject({
+      committed: true,
+      moveIntentSettled: true,
+    });
+    expect(await persistence.listUnsyncedMoveIntents(execSql)).toEqual([]);
+  } finally {
+    close();
+  }
+});
+
 test("an overtaking same-tick move rolls stale container persistence back", async () => {
   const { close, execSql } = await createTestExecSql(
     "container-move-intent-atomic-settlement",

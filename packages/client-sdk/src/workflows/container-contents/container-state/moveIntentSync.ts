@@ -2,7 +2,6 @@ import { errorMessage } from "../../../data/errorMessage";
 import { reportAndRethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
-import { usesAtomicMoveIntentSettlement } from "../containerPersistence";
 import {
   createDetachedContainerMetadataState,
   installDetachedContainerMetadataState,
@@ -82,16 +81,13 @@ async function resolveMoveIntentLocalUpdatedAt(input: {
 }
 
 async function settleLegacyAcceptedMoveIntent(input: {
+  alreadySettled: boolean;
   execSql: ExecSql;
   intent: ContainerMoveIntentSyncInput["intent"];
   isCurrent: () => boolean;
   state: ContainerMoveIntentSyncState;
 }): Promise<boolean> {
-  if (
-    usesAtomicMoveIntentSettlement(
-      input.state.persistence.commitMetadataMutation,
-    )
-  ) {
+  if (input.alreadySettled) {
     return true;
   }
   const settled = await input.state.persistence.markMoveIntentSynced(
@@ -190,16 +186,14 @@ export async function persistAcceptedMoveIntent(input: {
     return abandon();
   }
   if (persistenceResult.status !== "persisted") return false;
-  if (
-    !(await settleLegacyAcceptedMoveIntent({
-      execSql,
-      intent,
-      isCurrent: input.isCurrent,
-      state,
-    }))
-  ) {
-    return abandon();
-  }
+  const intentSettled = await settleLegacyAcceptedMoveIntent({
+    alreadySettled: persistenceResult.moveIntentSettled === true,
+    execSql,
+    intent,
+    isCurrent: input.isCurrent,
+    state,
+  });
+  if (!intentSettled) return abandon();
   const { record: nextRecord } = persistenceResult;
   installDetachedContainerMetadataState(containerState, persistenceCandidate, {
     candidateRecord: nextRecord,

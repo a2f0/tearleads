@@ -43,6 +43,7 @@ export interface ContainerMetadataPatch {
 
 export interface PersistedContainerMetadataState {
   container: ContainerRecord;
+  moveIntentSettled?: true;
   mutationSuperseded?: true;
   pullContinuationSuperseded?: true;
   record: ContainerMetadataRecord;

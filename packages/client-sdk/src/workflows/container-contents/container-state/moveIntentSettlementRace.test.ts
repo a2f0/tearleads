@@ -156,7 +156,7 @@ test("a generation change during settlement leaves live state unchanged", async 
   expect(child.container).toEqual(originalContainer);
 });
 
-test("legacy metadata persistence settles an accepted move through the fallback", async () => {
+test("move settlement falls back only when persistence omits the atomic result", async () => {
   const child = createTestContainerState({ id: "child", parentId: "root" });
   child.doc = await createContainerMetadataDocument(child.container.id);
   const settlements: Array<
@@ -199,6 +199,18 @@ test("legacy metadata persistence settles an accepted move through the fallback"
     syncStatus: "pending",
     updatedAt: "2026-05-31T00:00:00.000Z",
   };
+  const moved = {
+    createdAt: "2026-05-31T00:00:00.000Z",
+    effectiveAccessLevel: "admin" as const,
+    id: "child",
+    metadataAccessEpoch: 2,
+    metadataAccessStateHash: "access-after-move",
+    metadataDocumentId: "metadata-after-move",
+    metadataReferencedPrincipals: [],
+    organizationId: "organization",
+    parentId: "parent",
+    updatedAt: "2026-05-31T00:01:00.000Z",
+  };
 
   expect(
     await persistAcceptedMoveIntent({
@@ -211,18 +223,7 @@ test("legacy metadata persistence settles an accepted move through the fallback"
       },
       isCurrent: () => true,
       intent,
-      moved: {
-        createdAt: "2026-05-31T00:00:00.000Z",
-        effectiveAccessLevel: "admin",
-        id: "child",
-        metadataAccessEpoch: 2,
-        metadataAccessStateHash: "access-after-move",
-        metadataDocumentId: "metadata-after-move",
-        metadataReferencedPrincipals: [],
-        organizationId: "organization",
-        parentId: "parent",
-        updatedAt: "2026-05-31T00:01:00.000Z",
-      },
+      moved,
       requestRemoteReconciliation: () => {},
       state,
     }),
@@ -235,4 +236,23 @@ test("legacy metadata persistence settles an accepted move through the fallback"
   });
   expect(settlements[0]?.stillCurrent()).toBe(true);
   expect(child.container.parentId).toBe("parent");
+
+  expect(
+    await persistAcceptedMoveIntent({
+      host: {
+        persistContainerState: async (candidate) => ({
+          moveIntentSettled: true,
+          record: candidate.record,
+          status: "persisted",
+        }),
+        updateSnapshot: () => {},
+      },
+      isCurrent: () => true,
+      intent,
+      moved,
+      requestRemoteReconciliation: () => {},
+      state,
+    }),
+  ).toBe(true);
+  expect(settlements).toHaveLength(1);
 });

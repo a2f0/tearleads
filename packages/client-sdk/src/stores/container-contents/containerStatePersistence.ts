@@ -84,5 +84,11 @@ export async function persistContainerState(
   if (updateView) {
     updateContainerContentsSnapshot(state);
   }
-  return { record: persisted.record, status: "persisted" };
+  return {
+    record: persisted.record,
+    status: "persisted",
+    ...(persisted.moveIntentSettled
+      ? { moveIntentSettled: true as const }
+      : {}),
+  };
 }

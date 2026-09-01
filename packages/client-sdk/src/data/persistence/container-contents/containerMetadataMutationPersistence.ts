@@ -44,6 +44,17 @@ function sameNullableValue(
   return (left ?? null) === (right ?? null);
 }
 
+function committedMetadataMutationResult(input: {
+  container: ContainerRecord;
+  moveIntentSettled: boolean;
+}) {
+  return {
+    committed: true as const,
+    container: input.container,
+    ...(input.moveIntentSettled ? { moveIntentSettled: true as const } : {}),
+  };
+}
+
 function sameMetadataSecurityIdentity(
   current: ContainerMetadataRecord,
   expected: ContainerMetadataRecord,
@@ -379,7 +390,10 @@ export async function commitStoredMetadataMutation(
             );
           }
         }
-        return { committed: true as const, container: savedContainer };
+        return committedMetadataMutationResult({
+          container: savedContainer,
+          moveIntentSettled: input.moveIntentSettlement !== undefined,
+        });
       },
       () => !input.stillCurrent || input.stillCurrent(),
       { behavior: "immediate" },
