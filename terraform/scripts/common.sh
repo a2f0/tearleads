@@ -16,7 +16,12 @@ get_backend_config() {
 # Source a single env file with export semantics.
 _source_env_file() {
   local env_file="$1"
+  local env_entry
+  local env_name
+  local env_snapshot
+  local import_status=0
   local source_status=0
+  local xtrace_was_enabled=0
 
   if [[ ! -f "$env_file" ]]; then
     if [[ -e "$env_file" ]]; then
@@ -27,11 +32,40 @@ _source_env_file() {
     return 0
   fi
 
-  set -a
-  # shellcheck source=/dev/null
-  source "$env_file" || source_status=$?
-  set +a
-  return "$source_status"
+  env_snapshot="$(mktemp "${TMPDIR:-/tmp}/tearleads-env.XXXXXX")" || return 1
+  if bash -e -c 'set -a; source "$1"; env -0 >&3' bash "$env_file" 3>"$env_snapshot"; then
+    source_status=0
+  else
+    source_status=$?
+  fi
+
+  if [[ "$source_status" -ne 0 ]]; then
+    rm -f -- "$env_snapshot"
+    return "$source_status"
+  fi
+
+  if [[ "$-" == *x* ]]; then
+    xtrace_was_enabled=1
+    set +x
+  fi
+  while IFS= read -r -d '' env_entry; do
+    env_name="${env_entry%%=*}"
+    if [[ ! "$env_name" =~ ^[a-zA-Z_][a-zA-Z0-9_]*$ ]]; then
+      continue
+    fi
+    case "$env_name" in
+      SHLVL | _) continue ;;
+    esac
+    export "${env_entry?}" || {
+      import_status=$?
+      break
+    }
+  done <"$env_snapshot"
+  if [[ "$xtrace_was_enabled" -eq 1 ]]; then
+    set -x
+  fi
+  rm -f -- "$env_snapshot"
+  return "$import_status"
 }
 
 # Source a single env file with export semantics when it exists.
