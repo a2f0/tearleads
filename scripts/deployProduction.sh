@@ -8,29 +8,42 @@
 #   4. Website deploy (build, rsync to /var/www, nginx reload)
 #   5. App-web deploy (build, sync, nginx reload)
 #
-# Pass --skip-infra to skip terraform and ansible (steps 1-2) and deploy only
-# the application artifacts.
+# Pass --skip-terraform when a caller already applied the stack, or --skip-infra
+# to skip both terraform and ansible and deploy only the application artifacts.
 
 set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
 SKIP_INFRA=false
+SKIP_TERRAFORM=false
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [--skip-infra]
+Usage: $(basename "$0") [--skip-terraform] [--skip-infra]
 
 Options:
+  --skip-terraform  Skip terraform but still configure the server with Ansible.
   --skip-infra  Skip terraform and ansible; deploy application artifacts only.
   -h, --help    Show this help and exit.
+
+Environment:
+  PRODUCTION_SSH_TARGET  Optional explicit production SSH target.
+
+SSH_TARGET is unsupported; use PRODUCTION_SSH_TARGET so the deployment tier is
+explicit.
 EOF
 }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --skip-terraform)
+      SKIP_TERRAFORM=true
+      shift
+      ;;
     --skip-infra)
       SKIP_INFRA=true
+      SKIP_TERRAFORM=true
       shift
       ;;
     -h | --help)
@@ -44,6 +57,12 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+# Reject an ambiguous generic target before Terraform changes infrastructure.
+# shellcheck source=../terraform/scripts/common.sh
+# shellcheck disable=SC1091
+. "$REPO_ROOT/terraform/scripts/common.sh"
+validate_tier_ssh_target_override prod
 
 DEPLOY_START="$SECONDS"
 STEP_TIMINGS=()
@@ -85,18 +104,21 @@ print_timing_summary() {
 echo "=== Tearleads Production Deployment ==="
 echo ""
 
-if [[ "$SKIP_INFRA" == true ]]; then
-  skip_step "terraform"
+if [[ "$SKIP_TERRAFORM" == true ]]; then
+  if [[ "$SKIP_INFRA" == true ]]; then
+    skip_step "terraform"
+  else
+    echo "--- [terraform] skipped (--skip-terraform) ---"
+    STEP_TIMINGS+=("$(printf '%-12s %s' "terraform" "skipped")")
+    echo ""
+  fi
 else
   run_step "terraform" \
     "${REPO_ROOT}/terraform/stacks/prod/server/scripts/apply.sh" \
     --auto-approve
 fi
 
-# Resolve SSH_TARGET once (honoring a pre-set value) so sub-scripts reuse it
-# shellcheck source=../terraform/scripts/common.sh
-# shellcheck disable=SC1091
-. "$REPO_ROOT/terraform/scripts/common.sh"
+# Resolve SSH_TARGET once so sub-scripts reuse it.
 load_secrets_env prod
 validate_aws_env
 if [ -z "${SSH_TARGET:-}" ]; then
@@ -106,6 +128,8 @@ if [ -z "${SSH_TARGET:-}" ]; then
   SSH_TARGET="$(resolve_stack_ssh_target "$STACK_DIR")"
 fi
 export SSH_TARGET
+PRODUCTION_SSH_TARGET="$SSH_TARGET"
+export PRODUCTION_SSH_TARGET
 
 if [[ "$SKIP_INFRA" == true ]]; then
   skip_step "ansible"

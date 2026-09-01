@@ -13,53 +13,10 @@ get_backend_config() {
   echo "$repo_root/terraform/configs/backend.hcl"
 }
 
-# Source a single env file with export semantics.
-_source_env_file() {
-  local env_file="$1"
-
-  if [[ ! -f "$env_file" ]]; then
-    if [[ -e "$env_file" ]]; then
-      echo "ERROR: $env_file exists but is not a regular file." >&2
-      return 1
-    fi
-    echo "WARNING: $env_file not found. Environment variables must be set manually." >&2
-    return 0
-  fi
-
-  set -a
-  # shellcheck source=/dev/null
-  source "$env_file"
-  set +a
-}
-
-# Source a single env file with export semantics when it exists.
-_source_optional_env_file() {
-  local env_file="$1"
-
-  if [[ ! -e "$env_file" ]]; then
-    return 0
-  fi
-
-  _source_env_file "$env_file"
-}
-
-# Load secrets from .secrets/{root,<tier>,<tier>.garage}.env files.
-# Usage: load_secrets_env [staging|prod]
-#   - Always sources .secrets/root.env (shared infra creds).
-#   - When a tier is given, also sources .secrets/<tier>.env.
-#   - When present, also sources .secrets/<tier>.garage.env.
-load_secrets_env() {
-  local tier="${1:-}"
-  local secrets_dir
-  secrets_dir="$(get_repo_root)/.secrets"
-
-  _source_env_file "$secrets_dir/root.env"
-
-  if [[ -n "$tier" ]]; then
-    _source_env_file "$secrets_dir/${tier}.env"
-    _source_optional_env_file "$secrets_dir/${tier}.garage.env"
-  fi
-}
+COMMON_SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+# shellcheck source=terraform/scripts/secretsEnv.sh
+. "$COMMON_SCRIPT_DIR/secretsEnv.sh"
+unset COMMON_SCRIPT_DIR
 
 # Validate required environment variables for Hetzner stacks (base)
 validate_hetzner_env() {
@@ -309,27 +266,71 @@ wait_for_ssh_ready() {
   return 1
 }
 
-# Resolve the Tailscale-only SSH target from a Terraform stack.
-resolve_stack_ssh_target() {
+# Read the Tailscale-only SSH target from Terraform state without contacting it.
+# Returns 2 when the stack has no server outputs yet.
+read_stack_ssh_target() {
   local stack_dir="$1"
-  local username hostname ssh_target
+  local username_status=0
+  local hostname_status=0
+  local state_list_status=0
+  local state_list_error
+  local state_resources
+  local username hostname
 
-  username="$(terraform -chdir="$stack_dir" output -raw server_username 2>/dev/null || true)"
-  hostname="$(terraform -chdir="$stack_dir" output -raw ssh_hostname 2>/dev/null || true)"
+  username="$(terraform -chdir="$stack_dir" output -raw server_username 2>/dev/null)" || username_status=$?
+  hostname="$(terraform -chdir="$stack_dir" output -raw ssh_hostname 2>/dev/null)" || hostname_status=$?
 
-  if [[ -z "$username" ]]; then
+  if [[ "$username_status" -ne 0 && "$hostname_status" -ne 0 ]]; then
+    state_list_error="$(mktemp "${TMPDIR:-/tmp}/tearleads-terraform-state.XXXXXX")" || return 1
+    state_resources="$(terraform -chdir="$stack_dir" state list 2>"$state_list_error")" || state_list_status=$?
+    if [[ "$state_list_status" -ne 0 ]]; then
+      if grep -q "No state file was found" "$state_list_error"; then
+        rm -f -- "$state_list_error"
+        return 2
+      fi
+      cat "$state_list_error" >&2
+      rm -f -- "$state_list_error"
+      return 1
+    fi
+    rm -f -- "$state_list_error"
+    if [[ -z "$state_resources" ]]; then
+      return 2
+    fi
+    echo "ERROR: Terraform state exists but server SSH outputs are unavailable." >&2
+    return 1
+  fi
+
+  if [[ "$username_status" -ne 0 || -z "$username" ]]; then
     echo "ERROR: Could not resolve server username from terraform outputs." >&2
     echo "       Run 'terraform apply' in $stack_dir first." >&2
     return 1
   fi
 
-  if [[ -z "$hostname" ]]; then
+  if [[ "$hostname_status" -ne 0 || -z "$hostname" ]]; then
     echo "ERROR: Could not resolve the Tailscale ssh_hostname from terraform outputs." >&2
     echo "       Run 'terraform apply' in $stack_dir first." >&2
     return 1
   fi
 
-  ssh_target="$username@$hostname"
+  echo "$username@$hostname"
+}
+
+# Resolve the Tailscale-only SSH target from a Terraform stack.
+resolve_stack_ssh_target() {
+  local stack_dir="$1"
+  local read_status=0
+  local ssh_target
+
+  ssh_target="$(read_stack_ssh_target "$stack_dir")" || read_status=$?
+  if [[ "$read_status" -eq 2 ]]; then
+    echo "ERROR: Could not resolve server SSH details from terraform outputs." >&2
+    echo "       Run 'terraform apply' in $stack_dir first." >&2
+    return 1
+  fi
+  if [[ "$read_status" -ne 0 ]]; then
+    return "$read_status"
+  fi
+
   wait_for_ssh_ready "$ssh_target" >&2 || return 1
   echo "$ssh_target"
 }
