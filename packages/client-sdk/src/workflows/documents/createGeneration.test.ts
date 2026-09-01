@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import {
+  type AnyVerifiedAccessManifest,
+  generateKemSeedAndKeyPair,
+} from "@tearleads/crypto";
 import {
   createContainerWriterProjectionFixture,
   createTestExecSql,
@@ -7,6 +10,7 @@ import {
 import { createAuthor } from "../../../test/helpers/documentFixturePrimitives";
 import { createResponseFromRequest } from "../../../test/helpers/documentResponseFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../test/helpers/trustedUserIdentity";
+import { enforceAccessManifestCheckpoints } from "../../data/keyingProjectionVerification/accessManifestCheckpointEnforcement";
 import { loadAccessManifestCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { createRemoteDocument } from "./create";
@@ -127,6 +131,84 @@ test("document create planning rolls back checkpoints after generation expiry", 
         projection.containerId,
       ),
     ).resolves.toBeNull();
+  } finally {
+    database.close();
+  }
+});
+
+test("stale-required create validates a newer durable container pin", async () => {
+  const { author, signingPublicKey } = await createAuthor();
+  const keyPair = generateKemSeedAndKeyPair();
+  const projection = await createContainerWriterProjectionFixture({
+    containerId: "stale-required-pinned-container",
+    encapsulationPublicKey: keyPair.publicKey,
+    organizationId: author.organizationId,
+    signerKeyFingerprint: author.signerKeyFingerprint,
+    signerPrivateKey: author.signerPrivateKey,
+    userId: author.signerUserId,
+  });
+  const database = await createTestExecSql("stale-required-newer-pin");
+  const projectionHead = projection.path.at(-1);
+  if (!projectionHead) throw new Error("Expected a container projection head");
+  const newerManifestHash = "f".repeat(64);
+  const newer = {
+    checkpoint: {
+      epoch: 2,
+      manifestHash: newerManifestHash,
+      objectId: projection.containerId,
+      objectKind: "container",
+      organizationId: projection.organizationId,
+    },
+    manifest: { previousManifestHash: projectionHead.manifestHash },
+    manifestHash: newerManifestHash,
+  } as unknown as AnyVerifiedAccessManifest;
+  let submitted = false;
+
+  try {
+    await enforceAccessManifestCheckpoints({
+      execSql: database.execSql,
+      policies: [],
+      verifiedHeads: [newer],
+      verifiedManifests: [newer],
+    });
+
+    await expect(
+      createRemoteDocument({
+        apiClient: {
+          createDocument: async () => {
+            submitted = true;
+            throw new Error("stale projection must not be submitted");
+          },
+          getContainerWriterProjection: async () => projection,
+          primeDocumentWriterProjection: () => undefined,
+        },
+        author,
+        containerId: projection.containerId,
+        containerProjection: projection,
+        documentId: "stale-required-pinned-document",
+        execSql: database.execSql,
+        resolveProjectionUserKey: createTestTrustedUserIdentityResolver({
+          encapsulationPublicKey: keyPair.publicKey,
+          signingKeyFingerprint: author.signerKeyFingerprint,
+          signingPublicKey,
+          userId: author.signerUserId,
+        }),
+        submitWhenStale: true,
+        targetSecretKey: keyPair.secretKey,
+      }),
+    ).rejects.toMatchObject({ code: "rollback" });
+    expect(submitted).toBe(false);
+    await expect(
+      loadAccessManifestCheckpoint(
+        database.execSql,
+        "container",
+        projection.organizationId,
+        projection.containerId,
+      ),
+    ).resolves.toMatchObject({
+      epoch: 2,
+      manifestHash: newerManifestHash,
+    });
   } finally {
     database.close();
   }

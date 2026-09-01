@@ -21,6 +21,7 @@ import {
   createProjectionCheckpointContext,
   observeAccessManifestCheckpoints,
   type ProjectionCheckpointContext,
+  validateProjectionCheckpoints,
 } from "./checkpointContext";
 import { verifyContainerManifestBundle } from "./containerManifestVerification";
 import { rethrowProjectionVerificationBoundaryError } from "./error";
@@ -358,6 +359,8 @@ export async function verifyContainerWriterProjection(
     assertProjectionVerificationCurrent(input.stillCurrent);
     if (input.persistVerificationCheckpoints !== false) {
       await commitProjectionCheckpoints(checkpointContext, input);
+    } else {
+      await validateProjectionCheckpoints(checkpointContext, input);
     }
     assertProjectionVerificationCurrent(input.stillCurrent);
     return verifiedPath;

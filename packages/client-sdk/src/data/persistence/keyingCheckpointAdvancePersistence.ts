@@ -40,6 +40,13 @@ export interface AccessManifestCheckpointAdvance {
   readonly predecessors: readonly VerifiedAccessManifestCheckpointEvidence[];
 }
 
+interface KeyingCheckpointValidationInput {
+  readonly access: readonly AccessManifestCheckpointAdvance[];
+  readonly execSql: ExecSql;
+  readonly policies: readonly AnyVerifiedPrincipalPolicy[];
+  readonly stillCurrent?: (() => boolean) | undefined;
+}
+
 interface VerifiedPrincipalPolicyBundleEntry {
   readonly bundle: PrincipalPolicyBundleResponse;
   readonly policy: VerifiedPrincipalPolicy;
@@ -243,6 +250,36 @@ async function writePolicyCheckpoints(
   }
 }
 
+async function ensureKeyingCheckpointValidationTables(
+  input: KeyingCheckpointValidationInput,
+): Promise<void> {
+  await ensureSqlTables(
+    input.execSql,
+    input.policies.length > 0
+      ? [...principalPolicyTables, ...keyingCheckpointTables]
+      : keyingCheckpointTables,
+  );
+}
+
+/** Re-checks verified candidates against durable pins without advancing them. */
+export async function validateKeyingCheckpointsAtomically(
+  input: KeyingCheckpointValidationInput,
+): Promise<void> {
+  await ensureKeyingCheckpointValidationTables(input);
+  const validate = async (tx: ClientSQLiteTransactionScope) => {
+    await validateAccessAdvances(tx, input.access);
+    await validatePolicyAdvances(tx, input.policies);
+  };
+  const runtime = getClientSQLitePersistenceRuntime(input.execSql);
+  if (input.stillCurrent) {
+    await runtime.guardedTransaction(validate, input.stillCurrent, {
+      behavior: "immediate",
+    });
+    return;
+  }
+  await runtime.transaction(validate, { behavior: "immediate" });
+}
+
 /**
  * Re-check every verified projection candidate against the latest durable pins
  * and advance the complete batch atomically. Signature verification and remote
@@ -257,12 +294,7 @@ export async function advanceKeyingCheckpointsAtomically(input: {
   readonly policies: readonly AnyVerifiedPrincipalPolicy[];
   readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<void> {
-  await ensureSqlTables(
-    input.execSql,
-    input.policies.length > 0
-      ? [...principalPolicyTables, ...keyingCheckpointTables]
-      : keyingCheckpointTables,
-  );
+  await ensureKeyingCheckpointValidationTables(input);
   const updatedAt = new Date().toISOString();
 
   const runtime = getClientSQLitePersistenceRuntime(input.execSql);
