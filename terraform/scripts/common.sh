@@ -16,6 +16,7 @@ get_backend_config() {
 # Source a single env file with export semantics.
 _source_env_file() {
   local env_file="$1"
+  local source_status=0
 
   if [[ ! -f "$env_file" ]]; then
     if [[ -e "$env_file" ]]; then
@@ -28,8 +29,9 @@ _source_env_file() {
 
   set -a
   # shellcheck source=/dev/null
-  source "$env_file"
+  source "$env_file" || source_status=$?
   set +a
+  return "$source_status"
 }
 
 # Source a single env file with export semantics when it exists.
@@ -374,6 +376,8 @@ read_stack_ssh_target() {
   local stack_dir="$1"
   local username_status=0
   local hostname_status=0
+  local state_list_status=0
+  local state_list_error
   local state_resources
   local username hostname
 
@@ -381,7 +385,18 @@ read_stack_ssh_target() {
   hostname="$(terraform -chdir="$stack_dir" output -raw ssh_hostname 2>/dev/null)" || hostname_status=$?
 
   if [[ "$username_status" -ne 0 && "$hostname_status" -ne 0 ]]; then
-    state_resources="$(terraform -chdir="$stack_dir" state list)" || return 1
+    state_list_error="$(mktemp "${TMPDIR:-/tmp}/tearleads-terraform-state.XXXXXX")" || return 1
+    state_resources="$(terraform -chdir="$stack_dir" state list 2>"$state_list_error")" || state_list_status=$?
+    if [[ "$state_list_status" -ne 0 ]]; then
+      if grep -q "No state file was found" "$state_list_error"; then
+        rm -f -- "$state_list_error"
+        return 2
+      fi
+      cat "$state_list_error" >&2
+      rm -f -- "$state_list_error"
+      return 1
+    fi
+    rm -f -- "$state_list_error"
     if [[ -z "$state_resources" ]]; then
       return 2
     fi
