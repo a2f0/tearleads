@@ -8,9 +8,9 @@ export type {
   ReferencedPrincipalPolicyWarmer,
 } from "./keyingProjectionVerification/types";
 export {
+  generationGuardedPrincipalPolicyWarmer,
   isProjectionVerificationCancelledError,
   nullOnProjectionVerificationCancellation,
-  ProjectionVerificationCancelledError,
 } from "./keyingProjectionVerification/types";
 
 export function requireProjectionUserKeyResolver(

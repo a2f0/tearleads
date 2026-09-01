@@ -1,11 +1,42 @@
 import type { ContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import type { ContainerContentsProjectionUserKeyResolver } from "../../workflows/container-contents/projectionKeys";
-import type { ContainerState } from "../../workflows/container-contents/remoteHydration";
+import type {
+  ContainerState,
+  RemoteContainer,
+} from "../../workflows/container-contents/remoteHydration";
 import type { ContainerContentsStoreWorkflowRuntime } from "../../workflows/container-contents/runtime";
 import type { ContainerContentsSyncLane } from "../../workflows/container-contents/syncLane";
 
 export type ContainerContentsStoreRuntime =
   ContainerContentsStoreWorkflowRuntime;
+
+export interface RefreshRootLaneOptions {
+  readonly includeActiveRootChildLane?: boolean | undefined;
+  // Extra parent lanes to re-list alongside the root lane. Used by the
+  // resync_required handler to re-list a flagged container's parent lane so a
+  // tombstone only visible there is still applied without the full crawl.
+  readonly parentIds?: ReadonlyArray<string | null> | undefined;
+}
+
+export interface ContainerContentsStoreSyncAgent {
+  ensureInitialized: () => void;
+  handleRemoteEvents: () => void;
+  ingestRemoteContainer: (remoteContainer: RemoteContainer) => Promise<void>;
+  primeDocumentsForSharedSubtree: (
+    rootContainerId: string,
+    isCurrent?: (() => boolean) | undefined,
+  ) => Promise<void>;
+  refreshLocalContainers: () => Promise<void>;
+  refresh: () => Promise<boolean>;
+  refreshRootLane: (options?: RefreshRootLaneOptions) => Promise<boolean>;
+  requestRemoteHydration: (options?: {
+    followDiscoveredParentLanes?: boolean | undefined;
+    parentIds?: ReadonlyArray<string | null> | undefined;
+    resetAllLaneWatermarks?: boolean | undefined;
+  }) => Promise<void>;
+  scheduleRemoteHydration: () => void;
+  scheduleSync: () => void;
+}
 
 export interface ContainerContentsStoreSyncState {
   containersById: Map<string, ContainerState>;

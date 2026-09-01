@@ -8,7 +8,7 @@ import { ContainerStateMap } from "./containerStateMap";
 import type {
   ContainerContentsStoreRuntime,
   ContainerContentsStoreSyncAgent,
-} from "./syncAgent";
+} from "./syncAgentTypes";
 import type {
   ContainerContentsSnapshot,
   ContainerContentsStoreState,

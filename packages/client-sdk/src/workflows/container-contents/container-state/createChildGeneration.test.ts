@@ -12,7 +12,7 @@ import {
 import { createChildContainerState } from "./createChild";
 import type { ContainerWorkflowRuntime } from "./types";
 
-test("legacy child persistence rolls back container and update after expiry", async () => {
+test("decorated child persistence uses its overridden save atomically", async () => {
   const { close, execSql } = await createTestExecSql(
     "legacy-child-create-generation",
   );
@@ -30,12 +30,8 @@ test("legacy child persistence rolls back container and update after expiry", as
     );
     let current = true;
     let childId: string | null = null;
-    const {
-      saveContainerWithPendingUpdate: _unsupportedAtomicSave,
-      ...legacyPersistence
-    } = defaultContainerContentsPersistence;
     const persistence: ContainerContentsPersistence = {
-      ...legacyPersistence,
+      ...defaultContainerContentsPersistence,
       saveContainer: async (...args) => {
         const saved = await defaultContainerContentsPersistence.saveContainer(
           ...args,

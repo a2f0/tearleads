@@ -1,9 +1,5 @@
 import { loadLocalContainerStates } from "../../workflows/container-contents/localState";
-import type {
-  ContainerState,
-  RemoteContainer,
-  RemoteContainerHydrationHost,
-} from "../../workflows/container-contents/remoteHydration";
+import type { RemoteContainerHydrationHost } from "../../workflows/container-contents/remoteHydration";
 import {
   isDatabaseUnavailableError,
   registerContainerContentsSyncLane,
@@ -25,43 +21,19 @@ import {
   scheduleStaleStartupRemoteHydration,
 } from "./startupHydration";
 import { consumePendingContainerContentsReconnectRefresh } from "./state";
-import type { ContainerContentsStoreSyncState } from "./syncAgentTypes";
-import { runContainerContentsStoreSyncIteration } from "./syncLaneIteration";
-
-export type {
-  ContainerContentsStoreRuntime,
+import type {
+  ContainerContentsStoreSyncAgent,
   ContainerContentsStoreSyncState,
 } from "./syncAgentTypes";
-export type { ContainerState };
+import { runContainerContentsStoreSyncIteration } from "./syncLaneIteration";
 
-export interface ContainerContentsStoreSyncAgent {
-  ensureInitialized: () => void;
-  handleRemoteEvents: () => void;
-  ingestRemoteContainer: (remoteContainer: RemoteContainer) => Promise<void>;
-  primeDocumentsForSharedSubtree: (
-    rootContainerId: string,
-    isCurrent?: (() => boolean) | undefined,
-  ) => Promise<void>;
-  refreshLocalContainers: () => Promise<void>;
-  refresh: () => Promise<boolean>;
-  refreshRootLane: (options?: RefreshRootLaneOptions) => Promise<boolean>;
-  requestRemoteHydration: (options?: {
-    followDiscoveredParentLanes?: boolean | undefined;
-    parentIds?: ReadonlyArray<string | null> | undefined;
-    resetAllLaneWatermarks?: boolean | undefined;
-  }) => Promise<void>;
-  scheduleRemoteHydration: () => void;
-  scheduleSync: () => void;
-}
-
-export interface RefreshRootLaneOptions {
-  readonly includeActiveRootChildLane?: boolean | undefined;
-  // Extra parent lanes to re-list alongside the root lane. Used by the
-  // resync_required handler to re-list a flagged container's parent lane so a
-  // tombstone only visible there (a deleted nested container reached via its
-  // parent, rootDiscoveryVisible=false) is still applied without the full crawl.
-  readonly parentIds?: ReadonlyArray<string | null> | undefined;
-}
+export type { ContainerState } from "../../workflows/container-contents/remoteHydration";
+export type {
+  ContainerContentsStoreRuntime,
+  ContainerContentsStoreSyncAgent,
+  ContainerContentsStoreSyncState,
+  RefreshRootLaneOptions,
+} from "./syncAgentTypes";
 
 function requestContainerContentsStoreSync(
   state: ContainerContentsStoreSyncState,

@@ -11,7 +11,7 @@ import type {
   ContainerContentsStoreRuntime,
   ContainerContentsStoreSyncState,
   RefreshRootLaneOptions,
-} from "./syncAgent";
+} from "./syncAgentTypes";
 
 // Reuse the canonical access-level union from the crypto layer (the same source
 // `ContainerShareAccessLevel` chains to) rather than re-spelling the literals,

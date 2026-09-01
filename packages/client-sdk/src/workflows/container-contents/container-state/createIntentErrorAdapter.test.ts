@@ -4,6 +4,7 @@ import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   type ContainerContentsPersistence,
   defaultContainerContentsPersistence,
+  revisionGuardedCreateIntentErrorRecorder,
 } from "../containerPersistence";
 import { recordContainerCreateIntentError } from "./createIntentErrorAdapter";
 
@@ -12,7 +13,6 @@ test("create intent errors preserve the legacy three-argument adapter seam", asy
   const calls: Array<{ containerId: string; message: string }> = [];
   const persistence: ContainerContentsPersistence = {
     ...defaultContainerContentsPersistence,
-    recordCreateIntentErrorInputVersion: undefined,
     recordCreateIntentError: async (
       _execSql: ExecSql,
       containerId: string,
@@ -42,11 +42,11 @@ test("create intent errors use the explicit revision-guarded adapter capability"
     ...defaultContainerContentsPersistence,
     // A rest-parameter function has length zero. The capability marker, not
     // Function.length, must select the object contract.
-    recordCreateIntentError: async (
-      ...args: [ExecSql, ContainerCreateIntentErrorInput]
-    ) => {
-      calls.push(args[1]);
-    },
+    recordCreateIntentError: revisionGuardedCreateIntentErrorRecorder(
+      async (...args: [ExecSql, ContainerCreateIntentErrorInput]) => {
+        calls.push(args[1]);
+      },
+    ),
   };
 
   const input = {

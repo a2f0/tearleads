@@ -10,6 +10,7 @@ import type {
   ContainerContentsPersistence,
   ContainerDocumentRecord as DocumentRecord,
 } from "../containerPersistence";
+import { defaultContainerContentsPersistence } from "../containerPersistence";
 import type { ContainerState } from "../remoteHydration";
 import { CONTAINER_ALREADY_COMMITTED } from "./createWithMetadata";
 import { loadContainerWriterProjectionForState } from "./projectionCache";
@@ -210,8 +211,21 @@ async function persistCreatedChildContainer(input: {
   const pendingUpdate = shouldRequestSync
     ? createPendingUpdateFields(input.initialUpdate)
     : null;
-  if (pendingUpdate && persistence.saveContainerWithPendingUpdate) {
-    containerState.container = await persistence.saveContainerWithPendingUpdate(
+  const saveContainerWithPendingUpdate =
+    persistence.saveContainerWithPendingUpdate;
+  const inheritedSqlAtomicSave =
+    saveContainerWithPendingUpdate ===
+      defaultContainerContentsPersistence.saveContainerWithPendingUpdate &&
+    (persistence.saveContainer !==
+      defaultContainerContentsPersistence.saveContainer ||
+      persistence.enqueuePendingUpdate !==
+        defaultContainerContentsPersistence.enqueuePendingUpdate);
+  if (
+    pendingUpdate &&
+    saveContainerWithPendingUpdate &&
+    !inheritedSqlAtomicSave
+  ) {
+    containerState.container = await saveContainerWithPendingUpdate(
       runtime.infra.execSql,
       containerState.container,
       containerState.record,

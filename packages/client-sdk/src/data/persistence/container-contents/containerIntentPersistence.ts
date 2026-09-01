@@ -9,7 +9,6 @@ import {
 } from "../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import {
-  CONTAINER_CREATE_INTENT_ERROR_INPUT_VERSION,
   CONTAINER_CREATE_INTENT_TYPE,
   CONTAINER_MOVE_INTENT_TYPE,
   type ContainerContentsPersistence,
@@ -20,6 +19,7 @@ import {
   type ContainerMoveIntentInput,
   type ContainerMoveIntentRecord,
   type ContainerMoveIntentSyncStatus,
+  revisionGuardedCreateIntentErrorRecorder,
 } from "./containerContentsPersistenceTypes";
 
 function parseCreateIntentSyncStatus(
@@ -146,7 +146,7 @@ export class ContainerCreateIntentSupersededError extends Error {
   }
 }
 
-export async function markContainerCreateIntentRevisionSynced(input: {
+async function markContainerCreateIntentRevisionSynced(input: {
   containerId: string;
   expectedIntentId: string;
   expectedUpdatedAt: string;
@@ -295,7 +295,6 @@ type ContainerIntentPersistence = Pick<
   ContainerContentsPersistence,
   | "listPendingCreateIntents"
   | "listUnsyncedMoveIntents"
-  | "recordCreateIntentErrorInputVersion"
   | "recordCreateIntentError"
   | "recordMoveIntentError"
   | "markCreateIntentSynced"
@@ -303,8 +302,6 @@ type ContainerIntentPersistence = Pick<
 >;
 
 export const containerIntentPersistence = {
-  recordCreateIntentErrorInputVersion:
-    CONTAINER_CREATE_INTENT_ERROR_INPUT_VERSION,
   async listPendingCreateIntents(execSql) {
     const { db } = getClientSQLitePersistenceRuntime(execSql);
     const rows = await db
@@ -473,3 +470,7 @@ export const containerIntentPersistence = {
     return outcome.committed && outcome.result === true;
   },
 } satisfies ContainerIntentPersistence;
+
+revisionGuardedCreateIntentErrorRecorder(
+  containerIntentPersistence.recordCreateIntentError,
+);

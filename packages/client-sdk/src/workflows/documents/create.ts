@@ -24,6 +24,7 @@ import type {
   ReferencedPrincipalPolicyWarmer,
 } from "../../data/keyingProjectionVerification";
 import {
+  generationGuardedPrincipalPolicyWarmer,
   nullOnProjectionVerificationCancellation,
   requireProjectionUserKeyResolver,
 } from "../../data/keyingProjectionVerification";
@@ -249,6 +250,17 @@ function documentCreateSubmissionVerificationOptions(
       };
 }
 
+function documentCreatePolicyWarmer(
+  input: RemoteDocumentCreateInput,
+): ReferencedPrincipalPolicyWarmer | undefined {
+  return input.submitWhenStale
+    ? generationGuardedPrincipalPolicyWarmer(
+        input.warmReferencedPrincipalPolicies,
+        input.stillCurrent,
+      )
+    : input.warmReferencedPrincipalPolicies;
+}
+
 async function submitPlannedDocumentCreate(
   input: RemoteDocumentCreateInput,
   resolveProjectionUserKey: ProjectionUserKeyResolver,
@@ -258,6 +270,7 @@ async function submitPlannedDocumentCreate(
 } | null> {
   const verificationOptions =
     documentCreateSubmissionVerificationOptions(input);
+  const warmReferencedPrincipalPolicies = documentCreatePolicyWarmer(input);
   let createPlan = await buildMaterializedDocumentCreatePlanWithFreshProjection(
     {
       apiClient: input.apiClient,
@@ -274,7 +287,7 @@ async function submitPlannedDocumentCreate(
       resolveProjectionUserKey,
       signedAt: input.signedAt,
       targetSecretKey: input.targetSecretKey,
-      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+      warmReferencedPrincipalPolicies,
       ...verificationOptions,
     },
   );
@@ -317,7 +330,7 @@ async function submitPlannedDocumentCreate(
         resolveProjectionUserKey,
         signedAt: firstPlan.plan.event.signedAt,
         targetSecretKey: input.targetSecretKey,
-        warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+        warmReferencedPrincipalPolicies,
         ...verificationOptions,
       });
     if (!refreshedPlan) {

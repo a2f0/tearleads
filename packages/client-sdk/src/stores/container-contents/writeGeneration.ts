@@ -1,4 +1,4 @@
-import type { ContainerContentsStoreRuntime } from "./syncAgent";
+import type { ContainerContentsStoreRuntime } from "./syncAgentTypes";
 import type { ContainerContentsStoreState } from "./types";
 
 export type ContainerWriteGuard = () => boolean;
