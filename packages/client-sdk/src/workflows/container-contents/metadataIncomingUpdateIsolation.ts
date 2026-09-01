@@ -4,6 +4,7 @@ import {
 } from "../../data/documents/shared/documentSyncUpdateIsolation";
 import type { SyncRemoteDocumentResult } from "../../data/documents/shared/types";
 import { recordDocumentSyncFailure } from "../../data/sqlite/documentPersistence";
+import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import {
   type ExecSql,
   runSerializedSqlMutation,
@@ -21,11 +22,16 @@ export async function recordCurrentMetadataSyncFailure(input: {
   metadataScope: { appKind: string; localId: string };
 }): Promise<void> {
   await runSerializedSqlMutation(input.execSql, async (lockedExecSql) => {
-    if (input.isCurrent?.() === false) return;
-    await recordDocumentSyncFailure(
-      lockedExecSql,
-      input.metadataScope,
-      input.failure,
+    await getClientSQLitePersistenceRuntime(lockedExecSql).guardedTransaction(
+      async () => {
+        if (input.isCurrent?.() === false) return;
+        await recordDocumentSyncFailure(
+          lockedExecSql,
+          input.metadataScope,
+          input.failure,
+        );
+      },
+      () => input.isCurrent?.() !== false,
     );
   });
 }

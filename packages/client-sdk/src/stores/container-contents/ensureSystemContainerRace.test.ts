@@ -111,7 +111,9 @@ test("a late local system create collapses into a remotely hydrated slot", async
       container: ContainerState["container"],
       _record: ContainerState["record"],
       options: Parameters<
-        ContainerContentsPersistence["saveContainerWithPendingUpdate"]
+        NonNullable<
+          ContainerContentsPersistence["saveContainerWithPendingUpdate"]
+        >
       >[3],
     ) => {
       createdLocalContainerId = container.id;
@@ -300,7 +302,9 @@ test("a root-first late create rebases before its remote system slot arrives", a
     type SaveOptions =
       | Parameters<ContainerContentsPersistence["saveContainer"]>[3]
       | Parameters<
-          ContainerContentsPersistence["saveContainerWithPendingUpdate"]
+          NonNullable<
+            ContainerContentsPersistence["saveContainerWithPendingUpdate"]
+          >
         >[3];
     const saves: Array<{
       container: ContainerState["container"];
@@ -344,7 +348,9 @@ test("a root-first late create rebases before its remote system slot arrives", a
         container: ContainerState["container"],
         _record: ContainerState["record"],
         options: Parameters<
-          ContainerContentsPersistence["saveContainerWithPendingUpdate"]
+          NonNullable<
+            ContainerContentsPersistence["saveContainerWithPendingUpdate"]
+          >
         >[3],
       ) => saveContainer(container, options),
     } as unknown as ContainerContentsPersistence;

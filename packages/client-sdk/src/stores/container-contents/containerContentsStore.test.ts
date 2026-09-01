@@ -104,6 +104,41 @@ test("getOrCreateContainerContentsStore applies updated options to the cached sc
   expect(logs).toContain("Updated label: loaded 0 container(s)");
 });
 
+test("legacy container persistence adapters can create queued children", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "container-contents-legacy-persistence",
+  );
+  const domainScope = {} as DomainScope;
+  try {
+    await seedLocalRootContainer(execSql, { rootContainerId: "legacy-root" });
+    const {
+      saveContainerWithPendingUpdate: _unsupportedAtomicSave,
+      ...legacyPersistence
+    } = defaultContainerContentsPersistence;
+    const persistence: ContainerContentsPersistence = legacyPersistence;
+    const runtime = createContainerContentsTestRuntime({
+      domainScope,
+      execSql,
+      online: false,
+    });
+    const store = createContainerContentsStore(runtime, persistence);
+    store.updateRuntime(runtime);
+    await waitFor(
+      () => store.getSnapshot().ready,
+      "Legacy persistence store did not become ready.",
+    );
+
+    const child = await store.createChild("legacy-root", "Legacy child");
+
+    expect(child).not.toBeNull();
+    expect(
+      await persistence.listPendingUpdates(execSql, child?.id ?? ""),
+    ).toHaveLength(1);
+  } finally {
+    close();
+  }
+});
+
 test("container contents store publishes cached containers before startup hydration completes", async () => {
   const { close, execSql } = await createTestExecSql(
     "container-contents-store-cache-first-startup-test",

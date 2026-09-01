@@ -138,7 +138,13 @@ async function hasPendingContainerMetadataUpdates(input: {
   return rows.length > 0;
 }
 
-export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
+type SqlPersistence = ContainerContentsPersistence & {
+  saveContainerWithPendingUpdate: NonNullable<
+    ContainerContentsPersistence["saveContainerWithPendingUpdate"]
+  >;
+};
+
+export const sqlContainerContentsPersistence: SqlPersistence = {
   ...containerIntentPersistence,
   ...containerMetadataPullContinuationPersistence,
   commitHydratedContainer: commitStoredHydratedContainer,

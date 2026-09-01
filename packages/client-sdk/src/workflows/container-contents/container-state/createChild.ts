@@ -4,9 +4,10 @@ import { createInitializedContainerMetadataDocument } from "../../../data/contai
 import { createPendingUpdateFields } from "../../../data/documents/documentSync";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import { deriveStableUuidV4Shaped } from "../../../data/stableUuid";
-import type {
-  ContainerContentsPersistence,
-  ContainerDocumentRecord as DocumentRecord,
+import {
+  type ContainerContentsPersistence,
+  type ContainerDocumentRecord as DocumentRecord,
+  enqueuePendingContainerUpdate,
 } from "../containerPersistence";
 import type { ContainerState } from "../remoteHydration";
 import { CONTAINER_ALREADY_COMMITTED } from "./createWithMetadata";
@@ -208,19 +209,27 @@ async function persistCreatedChildContainer(input: {
   const pendingUpdate = shouldRequestSync
     ? createPendingUpdateFields(input.initialUpdate)
     : null;
-  containerState.container = pendingUpdate
-    ? await persistence.saveContainerWithPendingUpdate(
-        runtime.infra.execSql,
-        containerState.container,
-        containerState.record,
-        { ...saveOptions, pendingUpdate },
-      )
-    : await persistence.saveContainer(
-        runtime.infra.execSql,
-        containerState.container,
-        containerState.record,
-        saveOptions,
-      );
+  if (pendingUpdate && persistence.saveContainerWithPendingUpdate) {
+    containerState.container = await persistence.saveContainerWithPendingUpdate(
+      runtime.infra.execSql,
+      containerState.container,
+      containerState.record,
+      { ...saveOptions, pendingUpdate },
+    );
+  } else {
+    containerState.container = await persistence.saveContainer(
+      runtime.infra.execSql,
+      containerState.container,
+      containerState.record,
+      saveOptions,
+    );
+    if (pendingUpdate && input.stillCurrent?.() !== false) {
+      await enqueuePendingContainerUpdate(runtime.infra.execSql, persistence, {
+        containerId: containerState.container.id,
+        update: input.initialUpdate,
+      });
+    }
+  }
   return input.stillCurrent?.() === false ? null : shouldRequestSync;
 }
 

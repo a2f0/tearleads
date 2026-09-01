@@ -381,12 +381,14 @@ export interface ContainerContentsPersistence
     options?: SaveContainerOptions,
   ) => Promise<ContainerRecord>;
   /** Atomically saves a container and enqueues its first metadata update. */
-  saveContainerWithPendingUpdate: (
-    execSql: ExecSql,
-    container: ContainerRecord,
-    record: ContainerMetadataRecord,
-    options: SaveContainerWithPendingUpdateOptions,
-  ) => Promise<ContainerRecord>;
+  saveContainerWithPendingUpdate?:
+    | ((
+        execSql: ExecSql,
+        container: ContainerRecord,
+        record: ContainerMetadataRecord,
+        options: SaveContainerWithPendingUpdateOptions,
+      ) => Promise<ContainerRecord>)
+    | undefined;
   saveContainerAndDeletePendingUpdates: (
     execSql: ExecSql,
     container: ContainerRecord,

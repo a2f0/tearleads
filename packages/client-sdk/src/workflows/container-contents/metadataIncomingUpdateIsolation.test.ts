@@ -76,3 +76,35 @@ test("expired metadata failure recording cannot cross the SQL lock", async () =>
     close();
   }
 });
+
+test("metadata failure recording rolls back when generation expires before commit", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "metadata-failure-commit-generation",
+  );
+  try {
+    await ensureDocumentTables(execSql);
+    let checks = 0;
+
+    await recordCurrentMetadataSyncFailure({
+      execSql,
+      failure: {
+        attemptedAt: "2026-09-01T00:00:00.000Z",
+        message: "rolled-back metadata failure",
+        status: 500,
+      },
+      isCurrent: () => {
+        checks += 1;
+        return checks === 1;
+      },
+      metadataScope: {
+        appKind: "container-metadata",
+        localId: "container-expired-before-commit",
+      },
+    });
+
+    expect(checks).toBe(2);
+    expect(await hasRecordedTerminalSyncFailures(execSql)).toBe(false);
+  } finally {
+    close();
+  }
+});

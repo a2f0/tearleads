@@ -6,6 +6,7 @@ import {
   type PendingUpdateRecord,
   rekeyDocumentPendingUpdate,
 } from "../../data/sqlite/documentPersistence";
+import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import {
   type ExecSql,
   runSerializedSqlMutation,
@@ -119,14 +120,19 @@ export async function rekeyUnsettledRecoveryPendingUpdates(input: {
       exhaustedPendingUpdateIds.push(pendingUpdateId);
       continue;
     }
-    const nextId = await runSerializedSqlMutation(
+    const outcome = await runSerializedSqlMutation(
       input.execSql,
       (lockedExecSql) =>
-        input.stillCurrent?.() === false
-          ? null
-          : rekeyPendingUpdate(lockedExecSql, pendingUpdateId),
+        getClientSQLitePersistenceRuntime(lockedExecSql).guardedTransaction(
+          async () =>
+            input.stillCurrent?.() === false
+              ? null
+              : rekeyPendingUpdate(lockedExecSql, pendingUpdateId),
+          () => input.stillCurrent?.() !== false,
+        ),
     );
-    if (input.stillCurrent?.() === false) break;
+    if (!outcome.committed) break;
+    const nextId = outcome.result;
     if (nextId !== null) {
       rekeyedPendingUpdateIds.push(nextId);
     }
