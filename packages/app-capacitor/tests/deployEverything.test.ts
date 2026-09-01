@@ -101,9 +101,23 @@ async function runHarness(
     resolve(binDirectory, "ssh"),
     [
       "#!/bin/sh",
-      'for argument in "$@"; do target="$argument"; done',
-      `host="\${target##*@}"`,
-      `printf 'hostname %s\\n' "$host"`,
+      'if [ "$1" = "-G" ]; then',
+      '  target="$2"',
+      `  host="\${target##*@}"`,
+      `  printf 'hostname %s\\n' "$host"`,
+      "  exit 0",
+      "fi",
+      'while [ "$#" -gt 0 ]; do',
+      '  case "$1" in',
+      "    -o) shift 2 ;;",
+      '    "cat /etc/machine-id") shift ;;',
+      '    *) target="$1"; shift ;;',
+      "  esac",
+      "done",
+      'case "$target" in',
+      `  *staging*) printf '%s\\n' "$STUB_STAGING_MACHINE_ID" ;;`,
+      `  *) printf '%s\\n' "$STUB_PRODUCTION_MACHINE_ID" ;;`,
+      "esac",
     ].join("\n"),
   );
   await writeExecutable(
@@ -159,6 +173,8 @@ async function runHarness(
         DEPLOY_EVERYTHING_TEST_ROOT: root,
         DEPLOY_EVERYTHING_FAIL_AT: options.failAt ?? "",
         STUB_FAIL_READY_TARGET: options.failReadyTarget ?? "",
+        STUB_STAGING_MACHINE_ID: "11111111111111111111111111111111",
+        STUB_PRODUCTION_MACHINE_ID: "22222222222222222222222222222222",
         ...options.environment,
       },
       stdout: "ignore",
@@ -288,6 +304,19 @@ test("rejects different hostnames that resolve to one address", async () => {
   expect(run.calls).toEqual([]);
 });
 
+test("rejects separate addresses that identify the same machine", async () => {
+  const run = await runHarness({
+    environment: {
+      STAGING_SSH_TARGET: "staging@tailscale-staging",
+      PRODUCTION_SSH_TARGET: "prod@public-production",
+      STUB_PRODUCTION_MACHINE_ID: "11111111111111111111111111111111",
+    },
+  });
+  expect(run.exitCode).toBe(1);
+  expect(run.stderr).toContain("same machine identity");
+  expect(run.calls).toEqual([]);
+});
+
 test("secret loading rejects a generic target and preserves a tier override", async () => {
   const root = await mkdtemp(resolve(tmpdir(), "tearleads-common-env-"));
   await mkdir(resolve(root, ".secrets"), { recursive: true });
@@ -329,6 +358,16 @@ test("secret loading rejects a generic target and preserves a tier override", as
           "if load_secrets_env staging; then exit 93; fi",
           `if [[ -n "\${TF_VAR_after:-}" ]]; then exit 97; fi`,
           "printf '%s\\n' source-command-failure-rejected",
+          "printf '%s\\n' 'TF_VAR_missing=$COMMON_TEST_MISSING' TF_VAR_after_missing=loaded > \"$COMMON_TEST_ROOT/.secrets/root.env\"",
+          "unset COMMON_TEST_MISSING TF_VAR_after_missing",
+          "if load_secrets_env staging; then exit 99; fi",
+          `if [[ -n "\${TF_VAR_after_missing:-}" ]]; then exit 100; fi`,
+          "printf '%s\\n' nounset-failure-rejected",
+          "printf '%s\\n' 'false | true' TF_VAR_after_pipeline=loaded > \"$COMMON_TEST_ROOT/.secrets/root.env\"",
+          "unset TF_VAR_after_pipeline",
+          "if load_secrets_env staging; then exit 101; fi",
+          `if [[ -n "\${TF_VAR_after_pipeline:-}" ]]; then exit 102; fi`,
+          "printf '%s\\n' pipeline-failure-rejected",
           'rm "$COMMON_TEST_ROOT/.secrets/root.env"',
           'mkdir "$COMMON_TEST_ROOT/.secrets/root.env"',
           "unset SSH_TARGET STAGING_SSH_TARGET PRODUCTION_SSH_TARGET",
@@ -373,6 +412,8 @@ test("secret loading rejects a generic target and preserves a tier override", as
       "root-generic-rejected",
       "explicit-target",
       "source-command-failure-rejected",
+      "nounset-failure-rejected",
+      "pipeline-failure-rejected",
       "source-failure-rejected",
       "state-user@state-host",
       "no-state-status:2",

@@ -46,7 +46,7 @@ _source_env_file() {
     rm -f -- "$env_snapshot"
     return 1
   }
-  if bash -e -c 'set -a; source "$1"; env -0 >&3' bash "$env_file" 3>"$env_snapshot"; then
+  if bash -euo pipefail -c 'set -a; source "$1"; env -0 >&3' bash "$env_file" 3>"$env_snapshot"; then
     source_status=0
   else
     source_status=$?

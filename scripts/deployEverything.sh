@@ -140,6 +140,44 @@ ssh_address_sets_intersect() {
   return 1
 }
 
+ssh_machine_identity() {
+  local target="$1"
+  local identity
+
+  identity="$(
+    ssh \
+      -o BatchMode=yes \
+      -o ConnectTimeout="${SSH_CONNECT_TIMEOUT_SECONDS:-10}" \
+      "$target" \
+      'cat /etc/machine-id' \
+      2>/dev/null
+  )" || {
+    echo "Error: could not read the machine identity from SSH target: $target" >&2
+    exit 1
+  }
+  identity="$(printf '%s' "$identity" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')"
+  if [[ ! "$identity" =~ ^[0-9a-f]{32}$ ]]; then
+    echo "Error: SSH target returned an invalid machine identity: $target" >&2
+    exit 1
+  fi
+  printf '%s\n' "$identity"
+}
+
+reject_shared_ssh_machine() {
+  local staging_target="$1"
+  local production_target="$2"
+  local staging_identity production_identity
+
+  staging_identity="$(ssh_machine_identity "$staging_target")" || exit 1
+  production_identity="$(ssh_machine_identity "$production_target")" || exit 1
+  if [[ "$staging_identity" == "$production_identity" ]]; then
+    echo "Error: staging and production SSH targets have the same machine identity:" >&2
+    echo "  staging: $staging_target" >&2
+    echo "  production: $production_target" >&2
+    exit 1
+  fi
+}
+
 reject_same_ssh_host_name() {
   local staging_target="$1"
   local production_target="$2"
@@ -184,6 +222,7 @@ reject_shared_ssh_host() {
     echo "  production: $production_target" >&2
     exit 1
   fi
+  reject_shared_ssh_machine "$staging_target" "$production_target"
 }
 
 if [[ -n "${STAGING_SSH_TARGET:-}" && -n "${PRODUCTION_SSH_TARGET:-}" ]]; then
