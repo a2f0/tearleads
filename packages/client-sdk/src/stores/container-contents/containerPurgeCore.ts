@@ -14,6 +14,29 @@ type ContainerPurgeResult = NonNullable<
   Awaited<ReturnType<typeof purgeContainerTree>>
 >;
 
+async function refreshAfterStalePurge(input: {
+  containerStatesAtStart: ReadonlyMap<string, ContainerState>;
+  purgedContainerIds: readonly string[];
+  state: ContainerContentsStoreState;
+  syncAgent: ContainerContentsStoreSyncAgent;
+}): Promise<void> {
+  if (input.purgedContainerIds.length === 0) return;
+
+  input.state.localContainersNeedRefresh = true;
+  await input.syncAgent.refreshLocalContainers();
+  for (const purgedContainerId of input.purgedContainerIds) {
+    const deletedState = input.containerStatesAtStart.get(purgedContainerId);
+    if (
+      deletedState &&
+      input.state.containersById.get(purgedContainerId) === deletedState
+    ) {
+      input.state.containersById.delete(purgedContainerId);
+    }
+  }
+  input.state.documentStoresNeedPriming = true;
+  updateContainerContentsSnapshot(input.state);
+}
+
 // Shared core of the two recursive purge operations (purgeContainer and
 // emptyTrash): guard readiness and the remote-authority gate, run the
 // recursive purge engine, drop the purged containers from the tree, and log
@@ -54,6 +77,7 @@ export async function runContainerPurge(
   ) {
     return false;
   }
+  const containerStatesAtStart = new Map(state.containersById);
 
   const result = await purgeContainerTree({
     containersById: state.containersById,
@@ -72,10 +96,12 @@ export async function runContainerPurge(
     return false;
   }
   if (!isCurrent()) {
-    if (result.purgedContainerIds.length > 0) {
-      state.localContainersNeedRefresh = true;
-      await syncAgent.refreshLocalContainers();
-    }
+    await refreshAfterStalePurge({
+      containerStatesAtStart,
+      purgedContainerIds: result.purgedContainerIds,
+      state,
+      syncAgent,
+    });
     return false;
   }
 

@@ -52,6 +52,7 @@ export { buildInitialGroupPolicyRequest, buildInitialMemberGroupPolicyRequest };
 interface PreparedGroupContainerMutations {
   readonly acknowledge: (
     responses: readonly ContainerMutationResponse[],
+    stillCurrent?: (() => boolean) | undefined,
   ) => Promise<void>;
   readonly requests: readonly ContainerMutationRequest[];
 }
@@ -63,7 +64,7 @@ type PrepareGroupContainerMutations = (input: {
   readonly ContainerMutationRequest[] | PreparedGroupContainerMutations
 >;
 
-async function commitAndCacheGroupPolicyMutation(input: {
+interface CommitAndCacheGroupPolicyMutationInput {
   readonly afterPolicyCommitBeforeCache?: (() => Promise<void>) | undefined;
   readonly apiClient: PrincipalPolicyReadWriteApi;
   readonly assertCanCommit?: (() => void) | undefined;
@@ -83,7 +84,22 @@ async function commitAndCacheGroupPolicyMutation(input: {
     | undefined;
   readonly request: PutPrincipalPolicyRequest;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
-}): Promise<PrincipalPolicyMutationResponse> {
+}
+
+function createPolicyMutationCommitGuard(
+  assertCanCommit: (() => void) | undefined,
+): (() => boolean) | undefined {
+  if (!assertCanCommit) return undefined;
+  return () => {
+    assertCanCommit();
+    return true;
+  };
+}
+
+async function commitAndCacheGroupPolicyMutation(
+  input: CommitAndCacheGroupPolicyMutationInput,
+): Promise<PrincipalPolicyMutationResponse> {
+  const stillCurrent = createPolicyMutationCommitGuard(input.assertCanCommit);
   const expectedHead = await groupPolicyMutationHead(input.request);
   input.beforePolicyCommit?.(expectedHead);
   let acknowledgeContainerMutations:
@@ -137,11 +153,18 @@ async function commitAndCacheGroupPolicyMutation(input: {
     organizationPolicy: input.policyContext.organizationPolicyBundle,
     organizationRequest,
     request: input.request,
+    stillCurrent,
   });
+  input.assertCanCommit?.();
   if (acknowledgeContainerMutations) {
-    await acknowledgeContainerMutations(acknowledgedBundle.containerMutations);
+    await acknowledgeContainerMutations(
+      acknowledgedBundle.containerMutations,
+      stillCurrent,
+    );
   }
+  input.assertCanCommit?.();
   await input.afterPolicyCommitBeforeCache?.();
+  input.assertCanCommit?.();
   await cacheGroupPolicy({
     acknowledgedMemberEnvelopes: acknowledgedBundle.currentMemberEnvelopes,
     apiClient: input.apiClient,
@@ -157,7 +180,9 @@ async function commitAndCacheGroupPolicyMutation(input: {
     },
     organizationId: input.organizationId,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+    stillCurrent,
   });
+  input.assertCanCommit?.();
   return acknowledgedBundle;
 }
 

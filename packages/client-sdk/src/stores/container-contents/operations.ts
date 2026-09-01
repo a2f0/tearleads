@@ -313,6 +313,16 @@ export async function deleteContainer(
   if (!isCurrent()) {
     state.localContainersNeedRefresh = true;
     await syncAgent.refreshLocalContainers();
+    // The delete committed before this operation lost its generation. Evict
+    // only the exact state it deleted: a concurrent replacement with the same
+    // id owns a different object and must survive.
+    if (
+      state.containersById.get(existingState.container.id) === existingState
+    ) {
+      state.containersById.delete(existingState.container.id);
+      state.documentStoresNeedPriming = true;
+      updateContainerContentsSnapshot(state);
+    }
     return null;
   }
 

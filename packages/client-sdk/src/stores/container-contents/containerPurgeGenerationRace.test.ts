@@ -90,6 +90,11 @@ test("a partial purge refreshes current state after generation rollover", async 
     ).toBe(false);
     expect(refreshes).toBe(1);
     expect(state.localContainersNeedRefresh).toBe(true);
+    expect(state.containersById.has(container.container.id)).toBe(false);
+    expect(state.snapshot.nodes.map((node) => node.id)).not.toContain(
+      container.container.id,
+    );
+    expect(state.documentStoresNeedPriming).toBe(true);
     expect(
       await defaultContainerContentsPersistence.loadContainerMetadataState(
         database.execSql,

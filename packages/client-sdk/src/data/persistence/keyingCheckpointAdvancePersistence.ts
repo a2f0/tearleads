@@ -297,6 +297,7 @@ export async function persistVerifiedPrincipalPolicyBundlesAtomically(input: {
   readonly entries: readonly VerifiedPrincipalPolicyBundleEntry[];
   readonly execSql: ExecSql;
   readonly organizationId?: string | undefined;
+  readonly stillCurrent?: (() => boolean) | undefined;
   readonly updatedAt: string;
 }): Promise<void> {
   const seen = new Set<string>();
@@ -318,43 +319,45 @@ export async function persistVerifiedPrincipalPolicyBundlesAtomically(input: {
     ...keyingCheckpointTables,
   ]);
 
-  await getClientSQLitePersistenceRuntime(input.execSql).transaction(
-    async (tx) => {
-      const policies = await validatePolicyAdvances(
+  const runtime = getClientSQLitePersistenceRuntime(input.execSql);
+  const persist = async (tx: ClientSQLiteTransactionScope) => {
+    const policies = await validatePolicyAdvances(
+      tx,
+      input.entries.map((entry) => entry.policy),
+    );
+    for (const entry of input.entries) {
+      await writePrincipalPolicyBundleInTransaction(
         tx,
-        input.entries.map((entry) => entry.policy),
-      );
-      for (const entry of input.entries) {
-        await writePrincipalPolicyBundleInTransaction(
-          tx,
-          entry.bundle,
-          input.updatedAt,
-          input.organizationId,
-        );
-        await assertPrincipalPolicyBundleStoredInTransaction(tx, entry.bundle);
-      }
-      await writePolicyCheckpoints(
-        tx,
-        policies,
+        entry.bundle,
         input.updatedAt,
         input.organizationId,
       );
-      for (const policy of policies.values()) {
-        const checkpoint = await loadStoredPrincipalPolicyCheckpoint(
-          tx,
-          policy,
+      await assertPrincipalPolicyBundleStoredInTransaction(tx, entry.bundle);
+    }
+    await writePolicyCheckpoints(
+      tx,
+      policies,
+      input.updatedAt,
+      input.organizationId,
+    );
+    for (const policy of policies.values()) {
+      const checkpoint = await loadStoredPrincipalPolicyCheckpoint(tx, policy);
+      if (
+        !checkpoint ||
+        checkpoint.version !== policy.version ||
+        checkpoint.stateHash !== policy.stateHash
+      ) {
+        throw new Error(
+          "Verified principal policy checkpoint was not persisted",
         );
-        if (
-          !checkpoint ||
-          checkpoint.version !== policy.version ||
-          checkpoint.stateHash !== policy.stateHash
-        ) {
-          throw new Error(
-            "Verified principal policy checkpoint was not persisted",
-          );
-        }
       }
-    },
-    { behavior: "immediate" },
-  );
+    }
+  };
+  if (input.stillCurrent) {
+    await runtime.guardedTransaction(persist, input.stillCurrent, {
+      behavior: "immediate",
+    });
+    return;
+  }
+  await runtime.transaction(persist, { behavior: "immediate" });
 }

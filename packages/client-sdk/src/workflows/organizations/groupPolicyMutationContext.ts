@@ -17,12 +17,8 @@ import type {
   PrincipalPolicyBundleResponse,
   PrincipalPolicyMutationResponse,
 } from "@symcrypt/validators/response";
-import {
-  advanceKeyingCheckpointsAtomically,
-  persistVerifiedPrincipalPolicyBundlesAtomically,
-} from "../../data/persistence/keyingCheckpointAdvancePersistence";
+import { persistVerifiedPrincipalPolicyBundlesAtomically } from "../../data/persistence/keyingCheckpointAdvancePersistence";
 import { retainLocallyAcknowledgedPrincipalPolicyBundles } from "../../data/persistence/locallyAcknowledgedCheckpointPersistence";
-import { savePrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
 import { requireOrganizationGroupHead } from "../../data/principals/organizationAuthorityDescriptor";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
@@ -104,6 +100,7 @@ export async function cacheGroupPolicy(input: {
   readonly localPolicyCheckpoint?: PrincipalPolicyCheckpoint | null;
   readonly organizationId: string;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+  readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<PrincipalPolicyBundleResponse> {
   const bundle = await input.apiClient.getCurrentPrincipalPolicy(
     "group",
@@ -138,18 +135,13 @@ export async function cacheGroupPolicy(input: {
       bundle.currentMemberEnvelopes,
     );
   }
-  await advanceKeyingCheckpointsAtomically({
-    access: [],
+  await persistVerifiedPrincipalPolicyBundlesAtomically({
+    entries: [{ bundle, policy: verified }],
     execSql: input.execSql,
     organizationId: input.organizationId,
-    policies: [verified],
+    stillCurrent: input.stillCurrent,
+    updatedAt: new Date().toISOString(),
   });
-  await savePrincipalPolicyBundle(
-    input.execSql,
-    bundle,
-    new Date().toISOString(),
-    input.organizationId,
-  );
   return bundle;
 }
 
@@ -258,6 +250,7 @@ export async function commitGroupPolicyMutation(input: {
   readonly organizationPolicy: PrincipalPolicyBundleResponse;
   readonly organizationRequest: PutPrincipalPolicyRequest;
   readonly request: PutPrincipalPolicyRequest;
+  readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<PrincipalPolicyMutationResponse> {
   const stored = await input.apiClient.commitOrganizationGroupPolicy(
     input.organizationId,
@@ -309,6 +302,7 @@ export async function commitGroupPolicyMutation(input: {
     ],
     execSql: input.execSql,
     organizationId: input.organizationId,
+    stillCurrent: input.stillCurrent,
     updatedAt: new Date().toISOString(),
   });
   return storedPolicy;

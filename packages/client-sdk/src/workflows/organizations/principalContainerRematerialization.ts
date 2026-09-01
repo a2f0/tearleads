@@ -143,6 +143,7 @@ type MaterializedPrincipalContainerMutationPlan =
 export interface PreparedPrincipalContainerRematerializationBatch {
   readonly acknowledge: (
     responses: readonly ContainerMutationResponse[],
+    stillCurrent?: (() => boolean) | undefined,
   ) => Promise<void>;
   readonly plans: readonly MaterializedPrincipalContainerMutationPlan[];
   readonly requests: readonly ContainerMutationRequest[];
@@ -264,11 +265,12 @@ export async function preparePrincipalContainerRematerializationBatch(
   return {
     plans,
     requests: plans.map((planned) => planned.plan.request),
-    acknowledge: (responses) =>
+    acknowledge: (responses, stillCurrent) =>
       acknowledgeContainerMutationBatch({
         execSql: input.execSql,
         plans: plans.map(authoredMutationHead),
         responses,
+        stillCurrent,
       }),
   };
 }

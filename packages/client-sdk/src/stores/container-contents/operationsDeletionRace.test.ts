@@ -168,7 +168,11 @@ test("a completed deletion forces a current local refresh after generation rollo
   ).toBeNull();
   expect(refreshes).toBe(1);
   expect(state.localContainersNeedRefresh).toBe(true);
-  expect(state.containersById.get(source.container.id)).toBe(source);
+  expect(state.containersById.has(source.container.id)).toBe(false);
+  expect(state.snapshot.nodes.map((node) => node.id)).not.toContain(
+    source.container.id,
+  );
+  expect(state.documentStoresNeedPriming).toBe(true);
 });
 
 test("move fails explicitly and refreshes authoritative state when metadata identity wins", async () => {
