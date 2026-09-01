@@ -44,7 +44,7 @@ jobs:
         uses: jdx/mise-action@dad1bfd3df957f44999b559dd69dc1671cb4e9ea # v4.2.1
         with:
           version: 2026.6.12
-          install_args: java
+          install_args: java gradle
           cache: true
 
       - name: Set up Bun
@@ -73,7 +73,7 @@ jobs:
 
       - name: Compile and test Android purchase bridge
         working-directory: packages/app-capacitor/android
-        run: ./gradlew :app:compileDebugKotlin :app:testDebugUnitTest --no-daemon
+        run: gradle :app:compileDebugKotlin :app:testDebugUnitTest --no-daemon
 
   ios:
     name: iOS purchase bridge
