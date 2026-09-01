@@ -80,7 +80,10 @@ async function runHarness(
       "  export SSH_TARGET CODE_ASSIST_ENABLED",
       "}",
       "validate_aws_env() { :; }",
-      `wait_for_ssh_ready() { [ "$1" != "\${STUB_FAIL_READY_TARGET:-}" ]; }`,
+      "wait_for_ssh_ready() {",
+      `  [ "$1" != "\${STUB_FAIL_READY_TARGET:-}" ] || return 1`,
+      `  printf '%s\\n' "$1" >> "$DEPLOY_EVERYTHING_READY_LOG"`,
+      "}",
       "get_backend_config() { printf '/dev/null\\n'; }",
       "read_stack_ssh_target() {",
       '  case "$1" in',
@@ -114,6 +117,7 @@ async function runHarness(
       '    *) target="$1"; shift ;;',
       "  esac",
       "done",
+      `grep -Fqx "$target" "$DEPLOY_EVERYTHING_READY_LOG" || exit 88`,
       'case "$target" in',
       `  *staging*) printf '%s\\n' "$STUB_STAGING_MACHINE_ID" ;;`,
       `  *) printf '%s\\n' "$STUB_PRODUCTION_MACHINE_ID" ;;`,
@@ -170,6 +174,7 @@ async function runHarness(
         STUB_STAGING_SECRET_TARGET: options.secretStagingTarget ?? "",
         STUB_PRODUCTION_SECRET_TARGET: options.secretProductionTarget ?? "",
         DEPLOY_EVERYTHING_TEST_LOG: logPath,
+        DEPLOY_EVERYTHING_READY_LOG: resolve(root, "ready.log"),
         DEPLOY_EVERYTHING_TEST_ROOT: root,
         DEPLOY_EVERYTHING_FAIL_AT: options.failAt ?? "",
         STUB_FAIL_READY_TARGET: options.failReadyTarget ?? "",
@@ -248,7 +253,7 @@ test("skips Code Assist for tiers where it is disabled", async () => {
   ]);
 });
 
-test("stops before native releases when SSH readiness fails", async () => {
+test("stops before Terraform when identity readiness fails", async () => {
   const run = await runHarness({
     environment: {
       STAGING_SSH_TARGET: "staging-user@unready-staging",
@@ -257,9 +262,7 @@ test("stops before native releases when SSH readiness fails", async () => {
     failReadyTarget: "staging-user@unready-staging",
   });
   expect(run.exitCode).toBe(1);
-  expect(run.calls.map((call) => call.split("|")[0])).toEqual([
-    "terraform-staging",
-  ]);
+  expect(run.calls).toEqual([]);
 });
 
 test("keeps distinct tier overrides isolated", async () => {
@@ -390,6 +393,14 @@ test("secret loading rejects a generic target and preserves a tier override", as
           "if load_secrets_env staging; then exit 101; fi",
           `if [[ -n "\${TF_VAR_after_pipeline:-}" ]]; then exit 102; fi`,
           "printf '%s\\n' pipeline-failure-rejected",
+          "original_path=$PATH",
+          "printf '%s\\n' PATH=/definitely/missing TF_VAR_path_snapshot=loaded > \"$COMMON_TEST_ROOT/.secrets/root.env\"",
+          "unset TF_VAR_path_snapshot",
+          '_source_env_file "$COMMON_TEST_ROOT/.secrets/root.env"',
+          "path_snapshot_value=$TF_VAR_path_snapshot",
+          "PATH=$original_path",
+          "export PATH",
+          "printf 'path-snapshot:%s\\n' \"$path_snapshot_value\"",
           'rm "$COMMON_TEST_ROOT/.secrets/root.env"',
           'mkdir "$COMMON_TEST_ROOT/.secrets/root.env"',
           "unset SSH_TARGET STAGING_SSH_TARGET PRODUCTION_SSH_TARGET",
@@ -436,6 +447,7 @@ test("secret loading rejects a generic target and preserves a tier override", as
       "source-command-failure-rejected",
       "nounset-failure-rejected",
       "pipeline-failure-rejected",
+      "path-snapshot:loaded",
       "source-failure-rejected",
       "state-user@state-host",
       "no-state-status:2",

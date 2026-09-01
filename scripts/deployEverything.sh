@@ -162,6 +162,10 @@ ssh_machine_identity() {
   local target="$1"
   local identity
 
+  wait_for_ssh_ready "$target" >&2 || {
+    echo "Error: SSH target did not become ready for identity verification: $target" >&2
+    exit 1
+  }
   identity="$(
     ssh \
       -o BatchMode=yes \
