@@ -18,7 +18,9 @@ _source_env_file() {
   local env_file="$1"
   local env_entry
   local env_name
+  local env_names_snapshot
   local env_snapshot
+  local -a exported_names_before=()
   local import_status=0
   local source_status=0
   local xtrace_was_enabled=0
@@ -32,7 +34,18 @@ _source_env_file() {
     return 0
   fi
 
+  while IFS= read -r env_name; do
+    case "$env_name" in
+      SHLVL | _) continue ;;
+    esac
+    exported_names_before+=("$env_name")
+  done < <(compgen -e)
+
   env_snapshot="$(mktemp "${TMPDIR:-/tmp}/tearleads-env.XXXXXX")" || return 1
+  env_names_snapshot="$(mktemp "${TMPDIR:-/tmp}/tearleads-env-names.XXXXXX")" || {
+    rm -f -- "$env_snapshot"
+    return 1
+  }
   if bash -e -c 'set -a; source "$1"; env -0 >&3' bash "$env_file" 3>"$env_snapshot"; then
     source_status=0
   else
@@ -40,7 +53,7 @@ _source_env_file() {
   fi
 
   if [[ "$source_status" -ne 0 ]]; then
-    rm -f -- "$env_snapshot"
+    rm -f -- "$env_snapshot" "$env_names_snapshot"
     return "$source_status"
   fi
 
@@ -56,15 +69,26 @@ _source_env_file() {
     case "$env_name" in
       SHLVL | _) continue ;;
     esac
+    printf '%s\n' "$env_name" >>"$env_names_snapshot"
     export "${env_entry?}" || {
       import_status=$?
       break
     }
   done <"$env_snapshot"
+  if [[ "$import_status" -eq 0 ]]; then
+    for env_name in "${exported_names_before[@]}"; do
+      if ! grep -Fqx -- "$env_name" "$env_names_snapshot"; then
+        unset "$env_name" || {
+          import_status=$?
+          break
+        }
+      fi
+    done
+  fi
   if [[ "$xtrace_was_enabled" -eq 1 ]]; then
     set -x
   fi
-  rm -f -- "$env_snapshot"
+  rm -f -- "$env_snapshot" "$env_names_snapshot"
   return "$import_status"
 }
 
