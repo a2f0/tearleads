@@ -368,13 +368,19 @@ wait_for_ssh_ready() {
   return 1
 }
 
-# Resolve the Tailscale-only SSH target from a Terraform stack.
-resolve_stack_ssh_target() {
+# Read the Tailscale-only SSH target from Terraform state without contacting it.
+# Returns 2 when the stack has no server outputs yet.
+read_stack_ssh_target() {
   local stack_dir="$1"
-  local username hostname ssh_target
+  local outputs username hostname
 
-  username="$(terraform -chdir="$stack_dir" output -raw server_username 2>/dev/null || true)"
-  hostname="$(terraform -chdir="$stack_dir" output -raw ssh_hostname 2>/dev/null || true)"
+  outputs="$(terraform -chdir="$stack_dir" output -json)" || return 1
+  username="$(jq -r 'if (.server_username.value? | type) == "string" then .server_username.value else "" end' <<< "$outputs")" || return 1
+  hostname="$(jq -r 'if (.ssh_hostname.value? | type) == "string" then .ssh_hostname.value else "" end' <<< "$outputs")" || return 1
+
+  if [[ -z "$username" && -z "$hostname" ]]; then
+    return 2
+  fi
 
   if [[ -z "$username" ]]; then
     echo "ERROR: Could not resolve server username from terraform outputs." >&2
@@ -388,7 +394,25 @@ resolve_stack_ssh_target() {
     return 1
   fi
 
-  ssh_target="$username@$hostname"
+  echo "$username@$hostname"
+}
+
+# Resolve the Tailscale-only SSH target from a Terraform stack.
+resolve_stack_ssh_target() {
+  local stack_dir="$1"
+  local read_status=0
+  local ssh_target
+
+  ssh_target="$(read_stack_ssh_target "$stack_dir")" || read_status=$?
+  if [[ "$read_status" -eq 2 ]]; then
+    echo "ERROR: Could not resolve server SSH details from terraform outputs." >&2
+    echo "       Run 'terraform apply' in $stack_dir first." >&2
+    return 1
+  fi
+  if [[ "$read_status" -ne 0 ]]; then
+    return "$read_status"
+  fi
+
   wait_for_ssh_ready "$ssh_target" >&2 || return 1
   echo "$ssh_target"
 }

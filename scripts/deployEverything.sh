@@ -3,9 +3,9 @@
 # every server tier.
 #
 # Runs in order:
-#   1. Apply both Terraform stacks and verify their SSH targets are distinct
-#   2. Staging server services, Code Assist, and native releases
-#   3. Production server services, Code Assist, and native releases
+#   1. Read existing stack targets and verify known destinations are distinct
+#   2. Staging Terraform, server services, Code Assist, and native releases
+#   3. Production Terraform, server services, Code Assist, and native releases
 
 set -euo pipefail
 
@@ -62,20 +62,38 @@ resolve_tier_ssh_target() {
   local tier="$1"
   local explicit_target="$2"
   local stack_dir="$REPO_ROOT/terraform/stacks/$tier/server"
+  local effective_target
+  local SSH_TARGET=""
 
-  (
-    unset SSH_TARGET
-    load_secrets_env "$tier" || exit 1
-    if [[ -n "$explicit_target" ]]; then
-      export SSH_TARGET="$explicit_target"
-    fi
-    if [[ -z "${SSH_TARGET:-}" ]]; then
-      SSH_TARGET="$(resolve_stack_ssh_target "$stack_dir")" || exit 1
-    else
-      wait_for_ssh_ready "$SSH_TARGET" >&2 || exit 1
-    fi
-    printf '%s\n' "$SSH_TARGET"
-  )
+  load_secrets_env "$tier" || return 1
+  effective_target="${explicit_target:-${SSH_TARGET:-}}"
+  if [[ -z "$effective_target" ]]; then
+    effective_target="$(resolve_stack_ssh_target "$stack_dir")" || return 1
+  else
+    wait_for_ssh_ready "$effective_target" >&2 || return 1
+  fi
+  printf '%s\n' "$effective_target"
+}
+
+read_tier_ssh_target() {
+  local tier="$1"
+  local explicit_target="$2"
+  local stack_dir="$REPO_ROOT/terraform/stacks/$tier/server"
+  local backend_config
+  local effective_target
+  local SSH_TARGET=""
+
+  load_secrets_env "$tier" || return 1
+  effective_target="${explicit_target:-${SSH_TARGET:-}}"
+  if [[ -n "$effective_target" ]]; then
+    printf '%s\n' "$effective_target"
+    return 0
+  fi
+
+  validate_aws_env
+  backend_config="$(get_backend_config)"
+  terraform -chdir="$stack_dir" init -backend-config="$backend_config" >&2
+  read_stack_ssh_target "$stack_dir"
 }
 
 ssh_target_literal_host() {
@@ -172,6 +190,27 @@ if [[ -n "${STAGING_SSH_TARGET:-}" && -n "${PRODUCTION_SSH_TARGET:-}" ]]; then
   reject_shared_ssh_host "$STAGING_SSH_TARGET" "$PRODUCTION_SSH_TARGET"
 fi
 
+STAGING_PREFLIGHT_STATUS=0
+STAGING_PREFLIGHT_SSH_TARGET="$(
+  read_tier_ssh_target staging "${STAGING_SSH_TARGET:-}"
+)" || STAGING_PREFLIGHT_STATUS=$?
+if [[ "$STAGING_PREFLIGHT_STATUS" -ne 0 && "$STAGING_PREFLIGHT_STATUS" -ne 2 ]]; then
+  exit "$STAGING_PREFLIGHT_STATUS"
+fi
+
+PRODUCTION_PREFLIGHT_STATUS=0
+PRODUCTION_PREFLIGHT_SSH_TARGET="$(
+  read_tier_ssh_target prod "${PRODUCTION_SSH_TARGET:-}"
+)" || PRODUCTION_PREFLIGHT_STATUS=$?
+if [[ "$PRODUCTION_PREFLIGHT_STATUS" -ne 0 && "$PRODUCTION_PREFLIGHT_STATUS" -ne 2 ]]; then
+  exit "$PRODUCTION_PREFLIGHT_STATUS"
+fi
+
+if [[ -n "$STAGING_PREFLIGHT_SSH_TARGET" && -n "$PRODUCTION_PREFLIGHT_SSH_TARGET" ]]; then
+  reject_shared_ssh_host \
+    "$STAGING_PREFLIGHT_SSH_TARGET" "$PRODUCTION_PREFLIGHT_SSH_TARGET"
+fi
+
 DEPLOY_START="$SECONDS"
 STEP_TIMINGS=()
 
@@ -222,16 +261,13 @@ echo ""
 
 run_step "terraform-staging" \
   "$REPO_ROOT/terraform/stacks/staging/server/scripts/apply.sh" --auto-approve
-run_step "terraform-production" \
-  "$REPO_ROOT/terraform/stacks/prod/server/scripts/apply.sh" --auto-approve
 STAGING_EFFECTIVE_SSH_TARGET="$(
   resolve_tier_ssh_target staging "${STAGING_SSH_TARGET:-}"
 )"
-PRODUCTION_EFFECTIVE_SSH_TARGET="$(
-  resolve_tier_ssh_target prod "${PRODUCTION_SSH_TARGET:-}"
-)"
-reject_shared_ssh_host \
-  "$STAGING_EFFECTIVE_SSH_TARGET" "$PRODUCTION_EFFECTIVE_SSH_TARGET"
+if [[ -n "$PRODUCTION_PREFLIGHT_SSH_TARGET" ]]; then
+  reject_shared_ssh_host \
+    "$STAGING_EFFECTIVE_SSH_TARGET" "$PRODUCTION_PREFLIGHT_SSH_TARGET"
+fi
 
 run_tier_step "deploy-staging" staging "$STAGING_EFFECTIVE_SSH_TARGET" \
   "$SCRIPT_DIR/deployStaging.sh" --skip-terraform
@@ -240,6 +276,13 @@ run_tier_step "code-assist-staging" staging "$STAGING_EFFECTIVE_SSH_TARGET" \
 run_step "ios-staging" "$SCRIPT_DIR/uploadIosStagingRelease.sh"
 run_step "android-staging" "$SCRIPT_DIR/uploadAndroidStagingRelease.sh"
 
+run_step "terraform-production" \
+  "$REPO_ROOT/terraform/stacks/prod/server/scripts/apply.sh" --auto-approve
+PRODUCTION_EFFECTIVE_SSH_TARGET="$(
+  resolve_tier_ssh_target prod "${PRODUCTION_SSH_TARGET:-}"
+)"
+reject_shared_ssh_host \
+  "$STAGING_EFFECTIVE_SSH_TARGET" "$PRODUCTION_EFFECTIVE_SSH_TARGET"
 run_tier_step "deploy-production" prod "$PRODUCTION_EFFECTIVE_SSH_TARGET" \
   "$SCRIPT_DIR/deployProduction.sh" --skip-terraform
 run_tier_step "code-assist-production" prod "$PRODUCTION_EFFECTIVE_SSH_TARGET" \

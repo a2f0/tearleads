@@ -55,6 +55,7 @@ async function runHarness(
     readonly environment?: Readonly<Record<string, string>>;
     readonly failAt?: string;
     readonly failReadyTarget?: string;
+    readonly preExistingProduction?: boolean;
     readonly secretStagingTarget?: string;
     readonly secretProductionTarget?: string;
   } = {},
@@ -81,11 +82,14 @@ async function runHarness(
       "validate_aws_env() { :; }",
       `wait_for_ssh_ready() { [ "$1" != "\${STUB_FAIL_READY_TARGET:-}" ]; }`,
       "get_backend_config() { printf '/dev/null\\n'; }",
-      "resolve_stack_ssh_target() {",
+      "read_stack_ssh_target() {",
       '  case "$1" in',
-      "    */staging/*) [ -f \"$DEPLOY_EVERYTHING_TEST_ROOT/staging.applied\" ] && printf 'staging-user@staging-host\\n' ;;",
-      "    */prod/*) [ -f \"$DEPLOY_EVERYTHING_TEST_ROOT/production.applied\" ] && printf 'prod-user@prod-host\\n' ;;",
+      "    */staging/*) [ -f \"$DEPLOY_EVERYTHING_TEST_ROOT/staging.applied\" ] || return 2; printf 'staging-user@staging-host\\n' ;;",
+      "    */prod/*) [ -f \"$DEPLOY_EVERYTHING_TEST_ROOT/production.applied\" ] || return 2; printf 'prod-user@prod-host\\n' ;;",
       "  esac",
+      "}",
+      "resolve_stack_ssh_target() {",
+      '  read_stack_ssh_target "$1"',
       "}",
     ].join("\n"),
   );
@@ -136,6 +140,9 @@ async function runHarness(
   for (const path of commandPaths) {
     await writeExecutable(resolve(root, path), commandStub);
   }
+  if (options.preExistingProduction) {
+    await Bun.write(resolve(root, "production.applied"), "");
+  }
 
   try {
     const child = Bun.spawn([script], {
@@ -175,11 +182,11 @@ test("runs every release in promotion order from the repository root", async () 
   expect(run.exitCode, run.stderr).toBe(0);
   expect(run.calls.map((call) => call.split("|").slice(0, 2))).toEqual([
     ["terraform-staging", ""],
-    ["terraform-production", ""],
     ["deployStaging.sh", "staging-user@staging-host"],
     ["deployStagingCodeAssist.sh", "staging-user@staging-host"],
     ["uploadIosStagingRelease.sh", ""],
     ["uploadAndroidStagingRelease.sh", ""],
+    ["terraform-production", ""],
     ["deployProduction.sh", "prod-user@prod-host"],
     ["deployProductionCodeAssist.sh", "prod-user@prod-host"],
     ["uploadIosRelease.sh", ""],
@@ -196,7 +203,6 @@ test("stops at the first failing release command", async () => {
   expect(run.exitCode).toBe(23);
   expect(run.calls.map((call) => call.split("|")[0])).toEqual([
     "terraform-staging",
-    "terraform-production",
     "deployStaging.sh",
     "deployStagingCodeAssist.sh",
     "uploadIosStagingRelease.sh",
@@ -215,7 +221,6 @@ test("stops before native releases when SSH readiness fails", async () => {
   expect(run.exitCode).toBe(1);
   expect(run.calls.map((call) => call.split("|")[0])).toEqual([
     "terraform-staging",
-    "terraform-production",
   ]);
 });
 
@@ -261,16 +266,14 @@ test("rejects different SSH users on the same explicit host", async () => {
   expect(run.calls).toEqual([]);
 });
 
-test("rejects a single override matching the other tier before deployment", async () => {
+test("rejects a staging override matching the existing production tier", async () => {
   const run = await runHarness({
-    environment: { PRODUCTION_SSH_TARGET: "staging-user@staging-host" },
+    environment: { STAGING_SSH_TARGET: "prod-user@prod-host" },
+    preExistingProduction: true,
   });
   expect(run.exitCode).toBe(1);
-  expect(run.stderr).toContain("staging-user@staging-host");
-  expect(run.calls.map((call) => call.split("|")[0])).toEqual([
-    "terraform-staging",
-    "terraform-production",
-  ]);
+  expect(run.stderr).toContain("prod-user@prod-host");
+  expect(run.calls).toEqual([]);
 });
 
 test("rejects different hostnames that resolve to one address", async () => {
