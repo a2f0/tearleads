@@ -49,7 +49,17 @@ export async function shareContainerUsing(
   }
 
   const shared = await share(existingState);
-  if (!shared || !isCurrent()) return null;
+  if (!shared || !isCurrent()) {
+    if (!isCurrent()) {
+      state.localContainersNeedRefresh = true;
+      state.containerParentIdsNeedingHydration.add(
+        existingState.container.parentId,
+      );
+      void syncAgent.refreshLocalContainers();
+      syncAgent.scheduleRemoteHydration();
+    }
+    return null;
+  }
   if (shared.status === "missing") {
     removeMissingContainerState(state, existingState);
     return null;

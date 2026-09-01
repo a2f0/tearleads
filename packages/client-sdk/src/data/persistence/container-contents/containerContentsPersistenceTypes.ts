@@ -89,6 +89,25 @@ export interface ContainerDeletionGuard {
   expectedContainer: ContainerRecord | null;
 }
 
+export interface SaveContainerOptions {
+  createIntent?: ContainerCreateIntentInput;
+  stillCurrent?: (() => boolean) | undefined;
+  localUpdatedAt?: string;
+  moveIntent?: ContainerMoveIntentInput | undefined;
+  serverTimestamps?:
+    | {
+        createdAt?: string | null;
+        updatedAt?: string | null;
+      }
+    | undefined;
+  updatedAt?: string;
+}
+
+export interface SaveContainerWithPendingUpdateOptions
+  extends SaveContainerOptions {
+  pendingUpdate: PendingUpdateFields;
+}
+
 export interface ContainerContentsPersistence
   extends DormantMetadataSweepPersistence {
   containerExists: (execSql: ExecSql, containerId: string) => Promise<boolean>;
@@ -355,20 +374,14 @@ export interface ContainerContentsPersistence
     execSql: ExecSql,
     container: ContainerRecord,
     record: ContainerMetadataRecord | null,
-    options?: {
-      createIntent?: ContainerCreateIntentInput;
-      pendingUpdate?: PendingUpdateFields | undefined;
-      stillCurrent?: (() => boolean) | undefined;
-      localUpdatedAt?: string;
-      moveIntent?: ContainerMoveIntentInput | undefined;
-      serverTimestamps?:
-        | {
-            createdAt?: string | null;
-            updatedAt?: string | null;
-          }
-        | undefined;
-      updatedAt?: string;
-    },
+    options?: SaveContainerOptions,
+  ) => Promise<ContainerRecord>;
+  /** Atomically saves a container and enqueues its first metadata update. */
+  saveContainerWithPendingUpdate: (
+    execSql: ExecSql,
+    container: ContainerRecord,
+    record: ContainerMetadataRecord,
+    options: SaveContainerWithPendingUpdateOptions,
   ) => Promise<ContainerRecord>;
   saveContainerAndDeletePendingUpdates: (
     execSql: ExecSql,

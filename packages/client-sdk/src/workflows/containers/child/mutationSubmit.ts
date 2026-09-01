@@ -35,6 +35,7 @@ export async function submitAcknowledgedContainerMutation<
     response,
     stillCurrent: input.stillCurrent,
   });
+  if (input.stillCurrent?.() === false) return null;
 
   return {
     containerKey: input.containerKey,

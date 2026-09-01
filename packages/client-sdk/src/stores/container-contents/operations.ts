@@ -233,12 +233,13 @@ export async function ensureSystemContainer(
     return null;
   }
 
+  const createRemote =
+    allowSynchronousRemoteBootstrap &&
+    state.runtime.auth.isAuthenticated &&
+    Boolean(state.runtime.crypto.encapsulationKeyPair);
   const created = await createChildContainerState({
     systemSlot,
-    createRemote:
-      allowSynchronousRemoteBootstrap &&
-      state.runtime.auth.isAuthenticated &&
-      Boolean(state.runtime.crypto.encapsulationKeyPair),
+    createRemote,
     icon: options.icon,
     name: trimmedName,
     parentState: rootState,
@@ -248,7 +249,13 @@ export async function ensureSystemContainer(
     runtime: state.runtime,
     stillCurrent: isCurrent,
   });
-  if (!created || !isCurrent()) return null;
+  if (!created || !isCurrent()) {
+    if (createRemote && !isCurrent()) {
+      state.containerParentIdsNeedingHydration.add(rootState.container.id);
+      syncAgent.scheduleRemoteHydration();
+    }
+    return null;
+  }
 
   const finalized = await finalizeCreatedSystemContainer({
     created,

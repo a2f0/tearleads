@@ -22,6 +22,13 @@ export interface SaveContainerCall {
   record: ContainerDocumentRecord | null;
 }
 
+function recordContainerSave(
+  savedContainers: SaveContainerCall[] | undefined,
+  call: SaveContainerCall,
+): void {
+  savedContainers?.push(call);
+}
+
 const metadataTestPersistenceStubs = {
   async claimDormantMetadataSweepAttempt() {
     return false;
@@ -175,15 +182,30 @@ export function createContainerContentsPersistence(input: {
       return input.storedContainers ?? [];
     },
     async saveContainer(receivedExecSql, container, record, options) {
-      const call: SaveContainerCall = {
+      recordContainerSave(input.savedContainers, {
         container,
         execSql: receivedExecSql,
+        ...(options ? { options } : {}),
         record,
-      };
-      if (options) {
-        call.options = options;
-      }
-      input.savedContainers?.push(call);
+      });
+      return container;
+    },
+    async saveContainerWithPendingUpdate(
+      receivedExecSql,
+      container,
+      record,
+      options,
+    ) {
+      input.pendingUpdates?.push({
+        execSql: receivedExecSql,
+        input: { containerId: container.id, ...options.pendingUpdate },
+      });
+      recordContainerSave(input.savedContainers, {
+        container,
+        execSql: receivedExecSql,
+        options,
+        record,
+      });
       return container;
     },
     async saveContainerAndDeletePendingUpdates(_execSql, container) {

@@ -198,23 +198,29 @@ async function persistCreatedChildContainer(input: {
     queueRemoteSync &&
     (!containerState.record.documentId ||
       Boolean(containerState.record.contentKeyBundle));
-  containerState.container = await persistence.saveContainer(
-    runtime.infra.execSql,
-    containerState.container,
-    containerState.record,
-    createIntent || shouldRequestSync || input.stillCurrent
+  const saveOptions =
+    createIntent || input.stillCurrent
       ? {
           ...(createIntent ? { createIntent } : {}),
-          ...(shouldRequestSync
-            ? {
-                pendingUpdate:
-                  createPendingUpdateFields(input.initialUpdate) ?? undefined,
-              }
-            : {}),
           stillCurrent: input.stillCurrent,
         }
-      : undefined,
-  );
+      : undefined;
+  const pendingUpdate = shouldRequestSync
+    ? createPendingUpdateFields(input.initialUpdate)
+    : null;
+  containerState.container = pendingUpdate
+    ? await persistence.saveContainerWithPendingUpdate(
+        runtime.infra.execSql,
+        containerState.container,
+        containerState.record,
+        { ...saveOptions, pendingUpdate },
+      )
+    : await persistence.saveContainer(
+        runtime.infra.execSql,
+        containerState.container,
+        containerState.record,
+        saveOptions,
+      );
   return input.stillCurrent?.() === false ? null : shouldRequestSync;
 }
 

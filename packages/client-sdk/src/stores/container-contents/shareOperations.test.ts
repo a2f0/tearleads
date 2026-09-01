@@ -170,3 +170,45 @@ test("shared-subtree priming receives the active structural guard", async () => 
   expect(receivedGuard?.()).toBe(false);
   expect(syncRequests).toBe(0);
 });
+
+test("a committed share from an expired generation schedules reconciliation", async () => {
+  const source = await createRemoteState();
+  const state = createContainerContentsStoreState(
+    createContainerContentsTestRuntime({
+      domainScope: {} as DomainScope,
+      execSql: (async () => []) as ExecSql,
+    }),
+    defaultContainerContentsPersistence,
+  );
+  state.containersById.set(source.container.id, source);
+  updateContainerContentsSnapshot(state);
+  let current = true;
+  let localRefreshes = 0;
+  let remoteHydrations = 0;
+  const syncAgent = {
+    refreshLocalContainers: async () => {
+      localRefreshes += 1;
+    },
+    scheduleRemoteHydration: () => {
+      remoteHydrations += 1;
+    },
+  } as unknown as ContainerContentsStoreSyncAgent;
+
+  const result = await shareContainerUsing(
+    state,
+    syncAgent,
+    source.container.id,
+    async () => {
+      current = false;
+      return null;
+    },
+    "expired share",
+    () => current,
+  );
+
+  expect(result).toBeNull();
+  expect(state.localContainersNeedRefresh).toBe(true);
+  expect(state.containerParentIdsNeedingHydration).toEqual(new Set([null]));
+  expect(localRefreshes).toBe(1);
+  expect(remoteHydrations).toBe(1);
+});

@@ -197,7 +197,10 @@ async function movePendingRemoteContainer(input: {
       stillCurrent: syncInput.isCurrent,
     });
     if (!moved) {
-      if (!syncInput.isCurrent()) return "abandoned";
+      if (!syncInput.isCurrent()) {
+        syncInput.requestRemoteReconciliation(intent.parentContainerId);
+        return "abandoned";
+      }
       await recordPendingMoveIntentError({
         containerId: intent.containerId,
         expectedIntentId: intent.id,

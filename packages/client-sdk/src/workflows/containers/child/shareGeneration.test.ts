@@ -66,6 +66,47 @@ test("shareRemoteContainer does not submit after its generation expires during p
   }
 });
 
+test("shareRemoteContainer does not return an unacknowledged committed response", async () => {
+  const parent = await createParentProjection();
+  const { author } = await createAuthor({
+    organizationId: parent.projection.organizationId,
+    userId: parent.userId,
+  });
+  const recipientKeyPair = generateKemSeedAndKeyPair();
+  const database = await createTestExecSql("container-share-submit-generation");
+  let current = true;
+
+  try {
+    const shared = await shareRemoteContainer({
+      accessLevel: "write",
+      apiClient: {
+        getContainerWriterProjection: async () => parent.projection,
+        shareContainer: async (_containerId, request) => {
+          const response = await createMutationResponseFromRequest(request);
+          current = false;
+          return response;
+        },
+      },
+      author,
+      containerId: parent.projection.containerId,
+      execSql: database.execSql,
+      recipientUserId: "user-2",
+      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+      resolveTrustedUserIdentity: createRecipientIdentityResolver({
+        encapsulationPublicKey: recipientKeyPair.publicKey,
+        signingKeyFingerprint: author.signerKeyFingerprint,
+        signingPublicKey: parent.signingPublicKey,
+      }),
+      stillCurrent: () => current,
+      targetSecretKey: parent.secretKey,
+    });
+
+    expect(shared).toBeNull();
+  } finally {
+    database.close();
+  }
+});
+
 test("a group share does not acknowledge a policy after its generation expires during commit", async () => {
   const parent = await createParentProjection();
   const author = parent.author;
