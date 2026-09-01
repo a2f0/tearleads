@@ -6,6 +6,7 @@ import {
   matchesLockedNativeStore,
   matchesLockedNativeSubscription,
 } from "./nativeSubscriptionIdentity";
+import { isNativeRevenueCatStore } from "./revenuecatBuyerPolicy";
 import {
   isNativePurchaseEventType,
   resolveNativeStripeConflictReason,
@@ -14,6 +15,8 @@ import type { LockedBillingIdentity } from "./revenuecatStripeResolution";
 
 const NATIVE_EVENT_CONFLICTS_WITH_EXISTING_SUBSCRIPTION_REASON =
   "Native event conflicts with an existing native subscription";
+const NATIVE_PURCHASE_MISSING_SUBSCRIPTION_REASON =
+  "Native purchase is missing a subscription identifier";
 
 type NativeGrantDisposition =
   | {
@@ -101,9 +104,21 @@ export async function resolveNativeGrantDisposition(input: {
     input.transition.kind === "grant" &&
     hasLiveNativeBinding(input.billing) &&
     !matchesNativeLifecycle;
-  const conflictReason = nativeBindingConflict
-    ? NATIVE_EVENT_CONFLICTS_WITH_EXISTING_SUBSCRIPTION_REASON
-    : nativeStripeConflict;
+  const tokenlessNativePurchase =
+    input.transition.kind === "grant" &&
+    isNativeRevenueCatStore(input.event.store) &&
+    isNativePurchaseEventType(input.event.type) &&
+    !input.event.original_transaction_id &&
+    !matchesNativeLifecycle;
+  const nativeRevokeConflict =
+    input.transition.kind === "revoke" &&
+    isNativeRevenueCatStore(input.event.store) &&
+    !matchesNativeLifecycle;
+  const conflictReason = tokenlessNativePurchase
+    ? NATIVE_PURCHASE_MISSING_SUBSCRIPTION_REASON
+    : nativeBindingConflict || nativeRevokeConflict
+      ? NATIVE_EVENT_CONFLICTS_WITH_EXISTING_SUBSCRIPTION_REASON
+      : nativeStripeConflict;
   if (
     conflictReason !== null &&
     (nativeBindingConflict ||

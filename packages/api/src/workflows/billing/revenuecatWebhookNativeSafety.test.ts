@@ -27,6 +27,7 @@ function nativeGrant(input: {
     event_timestamp_ms: now,
     expiration_at_ms: now + 30 * 24 * 60 * 60 * 1_000,
     id: input.eventId,
+    original_transaction_id: `native_${input.eventId}`,
     product_id: input.productId,
     purchased_at_ms: now,
     store: input.store,

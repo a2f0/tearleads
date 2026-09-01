@@ -153,7 +153,7 @@ test("a tokenless native purchase cannot erase a live binding", async () => {
   const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
   try {
     expect(await runRevenueCatWebhookWorkflow(db, tokenless)).toEqual({
-      reason: NATIVE_BINDING_CONFLICT_REASON,
+      reason: "Native purchase is missing a subscription identifier",
       status: "retry",
     });
   } finally {
