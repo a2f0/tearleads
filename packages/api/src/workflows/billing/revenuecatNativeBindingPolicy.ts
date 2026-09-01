@@ -113,7 +113,7 @@ export async function resolveNativeGrantDisposition(input: {
   const nativeRevokeConflict =
     input.transition.kind === "revoke" &&
     isNativeRevenueCatStore(input.event.store) &&
-    !matchesNativeLifecycle;
+    (!input.event.original_transaction_id || !matchesNativeLifecycle);
   const conflictReason = tokenlessNativePurchase
     ? NATIVE_PURCHASE_MISSING_SUBSCRIPTION_REASON
     : nativeBindingConflict || nativeRevokeConflict

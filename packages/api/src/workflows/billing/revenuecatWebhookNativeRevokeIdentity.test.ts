@@ -58,9 +58,11 @@ test("a tokenless native purchase cannot create an incomplete binding", async ()
 });
 
 test.each([
-  "EXPIRATION",
-  "SUBSCRIPTION_PAUSED",
-] as const)("a wrong-token native %s cannot revoke the live subscription", async (type) => {
+  ["wrong-token", "EXPIRATION"],
+  ["tokenless", "EXPIRATION"],
+  ["wrong-token", "SUBSCRIPTION_PAUSED"],
+  ["tokenless", "SUBSCRIPTION_PAUSED"],
+] as const)("a %s native %s cannot revoke the live subscription", async (identity, type) => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
   const now = Date.now();
@@ -86,7 +88,8 @@ test.each([
     ...initial,
     event_timestamp_ms: now + 1,
     id: crypto.randomUUID(),
-    original_transaction_id: `wrong_${crypto.randomUUID()}`,
+    original_transaction_id:
+      identity === "wrong-token" ? `wrong_${crypto.randomUUID()}` : undefined,
     type,
   };
 
