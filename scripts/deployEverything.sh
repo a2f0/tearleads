@@ -68,14 +68,14 @@ resolve_tier_ssh_target() {
 
   (
     unset SSH_TARGET
-    load_secrets_env "$tier"
+    load_secrets_env "$tier" || exit 1
     if [[ -n "$explicit_target" ]]; then
       export SSH_TARGET="$explicit_target"
     fi
     if [[ -z "${SSH_TARGET:-}" ]]; then
-      SSH_TARGET="$(resolve_stack_ssh_target "$stack_dir")"
+      SSH_TARGET="$(resolve_stack_ssh_target "$stack_dir")" || exit 1
     else
-      wait_for_ssh_ready "$SSH_TARGET" >&2
+      wait_for_ssh_ready "$SSH_TARGET" >&2 || exit 1
     fi
     printf '%s\n' "$SSH_TARGET"
   )

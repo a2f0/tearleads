@@ -54,6 +54,7 @@ async function runHarness(
   options: {
     readonly environment?: Readonly<Record<string, string>>;
     readonly failAt?: string;
+    readonly failReadyTarget?: string;
     readonly secretStagingTarget?: string;
     readonly secretProductionTarget?: string;
   } = {},
@@ -78,7 +79,7 @@ async function runHarness(
       "  export SSH_TARGET",
       "}",
       "validate_aws_env() { :; }",
-      "wait_for_ssh_ready() { :; }",
+      `wait_for_ssh_ready() { [ "$1" != "\${STUB_FAIL_READY_TARGET:-}" ]; }`,
       "get_backend_config() { printf '/dev/null\\n'; }",
       "resolve_stack_ssh_target() {",
       '  case "$1" in',
@@ -126,6 +127,7 @@ async function runHarness(
         DEPLOY_EVERYTHING_TEST_LOG: logPath,
         DEPLOY_EVERYTHING_TEST_ROOT: root,
         DEPLOY_EVERYTHING_FAIL_AT: options.failAt ?? "",
+        STUB_FAIL_READY_TARGET: options.failReadyTarget ?? "",
         ...options.environment,
       },
       stdout: "ignore",
@@ -174,6 +176,20 @@ test("stops at the first failing release command", async () => {
     "uploadIosStagingRelease.sh",
     "uploadIosRelease.sh",
     "uploadAndroidStagingRelease.sh",
+  ]);
+});
+
+test("stops before native releases when SSH readiness fails", async () => {
+  const run = await runHarness({
+    environment: {
+      STAGING_SSH_TARGET: "staging-user@unready-staging",
+      PRODUCTION_SSH_TARGET: "prod-user@prod-host",
+    },
+    failReadyTarget: "staging-user@unready-staging",
+  });
+  expect(run.exitCode).toBe(1);
+  expect(run.calls.map((call) => call.split("|")[0])).toEqual([
+    "terraform-staging",
   ]);
 });
 
