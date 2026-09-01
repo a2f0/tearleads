@@ -451,3 +451,21 @@ export interface ContainerContentsPersistence
     },
   ) => Promise<boolean> | Promise<void>;
 }
+
+const atomicMoveIntentSettlementCommitters = new WeakSet<
+  ContainerContentsPersistence["commitMetadataMutation"]
+>();
+
+/** Opts a metadata committer into atomic move-intent settlement. */
+export function atomicMoveIntentSettlementCommitter<
+  Committer extends ContainerContentsPersistence["commitMetadataMutation"],
+>(committer: Committer): Committer {
+  atomicMoveIntentSettlementCommitters.add(committer);
+  return committer;
+}
+
+export function usesAtomicMoveIntentSettlement(
+  committer: ContainerContentsPersistence["commitMetadataMutation"],
+): boolean {
+  return atomicMoveIntentSettlementCommitters.has(committer);
+}

@@ -1,6 +1,8 @@
 import { errorMessage } from "../../../data/errorMessage";
 import { reportAndRethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
+import { usesAtomicMoveIntentSettlement } from "../containerPersistence";
 import {
   createDetachedContainerMetadataState,
   installDetachedContainerMetadataState,
@@ -79,6 +81,31 @@ async function resolveMoveIntentLocalUpdatedAt(input: {
     : input.remoteUpdatedAt;
 }
 
+async function settleLegacyAcceptedMoveIntent(input: {
+  execSql: ExecSql;
+  intent: ContainerMoveIntentSyncInput["intent"];
+  isCurrent: () => boolean;
+  state: ContainerMoveIntentSyncState;
+}): Promise<boolean> {
+  if (
+    usesAtomicMoveIntentSettlement(
+      input.state.persistence.commitMetadataMutation,
+    )
+  ) {
+    return true;
+  }
+  const settled = await input.state.persistence.markMoveIntentSynced(
+    input.execSql,
+    {
+      containerId: input.intent.containerId,
+      expectedIntentId: input.intent.id,
+      expectedUpdatedAt: input.intent.updatedAt,
+      stillCurrent: input.isCurrent,
+    },
+  );
+  return input.isCurrent() && settled !== false;
+}
+
 export async function persistAcceptedMoveIntent(input: {
   host: ContainerMoveIntentSyncHost;
   isCurrent: () => boolean;
@@ -129,6 +156,7 @@ export async function persistAcceptedMoveIntent(input: {
     serverUpdatedAt: moved.updatedAt,
     updatedAt: moved.updatedAt,
   };
+  const execSql = state.runtime.infra.execSql;
   const persistenceResult = await host.persistContainerState(
     persistenceCandidate,
     {
@@ -162,6 +190,16 @@ export async function persistAcceptedMoveIntent(input: {
     return abandon();
   }
   if (persistenceResult.status !== "persisted") return false;
+  if (
+    !(await settleLegacyAcceptedMoveIntent({
+      execSql,
+      intent,
+      isCurrent: input.isCurrent,
+      state,
+    }))
+  ) {
+    return abandon();
+  }
   const { record: nextRecord } = persistenceResult;
   installDetachedContainerMetadataState(containerState, persistenceCandidate, {
     candidateRecord: nextRecord,

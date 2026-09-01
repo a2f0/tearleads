@@ -155,3 +155,84 @@ test("a generation change during settlement leaves live state unchanged", async 
   ).toBe(false);
   expect(child.container).toEqual(originalContainer);
 });
+
+test("legacy metadata persistence settles an accepted move through the fallback", async () => {
+  const child = createTestContainerState({ id: "child", parentId: "root" });
+  child.doc = await createContainerMetadataDocument(child.container.id);
+  const settlements: Array<
+    Parameters<
+      ContainerMoveIntentSyncState["persistence"]["markMoveIntentSynced"]
+    >[1]
+  > = [];
+  const persistence: ContainerMoveIntentSyncState["persistence"] = {
+    ...defaultContainerContentsPersistence,
+    commitMetadataMutation: async (_execSql, mutation) => ({
+      committed: true,
+      container: mutation.container,
+    }),
+    markMoveIntentSynced: async (_execSql, settlement) => {
+      settlements.push(settlement);
+      return true;
+    },
+  };
+  const execSql: ExecSql = async () => [];
+  const state = {
+    containersById: new Map([["child", child]]),
+    persistence,
+    resolveProjectionUserKey: async () => null,
+    runtime: {
+      apiClient: { getCurrentPrincipalPolicy: async () => null },
+      infra: { execSql },
+      resolveTrustedUserIdentity: async () => null,
+      util: { log: () => {}, reportSecurityIncident: async () => {} },
+    },
+  } as unknown as ContainerMoveIntentSyncState;
+  const intent: ContainerMoveIntentRecord = {
+    containerId: "child",
+    createdAt: "2026-05-31T00:00:00.000Z",
+    id: "intent-child",
+    intentType: "container.move",
+    lastAttemptedAt: null,
+    lastError: null,
+    parentContainerId: "parent",
+    previousParentContainerId: "root",
+    syncStatus: "pending",
+    updatedAt: "2026-05-31T00:00:00.000Z",
+  };
+
+  expect(
+    await persistAcceptedMoveIntent({
+      host: {
+        persistContainerState: async (candidate) => ({
+          record: candidate.record,
+          status: "persisted",
+        }),
+        updateSnapshot: () => {},
+      },
+      isCurrent: () => true,
+      intent,
+      moved: {
+        createdAt: "2026-05-31T00:00:00.000Z",
+        effectiveAccessLevel: "admin",
+        id: "child",
+        metadataAccessEpoch: 2,
+        metadataAccessStateHash: "access-after-move",
+        metadataDocumentId: "metadata-after-move",
+        metadataReferencedPrincipals: [],
+        organizationId: "organization",
+        parentId: "parent",
+        updatedAt: "2026-05-31T00:01:00.000Z",
+      },
+      requestRemoteReconciliation: () => {},
+      state,
+    }),
+  ).toBe(true);
+  expect(settlements).toHaveLength(1);
+  expect(settlements[0]).toMatchObject({
+    containerId: intent.containerId,
+    expectedIntentId: intent.id,
+    expectedUpdatedAt: intent.updatedAt,
+  });
+  expect(settlements[0]?.stillCurrent()).toBe(true);
+  expect(child.container.parentId).toBe("parent");
+});
