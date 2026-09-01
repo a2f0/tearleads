@@ -262,6 +262,18 @@ async function claimRevenueCatEvent(input: {
   readonly organizationId: string | null;
 }): Promise<boolean> {
   const financials = resolveRevenueCatFinancialAuditFields(input.event);
+  const [sourceBilling] =
+    input.event.type === "PRODUCT_CHANGE" &&
+    input.event.store?.toUpperCase() === "PLAY_STORE" &&
+    input.organizationId !== null
+      ? await input.executor
+          .select({
+            subscriptionId: organizationBilling.providerSubscriptionId,
+          })
+          .from(organizationBilling)
+          .where(eq(organizationBilling.organizationId, input.organizationId))
+          .limit(1)
+      : [];
   const [claimed] = await input.executor
     .insert(revenuecatWebhookEvents)
     .values({
@@ -273,6 +285,7 @@ async function claimRevenueCatEvent(input: {
       ...financials,
       transactionId: input.event.transaction_id ?? null,
       originalTransactionId: input.event.original_transaction_id ?? null,
+      sourceOriginalTransactionId: sourceBilling?.subscriptionId ?? null,
       organizationId: input.organizationId,
       outcome: input.ignoredReason ? "ignored" : "applied",
       eventTimestamp: new Date(input.event.event_timestamp_ms),

@@ -87,6 +87,7 @@ async function hasConflictingActiveNativeBinding(
   }
   return !(await hasAcceptedPlayReplacement({
     appUserId: input.appUserId,
+    currentSubscriptionId: input.target.providerSubscriptionId,
     executor: input.executor,
     organizationId: input.target.organizationId,
     productId: input.productId,

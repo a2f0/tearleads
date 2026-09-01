@@ -336,7 +336,6 @@ test("bound lifecycle grants reuse the immutable native tier", async () => {
 
   const types = [
     "UNCANCELLATION",
-    "NON_RENEWING_PURCHASE",
     "SUBSCRIPTION_EXTENDED",
     "TEMPORARY_ENTITLEMENT_GRANT",
   ];

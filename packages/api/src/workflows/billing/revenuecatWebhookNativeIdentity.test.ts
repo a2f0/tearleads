@@ -236,10 +236,14 @@ test.each([
   });
 });
 
-test("a tokenless native purchase cannot erase a live binding", async () => {
+test.each([
+  ["product-bearing", "INITIAL_PURCHASE"],
+  ["productless", "NON_RENEWING_PURCHASE"],
+] as const)("a tokenless %s native purchase cannot erase a live binding", async (identity, type) => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
   const now = Date.now();
+  const durableSubscriptionId = `durable_${crypto.randomUUID()}`;
   expect(
     await runRevenueCatWebhookWorkflow(
       db,
@@ -247,7 +251,7 @@ test("a tokenless native purchase cannot erase a live binding", async () => {
         appUserId: admin.userId,
         eventTimestamp: now,
         organizationId,
-        subscriptionId: "durable_subscription",
+        subscriptionId: durableSubscriptionId,
       }),
     ),
   ).toMatchObject({ status: "applied" });
@@ -257,8 +261,10 @@ test("a tokenless native purchase cannot erase a live binding", async () => {
     organizationId,
     productId: "sync_team_5_monthly",
     subscriptionId: "missing_subscription_id",
+    type,
   });
   delete tokenless.original_transaction_id;
+  if (identity === "productless") delete tokenless.product_id;
 
   const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
   try {
@@ -278,7 +284,7 @@ test("a tokenless native purchase cannot erase a live binding", async () => {
     .where(eq(organizationBilling.organizationId, organizationId));
   expect(billing).toEqual({
     providerProductId: "sync_solo_monthly",
-    providerSubscriptionId: "durable_subscription",
+    providerSubscriptionId: durableSubscriptionId,
   });
   const [unclaimed] = await db
     .select({ id: revenuecatWebhookEvents.id })

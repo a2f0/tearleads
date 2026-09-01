@@ -80,6 +80,7 @@ export async function resolvePersistedNativeSubscriptionStore(input: {
 /** Play plan changes can replace the purchase token before the next grant. */
 export async function hasAcceptedPlayReplacement(input: {
   readonly appUserId: string;
+  readonly currentSubscriptionId: string;
   readonly executor: DatabaseSession;
   readonly organizationId: string;
   readonly productId: string | null;
@@ -90,7 +91,11 @@ export async function hasAcceptedPlayReplacement(input: {
     return false;
   }
   const [change] = await input.executor
-    .select({ id: revenuecatWebhookEvents.id })
+    .select({
+      outcome: revenuecatWebhookEvents.outcome,
+      productId: revenuecatWebhookEvents.productId,
+      subscriptionId: revenuecatWebhookEvents.originalTransactionId,
+    })
     .from(revenuecatWebhookEvents)
     .where(
       and(
@@ -98,23 +103,31 @@ export async function hasAcceptedPlayReplacement(input: {
         eq(revenuecatWebhookEvents.eventType, "PRODUCT_CHANGE"),
         eq(revenuecatWebhookEvents.appUserId, input.appUserId),
         eq(revenuecatWebhookEvents.store, "PLAY_STORE"),
-        eq(revenuecatWebhookEvents.originalTransactionId, input.subscriptionId),
         or(
-          and(
-            eq(revenuecatWebhookEvents.outcome, "applied"),
-            input.productId
-              ? eq(revenuecatWebhookEvents.productId, input.productId)
-              : undefined,
-          ),
+          eq(revenuecatWebhookEvents.outcome, "applied"),
           and(
             eq(revenuecatWebhookEvents.outcome, "ignored"),
             isNull(revenuecatWebhookEvents.productId),
           ),
         ),
+        eq(
+          revenuecatWebhookEvents.sourceOriginalTransactionId,
+          input.currentSubscriptionId,
+        ),
       ),
     )
+    .orderBy(
+      desc(revenuecatWebhookEvents.eventTimestamp),
+      desc(revenuecatWebhookEvents.createdAt),
+      desc(revenuecatWebhookEvents.id),
+    )
     .limit(1);
-  return change !== undefined;
+  return Boolean(
+    change?.subscriptionId === input.subscriptionId &&
+      (change.outcome === "ignored" ||
+        !input.productId ||
+        change.productId === input.productId),
+  );
 }
 
 /** Matches an event to the persisted native binding or its accepted Play chain. */
@@ -126,13 +139,12 @@ export async function matchesLockedNativeSubscription(input: {
 }): Promise<boolean> {
   if (!(await matchesLockedNativeStore(input))) return false;
   if (!input.event.original_transaction_id) {
-    // Product-bearing grants can replace the durable binding below. Without a
-    // subscription token they may continue only the same product on the one
-    // store-bound chain selected by routing. Purchases and destructive events
-    // must still provide the exact immutable subscription identity.
+    // A grant continuation may omit its token on the one store-bound chain
+    // selected by routing. Purchases and destructive events must still provide
+    // the exact immutable subscription identity.
     return (
-      !input.event.product_id ||
-      (TOKENLESS_NATIVE_GRANT_CONTINUATION_EVENT_TYPES.has(input.event.type) &&
+      TOKENLESS_NATIVE_GRANT_CONTINUATION_EVENT_TYPES.has(input.event.type) &&
+      (!input.event.product_id ||
         input.billing.providerProductId === input.event.product_id)
     );
   }
@@ -143,6 +155,7 @@ export async function matchesLockedNativeSubscription(input: {
   }
   return hasAcceptedPlayReplacement({
     appUserId: input.event.app_user_id,
+    currentSubscriptionId: input.billing.providerSubscriptionId,
     executor: input.executor,
     organizationId: input.organizationId,
     productId: input.event.product_id ?? null,
