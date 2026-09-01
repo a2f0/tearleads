@@ -131,7 +131,7 @@ test("native move holds its buyer through claim and binding", async () => {
       await claim.promise;
       return true;
     },
-    organizationId: "org-1",
+    prepareClaim: async () => "org-1",
     userId: "user-1",
   });
   await claimStarted.promise;

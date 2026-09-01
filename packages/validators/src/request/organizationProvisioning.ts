@@ -154,6 +154,12 @@ export function isOrganizationProvisioningRequest(
 export const CreateOrganizationRequestSchema = loosePlainObject({
   ...organizationProvisioningRequestShape,
   /**
+   * Marks this fresh organization as the durable destination for one native
+   * subscription restore. The server records and later verifies this intent;
+   * ordinary existing organizations cannot be used as restore destinations.
+   */
+  nativeSubscriptionRestore: z.literal(true).optional(),
+  /**
    * Completes a previously provisioned personal-organization replacement
    * after the client has committed its local remote-state reset. The server
    * rechecks replacement ownership and sync eligibility before moving the

@@ -65,6 +65,9 @@ test("billing status and trial labels format correctly", () => {
   expect(ORG_MANAGER_LABELS.billingSubscriptionMoveMessage).toContain(
     "eligible for permanent deletion after 30 days",
   );
+  expect(ORG_MANAGER_LABELS.billingSubscriptionMoveMessage).toContain(
+    "creates a new organization",
+  );
 });
 
 test("billing history labels cover invoice and licensed-seat events", () => {

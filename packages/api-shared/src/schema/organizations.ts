@@ -154,6 +154,9 @@ export const organizationRosterEntries = pgTable(
  * - `replacementOrganizationId` / `replacementProvisioningResponse`: Durable
  *   old-to-new personal-organization handoff. These make a lost provisioning
  *   response retryable after the user's default pointer has moved.
+ * - `nativeRestore*`: Durable native-subscription restore intent. The server
+ *   stores a request commitment and provisioning response for idempotent client
+ *   replay, and records when the fresh destination has been claimed.
  * - `createdAt` / `updatedAt`: Server-side row timestamps.
  */
 export const organizationBilling = pgTable(
@@ -198,6 +201,14 @@ export const organizationBilling = pgTable(
     replacementProvisioningResponse: jsonb(
       "replacement_provisioning_response",
     ).$type<Record<string, unknown>>(),
+    nativeRestoreUserId: uuid("native_restore_user_id"),
+    nativeRestoreClaimedAt: timestamp("native_restore_claimed_at"),
+    nativeRestoreProvisioningResponse: jsonb(
+      "native_restore_provisioning_response",
+    ).$type<Record<string, unknown>>(),
+    nativeRestoreProvisioningRequestSha256: text(
+      "native_restore_provisioning_request_sha256",
+    ),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

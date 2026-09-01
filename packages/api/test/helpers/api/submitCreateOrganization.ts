@@ -15,6 +15,8 @@ export async function createOrganizationRequestBody(
     includeOrganizationProfileDocument?: boolean | undefined;
     includeRosterProfileDocument?: boolean | undefined;
     includeTrashSystemContainer?: boolean | undefined;
+    organizationId?: string | undefined;
+    rootContainerId?: string | undefined;
   } = {},
 ): Promise<CreateOrganizationRequest> {
   const {

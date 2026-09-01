@@ -180,10 +180,10 @@ test("an Android native move gives Play reconnect the checkout deadline", async 
   await expect(
     capability.moveNativeSubscription({
       claim: async () => true,
-      organizationId: "org-1",
+      prepareClaim: async () => "org-1",
       userId: "user-1",
     }),
-  ).resolves.toBeUndefined();
+  ).resolves.toEqual({ organizationId: "org-1" });
 });
 
 test("an Android native move bounds only the Play restore phase", async () => {
@@ -209,7 +209,7 @@ test("an Android native move bounds only the Play restore phase", async () => {
         claimAttempts += 1;
         return true;
       },
-      organizationId: "org-1",
+      prepareClaim: async () => "org-1",
       userId: "user-1",
     }),
   ).rejects.toBeInstanceOf(PurchaseProviderStalledError);
@@ -224,22 +224,29 @@ test("an Android native move bounds only the Play restore phase", async () => {
   expect(claimAttempts).toBe(0);
 });
 
-test("a native move gives the server claim its own deadline", async () => {
+test("destination preparation is outside the server claim deadline", async () => {
   const backend = createBackend();
-  backend.restorePurchases = async () => {
-    await new Promise((resolve) => setTimeout(resolve, 35));
-    return { activeEntitlementIds: ["sync"] };
-  };
-  const capability = purchases(backend);
-
-  await capability.moveNativeSubscription({
-    claim: async () => {
-      await new Promise((resolve) => setTimeout(resolve, 35));
-      return true;
-    },
-    organizationId: "org-1",
-    userId: "user-1",
+  backend.restorePurchases = async () => ({
+    activeEntitlementIds: ["sync"],
   });
+  const capability = createRevenueCatPurchases(backend, {
+    apiKey: "key",
+    nativeStore: "play_store",
+    operationTimeoutMs: 5,
+    restorePurchasesUsesCheckoutTimeout: false,
+    syncEntitlementId: "sync",
+  });
+
+  await expect(
+    capability.moveNativeSubscription({
+      claim: async () => true,
+      prepareClaim: async () => {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        return "org-1";
+      },
+      userId: "user-1",
+    }),
+  ).resolves.toEqual({ organizationId: "org-1" });
 });
 
 test("a timed-out server claim reports its phase and releases the provider queue", async () => {
@@ -252,7 +259,7 @@ test("a timed-out server claim reports its phase and releases the provider queue
   await expect(
     capability.moveNativeSubscription({
       claim: () => new Promise(() => {}),
-      organizationId: "org-1",
+      prepareClaim: async () => "org-1",
       userId: "user-1",
     }),
   ).rejects.toMatchObject({
@@ -281,7 +288,7 @@ test("a native move bounds RevenueCat binding after the server claim", async () 
         claimAttempts += 1;
         return true;
       },
-      organizationId: "org-1",
+      prepareClaim: async () => "org-1",
       userId: "user-1",
     }),
   ).rejects.toBeInstanceOf(PurchaseProviderStalledError);
@@ -310,7 +317,7 @@ test("an iOS native move leaves StoreKit restore buyer-paced", async () => {
   const moving = capability
     .moveNativeSubscription({
       claim: async () => true,
-      organizationId: "org-1",
+      prepareClaim: async () => "org-1",
       userId: "user-1",
     })
     .finally(() => {
@@ -339,7 +346,7 @@ test("a lost iOS native move callback eventually requires restart", async () => 
   await expect(
     capability.moveNativeSubscription({
       claim: async () => true,
-      organizationId: "org-1",
+      prepareClaim: async () => "org-1",
       userId: "user-1",
     }),
   ).rejects.toBeInstanceOf(PurchaseProviderStalledError);

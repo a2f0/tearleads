@@ -9,6 +9,7 @@ import {
 import * as BillingProvider from "../../../providers/billing/BillingProvider";
 import { DirectCheckoutProvider } from "../../../providers/direct-checkout/DirectCheckoutProvider";
 import { AppHostConfigProvider } from "../../../providers/host/AppHostConfigProvider";
+import * as IdentityProvider from "../../../providers/identity/IdentityProvider";
 import { LogProvider } from "../../../providers/logging/LogProvider";
 import { PurchasesProvider } from "../../../providers/purchases/PurchasesProvider";
 import * as SymCryptProvider from "../../../providers/sdk/SymCryptProvider";
@@ -59,6 +60,11 @@ function stubEnvironment(
       startTrial: () => Promise.resolve(true),
       view,
     }),
+  );
+  spies.push(
+    spyOn(IdentityProvider, "useIdentity").mockReturnValue({
+      persistSession: () => Promise.resolve(true),
+    } as ReturnType<typeof IdentityProvider.useIdentity>),
   );
   spies.push(
     spyOn(SymCryptProvider, "useSymCrypt").mockReturnValue({
@@ -153,7 +159,6 @@ function wrapperWith(
   };
 }
 
-/** RevenueCat unavailable: the card checkout stands on its own. */
 const wrapper = wrapperWith(false);
 
 test("an org that cannot sync is offered the in-app card checkout", async () => {
@@ -252,11 +257,6 @@ test("a signed-out user is never offered the checkout", async () => {
 });
 
 test("the card checkout replaces RevenueCat's subscribe list, not adds to it", async () => {
-  // Regression guard for the two-row state: both flows offer a "Sync /
-  // Subscribe" row, and rendering both put two near-identical buttons in the
-  // panel — clicking the top one gave the old unstyled hosted form.
-  // RevenueCat is AVAILABLE here on purpose: with it unavailable its list
-  // would not render anyway and this test would pass without proving the gate.
   stubEnvironment(false);
 
   const view = render(
