@@ -53,6 +53,10 @@ export interface ContainerSyncLaneCheckRecord {
   laneKind: string;
 }
 
+interface ContainerSyncMarkerMutationOptions {
+  readonly stillCurrent?: (() => boolean) | undefined;
+}
+
 export const containerParentSyncLane = (
   parentId: string | null,
   organizationId?: string,
@@ -343,7 +347,8 @@ export const sqlContainerSyncWatermarkPersistence = {
   async markChecked(
     execSql: ExecSql,
     lane: ContainerSyncWatermarkLane,
-  ): Promise<void> {
+    options?: ContainerSyncMarkerMutationOptions,
+  ): Promise<boolean> {
     await sqlContainerSyncWatermarkPersistence.ensureSchema(execSql);
     const { laneId, laneKind } = containerSyncWatermarkLaneKey(lane);
     const row = {
@@ -352,7 +357,9 @@ export const sqlContainerSyncWatermarkPersistence = {
       laneKind,
     };
 
-    await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
+    const mark = async (
+      db: ClientSQLiteDatabase | ClientSQLiteTransactionScope,
+    ) => {
       await db
         .insert(containerSyncLaneChecks)
         .values(row)
@@ -364,14 +371,22 @@ export const sqlContainerSyncWatermarkPersistence = {
           set: row,
         })
         .run();
-    });
+    };
+    const runtime = getClientSQLitePersistenceRuntime(execSql);
+    if (!options?.stillCurrent) {
+      await runtime.runMutation(mark);
+      return true;
+    }
+    return (await runtime.guardedTransaction(mark, options.stillCurrent))
+      .committed;
   },
 
   async saveWatermark(
     execSql: ExecSql,
     lane: ContainerSyncWatermarkLane,
     watermark: SyncWatermark,
-  ): Promise<void> {
+    options?: ContainerSyncMarkerMutationOptions,
+  ): Promise<boolean> {
     await sqlContainerSyncWatermarkPersistence.ensureSchema(execSql);
     const { laneId, laneKind } = containerSyncWatermarkLaneKey(lane);
     const updatedAt = new Date().toISOString();
@@ -383,7 +398,9 @@ export const sqlContainerSyncWatermarkPersistence = {
       updatedAt,
     };
 
-    await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
+    const save = async (
+      db: ClientSQLiteDatabase | ClientSQLiteTransactionScope,
+    ) => {
       await db
         .insert(containerSyncWatermarks)
         .values(row)
@@ -395,7 +412,14 @@ export const sqlContainerSyncWatermarkPersistence = {
           set: row,
         })
         .run();
-    });
+    };
+    const runtime = getClientSQLitePersistenceRuntime(execSql);
+    if (!options?.stillCurrent) {
+      await runtime.runMutation(save);
+      return true;
+    }
+    return (await runtime.guardedTransaction(save, options.stillCurrent))
+      .committed;
   },
 
   async deleteWatermarksForContainers(

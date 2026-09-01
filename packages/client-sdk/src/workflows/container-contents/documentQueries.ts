@@ -422,8 +422,8 @@ export function createContainerDocumentQueriesFromRuntime(
         inputs,
       );
     },
-    saveContainerDocumentWatermark(containerId, watermark) {
-      return sqlContainerSyncWatermarkPersistence.saveWatermark(
+    async saveContainerDocumentWatermark(containerId, watermark) {
+      await sqlContainerSyncWatermarkPersistence.saveWatermark(
         execSql,
         containerContentsSyncLane(containerId, organizationId),
         watermark,

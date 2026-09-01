@@ -1,8 +1,8 @@
 import type { ListContainersResponse } from "@tearleads/validators/response";
 import {
   type ContainerSyncWatermarkLane,
-  markContainerSyncLaneChecked,
-  saveContainerSyncWatermark,
+  markContainerSyncLaneCheckedIfCurrent,
+  saveContainerSyncWatermarkIfCurrent,
 } from "../containerPersistence";
 import type { RemoteContainerHydrationState } from "./types";
 
@@ -19,16 +19,25 @@ export async function markContainerParentLaneFetched(input: {
 
   const execSql = state.runtime.infra.execSql;
   if (response.nextWatermark) {
-    await saveContainerSyncWatermark(execSql, syncLane, response.nextWatermark);
-    if (input.isCurrent?.() === false) {
+    const saved = await saveContainerSyncWatermarkIfCurrent(
+      execSql,
+      syncLane,
+      response.nextWatermark,
+      input.isCurrent,
+    );
+    if (!saved || input.isCurrent?.() === false) {
       return false;
     }
   }
   // A check marker suppresses startup polling, so write it only after the
   // server confirms this parent lane is fully drained.
   if (!response.hasMore) {
-    await markContainerSyncLaneChecked(execSql, syncLane);
-    if (input.isCurrent?.() === false) {
+    const marked = await markContainerSyncLaneCheckedIfCurrent(
+      execSql,
+      syncLane,
+      input.isCurrent,
+    );
+    if (!marked || input.isCurrent?.() === false) {
       return false;
     }
     if (syncLane.kind === "container_parent" && syncLane.parentId === null) {
