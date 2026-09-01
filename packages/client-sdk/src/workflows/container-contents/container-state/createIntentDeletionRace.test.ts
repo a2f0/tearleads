@@ -25,6 +25,7 @@ async function runCreatePersistenceOutcome(
     | "identity-superseded"
     | "intent-superseded"
     | "missing"
+    | "response-stale"
     | "settlement-stale"
     | "stale-generation",
 ) {
@@ -36,12 +37,16 @@ async function runCreatePersistenceOutcome(
   );
   const deletedRemoteIds: string[] = [];
   const apiClient = createMockApiClient({
-    createContainerWithMetadataDocument: async (request) => ({
-      container: await createMutationResponseFromRequest(request.container),
-      metadataDocument: await createResponseFromRequest(
-        request.metadataDocument,
-      ),
-    }),
+    createContainerWithMetadataDocument: async (request) => {
+      const response = {
+        container: await createMutationResponseFromRequest(request.container),
+        metadataDocument: await createResponseFromRequest(
+          request.metadataDocument,
+        ),
+      };
+      if (persistenceStatus === "response-stale") current = false;
+      return response;
+    },
     deleteContainer: async (containerId) => {
       deletedRemoteIds.push(containerId);
       return {
@@ -103,6 +108,7 @@ async function runCreatePersistenceOutcome(
     updatedAt: "2026-08-24T00:00:00.000Z",
   };
   const syncedIntents: string[] = [];
+  const reconciliationRequests: Array<string | null> = [];
   let current = true;
   let deleteContainerFromState = () => undefined;
   const persistence: ContainerCreateIntentSyncState["persistence"] = {
@@ -172,6 +178,9 @@ async function runCreatePersistenceOutcome(
       host,
       isCurrent: () => current,
       isRemoteSyncBlocked: () => false,
+      requestRemoteReconciliation: (parentId) => {
+        reconciliationRequests.push(parentId);
+      },
       state,
     });
     return {
@@ -180,6 +189,7 @@ async function runCreatePersistenceOutcome(
       createdCount,
       deletedRemoteIds,
       originalContainer,
+      reconciliationRequests,
       syncedIntents,
     };
   } finally {
@@ -208,6 +218,20 @@ test("a stale create settlement leaves the live container projection unchanged",
   expect(stale.createdCount).toBe(0);
   expect(stale.childState.container).toEqual(stale.originalContainer);
   expect(stale.syncedIntents).toEqual([]);
+  expect(stale.reconciliationRequests).toEqual([
+    stale.childState.container.parentId,
+  ]);
+});
+
+test("a generation change after remote create requests replacement hydration", async () => {
+  const stale = await runCreatePersistenceOutcome("response-stale");
+
+  expect(stale.createdCount).toBe(0);
+  expect(stale.childState.container).toEqual(stale.originalContainer);
+  expect(stale.syncedIntents).toEqual([]);
+  expect(stale.reconciliationRequests).toEqual([
+    stale.childState.container.parentId,
+  ]);
 });
 
 test("a generation change during create intent settlement leaves the live projection unchanged", async () => {
@@ -216,6 +240,9 @@ test("a generation change during create intent settlement leaves the live projec
   expect(stale.createdCount).toBe(0);
   expect(stale.childState.container).toEqual(stale.originalContainer);
   expect(stale.syncedIntents).toEqual([stale.childContainerId]);
+  expect(stale.reconciliationRequests).toEqual([
+    stale.childState.container.parentId,
+  ]);
 });
 
 test("an overtaking create intent prevents stale live-state installation", async () => {

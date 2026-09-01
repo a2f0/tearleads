@@ -108,6 +108,7 @@ test("a generation change while settling create intents cannot reach a replaceme
     host: { persistContainerState: async () => ({ status: "missing" }) },
     isCurrent: () => current,
     isRemoteSyncBlocked: () => false,
+    requestRemoteReconciliation: () => {},
     state,
   });
 

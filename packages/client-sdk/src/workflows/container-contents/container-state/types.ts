@@ -138,6 +138,7 @@ export interface ContainerCreateIntentSyncInput {
   isCurrent: () => boolean;
   isRemoteSyncBlocked: (organizationId: string) => boolean;
   intent: ContainerCreateIntentRecord;
+  requestRemoteReconciliation: (parentContainerId: string | null) => void;
   state: ContainerCreateIntentSyncState;
 }
 

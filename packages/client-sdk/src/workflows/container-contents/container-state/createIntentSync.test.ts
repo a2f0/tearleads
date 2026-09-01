@@ -125,6 +125,7 @@ test("container create sync propagates identity failures without recording a ret
       },
       isCurrent: () => current,
       isRemoteSyncBlocked: () => false,
+      requestRemoteReconciliation: () => {},
       state,
     }),
   ).rejects.toBe(integrityError);
@@ -229,6 +230,7 @@ test("container create sync defers a lost-response conflict and heals on hydrati
   };
   const recordedErrors: string[] = [];
   const syncedIntents: string[] = [];
+  const reconciliationRequests: Array<string | null> = [];
   const persistence: ContainerCreateIntentSyncState["persistence"] = {
     ...defaultContainerContentsPersistence,
     listPendingCreateIntents: async () => [intent],
@@ -263,6 +265,9 @@ test("container create sync defers a lost-response conflict and heals on hydrati
       host,
       isCurrent: () => true,
       isRemoteSyncBlocked: () => false,
+      requestRemoteReconciliation: (parentId) => {
+        reconciliationRequests.push(parentId);
+      },
       state,
     });
     expect(firstCreated).toBe(0);
@@ -270,6 +275,7 @@ test("container create sync defers a lost-response conflict and heals on hydrati
     expect(reported).toBe(false);
     expect(recordedErrors).toEqual([]);
     expect(syncedIntents).toEqual([]);
+    expect(reconciliationRequests).toEqual([parentContainerId]);
 
     // Hydration discovers the committed container and populates its remote
     // metadata state (both the record and the container row — see
@@ -283,6 +289,9 @@ test("container create sync defers a lost-response conflict and heals on hydrati
       host,
       isCurrent: () => true,
       isRemoteSyncBlocked: () => false,
+      requestRemoteReconciliation: (parentId) => {
+        reconciliationRequests.push(parentId);
+      },
       state,
     });
     expect(secondCreated).toBe(1);
@@ -291,6 +300,7 @@ test("container create sync defers a lost-response conflict and heals on hydrati
     expect(submitCount).toBe(1);
     expect(reported).toBe(false);
     expect(recordedErrors).toEqual([]);
+    expect(reconciliationRequests).toEqual([parentContainerId]);
   } finally {
     close();
   }
@@ -395,6 +405,7 @@ test("container create sync keeps an intent pending while the container row lack
     },
     isCurrent: () => true,
     isRemoteSyncBlocked: () => true,
+    requestRemoteReconciliation: () => {},
     state,
   });
 

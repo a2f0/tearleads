@@ -173,13 +173,15 @@ async function syncSingleContainerMetadata(input: {
 interface ContainerContentsStoreSyncIterationInput {
   host: RemoteContainerHydrationHost;
   reconcileRestoredAccess: (isCurrent: () => boolean) => Promise<void>;
+  requestRemoteReconciliation: (parentContainerId: string | null) => void;
   state: ContainerContentsStoreSyncState;
 }
 
 export async function runContainerContentsStoreSyncIteration(
   input: ContainerContentsStoreSyncIterationInput,
 ) {
-  const { host, reconcileRestoredAccess, state } = input;
+  const { host, reconcileRestoredAccess, requestRemoteReconciliation, state } =
+    input;
   const runtime = state.runtime;
   const encapsulationKeyPair = runtime.crypto.encapsulationKeyPair;
   if (
@@ -204,6 +206,7 @@ export async function runContainerContentsStoreSyncIteration(
     host,
     isCurrent,
     isRemoteSyncBlocked: isOrganizationBlocked,
+    requestRemoteReconciliation,
     state,
   });
   if (!isCurrent()) {

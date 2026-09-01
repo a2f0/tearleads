@@ -199,7 +199,12 @@ function ensureContainerContentsStoreInitialized(input: {
   }
 
   const lifecycleGeneration = state.lifecycleGeneration;
-  const isCurrent = () => state.lifecycleGeneration === lifecycleGeneration;
+  const persistence = state.persistence;
+  const execSql = state.runtime.infra.execSql;
+  const isCurrent = () =>
+    state.lifecycleGeneration === lifecycleGeneration &&
+    state.persistence === persistence &&
+    state.runtime.infra.execSql === execSql;
   state.initializeGeneration = lifecycleGeneration;
   const initializePromise = initializeContainerContentsStore({
     host,
@@ -270,6 +275,12 @@ export function createContainerContentsStoreSyncAgent(input: {
       runContainerContentsStoreSyncIteration({
         host,
         reconcileRestoredAccess,
+        requestRemoteReconciliation: (parentContainerId) => {
+          void requestHydration({
+            followDiscoveredParentLanes: false,
+            parentIds: [parentContainerId],
+          });
+        },
         state,
       }),
   });

@@ -1,6 +1,7 @@
 import { expect, mock, test } from "bun:test";
 import { generateKemSeedAndKeyPair } from "@symcrypt/crypto";
 import { createDomainScope } from "../../data/domainScope";
+import { createTestContainerState } from "../../workflows/container-contents/container-state/containerState.testFixtures";
 import {
   type ContainerContentsPersistence,
   defaultContainerContentsPersistence,
@@ -70,6 +71,7 @@ for (const change of contextChanges) {
           };
         });
       },
+      requestRemoteReconciliation: () => {},
       state,
     });
 
@@ -110,6 +112,54 @@ test("an event snapshot does not re-arm structural sync", () => {
   );
 
   expect(state.structuralGeneration).toBe(0);
+  expect(scheduleSync).not.toHaveBeenCalled();
+});
+
+test("executor replacement clears storage-backed state before reinitializing", () => {
+  const domainScope = createDomainScope();
+  const originalExecSql = mock(async () => []);
+  const replacementExecSql = mock(async () => []);
+  const originalRuntime = createContainerContentsTestRuntime({
+    domainScope,
+    execSql: originalExecSql,
+  });
+  const replacementRuntime = createContainerContentsTestRuntime({
+    domainScope,
+    execSql: replacementExecSql,
+  });
+  const state = createContainerContentsStoreState(
+    originalRuntime,
+    defaultContainerContentsPersistence,
+  );
+  state.containersById.set(
+    "old-database-container",
+    createTestContainerState({
+      id: "old-database-container",
+      parentId: null,
+    }),
+  );
+  state.initialized = true;
+  state.rootLaneHydrated = true;
+  updateContainerContentsSnapshot(state);
+  const ensureInitialized = mock(() => {});
+  const handleRemoteEvents = mock(() => {});
+  const refreshLocalContainers = mock(async () => {});
+  const scheduleSync = mock(() => {});
+  const syncAgent = {
+    ensureInitialized,
+    handleRemoteEvents,
+    refreshLocalContainers,
+    scheduleSync,
+  } as unknown as ContainerContentsStoreSyncAgent;
+
+  updateContainerContentsStoreRuntime(state, replacementRuntime, syncAgent);
+
+  expect(state.containersById.size).toBe(0);
+  expect(state.rootLaneHydrated).toBe(false);
+  expect(state.snapshot).toEqual({ nodes: [], ready: false });
+  expect(ensureInitialized).toHaveBeenCalledTimes(1);
+  expect(handleRemoteEvents).toHaveBeenCalledTimes(1);
+  expect(refreshLocalContainers).not.toHaveBeenCalled();
   expect(scheduleSync).not.toHaveBeenCalled();
 });
 
@@ -165,6 +215,7 @@ test("runtime ABA replacement invalidates and re-arms a structural pass", async 
           resolve();
         };
       }),
+    requestRemoteReconciliation: () => {},
     state,
   });
 
@@ -197,10 +248,13 @@ test("persistence ABA replacement invalidates and re-arms a structural pass", as
     execSql,
   });
   const state = createContainerContentsStoreState(runtime, persistenceA);
+  state.initialized = true;
+  state.rootLaneHydrated = true;
   updateContainerContentsSnapshot(state);
   const scheduleSync = mock(() => {});
+  const ensureInitialized = mock(() => {});
   const syncAgent = {
-    refreshLocalContainers: async () => {},
+    ensureInitialized,
     scheduleSync,
   } as unknown as ContainerContentsStoreSyncAgent;
   let releaseRestoration: () => void = () => {
@@ -221,6 +275,7 @@ test("persistence ABA replacement invalidates and re-arms a structural pass", as
           resolve();
         };
       }),
+    requestRemoteReconciliation: () => {},
     state,
   });
 
@@ -231,6 +286,8 @@ test("persistence ABA replacement invalidates and re-arms a structural pass", as
 
   expect(state.persistence).toBe(persistenceA);
   expect(state.structuralGeneration).toBe(2);
-  expect(scheduleSync).toHaveBeenCalledTimes(2);
+  expect(ensureInitialized).toHaveBeenCalledTimes(2);
+  expect(scheduleSync).not.toHaveBeenCalled();
+  expect(state.snapshot).toEqual({ nodes: [], ready: false });
   expect(listPendingCreateIntents).not.toHaveBeenCalled();
 });

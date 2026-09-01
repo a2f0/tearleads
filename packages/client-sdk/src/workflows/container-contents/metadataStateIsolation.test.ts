@@ -111,3 +111,39 @@ test("detached settlement preserves a completed concurrent metadata edit", async
   expect(live.record).toBe(completedEditRecord);
   expect(live.doc).toBe(liveDoc);
 });
+
+test("detached settlement preserves a queued concurrent metadata edit", async () => {
+  const container = createContainerRecord({
+    id: "metadata-queued-edit-container",
+    parentId: "local-parent",
+  });
+  const doc = await createContainerMetadataDocument(container.id);
+  writeContainerMetadataValue(doc, { icon: null, name: "Before" });
+  const sourceRecord = createDocumentRecord({ id: container.id });
+  const live = { container, doc, record: sourceRecord };
+  const candidate = await createDetachedContainerMetadataState(live);
+  const liveDoc = live.doc;
+  candidate.container = {
+    ...candidate.container,
+    parentId: "remote-parent",
+  };
+
+  // The queued edit has mutated the live Loro document, but its serialized
+  // write is still waiting behind this sync pass so the record is unchanged.
+  writeContainerMetadataValue(live.doc, {
+    icon: "archive",
+    name: "Queued rename",
+  });
+
+  installDetachedContainerMetadataState(live, candidate, {
+    preserveConcurrentMetadataEdit: true,
+  });
+
+  expect(live.container).toMatchObject({
+    icon: "archive",
+    name: "Queued rename",
+    parentId: "remote-parent",
+  });
+  expect(live.doc).toBe(liveDoc);
+  expect(live.record).toBe(sourceRecord);
+});

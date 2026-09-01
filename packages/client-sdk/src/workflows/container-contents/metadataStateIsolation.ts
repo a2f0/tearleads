@@ -14,7 +14,6 @@ import type { ContainerMetadataState } from "./metadataTypes";
 interface DetachedContainerMetadataState extends ContainerMetadataState {
   readonly detachedSource: {
     readonly metadataVersion: string;
-    readonly record: ContainerMetadataState["record"];
   };
 }
 
@@ -38,7 +37,6 @@ export async function createDetachedContainerMetadataState(
     container: { ...metadataState.container },
     detachedSource: {
       metadataVersion: encodeVersionVector(metadataState.doc),
-      record: metadataState.record,
     },
     doc,
     record: { ...metadataState.record },
@@ -55,13 +53,12 @@ export function installDetachedContainerMetadataState(
   const candidateMetadataVersion = encodeVersionVector(candidate.doc);
   const liveRecord = target.record;
   const livePullContinuation = target.pullContinuation;
-  const preserveNewerLiveRecord =
+  const preserveConcurrentLiveMetadata =
     options.preserveConcurrentMetadataEdit === true &&
     liveMetadataVersion !== candidate.detachedSource.metadataVersion &&
-    liveRecord !== candidate.detachedSource.record &&
     !satisfiesVersionVector(candidateMetadataVersion, liveMetadataVersion);
 
-  if (preserveNewerLiveRecord) {
+  if (preserveConcurrentLiveMetadata) {
     const metadata = readContainerMetadataValue(
       target.doc,
       getDefaultContainerName(candidate.container.parentId),
@@ -76,9 +73,9 @@ export function installDetachedContainerMetadataState(
     target.doc = candidate.doc;
   }
   target.metadataWriterProjection = candidate.metadataWriterProjection;
-  target.pullContinuation = preserveNewerLiveRecord
+  target.pullContinuation = preserveConcurrentLiveMetadata
     ? livePullContinuation
     : (candidateRecord.pullContinuation ?? null);
-  target.record = preserveNewerLiveRecord ? liveRecord : candidateRecord;
+  target.record = preserveConcurrentLiveMetadata ? liveRecord : candidateRecord;
   target.rekeyOnlyPassCount = candidate.rekeyOnlyPassCount;
 }

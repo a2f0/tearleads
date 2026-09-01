@@ -208,6 +208,8 @@ export function updateContainerContentsStoreRuntime(
     previousRuntime,
     nextRuntime,
   );
+  const executorReplaced =
+    previousRuntime.infra.execSql !== nextRuntime.infra.execSql;
   if (runtimeReplaced) {
     state.structuralGeneration += 1;
     state.localContainersNeedRefresh = true;
@@ -228,6 +230,16 @@ export function updateContainerContentsStoreRuntime(
       resetContainerContentsStore(state);
     }
     state.lastEventCount = nextRuntime.state.events.length;
+    return;
+  }
+
+  if (executorReplaced) {
+    // The in-memory tree and lane markers belong to the previous executor.
+    // Rebuild them from the replacement database before any remote sync can
+    // observe or persist the old database's state.
+    resetContainerContentsStore(state);
+    syncAgent.ensureInitialized();
+    syncAgent.handleRemoteEvents();
     return;
   }
 
@@ -280,7 +292,9 @@ export function updateContainerContentsStorePersistence(
   }
   state.persistence = nextPersistence;
   state.structuralGeneration += 1;
-  state.localContainersNeedRefresh = true;
-  void syncAgent.refreshLocalContainers();
-  syncAgent.scheduleSync();
+  // Persistence replacement changes the authoritative local data source even
+  // when the SQLite executor itself is stable. Clear storage-backed state and
+  // let initialization load the replacement before scheduling remote work.
+  resetContainerContentsStore(state);
+  syncAgent.ensureInitialized();
 }

@@ -227,6 +227,7 @@ async function settleRemoteContainerCreate(input: {
     state.runtime.util.log(
       `Container contents: deferred create intent for ${intent.containerId}; container already committed remotely, awaiting hydration.`,
     );
+    syncInput.requestRemoteReconciliation(intent.parentContainerId);
     return "blocked";
   }
   if (!created) {
@@ -257,6 +258,7 @@ async function settleRemoteContainerCreate(input: {
     state,
   });
   if (persistenceStatus === "abandoned") {
+    syncInput.requestRemoteReconciliation(intent.parentContainerId);
     return "abandoned";
   }
   if (persistenceStatus === "missing") {
@@ -271,6 +273,7 @@ async function settleRemoteContainerCreate(input: {
     state.runtime.util.log(
       `Container contents: deferred create intent for ${intent.containerId}; another writer persisted its remote identity.`,
     );
+    syncInput.requestRemoteReconciliation(intent.parentContainerId);
     return "blocked";
   }
   if (persistenceStatus === "intent-superseded") {
@@ -311,6 +314,7 @@ async function createPendingRemoteContainer(input: {
     });
   }
   if (!syncInput.isCurrent()) {
+    syncInput.requestRemoteReconciliation(intent.parentContainerId);
     return "abandoned";
   }
   return settleRemoteContainerCreate({ containerState, created, syncInput });
@@ -366,6 +370,7 @@ export async function syncPendingContainerCreateIntents(input: {
   host: ContainerCreateIntentSyncHost;
   isCurrent: () => boolean;
   isRemoteSyncBlocked: (organizationId: string) => boolean;
+  requestRemoteReconciliation: (parentContainerId: string | null) => void;
   state: ContainerCreateIntentSyncState;
 }): Promise<number> {
   if (!input.isCurrent()) {
@@ -399,6 +404,7 @@ export async function syncPendingContainerCreateIntents(input: {
           isCurrent: input.isCurrent,
           isRemoteSyncBlocked: input.isRemoteSyncBlocked,
           intent,
+          requestRemoteReconciliation: input.requestRemoteReconciliation,
           state,
         },
       );

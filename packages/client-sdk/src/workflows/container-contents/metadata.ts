@@ -264,7 +264,9 @@ export async function syncContainerMetadataState(
     return null;
   }
   if (!("missing" in finalized)) {
-    installDetachedContainerMetadataState(liveMetadataState, metadataState);
+    installDetachedContainerMetadataState(liveMetadataState, metadataState, {
+      preserveConcurrentMetadataEdit: true,
+    });
   }
   return finalized;
 }

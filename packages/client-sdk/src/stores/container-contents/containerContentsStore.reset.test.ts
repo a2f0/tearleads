@@ -12,6 +12,7 @@ import { createContainerContentsTestRuntime } from "./runtime.testFixtures";
 import {
   createContainerContentsStoreState,
   updateContainerContentsSnapshot,
+  updateContainerContentsStorePersistence,
   updateContainerContentsStoreRuntime,
 } from "./state";
 import {
@@ -172,6 +173,100 @@ test("reset serializes replacement initialization behind a stale load", async ()
   } finally {
     await close();
   }
+});
+
+test("executor replacement retries initialization against the new database", async () => {
+  type LoadResult = Awaited<
+    ReturnType<typeof defaultContainerContentsPersistence.loadContainers>
+  >;
+  const originalExecSql = mock(async () => []);
+  const replacementExecSql = mock(async () => []);
+  const loadExecutors: ExecSql[] = [];
+  const resolvers: Array<(value: LoadResult) => void> = [];
+  const persistence = {
+    ...defaultContainerContentsPersistence,
+    loadContainers: mock(
+      (execSql: ExecSql) =>
+        new Promise<LoadResult>((resolve) => {
+          loadExecutors.push(execSql);
+          resolvers.push(resolve);
+        }),
+    ),
+  };
+  const domainScope = createDomainScope();
+  const originalRuntime = createRuntime({
+    dbStatus: "ready",
+    domainScope,
+    execSql: originalExecSql,
+  });
+  const replacementRuntime = createRuntime({
+    dbStatus: "ready",
+    domainScope,
+    execSql: replacementExecSql,
+  });
+  const store = createContainerContentsStore(originalRuntime, persistence);
+
+  store.updateRuntime(originalRuntime);
+  await waitFor(() => resolvers.length === 1);
+  store.updateRuntime(replacementRuntime);
+  resolvers[0]?.([]);
+  await waitFor(() => resolvers.length === 2);
+
+  expect(store.getSnapshot()).toEqual({ nodes: [], ready: false });
+  expect(loadExecutors).toEqual([originalExecSql, replacementExecSql]);
+  resolvers[1]?.([]);
+  await waitFor(() => store.getSnapshot().ready);
+});
+
+test("persistence replacement retries an in-flight initialization", async () => {
+  type LoadResult = Awaited<
+    ReturnType<typeof defaultContainerContentsPersistence.loadContainers>
+  >;
+  const execSql = mock(async () => []);
+  let resolveOriginal: (value: LoadResult) => void = () => {};
+  let resolveReplacement: (value: LoadResult) => void = () => {};
+  let originalLoadStarted = false;
+  let replacementLoadStarted = false;
+  const originalPersistence = {
+    ...defaultContainerContentsPersistence,
+    loadContainers: () =>
+      new Promise<LoadResult>((resolve) => {
+        originalLoadStarted = true;
+        resolveOriginal = resolve;
+      }),
+  };
+  const replacementPersistence = {
+    ...defaultContainerContentsPersistence,
+    loadContainers: () =>
+      new Promise<LoadResult>((resolve) => {
+        replacementLoadStarted = true;
+        resolveReplacement = resolve;
+      }),
+  };
+  const runtime = createRuntime({ dbStatus: "ready", execSql });
+  const state = createContainerContentsStoreState(runtime, originalPersistence);
+  const syncAgent = createContainerContentsStoreSyncAgent({
+    host: {
+      persistContainerState: async () => ({ status: "missing" }),
+      updateSnapshot: () => updateContainerContentsSnapshot(state),
+    },
+    state,
+  });
+
+  syncAgent.ensureInitialized();
+  await waitFor(() => originalLoadStarted);
+  updateContainerContentsStorePersistence(
+    state,
+    replacementPersistence,
+    syncAgent,
+  );
+  resolveOriginal([]);
+  await waitFor(() => replacementLoadStarted);
+
+  expect(state.snapshot).toEqual({ nodes: [], ready: false });
+  resolveReplacement([]);
+  await waitFor(() => state.snapshot.ready);
+  expect(state.persistence).toBe(replacementPersistence);
 });
 
 test("initialization observes login while the local load is pending", async () => {
