@@ -1,10 +1,7 @@
 import type { DocumentWriterProjectionResponse } from "@symcrypt/validators/response";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import { CONTAINER_METADATA_APP_KIND } from "../../data/persistence/container-contents/containerContentsPersistence";
-import {
-  type PendingUpdateRecord,
-  recordDocumentSyncFailure,
-} from "../../data/sqlite/documentPersistence";
+import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";
 import {
   createDocumentWriterPublicKeyResolver,
   describeDocumentSyncSubmitFailure,
@@ -13,7 +10,10 @@ import {
   syncRemoteDocument,
 } from "../documents";
 import { createRuntimePrincipalPolicyWarmer } from "../principals/runtimePolicyWarmer";
-import { metadataIncomingUpdateIsolation } from "./metadataIncomingUpdateIsolation";
+import {
+  metadataIncomingUpdateIsolation,
+  recordCurrentMetadataSyncFailure,
+} from "./metadataIncomingUpdateIsolation";
 import { deferRecoverableMetadataSyncError } from "./metadataSyncErrors";
 import type { ContainerMetadataState } from "./metadataTypes";
 import type { ContainerContentsWorkflowRuntime } from "./runtime";
@@ -127,11 +127,15 @@ export async function syncRemoteContainerMetadata(
     onPullContinuationInvalidated: input.onPullContinuationInvalidated,
     onSyncTrace: (line) => runtime.util.log(`Container contents: ${line}`),
     onTerminalSubmitFailure: async (failure) => {
-      if (!isCurrent()) return;
-      await recordDocumentSyncFailure(execSql, metadataScope, {
-        attemptedAt: new Date().toISOString(),
-        message: describeDocumentSyncSubmitFailure(failure),
-        status: failure.status,
+      await recordCurrentMetadataSyncFailure({
+        execSql,
+        failure: {
+          attemptedAt: new Date().toISOString(),
+          message: describeDocumentSyncSubmitFailure(failure),
+          status: failure.status,
+        },
+        isCurrent,
+        metadataScope,
       });
     },
     pendingUpdates: input.pendingUpdates,

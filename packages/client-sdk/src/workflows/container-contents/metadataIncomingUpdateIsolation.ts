@@ -4,8 +4,31 @@ import {
 } from "../../data/documents/shared/documentSyncUpdateIsolation";
 import type { SyncRemoteDocumentResult } from "../../data/documents/shared/types";
 import { recordDocumentSyncFailure } from "../../data/sqlite/documentPersistence";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import {
+  type ExecSql,
+  runSerializedSqlMutation,
+} from "../../data/sqlite/sqlSchema";
 import type { ContainerMetadataState } from "./metadataTypes";
+
+export async function recordCurrentMetadataSyncFailure(input: {
+  execSql: ExecSql;
+  failure: {
+    readonly attemptedAt: string;
+    readonly message: string;
+    readonly status: number | null;
+  };
+  isCurrent?: (() => boolean) | undefined;
+  metadataScope: { appKind: string; localId: string };
+}): Promise<void> {
+  await runSerializedSqlMutation(input.execSql, async (lockedExecSql) => {
+    if (input.isCurrent?.() === false) return;
+    await recordDocumentSyncFailure(
+      lockedExecSql,
+      input.metadataScope,
+      input.failure,
+    );
+  });
+}
 
 export function applyIncomingContainerMetadataUpdates(
   currentDocument: ContainerMetadataState["doc"],
@@ -24,11 +47,13 @@ export function metadataIncomingUpdateIsolation(input: {
     onIncomingUpdateIsolationFailure: async (failure: {
       readonly message: string;
     }) => {
-      if (input.isCurrent?.() === false) return;
-      await recordDocumentSyncFailure(input.execSql, input.metadataScope, {
-        attemptedAt: new Date().toISOString(),
-        message: failure.message,
-        status: null,
+      await recordCurrentMetadataSyncFailure({
+        ...input,
+        failure: {
+          attemptedAt: new Date().toISOString(),
+          message: failure.message,
+          status: null,
+        },
       });
     },
     validateIncomingUpdates: (

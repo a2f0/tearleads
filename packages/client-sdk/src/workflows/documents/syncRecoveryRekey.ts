@@ -6,7 +6,10 @@ import {
   type PendingUpdateRecord,
   rekeyDocumentPendingUpdate,
 } from "../../data/sqlite/documentPersistence";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import {
+  type ExecSql,
+  runSerializedSqlMutation,
+} from "../../data/sqlite/sqlSchema";
 
 export type RekeyPendingUpdate = (
   execSql: ExecSql,
@@ -116,10 +119,14 @@ export async function rekeyUnsettledRecoveryPendingUpdates(input: {
       exhaustedPendingUpdateIds.push(pendingUpdateId);
       continue;
     }
-    if (input.stillCurrent?.() === false) {
-      break;
-    }
-    const nextId = await rekeyPendingUpdate(input.execSql, pendingUpdateId);
+    const nextId = await runSerializedSqlMutation(
+      input.execSql,
+      (lockedExecSql) =>
+        input.stillCurrent?.() === false
+          ? null
+          : rekeyPendingUpdate(lockedExecSql, pendingUpdateId),
+    );
+    if (input.stillCurrent?.() === false) break;
     if (nextId !== null) {
       rekeyedPendingUpdateIds.push(nextId);
     }

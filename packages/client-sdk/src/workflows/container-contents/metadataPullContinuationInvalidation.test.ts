@@ -8,6 +8,7 @@ import {
   writeContainerMetadataValue,
 } from "../../data/containers/containerMetadataDocument";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
+import { runSerializedSqlMutation } from "../../data/sqlite/sqlSchema";
 import {
   createContainerRecord,
   createDocumentRecord,
@@ -99,6 +100,71 @@ test("metadata cursor rejection is durable and cannot clear newer progress", asy
       icon: "cloud",
       name: "Advanced page",
     });
+  } finally {
+    close();
+  }
+});
+
+test("expired metadata invalidation cannot persist after waiting for the SQL lock", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "metadata-pull-continuation-expired",
+  );
+  const container = createContainerRecord({
+    id: "container-expired",
+    metadataDocumentId: "metadata-document-expired",
+    parentId: null,
+  });
+  const rejectedContinuation = {
+    commitLsn: "0/2",
+    commitLsnMode: "tracked" as const,
+    cursor: "metadata-page-expired",
+  };
+  const record = createDocumentRecord({
+    documentId: "metadata-document-expired",
+    id: container.id,
+    pullContinuation: rejectedContinuation,
+  });
+  const metadataState = {
+    container,
+    doc: await createContainerMetadataDocument(container.id),
+    pullContinuation: rejectedContinuation,
+    record,
+  };
+
+  try {
+    await sqlContainerContentsPersistence.ensureSchema(execSql);
+    await sqlContainerContentsPersistence.saveContainer(
+      execSql,
+      container,
+      record,
+    );
+    let current = true;
+    let releaseLock = () => {};
+    const lockHeld = new Promise<void>((resolve) => {
+      releaseLock = resolve;
+    });
+    const blocker = runSerializedSqlMutation(execSql, () => lockHeld);
+    const invalidation = invalidateContainerMetadataPullContinuation({
+      continuation: rejectedContinuation,
+      isCurrent: () => current,
+      metadataState,
+      persistence: sqlContainerContentsPersistence,
+      runtime: { infra: { execSql } },
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    current = false;
+    releaseLock();
+    await Promise.all([blocker, invalidation]);
+
+    const persisted =
+      await sqlContainerContentsPersistence.loadContainerMetadataRecord(
+        execSql,
+        container.id,
+      );
+    expect(persisted?.pullContinuation).toEqual(rejectedContinuation);
+    expect(persisted?.pullContinuationRecoveryRequired).toBeUndefined();
+    expect(metadataState.pullContinuation).toEqual(rejectedContinuation);
   } finally {
     close();
   }

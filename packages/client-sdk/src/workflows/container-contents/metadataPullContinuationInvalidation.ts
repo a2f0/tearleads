@@ -63,6 +63,7 @@ export async function invalidateContainerMetadataPullContinuation(input: {
   await runSerializedSqlMutation(
     runtime.infra.execSql,
     async (lockedExecSql) => {
+      if (input.isCurrent?.() === false) return;
       const durableRecord =
         await input.persistence.invalidateMetadataPullContinuation(
           lockedExecSql,
