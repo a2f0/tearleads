@@ -1,5 +1,5 @@
-import { isPlainObject } from "@symcrypt/validators/isPlainObject";
-import { isUuidV4String } from "@symcrypt/validators/util";
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
+import { isUuidV4String } from "@tearleads/validators/util";
 import {
   isSameSession,
   readOrigin,

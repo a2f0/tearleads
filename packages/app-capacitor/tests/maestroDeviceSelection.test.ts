@@ -29,7 +29,7 @@ function environmentValue(name: string) {
 }
 
 beforeAll(async () => {
-  shimDirectory = await mkdtemp(resolve(tmpdir(), "symcrypt-maestro-shims-"));
+  shimDirectory = await mkdtemp(resolve(tmpdir(), "tearleads-maestro-shims-"));
   const loggingStubs = [
     "maestro",
     "bun",
@@ -87,7 +87,7 @@ async function runScript(options: {
   iosSimulator?: string;
 }) {
   const logPath = resolve(
-    await mkdtemp(resolve(tmpdir(), "symcrypt-maestro-log-")),
+    await mkdtemp(resolve(tmpdir(), "tearleads-maestro-log-")),
     "invocations.log",
   );
   await Bun.write(logPath, "");

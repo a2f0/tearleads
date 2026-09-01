@@ -3,7 +3,7 @@ import type {
   DocumentRecord,
   DocumentsPersistence,
   PendingUpdateRecord,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { createDocumentsPersistence } from "../../../../test/helpers/document-store/documentStoreSyncPersistence";
 import { createRuntime } from "../../../../test/helpers/document-store/documentStoreSyncRuntime";
 import {

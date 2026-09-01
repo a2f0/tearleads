@@ -4,8 +4,8 @@ import type {
   ContainerNode,
   LocalProjectionView,
   ReconciliationService,
-} from "@symcrypt/client-sdk";
-import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
+} from "@tearleads/client-sdk";
+import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import {
   createContext,
   type PropsWithChildren,
@@ -17,8 +17,8 @@ import {
   defineFacadeKeys,
   projectFacade,
 } from "../../providers/sdk/projectFacade";
-import { useSymCrypt } from "../../providers/sdk/SymCryptProvider";
-import { useSymCryptExternalStoreSnapshot } from "../../providers/sdk/useSymCryptSubscription";
+import { useTearleads } from "../../providers/sdk/TearleadsProvider";
+import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
 import { useDeviceFirstContainerContents } from "../device-first/DeviceFirstProvider";
 import type { BuiltInSystemContainer } from "../systemContainers";
 import { ensureTrashSystemContainer } from "../systemContainerTrash";
@@ -136,7 +136,7 @@ export function ExplorerProvider({
   children,
   showBuiltInSystemContainers = false,
 }: PropsWithChildren<{ showBuiltInSystemContainers?: boolean }>) {
-  const symcrypt = useSymCrypt();
+  const tearleads = useTearleads();
   const {
     containerStore: store,
     reconciler,
@@ -151,7 +151,7 @@ export function ExplorerProvider({
   } = useExplorerSystemProvisioning({
     organizationId: runtime.auth.organizationId,
     showBuiltInSystemContainers,
-    logError: symcrypt.logError,
+    logError: tearleads.logError,
   });
   const contextValue = useMemo(
     () => ({
@@ -159,7 +159,7 @@ export function ExplorerProvider({
       contactsSystemSlot,
       currentOrganizationId: runtime.auth.organizationId,
       currentRootContainerId: runtime.state.containerId,
-      logError: symcrypt.logError,
+      logError: tearleads.logError,
       reconciler,
       store,
       trashSystemSlot,
@@ -173,7 +173,7 @@ export function ExplorerProvider({
       runtime.auth.organizationId,
       runtime.state.containerId,
       store,
-      symcrypt.logError,
+      tearleads.logError,
       trashSystemSlot,
       view,
       visibleSystemSlots,
@@ -204,7 +204,7 @@ export function useExplorer(): ExplorerContextValue {
     view,
     visibleSystemSlots,
   } = context;
-  const snapshot = useSymCryptExternalStoreSnapshot(store);
+  const snapshot = useTearleadsExternalStoreSnapshot(store);
   const ensureTrashContainer = useEnsureExplorerTrashContainer(context);
 
   return useMemo(

@@ -1,16 +1,16 @@
-import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import {
   attachmentBindings,
   blobAuditObjects,
   blobStages,
   blobs,
-} from "@symcrypt/api-shared/schema";
+} from "@tearleads/api-shared/schema";
 import type {
   VerifiedAttachmentBinding,
   VerifiedAttachmentDetach,
   VerifiedDocumentLinkSetManifest,
-} from "@symcrypt/crypto";
-import type { BlobAttachmentBindRequest } from "@symcrypt/validators/request";
+} from "@tearleads/crypto";
+import type { BlobAttachmentBindRequest } from "@tearleads/validators/request";
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { appendDocumentAttachmentAuditEntries } from "../../../documents/documentAttachmentAuditEvents";
 import { documentAuditAccessFromManifest } from "../../../documents/documentAuditAccess";

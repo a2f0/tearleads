@@ -1,4 +1,4 @@
-import type { OrganizationUserDetail } from "@symcrypt/client-sdk";
+import type { OrganizationUserDetail } from "@tearleads/client-sdk";
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback } from "react";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";

@@ -3,11 +3,11 @@ import type {
   ContainerNode,
   DeviceFirstContainerContents,
   DocumentSummary,
-} from "@symcrypt/client-sdk";
-import { enqueueReconciliationForEvents } from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
+import { enqueueReconciliationForEvents } from "@tearleads/client-sdk";
 import { useEffect, useMemo, useRef } from "react";
-import { useSymCrypt } from "../../providers/sdk/SymCryptProvider";
-import { useSymCryptExternalStoreSnapshot } from "../../providers/sdk/useSymCryptSubscription";
+import { useTearleads } from "../../providers/sdk/TearleadsProvider";
+import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
 
 interface DocumentReconciliationEvent {
   readonly containerIds?: unknown;
@@ -329,7 +329,7 @@ export function useDeviceFirstBinding(input: {
   events: ReadonlyArray<unknown>;
   logLabel: string;
 }): DeviceFirstContainerContents {
-  const symcrypt = useSymCrypt();
+  const tearleads = useTearleads();
   const { events, logLabel, runtime } = input;
   const domainScope = runtime.state.domainScope;
   const processedEventKeysRef = useRef<Set<string>>(new Set());
@@ -339,11 +339,11 @@ export function useDeviceFirstBinding(input: {
     processedEventKeysRef.current = new Set();
   }
   const deviceFirst = useMemo(
-    () => symcrypt.deviceFirst.open({ logLabel }),
-    [domainScope, logLabel, symcrypt],
+    () => tearleads.deviceFirst.open({ logLabel }),
+    [domainScope, logLabel, tearleads],
   );
   const { reconciler, view } = deviceFirst;
-  const viewSnapshot = useSymCryptExternalStoreSnapshot(view);
+  const viewSnapshot = useTearleadsExternalStoreSnapshot(view);
   // Stabilise routing by content: container snapshots can churn for sync-state
   // changes, but event routing only needs to re-run when the routed ids or their
   // forced-content flag change. Remote-backed own system containers participate

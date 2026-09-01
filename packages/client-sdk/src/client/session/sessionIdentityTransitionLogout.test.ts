@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { ApiClient } from "@symcrypt/api-client";
+import type { ApiClient } from "@tearleads/api-client";
 import { setGeneratedIdentity } from "../../../test/helpers/clientTestSupport";
 import { Database } from "../database";
 import { createIdentity } from "../identity";

@@ -3,16 +3,16 @@ import type {
   OrganizationDirectory,
   OrganizationDirectoryUser,
   OrganizationUserDetail,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
-import type { useSymCryptRuntime } from "../../../providers/sdk/SymCryptProvider";
+import type { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { setUnknownError } from "../refresh";
 
 interface EnsureRosterProfileDocumentParams {
-  appData: ReturnType<typeof useSymCryptRuntime>;
+  appData: ReturnType<typeof useTearleadsRuntime>;
   canLoadAuthenticatedOrgData: boolean;
   canUpdateSelectedRosterEntry: boolean;
   domainScope: DomainScope;

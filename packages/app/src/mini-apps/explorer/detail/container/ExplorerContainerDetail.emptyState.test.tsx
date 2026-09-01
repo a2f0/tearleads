@@ -4,7 +4,7 @@ import {
   type ContainerItemRow,
   type ContainerNode,
   syncedContainerDocumentObjectSyncState,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import type { MouseEvent } from "react";
 import type { ExplorerUploadManager } from "../../hooks/useExplorerUploadManager";

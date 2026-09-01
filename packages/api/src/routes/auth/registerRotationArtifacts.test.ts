@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { createTestUser } from "@symcrypt/bob-and-alice";
-import type { RegistrationRequest } from "@symcrypt/validators/request";
+import { createTestUser } from "@tearleads/bob-and-alice";
+import type { RegistrationRequest } from "@tearleads/validators/request";
 import { createRegistrationRequestBody } from "../../../test/helpers/api";
 import {
   createTestContainerKekKeyring,

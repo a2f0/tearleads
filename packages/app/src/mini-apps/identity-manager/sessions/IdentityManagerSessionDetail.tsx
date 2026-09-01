@@ -1,4 +1,4 @@
-import type { UserSession } from "@symcrypt/client-sdk";
+import type { UserSession } from "@tearleads/client-sdk";
 import { useState } from "react";
 import {
   MiniAppActions,

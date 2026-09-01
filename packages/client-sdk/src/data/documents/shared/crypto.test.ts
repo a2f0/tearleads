@@ -5,15 +5,15 @@ import {
   computeDocumentContentRecordPlaintextHash,
   createAesGcmIv,
   serializeKeyingCanonicalJson,
-} from "@symcrypt/crypto";
-import { bytesToBase64 } from "@symcrypt/encoding";
+} from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
   exportFullHistorySnapshot,
   getTextValue,
   getUpdateVersionVectors,
   importUpdates,
-} from "@symcrypt/loro";
+} from "@tearleads/loro";
 import {
   createMaterializedSyncFixture,
   createPendingUpdateRecord,
@@ -231,8 +231,8 @@ test("decryptDocumentSyncUpdates verifies and decrypts content records", async (
       updates: response.updates.map((update) => ({
         ...update,
         encryptedData: update.encryptedData.replace(
-          "symcrypt.document.loro-update",
-          "symcrypt.document.loro-update.invalid",
+          "tearleads.document.loro-update",
+          "tearleads.document.loro-update.invalid",
         ),
       })),
     }),

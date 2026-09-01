@@ -1,11 +1,11 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
-import { gatherWithExecutor } from "@symcrypt/api-shared/postgres";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import { gatherWithExecutor } from "@tearleads/api-shared/postgres";
 import {
   attachmentBindings,
   type BlobWriteAuthorization,
-} from "@symcrypt/api-shared/schema";
-import type { WriteHeader } from "@symcrypt/crypto";
-import type { ListDocumentAttachmentsResponse } from "@symcrypt/validators/response";
+} from "@tearleads/api-shared/schema";
+import type { WriteHeader } from "@tearleads/crypto";
+import type { ListDocumentAttachmentsResponse } from "@tearleads/validators/response";
 import { and, eq, isNull } from "drizzle-orm";
 import { getStoredAccessEvents } from "../../access/read/accessManifestStore";
 import {

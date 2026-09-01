@@ -40,7 +40,7 @@ export const CONTACT_FIELD_LABELS = {
   lastName: "Last name",
   nickname: "Nickname",
   none: "None",
-  userId: "SymCrypt user ID",
+  userId: "Tearleads user ID",
 } as const;
 
 const OPTIONAL_PLACEHOLDER = "Optional";

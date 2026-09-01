@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploy the SymCrypt app-web static bundle to staging.
+# Deploy the Tearleads app-web static bundle to staging.
 
 set -euo pipefail
 

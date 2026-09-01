@@ -1,5 +1,5 @@
 {
-  "name": "@symcrypt/api-client",
+  "name": "@tearleads/api-client",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -12,8 +12,8 @@
     "test": "bun test src --max-concurrency=4"
   },
   "dependencies": {
-    "@symcrypt/crypto": "workspace:*",
-    "@symcrypt/validators": "workspace:*"
+    "@tearleads/crypto": "workspace:*",
+    "@tearleads/validators": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "catalog:",

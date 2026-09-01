@@ -17,7 +17,7 @@ const verificationFlow = resolve(
 );
 const runtimeIdentifier = "com.apple.CoreSimulator.SimRuntime.iOS-18-0";
 const deviceTypeIdentifier = "com.apple.CoreSimulator.SimDeviceType.iPhone-16";
-const dedicatedDeviceName = "SymCrypt Subscription Review";
+const dedicatedDeviceName = "Tearleads Subscription Review";
 const dedicatedUdid = "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA";
 const unrelatedUdid = "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB";
 
@@ -52,7 +52,7 @@ function environmentValue(name: string) {
 
 beforeAll(async () => {
   shimDirectory = await mkdtemp(
-    resolve(tmpdir(), "symcrypt-subscription-review-shims-"),
+    resolve(tmpdir(), "tearleads-subscription-review-shims-"),
   );
   for (const command of ["bun", "bunx", "open", "xcodebuild"]) {
     const path = resolve(shimDirectory, command);
@@ -126,7 +126,7 @@ async function runScript(options: {
   sipsOutput?: string;
 }) {
   const testDirectory = await mkdtemp(
-    resolve(tmpdir(), "symcrypt-subscription-review-test-"),
+    resolve(tmpdir(), "tearleads-subscription-review-test-"),
   );
   const logPath = resolve(testDirectory, "invocations.log");
   const outputDirectory = resolve(testDirectory, "screenshots");
@@ -153,7 +153,7 @@ async function runScript(options: {
     ),
     SUBSCRIPTION_SCREENSHOT_OUTPUT_DIR: outputDirectory,
     TMPDIR: testDirectory,
-    VITE_API_BASE_URL: options.apiBaseUrl ?? "https://api.symcrypt.com",
+    VITE_API_BASE_URL: options.apiBaseUrl ?? "https://api.tearleads.com",
     VITE_REVENUECAT_IOS_API_KEY: options.apiKey ?? "appl_production",
   };
   if (options.apiKey === null) {

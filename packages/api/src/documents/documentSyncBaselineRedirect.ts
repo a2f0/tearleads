@@ -1,10 +1,10 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
   documentAuditCheckpoints,
   documentContentWriteHeaders,
   documentUpdates,
-} from "@symcrypt/api-shared/schema";
-import { mergeVersionVectors } from "@symcrypt/loro";
+} from "@tearleads/api-shared/schema";
+import { mergeVersionVectors } from "@tearleads/loro";
 import { and, desc, eq, lte } from "drizzle-orm";
 import { isDocumentUpdateDominatedByBaseline } from "./documentBaselineDominance";
 import { isAuthenticatedReplayableBaseline } from "./documentReplayableBaseline";

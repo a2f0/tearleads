@@ -1,5 +1,5 @@
-import { bytesToBase64 } from "@symcrypt/encoding";
-import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
+import { bytesToBase64 } from "@tearleads/encoding";
+import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { createInitializedContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
 import { createPendingUpdateFields } from "../../../data/documents/documentSync";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";

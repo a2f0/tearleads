@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { createDocument, encodeVersionVector } from "@symcrypt/loro";
-import { createTestExecSql } from "@symcrypt/test-utils";
+import { createDocument, encodeVersionVector } from "@tearleads/loro";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentMoveIntentPersistence } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { hasStartupDocumentSyncWork } from "./documentPriming";

@@ -1,4 +1,4 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
   accessManifestContainerGrantProjection,
   accessManifestHeads,
@@ -9,7 +9,7 @@ import {
   principalMemberEnvelopes,
   principalPolicyMutationAcknowledgements,
   principalStatePayloads,
-} from "@symcrypt/api-shared/schema";
+} from "@tearleads/api-shared/schema";
 import { and, eq } from "drizzle-orm";
 import { OrganizationManagerError } from "./errors";
 

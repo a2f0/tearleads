@@ -1,4 +1,4 @@
-import { getDefaultApiDatabaseKind } from "@symcrypt/api-shared/postgres";
+import { getDefaultApiDatabaseKind } from "@tearleads/api-shared/postgres";
 import { type SQL, sql } from "drizzle-orm";
 
 export function isSqliteApiDatabase(): boolean {

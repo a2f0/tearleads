@@ -7,8 +7,8 @@ import {
   operationRoutePath,
   purgeDocumentOperation,
   unlinkDocumentOperation,
-} from "@symcrypt/validators/operation";
-import { MAX_DOCUMENT_SYNC_REQUEST_BYTES } from "@symcrypt/validators/util";
+} from "@tearleads/validators/operation";
+import { MAX_DOCUMENT_SYNC_REQUEST_BYTES } from "@tearleads/validators/util";
 import type { MiddlewareHandler } from "hono";
 import type { SessionEnv } from "../../middleware/session";
 import type { ApiServiceRuntime } from "../../services/runtime";

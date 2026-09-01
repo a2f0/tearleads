@@ -1,4 +1,4 @@
-import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { lockAccessManifestHeadsForShare } from "../../../access/read/accessManifestStore";
 import { uniqueSortedStrings } from "../../../utils/array";
 import { BlobMutationError } from "./types";

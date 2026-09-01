@@ -1,6 +1,6 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
-import { organizationBillingStripeSeats } from "@symcrypt/api-shared/schema";
-import { getSyncBillingTierForNativeProduct } from "@symcrypt/validators/billing";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import { organizationBillingStripeSeats } from "@tearleads/api-shared/schema";
+import { getSyncBillingTierForNativeProduct } from "@tearleads/validators/billing";
 import { eq } from "drizzle-orm";
 import { blocksNativePurchaseForStripeCheckoutAttempt } from "./nativePurchaseEligibility";
 import { isNativeRevenueCatStore } from "./revenuecatBuyerPolicy";

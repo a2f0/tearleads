@@ -1,4 +1,4 @@
-import { isUserEvent } from "@symcrypt/validators/event";
+import { isUserEvent } from "@tearleads/validators/event";
 import { useMemo } from "react";
 import { useNetworkState } from "../../../providers/api/useNetworkState";
 import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";

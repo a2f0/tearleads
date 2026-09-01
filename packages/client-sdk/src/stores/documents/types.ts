@@ -1,4 +1,4 @@
-import type { ContainerAccessLevel } from "@symcrypt/crypto";
+import type { ContainerAccessLevel } from "@tearleads/crypto";
 import type { BlobByteSourceInput } from "../../data/blobContracts";
 import type { DocumentAttachment } from "../../data/documents/documentContent";
 import type {

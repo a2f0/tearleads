@@ -3,14 +3,14 @@ import {
   type ApiDatabaseKind,
   type DatabaseSession,
   getDefaultApiDatabaseKind,
-} from "@symcrypt/api-shared/postgres";
+} from "@tearleads/api-shared/postgres";
 import {
   documentUpdateSpans,
   documentUpdates,
-} from "@symcrypt/api-shared/schema";
-import { decodeVersionVector } from "@symcrypt/loro";
-import type { DocumentUpdateRecord } from "@symcrypt/loro/server";
-import { parseWalLsn } from "@symcrypt/validators/util";
+} from "@tearleads/api-shared/schema";
+import { decodeVersionVector } from "@tearleads/loro";
+import type { DocumentUpdateRecord } from "@tearleads/loro/server";
+import { parseWalLsn } from "@tearleads/validators/util";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import {
   isSqliteApiDatabase,

@@ -1,16 +1,16 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import type {
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
   VerifiedDocumentLinkSetManifest,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import {
   KeyingVerificationError,
   makeVerifiedDocumentLinkSetManifest,
   verifyDocumentLinkSetManifest,
   verifySignedAccessEvent,
-} from "@symcrypt/crypto";
-import type { AccessManifestBundleWireResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import { getAccessManifestBundle } from "../../access/read/accessManifestStore";
 import {
   accessManifestCheckpoint,

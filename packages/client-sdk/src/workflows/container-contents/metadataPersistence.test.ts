@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { DocumentWriterProjectionResponse } from "@symcrypt/validators/response";
+import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { createContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
 import type { ContainerMetadataRecord } from "../../data/persistence/container-contents/containerContentsPersistence";
 import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";

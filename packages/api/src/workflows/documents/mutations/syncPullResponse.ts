@@ -1,11 +1,11 @@
 import { Buffer } from "node:buffer";
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
-import type { DocumentSyncRequest } from "@symcrypt/validators/request";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import type {
   DocumentSyncResponse,
   DocumentSyncUpdateResponse,
-} from "@symcrypt/validators/response";
-import { MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES } from "@symcrypt/validators/util";
+} from "@tearleads/validators/response";
+import { MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES } from "@tearleads/validators/util";
 import type { StoredDocumentContentKeyBundle } from "../../../access/read/documentContentKeyStore";
 import {
   resolveBaselineRedirectAfterSequence,

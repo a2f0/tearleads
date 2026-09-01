@@ -1,5 +1,5 @@
-import type { ApiDatabase } from "@symcrypt/api-shared/postgres";
-import { SYNC_BILLING_TIERS } from "@symcrypt/validators/billing";
+import type { ApiDatabase } from "@tearleads/api-shared/postgres";
+import { SYNC_BILLING_TIERS } from "@tearleads/validators/billing";
 import type { StripeApiDeps } from "../../billing/stripeApi";
 import {
   getSyncBillingTierForStripePrice,

@@ -1,7 +1,7 @@
 import type {
   ContainerDocumentQueries,
   ContainerNode,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { isIgnorableDatabaseWorkerError } from "../../../stores/explorer/documentRuntime";
 import {

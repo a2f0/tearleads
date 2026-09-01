@@ -16,7 +16,7 @@ export type SyncMode = "local-only" | "sync";
 
 export const DEFAULT_SYNC_MODE: SyncMode = "sync";
 
-export const SYNC_MODE_STORAGE_KEY = "symcrypt.sync-mode";
+export const SYNC_MODE_STORAGE_KEY = "tearleads.sync-mode";
 
 function isSyncMode(value: string | null): value is SyncMode {
   return value === "local-only" || value === "sync";

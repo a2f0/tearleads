@@ -1,5 +1,5 @@
-import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
-import type { DocumentSyncRequest } from "@symcrypt/validators/request";
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import type { resolveCurrentDocumentKekTargets } from "../../../access/read/documentKekTargets";
 import {
   ContainerWriterProjectionError,

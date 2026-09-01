@@ -1,4 +1,4 @@
-import { BILLING_ERROR_CODES } from "@symcrypt/validators/billing";
+import { BILLING_ERROR_CODES } from "@tearleads/validators/billing";
 import { ORG_MANAGER_LABELS } from "../labels";
 
 /** Maps the server's stable roster-policy failures to actionable copy. */

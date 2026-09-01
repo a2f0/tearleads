@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { createDocument, encodeVersionVector } from "@symcrypt/loro";
-import { createTestExecSql } from "@symcrypt/test-utils";
+import { createDocument, encodeVersionVector } from "@tearleads/loro";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { persistDocumentState } from "./persistence";

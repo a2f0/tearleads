@@ -1,6 +1,6 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
-import type { ReferencedPrincipalHead } from "@symcrypt/crypto";
-import type { AccessManifestBundleWireResponse } from "@symcrypt/validators/response";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import type { ReferencedPrincipalHead } from "@tearleads/crypto";
+import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import { readProjectionAccessManifest } from "../../keyingProjectionRecords";
 import {
   type ContainerDependencyLoadState,

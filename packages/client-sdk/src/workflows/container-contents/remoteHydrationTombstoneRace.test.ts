@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@symcrypt/test-utils";
+import { createTestExecSql } from "@tearleads/test-utils";
 import type {
   ListContainerParentLanesResponse,
   ListContainersResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import {
   createContainerParentSyncLane,
   defaultContainerContentsPersistence,

@@ -27,5 +27,5 @@ test("document sync cursor HMAC key is required in production", () => {
 });
 
 test("document sync cursor HMAC key has a deterministic nonproduction fallback", () => {
-  expect(readDocumentSyncCursorHmacKey({ NODE_ENV: "test" })).toHaveLength(45);
+  expect(readDocumentSyncCursorHmacKey({ NODE_ENV: "test" })).toHaveLength(46);
 });

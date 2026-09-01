@@ -4,8 +4,8 @@
 
 native_release_default_api() {
   case "$1" in
-    production) printf '%s\n' "https://api.symcrypt.com" ;;
-    staging) printf '%s\n' "https://api-staging.symcrypt.com" ;;
+    production) printf '%s\n' "https://api.tearleads.com" ;;
+    staging) printf '%s\n' "https://api-staging.tearleads.com" ;;
     *) return 1 ;;
   esac
 }
@@ -24,8 +24,8 @@ Usage: $(basename "$0") [fastlane-options...]
 ${native_action_description} the ${native_tier} ${native_platform} store release.
 
 The native app identifier is selected by NATIVE_RELEASE_TIER:
-  production  com.symcrypt.app
-  staging     com.symcrypt.staging.app
+  production  com.tearleads.app
+  staging     com.tearleads.staging.app
 
 Environment:
   VITE_API_BASE_URL  API URL inlined into the Capacitor bundle.

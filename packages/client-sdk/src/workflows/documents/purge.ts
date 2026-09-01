@@ -5,14 +5,14 @@ import {
   KeyingVerificationError,
   signAccessEvent,
   type UnsignedAccessEvent,
-} from "@symcrypt/crypto";
-import type { DocumentPurgeRequest } from "@symcrypt/validators/request";
+} from "@tearleads/crypto";
+import type { DocumentPurgeRequest } from "@tearleads/validators/request";
 import {
   DOCUMENT_NOT_FOUND_ERROR_CODE,
   type DocumentPurgeProofResponse,
   type DocumentPurgeResponse,
   type DocumentWriterProjectionResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import {
   containerPathRefs,
   readLinkedContainerIdsFromDocumentManifest,

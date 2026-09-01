@@ -1,4 +1,4 @@
-import type { DocumentsPersistence } from "@symcrypt/client-sdk";
+import type { DocumentsPersistence } from "@tearleads/client-sdk";
 
 export function createMemoryAbsentDocumentCleanup(input: {
   deleteSideRows: (localId: string) => void;

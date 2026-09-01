@@ -1,4 +1,4 @@
-import { isPlainObject } from "@symcrypt/validators/isPlainObject";
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import {
   type AccessEventType,
   type AccessObjectKind,

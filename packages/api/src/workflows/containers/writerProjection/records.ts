@@ -10,12 +10,12 @@ import type {
   KeyingCanonicalJson,
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
-} from "@symcrypt/crypto";
-import { makeVerifiedContainerAccessManifest } from "@symcrypt/crypto";
+} from "@tearleads/crypto";
+import { makeVerifiedContainerAccessManifest } from "@tearleads/crypto";
 import type {
   AccessManifestBundleWireResponse,
   ContainerKekResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import {
   toContainerKeyEpoch,
   toContainerKeyWrap,

@@ -1,4 +1,4 @@
-import type { DocumentSummary } from "@symcrypt/client-sdk";
+import type { DocumentSummary } from "@tearleads/client-sdk";
 import { useExplorerModalController } from "../modal/controller";
 import type { ExplorerModalController } from "../modal/types";
 import type { ExplorerContainerRulesContext } from "../model/containerRules";

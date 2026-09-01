@@ -1,4 +1,4 @@
-import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { sql } from "drizzle-orm";
 import { isSqliteApiDatabase } from "../../../utils/sqlDialect";
 

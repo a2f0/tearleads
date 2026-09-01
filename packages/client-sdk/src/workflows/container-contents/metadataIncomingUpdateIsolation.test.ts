@@ -4,8 +4,8 @@ import {
   exportFullHistorySnapshot,
   getTextValue,
   getUpdateVersionVectors,
-} from "@symcrypt/loro";
-import { createTestExecSql } from "@symcrypt/test-utils";
+} from "@tearleads/loro";
+import { createTestExecSql } from "@tearleads/test-utils";
 import {
   ensureDocumentTables,
   hasRecordedTerminalSyncFailures,

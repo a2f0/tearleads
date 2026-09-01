@@ -2,12 +2,12 @@ import type {
   ReferencedPrincipalHead,
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import {
   verifyContainerAccessManifest,
   verifySignedAccessEvent,
-} from "@symcrypt/crypto";
-import type { AccessManifestBundleWireResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import { uniqueSortedStrings } from "../../../utils/array";
 import { canonicalJsonEquals } from "../../../utils/canonicalJson";
 import { StoredVerificationCache } from "../../../utils/storedVerificationCache";

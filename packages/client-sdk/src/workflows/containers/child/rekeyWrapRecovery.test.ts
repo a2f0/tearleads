@@ -3,9 +3,9 @@ import {
   computeContainerKekMaterialId,
   encryptWithDek,
   sealContainerKekKeyring,
-} from "@symcrypt/crypto";
-import { bytesToBase64 } from "@symcrypt/encoding";
-import { createTestExecSql } from "@symcrypt/test-utils";
+} from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
+import { createTestExecSql } from "@tearleads/test-utils";
 import {
   createMutationResponseFromRequest,
   createParentProjection,

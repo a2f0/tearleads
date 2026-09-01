@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { Buffer } from "node:buffer";
-import type { DocumentSyncRequest } from "@symcrypt/validators/request";
-import { DOCUMENT_SYNC_ERROR_CODES } from "@symcrypt/validators/response";
+import type { DocumentSyncRequest } from "@tearleads/validators/request";
+import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import { DocumentUpdateReadError } from "../../../documents/documentUpdateStore";
 import {
   assertSyncPullResponseFits,
@@ -12,7 +12,7 @@ import {
 const AFTER_UPDATE_ID = "11111111-1111-4111-8111-111111111111";
 const UPPER_BOUND_UPDATE_ID = "22222222-2222-4222-8222-222222222222";
 const LATER_UPDATE_ID = "33333333-3333-4333-8333-333333333333";
-const CURSOR_HMAC_KEY = "symcrypt-test-document-sync-cursor-hmac-key";
+const CURSOR_HMAC_KEY = "tearleads-test-document-sync-cursor-hmac-key";
 const IDENTITY = {
   contentKeyEpoch: 3,
   documentId: "document-1",
@@ -312,7 +312,7 @@ test("pull cursor restarts stale after the deployment key rotates", async () => 
 
   await expect(
     resolveSyncPullPagePlan({
-      cursorHmacKey: "symcrypt-rotated-document-sync-cursor-key",
+      cursorHmacKey: "tearleads-rotated-document-sync-cursor-key",
       identity: IDENTITY,
       request: request({ pullCursor: page.nextCursor ?? undefined }),
       resolveCursorBounds,

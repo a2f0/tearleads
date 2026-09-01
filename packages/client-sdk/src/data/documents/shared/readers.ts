@@ -9,13 +9,13 @@ import {
   type ContainerKeyWrap,
   type DocumentContentKeyTarget,
   type WriteHeader,
-} from "@symcrypt/crypto";
-import { isPlainObject as isPlainRecord } from "@symcrypt/validators/isPlainObject";
+} from "@tearleads/crypto";
+import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
 import type {
   ContainerWriterProjectionResponse,
   DocumentCreateResponse,
   DocumentSyncResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { readCanonicalRecord } from "../../keyingCanonicalJson";
 import {
   readRecordInteger,

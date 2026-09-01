@@ -1,4 +1,4 @@
-import type { OrganizationBillingStatus } from "@symcrypt/api-shared/schema";
+import type { OrganizationBillingStatus } from "@tearleads/api-shared/schema";
 import type { RevenueCatBillingTransition } from "../../billing/revenuecatWebhook";
 
 export type RevenueCatWebhookOutcome =

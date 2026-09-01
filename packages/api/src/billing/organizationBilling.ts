@@ -1,11 +1,11 @@
 import type {
   OrganizationBillingProvider,
   OrganizationBillingStatus,
-} from "@symcrypt/api-shared/schema";
+} from "@tearleads/api-shared/schema";
 import type {
   OrganizationBillingHistoryResponse,
   OrganizationBillingResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 
 export const FREE_TRIAL_MS = 7 * 24 * 60 * 60 * 1000;
 export const LAPSED_BILLING_PURGE_GRACE_MS = 30 * 24 * 60 * 60 * 1000;

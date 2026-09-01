@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import type { DocumentsPersistence } from "@symcrypt/client-sdk";
-import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
+import type { DocumentsPersistence } from "@tearleads/client-sdk";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
   encodeVersionVector,
@@ -8,7 +8,7 @@ import {
   exportUpdatesSince,
   getUpdateVersionVectors,
   importSnapshot,
-} from "@symcrypt/loro";
+} from "@tearleads/loro";
 import { createDocumentsPersistence } from "../../../../test/helpers/document-store/documentStoreSyncPersistence";
 import { createDocumentStorePersistence } from "../../../../test/helpers/documentStoreFixtures";
 

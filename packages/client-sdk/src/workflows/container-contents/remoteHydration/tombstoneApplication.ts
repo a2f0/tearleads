@@ -1,7 +1,7 @@
 import type {
   ContainerSyncTombstone,
   ListContainersResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { removeIndexedContainerChild } from "./childIndex";
 import { containerStateMatchesFingerprint } from "./containerStateFingerprint";
 import {

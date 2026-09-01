@@ -2,8 +2,8 @@ import { expect, test } from "bun:test";
 import {
   generateKemSeedAndKeyPair,
   type ReferencedPrincipalHead,
-} from "@symcrypt/crypto";
-import { createTestExecSql } from "@symcrypt/test-utils";
+} from "@tearleads/crypto";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { createAuthor } from "../../../test/helpers/containerFixtures";
 import {
   policyBundleFromInitialRequest,

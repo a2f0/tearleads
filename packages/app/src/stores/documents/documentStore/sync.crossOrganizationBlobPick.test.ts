@@ -4,9 +4,9 @@ import {
   type BlobStore,
   createDocumentStore,
   createMemoryBlobStore,
-} from "@symcrypt/client-sdk";
-import { generateKemSeedAndKeyPair } from "@symcrypt/crypto";
-import type { BlobAttachmentBindRequest } from "@symcrypt/validators/request";
+} from "@tearleads/client-sdk";
+import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import type { BlobAttachmentBindRequest } from "@tearleads/validators/request";
 import {
   cloneDocumentsTestRuntime,
   type DocumentsTestRuntime,

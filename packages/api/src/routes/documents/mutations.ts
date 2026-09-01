@@ -6,13 +6,13 @@ import {
   operationRoutePath,
   purgeDocumentOperation,
   unlinkDocumentOperation,
-} from "@symcrypt/validators/operation";
+} from "@tearleads/validators/operation";
 import type {
   DocumentCreateRequest,
   DocumentLinkSetMutationRequest,
   DocumentPurgeRequest,
   DocumentSyncRequest,
-} from "@symcrypt/validators/request";
+} from "@tearleads/validators/request";
 import {
   DOCUMENT_NOT_FOUND_ERROR_CODE,
   DOCUMENT_SYNC_ERROR_CODES,
@@ -23,8 +23,8 @@ import {
   type DocumentPurgeResponse,
   type DocumentSyncErrorResponse,
   type DocumentSyncResponse,
-} from "@symcrypt/validators/response";
-import { MAX_DOCUMENT_SYNC_REQUEST_BYTES } from "@symcrypt/validators/util";
+} from "@tearleads/validators/response";
+import { MAX_DOCUMENT_SYNC_REQUEST_BYTES } from "@tearleads/validators/util";
 import type { Context, MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";

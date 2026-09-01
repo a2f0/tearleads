@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import { db } from "@symcrypt/api-shared/postgres";
-import { createTestUser } from "@symcrypt/bob-and-alice";
-import { isDocumentCreateResponse } from "@symcrypt/validators/response";
+import { db } from "@tearleads/api-shared/postgres";
+import { createTestUser } from "@tearleads/bob-and-alice";
+import { isDocumentCreateResponse } from "@tearleads/validators/response";
 import { authenticate } from "../../test/helpers/authenticate";
 import { buildRootContainerRekeyMutation } from "../../test/helpers/containerRekey";
 import {

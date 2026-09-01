@@ -1,13 +1,13 @@
 import type {
   ContainerKekKeyringEntry,
   ContainerKeyWrap,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import {
   computeContainerKekMaterialId,
   decryptWithDek,
-} from "@symcrypt/crypto";
-import { base64ToBytes } from "@symcrypt/encoding";
-import type { ContainerKekLogEpochResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import { base64ToBytes } from "@tearleads/encoding";
+import type { ContainerKekLogEpochResponse } from "@tearleads/validators/response";
 import { unwrapKeyEnvelopesWithPrincipalPolicies } from "../../principals/principalPolicyCrypto";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import { normalizeContainerKeyWrap } from "./readers";

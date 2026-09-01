@@ -1,4 +1,4 @@
-import type { DocumentPurgeResponse } from "@symcrypt/validators/response";
+import type { DocumentPurgeResponse } from "@tearleads/validators/response";
 import type { StoredDocumentKind } from "../../data/documents/documentKinds";
 import { errorMessage } from "../../data/errorMessage";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";

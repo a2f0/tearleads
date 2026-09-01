@@ -4,8 +4,8 @@ import type {
   SessionCreateOrganizationResult,
   SyncPurchaseResult,
   SyncSubscriptionOption,
-} from "@symcrypt/client-sdk";
-import type { OrganizationNativePurchaseEligibilityResponse } from "@symcrypt/validators/response";
+} from "@tearleads/client-sdk";
+import type { OrganizationNativePurchaseEligibilityResponse } from "@tearleads/validators/response";
 import { renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type RefObject, useLayoutEffect } from "react";
 import {

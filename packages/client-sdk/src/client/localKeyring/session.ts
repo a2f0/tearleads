@@ -1,4 +1,4 @@
-import { bytesToBase64 } from "@symcrypt/encoding";
+import { bytesToBase64 } from "@tearleads/encoding";
 import { copyBytes } from "./primitives";
 import { deriveLocalSecretKey } from "./rootKey";
 import type {

@@ -1,5 +1,5 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
-import { revenuecatWebhookEvents } from "@symcrypt/api-shared/schema";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import { revenuecatWebhookEvents } from "@tearleads/api-shared/schema";
 import { and, desc, eq, or } from "drizzle-orm";
 
 interface StripeBindingIdentity {

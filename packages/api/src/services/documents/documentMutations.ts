@@ -1,4 +1,4 @@
-import type { DocumentCreateResponse } from "@symcrypt/validators/response";
+import type { DocumentCreateResponse } from "@tearleads/validators/response";
 import {
   type CreateDocumentInput,
   type DocumentLinkSetMutationWorkflowResult,

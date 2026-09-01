@@ -1,7 +1,7 @@
 /*
  * === Touch / routed-layout sizing (Apple Human Interface Guidelines) ===
  *
- * Companion to styles.css, imported immediately after it (see SymCryptFrame).
+ * Companion to styles.css, imported immediately after it (see TearleadsFrame).
  * Every rule here is scoped to `:root[data-navigation-mode="routed"]`, so it is
  * inert off the routed layout and outranks the base `:root` tokens by
  * specificity regardless of import order — the split is purely to keep each

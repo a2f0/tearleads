@@ -1,10 +1,10 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
-import { principalContainerGrantProjection } from "@symcrypt/api-shared/schema";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import { principalContainerGrantProjection } from "@tearleads/api-shared/schema";
 import {
   type ManagedRecipientPrincipalType,
   normalizePrincipalContainerGrants,
   throwPrincipalPolicyValidationError as rejectPrincipalPolicy,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import { and, eq } from "drizzle-orm";
 import type { PrincipalStateBundleInput } from "./principalStateRecords";
 import {

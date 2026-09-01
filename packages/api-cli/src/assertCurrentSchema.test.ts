@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
-import { createDefaultManagedApiDatabase } from "@symcrypt/api-shared/postgres";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import { createDefaultManagedApiDatabase } from "@tearleads/api-shared/postgres";
 import {
   assertCurrentApiSchema,
   isMissingCurrentApiSchemaError,

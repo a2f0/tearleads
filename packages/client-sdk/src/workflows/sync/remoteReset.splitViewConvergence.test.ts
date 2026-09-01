@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { generateKemSeedAndKeyPair } from "@symcrypt/crypto";
-import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
+import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
   encodeVersionVector,
@@ -10,13 +10,13 @@ import {
   importSnapshot,
   importUpdates,
   versionVectorsEqual,
-} from "@symcrypt/loro";
+} from "@tearleads/loro";
 import {
   createContainerWriterProjectionFixture,
   createTestExecSql,
-} from "@symcrypt/test-utils";
-import type { DocumentCreateRequest } from "@symcrypt/validators/request";
-import type { DocumentWriterProjectionResponse } from "@symcrypt/validators/response";
+} from "@tearleads/test-utils";
+import type { DocumentCreateRequest } from "@tearleads/validators/request";
+import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import {
   createAuthor,
   createResponseFromRequest,

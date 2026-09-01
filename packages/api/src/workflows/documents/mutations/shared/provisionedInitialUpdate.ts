@@ -2,8 +2,8 @@ import {
   emptyVersionVector,
   satisfiesVersionVector,
   versionVectorsEqual,
-} from "@symcrypt/loro";
-import type { DocumentSyncRequest } from "@symcrypt/validators/request";
+} from "@tearleads/loro";
+import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import { DocumentMutationError } from "../errors";
 
 const INITIAL_UPDATE_SHAPE_ERROR =

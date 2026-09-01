@@ -1,6 +1,6 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
-import { groups } from "@symcrypt/api-shared/schema";
-import type { ManagedRecipientPrincipalType } from "@symcrypt/crypto";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import { groups } from "@tearleads/api-shared/schema";
+import type { ManagedRecipientPrincipalType } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
 import { assertOrganizationIsSyncEntitled } from "../billing/organizationSyncEligibility";
 

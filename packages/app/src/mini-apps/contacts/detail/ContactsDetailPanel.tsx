@@ -1,7 +1,10 @@
 import { AddressBookIcon } from "@phosphor-icons/react/dist/csr/AddressBook";
 import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
 import { PencilSimpleIcon } from "@phosphor-icons/react/dist/csr/PencilSimple";
-import type { BlobStore, DocumentAttachmentUpload } from "@symcrypt/client-sdk";
+import type {
+  BlobStore,
+  DocumentAttachmentUpload,
+} from "@tearleads/client-sdk";
 import { useEffect, useMemo, useState } from "react";
 import {
   MiniAppField,

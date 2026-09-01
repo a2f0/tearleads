@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { createMockApiClient, createTestExecSql } from "@symcrypt/test-utils";
-import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
+import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
+import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { waitFor } from "../../../test/helpers/waitFor";
 import type { DomainScope } from "../../data/domainScope";
 import type { PurgeProgress } from "../../workflows/container-contents/container-state/purgeProgress";

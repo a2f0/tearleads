@@ -1,8 +1,8 @@
 import type {
   ReferencedPrincipalHead,
   VerifiedPrincipalPolicy,
-} from "@symcrypt/crypto";
-import { KeyingVerificationError } from "@symcrypt/crypto";
+} from "@tearleads/crypto";
+import { KeyingVerificationError } from "@tearleads/crypto";
 import { loadPrincipalPolicyCheckpoint } from "../persistence/keyingCheckpointPersistence";
 import { verifiedPrincipalPolicyMeetsCheckpoint } from "../persistence/principalPolicyCheckpointSelection";
 import { loadPrincipalPolicyBundleForReference } from "../persistence/principalPolicyReferencePersistence";

@@ -2,7 +2,7 @@ import type {
   ContainerDocumentLinks,
   ContainerNode,
   DocumentSummary,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { useCallback, useMemo, useRef } from "react";
 import { isExplorerDocumentContainerSelection } from "../../../stores/explorer/orphanedDocuments";
 import type { ExplorerContainerRulesContext } from "../model/containerRules";

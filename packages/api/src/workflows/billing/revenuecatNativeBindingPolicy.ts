@@ -1,6 +1,6 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
-import { getSyncBillingTierForNativeProduct } from "@symcrypt/validators/billing";
-import type { RevenueCatWebhookEvent } from "@symcrypt/validators/request";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import { getSyncBillingTierForNativeProduct } from "@tearleads/validators/billing";
+import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import type { RevenueCatBillingTransition } from "../../billing/revenuecatWebhook";
 import {
   matchesLockedNativeStore,

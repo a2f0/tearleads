@@ -1,10 +1,10 @@
-import type { BlobBytesResponse } from "@symcrypt/api-client";
-import { bytesToHex } from "@symcrypt/crypto";
+import type { BlobBytesResponse } from "@tearleads/api-client";
+import { bytesToHex } from "@tearleads/crypto";
 import type {
   BlobAttachmentSummary,
   DocumentWriterProjectionResponse,
   ListDocumentAttachmentsResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import type { BlobBytes } from "../../data/blobContracts";
 import type { DocumentAttachment } from "../../data/documents/documentContent";
 import { errorMessage } from "../../data/errorMessage";

@@ -27,7 +27,7 @@ export function SystemMonitorLauncherButton() {
     <>
       <button
         aria-label={SYSTEM_MONITOR_LABEL}
-        className="symcrypt-action-button symcrypt-action-button--icon"
+        className="tearleads-action-button tearleads-action-button--icon"
         title={SYSTEM_MONITOR_LABEL}
         type="button"
         onClick={handleClick}

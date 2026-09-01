@@ -1,4 +1,4 @@
-import { getSyncBillingTierForSeatCount } from "@symcrypt/validators/billing";
+import { getSyncBillingTierForSeatCount } from "@tearleads/validators/billing";
 import type { StripeApiDeps } from "../../billing/stripeApi";
 import { getStripePriceIdForTier } from "../../billing/stripeHttp";
 import {

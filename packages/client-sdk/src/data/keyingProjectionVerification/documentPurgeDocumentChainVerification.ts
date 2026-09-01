@@ -6,11 +6,11 @@ import {
   type VerifiedDocumentLinkSetManifest,
   type VerifiedDocumentLinkSetSnapshot,
   verifyDocumentLinkSetSnapshot,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import type {
   AccessManifestBundleWireResponse,
   DocumentPurgeProofResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { readCanonicalJson } from "../keyingCanonicalJson";
 import {
   addBundleByHash,

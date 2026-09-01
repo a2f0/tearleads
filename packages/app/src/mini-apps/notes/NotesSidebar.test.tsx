@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import type { DocumentSummary } from "@symcrypt/client-sdk";
+import type { DocumentSummary } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { NOTES_LABELS } from "./labels";
 import { NotesListHome } from "./NotesSidebar";

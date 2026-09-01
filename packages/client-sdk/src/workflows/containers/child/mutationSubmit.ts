@@ -1,4 +1,4 @@
-import type { ContainerMutationResponse } from "@symcrypt/validators/response";
+import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import { acknowledgeContainerMutation } from "../../../data/containers/shared/mutationAcknowledgement";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 

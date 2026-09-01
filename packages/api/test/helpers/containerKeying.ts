@@ -4,8 +4,8 @@ import type {
   KekRecipientKind,
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
-} from "@symcrypt/crypto";
-import type { AccessManifestBundleWire } from "@symcrypt/validators/request";
+} from "@tearleads/crypto";
+import type { AccessManifestBundleWire } from "@tearleads/validators/request";
 
 export function createContainerKeyEpoch(input: {
   readonly containerKeyEpochId: string;

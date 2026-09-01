@@ -1,12 +1,12 @@
 import type {
   ApiDatabase,
   DatabaseTransaction,
-} from "@symcrypt/api-shared/postgres";
+} from "@tearleads/api-shared/postgres";
 import {
   verifyAttachmentBindingEvent,
   verifyWriteHeader,
-} from "@symcrypt/crypto";
-import type { BlobAttachmentBindResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import type { BlobAttachmentBindResponse } from "@tearleads/validators/response";
 import { listBlobContentWriteHeaders } from "../../../access/read/blobContentKeyStore";
 import { storeVerifiedAttachmentBindingInTransaction } from "../../../access/write/attachmentBindingStore";
 import {

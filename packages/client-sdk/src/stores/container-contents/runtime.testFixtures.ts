@@ -1,4 +1,4 @@
-import type { ListContainersResponse } from "@symcrypt/validators/response";
+import type { ListContainersResponse } from "@tearleads/validators/response";
 import type { BlobStore } from "../../data/blobContracts";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";

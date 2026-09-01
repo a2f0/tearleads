@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { createDomainScope } from "@symcrypt/client-sdk";
+import { createDomainScope } from "@tearleads/client-sdk";
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import { useBlobOrganizationNames } from "./useBlobOrganizationNames";
 

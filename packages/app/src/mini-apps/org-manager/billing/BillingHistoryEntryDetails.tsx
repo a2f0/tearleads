@@ -1,4 +1,4 @@
-import type { OrganizationBillingHistoryEntry } from "@symcrypt/client-sdk";
+import type { OrganizationBillingHistoryEntry } from "@tearleads/client-sdk";
 import { MiniAppRowText } from "../../../components/mini-app/rows/MiniAppRow";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import { getOrgManagerSeatsLabel } from "../labels";

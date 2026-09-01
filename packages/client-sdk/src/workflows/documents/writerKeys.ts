@@ -1,4 +1,4 @@
-import { KeyingVerificationError } from "@symcrypt/crypto";
+import { KeyingVerificationError } from "@tearleads/crypto";
 import type { DocumentWriterPublicKeyResolver } from "../../data/documents/shared/types";
 import { isDatabaseUnavailableError } from "../../data/sync/databaseUnavailable";
 import {

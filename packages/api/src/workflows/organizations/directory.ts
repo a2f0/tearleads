@@ -1,6 +1,6 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
-import { organizations } from "@symcrypt/api-shared/schema";
-import type { OrganizationDirectoryResponse } from "@symcrypt/validators/response";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import { organizations } from "@tearleads/api-shared/schema";
+import type { OrganizationDirectoryResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import { OrganizationManagerError } from "./errors";
 import {

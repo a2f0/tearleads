@@ -9,10 +9,10 @@ import type {
   OrganizationGroupSummary,
   OrganizationPolicyHistory,
   OrganizationUserDetail,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback } from "react";
-import type { useSymCryptRuntime } from "../../../providers/sdk/SymCryptProvider";
+import type { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import type { useOrgManagerRequestGuard } from "../hooks/useOrgManagerRequestGuard";
 import { ORG_MANAGER_LABELS } from "../labels";
@@ -95,7 +95,7 @@ async function resolveDeclinedReconcile(input: {
 }
 
 interface OrgManagerRefreshersParams {
-  appData: ReturnType<typeof useSymCryptRuntime>;
+  appData: ReturnType<typeof useTearleadsRuntime>;
   beginRequest: BeginRequest;
   canLoadAuthenticatedOrgData: boolean;
   dataUsageRef: { current: OrganizationDataUsage | null };

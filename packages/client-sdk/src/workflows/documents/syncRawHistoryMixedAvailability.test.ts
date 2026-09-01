@@ -1,13 +1,13 @@
 import { expect, test } from "bun:test";
-import { computeDocumentContentKeyTargetHash } from "@symcrypt/crypto";
-import { bytesToBase64 } from "@symcrypt/encoding";
+import { computeDocumentContentKeyTargetHash } from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
   encodeVersionVector,
   exportUpdatesSince,
   getUpdateVersionVectors,
-} from "@symcrypt/loro";
-import { createTestExecSql } from "@symcrypt/test-utils";
+} from "@tearleads/loro";
+import { createTestExecSql } from "@tearleads/test-utils";
 import {
   createMaterializedSyncFixture,
   createPendingUpdateRecord,

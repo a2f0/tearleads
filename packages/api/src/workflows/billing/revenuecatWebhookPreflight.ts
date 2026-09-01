@@ -1,5 +1,5 @@
-import type { ApiDatabase } from "@symcrypt/api-shared/postgres";
-import type { RevenueCatWebhookEvent } from "@symcrypt/validators/request";
+import type { ApiDatabase } from "@tearleads/api-shared/postgres";
+import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import type { RevenueCatApiDeps } from "../../billing/revenueCatApi";
 import { allowsRevenueCatSandboxEvents } from "../../billing/revenueCatConfig";
 import {

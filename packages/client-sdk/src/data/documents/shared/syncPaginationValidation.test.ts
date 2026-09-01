@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import type { DocumentSyncRequest } from "@symcrypt/validators/request";
-import type { DocumentSyncResponse } from "@symcrypt/validators/response";
+import type { DocumentSyncRequest } from "@tearleads/validators/request";
+import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import { submitDocumentSync } from "./syncResponses";
 import type { DocumentSyncApi, DocumentSyncPlan } from "./types";
 

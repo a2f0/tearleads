@@ -10,15 +10,15 @@ REPO_ROOT="$(CDPATH='' cd -- "$PACKAGE_DIR/../.." && pwd)"
 # electrobun's core/Utils.ts paths.userData); the dev run uses the "dev"
 # channel. Read both from the built version.json when present so this tracks
 # electrobun's own derivation, falling back to the config defaults otherwise.
-APP_IDENTIFIER="com.symcrypt.app"
+APP_IDENTIFIER="com.tearleads.app"
 APP_CHANNEL="dev"
 # The build dir is dev-<platform>-<arch> and the bundle layout differs by OS
 # (Linux: <name>/Resources/...; macOS: <name>.app/Contents/Resources/...), so
 # glob across both rather than hardcoding one platform.
 VERSION_JSON=""
 for candidate in \
-  "$PACKAGE_DIR"/build/dev-*/SymCrypt-dev/Resources/version.json \
-  "$PACKAGE_DIR"/build/dev-*/SymCrypt-dev.app/Contents/Resources/version.json; do
+  "$PACKAGE_DIR"/build/dev-*/Tearleads-dev/Resources/version.json \
+  "$PACKAGE_DIR"/build/dev-*/Tearleads-dev.app/Contents/Resources/version.json; do
   if [ -f "$candidate" ]; then
     VERSION_JSON="$candidate"
     break
@@ -142,6 +142,6 @@ fi
 build_workspace_deps
 
 cd "$PACKAGE_DIR"
-export SYMCRYPT_ELECTROBUN_PACKAGE_DIR="$PACKAGE_DIR"
+export TEARLEADS_ELECTROBUN_PACKAGE_DIR="$PACKAGE_DIR"
 exec sh "$REPO_ROOT/scripts/withBuildInfoEnv.sh" \
   bun run electrobun "$ELECTROBUN_COMMAND" "$@"

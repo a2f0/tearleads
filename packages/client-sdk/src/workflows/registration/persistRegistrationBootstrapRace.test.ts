@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
-import { createDocument, exportAllUpdates, getTextValue } from "@symcrypt/loro";
-import { createTestExecSql } from "@symcrypt/test-utils";
+import {
+  createDocument,
+  exportAllUpdates,
+  getTextValue,
+} from "@tearleads/loro";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { loadPersistedDocumentContent } from "../documents/historyContent";
 import { persistInitialDocumentBootstrap } from "./persistRegistrationBootstrap";

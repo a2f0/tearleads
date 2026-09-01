@@ -1,14 +1,14 @@
 import type {
   ContainerDocumentQueries,
   DocumentSummary,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { type ReactNode, useEffect, useMemo } from "react";
 import {
   type AvatarUrlByContactId,
   useContactAvatarUrls,
 } from "../../../document-types/contact/useContactAvatarUrls";
-import type { RuntimeSnapshot } from "../../../providers/sdk/SymCryptProvider";
-import { useSymCryptExternalStoreSnapshot } from "../../../providers/sdk/useSymCryptSubscription";
+import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
+import { useTearleadsExternalStoreSnapshot } from "../../../providers/sdk/useTearleadsSubscription";
 import { findCurrentSelfContactLocalId } from "../../../stores/contacts/contactLabels";
 import { useContactsStoreForContainer } from "../../../stores/contacts/useContactsStoreForContainer";
 import { useExplorerDocumentQueries } from "../../../stores/explorer/documentQueries";
@@ -149,7 +149,7 @@ export function useExplorerModel(
   // The Explorer embeds this Contacts store read-only (self-contact lookup); it
   // never removes contacts, so it needs no Trash resolver.
   const contactsStore = useContactsStoreForContainer(contactsContainerId);
-  const contactsSnapshot = useSymCryptExternalStoreSnapshot(contactsStore);
+  const contactsSnapshot = useTearleadsExternalStoreSnapshot(contactsStore);
   // Contact rows across the Explorer show the contact's avatar in place of the
   // document-kind glyph, the same swap the Contacts mini-app's rows make. Only
   // this container's avatar images are loaded; contacts living elsewhere use

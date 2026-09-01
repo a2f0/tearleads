@@ -1,12 +1,12 @@
 import { afterEach, expect, test } from "bun:test";
-import type { SymCrypt } from "@symcrypt/client-sdk";
+import type { Tearleads } from "@tearleads/client-sdk";
 import { act, cleanup, render } from "@testing-library/react";
 import { createAppHostConfig } from "../../host/AppHostConfig";
 import { AppHostConfigProvider } from "../host/AppHostConfigProvider";
 import { LocalKeyringLockProvider } from "../local-keyring/LocalKeyringLockProvider";
 import { LogProvider } from "../logging/LogProvider";
 import { SyncModeProvider } from "../sync-mode/SyncModeProvider";
-import { SymCryptProvider, useSymCrypt } from "./SymCryptProvider";
+import { TearleadsProvider, useTearleads } from "./TearleadsProvider";
 import { useRuntimeScopedMemo } from "./useRuntimeScopedMemo";
 
 afterEach(cleanup);
@@ -19,30 +19,30 @@ const HOST_CONFIG = createAppHostConfig({
 function RuntimeScopedMemoProbe(props: {
   create: (dependency: string) => object;
   dependency: string;
-  onRender: (symcrypt: SymCrypt, value: object) => void;
+  onRender: (tearleads: Tearleads, value: object) => void;
 }) {
-  const symcrypt = useSymCrypt();
+  const tearleads = useTearleads();
   const value = useRuntimeScopedMemo(
     () => props.create(props.dependency),
     [props.create, props.dependency],
   );
-  props.onRender(symcrypt, value);
+  props.onRender(tearleads, value);
   return null;
 }
 
 function Harness(props: {
   create: (dependency: string) => object;
   dependency: string;
-  onRender: (symcrypt: SymCrypt, value: object) => void;
+  onRender: (tearleads: Tearleads, value: object) => void;
 }) {
   return (
     <AppHostConfigProvider value={HOST_CONFIG}>
       <LocalKeyringLockProvider>
         <LogProvider>
           <SyncModeProvider>
-            <SymCryptProvider>
+            <TearleadsProvider>
               <RuntimeScopedMemoProbe {...props} />
-            </SymCryptProvider>
+            </TearleadsProvider>
           </SyncModeProvider>
         </LogProvider>
       </LocalKeyringLockProvider>
@@ -56,9 +56,9 @@ test("reuses values until an explicit dependency or runtime version changes", ()
     dependency,
     generation: ++createCount,
   });
-  const rendered: Array<{ symcrypt: SymCrypt; value: object }> = [];
-  const onRender = (symcrypt: SymCrypt, value: object) => {
-    rendered.push({ symcrypt, value });
+  const rendered: Array<{ tearleads: Tearleads; value: object }> = [];
+  const onRender = (tearleads: Tearleads, value: object) => {
+    rendered.push({ tearleads, value });
   };
   const view = render(
     <Harness create={create} dependency="first" onRender={onRender} />,
@@ -76,7 +76,7 @@ test("reuses values until an explicit dependency or runtime version changes", ()
   expect(rendered.at(-1)?.value).toBe(initial.value);
 
   act(() => {
-    initial.symcrypt.syncBillingGate.notifyPaymentRequired(
+    initial.tearleads.syncBillingGate.notifyPaymentRequired(
       "runtime-scoped-memo-org",
     );
   });
@@ -85,7 +85,7 @@ test("reuses values until an explicit dependency or runtime version changes", ()
   expect(billingScoped).not.toBe(initial.value);
 
   act(() => {
-    initial.symcrypt.events.push({ type: "runtime-scoped-memo" });
+    initial.tearleads.events.push({ type: "runtime-scoped-memo" });
   });
   const runtimeScoped = rendered.at(-1)?.value;
   expect(createCount).toBe(3);

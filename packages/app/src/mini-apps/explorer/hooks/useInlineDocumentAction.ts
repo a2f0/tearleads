@@ -2,7 +2,7 @@ import {
   type DocumentSummary,
   getUntitledDocumentTitle,
   type StoredDocumentKind,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { useCallback } from "react";
 
 export type OpenInlineDocument = (

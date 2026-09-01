@@ -68,13 +68,13 @@ async function captureWorkersForTermination(page: Page): Promise<void> {
       }
     }
     Reflect.set(window, "Worker", TrackedWorker);
-    Reflect.set(window, "__symcryptE2eWorkers", workers);
+    Reflect.set(window, "__tearleadsE2eWorkers", workers);
   });
 }
 
 async function terminateLatestWorker(page: Page): Promise<void> {
   await page.evaluate(() => {
-    const workers = Reflect.get(window, "__symcryptE2eWorkers");
+    const workers = Reflect.get(window, "__tearleadsE2eWorkers");
     const worker = Array.isArray(workers) ? workers.at(-1) : undefined;
     if (!(worker instanceof Worker)) {
       throw new Error("Expected the E2E harness to capture a worker.");

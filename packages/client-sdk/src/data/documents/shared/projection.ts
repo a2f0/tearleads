@@ -1,12 +1,12 @@
 import type {
   DocumentContentKeyTarget,
   VerifiedContainerAccessManifest,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import {
   computeDocumentContentKeyTargetHash,
   KeyingVerificationError,
-} from "@symcrypt/crypto";
-import type { DocumentWriterProjectionResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { errorMessage } from "../../errorMessage";
 import {
   type DocumentWriterProjectionAuthorization,

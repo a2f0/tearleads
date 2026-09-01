@@ -6,7 +6,7 @@ import {
   getOrganizationBillingOperation,
   getOrganizationNativePurchaseEligibilityOperation,
   startOrganizationTrialOperation,
-} from "@symcrypt/validators/operation";
+} from "@tearleads/validators/operation";
 import {
   nativeOrganizationSubscriptionClaim,
   organizationBillingGet,

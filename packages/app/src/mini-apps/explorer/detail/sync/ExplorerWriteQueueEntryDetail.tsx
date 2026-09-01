@@ -1,7 +1,7 @@
 import type {
   DomainSyncSnapshot,
   PendingWriteQueueItem,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { MiniAppInfoSection } from "../../../../components/mini-app/MiniAppLayout";
 import {
   MiniAppInfoRow,

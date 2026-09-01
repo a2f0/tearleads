@@ -1,11 +1,11 @@
-import { db } from "@symcrypt/api-shared/postgres";
-import type { TestUser } from "@symcrypt/bob-and-alice";
+import { db } from "@tearleads/api-shared/postgres";
+import type { TestUser } from "@tearleads/bob-and-alice";
 import type {
   ContainerAccessEventBody,
   ContainerGrantPrincipalHead,
   PrincipalContainerGrant,
   VerifiedPrincipalPolicy,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import {
   computePrincipalStateHash,
   derivePrincipalRecipientKeyEpochId,
@@ -13,16 +13,16 @@ import {
   makeVerifiedPrincipalPolicy,
   toFingerprint,
   wrapDekForRecipients,
-} from "@symcrypt/crypto";
-import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
+} from "@tearleads/crypto";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import type {
   ContainerMutationRequest,
   PutPrincipalPolicyRequest,
-} from "@symcrypt/validators/request";
+} from "@tearleads/validators/request";
 import {
   isCommitOrganizationGroupPolicyResponse,
   isCreateOrganizationGroupResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import invariant from "invariant";
 import { routeApp } from "../../src/routeApp";
 import { buildRootContainerRekeyMutation } from "./containerRekey";

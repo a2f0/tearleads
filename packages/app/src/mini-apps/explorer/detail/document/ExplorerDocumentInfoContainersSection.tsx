@@ -1,4 +1,4 @@
-import type { ContainerNode, DocumentInfo } from "@symcrypt/client-sdk";
+import type { ContainerNode, DocumentInfo } from "@tearleads/client-sdk";
 import {
   MiniAppInfoSection,
   MiniAppStatus,

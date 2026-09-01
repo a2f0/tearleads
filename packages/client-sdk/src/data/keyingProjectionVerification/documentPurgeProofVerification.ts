@@ -4,11 +4,11 @@ import {
   KeyingVerificationError,
   type VerifiedContainerAccessManifest,
   type VerifiedPrincipalPolicy,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import type {
   AccessManifestBundleWireResponse,
   DocumentPurgeProofResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import type { ExecSql } from "../sqlite/sqlSchema";
 import { addBundleByHash } from "./bundleVerification";
 import {

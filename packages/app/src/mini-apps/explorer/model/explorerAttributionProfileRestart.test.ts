@@ -3,9 +3,9 @@ import {
   defaultDocumentsPersistence,
   getRosterProfileDocumentLocalId,
   type OrganizationDirectoryAndGroups,
-  SymCrypt,
-} from "@symcrypt/client-sdk";
-import { createTestExecSql } from "@symcrypt/test-utils";
+  Tearleads,
+} from "@tearleads/client-sdk";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../document-types/projectors";
 import { getLocalRosterProfileDisplayNames } from "../../../stores/org-manager/rosterProfileDisplayNames";
 import {
@@ -60,11 +60,11 @@ test("restart hydration adopts the canonical profile row and its pending edits",
     profileDocumentId: PROFILE_DOCUMENT_ID,
     userId: PROFILE_USER_ID,
   });
-  const firstSdk = new SymCrypt({
+  const firstSdk = new Tearleads({
     database: { execSql: database.execSql, id: "profile-restart-db" },
     documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
   });
-  let restartedSdk: SymCrypt | null = null;
+  let restartedSdk: Tearleads | null = null;
 
   try {
     const editor = firstSdk.documents.open({
@@ -116,7 +116,7 @@ test("restart hydration adopts the canonical profile row and its pending edits",
       { updatedAt: "2099-01-01T00:00:00.000Z" },
     );
 
-    restartedSdk = new SymCrypt({
+    restartedSdk = new Tearleads({
       database: { execSql: database.execSql, id: "profile-restart-db" },
       documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
     });

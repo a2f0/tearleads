@@ -7,8 +7,8 @@ import {
   makeVerifiedBlobKekTargets,
   verifyAttachmentBindingEvent,
   verifyWriteHeader,
-} from "@symcrypt/crypto";
-import type { BlobKekTargetsResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import type { BlobKekTargetsResponse } from "@tearleads/validators/response";
 import type { BlobBytes } from "../../data/blobContracts";
 import { deriveBlobChunkIv } from "../../data/documents/blob/shared/blobEnvelopeV2";
 import {

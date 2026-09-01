@@ -137,7 +137,7 @@ test("cross-tab owner drops a client whose lifetime lock disappears", async () =
     await waitUntil(
       () =>
         ![...locks.heldLockNames].some((name) =>
-          name.startsWith("symcrypt-sqlite-worker-client:"),
+          name.startsWith("tearleads-sqlite-worker-client:"),
         ),
     );
 
@@ -183,7 +183,7 @@ test("an explicit close tears the owner down once its last client is gone", asyn
     // The owner lock releases a microtask after stop() (the blocking bid's callback
     // returns), so wait for the release rather than asserting synchronously.
     await waitUntil(
-      () => !locks.heldLockNames.has("symcrypt-sqlite-worker-owner"),
+      () => !locks.heldLockNames.has("tearleads-sqlite-worker-owner"),
     );
   });
 });
@@ -219,7 +219,7 @@ test("a same-tab client can reopen after an explicit close tears the owner down"
 
     await waitUntil(() => firstOwnerWorker.terminated);
     await waitUntil(
-      () => !locks.heldLockNames.has("symcrypt-sqlite-worker-owner"),
+      () => !locks.heldLockNames.has("tearleads-sqlite-worker-owner"),
     );
 
     const secondWorker = requireCrossTabWorker(
@@ -268,7 +268,7 @@ test("a surviving tab is promoted to owner after the owner tab releases", async 
 
     // The owner tab crashes: the browser reclaims its owner lock without the
     // graceful stop path running (the tab — and its worker — are simply gone).
-    locks.forceRelease("symcrypt-sqlite-worker-owner");
+    locks.forceRelease("tearleads-sqlite-worker-owner");
 
     // The second tab must now be promoted: its queued bid is granted, a NEW owner
     // worker is constructed, and it serves the second tab's subsequent requests.
@@ -355,7 +355,7 @@ test("promotion fails a tab's in-flight remote requests instead of waiting out t
 
     // The owner tab crashes before answering. The second tab is promoted and must
     // fail its orphaned request promptly (well under the 10s request timeout).
-    locks.forceRelease("symcrypt-sqlite-worker-owner");
+    locks.forceRelease("tearleads-sqlite-worker-owner");
 
     expect(await pendingResponse).toEqual({
       id: 2,

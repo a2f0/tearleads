@@ -1,10 +1,10 @@
 import type {
   OrganizationBillingProvider,
   OrganizationBillingStatus,
-} from "@symcrypt/api-shared/schema";
-import { getSyncBillingTierForNativeProduct } from "@symcrypt/validators/billing";
-import type { RevenueCatWebhookEvent } from "@symcrypt/validators/request";
-import { isUuidV4String } from "@symcrypt/validators/util";
+} from "@tearleads/api-shared/schema";
+import { getSyncBillingTierForNativeProduct } from "@tearleads/validators/billing";
+import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
+import { isUuidV4String } from "@tearleads/validators/util";
 import { LAPSED_BILLING_PURGE_GRACE_MS } from "./organizationBilling";
 import type { StripeApiDeps } from "./stripeApi";
 import { getSubscriptionBinding } from "./stripeSubscriptionBinding";
@@ -44,7 +44,7 @@ const PROMOTIONAL_STORE = "PROMOTIONAL";
 export const SANDBOX_IGNORED_REASON =
   "Sandbox environment event ignored on a production-only tier";
 
-/** Paid product id that does not map to one of SymCrypt' fixed tiers. */
+/** Paid product id that does not map to one of Tearleads' fixed tiers. */
 export const UNCONFIGURED_SYNC_BILLING_TIER_REASON =
   "Event product is not a configured sync billing tier";
 

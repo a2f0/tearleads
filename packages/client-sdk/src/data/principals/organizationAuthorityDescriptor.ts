@@ -1,5 +1,5 @@
-import type { ReferencedPrincipalHead } from "@symcrypt/crypto";
-import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
+import type { ReferencedPrincipalHead } from "@tearleads/crypto";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 
 export type OrganizationGroupHead = ReferencedPrincipalHead & {
   readonly principalType: "group";

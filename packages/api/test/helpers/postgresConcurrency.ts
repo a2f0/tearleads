@@ -1,6 +1,6 @@
-import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
-import { db } from "@symcrypt/api-shared/postgres";
-import { accessManifestHeads } from "@symcrypt/api-shared/schema";
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import { db } from "@tearleads/api-shared/postgres";
+import { accessManifestHeads } from "@tearleads/api-shared/schema";
 import { and, eq, sql } from "drizzle-orm";
 
 const LOCK_WAIT_TIMEOUT_MS = 10_000;

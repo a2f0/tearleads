@@ -4,7 +4,7 @@ import type {
   ContainerKekKeyringEntry,
   ContainerRekeyAccessEventBody,
   VerifiedPrincipalPolicy,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import {
   computeAccessManifestHash,
   computeContainerKekKeyringHash,
@@ -12,12 +12,12 @@ import {
   createContainerKekPredecessorBridge,
   deriveContainerAccessManifest,
   sealContainerKekKeyring,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import type {
   ContainerKekResponse,
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import {
   buildContainerCreateKeyEpoch,
   resolveContainerKekEpochId,

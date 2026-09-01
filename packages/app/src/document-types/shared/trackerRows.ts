@@ -1,4 +1,4 @@
-import type { DocumentRow } from "@symcrypt/client-sdk";
+import type { DocumentRow } from "@tearleads/client-sdk";
 import type { RowWriterResolver } from "../../stores/documents/useDocumentRowWriters";
 import type { RowDetailField } from "./DocumentRowDetail";
 

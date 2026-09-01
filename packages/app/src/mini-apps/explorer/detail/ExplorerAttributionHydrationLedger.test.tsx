@@ -2,11 +2,11 @@ import { beforeAll, expect, mock, spyOn, test } from "bun:test";
 import type {
   OrganizationDirectoryAndGroups,
   OrganizationDirectoryUser,
-} from "@symcrypt/client-sdk";
-import { deriveOrganizationRosterProfileContainerSystemSlot } from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
+import { deriveOrganizationRosterProfileContainerSystemSlot } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
-import type { RuntimeSnapshot } from "../../../providers/sdk/SymCryptProvider";
-import * as SymCryptProvider from "../../../providers/sdk/SymCryptProvider";
+import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
+import * as TearleadsProvider from "../../../providers/sdk/TearleadsProvider";
 import * as DeviceFirstProvider from "../../../stores/device-first/DeviceFirstProvider";
 import { useExplorerAttributionProfileHydration } from "../hooks/useExplorerOrganizationPresentation";
 
@@ -87,15 +87,15 @@ test("the contributor cap survives disablement and projection changes", async ()
   const open = mock((input: { documentId?: string | null }) => ({
     requestRemoteSyncAndWait: async () => Boolean(input.documentId),
   }));
-  const useSymCryptSpy = spyOn(
-    SymCryptProvider,
-    "useSymCrypt",
+  const useTearleadsSpy = spyOn(
+    TearleadsProvider,
+    "useTearleads",
   ).mockImplementation(
     () =>
       ({
         documents: { findLocalIdByDocumentId, open },
         logError: () => undefined,
-      }) as unknown as ReturnType<typeof SymCryptProvider.useSymCrypt>,
+      }) as unknown as ReturnType<typeof TearleadsProvider.useTearleads>,
   );
   const containerSnapshot = {
     nodes: [
@@ -196,6 +196,6 @@ test("the contributor cap survives disablement and projection changes", async ()
   } finally {
     cleanup();
     useDeviceFirstSpy.mockRestore();
-    useSymCryptSpy.mockRestore();
+    useTearleadsSpy.mockRestore();
   }
 });

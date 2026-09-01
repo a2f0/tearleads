@@ -12,7 +12,7 @@ rpc_secret = "{{ garage_rpc_secret }}"
 [s3_api]
 s3_region = "{{ garage_s3_region }}"
 api_bind_addr = "127.0.0.1:3900"
-root_domain = ".s3.{{ domain | default('symcrypt.com') }}"
+root_domain = ".s3.{{ domain | default('tearleads.com') }}"
 
 [admin]
 api_bind_addr = "127.0.0.1:3903"

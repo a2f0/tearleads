@@ -94,8 +94,9 @@ export function getLargestSyncBillingTier(): SyncBillingTier {
 
 /**
  * Product identifiers used in App Store, Play, and RevenueCat Test Store.
- * The App Store's SymCrypt prefix, staging suffixes, and Play base-plan suffixes
- * do not change the tier.
+ * Staging suffixes and Play base-plan suffixes do not change the tier.
+ * SymCrypt-prefixed App Store ids and its legacy reverse-domain Solo id remain
+ * accepted so delayed events from the superseded native apps stay recoverable.
  * The older Solo aliases remain only while existing Test Store fixtures and
  * installed sandbox receipts are migrated to `sync_solo_monthly`.
  */
@@ -119,6 +120,7 @@ export function getSyncBillingTierForNativeProduct(
     normalized === "sync_monthly" ||
     normalized === "sync_monthly_staging" ||
     normalized === "com.symcrypt.sync.monthly" ||
+    normalized === "com.tearleads.sync.monthly" ||
     normalized === "sync_solo_monthly" ||
     normalized === "sync_solo_monthly_staging"
   ) {

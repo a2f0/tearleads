@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
-import type { ListContainerParentLanesRequest } from "@symcrypt/validators/request";
+import type { ListContainerParentLanesRequest } from "@tearleads/validators/request";
 import type {
   ListContainerParentLanesResponse,
   ListContainersResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { fetchContainerParentLaneBatch } from "./parentLaneFetch";
 import type {

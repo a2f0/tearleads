@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
-import type { ApiClient } from "@symcrypt/api-client";
-import { createTestExecSql } from "@symcrypt/test-utils";
-import type { CreateOrganizationRequest } from "@symcrypt/validators/request";
-import type { CreateOrganizationResponse } from "@symcrypt/validators/response";
+import type { ApiClient } from "@tearleads/api-client";
+import { createTestExecSql } from "@tearleads/test-utils";
+import type { CreateOrganizationRequest } from "@tearleads/validators/request";
+import type { CreateOrganizationResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import {

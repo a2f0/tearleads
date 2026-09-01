@@ -3,7 +3,7 @@ import type {
   OrganizationContainerGrants,
   OrganizationGroupContainers,
   OrganizationUserDetail,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 
 function isSameGrantSubject(
   left: OrganizationContainerGrant,

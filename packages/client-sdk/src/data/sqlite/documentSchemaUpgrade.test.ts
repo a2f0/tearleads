@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@symcrypt/test-utils";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { documentTables } from "./schema";
 import { ensureSqlTables } from "./sqlTableSchema";
 

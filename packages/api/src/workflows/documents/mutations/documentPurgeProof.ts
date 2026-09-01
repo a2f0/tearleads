@@ -1,18 +1,18 @@
 import {
   type DatabaseSession,
   gatherWithExecutor,
-} from "@symcrypt/api-shared/postgres";
-import { containerDocumentSyncTombstones } from "@symcrypt/api-shared/schema";
-import type { VerifiedAccessEvent } from "@symcrypt/crypto";
+} from "@tearleads/api-shared/postgres";
+import { containerDocumentSyncTombstones } from "@tearleads/api-shared/schema";
+import type { VerifiedAccessEvent } from "@tearleads/crypto";
 import {
   normalizeDocumentPurgeAccessEventBody,
   verifyDocumentPurgeEvent,
   verifySignedAccessEvent,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import type {
   AccessManifestBundleWireResponse,
   DocumentPurgeProofResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
 import { getStoredAccessEventByObjectType } from "../../../access/read/accessManifestStore";
 import {

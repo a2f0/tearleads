@@ -4,17 +4,17 @@ import type {
   ReferencedPrincipalHead,
   SigningKeyPair,
   VerifiedPrincipalPolicy,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import type {
   ContainerMutationRequest,
   PutPrincipalPolicyRequest,
-} from "@symcrypt/validators/request";
+} from "@tearleads/validators/request";
 import type {
   ContainerMutationResponse,
   OrganizationGroupSummaryResponse,
   PrincipalPolicyBundleResponse,
   PrincipalPolicyMutationResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import { loadOrganizationExternalAdminPolicy } from "../principals/externalAdminPolicy";

@@ -15,7 +15,7 @@ interface CliArgs {
 function parseArgs(argv: readonly string[]): CliArgs {
   const positional: string[] = [];
   let owner = "a2f0";
-  let repo = "symcrypt";
+  let repo = "tearleads";
   let post = false;
 
   for (const arg of argv) {

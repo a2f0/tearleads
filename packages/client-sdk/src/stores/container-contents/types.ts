@@ -1,9 +1,9 @@
 import type {
   ContainerAccessLevel,
   ReferencedPrincipalHead,
-} from "@symcrypt/crypto";
-import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
-import type { ContainerWriterProjectionResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import type { PurgeOptions } from "../../workflows/container-contents/container-state/purgeProgress";
 import type { ContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import type { ContainerDocumentObjectSyncState } from "../../workflows/container-contents/syncState";

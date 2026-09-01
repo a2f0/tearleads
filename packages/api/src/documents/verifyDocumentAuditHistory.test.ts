@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { db } from "@symcrypt/api-shared/postgres";
+import { db } from "@tearleads/api-shared/postgres";
 import {
   blobs,
   documentAttachmentAuditEvents,
@@ -7,7 +7,7 @@ import {
   documentAuditEntries,
   documents,
   documentUpdateAuditEvents,
-} from "@symcrypt/api-shared/schema";
+} from "@tearleads/api-shared/schema";
 import { eq } from "drizzle-orm";
 import { sha256Hex } from "../utils/sha256";
 import { appendDocumentAttachmentAuditEntries } from "./documentAttachmentAuditEvents";

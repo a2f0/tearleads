@@ -2,12 +2,12 @@ import type {
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
   VerifiedPrincipalPolicy,
-} from "@symcrypt/crypto";
-import { verifyContainerAccessManifest } from "@symcrypt/crypto";
+} from "@tearleads/crypto";
+import { verifyContainerAccessManifest } from "@tearleads/crypto";
 import type {
   AccessManifestBundleWire,
   ContainerMutationRequest,
-} from "@symcrypt/validators/request";
+} from "@tearleads/validators/request";
 import { getCurrentAccessManifestHead } from "../../../../access/read/accessManifestStore";
 import { readProjectionAccessManifest } from "../../../../keyingProjectionRecords";
 import { ContainerMutationError, mutationShapeError } from "../errors";

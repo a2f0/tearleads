@@ -1,4 +1,4 @@
-import type { DatabaseStatus } from "@symcrypt/client-sdk";
+import type { DatabaseStatus } from "@tearleads/client-sdk";
 import { type RefObject, useCallback, useRef } from "react";
 import { unknownErrorMessage } from "../../utils/unknownErrorMessage";
 

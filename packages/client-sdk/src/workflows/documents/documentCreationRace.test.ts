@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { createDocument, getTextValue } from "@symcrypt/loro";
-import { createTestExecSql } from "@symcrypt/test-utils";
+import { createDocument, getTextValue } from "@tearleads/loro";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { loadPersistedDocumentContent } from "./historyContent";

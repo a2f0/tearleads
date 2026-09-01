@@ -5,7 +5,7 @@ import type {
   PendingAttachmentRecord,
   PendingUpdateInsert,
   PendingUpdateRecord,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { invalidateMemoryDocumentPullContinuation } from "./documentPullContinuationPersistence";
 import { createMemoryAbsentDocumentCleanup } from "./documentStoreAbsentCleanup";
 import {

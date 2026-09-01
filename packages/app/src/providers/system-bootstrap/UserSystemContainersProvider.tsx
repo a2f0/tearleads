@@ -4,7 +4,7 @@ import {
   type UserSystemContainer,
 } from "../../stores/systemContainers";
 import { useAsyncDerivedState } from "../../utils/useAsyncDerivedState";
-import { useSymCrypt, useSymCryptRuntime } from "../sdk/SymCryptProvider";
+import { useTearleads, useTearleadsRuntime } from "../sdk/TearleadsProvider";
 
 const UserSystemContainersContext =
   createContext<ReadonlyArray<UserSystemContainer> | null>(null);
@@ -13,13 +13,13 @@ const createEmptySystemContainers =
   (): ReadonlyArray<UserSystemContainer> => [];
 
 export function UserSystemContainersProvider({ children }: PropsWithChildren) {
-  const runtime = useSymCryptRuntime();
-  const symcrypt = useSymCrypt();
+  const runtime = useTearleadsRuntime();
+  const tearleads = useTearleads();
   const systemContainers = useAsyncDerivedState({
     createEmptyValue: createEmptySystemContainers,
     derive: deriveUserSystemContainers,
     errorMessage: "Failed to derive system bootstrap slots",
-    logError: symcrypt.logError,
+    logError: tearleads.logError,
     source: runtime.crypto.signingKeyPair?.signingPrivateKey ?? null,
   });
 

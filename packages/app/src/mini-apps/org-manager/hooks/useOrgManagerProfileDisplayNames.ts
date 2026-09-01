@@ -1,4 +1,4 @@
-import type { OrganizationDirectory } from "@symcrypt/client-sdk";
+import type { OrganizationDirectory } from "@tearleads/client-sdk";
 import {
   type Dispatch,
   type SetStateAction,
@@ -8,9 +8,9 @@ import {
   useState,
 } from "react";
 import type {
-  useSymCrypt,
-  useSymCryptRuntime,
-} from "../../../providers/sdk/SymCryptProvider";
+  useTearleads,
+  useTearleadsRuntime,
+} from "../../../providers/sdk/TearleadsProvider";
 import {
   getLocalRosterProfileDisplayNames,
   getRosterProfileBindingsByLocalId,
@@ -20,17 +20,17 @@ import {
 import { EMPTY_PROFILE_DISPLAY_NAMES } from "../display";
 
 interface OrgManagerProfileDisplayNamesParams {
-  appData: ReturnType<typeof useSymCryptRuntime>;
+  appData: ReturnType<typeof useTearleadsRuntime>;
   canLoadAuthenticatedOrgData: boolean;
   directory: OrganizationDirectory | null;
   selectedUserIdRef: { current: string | null };
-  symcrypt: ReturnType<typeof useSymCrypt>;
+  tearleads: ReturnType<typeof useTearleads>;
 }
 
 interface ProfileDisplayNameScope {
   readonly bindingKey: string;
   readonly domainScope: ReturnType<
-    typeof useSymCryptRuntime
+    typeof useTearleadsRuntime
   >["state"]["domainScope"];
   readonly organizationId: string;
   readonly userId: string;
@@ -71,7 +71,7 @@ function startLocalProfileDisplayNameLoad(input: {
   readonly directory: OrganizationDirectory;
   readonly scope: ProfileDisplayNameScope;
   readonly setState: Dispatch<SetStateAction<ProfileDisplayNameState | null>>;
-  readonly symcrypt: ReturnType<typeof useSymCrypt>;
+  readonly tearleads: ReturnType<typeof useTearleads>;
 }): (() => void) | undefined {
   const profileBindingsByLocalId = getRosterProfileBindingsByLocalId({
     organizationId: input.scope.organizationId,
@@ -88,7 +88,7 @@ function startLocalProfileDisplayNameLoad(input: {
   const reload = async () => {
     const sequence = ++loadSequence;
     try {
-      const documents = await input.symcrypt.documents.list({
+      const documents = await input.tearleads.documents.list({
         documentKind: "contact",
       });
       const names = getLocalRosterProfileDisplayNames({
@@ -100,14 +100,14 @@ function startLocalProfileDisplayNameLoad(input: {
       }
     } catch (error) {
       if (!cancelled) {
-        input.symcrypt.logError(
+        input.tearleads.logError(
           "Failed to load local organization roster display names",
           error,
         );
       }
     }
   };
-  const unsubscribe = input.symcrypt.documents.subscribe((document) => {
+  const unsubscribe = input.tearleads.documents.subscribe((document) => {
     if (document.documentId && profileDocumentIds.has(document.documentId)) {
       void reload();
     }
@@ -196,7 +196,7 @@ export function useOrgManagerProfileDisplayNames(
     canLoadAuthenticatedOrgData,
     directory,
     selectedUserIdRef,
-    symcrypt,
+    tearleads,
   } = params;
   const [state, setState] = useState<ProfileDisplayNameState | null>(null);
   const directoryRef = useRef(directory);
@@ -228,14 +228,14 @@ export function useOrgManagerProfileDisplayNames(
       directory: activeDirectory,
       scope: { bindingKey, domainScope, organizationId, userId },
       setState,
-      symcrypt,
+      tearleads,
     });
   }, [
     bindingKey,
     canReadLocalProfiles,
     domainScope,
     organizationId,
-    symcrypt,
+    tearleads,
     userId,
   ]);
 

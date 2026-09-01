@@ -1,4 +1,4 @@
-import type { UserSession } from "@symcrypt/client-sdk";
+import type { UserSession } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   type LogoutOptions,
@@ -22,7 +22,7 @@ import {
 } from "../../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../../providers/local-keyring/LocalKeyringLockProvider";
 import { useLog } from "../../providers/logging/LogProvider";
-import { useSymCrypt } from "../../providers/sdk/SymCryptProvider";
+import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 import { CURRENT_SESSION_MUTATION_ID } from "./IdentityManagerConstants";
 import { getIdentityState } from "./IdentityManagerIdentityState";
 import { useIdentitySwitcher } from "./switcher/useIdentitySwitcher";
@@ -31,16 +31,16 @@ import type { IdentityBusyState } from "./toolbar/IdentityManagerActionToolbar";
 type DatabaseContextValue = ReturnType<typeof useDatabase>;
 type LogContextValue = ReturnType<typeof useLog>;
 type RegistrationResult = RegisterCurrentIdentityResult;
-type SdkClient = ReturnType<typeof useSymCrypt>;
+type SdkClient = ReturnType<typeof useTearleads>;
 
 function useIdentityManagerSessionList({
   canManageSessions,
   logError,
-  symcrypt,
+  tearleads,
 }: {
   canManageSessions: boolean;
   logError: LogContextValue["logError"];
-  symcrypt: SdkClient;
+  tearleads: SdkClient;
 }) {
   const [sessions, setSessions] = useState<UserSession[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
@@ -61,7 +61,7 @@ function useIdentityManagerSessionList({
     setLoadingSessions(true);
     setSessionError(null);
     try {
-      const nextSessions = await symcrypt.session.listSessions();
+      const nextSessions = await tearleads.session.listSessions();
       if (requestIdRef.current === requestId) {
         setSessions(nextSessions);
       }
@@ -75,7 +75,7 @@ function useIdentityManagerSessionList({
         setLoadingSessions(false);
       }
     }
-  }, [canManageSessions, logError, symcrypt]);
+  }, [canManageSessions, logError, tearleads]);
 
   useEffect(() => {
     void refreshSessions();
@@ -101,7 +101,7 @@ function useIdentityManagerSessionMutations({
   requestCurrentSessionLogout,
   setSessionError,
   signingFingerprint,
-  symcrypt,
+  tearleads,
 }: {
   clearSessions: () => void;
   log: LogContextValue["log"];
@@ -112,7 +112,7 @@ function useIdentityManagerSessionMutations({
   requestCurrentSessionLogout: () => void;
   setSessionError: (error: string | null) => void;
   signingFingerprint: string | null;
-  symcrypt: SdkClient;
+  tearleads: SdkClient;
 }) {
   const [mutatingSessionId, setMutatingSessionId] = useState<string | null>(
     null,
@@ -124,7 +124,7 @@ function useIdentityManagerSessionMutations({
       setSessionError(null);
       try {
         await runConfirmedLogout({
-          getSigningFingerprint: () => symcrypt.identity.signingFingerprint,
+          getSigningFingerprint: () => tearleads.identity.signingFingerprint,
           keepLocalData,
           log,
           logError,
@@ -134,7 +134,7 @@ function useIdentityManagerSessionMutations({
             setSessionError("Could not log out remote session.");
           },
           purgeWorker,
-          session: symcrypt.session,
+          session: tearleads.session,
           signingFingerprint,
         });
       } finally {
@@ -149,7 +149,7 @@ function useIdentityManagerSessionMutations({
       purgeWorker,
       setSessionError,
       signingFingerprint,
-      symcrypt,
+      tearleads,
     ],
   );
 
@@ -165,7 +165,7 @@ function useIdentityManagerSessionMutations({
       setMutatingSessionId(session.id);
       setSessionError(null);
       try {
-        const destroyed = await symcrypt.session.destroySession(session.id);
+        const destroyed = await tearleads.session.destroySession(session.id);
         if (!destroyed) {
           setSessionError("Could not revoke session.");
           return;
@@ -186,7 +186,7 @@ function useIdentityManagerSessionMutations({
       refreshSessions,
       requestCurrentSessionLogout,
       setSessionError,
-      symcrypt,
+      tearleads,
     ],
   );
 
@@ -301,7 +301,7 @@ function useIdentityManagerLogout(input: {
   refreshSessions: () => Promise<void>;
   setSessionError: (error: string | null) => void;
   signingFingerprint: string | null;
-  symcrypt: SdkClient;
+  tearleads: SdkClient;
 }) {
   const logoutDialog = useLogoutConfirmationDialogState();
   const sessionMutations = useIdentityManagerSessionMutations({
@@ -344,7 +344,7 @@ function deriveIdentityManagerStatus(
  * view module stays presentational.
  */
 export function useIdentityManager() {
-  const symcrypt = useSymCrypt();
+  const tearleads = useTearleads();
   const session = useCryptoSession();
   const identity = useIdentity();
   const localKeyringLock = useLocalKeyringLock();
@@ -356,7 +356,7 @@ export function useIdentityManager() {
   const sessionList = useIdentityManagerSessionList({
     canManageSessions,
     logError,
-    symcrypt,
+    tearleads,
   });
   const clearSessions = useCallback(
     () => sessionList.setSessions([]),
@@ -376,7 +376,7 @@ export function useIdentityManager() {
       refreshSessions: sessionList.refreshSessions,
       setSessionError: sessionList.setSessionError,
       signingFingerprint: identity.signingFingerprint,
-      symcrypt,
+      tearleads,
     });
   const identityMutations = useIdentityManagerIdentityMutations({
     clearSessionError,

@@ -1,8 +1,8 @@
 import type {
   ApiDatabase,
   DatabaseTransaction,
-} from "@symcrypt/api-shared/postgres";
-import { verifyAttachmentDetachEvent } from "@symcrypt/crypto";
+} from "@tearleads/api-shared/postgres";
+import { verifyAttachmentDetachEvent } from "@tearleads/crypto";
 import { storeVerifiedAttachmentDetachInTransaction } from "../../../access/write/attachmentBindingStore";
 import { readKeyingCanonicalJson } from "../../../utils/canonicalJson";
 import { loadSignerPublicKey } from "../../signerPublicKey";

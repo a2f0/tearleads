@@ -5,7 +5,7 @@ import {
   createStripeCheckoutSessionOperation,
   createStripePortalOperation,
   getStripeCheckoutOptionsOperation,
-} from "@symcrypt/validators/operation";
+} from "@tearleads/validators/operation";
 import {
   stripeCheckoutCreate,
   stripeCheckoutOptionsGet,

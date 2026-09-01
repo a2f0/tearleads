@@ -1,8 +1,8 @@
-import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
+import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type {
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import {
   getTargetContainerContext,
   readContainerState,

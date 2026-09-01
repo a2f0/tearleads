@@ -1,5 +1,5 @@
-import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
-import { MAX_PRINCIPAL_STATE_VERSION } from "@symcrypt/validators/util";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { MAX_PRINCIPAL_STATE_VERSION } from "@tearleads/validators/util";
 import { ML_KEM1024_PUBLIC_KEY_BYTES } from "./encapsulation/generateKeyPair";
 import { toFingerprint } from "./fingerprint";
 import { computePrincipalContainerGrantRoot } from "./principalContainerGrants";

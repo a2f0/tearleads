@@ -5,8 +5,8 @@ import type {
   ReferencedPrincipalHead,
   VerifiedAccessEvent,
   VerifiedDocumentLinkSetManifest,
-} from "@symcrypt/crypto";
-import { isPlainObject } from "@symcrypt/validators/isPlainObject";
+} from "@tearleads/crypto";
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import {
   containerAccessManifestStateRecord,
   documentLinkSetStateRecord,

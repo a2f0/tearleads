@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME } from "@symcrypt/client-sdk";
+import { DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME } from "@tearleads/client-sdk";
 import { cleanup, within } from "@testing-library/react";
 import {
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,

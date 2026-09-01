@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@symcrypt/test-utils";
-import type { ContainerMutationRequest } from "@symcrypt/validators/request";
+import { createTestExecSql } from "@tearleads/test-utils";
+import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import {
   createMutationResponseFromRequest,
   createParentProjection,

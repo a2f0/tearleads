@@ -1,9 +1,9 @@
-import { base64ToBytes } from "@symcrypt/encoding";
+import { base64ToBytes } from "@tearleads/encoding";
 import {
   encodeVersionVector,
   exportUpdatesSince,
   importUpdates,
-} from "@symcrypt/loro";
+} from "@tearleads/loro";
 import { canWriteEffectiveAccessLevel } from "../../data/accessLevel";
 import {
   getDefaultContainerName,

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { getOrganizationDataUsageOperation } from "@symcrypt/validators/operation";
+import { getOrganizationDataUsageOperation } from "@tearleads/validators/operation";
 import { getOrganizationDataUsage } from "./dataUsage";
 
 const organizationId = "11111111-1111-4111-8111-111111111111";

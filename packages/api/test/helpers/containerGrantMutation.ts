@@ -1,16 +1,16 @@
-import type { TestUser } from "@symcrypt/bob-and-alice";
+import type { TestUser } from "@tearleads/bob-and-alice";
 import type {
   ContainerAccessEventBody,
   ContainerKeyWrap,
   ContainerUserRecipientKey,
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
-} from "@symcrypt/crypto";
-import { toFingerprint } from "@symcrypt/crypto";
+} from "@tearleads/crypto";
+import { toFingerprint } from "@tearleads/crypto";
 import type {
   AccessManifestBundleWire,
   ContainerMutationRequest,
-} from "@symcrypt/validators/request";
+} from "@tearleads/validators/request";
 import { createContainerKeyWrap } from "./containerKeying";
 import {
   createManifestBundle,

@@ -1,5 +1,5 @@
 import { afterEach, expect, mock, test } from "bun:test";
-import type { OrganizationContainerGrant } from "@symcrypt/client-sdk";
+import type { OrganizationContainerGrant } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { RevokeGrantConfirmationDialog } from "./RevokeGrantConfirmationDialog";

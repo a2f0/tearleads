@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@symcrypt/test-utils";
+import { createTestExecSql } from "@tearleads/test-utils";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { RemoteContainerHydrationHost } from "../../workflows/container-contents/remoteHydration";
 import {

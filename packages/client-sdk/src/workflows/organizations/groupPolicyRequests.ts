@@ -4,13 +4,13 @@ import {
   toFingerprint,
   unwrapDek,
   wrapDekForRecipients,
-} from "@symcrypt/crypto";
-import { bytesToBase64 } from "@symcrypt/encoding";
+} from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import type {
   PrincipalContainerGrantRequest,
   PrincipalProjectionMemberRequest,
   PutPrincipalPolicyRequest,
-} from "@symcrypt/validators/request";
+} from "@tearleads/validators/request";
 import type { TrustedUserIdentity } from "../../data/trustedUserIdentity";
 import {
   isDirectGroupAdmin,

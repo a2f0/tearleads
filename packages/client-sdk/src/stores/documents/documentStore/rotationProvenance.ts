@@ -1,4 +1,4 @@
-import { base64ToBytes } from "@symcrypt/encoding";
+import { base64ToBytes } from "@tearleads/encoding";
 import {
   encodeVersionVector,
   exportFullHistoryIdentity,
@@ -7,7 +7,7 @@ import {
   satisfiesVersionVector,
   updateMatchesDocumentHistory,
   versionVectorsEqual,
-} from "@symcrypt/loro";
+} from "@tearleads/loro";
 import type { PendingUpdateRecord } from "../../../workflows/documents";
 import type { DocumentState } from "./state";
 

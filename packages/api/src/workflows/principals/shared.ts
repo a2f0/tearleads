@@ -1,16 +1,16 @@
 import type {
   PrincipalPolicyValidationErrorCode,
   PrincipalStateExternalAuthority,
-} from "@symcrypt/crypto";
-import { PrincipalPolicyValidationError } from "@symcrypt/crypto";
-import type { BillingErrorCode } from "@symcrypt/validators/billing";
-import type { PrincipalMemberEnvelopeRequest } from "@symcrypt/validators/request";
+} from "@tearleads/crypto";
+import { PrincipalPolicyValidationError } from "@tearleads/crypto";
+import type { BillingErrorCode } from "@tearleads/validators/billing";
+import type { PrincipalMemberEnvelopeRequest } from "@tearleads/validators/request";
 import type {
   CurrentPrincipalMemberEnvelopesResponse,
   PrincipalMemberEnvelopeResponse,
   PrincipalStatePayloadResponse,
   PrincipalStateResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 
 export class PrincipalPolicyError extends Error {
   constructor(

@@ -62,7 +62,7 @@ export function deriveOrganizationRosterProfileContainerSystemSlot(input: {
   readonly organizationId: string;
 }): Promise<ContainerSystemSlot> {
   return deriveOrganizationSystemSlot({
-    namespace: "symcrypt.organization-roster-profiles",
+    namespace: "tearleads.organization-roster-profiles",
     organizationId: input.organizationId,
   });
 }
@@ -71,7 +71,7 @@ export function deriveOrganizationMetadataContainerSystemSlot(input: {
   readonly organizationId: string;
 }): Promise<ContainerSystemSlot> {
   return deriveOrganizationSystemSlot({
-    namespace: "symcrypt.organization-metadata",
+    namespace: "tearleads.organization-metadata",
     organizationId: input.organizationId,
   });
 }

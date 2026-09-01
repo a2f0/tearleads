@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@symcrypt/test-utils";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlContainerContentsPersistence } from "./containerContentsPersistence";
 
 // A create stuck in error must show WHEN it last failed, like the move

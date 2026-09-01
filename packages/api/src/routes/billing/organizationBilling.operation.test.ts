@@ -7,7 +7,7 @@ import {
   getOrganizationNativePurchaseEligibilityOperation,
   operationRoutePath,
   startOrganizationTrialOperation,
-} from "@symcrypt/validators/operation";
+} from "@tearleads/validators/operation";
 import type { MiddlewareHandler } from "hono";
 import { createMiddleware } from "hono/factory";
 import type { SessionEnv } from "../../middleware/session";

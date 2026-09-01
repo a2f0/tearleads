@@ -2,7 +2,7 @@ import {
   DEFAULT_DOCUMENT_KIND,
   type DocumentSummary,
   getUntitledDocumentTitle,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import type { MouseEvent } from "react";
 import {
   MiniAppSidebar,

@@ -1,5 +1,5 @@
-import { KeyingVerificationError } from "@symcrypt/crypto";
-import type { PrincipalPolicyBundleResponse } from "@symcrypt/validators/response";
+import { KeyingVerificationError } from "@tearleads/crypto";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
 import { principalPolicyBundleStates } from "../principalPolicyStates";
 import { principalPolicyBundleReferences } from "../sqlite/schema";

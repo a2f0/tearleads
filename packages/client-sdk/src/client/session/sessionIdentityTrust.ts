@@ -1,4 +1,4 @@
-import { KeyingVerificationError } from "@symcrypt/crypto";
+import { KeyingVerificationError } from "@tearleads/crypto";
 import type { LocalUserIdentityCandidate } from "../../data/trustedUserIdentity";
 import type { Identity, IdentitySnapshot } from "../identity";
 

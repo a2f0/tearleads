@@ -1,4 +1,4 @@
-import type { DocumentAttachmentUpload } from "@symcrypt/client-sdk";
+import type { DocumentAttachmentUpload } from "@tearleads/client-sdk";
 import { type ChangeEvent, useMemo, useRef, useState } from "react";
 import { MiniAppStatus } from "../../components/mini-app/MiniAppLayout";
 import { useAppHostConfig } from "../../providers/host/AppHostConfigProvider";

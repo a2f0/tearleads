@@ -27,7 +27,7 @@
   min-height: var(--control-height);
   padding: var(--space-xs) var(--space-sm);
   /* The <a> gets its color and underline reset from the base anchor rule in
-     @symcrypt/ui styles.links.css. */
+     @tearleads/ui styles.links.css. */
   text-align: left;
 }
 

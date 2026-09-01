@@ -3,7 +3,7 @@ import {
   getOrganizationProfileDocumentLocalId,
   ORGANIZATION_PROFILE_DOCUMENT_KIND,
   readOrganizationProfileName,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { useEffect, useMemo, useState } from "react";
 import {
   MiniAppField,

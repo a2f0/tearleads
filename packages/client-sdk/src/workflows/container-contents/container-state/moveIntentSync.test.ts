@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { KeyingVerificationError } from "@symcrypt/crypto";
+import { KeyingVerificationError } from "@tearleads/crypto";
 import { waitFor } from "../../../../test/helpers/waitFor";
 import { createContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
 import { createDomainScope } from "../../../data/domainScope";

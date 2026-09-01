@@ -1,5 +1,8 @@
-import { bytesToBase64 } from "@symcrypt/encoding";
-import { encodeVersionVector, exportFullHistorySnapshot } from "@symcrypt/loro";
+import { bytesToBase64 } from "@tearleads/encoding";
+import {
+  encodeVersionVector,
+  exportFullHistorySnapshot,
+} from "@tearleads/loro";
 import { readPullContinuation } from "../../../data/documents/shared/syncPagination";
 import type {
   DocumentSyncPullContinuation,

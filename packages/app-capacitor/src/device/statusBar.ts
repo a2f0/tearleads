@@ -5,7 +5,7 @@ type ThemeId = "light" | "dark";
 
 /**
  * The routed app bar is the native shell's top chrome. These literals mirror
- * the --color-muted token in @symcrypt/ui styles.css; keep them in sync if
+ * the --color-muted token in @tearleads/ui styles.css; keep them in sync if
  * that surface changes color.
  */
 const TOP_CHROME_BACKGROUND_BY_THEME: Record<ThemeId, string> = {

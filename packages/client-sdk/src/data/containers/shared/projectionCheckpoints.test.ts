@@ -8,9 +8,9 @@ import {
   sealContainerKekKeyring,
   toFingerprint,
   type VerifiedContainerAccessManifest,
-} from "@symcrypt/crypto";
-import { createTestExecSql } from "@symcrypt/test-utils";
-import type { AccessManifestBundleWireResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import { createTestExecSql } from "@tearleads/test-utils";
+import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import {
   createContainerRevokeManifestFixture,
   createParentProjection,

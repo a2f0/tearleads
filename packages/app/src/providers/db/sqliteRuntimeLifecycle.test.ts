@@ -1,9 +1,9 @@
 import { afterEach, expect, test } from "bun:test";
-import { SymCrypt } from "@symcrypt/client-sdk";
+import { Tearleads } from "@tearleads/client-sdk";
 import type {
   DatabasePersistenceMode,
   SQLiteRuntime,
-} from "@symcrypt/client-sdk/sqlite";
+} from "@tearleads/client-sdk/sqlite";
 import { waitFor } from "@testing-library/react";
 import { createReusableSQLiteRuntimeFactory } from "../../../test/helpers/databaseRuntimeFactories";
 import { startSQLiteRuntimeBoot } from "./sqliteRuntimeLifecycle";
@@ -16,7 +16,7 @@ interface LifecycleHarness {
   dispose: () => void;
   invalidateBoot: () => void;
   readyRuntimeIds: string[];
-  symcrypt: SymCrypt;
+  tearleads: Tearleads;
 }
 
 const harnesses: LifecycleHarness[] = [];
@@ -33,7 +33,7 @@ function createLifecycleHarness(params: {
   onUnreadableDatabase?: (dbName: string) => void;
   persistence?: DatabasePersistenceMode;
 }): LifecycleHarness {
-  const symcrypt = new SymCrypt({
+  const tearleads = new Tearleads({
     logger: { log() {}, logError() {} },
     online: false,
   });
@@ -43,8 +43,8 @@ function createLifecycleHarness(params: {
   const currentDbNameRef: { current: string | null } = { current: null };
   const targetDbNameRef = { current: DB_A };
   const readyRuntimeIds: string[] = [];
-  const unsubscribe = symcrypt.database.subscribe(() => {
-    const snapshot = symcrypt.database.snapshot;
+  const unsubscribe = tearleads.database.subscribe(() => {
+    const snapshot = tearleads.database.snapshot;
     if (snapshot.status === "ready" && snapshot.id) {
       readyRuntimeIds.push(snapshot.id);
     }
@@ -68,7 +68,7 @@ function createLifecycleHarness(params: {
       reuseWorker: true,
       runtimeRef,
       targetDbNameRef,
-      symcrypt,
+      tearleads,
     });
   };
 
@@ -77,15 +77,15 @@ function createLifecycleHarness(params: {
     dispose: () => {
       unsubscribe();
       runtimeRef.current?.terminateNow();
-      symcrypt.dispose();
+      tearleads.dispose();
     },
     invalidateBoot: () => {
       bootGenerationRef.current += 1;
       bootingRef.current = false;
-      symcrypt.database.clear("idle");
+      tearleads.database.clear("idle");
     },
     readyRuntimeIds,
-    symcrypt,
+    tearleads,
   };
   harnesses.push(harness);
   return harness;
@@ -104,7 +104,7 @@ test("a superseded boot never publishes the obsolete database", async () => {
   runtimeFactory.releaseFirstInit();
 
   await waitFor(() => {
-    expect(harness.symcrypt.database.status).toBe("ready");
+    expect(harness.tearleads.database.status).toBe("ready");
     expect(runtimeFactory.getStats().initializedDbNames).toEqual([DB_A, DB_B]);
   });
 
@@ -137,7 +137,7 @@ test("a superseded unreadable failure boots the latest target without wiping", a
   runtimeFactory.releaseFirstInit();
 
   await waitFor(() => {
-    expect(harness.symcrypt.database.status).toBe("ready");
+    expect(harness.tearleads.database.status).toBe("ready");
     expect(runtimeFactory.getStats().initializedDbNames).toEqual([DB_A, DB_B]);
   });
 
@@ -167,7 +167,7 @@ test("a superseded timeout reboots the latest target on a fresh connection", asy
   runtimeFactory.releaseFirstInit();
 
   await waitFor(() => {
-    expect(harness.symcrypt.database.status).toBe("ready");
+    expect(harness.tearleads.database.status).toBe("ready");
     expect(runtimeFactory.getStats().initializedDbNames).toEqual([DB_A, DB_B]);
   });
 
@@ -189,7 +189,7 @@ test("an invalidated boot cannot settle over a newer reusable connection", async
   harness.boot(DB_B);
 
   await waitFor(() => {
-    expect(harness.symcrypt.database.status).toBe("ready");
+    expect(harness.tearleads.database.status).toBe("ready");
     expect(runtimeFactory.getStats().initializedDbNames).toEqual([DB_A, DB_B]);
   });
   expect(harness.readyRuntimeIds).toEqual(["reusable-2"]);
@@ -197,7 +197,7 @@ test("an invalidated boot cannot settle over a newer reusable connection", async
   runtimeFactory.releaseFirstInit();
   await new Promise((resolve) => setTimeout(resolve, 0));
 
-  expect(harness.symcrypt.database.status).toBe("ready");
+  expect(harness.tearleads.database.status).toBe("ready");
   expect(harness.readyRuntimeIds).toEqual(["reusable-2"]);
   expect(runtimeFactory.getStats()).toMatchObject({
     createCount: 1,

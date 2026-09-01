@@ -1,6 +1,6 @@
-import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
-import type { DocumentLinkSetMutationRequest } from "@symcrypt/validators/request";
-import { isUuidV4String } from "@symcrypt/validators/util";
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import type { DocumentLinkSetMutationRequest } from "@tearleads/validators/request";
+import { isUuidV4String } from "@tearleads/validators/util";
 import {
   lockAccessManifestHeadsForShare,
   lockAccessManifestHeadsForUpdate,

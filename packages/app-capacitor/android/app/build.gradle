@@ -2,7 +2,7 @@ apply plugin: 'com.android.application'
 apply plugin: 'org.jetbrains.kotlin.android'
 
 android {
-    namespace = "com.symcrypt.app"
+    namespace = "com.tearleads.app"
     compileSdk = rootProject.ext.compileSdkVersion
     buildFeatures {
         buildConfig true
@@ -10,7 +10,7 @@ android {
     defaultConfig {
         // Every build type must add a suffix to this non-shippable base ID.
         // Staging inherits release, then overrides its suffix below.
-        applicationId "com.symcrypt"
+        applicationId "com.tearleads"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode configuredVersionCode()
@@ -23,9 +23,9 @@ android {
     signingConfigs {
         release {
             if (hasReleaseKeystore()) {
-                storeFile rootProject.file("../../../.secrets/symcrypt-release.keystore")
+                storeFile rootProject.file("../../../.secrets/tearleads-release.keystore")
                 storePassword System.getenv("ANDROID_KEYSTORE_STORE_PASS")
-                keyAlias "symcrypt"
+                keyAlias "tearleads"
                 keyPassword System.getenv("ANDROID_KEYSTORE_KEY_PASS")
             }
         }
@@ -51,22 +51,22 @@ android {
 }
 
 def hasReleaseKeystore() {
-    def keystoreFile = rootProject.file("../../../.secrets/symcrypt-release.keystore")
+    def keystoreFile = rootProject.file("../../../.secrets/tearleads-release.keystore")
     return keystoreFile.exists() &&
         System.getenv("ANDROID_KEYSTORE_STORE_PASS") != null &&
         System.getenv("ANDROID_KEYSTORE_KEY_PASS") != null
 }
 
 def configuredVersionCode() {
-    def rawVersionCode = findProperty("symcryptVersionCode") ?: System.getenv("ANDROID_VERSION_CODE") ?: "1"
+    def rawVersionCode = findProperty("tearleadsVersionCode") ?: System.getenv("ANDROID_VERSION_CODE") ?: "1"
     def cleanedVersionCode = rawVersionCode.toString().trim()
     if (!cleanedVersionCode.isInteger()) {
-        throw new GradleException("symcryptVersionCode '${rawVersionCode}' is not a valid integer")
+        throw new GradleException("tearleadsVersionCode '${rawVersionCode}' is not a valid integer")
     }
 
     def versionCode = cleanedVersionCode.toInteger()
     if (versionCode <= 0) {
-        throw new GradleException("symcryptVersionCode must be greater than zero")
+        throw new GradleException("tearleadsVersionCode must be greater than zero")
     }
 
     return versionCode

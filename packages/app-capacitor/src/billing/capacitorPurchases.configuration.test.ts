@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { PurchasesUnavailableError } from "@symcrypt/client-sdk";
+import { PurchasesUnavailableError } from "@tearleads/client-sdk";
 import {
   createCapacitorPurchases,
   fixture,

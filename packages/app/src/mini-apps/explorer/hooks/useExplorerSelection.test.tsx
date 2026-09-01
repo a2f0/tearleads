@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
-import type { ContainerNode, DocumentSummary } from "@symcrypt/client-sdk";
-import { syncedContainerDocumentObjectSyncState } from "@symcrypt/client-sdk";
+import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
+import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import {
   createExplorerOrphanedDocumentsNode,

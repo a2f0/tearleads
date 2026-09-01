@@ -1,8 +1,8 @@
 import {
   getOrganizationReadModelOperation,
   operationRoutePath,
-} from "@symcrypt/validators/operation";
-import type { OrganizationReadModelResponse } from "@symcrypt/validators/response";
+} from "@tearleads/validators/operation";
+import type { OrganizationReadModelResponse } from "@tearleads/validators/response";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
 import { getOrganizationReadModel } from "../../services/organizations/orgManager";

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import type { RequestFailure } from "@symcrypt/api-client";
-import { createTestExecSql } from "@symcrypt/test-utils";
+import type { RequestFailure } from "@tearleads/api-client";
+import { createTestExecSql } from "@tearleads/test-utils";
 import {
   dataUsage,
   organizationId,

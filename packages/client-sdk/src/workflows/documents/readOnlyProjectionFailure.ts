@@ -1,4 +1,4 @@
-import { KeyingVerificationError } from "@symcrypt/crypto";
+import { KeyingVerificationError } from "@tearleads/crypto";
 import { isDocumentSyncUpdateIsolationError } from "../../data/documents/shared/documentSyncUpdateIsolation";
 import { rethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import { DocumentRawHistoryUnavailableError } from "./syncContentKeys";

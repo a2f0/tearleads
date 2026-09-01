@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import {
   getDefaultDatabaseWorkerEntrypointUrl,
   getSqliteWasmAssetUrl,
-} from "@symcrypt/sqlite-worker/assets";
+} from "@tearleads/sqlite-worker/assets";
 
 const publicDir = new URL("../public/", import.meta.url);
 

@@ -1,4 +1,4 @@
-import type { BlobInfo, BlobStore } from "@symcrypt/client-sdk";
+import type { BlobInfo, BlobStore } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useState } from "react";
 import type { DocumentAttachmentBlobPickerConfig } from "./DocumentAttachmentSlots";
 import { useDocumentBlobPick } from "./DocumentBlobPickContext";

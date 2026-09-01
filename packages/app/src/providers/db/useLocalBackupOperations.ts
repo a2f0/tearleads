@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { useSymCrypt } from "../sdk/SymCryptProvider";
+import { useTearleads } from "../sdk/TearleadsProvider";
 import { useDatabase } from "./DatabaseProvider";
 import {
   type BackupProgress,
@@ -35,18 +35,18 @@ interface ExportLocalBackupResult {
 
 export function useLocalBackupOperations() {
   const database = useDatabase();
-  const symcrypt = useSymCrypt();
+  const tearleads = useTearleads();
 
   const resolveRuntime = useCallback(async () => {
     await database.ensureReady();
 
     return {
-      blobStore: symcrypt.blobs.store,
-      databaseId: symcrypt.database.id,
-      executor: symcrypt.database.requireExecSql("Backup / restore"),
-      signingFingerprint: symcrypt.identity.signingFingerprint,
+      blobStore: tearleads.blobs.store,
+      databaseId: tearleads.database.id,
+      executor: tearleads.database.requireExecSql("Backup / restore"),
+      signingFingerprint: tearleads.identity.signingFingerprint,
     };
-  }, [database, symcrypt]);
+  }, [database, tearleads]);
 
   const exportLocalBackup = useCallback(
     async ({

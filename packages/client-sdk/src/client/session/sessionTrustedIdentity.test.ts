@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import { ApiClient } from "@symcrypt/api-client";
-import { KeyingVerificationError } from "@symcrypt/crypto";
-import { createTestExecSql } from "@symcrypt/test-utils";
+import { ApiClient } from "@tearleads/api-client";
+import { KeyingVerificationError } from "@tearleads/crypto";
+import { createTestExecSql } from "@tearleads/test-utils";
 import {
   createSqlClient,
   setGeneratedIdentity,

@@ -4,11 +4,11 @@ import {
   computeContentRecordNonceDomainHash,
   computeDocumentContentRecordCiphertextHash,
   computeDocumentContentRecordMetadataHash,
-} from "@symcrypt/crypto";
-import { base64ToBytes } from "@symcrypt/encoding";
-import { versionVectorsEqual } from "@symcrypt/loro";
-import { isPlainObject as isPlainRecord } from "@symcrypt/validators/isPlainObject";
-import type { DocumentSyncResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import { base64ToBytes } from "@tearleads/encoding";
+import { versionVectorsEqual } from "@tearleads/loro";
+import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
+import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import { contentRecordAdditionalDataBytes } from "./contentRecordAdditionalData";
 import {
   deriveDocumentContentRecordKey,

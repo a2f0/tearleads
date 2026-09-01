@@ -3,8 +3,8 @@ import {
   type AnyVerifiedAccessManifest,
   KeyingVerificationError,
   type VerifiedPrincipalPolicy,
-} from "@symcrypt/crypto";
-import { createTestExecSql } from "@symcrypt/test-utils";
+} from "@tearleads/crypto";
+import { createTestExecSql } from "@tearleads/test-utils";
 import type { ExecSql } from "../sqlite/sqlSchema";
 import { advanceKeyingCheckpointsAtomically } from "./keyingCheckpointAdvancePersistence";
 import {

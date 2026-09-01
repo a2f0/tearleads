@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import type { SymCrypt } from "@symcrypt/client-sdk";
+import type { Tearleads } from "@tearleads/client-sdk";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import {
   cleanupIdentityManagerTestEnvironment,
@@ -20,7 +20,7 @@ test("PIN lock setup waits for a generated local key pair", async () => {
   const originalIndexedDB = globalThis.indexedDB;
   const hadIndexedDB = "indexedDB" in globalThis;
   const originalWebSocket = globalThis.WebSocket;
-  const symcryptRef: { current: SymCrypt | null } = { current: null };
+  const tearleadsRef: { current: Tearleads | null } = { current: null };
 
   try {
     Reflect.set(globalThis, "indexedDB", originalIndexedDB ?? {});
@@ -28,8 +28,8 @@ test("PIN lock setup waits for a generated local key pair", async () => {
     const view = render(
       <IdentityManagerTestRuntime
         hostConfig={BROWSER_KEYRING_HOST_CONFIG}
-        onSymCryptReady={(sdk) => {
-          symcryptRef.current = sdk;
+        onTearleadsReady={(sdk) => {
+          tearleadsRef.current = sdk;
         }}
       >
         <IdentityManager />
@@ -39,7 +39,7 @@ test("PIN lock setup waits for a generated local key pair", async () => {
     fireEvent.click(view.getByRole("button", { name: "PIN Lock" }));
 
     await waitFor(() => {
-      expect(symcryptRef.current).toBeTruthy();
+      expect(tearleadsRef.current).toBeTruthy();
       expect(
         view.getByText("Generate a key pair first to enable PIN locking."),
       ).toBeTruthy();

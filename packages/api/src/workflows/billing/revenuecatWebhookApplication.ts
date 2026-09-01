@@ -1,9 +1,9 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
   organizationBilling,
   organizationBillingStripeSeats,
-} from "@symcrypt/api-shared/schema";
-import type { RevenueCatWebhookEvent } from "@symcrypt/validators/request";
+} from "@tearleads/api-shared/schema";
+import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
 import { reconcileOrganizationBillingSeats } from "./organizationSeats";
 import { isRecognizedNativeRevenueCatStore } from "./revenuecatBuyerPolicy";

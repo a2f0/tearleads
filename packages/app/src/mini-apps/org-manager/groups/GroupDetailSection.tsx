@@ -5,7 +5,7 @@ import type {
   OrganizationGroupMembers,
   OrganizationGroupPolicyHistory,
   OrganizationGroupSummary,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { type MouseEvent, useId, useState } from "react";
 import {
   MiniAppButton,

@@ -1,6 +1,6 @@
 import { expect, setSystemTime, test } from "bun:test";
-import { db, getDefaultApiDatabaseKind } from "@symcrypt/api-shared/postgres";
-import { blobAuditObjects } from "@symcrypt/api-shared/schema";
+import { db, getDefaultApiDatabaseKind } from "@tearleads/api-shared/postgres";
+import { blobAuditObjects } from "@tearleads/api-shared/schema";
 import { eq } from "drizzle-orm";
 import { selectFairBlobWorkCandidates } from "./fairBlobWorkSelection";
 import {

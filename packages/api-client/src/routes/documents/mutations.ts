@@ -13,7 +13,7 @@ import {
   operationRequestPathWithQuery,
   purgeDocumentOperation,
   unlinkDocumentOperation,
-} from "@symcrypt/validators/operation";
+} from "@tearleads/validators/operation";
 
 export interface DocumentPurgeProofOptions {
   readonly documentCheckpointManifestHash?: string;

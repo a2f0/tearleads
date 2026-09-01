@@ -4,7 +4,7 @@ import type {
   BlobStore,
   DocumentAttachment,
   DocumentAttachmentStatus,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 
 export interface DocumentAttachmentSlot {
   label: string;

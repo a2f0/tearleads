@@ -1,4 +1,4 @@
-import { principalStates } from "@symcrypt/api-shared/schema";
+import { principalStates } from "@tearleads/api-shared/schema";
 import { type SQL, sql } from "drizzle-orm";
 
 export function currentPrincipalStateHashSql(input: {

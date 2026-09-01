@@ -4,9 +4,9 @@ import type {
   ContainerDirectGrant,
   ContainerGrantSubjectType,
   VerifiedContainerAccessManifest,
-} from "@symcrypt/crypto";
-import { makeVerifiedContainerAccessManifest } from "@symcrypt/crypto";
-import type { AccessManifestBundleWire } from "@symcrypt/validators/request";
+} from "@tearleads/crypto";
+import { makeVerifiedContainerAccessManifest } from "@tearleads/crypto";
+import type { AccessManifestBundleWire } from "@tearleads/validators/request";
 import {
   accessManifestCheckpoint,
   containerAccessManifestStateRecord,

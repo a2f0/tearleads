@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { LocalKeyring, LocalKeyringSession } from "@symcrypt/client-sdk";
+import type { LocalKeyring, LocalKeyringSession } from "@tearleads/client-sdk";
 import { createSqliteCipherKeyResolver } from "./sqliteCipherKey";
 
 function createStubKeyring(sqliteKey: string): {

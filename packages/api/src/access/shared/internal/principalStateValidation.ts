@@ -8,7 +8,7 @@ import {
   type PrincipalProjectionMember,
   type SignedPrincipalState,
   throwPrincipalPolicyValidationError,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import type {
   PrincipalStateBundleInput,
   StoredPrincipalProjectionMember,

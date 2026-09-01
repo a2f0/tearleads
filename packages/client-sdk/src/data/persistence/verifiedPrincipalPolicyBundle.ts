@@ -6,8 +6,8 @@ import {
   normalizePrincipalProjectionMembers,
   PrincipalMemberEnvelopeValidationError,
   type VerifiedPrincipalPolicy,
-} from "@symcrypt/crypto";
-import type { PrincipalPolicyBundleResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { canonicalKeyingJsonString } from "../keyingCanonicalJson";
 
 function bundleMismatch(message: string): never {

@@ -27,15 +27,15 @@ const { slug } = Astro.params;
 
 <Layout
   title={slug
-    ? `${titleCase(slug)} Screenshot | SymCrypt`
-    : "Screenshots | SymCrypt"}
-  description="Browse SymCrypt screenshots in Windowed, iPhone, and iPad layouts with light and dark themes."
+    ? `${titleCase(slug)} Screenshot | Tearleads`
+    : "Screenshots | Tearleads"}
+  description="Browse Tearleads screenshots in Windowed, iPhone, and iPad layouts with light and dark themes."
 >
   <main class="website-main">
     <section class="section" aria-labelledby="page-title">
       <h1 id="page-title">Screenshots</h1>
       <p class="section-lede">
-        A look at SymCrypt across Windowed, iPhone, and iPad layouts, in light
+        A look at Tearleads across Windowed, iPhone, and iPad layouts, in light
         and dark themes.
       </p>
       <ScreenshotsBrowser client:load initialScreen={slug} />

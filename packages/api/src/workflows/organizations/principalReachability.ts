@@ -1,5 +1,5 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
-import { principalMembershipProjection } from "@symcrypt/api-shared/schema";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import { principalMembershipProjection } from "@tearleads/api-shared/schema";
 import { sql } from "drizzle-orm";
 import { currentPrincipalStateHashSql } from "../principals/currentPrincipalStateSql";
 

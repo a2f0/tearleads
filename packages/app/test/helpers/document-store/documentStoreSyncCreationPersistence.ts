@@ -2,7 +2,7 @@ import type {
   DocumentRecord,
   DocumentsPersistence,
   PendingUpdateRecord,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import type { StoredHistoryState } from "./documentStoreSyncPersistenceState";
 
 export function createMemoryDocumentCreationPersistence(input: {

@@ -1,10 +1,10 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
   containers,
   organizationRosterEntries,
-} from "@symcrypt/api-shared/schema";
-import type { VerifiedDocumentLinkSetManifest } from "@symcrypt/crypto";
-import { deriveOrganizationRosterProfileContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
+} from "@tearleads/api-shared/schema";
+import type { VerifiedDocumentLinkSetManifest } from "@tearleads/crypto";
+import { deriveOrganizationRosterProfileContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { and, eq, inArray } from "drizzle-orm";
 import { DocumentMutationError } from "../documents/mutations/errors";
 import { listValidRosterProfileDocumentIds } from "./rosterProfileDocumentValidity";

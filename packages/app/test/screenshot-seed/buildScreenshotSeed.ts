@@ -1,7 +1,7 @@
 import { resolve } from "node:path";
-import { createMemoryBlobStore } from "@symcrypt/client-sdk";
-import type { ExecSql } from "@symcrypt/client-sdk/sqlite";
-import { createTestExecSql } from "@symcrypt/test-utils";
+import { createMemoryBlobStore } from "@tearleads/client-sdk";
+import type { ExecSql } from "@tearleads/client-sdk/sqlite";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { buildSeedArtifact } from "./buildSeedArtifact";
 import type { SeedSpec } from "./seedTypes";
 
@@ -10,7 +10,7 @@ import type { SeedSpec } from "./seedTypes";
 //
 // Reads fixtures/seed.json + its referenced attachment files, drives the client
 // -sdk write path headlessly into an in-memory chacha20 SQLite + memory blob
-// store, and writes symcrypt-seed.scbackup.json at the repo root — the artifact
+// store, and writes tearleads-seed.tlbackup.json at the repo root — the artifact
 // the Playwright screenshot run restores through the backup-restore mini-app.
 // The artifact is gitignored (its bytes are non-deterministic) and regenerated
 // on demand, so it lives at the root where it is easy to find for a manual
@@ -21,7 +21,7 @@ import type { SeedSpec } from "./seedTypes";
 const REPO_ROOT = resolve(import.meta.dir, "../../../..");
 const FIXTURES_DIR = `${import.meta.dir}/fixtures`;
 const SPEC_PATH = `${FIXTURES_DIR}/seed.json`;
-const ARTIFACT_PATH = resolve(REPO_ROOT, "symcrypt-seed.scbackup.json");
+const ARTIFACT_PATH = resolve(REPO_ROOT, "tearleads-seed.tlbackup.json");
 
 async function main(): Promise<void> {
   const spec = (await Bun.file(SPEC_PATH).json()) as SeedSpec;

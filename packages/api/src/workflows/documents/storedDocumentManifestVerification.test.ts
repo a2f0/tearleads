@@ -3,15 +3,15 @@ import type {
   ContainerGrantPrincipalHead,
   DocumentAccessEventBody,
   VerifiedPrincipalPolicy,
-} from "@symcrypt/crypto";
-import { generateSigningSeedAndKeyPair } from "@symcrypt/crypto";
+} from "@tearleads/crypto";
+import { generateSigningSeedAndKeyPair } from "@tearleads/crypto";
 import {
   createContainerManifestFixture,
   createDocumentLinkSetManifestFixture,
   createPrincipalPolicyFixture,
   createVerifiedDocumentAccessEvent,
   fixtureHash,
-} from "@symcrypt/crypto/test-fixtures";
+} from "@tearleads/crypto/test-fixtures";
 import { verifyStoredDocumentManifestTransition } from "./storedDocumentManifestVerification";
 
 function policyState(

@@ -27,7 +27,7 @@ test("resolves theme tokens to concrete CSS the iframe can use", () => {
     :root {
       --color-light: rgb(10, 20, 30);
       --color-dark: rgb(200, 210, 220);
-      --symcrypt-font-family: monospace;
+      --tearleads-font-family: monospace;
     }
   `);
 

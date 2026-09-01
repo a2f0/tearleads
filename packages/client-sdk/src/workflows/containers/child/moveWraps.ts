@@ -1,11 +1,11 @@
 import type {
   ContainerAccessManifestState,
   VerifiedPrincipalPolicy,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import type {
   ContainerKekResponse,
   ContainerWriterProjectionResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { uniquePrincipalPolicies } from "../../../data/containers/shared/principalPolicies";
 import {
   collectContainerWriterProjectionPrincipalPolicies,

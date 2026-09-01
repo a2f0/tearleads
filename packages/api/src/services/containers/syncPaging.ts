@@ -1,4 +1,4 @@
-import type { SyncWatermark } from "@symcrypt/validators/response";
+import type { SyncWatermark } from "@tearleads/validators/response";
 import { type SQL, sql } from "drizzle-orm";
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";
 

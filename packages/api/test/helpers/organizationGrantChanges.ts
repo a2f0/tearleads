@@ -1,11 +1,11 @@
 import { expect } from "bun:test";
-import { db } from "@symcrypt/api-shared/postgres";
+import { db } from "@tearleads/api-shared/postgres";
 import {
   accessManifestHeads,
   containers,
   organizationReadModelChanges,
-} from "@symcrypt/api-shared/schema";
-import { isOrganizationReadModelResponse } from "@symcrypt/validators/response";
+} from "@tearleads/api-shared/schema";
+import { isOrganizationReadModelResponse } from "@tearleads/validators/response";
 import { and, desc, eq } from "drizzle-orm";
 import invariant from "invariant";
 import { routeApp } from "../../src/routeApp";

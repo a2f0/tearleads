@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { useCryptoSession } from "../providers/crypto/CryptoSessionProvider";
 import { useLog } from "../providers/logging/LogProvider";
-import { useSymCrypt } from "../providers/sdk/SymCryptProvider";
+import { useTearleads } from "../providers/sdk/TearleadsProvider";
 
 /**
  * Human-facing reason for a failed authentication attempt. A lost connection is
@@ -38,7 +38,7 @@ interface AuthenticateAction {
 export function useAuthenticateAction(): AuthenticateAction {
   const { login } = useCryptoSession();
   const { logError } = useLog();
-  const symcrypt = useSymCrypt();
+  const tearleads = useTearleads();
   const [authenticating, setAuthenticating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,20 +51,20 @@ export function useAuthenticateAction(): AuthenticateAction {
         // Read the network store now, not a render-time snapshot, so a source
         // event that arrived during the authentication attempt is reflected.
         setError(
-          describeAuthenticationFailure({ online: symcrypt.network.online }),
+          describeAuthenticationFailure({ online: tearleads.network.online }),
         );
       }
       return authenticated;
     } catch (caught: unknown) {
       logError("Authentication failed", caught);
       setError(
-        describeAuthenticationFailure({ online: symcrypt.network.online }),
+        describeAuthenticationFailure({ online: tearleads.network.online }),
       );
       return false;
     } finally {
       setAuthenticating(false);
     }
-  }, [login, logError, symcrypt]);
+  }, [login, logError, tearleads]);
 
   const clearError = useCallback(() => {
     setError(null);

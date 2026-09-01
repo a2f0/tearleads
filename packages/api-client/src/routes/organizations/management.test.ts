@@ -6,7 +6,7 @@ import {
   listOrganizationGroupMembersOperation,
   updateOrganizationProfileOperation,
   updateOrganizationRosterEntryOperation,
-} from "@symcrypt/validators/operation";
+} from "@tearleads/validators/operation";
 import { createOrganizationGroup } from "./createGroup";
 import { deleteOrganizationGroup } from "./deleteGroup";
 import { listOrganizationGroupMembers } from "./groupMembers";

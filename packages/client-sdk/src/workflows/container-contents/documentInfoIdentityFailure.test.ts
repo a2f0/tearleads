@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import { KeyingVerificationError } from "@symcrypt/crypto";
-import { createTestExecSql } from "@symcrypt/test-utils";
-import type { DocumentWriterProjectionResponse } from "@symcrypt/validators/response";
+import { KeyingVerificationError } from "@tearleads/crypto";
+import { createTestExecSql } from "@tearleads/test-utils";
+import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { loadDocumentInfo } from "./documentInfo";
 

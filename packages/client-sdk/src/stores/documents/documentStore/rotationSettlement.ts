@@ -1,4 +1,4 @@
-import { encodeVersionVector, satisfiesVersionVector } from "@symcrypt/loro";
+import { encodeVersionVector, satisfiesVersionVector } from "@tearleads/loro";
 import type { PendingUpdateRecord } from "../../../workflows/documents";
 import { chainIdentityWrite } from "./identityWriteChain";
 import { listPendingUpdates, persistDocument } from "./persistence";

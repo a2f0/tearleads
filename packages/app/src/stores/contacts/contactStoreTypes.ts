@@ -5,7 +5,7 @@ import type {
   DocumentsRuntime,
   OpenDocumentInput,
   ResolvedUserIdentity,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import type {
   ContactEntry,
   ContactEntryPatch,

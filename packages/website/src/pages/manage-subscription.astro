@@ -4,25 +4,25 @@ import Layout from "../layouts/Layout.astro";
 ---
 
 <Layout
-  title="Manage subscription | SymCrypt"
-  description="Manage or cancel a SymCrypt web subscription through Stripe."
+  title="Manage subscription | Tearleads"
+  description="Manage or cancel a Tearleads web subscription through Stripe."
 >
   <main class="website-main">
     <article class="section" aria-labelledby="page-title">
       <h1 id="page-title">Manage a web subscription</h1>
       <p class="section-lede">
         Enter the billing email you used at checkout. Stripe will email you a
-        secure login link, even if you no longer have your SymCrypt keys.
+        secure login link, even if you no longer have your Tearleads keys.
       </p>
       <p>
         You can cancel at the end of the current billing period. You can
-        subscribe again later with a new SymCrypt identity.
+        subscribe again later with a new Tearleads identity.
       </p>
       {
         stripeCustomerPortalUrl ? (
           <p>
             <a
-              class="symcrypt-action-button"
+              class="tearleads-action-button"
               href={stripeCustomerPortalUrl}
               rel="noreferrer"
             >

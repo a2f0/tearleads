@@ -1,4 +1,4 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
   accessManifestContainerGrantProjection,
   accessManifestDocumentLinkProjection,
@@ -8,9 +8,9 @@ import {
   documents,
   organizationRosterEntries,
   users,
-} from "@symcrypt/api-shared/schema";
-import { deriveOrganizationRosterProfileContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
-import type { OrganizationDirectoryUserResponse } from "@symcrypt/validators/response";
+} from "@tearleads/api-shared/schema";
+import { deriveOrganizationRosterProfileContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import type { OrganizationDirectoryUserResponse } from "@tearleads/validators/response";
 import { and, eq, inArray, isNull, ne } from "drizzle-orm";
 import { uniqueSortedStrings } from "../../utils/array";
 import { OrganizationManagerError } from "./errors";

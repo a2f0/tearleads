@@ -18,7 +18,7 @@ provider "aws" {
 
   default_tags {
     tags = {
-      Project   = "symcrypt"
+      Project   = "tearleads"
       ManagedBy = "terraform"
       Stack     = "bootstrap"
     }

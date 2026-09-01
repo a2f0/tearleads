@@ -1,5 +1,5 @@
-import type { OrganizationDirectory } from "@symcrypt/client-sdk";
-import type { PrincipalPolicyBundleResponse } from "@symcrypt/validators/response";
+import type { OrganizationDirectory } from "@tearleads/client-sdk";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import type { Dispatch, SetStateAction } from "react";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import { ORG_MANAGER_LABELS } from "../labels";

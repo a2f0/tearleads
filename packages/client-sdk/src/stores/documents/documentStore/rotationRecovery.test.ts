@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { base64ToBytes } from "@symcrypt/encoding";
+import { base64ToBytes } from "@tearleads/encoding";
 import {
   createDocument,
   encodeVersionVector,
@@ -7,9 +7,9 @@ import {
   getTextValue,
   importSnapshot,
   importUpdates,
-} from "@symcrypt/loro";
-import { createTestExecSql } from "@symcrypt/test-utils";
-import type { DocumentSyncResponse } from "@symcrypt/validators/response";
+} from "@tearleads/loro";
+import { createTestExecSql } from "@tearleads/test-utils";
+import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { hasRecordedTerminalSyncFailures } from "../../../data/sqlite/documentPersistence";
 import type { DocumentsRuntime } from "../types";

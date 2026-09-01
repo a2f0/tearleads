@@ -1,8 +1,8 @@
 import type {
   VerifiedContainerAccessManifest,
   VerifiedPrincipalPolicy,
-} from "@symcrypt/crypto";
-import type { DocumentWriterProjectionResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import {
   assertDocumentWriterProjectionConsistent,
   readLinkedContainerIdsFromDocumentManifest,

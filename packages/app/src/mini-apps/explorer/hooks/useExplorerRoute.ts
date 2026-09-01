@@ -1,4 +1,4 @@
-import type { ContainerNode } from "@symcrypt/client-sdk";
+import type { ContainerNode } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMiniAppRouteSegments } from "../../../navigation/AppNavigationProvider";
 import { isIgnorableDatabaseWorkerError } from "../../../stores/explorer/documentRuntime";

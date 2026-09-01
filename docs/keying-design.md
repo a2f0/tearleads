@@ -388,7 +388,7 @@ shape). The keyring is derived, rebuildable state; the bridge log is ground
 truth.
 
 Container KEK epochs use ids of the form
-`symcrypt.container-kek.v1.sha256:<hash>`, where the hash commits to the
+`tearleads.container-kek.v1.sha256:<hash>`, where the hash commits to the
 container id, numeric KEK epoch, and plaintext 32-byte KEK material. The signed
 container manifest commits to this id through `containerKeyEpochId`, so clients
 that can unwrap the KEK reject a projection if the decrypted material does not
@@ -686,15 +686,15 @@ Content-key and KEK wraps do not use the content-record HKDF suite. The wrap
 suite identifiers are:
 
 - document content-key to container KEK:
-  `symcrypt.document.content-key-wrap.aes-256-gcm-container-kek`
+  `tearleads.document.content-key-wrap.aes-256-gcm-container-kek`
 - blob content-key to container KEK:
-  `symcrypt.blob.content-key-wrap.aes-256-gcm-container-kek`
+  `tearleads.blob.content-key-wrap.aes-256-gcm-container-kek`
 - container KEK to user or managed-principal key:
-  `symcrypt.container-kek-wrap.ml-kem-1024-aes-256-gcm`
+  `tearleads.container-kek-wrap.ml-kem-1024-aes-256-gcm`
 - container KEK to parent-container KEK:
-  `symcrypt.container-kek-wrap.aes-256-gcm-parent-kek`
+  `tearleads.container-kek-wrap.aes-256-gcm-parent-kek`
 - successor container KEK to predecessor container KEK:
-  `symcrypt.container-kek-wrap.aes-256-gcm-predecessor-kek`
+  `tearleads.container-kek-wrap.aes-256-gcm-predecessor-kek`
 
 Document and blob content-key target envelopes carry `wrappingMetadata.suite`
 and an AES-GCM IV. Container KEK wraps are an existing wire format without a

@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
-import { bytesToBase64 } from "@symcrypt/encoding";
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
   encodeVersionVector,
   exportFullHistorySnapshot,
   exportUpdatesSince,
-} from "@symcrypt/loro";
-import { createTestExecSql } from "@symcrypt/test-utils";
+} from "@tearleads/loro";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { createPendingUpdateFields } from "../../data/documents/documentSync";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import {

@@ -1,7 +1,7 @@
 import type {
   OrganizationBillingView,
   PendingWriteQueueItem,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 
 // The states the footer sync indicator can be in. `billing` outranks
 // everything else: when the org cannot sync because billing lapsed, that is the

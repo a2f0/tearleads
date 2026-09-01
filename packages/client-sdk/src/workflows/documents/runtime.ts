@@ -1,4 +1,4 @@
-import type { ApiClient } from "@symcrypt/api-client";
+import type { ApiClient } from "@tearleads/api-client";
 import {
   type DocumentProjectorRegistryInput,
   resolveDocumentProjectorRegistry,

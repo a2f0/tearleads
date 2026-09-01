@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   getPrincipalPolicyOperation,
   putPrincipalPolicyOperation,
-} from "@symcrypt/validators/operation";
+} from "@tearleads/validators/operation";
 import { getPrincipalPolicy, putPrincipalPolicy } from "./policy";
 
 const principalId = "11111111-1111-4111-8111-111111111111";

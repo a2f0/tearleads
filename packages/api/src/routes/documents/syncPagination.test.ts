@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
-import { createTestUser } from "@symcrypt/bob-and-alice";
-import type { DocumentSyncRequest } from "@symcrypt/validators/request";
-import type { DocumentSyncResponse } from "@symcrypt/validators/response";
+import { createTestUser } from "@tearleads/bob-and-alice";
+import type { DocumentSyncRequest } from "@tearleads/validators/request";
+import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import {
   MAX_DOCUMENT_SYNC_OUTGOING_UPDATES,
   MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES,
-} from "@symcrypt/validators/util";
+} from "@tearleads/validators/util";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { createSignedDocumentSyncRequest } from "../../../test/helpers/documentUpdateRequests";
 import {

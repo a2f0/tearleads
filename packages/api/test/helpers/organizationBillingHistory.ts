@@ -1,12 +1,12 @@
-import { db } from "@symcrypt/api-shared/postgres";
+import { db } from "@tearleads/api-shared/postgres";
 import {
   organizationBillingInvoiceEvents,
   organizationBillingLifecycleEvents,
   organizationBillingSeatEvents,
   revenuecatWebhookEvents,
   users,
-} from "@symcrypt/api-shared/schema";
-import type { TestUser } from "@symcrypt/bob-and-alice";
+} from "@tearleads/api-shared/schema";
+import type { TestUser } from "@tearleads/bob-and-alice";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "./authenticate";

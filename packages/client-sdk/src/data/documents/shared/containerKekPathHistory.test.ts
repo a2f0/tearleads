@@ -5,13 +5,13 @@ import {
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
   encryptWithDek,
   sealContainerKekKeyring,
-} from "@symcrypt/crypto";
-import { bytesToBase64 } from "@symcrypt/encoding";
+} from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import type {
   ContainerWriterProjectionResponse,
   DocumentContentKeyBundleResponse,
   DocumentWriterProjectionResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { fixtureHash } from "../../../../test/helpers/documentFixtures";
 import {
   type KeyringRotationFixture,

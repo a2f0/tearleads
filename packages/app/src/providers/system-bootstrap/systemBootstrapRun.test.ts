@@ -2,11 +2,11 @@ import { expect, test } from "bun:test";
 import type {
   ContainerContentsStore,
   ContainerNode,
-  SymCrypt,
-} from "@symcrypt/client-sdk";
-import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
+  Tearleads,
+} from "@tearleads/client-sdk";
+import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { UserSystemContainer } from "../../stores/systemContainers";
-import type { RuntimeSnapshot } from "../sdk/SymCryptProvider";
+import type { RuntimeSnapshot } from "../sdk/TearleadsProvider";
 import {
   createSystemBootstrapTargetKey,
   runSystemBootstrap,
@@ -98,7 +98,7 @@ test("system bootstrap skips Contacts when contact bootstrap is disabled", async
       containerContentsStore: storeWithEnsureCounter({ calls }),
       systemContainers: [contactsSystemContainer, trashSystemContainer],
       targetKey: "target",
-      symcrypt: {} as SymCrypt,
+      tearleads: {} as Tearleads,
     }),
   ).resolves.toBe(true);
   expect(calls).toEqual([]);
@@ -114,7 +114,7 @@ test("system bootstrap still attempts Contacts when contact bootstrap is enabled
       containerContentsStore: storeWithEnsureCounter({ calls }),
       systemContainers: [contactsSystemContainer, trashSystemContainer],
       targetKey: "target",
-      symcrypt: {} as SymCrypt,
+      tearleads: {} as Tearleads,
     }),
   ).resolves.toBe(false);
   expect(calls).toEqual([CONTACTS_SLOT]);

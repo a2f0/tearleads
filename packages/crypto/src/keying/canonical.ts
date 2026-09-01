@@ -1,4 +1,4 @@
-import { isPlainObject } from "@symcrypt/validators/isPlainObject";
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { toFingerprint } from "../fingerprint";
 import { compareCanonicalStrings, throwVerification } from "./shared";
 import type {
@@ -10,7 +10,7 @@ import type {
 
 const TEXT_ENCODER = new TextEncoder();
 const DOCUMENT_PLAINTEXT_HASH_DOMAIN =
-  "symcrypt.document.content-record-plaintext";
+  "tearleads.document.content-record-plaintext";
 
 export function normalizeCanonicalJsonValue(
   value: KeyingCanonicalJson,
@@ -162,7 +162,7 @@ export async function computeDocumentContentRecordMetadataHash(
   input: DocumentContentRecordMetadataInput,
 ): Promise<string> {
   return computeKeyingDomainHash(
-    "symcrypt.document.content-record-metadata",
+    "tearleads.document.content-record-metadata",
     documentContentRecordMetadata(input),
   );
 }
@@ -171,7 +171,7 @@ export async function computeDocumentContentRecordCiphertextHash(
   encryptedData: string,
 ): Promise<string> {
   return computeKeyingDomainHash(
-    "symcrypt.document.content-record-ciphertext",
+    "tearleads.document.content-record-ciphertext",
     encryptedData,
   );
 }

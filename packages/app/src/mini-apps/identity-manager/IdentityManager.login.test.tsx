@@ -1,9 +1,9 @@
 import { afterEach, expect, test } from "bun:test";
-import type { SymCrypt } from "@symcrypt/client-sdk";
+import type { Tearleads } from "@tearleads/client-sdk";
 import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import {
   cleanupIdentityManagerTestEnvironment,
@@ -20,15 +20,15 @@ afterEach(cleanupIdentityManagerTestEnvironment);
 
 test("local-only identity can log in without a persisted user id", async () => {
   const originalWebSocket = globalThis.WebSocket;
-  const symcryptRef: { current: SymCrypt | null } = { current: null };
+  const tearleadsRef: { current: Tearleads | null } = { current: null };
 
   try {
     Reflect.set(globalThis, "WebSocket", TestWebSocket);
     const view = render(
       <IdentityManagerTestRuntime
         hostConfig={TEST_HOST_CONFIG}
-        onSymCryptReady={(sdk) => {
-          symcryptRef.current = sdk;
+        onTearleadsReady={(sdk) => {
+          tearleadsRef.current = sdk;
         }}
       >
         <IdentityManager />
@@ -38,22 +38,22 @@ test("local-only identity can log in without a persisted user id", async () => {
     fireEvent.click(view.getByRole("button", { name: "General" }));
 
     await waitFor(() => {
-      expect(symcryptRef.current).toBeTruthy();
+      expect(tearleadsRef.current).toBeTruthy();
     });
-    const symcrypt = symcryptRef.current;
-    if (!symcrypt) {
-      throw new Error("Expected SymCrypt SDK to be available after render.");
+    const tearleads = tearleadsRef.current;
+    if (!tearleads) {
+      throw new Error("Expected Tearleads SDK to be available after render.");
     }
 
     await act(async () => {
-      await symcrypt.identity.setKeyPairs({
+      await tearleads.identity.setKeyPairs({
         encapsulationKeyPair: generateKemSeedAndKeyPair(),
         signingKeyPair: generateSigningSeedAndKeyPair(),
       });
     });
 
-    expect(symcrypt.session.userId).toBeNull();
-    expect(symcrypt.session.isAuthenticated).toBe(false);
+    expect(tearleads.session.userId).toBeNull();
+    expect(tearleads.session.isAuthenticated).toBe(false);
     expect(await view.findByRole("button", { name: "Login" })).toBeTruthy();
   } finally {
     Reflect.set(globalThis, "WebSocket", originalWebSocket);
@@ -62,15 +62,15 @@ test("local-only identity can log in without a persisted user id", async () => {
 
 test("logged-out active sessions gate and perform login", async () => {
   const originalWebSocket = globalThis.WebSocket;
-  const symcryptRef: { current: SymCrypt | null } = { current: null };
+  const tearleadsRef: { current: Tearleads | null } = { current: null };
 
   try {
     Reflect.set(globalThis, "WebSocket", TestWebSocket);
     const view = render(
       <IdentityManagerTestRuntime
         hostConfig={TEST_HOST_CONFIG}
-        onSymCryptReady={(sdk) => {
-          symcryptRef.current = sdk;
+        onTearleadsReady={(sdk) => {
+          tearleadsRef.current = sdk;
         }}
       >
         <IdentityManager />
@@ -80,23 +80,23 @@ test("logged-out active sessions gate and perform login", async () => {
     fireEvent.click(view.getByRole("button", { name: "Active Sessions" }));
 
     await waitFor(() => {
-      expect(symcryptRef.current).toBeTruthy();
+      expect(tearleadsRef.current).toBeTruthy();
     });
-    const symcrypt = symcryptRef.current;
-    if (!symcrypt) {
-      throw new Error("Expected SymCrypt SDK to be available after render.");
+    const tearleads = tearleadsRef.current;
+    if (!tearleads) {
+      throw new Error("Expected Tearleads SDK to be available after render.");
     }
 
     expect(view.queryByRole("button", { name: "Login" })).toBeNull();
 
     await act(async () => {
-      await symcrypt.identity.setKeyPairs({
+      await tearleads.identity.setKeyPairs({
         encapsulationKeyPair: generateKemSeedAndKeyPair(),
         signingKeyPair: generateSigningSeedAndKeyPair(),
       });
     });
 
-    expect(symcrypt.session.isAuthenticated).toBe(false);
+    expect(tearleads.session.isAuthenticated).toBe(false);
     expect(
       view.getByText("Log in to view and manage active sessions."),
     ).toBeTruthy();

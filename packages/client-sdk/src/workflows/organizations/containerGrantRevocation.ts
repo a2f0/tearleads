@@ -1,5 +1,5 @@
-import type { ContainerDirectGrant } from "@symcrypt/crypto";
-import type { ContainerMutationResponse } from "@symcrypt/validators/response";
+import type { ContainerDirectGrant } from "@tearleads/crypto";
+import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import type { ReferencedPrincipalPolicyWarmer } from "../../data/keyingProjectionVerification";
 import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification/userKeyResolver";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";

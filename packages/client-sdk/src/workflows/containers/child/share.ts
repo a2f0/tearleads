@@ -2,12 +2,12 @@ import type {
   ContainerAccessLevel,
   SigningKeyPair,
   VerifiedPrincipalPolicy,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import type {
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
   PrincipalPolicyBundleResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { acknowledgeContainerMutation } from "../../../data/containers/shared/mutationAcknowledgement";
 import type {
   ContainerMutationAuthor,

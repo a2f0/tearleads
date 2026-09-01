@@ -2,7 +2,7 @@ import {
   blobWireHeaderNames,
   getBlobBytesOperation,
   operationRoutePath,
-} from "@symcrypt/validators/operation";
+} from "@tearleads/validators/operation";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";

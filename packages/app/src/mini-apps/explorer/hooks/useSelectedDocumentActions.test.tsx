@@ -4,8 +4,8 @@ import type {
   ContainerNode,
   DocumentSummary,
   MoveDocumentToContainerInput,
-} from "@symcrypt/client-sdk";
-import { syncedContainerDocumentObjectSyncState } from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
+import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import { cleanup, renderHook } from "@testing-library/react";
 import { createExplorerContainerRulesContext } from "../model/containerRules";
 import { useSelectedDocumentActions } from "./useSelectedDocumentActions";

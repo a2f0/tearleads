@@ -1,7 +1,7 @@
 import type {
   UpdateOrganizationProfileRequest,
   UpdateOrganizationRosterEntryRequest,
-} from "@symcrypt/validators/request";
+} from "@tearleads/validators/request";
 import type {
   OrganizationContainerGrantResponse,
   OrganizationContainerGrantsResponse,
@@ -14,7 +14,7 @@ import type {
   OrganizationGroupSummaryResponse,
   OrganizationProfileResponse,
   OrganizationUserDetailResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import type { OrganizationGroupPolicyHistory } from "./policyHistoryReadModel";
 
 export type {

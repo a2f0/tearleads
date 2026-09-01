@@ -3,7 +3,7 @@ import type {
   OrganizationDirectory,
   OrganizationDirectoryUser,
   OrganizationUserDetail,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import type { ContextType, PropsWithChildren } from "react";
 import {

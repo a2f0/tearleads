@@ -1,4 +1,4 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
   type OrganizationBillingSeatEventSourceType,
   type OrganizationBillingSeatEventType,
@@ -8,7 +8,7 @@ import {
   organizationBillingSeatEvents,
   organizationBillingStripeSeats,
   organizations,
-} from "@symcrypt/api-shared/schema";
+} from "@tearleads/api-shared/schema";
 import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import {
   organizationCanSync,

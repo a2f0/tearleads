@@ -1,7 +1,7 @@
 import type {
   OrganizationGroupMemberResponse,
   OrganizationReadModelGroupMembershipsResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { and, eq, inArray } from "drizzle-orm";
 import {
   organizationReadModelGroupMembers,

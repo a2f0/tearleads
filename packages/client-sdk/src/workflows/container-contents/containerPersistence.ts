@@ -1,4 +1,4 @@
-import type { SyncWatermark } from "@symcrypt/validators/response";
+import type { SyncWatermark } from "@tearleads/validators/response";
 import { createPendingUpdateFields } from "../../data/documents/documentSync";
 import type { ContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import {

@@ -2,8 +2,8 @@ import { expect, test } from "bun:test";
 import {
   computeDocumentContentKeyTargetHash,
   KeyingVerificationError,
-} from "@symcrypt/crypto";
-import type { DocumentContentKeyBundleResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import type { DocumentContentKeyBundleResponse } from "@tearleads/validators/response";
 import {
   ContainerKekHistoryUnavailableError,
   DocumentHistoryUnavailableError,

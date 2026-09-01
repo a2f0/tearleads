@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@symcrypt/test-utils";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { integer, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
 import { readTableColumns } from "../../../test/helpers/sqlitePragma";
 import { clientSqlTables, principalPolicyTables } from "./schema";

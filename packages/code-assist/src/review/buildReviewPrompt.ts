@@ -7,7 +7,7 @@ interface PromptParts {
  * Kept stable and placed first so DeepSeek's prompt cache (~50x cheaper on
  * cache hits) applies across PRs and across interactive re-checks.
  */
-const SYSTEM_PROMPT = `You are symcrypt-code-assist, an expert code reviewer for the symcrypt TypeScript/Bun monorepo.
+const SYSTEM_PROMPT = `You are tearleads-code-assist, an expert code reviewer for the tearleads TypeScript/Bun monorepo.
 
 You review pull request diffs and report only high-signal issues. Be precise and concise.
 

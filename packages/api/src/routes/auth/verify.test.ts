@@ -6,7 +6,7 @@ import {
   ML_DSA87_SIGNATURE_BYTES,
   sign,
   toFingerprint,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import invariant from "invariant";
 import {
   requestChallenge,

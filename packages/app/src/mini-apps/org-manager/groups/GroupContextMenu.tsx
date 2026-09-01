@@ -1,6 +1,6 @@
 import { TrashIcon } from "@phosphor-icons/react/dist/csr/Trash";
 import { UsersThreeIcon } from "@phosphor-icons/react/dist/csr/UsersThree";
-import type { OrganizationGroupSummary } from "@symcrypt/client-sdk";
+import type { OrganizationGroupSummary } from "@tearleads/client-sdk";
 import { Menu, type MenuPosition } from "../../../components/shared/Menu";
 import { MenuItem } from "../../../components/shared/MenuItem";
 import { ORG_MANAGER_LABELS } from "../labels";

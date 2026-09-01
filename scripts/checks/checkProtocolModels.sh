@@ -15,7 +15,7 @@ cd "$REPO_ROOT"
 
 [ -f "$REGISTRY_PATH" ] || fail "$REGISTRY_PATH does not exist."
 
-CHECK_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/symcrypt-tlc.XXXXXX")
+CHECK_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/tearleads-tlc.XXXXXX")
 trap 'rm -rf "$CHECK_ROOT"' EXIT
 trap 'exit 1' HUP INT TERM
 

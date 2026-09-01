@@ -1,8 +1,8 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
   type OrganizationBillingProvider,
   organizationBilling,
-} from "@symcrypt/api-shared/schema";
+} from "@tearleads/api-shared/schema";
 import { eq } from "drizzle-orm";
 import {
   LAPSED_BILLING_PURGE_GRACE_MS,

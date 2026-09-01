@@ -3,7 +3,7 @@
 // demand or from a scheduler (systemd timer / cron); nothing schedules it in the
 // app process. Usage: API_DATABASE=postgres bun packages/api/scripts/blobGc.ts
 //   [--grace-ms <n>] [--limit <n>]
-import { closeApiDatabase } from "@symcrypt/api-shared/postgres";
+import { closeApiDatabase } from "@tearleads/api-shared/postgres";
 import { runBlobMaintenance } from "../src/services/blobs/blobMaintenance";
 import { getDefaultApiServiceRuntime } from "../src/services/runtime";
 

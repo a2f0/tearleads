@@ -6,7 +6,7 @@ import {
   operationRoutePath,
   userIdentityOperation,
   webSocketTicketOperation,
-} from "@symcrypt/validators/operation";
+} from "@tearleads/validators/operation";
 import type { MiddlewareHandler } from "hono";
 import type { SessionEnv } from "../../middleware/session";
 import type { ApiServiceRuntime } from "../../services/runtime";

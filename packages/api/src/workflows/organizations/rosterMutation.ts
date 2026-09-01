@@ -1,7 +1,7 @@
-import type { ApiDatabase } from "@symcrypt/api-shared/postgres";
-import { organizationRosterEntries } from "@symcrypt/api-shared/schema";
-import type { UpdateOrganizationRosterEntryRequest } from "@symcrypt/validators/request";
-import type { OrganizationDirectoryUserResponse } from "@symcrypt/validators/response";
+import type { ApiDatabase } from "@tearleads/api-shared/postgres";
+import { organizationRosterEntries } from "@tearleads/api-shared/schema";
+import type { UpdateOrganizationRosterEntryRequest } from "@tearleads/validators/request";
+import type { OrganizationDirectoryUserResponse } from "@tearleads/validators/response";
 import { and, eq, isNotNull, isNull, ne, or } from "drizzle-orm";
 import { assertOrganizationCanSync } from "../billing/organizationSyncEligibility";
 import { OrganizationManagerError } from "./errors";

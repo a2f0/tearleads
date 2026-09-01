@@ -1,4 +1,4 @@
-import { satisfiesVersionVector } from "@symcrypt/loro";
+import { satisfiesVersionVector } from "@tearleads/loro";
 
 /**
  * The safety gate for omitting an encrypted document update from sync.

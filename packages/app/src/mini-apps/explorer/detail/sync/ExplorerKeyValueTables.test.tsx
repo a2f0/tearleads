@@ -2,7 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import type {
   DomainSyncSnapshot,
   PendingWriteQueueItem,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { ExplorerSyncLaneDetail } from "./ExplorerSyncLaneDetail";
 import { ExplorerWriteQueueEntryDetail } from "./ExplorerWriteQueueEntryDetail";

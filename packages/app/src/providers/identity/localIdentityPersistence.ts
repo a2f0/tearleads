@@ -1,4 +1,4 @@
-import type { LocalKeyring, SymCrypt } from "@symcrypt/client-sdk";
+import type { LocalKeyring, Tearleads } from "@tearleads/client-sdk";
 import {
   type MutableRefObject,
   useCallback,
@@ -17,7 +17,7 @@ import {
 } from "./localIdentityRegistry";
 
 const LOCAL_IDENTITY_REGISTRY_STORAGE_PREFIX =
-  "symcrypt.local-identity-registry:";
+  "tearleads.local-identity-registry:";
 
 function localIdentityRegistryStorageKey(namespace: string): string {
   return `${LOCAL_IDENTITY_REGISTRY_STORAGE_PREFIX}${namespace}`;
@@ -65,7 +65,7 @@ async function restorePersistedLocalIdentity(input: {
     identities: readonly LocalIdentitySummary[],
   ) => void;
   readonly onRestored: (signingFingerprint: string | null) => void;
-  readonly symcrypt: SymCrypt;
+  readonly tearleads: Tearleads;
 }): Promise<void> {
   const observedGenerationId = input.generationIdRef.current;
   const stored = await input.localPersistence.load();
@@ -73,7 +73,7 @@ async function restorePersistedLocalIdentity(input: {
     return;
   }
   input.onIdentitiesChanged(stored.identities);
-  if (!stored.activeKeyPackage || input.symcrypt.identity.signingKeyPair) {
+  if (!stored.activeKeyPackage || input.tearleads.identity.signingKeyPair) {
     return;
   }
   if (input.generationIdRef.current !== observedGenerationId) {
@@ -84,8 +84,8 @@ async function restorePersistedLocalIdentity(input: {
   input.generationIdRef.current = generationId;
   input.generationInFlight.current = true;
   try {
-    prepareForIdentityTransition(input.symcrypt);
-    const snapshot = await input.symcrypt.identity.importKeyPackage(
+    prepareForIdentityTransition(input.tearleads);
+    const snapshot = await input.tearleads.identity.importKeyPackage(
       stored.activeKeyPackage,
     );
     if (input.isCancelled() || input.generationIdRef.current !== generationId) {
@@ -97,7 +97,7 @@ async function restorePersistedLocalIdentity(input: {
       );
     }
     input.onRestored(snapshot.signingFingerprint);
-    input.symcrypt.log("Local identity key package restored");
+    input.tearleads.log("Local identity key package restored");
   } finally {
     if (input.generationIdRef.current === generationId) {
       input.generationInFlight.current = false;
@@ -114,7 +114,7 @@ function useRestoreLocalIdentity(input: {
   ) => void;
   readonly onRestored: (signingFingerprint: string | null) => void;
   readonly onSettled: (settledSource: LocalIdentityRepository | null) => void;
-  readonly symcrypt: SymCrypt;
+  readonly tearleads: Tearleads;
 }): void {
   const {
     generationIdRef,
@@ -123,7 +123,7 @@ function useRestoreLocalIdentity(input: {
     onIdentitiesChanged,
     onRestored,
     onSettled,
-    symcrypt,
+    tearleads,
   } = input;
   const attemptedSourceRef = useRef<LocalIdentityRepository | null | undefined>(
     undefined,
@@ -149,10 +149,10 @@ function useRestoreLocalIdentity(input: {
       localPersistence,
       onIdentitiesChanged,
       onRestored,
-      symcrypt,
+      tearleads,
     })
       .catch((error: unknown) => {
-        symcrypt.logError("Failed to restore local identity registry", error);
+        tearleads.logError("Failed to restore local identity registry", error);
       })
       .finally(() => {
         if (!cancelled) {
@@ -174,7 +174,7 @@ function useRestoreLocalIdentity(input: {
     onIdentitiesChanged,
     onRestored,
     onSettled,
-    symcrypt,
+    tearleads,
   ]);
 }
 
@@ -183,7 +183,7 @@ export function useLocalIdentityRestore(input: {
   readonly generationIdRef: MutableRefObject<number>;
   readonly generationInFlight: MutableRefObject<boolean>;
   readonly localPersistence: LocalIdentityRepository | null;
-  readonly symcrypt: SymCrypt;
+  readonly tearleads: Tearleads;
 }): {
   readonly identities: readonly LocalIdentitySummary[];
   readonly restoredFingerprint: string | null;
@@ -220,13 +220,13 @@ async function persistLocalIdentityKeyPackage(input: {
     identities: readonly LocalIdentitySummary[],
   ) => void;
   readonly shouldPersist?: (() => boolean) | undefined;
-  readonly symcrypt: SymCrypt;
+  readonly tearleads: Tearleads;
 }): Promise<void> {
   if (!input.localPersistence || input.shouldPersist?.() === false) {
     return;
   }
 
-  const keyPackage = await input.symcrypt.identity.exportKeyPackage();
+  const keyPackage = await input.tearleads.identity.exportKeyPackage();
   if (input.shouldPersist?.() === false) {
     return;
   }
@@ -235,13 +235,13 @@ async function persistLocalIdentityKeyPackage(input: {
     return;
   }
   input.onIdentitiesChanged(identities);
-  input.symcrypt.log("Local identity key package persisted");
+  input.tearleads.log("Local identity key package persisted");
 }
 
 export function usePersistLocalIdentity(
   localPersistence: LocalIdentityRepository | null,
   onIdentitiesChanged: (identities: readonly LocalIdentitySummary[]) => void,
-  symcrypt: SymCrypt,
+  tearleads: Tearleads,
 ): (shouldPersist?: () => boolean) => Promise<void> {
   return useCallback(
     (shouldPersist?: () => boolean) =>
@@ -249,9 +249,9 @@ export function usePersistLocalIdentity(
         localPersistence,
         onIdentitiesChanged,
         shouldPersist,
-        symcrypt,
+        tearleads,
       }),
-    [localPersistence, onIdentitiesChanged, symcrypt],
+    [localPersistence, onIdentitiesChanged, tearleads],
   );
 }
 
@@ -266,7 +266,7 @@ export function useDestroyKey(input: {
   readonly onIdentityRemoved?:
     | ((signingFingerprint: string) => void)
     | undefined;
-  readonly symcrypt: SymCrypt;
+  readonly tearleads: Tearleads;
 }): {
   readonly destroyKey: () => void;
   readonly identityDestroyed: boolean;
@@ -278,7 +278,7 @@ export function useDestroyKey(input: {
     localPersistence,
     onIdentitiesChanged,
     onIdentityRemoved,
-    symcrypt,
+    tearleads,
   } = input;
   const [identityDestroyed, setIdentityDestroyed] = useState(false);
 
@@ -286,11 +286,11 @@ export function useDestroyKey(input: {
     if (generationInFlight.current) {
       return;
     }
-    const signingFingerprint = symcrypt.identity.signingFingerprint;
+    const signingFingerprint = tearleads.identity.signingFingerprint;
     generationIdRef.current += 1;
     setIdentityDestroyed(true);
-    prepareForIdentityTransition(symcrypt);
-    symcrypt.identity.destroy();
+    prepareForIdentityTransition(tearleads);
+    tearleads.identity.destroy();
     clearDatabase();
 
     if (!signingFingerprint) {
@@ -301,7 +301,10 @@ export function useDestroyKey(input: {
       ?.remove(signingFingerprint)
       .then(onIdentitiesChanged)
       .catch((error: unknown) => {
-        symcrypt.logError("Failed to delete local identity key package", error);
+        tearleads.logError(
+          "Failed to delete local identity key package",
+          error,
+        );
       });
   }, [
     clearDatabase,
@@ -310,7 +313,7 @@ export function useDestroyKey(input: {
     localPersistence,
     onIdentitiesChanged,
     onIdentityRemoved,
-    symcrypt,
+    tearleads,
   ]);
 
   return { destroyKey, identityDestroyed };

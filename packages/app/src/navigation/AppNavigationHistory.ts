@@ -13,7 +13,7 @@ export const DEFAULT_APP_NAVIGATION_HISTORY_CURSOR = {
   index: 0,
 } satisfies AppNavigationHistoryCursor;
 
-const APP_NAVIGATION_HISTORY_STATE_KEY = "__symcryptAppNavigation";
+const APP_NAVIGATION_HISTORY_STATE_KEY = "__tearleadsAppNavigation";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);

@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { createSQLiteRuntime } from "@symcrypt/client-sdk/sqlite";
+import { createSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
 import {
   cleanup,
   fireEvent,

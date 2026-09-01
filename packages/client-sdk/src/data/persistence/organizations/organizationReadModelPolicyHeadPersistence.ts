@@ -2,7 +2,7 @@ import type {
   ListOrganizationGroupsResponse,
   OrganizationGroupCurrentStateResponse,
   OrganizationReadModelOrganizationPolicyResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
 import { organizationReadModelPolicyHeads } from "../../sqlite/organizationReadModelSchema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";

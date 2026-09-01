@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">SymCrypt</string>
-    <string name="title_activity_main">SymCrypt</string>
-    <string name="package_name">com.symcrypt.app</string>
-    <string name="custom_url_scheme">com.symcrypt.app</string>
+    <string name="app_name">Tearleads</string>
+    <string name="title_activity_main">Tearleads</string>
+    <string name="package_name">com.tearleads.app</string>
+    <string name="custom_url_scheme">com.tearleads.app</string>
 </resources>

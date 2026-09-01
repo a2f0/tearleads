@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { quietLogger } from "../../test/helpers/clientTestSupport";
 import { createBrowserNetworkStatusSource, Network } from "./network";
-import { SymCrypt } from "./SymCrypt";
+import { Tearleads } from "./Tearleads";
 
 describe("Network reachability", () => {
   test("reportReachability drives connectivity when no authoritative source governs it", () => {
@@ -64,7 +64,7 @@ describe("Network reachability", () => {
     try {
       // An unbound/headless SDK has no independent connectivity source, so the
       // thrown fetch remains a useful offline hint.
-      const headlessSdk = new SymCrypt({
+      const headlessSdk = new Tearleads({
         apiBaseUrl: "https://api.example.test",
         logger: quietLogger,
         online: true,
@@ -74,7 +74,7 @@ describe("Network reachability", () => {
 
       // Native shell: an authoritative OS source is bound, so the same thrown
       // fetch reports the backend unreachable without stranding it offline.
-      const nativeSdk = new SymCrypt({
+      const nativeSdk = new Tearleads({
         apiBaseUrl: "https://api.example.test",
         logger: quietLogger,
         online: true,

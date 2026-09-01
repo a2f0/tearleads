@@ -3,7 +3,7 @@ import {
   KeyingVerificationError,
   principalPolicyMatchesReference,
   type VerifiedContainerAccessManifest,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import type { ProjectionCheckpointContext } from "./checkpointContext";
 import { collectReferencedPrincipalPolicies } from "./principalPolicyVerification";
 import type {

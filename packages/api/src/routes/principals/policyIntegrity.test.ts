@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
-import { db } from "@symcrypt/api-shared/postgres";
+import { db } from "@tearleads/api-shared/postgres";
 import {
   organizations,
   principalMembershipProjection,
   users,
-} from "@symcrypt/api-shared/schema";
-import { createTestUser } from "@symcrypt/bob-and-alice";
-import { bytesToBase64 } from "@symcrypt/encoding";
+} from "@tearleads/api-shared/schema";
+import { createTestUser } from "@tearleads/bob-and-alice";
+import { bytesToBase64 } from "@tearleads/encoding";
 import { eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { createGroupRequest } from "../../../test/helpers/organizationGroup";

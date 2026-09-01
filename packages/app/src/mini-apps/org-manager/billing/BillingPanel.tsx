@@ -1,5 +1,5 @@
-import type { OrganizationBillingView } from "@symcrypt/client-sdk";
-import type { NativeSubscriptionStore } from "@symcrypt/validators/billing";
+import type { OrganizationBillingView } from "@tearleads/client-sdk";
+import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
 import {
   type FormEvent,
   type RefObject,
@@ -16,7 +16,7 @@ import {
 } from "../../../components/mini-app/MiniAppLayout";
 import { useOrganizationBilling } from "../../../providers/billing/BillingProvider";
 import { useIdentity } from "../../../providers/identity/IdentityProvider";
-import { useSymCrypt } from "../../../providers/sdk/SymCryptProvider";
+import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import { useBillingActions } from "../hooks/useBillingActions";
 import { usePurgedOrganizationRecovery } from "../hooks/usePurgedOrganizationRecovery";
 import { ORG_MANAGER_LABELS } from "../labels";
@@ -288,34 +288,34 @@ function useRestoreOrganizationWiring(
   organizationId: string,
   recovery: ReturnType<typeof usePurgedOrganizationRecovery>,
 ) {
-  const symcrypt = useSymCrypt();
+  const tearleads = useTearleads();
   const { persistSession } = useIdentity();
   const createRestoreOrganization = useCallback(() => {
     if (recovery.replacement) {
       return Promise.resolve(recovery.replacement);
     }
-    return symcrypt.session.prepareNativeSubscriptionRestoreOrganization({
+    return tearleads.session.prepareNativeSubscriptionRestoreOrganization({
       organizationProfileName:
         ORG_MANAGER_LABELS.restoredSubscriptionOrganizationName,
     });
-  }, [recovery.replacement, symcrypt]);
+  }, [recovery.replacement, tearleads]);
   const claimNativeSubscription = useCallback(
     async (organizationId: string, store: NativeSubscriptionStore) =>
       (
-        await symcrypt.organizations.claimNativeSubscription(
+        await tearleads.organizations.claimNativeSubscription(
           organizationId,
           store,
         )
       )?.organizationId === organizationId,
-    [symcrypt],
+    [tearleads],
   );
   const checkNativePurchaseEligibility = useCallback(
     (store: NativeSubscriptionStore) =>
-      symcrypt.organizations.checkNativePurchaseEligibility(
+      tearleads.organizations.checkNativePurchaseEligibility(
         organizationId,
         store,
       ),
-    [organizationId, symcrypt],
+    [organizationId, tearleads],
   );
   const completeRestoreOrganization = useCallback(
     (organizationId: string) =>
@@ -323,10 +323,10 @@ function useRestoreOrganizationWiring(
         ? Promise.resolve(
             recovery.replacement.organizationId === organizationId,
           )
-        : symcrypt.session.completeNativeSubscriptionRestoreOrganization(
+        : tearleads.session.completeNativeSubscriptionRestoreOrganization(
             organizationId,
           ),
-    [recovery.replacement, symcrypt],
+    [recovery.replacement, tearleads],
   );
   const activateRestoredOrganization = useCallback(
     async (organization: { containerId: string; organizationId: string }) => {
@@ -339,12 +339,12 @@ function useRestoreOrganizationWiring(
         }
         return;
       }
-      symcrypt.session.setContext(organization);
+      tearleads.session.setContext(organization);
       if (!(await persistSession())) {
         throw new Error("Restored organization session was not persisted");
       }
     },
-    [persistSession, recovery, symcrypt],
+    [persistSession, recovery, tearleads],
   );
   return {
     activateRestoredOrganization,

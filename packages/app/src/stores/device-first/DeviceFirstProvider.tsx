@@ -1,7 +1,7 @@
 import type {
   ContainerContentsStoreRuntime,
   DeviceFirstContainerContents,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import {
   createContext,
   type PropsWithChildren,
@@ -9,9 +9,9 @@ import {
   useMemo,
 } from "react";
 import {
-  useSymCrypt,
-  useSymCryptRuntime,
-} from "../../providers/sdk/SymCryptProvider";
+  useTearleads,
+  useTearleadsRuntime,
+} from "../../providers/sdk/TearleadsProvider";
 import { useRuntimeScopedMemo } from "../../providers/sdk/useRuntimeScopedMemo";
 import { useDeviceFirstBinding } from "./useDeviceFirstBinding";
 
@@ -22,11 +22,11 @@ interface DeviceFirstContextValue extends DeviceFirstContainerContents {
 const DeviceFirstContext = createContext<DeviceFirstContextValue | null>(null);
 
 export function DeviceFirstProvider({ children }: PropsWithChildren) {
-  const appData = useSymCryptRuntime();
-  const symcrypt = useSymCrypt();
+  const appData = useTearleadsRuntime();
+  const tearleads = useTearleads();
   const runtime = useRuntimeScopedMemo(
-    () => symcrypt.containerContents.workflowRuntime(),
-    [symcrypt],
+    () => tearleads.containerContents.workflowRuntime(),
+    [tearleads],
   );
   const deviceFirst = useDeviceFirstBinding({
     events: appData.state.events,

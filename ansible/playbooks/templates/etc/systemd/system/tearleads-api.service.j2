@@ -1,0 +1,25 @@
+[Unit]
+Description=Tearleads API
+After=network.target postgresql.service redis-server.service{{ ' garage.service' if garage_enabled | default(false) | bool else '' }}
+Wants=postgresql.service redis-server.service{{ ' garage.service' if garage_enabled | default(false) | bool else '' }}
+
+[Service]
+Type=simple
+User={{ server_user | default('deploy') }}
+WorkingDirectory=/opt/tearleads
+EnvironmentFile=/etc/tearleads/api.env
+ExecStart=/opt/tearleads/bin/tearleads-api
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tearleads-api
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ReadWritePaths=/opt/tearleads
+
+[Install]
+WantedBy=multi-user.target

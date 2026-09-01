@@ -1,8 +1,8 @@
 import type {
   DatabaseSession,
   DatabaseTransaction,
-} from "@symcrypt/api-shared/postgres";
-import { documentManifestObservations } from "@symcrypt/api-shared/schema";
+} from "@tearleads/api-shared/postgres";
+import { documentManifestObservations } from "@tearleads/api-shared/schema";
 import { and, eq } from "drizzle-orm";
 
 export async function recordDocumentManifestObservationInTransaction(

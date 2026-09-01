@@ -4,7 +4,7 @@ import {
   readStringDocumentField,
   type StoredDocumentKind,
   type ValidatedDocumentFields,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import type { AppDocumentProjectorDefinition } from "../types";
 
 type FileDocumentFields = {

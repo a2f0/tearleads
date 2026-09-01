@@ -1,4 +1,4 @@
-import { bytesToHex, createIncrementalSha256 } from "@symcrypt/crypto";
+import { bytesToHex, createIncrementalSha256 } from "@tearleads/crypto";
 import type { BlobByteSource, BlobBytes } from "../../../blobContracts";
 import { asWebCryptoBytes } from "../../shared/readers";
 import {

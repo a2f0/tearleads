@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createMockApiClient } from "@symcrypt/test-utils";
+import { createMockApiClient } from "@tearleads/test-utils";
 import type { BlobStore } from "../../data/blobContracts";
 import {
   createContainerMetadataDocument,

@@ -8,8 +8,8 @@ import {
   type VerifiedDocumentLinkSetSnapshot,
   type VerifiedPrincipalPolicySnapshot,
   verifyDocumentPurgeEvent,
-} from "@symcrypt/crypto";
-import type { DocumentPurgeProofResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import type { DocumentPurgeProofResponse } from "@tearleads/validators/response";
 import { verifyStandaloneAccessEventBundle } from "./bundleVerification";
 import type { ProjectionCheckpointContext } from "./checkpointContext";
 import { verifyPurgeDocumentManifest } from "./documentPurgeDocumentChainVerification";

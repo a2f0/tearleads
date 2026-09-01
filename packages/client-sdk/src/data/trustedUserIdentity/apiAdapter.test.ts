@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { ApiClient } from "@symcrypt/api-client";
+import type { ApiClient } from "@tearleads/api-client";
 import { createApiUserIdentitySource } from "./apiAdapter";
 
 type IdentityApi = Pick<

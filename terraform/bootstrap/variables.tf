@@ -7,11 +7,11 @@ variable "aws_region" {
 variable "bucket_name" {
   description = "Name of the S3 bucket for Terraform state"
   type        = string
-  default     = "symcrypt-terraform-state"
+  default     = "tearleads-terraform-state"
 }
 
 variable "dynamodb_table_name" {
   description = "Name of the DynamoDB table for state locking"
   type        = string
-  default     = "symcrypt-terraform-locks"
+  default     = "tearleads-terraform-locks"
 }

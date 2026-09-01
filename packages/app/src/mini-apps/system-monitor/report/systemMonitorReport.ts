@@ -2,8 +2,8 @@ import type {
   DomainSyncSnapshot,
   PendingWriteQueueItem,
   SyncLaneSnapshot,
-} from "@symcrypt/client-sdk";
-import { DOCUMENT_SYNC_TRACE_FRAGMENT } from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
+import { DOCUMENT_SYNC_TRACE_FRAGMENT } from "@tearleads/client-sdk";
 import {
   formatPaneLogLine,
   type PaneLogEntry,

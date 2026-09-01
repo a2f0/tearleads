@@ -1,6 +1,6 @@
-import type { DomainScope, SessionContext } from "@symcrypt/client-sdk";
+import type { DomainScope, SessionContext } from "@tearleads/client-sdk";
 import { useCallback } from "react";
-import { useSymCrypt } from "../../../providers/sdk/SymCryptProvider";
+import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import type { OrgSwitcherState } from "./orgSwitcherTypes";
 import { useOrganizationIndexRefreshKey } from "./useOrganizationIndexRefreshKey";
 import { useOrgSwitcherController } from "./useOrgSwitcherController";
@@ -28,23 +28,23 @@ export function useOrgSwitcher({
   operationScopeKey: string;
   scopeKey: DomainScope;
 }): OrgSwitcherState {
-  const symcrypt = useSymCrypt();
+  const tearleads = useTearleads();
   const organizationIndexRefreshKey = useOrganizationIndexRefreshKey({
     scopeKey,
-    symcrypt,
+    tearleads,
   });
   const listLocalOrganizations = useCallback(
-    () => symcrypt.organizations.listLocalOrganizations(),
-    [symcrypt],
+    () => tearleads.organizations.listLocalOrganizations(),
+    [tearleads],
   );
   const provisionOrganization = useCallback(
     (organizationProfileName: string) =>
-      symcrypt.session.createOrganization({ organizationProfileName }),
-    [symcrypt],
+      tearleads.session.createOrganization({ organizationProfileName }),
+    [tearleads],
   );
   const setSessionContext = useCallback(
-    (context: SessionContext) => symcrypt.session.setContext(context),
-    [symcrypt],
+    (context: SessionContext) => tearleads.session.setContext(context),
+    [tearleads],
   );
 
   return useOrgSwitcherController({

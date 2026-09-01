@@ -10,7 +10,7 @@ import {
   signWriteHeader,
   type UnsignedAccessEvent,
   type WriteHeader,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import { readCanonicalJson } from "../../../keyingCanonicalJson";
 import { uniqueSortedStrings } from "../../shared/readers";
 import type { DocumentCreateAuthor } from "../../shared/types";

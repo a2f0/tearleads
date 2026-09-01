@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import { loadStoredTheme, saveTheme } from "./themeStorage";
 
-const CHOICE_KEY = "symcrypt.theme.choice";
+const CHOICE_KEY = "tearleads.theme.choice";
 
 afterEach(() => {
   globalThis.localStorage.removeItem(CHOICE_KEY);

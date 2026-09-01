@@ -1,4 +1,4 @@
-import type { Sqlite3Static } from "@symcrypt/sqlite-instance";
+import type { Sqlite3Static } from "@tearleads/sqlite-instance";
 import { runWithBunFetchLock } from "./bunFetchLock";
 import { createCipherVfs, destroyCipherVfs } from "./cipherVfs";
 import {
@@ -21,8 +21,8 @@ type SAHPoolUtil = Awaited<ReturnType<Sqlite3Static["installOpfsSAHPoolVfs"]>>;
  * same SAHPool access-handle files. Keep the derivation stable: changing it
  * changes where persisted bytes live.
  */
-const SAHPOOL_VFS_NAME_PREFIX = "symcrypt-opfs-sahpool";
-const SAHPOOL_DIRECTORY_ROOT = "/symcrypt-sqlite";
+const SAHPOOL_VFS_NAME_PREFIX = "tearleads-opfs-sahpool";
+const SAHPOOL_DIRECTORY_ROOT = "/tearleads-sqlite";
 
 /**
  * The pool reserves one access handle per file it manages, including journal and

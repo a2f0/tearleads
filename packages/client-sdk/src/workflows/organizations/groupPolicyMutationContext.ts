@@ -4,19 +4,19 @@ import type {
   PrincipalPolicySignerPublicKey,
   ReferencedPrincipalHead,
   SigningKeyPair,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import type {
   CommitOrganizationGroupPolicyRequest,
   CreateOrganizationGroupWithPolicyRequest,
   PutPrincipalPolicyRequest,
-} from "@symcrypt/validators/request";
+} from "@tearleads/validators/request";
 import type {
   CommitOrganizationGroupPolicyResponse,
   CreateOrganizationGroupResponse,
   CurrentPrincipalMemberEnvelopesResponse,
   PrincipalPolicyBundleResponse,
   PrincipalPolicyMutationResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { persistVerifiedPrincipalPolicyBundlesAtomically } from "../../data/persistence/keyingCheckpointAdvancePersistence";
 import { retainLocallyAcknowledgedPrincipalPolicyBundles } from "../../data/persistence/locallyAcknowledgedCheckpointPersistence";
 import { requireOrganizationGroupHead } from "../../data/principals/organizationAuthorityDescriptor";

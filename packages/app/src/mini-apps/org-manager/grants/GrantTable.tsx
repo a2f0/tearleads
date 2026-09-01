@@ -1,4 +1,4 @@
-import type { OrganizationContainerGrant } from "@symcrypt/client-sdk";
+import type { OrganizationContainerGrant } from "@tearleads/client-sdk";
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 import {
   MiniAppButton,
@@ -116,7 +116,7 @@ const GRANT_TABLE_COLUMNS_CONFIG = {
   compactSecondaryColumnIds: GRANT_COMPACT_SECONDARY_COLUMN_IDS,
   dataColumns: GRANT_DATA_TABLE_COLUMNS,
   menuOptions: GRANT_COLUMN_MENU_OPTIONS,
-  storageKey: "symcrypt.org-manager.grants:hidden-columns",
+  storageKey: "tearleads.org-manager.grants:hidden-columns",
   toggleableColumnIds: GRANT_TOGGLEABLE_COLUMN_IDS,
 };
 

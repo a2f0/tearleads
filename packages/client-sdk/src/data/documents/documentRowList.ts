@@ -1,4 +1,4 @@
-import { type LoroList, LoroMap } from "@symcrypt/loro";
+import { type LoroList, LoroMap } from "@tearleads/loro";
 
 // A document's repeated rows (e.g. a .env file's variables, a blood pressure
 // tracker's readings) live in one first-class Loro list — each row a nested

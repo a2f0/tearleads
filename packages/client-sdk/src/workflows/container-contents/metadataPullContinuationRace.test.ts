@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
-import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
   exportAllUpdates,
   importUpdates,
-} from "@symcrypt/loro";
-import { createTestExecSql } from "@symcrypt/test-utils";
+} from "@tearleads/loro";
+import { createTestExecSql } from "@tearleads/test-utils";
 import {
   readContainerMetadataValue,
   writeContainerMetadataValue,

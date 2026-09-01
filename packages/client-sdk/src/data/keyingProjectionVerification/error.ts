@@ -1,4 +1,4 @@
-import { KeyingVerificationError } from "@symcrypt/crypto";
+import { KeyingVerificationError } from "@tearleads/crypto";
 import { errorMessage } from "../errorMessage";
 import type {
   SecurityIncidentContext,

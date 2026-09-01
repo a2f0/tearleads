@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import type { DocumentRow } from "@symcrypt/client-sdk";
+import type { DocumentRow } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { useDocumentRowEditing } from "./useDocumentRowEditing";
 

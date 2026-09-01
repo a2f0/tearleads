@@ -14,10 +14,10 @@ import {
   verifyContainerAccessManifest,
   verifyContainerKekState,
   verifySignedAccessEvent,
-} from "@symcrypt/crypto";
-import { createTestExecSql } from "@symcrypt/test-utils";
-import type { ContainerMutationRequest } from "@symcrypt/validators/request";
-import type { ContainerMutationResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import { createTestExecSql } from "@tearleads/test-utils";
+import type { ContainerMutationRequest } from "@tearleads/validators/request";
+import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import {
   createAuthor,
   createMutationResponseFromRequest,

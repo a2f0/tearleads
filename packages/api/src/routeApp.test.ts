@@ -42,16 +42,16 @@ describe("createRouteApp", () => {
           Origin: "https://app.example.test",
           "Access-Control-Request-Method": "PUT",
           "Access-Control-Request-Headers":
-            "x-symcrypt-blob-part-byte-length, x-symcrypt-blob-part-sha256, x-symcrypt-blob-upload-id",
+            "x-tearleads-blob-part-byte-length, x-tearleads-blob-part-sha256, x-tearleads-blob-upload-id",
         },
       },
     );
 
     const allowHeaders =
       response.headers.get("Access-Control-Allow-Headers")?.toLowerCase() ?? "";
-    expect(allowHeaders).toContain("x-symcrypt-blob-part-byte-length");
-    expect(allowHeaders).toContain("x-symcrypt-blob-part-sha256");
-    expect(allowHeaders).toContain("x-symcrypt-blob-upload-id");
+    expect(allowHeaders).toContain("x-tearleads-blob-part-byte-length");
+    expect(allowHeaders).toContain("x-tearleads-blob-part-sha256");
+    expect(allowHeaders).toContain("x-tearleads-blob-upload-id");
   });
 
   test("does not emit CORS allow-origin for unconfigured origins", async () => {

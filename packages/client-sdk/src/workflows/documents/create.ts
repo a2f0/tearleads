@@ -1,9 +1,9 @@
-import type { DocumentCreateRequest } from "@symcrypt/validators/request";
+import type { DocumentCreateRequest } from "@tearleads/validators/request";
 import type {
   ContainerWriterProjectionResponse,
   DocumentCreateResponse,
   DocumentWriterProjectionResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { buildDocumentCreatePlan } from "../../data/documents/shared/events";
 import { acknowledgeDocumentMutation } from "../../data/documents/shared/mutationAcknowledgement";
 import {

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { OrganizationNativePurchaseIneligibilityReason } from "@symcrypt/validators/response";
+import type { OrganizationNativePurchaseIneligibilityReason } from "@tearleads/validators/response";
 import { ORG_MANAGER_LABELS } from "../labels";
 import {
   NativePurchaseEligibilityError,

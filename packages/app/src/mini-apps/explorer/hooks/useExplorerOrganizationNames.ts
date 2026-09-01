@@ -1,7 +1,7 @@
 import type {
   ContainerNode,
   LocalOrganizationSummary,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import {
   type Dispatch,
   type MutableRefObject,
@@ -262,9 +262,9 @@ function runOrganizationNameResolution(input: {
  * foreign org is named and the set is stable the lookup idles (see
  * `shouldResolveOrganizationNames`).
  *
- * `listLocalOrganizations` is injected (rather than read from `useSymCrypt`
+ * `listLocalOrganizations` is injected (rather than read from `useTearleads`
  * inside the hook) so the async resolution can be unit-tested with a fake
- * loader — the sole caller passes a `useSymCrypt`-bound, memoized callback.
+ * loader — the sole caller passes a `useTearleads`-bound, memoized callback.
  *
  * A sync burst re-runs the effect repeatedly with the *same* foreign-org set
  * while a name is still pending. Rather than cancel and restart the lookup each

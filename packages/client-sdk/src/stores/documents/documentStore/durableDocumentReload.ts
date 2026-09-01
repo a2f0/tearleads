@@ -1,5 +1,5 @@
-import { base64ToBytes } from "@symcrypt/encoding";
-import { importSnapshot } from "@symcrypt/loro";
+import { base64ToBytes } from "@tearleads/encoding";
+import { importSnapshot } from "@tearleads/loro";
 import {
   importDocumentHistoryTailUpdates,
   runSerializedSqlMutation,

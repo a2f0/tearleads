@@ -2,7 +2,7 @@ import {
   type DocumentFieldValidationIssue,
   type DocumentProjectorDefinition,
   readStringDocumentField,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 
 // Keep this stable wire value local: importing the organization workflow export
 // through the SDK barrel creates a browser module-initialization cycle here.

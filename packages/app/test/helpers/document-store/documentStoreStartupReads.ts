@@ -3,7 +3,7 @@ import type {
   DocumentsPersistence,
   LocalAttachmentRecord,
   PendingAttachmentRecord,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import type { StoredHistoryState } from "./documentStoreSyncPersistenceState";
 import { toHistoryRestoreState } from "./documentStoreSyncPersistenceState";
 

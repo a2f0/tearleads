@@ -1,7 +1,7 @@
 import type {
   DomainScope,
   OrganizationDirectoryAndGroups,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { useCallback, useEffect } from "react";
 import {
   MiniAppRoot,
@@ -20,8 +20,8 @@ import { useAppFeatureFlags } from "../../providers/feature-flags/AppFeatureFlag
 import { useAppHostConfig } from "../../providers/host/AppHostConfigProvider";
 import {
   type RuntimeSnapshot,
-  useSymCryptRuntime,
-} from "../../providers/sdk/SymCryptProvider";
+  useTearleadsRuntime,
+} from "../../providers/sdk/TearleadsProvider";
 import { useExplorer } from "../../stores/explorer/ExplorerProvider";
 import { useMiniAppBusActions } from "../bus";
 import { SystemBootstrapGate } from "../SystemBootstrapGate";
@@ -229,7 +229,7 @@ export function Explorer() {
 
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: Explorer composes the mini-app shell from model state.
 function ExplorerContent() {
-  const appData = useSymCryptRuntime();
+  const appData = useTearleadsRuntime();
   const billing = useOrganizationBilling();
   // Ask the host shell, not the global router: in a window this is the window's
   // own Back stack, in the routed shell it is browser history.

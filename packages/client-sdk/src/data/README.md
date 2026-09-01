@@ -46,31 +46,31 @@ host adapters -> SDK stores -> SDK workflows -> data/persistence + data/sqlite +
 ## Import Surface
 
 `data/` is an internal SDK layer, not an application integration API. The SDK
-root owns the high-level `SymCrypt` client facade, top-level service types,
+root owns the high-level `Tearleads` client facade, top-level service types,
 and public document, store, and workflow facade symbols. SQLite worker runtime
-and executor contracts belong behind `@symcrypt/client-sdk/sqlite`. Host
-application code should prefer the `SymCrypt` instance and otherwise import
+and executor contracts belong behind `@tearleads/client-sdk/sqlite`. Host
+application code should prefer the `Tearleads` instance and otherwise import
 public local keyring helpers, document contracts, store facades, or workflow
-facade symbols from `@symcrypt/client-sdk`.
-Cross-package callers should not import `@symcrypt/client-sdk/data/*`
+facade symbols from `@tearleads/client-sdk`.
+Cross-package callers should not import `@tearleads/client-sdk/data/*`
 subpaths; promote the needed contract through the SDK root facade or the SQLite
 facade instead.
 
 Package exports are explicit and should stop at the root SDK and SQLite
 runtime boundaries. Adding a new cross-package API should usually mean adding
-or widening a domain facade export from `@symcrypt/client-sdk`, rather than
+or widening a domain facade export from `@tearleads/client-sdk`, rather than
 exporting a nested implementation file. Low-level `data/` modules should stay
 package-internal unless there is a deliberate decision to promote a new public
 SDK contract.
 
-Use public package entry points such as `@symcrypt/client-sdk` and
-`@symcrypt/client-sdk/sqlite` instead of importing implementation modules or
+Use public package entry points such as `@tearleads/client-sdk` and
+`@tearleads/client-sdk/sqlite` instead of importing implementation modules or
 nested workflow/store implementation files.
 Shared sync coordination helpers that cross host test/runtime boundaries belong
-behind `@symcrypt/client-sdk`.
+behind `@tearleads/client-sdk`.
 
 Do not expose `data/*` internals from the SDK root. Keeping domain operations
-behind the high-level `SymCrypt` client or explicit root facade exports
+behind the high-level `Tearleads` client or explicit root facade exports
 preserves clear entry points without making `data/` importable.
 
 Avoid `index.ts`, `types.ts`, and other one-line re-export shims inside data

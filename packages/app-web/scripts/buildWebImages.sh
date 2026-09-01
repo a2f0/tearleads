@@ -3,7 +3,7 @@ set -e
 
 # Build app-web image assets into the build output directory.
 #
-# Sourced from the shared brand logo in @symcrypt/ui and generated straight
+# Sourced from the shared brand logo in @tearleads/ui and generated straight
 # into dist/ (gitignored) so the deploy rsync ships them and the service
 # worker can precache them. Run after the dist bundle exists.
 #
@@ -36,7 +36,7 @@ fi
 # routed app bar sizing while leaving enough padding for touch interaction.
 MENU_ICON_SIZE=44
 MENU_LOGO_SIZE=28
-MENU_ICON_OUTPUT="$OUTPUT_DIR/symcrypt-menu-icon-44.png"
+MENU_ICON_OUTPUT="$OUTPUT_DIR/tearleads-menu-icon-44.png"
 
 $MAGICK_CMD -background none -density 288 "$SVG_SOURCE" \
   -resize "${MENU_LOGO_SIZE}x${MENU_LOGO_SIZE}" \

@@ -1,8 +1,8 @@
-import { KeyingVerificationError } from "@symcrypt/crypto";
+import { KeyingVerificationError } from "@tearleads/crypto";
 import type {
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { decryptDocumentSyncUpdatesByEpoch } from "../../data/documents/shared/crypto";
 import {
   type IncomingDocumentSyncUpdateValidator,

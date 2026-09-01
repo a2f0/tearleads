@@ -44,7 +44,7 @@ jobs:
         uses: jdx/mise-action@dad1bfd3df957f44999b559dd69dc1671cb4e9ea # v4.2.1
         with:
           version: 2026.6.12
-          install_args: java
+          install_args: java gradle
           cache: true
 
       - name: Set up Bun
@@ -61,7 +61,7 @@ jobs:
       - name: Build Capacitor web assets
         working-directory: packages/app-capacitor
         env:
-          VITE_API_BASE_URL: https://api-staging.symcrypt.com
+          VITE_API_BASE_URL: https://api-staging.tearleads.com
         run: bun run build
 
       - name: Synchronize Android project
@@ -73,7 +73,7 @@ jobs:
 
       - name: Compile and test Android purchase bridge
         working-directory: packages/app-capacitor/android
-        run: ./gradlew :app:compileDebugKotlin :app:testDebugUnitTest --no-daemon
+        run: gradle :app:compileDebugKotlin :app:testDebugUnitTest --no-daemon
 
   ios:
     name: iOS purchase bridge
@@ -98,7 +98,7 @@ jobs:
       - name: Build Capacitor web assets
         working-directory: packages/app-capacitor
         env:
-          VITE_API_BASE_URL: https://api-staging.symcrypt.com
+          VITE_API_BASE_URL: https://api-staging.tearleads.com
         run: bun run build
 
       - name: Synchronize iOS project

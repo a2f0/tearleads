@@ -3,8 +3,8 @@ import type {
   Documents,
   OrganizationDirectoryAndGroups,
   OrganizationDirectoryUser,
-} from "@symcrypt/client-sdk";
-import { getRosterProfileDocumentLocalId } from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
+import { getRosterProfileDocumentLocalId } from "@tearleads/client-sdk";
 import {
   getExplorerAttributionHydrationDocumentSelection,
   getExplorerAttributionProfileBindingsByLocalId,

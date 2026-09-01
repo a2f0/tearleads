@@ -1,7 +1,7 @@
 import type {
   ContainerDocumentQueries,
   ContainerNode,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import {
   type MouseEvent,
   type ReactNode,

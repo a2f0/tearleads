@@ -6,8 +6,8 @@ import {
   type ReferencedPrincipalHead,
   type VerifiedPrincipalPolicy,
   verifyPrincipalPolicyBundle,
-} from "@symcrypt/crypto";
-import type { PrincipalPolicyBundleResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { throwKeyingVerificationErrorWithContext } from "../../data/keyingProjectionVerification/error";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import { verifyPrincipalPolicyBundleWithExternalOrganizationAdmins } from "../../data/principals/principalPolicyAdminSigners";

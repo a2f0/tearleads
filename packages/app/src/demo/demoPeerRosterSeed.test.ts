@@ -5,8 +5,8 @@ import type {
   OrganizationDirectoryUser,
   OrganizationGroupMember,
   OrganizationGroupMembers,
-} from "@symcrypt/client-sdk";
-import { KeyingVerificationError } from "@symcrypt/crypto";
+} from "@tearleads/client-sdk";
+import { KeyingVerificationError } from "@tearleads/crypto";
 import {
   attemptPeerRosterSeed,
   type DemoRosterSeedActions,

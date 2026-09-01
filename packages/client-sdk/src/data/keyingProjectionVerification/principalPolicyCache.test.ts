@@ -2,10 +2,10 @@ import { expect, test } from "bun:test";
 import type {
   ReferencedPrincipalHead,
   VerifiedPrincipalPolicy,
-} from "@symcrypt/crypto";
-import { makeVerifiedPrincipalPolicy } from "@symcrypt/crypto";
-import { createTestExecSql } from "@symcrypt/test-utils";
-import type { PrincipalPolicyBundleResponse } from "@symcrypt/validators/response";
+} from "@tearleads/crypto";
+import { makeVerifiedPrincipalPolicy } from "@tearleads/crypto";
+import { createTestExecSql } from "@tearleads/test-utils";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import {
   createPrincipalPolicyBundle,
   createSuccessorPrincipalPolicyBundle,

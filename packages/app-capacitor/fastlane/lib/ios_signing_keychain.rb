@@ -4,7 +4,7 @@ require 'securerandom'
 
 # Owns an ephemeral Fastlane Match keychain without disturbing caller state.
 class IosSigningKeychain
-  DEFAULT_LOCK_PATH = File.join(Dir.home, 'Library', 'Keychains', '.symcrypt-release.lock').freeze
+  DEFAULT_LOCK_PATH = File.join(Dir.home, 'Library', 'Keychains', '.tearleads-release.lock').freeze
   PRESERVED_ENVIRONMENT_KEYS = %w[MATCH_KEYCHAIN_PASSWORD MATCH_READONLY].freeze
   TERMINATION_SIGNALS = %w[HUP INT TERM].freeze
 
@@ -65,7 +65,7 @@ class IosSigningKeychain
   def prepare
     capture_environment
     @environment.delete('MATCH_KEYCHAIN_NAME')
-    @keychain_name = "symcrypt-fastlane-#{Process.pid}-#{SecureRandom.hex(6)}"
+    @keychain_name = "tearleads-fastlane-#{Process.pid}-#{SecureRandom.hex(6)}"
     @keychain_password = SecureRandom.hex(32)
     @environment['MATCH_KEYCHAIN_NAME'] = @keychain_name
     @environment['MATCH_KEYCHAIN_PASSWORD'] = @keychain_password

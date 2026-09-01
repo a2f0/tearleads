@@ -1,4 +1,4 @@
-import { encodeVersionVector } from "@symcrypt/loro";
+import { encodeVersionVector } from "@tearleads/loro";
 import {
   addDocumentAttachments,
   type DocumentAttachment,

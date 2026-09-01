@@ -8,12 +8,12 @@ import {
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
   type VerifiedPrincipalPolicy,
-} from "@symcrypt/crypto";
-import type { ContainerMutationRequest } from "@symcrypt/validators/request";
+} from "@tearleads/crypto";
+import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type {
   ContainerKekResponse,
   ContainerWriterProjectionResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import {
   buildContainerCreateBody,
   buildContainerCreateKeyEpoch,

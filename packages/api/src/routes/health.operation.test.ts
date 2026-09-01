@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   getHealthOperation,
   operationRoutePath,
-} from "@symcrypt/validators/operation";
+} from "@tearleads/validators/operation";
 import { createHealthRoute } from "./health";
 
 test("health route registers from the shared operation", () => {

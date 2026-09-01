@@ -14,7 +14,7 @@ import {
   type OrganizationBillingNativeEligibilityQuery,
   type OrganizationBillingPathParams,
   startOrganizationTrialOperation,
-} from "@symcrypt/validators/operation";
+} from "@tearleads/validators/operation";
 import { pathSegment } from "../path";
 
 type OrganizationId = OrganizationBillingPathParams["organizationId"];

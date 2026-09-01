@@ -1,9 +1,9 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
-import { groups as groupsTable } from "@symcrypt/api-shared/schema";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import { groups as groupsTable } from "@tearleads/api-shared/schema";
 import type {
   OrganizationGroupMemberResponse,
   OrganizationReadModelGroupMembershipsResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import {
   getCurrentPrincipalStates,

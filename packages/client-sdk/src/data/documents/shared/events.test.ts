@@ -3,8 +3,8 @@ import {
   type AccessEvent,
   type KeyingCanonicalJson,
   verifySignedAccessEvent,
-} from "@symcrypt/crypto";
-import { isDocumentCreateRequest } from "@symcrypt/validators/request";
+} from "@tearleads/crypto";
+import { isDocumentCreateRequest } from "@tearleads/validators/request";
 import {
   createAuthor,
   createProjection,

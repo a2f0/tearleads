@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@symcrypt/test-utils";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { documentMoveIntentTables } from "../../sqlite/schema";
 import { ensureSqlTables } from "../../sqlite/sqlSchema";
 import { sqlDocumentsPersistence } from "./documentsPersistence";

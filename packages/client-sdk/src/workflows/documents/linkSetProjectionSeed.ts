@@ -3,7 +3,7 @@ import type {
   ContainerWriterProjectionResponse,
   DocumentLinkSetMutationResponse,
   DocumentWriterProjectionResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { assertDocumentWriterProjectionConsistent } from "../../data/documents/shared/projection";
 import type { DocumentLinkSetMutationOperation } from "../../data/documents/shared/types";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";

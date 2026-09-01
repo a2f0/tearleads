@@ -1,4 +1,4 @@
-import type { BlobStore, DocumentAttachment } from "@symcrypt/client-sdk";
+import type { BlobStore, DocumentAttachment } from "@tearleads/client-sdk";
 import { type RefObject, useEffect, useRef, useState } from "react";
 import { isAutomaticBlobPreviewAllowed } from "./documentAttachmentUtils";
 

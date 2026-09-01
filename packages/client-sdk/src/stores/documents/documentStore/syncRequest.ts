@@ -1,4 +1,7 @@
-import { encodeVersionVector, exportFullHistorySnapshot } from "@symcrypt/loro";
+import {
+  encodeVersionVector,
+  exportFullHistorySnapshot,
+} from "@tearleads/loro";
 import {
   createDocumentWriterPublicKeyResolver,
   type DocumentRecord,

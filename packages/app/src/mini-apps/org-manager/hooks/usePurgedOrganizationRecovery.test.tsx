@@ -2,7 +2,7 @@ import { afterEach, expect, mock, spyOn, test } from "bun:test";
 import {
   PurgedOrganizationRecoveryBillingRequiredError,
   type SessionRecoverOrganizationResult,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import {
   act,
   cleanup,
@@ -19,7 +19,7 @@ import { AppHostConfigProvider } from "../../../providers/host/AppHostConfigProv
 import * as IdentityProvider from "../../../providers/identity/IdentityProvider";
 import { LogProvider } from "../../../providers/logging/LogProvider";
 import { PurchasesProvider } from "../../../providers/purchases/PurchasesProvider";
-import * as SymCryptProvider from "../../../providers/sdk/SymCryptProvider";
+import * as TearleadsProvider from "../../../providers/sdk/TearleadsProvider";
 import { BillingPanel } from "../billing/BillingPanel";
 import { ORG_MANAGER_LABELS } from "../labels";
 
@@ -146,7 +146,7 @@ test("bills the durable replacement and resumes purge recovery after payment", a
     spyOn(IdentityProvider, "useIdentity").mockReturnValue({
       persistSession,
     } as unknown as ReturnType<typeof IdentityProvider.useIdentity>),
-    spyOn(SymCryptProvider, "useSymCrypt").mockReturnValue({
+    spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
       organizations: {
         checkNativePurchaseEligibility: () => Promise.resolve(null),
         claimNativeSubscription: () => Promise.resolve(null),
@@ -233,7 +233,7 @@ test("surfaces and retries a finalized recovery whose session was not persisted"
     spyOn(IdentityProvider, "useIdentity").mockReturnValue({
       persistSession,
     } as unknown as ReturnType<typeof IdentityProvider.useIdentity>),
-    spyOn(SymCryptProvider, "useSymCrypt").mockReturnValue({
+    spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
       organizations: {
         checkNativePurchaseEligibility: () => Promise.resolve(null),
         claimNativeSubscription: () => Promise.resolve(null),
@@ -301,7 +301,7 @@ test("reopens the same durable replacement after the panel remounts", async () =
     spyOn(IdentityProvider, "useIdentity").mockReturnValue({
       persistSession: () => Promise.resolve(true),
     } as unknown as ReturnType<typeof IdentityProvider.useIdentity>),
-    spyOn(SymCryptProvider, "useSymCrypt").mockReturnValue({
+    spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
       organizations: {
         checkNativePurchaseEligibility: () => Promise.resolve(null),
         claimNativeSubscription: () => Promise.resolve(null),
@@ -361,7 +361,7 @@ test("an identity change cannot publish the previous identity's replacement", as
     spyOn(IdentityProvider, "useIdentity").mockReturnValue({
       persistSession: () => Promise.resolve(true),
     } as unknown as ReturnType<typeof IdentityProvider.useIdentity>),
-    spyOn(SymCryptProvider, "useSymCrypt").mockReturnValue({
+    spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
       organizations: {
         checkNativePurchaseEligibility: () => Promise.resolve(null),
         claimNativeSubscription: () => Promise.resolve(null),

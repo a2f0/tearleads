@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { createMockApiClient } from "@symcrypt/test-utils";
-import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
+import { createMockApiClient } from "@tearleads/test-utils";
+import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { BlobStore } from "../../data/blobContracts";
 import { createContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";

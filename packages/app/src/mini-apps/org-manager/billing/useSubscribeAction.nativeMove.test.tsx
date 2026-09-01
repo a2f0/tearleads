@@ -5,7 +5,7 @@ import {
   type PurchasesCapability,
   type SessionCreateOrganizationResult,
   type SyncPurchaseResult,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
 import { LogProvider } from "../../../providers/logging/LogProvider";

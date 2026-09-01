@@ -1,4 +1,4 @@
-import type { CommitOrganizationGroupPolicyRequest } from "@symcrypt/validators/request";
+import type { CommitOrganizationGroupPolicyRequest } from "@tearleads/validators/request";
 import {
   type CommitOrganizationGroupPolicyResult,
   runCommitOrganizationGroupPolicyWorkflow,

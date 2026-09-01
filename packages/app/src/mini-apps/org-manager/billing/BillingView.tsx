@@ -1,7 +1,7 @@
 import type {
   OrganizationBillingView,
   SyncSubscriptionOption,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import { type Ref, useCallback } from "react";
 import {
   MiniAppActions,

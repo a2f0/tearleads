@@ -1,5 +1,5 @@
 import { afterAll, expect, test } from "bun:test";
-import { db } from "@symcrypt/api-shared/postgres";
+import { db } from "@tearleads/api-shared/postgres";
 import {
   containerBuiltinGrants,
   containerMetadataDocuments,
@@ -9,13 +9,13 @@ import {
   organizationRosterEntries,
   organizations,
   users,
-} from "@symcrypt/api-shared/schema";
+} from "@tearleads/api-shared/schema";
 import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   toFingerprint,
-} from "@symcrypt/crypto";
-import { base64ToBytes } from "@symcrypt/encoding";
+} from "@tearleads/crypto";
+import { base64ToBytes } from "@tearleads/encoding";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import {

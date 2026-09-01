@@ -3,8 +3,8 @@ import {
   encodeVersionVector,
   exportUpdatesSince,
   getTextValue,
-} from "@symcrypt/loro";
-import { createTestExecSql } from "@symcrypt/test-utils";
+} from "@tearleads/loro";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { ensureDocumentAttachmentStructure } from "../../src/data/documents/documentContent";
 import { defaultDocumentProjectorRegistry } from "../../src/data/documents/documentKinds";
 import { ensureDocumentRowsStructure } from "../../src/data/documents/documentRowList";

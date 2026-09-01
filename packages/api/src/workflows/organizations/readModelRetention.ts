@@ -1,5 +1,5 @@
-import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
-import { organizationReadModelChanges } from "@symcrypt/api-shared/schema";
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import { organizationReadModelChanges } from "@tearleads/api-shared/schema";
 import { and, asc, eq, lte } from "drizzle-orm";
 
 // The feed coalesces retained markers into lane/entity replacements, so a

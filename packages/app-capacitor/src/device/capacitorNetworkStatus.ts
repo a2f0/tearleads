@@ -3,7 +3,7 @@ import { type ConnectionStatus, Network } from "@capacitor/network";
 import type {
   NetworkListener,
   NetworkStatusSource,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 
 // @capacitor/network derives `connected` from NET_CAPABILITY_VALIDATED — Android's
 // active internet-validation probe — so it reports false on networks Android has

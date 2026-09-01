@@ -3,7 +3,7 @@ import type {
   DeleteOrganizationGroupRequest,
   UpdateOrganizationProfileRequest,
   UpdateOrganizationRosterEntryRequest,
-} from "@symcrypt/validators/request";
+} from "@tearleads/validators/request";
 import type {
   CreateOrganizationGroupResponse,
   DeleteOrganizationGroupResponse,
@@ -12,7 +12,7 @@ import type {
   OrganizationGroupMembersResponse,
   OrganizationProfileResponse,
   OrganizationReadModelResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { runCreateOrganizationGroupWorkflow } from "../../workflows/organizations/createGroup";
 import { runGetOrganizationDataUsageWorkflow } from "../../workflows/organizations/dataUsage";
 import { OrganizationManagerError } from "../../workflows/organizations/errors";

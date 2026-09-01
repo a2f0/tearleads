@@ -4,7 +4,7 @@ import {
   getMultipartBlobStageOperation,
   initiateMultipartBlobStageOperation,
   uploadMultipartBlobPartBytesOperation,
-} from "@symcrypt/validators/operation";
+} from "@tearleads/validators/operation";
 import {
   completeMultipartBlobStage,
   getMultipartBlobStage,

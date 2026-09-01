@@ -1,9 +1,9 @@
-import { KeyingVerificationError } from "@symcrypt/crypto";
+import { KeyingVerificationError } from "@tearleads/crypto";
 import type {
   PrincipalPolicyBundleResponse,
   PrincipalStateResponse,
-} from "@symcrypt/validators/response";
-import { isPrincipalPolicyBundleResponse } from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
+import { isPrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { and, asc, eq } from "drizzle-orm";
 import {
   keyingCheckpointTables,

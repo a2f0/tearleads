@@ -1,12 +1,12 @@
 import type {
   ApiDatabase,
   DatabaseTransaction,
-} from "@symcrypt/api-shared/postgres";
+} from "@tearleads/api-shared/postgres";
 import {
   type OrganizationReadModelLane,
   type OrganizationReadModelOperation,
   organizationReadModelChanges,
-} from "@symcrypt/api-shared/schema";
+} from "@tearleads/api-shared/schema";
 import type {
   ListOrganizationGroupsResponse,
   OrganizationDirectoryResponse,
@@ -15,7 +15,7 @@ import type {
   OrganizationReadModelGroupMembershipsResponse,
   OrganizationReadModelOrganizationPolicyResponse,
   OrganizationReadModelResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { and, asc, eq, gt } from "drizzle-orm";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { requireDirectOrganizationAccess } from "./access";

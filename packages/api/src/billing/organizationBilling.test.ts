@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { OrganizationBillingStatus } from "@symcrypt/api-shared/schema";
+import type { OrganizationBillingStatus } from "@tearleads/api-shared/schema";
 import {
   createLocalBillingFields,
   createTrialBillingFields,

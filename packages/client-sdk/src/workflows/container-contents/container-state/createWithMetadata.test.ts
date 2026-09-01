@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
-import { decryptWithDek } from "@symcrypt/crypto";
-import { base64ToBytes } from "@symcrypt/encoding";
-import { createMockApiClient, createTestExecSql } from "@symcrypt/test-utils";
-import type { ContainerCreateWithMetadataDocumentRequest } from "@symcrypt/validators/request";
+import { decryptWithDek } from "@tearleads/crypto";
+import { base64ToBytes } from "@tearleads/encoding";
+import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
+import type { ContainerCreateWithMetadataDocumentRequest } from "@tearleads/validators/request";
 import {
   createMutationResponseFromRequest,
   createParentProjection,

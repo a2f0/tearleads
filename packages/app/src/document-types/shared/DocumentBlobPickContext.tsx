@@ -1,4 +1,4 @@
-import type { BlobInfo } from "@symcrypt/client-sdk";
+import type { BlobInfo } from "@tearleads/client-sdk";
 import { createContext, type PropsWithChildren, useContext } from "react";
 import type { DocumentAttachmentSlot } from "./documentAttachmentUtils";
 

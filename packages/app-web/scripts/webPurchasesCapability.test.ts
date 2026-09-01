@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { PurchasesUnavailableError } from "@symcrypt/client-sdk";
+import { PurchasesUnavailableError } from "@tearleads/client-sdk";
 import { createWebPurchases } from "../src/webPurchases";
 
 const ENV_KEY = "BUN_PUBLIC_REVENUECAT_WEB_API_KEY";

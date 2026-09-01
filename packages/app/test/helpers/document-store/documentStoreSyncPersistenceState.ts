@@ -2,7 +2,7 @@ import type {
   DocumentsPersistence,
   LocalAttachmentRecord,
   PendingAttachmentRecord,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 
 type AttachmentRemovalRows = NonNullable<
   Parameters<

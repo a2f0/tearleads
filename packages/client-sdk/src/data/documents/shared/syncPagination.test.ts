@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
-import type { DocumentSyncRequest } from "@symcrypt/validators/request";
-import type { DocumentSyncResponse } from "@symcrypt/validators/response";
+import type { DocumentSyncRequest } from "@tearleads/validators/request";
+import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import {
   MAX_DOCUMENT_SYNC_REQUEST_BYTES,
   MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES,
-} from "@symcrypt/validators/util";
+} from "@tearleads/validators/util";
 import { limitDocumentSyncRequestBytes } from "../../sync/documentSyncOutgoingBatch";
 import {
   readPullContinuation,

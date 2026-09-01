@@ -1,0 +1,25 @@
+[Unit]
+Description=Tearleads Code Assist
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User={{ server_user | default('deploy') }}
+WorkingDirectory=/opt/tearleads
+EnvironmentFile=/etc/tearleads/code-assist.env
+ExecStart=/opt/tearleads/bin/tearleads-code-assist
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tearleads-code-assist
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ReadWritePaths=/opt/tearleads
+
+[Install]
+WantedBy=multi-user.target

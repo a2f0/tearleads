@@ -4,7 +4,7 @@ import {
   blobWireHeaderNames,
   getBlobBytesOperation,
   operationRequestPath,
-} from "@symcrypt/validators/operation";
+} from "@tearleads/validators/operation";
 import type { ResponseRequestFn } from "../../types";
 
 export interface BlobBytesResponse {
@@ -113,7 +113,7 @@ async function loadBlobBytesResponse(
   // the stream when present, otherwise buffer the response and re-wrap it as a
   // one-shot ReadableStream so callers keep a single streaming interface. This
   // does not weaken validation — a truncated or corrupted body is still caught
-  // downstream by the X-SymCrypt-Blob-Sha256 integrity check; it only stops a
+  // downstream by the X-Tearleads-Blob-Sha256 integrity check; it only stops a
   // buffered-but-valid response from being rejected here as malformed.
   const encryptedBytes =
     response.body ?? bufferedResponseBodyStream(await response.arrayBuffer());

@@ -5,7 +5,7 @@ import {
   generateSigningSeedAndKeyPair,
   sign,
   toFingerprint,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import invariant from "invariant";
 import {
   requestChallenge,

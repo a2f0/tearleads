@@ -1,8 +1,8 @@
 import type {
   ContainerContentsContextValue,
   ContainerNode,
-} from "@symcrypt/client-sdk";
-import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
+} from "@tearleads/client-sdk";
+import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import {
   EXPLORER_TRASH_CONTAINER_NAME,
   findUserSystemContainer,

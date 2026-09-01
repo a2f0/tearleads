@@ -2,7 +2,7 @@ import {
   isListDocumentAttachmentsOperationResponse,
   listDocumentAttachmentsOperation,
   operationRequestPath,
-} from "@symcrypt/validators/operation";
+} from "@tearleads/validators/operation";
 
 export const listDocumentAttachments = {
   isResponse: isListDocumentAttachmentsOperationResponse,

@@ -1,6 +1,6 @@
 # RevenueCat Billing
 
-SymCrypt sells the organization **sync** subscription as the same three fixed
+Tearleads sells the organization **sync** subscription as the same three fixed
 capacity tiers on every platform. Web checkout uses Stripe; native checkout uses
 the App Store or Play through RevenueCat. RevenueCat mirrors every subscription
 into the cross-platform `sync` entitlement and emits the lifecycle events that
@@ -37,13 +37,13 @@ only. Native purchases are personal-org only; restore always creates a new org.
 ## Native restore and subscription moves
 
 An App Store or Play subscription belongs to the store account, not to an app
-installation or a SymCrypt key identity. A fresh SymCrypt identity on the
+installation or a Tearleads key identity. A fresh Tearleads identity on the
 same store account therefore cannot buy the product again. Billing presents a
 user-confirmed recovery flow instead:
 
 1. The dialog tells the user to recover the original identity first if they
    need its encrypted data.
-2. RevenueCat restore/sync runs under the new SymCrypt user id without changing
+2. RevenueCat restore/sync runs under the new Tearleads user id without changing
    the customer-level `orgId` attribution.
 3. Once the receipt exposes `sync`, the client creates a fresh organization.
 4. `POST /organizations/:id/billing/native/:store/claim` verifies the current
@@ -58,7 +58,7 @@ user-confirmed recovery flow instead:
 
 RevenueCat `TRANSFER` webhooks use the same verified claim workflow. Transfer
 events do not include `app_user_id`; the server resolves the registered
-SymCrypt user from `transferred_to`, then queries RevenueCat before changing
+Tearleads user from `transferred_to`, then queries RevenueCat before changing
 billing. The provider subscription id has a unique database index, so only one
 organization can own it. Billing history shows `TRANSFER_OUT` on the source and
 `TRANSFER_IN` on the destination.
@@ -95,9 +95,10 @@ quantity `1`. Apple, Google, and RevenueCat Test Store represent them as three
 products. `organization_billing.seat_count` stores the tier capacity (1, 5, or
 10), not the number of currently active members.
 
-Old Solo aliases remain accepted for receipts. Google and Test Store use the
-stems above; App Store prefixes them with `symcrypt_` because Apple reserves
-the old IDs.
+Old Solo aliases remain accepted for receipts. The Tearleads App Store, Google,
+and Test Store catalogs use the stems above. The six `symcrypt_`-prefixed App
+Store identifiers remain accepted only so delayed events from the superseded
+native apps can be reconciled during the cutover.
 
 ## Entitlement
 
@@ -133,10 +134,10 @@ bun run --filter=app-web dev
 ### Web key types
 
 - A **Test Store** key (`test_…`) can simulate RevenueCat purchases upstream,
-  but SymCrypt disables that purchase API on web. Test fixed-tier enrollment
+  but Tearleads disables that purchase API on web. Test fixed-tier enrollment
   through direct checkout with Stripe test-mode keys instead.
 - A **Web Billing** key (`rcb_…`) may still observe entitlements from the
-  connected Stripe account, but it does not enable SymCrypt web purchases. Do
+  connected Stripe account, but it does not enable Tearleads web purchases. Do
   not re-enable the embedded adapter without the same server-authoritative tier
   contract.
 
@@ -194,7 +195,7 @@ returning an unbounded 503.
 
 - The server value comes from `.secrets/root.env` and is rendered into the API
   server's systemd `EnvironmentFile` by the ansible playbook
-  ([`api.env.j2`](../../ansible/playbooks/templates/etc/symcrypt/api.env.j2)),
+  ([`api.env.j2`](../../ansible/playbooks/templates/etc/tearleads/api.env.j2)),
   so it only reaches a deployed server via the **ansible** deploy step (not
   `--skip-infra`).
 - Register the endpoint in the RevenueCat dashboard, or via the v2 API
@@ -337,19 +338,19 @@ Resetting billing rows is insufficient; the rewritten
 `0000_greenfield_baseline` is not a forward migration. No compatibility or
 lifecycle backfill path exists.
 
-The API build emits `packages/api/dist/symcrypt-stripe-seat-sync`; the deploy
-scripts copy it to `/opt/symcrypt/bin/symcrypt-stripe-seat-sync`. Ansible
-installs `symcrypt-stripe-seat-sync.service` and its one-minute timer. Each run
+The API build emits `packages/api/dist/tearleads-stripe-seat-sync`; the deploy
+scripts copy it to `/opt/tearleads/bin/tearleads-stripe-seat-sync`. Ansible
+installs `tearleads-stripe-seat-sync.service` and its one-minute timer. Each run
 processes up to 100 trials plus 100 Stripe targets and journals
 `{stripeSeatSync, trialExpiry}`. API deploys run migrations; the first rollout
-must run server Ansible to install the timer and render `/etc/symcrypt/api.env`.
+must run server Ansible to install the timer and render `/etc/tearleads/api.env`.
 
 Operational checks:
 
 ```sh
-sudo systemctl status symcrypt-stripe-seat-sync.timer
-sudo systemctl start symcrypt-stripe-seat-sync.service
-sudo journalctl -u symcrypt-stripe-seat-sync.service
+sudo systemctl status tearleads-stripe-seat-sync.timer
+sudo systemctl start tearleads-stripe-seat-sync.service
+sudo journalctl -u tearleads-stripe-seat-sync.service
 ```
 
 ## Direct Stripe checkout (client side)

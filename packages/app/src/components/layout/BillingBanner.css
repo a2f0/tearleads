@@ -10,8 +10,8 @@
   /* A warning is the screen's topmost chrome, so share the routed app bar's
      surface and native status-bar color. */
   background: var(--color-muted);
-  border-bottom: var(--border-width) solid var(--symcrypt-border);
-  border-left: var(--space-2xs) solid var(--symcrypt-accent);
+  border-bottom: var(--border-width) solid var(--tearleads-border);
+  border-left: var(--space-2xs) solid var(--tearleads-accent);
 }
 
 .billing-banner--warning {

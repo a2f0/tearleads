@@ -7,8 +7,8 @@ import {
   getTextValue,
   getUpdateVersionVectors,
   versionVectorsEqual,
-} from "@symcrypt/loro";
-import type { DocumentSyncResponse } from "@symcrypt/validators/response";
+} from "@tearleads/loro";
+import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import {
   findUniqueRepairingCandidate,
   isDocumentSyncUpdateIsolationError,

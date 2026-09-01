@@ -1,4 +1,4 @@
-import type { DomainScope, SymCrypt } from "@symcrypt/client-sdk";
+import type { DomainScope, Tearleads } from "@tearleads/client-sdk";
 
 export type ProjectionListener = () => unknown | Promise<unknown>;
 
@@ -49,12 +49,12 @@ export interface OrganizationRealtimeState {
 }
 
 const realtimeStateByInstance = new WeakMap<
-  SymCrypt,
+  Tearleads,
   OrganizationRealtimeState
 >();
 
-export function stateFor(symcrypt: SymCrypt): OrganizationRealtimeState {
-  let state = realtimeStateByInstance.get(symcrypt);
+export function stateFor(tearleads: Tearleads): OrganizationRealtimeState {
+  let state = realtimeStateByInstance.get(tearleads);
   if (!state) {
     state = {
       acknowledgedOrganizationId: undefined,
@@ -68,7 +68,7 @@ export function stateFor(symcrypt: SymCrypt): OrganizationRealtimeState {
       reconciliationsByOrganizationId: new Map(),
       socket: null,
     };
-    realtimeStateByInstance.set(symcrypt, state);
+    realtimeStateByInstance.set(tearleads, state);
   }
   return state;
 }
@@ -93,10 +93,10 @@ export function isSameOrganizationReadModelScope(
 }
 
 export function currentOrganizationReadModelScope(
-  symcrypt: SymCrypt,
+  tearleads: Tearleads,
   organizationId?: string,
 ): OrganizationReadModelScope | null {
-  const runtime = symcrypt.runtime.input();
+  const runtime = tearleads.runtime.input();
   const activeOrganizationId = runtime.auth.organizationId;
   const userId = runtime.auth.userId;
   if (
@@ -116,12 +116,12 @@ export function currentOrganizationReadModelScope(
 }
 
 function demandScope(
-  symcrypt: SymCrypt,
+  tearleads: Tearleads,
   state: OrganizationRealtimeState,
   activeOnly: boolean,
   organizationId?: string,
 ): OrganizationReadModelScope | null {
-  const scope = currentOrganizationReadModelScope(symcrypt, organizationId);
+  const scope = currentOrganizationReadModelScope(tearleads, organizationId);
   if (!scope) {
     return null;
   }
@@ -136,23 +136,23 @@ function demandScope(
 }
 
 export function activeDemandScope(
-  symcrypt: SymCrypt,
+  tearleads: Tearleads,
   state: OrganizationRealtimeState,
   organizationId?: string,
 ): OrganizationReadModelScope | null {
-  return demandScope(symcrypt, state, true, organizationId);
+  return demandScope(tearleads, state, true, organizationId);
 }
 
 function leasedDemandScope(
-  symcrypt: SymCrypt,
+  tearleads: Tearleads,
   state: OrganizationRealtimeState,
 ): OrganizationReadModelScope | null {
-  return demandScope(symcrypt, state, false);
+  return demandScope(tearleads, state, false);
 }
 
 export function activeDemandOrganizationId(
-  symcrypt: SymCrypt,
+  tearleads: Tearleads,
   state: OrganizationRealtimeState,
 ): string | null {
-  return leasedDemandScope(symcrypt, state)?.organizationId ?? null;
+  return leasedDemandScope(tearleads, state)?.organizationId ?? null;
 }

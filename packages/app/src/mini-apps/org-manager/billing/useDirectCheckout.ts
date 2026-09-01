@@ -1,11 +1,11 @@
 import type {
   DirectCheckoutCapability,
   DirectCheckoutSession,
-} from "@symcrypt/client-sdk";
-import type { StripeSyncOptionResponse } from "@symcrypt/validators/response";
+} from "@tearleads/client-sdk";
+import type { StripeSyncOptionResponse } from "@tearleads/validators/response";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDirectCheckout as useDirectCheckoutCapability } from "../../../providers/direct-checkout/DirectCheckoutProvider";
-import { useSymCrypt } from "../../../providers/sdk/SymCryptProvider";
+import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { checkoutOptionErrorMessage } from "./billingCheckoutErrors";
 import { readCheckoutAppearance } from "./checkoutAppearance";
@@ -89,7 +89,7 @@ function useCheckoutOption(
   /** The panel is offering the checkout; false for an org that already syncs. */
   enabled: boolean,
   organizationId: string,
-  symcrypt: ReturnType<typeof useSymCrypt>,
+  tearleads: ReturnType<typeof useTearleads>,
 ): {
   readonly error: string | null;
   readonly option: StripeSyncOptionResponse | null;
@@ -109,7 +109,7 @@ function useCheckoutOption(
     void (async () => {
       try {
         const result =
-          await symcrypt.organizations.loadStripeCheckoutOptions(
+          await tearleads.organizations.loadStripeCheckoutOptions(
             organizationId,
           );
         if (!cancelled) {
@@ -136,7 +136,7 @@ function useCheckoutOption(
     return () => {
       cancelled = true;
     };
-  }, [available, canSubscribe, enabled, organizationId, symcrypt]);
+  }, [available, canSubscribe, enabled, organizationId, tearleads]);
   return state;
 }
 
@@ -146,14 +146,14 @@ function useCheckoutOptionForFlow(
     "canSubscribe" | "enabled" | "organizationId"
   >,
   available: boolean,
-  symcrypt: ReturnType<typeof useSymCrypt>,
+  tearleads: ReturnType<typeof useTearleads>,
 ) {
   return useCheckoutOption(
     available,
     input.canSubscribe,
     input.enabled,
     input.organizationId,
-    symcrypt,
+    tearleads,
   );
 }
 
@@ -185,7 +185,7 @@ interface BeginCheckoutDeps {
   readonly enabled: boolean;
   readonly organizationId: string;
   readonly capability: DirectCheckoutCapability;
-  readonly symcrypt: ReturnType<typeof useSymCrypt>;
+  readonly tearleads: ReturnType<typeof useTearleads>;
   readonly teardown: () => void;
 }
 
@@ -217,9 +217,10 @@ function useBeginCheckout(
       const token = refs.startTokenRef.current;
       void (async () => {
         try {
-          const intent = await deps.symcrypt.organizations.createStripeCheckout(
-            deps.organizationId,
-          );
+          const intent =
+            await deps.tearleads.organizations.createStripeCheckout(
+              deps.organizationId,
+            );
           // Every continuation re-checks the token: teardown (cancel, org
           // switch, disable, unmount) bumps it, and a losing attempt must
           // neither write state onto the panel it no longer owns nor cancel the
@@ -354,7 +355,7 @@ export function useDirectCheckoutFlow(input: {
   readonly onPaid: () => void;
 }): DirectCheckoutState {
   const capability = useDirectCheckoutCapability();
-  const symcrypt = useSymCrypt();
+  const tearleads = useTearleads();
   const hostRef = useRef<HTMLDivElement | null>(null);
   const sessionRef = useRef<DirectCheckoutSession | null>(null);
   /** Bumped by every begin/teardown so a late mount can detect it lost. */
@@ -364,7 +365,7 @@ export function useDirectCheckoutFlow(input: {
   const [phase, setPhase] = useState<DirectCheckoutPhase>({ kind: "idle" });
   const [error, setError] = useState<string | null>(null);
   const available = capability.isAvailable;
-  const checkoutOption = useCheckoutOptionForFlow(input, available, symcrypt);
+  const checkoutOption = useCheckoutOptionForFlow(input, available, tearleads);
 
   const teardown = useCallback(() => {
     startTokenRef.current += 1;
@@ -407,7 +408,7 @@ export function useDirectCheckoutFlow(input: {
       enabled: input.enabled,
       organizationId: input.organizationId,
       capability,
-      symcrypt,
+      tearleads,
       teardown,
     }),
     [
@@ -416,7 +417,7 @@ export function useDirectCheckoutFlow(input: {
       input.canSubscribe,
       input.enabled,
       input.organizationId,
-      symcrypt,
+      tearleads,
       teardown,
     ],
   );

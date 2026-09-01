@@ -5,12 +5,12 @@ import type {
   ContainerKeyWrap,
   ContainerUserRecipientKey,
   VerifiedPrincipalPolicy,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import type {
   AccessManifestBundleWire,
   ContainerMutationRequest,
-} from "@symcrypt/validators/request";
-import type { ContainerWriterProjectionResponse } from "@symcrypt/validators/response";
+} from "@tearleads/validators/request";
+import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import { principalPolicyRequestRecord } from "../../../data/containers/shared/principalPolicies";
 import { asContainerManifestBundle } from "../../../data/containers/shared/projection";
 import {

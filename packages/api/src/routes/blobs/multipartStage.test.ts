@@ -48,9 +48,10 @@ test("multipart blob stage routes support resumable upload completion", async ()
       method: "PUT",
       headers: {
         "Content-Type": "application/octet-stream",
-        "X-SymCrypt-Blob-Part-Byte-Length": "route-multipart".length.toString(),
-        "X-SymCrypt-Blob-Part-Sha256": await sha256Hex("route-multipart"),
-        "X-SymCrypt-Blob-Upload-Id": initiated.uploadId,
+        "X-Tearleads-Blob-Part-Byte-Length":
+          "route-multipart".length.toString(),
+        "X-Tearleads-Blob-Part-Sha256": await sha256Hex("route-multipart"),
+        "X-Tearleads-Blob-Upload-Id": initiated.uploadId,
       },
       body: "route-multipart",
     },
@@ -73,11 +74,11 @@ test("multipart blob stage routes support resumable upload completion", async ()
       method: "PUT",
       headers: {
         "Content-Type": "application/octet-stream",
-        "X-SymCrypt-Blob-Part-Byte-Length": new TextEncoder()
+        "X-Tearleads-Blob-Part-Byte-Length": new TextEncoder()
           .encode("-encrypted-bytes")
           .byteLength.toString(),
-        "X-SymCrypt-Blob-Part-Sha256": await sha256Hex("-encrypted-bytes"),
-        "X-SymCrypt-Blob-Upload-Id": initiated.uploadId,
+        "X-Tearleads-Blob-Part-Sha256": await sha256Hex("-encrypted-bytes"),
+        "X-Tearleads-Blob-Upload-Id": initiated.uploadId,
       },
       body: "-encrypted-bytes",
     },
@@ -119,9 +120,9 @@ test("multipart part routes reject a part declared above the size ceiling", asyn
       method: "PUT",
       headers: {
         "Content-Type": "application/octet-stream",
-        "X-SymCrypt-Blob-Part-Byte-Length": (100 * 1024 * 1024 + 1).toString(),
-        "X-SymCrypt-Blob-Part-Sha256": await sha256Hex("part-bytes"),
-        "X-SymCrypt-Blob-Upload-Id": crypto.randomUUID(),
+        "X-Tearleads-Blob-Part-Byte-Length": (100 * 1024 * 1024 + 1).toString(),
+        "X-Tearleads-Blob-Part-Sha256": await sha256Hex("part-bytes"),
+        "X-Tearleads-Blob-Upload-Id": crypto.randomUUID(),
       },
       body: "part-bytes",
     },
@@ -139,9 +140,9 @@ test("multipart part routes reject unsafe integer part numbers", async () => {
       method: "PUT",
       headers: {
         "Content-Type": "application/octet-stream",
-        "X-SymCrypt-Blob-Part-Byte-Length": "10",
-        "X-SymCrypt-Blob-Part-Sha256": await sha256Hex("part-bytes"),
-        "X-SymCrypt-Blob-Upload-Id": crypto.randomUUID(),
+        "X-Tearleads-Blob-Part-Byte-Length": "10",
+        "X-Tearleads-Blob-Part-Sha256": await sha256Hex("part-bytes"),
+        "X-Tearleads-Blob-Upload-Id": crypto.randomUUID(),
       },
       body: "part-bytes",
     },

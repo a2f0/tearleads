@@ -1,8 +1,8 @@
 import {
   getHealthOperation,
   operationRoutePath,
-} from "@symcrypt/validators/operation";
-import type { HealthResponse } from "@symcrypt/validators/response";
+} from "@tearleads/validators/operation";
+import type { HealthResponse } from "@tearleads/validators/response";
 import { Hono } from "hono";
 
 export function createHealthRoute() {

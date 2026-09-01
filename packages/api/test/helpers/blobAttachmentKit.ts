@@ -1,5 +1,5 @@
 import { expect } from "bun:test";
-import type { TestUser } from "@symcrypt/bob-and-alice";
+import type { TestUser } from "@tearleads/bob-and-alice";
 import type {
   AttachmentBindAccessEventBody,
   AttachmentDetachAccessEventBody,
@@ -7,7 +7,7 @@ import type {
   VerifiedAttachmentBinding,
   VerifiedBlobKekTargets,
   VerifiedDocumentLinkSetManifest,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeContentRecordNonceDomainHash,
@@ -15,12 +15,12 @@ import {
   deriveBlobKekTargets,
   signWriteHeader,
   verifyAttachmentBindingEvent,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import type {
   BlobAttachmentBindRequest,
   BlobAttachmentDetachRequest,
-} from "@symcrypt/validators/request";
-import type { DocumentCreateResponse } from "@symcrypt/validators/response";
+} from "@tearleads/validators/request";
+import type { DocumentCreateResponse } from "@tearleads/validators/response";
 import {
   bindBlobAttachment,
   detachBlobAttachment,
@@ -120,7 +120,7 @@ async function createWriteHeader(input: {
         contentRecordId: input.blobId,
       }),
       metadataHash: await computeKeyingDomainHash(
-        "symcrypt.keying.access-event-body",
+        "tearleads.keying.access-event-body",
         { blobId: input.blobId, purpose: "ownership-regression" },
       ),
       ciphertextHash: input.sha256,

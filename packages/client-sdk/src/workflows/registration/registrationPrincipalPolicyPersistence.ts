@@ -2,13 +2,13 @@ import {
   computePrincipalStateHash,
   makeVerifiedPrincipalPolicy,
   type VerifiedPrincipalPolicy,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import type {
   CreateOrganizationGroupRequest,
   PutPrincipalPolicyRequest,
   RegistrationRequest,
-} from "@symcrypt/validators/request";
-import type { PrincipalPolicyBundleResponse } from "@symcrypt/validators/response";
+} from "@tearleads/validators/request";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { persistLocallyAcknowledgedPrincipalPolicyBundles } from "../../data/persistence/locallyAcknowledgedCheckpointPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 

@@ -1,4 +1,4 @@
-import type { ContainerAccessLevel } from "@symcrypt/crypto";
+import type { ContainerAccessLevel } from "@tearleads/crypto";
 import type { DocumentSyncPullContinuation } from "../documents/shared/pullContinuation";
 
 export interface DocumentRecord {

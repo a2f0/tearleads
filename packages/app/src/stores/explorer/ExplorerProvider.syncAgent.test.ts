@@ -8,12 +8,12 @@ import {
   defaultContainerContentsPersistence as defaultExplorerPersistence,
   subscribeToContainerContentsStore as subscribeToExplorerStore,
   updateContainerContentsSnapshot as updateExplorerSnapshot,
-} from "@symcrypt/client-sdk";
+} from "@tearleads/client-sdk";
 import {
   generateKemSeedAndKeyPair,
   KeyingVerificationError,
-} from "@symcrypt/crypto";
-import { createMockApiClient } from "@symcrypt/test-utils";
+} from "@tearleads/crypto";
+import { createMockApiClient } from "@tearleads/test-utils";
 import {
   listedContainer,
   loadContainers,

@@ -1,15 +1,15 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
   accessManifestContainerGrantProjection,
   accessManifestHeads,
   accessManifests,
   containerBuiltinGrants,
   containers,
-} from "@symcrypt/api-shared/schema";
+} from "@tearleads/api-shared/schema";
 import {
   isOrganizationGroupContainerAccessLevel,
   type OrganizationGroupContainerResponse,
-} from "@symcrypt/validators/response";
+} from "@tearleads/validators/response";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { booleanExpression, jsonTextProperty } from "../../utils/sqlDialect";
 

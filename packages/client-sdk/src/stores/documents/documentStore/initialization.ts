@@ -1,10 +1,10 @@
-import { bytesToBase64 } from "@symcrypt/encoding";
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
   encodeVersionVector,
   exportAllUpdates,
   exportFullHistorySnapshot,
   mergeVersionVectors,
-} from "@symcrypt/loro";
+} from "@tearleads/loro";
 import {
   DEFAULT_DOCUMENT_ACCESS_EPOCH,
   DEFAULT_DOCUMENT_KIND,

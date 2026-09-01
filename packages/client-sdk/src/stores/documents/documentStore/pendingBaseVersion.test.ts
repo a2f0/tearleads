@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createDocument, importUpdates } from "@symcrypt/loro";
+import { createDocument, importUpdates } from "@tearleads/loro";
 import {
   advancePendingBaseVersion,
   pendingDeltaSinceBase,

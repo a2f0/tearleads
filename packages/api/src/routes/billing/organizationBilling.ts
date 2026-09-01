@@ -1,4 +1,4 @@
-import { NativeSubscriptionStoreSchema } from "@symcrypt/validators/billing";
+import { NativeSubscriptionStoreSchema } from "@tearleads/validators/billing";
 import {
   claimNativeOrganizationSubscriptionOperation,
   getOrganizationBillingHistoryOperation,
@@ -7,7 +7,7 @@ import {
   getOrganizationNativePurchaseEligibilityOperation,
   operationRoutePath,
   startOrganizationTrialOperation,
-} from "@symcrypt/validators/operation";
+} from "@tearleads/validators/operation";
 import { type Context, Hono } from "hono";
 import type { RevenueCatApiDeps } from "../../billing/revenueCatApi";
 import type { SessionEnv } from "../../middleware/session";

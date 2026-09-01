@@ -1,12 +1,12 @@
-import { db } from "@symcrypt/api-shared/postgres";
-import { organizations } from "@symcrypt/api-shared/schema";
-import type { TestUser } from "@symcrypt/bob-and-alice";
+import { db } from "@tearleads/api-shared/postgres";
+import { organizations } from "@tearleads/api-shared/schema";
+import type { TestUser } from "@tearleads/bob-and-alice";
 import {
   generateKemSeedAndKeyPair,
   normalizePrincipalProjectionMembers,
   toFingerprint,
-} from "@symcrypt/crypto";
-import { bytesToBase64 } from "@symcrypt/encoding";
+} from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import {

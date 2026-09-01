@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import type { OrganizationDataUsage } from "@symcrypt/client-sdk";
+import type { OrganizationDataUsage } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { useOrgManagerScopedDataUsage } from "./useOrgManagerScopedDataUsage";
 

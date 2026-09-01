@@ -2,7 +2,7 @@
 // every minute: due free trials and purges are persisted before Stripe seat
 // reconciliation. Row locks, leases, DB predicates, and Stripe idempotency make
 // overlaps safe.
-import { closeApiDatabase } from "@symcrypt/api-shared/postgres";
+import { closeApiDatabase } from "@tearleads/api-shared/postgres";
 import { runOrganizationPurgeMaintenance } from "../src/services/billing/organizationPurge";
 import { expireOrganizationTrials } from "../src/services/billing/organizationTrialExpiry";
 import { runStripeSeatSynchronization } from "../src/services/billing/stripeSeatSync";
