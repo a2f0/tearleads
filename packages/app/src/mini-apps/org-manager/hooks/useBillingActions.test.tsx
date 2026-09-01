@@ -169,7 +169,7 @@ test("restores and claims a native subscription only after confirmation", async 
   const createRestoreOrganization = mock(() =>
     Promise.resolve(RESTORE_ORGANIZATION),
   );
-  const activateRestoredOrganization = mock(() => undefined);
+  const activateRestoredOrganization = mock(() => Promise.resolve());
   const refresh = mock(() => Promise.resolve());
   const { result } = renderBillingActions({
     activateRestoredOrganization,

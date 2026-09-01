@@ -288,7 +288,7 @@ interface UseBillingActionsInput {
   billingSeatCount: number | null;
   activateRestoredOrganization: (
     organization: SessionCreateOrganizationResult,
-  ) => void;
+  ) => Promise<void>;
   claimNativeSubscription: (
     organizationId: string,
     store: NativeSubscriptionStore,

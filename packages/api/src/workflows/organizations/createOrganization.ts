@@ -15,6 +15,7 @@ import {
   assertOrganizationCanSync,
   OrganizationSyncDisabledError,
 } from "../billing/organizationSyncEligibility";
+import { lockPrincipalMutationInTransaction } from "../principals/principalMutationLock";
 import {
   type OrganizationProvisioningSigner,
   type ProvisionOrganizationOptions,
@@ -281,6 +282,16 @@ export async function runCreateOrganizationWorkflow(
   await validateOrganizationProvisioningInput(input, signer);
   try {
     return await db.transaction(async (tx) => {
+      if (input.nativeSubscriptionRestore) {
+        // Serialize identical restore requests before checking the response.
+        // A concurrent winner records its replay payload while this request is
+        // waiting on the same organization principal lock.
+        await lockPrincipalMutationInTransaction(
+          tx,
+          "organization",
+          input.organizationId,
+        );
+      }
       const nativeRestoreReplay = await readNativeRestoreReplay(tx, input);
       if (nativeRestoreReplay) return nativeRestoreReplay;
       const existingReplacement = await assertReplacementReady(tx, input);

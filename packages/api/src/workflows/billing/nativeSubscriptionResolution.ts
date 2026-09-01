@@ -8,9 +8,11 @@ import { and, eq, isNotNull } from "drizzle-orm";
 
 const NATIVE_BINDING_CONTINUATION_EVENT_TYPES: ReadonlySet<string> = new Set([
   "EXPIRATION",
+  "NON_RENEWING_PURCHASE",
   "RENEWAL",
   "SUBSCRIPTION_EXTENDED",
   "SUBSCRIPTION_PAUSED",
+  "TEMPORARY_ENTITLEMENT_GRANT",
   "UNCANCELLATION",
 ]);
 

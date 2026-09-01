@@ -15,6 +15,7 @@ import {
   MiniAppModalPanel,
 } from "../../../components/mini-app/MiniAppLayout";
 import { useOrganizationBilling } from "../../../providers/billing/BillingProvider";
+import { useIdentity } from "../../../providers/identity/IdentityProvider";
 import { useSymCrypt } from "../../../providers/sdk/SymCryptProvider";
 import { useBillingActions } from "../hooks/useBillingActions";
 import { ORG_MANAGER_LABELS } from "../labels";
@@ -284,6 +285,7 @@ function BillingPanelSubscriptionControls(input: {
 
 function useRestoreOrganizationWiring() {
   const symcrypt = useSymCrypt();
+  const { persistSession } = useIdentity();
   const createRestoreOrganization = useCallback(
     () =>
       symcrypt.session.prepareNativeSubscriptionRestoreOrganization({
@@ -310,10 +312,11 @@ function useRestoreOrganizationWiring() {
     [symcrypt],
   );
   const activateRestoredOrganization = useCallback(
-    (organization: { containerId: string; organizationId: string }) => {
+    async (organization: { containerId: string; organizationId: string }) => {
       symcrypt.session.setContext(organization);
+      await persistSession();
     },
-    [symcrypt],
+    [persistSession, symcrypt],
   );
   return {
     activateRestoredOrganization,

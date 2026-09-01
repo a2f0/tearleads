@@ -21,10 +21,14 @@ test("POST /organizations durably replays a native restore destination", async (
     nativeSubscriptionRestore: true as const,
   };
 
-  const response = await submitCreateOrganization(user, body);
-  expect(response.status).toBe(200);
+  const [response, concurrentReplay] = await Promise.all([
+    submitCreateOrganization(user, body),
+    submitCreateOrganization(user, body),
+  ]);
+  expect([response.status, concurrentReplay.status]).toEqual([200, 200]);
   const provisioned: unknown = await response.json();
   invariant(isCreateOrganizationResponse(provisioned), "expected restore org");
+  expect(await concurrentReplay.json()).toEqual(provisioned);
   const replay = await submitCreateOrganization(user, body);
   expect(replay.status).toBe(200);
   expect(await replay.json()).toEqual(provisioned);

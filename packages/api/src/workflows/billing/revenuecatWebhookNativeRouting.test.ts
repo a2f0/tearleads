@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 import { db } from "@symcrypt/api-shared/postgres";
-import { organizationBilling, users } from "@symcrypt/api-shared/schema";
+import {
+  organizationBilling,
+  revenuecatWebhookEvents,
+  users,
+} from "@symcrypt/api-shared/schema";
 import { createTestUser, type TestUser } from "@symcrypt/bob-and-alice";
 import type { RevenueCatWebhookEvent } from "@symcrypt/validators/request";
 import { eq } from "drizzle-orm";
@@ -52,6 +56,26 @@ async function bindSubscription(input: {
     .where(eq(organizationBilling.organizationId, input.organizationId));
 }
 
+async function recordBindingStore(input: {
+  buyerId: string;
+  organizationId: string;
+  productId?: string;
+  store: "APP_STORE" | "PLAY_STORE";
+  subscriptionId: string;
+}): Promise<void> {
+  await db.insert(revenuecatWebhookEvents).values({
+    appUserId: input.buyerId,
+    eventId: crypto.randomUUID(),
+    eventTimestamp: new Date(0),
+    eventType: "INITIAL_PURCHASE",
+    organizationId: input.organizationId,
+    originalTransactionId: input.subscriptionId,
+    outcome: "applied",
+    productId: input.productId ?? "com.symcrypt.sync.monthly",
+    store: input.store,
+  });
+}
+
 function nativeEvent(input: {
   buyerId: string;
   newProductId?: string;
@@ -59,7 +83,7 @@ function nativeEvent(input: {
   productId?: string;
   store: "APP_STORE" | "PLAY_STORE";
   subscriptionId?: string;
-  type: "INITIAL_PURCHASE" | "PRODUCT_CHANGE" | "RENEWAL";
+  type: "EXPIRATION" | "INITIAL_PURCHASE" | "PRODUCT_CHANGE" | "RENEWAL";
 }): RevenueCatWebhookEvent {
   const now = Date.now();
   return {
@@ -286,6 +310,34 @@ test("a receipt-less initial purchase cannot overwrite a restored binding", asyn
   );
 });
 
+test("unmatched native lifecycle receipts cannot use the mutable orgId", async () => {
+  const { personalOrganizationId, user } = await registerBuyer();
+  await bindSubscription({
+    buyerId: user.userId,
+    organizationId: personalOrganizationId,
+    subscriptionId: "known-personal-subscription",
+  });
+  for (const type of ["RENEWAL", "EXPIRATION"] as const) {
+    const outcome = await runRevenueCatWebhookWorkflow(
+      db,
+      nativeEvent({
+        buyerId: user.userId,
+        organizationId: personalOrganizationId,
+        store: "APP_STORE",
+        subscriptionId: `${type.toLowerCase()}-unknown-subscription`,
+        type,
+      }),
+    );
+    expect(outcome).toEqual({
+      reason: "Event carried no organization id",
+      status: "ignored",
+    });
+  }
+  expect(await readSubscriptionId(personalOrganizationId)).toBe(
+    "known-personal-subscription",
+  );
+});
+
 test("a replacement Play token fails closed across same-tier bindings", async () => {
   const { personalOrganizationId, user } = await registerBuyer();
   const restoredOrganizationId = await createOrganization(user);
@@ -294,9 +346,21 @@ test("a replacement Play token fails closed across same-tier bindings", async ()
     organizationId: personalOrganizationId,
     subscriptionId: "first-play-subscription",
   });
+  await recordBindingStore({
+    buyerId: user.userId,
+    organizationId: personalOrganizationId,
+    store: "PLAY_STORE",
+    subscriptionId: "first-play-subscription",
+  });
   await bindSubscription({
     buyerId: user.userId,
     organizationId: restoredOrganizationId,
+    subscriptionId: "second-play-subscription",
+  });
+  await recordBindingStore({
+    buyerId: user.userId,
+    organizationId: restoredOrganizationId,
+    store: "PLAY_STORE",
     subscriptionId: "second-play-subscription",
   });
 
@@ -335,6 +399,39 @@ test("a replacement Play token fails closed across same-tier bindings", async ()
   );
 });
 
+test("a Play replacement token cannot select an App Store binding", async () => {
+  const { personalOrganizationId, user } = await registerBuyer();
+  await bindSubscription({
+    buyerId: user.userId,
+    organizationId: personalOrganizationId,
+    subscriptionId: "app-store-source-subscription",
+  });
+  await recordBindingStore({
+    buyerId: user.userId,
+    organizationId: personalOrganizationId,
+    store: "APP_STORE",
+    subscriptionId: "app-store-source-subscription",
+  });
+  const outcome = await runRevenueCatWebhookWorkflow(
+    db,
+    nativeEvent({
+      buyerId: user.userId,
+      newProductId: "sync_team_5_monthly",
+      organizationId: personalOrganizationId,
+      store: "PLAY_STORE",
+      subscriptionId: "unbound-play-replacement-token",
+      type: "PRODUCT_CHANGE",
+    }),
+  );
+  expect(outcome).toEqual({
+    reason: "Product change does not match a bound native subscription",
+    status: "ignored",
+  });
+  expect(await readSubscriptionId(personalOrganizationId)).toBe(
+    "app-store-source-subscription",
+  );
+});
+
 test("an applied Play change routes its token despite a wrong orgId", async () => {
   const { personalOrganizationId, user } = await registerBuyer();
   const restoredOrganizationId = await createOrganization(user);
@@ -348,6 +445,12 @@ test("an applied Play change routes its token despite a wrong orgId", async () =
     buyerId: user.userId,
     organizationId: restoredOrganizationId,
     productId: "com.symcrypt.sync.monthly",
+    subscriptionId: "restored-solo-subscription",
+  });
+  await recordBindingStore({
+    buyerId: user.userId,
+    organizationId: restoredOrganizationId,
+    store: "PLAY_STORE",
     subscriptionId: "restored-solo-subscription",
   });
 

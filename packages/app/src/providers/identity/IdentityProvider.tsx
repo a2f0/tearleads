@@ -59,6 +59,8 @@ export interface IdentityContextValue {
    */
   localIdentityRestoreSettled: boolean;
   localIdentityRestoredFingerprint: string | null;
+  /** Flushes the current SDK session to encrypted local persistence. */
+  persistSession: () => Promise<void>;
   restoreKeyPackage: (keyPackage: unknown) => Promise<void>;
   restoreSeedPhrase: (seedPhrase: string) => Promise<void>;
   seedPhrase: string | null;
@@ -201,6 +203,7 @@ function useIdentityContextValue(input: {
   readonly localIdentityRestoreSettled: boolean;
   readonly localIdentityRestoredFingerprint: string | null;
   readonly localPersistence: ReturnType<typeof useLocalIdentityPersistence>;
+  readonly persistSession: () => Promise<void>;
   readonly snapshot: IdentitySnapshot;
 }): IdentityContextValue {
   const {
@@ -210,6 +213,7 @@ function useIdentityContextValue(input: {
     localIdentityRestoreSettled,
     localIdentityRestoredFingerprint,
     localPersistence,
+    persistSession,
     snapshot,
   } = input;
   return useMemo(
@@ -224,6 +228,7 @@ function useIdentityContextValue(input: {
       localIdentityRestoreSettled,
       localIdentityRestoredFingerprint,
       localIdentitySwitchingAvailable: localPersistence !== null,
+      persistSession,
       restoreKeyPackage: identityActions.restoreKeyPackage,
       restoreSeedPhrase: identityActions.restoreSeedPhrase,
       seedPhrase: snapshot.seedPhrase,
@@ -238,6 +243,7 @@ function useIdentityContextValue(input: {
       localIdentityRestoreSettled,
       localIdentityRestoredFingerprint,
       localPersistence,
+      persistSession,
       snapshot,
     ],
   );
@@ -325,6 +331,7 @@ export function IdentityProvider({ children }: PropsWithChildren) {
     localIdentityRestoreSettled,
     localIdentityRestoredFingerprint,
     localPersistence,
+    persistSession: persistSessionBeforeIdentityTransition,
     snapshot,
   });
 

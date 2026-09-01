@@ -5,7 +5,7 @@ import {
 } from "@symcrypt/api-shared/schema";
 import { getSyncBillingTierForNativeProduct } from "@symcrypt/validators/billing";
 import type { RevenueCatWebhookEvent } from "@symcrypt/validators/request";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { resolveOrganizationIdFromEvent } from "../../billing/revenuecatWebhook";
 import {
   canInferNativeBindingWithoutReceiptId,
@@ -16,8 +16,13 @@ import type { ImmutableStripeStoreOrgResolution } from "./revenuecatStripeResolu
 
 type NativeOrganizationResolution =
   | { readonly kind: "ambiguous" }
+  | { readonly kind: "blocked" }
   | { readonly kind: "none" }
   | { readonly kind: "resolved"; readonly organizationId: string };
+
+function canBootstrapNativeBinding(type: string): boolean {
+  return type === "INITIAL_PURCHASE" || type === "NON_RENEWING_PURCHASE";
+}
 
 async function resolveAppliedProductChangeOrganization(
   db: DatabaseSession,
@@ -62,6 +67,69 @@ async function resolveAppliedProductChangeOrganization(
     : { kind: "none" };
 }
 
+async function resolvePlayProductChangeOrganization(
+  db: DatabaseSession,
+  event: RevenueCatWebhookEvent,
+): Promise<NativeOrganizationResolution> {
+  if (event.store?.toUpperCase() !== "PLAY_STORE") {
+    return { kind: "blocked" };
+  }
+  const sourceTier = getSyncBillingTierForNativeProduct(event.product_id);
+  if (!sourceTier) return { kind: "blocked" };
+  // Play replaces its purchase token during a plan change. Match the source
+  // tier only among bindings whose exact current token has applied Play audit
+  // lineage; buyer + tier alone can cross-route an App Store subscription.
+  const candidates = await db
+    .select({
+      organizationId: organizationBilling.organizationId,
+      productId: organizationBilling.providerProductId,
+      subscriptionId: organizationBilling.providerSubscriptionId,
+    })
+    .from(organizationBilling)
+    .where(
+      and(
+        eq(organizationBilling.provider, "revenuecat"),
+        eq(organizationBilling.providerCustomerId, event.app_user_id),
+        eq(organizationBilling.status, "active"),
+      ),
+    );
+  const tierMatches = candidates.filter(
+    (candidate) =>
+      candidate.subscriptionId !== null &&
+      getSyncBillingTierForNativeProduct(candidate.productId)?.id ===
+        sourceTier.id,
+  );
+  const subscriptionIds = tierMatches.flatMap(({ subscriptionId }) =>
+    subscriptionId ? [subscriptionId] : [],
+  );
+  if (subscriptionIds.length === 0) return { kind: "blocked" };
+  const lineage = await db
+    .select({
+      organizationId: revenuecatWebhookEvents.organizationId,
+      subscriptionId: revenuecatWebhookEvents.originalTransactionId,
+    })
+    .from(revenuecatWebhookEvents)
+    .where(
+      and(
+        eq(revenuecatWebhookEvents.appUserId, event.app_user_id),
+        eq(revenuecatWebhookEvents.outcome, "applied"),
+        eq(revenuecatWebhookEvents.store, "PLAY_STORE"),
+        inArray(revenuecatWebhookEvents.originalTransactionId, subscriptionIds),
+      ),
+    );
+  const matching = tierMatches.filter((candidate) =>
+    lineage.some(
+      (entry) =>
+        entry.organizationId === candidate.organizationId &&
+        entry.subscriptionId === candidate.subscriptionId,
+    ),
+  );
+  if (matching.length > 1) return { kind: "ambiguous" };
+  return matching[0]
+    ? { kind: "resolved", organizationId: matching[0].organizationId }
+    : { kind: "blocked" };
+}
+
 async function resolveBoundNativeOrganization(
   db: DatabaseSession,
   event: RevenueCatWebhookEvent,
@@ -71,7 +139,9 @@ async function resolveBoundNativeOrganization(
   }
   if (!event.original_transaction_id) {
     if (!canInferNativeBindingWithoutReceiptId(event.type)) {
-      return { kind: "none" };
+      return canBootstrapNativeBinding(event.type)
+        ? { kind: "none" }
+        : { kind: "blocked" };
     }
     const retainedOrganizationId =
       await resolveRetainedNativeSubscriptionOrganizationForUser(
@@ -81,7 +151,7 @@ async function resolveBoundNativeOrganization(
     if (retainedOrganizationId === "ambiguous") return { kind: "ambiguous" };
     return retainedOrganizationId
       ? { kind: "resolved", organizationId: retainedOrganizationId }
-      : { kind: "none" };
+      : { kind: "blocked" };
   }
   const [binding] = await db
     .select({ organizationId: organizationBilling.organizationId })
@@ -104,34 +174,12 @@ async function resolveBoundNativeOrganization(
     event,
   );
   if (appliedChange.kind !== "none") return appliedChange;
-  if (event.type !== "PRODUCT_CHANGE") return { kind: "none" };
-
-  const sourceTier = getSyncBillingTierForNativeProduct(event.product_id);
-  if (!sourceTier) return { kind: "none" };
-  // Play replaces its purchase token during a plan change. Before that token
-  // has a durable binding, buyer + source tier is the only immutable route.
-  // Multiple matches cannot be disambiguated by the mutable customer orgId.
-  const candidates = await db
-    .select({
-      organizationId: organizationBilling.organizationId,
-      productId: organizationBilling.providerProductId,
-    })
-    .from(organizationBilling)
-    .where(
-      and(
-        eq(organizationBilling.provider, "revenuecat"),
-        eq(organizationBilling.providerCustomerId, event.app_user_id),
-        eq(organizationBilling.status, "active"),
-      ),
-    );
-  const matching = candidates.filter(
-    ({ productId }) =>
-      getSyncBillingTierForNativeProduct(productId)?.id === sourceTier.id,
-  );
-  if (matching.length > 1) return { kind: "ambiguous" };
-  return matching[0]
-    ? { kind: "resolved", organizationId: matching[0].organizationId }
-    : { kind: "none" };
+  if (event.type !== "PRODUCT_CHANGE") {
+    return canBootstrapNativeBinding(event.type)
+      ? { kind: "none" }
+      : { kind: "blocked" };
+  }
+  return resolvePlayProductChangeOrganization(db, event);
 }
 
 export async function resolveRevenueCatWebhookOrganizationId(input: {
@@ -150,7 +198,7 @@ export async function resolveRevenueCatWebhookOrganizationId(input: {
   if (nativeResolution.kind === "resolved") {
     return nativeResolution.organizationId;
   }
-  if (nativeResolution.kind === "ambiguous") return null;
+  if (nativeResolution.kind !== "none") return null;
   // Native subscriber attributes are customer-level and mutable. They remain
   // only the bootstrap route before a receipt has a durable binding.
   return resolveOrganizationIdFromEvent(input.event);

@@ -19,7 +19,7 @@ import { ORG_MANAGER_LABELS } from "../labels";
 interface UseNativeSubscriptionMoveInput {
   readonly activateRestoredOrganization: (
     organization: SessionCreateOrganizationResult,
-  ) => void;
+  ) => Promise<void>;
   readonly claimNativeSubscription: (
     organizationId: string,
     store: NativeSubscriptionStore,
@@ -141,7 +141,7 @@ export function useNativeSubscriptionMove(
             userId,
           });
         if (scopeMatches(scopeRef.current, scope)) {
-          activateRestoredOrganization(restoredOrganization);
+          await activateRestoredOrganization(restoredOrganization);
           const completed = await completeRestoreOrganization(
             restoredOrganization.organizationId,
           );

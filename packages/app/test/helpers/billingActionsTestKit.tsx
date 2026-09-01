@@ -121,7 +121,7 @@ export function renderBillingActions(input: {
   optionsRetryDelaysMs?: readonly number[];
   activateRestoredOrganization?: (
     organization: SessionCreateOrganizationResult,
-  ) => void;
+  ) => Promise<void>;
   claimNativeSubscription?: (organizationId: string) => Promise<boolean>;
   createRestoreOrganization?: () => Promise<SessionCreateOrganizationResult | null>;
   refresh?: () => Promise<void>;
@@ -153,7 +153,7 @@ export function renderBillingActions(input: {
     }) => {
       const actions = useBillingActions({
         activateRestoredOrganization:
-          input.activateRestoredOrganization ?? (() => undefined),
+          input.activateRestoredOrganization ?? (() => Promise.resolve()),
         activationPollDelaysMs: input.activationPollDelaysMs ?? NO_POLL,
         billingIsActive,
         billingPendingSeatCount: billingPendingSeatCount ?? null,
