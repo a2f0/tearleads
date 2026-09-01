@@ -3,7 +3,10 @@ import type { ReferencedPrincipalHead } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createProjectionCheckpointContext } from "./checkpointContext";
 import { collectReferencedPrincipalPolicies } from "./principalPolicyVerification";
-import { ProjectionVerificationCancelledError } from "./types";
+import {
+  nullOnProjectionVerificationCancellation,
+  ProjectionVerificationCancelledError,
+} from "./types";
 
 const REFERENCE: ReferencedPrincipalHead = {
   keyEpoch: 1,
@@ -13,6 +16,15 @@ const REFERENCE: ReferencedPrincipalHead = {
   stateHash: "group-state-hash",
   version: 1,
 };
+
+test("cancellation boundaries reject unrelated same-named errors", async () => {
+  const failure = new Error("resolver failed");
+  failure.name = "ProjectionVerificationCancelledError";
+
+  await expect(
+    nullOnProjectionVerificationCancellation(() => Promise.reject(failure)),
+  ).rejects.toBe(failure);
+});
 
 test("principal verification recognizes expiry after one warming pass", async () => {
   const database = await createTestExecSql(

@@ -38,14 +38,13 @@ export class ProjectionVerificationCancelledError extends Error {
   }
 }
 
+const projectionVerificationCancellation =
+  new ProjectionVerificationCancelledError();
+
 export function isProjectionVerificationCancelledError(
   error: unknown,
 ): error is ProjectionVerificationCancelledError {
-  return (
-    error instanceof ProjectionVerificationCancelledError ||
-    (error instanceof Error &&
-      error.name === "ProjectionVerificationCancelledError")
-  );
+  return error === projectionVerificationCancellation;
 }
 
 export function rethrowProjectionVerificationCancelled(error: unknown): void {
@@ -67,7 +66,7 @@ export function assertProjectionVerificationCurrent(
   stillCurrent: (() => boolean) | undefined,
 ): void {
   if (stillCurrent?.() === false) {
-    throw new ProjectionVerificationCancelledError();
+    throw projectionVerificationCancellation;
   }
 }
 
