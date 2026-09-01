@@ -22,6 +22,8 @@ if [ -z "${SSH_TARGET:-}" ]; then
   SSH_TARGET="$(resolve_stack_ssh_target "$STACK_DIR")"
 fi
 export SSH_TARGET
+PRODUCTION_SSH_TARGET="$SSH_TARGET"
+export PRODUCTION_SSH_TARGET
 
 REMOTE_BIN_PATH="/opt/tearleads/bin"
 REMOTE_STAGE_PATH="$REMOTE_BIN_PATH/.deploy-$(git rev-parse --short=12 HEAD)-$$"
