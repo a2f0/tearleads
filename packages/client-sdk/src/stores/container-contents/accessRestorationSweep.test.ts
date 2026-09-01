@@ -125,6 +125,62 @@ test("restoration failures do not reject the structural sync pass", async () => 
   }
 });
 
+test("a structural generation change cancels restoration before claiming sweeps", async () => {
+  const sweep = {
+    attemptCount: 0,
+    generation: 1,
+    lastAttemptedAt: null,
+    organizationId: ORGANIZATION_ID,
+    requestedAt: "2026-01-01T00:00:00.000Z",
+    requesterUserId: "user-1",
+  };
+  let current = true;
+  let releaseRequests: (sweeps: readonly (typeof sweep)[]) => void = () => {
+    throw new Error("sweep request promise was not initialized");
+  };
+  let requestLoadStarted = false;
+  let claimCount = 0;
+  let hydrationCount = 0;
+  const state = {
+    lifecycleGeneration: 0,
+    persistence: {
+      claimDormantMetadataSweepAttempt: async () => {
+        claimCount += 1;
+        return true;
+      },
+      listDormantMetadataSweepRequests: () => {
+        requestLoadStarted = true;
+        return new Promise<readonly (typeof sweep)[]>((resolve) => {
+          releaseRequests = resolve;
+        });
+      },
+    },
+    runtime: {
+      auth: { userId: "user-1" },
+      infra: { execSql: {} },
+      util: { log: () => {} },
+    },
+  } as unknown as ContainerContentsStoreSyncState;
+  const reconcile = createRestoredAccessReconciler({
+    requestHydration: async () => {
+      hydrationCount += 1;
+    },
+    state,
+  });
+
+  const restoration = reconcile(() => current);
+  await waitFor(
+    () => requestLoadStarted,
+    "Restoration did not start loading sweep requests.",
+  );
+  current = false;
+  releaseRequests([sweep]);
+  await restoration;
+
+  expect(claimCount).toBe(0);
+  expect(hydrationCount).toBe(0);
+});
+
 test("reset cancels restoration cleanup that is awaiting candidates", async () => {
   const staleExecSql = {};
   const recoveredExecSql = {};

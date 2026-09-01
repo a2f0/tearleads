@@ -159,7 +159,7 @@ async function syncSingleContainerMetadata(input: {
 
 interface ContainerContentsStoreSyncIterationInput {
   host: RemoteContainerHydrationHost;
-  reconcileRestoredAccess: () => Promise<void>;
+  reconcileRestoredAccess: (isCurrent: () => boolean) => Promise<void>;
   state: ContainerContentsStoreSyncState;
 }
 
@@ -181,7 +181,7 @@ export async function runContainerContentsStoreSyncIteration(
   const domainScope = runtime.state.domainScope;
   const isCurrent = captureStructuralSyncGeneration(state, runtime);
 
-  await reconcileRestoredAccess();
+  await reconcileRestoredAccess(isCurrent);
   if (!isCurrent()) {
     return;
   }

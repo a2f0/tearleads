@@ -58,10 +58,13 @@ for (const change of contextChanges) {
         },
         updateSnapshot: () => updateContainerContentsSnapshot(state),
       },
-      reconcileRestoredAccess: () => {
+      reconcileRestoredAccess: (isCurrent) => {
         restorationStarted = true;
         return new Promise<void>((resolve) => {
-          releaseRestoration = resolve;
+          releaseRestoration = () => {
+            expect(isCurrent()).toBe(false);
+            resolve();
+          };
         });
       },
       state,

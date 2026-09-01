@@ -21,14 +21,21 @@ interface RestorationSweepSession {
 
 function createRestorationSweepSession(
   state: ContainerContentsStoreSyncState,
-  lifecycleGeneration: number,
+  isCurrent: () => boolean,
 ): RestorationSweepSession {
   return {
-    isCurrent: () => state.lifecycleGeneration === lifecycleGeneration,
+    isCurrent,
     persistence: state.persistence,
     runtime: state.runtime,
     state,
   };
+}
+
+function captureLifecycleGeneration(
+  state: ContainerContentsStoreSyncState,
+): () => boolean {
+  const lifecycleGeneration = state.lifecycleGeneration;
+  return () => state.lifecycleGeneration === lifecycleGeneration;
 }
 
 const DELETION_PROBE_CONCURRENCY = 4;
@@ -238,15 +245,12 @@ async function claimDueRestorationSweeps(
 }
 
 async function reconcileRestoredAccess(input: {
-  lifecycleGeneration: number;
+  isCurrent: () => boolean;
   requestHydration: RemoteHydrationRequester;
   state: ContainerContentsStoreSyncState;
 }): Promise<void> {
   const { requestHydration, state } = input;
-  const session = createRestorationSweepSession(
-    state,
-    input.lifecycleGeneration,
-  );
+  const session = createRestorationSweepSession(state, input.isCurrent);
   const requesterUserId = session.runtime.auth.userId;
   if (!requesterUserId) {
     return;
@@ -269,7 +273,7 @@ async function reconcileRestoredAccess(input: {
     recreateOnFullyHydratedAfterReset: () => {
       const retrySession = createRestorationSweepSession(
         state,
-        state.lifecycleGeneration,
+        captureLifecycleGeneration(state),
       );
       return () => completeRestorationSweeps(retrySession, sweeps);
     },
@@ -284,14 +288,13 @@ async function reconcileRestoredAccess(input: {
 export function createRestoredAccessReconciler(input: {
   requestHydration: RemoteHydrationRequester;
   state: ContainerContentsStoreSyncState;
-}): () => Promise<void> {
+}): (isCurrent?: () => boolean) => Promise<void> {
   const { state } = input;
-  return async () => {
-    const lifecycleGeneration = state.lifecycleGeneration;
+  return async (isCurrent = captureLifecycleGeneration(state)) => {
     try {
-      await reconcileRestoredAccess({ ...input, lifecycleGeneration });
+      await reconcileRestoredAccess({ ...input, isCurrent });
     } catch (error) {
-      if (state.lifecycleGeneration !== lifecycleGeneration) {
+      if (!isCurrent()) {
         return;
       }
       const message = `${getContainerContentsStoreLogLabel(state)}: dormant metadata sweep failed`;

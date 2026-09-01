@@ -3,6 +3,7 @@ import { createTestExecSql } from "@symcrypt/test-utils";
 import { waitFor } from "../../../test/helpers/waitFor";
 import { sqlDocumentMoveIntentPersistence } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { defaultDocumentsPersistence } from "../documents";
 import { syncPendingDocumentMoveIntents } from "./documentMoveIntentSync";
 import type { ContainerContentsWorkflowRuntime } from "./runtime";
 
@@ -83,5 +84,78 @@ test("a generation change while document move intents load abandons replacement 
     expect(storeOpenCalls).toBe(0);
   } finally {
     close();
+  }
+});
+
+test("a replacement executor gets its own denied move replay", async () => {
+  const firstDatabase = await createTestExecSql(
+    "document-move-intent-first-executor",
+  );
+  const replacementDatabase = await createTestExecSql(
+    "document-move-intent-replacement-executor",
+  );
+  const state = {
+    containersById: new Map(),
+    lifecycleGeneration: 0,
+    resolveProjectionUserKey: async () => null,
+    runtime: {
+      infra: { execSql: firstDatabase.execSql },
+      util: { log: () => undefined },
+    } as unknown as ContainerContentsWorkflowRuntime,
+  };
+  const host = {
+    documentWorkflowRuntime: () => null,
+    openDocumentStore: () => {
+      throw new Error("a missing local document must not open a store");
+    },
+  };
+
+  try {
+    await defaultDocumentsPersistence.ensureSchema(replacementDatabase.execSql);
+    await syncPendingDocumentMoveIntents({
+      host,
+      isCurrent: () => true,
+      isRemoteSyncBlocked: () => false,
+      state,
+    });
+    await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(
+      replacementDatabase.execSql,
+      {
+        documentId: "replacement-remote-document",
+        localId: "replacement-local-document",
+        sourceContainerId: "source",
+        targetContainerId: "target",
+      },
+    );
+    await sqlDocumentMoveIntentPersistence.recordMoveIntentError(
+      replacementDatabase.execSql,
+      {
+        denied: true,
+        documentId: "replacement-remote-document",
+        message: "denied before executor replacement",
+      },
+    );
+    state.runtime = {
+      ...state.runtime,
+      infra: {
+        ...state.runtime.infra,
+        execSql: replacementDatabase.execSql,
+      },
+    };
+
+    await syncPendingDocumentMoveIntents({
+      host,
+      isCurrent: () => true,
+      isRemoteSyncBlocked: () => false,
+      state,
+    });
+
+    const rows = await replacementDatabase.execSql(
+      "SELECT sync_status AS syncStatus FROM document_move_intents",
+    );
+    expect(rows).toEqual([{ syncStatus: "blocked" }]);
+  } finally {
+    firstDatabase.close();
+    replacementDatabase.close();
   }
 });

@@ -43,6 +43,7 @@ export interface DocumentMoveIntentSyncHost<TRuntime> {
 
 interface DocumentMoveIntentSyncState {
   containersById: ReadonlyMap<string, ContainerState>;
+  lifecycleGeneration?: number | undefined;
   resolveProjectionUserKey: ContainerContentsProjectionUserKeyResolver;
   runtime: ContainerContentsWorkflowRuntime;
 }
@@ -407,14 +408,33 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
   }
 }
 
-// One replay per launch: parked denied intents flip back to pending ahead of
-// the first scan of this store lifecycle (row 7) — a restart loses the
-// in-memory access-restored edge, and "an app restart re-attempts everything
-// retriable". Running inside the scan keeps the ordering trivially correct:
-// the replayed intents are attempted by this same pass, not stranded until an
-// unrelated trigger. Marked complete only after the reset lands, so a
+// One replay per store/database generation: parked denied intents flip back to
+// pending ahead of its first scan (row 7). A restart loses the in-memory
+// access-restored edge, and replacing the executor or lifecycle can expose a
+// different durable queue. Running inside the scan keeps ordering trivially
+// correct: replayed intents are attempted by this same pass, not stranded until
+// an unrelated trigger. Marked complete only after the reset lands, so a
 // transient failure retries on the next pass.
-const deniedReplayCompleted = new WeakSet<DocumentMoveIntentSyncState>();
+interface DeniedReplayGeneration {
+  execSql: ContainerContentsWorkflowRuntime["infra"]["execSql"];
+  lifecycleGeneration: number | undefined;
+}
+
+const deniedReplayGenerationByState = new WeakMap<
+  DocumentMoveIntentSyncState,
+  DeniedReplayGeneration
+>();
+
+function deniedReplayMatchesGeneration(
+  state: DocumentMoveIntentSyncState,
+  execSql: ContainerContentsWorkflowRuntime["infra"]["execSql"],
+): boolean {
+  const completed = deniedReplayGenerationByState.get(state);
+  return (
+    completed?.execSql === execSql &&
+    completed.lifecycleGeneration === state.lifecycleGeneration
+  );
+}
 
 export async function syncPendingDocumentMoveIntents<TRuntime>(input: {
   host: DocumentMoveIntentSyncHost<TRuntime>;
@@ -426,10 +446,13 @@ export async function syncPendingDocumentMoveIntents<TRuntime>(input: {
   const lifecycleState = input.state;
   const state = { ...lifecycleState };
   const execSql = state.runtime.infra.execSql;
-  if (!deniedReplayCompleted.has(lifecycleState)) {
+  if (!deniedReplayMatchesGeneration(lifecycleState, execSql)) {
     await sqlDocumentMoveIntentPersistence.resetDeniedMoveIntents(execSql);
     if (!input.isCurrent()) return 0;
-    deniedReplayCompleted.add(lifecycleState);
+    deniedReplayGenerationByState.set(lifecycleState, {
+      execSql,
+      lifecycleGeneration: lifecycleState.lifecycleGeneration,
+    });
   }
   const pendingIntents =
     await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql);
