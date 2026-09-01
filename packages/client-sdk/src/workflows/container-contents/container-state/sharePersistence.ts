@@ -79,19 +79,20 @@ export async function persistSharedContainerState(input: {
   candidateState.container = persisted.container;
   installDetachedContainerMetadataState(input.containerState, candidateState, {
     candidateRecord: persisted.record,
+    preserveConcurrentMetadataEdit: true,
   });
   if (persisted.mutationSuperseded || persisted.syncIdentitySuperseded) {
     return {
-      container: persisted.container,
-      record: persisted.record,
+      container: input.containerState.container,
+      record: input.containerState.record,
       status: "identity-superseded",
     };
   }
   input.containerState.containerWriterProjection =
     input.shared.writerProjection;
   return {
-    container: persisted.container,
-    record: persisted.record,
+    container: input.containerState.container,
+    record: input.containerState.record,
     status: "persisted",
   };
 }
@@ -164,18 +165,19 @@ export async function persistDuplicateContainerShare(input: {
   candidateState.container = persisted.container;
   installDetachedContainerMetadataState(input.containerState, candidateState, {
     candidateRecord: persisted.record,
+    preserveConcurrentMetadataEdit: true,
   });
   if (persisted.mutationSuperseded || persisted.syncIdentitySuperseded) {
     return {
-      container: persisted.container,
-      record: persisted.record,
+      container: input.containerState.container,
+      record: input.containerState.record,
       status: "identity-superseded",
     };
   }
   input.containerState.containerWriterProjection = input.projection;
   return {
-    container: persisted.container,
-    record: persisted.record,
+    container: input.containerState.container,
+    record: input.containerState.record,
     status: "persisted",
   };
 }

@@ -294,9 +294,8 @@ function recreateRestorationSweepCompletion(
   );
   return async () => {
     const sameStorage =
-      session.persistence === interruptedSession.persistence &&
       session.runtime.infra.execSql ===
-        interruptedSession.runtime.infra.execSql;
+      interruptedSession.runtime.infra.execSql;
     const forcedRetrySweepIds = sameStorage
       ? new Set(interruptedSweeps.map(restorationSweepIdentity))
       : undefined;

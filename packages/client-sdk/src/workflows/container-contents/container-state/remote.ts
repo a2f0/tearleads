@@ -3,6 +3,10 @@ import type {
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
 } from "@symcrypt/validators/response";
+import {
+  getTargetContainerContext,
+  readContainerState,
+} from "../../../data/containers/shared/projection";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import {
   createRemoteContainer as createRemoteContainerMutation,
@@ -18,6 +22,7 @@ import {
 } from "../../documents";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import {
+  CONTAINER_ALREADY_COMMITTED,
   type ContainerAlreadyCommitted,
   createRemoteContainerWithMetadataDocument,
 } from "./createWithMetadata";
@@ -66,7 +71,7 @@ async function createRemoteContainerWithSeparateMetadataDocument(input: {
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
   stillCurrent?: (() => boolean) | undefined;
-}): Promise<CreatedRemoteContainerState | null> {
+}): Promise<CreatedRemoteContainerState | ContainerAlreadyCommitted | null> {
   const writer = resolveContainerWriterContext(
     input.runtime,
     "container create",
@@ -75,6 +80,12 @@ async function createRemoteContainerWithSeparateMetadataDocument(input: {
     return null;
   }
   const { apiClient, author, execSql, secretKey: parentSecretKey } = writer;
+  const parentProjection =
+    input.parentProjection ??
+    (await apiClient.getContainerWriterProjection(input.parentContainerId));
+  if (!parentProjection) {
+    return null;
+  }
 
   const createdContainer = await createRemoteContainerMutation({
     apiClient,
@@ -83,7 +94,7 @@ async function createRemoteContainerWithSeparateMetadataDocument(input: {
     execSql,
     metadataDocumentId: input.containerId,
     parentContainerId: input.parentContainerId,
-    parentProjection: input.parentProjection,
+    parentProjection,
     parentSecretKey,
     reportSecurityIncident: input.runtime.util.reportSecurityIncident,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
@@ -93,8 +104,27 @@ async function createRemoteContainerWithSeparateMetadataDocument(input: {
       input.runtime,
     ),
   });
-  if (!createdContainer) {
+  if (!createdContainer && input.stillCurrent?.() === false) {
     return null;
+  }
+  if (!createdContainer) {
+    const existingProjection = await apiClient.getContainerWriterProjection(
+      input.containerId,
+    );
+    if (!existingProjection) return null;
+    const existingState = readContainerState(
+      getTargetContainerContext(existingProjection).manifest,
+    );
+    if (
+      existingProjection.containerId !== input.containerId ||
+      existingProjection.organizationId !== parentProjection.organizationId ||
+      existingState.containerId !== input.containerId ||
+      existingState.metadataDocumentId !== input.containerId ||
+      existingState.organizationId !== parentProjection.organizationId ||
+      existingState.parentContainerId !== input.parentContainerId
+    ) {
+      throw new Error("Pending legacy container create identity mismatch");
+    }
   }
 
   // The legacy API commits the container and its metadata document in two
@@ -106,10 +136,12 @@ async function createRemoteContainerWithSeparateMetadataDocument(input: {
   const createdMetadataDocument = await createRemoteDocument({
     apiClient,
     author,
-    containerId: createdContainer.containerId,
-    documentId: createdContainer.metadataDocumentId,
+    containerId: createdContainer?.containerId ?? input.containerId,
+    documentId: createdContainer?.metadataDocumentId ?? input.containerId,
     execSql,
-    expectedOrganizationId: createdContainer.response.organizationId,
+    expectedOrganizationId:
+      createdContainer?.response.organizationId ??
+      parentProjection.organizationId,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     targetSecretKey: parentSecretKey,
     warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
@@ -117,15 +149,9 @@ async function createRemoteContainerWithSeparateMetadataDocument(input: {
     ),
   });
   if (!createdMetadataDocument) {
-    // If the completion request is rejected before the metadata document is
-    // committed, remove the first-phase container so a later create intent can
-    // retry instead of colliding forever with an unusable remote orphan.
-    await deleteRemoteContainer({
-      containerId: createdContainer.containerId,
-      runtime: input.runtime,
-    });
     return null;
   }
+  if (!createdContainer) return CONTAINER_ALREADY_COMMITTED;
 
   return {
     accessManifestHash: createdContainer.response.manifestHead.manifestHash,
