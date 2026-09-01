@@ -242,6 +242,64 @@ test("remote ingestion replays after recovery without another event", async () =
   expect(updateSnapshot).toHaveBeenCalledTimes(1);
 });
 
+test("remote ingestion discards payloads from a replaced structural context", async () => {
+  let resolveLoad: (record: null) => void = () => {
+    throw new Error("load promise was not initialized");
+  };
+  const loadContainerMetadataRecord = mock(
+    () =>
+      new Promise<null>((resolve) => {
+        resolveLoad = resolve;
+      }),
+  );
+  const commitHydratedContainer = mock(async () => {
+    throw new Error("stale structural ingestion must not commit");
+  });
+  const state = {
+    containersById: new Map(),
+    lifecycleGeneration: 0,
+    persistence: {
+      commitHydratedContainer,
+      listPendingCreateIntents: async () => [],
+      listUnsyncedMoveIntents: async () => [],
+      loadContainerMetadataRecord,
+    },
+    runtime: {
+      auth: { organizationId: "organization-1" },
+      infra: { dbStatus: "ready", execSql: {} },
+    },
+    structuralGeneration: 0,
+  } as unknown as RemoteContainerHydrationState;
+  const ingest = createRemoteContainerIngestor({
+    host: {
+      persistContainerState: async () => {
+        throw new Error("insert ingestion must use persistence directly");
+      },
+      updateSnapshot: () => {
+        throw new Error("stale structural ingestion must not publish");
+      },
+    },
+    state,
+  });
+
+  const staleIngest = ingest(remoteContainer);
+  await waitFor(() => loadContainerMetadataRecord.mock.calls.length === 1);
+  state.structuralGeneration = 1;
+  (
+    state.runtime as {
+      auth: { organizationId: string };
+    }
+  ).auth.organizationId = "organization-2";
+  resolveLoad(null);
+  await staleIngest;
+
+  expect(commitHydratedContainer).not.toHaveBeenCalled();
+  expect(state.containersById.size).toBe(0);
+  expect(ingest.hasPending()).toBe(false);
+  await ingest.resume();
+  expect(loadContainerMetadataRecord).toHaveBeenCalledTimes(1);
+});
+
 test("reset during a batch replays every item into the recovered database", async () => {
   const staleExecSql = {};
   const recoveredExecSql = {};

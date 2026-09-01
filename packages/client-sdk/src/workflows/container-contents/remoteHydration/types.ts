@@ -95,6 +95,7 @@ export interface RemoteContainerHydrationState {
   persistence: ContainerContentsPersistence;
   rootLaneHydrated?: boolean | undefined;
   runtime: RemoteContainerHydrationRuntime;
+  structuralGeneration?: number | undefined;
 }
 
 export type PersistContainerStateResult =
