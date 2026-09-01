@@ -10,7 +10,10 @@ import {
   blocksNativePurchaseForStripeCheckoutAttempt,
   resolveNativePurchaseEligibility,
 } from "./nativePurchaseEligibility";
-import { resolvePersistedNativeSubscriptionStore } from "./nativeSubscriptionIdentity";
+import {
+  resolvePersistedNativeSubscriptionStore,
+  revenueCatStoreForNativeStore,
+} from "./nativeSubscriptionIdentity";
 import {
   hasAppliedStripeExpiration,
   hasStripeBindingIdentity,
@@ -23,6 +26,15 @@ type NativeClaimBilling = Parameters<
   readonly checkoutAttemptId: string | null;
   readonly organizationId: string;
 };
+
+interface NativeClaimEligibilityInput {
+  readonly appUserId: string;
+  readonly executor: DatabaseSession;
+  readonly now: Date;
+  readonly store: NativeSubscriptionStore;
+  readonly subscriptionId: string;
+  readonly target: NativeClaimBilling;
+}
 
 async function loadStripeBinding(
   executor: DatabaseSession,
@@ -39,15 +51,32 @@ async function loadStripeBinding(
   return binding;
 }
 
+async function resolveClaimNativeStore(
+  input: NativeClaimEligibilityInput,
+): Promise<string | null> {
+  const persistedStore = await resolvePersistedNativeSubscriptionStore({
+    billing: input.target,
+    executor: input.executor,
+    organizationId: input.target.organizationId,
+  });
+  if (persistedStore) return persistedStore;
+  const claimsExistingNativeBinding = Boolean(
+    input.target.provider === "revenuecat" &&
+      input.target.providerCustomerId === input.appUserId &&
+      input.target.providerSubscriptionId === input.subscriptionId &&
+      getSyncBillingTierForNativeProduct(input.target.providerProductId),
+  );
+  // The provider-verified claim supplies store identity for an exact legacy
+  // binding that predates store audit rows. Never override a conflicting row.
+  return claimsExistingNativeBinding
+    ? revenueCatStoreForNativeStore(input.store)
+    : null;
+}
+
 /** Reuses purchase policy against the locked billing row before a claim. */
-export async function assertNativeClaimEligibility(input: {
-  readonly appUserId: string;
-  readonly executor: DatabaseSession;
-  readonly now: Date;
-  readonly store: NativeSubscriptionStore;
-  readonly subscriptionId: string;
-  readonly target: NativeClaimBilling;
-}): Promise<{ readonly deleteExpiredStripeBinding: boolean }> {
+export async function assertNativeClaimEligibility(
+  input: NativeClaimEligibilityInput,
+): Promise<{ readonly deleteExpiredStripeBinding: boolean }> {
   const binding = await loadStripeBinding(
     input.executor,
     input.target.organizationId,
@@ -72,11 +101,7 @@ export async function assertNativeClaimEligibility(input: {
     hasStripeBinding: hasStripeBinding && !hasExpiredStripeBinding,
     isOrgAdmin: true,
     isPersonalOrganization: true,
-    persistedNativeStore: await resolvePersistedNativeSubscriptionStore({
-      billing: input.target,
-      executor: input.executor,
-      organizationId: input.target.organizationId,
-    }),
+    persistedNativeStore: await resolveClaimNativeStore(input),
     sessionUserId: input.appUserId,
     targetNativeStore: input.store,
   });
