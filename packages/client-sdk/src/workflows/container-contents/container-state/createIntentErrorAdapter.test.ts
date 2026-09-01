@@ -7,6 +7,27 @@ import {
 } from "../containerPersistence";
 import { recordContainerCreateIntentError } from "./createIntentErrorAdapter";
 
+test("legacy create intent error recorders remain directly callable", async () => {
+  const execSql: ExecSql = async () => [];
+  const calls: Array<{ containerId: string; message: string }> = [];
+  const persistence: ContainerContentsPersistence = {
+    ...defaultContainerContentsPersistence,
+    recordCreateIntentError: async (_execSql, containerId, message) => {
+      calls.push({ containerId, message });
+    },
+  };
+
+  await persistence.recordCreateIntentError(
+    execSql,
+    "legacy-container",
+    "legacy failure",
+  );
+
+  expect(calls).toEqual([
+    { containerId: "legacy-container", message: "legacy failure" },
+  ]);
+});
+
 test("guarded create intent errors skip legacy recorders without revision CAS", async () => {
   const execSql: ExecSql = async () => [];
   const calls: Array<{ containerId: string; message: string }> = [];

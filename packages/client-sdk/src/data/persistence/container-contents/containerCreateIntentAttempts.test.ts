@@ -20,12 +20,15 @@ test("recording a create intent error stamps the attempt time", async () => {
       await sqlContainerContentsPersistence.listPendingCreateIntents(execSql);
     expect(before?.lastAttemptedAt).toBeNull();
 
-    await sqlContainerContentsPersistence.recordCreateIntentError(execSql, {
-      containerId: "container-1",
-      expectedIntentId: "intent-1",
-      expectedUpdatedAt: "2026-01-01T00:00:00.000Z",
-      message: "create refused",
-    });
+    await sqlContainerContentsPersistence.recordCreateIntentRevisionError(
+      execSql,
+      {
+        containerId: "container-1",
+        expectedIntentId: "intent-1",
+        expectedUpdatedAt: "2026-01-01T00:00:00.000Z",
+        message: "create refused",
+      },
+    );
 
     const [after] =
       await sqlContainerContentsPersistence.listPendingCreateIntents(execSql);

@@ -291,7 +291,7 @@ export async function deleteContainerMoveIntentRevision(input: {
   return deleted.length > 0;
 }
 
-async function recordCreateIntentError(
+async function recordCreateIntentErrorAttempt(
   execSql: ExecSql,
   inputOrContainerId: ContainerCreateIntentErrorInput | string,
   ...legacyMessage: [message?: string]
@@ -427,8 +427,10 @@ export const containerIntentPersistence = {
 
     return rows.map((row) => mapContainerMoveIntentRecord(row));
   },
-  recordCreateIntentError,
-  recordCreateIntentRevisionError: recordCreateIntentError,
+  recordCreateIntentError: (execSql, containerId, message) =>
+    recordCreateIntentErrorAttempt(execSql, containerId, message),
+  recordCreateIntentRevisionError: (execSql, input) =>
+    recordCreateIntentErrorAttempt(execSql, input),
   async recordMoveIntentError(execSql, input) {
     const runtime = getClientSQLitePersistenceRuntime(execSql);
     const record = async (tx: ClientSQLiteTransactionScope) => {

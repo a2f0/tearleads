@@ -66,9 +66,11 @@ export type ContainerCreateIntentErrorInputRecorder = (
   input: ContainerCreateIntentErrorInput,
 ) => Promise<void>;
 
-export type ContainerCreateIntentErrorRecorder =
-  | ContainerCreateIntentErrorInputRecorder
-  | ((execSql: ExecSql, containerId: string, message: string) => Promise<void>);
+export type ContainerCreateIntentErrorRecorder = (
+  execSql: ExecSql,
+  containerId: string,
+  message: string,
+) => Promise<void>;
 
 export interface ContainerMoveIntentRevisionInput {
   containerId: string;

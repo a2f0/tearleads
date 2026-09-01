@@ -27,7 +27,7 @@ for (const intentType of ["create", "move"] as const) {
           ) VALUES ('intent-1', 'container-1', 'root', 'container.create',
             'pending', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')`,
         );
-        await sqlContainerContentsPersistence.recordCreateIntentError(
+        await sqlContainerContentsPersistence.recordCreateIntentRevisionError(
           guardedExecSql,
           {
             containerId: "container-1",
