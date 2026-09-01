@@ -115,6 +115,42 @@ test("an event snapshot does not re-arm structural sync", () => {
   expect(scheduleSync).not.toHaveBeenCalled();
 });
 
+test("observer replacement does not invalidate structural work", () => {
+  const runtime = createContainerContentsTestRuntime({
+    domainScope: createDomainScope(),
+    execSql: mock(async () => []),
+  });
+  const state = createContainerContentsStoreState(
+    runtime,
+    defaultContainerContentsPersistence,
+  );
+  const scheduleSync = mock(() => {});
+  const syncAgent = {
+    ensureInitialized: () => {},
+    handleRemoteEvents: () => {},
+    refreshLocalContainers: async () => {},
+    scheduleSync,
+  } as unknown as ContainerContentsStoreSyncAgent;
+
+  updateContainerContentsStoreRuntime(
+    state,
+    {
+      ...runtime,
+      util: {
+        ...runtime.util,
+        log: () => {},
+        logError: () => {},
+        reportSecurityIncident: async () => {},
+      },
+    },
+    syncAgent,
+  );
+
+  expect(state.structuralGeneration).toBe(0);
+  expect(state.localContainersNeedRefresh).toBe(false);
+  expect(scheduleSync).not.toHaveBeenCalled();
+});
+
 test("executor replacement clears storage-backed state before reinitializing", () => {
   const domainScope = createDomainScope();
   const originalExecSql = mock(async () => []);

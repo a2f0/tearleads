@@ -287,15 +287,8 @@ test("a blocked organization does not prevent another organization's move from s
 });
 
 test("a move whose source is not synced yet stays pending and retryable", async () => {
-  // Regression: source-not-synced used to record blocked:true, which the
-  // then-'pending'-only sync list dropped permanently — so a move attempted
-  // before its source's create landed (e.g. a transient create failure on the
-  // same pass) never propagated, even after the source finished syncing. It
-  // must stay 'pending' (not 'blocked') and retry, like the
-  // destination-not-synced case.
   const errors: MoveIntentError[] = [];
   const containersById = new Map([
-    // Source exists locally but has no remote metadata yet.
     [
       "child-a",
       createTestContainerState({
@@ -333,9 +326,54 @@ test("a move whose source is not synced yet stays pending and retryable", async 
   expect(errors).toHaveLength(1);
   expect(errors[0]?.containerId).toBe("child-a");
   expect(errors[0]?.message).toBe("Container move source is not synced yet");
-  // Must NOT be blocked: the failure is transient, so the queue must report a
-  // retryable 'pending' intent, not a missing-dependency block.
   expect(errors[0]?.blocked).toBeFalsy();
+});
+
+test("legacy move adapters fail before issuing a remote mutation", async () => {
+  const errors: MoveIntentError[] = [];
+  let projectionRequests = 0;
+  const containersById = new Map([
+    ["child", createTestContainerState({ id: "child", parentId: "root" })],
+    ["parent", createTestContainerState({ id: "parent", parentId: "root" })],
+  ]);
+  const persistence = {
+    ...defaultContainerContentsPersistence,
+    listUnsyncedMoveIntents: async () => [
+      moveIntentRecord({ containerId: "child" }),
+    ],
+    markMoveIntentRevisionSynced: undefined,
+    recordMoveIntentError: async (
+      _execSql: ExecSql,
+      error: MoveIntentError,
+    ) => {
+      errors.push(error);
+    },
+  } as unknown as ContainerMoveIntentSyncState["persistence"];
+
+  const movedCount = await syncPendingContainerMoveIntents({
+    host: {
+      persistContainerState: async () => {
+        throw new Error("legacy persistence must fail before local mutation");
+      },
+      updateSnapshot: () => {},
+    },
+    isCurrent: () => true,
+    isRemoteSyncBlocked: () => false,
+    requestRemoteReconciliation: () => {},
+    state: createMoveIntentSyncState({
+      containersById,
+      onProjectionRequest: () => {
+        projectionRequests += 1;
+      },
+      persistence,
+    }),
+  });
+
+  expect(movedCount).toBe(0);
+  expect(projectionRequests).toBe(0);
+  expect(errors.map((error) => error.message)).toEqual([
+    "Container move replay requires revision-CAS persistence",
+  ]);
 });
 
 test("an accepted remote move is not settled when local persistence observes deletion", async () => {

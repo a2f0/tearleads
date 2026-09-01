@@ -71,6 +71,9 @@ const metadataTestPersistenceStubs = {
   async markMoveIntentSynced() {
     return true;
   },
+  async markMoveIntentRevisionSynced() {
+    return true;
+  },
   async purgeDormantContainerMetadata() {},
   async purgeDormantContainerMetadataCandidates() {
     return 0;

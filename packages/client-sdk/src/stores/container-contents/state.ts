@@ -90,11 +90,7 @@ function didStructuralRuntimeChange(
     previousRuntime.state.serverEventsConnectionGeneration !==
       nextRuntime.state.serverEventsConnectionGeneration ||
     previousRuntime.util.isRemoteSyncBlocked !==
-      nextRuntime.util.isRemoteSyncBlocked ||
-    previousRuntime.util.log !== nextRuntime.util.log ||
-    previousRuntime.util.logError !== nextRuntime.util.logError ||
-    previousRuntime.util.reportSecurityIncident !==
-      nextRuntime.util.reportSecurityIncident
+      nextRuntime.util.isRemoteSyncBlocked
   );
 }
 

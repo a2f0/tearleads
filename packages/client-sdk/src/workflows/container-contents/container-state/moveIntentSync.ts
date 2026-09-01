@@ -80,7 +80,7 @@ async function resolveMoveIntentLocalUpdatedAt(input: {
     : input.remoteUpdatedAt;
 }
 
-async function settleLegacyAcceptedMoveIntent(input: {
+async function settleAcceptedMoveIntentAfterPersistence(input: {
   alreadySettled: boolean;
   execSql: ExecSql;
   intent: ContainerMoveIntentSyncInput["intent"];
@@ -90,14 +90,15 @@ async function settleLegacyAcceptedMoveIntent(input: {
   if (input.alreadySettled) {
     return true;
   }
-  const settleRevision = input.state.persistence.markMoveIntentRevisionSynced;
-  if (!settleRevision) return false;
-  const settled = await settleRevision(input.execSql, {
-    containerId: input.intent.containerId,
-    expectedIntentId: input.intent.id,
-    expectedUpdatedAt: input.intent.updatedAt,
-    stillCurrent: input.isCurrent,
-  });
+  const settled = await input.state.persistence.markMoveIntentRevisionSynced(
+    input.execSql,
+    {
+      containerId: input.intent.containerId,
+      expectedIntentId: input.intent.id,
+      expectedUpdatedAt: input.intent.updatedAt,
+      stillCurrent: input.isCurrent,
+    },
+  );
   return input.isCurrent() && settled;
 }
 
@@ -185,7 +186,7 @@ export async function persistAcceptedMoveIntent(input: {
     return abandon();
   }
   if (persistenceResult.status !== "persisted") return false;
-  const intentSettled = await settleLegacyAcceptedMoveIntent({
+  const intentSettled = await settleAcceptedMoveIntentAfterPersistence({
     alreadySettled: persistenceResult.moveIntentSettled === true,
     execSql,
     intent,
@@ -221,6 +222,17 @@ async function movePendingRemoteContainer(input: {
     }
     return "abandoned" as const;
   };
+  if (typeof state.persistence.markMoveIntentRevisionSynced !== "function") {
+    await recordPendingMoveIntentError({
+      containerId: intent.containerId,
+      expectedIntentId: intent.id,
+      expectedUpdatedAt: intent.updatedAt,
+      isCurrent: syncInput.isCurrent,
+      message: "Container move replay requires revision-CAS persistence",
+      state,
+    });
+    return currentMoveResult(syncInput.isCurrent, "failed");
+  }
   try {
     const moved = await moveRemoteContainer({
       containerId: intent.containerId,

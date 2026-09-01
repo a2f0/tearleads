@@ -156,7 +156,7 @@ test("a generation change during settlement leaves live state unchanged", async 
   expect(child.container).toEqual(originalContainer);
 });
 
-test("move settlement requires an atomic result or revision-CAS capability", async () => {
+test("move settlement uses revision CAS when persistence is not atomic", async () => {
   const child = createTestContainerState({ id: "child", parentId: "root" });
   child.doc = await createContainerMetadataDocument(child.container.id);
   const revisionSettlements: Array<
@@ -166,16 +166,15 @@ test("move settlement requires an atomic result or revision-CAS capability", asy
       >
     >[1]
   > = [];
-  let legacySettlementCalls = 0;
   const persistence: ContainerMoveIntentSyncState["persistence"] = {
     ...defaultContainerContentsPersistence,
     commitMetadataMutation: async (_execSql, mutation) => ({
       committed: true,
       container: mutation.container,
     }),
-    markMoveIntentRevisionSynced: undefined,
-    markMoveIntentSynced: async () => {
-      legacySettlementCalls += 1;
+    markMoveIntentRevisionSynced: async (_execSql, settlement) => {
+      revisionSettlements.push(settlement);
+      return true;
     },
   };
   const execSql: ExecSql = async () => [];
@@ -213,34 +212,6 @@ test("move settlement requires an atomic result or revision-CAS capability", asy
     organizationId: "organization",
     parentId: "parent",
     updatedAt: "2026-05-31T00:01:00.000Z",
-  };
-  const reconciliationRequests: Array<string | null> = [];
-
-  expect(
-    await persistAcceptedMoveIntent({
-      host: {
-        persistContainerState: async (candidate) => ({
-          record: candidate.record,
-          status: "persisted",
-        }),
-        updateSnapshot: () => {},
-      },
-      isCurrent: () => true,
-      intent,
-      moved,
-      requestRemoteReconciliation: (parentId) => {
-        reconciliationRequests.push(parentId);
-      },
-      state,
-    }),
-  ).toBe(false);
-  expect(legacySettlementCalls).toBe(0);
-  expect(reconciliationRequests).toEqual(["parent"]);
-  expect(child.container.parentId).toBe("root");
-
-  persistence.markMoveIntentRevisionSynced = async (_execSql, settlement) => {
-    revisionSettlements.push(settlement);
-    return true;
   };
   expect(
     await persistAcceptedMoveIntent({
