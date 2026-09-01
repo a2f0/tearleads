@@ -151,6 +151,16 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
     return persistenceResult.status;
   }
   const { record: nextRecord } = persistenceResult;
+  const execSql = state.runtime.infra.execSql;
+
+  await state.persistence.markCreateIntentSynced(execSql, {
+    containerId: intent.containerId,
+    expectedUpdatedAt: intent.updatedAt,
+    remoteContainerId: created.containerId,
+    remoteMetadataAccessStateHash: created.accessManifestHash,
+    remoteMetadataDocumentId: created.metadataDocumentId,
+  });
+  if (!input.isCurrent()) return "abandoned";
 
   installDetachedContainerMetadataState(containerState, persistenceCandidate);
   installContainerMetadataRecord(containerState, nextRecord);
@@ -166,16 +176,7 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
     createdAt: created.createdAt,
     updatedAt: created.updatedAt,
   };
-  const execSql = state.runtime.infra.execSql;
-
-  await state.persistence.markCreateIntentSynced(execSql, {
-    containerId: containerState.container.id,
-    expectedUpdatedAt: intent.updatedAt,
-    remoteContainerId: created.containerId,
-    remoteMetadataAccessStateHash: created.accessManifestHash,
-    remoteMetadataDocumentId: created.metadataDocumentId,
-  });
-  return input.isCurrent() ? "persisted" : "abandoned";
+  return "persisted";
 }
 
 async function discardOrphanedRemoteContainer(input: {

@@ -44,6 +44,7 @@ export async function persistContainerState(
       mutationOptions?.preserveDurableStructureWhenPending,
     runtime: state.runtime,
     saveOptions,
+    stillCurrent: mutationOptions?.isCurrent,
   });
   if (mutationOptions?.isCurrent?.() === false) {
     return { status: "stale-generation" };

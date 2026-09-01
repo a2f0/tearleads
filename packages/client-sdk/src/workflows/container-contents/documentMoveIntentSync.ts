@@ -105,7 +105,10 @@ async function relinkMovedDocumentStore<TRuntime>(input: {
     return false;
   }
 
-  const relinked = await documentStore.relink(input.relinkInput);
+  const relinked = await documentStore.relink({
+    ...input.relinkInput,
+    stillCurrent: input.isCurrent,
+  });
   if (!relinked || !input.isCurrent()) {
     return false;
   }

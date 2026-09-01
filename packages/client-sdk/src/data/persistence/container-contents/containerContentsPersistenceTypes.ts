@@ -291,6 +291,7 @@ export interface ContainerContentsPersistence
           }
         | undefined;
       settleAcceptedPendingOnConflict: boolean;
+      stillCurrent?: (() => boolean) | undefined;
     },
   ) => Promise<
     | { committed: true; container: ContainerRecord }

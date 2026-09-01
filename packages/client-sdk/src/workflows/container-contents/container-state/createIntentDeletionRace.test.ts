@@ -20,7 +20,11 @@ import { syncPendingContainerCreateIntents } from "./createIntentSync";
 import type { ContainerCreateIntentSyncState } from "./types";
 
 async function runCreatePersistenceOutcome(
-  persistenceStatus: "identity-superseded" | "missing" | "stale-generation",
+  persistenceStatus:
+    | "identity-superseded"
+    | "missing"
+    | "settlement-stale"
+    | "stale-generation",
 ) {
   const parent = await createParentProjection();
   const parentContainerId = parent.projection.containerId;
@@ -97,11 +101,13 @@ async function runCreatePersistenceOutcome(
     updatedAt: "2026-08-24T00:00:00.000Z",
   };
   const syncedIntents: string[] = [];
+  let current = true;
   const persistence: ContainerCreateIntentSyncState["persistence"] = {
     ...defaultContainerContentsPersistence,
     listPendingCreateIntents: async () => [intent],
     markCreateIntentSynced: async (_execSql, input) => {
       syncedIntents.push(input.containerId);
+      if (persistenceStatus === "settlement-stale") current = false;
     },
   };
   const parentState = createTestContainerState({
@@ -136,6 +142,9 @@ async function runCreatePersistenceOutcome(
         if (persistenceStatus === "stale-generation") {
           return { status: "stale-generation" };
         }
+        if (persistenceStatus === "settlement-stale") {
+          return { record: childState.record, status: "persisted" };
+        }
         return {
           record: childState.record,
           status: "identity-superseded",
@@ -144,7 +153,7 @@ async function runCreatePersistenceOutcome(
     };
     const createdCount = await syncPendingContainerCreateIntents({
       host,
-      isCurrent: () => true,
+      isCurrent: () => current,
       isRemoteSyncBlocked: () => false,
       state,
     });
@@ -182,4 +191,12 @@ test("a stale create settlement leaves the live container projection unchanged",
   expect(stale.createdCount).toBe(0);
   expect(stale.childState.container).toEqual(stale.originalContainer);
   expect(stale.syncedIntents).toEqual([]);
+});
+
+test("a generation change during create intent settlement leaves the live projection unchanged", async () => {
+  const stale = await runCreatePersistenceOutcome("settlement-stale");
+
+  expect(stale.createdCount).toBe(0);
+  expect(stale.childState.container).toEqual(stale.originalContainer);
+  expect(stale.syncedIntents).toEqual([stale.childContainerId]);
 });

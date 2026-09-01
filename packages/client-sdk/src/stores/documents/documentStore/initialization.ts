@@ -380,7 +380,12 @@ export async function relinkDocumentStore(
   input: DocumentStoreRelinkInput,
   scheduleSync: () => void,
 ): Promise<DocumentSummary | null> {
-  if (!(await ensureDocumentStoreReady(state, scheduleSync)) || !state.doc) {
+  if (
+    input.stillCurrent?.() === false ||
+    !(await ensureDocumentStoreReady(state, scheduleSync)) ||
+    input.stillCurrent?.() === false ||
+    !state.doc
+  ) {
     return null;
   }
   const currentDoc = state.doc;
@@ -433,6 +438,7 @@ export async function relinkDocumentStore(
       {
         preserveSnapshotStructuredFields: true,
         preserveSnapshotText: true,
+        stillCurrent: input.stillCurrent,
       },
       generation,
     );

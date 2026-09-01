@@ -105,6 +105,10 @@ export async function saveDocumentRecord(
   options: SaveDocumentRecordOptions = {},
   expectedGeneration?: DocumentStoreSyncGeneration,
 ): Promise<PersistedDocumentRecord | null> {
+  const isCurrent = () =>
+    (!expectedGeneration ||
+      isSyncGenerationCurrent(state, expectedGeneration)) &&
+    options.stillCurrent?.() !== false;
   const previousDocumentId = state.record?.documentId ?? null;
   const pendingBaseVersion =
     options.pendingBaseVersionOverride === undefined
@@ -134,16 +138,16 @@ export async function saveDocumentRecord(
     patch: { ...patch, pendingBaseVersion },
     persistence: state.persistence,
   };
-  const persistedDocumentState = expectedGeneration
-    ? await persistDocumentState({
-        ...persistenceInput,
-        // persistDocumentState rechecks after its own pre-save awaits and then
-        // immediately claims the executor mutation queue. A reset before that
-        // point aborts; a reset afterward cannot let replacement writes overtake.
-        canStartDurableMutation: () =>
-          isSyncGenerationCurrent(state, expectedGeneration),
-      })
-    : await persistDocumentState(persistenceInput);
+  const persistedDocumentState =
+    expectedGeneration || options.stillCurrent
+      ? await persistDocumentState({
+          ...persistenceInput,
+          // persistDocumentState rechecks after its own pre-save awaits and then
+          // immediately claims the executor mutation queue. A reset before that
+          // point aborts; a reset afterward cannot let replacement writes overtake.
+          canStartDurableMutation: isCurrent,
+        })
+      : await persistDocumentState(persistenceInput);
   if (!persistedDocumentState) {
     // With a stale generation the teardown that invalidated it owns the
     // state. With a current (or absent) generation, the refusal means the
@@ -151,10 +155,7 @@ export async function saveDocumentRecord(
     // queued (the resurrect guard): this store is a zombie — clear it so
     // callers that ignore the result stop advancing state or scheduling
     // sync against a document that no longer exists.
-    if (
-      !expectedGeneration ||
-      isSyncGenerationCurrent(state, expectedGeneration)
-    ) {
+    if (isCurrent()) {
       markDocumentStoreRemoved(state);
     }
     if (state.persistence === defaultDocumentsPersistence) {
@@ -163,10 +164,7 @@ export async function saveDocumentRecord(
     return null;
   }
   const { record: nextRecord, updatedAt } = persistedDocumentState;
-  if (
-    expectedGeneration &&
-    !isSyncGenerationCurrent(state, expectedGeneration)
-  ) {
+  if (!isCurrent()) {
     return null;
   }
 
@@ -198,7 +196,7 @@ export async function saveDocumentRecord(
 
 async function reloadSupersededDocumentState(
   state: DocumentStoreState,
-  expectedGeneration: DocumentStoreSyncGeneration | undefined,
+  isCurrent: () => boolean,
   historyRestoreState: PersistedDocumentRecord["historyRestoreState"],
   previousDocumentId: string | null,
   durableRecord: DocumentRecord,
@@ -208,10 +206,7 @@ async function reloadSupersededDocumentState(
   }
   const replacementDoc = await createFreshPeerStoredDocument();
   importDurableDocumentHistory(replacementDoc, historyRestoreState);
-  if (
-    expectedGeneration &&
-    !isSyncGenerationCurrent(state, expectedGeneration)
-  ) {
+  if (!isCurrent()) {
     return null;
   }
   installDurableDocumentReload({
@@ -232,6 +227,10 @@ export async function persistDocument(
   options: SaveDocumentRecordOptions = {},
   expectedGeneration?: DocumentStoreSyncGeneration,
 ): Promise<PersistedDocumentRecord | null> {
+  const isCurrent = () =>
+    (!expectedGeneration ||
+      isSyncGenerationCurrent(state, expectedGeneration)) &&
+    options.stillCurrent?.() !== false;
   const previousDocumentId = state.record?.documentId ?? null;
   const persistedRecord = await saveDocumentRecord(
     state,
@@ -241,8 +240,7 @@ export async function persistDocument(
     expectedGeneration,
   );
   if (!persistedRecord) return null;
-  if (expectedGeneration && !isSyncGenerationCurrent(state, expectedGeneration))
-    return null;
+  if (!isCurrent()) return null;
 
   if (
     persistedRecord.syncIdentitySuperseded ||
@@ -256,7 +254,7 @@ export async function persistDocument(
     // identity replacement.
     const replacementDoc = await reloadSupersededDocumentState(
       state,
-      expectedGeneration,
+      isCurrent,
       persistedRecord.historyRestoreState,
       previousDocumentId,
       persistedRecord.record,
@@ -281,7 +279,7 @@ export async function persistDocument(
   // compaction error simply keeps the tail growing until a later pass
   // succeeds, and the content stays durable either way.
   try {
-    await maybeCompactDocumentHistory(state, currentDoc);
+    await maybeCompactDocumentHistory(state, currentDoc, options.stillCurrent);
   } catch (error) {
     state.runtime.util.log(
       `Documents: history compaction skipped: ${errorMessage(error)}`,
@@ -301,6 +299,7 @@ export async function persistDocument(
 async function maybeCompactDocumentHistory(
   state: DocumentStoreState,
   currentDoc: DocumentState,
+  stillCurrent?: (() => boolean) | undefined,
 ): Promise<void> {
   const { persistence } = state;
   // Bind this compaction to the store context it started under: a store
@@ -308,7 +307,7 @@ async function maybeCompactDocumentHistory(
   // checkpoint overwrite the replacement generation's history (or land in a
   // newly selected database).
   const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
-  if (!generation) {
+  if (!generation || stillCurrent?.() === false) {
     return;
   }
   const execSql = state.runtime.infra.execSql;
@@ -330,7 +329,10 @@ async function maybeCompactDocumentHistory(
     state.localId,
   );
   const snapshot = exportFullHistorySnapshot(currentDoc);
-  if (!isSyncGenerationCurrent(state, generation)) {
+  if (
+    !isSyncGenerationCurrent(state, generation) ||
+    stillCurrent?.() === false
+  ) {
     return;
   }
   const endVersionVector = encodeVersionVector(currentDoc);
@@ -339,7 +341,8 @@ async function maybeCompactDocumentHistory(
     endVersionVector,
     localId: state.localId,
     snapshot: bytesToBase64(snapshot),
-    stillCurrent: () => isSyncGenerationCurrent(state, generation),
+    stillCurrent: () =>
+      isSyncGenerationCurrent(state, generation) && stillCurrent?.() !== false,
   });
 }
 

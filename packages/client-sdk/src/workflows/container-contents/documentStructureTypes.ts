@@ -19,6 +19,7 @@ export interface DocumentStructuralMutationRelinkInput
   contentKeyBundle?: string | null | undefined;
   documentKekTargets?: string | null | undefined;
   documentManifestBundle?: string | null | undefined;
+  stillCurrent?: (() => boolean) | undefined;
 }
 
 export interface DocumentStructuralMutationLocalStore<TRuntime> {

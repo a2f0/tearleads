@@ -165,6 +165,17 @@ export async function persistAcceptedMoveIntent(input: {
   }
   if (persistenceResult.status !== "persisted") return false;
   const { record: nextRecord } = persistenceResult;
+  if (
+    !(await markMoveIntentSynced({
+      containerId: intent.containerId,
+      expectedUpdatedAt: intent.updatedAt,
+      isCurrent: input.isCurrent,
+      state,
+    }))
+  ) {
+    return false;
+  }
+
   installDetachedContainerMetadataState(containerState, persistenceCandidate);
   installContainerMetadataRecord(containerState, nextRecord);
   containerState.container = {
@@ -173,13 +184,7 @@ export async function persistAcceptedMoveIntent(input: {
     organizationId: moved.organizationId,
     parentId: moved.parentId,
   };
-  await markMoveIntentSynced({
-    containerId: intent.containerId,
-    expectedUpdatedAt: intent.updatedAt,
-    isCurrent: input.isCurrent,
-    state,
-  });
-  return input.isCurrent();
+  return true;
 }
 
 async function movePendingRemoteContainer(input: {

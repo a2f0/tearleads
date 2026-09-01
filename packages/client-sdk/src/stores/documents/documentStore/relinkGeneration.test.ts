@@ -177,3 +177,61 @@ test("a reset during relink cannot restore the stale document generation", async
     close();
   }
 });
+
+test("an expired structural generation rolls back a document relink", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "relink-structural-generation",
+  );
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const fixture = await createRemoteHistoryFixture();
+    const localId = "relink-structural-generation-local";
+    await persistFullHistoryDocument({
+      doc: fixture.remoteDocument,
+      documentId: fixture.writerProjection.documentId,
+      execSql,
+      localId,
+    });
+    let current = true;
+    const persistence: typeof sqlDocumentsPersistence = {
+      ...sqlDocumentsPersistence,
+      commitDocumentMutation(...args) {
+        current = false;
+        return sqlDocumentsPersistence.commitDocumentMutation(...args);
+      },
+    };
+    const state = createDocumentStoreState(
+      localId,
+      createRotationRecoveryRuntime({ execSql, fixture }),
+      persistence,
+      noopDocumentStorePersistenceEffects,
+      fixture.writerProjection.documentId,
+    );
+    expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
+    const originalDurable = await sqlDocumentsPersistence.loadDocument(
+      execSql,
+      localId,
+    );
+
+    await expect(
+      relinkDocumentStore(
+        state,
+        {
+          accessEpoch: 2,
+          containerId: "replacement-container",
+          documentId: fixture.writerProjection.documentId,
+          localId,
+          stillCurrent: () => current,
+        },
+        () => undefined,
+      ),
+    ).resolves.toBeNull();
+    await expect(
+      sqlDocumentsPersistence.loadDocument(execSql, localId),
+    ).resolves.toMatchObject({
+      containerId: originalDurable?.containerId,
+    });
+  } finally {
+    close();
+  }
+});

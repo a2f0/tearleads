@@ -41,6 +41,7 @@ export interface PersistContainerMetadataStateInput {
   saveOptions?:
     | Parameters<ContainerContentsPersistence["saveContainer"]>[3]
     | undefined;
+  stillCurrent?: (() => boolean) | undefined;
 }
 
 export function currentMetadataPullContinuation(

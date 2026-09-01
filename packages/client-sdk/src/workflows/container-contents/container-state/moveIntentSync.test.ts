@@ -448,3 +448,48 @@ test("a generation change during move persistence cannot settle on a replacement
   expect(settled).toBe(false);
   expect(child.container).toEqual(originalContainer);
 });
+
+test("a generation change during move intent settlement leaves the live projection unchanged", async () => {
+  const child = createTestContainerState({ id: "child", parentId: "root" });
+  child.doc = await createContainerMetadataDocument(child.container.id);
+  const originalContainer = { ...child.container };
+  let current = true;
+  const persistence: ContainerMoveIntentSyncState["persistence"] = {
+    ...defaultContainerContentsPersistence,
+    markMoveIntentSynced: async () => {
+      current = false;
+    },
+  };
+  const state = createMoveIntentSyncState({
+    containersById: new Map([["child", child]]),
+    persistence,
+  });
+
+  await expect(
+    persistAcceptedMoveIntent({
+      host: {
+        persistContainerState: async () => ({
+          record: child.record,
+          status: "persisted",
+        }),
+        updateSnapshot: () => {},
+      },
+      isCurrent: () => current,
+      intent: moveIntentRecord({ containerId: "child" }),
+      moved: {
+        createdAt: "2026-05-31T00:00:00.000Z",
+        effectiveAccessLevel: "admin",
+        id: "child",
+        metadataAccessEpoch: 2,
+        metadataAccessStateHash: "access-after-move",
+        metadataDocumentId: "metadata-after-move",
+        metadataReferencedPrincipals: [],
+        organizationId: "organization",
+        parentId: "parent",
+        updatedAt: "2026-05-31T00:01:00.000Z",
+      },
+      state,
+    }),
+  ).resolves.toBe(false);
+  expect(child.container).toEqual(originalContainer);
+});

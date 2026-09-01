@@ -303,8 +303,10 @@ export async function commitStoredMetadataMutation(
   >[0],
   input: Parameters<ContainerContentsPersistence["commitMetadataMutation"]>[1],
 ) {
-  return runSerializedSqlMutation(execSql, async (lockedExecSql) =>
-    getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+  return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+    const outcome = await getClientSQLitePersistenceRuntime(
+      lockedExecSql,
+    ).guardedTransaction(
       async (tx) => {
         const currentState = await loadStoredContainerState(
           lockedExecSql,
@@ -353,9 +355,20 @@ export async function commitStoredMetadataMutation(
         });
         return { committed: true as const, container: savedContainer };
       },
+      () => !input.stillCurrent || input.stillCurrent(),
       { behavior: "immediate" },
-    ),
-  );
+    );
+    if (outcome.committed && outcome.result) {
+      return outcome.result;
+    }
+    return {
+      committed: false as const,
+      currentState: await loadStoredContainerState(
+        lockedExecSql,
+        input.container.id,
+      ),
+    };
+  });
 }
 
 export async function settleStoredMetadataPendingUpdates(

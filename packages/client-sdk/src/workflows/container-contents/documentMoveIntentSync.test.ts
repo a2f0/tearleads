@@ -344,6 +344,8 @@ test("pending document move intents replay signed link-set mutations and clear a
     documentId: fixture.documentId,
     localId: "queued-move-local",
   });
+  expect(typeof fixture.relinkInputs[0]?.stillCurrent).toBe("function");
+  expect(fixture.relinkInputs[0]?.stillCurrent?.()).toBe(true);
   expect(fixture.linkedContainerIds).toEqual([fixture.trashContainerId]);
   expect(fixture.pendingIntents).toEqual([]);
 });

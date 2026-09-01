@@ -232,6 +232,7 @@ async function persistPreparedMetadataMutation(input: {
   acceptedPendingUpdateIds?: readonly string[] | undefined;
   preserveDurableStructureWhenPending?: boolean | undefined;
   saveOptions?: SaveContainerOptions;
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<
   | PersistedContainerMetadataState
   | {
@@ -294,6 +295,7 @@ async function persistPreparedMetadataMutation(input: {
     saveOptions: input.saveOptions,
     settleAcceptedPendingOnConflict:
       input.acceptedPendingUpdateIds !== undefined,
+    stillCurrent: input.stillCurrent,
   });
   if (!committed.committed) {
     return {
@@ -346,22 +348,19 @@ async function adoptMetadataCommitConflict(input: {
       : {}),
   };
 }
-
 async function persistContainerMetadataState(
   input: PersistContainerMetadataStateInput,
 ): Promise<PersistedContainerMetadataState | null> {
   const patch = input.patch ?? {};
+  const prepareMutation = prepareContainerMetadataMutation;
   return runSerializedSqlMutation(input.execSql, async (lockedExecSql) => {
     for (
       let attempt = 0;
       attempt < MAX_METADATA_MUTATION_COMMIT_ATTEMPTS;
       attempt += 1
     ) {
-      const prepared = await prepareContainerMetadataMutation(
-        input,
-        lockedExecSql,
-        patch,
-      );
+      const prepared = await prepareMutation(input, lockedExecSql, patch);
+      if (input.stillCurrent?.() === false) return null;
       if (
         "authoritativeState" in prepared ||
         prepared.pullContinuationSuperseded
@@ -385,7 +384,9 @@ async function persistContainerMetadataState(
         preserveDurableStructureWhenPending:
           input.preserveDurableStructureWhenPending,
         saveOptions: input.saveOptions,
+        stillCurrent: input.stillCurrent,
       });
+      if (input.stillCurrent?.() === false) return null;
       if (!("conflict" in persisted)) return persisted;
       const conflict = await adoptMetadataCommitConflict({
         currentState: persisted.currentState,
