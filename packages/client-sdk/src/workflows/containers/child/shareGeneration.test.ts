@@ -238,3 +238,95 @@ test("a group share does not acknowledge a policy after its generation expires d
     database.close();
   }
 });
+
+test("a missing group grant returns null when projection verification expires", async () => {
+  const parent = await createParentProjection();
+  const author = parent.author;
+  const signingKeyPair = {
+    signingPrivateKey: author.signerPrivateKey,
+    signingPublicKey: parent.signingPublicKey,
+  };
+  const groupId = "expired-preparation-group";
+  const memberGroupId = "expired-preparation-members";
+  const groupPolicy = await policyBundleFromInitialRequest(
+    await buildInitialGroupPolicyRequest({
+      creatorEncapsulationKeyPair: generateKemSeedAndKeyPair(),
+      groupId,
+      name: "Expired preparation group",
+      signerUserId: author.signerUserId,
+      signingFingerprint: author.signerKeyFingerprint,
+      signingKeyPair,
+    }),
+  );
+  const organizationPolicy = await organizationPolicyBundleFromInitialRequest(
+    parent.projection.organizationId,
+    await buildInitialOrganizationPolicyRequest({
+      adminGroupId: groupId,
+      encapsulationPublicKey: parent.encapsulationPublicKey,
+      groupHeads: [
+        principalPolicyHead(groupPolicy),
+        principalPolicyHead(groupPolicy, memberGroupId),
+      ],
+      memberGroupId,
+      organizationId: parent.projection.organizationId,
+      signingKeyPair,
+      userId: author.signerUserId,
+    }),
+  );
+  const database = await createTestExecSql(
+    "group-share-preparation-generation",
+  );
+  const resolveProjectionUserKey =
+    createParentProjectionUserKeyResolver(parent);
+  let current = true;
+  let projectionRequests = 0;
+  let submissions = 0;
+
+  try {
+    const shared = await shareRemoteContainerWithGroup({
+      accessLevel: "read",
+      apiClient: {
+        commitOrganizationGroupPolicy: async () => {
+          submissions += 1;
+          throw new Error("Expired preparation must not be committed");
+        },
+        getContainerWriterProjection: async () => {
+          projectionRequests += 1;
+          return parent.projection;
+        },
+        getCurrentPrincipalPolicy: async (principalType, principalId) => {
+          if (principalType === "organization") return organizationPolicy;
+          expect(principalId).toBe(groupId);
+          return groupPolicy;
+        },
+        shareContainer: async () => {
+          throw new Error("Compound group share must use the policy PUT");
+        },
+      },
+      author,
+      containerId: parent.projection.containerId,
+      execSql: database.execSql,
+      recipientGroupId: groupId,
+      resolveProjectionUserKey,
+      resolveTrustedUserIdentity: async (userId) => {
+        const identity = createTestTrustedUserIdentity({
+          encapsulationPublicKey: parent.encapsulationPublicKey,
+          signingKeyFingerprint: author.signerKeyFingerprint,
+          signingPublicKey: parent.signingPublicKey,
+          userId,
+        });
+        if (projectionRequests > 1) current = false;
+        return identity;
+      },
+      signingKeyPair,
+      stillCurrent: () => current,
+      targetSecretKey: parent.secretKey,
+    });
+
+    expect(shared).toBeNull();
+    expect(current).toBe(false);
+    expect(submissions).toBe(0);
+  } finally {
+    database.close();
+  }
+});

@@ -16,6 +16,7 @@ import type {
   MaterializedContainerSharePlan,
 } from "../../../data/containers/shared/types";
 import {
+  isProjectionVerificationCancelledError,
   nullOnProjectionVerificationCancellation,
   type ProjectionUserKeyResolver,
   type ReferencedPrincipalPolicyWarmer,
@@ -235,7 +236,12 @@ async function commitMissingGroupGrantPolicy(
     }
     return { preparedTarget, storedPolicy };
   } catch (error) {
-    if (error instanceof ContainerShareGenerationExpiredError) return null;
+    if (
+      error instanceof ContainerShareGenerationExpiredError ||
+      isProjectionVerificationCancelledError(error)
+    ) {
+      return null;
+    }
     throw error;
   }
 }

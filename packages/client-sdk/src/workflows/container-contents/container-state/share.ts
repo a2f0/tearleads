@@ -8,6 +8,7 @@ import {
 } from "../../../data/containers/shared/projection";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/projection";
 import {
+  nullOnProjectionVerificationCancellation,
   type ProjectionUserKeyResolver,
   verifyContainerWriterProjection,
 } from "../../../data/keyingProjectionVerification";
@@ -193,7 +194,7 @@ async function loadRemoteContainerShareContext(input: {
   };
 }
 
-export async function prepareContainerStateGroupRewrap(input: {
+async function prepareContainerStateGroupRewrapInternal(input: {
   accessLevel: ContainerShareAccessLevel;
   containerState: ContainerState;
   groupId: string;
@@ -269,6 +270,7 @@ export async function prepareContainerStateGroupRewrap(input: {
     projection,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     secretKey: targetSecretKey,
+    stillCurrent: input.stillCurrent,
     warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
       input.runtime,
     ),
@@ -283,6 +285,14 @@ export async function prepareContainerStateGroupRewrap(input: {
         status: "prepared",
       }
     : null;
+}
+
+export function prepareContainerStateGroupRewrap(
+  input: Parameters<typeof prepareContainerStateGroupRewrapInternal>[0],
+): ReturnType<typeof prepareContainerStateGroupRewrapInternal> {
+  return nullOnProjectionVerificationCancellation(() =>
+    prepareContainerStateGroupRewrapInternal(input),
+  );
 }
 
 export async function shareContainerState(input: {

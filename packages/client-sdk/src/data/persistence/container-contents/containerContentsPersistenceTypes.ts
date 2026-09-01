@@ -10,6 +10,7 @@ import type { DormantMetadataSweepPersistence } from "./dormantMetadataSweep";
 
 export const CONTAINER_CREATE_INTENT_TYPE = "container.create";
 export const CONTAINER_MOVE_INTENT_TYPE = "container.move";
+export const CONTAINER_CREATE_INTENT_ERROR_INPUT_VERSION = 2;
 
 export type ContainerCreateIntentSyncStatus = "pending" | "synced";
 export type ContainerMoveIntentSyncStatus = "pending" | "blocked";
@@ -222,6 +223,13 @@ export interface ContainerContentsPersistence
     containerId: string,
   ) => Promise<PendingUpdateRecord[]>;
   rekeyPendingUpdate: (execSql: ExecSql, id: string) => Promise<string | null>;
+  /**
+   * Explicitly opts this adapter into the revision-guarded object argument.
+   * Adapters without the marker retain the legacy three-argument contract.
+   */
+  recordCreateIntentErrorInputVersion?:
+    | typeof CONTAINER_CREATE_INTENT_ERROR_INPUT_VERSION
+    | undefined;
   recordCreateIntentError: ContainerCreateIntentErrorRecorder;
   recordMoveIntentError: (
     execSql: ExecSql,

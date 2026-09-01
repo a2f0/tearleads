@@ -1,6 +1,7 @@
-import type {
-  ContainerContentsPersistence,
-  ContainerCreateIntentErrorInput,
+import {
+  CONTAINER_CREATE_INTENT_ERROR_INPUT_VERSION,
+  type ContainerContentsPersistence,
+  type ContainerCreateIntentErrorInput,
 } from "../../../data/persistence/container-contents/containerContentsPersistenceTypes";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 
@@ -21,7 +22,8 @@ export function recordContainerCreateIntentError(
   input: ContainerCreateIntentErrorInput,
 ): Promise<void> {
   const record = persistence.recordCreateIntentError;
-  return record.length >= 3
-    ? (record as LegacyRecorder)(execSql, input.containerId, input.message)
-    : (record as CurrentRecorder)(execSql, input);
+  return persistence.recordCreateIntentErrorInputVersion ===
+    CONTAINER_CREATE_INTENT_ERROR_INPUT_VERSION
+    ? (record as CurrentRecorder)(execSql, input)
+    : (record as LegacyRecorder)(execSql, input.containerId, input.message);
 }

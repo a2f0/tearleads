@@ -3,6 +3,7 @@ import type {
   ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
 import { errorMessage } from "../../data/errorMessage";
+import { isProjectionVerificationCancelledError } from "../../data/keyingProjectionVerification";
 import {
   reportAndRethrowKeyingVerificationError,
   rethrowKeyingVerificationError,
@@ -214,7 +215,7 @@ async function runPrincipalPolicyCache<Item>(input: {
         try {
           await input.cacheItem(item, loadExternalAdminPolicy);
         } catch (error) {
-          if (input.stillCurrent?.() === false) return;
+          if (isProjectionVerificationCancelledError(error)) return;
           await reportAndRethrowKeyingVerificationError(
             error,
             input.reportSecurityIncident,
@@ -233,7 +234,7 @@ async function runPrincipalPolicyCache<Item>(input: {
       }),
     );
   } catch (error) {
-    if (input.stillCurrent?.() === false) return;
+    if (isProjectionVerificationCancelledError(error)) return;
     // Per-item verification failures were reported above before reaching this
     // initialization/aggregation boundary.
     rethrowKeyingVerificationError(error);

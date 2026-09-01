@@ -4,6 +4,7 @@ import {
   readContainerState,
 } from "../../../data/containers/shared/projection";
 import {
+  nullOnProjectionVerificationCancellation,
   type ProjectionUserKeyResolver,
   verifyContainerWriterProjection,
 } from "../../../data/keyingProjectionVerification";
@@ -56,7 +57,7 @@ function projectionHasCurrentGroupGrant(input: {
   );
 }
 
-export async function containerStateHasCurrentGroupGrant(input: {
+async function containerStateHasCurrentGroupGrantInternal(input: {
   accessLevel: GroupGrantAccessLevel;
   containerState: ContainerState;
   expectedContainerId: string;
@@ -147,4 +148,14 @@ export async function containerStateHasCurrentGroupGrant(input: {
     }
   }
   return input.stillCurrent?.() !== false && isCurrent;
+}
+
+export async function containerStateHasCurrentGroupGrant(
+  input: Parameters<typeof containerStateHasCurrentGroupGrantInternal>[0],
+): Promise<boolean> {
+  return (
+    (await nullOnProjectionVerificationCancellation(() =>
+      containerStateHasCurrentGroupGrantInternal(input),
+    )) ?? false
+  );
 }

@@ -40,6 +40,44 @@ test("principal policy cache preserves trusted identity integrity failures", asy
   }
 });
 
+test("principal policy cache reports integrity failures that expire the generation", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "principal-policy-expired-identity-failure",
+  );
+
+  try {
+    const { bundle } = await createPrincipalPolicyBundle();
+    const integrityError = new KeyingVerificationError(
+      "equivocation",
+      "signer identity changed while the generation expired",
+    );
+    const incidents: unknown[] = [];
+    let current = true;
+
+    await expect(
+      cacheReferencedPolicies({
+        execSql,
+        getCurrentPrincipalPolicy: async () => bundle,
+        getUserIdentity: async () => {
+          current = false;
+          throw integrityError;
+        },
+        references: [referencedPrincipalStateFromBundle(bundle)],
+        reportSecurityIncident: async (error) => {
+          incidents.push(error);
+        },
+        stillCurrent: () => current,
+      }),
+    ).rejects.toBe(integrityError);
+    expect(incidents).toEqual([integrityError]);
+    await expect(
+      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+    ).resolves.toBeNull();
+  } finally {
+    close();
+  }
+});
+
 test("principal policy cache preserves foreign-instance integrity failures", async () => {
   const { close, execSql } = await createTestExecSql(
     "principal-policy-foreign-instance-identity-failure",

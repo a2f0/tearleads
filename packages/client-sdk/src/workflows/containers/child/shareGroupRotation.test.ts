@@ -25,6 +25,9 @@ import {
   loadPrincipalPolicyBundle,
   savePrincipalPolicyBundle,
 } from "../../../data/persistence/principalPolicyPersistence";
+import { containerStateHasCurrentGroupGrant } from "../../container-contents/container-state/groupGrantVerification";
+import type { ContainerWorkflowRuntime } from "../../container-contents/container-state/types";
+import type { ContainerState } from "../../container-contents/remoteHydration";
 import { buildInitialGroupPolicyRequest } from "../../organizations/principalPolicy";
 import { buildInitialOrganizationPolicyRequest } from "../../registration/registerIdentity";
 import {
@@ -138,6 +141,70 @@ async function setUpAdminGroupRoot() {
     resolveUserIdentity,
   };
 }
+
+test("current group grant verification returns false when projection verification expires", async () => {
+  const {
+    epochTwoPolicy,
+    initialProjection,
+    organizationPolicy,
+    resolveUserIdentity,
+  } = await setUpAdminGroupRoot();
+  const { close, execSql } = await createTestExecSql(
+    "container-group-grant-verification-generation",
+  );
+  let current = true;
+  const runtime = {
+    apiClient: {
+      getContainerWriterProjection: async () => initialProjection,
+      getCurrentPrincipalPolicy: async (
+        principalType: "group" | "organization",
+      ) =>
+        principalType === "organization" ? organizationPolicy : epochTwoPolicy,
+    },
+    infra: { execSql },
+    resolveTrustedUserIdentity: resolveUserIdentity,
+    util: {
+      log: () => undefined,
+      reportSecurityIncident: async () => undefined,
+    },
+  } as unknown as ContainerWorkflowRuntime;
+  const containerState = {
+    container: {
+      effectiveAccessLevel: "admin",
+      id: ROOT_CONTAINER_ID,
+      metadataDocumentId: "root-metadata-document",
+      organizationId: ORGANIZATION_ID,
+      parentId: null,
+    },
+    containerWriterProjection: initialProjection,
+    record: {
+      accessStateHash: initialProjection.path.at(-1)?.manifestHash ?? null,
+    },
+  } as ContainerState;
+
+  try {
+    await expect(
+      containerStateHasCurrentGroupGrant({
+        accessLevel: "admin",
+        containerState,
+        expectedContainerId: ROOT_CONTAINER_ID,
+        expectedGroupHead: principalPolicyHead(epochTwoPolicy),
+        expectedOrganizationId: ORGANIZATION_ID,
+        groupId: ADMIN_GROUP_ID,
+        resolveProjectionUserKey: async (userId) => {
+          const identity = await resolveUserIdentity(userId);
+          current = false;
+          return identity;
+        },
+        runtime,
+        stillCurrent: () => current,
+      }),
+    ).resolves.toBe(false);
+    expect(current).toBe(false);
+  } finally {
+    close();
+  }
+});
 
 test("same-level Admins re-wrap survives a group rotation and cold root unwrap", async () => {
   const {
