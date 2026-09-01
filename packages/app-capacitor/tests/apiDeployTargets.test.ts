@@ -42,8 +42,10 @@ for (const fixture of fixtures) {
     const cliRelativePath = `packages/api-cli/scripts/deploy${suffix}ApiCli.sh`;
 
     try {
-      await mkdir(resolve(root, "packages/api"), { recursive: true });
-      await mkdir(resolve(root, "packages/api-cli"), { recursive: true });
+      await mkdir(resolve(root, "packages/api/scripts"), { recursive: true });
+      await mkdir(resolve(root, "packages/api-cli/scripts"), {
+        recursive: true,
+      });
       await cp(
         resolve(import.meta.dir, `../../../${apiRelativePath}`),
         resolve(root, apiRelativePath),

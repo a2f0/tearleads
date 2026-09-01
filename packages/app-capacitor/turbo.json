@@ -18,6 +18,10 @@
         "$TURBO_ROOT$/scripts/uploadAndroidStagingRelease.sh",
         "$TURBO_ROOT$/scripts/uploadIosRelease.sh",
         "$TURBO_ROOT$/scripts/uploadIosStagingRelease.sh",
+        "$TURBO_ROOT$/packages/api/scripts/deployProductionApi.sh",
+        "$TURBO_ROOT$/packages/api/scripts/deployStagingApi.sh",
+        "$TURBO_ROOT$/packages/api-cli/scripts/deployProductionApiCli.sh",
+        "$TURBO_ROOT$/packages/api-cli/scripts/deployStagingApiCli.sh",
         "$TURBO_ROOT$/terraform/scripts/common.sh"
       ]
     }
