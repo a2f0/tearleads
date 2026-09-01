@@ -59,6 +59,7 @@ async function resolveCurrentGroupKeyEpoch(input: {
     groupId: input.groupId,
     organizationId: input.organizationId,
     resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
+    stillCurrent: input.stillCurrent,
   });
   if (input.stillCurrent?.() === false) return null;
   // Commit the verification immediately: this read stands alone (no enclosing

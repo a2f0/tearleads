@@ -214,6 +214,7 @@ export interface ContainerContentsPersistence
       expectedIntentId: string;
       expectedUpdatedAt: string;
       message: string;
+      stillCurrent?: (() => boolean) | undefined;
     },
   ) => Promise<void>;
   recordMoveIntentError: (
@@ -224,6 +225,7 @@ export interface ContainerContentsPersistence
       expectedIntentId?: string | undefined;
       expectedUpdatedAt?: string | undefined;
       message: string;
+      stillCurrent?: (() => boolean) | undefined;
     },
   ) => Promise<void>;
   reassignContainerDocuments: (

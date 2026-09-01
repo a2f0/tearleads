@@ -62,6 +62,7 @@ async function retainVerifiedSharePolicies(input: {
   organizationId: string;
   organizationPolicy: VerifiedExternalAdminPolicy | null;
   policy: VerifiedPrincipalPolicy;
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<VerifiedPrincipalPolicy[]> {
   const retainedAt = new Date().toISOString();
   if (input.organizationPolicy) {
@@ -72,6 +73,7 @@ async function retainVerifiedSharePolicies(input: {
         ...entry,
         execSql: input.execSql,
         organizationId: input.organizationId,
+        stillCurrent: input.stillCurrent,
         updatedAt: retainedAt,
       });
     }
@@ -81,6 +83,7 @@ async function retainVerifiedSharePolicies(input: {
     execSql: input.execSql,
     organizationId: input.organizationId,
     policy: input.policy,
+    stillCurrent: input.stillCurrent,
     updatedAt: retainedAt,
   });
   return [
@@ -200,6 +203,7 @@ export async function loadVerifiedGroupSharePrincipalPolicy(input: {
   groupId: string;
   organizationId: string;
   resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<VerifiedSharePrincipalPolicy> {
   const organizationAdminPolicy = await loadOrganizationExternalAdminPolicy({
     execSql: input.execSql,
@@ -207,6 +211,7 @@ export async function loadVerifiedGroupSharePrincipalPolicy(input: {
       input.apiClient.getCurrentPrincipalPolicy(principalType, principalId),
     organizationId: input.organizationId,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+    stillCurrent: input.stillCurrent,
   });
   if (!organizationAdminPolicy) {
     throw new Error("Organization admin authority could not be verified");
@@ -263,6 +268,7 @@ export async function loadVerifiedGroupSharePrincipalPolicy(input: {
     organizationId: input.organizationId,
     organizationPolicy: organizationAdminPolicy,
     policy: verified.value,
+    stillCurrent: input.stillCurrent,
   });
   return {
     bundle,

@@ -23,6 +23,13 @@ export async function refreshAfterStalePurge(input: {
   syncAgent: ContainerContentsStoreSyncAgent;
 }): Promise<void> {
   if (input.completedCount === 0) return;
+  const remoteParentIds = new Set<string | null>();
+  for (const purgedContainerId of input.purgedContainerIds) {
+    const purgedState = input.containerStatesAtStart.get(purgedContainerId);
+    if (purgedState?.record.documentId) {
+      remoteParentIds.add(purgedState.container.parentId);
+    }
+  }
 
   input.state.localContainersNeedRefresh = true;
   await input.syncAgent.refreshLocalContainers();
@@ -40,6 +47,13 @@ export async function refreshAfterStalePurge(input: {
   input.state.documentStoresNeedPriming = true;
   if (removedState && input.state.initialized) {
     updateContainerContentsSnapshot(input.state);
+  }
+  if (remoteParentIds.size > 0) {
+    await input.syncAgent.requestRemoteHydration({
+      followDiscoveredParentLanes: false,
+      parentIds: [...remoteParentIds],
+      resetAllLaneWatermarks: true,
+    });
   }
 }
 

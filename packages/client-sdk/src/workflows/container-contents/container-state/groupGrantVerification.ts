@@ -94,6 +94,7 @@ export async function containerStateHasCurrentGroupGrant(input: {
       groupId: input.groupId,
       organizationId: input.expectedOrganizationId,
       resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
+      stillCurrent: input.stillCurrent,
     });
   if (input.stillCurrent?.() === false) return false;
   if (

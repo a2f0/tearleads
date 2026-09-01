@@ -23,7 +23,7 @@ interface PrincipalPolicyWarmRuntime {
 export function createRuntimePrincipalPolicyWarmer(
   runtime: PrincipalPolicyWarmRuntime,
 ): ReferencedPrincipalPolicyWarmer {
-  return async ({ organizationId, references }) => {
+  return async ({ organizationId, references, stillCurrent }) => {
     await cacheReferencedPrincipalPolicies({
       execSql: runtime.infra.execSql,
       getCurrentPrincipalPolicy: (principalType, principalId) =>
@@ -33,6 +33,7 @@ export function createRuntimePrincipalPolicyWarmer(
       reportSecurityIncident: runtime.util.reportSecurityIncident,
       references,
       resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
+      stillCurrent,
     });
   };
 }

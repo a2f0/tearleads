@@ -35,6 +35,10 @@ import type {
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,
 } from "./types";
+import {
+  generationGuardedPrincipalPolicyWarmer,
+  withGenerationGuardedPolicyWarmer,
+} from "./types";
 
 async function collectContainerUserRecipientKeys(input: {
   readonly containerManifest: VerifiedContainerAccessManifest;
@@ -339,12 +343,13 @@ export async function verifyContainerWriterProjection(
   input: ContainerWriterProjectionVerificationInput,
 ): Promise<VerifiedContainerAccessManifest[]> {
   try {
+    const guardedInput = withGenerationGuardedPolicyWarmer(input);
     const checkpointContext = createProjectionCheckpointContext({
       execSql: input.execSql,
       organizationId: input.projection.organizationId,
     });
     const verifiedPath = await verifyContainerWriterProjectionWithContext(
-      input,
+      guardedInput,
       checkpointContext,
     );
     await commitProjectionCheckpoints(checkpointContext, input);
@@ -371,6 +376,11 @@ export async function collectContainerWriterProjectionPrincipalPolicies(input: {
     | ReferencedPrincipalPolicyWarmer
     | undefined;
 }): Promise<VerifiedPrincipalPolicy[]> {
+  const warmReferencedPrincipalPolicies =
+    generationGuardedPrincipalPolicyWarmer(
+      input.warmReferencedPrincipalPolicies,
+      input.stillCurrent,
+    );
   const principalPolicyCache =
     input.principalPolicyCache ?? new Map<string, VerifiedPrincipalPolicy>();
   const checkpointContext = createProjectionCheckpointContext({
@@ -382,7 +392,7 @@ export async function collectContainerWriterProjectionPrincipalPolicies(input: {
       principalPolicyCache,
       projection: input.projection,
       resolveUserKey: input.resolveUserKey,
-      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+      warmReferencedPrincipalPolicies,
     },
     checkpointContext,
   );
@@ -393,7 +403,7 @@ export async function collectContainerWriterProjectionPrincipalPolicies(input: {
     paths: [verifiedPath],
     principalPolicyCache,
     resolveUserKey: input.resolveUserKey,
-    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+    warmReferencedPrincipalPolicies,
   });
   await commitProjectionCheckpoints(checkpointContext, input);
   return policies;

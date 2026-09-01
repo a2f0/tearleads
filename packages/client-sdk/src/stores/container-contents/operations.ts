@@ -332,6 +332,13 @@ export async function deleteContainer(
         updateContainerContentsSnapshot(state);
       }
     }
+    if (isRemoteContainer) {
+      await syncAgent.requestRemoteHydration({
+        followDiscoveredParentLanes: false,
+        parentIds: [existingState.container.parentId],
+        resetAllLaneWatermarks: true,
+      });
+    }
     return null;
   }
 

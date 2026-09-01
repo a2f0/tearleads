@@ -10,7 +10,9 @@ import {
   principalPolicyHead,
 } from "../../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
+import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
 import { savePrincipalPolicyBundle } from "../../../data/persistence/principalPolicyPersistence";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { buildInitialGroupPolicyRequest } from "../../organizations/principalPolicy";
 import { buildInitialOrganizationPolicyRequest } from "../../registration/registerIdentity";
 import { loadVerifiedGroupSharePrincipalPolicy } from "./sharePrincipalPolicy";
@@ -263,5 +265,51 @@ test("a cold client rejects a deleted group replayed outside the signed organiza
     ).rejects.toThrow("absent from the signed organization directory");
   } finally {
     close();
+  }
+});
+
+test("share policy verification rolls back retained policies after generation expiry", async () => {
+  const database = await createTestExecSql(
+    "group-share-policy-generation-expiry",
+  );
+  let transactionStarted = false;
+  const guardedExecSql = (async (...args: Parameters<ExecSql>) => {
+    const rows = await database.execSql(...args);
+    if (args[0].trim().toUpperCase().startsWith("BEGIN")) {
+      transactionStarted = true;
+    }
+    return rows;
+  }) as ExecSql;
+
+  try {
+    const fixture = await createDirectoryFixture();
+    await loadVerifiedGroupSharePrincipalPolicy({
+      apiClient: createMockApiClient({
+        getCurrentPrincipalPolicy: (principalType, principalId) =>
+          fixture.load(principalType, principalId, () => undefined),
+      }),
+      execSql: guardedExecSql,
+      groupId: fixture.targetPolicy.currentState.principalId,
+      organizationId: fixture.organizationId,
+      resolveTrustedUserIdentity: fixture.resolveTrustedUserIdentity,
+      stillCurrent: () => !transactionStarted,
+    });
+
+    expect(transactionStarted).toBe(true);
+    for (const [principalType, principalId] of [
+      ["organization", fixture.organizationId],
+      ["group", "admins-group"],
+      ["group", fixture.targetPolicy.currentState.principalId],
+    ] as const) {
+      expect(
+        await loadPrincipalPolicyCheckpoint(
+          database.execSql,
+          principalType,
+          principalId,
+        ),
+      ).toBeNull();
+    }
+  } finally {
+    database.close();
   }
 });

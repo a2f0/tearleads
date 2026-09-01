@@ -287,6 +287,7 @@ export async function shareRemoteContainerWithGroup(
     groupId: input.recipientGroupId,
     organizationId: input.author.organizationId,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+    stillCurrent: input.stillCurrent,
   });
   if (input.stillCurrent?.() === false) return null;
   await advanceVerifiedSharePolicies(

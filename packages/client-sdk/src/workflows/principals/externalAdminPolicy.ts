@@ -189,6 +189,7 @@ export async function loadOrganizationExternalAdminPolicy(input: {
   ) => Promise<PrincipalPolicyBundleResponse | null>;
   readonly organizationId: string | null | undefined;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+  readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<VerifiedExternalAdminPolicy | null> {
   if (!input.organizationId) {
     return null;
@@ -243,6 +244,7 @@ export async function loadOrganizationExternalAdminPolicy(input: {
       entries: externalAdminPolicyPersistenceEntries(verified),
       execSql: input.execSql,
       organizationId: input.organizationId,
+      stillCurrent: input.stillCurrent,
       updatedAt: new Date().toISOString(),
     });
     return verified;

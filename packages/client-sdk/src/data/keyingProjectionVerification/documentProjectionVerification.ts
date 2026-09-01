@@ -48,6 +48,7 @@ import type {
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,
 } from "./types";
+import { withGenerationGuardedPolicyWarmer } from "./types";
 
 type VerifiedManifestMap = Map<string, VerifiedContainerAccessManifest>;
 type PolicyWarmer = ReferencedPrincipalPolicyWarmer | undefined;
@@ -466,7 +467,7 @@ export async function verifyDocumentWriterProjection(
     execSql: input.execSql,
   });
   const verified = await verifyDocumentWriterProjectionWithContext(
-    input,
+    withGenerationGuardedPolicyWarmer(input),
     checkpointContext,
   );
   await commitProjectionCheckpoints(checkpointContext, input);
@@ -481,7 +482,7 @@ export async function verifyDocumentWriterProjectionAuthorization(
       execSql: input.execSql,
     });
     const verified = await verifyDocumentWriterProjectionWithContext(
-      input,
+      withGenerationGuardedPolicyWarmer(input),
       checkpointContext,
     );
     await commitProjectionCheckpoints(checkpointContext, input);

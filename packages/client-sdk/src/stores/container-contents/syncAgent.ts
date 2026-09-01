@@ -47,6 +47,7 @@ export interface ContainerContentsStoreSyncAgent {
   requestRemoteHydration: (options?: {
     followDiscoveredParentLanes?: boolean | undefined;
     parentIds?: ReadonlyArray<string | null> | undefined;
+    resetAllLaneWatermarks?: boolean | undefined;
   }) => Promise<void>;
   scheduleRemoteHydration: () => void;
   scheduleSync: () => void;
@@ -268,6 +269,7 @@ export function createContainerContentsStoreSyncAgent(input: {
         followDiscoveredParentLanes: options.followDiscoveredParentLanes,
         host,
         parentIds: options.parentIds,
+        resetAllLaneWatermarks: options.resetAllLaneWatermarks,
         resumeRecoveryWork,
         scheduleSync,
         state,

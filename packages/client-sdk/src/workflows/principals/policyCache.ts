@@ -34,6 +34,7 @@ export interface CacheReferencedPrincipalPoliciesOptions {
   reportSecurityIncident: SecurityIncidentReporter;
   references: ReadonlyArray<ReferencedPrincipalStateResponse> | undefined;
   resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+  stillCurrent?: (() => boolean) | undefined;
 }
 
 export interface CachePrincipalPolicyBundlesOptions
@@ -78,6 +79,7 @@ async function cacheReferencedPrincipalPolicy(
   log: ((message: string) => void) | undefined,
   loadExternalAdminPolicy: () => Promise<VerifiedExternalAdminPolicy | null>,
   organizationId: string | null | undefined,
+  stillCurrent: (() => boolean) | undefined,
 ): Promise<void> {
   const localCheckpoint = await loadPrincipalPolicyCheckpoint(
     execSql,
@@ -125,6 +127,7 @@ async function cacheReferencedPrincipalPolicy(
     execSql,
     ...(organizationId ? { organizationId } : {}),
     updatedAt: new Date().toISOString(),
+    stillCurrent,
   });
 }
 
@@ -135,6 +138,7 @@ async function cachePrincipalPolicyBundle(input: {
   readonly log: ((message: string) => void) | undefined;
   readonly organizationId: string | null | undefined;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+  readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<void> {
   const reference = principalPolicyReferenceFromBundle(input.bundle);
   // The API supplied this bundle after rejecting a write, but local storage is
@@ -165,6 +169,7 @@ async function cachePrincipalPolicyBundle(input: {
     execSql: input.execSql,
     ...(input.organizationId ? { organizationId: input.organizationId } : {}),
     updatedAt: new Date().toISOString(),
+    stillCurrent: input.stillCurrent,
   });
 }
 
@@ -182,6 +187,7 @@ async function runPrincipalPolicyCache<Item>(input: {
   readonly organizationId: string | null | undefined;
   readonly reportSecurityIncident: SecurityIncidentReporter;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+  readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<void> {
   if (!input.items || input.items.length === 0) {
     return;
@@ -198,6 +204,7 @@ async function runPrincipalPolicyCache<Item>(input: {
         getCurrentPrincipalPolicy: input.getCurrentPrincipalPolicy,
         organizationId: input.organizationId,
         resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+        stillCurrent: input.stillCurrent,
       });
       return externalAdminPolicy;
     };
@@ -243,6 +250,7 @@ export async function cacheReferencedPrincipalPolicies({
   reportSecurityIncident,
   references,
   resolveTrustedUserIdentity,
+  stillCurrent,
 }: CacheReferencedPrincipalPoliciesOptions): Promise<void> {
   return runPrincipalPolicyCache({
     cacheItem: (reference, loadExternalAdminPolicy) =>
@@ -254,6 +262,7 @@ export async function cacheReferencedPrincipalPolicies({
         log,
         loadExternalAdminPolicy,
         organizationId,
+        stillCurrent,
       ),
     dedupe: dedupeReferencedPrincipalStates,
     execSql,
@@ -264,6 +273,7 @@ export async function cacheReferencedPrincipalPolicies({
     organizationId,
     reportSecurityIncident,
     resolveTrustedUserIdentity,
+    stillCurrent,
   });
 }
 
@@ -275,6 +285,7 @@ export async function cachePrincipalPolicyBundles({
   organizationId,
   reportSecurityIncident,
   resolveTrustedUserIdentity,
+  stillCurrent,
 }: CachePrincipalPolicyBundlesOptions): Promise<void> {
   return runPrincipalPolicyCache({
     cacheItem: (bundle, loadExternalAdminPolicy) =>
@@ -285,6 +296,7 @@ export async function cachePrincipalPolicyBundles({
         log,
         organizationId,
         resolveTrustedUserIdentity,
+        stillCurrent,
       }),
     dedupe: dedupePrincipalPolicyBundles,
     execSql,
@@ -295,5 +307,6 @@ export async function cachePrincipalPolicyBundles({
     organizationId,
     reportSecurityIncident,
     resolveTrustedUserIdentity,
+    stillCurrent,
   });
 }

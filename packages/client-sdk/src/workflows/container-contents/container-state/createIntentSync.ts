@@ -65,6 +65,7 @@ async function recordContainerCreateFailure(input: {
       expectedIntentId: input.intent.id,
       expectedUpdatedAt: input.intent.updatedAt,
       message: `Remote container create failed: ${errorMessage(input.error)}`,
+      stillCurrent: input.isCurrent,
     },
   );
   return currentCreateResult(input.isCurrent, "failed");
@@ -254,6 +255,7 @@ async function settleRemoteContainerCreate(input: {
         expectedIntentId: intent.id,
         expectedUpdatedAt: intent.updatedAt,
         message: "Remote container create was rejected or unavailable",
+        stillCurrent: syncInput.isCurrent,
       },
     );
     return currentCreateResult(syncInput.isCurrent, "failed");
@@ -358,6 +360,7 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
       expectedIntentId: intent.id,
       expectedUpdatedAt: intent.updatedAt,
       message: "Container create intent references a missing local container",
+      stillCurrent: input.isCurrent,
     });
     return currentCreateResult(input.isCurrent, "failed");
   }

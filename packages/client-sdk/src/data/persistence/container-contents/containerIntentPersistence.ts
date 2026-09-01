@@ -355,9 +355,10 @@ export const containerIntentPersistence: ContainerIntentPersistence = {
     return rows.map((row) => mapContainerMoveIntentRecord(row));
   },
   async recordCreateIntentError(execSql, input) {
-    await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
+    const runtime = getClientSQLitePersistenceRuntime(execSql);
+    const record = async (tx: ClientSQLiteTransactionScope) => {
       const updatedAt = new Date().toISOString();
-      await db
+      await tx
         .update(containerCreateIntents)
         .set({
           lastAttemptedAt: updatedAt,
@@ -374,12 +375,20 @@ export const containerIntentPersistence: ContainerIntentPersistence = {
           ),
         )
         .run();
-    });
+    };
+    if (input.stillCurrent) {
+      await runtime.guardedTransaction(record, input.stillCurrent, {
+        behavior: "immediate",
+      });
+      return;
+    }
+    await runtime.transaction(record, { behavior: "immediate" });
   },
   async recordMoveIntentError(execSql, input) {
-    await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
+    const runtime = getClientSQLitePersistenceRuntime(execSql);
+    const record = async (tx: ClientSQLiteTransactionScope) => {
       const updatedAt = new Date().toISOString();
-      await db
+      await tx
         .update(containerMoveIntents)
         .set({
           lastAttemptedAt: updatedAt,
@@ -403,7 +412,14 @@ export const containerIntentPersistence: ContainerIntentPersistence = {
           ),
         )
         .run();
-    });
+    };
+    if (input.stillCurrent) {
+      await runtime.guardedTransaction(record, input.stillCurrent, {
+        behavior: "immediate",
+      });
+      return;
+    }
+    await runtime.transaction(record, { behavior: "immediate" });
   },
   async markCreateIntentSynced(execSql, input) {
     const outcome = await getClientSQLitePersistenceRuntime(

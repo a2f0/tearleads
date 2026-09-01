@@ -14,18 +14,26 @@ export async function retainVerifiedPrincipalPolicyBundle(input: {
   readonly execSql: ExecSql;
   readonly organizationId?: string | undefined;
   readonly policy: VerifiedPrincipalPolicy;
+  readonly stillCurrent?: (() => boolean) | undefined;
   readonly updatedAt: string;
 }): Promise<void> {
   await assertBundleMatchesVerifiedPolicy(input);
   await ensurePrincipalPolicyTables(input.execSql);
-  await getClientSQLitePersistenceRuntime(input.execSql).transaction(
-    (tx) =>
-      retainPrincipalPolicyBundleInTransaction(
-        tx,
-        input.bundle,
-        input.updatedAt,
-        input.organizationId,
-      ),
-    { behavior: "immediate" },
-  );
+  const runtime = getClientSQLitePersistenceRuntime(input.execSql);
+  const retain = (
+    tx: Parameters<typeof retainPrincipalPolicyBundleInTransaction>[0],
+  ) =>
+    retainPrincipalPolicyBundleInTransaction(
+      tx,
+      input.bundle,
+      input.updatedAt,
+      input.organizationId,
+    );
+  if (input.stillCurrent) {
+    await runtime.guardedTransaction(retain, input.stillCurrent, {
+      behavior: "immediate",
+    });
+    return;
+  }
+  await runtime.transaction(retain, { behavior: "immediate" });
 }

@@ -41,6 +41,7 @@ async function recordPendingMoveIntentError(input: {
     expectedIntentId: input.expectedIntentId,
     expectedUpdatedAt: input.expectedUpdatedAt,
     message: input.message,
+    stillCurrent: input.isCurrent,
   });
   return input.isCurrent();
 }
