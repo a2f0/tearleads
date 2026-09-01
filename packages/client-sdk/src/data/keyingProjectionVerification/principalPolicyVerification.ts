@@ -40,7 +40,10 @@ import type {
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,
 } from "./types";
-import { generationGuardedPrincipalPolicyWarmer } from "./types";
+import {
+  generationGuardedPrincipalPolicyWarmer,
+  rethrowProjectionVerificationCancelled,
+} from "./types";
 
 function principalPolicyReferenceLabel(
   reference: ReferencedPrincipalHead,
@@ -289,6 +292,7 @@ async function loadOrganizationExternalAuthority(
     );
     return organizationAdminExternalAuthority(verifiedAdmins);
   } catch (error) {
+    rethrowProjectionVerificationCancelled(error);
     if (error instanceof KeyingVerificationError) {
       throw error;
     }

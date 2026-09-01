@@ -22,7 +22,6 @@ export async function refreshAfterStalePurge(input: {
   state: ContainerContentsStoreState;
   syncAgent: ContainerContentsStoreSyncAgent;
 }): Promise<void> {
-  if (input.completedCount === 0) return;
   const remoteParentIds = new Set<string | null>();
   for (const purgedContainerId of input.purgedContainerIds) {
     const purgedState = input.containerStatesAtStart.get(purgedContainerId);

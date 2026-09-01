@@ -280,3 +280,78 @@ test("purgeContainerTree stops at the next document when its generation expires"
     close();
   }
 });
+
+test("purgeContainerTree reports zero completions after a later unlink fails", async () => {
+  const database = await createTestExecSql(
+    "purge-tree-partial-document-unlink",
+  );
+  const documentId = "partially-unlinked-document";
+  const unlinkAttempts: string[] = [];
+  let current = true;
+
+  try {
+    await sqlDocumentsPersistence.ensureSchema(database.execSql);
+    await sqlDocumentsPersistence.saveDocument(
+      database.execSql,
+      {
+        accessEpoch: 1,
+        accessStateHash: "document-access-state",
+        containerId: "trashed",
+        documentId,
+        documentKind: "note",
+        id: "local-partially-unlinked-document",
+        snapshotEndVersion: "",
+        text: "",
+        title: "Partially unlinked document",
+      },
+      { updatedAt: "2026-09-01T00:00:00.000Z" },
+    );
+    await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
+      database.execSql,
+      documentId,
+      ["trashed", "trashed-child", "outside"],
+    );
+
+    const result = await purgeContainerTree({
+      containersById: containersById([
+        containerState("trashed", null),
+        containerState("trashed-child", "trashed"),
+      ]),
+      documentOperations: {
+        purgeLocal: async () => {
+          throw new Error("Unexpected local purge");
+        },
+        purgeRemote: async () => {
+          throw new Error("Unexpected remote purge");
+        },
+        unlink: async (_document, containerIds) => {
+          for (const containerId of containerIds) {
+            unlinkAttempts.push(containerId);
+            if (unlinkAttempts.length === 2) {
+              current = false;
+              return false;
+            }
+          }
+          return true;
+        },
+      },
+      persistence: {} as never,
+      prepareDocumentRotationSnapshot: async () => null,
+      resolveProjectionUserKey: async () => null,
+      rootContainerId: "trashed",
+      runtime: { infra: { execSql: database.execSql } } as never,
+      stillCurrent: () => current,
+    });
+
+    expect(unlinkAttempts).toEqual(["trashed", "trashed-child"]);
+    expect(result).toMatchObject({
+      aborted: true,
+      completedCount: 0,
+      failedCount: 1,
+      purgedContainerIds: [],
+      totalCount: 3,
+    });
+  } finally {
+    database.close();
+  }
+});

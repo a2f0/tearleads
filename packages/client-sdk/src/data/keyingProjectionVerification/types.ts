@@ -22,13 +22,33 @@ export type ReferencedPrincipalPolicyWarmer = (
   input: ReferencedPrincipalPolicyWarmRequest,
 ) => Promise<void>;
 
+export class ProjectionVerificationCancelledError extends Error {
+  constructor() {
+    super("Projection verification generation expired");
+    this.name = "ProjectionVerificationCancelledError";
+  }
+}
+
+export function rethrowProjectionVerificationCancelled(error: unknown): void {
+  if (
+    error instanceof ProjectionVerificationCancelledError ||
+    (error instanceof Error &&
+      error.name === "ProjectionVerificationCancelledError")
+  ) {
+    throw error;
+  }
+}
+
 export function generationGuardedPrincipalPolicyWarmer(
   warmer: ReferencedPrincipalPolicyWarmer | undefined,
   stillCurrent: (() => boolean) | undefined,
 ): ReferencedPrincipalPolicyWarmer | undefined {
-  return warmer && stillCurrent
-    ? (input) => warmer({ ...input, stillCurrent })
-    : warmer;
+  if (!warmer || !stillCurrent) return warmer;
+  return async (input) => {
+    if (!stillCurrent()) throw new ProjectionVerificationCancelledError();
+    await warmer({ ...input, stillCurrent });
+    if (!stillCurrent()) throw new ProjectionVerificationCancelledError();
+  };
 }
 
 export function withGenerationGuardedPolicyWarmer<

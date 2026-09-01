@@ -21,7 +21,7 @@ import {
 } from "./state";
 import type { ContainerContentsStoreSyncAgent } from "./syncAgent";
 
-test("completed document work re-primes after expiry before container deletion", async () => {
+test("zero-completion stale teardown still refreshes and re-primes", async () => {
   const state = createContainerContentsStoreState(
     createContainerContentsTestRuntime({
       domainScope: {} as DomainScope,
@@ -33,7 +33,7 @@ test("completed document work re-primes after expiry before container deletion",
   let refreshes = 0;
 
   await refreshAfterStalePurge({
-    completedCount: 1,
+    completedCount: 0,
     containerStatesAtStart: new Map(),
     purgedContainerIds: [],
     state,
