@@ -66,11 +66,14 @@ test("a partial purge refreshes current state after generation rollover", async 
       persistence,
     );
     state.containersById.set(container.container.id, container);
+    state.initialized = true;
     updateContainerContentsSnapshot(state);
     let refreshes = 0;
     const syncAgent = {
       refreshLocalContainers: async () => {
         refreshes += 1;
+        state.initialized = false;
+        state.snapshot = { nodes: [], ready: false };
       },
     } as unknown as ContainerContentsStoreSyncAgent;
 
@@ -94,6 +97,7 @@ test("a partial purge refreshes current state after generation rollover", async 
     expect(state.snapshot.nodes.map((node) => node.id)).not.toContain(
       container.container.id,
     );
+    expect(state.snapshot.ready).toBe(false);
     expect(state.documentStoresNeedPriming).toBe(true);
     expect(
       await defaultContainerContentsPersistence.loadContainerMetadataState(

@@ -104,20 +104,25 @@ export async function advanceVerifiedSharePolicies(
     VerifiedSharePrincipalPolicy,
     "checkpointPolicies" | "dependencyBundles" | "organizationId"
   >,
+  stillCurrent?: (() => boolean) | undefined,
 ): Promise<void> {
   await advanceKeyingCheckpointsAtomically({
     access: [],
     execSql,
     organizationId: verified.organizationId,
     policies: verified.checkpointPolicies,
+    stillCurrent,
   });
+  if (stillCurrent?.() === false) return;
   for (const bundle of verified.dependencyBundles) {
     await savePrincipalPolicyBundle(
       execSql,
       bundle,
       new Date().toISOString(),
       verified.organizationId,
+      { stillCurrent },
     );
+    if (stillCurrent?.() === false) return;
   }
 }
 

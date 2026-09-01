@@ -321,7 +321,9 @@ export async function deleteContainer(
     ) {
       state.containersById.delete(existingState.container.id);
       state.documentStoresNeedPriming = true;
-      updateContainerContentsSnapshot(state);
+      if (state.initialized) {
+        updateContainerContentsSnapshot(state);
+      }
     }
     return null;
   }

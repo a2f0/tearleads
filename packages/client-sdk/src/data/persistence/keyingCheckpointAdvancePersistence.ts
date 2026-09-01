@@ -255,6 +255,7 @@ export async function advanceKeyingCheckpointsAtomically(input: {
   readonly execSql: ExecSql;
   readonly organizationId?: string | undefined;
   readonly policies: readonly AnyVerifiedPrincipalPolicy[];
+  readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<void> {
   await ensureSqlTables(
     input.execSql,
@@ -264,28 +265,28 @@ export async function advanceKeyingCheckpointsAtomically(input: {
   );
   const updatedAt = new Date().toISOString();
 
-  await getClientSQLitePersistenceRuntime(input.execSql).transaction(
-    async (tx) => {
-      const access = await validateAccessAdvances(tx, input.access);
-      const policies = await validatePolicyAdvances(tx, input.policies);
+  const runtime = getClientSQLitePersistenceRuntime(input.execSql);
+  const advance = async (tx: ClientSQLiteTransactionScope) => {
+    const access = await validateAccessAdvances(tx, input.access);
+    const policies = await validatePolicyAdvances(tx, input.policies);
 
-      await writeAccessCheckpoints(tx, access, updatedAt);
-      await writePolicyCheckpoints(
+    await writeAccessCheckpoints(tx, access, updatedAt);
+    await writePolicyCheckpoints(tx, policies, updatedAt, input.organizationId);
+    if (input.documentPurgeCheckpoint) {
+      await storeDocumentPurgeCheckpointInTransaction(
         tx,
-        policies,
+        input.documentPurgeCheckpoint,
         updatedAt,
-        input.organizationId,
       );
-      if (input.documentPurgeCheckpoint) {
-        await storeDocumentPurgeCheckpointInTransaction(
-          tx,
-          input.documentPurgeCheckpoint,
-          updatedAt,
-        );
-      }
-    },
-    { behavior: "immediate" },
-  );
+    }
+  };
+  if (input.stillCurrent) {
+    await runtime.guardedTransaction(advance, input.stillCurrent, {
+      behavior: "immediate",
+    });
+    return;
+  }
+  await runtime.transaction(advance, { behavior: "immediate" });
 }
 
 /**

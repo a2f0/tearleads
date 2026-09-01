@@ -64,7 +64,11 @@ async function resolveCurrentGroupKeyEpoch(input: {
   // Commit the verification immediately: this read stands alone (no enclosing
   // mutation advances it later), and an unadvanced checkpoint would let a
   // newer same-epoch policy be rolled back on the next fetch.
-  await advanceVerifiedSharePolicies(input.runtime.infra.execSql, verified);
+  await advanceVerifiedSharePolicies(
+    input.runtime.infra.execSql,
+    verified,
+    input.stillCurrent,
+  );
   return input.stillCurrent?.() === false ? null : verified.policy.keyEpoch;
 }
 

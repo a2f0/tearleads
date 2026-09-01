@@ -75,6 +75,7 @@ export async function verifyContainerGroupRewrapCurrent(
     groupId,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     runtime: state.runtime,
+    stillCurrent: isCurrent,
   });
   return isCurrent() && current;
 }

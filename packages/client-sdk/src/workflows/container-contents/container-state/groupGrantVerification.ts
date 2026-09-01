@@ -65,13 +65,16 @@ export async function containerStateHasCurrentGroupGrant(input: {
   groupId: string;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<boolean> {
+  if (input.stillCurrent?.() === false) return false;
   const projection = await loadContainerWriterProjectionForState({
     containerState: input.containerState,
     runtime: input.runtime,
   });
   if (
     !projection ||
+    input.stillCurrent?.() === false ||
     input.expectedGroupHead.principalType !== "group" ||
     input.expectedGroupHead.principalId !== input.groupId ||
     input.containerState.container.id !== input.expectedContainerId ||
@@ -92,17 +95,23 @@ export async function containerStateHasCurrentGroupGrant(input: {
       organizationId: input.expectedOrganizationId,
       resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
     });
+  if (input.stillCurrent?.() === false) return false;
   if (
     !principalPolicyBundleContainsReference(bundle, input.expectedGroupHead)
   ) {
     return false;
   }
   const currentHead = referencedPrincipalHeadFromPolicy(policy);
-  await advanceVerifiedSharePolicies(input.runtime.infra.execSql, {
-    checkpointPolicies,
-    dependencyBundles,
-    organizationId: input.expectedOrganizationId,
-  });
+  await advanceVerifiedSharePolicies(
+    input.runtime.infra.execSql,
+    {
+      checkpointPolicies,
+      dependencyBundles,
+      organizationId: input.expectedOrganizationId,
+    },
+    input.stillCurrent,
+  );
+  if (input.stillCurrent?.() === false) return false;
   await verifyContainerWriterProjection({
     execSql: input.runtime.infra.execSql,
     principalPolicyCache:
@@ -128,11 +137,12 @@ export async function containerStateHasCurrentGroupGrant(input: {
         bundle,
         new Date().toISOString(),
         input.expectedOrganizationId,
+        { stillCurrent: input.stillCurrent },
       );
     } catch {
       // The cryptographically verified root grant is already safe. A local
       // cache failure must not keep it pending or trigger duplicate re-wraps.
     }
   }
-  return isCurrent;
+  return input.stillCurrent?.() !== false && isCurrent;
 }

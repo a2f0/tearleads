@@ -24,6 +24,7 @@ async function refreshAfterStalePurge(input: {
 
   input.state.localContainersNeedRefresh = true;
   await input.syncAgent.refreshLocalContainers();
+  let removedState = false;
   for (const purgedContainerId of input.purgedContainerIds) {
     const deletedState = input.containerStatesAtStart.get(purgedContainerId);
     if (
@@ -31,10 +32,13 @@ async function refreshAfterStalePurge(input: {
       input.state.containersById.get(purgedContainerId) === deletedState
     ) {
       input.state.containersById.delete(purgedContainerId);
+      removedState = true;
     }
   }
   input.state.documentStoresNeedPriming = true;
-  updateContainerContentsSnapshot(input.state);
+  if (removedState && input.state.initialized) {
+    updateContainerContentsSnapshot(input.state);
+  }
 }
 
 // Shared core of the two recursive purge operations (purgeContainer and

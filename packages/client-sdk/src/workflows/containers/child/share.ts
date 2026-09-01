@@ -287,7 +287,11 @@ export async function shareRemoteContainerWithGroup(
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
   if (input.stillCurrent?.() === false) return null;
-  await advanceVerifiedSharePolicies(input.execSql, verifiedPrincipalPolicy);
+  await advanceVerifiedSharePolicies(
+    input.execSql,
+    verifiedPrincipalPolicy,
+    input.stillCurrent,
+  );
   if (input.stillCurrent?.() === false) return null;
 
   const signedGrant = verifiedPrincipalPolicy.policy.grants.find(

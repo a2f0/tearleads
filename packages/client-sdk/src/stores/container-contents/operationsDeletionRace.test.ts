@@ -155,11 +155,14 @@ test("a completed deletion forces a current local refresh after generation rollo
   });
   state.containersById.set(parent.container.id, parent);
   state.containersById.set(source.container.id, source);
+  state.initialized = true;
   updateContainerContentsSnapshot(state);
   let refreshes = 0;
   const syncAgent = {
     refreshLocalContainers: async () => {
       refreshes += 1;
+      state.initialized = false;
+      state.snapshot = { nodes: [], ready: false };
     },
   } as unknown as ContainerContentsStoreSyncAgent;
 
@@ -172,6 +175,7 @@ test("a completed deletion forces a current local refresh after generation rollo
   expect(state.snapshot.nodes.map((node) => node.id)).not.toContain(
     source.container.id,
   );
+  expect(state.snapshot.ready).toBe(false);
   expect(state.documentStoresNeedPriming).toBe(true);
 });
 
