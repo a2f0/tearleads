@@ -8,20 +8,22 @@
 #   4. Website deploy (build, rsync to /var/www, nginx reload)
 #   5. App-web deploy (build, sync, nginx reload)
 #
-# Pass --skip-infra to skip terraform and ansible (steps 1-2) and deploy only
-# the application artifacts.
+# Pass --skip-terraform when a caller already applied the stack, or --skip-infra
+# to skip both terraform and ansible and deploy only the application artifacts.
 
 set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
 SKIP_INFRA=false
+SKIP_TERRAFORM=false
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [--skip-infra]
+Usage: $(basename "$0") [--skip-terraform] [--skip-infra]
 
 Options:
+  --skip-terraform  Skip terraform but still configure the server with Ansible.
   --skip-infra  Skip terraform and ansible; deploy application artifacts only.
   -h, --help    Show this help and exit.
 EOF
@@ -29,8 +31,13 @@ EOF
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --skip-terraform)
+      SKIP_TERRAFORM=true
+      shift
+      ;;
     --skip-infra)
       SKIP_INFRA=true
+      SKIP_TERRAFORM=true
       shift
       ;;
     -h | --help)
@@ -85,8 +92,14 @@ print_timing_summary() {
 echo "=== Tearleads Staging Deployment ==="
 echo ""
 
-if [[ "$SKIP_INFRA" == true ]]; then
-  skip_step "terraform"
+if [[ "$SKIP_TERRAFORM" == true ]]; then
+  if [[ "$SKIP_INFRA" == true ]]; then
+    skip_step "terraform"
+  else
+    echo "--- [terraform] skipped (--skip-terraform) ---"
+    STEP_TIMINGS+=("$(printf '%-12s %s' "terraform" "skipped")")
+    echo ""
+  fi
 else
   run_step "terraform" \
     "${REPO_ROOT}/terraform/stacks/staging/server/scripts/apply.sh" \

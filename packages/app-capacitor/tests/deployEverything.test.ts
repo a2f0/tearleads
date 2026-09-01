@@ -21,6 +21,8 @@ const commonScript = resolve(
 );
 
 const commandPaths = [
+  "terraform/stacks/staging/server/scripts/apply.sh",
+  "terraform/stacks/prod/server/scripts/apply.sh",
   "scripts/uploadIosStagingRelease.sh",
   "scripts/uploadIosRelease.sh",
   "scripts/uploadAndroidStagingRelease.sh",
@@ -76,11 +78,12 @@ async function runHarness(
       "  export SSH_TARGET",
       "}",
       "validate_aws_env() { :; }",
+      "wait_for_ssh_ready() { :; }",
       "get_backend_config() { printf '/dev/null\\n'; }",
       "resolve_stack_ssh_target() {",
       '  case "$1" in',
-      "    */staging/*) printf 'staging-user@staging-host\\n' ;;",
-      "    */prod/*) printf 'prod-user@prod-host\\n' ;;",
+      "    */staging/*) [ -f \"$DEPLOY_EVERYTHING_TEST_ROOT/staging.applied\" ] && printf 'staging-user@staging-host\\n' ;;",
+      "    */prod/*) [ -f \"$DEPLOY_EVERYTHING_TEST_ROOT/production.applied\" ] && printf 'prod-user@prod-host\\n' ;;",
       "  esac",
       "}",
     ].join("\n"),
@@ -93,6 +96,15 @@ async function runHarness(
   const commandStub = [
     "#!/bin/sh",
     'name="$(basename "$0")"',
+    'case "$0" in',
+    '  */terraform/stacks/staging/*) name="terraform-staging" ;;',
+    '  */terraform/stacks/prod/*) name="terraform-production" ;;',
+    "esac",
+    'case "$name" in',
+    '  terraform-staging) touch "$DEPLOY_EVERYTHING_TEST_ROOT/staging.applied" ;;',
+    '  terraform-production) touch "$DEPLOY_EVERYTHING_TEST_ROOT/production.applied" ;;',
+    `  deployStaging.sh|deployProduction.sh) [ "\${1:-}" = "--skip-terraform" ] || exit 24 ;;`,
+    "esac",
     `printf '%s|%s|%s\\n' "$name" "\${SSH_TARGET:-}" "$PWD" >> "$DEPLOY_EVERYTHING_TEST_LOG"`,
     `if [ "$name" = "\${DEPLOY_EVERYTHING_FAIL_AT:-}" ]; then exit 23; fi`,
   ].join("\n");
@@ -112,6 +124,7 @@ async function runHarness(
         STUB_STAGING_SECRET_TARGET: options.secretStagingTarget ?? "",
         STUB_PRODUCTION_SECRET_TARGET: options.secretProductionTarget ?? "",
         DEPLOY_EVERYTHING_TEST_LOG: logPath,
+        DEPLOY_EVERYTHING_TEST_ROOT: root,
         DEPLOY_EVERYTHING_FAIL_AT: options.failAt ?? "",
         ...options.environment,
       },
@@ -135,6 +148,8 @@ test("runs every release in promotion order from the repository root", async () 
   const run = await runHarness();
   expect(run.exitCode, run.stderr).toBe(0);
   expect(run.calls.map((call) => call.split("|").slice(0, 2))).toEqual([
+    ["terraform-staging", ""],
+    ["terraform-production", ""],
     ["uploadIosStagingRelease.sh", ""],
     ["uploadIosRelease.sh", ""],
     ["uploadAndroidStagingRelease.sh", ""],
@@ -154,6 +169,8 @@ test("stops at the first failing release command", async () => {
   const run = await runHarness({ failAt: "uploadAndroidStagingRelease.sh" });
   expect(run.exitCode).toBe(23);
   expect(run.calls.map((call) => call.split("|")[0])).toEqual([
+    "terraform-staging",
+    "terraform-production",
     "uploadIosStagingRelease.sh",
     "uploadIosRelease.sh",
     "uploadAndroidStagingRelease.sh",
@@ -170,7 +187,7 @@ test("keeps distinct tier overrides isolated", async () => {
     secretProductionTarget: "wrong-secret-target",
   });
   expect(run.exitCode, run.stderr).toBe(0);
-  expect(run.calls.slice(4).map((call) => call.split("|")[1])).toEqual([
+  expect(run.calls.slice(6).map((call) => call.split("|")[1])).toEqual([
     "staging-user@explicit-staging",
     "staging-user@explicit-staging",
     "prod-user@explicit-production",
@@ -178,7 +195,7 @@ test("keeps distinct tier overrides isolated", async () => {
   ]);
 });
 
-test("rejects duplicate explicit targets before releasing", async () => {
+test("rejects explicit targets on the same host before applying", async () => {
   const run = await runHarness({
     environment: {
       STAGING_SSH_TARGET: "user@same-host",
@@ -186,7 +203,19 @@ test("rejects duplicate explicit targets before releasing", async () => {
     },
   });
   expect(run.exitCode).toBe(1);
-  expect(run.stderr).toContain("resolve to the same SSH target");
+  expect(run.stderr).toContain("resolve to the same SSH host");
+  expect(run.calls).toEqual([]);
+});
+
+test("rejects different SSH users on the same explicit host", async () => {
+  const run = await runHarness({
+    environment: {
+      STAGING_SSH_TARGET: "staging@shared-host",
+      PRODUCTION_SSH_TARGET: "prod@SHARED-HOST.",
+    },
+  });
+  expect(run.exitCode).toBe(1);
+  expect(run.stderr).toContain("same SSH host");
   expect(run.calls).toEqual([]);
 });
 
@@ -196,7 +225,10 @@ test("rejects a single override matching the other resolved tier", async () => {
   });
   expect(run.exitCode).toBe(1);
   expect(run.stderr).toContain("prod-user@prod-host");
-  expect(run.calls).toEqual([]);
+  expect(run.calls.map((call) => call.split("|")[0])).toEqual([
+    "terraform-staging",
+    "terraform-production",
+  ]);
 });
 
 test("secret loading preserves an inherited deployment target", async () => {
