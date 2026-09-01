@@ -111,7 +111,11 @@ export async function matchesLockedNativeSubscription(input: {
   readonly organizationId: string;
 }): Promise<boolean> {
   if (!(await matchesLockedNativeStore(input))) return false;
-  if (!input.event.original_transaction_id) return true;
+  if (!input.event.original_transaction_id) {
+    // Product-bearing grants can replace the durable binding below. Without a
+    // subscription token they cannot prove that they belong to this chain.
+    return !input.event.product_id;
+  }
   if (
     input.billing.providerSubscriptionId === input.event.original_transaction_id
   ) {

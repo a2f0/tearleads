@@ -126,6 +126,57 @@ test("a second native purchase cannot replace a live binding", async () => {
   expect(unclaimed).toBeUndefined();
 });
 
+test("a tokenless native purchase cannot erase a live binding", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  const now = Date.now();
+  expect(
+    await runRevenueCatWebhookWorkflow(
+      db,
+      nativeEvent({
+        appUserId: admin.userId,
+        eventTimestamp: now,
+        organizationId,
+        subscriptionId: "durable_subscription",
+      }),
+    ),
+  ).toMatchObject({ status: "applied" });
+  const tokenless = nativeEvent({
+    appUserId: admin.userId,
+    eventTimestamp: now + 1,
+    organizationId,
+    productId: "sync_team_5_monthly",
+    subscriptionId: "missing_subscription_id",
+  });
+  delete tokenless.original_transaction_id;
+
+  const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
+  try {
+    expect(await runRevenueCatWebhookWorkflow(db, tokenless)).toEqual({
+      reason: NATIVE_BINDING_CONFLICT_REASON,
+      status: "retry",
+    });
+  } finally {
+    errorSpy.mockRestore();
+  }
+  const [billing] = await db
+    .select({
+      providerProductId: organizationBilling.providerProductId,
+      providerSubscriptionId: organizationBilling.providerSubscriptionId,
+    })
+    .from(organizationBilling)
+    .where(eq(organizationBilling.organizationId, organizationId));
+  expect(billing).toEqual({
+    providerProductId: "sync_solo_monthly",
+    providerSubscriptionId: "durable_subscription",
+  });
+  const [unclaimed] = await db
+    .select({ id: revenuecatWebhookEvents.id })
+    .from(revenuecatWebhookEvents)
+    .where(eq(revenuecatWebhookEvents.eventId, tokenless.id));
+  expect(unclaimed).toBeUndefined();
+});
+
 test("a Play replacement-token renewal follows an accepted product change", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
