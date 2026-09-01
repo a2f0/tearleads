@@ -265,7 +265,7 @@ class OrganizationsService implements Organizations {
     );
   }
   loadStripeCheckoutOptions(organizationId?: string) {
-    return organizationId
+    return organizationId !== undefined
       ? runForOrganization(
           this.runtimeService,
           organizationId,
@@ -277,7 +277,7 @@ class OrganizationsService implements Organizations {
         );
   }
   createStripeCheckout(organizationId?: string) {
-    return organizationId
+    return organizationId !== undefined
       ? runForOrganization(
           this.runtimeService,
           organizationId,
@@ -292,7 +292,9 @@ class OrganizationsService implements Organizations {
   createStripeCheckoutSession(returnUrl: string, organizationId?: string) {
     const runtime = this.runtimeService.workflowInput();
     const targetOrganizationId =
-      organizationId ?? authenticatedOrganizationId(runtime);
+      organizationId === undefined
+        ? authenticatedOrganizationId(runtime)
+        : organizationId;
     return authenticatedOrganizationId(runtime) && targetOrganizationId
       ? createStripeCheckoutSession({
           apiClient: runtime.apiClient,
@@ -482,7 +484,7 @@ class OrganizationsService implements Organizations {
   }
 
   startTrial(organizationId?: string) {
-    return organizationId
+    return organizationId !== undefined
       ? runForOrganization(
           this.runtimeService,
           organizationId,

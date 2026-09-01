@@ -60,6 +60,15 @@ test("replacement billing mutations use their explicit organization target", asy
       },
       { operation: "trial", organizationId: replacementOrganizationId },
     ]);
+
+    await organizations.loadStripeCheckoutOptions("");
+    await organizations.createStripeCheckout("");
+    await organizations.createStripeCheckoutSession(
+      "https://app.test/billing",
+      "",
+    );
+    await organizations.startTrial("");
+    expect(requests).toHaveLength(4);
   } finally {
     close();
   }
