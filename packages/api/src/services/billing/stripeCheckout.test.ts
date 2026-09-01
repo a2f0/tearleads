@@ -211,6 +211,7 @@ test("the portal ignores a subscription whose metadata names another org", async
             },
           },
         ],
+        has_more: false,
       }),
     )) as typeof fetch;
 
@@ -249,6 +250,7 @@ test("the portal returns a session for the org's live subscription", async () =>
               metadata: { userId: admin.userId, orgId: organizationId },
             },
           ],
+          has_more: false,
         }),
       );
     }
@@ -296,6 +298,7 @@ test("cancel schedules the period end for the org's live subscription", async ()
               metadata: { userId: admin.userId, orgId: organizationId },
             },
           ],
+          has_more: false,
         }),
       );
     }
@@ -345,6 +348,7 @@ test("cancel resolves the Stripe sub_ even when the billing row holds an si_ id"
               metadata: { userId: admin.userId, orgId: organizationId },
             },
           ],
+          has_more: false,
         }),
       );
     }
@@ -385,6 +389,7 @@ test("cancel does nothing when the org has only an incomplete subscription", asy
             metadata: { userId: admin.userId, orgId: organizationId },
           },
         ],
+        has_more: false,
       }),
     );
   }) as typeof fetch;
@@ -416,7 +421,7 @@ test("the hosted checkout session returns the Stripe page URL", async () => {
         env: STRIPE_ENV,
         fetchImpl: respondingFetch(
           [
-            { body: { data: [] } }, // Stripe-side duplicate guard: none
+            { body: { data: [], has_more: false } }, // no Stripe duplicate
             { body: { data: [] } }, // no existing customer
             { body: { id: "cus_new" } }, // customer create
             { body: STRIPE_SOLO_PRICE },
@@ -461,6 +466,7 @@ test("the hosted checkout 409s when Stripe already holds a live subscription", a
                       metadata: { orgId: organizationId, userId: admin.userId },
                     },
                   ],
+                  has_more: false,
                 },
               },
             ],
@@ -515,7 +521,7 @@ test("a Stripe-side live subscription makes checkout a 409", async () => {
   const responses = [
     { data: [{ id: "cus_1" }] },
     STRIPE_SOLO_PRICE,
-    { data: [{ id: "sub_live", status: "active" }] },
+    { data: [{ id: "sub_live", status: "active" }], has_more: false },
   ];
   const conflictFetch = (async (_input: RequestInfo | URL) =>
     new Response(JSON.stringify(responses.shift() ?? {}))) as typeof fetch;
