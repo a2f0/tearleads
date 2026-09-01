@@ -9,8 +9,10 @@ const ENV = {
 };
 
 const TEAM_5_PRICE = {
+  active: true,
   currency: "usd",
   id: "price_sync",
+  product: { active: true, id: "prod_sync" },
   recurring: { interval: "month", interval_count: 1 },
   unit_amount: 1_000,
 };

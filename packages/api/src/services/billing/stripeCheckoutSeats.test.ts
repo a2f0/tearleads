@@ -110,8 +110,10 @@ test("inline checkout selects the current membership tier at quantity one", asyn
     const path = new URL(String(input)).pathname;
     if (path.endsWith("/prices/price_team_5")) {
       return Response.json({
+        active: true,
         currency: "usd",
         id: "price_team_5",
+        product: { active: true, id: "prod_sync" },
         recurring: { interval: "month", interval_count: 1 },
         unit_amount: 1_000,
       });
@@ -176,8 +178,10 @@ test("hosted checkout selects the current membership tier at quantity one", asyn
     const path = new URL(String(input)).pathname;
     if (path.endsWith("/prices/price_team_5")) {
       return Response.json({
+        active: true,
         currency: "usd",
         id: "price_team_5",
+        product: { active: true, id: "prod_sync" },
         recurring: { interval: "month", interval_count: 1 },
         unit_amount: 1_000,
       });

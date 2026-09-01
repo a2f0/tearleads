@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { activeStripePrice } from "../../test/helpers/stripeCatalog";
 import {
   cancelSubscriptionAtPeriodEnd,
   createCheckoutSession,
@@ -26,12 +27,7 @@ const SYNC_SUBSCRIPTION_INPUT = {
   seatQuantity: 2,
 };
 
-const VALID_TEAM_5_PRICE = {
-  currency: "usd",
-  id: "price_sync",
-  recurring: { interval: "month", interval_count: 1 },
-  unit_amount: 1_000,
-};
+const VALID_TEAM_5_PRICE = activeStripePrice("price_sync", 1_000);
 
 interface RecordedRequest {
   url: string;
@@ -76,13 +72,7 @@ test("configuration requires both the secret key and the price id", () => {
 test("sync option maps the price with its product, pinned API version", async () => {
   const { fetchImpl, requests } = fakeFetch([
     {
-      body: {
-        id: "price_sync",
-        currency: "usd",
-        unit_amount: 1_000,
-        recurring: { interval: "month", interval_count: 1 },
-        product: { name: "Sync" },
-      },
+      body: VALID_TEAM_5_PRICE,
     },
   ]);
   const option = await getStripeSyncOption("team_5", { env: ENV, fetchImpl });
@@ -98,6 +88,9 @@ test("sync option maps the price with its product, pinned API version", async ()
     intervalCount: 1,
   });
   expect(requests[0]?.url).toContain("/v1/prices/price_sync");
+  expect(
+    new URL(requests[0]?.url ?? "").searchParams.getAll("expand[]"),
+  ).toEqual(["product"]);
   expect(requests[0]?.headers.get("Stripe-Version")).not.toBeNull();
   expect(requests[0]?.headers.get("Authorization")).toBe("Bearer sk_test_123");
 });
@@ -552,14 +545,7 @@ test("createCheckoutSession is null without price/secret config", async () => {
 
 test("createCheckoutSession passes an unparseable return url through unchanged", async () => {
   const { fetchImpl, requests } = fakeFetch([
-    {
-      body: {
-        currency: "usd",
-        id: "price_solo",
-        recurring: { interval: "month", interval_count: 1 },
-        unit_amount: 500,
-      },
-    },
+    { body: activeStripePrice("price_solo", 500) },
     { body: { url: "https://checkout.stripe.com/pay/cs_2" } },
   ]);
 

@@ -42,8 +42,10 @@ function checkoutFetch(recordedCreates: Request[]): typeof fetch {
     const path = new URL(request.url).pathname;
     if (path.endsWith("/prices/price_sync")) {
       return Response.json({
+        active: true,
         currency: "usd",
         id: "price_sync",
+        product: { active: true, id: "prod_sync" },
         recurring: { interval: "month", interval_count: 1 },
         unit_amount: 500,
       });

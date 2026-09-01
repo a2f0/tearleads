@@ -26,7 +26,7 @@ export interface StripeSyncOption {
   readonly intervalCount: number | null;
 }
 
-/** Fetches and validates the configured monthly USD Price for one tier. */
+/** Fetches and validates the active monthly USD Price and Product for one tier. */
 export async function getStripeSyncOption(
   tierId: SyncBillingTierId,
   deps: StripeApiDeps = {},
@@ -41,18 +41,55 @@ export async function getStripeSyncOption(
     fetchImpl,
     secretKey,
     method: "GET",
-    path: `/v1/prices/${encodeURIComponent(syncPriceId)}`,
-    operation: "price lookup",
+    path: `/v1/prices/${encodeURIComponent(syncPriceId)}?expand[]=product`,
+    operation: "price and product lookup",
   });
   if (typeof body !== "object" || body === null) {
+    console.error("Configured Stripe catalog entry is unusable", {
+      priceId: syncPriceId,
+      reason: "Price lookup returned an invalid response",
+      tierId,
+    });
     return null;
   }
   const recurring = prop(body, "recurring");
   const unitAmount = readPositiveInteger(prop(body, "unit_amount"));
   const priceId = readString(prop(body, "id"));
+  const priceActive = prop(body, "active");
   const currency = readString(prop(body, "currency"));
   const interval = readString(prop(recurring, "interval"));
   const intervalCount = readPositiveInteger(prop(recurring, "interval_count"));
+  if (priceActive !== true) {
+    console.error("Configured Stripe catalog entry is unusable", {
+      priceId: syncPriceId,
+      reason:
+        priceActive === false
+          ? "Price is inactive"
+          : "Price active state is missing or invalid",
+      tierId,
+    });
+    return null;
+  }
+  const product = prop(body, "product");
+  const productId = readString(prop(product, "id"));
+  const productActive = prop(product, "active");
+  if (!productId || typeof productActive !== "boolean") {
+    console.error("Configured Stripe catalog entry is unusable", {
+      priceId: syncPriceId,
+      reason: "Expanded Product is missing or invalid",
+      tierId,
+    });
+    return null;
+  }
+  if (!productActive) {
+    console.error("Configured Stripe catalog entry is unusable", {
+      priceId: syncPriceId,
+      productId,
+      reason: "Product is inactive",
+      tierId,
+    });
+    return null;
+  }
   if (
     priceId !== syncPriceId ||
     currency !== "usd" ||
