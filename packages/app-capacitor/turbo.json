@@ -9,12 +9,16 @@
         "$TURBO_ROOT$/scripts/buildAndroidStagingRelease.sh",
         "$TURBO_ROOT$/scripts/buildIosRelease.sh",
         "$TURBO_ROOT$/scripts/buildIosStagingRelease.sh",
+        "$TURBO_ROOT$/scripts/deployEverything.sh",
+        "$TURBO_ROOT$/scripts/deployProduction.sh",
+        "$TURBO_ROOT$/scripts/deployStaging.sh",
         "$TURBO_ROOT$/scripts/nativeRelease.sh",
         "$TURBO_ROOT$/scripts/releaseGuards.sh",
         "$TURBO_ROOT$/scripts/uploadAndroidRelease.sh",
         "$TURBO_ROOT$/scripts/uploadAndroidStagingRelease.sh",
         "$TURBO_ROOT$/scripts/uploadIosRelease.sh",
-        "$TURBO_ROOT$/scripts/uploadIosStagingRelease.sh"
+        "$TURBO_ROOT$/scripts/uploadIosStagingRelease.sh",
+        "$TURBO_ROOT$/terraform/scripts/common.sh"
       ]
     }
   }
