@@ -1,3 +1,4 @@
+import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type {
   DocumentCreateResponse,
   DocumentSyncResponse,
@@ -434,6 +435,8 @@ export interface SyncRemoteDocumentInput {
    * fresh content key anchored by a rotation baseline.
    */
   buildRotationSnapshot?: (() => Promise<Uint8Array | null>) | undefined;
+  /** Rebuilds inline container rekeys for each submission attempt. */
+  buildContainerRekeys?: () => Promise<ContainerMutationRequest[]>;
   documentId: string;
   execSql: ExecSql;
   /** Explicit read-only recovery that bypasses rotation-baseline redirect. */
@@ -444,8 +447,6 @@ export interface SyncRemoteDocumentInput {
   pullContinuation?: DocumentSyncPullContinuation | undefined;
   /** Atomically commits the verified purge proof with matching local teardown. */
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
-  // Receives the reason whenever this sync returns null, so callers that
-  // convert a null result into their own error can name the real cause.
   onSyncAbandoned?: ((reason: string) => void) | undefined;
   /** Clipboard-safe trace sink (see syncTrace.ts); never receives content. */
   onSyncTrace?: DocumentSyncTraceEmitter | undefined;
@@ -489,9 +490,8 @@ export async function tryPersistedReadOnlyDocumentSync(
   resolveProjectionUserKey: ProjectionUserKeyResolver,
 ): Promise<PersistedReadOnlyDocumentSyncResult | null> {
   if (input.stillCurrent?.() === false) return null;
-  if ((input.pendingUpdates ?? []).length > 0) {
+  if (input.pendingUpdates?.length || input.buildContainerRekeys !== undefined)
     return null;
-  }
 
   return syncReadOnlyRemoteDocumentFromPersistedState({
     ...input,

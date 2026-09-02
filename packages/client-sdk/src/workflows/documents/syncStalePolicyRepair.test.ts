@@ -1,115 +1,170 @@
 import { expect, test } from "bun:test";
-import type { ContainerMutationRequest } from "@tearleads/validators/request";
+import { createTestExecSql } from "@tearleads/test-utils";
+import type {
+  ContainerMutationRequest,
+  DocumentSyncRequest,
+} from "@tearleads/validators/request";
 import {
   DOCUMENT_SYNC_ERROR_CODES,
   type PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
+import {
+  createMaterializedSyncFixture,
+  createPendingUpdateRecord,
+  createSyncResponse,
+  writerKeyResolver,
+} from "../../../test/helpers/documentFixtures";
+import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../test/helpers/documentSync";
 import type {
-  DocumentSyncApi,
-  DocumentSyncPlan,
-} from "../../data/documents/shared/types";
-import type { ReferencedPrincipalPolicyWarmer } from "../../data/keyingProjectionVerification";
-import { submitDocumentSyncAttemptIfAllowed } from "./syncFailures";
+  PrincipalPolicyBundleCacheRequest,
+  ReferencedPrincipalPolicyWarmer,
+} from "../../data/keyingProjectionVerification";
+import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
 
+function containerRekey(policyGeneration: number): ContainerMutationRequest {
+  return {
+    body: { eventType: "container.rekey" },
+    event: { eventType: "container.rekey" },
+    expectedManifestHash: "container-manifest-hash",
+    keyEpoch: { id: "container-key-epoch-id" },
+    keyring: null,
+    manifest: { objectKind: "container" },
+    predecessorBridge: null,
+    principalPolicies: [{ policyGeneration }],
+    wraps: [{ containerKeyEpochId: "container-key-epoch-id" }],
+  };
+}
 const POLICY_BUNDLE = {} as PrincipalPolicyBundleResponse;
-const PLAN = {
-  documentId: "document-1",
-  organizationId: "organization-1",
-  request: {
-    containerRekeys: [{} as ContainerMutationRequest],
-    outgoingUpdates: [],
-  },
-} as unknown as DocumentSyncPlan;
 
-test("sync caches stale-policy repair bundles before replanning container rekeys", async () => {
-  const cached: unknown[] = [];
+test("syncRemoteDocument caches stale policies before replanning inline rekeys", async () => {
+  const {
+    author,
+    resolveProjectionUserKey,
+    secretKey,
+    signingPublicKey,
+    writerProjection,
+  } = await createMaterializedSyncFixture();
+  const pendingUpdates = [createPendingUpdateRecord()];
+  const submittedRequests: DocumentSyncRequest[] = [];
+  const events: string[] = [];
+  let policiesCached = false;
+  let projectionRequestCount = 0;
+  let rekeyBuildCount = 0;
+  const { close, execSql } = await createTestExecSql(
+    "sync-stale-policy-repair",
+  );
   const warmer = Object.assign(async () => undefined, {
-    cacheBundles: async (input: unknown) => {
-      cached.push(input);
+    cacheBundles: async (input: PrincipalPolicyBundleCacheRequest) => {
+      events.push("cache-policies");
+      expect(input).toEqual({
+        bundles: [POLICY_BUNDLE],
+        organizationId: author.organizationId,
+        stillCurrent: undefined,
+      });
+      policiesCached = true;
     },
   }) satisfies ReferencedPrincipalPolicyWarmer;
-  const apiClient: DocumentSyncApi = {
-    getDocumentWriterProjection: async () => null,
-    syncDocument: async () => {
-      throw new Error("result-returning sync should be used");
-    },
-    syncDocumentResult: async () => ({
-      code: DOCUMENT_SYNC_ERROR_CODES.stateStale,
-      message: "Principal policy is stale",
-      ok: false,
-      report: () => undefined,
-      stalePrincipalPolicies: [POLICY_BUNDLE],
-      status: 409,
-    }),
-  };
 
-  const result = await submitDocumentSyncAttemptIfAllowed({
-    apiClient,
-    attempt: 1,
-    documentId: PLAN.documentId,
-    maxAttempts: 3,
-    pendingUpdates: [],
-    plan: PLAN,
-    warmReferencedPrincipalPolicies: warmer,
-  });
+  try {
+    const synced = await syncRemoteDocument({
+      apiClient: {
+        evictDocumentWriterProjection: () => {
+          events.push("evict-projection");
+        },
+        getDocumentWriterProjection: async () => {
+          projectionRequestCount += 1;
+          events.push(`get-projection-${projectionRequestCount}`);
+          return writerProjection;
+        },
+        syncDocument: async () => {
+          throw new Error("Expected syncDocumentResult to handle sync");
+        },
+        syncDocumentResult: async (documentId, request) => {
+          submittedRequests.push(request);
+          events.push(`submit-${submittedRequests.length}`);
+          if (submittedRequests.length === 1) {
+            return {
+              code: DOCUMENT_SYNC_ERROR_CODES.stateStale,
+              message: "Principal policy is stale",
+              ok: false,
+              report: () => undefined,
+              stalePrincipalPolicies: [POLICY_BUNDLE],
+              status: 409,
+            };
+          }
 
-  expect(result).toBe("retry");
-  expect(cached).toEqual([
-    {
-      bundles: [POLICY_BUNDLE],
-      organizationId: PLAN.organizationId,
-      stillCurrent: undefined,
-    },
-  ]);
+          const materialized = await buildMaterializedDocumentSyncPlan({
+            author,
+            containerRekeys: request.containerRekeys,
+            execSql,
+            localVersionVector: null,
+            pendingUpdates,
+            resolveProjectionUserKey,
+            targetSecretKey: secretKey,
+            writerProjection,
+          });
+          return {
+            data: await createSyncResponse({
+              ...materialized.plan,
+              documentId,
+              request,
+            }),
+            ok: true,
+          };
+        },
+      },
+      author,
+      buildContainerRekeys: async () => {
+        rekeyBuildCount += 1;
+        events.push(`build-rekey-${rekeyBuildCount}`);
+        return [containerRekey(policiesCached ? 2 : 1)];
+      },
+      documentId: writerProjection.documentId,
+      execSql,
+      localVersionVector: null,
+      pendingUpdates,
+      resolveProjectionUserKey,
+      resolveWriterPublicKey: writerKeyResolver({ author, signingPublicKey }),
+      targetSecretKey: secretKey,
+      warmReferencedPrincipalPolicies: warmer,
+    });
+
+    expect(synced?.persistedState.documentId).toBe(writerProjection.documentId);
+    expect(submittedRequests).toHaveLength(2);
+    expect(
+      submittedRequests[0]?.containerRekeys?.[0]?.principalPolicies,
+    ).toEqual([{ policyGeneration: 1 }]);
+    expect(
+      submittedRequests[1]?.containerRekeys?.[0]?.principalPolicies,
+    ).toEqual([{ policyGeneration: 2 }]);
+    expect(events).toEqual([
+      "get-projection-1",
+      "build-rekey-1",
+      "submit-1",
+      "cache-policies",
+      "evict-projection",
+      "get-projection-2",
+      "build-rekey-2",
+      "submit-2",
+    ]);
+  } finally {
+    close();
+  }
 });
 
-test("sync rejects repair bundles outside stale inline-rekey failures", async () => {
-  const cached: unknown[] = [];
-  const warmer = Object.assign(async () => undefined, {
-    cacheBundles: async (input: unknown) => {
-      cached.push(input);
-    },
-  }) satisfies ReferencedPrincipalPolicyWarmer;
-  let code: string = DOCUMENT_SYNC_ERROR_CODES.conflict;
-  const apiClient: DocumentSyncApi = {
-    getDocumentWriterProjection: async () => null,
-    syncDocument: async () => {
-      throw new Error("result-returning sync should be used");
-    },
-    syncDocumentResult: async () => ({
-      code,
-      message: "Conflict",
-      ok: false,
-      report: () => undefined,
-      stalePrincipalPolicies: [POLICY_BUNDLE],
-      status: 409,
+test("materialized sync rejects inline rekeys without an outgoing update", async () => {
+  const { author, secretKey, writerProjection } =
+    await createMaterializedSyncFixture();
+
+  await expect(
+    buildMaterializedDocumentSyncPlan({
+      author,
+      containerRekeys: [containerRekey(1)],
+      localVersionVector: null,
+      pendingUpdates: [],
+      targetSecretKey: secretKey,
+      trustedLocalProjection: true,
+      writerProjection,
     }),
-  };
-
-  const terminal = await submitDocumentSyncAttemptIfAllowed({
-    apiClient,
-    attempt: 1,
-    documentId: PLAN.documentId,
-    maxAttempts: 3,
-    pendingUpdates: [],
-    plan: PLAN,
-    warmReferencedPrincipalPolicies: warmer,
-  });
-  code = DOCUMENT_SYNC_ERROR_CODES.stateStale;
-  const withoutRekeys = await submitDocumentSyncAttemptIfAllowed({
-    apiClient,
-    attempt: 1,
-    documentId: PLAN.documentId,
-    maxAttempts: 3,
-    pendingUpdates: [],
-    plan: {
-      ...PLAN,
-      request: { ...PLAN.request, containerRekeys: undefined },
-    },
-    warmReferencedPrincipalPolicies: warmer,
-  });
-
-  expect(terminal).toBe("stop");
-  expect(withoutRekeys).toBe("retry");
-  expect(cached).toEqual([]);
+  ).rejects.toThrow("container rekeys require an outgoing update");
 });

@@ -44,15 +44,13 @@ export function hasDocumentUpdateEvent(
   events: ReadonlyArray<unknown>,
   documentId: string | null | undefined,
 ): boolean {
-  if (!documentId) {
-    return false;
-  }
+  if (!documentId) return false;
   return events.some(
     (event) =>
       isDocumentUpdateCreatedEvent(event) && event.documentId === documentId,
   );
 }
-function buildRemoteDocumentSyncPlan(input: {
+async function buildRemoteDocumentSyncPlan(input: {
   minLsn?: string | undefined;
   pendingUpdates: readonly PendingUpdateRecord[];
   pullCursor?: string | undefined;
@@ -63,6 +61,7 @@ function buildRemoteDocumentSyncPlan(input: {
   return buildMaterializedDocumentSyncPlan({
     author: input.sync.author,
     buildRotationSnapshot: input.sync.buildRotationSnapshot,
+    containerRekeys: await input.sync.buildContainerRekeys?.(),
     execSql: input.sync.execSql,
     historyMode: input.sync.historyMode,
     localVersionVector: input.sync.localVersionVector,

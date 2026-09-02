@@ -26,6 +26,7 @@ import {
 } from "../../data/documents/shared/projection";
 import { assertDocumentManifestBundleConsistent } from "../../data/documents/shared/readers";
 import type {
+  BuildDocumentSyncPlanInput,
   DocumentCreateAuthor,
   MaterializedDocumentSyncPlan,
   ProjectionVerificationOptions,
@@ -377,6 +378,7 @@ export async function buildMaterializedDocumentSyncPlan(
      * Without it those passes fail with a descriptive error instead.
      */
     buildRotationSnapshot?: (() => Promise<Uint8Array | null>) | undefined;
+    containerRekeys?: BuildDocumentSyncPlanInput["containerRekeys"];
     execSql?: ExecSql | undefined;
     historyMode?: "raw" | undefined;
     localVersionVector: string | null;
@@ -467,6 +469,7 @@ export async function buildMaterializedDocumentSyncPlan(
     authorizingContainerPathRefs: authorizingContainerPathRefs(
       input.writerProjection,
     ),
+    containerRekeys: input.containerRekeys,
     contentKeyBundle,
     documentId,
     documentKekTargets,

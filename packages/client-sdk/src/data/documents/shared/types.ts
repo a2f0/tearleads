@@ -408,6 +408,7 @@ export interface DecryptedDocumentSyncUpdate {
 export interface BuildDocumentSyncPlanInput {
   author: DocumentCreateAuthor;
   authorizingContainerPathRefs?: readonly (readonly ContainerManifestRef[])[];
+  containerRekeys?: DocumentSyncRequest["containerRekeys"];
   contentKeyBundle: DocumentCreateResponse["contentKeyBundle"];
   documentId?: string | undefined;
   documentKekTargets: DocumentSyncResponse["documentKekTargets"];
