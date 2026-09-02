@@ -88,6 +88,7 @@ test("a generation change during settlement leaves live state unchanged", async 
   const child = createTestContainerState({ id: "child", parentId: "root" });
   child.doc = await createContainerMetadataDocument(child.container.id);
   const originalContainer = { ...child.container };
+  const reconciledParentIds: Array<string | null> = [];
   let current = true;
   const persistence = defaultContainerContentsPersistence;
   const execSql: ExecSql = async () => [];
@@ -130,8 +131,16 @@ test("a generation change during settlement leaves live state unchanged", async 
             expectedIntentId: intent.id,
             expectedUpdatedAt: intent.updatedAt,
           });
-          current = false;
-          return { status: "stale-generation" };
+          return {
+            get moveIntentSettled(): true {
+              queueMicrotask(() => {
+                current = false;
+              });
+              return true;
+            },
+            record: child.record,
+            status: "persisted",
+          };
         },
         updateSnapshot: () => {},
       },
@@ -149,10 +158,13 @@ test("a generation change during settlement leaves live state unchanged", async 
         parentId: "parent",
         updatedAt: "2026-05-31T00:01:00.000Z",
       },
-      requestRemoteReconciliation: () => {},
+      requestRemoteReconciliation: (parentId) => {
+        reconciledParentIds.push(parentId);
+      },
       state,
     }),
   ).toBe(false);
+  expect(reconciledParentIds).toEqual(["parent"]);
   expect(child.container).toEqual(originalContainer);
 });
 

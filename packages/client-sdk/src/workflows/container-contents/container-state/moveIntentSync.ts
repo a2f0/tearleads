@@ -191,7 +191,7 @@ export async function persistAcceptedMoveIntent(input: {
     isCurrent: input.isCurrent,
     markMoveIntentRevisionSynced,
   });
-  if (!intentSettled) return abandon();
+  if (!input.isCurrent() || !intentSettled) return abandon();
   const { record: nextRecord } = persistenceResult;
   installDetachedContainerMetadataState(containerState, persistenceCandidate, {
     candidateRecord: nextRecord,
