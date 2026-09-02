@@ -1,0 +1,10 @@
+[Unit]
+Description=Report Tearleads maintenance failure for %i
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/logger -p daemon.alert -t tearleads-maintenance-alert "Tearleads maintenance unit %i failed"
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict

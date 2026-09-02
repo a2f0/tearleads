@@ -2,7 +2,7 @@
 Description=Tearleads Blob GC
 After=network.target postgresql.service redis-server.service{{ ' garage.service' if garage_enabled | default(false) | bool else '' }}
 Wants=postgresql.service redis-server.service{{ ' garage.service' if garage_enabled | default(false) | bool else '' }}
-ConditionPathExists=/opt/tearleads/bin/tearleads-blob-gc
+OnFailure=tearleads-maintenance-alert@%n.service
 
 [Service]
 Type=oneshot

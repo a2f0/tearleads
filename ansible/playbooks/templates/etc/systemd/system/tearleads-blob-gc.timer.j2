@@ -1,5 +1,6 @@
 [Unit]
 Description=Run Tearleads Blob GC hourly
+OnFailure=tearleads-maintenance-alert@%n.service
 
 [Timer]
 OnCalendar=hourly

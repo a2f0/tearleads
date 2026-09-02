@@ -68,4 +68,11 @@ ssh "$SSH_TARGET" 'set -eu && set -a && . /etc/tearleads/api.env && set +a && /o
 echo "Starting API service and maintenance timers..."
 ssh "$SSH_TARGET" "sudo systemctl start tearleads-api tearleads-blob-gc.timer tearleads-stripe-seat-sync.timer"
 
+echo "Verifying API maintenance timers..."
+ssh "$SSH_TARGET" sh -s <<'REMOTE_MAINTENANCE_VERIFY'
+set -eu
+sudo systemctl is-enabled --quiet tearleads-blob-gc.timer
+sudo systemctl is-active --quiet tearleads-blob-gc.timer
+REMOTE_MAINTENANCE_VERIFY
+
 echo "API deployed."

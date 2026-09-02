@@ -1,4 +1,13 @@
 ---
+- name: Deploy API maintenance failure alert service
+  ansible.builtin.template:
+    src: etc/systemd/system/tearleads-maintenance-alert@.service.j2
+    dest: /etc/systemd/system/tearleads-maintenance-alert@.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload systemd
+
 - name: Deploy blob GC systemd service
   ansible.builtin.template:
     src: etc/systemd/system/tearleads-blob-gc.service.j2
@@ -23,6 +32,14 @@
     daemon_reload: true
     enabled: true
     state: started
+  register: tearleads_blob_gc_timer
+
+- name: Verify blob GC systemd timer
+  ansible.builtin.assert:
+    that:
+      - tearleads_blob_gc_timer.status.UnitFileState == "enabled"
+      - tearleads_blob_gc_timer.status.ActiveState == "active"
+    fail_msg: tearleads-blob-gc.timer must be enabled and active
 
 - name: Deploy Stripe seat sync systemd service
   ansible.builtin.template:

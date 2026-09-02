@@ -115,3 +115,22 @@ That audit/history layer should align with
 The audit/history schema and verifier exist, and normal signed attachment
 mutations append attachment audit rows before live blob pruning can remove
 metadata needed by `blob_audit_objects`.
+
+## Operations
+
+Ansible installs `tearleads-blob-gc.service` and its persistent hourly timer.
+Provisioning fails unless the timer reports both `enabled` and `active`, and
+each API deployment repeats those checks after restarting the maintenance
+units. The timer and service send failures through
+`tearleads-maintenance-alert@.service`, which writes a `daemon.alert` journal
+entry tagged `tearleads-maintenance-alert` with the failed unit name. A missing
+GC executable is a service failure rather than a silently skipped run.
+
+Check the schedule, the last collection result, and failure alerts with:
+
+```sh
+sudo systemctl status tearleads-blob-gc.timer
+sudo systemctl status tearleads-blob-gc.service
+sudo journalctl -u tearleads-blob-gc.service
+sudo journalctl -t tearleads-maintenance-alert
+```

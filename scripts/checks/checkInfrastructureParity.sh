@@ -41,18 +41,42 @@ assert_api_deploy_ordering() {
   local install_line
   local migration_line
   local start_line
+  local maintenance_verify_line
 
   verify_line="$(awk 'index($0, "test -x") { print NR; exit }' "$deploy_file")"
   stop_line="$(awk 'index($0, "systemctl stop tearleads-api") { print NR; exit }' "$deploy_file")"
   install_line="$(awk 'index($0, "mv -f") { print NR; exit }' "$deploy_file")"
   migration_line="$(awk 'index($0, "tearleads-api-cli migrate") { print NR; exit }' "$deploy_file")"
   start_line="$(awk 'index($0, "systemctl start tearleads-api") { print NR; exit }' "$deploy_file")"
+  maintenance_verify_line="$(awk 'index($0, "Verifying API maintenance timers") { print NR; exit }' "$deploy_file")"
 
   if [ -z "$verify_line" ] || [ -z "$stop_line" ] || [ -z "$install_line" ] ||
-    [ -z "$migration_line" ] || [ -z "$start_line" ] ||
+    [ -z "$migration_line" ] || [ -z "$start_line" ] || [ -z "$maintenance_verify_line" ] ||
     [ "$verify_line" -ge "$stop_line" ] || [ "$stop_line" -ge "$install_line" ] ||
-    [ "$install_line" -ge "$migration_line" ] || [ "$migration_line" -ge "$start_line" ]; then
-    echo "ERROR: API deploy must verify staged binaries, stop writers, install, migrate, and restart in that order: $deploy_file" >&2
+    [ "$install_line" -ge "$migration_line" ] || [ "$migration_line" -ge "$start_line" ] ||
+    [ "$start_line" -ge "$maintenance_verify_line" ] ||
+    ! grep -Fq 'systemctl is-enabled --quiet tearleads-blob-gc.timer' "$deploy_file" ||
+    ! grep -Fq 'systemctl is-active --quiet tearleads-blob-gc.timer' "$deploy_file"; then
+    echo "ERROR: API deploy must verify staged binaries, stop writers, install, migrate, restart, and verify blob GC in that order: $deploy_file" >&2
+    return 1
+  fi
+}
+
+assert_blob_gc_failure_alerting() {
+  local maintenance_tasks="$REPO_ROOT/ansible/playbooks/tasks/apiMaintenance.yml"
+  local service_template="$REPO_ROOT/ansible/playbooks/templates/etc/systemd/system/tearleads-blob-gc.service.j2"
+  local timer_template="$REPO_ROOT/ansible/playbooks/templates/etc/systemd/system/tearleads-blob-gc.timer.j2"
+  local alert_template="$REPO_ROOT/ansible/playbooks/templates/etc/systemd/system/tearleads-maintenance-alert@.service.j2"
+  local failure_target='OnFailure=tearleads-maintenance-alert@%n.service'
+
+  if ! grep -Fq "$failure_target" "$service_template" ||
+    ! grep -Fq "$failure_target" "$timer_template" ||
+    ! grep -Fq 'tearleads-maintenance-alert@.service.j2' "$maintenance_tasks" ||
+    ! grep -Fq 'tearleads_blob_gc_timer.status.UnitFileState == "enabled"' "$maintenance_tasks" ||
+    ! grep -Fq 'tearleads_blob_gc_timer.status.ActiveState == "active"' "$maintenance_tasks" ||
+    ! grep -Fq -- '-p daemon.alert' "$alert_template" ||
+    grep -Fq 'ConditionPathExists=' "$service_template"; then
+    echo "ERROR: Blob GC must verify its timer state and alert on timer or service failure." >&2
     return 1
   fi
 }
@@ -158,6 +182,7 @@ assert_api_deploy_ordering \
   "$REPO_ROOT/packages/api/scripts/deployStagingApi.sh"
 assert_api_deploy_ordering \
   "$REPO_ROOT/packages/api/scripts/deployProductionApi.sh"
+assert_blob_gc_failure_alerting
 assert_superseded_timer_ordering
 assert_document_sync_ingress_cors
 
