@@ -30,17 +30,31 @@ type SubmittedDocumentSyncResultInput = {
   writerProjection: DocumentWriterProjectionResponse;
 };
 
-function evictHealedWriterProjection(
-  input: SyncRemoteDocumentInput,
-  materializedPlan: MaterializedDocumentSyncPlan,
-  response: DocumentSyncResponse,
-): void {
+/** @internal Applies post-verification heal effects under the sync generation. */
+export function applyAcceptedHealSideEffects(input: {
+  documentId: string;
+  evictWriterProjection?: ((documentId: string) => void) | undefined;
+  materializedPlan: MaterializedDocumentSyncPlan;
+  onSyncTrace: SyncRemoteDocumentInput["onSyncTrace"];
+  response: DocumentSyncResponse;
+  stillCurrent: SyncRemoteDocumentInput["stillCurrent"];
+}): void {
   if (
-    materializedPlan.healedStaleContentKeyBundle &&
-    responseAcceptedRecoveryBaseline(materializedPlan, response)
+    !input.materializedPlan.healedStaleContentKeyBundle ||
+    !responseAcceptedRecoveryBaseline(input.materializedPlan, input.response) ||
+    input.stillCurrent?.() === false
   ) {
-    input.apiClient.evictDocumentWriterProjection?.(input.documentId);
+    return;
   }
+  input.evictWriterProjection?.(input.documentId);
+  if (input.stillCurrent?.() === false) {
+    return;
+  }
+  traceHealed(input.onSyncTrace, {
+    accepted: input.response.acceptedOutgoingUpdateIds.length,
+    documentId: input.materializedPlan.plan.documentId,
+    epoch: input.materializedPlan.plan.contentKeyEpoch,
+  });
 }
 
 async function submittedDocumentSyncResult(
@@ -61,21 +75,17 @@ async function submittedDocumentSyncResult(
     writerProjection: input.writerProjection,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
   });
-  evictHealedWriterProjection(
-    input.sync,
-    input.materializedPlan,
-    input.response,
-  );
-  if (
-    input.materializedPlan.healedStaleContentKeyBundle &&
-    responseAcceptedRecoveryBaseline(input.materializedPlan, input.response)
-  ) {
-    traceHealed(input.sync.onSyncTrace, {
-      accepted: input.response.acceptedOutgoingUpdateIds.length,
-      documentId: input.materializedPlan.plan.documentId,
-      epoch: input.materializedPlan.plan.contentKeyEpoch,
-    });
-  }
+  applyAcceptedHealSideEffects({
+    documentId: input.sync.documentId,
+    evictWriterProjection:
+      input.sync.apiClient.evictDocumentWriterProjection?.bind(
+        input.sync.apiClient,
+      ),
+    materializedPlan: input.materializedPlan,
+    onSyncTrace: input.sync.onSyncTrace,
+    response: input.response,
+    stillCurrent: input.sync.stillCurrent,
+  });
   return {
     ...result,
     hasDeferredPendingUpdates:

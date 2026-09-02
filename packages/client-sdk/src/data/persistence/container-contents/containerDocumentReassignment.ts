@@ -64,24 +64,9 @@ async function reassignDocumentMoveIntentsForContainer(
   input: ContainerDocumentReassignmentInput,
 ): Promise<void> {
   const { fromContainerId, toContainerId, tx, updatedAt } = input;
-  await tx
-    .update(documentMoveIntents)
-    .set({
-      lastAttemptedAt: null,
-      lastError: null,
-      sourceContainerId: sql`CASE
-        WHEN ${documentMoveIntents.sourceContainerId} = ${fromContainerId}
-        THEN ${toContainerId}
-        ELSE ${documentMoveIntents.sourceContainerId}
-      END`,
-      syncStatus: "pending",
-      targetContainerId: sql`CASE
-        WHEN ${documentMoveIntents.targetContainerId} = ${fromContainerId}
-        THEN ${toContainerId}
-        ELSE ${documentMoveIntents.targetContainerId}
-      END`,
-      updatedAt: sql`max(${documentMoveIntents.updatedAt}, ${updatedAt})`,
-    })
+  const affectedIntents = await tx
+    .select({ documentId: documentMoveIntents.documentId })
+    .from(documentMoveIntents)
     .where(
       and(
         eq(documentMoveIntents.intentType, DOCUMENT_MOVE_INTENT_TYPE),
@@ -90,8 +75,30 @@ async function reassignDocumentMoveIntentsForContainer(
           eq(documentMoveIntents.targetContainerId, fromContainerId),
         ),
       ),
-    )
-    .run();
+    );
+  for (const intent of affectedIntents) {
+    await tx
+      .update(documentMoveIntents)
+      .set({
+        id: crypto.randomUUID(),
+        lastAttemptedAt: null,
+        lastError: null,
+        sourceContainerId: sql`CASE
+          WHEN ${documentMoveIntents.sourceContainerId} = ${fromContainerId}
+          THEN ${toContainerId}
+          ELSE ${documentMoveIntents.sourceContainerId}
+        END`,
+        syncStatus: "pending",
+        targetContainerId: sql`CASE
+          WHEN ${documentMoveIntents.targetContainerId} = ${fromContainerId}
+          THEN ${toContainerId}
+          ELSE ${documentMoveIntents.targetContainerId}
+        END`,
+        updatedAt: sql`max(${documentMoveIntents.updatedAt}, ${updatedAt})`,
+      })
+      .where(eq(documentMoveIntents.documentId, intent.documentId))
+      .run();
+  }
 }
 
 export async function reassignContainerDocumentsInTransaction(
