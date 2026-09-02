@@ -164,9 +164,17 @@ export async function runBlobMaintenance(
       failures.push(expiredStageAttempt.error);
     }
     if (failedStageCount > 0) {
+      const [firstStageFailure] = expiredStageAttempt.ok
+        ? expiredStageAttempt.result.failures
+        : [];
+      const detail =
+        firstStageFailure instanceof Error
+          ? `: ${firstStageFailure.message}`
+          : "";
       failures.push(
-        new Error(
-          `Expired blob stage cleanup encountered ${failedStageCount} failure(s)`,
+        new AggregateError(
+          expiredStageAttempt.ok ? expiredStageAttempt.result.failures : [],
+          `Expired blob stage cleanup encountered ${failedStageCount} failure(s)${detail}`,
         ),
       );
     }

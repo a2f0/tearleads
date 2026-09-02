@@ -1,18 +1,23 @@
 import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
+import {
+  createDefaultManagedApiDatabase,
+  type ManagedApiDatabase,
+} from "@tearleads/api-shared/postgres";
 import { blobStages } from "@tearleads/api-shared/schema";
 import { eq } from "drizzle-orm";
 import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
 import { runBlobMaintenance } from "./blobMaintenance";
 
-test("failed expired-stage cleanup fails the maintenance run", async () => {
-  const baseRuntime = createServiceTestRuntime();
+async function assertFailedStageCleanup(
+  managedDatabase: ManagedApiDatabase,
+): Promise<void> {
+  const baseRuntime = createServiceTestRuntime(managedDatabase.db);
   const stageId = crypto.randomUUID();
   const storageKey = `blob-stages/${stageId}`;
   const { uploadId } = await baseRuntime.blobObjectStore.createMultipartUpload({
     key: storageKey,
   });
-  await db.insert(blobStages).values({
+  await managedDatabase.db.insert(blobStages).values({
     byteLength: 1,
     expiresAt: new Date("2000-01-01T00:00:00.000Z"),
     id: stageId,
@@ -44,16 +49,35 @@ test("failed expired-stage cleanup fails the maintenance run", async () => {
     errors: expect.arrayContaining([
       expect.objectContaining({
         message: expect.stringMatching(
-          /^Expired blob stage cleanup encountered [1-9]\d* failure\(s\)$/,
+          /^Expired blob stage cleanup encountered 1 failure\(s\): Simulated abort failure$/,
         ),
+        errors: [
+          expect.objectContaining({ message: "Simulated abort failure" }),
+        ],
       }),
     ]),
     message: "Blob maintenance failed",
   });
-  const remainingStages = await db
+  const remainingStages = await managedDatabase.db
     .select({ id: blobStages.id })
     .from(blobStages)
     .where(eq(blobStages.id, stageId));
   expect(remainingStages).toEqual([{ id: stageId }]);
-  await db.delete(blobStages).where(eq(blobStages.id, stageId));
+}
+
+test("failed expired-stage cleanup fails the maintenance run", async () => {
+  const { API_DATABASE: apiDatabase } = process.env;
+  const databaseKind = apiDatabase === "sqlite" ? "sqlite" : "memory";
+  const managedDatabase = createDefaultManagedApiDatabase({
+    API_DATABASE: databaseKind,
+    ...(databaseKind === "sqlite"
+      ? { API_SQLITE_PATH: ":memory:", SQLITE_PATH: ":memory:" }
+      : {}),
+  });
+  try {
+    await managedDatabase.migrate();
+    await assertFailedStageCleanup(managedDatabase);
+  } finally {
+    await managedDatabase.close();
+  }
 });

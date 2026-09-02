@@ -363,12 +363,12 @@ test("expired blob stage cleanup aborts pending multipart uploads and deletes co
   const result = await cleanupExpiredBlobStages(runtime, {
     now: expiredAt,
   });
-
   expect(result).toEqual({
     abortedMultipartUploads: 1,
     deletedMultipartObjects: 1,
     deletedStages: 2,
     failedStages: 0,
+    failures: [],
     scannedStages: 2,
   });
   await expect(
@@ -442,6 +442,7 @@ test("expired blob stage cleanup continues after object store cleanup failures",
     deletedMultipartObjects: 1,
     deletedStages: 1,
     failedStages: 1,
+    failures: [expect.objectContaining({ message: "Simulated abort failure" })],
     scannedStages: 2,
   });
   await expect(
