@@ -2,7 +2,10 @@ import { Buffer } from "node:buffer";
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { documentUpdates } from "@tearleads/api-shared/schema";
 import type { WriteHeader } from "@tearleads/crypto";
-import type { DocumentOutgoingUpdate } from "@tearleads/validators/request";
+import type {
+  DocumentOutgoingUpdate,
+  DocumentSyncRequest,
+} from "@tearleads/validators/request";
 import { inArray } from "drizzle-orm";
 import { listDocumentContentWriteHeaders } from "../../../access/read/documentContentKeyStore";
 import { storeDocumentContentWriteHeader } from "../../../access/write/documentContentKeyStore";
@@ -151,6 +154,35 @@ async function loadExistingDocumentUpdateRows(input: {
   }
 
   return existingRows;
+}
+
+/**
+ * An inline rekey and its document updates commit atomically. If any update id
+ * from a retried rekey-bearing request is already present, the earlier
+ * transaction committed and only its response was lost. Reject before applying
+ * the newly materialized rekey so the client can recover the accepted updates
+ * with a read-only pass against the committed projection.
+ */
+export async function assertInlineRekeyUpdatesAreNew(input: {
+  readonly documentId: string;
+  readonly executor: DatabaseTransaction;
+  readonly request: DocumentSyncRequest;
+}): Promise<void> {
+  if (
+    (input.request.containerRekeys?.length ?? 0) === 0 ||
+    input.request.outgoingUpdates.length === 0
+  ) {
+    return;
+  }
+  const outgoingUpdates = uniqueOutgoingUpdates(input.request.outgoingUpdates);
+  const existingRows = await loadExistingDocumentUpdateRows({
+    documentId: input.documentId,
+    executor: input.executor,
+    updateIds: uniqueSortedStrings(outgoingUpdates.map(({ id }) => id)),
+  });
+  if (existingRows.length > 0) {
+    throw documentUpdateIdConflict();
+  }
 }
 
 /**

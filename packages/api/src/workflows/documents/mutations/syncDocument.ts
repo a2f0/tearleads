@@ -31,7 +31,10 @@ import {
   applyContainerRekeys,
 } from "../../containers/mutations";
 import { loadSignerPublicKey } from "../../signerPublicKey";
-import { appendDocumentUpdates } from "./appendOutgoingUpdates";
+import {
+  appendDocumentUpdates,
+  assertInlineRekeyUpdatesAreNew,
+} from "./appendOutgoingUpdates";
 import {
   DocumentMutationError,
   documentSyncStateStale,
@@ -174,6 +177,23 @@ function documentSyncHasWrites(request: DocumentSyncRequest): boolean {
   );
 }
 
+async function prepareSyncDocumentTransaction(input: {
+  readonly documentId: string;
+  readonly request: DocumentSyncRequest;
+  readonly tx: DatabaseTransaction;
+}): Promise<void> {
+  await ensureDocumentExists({
+    documentId: input.documentId,
+    executor: input.tx,
+  });
+  assertSyncContentKeyBundleMatchesRequest(input.request);
+  await assertInlineRekeyUpdatesAreNew({
+    documentId: input.documentId,
+    executor: input.tx,
+    request: input.request,
+  });
+}
+
 async function syncDocumentTransaction(input: {
   readonly cursorHmacKey: string | null;
   readonly documentId: string;
@@ -184,11 +204,7 @@ async function syncDocumentTransaction(input: {
   readonly tx: DatabaseTransaction;
   readonly userId: string;
 }) {
-  await ensureDocumentExists({
-    documentId: input.documentId,
-    executor: input.tx,
-  });
-  assertSyncContentKeyBundleMatchesRequest(input.request);
+  await prepareSyncDocumentTransaction(input);
   // Run signed container.rekey payloads before resolving document KEK targets;
   // content-key validation then compares the write against the updated target
   // set, while transaction rollback keeps failed writes from publishing rekeys.

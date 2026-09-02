@@ -360,6 +360,10 @@ async function runRemoteDocumentSyncAttempt(input: {
     return { kind: "regenerate" };
   }
   if (submitted.kind === "recover_update_id_conflict") {
+    // A lost response may mean the server committed both this update id and an
+    // inline container rekey. Force the read-only recovery pass to observe that
+    // committed successor projection instead of reusing a cached predecessor.
+    evictStaleProjectionForRetry(input.sync);
     return { kind: "recover", updates: submitted.recoveryPendingUpdatesById };
   }
   const result = await resolveSubmittedDocumentSyncResult({
