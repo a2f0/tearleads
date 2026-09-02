@@ -148,13 +148,27 @@ export async function runBlobMaintenance(
     (result) => ({ ok: true as const, result }),
     (error: unknown) => ({ error, ok: false as const }),
   );
-  if (!dereferencedAttempt.ok || !expiredStageAttempt.ok) {
+  const failedStageCount = expiredStageAttempt.ok
+    ? expiredStageAttempt.result.failedStages
+    : 0;
+  if (
+    !dereferencedAttempt.ok ||
+    !expiredStageAttempt.ok ||
+    failedStageCount > 0
+  ) {
     const failures: unknown[] = [];
     if (!dereferencedAttempt.ok) {
       failures.push(dereferencedAttempt.error);
     }
     if (!expiredStageAttempt.ok) {
       failures.push(expiredStageAttempt.error);
+    }
+    if (failedStageCount > 0) {
+      failures.push(
+        new Error(
+          `Expired blob stage cleanup encountered ${failedStageCount} failure(s)`,
+        ),
+      );
     }
     throw new AggregateError(failures, "Blob maintenance failed");
   }

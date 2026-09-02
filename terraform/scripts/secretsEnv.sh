@@ -165,6 +165,7 @@ load_secrets_env() {
       return 1
     fi
     _source_env_file "$secrets_dir/${tier}.env" || return 1
+    _source_optional_env_file "$secrets_dir/${tier}.healthchecks.env" || return 1
     _source_optional_env_file "$secrets_dir/${tier}.garage.env" || return 1
   fi
 

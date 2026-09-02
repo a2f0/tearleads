@@ -121,10 +121,21 @@ metadata needed by `blob_audit_objects`.
 Ansible installs `tearleads-blob-gc.service` and its persistent hourly timer.
 Provisioning fails unless the timer reports both `enabled` and `active`, and
 each API deployment repeats those checks after restarting the maintenance
-units. The timer and service send failures through
-`tearleads-maintenance-alert@.service`, which writes a `daemon.alert` journal
-entry tagged `tearleads-maintenance-alert` with the failed unit name. A missing
-GC executable is a service failure rather than a silently skipped run.
+units. Each tier loads its secret `BLOB_GC_HEALTHCHECK_URL` from
+`.secrets/<tier>.healthchecks.env`; the project management API key is not
+deployed. The service sends Healthchecks start and success signals, while timer
+or service failure sends a failure signal through
+`tearleads-maintenance-alert@.service`. Missing success signals also detect a
+disabled timer, unreachable host, or terminated run. Healthchecks requests are
+best-effort so an unavailable monitoring provider cannot prevent reclamation,
+and carry no blob identifiers or application data.
+
+The failure service also writes a local `daemon.alert` journal entry tagged
+`tearleads-maintenance-alert` with the failed unit name. Object-store cleanup
+failures remain durable for a later retry, including expired multipart stages,
+but make the current maintenance run fail rather than emitting a false success
+heartbeat. A missing GC executable is likewise a visible service failure rather
+than a silently skipped run.
 
 Check the schedule, the last collection result, and failure alerts with:
 

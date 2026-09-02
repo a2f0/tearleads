@@ -3,6 +3,8 @@ Description=Report Tearleads maintenance failure for %i
 
 [Service]
 Type=oneshot
+EnvironmentFile=/etc/tearleads/blob-gc-healthcheck.env
+ExecStart=-/usr/bin/curl --fail --silent --show-error --output /dev/null --connect-timeout 5 --max-time 10 --retry 3 --retry-all-errors "${BLOB_GC_HEALTHCHECK_URL}/fail"
 ExecStart=/usr/bin/logger -p daemon.alert -t tearleads-maintenance-alert "Tearleads maintenance unit %i failed"
 NoNewPrivileges=true
 PrivateTmp=true

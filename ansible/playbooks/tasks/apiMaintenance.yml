@@ -1,4 +1,33 @@
 ---
+- name: Load blob GC monitoring configuration
+  ansible.builtin.set_fact:
+    blob_gc_healthcheck_url: >-
+      {{ lookup('env', 'BLOB_GC_HEALTHCHECK_URL') | default('', true) }}
+  no_log: true
+
+- name: Validate blob GC monitoring configuration
+  ansible.builtin.assert:
+    that:
+      - blob_gc_healthcheck_url | length > 0
+      - blob_gc_healthcheck_url is match('^https://hc-ping[.]com/[A-Za-z0-9_-]+/?$')
+    fail_msg: >-
+      Set BLOB_GC_HEALTHCHECK_URL in the tier Healthchecks secrets file.
+  no_log: true
+
+- name: Install blob GC monitoring client
+  ansible.builtin.apt:
+    name: curl
+    state: present
+
+- name: Deploy blob GC Healthchecks environment
+  ansible.builtin.template:
+    src: etc/tearleads/blob-gc-healthcheck.env.j2
+    dest: /etc/tearleads/blob-gc-healthcheck.env
+    owner: root
+    group: "{{ server_user }}"
+    mode: "0640"
+  no_log: true
+
 - name: Deploy API maintenance failure alert service
   ansible.builtin.template:
     src: etc/systemd/system/tearleads-maintenance-alert@.service.j2
@@ -32,7 +61,12 @@
     daemon_reload: true
     enabled: true
     state: started
+
+- name: Inspect blob GC systemd timer after enablement
+  ansible.builtin.systemd:
+    name: tearleads-blob-gc.timer
   register: tearleads_blob_gc_timer
+  changed_when: false
 
 - name: Verify blob GC systemd timer
   ansible.builtin.assert:
