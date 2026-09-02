@@ -3,6 +3,7 @@ import {
   DOCUMENT_SYNC_ERROR_CODES,
   DocumentSyncErrorResponseSchema,
   isDocumentSyncErrorResponse,
+  isDocumentSyncStateStaleErrorResponse,
 } from "./documentSyncError";
 
 test("document sync error schema accepts stable codes and extensions", () => {
@@ -11,6 +12,23 @@ test("document sync error schema accepts stable codes and extensions", () => {
       isDocumentSyncErrorResponse({ code, error: "Diagnostic", future: true }),
     ).toBe(true);
   }
+});
+
+test("state-stale sync errors may carry signed policy repair bundles", () => {
+  const response = {
+    code: DOCUMENT_SYNC_ERROR_CODES.stateStale,
+    error: "Principal policy is stale",
+    principalPolicies: [],
+  };
+
+  expect(isDocumentSyncStateStaleErrorResponse(response)).toBe(true);
+  expect(isDocumentSyncErrorResponse(response)).toBe(true);
+  expect(
+    isDocumentSyncStateStaleErrorResponse({
+      ...response,
+      code: DOCUMENT_SYNC_ERROR_CODES.conflict,
+    }),
+  ).toBe(false);
 });
 
 test("document sync error schema rejects incomplete or unknown envelopes", () => {

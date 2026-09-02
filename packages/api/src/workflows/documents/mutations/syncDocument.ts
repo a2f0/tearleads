@@ -26,7 +26,10 @@ import {
   assertOrganizationCanSync,
   assertOrganizationSyncEndpointAvailable,
 } from "../../billing/organizationSyncEligibility";
-import { applyContainerRekeys } from "../../containers/mutations";
+import {
+  type AppliedContainerRekey,
+  applyContainerRekeys,
+} from "../../containers/mutations";
 import { loadSignerPublicKey } from "../../signerPublicKey";
 import { appendDocumentUpdates } from "./appendOutgoingUpdates";
 import {
@@ -35,13 +38,9 @@ import {
   toMutationError,
 } from "./errors";
 import { uniqueSortedContainerIds } from "./linkSetMutationLocks";
-import {
-  ensureDocumentExists,
-  touchDocumentAndLinkedContainers,
-} from "./shared/documentRows";
+import { touchDocumentAndLinkedContainers } from "./shared/documentRows";
 import { assertProvisionedDocumentInitialUpdate } from "./shared/provisionedInitialUpdate";
 import {
-  assertSyncContentKeyBundleMatchesRequest,
   toContentKeyBundleResponse,
   toDocumentKekTargetsResponse,
 } from "./shared/records";
@@ -54,6 +53,7 @@ import {
   listMissingSyncUpdatesForResponse,
 } from "./syncPullResponse";
 import { assertSyncRotationBaselinesSound } from "./syncRotationAdvance";
+import { prepareSyncDocumentTransaction } from "./syncTransactionPreparation";
 import {
   lockSyncDocumentPullWatermark,
   lockSyncDocumentWriteFrontier,
@@ -164,6 +164,13 @@ async function lockSyncDocumentFrontier(input: {
   return lockedTargets;
 }
 
+function documentSyncHasWrites(request: DocumentSyncRequest): boolean {
+  return (
+    request.outgoingUpdates.length > 0 ||
+    (request.containerRekeys?.length ?? 0) > 0
+  );
+}
+
 async function syncDocumentTransaction(input: {
   readonly cursorHmacKey: string | null;
   readonly documentId: string;
@@ -174,15 +181,11 @@ async function syncDocumentTransaction(input: {
   readonly tx: DatabaseTransaction;
   readonly userId: string;
 }) {
-  await ensureDocumentExists({
-    documentId: input.documentId,
-    executor: input.tx,
-  });
-  assertSyncContentKeyBundleMatchesRequest(input.request);
+  await prepareSyncDocumentTransaction(input);
   // Run signed container.rekey payloads before resolving document KEK targets;
   // content-key validation then compares the write against the updated target
   // set, while transaction rollback keeps failed writes from publishing rekeys.
-  await applyContainerRekeys({
+  const containerRekeys = await applyContainerRekeys({
     executor: input.tx,
     fingerprint: input.fingerprint,
     requests: input.request.containerRekeys,
@@ -192,8 +195,6 @@ async function syncDocumentTransaction(input: {
     input.documentId,
     input.tx,
   );
-  const hasOutgoingUpdates = input.request.outgoingUpdates.length > 0;
-  const hasContainerRekeys = (input.request.containerRekeys?.length ?? 0) > 0;
   // Serialize writes against rekeys and serialize paginated watermark capture
   // against update-sequence allocation.
   currentTargets = await lockSyncDocumentFrontier({
@@ -212,7 +213,7 @@ async function syncDocumentTransaction(input: {
     await assertDocumentSyncAllowed(
       input,
       currentTargets.organizationId,
-      hasOutgoingUpdates || hasContainerRekeys,
+      documentSyncHasWrites(input.request),
     );
   }
   const writeAuthorization = await verifySyncWriteAuthorizationProof({
@@ -257,17 +258,19 @@ async function syncDocumentTransaction(input: {
     executor: input.tx,
     insertedUpdateIds: appendResult.insertedUpdateIds,
   });
-
-  return buildSyncDocumentTransactionResult({
-    appendResult,
-    contentKeyBundle,
-    cursorHmacKey: input.cursorHmacKey,
-    currentTargets,
-    documentId: input.documentId,
-    executor: input.tx,
-    request: input.request,
-    servedStaleBundle,
-  });
+  return {
+    ...(await buildSyncDocumentTransactionResult({
+      appendResult,
+      contentKeyBundle,
+      cursorHmacKey: input.cursorHmacKey,
+      currentTargets,
+      documentId: input.documentId,
+      executor: input.tx,
+      request: input.request,
+      servedStaleBundle,
+    })),
+    containerRekeys,
+  };
 }
 
 async function buildSyncDocumentTransactionResult(input: {
@@ -357,6 +360,7 @@ async function buildSyncDocumentTransactionResult(input: {
 }
 
 export interface DocumentSyncWorkflowResult {
+  readonly containerRekeys: readonly AppliedContainerRekey[];
   /**
    * Update ids newly inserted by this sync, excluding idempotent duplicates the
    * client re-sent on retry. The `document_update_created` broadcast is gated on
@@ -451,6 +455,7 @@ export async function runDocumentSyncWorkflow(
       ...(commitLsnMode === undefined ? {} : { commitLsnMode }),
     };
     return {
+      containerRekeys: transactionResult.containerRekeys,
       insertedUpdateIds: transactionResult.insertedUpdateIds,
       response,
     };

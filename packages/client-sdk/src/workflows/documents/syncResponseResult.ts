@@ -8,6 +8,7 @@ import {
   type IncomingDocumentSyncUpdateValidator,
   isolateDocumentSyncBatchError,
 } from "../../data/documents/shared/documentSyncUpdateIsolation";
+import { assertDocumentWriterProjectionConsistent } from "../../data/documents/shared/projection";
 import {
   DocumentSyncResponseUpdateContentKeyError,
   persistedDocumentSyncStateFromResponse,
@@ -115,6 +116,14 @@ async function resolveVerifiedResponseState(
     // poison-isolated before key availability is considered, because the
     // referenced update has not yet authenticated against a bundle.
     isolateContentKeyResponseFailure(error, input.response);
+  }
+  if ((plan.request.containerRekeys?.length ?? 0) > 0) {
+    await assertDocumentWriterProjectionConsistent(input.writerProjection, {
+      allowStaleContentKeyBundle: true,
+      execSql: input.execSql,
+      stillCurrent: input.stillCurrent,
+      ...projectionVerificationOptions(input),
+    });
   }
   const contentKeysByEpoch = await unwrapDocumentSyncResponseContentKeys({
     currentContentKey: input.materializedPlan.contentKey,

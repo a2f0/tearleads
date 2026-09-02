@@ -6,6 +6,7 @@ import type {
   ContainerDirectGrant,
   ContainerGrantAccessEventBody,
   ContainerGrantPrincipalHead,
+  ContainerKekKeyring,
   ContainerKekRecipientTarget,
   ContainerKeyEpoch,
   ContainerKeyWrap,
@@ -235,6 +236,7 @@ export interface ContainerRekeyPlan {
   event: AccessEvent;
   eventHash: string;
   keyEpoch: ContainerKeyEpoch;
+  keyring: ContainerKekKeyring;
   manifest: AccessManifest;
   manifestHash: string;
   previousManifest: AccessManifestBundleWire;
@@ -247,6 +249,7 @@ export interface ContainerRekeyPlan {
 export interface MaterializedContainerRekeyPlan {
   containerKey: Uint8Array;
   plan: ContainerRekeyPlan;
+  writerProjection: ContainerWriterProjectionResponse;
 }
 
 export interface ContainerRekeyApi {

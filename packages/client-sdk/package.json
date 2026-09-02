@@ -1,7 +1,7 @@
 {
   "name": "@tearleads/client-sdk",
   "version": "0.1.0",
-  "description": "React-free Tearleads client runtime with unified device-first reads, locally durable writes, server-authoritative native purchase eligibility, billing-gated organization-scoped purge recovery, verified terminal document purge, bounded resumable, poison-update-isolating, and all-or-nothing raw-history document sync, background reconciliation, trusted identity, durable security-incident reporting, strict local organization, streamed encrypted blob storage, and sync diagnostics.",
+  "description": "React-free Tearleads client runtime with unified device-first reads, locally durable writes, atomic inline container rekey planning, server-authoritative native purchase eligibility, billing-gated organization-scoped purge recovery, verified terminal document purge, bounded resumable, poison-update-isolating, and all-or-nothing raw-history document sync, background reconciliation, trusted identity, durable security-incident reporting, strict local organization, streamed encrypted blob storage, and sync diagnostics.",
   "private": true,
   "sideEffects": false,
   "type": "module",

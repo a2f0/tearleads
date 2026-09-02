@@ -53,6 +53,10 @@ import {
   readCanonicalRecordOrNull,
 } from "./mutationRequestCore";
 import { submitAcknowledgedContainerMutation } from "./mutationSubmit";
+import {
+  containerWriterProjectionFromRekeyPlan,
+  isSpeculativeContainerWriterProjection,
+} from "./rekeyProjection";
 import { collectContainerRevokePrincipalPolicies } from "./revoke";
 import { resolveRotationContext } from "./rotationContext";
 import { buildContainerRotationWraps } from "./rotationWraps";
@@ -188,6 +192,7 @@ interface RekeyPlanInput {
   eventId?: string | undefined;
   execSql: ExecSql;
   keyringEntriesOverride?: readonly ContainerKekKeyringEntry[] | undefined;
+  persistVerificationCheckpoints?: boolean | undefined;
   previousProjection: ContainerWriterProjectionResponse;
   replacementPrincipalPolicy?: VerifiedPrincipalPolicy | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
@@ -197,12 +202,19 @@ interface RekeyPlanInput {
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }
 
+function speculativeSafeRekeyInput(input: RekeyPlanInput): RekeyPlanInput {
+  return isSpeculativeContainerWriterProjection(input.previousProjection)
+    ? { ...input, persistVerificationCheckpoints: false }
+    : input;
+}
+
 async function collectRekeyPrincipalPolicies(
   input: RekeyPlanInput,
   resolveUserKey: ProjectionUserKeyResolver,
 ): Promise<VerifiedPrincipalPolicy[]> {
   const previousPolicies = await collectContainerRevokePrincipalPolicies({
     execSql: input.execSql,
+    persistVerificationCheckpoints: input.persistVerificationCheckpoints,
     previousProjection: input.previousProjection,
     resolveUserKey,
     stillCurrent: input.stillCurrent,
@@ -221,6 +233,7 @@ export async function buildMaterializedContainerRekeyPlan(
     input.resolveProjectionUserKey,
     "Remote container rekey",
   );
+  const planningInput = speculativeSafeRekeyInput(input);
   const containerKey = crypto.getRandomValues(new Uint8Array(32));
   const {
     parentKek,
@@ -228,7 +241,7 @@ export async function buildMaterializedContainerRekeyPlan(
     predecessorContainerKey,
     previousState,
     target,
-  } = await resolveRotationContext(input, "rekey");
+  } = await resolveRotationContext(planningInput, "rekey");
   const nextContainerKeyEpoch = target.kek.containerKeyEpoch + 1;
   const { containerKeyEpochId, keyring, predecessorBridge } =
     await buildRekeyRotationArtifacts({
@@ -240,7 +253,7 @@ export async function buildMaterializedContainerRekeyPlan(
       targetKek: target.kek,
     });
   const principalPolicies = await collectRekeyPrincipalPolicies(
-    input,
+    planningInput,
     resolveProjectionUserKey,
   );
   const referencedPrincipalHeads = refreshedPrincipalReferences({
@@ -273,26 +286,31 @@ export async function buildMaterializedContainerRekeyPlan(
     state,
   });
 
+  const plan = buildContainerRekeyPlan({
+    body,
+    containerId: previousState.containerId,
+    containerKeyEpochId,
+    event,
+    eventHash,
+    keyEpoch,
+    keyring,
+    manifest,
+    manifestHash,
+    parentKek,
+    predecessorBridge,
+    previousManifest: asContainerManifestBundle(target.manifest),
+    previousProjection: input.previousProjection,
+    principalPolicies,
+    state,
+    userRecipientKeys,
+    wraps,
+  });
+  const materializedPlan = { containerKey, plan };
   return {
-    containerKey,
-    plan: buildContainerRekeyPlan({
-      body,
-      containerId: previousState.containerId,
-      containerKeyEpochId,
-      event,
-      eventHash,
-      keyEpoch,
-      keyring,
-      manifest,
-      manifestHash,
-      parentKek,
-      predecessorBridge,
-      previousManifest: asContainerManifestBundle(target.manifest),
+    ...materializedPlan,
+    writerProjection: await containerWriterProjectionFromRekeyPlan({
+      materializedPlan,
       previousProjection: input.previousProjection,
-      principalPolicies,
-      state,
-      userRecipientKeys,
-      wraps,
     }),
   };
 }
@@ -325,6 +343,7 @@ function buildContainerRekeyPlan(input: {
     event: input.event,
     eventHash: input.eventHash,
     keyEpoch: input.keyEpoch,
+    keyring: input.keyring,
     manifest: input.manifest,
     manifestHash: input.manifestHash,
     previousManifest: input.previousManifest,

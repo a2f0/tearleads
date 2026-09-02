@@ -21,7 +21,7 @@ import {
   getCurrentPrincipalPolicyWithExecutor,
   getVerifiedPrincipalPolicyForStateWithExecutor,
 } from "../../../principals/getCurrentPrincipalPolicy";
-import { ContainerMutationError } from "../errors";
+import { ContainerMutationError, mutationStateStale } from "../errors";
 import type { PrincipalPolicyRequestArtifact } from "./principalPolicyRecords";
 
 function projectionMemberKey(
@@ -220,9 +220,9 @@ async function stalePrincipalPolicyError(input: {
       ),
   );
 
-  return new ContainerMutationError(input.message, 409, {
-    error: input.message,
+  return mutationStateStale(input.message, {
     code: "principal_policy_stale",
+    error: input.message,
     principalPolicies,
   });
 }
@@ -275,7 +275,7 @@ export async function assertPrincipalPoliciesCurrent(
       principalPolicyKey(policy),
     );
     if (!currentState) {
-      throw new ContainerMutationError("Principal policy is stale", 409);
+      throw mutationStateStale("Principal policy is stale");
     }
 
     const stored = await getVerifiedPrincipalPolicyForStateWithExecutor(

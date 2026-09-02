@@ -195,6 +195,35 @@ function assertUniqueDocumentOutgoingUpdates(
   }
 }
 
+function assertDocumentSyncRequestMode(
+  input: BuildDocumentSyncPlanInput,
+  hasContainerRekeys: boolean,
+  hasOutgoingUpdates: boolean,
+): void {
+  if (input.historyMode === "raw" && input.localVersionVector !== null) {
+    throw new Error(
+      "Document raw-history sync must start from a null version vector",
+    );
+  }
+  const hasWrites = hasOutgoingUpdates || hasContainerRekeys;
+  if (input.historyMode === "raw" && hasWrites) {
+    throw new Error("Document raw-history sync must be read-only");
+  }
+  if (input.pullCursor !== undefined && hasWrites) {
+    throw new Error("Document sync continuation must be read-only");
+  }
+  if (hasContainerRekeys && !hasOutgoingUpdates) {
+    throw new Error(
+      "Document sync container rekeys require an outgoing update",
+    );
+  }
+  if (hasContainerRekeys !== (input.inlineRekeyCommitId !== undefined)) {
+    throw new Error(
+      "Document sync inline rekey commit id must accompany container rekeys",
+    );
+  }
+}
+
 export async function buildDocumentSyncPlan(
   input: BuildDocumentSyncPlanInput,
 ): Promise<DocumentSyncPlan> {
@@ -204,18 +233,13 @@ export async function buildDocumentSyncPlan(
     expectedTargetHash,
     organizationId,
   } = await resolveDocumentSyncIdentity(input);
+  const containerRekeys = [...(input.containerRekeys ?? [])];
   const outgoingUpdateInputs = [...(input.outgoingUpdates ?? [])];
-  if (input.historyMode === "raw" && input.localVersionVector !== null) {
-    throw new Error(
-      "Document raw-history sync must start from a null version vector",
-    );
-  }
-  if (input.historyMode === "raw" && outgoingUpdateInputs.length > 0) {
-    throw new Error("Document raw-history sync must be read-only");
-  }
-  if (input.pullCursor !== undefined && outgoingUpdateInputs.length > 0) {
-    throw new Error("Document sync continuation must be read-only");
-  }
+  assertDocumentSyncRequestMode(
+    input,
+    containerRekeys.length > 0,
+    outgoingUpdateInputs.length > 0,
+  );
   const signedAt = input.signedAt ?? new Date().toISOString();
   assertUniqueDocumentOutgoingUpdates(outgoingUpdateInputs);
 
@@ -245,6 +269,7 @@ export async function buildDocumentSyncPlan(
           ),
         }
       : {}),
+    ...(containerRekeys.length === 0 ? {} : { containerRekeys }),
     contentKeyEpoch: input.contentKeyBundle.contentKeyEpoch,
     ...(outgoingUpdates.length === 0
       ? {}
@@ -258,6 +283,9 @@ export async function buildDocumentSyncPlan(
     ...(input.historyMode === undefined
       ? {}
       : { historyMode: input.historyMode }),
+    ...(input.inlineRekeyCommitId === undefined
+      ? {}
+      : { inlineRekeyCommitId: input.inlineRekeyCommitId }),
     localVersionVector: input.localVersionVector,
     ...(input.minLsn === undefined ? {} : { minLsn: input.minLsn }),
     outgoingUpdates,

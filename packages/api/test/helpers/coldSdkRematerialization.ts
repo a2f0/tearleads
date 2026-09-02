@@ -1,5 +1,6 @@
 import type { TestUser } from "@tearleads/bob-and-alice";
 import {
+  buildMaterializedContainerRekeyPlan,
   cacheReferencedPrincipalPolicies,
   createRemoteDocument,
   syncRemoteDocument,
@@ -10,6 +11,7 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument as createLoroDocument,
   encodeVersionVector,
+  exportFullHistorySnapshot,
   exportUpdatesSince,
   getTextValue,
   getUpdateVersionVectors,
@@ -250,6 +252,117 @@ export async function createEncryptedColdDocument(input: {
     }
 
     return { documentId: created.documentId, updateId };
+  } finally {
+    close();
+  }
+}
+
+export async function syncDocumentWithInlineRootRekey(input: {
+  containerId: string;
+  organizationId: string;
+  owner: TestUser;
+}) {
+  const { close, execSql } = await createTestExecSql(
+    `api-inline-rekey-${crypto.randomUUID()}`,
+  );
+  const apiClient = createRouteSdkClient(input.owner.token);
+  const resolveTrustedUserIdentity = trustedResolver(input.owner);
+  const warmReferencedPrincipalPolicies = async (request: {
+    organizationId: string;
+    references: Parameters<
+      typeof cacheReferencedPrincipalPolicies
+    >[0]["references"];
+  }) =>
+    cacheReferencedPrincipalPolicies({
+      execSql,
+      getCurrentPrincipalPolicy: apiClient.getCurrentPrincipalPolicy,
+      organizationId: request.organizationId,
+      references: request.references,
+      reportSecurityIncident: async () => undefined,
+      resolveTrustedUserIdentity,
+    });
+
+  try {
+    const author = documentAuthor(input.owner, input.organizationId);
+    const created = await createRemoteDocument({
+      apiClient,
+      author,
+      containerId: input.containerId,
+      execSql,
+      resolveProjectionUserKey: resolveTrustedUserIdentity,
+      targetSecretKey: input.owner.kem.secretKey,
+      warmReferencedPrincipalPolicies,
+    });
+    if (!created) {
+      throw new Error("expected the SDK to create the inline-rekey document");
+    }
+
+    const document = await createLoroDocument(
+      `inline-rekey-${crypto.randomUUID()}`,
+    );
+    const partialStartVersionVector = encodeVersionVector(document);
+    document.getText("text").update("inline rekey committed");
+    const updateData = exportUpdatesSince(document, partialStartVersionVector);
+    const vectors = getUpdateVersionVectors(updateData);
+    let rekeyManifestHash: string | undefined;
+    const synced = await syncRemoteDocument({
+      apiClient,
+      author,
+      buildContainerRekeys: async (writerProjection, verification) => {
+        const previousProjection =
+          writerProjection.authorizingContainerPaths.find(
+            (projection) => projection.containerId === input.containerId,
+          );
+        if (!previousProjection) {
+          throw new Error("inline rekey target projection is missing");
+        }
+        const rekey = await buildMaterializedContainerRekeyPlan({
+          author,
+          execSql,
+          ...verification,
+          previousProjection,
+          resolveProjectionUserKey: resolveTrustedUserIdentity,
+          targetSecretKey: input.owner.kem.secretKey,
+          warmReferencedPrincipalPolicies,
+        });
+        rekeyManifestHash = rekey.plan.manifestHash;
+        return [rekey];
+      },
+      buildRotationSnapshot: () =>
+        Promise.resolve(exportFullHistorySnapshot(document)),
+      documentId: created.documentId,
+      execSql,
+      localVersionVector: null,
+      pendingUpdates: [
+        {
+          id: crypto.randomUUID(),
+          partialEndVersionVector: vectors.partialEndVersionVector,
+          partialStartVersionVector: vectors.partialStartVersionVector,
+          updateData: bytesToBase64(updateData),
+        },
+      ],
+      resolveProjectionUserKey: resolveTrustedUserIdentity,
+      resolveWriterPublicKey: writerResolver(input.owner),
+      targetSecretKey: input.owner.kem.secretKey,
+      validateIncomingUpdates: ({ decryptedUpdates, response }) =>
+        validateDocumentSyncUpdateImports({
+          currentDocument: document,
+          decryptedUpdates,
+          responseUpdates: response.updates,
+        }),
+      warmReferencedPrincipalPolicies,
+      writerProjection: created.writerProjection,
+    });
+    if (!synced || !rekeyManifestHash) {
+      throw new Error("expected the inline container rekey sync to succeed");
+    }
+
+    return {
+      documentId: created.documentId,
+      documentTargetHash:
+        synced.response.documentKekTargets.documentKeyTargetHash,
+      rekeyManifestHash,
+    };
   } finally {
     close();
   }

@@ -75,6 +75,12 @@ async function submittedDocumentSyncResult(
     writerProjection: input.writerProjection,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
   });
+  if (
+    (input.materializedPlan.plan.request.containerRekeys?.length ?? 0) > 0 &&
+    input.sync.stillCurrent?.() !== false
+  ) {
+    input.sync.apiClient.clearWriterProjectionCaches?.();
+  }
   applyAcceptedHealSideEffects({
     documentId: input.sync.documentId,
     evictWriterProjection:

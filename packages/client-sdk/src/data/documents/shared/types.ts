@@ -31,6 +31,9 @@ import type {
 import { requireProjectionUserKeyResolver } from "../../keyingProjectionVerification";
 import type { DocumentRecord } from "../../sqlite/documentPersistence";
 import type { ExecSql } from "../../sqlite/sqlSchema";
+import type { DocumentSyncSubmitFailure } from "./syncSubmitFailure";
+
+export type { DocumentSyncSubmitFailure } from "./syncSubmitFailure";
 
 export const DOCUMENT_ENCRYPTED_LORO_UPDATE_FORMAT =
   "tearleads.document.loro-update";
@@ -405,11 +408,13 @@ export interface DecryptedDocumentSyncUpdate {
 export interface BuildDocumentSyncPlanInput {
   author: DocumentCreateAuthor;
   authorizingContainerPathRefs?: readonly (readonly ContainerManifestRef[])[];
+  containerRekeys?: DocumentSyncRequest["containerRekeys"];
   contentKeyBundle: DocumentCreateResponse["contentKeyBundle"];
   documentId?: string | undefined;
   documentKekTargets: DocumentSyncResponse["documentKekTargets"];
   documentManifest: DocumentCreateResponse["accessManifest"];
   historyMode?: "raw" | undefined;
+  inlineRekeyCommitId?: string | undefined;
   localVersionVector: string | null;
   minLsn?: string | undefined;
   outgoingUpdates?: readonly DocumentSyncPreparedUpdate[] | undefined;
@@ -448,11 +453,8 @@ export interface MaterializedDocumentSyncPlan {
    */
   heldBackPendingUpdateIds: readonly string[];
   plan: DocumentSyncPlan;
-  /**
-   * Update id of the synthetic rotation baseline a heal generated. It matches
-   * no pending-queue row, so settlement accounting must not count its ack as
-   * a settled pending update.
-   */
+  writerProjection: DocumentWriterProjectionResponse;
+  /** Synthetic baseline id; its ack does not settle a pending queue row. */
   staleRecoveryBaselineUpdateId?: string;
 }
 
@@ -480,14 +482,6 @@ export interface SyncRemoteDocumentResult {
   settledPendingUpdateIds: readonly string[];
   acceptedRecoveryBaseline: boolean;
   writerProjection?: DocumentWriterProjectionResponse | undefined;
-}
-
-export interface DocumentSyncSubmitFailure {
-  readonly code?: string | undefined;
-  readonly message: string;
-  readonly ok: false;
-  readonly report: () => void;
-  readonly status: number | null;
 }
 
 export interface DocumentSyncRequestResultOptions {

@@ -27,7 +27,7 @@ import {
   toContainerKeyEpoch,
 } from "../../../../access/read/containerKekStore";
 import { canonicalJsonEquals } from "../../../../utils/canonicalJson";
-import { ContainerMutationError } from "../errors";
+import { ContainerMutationError, mutationStateStale } from "../errors";
 import {
   readContainerKekKeyring,
   readContainerKekPredecessorBridge,
@@ -131,7 +131,7 @@ function assertRotationEpochAdvance(
   currentKeyEpoch: number,
 ): void {
   if (keyEpoch.keyEpoch <= currentKeyEpoch) {
-    throw new ContainerMutationError("Container KEK epoch is stale", 409);
+    throw mutationStateStale("Container KEK epoch is stale");
   }
   if (keyEpoch.keyEpoch > currentKeyEpoch + 1) {
     throw new ContainerMutationError(
@@ -192,7 +192,7 @@ async function verifyRotationArtifacts(input: {
 
   if (keyEpoch.id === currentEpoch.id) {
     if (keyEpoch.keyEpoch !== currentEpoch.keyEpoch) {
-      throw new ContainerMutationError("Container KEK epoch is stale", 409);
+      throw mutationStateStale("Container KEK epoch is stale");
     }
     if (bridge !== null || keyring !== null) {
       throw new ContainerMutationError(
@@ -265,10 +265,7 @@ async function assertUserRecipientKeysCurrent(
     if (
       storedUser.encapsulationKeyFingerprint !== key.recipientKeyFingerprint
     ) {
-      throw new ContainerMutationError(
-        "Recipient user key fingerprint is stale",
-        409,
-      );
+      throw mutationStateStale("Recipient user key fingerprint is stale");
     }
   }
 }
@@ -311,7 +308,7 @@ async function assertParentKekStateCurrent(
     parentKekState.keyEpochHash !== currentParentKeyEpochHash ||
     !canonicalJsonEquals(parentKekState.keyEpoch, currentParentKeyEpoch)
   ) {
-    throw new ContainerMutationError("Parent KEK state is stale", 409);
+    throw mutationStateStale("Parent KEK state is stale");
   }
 }
 

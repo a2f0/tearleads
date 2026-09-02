@@ -1763,6 +1763,7 @@ export interface operations {
                              * @constant
                              */
                             historyMode?: "raw";
+                            inlineRekeyCommitId?: string;
                             localVersionVector: string | null;
                             minLsn?: string;
                             outgoingUpdates: ({
@@ -2422,6 +2423,7 @@ export interface operations {
                              * @constant
                              */
                             historyMode?: "raw";
+                            inlineRekeyCommitId?: string;
                             localVersionVector: string | null;
                             minLsn?: string;
                             outgoingUpdates: ({
@@ -2865,6 +2867,7 @@ export interface operations {
                              * @constant
                              */
                             historyMode?: "raw";
+                            inlineRekeyCommitId?: string;
                             localVersionVector: string | null;
                             minLsn?: string;
                             outgoingUpdates: ({
@@ -3167,6 +3170,7 @@ export interface operations {
                              * @constant
                              */
                             historyMode?: "raw";
+                            inlineRekeyCommitId?: string;
                             localVersionVector: string | null;
                             minLsn?: string;
                             outgoingUpdates: ({
@@ -3645,6 +3649,7 @@ export interface operations {
                              * @constant
                              */
                             historyMode?: "raw";
+                            inlineRekeyCommitId?: string;
                             localVersionVector: string | null;
                             minLsn?: string;
                             outgoingUpdates: ({
@@ -3947,6 +3952,7 @@ export interface operations {
                              * @constant
                              */
                             historyMode?: "raw";
+                            inlineRekeyCommitId?: string;
                             localVersionVector: string | null;
                             minLsn?: string;
                             outgoingUpdates: ({
@@ -11624,6 +11630,7 @@ export interface operations {
                      * @constant
                      */
                     historyMode?: "raw";
+                    inlineRekeyCommitId?: string;
                     localVersionVector: string | null;
                     minLsn?: string;
                     outgoingUpdates: ({
@@ -11810,6 +11817,148 @@ export interface operations {
                         /** @enum {string} */
                         code: "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict";
                         error: string;
+                        principalPolicies?: ({
+                            currentGrants: ({
+                                /** @enum {string} */
+                                accessLevel: "admin" | "read" | "write";
+                                containerId: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            currentMemberEnvelopes: {
+                                envelopes: ({
+                                    kemCipherText: string;
+                                    memberKeyFingerprint: string;
+                                    userId: string;
+                                    wrappedKey: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                epoch: number;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            currentPayload: {
+                                /** @constant */
+                                cipherSuite: "aes-256-gcm";
+                                ciphertext: string;
+                                ciphertextHash: string;
+                                createdAt: string;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            currentProjection: ({
+                                /** @enum {string} */
+                                role: "member" | "admin";
+                                userId: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            currentState: {
+                                createdAt: string;
+                                encapsulationPublicKey: string;
+                                externalAuthority: ({
+                                    keyEpoch: number;
+                                    keyFingerprint: string;
+                                    principalId: string;
+                                    /** @constant */
+                                    principalType: "group";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                grantCount: number;
+                                grantRoot: string;
+                                keyEpoch: number;
+                                keyFingerprint: string;
+                                memberCount: number;
+                                memberEnvelopesRoot: string;
+                                /** @constant */
+                                membershipMode: "projection";
+                                membershipRoot: string;
+                                payloadCiphertextHash: string;
+                                prevStateHash: string | null;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                projectionRoot: string;
+                                signature: string;
+                                signedAt: string;
+                                signerUserId: string;
+                                signerUserKeyFingerprint: string;
+                                stateHash: string;
+                                version: number;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            previousStates: ({
+                                grants: ({
+                                    /** @enum {string} */
+                                    accessLevel: "admin" | "read" | "write";
+                                    containerId: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                projection: ({
+                                    /** @enum {string} */
+                                    role: "member" | "admin";
+                                    userId: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                state: {
+                                    createdAt: string;
+                                    encapsulationPublicKey: string;
+                                    externalAuthority: ({
+                                        keyEpoch: number;
+                                        keyFingerprint: string;
+                                        principalId: string;
+                                        /** @constant */
+                                        principalType: "group";
+                                        stateHash: string;
+                                        version: number;
+                                    } & {
+                                        [key: string]: unknown;
+                                    }) | null;
+                                    grantCount: number;
+                                    grantRoot: string;
+                                    keyEpoch: number;
+                                    keyFingerprint: string;
+                                    memberCount: number;
+                                    memberEnvelopesRoot: string;
+                                    /** @constant */
+                                    membershipMode: "projection";
+                                    membershipRoot: string;
+                                    payloadCiphertextHash: string;
+                                    prevStateHash: string | null;
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    projectionRoot: string;
+                                    signature: string;
+                                    signedAt: string;
+                                    signerUserId: string;
+                                    signerUserKeyFingerprint: string;
+                                    stateHash: string;
+                                    version: number;
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                        } & {
+                            [key: string]: unknown;
+                        })[];
                     } & {
                         [key: string]: unknown;
                     };
@@ -13135,6 +13284,7 @@ export interface operations {
                              * @constant
                              */
                             historyMode?: "raw";
+                            inlineRekeyCommitId?: string;
                             localVersionVector: string | null;
                             minLsn?: string;
                             outgoingUpdates: ({
@@ -13794,6 +13944,7 @@ export interface operations {
                              * @constant
                              */
                             historyMode?: "raw";
+                            inlineRekeyCommitId?: string;
                             localVersionVector: string | null;
                             minLsn?: string;
                             outgoingUpdates: ({
@@ -14237,6 +14388,7 @@ export interface operations {
                              * @constant
                              */
                             historyMode?: "raw";
+                            inlineRekeyCommitId?: string;
                             localVersionVector: string | null;
                             minLsn?: string;
                             outgoingUpdates: ({
@@ -14539,6 +14691,7 @@ export interface operations {
                              * @constant
                              */
                             historyMode?: "raw";
+                            inlineRekeyCommitId?: string;
                             localVersionVector: string | null;
                             minLsn?: string;
                             outgoingUpdates: ({
@@ -15017,6 +15170,7 @@ export interface operations {
                              * @constant
                              */
                             historyMode?: "raw";
+                            inlineRekeyCommitId?: string;
                             localVersionVector: string | null;
                             minLsn?: string;
                             outgoingUpdates: ({
@@ -15319,6 +15473,7 @@ export interface operations {
                              * @constant
                              */
                             historyMode?: "raw";
+                            inlineRekeyCommitId?: string;
                             localVersionVector: string | null;
                             minLsn?: string;
                             outgoingUpdates: ({

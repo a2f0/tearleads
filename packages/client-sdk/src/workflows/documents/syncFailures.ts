@@ -17,6 +17,7 @@ import type {
   DocumentSyncSubmitFailure,
   MaterializedDocumentSyncPlan,
 } from "../../data/documents/shared/types";
+import type { ReferencedPrincipalPolicyWarmer } from "../../data/keyingProjectionVerification";
 import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";
 import {
   canRecoverDocumentUpdateIdConflict,
@@ -27,6 +28,7 @@ import {
   shouldRetrySyncWithFreshWriterProjection,
   type TerminalSubmitFailureHandler,
 } from "./syncFailureClassification";
+import { cacheDocumentSyncPolicyRepair } from "./syncPolicyRepair";
 import {
   type DocumentSyncTraceEmitter,
   traceProjectionFailed,
@@ -167,6 +169,7 @@ async function submitDocumentSyncAttempt(input: {
   pendingUpdates: readonly PendingUpdateRecord[];
   plan: DocumentSyncPlan;
   stillCurrent?: (() => boolean) | undefined;
+  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<DocumentSyncAttemptSubmission> {
   if (input.stillCurrent?.() === false) return "cancelled";
   const submitted = await submitDocumentSync({
@@ -185,6 +188,14 @@ async function submitDocumentSyncAttempt(input: {
       response: submitted.response,
     };
   }
+
+  await cacheDocumentSyncPolicyRepair({
+    failure: submitted,
+    plan: input.plan,
+    stillCurrent: input.stillCurrent,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+  });
+  if (input.stillCurrent?.() === false) return "cancelled";
 
   return resolveFailedDocumentSyncAction({
     attempt: input.attempt,

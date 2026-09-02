@@ -99,6 +99,13 @@
       "when": 1788237107214,
       "tag": "0013_opposite_punisher",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1788370283913,
+      "tag": "0014_stiff_vapor",
+      "breakpoints": true
     }
   ]
 }

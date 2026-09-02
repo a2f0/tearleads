@@ -158,6 +158,7 @@ async function assertDocumentWriterProjectionConsistentInternal(
      */
     allowStaleContentKeyBundle?: boolean | undefined;
     execSql?: ExecSql | undefined;
+    persistVerificationCheckpoints?: boolean | undefined;
     onVerifiedAuthorization?:
       | ((authorization: DocumentWriterProjectionAuthorization) => void)
       | undefined;
@@ -176,6 +177,7 @@ async function assertDocumentWriterProjectionConsistentInternal(
   ) {
     const authorization = await verifyDocumentWriterProjectionAuthorization({
       execSql: input.execSql,
+      persistVerificationCheckpoints: input.persistVerificationCheckpoints,
       principalPolicyCache: input.principalPolicyCache,
       projection: writerProjection,
       resolveUserKey: resolveProjectionUserKey,

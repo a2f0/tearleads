@@ -135,3 +135,9 @@ JSON `409` responses retain `error` for diagnostics and carry a normative code:
 
 Retry and recovery decisions use status plus `code`, never `error` text. A
 missing or unknown code fails closed as a terminal conflict.
+
+When an inline `containerRekeys[]` mutation encounters a stale principal-policy
+projection, `document_sync_state_stale` may also carry signed
+`principalPolicies[]`. A client verifies and caches those bundles before it
+refetches the writer projection and replans; the retry remains bounded by the
+normal stale-state budget. Other conflict codes must ignore repair bundles.

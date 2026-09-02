@@ -14,15 +14,25 @@ type ContainerMutationErrorBody =
   | { readonly error: string }
   | PrincipalPolicyStaleErrorResponse;
 
+type ContainerMutationErrorRecovery = "state_stale";
+
 export class ContainerMutationError extends Error {
   constructor(
     message: string,
     readonly status: ContainerMutationStatus,
     readonly body?: ContainerMutationErrorBody | undefined,
+    readonly recovery?: ContainerMutationErrorRecovery | undefined,
   ) {
     super(message);
     this.name = "ContainerMutationError";
   }
+}
+
+export function mutationStateStale(
+  message: string,
+  body?: ContainerMutationErrorBody,
+): ContainerMutationError {
+  return new ContainerMutationError(message, 409, body, "state_stale");
 }
 
 export function mutationShapeError(message: string): ContainerMutationError {
@@ -42,9 +52,8 @@ export function toMutationError(error: unknown): ContainerMutationError | null {
   }
 
   if (isLibsqlTransactionContention(error)) {
-    return new ContainerMutationError(
+    return mutationStateStale(
       "Container mutation transaction conflicted; retry",
-      409,
     );
   }
 
@@ -83,9 +92,8 @@ export async function runConflictBoundary<T>(
     }
 
     if (hasPredecessorSuccessorConstraint(error)) {
-      throw new ContainerMutationError(
+      throw mutationStateStale(
         "Container KEK predecessor already has a successor",
-        409,
       );
     }
 
@@ -95,9 +103,8 @@ export async function runConflictBoundary<T>(
       isSerializationFailure(error) ||
       isLockContention(error)
     ) {
-      throw new ContainerMutationError(
+      throw mutationStateStale(
         error instanceof Error ? error.message : String(error),
-        409,
       );
     }
 

@@ -185,6 +185,7 @@ function recordPreferredPredecessorFailure(
 export async function collectContainerKeksForDocumentSync(
   input: {
     execSql?: ExecSql | undefined;
+    persistVerificationCheckpoints?: boolean | undefined;
     principalPolicyCache?: PrincipalPolicyCache | undefined;
     secretKey: Uint8Array;
     verifiedByHash?: Map<string, VerifiedContainerAccessManifest> | undefined;
@@ -203,6 +204,7 @@ export async function collectContainerKeksForDocumentSync(
       projectionKeks = await unwrapContainerKekPathWithHistoryFailures({
         execSql: input.execSql,
         knownContainerKeks: keksByEpochId,
+        persistVerificationCheckpoints: input.persistVerificationCheckpoints,
         principalPolicyCache: input.principalPolicyCache,
         projection,
         secretKey: input.secretKey,

@@ -26,6 +26,7 @@ import {
 } from "../../data/documents/shared/projection";
 import { assertDocumentManifestBundleConsistent } from "../../data/documents/shared/readers";
 import type {
+  BuildDocumentSyncPlanInput,
   DocumentCreateAuthor,
   MaterializedDocumentSyncPlan,
   ProjectionVerificationOptions,
@@ -37,10 +38,7 @@ import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { selectDocumentSyncOutgoingBatch } from "../../data/sync/documentSyncOutgoingBatch";
 import { prepareDocumentOutgoingUpdates } from "./syncContentKeys";
 import { buildDocumentSyncPlan } from "./syncPlanIdentity";
-import {
-  boundDocumentSyncPlanRequest,
-  materializedDocumentSyncPlan,
-} from "./syncPlanRequestBounds";
+import { finalizeMaterializedDocumentSyncPlan } from "./syncPlanProjection";
 import {
   type DocumentSyncTraceEmitter,
   traceCheckpointRegeneration,
@@ -377,14 +375,17 @@ export async function buildMaterializedDocumentSyncPlan(
      * Without it those passes fail with a descriptive error instead.
      */
     buildRotationSnapshot?: (() => Promise<Uint8Array | null>) | undefined;
+    containerRekeys?: BuildDocumentSyncPlanInput["containerRekeys"];
     execSql?: ExecSql | undefined;
     historyMode?: "raw" | undefined;
+    inlineRekeyCommitId?: string | undefined;
     localVersionVector: string | null;
     minLsn?: string | undefined;
     pullCursor?: string | undefined;
     /** Clipboard-safe trace sink (see syncTrace.ts); never receives content. */
     onSyncTrace?: DocumentSyncTraceEmitter | undefined;
     pendingUpdates?: readonly PendingUpdateRecord[] | undefined;
+    persistVerificationCheckpoints?: boolean | undefined;
     /**
      * Replace queued rotation checkpoints with a freshly regenerated covering
      * baseline instead of passing them through. Set by the sync loop after
@@ -404,6 +405,7 @@ export async function buildMaterializedDocumentSyncPlan(
   await assertDocumentWriterProjectionConsistent(input.writerProjection, {
     allowStaleContentKeyBundle: true,
     execSql: input.execSql,
+    persistVerificationCheckpoints: input.persistVerificationCheckpoints,
     onVerifiedAuthorization: (authorization) => {
       writerAuthorization = authorization;
     },
@@ -413,6 +415,7 @@ export async function buildMaterializedDocumentSyncPlan(
   });
   const collectedKeks = await collectContainerKeksForDocumentSync({
     execSql: input.execSql,
+    persistVerificationCheckpoints: input.persistVerificationCheckpoints,
     principalPolicyCache,
     secretKey: input.targetSecretKey,
     verifiedByHash,
@@ -450,7 +453,6 @@ export async function buildMaterializedDocumentSyncPlan(
     documentKekTargets,
     documentManifest,
     pendingUpdates,
-    staleRecoveryBaselineUpdateId,
   } = material;
   const outgoingUpdates = await prepareDocumentOutgoingUpdates({
     contentKey,
@@ -467,24 +469,23 @@ export async function buildMaterializedDocumentSyncPlan(
     authorizingContainerPathRefs: authorizingContainerPathRefs(
       input.writerProjection,
     ),
+    containerRekeys: input.containerRekeys,
     contentKeyBundle,
     documentId,
     documentKekTargets,
     documentManifest,
     historyMode: input.historyMode,
+    inlineRekeyCommitId: input.inlineRekeyCommitId,
     localVersionVector: input.localVersionVector,
     minLsn: input.minLsn,
     outgoingUpdates,
     pullCursor: input.pullCursor,
     signedAt: input.signedAt,
   });
-  const unboundedPlan = writerAuthorization
-    ? { ...basePlan, documentWriterAuthorization: writerAuthorization }
-    : basePlan;
-  const plan = boundDocumentSyncPlanRequest(
-    unboundedPlan,
-    staleRecoveryBaselineUpdateId,
-  );
-
-  return materializedDocumentSyncPlan(material, plan);
+  return finalizeMaterializedDocumentSyncPlan({
+    basePlan,
+    material,
+    writerAuthorization,
+    writerProjection: input.writerProjection,
+  });
 }

@@ -12,7 +12,6 @@ import type {
   MaterializedDocumentSyncPlan,
   SyncRemoteDocumentResult,
 } from "../../data/documents/shared/types";
-import { projectionVerificationOptions } from "../../data/documents/shared/types";
 import {
   isProjectionVerificationCancelledError,
   type ProjectionUserKeyResolver,
@@ -29,6 +28,7 @@ import type {
   RemoteDocumentSyncAttemptOutcome,
   RemoteDocumentSyncAttemptState,
 } from "./syncAttemptState";
+import { buildRemoteDocumentSyncPlan } from "./syncContainerRekeys";
 import type { TerminalSubmitFailureHandler } from "./syncFailureClassification";
 import {
   assertRawContinuationCanRetry,
@@ -36,56 +36,22 @@ import {
   retrySyncPlanOrAbandon,
   submitDocumentSyncAttemptIfAllowed,
 } from "./syncFailures";
-import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
-import { submittedPendingUpdates } from "./syncPlanRequestBounds";
+import { recoverablePendingUpdates } from "./syncPlanRequestBounds";
 import { resolveSubmittedDocumentSyncResult } from "./syncSubmittedResult";
 
 export function hasDocumentUpdateEvent(
   events: ReadonlyArray<unknown>,
   documentId: string | null | undefined,
 ): boolean {
-  if (!documentId) {
-    return false;
-  }
+  if (!documentId) return false;
   return events.some(
     (event) =>
       isDocumentUpdateCreatedEvent(event) && event.documentId === documentId,
   );
 }
-function buildRemoteDocumentSyncPlan(input: {
-  minLsn?: string | undefined;
-  pendingUpdates: readonly PendingUpdateRecord[];
-  pullCursor?: string | undefined;
-  projection: DocumentWriterProjectionResponse;
-  regenerateQueuedCheckpoints: boolean;
-  sync: SyncRemoteDocumentInput;
-}) {
-  return buildMaterializedDocumentSyncPlan({
-    author: input.sync.author,
-    buildRotationSnapshot: input.sync.buildRotationSnapshot,
-    execSql: input.sync.execSql,
-    historyMode: input.sync.historyMode,
-    localVersionVector: input.sync.localVersionVector,
-    minLsn: input.minLsn,
-    onSyncTrace: input.sync.onSyncTrace,
-    pendingUpdates: input.pendingUpdates,
-    pullCursor: input.pullCursor,
-    regenerateQueuedCheckpoints: input.regenerateQueuedCheckpoints,
-    signedAt: input.sync.signedAt,
-    targetSecretKey: input.sync.targetSecretKey,
-    writerProjection: input.projection,
-    ...projectionVerificationOptions(input.sync),
-  });
-}
-
 /**
- * A retryable stale-projection conflict (stale KEK targets / content-key
- * bundle / write-auth manifest) means our writer projection is behind the
- * server — typically right after a peer shared or rotated a linked
- * container. Drop this document's cached projection so the next attempt
- * re-derives fresh targets instead of resubmitting the same stale ones
- * (which would 409 again and exhaust the retries without converging).
- * Scoped to this document: unrelated projections were not invalidated.
+ * A retryable stale-projection conflict means this writer projection is behind
+ * the server. Evict only this document so the next attempt re-derives targets.
  */
 function evictStaleProjectionForRetry(input: SyncRemoteDocumentInput): void {
   input.apiClient.evictDocumentWriterProjection?.(input.documentId);
@@ -144,6 +110,8 @@ async function submitPlannedSyncAttempt(args: {
       plan: args.materializedPlan.plan,
       failureBlocksQueuedWrites: args.failureBlocksQueuedWrites,
       stillCurrent: args.sync.stillCurrent,
+      warmReferencedPrincipalPolicies:
+        args.sync.warmReferencedPrincipalPolicies,
     });
   } catch (error) {
     if (
@@ -353,14 +321,14 @@ async function runRemoteDocumentSyncAttempt(input: {
   if (!planned || input.sync.stillCurrent?.() === false) {
     return { kind: "complete", result: null };
   }
-  const [materializedPlan, plannedWriterProjection] = planned;
+  const [materializedPlan] = planned;
   const submitted = await submitPlannedSyncAttempt({
     attempt: input.attempt,
     materializedPlan,
     maxAttempts: input.maxAttempts,
-    pendingUpdates: submittedPendingUpdates(
+    pendingUpdates: recoverablePendingUpdates(
       input.state.pendingUpdates,
-      materializedPlan.plan,
+      materializedPlan,
     ),
     pullContinuation: input.state.pullContinuation,
     regenerateQueuedCheckpoints: input.state.regenerateQueuedCheckpoints,
@@ -392,6 +360,10 @@ async function runRemoteDocumentSyncAttempt(input: {
     return { kind: "regenerate" };
   }
   if (submitted.kind === "recover_update_id_conflict") {
+    // A lost response may mean the server committed both this update id and an
+    // inline container rekey. Force the read-only recovery pass to observe that
+    // committed successor projection instead of reusing a cached predecessor.
+    evictStaleProjectionForRetry(input.sync);
     return { kind: "recover", updates: submitted.recoveryPendingUpdatesById };
   }
   const result = await resolveSubmittedDocumentSyncResult({
@@ -402,7 +374,7 @@ async function runRemoteDocumentSyncAttempt(input: {
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     response: submitted.response,
     sync: input.sync,
-    writerProjection: plannedWriterProjection,
+    writerProjection: materializedPlan.writerProjection,
   });
   return {
     kind: "complete",
@@ -421,7 +393,6 @@ async function syncRemoteDocumentInternal(
   let recoveryPendingUpdatesById = new Map<string, PendingUpdateRecord>();
   let regenerateQueuedCheckpoints = false;
   let reusableWriterProjection = input.writerProjection ?? null;
-
   const persistedSync = await preparePersistedDocumentSync(
     input,
     resolveProjectionUserKey,

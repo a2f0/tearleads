@@ -177,9 +177,12 @@ export {
   DocumentSyncErrorCodeSchema,
   type DocumentSyncErrorResponse,
   DocumentSyncErrorResponseSchema,
+  type DocumentSyncStateStaleErrorResponse,
+  DocumentSyncStateStaleErrorResponseSchema,
   type DocumentWriterProjectionErrorResponse,
   DocumentWriterProjectionErrorResponseSchema,
   isDocumentSyncErrorResponse,
+  isDocumentSyncStateStaleErrorResponse,
 } from "./documentSyncError";
 export {
   type ErrorResponse,

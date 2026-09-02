@@ -91,7 +91,7 @@ export async function commitProjectionCheckpoints(
 }
 
 /** Validates against the latest durable pins without persisting new heads. */
-export async function validateProjectionCheckpoints(
+async function validateProjectionCheckpoints(
   context: ProjectionCheckpointContext,
   input?: {
     readonly execSql?: ExecSql | undefined;
@@ -107,4 +107,17 @@ export async function validateProjectionCheckpoints(
     verifiedManifests: context.verifiedManifests,
   });
   assertProjectionVerificationCurrent(input?.stillCurrent);
+}
+
+export async function finalizeProjectionCheckpoints(
+  context: ProjectionCheckpointContext,
+  input: {
+    readonly execSql?: ExecSql | undefined;
+    readonly persistVerificationCheckpoints?: boolean | undefined;
+    readonly stillCurrent?: (() => boolean) | undefined;
+  },
+): Promise<void> {
+  return input.persistVerificationCheckpoints === false
+    ? validateProjectionCheckpoints(context, input)
+    : commitProjectionCheckpoints(context, input);
 }

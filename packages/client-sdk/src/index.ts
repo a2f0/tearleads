@@ -352,9 +352,12 @@ export type {
   AggregatedContainerKekLog,
   ContainerMutationAuthor,
   KeyringRebuildResult,
+  MaterializedContainerRekeyPlan,
 } from "./workflows/containers";
 export {
+  buildMaterializedContainerRekeyPlan,
   buildRootContainerCreatePlan,
+  containerWriterProjectionFromRekeyPlan,
   createRemoteContainer,
   fetchContainerKekLog,
   HistoricalWrapUnavailableError,
@@ -370,6 +373,7 @@ export {
 } from "./workflows/containers";
 export type {
   DocumentRecord,
+  DocumentSyncContainerRekeyBuilder,
   DocumentSyncPullContinuation,
   DocumentSyncUpdateIsolationError,
   DocumentsPersistence,

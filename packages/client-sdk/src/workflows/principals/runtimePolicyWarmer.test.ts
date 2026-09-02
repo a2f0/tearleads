@@ -12,7 +12,6 @@ import {
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import { loadPrincipalPolicyBundleForReference } from "../../data/persistence/principalPolicyReferencePersistence";
-import { cacheRemoteContainerPrincipalPolicies } from "../container-contents/remoteHydration/principalPolicyCache";
 import { buildInitialGroupPolicyRequest } from "../organizations/principalPolicy";
 import { createRuntimePrincipalPolicyWarmer } from "./runtimePolicyWarmer";
 
@@ -61,7 +60,7 @@ test("runtime policy warmer fetches policies for every requested organization", 
   }
 });
 
-test("remote policy warming rolls back a fetched policy after generation expiry", async () => {
+test("bundle repair caching rolls back after generation expiry", async () => {
   const database = await createTestExecSql(
     "runtime-principal-policy-warmer-generation",
   );
@@ -86,22 +85,19 @@ test("remote policy warming rolls back a fetched policy after generation expiry"
   let current = true;
   const warmer = createRuntimePrincipalPolicyWarmer({
     apiClient: {
-      getCurrentPrincipalPolicy: async (principalType, principalId) => {
-        expect([principalType, principalId]).toEqual(["group", "group-1"]);
-        current = false;
-        return bundle;
-      },
+      getCurrentPrincipalPolicy: async () => null,
     },
     infra: { execSql: database.execSql },
-    resolveTrustedUserIdentity: async (userId) =>
-      userId === author.signerUserId
-        ? createTestTrustedUserIdentity({
-            encapsulationPublicKey: memberKem.publicKey,
-            signingKeyFingerprint: author.signerKeyFingerprint,
-            signingPublicKey,
-            userId,
-          })
-        : null,
+    resolveTrustedUserIdentity: async (userId) => {
+      if (userId !== author.signerUserId) return null;
+      current = false;
+      return createTestTrustedUserIdentity({
+        encapsulationPublicKey: memberKem.publicKey,
+        signingKeyFingerprint: author.signerKeyFingerprint,
+        signingPublicKey,
+        userId,
+      });
+    },
     util: {
       log: () => undefined,
       reportSecurityIncident: async () => undefined,
@@ -109,14 +105,9 @@ test("remote policy warming rolls back a fetched policy after generation expiry"
   });
 
   try {
-    await cacheRemoteContainerPrincipalPolicies({
-      cacheReferencedPrincipalPolicies: warmer,
-      remoteContainers: [
-        {
-          metadataReferencedPrincipals: [reference],
-          organizationId: author.organizationId,
-        },
-      ],
+    await warmer.cacheBundles?.({
+      bundles: [bundle],
+      organizationId: author.organizationId,
       stillCurrent: () => current,
     });
 

@@ -6,6 +6,7 @@ import type {
   SyncWatermark,
 } from "@tearleads/validators/response";
 import {
+  isDocumentSyncStateStaleErrorResponse,
   isPaymentRequiredErrorResponse,
   isPrincipalPolicyStaleErrorResponse,
 } from "@tearleads/validators/response";
@@ -256,11 +257,15 @@ export async function describeErrorResponse(
         code,
         detail: `: ${error}`,
         error,
-        // Container mutation 409s can carry signed policy bundles that make the
-        // failed write repairable; preserve them on the typed failure object.
+        // Container mutations and document sync with inline container rekeys
+        // can carry signed policy bundles that make the failed write
+        // repairable; preserve them on the typed failure object.
         ...(isPrincipalPolicyStaleErrorResponse(parsed)
           ? { stalePrincipalPolicies: parsed.principalPolicies }
-          : {}),
+          : isDocumentSyncStateStaleErrorResponse(parsed) &&
+              parsed.principalPolicies !== undefined
+            ? { stalePrincipalPolicies: parsed.principalPolicies }
+            : {}),
         // Sync-write 402s carry the target org so the client can surface a
         // billing prompt; preserve it for the payment-required handler.
         ...(isPaymentRequiredErrorResponse(parsed)
