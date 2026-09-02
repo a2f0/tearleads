@@ -37,14 +37,18 @@ import {
   syncDocument,
 } from "../../services/documents/documentMutations";
 import type { ApiServiceRuntime } from "../../services/runtime";
-import { uniqueSortedStrings } from "../../utils/array";
-import { publishBestEffort } from "../../utils/publishBestEffort";
 import {
   jsonRequestValidator,
   requestBodyLimit,
 } from "../../validators/jsonRequest";
 import { pathParamsValidator } from "../../validators/pathParams";
 import { queryParamsValidator } from "../../validators/queryParams";
+import {
+  publishDocumentMutationCreatedEvent,
+  publishDocumentPurgeEvent,
+  publishDocumentSyncContainerRekeyEvents,
+  publishDocumentUpdateCreatedEvent,
+} from "./mutationEvents";
 
 interface DocumentMutationsRouteDeps {
   readonly publish: (event: Record<string, unknown>) => Promise<void>;
@@ -54,124 +58,6 @@ interface DocumentMutationsRouteDeps {
 
 type DocumentRouteContext = Context<SessionEnv>;
 type DocumentLinkSetEventType = "document.link" | "document.unlink";
-type DocumentMutationOrigin = {
-  readonly sessionId: string;
-  readonly userId: string;
-};
-
-function listDocumentKekTargetContainerIds(
-  documentKekTargets: DocumentSyncResponse["documentKekTargets"],
-): string[] {
-  return documentKekTargets.targets.flatMap((target) => {
-    if (typeof target !== "object" || target === null) {
-      return [];
-    }
-
-    const containerId = Reflect.get(target, "containerId");
-    return typeof containerId === "string" ? [containerId] : [];
-  });
-}
-
-/**
- * Build the lossy realtime hint for a committed document link-set mutation.
- * Each endpoint changes exactly one target container. The response carries the
- * complete current link set, so adding that mutation target yields the exact
- * union of the previous and current sets for both link and unlink.
- */
-export function createDocumentMutationCreatedEvent(input: {
-  readonly documentId: string;
-  readonly eventType: DocumentLinkSetEventType;
-  readonly origin: DocumentMutationOrigin;
-  readonly request: DocumentLinkSetMutationRequest;
-  readonly response: DocumentLinkSetMutationResponse;
-}): Record<string, unknown> {
-  const mutationTargetContainerId =
-    input.request.targetContainerPathRefs.at(-1)?.containerId;
-  const containerIds = [
-    ...listDocumentKekTargetContainerIds(input.response.documentKekTargets),
-    ...(mutationTargetContainerId ? [mutationTargetContainerId] : []),
-  ];
-
-  return {
-    type: "document_mutation_created",
-    containerIds: uniqueSortedStrings(containerIds),
-    documentId: input.documentId,
-    eventType: input.eventType,
-    origin: input.origin,
-  };
-}
-
-export async function publishDocumentMutationCreatedEvent(input: {
-  readonly documentId: string;
-  readonly eventType: DocumentLinkSetEventType;
-  readonly origin: DocumentMutationOrigin;
-  readonly publish: DocumentMutationsRouteDeps["publish"];
-  readonly request: DocumentLinkSetMutationRequest;
-  readonly response: DocumentLinkSetMutationResponse;
-}): Promise<void> {
-  await publishBestEffort(
-    input.publish,
-    createDocumentMutationCreatedEvent(input),
-    "document mutation event",
-  );
-}
-
-export function createDocumentUpdateCreatedEvent(input: {
-  readonly documentId: string;
-  readonly documentKekTargets: DocumentSyncResponse["documentKekTargets"];
-  readonly origin: DocumentMutationOrigin;
-  readonly updateIds: readonly string[];
-}): Record<string, unknown> {
-  return {
-    type: "document_update_created",
-    containerIds: listDocumentKekTargetContainerIds(input.documentKekTargets),
-    documentId: input.documentId,
-    updateIds: [...input.updateIds],
-    origin: input.origin,
-  };
-}
-
-export async function publishDocumentUpdateCreatedEvent(input: {
-  readonly documentId: string;
-  readonly documentKekTargets: DocumentSyncResponse["documentKekTargets"];
-  readonly origin: DocumentMutationOrigin;
-  readonly publish: DocumentMutationsRouteDeps["publish"];
-  readonly updateIds: readonly string[];
-}): Promise<void> {
-  await publishBestEffort(
-    input.publish,
-    createDocumentUpdateCreatedEvent(input),
-    "document update event",
-  );
-}
-
-export function createDocumentPurgeEvent(input: {
-  readonly containerIds: readonly string[];
-  readonly documentId: string;
-  readonly origin: DocumentMutationOrigin;
-}): Record<string, unknown> {
-  return {
-    type: "document_mutation_created",
-    containerIds: uniqueSortedStrings(input.containerIds),
-    documentId: input.documentId,
-    eventType: "document.purge",
-    origin: input.origin,
-  };
-}
-
-export async function publishDocumentPurgeEvent(input: {
-  readonly containerIds: readonly string[];
-  readonly documentId: string;
-  readonly origin: DocumentMutationOrigin;
-  readonly publish: DocumentMutationsRouteDeps["publish"];
-}): Promise<void> {
-  await publishBestEffort(
-    input.publish,
-    createDocumentPurgeEvent(input),
-    "document purge event",
-  );
-}
-
 function handleDocumentMutationError(error: unknown) {
   if (error instanceof DocumentMutationError) {
     return {
@@ -287,11 +173,20 @@ async function respondWithDocumentSync(
   const session = c.get("session");
 
   try {
-    const { insertedUpdateIds, response } = await syncDocument(input.runtime, {
-      documentId,
-      fingerprint: session.fingerprint,
-      request: input.request,
-      userId: session.userId,
+    const { containerRekeys, insertedUpdateIds, response } = await syncDocument(
+      input.runtime,
+      {
+        documentId,
+        fingerprint: session.fingerprint,
+        request: input.request,
+        userId: session.userId,
+      },
+    );
+    const origin = { sessionId: session.id, userId: session.userId };
+    await publishDocumentSyncContainerRekeyEvents({
+      containerRekeys,
+      origin,
+      publish: input.publish,
     });
 
     // Broadcast only when this sync inserted new content. An idempotent retry
@@ -304,7 +199,7 @@ async function respondWithDocumentSync(
       await publishDocumentUpdateCreatedEvent({
         documentId,
         documentKekTargets: response.documentKekTargets,
-        origin: { sessionId: session.id, userId: session.userId },
+        origin,
         publish: input.publish,
         updateIds: insertedUpdateIds,
       });

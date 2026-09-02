@@ -18,19 +18,24 @@ import type {
 export type { MutateContainerInput };
 export { ContainerMutationError };
 
+export interface AppliedContainerRekey {
+  readonly request: ContainerMutationRequest;
+  readonly response: ContainerMutationResponse;
+}
+
 export async function applyContainerRekeys(input: {
   readonly additionalOrganizationIds?: readonly string[] | undefined;
   readonly executor: MutateContainerWithExecutorInput["executor"];
   readonly fingerprint: string;
   readonly requests?: readonly ContainerMutationRequest[] | undefined;
   readonly userId: string;
-}): Promise<void> {
+}): Promise<AppliedContainerRekey[]> {
   if (
     (!input.requests || input.requests.length === 0) &&
     (!input.additionalOrganizationIds ||
       input.additionalOrganizationIds.length === 0)
   ) {
-    return;
+    return [];
   }
 
   // Document/blob writes call this before resolving current container heads and
@@ -56,6 +61,7 @@ export async function applyContainerRekeys(input: {
     input.additionalOrganizationIds,
   );
 
+  const applied: AppliedContainerRekey[] = [];
   for (const request of input.requests ?? []) {
     const response = await rekeyContainer({
       context,
@@ -69,7 +75,9 @@ export async function applyContainerRekeys(input: {
       response.organizationId,
       input.userId,
     );
+    applied.push({ request, response });
   }
+  return applied;
 }
 
 export async function runContainerMutationWorkflow(

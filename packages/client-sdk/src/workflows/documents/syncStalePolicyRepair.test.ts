@@ -81,6 +81,9 @@ test("syncRemoteDocument retries failed chained rekeys after caching stale polic
   try {
     const synced = await syncRemoteDocument({
       apiClient: {
+        clearWriterProjectionCaches: () => {
+          events.push("clear-projections");
+        },
         evictDocumentWriterProjection: () => {
           events.push("evict-projection");
         },
@@ -207,6 +210,7 @@ test("syncRemoteDocument retries failed chained rekeys after caching stale polic
       "get-projection-2",
       "build-rekey-2",
       "submit-2",
+      "clear-projections",
       "evict-projection",
     ]);
     await expect(

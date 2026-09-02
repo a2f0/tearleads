@@ -1,14 +1,21 @@
 import { expect, mock, spyOn, test } from "bun:test";
-import type { DocumentLinkSetMutationRequest } from "@tearleads/validators/request";
-import type { DocumentLinkSetMutationResponse } from "@tearleads/validators/response";
+import type {
+  ContainerMutationRequest,
+  DocumentLinkSetMutationRequest,
+} from "@tearleads/validators/request";
+import type {
+  ContainerMutationResponse,
+  DocumentLinkSetMutationResponse,
+} from "@tearleads/validators/response";
 import {
   createDocumentMutationCreatedEvent,
   createDocumentPurgeEvent,
   createDocumentUpdateCreatedEvent,
   publishDocumentMutationCreatedEvent,
   publishDocumentPurgeEvent,
+  publishDocumentSyncContainerRekeyEvents,
   publishDocumentUpdateCreatedEvent,
-} from "./mutations";
+} from "./mutationEvents";
 
 const ORIGIN = { sessionId: "session-1", userId: "user-1" };
 
@@ -129,6 +136,40 @@ test("atomic rotation baselines publish a lossy document update hint", async () 
   } finally {
     errorSpy.mockRestore();
   }
+});
+
+test("inline document rekeys publish normal container and access hints", async () => {
+  const events: Record<string, unknown>[] = [];
+  await publishDocumentSyncContainerRekeyEvents({
+    containerRekeys: [
+      {
+        request: {
+          body: { eventType: "container.rekey" },
+        } as unknown as ContainerMutationRequest,
+        response: {
+          containerId: "container-1",
+          parentId: null,
+          updatedAt: "2026-09-02T12:00:00.000Z",
+        } as unknown as ContainerMutationResponse,
+      },
+    ],
+    origin: ORIGIN,
+    publish: async (event) => {
+      events.push(event);
+    },
+  });
+
+  expect(events).toEqual([
+    {
+      type: "container_mutation_created",
+      containerId: "container-1",
+      eventType: "container.rekey",
+      origin: ORIGIN,
+      parentId: null,
+      updatedAt: "2026-09-02T12:00:00.000Z",
+    },
+    { type: "access_changed", containerId: "container-1" },
+  ]);
 });
 
 test("document purge events carry every tombstone container and origin", () => {
