@@ -36,7 +36,7 @@ import {
   retrySyncPlanOrAbandon,
   submitDocumentSyncAttemptIfAllowed,
 } from "./syncFailures";
-import { submittedPendingUpdates } from "./syncPlanRequestBounds";
+import { recoverablePendingUpdates } from "./syncPlanRequestBounds";
 import { resolveSubmittedDocumentSyncResult } from "./syncSubmittedResult";
 
 export function hasDocumentUpdateEvent(
@@ -326,9 +326,9 @@ async function runRemoteDocumentSyncAttempt(input: {
     attempt: input.attempt,
     materializedPlan,
     maxAttempts: input.maxAttempts,
-    pendingUpdates: submittedPendingUpdates(
+    pendingUpdates: recoverablePendingUpdates(
       input.state.pendingUpdates,
-      materializedPlan.plan,
+      materializedPlan,
     ),
     pullContinuation: input.state.pullContinuation,
     regenerateQueuedCheckpoints: input.state.regenerateQueuedCheckpoints,

@@ -39,14 +39,18 @@ export function materializedDocumentSyncPlan(
   };
 }
 
-export function submittedPendingUpdates(
+export function recoverablePendingUpdates(
   pendingUpdates: readonly PendingUpdateRecord[],
-  plan: MaterializedDocumentSyncPlan["plan"],
+  materializedPlan: MaterializedDocumentSyncPlan,
 ): PendingUpdateRecord[] {
   const submittedIds = new Set(
-    plan.request.outgoingUpdates.map((update) => update.id),
+    materializedPlan.plan.request.outgoingUpdates.map((update) => update.id),
   );
-  return pendingUpdates.filter((update) => submittedIds.has(update.id));
+  const recoverableIds = new Set([
+    ...submittedIds,
+    ...materializedPlan.heldBackPendingUpdateIds,
+  ]);
+  return pendingUpdates.filter((update) => recoverableIds.has(update.id));
 }
 
 export function hasDeferredPendingUpdatesAfterSubmit(input: {

@@ -3,23 +3,27 @@ import { createPendingUpdateRecord } from "../../../test/helpers/documentFixture
 import {
   acceptedHeldBackPendingUpdateIds,
   hasDeferredPendingUpdatesAfterSubmit,
+  recoverablePendingUpdates,
   responseAcceptedRecoveryBaseline,
-  submittedPendingUpdates,
 } from "./syncPlanRequestBounds";
 
-test("conflict recovery retains only pending updates submitted by the bounded plan", () => {
+test("conflict recovery retains submitted and held-back logical updates", () => {
   const submitted = createPendingUpdateRecord({
     id: "550e8400-e29b-41d4-a716-446655440001",
   });
   const deferred = createPendingUpdateRecord({
     id: "550e8400-e29b-41d4-a716-446655440002",
   });
+  const heldBack = createPendingUpdateRecord({
+    id: "550e8400-e29b-41d4-a716-446655440003",
+  });
 
   expect(
-    submittedPendingUpdates([submitted, deferred], {
-      request: { outgoingUpdates: [{ id: submitted.id }] },
+    recoverablePendingUpdates([submitted, deferred, heldBack], {
+      heldBackPendingUpdateIds: [heldBack.id],
+      plan: { request: { outgoingUpdates: [{ id: submitted.id }] } },
     } as never),
-  ).toEqual([submitted]);
+  ).toEqual([submitted, heldBack]);
 });
 
 test("recovery baseline progress requires an explicit server acceptance", () => {

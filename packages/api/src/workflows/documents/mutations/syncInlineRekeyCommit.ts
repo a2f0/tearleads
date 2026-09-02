@@ -1,7 +1,6 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { documentInlineRekeyCommits } from "@tearleads/api-shared/schema";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
-import { and, eq } from "drizzle-orm";
 import { documentUpdateIdConflict } from "./errors";
 
 function inlineRekeyCommitId(request: DocumentSyncRequest): string | undefined {
@@ -12,32 +11,12 @@ function inlineRekeyCommitId(request: DocumentSyncRequest): string | undefined {
     : undefined;
 }
 
-/** Rejects only a replay of the same logical inline-rekey flush. */
-export async function assertInlineRekeyCommitIsNew(input: {
-  readonly documentId: string;
-  readonly executor: DatabaseTransaction;
-  readonly request: DocumentSyncRequest;
-}): Promise<void> {
-  const commitId = inlineRekeyCommitId(input.request);
-  if (!commitId) return;
-
-  const [existing] = await input.executor
-    .select({ documentId: documentInlineRekeyCommits.documentId })
-    .from(documentInlineRekeyCommits)
-    .where(
-      and(
-        eq(documentInlineRekeyCommits.documentId, input.documentId),
-        eq(documentInlineRekeyCommits.commitId, commitId),
-      ),
-    )
-    .limit(1);
-  if (existing) {
-    throw documentUpdateIdConflict();
-  }
-}
-
-/** Records the marker in the same transaction as the rekeys and updates. */
-export async function recordInlineRekeyCommit(input: {
+/**
+ * Reserves the marker before applying rekeys. A concurrent twin blocks on the
+ * unique row: it takes over after rollback or conflicts after commit without
+ * applying another rekey.
+ */
+export async function reserveInlineRekeyCommit(input: {
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
   readonly request: DocumentSyncRequest;

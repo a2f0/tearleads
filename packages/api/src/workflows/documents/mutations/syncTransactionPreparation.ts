@@ -4,7 +4,7 @@ import { resolveCurrentDocumentKekTargets } from "../../../access/read/documentK
 import { ensureDocumentExists } from "./shared/documentRows";
 import { assertSyncContentKeyBundleMatchesRequest } from "./shared/records";
 import { ensureSyncDocumentAccess } from "./syncAccess";
-import { assertInlineRekeyCommitIsNew } from "./syncInlineRekeyCommit";
+import { reserveInlineRekeyCommit } from "./syncInlineRekeyCommit";
 
 export async function prepareSyncDocumentTransaction(input: {
   readonly documentId: string;
@@ -31,7 +31,7 @@ export async function prepareSyncDocumentTransaction(input: {
     request: input.request,
     userId: input.userId,
   });
-  await assertInlineRekeyCommitIsNew({
+  await reserveInlineRekeyCommit({
     documentId: input.documentId,
     executor: input.tx,
     request: input.request,

@@ -47,7 +47,6 @@ import {
 import { verifySyncWriteAuthorizationProof } from "./shared/verification";
 import { ensureSyncDocumentAccess } from "./syncAccess";
 import { resolveSyncContentKeyBundle } from "./syncContentKeyBundle";
-import { recordInlineRekeyCommit } from "./syncInlineRekeyCommit";
 import { resolveSyncPullPagePlan } from "./syncPullPagination";
 import {
   buildPaginatedSyncPullResponse,
@@ -252,11 +251,6 @@ async function syncDocumentTransaction(input: {
     signingPublicKey: input.signingPublicKey,
     userId: input.userId,
     writeAuthorization,
-  });
-  await recordInlineRekeyCommit({
-    documentId: input.documentId,
-    executor: input.tx,
-    request: input.request,
   });
   await touchAcceptedSyncTargets({
     currentTargets,
