@@ -137,7 +137,9 @@ The failure service also writes a local `daemon.alert` journal entry tagged
 failures remain durable for a later retry, including expired multipart stages,
 but make the current maintenance run fail rather than emitting a false success
 heartbeat. A missing GC executable is likewise a visible service failure rather
-than a silently skipped run.
+than a silently skipped run. The alert unit runs without Linux capabilities and
+still writes the local journal alert if its optional monitoring configuration is
+missing or invalid.
 
 Check the schedule, the last collection result, and failure alerts with:
 

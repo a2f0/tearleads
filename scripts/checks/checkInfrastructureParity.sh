@@ -89,8 +89,11 @@ assert_blob_gc_failure_alerting() {
     ! grep -Fq 'EnvironmentFile=/etc/tearleads/blob-gc-healthcheck.env' "$service_template" ||
     ! grep -Fq 'ExecStartPre=-/usr/local/bin/tearleads-blob-gc-healthcheck start' "$service_template" ||
     ! grep -Fq 'ExecStartPost=-/usr/local/bin/tearleads-blob-gc-healthcheck success' "$service_template" ||
-    ! grep -Fq 'EnvironmentFile=/etc/tearleads/blob-gc-healthcheck.env' "$alert_template" ||
+    ! grep -Fq 'User={{ server_user' "$alert_template" ||
+    ! grep -Fq 'EnvironmentFile=-/etc/tearleads/blob-gc-healthcheck.env' "$alert_template" ||
     ! grep -Fq 'ExecStart=-/usr/local/bin/tearleads-blob-gc-healthcheck fail' "$alert_template" ||
+    ! grep -Fxq 'CapabilityBoundingSet=' "$alert_template" ||
+    ! grep -Fxq 'AmbientCapabilities=' "$alert_template" ||
     grep -Fq 'BLOB_GC_HEALTHCHECK_URL' "$service_template" ||
     grep -Fq 'BLOB_GC_HEALTHCHECK_URL' "$alert_template" ||
     ! grep -Fq -- '-p daemon.alert' "$alert_template" ||
