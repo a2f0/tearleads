@@ -3,18 +3,26 @@ import { arraySchema } from "../schema";
 import { PrincipalPolicyBundleResponseSchema } from "./principal";
 
 export const DOCUMENT_SYNC_ERROR_CODES = {
+  checkpointCoverageConflict: "document_sync_checkpoint_coverage_conflict",
   conflict: "document_sync_conflict",
   stateStale: "document_sync_state_stale",
   updateIdConflict: "document_sync_update_id_conflict",
 } as const;
 
 export const DocumentSyncErrorCodeSchema = z.literal([
+  DOCUMENT_SYNC_ERROR_CODES.checkpointCoverageConflict,
   DOCUMENT_SYNC_ERROR_CODES.conflict,
   DOCUMENT_SYNC_ERROR_CODES.stateStale,
   DOCUMENT_SYNC_ERROR_CODES.updateIdConflict,
 ]);
 
 export type DocumentSyncErrorCode = z.infer<typeof DocumentSyncErrorCodeSchema>;
+
+export function isDocumentSyncErrorCode(
+  value: unknown,
+): value is DocumentSyncErrorCode {
+  return DocumentSyncErrorCodeSchema.safeParse(value).success;
+}
 
 export const DocumentSyncStateStaleErrorResponseSchema = z.looseObject({
   code: z.literal(DOCUMENT_SYNC_ERROR_CODES.stateStale),
@@ -102,10 +110,19 @@ export type DocumentProjectionErrorCode = z.infer<
   typeof DocumentProjectionErrorCodeSchema
 >;
 
+// Preserve the writer-projection route's existing sync-code surface. Rotation
+// checkpoint coverage is a document-sync submission concern and must not leak
+// into this read endpoint merely because both responses share this module.
+const DocumentWriterProjectionSyncErrorCodeSchema = z.literal([
+  DOCUMENT_SYNC_ERROR_CODES.conflict,
+  DOCUMENT_SYNC_ERROR_CODES.stateStale,
+  DOCUMENT_SYNC_ERROR_CODES.updateIdConflict,
+]);
+
 export const DocumentWriterProjectionErrorResponseSchema = z.looseObject({
   code: z.union([
     DocumentProjectionErrorCodeSchema,
-    DocumentSyncErrorCodeSchema,
+    DocumentWriterProjectionSyncErrorCodeSchema,
   ]),
   error: z.string().min(1),
 });

@@ -4,6 +4,11 @@ import { base64ToBytes } from "@tearleads/encoding";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerCreateWithMetadataDocumentRequest } from "@tearleads/validators/request";
 import {
+  CONTAINER_MUTATION_ERROR_CODES,
+  type ContainerMutationErrorCode,
+  DOCUMENT_MUTATION_ERROR_CODES,
+} from "@tearleads/validators/response";
+import {
   createMutationResponseFromRequest,
   createParentProjection,
   createParentProjectionUserKeyResolver,
@@ -167,6 +172,7 @@ test("container-with-metadata replans after the parent head advances", async () 
       submittedRequests.push(request);
       if (submittedRequests.length === 1) {
         return {
+          code: CONTAINER_MUTATION_ERROR_CODES.stateStale,
           kind: "http" as const,
           message:
             "POST /containers/with-metadata-document: 409 Conflict: parentContainerPath[0] manifest head is stale",
@@ -295,6 +301,7 @@ test("container-with-metadata replans after the parent head advances", async () 
 
 async function runManifestAlreadyExistsCreate(
   conflictMessage: string,
+  code: ContainerMutationErrorCode,
 ): Promise<{
   reported: boolean;
   result: Awaited<ReturnType<typeof createRemoteContainerWithMetadataDocument>>;
@@ -313,6 +320,7 @@ async function runManifestAlreadyExistsCreate(
     createContainerWithMetadataDocumentResult: async () => {
       submitCount += 1;
       return {
+        code,
         kind: "http" as const,
         message: `POST /containers/with-metadata-document: 409 Conflict: ${conflictMessage}`,
         method: "POST" as const,
@@ -379,7 +387,10 @@ async function runManifestAlreadyExistsCreate(
 
 test("container-with-metadata adopts a lost-response create instead of reporting the container conflict", async () => {
   const { reported, result, submitCount } =
-    await runManifestAlreadyExistsCreate("Container manifest already exists");
+    await runManifestAlreadyExistsCreate(
+      "Container manifest already exists",
+      CONTAINER_MUTATION_ERROR_CODES.manifestAlreadyExists,
+    );
 
   expect(result).toBe(CONTAINER_ALREADY_COMMITTED);
   // The benign idempotent-retry conflict must never reach the error reporter.
@@ -387,14 +398,15 @@ test("container-with-metadata adopts a lost-response create instead of reporting
   expect(submitCount).toBe(1);
 });
 
-test("container-with-metadata adopts a lost-response create instead of reporting the metadata-document conflict", async () => {
-  // The container step can succeed while the metadata-document head already
-  // exists, so the server surfaces the document-domain wording. It is the same
-  // benign idempotent-retry conflict and must be handled identically.
+test("container-with-metadata reports a metadata-document conflict as terminal", async () => {
+  // The server transaction rolls back its newly created container when the
+  // metadata document already exists. The document code therefore cannot prove
+  // a lost response committed both artifacts and must not trigger hydration.
   const { reported, result } = await runManifestAlreadyExistsCreate(
     "Document manifest already exists",
+    DOCUMENT_MUTATION_ERROR_CODES.manifestAlreadyExists,
   );
 
-  expect(result).toBe(CONTAINER_ALREADY_COMMITTED);
-  expect(reported).toBe(false);
+  expect(result).toBeNull();
+  expect(reported).toBe(true);
 });

@@ -7,6 +7,7 @@ import {
 import {
   ErrorResponseSchema,
   isUploadMultipartBlobPartResponse,
+  SessionFailureResponseSchema,
   UploadMultipartBlobPartResponseSchema,
 } from "../response";
 import {
@@ -167,7 +168,7 @@ export const getBlobBytesOperation = defineHttpOperation({
   auth: "session",
   failureResponses: {
     400: ErrorResponseSchema,
-    401: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
     403: ErrorResponseSchema,
     404: ErrorResponseSchema,
     409: ErrorResponseSchema,
@@ -192,7 +193,7 @@ export const uploadMultipartBlobPartBytesOperation = defineHttpOperation({
   body: binaryBodySchema,
   failureResponses: {
     400: ErrorResponseSchema,
-    401: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
     403: ErrorResponseSchema,
     404: ErrorResponseSchema,
     409: ErrorResponseSchema,

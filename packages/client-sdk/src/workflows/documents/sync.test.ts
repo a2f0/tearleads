@@ -1675,7 +1675,7 @@ test("syncRemoteDocument regenerates a rejected queued checkpoint and resubmits"
         if (submittedRequests.length === 1) {
           const message = `POST /documents/${documentId}/sync: 409 : Document content-key rotation baseline does not cover the committed frontier`;
           return {
-            code: undefined,
+            code: DOCUMENT_SYNC_ERROR_CODES.checkpointCoverageConflict,
             message,
             ok: false,
             report: () => {},
@@ -1724,7 +1724,7 @@ test("syncRemoteDocument regenerates a rejected queued checkpoint and resubmits"
   expect(synced?.settledPendingUpdateIds).not.toContain(regenerated?.id ?? "");
   // The pass narrates itself in clipboard-safe trace lines.
   expect(traceLines).toContain(
-    `document sync submit failed document=${writerProjection.documentId} status=409 code=none action=regenerate-checkpoints`,
+    `document sync submit failed document=${writerProjection.documentId} status=409 code=${DOCUMENT_SYNC_ERROR_CODES.checkpointCoverageConflict} action=regenerate-checkpoints`,
   );
   expect(traceLines).toContain(
     `document sync checkpoint regeneration document=${writerProjection.documentId} checkpoints=1 updates=0`,

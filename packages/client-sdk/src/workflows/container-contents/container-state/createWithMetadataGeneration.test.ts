@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
+import { CONTAINER_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
 import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
@@ -24,6 +25,7 @@ test("container-with-metadata does not retry or report after stale-parent refres
     createContainerWithMetadataDocumentResult: async () => {
       submissions += 1;
       return {
+        code: CONTAINER_MUTATION_ERROR_CODES.stateStale,
         kind: "http" as const,
         message:
           "POST /containers/with-metadata-document: 409 Conflict: parentContainerPath[0] manifest head is stale",

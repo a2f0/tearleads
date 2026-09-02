@@ -4,6 +4,7 @@ import {
   DocumentEditAttributionResponseSchema,
   ErrorResponseSchema,
   ListDocumentEditAttributionRangesResponseSchema,
+  SessionFailureResponseSchema,
 } from "../response";
 import {
   operationRequestPath,
@@ -41,7 +42,7 @@ test("document attribution operations own their HTTP contracts", () => {
   ]) {
     expect(operation.failureResponses).toEqual({
       400: ErrorResponseSchema,
-      401: ErrorResponseSchema,
+      401: SessionFailureResponseSchema,
       403: ErrorResponseSchema,
       404: ErrorResponseSchema,
       409: ErrorResponseSchema,

@@ -14,7 +14,11 @@ import {
 } from "../../../../access/read/accessManifestStore";
 import { uniqueSortedStrings } from "../../../../utils/array";
 import { isUniqueViolation } from "../../../../utils/databaseErrors";
-import { DocumentMutationError, documentNotFound } from "../errors";
+import {
+  DocumentMutationError,
+  documentManifestAlreadyExists,
+  documentNotFound,
+} from "../errors";
 
 export async function insertDocumentAndLinks(input: {
   readonly createdByFingerprint: string;
@@ -38,7 +42,7 @@ export async function insertDocumentAndLinks(input: {
       // assertCreateCanAdvanceDocumentHead and this insert. Report the same
       // conflict the sequential path gives so the caller adopts the existing
       // remote document instead of failing on a driver 500.
-      throw new DocumentMutationError("Document manifest already exists", 409);
+      throw documentManifestAlreadyExists();
     }
     throw error;
   }
@@ -82,7 +86,7 @@ export async function assertCreateCanAdvanceDocumentHead(
     executor,
   );
   if (head) {
-    throw new DocumentMutationError("Document manifest already exists", 409);
+    throw documentManifestAlreadyExists();
   }
 }
 

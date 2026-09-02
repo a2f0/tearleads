@@ -7,6 +7,7 @@ import {
   isDocumentEditAttributionResponse,
   isListDocumentEditAttributionRangesResponse,
   ListDocumentEditAttributionRangesResponseSchema,
+  SessionFailureResponseSchema,
 } from "../response";
 import { loosePlainObject, nonEmptyStringSchema } from "../schema";
 import { defineJsonOperation } from "./definition";
@@ -134,7 +135,7 @@ const DocumentAttributionRangesResponseHeadersSchema = z.strictObject({
 
 const attributionFailureResponses = {
   400: ErrorResponseSchema,
-  401: ErrorResponseSchema,
+  401: SessionFailureResponseSchema,
   403: ErrorResponseSchema,
   404: ErrorResponseSchema,
   409: ErrorResponseSchema,

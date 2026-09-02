@@ -11,10 +11,12 @@ import {
 import {
   DocumentCreateResponseSchema,
   DocumentLinkSetMutationResponseSchema,
+  DocumentMutationFailureResponseSchema,
   DocumentPurgeProofResponseSchema,
   DocumentPurgeResponseSchema,
   ErrorResponseSchema,
   PaymentRequiredErrorResponseSchema,
+  SessionFailureResponseSchema,
 } from "../response";
 import {
   createDocumentOperation,
@@ -46,11 +48,11 @@ import {
 const failureStatuses = [400, 401, 402, 403, 404, 409, 500, 503];
 const failureResponses = {
   400: ErrorResponseSchema,
-  401: ErrorResponseSchema,
+  401: SessionFailureResponseSchema,
   402: PaymentRequiredErrorResponseSchema,
   403: ErrorResponseSchema,
-  404: ErrorResponseSchema,
-  409: ErrorResponseSchema,
+  404: DocumentMutationFailureResponseSchema,
+  409: DocumentMutationFailureResponseSchema,
   500: ErrorResponseSchema,
   503: ErrorResponseSchema,
 };

@@ -1,9 +1,9 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import {
+  DOCUMENT_MUTATION_ERROR_CODES,
   DOCUMENT_NOT_FOUND_ERROR_CODE,
   DOCUMENT_SYNC_ERROR_CODES,
-  type DocumentNotFoundErrorCode,
-  type DocumentSyncErrorCode,
+  type DocumentMutationErrorCode,
   isPrincipalPolicyStaleErrorResponse,
   type PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
@@ -21,10 +21,6 @@ import { ContainerWriterProjectionError } from "../../containers/writerProjectio
 import { PrincipalPolicyProjectionError } from "../../principals/principalPolicyProjection";
 
 type DocumentMutationStatus = 400 | 403 | 404 | 409 | 503;
-
-type DocumentMutationErrorCode =
-  | DocumentSyncErrorCode
-  | DocumentNotFoundErrorCode;
 
 export class DocumentMutationError extends Error {
   constructor(
@@ -61,6 +57,14 @@ export function documentUpdateIdConflict(): DocumentMutationError {
     "Document update id conflict",
     409,
     DOCUMENT_SYNC_ERROR_CODES.updateIdConflict,
+  );
+}
+
+export function documentManifestAlreadyExists(): DocumentMutationError {
+  return new DocumentMutationError(
+    "Document manifest already exists",
+    409,
+    DOCUMENT_MUTATION_ERROR_CODES.manifestAlreadyExists,
   );
 }
 

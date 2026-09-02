@@ -26,6 +26,7 @@ import {
   isWebSocketTicketResponse,
   ListSessionsResponseSchema,
   RegistrationResponseSchema,
+  SessionFailureResponseSchema,
   UserIdentityResponseSchema,
   VerifyFailureResponseSchema,
   VerifySuccessResponseSchema,
@@ -108,7 +109,7 @@ export const registerOperation = defineJsonOperation({
 export const logoutOperation = defineJsonOperation({
   auth: "session",
   failureResponses: {
-    401: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
     500: ErrorResponseSchema,
   },
   failureStatuses: [401, 500],
@@ -124,7 +125,7 @@ export const logoutOperation = defineJsonOperation({
 export const webSocketTicketOperation = defineJsonOperation({
   auth: "session",
   failureResponses: {
-    401: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
     500: ErrorResponseSchema,
   },
   failureStatuses: [401, 500],
@@ -140,7 +141,7 @@ export const webSocketTicketOperation = defineJsonOperation({
 export const listSessionsOperation = defineJsonOperation({
   auth: "session",
   failureResponses: {
-    401: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
     500: ErrorResponseSchema,
   },
   failureStatuses: [401, 500],
@@ -157,7 +158,7 @@ export const destroySessionOperation = defineJsonOperation({
   auth: "session",
   failureResponses: {
     400: ErrorResponseSchema,
-    401: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
     404: ErrorResponseSchema,
     500: ErrorResponseSchema,
   },
@@ -174,7 +175,7 @@ export const destroySessionOperation = defineJsonOperation({
 export const userIdentityOperation = defineJsonOperation({
   auth: "session",
   failureResponses: {
-    401: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
     404: ErrorResponseSchema,
     500: ErrorResponseSchema,
   },

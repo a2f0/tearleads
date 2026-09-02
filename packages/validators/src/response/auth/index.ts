@@ -7,6 +7,14 @@ export {
   isChallengeResponse,
 } from "./challenge";
 export {
+  isSessionRefreshRequiredFailure,
+  SESSION_ERROR_CODES,
+  type SessionErrorCode,
+  SessionErrorCodeSchema,
+  type SessionFailureResponse,
+  SessionFailureResponseSchema,
+} from "./sessionFailure";
+export {
   type DestroySessionResponse,
   DestroySessionResponseSchema,
   isDestroySessionResponse,

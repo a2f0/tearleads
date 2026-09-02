@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import {
   createAuthor,
   SIGNED_AT,
@@ -107,6 +108,7 @@ test("stale required document create verifies a group policy without caching it"
           if (submissions === 1) {
             current = false;
             return {
+              code: DOCUMENT_SYNC_ERROR_CODES.stateStale,
               message:
                 "POST /documents: 409 Conflict: targetContainerPathRefs[0] is stale",
               ok: false as const,

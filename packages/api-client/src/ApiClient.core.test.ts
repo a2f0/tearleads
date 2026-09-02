@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { SESSION_ERROR_CODES } from "@tearleads/validators/response";
 import { HttpResponse, http } from "msw";
 import {
   createContainerMutationRequest,
@@ -14,6 +15,16 @@ import {
 } from "../test/helpers/apiClientTestHarness";
 import { ApiClient } from "./ApiClient";
 import { errorMessage } from "./requestInternals";
+
+function expiredSessionResponse(): Response {
+  return HttpResponse.json(
+    {
+      code: SESSION_ERROR_CODES.refreshRequired,
+      error: "Session expired",
+    },
+    { status: 401, statusText: "Unauthorized" },
+  );
+}
 
 testApiClient(
   "normalizes base URL and includes authorization headers",
@@ -278,10 +289,7 @@ testApiClient(
         async ({ params, request }) => {
           calls.push(await captureHttpCall(request));
           if (request.headers.get("authorization") === "Bearer stale-token") {
-            return HttpResponse.json(
-              { error: "Session expired" },
-              { status: 401, statusText: "Unauthorized" },
-            );
+            return expiredSessionResponse();
           }
 
           const { userId } = params as { userId: string };
@@ -335,10 +343,7 @@ testApiClient(
   async () => {
     server.use(
       http.get(`${apiBaseUrl}/auth/user-identity/:userId`, () =>
-        HttpResponse.json(
-          { error: "Session expired" },
-          { status: 401, statusText: "Unauthorized" },
-        ),
+        expiredSessionResponse(),
       ),
     );
 
@@ -368,10 +373,7 @@ testApiClient(
   async () => {
     server.use(
       http.post(`${apiBaseUrl}/documents/:documentId/sync`, () =>
-        HttpResponse.json(
-          { error: "Session expired" },
-          { status: 401, statusText: "Unauthorized" },
-        ),
+        expiredSessionResponse(),
       ),
     );
 
@@ -401,10 +403,7 @@ testApiClient(
 testApiClient("does not renew expired sessions for logout", async () => {
   server.use(
     http.post(`${apiBaseUrl}/auth/logout`, () => {
-      return HttpResponse.json(
-        { error: "Session expired" },
-        { status: 401, statusText: "Unauthorized" },
-      );
+      return expiredSessionResponse();
     }),
   );
 

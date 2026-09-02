@@ -7,6 +7,7 @@ import {
   DocumentSyncRequestSchema,
   isDocumentSyncRequest,
 } from "../request/document";
+import { SessionFailureResponseSchema } from "../response/auth/sessionFailure";
 import {
   DocumentSyncResponseSchema,
   isDocumentSyncResponse,
@@ -31,6 +32,7 @@ export const documentSyncOperation = defineJsonOperation({
   auth: "session",
   body: DocumentSyncRequestSchema,
   failureResponses: {
+    401: SessionFailureResponseSchema,
     404: DocumentNotFoundErrorResponseSchema,
     409: DocumentSyncErrorResponseSchema,
     413: ErrorResponseSchema,

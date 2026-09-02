@@ -14,6 +14,7 @@ import {
   isListDocumentAttachmentsResponse,
   ListDocumentAttachmentsResponseSchema,
   PaymentRequiredErrorResponseSchema,
+  SessionFailureResponseSchema,
 } from "../response";
 import { defineJsonOperation } from "./definition";
 
@@ -45,7 +46,7 @@ export const bindBlobAttachmentOperation = defineJsonOperation({
   body: BlobAttachmentBindRequestSchema,
   failureResponses: {
     400: ErrorResponseSchema,
-    401: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
     402: PaymentRequiredErrorResponseSchema,
     403: ErrorResponseSchema,
     404: ErrorResponseSchema,
@@ -68,7 +69,7 @@ export const detachBlobAttachmentOperation = defineJsonOperation({
   body: BlobAttachmentDetachRequestSchema,
   failureResponses: {
     400: ErrorResponseSchema,
-    401: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
     402: PaymentRequiredErrorResponseSchema,
     403: ErrorResponseSchema,
     404: ErrorResponseSchema,
@@ -90,7 +91,7 @@ export const listDocumentAttachmentsOperation = defineJsonOperation({
   auth: "session",
   failureResponses: {
     400: ErrorResponseSchema,
-    401: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
     403: ErrorResponseSchema,
     404: ErrorResponseSchema,
     409: ErrorResponseSchema,

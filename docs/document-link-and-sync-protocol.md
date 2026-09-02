@@ -127,14 +127,19 @@ their `minLsn` echoed as a compatibility token, which is not a durability claim.
 
 JSON `409` responses retain `error` for diagnostics and carry a normative code:
 
-| Code                               | Client action                                  |
-| ---------------------------------- | ---------------------------------------------- |
-| `document_sync_state_stale`        | Refetch the writer projection and replan.      |
-| `document_sync_update_id_conflict` | Run pending-update ID recovery.                |
-| `document_sync_conflict`           | Report the terminal conflict without retrying. |
+| Code                                         | Client action                                  |
+| -------------------------------------------- | ---------------------------------------------- |
+| `document_sync_checkpoint_coverage_conflict` | Regenerate the queued rotation checkpoint.     |
+| `document_sync_state_stale`                  | Refetch the writer projection and replan.      |
+| `document_sync_update_id_conflict`           | Run pending-update ID recovery.                |
+| `document_sync_conflict`                     | Report the terminal conflict without retrying. |
 
 Retry and recovery decisions use status plus `code`, never `error` text. A
 missing or unknown code fails closed as a terminal conflict.
+
+A stable-id document-create retry adopts the committed remote document only on
+`409 document_manifest_already_exists`. The same code and status are terminal
+for other callers; diagnostic `error` text never selects the adoption path.
 
 When an inline `containerRekeys[]` mutation encounters a stale principal-policy
 projection, `document_sync_state_stale` may also carry signed

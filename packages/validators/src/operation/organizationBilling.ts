@@ -11,6 +11,7 @@ import {
   OrganizationBillingManagementUrlResponseSchema,
   OrganizationBillingResponseSchema,
   OrganizationNativePurchaseEligibilityResponseSchema,
+  SessionFailureResponseSchema,
 } from "../response";
 import { defineJsonOperation, type RuntimeRefinement } from "./definition";
 import { OrganizationPathParamsSchema } from "./organizations";
@@ -37,7 +38,7 @@ export type OrganizationBillingNativeEligibilityQuery = z.infer<
 
 const organizationBillingReadFailureResponses = {
   400: ErrorResponseSchema,
-  401: ErrorResponseSchema,
+  401: SessionFailureResponseSchema,
   403: ErrorResponseSchema,
   404: ErrorResponseSchema,
   500: ErrorResponseSchema,

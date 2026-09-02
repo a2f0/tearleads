@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import {
+  type ContainerWriterProjectionResponse,
+  DOCUMENT_SYNC_ERROR_CODES,
+} from "@tearleads/validators/response";
 import {
   createMutationResponseFromRequest,
   createParentProjection,
@@ -51,6 +54,7 @@ test("legacy container create finishes its remote metadata document without stal
       documentCreateCount += 1;
       if (documentCreateCount === 1) {
         return {
+          code: DOCUMENT_SYNC_ERROR_CODES.stateStale,
           message:
             "POST /documents: 409 Conflict: targetContainerPathRefs[0] is stale",
           ok: false as const,

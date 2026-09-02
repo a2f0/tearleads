@@ -9,12 +9,14 @@ import {
 import {
   ContainerCreateWithMetadataDocumentResponseSchema,
   ContainerDeleteResponseSchema,
+  ContainerMutationFailureResponseSchema,
   ContainerMutationResponseSchema,
   ErrorResponseSchema,
   isContainerCreateWithMetadataDocumentResponse,
   isContainerDeleteResponse,
   isContainerMutationResponse,
   PaymentRequiredErrorResponseSchema,
+  SessionFailureResponseSchema,
 } from "../response";
 import { defineJsonOperation } from "./definition";
 
@@ -30,11 +32,11 @@ export type ContainerMutationPathParams = z.infer<
 
 const containerMutationFailureResponses = {
   400: ErrorResponseSchema,
-  401: ErrorResponseSchema,
+  401: SessionFailureResponseSchema,
   402: PaymentRequiredErrorResponseSchema,
   403: ErrorResponseSchema,
   404: ErrorResponseSchema,
-  409: ErrorResponseSchema,
+  409: ContainerMutationFailureResponseSchema,
   500: ErrorResponseSchema,
 } as const;
 

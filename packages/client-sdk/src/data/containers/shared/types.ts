@@ -103,6 +103,7 @@ export interface ContainerCreatePlanContext
 }
 
 export interface ContainerMutationSubmitFailure {
+  readonly code?: string | undefined;
   readonly message: string;
   readonly ok: false;
   readonly report: () => void;

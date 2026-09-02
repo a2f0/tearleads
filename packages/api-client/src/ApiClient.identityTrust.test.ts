@@ -1,5 +1,6 @@
 import { expect } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
+import { SESSION_ERROR_CODES } from "@tearleads/validators/response";
 import { HttpResponse, http } from "msw";
 import {
   apiBaseUrl,
@@ -18,7 +19,10 @@ testApiClient(
     server.use(
       http.get(`${apiBaseUrl}/auth/user-identity/:userId`, () =>
         HttpResponse.json(
-          { error: "Session expired" },
+          {
+            code: SESSION_ERROR_CODES.refreshRequired,
+            error: "Session expired",
+          },
           { status: 401, statusText: "Unauthorized" },
         ),
       ),

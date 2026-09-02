@@ -8,10 +8,45 @@ import {
   createTestExecSql,
 } from "@tearleads/test-utils";
 import type { DocumentCreateRequest } from "@tearleads/validators/request";
+import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import { createAuthor } from "../../../test/helpers/documentFixturePrimitives";
 import { createResponseFromRequest } from "../../../test/helpers/documentResponseFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../test/helpers/trustedUserIdentity";
-import { createRemoteDocument } from "./create";
+import {
+  createRemoteDocument,
+  isStaleDocumentCreateTargetConflict,
+} from "./create";
+
+test("document create replan requires the exact stale-state code", () => {
+  const diagnostic =
+    "POST /documents: 409 Conflict: targetContainerPathRefs[0] is stale";
+  const failure = (code: string | undefined, status = 409) => ({
+    ...(code === undefined ? {} : { code }),
+    message: diagnostic,
+    ok: false as const,
+    status,
+  });
+
+  expect(
+    isStaleDocumentCreateTargetConflict(
+      failure(DOCUMENT_SYNC_ERROR_CODES.stateStale),
+    ),
+  ).toBe(true);
+  expect(isStaleDocumentCreateTargetConflict(failure(undefined))).toBe(false);
+  expect(isStaleDocumentCreateTargetConflict(failure("unknown_code"))).toBe(
+    false,
+  );
+  expect(
+    isStaleDocumentCreateTargetConflict(
+      failure(` ${DOCUMENT_SYNC_ERROR_CODES.stateStale} `),
+    ),
+  ).toBe(false);
+  expect(
+    isStaleDocumentCreateTargetConflict(
+      failure(DOCUMENT_SYNC_ERROR_CODES.stateStale, 503),
+    ),
+  ).toBe(false);
+});
 
 test("createRemoteDocument replans once when the target container head advances", async () => {
   const { author, signingPublicKey } = await createAuthor();
@@ -41,8 +76,8 @@ test("createRemoteDocument replans once when the target container head advances"
           submittedRequests.push(request);
           if (submittedRequests.length === 1) {
             return {
-              message:
-                "POST /documents: 409 Conflict: targetContainerPathRefs[0] is stale",
+              code: DOCUMENT_SYNC_ERROR_CODES.stateStale,
+              message: "POST /documents: 409 Conflict: diagnostic changed",
               ok: false as const,
               report: () => {
                 reported = true;

@@ -39,6 +39,7 @@ import {
   OrganizationProvisioningResponseSchema,
   OrganizationReadModelResponseSchema,
   PaymentRequiredErrorResponseSchema,
+  SessionFailureResponseSchema,
 } from "../response";
 import { uuidV4StringSchema } from "../schema";
 import { defineJsonOperation } from "./definition";
@@ -71,7 +72,7 @@ export const createOrganizationOperation = defineJsonOperation({
   body: CreateOrganizationRequestSchema,
   failureResponses: {
     400: ErrorResponseSchema,
-    401: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
     403: ErrorResponseSchema,
     404: ErrorResponseSchema,
     409: ErrorResponseSchema,
@@ -97,7 +98,7 @@ export const getOrganizationDataUsageOperation = defineJsonOperation({
   auth: "session",
   failureResponses: {
     400: ErrorResponseSchema,
-    401: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
     403: ErrorResponseSchema,
     404: ErrorResponseSchema,
     500: ErrorResponseSchema,
@@ -117,7 +118,7 @@ export const getOrganizationReadModelOperation = defineJsonOperation({
   auth: "session",
   failureResponses: {
     400: ErrorResponseSchema,
-    401: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
     403: ErrorResponseSchema,
     404: ErrorResponseSchema,
     500: ErrorResponseSchema,
@@ -139,7 +140,7 @@ export const createOrganizationGroupOperation = defineJsonOperation({
   body: CreateOrganizationGroupWithPolicyRequestSchema,
   failureResponses: {
     400: ErrorResponseSchema,
-    401: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
     402: PaymentRequiredErrorResponseSchema,
     403: ErrorResponseSchema,
     404: ErrorResponseSchema,
@@ -166,7 +167,7 @@ export const deleteOrganizationGroupOperation = defineJsonOperation({
   body: DeleteOrganizationGroupRequestSchema,
   failureResponses: {
     400: ErrorResponseSchema,
-    401: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
     402: PaymentRequiredErrorResponseSchema,
     403: ErrorResponseSchema,
     404: ErrorResponseSchema,
@@ -189,7 +190,7 @@ export const listOrganizationGroupMembersOperation = defineJsonOperation({
   auth: "session",
   failureResponses: {
     400: ErrorResponseSchema,
-    401: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
     403: ErrorResponseSchema,
     404: ErrorResponseSchema,
     500: ErrorResponseSchema,
@@ -209,7 +210,7 @@ export const updateOrganizationProfileOperation = defineJsonOperation({
   body: UpdateOrganizationProfileRequestSchema,
   failureResponses: {
     400: ErrorResponseSchema,
-    401: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
     402: PaymentRequiredErrorResponseSchema,
     403: ErrorResponseSchema,
     404: ErrorResponseSchema,
@@ -230,7 +231,7 @@ export const updateOrganizationRosterEntryOperation = defineJsonOperation({
   body: UpdateOrganizationRosterEntryRequestSchema,
   failureResponses: {
     400: ErrorResponseSchema,
-    401: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
     402: PaymentRequiredErrorResponseSchema,
     403: ErrorResponseSchema,
     404: ErrorResponseSchema,

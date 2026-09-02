@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
+import { CONTAINER_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
 import {
   createMutationResponseFromRequest,
   createParentProjection,
@@ -30,6 +31,7 @@ test("createRemoteContainer replans once after the parent head advances", async 
           requests.push(request);
           if (requests.length === 1) {
             return {
+              code: CONTAINER_MUTATION_ERROR_CODES.stateStale,
               message: STALE_PARENT_FAILURE,
               ok: false as const,
               report: () => {
@@ -162,6 +164,7 @@ test("createRemoteContainer does not retry or report after stale-parent refresh 
         createContainerResult: async () => {
           submissions += 1;
           return {
+            code: CONTAINER_MUTATION_ERROR_CODES.stateStale,
             message: STALE_PARENT_FAILURE,
             ok: false as const,
             report: () => {

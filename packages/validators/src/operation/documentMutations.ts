@@ -15,6 +15,7 @@ import {
 import {
   DocumentCreateResponseSchema,
   DocumentLinkSetMutationResponseSchema,
+  DocumentMutationFailureResponseSchema,
   DocumentPurgeProofResponseSchema,
   DocumentPurgeResponseSchema,
   ErrorResponseSchema,
@@ -23,6 +24,7 @@ import {
   isDocumentPurgeProofResponse,
   isDocumentPurgeResponse,
   PaymentRequiredErrorResponseSchema,
+  SessionFailureResponseSchema,
 } from "../response";
 import { defineJsonOperation } from "./definition";
 import { DocumentSyncPathParamsSchema } from "./documentSync";
@@ -50,11 +52,11 @@ export type DocumentPurgeProofQuery = z.infer<
 
 const documentMutationFailureResponses = {
   400: ErrorResponseSchema,
-  401: ErrorResponseSchema,
+  401: SessionFailureResponseSchema,
   402: PaymentRequiredErrorResponseSchema,
   403: ErrorResponseSchema,
-  404: ErrorResponseSchema,
-  409: ErrorResponseSchema,
+  404: DocumentMutationFailureResponseSchema,
+  409: DocumentMutationFailureResponseSchema,
   500: ErrorResponseSchema,
   503: ErrorResponseSchema,
 } as const;

@@ -4,6 +4,7 @@ import {
   createContainerWriterProjectionFixture,
   createTestExecSql,
 } from "@tearleads/test-utils";
+import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import { createAuthor } from "../../../test/helpers/documentFixturePrimitives";
 import { createTestTrustedUserIdentityResolver } from "../../../test/helpers/trustedUserIdentity";
 import { createRemoteDocument } from "./create";
@@ -133,6 +134,7 @@ test("createRemoteDocument records a terminal failure when the stale-target refe
         createDocumentResult: async () => {
           submissions += 1;
           return {
+            code: DOCUMENT_SYNC_ERROR_CODES.stateStale,
             message:
               "POST /documents: 409 Conflict: targetContainerPathRefs[0] is stale",
             ok: false as const,

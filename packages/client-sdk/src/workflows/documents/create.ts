@@ -1,8 +1,9 @@
 import type { DocumentCreateRequest } from "@tearleads/validators/request";
-import type {
-  ContainerWriterProjectionResponse,
-  DocumentCreateResponse,
-  DocumentWriterProjectionResponse,
+import {
+  type ContainerWriterProjectionResponse,
+  DOCUMENT_SYNC_ERROR_CODES,
+  type DocumentCreateResponse,
+  type DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { buildDocumentCreatePlan } from "../../data/documents/shared/events";
 import { acknowledgeDocumentMutation } from "../../data/documents/shared/mutationAcknowledgement";
@@ -458,20 +459,20 @@ type DocumentCreateSubmission =
       readonly ok: true;
     }
   | {
+      readonly code?: string | undefined;
       readonly message: string;
       readonly ok: false;
       readonly report?: (() => void) | undefined;
       readonly status: number | null;
     };
 
-function isStaleDocumentCreateTargetConflict(
+export function isStaleDocumentCreateTargetConflict(
   submission: DocumentCreateSubmission,
 ): boolean {
   return (
     !submission.ok &&
     submission.status === 409 &&
-    submission.message.includes("targetContainerPathRefs") &&
-    submission.message.includes("is stale")
+    submission.code === DOCUMENT_SYNC_ERROR_CODES.stateStale
   );
 }
 

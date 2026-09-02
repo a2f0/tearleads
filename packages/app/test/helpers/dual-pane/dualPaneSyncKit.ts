@@ -79,9 +79,7 @@ export async function waitForRemoteAttachmentBlob() {
   );
 }
 
-function isRetryableDocumentSyncStaleFailure(
-  request: ProxiedApiRequest,
-): boolean {
+function isRetryableDocumentSyncFailure(request: ProxiedApiRequest): boolean {
   let code: unknown;
   try {
     const body = JSON.parse(request.responseBody) as unknown;
@@ -97,7 +95,9 @@ function isRetryableDocumentSyncStaleFailure(
     request.method === "POST" &&
     request.status === 409 &&
     /^\/documents\/[^/]+\/sync$/u.test(requestPath(request.url)) &&
-    code === DOCUMENT_SYNC_ERROR_CODES.stateStale
+    (code === DOCUMENT_SYNC_ERROR_CODES.stateStale ||
+      code === DOCUMENT_SYNC_ERROR_CODES.updateIdConflict ||
+      code === DOCUMENT_SYNC_ERROR_CODES.checkpointCoverageConflict)
   );
 }
 
@@ -140,7 +140,7 @@ function listUnresolvedPostShareFailures(
       return false;
     }
     if (
-      isRetryableDocumentSyncStaleFailure(request) &&
+      isRetryableDocumentSyncFailure(request) &&
       hasLaterSuccessfulRetry(requests, index)
     ) {
       return false;
@@ -191,7 +191,7 @@ export async function waitForNoPostShareSyncFailures(
 
     expect(
       unresolvedFailures.filter(
-        (request) => !isRetryableDocumentSyncStaleFailure(request),
+        (request) => !isRetryableDocumentSyncFailure(request),
       ),
       `Unexpected post-share API failures.\nrequests=\n${summarizeProxiedApiRequests(postShareRequests)}`,
     ).toEqual([]);

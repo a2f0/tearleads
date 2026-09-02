@@ -5,6 +5,7 @@ import type {
   DocumentOutgoingUpdate,
   DocumentSyncRequest,
 } from "@tearleads/validators/request";
+import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import { eq, inArray } from "drizzle-orm";
 import { getLatestDocumentContentKeyEpoch } from "../../../access/read/documentContentKeyStore";
 import { DocumentMutationError } from "./errors";
@@ -61,6 +62,7 @@ function assertNewBaselineSound(input: {
     throw new DocumentMutationError(
       "Document content-key rotation baseline does not cover the committed frontier",
       409,
+      DOCUMENT_SYNC_ERROR_CODES.checkpointCoverageConflict,
     );
   }
 }

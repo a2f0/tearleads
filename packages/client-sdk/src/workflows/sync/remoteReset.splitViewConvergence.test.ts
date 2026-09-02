@@ -16,7 +16,10 @@ import {
   createTestExecSql,
 } from "@tearleads/test-utils";
 import type { DocumentCreateRequest } from "@tearleads/validators/request";
-import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
+import {
+  DOCUMENT_MUTATION_ERROR_CODES,
+  type DocumentWriterProjectionResponse,
+} from "@tearleads/validators/response";
 import {
   createAuthor,
   createResponseFromRequest,
@@ -169,6 +172,7 @@ async function createAdoptionServer(containerId: string) {
     createDocumentResult: async (request: DocumentCreateRequest) => {
       if (server.committedProjection) {
         return {
+          code: DOCUMENT_MUTATION_ERROR_CODES.manifestAlreadyExists,
           message:
             "POST /documents: 409 Conflict: Document manifest already exists",
           ok: false as const,

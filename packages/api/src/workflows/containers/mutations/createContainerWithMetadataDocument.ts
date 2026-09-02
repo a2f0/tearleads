@@ -155,7 +155,10 @@ export async function runCreateContainerWithMetadataDocumentWorkflow(
     // surface it as a ContainerMutationError so callers of the container
     // workflow only ever deal with the container error type.
     if (error instanceof DocumentMutationError) {
-      throw new ContainerMutationError(error.message, error.status);
+      throw new ContainerMutationError(error.message, error.status, {
+        ...(error.code === undefined ? {} : { code: error.code }),
+        error: error.message,
+      });
     }
 
     throw error;

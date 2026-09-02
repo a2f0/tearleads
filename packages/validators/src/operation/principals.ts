@@ -16,6 +16,7 @@ import {
   PrincipalPolicyBundleResponseSchema,
   PrincipalPolicyErrorResponseSchema,
   PrincipalPolicyMutationResponseSchema,
+  SessionFailureResponseSchema,
 } from "../response";
 import { uuidV4StringSchema } from "../schema";
 import { defineJsonOperation } from "./definition";
@@ -42,7 +43,7 @@ export const getPrincipalPolicyOperation = defineJsonOperation({
   auth: "session",
   failureResponses: {
     400: PrincipalPolicyErrorResponseSchema,
-    401: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
     404: PrincipalPolicyErrorResponseSchema,
     500: ErrorResponseSchema,
   },
@@ -61,7 +62,7 @@ export const putPrincipalPolicyOperation = defineJsonOperation({
   body: OrganizationPrincipalPolicyRequestSchema,
   failureResponses: {
     400: PrincipalPolicyErrorResponseSchema,
-    401: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
     403: PrincipalPolicyErrorResponseSchema,
     404: PrincipalPolicyErrorResponseSchema,
     409: PrincipalPolicyErrorResponseSchema,
@@ -84,7 +85,7 @@ export const commitOrganizationGroupPolicyOperation = defineJsonOperation({
   body: CommitOrganizationGroupPolicyRequestSchema,
   failureResponses: {
     400: PrincipalPolicyErrorResponseSchema,
-    401: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
     402: PaymentRequiredErrorResponseSchema,
     403: PrincipalPolicyErrorResponseSchema,
     404: PrincipalPolicyErrorResponseSchema,

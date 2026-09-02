@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   ErrorResponseSchema,
+  SessionFailureResponseSchema,
   UploadMultipartBlobPartResponseSchema,
 } from "../response";
 import { MAX_MULTIPART_BLOB_PART_BYTES } from "../util";
@@ -40,7 +41,7 @@ test("blob byte operations own their HTTP contracts", () => {
   ]) {
     expect(operation.failureResponses).toEqual({
       400: ErrorResponseSchema,
-      401: ErrorResponseSchema,
+      401: SessionFailureResponseSchema,
       403: ErrorResponseSchema,
       404: ErrorResponseSchema,
       409: ErrorResponseSchema,

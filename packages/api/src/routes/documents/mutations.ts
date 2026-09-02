@@ -18,11 +18,13 @@ import {
   DOCUMENT_SYNC_ERROR_CODES,
   type DocumentCreateResponse,
   type DocumentLinkSetMutationResponse,
+  type DocumentMutationFailureResponse,
   type DocumentNotFoundErrorResponse,
   type DocumentPurgeProofResponse,
   type DocumentPurgeResponse,
   type DocumentSyncErrorResponse,
   type DocumentSyncResponse,
+  isDocumentSyncErrorCode,
 } from "@tearleads/validators/response";
 import { MAX_DOCUMENT_SYNC_REQUEST_BYTES } from "@tearleads/validators/util";
 import type { Context, MiddlewareHandler } from "hono";
@@ -71,13 +73,21 @@ function handleDocumentMutationError(error: unknown) {
   throw error;
 }
 
+function documentMutationErrorBody(
+  error: ReturnType<typeof handleDocumentMutationError>,
+): DocumentMutationFailureResponse {
+  return {
+    ...(error.code === undefined ? {} : { code: error.code }),
+    error: error.error,
+  };
+}
+
 export function documentSyncErrorBody(
   error: ReturnType<typeof handleDocumentMutationError>,
 ): DocumentSyncErrorResponse {
-  const code =
-    error.code === undefined || error.code === DOCUMENT_NOT_FOUND_ERROR_CODE
-      ? DOCUMENT_SYNC_ERROR_CODES.conflict
-      : error.code;
+  const code = isDocumentSyncErrorCode(error.code)
+    ? error.code
+    : DOCUMENT_SYNC_ERROR_CODES.conflict;
   if (code === DOCUMENT_SYNC_ERROR_CODES.stateStale) {
     return {
       code,
@@ -107,7 +117,10 @@ async function respondWithDocumentCreate(
     );
   } catch (error) {
     const result = handleDocumentMutationError(error);
-    return c.json({ error: result.error }, result.status);
+    return c.json<DocumentMutationFailureResponse>(
+      documentMutationErrorBody(result),
+      result.status,
+    );
   }
 }
 
@@ -156,7 +169,10 @@ async function respondWithDocumentLinkSetMutation(
     return c.json<DocumentLinkSetMutationResponse>(response);
   } catch (error) {
     const result = handleDocumentMutationError(error);
-    return c.json({ error: result.error }, result.status);
+    return c.json<DocumentMutationFailureResponse>(
+      documentMutationErrorBody(result),
+      result.status,
+    );
   }
 }
 
@@ -258,7 +274,10 @@ async function respondWithDocumentPurge(
     return c.json<DocumentPurgeResponse>(response);
   } catch (error) {
     const result = handleDocumentMutationError(error);
-    return c.json({ error: result.error }, result.status);
+    return c.json<DocumentMutationFailureResponse>(
+      documentMutationErrorBody(result),
+      result.status,
+    );
   }
 }
 
@@ -282,7 +301,10 @@ async function respondWithDocumentPurgeProof(
     );
   } catch (error) {
     const result = handleDocumentMutationError(error);
-    return c.json({ error: result.error }, result.status);
+    return c.json<DocumentMutationFailureResponse>(
+      documentMutationErrorBody(result),
+      result.status,
+    );
   }
 }
 

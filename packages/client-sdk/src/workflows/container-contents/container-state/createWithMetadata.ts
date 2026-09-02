@@ -37,8 +37,8 @@ import type {
 
 /**
  * Sentinel outcome for a container-with-metadata create whose response was lost:
- * the re-submit reports the container (or its metadata document) manifest already
- * exists, so the object is committed remotely. Callers treat this as a benign
+ * the re-submit reports that the container manifest already exists, so the
+ * object is committed remotely. Callers treat this as a benign
  * idempotent-retry conflict — they neither surface it as an error nor create a
  * duplicate. The committed container's metadata state (documentId +
  * accessStateHash) lands when the parent's contents are next hydrated, which

@@ -1,36 +1,34 @@
+import {
+  CONTAINER_MUTATION_ERROR_CODES,
+  DOCUMENT_SYNC_ERROR_CODES,
+} from "@tearleads/validators/response";
 import type { ContainerMutationSubmitFailure } from "./types";
-
-const STALE_PARENT_CONTAINER_PATH_PATTERN =
-  /: parentContainerPath\[\d+\] manifest head is stale$/u;
 
 export function isStaleParentContainerPathFailure(
   failure: ContainerMutationSubmitFailure,
 ): boolean {
   return (
     failure.status === 409 &&
-    STALE_PARENT_CONTAINER_PATH_PATTERN.test(failure.message)
+    (failure.code === CONTAINER_MUTATION_ERROR_CODES.stateStale ||
+      failure.code === DOCUMENT_SYNC_ERROR_CODES.stateStale)
   );
 }
 
-// The container-with-metadata create commits the container and its metadata
-// document in one transaction, so a re-submit of the same stable ids after a
-// lost create response reports either the container OR its metadata document
-// manifest already exists (the server surfaces whichever head it hits first).
-const MANIFEST_ALREADY_EXISTS_PATTERN =
-  /\b(?:Container|Document) manifest already exists\b/u;
-
 /**
- * A create whose response was lost re-sends the same stable container (and
- * metadata document) id; the server then reports the manifest already exists.
- * That is not a failure — the first attempt committed — so the caller adopts the
- * already-committed container instead of surfacing the conflict, mirroring the
- * document create path's idempotent-retry handling.
+ * A create whose response was lost re-sends the same stable container id; the
+ * server then reports that the container manifest already exists. That proves
+ * the first attempt committed, so the caller can await remote hydration.
+ *
+ * A metadata-document conflict is deliberately excluded. The compound server
+ * transaction can create the container and then roll everything back when the
+ * metadata document already exists, so that code alone does not prove the
+ * container exists remotely.
  */
 export function isContainerManifestAlreadyExistsConflict(
   failure: ContainerMutationSubmitFailure,
 ): boolean {
   return (
     failure.status === 409 &&
-    MANIFEST_ALREADY_EXISTS_PATTERN.test(failure.message)
+    failure.code === CONTAINER_MUTATION_ERROR_CODES.manifestAlreadyExists
   );
 }

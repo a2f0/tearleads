@@ -409,7 +409,7 @@ export class ApiClient {
       await shouldRetryAfterSessionExpired({
         authToken,
         body,
-        error: errorDescription.error,
+        code: errorDescription.code,
         getCurrentAuthToken: () => this.authToken,
         options,
         refreshSession: () => this.onSessionExpired?.() ?? false,

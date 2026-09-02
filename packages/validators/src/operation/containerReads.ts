@@ -21,6 +21,7 @@ import {
   isListContainerParentLanesResponse,
   ListContainerDocumentsResponseSchema,
   ListContainerParentLanesResponseSchema,
+  SessionFailureResponseSchema,
 } from "../response";
 import { loosePlainObject, plainObjectSchema } from "../schema";
 import { MAX_CONTAINER_KEY_EPOCH } from "../util";
@@ -125,7 +126,7 @@ export type ListContainerDocumentsQuery = z.infer<
 
 const containerReadFailureResponses = {
   400: ErrorResponseSchema,
-  401: ErrorResponseSchema,
+  401: SessionFailureResponseSchema,
   403: ErrorResponseSchema,
   404: ErrorResponseSchema,
   409: ErrorResponseSchema,
@@ -165,7 +166,7 @@ export const listContainerParentLanesOperation = defineJsonOperation({
   body: ListContainerParentLanesRequestSchema,
   failureResponses: {
     400: ErrorResponseSchema,
-    401: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
     500: ErrorResponseSchema,
   },
   failureStatuses: [400, 401, 500],

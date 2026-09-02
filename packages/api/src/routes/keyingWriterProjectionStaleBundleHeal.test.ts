@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import {
+  DOCUMENT_SYNC_ERROR_CODES,
   type DocumentWriterProjectionResponse,
   isDocumentSyncResponse,
   isDocumentWriterProjectionResponse,
@@ -147,9 +148,11 @@ test("a heal that advances the content-key epoch must carry a newly written base
     underCoveringHeal.request,
   );
   expect(underCoveringResponse.status).toBe(409);
-  expect((await underCoveringResponse.json()).error).toBe(
-    "Document content-key rotation baseline does not cover the committed frontier",
-  );
+  expect(await underCoveringResponse.json()).toEqual({
+    code: DOCUMENT_SYNC_ERROR_CODES.checkpointCoverageConflict,
+    error:
+      "Document content-key rotation baseline does not cover the committed frontier",
+  });
 
   // A baseline whose source vector does not decode is a client error, never
   // a 500 out of the vector decoder.
@@ -252,9 +255,11 @@ test("a heal that advances the content-key epoch must carry a newly written base
     regressingCheckpoint.request,
   );
   expect(regressingResponse.status).toBe(409);
-  expect((await regressingResponse.json()).error).toBe(
-    "Document content-key rotation baseline does not cover the committed frontier",
-  );
+  expect(await regressingResponse.json()).toEqual({
+    code: DOCUMENT_SYNC_ERROR_CODES.checkpointCoverageConflict,
+    error:
+      "Document content-key rotation baseline does not cover the committed frontier",
+  });
 
   // A concurrent healer that lost the race submits its OWN fresh key at the
   // now-occupied epoch. That conflict must be coded stale — the client's

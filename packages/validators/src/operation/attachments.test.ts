@@ -9,6 +9,7 @@ import {
   ErrorResponseSchema,
   ListDocumentAttachmentsResponseSchema,
   PaymentRequiredErrorResponseSchema,
+  SessionFailureResponseSchema,
 } from "../response";
 import {
   BlobAttachmentBindingPathParamsSchema,
@@ -51,7 +52,7 @@ test("attachment operations own their shared HTTP contracts", () => {
 
   const mutationFailures = {
     400: ErrorResponseSchema,
-    401: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
     402: PaymentRequiredErrorResponseSchema,
     403: ErrorResponseSchema,
     404: ErrorResponseSchema,
@@ -67,7 +68,7 @@ test("attachment operations own their shared HTTP contracts", () => {
   );
   expect(listDocumentAttachmentsOperation.failureResponses).toEqual({
     400: ErrorResponseSchema,
-    401: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
     403: ErrorResponseSchema,
     404: ErrorResponseSchema,
     409: ErrorResponseSchema,

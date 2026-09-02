@@ -13,6 +13,7 @@ import {
   isInitiateMultipartBlobStageResponse,
   isMultipartBlobStageStatusResponse,
   MultipartBlobStageStatusResponseSchema,
+  SessionFailureResponseSchema,
 } from "../response";
 import { uuidStringSchema } from "../schema";
 import { defineJsonOperation } from "./definition";
@@ -32,7 +33,7 @@ export const initiateMultipartBlobStageOperation = defineJsonOperation({
   body: InitiateMultipartBlobStageRequestSchema,
   failureResponses: {
     400: ErrorResponseSchema,
-    401: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
     404: ErrorResponseSchema,
     409: ErrorResponseSchema,
     500: ErrorResponseSchema,
@@ -51,7 +52,7 @@ export const getMultipartBlobStageOperation = defineJsonOperation({
   auth: "session",
   failureResponses: {
     400: ErrorResponseSchema,
-    401: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
     403: ErrorResponseSchema,
     404: ErrorResponseSchema,
     409: ErrorResponseSchema,
@@ -72,7 +73,7 @@ export const completeMultipartBlobStageOperation = defineJsonOperation({
   body: CompleteMultipartBlobStageRequestSchema,
   failureResponses: {
     400: ErrorResponseSchema,
-    401: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
     403: ErrorResponseSchema,
     404: ErrorResponseSchema,
     409: ErrorResponseSchema,
