@@ -15,11 +15,14 @@ import {
   writerKeyResolver,
 } from "../../../test/helpers/documentFixtures";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../test/helpers/documentSync";
+import { createFullHistoryRotationSnapshot } from "../../../test/helpers/staleBundleSyncFixture";
+import type { DocumentSyncPlan } from "../../data/documents/shared/types";
 import type {
   PrincipalPolicyBundleCacheRequest,
   ReferencedPrincipalPolicyWarmer,
 } from "../../data/keyingProjectionVerification";
 import { ensureDocumentTables } from "../../data/sqlite/documentPersistence";
+import { buildMaterializedContainerRekeyPlan } from "../containers/child/rekey";
 import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
 
 function containerRekey(policyGeneration: number): ContainerMutationRequest {
@@ -51,8 +54,17 @@ test("syncRemoteDocument caches stale policies before replanning inline rekeys",
   let policiesCached = false;
   let projectionRequestCount = 0;
   let rekeyBuildCount = 0;
+  const rekeyManifestHashes: string[] = [];
+  let rekeyTarget:
+    | {
+        containerId: string;
+        containerKeyEpoch: number;
+        containerKeyEpochId: string;
+        containerManifestHash: string;
+      }
+    | undefined;
   const { close, execSql } = await createTestExecSql(
-    "sync-stale-policy-repair",
+    `sync-stale-policy-repair-${crypto.randomUUID()}`,
   );
   const warmer = Object.assign(async () => undefined, {
     cacheBundles: async (input: PrincipalPolicyBundleCacheRequest) => {
@@ -94,32 +106,71 @@ test("syncRemoteDocument caches stale policies before replanning inline rekeys",
             };
           }
 
-          const materialized = await buildMaterializedDocumentSyncPlan({
-            author,
-            containerRekeys: request.containerRekeys,
-            execSql,
-            localVersionVector: null,
-            pendingUpdates,
-            resolveProjectionUserKey,
-            targetSecretKey: secretKey,
-            writerProjection,
-          });
+          const contentKeyBundle = request.contentKeyBundle;
+          if (!contentKeyBundle) {
+            throw new Error(
+              "Expected inline rekey sync to rotate its content key",
+            );
+          }
+          if (!rekeyTarget) {
+            throw new Error("Expected a projected inline rekey target");
+          }
+          const plan: DocumentSyncPlan = {
+            contentKeyEpoch: request.contentKeyEpoch,
+            documentId,
+            documentKekTargets: {
+              ...writerProjection.documentKekTargets,
+              documentKeyTargetHash: request.expectedTargetHash,
+              linkedContainerKeyEpochIds: [rekeyTarget.containerKeyEpochId],
+              linkedContainerManifestHashes: [
+                rekeyTarget.containerManifestHash,
+              ],
+              targets: [{ ...rekeyTarget }],
+            },
+            documentManifest: writerProjection.documentManifest,
+            expectedLinkSetManifestHash: request.expectedLinkSetManifestHash,
+            expectedTargetHash: request.expectedTargetHash,
+            organizationId: author.organizationId,
+            request,
+            sourceContentKeyBundle: { documentId, ...contentKeyBundle },
+          };
           return {
-            data: await createSyncResponse({
-              ...materialized.plan,
-              documentId,
-              request,
-            }),
+            data: await createSyncResponse(plan),
             ok: true,
           };
         },
       },
       author,
-      buildContainerRekeys: async () => {
+      buildContainerRekeys: async (currentProjection) => {
         rekeyBuildCount += 1;
         events.push(`build-rekey-${rekeyBuildCount}`);
-        return [containerRekey(policiesCached ? 2 : 1)];
+        expect(policiesCached).toBe(rekeyBuildCount > 1);
+        const previousProjection =
+          currentProjection.authorizingContainerPaths[0];
+        if (!previousProjection) {
+          throw new Error("Expected an authorizing container projection");
+        }
+        const rekey = await buildMaterializedContainerRekeyPlan({
+          author,
+          execSql,
+          previousProjection,
+          resolveProjectionUserKey,
+          targetSecretKey: secretKey,
+        });
+        rekeyManifestHashes.push(rekey.plan.manifestHash);
+        const nextKek = rekey.writerProjection.containerKeks.at(-1);
+        if (!nextKek) {
+          throw new Error("Expected a rekeyed container KEK");
+        }
+        rekeyTarget = {
+          containerId: rekey.plan.containerId,
+          containerKeyEpoch: nextKek.containerKeyEpoch,
+          containerKeyEpochId: nextKek.containerKeyEpochId,
+          containerManifestHash: rekey.plan.manifestHash,
+        };
+        return [rekey];
       },
+      buildRotationSnapshot: createFullHistoryRotationSnapshot,
       documentId: writerProjection.documentId,
       execSql,
       localVersionVector: null,
@@ -132,12 +183,8 @@ test("syncRemoteDocument caches stale policies before replanning inline rekeys",
 
     expect(synced?.persistedState.documentId).toBe(writerProjection.documentId);
     expect(submittedRequests).toHaveLength(2);
-    expect(
-      submittedRequests[0]?.containerRekeys?.[0]?.principalPolicies,
-    ).toEqual([{ policyGeneration: 1 }]);
-    expect(
-      submittedRequests[1]?.containerRekeys?.[0]?.principalPolicies,
-    ).toEqual([{ policyGeneration: 2 }]);
+    expect(rekeyManifestHashes).toHaveLength(2);
+    expect(rekeyManifestHashes[0]).not.toBe(rekeyManifestHashes[1]);
     expect(events).toEqual([
       "get-projection-1",
       "build-rekey-1",
@@ -147,7 +194,19 @@ test("syncRemoteDocument caches stale policies before replanning inline rekeys",
       "get-projection-2",
       "build-rekey-2",
       "submit-2",
+      "evict-projection",
     ]);
+    await expect(
+      buildMaterializedDocumentSyncPlan({
+        author,
+        execSql,
+        localVersionVector: null,
+        pendingUpdates: [],
+        resolveProjectionUserKey,
+        targetSecretKey: secretKey,
+        writerProjection,
+      }),
+    ).rejects.toThrow("older than the local checkpoint");
   } finally {
     close();
   }
@@ -182,7 +241,7 @@ test("update-id recovery skips inline rekeys on its read-only attempt", async ()
   const submittedRequests: DocumentSyncRequest[] = [];
   let rekeyBuildCount = 0;
   const { close, execSql } = await createTestExecSql(
-    "sync-rekey-update-id-recovery",
+    `sync-rekey-update-id-recovery-${crypto.randomUUID()}`,
   );
   await ensureDocumentTables(execSql);
 
@@ -225,10 +284,24 @@ test("update-id recovery skips inline rekeys on its read-only attempt", async ()
         },
       },
       author,
-      buildContainerRekeys: async () => {
+      buildContainerRekeys: async (currentProjection) => {
         rekeyBuildCount += 1;
-        return [containerRekey(rekeyBuildCount)];
+        const previousProjection =
+          currentProjection.authorizingContainerPaths[0];
+        if (!previousProjection) {
+          throw new Error("Expected an authorizing container projection");
+        }
+        return [
+          await buildMaterializedContainerRekeyPlan({
+            author,
+            execSql,
+            previousProjection,
+            resolveProjectionUserKey,
+            targetSecretKey: secretKey,
+          }),
+        ];
       },
+      buildRotationSnapshot: createFullHistoryRotationSnapshot,
       documentId: writerProjection.documentId,
       execSql,
       localVersionVector: null,
@@ -243,6 +316,68 @@ test("update-id recovery skips inline rekeys on its read-only attempt", async ()
     expect(
       submittedRequests.map((request) => request.containerRekeys?.length ?? 0),
     ).toEqual([1, 0]);
+  } finally {
+    close();
+  }
+});
+
+test("persisted read-only sync does not invoke an available rekey builder", async () => {
+  const {
+    author,
+    resolveProjectionUserKey,
+    secretKey,
+    signingPublicKey,
+    writerProjection,
+  } = await createMaterializedSyncFixture();
+  const { close, execSql } = await createTestExecSql(
+    `sync-persisted-rekey-builder-${crypto.randomUUID()}`,
+  );
+  const materialized = await buildMaterializedDocumentSyncPlan({
+    author,
+    execSql,
+    localVersionVector: null,
+    pendingUpdates: [],
+    resolveProjectionUserKey,
+    targetSecretKey: secretKey,
+    writerProjection,
+  });
+  let builderCalls = 0;
+  let projectionCalls = 0;
+
+  try {
+    const synced = await syncRemoteDocument({
+      apiClient: {
+        getDocumentWriterProjection: async () => {
+          projectionCalls += 1;
+          return writerProjection;
+        },
+        syncDocument: async (documentId, request) =>
+          createSyncResponse({ ...materialized.plan, documentId, request }),
+      },
+      author,
+      buildContainerRekeys: async () => {
+        builderCalls += 1;
+        return [];
+      },
+      documentId: writerProjection.documentId,
+      execSql,
+      localVersionVector: null,
+      persistedState: {
+        contentKeyBundle: JSON.stringify(writerProjection.contentKeyBundle),
+        documentId: writerProjection.documentId,
+        documentKekTargets: JSON.stringify(writerProjection.documentKekTargets),
+        documentManifestBundle: JSON.stringify(
+          writerProjection.documentManifest,
+        ),
+      },
+      resolveProjectionUserKey,
+      resolveWriterPublicKey: writerKeyResolver({ author, signingPublicKey }),
+      targetSecretKey: secretKey,
+    });
+
+    expect(synced).not.toBeNull();
+    expect(builderCalls).toBe(0);
+    expect(projectionCalls).toBe(0);
   } finally {
     close();
   }

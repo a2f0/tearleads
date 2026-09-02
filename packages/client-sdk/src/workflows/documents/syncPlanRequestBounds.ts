@@ -23,12 +23,14 @@ export function boundDocumentSyncPlanRequest(
 export function materializedDocumentSyncPlan(
   material: SyncPlanMaterial,
   plan: MaterializedDocumentSyncPlan["plan"],
+  writerProjection: MaterializedDocumentSyncPlan["writerProjection"],
 ): MaterializedDocumentSyncPlan {
   return {
     contentKey: material.contentKey,
     healedStaleContentKeyBundle: material.healedStaleContentKeyBundle,
     heldBackPendingUpdateIds: material.heldBackPendingUpdateIds,
     plan,
+    writerProjection,
     ...(material.staleRecoveryBaselineUpdateId === undefined
       ? {}
       : {

@@ -387,6 +387,7 @@ export async function buildMaterializedDocumentSyncPlan(
     /** Clipboard-safe trace sink (see syncTrace.ts); never receives content. */
     onSyncTrace?: DocumentSyncTraceEmitter | undefined;
     pendingUpdates?: readonly PendingUpdateRecord[] | undefined;
+    persistVerificationCheckpoints?: boolean | undefined;
     /**
      * Replace queued rotation checkpoints with a freshly regenerated covering
      * baseline instead of passing them through. Set by the sync loop after
@@ -406,6 +407,7 @@ export async function buildMaterializedDocumentSyncPlan(
   await assertDocumentWriterProjectionConsistent(input.writerProjection, {
     allowStaleContentKeyBundle: true,
     execSql: input.execSql,
+    persistVerificationCheckpoints: input.persistVerificationCheckpoints,
     onVerifiedAuthorization: (authorization) => {
       writerAuthorization = authorization;
     },
@@ -415,6 +417,7 @@ export async function buildMaterializedDocumentSyncPlan(
   });
   const collectedKeks = await collectContainerKeksForDocumentSync({
     execSql: input.execSql,
+    persistVerificationCheckpoints: input.persistVerificationCheckpoints,
     principalPolicyCache,
     secretKey: input.targetSecretKey,
     verifiedByHash,
@@ -489,5 +492,5 @@ export async function buildMaterializedDocumentSyncPlan(
     staleRecoveryBaselineUpdateId,
   );
 
-  return materializedDocumentSyncPlan(material, plan);
+  return materializedDocumentSyncPlan(material, plan, input.writerProjection);
 }

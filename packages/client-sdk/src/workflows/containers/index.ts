@@ -1,4 +1,7 @@
-export type { ContainerMutationAuthor } from "../../data/containers/shared/types";
+export type {
+  ContainerMutationAuthor,
+  MaterializedContainerRekeyPlan,
+} from "../../data/containers/shared/types";
 export type {
   AggregatedContainerKekLog,
   KeyringRebuildResult,
@@ -22,6 +25,7 @@ export {
   buildMaterializedContainerRekeyPlan,
   rekeyRemoteContainer,
 } from "./child/rekey";
+export { containerWriterProjectionFromRekeyPlan } from "./child/rekeyProjection";
 export {
   buildMaterializedContainerRevokePlan,
   revokeRemoteContainer,

@@ -121,12 +121,12 @@ It returns `false` unless a pass completes. Abort on unmount; cancellation
 releases only waiter-owned work. See the
 [on-demand lifecycle](./custom-document-persistence.md#on-demand-document-lifecycle).
 
-Loop `syncRemoteDocument(...)` while work remains; resume via
-`readPullContinuation(result.response)`. Validate imports with
-`validateDocumentSyncUpdateImports(...)` and a live Loro doc. Large/ambiguous
-pages use bounded batch scope (`updateId: null`) without a writer. Fail closed;
-preserve `KeyingVerificationError`. In [raw mode](../raw-document-history-recovery.md),
-missing epochs throw `DocumentRawHistoryUnavailableError`.
+Loop `syncRemoteDocument(...)` while work remains; resume with
+`readPullContinuation(result.response)`. Validate with
+`validateDocumentSyncUpdateImports(...)`. Inline rekeys return materialized
+plans; sync derives successor targets and rebuilds on coded
+stale-policy errors. Preserve `KeyingVerificationError`; [raw mode](../raw-document-history-recovery.md)
+throws `DocumentRawHistoryUnavailableError` when an epoch is missing.
 
 `tearleads.network` defaults to automatic mode: browser events and API request
 results set `online`. Hosts can force diagnostics with `setMode("offline")` or

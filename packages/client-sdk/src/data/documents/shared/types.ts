@@ -452,11 +452,8 @@ export interface MaterializedDocumentSyncPlan {
    */
   heldBackPendingUpdateIds: readonly string[];
   plan: DocumentSyncPlan;
-  /**
-   * Update id of the synthetic rotation baseline a heal generated. It matches
-   * no pending-queue row, so settlement accounting must not count its ack as
-   * a settled pending update.
-   */
+  writerProjection: DocumentWriterProjectionResponse;
+  /** Synthetic baseline id; its ack does not settle a pending queue row. */
   staleRecoveryBaselineUpdateId?: string;
 }
 

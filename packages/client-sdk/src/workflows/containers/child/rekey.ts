@@ -53,6 +53,7 @@ import {
   readCanonicalRecordOrNull,
 } from "./mutationRequestCore";
 import { submitAcknowledgedContainerMutation } from "./mutationSubmit";
+import { containerWriterProjectionFromRekeyPlan } from "./rekeyProjection";
 import { collectContainerRevokePrincipalPolicies } from "./revoke";
 import { resolveRotationContext } from "./rotationContext";
 import { buildContainerRotationWraps } from "./rotationWraps";
@@ -273,26 +274,31 @@ export async function buildMaterializedContainerRekeyPlan(
     state,
   });
 
+  const plan = buildContainerRekeyPlan({
+    body,
+    containerId: previousState.containerId,
+    containerKeyEpochId,
+    event,
+    eventHash,
+    keyEpoch,
+    keyring,
+    manifest,
+    manifestHash,
+    parentKek,
+    predecessorBridge,
+    previousManifest: asContainerManifestBundle(target.manifest),
+    previousProjection: input.previousProjection,
+    principalPolicies,
+    state,
+    userRecipientKeys,
+    wraps,
+  });
+  const materializedPlan = { containerKey, plan };
   return {
-    containerKey,
-    plan: buildContainerRekeyPlan({
-      body,
-      containerId: previousState.containerId,
-      containerKeyEpochId,
-      event,
-      eventHash,
-      keyEpoch,
-      keyring,
-      manifest,
-      manifestHash,
-      parentKek,
-      predecessorBridge,
-      previousManifest: asContainerManifestBundle(target.manifest),
+    ...materializedPlan,
+    writerProjection: await containerWriterProjectionFromRekeyPlan({
+      materializedPlan,
       previousProjection: input.previousProjection,
-      principalPolicies,
-      state,
-      userRecipientKeys,
-      wraps,
     }),
   };
 }
@@ -325,6 +331,7 @@ function buildContainerRekeyPlan(input: {
     event: input.event,
     eventHash: input.eventHash,
     keyEpoch: input.keyEpoch,
+    keyring: input.keyring,
     manifest: input.manifest,
     manifestHash: input.manifestHash,
     previousManifest: input.previousManifest,

@@ -108,3 +108,16 @@ export async function validateProjectionCheckpoints(
   });
   assertProjectionVerificationCurrent(input?.stillCurrent);
 }
+
+export async function finalizeProjectionCheckpoints(
+  context: ProjectionCheckpointContext,
+  input: {
+    readonly execSql?: ExecSql | undefined;
+    readonly persistVerificationCheckpoints?: boolean | undefined;
+    readonly stillCurrent?: (() => boolean) | undefined;
+  },
+): Promise<void> {
+  return input.persistVerificationCheckpoints === false
+    ? validateProjectionCheckpoints(context, input)
+    : commitProjectionCheckpoints(context, input);
+}

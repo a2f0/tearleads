@@ -107,6 +107,7 @@ export {
   hasDocumentUpdateEvent,
   syncRemoteDocument,
 } from "./sync";
+export type { DocumentSyncContainerRekeyBuilder } from "./syncAttemptState";
 export { DocumentRawHistoryUnavailableError } from "./syncContentKeys";
 export {
   describeDocumentRevalidationFailure,

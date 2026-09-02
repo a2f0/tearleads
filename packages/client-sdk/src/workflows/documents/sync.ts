@@ -12,7 +12,6 @@ import type {
   MaterializedDocumentSyncPlan,
   SyncRemoteDocumentResult,
 } from "../../data/documents/shared/types";
-import { projectionVerificationOptions } from "../../data/documents/shared/types";
 import {
   isProjectionVerificationCancelledError,
   type ProjectionUserKeyResolver,
@@ -29,6 +28,7 @@ import type {
   RemoteDocumentSyncAttemptOutcome,
   RemoteDocumentSyncAttemptState,
 } from "./syncAttemptState";
+import { buildRemoteDocumentSyncPlan } from "./syncContainerRekeys";
 import type { TerminalSubmitFailureHandler } from "./syncFailureClassification";
 import {
   assertRawContinuationCanRetry,
@@ -36,7 +36,6 @@ import {
   retrySyncPlanOrAbandon,
   submitDocumentSyncAttemptIfAllowed,
 } from "./syncFailures";
-import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
 import { submittedPendingUpdates } from "./syncPlanRequestBounds";
 import { resolveSubmittedDocumentSyncResult } from "./syncSubmittedResult";
 
@@ -49,36 +48,6 @@ export function hasDocumentUpdateEvent(
     (event) =>
       isDocumentUpdateCreatedEvent(event) && event.documentId === documentId,
   );
-}
-async function buildRemoteDocumentSyncPlan(input: {
-  minLsn?: string | undefined;
-  pendingUpdates: readonly PendingUpdateRecord[];
-  pullCursor?: string | undefined;
-  projection: DocumentWriterProjectionResponse;
-  regenerateQueuedCheckpoints: boolean;
-  sync: SyncRemoteDocumentInput;
-}) {
-  const containerRekeys =
-    input.pendingUpdates.length > 0
-      ? await input.sync.buildContainerRekeys?.()
-      : undefined;
-  return buildMaterializedDocumentSyncPlan({
-    author: input.sync.author,
-    buildRotationSnapshot: input.sync.buildRotationSnapshot,
-    containerRekeys,
-    execSql: input.sync.execSql,
-    historyMode: input.sync.historyMode,
-    localVersionVector: input.sync.localVersionVector,
-    minLsn: input.minLsn,
-    onSyncTrace: input.sync.onSyncTrace,
-    pendingUpdates: input.pendingUpdates,
-    pullCursor: input.pullCursor,
-    regenerateQueuedCheckpoints: input.regenerateQueuedCheckpoints,
-    signedAt: input.sync.signedAt,
-    targetSecretKey: input.sync.targetSecretKey,
-    writerProjection: input.projection,
-    ...projectionVerificationOptions(input.sync),
-  });
 }
 /**
  * A retryable stale-projection conflict means this writer projection is behind
@@ -352,7 +321,7 @@ async function runRemoteDocumentSyncAttempt(input: {
   if (!planned || input.sync.stillCurrent?.() === false) {
     return { kind: "complete", result: null };
   }
-  const [materializedPlan, plannedWriterProjection] = planned;
+  const [materializedPlan] = planned;
   const submitted = await submitPlannedSyncAttempt({
     attempt: input.attempt,
     materializedPlan,
@@ -401,7 +370,7 @@ async function runRemoteDocumentSyncAttempt(input: {
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     response: submitted.response,
     sync: input.sync,
-    writerProjection: plannedWriterProjection,
+    writerProjection: materializedPlan.writerProjection,
   });
   return {
     kind: "complete",

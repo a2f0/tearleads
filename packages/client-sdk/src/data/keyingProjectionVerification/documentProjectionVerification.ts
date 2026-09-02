@@ -19,8 +19,8 @@ import {
   verifyAccessEventBundle,
 } from "./bundleVerification";
 import {
-  commitProjectionCheckpoints,
   createProjectionCheckpointContext,
+  finalizeProjectionCheckpoints,
   observeAccessManifestCheckpoints,
   type ProjectionCheckpointContext,
 } from "./checkpointContext";
@@ -352,6 +352,7 @@ export async function verifyDocumentManifestBundle(input: {
 
 interface DocumentWriterProjectionVerificationInput {
   readonly execSql: ExecSql;
+  readonly persistVerificationCheckpoints?: boolean | undefined;
   readonly principalPolicyCache?: PrincipalPolicyCache | undefined;
   readonly projection: DocumentWriterProjectionResponse;
   readonly resolveUserKey: ProjectionUserKeyResolver;
@@ -359,7 +360,6 @@ interface DocumentWriterProjectionVerificationInput {
   readonly verifiedByHash?: VerifiedManifestMap | undefined;
   readonly warmReferencedPrincipalPolicies?: PolicyWarmer;
 }
-
 export interface DocumentWriterProjectionAuthorization {
   readonly containerPathByManifestHash: ReadonlyMap<
     string,
@@ -470,7 +470,7 @@ export async function verifyDocumentWriterProjection(
     withGenerationGuardedPolicyWarmer(input),
     checkpointContext,
   );
-  await commitProjectionCheckpoints(checkpointContext, input);
+  await finalizeProjectionCheckpoints(checkpointContext, input);
   return verified.headManifest;
 }
 
@@ -485,7 +485,7 @@ export async function verifyDocumentWriterProjectionAuthorization(
       withGenerationGuardedPolicyWarmer(input),
       checkpointContext,
     );
-    await commitProjectionCheckpoints(checkpointContext, input);
+    await finalizeProjectionCheckpoints(checkpointContext, input);
     return verified.authorization;
   } catch (error) {
     rethrowProjectionVerificationBoundaryError(error);
