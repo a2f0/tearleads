@@ -175,7 +175,6 @@ function projectionFailureHandler(
     ? input.onTerminalSubmitFailure
     : input.onReadOnlyProjectionFailure;
 }
-
 function resolveAttemptProjection(
   input: SyncRemoteDocumentInput,
   failureBlocksQueuedWrites: boolean,
@@ -192,9 +191,9 @@ function resolveAttemptProjection(
       failureBlocksQueuedWrites,
     ),
     reusableWriterProjection,
+    stillCurrent: input.stillCurrent,
   });
 }
-
 function abandonAfterRetryableConflicts(input: SyncRemoteDocumentInput): null {
   input.onSyncAbandoned?.("every sync attempt hit a retryable conflict");
   return null;
@@ -250,6 +249,7 @@ async function planDocumentSyncAttempt(input: {
         input.sync,
         input.failureBlocksQueuedWrites,
       ),
+      stillCurrent: input.sync.stillCurrent,
       writerProjection: input.writerProjection,
     });
   } catch (error) {

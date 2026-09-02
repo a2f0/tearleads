@@ -244,7 +244,6 @@ async function tryCompleteReadOnlyRemoteDocumentSyncWithProjection(input: {
     });
   }
 }
-
 async function completeReadOnlyRemoteDocumentSyncWithUpdates(
   input: ReadOnlyDocumentSyncCompletionInput,
 ): Promise<PersistedReadOnlyDocumentSyncResult> {
@@ -261,6 +260,7 @@ async function completeReadOnlyRemoteDocumentSyncWithUpdates(
       onSyncTrace: input.onSyncTrace,
       onTerminalFailure: input.onReadOnlyProjectionFailure,
       reusableWriterProjection: null,
+      stillCurrent: input.stillCurrent,
     }));
   if (!writerProjection) {
     return { kind: "completed", result: null };
@@ -299,6 +299,7 @@ async function completeReadOnlyRemoteDocumentSyncWithUpdates(
     onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
     onSyncTrace: input.onSyncTrace,
     onTerminalFailure: input.onReadOnlyProjectionFailure,
+    stillCurrent: input.stillCurrent,
     unavailableError:
       result instanceof DocumentRawHistoryUnavailableError ? result : undefined,
   });
@@ -322,7 +323,6 @@ async function completeReadOnlyRemoteDocumentSyncWithUpdates(
     ? { kind: "completed", result: freshResult }
     : { kind: "not_completed" };
 }
-
 async function syncReadOnlyRemoteDocumentFromPersistedState(
   input: Omit<
     ReadOnlyDocumentSyncCompletionInput,

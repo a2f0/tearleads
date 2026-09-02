@@ -457,7 +457,9 @@ export async function createRemoteContainer(
   input: RemoteContainerCreateInput,
 ): Promise<CreateRemoteContainerResult | null> {
   const outcome = await createRemoteContainerOutcome(input);
-  return outcome?.acknowledged ? outcome.result : null;
+  return outcome?.acknowledged && input.stillCurrent?.() !== false
+    ? outcome.result
+    : null;
 }
 
 /**

@@ -114,6 +114,7 @@ async function retryRawHistoryWithFreshProjection(
     onSyncAbandoned: input.sync.onSyncAbandoned,
     onSyncTrace: input.sync.onSyncTrace,
     onTerminalFailure: input.sync.onReadOnlyProjectionFailure,
+    stillCurrent: input.sync.stillCurrent,
     unavailableError,
   });
   if (!writerProjection) return null;

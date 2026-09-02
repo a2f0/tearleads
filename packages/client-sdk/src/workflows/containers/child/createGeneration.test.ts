@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
   createAuthor,
+  createMutationResponseFromRequest,
   createParentProjection,
   createParentProjectionUserKeyResolver,
 } from "../../../../test/helpers/containerFixtures";
@@ -60,6 +61,59 @@ test("container create planning rolls back checkpoints after generation expiry",
         parent.projection.containerId,
       ),
     ).resolves.toBeNull();
+  } finally {
+    database.close();
+  }
+});
+
+test("container create hides state when its generation expires after acknowledgement", async () => {
+  const parent = await createParentProjection();
+  const database = await createTestExecSql(
+    "container-create-acknowledgement-generation",
+  );
+  let acknowledgementCommitted = false;
+  let current = true;
+  let submitted = false;
+  const guardedExecSql = (async (...args: Parameters<ExecSql>) => {
+    const rows = await database.execSql(...args);
+    if (submitted && args[0].trim().toUpperCase() === "COMMIT") {
+      acknowledgementCommitted = true;
+      current = false;
+    }
+    return rows;
+  }) as ExecSql;
+
+  try {
+    const created = await createRemoteContainer({
+      apiClient: {
+        createContainer: async (request) => {
+          submitted = true;
+          return createMutationResponseFromRequest(request);
+        },
+        getContainerWriterProjection: async () => parent.projection,
+        getCurrentPrincipalPolicy: async () => null,
+      },
+      author: parent.author,
+      containerId: "expired-after-acknowledgement",
+      execSql: guardedExecSql,
+      parentContainerId: parent.projection.containerId,
+      parentSecretKey: parent.secretKey,
+      reportSecurityIncident: async () => undefined,
+      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+      resolveTrustedUserIdentity: createParentProjectionUserKeyResolver(parent),
+      stillCurrent: () => current,
+    });
+
+    expect(acknowledgementCommitted).toBe(true);
+    expect(created).toBeNull();
+    await expect(
+      loadAccessManifestCheckpoint(
+        database.execSql,
+        "container",
+        parent.projection.organizationId,
+        "expired-after-acknowledgement",
+      ),
+    ).resolves.not.toBeNull();
   } finally {
     database.close();
   }
