@@ -257,6 +257,31 @@ test("syncRemoteDocument retries failed chained rekeys after caching stale polic
       "clear-projections",
       "evict-projection",
     ]);
+    const returnedWriterProjection = synced?.writerProjection;
+    expect(returnedWriterProjection?.contentKeyBundle).toEqual(
+      synced?.response.contentKeyBundle,
+    );
+    expect(returnedWriterProjection?.contentKeyBundleStale).toBeUndefined();
+    if (!synced || !returnedWriterProjection) {
+      throw new Error("Expected a successful inline rekey sync projection");
+    }
+    const consecutivePlan = await buildMaterializedDocumentSyncPlan({
+      author,
+      execSql,
+      localVersionVector: null,
+      pendingUpdates: [createPendingUpdateRecord({ id: crypto.randomUUID() })],
+      resolveProjectionUserKey,
+      targetSecretKey: secretKey,
+      writerProjection: returnedWriterProjection,
+    });
+    expect(consecutivePlan.healedStaleContentKeyBundle).toBe(false);
+    expect(consecutivePlan.plan.request.contentKeyBundle).toEqual(
+      synced.plan.request.contentKeyBundle,
+    );
+    expect(consecutivePlan.contentKey).toEqual(synced.contentKey);
+    expect(consecutivePlan.plan.contentKeyEpoch).toBe(
+      synced.plan.contentKeyEpoch,
+    );
     await expect(
       buildMaterializedDocumentSyncPlan({
         author,

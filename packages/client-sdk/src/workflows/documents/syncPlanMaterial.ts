@@ -38,10 +38,7 @@ import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { selectDocumentSyncOutgoingBatch } from "../../data/sync/documentSyncOutgoingBatch";
 import { prepareDocumentOutgoingUpdates } from "./syncContentKeys";
 import { buildDocumentSyncPlan } from "./syncPlanIdentity";
-import {
-  boundDocumentSyncPlanRequest,
-  materializedDocumentSyncPlan,
-} from "./syncPlanRequestBounds";
+import { finalizeMaterializedDocumentSyncPlan } from "./syncPlanProjection";
 import {
   type DocumentSyncTraceEmitter,
   traceCheckpointRegeneration,
@@ -455,7 +452,6 @@ export async function buildMaterializedDocumentSyncPlan(
     documentKekTargets,
     documentManifest,
     pendingUpdates,
-    staleRecoveryBaselineUpdateId,
   } = material;
   const outgoingUpdates = await prepareDocumentOutgoingUpdates({
     contentKey,
@@ -484,13 +480,10 @@ export async function buildMaterializedDocumentSyncPlan(
     pullCursor: input.pullCursor,
     signedAt: input.signedAt,
   });
-  const unboundedPlan = writerAuthorization
-    ? { ...basePlan, documentWriterAuthorization: writerAuthorization }
-    : basePlan;
-  const plan = boundDocumentSyncPlanRequest(
-    unboundedPlan,
-    staleRecoveryBaselineUpdateId,
-  );
-
-  return materializedDocumentSyncPlan(material, plan, input.writerProjection);
+  return finalizeMaterializedDocumentSyncPlan({
+    basePlan,
+    material,
+    writerAuthorization,
+    writerProjection: input.writerProjection,
+  });
 }
