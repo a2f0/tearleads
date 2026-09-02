@@ -128,7 +128,9 @@ or service failure sends a failure signal through
 `tearleads-maintenance-alert@.service`. Missing success signals also detect a
 disabled timer, unreachable host, or terminated run. Healthchecks requests are
 best-effort so an unavailable monitoring provider cannot prevent reclamation,
-and carry no blob identifiers or application data.
+and carry no blob identifiers or application data. A local helper passes the
+secret ping endpoint to curl over standard input so it is not exposed in the
+process command line.
 
 The failure service also writes a local `daemon.alert` journal entry tagged
 `tearleads-maintenance-alert` with the failed unit name. Object-store cleanup

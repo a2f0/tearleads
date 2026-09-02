@@ -66,6 +66,7 @@ assert_blob_gc_failure_alerting() {
   local maintenance_tasks="$REPO_ROOT/ansible/playbooks/tasks/apiMaintenance.yml"
   local secrets_loader="$REPO_ROOT/terraform/scripts/secretsEnv.sh"
   local healthcheck_env="$REPO_ROOT/ansible/playbooks/templates/etc/tearleads/blob-gc-healthcheck.env.j2"
+  local healthcheck_client="$REPO_ROOT/ansible/playbooks/templates/usr/local/bin/tearleads-blob-gc-healthcheck.j2"
   local service_template="$REPO_ROOT/ansible/playbooks/templates/etc/systemd/system/tearleads-blob-gc.service.j2"
   local timer_template="$REPO_ROOT/ansible/playbooks/templates/etc/systemd/system/tearleads-blob-gc.timer.j2"
   local alert_template="$REPO_ROOT/ansible/playbooks/templates/etc/systemd/system/tearleads-maintenance-alert@.service.j2"
@@ -78,19 +79,33 @@ assert_blob_gc_failure_alerting() {
     ! grep -Fq 'tearleads_blob_gc_timer.status.UnitFileState == "enabled"' "$maintenance_tasks" ||
     ! grep -Fq 'tearleads_blob_gc_timer.status.ActiveState == "active"' "$maintenance_tasks" ||
     ! grep -Fq 'blob-gc-healthcheck.env.j2' "$maintenance_tasks" ||
-    ! grep -Fq "blob_gc_healthcheck_url is match('^https://hc-ping[.]com/" "$maintenance_tasks" ||
+    ! grep -Fq "blob_gc_healthcheck_url is match('^https://hc-ping[.]com/[A-Za-z0-9_-]+$')" "$maintenance_tasks" ||
     ! grep -Fq 'BLOB_GC_HEALTHCHECK_URL={{ blob_gc_healthcheck_url | quote }}' "$healthcheck_env" ||
     ! grep -Fq "\${tier}.healthchecks.env" "$secrets_loader" ||
     ! grep -Fq 'name: curl' "$maintenance_tasks" ||
+    ! grep -Fq 'tearleads-blob-gc-healthcheck.j2' "$maintenance_tasks" ||
+    ! grep -Fq "printf 'url = \"%s\"\\n' \"\$endpoint\" | /usr/bin/curl" "$healthcheck_client" ||
+    ! grep -Fq -- '--config -' "$healthcheck_client" ||
     ! grep -Fq 'EnvironmentFile=/etc/tearleads/blob-gc-healthcheck.env' "$service_template" ||
-    ! grep -Fq 'ExecStartPre=-/usr/bin/curl' "$service_template" ||
-    ! grep -Fq "\${BLOB_GC_HEALTHCHECK_URL}/start" "$service_template" ||
-    ! grep -Fq 'ExecStartPost=-/usr/bin/curl' "$service_template" ||
+    ! grep -Fq 'ExecStartPre=-/usr/local/bin/tearleads-blob-gc-healthcheck start' "$service_template" ||
+    ! grep -Fq 'ExecStartPost=-/usr/local/bin/tearleads-blob-gc-healthcheck success' "$service_template" ||
     ! grep -Fq 'EnvironmentFile=/etc/tearleads/blob-gc-healthcheck.env' "$alert_template" ||
-    ! grep -Fq "\${BLOB_GC_HEALTHCHECK_URL}/fail" "$alert_template" ||
+    ! grep -Fq 'ExecStart=-/usr/local/bin/tearleads-blob-gc-healthcheck fail' "$alert_template" ||
+    grep -Fq 'BLOB_GC_HEALTHCHECK_URL' "$service_template" ||
+    grep -Fq 'BLOB_GC_HEALTHCHECK_URL' "$alert_template" ||
     ! grep -Fq -- '-p daemon.alert' "$alert_template" ||
     grep -Fq 'ConditionPathExists=' "$service_template"; then
     echo "ERROR: Blob GC must verify its timer state and report start, success, and failure heartbeats." >&2
+    return 1
+  fi
+}
+
+assert_blob_gc_healthcheck_url_validation() {
+  local pattern='^https://hc-ping[.]com/[A-Za-z0-9_-]+$'
+
+  if [[ ! "https://hc-ping.com/example-check_1" =~ $pattern ]] ||
+    [[ "https://hc-ping.com/example-check_1/" =~ $pattern ]]; then
+    echo "ERROR: Blob GC Healthchecks URLs must accept the canonical form and reject trailing slashes." >&2
     return 1
   fi
 }
@@ -197,6 +212,7 @@ assert_api_deploy_ordering \
 assert_api_deploy_ordering \
   "$REPO_ROOT/packages/api/scripts/deployProductionApi.sh"
 assert_blob_gc_failure_alerting
+assert_blob_gc_healthcheck_url_validation
 assert_superseded_timer_ordering
 assert_document_sync_ingress_cors
 
