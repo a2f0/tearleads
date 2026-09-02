@@ -2,7 +2,10 @@ import {
   listContainerDocumentsOperation,
   operationRoutePath,
 } from "@tearleads/validators/operation";
-import type { ListContainerDocumentsResponse } from "@tearleads/validators/response";
+import {
+  CONTAINER_NOT_FOUND_ERROR_CODE,
+  type ListContainerDocumentsResponse,
+} from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
@@ -53,7 +56,10 @@ export function createListContainerDocumentsRoute({
           }),
         );
       } catch (error) {
-        return respondToStatusError(c, error, ListContainerDocumentsError);
+        return respondToStatusError(c, error, ListContainerDocumentsError, {
+          code: CONTAINER_NOT_FOUND_ERROR_CODE,
+          status: 404,
+        });
       }
     },
   );

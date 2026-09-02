@@ -7260,6 +7260,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code: "container_not_found";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -7549,6 +7551,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code: "container_not_found";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -9750,6 +9754,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code: "container_not_found";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -18923,6 +18929,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code: "organization_presentation_access_denied";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -18936,6 +18944,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code: "organization_presentation_access_denied";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -21765,6 +21775,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code: "organization_presentation_access_denied";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -21778,6 +21790,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code: "organization_presentation_access_denied";
                         error: string;
                     } & {
                         [key: string]: unknown;

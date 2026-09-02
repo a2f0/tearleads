@@ -14,6 +14,7 @@ export class ContainerWriterProjectionError extends Error {
   constructor(
     message: string,
     readonly status: ContainerWriterProjectionStatus,
+    readonly code?: string,
   ) {
     super(message);
     this.name = "ContainerWriterProjectionError";

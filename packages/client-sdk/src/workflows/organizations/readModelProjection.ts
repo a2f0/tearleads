@@ -25,6 +25,7 @@ import {
   runOrganizationPresentationMutation,
   runOrganizationPresentationRead,
 } from "./organizationPresentationAccessState";
+import { isOrganizationPresentationAccessDeniedFailure } from "./organizationPresentationFailures";
 import type { OrganizationDirectoryAndGroups } from "./readModel";
 
 const MAX_READ_MODEL_PAGES = 100;
@@ -166,7 +167,7 @@ async function requestReadModelPage(
   if (result.ok) {
     return { kind: "response", response: result.data };
   }
-  if (result.status === 403 || result.status === 404) {
+  if (isOrganizationPresentationAccessDeniedFailure(result)) {
     const accessInput = organizationPresentationAccessInput(input);
     denyOrganizationPresentationAccess(accessInput, ["readModel", "usage"]);
     // The durable marker lands before the purge attempt: if the purge fails,

@@ -7,6 +7,7 @@ import type {
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import { resolveContainerPathUserAccessLevel } from "@tearleads/crypto";
+import { CONTAINER_NOT_FOUND_ERROR_CODE } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import {
   getAccessManifestBundle,
@@ -67,7 +68,28 @@ async function loadContainerPath(
     }
     seenContainerIds.add(currentContainerId);
 
-    const row = await loadContainerPathRow(context, currentContainerId);
+    let row: ContainerPathRow;
+    try {
+      row = await loadContainerPathRow(context, currentContainerId);
+    } catch (error) {
+      if (
+        !(error instanceof ContainerWriterProjectionError) ||
+        error.status !== 404
+      ) {
+        throw error;
+      }
+      if (path.length === 0) {
+        throw new ContainerWriterProjectionError(
+          error.message,
+          404,
+          CONTAINER_NOT_FOUND_ERROR_CODE,
+        );
+      }
+      throw new ContainerWriterProjectionError(
+        "Container path ancestor not found",
+        409,
+      );
+    }
     path.push(row);
     currentContainerId = row.parentId;
   }

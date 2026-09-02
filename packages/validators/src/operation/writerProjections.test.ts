@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import Ajv2020 from "ajv/dist/2020";
 import {
+  CONTAINER_NOT_FOUND_ERROR_CODE,
   DOCUMENT_NOT_FOUND_ERROR_CODE,
   DOCUMENT_PROJECTION_ERROR_CODES,
   DOCUMENT_SYNC_ERROR_CODES,
@@ -35,6 +36,12 @@ test("writer projection operations own their complete wire metadata", () => {
     path: "/documents/{documentId}/writer-projection",
     runtimeRefinements: writerProjectionResponseRuntimeRefinements,
   });
+  expect(
+    getContainerWriterProjectionOperation.failureResponses[404].safeParse({
+      code: CONTAINER_NOT_FOUND_ERROR_CODE,
+      error: "Container not found",
+    }).success,
+  ).toBe(true);
   expect(
     getDocumentWriterProjectionOperation.failureResponses[404].safeParse({
       code: DOCUMENT_NOT_FOUND_ERROR_CODE,

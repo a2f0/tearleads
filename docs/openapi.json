@@ -18227,11 +18227,17 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "code": {
+                      "type": "string",
+                      "const": "container_not_found"
+                    },
                     "error": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     }
                   },
                   "required": [
+                    "code",
                     "error"
                   ],
                   "additionalProperties": {}
@@ -24519,11 +24525,17 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "code": {
+                      "type": "string",
+                      "const": "container_not_found"
+                    },
                     "error": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     }
                   },
                   "required": [
+                    "code",
                     "error"
                   ],
                   "additionalProperties": {}
@@ -24726,11 +24738,17 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "code": {
+                      "type": "string",
+                      "const": "container_not_found"
+                    },
                     "error": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     }
                   },
                   "required": [
+                    "code",
                     "error"
                   ],
                   "additionalProperties": {}
@@ -37996,11 +38014,17 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "code": {
+                      "type": "string",
+                      "const": "organization_presentation_access_denied"
+                    },
                     "error": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     }
                   },
                   "required": [
+                    "code",
                     "error"
                   ],
                   "additionalProperties": {}
@@ -38015,11 +38039,17 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "code": {
+                      "type": "string",
+                      "const": "organization_presentation_access_denied"
+                    },
                     "error": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     }
                   },
                   "required": [
+                    "code",
                     "error"
                   ],
                   "additionalProperties": {}
@@ -46861,11 +46891,17 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "code": {
+                      "type": "string",
+                      "const": "organization_presentation_access_denied"
+                    },
                     "error": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     }
                   },
                   "required": [
+                    "code",
                     "error"
                   ],
                   "additionalProperties": {}
@@ -46880,11 +46916,17 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "code": {
+                      "type": "string",
+                      "const": "organization_presentation_access_denied"
+                    },
                     "error": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     }
                   },
                   "required": [
+                    "code",
                     "error"
                   ],
                   "additionalProperties": {}

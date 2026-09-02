@@ -1,4 +1,0 @@
-# #2144 adds a behavior-bearing checkpoint conflict without removing any
-# response shape or enum member. Remove this entry as soon as the default branch
-# contains document_sync_checkpoint_coverage_conflict.
-POST /documents/{documentId}/sync added the new `document_sync_checkpoint_coverage_conflict` enum value to the `code` response property for the response status `409`

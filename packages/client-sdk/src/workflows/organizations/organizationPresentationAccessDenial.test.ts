@@ -1,10 +1,11 @@
 import { expect, test } from "bun:test";
 import type { RequestResult } from "@tearleads/api-client";
 import { createTestExecSql } from "@tearleads/test-utils";
-import type {
-  OrganizationReadModelResponse,
-  OrganizationReadModelSnapshotResponse,
-  PrincipalPolicyBundleResponse,
+import {
+  ORGANIZATION_PRESENTATION_ERROR_CODES,
+  type OrganizationReadModelResponse,
+  type OrganizationReadModelSnapshotResponse,
+  type PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
 import {
   dataUsage,
@@ -209,7 +210,11 @@ test("read-model denial hides all presentation reads when purge fails", async ()
       reconcileOrganizationDirectoryAndGroups({
         apiClient: {
           getOrganizationReadModelResult: async () =>
-            organizationReadModelFailure({ kind: "http", status: 403 }),
+            organizationReadModelFailure({
+              code: ORGANIZATION_PRESENTATION_ERROR_CODES.accessDenied,
+              kind: "http",
+              status: 403,
+            }),
         },
         currentUserId: requesterUserId,
         execSql,
@@ -326,7 +331,11 @@ test("a delayed pre-denial read-model response cannot apply or restore", async (
       reconcileOrganizationDirectoryAndGroups({
         apiClient: {
           getOrganizationReadModelResult: async () =>
-            organizationReadModelFailure({ kind: "http", status: 404 }),
+            organizationReadModelFailure({
+              code: ORGANIZATION_PRESENTATION_ERROR_CODES.accessDenied,
+              kind: "http",
+              status: 404,
+            }),
         },
         currentUserId: requesterUserId,
         execSql,

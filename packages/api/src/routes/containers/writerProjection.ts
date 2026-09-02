@@ -2,7 +2,10 @@ import {
   getContainerWriterProjectionOperation,
   operationRoutePath,
 } from "@tearleads/validators/operation";
-import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import {
+  CONTAINER_NOT_FOUND_ERROR_CODE,
+  type ContainerWriterProjectionResponse,
+} from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
@@ -42,7 +45,18 @@ export function createContainerWriterProjectionRoute({
           }),
         );
       } catch (error) {
-        return respondToStatusError(c, error, ContainerWriterProjectionError);
+        return respondToStatusError(
+          c,
+          error,
+          ContainerWriterProjectionError,
+          error instanceof ContainerWriterProjectionError &&
+            error.code === CONTAINER_NOT_FOUND_ERROR_CODE
+            ? {
+                code: CONTAINER_NOT_FOUND_ERROR_CODE,
+                status: 404,
+              }
+            : undefined,
+        );
       }
     },
   );

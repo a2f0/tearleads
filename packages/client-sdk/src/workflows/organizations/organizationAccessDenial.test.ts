@@ -1,7 +1,10 @@
 import { expect, test } from "bun:test";
 import type { RequestFailure, RequestResult } from "@tearleads/api-client";
 import { createTestExecSql } from "@tearleads/test-utils";
-import type { OrganizationDataUsageResponse } from "@tearleads/validators/response";
+import {
+  ORGANIZATION_PRESENTATION_ERROR_CODES,
+  type OrganizationDataUsageResponse,
+} from "@tearleads/validators/response";
 import { dataUsage } from "../../../test/helpers/organizationReadModelFixtures";
 import {
   organizationReadModelFailure,
@@ -22,6 +25,7 @@ const requesterUserId = organizationReadModelUserId;
 
 function usageFailure(status: 403 | 404): RequestFailure {
   return {
+    code: ORGANIZATION_PRESENTATION_ERROR_CODES.accessDenied,
     kind: "http",
     message: "usage request denied",
     method: "GET",
@@ -83,7 +87,11 @@ test("read-model denial invalidates a delayed usage success", async () => {
       reconcileOrganizationDirectoryAndGroups({
         apiClient: {
           getOrganizationReadModelResult: async () =>
-            organizationReadModelFailure({ kind: "http", status: 403 }),
+            organizationReadModelFailure({
+              code: ORGANIZATION_PRESENTATION_ERROR_CODES.accessDenied,
+              kind: "http",
+              status: 403,
+            }),
         },
         currentUserId: requesterUserId,
         execSql,

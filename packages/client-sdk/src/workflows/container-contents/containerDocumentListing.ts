@@ -1,3 +1,4 @@
+import { isContainerNotFoundFailure } from "../../data/containers/shared/mutationFailures";
 import type {
   ContainerDocumentDiscoveryApi,
   ContainerDocumentTombstone,
@@ -18,7 +19,7 @@ function isUnavailableContainerDocumentLane(
     >
   >,
 ): boolean {
-  return !failure.ok && failure.status === 404;
+  return !failure.ok && isContainerNotFoundFailure(failure);
 }
 
 export async function listContainerDocumentsFromApi(

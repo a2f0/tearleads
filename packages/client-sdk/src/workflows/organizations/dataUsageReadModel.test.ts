@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import type { RequestFailure } from "@tearleads/api-client";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { ORGANIZATION_PRESENTATION_ERROR_CODES } from "@tearleads/validators/response";
 import {
   dataUsage,
   organizationId,
@@ -13,10 +14,12 @@ import {
 const REQUESTER_USER_ID = "user-1";
 
 function requestFailure(input: {
+  readonly code?: string | undefined;
   readonly report: () => void;
   readonly status: number | null;
 }): RequestFailure {
   return {
+    ...(input.code === undefined ? {} : { code: input.code }),
     kind: input.status === null ? "network" : "http",
     message: "usage request failed",
     method: "GET",
@@ -58,7 +61,7 @@ test("organization data usage reconciles into the local projection", async () =>
   }
 });
 
-test("transient usage failures report once and retain last-known-good data", async () => {
+test("ambiguous usage failures report and retain last-known-good data", async () => {
   const { close, execSql } = await createTestExecSql(
     "organization-data-usage-retained",
   );
@@ -93,6 +96,24 @@ test("transient usage failures report once and retain last-known-good data", asy
 
     expect(result).toEqual(dataUsage);
     expect(reportCount).toBe(1);
+
+    await expect(
+      reconcileOrganizationDataUsage({
+        apiClient: {
+          getOrganizationDataUsageResult: async () =>
+            requestFailure({
+              report: () => {
+                reportCount += 1;
+              },
+              status: 404,
+            }),
+        },
+        execSql,
+        organizationId,
+        requesterUserId: REQUESTER_USER_ID,
+      }),
+    ).resolves.toEqual(dataUsage);
+    expect(reportCount).toBe(2);
   } finally {
     close();
   }
@@ -120,7 +141,11 @@ for (const status of [403, 404] as const) {
         reconcileOrganizationDataUsage({
           apiClient: {
             getOrganizationDataUsageResult: async () =>
-              requestFailure({ report: () => {}, status }),
+              requestFailure({
+                code: ORGANIZATION_PRESENTATION_ERROR_CODES.accessDenied,
+                report: () => {},
+                status,
+              }),
           },
           execSql,
           organizationId,

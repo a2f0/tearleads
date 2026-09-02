@@ -7,7 +7,10 @@ import type {
   ContainerAccessLevel,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
-import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import {
+  CONTAINER_NOT_FOUND_ERROR_CODE,
+  type ContainerWriterProjectionResponse,
+} from "@tearleads/validators/response";
 import { uniqueSortedStrings } from "../../utils/array";
 import {
   asContainerWriterProjectionError,
@@ -68,7 +71,11 @@ async function resolveContainerProjectionWithAccess(input: {
   }
   const targetManifest = access.verifiedPath.at(-1);
   if (!targetManifest) {
-    throw new ContainerWriterProjectionError("Container not found", 404);
+    throw new ContainerWriterProjectionError(
+      "Container not found",
+      404,
+      CONTAINER_NOT_FOUND_ERROR_CODE,
+    );
   }
 
   // Current access is history-inclusive. Each path KEK carries the sealed
