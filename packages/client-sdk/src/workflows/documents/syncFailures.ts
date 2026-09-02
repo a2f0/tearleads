@@ -3,7 +3,6 @@ import type {
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import {
-  isRetryableDocumentSyncConflict,
   isUpstreamDeletedDocumentSyncFailure,
   submitDocumentSync,
 } from "../../data/documents/shared/responses";
@@ -29,6 +28,7 @@ import {
   shouldRetrySyncWithFreshWriterProjection,
   type TerminalSubmitFailureHandler,
 } from "./syncFailureClassification";
+import { cacheDocumentSyncPolicyRepair } from "./syncPolicyRepair";
 import {
   type DocumentSyncTraceEmitter,
   traceProjectionFailed,
@@ -70,32 +70,6 @@ type DocumentSyncAttemptSubmission =
     }
   | FailedDocumentSyncAction
   | "cancelled";
-
-async function cacheDocumentSyncPolicyRepair(input: {
-  failure: DocumentSyncSubmitFailure;
-  plan: DocumentSyncPlan;
-  stillCurrent?: (() => boolean) | undefined;
-  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
-}): Promise<void> {
-  const bundles = input.failure.stalePrincipalPolicies;
-  const cacheBundles = input.warmReferencedPrincipalPolicies?.cacheBundles;
-  if (
-    !isRetryableDocumentSyncConflict(input.failure) ||
-    (input.plan.request.containerRekeys?.length ?? 0) === 0 ||
-    !bundles ||
-    bundles.length === 0 ||
-    !cacheBundles ||
-    input.stillCurrent?.() === false
-  ) {
-    return;
-  }
-
-  await cacheBundles({
-    bundles,
-    organizationId: input.plan.organizationId,
-    stillCurrent: input.stillCurrent,
-  });
-}
 
 async function resolveFailedDocumentSyncAction(input: {
   attempt: number;

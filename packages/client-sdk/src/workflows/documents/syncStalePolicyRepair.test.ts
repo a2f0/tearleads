@@ -34,11 +34,35 @@ function containerRekey(policyGeneration: number): ContainerMutationRequest {
     keyring: null,
     manifest: { objectKind: "container" },
     predecessorBridge: null,
-    principalPolicies: [{ policyGeneration }],
+    principalPolicies: [
+      {
+        policyGeneration,
+        principalId: "principal-1",
+        principalType: "group",
+      },
+    ],
     wraps: [{ containerKeyEpochId: "container-key-epoch-id" }],
   };
 }
-const POLICY_BUNDLE = {} as PrincipalPolicyBundleResponse;
+
+function repairBundleForRequest(
+  request: DocumentSyncRequest,
+): PrincipalPolicyBundleResponse {
+  const policy = request.containerRekeys?.flatMap(
+    (rekey) => rekey.principalPolicies,
+  )[0];
+  const principalId = policy && Reflect.get(policy, "principalId");
+  const principalType = policy && Reflect.get(policy, "principalType");
+  if (
+    typeof principalId !== "string" ||
+    (principalType !== "group" && principalType !== "organization")
+  ) {
+    throw new Error("Expected inline rekey principal policy identity");
+  }
+  return {
+    currentState: { principalId, principalType },
+  } as PrincipalPolicyBundleResponse;
+}
 
 test("syncRemoteDocument retries failed chained rekeys after caching stale policies", async () => {
   const {
@@ -52,6 +76,7 @@ test("syncRemoteDocument retries failed chained rekeys after caching stale polic
   const submittedRequests: DocumentSyncRequest[] = [];
   const events: string[] = [];
   let policiesCached = false;
+  let repairBundle: PrincipalPolicyBundleResponse | undefined;
   let projectionRequestCount = 0;
   let rekeyBuildCount = 0;
   const rekeyManifestHashes: string[] = [];
@@ -69,8 +94,11 @@ test("syncRemoteDocument retries failed chained rekeys after caching stale polic
   const warmer = Object.assign(async () => undefined, {
     cacheBundles: async (input: PrincipalPolicyBundleCacheRequest) => {
       events.push("cache-policies");
+      if (!repairBundle) {
+        throw new Error("Expected a stale policy repair bundle");
+      }
       expect(input).toEqual({
-        bundles: [POLICY_BUNDLE],
+        bundles: [repairBundle],
         organizationId: author.organizationId,
         stillCurrent: undefined,
       });
@@ -99,12 +127,13 @@ test("syncRemoteDocument retries failed chained rekeys after caching stale polic
           submittedRequests.push(request);
           events.push(`submit-${submittedRequests.length}`);
           if (submittedRequests.length === 1) {
+            repairBundle = repairBundleForRequest(request);
             return {
               code: DOCUMENT_SYNC_ERROR_CODES.stateStale,
               message: "Principal policy is stale",
               ok: false,
               report: () => undefined,
-              stalePrincipalPolicies: [POLICY_BUNDLE],
+              stalePrincipalPolicies: [repairBundle],
               status: 409,
             };
           }
@@ -184,7 +213,22 @@ test("syncRemoteDocument retries failed chained rekeys after caching stale polic
           containerKeyEpochId: nextKek.containerKeyEpochId,
           containerManifestHash: rekey.plan.manifestHash,
         };
-        return [firstRekey, rekey];
+        return [firstRekey, rekey].map((materialized) => ({
+          ...materialized,
+          plan: {
+            ...materialized.plan,
+            request: {
+              ...materialized.plan.request,
+              principalPolicies: [
+                {
+                  policyGeneration: rekeyBuildCount,
+                  principalId: "stale-policy-principal",
+                  principalType: "group",
+                },
+              ],
+            },
+          },
+        }));
       },
       buildRotationSnapshot: createFullHistoryRotationSnapshot,
       documentId: writerProjection.documentId,
