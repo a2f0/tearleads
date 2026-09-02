@@ -3,7 +3,10 @@ import type { ReferencedPrincipalPolicyWarmer } from "../../data/keyingProjectio
 import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
-import { cacheReferencedPrincipalPolicies } from "./policyCache";
+import {
+  cacheReferencedPrincipalPolicies,
+  verifyReferencedPrincipalPolicies,
+} from "./policyCache";
 
 interface PrincipalPolicyWarmRuntime {
   readonly apiClient: {
@@ -23,8 +26,12 @@ interface PrincipalPolicyWarmRuntime {
 export function createRuntimePrincipalPolicyWarmer(
   runtime: PrincipalPolicyWarmRuntime,
 ): ReferencedPrincipalPolicyWarmer {
-  return async ({ organizationId, references }) => {
-    await cacheReferencedPrincipalPolicies({
+  const policyInput = ({
+    organizationId,
+    references,
+    stillCurrent,
+  }: Parameters<ReferencedPrincipalPolicyWarmer>[0]) => {
+    const input: Parameters<typeof cacheReferencedPrincipalPolicies>[0] = {
       execSql: runtime.infra.execSql,
       getCurrentPrincipalPolicy: (principalType, principalId) =>
         runtime.apiClient.getCurrentPrincipalPolicy(principalType, principalId),
@@ -33,6 +40,21 @@ export function createRuntimePrincipalPolicyWarmer(
       reportSecurityIncident: runtime.util.reportSecurityIncident,
       references,
       resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
-    });
+      stillCurrent,
+    };
+    return input;
   };
+  const warmer = async (
+    input: Parameters<ReferencedPrincipalPolicyWarmer>[0],
+  ) => cacheReferencedPrincipalPolicies(policyInput(input));
+  const verifyWithoutPersistence = Object.assign(
+    async (input: Parameters<ReferencedPrincipalPolicyWarmer>[0]) => {
+      const verifiedPolicies = await verifyReferencedPrincipalPolicies(
+        policyInput(input),
+      );
+      input.onVerifiedPolicies?.(verifiedPolicies);
+    },
+    { reportsVerifiedPolicies: true as const },
+  );
+  return Object.assign(warmer, { verifyWithoutPersistence });
 }

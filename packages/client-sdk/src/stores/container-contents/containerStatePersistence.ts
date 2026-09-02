@@ -20,6 +20,16 @@ type ContainerMetadataMutationOptions = Pick<
   Parameters<typeof persistContainerMetadataStateFromRuntime>[0],
   "preserveDurableStructureWhenPending"
 >;
+type ContainerStateMutationOptions = ContainerMetadataMutationOptions & {
+  createIntentSettlement?: Parameters<
+    typeof persistContainerMetadataStateFromRuntime
+  >[0]["createIntentSettlement"];
+  moveIntentSettlement?: Parameters<
+    typeof persistContainerMetadataStateFromRuntime
+  >[0]["moveIntentSettlement"];
+  expectedStateWhenMissing?: ContainerState | undefined;
+  isCurrent?: (() => boolean) | undefined;
+};
 
 export async function persistContainerState(
   state: ContainerContentsStoreState,
@@ -28,7 +38,7 @@ export async function persistContainerState(
   updateView = true,
   saveOptions?: PersistContainerSaveOptions,
   localMutation?: LocalContainerMetadataMutation,
-  mutationOptions?: ContainerMetadataMutationOptions,
+  mutationOptions?: ContainerStateMutationOptions,
 ): Promise<PersistContainerStateResult> {
   const persisted = await persistContainerMetadataStateFromRuntime({
     metadataState: containerState,
@@ -36,13 +46,22 @@ export async function persistContainerState(
     localUpdate: localMutation?.localUpdate,
     patch,
     persistence: state.persistence,
+    createIntentSettlement: mutationOptions?.createIntentSettlement,
+    moveIntentSettlement: mutationOptions?.moveIntentSettlement,
     preserveDurableStructureWhenPending:
       mutationOptions?.preserveDurableStructureWhenPending,
     runtime: state.runtime,
     saveOptions,
+    stillCurrent: mutationOptions?.isCurrent,
   });
+  if (mutationOptions?.isCurrent?.() === false) {
+    return { status: "stale-generation" };
+  }
   if (!persisted) {
-    removeMissingContainerState(state, containerState);
+    removeMissingContainerState(
+      state,
+      mutationOptions?.expectedStateWhenMissing ?? containerState,
+    );
     return { status: "missing" };
   }
   containerState.container = persisted.container;
@@ -65,5 +84,14 @@ export async function persistContainerState(
   if (updateView) {
     updateContainerContentsSnapshot(state);
   }
-  return { record: persisted.record, status: "persisted" };
+  return {
+    record: persisted.record,
+    status: "persisted",
+    ...(persisted.createIntentSettled
+      ? { createIntentSettled: true as const }
+      : {}),
+    ...(persisted.moveIntentSettled
+      ? { moveIntentSettled: true as const }
+      : {}),
+  };
 }

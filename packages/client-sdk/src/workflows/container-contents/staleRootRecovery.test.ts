@@ -116,10 +116,10 @@ test("stale root recovery rehomes documents and adopts the remote root", async (
     status: "reassigned",
   });
   expect(fixture.reassignments).toEqual([
-    {
+    expect.objectContaining({
       fromContainerId: "deleted-local-root",
       toContainerId: "remote-root",
-    },
+    }),
   ]);
   expect(fixture.adoptions).toEqual([
     {

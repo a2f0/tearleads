@@ -4,6 +4,7 @@ import {
   readContainerState,
 } from "../../../data/containers/shared/projection";
 import {
+  nullOnProjectionVerificationCancellation,
   type ProjectionUserKeyResolver,
   verifyContainerWriterProjection,
 } from "../../../data/keyingProjectionVerification";
@@ -56,7 +57,7 @@ function projectionHasCurrentGroupGrant(input: {
   );
 }
 
-export async function containerStateHasCurrentGroupGrant(input: {
+async function containerStateHasCurrentGroupGrantInternal(input: {
   accessLevel: GroupGrantAccessLevel;
   containerState: ContainerState;
   expectedContainerId: string;
@@ -65,13 +66,16 @@ export async function containerStateHasCurrentGroupGrant(input: {
   groupId: string;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<boolean> {
+  if (input.stillCurrent?.() === false) return false;
   const projection = await loadContainerWriterProjectionForState({
     containerState: input.containerState,
     runtime: input.runtime,
   });
   if (
     !projection ||
+    input.stillCurrent?.() === false ||
     input.expectedGroupHead.principalType !== "group" ||
     input.expectedGroupHead.principalId !== input.groupId ||
     input.containerState.container.id !== input.expectedContainerId ||
@@ -91,24 +95,32 @@ export async function containerStateHasCurrentGroupGrant(input: {
       groupId: input.groupId,
       organizationId: input.expectedOrganizationId,
       resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
+      stillCurrent: input.stillCurrent,
     });
+  if (input.stillCurrent?.() === false) return false;
   if (
     !principalPolicyBundleContainsReference(bundle, input.expectedGroupHead)
   ) {
     return false;
   }
   const currentHead = referencedPrincipalHeadFromPolicy(policy);
-  await advanceVerifiedSharePolicies(input.runtime.infra.execSql, {
-    checkpointPolicies,
-    dependencyBundles,
-    organizationId: input.expectedOrganizationId,
-  });
+  await advanceVerifiedSharePolicies(
+    input.runtime.infra.execSql,
+    {
+      checkpointPolicies,
+      dependencyBundles,
+      organizationId: input.expectedOrganizationId,
+    },
+    input.stillCurrent,
+  );
+  if (input.stillCurrent?.() === false) return false;
   await verifyContainerWriterProjection({
     execSql: input.runtime.infra.execSql,
     principalPolicyCache:
       principalPolicyCacheForVerifiedPolicies(checkpointPolicies),
     projection,
     resolveUserKey: input.resolveProjectionUserKey,
+    stillCurrent: input.stillCurrent,
     warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
       input.runtime,
     ),
@@ -128,11 +140,22 @@ export async function containerStateHasCurrentGroupGrant(input: {
         bundle,
         new Date().toISOString(),
         input.expectedOrganizationId,
+        { stillCurrent: input.stillCurrent },
       );
     } catch {
       // The cryptographically verified root grant is already safe. A local
       // cache failure must not keep it pending or trigger duplicate re-wraps.
     }
   }
-  return isCurrent;
+  return input.stillCurrent?.() !== false && isCurrent;
+}
+
+export async function containerStateHasCurrentGroupGrant(
+  input: Parameters<typeof containerStateHasCurrentGroupGrantInternal>[0],
+): Promise<boolean> {
+  return (
+    (await nullOnProjectionVerificationCancellation(() =>
+      containerStateHasCurrentGroupGrantInternal(input),
+    )) ?? false
+  );
 }

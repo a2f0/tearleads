@@ -17,17 +17,23 @@ import {
   registerDocumentStoreRemoteSyncWaiter,
 } from "./syncGeneration";
 
-test("sync generation invalidates on document, domain, database, or trust replacement", async () => {
+test("sync generation invalidates on document and structural runtime replacement", async () => {
   const currentDoc = await createDocument("sync-generation-current");
   const execSql = (async () => []) as ExecSql;
   const resolveProjectionUserKey = async () => null;
   const state = {
     doc: currentDoc,
     localWriteGeneration: 0,
+    persistence: {},
     resolveProjectionUserKey,
     runtime: {
+      apiClient: {},
+      auth: { organizationId: "organization-a" },
       infra: { execSql },
-      state: { domainScope: createDomainScope() },
+      state: {
+        containerId: "container-a",
+        domainScope: createDomainScope(),
+      },
     },
   } as unknown as DocumentStoreState;
   const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
@@ -41,6 +47,20 @@ test("sync generation invalidates on document, domain, database, or trust replac
   state.doc = currentDoc;
 
   const runtime = state.runtime;
+  state.runtime = {
+    ...runtime,
+    apiClient: {} as DocumentStoreState["runtime"]["apiClient"],
+  };
+  expect(isDocumentStoreSyncGenerationCurrent(state, generation)).toBe(false);
+  state.runtime = runtime;
+
+  state.runtime = {
+    ...runtime,
+    state: { ...runtime.state, containerId: "container-b" },
+  };
+  expect(isDocumentStoreSyncGenerationCurrent(state, generation)).toBe(false);
+  state.runtime = runtime;
+
   state.runtime = {
     ...runtime,
     state: { ...runtime.state, domainScope: createDomainScope() },

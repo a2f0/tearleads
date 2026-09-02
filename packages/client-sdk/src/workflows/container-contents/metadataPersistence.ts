@@ -1,9 +1,4 @@
-import { bytesToBase64 } from "@tearleads/encoding";
-import {
-  encodeVersionVector,
-  exportAllUpdates,
-  exportUpdatesSince,
-} from "@tearleads/loro";
+import { encodeVersionVector, exportUpdatesSince } from "@tearleads/loro";
 import {
   getDefaultContainerName,
   readContainerMetadataValue,
@@ -22,8 +17,12 @@ import {
   loadAuthoritativeContainerMetadataState,
   type PersistContainerMetadataStateInput,
   prepareContainerMetadataMutation,
-  type resolveMetadataSecurityContext,
 } from "./metadataMutationPreparation";
+import {
+  buildContainerMetadataRecord,
+  resolveContainerSystemSlot,
+  resolveMetadataDocumentId,
+} from "./metadataRecord";
 import { installContainerMetadataRecord } from "./metadataStateInstallation";
 import {
   type ExpectedContainerMetadataSyncState,
@@ -39,13 +38,6 @@ import type { ContainerContentsWorkflowSqlRuntime } from "./runtime";
 
 type ContainerMetadataPersistenceRuntime = ContainerContentsWorkflowSqlRuntime;
 const MAX_METADATA_MUTATION_COMMIT_ATTEMPTS = 8;
-
-type NullableContainerMetadataDocumentField =
-  | "accessStateHash"
-  | "lastCommitLsn"
-  | "contentKeyBundle"
-  | "documentKekTargets"
-  | "documentManifestBundle";
 type SaveContainerOptions = Parameters<
   ContainerContentsPersistence["saveContainer"]
 >[3];
@@ -57,32 +49,6 @@ export {
 export { installContainerMetadataRecord } from "./metadataStateInstallation";
 export { currentMetadataPullContinuation };
 
-function resolveContainerSystemSlot(
-  patch: Partial<ContainerMetadataPatch>,
-  container: ContainerRecord,
-): NonNullable<ContainerRecord["systemSlot"]> | null {
-  return patch.systemSlot ?? container.systemSlot ?? null;
-}
-
-function resolveMetadataDocumentId(
-  patch: Partial<ContainerMetadataPatch>,
-  container: ContainerRecord,
-): ContainerRecord["metadataDocumentId"] {
-  return (
-    patch.metadataDocumentId ?? patch.documentId ?? container.metadataDocumentId
-  );
-}
-
-function resolveNullableContainerMetadataDocumentField(
-  patch: Partial<ContainerMetadataPatch>,
-  key: NullableContainerMetadataDocumentField,
-  currentValue: string | null | undefined,
-  resetWhenUnpatched = false,
-): string | null {
-  if (Object.hasOwn(patch, key)) return patch[key] ?? null;
-  return resetWhenUnpatched ? null : (currentValue ?? null);
-}
-
 function invalidateMetadataWriterProjection(
   metadataState: ContainerMetadataState,
   securityContextChanged: boolean,
@@ -91,75 +57,6 @@ function invalidateMetadataWriterProjection(
     metadataState.metadataWriterProjection = null;
   }
 }
-
-function resolveMetadataPullState(
-  metadataState: ContainerMetadataState,
-  patch: Partial<ContainerMetadataPatch>,
-  securityContextChanged: boolean,
-): Pick<
-  DocumentRecord,
-  "pullContinuation" | "pullContinuationRecoveryRequired"
-> {
-  if (Object.hasOwn(patch, "pullContinuation")) {
-    return { pullContinuation: patch.pullContinuation ?? null };
-  }
-  if (securityContextChanged) {
-    return { pullContinuation: null };
-  }
-  if (metadataState.record.pullContinuationRecoveryRequired) {
-    return { pullContinuationRecoveryRequired: true };
-  }
-  return { pullContinuation: currentMetadataPullContinuation(metadataState) };
-}
-
-function buildContainerMetadataRecord(input: {
-  metadataState: ContainerMetadataState;
-  patch: Partial<ContainerMetadataPatch>;
-  securityContext: ReturnType<typeof resolveMetadataSecurityContext>;
-}): DocumentRecord {
-  const { metadataState, patch, securityContext } = input;
-  return {
-    id: metadataState.container.id,
-    documentId: securityContext.documentId,
-    metadataUpdates:
-      patch.metadataUpdates ??
-      bytesToBase64(exportAllUpdates(metadataState.doc)),
-    snapshotEndVersion: "",
-    accessEpoch: securityContext.accessEpoch,
-    accessStateHash: resolveNullableContainerMetadataDocumentField(
-      patch,
-      "accessStateHash",
-      metadataState.record.accessStateHash,
-      securityContext.changed,
-    ),
-    lastCommitLsn: resolveNullableContainerMetadataDocumentField(
-      patch,
-      "lastCommitLsn",
-      metadataState.record.lastCommitLsn,
-      securityContext.documentIdChanged,
-    ),
-    contentKeyBundle: resolveNullableContainerMetadataDocumentField(
-      patch,
-      "contentKeyBundle",
-      metadataState.record.contentKeyBundle,
-      securityContext.changed,
-    ),
-    documentKekTargets: resolveNullableContainerMetadataDocumentField(
-      patch,
-      "documentKekTargets",
-      metadataState.record.documentKekTargets,
-      securityContext.changed,
-    ),
-    documentManifestBundle: resolveNullableContainerMetadataDocumentField(
-      patch,
-      "documentManifestBundle",
-      metadataState.record.documentManifestBundle,
-      securityContext.changed,
-    ),
-    ...resolveMetadataPullState(metadataState, patch, securityContext.changed),
-  };
-}
-
 type PreparedContainerMetadataMutation = Awaited<
   ReturnType<typeof prepareContainerMetadataMutation>
 >;
@@ -167,7 +64,6 @@ type ApplicableContainerMetadataMutation = Exclude<
   PreparedContainerMetadataMutation,
   { authoritativeState: unknown }
 >;
-
 async function settleSupersededMetadataMutation(input: {
   acceptedPendingUpdateIds?: readonly string[] | undefined;
   execSql: ExecSql;
@@ -175,6 +71,7 @@ async function settleSupersededMetadataMutation(input: {
   metadataState: ContainerMetadataState;
   persistence: ContainerContentsPersistence;
   prepared: PreparedContainerMetadataMutation;
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<PersistedContainerMetadataState | null> {
   const { metadataState, persistence, prepared } = input;
   const settledState = input.expectedRecord
@@ -182,6 +79,7 @@ async function settleSupersededMetadataMutation(input: {
         containerId: metadataState.container.id,
         expectedRecord: input.expectedRecord,
         pendingUpdateIds: input.acceptedPendingUpdateIds ?? [],
+        stillCurrent: input.stillCurrent,
       })
     : undefined;
   if ("authoritativeState" in prepared) {
@@ -222,16 +120,22 @@ async function settleSupersededMetadataMutation(input: {
       : {}),
   };
 }
-
 async function persistPreparedMetadataMutation(input: {
   clearSyncFailure?: boolean | undefined;
+  createIntentSettlement?: Parameters<
+    ContainerContentsPersistence["commitMetadataMutation"]
+  >[1]["createIntentSettlement"];
   execSql: ExecSql;
   metadataState: ContainerMetadataState;
+  moveIntentSettlement?: Parameters<
+    ContainerContentsPersistence["commitMetadataMutation"]
+  >[1]["moveIntentSettlement"];
   persistence: ContainerContentsPersistence;
   prepared: ApplicableContainerMetadataMutation;
   acceptedPendingUpdateIds?: readonly string[] | undefined;
   preserveDurableStructureWhenPending?: boolean | undefined;
   saveOptions?: SaveContainerOptions;
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<
   | PersistedContainerMetadataState
   | {
@@ -285,8 +189,10 @@ async function persistPreparedMetadataMutation(input: {
     acceptedPendingUpdateIds: input.acceptedPendingUpdateIds ?? [],
     clearSyncFailure: input.clearSyncFailure,
     container: nextContainer,
+    createIntentSettlement: input.createIntentSettlement,
     expectedContainer: prepared.mutationContainer,
     expectedRecord: prepared.durableRecord,
+    moveIntentSettlement: input.moveIntentSettlement,
     pendingUpdate,
     preserveDurableStructureWhenPending:
       input.preserveDurableStructureWhenPending,
@@ -294,6 +200,7 @@ async function persistPreparedMetadataMutation(input: {
     saveOptions: input.saveOptions,
     settleAcceptedPendingOnConflict:
       input.acceptedPendingUpdateIds !== undefined,
+    stillCurrent: input.stillCurrent,
   });
   if (!committed.committed) {
     return {
@@ -308,9 +215,17 @@ async function persistPreparedMetadataMutation(input: {
     metadataState,
     prepared.securityContext.changed,
   );
-  return { container: committed.container, record: nextRecord };
+  return {
+    container: committed.container,
+    record: nextRecord,
+    ...(committed.createIntentSettled
+      ? { createIntentSettled: true as const }
+      : {}),
+    ...(committed.moveIntentSettled
+      ? { moveIntentSettled: true as const }
+      : {}),
+  };
 }
-
 async function adoptMetadataCommitConflict(input: {
   currentState: Awaited<
     ReturnType<ContainerContentsPersistence["loadContainerMetadataState"]>
@@ -346,22 +261,19 @@ async function adoptMetadataCommitConflict(input: {
       : {}),
   };
 }
-
 async function persistContainerMetadataState(
   input: PersistContainerMetadataStateInput,
 ): Promise<PersistedContainerMetadataState | null> {
   const patch = input.patch ?? {};
+  const prepareMutation = prepareContainerMetadataMutation;
   return runSerializedSqlMutation(input.execSql, async (lockedExecSql) => {
     for (
       let attempt = 0;
       attempt < MAX_METADATA_MUTATION_COMMIT_ATTEMPTS;
       attempt += 1
     ) {
-      const prepared = await prepareContainerMetadataMutation(
-        input,
-        lockedExecSql,
-        patch,
-      );
+      const prepared = await prepareMutation(input, lockedExecSql, patch);
+      if (input.stillCurrent?.() === false) return null;
       if (
         "authoritativeState" in prepared ||
         prepared.pullContinuationSuperseded
@@ -373,19 +285,24 @@ async function persistContainerMetadataState(
           metadataState: input.metadataState,
           persistence: input.persistence,
           prepared,
+          stillCurrent: input.stillCurrent,
         });
       }
       const persisted = await persistPreparedMetadataMutation({
         acceptedPendingUpdateIds: input.acceptedPendingUpdateIds,
         clearSyncFailure: input.clearSyncFailure,
+        createIntentSettlement: input.createIntentSettlement,
         execSql: lockedExecSql,
         metadataState: input.metadataState,
+        moveIntentSettlement: input.moveIntentSettlement,
         persistence: input.persistence,
         prepared,
         preserveDurableStructureWhenPending:
           input.preserveDurableStructureWhenPending,
         saveOptions: input.saveOptions,
+        stillCurrent: input.stillCurrent,
       });
+      if (input.stillCurrent?.() === false) return null;
       if (!("conflict" in persisted)) return persisted;
       const conflict = await adoptMetadataCommitConflict({
         currentState: persisted.currentState,
@@ -401,11 +318,11 @@ async function persistContainerMetadataState(
     );
   });
 }
-
 type PersistContainerMetadataStateRuntimeInput = Omit<
   PersistContainerMetadataStateInput,
   "execSql"
 > & {
+  onDurableStateNeedsReload?: (() => void) | undefined;
   persistence: ContainerContentsPersistence;
   runtime: ContainerMetadataPersistenceRuntime;
 };
@@ -423,23 +340,25 @@ export function persistContainerMetadataStateFromRuntime(
 export async function persistContainerMetadataStateFromRuntime(
   input: PersistContainerMetadataStateRuntimeInput,
 ): Promise<PersistedContainerMetadataState | null> {
-  const { runtime, ...persistenceInput } = input;
+  const { onDurableStateNeedsReload, runtime, ...persistenceInput } = input;
   const execSql = runtime.infra.execSql;
-  return persistContainerMetadataState({
+  const persisted = await persistContainerMetadataState({
     ...persistenceInput,
     execSql,
   });
+  if (input.stillCurrent?.() === false) {
+    onDurableStateNeedsReload?.();
+    return null;
+  }
+  return persisted;
 }
 
-/**
- * Shared metadata-document write path: apply the patch to the doc, queue the
- * incremental update it produced, and persist the patched container state.
- */
 async function writeContainerMetadataPatch(input: {
   execSql: ExecSql;
   metadataState: ContainerMetadataState;
   patch: Partial<Pick<ContainerMetadataPatch, "icon" | "name">>;
   persistence: ContainerContentsPersistence;
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<PersistedContainerMetadataState | null> {
   const { execSql, metadataState, patch, persistence } = input;
   const metadata = readContainerMetadataValue(
@@ -457,6 +376,7 @@ async function writeContainerMetadataPatch(input: {
     metadataState,
     patch,
     persistence,
+    stillCurrent: input.stillCurrent,
   });
 }
 
@@ -465,6 +385,7 @@ export async function renameContainerMetadataStateFromRuntime(input: {
   name: string;
   persistence: ContainerContentsPersistence;
   runtime: ContainerMetadataPersistenceRuntime;
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<PersistedContainerMetadataState | null> {
   const trimmedName = input.name.trim();
   if (!trimmedName) {
@@ -476,6 +397,7 @@ export async function renameContainerMetadataStateFromRuntime(input: {
     metadataState: input.metadataState,
     patch: { name: trimmedName },
     persistence: input.persistence,
+    stillCurrent: input.stillCurrent,
   });
 }
 
@@ -484,16 +406,13 @@ export async function setContainerIconMetadataStateFromRuntime(input: {
   metadataState: ContainerMetadataState;
   persistence: ContainerContentsPersistence;
   runtime: ContainerMetadataPersistenceRuntime;
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<PersistedContainerMetadataState | null> {
-  // Normalize to the same shape the metadata document stores: a trimmed,
-  // non-empty slug or null (the default folder). writeContainerMetadataValue
-  // deletes the icon key when null so it matches an icon-less container.
-  const normalizedIcon = input.icon?.trim() || null;
-
   return writeContainerMetadataPatch({
     execSql: input.runtime.infra.execSql,
     metadataState: input.metadataState,
-    patch: { icon: normalizedIcon },
+    patch: { icon: input.icon?.trim() || null },
     persistence: input.persistence,
+    stillCurrent: input.stillCurrent,
   });
 }

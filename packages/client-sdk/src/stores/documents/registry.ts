@@ -1,4 +1,8 @@
 import type { DomainScope } from "../../data/domainScope";
+import {
+  registerInternalDocumentRelink,
+  relinkDocumentStoreWithCommitSideEffect,
+} from "./documentStore/internalRelink";
 import type {
   DocumentAttachmentUpload,
   DocumentStore,
@@ -237,7 +241,7 @@ export function createDocumentStoreFacade(
     emitFacade();
   };
 
-  return {
+  const facade: DocumentStoreFacade = {
     addRow: (fields) => targetStore.addRow(fields),
     assertCanRotateContentKey: () => targetStore.assertCanRotateContentKey(),
     attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) =>
@@ -269,6 +273,14 @@ export function createDocumentStoreFacade(
     updateRuntime: (runtime: DocumentsRuntime) =>
       targetStore.updateRuntime(runtime),
   };
+  registerInternalDocumentRelink(facade, (input, commitSideEffect) =>
+    relinkDocumentStoreWithCommitSideEffect(
+      targetStore,
+      input,
+      commitSideEffect,
+    ),
+  );
+  return facade;
 }
 
 export function emitPersistedDocument(

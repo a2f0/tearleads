@@ -32,6 +32,7 @@ import {
 } from "./checkpointContext";
 import {
   filterUncachedPrincipalPolicyReferences,
+  principalPolicyCacheForVerifiedPolicies,
   referencedPrincipalPolicyKey,
   verifiedPrincipalPolicyContainsReference,
 } from "./principalPolicyCache";
@@ -39,6 +40,10 @@ import type {
   PrincipalPolicyCache,
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,
+} from "./types";
+import {
+  assertProjectionVerificationCurrent,
+  generationGuardedPrincipalPolicyWarmer,
 } from "./types";
 
 function principalPolicyReferenceLabel(
@@ -393,8 +398,14 @@ export async function collectReferencedPrincipalPolicies(input: {
   principalPolicyCache: PrincipalPolicyCache;
   references: readonly ReferencedPrincipalHead[];
   resolveUserKey: ProjectionUserKeyResolver;
+  stillCurrent?: (() => boolean) | undefined;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<VerifiedPrincipalPolicy[]> {
+  const warmReferencedPrincipalPolicies =
+    generationGuardedPrincipalPolicyWarmer(
+      input.warmReferencedPrincipalPolicies,
+      input.stillCurrent,
+    );
   const uniqueReferences = new Map<string, ReferencedPrincipalHead>();
   for (const reference of input.references) {
     uniqueReferences.set(referencedPrincipalPolicyKey(reference), reference);
@@ -404,17 +415,33 @@ export async function collectReferencedPrincipalPolicies(input: {
   // Warm every missing reference in one batched fetch before verifying, so a
   // path that references several uncached policies makes a single round of
   // requests rather than one per reference.
-  if (input.warmReferencedPrincipalPolicies) {
+  if (warmReferencedPrincipalPolicies) {
     const uncached = await filterUncachedPrincipalPolicyReferences({
       execSql: input.checkpointContext.execSql,
       principalPolicyCache: input.principalPolicyCache,
       references,
     });
     if (uncached.length > 0) {
-      await input.warmReferencedPrincipalPolicies({
+      assertProjectionVerificationCurrent(input.stillCurrent);
+      await warmReferencedPrincipalPolicies({
+        ...(warmReferencedPrincipalPolicies.reportsVerifiedPolicies
+          ? {
+              onVerifiedPolicies: (verifiedPolicies) => {
+                for (const [
+                  cacheKey,
+                  policy,
+                ] of principalPolicyCacheForVerifiedPolicies(
+                  verifiedPolicies,
+                )) {
+                  input.principalPolicyCache.set(cacheKey, policy);
+                }
+              },
+            }
+          : {}),
         organizationId: input.organizationId,
         references: uncached,
       });
+      assertProjectionVerificationCurrent(input.stillCurrent);
     }
   }
 
@@ -426,7 +453,7 @@ export async function collectReferencedPrincipalPolicies(input: {
         principalPolicyCache: input.principalPolicyCache,
         reference,
         resolveUserKey: input.resolveUserKey,
-        warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+        warmReferencedPrincipalPolicies,
       }),
     ),
   );

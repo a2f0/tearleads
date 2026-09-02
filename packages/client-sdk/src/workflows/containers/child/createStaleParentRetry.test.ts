@@ -6,6 +6,7 @@ import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
 } from "../../../../test/helpers/containerFixtures";
+import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
 import { createRemoteContainer } from "./create";
 
 const STALE_PARENT_FAILURE =
@@ -94,6 +95,105 @@ test("createRemoteContainer replans once after the parent head advances", async 
     ]);
     expect(projectionReads).toBe(2);
     expect(evictions).toBe(1);
+    expect(reported).toBe(false);
+  } finally {
+    close();
+  }
+});
+
+test("createRemoteContainer hides an unacknowledged committed response", async () => {
+  const parent = await createParentProjection();
+  const { close, execSql } = await createTestExecSql(
+    "container-create-submit-generation",
+  );
+  let current = true;
+
+  try {
+    const created = await createRemoteContainer({
+      apiClient: {
+        createContainer: async (request) => {
+          const response = await createMutationResponseFromRequest(request);
+          current = false;
+          return response;
+        },
+        getContainerWriterProjection: async () => parent.projection,
+        getCurrentPrincipalPolicy: async () => null,
+      },
+      author: parent.author,
+      containerId: "expired-created-container",
+      execSql,
+      parentContainerId: parent.projection.containerId,
+      parentSecretKey: parent.secretKey,
+      reportSecurityIncident: async () => undefined,
+      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+      resolveTrustedUserIdentity: createParentProjectionUserKeyResolver(parent),
+      stillCurrent: () => current,
+    });
+
+    expect(created).toBeNull();
+    await expect(
+      loadAccessManifestCheckpoint(
+        execSql,
+        "container",
+        parent.projection.organizationId,
+        "expired-created-container",
+      ),
+    ).resolves.toBeNull();
+  } finally {
+    close();
+  }
+});
+
+test("createRemoteContainer does not retry or report after stale-parent refresh expiry", async () => {
+  const parent = await createParentProjection();
+  const { close, execSql } = await createTestExecSql(
+    "container-create-stale-parent-generation",
+  );
+  let current = true;
+  let evictions = 0;
+  let projectionReads = 0;
+  let reported = false;
+  let submissions = 0;
+
+  try {
+    const created = await createRemoteContainer({
+      apiClient: {
+        createContainer: async () => null,
+        createContainerResult: async () => {
+          submissions += 1;
+          return {
+            message: STALE_PARENT_FAILURE,
+            ok: false as const,
+            report: () => {
+              reported = true;
+            },
+            status: 409,
+          };
+        },
+        evictContainerWriterProjection: () => {
+          evictions += 1;
+        },
+        getContainerWriterProjection: async () => {
+          projectionReads += 1;
+          if (projectionReads === 2) current = false;
+          return parent.projection;
+        },
+        getCurrentPrincipalPolicy: async () => null,
+      },
+      author: parent.author,
+      execSql,
+      parentContainerId: parent.projection.containerId,
+      parentSecretKey: parent.secretKey,
+      reportSecurityIncident: async () => undefined,
+      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+      resolveTrustedUserIdentity: createParentProjectionUserKeyResolver(parent),
+      stillCurrent: () => current,
+    });
+
+    expect(created).toBeNull();
+    expect(submissions).toBe(1);
+    expect(evictions).toBe(1);
+    expect(projectionReads).toBe(2);
     expect(reported).toBe(false);
   } finally {
     close();

@@ -211,10 +211,13 @@ async function listOrphanedDocumentPrimeTargets(
 export async function primeDocumentsForContainerSubtree<TRuntime>(input: {
   containersById: ReadonlyMap<string, ContainerContentsContainerSubtreeState>;
   host: ContainerDocumentPrimeHost<TRuntime>;
+  isCurrent?: (() => boolean) | undefined;
   primeRequiredLocalIds?: ReadonlySet<string>;
   rootContainerId: string;
   runtime: ContainerDocumentQueriesRuntime;
 }): Promise<number> {
+  const isCurrent = input.isCurrent ?? (() => true);
+  if (!isCurrent()) return 0;
   const [targets, primeRequiredLocalIds] = await Promise.all([
     listDocumentRuntimeTargetsForContainerSubtreeFromRuntime({
       containersById: input.containersById,
@@ -224,8 +227,10 @@ export async function primeDocumentsForContainerSubtree<TRuntime>(input: {
     input.primeRequiredLocalIds ??
       listPrimeRequiredLocalIdsFromRuntime(input.runtime),
   ]);
+  if (!isCurrent()) return 0;
   const primed = await requestDocumentRuntimeTargetSync({
     host: input.host,
+    isCurrent,
     targets: targets.filter((target) =>
       primeRequiredLocalIds.has(target.localId),
     ),
@@ -236,6 +241,7 @@ export async function primeDocumentsForContainerSubtree<TRuntime>(input: {
 export async function primeDocumentsForLoadedRoots<TRuntime>(input: {
   containersById: ReadonlyMap<string, ContainerContentsContainerSubtreeState>;
   host: ContainerDocumentPrimeHost<TRuntime>;
+  isCurrent?: (() => boolean) | undefined;
   /**
    * The store scope's organization. Orphan priming is bounded to it: each
    * organization-scoped store resolves only its own orphans, matching the
@@ -247,9 +253,28 @@ export async function primeDocumentsForLoadedRoots<TRuntime>(input: {
   organizationId?: string | null;
   runtime: ContainerDocumentQueriesRuntime;
 }): Promise<LoadedRootDocumentPrimeResult> {
+  const isCurrent = input.isCurrent ?? (() => true);
+  if (!isCurrent()) {
+    return {
+      candidateCount: 0,
+      orphanPrimedCount: 0,
+      primedCount: 0,
+      rootCount: 0,
+      unroutableCount: 0,
+    };
+  }
   const candidates = await listPrimeRequiredDocumentCandidatesFromRuntime(
     input.runtime,
   );
+  if (!isCurrent()) {
+    return {
+      candidateCount: candidates.length,
+      orphanPrimedCount: 0,
+      primedCount: 0,
+      rootCount: 0,
+      unroutableCount: candidates.length,
+    };
+  }
   const rootContainerIds = Array.from(input.containersById.values()).flatMap(
     (containerState) =>
       containerState.container.parentId === null
@@ -262,14 +287,17 @@ export async function primeDocumentsForLoadedRoots<TRuntime>(input: {
   const primedLocalIds = new Set<string>();
 
   for (const rootContainerId of rootContainerIds) {
+    if (!isCurrent()) break;
     const targets =
       await listDocumentRuntimeTargetsForContainerSubtreeFromRuntime({
         containersById: input.containersById,
         rootContainerId,
         runtime: input.runtime,
       });
+    if (!isCurrent()) break;
     const primed = await requestDocumentRuntimeTargetSync({
       host: input.host,
+      isCurrent,
       targets: targets.filter(
         (target) =>
           requiredLocalIds.has(target.localId) &&
@@ -282,7 +310,7 @@ export async function primeDocumentsForLoadedRoots<TRuntime>(input: {
   }
 
   const orphanTargets = (
-    input.organizationId
+    isCurrent() && input.organizationId
       ? await listOrphanedDocumentPrimeTargets(
           input.runtime,
           input.organizationId,
@@ -295,7 +323,8 @@ export async function primeDocumentsForLoadedRoots<TRuntime>(input: {
   );
   const orphanPrimed = await requestDocumentRuntimeTargetSync({
     host: input.host,
-    targets: orphanTargets,
+    isCurrent,
+    targets: isCurrent() ? orphanTargets : [],
   });
   for (const localId of orphanPrimed) {
     primedLocalIds.add(localId);

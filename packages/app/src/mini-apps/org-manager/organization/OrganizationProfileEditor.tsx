@@ -36,6 +36,7 @@ function OrganizationProfileDocumentFields({
   profileDocumentId: string;
 }) {
   const {
+    canWrite,
     documentId,
     ready,
     relink,
@@ -104,6 +105,7 @@ function OrganizationProfileDocumentFields({
       <MiniAppField className="org-manager-roster-profile-field">
         <span>{ORG_MANAGER_LABELS.organizationName}</span>
         <MiniAppInput
+          disabled={!canWrite}
           value={localName}
           onBlur={() => {
             const nextName = localName.trim();

@@ -18,7 +18,7 @@ import { createTestContainerState } from "./containerState.testFixtures";
 import { syncPendingContainerCreateIntents } from "./createIntentSync";
 import type { ContainerCreateIntentSyncState } from "./types";
 
-test("container create sync propagates identity failures without recording a retry", async () => {
+test("stale container create identity failures do not report into a replacement", async () => {
   const integrityError = new KeyingVerificationError(
     "equivocation",
     "trusted identity changed",
@@ -39,12 +39,17 @@ test("container create sync propagates identity failures without recording a ret
     updatedAt: "2026-07-15T00:00:00.000Z",
   };
   const recordedErrors: string[] = [];
+  const incidents: unknown[] = [];
+  let current = true;
   let projectionRequests = 0;
   const persistence: ContainerCreateIntentSyncState["persistence"] = {
     ...defaultContainerContentsPersistence,
     listPendingCreateIntents: async () => [intent],
-    recordCreateIntentError: async (_execSql, _containerId, message) => {
-      recordedErrors.push(message);
+    recordCreateIntentRevisionError: async (
+      _execSql: ExecSql,
+      input: { message: string },
+    ) => {
+      recordedErrors.push(input.message);
     },
   };
   const state: ContainerCreateIntentSyncState = {
@@ -72,6 +77,7 @@ test("container create sync propagates identity failures without recording a ret
       apiClient: {
         getContainerWriterProjection: async () => {
           projectionRequests += 1;
+          current = false;
           throw integrityError;
         },
       } as unknown as ContainerCreateIntentSyncState["runtime"]["apiClient"],
@@ -106,7 +112,9 @@ test("container create sync propagates identity failures without recording a ret
       },
       util: {
         log: () => {},
-        reportSecurityIncident: async () => undefined,
+        reportSecurityIncident: async (error) => {
+          incidents.push(error);
+        },
       },
     },
   };
@@ -118,15 +126,18 @@ test("container create sync propagates identity failures without recording a ret
           throw new Error("unexpected persist");
         },
       },
+      isCurrent: () => current,
       isRemoteSyncBlocked: () => false,
+      requestRemoteReconciliation: () => {},
       state,
     }),
-  ).rejects.toBe(integrityError);
+  ).resolves.toBe(0);
   expect(projectionRequests).toBe(1);
+  expect(incidents).toEqual([]);
   expect(recordedErrors).toEqual([]);
 });
 
-test("container create sync defers a lost-response conflict and heals on hydration", async () => {
+test("container create sync heals lost-response conflicts with revision settlement", async () => {
   const parent = await createParentProjection();
   const parentContainerId = parent.projection.containerId;
   const childContainerId = "child-with-lost-create-response";
@@ -222,14 +233,21 @@ test("container create sync defers a lost-response conflict and heals on hydrati
   };
   const recordedErrors: string[] = [];
   const syncedIntents: string[] = [];
+  const syncedPreviousParentIds: Array<string | null | undefined> = [];
+  const reconciliationRequests: Array<string | null> = [];
   const persistence: ContainerCreateIntentSyncState["persistence"] = {
     ...defaultContainerContentsPersistence,
     listPendingCreateIntents: async () => [intent],
-    recordCreateIntentError: async (_execSql, _containerId, message) => {
-      recordedErrors.push(message);
+    recordCreateIntentRevisionError: async (
+      _execSql: ExecSql,
+      input: { message: string },
+    ) => {
+      recordedErrors.push(input.message);
     },
-    markCreateIntentSynced: async (_execSql, input) => {
+    markCreateIntentRevisionSynced: async (_execSql, input) => {
       syncedIntents.push(input.containerId);
+      syncedPreviousParentIds.push(input.supersededMovePreviousParentId);
+      return true;
     },
   };
   const state: ContainerCreateIntentSyncState = {
@@ -253,7 +271,11 @@ test("container create sync defers a lost-response conflict and heals on hydrati
     // marked synced yet — matching the "no errors anywhere" the user observed.
     const firstCreated = await syncPendingContainerCreateIntents({
       host,
+      isCurrent: () => true,
       isRemoteSyncBlocked: () => false,
+      requestRemoteReconciliation: (parentId) => {
+        reconciliationRequests.push(parentId);
+      },
       state,
     });
     expect(firstCreated).toBe(0);
@@ -261,6 +283,7 @@ test("container create sync defers a lost-response conflict and heals on hydrati
     expect(reported).toBe(false);
     expect(recordedErrors).toEqual([]);
     expect(syncedIntents).toEqual([]);
+    expect(reconciliationRequests).toEqual([parentContainerId]);
 
     // Hydration discovers the committed container and populates its remote
     // metadata state (both the record and the container row — see
@@ -272,15 +295,21 @@ test("container create sync defers a lost-response conflict and heals on hydrati
 
     const secondCreated = await syncPendingContainerCreateIntents({
       host,
+      isCurrent: () => true,
       isRemoteSyncBlocked: () => false,
+      requestRemoteReconciliation: (parentId) => {
+        reconciliationRequests.push(parentId);
+      },
       state,
     });
     expect(secondCreated).toBe(1);
     expect(syncedIntents).toEqual([childContainerId]);
+    expect(syncedPreviousParentIds).toEqual([parentContainerId]);
     // No further submit and still no surfaced error across the whole recovery.
     expect(submitCount).toBe(1);
     expect(reported).toBe(false);
     expect(recordedErrors).toEqual([]);
+    expect(reconciliationRequests).toEqual([parentContainerId]);
   } finally {
     close();
   }
@@ -306,8 +335,9 @@ test("container create sync keeps an intent pending while the container row lack
   const persistence: ContainerCreateIntentSyncState["persistence"] = {
     ...defaultContainerContentsPersistence,
     listPendingCreateIntents: async () => [intent],
-    markCreateIntentSynced: async (_execSql, input) => {
+    markCreateIntentRevisionSynced: async (_execSql, input) => {
       syncedIntents.push(input.containerId);
+      return true;
     },
     recordCreateIntentError: async () => {
       throw new Error("unexpected intent error");
@@ -382,7 +412,9 @@ test("container create sync keeps an intent pending while the container row lack
         throw new Error("unexpected persist");
       },
     },
+    isCurrent: () => true,
     isRemoteSyncBlocked: () => true,
+    requestRemoteReconciliation: () => {},
     state,
   });
 

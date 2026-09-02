@@ -92,6 +92,59 @@ test("a priming signal raised mid-pass survives for the next pass", async () => 
   }
 });
 
+test("a stale priming pass re-arms the replacement generation", async () => {
+  const { close, execSql: baseExecSql } = await createTestExecSql(
+    "document-recovery-stale-priming-generation",
+  );
+  try {
+    let releaseQuery = () => {};
+    const queryMayFinish = new Promise<void>((resolve) => {
+      releaseQuery = resolve;
+    });
+    let queryStarted = () => {};
+    const started = new Promise<void>((resolve) => {
+      queryStarted = resolve;
+    });
+    const execSql = (async (
+      sql: string,
+      bind?: Parameters<ExecSql>[1],
+      options?: { rowMode?: "object" | "array" },
+    ) => {
+      if (sql.includes("SELECT pending.local_id AS local_id")) {
+        queryStarted();
+        await queryMayFinish;
+      }
+      return baseExecSql(sql, bind, options);
+    }) as ExecSql;
+    const state = {
+      containersById: new Map<string, ContainerState>(),
+      documentStoresNeedPriming: true,
+      persistence:
+        defaultContainerContentsPersistence as ContainerContentsPersistence,
+      rootLaneHydrated: true,
+      runtime: {
+        adoptRootContainer: () => false,
+        infra: { execSql },
+        state: { domainScope: {} },
+        util: { log: () => {} },
+      } as unknown as ContainerContentsStoreWorkflowRuntime,
+    };
+    let current = true;
+
+    const priming = primeStoreDocuments(state, () => current);
+    await started;
+    expect(state.documentStoresNeedPriming).toBe(false);
+
+    current = false;
+    releaseQuery();
+    await priming;
+
+    expect(state.documentStoresNeedPriming).toBe(true);
+  } finally {
+    close();
+  }
+});
+
 test("stale root recovery logs the result and re-arms document priming", async () => {
   const logs: string[] = [];
   let adoptionCount = 0;

@@ -1,7 +1,13 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { DOCUMENT_PROJECTION_ERROR_CODES } from "@tearleads/validators/response";
-import { createMaterializedSyncFixture } from "../../../test/helpers/documentFixtures";
+import {
+  DOCUMENT_NOT_FOUND_ERROR_CODE,
+  DOCUMENT_PROJECTION_ERROR_CODES,
+} from "@tearleads/validators/response";
+import {
+  createMaterializedSyncFixture,
+  createPendingUpdateRecord,
+} from "../../../test/helpers/documentFixtures";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../test/helpers/documentSync";
 import { describeDocumentRevalidationFailure } from "./syncFailureClassification";
 
@@ -114,6 +120,126 @@ test("a write-bearing pass does not use the read-only handler", async () => {
     expect(synced).toBeNull();
     expect(readOnlyRecorded).toEqual([]);
     expect(submitRecorded).toEqual([409]);
+  } finally {
+    close();
+  }
+});
+
+test("an expired projection failure has no terminal side effects", async () => {
+  const { author, resolveProjectionUserKey, secretKey, writerProjection } =
+    await createMaterializedSyncFixture();
+  const { close, execSql } = await createTestExecSql(
+    "expired-projection-failure",
+  );
+  let abandoned = 0;
+  let current = true;
+  let reported = 0;
+  let terminalFailures = 0;
+  let traces = 0;
+
+  try {
+    const synced = await syncRemoteDocument({
+      apiClient: {
+        getDocumentWriterProjection: async () => {
+          throw new Error("Expected the Result variant to be used");
+        },
+        getDocumentWriterProjectionResult: async () => {
+          current = false;
+          return {
+            code: DOCUMENT_PROJECTION_ERROR_CODES.containerUnavailable,
+            message: "Container for this document is unavailable",
+            ok: false as const,
+            report: () => {
+              reported += 1;
+            },
+            status: 409,
+          };
+        },
+        syncDocument: async () => {
+          throw new Error("Sync must not run after generation expiry");
+        },
+      },
+      author,
+      documentId: writerProjection.documentId,
+      execSql,
+      localVersionVector: null,
+      onSyncAbandoned: () => {
+        abandoned += 1;
+      },
+      onSyncTrace: () => {
+        traces += 1;
+      },
+      onTerminalSubmitFailure: () => {
+        terminalFailures += 1;
+      },
+      pendingUpdates: [createPendingUpdateRecord()],
+      resolveProjectionUserKey,
+      resolveWriterPublicKey: async () => null,
+      stillCurrent: () => current,
+      targetSecretKey: secretKey,
+    });
+
+    expect(synced).toBeNull();
+    expect({ abandoned, reported, terminalFailures, traces }).toEqual({
+      abandoned: 0,
+      reported: 0,
+      terminalFailures: 0,
+      traces: 0,
+    });
+  } finally {
+    close();
+  }
+});
+
+test("an expired projection deletion has no deletion side effects", async () => {
+  const { author, resolveProjectionUserKey, secretKey, writerProjection } =
+    await createMaterializedSyncFixture();
+  const { close, execSql } = await createTestExecSql(
+    "expired-projection-deletion",
+  );
+  let abandoned = 0;
+  let current = true;
+  let deleted = 0;
+
+  try {
+    const synced = await syncRemoteDocument({
+      apiClient: {
+        getDocumentWriterProjection: async () => {
+          throw new Error("Expected the Result variant to be used");
+        },
+        getDocumentWriterProjectionResult: async () => {
+          current = false;
+          return {
+            code: DOCUMENT_NOT_FOUND_ERROR_CODE,
+            message: "Document not found",
+            ok: false as const,
+            report: () => undefined,
+            status: 404,
+          };
+        },
+        syncDocument: async () => {
+          throw new Error("Sync must not run after generation expiry");
+        },
+      },
+      author,
+      documentId: writerProjection.documentId,
+      execSql,
+      localVersionVector: null,
+      onRemoteDocumentDeleted: () => {
+        deleted += 1;
+      },
+      onSyncAbandoned: () => {
+        abandoned += 1;
+      },
+      pendingUpdates: [createPendingUpdateRecord()],
+      resolveProjectionUserKey,
+      resolveWriterPublicKey: async () => null,
+      stillCurrent: () => current,
+      targetSecretKey: secretKey,
+    });
+
+    expect(synced).toBeNull();
+    expect({ abandoned, deleted }).toEqual({ abandoned: 0, deleted: 0 });
   } finally {
     close();
   }

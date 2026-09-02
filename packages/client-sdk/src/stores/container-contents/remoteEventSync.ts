@@ -9,6 +9,12 @@ export function handleContainerContentsRemoteEvents(input: {
   state: ContainerContentsStoreSyncState;
 }): void {
   const { requestHydration, scheduleSync, state } = input;
+  // Metadata events are classified through the initialized container records.
+  // Do not consume the cursor while a replacement database is still loading;
+  // initialization calls this handler again once those identities exist.
+  if (!state.initialized) {
+    return;
+  }
   const nextEvents = state.runtime.state.events.slice(state.lastEventCount);
   state.lastEventCount = state.runtime.state.events.length;
   let addedHydrationLane = false;

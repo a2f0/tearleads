@@ -195,6 +195,7 @@ export async function updateReparentedDescendantContainers(input: {
       await tx
         .update(containerMoveIntents)
         .set({
+          id: crypto.randomUUID(),
           parentContainerId: reparent.parentContainerId,
           syncStatus: "pending",
           updatedAt,
@@ -243,23 +244,39 @@ export async function reparentLocalContainerChildren(input: {
       .where(inArray(containerProjection.containerId, childContainerIds))
       .run();
   }
-  await tx
-    .update(containerCreateIntents)
-    .set({
-      parentContainerId: toContainerId,
-      updatedAt,
-    })
+  const createIntentRows = await tx
+    .select({ containerId: containerCreateIntents.containerId })
+    .from(containerCreateIntents)
     .where(eq(containerCreateIntents.parentContainerId, fromContainerId))
-    .run();
-  await tx
-    .update(containerMoveIntents)
-    .set({
-      parentContainerId: toContainerId,
-      syncStatus: "pending",
-      updatedAt,
-    })
+    .all();
+  for (const intent of createIntentRows) {
+    await tx
+      .update(containerCreateIntents)
+      .set({
+        id: crypto.randomUUID(),
+        parentContainerId: toContainerId,
+        updatedAt,
+      })
+      .where(eq(containerCreateIntents.containerId, intent.containerId))
+      .run();
+  }
+  const moveIntentRows = await tx
+    .select({ containerId: containerMoveIntents.containerId })
+    .from(containerMoveIntents)
     .where(eq(containerMoveIntents.parentContainerId, fromContainerId))
-    .run();
+    .all();
+  for (const intent of moveIntentRows) {
+    await tx
+      .update(containerMoveIntents)
+      .set({
+        id: crypto.randomUUID(),
+        parentContainerId: toContainerId,
+        syncStatus: "pending",
+        updatedAt,
+      })
+      .where(eq(containerMoveIntents.containerId, intent.containerId))
+      .run();
+  }
 }
 
 export async function deleteLocalContainerRows(input: {

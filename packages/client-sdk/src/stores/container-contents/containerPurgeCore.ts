@@ -3,12 +3,61 @@ import { purgeContainerTree } from "../../workflows/container-contents/container
 import { prepareContainerDocumentRotationSnapshot } from "./documentRotation";
 import { getContainerContentsStoreLogLabel } from "./logLabel";
 import { updateContainerContentsSnapshot } from "./state";
-import type { ContainerState } from "./syncAgent";
+import type {
+  ContainerContentsStoreSyncAgent,
+  ContainerState,
+} from "./syncAgent";
 import type { ContainerContentsStoreState } from "./types";
+import type { ContainerWriteGuard } from "./writeGeneration";
 
 type ContainerPurgeResult = NonNullable<
   Awaited<ReturnType<typeof purgeContainerTree>>
 >;
+
+/** @internal Reconciles any completed destructive prefix after expiry. */
+export async function refreshAfterStalePurge(input: {
+  completedCount: number;
+  containerStatesAtStart: ReadonlyMap<string, ContainerState>;
+  purgedContainerIds: readonly string[];
+  remoteDeletedContainerIds: readonly string[];
+  state: ContainerContentsStoreState;
+  syncAgent: ContainerContentsStoreSyncAgent;
+}): Promise<void> {
+  const remoteParentIds = new Set<string | null>();
+  for (const remoteDeletedContainerId of input.remoteDeletedContainerIds) {
+    const purgedState = input.containerStatesAtStart.get(
+      remoteDeletedContainerId,
+    );
+    if (purgedState?.record.documentId) {
+      remoteParentIds.add(purgedState.container.parentId);
+    }
+  }
+
+  input.state.localContainersNeedRefresh = true;
+  await input.syncAgent.refreshLocalContainers();
+  let removedState = false;
+  for (const purgedContainerId of input.purgedContainerIds) {
+    const deletedState = input.containerStatesAtStart.get(purgedContainerId);
+    if (
+      deletedState &&
+      input.state.containersById.get(purgedContainerId) === deletedState
+    ) {
+      input.state.containersById.delete(purgedContainerId);
+      removedState = true;
+    }
+  }
+  input.state.documentStoresNeedPriming = true;
+  if (removedState && input.state.initialized) {
+    updateContainerContentsSnapshot(input.state);
+  }
+  if (remoteParentIds.size > 0) {
+    await input.syncAgent.requestRemoteHydration({
+      followDiscoveredParentLanes: false,
+      parentIds: [...remoteParentIds],
+      resetAllLaneWatermarks: true,
+    });
+  }
+}
 
 // Shared core of the two recursive purge operations (purgeContainer and
 // emptyTrash): guard readiness and the remote-authority gate, run the
@@ -17,8 +66,10 @@ type ContainerPurgeResult = NonNullable<
 // root container itself survives, and how the result is described/judged.
 export async function runContainerPurge(
   state: ContainerContentsStoreState,
+  syncAgent: ContainerContentsStoreSyncAgent,
   containerId: string,
   options: PurgeOptions | undefined,
+  isCurrent: ContainerWriteGuard,
   operation: {
     describeResult: (
       target: ContainerState,
@@ -48,6 +99,7 @@ export async function runContainerPurge(
   ) {
     return false;
   }
+  const containerStatesAtStart = new Map(state.containersById);
 
   const result = await purgeContainerTree({
     containersById: state.containersById,
@@ -60,8 +112,24 @@ export async function runContainerPurge(
     rootContainerId: containerId,
     runtime: state.runtime,
     signal: options?.signal,
+    stillCurrent: isCurrent,
   });
   if (!result) {
+    return false;
+  }
+  const purgedContainerIds = new Set(result.purgedContainerIds);
+  const hasUnsettledRemoteDelete = result.remoteDeletedContainerIds.some(
+    (containerId) => !purgedContainerIds.has(containerId),
+  );
+  if (!isCurrent() || hasUnsettledRemoteDelete) {
+    await refreshAfterStalePurge({
+      completedCount: result.completedCount,
+      containerStatesAtStart,
+      purgedContainerIds: result.purgedContainerIds,
+      remoteDeletedContainerIds: result.remoteDeletedContainerIds,
+      state,
+      syncAgent,
+    });
     return false;
   }
 

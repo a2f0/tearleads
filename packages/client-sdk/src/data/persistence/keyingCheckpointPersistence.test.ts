@@ -5,6 +5,7 @@ import {
   type VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import type { ExecSql } from "../sqlite/sqlSchema";
 import { advanceKeyingCheckpointsAtomically } from "./keyingCheckpointAdvancePersistence";
 import {
   loadAccessManifestCheckpoint,
@@ -90,6 +91,36 @@ test("atomic advance stores and reloads access and policy pins", async () => {
     await expect(
       loadPrincipalPolicyCheckpoint(execSql, "group", "group-1"),
     ).resolves.toEqual(policy.checkpoint);
+  } finally {
+    close();
+  }
+});
+
+test("atomic advance rolls back when its generation changes before commit", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "checkpoint-generation-rollback",
+  );
+  let transactionStarted = false;
+  const guardedExecSql = (async (...args: Parameters<ExecSql>) => {
+    const rows = await execSql(...args);
+    if (args[0].trim().toUpperCase().startsWith("BEGIN")) {
+      transactionStarted = true;
+    }
+    return rows;
+  }) as ExecSql;
+
+  try {
+    await advanceKeyingCheckpointsAtomically({
+      access: [],
+      execSql: guardedExecSql,
+      policies: [policyDouble({ stateHashes: ["stale"] })],
+      stillCurrent: () => !transactionStarted,
+    });
+
+    expect(transactionStarted).toBe(true);
+    await expect(
+      loadPrincipalPolicyCheckpoint(execSql, "group", "group-1"),
+    ).resolves.toBeNull();
   } finally {
     close();
   }

@@ -66,7 +66,8 @@ type DocumentSyncAttemptSubmission =
       readonly pullComplete: boolean;
       readonly response: DocumentSyncResponse;
     }
-  | FailedDocumentSyncAction;
+  | FailedDocumentSyncAction
+  | "cancelled";
 
 async function resolveFailedDocumentSyncAction(input: {
   attempt: number;
@@ -165,12 +166,15 @@ async function submitDocumentSyncAttempt(input: {
   onTerminalSubmitFailure?: TerminalSubmitFailureHandler | undefined;
   pendingUpdates: readonly PendingUpdateRecord[];
   plan: DocumentSyncPlan;
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<DocumentSyncAttemptSubmission> {
+  if (input.stillCurrent?.() === false) return "cancelled";
   const submitted = await submitDocumentSync({
     apiClient: input.apiClient,
     expectedCommitLsnMode: input.expectedCommitLsnMode,
     plan: input.plan,
   });
+  if (input.stillCurrent?.() === false) return "cancelled";
   if (!submitted) {
     return "stop";
   }
@@ -216,6 +220,7 @@ export async function submitDocumentSyncAttemptIfAllowed(
   if (hasRemoteWrites && isRemoteSyncBlocked?.(input.plan.organizationId)) {
     return "stop";
   }
+  if (input.stillCurrent?.() === false) return "cancelled";
 
   onOutgoingUpdatesMaterialized?.(
     input.plan.request.outgoingUpdates.map(({ id }) => id),
@@ -247,7 +252,9 @@ async function resolveDocumentSyncWriterProjection(input: {
    */
   onTerminalFailure?: TerminalSubmitFailureHandler | undefined;
   reusableWriterProjection: DocumentWriterProjectionResponse | null;
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<DocumentWriterProjectionResolution> {
+  if (input.stillCurrent?.() === false) return null;
   if (input.reusableWriterProjection) {
     return input.reusableWriterProjection;
   }
@@ -257,6 +264,7 @@ async function resolveDocumentSyncWriterProjection(input: {
       input.documentId,
       { reportErrors: false },
     );
+    if (input.stillCurrent?.() === false) return null;
     if (result.ok) {
       return result.data;
     }
@@ -274,7 +282,10 @@ async function resolveDocumentSyncWriterProjection(input: {
     return null;
   }
 
-  return input.apiClient.getDocumentWriterProjection(input.documentId);
+  const projection = await input.apiClient.getDocumentWriterProjection(
+    input.documentId,
+  );
+  return input.stillCurrent?.() === false ? null : projection;
 }
 
 export async function retrySyncPlan(input: {
@@ -286,6 +297,7 @@ export async function retrySyncPlan(input: {
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
   onSyncTrace?: DocumentSyncTraceEmitter | undefined;
   onTerminalFailure?: TerminalSubmitFailureHandler | undefined;
+  stillCurrent?: (() => boolean) | undefined;
   writerProjection: DocumentWriterProjectionResponse;
 }): Promise<
   | readonly [MaterializedDocumentSyncPlan, DocumentWriterProjectionResponse]
@@ -304,6 +316,7 @@ export async function retrySyncPlan(input: {
       throw error;
     }
   }
+  if (input.stillCurrent?.() === false) return null;
 
   // Only this document's projection was stale; evict just it so unrelated
   // documents keep their warm cache instead of a global wipe.
@@ -314,7 +327,9 @@ export async function retrySyncPlan(input: {
     onSyncTrace: input.onSyncTrace,
     onTerminalFailure: input.onTerminalFailure,
     reusableWriterProjection: null,
+    stillCurrent: input.stillCurrent,
   });
+  if (input.stillCurrent?.() === false) return null;
   if (writerProjection === REMOTE_DOCUMENT_DELETED) {
     await input.onRemoteDocumentDeleted?.({ documentId: input.documentId });
     return null;
@@ -340,11 +355,15 @@ export async function resolveSyncAttemptWriterProjection(input: {
   onSyncTrace?: DocumentSyncTraceEmitter | undefined;
   onTerminalFailure?: TerminalSubmitFailureHandler | undefined;
   reusableWriterProjection: DocumentWriterProjectionResponse | null;
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<DocumentWriterProjectionResponse | null> {
   const writerProjection = await resolveDocumentSyncWriterProjection(input);
+  if (input.stillCurrent?.() === false) return null;
   if (writerProjection === REMOTE_DOCUMENT_DELETED) {
     await input.onRemoteDocumentDeleted?.({ documentId: input.documentId });
-    input.onSyncAbandoned?.("the remote document was deleted");
+    if (input.stillCurrent?.() !== false) {
+      input.onSyncAbandoned?.("the remote document was deleted");
+    }
     return null;
   }
   if (!writerProjection) {
@@ -364,6 +383,7 @@ export async function refreshSyncAttemptWriterProjection(
 ): Promise<DocumentWriterProjectionResponse | null> {
   const { onRemoteDocumentDeleted, unavailableError, ...resolutionInput } =
     input;
+  if (input.stillCurrent?.() === false) return null;
   if (input.apiClient.evictDocumentWriterProjection) {
     input.apiClient.evictDocumentWriterProjection(input.documentId);
   } else {
@@ -381,7 +401,8 @@ export async function refreshSyncAttemptWriterProjection(
   if (
     !writerProjection &&
     unavailableError !== undefined &&
-    !remoteDocumentDeleted
+    !remoteDocumentDeleted &&
+    input.stillCurrent?.() !== false
   ) {
     throw unavailableError;
   }
@@ -398,13 +419,14 @@ export async function retrySyncPlanOrAbandon(input: {
   onSyncAbandoned?: ((reason: string) => void) | undefined;
   onSyncTrace?: DocumentSyncTraceEmitter | undefined;
   onTerminalFailure?: TerminalSubmitFailureHandler | undefined;
+  stillCurrent?: (() => boolean) | undefined;
   writerProjection: DocumentWriterProjectionResponse;
 }): Promise<
   | readonly [MaterializedDocumentSyncPlan, DocumentWriterProjectionResponse]
   | null
 > {
   const planned = await retrySyncPlan(input);
-  if (!planned) {
+  if (!planned && input.stillCurrent?.() !== false) {
     input.onSyncAbandoned?.(
       "a sync plan could not be built against the current projection",
     );

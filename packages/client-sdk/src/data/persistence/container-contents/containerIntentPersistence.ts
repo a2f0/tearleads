@@ -7,15 +7,19 @@ import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
+import type { ExecSql } from "../../sqlite/sqlSchema";
 import {
   CONTAINER_CREATE_INTENT_TYPE,
   CONTAINER_MOVE_INTENT_TYPE,
   type ContainerContentsPersistence,
+  type ContainerCreateIntentErrorInput,
   type ContainerCreateIntentInput,
   type ContainerCreateIntentRecord,
+  type ContainerCreateIntentRevisionInput,
   type ContainerCreateIntentSyncStatus,
   type ContainerMoveIntentInput,
   type ContainerMoveIntentRecord,
+  type ContainerMoveIntentRevisionInput,
   type ContainerMoveIntentSyncStatus,
 } from "./containerContentsPersistenceTypes";
 
@@ -100,10 +104,11 @@ export async function saveContainerCreateIntent(input: {
   updatedAt: string;
 }) {
   const { containerId, createIntent, tx, updatedAt } = input;
+  const id = createIntent.id ?? crypto.randomUUID();
   await tx
     .insert(containerCreateIntents)
     .values({
-      id: createIntent.id ?? crypto.randomUUID(),
+      id,
       containerId,
       parentContainerId: createIntent.parentContainerId,
       intentType: CONTAINER_CREATE_INTENT_TYPE,
@@ -119,6 +124,9 @@ export async function saveContainerCreateIntent(input: {
     .onConflictDoUpdate({
       target: containerCreateIntents.containerId,
       set: {
+        // Timestamps can collide when a create is re-queued in one clock tick,
+        // so every enqueue owns a fresh revision token too.
+        id,
         parentContainerId: createIntent.parentContainerId,
         intentType: CONTAINER_CREATE_INTENT_TYPE,
         syncStatus: "pending",
@@ -133,6 +141,98 @@ export async function saveContainerCreateIntent(input: {
     .run();
 }
 
+export class ContainerCreateIntentSupersededError extends Error {
+  constructor() {
+    super("Container create intent was superseded before local settlement");
+  }
+}
+
+async function markContainerCreateIntentRevisionSynced(input: {
+  containerId: string;
+  expectedIntentId: string;
+  expectedUpdatedAt: string;
+  remoteContainerId: string;
+  remoteMetadataAccessStateHash: string;
+  remoteMetadataDocumentId: string;
+  tx: ClientSQLiteTransactionScope;
+}): Promise<boolean> {
+  const updated = await input.tx
+    .update(containerCreateIntents)
+    .set({
+      syncStatus: "synced",
+      remoteContainerId: input.remoteContainerId,
+      remoteMetadataDocumentId: input.remoteMetadataDocumentId,
+      remoteMetadataAccessStateHash: input.remoteMetadataAccessStateHash,
+      lastError: null,
+      updatedAt: new Date().toISOString(),
+    })
+    .where(
+      and(
+        eq(containerCreateIntents.containerId, input.containerId),
+        eq(containerCreateIntents.intentType, CONTAINER_CREATE_INTENT_TYPE),
+        eq(containerCreateIntents.syncStatus, "pending"),
+        eq(containerCreateIntents.id, input.expectedIntentId),
+        eq(containerCreateIntents.updatedAt, input.expectedUpdatedAt),
+      ),
+    )
+    .returning({ containerId: containerCreateIntents.containerId });
+  return updated.length > 0;
+}
+
+export async function settleContainerCreateIntentRevision(input: {
+  containerId: string;
+  expectedIntentId: string;
+  expectedUpdatedAt: string;
+  remoteContainerId: string;
+  remoteMetadataAccessStateHash: string;
+  remoteMetadataDocumentId: string;
+  supersededMovePreviousParentId?: string | null | undefined;
+  tx: ClientSQLiteTransactionScope;
+}): Promise<"converted-to-move" | "superseded" | "synced"> {
+  if (await markContainerCreateIntentRevisionSynced(input)) return "synced";
+  if (input.supersededMovePreviousParentId === undefined) {
+    return "superseded";
+  }
+
+  const [currentIntent] = await input.tx
+    .select({
+      id: containerCreateIntents.id,
+      parentContainerId: containerCreateIntents.parentContainerId,
+      updatedAt: containerCreateIntents.updatedAt,
+    })
+    .from(containerCreateIntents)
+    .where(
+      and(
+        eq(containerCreateIntents.containerId, input.containerId),
+        eq(containerCreateIntents.intentType, CONTAINER_CREATE_INTENT_TYPE),
+        eq(containerCreateIntents.syncStatus, "pending"),
+      ),
+    )
+    .limit(1);
+  if (!currentIntent?.id) return "superseded";
+
+  const adopted = await markContainerCreateIntentRevisionSynced({
+    ...input,
+    expectedIntentId: currentIntent.id,
+    expectedUpdatedAt: currentIntent.updatedAt,
+  });
+  if (!adopted) return "superseded";
+  if (
+    currentIntent.parentContainerId !== input.supersededMovePreviousParentId
+  ) {
+    await saveContainerMoveIntent({
+      containerId: input.containerId,
+      moveIntent: {
+        parentContainerId: currentIntent.parentContainerId,
+        previousParentContainerId: input.supersededMovePreviousParentId,
+      },
+      tx: input.tx,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+  return "converted-to-move";
+}
+
 export async function saveContainerMoveIntent(input: {
   tx: ClientSQLiteTransactionScope;
   containerId: string;
@@ -140,10 +240,11 @@ export async function saveContainerMoveIntent(input: {
   updatedAt: string;
 }) {
   const { containerId, moveIntent, tx, updatedAt } = input;
+  const id = moveIntent.id ?? crypto.randomUUID();
   await tx
     .insert(containerMoveIntents)
     .values({
-      id: moveIntent.id ?? crypto.randomUUID(),
+      id,
       containerId,
       parentContainerId: moveIntent.parentContainerId,
       previousParentContainerId: moveIntent.previousParentContainerId ?? null,
@@ -157,6 +258,9 @@ export async function saveContainerMoveIntent(input: {
     .onConflictDoUpdate({
       target: containerMoveIntents.containerId,
       set: {
+        // The timestamp can collide when two moves are queued in one clock
+        // tick, so every enqueue also owns a fresh revision token.
+        id,
         parentContainerId: moveIntent.parentContainerId,
         previousParentContainerId: sql`coalesce(${containerMoveIntents.previousParentContainerId}, ${moveIntent.previousParentContainerId ?? null})`,
         intentType: CONTAINER_MOVE_INTENT_TYPE,
@@ -168,17 +272,122 @@ export async function saveContainerMoveIntent(input: {
     .run();
 }
 
+export async function deleteContainerMoveIntentRevision(input: {
+  containerId: string;
+  expectedIntentId: string;
+  expectedUpdatedAt: string;
+  tx: ClientSQLiteTransactionScope;
+}): Promise<boolean> {
+  const deleted = await input.tx
+    .delete(containerMoveIntents)
+    .where(
+      and(
+        eq(containerMoveIntents.containerId, input.containerId),
+        eq(containerMoveIntents.intentType, CONTAINER_MOVE_INTENT_TYPE),
+        eq(containerMoveIntents.id, input.expectedIntentId),
+        eq(containerMoveIntents.updatedAt, input.expectedUpdatedAt),
+      ),
+    )
+    .returning({ containerId: containerMoveIntents.containerId });
+  return deleted.length > 0;
+}
+
+async function recordCreateIntentErrorAttempt(
+  execSql: ExecSql,
+  inputOrContainerId: ContainerCreateIntentErrorInput | string,
+  ...legacyMessage: [message?: string]
+): Promise<void> {
+  const legacy = typeof inputOrContainerId === "string";
+  const containerId = legacy
+    ? inputOrContainerId
+    : inputOrContainerId.containerId;
+  const message = legacy ? legacyMessage[0] : inputOrContainerId.message;
+  if (!message) throw new Error("Container create intent error is required");
+  const expectedIntentId = legacy
+    ? undefined
+    : inputOrContainerId.expectedIntentId;
+  const expectedUpdatedAt = legacy
+    ? undefined
+    : inputOrContainerId.expectedUpdatedAt;
+  const stillCurrent = legacy ? undefined : inputOrContainerId.stillCurrent;
+  const runtime = getClientSQLitePersistenceRuntime(execSql);
+  const record = async (tx: ClientSQLiteTransactionScope) => {
+    const updatedAt = new Date().toISOString();
+    await tx
+      .update(containerCreateIntents)
+      .set({
+        lastAttemptedAt: updatedAt,
+        lastError: message,
+        updatedAt,
+      })
+      .where(
+        and(
+          eq(containerCreateIntents.containerId, containerId),
+          eq(containerCreateIntents.syncStatus, "pending"),
+          eq(containerCreateIntents.intentType, CONTAINER_CREATE_INTENT_TYPE),
+          ...(expectedIntentId
+            ? [eq(containerCreateIntents.id, expectedIntentId)]
+            : []),
+          ...(expectedUpdatedAt
+            ? [eq(containerCreateIntents.updatedAt, expectedUpdatedAt)]
+            : []),
+        ),
+      )
+      .run();
+  };
+  if (stillCurrent) {
+    await runtime.guardedTransaction(record, stillCurrent, {
+      behavior: "immediate",
+    });
+    return;
+  }
+  await runtime.transaction(record, { behavior: "immediate" });
+}
+
+async function markMoveIntentRevisionSynced(
+  execSql: ExecSql,
+  input: ContainerMoveIntentRevisionInput,
+): Promise<boolean> {
+  const outcome = await getClientSQLitePersistenceRuntime(
+    execSql,
+  ).guardedTransaction(
+    async (tx) => {
+      return deleteContainerMoveIntentRevision({ ...input, tx });
+    },
+    input.stillCurrent,
+    { behavior: "immediate" },
+  );
+  return outcome.committed && outcome.result === true;
+}
+
+async function markCreateIntentRevisionSynced(
+  execSql: ExecSql,
+  input: ContainerCreateIntentRevisionInput,
+): Promise<boolean> {
+  const outcome = await getClientSQLitePersistenceRuntime(
+    execSql,
+  ).guardedTransaction(
+    async (tx) => settleContainerCreateIntentRevision({ ...input, tx }),
+    input.stillCurrent,
+    { behavior: "immediate" },
+  );
+  return outcome.committed && outcome.result !== "superseded";
+}
+
 type ContainerIntentPersistence = Pick<
   ContainerContentsPersistence,
   | "listPendingCreateIntents"
   | "listUnsyncedMoveIntents"
   | "recordCreateIntentError"
+  | "recordCreateIntentRevisionError"
   | "recordMoveIntentError"
+  | "markCreateIntentRevisionSynced"
   | "markCreateIntentSynced"
+  | "markMoveIntentRevisionSynced"
   | "markMoveIntentSynced"
 >;
 
-export const containerIntentPersistence: ContainerIntentPersistence = {
+export const containerIntentPersistence = {
   async listPendingCreateIntents(execSql) {
     const { db } = getClientSQLitePersistenceRuntime(execSql);
     const rows = await db
@@ -234,30 +443,15 @@ export const containerIntentPersistence: ContainerIntentPersistence = {
 
     return rows.map((row) => mapContainerMoveIntentRecord(row));
   },
-  async recordCreateIntentError(execSql, containerId, message) {
-    await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-      const updatedAt = new Date().toISOString();
-      await db
-        .update(containerCreateIntents)
-        .set({
-          lastAttemptedAt: updatedAt,
-          lastError: message,
-          updatedAt,
-        })
-        .where(
-          and(
-            eq(containerCreateIntents.containerId, containerId),
-            eq(containerCreateIntents.syncStatus, "pending"),
-            eq(containerCreateIntents.intentType, CONTAINER_CREATE_INTENT_TYPE),
-          ),
-        )
-        .run();
-    });
-  },
+  recordCreateIntentError: (execSql, containerId, message) =>
+    recordCreateIntentErrorAttempt(execSql, containerId, message),
+  recordCreateIntentRevisionError: (execSql, input) =>
+    recordCreateIntentErrorAttempt(execSql, input),
   async recordMoveIntentError(execSql, input) {
-    await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
+    const runtime = getClientSQLitePersistenceRuntime(execSql);
+    const record = async (tx: ClientSQLiteTransactionScope) => {
       const updatedAt = new Date().toISOString();
-      await db
+      await tx
         .update(containerMoveIntents)
         .set({
           lastAttemptedAt: updatedAt,
@@ -272,51 +466,26 @@ export const containerIntentPersistence: ContainerIntentPersistence = {
             // fresh outcome and a transient failure unblocks it.
             inArray(containerMoveIntents.syncStatus, ["pending", "blocked"]),
             eq(containerMoveIntents.intentType, CONTAINER_MOVE_INTENT_TYPE),
+            ...(input.expectedIntentId
+              ? [eq(containerMoveIntents.id, input.expectedIntentId)]
+              : []),
+            ...(input.expectedUpdatedAt
+              ? [eq(containerMoveIntents.updatedAt, input.expectedUpdatedAt)]
+              : []),
           ),
         )
         .run();
-    });
+    };
+    if (input.stillCurrent) {
+      await runtime.guardedTransaction(record, input.stillCurrent, {
+        behavior: "immediate",
+      });
+      return;
+    }
+    await runtime.transaction(record, { behavior: "immediate" });
   },
-  async markCreateIntentSynced(execSql, input) {
-    await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-      await db
-        .update(containerCreateIntents)
-        .set({
-          syncStatus: "synced",
-          remoteContainerId: input.remoteContainerId,
-          remoteMetadataDocumentId: input.remoteMetadataDocumentId,
-          remoteMetadataAccessStateHash: input.remoteMetadataAccessStateHash,
-          lastError: null,
-          updatedAt: new Date().toISOString(),
-        })
-        .where(
-          and(
-            eq(containerCreateIntents.containerId, input.containerId),
-            eq(containerCreateIntents.intentType, CONTAINER_CREATE_INTENT_TYPE),
-            // Only mark synced if the row is still the one this pass consumed. A
-            // user re-queue across the create network await rewrites the row with
-            // a fresh updatedAt; that intent must stay pending for the next pass.
-            eq(containerCreateIntents.updatedAt, input.expectedUpdatedAt),
-          ),
-        )
-        .run();
-    });
-  },
-  async markMoveIntentSynced(execSql, input) {
-    await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-      await db
-        .delete(containerMoveIntents)
-        .where(
-          and(
-            eq(containerMoveIntents.containerId, input.containerId),
-            eq(containerMoveIntents.intentType, CONTAINER_MOVE_INTENT_TYPE),
-            // Only clear the intent this pass consumed. If the user re-queued the
-            // move during the network round-trip, the row's updatedAt advanced
-            // and this delete no-ops, preserving the new destination for sync.
-            eq(containerMoveIntents.updatedAt, input.expectedUpdatedAt),
-          ),
-        )
-        .run();
-    });
-  },
-};
+  markCreateIntentRevisionSynced,
+  markCreateIntentSynced: markCreateIntentRevisionSynced,
+  markMoveIntentRevisionSynced,
+  markMoveIntentSynced: markMoveIntentRevisionSynced,
+} satisfies ContainerIntentPersistence;

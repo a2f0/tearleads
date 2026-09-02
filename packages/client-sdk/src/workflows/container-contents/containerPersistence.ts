@@ -80,6 +80,20 @@ export async function saveContainerSyncWatermark(
   );
 }
 
+export async function saveContainerSyncWatermarkIfCurrent(
+  execSql: ExecSql,
+  syncLane: ContainerSyncWatermarkLane,
+  watermark: SyncWatermark,
+  stillCurrent?: (() => boolean) | undefined,
+): Promise<boolean> {
+  return sqlContainerSyncWatermarkPersistence.saveWatermark(
+    execSql,
+    syncLane,
+    watermark,
+    { stillCurrent },
+  );
+}
+
 export async function loadContainerSyncLaneCheckRecords(
   execSql: ExecSql,
   syncLanes: ReadonlyArray<ContainerSyncWatermarkLane>,
@@ -95,4 +109,14 @@ export async function markContainerSyncLaneChecked(
   syncLane: ContainerSyncWatermarkLane,
 ): Promise<void> {
   await sqlContainerSyncWatermarkPersistence.markChecked(execSql, syncLane);
+}
+
+export async function markContainerSyncLaneCheckedIfCurrent(
+  execSql: ExecSql,
+  syncLane: ContainerSyncWatermarkLane,
+  stillCurrent?: (() => boolean) | undefined,
+): Promise<boolean> {
+  return sqlContainerSyncWatermarkPersistence.markChecked(execSql, syncLane, {
+    stillCurrent,
+  });
 }

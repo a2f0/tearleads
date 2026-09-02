@@ -13,6 +13,7 @@ import type { DocumentsPersistence } from "../../../workflows/documents";
 import { reloadDocumentFromDurableHistory } from "./durableDocumentReload";
 import { setDocumentText } from "./mutations";
 import { persistDocument } from "./persistence";
+import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
 
 test("rollback reload merges history advanced by another pane", async () => {
   const fixture = await createCoverageFixture(
@@ -62,10 +63,15 @@ test("rollback reload merges history advanced by another pane", async () => {
         );
       },
     } satisfies DocumentsPersistence;
+    const generation = captureDocumentStoreSyncGeneration(
+      fixture.state,
+      fixture.document,
+    );
+    if (!generation) throw new Error("Expected a live document generation");
 
     expect(
       await reloadDocumentFromDurableHistory({
-        expectedGeneration: fixture.generation,
+        expectedGeneration: generation,
         preserveQueuedWritesWhenIdentityMatches: true,
         sameIdentitySnapshot: rollbackSnapshot,
         state: fixture.state,

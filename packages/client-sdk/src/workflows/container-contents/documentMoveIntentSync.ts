@@ -11,6 +11,7 @@ import {
   defaultDocumentsPersistence,
 } from "../documents";
 import { moveRemoteContainerDocument } from "./documentLinks";
+import { settleDocumentMoveIntent } from "./documentMoveIntentSettlement";
 import type {
   DocumentStructuralMutationLocalStore,
   DocumentStructuralMutationRelinkInput,
@@ -21,10 +22,16 @@ import { hasRemoteContainerMetadataState } from "./remoteHydration/reconciliatio
 import type { ContainerContentsWorkflowRuntime } from "./runtime";
 
 type DocumentMoveIntentReplayResult =
+  | "abandoned"
   | "moved"
   | "partial"
   | "blocked"
   | "failed";
+
+interface DocumentMoveFailureState {
+  current: DocumentLinkSetMutationFailure | null;
+  sawPermissionDenial: boolean;
+}
 
 export interface DocumentMoveIntentSyncHost<TRuntime> {
   documentWorkflowRuntime: (containerId: string) => TRuntime;
@@ -37,6 +44,7 @@ export interface DocumentMoveIntentSyncHost<TRuntime> {
 
 interface DocumentMoveIntentSyncState {
   containersById: ReadonlyMap<string, ContainerState>;
+  lifecycleGeneration?: number | undefined;
   resolveProjectionUserKey: ContainerContentsProjectionUserKeyResolver;
   runtime: ContainerContentsWorkflowRuntime;
 }
@@ -45,65 +53,63 @@ async function recordPendingDocumentMoveIntentError(input: {
   blocked?: boolean | undefined;
   denied?: boolean | undefined;
   documentId: string;
+  expectedIntentId?: string | undefined;
   expectedUpdatedAt?: string | undefined;
+  isCurrent: () => boolean;
   message: string;
   state: DocumentMoveIntentSyncState;
-}) {
+}): Promise<boolean> {
+  if (!input.isCurrent()) return false;
   await sqlDocumentMoveIntentPersistence.recordMoveIntentError(
     input.state.runtime.infra.execSql,
     {
       blocked: input.blocked,
       denied: input.denied,
       documentId: input.documentId,
+      expectedIntentId: input.expectedIntentId,
       expectedUpdatedAt: input.expectedUpdatedAt,
       message: input.message,
+      stillCurrent: input.isCurrent,
     },
   );
-}
-
-async function markDocumentMoveIntentSynced(input: {
-  documentId: string;
-  expectedUpdatedAt: string;
-  state: DocumentMoveIntentSyncState;
-}) {
-  await sqlDocumentMoveIntentPersistence.markMoveIntentSynced(
-    input.state.runtime.infra.execSql,
-    {
-      documentId: input.documentId,
-      expectedUpdatedAt: input.expectedUpdatedAt,
-    },
-  );
+  return input.isCurrent();
 }
 
 async function relinkMovedDocumentStore<TRuntime>(input: {
   host: DocumentMoveIntentSyncHost<TRuntime>;
+  isCurrent: () => boolean;
   intent: DocumentMoveIntentRecord;
   relinkInput: DocumentStructuralMutationRelinkInput;
   targetContainerId: string;
 }): Promise<boolean> {
+  if (!input.isCurrent()) return false;
   const documentStore = input.host.openDocumentStore({
     containerId: input.targetContainerId,
     documentId: input.intent.documentId,
     localId: input.intent.localId,
   });
-  if (!(await documentStore.ensureInitialized())) {
+  if (!(await documentStore.ensureInitialized()) || !input.isCurrent()) {
     return false;
   }
 
-  const relinked = await documentStore.relink(input.relinkInput);
-  if (!relinked) {
+  const relinked = await documentStore.relink({
+    ...input.relinkInput,
+    stillCurrent: input.isCurrent,
+  });
+  if (!relinked || !input.isCurrent()) {
     return false;
   }
 
   documentStore.updateRuntime(
     input.host.documentWorkflowRuntime(input.targetContainerId),
   );
-  return true;
+  return input.isCurrent();
 }
 
 async function persistMovedDocumentReplay<TRuntime>(input: {
   host: DocumentMoveIntentSyncHost<TRuntime>;
   intent: DocumentMoveIntentRecord;
+  isCurrent: () => boolean;
   moved: NonNullable<Awaited<ReturnType<typeof moveRemoteContainerDocument>>>;
   state: DocumentMoveIntentSyncState;
 }): Promise<boolean> {
@@ -112,7 +118,7 @@ async function persistMovedDocumentReplay<TRuntime>(input: {
     state.runtime.infra.execSql,
     intent.localId,
   );
-  if (!existingDocument) {
+  if (!input.isCurrent() || !existingDocument) {
     return false;
   }
 
@@ -125,10 +131,21 @@ async function persistMovedDocumentReplay<TRuntime>(input: {
     documentId: intent.documentId,
     localId: intent.localId,
     ...(moved.remoteState ?? {}),
+    ...(moved.status === "partial"
+      ? {}
+      : {
+          commitSideEffect: (transactionExecSql) =>
+            settleDocumentMoveIntent({
+              execSql: transactionExecSql,
+              intent,
+              isCurrent: input.isCurrent,
+            }),
+        }),
   };
 
   return relinkMovedDocumentStore({
     host,
+    isCurrent: input.isCurrent,
     intent,
     relinkInput,
     targetContainerId: moved.nextContainerId,
@@ -138,8 +155,10 @@ async function persistMovedDocumentReplay<TRuntime>(input: {
 async function assertMoveIntentRotationPreflight<TRuntime>(input: {
   existingContainerId: string | null | undefined;
   host: DocumentMoveIntentSyncHost<TRuntime>;
+  isCurrent: () => boolean;
   intent: DocumentMoveIntentRecord;
-}): Promise<Uint8Array> {
+}): Promise<Uint8Array | null> {
+  if (!input.isCurrent()) return null;
   const preflightStore = input.host.openDocumentStore({
     containerId:
       input.intent.sourceContainerId ??
@@ -151,23 +170,28 @@ async function assertMoveIntentRotationPreflight<TRuntime>(input: {
   if (!(await preflightStore.ensureInitialized())) {
     throw new Error("Document rotation preflight could not load the document");
   }
-  return preflightStore.assertCanRotateContentKey();
+  if (!input.isCurrent()) return null;
+  const rotationSnapshot = await preflightStore.assertCanRotateContentKey();
+  return input.isCurrent() ? rotationSnapshot : null;
 }
 
 async function movePendingDocumentIntent<TRuntime>(input: {
   existingContainerId: string | null | undefined;
   host: DocumentMoveIntentSyncHost<TRuntime>;
+  isCurrent: () => boolean;
   intent: DocumentMoveIntentRecord;
   onFailure: DocumentLinkSetFailureHandler;
   state: DocumentMoveIntentSyncState;
 }) {
   const rotationSnapshot = await assertMoveIntentRotationPreflight(input);
+  if (!rotationSnapshot || !input.isCurrent()) return "abandoned" as const;
   return moveRemoteContainerDocument({
     currentContainerId:
       input.intent.sourceContainerId ??
       input.existingContainerId ??
       input.intent.targetContainerId,
     documentId: input.intent.documentId,
+    isCurrent: input.isCurrent,
     noteId: input.intent.localId,
     onFailure: input.onFailure,
     replaceLinkedContainers: input.intent.replaceLinkedContainers,
@@ -200,6 +224,7 @@ function describeRejectedDocumentMove(
 
 async function resolveMoveIntentPreflight(input: {
   isRemoteSyncBlocked: (organizationId: string) => boolean;
+  isCurrent: () => boolean;
   intent: DocumentMoveIntentRecord;
   state: DocumentMoveIntentSyncState;
 }): Promise<
@@ -212,10 +237,14 @@ async function resolveMoveIntentPreflight(input: {
     execSql,
     intent.localId,
   );
+  if (!input.isCurrent()) return { result: "abandoned" };
   if (!existingDocument || existingDocument.documentId !== intent.documentId) {
     await recordPendingDocumentMoveIntentError({
       blocked: true,
       documentId: intent.documentId,
+      expectedIntentId: intent.id,
+      expectedUpdatedAt: intent.updatedAt,
+      isCurrent: input.isCurrent,
       message: "Document move intent references a missing local document",
       state,
     });
@@ -227,6 +256,9 @@ async function resolveMoveIntentPreflight(input: {
     await recordPendingDocumentMoveIntentError({
       blocked: true,
       documentId: intent.documentId,
+      expectedIntentId: intent.id,
+      expectedUpdatedAt: intent.updatedAt,
+      isCurrent: input.isCurrent,
       message:
         "Document move intent references a missing destination container",
       state,
@@ -239,6 +271,9 @@ async function resolveMoveIntentPreflight(input: {
   if (!hasRemoteContainerMetadataState(targetState)) {
     await recordPendingDocumentMoveIntentError({
       documentId: intent.documentId,
+      expectedIntentId: intent.id,
+      expectedUpdatedAt: intent.updatedAt,
+      isCurrent: input.isCurrent,
       message: "Document move destination container is not synced yet",
       state,
     });
@@ -247,9 +282,38 @@ async function resolveMoveIntentPreflight(input: {
   return { existingDocument };
 }
 
+async function recordRejectedDocumentMove(input: {
+  failure: DocumentMoveFailureState;
+  intent: DocumentMoveIntentRecord;
+  isCurrent: () => boolean;
+  state: DocumentMoveIntentSyncState;
+}): Promise<void> {
+  await recordPendingDocumentMoveIntentError({
+    // A permission denial parks the intent for the access-restored signal
+    // instead of replaying on every structural pass (row 7).
+    denied: input.failure.sawPermissionDenial,
+    documentId: input.intent.documentId,
+    expectedIntentId: input.intent.id,
+    expectedUpdatedAt: input.intent.updatedAt,
+    isCurrent: input.isCurrent,
+    message: describeRejectedDocumentMove(input.failure.current),
+    state: input.state,
+  });
+}
+
+function logSyncedDocumentMove(
+  intent: DocumentMoveIntentRecord,
+  state: DocumentMoveIntentSyncState,
+): void {
+  state.runtime.util.log(
+    `Container contents: synced queued document move ${intent.documentId}`,
+  );
+}
+
 async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
   host: DocumentMoveIntentSyncHost<TRuntime>;
   isRemoteSyncBlocked: (organizationId: string) => boolean;
+  isCurrent: () => boolean;
   intent: DocumentMoveIntentRecord;
   state: DocumentMoveIntentSyncState;
 }): Promise<DocumentMoveIntentReplayResult> {
@@ -261,15 +325,14 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
   const { existingDocument } = preflight;
 
   try {
-    const lastFailure: {
-      current: DocumentLinkSetMutationFailure | null;
-      // Accumulated across every link/unlink failure of the pass: a 403 on
-      // ANY leg parks the intent even when a later leg fails differently.
-      sawPermissionDenial: boolean;
-    } = { current: null, sawPermissionDenial: false };
+    const lastFailure: DocumentMoveFailureState = {
+      current: null,
+      sawPermissionDenial: false,
+    };
     const moved = await movePendingDocumentIntent({
       existingContainerId: existingDocument.containerId,
       host,
+      isCurrent: input.isCurrent,
       intent,
       onFailure: (failure) => {
         lastFailure.current = failure;
@@ -278,23 +341,32 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
       },
       state,
     });
+    if (moved === "abandoned" || !input.isCurrent()) return "abandoned";
     if (!moved) {
-      await recordPendingDocumentMoveIntentError({
-        // A permission denial parks the intent for the access-restored
-        // signal instead of replaying on every structural pass (row 7).
-        denied: lastFailure.sawPermissionDenial,
-        documentId: intent.documentId,
-        expectedUpdatedAt: intent.updatedAt,
-        message: describeRejectedDocumentMove(lastFailure.current),
+      await recordRejectedDocumentMove({
+        failure: lastFailure,
+        intent,
+        isCurrent: input.isCurrent,
         state,
       });
       return "failed";
     }
 
-    if (!(await persistMovedDocumentReplay({ host, intent, moved, state }))) {
+    if (
+      !(await persistMovedDocumentReplay({
+        host,
+        intent,
+        isCurrent: input.isCurrent,
+        moved,
+        state,
+      }))
+    ) {
+      if (!input.isCurrent()) return "abandoned";
       await recordPendingDocumentMoveIntentError({
         documentId: intent.documentId,
+        expectedIntentId: intent.id,
         expectedUpdatedAt: intent.updatedAt,
+        isCurrent: input.isCurrent,
         message: "Document move replay could not relink the local document",
         state,
       });
@@ -306,23 +378,19 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
         // move (row 7); other partials keep row 15's replay.
         denied: lastFailure.sawPermissionDenial,
         documentId: intent.documentId,
+        expectedIntentId: intent.id,
         expectedUpdatedAt: intent.updatedAt,
+        isCurrent: input.isCurrent,
         message: "Remote document move partially applied; retry required",
         state,
       });
       return "partial";
     }
 
-    await markDocumentMoveIntentSynced({
-      documentId: intent.documentId,
-      expectedUpdatedAt: intent.updatedAt,
-      state,
-    });
-    state.runtime.util.log(
-      `Container contents: synced queued document move ${intent.documentId}`,
-    );
+    logSyncedDocumentMove(intent, state);
     return "moved";
   } catch (error: unknown) {
+    if (!input.isCurrent()) return "abandoned";
     await reportAndRethrowKeyingVerificationError(
       error,
       state.runtime.util.reportSecurityIncident,
@@ -332,9 +400,13 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
         operation: "document.move.replay",
       },
     );
+    if (!input.isCurrent()) return "abandoned";
     const message = errorMessage(error);
     await recordPendingDocumentMoveIntentError({
       documentId: intent.documentId,
+      expectedIntentId: intent.id,
+      expectedUpdatedAt: intent.updatedAt,
+      isCurrent: input.isCurrent,
       message: `Failed to sync document move: ${message}`,
       state,
     });
@@ -342,36 +414,67 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
   }
 }
 
-// One replay per launch: parked denied intents flip back to pending ahead of
-// the first scan of this store lifecycle (row 7) — a restart loses the
-// in-memory access-restored edge, and "an app restart re-attempts everything
-// retriable". Running inside the scan keeps the ordering trivially correct:
-// the replayed intents are attempted by this same pass, not stranded until an
-// unrelated trigger. Marked complete only after the reset lands, so a
+// One replay per store/database generation: parked denied intents flip back to
+// pending ahead of its first scan (row 7). A restart loses the in-memory
+// access-restored edge, and replacing the executor or lifecycle can expose a
+// different durable queue. Running inside the scan keeps ordering trivially
+// correct: replayed intents are attempted by this same pass, not stranded until
+// an unrelated trigger. Marked complete only after the reset lands, so a
 // transient failure retries on the next pass.
-const deniedReplayCompleted = new WeakSet<DocumentMoveIntentSyncState>();
+interface DeniedReplayGeneration {
+  execSql: ContainerContentsWorkflowRuntime["infra"]["execSql"];
+  lifecycleGeneration: number | undefined;
+}
+
+const deniedReplayGenerationByState = new WeakMap<
+  DocumentMoveIntentSyncState,
+  DeniedReplayGeneration
+>();
+
+function deniedReplayMatchesGeneration(
+  state: DocumentMoveIntentSyncState,
+  execSql: ContainerContentsWorkflowRuntime["infra"]["execSql"],
+): boolean {
+  const completed = deniedReplayGenerationByState.get(state);
+  return (
+    completed?.execSql === execSql &&
+    completed.lifecycleGeneration === state.lifecycleGeneration
+  );
+}
 
 export async function syncPendingDocumentMoveIntents<TRuntime>(input: {
   host: DocumentMoveIntentSyncHost<TRuntime>;
+  isCurrent: () => boolean;
   isRemoteSyncBlocked: (organizationId: string) => boolean;
   state: DocumentMoveIntentSyncState;
 }): Promise<number> {
-  const execSql = input.state.runtime.infra.execSql;
-  if (!deniedReplayCompleted.has(input.state)) {
+  if (!input.isCurrent()) return 0;
+  const lifecycleState = input.state;
+  const state = { ...lifecycleState };
+  const execSql = state.runtime.infra.execSql;
+  if (!deniedReplayMatchesGeneration(lifecycleState, execSql)) {
     await sqlDocumentMoveIntentPersistence.resetDeniedMoveIntents(execSql);
-    deniedReplayCompleted.add(input.state);
+    if (!input.isCurrent()) return 0;
+    deniedReplayGenerationByState.set(lifecycleState, {
+      execSql,
+      lifecycleGeneration: lifecycleState.lifecycleGeneration,
+    });
   }
   const pendingIntents =
     await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql);
+  if (!input.isCurrent()) return 0;
   let movedCount = 0;
 
   for (const intent of pendingIntents) {
+    if (!input.isCurrent()) return movedCount;
     const result = await trySyncPendingDocumentMoveIntent({
       host: input.host,
+      isCurrent: input.isCurrent,
       isRemoteSyncBlocked: input.isRemoteSyncBlocked,
       intent,
-      state: input.state,
+      state,
     });
+    if (result === "abandoned") return movedCount;
     // A "partial" result (link applied, unlink still pending) must not count:
     // the caller re-arms this same structural lane whenever the count is
     // positive, so a deterministically failing unlink hot-looped the pump

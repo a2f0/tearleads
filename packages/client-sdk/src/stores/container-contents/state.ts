@@ -8,13 +8,14 @@ import { ContainerStateMap } from "./containerStateMap";
 import type {
   ContainerContentsStoreRuntime,
   ContainerContentsStoreSyncAgent,
-} from "./syncAgent";
+} from "./syncAgentTypes";
 import type {
   ContainerContentsSnapshot,
   ContainerContentsStoreState,
   ContainerNode,
 } from "./types";
 import { getSnapshotNodes } from "./utils";
+import { didContainerWriteRuntimeChange } from "./writeGeneration";
 
 function areSyncStatesEqual(
   left: ContainerNode["syncState"],
@@ -57,6 +58,42 @@ function areSnapshotNodesEqual(
   });
 }
 
+function didStructuralRuntimeChange(
+  previousRuntime: ContainerContentsStoreRuntime,
+  nextRuntime: ContainerContentsStoreRuntime,
+): boolean {
+  return (
+    previousRuntime.adoptRootContainer !== nextRuntime.adoptRootContainer ||
+    previousRuntime.apiClient !== nextRuntime.apiClient ||
+    previousRuntime.auth.defaultOrganizationId !==
+      nextRuntime.auth.defaultOrganizationId ||
+    previousRuntime.auth.isAuthenticated !== nextRuntime.auth.isAuthenticated ||
+    previousRuntime.auth.organizationId !== nextRuntime.auth.organizationId ||
+    previousRuntime.auth.userId !== nextRuntime.auth.userId ||
+    previousRuntime.crypto.encapsulationKeyPair !==
+      nextRuntime.crypto.encapsulationKeyPair ||
+    previousRuntime.crypto.signingFingerprint !==
+      nextRuntime.crypto.signingFingerprint ||
+    previousRuntime.crypto.signingKeyPair !==
+      nextRuntime.crypto.signingKeyPair ||
+    previousRuntime.infra.blobStore !== nextRuntime.infra.blobStore ||
+    previousRuntime.infra.dbStatus !== nextRuntime.infra.dbStatus ||
+    previousRuntime.infra.documentProjectors !==
+      nextRuntime.infra.documentProjectors ||
+    previousRuntime.infra.execSql !== nextRuntime.infra.execSql ||
+    previousRuntime.resolveTrustedUserIdentity !==
+      nextRuntime.resolveTrustedUserIdentity ||
+    previousRuntime.state.containerId !== nextRuntime.state.containerId ||
+    previousRuntime.state.domainScope !== nextRuntime.state.domainScope ||
+    previousRuntime.state.online !== nextRuntime.state.online ||
+    previousRuntime.state.peerScope !== nextRuntime.state.peerScope ||
+    previousRuntime.state.serverEventsConnectionGeneration !==
+      nextRuntime.state.serverEventsConnectionGeneration ||
+    previousRuntime.util.isRemoteSyncBlocked !==
+      nextRuntime.util.isRemoteSyncBlocked
+  );
+}
+
 export function createContainerContentsStoreState(
   initialRuntime: ContainerContentsStoreRuntime,
   persistence: ContainerContentsPersistence,
@@ -71,6 +108,7 @@ export function createContainerContentsStoreState(
     initialized: false,
     localContainerRefreshPromise: null,
     localContainerRefreshGeneration: null,
+    localContainerRefreshStructuralGeneration: null,
     localContainersNeedRefresh: false,
     lifecycleGeneration: 0,
     lastEventCount: 0,
@@ -82,6 +120,8 @@ export function createContainerContentsStoreState(
     persistence,
     remoteHydrationPromise: null,
     remoteHydrationGeneration: null,
+    remoteHydrationStructuralGeneration: null,
+    remoteReconnectRefreshPending: false,
     resolveProjectionUserKey:
       createContainerContentsProjectionUserKeyResolver(initialRuntime),
     rootLaneHydrated: false,
@@ -91,6 +131,8 @@ export function createContainerContentsStoreState(
       ready: false,
     },
     syncLane: null,
+    structuralGeneration: 0,
+    writeGeneration: 0,
     writeChain: Promise.resolve<ContainerNode | null>(null),
   };
 }
@@ -132,6 +174,11 @@ function resetContainerContentsStore(state: ContainerContentsStoreState) {
   state.documentStoresNeedPriming = true;
   state.initialized = false;
   state.localContainersNeedRefresh = false;
+  // Runtime events are snapshots, not a destructive queue. A replacement
+  // executor or persistence adapter has not observed any of them, even when
+  // their effects were already applied to the previous database. Replay the
+  // snapshot after replacement initialization rebuilds metadata identities.
+  state.lastEventCount = 0;
   // Accepted-echo suppression state must not survive a reset: after a
   // database loss the tree rehydrates from remote, and a retained id would
   // suppress the next matching remote update signal. Mirrors
@@ -161,6 +208,22 @@ export function updateContainerContentsStoreRuntime(
   syncAgent: ContainerContentsStoreSyncAgent,
 ) {
   const previousRuntime = state.runtime;
+  const runtimeReplaced = didStructuralRuntimeChange(
+    previousRuntime,
+    nextRuntime,
+  );
+  if (didContainerWriteRuntimeChange(previousRuntime, nextRuntime)) {
+    state.writeGeneration += 1;
+  }
+  const executorReplaced =
+    previousRuntime.infra.execSql !== nextRuntime.infra.execSql;
+  const serverEventsConnectionChanged =
+    previousRuntime.state.serverEventsConnectionGeneration !==
+    nextRuntime.state.serverEventsConnectionGeneration;
+  if (runtimeReplaced) {
+    state.structuralGeneration += 1;
+    state.localContainersNeedRefresh = true;
+  }
   const contextChanged =
     previousRuntime.auth.organizationId !== nextRuntime.auth.organizationId ||
     previousRuntime.state.containerId !== nextRuntime.state.containerId;
@@ -171,12 +234,24 @@ export function updateContainerContentsStoreRuntime(
       createContainerContentsProjectionUserKeyResolver(nextRuntime);
   }
   state.runtime = nextRuntime;
+  if (serverEventsConnectionChanged) {
+    state.remoteReconnectRefreshPending = true;
+  }
 
   if (nextRuntime.infra.dbStatus !== "ready") {
     if (state.snapshot.ready || state.initialized || state.initializePromise) {
       resetContainerContentsStore(state);
     }
-    state.lastEventCount = nextRuntime.state.events.length;
+    return;
+  }
+
+  if (executorReplaced) {
+    // The in-memory tree and lane markers belong to the previous executor.
+    // Rebuild them from the replacement database before any remote sync can
+    // observe or persist the old database's state.
+    resetContainerContentsStore(state);
+    syncAgent.ensureInitialized();
+    syncAgent.handleRemoteEvents();
     return;
   }
 
@@ -202,6 +277,13 @@ export function updateContainerContentsStoreRuntime(
 
   syncAgent.handleRemoteEvents();
 
+  if (runtimeReplaced) {
+    void syncAgent.refreshLocalContainers();
+    syncAgent.scheduleSync();
+  }
+
+  consumePendingContainerContentsReconnectRefresh(state, syncAgent.refresh);
+
   if (
     state.snapshot.ready &&
     didRegainSyncPrerequisites(previousRuntime, nextRuntime)
@@ -212,4 +294,41 @@ export function updateContainerContentsStoreRuntime(
     syncAgent.scheduleSync();
     syncAgent.scheduleRemoteHydration();
   }
+}
+
+export function consumePendingContainerContentsReconnectRefresh(
+  state: {
+    remoteReconnectRefreshPending: boolean;
+    snapshot: { ready: boolean };
+  },
+  refresh: () => Promise<boolean>,
+): void {
+  if (!state.snapshot.ready || !state.remoteReconnectRefreshPending) return;
+  state.remoteReconnectRefreshPending = false;
+  void refresh().then(
+    (refreshed) => {
+      if (!refreshed) state.remoteReconnectRefreshPending = true;
+    },
+    () => {
+      state.remoteReconnectRefreshPending = true;
+    },
+  );
+}
+
+export function updateContainerContentsStorePersistence(
+  state: ContainerContentsStoreState,
+  nextPersistence: ContainerContentsPersistence,
+  syncAgent: ContainerContentsStoreSyncAgent,
+): void {
+  if (state.persistence === nextPersistence) {
+    return;
+  }
+  state.persistence = nextPersistence;
+  state.structuralGeneration += 1;
+  state.writeGeneration += 1;
+  // Persistence replacement changes the authoritative local data source even
+  // when the SQLite executor itself is stable. Clear storage-backed state and
+  // let initialization load the replacement before scheduling remote work.
+  resetContainerContentsStore(state);
+  syncAgent.ensureInitialized();
 }

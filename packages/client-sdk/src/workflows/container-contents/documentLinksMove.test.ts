@@ -26,6 +26,10 @@ async function createRotationSnapshot(seed: string) {
 }
 
 async function runMoveRemoteContainerDocumentFixture(input: {
+  invalidateAfterLink?: boolean;
+  invalidateAfterUnlink?: boolean;
+  invalidateDuringInnerProjectionFetch?: boolean;
+  replayAfterInvalidation?: boolean;
   rotationSnapshot: Uint8Array;
   testDbName: string;
 }) {
@@ -87,126 +91,148 @@ async function runMoveRemoteContainerDocumentFixture(input: {
       operation: "link" | "unlink";
       targetContainerId: string;
     }> = [];
+    let current = true;
+    let documentProjectionFetchCount = 0;
 
-    const moved = await moveRemoteContainerDocument({
-      currentContainerId: rootProjection.containerId,
-      documentId: writerProjection.documentId,
-      noteId: "containerContents-note-1",
-      resolveProjectionUserKey,
-      rotationSnapshot: input.rotationSnapshot,
-      runtime: {
-        apiClient: {
-          getContainerWriterProjection: async (containerId) => {
-            if (containerId === rootProjection.containerId) {
-              return rootProjection;
-            }
-            if (containerId === siblingProjection.containerId) {
-              return siblingProjection;
-            }
-            return null;
-          },
-          getDocumentWriterProjection: async (documentId) =>
-            documentId === writerProjection.documentId
-              ? writerProjection
-              : null,
-          getCurrentPrincipalPolicy: async () => null,
-          primeDocumentWriterProjection: () => {},
-          linkDocument: async (documentId, request) => {
-            submittedRequests.push({
-              hasRotationBaseline: request.rotationBaseline !== undefined,
-              operation: "link",
-              targetContainerId: String(
-                Reflect.get(
-                  request.body as Record<string, unknown>,
-                  "containerId",
-                ),
+    const runtime: Parameters<
+      typeof moveRemoteContainerDocument
+    >[0]["runtime"] = {
+      apiClient: {
+        getContainerWriterProjection: async (containerId) => {
+          if (containerId === rootProjection.containerId) {
+            return rootProjection;
+          }
+          if (containerId === siblingProjection.containerId) {
+            return siblingProjection;
+          }
+          return null;
+        },
+        getDocumentWriterProjection: async (documentId) => {
+          documentProjectionFetchCount += 1;
+          if (
+            input.invalidateDuringInnerProjectionFetch &&
+            documentProjectionFetchCount === 2
+          ) {
+            current = false;
+          }
+          return documentId === writerProjection.documentId
+            ? writerProjection
+            : null;
+        },
+        getCurrentPrincipalPolicy: async () => null,
+        primeDocumentWriterProjection: () => {},
+        linkDocument: async (documentId, request) => {
+          submittedRequests.push({
+            hasRotationBaseline: request.rotationBaseline !== undefined,
+            operation: "link",
+            targetContainerId: String(
+              Reflect.get(
+                request.body as Record<string, unknown>,
+                "containerId",
               ),
-            });
-            const response = await createLinkSetResponseFromRequest(
-              documentId,
-              request,
-            );
-            writerProjection = {
-              authorizingContainerPaths: [rootProjection, siblingProjection],
-              contentKeyBundle: response.contentKeyBundle,
-              ...writerProjectionEvidence(
-                [rootProjection, siblingProjection],
-                [
-                  writerProjection.documentManifest,
-                  ...writerProjection.documentManifestHistory,
-                ],
+            ),
+          });
+          const response = await createLinkSetResponseFromRequest(
+            documentId,
+            request,
+          );
+          writerProjection = {
+            authorizingContainerPaths: [rootProjection, siblingProjection],
+            contentKeyBundle: response.contentKeyBundle,
+            ...writerProjectionEvidence(
+              [rootProjection, siblingProjection],
+              [
+                writerProjection.documentManifest,
+                ...writerProjection.documentManifestHistory,
+              ],
+            ),
+            documentId: response.id,
+            documentKekTargets: response.documentKekTargets,
+            documentManifest: response.accessManifest,
+          };
+          if (input.invalidateAfterLink) current = false;
+          return response;
+        },
+        unlinkDocument: async (documentId, request) => {
+          submittedRequests.push({
+            hasRotationBaseline: request.rotationBaseline !== undefined,
+            operation: "unlink",
+            targetContainerId: String(
+              Reflect.get(
+                request.body as Record<string, unknown>,
+                "containerId",
               ),
-              documentId: response.id,
-              documentKekTargets: response.documentKekTargets,
-              documentManifest: response.accessManifest,
-            };
-            return response;
-          },
-          unlinkDocument: async (documentId, request) => {
-            submittedRequests.push({
-              hasRotationBaseline: request.rotationBaseline !== undefined,
-              operation: "unlink",
-              targetContainerId: String(
-                Reflect.get(
-                  request.body as Record<string, unknown>,
-                  "containerId",
-                ),
-              ),
-            });
-            const response = await createLinkSetResponseFromRequest(
-              documentId,
-              request,
-            );
-            writerProjection = {
-              authorizingContainerPaths: [siblingProjection],
-              contentKeyBundle: response.contentKeyBundle,
-              ...writerProjectionEvidence(
-                [rootProjection, siblingProjection],
-                [
-                  writerProjection.documentManifest,
-                  ...writerProjection.documentManifestHistory,
-                ],
-              ),
-              documentId: response.id,
-              documentKekTargets: response.documentKekTargets,
-              documentManifest: response.accessManifest,
-            };
-            return response;
-          },
-        },
-        auth: {
-          isAuthenticated: true,
-          organizationId: author.organizationId,
-          userId: author.signerUserId,
-        },
-        crypto: {
-          encapsulationKeyPair: keyPair,
-          signingFingerprint: author.signerKeyFingerprint,
-          signingKeyPair: {
-            signingPrivateKey: author.signerPrivateKey,
-            signingPublicKey,
-          },
-        },
-        resolveTrustedUserIdentity: resolveProjectionUserKey,
-        infra: {
-          blobStore: null as never,
-          dbStatus: "ready",
-          documentProjectors: defaultDocumentProjectorRegistry,
-          execSql,
-        },
-        state: {
-          containerId: null,
-          domainScope: null as never,
-          events: [],
-          online: true,
-        },
-        util: {
-          log: () => undefined,
-          reportSecurityIncident: async () => undefined,
+            ),
+          });
+          const response = await createLinkSetResponseFromRequest(
+            documentId,
+            request,
+          );
+          writerProjection = {
+            authorizingContainerPaths: [siblingProjection],
+            contentKeyBundle: response.contentKeyBundle,
+            ...writerProjectionEvidence(
+              [rootProjection, siblingProjection],
+              [
+                writerProjection.documentManifest,
+                ...writerProjection.documentManifestHistory,
+              ],
+            ),
+            documentId: response.id,
+            documentKekTargets: response.documentKekTargets,
+            documentManifest: response.accessManifest,
+          };
+          if (input.invalidateAfterUnlink) current = false;
+          return response;
         },
       },
-      targetContainerId: siblingProjection.containerId,
-    });
+      auth: {
+        isAuthenticated: true,
+        organizationId: author.organizationId,
+        userId: author.signerUserId,
+      },
+      crypto: {
+        encapsulationKeyPair: keyPair,
+        signingFingerprint: author.signerKeyFingerprint,
+        signingKeyPair: {
+          signingPrivateKey: author.signerPrivateKey,
+          signingPublicKey,
+        },
+      },
+      resolveTrustedUserIdentity: resolveProjectionUserKey,
+      infra: {
+        blobStore: null as never,
+        dbStatus: "ready",
+        documentProjectors: defaultDocumentProjectorRegistry,
+        execSql,
+      },
+      state: {
+        containerId: null,
+        domainScope: null as never,
+        events: [],
+        online: true,
+      },
+      util: {
+        log: () => undefined,
+        reportSecurityIncident: async () => undefined,
+      },
+    };
+    const move = () =>
+      moveRemoteContainerDocument({
+        currentContainerId: rootProjection.containerId,
+        documentId: writerProjection.documentId,
+        isCurrent: () => current,
+        noteId: "containerContents-note-1",
+        resolveProjectionUserKey,
+        rotationSnapshot: input.rotationSnapshot,
+        runtime,
+        targetContainerId: siblingProjection.containerId,
+      });
+    let moved = await move();
+    if (input.replayAfterInvalidation) {
+      current = true;
+      moved = await move();
+    }
 
     const linkedContainerIds =
       await sqlDocumentContainerProjectionPersistence.listLinkedContainerIds(
@@ -275,4 +301,52 @@ test("moveRemoteContainerDocument completes an empty document move with a baseli
     fixture.siblingContainerId,
   ]);
   expect(fixture.linkedContainerIds).toEqual([fixture.siblingContainerId]);
+});
+
+test("a generation change after link prevents every unlink leg", async () => {
+  const fixture = await runMoveRemoteContainerDocumentFixture({
+    invalidateAfterLink: true,
+    rotationSnapshot: await createRotationSnapshot("move-generation"),
+    testDbName: "containerContents-document-move-generation-test",
+  });
+
+  expect(fixture.moved).toBeNull();
+  expect(fixture.submittedRequests).toEqual([
+    {
+      hasRotationBaseline: false,
+      operation: "link",
+      targetContainerId: fixture.siblingContainerId,
+    },
+  ]);
+  expect(fixture.linkedContainerIds).toEqual([fixture.rootContainerId]);
+});
+
+test("a generation change during link planning prevents the remote mutation", async () => {
+  const fixture = await runMoveRemoteContainerDocumentFixture({
+    invalidateDuringInnerProjectionFetch: true,
+    rotationSnapshot: await createRotationSnapshot("move-planning-generation"),
+    testDbName: "containerContents-document-move-planning-generation-test",
+  });
+
+  expect(fixture.moved).toBeNull();
+  expect(fixture.submittedRequests).toEqual([]);
+  expect(fixture.linkedContainerIds).toEqual([fixture.rootContainerId]);
+});
+
+test("replay adopts an unlink committed as its generation expires", async () => {
+  const fixture = await runMoveRemoteContainerDocumentFixture({
+    invalidateAfterUnlink: true,
+    replayAfterInvalidation: true,
+    rotationSnapshot: await createRotationSnapshot("unlink-response-expiry"),
+    testDbName: "containerContents-unlink-response-expiry",
+  });
+
+  expect(fixture.moved?.status).toBe("complete");
+  expect(fixture.moved?.linkedContainerIds).toEqual([
+    fixture.siblingContainerId,
+  ]);
+  expect(fixture.submittedRequests.map(({ operation }) => operation)).toEqual([
+    "link",
+    "unlink",
+  ]);
 });

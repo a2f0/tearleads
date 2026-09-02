@@ -87,6 +87,7 @@ export interface SaveDocumentRecordOptions {
   pendingBaseVersionOverride?: string | null | undefined;
   preserveSnapshotStructuredFields?: boolean | undefined;
   preserveSnapshotText?: boolean | undefined;
+  stillCurrent?: (() => boolean) | undefined;
 }
 export interface DocumentSyncAttempt {
   consumedPullContinuation: DocumentSyncPullContinuation | null;
@@ -184,7 +185,6 @@ const EMPTY_DOCUMENT_SNAPSHOT: DocumentSnapshot = {
   title: "",
   syncing: false,
 };
-
 function shallowEqualRecord<Value>(
   left: Readonly<Record<string, Value>>,
   right: Readonly<Record<string, Value>>,

@@ -149,6 +149,7 @@ export async function seedLinkSetWriterProjection(input: {
   response: DocumentLinkSetMutationResponse;
   targetContainerId: string;
   targetContainerProjection: ContainerWriterProjectionResponse;
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<void> {
   const projection = linkSetWriterProjectionFromResponse({
     operation: input.operation,
@@ -165,5 +166,6 @@ export async function seedLinkSetWriterProjection(input: {
   } catch {
     return;
   }
+  if (input.stillCurrent?.() === false) return;
   input.apiClient.primeDocumentWriterProjection(input.response.id, projection);
 }

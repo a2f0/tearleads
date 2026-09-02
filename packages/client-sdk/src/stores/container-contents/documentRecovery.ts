@@ -46,18 +46,18 @@ const rejectedAdoptionRuntime = new WeakMap<
 >();
 
 function createPrimeHost(
-  state: DocumentRecoveryStoreState,
+  runtime: ContainerContentsStoreWorkflowRuntime,
 ): ContainerDocumentPrimeHost<PrimeDocumentRuntime> {
   return {
     documentWorkflowRuntime: (containerId) =>
-      createContainerContentsDocumentsRuntime(state.runtime, containerId),
+      createContainerContentsDocumentsRuntime(runtime, containerId),
     openDocumentStore: ({
       documentId,
       localId,
       runtime,
     }): ContainerDocumentPrimeStore =>
       openDocumentStore(
-        state.runtime.state.domainScope,
+        runtime.state.domainScope,
         localId,
         runtime,
         documentId,
@@ -68,18 +68,25 @@ function createPrimeHost(
 export async function primeStoreDocumentSubtree(
   state: DocumentRecoveryStoreState,
   rootContainerId: string,
+  isCurrent: () => boolean = () => true,
 ): Promise<void> {
+  if (!isCurrent()) return;
+  const runtime = state.runtime;
   await primeDocumentsForContainerSubtree({
     containersById: state.containersById,
-    host: createPrimeHost(state),
+    host: createPrimeHost(runtime),
+    isCurrent,
     rootContainerId,
-    runtime: state.runtime,
+    runtime,
   });
 }
 
 export async function primeStoreDocuments(
   state: DocumentRecoveryStoreState,
+  isCurrent: () => boolean = () => true,
 ): Promise<void> {
+  if (!isCurrent()) return;
+  const runtime = state.runtime;
   // Consume the current signal before scanning. A topology/root reconciliation
   // that lands during an awaited query can then re-arm the next pass without
   // this pass erasing that newer signal when it completes.
@@ -87,14 +94,23 @@ export async function primeStoreDocuments(
   try {
     const result = await primeDocumentsForLoadedRoots({
       containersById: state.containersById,
-      host: createPrimeHost(state),
-      organizationId: state.runtime.auth?.organizationId ?? null,
-      runtime: state.runtime,
+      host: createPrimeHost(runtime),
+      isCurrent,
+      organizationId: runtime.auth?.organizationId ?? null,
+      runtime,
     });
-    state.runtime.util.log(
+    if (!isCurrent()) {
+      state.documentStoresNeedPriming = true;
+      return;
+    }
+    runtime.util.log(
       `${getContainerContentsStoreLogLabel(state)}: document priming candidates=${result.candidateCount} roots=${result.rootCount} primed=${result.primedCount} orphaned=${result.orphanPrimedCount} unroutable=${result.unroutableCount}`,
     );
   } catch (error) {
+    if (!isCurrent()) {
+      state.documentStoresNeedPriming = true;
+      return;
+    }
     state.documentStoresNeedPriming = true;
     throw error;
   }
@@ -102,7 +118,11 @@ export async function primeStoreDocuments(
 
 export async function recoverStoreStaleRoot(
   state: DocumentRecoveryStoreState,
+  isCurrent: () => boolean = () => true,
 ): Promise<StaleRootRecoveryStatus> {
+  if (!isCurrent()) {
+    return "context-changed";
+  }
   const runtime = state.runtime;
   if (rejectedAdoptionRuntime.get(state) === runtime) {
     return "not-needed";
@@ -110,8 +130,11 @@ export async function recoverStoreStaleRoot(
 
   let result: Awaited<ReturnType<typeof recoverStaleSessionRoot>>;
   try {
-    result = await recoverStaleSessionRoot({ ...state, runtime });
+    result = await recoverStaleSessionRoot({ ...state, runtime }, isCurrent);
   } catch (error) {
+    if (!isCurrent()) {
+      return "context-changed";
+    }
     if (isDatabaseUnavailableError(error)) {
       throw error;
     }
@@ -122,6 +145,9 @@ export async function recoverStoreStaleRoot(
       state.runtime.util.log(message);
     }
     return "not-needed";
+  }
+  if (!isCurrent()) {
+    return "context-changed";
   }
   const message = `${getContainerContentsStoreLogLabel(state)}: stale root recovery status=${result.status} candidates=${result.candidateCount}`;
   const previousLogState = staleRootRecoveryLogState.get(state);

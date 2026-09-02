@@ -7,6 +7,7 @@ import type { DocumentPurgeCheckpoint } from "../persistence/documentPurgeCheckp
 import {
   type AccessManifestCheckpointAdvance,
   advanceKeyingCheckpointsAtomically,
+  validateKeyingCheckpointsAtomically,
 } from "../persistence/keyingCheckpointAdvancePersistence";
 import type { ExecSql } from "../sqlite/sqlSchema";
 
@@ -62,11 +63,27 @@ function accessManifestCheckpointAdvances(input: {
   return advances;
 }
 
+export async function validateAccessManifestCheckpoints(input: {
+  readonly execSql: ExecSql;
+  readonly policies: readonly AnyVerifiedPrincipalPolicy[];
+  readonly stillCurrent?: (() => boolean) | undefined;
+  readonly verifiedHeads: readonly VerifiedAccessManifestCheckpointEvidence[];
+  readonly verifiedManifests: readonly VerifiedAccessManifestCheckpointEvidence[];
+}): Promise<void> {
+  await validateKeyingCheckpointsAtomically({
+    access: accessManifestCheckpointAdvances(input),
+    execSql: input.execSql,
+    policies: input.policies,
+    stillCurrent: input.stillCurrent,
+  });
+}
+
 export async function enforceAccessManifestCheckpoints(input: {
   readonly execSql: ExecSql;
   readonly organizationId?: string | undefined;
   readonly documentPurgeCheckpoint?: DocumentPurgeCheckpoint | undefined;
   readonly policies: readonly AnyVerifiedPrincipalPolicy[];
+  readonly stillCurrent?: (() => boolean) | undefined;
   readonly verifiedHeads: readonly VerifiedAccessManifestCheckpointEvidence[];
   readonly verifiedManifests: readonly VerifiedAccessManifestCheckpointEvidence[];
 }): Promise<void> {
@@ -76,5 +93,6 @@ export async function enforceAccessManifestCheckpoints(input: {
     execSql: input.execSql,
     organizationId: input.organizationId,
     policies: input.policies,
+    stillCurrent: input.stillCurrent,
   });
 }

@@ -15,6 +15,8 @@ import {
 } from "../../../test/helpers/documentFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../test/helpers/trustedUserIdentity";
 import { persistedDocumentLinkSetMutationStateFromResponse } from "../../data/documents/shared/responses";
+import { loadAccessManifestCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { buildMaterializedDocumentCreatePlan } from "./create";
 import { buildMaterializedDocumentLinkSetMutationPlan } from "./linkSet";
 import { relinkRemoteDocument } from "./linkSetRemote";
@@ -192,6 +194,106 @@ test("relinkRemoteDocument submits a verified signed link-set mutation", async (
     ),
   ).toEqual([rootManifestHash, siblingManifestHash]);
   close();
+});
+
+test("link planning rolls back checkpoints after generation expiry", async () => {
+  const { author, signingPublicKey } = await createAuthor();
+  const keyPair = generateKemSeedAndKeyPair();
+  const projection = await createContainerWriterProjectionFixture({
+    containerId: "expired-link-root-container",
+    encapsulationPublicKey: keyPair.publicKey,
+    organizationId: author.organizationId,
+    signerKeyFingerprint: author.signerKeyFingerprint,
+    signerPrivateKey: author.signerPrivateKey,
+    userId: author.signerUserId,
+  });
+  const siblingProjection = await createContainerWriterProjectionFixture({
+    containerId: "expired-link-sibling-container",
+    encapsulationPublicKey: keyPair.publicKey,
+    organizationId: author.organizationId,
+    parentProjection: projection,
+    signerKeyFingerprint: author.signerKeyFingerprint,
+    signerPrivateKey: author.signerPrivateKey,
+    userId: author.signerUserId,
+  });
+  const created = await buildMaterializedDocumentCreatePlan({
+    author,
+    containerProjection: projection,
+    documentId: "expired-link-document",
+    targetSecretKey: keyPair.secretKey,
+    trustedLocalProjection: true,
+  });
+  const createdResponse = createResponse(created.plan);
+  const writerProjection: DocumentWriterProjectionResponse = {
+    authorizingContainerPaths: [projection],
+    contentKeyBundle: createdResponse.contentKeyBundle,
+    ...writerProjectionEvidence([projection], []),
+    documentId: createdResponse.id,
+    documentKekTargets: createdResponse.documentKekTargets,
+    documentManifest: createdResponse.accessManifest,
+  };
+  const database = await createTestExecSql("expired-link-generation");
+  let submitted = false;
+  let transactionStarted = false;
+  const guardedExecSql = (async (...args: Parameters<ExecSql>) => {
+    const rows = await database.execSql(...args);
+    if (args[0].trim().toUpperCase().startsWith("BEGIN")) {
+      transactionStarted = true;
+    }
+    return rows;
+  }) as ExecSql;
+
+  try {
+    const linked = await relinkRemoteDocument({
+      apiClient: {
+        getContainerWriterProjection: async () => siblingProjection,
+        getDocumentWriterProjection: async () => writerProjection,
+        linkDocument: async () => {
+          submitted = true;
+          throw new Error("expired link must not submit");
+        },
+        primeDocumentWriterProjection: () => {},
+        unlinkDocument: async () => {
+          throw new Error("unexpected unlink");
+        },
+      },
+      author,
+      documentId: writerProjection.documentId,
+      execSql: guardedExecSql,
+      operation: "link",
+      resolveProjectionUserKey: createTestTrustedUserIdentityResolver({
+        encapsulationPublicKey: keyPair.publicKey,
+        signingKeyFingerprint: author.signerKeyFingerprint,
+        signingPublicKey,
+        userId: author.signerUserId,
+      }),
+      stillCurrent: () => !transactionStarted,
+      targetContainerId: siblingProjection.containerId,
+      targetSecretKey: keyPair.secretKey,
+    });
+
+    expect(linked).toBeNull();
+    expect(transactionStarted).toBe(true);
+    expect(submitted).toBe(false);
+    await expect(
+      loadAccessManifestCheckpoint(
+        database.execSql,
+        "document",
+        author.organizationId,
+        writerProjection.documentId,
+      ),
+    ).resolves.toBeNull();
+    await expect(
+      loadAccessManifestCheckpoint(
+        database.execSql,
+        "container",
+        author.organizationId,
+        siblingProjection.containerId,
+      ),
+    ).resolves.toBeNull();
+  } finally {
+    database.close();
+  }
 });
 
 test("relinkRemoteDocument rejects bad unlink target container signatures before sending", async () => {

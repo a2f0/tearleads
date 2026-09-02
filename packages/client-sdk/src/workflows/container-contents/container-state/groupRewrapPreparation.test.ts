@@ -30,13 +30,22 @@ function createContainerState(
 }
 
 async function prepareCandidate(input: {
+  expireDuringVerification?: boolean;
   parent: Awaited<ReturnType<typeof createParentProjection>>;
   testLabel: string;
 }) {
   const { close, execSql } = await createTestExecSql(input.testLabel);
-  const resolveProjectionUserKey = createParentProjectionUserKeyResolver(
+  const baseResolveProjectionUserKey = createParentProjectionUserKeyResolver(
     input.parent,
   );
+  let current = true;
+  const resolveProjectionUserKey = input.expireDuringVerification
+    ? async (userId: string) => {
+        const identity = await baseResolveProjectionUserKey(userId);
+        current = false;
+        return identity;
+      }
+    : baseResolveProjectionUserKey;
   const runtime = createContainerContentsWorkflowRuntime({
     apiClient: createMockApiClient(),
     auth: {
@@ -79,6 +88,7 @@ async function prepareCandidate(input: {
       requireExistingGrant: true,
       resolveProjectionUserKey,
       runtime,
+      stillCurrent: () => current,
     });
   } finally {
     close();
@@ -94,6 +104,18 @@ test("a signed root without the candidate group yields not-granted", async () =>
       testLabel: "group-rewrap-signed-unrelated-candidate",
     }),
   ).resolves.toEqual({ status: "not-granted" });
+});
+
+test("group re-wrap preparation returns null when verification expires", async () => {
+  const parent = await createParentProjection();
+
+  await expect(
+    prepareCandidate({
+      expireDuringVerification: true,
+      parent,
+      testLabel: "group-rewrap-expired-verification",
+    }),
+  ).resolves.toBeNull();
 });
 
 test("a forged direct admin grant cannot make a substituted group applicable", async () => {

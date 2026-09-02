@@ -3,9 +3,13 @@ import type {
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import {
+  getTargetContainerContext,
+  readContainerState,
+} from "../../../data/containers/shared/projection";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import {
-  createRemoteContainer as createRemoteContainerMutation,
+  continueRemoteContainerCreateForMetadataDocument as createRemoteContainerMutation,
   moveRemoteContainer as moveRemoteContainerMutation,
   readContainerMutationMetadataDocumentId,
   referencedPrincipalHeadsFromContainerMutationResponse,
@@ -18,6 +22,7 @@ import {
 } from "../../documents";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import {
+  CONTAINER_ALREADY_COMMITTED,
   type ContainerAlreadyCommitted,
   createRemoteContainerWithMetadataDocument,
 } from "./createWithMetadata";
@@ -58,60 +63,16 @@ function resolveContainerWriterContext(
   };
 }
 
-async function createRemoteContainerWithSeparateMetadataDocument(input: {
+function separateCreateResult(input: {
+  createdContainer: NonNullable<
+    Awaited<ReturnType<typeof createRemoteContainerMutation>>
+  >;
+  createdMetadataDocument: NonNullable<
+    Awaited<ReturnType<typeof createRemoteDocument>>
+  >;
   systemSlot?: ContainerSystemSlot | null | undefined;
-  containerId: string;
-  parentContainerId: string;
-  parentProjection?: ContainerWriterProjectionResponse | undefined;
-  resolveProjectionUserKey: ProjectionUserKeyResolver;
-  runtime: ContainerWorkflowRuntime;
-}): Promise<CreatedRemoteContainerState | null> {
-  const writer = resolveContainerWriterContext(
-    input.runtime,
-    "container create",
-  );
-  if (!writer) {
-    return null;
-  }
-  const { apiClient, author, execSql, secretKey: parentSecretKey } = writer;
-
-  const createdContainer = await createRemoteContainerMutation({
-    apiClient,
-    author,
-    containerId: input.containerId,
-    execSql,
-    metadataDocumentId: input.containerId,
-    parentContainerId: input.parentContainerId,
-    parentProjection: input.parentProjection,
-    parentSecretKey,
-    reportSecurityIncident: input.runtime.util.reportSecurityIncident,
-    resolveProjectionUserKey: input.resolveProjectionUserKey,
-    resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
-    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
-      input.runtime,
-    ),
-  });
-  if (!createdContainer) {
-    return null;
-  }
-
-  const createdMetadataDocument = await createRemoteDocument({
-    apiClient,
-    author,
-    containerId: createdContainer.containerId,
-    documentId: createdContainer.metadataDocumentId,
-    execSql,
-    expectedOrganizationId: createdContainer.response.organizationId,
-    resolveProjectionUserKey: input.resolveProjectionUserKey,
-    targetSecretKey: parentSecretKey,
-    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
-      input.runtime,
-    ),
-  });
-  if (!createdMetadataDocument) {
-    return null;
-  }
-
+}): CreatedRemoteContainerState {
+  const { createdContainer, createdMetadataDocument } = input;
   return {
     accessManifestHash: createdContainer.response.manifestHead.manifestHash,
     systemSlot: input.systemSlot ?? null,
@@ -125,6 +86,150 @@ async function createRemoteContainerWithSeparateMetadataDocument(input: {
   };
 }
 
+function assertLegacyContainerProjectionMatches(input: {
+  containerId: string;
+  parentContainerId: string;
+  parentProjection: ContainerWriterProjectionResponse;
+  projection: ContainerWriterProjectionResponse;
+}): void {
+  const state = readContainerState(
+    getTargetContainerContext(input.projection).manifest,
+  );
+  if (
+    input.projection.containerId !== input.containerId ||
+    input.projection.organizationId !== input.parentProjection.organizationId ||
+    state.containerId !== input.containerId ||
+    state.metadataDocumentId !== input.containerId ||
+    state.organizationId !== input.parentProjection.organizationId ||
+    state.parentContainerId !== input.parentContainerId
+  ) {
+    throw new Error("Pending legacy container create identity mismatch");
+  }
+}
+
+function childProjectionFromCreateResponse(input: {
+  parentProjection: ContainerWriterProjectionResponse;
+  response: ContainerMutationResponse;
+}): ContainerWriterProjectionResponse {
+  return {
+    containerId: input.response.containerId,
+    organizationId: input.response.organizationId,
+    path: [...input.parentProjection.path, input.response.accessManifest],
+    containerKeks: [
+      ...input.parentProjection.containerKeks,
+      input.response.containerKek,
+    ],
+  };
+}
+
+function knownContainerKeksFromCreateResult(
+  created: Awaited<ReturnType<typeof createRemoteContainerMutation>>,
+): ReadonlyMap<string, Uint8Array> | undefined {
+  return created
+    ? new Map([[created.plan.containerKeyEpochId, created.containerKey]])
+    : undefined;
+}
+
+async function createRemoteContainerWithSeparateMetadataDocument(input: {
+  systemSlot?: ContainerSystemSlot | null | undefined;
+  containerId: string;
+  parentContainerId: string;
+  parentProjection?: ContainerWriterProjectionResponse | undefined;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
+  runtime: ContainerWorkflowRuntime;
+  stillCurrent?: (() => boolean) | undefined;
+}): Promise<CreatedRemoteContainerState | ContainerAlreadyCommitted | null> {
+  const writer = resolveContainerWriterContext(
+    input.runtime,
+    "container create",
+  );
+  if (!writer) {
+    return null;
+  }
+  const { apiClient, author, execSql, secretKey: parentSecretKey } = writer;
+  const parentProjection =
+    input.parentProjection ??
+    (await apiClient.getContainerWriterProjection(input.parentContainerId));
+  if (!parentProjection) {
+    return null;
+  }
+
+  const createdContainer = await createRemoteContainerMutation({
+    apiClient,
+    author,
+    containerId: input.containerId,
+    execSql,
+    metadataDocumentId: input.containerId,
+    parentContainerId: input.parentContainerId,
+    parentProjection,
+    parentSecretKey,
+    reportSecurityIncident: input.runtime.util.reportSecurityIncident,
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
+    resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
+    stillCurrent: input.stillCurrent,
+    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
+      input.runtime,
+    ),
+  });
+  if (!createdContainer && input.stillCurrent?.() === false) {
+    return null;
+  }
+  let metadataContainerProjection: ContainerWriterProjectionResponse;
+  if (!createdContainer) {
+    const existingProjection = await apiClient.getContainerWriterProjection(
+      input.containerId,
+    );
+    if (!existingProjection) return null;
+    assertLegacyContainerProjectionMatches({
+      containerId: input.containerId,
+      parentContainerId: input.parentContainerId,
+      parentProjection,
+      projection: existingProjection,
+    });
+    metadataContainerProjection = existingProjection;
+  } else {
+    metadataContainerProjection = childProjectionFromCreateResponse({
+      parentProjection,
+      response: createdContainer.response,
+    });
+  }
+
+  // The legacy API commits the container and its metadata document in two
+  // requests. Once the container POST succeeds, finish the second phase even
+  // if the caller's local generation expired: abandoning here would leave a
+  // remote container that can never hydrate because its referenced metadata
+  // document does not exist. The caller still discards this stale result and
+  // lets the replacement generation reconcile the completed remote state.
+  const createdMetadataDocument = await createRemoteDocument({
+    apiClient,
+    author,
+    containerId: createdContainer?.containerId ?? input.containerId,
+    containerProjection: metadataContainerProjection,
+    documentId: createdContainer?.metadataDocumentId ?? input.containerId,
+    execSql,
+    expectedOrganizationId:
+      createdContainer?.response.organizationId ??
+      parentProjection.organizationId,
+    knownContainerKeks: knownContainerKeksFromCreateResult(createdContainer),
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
+    stillCurrent: input.stillCurrent,
+    submitWhenStale: true,
+    targetSecretKey: parentSecretKey,
+    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
+      input.runtime,
+    ),
+  });
+  if (!createdMetadataDocument) {
+    return null;
+  }
+  if (!createdContainer) return CONTAINER_ALREADY_COMMITTED;
+  return separateCreateResult({
+    createdContainer,
+    createdMetadataDocument,
+    systemSlot: input.systemSlot,
+  });
+}
+
 export async function createRemoteContainer(input: {
   systemSlot?: ContainerSystemSlot | null | undefined;
   containerId: string;
@@ -132,8 +237,12 @@ export async function createRemoteContainer(input: {
   parentProjection?: ContainerWriterProjectionResponse | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<CreatedRemoteContainerState | ContainerAlreadyCommitted | null> {
-  if (input.runtime.apiClient.createContainerWithMetadataDocument) {
+  if (
+    input.runtime.apiClient.createContainerWithMetadataDocument ||
+    input.runtime.apiClient.createContainerWithMetadataDocumentResult
+  ) {
     return createRemoteContainerWithMetadataDocument(input);
   }
   if (input.systemSlot) {
@@ -191,6 +300,7 @@ export async function shareRemoteContainer(input: {
   recipientUserId: string;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<SharedRemoteContainerState | null> {
   const writer = resolveContainerWriterContext(
     input.runtime,
@@ -211,6 +321,7 @@ export async function shareRemoteContainer(input: {
     recipientUserId: input.recipientUserId,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
+    stillCurrent: input.stillCurrent,
     targetSecretKey,
     warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
       input.runtime,
@@ -234,6 +345,7 @@ export async function shareRemoteContainerWithGroup(input: {
   recipientGroupId: string;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<SharedRemoteContainerState | null> {
   const writer = resolveContainerWriterContext(
     input.runtime,
@@ -256,6 +368,7 @@ export async function shareRemoteContainerWithGroup(input: {
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
     signingKeyPair: input.runtime.crypto.signingKeyPair,
+    stillCurrent: input.stillCurrent,
     targetSecretKey,
     warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
       input.runtime,
@@ -276,6 +389,7 @@ export async function moveRemoteContainer(input: {
   parentContainerId: string;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<RemoteContainer | null> {
   const writer = resolveContainerWriterContext(input.runtime, "container move");
   if (!writer) {
@@ -290,6 +404,7 @@ export async function moveRemoteContainer(input: {
     destinationParentContainerId: input.parentContainerId,
     execSql,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
+    stillCurrent: input.stillCurrent,
     targetSecretKey,
     warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
       input.runtime,

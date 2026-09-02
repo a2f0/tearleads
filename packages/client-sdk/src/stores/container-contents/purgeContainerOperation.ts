@@ -1,6 +1,8 @@
 import type { PurgeOptions } from "../../workflows/container-contents/container-state/purgeProgress";
 import { runContainerPurge } from "./containerPurgeCore";
+import type { ContainerContentsStoreSyncAgent } from "./syncAgent";
 import type { ContainerContentsStoreState } from "./types";
+import type { ContainerWriteGuard } from "./writeGeneration";
 
 // Permanently destroy a container and everything beneath it. Unlike
 // deleteContainer (a leaf-only hard delete), this cascades: documents whose last
@@ -11,10 +13,12 @@ import type { ContainerContentsStoreState } from "./types";
 // root and never a system container itself.
 export async function purgeContainer(
   state: ContainerContentsStoreState,
+  syncAgent: ContainerContentsStoreSyncAgent,
   containerId: string,
   options?: PurgeOptions,
+  isCurrent: ContainerWriteGuard = () => true,
 ): Promise<boolean> {
-  return runContainerPurge(state, containerId, options, {
+  return runContainerPurge(state, syncAgent, containerId, options, isCurrent, {
     describeResult: (target, result) =>
       `purged container "${target.container.name}" (${result.purgedContainerIds.length} container(s) removed, ${result.failedCount} failed)`,
     didSucceed: (result) => result.purgedContainerIds.includes(containerId),

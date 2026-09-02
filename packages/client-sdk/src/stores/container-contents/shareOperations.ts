@@ -16,6 +16,7 @@ import type {
   ContainerContentsStoreState,
 } from "./types";
 import { toContainerNode } from "./utils";
+import type { ContainerWriteGuard } from "./writeGeneration";
 
 export async function shareContainerUsing(
   state: ContainerContentsStoreState,
@@ -25,12 +26,14 @@ export async function shareContainerUsing(
     containerState: ContainerState,
   ) => Promise<SharedContainerStateResult | null>,
   logMessage: string,
+  isCurrent: ContainerWriteGuard = () => true,
 ) {
   if (
     state.runtime.infra.dbStatus !== "ready" ||
     !state.snapshot.ready ||
     !state.runtime.auth.isAuthenticated ||
-    !state.runtime.state.online
+    !state.runtime.state.online ||
+    !isCurrent()
   ) {
     return null;
   }
@@ -46,7 +49,17 @@ export async function shareContainerUsing(
   }
 
   const shared = await share(existingState);
-  if (!shared) return null;
+  if (!shared || !isCurrent()) {
+    if (!isCurrent()) {
+      state.localContainersNeedRefresh = true;
+      state.containerParentIdsNeedingHydration.add(
+        existingState.container.parentId,
+      );
+      void syncAgent.refreshLocalContainers();
+      syncAgent.scheduleRemoteHydration();
+    }
+    return null;
+  }
   if (shared.status === "missing") {
     removeMissingContainerState(state, existingState);
     return null;
@@ -57,7 +70,8 @@ export async function shareContainerUsing(
   updateContainerContentsSnapshot(state);
   if (shared.status === "identity-superseded") return null;
 
-  await syncAgent.primeDocumentsForSharedSubtree(containerId);
+  await syncAgent.primeDocumentsForSharedSubtree(containerId, isCurrent);
+  if (!isCurrent()) return null;
   syncAgent.scheduleSync();
   state.runtime.util.log(
     `${getContainerContentsStoreLogLabel(state)}: ${logMessage}`,
@@ -70,6 +84,7 @@ export async function shareContainerWithUser(
   syncAgent: ContainerContentsStoreSyncAgent,
   containerId: string,
   userId: string,
+  isCurrent: ContainerWriteGuard = () => true,
 ) {
   return shareContainerUsing(
     state,
@@ -83,8 +98,10 @@ export async function shareContainerWithUser(
         recipientUserId: userId,
         resolveProjectionUserKey: state.resolveProjectionUserKey,
         runtime: state.runtime,
+        stillCurrent: isCurrent,
       }),
     `shared container ${containerId} with ${userId}`,
+    isCurrent,
   );
 }
 
@@ -98,6 +115,7 @@ export async function shareContainerWithGroup(
     knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
     requireExistingGrant?: boolean | undefined;
   } = {},
+  isCurrent: ContainerWriteGuard = () => true,
 ) {
   return shareContainerUsing(
     state,
@@ -113,7 +131,9 @@ export async function shareContainerWithGroup(
         requireExistingGrant: options.requireExistingGrant,
         resolveProjectionUserKey: state.resolveProjectionUserKey,
         runtime: state.runtime,
+        stillCurrent: isCurrent,
       }),
     `shared container ${containerId} with group ${groupId}`,
+    isCurrent,
   );
 }

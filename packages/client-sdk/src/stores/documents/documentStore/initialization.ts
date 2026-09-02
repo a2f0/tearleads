@@ -35,6 +35,7 @@ import {
   healLocalAttachmentDetachState,
   recoverDroppedAttachmentSlots,
 } from "./initializationRecovery";
+import type { DocumentRelinkCommitSideEffect } from "./internalRelink";
 import { runDocumentOrphanMaintenance } from "./orphanMaintenance";
 import {
   advancePendingBaseVersion,
@@ -53,6 +54,7 @@ import {
   allowDocumentStoreRemoteSync,
   captureDocumentStoreSyncGeneration,
   invalidateDocumentStoreRemoteSync,
+  isDocumentStoreSyncGenerationCurrent,
   markDocumentStoreRemoteSyncPending,
 } from "./syncGeneration";
 
@@ -378,16 +380,25 @@ export async function relinkDocumentStore(
   state: DocumentStoreState,
   input: DocumentStoreRelinkInput,
   scheduleSync: () => void,
+  commitSideEffect?: DocumentRelinkCommitSideEffect,
 ): Promise<DocumentSummary | null> {
-  if (!(await ensureDocumentStoreReady(state, scheduleSync)) || !state.doc) {
+  if (
+    input.stillCurrent?.() === false ||
+    !(await ensureDocumentStoreReady(state, scheduleSync)) ||
+    input.stillCurrent?.() === false ||
+    !state.doc
+  ) {
     return null;
   }
   const currentDoc = state.doc;
+  const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
+  if (!generation) return null;
   // Read the record and persist on the identity-write chain so an in-flight
   // eager create cannot interleave: a create that captured a null identity
   // before its network round trip would otherwise write the derived documentId
   // over the one this relink assigns.
   const persisted = await chainIdentityWrite(state, async () => {
+    if (!isDocumentStoreSyncGenerationCurrent(state, generation)) return null;
     const currentDocumentId = state.record?.documentId ?? null;
     const currentAccessEpoch =
       state.record?.accessEpoch ?? DEFAULT_DOCUMENT_ACCESS_EPOCH;
@@ -419,13 +430,21 @@ export async function relinkDocumentStore(
     // refusal): persisting the captured doc against a null record would
     // resurrect the document as a create. The identity check runs inside
     // the chain, after every earlier write settled.
-    if (state.doc !== currentDoc) {
+    if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
       return null;
     }
-    const result = await persistDocument(state, currentDoc, patch, {
-      preserveSnapshotStructuredFields: true,
-      preserveSnapshotText: true,
-    });
+    const result = await persistDocument(
+      state,
+      currentDoc,
+      patch,
+      {
+        preserveSnapshotStructuredFields: true,
+        preserveSnapshotText: true,
+        stillCurrent: input.stillCurrent,
+      },
+      generation,
+      commitSideEffect,
+    );
     if (result && currentDocumentId !== input.documentId) {
       state.writerProjection = null;
       invalidateDocumentStoreRemoteSync(state);

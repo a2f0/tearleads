@@ -3,11 +3,18 @@ import type { ContainerState } from "../remoteHydration";
 import { deleteRemoteContainer } from "./remote";
 import type { ContainerWorkflowRuntime } from "./types";
 
+type DeleteContainerStateResult =
+  | "deleted"
+  | "local-conflict"
+  | "remote-deleted"
+  | "remote-failed";
+
 export async function deleteContainerState(input: {
   containerState: ContainerState;
   persistence: ContainerContentsPersistence;
   runtime: ContainerWorkflowRuntime;
-}): Promise<boolean> {
+  stillCurrent?: (() => boolean) | undefined;
+}): Promise<DeleteContainerStateResult> {
   const isRemoteContainer = Boolean(input.containerState.record.documentId);
   let deletedAt: string | undefined;
 
@@ -17,16 +24,28 @@ export async function deleteContainerState(input: {
       runtime: input.runtime,
     });
     if (!deletedRemoteContainer) {
-      return false;
+      return "remote-failed";
     }
     deletedAt = deletedRemoteContainer.deletedAt;
   }
   const execSql = input.runtime.infra.execSql;
-
-  await input.persistence.deleteContainer(
+  const containerId = input.containerState.container.id;
+  const deletedContainerIds = await input.persistence.deleteContainers(
     execSql,
-    input.containerState.container.id,
-    deletedAt ? { updatedAt: deletedAt } : undefined,
+    [
+      {
+        containerId,
+        reason: "deleted",
+        updatedAt: deletedAt ?? new Date().toISOString(),
+      },
+    ],
+    {
+      expectedContainers: [
+        { containerId, expectedContainer: input.containerState.container },
+      ],
+      stillCurrent: input.stillCurrent,
+    },
   );
-  return true;
+  if (deletedContainerIds.includes(containerId)) return "deleted";
+  return isRemoteContainer ? "remote-deleted" : "local-conflict";
 }

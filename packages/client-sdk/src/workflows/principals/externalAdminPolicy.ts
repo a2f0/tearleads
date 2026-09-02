@@ -188,7 +188,9 @@ export async function loadOrganizationExternalAdminPolicy(input: {
     principalId: string,
   ) => Promise<PrincipalPolicyBundleResponse | null>;
   readonly organizationId: string | null | undefined;
+  readonly persistVerifiedPolicies?: boolean | undefined;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+  readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<VerifiedExternalAdminPolicy | null> {
   if (!input.organizationId) {
     return null;
@@ -239,12 +241,15 @@ export async function loadOrganizationExternalAdminPolicy(input: {
       policy,
       signerUserIds: organizationAdminSignerUserIds(admin.policy),
     };
-    await persistVerifiedPrincipalPolicyBundlesAtomically({
-      entries: externalAdminPolicyPersistenceEntries(verified),
-      execSql: input.execSql,
-      organizationId: input.organizationId,
-      updatedAt: new Date().toISOString(),
-    });
+    if (input.persistVerifiedPolicies !== false) {
+      await persistVerifiedPrincipalPolicyBundlesAtomically({
+        entries: externalAdminPolicyPersistenceEntries(verified),
+        execSql: input.execSql,
+        organizationId: input.organizationId,
+        stillCurrent: input.stillCurrent,
+        updatedAt: new Date().toISOString(),
+      });
+    }
     return verified;
   } catch (error) {
     if (error instanceof KeyingVerificationError) {

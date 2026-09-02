@@ -39,6 +39,7 @@ export async function resolveRotationContext(
     execSql: ExecSql;
     previousProjection: ContainerWriterProjectionResponse;
     resolveProjectionUserKey: ProjectionUserKeyResolver;
+    stillCurrent?: (() => boolean) | undefined;
     targetSecretKey: Uint8Array;
     warmReferencedPrincipalPolicies?:
       | ReferencedPrincipalPolicyWarmer

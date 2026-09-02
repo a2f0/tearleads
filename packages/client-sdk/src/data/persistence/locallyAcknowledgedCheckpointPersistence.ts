@@ -119,16 +119,24 @@ async function writeAcknowledgedHeads(
 export async function advanceLocallyAcknowledgedAccessManifestHeadsAtomically(input: {
   readonly execSql: ExecSql;
   readonly heads: readonly LocallyAcknowledgedAccessManifestHead[];
-}): Promise<void> {
+  readonly stillCurrent?: (() => boolean) | undefined;
+}): Promise<boolean> {
   await ensureSqlTables(input.execSql, keyingCheckpointTables);
   const updatedAt = new Date().toISOString();
-  await getClientSQLitePersistenceRuntime(input.execSql).transaction(
-    async (tx) => {
-      const pending = await validateAcknowledgedHeads(tx, input.heads);
-      await writeAcknowledgedHeads(tx, pending, updatedAt);
-    },
-    { behavior: "immediate" },
-  );
+  const runtime = getClientSQLitePersistenceRuntime(input.execSql);
+  const acknowledge = async (tx: ClientSQLiteTransactionScope) => {
+    const pending = await validateAcknowledgedHeads(tx, input.heads);
+    await writeAcknowledgedHeads(tx, pending, updatedAt);
+  };
+  if (input.stillCurrent) {
+    return (
+      await runtime.guardedTransaction(acknowledge, input.stillCurrent, {
+        behavior: "immediate",
+      })
+    ).committed;
+  }
+  await runtime.transaction(acknowledge, { behavior: "immediate" });
+  return true;
 }
 
 function validateAcknowledgedPolicy(
@@ -180,6 +188,7 @@ async function storeAcknowledgedPrincipalPolicyBundles(input: {
   readonly execSql: ExecSql;
   readonly organizationId?: string | undefined;
   readonly placement: "current" | "history";
+  readonly stillCurrent?: (() => boolean) | undefined;
   readonly updatedAt: string;
 }): Promise<void> {
   assertUniqueAcknowledgedPolicies(input.entries);
@@ -190,42 +199,47 @@ async function storeAcknowledgedPrincipalPolicyBundles(input: {
     ...principalPolicyTables,
     ...keyingCheckpointTables,
   ]);
-  await getClientSQLitePersistenceRuntime(input.execSql).transaction(
-    async (tx) => {
-      for (const { policy } of input.entries) {
-        validateAcknowledgedPolicy(
-          policy,
-          await loadStoredPrincipalPolicyCheckpoint(tx, policy),
-        );
-      }
-      for (const entry of input.entries) {
-        if (input.placement === "current") {
-          await writePrincipalPolicyBundleInTransaction(
-            tx,
-            entry.bundle,
-            input.updatedAt,
-            input.organizationId,
-          );
-        } else {
-          await retainPrincipalPolicyBundleInTransaction(
-            tx,
-            entry.bundle,
-            input.updatedAt,
-            input.organizationId,
-          );
-        }
-      }
-      for (const { policy } of input.entries) {
-        await upsertPrincipalPolicyCheckpointInTransaction(
+  const runtime = getClientSQLitePersistenceRuntime(input.execSql);
+  const store = async (tx: ClientSQLiteTransactionScope) => {
+    for (const { policy } of input.entries) {
+      validateAcknowledgedPolicy(
+        policy,
+        await loadStoredPrincipalPolicyCheckpoint(tx, policy),
+      );
+    }
+    for (const entry of input.entries) {
+      if (input.placement === "current") {
+        await writePrincipalPolicyBundleInTransaction(
           tx,
-          policy.checkpoint,
+          entry.bundle,
+          input.updatedAt,
+          input.organizationId,
+        );
+      } else {
+        await retainPrincipalPolicyBundleInTransaction(
+          tx,
+          entry.bundle,
           input.updatedAt,
           input.organizationId,
         );
       }
-    },
-    { behavior: "immediate" },
-  );
+    }
+    for (const { policy } of input.entries) {
+      await upsertPrincipalPolicyCheckpointInTransaction(
+        tx,
+        policy.checkpoint,
+        input.updatedAt,
+        input.organizationId,
+      );
+    }
+  };
+  if (input.stillCurrent) {
+    await runtime.guardedTransaction(store, input.stillCurrent, {
+      behavior: "immediate",
+    });
+    return;
+  }
+  await runtime.transaction(store, { behavior: "immediate" });
 }
 
 /** Atomically pins and caches exact full policy bundles acknowledged by the API. */
@@ -233,6 +247,7 @@ export function persistLocallyAcknowledgedPrincipalPolicyBundles(input: {
   readonly entries: readonly LocallyAcknowledgedPrincipalPolicyBundle[];
   readonly execSql: ExecSql;
   readonly organizationId?: string | undefined;
+  readonly stillCurrent?: (() => boolean) | undefined;
   readonly updatedAt: string;
 }): Promise<void> {
   return storeAcknowledgedPrincipalPolicyBundles({
@@ -245,6 +260,7 @@ export function persistLocallyAcknowledgedPrincipalPolicyBundle(
   input: LocallyAcknowledgedPrincipalPolicyBundle & {
     readonly execSql: ExecSql;
     readonly organizationId?: string | undefined;
+    readonly stillCurrent?: (() => boolean) | undefined;
     readonly updatedAt: string;
   },
 ): Promise<void> {
@@ -252,6 +268,7 @@ export function persistLocallyAcknowledgedPrincipalPolicyBundle(
     entries: [input],
     execSql: input.execSql,
     organizationId: input.organizationId,
+    stillCurrent: input.stillCurrent,
     updatedAt: input.updatedAt,
   });
 }
@@ -260,6 +277,7 @@ export function retainLocallyAcknowledgedPrincipalPolicyBundles(input: {
   readonly entries: readonly LocallyAcknowledgedPrincipalPolicyBundle[];
   readonly execSql: ExecSql;
   readonly organizationId?: string | undefined;
+  readonly stillCurrent?: (() => boolean) | undefined;
   readonly updatedAt: string;
 }): Promise<void> {
   return storeAcknowledgedPrincipalPolicyBundles({

@@ -6,7 +6,11 @@ import {
   type PendingUpdateRecord,
   rekeyDocumentPendingUpdate,
 } from "../../data/sqlite/documentPersistence";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
+import {
+  type ExecSql,
+  runSerializedSqlMutation,
+} from "../../data/sqlite/sqlSchema";
 
 export type RekeyPendingUpdate = (
   execSql: ExecSql,
@@ -94,6 +98,7 @@ export async function rekeyUnsettledRecoveryPendingUpdates(input: {
   recoveryPendingUpdatesById: ReadonlyMap<string, PendingUpdateRecord>;
   rekeyPendingUpdate?: RekeyPendingUpdate | undefined;
   settledPendingUpdateIds: readonly string[];
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<{
   exhaustedPendingUpdateIds: string[];
   rekeyedPendingUpdateIds: string[];
@@ -104,6 +109,7 @@ export async function rekeyUnsettledRecoveryPendingUpdates(input: {
   const rekeyedPendingUpdateIds: string[] = [];
   const exhaustedPendingUpdateIds: string[] = [];
   for (const [pendingUpdateId, record] of input.recoveryPendingUpdatesById) {
+    if (input.stillCurrent?.() === false) break;
     if (settled.has(pendingUpdateId)) {
       continue;
     }
@@ -115,10 +121,25 @@ export async function rekeyUnsettledRecoveryPendingUpdates(input: {
       exhaustedPendingUpdateIds.push(pendingUpdateId);
       continue;
     }
-    const nextId = await rekeyPendingUpdate(input.execSql, pendingUpdateId);
+    const outcome = await runSerializedSqlMutation(
+      input.execSql,
+      (lockedExecSql) =>
+        getClientSQLitePersistenceRuntime(lockedExecSql).guardedTransaction(
+          async () =>
+            input.stillCurrent?.() === false
+              ? null
+              : rekeyPendingUpdate(lockedExecSql, pendingUpdateId),
+          () => input.stillCurrent?.() !== false,
+        ),
+    );
+    if (!outcome.committed) break;
+    const nextId = outcome.result;
     if (nextId !== null) {
       rekeyedPendingUpdateIds.push(nextId);
     }
+  }
+  if (input.stillCurrent?.() === false) {
+    return { exhaustedPendingUpdateIds: [], rekeyedPendingUpdateIds: [] };
   }
   return { exhaustedPendingUpdateIds, rekeyedPendingUpdateIds };
 }
@@ -142,6 +163,9 @@ export async function rekeyAndReportUnsettledRecoveryPendingUpdates(
 }> {
   const { exhaustedPendingUpdateIds, rekeyedPendingUpdateIds } =
     await rekeyUnsettledRecoveryPendingUpdates(input);
+  if (input.stillCurrent?.() === false) {
+    return { exhaustedPendingUpdateCount: 0, rekeyedPendingUpdateIds: [] };
+  }
   if (exhaustedPendingUpdateIds.length > 0) {
     await input.onTerminalSubmitFailure?.(
       rekeyLimitSubmitFailure(exhaustedPendingUpdateIds.length),

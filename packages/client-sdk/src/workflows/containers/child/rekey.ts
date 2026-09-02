@@ -192,6 +192,7 @@ interface RekeyPlanInput {
   replacementPrincipalPolicy?: VerifiedPrincipalPolicy | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
+  stillCurrent?: (() => boolean) | undefined;
   targetSecretKey: Uint8Array;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }
@@ -204,6 +205,7 @@ async function collectRekeyPrincipalPolicies(
     execSql: input.execSql,
     previousProjection: input.previousProjection,
     resolveUserKey,
+    stillCurrent: input.stillCurrent,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
   return refreshedPrincipalPolicies({
@@ -357,6 +359,7 @@ export async function rekeyRemoteContainer(input: {
   keyringEntriesOverride?: readonly ContainerKekKeyringEntry[] | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
+  stillCurrent?: (() => boolean) | undefined;
   targetSecretKey: Uint8Array;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<{
@@ -379,6 +382,7 @@ export async function rekeyRemoteContainer(input: {
     previousProjection,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     signedAt: input.signedAt,
+    stillCurrent: input.stillCurrent,
     targetSecretKey: input.targetSecretKey,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
@@ -386,6 +390,7 @@ export async function rekeyRemoteContainer(input: {
     containerKey: materializedPlan.containerKey,
     execSql: input.execSql,
     plan: materializedPlan.plan,
+    stillCurrent: input.stillCurrent,
     submit: () =>
       input.apiClient.rekeyContainer(
         input.containerId,

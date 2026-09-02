@@ -108,6 +108,7 @@ interface BuildMaterializedContainerSharePlanInput {
   recipient: ContainerShareRecipient;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
+  stillCurrent?: (() => boolean) | undefined;
   targetSecretKey: Uint8Array;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }
@@ -223,6 +224,7 @@ export async function buildMaterializedContainerSharePlan(
       ? {}
       : { recipientPolicy: input.recipient.principalPolicy }),
     resolveUserKey: input.resolveProjectionUserKey,
+    stillCurrent: input.stillCurrent,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
 

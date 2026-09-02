@@ -24,7 +24,12 @@ test("local container deletion schedules orphan priming", async () => {
     containersById,
     documentStoresNeedPriming: false,
     listeners: new Set(),
-    persistence: { deleteContainer: async () => undefined },
+    persistence: {
+      deleteContainers: async (
+        _execSql: unknown,
+        removals: ReadonlyArray<{ containerId: string }>,
+      ) => removals.map((removal) => removal.containerId),
+    },
     runtime: {
       auth: { isAuthenticated: false },
       infra: { dbStatus: "ready", execSql: async () => [] },

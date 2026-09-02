@@ -368,6 +368,7 @@ export async function collectContainerSharePrincipalPolicies(input: {
   previousProjection: ContainerWriterProjectionResponse;
   recipientPolicy?: VerifiedPrincipalPolicy | undefined;
   resolveUserKey: ProjectionUserKeyResolver;
+  stillCurrent?: (() => boolean) | undefined;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<VerifiedPrincipalPolicy[]> {
   const previousPolicies =
@@ -376,6 +377,7 @@ export async function collectContainerSharePrincipalPolicies(input: {
       principalPolicyCache: input.principalPolicyCache,
       projection: input.previousProjection,
       resolveUserKey: input.resolveUserKey,
+      stillCurrent: input.stillCurrent,
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
   return refreshedPrincipalPolicies({

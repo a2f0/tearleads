@@ -46,6 +46,7 @@ interface PrincipalContainerRematerializationInput {
   readonly nextPolicy: VerifiedPrincipalPolicy;
   readonly revokedContainerId?: string | undefined;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+  readonly stillCurrent?: (() => boolean) | undefined;
   readonly targetSecretKey: Uint8Array;
   readonly warmReferencedPrincipalPolicies?:
     | ReferencedPrincipalPolicyWarmer
@@ -96,6 +97,7 @@ async function loadGrantedContainerContext(
     resolveUserKey: createProjectionUserKeyResolver({
       resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
     }),
+    stillCurrent: input.stillCurrent,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
   const state = readContainerState(
@@ -143,6 +145,7 @@ type MaterializedPrincipalContainerMutationPlan =
 export interface PreparedPrincipalContainerRematerializationBatch {
   readonly acknowledge: (
     responses: readonly ContainerMutationResponse[],
+    stillCurrent?: (() => boolean) | undefined,
   ) => Promise<void>;
   readonly plans: readonly MaterializedPrincipalContainerMutationPlan[];
   readonly requests: readonly ContainerMutationRequest[];
@@ -176,6 +179,7 @@ async function buildPrincipalContainerRematerializationPlan(input: {
     execSql: rematerialization.execSql,
     previousProjection: projection,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
+    stillCurrent: rematerialization.stillCurrent,
     targetSecretKey: rematerialization.targetSecretKey,
     warmReferencedPrincipalPolicies:
       rematerialization.warmReferencedPrincipalPolicies,
@@ -264,11 +268,12 @@ export async function preparePrincipalContainerRematerializationBatch(
   return {
     plans,
     requests: plans.map((planned) => planned.plan.request),
-    acknowledge: (responses) =>
+    acknowledge: (responses, stillCurrent) =>
       acknowledgeContainerMutationBatch({
         execSql: input.execSql,
         plans: plans.map(authoredMutationHead),
         responses,
+        stillCurrent,
       }),
   };
 }

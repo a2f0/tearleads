@@ -2,12 +2,17 @@ import {
   installContainerMetadataRecord,
   setContainerIconMetadataStateFromRuntime,
 } from "../../workflows/container-contents/metadata";
+import {
+  createDetachedContainerMetadataState,
+  installDetachedContainerMetadataState,
+} from "../../workflows/container-contents/metadataStateIsolation";
 import { getContainerContentsStoreLogLabel } from "./logLabel";
 import { removeMissingContainerState } from "./missingContainerState";
 import { updateContainerContentsSnapshot } from "./state";
 import type { ContainerContentsStoreSyncAgent } from "./syncAgent";
 import type { ContainerContentsStoreState } from "./types";
 import { toContainerNode } from "./utils";
+import type { ContainerWriteGuard } from "./writeGeneration";
 
 // Set the icon shown for a container. Mirrors renameContainer's write path: it
 // writes the icon into the container metadata document (CRDT), enqueues the
@@ -18,6 +23,7 @@ export async function setContainerIcon(
   syncAgent: ContainerContentsStoreSyncAgent,
   containerId: string,
   icon: string | null,
+  isCurrent: ContainerWriteGuard = () => true,
 ) {
   if (state.runtime.infra.dbStatus !== "ready" || !state.snapshot.ready) {
     return null;
@@ -33,19 +39,25 @@ export async function setContainerIcon(
     return toContainerNode(existingState);
   }
 
+  const detachedState =
+    await createDetachedContainerMetadataState(existingState);
+  if (!isCurrent()) return null;
   const updated = await setContainerIconMetadataStateFromRuntime({
     icon: normalizedIcon,
-    metadataState: existingState,
+    metadataState: detachedState,
     persistence: state.persistence,
     runtime: state.runtime,
+    stillCurrent: isCurrent,
   });
+  if (!isCurrent()) return null;
   if (!updated) {
     removeMissingContainerState(state, existingState);
     return null;
   }
 
-  existingState.container = updated.container;
-  installContainerMetadataRecord(existingState, updated.record);
+  detachedState.container = updated.container;
+  installContainerMetadataRecord(detachedState, updated.record);
+  installDetachedContainerMetadataState(existingState, detachedState);
   updateContainerContentsSnapshot(state);
   syncAgent.scheduleSync();
   state.runtime.util.log(

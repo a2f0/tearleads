@@ -36,6 +36,7 @@ import { unwrapContainerKekPath } from "../../../data/documents/shared/projectio
 import { projectionVerificationOptions } from "../../../data/documents/shared/types";
 import { readCanonicalRecord } from "../../../data/keyingCanonicalJson";
 import {
+  nullOnProjectionVerificationCancellation,
   type ProjectionUserKeyResolver,
   type ReferencedPrincipalPolicyWarmer,
   requireProjectionUserKeyResolver,
@@ -95,6 +96,7 @@ async function unwrapMoveContainerKeys(input: {
   execSql: ExecSql;
   previousProjection: ContainerWriterProjectionResponse;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
+  stillCurrent?: (() => boolean) | undefined;
   targetSecretKey: Uint8Array;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<{
@@ -229,6 +231,7 @@ function buildContainerMovePlanResult(input: {
 type MaterializedContainerMoveInput =
   BuildMaterializedContainerMovePlanInput & {
     resolveProjectionUserKey: ProjectionUserKeyResolver;
+    stillCurrent?: (() => boolean) | undefined;
     warmReferencedPrincipalPolicies?:
       | ReferencedPrincipalPolicyWarmer
       | undefined;
@@ -247,6 +250,7 @@ async function buildMaterializedContainerMovePlan(
     execSql: input.execSql,
     previousProjection: input.previousProjection,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
+    stillCurrent: input.stillCurrent,
     targetSecretKey: input.targetSecretKey,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
@@ -295,6 +299,7 @@ async function buildMaterializedContainerMovePlan(
       previousProjection: input.previousProjection,
       resolveProjectionUserKey: input.resolveProjectionUserKey,
       state,
+      stillCurrent: input.stillCurrent,
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
 
@@ -330,6 +335,7 @@ export async function moveRemoteContainer(input: {
   execSql: ExecSql;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
+  stillCurrent?: (() => boolean) | undefined;
   targetSecretKey: Uint8Array;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<{
@@ -351,21 +357,26 @@ export async function moveRemoteContainer(input: {
     return null;
   }
 
-  const materializedPlan = await buildMaterializedContainerMovePlan({
-    author: input.author,
-    eventId: input.eventId,
-    execSql: input.execSql,
-    previousProjection,
-    destinationParentProjection,
-    resolveProjectionUserKey,
-    signedAt: input.signedAt,
-    targetSecretKey: input.targetSecretKey,
-    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-  });
+  const materializedPlan = await nullOnProjectionVerificationCancellation(() =>
+    buildMaterializedContainerMovePlan({
+      author: input.author,
+      eventId: input.eventId,
+      execSql: input.execSql,
+      previousProjection,
+      destinationParentProjection,
+      resolveProjectionUserKey,
+      signedAt: input.signedAt,
+      stillCurrent: input.stillCurrent,
+      targetSecretKey: input.targetSecretKey,
+      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+    }),
+  );
+  if (!materializedPlan) return null;
   return submitAcknowledgedContainerMutation({
     containerKey: materializedPlan.containerKey,
     execSql: input.execSql,
     plan: materializedPlan.plan,
+    stillCurrent: input.stillCurrent,
     submit: () =>
       input.apiClient.moveContainer(
         input.containerId,

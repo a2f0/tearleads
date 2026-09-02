@@ -95,12 +95,19 @@ export interface RemoteContainerHydrationState {
   persistence: ContainerContentsPersistence;
   rootLaneHydrated?: boolean | undefined;
   runtime: RemoteContainerHydrationRuntime;
+  structuralGeneration?: number | undefined;
 }
 
 export type PersistContainerStateResult =
   | { status: "identity-superseded"; record: ContainerDocumentRecord }
   | { status: "missing" }
-  | { status: "persisted"; record: ContainerDocumentRecord };
+  | {
+      status: "persisted";
+      record: ContainerDocumentRecord;
+      createIntentSettled?: true | undefined;
+      moveIntentSettled?: true | undefined;
+    }
+  | { status: "stale-generation" };
 
 export interface RemoteContainerHydrationHost {
   persistContainerState: (
@@ -109,6 +116,14 @@ export interface RemoteContainerHydrationHost {
     updateView?: boolean,
     saveOptions?: SaveContainerOptions,
     mutationOptions?: {
+      expectedStateWhenMissing?: ContainerState | undefined;
+      isCurrent?: (() => boolean) | undefined;
+      createIntentSettlement?: Parameters<
+        ContainerContentsPersistence["commitMetadataMutation"]
+      >[1]["createIntentSettlement"];
+      moveIntentSettlement?: Parameters<
+        ContainerContentsPersistence["commitMetadataMutation"]
+      >[1]["moveIntentSettlement"];
       preserveDurableStructureWhenPending?: boolean | undefined;
     },
   ) => Promise<PersistContainerStateResult>;

@@ -34,7 +34,10 @@ async function openOrganizationSection(pane: HTMLElement) {
     fireEvent.click(section);
   });
   await waitForCondition(
-    () => within(pane).queryByLabelText("Organization name") !== null,
+    () => {
+      const input = within(pane).queryByLabelText("Organization name");
+      return input instanceof HTMLInputElement && !input.disabled;
+    },
     "Organization section did not load the organization profile editor.",
     20_000,
   );

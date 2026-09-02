@@ -212,6 +212,7 @@ async function reconcileLocalOnlyRootContainer(input: {
     localRootContainerId: localRootState.container.id,
     remoteOrganizationId: remoteRootState.container.organizationId,
     remoteRootContainerId: remoteRootState.container.id,
+    stillCurrent: input.isCurrent,
     updatedAt,
   });
   if (input.isCurrent?.() === false) {
@@ -428,6 +429,7 @@ async function reconcileLocalOnlySystemContainer(input: {
     localContainerId: localSystemState.container.id,
     remoteContainerId: remoteSystemState.container.id,
     remoteOrganizationId: remoteSystemState.container.organizationId,
+    stillCurrent: input.isCurrent,
     updatedAt,
   });
   if (input.isCurrent?.() === false) {

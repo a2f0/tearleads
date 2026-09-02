@@ -274,12 +274,13 @@ async function runQueuedDocumentMoveFixture(input: {
             return rotationSnapshot;
           },
           ensureInitialized: async () => true,
-          relink: async (input) => {
-            relinkInputs.push(input);
+          relink: async (relinkInput) => {
+            relinkInputs.push(relinkInput);
+            await relinkInput.commitSideEffect?.(execSql);
             return {
-              containerId: input.containerId,
-              documentId: input.documentId,
-              id: input.localId,
+              containerId: relinkInput.containerId,
+              documentId: relinkInput.documentId,
+              id: relinkInput.localId,
               title: "Queued move",
               updatedAt: "2026-06-23T00:00:00.000Z",
             };
@@ -288,6 +289,7 @@ async function runQueuedDocumentMoveFixture(input: {
           updateRuntime: () => undefined,
         }),
       },
+      isCurrent: () => true,
       isRemoteSyncBlocked: () => false,
       state: {
         containersById: new Map([
@@ -343,6 +345,8 @@ test("pending document move intents replay signed link-set mutations and clear a
     documentId: fixture.documentId,
     localId: "queued-move-local",
   });
+  expect(typeof fixture.relinkInputs[0]?.stillCurrent).toBe("function");
+  expect(fixture.relinkInputs[0]?.stillCurrent?.()).toBe(true);
   expect(fixture.linkedContainerIds).toEqual([fixture.trashContainerId]);
   expect(fixture.pendingIntents).toEqual([]);
 });
@@ -427,6 +431,7 @@ test("document move sync propagates identity failures without recording a retry"
             updateRuntime: () => undefined,
           }),
         },
+        isCurrent: () => true,
         isRemoteSyncBlocked: () => false,
         state: {
           containersById: new Map([
@@ -537,6 +542,7 @@ test("a blocked document move keeps replaying and re-records its reason", async 
             updateRuntime: () => undefined,
           }),
         },
+        isCurrent: () => true,
         isRemoteSyncBlocked: () => false,
         state: {
           containersById: new Map(),
@@ -650,6 +656,7 @@ test("denied moves replay once per launch, before the scan", async () => {
     const firstLaunchState = makeState();
     await syncPendingDocumentMoveIntents({
       host,
+      isCurrent: () => true,
       isRemoteSyncBlocked: () => false,
       state: firstLaunchState,
     });
@@ -664,6 +671,7 @@ test("denied moves replay once per launch, before the scan", async () => {
     });
     await syncPendingDocumentMoveIntents({
       host,
+      isCurrent: () => true,
       isRemoteSyncBlocked: () => false,
       state: firstLaunchState,
     });
@@ -672,6 +680,7 @@ test("denied moves replay once per launch, before the scan", async () => {
     // A fresh store state (relaunch) replays it again.
     await syncPendingDocumentMoveIntents({
       host,
+      isCurrent: () => true,
       isRemoteSyncBlocked: () => false,
       state: makeState(),
     });

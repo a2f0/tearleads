@@ -5,7 +5,11 @@ import {
 } from "@tearleads/crypto";
 import type { DocumentPurgeCheckpoint } from "../persistence/documentPurgeCheckpointPersistence";
 import type { ExecSql } from "../sqlite/sqlSchema";
-import { enforceAccessManifestCheckpoints } from "./accessManifestCheckpointEnforcement";
+import {
+  enforceAccessManifestCheckpoints,
+  validateAccessManifestCheckpoints,
+} from "./accessManifestCheckpointEnforcement";
+import { assertProjectionVerificationCurrent } from "./types";
 
 export interface ProjectionCheckpointContext {
   readonly execSql: ExecSql;
@@ -70,14 +74,37 @@ export async function commitProjectionCheckpoints(
   input?: {
     readonly documentPurgeCheckpoint?: DocumentPurgeCheckpoint | undefined;
     readonly execSql?: ExecSql | undefined;
+    readonly stillCurrent?: (() => boolean) | undefined;
   },
 ): Promise<void> {
+  assertProjectionVerificationCurrent(input?.stillCurrent);
   await enforceAccessManifestCheckpoints({
     documentPurgeCheckpoint: input?.documentPurgeCheckpoint,
     execSql: input?.execSql ?? context.execSql,
     organizationId: context.organizationId,
     policies: context.policies,
+    stillCurrent: input?.stillCurrent,
     verifiedHeads: context.verifiedHeads,
     verifiedManifests: context.verifiedManifests,
   });
+  assertProjectionVerificationCurrent(input?.stillCurrent);
+}
+
+/** Validates against the latest durable pins without persisting new heads. */
+export async function validateProjectionCheckpoints(
+  context: ProjectionCheckpointContext,
+  input?: {
+    readonly execSql?: ExecSql | undefined;
+    readonly stillCurrent?: (() => boolean) | undefined;
+  },
+): Promise<void> {
+  assertProjectionVerificationCurrent(input?.stillCurrent);
+  await validateAccessManifestCheckpoints({
+    execSql: input?.execSql ?? context.execSql,
+    policies: context.policies,
+    stillCurrent: input?.stillCurrent,
+    verifiedHeads: context.verifiedHeads,
+    verifiedManifests: context.verifiedManifests,
+  });
+  assertProjectionVerificationCurrent(input?.stillCurrent);
 }

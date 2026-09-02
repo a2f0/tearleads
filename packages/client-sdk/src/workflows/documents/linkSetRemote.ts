@@ -15,6 +15,7 @@ import type {
   RelinkRemoteDocumentResult,
 } from "../../data/documents/shared/types";
 import {
+  nullOnProjectionVerificationCancellation,
   type ProjectionUserKeyResolver,
   type ReferencedPrincipalPolicyWarmer,
   requireProjectionUserKeyResolver,
@@ -30,7 +31,9 @@ async function submitLinkSetMutation(input: {
   onFailure?: DocumentLinkSetFailureHandler | undefined;
   operation: DocumentLinkSetMutationOperation;
   request: DocumentLinkSetMutationRequest;
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<DocumentLinkSetMutationResponse | null> {
+  if (input.stillCurrent?.() === false) return null;
   const { apiClient } = input;
   // Prefer the result-returning variants so a failure keeps its HTTP status
   // instead of collapsing to null — the move-intent queue records it.
@@ -128,6 +131,55 @@ function fetchLinkSetContainerProjection(
   });
 }
 
+async function completeRemoteDocumentLinkSet(input: {
+  completedPlan: Parameters<
+    typeof persistedDocumentLinkSetMutationStateFromResponse
+  >[0];
+  execSql: ExecSql;
+  materializedPlan: Awaited<
+    ReturnType<typeof buildMaterializedDocumentLinkSetMutationPlan>
+  >;
+  operation: DocumentLinkSetMutationOperation;
+  response: DocumentLinkSetMutationResponse;
+  stillCurrent?: (() => boolean) | undefined;
+  targetContainerId: string;
+  targetContainerProjection: ContainerWriterProjectionResponse;
+  writerProjection: DocumentWriterProjectionResponse;
+  apiClient: DocumentLinkSetMutationApi;
+}): Promise<RelinkRemoteDocumentResult | null> {
+  const persistedState = persistedDocumentLinkSetMutationStateFromResponse(
+    input.completedPlan,
+    input.response,
+  );
+  await acknowledgeDocumentMutation({
+    execSql: input.execSql,
+    plan: input.completedPlan,
+    stillCurrent: input.stillCurrent,
+  });
+  await seedLinkSetWriterProjection({
+    apiClient: input.apiClient,
+    execSql: input.execSql,
+    operation: input.operation,
+    priorProjection: input.writerProjection,
+    response: input.response,
+    targetContainerId: input.targetContainerId,
+    targetContainerProjection: input.targetContainerProjection,
+    stillCurrent: input.stillCurrent,
+  });
+  if (input.stillCurrent?.() === false) return null;
+  return {
+    contentKey: input.materializedPlan.contentKey,
+    contentKeyRotated: input.materializedPlan.contentKeyRotated,
+    documentId: input.response.id,
+    linkedContainerIds: [
+      ...input.materializedPlan.plan.state.linkedContainerIds,
+    ],
+    persistedState,
+    plan: input.completedPlan,
+    response: input.response,
+  };
+}
+
 export async function relinkRemoteDocument(input: {
   apiClient: DocumentLinkSetMutationApi;
   author: DocumentCreateAuthor;
@@ -140,6 +192,7 @@ export async function relinkRemoteDocument(input: {
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   rotationSnapshot?: Uint8Array | undefined;
   signedAt?: string | undefined;
+  stillCurrent?: (() => boolean) | undefined;
   targetContainerId: string;
   targetSecretKey: Uint8Array;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
@@ -173,21 +226,26 @@ export async function relinkRemoteDocument(input: {
   }
   const writerProjection = writerFetch.projection;
   const targetContainerProjection = targetContainerFetch.projection;
+  if (input.stillCurrent?.() === false) return null;
 
   const signedAt = input.signedAt ?? new Date().toISOString();
-  const materializedPlan = await buildMaterializedDocumentLinkSetMutationPlan({
-    author: input.author,
-    contentKey: input.contentKey,
-    eventId: input.eventId,
-    execSql: input.execSql,
-    operation: input.operation,
-    resolveProjectionUserKey,
-    signedAt,
-    targetContainerProjection,
-    targetSecretKey: input.targetSecretKey,
-    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-    writerProjection,
-  });
+  const materializedPlan = await nullOnProjectionVerificationCancellation(() =>
+    buildMaterializedDocumentLinkSetMutationPlan({
+      author: input.author,
+      contentKey: input.contentKey,
+      eventId: input.eventId,
+      execSql: input.execSql,
+      operation: input.operation,
+      resolveProjectionUserKey,
+      signedAt,
+      stillCurrent: input.stillCurrent,
+      targetContainerProjection,
+      targetSecretKey: input.targetSecretKey,
+      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+      writerProjection,
+    }),
+  );
+  if (!materializedPlan) return null;
   const request = await completeLinkSetMutationRequest({
     author: input.author,
     materializedPlan,
@@ -202,36 +260,22 @@ export async function relinkRemoteDocument(input: {
     onFailure: input.onFailure,
     operation: input.operation,
     request: completedPlan.request,
+    stillCurrent: input.stillCurrent,
   });
   if (!response) {
     return null;
   }
-  const persistedState = persistedDocumentLinkSetMutationStateFromResponse(
-    completedPlan,
-    response,
-  );
-  await acknowledgeDocumentMutation({
-    execSql: input.execSql,
-    plan: completedPlan,
-  });
-
-  await seedLinkSetWriterProjection({
+  if (input.stillCurrent?.() === false) return null;
+  return completeRemoteDocumentLinkSet({
     apiClient: input.apiClient,
+    completedPlan,
     execSql: input.execSql,
+    materializedPlan,
     operation: input.operation,
-    priorProjection: writerProjection,
     response,
+    stillCurrent: input.stillCurrent,
     targetContainerId: input.targetContainerId,
     targetContainerProjection,
+    writerProjection,
   });
-
-  return {
-    contentKey: materializedPlan.contentKey,
-    contentKeyRotated: materializedPlan.contentKeyRotated,
-    documentId: response.id,
-    linkedContainerIds: [...materializedPlan.plan.state.linkedContainerIds],
-    persistedState,
-    plan: completedPlan,
-    response,
-  };
 }

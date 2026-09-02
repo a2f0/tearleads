@@ -13,7 +13,7 @@ import {
   type PrincipalPolicyCache,
   verifyDocumentWriterProjectionAuthorization,
 } from "../../keyingProjectionVerification";
-import { rethrowDatabaseUnavailableError } from "../../keyingProjectionVerification/error";
+import { rethrowProjectionVerificationBoundaryError } from "../../keyingProjectionVerification/error";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import {
   currentDocumentTargets,
@@ -162,6 +162,7 @@ async function assertDocumentWriterProjectionConsistentInternal(
       | ((authorization: DocumentWriterProjectionAuthorization) => void)
       | undefined;
     principalPolicyCache?: PrincipalPolicyCache | undefined;
+    stillCurrent?: (() => boolean) | undefined;
     verifiedByHash?: Map<string, VerifiedContainerAccessManifest> | undefined;
   },
 ): Promise<DocumentContentKeyTarget[]> {
@@ -178,6 +179,7 @@ async function assertDocumentWriterProjectionConsistentInternal(
       principalPolicyCache: input.principalPolicyCache,
       projection: writerProjection,
       resolveUserKey: resolveProjectionUserKey,
+      stillCurrent: input.stillCurrent,
       verifiedByHash: input.verifiedByHash,
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
@@ -257,7 +259,7 @@ export async function assertDocumentWriterProjectionConsistent(
   try {
     return await assertDocumentWriterProjectionConsistentInternal(...input);
   } catch (error) {
-    rethrowDatabaseUnavailableError(error);
+    rethrowProjectionVerificationBoundaryError(error);
     if (error instanceof KeyingVerificationError) {
       throw error;
     }

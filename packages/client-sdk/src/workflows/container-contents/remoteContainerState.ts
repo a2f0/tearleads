@@ -397,6 +397,7 @@ async function insertRemoteContainerState(
     record: containerState.record,
     remoteUpdatedAt: remoteContainer.updatedAt,
     saveOptions: remoteContainerHydrationSaveOptions({ remoteContainer }),
+    stillCurrent: input.isCurrent,
   });
   let installedState = containerState;
   if (committed.committed) {

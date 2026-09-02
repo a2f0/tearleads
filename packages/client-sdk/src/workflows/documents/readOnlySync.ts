@@ -215,6 +215,7 @@ interface ReadOnlyDocumentSyncCompletionInput {
   resolveWriterPublicKey: DocumentWriterPublicKeyResolver;
   response: DocumentSyncResponse;
   signedAt?: string | undefined;
+  stillCurrent?: (() => boolean) | undefined;
   targetSecretKey: Uint8Array;
   validateIncomingUpdates: IncomingDocumentSyncUpdateValidator;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
@@ -243,7 +244,6 @@ async function tryCompleteReadOnlyRemoteDocumentSyncWithProjection(input: {
     });
   }
 }
-
 async function completeReadOnlyRemoteDocumentSyncWithUpdates(
   input: ReadOnlyDocumentSyncCompletionInput,
 ): Promise<PersistedReadOnlyDocumentSyncResult> {
@@ -258,17 +258,15 @@ async function completeReadOnlyRemoteDocumentSyncWithUpdates(
       documentId: input.documentId,
       onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
       onSyncTrace: input.onSyncTrace,
-      // Read-only by construction: this path only runs on passes with no
-      // queued writes, so a refused fetch records durably (row 13).
       onTerminalFailure: input.onReadOnlyProjectionFailure,
       reusableWriterProjection: null,
+      stillCurrent: input.stillCurrent,
     }));
   if (!writerProjection) {
     return { kind: "completed", result: null };
   }
   const canRefreshProjection =
     input.historyMode === "raw" || Boolean(reusableWriterProjection);
-
   let result:
     | DocumentRawHistoryUnavailableError
     | SyncRemoteDocumentResult
@@ -295,20 +293,19 @@ async function completeReadOnlyRemoteDocumentSyncWithUpdates(
   ) {
     return { kind: "completed", result };
   }
-
   const freshWriterProjection = await refreshSyncAttemptWriterProjection({
     apiClient: input.apiClient,
     documentId: input.documentId,
     onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
     onSyncTrace: input.onSyncTrace,
     onTerminalFailure: input.onReadOnlyProjectionFailure,
+    stillCurrent: input.stillCurrent,
     unavailableError:
       result instanceof DocumentRawHistoryUnavailableError ? result : undefined,
   });
   if (!freshWriterProjection) {
     return { kind: "completed", result: null };
   }
-
   const freshResult = await tryCompleteReadOnlyRemoteDocumentSyncWithProjection(
     {
       allowCachedProjectionRefresh: false,
@@ -326,7 +323,6 @@ async function completeReadOnlyRemoteDocumentSyncWithUpdates(
     ? { kind: "completed", result: freshResult }
     : { kind: "not_completed" };
 }
-
 async function syncReadOnlyRemoteDocumentFromPersistedState(
   input: Omit<
     ReadOnlyDocumentSyncCompletionInput,
@@ -344,12 +340,17 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(
   if (!plan) {
     return { kind: "not_completed" };
   }
-
+  if (input.stillCurrent?.() === false) {
+    return { kind: "completed", result: null };
+  }
   const submitted = await submitDocumentSync({
     apiClient: input.apiClient,
     expectedCommitLsnMode: input.pullContinuation?.commitLsnMode,
     plan,
   });
+  if (input.stillCurrent?.() === false) {
+    return { kind: "completed", result: null };
+  }
   if (!submitted) {
     return { kind: "completed", result: null };
   }
@@ -475,6 +476,7 @@ export interface SyncRemoteDocumentInput {
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   resolveWriterPublicKey: DocumentWriterPublicKeyResolver;
   signedAt?: string | undefined;
+  stillCurrent?: (() => boolean) | undefined;
   targetSecretKey: Uint8Array;
   /** Validates decrypted updates against scratch state before callers persist. */
   validateIncomingUpdates: IncomingDocumentSyncUpdateValidator;
@@ -486,6 +488,7 @@ export async function tryPersistedReadOnlyDocumentSync(
   input: SyncRemoteDocumentInput,
   resolveProjectionUserKey: ProjectionUserKeyResolver,
 ): Promise<PersistedReadOnlyDocumentSyncResult | null> {
+  if (input.stillCurrent?.() === false) return null;
   if ((input.pendingUpdates ?? []).length > 0) {
     return null;
   }

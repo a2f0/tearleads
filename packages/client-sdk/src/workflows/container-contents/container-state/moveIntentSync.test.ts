@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
+import { waitFor } from "../../../../test/helpers/waitFor";
+import { createContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
 import { createDomainScope } from "../../../data/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
@@ -20,6 +22,8 @@ type MoveIntentError = Parameters<
 
 function createMoveIntentSyncState(input: {
   containersById: Map<string, ContainerState>;
+  incidents?: unknown[];
+  onProjectionRequest?: () => void;
   persistence: ContainerMoveIntentSyncState["persistence"];
   projectionError?: unknown;
 }): ContainerMoveIntentSyncState {
@@ -31,6 +35,7 @@ function createMoveIntentSyncState(input: {
     runtime: {
       apiClient: {
         getContainerWriterProjection: () => {
+          input.onProjectionRequest?.();
           if (input.projectionError !== undefined) {
             throw input.projectionError;
           }
@@ -68,7 +73,9 @@ function createMoveIntentSyncState(input: {
       },
       util: {
         log: () => {},
-        reportSecurityIncident: async () => undefined,
+        reportSecurityIncident: async (error) => {
+          input.incidents?.push(error);
+        },
       },
     },
   };
@@ -133,7 +140,9 @@ test("pending container move sync records per-intent failures and continues", as
       },
       updateSnapshot: () => {},
     },
+    isCurrent: () => true,
     isRemoteSyncBlocked: () => false,
+    requestRemoteReconciliation: () => {},
     state: createMoveIntentSyncState({ containersById, persistence }),
   });
 
@@ -148,12 +157,14 @@ test("pending container move sync records per-intent failures and continues", as
   ]);
 });
 
-test("container move sync propagates identity failures without recording a retry", async () => {
+test("stale container move identity failures do not report into a replacement", async () => {
   const integrityError = new KeyingVerificationError(
     "equivocation",
     "trusted identity changed",
   );
   const errors: MoveIntentError[] = [];
+  const incidents: unknown[] = [];
+  let current = true;
   const containersById = new Map([
     ["child", createTestContainerState({ id: "child", parentId: "root" })],
     ["parent", createTestContainerState({ id: "parent", parentId: "root" })],
@@ -176,14 +187,21 @@ test("container move sync propagates identity failures without recording a retry
         },
         updateSnapshot: () => {},
       },
+      isCurrent: () => current,
       isRemoteSyncBlocked: () => false,
+      requestRemoteReconciliation: () => {},
       state: createMoveIntentSyncState({
         containersById,
+        incidents,
+        onProjectionRequest: () => {
+          current = false;
+        },
         persistence,
         projectionError: integrityError,
       }),
     }),
-  ).rejects.toBe(integrityError);
+  ).resolves.toBe(0);
+  expect(incidents).toEqual([]);
   expect(errors).toEqual([]);
 });
 
@@ -248,10 +266,12 @@ test("a blocked organization does not prevent another organization's move from s
       },
       updateSnapshot: () => {},
     },
+    isCurrent: () => true,
     isRemoteSyncBlocked: (organizationId) => {
       checkedOrganizations.push(organizationId);
       return organizationId === "custom-organization";
     },
+    requestRemoteReconciliation: () => {},
     state: createMoveIntentSyncState({ containersById, persistence }),
   });
 
@@ -267,15 +287,8 @@ test("a blocked organization does not prevent another organization's move from s
 });
 
 test("a move whose source is not synced yet stays pending and retryable", async () => {
-  // Regression: source-not-synced used to record blocked:true, which the
-  // then-'pending'-only sync list dropped permanently — so a move attempted
-  // before its source's create landed (e.g. a transient create failure on the
-  // same pass) never propagated, even after the source finished syncing. It
-  // must stay 'pending' (not 'blocked') and retry, like the
-  // destination-not-synced case.
   const errors: MoveIntentError[] = [];
   const containersById = new Map([
-    // Source exists locally but has no remote metadata yet.
     [
       "child-a",
       createTestContainerState({
@@ -303,7 +316,9 @@ test("a move whose source is not synced yet stays pending and retryable", async 
       },
       updateSnapshot: () => {},
     },
+    isCurrent: () => true,
     isRemoteSyncBlocked: () => false,
+    requestRemoteReconciliation: () => {},
     state: createMoveIntentSyncState({ containersById, persistence }),
   });
 
@@ -311,9 +326,54 @@ test("a move whose source is not synced yet stays pending and retryable", async 
   expect(errors).toHaveLength(1);
   expect(errors[0]?.containerId).toBe("child-a");
   expect(errors[0]?.message).toBe("Container move source is not synced yet");
-  // Must NOT be blocked: the failure is transient, so the queue must report a
-  // retryable 'pending' intent, not a missing-dependency block.
   expect(errors[0]?.blocked).toBeFalsy();
+});
+
+test("legacy move adapters fail before issuing a remote mutation", async () => {
+  const errors: MoveIntentError[] = [];
+  let projectionRequests = 0;
+  const containersById = new Map([
+    ["child", createTestContainerState({ id: "child", parentId: "root" })],
+    ["parent", createTestContainerState({ id: "parent", parentId: "root" })],
+  ]);
+  const persistence = {
+    ...defaultContainerContentsPersistence,
+    listUnsyncedMoveIntents: async () => [
+      moveIntentRecord({ containerId: "child" }),
+    ],
+    markMoveIntentRevisionSynced: undefined,
+    recordMoveIntentError: async (
+      _execSql: ExecSql,
+      error: MoveIntentError,
+    ) => {
+      errors.push(error);
+    },
+  } as unknown as ContainerMoveIntentSyncState["persistence"];
+
+  const movedCount = await syncPendingContainerMoveIntents({
+    host: {
+      persistContainerState: async () => {
+        throw new Error("legacy persistence must fail before local mutation");
+      },
+      updateSnapshot: () => {},
+    },
+    isCurrent: () => true,
+    isRemoteSyncBlocked: () => false,
+    requestRemoteReconciliation: () => {},
+    state: createMoveIntentSyncState({
+      containersById,
+      onProjectionRequest: () => {
+        projectionRequests += 1;
+      },
+      persistence,
+    }),
+  });
+
+  expect(movedCount).toBe(0);
+  expect(projectionRequests).toBe(0);
+  expect(errors.map((error) => error.message)).toEqual([
+    "Container move replay requires revision-CAS persistence",
+  ]);
 });
 
 test("an accepted remote move is not settled when local persistence observes deletion", async () => {
@@ -321,21 +381,24 @@ test("an accepted remote move is not settled when local persistence observes del
     id: "child",
     parentId: "root",
   });
+  child.doc = await createContainerMetadataDocument(child.container.id);
   const containersById = new Map([["child", child]]);
+  const reconciled: Array<string | null> = [];
   let settled = false;
   const persistence: ContainerMoveIntentSyncState["persistence"] = {
     ...defaultContainerContentsPersistence,
     markMoveIntentSynced: async () => {
       settled = true;
+      return true;
     },
   };
   const state = createMoveIntentSyncState({ containersById, persistence });
-
   const persisted = await persistAcceptedMoveIntent({
     host: {
       persistContainerState: async () => ({ status: "missing" }),
       updateSnapshot: () => {},
     },
+    isCurrent: () => true,
     intent: moveIntentRecord({ containerId: "child" }),
     moved: {
       createdAt: "2026-05-31T00:00:00.000Z",
@@ -349,9 +412,89 @@ test("an accepted remote move is not settled when local persistence observes del
       parentId: "parent",
       updatedAt: "2026-05-31T00:01:00.000Z",
     },
+    requestRemoteReconciliation: (parentId) => void reconciled.push(parentId),
+    state,
+  });
+  expect(persisted).toBe(false);
+  expect(settled).toBe(false);
+  expect(reconciled).toEqual(["parent"]);
+});
+
+test("a generation change during move persistence cannot settle on a replacement executor", async () => {
+  const child = createTestContainerState({ id: "child", parentId: "root" });
+  child.doc = await createContainerMetadataDocument(child.container.id);
+  const originalContainer = { ...child.container };
+  let current = true;
+  let persistenceStarted = false;
+  let releasePersistence: () => void = () => {
+    throw new Error("persistence promise was not initialized");
+  };
+  let persistedGuard: (() => boolean) | undefined;
+  const reconciledParentIds: Array<string | null> = [];
+  let settled = false;
+  const persistence: ContainerMoveIntentSyncState["persistence"] = {
+    ...defaultContainerContentsPersistence,
+    markMoveIntentSynced: async () => {
+      settled = true;
+      return true;
+    },
+  };
+  const state = createMoveIntentSyncState({
+    containersById: new Map([["child", child]]),
+    persistence,
+  });
+  const replacementExecSql: ExecSql = async () => {
+    throw new Error("replacement executor must remain untouched");
+  };
+  const persisted = persistAcceptedMoveIntent({
+    host: {
+      persistContainerState: async (
+        _containerState,
+        _patch,
+        _updateView,
+        _saveOptions,
+        mutationOptions,
+      ) => {
+        persistedGuard = mutationOptions?.isCurrent;
+        persistenceStarted = true;
+        await new Promise<void>((resolve) => {
+          releasePersistence = resolve;
+        });
+        return { record: child.record, status: "persisted" };
+      },
+      updateSnapshot: () => {},
+    },
+    isCurrent: () => current,
+    intent: moveIntentRecord({ containerId: "child" }),
+    moved: {
+      createdAt: "2026-05-31T00:00:00.000Z",
+      effectiveAccessLevel: "admin",
+      id: "child",
+      metadataAccessEpoch: 2,
+      metadataAccessStateHash: "access-after-move",
+      metadataDocumentId: "metadata-after-move",
+      metadataReferencedPrincipals: [],
+      organizationId: "organization",
+      parentId: "parent",
+      updatedAt: "2026-05-31T00:01:00.000Z",
+    },
+    requestRemoteReconciliation: (parentId) => {
+      reconciledParentIds.push(parentId);
+    },
     state,
   });
 
-  expect(persisted).toBe(false);
+  await waitFor(() => persistenceStarted, "Move persistence did not start.");
+  current = false;
+  state.runtime = {
+    ...state.runtime,
+    infra: { ...state.runtime.infra, execSql: replacementExecSql },
+  };
+  releasePersistence();
+
+  await expect(persisted).resolves.toBe(false);
+  expect(persistedGuard?.()).toBe(false);
   expect(settled).toBe(false);
+  expect(reconciledParentIds).toEqual(["parent"]);
+  expect(child.container).toEqual(originalContainer);
 });

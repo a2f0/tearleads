@@ -1,5 +1,12 @@
 import { expect, test } from "bun:test";
-import { createContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
+import { bytesToBase64 } from "@tearleads/encoding";
+import { exportAllUpdates } from "@tearleads/loro";
+import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  createContainerMetadataDocument,
+  readContainerMetadataValue,
+  writeContainerMetadataValue,
+} from "../../data/containers/containerMetadataDocument";
 import type { DomainScope } from "../../data/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
@@ -7,14 +14,16 @@ import {
   defaultContainerContentsPersistence,
 } from "../../workflows/container-contents/containerPersistence";
 import type { ContainerState } from "../../workflows/container-contents/remoteHydration";
-import { moveContainer, renameContainer } from "./operations";
+import { deleteContainer, moveContainer, renameContainer } from "./operations";
 import { createContainerContentsTestRuntime } from "./runtime.testFixtures";
 import { setContainerIcon } from "./setContainerIconOperation";
 import {
   createContainerContentsStoreState,
   updateContainerContentsSnapshot,
+  updateContainerContentsStoreRuntime,
 } from "./state";
 import type { ContainerContentsStoreSyncAgent } from "./syncAgent";
+import { captureContainerWriteGeneration } from "./writeGeneration";
 
 async function createState(input: {
   documentId: string | null;
@@ -120,6 +129,130 @@ test.each([
   expect(logs).toEqual([]);
 });
 
+test("an online transition does not roll back a local metadata write", async () => {
+  const database = await createTestExecSql("container-write-online-transition");
+  try {
+    const source = await createState({
+      documentId: null,
+      id: "source",
+      parentId: "parent",
+    });
+    writeContainerMetadataValue(source.doc, {
+      icon: null,
+      name: "Before",
+    });
+    source.record.metadataUpdates = bytesToBase64(exportAllUpdates(source.doc));
+    await defaultContainerContentsPersistence.ensureSchema(database.execSql);
+    await defaultContainerContentsPersistence.saveContainer(
+      database.execSql,
+      source.container,
+      source.record,
+    );
+    const domainScope = {} as DomainScope;
+    const offlineRuntime = createContainerContentsTestRuntime({
+      domainScope,
+      execSql: database.execSql,
+      online: false,
+    });
+    const state = createContainerContentsStoreState(
+      offlineRuntime,
+      defaultContainerContentsPersistence,
+    );
+    state.containersById.set(source.container.id, source);
+    state.initialized = true;
+    updateContainerContentsSnapshot(state);
+    const isCurrent = captureContainerWriteGeneration(state);
+    const syncAgent = {
+      ensureInitialized: () => {},
+      handleRemoteEvents: () => {},
+      refreshLocalContainers: async () => {},
+      scheduleRemoteHydration: () => {},
+      scheduleSync: () => {},
+    } as unknown as ContainerContentsStoreSyncAgent;
+
+    updateContainerContentsStoreRuntime(
+      state,
+      {
+        ...offlineRuntime,
+        state: { ...offlineRuntime.state, online: true },
+      },
+      syncAgent,
+    );
+    const renamed = await renameContainer(
+      state,
+      syncAgent,
+      source.container.id,
+      "After",
+      isCurrent,
+    );
+
+    expect(renamed?.name).toBe("After");
+    expect(isCurrent()).toBe(true);
+    expect(
+      (
+        await defaultContainerContentsPersistence.loadContainers(
+          database.execSql,
+        )
+      )[0]?.container.name,
+    ).toBe("After");
+  } finally {
+    database.close();
+  }
+});
+
+test("a completed deletion forces a current local refresh after generation rollover", async () => {
+  const execSql = (async () => []) as ExecSql;
+  let current = true;
+  const persistence: ContainerContentsPersistence = {
+    ...defaultContainerContentsPersistence,
+    deleteContainers: async (_execSql, removals) => {
+      current = false;
+      return removals.map((removal) => removal.containerId);
+    },
+  };
+  const state = createContainerContentsStoreState(
+    createContainerContentsTestRuntime({
+      domainScope: {} as DomainScope,
+      execSql,
+    }),
+    persistence,
+  );
+  const parent = await createState({
+    documentId: null,
+    id: "parent",
+    parentId: null,
+  });
+  const source = await createState({
+    documentId: null,
+    id: "source",
+    parentId: parent.container.id,
+  });
+  state.containersById.set(parent.container.id, parent);
+  state.containersById.set(source.container.id, source);
+  state.initialized = true;
+  updateContainerContentsSnapshot(state);
+  let refreshes = 0;
+  const syncAgent = {
+    refreshLocalContainers: async () => {
+      refreshes += 1;
+      state.initialized = false;
+      state.snapshot = { nodes: [], ready: false };
+    },
+  } as unknown as ContainerContentsStoreSyncAgent;
+
+  expect(
+    await deleteContainer(state, syncAgent, source.container.id, () => current),
+  ).toBeNull();
+  expect(refreshes).toBe(1);
+  expect(state.localContainersNeedRefresh).toBe(true);
+  expect(state.containersById.has(source.container.id)).toBe(false);
+  expect(state.snapshot.nodes.map((node) => node.id)).not.toContain(
+    source.container.id,
+  );
+  expect(state.snapshot.ready).toBe(false);
+  expect(state.documentStoresNeedPriming).toBe(true);
+});
+
 test("move fails explicitly and refreshes authoritative state when metadata identity wins", async () => {
   const logs: string[] = [];
   const execSql = (async () => []) as ExecSql;
@@ -191,4 +324,91 @@ test("move fails explicitly and refreshes authoritative state when metadata iden
   ).toBe("authoritative-parent");
   expect(syncRequests).toBe(0);
   expect(logs).toEqual([]);
+});
+
+test.each([
+  "rename",
+  "icon",
+] as const)("%s rolls back its detached edit when the structural generation expires", async (operation) => {
+  const database = await createTestExecSql(
+    `container-${operation}-generation-guard`,
+  );
+  try {
+    const source = await createState({
+      documentId: null,
+      id: "source",
+      parentId: "parent",
+    });
+    writeContainerMetadataValue(source.doc, {
+      icon: null,
+      name: "Before",
+    });
+    source.record.metadataUpdates = bytesToBase64(exportAllUpdates(source.doc));
+    await defaultContainerContentsPersistence.ensureSchema(database.execSql);
+    await defaultContainerContentsPersistence.saveContainer(
+      database.execSql,
+      source.container,
+      source.record,
+    );
+
+    let current = true;
+    const persistence: ContainerContentsPersistence = {
+      ...defaultContainerContentsPersistence,
+      commitMetadataMutation: async (...args) => {
+        current = false;
+        return defaultContainerContentsPersistence.commitMetadataMutation(
+          ...args,
+        );
+      },
+    };
+    const state = createContainerContentsStoreState(
+      createContainerContentsTestRuntime({
+        domainScope: {} as DomainScope,
+        execSql: database.execSql,
+      }),
+      persistence,
+    );
+    state.containersById.set(source.container.id, source);
+    updateContainerContentsSnapshot(state);
+    const syncAgent = {
+      scheduleSync: () => {
+        throw new Error("A stale metadata edit must not schedule sync");
+      },
+    } as unknown as ContainerContentsStoreSyncAgent;
+
+    const result =
+      operation === "rename"
+        ? await renameContainer(
+            state,
+            syncAgent,
+            source.container.id,
+            "After",
+            () => current,
+          )
+        : await setContainerIcon(
+            state,
+            syncAgent,
+            source.container.id,
+            "folder-special",
+            () => current,
+          );
+
+    expect(result).toBeNull();
+    expect(readContainerMetadataValue(source.doc, "source")).toEqual({
+      icon: null,
+      name: "Before",
+    });
+    expect(
+      (
+        await defaultContainerContentsPersistence.loadContainers(
+          database.execSql,
+        )
+      )[0]?.container,
+    ).toMatchObject({ icon: null, name: "source" });
+    expect(
+      await database.execSql("SELECT local_id FROM document_pending_updates"),
+    ).toEqual([]);
+  } finally {
+    database.close();
+  }
 });

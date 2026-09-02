@@ -123,3 +123,92 @@ test("a share settlement publishes a replacement identity without success effect
   });
   expect(calls).toEqual({ prime: 0, sync: 0 });
 });
+
+test("shared-subtree priming receives the active structural guard", async () => {
+  const source = await createRemoteState();
+  const state = createContainerContentsStoreState(
+    createContainerContentsTestRuntime({
+      domainScope: {} as DomainScope,
+      execSql: (async () => []) as ExecSql,
+    }),
+    defaultContainerContentsPersistence,
+  );
+  state.containersById.set(source.container.id, source);
+  updateContainerContentsSnapshot(state);
+  let current = true;
+  const isCurrent = () => current;
+  let receivedGuard: (() => boolean) | undefined;
+  let syncRequests = 0;
+  const syncAgent = {
+    primeDocumentsForSharedSubtree: async (
+      _containerId: string,
+      guard?: (() => boolean) | undefined,
+    ) => {
+      receivedGuard = guard;
+      current = false;
+    },
+    scheduleSync: () => {
+      syncRequests += 1;
+    },
+  } as unknown as ContainerContentsStoreSyncAgent;
+
+  expect(
+    await shareContainerUsing(
+      state,
+      syncAgent,
+      source.container.id,
+      async () => ({
+        container: source.container,
+        record: source.record,
+        status: "persisted",
+      }),
+      "shared",
+      isCurrent,
+    ),
+  ).toBeNull();
+  expect(receivedGuard).toBe(isCurrent);
+  expect(receivedGuard?.()).toBe(false);
+  expect(syncRequests).toBe(0);
+});
+
+test("a committed share from an expired generation schedules reconciliation", async () => {
+  const source = await createRemoteState();
+  const state = createContainerContentsStoreState(
+    createContainerContentsTestRuntime({
+      domainScope: {} as DomainScope,
+      execSql: (async () => []) as ExecSql,
+    }),
+    defaultContainerContentsPersistence,
+  );
+  state.containersById.set(source.container.id, source);
+  updateContainerContentsSnapshot(state);
+  let current = true;
+  let localRefreshes = 0;
+  let remoteHydrations = 0;
+  const syncAgent = {
+    refreshLocalContainers: async () => {
+      localRefreshes += 1;
+    },
+    scheduleRemoteHydration: () => {
+      remoteHydrations += 1;
+    },
+  } as unknown as ContainerContentsStoreSyncAgent;
+
+  const result = await shareContainerUsing(
+    state,
+    syncAgent,
+    source.container.id,
+    async () => {
+      current = false;
+      return null;
+    },
+    "expired share",
+    () => current,
+  );
+
+  expect(result).toBeNull();
+  expect(state.localContainersNeedRefresh).toBe(true);
+  expect(state.containerParentIdsNeedingHydration).toEqual(new Set([null]));
+  expect(localRefreshes).toBe(1);
+  expect(remoteHydrations).toBe(1);
+});

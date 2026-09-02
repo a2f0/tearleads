@@ -466,20 +466,26 @@ export async function savePrincipalPolicyBundle(
   bundle: PrincipalPolicyBundleResponse,
   updatedAt: string,
   organizationId?: string | undefined,
+  options?: { stillCurrent?: (() => boolean) | undefined } | undefined,
 ): Promise<void> {
   await ensureSqlTables(execSql, [
     ...principalPolicyTables,
     ...keyingCheckpointTables,
   ]);
 
-  await getClientSQLitePersistenceRuntime(execSql).transaction(
-    (tx) =>
-      writePrincipalPolicyBundleInTransaction(
-        tx,
-        bundle,
-        updatedAt,
-        organizationId,
-      ),
-    { behavior: "immediate" },
-  );
+  const runtime = getClientSQLitePersistenceRuntime(execSql);
+  const save = (tx: ClientSQLiteTransactionScope) =>
+    writePrincipalPolicyBundleInTransaction(
+      tx,
+      bundle,
+      updatedAt,
+      organizationId,
+    );
+  if (options?.stillCurrent) {
+    await runtime.guardedTransaction(save, options.stillCurrent, {
+      behavior: "immediate",
+    });
+    return;
+  }
+  await runtime.transaction(save, { behavior: "immediate" });
 }

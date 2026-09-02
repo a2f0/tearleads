@@ -53,6 +53,40 @@ export interface ContainerMoveIntentInput {
   previousParentContainerId?: string | null | undefined;
 }
 
+export interface ContainerCreateIntentErrorInput {
+  containerId: string;
+  expectedIntentId: string;
+  expectedUpdatedAt: string;
+  message: string;
+  stillCurrent?: (() => boolean) | undefined;
+}
+
+export type ContainerCreateIntentErrorInputRecorder = (
+  execSql: ExecSql,
+  input: ContainerCreateIntentErrorInput,
+) => Promise<void>;
+
+export type ContainerCreateIntentErrorRecorder = (
+  execSql: ExecSql,
+  containerId: string,
+  message: string,
+) => Promise<void>;
+
+export interface ContainerMoveIntentRevisionInput {
+  containerId: string;
+  expectedIntentId: string;
+  expectedUpdatedAt: string;
+  stillCurrent: () => boolean;
+}
+
+export interface ContainerCreateIntentRevisionInput
+  extends ContainerMoveIntentRevisionInput {
+  remoteContainerId: string;
+  remoteMetadataAccessStateHash: string;
+  remoteMetadataDocumentId: string;
+  supersededMovePreviousParentId?: string | null | undefined;
+}
+
 export interface LocalRootDescendantReparentInput {
   containerId: string;
   parentContainerId: string | null;
@@ -89,6 +123,25 @@ export interface ContainerDeletionGuard {
   expectedContainer: ContainerRecord | null;
 }
 
+export interface SaveContainerOptions {
+  createIntent?: ContainerCreateIntentInput;
+  stillCurrent?: (() => boolean) | undefined;
+  localUpdatedAt?: string;
+  moveIntent?: ContainerMoveIntentInput | undefined;
+  serverTimestamps?:
+    | {
+        createdAt?: string | null;
+        updatedAt?: string | null;
+      }
+    | undefined;
+  updatedAt?: string;
+}
+
+export interface SaveContainerWithPendingUpdateOptions
+  extends SaveContainerOptions {
+  pendingUpdate: PendingUpdateFields;
+}
+
 export interface ContainerContentsPersistence
   extends DormantMetadataSweepPersistence {
   containerExists: (execSql: ExecSql, containerId: string) => Promise<boolean>;
@@ -118,6 +171,7 @@ export interface ContainerContentsPersistence
             }
           | undefined;
       };
+      stillCurrent?: (() => boolean) | undefined;
     },
   ) => Promise<
     { committed: true; container: ContainerRecord } | { committed: false }
@@ -150,6 +204,7 @@ export interface ContainerContentsPersistence
        * container id when access restoration rehydrates the container.
        */
       retainMetadataForContainerIds?: ReadonlyArray<string>;
+      stillCurrent?: (() => boolean) | undefined;
     },
   ) => Promise<ReadonlyArray<string>>;
   deletePendingUpdates: (
@@ -186,23 +241,27 @@ export interface ContainerContentsPersistence
     containerId: string,
   ) => Promise<PendingUpdateRecord[]>;
   rekeyPendingUpdate: (execSql: ExecSql, id: string) => Promise<string | null>;
-  recordCreateIntentError: (
-    execSql: ExecSql,
-    containerId: string,
-    message: string,
-  ) => Promise<void>;
+  recordCreateIntentError: ContainerCreateIntentErrorRecorder;
+  /** Revision-CAS error recorder used by asynchronous create replay. */
+  recordCreateIntentRevisionError?:
+    | ContainerCreateIntentErrorInputRecorder
+    | undefined;
   recordMoveIntentError: (
     execSql: ExecSql,
     input: {
       blocked?: boolean | undefined;
       containerId: string;
+      expectedIntentId?: string | undefined;
+      expectedUpdatedAt?: string | undefined;
       message: string;
+      stillCurrent?: (() => boolean) | undefined;
     },
   ) => Promise<void>;
   reassignContainerDocuments: (
     execSql: ExecSql,
     input: {
       fromContainerId: string;
+      stillCurrent?: (() => boolean) | undefined;
       toContainerId: string;
       updatedAt?: string | undefined;
     },
@@ -214,6 +273,7 @@ export interface ContainerContentsPersistence
       localRootContainerId: string;
       remoteOrganizationId: string;
       remoteRootContainerId: string;
+      stillCurrent?: (() => boolean) | undefined;
       updatedAt?: string | undefined;
     },
   ) => Promise<void>;
@@ -223,6 +283,7 @@ export interface ContainerContentsPersistence
       localContainerId: string;
       remoteContainerId: string;
       remoteOrganizationId: string;
+      stillCurrent?: (() => boolean) | undefined;
       updatedAt?: string | undefined;
     },
   ) => Promise<void>;
@@ -258,6 +319,7 @@ export interface ContainerContentsPersistence
       documentKekTargets: string | null;
       documentManifestBundle: string | null;
       lastCommitLsn: string | null;
+      stillCurrent?: (() => boolean) | undefined;
     },
   ) => Promise<ContainerMetadataRecord | null>;
   /**
@@ -272,6 +334,29 @@ export interface ContainerContentsPersistence
       container: ContainerRecord;
       expectedContainer: ContainerRecord;
       expectedRecord: ContainerMetadataRecord;
+      createIntentSettlement?:
+        | {
+            containerId: string;
+            expectedIntentId: string;
+            expectedUpdatedAt: string;
+            remoteContainerId: string;
+            remoteMetadataAccessStateHash: string;
+            remoteMetadataDocumentId: string;
+            /**
+             * When present, an overtaking create revision is adopted as the
+             * desired local parent and converted to a move from this remotely
+             * committed parent instead of rejecting the remote identity.
+             */
+            supersededMovePreviousParentId?: string | null | undefined;
+          }
+        | undefined;
+      moveIntentSettlement?:
+        | {
+            containerId: string;
+            expectedIntentId: string;
+            expectedUpdatedAt: string;
+          }
+        | undefined;
       pendingUpdate?: PendingUpdateFields | undefined;
       preserveDurableStructureWhenPending?: boolean | undefined;
       record: ContainerMetadataRecord;
@@ -290,9 +375,15 @@ export interface ContainerContentsPersistence
           }
         | undefined;
       settleAcceptedPendingOnConflict: boolean;
+      stillCurrent?: (() => boolean) | undefined;
     },
   ) => Promise<
-    | { committed: true; container: ContainerRecord }
+    | {
+        committed: true;
+        container: ContainerRecord;
+        createIntentSettled?: true | undefined;
+        moveIntentSettled?: true | undefined;
+      }
     | {
         committed: false;
         currentState: StoredContainerState | null;
@@ -305,6 +396,7 @@ export interface ContainerContentsPersistence
       containerId: string;
       expectedRecord: ContainerMetadataRecord;
       pendingUpdateIds: readonly string[];
+      stillCurrent?: (() => boolean) | undefined;
     },
   ) => Promise<StoredContainerState | null>;
   /**
@@ -321,19 +413,21 @@ export interface ContainerContentsPersistence
     execSql: ExecSql,
     container: ContainerRecord,
     record: ContainerMetadataRecord | null,
-    options?: {
-      createIntent?: ContainerCreateIntentInput;
-      localUpdatedAt?: string;
-      moveIntent?: ContainerMoveIntentInput | undefined;
-      serverTimestamps?:
-        | {
-            createdAt?: string | null;
-            updatedAt?: string | null;
-          }
-        | undefined;
-      updatedAt?: string;
-    },
+    options?: SaveContainerOptions,
   ) => Promise<ContainerRecord>;
+  /**
+   * Atomically saves a container and enqueues its first metadata update.
+   * Optional for adapters built before this operation existed; create flows
+   * that need the compound write refuse before mutation when it is unavailable.
+   */
+  saveContainerWithPendingUpdate?:
+    | ((
+        execSql: ExecSql,
+        container: ContainerRecord,
+        record: ContainerMetadataRecord,
+        options: SaveContainerWithPendingUpdateOptions,
+      ) => Promise<ContainerRecord>)
+    | undefined;
   saveContainerAndDeletePendingUpdates: (
     execSql: ExecSql,
     container: ContainerRecord,
@@ -342,24 +436,30 @@ export interface ContainerContentsPersistence
   ) => Promise<ContainerRecord>;
   markCreateIntentSynced: (
     execSql: ExecSql,
-    input: {
-      containerId: string;
-      // The intent row's updatedAt snapshotted when the pass listed it. The
-      // mark is a no-op if the row changed since (a user re-queued the intent
-      // across the create network await), so the re-queued intent stays pending.
-      expectedUpdatedAt: string;
-      remoteContainerId: string;
-      remoteMetadataAccessStateHash: string;
-      remoteMetadataDocumentId: string;
-    },
-  ) => Promise<void>;
+    input: ContainerCreateIntentRevisionInput,
+  ) => Promise<boolean> | Promise<void>;
+  /**
+   * Revision-CAS settlement used by asynchronous create replay. Legacy
+   * adapters without it are rejected before the remote mutation begins.
+   */
+  markCreateIntentRevisionSynced?:
+    | ((
+        execSql: ExecSql,
+        input: ContainerCreateIntentRevisionInput,
+      ) => Promise<boolean>)
+    | undefined;
   markMoveIntentSynced: (
     execSql: ExecSql,
-    input: {
-      containerId: string;
-      // See markCreateIntentSynced: guards the delete against a move re-queued
-      // during the network round-trip so the new destination is not discarded.
-      expectedUpdatedAt: string;
-    },
-  ) => Promise<void>;
+    input: ContainerMoveIntentRevisionInput,
+  ) => Promise<boolean> | Promise<void>;
+  /**
+   * Revision-CAS settlement used by asynchronous move replay. Legacy adapters
+   * without this capability are rejected before the remote mutation begins.
+   */
+  markMoveIntentRevisionSynced?:
+    | ((
+        execSql: ExecSql,
+        input: ContainerMoveIntentRevisionInput,
+      ) => Promise<boolean>)
+    | undefined;
 }

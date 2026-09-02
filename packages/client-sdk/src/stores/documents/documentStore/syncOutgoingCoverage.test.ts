@@ -13,6 +13,7 @@ import { listDeferredPendingWriteCandidates } from "../../../workflows/container
 import { pendingDeltaSinceBase, persistDocument } from "./persistence";
 import { resetDocumentStore, setReadySnapshot } from "./state";
 import { shouldReArmDocumentSync } from "./syncFinalize";
+import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
 import { prepareDocumentOutgoingCoverage } from "./syncOutgoingCoverage";
 import { shouldSkipCleanScheduledDocumentSync } from "./syncShared";
 
@@ -368,10 +369,15 @@ test("preparation abandons a replaced store generation after enqueue", async () 
         return enqueued;
       },
     };
+    const generation = captureDocumentStoreSyncGeneration(
+      fixture.state,
+      fixture.document,
+    );
+    if (!generation) throw new Error("Expected a live document generation");
 
     const prepared = await prepareDocumentOutgoingCoverage({
       currentDoc: fixture.document,
-      generation: fixture.generation,
+      generation,
       pendingUpdates: [],
       state: fixture.state,
     });
@@ -434,13 +440,18 @@ test("guarded persistence cannot publish into a replacement generation", async (
         );
       },
     };
+    const generation = captureDocumentStoreSyncGeneration(
+      fixture.state,
+      fixture.document,
+    );
+    if (!generation) throw new Error("Expected a live document generation");
 
     const persistPromise = persistDocument(
       fixture.state,
       fixture.document,
       {},
       {},
-      fixture.generation,
+      generation,
     );
     await persistStarted;
     resetDocumentStore(fixture.state);

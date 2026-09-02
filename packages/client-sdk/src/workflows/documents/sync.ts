@@ -14,6 +14,7 @@ import type {
 } from "../../data/documents/shared/types";
 import { projectionVerificationOptions } from "../../data/documents/shared/types";
 import {
+  isProjectionVerificationCancelledError,
   type ProjectionUserKeyResolver,
   requireProjectionUserKeyResolver,
 } from "../../data/keyingProjectionVerification";
@@ -24,6 +25,10 @@ import {
   type SyncRemoteDocumentInput,
   tryPersistedReadOnlyDocumentSync,
 } from "./readOnlySync";
+import type {
+  RemoteDocumentSyncAttemptOutcome,
+  RemoteDocumentSyncAttemptState,
+} from "./syncAttemptState";
 import type { TerminalSubmitFailureHandler } from "./syncFailureClassification";
 import {
   assertRawContinuationCanRetry,
@@ -42,13 +47,11 @@ export function hasDocumentUpdateEvent(
   if (!documentId) {
     return false;
   }
-
   return events.some(
     (event) =>
       isDocumentUpdateCreatedEvent(event) && event.documentId === documentId,
   );
 }
-
 function buildRemoteDocumentSyncPlan(input: {
   minLsn?: string | undefined;
   pendingUpdates: readonly PendingUpdateRecord[];
@@ -140,6 +143,7 @@ async function submitPlannedSyncAttempt(args: {
       pendingUpdates: args.pendingUpdates,
       plan: args.materializedPlan.plan,
       failureBlocksQueuedWrites: args.failureBlocksQueuedWrites,
+      stillCurrent: args.sync.stillCurrent,
     });
   } catch (error) {
     if (
@@ -171,7 +175,6 @@ function projectionFailureHandler(
     ? input.onTerminalSubmitFailure
     : input.onReadOnlyProjectionFailure;
 }
-
 function resolveAttemptProjection(
   input: SyncRemoteDocumentInput,
   failureBlocksQueuedWrites: boolean,
@@ -188,9 +191,9 @@ function resolveAttemptProjection(
       failureBlocksQueuedWrites,
     ),
     reusableWriterProjection,
+    stillCurrent: input.stillCurrent,
   });
 }
-
 function abandonAfterRetryableConflicts(input: SyncRemoteDocumentInput): null {
   input.onSyncAbandoned?.("every sync attempt hit a retryable conflict");
   return null;
@@ -246,6 +249,7 @@ async function planDocumentSyncAttempt(input: {
         input.sync,
         input.failureBlocksQueuedWrites,
       ),
+      stillCurrent: input.sync.stillCurrent,
       writerProjection: input.writerProjection,
     });
   } catch (error) {
@@ -315,9 +319,101 @@ function failureBlocksQueuedWrites(input: {
   );
 }
 
+async function runRemoteDocumentSyncAttempt(input: {
+  attempt: number;
+  maxAttempts: number;
+  pendingUpdateIds: readonly string[];
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
+  state: RemoteDocumentSyncAttemptState;
+  sync: SyncRemoteDocumentInput;
+}): Promise<RemoteDocumentSyncAttemptOutcome> {
+  if (input.sync.stillCurrent?.() === false) {
+    return { kind: "complete", result: null };
+  }
+  const blocksQueuedWrites = failureBlocksQueuedWrites({
+    pendingUpdates: input.state.pendingUpdates,
+    recoveryPendingUpdateCount: input.state.recoveryPendingUpdatesById.size,
+  });
+  const writerProjection = await resolveAttemptProjection(
+    input.sync,
+    blocksQueuedWrites,
+    input.state.reusableWriterProjection,
+  );
+  if (input.sync.stillCurrent?.() === false || !writerProjection) {
+    return { kind: "complete", result: null };
+  }
+  const planned = await planDocumentSyncAttempt({
+    pendingUpdates: input.state.pendingUpdates,
+    pullContinuation: input.state.pullContinuation,
+    regenerateQueuedCheckpoints: input.state.regenerateQueuedCheckpoints,
+    sync: input.sync,
+    failureBlocksQueuedWrites: blocksQueuedWrites,
+    writerProjection,
+  });
+  if (!planned || input.sync.stillCurrent?.() === false) {
+    return { kind: "complete", result: null };
+  }
+  const [materializedPlan, plannedWriterProjection] = planned;
+  const submitted = await submitPlannedSyncAttempt({
+    attempt: input.attempt,
+    materializedPlan,
+    maxAttempts: input.maxAttempts,
+    pendingUpdates: submittedPendingUpdates(
+      input.state.pendingUpdates,
+      materializedPlan.plan,
+    ),
+    pullContinuation: input.state.pullContinuation,
+    regenerateQueuedCheckpoints: input.state.regenerateQueuedCheckpoints,
+    sync: input.sync,
+    failureBlocksQueuedWrites: blocksQueuedWrites,
+  });
+  if (input.sync.stillCurrent?.() === false || submitted === "cancelled") {
+    return { kind: "complete", result: null };
+  }
+  if (submitted === "retry") {
+    assertRawContinuationCanRetry(
+      input.sync.historyMode,
+      input.state.pullContinuation,
+    );
+    evictStaleProjectionForRetry(input.sync);
+    return {
+      kind: "retry",
+      pullContinuation: await invalidatePullCursor(
+        input.sync,
+        input.state.pullContinuation,
+      ),
+    };
+  }
+  if (submitted === "stop") {
+    input.sync.onSyncAbandoned?.("the sync submit failed terminally");
+    return { kind: "complete", result: null };
+  }
+  if (submitted.kind === "regenerate_queued_checkpoints") {
+    return { kind: "regenerate" };
+  }
+  if (submitted.kind === "recover_update_id_conflict") {
+    return { kind: "recover", updates: submitted.recoveryPendingUpdatesById };
+  }
+  const result = await resolveSubmittedDocumentSyncResult({
+    materializedPlan,
+    pendingUpdateIds: input.pendingUpdateIds,
+    pullComplete: submitted.pullComplete,
+    recoveryPendingUpdatesById: input.state.recoveryPendingUpdatesById,
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
+    response: submitted.response,
+    sync: input.sync,
+    writerProjection: plannedWriterProjection,
+  });
+  return {
+    kind: "complete",
+    result: input.sync.stillCurrent?.() === false ? null : result,
+  };
+}
+
 async function syncRemoteDocumentInternal(
   input: SyncRemoteDocumentInput,
 ): Promise<SyncRemoteDocumentResult | null> {
+  if (input.stillCurrent?.() === false) return null;
   const resolveProjectionUserKey = resolveRemoteSyncProjectionUserKey(input);
   const maxAttempts = input.apiClient.syncDocumentResult ? 3 : 1;
   let pendingUpdates = input.pendingUpdates ?? [];
@@ -330,78 +426,38 @@ async function syncRemoteDocumentInternal(
     input,
     resolveProjectionUserKey,
   );
+  if (input.stillCurrent?.() === false) return null;
   if (persistedSync.kind === "completed") return persistedSync.result;
   let pullContinuation = persistedSync.pullContinuation;
-
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    const blocksQueuedWrites = failureBlocksQueuedWrites({
-      pendingUpdates,
-      recoveryPendingUpdateCount: recoveryPendingUpdatesById.size,
-    });
-    const writerProjection = await resolveAttemptProjection(
-      input,
-      blocksQueuedWrites,
-      reusableWriterProjection,
-    );
-    reusableWriterProjection = null;
-    if (!writerProjection) return null;
-    const planned = await planDocumentSyncAttempt({
-      pendingUpdates,
-      pullContinuation,
-      regenerateQueuedCheckpoints,
-      sync: input,
-      failureBlocksQueuedWrites: blocksQueuedWrites,
-      writerProjection,
-    });
-    if (!planned) {
-      return null;
-    }
-    const [materializedPlan, plannedWriterProjection] = planned;
-    const submitted = await submitPlannedSyncAttempt({
+    const outcome = await runRemoteDocumentSyncAttempt({
       attempt,
-      materializedPlan,
       maxAttempts,
-      pendingUpdates: submittedPendingUpdates(
+      pendingUpdateIds,
+      resolveProjectionUserKey,
+      state: {
         pendingUpdates,
-        materializedPlan.plan,
-      ),
-      pullContinuation,
-      regenerateQueuedCheckpoints,
+        pullContinuation,
+        recoveryPendingUpdatesById,
+        regenerateQueuedCheckpoints,
+        reusableWriterProjection,
+      },
       sync: input,
-      failureBlocksQueuedWrites: blocksQueuedWrites,
     });
-    if (submitted === "retry") {
-      assertRawContinuationCanRetry(input.historyMode, pullContinuation);
-      evictStaleProjectionForRetry(input);
-      pullContinuation = await invalidatePullCursor(input, pullContinuation);
+    reusableWriterProjection = null;
+    if (outcome.kind === "complete") return outcome.result;
+    if (outcome.kind === "retry") {
+      pullContinuation = outcome.pullContinuation;
+      if (input.stillCurrent?.() === false) return null;
       continue;
     }
-    if (submitted === "stop") {
-      input.onSyncAbandoned?.("the sync submit failed terminally");
-      return null;
-    }
-    if (submitted.kind === "regenerate_queued_checkpoints") {
+    if (outcome.kind === "regenerate") {
       regenerateQueuedCheckpoints = true;
       continue;
     }
-    if (submitted.kind === "recover_update_id_conflict") {
-      recoveryPendingUpdatesById = submitted.recoveryPendingUpdatesById;
-      pendingUpdates = [];
-      continue;
-    }
-
-    return resolveSubmittedDocumentSyncResult({
-      materializedPlan,
-      pendingUpdateIds,
-      pullComplete: submitted.pullComplete,
-      recoveryPendingUpdatesById,
-      resolveProjectionUserKey,
-      response: submitted.response,
-      sync: input,
-      writerProjection: plannedWriterProjection,
-    });
+    recoveryPendingUpdatesById = outcome.updates;
+    pendingUpdates = [];
   }
-
   return abandonAfterRetryableConflicts(input);
 }
 
@@ -416,6 +472,7 @@ export async function syncRemoteDocument(
         execSql: input.execSql,
         expectedOrganizationId: input.author.organizationId,
         onVerifiedDeletion: ({ commitPurgeProof, documentId }) => {
+          if (input.stillCurrent?.() === false) return;
           if (!input.onRemoteDocumentDeleted) {
             throw new KeyingVerificationError(
               "missing_dependency",
@@ -431,7 +488,11 @@ export async function syncRemoteDocument(
       }),
     });
   } catch (error) {
-    if (isDocumentSyncUpdateIsolationError(error)) {
+    if (isProjectionVerificationCancelledError(error)) return null;
+    if (
+      input.stillCurrent?.() !== false &&
+      isDocumentSyncUpdateIsolationError(error)
+    ) {
       await input.onIncomingUpdateIsolationFailure?.(error);
     }
     throw error;

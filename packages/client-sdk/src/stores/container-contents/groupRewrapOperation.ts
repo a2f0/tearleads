@@ -5,6 +5,7 @@ import type {
   ContainerContentsShareAccessLevel,
   ContainerContentsStoreState,
 } from "./types";
+import type { ContainerWriteGuard } from "./writeGeneration";
 
 export async function prepareContainerGroupRewrap(
   state: ContainerContentsStoreState,
@@ -12,6 +13,7 @@ export async function prepareContainerGroupRewrap(
   groupId: string,
   accessLevel: ContainerContentsShareAccessLevel,
   options?: { requireExistingGrant?: boolean } | undefined,
+  isCurrent: ContainerWriteGuard = () => true,
 ) {
   if (
     state.runtime.infra.dbStatus !== "ready" ||
@@ -26,14 +28,16 @@ export async function prepareContainerGroupRewrap(
     return null;
   }
 
-  return prepareContainerStateGroupRewrap({
+  const preparation = await prepareContainerStateGroupRewrap({
     accessLevel,
     containerState,
     groupId,
     requireExistingGrant: options?.requireExistingGrant,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     runtime: state.runtime,
+    stillCurrent: isCurrent,
   });
+  return isCurrent() ? preparation : null;
 }
 
 export async function verifyContainerGroupRewrapCurrent(
@@ -44,6 +48,7 @@ export async function verifyContainerGroupRewrapCurrent(
   expectedGroupHead: ReferencedPrincipalHead,
   expectedContainerId: string,
   expectedOrganizationId: string,
+  isCurrent: ContainerWriteGuard = () => true,
 ): Promise<boolean> {
   if (
     state.runtime.infra.dbStatus !== "ready" ||
@@ -61,7 +66,7 @@ export async function verifyContainerGroupRewrapCurrent(
     return false;
   }
 
-  return containerStateHasCurrentGroupGrant({
+  const current = await containerStateHasCurrentGroupGrant({
     accessLevel,
     containerState,
     expectedContainerId,
@@ -70,5 +75,7 @@ export async function verifyContainerGroupRewrapCurrent(
     groupId,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     runtime: state.runtime,
+    stillCurrent: isCurrent,
   });
+  return isCurrent() && current;
 }

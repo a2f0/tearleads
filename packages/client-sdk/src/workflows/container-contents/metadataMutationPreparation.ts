@@ -35,12 +35,19 @@ export interface PersistContainerMetadataStateInput {
     | undefined;
   localUpdate?: Uint8Array | undefined;
   metadataState: ContainerMetadataState;
+  createIntentSettlement?: Parameters<
+    ContainerContentsPersistence["commitMetadataMutation"]
+  >[1]["createIntentSettlement"];
+  moveIntentSettlement?: Parameters<
+    ContainerContentsPersistence["commitMetadataMutation"]
+  >[1]["moveIntentSettlement"];
   patch?: Partial<ContainerMetadataPatch> | undefined;
   persistence: ContainerContentsPersistence;
   preserveDurableStructureWhenPending?: boolean | undefined;
   saveOptions?:
     | Parameters<ContainerContentsPersistence["saveContainer"]>[3]
     | undefined;
+  stillCurrent?: (() => boolean) | undefined;
 }
 
 export function currentMetadataPullContinuation(

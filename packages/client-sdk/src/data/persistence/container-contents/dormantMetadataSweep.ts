@@ -30,10 +30,12 @@ export interface DormantMetadataSweepPersistence {
     execSql: ExecSql,
     sweep: DormantMetadataSweepRequest,
     attemptedAt: string,
+    stillCurrent?: (() => boolean) | undefined,
   ) => Promise<boolean>;
   completeDormantMetadataSweepRequest: (
     execSql: ExecSql,
     sweep: DormantMetadataSweepRequest,
+    stillCurrent?: (() => boolean) | undefined,
   ) => Promise<void>;
   listDormantMetadataSweepRequests: (
     execSql: ExecSql,
@@ -48,6 +50,7 @@ export interface DormantMetadataSweepPersistence {
     execSql: ExecSql,
     sweep: DormantMetadataSweepRequest,
     containerIds: ReadonlyArray<string>,
+    stillCurrent?: (() => boolean) | undefined,
   ) => Promise<number>;
 }
 
@@ -156,9 +159,11 @@ export async function claimDormantMetadataSweepAttempt(
   execSql: ExecSql,
   sweep: DormantMetadataSweepRequest,
   attemptedAt: string,
+  stillCurrent?: (() => boolean) | undefined,
 ): Promise<boolean> {
   await ensureContainerTables(execSql);
-  return getClientSQLitePersistenceRuntime(execSql).transaction(async (tx) => {
+  const runtime = getClientSQLitePersistenceRuntime(execSql);
+  const claim = async (tx: ClientSQLiteTransactionScope) => {
     const [current] = await tx
       .select({ attemptCount: dormantMetadataSweepRequests.attemptCount })
       .from(dormantMetadataSweepRequests)
@@ -195,16 +200,23 @@ export async function claimDormantMetadataSweepAttempt(
       )
       .run();
     return true;
-  });
+  };
+  if (!stillCurrent) {
+    return runtime.transaction(claim);
+  }
+  const outcome = await runtime.guardedTransaction(claim, stillCurrent);
+  return outcome.committed && outcome.result === true;
 }
 
 export async function completeDormantMetadataSweepRequest(
   execSql: ExecSql,
   sweep: DormantMetadataSweepRequest,
+  stillCurrent?: (() => boolean) | undefined,
 ): Promise<void> {
   await ensureContainerTables(execSql);
-  await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-    await db
+  const runtime = getClientSQLitePersistenceRuntime(execSql);
+  const complete = async (tx: ClientSQLiteTransactionScope) => {
+    await tx
       .delete(dormantMetadataSweepRequests)
       .where(
         and(
@@ -217,7 +229,12 @@ export async function completeDormantMetadataSweepRequest(
         ),
       )
       .run();
-  });
+  };
+  if (stillCurrent) {
+    await runtime.guardedTransaction(complete, stillCurrent);
+    return;
+  }
+  await runtime.transaction(complete);
 }
 
 export async function listDormantMetadataSweepCandidates(
@@ -256,8 +273,10 @@ async function purgeDormantContainerMetadataCandidateBatch(
   execSql: ExecSql,
   sweep: DormantMetadataSweepRequest,
   containerIds: ReadonlyArray<string>,
+  stillCurrent?: (() => boolean) | undefined,
 ): Promise<number> {
-  return getClientSQLitePersistenceRuntime(execSql).transaction(async (tx) => {
+  const runtime = getClientSQLitePersistenceRuntime(execSql);
+  const purge = async (tx: ClientSQLiteTransactionScope) => {
     const candidates = await tx
       .select({ containerId: dormantContainerMetadata.containerId })
       .from(dormantContainerMetadata)
@@ -278,13 +297,17 @@ async function purgeDormantContainerMetadataCandidateBatch(
       confirmedContainerIds,
     );
     return confirmedContainerIds.length;
-  });
+  };
+  if (!stillCurrent) return runtime.transaction(purge);
+  const outcome = await runtime.guardedTransaction(purge, stillCurrent);
+  return outcome.committed ? (outcome.result ?? 0) : 0;
 }
 
 export async function purgeDormantContainerMetadataCandidates(
   execSql: ExecSql,
   sweep: DormantMetadataSweepRequest,
   containerIds: ReadonlyArray<string>,
+  stillCurrent?: (() => boolean) | undefined,
 ): Promise<number> {
   const uniqueContainerIds = Array.from(new Set(containerIds));
   if (uniqueContainerIds.length === 0) {
@@ -298,6 +321,7 @@ export async function purgeDormantContainerMetadataCandidates(
     offset < uniqueContainerIds.length;
     offset += DORMANT_METADATA_SWEEP_BATCH_SIZE
   ) {
+    if (stillCurrent?.() === false) return purgedCount;
     purgedCount += await purgeDormantContainerMetadataCandidateBatch(
       execSql,
       sweep,
@@ -305,6 +329,7 @@ export async function purgeDormantContainerMetadataCandidates(
         offset,
         offset + DORMANT_METADATA_SWEEP_BATCH_SIZE,
       ),
+      stillCurrent,
     );
   }
   return purgedCount;

@@ -21,14 +21,24 @@ interface RestorationSweepSession {
 
 function createRestorationSweepSession(
   state: ContainerContentsStoreSyncState,
-  lifecycleGeneration: number,
+  isCurrent: () => boolean,
 ): RestorationSweepSession {
   return {
-    isCurrent: () => state.lifecycleGeneration === lifecycleGeneration,
+    isCurrent,
     persistence: state.persistence,
     runtime: state.runtime,
     state,
   };
+}
+
+function captureRestorationGeneration(
+  state: ContainerContentsStoreSyncState,
+): () => boolean {
+  const lifecycleGeneration = state.lifecycleGeneration;
+  const structuralGeneration = state.structuralGeneration;
+  return () =>
+    state.lifecycleGeneration === lifecycleGeneration &&
+    state.structuralGeneration === structuralGeneration;
 }
 
 const DELETION_PROBE_CONCURRENCY = 4;
@@ -49,6 +59,10 @@ function isSweepAttemptDue(sweep: DormantMetadataSweep, now: number): boolean {
     SWEEP_RETRY_MAX_MS,
   );
   return lastAttemptedAt + retryDelay <= now;
+}
+
+function restorationSweepIdentity(sweep: DormantMetadataSweep): string {
+  return `${sweep.requesterUserId}\u0000${sweep.organizationId}\u0000${sweep.generation}`;
 }
 
 async function probeContainerDeletion(
@@ -156,6 +170,7 @@ async function completeRestorationSweeps(
         session.runtime.infra.execSql,
         sweep,
         deletedContainerIds,
+        session.isCurrent,
       );
     if (!session.isCurrent()) {
       return;
@@ -170,6 +185,7 @@ async function completeRestorationSweeps(
         await session.persistence.completeDormantMetadataSweepRequest(
           session.runtime.infra.execSql,
           sweep,
+          session.isCurrent,
         );
         if (!session.isCurrent()) {
           return;
@@ -187,6 +203,7 @@ async function completeRestorationSweeps(
     await session.persistence.completeDormantMetadataSweepRequest(
       session.runtime.infra.execSql,
       sweep,
+      session.isCurrent,
     );
   }
 }
@@ -194,6 +211,7 @@ async function completeRestorationSweeps(
 async function claimDueRestorationSweeps(
   session: RestorationSweepSession,
   sweeps: readonly DormantMetadataSweep[],
+  forcedRetrySweepIds?: ReadonlySet<string> | undefined,
 ): Promise<DormantMetadataSweep[]> {
   const now = Date.now();
   const attemptedAt = new Date(now).toISOString();
@@ -202,10 +220,18 @@ async function claimDueRestorationSweeps(
     if (!session.isCurrent()) {
       return claimed;
     }
+    if (forcedRetrySweepIds?.has(restorationSweepIdentity(sweep))) {
+      // The interrupted generation already claimed and durably counted this
+      // attempt. Resume that exact attempt after reset instead of consuming a
+      // new one or retiring it at the limit before its completion ran.
+      claimed.push(sweep);
+      continue;
+    }
     if (sweep.attemptCount >= SWEEP_ATTEMPT_LIMIT) {
       await session.persistence.completeDormantMetadataSweepRequest(
         session.runtime.infra.execSql,
         sweep,
+        session.isCurrent,
       );
       if (!session.isCurrent()) {
         return claimed;
@@ -222,6 +248,7 @@ async function claimDueRestorationSweeps(
       session.runtime.infra.execSql,
       sweep,
       attemptedAt,
+      session.isCurrent,
     );
     if (!session.isCurrent()) {
       return claimed;
@@ -237,19 +264,13 @@ async function claimDueRestorationSweeps(
   return claimed;
 }
 
-async function reconcileRestoredAccess(input: {
-  lifecycleGeneration: number;
-  requestHydration: RemoteHydrationRequester;
-  state: ContainerContentsStoreSyncState;
-}): Promise<void> {
-  const { requestHydration, state } = input;
-  const session = createRestorationSweepSession(
-    state,
-    input.lifecycleGeneration,
-  );
+async function loadAndClaimRestorationSweeps(
+  session: RestorationSweepSession,
+  forcedRetrySweepIds?: ReadonlySet<string> | undefined,
+): Promise<DormantMetadataSweep[]> {
   const requesterUserId = session.runtime.auth.userId;
   if (!requesterUserId) {
-    return;
+    return [];
   }
   const pendingSweeps =
     await session.persistence.listDormantMetadataSweepRequests(
@@ -257,22 +278,53 @@ async function reconcileRestoredAccess(input: {
       requesterUserId,
     );
   if (!session.isCurrent()) {
-    return;
+    return [];
   }
-  const sweeps = await claimDueRestorationSweeps(session, pendingSweeps);
+  return claimDueRestorationSweeps(session, pendingSweeps, forcedRetrySweepIds);
+}
+
+function recreateRestorationSweepCompletion(
+  state: ContainerContentsStoreSyncState,
+  interruptedSession: RestorationSweepSession,
+  interruptedSweeps: readonly DormantMetadataSweep[],
+): () => Promise<void> {
+  const session = createRestorationSweepSession(
+    state,
+    captureRestorationGeneration(state),
+  );
+  return async () => {
+    const sameStorage =
+      session.runtime.infra.execSql ===
+      interruptedSession.runtime.infra.execSql;
+    const forcedRetrySweepIds = sameStorage
+      ? new Set(interruptedSweeps.map(restorationSweepIdentity))
+      : undefined;
+    const sweeps = await loadAndClaimRestorationSweeps(
+      session,
+      forcedRetrySweepIds,
+    );
+    if (session.isCurrent() && sweeps.length > 0) {
+      await completeRestorationSweeps(session, sweeps);
+    }
+  };
+}
+
+async function reconcileRestoredAccess(input: {
+  isCurrent: () => boolean;
+  requestHydration: RemoteHydrationRequester;
+  state: ContainerContentsStoreSyncState;
+}): Promise<void> {
+  const { requestHydration, state } = input;
+  const session = createRestorationSweepSession(state, input.isCurrent);
+  const sweeps = await loadAndClaimRestorationSweeps(session);
   if (!session.isCurrent() || sweeps.length === 0) {
     return;
   }
 
   await refreshAllRemoteHydration({
     onFullyHydrated: () => completeRestorationSweeps(session, sweeps),
-    recreateOnFullyHydratedAfterReset: () => {
-      const retrySession = createRestorationSweepSession(
-        state,
-        state.lifecycleGeneration,
-      );
-      return () => completeRestorationSweeps(retrySession, sweeps);
-    },
+    recreateOnFullyHydratedAfterReset: () =>
+      recreateRestorationSweepCompletion(state, session, sweeps),
     requestHydration,
     resetAllLaneWatermarks: true,
     scheduleSyncAfterHydration: false,
@@ -284,14 +336,13 @@ async function reconcileRestoredAccess(input: {
 export function createRestoredAccessReconciler(input: {
   requestHydration: RemoteHydrationRequester;
   state: ContainerContentsStoreSyncState;
-}): () => Promise<void> {
+}): (isCurrent?: () => boolean) => Promise<void> {
   const { state } = input;
-  return async () => {
-    const lifecycleGeneration = state.lifecycleGeneration;
+  return async (isCurrent = captureRestorationGeneration(state)) => {
     try {
-      await reconcileRestoredAccess({ ...input, lifecycleGeneration });
+      await reconcileRestoredAccess({ ...input, isCurrent });
     } catch (error) {
-      if (state.lifecycleGeneration !== lifecycleGeneration) {
+      if (!isCurrent()) {
         return;
       }
       const message = `${getContainerContentsStoreLogLabel(state)}: dormant metadata sweep failed`;

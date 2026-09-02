@@ -26,6 +26,11 @@ import type {
   StoredContainerState,
 } from "./containerContentsPersistenceTypes";
 import {
+  ContainerCreateIntentSupersededError,
+  deleteContainerMoveIntentRevision,
+  settleContainerCreateIntentRevision,
+} from "./containerIntentPersistence";
+import {
   getContainerMetadataScope,
   saveContainerContentsContainerRows,
   selectContainerMetadataRecord,
@@ -37,6 +42,21 @@ function sameNullableValue(
   right: string | null | undefined,
 ): boolean {
   return (left ?? null) === (right ?? null);
+}
+
+function committedMetadataMutationResult(input: {
+  container: ContainerRecord;
+  createIntentSettled: boolean;
+  moveIntentSettled: boolean;
+}) {
+  return {
+    committed: true as const,
+    container: input.container,
+    ...(input.createIntentSettled
+      ? { createIntentSettled: true as const }
+      : {}),
+    ...(input.moveIntentSettled ? { moveIntentSettled: true as const } : {}),
+  };
 }
 
 function sameMetadataSecurityIdentity(
@@ -303,8 +323,10 @@ export async function commitStoredMetadataMutation(
   >[0],
   input: Parameters<ContainerContentsPersistence["commitMetadataMutation"]>[1],
 ) {
-  return runSerializedSqlMutation(execSql, async (lockedExecSql) =>
-    getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+  return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+    const outcome = await getClientSQLitePersistenceRuntime(
+      lockedExecSql,
+    ).guardedTransaction(
       async (tx) => {
         const currentState = await loadStoredContainerState(
           lockedExecSql,
@@ -351,11 +373,47 @@ export async function commitStoredMetadataMutation(
           serverTimestamps: input.saveOptions?.serverTimestamps,
           tx,
         });
-        return { committed: true as const, container: savedContainer };
+        if (
+          input.createIntentSettlement &&
+          (await settleContainerCreateIntentRevision({
+            ...input.createIntentSettlement,
+            tx,
+          })) === "superseded"
+        ) {
+          throw new ContainerCreateIntentSupersededError();
+        }
+        if (input.moveIntentSettlement) {
+          if (
+            !(await deleteContainerMoveIntentRevision({
+              ...input.moveIntentSettlement,
+              tx,
+            }))
+          ) {
+            throw new Error(
+              "Container move intent was superseded before local settlement",
+            );
+          }
+        }
+        return committedMetadataMutationResult({
+          container: savedContainer,
+          createIntentSettled: input.createIntentSettlement !== undefined,
+          moveIntentSettled: input.moveIntentSettlement !== undefined,
+        });
       },
+      () => !input.stillCurrent || input.stillCurrent(),
       { behavior: "immediate" },
-    ),
-  );
+    );
+    if (outcome.committed && outcome.result) {
+      return outcome.result;
+    }
+    return {
+      committed: false as const,
+      currentState: await loadStoredContainerState(
+        lockedExecSql,
+        input.container.id,
+      ),
+    };
+  });
 }
 
 export async function settleStoredMetadataPendingUpdates(
@@ -366,8 +424,10 @@ export async function settleStoredMetadataPendingUpdates(
     ContainerContentsPersistence["settleAcceptedMetadataPendingUpdates"]
   >[1],
 ) {
-  return runSerializedSqlMutation(execSql, async (lockedExecSql) =>
-    getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+  return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+    const outcome = await getClientSQLitePersistenceRuntime(
+      lockedExecSql,
+    ).guardedTransaction(
       async (tx) => {
         const currentState = await loadStoredContainerState(
           lockedExecSql,
@@ -388,7 +448,9 @@ export async function settleStoredMetadataPendingUpdates(
         }
         return currentState;
       },
+      () => !input.stillCurrent || input.stillCurrent(),
       { behavior: "immediate" },
-    ),
-  );
+    );
+    return outcome.committed ? outcome.result : null;
+  });
 }

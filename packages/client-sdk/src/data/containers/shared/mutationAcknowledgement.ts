@@ -242,8 +242,9 @@ export async function acknowledgeContainerMutation(input: {
   readonly execSql: ExecSql;
   readonly plan: AuthoredContainerMutationHead;
   readonly response: ContainerMutationResponse;
-}): Promise<void> {
-  await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
+  readonly stillCurrent?: (() => boolean) | undefined;
+}): Promise<boolean> {
+  return advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
     execSql: input.execSql,
     heads: [
       await locallyAcknowledgedContainerMutationHead({
@@ -251,6 +252,7 @@ export async function acknowledgeContainerMutation(input: {
         response: input.response,
       }),
     ],
+    stillCurrent: input.stillCurrent,
   });
 }
 
@@ -259,6 +261,7 @@ export async function acknowledgeContainerMutationBatch(input: {
   readonly execSql: ExecSql;
   readonly plans: readonly AuthoredContainerMutationHead[];
   readonly responses: readonly ContainerMutationResponse[];
+  readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<void> {
   if (input.plans.length !== input.responses.length) {
     throw new Error("Container mutation acknowledgement batch is incomplete");
@@ -277,5 +280,6 @@ export async function acknowledgeContainerMutationBatch(input: {
   await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
     execSql: input.execSql,
     heads,
+    stillCurrent: input.stillCurrent,
   });
 }

@@ -1,5 +1,4 @@
 import { base64ToBytes } from "@tearleads/encoding";
-import { enqueuePendingContainerUpdate } from "../../workflows/container-contents/containerPersistence";
 import type {
   ContainerContentsStoreSyncAgent,
   ContainerState,
@@ -8,6 +7,7 @@ import type {
   ContainerContentsStoreState,
   EnsureSystemContainerOptions,
 } from "./types";
+import type { ContainerWriteGuard } from "./writeGeneration";
 
 export function hasAdvancedManagedPrincipalReference(
   containerState: ContainerState,
@@ -23,15 +23,21 @@ export async function promoteExistingLocalSystemContainerSync(input: {
   containerState: ContainerState;
   logLabel: string;
   options: EnsureSystemContainerOptions;
-  persistCreateIntent: (
+  persistPromotion: (
     containerState: ContainerState,
-    parentContainerId: string,
+    promotion: {
+      metadataUpdate?: Uint8Array | undefined;
+      parentContainerId: string;
+      queueCreateIntent: boolean;
+    },
   ) => Promise<boolean>;
   rootState: ContainerState | null;
   state: ContainerContentsStoreState;
   syncAgent: ContainerContentsStoreSyncAgent;
+  isCurrent?: ContainerWriteGuard | undefined;
 }): Promise<boolean> {
   const { containerState, options, rootState, state, syncAgent } = input;
+  const isCurrent = input.isCurrent ?? (() => true);
   const parentContainerId = containerState.container.parentId;
   if (
     options.deferRemoteSync ||
@@ -55,6 +61,7 @@ export async function promoteExistingLocalSystemContainerSync(input: {
     state.persistence.listPendingCreateIntents(execSql),
     state.persistence.listPendingUpdates(execSql, containerState.container.id),
   ]);
+  if (!isCurrent()) return false;
   const hasPendingCreateIntent = pendingCreateIntents.some(
     (intent) => intent.containerId === containerState.container.id,
   );
@@ -64,21 +71,17 @@ export async function promoteExistingLocalSystemContainerSync(input: {
     return true;
   }
 
-  if (shouldQueueCreateIntent) {
-    const persisted = await input.persistCreateIntent(
-      containerState,
-      parentContainerId,
-    );
-    if (!persisted) {
-      return false;
-    }
-  }
-
-  if (shouldQueueMetadataUpdate) {
-    await enqueuePendingContainerUpdate(execSql, state.persistence, {
-      containerId: containerState.container.id,
-      update: base64ToBytes(containerState.record.metadataUpdates),
-    });
+  const persisted = await input.persistPromotion(containerState, {
+    ...(shouldQueueMetadataUpdate
+      ? {
+          metadataUpdate: base64ToBytes(containerState.record.metadataUpdates),
+        }
+      : {}),
+    parentContainerId,
+    queueCreateIntent: shouldQueueCreateIntent,
+  });
+  if (!persisted || !isCurrent()) {
+    return false;
   }
 
   syncAgent.scheduleSync();

@@ -14,6 +14,7 @@ export async function cacheRemoteContainerPrincipalPolicies(input: {
     | ReferencedPrincipalPolicyWarmer
     | undefined;
   readonly remoteContainers: readonly RemoteContainerPrincipalReferences[];
+  readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<void> {
   const cacheReferencedPrincipalPolicies =
     input.cacheReferencedPrincipalPolicies;
@@ -49,6 +50,7 @@ export async function cacheRemoteContainerPrincipalPolicies(input: {
       cacheReferencedPrincipalPolicies({
         organizationId,
         references: [...referencesByKey.values()],
+        stillCurrent: input.stillCurrent,
       }),
     ),
   );

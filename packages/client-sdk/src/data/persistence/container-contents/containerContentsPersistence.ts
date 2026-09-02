@@ -1,5 +1,6 @@
 import { and, eq, inArray } from "drizzle-orm";
 import {
+  enqueueDocumentPendingUpdate,
   ensureDocumentProjectionTables,
   ensureDocumentTables,
 } from "../../sqlite/documentPersistence";
@@ -50,7 +51,12 @@ export type {
 } from "./containerContentsPersistenceTypes";
 export { CONTAINER_METADATA_APP_KIND } from "./dormantContainerMetadata";
 
-import type { ContainerContentsPersistence } from "./containerContentsPersistenceTypes";
+import type {
+  ContainerContentsPersistence,
+  ContainerMetadataRecord,
+  SaveContainerOptions,
+  SaveContainerWithPendingUpdateOptions,
+} from "./containerContentsPersistenceTypes";
 import { deleteStoredContainers } from "./containerDeletionPersistence";
 import { commitStoredHydratedContainer } from "./containerHydrationPersistence";
 import { containerIntentPersistence } from "./containerIntentPersistence";
@@ -60,11 +66,59 @@ import {
 } from "./containerMetadataMutationPersistence";
 import { containerMetadataPullContinuationPersistence } from "./containerMetadataPullContinuationPersistence";
 import {
+  getContainerMetadataScope,
   saveContainerContentsContainerRows,
   selectContainerMetadataRecord,
 } from "./containerMetadataRows";
 import { containerPendingUpdatePersistence } from "./containerPendingUpdatePersistence";
 import { containerReconcilePersistence } from "./containerReconcilePersistence";
+
+async function saveStoredContainer(
+  execSql: Parameters<ContainerContentsPersistence["saveContainer"]>[0],
+  container: Parameters<ContainerContentsPersistence["saveContainer"]>[1],
+  record: ContainerMetadataRecord | null,
+  options?:
+    | SaveContainerOptions
+    | SaveContainerWithPendingUpdateOptions
+    | undefined,
+) {
+  return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+    const localUpdatedAt =
+      options?.localUpdatedAt ?? options?.updatedAt ?? new Date().toISOString();
+    const runtime = getClientSQLitePersistenceRuntime(lockedExecSql);
+    const save = async (tx: ClientSQLiteTransactionScope) => {
+      const saved = await saveContainerContentsContainerRows({
+        container,
+        createIntent: options?.createIntent,
+        moveIntent: options?.moveIntent,
+        record,
+        serverTimestamps: options?.serverTimestamps,
+        tx,
+        localUpdatedAt,
+      });
+      if (options && "pendingUpdate" in options) {
+        await enqueueDocumentPendingUpdate(
+          lockedExecSql,
+          getContainerMetadataScope(container.id),
+          options.pendingUpdate,
+        );
+      }
+      return saved;
+    };
+    if (!options?.stillCurrent) {
+      return runtime.transaction(save);
+    }
+    const outcome = await runtime.guardedTransaction(
+      save,
+      options.stillCurrent,
+      { behavior: "immediate" },
+    );
+    // Guarded callers recheck the same monotonic generation immediately after
+    // this await. Returning the untouched candidate keeps the long-standing
+    // non-null save contract while the transaction itself remains rolled back.
+    return outcome.result ?? container;
+  });
+}
 
 async function hasPendingContainerMetadataUpdates(input: {
   tx: ClientSQLiteTransactionScope;
@@ -84,7 +138,18 @@ async function hasPendingContainerMetadataUpdates(input: {
   return rows.length > 0;
 }
 
-export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
+type SqlPersistence = Omit<
+  ContainerContentsPersistence,
+  "recordCreateIntentError" | "recordCreateIntentRevisionError"
+> & {
+  recordCreateIntentError: typeof containerIntentPersistence.recordCreateIntentError;
+  recordCreateIntentRevisionError: typeof containerIntentPersistence.recordCreateIntentRevisionError;
+  saveContainerWithPendingUpdate: NonNullable<
+    ContainerContentsPersistence["saveContainerWithPendingUpdate"]
+  >;
+};
+
+export const sqlContainerContentsPersistence: SqlPersistence = {
   ...containerIntentPersistence,
   ...containerMetadataPullContinuationPersistence,
   commitHydratedContainer: commitStoredHydratedContainer,
@@ -195,24 +260,10 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
     };
   },
   async saveContainer(execSql, container, record, options) {
-    return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      const localUpdatedAt =
-        options?.localUpdatedAt ??
-        options?.updatedAt ??
-        new Date().toISOString();
-      return getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
-        async (tx) =>
-          saveContainerContentsContainerRows({
-            container,
-            createIntent: options?.createIntent,
-            moveIntent: options?.moveIntent,
-            record,
-            serverTimestamps: options?.serverTimestamps,
-            tx,
-            localUpdatedAt,
-          }),
-      );
-    });
+    return saveStoredContainer(execSql, container, record, options);
+  },
+  async saveContainerWithPendingUpdate(execSql, container, record, options) {
+    return saveStoredContainer(execSql, container, record, options);
   },
   async saveContainerAndDeletePendingUpdates(
     execSql,

@@ -37,7 +37,7 @@ import {
 } from "./documentManifestPolicies";
 import { requireVerifiedDocumentPredecessor } from "./documentManifestPredecessor";
 import { rejectPurgedDocumentProjection } from "./documentPurgeCheckpointEnforcement";
-import { rethrowDatabaseUnavailableError } from "./error";
+import { rethrowProjectionVerificationBoundaryError } from "./error";
 import {
   loadManifestCheckpointVerification,
   verifyCachedManifestCheckpoint,
@@ -48,6 +48,7 @@ import type {
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,
 } from "./types";
+import { withGenerationGuardedPolicyWarmer } from "./types";
 
 type VerifiedManifestMap = Map<string, VerifiedContainerAccessManifest>;
 type PolicyWarmer = ReferencedPrincipalPolicyWarmer | undefined;
@@ -354,6 +355,7 @@ interface DocumentWriterProjectionVerificationInput {
   readonly principalPolicyCache?: PrincipalPolicyCache | undefined;
   readonly projection: DocumentWriterProjectionResponse;
   readonly resolveUserKey: ProjectionUserKeyResolver;
+  readonly stillCurrent?: (() => boolean) | undefined;
   readonly verifiedByHash?: VerifiedManifestMap | undefined;
   readonly warmReferencedPrincipalPolicies?: PolicyWarmer;
 }
@@ -465,10 +467,10 @@ export async function verifyDocumentWriterProjection(
     execSql: input.execSql,
   });
   const verified = await verifyDocumentWriterProjectionWithContext(
-    input,
+    withGenerationGuardedPolicyWarmer(input),
     checkpointContext,
   );
-  await commitProjectionCheckpoints(checkpointContext);
+  await commitProjectionCheckpoints(checkpointContext, input);
   return verified.headManifest;
 }
 
@@ -480,13 +482,13 @@ export async function verifyDocumentWriterProjectionAuthorization(
       execSql: input.execSql,
     });
     const verified = await verifyDocumentWriterProjectionWithContext(
-      input,
+      withGenerationGuardedPolicyWarmer(input),
       checkpointContext,
     );
-    await commitProjectionCheckpoints(checkpointContext);
+    await commitProjectionCheckpoints(checkpointContext, input);
     return verified.authorization;
   } catch (error) {
-    rethrowDatabaseUnavailableError(error);
+    rethrowProjectionVerificationBoundaryError(error);
     if (error instanceof KeyingVerificationError) {
       throw error;
     }

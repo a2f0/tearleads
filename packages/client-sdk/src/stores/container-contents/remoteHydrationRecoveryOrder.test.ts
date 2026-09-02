@@ -64,12 +64,14 @@ function createRequestState(input: {
     lifecycleGeneration: 0,
     localContainerRefreshGeneration: null,
     localContainerRefreshPromise: null,
+    localContainerRefreshStructuralGeneration: null,
     localContainersNeedRefresh: false,
     persistence: {
       loadContainerHydrationTombstones: async () => [],
     },
     remoteHydrationPromise: null,
     remoteHydrationGeneration: null,
+    remoteHydrationStructuralGeneration: null,
     rootLaneHydrated: false,
     runtime: {
       apiClient: {
@@ -81,6 +83,7 @@ function createRequestState(input: {
       util: { log: () => {} },
     },
     snapshot: { ready: true },
+    structuralGeneration: 0,
   } as unknown as RequestState;
 }
 

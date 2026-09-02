@@ -185,6 +185,7 @@ function runRemoteDocumentSync(
       runtime,
       writerKeyLabel: "writer key",
     }),
+    stillCurrent: () => isDocumentStoreSyncGenerationCurrent(state, generation),
     targetSecretKey: input.encapsulationKeyPair.secretKey,
     validateIncomingUpdates: (result) =>
       validateDocumentSyncUpdateImports({

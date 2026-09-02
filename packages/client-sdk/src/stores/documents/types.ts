@@ -130,4 +130,5 @@ export interface DocumentStoreRelinkInput extends RelinkPersistedDocumentInput {
   contentKeyBundle?: string | null | undefined;
   documentKekTargets?: string | null | undefined;
   documentManifestBundle?: string | null | undefined;
+  stillCurrent?: (() => boolean) | undefined;
 }

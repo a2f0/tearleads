@@ -50,6 +50,7 @@ export type ContainerAlreadyCommitted = typeof CONTAINER_ALREADY_COMMITTED;
 async function submitContainerWithMetadataDocument(input: {
   readonly request: ContainerCreateWithMetadataDocumentRequest;
   readonly runtime: ContainerWorkflowRuntime;
+  readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<
   | {
       readonly ok: true;
@@ -58,6 +59,7 @@ async function submitContainerWithMetadataDocument(input: {
   | ContainerMutationSubmitFailure
   | null
 > {
+  if (input.stillCurrent?.() === false) return null;
   const { apiClient } = input.runtime;
   if (apiClient.createContainerWithMetadataDocumentResult) {
     const result = await apiClient.createContainerWithMetadataDocumentResult(
@@ -68,12 +70,13 @@ async function submitContainerWithMetadataDocument(input: {
     return result.ok ? { ok: true, response: result.data } : result;
   }
 
-  const createWithMetadata = apiClient.createContainerWithMetadataDocument;
-  if (!createWithMetadata) {
+  if (!apiClient.createContainerWithMetadataDocument) {
     return null;
   }
 
-  const response = await createWithMetadata(input.request);
+  const response = await apiClient.createContainerWithMetadataDocument(
+    input.request,
+  );
   return response ? { ok: true, response } : null;
 }
 
@@ -81,10 +84,13 @@ async function cacheStalePrincipalPolicyBundles(input: {
   readonly failure: ContainerMutationSubmitFailure;
   readonly organizationId: string;
   readonly runtime: ContainerWorkflowRuntime;
+  readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<boolean> {
   const bundles = input.failure.stalePrincipalPolicies;
+  const apiClient = input.runtime.apiClient;
   const getCurrentPrincipalPolicy =
-    input.runtime.apiClient.getCurrentPrincipalPolicy;
+    apiClient.getCurrentPrincipalPolicy?.bind(apiClient);
+  if (input.stillCurrent?.() === false) return false;
   if (!bundles || bundles.length === 0 || !getCurrentPrincipalPolicy) {
     return false;
   }
@@ -99,8 +105,16 @@ async function cacheStalePrincipalPolicyBundles(input: {
     organizationId: input.organizationId,
     reportSecurityIncident: input.runtime.util.reportSecurityIncident,
     resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
+    stillCurrent: input.stillCurrent,
   });
-  return true;
+  return input.stillCurrent?.() !== false;
+}
+
+function reportContainerCreateFailureIfCurrent(
+  failure: ContainerMutationSubmitFailure,
+  stillCurrent: (() => boolean) | undefined,
+): void {
+  if (stillCurrent?.() !== false) failure.report();
 }
 
 /**
@@ -117,6 +131,7 @@ async function seedMetadataDocumentWriterProjection(input: {
   readonly childProjection: ContainerWriterProjectionResponse;
   readonly response: ContainerCreateWithMetadataDocumentResponse;
   readonly execSql?: ExecSql | undefined;
+  readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<void> {
   const projection = documentWriterProjectionFromCreateResponse({
     containerProjection: input.childProjection,
@@ -125,11 +140,13 @@ async function seedMetadataDocumentWriterProjection(input: {
   try {
     await assertDocumentWriterProjectionConsistent(projection, {
       execSql: input.execSql,
+      stillCurrent: input.stillCurrent,
       trustedLocalProjection: true,
     });
   } catch {
     return;
   }
+  if (input.stillCurrent?.() === false) return;
   input.runtime.apiClient.primeDocumentWriterProjection(
     input.response.metadataDocument.id,
     projection,
@@ -145,6 +162,7 @@ async function acknowledgeContainerWithMetadata(input: {
     typeof persistedDocumentCreateStateFromResponse
   >[0];
   response: ContainerCreateWithMetadataDocumentResponse;
+  stillCurrent?: (() => boolean) | undefined;
 }) {
   const persistedState = persistedDocumentCreateStateFromResponse(
     input.metadataDocumentPlan,
@@ -160,6 +178,7 @@ async function acknowledgeContainerWithMetadata(input: {
       containerHead,
       locallyAuthoredAccessManifestHead(input.metadataDocumentPlan),
     ],
+    stillCurrent: input.stillCurrent,
   });
   return persistedState;
 }
@@ -201,6 +220,77 @@ function seedChildContainerWriterProjection(input: {
   );
 }
 
+async function settleContainerWithMetadataCreate(input: {
+  readonly childProjection: ContainerWriterProjectionResponse;
+  readonly containerPlan: Awaited<
+    ReturnType<typeof buildMaterializedContainerCreatePlan>
+  >;
+  readonly execSql: ExecSql;
+  readonly metadataDocumentPlan: Awaited<
+    ReturnType<typeof buildMaterializedDocumentCreatePlan>
+  >;
+  readonly response: ContainerCreateWithMetadataDocumentResponse;
+  readonly runtime: ContainerWorkflowRuntime;
+  readonly stillCurrent?: (() => boolean) | undefined;
+  readonly systemSlot?: ContainerSystemSlot | null | undefined;
+}): Promise<{
+  readonly ok: true;
+  readonly state: CreatedRemoteContainerState;
+} | null> {
+  if (
+    input.response.container.containerId !==
+    input.containerPlan.plan.containerId
+  ) {
+    throw new Error("Container metadata create response container mismatch");
+  }
+  const metadataDocumentId = readContainerMutationMetadataDocumentId({
+    response: input.response.container,
+  });
+  if (
+    metadataDocumentId !== input.containerPlan.plan.metadataDocumentId ||
+    input.response.metadataDocument.id !==
+      input.metadataDocumentPlan.plan.documentId
+  ) {
+    throw new Error("Container metadata create response document mismatch");
+  }
+  const persistedMetadataState = await acknowledgeContainerWithMetadata({
+    containerPlan: input.containerPlan.plan,
+    execSql: input.execSql,
+    metadataDocumentPlan: input.metadataDocumentPlan.plan,
+    response: input.response,
+    stillCurrent: input.stillCurrent,
+  });
+  if (input.stillCurrent?.() === false) return null;
+  await seedMetadataDocumentWriterProjection({
+    childProjection: input.childProjection,
+    execSql: input.execSql,
+    response: input.response,
+    runtime: input.runtime,
+    stillCurrent: input.stillCurrent,
+  });
+  if (input.stillCurrent?.() === false) return null;
+  seedChildContainerWriterProjection({
+    childProjection: input.childProjection,
+    response: input.response,
+    runtime: input.runtime,
+  });
+  return {
+    ok: true,
+    state: {
+      accessManifestHash: input.response.container.manifestHead.manifestHash,
+      systemSlot:
+        input.response.container.systemSlot ?? input.systemSlot ?? null,
+      containerId: input.response.container.containerId,
+      createdAt: input.response.container.createdAt,
+      metadataDocumentId,
+      organizationId: input.response.container.organizationId,
+      parentId: input.response.container.parentId,
+      persistedMetadataState,
+      updatedAt: input.response.container.updatedAt,
+    },
+  };
+}
+
 async function createRemoteContainerWithMetadataDocumentAttempt(input: {
   readonly author: NonNullable<ReturnType<typeof resolveDocumentCreateAuthor>>;
   readonly containerEventId: string;
@@ -215,6 +305,7 @@ async function createRemoteContainerWithMetadataDocumentAttempt(input: {
   readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
   readonly runtime: ContainerWorkflowRuntime;
   readonly systemSlot?: ContainerSystemSlot | null | undefined;
+  readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<
   | {
       readonly ok: true;
@@ -237,6 +328,7 @@ async function createRemoteContainerWithMetadataDocumentAttempt(input: {
     parentSecretKey: input.parentSecretKey,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     signedAt: input.containerSignedAt,
+    stillCurrent: input.stillCurrent,
     warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
       input.runtime,
     ),
@@ -256,6 +348,7 @@ async function createRemoteContainerWithMetadataDocumentAttempt(input: {
       [containerPlan.plan.containerKeyEpochId, containerPlan.containerKey],
     ]),
     signedAt: input.metadataSignedAt,
+    stillCurrent: input.stillCurrent,
     targetSecretKey: input.parentSecretKey,
     trustedLocalProjection: true,
   });
@@ -266,57 +359,21 @@ async function createRemoteContainerWithMetadataDocumentAttempt(input: {
       metadataDocument: metadataDocumentPlan.plan.request,
     },
     runtime: input.runtime,
+    stillCurrent: input.stillCurrent,
   });
   if (!submitted || !submitted.ok) {
     return submitted;
   }
-
-  const response = submitted.response;
-  if (response.container.containerId !== containerPlan.plan.containerId) {
-    throw new Error("Container metadata create response container mismatch");
-  }
-  const metadataDocumentId = readContainerMutationMetadataDocumentId({
-    response: response.container,
-  });
-  if (
-    metadataDocumentId !== containerPlan.plan.metadataDocumentId ||
-    response.metadataDocument.id !== metadataDocumentPlan.plan.documentId
-  ) {
-    throw new Error("Container metadata create response document mismatch");
-  }
-  const persistedMetadataState = await acknowledgeContainerWithMetadata({
-    containerPlan: containerPlan.plan,
-    execSql,
-    metadataDocumentPlan: metadataDocumentPlan.plan,
-    response,
-  });
-
-  await seedMetadataDocumentWriterProjection({
+  return settleContainerWithMetadataCreate({
     childProjection,
+    containerPlan,
     execSql,
-    response,
+    metadataDocumentPlan,
+    response: submitted.response,
     runtime: input.runtime,
+    stillCurrent: input.stillCurrent,
+    systemSlot: input.systemSlot,
   });
-  seedChildContainerWriterProjection({
-    childProjection,
-    response,
-    runtime: input.runtime,
-  });
-
-  return {
-    ok: true,
-    state: {
-      accessManifestHash: response.container.manifestHead.manifestHash,
-      systemSlot: response.container.systemSlot ?? input.systemSlot ?? null,
-      containerId: response.container.containerId,
-      createdAt: response.container.createdAt,
-      metadataDocumentId,
-      organizationId: response.container.organizationId,
-      parentId: response.container.parentId,
-      persistedMetadataState,
-      updatedAt: response.container.updatedAt,
-    },
-  };
 }
 
 async function createContainerWithMetadataWithRepairs(
@@ -347,6 +404,7 @@ async function createContainerWithMetadataWithRepairs(
         failure: submitted,
         organizationId: parentProjection.organizationId,
         runtime: input.runtime,
+        stillCurrent: input.stillCurrent,
       }))
     ) {
       didRepairStalePolicies = true;
@@ -355,7 +413,8 @@ async function createContainerWithMetadataWithRepairs(
     if (
       !didRepairStaleParent &&
       isStaleParentContainerPathFailure(submitted) &&
-      apiClient.evictContainerWriterProjection
+      apiClient.evictContainerWriterProjection &&
+      input.stillCurrent?.() !== false
     ) {
       didRepairStaleParent = true;
       apiClient.evictContainerWriterProjection(input.parentContainerId);
@@ -365,6 +424,7 @@ async function createContainerWithMetadataWithRepairs(
       if (!refreshedProjection) {
         return null;
       }
+      if (input.stillCurrent?.() === false) return null;
       parentProjection = refreshedProjection;
       continue;
     }
@@ -376,7 +436,7 @@ async function createContainerWithMetadataWithRepairs(
       // manifest-exists handling on the document create path.
       return CONTAINER_ALREADY_COMMITTED;
     }
-    submitted.report();
+    reportContainerCreateFailureIfCurrent(submitted, input.stillCurrent);
     return null;
   }
 }
@@ -388,6 +448,7 @@ export async function createRemoteContainerWithMetadataDocument(input: {
   parentProjection?: ContainerWriterProjectionResponse | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<CreatedRemoteContainerState | ContainerAlreadyCommitted | null> {
   const author = resolveDocumentCreateAuthor(input.runtime);
   const { apiClient } = input.runtime;
@@ -433,6 +494,7 @@ export async function createRemoteContainerWithMetadataDocument(input: {
     parentSecretKey,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     runtime: input.runtime,
+    stillCurrent: input.stillCurrent,
     systemSlot: input.systemSlot,
   });
 }

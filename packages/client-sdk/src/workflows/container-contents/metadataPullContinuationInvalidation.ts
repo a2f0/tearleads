@@ -50,17 +50,20 @@ function metadataInvalidationStateMatches(input: {
 
 export async function invalidateContainerMetadataPullContinuation(input: {
   continuation: DocumentSyncPullContinuation;
+  isCurrent?: (() => boolean) | undefined;
   metadataState: ContainerMetadataState;
   persistence: ContainerContentsPersistence;
   runtime: ContainerContentsWorkflowSqlRuntime;
 }): Promise<void> {
   const { continuation, metadataState, runtime } = input;
+  if (input.isCurrent?.() === false) return;
   const { accessEpoch, documentId } = metadataState.record;
   if (!documentId) return;
 
   await runSerializedSqlMutation(
     runtime.infra.execSql,
     async (lockedExecSql) => {
+      if (input.isCurrent?.() === false) return;
       const durableRecord =
         await input.persistence.invalidateMetadataPullContinuation(
           lockedExecSql,
@@ -75,9 +78,11 @@ export async function invalidateContainerMetadataPullContinuation(input: {
             documentManifestBundle:
               metadataState.record.documentManifestBundle ?? null,
             lastCommitLsn: metadataState.record.lastCommitLsn ?? null,
+            stillCurrent: input.isCurrent,
           },
         );
       if (
+        input.isCurrent?.() === false ||
         !durableRecord ||
         !metadataInvalidationStateMatches({
           accessEpoch,

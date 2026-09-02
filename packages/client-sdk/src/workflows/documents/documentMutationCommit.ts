@@ -58,6 +58,7 @@ export interface PersistDocumentStateInput
     | undefined;
   canStartDurableMutation?: (() => boolean) | undefined;
   clearSyncFailure?: boolean | undefined;
+  commitSideEffect?: (transactionExecSql: ExecSql) => Promise<void>;
   containerId?: string | null | undefined;
   documentProjectors: DocumentProjectorRegistryInput;
   execSql: ExecSql;
@@ -426,8 +427,8 @@ async function commitOnePreparedDocumentMutation(input: {
         ? { stillCurrent: persistInput.canStartDurableMutation }
         : {}),
     },
-    (transactionExecSql, updatedAt) =>
-      saveDocumentClientProjection({
+    async (transactionExecSql, updatedAt) => {
+      await saveDocumentClientProjection({
         currentRecord: mutation.mutationCurrentRecord,
         documentProjectors: input.documentProjectors,
         documentState,
@@ -435,7 +436,9 @@ async function commitOnePreparedDocumentMutation(input: {
         localId: persistInput.localId,
         record,
         updatedAt,
-      }),
+      });
+      await persistInput.commitSideEffect?.(transactionExecSql);
+    },
   );
   return resolveDocumentMutationCommit({
     committed,

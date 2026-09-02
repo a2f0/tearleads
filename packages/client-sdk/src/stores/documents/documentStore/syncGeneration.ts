@@ -25,9 +25,16 @@ function getRemoteSyncGeneration(state: DocumentStoreState): number {
 }
 
 interface DocumentStoreGenerationIdentity {
+  readonly apiClient: DocumentStoreState["runtime"]["apiClient"];
+  readonly blobStore: DocumentStoreState["runtime"]["infra"]["blobStore"];
+  readonly containerId: DocumentStoreState["runtime"]["state"]["containerId"];
+  readonly documentProjectors: DocumentStoreState["runtime"]["infra"]["documentProjectors"];
   readonly domainScope: DocumentStoreState["runtime"]["state"]["domainScope"];
   readonly execSql: DocumentStoreState["runtime"]["infra"]["execSql"];
   readonly localWriteGeneration: number;
+  readonly organizationId: DocumentStoreState["runtime"]["auth"]["organizationId"];
+  readonly peerScope: DocumentStoreState["runtime"]["state"]["peerScope"];
+  readonly persistence: DocumentStoreState["persistence"];
   readonly resolveProjectionUserKey: DocumentProjectionUserKeyResolver;
 }
 
@@ -71,9 +78,16 @@ function captureDocumentStoreGenerationIdentity(
   state: DocumentStoreState,
 ): DocumentStoreGenerationIdentity {
   return {
+    apiClient: state.runtime.apiClient,
+    blobStore: state.runtime.infra.blobStore,
+    containerId: state.runtime.state.containerId,
+    documentProjectors: state.runtime.infra.documentProjectors,
     domainScope: state.runtime.state.domainScope,
     execSql: state.runtime.infra.execSql,
     localWriteGeneration: state.localWriteGeneration,
+    organizationId: state.runtime.auth?.organizationId,
+    peerScope: state.runtime.state.peerScope,
+    persistence: state.persistence,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
   };
 }
@@ -253,9 +267,16 @@ function documentStoreRemoteSyncRequestGenerationsMatch(
   right: DocumentStoreRemoteSyncRequestGeneration,
 ): boolean {
   return (
+    left.apiClient === right.apiClient &&
+    left.blobStore === right.blobStore &&
+    left.containerId === right.containerId &&
+    left.documentProjectors === right.documentProjectors &&
     left.domainScope === right.domainScope &&
     left.execSql === right.execSql &&
     left.localWriteGeneration === right.localWriteGeneration &&
+    left.organizationId === right.organizationId &&
+    left.peerScope === right.peerScope &&
+    left.persistence === right.persistence &&
     left.remoteSyncGeneration === right.remoteSyncGeneration &&
     left.resolveProjectionUserKey === right.resolveProjectionUserKey &&
     left.syncLaneGeneration === right.syncLaneGeneration &&
@@ -317,9 +338,16 @@ function isDocumentStoreGenerationIdentityCurrent(
   generation: DocumentStoreGenerationIdentity,
 ): boolean {
   return (
+    state.runtime.apiClient === generation.apiClient &&
+    state.runtime.infra.blobStore === generation.blobStore &&
+    state.runtime.state.containerId === generation.containerId &&
+    state.runtime.infra.documentProjectors === generation.documentProjectors &&
     state.runtime.state.domainScope === generation.domainScope &&
     state.runtime.infra.execSql === generation.execSql &&
     state.localWriteGeneration === generation.localWriteGeneration &&
+    state.runtime.auth?.organizationId === generation.organizationId &&
+    state.runtime.state.peerScope === generation.peerScope &&
+    state.persistence === generation.persistence &&
     state.resolveProjectionUserKey === generation.resolveProjectionUserKey &&
     (!hasDocumentStoreSyncLaneIdentity(generation) ||
       isDocumentStoreSyncLaneGenerationCurrent(state, generation))

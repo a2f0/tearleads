@@ -18,13 +18,16 @@ async function requestRuntimeTargetSync<TRuntime, TStore>(input: {
       runtime: TRuntime;
     }) => TStore;
   };
+  readonly isCurrent?: (() => boolean) | undefined;
   readonly requestStoreSync: (store: TStore) => void;
   readonly targets: ReadonlyArray<ContainerContentsDocumentRuntimeTarget>;
 }): Promise<ReadonlySet<string>> {
   const requestedLocalIds = new Set<string>();
   const runtimesByContainerId = new Map<string | null, TRuntime>();
+  const isCurrent = input.isCurrent ?? (() => true);
 
   for (const target of input.targets) {
+    if (!isCurrent()) return requestedLocalIds;
     if (requestedLocalIds.has(target.localId)) {
       continue;
     }
@@ -33,6 +36,7 @@ async function requestRuntimeTargetSync<TRuntime, TStore>(input: {
       requestedLocalIds.size % DOCUMENT_STORE_OPEN_CHUNK_SIZE === 0
     ) {
       await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      if (!isCurrent()) return requestedLocalIds;
     }
 
     let runtime = runtimesByContainerId.get(target.runtimeContainerId);
@@ -55,6 +59,7 @@ async function requestRuntimeTargetSync<TRuntime, TStore>(input: {
 
 export function requestDocumentRuntimeTargetSync<TRuntime>(input: {
   readonly host: ContainerDocumentPrimeHost<TRuntime>;
+  readonly isCurrent?: (() => boolean) | undefined;
   readonly targets: ReadonlyArray<ContainerContentsDocumentRuntimeTarget>;
 }): Promise<ReadonlySet<string>> {
   return requestRuntimeTargetSync({
@@ -69,6 +74,7 @@ export function requestDocumentRuntimeTargetSync<TRuntime>(input: {
 
 export function requestRemoteDocumentRuntimeTargetSync<TRuntime>(input: {
   readonly host: ContainerDocumentProbeHost<TRuntime>;
+  readonly isCurrent?: (() => boolean) | undefined;
   readonly targets: ReadonlyArray<ContainerContentsDocumentRuntimeTarget>;
 }): Promise<ReadonlySet<string>> {
   return requestRuntimeTargetSync({
