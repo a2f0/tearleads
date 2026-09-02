@@ -32,6 +32,7 @@ export {
   documentContentKeyTargets,
   documentContentWriteHeaders,
 } from "./documentContentKeys";
+export { documentInlineRekeyCommits } from "./documentInlineRekeyCommits";
 export {
   containerDocumentSyncTombstones,
   containerMetadataDocuments,

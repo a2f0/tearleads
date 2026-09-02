@@ -9,6 +9,7 @@ import { projectionVerificationOptions } from "../../data/documents/shared/types
 import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";
 import type { SyncRemoteDocumentInput } from "./readOnlySync";
 import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
+import { computeInlineRekeyCommitId } from "./syncRekeyCommit";
 
 function replaceRekeyedPathNode(input: {
   plan: MaterializedContainerRekeyPlan;
@@ -129,12 +130,24 @@ export async function buildRemoteDocumentSyncPlan(input: {
         writerProjection: input.projection,
       })
     : input.projection;
+  let inlineRekeyCommitId: string | undefined;
+  if (rekeyPlans?.length) {
+    const headPendingUpdate = input.pendingUpdates[0];
+    if (!headPendingUpdate) {
+      throw new Error("Document inline rekey pending queue is empty");
+    }
+    inlineRekeyCommitId = await computeInlineRekeyCommitId({
+      headPendingUpdateId: headPendingUpdate.id,
+      projection: input.projection,
+    });
+  }
   return buildMaterializedDocumentSyncPlan({
     author: input.sync.author,
     buildRotationSnapshot: input.sync.buildRotationSnapshot,
     containerRekeys: rekeyPlans?.map(({ plan }) => plan.request),
     execSql: input.sync.execSql,
     historyMode: input.sync.historyMode,
+    inlineRekeyCommitId,
     localVersionVector: input.sync.localVersionVector,
     minLsn: input.minLsn,
     onSyncTrace: input.sync.onSyncTrace,

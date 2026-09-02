@@ -217,6 +217,11 @@ function assertDocumentSyncRequestMode(
       "Document sync container rekeys require an outgoing update",
     );
   }
+  if (hasContainerRekeys !== (input.inlineRekeyCommitId !== undefined)) {
+    throw new Error(
+      "Document sync inline rekey commit id must accompany container rekeys",
+    );
+  }
 }
 
 export async function buildDocumentSyncPlan(
@@ -278,6 +283,9 @@ export async function buildDocumentSyncPlan(
     ...(input.historyMode === undefined
       ? {}
       : { historyMode: input.historyMode }),
+    ...(input.inlineRekeyCommitId === undefined
+      ? {}
+      : { inlineRekeyCommitId: input.inlineRekeyCommitId }),
     localVersionVector: input.localVersionVector,
     ...(input.minLsn === undefined ? {} : { minLsn: input.minLsn }),
     outgoingUpdates,

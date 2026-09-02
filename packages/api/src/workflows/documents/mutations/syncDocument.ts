@@ -31,35 +31,30 @@ import {
   applyContainerRekeys,
 } from "../../containers/mutations";
 import { loadSignerPublicKey } from "../../signerPublicKey";
-import {
-  appendDocumentUpdates,
-  assertInlineRekeyUpdatesAreNew,
-} from "./appendOutgoingUpdates";
+import { appendDocumentUpdates } from "./appendOutgoingUpdates";
 import {
   DocumentMutationError,
   documentSyncStateStale,
   toMutationError,
 } from "./errors";
 import { uniqueSortedContainerIds } from "./linkSetMutationLocks";
-import {
-  ensureDocumentExists,
-  touchDocumentAndLinkedContainers,
-} from "./shared/documentRows";
+import { touchDocumentAndLinkedContainers } from "./shared/documentRows";
 import { assertProvisionedDocumentInitialUpdate } from "./shared/provisionedInitialUpdate";
 import {
-  assertSyncContentKeyBundleMatchesRequest,
   toContentKeyBundleResponse,
   toDocumentKekTargetsResponse,
 } from "./shared/records";
 import { verifySyncWriteAuthorizationProof } from "./shared/verification";
 import { ensureSyncDocumentAccess } from "./syncAccess";
 import { resolveSyncContentKeyBundle } from "./syncContentKeyBundle";
+import { recordInlineRekeyCommit } from "./syncInlineRekeyCommit";
 import { resolveSyncPullPagePlan } from "./syncPullPagination";
 import {
   buildPaginatedSyncPullResponse,
   listMissingSyncUpdatesForResponse,
 } from "./syncPullResponse";
 import { assertSyncRotationBaselinesSound } from "./syncRotationAdvance";
+import { prepareSyncDocumentTransaction } from "./syncTransactionPreparation";
 import {
   lockSyncDocumentPullWatermark,
   lockSyncDocumentWriteFrontier,
@@ -177,23 +172,6 @@ function documentSyncHasWrites(request: DocumentSyncRequest): boolean {
   );
 }
 
-async function prepareSyncDocumentTransaction(input: {
-  readonly documentId: string;
-  readonly request: DocumentSyncRequest;
-  readonly tx: DatabaseTransaction;
-}): Promise<void> {
-  await ensureDocumentExists({
-    documentId: input.documentId,
-    executor: input.tx,
-  });
-  assertSyncContentKeyBundleMatchesRequest(input.request);
-  await assertInlineRekeyUpdatesAreNew({
-    documentId: input.documentId,
-    executor: input.tx,
-    request: input.request,
-  });
-}
-
 async function syncDocumentTransaction(input: {
   readonly cursorHmacKey: string | null;
   readonly documentId: string;
@@ -274,6 +252,11 @@ async function syncDocumentTransaction(input: {
     signingPublicKey: input.signingPublicKey,
     userId: input.userId,
     writeAuthorization,
+  });
+  await recordInlineRekeyCommit({
+    documentId: input.documentId,
+    executor: input.tx,
+    request: input.request,
   });
   await touchAcceptedSyncTargets({
     currentTargets,

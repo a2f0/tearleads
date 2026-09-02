@@ -12,6 +12,7 @@ import {
   documentContainerLinks,
   documentContentKeyEpochs,
   documentContentKeyTargets,
+  documentInlineRekeyCommits,
   documents,
   documentUpdateAuditEvents,
   documentUpdates,
@@ -1382,6 +1383,7 @@ test("POST /documents/:documentId/sync rolls back optional rekeys when write val
     root,
   });
   request.containerRekeys = [rekey.request];
+  request.inlineRekeyCommitId = "a".repeat(64);
 
   const syncResponse = await routeApp.request(`/documents/${created.id}/sync`, {
     method: "POST",
@@ -1417,6 +1419,7 @@ test("POST /documents/:documentId/sync rejects invalid optional container rekeys
     root,
   });
   request.containerRekeys = [rekey.request];
+  request.inlineRekeyCommitId = "b".repeat(64);
 
   const syncResponse = await routeApp.request(`/documents/${created.id}/sync`, {
     method: "POST",
@@ -1437,6 +1440,45 @@ test("POST /documents/:documentId/sync rejects invalid optional container rekeys
     db,
   );
   expect(currentRootEpoch?.id).toBe(root.kekState.containerKeyEpochId);
+});
+
+test("POST /documents/:documentId/sync authorizes before probing an inline rekey commit", async () => {
+  const owner = createTestUser();
+  const outsider = createTestUser();
+  await registerUser(owner);
+  await registerUser(outsider);
+  await authenticate(owner);
+  await authenticate(outsider);
+  const root = await bootstrapRoot(owner);
+  const created = await createDocument({ owner, root });
+  const rekey = await buildRootContainerRekeyMutation({
+    previous: root,
+    signer: owner,
+  });
+  const { request } = await createSignedDocumentSyncRequest({
+    created,
+    owner,
+    root,
+  });
+  const inlineRekeyCommitId = "c".repeat(64);
+  request.containerRekeys = [rekey.request];
+  request.inlineRekeyCommitId = inlineRekeyCommitId;
+  await db.insert(documentInlineRekeyCommits).values({
+    commitId: inlineRekeyCommitId,
+    documentId: created.id,
+  });
+
+  const response = await routeApp.request(`/documents/${created.id}/sync`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${outsider.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(request),
+  });
+
+  expect(response.status).toBe(403);
+  expect(await response.json()).toEqual({ error: "Forbidden" });
 });
 
 test("GET /documents/:documentId/writer-projection refreshes same-epoch root share targets", async () => {

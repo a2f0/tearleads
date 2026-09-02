@@ -378,6 +378,7 @@ export async function buildMaterializedDocumentSyncPlan(
     containerRekeys?: BuildDocumentSyncPlanInput["containerRekeys"];
     execSql?: ExecSql | undefined;
     historyMode?: "raw" | undefined;
+    inlineRekeyCommitId?: string | undefined;
     localVersionVector: string | null;
     minLsn?: string | undefined;
     pullCursor?: string | undefined;
@@ -474,6 +475,7 @@ export async function buildMaterializedDocumentSyncPlan(
     documentKekTargets,
     documentManifest,
     historyMode: input.historyMode,
+    inlineRekeyCommitId: input.inlineRekeyCommitId,
     localVersionVector: input.localVersionVector,
     minLsn: input.minLsn,
     outgoingUpdates,

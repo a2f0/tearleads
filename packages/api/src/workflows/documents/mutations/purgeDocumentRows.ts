@@ -15,6 +15,7 @@ import {
   documentContentKeyEpochs,
   documentContentKeyTargets,
   documentContentWriteHeaders,
+  documentInlineRekeyCommits,
   documentManifestObservations,
   documents,
   documentUpdateAuditEvents,
@@ -78,6 +79,9 @@ async function deleteDocumentContentRows(
   await executor
     .delete(documentContentWriteHeaders)
     .where(eq(documentContentWriteHeaders.documentId, documentId));
+  await executor
+    .delete(documentInlineRekeyCommits)
+    .where(eq(documentInlineRekeyCommits.documentId, documentId));
   await executor
     .delete(documentUpdateSpans)
     .where(eq(documentUpdateSpans.documentId, documentId));

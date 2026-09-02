@@ -326,6 +326,12 @@ test("document sync request mode preserves issue mapping", () => {
   expect(
     DocumentSyncRequestSchema.safeParse({
       ...valid,
+      containerRekeys: [createContainerMutation()],
+    }).success,
+  ).toBe(true);
+  expect(
+    DocumentSyncRequestSchema.safeParse({
+      ...valid,
       authorizingContainerPathRefs: undefined,
       containerRekeys: [],
       outgoingUpdates: [],

@@ -2641,6 +2641,12 @@
                             "const": "raw",
                             "description": "Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history"
                           },
+                          "inlineRekeyCommitId": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]+$",
+                            "type": "string"
+                          },
                           "localVersionVector": {
                             "anyOf": [
                               {
@@ -4187,6 +4193,12 @@
                             "const": "raw",
                             "description": "Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history"
                           },
+                          "inlineRekeyCommitId": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]+$",
+                            "type": "string"
+                          },
                           "localVersionVector": {
                             "anyOf": [
                               {
@@ -5468,6 +5480,12 @@
                             "type": "string",
                             "const": "raw",
                             "description": "Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history"
+                          },
+                          "inlineRekeyCommitId": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]+$",
+                            "type": "string"
                           },
                           "localVersionVector": {
                             "anyOf": [
@@ -6775,6 +6793,12 @@
                             "const": "raw",
                             "description": "Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history"
                           },
+                          "inlineRekeyCommitId": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]+$",
+                            "type": "string"
+                          },
                           "localVersionVector": {
                             "anyOf": [
                               {
@@ -7752,6 +7776,12 @@
                             "type": "string",
                             "const": "raw",
                             "description": "Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history"
+                          },
+                          "inlineRekeyCommitId": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]+$",
+                            "type": "string"
                           },
                           "localVersionVector": {
                             "anyOf": [
@@ -9060,6 +9090,12 @@
                               "type": "string",
                               "const": "raw",
                               "description": "Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history"
+                            },
+                            "inlineRekeyCommitId": {
+                              "maxLength": 64,
+                              "minLength": 64,
+                              "pattern": "^[0-9a-f]+$",
+                              "type": "string"
                             },
                             "localVersionVector": {
                               "anyOf": [
@@ -26873,6 +26909,12 @@
                     "type": "string",
                     "const": "raw",
                     "description": "Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history"
+                  },
+                  "inlineRekeyCommitId": {
+                    "maxLength": 64,
+                    "minLength": 64,
+                    "pattern": "^[0-9a-f]+$",
+                    "type": "string"
                   },
                   "localVersionVector": {
                     "anyOf": [
@@ -44999,6 +45041,12 @@
                             "const": "raw",
                             "description": "Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history"
                           },
+                          "inlineRekeyCommitId": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]+$",
+                            "type": "string"
+                          },
                           "localVersionVector": {
                             "anyOf": [
                               {
@@ -46545,6 +46593,12 @@
                             "const": "raw",
                             "description": "Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history"
                           },
+                          "inlineRekeyCommitId": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]+$",
+                            "type": "string"
+                          },
                           "localVersionVector": {
                             "anyOf": [
                               {
@@ -47826,6 +47880,12 @@
                             "type": "string",
                             "const": "raw",
                             "description": "Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history"
+                          },
+                          "inlineRekeyCommitId": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]+$",
+                            "type": "string"
                           },
                           "localVersionVector": {
                             "anyOf": [
@@ -49133,6 +49193,12 @@
                             "const": "raw",
                             "description": "Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history"
                           },
+                          "inlineRekeyCommitId": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]+$",
+                            "type": "string"
+                          },
                           "localVersionVector": {
                             "anyOf": [
                               {
@@ -50110,6 +50176,12 @@
                             "type": "string",
                             "const": "raw",
                             "description": "Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history"
+                          },
+                          "inlineRekeyCommitId": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]+$",
+                            "type": "string"
                           },
                           "localVersionVector": {
                             "anyOf": [
@@ -51418,6 +51490,12 @@
                               "type": "string",
                               "const": "raw",
                               "description": "Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history"
+                            },
+                            "inlineRekeyCommitId": {
+                              "maxLength": 64,
+                              "minLength": 64,
+                              "pattern": "^[0-9a-f]+$",
+                              "type": "string"
                             },
                             "localVersionVector": {
                               "anyOf": [

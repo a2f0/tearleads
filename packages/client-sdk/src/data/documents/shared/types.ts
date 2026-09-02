@@ -414,6 +414,7 @@ export interface BuildDocumentSyncPlanInput {
   documentKekTargets: DocumentSyncResponse["documentKekTargets"];
   documentManifest: DocumentCreateResponse["accessManifest"];
   historyMode?: "raw" | undefined;
+  inlineRekeyCommitId?: string | undefined;
   localVersionVector: string | null;
   minLsn?: string | undefined;
   outgoingUpdates?: readonly DocumentSyncPreparedUpdate[] | undefined;

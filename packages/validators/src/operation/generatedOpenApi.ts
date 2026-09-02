@@ -1763,6 +1763,7 @@ export interface operations {
                              * @constant
                              */
                             historyMode?: "raw";
+                            inlineRekeyCommitId?: string;
                             localVersionVector: string | null;
                             minLsn?: string;
                             outgoingUpdates: ({
@@ -2422,6 +2423,7 @@ export interface operations {
                              * @constant
                              */
                             historyMode?: "raw";
+                            inlineRekeyCommitId?: string;
                             localVersionVector: string | null;
                             minLsn?: string;
                             outgoingUpdates: ({
@@ -2865,6 +2867,7 @@ export interface operations {
                              * @constant
                              */
                             historyMode?: "raw";
+                            inlineRekeyCommitId?: string;
                             localVersionVector: string | null;
                             minLsn?: string;
                             outgoingUpdates: ({
@@ -3167,6 +3170,7 @@ export interface operations {
                              * @constant
                              */
                             historyMode?: "raw";
+                            inlineRekeyCommitId?: string;
                             localVersionVector: string | null;
                             minLsn?: string;
                             outgoingUpdates: ({
@@ -3645,6 +3649,7 @@ export interface operations {
                              * @constant
                              */
                             historyMode?: "raw";
+                            inlineRekeyCommitId?: string;
                             localVersionVector: string | null;
                             minLsn?: string;
                             outgoingUpdates: ({
@@ -3947,6 +3952,7 @@ export interface operations {
                              * @constant
                              */
                             historyMode?: "raw";
+                            inlineRekeyCommitId?: string;
                             localVersionVector: string | null;
                             minLsn?: string;
                             outgoingUpdates: ({
@@ -11624,6 +11630,7 @@ export interface operations {
                      * @constant
                      */
                     historyMode?: "raw";
+                    inlineRekeyCommitId?: string;
                     localVersionVector: string | null;
                     minLsn?: string;
                     outgoingUpdates: ({
@@ -13277,6 +13284,7 @@ export interface operations {
                              * @constant
                              */
                             historyMode?: "raw";
+                            inlineRekeyCommitId?: string;
                             localVersionVector: string | null;
                             minLsn?: string;
                             outgoingUpdates: ({
@@ -13936,6 +13944,7 @@ export interface operations {
                              * @constant
                              */
                             historyMode?: "raw";
+                            inlineRekeyCommitId?: string;
                             localVersionVector: string | null;
                             minLsn?: string;
                             outgoingUpdates: ({
@@ -14379,6 +14388,7 @@ export interface operations {
                              * @constant
                              */
                             historyMode?: "raw";
+                            inlineRekeyCommitId?: string;
                             localVersionVector: string | null;
                             minLsn?: string;
                             outgoingUpdates: ({
@@ -14681,6 +14691,7 @@ export interface operations {
                              * @constant
                              */
                             historyMode?: "raw";
+                            inlineRekeyCommitId?: string;
                             localVersionVector: string | null;
                             minLsn?: string;
                             outgoingUpdates: ({
@@ -15159,6 +15170,7 @@ export interface operations {
                              * @constant
                              */
                             historyMode?: "raw";
+                            inlineRekeyCommitId?: string;
                             localVersionVector: string | null;
                             minLsn?: string;
                             outgoingUpdates: ({
@@ -15461,6 +15473,7 @@ export interface operations {
                              * @constant
                              */
                             historyMode?: "raw";
+                            inlineRekeyCommitId?: string;
                             localVersionVector: string | null;
                             minLsn?: string;
                             outgoingUpdates: ({

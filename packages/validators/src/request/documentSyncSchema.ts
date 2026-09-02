@@ -27,6 +27,7 @@ import {
   plainObjectSchema,
   positiveIntegerSchema,
   requiredUnknownSchema,
+  sha256HexStringSchema,
 } from "../schema";
 import { AccessManifestBundleWireSchema } from "../util/accessManifestBundle";
 import { MAX_INLINE_CONTAINER_REKEYS } from "../util/containerKekKeyringWire";
@@ -206,6 +207,7 @@ export const DocumentSyncRequestSchema = registerJsonSchemaRuntimeRefinements(
         "Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history",
       )
       .optional(),
+    inlineRekeyCommitId: sha256HexStringSchema.optional(),
     localVersionVector: boundedStringSchema(
       MAX_DOCUMENT_SYNC_REQUEST_BYTES,
     ).nullable(),

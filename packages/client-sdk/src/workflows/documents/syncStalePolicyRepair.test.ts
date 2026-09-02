@@ -411,6 +411,7 @@ test("response-loss recovery does not commit a second inline rekey", async () =>
     await expect(runSync()).rejects.toThrow(
       "Simulated lost document sync response",
     );
+    pendingUpdates.push(createPendingUpdateRecord({ id: crypto.randomUUID() }));
     const synced = await runSync();
 
     expect(synced).not.toBeNull();
@@ -420,6 +421,17 @@ test("response-loss recovery does not commit a second inline rekey", async () =>
     expect(
       submittedRequests.map((request) => request.containerRekeys?.length ?? 0),
     ).toEqual([1, 1, 0]);
+    const firstCommitId = submittedRequests[0]?.inlineRekeyCommitId;
+    expect(firstCommitId).toHaveLength(64);
+    expect(
+      submittedRequests.map((request) => request.inlineRekeyCommitId),
+    ).toEqual([firstCommitId, firstCommitId, undefined]);
+    expect(submittedRequests[0]?.outgoingUpdates[0]?.id).not.toBe(
+      submittedRequests[1]?.outgoingUpdates[0]?.id,
+    );
+    expect(submittedRequests[1]?.outgoingUpdates).toHaveLength(
+      (submittedRequests[0]?.outgoingUpdates.length ?? 0) + 1,
+    );
   } finally {
     close();
   }
