@@ -115,3 +115,37 @@ That audit/history layer should align with
 The audit/history schema and verifier exist, and normal signed attachment
 mutations append attachment audit rows before live blob pruning can remove
 metadata needed by `blob_audit_objects`.
+
+## Operations
+
+Ansible installs `tearleads-blob-gc.service` and its persistent hourly timer.
+Provisioning fails unless the timer reports both `enabled` and `active`, and
+each API deployment repeats those checks after restarting the maintenance
+units. Each tier loads its secret `BLOB_GC_HEALTHCHECK_URL` from
+`.secrets/<tier>.healthchecks.env`; the project management API key is not
+deployed. The service sends Healthchecks start and success signals, while timer
+or service failure sends a failure signal through
+`tearleads-maintenance-alert@.service`. Missing success signals also detect a
+disabled timer, unreachable host, or terminated run. Healthchecks requests are
+best-effort so an unavailable monitoring provider cannot prevent reclamation,
+and carry no blob identifiers or application data. A local helper passes the
+secret ping endpoint to curl over standard input so it is not exposed in the
+process command line.
+
+The failure service also writes a local `daemon.alert` journal entry tagged
+`tearleads-maintenance-alert` with the failed unit name. Object-store cleanup
+failures remain durable for a later retry, including expired multipart stages,
+but make the current maintenance run fail rather than emitting a false success
+heartbeat. A missing GC executable is likewise a visible service failure rather
+than a silently skipped run. The alert unit runs without Linux capabilities and
+still writes the local journal alert if its optional monitoring configuration is
+missing or invalid.
+
+Check the schedule, the last collection result, and failure alerts with:
+
+```sh
+sudo systemctl status tearleads-blob-gc.timer
+sudo systemctl status tearleads-blob-gc.service
+sudo journalctl -u tearleads-blob-gc.service
+sudo journalctl -t tearleads-maintenance-alert
+```

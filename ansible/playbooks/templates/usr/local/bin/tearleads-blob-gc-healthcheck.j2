@@ -1,0 +1,30 @@
+#!/bin/sh
+# {{ ansible_managed }}
+set -eu
+
+case "${1:-}" in
+  start | fail)
+    endpoint="${BLOB_GC_HEALTHCHECK_URL}/$1"
+    ;;
+  success)
+    endpoint="$BLOB_GC_HEALTHCHECK_URL"
+    ;;
+  *)
+    echo "Usage: $(basename "$0") {start|success|fail}" >&2
+    exit 2
+    ;;
+esac
+
+# Keep the secret ping URL out of the process command line. The service account
+# receives it through systemd's protected EnvironmentFile, and curl reads the
+# resolved endpoint from its standard-input configuration.
+printf 'url = "%s"\n' "$endpoint" | /usr/bin/curl \
+  --config - \
+  --fail \
+  --silent \
+  --show-error \
+  --output /dev/null \
+  --connect-timeout 5 \
+  --max-time 10 \
+  --retry 3 \
+  --retry-all-errors

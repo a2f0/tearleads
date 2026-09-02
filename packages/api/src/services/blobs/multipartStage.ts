@@ -38,6 +38,7 @@ interface CleanupExpiredBlobStagesResult {
   readonly deletedMultipartObjects: number;
   readonly deletedStages: number;
   readonly failedStages: number;
+  readonly failures: readonly unknown[];
   readonly scannedStages: number;
 }
 
@@ -148,7 +149,7 @@ export async function cleanupExpiredBlobStages(
   let abortedMultipartUploads = 0;
   let deletedMultipartObjects = 0;
   let deletedStages = 0;
-  let failedStages = 0;
+  const failures: unknown[] = [];
   const cleanedStageIds: string[] = [];
 
   for (const stage of stages) {
@@ -164,8 +165,8 @@ export async function cleanupExpiredBlobStages(
         deletedMultipartObjects += 1;
       }
       cleanedStageIds.push(stage.id);
-    } catch {
-      failedStages += 1;
+    } catch (error) {
+      failures.push(error);
     }
   }
 
@@ -181,7 +182,8 @@ export async function cleanupExpiredBlobStages(
     abortedMultipartUploads,
     deletedMultipartObjects,
     deletedStages,
-    failedStages,
+    failedStages: failures.length,
+    failures,
     scannedStages: stages.length,
   };
 }

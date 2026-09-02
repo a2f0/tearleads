@@ -1,4 +1,53 @@
 ---
+- name: Load blob GC monitoring configuration
+  ansible.builtin.set_fact:
+    blob_gc_healthcheck_url: >-
+      {{ lookup('env', 'BLOB_GC_HEALTHCHECK_URL') | default('', true) }}
+    blob_gc_healthcheck_url_valid: >-
+      {{
+        (lookup('env', 'BLOB_GC_HEALTHCHECK_URL') | default('', true))
+        is match('^https://hc-ping[.]com/[A-Za-z0-9_-]+$')
+      }}
+  no_log: true
+
+- name: Validate blob GC monitoring configuration
+  ansible.builtin.assert:
+    that:
+      - blob_gc_healthcheck_url_valid | bool
+    fail_msg: >-
+      Set BLOB_GC_HEALTHCHECK_URL in the tier Healthchecks secrets file.
+
+- name: Install blob GC monitoring client
+  ansible.builtin.apt:
+    name: curl
+    state: present
+
+- name: Deploy blob GC Healthchecks environment
+  ansible.builtin.template:
+    src: etc/tearleads/blob-gc-healthcheck.env.j2
+    dest: /etc/tearleads/blob-gc-healthcheck.env
+    owner: root
+    group: "{{ server_user }}"
+    mode: "0640"
+  no_log: true
+
+- name: Deploy blob GC Healthchecks client
+  ansible.builtin.template:
+    src: usr/local/bin/tearleads-blob-gc-healthcheck.j2
+    dest: /usr/local/bin/tearleads-blob-gc-healthcheck
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Deploy API maintenance failure alert service
+  ansible.builtin.template:
+    src: etc/systemd/system/tearleads-maintenance-alert@.service.j2
+    dest: /etc/systemd/system/tearleads-maintenance-alert@.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload systemd
+
 - name: Deploy blob GC systemd service
   ansible.builtin.template:
     src: etc/systemd/system/tearleads-blob-gc.service.j2
@@ -23,6 +72,19 @@
     daemon_reload: true
     enabled: true
     state: started
+
+- name: Inspect blob GC systemd timer after enablement
+  ansible.builtin.systemd:
+    name: tearleads-blob-gc.timer
+  register: tearleads_blob_gc_timer
+  changed_when: false
+
+- name: Verify blob GC systemd timer
+  ansible.builtin.assert:
+    that:
+      - tearleads_blob_gc_timer.status.UnitFileState == "enabled"
+      - tearleads_blob_gc_timer.status.ActiveState == "active"
+    fail_msg: tearleads-blob-gc.timer must be enabled and active
 
 - name: Deploy Stripe seat sync systemd service
   ansible.builtin.template:
