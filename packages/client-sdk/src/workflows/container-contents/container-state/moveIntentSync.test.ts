@@ -383,6 +383,7 @@ test("an accepted remote move is not settled when local persistence observes del
   });
   child.doc = await createContainerMetadataDocument(child.container.id);
   const containersById = new Map([["child", child]]);
+  const reconciled: Array<string | null> = [];
   let settled = false;
   const persistence: ContainerMoveIntentSyncState["persistence"] = {
     ...defaultContainerContentsPersistence,
@@ -392,7 +393,6 @@ test("an accepted remote move is not settled when local persistence observes del
     },
   };
   const state = createMoveIntentSyncState({ containersById, persistence });
-
   const persisted = await persistAcceptedMoveIntent({
     host: {
       persistContainerState: async () => ({ status: "missing" }),
@@ -412,12 +412,12 @@ test("an accepted remote move is not settled when local persistence observes del
       parentId: "parent",
       updatedAt: "2026-05-31T00:01:00.000Z",
     },
-    requestRemoteReconciliation: () => {},
+    requestRemoteReconciliation: (parentId) => void reconciled.push(parentId),
     state,
   });
-
   expect(persisted).toBe(false);
   expect(settled).toBe(false);
+  expect(reconciled).toEqual(["parent"]);
 });
 
 test("a generation change during move persistence cannot settle on a replacement executor", async () => {

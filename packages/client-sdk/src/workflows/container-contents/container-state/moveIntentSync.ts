@@ -181,10 +181,9 @@ export async function persistAcceptedMoveIntent(input: {
       },
     },
   );
-  if (!input.isCurrent() || persistenceResult.status === "stale-generation") {
+  if (!input.isCurrent() || persistenceResult.status !== "persisted") {
     return abandon();
   }
-  if (persistenceResult.status !== "persisted") return false;
   const intentSettled = await settleAcceptedMoveIntentAfterPersistence({
     alreadySettled: persistenceResult.moveIntentSettled === true,
     execSql,

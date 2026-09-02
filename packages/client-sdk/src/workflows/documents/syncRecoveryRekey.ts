@@ -109,6 +109,7 @@ export async function rekeyUnsettledRecoveryPendingUpdates(input: {
   const rekeyedPendingUpdateIds: string[] = [];
   const exhaustedPendingUpdateIds: string[] = [];
   for (const [pendingUpdateId, record] of input.recoveryPendingUpdatesById) {
+    if (input.stillCurrent?.() === false) break;
     if (settled.has(pendingUpdateId)) {
       continue;
     }
@@ -137,6 +138,9 @@ export async function rekeyUnsettledRecoveryPendingUpdates(input: {
       rekeyedPendingUpdateIds.push(nextId);
     }
   }
+  if (input.stillCurrent?.() === false) {
+    return { exhaustedPendingUpdateIds: [], rekeyedPendingUpdateIds: [] };
+  }
   return { exhaustedPendingUpdateIds, rekeyedPendingUpdateIds };
 }
 
@@ -159,6 +163,9 @@ export async function rekeyAndReportUnsettledRecoveryPendingUpdates(
 }> {
   const { exhaustedPendingUpdateIds, rekeyedPendingUpdateIds } =
     await rekeyUnsettledRecoveryPendingUpdates(input);
+  if (input.stillCurrent?.() === false) {
+    return { exhaustedPendingUpdateCount: 0, rekeyedPendingUpdateIds: [] };
+  }
   if (exhaustedPendingUpdateIds.length > 0) {
     await input.onTerminalSubmitFailure?.(
       rekeyLimitSubmitFailure(exhaustedPendingUpdateIds.length),

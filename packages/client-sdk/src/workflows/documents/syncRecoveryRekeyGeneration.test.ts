@@ -4,10 +4,14 @@ import {
   enqueueDocumentPendingUpdate,
   ensureDocumentTables,
   listDocumentPendingUpdates,
+  MAX_PENDING_UPDATE_REKEYS,
   rekeyDocumentPendingUpdate,
 } from "../../data/sqlite/documentPersistence";
 import { runSerializedSqlMutation } from "../../data/sqlite/sqlSchema";
-import { rekeyUnsettledRecoveryPendingUpdates } from "./syncRecoveryRekey";
+import {
+  rekeyAndReportUnsettledRecoveryPendingUpdates,
+  rekeyUnsettledRecoveryPendingUpdates,
+} from "./syncRecoveryRekey";
 
 test("expired recovery cannot re-key after waiting for the SQL lock", async () => {
   const { close, execSql } = await createTestExecSql(
@@ -92,6 +96,79 @@ test("re-key rolls back when recovery expires before commit", async () => {
     expect(await listDocumentPendingUpdates(execSql, scope)).toEqual([
       expect.objectContaining({ id: pendingUpdateId, rekeyCount: 0 }),
     ]);
+  } finally {
+    close();
+  }
+});
+
+test("expired recovery does not classify exhausted pending updates", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "document-sync-recovery-expired-exhaustion",
+  );
+  try {
+    const result = await rekeyUnsettledRecoveryPendingUpdates({
+      execSql,
+      recoveryPendingUpdatesById: new Map([
+        [
+          "exhausted-update",
+          {
+            id: "exhausted-update",
+            partialEndVersionVector: "end",
+            partialStartVersionVector: "start",
+            rekeyCount: MAX_PENDING_UPDATE_REKEYS,
+            updateData: "data",
+          },
+        ],
+      ]),
+      settledPendingUpdateIds: [],
+      stillCurrent: () => false,
+    });
+
+    expect(result).toEqual({
+      exhaustedPendingUpdateIds: [],
+      rekeyedPendingUpdateIds: [],
+    });
+  } finally {
+    close();
+  }
+});
+
+test("expiration after exhaustion classification suppresses reporting", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "document-sync-recovery-expired-exhaustion-report",
+  );
+  try {
+    let currentChecks = 0;
+    let reportedFailures = 0;
+    const result = await rekeyAndReportUnsettledRecoveryPendingUpdates({
+      execSql,
+      onTerminalSubmitFailure: () => {
+        reportedFailures += 1;
+      },
+      recoveryPendingUpdatesById: new Map([
+        [
+          "exhausted-update",
+          {
+            id: "exhausted-update",
+            partialEndVersionVector: "end",
+            partialStartVersionVector: "start",
+            rekeyCount: MAX_PENDING_UPDATE_REKEYS,
+            updateData: "data",
+          },
+        ],
+      ]),
+      settledPendingUpdateIds: [],
+      stillCurrent: () => {
+        currentChecks += 1;
+        return currentChecks < 3;
+      },
+    });
+
+    expect(result).toEqual({
+      exhaustedPendingUpdateCount: 0,
+      rekeyedPendingUpdateIds: [],
+    });
+    expect(reportedFailures).toBe(0);
   } finally {
     close();
   }
