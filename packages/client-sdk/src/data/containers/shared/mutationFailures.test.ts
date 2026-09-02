@@ -73,7 +73,7 @@ test("container lost-response adoption requires exact behavior codes", () => {
         "Diagnostic changed",
       ),
     ),
-  ).toBe(true);
+  ).toBe(false);
   expect(
     isContainerManifestAlreadyExistsConflict(
       failure(undefined, "Container manifest already exists"),

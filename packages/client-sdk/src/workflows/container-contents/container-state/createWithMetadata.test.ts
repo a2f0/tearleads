@@ -398,15 +398,15 @@ test("container-with-metadata adopts a lost-response create instead of reporting
   expect(submitCount).toBe(1);
 });
 
-test("container-with-metadata adopts a lost-response create instead of reporting the metadata-document conflict", async () => {
-  // The container step can succeed while the metadata-document head already
-  // exists, so the server surfaces the document-domain wording. It is the same
-  // benign idempotent-retry conflict and must be handled identically.
+test("container-with-metadata reports a metadata-document conflict as terminal", async () => {
+  // The server transaction rolls back its newly created container when the
+  // metadata document already exists. The document code therefore cannot prove
+  // a lost response committed both artifacts and must not trigger hydration.
   const { reported, result } = await runManifestAlreadyExistsCreate(
     "Document manifest already exists",
     DOCUMENT_MUTATION_ERROR_CODES.manifestAlreadyExists,
   );
 
-  expect(result).toBe(CONTAINER_ALREADY_COMMITTED);
-  expect(reported).toBe(false);
+  expect(result).toBeNull();
+  expect(reported).toBe(true);
 });
