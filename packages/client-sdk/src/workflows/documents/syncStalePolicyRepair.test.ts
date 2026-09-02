@@ -40,7 +40,7 @@ function containerRekey(policyGeneration: number): ContainerMutationRequest {
 }
 const POLICY_BUNDLE = {} as PrincipalPolicyBundleResponse;
 
-test("syncRemoteDocument caches stale policies before replanning inline rekeys", async () => {
+test("syncRemoteDocument retries failed chained rekeys after caching stale policies", async () => {
   const {
     author,
     resolveProjectionUserKey,
@@ -141,23 +141,36 @@ test("syncRemoteDocument caches stale policies before replanning inline rekeys",
         },
       },
       author,
-      buildContainerRekeys: async (currentProjection) => {
+      buildContainerRekeys: async (currentProjection, verification) => {
         rekeyBuildCount += 1;
         events.push(`build-rekey-${rekeyBuildCount}`);
         expect(policiesCached).toBe(rekeyBuildCount > 1);
+        expect(verification.persistVerificationCheckpoints).toBe(false);
         const previousProjection =
           currentProjection.authorizingContainerPaths[0];
         if (!previousProjection) {
           throw new Error("Expected an authorizing container projection");
         }
-        const rekey = await buildMaterializedContainerRekeyPlan({
+        const firstRekey = await buildMaterializedContainerRekeyPlan({
           author,
           execSql,
+          ...verification,
           previousProjection,
           resolveProjectionUserKey,
           targetSecretKey: secretKey,
         });
-        rekeyManifestHashes.push(rekey.plan.manifestHash);
+        const rekey = await buildMaterializedContainerRekeyPlan({
+          author,
+          execSql,
+          ...verification,
+          previousProjection: firstRekey.writerProjection,
+          resolveProjectionUserKey,
+          targetSecretKey: secretKey,
+        });
+        rekeyManifestHashes.push(
+          firstRekey.plan.manifestHash,
+          rekey.plan.manifestHash,
+        );
         const nextKek = rekey.writerProjection.containerKeks.at(-1);
         if (!nextKek) {
           throw new Error("Expected a rekeyed container KEK");
@@ -168,7 +181,7 @@ test("syncRemoteDocument caches stale policies before replanning inline rekeys",
           containerKeyEpochId: nextKek.containerKeyEpochId,
           containerManifestHash: rekey.plan.manifestHash,
         };
-        return [rekey];
+        return [firstRekey, rekey];
       },
       buildRotationSnapshot: createFullHistoryRotationSnapshot,
       documentId: writerProjection.documentId,
@@ -183,8 +196,8 @@ test("syncRemoteDocument caches stale policies before replanning inline rekeys",
 
     expect(synced?.persistedState.documentId).toBe(writerProjection.documentId);
     expect(submittedRequests).toHaveLength(2);
-    expect(rekeyManifestHashes).toHaveLength(2);
-    expect(rekeyManifestHashes[0]).not.toBe(rekeyManifestHashes[1]);
+    expect(rekeyManifestHashes).toHaveLength(4);
+    expect(rekeyManifestHashes[0]).not.toBe(rekeyManifestHashes[2]);
     expect(events).toEqual([
       "get-projection-1",
       "build-rekey-1",
@@ -284,7 +297,7 @@ test("update-id recovery skips inline rekeys on its read-only attempt", async ()
         },
       },
       author,
-      buildContainerRekeys: async (currentProjection) => {
+      buildContainerRekeys: async (currentProjection, verification) => {
         rekeyBuildCount += 1;
         const previousProjection =
           currentProjection.authorizingContainerPaths[0];
@@ -295,6 +308,7 @@ test("update-id recovery skips inline rekeys on its read-only attempt", async ()
           await buildMaterializedContainerRekeyPlan({
             author,
             execSql,
+            ...verification,
             previousProjection,
             resolveProjectionUserKey,
             targetSecretKey: secretKey,

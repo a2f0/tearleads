@@ -17,11 +17,10 @@ import type {
 import type { ExecSql } from "../sqlite/sqlSchema";
 import { addBundleByHash } from "./bundleVerification";
 import {
-  commitProjectionCheckpoints,
   createProjectionCheckpointContext,
+  finalizeProjectionCheckpoints,
   observeAccessManifestCheckpoints,
   type ProjectionCheckpointContext,
-  validateProjectionCheckpoints,
 } from "./checkpointContext";
 import { verifyContainerManifestBundle } from "./containerManifestVerification";
 import { rethrowProjectionVerificationBoundaryError } from "./error";
@@ -357,11 +356,7 @@ export async function verifyContainerWriterProjection(
       checkpointContext,
     );
     assertProjectionVerificationCurrent(input.stillCurrent);
-    if (input.persistVerificationCheckpoints !== false) {
-      await commitProjectionCheckpoints(checkpointContext, input);
-    } else {
-      await validateProjectionCheckpoints(checkpointContext, input);
-    }
+    await finalizeProjectionCheckpoints(checkpointContext, input);
     assertProjectionVerificationCurrent(input.stillCurrent);
     return verifiedPath;
   } catch (error) {
@@ -378,6 +373,7 @@ export async function verifyContainerWriterProjection(
 
 export async function collectContainerWriterProjectionPrincipalPolicies(input: {
   readonly execSql: ExecSql;
+  readonly persistVerificationCheckpoints?: boolean | undefined;
   readonly principalPolicyCache?: PrincipalPolicyCache | undefined;
   readonly projection: ContainerWriterProjectionResponse;
   readonly resolveUserKey: ProjectionUserKeyResolver;
@@ -419,7 +415,7 @@ export async function collectContainerWriterProjectionPrincipalPolicies(input: {
       warmReferencedPrincipalPolicies,
     });
     assertProjectionVerificationCurrent(input.stillCurrent);
-    await commitProjectionCheckpoints(checkpointContext, input);
+    await finalizeProjectionCheckpoints(checkpointContext, input);
     assertProjectionVerificationCurrent(input.stillCurrent);
     return policies;
   } catch (error) {

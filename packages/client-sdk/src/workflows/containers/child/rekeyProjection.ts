@@ -11,6 +11,14 @@ import {
   readCanonicalRecords,
 } from "../../../data/keyingCanonicalJson";
 
+const speculativeProjections = new WeakSet<ContainerWriterProjectionResponse>();
+
+export function isSpeculativeContainerWriterProjection(
+  projection: ContainerWriterProjectionResponse,
+): boolean {
+  return speculativeProjections.has(projection);
+}
+
 function recipientTargets(
   plan: MaterializedContainerRekeyPlan["plan"],
 ): ContainerKekRecipientTarget[] {
@@ -81,7 +89,7 @@ export async function containerWriterProjectionFromRekeyPlan(input: {
     wraps: readCanonicalRecords(plan.wraps, "Container rekey wraps"),
   };
 
-  return {
+  const projection = {
     ...input.previousProjection,
     path: [...input.previousProjection.path.slice(0, -1), nextManifest],
     containerKeks: [
@@ -89,4 +97,6 @@ export async function containerWriterProjectionFromRekeyPlan(input: {
       nextKek,
     ],
   };
+  speculativeProjections.add(projection);
+  return projection;
 }

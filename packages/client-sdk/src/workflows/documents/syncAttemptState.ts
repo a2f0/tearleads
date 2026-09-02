@@ -6,6 +6,7 @@ import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence"
 
 export type DocumentSyncContainerRekeyBuilder = (
   writerProjection: DocumentWriterProjectionResponse,
+  verification: { readonly persistVerificationCheckpoints: false },
 ) => Promise<readonly MaterializedContainerRekeyPlan[]>;
 
 export interface RemoteDocumentSyncAttemptState {

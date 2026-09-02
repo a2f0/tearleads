@@ -308,7 +308,7 @@ export async function syncDocumentWithInlineRootRekey(input: {
     const synced = await syncRemoteDocument({
       apiClient,
       author,
-      buildContainerRekeys: async (writerProjection) => {
+      buildContainerRekeys: async (writerProjection, verification) => {
         const previousProjection =
           writerProjection.authorizingContainerPaths.find(
             (projection) => projection.containerId === input.containerId,
@@ -319,6 +319,7 @@ export async function syncDocumentWithInlineRootRekey(input: {
         const rekey = await buildMaterializedContainerRekeyPlan({
           author,
           execSql,
+          ...verification,
           previousProjection,
           resolveProjectionUserKey: resolveTrustedUserIdentity,
           targetSecretKey: input.owner.kem.secretKey,

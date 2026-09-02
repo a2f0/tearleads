@@ -37,6 +37,7 @@ export async function resolveRotationContext(
   input: {
     author: ContainerMutationAuthor;
     execSql: ExecSql;
+    persistVerificationCheckpoints?: boolean | undefined;
     previousProjection: ContainerWriterProjectionResponse;
     resolveProjectionUserKey: ProjectionUserKeyResolver;
     stillCurrent?: (() => boolean) | undefined;
@@ -55,6 +56,7 @@ export async function resolveRotationContext(
 }> {
   const keksByEpochId = await unwrapContainerKekPath({
     execSql: input.execSql,
+    persistVerificationCheckpoints: input.persistVerificationCheckpoints,
     projection: input.previousProjection,
     secretKey: input.targetSecretKey,
     ...projectionVerificationOptions(input),

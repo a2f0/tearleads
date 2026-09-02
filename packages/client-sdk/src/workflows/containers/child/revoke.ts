@@ -95,6 +95,7 @@ function buildContainerRevokeRequest(input: {
 
 export async function collectContainerRevokePrincipalPolicies(input: {
   execSql: ExecSql;
+  persistVerificationCheckpoints?: boolean | undefined;
   previousProjection: ContainerWriterProjectionResponse;
   resolveUserKey: ProjectionUserKeyResolver;
   stillCurrent?: (() => boolean) | undefined;
@@ -103,6 +104,7 @@ export async function collectContainerRevokePrincipalPolicies(input: {
   return uniquePrincipalPolicies(
     await collectContainerWriterProjectionPrincipalPolicies({
       execSql: input.execSql,
+      persistVerificationCheckpoints: input.persistVerificationCheckpoints,
       projection: input.previousProjection,
       resolveUserKey: input.resolveUserKey,
       stillCurrent: input.stillCurrent,

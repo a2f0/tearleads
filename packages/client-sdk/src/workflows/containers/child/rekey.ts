@@ -53,7 +53,10 @@ import {
   readCanonicalRecordOrNull,
 } from "./mutationRequestCore";
 import { submitAcknowledgedContainerMutation } from "./mutationSubmit";
-import { containerWriterProjectionFromRekeyPlan } from "./rekeyProjection";
+import {
+  containerWriterProjectionFromRekeyPlan,
+  isSpeculativeContainerWriterProjection,
+} from "./rekeyProjection";
 import { collectContainerRevokePrincipalPolicies } from "./revoke";
 import { resolveRotationContext } from "./rotationContext";
 import { buildContainerRotationWraps } from "./rotationWraps";
@@ -189,6 +192,7 @@ interface RekeyPlanInput {
   eventId?: string | undefined;
   execSql: ExecSql;
   keyringEntriesOverride?: readonly ContainerKekKeyringEntry[] | undefined;
+  persistVerificationCheckpoints?: boolean | undefined;
   previousProjection: ContainerWriterProjectionResponse;
   replacementPrincipalPolicy?: VerifiedPrincipalPolicy | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
@@ -198,12 +202,19 @@ interface RekeyPlanInput {
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }
 
+function speculativeSafeRekeyInput(input: RekeyPlanInput): RekeyPlanInput {
+  return isSpeculativeContainerWriterProjection(input.previousProjection)
+    ? { ...input, persistVerificationCheckpoints: false }
+    : input;
+}
+
 async function collectRekeyPrincipalPolicies(
   input: RekeyPlanInput,
   resolveUserKey: ProjectionUserKeyResolver,
 ): Promise<VerifiedPrincipalPolicy[]> {
   const previousPolicies = await collectContainerRevokePrincipalPolicies({
     execSql: input.execSql,
+    persistVerificationCheckpoints: input.persistVerificationCheckpoints,
     previousProjection: input.previousProjection,
     resolveUserKey,
     stillCurrent: input.stillCurrent,
@@ -222,6 +233,7 @@ export async function buildMaterializedContainerRekeyPlan(
     input.resolveProjectionUserKey,
     "Remote container rekey",
   );
+  const planningInput = speculativeSafeRekeyInput(input);
   const containerKey = crypto.getRandomValues(new Uint8Array(32));
   const {
     parentKek,
@@ -229,7 +241,7 @@ export async function buildMaterializedContainerRekeyPlan(
     predecessorContainerKey,
     previousState,
     target,
-  } = await resolveRotationContext(input, "rekey");
+  } = await resolveRotationContext(planningInput, "rekey");
   const nextContainerKeyEpoch = target.kek.containerKeyEpoch + 1;
   const { containerKeyEpochId, keyring, predecessorBridge } =
     await buildRekeyRotationArtifacts({
@@ -241,7 +253,7 @@ export async function buildMaterializedContainerRekeyPlan(
       targetKek: target.kek,
     });
   const principalPolicies = await collectRekeyPrincipalPolicies(
-    input,
+    planningInput,
     resolveProjectionUserKey,
   );
   const referencedPrincipalHeads = refreshedPrincipalReferences({

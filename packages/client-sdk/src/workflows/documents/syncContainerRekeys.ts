@@ -119,7 +119,9 @@ export async function buildRemoteDocumentSyncPlan(input: {
   sync: SyncRemoteDocumentInput;
 }) {
   const rekeyPlans = input.pendingUpdates.length
-    ? await input.sync.buildContainerRekeys?.(input.projection)
+    ? await input.sync.buildContainerRekeys?.(input.projection, {
+        persistVerificationCheckpoints: false,
+      })
     : undefined;
   const writerProjection = rekeyPlans?.length
     ? await applyDocumentSyncContainerRekeys({

@@ -91,7 +91,7 @@ export async function commitProjectionCheckpoints(
 }
 
 /** Validates against the latest durable pins without persisting new heads. */
-export async function validateProjectionCheckpoints(
+async function validateProjectionCheckpoints(
   context: ProjectionCheckpointContext,
   input?: {
     readonly execSql?: ExecSql | undefined;
