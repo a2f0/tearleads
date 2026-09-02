@@ -45,10 +45,18 @@ export function createContainerWriterProjectionRoute({
           }),
         );
       } catch (error) {
-        return respondToStatusError(c, error, ContainerWriterProjectionError, {
-          code: CONTAINER_NOT_FOUND_ERROR_CODE,
-          status: 404,
-        });
+        return respondToStatusError(
+          c,
+          error,
+          ContainerWriterProjectionError,
+          error instanceof ContainerWriterProjectionError &&
+            error.code === CONTAINER_NOT_FOUND_ERROR_CODE
+            ? {
+                code: CONTAINER_NOT_FOUND_ERROR_CODE,
+                status: 404,
+              }
+            : undefined,
+        );
       }
     },
   );
