@@ -70,12 +70,13 @@ async function submitContainerWithMetadataDocument(input: {
     return result.ok ? { ok: true, response: result.data } : result;
   }
 
-  const createWithMetadata = apiClient.createContainerWithMetadataDocument;
-  if (!createWithMetadata) {
+  if (!apiClient.createContainerWithMetadataDocument) {
     return null;
   }
 
-  const response = await createWithMetadata(input.request);
+  const response = await apiClient.createContainerWithMetadataDocument(
+    input.request,
+  );
   return response ? { ok: true, response } : null;
 }
 
@@ -86,8 +87,9 @@ async function cacheStalePrincipalPolicyBundles(input: {
   readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<boolean> {
   const bundles = input.failure.stalePrincipalPolicies;
+  const apiClient = input.runtime.apiClient;
   const getCurrentPrincipalPolicy =
-    input.runtime.apiClient.getCurrentPrincipalPolicy;
+    apiClient.getCurrentPrincipalPolicy?.bind(apiClient);
   if (input.stillCurrent?.() === false) return false;
   if (!bundles || bundles.length === 0 || !getCurrentPrincipalPolicy) {
     return false;

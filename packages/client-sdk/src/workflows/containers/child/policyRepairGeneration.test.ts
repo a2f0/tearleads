@@ -82,3 +82,80 @@ test("stale-policy repair rolls back when its generation expires during verifica
     database.close();
   }
 });
+
+test("stale-policy repair preserves the API client receiver", async () => {
+  const database = await createTestExecSql(
+    "container-create-policy-repair-receiver",
+  );
+  const { author, signingPublicKey } = await createAuthor({
+    organizationId: "organization-1",
+    userId: "signer-user-1",
+  });
+  const memberKem = generateKemSeedAndKeyPair();
+  const signingKeyPair = {
+    signingPrivateKey: author.signerPrivateKey,
+    signingPublicKey,
+  };
+  const adminBundle = await policyBundleFromInitialRequest(
+    await buildInitialGroupPolicyRequest({
+      creatorEncapsulationKeyPair: memberKem,
+      groupId: "admins-group-1",
+      name: "Admins",
+      signerUserId: author.signerUserId,
+      signingFingerprint: author.signerKeyFingerprint,
+      signingKeyPair,
+    }),
+  );
+  const adminHead = principalPolicyHead(adminBundle);
+  if (adminHead.principalType !== "group") {
+    throw new Error("Expected a group policy authority");
+  }
+  const staleBundle = await policyBundleFromInitialRequest(
+    await buildInitialGroupPolicyRequest({
+      creatorEncapsulationKeyPair: memberKem,
+      externalAuthority: { ...adminHead, principalType: "group" },
+      groupId: "subject-group-1",
+      includeSignerAsAdmin: false,
+      name: "Subject",
+      signerUserId: author.signerUserId,
+      signingFingerprint: author.signerKeyFingerprint,
+      signingKeyPair,
+    }),
+  );
+  const apiClient = createMockApiClient();
+  let policyReceiver: unknown;
+  apiClient.getCurrentPrincipalPolicy = async function () {
+    policyReceiver = this;
+    return null;
+  };
+
+  try {
+    await expect(
+      cacheRemoteContainerCreatePolicyRepair({
+        apiClient,
+        execSql: database.execSql,
+        failure: {
+          message: "stale principal policy",
+          ok: false,
+          report: () => undefined,
+          stalePrincipalPolicies: [staleBundle],
+          status: 409,
+        },
+        organizationId: author.organizationId,
+        reportSecurityIncident: async () => undefined,
+        resolveTrustedUserIdentity: async (userId) =>
+          userId === author.signerUserId
+            ? createTestTrustedUserIdentity({
+                encapsulationPublicKey: memberKem.publicKey,
+                signingKeyFingerprint: author.signerKeyFingerprint,
+                signingPublicKey,
+                userId,
+              })
+            : null,
+      }),
+    ).rejects.toMatchObject({ name: "KeyingVerificationError" });
+    expect(policyReceiver).toBe(apiClient);
+  } finally {
+    database.close();
+  }
+});

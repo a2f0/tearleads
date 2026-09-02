@@ -239,7 +239,10 @@ export async function createRemoteContainer(input: {
   runtime: ContainerWorkflowRuntime;
   stillCurrent?: (() => boolean) | undefined;
 }): Promise<CreatedRemoteContainerState | ContainerAlreadyCommitted | null> {
-  if (input.runtime.apiClient.createContainerWithMetadataDocument) {
+  if (
+    input.runtime.apiClient.createContainerWithMetadataDocument ||
+    input.runtime.apiClient.createContainerWithMetadataDocumentResult
+  ) {
     return createRemoteContainerWithMetadataDocument(input);
   }
   if (input.systemSlot) {

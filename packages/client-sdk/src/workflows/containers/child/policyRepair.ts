@@ -31,7 +31,9 @@ export async function cacheRemoteContainerCreatePolicyRepair(input: {
   await cachePrincipalPolicyBundles({
     bundles,
     execSql: input.execSql,
-    getCurrentPrincipalPolicy: input.apiClient.getCurrentPrincipalPolicy,
+    getCurrentPrincipalPolicy: input.apiClient.getCurrentPrincipalPolicy.bind(
+      input.apiClient,
+    ),
     organizationId: input.organizationId,
     reportSecurityIncident: input.reportSecurityIncident,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
