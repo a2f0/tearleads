@@ -18,12 +18,18 @@ export {
   isChallengeResponse,
   isDestroySessionResponse,
   isListSessionsResponse,
+  isSessionRefreshRequiredFailure,
   isUserIdentityResponse,
   isUserSessionResponse,
   isVerifyResponse,
   isWebSocketTicketResponse,
   type ListSessionsResponse,
   ListSessionsResponseSchema,
+  SESSION_ERROR_CODES,
+  type SessionErrorCode,
+  SessionErrorCodeSchema,
+  type SessionFailureResponse,
+  SessionFailureResponseSchema,
   type UserIdentityResponse,
   UserIdentityResponseSchema,
   type UserSessionResponse,
@@ -108,6 +114,14 @@ export {
   isContainerCreateWithMetadataDocumentResponse,
 } from "./containerMetadata";
 export {
+  CONTAINER_MUTATION_ERROR_CODES,
+  ContainerMutationBehaviorErrorCodeSchema,
+  type ContainerMutationErrorCode,
+  ContainerMutationErrorCodeSchema,
+  type ContainerMutationFailureResponse,
+  ContainerMutationFailureResponseSchema,
+} from "./containerMutationError";
+export {
   isListContainerParentLanesResponse,
   type ListContainerParentLanesResponse,
   ListContainerParentLanesResponseSchema,
@@ -165,6 +179,14 @@ export {
   isDocumentWriterProjectionResponse,
 } from "./documentMutation";
 export {
+  DOCUMENT_MUTATION_ERROR_CODES,
+  DocumentMutationBehaviorErrorCodeSchema,
+  type DocumentMutationErrorCode,
+  DocumentMutationErrorCodeSchema,
+  type DocumentMutationFailureResponse,
+  DocumentMutationFailureResponseSchema,
+} from "./documentMutationError";
+export {
   DOCUMENT_NOT_FOUND_ERROR_CODE,
   DOCUMENT_PROJECTION_ERROR_CODES,
   DOCUMENT_SYNC_ERROR_CODES,
@@ -181,6 +203,7 @@ export {
   DocumentSyncStateStaleErrorResponseSchema,
   type DocumentWriterProjectionErrorResponse,
   DocumentWriterProjectionErrorResponseSchema,
+  isDocumentSyncErrorCode,
   isDocumentSyncErrorResponse,
   isDocumentSyncStateStaleErrorResponse,
 } from "./documentSyncError";

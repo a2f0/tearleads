@@ -202,6 +202,11 @@ Authentication uses challenge signing:
 4. Authenticated mutation routes require the session user and fingerprint to
  match the signer fields embedded in signed access events or write headers.
 
+A `401 session_refresh_required` response means the bearer token identified a
+missing, expired, or invalid stored session and permits the client to renew and
+replay a replayable request. Missing or malformed bearer credentials remain an
+uncoded terminal `401`; clients never infer refresh behavior from `error` text.
+
 The session authenticates the transport caller. Signed access events, signed
 principal states, and signed write headers are the protocol proofs that bind
 mutations and content records to cryptographic authority.
@@ -325,6 +330,13 @@ and cache those bundles before refetching the writer projection and replanning.
 `DELETE /containers/:containerId` is an authenticated admin-only structural
 operation for empty non-system leaf containers. It is not a signed access-event
 mutation and writes sync tombstones for discovery.
+
+Behavior-bearing container mutation conflicts use stable tags. A stale parent
+or concurrent mutation returns `409 container_mutation_state_stale`; a
+stable-id create retry returns `409 container_manifest_already_exists` (or
+`document_manifest_already_exists` when the compound metadata-document half
+already committed). Clients replan or adopt only on the exact status and code.
+Missing, malformed, and unknown tags are terminal.
 
 ## Document Link And Sync Protocol
 

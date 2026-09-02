@@ -12,7 +12,10 @@ import {
   type DocumentCreateRequest,
   isDocumentCreateRequest,
 } from "@tearleads/validators/request";
-import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
+import {
+  DOCUMENT_MUTATION_ERROR_CODES,
+  type DocumentWriterProjectionResponse,
+} from "@tearleads/validators/response";
 import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
@@ -263,10 +266,7 @@ test("createRemoteDocument adopts an existing remote document when a retry with 
     userId: author.signerUserId,
   });
 
-  // Simulates a server that already committed the create (from a first attempt
-  // whose response was lost): the first submit returns a network failure but
-  // records the committed document; the retry then 409s on the stable id. A
-  // holder object keeps the committed projection typed after the closure runs.
+  // Simulate a lost create response followed by a stable-id 409 retry.
   const server: {
     commitCount: number;
     committed: { projection: DocumentWriterProjectionResponse } | null;
@@ -280,8 +280,8 @@ test("createRemoteDocument adopts an existing remote document when a retry with 
     createDocumentResult: async (request: DocumentCreateRequest) => {
       if (server.committed) {
         return {
-          message:
-            "POST /documents: 409 Conflict: Document manifest already exists",
+          code: DOCUMENT_MUTATION_ERROR_CODES.manifestAlreadyExists,
+          message: "POST /documents: 409 Conflict: already exists",
           ok: false as const,
           report: () => {},
           status: 409,
@@ -390,8 +390,8 @@ test("createRemoteDocument does not report a conflict when adoption fails transi
       createDocument: async () => null,
       // Every submit 409s (the first attempt already committed remotely).
       createDocumentResult: async () => ({
-        message:
-          "POST /documents: 409 Conflict: Document manifest already exists",
+        code: DOCUMENT_MUTATION_ERROR_CODES.manifestAlreadyExists,
+        message: "POST /documents: 409 Conflict: already exists",
         ok: false as const,
         report: () => {
           reported = true;

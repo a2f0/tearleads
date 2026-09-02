@@ -3,6 +3,7 @@ import { ApiClient } from "@tearleads/api-client";
 import { documentSyncOperation } from "@tearleads/validators/operation";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import {
+  DOCUMENT_MUTATION_ERROR_CODES,
   DOCUMENT_NOT_FOUND_ERROR_CODE,
   DOCUMENT_SYNC_ERROR_CODES,
 } from "@tearleads/validators/response";
@@ -11,7 +12,11 @@ import {
   isUpstreamDeletedDocumentSyncFailure,
 } from "../../data/documents/shared/responses";
 import type { DocumentSyncSubmitFailure } from "../../data/documents/shared/types";
-import { isRecoverableDocumentUpdateIdConflict } from "./syncFailureClassification";
+import {
+  isCheckpointCoverageConflict,
+  isDocumentManifestAlreadyExistsConflict,
+  isRecoverableDocumentUpdateIdConflict,
+} from "./syncFailureClassification";
 
 function failure(
   code: string | undefined,
@@ -115,6 +120,71 @@ test("code-less update id conflicts fail closed — messages are diagnostics, no
   ).toBe(false);
   expect(
     isRecoverableDocumentUpdateIdConflict(failure(undefined, "Other words")),
+  ).toBe(false);
+});
+
+test("checkpoint regeneration requires the exact coverage code", () => {
+  expect(
+    isCheckpointCoverageConflict(
+      failure(
+        DOCUMENT_SYNC_ERROR_CODES.checkpointCoverageConflict,
+        "Diagnostic changed",
+      ),
+    ),
+  ).toBe(true);
+  expect(
+    isCheckpointCoverageConflict(
+      failure(
+        undefined,
+        "Document content-key rotation baseline does not cover the committed frontier",
+      ),
+    ),
+  ).toBe(false);
+  expect(
+    isCheckpointCoverageConflict(failure("unknown_code", "Diagnostic")),
+  ).toBe(false);
+  expect(
+    isCheckpointCoverageConflict(
+      failure(
+        ` ${DOCUMENT_SYNC_ERROR_CODES.checkpointCoverageConflict} `,
+        "Diagnostic",
+      ),
+    ),
+  ).toBe(false);
+  expect(
+    isCheckpointCoverageConflict(
+      failure(
+        DOCUMENT_SYNC_ERROR_CODES.checkpointCoverageConflict,
+        "Diagnostic",
+        503,
+      ),
+    ),
+  ).toBe(false);
+});
+
+test("document lost-response adoption requires the exact manifest code", () => {
+  expect(
+    isDocumentManifestAlreadyExistsConflict(
+      failure(
+        DOCUMENT_MUTATION_ERROR_CODES.manifestAlreadyExists,
+        "Diagnostic changed",
+      ),
+    ),
+  ).toBe(true);
+  expect(
+    isDocumentManifestAlreadyExistsConflict(
+      failure(undefined, "Document manifest already exists"),
+    ),
+  ).toBe(false);
+  expect(
+    isDocumentManifestAlreadyExistsConflict(
+      failure("unknown_code", "Document manifest already exists"),
+    ),
+  ).toBe(false);
+  expect(
+    isDocumentManifestAlreadyExistsConflict(
+      failure(DOCUMENT_MUTATION_ERROR_CODES.manifestAlreadyExists, "", 500),
+    ),
   ).toBe(false);
 });
 

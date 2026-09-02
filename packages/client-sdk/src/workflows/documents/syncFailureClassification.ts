@@ -1,5 +1,8 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
-import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
+import {
+  DOCUMENT_MUTATION_ERROR_CODES,
+  DOCUMENT_SYNC_ERROR_CODES,
+} from "@tearleads/validators/response";
 import {
   isRetryableDocumentSyncConflict,
   isUpstreamDeletedDocumentSyncFailure,
@@ -150,9 +153,7 @@ export function isCheckpointCoverageConflict(
 ): boolean {
   return (
     failure.status === 409 &&
-    failure.message.includes(
-      "Document content-key rotation baseline does not cover the committed frontier",
-    )
+    failure.code === DOCUMENT_SYNC_ERROR_CODES.checkpointCoverageConflict
   );
 }
 
@@ -163,12 +164,13 @@ export function isCheckpointCoverageConflict(
  * the existing remote document instead of creating a duplicate.
  */
 export function isDocumentManifestAlreadyExistsConflict(failure: {
+  readonly code?: string | undefined;
   readonly message: string;
   readonly status: number | null;
 }): boolean {
   return (
     failure.status === 409 &&
-    failure.message.includes("Document manifest already exists")
+    failure.code === DOCUMENT_MUTATION_ERROR_CODES.manifestAlreadyExists
   );
 }
 

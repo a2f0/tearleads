@@ -24,6 +24,7 @@ import {
   OrganizationProvisioningResponseSchema,
   OrganizationReadModelResponseSchema,
   PaymentRequiredErrorResponseSchema,
+  SessionFailureResponseSchema,
 } from "../response";
 import {
   operationRequestPath,
@@ -60,7 +61,7 @@ test("create organization operation owns its HTTP contract metadata", () => {
   });
   expect(createOrganizationOperation.failureResponses).toEqual({
     400: ErrorResponseSchema,
-    401: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
     403: ErrorResponseSchema,
     404: ErrorResponseSchema,
     409: ErrorResponseSchema,
@@ -91,7 +92,7 @@ test("get organization data usage operation owns its HTTP contract metadata", ()
   });
   expect(getOrganizationDataUsageOperation.failureResponses).toEqual({
     400: ErrorResponseSchema,
-    401: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
     403: ErrorResponseSchema,
     404: ErrorResponseSchema,
     500: ErrorResponseSchema,
@@ -127,7 +128,7 @@ test("organization read-model operation owns its HTTP contract", () => {
   });
   expect(getOrganizationReadModelOperation.failureResponses).toEqual({
     400: ErrorResponseSchema,
-    401: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
     403: ErrorResponseSchema,
     404: ErrorResponseSchema,
     500: ErrorResponseSchema,
@@ -193,7 +194,7 @@ test("organization management operations own their HTTP contracts", () => {
   });
   expect(createOrganizationGroupOperation.failureResponses).toEqual({
     400: ErrorResponseSchema,
-    401: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
     402: PaymentRequiredErrorResponseSchema,
     403: ErrorResponseSchema,
     404: ErrorResponseSchema,
@@ -213,7 +214,7 @@ test("organization management operations own their HTTP contracts", () => {
   });
   expect(deleteOrganizationGroupOperation.failureResponses).toEqual({
     400: ErrorResponseSchema,
-    401: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
     402: PaymentRequiredErrorResponseSchema,
     403: ErrorResponseSchema,
     404: ErrorResponseSchema,

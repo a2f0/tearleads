@@ -66,7 +66,9 @@ test("writer projection operation guards derive from the response schemas", () =
 test("document writer projection conflict codes remain explicit", () => {
   for (const code of [
     ...Object.values(DOCUMENT_PROJECTION_ERROR_CODES),
-    ...Object.values(DOCUMENT_SYNC_ERROR_CODES),
+    DOCUMENT_SYNC_ERROR_CODES.conflict,
+    DOCUMENT_SYNC_ERROR_CODES.stateStale,
+    DOCUMENT_SYNC_ERROR_CODES.updateIdConflict,
   ]) {
     expect(
       DocumentWriterProjectionErrorResponseSchema.safeParse({
@@ -75,6 +77,12 @@ test("document writer projection conflict codes remain explicit", () => {
       }).success,
     ).toBe(true);
   }
+  expect(
+    DocumentWriterProjectionErrorResponseSchema.safeParse({
+      code: DOCUMENT_SYNC_ERROR_CODES.checkpointCoverageConflict,
+      error: "Sync-only conflict",
+    }).success,
+  ).toBe(false);
   expect(
     DocumentWriterProjectionErrorResponseSchema.safeParse({
       code: "unknown",

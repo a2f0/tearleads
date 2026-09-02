@@ -1,9 +1,28 @@
 import { expect, test } from "bun:test";
+import { CONTAINER_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
 import {
+  containerManifestAlreadyExists,
   mutationStateStale,
   runConflictBoundary,
   toMutationError,
 } from "./errors";
+
+test("container behavior failures assign stable protocol codes", () => {
+  expect(mutationStateStale("Diagnostic changed")).toMatchObject({
+    body: {
+      code: CONTAINER_MUTATION_ERROR_CODES.stateStale,
+      error: "Diagnostic changed",
+    },
+    status: 409,
+  });
+  expect(containerManifestAlreadyExists()).toMatchObject({
+    body: {
+      code: CONTAINER_MUTATION_ERROR_CODES.manifestAlreadyExists,
+      error: "Container manifest already exists",
+    },
+    status: 409,
+  });
+});
 
 test("runConflictBoundary hides predecessor fork constraint details", async () => {
   const databaseError = Object.assign(new Error("duplicate key"), {

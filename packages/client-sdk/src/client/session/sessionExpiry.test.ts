@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { SESSION_ERROR_CODES } from "@tearleads/validators/response";
 import {
   quietLogger,
   setGeneratedIdentity,
@@ -39,7 +40,10 @@ describe("session expiry", () => {
         authorization === "Bearer stale-token"
       ) {
         return jsonResponse(
-          { error: "Session expired" },
+          {
+            code: SESSION_ERROR_CODES.refreshRequired,
+            error: "Session expired",
+          },
           { status: 401, statusText: "Unauthorized" },
         );
       }

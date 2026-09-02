@@ -9,7 +9,7 @@ import type { RequestBody, RequestResultOptions } from "./types";
 interface SessionRefreshInput {
   readonly authToken: string | null;
   readonly body: RequestBody | undefined;
-  readonly error: string | null;
+  readonly code: string | null;
   readonly getCurrentAuthToken: () => string | null;
   readonly options: RequestResultOptions;
   readonly refreshSession: () => boolean | Promise<boolean>;
@@ -28,7 +28,7 @@ export async function shouldRetryAfterSessionExpired(
     input.options.retryOnSessionExpired === false ||
     !input.authToken ||
     !isReplayableRequestBody(input.body) ||
-    !isRefreshableSessionError(input.responseStatus, input.error)
+    !isRefreshableSessionError(input.responseStatus, input.code)
   ) {
     return false;
   }

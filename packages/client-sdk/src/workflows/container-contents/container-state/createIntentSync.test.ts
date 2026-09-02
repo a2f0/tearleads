@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
+import { CONTAINER_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
 import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
@@ -152,6 +153,7 @@ test("container create sync heals lost-response conflicts with revision settleme
     createContainerWithMetadataDocumentResult: async () => {
       submitCount += 1;
       return {
+        code: CONTAINER_MUTATION_ERROR_CODES.manifestAlreadyExists,
         kind: "http" as const,
         message:
           "POST /containers/with-metadata-document: 409 Conflict: Container manifest already exists",

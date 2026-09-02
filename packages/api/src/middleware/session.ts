@@ -1,4 +1,5 @@
 import { bytesToHex, generateChallenge } from "@tearleads/crypto";
+import { SESSION_ERROR_CODES } from "@tearleads/validators/response";
 import type { Context, Next } from "hono";
 import { createMiddleware } from "hono/factory";
 import {
@@ -272,13 +273,25 @@ export function createRequireAuth(
       const sessionRaw = await getSession(sessionKey(token));
 
       if (!sessionRaw) {
-        return c.json({ error: "Session expired" }, 401);
+        return c.json(
+          {
+            code: SESSION_ERROR_CODES.refreshRequired,
+            error: "Session expired",
+          },
+          401,
+        );
       }
 
       const parsed = parseSessionData(sessionRaw);
 
       if (!parsed) {
-        return c.json({ error: "Invalid session data" }, 401);
+        return c.json(
+          {
+            code: SESSION_ERROR_CODES.refreshRequired,
+            error: "Invalid session data",
+          },
+          401,
+        );
       }
 
       const ipAddress = readRequestIpAddress(c);

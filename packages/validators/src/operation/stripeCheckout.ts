@@ -10,6 +10,7 @@ import {
   isStripeCheckoutOptionsResponse,
   isStripeCheckoutSessionResponse,
   isStripePortalResponse,
+  SessionFailureResponseSchema,
   StripeCancelResponseSchema,
   StripeCheckoutIntentResponseSchema,
   StripeCheckoutOptionsResponseSchema,
@@ -28,7 +29,7 @@ export type StripeCheckoutPathParams = z.infer<
 
 const baseFailureResponses = {
   400: ErrorResponseSchema,
-  401: ErrorResponseSchema,
+  401: SessionFailureResponseSchema,
   403: ErrorResponseSchema,
   404: ErrorResponseSchema,
   500: ErrorResponseSchema,

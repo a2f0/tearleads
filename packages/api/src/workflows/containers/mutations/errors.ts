@@ -1,5 +1,9 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
-import type { PrincipalPolicyStaleErrorResponse } from "@tearleads/validators/response";
+import {
+  CONTAINER_MUTATION_ERROR_CODES,
+  type ContainerMutationFailureResponse,
+  type PrincipalPolicyStaleErrorResponse,
+} from "@tearleads/validators/response";
 import { keyingVerificationHttpStatus } from "../../../keyingProjectionRecords";
 import {
   errorCauseChain,
@@ -11,7 +15,7 @@ import {
 import type { ContainerMutationStatus } from "./types";
 
 type ContainerMutationErrorBody =
-  | { readonly error: string }
+  | ContainerMutationFailureResponse
   | PrincipalPolicyStaleErrorResponse;
 
 type ContainerMutationErrorRecovery = "state_stale";
@@ -32,7 +36,23 @@ export function mutationStateStale(
   message: string,
   body?: ContainerMutationErrorBody,
 ): ContainerMutationError {
-  return new ContainerMutationError(message, 409, body, "state_stale");
+  return new ContainerMutationError(
+    message,
+    409,
+    body ?? {
+      code: CONTAINER_MUTATION_ERROR_CODES.stateStale,
+      error: message,
+    },
+    "state_stale",
+  );
+}
+
+export function containerManifestAlreadyExists(): ContainerMutationError {
+  const message = "Container manifest already exists";
+  return new ContainerMutationError(message, 409, {
+    code: CONTAINER_MUTATION_ERROR_CODES.manifestAlreadyExists,
+    error: message,
+  });
 }
 
 export function mutationShapeError(message: string): ContainerMutationError {

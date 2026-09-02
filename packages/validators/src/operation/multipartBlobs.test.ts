@@ -8,6 +8,7 @@ import {
   ErrorResponseSchema,
   InitiateMultipartBlobStageResponseSchema,
   MultipartBlobStageStatusResponseSchema,
+  SessionFailureResponseSchema,
 } from "../response";
 import { operationRequestPath, operationRoutePath } from "./definition";
 import {
@@ -49,7 +50,7 @@ test("multipart control operations own their shared HTTP contracts", () => {
   });
   expect(initiateMultipartBlobStageOperation.failureResponses).toEqual({
     400: ErrorResponseSchema,
-    401: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
     404: ErrorResponseSchema,
     409: ErrorResponseSchema,
     500: ErrorResponseSchema,
@@ -60,7 +61,7 @@ test("multipart control operations own their shared HTTP contracts", () => {
   ]) {
     expect(operation.failureResponses).toEqual({
       400: ErrorResponseSchema,
-      401: ErrorResponseSchema,
+      401: SessionFailureResponseSchema,
       403: ErrorResponseSchema,
       404: ErrorResponseSchema,
       409: ErrorResponseSchema,

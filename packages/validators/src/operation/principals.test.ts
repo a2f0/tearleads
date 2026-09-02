@@ -9,6 +9,7 @@ import {
   PaymentRequiredErrorResponseSchema,
   PrincipalPolicyBundleResponseSchema,
   PrincipalPolicyErrorResponseSchema,
+  SessionFailureResponseSchema,
 } from "../response";
 import { operationRequestPath, operationRoutePath } from "./definition";
 import {
@@ -32,7 +33,7 @@ test("principal policy operations own their HTTP contracts", () => {
   });
   expect(getPrincipalPolicyOperation.failureResponses).toEqual({
     400: PrincipalPolicyErrorResponseSchema,
-    401: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
     404: PrincipalPolicyErrorResponseSchema,
     500: ErrorResponseSchema,
   });
@@ -48,7 +49,7 @@ test("principal policy operations own their HTTP contracts", () => {
   });
   expect(putPrincipalPolicyOperation.failureResponses).toEqual({
     400: PrincipalPolicyErrorResponseSchema,
-    401: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
     403: PrincipalPolicyErrorResponseSchema,
     404: PrincipalPolicyErrorResponseSchema,
     409: PrincipalPolicyErrorResponseSchema,
@@ -68,7 +69,7 @@ test("compound organization group policy commits declare billing failures", () =
   });
   expect(commitOrganizationGroupPolicyOperation.failureResponses).toEqual({
     400: PrincipalPolicyErrorResponseSchema,
-    401: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
     402: PaymentRequiredErrorResponseSchema,
     403: PrincipalPolicyErrorResponseSchema,
     404: PrincipalPolicyErrorResponseSchema,

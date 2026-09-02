@@ -1108,6 +1108,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -4960,6 +4962,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -5026,6 +5030,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -5095,6 +5101,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -5258,6 +5266,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -5752,6 +5762,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -6017,6 +6029,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -6150,6 +6164,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -6272,6 +6288,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -6375,6 +6393,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -6496,6 +6516,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -6617,6 +6639,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -6926,6 +6950,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -6981,7 +7007,150 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        code?: (("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found")) | "principal_policy_stale";
                         error: string;
+                        principalPolicies?: ({
+                            currentGrants: ({
+                                /** @enum {string} */
+                                accessLevel: "admin" | "read" | "write";
+                                containerId: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            currentMemberEnvelopes: {
+                                envelopes: ({
+                                    kemCipherText: string;
+                                    memberKeyFingerprint: string;
+                                    userId: string;
+                                    wrappedKey: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                epoch: number;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            currentPayload: {
+                                /** @constant */
+                                cipherSuite: "aes-256-gcm";
+                                ciphertext: string;
+                                ciphertextHash: string;
+                                createdAt: string;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            currentProjection: ({
+                                /** @enum {string} */
+                                role: "member" | "admin";
+                                userId: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            currentState: {
+                                createdAt: string;
+                                encapsulationPublicKey: string;
+                                externalAuthority: ({
+                                    keyEpoch: number;
+                                    keyFingerprint: string;
+                                    principalId: string;
+                                    /** @constant */
+                                    principalType: "group";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                grantCount: number;
+                                grantRoot: string;
+                                keyEpoch: number;
+                                keyFingerprint: string;
+                                memberCount: number;
+                                memberEnvelopesRoot: string;
+                                /** @constant */
+                                membershipMode: "projection";
+                                membershipRoot: string;
+                                payloadCiphertextHash: string;
+                                prevStateHash: string | null;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                projectionRoot: string;
+                                signature: string;
+                                signedAt: string;
+                                signerUserId: string;
+                                signerUserKeyFingerprint: string;
+                                stateHash: string;
+                                version: number;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            previousStates: ({
+                                grants: ({
+                                    /** @enum {string} */
+                                    accessLevel: "admin" | "read" | "write";
+                                    containerId: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                projection: ({
+                                    /** @enum {string} */
+                                    role: "member" | "admin";
+                                    userId: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                state: {
+                                    createdAt: string;
+                                    encapsulationPublicKey: string;
+                                    externalAuthority: ({
+                                        keyEpoch: number;
+                                        keyFingerprint: string;
+                                        principalId: string;
+                                        /** @constant */
+                                        principalType: "group";
+                                        stateHash: string;
+                                        version: number;
+                                    } & {
+                                        [key: string]: unknown;
+                                    }) | null;
+                                    grantCount: number;
+                                    grantRoot: string;
+                                    keyEpoch: number;
+                                    keyFingerprint: string;
+                                    memberCount: number;
+                                    memberEnvelopesRoot: string;
+                                    /** @constant */
+                                    membershipMode: "projection";
+                                    membershipRoot: string;
+                                    payloadCiphertextHash: string;
+                                    prevStateHash: string | null;
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    projectionRoot: string;
+                                    signature: string;
+                                    signedAt: string;
+                                    signerUserId: string;
+                                    signerUserKeyFingerprint: string;
+                                    stateHash: string;
+                                    version: number;
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                        } & {
+                            [key: string]: unknown;
+                        })[];
                     } & {
                         [key: string]: unknown;
                     };
@@ -7047,6 +7216,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -7102,7 +7273,150 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        code?: (("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found")) | "principal_policy_stale";
                         error: string;
+                        principalPolicies?: ({
+                            currentGrants: ({
+                                /** @enum {string} */
+                                accessLevel: "admin" | "read" | "write";
+                                containerId: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            currentMemberEnvelopes: {
+                                envelopes: ({
+                                    kemCipherText: string;
+                                    memberKeyFingerprint: string;
+                                    userId: string;
+                                    wrappedKey: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                epoch: number;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            currentPayload: {
+                                /** @constant */
+                                cipherSuite: "aes-256-gcm";
+                                ciphertext: string;
+                                ciphertextHash: string;
+                                createdAt: string;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            currentProjection: ({
+                                /** @enum {string} */
+                                role: "member" | "admin";
+                                userId: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            currentState: {
+                                createdAt: string;
+                                encapsulationPublicKey: string;
+                                externalAuthority: ({
+                                    keyEpoch: number;
+                                    keyFingerprint: string;
+                                    principalId: string;
+                                    /** @constant */
+                                    principalType: "group";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                grantCount: number;
+                                grantRoot: string;
+                                keyEpoch: number;
+                                keyFingerprint: string;
+                                memberCount: number;
+                                memberEnvelopesRoot: string;
+                                /** @constant */
+                                membershipMode: "projection";
+                                membershipRoot: string;
+                                payloadCiphertextHash: string;
+                                prevStateHash: string | null;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                projectionRoot: string;
+                                signature: string;
+                                signedAt: string;
+                                signerUserId: string;
+                                signerUserKeyFingerprint: string;
+                                stateHash: string;
+                                version: number;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            previousStates: ({
+                                grants: ({
+                                    /** @enum {string} */
+                                    accessLevel: "admin" | "read" | "write";
+                                    containerId: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                projection: ({
+                                    /** @enum {string} */
+                                    role: "member" | "admin";
+                                    userId: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                state: {
+                                    createdAt: string;
+                                    encapsulationPublicKey: string;
+                                    externalAuthority: ({
+                                        keyEpoch: number;
+                                        keyFingerprint: string;
+                                        principalId: string;
+                                        /** @constant */
+                                        principalType: "group";
+                                        stateHash: string;
+                                        version: number;
+                                    } & {
+                                        [key: string]: unknown;
+                                    }) | null;
+                                    grantCount: number;
+                                    grantRoot: string;
+                                    keyEpoch: number;
+                                    keyFingerprint: string;
+                                    memberCount: number;
+                                    memberEnvelopesRoot: string;
+                                    /** @constant */
+                                    membershipMode: "projection";
+                                    membershipRoot: string;
+                                    payloadCiphertextHash: string;
+                                    prevStateHash: string | null;
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    projectionRoot: string;
+                                    signature: string;
+                                    signedAt: string;
+                                    signerUserId: string;
+                                    signerUserKeyFingerprint: string;
+                                    stateHash: string;
+                                    version: number;
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                        } & {
+                            [key: string]: unknown;
+                        })[];
                     } & {
                         [key: string]: unknown;
                     };
@@ -7207,6 +7521,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -7340,6 +7656,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -7651,6 +7969,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -7706,7 +8026,150 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        code?: (("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found")) | "principal_policy_stale";
                         error: string;
+                        principalPolicies?: ({
+                            currentGrants: ({
+                                /** @enum {string} */
+                                accessLevel: "admin" | "read" | "write";
+                                containerId: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            currentMemberEnvelopes: {
+                                envelopes: ({
+                                    kemCipherText: string;
+                                    memberKeyFingerprint: string;
+                                    userId: string;
+                                    wrappedKey: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                epoch: number;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            currentPayload: {
+                                /** @constant */
+                                cipherSuite: "aes-256-gcm";
+                                ciphertext: string;
+                                ciphertextHash: string;
+                                createdAt: string;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            currentProjection: ({
+                                /** @enum {string} */
+                                role: "member" | "admin";
+                                userId: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            currentState: {
+                                createdAt: string;
+                                encapsulationPublicKey: string;
+                                externalAuthority: ({
+                                    keyEpoch: number;
+                                    keyFingerprint: string;
+                                    principalId: string;
+                                    /** @constant */
+                                    principalType: "group";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                grantCount: number;
+                                grantRoot: string;
+                                keyEpoch: number;
+                                keyFingerprint: string;
+                                memberCount: number;
+                                memberEnvelopesRoot: string;
+                                /** @constant */
+                                membershipMode: "projection";
+                                membershipRoot: string;
+                                payloadCiphertextHash: string;
+                                prevStateHash: string | null;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                projectionRoot: string;
+                                signature: string;
+                                signedAt: string;
+                                signerUserId: string;
+                                signerUserKeyFingerprint: string;
+                                stateHash: string;
+                                version: number;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            previousStates: ({
+                                grants: ({
+                                    /** @enum {string} */
+                                    accessLevel: "admin" | "read" | "write";
+                                    containerId: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                projection: ({
+                                    /** @enum {string} */
+                                    role: "member" | "admin";
+                                    userId: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                state: {
+                                    createdAt: string;
+                                    encapsulationPublicKey: string;
+                                    externalAuthority: ({
+                                        keyEpoch: number;
+                                        keyFingerprint: string;
+                                        principalId: string;
+                                        /** @constant */
+                                        principalType: "group";
+                                        stateHash: string;
+                                        version: number;
+                                    } & {
+                                        [key: string]: unknown;
+                                    }) | null;
+                                    grantCount: number;
+                                    grantRoot: string;
+                                    keyEpoch: number;
+                                    keyFingerprint: string;
+                                    memberCount: number;
+                                    memberEnvelopesRoot: string;
+                                    /** @constant */
+                                    membershipMode: "projection";
+                                    membershipRoot: string;
+                                    payloadCiphertextHash: string;
+                                    prevStateHash: string | null;
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    projectionRoot: string;
+                                    signature: string;
+                                    signedAt: string;
+                                    signerUserId: string;
+                                    signerUserKeyFingerprint: string;
+                                    stateHash: string;
+                                    version: number;
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                        } & {
+                            [key: string]: unknown;
+                        })[];
                     } & {
                         [key: string]: unknown;
                     };
@@ -7978,6 +8441,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -8033,7 +8498,150 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        code?: (("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found")) | "principal_policy_stale";
                         error: string;
+                        principalPolicies?: ({
+                            currentGrants: ({
+                                /** @enum {string} */
+                                accessLevel: "admin" | "read" | "write";
+                                containerId: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            currentMemberEnvelopes: {
+                                envelopes: ({
+                                    kemCipherText: string;
+                                    memberKeyFingerprint: string;
+                                    userId: string;
+                                    wrappedKey: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                epoch: number;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            currentPayload: {
+                                /** @constant */
+                                cipherSuite: "aes-256-gcm";
+                                ciphertext: string;
+                                ciphertextHash: string;
+                                createdAt: string;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            currentProjection: ({
+                                /** @enum {string} */
+                                role: "member" | "admin";
+                                userId: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            currentState: {
+                                createdAt: string;
+                                encapsulationPublicKey: string;
+                                externalAuthority: ({
+                                    keyEpoch: number;
+                                    keyFingerprint: string;
+                                    principalId: string;
+                                    /** @constant */
+                                    principalType: "group";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                grantCount: number;
+                                grantRoot: string;
+                                keyEpoch: number;
+                                keyFingerprint: string;
+                                memberCount: number;
+                                memberEnvelopesRoot: string;
+                                /** @constant */
+                                membershipMode: "projection";
+                                membershipRoot: string;
+                                payloadCiphertextHash: string;
+                                prevStateHash: string | null;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                projectionRoot: string;
+                                signature: string;
+                                signedAt: string;
+                                signerUserId: string;
+                                signerUserKeyFingerprint: string;
+                                stateHash: string;
+                                version: number;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            previousStates: ({
+                                grants: ({
+                                    /** @enum {string} */
+                                    accessLevel: "admin" | "read" | "write";
+                                    containerId: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                projection: ({
+                                    /** @enum {string} */
+                                    role: "member" | "admin";
+                                    userId: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                state: {
+                                    createdAt: string;
+                                    encapsulationPublicKey: string;
+                                    externalAuthority: ({
+                                        keyEpoch: number;
+                                        keyFingerprint: string;
+                                        principalId: string;
+                                        /** @constant */
+                                        principalType: "group";
+                                        stateHash: string;
+                                        version: number;
+                                    } & {
+                                        [key: string]: unknown;
+                                    }) | null;
+                                    grantCount: number;
+                                    grantRoot: string;
+                                    keyEpoch: number;
+                                    keyFingerprint: string;
+                                    memberCount: number;
+                                    memberEnvelopesRoot: string;
+                                    /** @constant */
+                                    membershipMode: "projection";
+                                    membershipRoot: string;
+                                    payloadCiphertextHash: string;
+                                    prevStateHash: string | null;
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    projectionRoot: string;
+                                    signature: string;
+                                    signedAt: string;
+                                    signerUserId: string;
+                                    signerUserKeyFingerprint: string;
+                                    stateHash: string;
+                                    version: number;
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                        } & {
+                            [key: string]: unknown;
+                        })[];
                     } & {
                         [key: string]: unknown;
                     };
@@ -8305,6 +8913,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -8360,7 +8970,150 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        code?: (("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found")) | "principal_policy_stale";
                         error: string;
+                        principalPolicies?: ({
+                            currentGrants: ({
+                                /** @enum {string} */
+                                accessLevel: "admin" | "read" | "write";
+                                containerId: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            currentMemberEnvelopes: {
+                                envelopes: ({
+                                    kemCipherText: string;
+                                    memberKeyFingerprint: string;
+                                    userId: string;
+                                    wrappedKey: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                epoch: number;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            currentPayload: {
+                                /** @constant */
+                                cipherSuite: "aes-256-gcm";
+                                ciphertext: string;
+                                ciphertextHash: string;
+                                createdAt: string;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            currentProjection: ({
+                                /** @enum {string} */
+                                role: "member" | "admin";
+                                userId: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            currentState: {
+                                createdAt: string;
+                                encapsulationPublicKey: string;
+                                externalAuthority: ({
+                                    keyEpoch: number;
+                                    keyFingerprint: string;
+                                    principalId: string;
+                                    /** @constant */
+                                    principalType: "group";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                grantCount: number;
+                                grantRoot: string;
+                                keyEpoch: number;
+                                keyFingerprint: string;
+                                memberCount: number;
+                                memberEnvelopesRoot: string;
+                                /** @constant */
+                                membershipMode: "projection";
+                                membershipRoot: string;
+                                payloadCiphertextHash: string;
+                                prevStateHash: string | null;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                projectionRoot: string;
+                                signature: string;
+                                signedAt: string;
+                                signerUserId: string;
+                                signerUserKeyFingerprint: string;
+                                stateHash: string;
+                                version: number;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            previousStates: ({
+                                grants: ({
+                                    /** @enum {string} */
+                                    accessLevel: "admin" | "read" | "write";
+                                    containerId: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                projection: ({
+                                    /** @enum {string} */
+                                    role: "member" | "admin";
+                                    userId: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                state: {
+                                    createdAt: string;
+                                    encapsulationPublicKey: string;
+                                    externalAuthority: ({
+                                        keyEpoch: number;
+                                        keyFingerprint: string;
+                                        principalId: string;
+                                        /** @constant */
+                                        principalType: "group";
+                                        stateHash: string;
+                                        version: number;
+                                    } & {
+                                        [key: string]: unknown;
+                                    }) | null;
+                                    grantCount: number;
+                                    grantRoot: string;
+                                    keyEpoch: number;
+                                    keyFingerprint: string;
+                                    memberCount: number;
+                                    memberEnvelopesRoot: string;
+                                    /** @constant */
+                                    membershipMode: "projection";
+                                    membershipRoot: string;
+                                    payloadCiphertextHash: string;
+                                    prevStateHash: string | null;
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    projectionRoot: string;
+                                    signature: string;
+                                    signedAt: string;
+                                    signerUserId: string;
+                                    signerUserKeyFingerprint: string;
+                                    stateHash: string;
+                                    version: number;
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                        } & {
+                            [key: string]: unknown;
+                        })[];
                     } & {
                         [key: string]: unknown;
                     };
@@ -8632,6 +9385,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -8687,7 +9442,150 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        code?: (("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found")) | "principal_policy_stale";
                         error: string;
+                        principalPolicies?: ({
+                            currentGrants: ({
+                                /** @enum {string} */
+                                accessLevel: "admin" | "read" | "write";
+                                containerId: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            currentMemberEnvelopes: {
+                                envelopes: ({
+                                    kemCipherText: string;
+                                    memberKeyFingerprint: string;
+                                    userId: string;
+                                    wrappedKey: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                epoch: number;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            currentPayload: {
+                                /** @constant */
+                                cipherSuite: "aes-256-gcm";
+                                ciphertext: string;
+                                ciphertextHash: string;
+                                createdAt: string;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            currentProjection: ({
+                                /** @enum {string} */
+                                role: "member" | "admin";
+                                userId: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            currentState: {
+                                createdAt: string;
+                                encapsulationPublicKey: string;
+                                externalAuthority: ({
+                                    keyEpoch: number;
+                                    keyFingerprint: string;
+                                    principalId: string;
+                                    /** @constant */
+                                    principalType: "group";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                grantCount: number;
+                                grantRoot: string;
+                                keyEpoch: number;
+                                keyFingerprint: string;
+                                memberCount: number;
+                                memberEnvelopesRoot: string;
+                                /** @constant */
+                                membershipMode: "projection";
+                                membershipRoot: string;
+                                payloadCiphertextHash: string;
+                                prevStateHash: string | null;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                projectionRoot: string;
+                                signature: string;
+                                signedAt: string;
+                                signerUserId: string;
+                                signerUserKeyFingerprint: string;
+                                stateHash: string;
+                                version: number;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            previousStates: ({
+                                grants: ({
+                                    /** @enum {string} */
+                                    accessLevel: "admin" | "read" | "write";
+                                    containerId: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                projection: ({
+                                    /** @enum {string} */
+                                    role: "member" | "admin";
+                                    userId: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                state: {
+                                    createdAt: string;
+                                    encapsulationPublicKey: string;
+                                    externalAuthority: ({
+                                        keyEpoch: number;
+                                        keyFingerprint: string;
+                                        principalId: string;
+                                        /** @constant */
+                                        principalType: "group";
+                                        stateHash: string;
+                                        version: number;
+                                    } & {
+                                        [key: string]: unknown;
+                                    }) | null;
+                                    grantCount: number;
+                                    grantRoot: string;
+                                    keyEpoch: number;
+                                    keyFingerprint: string;
+                                    memberCount: number;
+                                    memberEnvelopesRoot: string;
+                                    /** @constant */
+                                    membershipMode: "projection";
+                                    membershipRoot: string;
+                                    payloadCiphertextHash: string;
+                                    prevStateHash: string | null;
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    projectionRoot: string;
+                                    signature: string;
+                                    signedAt: string;
+                                    signerUserId: string;
+                                    signerUserKeyFingerprint: string;
+                                    stateHash: string;
+                                    version: number;
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                        } & {
+                            [key: string]: unknown;
+                        })[];
                     } & {
                         [key: string]: unknown;
                     };
@@ -8824,6 +9722,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -8988,6 +9888,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -9493,6 +10395,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -9548,7 +10452,150 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        code?: (("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found")) | "principal_policy_stale";
                         error: string;
+                        principalPolicies?: ({
+                            currentGrants: ({
+                                /** @enum {string} */
+                                accessLevel: "admin" | "read" | "write";
+                                containerId: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            currentMemberEnvelopes: {
+                                envelopes: ({
+                                    kemCipherText: string;
+                                    memberKeyFingerprint: string;
+                                    userId: string;
+                                    wrappedKey: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                epoch: number;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            currentPayload: {
+                                /** @constant */
+                                cipherSuite: "aes-256-gcm";
+                                ciphertext: string;
+                                ciphertextHash: string;
+                                createdAt: string;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            currentProjection: ({
+                                /** @enum {string} */
+                                role: "member" | "admin";
+                                userId: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            currentState: {
+                                createdAt: string;
+                                encapsulationPublicKey: string;
+                                externalAuthority: ({
+                                    keyEpoch: number;
+                                    keyFingerprint: string;
+                                    principalId: string;
+                                    /** @constant */
+                                    principalType: "group";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                grantCount: number;
+                                grantRoot: string;
+                                keyEpoch: number;
+                                keyFingerprint: string;
+                                memberCount: number;
+                                memberEnvelopesRoot: string;
+                                /** @constant */
+                                membershipMode: "projection";
+                                membershipRoot: string;
+                                payloadCiphertextHash: string;
+                                prevStateHash: string | null;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                projectionRoot: string;
+                                signature: string;
+                                signedAt: string;
+                                signerUserId: string;
+                                signerUserKeyFingerprint: string;
+                                stateHash: string;
+                                version: number;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            previousStates: ({
+                                grants: ({
+                                    /** @enum {string} */
+                                    accessLevel: "admin" | "read" | "write";
+                                    containerId: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                projection: ({
+                                    /** @enum {string} */
+                                    role: "member" | "admin";
+                                    userId: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                state: {
+                                    createdAt: string;
+                                    encapsulationPublicKey: string;
+                                    externalAuthority: ({
+                                        keyEpoch: number;
+                                        keyFingerprint: string;
+                                        principalId: string;
+                                        /** @constant */
+                                        principalType: "group";
+                                        stateHash: string;
+                                        version: number;
+                                    } & {
+                                        [key: string]: unknown;
+                                    }) | null;
+                                    grantCount: number;
+                                    grantRoot: string;
+                                    keyEpoch: number;
+                                    keyFingerprint: string;
+                                    memberCount: number;
+                                    memberEnvelopesRoot: string;
+                                    /** @constant */
+                                    membershipMode: "projection";
+                                    membershipRoot: string;
+                                    payloadCiphertextHash: string;
+                                    prevStateHash: string | null;
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    projectionRoot: string;
+                                    signature: string;
+                                    signedAt: string;
+                                    signerUserId: string;
+                                    signerUserKeyFingerprint: string;
+                                    stateHash: string;
+                                    version: number;
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                        } & {
+                            [key: string]: unknown;
+                        })[];
                     } & {
                         [key: string]: unknown;
                     };
@@ -9848,6 +10895,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -9890,6 +10939,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -9903,6 +10953,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -10048,6 +11099,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -10183,6 +11236,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -10333,6 +11388,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -10663,6 +11720,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -10705,6 +11764,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -10718,6 +11778,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -11020,6 +12081,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -11062,6 +12125,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -11075,6 +12139,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -11393,6 +12458,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -11435,6 +12502,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -11448,6 +12516,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -11771,12 +12840,20 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Response without a declared body */
+            /** @description Failure JSON response */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
             };
             /** @description Response without a declared body */
             402: {
@@ -11815,7 +12892,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         /** @enum {string} */
-                        code: "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict";
+                        code: "document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict";
                         error: string;
                         principalPolicies?: ({
                             currentGrants: ({
@@ -12263,6 +13340,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -12305,6 +13384,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -12318,6 +13398,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -12587,6 +13668,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -16383,6 +17466,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -16514,6 +17599,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -16636,6 +17723,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -16729,6 +17818,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -16835,6 +17926,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -16963,6 +18056,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -17067,6 +18162,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -17172,6 +18269,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -17310,6 +18409,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -17439,6 +18540,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -17564,6 +18667,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -17682,6 +18787,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -17801,6 +18908,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -18520,6 +19629,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -19085,6 +20196,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -19231,6 +20344,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -20173,6 +21288,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -20323,6 +21440,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -20631,6 +21750,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -20744,6 +21865,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -20991,6 +22114,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -21493,6 +22618,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;

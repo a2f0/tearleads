@@ -9,6 +9,7 @@ import {
   isDocumentSyncStateStaleErrorResponse,
   isPaymentRequiredErrorResponse,
   isPrincipalPolicyStaleErrorResponse,
+  SESSION_ERROR_CODES,
 } from "@tearleads/validators/response";
 import type { ListContainerDocumentsOptions, RequestBody } from "./types";
 
@@ -282,12 +283,9 @@ export async function describeErrorResponse(
 
 export function isRefreshableSessionError(
   status: number,
-  error: string | null,
+  code: string | null,
 ): boolean {
-  return (
-    status === 401 &&
-    (error === "Session expired" || error === "Invalid session data")
-  );
+  return status === 401 && code === SESSION_ERROR_CODES.refreshRequired;
 }
 
 export function errorMessage(error: unknown): string {

@@ -12,6 +12,7 @@ import { getCurrentAccessManifestHead } from "../../../../access/read/accessMani
 import { readProjectionAccessManifest } from "../../../../keyingProjectionRecords";
 import {
   ContainerMutationError,
+  containerManifestAlreadyExists,
   mutationShapeError,
   mutationStateStale,
 } from "../errors";
@@ -148,10 +149,7 @@ export async function assertMutationHeadCanAdvance(
 
   if (manifest.event.event.eventType === "container.create") {
     if (currentHead) {
-      throw new ContainerMutationError(
-        "Container manifest already exists",
-        409,
-      );
+      throw containerManifestAlreadyExists();
     }
     return;
   }

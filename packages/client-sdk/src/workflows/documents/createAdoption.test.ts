@@ -4,6 +4,7 @@ import {
   createContainerWriterProjectionFixture,
   createTestExecSql,
 } from "@tearleads/test-utils";
+import { DOCUMENT_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
 import {
   createAuthor,
   createResponseFromRequest,
@@ -66,6 +67,7 @@ test("create conflict adoption rejects another container or organization", async
         apiClient: {
           createDocument: async () => null,
           createDocumentResult: async () => ({
+            code: DOCUMENT_MUTATION_ERROR_CODES.manifestAlreadyExists,
             message:
               "POST /documents: 409 Conflict: Document manifest already exists",
             ok: false as const,

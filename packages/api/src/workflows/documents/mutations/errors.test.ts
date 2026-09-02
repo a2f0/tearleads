@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
+import {
+  DOCUMENT_MUTATION_ERROR_CODES,
+  DOCUMENT_SYNC_ERROR_CODES,
+} from "@tearleads/validators/response";
 import { DocumentKekTargetError } from "../../../access/read/documentKekTargets";
 import {
   ContainerMutationError,
@@ -8,6 +11,7 @@ import {
 import { ContainerWriterProjectionError } from "../../containers/writerProjection/types";
 import {
   DocumentMutationError,
+  documentManifestAlreadyExists,
   documentSyncStateStale,
   documentUpdateIdConflict,
   toMutationError,
@@ -22,6 +26,11 @@ test("document sync conflict helpers assign stable protocol codes", () => {
   expect(documentUpdateIdConflict()).toMatchObject({
     code: DOCUMENT_SYNC_ERROR_CODES.updateIdConflict,
     message: "Document update id conflict",
+    status: 409,
+  });
+  expect(documentManifestAlreadyExists()).toMatchObject({
+    code: DOCUMENT_MUTATION_ERROR_CODES.manifestAlreadyExists,
+    message: "Document manifest already exists",
     status: 409,
   });
 });
