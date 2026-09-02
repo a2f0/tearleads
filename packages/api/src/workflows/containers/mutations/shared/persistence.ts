@@ -37,6 +37,7 @@ import {
 import { createContainerWriterProjectionContext } from "../../writerProjection";
 import {
   ContainerMutationError,
+  containerManifestAlreadyExists,
   mutationStateStale,
   runConflictBoundary,
 } from "../errors";
@@ -159,11 +160,10 @@ async function persistCreatedContainerStructure(
     });
 
   if (!inserted) {
-    throw new ContainerMutationError("Container already exists", 409);
+    throw containerManifestAlreadyExists();
   }
 
   await insertContainerMetadataBinding(executor, state);
-
   return {
     createdAt: inserted.createdAt,
     systemSlot: inserted.systemSlot,
