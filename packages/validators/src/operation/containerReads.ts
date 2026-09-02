@@ -15,6 +15,7 @@ import {
 } from "../request";
 import {
   ContainerKekLogResponseSchema,
+  ContainerNotFoundErrorResponseSchema,
   ErrorResponseSchema,
   isContainerKekLogResponse,
   isListContainerDocumentsResponse,
@@ -150,7 +151,10 @@ export const getContainerKekLogOperation = defineJsonOperation({
 
 export const listContainerDocumentsOperation = defineJsonOperation({
   auth: "session",
-  failureResponses: containerReadFailureResponses,
+  failureResponses: {
+    ...containerReadFailureResponses,
+    404: ContainerNotFoundErrorResponseSchema,
+  },
   failureStatuses: containerReadFailureStatuses,
   id: "containers.documents.list",
   method: "GET",

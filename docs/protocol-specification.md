@@ -191,6 +191,13 @@ state; disabled roster rows can remain visible without access. The organization
 principal policy remains signed principal state, but it is not the product role
 source for org-manager.
 
+Organization read-model and data-usage denials use
+`organization_presentation_access_denied` on both `403` and `404`. The shared
+code prevents the response from becoming an organization-existence oracle
+while giving clients exact authority to hide and purge that requester's local
+presentation projection. An uncoded, malformed, or unknown failure is
+ambiguous: clients report it and retain last-known-good data.
+
 Authentication uses challenge signing:
 
 1. `POST /auth/challenge` stores a short-lived challenge for a registered
@@ -330,6 +337,13 @@ and cache those bundles before refetching the writer projection and replanning.
 `DELETE /containers/:containerId` is an authenticated admin-only structural
 operation for empty non-system leaf containers. It is not a signed access-event
 mutation and writes sync tombstones for discovery.
+
+An absent target on delete, document listing, or writer-projection reads returns
+`404 container_not_found`. Clients may treat that exact status-and-code pair as
+permanent absence: delete installs a maximal anti-resurrection fence, document
+listing treats the container lane as unavailable, and restoration sweeps may
+purge retained dormant metadata. A bare, malformed, unknown, or wrong-status
+tag is not deletion authority and fails closed.
 
 Behavior-bearing container mutation conflicts use stable tags. A stale parent
 or concurrent mutation returns `409 container_mutation_state_stale`; a

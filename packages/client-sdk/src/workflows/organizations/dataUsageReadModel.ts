@@ -20,6 +20,7 @@ import {
   runOrganizationPresentationMutation,
   runOrganizationPresentationRead,
 } from "./organizationPresentationAccessState";
+import { isOrganizationPresentationAccessDeniedFailure } from "./organizationPresentationFailures";
 
 export type OrganizationDataUsage = OrganizationDataUsageResponse;
 
@@ -77,7 +78,7 @@ export async function reconcileOrganizationDataUsage(
     { reportErrors: false },
   );
   if (!result.ok) {
-    if (result.status === 403 || result.status === 404) {
+    if (isOrganizationPresentationAccessDeniedFailure(result)) {
       denyOrganizationPresentationAccess(input, ["usage"]);
       // Durable marker first: a failed purge plus a restart must not serve
       // the revoked usage projection.

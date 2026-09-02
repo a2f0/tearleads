@@ -7,6 +7,7 @@ import {
   createContainerParentLaneBatchMock,
   createMockApiClient,
 } from "@tearleads/test-utils";
+import { CONTAINER_NOT_FOUND_ERROR_CODE } from "@tearleads/validators/response";
 import {
   ensureContainerTables,
   ensureDocumentTables,
@@ -323,6 +324,7 @@ test("explorer store removes local remote containers when API delete returns 404
         deleteContainerResult: async (containerId: string) => {
           deletedContainerIds.push(containerId);
           return {
+            code: CONTAINER_NOT_FOUND_ERROR_CODE,
             kind: "http",
             message: `DELETE /containers/${containerId}: 404 Not Found`,
             method: "DELETE",

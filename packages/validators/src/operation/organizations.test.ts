@@ -20,6 +20,7 @@ import {
   OrganizationDataUsageResponseSchema,
   OrganizationDirectoryUserResponseSchema,
   OrganizationGroupMembersResponseSchema,
+  OrganizationPresentationFailureResponseSchema,
   OrganizationProfileResponseSchema,
   OrganizationProvisioningResponseSchema,
   OrganizationReadModelResponseSchema,
@@ -93,8 +94,8 @@ test("get organization data usage operation owns its HTTP contract metadata", ()
   expect(getOrganizationDataUsageOperation.failureResponses).toEqual({
     400: ErrorResponseSchema,
     401: SessionFailureResponseSchema,
-    403: ErrorResponseSchema,
-    404: ErrorResponseSchema,
+    403: OrganizationPresentationFailureResponseSchema,
+    404: OrganizationPresentationFailureResponseSchema,
     500: ErrorResponseSchema,
   });
 });
@@ -129,8 +130,8 @@ test("organization read-model operation owns its HTTP contract", () => {
   expect(getOrganizationReadModelOperation.failureResponses).toEqual({
     400: ErrorResponseSchema,
     401: SessionFailureResponseSchema,
-    403: ErrorResponseSchema,
-    404: ErrorResponseSchema,
+    403: OrganizationPresentationFailureResponseSchema,
+    404: OrganizationPresentationFailureResponseSchema,
     500: ErrorResponseSchema,
   });
 });

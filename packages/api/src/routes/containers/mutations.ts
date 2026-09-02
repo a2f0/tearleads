@@ -11,10 +11,11 @@ import {
   shareContainerOperation,
 } from "@tearleads/validators/operation";
 import type { ContainerCreateWithMetadataDocumentRequest } from "@tearleads/validators/request";
-import type {
-  ContainerCreateWithMetadataDocumentResponse,
-  ContainerDeleteResponse,
-  ContainerMutationResponse,
+import {
+  CONTAINER_NOT_FOUND_ERROR_CODE,
+  type ContainerCreateWithMetadataDocumentResponse,
+  type ContainerDeleteResponse,
+  type ContainerMutationResponse,
 } from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
@@ -233,7 +234,10 @@ export function createContainerMutationsRoute({
         }
         return c.json<ContainerDeleteResponse>(response);
       } catch (error) {
-        return respondToStatusError(c, error, DeleteContainerError);
+        return respondToStatusError(c, error, DeleteContainerError, {
+          code: CONTAINER_NOT_FOUND_ERROR_CODE,
+          status: 404,
+        });
       }
     },
   );

@@ -1,3 +1,4 @@
+import { isContainerNotFoundFailure } from "../../data/containers/shared/mutationFailures";
 import { getContainerContentsStoreLogLabel } from "./logLabel";
 import {
   type RemoteHydrationRequester,
@@ -83,7 +84,11 @@ async function probeContainerDeletion(
   if (!session.isCurrent()) {
     return "retry";
   }
-  if (!result.ok && result.kind === "http" && result.status === 404) {
+  if (
+    !result.ok &&
+    result.kind === "http" &&
+    isContainerNotFoundFailure(result)
+  ) {
     return "deleted";
   }
   if (!result.ok && result.status !== 403) {

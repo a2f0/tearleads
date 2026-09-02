@@ -9,15 +9,35 @@ import {
   ContainerMutationFailureResponseSchema,
 } from "./containerMutationError";
 import {
+  CONTAINER_NOT_FOUND_ERROR_CODE,
+  ContainerNotFoundErrorResponseSchema,
+} from "./containerNotFoundError";
+import {
   DOCUMENT_MUTATION_ERROR_CODES,
   DocumentMutationFailureResponseSchema,
 } from "./documentMutationError";
 import { DOCUMENT_SYNC_ERROR_CODES } from "./documentSyncError";
+import {
+  ORGANIZATION_PRESENTATION_ERROR_CODES,
+  OrganizationPresentationFailureResponseSchema,
+} from "./organizationPresentationError";
 
 test("behavior-bearing failure schemas accept every registered code", () => {
   expect(
     SessionFailureResponseSchema.safeParse({
       code: SESSION_ERROR_CODES.refreshRequired,
+      error: "Diagnostic",
+    }).success,
+  ).toBe(true);
+  expect(
+    ContainerNotFoundErrorResponseSchema.safeParse({
+      code: CONTAINER_NOT_FOUND_ERROR_CODE,
+      error: "Diagnostic",
+    }).success,
+  ).toBe(true);
+  expect(
+    OrganizationPresentationFailureResponseSchema.safeParse({
+      code: ORGANIZATION_PRESENTATION_ERROR_CODES.accessDenied,
       error: "Diagnostic",
     }).success,
   ).toBe(true);
@@ -92,6 +112,12 @@ test("malformed and unknown behavior tags fail schema validation", () => {
   for (const code of invalidCodes) {
     const failure = { code, error: "Diagnostic" };
     expect(SessionFailureResponseSchema.safeParse(failure).success).toBe(false);
+    expect(
+      ContainerNotFoundErrorResponseSchema.safeParse(failure).success,
+    ).toBe(false);
+    expect(
+      OrganizationPresentationFailureResponseSchema.safeParse(failure).success,
+    ).toBe(false);
     expect(
       DocumentMutationFailureResponseSchema.safeParse(failure).success,
     ).toBe(false);

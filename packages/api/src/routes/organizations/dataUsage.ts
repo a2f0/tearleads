@@ -9,7 +9,7 @@ import { getOrganizationDataUsage } from "../../services/organizations/orgManage
 import { pathParamsValidator } from "../../validators/pathParams";
 import {
   type OrganizationsRouterDeps,
-  toOrganizationManagerErrorResponse,
+  toOrganizationPresentationErrorResponse,
 } from "./shared";
 
 export function createOrganizationDataUsageRoute({
@@ -38,7 +38,7 @@ export function createOrganizationDataUsageRoute({
           ),
         );
       } catch (error) {
-        const response = toOrganizationManagerErrorResponse(error);
+        const response = toOrganizationPresentationErrorResponse(error);
         if (response) {
           return response;
         }

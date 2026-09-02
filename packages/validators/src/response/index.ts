@@ -122,6 +122,11 @@ export {
   ContainerMutationFailureResponseSchema,
 } from "./containerMutationError";
 export {
+  CONTAINER_NOT_FOUND_ERROR_CODE,
+  type ContainerNotFoundErrorResponse,
+  ContainerNotFoundErrorResponseSchema,
+} from "./containerNotFoundError";
+export {
   isListContainerParentLanesResponse,
   type ListContainerParentLanesResponse,
   ListContainerParentLanesResponseSchema,
@@ -326,6 +331,13 @@ export {
   type OrganizationNativePurchaseIneligibilityReason,
   OrganizationNativePurchaseIneligibilityReasonSchema,
 } from "./organizationNativePurchaseEligibility";
+export {
+  ORGANIZATION_PRESENTATION_ERROR_CODES,
+  type OrganizationPresentationErrorCode,
+  OrganizationPresentationErrorCodeSchema,
+  type OrganizationPresentationFailureResponse,
+  OrganizationPresentationFailureResponseSchema,
+} from "./organizationPresentationError";
 export {
   type CreateOrganizationResponse,
   isCreateOrganizationResponse,

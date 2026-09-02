@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { ORGANIZATION_PRESENTATION_ERROR_CODES } from "@tearleads/validators/response";
 import { dataUsage } from "../../../test/helpers/organizationReadModelFixtures";
 import {
   organizationReadModelFailure,
@@ -62,7 +63,11 @@ test("a failed purge cannot serve the revoked projection after a restart", async
       reconcileOrganizationDirectoryAndGroups({
         apiClient: {
           getOrganizationReadModelResult: async () =>
-            organizationReadModelFailure({ kind: "http", status: 403 }),
+            organizationReadModelFailure({
+              code: ORGANIZATION_PRESENTATION_ERROR_CODES.accessDenied,
+              kind: "http",
+              status: 403,
+            }),
         },
         currentUserId: requesterUserId,
         execSql,
@@ -183,7 +188,11 @@ test("a denied requester's purge keeps shared rows for another local identity", 
       reconcileOrganizationDirectoryAndGroups({
         apiClient: {
           getOrganizationReadModelResult: async () =>
-            organizationReadModelFailure({ kind: "http", status: 403 }),
+            organizationReadModelFailure({
+              code: ORGANIZATION_PRESENTATION_ERROR_CODES.accessDenied,
+              kind: "http",
+              status: 403,
+            }),
         },
         currentUserId: otherUserId,
         execSql,
@@ -256,7 +265,11 @@ test("a denied requester's purge keeps shared rows for another local identity", 
         reconcileOrganizationDirectoryAndGroups({
           apiClient: {
             getOrganizationReadModelResult: async () =>
-              organizationReadModelFailure({ kind: "http", status: 403 }),
+              organizationReadModelFailure({
+                code: ORGANIZATION_PRESENTATION_ERROR_CODES.accessDenied,
+                kind: "http",
+                status: 403,
+              }),
           },
           currentUserId: deniedUserId,
           execSql,

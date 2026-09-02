@@ -10,7 +10,7 @@ import { pathParamsValidator } from "../../validators/pathParams";
 import { queryParamsValidator } from "../../validators/queryParams";
 import {
   type OrganizationsRouterDeps,
-  toOrganizationManagerErrorResponse,
+  toOrganizationPresentationErrorResponse,
 } from "./shared";
 
 export function createOrganizationReadModelRoute({
@@ -43,7 +43,7 @@ export function createOrganizationReadModelRoute({
           ),
         );
       } catch (error) {
-        const response = toOrganizationManagerErrorResponse(error);
+        const response = toOrganizationPresentationErrorResponse(error);
         if (response) {
           return response;
         }

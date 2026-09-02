@@ -5,6 +5,7 @@ import {
   createMockApiClient,
   createTestExecSql,
 } from "@tearleads/test-utils";
+import { CONTAINER_NOT_FOUND_ERROR_CODE } from "@tearleads/validators/response";
 import { waitFor } from "../../../test/helpers/waitFor";
 import { createDomainScope } from "../../data/domainScope";
 import {
@@ -243,6 +244,7 @@ test("reset reloads and claims restoration cleanup in the replacement generation
         getContainerWriterProjectionResult: async () => {
           staleProjectionProbeCount += 1;
           return {
+            code: CONTAINER_NOT_FOUND_ERROR_CODE,
             kind: "http" as const,
             message: "missing",
             method: "GET" as const,
@@ -321,6 +323,7 @@ test("reset reloads and claims restoration cleanup in the replacement generation
       getContainerWriterProjectionResult: async () => {
         recoveredProjectionProbeCount += 1;
         return {
+          code: CONTAINER_NOT_FOUND_ERROR_CODE,
           kind: "http" as const,
           message: "missing",
           method: "GET" as const,
@@ -390,6 +393,7 @@ test("restoration sweep waits for a complete recursive hydration", async () => {
               ? 403
               : retryProbeStatus;
         return {
+          ...(status === 404 ? { code: CONTAINER_NOT_FOUND_ERROR_CODE } : {}),
           kind: "http" as const,
           message: `GET projection failed with ${status}`,
           method: "GET" as const,

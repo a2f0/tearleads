@@ -11,6 +11,7 @@ import {
   ContainerDeleteResponseSchema,
   ContainerMutationFailureResponseSchema,
   ContainerMutationResponseSchema,
+  ContainerNotFoundErrorResponseSchema,
   ErrorResponseSchema,
   isContainerCreateWithMetadataDocumentResponse,
   isContainerDeleteResponse,
@@ -119,7 +120,10 @@ export const moveContainerOperation = defineContainerMutationOperation({
 
 export const deleteContainerOperation = defineJsonOperation({
   auth: "session",
-  failureResponses: containerMutationFailureResponses,
+  failureResponses: {
+    ...containerMutationFailureResponses,
+    404: ContainerNotFoundErrorResponseSchema,
+  },
   failureStatuses: containerMutationFailureStatuses,
   id: "containers.delete",
   method: "DELETE",

@@ -6,6 +6,7 @@ import {
   ContainerMutationRequestSchema,
 } from "../request";
 import {
+  CONTAINER_NOT_FOUND_ERROR_CODE,
   ContainerCreateWithMetadataDocumentResponseSchema,
   ContainerDeleteResponseSchema,
   ContainerMutationResponseSchema,
@@ -64,6 +65,19 @@ test("container mutation operations own their complete wire metadata", () => {
     failureStatuses: standardFailureStatuses,
     method: "DELETE",
   });
+});
+
+test("container deletion absence has an exact behavior code", () => {
+  const schema = deleteContainerOperation.failureResponses[404];
+  expect(
+    schema.safeParse({
+      code: CONTAINER_NOT_FOUND_ERROR_CODE,
+      error: "Container not found",
+    }).success,
+  ).toBe(true);
+  expect(schema.safeParse({ error: "Container not found" }).success).toBe(
+    false,
+  );
 });
 
 test("container mutation operation guards derive from canonical schemas", () => {

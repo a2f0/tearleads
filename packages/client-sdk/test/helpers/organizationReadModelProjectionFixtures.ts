@@ -238,11 +238,13 @@ export function organizationReadModelGroupsDelta(input: {
 }
 
 export function organizationReadModelFailure(input: {
+  readonly code?: string | undefined;
   readonly kind: RequestFailure["kind"];
   readonly report?: () => void;
   readonly status: number | null;
 }): RequestFailure {
   return {
+    ...(input.code === undefined ? {} : { code: input.code }),
     kind: input.kind,
     message: `read-model ${input.kind} failure`,
     method: "GET",

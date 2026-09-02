@@ -1,8 +1,22 @@
 import {
   CONTAINER_MUTATION_ERROR_CODES,
+  CONTAINER_NOT_FOUND_ERROR_CODE,
   DOCUMENT_SYNC_ERROR_CODES,
 } from "@tearleads/validators/response";
 import type { ContainerMutationSubmitFailure } from "./types";
+
+interface ContainerBehaviorFailure {
+  readonly code?: string | undefined;
+  readonly status: number | null;
+}
+
+export function isContainerNotFoundFailure(
+  failure: ContainerBehaviorFailure,
+): boolean {
+  return (
+    failure.status === 404 && failure.code === CONTAINER_NOT_FOUND_ERROR_CODE
+  );
+}
 
 export function isStaleParentContainerPathFailure(
   failure: ContainerMutationSubmitFailure,

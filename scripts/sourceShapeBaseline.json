@@ -75,12 +75,12 @@
       "bytes": 23535
     },
     "docs/openapi.json": {
-      "lines": 60943,
-      "bytes": 2552818
+      "lines": 60985,
+      "bytes": 2554382
     },
     "docs/protocol-specification.md": {
       "lines": 585,
-      "bytes": 27100
+      "bytes": 27391
     },
     "docs/security-guarantees.md": {
       "lines": 553,
@@ -270,6 +270,10 @@
       "lines": 579,
       "bytes": 16859
     },
+    "packages/client-sdk/src/stores/container-contents/accessRestorationSweep.test.ts": {
+      "lines": 504,
+      "bytes": 16529
+    },
     "packages/client-sdk/src/stores/container-contents/containerContentsStore.rootRefresh.test.ts": {
       "lines": 592,
       "bytes": 19608
@@ -359,8 +363,8 @@
       "bytes": 19200
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 22704,
-      "bytes": 956514
+      "lines": 22718,
+      "bytes": 957252
     },
     "packages/validators/src/response/response.test.ts": {
       "lines": 1159,

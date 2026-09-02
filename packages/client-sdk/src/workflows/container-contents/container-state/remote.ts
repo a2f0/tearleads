@@ -3,6 +3,7 @@ import type {
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import { isContainerNotFoundFailure } from "../../../data/containers/shared/mutationFailures";
 import {
   getTargetContainerContext,
   readContainerState,
@@ -441,7 +442,7 @@ export async function deleteRemoteContainer(input: {
     input.containerId,
     { reportErrors: false },
   );
-  if (!deleteResult.ok && deleteResult.status !== 404) {
+  if (!deleteResult.ok && !isContainerNotFoundFailure(deleteResult)) {
     deleteResult.report();
     return null;
   }

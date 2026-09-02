@@ -1,11 +1,13 @@
 import { expect, test } from "bun:test";
 import {
   CONTAINER_MUTATION_ERROR_CODES,
+  CONTAINER_NOT_FOUND_ERROR_CODE,
   DOCUMENT_MUTATION_ERROR_CODES,
   DOCUMENT_SYNC_ERROR_CODES,
 } from "@tearleads/validators/response";
 import {
   isContainerManifestAlreadyExistsConflict,
+  isContainerNotFoundFailure,
   isStaleParentContainerPathFailure,
 } from "./mutationFailures";
 import type { ContainerMutationSubmitFailure } from "./types";
@@ -91,6 +93,29 @@ test("container lost-response adoption requires exact behavior codes", () => {
         "Diagnostic",
         500,
       ),
+    ),
+  ).toBe(false);
+});
+
+test("destructive container absence requires an exact status and code", () => {
+  expect(
+    isContainerNotFoundFailure(
+      failure(CONTAINER_NOT_FOUND_ERROR_CODE, "Diagnostic changed", 404),
+    ),
+  ).toBe(true);
+  for (const code of [
+    undefined,
+    "",
+    "unknown_code",
+    ` ${CONTAINER_NOT_FOUND_ERROR_CODE} `,
+  ]) {
+    expect(
+      isContainerNotFoundFailure(failure(code, "Container not found", 404)),
+    ).toBe(false);
+  }
+  expect(
+    isContainerNotFoundFailure(
+      failure(CONTAINER_NOT_FOUND_ERROR_CODE, "Diagnostic", 409),
     ),
   ).toBe(false);
 });

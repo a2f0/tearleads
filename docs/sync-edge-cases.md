@@ -104,7 +104,8 @@ without counting as lane progress, so it cannot hot-loop the pump.
   access edge requests sweeps for every organization present in the user's
   dormant markers, followed by a fully unwatermarked recursive crawl. After
   successful completion, each unmatched candidate is freshly probed; only a
-  writer-projection `404` authorizes its purge, in bounded atomic batches. A
+  writer-projection `404 container_not_found` authorizes its purge, in bounded
+  atomic batches. A
   `403` keeps the live container dormant, ambiguous probes retry with durable
   exponential backoff and a five-attempt cap, and reattached containers clear
   their markers.

@@ -6,7 +6,10 @@ import {
   containerParentLaneRuntimeRefinements,
 } from "../containerReadRefinements";
 import { ListContainerParentLanesRequestSchema } from "../request";
-import { ListContainerParentLanesResponseSchema } from "../response";
+import {
+  CONTAINER_NOT_FOUND_ERROR_CODE,
+  ListContainerParentLanesResponseSchema,
+} from "../response";
 import {
   ContainerKekLogQuerySchema,
   getContainerKekLogOperation,
@@ -89,6 +92,19 @@ test("container read operations preserve query compatibility", () => {
       );
     }
   }
+});
+
+test("container document absence has an exact behavior code", () => {
+  const schema = listContainerDocumentsOperation.failureResponses[404];
+  expect(
+    schema.safeParse({
+      code: CONTAINER_NOT_FOUND_ERROR_CODE,
+      error: "Container not found",
+    }).success,
+  ).toBe(true);
+  expect(schema.safeParse({ error: "Container not found" }).success).toBe(
+    false,
+  );
 });
 
 test("container read operation guards derive from canonical schemas", () => {

@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { CONTAINER_NOT_FOUND_ERROR_CODE } from "@tearleads/validators/response";
 import { createRestoredAccessReconciler } from "./accessRestorationSweep";
 import type { RemoteHydrationRefreshOptions } from "./remoteHydrationRefresh";
 import type { ContainerContentsStoreSyncState } from "./syncAgentTypes";
@@ -58,6 +59,7 @@ test("adapter replacement resumes a claimed sweep on the same database", async (
       apiClient: {
         evictContainerWriterProjection: () => undefined,
         getContainerWriterProjectionResult: async () => ({
+          code: CONTAINER_NOT_FOUND_ERROR_CODE,
           kind: "http" as const,
           message: "missing",
           method: "GET" as const,

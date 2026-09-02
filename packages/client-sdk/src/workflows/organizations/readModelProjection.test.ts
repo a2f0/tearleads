@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import type { OrganizationReadModelResponse } from "@tearleads/validators/response";
+import {
+  ORGANIZATION_PRESENTATION_ERROR_CODES,
+  type OrganizationReadModelResponse,
+} from "@tearleads/validators/response";
 import { dataUsage } from "../../../test/helpers/organizationReadModelFixtures";
 import {
   organizationReadModelFailure,
@@ -165,6 +168,7 @@ for (const status of [403, 404] as const) {
           apiClient: {
             async getOrganizationReadModelResult() {
               return organizationReadModelFailure({
+                code: ORGANIZATION_PRESENTATION_ERROR_CODES.accessDenied,
                 kind: "http",
                 report: () => {
                   reported = true;
@@ -207,6 +211,7 @@ test("network, shape, and server failures retain and report last-known-good data
   const failures = [
     { kind: "network", status: null },
     { kind: "shape", status: 200 },
+    { kind: "http", status: 404 },
     { kind: "http", status: 503 },
   ] as const;
   let failureIndex = 0;
@@ -238,8 +243,13 @@ test("network, shape, and server failures retain and report last-known-good data
       expect(result).toEqual(local);
     }
 
-    expect(failureIndex).toBe(3);
-    expect(reports).toEqual(["network:null", "shape:200", "http:503"]);
+    expect(failureIndex).toBe(4);
+    expect(reports).toEqual([
+      "network:null",
+      "shape:200",
+      "http:404",
+      "http:503",
+    ]);
   } finally {
     close();
   }

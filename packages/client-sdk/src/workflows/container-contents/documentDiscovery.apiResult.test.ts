@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { CONTAINER_NOT_FOUND_ERROR_CODE } from "@tearleads/validators/response";
 import {
   discoverContainerDocumentsFromApi,
   refreshAllContainerDocumentsFromApi,
@@ -6,6 +7,34 @@ import {
 import { nullContainerDocumentWatermarks } from "./documentDiscovery.testUtils";
 
 test("container document discovery quietly treats missing containers as unavailable lanes", async () => {
+  const reported: string[] = [];
+
+  const discovered = await discoverContainerDocumentsFromApi({
+    ...nullContainerDocumentWatermarks,
+    apiClient: {
+      listContainerDocuments: async () => {
+        throw new Error("Expected result API to be used.");
+      },
+      listContainerDocumentsResult: async () => ({
+        code: CONTAINER_NOT_FOUND_ERROR_CODE,
+        message: "GET /containers/missing/documents: 404 Not Found",
+        ok: false,
+        report: () => {
+          reported.push("reported");
+        },
+        status: 404,
+      }),
+    },
+    containerId: "missing",
+    replaceDocumentLinksBatch: async () => {},
+    upsertDiscoveredDocuments: async () => [],
+  });
+
+  expect(discovered).toBeNull();
+  expect(reported).toEqual([]);
+});
+
+test("container document discovery reports an uncoded 404", async () => {
   const reported: string[] = [];
 
   const discovered = await discoverContainerDocumentsFromApi({
@@ -29,7 +58,7 @@ test("container document discovery quietly treats missing containers as unavaila
   });
 
   expect(discovered).toBeNull();
-  expect(reported).toEqual([]);
+  expect(reported).toEqual(["reported"]);
 });
 
 test("manual refresh discovery reports unexpected container document failures", async () => {

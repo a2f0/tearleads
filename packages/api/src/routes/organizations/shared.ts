@@ -1,3 +1,4 @@
+import { ORGANIZATION_PRESENTATION_ERROR_CODES } from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
 import type { ApiCorsOrigins } from "../../corsOrigins";
 import type { SessionEnv } from "../../middleware/session";
@@ -30,4 +31,26 @@ export function toOrganizationManagerErrorResponse(
   }
 
   return null;
+}
+
+export function toOrganizationPresentationErrorResponse(
+  error: unknown,
+): Response | null {
+  if (
+    error instanceof OrganizationManagerError &&
+    (error.status === 403 || error.status === 404)
+  ) {
+    return new Response(
+      JSON.stringify({
+        code: ORGANIZATION_PRESENTATION_ERROR_CODES.accessDenied,
+        error: error.message,
+      }),
+      {
+        headers: { "Content-Type": "application/json" },
+        status: error.status,
+      },
+    );
+  }
+
+  return toOrganizationManagerErrorResponse(error);
 }
