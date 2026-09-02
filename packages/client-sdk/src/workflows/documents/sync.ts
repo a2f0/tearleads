@@ -77,7 +77,6 @@ function buildRemoteDocumentSyncPlan(input: {
     ...projectionVerificationOptions(input.sync),
   });
 }
-
 /**
  * A retryable stale-projection conflict (stale KEK targets / content-key
  * bundle / write-auth manifest) means our writer projection is behind the
@@ -144,6 +143,8 @@ async function submitPlannedSyncAttempt(args: {
       plan: args.materializedPlan.plan,
       failureBlocksQueuedWrites: args.failureBlocksQueuedWrites,
       stillCurrent: args.sync.stillCurrent,
+      warmReferencedPrincipalPolicies:
+        args.sync.warmReferencedPrincipalPolicies,
     });
   } catch (error) {
     if (
@@ -421,7 +422,6 @@ async function syncRemoteDocumentInternal(
   let recoveryPendingUpdatesById = new Map<string, PendingUpdateRecord>();
   let regenerateQueuedCheckpoints = false;
   let reusableWriterProjection = input.writerProjection ?? null;
-
   const persistedSync = await preparePersistedDocumentSync(
     input,
     resolveProjectionUserKey,

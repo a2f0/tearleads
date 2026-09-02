@@ -10,7 +10,11 @@ import type {
 } from "@tearleads/validators/request";
 import { getCurrentAccessManifestHead } from "../../../../access/read/accessManifestStore";
 import { readProjectionAccessManifest } from "../../../../keyingProjectionRecords";
-import { ContainerMutationError, mutationShapeError } from "../errors";
+import {
+  ContainerMutationError,
+  mutationShapeError,
+  mutationStateStale,
+} from "../errors";
 import type { ContainerMutationContext } from "../types";
 import { resolveVerifiedStoredContainerManifest } from "./storedManifestArtifacts";
 
@@ -60,7 +64,7 @@ export async function assertManifestHeadCurrent(
   }
 
   if (head.manifestHash !== manifest.manifestHash) {
-    throw new ContainerMutationError(`${label} manifest head is stale`, 409);
+    throw mutationStateStale(`${label} manifest head is stale`);
   }
 }
 
@@ -157,7 +161,7 @@ export async function assertMutationHeadCanAdvance(
   }
 
   if (currentHead.manifestHash !== manifest.state.previousManifestHash) {
-    throw new ContainerMutationError("Container manifest head is stale", 409);
+    throw mutationStateStale("Container manifest head is stale");
   }
 }
 

@@ -31,6 +31,9 @@ import type {
 import { requireProjectionUserKeyResolver } from "../../keyingProjectionVerification";
 import type { DocumentRecord } from "../../sqlite/documentPersistence";
 import type { ExecSql } from "../../sqlite/sqlSchema";
+import type { DocumentSyncSubmitFailure } from "./syncSubmitFailure";
+
+export type { DocumentSyncSubmitFailure } from "./syncSubmitFailure";
 
 export const DOCUMENT_ENCRYPTED_LORO_UPDATE_FORMAT =
   "tearleads.document.loro-update";
@@ -480,14 +483,6 @@ export interface SyncRemoteDocumentResult {
   settledPendingUpdateIds: readonly string[];
   acceptedRecoveryBaseline: boolean;
   writerProjection?: DocumentWriterProjectionResponse | undefined;
-}
-
-export interface DocumentSyncSubmitFailure {
-  readonly code?: string | undefined;
-  readonly message: string;
-  readonly ok: false;
-  readonly report: () => void;
-  readonly status: number | null;
 }
 
 export interface DocumentSyncRequestResultOptions {

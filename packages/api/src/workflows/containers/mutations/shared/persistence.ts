@@ -35,7 +35,11 @@ import {
   userIdsWithReadableAccessThroughPath,
 } from "../../containerPathUsers";
 import { createContainerWriterProjectionContext } from "../../writerProjection";
-import { ContainerMutationError, runConflictBoundary } from "../errors";
+import {
+  ContainerMutationError,
+  mutationStateStale,
+  runConflictBoundary,
+} from "../errors";
 import type {
   ContainerMutationContext,
   StoredContainerRow,
@@ -573,7 +577,6 @@ export async function persistVerifiedMutation(
     verifiedState: kekState,
   } = verifiedKekMutation;
   const updatedAt = new Date();
-
   const container = await persistContainerStructure(
     executor,
     manifest,
@@ -586,7 +589,7 @@ export async function persistVerifiedMutation(
     ),
   );
   if (manifestHead.manifestHash !== manifest.manifestHash) {
-    throw new ContainerMutationError("Container manifest head is stale", 409);
+    throw mutationStateStale("Container manifest head is stale");
   }
   context.manifestHeadByContainerId.set(
     manifest.state.containerId,
@@ -600,7 +603,6 @@ export async function persistVerifiedMutation(
     previousManifest,
     updatedAt,
   });
-
   const storedKekState = await runConflictBoundary(() =>
     storeVerifiedContainerKekStateInTransaction(
       { keyring, predecessorBridge, verifiedState: kekState },

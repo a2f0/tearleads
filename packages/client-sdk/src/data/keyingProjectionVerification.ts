@@ -2,6 +2,7 @@ import type { ProjectionUserKeyResolver } from "./keyingProjectionVerification/t
 import { requireTrustedUserIdentityResolver } from "./trustedUserIdentity/requiredResolver";
 
 export type {
+  PrincipalPolicyBundleCacheRequest,
   PrincipalPolicyCache,
   ProjectionUserKey,
   ProjectionUserKeyResolver,

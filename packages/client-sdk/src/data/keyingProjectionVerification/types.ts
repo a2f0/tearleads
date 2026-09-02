@@ -2,6 +2,7 @@ import type {
   ReferencedPrincipalHead,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import type { TrustedUserIdentity } from "../trustedUserIdentity";
 
 export type ProjectionUserKey = TrustedUserIdentity;
@@ -22,9 +23,20 @@ export interface ReferencedPrincipalPolicyWarmRequest {
   readonly stillCurrent?: (() => boolean) | undefined;
 }
 
+export interface PrincipalPolicyBundleCacheRequest {
+  readonly bundles: readonly PrincipalPolicyBundleResponse[];
+  readonly organizationId: string;
+  readonly stillCurrent?: (() => boolean) | undefined;
+}
+
+export type PrincipalPolicyBundleCacher = (
+  input: PrincipalPolicyBundleCacheRequest,
+) => Promise<void>;
+
 export type ReferencedPrincipalPolicyWarmer = ((
   input: ReferencedPrincipalPolicyWarmRequest,
 ) => Promise<void>) & {
+  readonly cacheBundles?: PrincipalPolicyBundleCacher | undefined;
   readonly reportsVerifiedPolicies?: true | undefined;
   readonly verifyWithoutPersistence?:
     | ReferencedPrincipalPolicyWarmer
@@ -86,9 +98,20 @@ export function generationGuardedPrincipalPolicyWarmer(
     operation: ReferencedPrincipalPolicyWarmer,
   ): ReferencedPrincipalPolicyWarmer => {
     const guarded = guard(operation);
-    return operation.reportsVerifiedPolicies
-      ? Object.assign(guarded, { reportsVerifiedPolicies: true as const })
-      : guarded;
+    return Object.assign(guarded, {
+      ...(operation.cacheBundles
+        ? {
+            cacheBundles: async (input: PrincipalPolicyBundleCacheRequest) => {
+              assertProjectionVerificationCurrent(stillCurrent);
+              await operation.cacheBundles?.({ ...input, stillCurrent });
+              assertProjectionVerificationCurrent(stillCurrent);
+            },
+          }
+        : {}),
+      ...(operation.reportsVerifiedPolicies
+        ? { reportsVerifiedPolicies: true as const }
+        : {}),
+    });
   };
   const guarded = guardWithCapabilities(warmer);
   return warmer.verifyWithoutPersistence

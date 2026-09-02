@@ -174,10 +174,34 @@ export async function publishDocumentPurgeEvent(input: {
 
 function handleDocumentMutationError(error: unknown) {
   if (error instanceof DocumentMutationError) {
-    return { code: error.code, error: error.message, status: error.status };
+    return {
+      code: error.code,
+      details: error.details,
+      error: error.message,
+      status: error.status,
+    };
   }
 
   throw error;
+}
+
+export function documentSyncErrorBody(
+  error: ReturnType<typeof handleDocumentMutationError>,
+): DocumentSyncErrorResponse {
+  const code =
+    error.code === undefined || error.code === DOCUMENT_NOT_FOUND_ERROR_CODE
+      ? DOCUMENT_SYNC_ERROR_CODES.conflict
+      : error.code;
+  if (code === DOCUMENT_SYNC_ERROR_CODES.stateStale) {
+    return {
+      code,
+      error: error.error,
+      ...(error.details?.principalPolicies
+        ? { principalPolicies: [...error.details.principalPolicies] }
+        : {}),
+    };
+  }
+  return { code, error: error.error };
 }
 
 async function respondWithDocumentCreate(
@@ -291,14 +315,7 @@ async function respondWithDocumentSync(
     const result = handleDocumentMutationError(error);
     if (result.status === 409) {
       return c.json<DocumentSyncErrorResponse>(
-        {
-          code:
-            result.code === undefined ||
-            result.code === DOCUMENT_NOT_FOUND_ERROR_CODE
-              ? DOCUMENT_SYNC_ERROR_CODES.conflict
-              : result.code,
-          error: result.error,
-        },
+        documentSyncErrorBody(result),
         result.status,
       );
     }

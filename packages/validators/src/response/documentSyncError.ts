@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { arraySchema } from "../schema";
+import { PrincipalPolicyBundleResponseSchema } from "./principal";
 
 export const DOCUMENT_SYNC_ERROR_CODES = {
   conflict: "document_sync_conflict",
@@ -14,9 +16,20 @@ export const DocumentSyncErrorCodeSchema = z.literal([
 
 export type DocumentSyncErrorCode = z.infer<typeof DocumentSyncErrorCodeSchema>;
 
+export const DocumentSyncStateStaleErrorResponseSchema = z.looseObject({
+  code: z.literal(DOCUMENT_SYNC_ERROR_CODES.stateStale),
+  error: z.string().min(1),
+  principalPolicies: arraySchema(
+    PrincipalPolicyBundleResponseSchema,
+  ).optional(),
+});
+
 export const DocumentSyncErrorResponseSchema = z.looseObject({
   code: DocumentSyncErrorCodeSchema,
   error: z.string().min(1),
+  principalPolicies: arraySchema(
+    PrincipalPolicyBundleResponseSchema,
+  ).optional(),
 });
 
 export type DocumentSyncErrorResponse = z.infer<
@@ -28,6 +41,16 @@ export function isDocumentSyncErrorResponse(
 ): value is DocumentSyncErrorResponse {
   return DocumentSyncErrorResponseSchema.safeParse(value).success;
 }
+
+export function isDocumentSyncStateStaleErrorResponse(
+  value: unknown,
+): value is DocumentSyncStateStaleErrorResponse {
+  return DocumentSyncStateStaleErrorResponseSchema.safeParse(value).success;
+}
+
+export type DocumentSyncStateStaleErrorResponse = z.infer<
+  typeof DocumentSyncStateStaleErrorResponseSchema
+>;
 
 /**
  * Positive server-verified "this document does not exist" signal. Clients run a

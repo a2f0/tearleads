@@ -3,6 +3,7 @@ import type {
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import {
+  isRetryableDocumentSyncConflict,
   isUpstreamDeletedDocumentSyncFailure,
   submitDocumentSync,
 } from "../../data/documents/shared/responses";
@@ -17,6 +18,7 @@ import type {
   DocumentSyncSubmitFailure,
   MaterializedDocumentSyncPlan,
 } from "../../data/documents/shared/types";
+import type { ReferencedPrincipalPolicyWarmer } from "../../data/keyingProjectionVerification";
 import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";
 import {
   canRecoverDocumentUpdateIdConflict,
@@ -68,6 +70,32 @@ type DocumentSyncAttemptSubmission =
     }
   | FailedDocumentSyncAction
   | "cancelled";
+
+async function cacheDocumentSyncPolicyRepair(input: {
+  failure: DocumentSyncSubmitFailure;
+  plan: DocumentSyncPlan;
+  stillCurrent?: (() => boolean) | undefined;
+  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
+}): Promise<void> {
+  const bundles = input.failure.stalePrincipalPolicies;
+  const cacheBundles = input.warmReferencedPrincipalPolicies?.cacheBundles;
+  if (
+    !isRetryableDocumentSyncConflict(input.failure) ||
+    (input.plan.request.containerRekeys?.length ?? 0) === 0 ||
+    !bundles ||
+    bundles.length === 0 ||
+    !cacheBundles ||
+    input.stillCurrent?.() === false
+  ) {
+    return;
+  }
+
+  await cacheBundles({
+    bundles,
+    organizationId: input.plan.organizationId,
+    stillCurrent: input.stillCurrent,
+  });
+}
 
 async function resolveFailedDocumentSyncAction(input: {
   attempt: number;
@@ -167,6 +195,7 @@ async function submitDocumentSyncAttempt(input: {
   pendingUpdates: readonly PendingUpdateRecord[];
   plan: DocumentSyncPlan;
   stillCurrent?: (() => boolean) | undefined;
+  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<DocumentSyncAttemptSubmission> {
   if (input.stillCurrent?.() === false) return "cancelled";
   const submitted = await submitDocumentSync({
@@ -185,6 +214,14 @@ async function submitDocumentSyncAttempt(input: {
       response: submitted.response,
     };
   }
+
+  await cacheDocumentSyncPolicyRepair({
+    failure: submitted,
+    plan: input.plan,
+    stillCurrent: input.stillCurrent,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+  });
+  if (input.stillCurrent?.() === false) return "cancelled";
 
   return resolveFailedDocumentSyncAction({
     attempt: input.attempt,

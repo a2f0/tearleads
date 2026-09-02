@@ -317,6 +317,11 @@ Document and blob writes may carry signed `container.rekey` requests inline in
 before resolving document/blob targets. If the enclosing write fails, the rekey
 rolls back with it.
 
+For document sync, a stale inline rekey returns
+`document_sync_state_stale`. When the stale state is a principal policy, the
+response may include the current signed `principalPolicies[]`; clients verify
+and cache those bundles before refetching the writer projection and replanning.
+
 `DELETE /containers/:containerId` is an authenticated admin-only structural
 operation for empty non-system leaf containers. It is not a signed access-event
 mutation and writes sync tombstones for discovery.

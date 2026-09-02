@@ -1,9 +1,13 @@
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import type { ReferencedPrincipalPolicyWarmer } from "../../data/keyingProjectionVerification";
+import type {
+  PrincipalPolicyBundleCacheRequest,
+  ReferencedPrincipalPolicyWarmer,
+} from "../../data/keyingProjectionVerification";
 import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import {
+  cachePrincipalPolicyBundles,
   cacheReferencedPrincipalPolicies,
   verifyReferencedPrincipalPolicies,
 } from "./policyCache";
@@ -56,5 +60,17 @@ export function createRuntimePrincipalPolicyWarmer(
     },
     { reportsVerifiedPolicies: true as const },
   );
-  return Object.assign(warmer, { verifyWithoutPersistence });
+  const cacheBundles = (input: PrincipalPolicyBundleCacheRequest) =>
+    cachePrincipalPolicyBundles({
+      bundles: input.bundles,
+      execSql: runtime.infra.execSql,
+      getCurrentPrincipalPolicy: (principalType, principalId) =>
+        runtime.apiClient.getCurrentPrincipalPolicy(principalType, principalId),
+      log: runtime.util.log,
+      organizationId: input.organizationId,
+      reportSecurityIncident: runtime.util.reportSecurityIncident,
+      resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
+      stillCurrent: input.stillCurrent,
+    });
+  return Object.assign(warmer, { cacheBundles, verifyWithoutPersistence });
 }
