@@ -58,10 +58,14 @@ async function buildRemoteDocumentSyncPlan(input: {
   regenerateQueuedCheckpoints: boolean;
   sync: SyncRemoteDocumentInput;
 }) {
+  const containerRekeys =
+    input.pendingUpdates.length > 0
+      ? await input.sync.buildContainerRekeys?.()
+      : undefined;
   return buildMaterializedDocumentSyncPlan({
     author: input.sync.author,
     buildRotationSnapshot: input.sync.buildRotationSnapshot,
-    containerRekeys: await input.sync.buildContainerRekeys?.(),
+    containerRekeys,
     execSql: input.sync.execSql,
     historyMode: input.sync.historyMode,
     localVersionVector: input.sync.localVersionVector,
@@ -77,13 +81,8 @@ async function buildRemoteDocumentSyncPlan(input: {
   });
 }
 /**
- * A retryable stale-projection conflict (stale KEK targets / content-key
- * bundle / write-auth manifest) means our writer projection is behind the
- * server — typically right after a peer shared or rotated a linked
- * container. Drop this document's cached projection so the next attempt
- * re-derives fresh targets instead of resubmitting the same stale ones
- * (which would 409 again and exhaust the retries without converging).
- * Scoped to this document: unrelated projections were not invalidated.
+ * A retryable stale-projection conflict means this writer projection is behind
+ * the server. Evict only this document so the next attempt re-derives targets.
  */
 function evictStaleProjectionForRetry(input: SyncRemoteDocumentInput): void {
   input.apiClient.evictDocumentWriterProjection?.(input.documentId);

@@ -19,6 +19,7 @@ import type {
   PrincipalPolicyBundleCacheRequest,
   ReferencedPrincipalPolicyWarmer,
 } from "../../data/keyingProjectionVerification";
+import { ensureDocumentTables } from "../../data/sqlite/documentPersistence";
 import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
 
 function containerRekey(policyGeneration: number): ContainerMutationRequest {
@@ -167,4 +168,82 @@ test("materialized sync rejects inline rekeys without an outgoing update", async
       writerProjection,
     }),
   ).rejects.toThrow("container rekeys require an outgoing update");
+});
+
+test("update-id recovery skips inline rekeys on its read-only attempt", async () => {
+  const {
+    author,
+    resolveProjectionUserKey,
+    secretKey,
+    signingPublicKey,
+    writerProjection,
+  } = await createMaterializedSyncFixture();
+  const pendingUpdates = [createPendingUpdateRecord()];
+  const submittedRequests: DocumentSyncRequest[] = [];
+  let rekeyBuildCount = 0;
+  const { close, execSql } = await createTestExecSql(
+    "sync-rekey-update-id-recovery",
+  );
+  await ensureDocumentTables(execSql);
+
+  try {
+    const synced = await syncRemoteDocument({
+      apiClient: {
+        getDocumentWriterProjection: async () => writerProjection,
+        syncDocument: async () => {
+          throw new Error("Expected syncDocumentResult to handle sync");
+        },
+        syncDocumentResult: async (documentId, request) => {
+          submittedRequests.push(request);
+          if (submittedRequests.length === 1) {
+            return {
+              code: DOCUMENT_SYNC_ERROR_CODES.updateIdConflict,
+              message: "Document update id conflict",
+              ok: false,
+              report: () => undefined,
+              status: 409,
+            };
+          }
+
+          const materialized = await buildMaterializedDocumentSyncPlan({
+            author,
+            execSql,
+            localVersionVector: null,
+            pendingUpdates: [],
+            resolveProjectionUserKey,
+            targetSecretKey: secretKey,
+            writerProjection,
+          });
+          return {
+            data: await createSyncResponse({
+              ...materialized.plan,
+              documentId,
+              request,
+            }),
+            ok: true,
+          };
+        },
+      },
+      author,
+      buildContainerRekeys: async () => {
+        rekeyBuildCount += 1;
+        return [containerRekey(rekeyBuildCount)];
+      },
+      documentId: writerProjection.documentId,
+      execSql,
+      localVersionVector: null,
+      pendingUpdates,
+      resolveProjectionUserKey,
+      resolveWriterPublicKey: writerKeyResolver({ author, signingPublicKey }),
+      targetSecretKey: secretKey,
+    });
+
+    expect(synced).not.toBeNull();
+    expect(rekeyBuildCount).toBe(1);
+    expect(
+      submittedRequests.map((request) => request.containerRekeys?.length ?? 0),
+    ).toEqual([1, 0]);
+  } finally {
+    close();
+  }
 });
