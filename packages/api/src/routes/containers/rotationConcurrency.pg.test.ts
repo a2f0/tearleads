@@ -3,7 +3,10 @@ import { db, getDefaultApiDatabaseKind } from "@tearleads/api-shared/postgres";
 import { accessManifestHeads } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
-import type { ContainerMutationResponse } from "@tearleads/validators/response";
+import {
+  CONTAINER_MUTATION_ERROR_CODES,
+  type ContainerMutationResponse,
+} from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { buildRootContainerRekeyMutation } from "../../../test/helpers/containerRekey";
@@ -102,6 +105,7 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
         throw new Error("Expected one rotation winner and one loser");
       }
       expect(await loserResponse.json()).toEqual({
+        code: CONTAINER_MUTATION_ERROR_CODES.stateStale,
         error: "previousContainerPath[0] manifest head is stale",
       });
       const winnerResponse = (await responses[winnerIndex]?.json()) as
