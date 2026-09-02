@@ -192,10 +192,10 @@ principal policy remains signed principal state, but it is not the product role
 source for org-manager.
 
 Organization read-model and data-usage denials use
-`organization_presentation_access_denied` on both `403` and `404`. The shared
-code prevents the response from becoming an organization-existence oracle
-while giving clients exact authority to hide and purge that requester's local
-presentation projection. An uncoded, malformed, or unknown failure is
+`organization_presentation_access_denied` on both the existing `403` access
+denial and `404` missing-organization responses. The code gives clients exact
+authority to hide and purge that requester's local presentation projection
+without matching diagnostic text. An uncoded, malformed, or unknown failure is
 ambiguous: clients report it and retain last-known-good data.
 
 Authentication uses challenge signing:

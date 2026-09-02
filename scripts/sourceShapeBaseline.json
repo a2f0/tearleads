@@ -80,7 +80,7 @@
     },
     "docs/protocol-specification.md": {
       "lines": 585,
-      "bytes": 27391
+      "bytes": 27399
     },
     "docs/security-guarantees.md": {
       "lines": 553,
@@ -269,10 +269,6 @@
     "packages/client-sdk/src/data/sync/syncCoordinator.test.ts": {
       "lines": 579,
       "bytes": 16859
-    },
-    "packages/client-sdk/src/stores/container-contents/accessRestorationSweep.test.ts": {
-      "lines": 504,
-      "bytes": 16529
     },
     "packages/client-sdk/src/stores/container-contents/containerContentsStore.rootRefresh.test.ts": {
       "lines": 592,
