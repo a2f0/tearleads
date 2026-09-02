@@ -333,10 +333,12 @@ mutation and writes sync tombstones for discovery.
 
 Behavior-bearing container mutation conflicts use stable tags. A stale parent
 or concurrent mutation returns `409 container_mutation_state_stale`; a
-stable-id create retry returns `409 container_manifest_already_exists` (or
-`document_manifest_already_exists` when the compound metadata-document half
-already committed). Clients replan or adopt only on the exact status and code.
-Missing, malformed, and unknown tags are terminal.
+stable-id create retry returns `409 container_manifest_already_exists`, which
+proves the container committed and permits lost-response adoption. A compound
+create may instead return `409 document_manifest_already_exists`; that conflict
+can roll back the newly created container, so it is terminal unless the client
+independently verifies both remote artifacts. Clients replan or adopt only on
+the exact status and code. Missing, malformed, and unknown tags are terminal.
 
 ## Document Link And Sync Protocol
 
