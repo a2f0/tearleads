@@ -3,16 +3,19 @@
   ansible.builtin.set_fact:
     blob_gc_healthcheck_url: >-
       {{ lookup('env', 'BLOB_GC_HEALTHCHECK_URL') | default('', true) }}
+    blob_gc_healthcheck_url_valid: >-
+      {{
+        (lookup('env', 'BLOB_GC_HEALTHCHECK_URL') | default('', true))
+        is match('^https://hc-ping[.]com/[A-Za-z0-9_-]+$')
+      }}
   no_log: true
 
 - name: Validate blob GC monitoring configuration
   ansible.builtin.assert:
     that:
-      - blob_gc_healthcheck_url | length > 0
-      - blob_gc_healthcheck_url is match('^https://hc-ping[.]com/[A-Za-z0-9_-]+$')
+      - blob_gc_healthcheck_url_valid | bool
     fail_msg: >-
       Set BLOB_GC_HEALTHCHECK_URL in the tier Healthchecks secrets file.
-  no_log: true
 
 - name: Install blob GC monitoring client
   ansible.builtin.apt:

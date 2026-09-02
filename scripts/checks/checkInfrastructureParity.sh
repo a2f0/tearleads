@@ -79,7 +79,8 @@ assert_blob_gc_failure_alerting() {
     ! grep -Fq 'tearleads_blob_gc_timer.status.UnitFileState == "enabled"' "$maintenance_tasks" ||
     ! grep -Fq 'tearleads_blob_gc_timer.status.ActiveState == "active"' "$maintenance_tasks" ||
     ! grep -Fq 'blob-gc-healthcheck.env.j2' "$maintenance_tasks" ||
-    ! grep -Fq "blob_gc_healthcheck_url is match('^https://hc-ping[.]com/[A-Za-z0-9_-]+$')" "$maintenance_tasks" ||
+    ! grep -Fq "is match('^https://hc-ping[.]com/[A-Za-z0-9_-]+$')" "$maintenance_tasks" ||
+    ! grep -Fq 'blob_gc_healthcheck_url_valid | bool' "$maintenance_tasks" ||
     ! grep -Fq 'BLOB_GC_HEALTHCHECK_URL={{ blob_gc_healthcheck_url | quote }}' "$healthcheck_env" ||
     ! grep -Fq "\${tier}.healthchecks.env" "$secrets_loader" ||
     ! grep -Fq 'name: curl' "$maintenance_tasks" ||
