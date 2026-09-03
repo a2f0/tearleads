@@ -203,6 +203,14 @@ export async function buildInitialGroupPolicyRequest(
     });
   }
   const name = input.name.trim();
+  // A name is compared by canonical key but displayed raw, so control and
+  // format characters (bidi overrides, zero-width joiners, newlines) would let
+  // one signed name render as another. Refuse them where the name is signed.
+  if (name.length === 0 || /[\p{Cc}\p{Cf}]/u.test(name)) {
+    throw new Error(
+      "Group names must be non-empty and contain no control or format characters",
+    );
+  }
   const policyRequest = await signedGroupPolicyRequest({
     encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
     externalAuthority: input.externalAuthority ?? null,

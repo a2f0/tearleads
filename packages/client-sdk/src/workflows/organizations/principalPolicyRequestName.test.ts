@@ -76,3 +76,13 @@ test("a payload without a committed name fails closed", async () => {
     }),
   ).toThrow("not canonical JSON");
 });
+
+test("a group name with control or format characters is refused when signed", async () => {
+  await expect(
+    createGroupBundle(`Writers${String.fromCodePoint(0x202e)}`),
+  ).rejects.toThrow("control or format characters");
+  await expect(createGroupBundle("Wri\nters")).rejects.toThrow(
+    "control or format characters",
+  );
+  await expect(createGroupBundle("   ")).rejects.toThrow("non-empty");
+});

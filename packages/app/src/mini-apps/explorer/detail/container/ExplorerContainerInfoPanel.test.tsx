@@ -207,10 +207,12 @@ test("container info tabs split general, sharing, security, and sync details", a
   expect(view.getByText("Container contents")).toBeTruthy();
 });
 
-// The label the user chose is bound to the signed group name by the SDK, so it
-// is captured at selection time: a read-model relabel that lands between the
-// choice and the submit must not change what gets bound.
-test("a group share binds the label chosen, not a later relabel", async () => {
+// The SDK binds the submitted label to the signed group name, so the label
+// bound is exactly the one displayed for the chosen id when Share is clicked.
+// A read-model relabel between the choice and the submit therefore changes the
+// visible label and the bound label together, and a label that no longer
+// matches the signed name fails the share closed instead of diverging.
+test("a group share binds the label displayed at submit", async () => {
   const shareCalls: Array<{ groupId: string; expectedGroupName: string }> = [];
   const groupsByName = (name: string) => [
     createGroup({ groupId: "group-1", name: "Admins" }),
@@ -258,6 +260,35 @@ test("a group share binds the label chosen, not a later relabel", async () => {
     expect(view.queryByText("Auditors")).toBeTruthy();
   });
 
+  fireEvent.click(view.getByRole("button", { name: "Share" }));
+  await waitFor(() => {
+    expect(shareCalls).toEqual([
+      { expectedGroupName: "Auditors", groupId: "group-2" },
+    ]);
+  });
+});
+
+// The default selection the panel makes on load carries its label too, so
+// Share works without an explicit re-pick.
+test("the default group selection shares with its displayed label", async () => {
+  const shareCalls: Array<{ groupId: string; expectedGroupName: string }> = [];
+  const view = render(
+    containerInfoPanelElement({
+      shareWithGroup: async (
+        _containerId: string,
+        groupId: string,
+        _accessLevel: "admin" | "read" | "write",
+        options: { expectedGroupName: string },
+      ) => {
+        shareCalls.push({ groupId, ...options });
+        return true;
+      },
+    }),
+  );
+  await waitFor(() => {
+    expect(view.getByText("Local Details")).toBeTruthy();
+  });
+  fireEvent.click(view.getByRole("tab", { name: "Sharing" }));
   fireEvent.click(view.getByRole("button", { name: "Share" }));
   await waitFor(() => {
     expect(shareCalls).toEqual([
