@@ -7,6 +7,7 @@ import {
   getOrganizationReadModelOperation,
   protocolOperations,
 } from "@tearleads/validators/operation";
+import type { JsonOperationRequestInput } from "./operationTransport";
 import {
   createJsonOperationTransport,
   deriveJsonOperationRequest,
@@ -20,6 +21,18 @@ import type {
 
 const organizationId = "11111111-1111-4111-8111-111111111111";
 const documentId = "22222222-2222-4222-8222-222222222222";
+
+type ChallengeTransportBody = JsonOperationRequestInput<
+  typeof challengeOperation
+>["body"];
+type AcceptsChallengeBody<Value> = Value extends ChallengeTransportBody
+  ? true
+  : false;
+
+function assertType<Condition extends true>(_condition?: Condition): void {}
+
+assertType<AcceptsChallengeBody<{ fingerprint: string }>>();
+assertType<AcceptsChallengeBody<number> extends false ? true : false>();
 
 function requestFailure(
   input: ResponseRequestValidationFailureInput,
