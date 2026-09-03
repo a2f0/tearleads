@@ -9,14 +9,6 @@ import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/respon
 import { readGroupPolicyPayloadName } from "../../src/workflows/organizations/principalPolicyRequest";
 import { signedPrincipalPolicyBundle } from "./principalPolicyFixtures";
 
-function successorGroupName(previous: PrincipalPolicyBundleResponse): string {
-  try {
-    return readGroupPolicyPayloadName(previous);
-  } catch {
-    return previous.currentState.principalId;
-  }
-}
-
 export async function createSuccessorGroupPolicyBundle(input: {
   readonly author: ContainerMutationAuthor;
   readonly groupId: string;
@@ -52,7 +44,9 @@ export async function createSuccessorGroupPolicyBundle(input: {
       new TextEncoder().encode(
         JSON.stringify({
           members: [{ userId: input.userId, role: "admin" }],
-          name: input.name ?? successorGroupName(input.previousBundle),
+          // Read from the signed predecessor, as the production successor
+          // builders do; a fixture without a committed name fails loudly here.
+          name: input.name ?? readGroupPolicyPayloadName(input.previousBundle),
         }),
       ),
     ),

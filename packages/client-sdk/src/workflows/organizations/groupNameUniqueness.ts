@@ -49,14 +49,14 @@ export async function assertGroupNameUniqueInDirectory(input: {
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }): Promise<void> {
   const nameKey = canonicalGroupNameKey(input.name);
+  // A taken name is user input to correct, not evidence of tampering, so the
+  // two duplicate refusals are plain errors: group creation runs under
+  // security-incident reporting, which records every KeyingVerificationError.
   // The reserved groups keep their fixed names and are verified on every
   // organization-authority load already; refuse their names outright and skip
   // fetching them here.
   if (RESERVED_GROUP_NAME_KEYS.has(nameKey)) {
-    throw new KeyingVerificationError(
-      "duplicate_entry",
-      "A reserved organization group already carries this name",
-    );
+    throw new Error("A reserved organization group already carries this name");
   }
   for (const head of input.descriptor.groupHeads) {
     if (
@@ -113,8 +113,7 @@ export async function assertGroupNameUniqueInDirectory(input: {
       );
     }
     if (canonicalGroupNameKey(readGroupPolicyPayloadName(bundle)) === nameKey) {
-      throw new KeyingVerificationError(
-        "duplicate_entry",
+      throw new Error(
         "Another signed group in this organization already carries this name",
       );
     }

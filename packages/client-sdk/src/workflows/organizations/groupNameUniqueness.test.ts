@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import {
+  generateKemSeedAndKeyPair,
+  KeyingVerificationError,
+} from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createAuthor } from "../../../test/helpers/containerFixtures";
 import {
@@ -113,17 +116,21 @@ test("a new group name must not collide with any signed group by canonical key",
 
     await expect(assertUnique("Finance")).resolves.toBeUndefined();
     // Case, spacing, and an embedded zero-width space do not make a new name.
-    await expect(assertUnique(" OPERATORS ")).rejects.toMatchObject({
-      code: "duplicate_entry",
-    });
+    // A taken name is a plain error, not a KeyingVerificationError: creation
+    // runs under security-incident reporting and a retyped name is no incident.
+    const taken = "Another signed group in this organization already carries";
+    await expect(assertUnique(" OPERATORS ")).rejects.toThrow(taken);
+    await expect(assertUnique(" OPERATORS ")).rejects.not.toBeInstanceOf(
+      KeyingVerificationError,
+    );
     await expect(
       assertUnique(`Oper${String.fromCodePoint(0x200b)}ators`),
-    ).rejects.toMatchObject({ code: "duplicate_entry" });
+    ).rejects.toThrow(taken);
     // Reserved names are refused without fetching the reserved groups.
     directory.fetched.length = 0;
-    await expect(assertUnique("admins")).rejects.toMatchObject({
-      code: "duplicate_entry",
-    });
+    await expect(assertUnique("admins")).rejects.toThrow(
+      "A reserved organization group already carries this name",
+    );
     expect(directory.fetched).toEqual([]);
   } finally {
     close();

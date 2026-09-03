@@ -232,10 +232,15 @@ export function useExplorerContainerInfoGroupShare(
         return;
       }
 
-      // Without the label the user chose, the SDK cannot bind the share to the
-      // signed group name, so a stale or missing picker entry never submits.
-      if (!draftShareGroupId || !draftShareGroupName) {
+      if (!draftShareGroupId) {
         setPanelError(EXPLORER_LABELS.containerInfoChooseGroupError);
+        return;
+      }
+      // Without the label the user chose, the SDK cannot bind the share to the
+      // signed group name. The picker still shows the stale selection, so say
+      // that the group went away rather than that none was chosen.
+      if (!draftShareGroupName) {
+        setPanelError(EXPLORER_LABELS.containerInfoChosenGroupUnavailableError);
         return;
       }
 

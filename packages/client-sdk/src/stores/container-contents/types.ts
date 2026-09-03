@@ -139,8 +139,9 @@ export interface ContainerContentsStore {
     options: {
       /**
        * The display name the group was chosen by. Required: the share fails
-       * closed if the verified group policy commits a different name, or if
-       * another signed group in the organization commits the same one.
+       * closed if the verified group policy commits a different name. Signed
+       * names are unique within an organization by construction (enforced at
+       * group creation), so the target's own name identifies it.
        */
       expectedGroupName: string;
     },

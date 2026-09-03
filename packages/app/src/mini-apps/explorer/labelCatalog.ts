@@ -59,6 +59,8 @@ export const EXPLORER_LABELS = {
   containerIconPlaylistOption: "Music Playlist",
   containerIconUpdateFailure: "Failed to update the folder icon.",
   containerInfoChooseGroupError: "Choose a group.",
+  containerInfoChosenGroupUnavailableError:
+    "The chosen group is no longer available. Choose another group.",
   containerInfoCreatedRow: "Created",
   containerInfoCursorColumn: "Cursor",
   containerInfoEntryCountOne: "entry",

@@ -427,7 +427,11 @@ test("useExplorerContainerInfoGroupShare requires the chosen group's name", asyn
     await view.result.current(createSubmitEvent());
   });
 
-  expect(panelErrors).toEqual(["Choose a group."]);
+  // The picker still shows the selection, so the message names the stale
+  // group rather than asking for one as if none were chosen.
+  expect(panelErrors).toEqual([
+    "The chosen group is no longer available. Choose another group.",
+  ]);
   expect(shareCalls).toEqual([]);
 });
 

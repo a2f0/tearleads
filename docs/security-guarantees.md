@@ -145,7 +145,12 @@ The group display name is committed in the signed group payload. The
 `groups.name` column and the organization read model are listing aids; when a
 member shares a container with a group they chose by name, the client checks
 that name against the verified payload and fails closed on a mismatch, so a
-relabeled read-model row cannot redirect a share onto another group.
+relabeled read-model row cannot redirect a share onto another group. Signed
+names are unique within an organization by construction: group creation
+verifies every group in the signed directory before committing a new name.
+This is also a greenfield flag-day. A group signed before names were committed
+fails every policy mutation and every share with a typed verification error,
+and its organization must be reprovisioned.
 
 The app repeats these checks on fetched policy bundles. A bundle with a
 tampered projection, payload, state hash, chain link, signer, or checkpoint

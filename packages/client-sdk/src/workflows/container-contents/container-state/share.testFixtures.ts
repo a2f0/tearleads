@@ -77,6 +77,10 @@ export function withDirectGroupGrant(input: {
   accessLevel: "read" | "write" | "admin";
   createdAt: string;
   groupId: string;
+  // The grant's referenced head. Defaults to a placeholder at pinnedKeyEpoch,
+  // enough for the epoch probe; a flow that runs on to cache the referenced
+  // policy needs the group's real head here.
+  pinnedHead?: Record<string, unknown> | undefined;
   pinnedKeyEpoch: number;
   projection: ContainerWriterProjectionResponse;
   remoteAccessStateHash: string;
@@ -88,7 +92,7 @@ export function withDirectGroupGrant(input: {
     createdAt: input.createdAt,
     projection: input.projection,
     referencedPrincipalHeads: [
-      {
+      input.pinnedHead ?? {
         keyEpoch: input.pinnedKeyEpoch,
         keyFingerprint: `group-key-fingerprint-${input.pinnedKeyEpoch}`,
         principalId: input.groupId,
