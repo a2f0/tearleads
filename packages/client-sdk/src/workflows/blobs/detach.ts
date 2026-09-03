@@ -1,6 +1,6 @@
 import type { BlobAttachmentDetachRequest } from "@tearleads/validators/request";
 import { signBlobAttachmentDetachEvent } from "../../data/documents/blob/shared/events";
-import { deriveBlobTargetsFromDocumentProjection } from "../../data/documents/blob/shared/projection";
+import { listedBlobTargetsFromDocumentProjection } from "../../data/documents/blob/shared/projection";
 import { assertBlobAttachmentDetachResponse } from "../../data/documents/blob/shared/responses";
 import type {
   DetachDocumentAttachmentInput,
@@ -43,7 +43,7 @@ export async function detachDocumentAttachment({
   const { manifestIdentity, writerProjection: resolvedWriterProjection } =
     resolved;
 
-  const targets = deriveBlobTargetsFromDocumentProjection({
+  const targets = listedBlobTargetsFromDocumentProjection({
     bindingId,
     documentId,
     writerProjection: resolvedWriterProjection,

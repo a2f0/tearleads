@@ -1,4 +1,8 @@
-import { BLOB_CONTENT_KEY_WRAP_SUITE, encryptWithDek } from "@tearleads/crypto";
+import {
+  BLOB_CONTENT_KEY_WRAP_SUITE,
+  type DocumentContentKeyTarget,
+  encryptWithDek,
+} from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { BlobContentKeyTargetEnvelopeRequest } from "@tearleads/validators/request";
 import type {
@@ -23,28 +27,59 @@ import {
 import { sortBlobTargets } from "./readers";
 import type { BlobContentKeyTarget, BlobEncryptedBytesRecord } from "./types";
 
-export function deriveBlobTargetsFromDocumentProjection(input: {
-  bindingId: string;
-  documentId: string;
-  writerProjection: DocumentWriterProjectionResponse;
-}): BlobContentKeyTarget[] {
-  // The blob key is wrapped only to the verified current heads of the
-  // document's linked containers; the server list only names which ones.
-  const targets = verifiedDocumentWrapTargets({
-    linkedContainerIds: readLinkedContainerIdsFromDocumentManifest(
-      input.writerProjection,
-    ),
-    serverTargets: normalizeDocumentKekTargetResponse(
-      input.writerProjection.documentKekTargets,
-    ),
-    writerProjection: input.writerProjection,
-  });
+function blobTargetsFor(
+  input: { bindingId: string; documentId: string },
+  targets: readonly DocumentContentKeyTarget[],
+): BlobContentKeyTarget[] {
   return sortBlobTargets(
     targets.map((target) => ({
       bindingId: input.bindingId,
       documentId: input.documentId,
       ...target,
     })),
+  );
+}
+
+/**
+ * The document's current KEK targets as the server lists them, for operations
+ * that only reference targets in a signed event and wrap nothing — a detach
+ * must stay possible for a writer who can open only one of several linked
+ * containers. Never use this list to choose a wrap recipient.
+ */
+export function listedBlobTargetsFromDocumentProjection(input: {
+  bindingId: string;
+  documentId: string;
+  writerProjection: DocumentWriterProjectionResponse;
+}): BlobContentKeyTarget[] {
+  return blobTargetsFor(
+    input,
+    normalizeDocumentKekTargetResponse(
+      input.writerProjection.documentKekTargets,
+    ),
+  );
+}
+
+/**
+ * The targets a blob content key may be wrapped to: the verified current
+ * heads of the document's linked containers. The server list only names which
+ * containers a bundle must cover.
+ */
+export function verifiedBlobWrapTargetsFromDocumentProjection(input: {
+  bindingId: string;
+  documentId: string;
+  writerProjection: DocumentWriterProjectionResponse;
+}): BlobContentKeyTarget[] {
+  return blobTargetsFor(
+    input,
+    verifiedDocumentWrapTargets({
+      linkedContainerIds: readLinkedContainerIdsFromDocumentManifest(
+        input.writerProjection,
+      ),
+      serverTargets: normalizeDocumentKekTargetResponse(
+        input.writerProjection.documentKekTargets,
+      ),
+      writerProjection: input.writerProjection,
+    }),
   );
 }
 

@@ -5,7 +5,10 @@ import {
 } from "@tearleads/crypto";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { createStaleBundleSyncFixture } from "../../../../test/helpers/staleBundleSyncFixture";
-import { deriveBlobTargetsFromDocumentProjection } from "../blob/shared/projection";
+import {
+  listedBlobTargetsFromDocumentProjection,
+  verifiedBlobWrapTargetsFromDocumentProjection,
+} from "../blob/shared/projection";
 import {
   assertDocumentWriterProjectionConsistent,
   buildRotatedDocumentContentKeyBundle,
@@ -119,14 +122,14 @@ test("blob upload targets come from verified leaves, not the server list", async
   const { fixture, poisoned } = await poisonedStaleProjection();
 
   expect(() =>
-    deriveBlobTargetsFromDocumentProjection({
+    verifiedBlobWrapTargetsFromDocumentProjection({
       bindingId: "binding-1",
       documentId: poisoned.documentId,
       writerProjection: poisoned,
     }),
   ).toThrow(KeyingVerificationError);
 
-  const targets = deriveBlobTargetsFromDocumentProjection({
+  const targets = verifiedBlobWrapTargetsFromDocumentProjection({
     bindingId: "binding-1",
     documentId: fixture.staleWriterProjection.documentId,
     writerProjection: fixture.staleWriterProjection,
@@ -134,4 +137,59 @@ test("blob upload targets come from verified leaves, not the server list", async
   expect(targets.map((target) => target.containerKeyEpochId)).toEqual([
     fixture.rotatedTarget.containerKeyEpochId,
   ]);
+});
+
+// A writer who can open only one of several linked containers can still
+// detach (the event only references the listed targets) but cannot wrap a
+// blob key: the missing container is reported as unavailable, not as tamper.
+test("partial access lists targets for detach but cannot wrap to them", async () => {
+  const { fixture, stale } = await poisonedStaleProjection();
+  const otherTarget = {
+    containerId: "other-linked-container",
+    containerManifestHash: `${"0".repeat(63)}1`,
+    containerKeyEpochId: "tearleads.container-kek.v1.sha256:other",
+    containerKeyEpoch: 1,
+  };
+  const targets = [fixture.rotatedTarget, otherTarget];
+  const partialAccess: DocumentWriterProjectionResponse = {
+    ...stale,
+    documentManifest: {
+      ...stale.documentManifest,
+      state: {
+        ...stale.documentManifest.state,
+        linkedContainerIds: [
+          fixture.rotatedTarget.containerId,
+          otherTarget.containerId,
+        ],
+      },
+    },
+    documentKekTargets: {
+      ...stale.documentKekTargets,
+      documentKeyTargetHash: await computeDocumentContentKeyTargetHash(targets),
+      linkedContainerKeyEpochIds: uniqueSortedStrings(
+        targets.map((target) => target.containerKeyEpochId),
+      ),
+      linkedContainerManifestHashes: uniqueSortedStrings(
+        targets.map((target) => target.containerManifestHash),
+      ),
+      targets: targets.map((target) => ({ ...target })),
+    },
+  };
+
+  expect(
+    listedBlobTargetsFromDocumentProjection({
+      bindingId: "binding-1",
+      documentId: partialAccess.documentId,
+      writerProjection: partialAccess,
+    }).map((target) => target.containerId),
+  ).toEqual(
+    [fixture.rotatedTarget.containerId, otherTarget.containerId].sort(),
+  );
+  expect(() =>
+    verifiedBlobWrapTargetsFromDocumentProjection({
+      bindingId: "binding-1",
+      documentId: partialAccess.documentId,
+      writerProjection: partialAccess,
+    }),
+  ).toThrow("Document content-key re-wrap KEK is unavailable");
 });
