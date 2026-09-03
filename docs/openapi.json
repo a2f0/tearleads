@@ -13465,11 +13465,17 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "code": {
+                      "type": "string",
+                      "const": "multipart_blob_stage_not_found"
+                    },
                     "error": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     }
                   },
                   "required": [
+                    "code",
                     "error"
                   ],
                   "additionalProperties": {}
@@ -13484,8 +13490,13 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "code": {
+                      "type": "string",
+                      "const": "multipart_blob_stage_expired"
+                    },
                     "error": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     }
                   },
                   "required": [

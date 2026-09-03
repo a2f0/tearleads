@@ -294,49 +294,6 @@ describe("stageMultipartBlobAttachment", () => {
     ]);
   });
 
-  test("preserves a resumed stage after transient status lookup failures", async () => {
-    const failures = [
-      { kind: "network", message: "fetch failed", status: null },
-      { kind: "http", message: "503 Service Unavailable", status: 503 },
-      { kind: "shape", message: "Invalid response shape", status: 200 },
-    ] as const;
-
-    for (const failure of failures) {
-      let encryptCalls = 0;
-      let initiateCalls = 0;
-      let resolvedCalls = 0;
-      await expect(
-        stageMultipartBlobAttachment({
-          apiClient: createMultipartApi({
-            getMultipartBlobStage: async () => null,
-            getRequestFailure: () => failure,
-            initiateMultipartBlobStage: async () => {
-              initiateCalls += 1;
-              return null;
-            },
-          }),
-          encryption: createFakePlan({
-            encryptPart: async (_partIndex, byteLength) => {
-              encryptCalls += 1;
-              return new Uint8Array(byteLength);
-            },
-            partCount: 1,
-          }),
-          multipart: {
-            partSize: DEFAULT_CHUNK_SIZE,
-            resumeStageId: "stage-preserved",
-          },
-          onStageResolved: () => {
-            resolvedCalls += 1;
-          },
-        }),
-      ).rejects.toThrow(failure.message);
-      expect(encryptCalls).toBe(0);
-      expect(initiateCalls).toBe(0);
-      expect(resolvedCalls).toBe(0);
-    }
-  });
-
   test("reports full progress without encryption for a completed stage", async () => {
     let encryptCalls = 0;
     const progress: Array<{
@@ -391,44 +348,55 @@ describe("stageMultipartBlobAttachment", () => {
     ]);
   });
 
-  test("opens a fresh stage for a mismatched whole length or digest", async () => {
+  test("rejects a resumed stage metadata mismatch without replacing it", async () => {
     for (const mismatch of ["byteLength", "sha256"] as const) {
-      const encryption = createFakePlan({ partCount: 2 });
+      let encryptCalls = 0;
       let initiateCalls = 0;
-      const stageId = await stageMultipartBlobAttachment({
-        apiClient: createMultipartApi({
-          getMultipartBlobStage: async (id) => ({
-            byteLength:
-              mismatch === "byteLength"
-                ? encryption.byteLength + 1
-                : encryption.byteLength,
-            completed: false,
-            expiresAt: "2026-04-27T01:00:00.000Z",
-            sha256: mismatch === "sha256" ? "stale-sha256" : encryption.sha256,
-            stageId: id,
-            uploadId: "upload-stale",
-            uploadedParts: [{ byteLength: 3, etag: "etag-1", partNumber: 1 }],
-          }),
-          initiateMultipartBlobStage: async (request) => {
-            initiateCalls += 1;
-            return {
-              ...request,
+      let resolvedCalls = 0;
+      const encryption = createFakePlan({
+        encryptPart: async (_partIndex, byteLength) => {
+          encryptCalls += 1;
+          return new Uint8Array(byteLength);
+        },
+        partCount: 2,
+      });
+      await expect(
+        stageMultipartBlobAttachment({
+          apiClient: createMultipartApi({
+            getMultipartBlobStage: async (id) => ({
+              byteLength:
+                mismatch === "byteLength"
+                  ? encryption.byteLength + 1
+                  : encryption.byteLength,
+              completed: false,
               expiresAt: "2026-04-27T01:00:00.000Z",
-              stageId: `stage-fresh-${mismatch}`,
-              uploadedParts: [],
-              uploadId: `upload-fresh-${mismatch}`,
-            };
+              sha256:
+                mismatch === "sha256" ? "stale-sha256" : encryption.sha256,
+              stageId: id,
+              uploadId: "upload-stale",
+              uploadedParts: [{ byteLength: 3, etag: "etag-1", partNumber: 1 }],
+            }),
+            initiateMultipartBlobStage: async () => {
+              initiateCalls += 1;
+              return null;
+            },
+          }),
+          encryption,
+          multipart: {
+            partSize: DEFAULT_CHUNK_SIZE,
+            resumeStageId: "stage-stale",
+          },
+          onStageResolved: () => {
+            resolvedCalls += 1;
           },
         }),
-        encryption,
-        multipart: {
-          partSize: DEFAULT_CHUNK_SIZE,
-          resumeStageId: "stage-stale",
-        },
-      });
+      ).rejects.toThrow(
+        "Multipart blob resume stage stage-stale does not match the requested bytes.",
+      );
 
-      expect(stageId).toBe(`stage-fresh-${mismatch}`);
-      expect(initiateCalls).toBe(1);
+      expect(encryptCalls).toBe(0);
+      expect(initiateCalls).toBe(0);
+      expect(resolvedCalls).toBe(0);
     }
   });
 

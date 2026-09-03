@@ -6,11 +6,14 @@ import type {
 import type {
   CompleteMultipartBlobStageResponse,
   InitiateMultipartBlobStageResponse,
+  MultipartBlobStageErrorCode,
   MultipartBlobStageStatusResponse,
   UploadMultipartBlobPartResponse,
 } from "@tearleads/validators/response";
+import { MULTIPART_BLOB_STAGE_ERROR_CODES } from "@tearleads/validators/response";
 import { eq, inArray, lte } from "drizzle-orm";
 import {
+  type BlobObjectPart,
   BlobObjectStoreError,
   type CompletedBlobObject,
 } from "../../adapters/blobObjectStore";
@@ -55,6 +58,7 @@ export class MultipartBlobStageError extends Error {
   constructor(
     message: string,
     readonly status: MultipartBlobStageStatus,
+    readonly code?: MultipartBlobStageErrorCode,
   ) {
     super(message);
     this.name = "MultipartBlobStageError";
@@ -68,8 +72,15 @@ function toMultipartBlobStageError(
     return null;
   }
 
+  if (error.code === "multipart_upload_not_found") {
+    return new MultipartBlobStageError(
+      error.message,
+      404,
+      MULTIPART_BLOB_STAGE_ERROR_CODES.notFound,
+    );
+  }
   if (error.code === "not_found") {
-    return new MultipartBlobStageError(error.message, 404);
+    return new MultipartBlobStageError(error.message, 500);
   }
   if (error.code === "upload_conflict") {
     return new MultipartBlobStageError(error.message, 409);
@@ -110,7 +121,16 @@ async function loadMultipartBlobStage(
   input: AuthenticatedMultipartBlobStageInput,
 ): Promise<OwnedActiveBlobStage> {
   return loadOwnedActiveBlobStage(runtime.db, {
-    error: (message, status) => new MultipartBlobStageError(message, status),
+    error: (message, status) =>
+      new MultipartBlobStageError(
+        message,
+        status,
+        status === 404
+          ? MULTIPART_BLOB_STAGE_ERROR_CODES.notFound
+          : status === 409
+            ? MULTIPART_BLOB_STAGE_ERROR_CODES.expired
+            : undefined,
+      ),
     stageId: input.stageId,
     userId: input.userId,
   });
@@ -121,6 +141,17 @@ async function listStageParts(
   stage: OwnedActiveBlobStage,
 ) {
   if (stage.completedAt !== null) {
+    const object = await runtime.blobObjectStore.getObjectStream(
+      stage.storageKey,
+    );
+    if (!object) {
+      throw new MultipartBlobStageError(
+        "Completed multipart object not found",
+        404,
+        MULTIPART_BLOB_STAGE_ERROR_CODES.notFound,
+      );
+    }
+    await object.cancel();
     return [];
   }
 
@@ -243,11 +274,19 @@ export async function getMultipartBlobStage(
 ): Promise<MultipartBlobStageStatusResponse> {
   try {
     const stage = await loadMultipartBlobStage(runtime, input);
-    const uploadedParts = await listStageParts(runtime, stage);
+    let completed = stage.completedAt !== null;
+    let uploadedParts: readonly BlobObjectPart[];
+    try {
+      uploadedParts = await listStageParts(runtime, stage);
+    } catch (error) {
+      await recoverAssembledMultipartStage(runtime, stage, error);
+      completed = true;
+      uploadedParts = [];
+    }
 
     return {
       byteLength: stage.byteLength,
-      completed: stage.completedAt !== null,
+      completed,
       expiresAt: stage.expiresAt.toISOString(),
       sha256: stage.sha256,
       stageId: stage.id,
@@ -359,17 +398,20 @@ async function assertCompletedMultipartObjectMatches(
 
 // Idempotent recovery for a retry after the object was assembled but the state
 // flip never committed (byte commit + row flip can't share a transaction). The
-// uploadId is consumed, so completeMultipartUpload throws not_found. If the
-// object survives, RE-VALIDATE its bytes before converging: a prior attempt may
-// have assembled a mismatched object and crashed before deleting it, so
-// existence alone must not bypass the size/digest check. Rethrows when the error
-// is not a recoverable not_found or no object is present.
-async function recoverCompletedMultipartStage(
+// uploadId is consumed, so completeMultipartUpload reports the missing upload.
+// If the object survives, RE-VALIDATE its bytes before converging: a prior
+// attempt may have assembled a mismatched object and crashed before deleting it,
+// so existence alone must not bypass the size/digest check. Rethrows when the
+// error is not a recoverable absence or no object is present.
+async function recoverAssembledMultipartStage(
   runtime: ApiServiceRuntime,
   stage: OwnedActiveBlobStage,
   error: unknown,
-): Promise<CompleteMultipartBlobStageResponse> {
-  if (!(error instanceof BlobObjectStoreError) || error.code !== "not_found") {
+): Promise<void> {
+  if (
+    !(error instanceof BlobObjectStoreError) ||
+    error.code !== "multipart_upload_not_found"
+  ) {
     throw error;
   }
   const existing = await runtime.blobObjectStore.getObjectStream(
@@ -381,7 +423,6 @@ async function recoverCompletedMultipartStage(
   const assembled = await summarizeSha256Stream(existing);
   await assertCompletedMultipartObjectMatches(runtime, stage, assembled);
   await markMultipartStageComplete(runtime, stage);
-  return multipartStageCompleteResponse(stage);
 }
 
 export async function completeMultipartBlobStage(
@@ -411,7 +452,8 @@ export async function completeMultipartBlobStage(
         uploadId: stage.uploadId,
       });
     } catch (error) {
-      return await recoverCompletedMultipartStage(runtime, stage, error);
+      await recoverAssembledMultipartStage(runtime, stage, error);
+      return multipartStageCompleteResponse(stage);
     }
 
     await assertCompletedMultipartObjectMatches(runtime, stage, completed);

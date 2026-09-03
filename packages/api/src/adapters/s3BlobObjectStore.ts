@@ -51,13 +51,21 @@ function errorStatusCode(error: unknown): number | undefined {
   return typeof statusCode === "number" ? statusCode : undefined;
 }
 
-function isS3NotFoundError(error: unknown): boolean {
-  return (
-    errorStatusCode(error) === 404 ||
-    errorName(error) === "NoSuchKey" ||
-    errorName(error) === "NoSuchUpload" ||
-    errorName(error) === "NotFound"
-  );
+function errorCode(error: unknown): string | undefined {
+  const code = recordValue(error, "Code");
+  return typeof code === "string" ? code : undefined;
+}
+
+function hasS3ErrorIdentity(error: unknown, identity: string): boolean {
+  return errorName(error) === identity || errorCode(error) === identity;
+}
+
+function isS3ObjectNotFoundError(error: unknown): boolean {
+  return hasS3ErrorIdentity(error, "NoSuchKey");
+}
+
+function isS3MultipartUploadNotFoundError(error: unknown): boolean {
+  return hasS3ErrorIdentity(error, "NoSuchUpload");
 }
 
 function requireString(value: string | undefined, message: string): string {
@@ -112,8 +120,11 @@ function toBlobObjectStoreError(error: unknown): BlobObjectStoreError | null {
   if (error instanceof BlobObjectStoreError) {
     return error;
   }
-  if (isS3NotFoundError(error)) {
-    return new BlobObjectStoreError("Multipart upload not found", "not_found");
+  if (isS3MultipartUploadNotFoundError(error)) {
+    return new BlobObjectStoreError(
+      "Multipart upload not found",
+      "multipart_upload_not_found",
+    );
   }
   if (isS3InvalidPartError(error)) {
     return new BlobObjectStoreError(
@@ -136,7 +147,7 @@ function logRawS3Error(operationName: string, error: unknown): void {
   // visible instead of the lossy "Multipart upload part not found" mapping.
   console.error(`S3 blob object store ${operationName} failed`, {
     name: errorName(error),
-    code: recordValue(error, "Code"),
+    code: errorCode(error),
     httpStatusCode: errorStatusCode(error),
     message: recordValue(error, "message"),
   });
@@ -177,7 +188,7 @@ async function getS3ObjectStream(input: {
 
     return responseBodyToStream(object.Body);
   } catch (error) {
-    if (isS3NotFoundError(error)) {
+    if (isS3ObjectNotFoundError(error)) {
       return null;
     }
 
@@ -242,7 +253,7 @@ function createAbortMultipartUpload({
         }),
       );
     } catch (error) {
-      if (!isS3NotFoundError(error)) {
+      if (!isS3MultipartUploadNotFoundError(error)) {
         throw error;
       }
     }

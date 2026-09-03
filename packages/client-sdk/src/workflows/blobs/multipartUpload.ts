@@ -4,6 +4,7 @@ import type {
   MultipartBlobStagePart,
   MultipartBlobStageStatusResponse,
 } from "@tearleads/validators/response";
+import { MULTIPART_BLOB_STAGE_ERROR_CODES } from "@tearleads/validators/response";
 import { MAX_BLOB_CHUNK_COUNT } from "../../data/documents/blob/shared/blobEnvelopeV2";
 import type { BlobEncryptionPlan } from "../../data/documents/blob/shared/crypto";
 import type {
@@ -31,6 +32,9 @@ interface MultipartPartUploadTask {
 type RequestFailureInput = Parameters<
   NonNullable<BlobAttachmentApi["getRequestFailure"]>
 >[0];
+type RequestFailure = ReturnType<
+  NonNullable<BlobAttachmentApi["getRequestFailure"]>
+>;
 
 function pathSegment(value: number | string): string {
   return encodeURIComponent(String(value));
@@ -57,6 +61,18 @@ function multipartApiFailureMessage(input: {
   return failure
     ? `${input.fallback} Last API failure: ${failure}`
     : input.fallback;
+}
+
+function provesMultipartStageReplacement(
+  failure: RequestFailure | undefined,
+): boolean {
+  return (
+    failure?.kind === "http" &&
+    ((failure.status === 404 &&
+      failure.code === MULTIPART_BLOB_STAGE_ERROR_CODES.notFound) ||
+      (failure.status === 409 &&
+        failure.code === MULTIPART_BLOB_STAGE_ERROR_CODES.expired))
+  );
 }
 
 async function sha256BytesHex(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
@@ -285,10 +301,7 @@ async function resolveMultipartStageStatus(input: {
         path: multipartStagePath(resumeStageId),
       };
       const failure = input.apiClient.getRequestFailure?.(request);
-      const stageIsGone =
-        failure?.kind === "http" &&
-        (failure.status === 404 || failure.status === 409);
-      if (!stageIsGone) {
+      if (!provesMultipartStageReplacement(failure)) {
         throw new Error(
           multipartApiFailureMessage({
             apiClient: input.apiClient,
@@ -303,15 +316,18 @@ async function resolveMultipartStageStatus(input: {
         `Multipart blob resume response does not match stage ${resumeStageId}.`,
       );
     }
-    // Only resume when the stage still exists AND was opened for the same bytes.
-    // A sha256 mismatch means the upload no longer reproduces the staged content
-    // (or the stage was recycled), so opening a fresh stage is safer than
-    // uploading parts that could never assemble to the staged hash.
-    if (
-      resumed &&
-      resumed.byteLength === input.byteLength &&
-      resumed.sha256 === input.sha256
-    ) {
+    if (resumed) {
+      // A successful lookup is authoritative: a metadata mismatch indicates
+      // inconsistent persisted state or a bad server response, not proof that
+      // the existing stage is safe to abandon.
+      if (
+        resumed.byteLength !== input.byteLength ||
+        resumed.sha256 !== input.sha256
+      ) {
+        throw new Error(
+          `Multipart blob resume stage ${resumeStageId} does not match the requested bytes.`,
+        );
+      }
       return resumed;
     }
   }

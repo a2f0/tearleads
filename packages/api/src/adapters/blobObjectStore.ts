@@ -26,6 +26,7 @@ export interface BlobObjectUploadPartBody {
 
 type BlobObjectStoreErrorCode =
   | "invalid_part"
+  | "multipart_upload_not_found"
   | "not_found"
   | "unsupported_body"
   | "upload_conflict";
@@ -138,7 +139,10 @@ function requireUpload(
 ): MultipartUploadState {
   const upload = uploads.get(input.uploadId);
   if (!upload || upload.key !== input.key) {
-    throw new BlobObjectStoreError("Multipart upload not found", "not_found");
+    throw new BlobObjectStoreError(
+      "Multipart upload not found",
+      "multipart_upload_not_found",
+    );
   }
 
   return upload;

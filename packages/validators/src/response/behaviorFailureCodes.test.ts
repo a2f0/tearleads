@@ -18,6 +18,12 @@ import {
 } from "./documentMutationError";
 import { DOCUMENT_SYNC_ERROR_CODES } from "./documentSyncError";
 import {
+  MULTIPART_BLOB_STAGE_ERROR_CODES,
+  MultipartBlobStageConflictErrorResponseSchema,
+  MultipartBlobStageExpiredErrorResponseSchema,
+  MultipartBlobStageNotFoundErrorResponseSchema,
+} from "./multipartBlobStageError";
+import {
   ORGANIZATION_PRESENTATION_ERROR_CODES,
   OrganizationPresentationFailureResponseSchema,
 } from "./organizationPresentationError";
@@ -39,6 +45,23 @@ test("behavior-bearing failure schemas accept every registered code", () => {
     OrganizationPresentationFailureResponseSchema.safeParse({
       code: ORGANIZATION_PRESENTATION_ERROR_CODES.accessDenied,
       error: "Diagnostic",
+    }).success,
+  ).toBe(true);
+  expect(
+    MultipartBlobStageNotFoundErrorResponseSchema.safeParse({
+      code: MULTIPART_BLOB_STAGE_ERROR_CODES.notFound,
+      error: "Diagnostic",
+    }).success,
+  ).toBe(true);
+  expect(
+    MultipartBlobStageExpiredErrorResponseSchema.safeParse({
+      code: MULTIPART_BLOB_STAGE_ERROR_CODES.expired,
+      error: "Diagnostic",
+    }).success,
+  ).toBe(true);
+  expect(
+    MultipartBlobStageConflictErrorResponseSchema.safeParse({
+      error: "Terminal integrity conflict",
     }).success,
   ).toBe(true);
 
@@ -117,6 +140,15 @@ test("malformed and unknown behavior tags fail schema validation", () => {
     ).toBe(false);
     expect(
       OrganizationPresentationFailureResponseSchema.safeParse(failure).success,
+    ).toBe(false);
+    expect(
+      MultipartBlobStageNotFoundErrorResponseSchema.safeParse(failure).success,
+    ).toBe(false);
+    expect(
+      MultipartBlobStageExpiredErrorResponseSchema.safeParse(failure).success,
+    ).toBe(false);
+    expect(
+      MultipartBlobStageConflictErrorResponseSchema.safeParse(failure).success,
     ).toBe(false);
     expect(
       DocumentMutationFailureResponseSchema.safeParse(failure).success,

@@ -1,4 +1,5 @@
 import { expect } from "bun:test";
+import { MULTIPART_BLOB_STAGE_ERROR_CODES } from "@tearleads/validators/response";
 import { HttpResponse, http } from "msw";
 import {
   apiBaseUrl,
@@ -111,6 +112,34 @@ testApiClient("uses blob multipart stage route namespace", async () => {
     },
   ]);
   expect(calls[2]?.contentType).toBe("application/octet-stream");
+});
+
+testApiClient("retains coded multipart stage lookup failures", async () => {
+  server.use(
+    http.get(`${apiBaseUrl}/blobs/stages/multipart/${stageId}`, () =>
+      HttpResponse.json(
+        {
+          code: MULTIPART_BLOB_STAGE_ERROR_CODES.notFound,
+          error: "Blob stage not found",
+        },
+        { status: 404, statusText: "Not Found" },
+      ),
+    ),
+  );
+
+  const client = new ApiClient(apiBaseUrl);
+
+  await expect(client.getMultipartBlobStage(stageId)).resolves.toBeNull();
+  expect(
+    client.getRequestFailure({
+      method: "GET",
+      path: `/blobs/stages/multipart/${stageId}`,
+    }),
+  ).toMatchObject({
+    code: MULTIPART_BLOB_STAGE_ERROR_CODES.notFound,
+    kind: "http",
+    status: 404,
+  });
 });
 
 testApiClient(
