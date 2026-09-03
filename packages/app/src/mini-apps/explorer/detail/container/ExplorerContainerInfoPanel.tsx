@@ -4,7 +4,7 @@ import type {
   ContainerShareAccessLevel,
   OrganizationDirectoryAndGroups,
 } from "@tearleads/client-sdk";
-import { useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import {
   MiniAppFormPanel,
   MiniAppStatus,
@@ -31,7 +31,6 @@ import {
   useExplorerContainerInfoPeerShare,
 } from "./ExplorerContainerInfoState";
 import { ExplorerContainerInfoSyncCursorsSection } from "./ExplorerContainerInfoSyncCursorsSection";
-import { getContainerInfoShareableGroups } from "./explorerContainerInfoStateHelpers";
 
 interface Props {
   canManageIcon: boolean;
@@ -91,17 +90,31 @@ function useExplorerContainerInfoPanelState(params: Props) {
     reloadToken: params.containerSyncStatus,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const remoteInfo = containerInfoState.containerInfo?.remoteInfo;
+  // The label the user saw when choosing each group, captured at selection
+  // time. The share binds this label to the signed group name; re-reading it
+  // from the reloadable read model at submit time would let a relabel between
+  // the choice and the submit change what gets bound.
+  const chosenGroupNames = useRef(new Map<string, string>());
+  const { setDraftShareGroupId } = containerInfoState;
+  const selectDraftShareGroup = useCallback(
+    (groupId: string, name: string | undefined) => {
+      if (name === undefined) {
+        chosenGroupNames.current.delete(groupId);
+      } else {
+        chosenGroupNames.current.set(groupId, name);
+      }
+      setDraftShareGroupId(groupId);
+    },
+    [setDraftShareGroupId],
+  );
   const handleShareWithGroup = useExplorerContainerInfoGroupShare({
     canShareContainer: params.canShareContainer,
     containerId,
     draftShareAccessLevel: containerInfoState.draftShareAccessLevel,
     draftShareGroupId: containerInfoState.draftShareGroupId,
-    draftShareGroupName: remoteInfo
-      ? getContainerInfoShareableGroups(remoteInfo).find(
-          (group) => group.groupId === containerInfoState.draftShareGroupId,
-        )?.name
-      : undefined,
+    draftShareGroupName: chosenGroupNames.current.get(
+      containerInfoState.draftShareGroupId,
+    ),
     isSubmitting,
     reloadContainerInfo: containerInfoState.reloadContainerInfo,
     setIsSubmitting,
@@ -129,6 +142,7 @@ function useExplorerContainerInfoPanelState(params: Props) {
     handleShareWithGroup,
     handleShareWithPeer,
     isSubmitting,
+    selectDraftShareGroup,
     setActiveTab,
   };
 }
@@ -188,7 +202,7 @@ function ExplorerContainerInfoSharingSections(params: {
   peerUserId: string | null;
   remoteInfo: NonNullable<ContainerInfo["remoteInfo"]>;
   setDraftShareAccessLevel: (value: ContainerShareAccessLevel) => void;
-  setDraftShareGroupId: (value: string) => void;
+  selectDraftShareGroup: (groupId: string, name: string | undefined) => void;
   setPanelError: (error: string | null) => void;
 }) {
   const showPeerShare =
@@ -210,7 +224,7 @@ function ExplorerContainerInfoSharingSections(params: {
           isSubmitting={params.isSubmitting}
           remoteInfo={params.remoteInfo}
           setDraftShareAccessLevel={params.setDraftShareAccessLevel}
-          setDraftShareGroupId={params.setDraftShareGroupId}
+          selectDraftShareGroup={params.selectDraftShareGroup}
           setPanelError={params.setPanelError}
         />
       ) : null}
@@ -254,7 +268,7 @@ function ExplorerContainerInfoTabPanel(params: {
     icon: string | null,
   ) => Promise<ContainerNode | null>;
   setDraftShareAccessLevel: (value: ContainerShareAccessLevel) => void;
-  setDraftShareGroupId: (value: string) => void;
+  selectDraftShareGroup: (groupId: string, name: string | undefined) => void;
   setPanelError: (error: string | null) => void;
 }) {
   const remoteInfo = params.containerInfo?.remoteInfo ?? null;
@@ -294,7 +308,7 @@ function ExplorerContainerInfoTabPanel(params: {
           onShareWithPeer={params.onShareWithPeer}
           peerUserId={params.peerUserId}
           setDraftShareAccessLevel={params.setDraftShareAccessLevel}
-          setDraftShareGroupId={params.setDraftShareGroupId}
+          selectDraftShareGroup={params.selectDraftShareGroup}
           setPanelError={params.setPanelError}
         />
       ) : null}
@@ -323,8 +337,8 @@ export function ExplorerContainerInfoPanel(params: Props) {
     isLoadingContainerInfo,
     isSubmitting,
     panelError,
+    selectDraftShareGroup,
     setDraftShareAccessLevel,
-    setDraftShareGroupId,
     setPanelError,
     setActiveTab,
   } = useExplorerContainerInfoPanelState(params);
@@ -372,7 +386,7 @@ export function ExplorerContainerInfoPanel(params: Props) {
           peerUserId={params.peerUserId}
           setContainerIcon={params.setContainerIcon}
           setDraftShareAccessLevel={setDraftShareAccessLevel}
-          setDraftShareGroupId={setDraftShareGroupId}
+          selectDraftShareGroup={selectDraftShareGroup}
           setPanelError={setPanelError}
         />
       </div>

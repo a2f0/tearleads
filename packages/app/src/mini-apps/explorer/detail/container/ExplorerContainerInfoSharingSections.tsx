@@ -230,7 +230,13 @@ export function ExplorerContainerInfoGroupShareSection(params: {
   isSubmitting: boolean;
   remoteInfo: NonNullable<ContainerInfo["remoteInfo"]>;
   setDraftShareAccessLevel: (value: ContainerShareAccessLevel) => void;
-  setDraftShareGroupId: (value: string) => void;
+  /**
+   * Receives the id together with the label the user saw when choosing it.
+   * The label is what the share binds to the signed group name, so it is
+   * captured here at selection time rather than re-read from the reloadable
+   * read model at submit time.
+   */
+  selectDraftShareGroup: (groupId: string, name: string | undefined) => void;
   setPanelError: (error: string | null) => void;
 }) {
   const {
@@ -239,7 +245,7 @@ export function ExplorerContainerInfoGroupShareSection(params: {
     isSubmitting,
     remoteInfo,
     setDraftShareAccessLevel,
-    setDraftShareGroupId,
+    selectDraftShareGroup,
     setPanelError,
   } = params;
   const shareableGroups = getContainerInfoShareableGroups(remoteInfo);
@@ -256,7 +262,10 @@ export function ExplorerContainerInfoGroupShareSection(params: {
           value={draftShareGroupId}
           onChange={(value) => {
             setPanelError(null);
-            setDraftShareGroupId(value);
+            selectDraftShareGroup(
+              value,
+              shareableGroups.find((group) => group.groupId === value)?.name,
+            );
           }}
           options={shareableGroups.map((group) => ({
             id: group.groupId,
