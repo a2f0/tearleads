@@ -12,6 +12,12 @@ merge runs, and the tool appends the PR reference `(#<pr>)` so the squash
 commit ends with it — the same reference GitHub adds for web/default merges but
 that a custom merge headline otherwise suppresses.
 
+The merge mutation must run through the repository's `agent-tool squashMerge`
+action. Never substitute `gh pr merge` or a hand-written `gh api` mutation:
+plain `gh pr merge --squash` can copy the branch's commit list into the body,
+while adding `--subject` suppresses GitHub's automatic `(#<pr>)` suffix. The
+helper deliberately controls both fields.
+
 Once the PR is confirmed `MERGED`, return to the PR's base branch, fast-forward
 it, and delete the merged branch, so a shipped PR leaves no local leftovers.
 
@@ -34,13 +40,10 @@ it, and delete the merged branch, so a shipped PR leaves no local leftovers.
 
   **This flag is consumed by this skill and must never reach the tool.** The
   tool takes only the three positionals above —
-  `squashMerge <subject> <sha> <base-ref>` —
-  and how a forwarded `--keep-branch` fails depends on where it lands: first, it
-  is read as the *subject* and rejected by commitlint; after the positionals
-  (the position `ship-pr` forwards), it is **silently ignored**. The silent case
-  is the dangerous one — the merge succeeds, the caller believes cleanup was
-  skipped, and it ran anyway. Strip the flag from the arguments, let it gate
-  step 4, and call the tool with the subject, SHA, and expected base only.
+  `squashMerge <subject> <sha> <base-ref>`. Its validated dispatcher rejects any
+  extra positional before the merge mutation. Strip the flag from the arguments,
+  let it gate step 4, and call the tool with the subject, SHA, and expected base
+  only.
 
 ## Prerequisites
 
@@ -147,6 +150,10 @@ as-is.
    the `(#<pr>)` reference by hand; the tool adds it (see below).
 
 2. **Run the squash merge**:
+
+   Run the validated `squashMerge` agent-tool action shown below. `squash-merge`
+   is the name of this instruction set, not a shell command. If the action fails,
+   stop; do not fall back to `gh pr merge` or another merge mutation.
 
    ```bash
    bun "$AGENT_TOOL" squashMerge 'feat(app): add widget'

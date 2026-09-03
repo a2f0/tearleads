@@ -379,38 +379,36 @@ loop, subject-only squash, and `MERGED`-state verification.
    re-review because merging the base changes the candidate head and can change
    the PR diff.
 
-4. **Squash-merge and clean up (bound to the reviewed head)** — invoke the
-   `squash-merge` skill, passing `REVIEWED_SHA` as its **second (head-SHA)
-   argument** and `BASE_REF` as its **third (expected-base) argument**. The tool
-   re-queries the PR immediately before its direct mutation and refuses an
-   observed retarget; `expectedHeadOid` makes GitHub **atomically** refuse to
+4. **Squash-merge and clean up (bound to the reviewed head)** — apply the
+   `squash-merge` skill's instructions. It is an instruction set, not a shell
+   command: run its validated `squashMerge` agent-tool action, then follow its
+   post-merge cleanup. Pass `REVIEWED_SHA` as the action's **second (head-SHA)
+   argument** and `BASE_REF` as its **third (expected-base) argument**. The
+   helper re-queries the PR immediately before its direct mutation and refuses
+   an observed retarget; `expectedHeadOid` makes GitHub **atomically** refuse to
    merge anything but the reviewed commit. The strict status rule separately
    prevents a stale head from merging after the target branch advances.
 
    That skill also owns the post-merge cleanup: once GitHub confirms `MERGED`, it
    returns to the PR's base branch, fast-forwards it, verifies it contains the
-   merge commit, and deletes the merged branch locally and remotely. Forward
-   `--keep-branch` when it was given to opt out. Do not re-implement the cleanup
-   here; it is gated on the merge actually landing, so it must stay with the step
-   that performs the merge.
+   merge commit, and deletes the merged branch locally and remotely. Honor
+   `--keep-branch` by skipping that cleanup. Follow the loaded skill's cleanup
+   instructions; they are gated on the merge actually landing.
 
-   **Invoke the `squash-merge` skill — do not call the tool directly from here.**
-   The tool merges and returns; the cleanup and `--keep-branch` live in the skill
-   *around* that call, and the tool knows neither. Reaching past the skill to
-   `bun "$AGENT_TOOL" squashMerge …` merges the PR and silently skips the cleanup,
-   leaving the feature branch checked out and undeleted.
+   **The agent-tool call is mandatory.** Never substitute `gh pr merge`, a
+   hand-written GraphQL mutation, or a nonexistent `squash-merge` shell command;
+   those bypasses can copy the commit list into the body or omit `(#<pr>)`.
 
    Because the head SHA is the **second** positional argument, pass an empty
-   first argument to default the subject to the PR title — the skill takes the
-   same arguments this flow forwards:
+   first argument to default the subject to the PR title:
 
-   ```text
-   squash-merge '' "$REVIEWED_SHA" "$BASE_REF"
-   squash-merge '' "$REVIEWED_SHA" "$BASE_REF" --keep-branch
+   ```bash
+   bun "$AGENT_TOOL" squashMerge '' "$REVIEWED_SHA" "$BASE_REF"
    ```
 
-   The first form defaults the subject to the PR title; use the second only when
-   the caller gave `--keep-branch`.
+   `--keep-branch` belongs to the surrounding skill, not the helper: run the
+   same helper command, then skip the cleanup when the caller supplied that
+   flag. If the helper fails, stop; never fall back to another merge command.
 
    The empty subject falls back to the PR title captured when the PR was opened
    or resumed (step 3, or step 1 on the resume path), to which the tool appends
@@ -515,10 +513,9 @@ loop, subject-only squash, and `MERGED`-state verification.
   it is skipped on a dirty worktree so in-progress work is never carried onto
   the base branch or stranded. In every case the branch survives and the reason
   is reported.
-- **Invoke the wrapped skills, not the tools they call.** `squash-merge` is the
-  clearest case: its cleanup and `--keep-branch` wrap the tool call rather than
-  living inside the tool, so calling `squashMerge` directly still merges — it just
-  skips the cleanup, and does so silently. The same holds for the review fallback
-  chain and repair loop in `cross-agent-review`.
+- **Apply wrapped skill instructions end to end.** `squash-merge` is not an
+  executable wrapper: its workflow includes the required `squashMerge` helper
+  call and post-merge cleanup. The helper alone skips cleanup; `gh pr merge`
+  bypasses the exact-message guarantees.
 - Single-quote the title argument and use a quoted heredoc for the body (per
   `open-pr`) so the shell does not expand `$(...)`, backticks, or `$VAR`.

@@ -13,22 +13,42 @@ const target = {
 
 describe("buildSquashMergeArgs", () => {
   test("builds a subject-only squash with an empty body", () => {
-    const args = buildSquashMergeArgs(target, "feat(app): add widget (#1537)");
+    const args = buildSquashMergeArgs(
+      target,
+      "feat(app): add widget (#1537)",
+      "1537",
+    );
     expect(args.slice(0, 3)).toEqual(["api", "graphql", "-f"]);
     expect(args).toContain("pullRequestId=PR_node_id");
     expect(args).toContain("commitHeadline=feat(app): add widget (#1537)");
-    expect(args).toContain("commitBody=");
+    expect(args.filter((arg) => arg.startsWith("commitBody="))).toEqual([
+      "commitBody=",
+    ]);
     expect(args).toContain("expectedHeadOid=def456");
     expect(args).toContain("mergeMethod=SQUASH");
   });
 
+  test("rejects a headline without the authoritative PR suffix", () => {
+    expect(() =>
+      buildSquashMergeArgs(target, "feat(app): add widget", "1537"),
+    ).toThrow("must end with ' (#1537)'");
+    expect(() =>
+      buildSquashMergeArgs(target, "feat(app): add widget (#9999)", "1537"),
+    ).toThrow("must end with ' (#1537)'");
+  });
+
   test("binds the mutation to an explicitly reviewed head SHA", () => {
-    const args = buildSquashMergeArgs(target, "feat: x (#1537)", "abc123");
+    const args = buildSquashMergeArgs(
+      target,
+      "feat: x (#1537)",
+      "1537",
+      "abc123",
+    );
     expect(args).toContain("expectedHeadOid=abc123");
   });
 
   test("uses the current head SHA when no reviewed SHA is provided", () => {
-    const args = buildSquashMergeArgs(target, "feat: x (#1537)", "");
+    const args = buildSquashMergeArgs(target, "feat: x (#1537)", "1537", "");
     expect(args).toContain("expectedHeadOid=def456");
   });
 });

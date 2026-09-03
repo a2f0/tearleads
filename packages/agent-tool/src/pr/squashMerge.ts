@@ -1,7 +1,11 @@
 import { spawnSync } from "node:child_process";
 
 import { prState, resolvePr, run, spawnExitCode } from "../git/prContext";
-import { appendPrNumberSuffix, stripPrNumberSuffix } from "./prNumberSuffix";
+import {
+  appendPrNumberSuffix,
+  assertPrNumberSuffix,
+  stripPrNumberSuffix,
+} from "./prNumberSuffix";
 import { singleLineSubject } from "./subjectLine";
 import { validateCommitSubject } from "./validateCommitSubject";
 
@@ -135,8 +139,12 @@ function resolvePullRequestMergeTarget(
 export function buildSquashMergeArgs(
   target: PullRequestMergeTarget,
   finalSubject: string,
+  prNumber: string,
   expectedHeadSha?: string,
 ): string[] {
+  // Keep the final assertion at the mutation boundary so no caller can build a
+  // custom headline that accidentally suppresses GitHub's PR reference.
+  assertPrNumberSuffix(finalSubject, prNumber);
   return [
     "api",
     "graphql",
@@ -186,7 +194,12 @@ export function squashMerge(
 
   const result = spawnSync(
     "gh",
-    buildSquashMergeArgs(mergeTarget, finalSubject, expectedHeadSha),
+    buildSquashMergeArgs(
+      mergeTarget,
+      finalSubject,
+      pr.prNumber,
+      expectedHeadSha,
+    ),
     { stdio: "inherit" },
   );
   const exitCode = spawnExitCode("GitHub mergePullRequest mutation", result);
