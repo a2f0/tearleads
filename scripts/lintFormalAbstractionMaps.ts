@@ -185,23 +185,77 @@ export function moduleDeclaresToken(
   if (definitionPattern.test(stripped)) {
     return true;
   }
-  const declarationBlocks = stripped.match(
-    /\b(?:VARIABLES?|CONSTANTS?)\b[\s\S]*?(?=\n[ \t]*\n|====)/g,
-  );
-  return (declarationBlocks ?? []).some((block) =>
-    hasWordOccurrence(block, token),
-  );
+  return declaredTlaNames(stripped).includes(token);
 }
 
-/** All segments of a dotted seam must occur together in one file. */
+/**
+ * Names introduced by VARIABLES/CONSTANTS declarations: the keyword's own
+ * line plus only its comma-continued follow-on lines, so a bare use in a
+ * later definition is never misread as a declaration.
+ */
+export function declaredTlaNames(strippedModule: string): string[] {
+  const names: string[] = [];
+  const lines = strippedModule.split("\n");
+  for (let index = 0; index < lines.length; index += 1) {
+    const match = (lines[index] ?? "").match(
+      /^[ \t]*(?:VARIABLES?|CONSTANTS?)\b(.*)$/,
+    );
+    if (!match) {
+      continue;
+    }
+    let declaration = match[1] ?? "";
+    while (declaration.trimEnd().endsWith(",") && index + 1 < lines.length) {
+      index += 1;
+      declaration += `,${lines[index] ?? ""}`;
+    }
+    for (const name of declaration.split(",")) {
+      const identifier = name.trim();
+      if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(identifier)) {
+        names.push(identifier);
+      }
+    }
+  }
+  return names;
+}
+
+/**
+ * Strip comments and string/template literals so a seam surviving only in
+ * commentary or documentation strings does not count as code. The removal is
+ * lexical rather than a full parse; that is enough to keep matches to code.
+ */
+export function stripTsCommentsAndStrings(source: string): string {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/\/\/[^\n]*/g, " ")
+    .replace(/'(?:[^'\\\n]|\\.)*'/g, "''")
+    .replace(/"(?:[^"\\\n]|\\.)*"/g, '""')
+    .replace(/`(?:[^`\\]|\\.)*`/g, "``");
+}
+
+const WIRE_TAG_PATTERN = /^[a-z0-9]+(?:[._][a-z0-9]+)+$/;
+
+/**
+ * All segments of a dotted seam must occur together in one file, in actual
+ * code. Snake_case wire tags are string contracts, so they must instead occur
+ * as quoted literals.
+ */
 function productionSeamExists(
   productionFiles: readonly FormalSourceFile[],
+  strippedByPath: ReadonlyMap<string, string>,
   token: string,
 ): boolean {
+  if (WIRE_TAG_PATTERN.test(token)) {
+    return productionFiles.some((file) =>
+      new RegExp(`["'\`]${token.replaceAll(".", "\\.")}["'\`]`).test(
+        file.content,
+      ),
+    );
+  }
   const segments = token.split(".").filter((segment) => segment.length > 0);
-  return productionFiles.some((file) =>
-    segments.every((segment) => hasWordOccurrence(file.content, segment)),
-  );
+  return productionFiles.some((file) => {
+    const stripped = strippedByPath.get(file.path) ?? "";
+    return segments.every((segment) => hasWordOccurrence(stripped, segment));
+  });
 }
 
 export function verifyAbstractionMaps(input: {
@@ -213,6 +267,12 @@ export function verifyAbstractionMaps(input: {
   const collected = collectMappedTokens(input.docs);
   const { tablesByDoc, tokens } = collected;
   const problems: string[] = [...collected.problems];
+  const strippedByPath = new Map(
+    input.productionFiles.map((file) => [
+      file.path,
+      stripTsCommentsAndStrings(file.content),
+    ]),
+  );
 
   for (const [doc, expected] of Object.entries(input.expectedTables)) {
     const found = tablesByDoc.get(doc) ?? 0;
@@ -242,7 +302,9 @@ export function verifyAbstractionMaps(input: {
           `${entry.doc}:${entry.line}: \`${entry.token}\` is not declared in ${entry.module}`,
         );
       }
-    } else if (!productionSeamExists(input.productionFiles, entry.token)) {
+    } else if (
+      !productionSeamExists(input.productionFiles, strippedByPath, entry.token)
+    ) {
       problems.push(
         `${entry.doc}:${entry.line}: \`${entry.token}\` not found together in any production package source file`,
       );

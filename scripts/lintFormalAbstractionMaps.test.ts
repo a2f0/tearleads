@@ -1,9 +1,11 @@
 import { expect, test } from "bun:test";
 import {
   collectMappedTokens,
+  declaredTlaNames,
   extractBacktickedTokens,
   isProductionSourcePath,
   moduleDeclaresToken,
+  stripTsCommentsAndStrings,
   verifyAbstractionMaps,
 } from "./lintFormalAbstractionMaps";
 
@@ -205,4 +207,68 @@ test("model tokens must be declarations, not comment mentions", () => {
   ).toBe(false);
   // A bare use inside another definition is not a declaration.
   expect(moduleDeclaresToken("Init == Restart", "Restart")).toBe(false);
+});
+
+test("a seam surviving only in comments or strings is not production code", () => {
+  const problems = verifyAbstractionMaps({
+    ...cleanInput,
+    productionFiles: [
+      {
+        content:
+          '// serveThings used to live here\nconst note = "serveThings";',
+        path: "packages/a/src/a.ts",
+      },
+    ],
+  });
+  expect(problems).toEqual([
+    `${DOC_PATH}:7: \`serveThings\` not found together in any production package source file`,
+  ]);
+  expect(stripTsCommentsAndStrings("code(); // serveThings")).not.toContain(
+    "serveThings",
+  );
+  expect(
+    stripTsCommentsAndStrings('const a = "serveThings"; /* serveThings */'),
+  ).not.toContain("serveThings");
+});
+
+test("snake_case wire tags match as quoted string contracts", () => {
+  const tagged = {
+    ...cleanInput,
+    docs: [doc(["| `Serve` | `interest_state` |"])],
+  };
+  expect(
+    verifyAbstractionMaps({
+      ...tagged,
+      productionFiles: [
+        {
+          content: 'z.literal("interest_state")',
+          path: "packages/a/src/a.ts",
+        },
+      ],
+    }),
+  ).toEqual([]);
+  // A bare unquoted mention is not the wire contract.
+  expect(
+    verifyAbstractionMaps({
+      ...tagged,
+      productionFiles: [
+        { content: "const interest_state = 1;", path: "packages/a/src/a.ts" },
+      ],
+    }),
+  ).toEqual([
+    `${DOC_PATH}:7: \`interest_state\` not found together in any production package source file`,
+  ]);
+});
+
+test("VARIABLES declarations consume only comma-continued lines", () => {
+  expect(
+    declaredTlaNames("VARIABLES phase,\n          nextPage\nInit == nextStep"),
+  ).toEqual(["phase", "nextPage"]);
+  // `nextStep` appears right after the declaration but is a use, not a name.
+  expect(declaredTlaNames("VARIABLES phase\nInit == nextStep")).toEqual([
+    "phase",
+  ]);
+  expect(
+    moduleDeclaresToken("VARIABLES phase\nInit == nextStep", "nextStep"),
+  ).toBe(false);
 });
