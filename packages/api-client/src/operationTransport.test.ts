@@ -5,6 +5,7 @@ import {
   getDocumentAttributionOperation,
   getHealthOperation,
   getOrganizationReadModelOperation,
+  type listDocumentAttributionRangesOperation,
   protocolOperations,
 } from "@tearleads/validators/operation";
 import type { JsonOperationRequestInput } from "./operationTransport";
@@ -28,11 +29,17 @@ type ChallengeTransportBody = JsonOperationRequestInput<
 type AcceptsChallengeBody<Value> = Value extends ChallengeTransportBody
   ? true
   : false;
+type AttributionRangesTransportQuery = JsonOperationRequestInput<
+  typeof listDocumentAttributionRangesOperation
+>["query"];
+type AcceptsAttributionRangesQuery<Value> =
+  Value extends AttributionRangesTransportQuery ? true : false;
 
 function assertType<Condition extends true>(_condition?: Condition): void {}
 
 assertType<AcceptsChallengeBody<{ fingerprint: string }>>();
 assertType<AcceptsChallengeBody<number> extends false ? true : false>();
+assertType<AcceptsAttributionRangesQuery<{ limit: "10" }>>();
 
 function requestFailure(
   input: ResponseRequestValidationFailureInput,

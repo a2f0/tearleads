@@ -5,6 +5,7 @@ import {
   type OperationSchemaOutput,
   operationRequestPathForInput,
 } from "@tearleads/validators/operation";
+import { errorMessage } from "./requestInternals";
 import type {
   RequestResult,
   RequestResultOptions,
@@ -193,7 +194,7 @@ async function decodeJsonResponse(
   try {
     value = await response.json();
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorMessage(error);
     return request.reportFailure({
       kind: "json",
       message: `${operation.method} ${path}: failed to parse JSON: ${message}`,

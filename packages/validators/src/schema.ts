@@ -259,11 +259,14 @@ export function boundedNonEmptyArraySchema<ItemSchema extends z.ZodType>(
  */
 export function loosePlainObject<Shape extends z.ZodRawShape>(
   shape: Shape,
-): z.ZodType<z.output<z.ZodObject<Shape>>, z.output<z.ZodObject<Shape>>> {
+): z.ZodType<z.output<z.ZodObject<Shape>>, z.input<z.ZodObject<Shape>>>;
+export function loosePlainObject(
+  shape: z.ZodRawShape,
+): z.ZodType<Record<string, unknown>> {
   const shapeSchema = z.looseObject(shape);
 
   const runtimeSchema = registerJsonSchemaView(
-    z.custom<z.output<z.ZodObject<Shape>>>((value) => isPlainObject(value)),
+    z.custom<Record<string, unknown>>((value) => isPlainObject(value)),
     shapeSchema,
   ).superRefine((value, context) => {
     const result = shapeSchema.safeParse(value);
