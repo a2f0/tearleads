@@ -1,0 +1,140 @@
+import { expect, test } from "bun:test";
+import {
+  collectMappedTokens,
+  extractBacktickedTokens,
+  verifyAbstractionMaps,
+} from "./lintFormalAbstractionMaps";
+
+const DOC_PATH = "formal/example/Example.md";
+const MODULE_PATH = "formal/example/Example.tla";
+
+function doc(rows: readonly string[]): {
+  readonly content: string;
+  readonly path: string;
+} {
+  return {
+    content: [
+      "# Example",
+      "",
+      "[`Example.tla`](./Example.tla) models the example.",
+      "",
+      "| Model action or predicate | Production implementation |",
+      "| --- | --- |",
+      ...rows,
+      "",
+    ].join("\n"),
+    path: DOC_PATH,
+  };
+}
+
+const cleanInput = {
+  docs: [doc(["| `Serve` | `serveThings` |"])],
+  expectedTables: { [DOC_PATH]: 1 },
+  modulesByPath: new Map([[MODULE_PATH, "Serve == TRUE"]]),
+  productionFiles: [
+    {
+      content: "export function serveThings() {}",
+      path: "packages/a/src/a.ts",
+    },
+  ],
+};
+
+test("a synchronized map with a registered table passes", () => {
+  expect(verifyAbstractionMaps(cleanInput)).toEqual([]);
+});
+
+test("model tokens are bound to the nearest documented module", () => {
+  // `Serve` exists in another module, but not in the one this table documents.
+  const problems = verifyAbstractionMaps({
+    ...cleanInput,
+    modulesByPath: new Map([
+      [MODULE_PATH, "Other == TRUE"],
+      ["formal/other/Other.tla", "Serve == TRUE"],
+    ]),
+  });
+  expect(problems).toEqual([
+    `${DOC_PATH}:7: \`Serve\` not found in ${MODULE_PATH}`,
+  ]);
+});
+
+test("a table without a preceding module link fails to bind", () => {
+  const unlinked = {
+    content: [
+      "| Model action or predicate | Production implementation |",
+      "| --- | --- |",
+      "| `Serve` | `serveThings` |",
+    ].join("\n"),
+    path: DOC_PATH,
+  };
+  expect(() => collectMappedTokens([unlinked])).toThrow(
+    "no .tla link precedes",
+  );
+});
+
+test("a dotted seam requires all segments together in one file", () => {
+  const dotted = {
+    ...cleanInput,
+    docs: [doc(["| `Serve` | `SyncInput.validateThings` |"])],
+  };
+  expect(
+    verifyAbstractionMaps({
+      ...dotted,
+      productionFiles: [
+        {
+          content: "interface SyncInput { validateThings: () => void }",
+          path: "packages/a/src/a.ts",
+        },
+      ],
+    }),
+  ).toEqual([]);
+  // Both names exist, but never in the same file: the qualified seam is gone.
+  expect(
+    verifyAbstractionMaps({
+      ...dotted,
+      productionFiles: [
+        { content: "interface SyncInput {}", path: "packages/a/src/a.ts" },
+        {
+          content: "function validateThings() {}",
+          path: "packages/a/src/b.ts",
+        },
+      ],
+    }),
+  ).toEqual([
+    `${DOC_PATH}:7: \`SyncInput.validateThings\` not found together in any production package source file`,
+  ]);
+});
+
+test("a vanished or unregistered table fails the registry", () => {
+  const noTables = {
+    ...cleanInput,
+    docs: [{ content: "# Example\n\nprose only\n", path: DOC_PATH }],
+  };
+  expect(verifyAbstractionMaps(noTables)[0]).toContain(
+    "expected 1 abstraction-map tables, found 0",
+  );
+
+  const unregistered = { ...cleanInput, expectedTables: {} };
+  expect(verifyAbstractionMaps(unregistered)[0]).toContain(
+    "not registered in scripts/lintFormalAbstractionMaps.ts",
+  );
+});
+
+test("a missing documented module is reported", () => {
+  const problems = verifyAbstractionMaps({
+    ...cleanInput,
+    modulesByPath: new Map(),
+  });
+  expect(problems).toEqual([
+    `${DOC_PATH}:7: documented module ${MODULE_PATH} does not exist.`,
+  ]);
+});
+
+test("unexpected token shapes fail loudly instead of passing unchecked", () => {
+  expect(() => extractBacktickedTokens("`a b`")).toThrow(
+    "unexpected abstraction-map token shape",
+  );
+  expect(extractBacktickedTokens("`alpha` and `Beta.gamma`")).toEqual([
+    "alpha",
+    "Beta.gamma",
+  ]);
+});

@@ -1,23 +1,202 @@
 /**
  * Executable check for the formal abstraction maps: every backticked model
  * operator named in a `Model action … | Production …` table under formal/
- * must occur in a registered TLA+ module, and every backticked production
- * seam must occur in production package source. A rename or deletion on
- * either side of the map fails this check instead of silently making the
- * documentation prose-only.
+ * must occur in the TLA+ module that table documents (the nearest `.tla`
+ * link above it), and every backticked production seam must occur in
+ * production package source — with all segments of a dotted seam like
+ * `Type.member` found together in one file. The registry below pins exactly
+ * which documents carry maps and how many, so a whole table cannot vanish or
+ * change headers without failing. A rename or deletion on either side of a
+ * map fails this check instead of silently making the documentation
+ * prose-only.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 
 const TABLE_HEADER_PATTERN =
   /^\|\s*Model action(?: or predicate)?\s*\|\s*Production (?:implementation|seam)\s*\|$/;
-const MINIMUM_EXPECTED_TABLES = 4;
+const TLA_LINK_PATTERN = /\(([^()\s]+\.tla)\)/g;
 
-interface MappedToken {
+/** Every document that carries abstraction-map tables, with its exact count. */
+const EXPECTED_TABLES: Readonly<Record<string, number>> = {
+  "formal/README.md": 2,
+  "formal/document-sync/BaselineDominance.md": 1,
+  "formal/document-sync/RawHistoryRecovery.md": 1,
+  "formal/document-sync/RestartProbeConvergence.md": 1,
+};
+
+export interface FormalSourceFile {
+  readonly content: string;
+  readonly path: string;
+}
+
+export interface MappedToken {
   readonly doc: string;
   readonly line: number;
+  readonly module: string;
   readonly side: "model" | "production";
   readonly token: string;
+}
+
+export function extractBacktickedTokens(cell: string): string[] {
+  const tokens: string[] = [];
+  for (const match of cell.matchAll(/`([^`]+)`/g)) {
+    const token = match[1] ?? "";
+    // The maps name identifiers, wire tags, and dotted member accesses; any
+    // other shape means the table format drifted, which should fail loudly
+    // rather than pass unchecked.
+    if (!/^[A-Za-z0-9_.]+$/.test(token)) {
+      throw new Error(`unexpected abstraction-map token shape: \`${token}\``);
+    }
+    tokens.push(token);
+  }
+  return tokens;
+}
+
+function nearestModuleLink(
+  doc: FormalSourceFile,
+  lines: readonly string[],
+  headerIndex: number,
+): string {
+  for (let index = headerIndex; index >= 0; index -= 1) {
+    const links = [...(lines[index] ?? "").matchAll(TLA_LINK_PATTERN)];
+    const lastLink = links.at(-1)?.[1];
+    if (lastLink) {
+      return join(dirname(doc.path), lastLink);
+    }
+  }
+  throw new Error(
+    `${doc.path}:${headerIndex + 1}: no .tla link precedes this abstraction-map table, so its model tokens cannot be bound to a module.`,
+  );
+}
+
+function rowTokens(
+  doc: string,
+  module: string,
+  line: number,
+  cells: string,
+): MappedToken[] {
+  const parts = cells.split("|").map((cell) => cell.trim());
+  const sides = [
+    ["model", parts[1] ?? ""],
+    ["production", parts[2] ?? ""],
+  ] as const;
+  return sides.flatMap(([side, cell]) =>
+    extractBacktickedTokens(cell).map((token) => ({
+      doc,
+      line,
+      module,
+      side,
+      token,
+    })),
+  );
+}
+
+function tableTokens(
+  doc: string,
+  module: string,
+  lines: readonly string[],
+  headerIndex: number,
+): { readonly nextIndex: number; readonly tokens: MappedToken[] } {
+  const tokens: MappedToken[] = [];
+  let row = headerIndex + 2; // skip the |---|---| separator
+  for (; row < lines.length; row += 1) {
+    const line = (lines[row] ?? "").trim();
+    if (!line.startsWith("|")) {
+      break;
+    }
+    tokens.push(...rowTokens(doc, module, row + 1, line));
+  }
+  if (row === headerIndex + 2) {
+    throw new Error(`${doc}: abstraction-map table has no rows.`);
+  }
+  return { nextIndex: row - 1, tokens };
+}
+
+export function collectMappedTokens(docs: readonly FormalSourceFile[]): {
+  readonly tablesByDoc: ReadonlyMap<string, number>;
+  readonly tokens: MappedToken[];
+} {
+  const tablesByDoc = new Map<string, number>();
+  const tokens: MappedToken[] = [];
+
+  for (const doc of docs) {
+    const lines = doc.content.split("\n");
+    for (let index = 0; index < lines.length; index += 1) {
+      if (!TABLE_HEADER_PATTERN.test((lines[index] ?? "").trim())) {
+        continue;
+      }
+      tablesByDoc.set(doc.path, (tablesByDoc.get(doc.path) ?? 0) + 1);
+      const module = nearestModuleLink(doc, lines, index);
+      const table = tableTokens(doc.path, module, lines, index);
+      tokens.push(...table.tokens);
+      index = table.nextIndex;
+    }
+  }
+
+  return { tablesByDoc, tokens };
+}
+
+function hasWordOccurrence(content: string, word: string): boolean {
+  return new RegExp(`\\b${word}\\b`).test(content);
+}
+
+/** All segments of a dotted seam must occur together in one file. */
+function productionSeamExists(
+  productionFiles: readonly FormalSourceFile[],
+  token: string,
+): boolean {
+  const segments = token.split(".").filter((segment) => segment.length > 0);
+  return productionFiles.some((file) =>
+    segments.every((segment) => hasWordOccurrence(file.content, segment)),
+  );
+}
+
+export function verifyAbstractionMaps(input: {
+  readonly docs: readonly FormalSourceFile[];
+  readonly expectedTables: Readonly<Record<string, number>>;
+  readonly modulesByPath: ReadonlyMap<string, string>;
+  readonly productionFiles: readonly FormalSourceFile[];
+}): string[] {
+  const { tablesByDoc, tokens } = collectMappedTokens(input.docs);
+  const problems: string[] = [];
+
+  for (const [doc, expected] of Object.entries(input.expectedTables)) {
+    const found = tablesByDoc.get(doc) ?? 0;
+    if (found !== expected) {
+      problems.push(
+        `${doc}: expected ${expected} abstraction-map tables, found ${found}. Update the registry in scripts/lintFormalAbstractionMaps.ts alongside intentional map changes.`,
+      );
+    }
+  }
+  for (const [doc, found] of tablesByDoc) {
+    if (!(doc in input.expectedTables)) {
+      problems.push(
+        `${doc}: carries ${found} abstraction-map tables but is not registered in scripts/lintFormalAbstractionMaps.ts.`,
+      );
+    }
+  }
+
+  for (const entry of tokens) {
+    if (entry.side === "model") {
+      const module = input.modulesByPath.get(entry.module);
+      if (module === undefined) {
+        problems.push(
+          `${entry.doc}:${entry.line}: documented module ${entry.module} does not exist.`,
+        );
+      } else if (!hasWordOccurrence(module, entry.token)) {
+        problems.push(
+          `${entry.doc}:${entry.line}: \`${entry.token}\` not found in ${entry.module}`,
+        );
+      }
+    } else if (!productionSeamExists(input.productionFiles, entry.token)) {
+      problems.push(
+        `${entry.doc}:${entry.line}: \`${entry.token}\` not found together in any production package source file`,
+      );
+    }
+  }
+
+  return problems;
 }
 
 function walkFiles(root: string, matches: (path: string) => boolean): string[] {
@@ -43,130 +222,60 @@ function walkFiles(root: string, matches: (path: string) => boolean): string[] {
   return found.sort();
 }
 
-function readCorpus(paths: readonly string[]): string {
-  return paths.map((path) => readFileSync(path, "utf8")).join("\n");
+function readSourceFiles(paths: readonly string[]): FormalSourceFile[] {
+  return paths.map((path) => ({
+    content: readFileSync(path, "utf8"),
+    path,
+  }));
 }
 
-function extractBacktickedTokens(cell: string): string[] {
-  const tokens: string[] = [];
-  for (const match of cell.matchAll(/`([^`]+)`/g)) {
-    const token = match[1] ?? "";
-    // The maps name identifiers, wire tags, and dotted member accesses; any
-    // other shape means the table format drifted, which should fail loudly
-    // rather than pass unchecked.
-    if (!/^[A-Za-z0-9_.]+$/.test(token)) {
-      throw new Error(`unexpected abstraction-map token shape: \`${token}\``);
-    }
-    // A dotted token names a type plus member; each segment must exist.
-    tokens.push(...token.split(".").filter((segment) => segment.length > 0));
-  }
-  return tokens;
-}
-
-function rowTokens(doc: string, line: number, cells: string): MappedToken[] {
-  const parts = cells.split("|").map((cell) => cell.trim());
-  const sides = [
-    ["model", parts[1] ?? ""],
-    ["production", parts[2] ?? ""],
-  ] as const;
-  return sides.flatMap(([side, cell]) =>
-    extractBacktickedTokens(cell).map((token) => ({ doc, line, side, token })),
+if (import.meta.main) {
+  const root = process.cwd();
+  const toRelative = (file: FormalSourceFile): FormalSourceFile => ({
+    content: file.content,
+    path: relative(root, resolve(root, file.path)),
+  });
+  const docs = readSourceFiles(
+    walkFiles(join(root, "formal"), (path) => path.endsWith(".md")),
+  ).map(toRelative);
+  const modules = readSourceFiles(
+    walkFiles(join(root, "formal"), (path) => path.endsWith(".tla")),
+  ).map(toRelative);
+  const productionFiles = readSourceFiles(
+    walkFiles(
+      join(root, "packages"),
+      (path) =>
+        /\.(ts|tsx)$/.test(path) &&
+        !/\.test\.(ts|tsx)$/.test(path) &&
+        path.includes(`${join("src", "")}`),
+    ),
   );
-}
 
-function tableTokens(
-  doc: string,
-  lines: readonly string[],
-  headerIndex: number,
-): { readonly nextIndex: number; readonly tokens: MappedToken[] } {
-  const tokens: MappedToken[] = [];
-  let row = headerIndex + 2; // skip the |---|---| separator
-  for (; row < lines.length; row += 1) {
-    const line = (lines[row] ?? "").trim();
-    if (!line.startsWith("|")) {
-      break;
-    }
-    tokens.push(...rowTokens(doc, row + 1, line));
-  }
-  if (row === headerIndex + 2) {
-    throw new Error(`${doc}: abstraction-map table has no rows.`);
-  }
-  return { nextIndex: row - 1, tokens };
-}
+  const problems = verifyAbstractionMaps({
+    docs,
+    expectedTables: EXPECTED_TABLES,
+    modulesByPath: new Map(
+      modules.map((module) => [module.path, module.content]),
+    ),
+    productionFiles,
+  });
 
-function collectMappedTokens(root: string): {
-  readonly tables: number;
-  readonly tokens: MappedToken[];
-} {
-  const docs = walkFiles(join(root, "formal"), (path) => path.endsWith(".md"));
-  const tokens: MappedToken[] = [];
-  let tables = 0;
-
-  for (const doc of docs) {
-    const relativeDoc = relative(root, doc);
-    const lines = readFileSync(doc, "utf8").split("\n");
-    for (let index = 0; index < lines.length; index += 1) {
-      if (!TABLE_HEADER_PATTERN.test((lines[index] ?? "").trim())) {
-        continue;
-      }
-      tables += 1;
-      const table = tableTokens(relativeDoc, lines, index);
-      tokens.push(...table.tokens);
-      index = table.nextIndex;
-    }
-  }
-
-  return { tables, tokens };
-}
-
-function hasWordOccurrence(corpus: string, token: string): boolean {
-  return new RegExp(`\\b${token.replaceAll(".", "\\.")}\\b`).test(corpus);
-}
-
-const root = process.cwd();
-const { tables, tokens } = collectMappedTokens(root);
-if (tables < MINIMUM_EXPECTED_TABLES) {
-  console.error(
-    `error formal-abstraction-maps: found only ${tables} abstraction-map tables under formal/; expected at least ${MINIMUM_EXPECTED_TABLES}. The table headers may have drifted from the parser.`,
-  );
-  process.exit(1);
-}
-
-const modelCorpus = readCorpus(
-  walkFiles(join(root, "formal"), (path) => path.endsWith(".tla")),
-);
-const productionCorpus = readCorpus(
-  walkFiles(
-    join(root, "packages"),
-    (path) =>
-      /\.(ts|tsx)$/.test(path) &&
-      !/\.test\.(ts|tsx)$/.test(path) &&
-      path.includes(`${join("src", "")}`),
-  ),
-);
-
-const missing = tokens.filter(({ side, token }) =>
-  side === "model"
-    ? !hasWordOccurrence(modelCorpus, token)
-    : !hasWordOccurrence(productionCorpus, token),
-);
-
-if (missing.length > 0) {
-  console.error(
-    "error formal-abstraction-maps: documented seams no longer exist. Update the abstraction map alongside the rename or removal.",
-  );
-  for (const entry of missing) {
-    const where =
-      entry.side === "model"
-        ? "any formal/**/*.tla module"
-        : "production package source";
+  if (problems.length > 0) {
     console.error(
-      `  ${entry.doc}:${entry.line}: \`${entry.token}\` not found in ${where}`,
+      "error formal-abstraction-maps: the documented maps drifted from the code. Update the map (and its registry) alongside the rename or removal.",
     );
+    for (const problem of problems) {
+      console.error(`  ${problem}`);
+    }
+    process.exit(1);
   }
-  process.exit(1);
-}
 
-console.log(
-  `Checked ${tokens.length} abstraction-map tokens across ${tables} tables.`,
-);
+  const { tablesByDoc, tokens } = collectMappedTokens(docs);
+  const tables = [...tablesByDoc.values()].reduce(
+    (sum, count) => sum + count,
+    0,
+  );
+  console.log(
+    `Checked ${tokens.length} abstraction-map tokens across ${tables} tables.`,
+  );
+}
