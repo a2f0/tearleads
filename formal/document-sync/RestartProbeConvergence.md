@@ -29,13 +29,13 @@ must cover its target. This abstracts the runtime remote-update signal sequence.
 | Model action | Production seam |
 | --- | --- |
 | `RemoteBodyAdvance` | peer `document_update_created` commit, whether or not its websocket hint arrives |
-| `RemoteSlotAdvance` | peer Loro update changing attachment-slot metadata and emitting the ordinary lossy invalidation |
-| `Restart` | document-store and in-memory event teardown across process restart |
+| `RemoteSlotAdvance` | peer Loro update changing attachment-slot metadata and emitting the ordinary lossy invalidation (`document_update_created`) |
+| `Restart` | document-store and in-memory event teardown across process restart, re-entered through `initializeDocumentStore` on the next load |
 | `InitializeOpenedPersistedDocument` | `initializeDocumentStore` arming `remoteUpdatePending` for a loaded remote record |
-| `DisconnectEvents` | server-events disconnect while retaining accepted document work |
+| `DisconnectEvents` | server-events disconnect (`setConnected` drops the connected flag) while retaining accepted document work |
 | `ReceiveInterestBaseline` | `interest_state` starting restoration without marking events connected |
-| `MarkContainerTreeReady` | container-tree store publishing its ready, hydrated node set |
-| `DeclareKnownContainers` | authoritative current set sent with a fresh declaration id |
+| `MarkContainerTreeReady` | the `containerStore` snapshot publishing its ready, hydrated node set |
+| `DeclareKnownContainers` | authoritative current set sent by `startContainerInterestDeclaration` with a fresh declaration id |
 | `AcknowledgeKnownContainers` | matching `known_containers_ack` proving coverage, advancing the connection generation, and requesting revalidation |
 | `BeginProbe` | document lane captures `remoteUpdateSignalSeq` and starts `requestRemoteDocumentSync` |
 | `FinishProbe` | captured updates are applied and persisted; `canClearRemoteUpdateSignalAfterSync` preserves a newer sequence |
