@@ -35,21 +35,21 @@ import {
 test("container read operations own their complete wire metadata", () => {
   expect(getContainerKekLogOperation).toMatchObject({
     auth: "session",
-    failureStatuses: [400, 401, 403, 404, 409, 500],
+    failureStatuses: [400, 401, 403, 404, 409, 500, 503],
     method: "GET",
     path: "/containers/{containerId}/kek-log",
     runtimeRefinements: containerKekLogResponseRuntimeRefinements,
   });
   expect(listContainerDocumentsOperation).toMatchObject({
     auth: "session",
-    failureStatuses: [400, 401, 403, 404, 409, 500],
+    failureStatuses: [400, 401, 403, 404, 409, 500, 503],
     method: "GET",
     path: "/containers/{containerId}/documents",
     runtimeRefinements: containerDocumentRuntimeRefinements,
   });
   expect(listContainerParentLanesOperation).toMatchObject({
     auth: "session",
-    failureStatuses: [400, 401, 500],
+    failureStatuses: [400, 401, 500, 503],
     method: "POST",
     path: "/containers/parent-lanes/query",
     runtimeRefinements: containerParentLaneRuntimeRefinements,

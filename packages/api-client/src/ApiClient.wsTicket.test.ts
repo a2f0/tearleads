@@ -1,4 +1,5 @@
 import { expect } from "bun:test";
+import { SESSION_ERROR_CODES } from "@tearleads/validators/response";
 import { HttpResponse, http } from "msw";
 import {
   apiBaseUrl,
@@ -50,3 +51,40 @@ testApiClient("returns null when the ticket payload is malformed", async () => {
 
   await expect(client.requestWebSocketTicket()).resolves.toBeNull();
 });
+
+testApiClient(
+  "validates the failure body after a session-refresh retry",
+  async () => {
+    let requestCount = 0;
+    server.use(
+      http.post(`${apiBaseUrl}/auth/ws-ticket`, () => {
+        requestCount += 1;
+        return HttpResponse.json(
+          requestCount === 1
+            ? {
+                code: SESSION_ERROR_CODES.refreshRequired,
+                error: "Session expired",
+              }
+            : { code: "unknown_code", error: "Untrusted retry detail" },
+          { status: 401 },
+        );
+      }),
+    );
+
+    const errors: string[] = [];
+    const client = new ApiClient(apiBaseUrl);
+    client.setAuthToken("stale-token");
+    client.setOnError((message) => errors.push(message));
+    client.setOnSessionExpired(() => {
+      client.setAuthToken("fresh-token");
+      return true;
+    });
+
+    await expect(client.requestWebSocketTicket()).resolves.toBeNull();
+
+    expect(requestCount).toBe(2);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain("Invalid failure response body");
+    expect(errors[0]).not.toContain("Untrusted retry detail");
+  },
+);

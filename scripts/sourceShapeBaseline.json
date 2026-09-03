@@ -75,8 +75,8 @@
       "bytes": 23535
     },
     "docs/openapi.json": {
-      "lines": 61003,
-      "bytes": 2555136
+      "lines": 61966,
+      "bytes": 2582526
     },
     "docs/protocol-specification.md": {
       "lines": 585,
@@ -90,13 +90,9 @@
       "lines": 566,
       "bytes": 23392
     },
-    "packages/api-client/src/ApiClient.core.test.ts": {
-      "lines": 541,
-      "bytes": 15169
-    },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 1866,
-      "bytes": 60381
+      "lines": 1786,
+      "bytes": 58043
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 567,
@@ -259,8 +255,8 @@
       "bytes": 14747
     },
     "packages/client-sdk/src/data/documents/shared/types.ts": {
-      "lines": 568,
-      "bytes": 18514
+      "lines": 567,
+      "bytes": 18872
     },
     "packages/client-sdk/src/data/sqlite/schema.ts": {
       "lines": 899,
@@ -359,8 +355,8 @@
       "bytes": 19200
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 22724,
-      "bytes": 957575
+      "lines": 23325,
+      "bytes": 976590
     },
     "packages/validators/src/response/response.test.ts": {
       "lines": 1159,

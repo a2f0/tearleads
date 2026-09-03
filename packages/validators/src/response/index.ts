@@ -289,6 +289,8 @@ export {
   OrganizationUserDetailResponseSchema,
 } from "./organization";
 export {
+  type BillingErrorResponse,
+  BillingErrorResponseSchema,
   isOrganizationBillingProvider,
   isOrganizationBillingResponse,
   isOrganizationBillingStatus,

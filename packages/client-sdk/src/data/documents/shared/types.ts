@@ -169,6 +169,7 @@ export interface MaterializedDocumentCreatePlan {
 export interface DocumentCreateApi {
   createDocument(
     input: DocumentCreateRequest,
+    options?: DocumentSyncRequestResultOptions,
   ): Promise<DocumentCreateResponse | null>;
   // Lets idempotent create inspect an expected already-exists conflict.
   createDocumentResult?(
@@ -336,18 +337,22 @@ export interface DocumentLinkSetMutationApi {
   linkDocument(
     documentId: string,
     input: DocumentLinkSetMutationRequest,
+    options?: DocumentSyncRequestResultOptions,
   ): Promise<DocumentLinkSetMutationResponse | null>;
   linkDocumentResult?(
     documentId: string,
     input: DocumentLinkSetMutationRequest,
+    options?: DocumentSyncRequestResultOptions,
   ): Promise<DocumentLinkSetMutationResult>;
   unlinkDocument(
     documentId: string,
     input: DocumentLinkSetMutationRequest,
+    options?: DocumentSyncRequestResultOptions,
   ): Promise<DocumentLinkSetMutationResponse | null>;
   unlinkDocumentResult?(
     documentId: string,
     input: DocumentLinkSetMutationRequest,
+    options?: DocumentSyncRequestResultOptions,
   ): Promise<DocumentLinkSetMutationResult>;
 }
 
@@ -485,6 +490,7 @@ export interface SyncRemoteDocumentResult {
 }
 
 export interface DocumentSyncRequestResultOptions {
+  readonly expectedPaymentRequiredOrganizationId?: string | undefined;
   readonly reportErrors?: boolean | undefined;
 }
 
@@ -496,6 +502,7 @@ export interface DocumentSyncApi {
     options?: {
       readonly documentCheckpointManifestHash?: string;
     },
+    requestOptions?: DocumentSyncRequestResultOptions,
   ): Promise<DocumentPurgeProofResponse | null>;
   getDocumentWriterProjection(
     documentId: string,
@@ -513,11 +520,12 @@ export interface DocumentSyncApi {
   syncDocument(
     documentId: string,
     input: DocumentSyncRequest,
+    options?: DocumentSyncRequestResultOptions,
   ): Promise<DocumentSyncResponse | null>;
   syncDocumentResult?(
     documentId: string,
     input: DocumentSyncRequest,
-    options?: { readonly reportErrors?: boolean | undefined },
+    options?: DocumentSyncRequestResultOptions,
   ): Promise<
     | {
         readonly data: DocumentSyncResponse;

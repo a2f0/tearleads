@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { BILLING_ERROR_CODES } from "../billing";
 import {
   arraySchema,
   loosePlainObject,
@@ -7,6 +6,7 @@ import {
   positiveIntegerSchema,
 } from "../schema";
 import { ContainerMutationResponseSchema } from "./container";
+import { BillingErrorResponseSchema } from "./organizationBilling";
 
 export const PrincipalStateExternalAuthorityResponseSchema = loosePlainObject({
   keyEpoch: positiveIntegerSchema,
@@ -161,15 +161,7 @@ export type CommitOrganizationGroupPolicyResponse = z.infer<
   typeof CommitOrganizationGroupPolicyResponseSchema
 >;
 
-const BillingErrorCodeSchema = z.literal([
-  BILLING_ERROR_CODES.checkoutNoActiveMembers,
-  BILLING_ERROR_CODES.rosterOverCapacity,
-]);
-
-export const PrincipalPolicyErrorResponseSchema = loosePlainObject({
-  code: BillingErrorCodeSchema.optional(),
-  error: z.string(),
-});
+export const PrincipalPolicyErrorResponseSchema = BillingErrorResponseSchema;
 
 export type PrincipalPolicyErrorResponse = z.infer<
   typeof PrincipalPolicyErrorResponseSchema

@@ -149,7 +149,7 @@ test("document sync rejects oversized declared bodies before parsing", async () 
   expect(await response.json()).toEqual({ error: "Request body too large" });
 });
 
-test("document mutations preserve malformed JSON behavior", async () => {
+test("document mutations return JSON for malformed request bodies", async () => {
   const route = createTestRoute((_c, next) => next());
   const response = await route.request("/documents", {
     body: "{",
@@ -158,5 +158,5 @@ test("document mutations preserve malformed JSON behavior", async () => {
   });
 
   expect(response.status).toBe(400);
-  expect(await response.text()).toBe("Malformed JSON in request body");
+  expect(await response.json()).toEqual({ error: "Invalid request" });
 });

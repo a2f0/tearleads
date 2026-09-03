@@ -27,12 +27,20 @@ test("document sync operation owns its HTTP contract metadata", () => {
   ]);
   expect(documentSyncOperation.params).toBe(DocumentSyncPathParamsSchema);
   expect(documentSyncOperation.body).toBe(DocumentSyncRequestSchema);
+  expect(
+    Object.keys(documentSyncOperation.failureResponses).map(Number),
+  ).toEqual([...documentSyncOperation.failureStatuses]);
   expect(documentSyncOperation.failureResponses?.[409]).toBe(
     DocumentSyncErrorResponseSchema,
   );
   expect(documentSyncOperation.failureResponses?.[413]).toBe(
     ErrorResponseSchema,
   );
+  for (const status of [400, 403, 500, 503] as const) {
+    expect(documentSyncOperation.failureResponses[status]).toBe(
+      ErrorResponseSchema,
+    );
+  }
   expect(documentSyncOperation.responses[200]).toBe(DocumentSyncResponseSchema);
   expect(Object.keys(documentSyncOperation.responses)).toEqual(["200"]);
 });

@@ -24,14 +24,14 @@ import {
 test("writer projection operations own their complete wire metadata", () => {
   expect(getContainerWriterProjectionOperation).toMatchObject({
     auth: "session",
-    failureStatuses: [400, 401, 403, 404, 409, 500],
+    failureStatuses: [400, 401, 403, 404, 409, 500, 503],
     method: "GET",
     path: "/containers/{containerId}/writer-projection",
     runtimeRefinements: writerProjectionResponseRuntimeRefinements,
   });
   expect(getDocumentWriterProjectionOperation).toMatchObject({
     auth: "session",
-    failureStatuses: [400, 401, 403, 404, 409, 500],
+    failureStatuses: [400, 401, 403, 404, 409, 500, 503],
     method: "GET",
     path: "/documents/{documentId}/writer-projection",
     runtimeRefinements: writerProjectionResponseRuntimeRefinements,

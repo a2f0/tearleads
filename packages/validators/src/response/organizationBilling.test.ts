@@ -98,6 +98,13 @@ test("isPaymentRequiredErrorResponse accepts a 402 body with error and org id", 
 
 test("isPaymentRequiredErrorResponse rejects a body missing organizationId", () => {
   expect(isPaymentRequiredErrorResponse({ error: "nope" })).toBe(false);
+  expect(
+    isPaymentRequiredErrorResponse({
+      error: "nope",
+      organizationId: "",
+      reason: "billing_inactive",
+    }),
+  ).toBe(false);
 });
 
 test("isPaymentRequiredErrorResponse requires an error and known reason", () => {

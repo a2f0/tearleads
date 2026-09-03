@@ -160,7 +160,7 @@ test("decodes success bodies with the operation response schema", async () => {
   await expect(
     transport.request(getHealthOperation, { params: {} }),
   ).resolves.toEqual({ message: "ok" });
-  expect(calls).toEqual([["/", "GET", undefined, {}, []]]);
+  expect(calls).toEqual([["/", "GET", undefined, {}, [], getHealthOperation]]);
 });
 
 test("returns transformed response schema output", async () => {

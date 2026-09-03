@@ -70,6 +70,9 @@ export async function detachDocumentAttachment({
     blobId,
     bindingId,
     request,
+    {
+      expectedPaymentRequiredOrganizationId: manifestIdentity.organizationId,
+    },
   );
   if (!response) {
     return null;

@@ -17,6 +17,7 @@ import {
   DocumentSyncErrorResponseSchema,
 } from "../response/documentSyncError";
 import { ErrorResponseSchema } from "../response/error";
+import { PaymentRequiredErrorResponseSchema } from "../response/organizationBilling";
 import { MAX_DOCUMENT_SYNC_REQUEST_BYTES } from "../util/documentSyncLimits";
 import { defineJsonOperation } from "./definition";
 
@@ -32,10 +33,15 @@ export const documentSyncOperation = defineJsonOperation({
   auth: "session",
   body: DocumentSyncRequestSchema,
   failureResponses: {
+    400: ErrorResponseSchema,
     401: SessionFailureResponseSchema,
+    402: PaymentRequiredErrorResponseSchema,
+    403: ErrorResponseSchema,
     404: DocumentNotFoundErrorResponseSchema,
     409: DocumentSyncErrorResponseSchema,
     413: ErrorResponseSchema,
+    500: ErrorResponseSchema,
+    503: ErrorResponseSchema,
   },
   failureStatuses: [400, 401, 402, 403, 404, 409, 413, 500, 503],
   id: "documents.sync",

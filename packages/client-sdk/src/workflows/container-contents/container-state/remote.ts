@@ -436,11 +436,15 @@ export async function moveRemoteContainer(input: {
 
 export async function deleteRemoteContainer(input: {
   containerId: string;
+  organizationId: string;
   runtime: ContainerWorkflowRuntime;
 }): Promise<{ deletedAt: string } | null> {
   const deleteResult = await input.runtime.apiClient.deleteContainerResult(
     input.containerId,
-    { reportErrors: false },
+    {
+      expectedPaymentRequiredOrganizationId: input.organizationId,
+      reportErrors: false,
+    },
   );
   if (!deleteResult.ok && !isContainerNotFoundFailure(deleteResult)) {
     deleteResult.report();

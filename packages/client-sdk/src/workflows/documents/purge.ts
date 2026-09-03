@@ -47,6 +47,9 @@ interface DocumentPurgeApi {
     options?: {
       readonly documentCheckpointManifestHash?: string;
     },
+    requestOptions?: {
+      readonly expectedPaymentRequiredOrganizationId?: string;
+    },
   ): Promise<DocumentPurgeProofResponse | null>;
   getDocumentWriterProjectionResult: NonNullable<
     DocumentSyncApi["getDocumentWriterProjectionResult"]
@@ -54,6 +57,9 @@ interface DocumentPurgeApi {
   purgeDocument(
     documentId: string,
     request: DocumentPurgeRequest,
+    options?: {
+      readonly expectedPaymentRequiredOrganizationId?: string;
+    },
   ): Promise<DocumentPurgeResponse | null>;
 }
 
@@ -88,6 +94,10 @@ async function loadCheckpointBoundedDocumentPurgeProof(input: {
   }
   const initialProof = await input.apiClient.getDocumentPurgeProof(
     input.documentId,
+    undefined,
+    {
+      expectedPaymentRequiredOrganizationId: input.expectedOrganizationId,
+    },
   );
   if (!initialProof) {
     return null;
@@ -111,9 +121,13 @@ async function loadCheckpointBoundedDocumentPurgeProof(input: {
   ) {
     return initialProof;
   }
-  return input.apiClient.getDocumentPurgeProof(input.documentId, {
-    documentCheckpointManifestHash,
-  });
+  return input.apiClient.getDocumentPurgeProof(
+    input.documentId,
+    { documentCheckpointManifestHash },
+    {
+      expectedPaymentRequiredOrganizationId: input.expectedOrganizationId,
+    },
+  );
 }
 
 async function resolveDocumentPurgeWriterProjection(input: {
@@ -310,6 +324,9 @@ export async function purgeRemoteDocument(input: {
   const response = await input.apiClient.purgeDocument(
     input.documentId,
     request,
+    {
+      expectedPaymentRequiredOrganizationId: input.author.organizationId,
+    },
   );
   if (!response) {
     return null;

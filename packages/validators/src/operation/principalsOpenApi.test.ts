@@ -30,11 +30,13 @@ test("principal policy OpenAPI documents both shared operations", () => {
     "401",
     "404",
     "500",
+    "503",
   ]);
   expect(Object.keys(putPolicy.responses)).toEqual([
     "200",
     "400",
     "401",
+    "402",
     "403",
     "404",
     "409",

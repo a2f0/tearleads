@@ -14,7 +14,7 @@ import {
   type JsonOperationTransport,
   supportsJsonOperationTransport,
 } from "./operationTransport";
-import type { ResponseRequestFn } from "./types";
+import type { OperationResponseRequestFn } from "./types";
 
 export type OperationTransport = BinaryRequestOperationTransport &
   JsonOperationTransport &
@@ -29,7 +29,7 @@ export function supportsOperationTransport(operation: HttpOperation): boolean {
 }
 
 export function createOperationTransport(
-  responseRequest: ResponseRequestFn,
+  responseRequest: OperationResponseRequestFn,
 ): OperationTransport {
   return {
     ...createBinaryRequestOperationTransport(responseRequest),

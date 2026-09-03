@@ -337,6 +337,9 @@ export async function revokeRemoteContainer(input: {
       input.apiClient.revokeContainer(
         input.containerId,
         materializedPlan.plan.request,
+        {
+          expectedPaymentRequiredOrganizationId: input.author.organizationId,
+        },
       ),
   });
 }

@@ -7,7 +7,7 @@ import { openApiDocument } from "./openApi";
 test("health operation owns its HTTP contract", () => {
   expect(getHealthOperation).toMatchObject({
     auth: "none",
-    failureStatuses: [413, 500],
+    failureStatuses: [413, 500, 503],
     id: "health.get",
     method: "GET",
     path: "/",
@@ -16,6 +16,7 @@ test("health operation owns its HTTP contract", () => {
   expect(getHealthOperation.failureResponses).toEqual({
     413: ErrorResponseSchema,
     500: ErrorResponseSchema,
+    503: ErrorResponseSchema,
   });
   expect(operationRoutePath(getHealthOperation)).toBe("/");
   expect(operationRequestPath(getHealthOperation, {})).toBe("/");
@@ -30,5 +31,10 @@ test("health OpenAPI documents its shared contract", () => {
   expect(operation.operationId).toBe("health.get");
   expect(operation.parameters).toEqual([]);
   expect(operation.security).toEqual([]);
-  expect(Object.keys(operation.responses)).toEqual(["200", "413", "500"]);
+  expect(Object.keys(operation.responses)).toEqual([
+    "200",
+    "413",
+    "500",
+    "503",
+  ]);
 });

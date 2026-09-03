@@ -261,6 +261,14 @@ function documentCreatePolicyWarmer(
   return warmer.verifyWithoutPersistence;
 }
 
+function isRemoteDocumentCreatePlanBlocked(
+  input: RemoteDocumentCreateInput,
+  createPlan: MaterializedDocumentCreatePlanWithProjection,
+): boolean {
+  const organizationId = createPlan.containerProjection.organizationId;
+  return input.isRemoteSyncBlocked?.(organizationId) ?? false;
+}
+
 async function submitPlannedDocumentCreate(
   input: RemoteDocumentCreateInput,
   resolveProjectionUserKey: ProjectionUserKeyResolver,
@@ -295,16 +303,12 @@ async function submitPlannedDocumentCreate(
   if (!createPlan) {
     return null;
   }
-  if (
-    input.isRemoteSyncBlocked?.(createPlan.containerProjection.organizationId)
-  ) {
-    return null;
-  }
-
+  if (isRemoteDocumentCreatePlanBlocked(input, createPlan)) return null;
   if (!input.submitWhenStale && input.stillCurrent?.() === false) return null;
   let submission = await submitDocumentCreate(
     input.apiClient,
     createPlan.materializedPlan.plan.request,
+    createPlan.containerProjection.organizationId,
   );
   if (
     isStaleDocumentCreateTargetConflict(submission) &&
@@ -338,21 +342,15 @@ async function submitPlannedDocumentCreate(
     if (!refreshedPlan) {
       return null;
     }
-    if (
-      input.isRemoteSyncBlocked?.(
-        refreshedPlan.containerProjection.organizationId,
-      )
-    ) {
-      return null;
-    }
+    if (isRemoteDocumentCreatePlanBlocked(input, refreshedPlan)) return null;
     createPlan = refreshedPlan;
     if (!input.submitWhenStale && input.stillCurrent?.() === false) return null;
     submission = await submitDocumentCreate(
       input.apiClient,
       createPlan.materializedPlan.plan.request,
+      createPlan.containerProjection.organizationId,
     );
   }
-
   return { createPlan, submission };
 }
 
@@ -479,15 +477,21 @@ export function isStaleDocumentCreateTargetConflict(
 async function submitDocumentCreate(
   apiClient: DocumentCreateApi,
   request: DocumentCreateRequest,
+  expectedOrganizationId: string,
 ): Promise<DocumentCreateSubmission> {
   // Prefer the result-returning variant so an expected create conflict can be
   // inspected without being reported as a UI error. Fall back to the plain
   // method for simple test doubles; that path cannot adopt (it surfaces a null
   // without a status) and preserves the pre-existing behavior.
   if (apiClient.createDocumentResult) {
-    return apiClient.createDocumentResult(request, { reportErrors: false });
+    return apiClient.createDocumentResult(request, {
+      expectedPaymentRequiredOrganizationId: expectedOrganizationId,
+      reportErrors: false,
+    });
   }
-  const response = await apiClient.createDocument(request);
+  const response = await apiClient.createDocument(request, {
+    expectedPaymentRequiredOrganizationId: expectedOrganizationId,
+  });
   return response
     ? { data: response, ok: true }
     : { message: "", ok: false, status: null };

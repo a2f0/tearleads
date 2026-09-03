@@ -17,6 +17,7 @@ import type {
   ErrorResponse,
   ListSessionsResponse,
   OrganizationDataUsageResponse,
+  PaymentRequiredErrorResponse,
   RegistrationResponse,
   SessionFailureResponse,
   UserIdentityResponse,
@@ -89,14 +90,10 @@ type FixtureResponse = ReturnType<typeof createSyncResponse>;
 type GeneratedFailureStatus = Exclude<keyof GeneratedResponses, 200>;
 type DeclaredFailureStatus =
   (typeof documentSyncOperation.failureStatuses)[number];
-type GeneratedStatusOnlyFailure = Exclude<
-  GeneratedFailureStatus,
-  401 | 404 | 409 | 413
->;
-type GeneratedStatusOnlyFailuresHaveNoContent =
-  GeneratedResponses[GeneratedStatusOnlyFailure] extends { content?: never }
-    ? true
-    : false;
+type GeneratedGenericFailureResponse =
+  GeneratedResponses[400]["content"]["application/json"];
+type GeneratedPaymentRequiredResponse =
+  GeneratedResponses[402]["content"]["application/json"];
 type GeneratedChallengeOperation = operations["auth.challenge"];
 type GeneratedChallengeRequest =
   GeneratedChallengeOperation["requestBody"]["content"]["application/json"];
@@ -230,7 +227,18 @@ test("generated OpenAPI types match the document sync structural contract", () =
   assertType<IsAssignable<FixtureResponse, GeneratedResponse>>();
   assertType<IsAssignable<GeneratedFailureStatus, DeclaredFailureStatus>>();
   assertType<IsAssignable<DeclaredFailureStatus, GeneratedFailureStatus>>();
-  assertType<GeneratedStatusOnlyFailuresHaveNoContent>();
+  assertType<
+    IsEqual<
+      NormalizeWireType<GeneratedGenericFailureResponse>,
+      NormalizeWireType<ErrorResponse>
+    >
+  >();
+  assertType<
+    IsEqual<
+      NormalizeWireType<GeneratedPaymentRequiredResponse>,
+      NormalizeWireType<PaymentRequiredErrorResponse>
+    >
+  >();
 
   expect(documentSyncOperation.method).toBe("POST");
   expect(documentSyncOperation.path).toBe("/documents/{documentId}/sync");

@@ -381,6 +381,9 @@ export async function moveRemoteContainer(input: {
       input.apiClient.moveContainer(
         input.containerId,
         materializedPlan.plan.request,
+        {
+          expectedPaymentRequiredOrganizationId: input.author.organizationId,
+        },
       ),
   });
 }

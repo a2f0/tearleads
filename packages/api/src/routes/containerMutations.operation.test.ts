@@ -86,7 +86,7 @@ test("container mutations reject invalid bodies at the HTTP boundary", async () 
   }
 });
 
-test("container mutations preserve malformed JSON behavior", async () => {
+test("container mutations return JSON for malformed request bodies", async () => {
   const route = createRoute((_c, next) => next());
   const response = await route.request("/containers", {
     body: "{",
@@ -95,5 +95,5 @@ test("container mutations preserve malformed JSON behavior", async () => {
   });
 
   expect(response.status).toBe(400);
-  expect(await response.text()).toBe("Malformed JSON in request body");
+  expect(await response.json()).toEqual({ error: "Invalid request" });
 });

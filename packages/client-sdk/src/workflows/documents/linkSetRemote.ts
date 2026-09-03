@@ -28,6 +28,7 @@ import { completeLinkSetMutationRequest } from "./rotationBaseline";
 async function submitLinkSetMutation(input: {
   apiClient: DocumentLinkSetMutationApi;
   documentId: string;
+  expectedOrganizationId: string;
   onFailure?: DocumentLinkSetFailureHandler | undefined;
   operation: DocumentLinkSetMutationOperation;
   request: DocumentLinkSetMutationRequest;
@@ -42,7 +43,9 @@ async function submitLinkSetMutation(input: {
       ? apiClient.linkDocumentResult?.bind(apiClient)
       : apiClient.unlinkDocumentResult?.bind(apiClient);
   if (resultFn) {
-    const result = await resultFn(input.documentId, input.request);
+    const result = await resultFn(input.documentId, input.request, {
+      expectedPaymentRequiredOrganizationId: input.expectedOrganizationId,
+    });
     if (result.ok) {
       return result.data;
     }
@@ -52,8 +55,12 @@ async function submitLinkSetMutation(input: {
 
   const response =
     input.operation === "link"
-      ? await apiClient.linkDocument(input.documentId, input.request)
-      : await apiClient.unlinkDocument(input.documentId, input.request);
+      ? await apiClient.linkDocument(input.documentId, input.request, {
+          expectedPaymentRequiredOrganizationId: input.expectedOrganizationId,
+        })
+      : await apiClient.unlinkDocument(input.documentId, input.request, {
+          expectedPaymentRequiredOrganizationId: input.expectedOrganizationId,
+        });
   if (!response) {
     input.onFailure?.({
       message: `Document ${input.operation} request failed`,
@@ -257,6 +264,7 @@ export async function relinkRemoteDocument(input: {
   const response = await submitLinkSetMutation({
     apiClient: input.apiClient,
     documentId: completedPlan.documentId,
+    expectedOrganizationId: completedPlan.state.organizationId,
     onFailure: input.onFailure,
     operation: input.operation,
     request: completedPlan.request,

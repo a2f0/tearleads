@@ -116,3 +116,32 @@ testApiClient(
     });
   },
 );
+
+testApiClient(
+  "rejects unknown organization read-model failure codes",
+  async () => {
+    server.use(
+      http.get(`${apiBaseUrl}/organizations/:organizationId/read-model`, () =>
+        HttpResponse.json(
+          { code: "unknown_code", error: "Untrusted detail" },
+          { status: 400 },
+        ),
+      ),
+    );
+
+    const errors: string[] = [];
+    const client = new ApiClient(apiBaseUrl);
+    client.setOnError((message) => errors.push(message));
+    const result = await client.getOrganizationReadModelResult(organizationId);
+
+    if (result.ok) {
+      throw new Error("Expected read-model failure");
+    }
+    expect(result.kind).toBe("http");
+    expect(result.status).toBe(400);
+    expect(result.code).toBeUndefined();
+    expect(result.message).toContain("Invalid failure response body");
+    expect(errors).toEqual([result.message]);
+    expect(result.message.includes("Untrusted detail")).toBe(false);
+  },
+);

@@ -1,3 +1,4 @@
+import type { HttpOperation } from "@tearleads/validators/operation";
 import type { ListContainerParentLanesRequest } from "@tearleads/validators/request";
 import type {
   DocumentSyncResponse,
@@ -6,9 +7,12 @@ import type {
   SyncWatermark,
 } from "@tearleads/validators/response";
 import {
+  ContainerMutationFailureResponseSchema,
+  DocumentSyncErrorResponseSchema,
   isDocumentSyncStateStaleErrorResponse,
   isPaymentRequiredErrorResponse,
   isPrincipalPolicyStaleErrorResponse,
+  PaymentRequiredErrorResponseSchema,
   SESSION_ERROR_CODES,
 } from "@tearleads/validators/response";
 import type { ListContainerDocumentsOptions, RequestBody } from "./types";
@@ -79,6 +83,80 @@ export interface ErrorResponseDescription {
   readonly stalePrincipalPolicies?: PrincipalPolicyBundleResponse[] | undefined;
   /** Set on a 402 body — the organization whose billing blocked the sync write. */
   readonly paymentRequiredOrganizationId?: string | undefined;
+}
+
+const emptyErrorResponseDescription: ErrorResponseDescription = {
+  code: null,
+  detail: "",
+  error: null,
+};
+
+const invalidErrorResponseDescription: ErrorResponseDescription = {
+  ...emptyErrorResponseDescription,
+  detail: ": Invalid failure response body",
+};
+
+function validatedFailureCode(
+  value: object,
+  schema: NonNullable<HttpOperation["failureResponses"]>[number] | undefined,
+): string | null {
+  if (
+    !schema ||
+    !("code" in value) ||
+    typeof value.code !== "string" ||
+    value.code.length === 0
+  ) {
+    return null;
+  }
+
+  // Loose object schemas retain extension keys. A code is behavior-bearing
+  // only when changing that field to an unregistered value breaks the selected
+  // status schema, proving that the schema constrains rather than merely
+  // preserves it.
+  const unregisteredCode = `${value.code}\u0000unregistered`;
+  return schema.safeParse({ ...value, code: unregisteredCode }).success
+    ? null
+    : value.code;
+}
+
+function parsedErrorResponseDescription(
+  value: unknown,
+  schema?: NonNullable<HttpOperation["failureResponses"]>[number],
+): ErrorResponseDescription | null {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    !("error" in value) ||
+    typeof value.error !== "string"
+  ) {
+    return null;
+  }
+
+  const error = value.error.trim();
+  const code = validatedFailureCode(value, schema);
+  if (error.length === 0 && code === null) {
+    return null;
+  }
+  return {
+    code,
+    detail: error.length === 0 ? "" : `: ${error}`,
+    error: error.length === 0 ? null : error,
+    // Container mutations and document sync with inline container rekeys can
+    // carry signed policy bundles that make the failed write repairable.
+    ...(schema === ContainerMutationFailureResponseSchema &&
+    isPrincipalPolicyStaleErrorResponse(value)
+      ? { stalePrincipalPolicies: value.principalPolicies }
+      : schema === DocumentSyncErrorResponseSchema &&
+          isDocumentSyncStateStaleErrorResponse(value) &&
+          value.principalPolicies !== undefined
+        ? { stalePrincipalPolicies: value.principalPolicies }
+        : {}),
+    // Sync-write 402s carry the target org for the billing prompt.
+    ...(schema === PaymentRequiredErrorResponseSchema &&
+    isPaymentRequiredErrorResponse(value)
+      ? { paymentRequiredOrganizationId: value.organizationId }
+      : {}),
+  };
 }
 
 export function bindPrototypeMethods(
@@ -230,62 +308,101 @@ export function isSuccessfulResponse(
   return response.ok || additionalSuccessStatuses.includes(response.status);
 }
 
+function validatePaymentRequiredTarget(
+  schema: NonNullable<HttpOperation["failureResponses"]>[number] | undefined,
+  parsed: unknown,
+  expectedOrganizationId: string | undefined,
+): { readonly invalid: boolean; readonly organizationId?: string } {
+  if (schema !== PaymentRequiredErrorResponseSchema) {
+    return { invalid: false };
+  }
+  if (
+    !isPaymentRequiredErrorResponse(parsed) ||
+    (expectedOrganizationId !== undefined &&
+      parsed.organizationId !== expectedOrganizationId)
+  ) {
+    return { invalid: true };
+  }
+  return { invalid: false, organizationId: parsed.organizationId };
+}
+
+function paymentRequiredDescription(
+  organizationId: string | undefined,
+): ErrorResponseDescription | null {
+  return organizationId === undefined
+    ? null
+    : {
+        ...emptyErrorResponseDescription,
+        paymentRequiredOrganizationId: organizationId,
+      };
+}
+
 export async function describeErrorResponse(
   response: Response,
+  operation?: HttpOperation,
+  expectedPaymentRequiredOrganizationId?: string,
 ): Promise<ErrorResponseDescription> {
+  const schema = operation?.failureResponses?.[response.status];
+  if (operation && !schema) {
+    try {
+      await response.body?.cancel();
+    } catch {
+      // The status is already invalid; body cleanup must not replace that failure.
+    }
+    return invalidErrorResponseDescription;
+  }
   let responseText = "";
 
   try {
     responseText = (await response.text()).trim();
   } catch {
-    return { code: null, detail: "", error: null };
+    return operation
+      ? invalidErrorResponseDescription
+      : emptyErrorResponseDescription;
   }
 
   if (responseText.length === 0) {
-    return { code: null, detail: "", error: null };
+    return operation
+      ? invalidErrorResponseDescription
+      : emptyErrorResponseDescription;
   }
 
+  let parsed: unknown;
   try {
-    const parsed = JSON.parse(responseText);
-    if (
-      parsed &&
-      typeof parsed === "object" &&
-      "error" in parsed &&
-      typeof parsed.error === "string" &&
-      parsed.error.trim().length > 0
-    ) {
-      const error = parsed.error.trim();
-      const code =
-        "code" in parsed &&
-        typeof parsed.code === "string" &&
-        parsed.code.length > 0
-          ? parsed.code
-          : null;
-      return {
-        code,
-        detail: `: ${error}`,
-        error,
-        // Container mutations and document sync with inline container rekeys
-        // can carry signed policy bundles that make the failed write
-        // repairable; preserve them on the typed failure object.
-        ...(isPrincipalPolicyStaleErrorResponse(parsed)
-          ? { stalePrincipalPolicies: parsed.principalPolicies }
-          : isDocumentSyncStateStaleErrorResponse(parsed) &&
-              parsed.principalPolicies !== undefined
-            ? { stalePrincipalPolicies: parsed.principalPolicies }
-            : {}),
-        // Sync-write 402s carry the target org so the client can surface a
-        // billing prompt; preserve it for the payment-required handler.
-        ...(isPaymentRequiredErrorResponse(parsed)
-          ? { paymentRequiredOrganizationId: parsed.organizationId }
-          : {}),
-      };
-    }
+    parsed = JSON.parse(responseText);
   } catch {
-    // Use the raw response body when the error payload is not JSON.
+    return operation
+      ? invalidErrorResponseDescription
+      : { ...emptyErrorResponseDescription, detail: `: ${responseText}` };
   }
 
-  return { code: null, detail: `: ${responseText}`, error: null };
+  if (schema) {
+    const result = schema.safeParse(parsed);
+    if (!result.success) {
+      return invalidErrorResponseDescription;
+    }
+    parsed = result.data;
+  }
+
+  const paymentTarget = validatePaymentRequiredTarget(
+    schema,
+    parsed,
+    expectedPaymentRequiredOrganizationId,
+  );
+  if (paymentTarget.invalid) {
+    return invalidErrorResponseDescription;
+  }
+
+  const description =
+    parsedErrorResponseDescription(parsed, schema) ??
+    paymentRequiredDescription(paymentTarget.organizationId);
+  if (description) {
+    return description;
+  }
+
+  return operation
+    ? emptyErrorResponseDescription
+    : { ...emptyErrorResponseDescription, detail: `: ${responseText}` };
 }
 
 export function isRefreshableSessionError(

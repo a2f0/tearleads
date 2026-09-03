@@ -67,11 +67,16 @@ export async function submitRemoteContainerCreate(input: {
   if (input.apiClient.createContainerResult) {
     const result = await input.apiClient.createContainerResult(
       input.plan.request,
-      { reportErrors: false },
+      {
+        expectedPaymentRequiredOrganizationId: input.plan.state.organizationId,
+        reportErrors: false,
+      },
     );
     return result.ok ? { ok: true, response: result.data } : result;
   }
-  const response = await input.apiClient.createContainer(input.plan.request);
+  const response = await input.apiClient.createContainer(input.plan.request, {
+    expectedPaymentRequiredOrganizationId: input.plan.state.organizationId,
+  });
   return response ? { ok: true, response } : null;
 }
 

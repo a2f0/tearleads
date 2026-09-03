@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { BILLING_ERROR_CODES } from "../billing";
 import { registerJsonSchemaRuntimeRefinements } from "../jsonSchema";
 import { organizationBillingAssignedSeatsRefinement } from "../organizationBillingRefinements";
 import {
@@ -96,6 +97,18 @@ export function isOrganizationBillingResponse(
   return OrganizationBillingResponseSchema.safeParse(value).success;
 }
 
+const BillingErrorCodeSchema = z.literal([
+  BILLING_ERROR_CODES.checkoutNoActiveMembers,
+  BILLING_ERROR_CODES.rosterOverCapacity,
+]);
+
+export const BillingErrorResponseSchema = loosePlainObject({
+  code: BillingErrorCodeSchema.optional(),
+  error: z.string(),
+});
+
+export type BillingErrorResponse = z.infer<typeof BillingErrorResponseSchema>;
+
 /**
  * The HTTP 402 body a sync write returns when its target organization cannot
  * sync. Carries the target organization and whether billing or the caller's
@@ -103,7 +116,7 @@ export function isOrganizationBillingResponse(
  */
 export const PaymentRequiredErrorResponseSchema = loosePlainObject({
   error: z.string(),
-  organizationId: z.string(),
+  organizationId: nonEmptyStringSchema,
   reason: z.literal(["billing_inactive", "sync_seat_unassigned"]),
 });
 

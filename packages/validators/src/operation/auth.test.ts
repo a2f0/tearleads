@@ -32,7 +32,7 @@ test("auth operations own their HTTP contract metadata", () => {
   expect(challengeOperation).toMatchObject({
     auth: "none",
     body: ChallengeRequestSchema,
-    failureStatuses: [400, 404, 500],
+    failureStatuses: [400, 404, 500, 503],
     id: "auth.challenge",
     method: "POST",
     path: "/auth/challenge",
@@ -42,12 +42,13 @@ test("auth operations own their HTTP contract metadata", () => {
     400: ChallengeErrorResponseSchema,
     404: ChallengeErrorResponseSchema,
     500: ErrorResponseSchema,
+    503: ErrorResponseSchema,
   });
 
   expect(verifyOperation).toMatchObject({
     auth: "none",
     body: VerifyRequestSchema,
-    failureStatuses: [400, 401, 404, 500],
+    failureStatuses: [400, 401, 404, 500, 503],
     id: "auth.verify",
     method: "POST",
     path: "/auth/verify",
@@ -58,6 +59,7 @@ test("auth operations own their HTTP contract metadata", () => {
     401: VerifyFailureResponseSchema,
     404: VerifyFailureResponseSchema,
     500: ErrorResponseSchema,
+    503: ErrorResponseSchema,
   });
 
   expect(registerOperation).toMatchObject({
@@ -82,7 +84,7 @@ test("auth operations own their HTTP contract metadata", () => {
 test("session and identity operations own their HTTP contract metadata", () => {
   expect(logoutOperation).toMatchObject({
     auth: "session",
-    failureStatuses: [401, 500],
+    failureStatuses: [401, 500, 503],
     id: "auth.logout",
     method: "POST",
     path: "/auth/logout",
@@ -90,7 +92,7 @@ test("session and identity operations own their HTTP contract metadata", () => {
   });
   expect(webSocketTicketOperation).toMatchObject({
     auth: "session",
-    failureStatuses: [401, 500],
+    failureStatuses: [401, 500, 503],
     id: "auth.webSocketTicket",
     method: "POST",
     path: "/auth/ws-ticket",
@@ -98,7 +100,7 @@ test("session and identity operations own their HTTP contract metadata", () => {
   });
   expect(listSessionsOperation).toMatchObject({
     auth: "session",
-    failureStatuses: [401, 500],
+    failureStatuses: [401, 500, 503],
     id: "auth.sessions.list",
     method: "GET",
     path: "/auth/sessions",
@@ -106,7 +108,7 @@ test("session and identity operations own their HTTP contract metadata", () => {
   });
   expect(destroySessionOperation).toMatchObject({
     auth: "session",
-    failureStatuses: [400, 401, 404, 500],
+    failureStatuses: [400, 401, 404, 500, 503],
     id: "auth.sessions.destroy",
     method: "DELETE",
     path: "/auth/sessions/{sessionId}",
@@ -114,7 +116,7 @@ test("session and identity operations own their HTTP contract metadata", () => {
   });
   expect(userIdentityOperation).toMatchObject({
     auth: "session",
-    failureStatuses: [401, 404, 500],
+    failureStatuses: [401, 404, 500, 503],
     id: "auth.userIdentity",
     method: "GET",
     path: "/auth/user-identity/{userId}",
