@@ -98,7 +98,13 @@ async function runHarness(
   );
   await writeExecutable(
     resolve(binDirectory, "terraform"),
-    "#!/bin/sh\nexit 0\n",
+    [
+      "#!/bin/sh",
+      'case " $* " in',
+      '  *" init -reconfigure "*) exit 0 ;;',
+      "  *) printf 'Terraform preflight must reconfigure the backend: %s\\n' \"$*\" >&2; exit 42 ;;",
+      "esac",
+    ].join("\n"),
   );
   await writeExecutable(
     resolve(binDirectory, "ssh"),

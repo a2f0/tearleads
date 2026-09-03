@@ -125,7 +125,8 @@ retarget the PR during that final request. Backs the `squash-merge` skill.
 The tool only merges. Returning to the base branch, fast-forwarding it, and
 deleting the merged branch live in the `squash-merge` skill *around* this call —
 as does its `--keep-branch` flag, which the tool does not accept. Invoking the
-tool directly merges without any of that cleanup.
+tool directly merges without any of that cleanup. Extra positionals are rejected
+before the merge mutation.
 
 ## Ship (commit → review → repair → open/resume → merge → reset)
 

@@ -25,13 +25,7 @@
  */
 import { execFileSync } from "node:child_process";
 
-import { openPr } from "./pr/openPr";
-import { squashMerge } from "./pr/squashMerge";
-import { solicitClaudeCodeReview } from "./review/solicitClaudeCodeReview";
-import { solicitCodexReview } from "./review/solicitCodexReview";
-
-const USAGE =
-  "Usage: agent-tool <solicitClaudeCodeReview|solicitCodexReview|openPr|squashMerge> [args]\n";
+import { runAgentToolAction } from "./runAgentToolAction";
 
 function repoRoot(): string {
   return execFileSync("git", ["rev-parse", "--show-toplevel"], {
@@ -40,28 +34,9 @@ function repoRoot(): string {
 }
 
 function main(): number {
-  const action = process.argv[2];
   const rootDir = repoRoot();
   process.chdir(rootDir);
-
-  switch (action) {
-    case "solicitClaudeCodeReview":
-      return solicitClaudeCodeReview(rootDir, process.argv[3]);
-    case "solicitCodexReview":
-      return solicitCodexReview(rootDir, process.argv[3]);
-    case "openPr":
-      return openPr(rootDir, process.argv[3]);
-    case "squashMerge":
-      return squashMerge(
-        rootDir,
-        process.argv[3],
-        process.argv[4],
-        process.argv[5],
-      );
-    default:
-      process.stderr.write(`Unknown action: ${action ?? "(none)"}\n${USAGE}`);
-      return 1;
-  }
+  return runAgentToolAction(rootDir, process.argv.slice(2));
 }
 
 try {
