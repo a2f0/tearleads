@@ -16,6 +16,7 @@ const blobId = "22222222-2222-4222-8222-222222222222";
 
 testApiClient("uses blob multipart stage route namespace", async () => {
   const calls: CapturedHttpCall[] = [];
+  let uploadHeaders: Record<string, string | null> | undefined;
   server.use(
     http.all(`${apiBaseUrl}/*`, async ({ request }) => {
       calls.push(await captureHttpCall(request));
@@ -32,6 +33,11 @@ testApiClient("uses blob multipart stage route namespace", async () => {
         });
       }
       if (request.method === "PUT") {
+        uploadHeaders = {
+          byteLength: request.headers.get("X-Tearleads-Blob-Part-Byte-Length"),
+          sha256: request.headers.get("X-Tearleads-Blob-Part-Sha256"),
+          uploadId: request.headers.get("X-Tearleads-Blob-Upload-Id"),
+        };
         return HttpResponse.json({
           part: { byteLength: 6, etag: "etag-1", partNumber: 1 },
           stageId,
@@ -61,9 +67,10 @@ testApiClient("uses blob multipart stage route namespace", async () => {
   const client = new ApiClient(apiBaseUrl);
   const initiateRequest = { byteLength: 12, sha256: "sha256-1" };
   const encryptedPartBytes = new TextEncoder().encode("part-2");
+  const encryptedPartBlob = new Blob([encryptedPartBytes]);
   const partBytesRequest = {
     byteLength: encryptedPartBytes.byteLength,
-    encryptedBytes: encryptedPartBytes,
+    encryptedBytes: encryptedPartBlob,
     sha256: "2bb41b3bc344d2a5c1f31d662d86d78d7e98198b1eef7be3209d4f85da4ef14d",
     uploadId: "upload-1",
   };
@@ -112,7 +119,49 @@ testApiClient("uses blob multipart stage route namespace", async () => {
     },
   ]);
   expect(calls[2]?.contentType).toBe("application/octet-stream");
+  expect(uploadHeaders).toEqual({
+    byteLength: String(encryptedPartBytes.byteLength),
+    sha256: "2bb41b3bc344d2a5c1f31d662d86d78d7e98198b1eef7be3209d4f85da4ef14d",
+    uploadId: "upload-1",
+  });
 });
+
+testApiClient(
+  "keeps multipart Blob sources intact until encoding",
+  async () => {
+    const encryptedBytes = new Blob(["encrypted-part"]);
+    const client = new ApiClient(apiBaseUrl);
+    let capturedBody: Blob | BufferSource | undefined;
+    const transport = Reflect.get(client, "transport");
+
+    expect(
+      Reflect.set(
+        transport,
+        "requestBinaryRequest",
+        async (
+          _operation: unknown,
+          input: { readonly body: Blob | BufferSource },
+          options: {
+            readonly encodeBody: (body: Blob | BufferSource) => BodyInit;
+          },
+        ) => {
+          capturedBody = input.body;
+          expect(options.encodeBody(input.body)).toBeInstanceOf(File);
+          return null;
+        },
+      ),
+    ).toBe(true);
+
+    await client.uploadMultipartBlobPartBytes(stageId, 1, {
+      byteLength: encryptedBytes.size,
+      encryptedBytes,
+      sha256: "a".repeat(64),
+      uploadId: "upload-1",
+    });
+
+    expect(capturedBody).toBe(encryptedBytes);
+  },
+);
 
 testApiClient("retains coded multipart stage lookup failures", async () => {
   server.use(

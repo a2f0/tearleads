@@ -1,11 +1,13 @@
 import { authChallengeSigningBytes, sign } from "@tearleads/crypto";
 import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
 import {
+  blobWireHeaderKeys,
   challengeOperation,
   createOrganizationOperation,
   getHealthOperation,
   getOrganizationReadModelOperation,
   registerOperation,
+  uploadMultipartBlobPartBytesOperation,
   verifyOperation,
   webSocketTicketOperation,
 } from "@tearleads/validators/operation";
@@ -86,7 +88,6 @@ import {
   completeMultipartBlobStage as multipartComplete,
   getMultipartBlobStage as multipartGet,
   initiateMultipartBlobStage as multipartInitiate,
-  uploadMultipartBlobPartBytes as multipartPartUpload,
 } from "./routes/blobs/multipart";
 import {
   containerCreate,
@@ -1751,26 +1752,26 @@ export class ApiClient {
     // at all, falling through as JSON (`{}`). Only a File is read byte-for-byte
     // (readAsBinaryString -> base64), so the ciphertext survives the bridge intact
     // and the server's byte-length/SHA-256 validation passes. A File is a Blob, so
-    // it is equally valid on the plain web fetch path (the explicit Content-Type
-    // header below still wins).
-    const encryptedBody = new File(
-      [input.encryptedBytes],
-      "encrypted-blob-part",
-      { type: "application/octet-stream" },
-    );
-    return this.request(
-      multipartPartUpload.path(stageId, partNumber),
-      multipartPartUpload.isResponse,
-      multipartPartUpload.method,
-      encryptedBody,
+    // it is equally valid on the plain web fetch path (the operation-derived
+    // Content-Type header still wins).
+    return this.transport.requestBinaryRequest(
+      uploadMultipartBlobPartBytesOperation,
       {
         headers: {
-          "Content-Type": "application/octet-stream",
-          [multipartPartUpload.headerNames.byteLength]:
-            input.byteLength.toString(),
-          [multipartPartUpload.headerNames.sha256]: input.sha256,
-          [multipartPartUpload.headerNames.uploadId]: input.uploadId,
+          [blobWireHeaderKeys.partByteLength]: input.byteLength.toString(),
+          [blobWireHeaderKeys.partSha256]: input.sha256,
+          [blobWireHeaderKeys.partUploadId]: input.uploadId,
         },
+        body: input.encryptedBytes,
+        params: { partNumber, stageId },
+      },
+      {
+        encodeBody: (body) =>
+          body instanceof File
+            ? body
+            : new File([body], "encrypted-blob-part", {
+                type: "application/octet-stream",
+              }),
       },
     );
   }

@@ -117,7 +117,7 @@ function registerPartBytesRoute(
       const bodyResult = uploadMultipartBlobPartBytesOperation.body.safeParse(
         new Uint8Array(await c.req.arrayBuffer()),
       );
-      if (!bodyResult.success) {
+      if (!bodyResult.success || !(bodyResult.data instanceof Uint8Array)) {
         return c.json({ error: "Invalid request" }, 400);
       }
       const bytes = bodyResult.data;
