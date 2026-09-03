@@ -8,6 +8,7 @@ import {
 } from "../response";
 import { MAX_MULTIPART_BLOB_PART_BYTES } from "../util";
 import {
+  BinaryBodySchema,
   BlobBytesResponseHeadersSchema,
   blobWireHeaderKeys,
   getBlobBytesOperation,
@@ -50,6 +51,13 @@ test("blob byte operations own their HTTP contracts", () => {
       500: ErrorResponseSchema,
     });
   }
+});
+
+test("binary body validation accepts transport-native sources", () => {
+  expect(BinaryBodySchema.safeParse(new Uint8Array([1])).success).toBe(true);
+  expect(BinaryBodySchema.safeParse(new ArrayBuffer(1)).success).toBe(true);
+  expect(BinaryBodySchema.safeParse(new Blob(["bytes"])).success).toBe(true);
+  expect(BinaryBodySchema.safeParse("bytes").success).toBe(false);
 });
 
 test("blob byte paths derive from shared parameter schemas", () => {

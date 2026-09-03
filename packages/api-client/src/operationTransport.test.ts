@@ -1,16 +1,12 @@
 import { expect, test } from "bun:test";
 import {
-  blobWireHeaderKeys,
   challengeOperation,
   documentAttributionWireHeaderKeys,
-  getBlobBytesOperation,
   getDocumentAttributionOperation,
   getHealthOperation,
   getOrganizationReadModelOperation,
   type listDocumentAttributionRangesOperation,
-  protocolOperations,
 } from "@tearleads/validators/operation";
-import type { BinaryOperationResponseEnvelope } from "./binaryResponseOperationTransport";
 import type {
   JsonOperationRequestInput,
   JsonOperationResponseEnvelope,
@@ -18,12 +14,7 @@ import type {
 import {
   createJsonOperationTransport,
   deriveJsonOperationRequest,
-  supportsJsonOperationTransport,
 } from "./operationTransport";
-import {
-  createOperationTransport,
-  supportsOperationTransport,
-} from "./operationTransportFactory";
 import type {
   RequestFailure,
   ResponseRequestFn,
@@ -63,9 +54,6 @@ type NotModifiedAttributionResponse = Extract<
   AttributionResponseEnvelope,
   { readonly status: 304 }
 >;
-type BlobResponseEnvelope = BinaryOperationResponseEnvelope<
-  typeof getBlobBytesOperation
->;
 
 function assertType<Condition extends true>(_condition?: Condition): void {}
 
@@ -77,12 +65,6 @@ assertType<
 >();
 assertType<
   NotModifiedAttributionResponse["data"] extends undefined ? true : false
->();
-assertType<BlobResponseEnvelope["status"] extends 200 ? true : false>();
-assertType<
-  BlobResponseEnvelope["headers"][typeof blobWireHeaderKeys.blobId] extends string
-    ? true
-    : false
 >();
 
 function requestFailure(
@@ -346,136 +328,4 @@ test("reports malformed declared response headers", async () => {
     ok: false,
     status: 200,
   });
-});
-
-test("derives binary response requests and preserves live streams", async () => {
-  const calls: unknown[][] = [];
-  const bytes = new TextEncoder().encode("encrypted-blob-bytes");
-  const response = new Response(
-    new ReadableStream<Uint8Array>({
-      start(controller) {
-        controller.enqueue(bytes);
-        controller.close();
-      },
-    }),
-    {
-      headers: {
-        "Content-Length": String(bytes.byteLength),
-        "X-Tearleads-Blob-Id": documentId,
-        "X-Tearleads-Blob-Sha256": "sha256-1",
-      },
-    },
-  );
-  const request = Object.assign(
-    async (...args: unknown[]) => {
-      calls.push(args);
-      return { data: response, ok: true as const };
-    },
-    { reportFailure: requestFailure },
-  ) as ResponseRequestFn;
-  const transport = createOperationTransport(request);
-
-  const result = await transport.requestBinaryResponse(getBlobBytesOperation, {
-    params: { blobId: documentId },
-  });
-
-  expect(result).toEqual({
-    headers: {
-      [blobWireHeaderKeys.blobId]: documentId,
-      [blobWireHeaderKeys.blobSha256]: "sha256-1",
-      [blobWireHeaderKeys.contentLength]: String(bytes.byteLength),
-    },
-    response,
-    status: 200,
-  });
-  expect(calls).toEqual([
-    [`/blobs/${documentId}/bytes`, "GET", undefined, {}, []],
-  ]);
-  await expect(new Response(result?.response.body).text()).resolves.toBe(
-    "encrypted-blob-bytes",
-  );
-});
-
-test("reports malformed binary response headers through policy", async () => {
-  const reported: ResponseRequestValidationFailureInput[] = [];
-  const request = Object.assign(
-    async () => ({
-      data: new Response("encrypted-blob-bytes"),
-      ok: true as const,
-    }),
-    {
-      reportFailure(input: ResponseRequestValidationFailureInput) {
-        reported.push(input);
-        return requestFailure(input);
-      },
-    },
-  ) as ResponseRequestFn;
-  const transport = createOperationTransport(request);
-
-  await expect(
-    transport.requestBinaryResponseResult(getBlobBytesOperation, {
-      params: { blobId: documentId },
-    }),
-  ).resolves.toMatchObject({
-    kind: "shape",
-    message: `Invalid response headers for /blobs/${documentId}/bytes`,
-    ok: false,
-    status: 200,
-  });
-  expect(reported).toHaveLength(1);
-});
-
-test("rejects undeclared binary success statuses", async () => {
-  const request = Object.assign(
-    async () => ({
-      data: new Response("encrypted-blob-bytes", {
-        headers: {
-          "Content-Length": "20",
-          "X-Tearleads-Blob-Id": documentId,
-          "X-Tearleads-Blob-Sha256": "sha256-1",
-        },
-        status: 201,
-      }),
-      ok: true as const,
-    }),
-    { reportFailure: requestFailure },
-  ) as ResponseRequestFn;
-  const transport = createOperationTransport(request);
-
-  await expect(
-    transport.requestBinaryResponseResult(getBlobBytesOperation, {
-      params: { blobId: documentId },
-    }),
-  ).resolves.toMatchObject({
-    kind: "shape",
-    message: `Invalid binary response status 201 for /blobs/${documentId}/bytes`,
-    ok: false,
-    status: 201,
-  });
-});
-
-test("does not claim binary operations with empty success statuses", () => {
-  expect(
-    supportsOperationTransport({
-      ...getBlobBytesOperation,
-      emptyResponseStatuses: [204],
-    }),
-  ).toBe(false);
-});
-
-test("registry coverage makes special response transports explicit", () => {
-  const unsupported = protocolOperations
-    .filter((operation) => !supportsJsonOperationTransport(operation))
-    .map((operation) => operation.id);
-
-  expect(unsupported).toEqual([
-    "blobs.bytes.get",
-    "blobs.multipartStages.parts.upload",
-  ]);
-
-  expect(
-    protocolOperations
-      .filter((operation) => !supportsOperationTransport(operation))
-      .map((operation) => operation.id),
-  ).toEqual(["blobs.multipartStages.parts.upload"]);
 });

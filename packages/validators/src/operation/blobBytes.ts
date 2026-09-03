@@ -70,8 +70,13 @@ export type MultipartBlobPartPathParams = z.infer<
   typeof MultipartBlobPartPathParamsSchema
 >;
 
-const binaryBodySchema = registerJsonSchemaFragment(
-  z.custom<Uint8Array>((value) => value instanceof Uint8Array),
+export const BinaryBodySchema = registerJsonSchemaFragment(
+  z.custom<Blob | BufferSource>(
+    (value) =>
+      (typeof Blob !== "undefined" && value instanceof Blob) ||
+      value instanceof ArrayBuffer ||
+      ArrayBuffer.isView(value),
+  ),
   { format: "binary", type: "string" },
 );
 
@@ -196,7 +201,7 @@ export const getBlobBytesOperation = defineHttpOperation({
   path: "/blobs/{blobId}/bytes",
   responseHeaders: { 200: BlobBytesResponseHeadersSchema },
   responseMediaTypes: { 200: "application/octet-stream" },
-  responses: { 200: binaryBodySchema },
+  responses: { 200: BinaryBodySchema },
   runtimeRefinements: [
     blobByteLengthHeaderRuntimeRefinement,
     fallbackBlobByteLengthHeaderRuntimeRefinement,
@@ -206,7 +211,7 @@ export const getBlobBytesOperation = defineHttpOperation({
 
 export const uploadMultipartBlobPartBytesOperation = defineHttpOperation({
   auth: "session",
-  body: binaryBodySchema,
+  body: BinaryBodySchema,
   failureResponses: {
     400: ErrorResponseSchema,
     401: SessionFailureResponseSchema,

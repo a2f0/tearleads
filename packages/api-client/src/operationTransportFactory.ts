@@ -1,5 +1,10 @@
 import type { HttpOperation } from "@tearleads/validators/operation";
 import {
+  type BinaryRequestOperationTransport,
+  createBinaryRequestOperationTransport,
+  supportsBinaryRequestOperationTransport,
+} from "./binaryRequestOperationTransport";
+import {
   type BinaryResponseOperationTransport,
   createBinaryResponseOperationTransport,
   supportsBinaryResponseOperationTransport,
@@ -11,12 +16,14 @@ import {
 } from "./operationTransport";
 import type { ResponseRequestFn } from "./types";
 
-export type OperationTransport = JsonOperationTransport &
+export type OperationTransport = BinaryRequestOperationTransport &
+  JsonOperationTransport &
   BinaryResponseOperationTransport;
 
 export function supportsOperationTransport(operation: HttpOperation): boolean {
   return (
     supportsJsonOperationTransport(operation) ||
+    supportsBinaryRequestOperationTransport(operation) ||
     supportsBinaryResponseOperationTransport(operation)
   );
 }
@@ -25,6 +32,7 @@ export function createOperationTransport(
   responseRequest: ResponseRequestFn,
 ): OperationTransport {
   return {
+    ...createBinaryRequestOperationTransport(responseRequest),
     ...createJsonOperationTransport(responseRequest),
     ...createBinaryResponseOperationTransport(responseRequest),
   };

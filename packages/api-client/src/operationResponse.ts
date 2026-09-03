@@ -1,6 +1,5 @@
 import {
   type HttpOperation,
-  type JsonOperation,
   type OperationSchemaOutput,
   operationResponseHeaderNames,
 } from "@tearleads/validators/operation";
@@ -11,23 +10,28 @@ import type {
   ResponseRequestFn,
 } from "./types";
 
-type BodyResponseStatus<Operation extends JsonOperation> = Extract<
+export interface JsonResponseOperation extends HttpOperation {
+  readonly responseMediaTypes?: Readonly<Record<number, "application/json">>;
+}
+
+type BodyResponseStatus<Operation extends JsonResponseOperation> = Extract<
   keyof Operation["responses"],
   number
 >;
 
-type EmptyResponseStatus<Operation extends JsonOperation> = Operation extends {
-  readonly emptyResponseStatuses: readonly (infer Status)[];
-}
-  ? Extract<Status, number>
-  : never;
+type EmptyResponseStatus<Operation extends JsonResponseOperation> =
+  Operation extends {
+    readonly emptyResponseStatuses: readonly (infer Status)[];
+  }
+    ? Extract<Status, number>
+    : never;
 
-type SuccessStatus<Operation extends JsonOperation> =
+type SuccessStatus<Operation extends JsonResponseOperation> =
   | BodyResponseStatus<Operation>
   | EmptyResponseStatus<Operation>;
 
 type ResponseBodyForStatus<
-  Operation extends JsonOperation,
+  Operation extends JsonResponseOperation,
   Status extends number,
 > = Status extends keyof Operation["responses"]
   ? OperationSchemaOutput<
@@ -48,7 +52,9 @@ export type OperationResponseHeadersForStatus<
     : undefined
   : undefined;
 
-export type JsonOperationResponseEnvelope<Operation extends JsonOperation> = {
+export type JsonOperationResponseEnvelope<
+  Operation extends JsonResponseOperation,
+> = {
   [Status in SuccessStatus<Operation>]: {
     readonly data: ResponseBodyForStatus<Operation, Status>;
     readonly headers: OperationResponseHeadersForStatus<Operation, Status>;
@@ -56,7 +62,7 @@ export type JsonOperationResponseEnvelope<Operation extends JsonOperation> = {
   };
 }[SuccessStatus<Operation>];
 
-export type JsonOperationResponse<Operation extends JsonOperation> = {
+export type JsonOperationResponse<Operation extends JsonResponseOperation> = {
   [Status in SuccessStatus<Operation>]: ResponseBodyForStatus<
     Operation,
     Status
@@ -120,7 +126,7 @@ export function decodeOperationResponseHeaders(
 
 export async function decodeJsonOperationResponse(
   request: ResponseRequestFn,
-  operation: JsonOperation,
+  operation: JsonResponseOperation,
   response: Response,
   path: string,
   options: RequestResultOptions,

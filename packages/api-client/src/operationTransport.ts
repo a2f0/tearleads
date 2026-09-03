@@ -46,11 +46,14 @@ export type {
   JsonOperationResponseEnvelope,
 } from "./operationResponse";
 
-interface DerivedOperationRequest {
-  readonly body?: BodyInit | undefined;
+interface DerivedOperationRequestMetadata {
   readonly headers?: Record<string, string> | undefined;
   readonly method: HttpOperation["method"];
   readonly path: string;
+}
+
+interface DerivedOperationRequest extends DerivedOperationRequestMetadata {
+  readonly body?: BodyInit | undefined;
 }
 
 export interface JsonOperationTransport {
@@ -144,24 +147,34 @@ export function deriveRuntimeOperationRequest(
   operation: HttpOperation,
   input: RuntimeOperationRequestInput,
 ): DerivedOperationRequest {
+  const metadata = deriveRuntimeOperationRequestMetadata(operation, input);
+  const body = requestBody(operation, input);
+  const headers =
+    body === undefined && metadata.headers === undefined
+      ? undefined
+      : {
+          ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+          ...metadata.headers,
+        };
+  return {
+    ...metadata,
+    ...(body === undefined ? {} : { body }),
+    ...(headers === undefined ? {} : { headers }),
+  };
+}
+
+export function deriveRuntimeOperationRequestMetadata(
+  operation: HttpOperation,
+  input: RuntimeOperationRequestInput,
+): DerivedOperationRequestMetadata {
   const path = operationRequestPathForInput(
     operation,
     input.params,
     input.query,
   );
-
-  const body = requestBody(operation, input);
   const declaredHeaders = requestHeaders(operation, input);
-  const headers =
-    body === undefined && declaredHeaders === undefined
-      ? undefined
-      : {
-          ...(body === undefined ? {} : { "Content-Type": "application/json" }),
-          ...declaredHeaders,
-        };
   return {
-    ...(body === undefined ? {} : { body }),
-    ...(headers === undefined ? {} : { headers }),
+    ...(declaredHeaders === undefined ? {} : { headers: declaredHeaders }),
     method: operation.method,
     path,
   };

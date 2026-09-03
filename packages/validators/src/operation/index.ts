@@ -50,6 +50,7 @@ export {
   StripeWebhookHeadersSchema,
 } from "./billingWebhooks";
 export {
+  BinaryBodySchema,
   type BlobBytesPathParams,
   BlobBytesPathParamsSchema,
   type BlobBytesResponseHeaders,
