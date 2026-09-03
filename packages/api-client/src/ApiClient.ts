@@ -182,6 +182,7 @@ import type {
   RequestResult,
   RequestResultOptions,
 } from "./types";
+import { primeWriterProjectionSlot } from "./writerProjectionPrime";
 
 type ExpiredHandler = () => boolean | Promise<boolean>;
 type PaymentRequiredHandler = (organizationId: string | null) => void;
@@ -903,7 +904,7 @@ export class ApiClient {
       () =>
         this.request(
           containerWriterProjection.path(containerId),
-          containerWriterProjection.isResponse,
+          containerWriterProjection.isResponseFor(containerId),
           containerWriterProjection.method,
           undefined,
           undefined,
@@ -942,7 +943,7 @@ export class ApiClient {
       this.containerWriterProjectionResultsInFlightByContainerId,
       containerId,
       containerWriterProjection.path(containerId),
-      containerWriterProjection.isResponse,
+      containerWriterProjection.isResponseFor(containerId),
       options,
       getContainerWriterProjectionOperation,
     );
@@ -1270,7 +1271,7 @@ export class ApiClient {
       () =>
         this.request(
           documentWriterProjection.path(documentId),
-          documentWriterProjection.isResponse,
+          documentWriterProjection.isResponseFor(documentId),
           documentWriterProjection.method,
           undefined,
           undefined,
@@ -1299,7 +1300,7 @@ export class ApiClient {
       this.documentWriterProjectionResultsInFlightByDocumentId,
       documentId,
       documentWriterProjection.path(documentId),
-      documentWriterProjection.isResponse,
+      documentWriterProjection.isResponseFor(documentId),
       options,
       getDocumentWriterProjectionOperation,
     );
@@ -1320,19 +1321,14 @@ export class ApiClient {
     documentId: string,
     projection: DocumentWriterProjectionResponse,
   ): void {
-    if (this.documentWriterProjectionRequestsByDocumentId.has(documentId)) {
-      return;
-    }
-    this.documentWriterProjectionRequestsByDocumentId.set(
-      documentId,
-      Promise.resolve(projection),
-    );
-    // The just-authored seed supersedes any GET already in flight: drop the
-    // shared result entry so a post-prime result caller reads the seeded
-    // projection instead of coalescing onto the older fetch. Callers already
-    // holding that fetch keep their result, and its settle cannot clobber the
-    // seed (the slot no longer matches its snapshot).
-    this.documentWriterProjectionResultsInFlightByDocumentId.delete(documentId);
+    primeWriterProjectionSlot({
+      cache: this.documentWriterProjectionRequestsByDocumentId,
+      describedId: projection.documentId,
+      id: documentId,
+      inFlightResults: this.documentWriterProjectionResultsInFlightByDocumentId,
+      label: "Document",
+      projection,
+    });
   }
 
   /**
@@ -1353,18 +1349,15 @@ export class ApiClient {
     containerId: string,
     projection: ContainerWriterProjectionResponse,
   ): void {
-    if (this.containerWriterProjectionRequestsByContainerId.has(containerId)) {
-      return;
-    }
-    this.containerWriterProjectionRequestsByContainerId.set(
-      containerId,
-      Promise.resolve(projection),
-    );
-    // Same supersession rule as primeDocumentWriterProjection: a post-prime
-    // result caller must read the seed, not an older in-flight GET.
-    this.containerWriterProjectionResultsInFlightByContainerId.delete(
-      containerId,
-    );
+    primeWriterProjectionSlot({
+      cache: this.containerWriterProjectionRequestsByContainerId,
+      describedId: projection.containerId,
+      id: containerId,
+      inFlightResults:
+        this.containerWriterProjectionResultsInFlightByContainerId,
+      label: "Container",
+      projection,
+    });
   }
 
   linkDocument(
