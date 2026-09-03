@@ -4,8 +4,8 @@ import {
   declaredTlaNames,
   extractBacktickedTokens,
   isProductionSourcePath,
+  lexTsSource,
   moduleDeclaresToken,
-  stripTsCommentsAndStrings,
   verifyAbstractionMaps,
 } from "./lintFormalAbstractionMaps";
 
@@ -223,12 +223,11 @@ test("a seam surviving only in comments or strings is not production code", () =
   expect(problems).toEqual([
     `${DOC_PATH}:7: \`serveThings\` not found together in any production package source file`,
   ]);
-  expect(stripTsCommentsAndStrings("code(); // serveThings")).not.toContain(
-    "serveThings",
+  const lexed = lexTsSource(
+    'code(); // serveThings\nconst a = "serveThings"; /* serveThings */',
   );
-  expect(
-    stripTsCommentsAndStrings('const a = "serveThings"; /* serveThings */'),
-  ).not.toContain("serveThings");
+  expect(lexed.withoutCommentsAndStrings).not.toContain("serveThings");
+  expect(lexed.withoutComments).toContain('"serveThings"');
 });
 
 test("snake_case wire tags match as quoted string contracts", () => {
@@ -271,4 +270,59 @@ test("VARIABLES declarations consume only comma-continued lines", () => {
   expect(
     moduleDeclaresToken("VARIABLES phase\nInit == nextStep", "nextStep"),
   ).toBe(false);
+});
+
+test("a wire tag quoted only in a comment is not the live contract", () => {
+  const tagged = {
+    ...cleanInput,
+    docs: [doc(["| `Serve` | `interest_state` |"])],
+  };
+  expect(
+    verifyAbstractionMaps({
+      ...tagged,
+      productionFiles: [
+        {
+          content: '// old type: "interest_state" removed in the scrub',
+          path: "packages/a/src/a.ts",
+        },
+      ],
+    }),
+  ).toEqual([
+    `${DOC_PATH}:7: \`interest_state\` not found together in any production package source file`,
+  ]);
+});
+
+test("lowercase dotted seams are identifier segments, not wire tags", () => {
+  const dotted = {
+    ...cleanInput,
+    docs: [doc(["| `Serve` | `client.sync` |"])],
+  };
+  // Both segments live in code (unquoted), which a wire-tag-only search
+  // would have missed.
+  expect(
+    verifyAbstractionMaps({
+      ...dotted,
+      productionFiles: [
+        {
+          content: "const client = { sync() {} };",
+          path: "packages/a/src/a.ts",
+        },
+      ],
+    }),
+  ).toEqual([]);
+});
+
+test("a model cell needs a token or an explicit boundary-assumption marker", () => {
+  const prose = {
+    ...cleanInput,
+    docs: [doc(["| prose only | `serveThings` |"])],
+  };
+  expect(verifyAbstractionMaps(prose)).toEqual([
+    `${DOC_PATH}:7: abstraction-map row names no backticked model token and is not marked "(boundary assumption)".`,
+  ]);
+  const exempted = {
+    ...cleanInput,
+    docs: [doc(["| prose only (boundary assumption) | `serveThings` |"])],
+  };
+  expect(verifyAbstractionMaps(exempted)).toEqual([]);
 });

@@ -22,11 +22,15 @@ configuration as `model|config`. The checker validates the complete registry
 before starting Java, rejects unregistered configuration files, sorts pairs
 deterministically, and gives each TLC invocation an isolated state directory.
 
-Each model's documentation maps its abstract actions to production seams in a
-`Model action … | Production …` table. `bun run lint:formal-maps` (part of
-`check:fast`) verifies every backticked token in those tables still occurs in a
-TLA+ module or in production package source, so a rename or removal on either
-side fails the check instead of leaving the map prose-only.
+Model documentation that maps abstract actions to production seams does so in
+`Model action … | Production …` tables; the registry in
+`scripts/lintFormalAbstractionMaps.ts` pins which documents carry them.
+`bun run lint:formal-maps` (part of `check:fast`) verifies every backticked
+model token is declared in the module the table documents and every backticked
+production seam occurs in production package source code, so a rename or
+removal on either side fails the check instead of leaving the map prose-only.
+`ContainerGrantScope` and `KeyringReachability` document their seams in prose
+and carry no map tables.
 
 To add a model, commit its `.tla` and bounded `.cfg` files and register the pair.
 One module may appear with multiple configurations, but each configuration must
@@ -270,7 +274,7 @@ The abstraction maps to production at these seams:
 | `BeginBaselinelessUnlink` / `CommitBaselinelessUnlink` | `assertBaselinelessUnlinkHasEmptyCommittedFrontier` inside `mutateDocumentLinkSetWithExecutor` |
 | `CommitCoveringUnlink` | `assertAtomicRotationBaselineCoversCommittedFrontier` + `appendAtomicRotationBaseline` |
 | `WriterMayCommit` | the exclusive manifest-head locks in `lockDocumentLinkSetMutationFrontier` and `lockSyncDocumentWriteFrontier` |
-| the client never sending an empty baseline | `buildDocumentRotationBaseline` returning null for a zero-span snapshot |
+| the client never sending an empty baseline (boundary assumption) | `buildDocumentRotationBaseline` returning null for a zero-span snapshot |
 
 The checked configuration sets `LockedUnlink = TRUE`, matching production, and
 the invariants require that no rotation ever orphans an uncovered committed

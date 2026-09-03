@@ -90,13 +90,24 @@ function rowTokens(
       token,
     })),
   );
-  // A production cell with no backticked seam is prose-only documentation:
-  // the seam it describes could vanish without any check noticing.
-  const problems = tokens.some((token) => token.side === "production")
-    ? []
-    : [
-        `${doc}:${line}: abstraction-map row names no backticked production seam.`,
-      ];
+  // A cell with no backticked name is prose-only documentation: the seam or
+  // operator it describes could vanish without any check noticing. A model
+  // cell may opt out with an explicit "(boundary assumption)" marker when it
+  // documents behavior outside the model's action vocabulary.
+  const problems: string[] = [];
+  if (!tokens.some((token) => token.side === "production")) {
+    problems.push(
+      `${doc}:${line}: abstraction-map row names no backticked production seam.`,
+    );
+  }
+  if (
+    !tokens.some((token) => token.side === "model") &&
+    !(parts[1] ?? "").includes("(boundary assumption)")
+  ) {
+    problems.push(
+      `${doc}:${line}: abstraction-map row names no backticked model token and is not marked "(boundary assumption)".`,
+    );
+  }
   return { problems, tokens };
 }
 
@@ -218,44 +229,81 @@ export function declaredTlaNames(strippedModule: string): string[] {
   return names;
 }
 
-/**
- * Strip comments and string/template literals so a seam surviving only in
- * commentary or documentation strings does not count as code. The removal is
- * lexical rather than a full parse; that is enough to keep matches to code.
- */
-export function stripTsCommentsAndStrings(source: string): string {
-  return source
-    .replace(/\/\*[\s\S]*?\*\//g, " ")
-    .replace(/\/\/[^\n]*/g, " ")
-    .replace(/'(?:[^'\\\n]|\\.)*'/g, "''")
-    .replace(/"(?:[^"\\\n]|\\.)*"/g, '""')
-    .replace(/`(?:[^`\\]|\\.)*`/g, "``");
+interface LexedTsSource {
+  /** Comments removed, string literals preserved. */
+  readonly withoutComments: string;
+  /** Comments removed and string/template literal contents emptied. */
+  readonly withoutCommentsAndStrings: string;
 }
 
-const WIRE_TAG_PATTERN = /^[a-z0-9]+(?:[._][a-z0-9]+)+$/;
+function scanTsString(source: string, start: number): number {
+  const quote = source[start];
+  let index = start + 1;
+  while (index < source.length && source[index] !== quote) {
+    index += source[index] === "\\" ? 2 : 1;
+  }
+  return index + 1;
+}
+
+/**
+ * Strip comments so a seam surviving only in commentary does not count as
+ * code; strings are preserved in one projection (wire-tag contracts live in
+ * quoted literals) and emptied in the other (identifier seams must be code).
+ * The scan is lexical rather than a full parse; that is enough to keep
+ * matches honest.
+ */
+export function lexTsSource(source: string): LexedTsSource {
+  let withoutComments = "";
+  let withoutCommentsAndStrings = "";
+  let index = 0;
+  while (index < source.length) {
+    const pair = source.slice(index, index + 2);
+    const character = source[index] ?? "";
+    if (pair === "//") {
+      while (index < source.length && source[index] !== "\n") {
+        index += 1;
+      }
+    } else if (pair === "/*") {
+      const end = source.indexOf("*/", index + 2);
+      index = end === -1 ? source.length : end + 2;
+      withoutComments += " ";
+      withoutCommentsAndStrings += " ";
+    } else if (character === '"' || character === "'" || character === "`") {
+      const end = Math.min(scanTsString(source, index), source.length);
+      withoutComments += source.slice(index, end);
+      withoutCommentsAndStrings += `${character}${character}`;
+      index = end;
+    } else {
+      withoutComments += character;
+      withoutCommentsAndStrings += character;
+      index += 1;
+    }
+  }
+  return { withoutComments, withoutCommentsAndStrings };
+}
+
+const WIRE_TAG_PATTERN = /^[a-z0-9]+(?:_[a-z0-9]+)+$/;
 
 /**
  * All segments of a dotted seam must occur together in one file, in actual
  * code. Snake_case wire tags are string contracts, so they must instead occur
- * as quoted literals.
+ * as quoted literals outside comments.
  */
 function productionSeamExists(
-  productionFiles: readonly FormalSourceFile[],
-  strippedByPath: ReadonlyMap<string, string>,
+  lexedByPath: ReadonlyMap<string, LexedTsSource>,
   token: string,
 ): boolean {
+  const lexedFiles = [...lexedByPath.values()];
   if (WIRE_TAG_PATTERN.test(token)) {
-    return productionFiles.some((file) =>
-      new RegExp(`["'\`]${token.replaceAll(".", "\\.")}["'\`]`).test(
-        file.content,
-      ),
-    );
+    const quoted = new RegExp(`["'\`]${token}["'\`]`);
+    return lexedFiles.some((lexed) => quoted.test(lexed.withoutComments));
   }
   const segments = token.split(".").filter((segment) => segment.length > 0);
-  return productionFiles.some((file) => {
-    const stripped = strippedByPath.get(file.path) ?? "";
-    return segments.every((segment) => hasWordOccurrence(stripped, segment));
-  });
+  return lexedFiles.some((lexed) =>
+    segments.every((segment) =>
+      hasWordOccurrence(lexed.withoutCommentsAndStrings, segment),
+    ),
+  );
 }
 
 export function verifyAbstractionMaps(input: {
@@ -267,11 +315,8 @@ export function verifyAbstractionMaps(input: {
   const collected = collectMappedTokens(input.docs);
   const { tablesByDoc, tokens } = collected;
   const problems: string[] = [...collected.problems];
-  const strippedByPath = new Map(
-    input.productionFiles.map((file) => [
-      file.path,
-      stripTsCommentsAndStrings(file.content),
-    ]),
+  const lexedByPath = new Map(
+    input.productionFiles.map((file) => [file.path, lexTsSource(file.content)]),
   );
 
   for (const [doc, expected] of Object.entries(input.expectedTables)) {
@@ -302,9 +347,7 @@ export function verifyAbstractionMaps(input: {
           `${entry.doc}:${entry.line}: \`${entry.token}\` is not declared in ${entry.module}`,
         );
       }
-    } else if (
-      !productionSeamExists(input.productionFiles, strippedByPath, entry.token)
-    ) {
+    } else if (!productionSeamExists(lexedByPath, entry.token)) {
       problems.push(
         `${entry.doc}:${entry.line}: \`${entry.token}\` not found together in any production package source file`,
       );
