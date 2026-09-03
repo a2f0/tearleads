@@ -49,6 +49,58 @@ testApiClient(
   },
 );
 
+// Relabeling the mutable top-level id is not enough either: the signed leaf
+// manifest and its KEK still describe the substituted container.
+testApiClient(
+  "container writer projection relabeled with the requested id is invalid",
+  async () => {
+    const substituted = createContainerWriterProjectionResponse();
+    const requestedContainerId = `${substituted.containerId}-requested`;
+    server.use(
+      http.get(`${apiBaseUrl}/containers/:containerId/writer-projection`, () =>
+        HttpResponse.json({
+          ...substituted,
+          containerId: requestedContainerId,
+        }),
+      ),
+    );
+
+    const client = new ApiClient(apiBaseUrl);
+    expect(
+      await client.getContainerWriterProjection(requestedContainerId),
+    ).toBeNull();
+  },
+);
+
+testApiClient(
+  "document writer projection relabeled with the requested id is invalid",
+  async () => {
+    const substituted = createDocumentWriterProjectionResponse();
+    const requestedDocumentId = `${substituted.documentId}-requested`;
+    server.use(
+      http.get(`${apiBaseUrl}/documents/:documentId/writer-projection`, () =>
+        HttpResponse.json({
+          ...substituted,
+          contentKeyBundle: {
+            ...substituted.contentKeyBundle,
+            documentId: requestedDocumentId,
+          },
+          documentId: requestedDocumentId,
+          documentKekTargets: {
+            ...substituted.documentKekTargets,
+            documentId: requestedDocumentId,
+          },
+        }),
+      ),
+    );
+
+    const client = new ApiClient(apiBaseUrl);
+    expect(
+      await client.getDocumentWriterProjection(requestedDocumentId),
+    ).toBeNull();
+  },
+);
+
 testApiClient(
   "document writer projection for another document is an invalid response",
   async () => {
