@@ -136,7 +136,7 @@ test("strips origin from the payload forwarded to clients", () => {
   ]);
 });
 
-test("strips a malformed origin to prevent session id leaks", () => {
+test("drops an event with a malformed origin to prevent session id leaks", () => {
   const router = new WsEventRouter();
   const reader = fakeSocket("bob");
   router.open(reader);
@@ -146,9 +146,9 @@ test("strips a malformed origin to prevent session id leaks", () => {
   );
 
   // A partial origin (sessionId present, userId missing) is not a valid
-  // identity, so it excludes nobody — but the sessionId is still in the
-  // payload and must not reach clients. Stripping keys on origin's presence,
-  // not on whether it parsed, so the field is removed regardless.
+  // identity. The published-event schema fails closed on it, so the event is
+  // not delivered at all — and the sensitive sessionId in the payload can
+  // never reach a client.
   router.routeServerEvent(
     JSON.stringify({
       type: "document_update_created",
@@ -159,14 +159,7 @@ test("strips a malformed origin to prevent session id leaks", () => {
     }),
   );
 
-  expect(reader.sent).toEqual([
-    JSON.stringify({
-      type: "document_update_created",
-      containerIds: [C1],
-      documentId: "doc-1",
-      updateIds: ["update-1"],
-    }),
-  ]);
+  expect(reader.sent).toEqual([]);
 });
 
 test("delivers to every interested socket when no origin is tagged", () => {

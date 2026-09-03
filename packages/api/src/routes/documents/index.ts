@@ -1,6 +1,7 @@
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
+import type { PublishedRealtimeEvent } from "../../realtime/publishedRealtimeEvents";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { createDocumentAttachmentsRoute } from "./attachments";
 import { createDocumentAttributionRoute } from "./attribution";
@@ -8,7 +9,7 @@ import { createDocumentMutationsRoute } from "./mutations";
 import { createDocumentWriterProjectionRoute } from "./writerProjection";
 
 interface DocumentsRouterDeps {
-  readonly publish: (event: Record<string, unknown>) => Promise<void>;
+  readonly publish: (event: PublishedRealtimeEvent) => Promise<void>;
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
   readonly runtime: ApiServiceRuntime;
 }

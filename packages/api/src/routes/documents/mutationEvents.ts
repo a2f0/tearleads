@@ -7,6 +7,7 @@ import type {
   DocumentLinkSetMutationResponse,
   DocumentSyncResponse,
 } from "@tearleads/validators/response";
+import type { PublishedRealtimeEvent } from "../../realtime/publishedRealtimeEvents";
 import { uniqueSortedStrings } from "../../utils/array";
 import { publishBestEffort } from "../../utils/publishBestEffort";
 import { publishContainerMutationCreated } from "../containers/mutationEvents";
@@ -16,7 +17,7 @@ type DocumentMutationOrigin = {
   readonly sessionId: string;
   readonly userId: string;
 };
-type Publish = (event: Record<string, unknown>) => Promise<void>;
+type Publish = (event: PublishedRealtimeEvent) => Promise<void>;
 
 function listDocumentKekTargetContainerIds(
   documentKekTargets: DocumentSyncResponse["documentKekTargets"],
@@ -34,7 +35,7 @@ export function createDocumentMutationCreatedEvent(input: {
   readonly origin: DocumentMutationOrigin;
   readonly request: DocumentLinkSetMutationRequest;
   readonly response: DocumentLinkSetMutationResponse;
-}): Record<string, unknown> {
+}): PublishedRealtimeEvent {
   const mutationTargetContainerId =
     input.request.targetContainerPathRefs.at(-1)?.containerId;
   const containerIds = [
@@ -70,7 +71,7 @@ export function createDocumentUpdateCreatedEvent(input: {
   readonly documentKekTargets: DocumentSyncResponse["documentKekTargets"];
   readonly origin: DocumentMutationOrigin;
   readonly updateIds: readonly string[];
-}): Record<string, unknown> {
+}): PublishedRealtimeEvent {
   return {
     type: "document_update_created",
     containerIds: listDocumentKekTargetContainerIds(input.documentKekTargets),
@@ -117,7 +118,7 @@ export function createDocumentPurgeEvent(input: {
   readonly containerIds: readonly string[];
   readonly documentId: string;
   readonly origin: DocumentMutationOrigin;
-}): Record<string, unknown> {
+}): PublishedRealtimeEvent {
   return {
     type: "document_mutation_created",
     containerIds: uniqueSortedStrings(input.containerIds),

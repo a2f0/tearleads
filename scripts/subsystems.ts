@@ -150,6 +150,7 @@ export const subsystems: readonly Subsystem[] = [
       "Process-local fan-out of Redis pub/sub events to interested sockets: the WS lifecycle, interest index, Redis interest mirror, and upgrade tickets.",
     seam: "createRealtimeGateway, assembled and started by index.ts",
     paths: [
+      `${api}/realtime/publishedRealtimeEvents.ts`,
       `${api}/realtime/realtimeGateway.ts`,
       `${api}/realtime/wsConnection.ts`,
       `${api}/realtime/wsOrganizationRouting.ts`,

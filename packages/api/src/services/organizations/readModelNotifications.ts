@@ -1,3 +1,4 @@
+import type { PublishedRealtimeEvent } from "../../realtime/publishedRealtimeEvents";
 import { publishBestEffort } from "../../utils/publishBestEffort";
 import {
   type CommittedOrganizationReadModelChange,
@@ -15,7 +16,7 @@ function createOrganizationReadModelChangedEvent(input: {
   readonly organizationId: string;
   readonly origin: OrganizationReadModelChangedOrigin;
   readonly recipientUserIds: readonly string[];
-}): Record<string, unknown> {
+}): PublishedRealtimeEvent {
   return {
     type: "organization_read_model_changed",
     organizationId: input.organizationId,

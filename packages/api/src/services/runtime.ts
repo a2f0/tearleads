@@ -5,6 +5,7 @@ import { createDefaultBlobObjectStore } from "../adapters/defaultBlobObjectStore
 import { del, get, getdel, set } from "../adapters/redis";
 import { publish } from "../adapters/redisPubSub";
 import { createSession } from "../middleware/session";
+import type { PublishedRealtimeEvent } from "../realtime/publishedRealtimeEvents";
 import type { SessionCreateInput } from "../validators/session";
 
 export interface KeyValueStore {
@@ -15,7 +16,7 @@ export interface KeyValueStore {
 }
 
 export interface EventPublisher {
-  publish: (event: Record<string, unknown>) => Promise<void>;
+  publish: (event: PublishedRealtimeEvent) => Promise<void>;
 }
 
 export interface SessionTokenIssuer {

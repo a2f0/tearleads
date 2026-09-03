@@ -20,6 +20,7 @@ import {
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
+import type { PublishedRealtimeEvent } from "../../realtime/publishedRealtimeEvents";
 import {
   DeleteContainerError,
   deleteContainer,
@@ -36,7 +37,7 @@ import { respondToStatusError } from "../errorResponse";
 import { publishContainerMutationCreated } from "./mutationEvents";
 
 interface ContainerMutationsRouteDeps {
-  readonly publish: (event: Record<string, unknown>) => Promise<void>;
+  readonly publish: (event: PublishedRealtimeEvent) => Promise<void>;
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
   readonly runtime: ApiServiceRuntime;
 }

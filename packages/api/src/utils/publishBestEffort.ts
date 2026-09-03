@@ -1,4 +1,6 @@
-type PublishEvent = (event: Record<string, unknown>) => Promise<void>;
+import type { PublishedRealtimeEvent } from "../realtime/publishedRealtimeEvents";
+
+type PublishEvent = (event: PublishedRealtimeEvent) => Promise<void>;
 
 /**
  * Publishes a realtime event for a mutation that has already committed.
@@ -8,7 +10,7 @@ type PublishEvent = (event: Record<string, unknown>) => Promise<void>;
  */
 export async function publishBestEffort(
   publish: PublishEvent,
-  event: Record<string, unknown>,
+  event: PublishedRealtimeEvent,
   label: string,
 ): Promise<void> {
   try {

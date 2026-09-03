@@ -1,6 +1,7 @@
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
+import type { PublishedRealtimeEvent } from "../../realtime/publishedRealtimeEvents";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { createContainerKekLogRoute } from "./kekLog";
 import { createListContainerDocumentsRoute } from "./listContainerDocuments";
@@ -9,7 +10,7 @@ import { createContainerMutationsRoute } from "./mutations";
 import { createContainerWriterProjectionRoute } from "./writerProjection";
 
 interface ContainersRouterDeps {
-  readonly publish: (event: Record<string, unknown>) => Promise<void>;
+  readonly publish: (event: PublishedRealtimeEvent) => Promise<void>;
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
   readonly runtime: ApiServiceRuntime;
 }

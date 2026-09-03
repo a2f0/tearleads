@@ -1,4 +1,8 @@
 import type { Tearleads } from "@tearleads/client-sdk";
+import {
+  serializeWsClientDeclaration,
+  type WsClientDeclaration,
+} from "@tearleads/validators/realtime";
 
 export interface ContainerInterestDeclaration {
   readonly acknowledge: (declarationId: string) => boolean;
@@ -62,9 +66,9 @@ export function startContainerInterestDeclaration(
   let initialDeclarationId: string | null = null;
   let stopped = false;
 
-  const send = (message: Record<string, unknown>): boolean => {
+  const send = (declaration: WsClientDeclaration): boolean => {
     if (ws.readyState !== WebSocket.OPEN) return false;
-    ws.send(JSON.stringify(message));
+    ws.send(serializeWsClientDeclaration(declaration));
     return true;
   };
 
