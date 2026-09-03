@@ -185,6 +185,10 @@ test("a share fails closed when the chosen name is not the signed group name", a
       code: "object_mismatch",
       message: expect.stringContaining("control or format"),
     });
+    await expect(load("Operators\ud83d")).rejects.toMatchObject({
+      code: "object_mismatch",
+      message: expect.stringContaining("control or format"),
+    });
     await expect(load("Operators")).resolves.toMatchObject({
       bundle: fixture.targetPolicy,
     });

@@ -205,10 +205,12 @@ export async function buildInitialGroupPolicyRequest(
   const name = input.name.trim();
   // A name is compared by canonical key but displayed raw, so control and
   // format characters (bidi overrides, zero-width joiners, newlines) would let
-  // one signed name render as another. Refuse them where the name is signed.
-  if (name.length === 0 || /[\p{Cc}\p{Cf}]/u.test(name)) {
+  // one signed name render as another. A lone surrogate would be re-encoded
+  // as U+FFFD in the signed payload and no longer match the name sent to the
+  // server. Refuse all of them where the name is signed.
+  if (name.length === 0 || /[\p{Cc}\p{Cf}\p{Cs}]/u.test(name)) {
     throw new Error(
-      "Group names must be non-empty and contain no control or format characters",
+      "Group names must be non-empty and contain no control, format, or surrogate characters",
     );
   }
   const policyRequest = await signedGroupPolicyRequest({
