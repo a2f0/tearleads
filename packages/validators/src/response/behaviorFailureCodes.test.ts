@@ -27,6 +27,10 @@ import {
   ORGANIZATION_PRESENTATION_ERROR_CODES,
   OrganizationPresentationFailureResponseSchema,
 } from "./organizationPresentationError";
+import {
+  ORGANIZATION_READ_MODEL_ERROR_CODES,
+  OrganizationReadModelFailureResponseSchema,
+} from "./organizationReadModelError";
 
 test("behavior-bearing failure schemas accept every registered code", () => {
   expect(
@@ -44,6 +48,12 @@ test("behavior-bearing failure schemas accept every registered code", () => {
   expect(
     OrganizationPresentationFailureResponseSchema.safeParse({
       code: ORGANIZATION_PRESENTATION_ERROR_CODES.accessDenied,
+      error: "Diagnostic",
+    }).success,
+  ).toBe(true);
+  expect(
+    OrganizationReadModelFailureResponseSchema.safeParse({
+      code: ORGANIZATION_READ_MODEL_ERROR_CODES.cursorInvalid,
       error: "Diagnostic",
     }).success,
   ).toBe(true);
@@ -116,6 +126,9 @@ test("terminal uncoded failures remain valid but carry no behavior", () => {
   expect(
     ContainerMutationFailureResponseSchema.safeParse(terminal).success,
   ).toBe(true);
+  expect(
+    OrganizationReadModelFailureResponseSchema.safeParse(terminal).success,
+  ).toBe(true);
   expect(isSessionRefreshRequiredFailure(terminal)).toBe(false);
 });
 
@@ -142,6 +155,9 @@ test("malformed and unknown behavior tags fail schema validation", () => {
       OrganizationPresentationFailureResponseSchema.safeParse(failure).success,
     ).toBe(false);
     expect(
+      OrganizationReadModelFailureResponseSchema.safeParse(failure).success,
+    ).toBe(false);
+    expect(
       MultipartBlobStageNotFoundErrorResponseSchema.safeParse(failure).success,
     ).toBe(false);
     expect(
@@ -158,4 +174,13 @@ test("malformed and unknown behavior tags fail schema validation", () => {
     ).toBe(false);
     expect(isSessionRefreshRequiredFailure(failure)).toBe(false);
   }
+});
+
+test("organization read-model failures require a diagnostic", () => {
+  expect(
+    OrganizationReadModelFailureResponseSchema.safeParse({
+      code: ORGANIZATION_READ_MODEL_ERROR_CODES.cursorInvalid,
+      error: "",
+    }).success,
+  ).toBe(false);
 });

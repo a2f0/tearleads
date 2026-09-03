@@ -15,7 +15,10 @@ import type {
 } from "@tearleads/validators/response";
 import { runCreateOrganizationGroupWorkflow } from "../../workflows/organizations/createGroup";
 import { runGetOrganizationDataUsageWorkflow } from "../../workflows/organizations/dataUsage";
-import { OrganizationManagerError } from "../../workflows/organizations/errors";
+import {
+  OrganizationManagerError,
+  OrganizationReadModelCursorError,
+} from "../../workflows/organizations/errors";
 import {
   runDeleteOrganizationGroupWorkflow,
   runListOrganizationGroupMembersWorkflow,
@@ -25,7 +28,7 @@ import { runGetOrganizationReadModelWorkflow } from "../../workflows/organizatio
 import { runUpdateOrganizationRosterEntryWorkflow } from "../../workflows/organizations/rosterMutation";
 import type { ApiServiceRuntime } from "../runtime";
 
-export { OrganizationManagerError };
+export { OrganizationManagerError, OrganizationReadModelCursorError };
 
 export async function getOrganizationDataUsage(
   runtime: ApiServiceRuntime,

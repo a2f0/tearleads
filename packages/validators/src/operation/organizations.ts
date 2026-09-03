@@ -38,6 +38,7 @@ import {
   OrganizationPresentationFailureResponseSchema,
   OrganizationProfileResponseSchema,
   OrganizationProvisioningResponseSchema,
+  OrganizationReadModelFailureResponseSchema,
   OrganizationReadModelResponseSchema,
   PaymentRequiredErrorResponseSchema,
   SessionFailureResponseSchema,
@@ -118,7 +119,7 @@ export const getOrganizationDataUsageOperation = defineJsonOperation({
 export const getOrganizationReadModelOperation = defineJsonOperation({
   auth: "session",
   failureResponses: {
-    400: ErrorResponseSchema,
+    400: OrganizationReadModelFailureResponseSchema,
     401: SessionFailureResponseSchema,
     403: OrganizationPresentationFailureResponseSchema,
     404: OrganizationPresentationFailureResponseSchema,

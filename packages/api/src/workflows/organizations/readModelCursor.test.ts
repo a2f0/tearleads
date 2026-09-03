@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { OrganizationManagerError } from "./errors";
+import { OrganizationReadModelCursorError } from "./errors";
 import {
   decodeOrganizationReadModelCursor,
   encodeOrganizationReadModelCursor,
@@ -71,7 +71,7 @@ test("organization read-model cursors are scoped and strictly validated", () => 
   ]) {
     expect(() =>
       decodeOrganizationReadModelCursor(invalid, organizationId),
-    ).toThrow(OrganizationManagerError);
+    ).toThrow(OrganizationReadModelCursorError);
   }
   expect(() =>
     decodeOrganizationReadModelCursor(encoded, crypto.randomUUID()),

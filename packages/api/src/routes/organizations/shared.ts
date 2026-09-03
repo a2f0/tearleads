@@ -2,7 +2,10 @@ import { ORGANIZATION_PRESENTATION_ERROR_CODES } from "@tearleads/validators/res
 import type { MiddlewareHandler } from "hono";
 import type { ApiCorsOrigins } from "../../corsOrigins";
 import type { SessionEnv } from "../../middleware/session";
-import { OrganizationManagerError } from "../../services/organizations/orgManager";
+import {
+  OrganizationManagerError,
+  OrganizationReadModelCursorError,
+} from "../../services/organizations/orgManager";
 import type { ApiServiceRuntime } from "../../services/runtime";
 
 export interface OrganizationsRouterDeps {
@@ -19,7 +22,10 @@ export interface OrganizationsRouterDeps {
 export function toOrganizationManagerErrorResponse(
   error: unknown,
 ): Response | null {
-  if (error instanceof OrganizationManagerError) {
+  if (
+    error instanceof OrganizationManagerError ||
+    error instanceof OrganizationReadModelCursorError
+  ) {
     const body = {
       error: error.message,
       ...(error.code === undefined ? {} : { code: error.code }),

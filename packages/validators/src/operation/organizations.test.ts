@@ -23,6 +23,7 @@ import {
   OrganizationPresentationFailureResponseSchema,
   OrganizationProfileResponseSchema,
   OrganizationProvisioningResponseSchema,
+  OrganizationReadModelFailureResponseSchema,
   OrganizationReadModelResponseSchema,
   PaymentRequiredErrorResponseSchema,
   SessionFailureResponseSchema,
@@ -128,7 +129,7 @@ test("organization read-model operation owns its HTTP contract", () => {
     runtimeRefinements: organizationReadModelResponseRuntimeRefinements,
   });
   expect(getOrganizationReadModelOperation.failureResponses).toEqual({
-    400: ErrorResponseSchema,
+    400: OrganizationReadModelFailureResponseSchema,
     401: SessionFailureResponseSchema,
     403: OrganizationPresentationFailureResponseSchema,
     404: OrganizationPresentationFailureResponseSchema,

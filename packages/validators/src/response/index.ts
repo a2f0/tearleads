@@ -368,6 +368,13 @@ export {
   type OrganizationReadModelSnapshotResponse,
 } from "./organizationReadModel";
 export {
+  ORGANIZATION_READ_MODEL_ERROR_CODES,
+  type OrganizationReadModelErrorCode,
+  OrganizationReadModelErrorCodeSchema,
+  type OrganizationReadModelFailureResponse,
+  OrganizationReadModelFailureResponseSchema,
+} from "./organizationReadModelError";
+export {
   type CommitOrganizationGroupPolicyResponse,
   CommitOrganizationGroupPolicyResponseSchema,
   type CurrentPrincipalMemberEnvelopesResponse,

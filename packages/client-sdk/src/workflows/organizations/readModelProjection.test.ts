@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
   ORGANIZATION_PRESENTATION_ERROR_CODES,
+  ORGANIZATION_READ_MODEL_ERROR_CODES,
   type OrganizationReadModelResponse,
 } from "@tearleads/validators/response";
 import { dataUsage } from "../../../test/helpers/organizationReadModelFixtures";
@@ -274,6 +275,7 @@ test("an invalid warm cursor resets once with a cursorless snapshot", async () =
           cursors.push(cursor);
           return cursors.length === 1
             ? organizationReadModelFailure({
+                code: ORGANIZATION_READ_MODEL_ERROR_CODES.cursorInvalid,
                 kind: "http",
                 report: () => {
                   reports += 1;
@@ -293,6 +295,64 @@ test("an invalid warm cursor resets once with a cursorless snapshot", async () =
     expect(projection?.groups[0]?.name).toBe("Reset Group");
   } finally {
     close();
+  }
+});
+
+test("cursor reset fails closed without the exact status and code", async () => {
+  const failures = [
+    { kind: "http", status: 400 },
+    { code: "unknown_code", kind: "http", status: 400 },
+    {
+      code: ` ${ORGANIZATION_READ_MODEL_ERROR_CODES.cursorInvalid} `,
+      kind: "http",
+      status: 400,
+    },
+    {
+      code: ORGANIZATION_READ_MODEL_ERROR_CODES.cursorInvalid,
+      kind: "http",
+      status: 409,
+    },
+    { kind: "network", status: null },
+    { kind: "shape", status: 400 },
+  ] as const;
+
+  for (const [index, failure] of failures.entries()) {
+    const { close, execSql } = await createTestExecSql(
+      `organization-read-model-cursor-fail-closed-${index}`,
+    );
+    const cursors: Array<string | undefined> = [];
+    let reports = 0;
+
+    try {
+      await seedProjection(execSql);
+      const local = await loadLocalOrganizationDirectoryAndGroups({
+        currentUserId,
+        execSql,
+        organizationId,
+      });
+      const projection = await reconcileOrganizationDirectoryAndGroups({
+        apiClient: {
+          async getOrganizationReadModelResult(_organizationId, cursor) {
+            cursors.push(cursor);
+            return organizationReadModelFailure({
+              ...failure,
+              report: () => {
+                reports += 1;
+              },
+            });
+          },
+        },
+        currentUserId,
+        execSql,
+        organizationId,
+      });
+
+      expect(cursors).toEqual(["cursor-1"]);
+      expect(reports).toBe(1);
+      expect(projection).toEqual(local);
+    } finally {
+      close();
+    }
   }
 });
 

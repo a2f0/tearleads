@@ -21751,6 +21751,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "organization_read_model_cursor_invalid";
                         error: string;
                     } & {
                         [key: string]: unknown;

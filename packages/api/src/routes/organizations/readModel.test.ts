@@ -5,6 +5,7 @@ import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import {
   isCreateOrganizationGroupResponse,
   isOrganizationReadModelResponse,
+  ORGANIZATION_READ_MODEL_ERROR_CODES,
 } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
@@ -406,6 +407,10 @@ test("organization read-model route validates cursor scope after access", async 
     { headers: { Authorization: `Bearer ${actor.token}` } },
   );
   expect(invalidCursorResponse.status).toBe(400);
+  await expect(invalidCursorResponse.json()).resolves.toEqual({
+    code: ORGANIZATION_READ_MODEL_ERROR_CODES.cursorInvalid,
+    error: "Invalid organization read-model cursor",
+  });
 
   const crossOrganizationResponse = await routeApp.request(
     readModelPath(
@@ -415,6 +420,10 @@ test("organization read-model route validates cursor scope after access", async 
     { headers: { Authorization: `Bearer ${actor.token}` } },
   );
   expect(crossOrganizationResponse.status).toBe(400);
+  await expect(crossOrganizationResponse.json()).resolves.toEqual({
+    code: ORGANIZATION_READ_MODEL_ERROR_CODES.cursorInvalid,
+    error: "Invalid organization read-model cursor",
+  });
 
   const outsiderResponse = await routeApp.request(
     readModelPath(organizationId, "malformed"),

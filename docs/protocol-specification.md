@@ -198,6 +198,13 @@ authority to hide and purge that requester's local presentation projection
 without matching diagnostic text. An uncoded, malformed, or unknown failure is
 ambiguous: clients report it and retain last-known-good data.
 
+A warm organization read-model client discards its opaque cursor and requests a
+fresh snapshot only for the exact `400 organization_read_model_cursor_invalid`
+failure. Other `400` responses, missing or malformed codes, unknown codes, and
+the cursor code on another status retain the last-known-good projection and are
+reported instead of triggering reset behavior. Ahead or retention-expired valid
+cursors continue to converge through a `200` snapshot response.
+
 Authentication uses challenge signing:
 
 1. `POST /auth/challenge` stores a short-lived challenge for a registered
