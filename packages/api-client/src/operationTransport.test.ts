@@ -147,6 +147,35 @@ test("returns transformed response schema output", async () => {
   ).resolves.toEqual({ message: "OK" });
 });
 
+test("caller headers override derived headers case-insensitively", async () => {
+  const calls: unknown[][] = [];
+  const request = Object.assign(
+    async (...args: unknown[]) => {
+      calls.push(args);
+      return requestFailure({
+        kind: "network",
+        message: "offline",
+        method: "POST",
+        path: "/auth/challenge",
+        status: null,
+        statusText: "",
+      });
+    },
+    { reportFailure: requestFailure },
+  ) as ResponseRequestFn;
+  const transport = createJsonOperationTransport(request);
+
+  await transport.requestResult(
+    challengeOperation,
+    { body: { fingerprint: "a".repeat(64) }, params: {} },
+    { headers: { "content-type": "application/problem+json" } },
+  );
+
+  expect(calls[0]?.[3]).toEqual({
+    headers: { "content-type": "application/problem+json" },
+  });
+});
+
 test("reports malformed JSON and shapes through ApiClient policy", async () => {
   const reported: ResponseRequestValidationFailureInput[] = [];
   const responses = [

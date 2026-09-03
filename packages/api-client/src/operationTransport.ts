@@ -224,6 +224,23 @@ async function decodeJsonResponse(
   };
 }
 
+function mergeRequestHeaders(
+  derived: Record<string, string> | undefined,
+  overrides: Record<string, string> | undefined,
+): Record<string, string> {
+  const merged = { ...derived };
+  for (const [name, value] of Object.entries(overrides ?? {})) {
+    const normalizedName = name.toLowerCase();
+    for (const existingName of Object.keys(merged)) {
+      if (existingName.toLowerCase() === normalizedName) {
+        delete merged[existingName];
+      }
+    }
+    merged[name] = value;
+  }
+  return merged;
+}
+
 export function createJsonOperationTransport(
   responseRequest: ResponseRequestFn,
 ): JsonOperationTransport {
@@ -243,7 +260,7 @@ export function createJsonOperationTransport(
       );
     }
     const derived = deriveRuntimeJsonOperationRequest(operation, input);
-    const headers = { ...derived.headers, ...options.headers };
+    const headers = mergeRequestHeaders(derived.headers, options.headers);
     const requestOptions =
       Object.keys(headers).length === 0 ? options : { ...options, headers };
     const result = await responseRequest(
