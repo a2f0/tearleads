@@ -24,6 +24,8 @@ import { ContainerKekHistoryUnavailableError } from "./containerKekPathHistory";
 import {
   deriveDocumentCreateTargets,
   describeProjectionTargetKek,
+  readLinkedContainerIdsFromDocumentManifest,
+  verifiedDocumentWrapTargets,
 } from "./projectionTargets";
 import {
   assertEqualBytes,
@@ -359,7 +361,15 @@ export async function buildRotatedDocumentContentKeyBundle(input: {
   writerProjection: DocumentWriterProjectionResponse;
 }): Promise<DocumentContentKeyBundleResponse> {
   const { contentKeyBundle, documentKekTargets } = input.writerProjection;
-  const targets = normalizeDocumentKekTargetResponse(documentKekTargets);
+  // The server list names the linked containers; each envelope's epoch comes
+  // from the verified authorizing-path leaf for that container.
+  const targets = verifiedDocumentWrapTargets({
+    linkedContainerIds: readLinkedContainerIdsFromDocumentManifest(
+      input.writerProjection,
+    ),
+    serverTargets: normalizeDocumentKekTargetResponse(documentKekTargets),
+    writerProjection: input.writerProjection,
+  });
   const envelopes: DocumentContentKeyBundleResponse["targets"] = [];
 
   for (const target of targets) {

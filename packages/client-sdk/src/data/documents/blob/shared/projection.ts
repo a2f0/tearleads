@@ -6,14 +6,21 @@ import type {
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import type { ExecSql } from "../../../sqlite/sqlSchema";
-import { unwrapContainerKekPath } from "../../shared/projection";
+import {
+  readLinkedContainerIdsFromDocumentManifest,
+  unwrapContainerKekPath,
+  verifiedDocumentWrapTargets,
+} from "../../shared/projection";
 import { unwrapContentKeyTargetForSuite } from "../../shared/projectionContentKeys";
-import { assertEqualBytes } from "../../shared/readers";
+import {
+  assertEqualBytes,
+  normalizeDocumentKekTargetResponse,
+} from "../../shared/readers";
 import {
   type ProjectionVerificationOptions,
   projectionVerificationOptions,
 } from "../../shared/types";
-import { normalizeDocumentTarget, sortBlobTargets } from "./readers";
+import { sortBlobTargets } from "./readers";
 import type { BlobContentKeyTarget, BlobEncryptedBytesRecord } from "./types";
 
 export function deriveBlobTargetsFromDocumentProjection(input: {
@@ -21,11 +28,22 @@ export function deriveBlobTargetsFromDocumentProjection(input: {
   documentId: string;
   writerProjection: DocumentWriterProjectionResponse;
 }): BlobContentKeyTarget[] {
+  // The blob key is wrapped only to the verified current heads of the
+  // document's linked containers; the server list only names which ones.
+  const targets = verifiedDocumentWrapTargets({
+    linkedContainerIds: readLinkedContainerIdsFromDocumentManifest(
+      input.writerProjection,
+    ),
+    serverTargets: normalizeDocumentKekTargetResponse(
+      input.writerProjection.documentKekTargets,
+    ),
+    writerProjection: input.writerProjection,
+  });
   return sortBlobTargets(
-    input.writerProjection.documentKekTargets.targets.map((target) => ({
+    targets.map((target) => ({
       bindingId: input.bindingId,
       documentId: input.documentId,
-      ...normalizeDocumentTarget(target),
+      ...target,
     })),
   );
 }
