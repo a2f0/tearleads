@@ -28,10 +28,16 @@ interface ExplorerContainerInfoGroupShareParams
   extends ExplorerContainerInfoShareParams {
   draftShareAccessLevel: ContainerShareAccessLevel;
   draftShareGroupId: string;
+  /**
+   * The label the user picked the group by. Passed to the share so the SDK
+   * can check it against the name committed in the signed group policy.
+   */
+  draftShareGroupName?: string | undefined;
   shareWithGroup: (
     containerId: string,
     groupId: string,
     accessLevel: ContainerShareAccessLevel,
+    options?: { expectedGroupName?: string | undefined } | undefined,
   ) => Promise<boolean>;
 }
 
@@ -211,6 +217,7 @@ export function useExplorerContainerInfoGroupShare(
     containerId,
     draftShareAccessLevel,
     draftShareGroupId,
+    draftShareGroupName,
     isSubmitting,
     reloadContainerInfo,
     setIsSubmitting,
@@ -243,13 +250,21 @@ export function useExplorerContainerInfoGroupShare(
         setIsSubmitting,
         setPanelError,
         share: () =>
-          shareWithGroup(containerId, draftShareGroupId, draftShareAccessLevel),
+          shareWithGroup(
+            containerId,
+            draftShareGroupId,
+            draftShareAccessLevel,
+            {
+              expectedGroupName: draftShareGroupName,
+            },
+          ),
       });
     },
     [
       canShareContainer,
       containerId,
       draftShareAccessLevel,
+      draftShareGroupName,
       draftShareGroupId,
       isSubmitting,
       reloadContainerInfo,

@@ -2,6 +2,7 @@ import {
   buildPrincipalStateSigningInput,
   type EncapsulationKeyPair,
   generateKemSeedAndKeyPair,
+  KeyingVerificationError,
   normalizePrincipalContainerGrants,
   normalizePrincipalProjectionMembers,
   type PrincipalContainerGrant,
@@ -11,7 +12,7 @@ import {
   toFingerprint,
   wrapDekForRecipients,
 } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import type {
   CreateOrganizationGroupRequest,
   PrincipalMemberEnvelopeRequest,
@@ -47,12 +48,47 @@ function projectionToStateMembers(
   return projection.map((member) => ({ userId: member.userId }));
 }
 
+/**
+ * The group's display name rides in the signed payload. The server keeps a
+ * mutable `name` column for listings, but a share must land on the group the
+ * user saw, so the name shown at share time is checked against this committed
+ * copy rather than the read model.
+ */
 function payloadCiphertextForProjection(
   projection: ReadonlyArray<PrincipalProjectionMemberRequest>,
+  name: string,
 ): string {
   return bytesToBase64(
-    new TextEncoder().encode(JSON.stringify({ members: projection })),
+    new TextEncoder().encode(JSON.stringify({ members: projection, name })),
   );
+}
+
+/** The display name committed in a group policy's signed payload. */
+export function readGroupPolicyPayloadName(
+  bundle: PrincipalPolicyBundleResponse,
+): string {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(
+      new TextDecoder().decode(base64ToBytes(bundle.currentPayload.ciphertext)),
+    );
+  } catch {
+    throw new KeyingVerificationError(
+      "invalid_shape",
+      "Group policy payload is not canonical JSON",
+    );
+  }
+  const name =
+    parsed !== null && typeof parsed === "object"
+      ? Reflect.get(parsed, "name")
+      : undefined;
+  if (typeof name !== "string" || name.trim().length === 0) {
+    throw new KeyingVerificationError(
+      "invalid_shape",
+      "Group policy payload does not commit a display name",
+    );
+  }
+  return name;
 }
 
 export async function signedGroupPolicyRequest(input: {
@@ -65,6 +101,7 @@ export async function signedGroupPolicyRequest(input: {
   readonly keyFingerprint: string;
   readonly grants: ReadonlyArray<PrincipalContainerGrant>;
   readonly memberEnvelopes: ReadonlyArray<PrincipalMemberEnvelopeRequest>;
+  readonly name: string;
   readonly principalId: string;
   readonly projection: ReadonlyArray<PrincipalProjectionMemberRequest>;
   readonly signedAt: string;
@@ -74,7 +111,10 @@ export async function signedGroupPolicyRequest(input: {
 }): Promise<PutPrincipalPolicyRequest> {
   const projection = normalizePrincipalProjectionMembers(input.projection);
   const grants = normalizePrincipalContainerGrants(input.grants);
-  const payloadCiphertext = payloadCiphertextForProjection(projection);
+  const payloadCiphertext = payloadCiphertextForProjection(
+    projection,
+    input.name,
+  );
   const state = await signPrincipalState(
     await buildPrincipalStateSigningInput({
       principalType: "group",
@@ -141,6 +181,7 @@ export async function buildInitialGroupPolicyRequest(
       wrappedKey: bytesToBase64(creatorEnvelope.wrappedKey),
     });
   }
+  const name = input.name.trim();
   const policyRequest = await signedGroupPolicyRequest({
     encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
     externalAuthority: input.externalAuthority ?? null,
@@ -148,6 +189,7 @@ export async function buildInitialGroupPolicyRequest(
     keyFingerprint: await toFingerprint(groupKem.publicKey),
     grants: input.grants ?? [],
     memberEnvelopes,
+    name,
     principalId: input.groupId,
     projection,
     signedAt: new Date().toISOString(),
@@ -158,7 +200,7 @@ export async function buildInitialGroupPolicyRequest(
 
   return {
     groupId: input.groupId,
-    name: input.name.trim(),
+    name,
     initialGroupPolicy: policyRequest,
   };
 }

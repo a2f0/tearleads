@@ -31,6 +31,7 @@ import {
   useExplorerContainerInfoPeerShare,
 } from "./ExplorerContainerInfoState";
 import { ExplorerContainerInfoSyncCursorsSection } from "./ExplorerContainerInfoSyncCursorsSection";
+import { getContainerInfoShareableGroups } from "./explorerContainerInfoStateHelpers";
 
 interface Props {
   canManageIcon: boolean;
@@ -62,6 +63,7 @@ interface Props {
     containerId: string,
     groupId: string,
     accessLevel: ContainerShareAccessLevel,
+    options?: { expectedGroupName?: string | undefined } | undefined,
   ) => Promise<boolean>;
   shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
 }
@@ -89,11 +91,17 @@ function useExplorerContainerInfoPanelState(params: Props) {
     reloadToken: params.containerSyncStatus,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const remoteInfo = containerInfoState.containerInfo?.remoteInfo;
   const handleShareWithGroup = useExplorerContainerInfoGroupShare({
     canShareContainer: params.canShareContainer,
     containerId,
     draftShareAccessLevel: containerInfoState.draftShareAccessLevel,
     draftShareGroupId: containerInfoState.draftShareGroupId,
+    draftShareGroupName: remoteInfo
+      ? getContainerInfoShareableGroups(remoteInfo).find(
+          (group) => group.groupId === containerInfoState.draftShareGroupId,
+        )?.name
+      : undefined,
     isSubmitting,
     reloadContainerInfo: containerInfoState.reloadContainerInfo,
     setIsSubmitting,

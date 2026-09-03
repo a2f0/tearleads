@@ -1,8 +1,9 @@
-import type {
-  ManagedPrincipalKind,
-  PrincipalPolicyCheckpoint,
-  ReferencedPrincipalHead,
-  VerifiedPrincipalPolicy,
+import {
+  KeyingVerificationError,
+  type ManagedPrincipalKind,
+  type PrincipalPolicyCheckpoint,
+  type ReferencedPrincipalHead,
+  type VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type { CommitOrganizationGroupPolicyRequest } from "@tearleads/validators/request";
 import type {
@@ -26,6 +27,7 @@ import {
 } from "../../../data/principals/principalPolicyAdminSigners";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
+import { readGroupPolicyPayloadName } from "../../organizations/principalPolicyRequest";
 import {
   externalAdminPolicyPersistenceEntries,
   loadOrganizationExternalAdminPolicy,
@@ -200,6 +202,12 @@ export async function loadVerifiedGroupSharePrincipalPolicy(input: {
   apiClient: ContainerManagedPrincipalShareApi;
   execSql: ExecSql;
   expectedGroupHead?: ReferencedPrincipalHead | undefined;
+  /**
+   * The display name the user chose the group by. The read model that labels
+   * groups is a server projection; only the name committed in the signed
+   * group payload can confirm the share lands on the group the user saw.
+   */
+  expectedGroupName?: string | undefined;
   groupId: string;
   organizationId: string;
   resolveTrustedUserIdentity: TrustedUserIdentityResolver;
@@ -259,6 +267,15 @@ export async function loadVerifiedGroupSharePrincipalPolicy(input: {
     throwKeyingVerificationErrorWithContext(
       verified.error,
       "Container share principal policy verification failed",
+    );
+  }
+  if (
+    input.expectedGroupName !== undefined &&
+    readGroupPolicyPayloadName(bundle) !== input.expectedGroupName
+  ) {
+    throw new KeyingVerificationError(
+      "object_mismatch",
+      "Container share group name does not match the signed group policy",
     );
   }
 

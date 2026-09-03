@@ -145,6 +145,40 @@ test("expected group-head verification reuses an exact local bundle without a po
   }
 });
 
+// The share picker labels groups from the organization read model, which a
+// compromised server can relabel. The name the user chose is therefore checked
+// against the name committed in the verified group policy, not the row.
+test("a share fails closed when the chosen name is not the signed group name", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "group-share-policy-name-mismatch",
+  );
+  try {
+    const fixture = await createDirectoryFixture();
+    const load = (expectedGroupName: string) =>
+      loadVerifiedGroupSharePrincipalPolicy({
+        apiClient: createMockApiClient({
+          getCurrentPrincipalPolicy: (principalType, principalId) =>
+            fixture.load(principalType, principalId, () => undefined),
+        }),
+        execSql,
+        expectedGroupName,
+        groupId: fixture.targetPolicy.currentState.principalId,
+        organizationId: fixture.organizationId,
+        resolveTrustedUserIdentity: fixture.resolveTrustedUserIdentity,
+      });
+
+    await expect(load("Executives")).rejects.toMatchObject({
+      code: "object_mismatch",
+      message: expect.stringContaining("group name"),
+    });
+    await expect(load("Operators")).resolves.toMatchObject({
+      bundle: fixture.targetPolicy,
+    });
+  } finally {
+    close();
+  }
+});
+
 test("expected group-head verification fetches once when the local head is wrong", async () => {
   const { close, execSql } = await createTestExecSql(
     "group-share-policy-wrong-local",

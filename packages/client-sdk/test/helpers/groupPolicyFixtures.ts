@@ -6,7 +6,16 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import { readGroupPolicyPayloadName } from "../../src/workflows/organizations/principalPolicyRequest";
 import { signedPrincipalPolicyBundle } from "./principalPolicyFixtures";
+
+function successorGroupName(previous: PrincipalPolicyBundleResponse): string {
+  try {
+    return readGroupPolicyPayloadName(previous);
+  } catch {
+    return previous.currentState.principalId;
+  }
+}
 
 export async function createSuccessorGroupPolicyBundle(input: {
   readonly author: ContainerMutationAuthor;
@@ -17,6 +26,7 @@ export async function createSuccessorGroupPolicyBundle(input: {
   readonly previousBundle: PrincipalPolicyBundleResponse;
   readonly signedAt: string;
   readonly signerUserId?: string | undefined;
+  readonly name?: string | undefined;
   readonly userId: string;
 }): Promise<PrincipalPolicyBundleResponse> {
   const previousState = input.previousBundle.currentState;
@@ -38,7 +48,14 @@ export async function createSuccessorGroupPolicyBundle(input: {
         wrappedKey: bytesToBase64(wrappedMember.wrappedKey),
       },
     ],
-    payloadCiphertext: `${input.groupId}-payload-${version}`,
+    payloadCiphertext: bytesToBase64(
+      new TextEncoder().encode(
+        JSON.stringify({
+          members: [{ userId: input.userId, role: "admin" }],
+          name: input.name ?? successorGroupName(input.previousBundle),
+        }),
+      ),
+    ),
     previousStates: [
       ...input.previousBundle.previousStates,
       {

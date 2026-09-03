@@ -50,6 +50,7 @@ export interface ExplorerModelExplorer {
     containerId: string,
     groupId: string,
     accessLevel: "admin" | "read" | "write",
+    options?: { expectedGroupName?: string | undefined } | undefined,
   ) => Promise<boolean>;
   shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
   nodes: ReadonlyArray<ContainerNode>;

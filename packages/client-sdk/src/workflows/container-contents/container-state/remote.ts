@@ -341,6 +341,7 @@ export async function shareRemoteContainer(input: {
 export async function shareRemoteContainerWithGroup(input: {
   accessLevel: "read" | "write" | "admin";
   containerId: string;
+  expectedGroupName?: string | undefined;
   knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
   previousProjection: ContainerWriterProjectionResponse;
   recipientGroupId: string;
@@ -363,6 +364,7 @@ export async function shareRemoteContainerWithGroup(input: {
     author,
     containerId: input.containerId,
     execSql,
+    expectedGroupName: input.expectedGroupName,
     knownContainerKeks: input.knownContainerKeks,
     previousProjection: input.previousProjection,
     recipientGroupId: input.recipientGroupId,

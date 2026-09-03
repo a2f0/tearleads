@@ -141,6 +141,12 @@ drop and recreate pre-grant-index API databases and local client databases;
 the client fails startup with a reset-required error if it detects the legacy
 principal-policy table shape.
 
+The group display name is committed in the signed group payload. The
+`groups.name` column and the organization read model are listing aids; when a
+member shares a container with a group they chose by name, the client checks
+that name against the verified payload and fails closed on a mismatch, so a
+relabeled read-model row cannot redirect a share onto another group.
+
 The app repeats these checks on fetched policy bundles. A bundle with a
 tampered projection, payload, state hash, chain link, signer, or checkpoint
 raises a typed terminal verification error. It is neither cached nor used for

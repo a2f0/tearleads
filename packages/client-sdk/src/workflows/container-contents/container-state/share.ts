@@ -356,6 +356,7 @@ export async function shareContainerState(input: {
 export async function shareContainerStateWithGroup(input: {
   accessLevel: ContainerShareAccessLevel;
   containerState: ContainerState;
+  expectedGroupName?: string | undefined;
   knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
   persistence: ContainerContentsPersistence;
   recipientGroupId: string;
@@ -400,6 +401,7 @@ export async function shareContainerStateWithGroup(input: {
   const shared = await shareRemoteContainerWithGroup({
     accessLevel: input.accessLevel,
     containerId: input.containerState.container.id,
+    expectedGroupName: input.expectedGroupName,
     knownContainerKeks: input.knownContainerKeks,
     previousProjection: shareContext.projection,
     recipientGroupId: input.recipientGroupId,

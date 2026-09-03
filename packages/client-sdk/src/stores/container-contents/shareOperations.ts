@@ -112,6 +112,7 @@ export async function shareContainerWithGroup(
   groupId: string,
   accessLevel: ContainerContentsShareAccessLevel,
   options: {
+    expectedGroupName?: string | undefined;
     knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
     requireExistingGrant?: boolean | undefined;
   } = {},
@@ -125,6 +126,7 @@ export async function shareContainerWithGroup(
       shareContainerStateWithGroup({
         accessLevel,
         containerState,
+        expectedGroupName: options.expectedGroupName,
         knownContainerKeks: options.knownContainerKeks,
         persistence: state.persistence,
         recipientGroupId: groupId,

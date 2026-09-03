@@ -130,6 +130,12 @@ interface RemoteContainerGroupShareInput {
   containerId: string;
   eventId?: string | undefined;
   execSql: ExecSql;
+  /**
+   * The display name the user chose the group by. Checked against the name
+   * committed in the verified group policy, so a relabeled read-model row
+   * cannot redirect the share onto another group.
+   */
+  expectedGroupName?: string | undefined;
   knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
   previousProjection?: ContainerWriterProjectionResponse | undefined;
   recipientGroupId: string;
@@ -303,6 +309,7 @@ export async function shareRemoteContainerWithGroup(
   const verifiedPrincipalPolicy = await loadVerifiedGroupSharePrincipalPolicy({
     apiClient: input.apiClient,
     execSql: input.execSql,
+    expectedGroupName: input.expectedGroupName,
     groupId: input.recipientGroupId,
     organizationId: input.author.organizationId,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
