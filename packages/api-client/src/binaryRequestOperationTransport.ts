@@ -1,7 +1,4 @@
-import {
-  BinaryBodySchema,
-  type HttpOperation,
-} from "@tearleads/validators/operation";
+import type { BinaryBodySchema } from "@tearleads/validators/operation";
 import {
   additionalOperationSuccessStatuses,
   decodeJsonOperationResponse,
@@ -15,6 +12,7 @@ import {
   type OperationRequestInput,
   type RuntimeOperationRequestInput,
 } from "./operationTransport";
+import { requireOperationTransportSurface } from "./operationTransportSurface";
 import type {
   OperationResponseRequestFn,
   RequestResult,
@@ -53,18 +51,6 @@ export interface BinaryRequestOperationTransport {
   ): Promise<RequestResult<JsonOperationResponseEnvelope<Operation>>>;
 }
 
-export function supportsBinaryRequestOperationTransport(
-  operation: HttpOperation,
-): boolean {
-  return (
-    operation.requestMediaType === "application/octet-stream" &&
-    operation.body === BinaryBodySchema &&
-    Object.values(operation.responseMediaTypes ?? {}).every(
-      (mediaType) => mediaType === "application/json",
-    )
-  );
-}
-
 function binaryRequestBody(
   operation: BinaryRequestOperation,
   input: RuntimeOperationRequestInput,
@@ -92,11 +78,7 @@ export function createBinaryRequestOperationTransport(
     input: RuntimeOperationRequestInput,
     options: BinaryRequestOperationOptions,
   ): Promise<RequestResult<unknown>> {
-    if (!supportsBinaryRequestOperationTransport(operation)) {
-      throw new TypeError(
-        `Unsupported binary request transport operation: ${operation.id}`,
-      );
-    }
+    requireOperationTransportSurface(operation, "binaryRequest");
     const { encodeBody, ...requestOptions } = options;
     const derived = deriveRuntimeOperationRequestMetadata(operation, input);
     const body = binaryRequestBody(operation, input, encodeBody);
