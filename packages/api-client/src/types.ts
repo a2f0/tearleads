@@ -1,10 +1,13 @@
-import type { DocumentAttributionRangesQuery } from "@tearleads/validators/operation";
+import type {
+  DocumentAttributionRangesQuery,
+  HttpOperationMethod,
+} from "@tearleads/validators/operation";
 import type {
   PrincipalPolicyBundleResponse,
   SyncWatermark,
 } from "@tearleads/validators/response";
 
-export type HttpMethod = "DELETE" | "GET" | "POST" | "PUT";
+export type HttpMethod = HttpOperationMethod;
 export type RequestBody = BodyInit;
 
 export interface ListContainerDocumentsOptions {

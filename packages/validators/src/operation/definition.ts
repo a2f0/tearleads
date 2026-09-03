@@ -39,6 +39,9 @@ export interface JsonOperation extends HttpOperation {
   readonly responseMediaTypes?: Readonly<Record<number, "application/json">>;
 }
 
+export type OperationSchemaInput<Schema extends z.ZodType> = z.input<Schema>;
+export type OperationSchemaOutput<Schema extends z.ZodType> = z.output<Schema>;
+
 export function defineHttpOperation<const Operation extends HttpOperation>(
   operation: Operation,
 ): Operation {
@@ -94,9 +97,36 @@ export function operationRequestPathWithQuery<
   query: z.input<QuerySchema>,
 ): string {
   const path = operationRequestPath(operation, params);
-  const result = operation.query.safeParse(query);
+  return appendOperationQuery(operation.id, operation.query, path, query);
+}
+
+export function operationRequestPathForInput<
+  Operation extends Pick<HttpOperation, "id" | "params" | "path" | "query">,
+>(
+  operation: Operation,
+  params: z.input<Operation["params"]>,
+  query: unknown,
+): string {
+  const path = operationRequestPath(operation, params);
+  if (!operation.query) {
+    if (query !== undefined) {
+      throw new TypeError(`Invalid query parameters for ${operation.id}`);
+    }
+    return path;
+  }
+
+  return appendOperationQuery(operation.id, operation.query, path, query);
+}
+
+function appendOperationQuery(
+  operationId: string,
+  querySchema: NonNullable<HttpOperation["query"]>,
+  path: string,
+  query: unknown,
+): string {
+  const result = querySchema.safeParse(query);
   if (!result.success || !isPlainObject(result.data)) {
-    throw new TypeError(`Invalid query parameters for ${operation.id}`);
+    throw new TypeError(`Invalid query parameters for ${operationId}`);
   }
 
   const searchParams = new URLSearchParams();
@@ -110,7 +140,7 @@ export function operationRequestPathWithQuery<
       typeof value !== "boolean"
     ) {
       throw new TypeError(
-        `Invalid query parameter "${name}" for ${operation.id}`,
+        `Invalid query parameter "${name}" for ${operationId}`,
       );
     }
     searchParams.set(name, String(value));
