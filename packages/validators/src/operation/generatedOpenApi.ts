@@ -6421,6 +6421,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code: "multipart_blob_stage_not_found";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -6434,6 +6436,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "multipart_blob_stage_expired";
                         error: string;
                     } & {
                         [key: string]: unknown;

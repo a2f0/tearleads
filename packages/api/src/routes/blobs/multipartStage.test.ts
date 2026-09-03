@@ -1,8 +1,20 @@
 import { expect, test } from "bun:test";
+import { blobStages } from "@tearleads/api-shared/schema";
+import { MULTIPART_BLOB_STAGE_ERROR_CODES } from "@tearleads/validators/response";
+import { eq } from "drizzle-orm";
 import { createMiddleware } from "hono/factory";
+import {
+  blobObjectBytes,
+  uploadBlobObject,
+} from "../../../test/helpers/blobObjectStore";
 import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
 import type { SessionEnv } from "../../middleware/session";
 import { createRouteApp } from "../../routeApp";
+import {
+  completeMultipartBlobStage,
+  initiateMultipartBlobStage,
+  uploadMultipartBlobPartBytes,
+} from "../../services/blobs/multipartStage";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { sha256Hex } from "../../utils/sha256";
 
@@ -29,7 +41,8 @@ function createAuthenticatedTestApp(
 
 test("multipart blob stage routes support resumable upload completion", async () => {
   const encryptedBytes = "route-multipart-encrypted-bytes";
-  const app = createAuthenticatedTestApp(crypto.randomUUID());
+  const runtime = createServiceTestRuntime();
+  const app = createAuthenticatedTestApp(crypto.randomUUID(), runtime);
   const initiateResponse = await app.request("/blobs/stages/multipart", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -106,6 +119,136 @@ test("multipart blob stage routes support resumable upload completion", async ()
     byteLength: initiated.byteLength,
     sha256: initiated.sha256,
     stageId: initiated.stageId,
+  });
+
+  // Simulate S3 consuming the upload before the completedAt update commits.
+  // Status must validate the assembled object and converge the database row,
+  // not tell the client to abandon valid staged bytes.
+  await runtime.db
+    .update(blobStages)
+    .set({ completedAt: null })
+    .where(eq(blobStages.id, initiated.stageId));
+  const completedStatusResponse = await app.request(
+    `/blobs/stages/multipart/${initiated.stageId}`,
+  );
+  expect(completedStatusResponse.status).toBe(200);
+  await expect(completedStatusResponse.json()).resolves.toMatchObject({
+    completed: true,
+    uploadedParts: [],
+  });
+  const [recoveredStage] = await runtime.db
+    .select({ completedAt: blobStages.completedAt })
+    .from(blobStages)
+    .where(eq(blobStages.id, initiated.stageId));
+  expect(recoveredStage?.completedAt).not.toBeNull();
+
+  await runtime.blobObjectStore.deleteObject(
+    `blob-stages/${initiated.stageId}`,
+  );
+  const missingObjectResponse = await app.request(
+    `/blobs/stages/multipart/${initiated.stageId}`,
+  );
+  expect(missingObjectResponse.status).toBe(404);
+  await expect(missingObjectResponse.json()).resolves.toEqual({
+    code: MULTIPART_BLOB_STAGE_ERROR_CODES.notFound,
+    error: "Completed multipart object not found",
+  });
+});
+
+test("multipart status identifies replaceable missing and expired stages", async () => {
+  const userId = crypto.randomUUID();
+  const runtime = createServiceTestRuntime();
+  const app = createAuthenticatedTestApp(userId, runtime);
+  const initiateStage = async (sha256: string) => {
+    const response = await app.request("/blobs/stages/multipart", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ byteLength: 12, sha256 }),
+    });
+    expect(response.status).toBe(200);
+    return response.json();
+  };
+
+  const missingResponse = await app.request(
+    `/blobs/stages/multipart/${crypto.randomUUID()}`,
+  );
+  expect(missingResponse.status).toBe(404);
+  await expect(missingResponse.json()).resolves.toEqual({
+    code: MULTIPART_BLOB_STAGE_ERROR_CODES.notFound,
+    error: "Blob stage not found",
+  });
+
+  const orphaned = await initiateStage("orphaned-stage-sha256");
+  await runtime.blobObjectStore.abortMultipartUpload({
+    key: `blob-stages/${orphaned.stageId}`,
+    uploadId: orphaned.uploadId,
+  });
+  const orphanedResponse = await app.request(
+    `/blobs/stages/multipart/${orphaned.stageId}`,
+  );
+  expect(orphanedResponse.status).toBe(404);
+  await expect(orphanedResponse.json()).resolves.toEqual({
+    code: MULTIPART_BLOB_STAGE_ERROR_CODES.notFound,
+    error: "Multipart upload not found",
+  });
+
+  const expired = await initiateStage("expired-stage-sha256");
+  await runtime.db
+    .update(blobStages)
+    .set({ expiresAt: new Date("2000-01-01T00:00:00.000Z") })
+    .where(eq(blobStages.id, expired.stageId));
+
+  const expiredResponse = await app.request(
+    `/blobs/stages/multipart/${expired.stageId}`,
+  );
+  expect(expiredResponse.status).toBe(409);
+  await expect(expiredResponse.json()).resolves.toEqual({
+    code: MULTIPART_BLOB_STAGE_ERROR_CODES.expired,
+    error: "Blob stage has expired",
+  });
+});
+
+test("multipart status keeps recovered object corruption terminal", async () => {
+  const runtime = createServiceTestRuntime();
+  const userId = crypto.randomUUID();
+  const app = createAuthenticatedTestApp(userId, runtime);
+  const encryptedBytes = "expected-object";
+  const initiated = await initiateMultipartBlobStage(runtime, {
+    byteLength: encryptedBytes.length,
+    sha256: await sha256Hex(encryptedBytes),
+    userId,
+  });
+  const part = await uploadMultipartBlobPartBytes(runtime, {
+    byteLength: encryptedBytes.length,
+    bytes: blobObjectBytes(encryptedBytes),
+    partNumber: 1,
+    sha256: await sha256Hex(encryptedBytes),
+    stageId: initiated.stageId,
+    uploadId: initiated.uploadId,
+    userId,
+  });
+  await completeMultipartBlobStage(runtime, {
+    parts: [{ etag: part.part.etag, partNumber: 1 }],
+    stageId: initiated.stageId,
+    uploadId: initiated.uploadId,
+    userId,
+  });
+  await uploadBlobObject(
+    runtime.blobObjectStore,
+    `blob-stages/${initiated.stageId}`,
+    "tampered-object",
+  );
+  await runtime.db
+    .update(blobStages)
+    .set({ completedAt: null })
+    .where(eq(blobStages.id, initiated.stageId));
+
+  const response = await app.request(
+    `/blobs/stages/multipart/${initiated.stageId}`,
+  );
+  expect(response.status).toBe(409);
+  await expect(response.json()).resolves.toEqual({
+    error: "Blob sha256 does not match multipart upload",
   });
 });
 

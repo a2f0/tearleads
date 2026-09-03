@@ -80,7 +80,14 @@ function registerStatusRoute(
           }),
         );
       } catch (error) {
-        return respondToStatusError(c, error, MultipartBlobStageError);
+        return respondToStatusError(
+          c,
+          error,
+          MultipartBlobStageError,
+          error instanceof MultipartBlobStageError && error.code !== undefined
+            ? { code: error.code, status: error.status }
+            : undefined,
+        );
       }
     },
   );

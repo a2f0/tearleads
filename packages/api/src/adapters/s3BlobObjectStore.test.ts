@@ -16,6 +16,7 @@ import {
 } from "../../test/helpers/fakeS3BlobObjectStore";
 import { sha256Hex } from "../utils/sha256";
 import { BlobObjectStoreError } from "./blobObjectStore";
+import { createS3BlobObjectStore } from "./s3BlobObjectStore";
 
 test("S3 blob object store completes multipart uploads by part number", async () => {
   const { client, store } = createFakeS3BlobObjectStore();
@@ -286,6 +287,44 @@ test("S3 blob object store maps missing objects to null", async () => {
   await expect(
     store.getObjectStream("blob-stages/missing"),
   ).resolves.toBeNull();
+});
+
+test("S3 blob object store proves multipart absence only from NoSuchUpload", async () => {
+  const { store } = createFakeS3BlobObjectStore();
+
+  await expect(
+    store.listParts({
+      key: "blob-stages/missing-upload",
+      uploadId: "upload-missing",
+    }),
+  ).rejects.toMatchObject({
+    code: "multipart_upload_not_found",
+  });
+});
+
+test("S3 blob object store preserves ambiguous 404 failures", async () => {
+  const ambiguousError = Object.assign(new Error("No such bucket"), {
+    $metadata: { httpStatusCode: 404 },
+    name: "NoSuchBucket",
+  });
+  const store = createS3BlobObjectStore({
+    bucket: "missing-bucket",
+    client: {
+      send: async () => {
+        throw ambiguousError;
+      },
+    },
+  });
+
+  await expect(
+    store.listParts({
+      key: "blob-stages/ambiguous",
+      uploadId: "upload-ambiguous",
+    }),
+  ).rejects.toBe(ambiguousError);
+  await expect(store.getObjectStream("blob-stages/ambiguous")).rejects.toBe(
+    ambiguousError,
+  );
 });
 
 test("S3 blob object store rejects string object bodies", async () => {

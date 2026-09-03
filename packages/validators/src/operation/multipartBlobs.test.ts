@@ -7,6 +7,9 @@ import {
   CompleteMultipartBlobStageResponseSchema,
   ErrorResponseSchema,
   InitiateMultipartBlobStageResponseSchema,
+  MULTIPART_BLOB_STAGE_ERROR_CODES,
+  MultipartBlobStageConflictErrorResponseSchema,
+  MultipartBlobStageNotFoundErrorResponseSchema,
   MultipartBlobStageStatusResponseSchema,
   SessionFailureResponseSchema,
 } from "../response";
@@ -55,19 +58,61 @@ test("multipart control operations own their shared HTTP contracts", () => {
     409: ErrorResponseSchema,
     500: ErrorResponseSchema,
   });
-  for (const operation of [
-    getMultipartBlobStageOperation,
-    completeMultipartBlobStageOperation,
-  ]) {
-    expect(operation.failureResponses).toEqual({
-      400: ErrorResponseSchema,
-      401: SessionFailureResponseSchema,
-      403: ErrorResponseSchema,
-      404: ErrorResponseSchema,
-      409: ErrorResponseSchema,
-      500: ErrorResponseSchema,
-    });
-  }
+  expect(getMultipartBlobStageOperation.failureResponses).toEqual({
+    400: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
+    403: ErrorResponseSchema,
+    404: MultipartBlobStageNotFoundErrorResponseSchema,
+    409: MultipartBlobStageConflictErrorResponseSchema,
+    500: ErrorResponseSchema,
+  });
+  expect(completeMultipartBlobStageOperation.failureResponses).toEqual({
+    400: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
+    403: ErrorResponseSchema,
+    404: ErrorResponseSchema,
+    409: ErrorResponseSchema,
+    500: ErrorResponseSchema,
+  });
+});
+
+test("multipart resume replacement requires exact status-specific codes", () => {
+  const notFound = getMultipartBlobStageOperation.failureResponses[404];
+  const expired = getMultipartBlobStageOperation.failureResponses[409];
+
+  expect(
+    notFound.safeParse({
+      code: MULTIPART_BLOB_STAGE_ERROR_CODES.notFound,
+      error: "Blob stage not found",
+    }).success,
+  ).toBe(true);
+  expect(
+    expired.safeParse({
+      code: MULTIPART_BLOB_STAGE_ERROR_CODES.expired,
+      error: "Blob stage has expired",
+    }).success,
+  ).toBe(true);
+  expect(
+    expired.safeParse({
+      error: "Blob sha256 does not match multipart upload",
+    }).success,
+  ).toBe(true);
+  expect(notFound.safeParse({ error: "Not Found" }).success).toBe(false);
+  expect(
+    notFound.safeParse({
+      code: MULTIPART_BLOB_STAGE_ERROR_CODES.expired,
+      error: "Wrong status",
+    }).success,
+  ).toBe(false);
+  expect(
+    expired.safeParse({
+      code: MULTIPART_BLOB_STAGE_ERROR_CODES.notFound,
+      error: "Wrong status",
+    }).success,
+  ).toBe(false);
+  expect(
+    expired.safeParse({ code: "unknown_code", error: "Unknown" }).success,
+  ).toBe(false);
 });
 
 test("multipart control paths derive from shared operations", () => {

@@ -65,6 +65,7 @@ export interface BlobAttachmentApi {
     method: "DELETE" | "GET" | "POST" | "PUT";
     path: string;
   }): {
+    readonly code?: string | undefined;
     readonly kind: "http" | "json" | "network" | "shape";
     readonly message: string;
     readonly status: number | null;

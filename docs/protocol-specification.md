@@ -376,6 +376,18 @@ are never encoded into JSON or stored in the database. Staged objects are not
 readable as committed blobs and are promoted only by a successful attachment
 bind. Incomplete or expired stages fail closed during bind.
 
+A client replacing a persisted resume stage must require positive API proof:
+`GET /blobs/stages/multipart/:stageId` returns
+`404 multipart_blob_stage_not_found` when the stage or its object-store upload
+or completed staged object is absent, and
+`409 multipart_blob_stage_expired` when the stage expired. Only those exact
+status-and-code pairs permit opening a fresh stage. Uncoded, malformed, unknown,
+cross-status, proxy, route, and unrelated conflict failures are terminal so the
+client does not abandon resumable state on an ambiguous error.
+If the multipart upload was consumed while the completion response or database
+write was lost, the status lookup revalidates the surviving staged object,
+converges the stage to complete, and returns it instead of emitting absence.
+
 ## Attachment Bind, Replace, Detach, And Slots
 
 Attachment slots are opaque stable identifiers inside a document. Product code
