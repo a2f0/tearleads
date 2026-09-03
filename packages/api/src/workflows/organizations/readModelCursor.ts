@@ -4,7 +4,7 @@ import {
   hasStringProperty,
 } from "@tearleads/validators/util";
 import { decodeCursor, encodeCursor } from "../../utils/cursor";
-import { OrganizationManagerError } from "./errors";
+import { OrganizationReadModelCursorError } from "./errors";
 
 const MAX_CURSOR = 9_223_372_036_854_775_807n;
 const DECIMAL_PATTERN = /^(0|[1-9]\d*)$/u;
@@ -15,10 +15,9 @@ interface OrganizationReadModelCursorPayload {
   readonly version: 6;
 }
 
-function invalidCursor(): OrganizationManagerError {
-  return new OrganizationManagerError(
+function invalidCursor(): OrganizationReadModelCursorError {
+  return new OrganizationReadModelCursorError(
     "Invalid organization read-model cursor",
-    400,
   );
 }
 

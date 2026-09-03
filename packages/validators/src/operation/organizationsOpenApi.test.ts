@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { ORGANIZATION_READ_MODEL_ERROR_CODES } from "../response";
 import { openApiDocument } from "./openApi";
 import {
   createOrganizationGroupOperation,
@@ -93,6 +94,14 @@ test("organization read-model OpenAPI documents path, query, and response", () =
     "404",
     "500",
   ]);
+  expect(
+    operation.responses["400"]?.content?.["application/json"]?.schema,
+  ).toMatchObject({
+    properties: {
+      code: { const: ORGANIZATION_READ_MODEL_ERROR_CODES.cursorInvalid },
+    },
+    required: ["error"],
+  });
   expect(operation["x-tearleads-runtime-refinements"]).toEqual(
     getOrganizationReadModelOperation.runtimeRefinements,
   );

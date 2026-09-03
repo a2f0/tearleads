@@ -1,4 +1,5 @@
 import { expect } from "bun:test";
+import { ORGANIZATION_READ_MODEL_ERROR_CODES } from "@tearleads/validators/response";
 import { HttpResponse, http } from "msw";
 import {
   apiBaseUrl,
@@ -82,5 +83,36 @@ testApiClient(
     expect(calls[0]?.url).toBe(
       `${apiBaseUrl}/organizations/${organizationId}/read-model?cursor=opaque%2B%2F%3Dcursor`,
     );
+  },
+);
+
+testApiClient(
+  "preserves the exact organization read-model cursor failure code",
+  async () => {
+    server.use(
+      http.get(`${apiBaseUrl}/organizations/:organizationId/read-model`, () =>
+        HttpResponse.json(
+          {
+            code: ORGANIZATION_READ_MODEL_ERROR_CODES.cursorInvalid,
+            error: "Invalid organization read-model cursor",
+          },
+          { status: 400 },
+        ),
+      ),
+    );
+
+    const client = new ApiClient(apiBaseUrl);
+    const result = await client.getOrganizationReadModelResult(
+      organizationId,
+      "expired-cursor",
+      { reportErrors: false },
+    );
+
+    expect(result).toMatchObject({
+      code: ORGANIZATION_READ_MODEL_ERROR_CODES.cursorInvalid,
+      kind: "http",
+      ok: false,
+      status: 400,
+    });
   },
 );

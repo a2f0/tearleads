@@ -2,7 +2,10 @@ import type {
   RequestResult,
   RequestResultOptions,
 } from "@tearleads/api-client";
-import type { OrganizationReadModelResponse } from "@tearleads/validators/response";
+import {
+  ORGANIZATION_READ_MODEL_ERROR_CODES,
+  type OrganizationReadModelResponse,
+} from "@tearleads/validators/response";
 import { purgeOrganizationAccessProjection } from "../../data/persistence/organizations/organizationAccessRevocationPersistence";
 import { recordOrganizationPresentationDenials } from "../../data/persistence/organizations/organizationPresentationDenialPersistence";
 import { loadOrganizationReadModelGroupMembers } from "../../data/persistence/organizations/organizationReadModelMemberLoad";
@@ -155,6 +158,17 @@ function resetRequestCursor(state: ReconciliationState): void {
   state.requestCursor = state.projection?.cursor ?? undefined;
 }
 
+function isInvalidReadModelCursorFailure(
+  result: RequestResult<OrganizationReadModelResponse>,
+): boolean {
+  return (
+    !result.ok &&
+    result.kind === "http" &&
+    result.status === 400 &&
+    result.code === ORGANIZATION_READ_MODEL_ERROR_CODES.cursorInvalid
+  );
+}
+
 async function requestReadModelPage(
   input: ReconcileOrganizationDirectoryAndGroupsInput,
   state: ReconciliationState,
@@ -196,7 +210,7 @@ async function requestReadModelPage(
     return { kind: "done", value: null };
   }
   if (
-    result.status === 400 &&
+    isInvalidReadModelCursorFailure(result) &&
     state.requestCursor !== undefined &&
     !state.retriedInvalidCursor
   ) {

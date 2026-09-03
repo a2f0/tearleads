@@ -46859,6 +46859,10 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "code": {
+                      "type": "string",
+                      "const": "organization_read_model_cursor_invalid"
+                    },
                     "error": {
                       "type": "string"
                     }
