@@ -32,6 +32,14 @@ removal on either side fails the check instead of leaving the map prose-only.
 `ContainerGrantScope` and `KeyringReachability` document their seams in prose
 and carry no map tables.
 
+The bridge also runs in the implementation-to-model direction:
+`bun run check:protocol-projection` (part of `check:fast`) records
+fault-injected runs of the real probe and interest seams and replays them as
+action sequences through `RestartProbeConvergence` with TLC, failing on any
+trace the model rejects. See the
+[trace projection section](./document-sync/RestartProbeConvergence.md) for the
+recorded scenarios, negative controls, and boundaries.
+
 To add a model, commit its `.tla` and bounded `.cfg` files and register the pair.
 One module may appear with multiple configurations, but each configuration must
 appear exactly once. Keep registered bounds small enough for `check:fast`;
