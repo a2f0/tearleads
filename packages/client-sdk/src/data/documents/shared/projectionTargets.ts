@@ -1,4 +1,7 @@
-import type { DocumentContentKeyTarget } from "@tearleads/crypto";
+import {
+  type DocumentContentKeyTarget,
+  KeyingVerificationError,
+} from "@tearleads/crypto";
 import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
 import type {
   ContainerManifestRef,
@@ -9,6 +12,7 @@ import type {
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import {
+  describeDocumentTargetKek,
   normalizeDocumentKekTargetResponse,
   readManifestContainerId,
   serializeCanonical,
@@ -138,6 +142,67 @@ export function readLinkedContainerIdsFromDocumentManifest(
   }
 
   return uniqueSortedStrings(linkedContainerIds);
+}
+
+/**
+ * The targets a content-key (re)wrap may address. The server's KEK target list
+ * only says which linked containers the bundle must cover; the epoch each
+ * envelope lands on comes from that container's verified authorizing-path
+ * leaf, never from the server row. A listed epoch that is not the linked
+ * container's verified current head — a predecessor a revoked member still
+ * holds, or another container's epoch — therefore fails before any wrap, as
+ * does a container listed twice. A linked container with no authorizing path
+ * is an availability gap, not tampering: its KEK is simply unavailable here.
+ */
+export function verifiedDocumentWrapTargets(input: {
+  linkedContainerIds: readonly string[];
+  serverTargets: readonly DocumentContentKeyTarget[];
+  writerProjection: DocumentWriterProjectionResponse;
+}): DocumentContentKeyTarget[] {
+  const verifiedByKey = new Map<string, DocumentContentKeyTarget>();
+  const verifiedContainerIds = new Set<string>();
+  for (const projection of input.writerProjection.authorizingContainerPaths) {
+    const target = deriveDocumentTargetFromProjection(projection);
+    verifiedByKey.set(targetKey(target), target);
+    verifiedContainerIds.add(target.containerId);
+  }
+
+  const containerIds = input.serverTargets.map((target) => target.containerId);
+  if (new Set(containerIds).size !== containerIds.length) {
+    throw new KeyingVerificationError(
+      "duplicate_entry",
+      "Document content-key targets name a linked container more than once",
+    );
+  }
+  const linkedContainerIds = uniqueSortedStrings(input.linkedContainerIds);
+  const sortedContainerIds = uniqueSortedStrings(containerIds);
+  if (
+    sortedContainerIds.length !== linkedContainerIds.length ||
+    sortedContainerIds.some((id, index) => id !== linkedContainerIds[index])
+  ) {
+    throw new KeyingVerificationError(
+      "object_mismatch",
+      "Document content-key targets do not match the linked containers",
+    );
+  }
+
+  return sortDocumentTargets(
+    input.serverTargets.map((target) => {
+      const verified = verifiedByKey.get(targetKey(target));
+      if (verified) {
+        return verified;
+      }
+      if (!verifiedContainerIds.has(target.containerId)) {
+        throw new Error(
+          `Document content-key re-wrap KEK is unavailable for ${describeDocumentTargetKek(target)}`,
+        );
+      }
+      throw new KeyingVerificationError(
+        "object_mismatch",
+        `Document content-key target is not the verified head of ${describeDocumentTargetKek(target)}`,
+      );
+    }),
+  );
 }
 
 export function currentDocumentTargets(

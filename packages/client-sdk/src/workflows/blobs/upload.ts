@@ -23,7 +23,7 @@ import {
   signBlobAttachmentWriteHeader,
 } from "../../data/documents/blob/shared/events";
 import {
-  deriveBlobTargetsFromDocumentProjection,
+  verifiedBlobWrapTargetsFromDocumentProjection,
   wrapBlobContentKey,
 } from "../../data/documents/blob/shared/projection";
 import { assertBlobAttachmentBindResponse } from "../../data/documents/blob/shared/responses";
@@ -82,7 +82,7 @@ async function buildBlobAttachmentMaterial(
   }
   const { manifestIdentity, writerProjection } = resolved;
 
-  const targets = deriveBlobTargetsFromDocumentProjection({
+  const targets = verifiedBlobWrapTargetsFromDocumentProjection({
     bindingId: input.bindingId,
     documentId: input.documentId,
     writerProjection,

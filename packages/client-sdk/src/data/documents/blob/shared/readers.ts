@@ -58,29 +58,6 @@ export function readDocumentManifestIdentity(
   };
 }
 
-export function normalizeDocumentTarget(
-  value: Record<string, unknown>,
-): Omit<BlobContentKeyTarget, "bindingId" | "documentId"> {
-  return {
-    containerId: readRecordString(value, "containerId", "Document KEK target"),
-    containerManifestHash: readRecordString(
-      value,
-      "containerManifestHash",
-      "Document KEK target",
-    ),
-    containerKeyEpochId: readRecordString(
-      value,
-      "containerKeyEpochId",
-      "Document KEK target",
-    ),
-    containerKeyEpoch: readRecordPositiveInteger(
-      value,
-      "containerKeyEpoch",
-      "Document KEK target",
-    ),
-  };
-}
-
 export function parseBlobEncryptedBytes(
   encryptedBytes: Uint8Array<ArrayBuffer>,
 ): BlobEncryptedBytesRecord {
