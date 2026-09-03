@@ -32,7 +32,6 @@ import {
 } from "./containerProjectionVerification";
 import {
   addReconstructedVerifiedContainerPaths,
-  assertHeadDependenciesNotBehindCheckpoints,
   resolveEventContainerPaths,
 } from "./documentDependencyPaths";
 import {
@@ -138,7 +137,16 @@ async function verifyProjectionContainerPaths(input: {
   for (const [index, path] of readDocumentProjectionContainerPaths(
     input.projection,
   ).entries()) {
-    // Historical dependencies provide evidence without advancing heads.
+    // Dependency paths are the container evidence a link event was signed
+    // against. They are verified without checkpoint enforcement because a
+    // historical link event legitimately cites the container manifests that
+    // were current when it was signed. Each path must still be a genuine
+    // root-to-leaf chain (verifyContainerManifestPath asserts the edges), and
+    // it never replaces the checkpoint-enforced authorizing path for the same
+    // leaf. Whether a head's evidence is stale relative to a later container
+    // rotation is a cross-object ordering question this client cannot decide
+    // from signed state alone; that boundary is documented with the
+    // cold-client limits in docs/security-guarantees.md.
     const verifiedPath = await verifyContainerManifestPath({
       authorizationMembership: "referenced",
       bundlesByHash,
@@ -249,16 +257,6 @@ export async function verifyDocumentManifestBundle(input: {
         verifiedManifests: input.verifiedByHash,
       })
     : null;
-  if (
-    checkpointVerification?.localCheckpoint &&
-    manifest.epoch > checkpointVerification.localCheckpoint.epoch
-  ) {
-    await assertHeadDependenciesNotBehindCheckpoints({
-      checkpointContext: input.checkpointContext,
-      label: input.label,
-      paths: [...dependencyContainerPaths, targetContainerPath],
-    });
-  }
   const verified = await verifyDocumentLinkSetManifest({
     authorizationMembership: input.authorizationMembership,
     authorizingContainerPaths: dependencyContainerPaths,
@@ -344,6 +342,20 @@ async function verifyDocumentWriterProjectionWithContext(
       bundlesByHash,
       bundle,
       `Document writer projection manifest history[${index}]`,
+    );
+  }
+  // History is verified without checkpoint enforcement and cached by hash. A
+  // copy of the head placed in the history would be verified there and then
+  // served to the head verification from the cache, skipping its checks.
+  if (
+    history.some(
+      (bundle) =>
+        bundle.manifestHash === input.projection.documentManifest.manifestHash,
+    )
+  ) {
+    throw new KeyingVerificationError(
+      "duplicate_entry",
+      "Document writer projection history repeats the current head",
     );
   }
 

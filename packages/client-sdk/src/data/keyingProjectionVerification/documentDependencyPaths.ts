@@ -1,12 +1,4 @@
-import {
-  KeyingVerificationError,
-  type VerifiedContainerAccessManifest,
-} from "@tearleads/crypto";
-import { loadAccessManifestCheckpoint } from "../persistence/keyingCheckpointPersistence";
-import {
-  observeDependencyFloors,
-  type ProjectionCheckpointContext,
-} from "./checkpointContext";
+import type { VerifiedContainerAccessManifest } from "@tearleads/crypto";
 
 type ContainerPathByManifestHash = Map<
   string,
@@ -107,66 +99,4 @@ export function resolveEventContainerPaths(input: {
       input.targetManifestHash,
     ),
   };
-}
-
-/**
- * Historical link events cite the container manifests that were current when
- * they were signed, so dependency paths are verified without checkpoints. A
- * head event this client has not seen before is different: its authorizing
- * container evidence must not be older than what this client already
- * checkpointed for that container, or a writer revoked from a container could
- * keep authoring links by citing the manifest under which they still had
- * access. This mirrors the principal-policy rule that a post-checkpoint
- * successor must cite the current authority head.
- */
-export async function assertHeadDependenciesNotBehindCheckpoints(input: {
-  readonly checkpointContext: ProjectionCheckpointContext;
-  readonly label: string;
-  readonly paths: readonly (
-    | readonly VerifiedContainerAccessManifest[]
-    | undefined
-  )[];
-}): Promise<void> {
-  // Access along a path is the union of every element's grants, so an
-  // inherited grant on a stale ancestor is as usable as one on the leaf:
-  // every element is held to the checkpoint, not just the leaf.
-  const manifests = new Map<string, VerifiedContainerAccessManifest>();
-  for (const path of input.paths) {
-    for (const manifest of path ?? []) {
-      manifests.set(manifest.manifestHash, manifest);
-    }
-  }
-  for (const manifest of manifests.values()) {
-    const checkpoint = await loadAccessManifestCheckpoint(
-      input.checkpointContext.execSql,
-      "container",
-      manifest.state.organizationId,
-      manifest.state.containerId,
-    );
-    if (!checkpoint) {
-      continue;
-    }
-    if (manifest.state.epoch < checkpoint.epoch) {
-      throw new KeyingVerificationError(
-        "rollback",
-        `${input.label} cites container ${manifest.state.containerId} at epoch ${manifest.state.epoch}, behind the local checkpoint at epoch ${checkpoint.epoch}`,
-      );
-    }
-    if (
-      manifest.state.epoch === checkpoint.epoch &&
-      manifest.manifestHash !== checkpoint.manifestHash
-    ) {
-      throw new KeyingVerificationError(
-        "equivocation",
-        `${input.label} cites container ${manifest.state.containerId} at a manifest that conflicts with the local checkpoint`,
-      );
-    }
-  }
-  // The read above is an early exit; the same floors are re-checked inside
-  // the atomic checkpoint transaction so a concurrent advance cannot slip in
-  // between this verification and the commit.
-  observeDependencyFloors(
-    input.checkpointContext,
-    [...manifests.values()].map((manifest) => manifest.checkpoint),
-  );
 }

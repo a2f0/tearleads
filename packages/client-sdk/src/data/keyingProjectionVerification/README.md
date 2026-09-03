@@ -14,8 +14,7 @@ that facade.
 - `documentProjectionVerification.ts` verifies document manifest bundles and
   document writer projections over their container paths.
 - `documentDependencyPaths.ts` reconstructs verified container paths from
-  history, resolves the paths a link event cites, and holds a new document head
-  to container evidence no older than the local checkpoints.
+  history and resolves the container paths a link event cites.
 
 Keep exported verifier functions and types on `../keyingProjectionVerification.ts`
 so workflow and store layers do not import these internals directly.
