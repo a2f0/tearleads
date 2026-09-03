@@ -29,6 +29,7 @@ import type {
   TrustedUserIdentityResolver,
 } from "../../data/trustedUserIdentity";
 import type { loadOrganizationExternalAdminPolicy } from "../principals/externalAdminPolicy";
+import { assertGroupNameUniqueInDirectory } from "./groupNameUniqueness";
 import {
   acknowledgeGroupPolicyState,
   acknowledgeInitialGroupPolicy,
@@ -162,6 +163,16 @@ export async function commitCreatedGroupToDirectory(input: {
   readonly group: OrganizationGroupSummaryResponse;
   readonly head: ReferencedPrincipalHead;
 }> {
+  // Signed group names are unique per organization; refuse a collision before
+  // anything reaches the server.
+  await assertGroupNameUniqueInDirectory({
+    apiClient: input.apiClient,
+    descriptor: input.externalAdminPolicy.descriptor,
+    execSql: input.execSql,
+    externalAuthority: input.externalAdminPolicy.externalAuthority,
+    name: input.request.name,
+    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+  });
   const expectedHead = await groupPolicyMutationHead(
     input.request.initialGroupPolicy,
   );

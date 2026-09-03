@@ -68,7 +68,10 @@ function payloadCiphertextForProjection(
  * normalized, stripped of control and format characters (zero-width joiners
  * and the like), whitespace-collapsed, and case-folded. Two names that a user
  * cannot tell apart in a picker must compare equal, or a look-alike name would
- * slip past the share-time binding.
+ * slip past the share-time binding. Cross-script homoglyphs (Latin "A" against
+ * Greek "Α") are not folded: that needs the UTS #39 confusables table, and both
+ * names would still have to be signed groups the organization's own admins
+ * created.
  */
 export function canonicalGroupNameKey(name: string): string {
   return name

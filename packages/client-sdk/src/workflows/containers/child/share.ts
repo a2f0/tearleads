@@ -131,11 +131,13 @@ interface RemoteContainerGroupShareInput {
   eventId?: string | undefined;
   execSql: ExecSql;
   /**
-   * The display name the user chose the group by. Checked against the name
-   * committed in the verified group policy, so a relabeled read-model row
-   * cannot redirect the share onto another group.
+   * The display name the user chose the group by, checked against the name
+   * committed in the verified group policy so a relabeled read-model row
+   * cannot redirect the share onto another group. `null` is reserved for the
+   * grant-preserving re-wrap: a share that would mint a new grant without a
+   * name is refused.
    */
-  expectedGroupName?: string | undefined;
+  expectedGroupName: string | null;
   knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
   previousProjection?: ContainerWriterProjectionResponse | undefined;
   recipientGroupId: string;
@@ -292,6 +294,16 @@ async function commitMissingGroupGrant(
   };
 }
 
+// Only a re-wrap of an existing signed grant may run without the chosen name;
+// minting a grant is exactly the operation the name binding protects.
+function assertGrantMintNamed(expectedGroupName: string | null): void {
+  if (expectedGroupName === null) {
+    throw new Error(
+      "Minting a group grant requires the chosen group name; only a re-wrap of an existing signed grant may omit it",
+    );
+  }
+}
+
 export async function shareRemoteContainerWithGroup(
   input: RemoteContainerGroupShareInput,
 ): Promise<RemoteContainerGroupShareResult | null> {
@@ -309,7 +321,7 @@ export async function shareRemoteContainerWithGroup(
   const verifiedPrincipalPolicy = await loadVerifiedGroupSharePrincipalPolicy({
     apiClient: input.apiClient,
     execSql: input.execSql,
-    expectedGroupName: input.expectedGroupName,
+    expectedGroupName: input.expectedGroupName ?? undefined,
     groupId: input.recipientGroupId,
     organizationId: input.author.organizationId,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
@@ -327,6 +339,7 @@ export async function shareRemoteContainerWithGroup(
     (grant) => grant.containerId === input.containerId,
   );
   if (!signedGrant || signedGrant.accessLevel !== input.accessLevel) {
+    assertGrantMintNamed(input.expectedGroupName);
     return commitMissingGroupGrant(input);
   }
 

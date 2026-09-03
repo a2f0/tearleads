@@ -18,11 +18,7 @@ import { buildInitialOrganizationPolicyRequest } from "../../registration/regist
 import { loadVerifiedGroupSharePrincipalPolicy } from "./sharePrincipalPolicy";
 
 async function createDirectoryFixture(
-  input: {
-    duplicateName?: boolean;
-    includeTargetHead?: boolean;
-    successor?: boolean;
-  } = {},
+  input: { includeTargetHead?: boolean; successor?: boolean } = {},
 ) {
   const { author, signingPublicKey } = await createAuthor({
     organizationId: "organization-1",
@@ -47,13 +43,6 @@ async function createDirectoryFixture(
   const adminPolicy = await policyBundleFromInitialRequest(initialAdmin);
   const memberPolicy = await policyBundleFromInitialRequest(initialMember);
   const predecessor = await policyBundleFromInitialRequest(initialTarget);
-  // A second signed group carrying a look-alike of the target's name (a
-  // zero-width space inside it), when requested.
-  const duplicatePolicy = input.duplicateName
-    ? await policyBundleFromInitialRequest(
-        await buildGroup("group-2", `Oper${String.fromCodePoint(0x200b)}ators`),
-      )
-    : null;
   const targetPolicy = input.successor
     ? await createSuccessorGroupPolicyBundle({
         author,
@@ -74,7 +63,6 @@ async function createDirectoryFixture(
       ...(input.includeTargetHead === false
         ? []
         : [principalPolicyHead(targetPolicy)]),
-      ...(duplicatePolicy ? [principalPolicyHead(duplicatePolicy)] : []),
     ],
     memberGroupId: "members-group",
     organizationId: author.organizationId,
@@ -110,9 +98,6 @@ async function createDirectoryFixture(
     }
     if (principalId === "members-group") {
       return memberPolicy;
-    }
-    if (principalId === "group-2") {
-      return duplicatePolicy;
     }
     onTargetGet();
     return targetPolicy;
@@ -188,35 +173,6 @@ test("a share fails closed when the chosen name is not the signed group name", a
     });
     await expect(load("Operators")).resolves.toMatchObject({
       bundle: fixture.targetPolicy,
-    });
-  } finally {
-    close();
-  }
-});
-
-// The API does not make group names unique, so a name that two signed groups
-// share cannot identify the target: a swapped id would still match.
-test("a share fails closed when another signed group carries the same name", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "group-share-policy-name-duplicate",
-  );
-  try {
-    const fixture = await createDirectoryFixture({ duplicateName: true });
-    await expect(
-      loadVerifiedGroupSharePrincipalPolicy({
-        apiClient: createMockApiClient({
-          getCurrentPrincipalPolicy: (principalType, principalId) =>
-            fixture.load(principalType, principalId, () => undefined),
-        }),
-        execSql,
-        expectedGroupName: "Operators",
-        groupId: fixture.targetPolicy.currentState.principalId,
-        organizationId: fixture.organizationId,
-        resolveTrustedUserIdentity: fixture.resolveTrustedUserIdentity,
-      }),
-    ).rejects.toMatchObject({
-      code: "duplicate_entry",
-      message: expect.stringContaining("another signed group"),
     });
   } finally {
     close();

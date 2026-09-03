@@ -11,6 +11,7 @@ import {
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import {
   continueRemoteContainerCreateForMetadataDocument as createRemoteContainerMutation,
+  loadVerifiedGroupSharePrincipalPolicy,
   moveRemoteContainer as moveRemoteContainerMutation,
   readContainerMutationMetadataDocumentId,
   referencedPrincipalHeadsFromContainerMutationResponse,
@@ -338,6 +339,36 @@ export async function shareRemoteContainer(input: {
   );
 }
 
+/**
+ * Binds a chosen group name to the signed group policy without sharing. Used
+ * before a duplicate-share short-circuit so a relabeled row cannot report a
+ * successful share with a group the user did not choose.
+ */
+export async function assertRemoteGroupShareName(input: {
+  expectedGroupName: string;
+  groupId: string;
+  runtime: ContainerWorkflowRuntime;
+  stillCurrent?: (() => boolean) | undefined;
+}): Promise<boolean> {
+  const writer = resolveContainerWriterContext(
+    input.runtime,
+    "container group share",
+  );
+  if (!writer) {
+    return false;
+  }
+  await loadVerifiedGroupSharePrincipalPolicy({
+    apiClient: writer.apiClient,
+    execSql: writer.execSql,
+    expectedGroupName: input.expectedGroupName,
+    groupId: input.groupId,
+    organizationId: writer.author.organizationId,
+    resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
+    stillCurrent: input.stillCurrent,
+  });
+  return true;
+}
+
 export async function shareRemoteContainerWithGroup(input: {
   accessLevel: "read" | "write" | "admin";
   containerId: string;
@@ -364,7 +395,7 @@ export async function shareRemoteContainerWithGroup(input: {
     author,
     containerId: input.containerId,
     execSql,
-    expectedGroupName: input.expectedGroupName,
+    expectedGroupName: input.expectedGroupName ?? null,
     knownContainerKeks: input.knownContainerKeks,
     previousProjection: input.previousProjection,
     recipientGroupId: input.recipientGroupId,

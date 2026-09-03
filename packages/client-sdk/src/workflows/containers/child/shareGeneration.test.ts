@@ -208,6 +208,7 @@ test("a group share does not acknowledge a policy after its generation expires d
       author,
       containerId: parent.projection.containerId,
       execSql: database.execSql,
+      expectedGroupName: "Generation race group",
       recipientGroupId: groupId,
       resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
       resolveTrustedUserIdentity: async (userId) =>
@@ -306,6 +307,7 @@ test("a missing group grant returns null when projection verification expires", 
       author,
       containerId: parent.projection.containerId,
       execSql: database.execSql,
+      expectedGroupName: "Expired preparation group",
       recipientGroupId: groupId,
       resolveProjectionUserKey,
       resolveTrustedUserIdentity: async (userId) => {

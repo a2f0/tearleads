@@ -20,7 +20,11 @@ import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePoli
 import type { ContainerContentsPersistence } from "../containerPersistence";
 import type { ContainerState } from "../remoteHydration";
 import { loadContainerWriterProjectionForState } from "./projectionCache";
-import { shareRemoteContainer, shareRemoteContainerWithGroup } from "./remote";
+import {
+  assertRemoteGroupShareName,
+  shareRemoteContainer,
+  shareRemoteContainerWithGroup,
+} from "./remote";
 import {
   type MatchingRemoteContainerGrant,
   persistDuplicateContainerShare,
@@ -385,6 +389,20 @@ export async function shareContainerStateWithGroup(input: {
     return null;
   }
   if (shareContext.matchingGrant) {
+    // A duplicate share mints nothing, but it must not report success for a
+    // group the user did not choose: bind the chosen name before skipping.
+    if (
+      input.expectedGroupName !== undefined &&
+      !(await assertRemoteGroupShareName({
+        expectedGroupName: input.expectedGroupName,
+        groupId: input.recipientGroupId,
+        runtime: input.runtime,
+        stillCurrent: input.stillCurrent,
+      }))
+    ) {
+      return null;
+    }
+    if (input.stillCurrent?.() === false) return null;
     input.runtime.util.log(
       `Container contents: skipped duplicate share for container ${input.containerState.container.id} with group ${input.recipientGroupId}`,
     );
