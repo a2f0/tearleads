@@ -1,3 +1,8 @@
+import {
+  operationRequestHeaderNames,
+  operationResponseHeaderNames,
+  protocolOperations,
+} from "@tearleads/validators/operation";
 import { Hono, type MiddlewareHandler } from "hono";
 import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
@@ -32,9 +37,14 @@ interface RouteAppOptions {
 const API_CORS_ALLOW_HEADERS = [
   "Authorization",
   "Content-Type",
-  "X-Tearleads-Blob-Part-Byte-Length",
-  "X-Tearleads-Blob-Part-Sha256",
-  "X-Tearleads-Blob-Upload-Id",
+  ...new Set(protocolOperations.flatMap(operationRequestHeaderNames)),
+];
+const API_CORS_EXPOSE_HEADERS = [
+  ...new Set(
+    protocolOperations.flatMap((operation) =>
+      operationResponseHeaderNames(operation),
+    ),
+  ),
 ];
 const API_CORS_ALLOW_METHODS = [
   "DELETE",
@@ -51,6 +61,7 @@ function createApiCorsMiddleware(origins: ApiCorsOrigins) {
   return cors({
     allowHeaders: API_CORS_ALLOW_HEADERS,
     allowMethods: API_CORS_ALLOW_METHODS,
+    exposeHeaders: API_CORS_EXPOSE_HEADERS,
     maxAge: API_CORS_MAX_AGE_SECONDS,
     origin: origins === "*" ? "*" : [...origins],
   });

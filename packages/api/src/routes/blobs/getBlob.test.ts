@@ -106,12 +106,11 @@ test("GET /blobs/:blobId/bytes streams committed encrypted blob bytes", async ()
   expect(blobResponse.headers.get("x-tearleads-blob-sha256")).toBe(
     stagedBlobInput.sha256,
   );
-  expect(blobResponse.headers.get("access-control-expose-headers")).toContain(
-    "X-Tearleads-Blob-Byte-Length",
-  );
-  expect(blobResponse.headers.get("access-control-expose-headers")).toContain(
-    "X-Tearleads-Blob-Sha256",
-  );
+  const exposedHeaders =
+    blobResponse.headers.get("access-control-expose-headers")?.toLowerCase() ??
+    "";
+  expect(exposedHeaders).toContain("x-tearleads-blob-byte-length");
+  expect(exposedHeaders).toContain("x-tearleads-blob-sha256");
   expect(await blobResponse.text()).toBe(stagedBlobInput.encryptedBytes);
 });
 

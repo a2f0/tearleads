@@ -223,6 +223,13 @@ export function isReplayableRequestBody(
   );
 }
 
+export function isSuccessfulResponse(
+  response: Response,
+  additionalSuccessStatuses: readonly number[],
+): boolean {
+  return response.ok || additionalSuccessStatuses.includes(response.status);
+}
+
 export async function describeErrorResponse(
   response: Response,
 ): Promise<ErrorResponseDescription> {

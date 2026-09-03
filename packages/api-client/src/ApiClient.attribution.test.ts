@@ -18,6 +18,16 @@ import {
 } from "../test/helpers/apiClientTestHarness";
 import { ApiClient } from "./ApiClient";
 
+const compactAttributionHeaders = {
+  "Cache-Control": "private, no-cache",
+  ETag: 'W/"test-attribution"',
+  Vary: "Accept-Encoding",
+};
+const rangeAttributionHeaders = {
+  "Cache-Control": "private, no-cache",
+  Vary: "Accept-Encoding",
+};
+
 const attributionMutationCases = [
   {
     name: "link",
@@ -75,7 +85,9 @@ testApiClient(
         `${apiBaseUrl}/documents/:documentId/attribution/ranges`,
         async ({ request }) => {
           calls.push(await captureHttpCall(request));
-          return HttpResponse.json(response);
+          return HttpResponse.json(response, {
+            headers: rangeAttributionHeaders,
+          });
         },
       ),
     );
@@ -168,7 +180,9 @@ for (const mutationCase of attributionMutationCases) {
               secondAttributionStarted.resolve();
               await finishSecondAttribution.promise;
             }
-            return HttpResponse.json(attributionResponse);
+            return HttpResponse.json(attributionResponse, {
+              headers: compactAttributionHeaders,
+            });
           },
         ),
         http.all(
@@ -217,7 +231,9 @@ testApiClient(
           requestStarted.resolve();
           await finishRequest.promise;
         }
-        return HttpResponse.json(attributionResponse);
+        return HttpResponse.json(attributionResponse, {
+          headers: compactAttributionHeaders,
+        });
       }),
     );
 
@@ -253,7 +269,9 @@ testApiClient(
           requestStarted.resolve();
           await finishRequest.promise;
         }
-        return HttpResponse.json(attributionResponse);
+        return HttpResponse.json(attributionResponse, {
+          headers: compactAttributionHeaders,
+        });
       }),
     );
 
@@ -294,7 +312,9 @@ testApiClient(
           firstRequestStarted.resolve();
           await finishFirstRequest.promise;
         }
-        return HttpResponse.json(attributionResponse);
+        return HttpResponse.json(attributionResponse, {
+          headers: compactAttributionHeaders,
+        });
       }),
     );
 
@@ -307,5 +327,30 @@ testApiClient(
     finishFirstRequest.resolve();
     await expect(stale).resolves.toEqual(attributionResponse);
     expect(requestCount).toBe(2);
+  },
+);
+
+testApiClient(
+  "treats a declared attribution 304 as an empty success",
+  async () => {
+    const errors: string[] = [];
+    server.use(
+      http.get(
+        `${apiBaseUrl}/documents/:documentId/attribution`,
+        () =>
+          new HttpResponse(null, {
+            headers: compactAttributionHeaders,
+            status: 304,
+          }),
+      ),
+    );
+
+    const client = new ApiClient(apiBaseUrl);
+    client.setOnError((message) => errors.push(message));
+
+    await expect(
+      client.getDocumentEditAttribution("document-1"),
+    ).resolves.toBeNull();
+    expect(errors).toEqual([]);
   },
 );

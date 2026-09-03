@@ -74,6 +74,7 @@ export interface ResponseRequestFn {
     method: HttpMethod,
     body?: RequestBody,
     options?: RequestResultOptions,
+    additionalSuccessStatuses?: readonly number[],
   ): Promise<RequestResult<Response>>;
   readonly reportFailure: (
     input: ResponseRequestValidationFailureInput,

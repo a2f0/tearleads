@@ -8,7 +8,10 @@ import {
   type listDocumentAttributionRangesOperation,
   protocolOperations,
 } from "@tearleads/validators/operation";
-import type { JsonOperationRequestInput } from "./operationTransport";
+import type {
+  JsonOperationRequestInput,
+  JsonOperationResponseEnvelope,
+} from "./operationTransport";
 import {
   createJsonOperationTransport,
   deriveJsonOperationRequest,
@@ -22,6 +25,18 @@ import type {
 
 const organizationId = "11111111-1111-4111-8111-111111111111";
 const documentId = "22222222-2222-4222-8222-222222222222";
+const attributionBody = {
+  attributionRevision: 4,
+  documentId,
+  segments: [],
+};
+const attributionHeaders = {
+  "Cache-Control": "private, no-cache",
+  "Content-Type": "application/json",
+  ETag: 'W/"attribution-4"',
+  Vary: "Accept-Encoding",
+  "X-Unrelated": "ignored",
+};
 
 type ChallengeTransportBody = JsonOperationRequestInput<
   typeof challengeOperation
@@ -34,12 +49,25 @@ type AttributionRangesTransportQuery = JsonOperationRequestInput<
 >["query"];
 type AcceptsAttributionRangesQuery<Value> =
   Value extends AttributionRangesTransportQuery ? true : false;
+type AttributionResponseEnvelope = JsonOperationResponseEnvelope<
+  typeof getDocumentAttributionOperation
+>;
+type NotModifiedAttributionResponse = Extract<
+  AttributionResponseEnvelope,
+  { readonly status: 304 }
+>;
 
 function assertType<Condition extends true>(_condition?: Condition): void {}
 
 assertType<AcceptsChallengeBody<{ fingerprint: string }>>();
 assertType<AcceptsChallengeBody<number> extends false ? true : false>();
 assertType<AcceptsAttributionRangesQuery<{ limit: "10" }>>();
+assertType<
+  AttributionResponseEnvelope["status"] extends 200 | 304 ? true : false
+>();
+assertType<
+  NotModifiedAttributionResponse["data"] extends undefined ? true : false
+>();
 
 function requestFailure(
   input: ResponseRequestValidationFailureInput,
@@ -94,6 +122,12 @@ test("derives JSON body, path, query, and headers from source schemas", () => {
     method: "GET",
     path: `/documents/${documentId}/attribution`,
   });
+  expect(
+    deriveJsonOperationRequest(getDocumentAttributionOperation, {
+      headers: {},
+      params: { documentId: "document/1" },
+    }).path,
+  ).toBe("/documents/document%2F1/attribution");
 });
 
 test("fails before fetch when request values violate source schemas", () => {
@@ -128,7 +162,7 @@ test("decodes success bodies with the operation response schema", async () => {
   await expect(
     transport.request(getHealthOperation, { params: {} }),
   ).resolves.toEqual({ message: "ok" });
-  expect(calls).toEqual([["/", "GET", undefined, {}]]);
+  expect(calls).toEqual([["/", "GET", undefined, {}, []]]);
 });
 
 test("returns transformed response schema output", async () => {
@@ -209,26 +243,93 @@ test("reports malformed JSON and shapes through ApiClient policy", async () => {
   expect(reported.map((failure) => failure.kind)).toEqual(["json", "shape"]);
 });
 
-test("rejects special response operations before fetch", async () => {
-  let calls = 0;
+test("returns status-specific parsed response bodies and headers", async () => {
   const request = Object.assign(
-    async () => {
-      calls += 1;
-      return { data: Response.json({}), ok: true as const };
-    },
+    async () => ({
+      data: Response.json(attributionBody, { headers: attributionHeaders }),
+      ok: true as const,
+    }),
     { reportFailure: requestFailure },
   ) as ResponseRequestFn;
   const transport = createJsonOperationTransport(request);
 
   await expect(
-    transport.request(getDocumentAttributionOperation, {
+    transport.requestResponse(getDocumentAttributionOperation, {
       headers: {},
       params: { documentId },
     }),
-  ).rejects.toThrow(
-    "Unsupported JSON transport operation: documents.attribution.get",
-  );
-  expect(calls).toBe(0);
+  ).resolves.toEqual({
+    data: attributionBody,
+    headers: {
+      "cache-control": "private, no-cache",
+      "content-type": "application/json",
+      etag: 'W/"attribution-4"',
+      vary: "Accept-Encoding",
+    },
+    status: 200,
+  });
+});
+
+test("accepts declared empty statuses without parsing a body", async () => {
+  const request = Object.assign(
+    async () => ({
+      data: new Response(null, {
+        headers: {
+          "Cache-Control": "private, no-cache",
+          ETag: 'W/"attribution-4"',
+          Vary: "Accept-Encoding",
+        },
+        status: 304,
+      }),
+      ok: true as const,
+    }),
+    { reportFailure: requestFailure },
+  ) as ResponseRequestFn;
+  const transport = createJsonOperationTransport(request);
+
+  await expect(
+    transport.requestResponse(getDocumentAttributionOperation, {
+      headers: {},
+      params: { documentId },
+    }),
+  ).resolves.toEqual({
+    data: undefined,
+    headers: {
+      "cache-control": "private, no-cache",
+      etag: 'W/"attribution-4"',
+      vary: "Accept-Encoding",
+    },
+    status: 304,
+  });
+});
+
+test("reports malformed declared response headers", async () => {
+  const request = Object.assign(
+    async () => ({
+      data: Response.json(attributionBody, {
+        headers: {
+          "Cache-Control": "private, no-cache",
+          "Content-Type": "application/json",
+          Vary: "Accept-Encoding",
+        },
+      }),
+      ok: true as const,
+    }),
+    { reportFailure: requestFailure },
+  ) as ResponseRequestFn;
+  const transport = createJsonOperationTransport(request);
+
+  await expect(
+    transport.requestResponseResult(getDocumentAttributionOperation, {
+      headers: {},
+      params: { documentId },
+    }),
+  ).resolves.toMatchObject({
+    kind: "shape",
+    message: `Invalid response headers for /documents/${documentId}/attribution`,
+    ok: false,
+    status: 200,
+  });
 });
 
 test("registry coverage makes special response transports explicit", () => {
@@ -239,7 +340,5 @@ test("registry coverage makes special response transports explicit", () => {
   expect(unsupported).toEqual([
     "blobs.bytes.get",
     "blobs.multipartStages.parts.upload",
-    "documents.attribution.get",
-    "documents.attribution.ranges.list",
   ]);
 });
