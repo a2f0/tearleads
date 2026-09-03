@@ -171,6 +171,7 @@ export async function commitCreatedGroupToDirectory(input: {
     execSql: input.execSql,
     externalAuthority: input.externalAdminPolicy.externalAuthority,
     name: input.request.name,
+    organizationId: input.organizationId,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
   const expectedHead = await groupPolicyMutationHead(

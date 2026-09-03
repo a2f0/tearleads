@@ -1,6 +1,26 @@
 import { expect, test } from "bun:test";
 import { runGroupShareScenario } from "./shareGroupScenario.testFixtures";
 
+// A share chosen by name must carry that name; only the grant-preserving
+// re-wrap may omit it. The facade enforces this for every caller.
+test("a group share that could mint a grant must carry the chosen name", async () => {
+  let shareCalls = 0;
+
+  await expect(
+    runGroupShareScenario({
+      currentGroupKeyEpoch: 2,
+      expectedGroupName: null,
+      onShareCall: () => {
+        shareCalls += 1;
+      },
+      pinnedKeyEpoch: 1,
+      remoteAccessStateHash: "remote-access-state-hash-nameless",
+      testLabel: "containerContents-share-group-nameless",
+    }),
+  ).rejects.toThrow("Container group share requires the chosen group name");
+  expect(shareCalls).toBe(0);
+});
+
 // A duplicate share mints nothing, but it must not report success for a group
 // the user did not choose: the chosen name is bound to the signed group policy
 // before the short-circuit. These scenarios give the runtime a writer context,

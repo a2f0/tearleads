@@ -357,6 +357,8 @@ export async function assertRemoteGroupShareName(input: {
   if (!writer) {
     return false;
   }
+  // Retains the verified policies but, unlike the mint path, never advances
+  // the checkpoints: nothing is committed here, and retention is head-neutral.
   await loadVerifiedGroupSharePrincipalPolicy({
     apiClient: writer.apiClient,
     execSql: writer.execSql,

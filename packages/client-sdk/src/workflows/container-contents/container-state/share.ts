@@ -373,6 +373,13 @@ export async function shareContainerStateWithGroup(input: {
   runtime: ContainerWorkflowRuntime;
   stillCurrent?: (() => boolean) | undefined;
 }): Promise<SharedContainerStateResult | null> {
+  // A share chosen by name must carry that name so it can be bound to the
+  // signed group policy. Only the grant-preserving re-wrap, which never mints
+  // a grant, may run without one. Enforced here, in the workflow facade, so
+  // every caller (not only the store) meets the invariant.
+  if (!input.requireExistingGrant && input.expectedGroupName === undefined) {
+    throw new Error("Container group share requires the chosen group name");
+  }
   if (input.stillCurrent?.() === false) return null;
   const shareContext = await loadRemoteContainerShareContext({
     accessLevel: input.accessLevel,

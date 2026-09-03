@@ -5,10 +5,7 @@ import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import type { ContainerState } from "../../workflows/container-contents/remoteHydration";
 import { createContainerContentsTestRuntime } from "./runtime.testFixtures";
-import {
-  shareContainerUsing,
-  shareContainerWithGroup,
-} from "./shareOperations";
+import { shareContainerUsing } from "./shareOperations";
 import {
   createContainerContentsStoreState,
   updateContainerContentsSnapshot,
@@ -214,39 +211,4 @@ test("a committed share from an expired generation schedules reconciliation", as
   expect(state.containerParentIdsNeedingHydration).toEqual(new Set([null]));
   expect(localRefreshes).toBe(1);
   expect(remoteHydrations).toBe(1);
-});
-
-test("a group share chosen by name must carry that name", async () => {
-  const state = createContainerContentsStoreState(
-    createContainerContentsTestRuntime({
-      domainScope: {} as DomainScope,
-      execSql: (async () => []) as ExecSql,
-    }),
-    defaultContainerContentsPersistence,
-  );
-  const calls = { prime: 0, sync: 0 };
-
-  await expect(
-    shareContainerWithGroup(
-      state,
-      createSyncAgent(calls),
-      "shared-container",
-      "group-1",
-      "read",
-      {},
-    ),
-  ).rejects.toThrow("Container group share requires the chosen group name");
-  // Only the grant-preserving re-wrap may omit the name. With no such
-  // container in state it settles as a no-op rather than throwing.
-  await expect(
-    shareContainerWithGroup(
-      state,
-      createSyncAgent(calls),
-      "shared-container",
-      "group-1",
-      "read",
-      { requireExistingGrant: true },
-    ),
-  ).resolves.toBeNull();
-  expect(calls).toEqual({ prime: 0, sync: 0 });
 });

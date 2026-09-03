@@ -307,8 +307,8 @@
       "bytes": 62568
     },
     "packages/client-sdk/src/workflows/organizations/principalPolicy.test.ts": {
-      "lines": 533,
-      "bytes": 19048
+      "lines": 543,
+      "bytes": 19460
     },
     "packages/crypto/src/keying/containerAccess.test.ts": {
       "lines": 748,

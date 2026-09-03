@@ -79,7 +79,7 @@ export function createShareTestRuntime(input: {
   });
 }
 
-export function createGroupShareContainerState(input: {
+function createGroupShareContainerState(input: {
   containerId: string;
   doc: Awaited<
     ReturnType<typeof createInitializedContainerMetadataDocument>
@@ -177,7 +177,9 @@ async function createGroupSharePolicies(input: {
 interface GroupShareScenarioInput {
   currentGroupKeyEpoch: number;
   currentPolicyError?: unknown;
-  expectedGroupName?: string | undefined;
+  // Defaults to the group's signed name for a share that could mint a grant;
+  // `null` omits it, to exercise the facade's guard against a nameless mint.
+  expectedGroupName?: string | null | undefined;
   grantedGroupId?: string;
   onShareCall?: (() => void) | undefined;
   pinnedKeyEpoch: number;
@@ -189,6 +191,15 @@ interface GroupShareScenarioInput {
   // need a writer context (the name binding, the mutation) instead of logging
   // that the context is unavailable.
   writerContext?: boolean | undefined;
+}
+
+function resolveScenarioGroupName(
+  input: GroupShareScenarioInput,
+): string | undefined {
+  if (input.expectedGroupName === null) return undefined;
+  if (input.expectedGroupName !== undefined) return input.expectedGroupName;
+  // A grant-preserving re-wrap carries no name; anything else must.
+  return input.requireExistingGrant ? undefined : "Members";
 }
 
 interface GroupShareScenarioRecorder {
@@ -357,7 +368,7 @@ export async function runGroupShareScenario(
         initialUpdate,
         organizationId: author.organizationId,
       }),
-      expectedGroupName: input.expectedGroupName,
+      expectedGroupName: resolveScenarioGroupName(input),
       knownContainerKeks: input.preparedRewrap
         ? new Map([["captured-root-epoch", new Uint8Array(32)]])
         : undefined,
