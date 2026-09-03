@@ -55,53 +55,21 @@ grants; organization principals are not recovery recipients.
 ## Document Baseline Dominance
 
 [`document-sync/BaselineDominance.tla`](./document-sync/BaselineDominance.tla)
-models the no-data-loss gate for document sync baseline redirection. A baseline
-dominates an update exactly when both conditions hold:
-
-1. the update's content-key epoch is strictly older than the baseline epoch;
-2. the baseline source version vector componentwise covers the update's end
-   version vector.
-
-The one-readable-baseline abstraction maps to production at these seams:
-
-| Model action or predicate | Production implementation |
-| --- | --- |
-| `Dominated` | `isDocumentUpdateDominatedByBaseline` |
-| `Serve` | `listMissingSyncUpdatesForResponse` |
-
-TLC explores the sync serve decision. The checked invariants require that:
-
-- only dominated older updates are omitted from the response;
-- every uncovered update is served;
-- current-or-newer-epoch updates are served;
-- every unserved update is carried by the readable baseline, while raw mode
-  serves the complete retained missing frontier.
-
-The invariants are stated with the same `Dominated`/`Older` operators that
-guard the action, so TLC verifies the redirect decision relative to those
-definitions — not the dominance definition itself. Mutation testing confirms
-this boundary: weakening `VectorCovers` or deleting its conjunct from
-`Dominated` passes TLC unchanged, while removing the serve gate is caught. The
-ground truth for the dominance semantics is the TypeScript parity suite below,
-which `check:fast` runs on every push and pull request via
-`test:protocol-conformance`.
-
-The checked configuration bounds the state space to two peers, counters from
-zero through two, three content-key epochs, and two arbitrary updates. The
-TypeScript bounded-parity test
-`packages/api/src/documents/documentBaselineDominance.test.ts` independently
-constructs real Loro version vectors for the same bounds. It checks 729
-predicate cases, 39,366 normal and raw serve cases, and 4,374 missing-baseline
-cases. It also checks ordering, which the set-based TLA+ model omits. The test
-does not consume TLC traces, so the mapping above must stay synchronized.
-
-This is exhaustive bounded model checking, not an unbounded mathematical proof.
-The model assumes well-formed persisted version vectors, one same-document
-baseline that has passed authenticated replayability checks, and continued
-availability of that current-epoch baseline. Cryptographic authenticity,
-database transactions, SQL ordering, and Loro's own CRDT correctness remain
-outside the abstraction. A future TLAPS or theorem-prover layer could prove the
-parameterized invariant after this model has stabilized.
+models the no-data-loss gate for document sync baseline redirection: a
+normal-mode read may omit an older-epoch update only when a readable
+current-epoch baseline provably dominates it, and raw mode always serves the
+complete retained missing frontier. Because the invariants share the
+`Dominated`/`Older` operators with the serve action, TLC alone cannot check the
+dominance definition itself; the registered
+[`BaselineDominanceTraceExport.tla`](./document-sync/BaselineDominanceTraceExport.tla)
+closes that blind spot by exporting every served behavior into the committed
+fixture
+[`BaselineDominanceTraces.json`](./document-sync/BaselineDominanceTraces.json)
+(`bun run generate:protocol-traces`, drift-checked by
+`bun run check:protocol-traces`), which the TypeScript replay suite drives
+through the real dominance/redirect kernels and an independent
+componentwise-counter oracle on every push. See the
+[production mapping, trace bridge, bounds, and assumptions](./document-sync/BaselineDominance.md).
 
 ## Deferred Document-Tail Settlement
 

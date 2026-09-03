@@ -16,5 +16,6 @@ cd "$(git rev-parse --show-toplevel)"
 
 exec bun test \
   packages/api/src/documents/documentBaselineDominance.test.ts \
+  packages/api/src/documents/documentBaselineDominanceTraceReplay.test.ts \
   packages/api-client/src/operationTransportSurface.test.ts \
   packages/validators/src

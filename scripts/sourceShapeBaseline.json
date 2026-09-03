@@ -86,6 +86,10 @@
       "lines": 553,
       "bytes": 29348
     },
+    "formal/document-sync/BaselineDominanceTraces.json": {
+      "lines": 2059,
+      "bytes": 407654
+    },
     "formal/document-sync/DeferredTailSettlement.tla": {
       "lines": 566,
       "bytes": 23392
