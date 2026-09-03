@@ -15,7 +15,7 @@ test("writer projection client metadata derives from shared operations", () => {
   expect(containerWriterProjection.path("container/1")).toBe(
     "/containers/container%2F1/writer-projection",
   );
-  expect(containerWriterProjection.isResponse).toBeDefined();
+  expect(containerWriterProjection.isResponseFor("container/1")).toBeDefined();
 
   expect(documentWriterProjection).toMatchObject({
     method: getDocumentWriterProjectionOperation.method,
@@ -23,5 +23,5 @@ test("writer projection client metadata derives from shared operations", () => {
   expect(documentWriterProjection.path("document/1")).toBe(
     "/documents/document%2F1/writer-projection",
   );
-  expect(documentWriterProjection.isResponse).toBeDefined();
+  expect(documentWriterProjection.isResponseFor("document/1")).toBeDefined();
 });
