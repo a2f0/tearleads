@@ -50,9 +50,9 @@ import type {
 } from "@tearleads/validators/response";
 import { BoundedCache } from "./ApiCache";
 import {
-  createJsonOperationTransport,
-  type JsonOperationTransport,
-} from "./operationTransport";
+  createOperationTransport,
+  type OperationTransport,
+} from "./operationTransportFactory";
 import {
   bindPrototypeMethods,
   cachedRequest,
@@ -198,7 +198,7 @@ export class ApiClient {
     Promise<PrincipalPolicyBundleResponse | null>
   >();
   private readonly requestFailuresByKey = new Map<string, RequestFailure>();
-  private readonly transport: JsonOperationTransport;
+  private readonly transport: OperationTransport;
   private readonly request: RequestFn;
   private readonly responseRequest: ResponseRequestFn;
   constructor(baseUrl?: string | null) {
@@ -208,7 +208,7 @@ export class ApiClient {
     this.responseRequest = Object.assign(this.makeResponseRequest, {
       reportFailure: this.reportResponseRequestFailure,
     });
-    this.transport = createJsonOperationTransport(this.responseRequest);
+    this.transport = createOperationTransport(this.responseRequest);
     this.documentAttributionRequests = new DocumentAttributionRequests(
       this.transport,
     );
@@ -1788,7 +1788,7 @@ export class ApiClient {
   }
 
   getBlobBytes(blobId: string) {
-    return getBlobBytes(this.responseRequest, blobId);
+    return getBlobBytes(this.transport, blobId);
   }
 
   bindBlobAttachment(blobId: string, input: BlobAttachmentBindRequest) {

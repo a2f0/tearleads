@@ -16,15 +16,11 @@ import type {
   ResponseRequestFn,
 } from "./types";
 
-interface RuntimeOperationRequestInput {
+export interface RuntimeOperationRequestInput {
   readonly body?: unknown;
   readonly headers?: unknown;
-  readonly query?: unknown;
-}
-
-interface RuntimeJsonOperationRequestInput
-  extends RuntimeOperationRequestInput {
   readonly params: unknown;
+  readonly query?: unknown;
 }
 
 type SchemaInputProperty<Operation, Key extends "body" | "headers" | "query"> =
@@ -36,21 +32,24 @@ type SchemaInputProperty<Operation, Key extends "body" | "headers" | "query"> =
       }
     : { readonly [Property in Key]?: never };
 
-export type JsonOperationRequestInput<Operation extends JsonOperation> = {
+export type OperationRequestInput<Operation extends HttpOperation> = {
   readonly params: OperationSchemaInput<Operation["params"]>;
 } & SchemaInputProperty<Operation, "body"> &
   SchemaInputProperty<Operation, "headers"> &
   SchemaInputProperty<Operation, "query">;
+
+export type JsonOperationRequestInput<Operation extends JsonOperation> =
+  OperationRequestInput<Operation>;
 
 export type {
   JsonOperationResponse,
   JsonOperationResponseEnvelope,
 } from "./operationResponse";
 
-interface JsonOperationRequest {
+interface DerivedOperationRequest {
   readonly body?: BodyInit | undefined;
   readonly headers?: Record<string, string> | undefined;
-  readonly method: JsonOperation["method"];
+  readonly method: HttpOperation["method"];
   readonly path: string;
 }
 
@@ -77,12 +76,12 @@ export interface JsonOperationTransport {
   ): Promise<RequestResult<JsonOperationResponseEnvelope<Operation>>>;
 }
 
-function invalidRequest(operation: JsonOperation, component: string): never {
+function invalidRequest(operation: HttpOperation, component: string): never {
   throw new TypeError(`Invalid ${component} for ${operation.id}`);
 }
 
 function requestHeaders(
-  operation: JsonOperation,
+  operation: HttpOperation,
   input: RuntimeOperationRequestInput,
 ): Record<string, string> | undefined {
   const supplied = input.headers;
@@ -112,7 +111,7 @@ function requestHeaders(
 }
 
 function requestBody(
-  operation: JsonOperation,
+  operation: HttpOperation,
   input: RuntimeOperationRequestInput,
 ): string | undefined {
   const supplied = input.body;
@@ -137,14 +136,14 @@ function requestBody(
 export function deriveJsonOperationRequest<Operation extends JsonOperation>(
   operation: Operation,
   input: JsonOperationRequestInput<Operation>,
-): JsonOperationRequest {
-  return deriveRuntimeJsonOperationRequest(operation, input);
+): DerivedOperationRequest {
+  return deriveRuntimeOperationRequest(operation, input);
 }
 
-function deriveRuntimeJsonOperationRequest(
-  operation: JsonOperation,
-  input: RuntimeJsonOperationRequestInput,
-): JsonOperationRequest {
+export function deriveRuntimeOperationRequest(
+  operation: HttpOperation,
+  input: RuntimeOperationRequestInput,
+): DerivedOperationRequest {
   const path = operationRequestPathForInput(
     operation,
     input.params,
@@ -179,7 +178,7 @@ export function supportsJsonOperationTransport(
   );
 }
 
-function mergeRequestHeaders(
+export function mergeOperationRequestHeaders(
   derived: Record<string, string> | undefined,
   overrides: Record<string, string> | undefined,
 ): Record<string, string> {
@@ -206,7 +205,7 @@ export function createJsonOperationTransport(
   ): Promise<RequestResult<JsonOperationResponseEnvelope<Operation>>>;
   async function requestResponseResult(
     operation: JsonOperation,
-    input: RuntimeJsonOperationRequestInput,
+    input: RuntimeOperationRequestInput,
     options: RequestResultOptions = {},
   ): Promise<RequestResult<unknown>> {
     if (!supportsJsonOperationTransport(operation)) {
@@ -214,8 +213,11 @@ export function createJsonOperationTransport(
         `Unsupported JSON transport operation: ${operation.id}`,
       );
     }
-    const derived = deriveRuntimeJsonOperationRequest(operation, input);
-    const headers = mergeRequestHeaders(derived.headers, options.headers);
+    const derived = deriveRuntimeOperationRequest(operation, input);
+    const headers = mergeOperationRequestHeaders(
+      derived.headers,
+      options.headers,
+    );
     const requestOptions =
       Object.keys(headers).length === 0 ? options : { ...options, headers };
     const result = await responseRequest(

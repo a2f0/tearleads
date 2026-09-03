@@ -15293,8 +15293,6 @@
               "content-length": {
                 "required": false,
                 "schema": {
-                  "maxLength": 16,
-                  "pattern": "^[0-9]+$",
                   "type": "string"
                 }
               }
@@ -15429,6 +15427,10 @@
           {
             "description": "Blob byte responses include X-Tearleads-Blob-Byte-Length or Content-Length",
             "id": "blobs.bytes.byteLengthHeader"
+          },
+          {
+            "description": "Content-Length is a safe non-negative integer when X-Tearleads-Blob-Byte-Length is absent",
+            "id": "response.blobs.bytes.fallbackByteLengthHeader"
           },
           {
             "description": "Blob byte length headers decode to JavaScript safe integers",

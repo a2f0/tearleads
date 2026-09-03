@@ -1,11 +1,8 @@
 import {
-  BlobBytesResponseHeadersSchema,
   blobWireHeaderKeys,
-  blobWireHeaderNames,
   getBlobBytesOperation,
-  operationRequestPath,
 } from "@tearleads/validators/operation";
-import type { ResponseRequestFn } from "../../types";
+import type { BinaryResponseOperationTransport } from "../../binaryResponseOperationTransport";
 
 export interface BlobBytesResponse {
   readonly blobId: string;
@@ -21,84 +18,18 @@ export interface UploadMultipartBlobPartBytesRequest {
   readonly uploadId: string;
 }
 
-export const getBlobBytesRoute = {
-  method: getBlobBytesOperation.method,
-  path(blobId: string) {
-    return operationRequestPath(getBlobBytesOperation, { blobId });
-  },
-  responseHeaders: BlobBytesResponseHeadersSchema,
-};
-
-function reportMalformedBlobBytesResponse(
-  request: ResponseRequestFn,
-  input: {
-    readonly message: string;
-    readonly path: string;
-    readonly response: Response;
-  },
-): null {
-  request.reportFailure({
-    kind: "shape",
-    message: input.message,
-    method: getBlobBytesRoute.method,
-    path: input.path,
-    status: input.response.status,
-    statusText: input.response.statusText,
-  });
-
-  return null;
-}
-
-async function loadBlobBytesResponse(
-  request: ResponseRequestFn,
+export async function getBlobBytes(
+  transport: BinaryResponseOperationTransport,
   blobId: string,
 ): Promise<BlobBytesResponse | null> {
-  const path = getBlobBytesRoute.path(blobId);
-  const result = await request(path, getBlobBytesRoute.method);
-  if (!result.ok) {
+  const result = await transport.requestBinaryResponse(getBlobBytesOperation, {
+    params: { blobId },
+  });
+  if (!result) {
     return null;
   }
 
-  const response = result.data;
-  const responseBlobId = response.headers.get(blobWireHeaderNames.blobId);
-  const blobByteLength = response.headers.get(
-    blobWireHeaderNames.blobByteLength,
-  );
-  const contentLength = response.headers.get(blobWireHeaderNames.contentLength);
-  const sha256 = response.headers.get(blobWireHeaderNames.blobSha256);
-  const missingHeaders = [
-    responseBlobId ? null : blobWireHeaderNames.blobId,
-    blobByteLength === null && contentLength === null
-      ? `(${blobWireHeaderNames.blobByteLength} or ${blobWireHeaderNames.contentLength})`
-      : null,
-    sha256 ? null : blobWireHeaderNames.blobSha256,
-  ].filter((header): header is string => header !== null);
-  if (missingHeaders.length > 0) {
-    return reportMalformedBlobBytesResponse(request, {
-      message: `Invalid response shape for ${path}: missing ${missingHeaders.join(", ")}`,
-      path,
-      response,
-    });
-  }
-  const parsedHeaders = getBlobBytesRoute.responseHeaders.safeParse({
-    [blobWireHeaderKeys.blobByteLength]: blobByteLength ?? undefined,
-    [blobWireHeaderKeys.blobId]: responseBlobId,
-    [blobWireHeaderKeys.blobSha256]: sha256,
-    [blobWireHeaderKeys.contentLength]:
-      blobByteLength === null ? (contentLength ?? undefined) : undefined,
-  });
-  if (!parsedHeaders.success) {
-    const invalidHeader =
-      blobByteLength === null
-        ? blobWireHeaderNames.contentLength
-        : blobWireHeaderNames.blobByteLength;
-    return reportMalformedBlobBytesResponse(request, {
-      message: `Invalid response shape for ${path}: invalid ${invalidHeader}`,
-      path,
-      response,
-    });
-  }
-  const headers = parsedHeaders.data;
+  const { headers, response } = result;
   const byteLength = Number(
     headers[blobWireHeaderKeys.blobByteLength] ??
       headers[blobWireHeaderKeys.contentLength],
@@ -143,11 +74,4 @@ function bufferedResponseBodyStream(
       controller.close();
     },
   });
-}
-
-export function getBlobBytes(
-  request: ResponseRequestFn,
-  blobId: string,
-): Promise<BlobBytesResponse | null> {
-  return loadBlobBytesResponse(request, blobId);
 }

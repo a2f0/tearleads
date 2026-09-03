@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
-import { getBlobBytesOperation } from "@tearleads/validators/operation";
+import { createOperationTransport } from "../../operationTransportFactory";
 import type {
   RequestFailure,
   ResponseRequestFn,
   ResponseRequestValidationFailureInput,
 } from "../../types";
-import { getBlobBytes, getBlobBytesRoute } from "./get";
+import { getBlobBytes } from "./get";
 
 const blobId = "11111111-1111-4111-8111-111111111111";
 
@@ -30,6 +30,10 @@ function mockRequest(response: Response): ResponseRequestFn {
   });
 }
 
+function mockTransport(response: Response) {
+  return createOperationTransport(mockRequest(response));
+}
+
 const BLOB_HEADERS = (byteLength: number): Record<string, string> => ({
   "X-Tearleads-Blob-Id": "blob-1",
   "X-Tearleads-Blob-Byte-Length": String(byteLength),
@@ -48,7 +52,7 @@ test("uses the streaming response body when present (web / WKWebView fetch)", as
     { headers: BLOB_HEADERS(bytes.byteLength) },
   );
 
-  const result = await getBlobBytes(mockRequest(streamed), blobId);
+  const result = await getBlobBytes(mockTransport(streamed), blobId);
 
   expect(result?.blobId).toBe("blob-1");
   expect(result?.byteLength).toBe(bytes.byteLength);
@@ -70,7 +74,7 @@ test("reads a buffered response with no body stream (native HTTP bridge / Capaci
     arrayBuffer: async () => bytes.buffer,
   } as unknown as Response;
 
-  const result = await getBlobBytes(mockRequest(buffered), blobId);
+  const result = await getBlobBytes(mockTransport(buffered), blobId);
 
   expect(result).not.toBeNull();
   expect(result?.blobId).toBe("blob-1");
@@ -89,18 +93,13 @@ test("prefers the blob byte length header over an unusable content length", asyn
     },
   });
 
-  const result = await getBlobBytes(mockRequest(response), blobId);
+  const result = await getBlobBytes(mockTransport(response), blobId);
 
   expect(result?.byteLength).toBe(bytes.byteLength);
 });
 
-test("blob byte client metadata derives from the shared operation", () => {
-  expect(getBlobBytesRoute.method).toBe(getBlobBytesOperation.method);
-  expect(getBlobBytesRoute.path(blobId)).toBe(`/blobs/${blobId}/bytes`);
-  expect(getBlobBytesRoute.responseHeaders).toBe(
-    getBlobBytesOperation.responseHeaders[200],
-  );
-  expect(() => getBlobBytesRoute.path("invalid")).toThrow(
-    "Invalid path parameters for blobs.bytes.get",
-  );
+test("rejects invalid blob ids before fetch", async () => {
+  await expect(
+    getBlobBytes(mockTransport(new Response()), "invalid"),
+  ).rejects.toThrow("Invalid path parameters for blobs.bytes.get");
 });
