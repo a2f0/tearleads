@@ -34,11 +34,15 @@ function containerProjectionDescribes(
   containerId: string,
 ): boolean {
   const leaf = projection.path.at(-1);
+  const leafKek = projection.containerKeks.at(-1);
   return (
     projection.containerId === containerId &&
     leaf !== undefined &&
+    leafKek !== undefined &&
     manifestDescribes(leaf, "containerId", containerId) &&
-    projection.containerKeks.at(-1)?.containerId === containerId
+    leafKek.containerId === containerId &&
+    Reflect.get(leafKek.keyEpoch, "containerId") === containerId &&
+    (leafKek.keyring === null || leafKek.keyring.containerId === containerId)
   );
 }
 

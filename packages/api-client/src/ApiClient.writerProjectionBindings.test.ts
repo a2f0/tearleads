@@ -36,7 +36,15 @@ function relabeledContainerProjection(
     containerId: id,
     containerKeks: [
       ...projection.containerKeks.slice(0, -1),
-      { ...leafKek, containerId: id },
+      {
+        ...leafKek,
+        containerId: id,
+        keyEpoch: { ...leafKek.keyEpoch, containerId: id },
+        keyring:
+          leafKek.keyring === null
+            ? null
+            : { ...leafKek.keyring, containerId: id },
+      },
     ],
     path: [
       ...projection.path.slice(0, -1),
@@ -118,10 +126,62 @@ testApiClient(
         ...relabeled,
         containerKeks: [{ ...leafKek, containerId: substituted.containerId }],
       },
+      "leaf KEK keyEpoch containerId": {
+        ...relabeled,
+        containerKeks: [
+          {
+            ...leafKek,
+            keyEpoch: {
+              ...leafKek.keyEpoch,
+              containerId: substituted.containerId,
+            },
+          },
+        ],
+      },
     };
     for (const [binding, served] of Object.entries(variants)) {
       expect(await fetchContainerProjection(served), binding).toBeNull();
     }
+  },
+);
+
+// The keyring is null at epoch 1, so its container binding needs a rotated
+// projection: a structurally valid sealed keyring that names the container.
+testApiClient(
+  "the leaf KEK keyring must name the requested container",
+  async () => {
+    const relabeled = relabeledContainerProjection(
+      createContainerWriterProjectionResponse(),
+      REQUESTED,
+    );
+    const leafKek = relabeled.containerKeks.at(-1);
+    if (!leafKek) {
+      throw new Error("Expected a relabeled projection leaf");
+    }
+    const rotated = (keyringContainerId: string) => ({
+      ...relabeled,
+      containerKeks: [
+        {
+          ...leafKek,
+          containerKeyEpoch: 2,
+          keyring: {
+            containerId: keyringContainerId,
+            containerKeyEpochId: leafKek.containerKeyEpochId,
+            iv: "AAAAAAAAAAAAAAAA",
+            sealed: "AAAAAAAA",
+            sealingSuite:
+              "tearleads.container-kek-keyring.aes-256-gcm-current-kek",
+            version: 1,
+          },
+        },
+      ],
+    });
+
+    const accepted = rotated(REQUESTED);
+    expect(await fetchContainerProjection(accepted)).toEqual(accepted);
+    expect(
+      await fetchContainerProjection(rotated("substituted-container")),
+    ).toBeNull();
   },
 );
 
