@@ -10,6 +10,7 @@ import {
   type JsonOperationResponse,
   type JsonOperationResponseEnvelope,
 } from "./operationResponse";
+import { requireOperationTransportSurface } from "./operationTransportSurface";
 import type {
   OperationResponseRequestFn,
   RequestResult,
@@ -180,17 +181,6 @@ export function deriveRuntimeOperationRequestMetadata(
   };
 }
 
-export function supportsJsonOperationTransport(
-  operation: HttpOperation,
-): boolean {
-  return (
-    (operation.requestMediaType ?? "application/json") === "application/json" &&
-    Object.values(operation.responseMediaTypes ?? {}).every(
-      (mediaType) => mediaType === "application/json",
-    )
-  );
-}
-
 export function mergeOperationRequestHeaders(
   derived: Record<string, string> | undefined,
   overrides: Record<string, string> | undefined,
@@ -221,11 +211,7 @@ export function createJsonOperationTransport(
     input: RuntimeOperationRequestInput,
     options: RequestResultOptions = {},
   ): Promise<RequestResult<unknown>> {
-    if (!supportsJsonOperationTransport(operation)) {
-      throw new TypeError(
-        `Unsupported JSON transport operation: ${operation.id}`,
-      );
-    }
+    requireOperationTransportSurface(operation, "json");
     const derived = deriveRuntimeOperationRequest(operation, input);
     const headers = mergeOperationRequestHeaders(
       derived.headers,

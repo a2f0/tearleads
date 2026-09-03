@@ -11,6 +11,7 @@ import {
   type OperationRequestInput,
   type RuntimeOperationRequestInput,
 } from "./operationTransport";
+import { requireOperationTransportSurface } from "./operationTransportSurface";
 import type {
   OperationResponseRequestFn,
   RequestResult,
@@ -56,21 +57,6 @@ export interface BinaryResponseOperationTransport {
     input: OperationRequestInput<Operation>,
     options?: RequestResultOptions,
   ): Promise<RequestResult<BinaryOperationResponseEnvelope<Operation>>>;
-}
-
-export function supportsBinaryResponseOperationTransport(
-  operation: HttpOperation,
-): boolean {
-  const responseStatuses = Object.keys(operation.responses).map(Number);
-  return (
-    (operation.requestMediaType ?? "application/json") === "application/json" &&
-    (operation.emptyResponseStatuses?.length ?? 0) === 0 &&
-    responseStatuses.length > 0 &&
-    responseStatuses.every(
-      (status) =>
-        operation.responseMediaTypes?.[status] === "application/octet-stream",
-    )
-  );
 }
 
 async function decodeBinaryOperationResponse(
@@ -131,11 +117,7 @@ export function createBinaryResponseOperationTransport(
     input: RuntimeOperationRequestInput,
     options: RequestResultOptions = {},
   ): Promise<RequestResult<RuntimeBinaryOperationResponseEnvelope>> {
-    if (!supportsBinaryResponseOperationTransport(operation)) {
-      throw new TypeError(
-        `Unsupported binary response transport operation: ${operation.id}`,
-      );
-    }
+    requireOperationTransportSurface(operation, "binaryResponse");
     const derived = deriveRuntimeOperationRequest(operation, input);
     const headers = mergeOperationRequestHeaders(
       derived.headers,

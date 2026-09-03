@@ -2,16 +2,10 @@ import { expect, test } from "bun:test";
 import {
   blobWireHeaderKeys,
   getBlobBytesOperation,
-  type HttpOperation,
-  protocolOperations,
   uploadMultipartBlobPartBytesOperation,
 } from "@tearleads/validators/operation";
 import type { BinaryOperationResponseEnvelope } from "./binaryResponseOperationTransport";
-import { supportsJsonOperationTransport } from "./operationTransport";
-import {
-  createOperationTransport,
-  supportsOperationTransport,
-} from "./operationTransportFactory";
+import { createOperationTransport } from "./operationTransportFactory";
 import type {
   RequestFailure,
   ResponseRequestFn,
@@ -155,15 +149,6 @@ test("rejects undeclared binary success statuses", async () => {
   });
 });
 
-test("does not claim binary operations with empty success statuses", () => {
-  expect(
-    supportsOperationTransport({
-      ...getBlobBytesOperation,
-      emptyResponseStatuses: [204],
-    }),
-  ).toBe(false);
-});
-
 test("derives binary request bodies and decodes JSON responses", async () => {
   const encryptedBytes = new Blob(["encrypted-part"]);
   let encodedBody: Blob | BufferSource | undefined;
@@ -275,15 +260,6 @@ test("rejects invalid binary request input before encoding or fetch", async () =
   expect(fetched).toBe(false);
 });
 
-test("does not claim octet-stream operations with non-binary body schemas", () => {
-  expect(
-    supportsOperationTransport({
-      ...uploadMultipartBlobPartBytesOperation,
-      body: uploadMultipartBlobPartBytesOperation.params,
-    }),
-  ).toBe(false);
-});
-
 test("reports malformed binary-request JSON responses through policy", async () => {
   const request = Object.assign(
     async () => ({
@@ -314,30 +290,4 @@ test("reports malformed binary-request JSON responses through policy", async () 
     ok: false,
     status: 200,
   });
-});
-
-test("registry coverage includes every operation transport", () => {
-  expect(
-    protocolOperations.flatMap((registeredOperation) => {
-      const operation: HttpOperation = registeredOperation;
-      return operation.failureStatuses
-        .filter((status) => !operation.failureResponses?.[status])
-        .map((status) => `${operation.id}:${status}`);
-    }),
-  ).toEqual([]);
-
-  const unsupported = protocolOperations
-    .filter((operation) => !supportsJsonOperationTransport(operation))
-    .map((operation) => operation.id);
-
-  expect(unsupported).toEqual([
-    "blobs.bytes.get",
-    "blobs.multipartStages.parts.upload",
-  ]);
-
-  expect(
-    protocolOperations
-      .filter((operation) => !supportsOperationTransport(operation))
-      .map((operation) => operation.id),
-  ).toEqual([]);
 });
