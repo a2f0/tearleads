@@ -90,6 +90,12 @@ async function loadDirectoryGroupBundle(
   return { bundle, localCheckpoint };
 }
 
+/**
+ * A bundle served from local retention was verified when it was retained, and
+ * is verified again here on purpose: the re-check costs local CPU only, and it
+ * keeps the name a group vouches for independent of what any earlier caller
+ * trusted at retention time.
+ */
 async function verifyDirectoryGroup(
   input: DirectoryGroupWalkInput,
   head: DirectoryGroupHead,

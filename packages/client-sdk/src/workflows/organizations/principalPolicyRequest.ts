@@ -87,12 +87,17 @@ export function hasForbiddenGroupNameCharacter(name: string): boolean {
  * created.
  */
 export function canonicalGroupNameKey(name: string): string {
-  return name
-    .normalize("NFKC")
-    .replace(/[\p{Cc}\p{Cf}\p{Default_Ignorable_Code_Point}]/gu, "")
-    .replace(/\s+/gu, " ")
-    .trim()
-    .toLocaleLowerCase("en-US");
+  return (
+    name
+      .normalize("NFKC")
+      .replace(/[\p{Cc}\p{Cf}\p{Default_Ignorable_Code_Point}]/gu, "")
+      .replace(/\s+/gu, " ")
+      .trim()
+      .toLocaleLowerCase("en-US")
+      // Case folding can leave the string un-normalized (U+0130 lowercases to
+      // "i" plus a combining dot), so normalize once more after it.
+      .normalize("NFKC")
+  );
 }
 
 /**

@@ -203,6 +203,19 @@ async function loadGroupSharePolicyBundle(input: {
 }
 
 /**
+ * The chosen group label does not match the name in the group's verified
+ * policy. A KeyingVerificationError (so it is reported as an incident), with
+ * its own class so a caller can tell this refusal from every other
+ * `object_mismatch` and say what happened.
+ */
+export class GroupShareNameMismatchError extends KeyingVerificationError {
+  constructor(message: string) {
+    super("object_mismatch", message);
+    this.name = "GroupShareNameMismatchError";
+  }
+}
+
+/**
  * The share picker labels groups from the organization read model, which a
  * compromised server can relabel, so the name the user chose must equal the
  * name committed in the target's verified policy. Names compare by their
@@ -219,8 +232,7 @@ function assertShareGroupName(input: {
   // an invisible code point, so a label that does is a look-alike that would
   // only match after canonicalization strips it; refuse it outright.
   if (hasForbiddenGroupNameCharacter(input.expectedGroupName)) {
-    throw new KeyingVerificationError(
-      "object_mismatch",
+    throw new GroupShareNameMismatchError(
       "Container share group name contains control or format characters",
     );
   }
@@ -228,8 +240,7 @@ function assertShareGroupName(input: {
     canonicalGroupNameKey(readGroupPolicyPayloadName(input.bundle)) !==
     canonicalGroupNameKey(input.expectedGroupName)
   ) {
-    throw new KeyingVerificationError(
-      "object_mismatch",
+    throw new GroupShareNameMismatchError(
       "Container share group name does not match the signed group policy",
     );
   }

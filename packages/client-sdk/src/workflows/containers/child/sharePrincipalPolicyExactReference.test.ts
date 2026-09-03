@@ -15,7 +15,10 @@ import { savePrincipalPolicyBundle } from "../../../data/persistence/principalPo
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { buildInitialGroupPolicyRequest } from "../../organizations/principalPolicy";
 import { buildInitialOrganizationPolicyRequest } from "../../registration/registerIdentity";
-import { loadVerifiedGroupSharePrincipalPolicy } from "./sharePrincipalPolicy";
+import {
+  GroupShareNameMismatchError,
+  loadVerifiedGroupSharePrincipalPolicy,
+} from "./sharePrincipalPolicy";
 
 async function createDirectoryFixture(
   input: { includeTargetHead?: boolean; successor?: boolean } = {},
@@ -171,6 +174,11 @@ test("a share fails closed when the chosen name is not the signed group name", a
       code: "object_mismatch",
       message: expect.stringContaining("group name"),
     });
+    // Its own class, so a caller can tell this refusal from every other
+    // object_mismatch and say what happened.
+    await expect(load("Executives")).rejects.toBeInstanceOf(
+      GroupShareNameMismatchError,
+    );
     // A relabeled row carrying a bidi override or zero-width joiner would
     // canonicalize onto the signed name; the raw label is refused first.
     await expect(

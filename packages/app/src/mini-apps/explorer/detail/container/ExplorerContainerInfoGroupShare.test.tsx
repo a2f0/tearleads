@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { KeyingVerificationError } from "@tearleads/crypto";
+import { GroupShareNameMismatchError } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import type { FormEvent } from "react";
 import { useExplorerContainerInfoGroupShare } from "./ExplorerContainerInfoState";
@@ -100,8 +100,7 @@ test("useExplorerContainerInfoGroupShare names a signed-name mismatch", async ()
         panelErrors.push(error);
       },
       shareWithGroup: async () => {
-        throw new KeyingVerificationError(
-          "object_mismatch",
+        throw new GroupShareNameMismatchError(
           "Container share group name does not match the signed group policy",
         );
       },

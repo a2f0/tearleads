@@ -1,9 +1,9 @@
-import type {
-  ContainerInfo,
-  ContainerShareAccessLevel,
-  OrganizationDirectoryAndGroups,
+import {
+  type ContainerInfo,
+  type ContainerShareAccessLevel,
+  GroupShareNameMismatchError,
+  type OrganizationDirectoryAndGroups,
 } from "@tearleads/client-sdk";
-import { KeyingVerificationError } from "@tearleads/crypto";
 import { type FormEvent, useCallback, useRef, useState } from "react";
 import { EXPLORER_LABELS } from "../../labels";
 import {
@@ -254,8 +254,7 @@ export function useExplorerContainerInfoGroupShare(
         // The SDK refused to wrap for a group whose signed name is not the
         // label the user chose: say so, rather than a generic failure.
         errorLabelFor: (error) =>
-          error instanceof KeyingVerificationError &&
-          error.code === "object_mismatch"
+          error instanceof GroupShareNameMismatchError
             ? EXPLORER_LABELS.containerInfoShareToGroupNameMismatch
             : null,
         errorLogLabel: EXPLORER_LABELS.containerInfoShareGenericFailureLog,
