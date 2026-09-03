@@ -214,6 +214,15 @@ function assertShareGroupName(input: {
   bundle: PrincipalPolicyBundleResponse;
   expectedGroupName: string;
 }): void {
+  // The label comes from the untrusted read model. Signed names never carry
+  // control or format characters, so a label that does is a look-alike that
+  // would only match after canonicalization strips them; refuse it outright.
+  if (/[\p{Cc}\p{Cf}]/u.test(input.expectedGroupName)) {
+    throw new KeyingVerificationError(
+      "object_mismatch",
+      "Container share group name contains control or format characters",
+    );
+  }
   if (
     canonicalGroupNameKey(readGroupPolicyPayloadName(input.bundle)) !==
     canonicalGroupNameKey(input.expectedGroupName)
