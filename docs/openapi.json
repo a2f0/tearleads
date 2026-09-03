@@ -46864,7 +46864,8 @@
                       "const": "organization_read_model_cursor_invalid"
                     },
                     "error": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     }
                   },
                   "required": [

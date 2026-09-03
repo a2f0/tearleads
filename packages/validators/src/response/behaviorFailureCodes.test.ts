@@ -175,3 +175,12 @@ test("malformed and unknown behavior tags fail schema validation", () => {
     expect(isSessionRefreshRequiredFailure(failure)).toBe(false);
   }
 });
+
+test("organization read-model failures require a diagnostic", () => {
+  expect(
+    OrganizationReadModelFailureResponseSchema.safeParse({
+      code: ORGANIZATION_READ_MODEL_ERROR_CODES.cursorInvalid,
+      error: "",
+    }).success,
+  ).toBe(false);
+});

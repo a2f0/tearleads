@@ -19,7 +19,7 @@ export type OrganizationReadModelErrorCode = z.infer<
  */
 export const OrganizationReadModelFailureResponseSchema = z.looseObject({
   code: OrganizationReadModelErrorCodeSchema.optional(),
-  error: z.string(),
+  error: z.string().min(1),
 });
 
 export type OrganizationReadModelFailureResponse = z.infer<
