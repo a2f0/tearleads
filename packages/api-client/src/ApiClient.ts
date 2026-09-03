@@ -1,5 +1,14 @@
 import { authChallengeSigningBytes, sign } from "@tearleads/crypto";
 import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
+import {
+  challengeOperation,
+  createOrganizationOperation,
+  getHealthOperation,
+  getOrganizationReadModelOperation,
+  registerOperation,
+  verifyOperation,
+  webSocketTicketOperation,
+} from "@tearleads/validators/operation";
 import type {
   BlobAttachmentBindRequest,
   BlobAttachmentDetachRequest,
@@ -41,6 +50,10 @@ import type {
 } from "@tearleads/validators/response";
 import { BoundedCache } from "./ApiCache";
 import {
+  createJsonOperationTransport,
+  type JsonOperationTransport,
+} from "./operationTransport";
+import {
   bindPrototypeMethods,
   cachedRequest,
   dedupedRequest,
@@ -55,16 +68,10 @@ import {
   requestFailureKey,
 } from "./requestInternals";
 import {
-  challenge as authChallenge,
-  verify as authVerify,
-} from "./routes/auth/authenticate";
-import { register as authRegister } from "./routes/auth/register";
-import {
   destroySession as authDestroySession,
   listSessions as authListSessions,
   logout as authLogout,
   userIdentity as authUserIdentity,
-  webSocketTicket as authWebSocketTicket,
 } from "./routes/auth/session";
 import {
   bindBlobAttachment as blobAttachmentBind,
@@ -106,15 +113,12 @@ import {
   documentUnlink,
 } from "./routes/documents/mutations";
 import { documentSync as sync } from "./routes/documents/sync";
-import { getHealth as healthGet } from "./routes/health";
 import { organizationBilling } from "./routes/organizations/billing";
-import { createOrganization as organizationCreate } from "./routes/organizations/create";
 import { createOrganizationGroup as groupCreate } from "./routes/organizations/createGroup";
 import { getOrganizationDataUsage as organizationDataUsage } from "./routes/organizations/dataUsage";
 import { deleteOrganizationGroup as groupDelete } from "./routes/organizations/deleteGroup";
 import { listOrganizationGroupMembers as groupMembers } from "./routes/organizations/groupMembers";
 import { updateOrganizationProfile as profileUpdate } from "./routes/organizations/profile";
-import { getOrganizationReadModel as organizationReadModel } from "./routes/organizations/readModel";
 import { updateOrganizationRosterEntry as rosterUpdate } from "./routes/organizations/roster";
 import { organizationStripeCheckout } from "./routes/organizations/stripeCheckout";
 import {
@@ -194,6 +198,7 @@ export class ApiClient {
     Promise<PrincipalPolicyBundleResponse | null>
   >();
   private readonly requestFailuresByKey = new Map<string, RequestFailure>();
+  private readonly transport: JsonOperationTransport;
   private readonly request: RequestFn;
   private readonly responseRequest: ResponseRequestFn;
 
@@ -204,6 +209,7 @@ export class ApiClient {
     this.responseRequest = Object.assign(this.makeResponseRequest, {
       reportFailure: this.reportResponseRequestFailure,
     });
+    this.transport = createJsonOperationTransport(this.responseRequest);
   }
 
   private clearAuthScopedCaches(): void {
@@ -656,16 +662,14 @@ export class ApiClient {
   }
 
   async requestWebSocketTicket(): Promise<string | null> {
-    const response = await this.request(
-      authWebSocketTicket.path,
-      authWebSocketTicket.isResponse,
-      authWebSocketTicket.method,
-    );
+    const response = await this.transport.request(webSocketTicketOperation, {
+      params: {},
+    });
     return response?.ticket ?? null;
   }
 
   getHealth() {
-    return this.request(healthGet.path, healthGet.isResponse, healthGet.method);
+    return this.transport.request(getHealthOperation, { params: {} });
   }
 
   registerUser(
@@ -685,11 +689,8 @@ export class ApiClient {
     initialOrganizationProfileDocument?: RegistrationRequest["initialOrganizationProfileDocument"],
     initialSystemContainers?: RegistrationRequest["initialSystemContainers"],
   ) {
-    return this.request(
-      authRegister.path,
-      authRegister.isResponse,
-      authRegister.method,
-      JSON.stringify({
+    return this.transport.request(registerOperation, {
+      body: {
         userId,
         organizationId,
         rootContainerId,
@@ -705,25 +706,22 @@ export class ApiClient {
         initialOrganizationMetadataContainer,
         initialOrganizationProfileDocument,
         initialSystemContainers,
-      }),
-    );
+      },
+      params: {},
+    });
   }
 
   createOrganization(request: CreateOrganizationRequest) {
-    return this.request(
-      organizationCreate.path,
-      organizationCreate.isResponse,
-      organizationCreate.method,
-      JSON.stringify(request),
-    );
+    return this.transport.request(createOrganizationOperation, {
+      body: request,
+      params: {},
+    });
   }
 
   async authenticate(fingerprint: string, secretKey: Uint8Array) {
-    const challenge = await this.request(
-      authChallenge.path,
-      authChallenge.isResponse,
-      authChallenge.method,
-      JSON.stringify({ fingerprint }),
+    const challenge = await this.transport.request(
+      challengeOperation,
+      { body: { fingerprint }, params: {} },
       { retryOnSessionExpired: false },
     );
     if (!challenge) return null;
@@ -744,11 +742,12 @@ export class ApiClient {
       authChallengeSigningBytes({ challengeHex, fingerprint }),
       secretKey,
     );
-    const response = await this.request(
-      authVerify.path,
-      authVerify.isResponse,
-      authVerify.method,
-      JSON.stringify({ fingerprint, signature: Array.from(signed) }),
+    const response = await this.transport.request(
+      verifyOperation,
+      {
+        body: { fingerprint, signature: Array.from(signed) },
+        params: {},
+      },
       { retryOnSessionExpired: false },
     );
 
@@ -860,11 +859,12 @@ export class ApiClient {
     cursor?: string,
     options: RequestResultOptions = {},
   ): Promise<RequestResult<OrganizationReadModelResponse>> {
-    return this.makeRequestResult(
-      organizationReadModel.path(organizationId, cursor),
-      organizationReadModel.isResponse,
-      organizationReadModel.method,
-      undefined,
+    return this.transport.requestResult(
+      getOrganizationReadModelOperation,
+      {
+        params: { organizationId },
+        query: { cursor },
+      },
       options,
     );
   }
