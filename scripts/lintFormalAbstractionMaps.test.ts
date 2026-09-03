@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
   collectMappedTokens,
   extractBacktickedTokens,
+  isProductionSourcePath,
   verifyAbstractionMaps,
 } from "./lintFormalAbstractionMaps";
 
@@ -137,4 +138,33 @@ test("unexpected token shapes fail loudly instead of passing unchecked", () => {
     "alpha",
     "Beta.gamma",
   ]);
+});
+
+test("a row without a backticked production seam is prose-only and fails", () => {
+  const problems = verifyAbstractionMaps({
+    ...cleanInput,
+    docs: [doc(["| `Serve` | described only in prose |"])],
+    modulesByPath: new Map([[MODULE_PATH, "Serve == TRUE"]]),
+  });
+  expect(problems).toEqual([
+    `${DOC_PATH}:7: abstraction-map row names no backticked production seam.`,
+  ]);
+});
+
+test("test-support sources do not count as production seams", () => {
+  expect(isProductionSourcePath("packages/api/src/documents/sync.ts")).toBe(
+    true,
+  );
+  expect(isProductionSourcePath("packages/api/src/latestThing.ts")).toBe(true);
+  expect(isProductionSourcePath("packages/api/src/sync.test.ts")).toBe(false);
+  expect(
+    isProductionSourcePath("packages/validators/src/openApiTestFixtures.ts"),
+  ).toBe(false);
+  expect(isProductionSourcePath("packages/api/src/testHelpers.ts")).toBe(false);
+  expect(isProductionSourcePath("packages/test-utils/src/factories.ts")).toBe(
+    false,
+  );
+  expect(isProductionSourcePath("packages/bob-and-alice/src/scenario.ts")).toBe(
+    false,
+  );
 });

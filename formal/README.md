@@ -162,9 +162,9 @@ The abstraction maps to production at these seams:
 | `QueueEdit` / `DeferEdit` | `pendingDeltaSinceBase`, `enqueuePendingUpdate`, `persistDocument`, and `advancePendingBaseVersion` |
 | `CapturePreparation` | `prepareDocumentOutgoingCoverage` using `extendDocumentVersionCoverage` before its first await |
 | `MaterializeCapturedTail` | `prepareDocumentOutgoingCoverage` exporting and durably enqueuing an uncovered captured delta, whether its capture stays live or becomes stale |
-| `AbortStalePreparation` | post-enqueue generation checks returning without marker publication; an enqueue already submitted to persistence may still finish |
+| `AbortStalePreparation` | post-enqueue generation checks in `prepareDocumentOutgoingCoverage` returning without marker publication; an enqueue already submitted to persistence may still finish |
 | `PlanMarkerPersist` / `StartMarkerPersist` / `CompleteLiveMarkerPersist` | freezing `nextBaseVersion` before adapter awaits, the later successful `canStartDurableMutation` check and mutation claim, and post-await non-null persistence result in `prepareDocumentOutgoingCoverage` |
-| `CompleteStaleMarkerPersist` | a claimed marker mutation returning after reset, with a null persistence result suppressing replacement-store publication and effects |
+| `CompleteStaleMarkerPersist` | a claimed marker mutation (`runSerializedSqlMutation`) returning after reset, with a null persistence result suppressing replacement-store publication and effects |
 | `ResetReinitialize` | replacement of any `DocumentStoreSyncGeneration` identity: `currentDoc`, `domainScope`, `execSql`, or `resolveProjectionUserKey` |
 | `BeginSyncResponse` | `captureDocumentStoreSyncGeneration` plus the sync attempt's plan and captured `currentRecord` identity/access/keying context |
 | `ValidateIncomingResponse` | required `SyncRemoteDocumentInput.validateIncomingUpdates`, normally `validateDocumentSyncUpdateImports`, after authenticated decryption and before the caller can persist the response; scratch imports free their WASM-backed documents deterministically |
@@ -172,7 +172,7 @@ The abstraction maps to production at these seams:
 | `Relink` / `StartedDurableOpSerializesRelink` | document-id, container, access, and keying-context writes sharing `chainIdentityWrite`, so none can overtake a durable operation that already started there |
 | `StartResponseDurableOp` | `canStartDurableMutation` rechecking generation and `documentSyncContextMatches` immediately before `runSerializedSqlMutation` claims the persistence or deletion queue |
 | `CompleteLiveResponsePersist` / `CompleteLiveDeletion` | the post-await generation check allowing response publication or `markDocumentStoreRemoved` only into the still-matching generation |
-| `CompleteStaleResponseDurableOp` | a claimed response persist or deletion returning after reset, followed by no additional in-memory publication or effect callback on the replacement store |
+| `CompleteStaleResponseDurableOp` | a claimed response persist or deletion (`runSerializedSqlMutation`) returning after reset, followed by no additional in-memory publication or effect callback on the replacement store |
 | `CancelOrIgnoreResponse` | response cancellation or `finalizeDocumentSync` returning and re-arming without response-derived snapshot, marker, or queue mutation |
 | `CompleteCapturedPass` | `shouldSkipCleanScheduledDocumentSync` after outgoing coverage preparation |
 

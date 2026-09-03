@@ -75,13 +75,13 @@ function rowTokens(
   module: string,
   line: number,
   cells: string,
-): MappedToken[] {
+): { readonly problems: string[]; readonly tokens: MappedToken[] } {
   const parts = cells.split("|").map((cell) => cell.trim());
   const sides = [
     ["model", parts[1] ?? ""],
     ["production", parts[2] ?? ""],
   ] as const;
-  return sides.flatMap(([side, cell]) =>
+  const tokens = sides.flatMap(([side, cell]) =>
     extractBacktickedTokens(cell).map((token) => ({
       doc,
       line,
@@ -90,6 +90,14 @@ function rowTokens(
       token,
     })),
   );
+  // A production cell with no backticked seam is prose-only documentation:
+  // the seam it describes could vanish without any check noticing.
+  const problems = tokens.some((token) => token.side === "production")
+    ? []
+    : [
+        `${doc}:${line}: abstraction-map row names no backticked production seam.`,
+      ];
+  return { problems, tokens };
 }
 
 function tableTokens(
@@ -97,28 +105,37 @@ function tableTokens(
   module: string,
   lines: readonly string[],
   headerIndex: number,
-): { readonly nextIndex: number; readonly tokens: MappedToken[] } {
+): {
+  readonly nextIndex: number;
+  readonly problems: string[];
+  readonly tokens: MappedToken[];
+} {
   const tokens: MappedToken[] = [];
+  const problems: string[] = [];
   let row = headerIndex + 2; // skip the |---|---| separator
   for (; row < lines.length; row += 1) {
     const line = (lines[row] ?? "").trim();
     if (!line.startsWith("|")) {
       break;
     }
-    tokens.push(...rowTokens(doc, module, row + 1, line));
+    const parsed = rowTokens(doc, module, row + 1, line);
+    tokens.push(...parsed.tokens);
+    problems.push(...parsed.problems);
   }
   if (row === headerIndex + 2) {
     throw new Error(`${doc}: abstraction-map table has no rows.`);
   }
-  return { nextIndex: row - 1, tokens };
+  return { nextIndex: row - 1, problems, tokens };
 }
 
 export function collectMappedTokens(docs: readonly FormalSourceFile[]): {
+  readonly problems: string[];
   readonly tablesByDoc: ReadonlyMap<string, number>;
   readonly tokens: MappedToken[];
 } {
   const tablesByDoc = new Map<string, number>();
   const tokens: MappedToken[] = [];
+  const problems: string[] = [];
 
   for (const doc of docs) {
     const lines = doc.content.split("\n");
@@ -130,11 +147,12 @@ export function collectMappedTokens(docs: readonly FormalSourceFile[]): {
       const module = nearestModuleLink(doc, lines, index);
       const table = tableTokens(doc.path, module, lines, index);
       tokens.push(...table.tokens);
+      problems.push(...table.problems);
       index = table.nextIndex;
     }
   }
 
-  return { tablesByDoc, tokens };
+  return { problems, tablesByDoc, tokens };
 }
 
 function hasWordOccurrence(content: string, word: string): boolean {
@@ -158,8 +176,9 @@ export function verifyAbstractionMaps(input: {
   readonly modulesByPath: ReadonlyMap<string, string>;
   readonly productionFiles: readonly FormalSourceFile[];
 }): string[] {
-  const { tablesByDoc, tokens } = collectMappedTokens(input.docs);
-  const problems: string[] = [];
+  const collected = collectMappedTokens(input.docs);
+  const { tablesByDoc, tokens } = collected;
+  const problems: string[] = [...collected.problems];
 
   for (const [doc, expected] of Object.entries(input.expectedTables)) {
     const found = tablesByDoc.get(doc) ?? 0;
@@ -197,6 +216,21 @@ export function verifyAbstractionMaps(input: {
   }
 
   return problems;
+}
+
+/**
+ * Production seams must live in production-reachable source: exclude test
+ * files, test-named modules (fixtures, factories, helpers), and the two
+ * test-support packages, so a seam surviving only in test support still fails.
+ */
+export function isProductionSourcePath(path: string): boolean {
+  return (
+    /\.(ts|tsx)$/.test(path) &&
+    path.includes(`${join("src", "")}`) &&
+    !/(^|[^a-z])test|Test/.test(path.split("/").at(-1) ?? "") &&
+    !path.includes(join("packages", "test-utils", "")) &&
+    !path.includes(join("packages", "bob-and-alice", ""))
+  );
 }
 
 function walkFiles(root: string, matches: (path: string) => boolean): string[] {
@@ -242,13 +276,7 @@ if (import.meta.main) {
     walkFiles(join(root, "formal"), (path) => path.endsWith(".tla")),
   ).map(toRelative);
   const productionFiles = readSourceFiles(
-    walkFiles(
-      join(root, "packages"),
-      (path) =>
-        /\.(ts|tsx)$/.test(path) &&
-        !/\.test\.(ts|tsx)$/.test(path) &&
-        path.includes(`${join("src", "")}`),
-    ),
+    walkFiles(join(root, "packages"), isProductionSourcePath),
   );
 
   const problems = verifyAbstractionMaps({
