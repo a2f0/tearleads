@@ -24,13 +24,13 @@ generation and reject its stale enqueue or save.
 | `ValidatePage` | the definitive `collectVerifiedRawHistoryForRotation` pass after settlement |
 | monotonic `nextPage` advance | response-level cursor-advance validation plus `seenPullCursors` cycle rejection in rotation recovery |
 | `RejectPreliminaryUnavailablePage` / `RejectUnavailablePage` | `DocumentRawHistoryUnavailableError` propagation after integrity-prioritized raw-page validation |
-| `RejectPreliminaryInvalidPage` / `RejectInvalidPage` | incoming update isolation and fail-closed raw response validation |
+| `RejectPreliminaryInvalidPage` / `RejectInvalidPage` | incoming update isolation (`DocumentSyncUpdateIsolationError`) and fail-closed raw response validation |
 | `VerifyExactLocalHistoryBeforeInstall` | `assertExactDocumentHistory` before the identity-chain install |
 | `PublishRecovery` | `installRebuiltDocument` plus the atomic checkpoint replacement in `commitStoredDocumentMutation` |
 | `ChangeGeneration` / `RejectChangedGeneration` | `captureDocumentStoreSyncGeneration` and `assertRotationRecoveryGeneration` checks around each awaited phase |
-| `RejectSupersededInstall` | record and checkpoint compare-and-set guards in document mutation persistence |
+| `RejectSupersededInstall` | record and checkpoint compare-and-set guards in `commitStoredDocumentMutation` persistence |
 | `hasUnverifiedLocalGap` / `RejectUnverifiedLocalGap` | exact `updateMatchesDocumentHistory` compaction coverage plus recovery's exact-history rejection; unmatched and malformed tail rows remain durable evidence |
-| `AppendCheckpointArtifact` | a checkpoint row racing collection; atomic install retires the selected artifact without importing it as history |
+| `AppendCheckpointArtifact` | a checkpoint row racing collection; the atomic install (`installRebuiltDocument`) retires the selected artifact without importing it as history |
 | `BeginBlockedWriter` / `RejectBlockedWriterAfterRecovery` | the durable `recoveryGeneration` captured by enqueue/save preparation and rechecked by settlement and commit paths |
 
 ## Checked Properties and Bounds
