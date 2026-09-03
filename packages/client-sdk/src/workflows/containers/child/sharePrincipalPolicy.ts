@@ -29,6 +29,7 @@ import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
 import {
   canonicalGroupNameKey,
+  hasForbiddenGroupNameCharacter,
   readGroupPolicyPayloadName,
 } from "../../organizations/principalPolicyRequest";
 import {
@@ -215,9 +216,9 @@ function assertShareGroupName(input: {
   expectedGroupName: string;
 }): void {
   // The label comes from the untrusted read model. Signed names never carry
-  // control or format characters, so a label that does is a look-alike that
-  // would only match after canonicalization strips them; refuse it outright.
-  if (/[\p{Cc}\p{Cf}\p{Cs}]/u.test(input.expectedGroupName)) {
+  // an invisible code point, so a label that does is a look-alike that would
+  // only match after canonicalization strips it; refuse it outright.
+  if (hasForbiddenGroupNameCharacter(input.expectedGroupName)) {
     throw new KeyingVerificationError(
       "object_mismatch",
       "Container share group name contains control or format characters",

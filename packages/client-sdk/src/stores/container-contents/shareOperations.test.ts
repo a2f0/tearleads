@@ -1,11 +1,16 @@
 import { expect, test } from "bun:test";
+import { runGroupShareScenario } from "../../../test/helpers/groupShareScenario";
 import { createContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
 import type { DomainScope } from "../../data/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import type { ContainerState } from "../../workflows/container-contents/remoteHydration";
+import { createContainerContentsStoreWorkflowRuntime } from "../../workflows/container-contents/runtime";
 import { createContainerContentsTestRuntime } from "./runtime.testFixtures";
-import { shareContainerUsing } from "./shareOperations";
+import {
+  shareContainerUsing,
+  shareContainerWithGroup,
+} from "./shareOperations";
 import {
   createContainerContentsStoreState,
   updateContainerContentsSnapshot,
@@ -211,4 +216,59 @@ test("a committed share from an expired generation schedules reconciliation", as
   expect(state.containerParentIdsNeedingHydration).toEqual(new Set([null]));
   expect(localRefreshes).toBe(1);
   expect(remoteHydrations).toBe(1);
+});
+
+// The store forwards the chosen name into the signed-name binding, and a
+// mismatch there is recorded as a security incident on the way out: a
+// relabeled directory row is the attack this check exists for.
+test("a group share reports a signed-name mismatch as a security incident", async () => {
+  const incidents: Array<{ code: string; operation: string }> = [];
+  let shareCalls = 0;
+
+  await expect(
+    runGroupShareScenario({
+      currentGroupKeyEpoch: 2,
+      expectedGroupName: "Executives",
+      onShareCall: () => {
+        shareCalls += 1;
+      },
+      pinnedKeyEpoch: 2,
+      remoteAccessStateHash: "remote-access-state-hash-store-mismatch",
+      runShare: async ({ containerState, expectedGroupName, runtimeInput }) => {
+        const state = createContainerContentsStoreState(
+          createContainerContentsStoreWorkflowRuntime(
+            {
+              ...runtimeInput,
+              util: {
+                ...runtimeInput.util,
+                reportSecurityIncident: async (error, context) => {
+                  incidents.push({
+                    code: String(Reflect.get(Object(error), "code")),
+                    operation: context.operation,
+                  });
+                },
+              },
+            },
+            () => false,
+          ),
+          defaultContainerContentsPersistence,
+        );
+        state.containersById.set(containerState.container.id, containerState);
+        updateContainerContentsSnapshot(state);
+        await shareContainerWithGroup(
+          state,
+          createSyncAgent({ prime: 0, sync: 0 }),
+          containerState.container.id,
+          "members-group",
+          "read",
+          { expectedGroupName: expectedGroupName ?? "" },
+        );
+      },
+      testLabel: "containerContents-store-share-group-mismatch",
+    }),
+  ).rejects.toMatchObject({ code: "object_mismatch" });
+  expect(incidents).toEqual([
+    { code: "object_mismatch", operation: "container.share.group" },
+  ]);
+  expect(shareCalls).toBe(0);
 });

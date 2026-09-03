@@ -2,7 +2,6 @@ import {
   buildPrincipalStateSigningInput,
   type EncapsulationKeyPair,
   generateKemSeedAndKeyPair,
-  KeyingVerificationError,
   normalizePrincipalContainerGrants,
   normalizePrincipalProjectionMembers,
   type PrincipalContainerGrant,
@@ -64,25 +63,44 @@ function payloadCiphertextForProjection(
 }
 
 /**
+ * Code points that must never appear in a group name: control and format
+ * characters (bidi overrides, zero-width joiners, newlines), lone surrogates
+ * (re-encoded as U+FFFD when signed, so the signed name would no longer match
+ * the one sent to the server), and every other default-ignorable code point
+ * (Hangul fillers, variation selectors), which render as nothing and would
+ * let one name pass for another. A group name is an identifier here, so this
+ * deliberately refuses ZWJ emoji sequences as well. One predicate serves the
+ * signing-time and the share-time refusal so the two cannot drift.
+ */
+export function hasForbiddenGroupNameCharacter(name: string): boolean {
+  return /[\p{Cc}\p{Cf}\p{Cs}\p{Default_Ignorable_Code_Point}]/u.test(name);
+}
+
+/**
  * The comparison key for a group display name: width- and compatibility-
- * normalized, stripped of control and format characters (zero-width joiners
- * and the like), whitespace-collapsed, and case-folded. Two names that a user
- * cannot tell apart in a picker must compare equal, or a look-alike name would
- * slip past the share-time binding. Cross-script homoglyphs (Latin "A" against
- * Greek "Α") are not folded: that needs the UTS #39 confusables table, and both
+ * normalized, stripped of control, format, and default-ignorable characters,
+ * whitespace-collapsed, and case-folded. Two names that a user cannot tell
+ * apart in a picker must compare equal, or a look-alike name would slip past
+ * the share-time binding. Cross-script homoglyphs (Latin "A" against Greek
+ * "Α") are not folded: that needs the UTS #39 confusables table, and both
  * names would still have to be signed groups the organization's own admins
  * created.
  */
 export function canonicalGroupNameKey(name: string): string {
   return name
     .normalize("NFKC")
-    .replace(/[\p{Cc}\p{Cf}]/gu, "")
+    .replace(/[\p{Cc}\p{Cf}\p{Default_Ignorable_Code_Point}]/gu, "")
     .replace(/\s+/gu, " ")
     .trim()
     .toLocaleLowerCase("en-US");
 }
 
-/** The display name committed in a group policy's signed payload. */
+/**
+ * The display name committed in a group policy's signed payload. A payload
+ * without one is the pre-name flag-day state, not tampering (the payload hash
+ * was verified before this runs), so it is a plain error: group mutations run
+ * under security-incident reporting, and a legacy group is no incident.
+ */
 export function readGroupPolicyPayloadName(
   bundle: PrincipalPolicyBundleResponse,
 ): string {
@@ -92,10 +110,7 @@ export function readGroupPolicyPayloadName(
       new TextDecoder().decode(base64ToBytes(bundle.currentPayload.ciphertext)),
     );
   } catch {
-    throw new KeyingVerificationError(
-      "invalid_shape",
-      "Group policy payload is not canonical JSON",
-    );
+    throw new Error("Group policy payload is not canonical JSON");
   }
   const name =
     parsed !== null && typeof parsed === "object"
@@ -104,8 +119,7 @@ export function readGroupPolicyPayloadName(
   if (typeof name !== "string" || name.trim().length === 0) {
     // Flag-day: groups signed before display names were committed cannot be
     // mutated or shared by name; the organization must be reprovisioned.
-    throw new KeyingVerificationError(
-      "invalid_shape",
+    throw new Error(
       "Group policy payload does not commit a display name; groups signed before this protocol version must be reprovisioned",
     );
   }
@@ -203,14 +217,10 @@ export async function buildInitialGroupPolicyRequest(
     });
   }
   const name = input.name.trim();
-  // A name is compared by canonical key but displayed raw, so control and
-  // format characters (bidi overrides, zero-width joiners, newlines) would let
-  // one signed name render as another. A lone surrogate would be re-encoded
-  // as U+FFFD in the signed payload and no longer match the name sent to the
-  // server. Refuse all of them where the name is signed. This deliberately
-  // refuses U+200D too, so ZWJ emoji sequences cannot name a group: a label
-  // is an identifier here, and no format character may hide in one.
-  if (name.length === 0 || /[\p{Cc}\p{Cf}\p{Cs}]/u.test(name)) {
+  // A name is compared by canonical key but displayed raw, so an invisible
+  // code point would let one signed name render as another. Refuse them
+  // where the name is signed.
+  if (name.length === 0 || hasForbiddenGroupNameCharacter(name)) {
     throw new Error(
       "Group names must be non-empty and contain no control, format, or surrogate characters",
     );

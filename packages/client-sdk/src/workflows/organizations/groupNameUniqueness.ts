@@ -144,27 +144,61 @@ async function verifyDirectoryGroup(
  * loads in parallel and retains every verified bundle, so a later creation
  * finds unchanged groups locally and fetches only those whose head moved.
  */
+const DIRECTORY_WALK_CONCURRENCY = 4;
+
+/** Runs `work` over `items` with at most `limit` in flight, keeping order. */
+async function mapWithConcurrency<T, R>(
+  items: ReadonlyArray<T>,
+  limit: number,
+  work: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = [];
+  let next = 0;
+  const worker = async () => {
+    for (;;) {
+      const index = next++;
+      const item = items[index];
+      if (index >= items.length || item === undefined) return;
+      results[index] = await work(item);
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, worker),
+  );
+  return results;
+}
+
 export async function assertGroupNameUniqueInDirectory(
   input: DirectoryGroupWalkInput & { readonly name: string },
 ): Promise<void> {
   const nameKey = canonicalGroupNameKey(input.name);
-  const groups = await Promise.all(
-    input.descriptor.groupHeads.map((head) =>
-      verifyDirectoryGroup(input, head),
-    ),
-  );
-  // Retention writes go one at a time on the shared connection; they warm the
-  // cache whether or not the name turns out to be taken.
+  // Each verified bundle is retained as soon as it verifies, so a failure
+  // later in the walk (or a taken name) still leaves the cache warm for the
+  // retry. Retention runs in a transaction on the shared connection, so the
+  // writes are chained one after another while the loads stay concurrent.
   const retainedAt = new Date().toISOString();
-  for (const group of groups) {
-    await retainVerifiedPrincipalPolicyBundle({
-      bundle: group.bundle,
-      execSql: input.execSql,
-      organizationId: input.organizationId,
-      policy: group.policy,
-      updatedAt: retainedAt,
-    });
-  }
+  let retention: Promise<void> = Promise.resolve();
+  const verifyAndRetain = async (
+    head: DirectoryGroupHead,
+  ): Promise<VerifiedDirectoryGroup> => {
+    const group = await verifyDirectoryGroup(input, head);
+    retention = retention.then(() =>
+      retainVerifiedPrincipalPolicyBundle({
+        bundle: group.bundle,
+        execSql: input.execSql,
+        organizationId: input.organizationId,
+        policy: group.policy,
+        updatedAt: retainedAt,
+      }),
+    );
+    await retention;
+    return group;
+  };
+  const groups = await mapWithConcurrency(
+    input.descriptor.groupHeads,
+    DIRECTORY_WALK_CONCURRENCY,
+    verifyAndRetain,
+  );
   // A taken name is user input to correct, not evidence of tampering, so this
   // is a plain error: group creation runs under security-incident reporting,
   // which records every KeyingVerificationError.

@@ -150,9 +150,12 @@ names are unique within an organization because conforming clients enforce
 it: group creation verifies every group in the signed directory before
 committing a new name. The server does not index group names uniquely, and a
 compromised server cannot mint a signed group, so the client-side check is the
-only one. This is also a greenfield flag-day. A group signed before names were
-committed fails every policy mutation and every share with a typed
-verification error, and its organization must be reprovisioned.
+only one. Two admins creating the same name at once cannot both succeed: each
+creation commits a successor of the signed organization directory, and the
+API rejects a successor that does not cite the current directory head, so the
+loser reloads the directory and re-runs the check. This is also a greenfield
+flag-day. A group signed before names were committed fails every policy
+mutation and every share, and its organization must be reprovisioned.
 
 The app repeats these checks on fetched policy bundles. A bundle with a
 tampered projection, payload, state hash, chain link, signer, or checkpoint

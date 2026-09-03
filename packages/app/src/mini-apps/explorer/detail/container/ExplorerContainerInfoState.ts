@@ -3,6 +3,7 @@ import type {
   ContainerShareAccessLevel,
   OrganizationDirectoryAndGroups,
 } from "@tearleads/client-sdk";
+import { KeyingVerificationError } from "@tearleads/crypto";
 import { type FormEvent, useCallback, useRef, useState } from "react";
 import { EXPLORER_LABELS } from "../../labels";
 import {
@@ -171,6 +172,9 @@ export function useExplorerContainerInfo(params: ExplorerContainerInfoParams) {
 // panel's container info on success.
 async function runContainerInfoShare(params: {
   errorLabel: string;
+  // A label for a specific thrown error, taking precedence over errorLabel
+  // when it returns one.
+  errorLabelFor?: ((error: unknown) => string | null) | undefined;
   errorLogLabel: string;
   failureLabel: string;
   optimisticGrant: NonNullable<
@@ -183,6 +187,7 @@ async function runContainerInfoShare(params: {
 }): Promise<void> {
   const {
     errorLabel,
+    errorLabelFor,
     errorLogLabel,
     failureLabel,
     optimisticGrant,
@@ -203,7 +208,7 @@ async function runContainerInfoShare(params: {
     await reloadContainerInfo({ optimisticGrant });
   } catch (error) {
     console.error(errorLogLabel, error);
-    setPanelError(errorLabel);
+    setPanelError(errorLabelFor?.(error) ?? errorLabel);
   } finally {
     setIsSubmitting(false);
   }
@@ -246,6 +251,13 @@ export function useExplorerContainerInfoGroupShare(
 
       await runContainerInfoShare({
         errorLabel: EXPLORER_LABELS.containerInfoShareGenericFailure,
+        // The SDK refused to wrap for a group whose signed name is not the
+        // label the user chose: say so, rather than a generic failure.
+        errorLabelFor: (error) =>
+          error instanceof KeyingVerificationError &&
+          error.code === "object_mismatch"
+            ? EXPLORER_LABELS.containerInfoShareToGroupNameMismatch
+            : null,
         errorLogLabel: EXPLORER_LABELS.containerInfoShareGenericFailureLog,
         failureLabel: EXPLORER_LABELS.containerInfoShareToGroupFailure,
         optimisticGrant: {

@@ -1,3 +1,4 @@
+import { runWithSecurityIncidentReporting } from "../../data/keyingProjectionVerification/error";
 import {
   shareContainerState,
   shareContainerStateWithGroup,
@@ -123,18 +124,31 @@ export async function shareContainerWithGroup(
     syncAgent,
     containerId,
     (containerState) =>
-      shareContainerStateWithGroup({
-        accessLevel,
-        containerState,
-        expectedGroupName: options.expectedGroupName,
-        knownContainerKeks: options.knownContainerKeks,
-        persistence: state.persistence,
-        recipientGroupId: groupId,
-        requireExistingGrant: options.requireExistingGrant,
-        resolveProjectionUserKey: state.resolveProjectionUserKey,
-        runtime: state.runtime,
-        stillCurrent: isCurrent,
-      }),
+      // A group share is where a relabeled directory row would misdirect a
+      // key wrap, so its verification failures (the signed-name mismatch
+      // above all) are recorded as security incidents, not just surfaced.
+      runWithSecurityIncidentReporting(
+        state.runtime.util.reportSecurityIncident,
+        {
+          objectId: containerId,
+          objectKind: "container",
+          operation: "container.share.group",
+          organizationId: containerState.container.organizationId,
+        },
+        () =>
+          shareContainerStateWithGroup({
+            accessLevel,
+            containerState,
+            expectedGroupName: options.expectedGroupName,
+            knownContainerKeks: options.knownContainerKeks,
+            persistence: state.persistence,
+            recipientGroupId: groupId,
+            requireExistingGrant: options.requireExistingGrant,
+            resolveProjectionUserKey: state.resolveProjectionUserKey,
+            runtime: state.runtime,
+            stillCurrent: isCurrent,
+          }),
+      ),
     `shared container ${containerId} with group ${groupId}`,
     isCurrent,
   );

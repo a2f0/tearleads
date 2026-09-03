@@ -1,15 +1,10 @@
 import { afterEach, expect, test } from "bun:test";
 import type { ContainerInfo } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
-import type { FormEvent } from "react";
-import {
-  useExplorerContainerInfo,
-  useExplorerContainerInfoGroupShare,
-} from "./ExplorerContainerInfoState";
+import { useExplorerContainerInfo } from "./ExplorerContainerInfoState";
 import {
   type ExplorerContainerInfoGrant,
   getContainerInfoShareableGroups,
-  type ReloadExplorerContainerInfo,
   upsertContainerInfoGrant,
 } from "./explorerContainerInfoStateHelpers";
 
@@ -81,12 +76,6 @@ function createContainerInfo(
     },
     ...overrides,
   };
-}
-
-function createSubmitEvent(): FormEvent<HTMLFormElement> {
-  return {
-    preventDefault: () => undefined,
-  } as FormEvent<HTMLFormElement>;
 }
 
 afterEach(() => {
@@ -367,125 +356,4 @@ test("useExplorerContainerInfo preserves optimistic grants when reload fails", a
     expect(view.result.current.draftShareGroupId).toBe("");
     expect(view.result.current.isLoadingContainerInfo).toBe(false);
   });
-});
-
-test("useExplorerContainerInfoGroupShare requires a draft group", async () => {
-  const panelErrors: Array<string | null> = [];
-  const shareCalls: string[] = [];
-  const view = renderHook(() =>
-    useExplorerContainerInfoGroupShare({
-      canShareContainer: true,
-      containerId: "container-1",
-      draftShareAccessLevel: "write",
-      draftShareGroupId: "",
-      isSubmitting: false,
-      reloadContainerInfo: async () => undefined,
-      setIsSubmitting: () => undefined,
-      setPanelError: (error) => {
-        panelErrors.push(error);
-      },
-      shareWithGroup: async (_containerId, groupId) => {
-        shareCalls.push(groupId);
-        return true;
-      },
-    }),
-  );
-
-  await act(async () => {
-    await view.result.current(createSubmitEvent());
-  });
-
-  expect(panelErrors).toEqual(["Choose a group."]);
-  expect(shareCalls).toEqual([]);
-});
-
-// The chosen label is what the SDK checks against the signed group name; a
-// picker entry that has gone stale must not submit with the id alone.
-test("useExplorerContainerInfoGroupShare requires the chosen group's name", async () => {
-  const panelErrors: Array<string | null> = [];
-  const shareCalls: string[] = [];
-  const view = renderHook(() =>
-    useExplorerContainerInfoGroupShare({
-      canShareContainer: true,
-      containerId: "container-1",
-      draftShareAccessLevel: "write",
-      draftShareGroupId: "group-1",
-      isSubmitting: false,
-      reloadContainerInfo: async () => undefined,
-      setIsSubmitting: () => undefined,
-      setPanelError: (error) => {
-        panelErrors.push(error);
-      },
-      shareWithGroup: async (_containerId, groupId) => {
-        shareCalls.push(groupId);
-        return true;
-      },
-    }),
-  );
-
-  await act(async () => {
-    await view.result.current(createSubmitEvent());
-  });
-
-  // The picker still shows the selection, so the message names the stale
-  // group rather than asking for one as if none were chosen.
-  expect(panelErrors).toEqual([
-    "The chosen group is no longer available. Choose another group.",
-  ]);
-  expect(shareCalls).toEqual([]);
-});
-
-test("useExplorerContainerInfoGroupShare reloads with an optimistic grant", async () => {
-  let reloadOptions: Parameters<ReloadExplorerContainerInfo>[0];
-  const submittingStates: boolean[] = [];
-  const panelErrors: Array<string | null> = [];
-  const shareCalls: Array<{
-    accessLevel: string;
-    containerId: string;
-    groupId: string;
-  }> = [];
-  const view = renderHook(() =>
-    useExplorerContainerInfoGroupShare({
-      canShareContainer: true,
-      containerId: "container-1",
-      draftShareAccessLevel: "admin",
-      draftShareGroupId: "group-1",
-      draftShareGroupName: "Group One",
-      isSubmitting: false,
-      reloadContainerInfo: async (options) => {
-        reloadOptions = options;
-      },
-      setIsSubmitting: (value) => {
-        submittingStates.push(value);
-      },
-      setPanelError: (error) => {
-        panelErrors.push(error);
-      },
-      shareWithGroup: async (containerId, groupId, accessLevel) => {
-        shareCalls.push({ accessLevel, containerId, groupId });
-        return true;
-      },
-    }),
-  );
-
-  await act(async () => {
-    await view.result.current(createSubmitEvent());
-  });
-
-  expect(shareCalls).toEqual([
-    {
-      accessLevel: "admin",
-      containerId: "container-1",
-      groupId: "group-1",
-    },
-  ]);
-  expect(reloadOptions).toEqual({
-    optimisticGrant: {
-      accessLevel: "admin",
-      subjectId: "group-1",
-      subjectType: "group",
-    },
-  });
-  expect(panelErrors).toEqual([null]);
-  expect(submittingStates).toEqual([true, false]);
 });

@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import {
+  generateKemSeedAndKeyPair,
+  KeyingVerificationError,
+} from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createAuthor } from "../../../test/helpers/containerFixtures";
 import { policyBundleFromInitialRequest } from "../../../test/helpers/principalPolicyFixtures";
@@ -16,10 +19,16 @@ test("look-alike group names share one canonical key", () => {
   const zeroWidthSpace = String.fromCodePoint(0x200b);
   const zeroWidthJoiner = String.fromCodePoint(0x200d);
   const fullwidthO = String.fromCodePoint(0xff2f);
+  // Default-ignorable but not Cf: the Hangul filler and a variation selector
+  // survive NFKC and render as nothing.
+  const hangulFiller = String.fromCodePoint(0x3164);
+  const variationSelector = String.fromCodePoint(0xfe0f);
   expect(canonicalGroupNameKey(`Oper${zeroWidthSpace}ators`)).toBe(key);
   expect(canonicalGroupNameKey(`${fullwidthO}perators`)).toBe(key);
   expect(canonicalGroupNameKey("  OPERATORS\t")).toBe(key);
   expect(canonicalGroupNameKey(`Operators${zeroWidthJoiner}`)).toBe(key);
+  expect(canonicalGroupNameKey(`Oper${hangulFiller}ators`)).toBe(key);
+  expect(canonicalGroupNameKey(`Operators${variationSelector}`)).toBe(key);
   expect(canonicalGroupNameKey("Operator")).not.toBe(key);
 });
 
@@ -55,6 +64,8 @@ test("the group name is committed in the signed payload", async () => {
   );
 });
 
+// A missing name is the pre-name flag-day state, not tampering (the payload
+// hash was verified first), so it is a plain error and files no incident.
 test("a payload without a committed name fails closed", async () => {
   const { bundle } = await createGroupBundle("Operators");
   const withoutName = {
@@ -68,6 +79,9 @@ test("a payload without a committed name fails closed", async () => {
   };
   expect(() => readGroupPolicyPayloadName(withoutName)).toThrow(
     "does not commit a display name",
+  );
+  expect(() => readGroupPolicyPayloadName(withoutName)).not.toThrow(
+    KeyingVerificationError,
   );
   expect(() =>
     readGroupPolicyPayloadName({
@@ -88,5 +102,9 @@ test("a group name with control or format characters is refused when signed", as
   await expect(createGroupBundle("Writers\ud83d")).rejects.toThrow(
     "control, format, or surrogate",
   );
+  // Default-ignorable code points outside Cf render as nothing too.
+  await expect(
+    createGroupBundle(`Writ${String.fromCodePoint(0x3164)}ers`),
+  ).rejects.toThrow("control, format, or surrogate");
   await expect(createGroupBundle("   ")).rejects.toThrow("non-empty");
 });

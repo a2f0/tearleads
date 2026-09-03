@@ -32,7 +32,7 @@ import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
 type ShareAuthor = Awaited<ReturnType<typeof createAuthor>>;
 type KemKeyPair = ReturnType<typeof generateKemSeedAndKeyPair>;
 
-export function createShareTestRuntime(input: {
+interface ShareTestRuntimeInput {
   apiClient: ReturnType<typeof createMockApiClient>;
   author: ShareAuthor["author"];
   // Absent by default, so the share flow stops where the writer context is
@@ -45,8 +45,21 @@ export function createShareTestRuntime(input: {
         typeof createContainerContentsWorkflowRuntime
       >["resolveTrustedUserIdentity"]
     | undefined;
-}): ReturnType<typeof createContainerContentsWorkflowRuntime> {
-  return createContainerContentsWorkflowRuntime({
+}
+
+export function createShareTestRuntime(
+  input: ShareTestRuntimeInput,
+): ReturnType<typeof createContainerContentsWorkflowRuntime> {
+  return createContainerContentsWorkflowRuntime(
+    createShareTestRuntimeInput(input),
+  );
+}
+
+/** The raw runtime input, for callers that wrap it in a store runtime. */
+export function createShareTestRuntimeInput(
+  input: ShareTestRuntimeInput,
+): ContainerContentsWorkflowRuntimeInput {
+  return {
     apiClient: input.apiClient,
     auth: {
       isAuthenticated: true,
@@ -76,7 +89,7 @@ export function createShareTestRuntime(input: {
       log: (message) => input.logs.push(message),
       reportSecurityIncident: async () => undefined,
     },
-  });
+  };
 }
 
 function createGroupShareContainerState(input: {
@@ -187,6 +200,16 @@ interface GroupShareScenarioInput {
   remoteAccessStateHash: string;
   requireExistingGrant?: boolean;
   testLabel: string;
+  // Runs the share through a caller-supplied path (for instance the store's
+  // shareWithGroup) instead of the workflow facade directly. The scenario's
+  // `shared` is then null; assert through the hook or the rejection.
+  runShare?:
+    | ((input: {
+        containerState: ContainerState;
+        expectedGroupName: string | undefined;
+        runtimeInput: ContainerContentsWorkflowRuntimeInput;
+      }) => Promise<void>)
+    | undefined;
   // Gives the runtime the author's keys so the share reaches the steps that
   // need a writer context (the name binding, the mutation) instead of logging
   // that the context is unavailable.
@@ -208,7 +231,7 @@ interface GroupShareScenarioRecorder {
   shareCallCount: number;
 }
 
-function createGroupShareScenarioRuntime(input: {
+function createGroupShareScenarioRuntimeInput(input: {
   author: ShareAuthor["author"];
   execSql: Awaited<ReturnType<typeof createTestExecSql>>["execSql"];
   keyPair: KemKeyPair;
@@ -217,10 +240,10 @@ function createGroupShareScenarioRuntime(input: {
   remoteProjection: ReturnType<typeof withDirectGroupGrant>;
   scenario: GroupShareScenarioInput;
   signingPublicKey: ShareAuthor["signingPublicKey"];
-}) {
+}): ContainerContentsWorkflowRuntimeInput {
   const { author, keyPair, policies, recorder, scenario, signingPublicKey } =
     input;
-  return createShareTestRuntime({
+  return createShareTestRuntimeInput({
     apiClient: createMockApiClient({
       getContainerWriterProjection: async () => input.remoteProjection,
       getCurrentPrincipalPolicy: async (principalType, principalId) => {
@@ -343,7 +366,7 @@ export async function runGroupShareScenario(
       logs: [],
       shareCallCount: 0,
     };
-    const runtime = createGroupShareScenarioRuntime({
+    const runtimeInput = createGroupShareScenarioRuntimeInput({
       author,
       execSql,
       keyPair,
@@ -359,25 +382,32 @@ export async function runGroupShareScenario(
         icon: null,
         name: "Docs",
       });
-
-    const shared = await shareContainerStateWithGroup({
-      accessLevel: "read",
-      containerState: createGroupShareContainerState({
-        containerId,
-        doc,
-        initialUpdate,
-        organizationId: author.organizationId,
-      }),
-      expectedGroupName: resolveScenarioGroupName(input),
-      knownContainerKeks: input.preparedRewrap
-        ? new Map([["captured-root-epoch", new Uint8Array(32)]])
-        : undefined,
-      persistence: defaultContainerContentsPersistence,
-      recipientGroupId: groupId,
-      requireExistingGrant: input.requireExistingGrant,
-      resolveProjectionUserKey: async () => null,
-      runtime,
+    const containerState = createGroupShareContainerState({
+      containerId,
+      doc,
+      initialUpdate,
+      organizationId: author.organizationId,
     });
+    const expectedGroupName = resolveScenarioGroupName(input);
+
+    let shared: Awaited<ReturnType<typeof shareContainerStateWithGroup>> = null;
+    if (input.runShare) {
+      await input.runShare({ containerState, expectedGroupName, runtimeInput });
+    } else {
+      shared = await shareContainerStateWithGroup({
+        accessLevel: "read",
+        containerState,
+        expectedGroupName,
+        knownContainerKeks: input.preparedRewrap
+          ? new Map([["captured-root-epoch", new Uint8Array(32)]])
+          : undefined,
+        persistence: defaultContainerContentsPersistence,
+        recipientGroupId: groupId,
+        requireExistingGrant: input.requireExistingGrant,
+        resolveProjectionUserKey: async () => null,
+        runtime: createContainerContentsWorkflowRuntime(runtimeInput),
+      });
+    }
 
     return {
       ...recorder,
