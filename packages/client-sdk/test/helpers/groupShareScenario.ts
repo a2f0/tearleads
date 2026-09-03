@@ -5,29 +5,29 @@ import {
   createMockApiClient,
   createTestExecSql,
 } from "@tearleads/test-utils";
-import { createAuthor } from "../../../../test/helpers/containerFixtures";
-import { createSuccessorGroupPolicyBundle } from "../../../../test/helpers/groupPolicyFixtures";
+import { createMemoryBlobStore } from "../../src/data/blobs/memoryBlobStore";
+import { createInitializedContainerMetadataDocument } from "../../src/data/containers/containerMetadataDocument";
+import { defaultDocumentProjectorRegistry } from "../../src/data/documents/documentKinds";
+import { createDomainScope } from "../../src/data/domainScope";
+import { loadPrincipalPolicyCheckpoint } from "../../src/data/persistence/keyingCheckpointPersistence";
+import { shareContainerStateWithGroup } from "../../src/workflows/container-contents/container-state/share";
+import { withDirectGroupGrant } from "../../src/workflows/container-contents/container-state/share.testFixtures";
+import { defaultContainerContentsPersistence } from "../../src/workflows/container-contents/containerPersistence";
+import type { ContainerState } from "../../src/workflows/container-contents/remoteHydration";
+import {
+  type ContainerContentsWorkflowRuntimeInput,
+  createContainerContentsWorkflowRuntime,
+} from "../../src/workflows/container-contents/runtime";
+import { buildInitialGroupPolicyRequest } from "../../src/workflows/organizations/principalPolicy";
+import { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/registerIdentity";
+import { createAuthor } from "./containerFixtures";
+import { createSuccessorGroupPolicyBundle } from "./groupPolicyFixtures";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleFromInitialRequest,
   principalPolicyHead,
-} from "../../../../test/helpers/principalPolicyFixtures";
-import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
-import { createMemoryBlobStore } from "../../../data/blobs/memoryBlobStore";
-import { createInitializedContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
-import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
-import { createDomainScope } from "../../../data/domainScope";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
-import { buildInitialGroupPolicyRequest } from "../../organizations/principalPolicy";
-import { buildInitialOrganizationPolicyRequest } from "../../registration/registerIdentity";
-import { defaultContainerContentsPersistence } from "../containerPersistence";
-import type { ContainerState } from "../remoteHydration";
-import {
-  type ContainerContentsWorkflowRuntimeInput,
-  createContainerContentsWorkflowRuntime,
-} from "../runtime";
-import { shareContainerStateWithGroup } from "./share";
-import { withDirectGroupGrant } from "./share.testFixtures";
+} from "./principalPolicyFixtures";
+import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
 
 type ShareAuthor = Awaited<ReturnType<typeof createAuthor>>;
 type KemKeyPair = ReturnType<typeof generateKemSeedAndKeyPair>;

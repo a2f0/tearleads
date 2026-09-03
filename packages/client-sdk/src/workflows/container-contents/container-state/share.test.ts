@@ -10,15 +10,15 @@ import {
   createTestExecSql,
 } from "@tearleads/test-utils";
 import { createAuthor } from "../../../../test/helpers/containerFixtures";
+import {
+  createShareTestRuntime,
+  runGroupShareScenario,
+} from "../../../../test/helpers/groupShareScenario";
 import { createInitializedContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
 import { defaultContainerContentsPersistence } from "../containerPersistence";
 import type { ContainerState } from "../remoteHydration";
 import { shareContainerState } from "./share";
 import { withDirectUserGrant } from "./share.testFixtures";
-import {
-  createShareTestRuntime,
-  runGroupShareScenario,
-} from "./shareGroupScenario.testFixtures";
 
 test("shareContainerState treats an existing matching user grant as an idempotent no-op", async () => {
   const { close, execSql } = await createTestExecSql(
