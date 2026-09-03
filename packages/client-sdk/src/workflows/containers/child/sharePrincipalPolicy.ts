@@ -2,6 +2,7 @@ import {
   KeyingVerificationError,
   type ManagedPrincipalKind,
   type PrincipalPolicyCheckpoint,
+  type PrincipalPolicyExternalAuthority,
   type ReferencedPrincipalHead,
   type VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
@@ -18,6 +19,7 @@ import { savePrincipalPolicyBundle } from "../../../data/persistence/principalPo
 import { loadPrincipalPolicyBundleForReference } from "../../../data/persistence/principalPolicyReferencePersistence";
 import { retainVerifiedPrincipalPolicyBundle } from "../../../data/persistence/verifiedPrincipalPolicyRetentionPersistence";
 import {
+  type OrganizationAuthorityDescriptor,
   principalHeadMatchesReference,
   requireOrganizationGroupHead,
 } from "../../../data/principals/organizationAuthorityDescriptor";
@@ -198,6 +200,77 @@ async function loadGroupSharePolicyBundle(input: {
   return bundle;
 }
 
+/**
+ * The share picker labels groups from the organization read model, which a
+ * compromised server can relabel, and the API does not make group names unique
+ * within an organization. So the name the user chose must equal the name
+ * committed in the target's verified policy, and no other group in the signed
+ * organization directory may commit the same name — otherwise a swapped id
+ * between two same-named groups would still pass. Every other group's policy is
+ * loaded and verified against its directory head before its name is trusted.
+ */
+async function assertShareGroupName(input: {
+  apiClient: ContainerManagedPrincipalShareApi;
+  bundle: PrincipalPolicyBundleResponse;
+  descriptor: OrganizationAuthorityDescriptor;
+  execSql: ExecSql;
+  expectedGroupName: string;
+  groupId: string;
+  loadExternalAuthority: () => Promise<PrincipalPolicyExternalAuthority>;
+  resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+}): Promise<void> {
+  if (readGroupPolicyPayloadName(input.bundle) !== input.expectedGroupName) {
+    throw new KeyingVerificationError(
+      "object_mismatch",
+      "Container share group name does not match the signed group policy",
+    );
+  }
+  for (const head of input.descriptor.groupHeads) {
+    if (head.principalId === input.groupId) {
+      continue;
+    }
+    const localCheckpoint = await loadPrincipalPolicyCheckpoint(
+      input.execSql,
+      "group",
+      head.principalId,
+    );
+    const otherBundle = await loadGroupSharePolicyBundle({
+      apiClient: input.apiClient,
+      execSql: input.execSql,
+      expectedGroupHead: head,
+      groupId: head.principalId,
+      localCheckpoint,
+    });
+    const signerPublicKeys = await collectPrincipalPolicySignerPublicKeys({
+      bundle: otherBundle,
+      resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+    });
+    if ("error" in signerPublicKeys) {
+      throw new Error(signerPublicKeyLoadErrorMessage(signerPublicKeys.error));
+    }
+    const verified =
+      await verifyPrincipalPolicyBundleWithExternalOrganizationAdmins({
+        bundle: otherBundle,
+        expectedReference: head,
+        loadExternalAuthority: input.loadExternalAuthority,
+        localCheckpoint,
+        signerPublicKeys: signerPublicKeys.signerPublicKeys,
+      });
+    if (!verified.ok) {
+      throwKeyingVerificationErrorWithContext(
+        verified.error,
+        "Container share directory group verification failed",
+      );
+    }
+    if (readGroupPolicyPayloadName(otherBundle) === input.expectedGroupName) {
+      throw new KeyingVerificationError(
+        "duplicate_entry",
+        "Container share group name is shared by another signed group",
+      );
+    }
+  }
+}
+
 export async function loadVerifiedGroupSharePrincipalPolicy(input: {
   apiClient: ContainerManagedPrincipalShareApi;
   execSql: ExecSql;
@@ -269,14 +342,15 @@ export async function loadVerifiedGroupSharePrincipalPolicy(input: {
       "Container share principal policy verification failed",
     );
   }
-  if (
-    input.expectedGroupName !== undefined &&
-    readGroupPolicyPayloadName(bundle) !== input.expectedGroupName
-  ) {
-    throw new KeyingVerificationError(
-      "object_mismatch",
-      "Container share group name does not match the signed group policy",
-    );
+  if (input.expectedGroupName !== undefined) {
+    await assertShareGroupName({
+      ...input,
+      bundle,
+      descriptor: organizationAdminPolicy.descriptor,
+      expectedGroupName: input.expectedGroupName,
+      loadExternalAuthority: async () =>
+        organizationAdminPolicy.externalAuthority,
+    });
   }
 
   const checkpointPolicies = await retainVerifiedSharePolicies({

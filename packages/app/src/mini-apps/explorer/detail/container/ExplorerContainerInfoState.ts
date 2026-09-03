@@ -232,7 +232,9 @@ export function useExplorerContainerInfoGroupShare(
         return;
       }
 
-      if (!draftShareGroupId) {
+      // Without the label the user chose, the SDK cannot bind the share to the
+      // signed group name, so a stale or missing picker entry never submits.
+      if (!draftShareGroupId || !draftShareGroupName) {
         setPanelError(EXPLORER_LABELS.containerInfoChooseGroupError);
         return;
       }

@@ -399,6 +399,38 @@ test("useExplorerContainerInfoGroupShare requires a draft group", async () => {
   expect(shareCalls).toEqual([]);
 });
 
+// The chosen label is what the SDK checks against the signed group name; a
+// picker entry that has gone stale must not submit with the id alone.
+test("useExplorerContainerInfoGroupShare requires the chosen group's name", async () => {
+  const panelErrors: Array<string | null> = [];
+  const shareCalls: string[] = [];
+  const view = renderHook(() =>
+    useExplorerContainerInfoGroupShare({
+      canShareContainer: true,
+      containerId: "container-1",
+      draftShareAccessLevel: "write",
+      draftShareGroupId: "group-1",
+      isSubmitting: false,
+      reloadContainerInfo: async () => undefined,
+      setIsSubmitting: () => undefined,
+      setPanelError: (error) => {
+        panelErrors.push(error);
+      },
+      shareWithGroup: async (_containerId, groupId) => {
+        shareCalls.push(groupId);
+        return true;
+      },
+    }),
+  );
+
+  await act(async () => {
+    await view.result.current(createSubmitEvent());
+  });
+
+  expect(panelErrors).toEqual(["Choose a group."]);
+  expect(shareCalls).toEqual([]);
+});
+
 test("useExplorerContainerInfoGroupShare reloads with an optimistic grant", async () => {
   let reloadOptions: Parameters<ReloadExplorerContainerInfo>[0];
   const submittingStates: boolean[] = [];
@@ -414,6 +446,7 @@ test("useExplorerContainerInfoGroupShare reloads with an optimistic grant", asyn
       containerId: "container-1",
       draftShareAccessLevel: "admin",
       draftShareGroupId: "group-1",
+      draftShareGroupName: "Group One",
       isSubmitting: false,
       reloadContainerInfo: async (options) => {
         reloadOptions = options;

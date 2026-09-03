@@ -83,9 +83,11 @@ export function readGroupPolicyPayloadName(
       ? Reflect.get(parsed, "name")
       : undefined;
   if (typeof name !== "string" || name.trim().length === 0) {
+    // Flag-day: groups signed before display names were committed cannot be
+    // mutated or shared by name; the organization must be reprovisioned.
     throw new KeyingVerificationError(
       "invalid_shape",
-      "Group policy payload does not commit a display name",
+      "Group policy payload does not commit a display name; groups signed before this protocol version must be reprovisioned",
     );
   }
   return name;
