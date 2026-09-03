@@ -22,6 +22,12 @@ configuration as `model|config`. The checker validates the complete registry
 before starting Java, rejects unregistered configuration files, sorts pairs
 deterministically, and gives each TLC invocation an isolated state directory.
 
+Each model's documentation maps its abstract actions to production seams in a
+`Model action … | Production …` table. `bun run lint:formal-maps` (part of
+`check:fast`) verifies every backticked token in those tables still occurs in a
+TLA+ module or in production package source, so a rename or removal on either
+side fails the check instead of leaving the map prose-only.
+
 To add a model, commit its `.tla` and bounded `.cfg` files and register the pair.
 One module may appear with multiple configurations, but each configuration must
 appear exactly once. Keep registered bounds small enough for `check:fast`;
