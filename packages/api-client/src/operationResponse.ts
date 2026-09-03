@@ -35,8 +35,8 @@ type ResponseBodyForStatus<
     >
   : undefined;
 
-type ResponseHeadersForStatus<
-  Operation extends JsonOperation,
+export type OperationResponseHeadersForStatus<
+  Operation extends HttpOperation,
   Status extends number,
 > = Operation extends {
   readonly responseHeaders: infer Headers extends Readonly<
@@ -51,7 +51,7 @@ type ResponseHeadersForStatus<
 export type JsonOperationResponseEnvelope<Operation extends JsonOperation> = {
   [Status in SuccessStatus<Operation>]: {
     readonly data: ResponseBodyForStatus<Operation, Status>;
-    readonly headers: ResponseHeadersForStatus<Operation, Status>;
+    readonly headers: OperationResponseHeadersForStatus<Operation, Status>;
     readonly status: Status;
   };
 }[SuccessStatus<Operation>];
@@ -64,7 +64,7 @@ export type JsonOperationResponse<Operation extends JsonOperation> = {
 }[SuccessStatus<Operation>];
 
 export function additionalOperationSuccessStatuses(
-  operation: JsonOperation,
+  operation: HttpOperation,
 ): readonly number[] {
   return [
     ...Object.keys(operation.responses).map(Number),
@@ -78,9 +78,9 @@ interface RuntimeJsonOperationResponseEnvelope {
   readonly status: number;
 }
 
-function responseFailure(
+export function operationResponseFailure(
   request: ResponseRequestFn,
-  operation: JsonOperation,
+  operation: HttpOperation,
   response: Response,
   path: string,
   options: RequestResultOptions,
@@ -97,8 +97,8 @@ function responseFailure(
   });
 }
 
-function decodeResponseHeaders(
-  operation: JsonOperation,
+export function decodeOperationResponseHeaders(
+  operation: HttpOperation,
   response: Response,
 ): { readonly data: unknown; readonly ok: true } | { readonly ok: false } {
   const schema = operation.responseHeaders?.[response.status];
@@ -129,7 +129,7 @@ export async function decodeJsonOperationResponse(
   const isEmpty =
     operation.emptyResponseStatuses?.includes(response.status) ?? false;
   if (!schema && !isEmpty) {
-    return responseFailure(
+    return operationResponseFailure(
       request,
       operation,
       response,
@@ -139,9 +139,9 @@ export async function decodeJsonOperationResponse(
     );
   }
 
-  const headers = decodeResponseHeaders(operation, response);
+  const headers = decodeOperationResponseHeaders(operation, response);
   if (!headers.ok) {
-    return responseFailure(
+    return operationResponseFailure(
       request,
       operation,
       response,
@@ -171,7 +171,7 @@ export async function decodeJsonOperationResponse(
 
     const parsed = schema.safeParse(value);
     if (!parsed.success) {
-      return responseFailure(
+      return operationResponseFailure(
         request,
         operation,
         response,

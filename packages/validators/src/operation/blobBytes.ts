@@ -135,7 +135,7 @@ const BlobBytesResponseHeadersViewSchema = z.strictObject({
     nonNegativeIntegerHeaderSchema.optional(),
   [blobWireHeaderKeys.blobId]: nonEmptyStringSchema,
   [blobWireHeaderKeys.blobSha256]: nonEmptyStringSchema,
-  [blobWireHeaderKeys.contentLength]: nonNegativeIntegerHeaderSchema.optional(),
+  [blobWireHeaderKeys.contentLength]: z.string().optional(),
 });
 
 const blobByteLengthHeaderRuntimeRefinement = {
@@ -144,17 +144,32 @@ const blobByteLengthHeaderRuntimeRefinement = {
   id: "blobs.bytes.byteLengthHeader",
 } as const;
 
+const fallbackBlobByteLengthHeaderRuntimeRefinement = {
+  description:
+    "Content-Length is a safe non-negative integer when X-Tearleads-Blob-Byte-Length is absent",
+  id: "response.blobs.bytes.fallbackByteLengthHeader",
+} as const;
+
+const BlobBytesResponseHeadersRuntimeSchema =
+  BlobBytesResponseHeadersViewSchema.refine((headers) => {
+    if (headers[blobWireHeaderKeys.blobByteLength] !== undefined) {
+      return true;
+    }
+    return nonNegativeIntegerHeaderSchema.safeParse(
+      headers[blobWireHeaderKeys.contentLength],
+    ).success;
+  });
+
 export const BlobBytesResponseHeadersSchema =
   registerJsonSchemaRuntimeRefinements(
     registerJsonSchemaView(
-      BlobBytesResponseHeadersViewSchema.refine(
-        (headers) =>
-          headers[blobWireHeaderKeys.blobByteLength] !== undefined ||
-          headers[blobWireHeaderKeys.contentLength] !== undefined,
-      ),
+      BlobBytesResponseHeadersRuntimeSchema,
       BlobBytesResponseHeadersViewSchema,
     ),
-    [blobByteLengthHeaderRuntimeRefinement],
+    [
+      blobByteLengthHeaderRuntimeRefinement,
+      fallbackBlobByteLengthHeaderRuntimeRefinement,
+    ],
   );
 
 export type MultipartBlobPartHeaders = z.infer<
@@ -184,6 +199,7 @@ export const getBlobBytesOperation = defineHttpOperation({
   responses: { 200: binaryBodySchema },
   runtimeRefinements: [
     blobByteLengthHeaderRuntimeRefinement,
+    fallbackBlobByteLengthHeaderRuntimeRefinement,
     safeIntegerHeaderRuntimeRefinement,
   ],
 });

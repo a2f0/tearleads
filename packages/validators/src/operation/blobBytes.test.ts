@@ -1,4 +1,6 @@
 import { expect, test } from "bun:test";
+import type { AnySchema } from "ajv";
+import Ajv2020 from "ajv/dist/2020";
 import {
   ErrorResponseSchema,
   SessionFailureResponseSchema,
@@ -103,8 +105,44 @@ test("blob byte header schemas preserve boundary validation", () => {
   ).toBe(true);
   expect(
     BlobBytesResponseHeadersSchema.safeParse({
+      [blobWireHeaderKeys.blobByteLength]: "12",
       [blobWireHeaderKeys.blobId]: blobId,
       [blobWireHeaderKeys.blobSha256]: sha256,
+      [blobWireHeaderKeys.contentLength]: "unusable",
+    }).success,
+  ).toBe(true);
+  expect(
+    BlobBytesResponseHeadersSchema.safeParse({
+      [blobWireHeaderKeys.blobId]: blobId,
+      [blobWireHeaderKeys.blobSha256]: sha256,
+      [blobWireHeaderKeys.contentLength]: "unusable",
+    }).success,
+  ).toBe(false);
+  expect(
+    BlobBytesResponseHeadersSchema.safeParse({
+      [blobWireHeaderKeys.blobId]: blobId,
+      [blobWireHeaderKeys.blobSha256]: sha256,
+    }).success,
+  ).toBe(false);
+});
+
+test("blob byte fallback validation remains an explicit OpenAPI gap", () => {
+  const get = openApiDocument.paths["/blobs/{blobId}/bytes"]?.get;
+  const contentLength =
+    get?.responses["200"]?.headers?.[blobWireHeaderKeys.contentLength];
+  if (contentLength === undefined || !("schema" in contentLength)) {
+    throw new Error("Blob byte Content-Length OpenAPI header is missing");
+  }
+  const validate = new Ajv2020({ strict: true }).compile(
+    contentLength.schema as AnySchema,
+  );
+
+  expect(validate("unusable")).toBe(true);
+  expect(
+    BlobBytesResponseHeadersSchema.safeParse({
+      [blobWireHeaderKeys.blobId]: blobId,
+      [blobWireHeaderKeys.blobSha256]: sha256,
+      [blobWireHeaderKeys.contentLength]: "unusable",
     }).success,
   ).toBe(false);
 });
