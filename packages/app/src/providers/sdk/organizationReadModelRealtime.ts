@@ -2,6 +2,7 @@ import {
   subscribeOrganizationReadModelInvalidation,
   type Tearleads,
 } from "@tearleads/client-sdk";
+import { serializeWsClientDeclaration } from "@tearleads/validators/realtime";
 import {
   activeDemandOrganizationId,
   activeDemandScope,
@@ -97,7 +98,7 @@ function syncOrganizationInterest(
   }
   const declarationId = String(++state.declarationSequence);
   ws.send(
-    JSON.stringify({
+    serializeWsClientDeclaration({
       type: "known_organizations",
       declarationId,
       organizationIds: organizationId ? [organizationId] : [],

@@ -11,6 +11,7 @@ import type {
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
+import type { PublishedRealtimeEvent } from "../../realtime/publishedRealtimeEvents";
 import { getCurrentPrincipalPolicy } from "../../services/principals/getCurrentPrincipalPolicy";
 import {
   commitOrganizationGroupPolicy,
@@ -23,7 +24,7 @@ import { jsonRequestValidator } from "../../validators/jsonRequest";
 import { pathParamsValidator } from "../../validators/pathParams";
 
 interface PrincipalPolicyRouteDeps {
-  readonly publish: (event: Record<string, unknown>) => Promise<void>;
+  readonly publish: (event: PublishedRealtimeEvent) => Promise<void>;
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
   readonly runtime: ApiServiceRuntime;
 }

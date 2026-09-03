@@ -1,4 +1,5 @@
 import { createClient } from "redis";
+import type { PublishedRealtimeEvent } from "../realtime/publishedRealtimeEvents";
 import {
   clearInMemoryRedisPubSub,
   inMemoryRedisAddListener,
@@ -100,7 +101,7 @@ async function ensureSubscriber(): Promise<RedisClient> {
   return readySubscriber;
 }
 
-export async function publish(event: Record<string, unknown>): Promise<void> {
+export async function publish(event: PublishedRealtimeEvent): Promise<void> {
   if (isInMemoryRedisEnabled()) {
     await inMemoryRedisPublish(event);
     return;

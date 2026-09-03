@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
+import { MAX_WS_CLIENT_MESSAGE_BYTES } from "@tearleads/validators/realtime";
 import type { ServerWebSocket } from "bun";
 import type { SessionData } from "../validators/session";
 import { createRealtimeGateway } from "./realtimeGateway";
 import { createSessionRevocationNotifier } from "./sessionRevocation";
 import type { WebSocketTicketIdentity } from "./wsIdentity";
 import type { AppliedInterest } from "./wsRouting";
-import { MAX_CLIENT_MESSAGE_BYTES } from "./wsRouting";
 
 const ORGANIZATION_ID = "00000000-0000-4000-8000-00000000000a";
 const USER_ID = "10000000-0000-4000-8000-00000000000a";
@@ -117,7 +117,7 @@ function sessionData(userId: string, sessionId: string): SessionData {
 
 test("caps websocket client message payloads at the router limit", () => {
   expect(createRealtimeGateway().websocket.maxPayloadLength).toBe(
-    MAX_CLIENT_MESSAGE_BYTES,
+    MAX_WS_CLIENT_MESSAGE_BYTES,
   );
 });
 

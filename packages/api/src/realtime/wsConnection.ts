@@ -1,4 +1,3 @@
-import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import type { WebSocketTicketIdentity } from "./wsIdentity";
 
 /** The authenticated websocket subset required by the pure routers. */
@@ -14,24 +13,6 @@ export function sessionKey(userId: string, sessionId: string): string {
 
 export function socketSessionKey(ws: WsConnection): string {
   return sessionKey(ws.data.userId, ws.data.sessionId);
-}
-
-/** Read internal author-session routing data defensively. */
-export function readOrigin(
-  event: Record<string, unknown>,
-): WebSocketTicketIdentity | null {
-  const origin = Reflect.get(event, "origin");
-  if (!isPlainObject(origin)) {
-    return null;
-  }
-  const userId = Reflect.get(origin, "userId");
-  const sessionId = Reflect.get(origin, "sessionId");
-  return typeof userId === "string" &&
-    userId.length > 0 &&
-    typeof sessionId === "string" &&
-    sessionId.length > 0
-    ? { sessionId, userId }
-    : null;
 }
 
 export function isSameSession(

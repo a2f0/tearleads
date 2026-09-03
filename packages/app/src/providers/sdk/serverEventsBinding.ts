@@ -1,6 +1,8 @@
 import type { Tearleads } from "@tearleads/client-sdk";
-import { isPlainObject } from "@tearleads/validators/isPlainObject";
-import { hasStringProperty, isUuidV4String } from "@tearleads/validators/util";
+import {
+  parseWsServerMessage,
+  type WsInvalidationHint,
+} from "@tearleads/validators/realtime";
 import { useEffect, useState } from "react";
 import type { SubscribeConnectionRefreshFn } from "../../host/AppHostConfig";
 import {
@@ -15,103 +17,6 @@ import {
 import { startServerEventsConnectionLoop } from "./serverEventsConnectionLoop";
 
 export { startContainerInterestDeclaration } from "./containerInterest";
-
-function isServerEvent(value: unknown): value is {
-  type: string;
-  [key: string]: unknown;
-} {
-  return isPlainObject(value) && hasStringProperty(value, "type");
-}
-
-// The server's reconnect baseline frame: the container ids it already holds for
-// this session. Returns the (possibly empty) set, or null when not that frame.
-function readInterestStateContainerIds(value: unknown): string[] | null {
-  if (!isServerEvent(value) || value.type !== "interest_state") {
-    return null;
-  }
-  const containerIds = Reflect.get(value, "containerIds");
-  if (!Array.isArray(containerIds)) {
-    return [];
-  }
-  return containerIds.filter((id): id is string => typeof id === "string");
-}
-
-function readContainerInterestAcknowledgement(value: unknown): string | null {
-  if (!isServerEvent(value) || value.type !== "known_containers_ack") {
-    return null;
-  }
-  const declarationId = Reflect.get(value, "declarationId");
-  return typeof declarationId === "string" &&
-    declarationId.length > 0 &&
-    declarationId.length <= 128
-    ? declarationId
-    : null;
-}
-
-// The server's "a container's access changed, resync it" signal.
-function readResyncRequiredContainerId(value: unknown): string | null {
-  if (!isServerEvent(value) || value.type !== "resync_required") {
-    return null;
-  }
-  const containerId = Reflect.get(value, "containerId");
-  return typeof containerId === "string" && containerId.length > 0
-    ? containerId
-    : null;
-}
-
-// The server's "a container was just shared with you" signal. It carries no
-// container id (the recipient does not know the container yet, so it is routed
-// by user, not interest); the client reacts by re-listing root containers.
-function isSharedWithYouEvent(value: unknown): boolean {
-  return isServerEvent(value) && value.type === "shared_with_you";
-}
-
-function readOrganizationReadModelControl(
-  value: unknown,
-): { organizationId: string; originatedFromSession: boolean } | null {
-  if (
-    !isServerEvent(value) ||
-    (value.type !== "organization_read_model_changed" &&
-      value.type !== "organization_read_model_access_revoked")
-  ) {
-    return null;
-  }
-  const organizationId = Reflect.get(value, "organizationId");
-  if (typeof organizationId !== "string" || !isUuidV4String(organizationId)) {
-    return null;
-  }
-  if (value.type === "organization_read_model_access_revoked") {
-    return { organizationId, originatedFromSession: false };
-  }
-  const originatedFromSession = Reflect.get(value, "originatedFromSession");
-  return typeof originatedFromSession === "boolean"
-    ? { organizationId, originatedFromSession }
-    : null;
-}
-
-function readOrganizationInterestAcknowledgement(value: unknown): {
-  readonly authorized: boolean;
-  readonly declarationId: string;
-  readonly organizationId: string | null;
-} | null {
-  if (!isServerEvent(value) || value.type !== "known_organizations_ack") {
-    return null;
-  }
-  const authorized = Reflect.get(value, "authorized");
-  const declarationId = Reflect.get(value, "declarationId");
-  const organizationId = Reflect.get(value, "organizationId");
-  if (
-    typeof authorized !== "boolean" ||
-    typeof declarationId !== "string" ||
-    declarationId.length === 0 ||
-    declarationId.length > 128 ||
-    (organizationId !== null &&
-      (typeof organizationId !== "string" || !isUuidV4String(organizationId)))
-  ) {
-    return null;
-  }
-  return { authorized, declarationId, organizationId };
-}
 
 // Force a fresh access check + tree re-list for a container the server flagged.
 // HTTP is the source of access truth: a now-unauthorized container drops out of
@@ -202,6 +107,10 @@ async function resyncRootContainers(tearleads: Tearleads): Promise<void> {
   }
 }
 
+/**
+ * Route one incoming frame through the shared schema-derived server-message
+ * union. Malformed and unknown frames fail closed and are dropped.
+ */
 export function routeIncomingWsMessage(
   rawData: string,
   handlers: {
@@ -218,65 +127,48 @@ export function routeIncomingWsMessage(
     ) => void;
     onResyncRequired: (containerId: string) => void;
     onSharedWithYou: () => void;
-    onServerEvent: (event: { type: string; [key: string]: unknown }) => void;
+    onServerEvent: (event: WsInvalidationHint) => void;
   },
 ): void {
-  let data: unknown;
-  try {
-    data = JSON.parse(rawData);
-  } catch {
+  const message = parseWsServerMessage(rawData);
+  if (!message) {
     return;
   }
 
-  const baseline = readInterestStateContainerIds(data);
-  if (baseline !== null) {
-    handlers.onInterestState(baseline);
-    return;
-  }
-  if (isServerEvent(data) && data.type === "known_containers_ack") {
-    const declarationId = readContainerInterestAcknowledgement(data);
-    if (declarationId !== null) {
-      handlers.onContainerInterestAcknowledged(declarationId);
-    }
-    return;
-  }
-  if (isServerEvent(data) && data.type === "known_organizations_ack") {
-    const organizationAcknowledgement =
-      readOrganizationInterestAcknowledgement(data);
-    if (organizationAcknowledgement) {
+  switch (message.type) {
+    case "interest_state":
+      handlers.onInterestState(message.containerIds);
+      return;
+    case "known_containers_ack":
+      handlers.onContainerInterestAcknowledged(message.declarationId);
+      return;
+    case "known_organizations_ack":
       handlers.onOrganizationInterestAcknowledged(
-        organizationAcknowledgement.declarationId,
-        organizationAcknowledgement.organizationId,
-        organizationAcknowledgement.authorized,
+        message.declarationId,
+        message.organizationId,
+        message.authorized,
       );
-    }
-    return;
-  }
-  const resyncContainerId = readResyncRequiredContainerId(data);
-  if (resyncContainerId !== null) {
-    handlers.onResyncRequired(resyncContainerId);
-    return;
-  }
-  if (isSharedWithYouEvent(data)) {
-    handlers.onSharedWithYou();
-    return;
-  }
-  if (
-    isServerEvent(data) &&
-    (data.type === "organization_read_model_changed" ||
-      data.type === "organization_read_model_access_revoked")
-  ) {
-    const control = readOrganizationReadModelControl(data);
-    if (control) {
+      return;
+    case "resync_required":
+      handlers.onResyncRequired(message.containerId);
+      return;
+    case "organization_read_model_changed":
       handlers.onOrganizationReadModelChanged(
-        control.organizationId,
-        control.originatedFromSession,
+        message.organizationId,
+        message.originatedFromSession,
       );
-    }
-    return;
-  }
-  if (isServerEvent(data)) {
-    handlers.onServerEvent(data);
+      return;
+    case "organization_read_model_access_revoked":
+      handlers.onOrganizationReadModelChanged(message.organizationId, false);
+      return;
+    // The share carries no container id (the recipient does not know the
+    // container yet, so it is routed by user, not interest); the client reacts
+    // by re-listing root containers.
+    case "shared_with_you":
+      handlers.onSharedWithYou();
+      return;
+    default:
+      handlers.onServerEvent(message);
   }
 }
 

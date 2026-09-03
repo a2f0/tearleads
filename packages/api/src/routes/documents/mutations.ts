@@ -30,6 +30,7 @@ import { MAX_DOCUMENT_SYNC_REQUEST_BYTES } from "@tearleads/validators/util";
 import type { Context, MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
+import type { PublishedRealtimeEvent } from "../../realtime/publishedRealtimeEvents";
 import {
   createDocument,
   DocumentMutationError,
@@ -53,7 +54,7 @@ import {
 } from "./mutationEvents";
 
 interface DocumentMutationsRouteDeps {
-  readonly publish: (event: Record<string, unknown>) => Promise<void>;
+  readonly publish: (event: PublishedRealtimeEvent) => Promise<void>;
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
   readonly runtime: ApiServiceRuntime;
 }
@@ -180,7 +181,7 @@ async function respondWithDocumentSync(
   c: DocumentRouteContext,
   input: {
     readonly documentId: string;
-    readonly publish: (event: Record<string, unknown>) => Promise<void>;
+    readonly publish: (event: PublishedRealtimeEvent) => Promise<void>;
     readonly request: DocumentSyncRequest;
     readonly runtime: ApiServiceRuntime;
   },

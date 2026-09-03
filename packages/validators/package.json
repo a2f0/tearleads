@@ -10,6 +10,7 @@
     "./util": "./src/util/index.ts",
     "./event": "./src/event/index.ts",
     "./operation": "./src/operation/index.ts",
+    "./realtime": "./src/realtime/index.ts",
     "./request": "./src/request/index.ts",
     "./response": "./src/response/index.ts"
   },

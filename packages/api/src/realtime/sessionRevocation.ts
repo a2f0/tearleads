@@ -1,14 +1,14 @@
 import { publish } from "../adapters/redisPubSub";
 import type { SessionData } from "../validators/session";
+import type { PublishedRealtimeEvent } from "./publishedRealtimeEvents";
 import { wsInterestStore } from "./wsInterestStore";
 
 const SESSION_REVOKED_EVENT_TYPE = "session_revoked";
 
-interface SessionRevokedEvent extends Record<string, unknown> {
-  readonly type: typeof SESSION_REVOKED_EVENT_TYPE;
-  readonly sessionId: string;
-  readonly userId: string;
-}
+type SessionRevokedEvent = Extract<
+  PublishedRealtimeEvent,
+  { type: typeof SESSION_REVOKED_EVENT_TYPE }
+>;
 
 function sessionRevokedEvent(session: SessionData): SessionRevokedEvent {
   return {

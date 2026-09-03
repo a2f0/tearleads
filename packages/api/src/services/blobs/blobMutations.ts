@@ -2,6 +2,7 @@ import type {
   BlobAttachmentBindResponse,
   BlobAttachmentDetachResponse,
 } from "@tearleads/validators/response";
+import type { PublishedRealtimeEvent } from "../../realtime/publishedRealtimeEvents";
 import { uniqueSortedStrings } from "../../utils/array";
 import { publishBestEffort } from "../../utils/publishBestEffort";
 import { summarizeSha256Stream } from "../../utils/sha256";
@@ -43,7 +44,7 @@ function listBlobKekTargetContainerIds(
 export function createAttachmentBindDocumentEvent(
   response: Pick<BlobAttachmentBindResponse, "blobKekTargets" | "documentId">,
   origin: AttachmentMutationOrigin,
-): Record<string, unknown> {
+): PublishedRealtimeEvent {
   return {
     type: "document_update_created",
     containerIds: listBlobKekTargetContainerIds(response.blobKekTargets),
@@ -61,7 +62,7 @@ export function createAttachmentDetachDocumentEvent(input: {
   readonly containerIds: readonly string[];
   readonly origin: AttachmentMutationOrigin;
   readonly response: Pick<BlobAttachmentDetachResponse, "documentId">;
-}): Record<string, unknown> {
+}): PublishedRealtimeEvent {
   return {
     type: "document_update_created",
     containerIds: uniqueSortedStrings(input.containerIds),
@@ -71,7 +72,7 @@ export function createAttachmentDetachDocumentEvent(input: {
 }
 
 export async function publishAttachmentDocumentEvent(input: {
-  readonly event: Record<string, unknown>;
+  readonly event: PublishedRealtimeEvent;
   readonly publish: ApiServiceRuntime["eventPublisher"]["publish"];
 }): Promise<void> {
   await publishBestEffort(

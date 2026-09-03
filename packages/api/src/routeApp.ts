@@ -8,6 +8,7 @@ import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { type ApiCorsOrigins, readApiCorsOrigins } from "./corsOrigins";
 import type { SessionEnv } from "./middleware/session";
+import type { PublishedRealtimeEvent } from "./realtime/publishedRealtimeEvents";
 import {
   productionRouteAppOverrides,
   type RouteAppOverrides,
@@ -68,7 +69,7 @@ function createApiCorsMiddleware(origins: ApiCorsOrigins) {
 }
 
 function createReadModelHintMiddleware(
-  publish: (event: Record<string, unknown>) => Promise<void>,
+  publish: (event: PublishedRealtimeEvent) => Promise<void>,
   runtime: ApiServiceRuntime,
 ): MiddlewareHandler<SessionEnv> {
   return async (c, next) => {
