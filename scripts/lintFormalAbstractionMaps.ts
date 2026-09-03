@@ -159,6 +159,40 @@ function hasWordOccurrence(content: string, word: string): boolean {
   return new RegExp(`\\b${word}\\b`).test(content);
 }
 
+/**
+ * A model token must survive comment stripping and appear as an actual
+ * declaration: an operator definition (`Name ==` / `Name(args) ==`) or a name
+ * inside a VARIABLES/CONSTANTS list. An operator renamed away cannot pass on a
+ * stale mention in commentary.
+ */
+export function moduleDeclaresToken(
+  moduleSource: string,
+  token: string,
+): boolean {
+  let stripped = moduleSource.replace(/\\\*[^\n]*/g, "");
+  // TLA+ block comments nest; strip innermost-first until none remain.
+  for (
+    let previous = "";
+    previous !== stripped;
+    stripped = stripped.replace(/\(\*(?:(?!\(\*)[\s\S])*?\*\)/g, "")
+  ) {
+    previous = stripped;
+  }
+
+  const definitionPattern = new RegExp(
+    `(?:^|\\n)[ \\t]*${token}[ \\t]*(?:\\([^)]*\\))?[ \\t]*==`,
+  );
+  if (definitionPattern.test(stripped)) {
+    return true;
+  }
+  const declarationBlocks = stripped.match(
+    /\b(?:VARIABLES?|CONSTANTS?)\b[\s\S]*?(?=\n[ \t]*\n|====)/g,
+  );
+  return (declarationBlocks ?? []).some((block) =>
+    hasWordOccurrence(block, token),
+  );
+}
+
 /** All segments of a dotted seam must occur together in one file. */
 function productionSeamExists(
   productionFiles: readonly FormalSourceFile[],
@@ -203,9 +237,9 @@ export function verifyAbstractionMaps(input: {
         problems.push(
           `${entry.doc}:${entry.line}: documented module ${entry.module} does not exist.`,
         );
-      } else if (!hasWordOccurrence(module, entry.token)) {
+      } else if (!moduleDeclaresToken(module, entry.token)) {
         problems.push(
-          `${entry.doc}:${entry.line}: \`${entry.token}\` not found in ${entry.module}`,
+          `${entry.doc}:${entry.line}: \`${entry.token}\` is not declared in ${entry.module}`,
         );
       }
     } else if (!productionSeamExists(input.productionFiles, entry.token)) {
@@ -220,14 +254,21 @@ export function verifyAbstractionMaps(input: {
 
 /**
  * Production seams must live in production-reachable source: exclude test
- * files, test-named modules (fixtures, factories, helpers), and the two
- * test-support packages, so a seam surviving only in test support still fails.
+ * files, test-named modules (fixtures, factories, helpers), test directories,
+ * and the two test-support packages, so a seam surviving only in test support
+ * still fails. The production check verifies the named seams exist there —
+ * existence, not call-site binding; the module-bound model side plus these
+ * exclusions keep a rename or removal from passing on leftovers.
  */
 export function isProductionSourcePath(path: string): boolean {
+  const segments = path.split(/[\\/]/);
   return (
     /\.(ts|tsx)$/.test(path) &&
-    path.includes(`${join("src", "")}`) &&
-    !/(^|[^a-z])test|Test/.test(path.split("/").at(-1) ?? "") &&
+    segments.includes("src") &&
+    !/(^|[^a-z])test|Test/.test(segments.at(-1) ?? "") &&
+    !segments.some((segment) =>
+      ["__tests__", "fixtures", "test", "tests"].includes(segment),
+    ) &&
     !path.includes(join("packages", "test-utils", "")) &&
     !path.includes(join("packages", "bob-and-alice", ""))
   );

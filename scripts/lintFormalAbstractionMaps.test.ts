@@ -3,6 +3,7 @@ import {
   collectMappedTokens,
   extractBacktickedTokens,
   isProductionSourcePath,
+  moduleDeclaresToken,
   verifyAbstractionMaps,
 } from "./lintFormalAbstractionMaps";
 
@@ -54,7 +55,7 @@ test("model tokens are bound to the nearest documented module", () => {
     ]),
   });
   expect(problems).toEqual([
-    `${DOC_PATH}:7: \`Serve\` not found in ${MODULE_PATH}`,
+    `${DOC_PATH}:7: \`Serve\` is not declared in ${MODULE_PATH}`,
   ]);
 });
 
@@ -161,10 +162,47 @@ test("test-support sources do not count as production seams", () => {
     isProductionSourcePath("packages/validators/src/openApiTestFixtures.ts"),
   ).toBe(false);
   expect(isProductionSourcePath("packages/api/src/testHelpers.ts")).toBe(false);
+  expect(
+    isProductionSourcePath(
+      "packages/app/src/providers/sdk/test/organizationReadModelRealtimeHarness.ts",
+    ),
+  ).toBe(false);
   expect(isProductionSourcePath("packages/test-utils/src/factories.ts")).toBe(
     false,
   );
   expect(isProductionSourcePath("packages/bob-and-alice/src/scenario.ts")).toBe(
     false,
   );
+});
+
+test("model tokens must be declarations, not comment mentions", () => {
+  expect(moduleDeclaresToken("Serve == TRUE", "Serve")).toBe(true);
+  expect(moduleDeclaresToken("Older(id) ==\n  TRUE", "Older")).toBe(true);
+  expect(
+    moduleDeclaresToken(
+      "VARIABLES phase,\n          nextPage\n\nInit == TRUE",
+      "nextPage",
+    ),
+  ).toBe(true);
+  expect(
+    moduleDeclaresToken(
+      "CONSTANTS Peers, MaxCounter\n\nInit == TRUE",
+      "MaxCounter",
+    ),
+  ).toBe(true);
+  // The old name survives only in commentary after a rename.
+  expect(
+    moduleDeclaresToken(
+      "\\* Restart used to live here\nReboot == TRUE",
+      "Restart",
+    ),
+  ).toBe(false);
+  expect(
+    moduleDeclaresToken(
+      "(* Restart is documented (* nested *) here *)\nReboot == TRUE",
+      "Restart",
+    ),
+  ).toBe(false);
+  // A bare use inside another definition is not a declaration.
+  expect(moduleDeclaresToken("Init == Restart", "Restart")).toBe(false);
 });
