@@ -47,10 +47,11 @@ async function createDirectoryFixture(
   const adminPolicy = await policyBundleFromInitialRequest(initialAdmin);
   const memberPolicy = await policyBundleFromInitialRequest(initialMember);
   const predecessor = await policyBundleFromInitialRequest(initialTarget);
-  // A second signed group carrying the target's name, when requested.
+  // A second signed group carrying a look-alike of the target's name (a
+  // zero-width space inside it), when requested.
   const duplicatePolicy = input.duplicateName
     ? await policyBundleFromInitialRequest(
-        await buildGroup("group-2", "Operators"),
+        await buildGroup("group-2", `Oper${String.fromCodePoint(0x200b)}ators`),
       )
     : null;
   const targetPolicy = input.successor

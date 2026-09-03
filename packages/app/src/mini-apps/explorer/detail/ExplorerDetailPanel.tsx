@@ -202,7 +202,7 @@ interface ExplorerDetailPanelProps {
     containerId: string,
     groupId: string,
     accessLevel: ContainerShareAccessLevel,
-    options?: { expectedGroupName?: string | undefined } | undefined,
+    options: { expectedGroupName: string },
   ) => Promise<boolean>;
   shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
   unlinkDocument: (

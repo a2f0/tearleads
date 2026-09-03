@@ -5,8 +5,23 @@ import { createAuthor } from "../../../test/helpers/containerFixtures";
 import { policyBundleFromInitialRequest } from "../../../test/helpers/principalPolicyFixtures";
 import {
   buildInitialGroupPolicyRequest,
+  canonicalGroupNameKey,
   readGroupPolicyPayloadName,
 } from "./principalPolicyRequest";
+
+test("look-alike group names share one canonical key", () => {
+  const key = canonicalGroupNameKey("Operators");
+  // Zero-width space, fullwidth O, surrounding whitespace and case, and a
+  // trailing zero-width joiner all collapse onto the plain name.
+  const zeroWidthSpace = String.fromCodePoint(0x200b);
+  const zeroWidthJoiner = String.fromCodePoint(0x200d);
+  const fullwidthO = String.fromCodePoint(0xff2f);
+  expect(canonicalGroupNameKey(`Oper${zeroWidthSpace}ators`)).toBe(key);
+  expect(canonicalGroupNameKey(`${fullwidthO}perators`)).toBe(key);
+  expect(canonicalGroupNameKey("  OPERATORS\t")).toBe(key);
+  expect(canonicalGroupNameKey(`Operators${zeroWidthJoiner}`)).toBe(key);
+  expect(canonicalGroupNameKey("Operator")).not.toBe(key);
+});
 
 // The group display name is committed in the signed payload, not only in the
 // server's mutable `groups.name` column, so a share can check the name the

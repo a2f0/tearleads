@@ -37,7 +37,7 @@ interface ExplorerContainerInfoGroupShareParams
     containerId: string,
     groupId: string,
     accessLevel: ContainerShareAccessLevel,
-    options?: { expectedGroupName?: string | undefined } | undefined,
+    options: { expectedGroupName: string },
   ) => Promise<boolean>;
 }
 

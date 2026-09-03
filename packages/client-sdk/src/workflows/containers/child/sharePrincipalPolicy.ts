@@ -29,7 +29,10 @@ import {
 } from "../../../data/principals/principalPolicyAdminSigners";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
-import { readGroupPolicyPayloadName } from "../../organizations/principalPolicyRequest";
+import {
+  canonicalGroupNameKey,
+  readGroupPolicyPayloadName,
+} from "../../organizations/principalPolicyRequest";
 import {
   externalAdminPolicyPersistenceEntries,
   loadOrganizationExternalAdminPolicy,
@@ -206,8 +209,15 @@ async function loadGroupSharePolicyBundle(input: {
  * within an organization. So the name the user chose must equal the name
  * committed in the target's verified policy, and no other group in the signed
  * organization directory may commit the same name — otherwise a swapped id
- * between two same-named groups would still pass. Every other group's policy is
- * loaded and verified against its directory head before its name is trusted.
+ * between two same-named groups would still pass. Names compare by their
+ * canonical key so look-alike spellings count as the same name.
+ *
+ * Every other group's policy is loaded and verified against its directory
+ * head before its name is trusted. That is one policy per group in the
+ * organization, but verified bundles are retained locally and reused while
+ * their directory head is unchanged, so after the first share only groups
+ * whose head moved cost a fetch. A withheld or unverifiable group policy fails
+ * the share closed, which is the protocol's stated availability boundary.
  */
 async function assertShareGroupName(input: {
   apiClient: ContainerManagedPrincipalShareApi;
@@ -219,7 +229,11 @@ async function assertShareGroupName(input: {
   loadExternalAuthority: () => Promise<PrincipalPolicyExternalAuthority>;
   resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }): Promise<void> {
-  if (readGroupPolicyPayloadName(input.bundle) !== input.expectedGroupName) {
+  const expectedKey = canonicalGroupNameKey(input.expectedGroupName);
+  if (
+    canonicalGroupNameKey(readGroupPolicyPayloadName(input.bundle)) !==
+    expectedKey
+  ) {
     throw new KeyingVerificationError(
       "object_mismatch",
       "Container share group name does not match the signed group policy",
@@ -262,7 +276,10 @@ async function assertShareGroupName(input: {
         "Container share directory group verification failed",
       );
     }
-    if (readGroupPolicyPayloadName(otherBundle) === input.expectedGroupName) {
+    if (
+      canonicalGroupNameKey(readGroupPolicyPayloadName(otherBundle)) ===
+      expectedKey
+    ) {
       throw new KeyingVerificationError(
         "duplicate_entry",
         "Container share group name is shared by another signed group",

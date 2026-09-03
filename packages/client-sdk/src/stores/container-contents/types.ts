@@ -136,16 +136,14 @@ export interface ContainerContentsStore {
     containerId: string,
     groupId: string,
     accessLevel: ContainerContentsShareAccessLevel,
-    options?:
-      | {
-          /**
-           * The display name the group was chosen by; the share fails closed
-           * if the verified group policy commits a different name.
-           */
-          expectedGroupName?: string | undefined;
-          requireExistingGrant?: boolean;
-        }
-      | undefined,
+    options: {
+      /**
+       * The display name the group was chosen by. Required: the share fails
+       * closed if the verified group policy commits a different name, or if
+       * another signed group in the organization commits the same one.
+       */
+      expectedGroupName: string;
+    },
   ) => Promise<boolean>;
   shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
   getCachedContainerWriterProjection: (

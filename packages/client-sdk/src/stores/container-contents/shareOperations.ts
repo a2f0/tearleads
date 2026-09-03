@@ -118,6 +118,15 @@ export async function shareContainerWithGroup(
   } = {},
   isCurrent: ContainerWriteGuard = () => true,
 ) {
+  // A share chosen by name must carry that name so the SDK can bind it to the
+  // signed group policy. Only the grant-preserving re-wrap, which never mints
+  // a grant, may run without one.
+  if (
+    !options.requireExistingGrant &&
+    options.expectedGroupName === undefined
+  ) {
+    throw new Error("Container group share requires the chosen group name");
+  }
   return shareContainerUsing(
     state,
     syncAgent,

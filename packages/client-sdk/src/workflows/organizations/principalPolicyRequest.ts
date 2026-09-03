@@ -63,6 +63,22 @@ function payloadCiphertextForProjection(
   );
 }
 
+/**
+ * The comparison key for a group display name: width- and compatibility-
+ * normalized, stripped of control and format characters (zero-width joiners
+ * and the like), whitespace-collapsed, and case-folded. Two names that a user
+ * cannot tell apart in a picker must compare equal, or a look-alike name would
+ * slip past the share-time binding.
+ */
+export function canonicalGroupNameKey(name: string): string {
+  return name
+    .normalize("NFKC")
+    .replace(/[\p{Cc}\p{Cf}]/gu, "")
+    .replace(/\s+/gu, " ")
+    .trim()
+    .toLocaleLowerCase("en-US");
+}
+
 /** The display name committed in a group policy's signed payload. */
 export function readGroupPolicyPayloadName(
   bundle: PrincipalPolicyBundleResponse,
