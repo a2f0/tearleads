@@ -1323,7 +1323,7 @@ export class ApiClient {
   ): void {
     primeWriterProjectionSlot({
       cache: this.documentWriterProjectionRequestsByDocumentId,
-      describedId: projection.documentId,
+      describes: documentWriterProjection.isResponseFor(documentId),
       id: documentId,
       inFlightResults: this.documentWriterProjectionResultsInFlightByDocumentId,
       label: "Document",
@@ -1351,7 +1351,7 @@ export class ApiClient {
   ): void {
     primeWriterProjectionSlot({
       cache: this.containerWriterProjectionRequestsByContainerId,
-      describedId: projection.containerId,
+      describes: containerWriterProjection.isResponseFor(containerId),
       id: containerId,
       inFlightResults:
         this.containerWriterProjectionResultsInFlightByContainerId,

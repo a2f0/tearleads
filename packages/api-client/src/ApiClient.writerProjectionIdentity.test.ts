@@ -136,10 +136,32 @@ testApiClient("writer projection primes must describe the primed id", () => {
 
   expect(() =>
     client.primeContainerWriterProjection("other", containerProjection),
-  ).toThrow("describes");
+  ).toThrow("does not describe other");
   expect(() =>
     client.primeDocumentWriterProjection("other", documentProjection),
-  ).toThrow("describes");
+  ).toThrow("does not describe other");
+  // A relabeled seed carries the requested top-level id over a foreign
+  // manifest, state, and KEK; it must fail the same binding a fetch does.
+  expect(() =>
+    client.primeContainerWriterProjection("other", {
+      ...containerProjection,
+      containerId: "other",
+    }),
+  ).toThrow("does not describe other");
+  expect(() =>
+    client.primeDocumentWriterProjection("other", {
+      ...documentProjection,
+      contentKeyBundle: {
+        ...documentProjection.contentKeyBundle,
+        documentId: "other",
+      },
+      documentId: "other",
+      documentKekTargets: {
+        ...documentProjection.documentKekTargets,
+        documentId: "other",
+      },
+    }),
+  ).toThrow("does not describe other");
 
   client.primeContainerWriterProjection(
     containerProjection.containerId,
