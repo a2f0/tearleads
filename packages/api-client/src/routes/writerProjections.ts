@@ -29,22 +29,24 @@ function manifestDescribes(
   );
 }
 
+function containerProjectionDescribes(
+  projection: ContainerWriterProjectionResponse,
+  containerId: string,
+): boolean {
+  const leaf = projection.path.at(-1);
+  return (
+    projection.containerId === containerId &&
+    leaf !== undefined &&
+    manifestDescribes(leaf, "containerId", containerId) &&
+    projection.containerKeks.at(-1)?.containerId === containerId
+  );
+}
+
 export const containerWriterProjection = {
   isResponseFor(containerId: string) {
-    return (value: unknown): value is ContainerWriterProjectionResponse => {
-      if (
-        !isGetContainerWriterProjectionOperationResponse(value) ||
-        value.containerId !== containerId
-      ) {
-        return false;
-      }
-      const leaf = value.path.at(-1);
-      return (
-        leaf !== undefined &&
-        manifestDescribes(leaf, "containerId", containerId) &&
-        value.containerKeks.at(-1)?.containerId === containerId
-      );
-    };
+    return (value: unknown): value is ContainerWriterProjectionResponse =>
+      isGetContainerWriterProjectionOperationResponse(value) &&
+      containerProjectionDescribes(value, containerId);
   },
   method: getContainerWriterProjectionOperation.method,
   path(containerId: string) {
@@ -55,13 +57,19 @@ export const containerWriterProjection = {
 };
 
 export const documentWriterProjection = {
+  // The authorizing container paths carry no requested id, but each must at
+  // least describe the container it labels itself with, so a substituted
+  // path cannot smuggle another container's leaf under a relabeled id.
   isResponseFor(documentId: string) {
     return (value: unknown): value is DocumentWriterProjectionResponse =>
       isGetDocumentWriterProjectionOperationResponse(value) &&
       value.documentId === documentId &&
       manifestDescribes(value.documentManifest, "documentId", documentId) &&
       value.documentKekTargets.documentId === documentId &&
-      value.contentKeyBundle.documentId === documentId;
+      value.contentKeyBundle.documentId === documentId &&
+      value.authorizingContainerPaths.every((projection) =>
+        containerProjectionDescribes(projection, projection.containerId),
+      );
   },
   method: getDocumentWriterProjectionOperation.method,
   path(documentId: string) {

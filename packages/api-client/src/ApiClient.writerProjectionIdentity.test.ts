@@ -102,6 +102,32 @@ testApiClient(
 );
 
 testApiClient(
+  "document writer projection with a relabeled authorizing path is invalid",
+  async () => {
+    const projection = createDocumentWriterProjectionResponse();
+    const [authorizingPath] = projection.authorizingContainerPaths;
+    if (!authorizingPath) {
+      throw new Error("Expected an authorizing container path");
+    }
+    server.use(
+      http.get(`${apiBaseUrl}/documents/:documentId/writer-projection`, () =>
+        HttpResponse.json({
+          ...projection,
+          authorizingContainerPaths: [
+            { ...authorizingPath, containerId: "relabeled-container" },
+          ],
+        }),
+      ),
+    );
+
+    const client = new ApiClient(apiBaseUrl);
+    expect(
+      await client.getDocumentWriterProjection(projection.documentId),
+    ).toBeNull();
+  },
+);
+
+testApiClient(
   "document writer projection for another document is an invalid response",
   async () => {
     const substituted = createDocumentWriterProjectionResponse();
