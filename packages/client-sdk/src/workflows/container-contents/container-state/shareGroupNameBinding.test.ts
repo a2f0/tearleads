@@ -22,13 +22,15 @@ test("a group share that could mint a grant must carry the chosen name", async (
 });
 
 // A duplicate share mints nothing, but it must not report success for a group
-// the user did not choose: the chosen name is bound to the signed group policy
-// before the short-circuit. These scenarios give the runtime a writer context,
-// so the binding runs instead of the flow stopping at the unavailable context.
+// the user did not choose: the key-epoch probe that finds the matching grant
+// verifies the group's policy with the chosen name bound, so a mismatch fails
+// before the short-circuit.
 
 test("a duplicate group share rejects a name the signed policy does not commit", async () => {
   let shareCalls = 0;
 
+  // No writer context: the binding runs in the probe, before any step that
+  // needs one, so the mismatch cannot hide behind an unavailable context.
   await expect(
     runGroupShareScenario({
       currentGroupKeyEpoch: 2,
@@ -39,7 +41,6 @@ test("a duplicate group share rejects a name the signed policy does not commit",
       pinnedKeyEpoch: 2,
       remoteAccessStateHash: "remote-access-state-hash-duplicate-mismatch",
       testLabel: "containerContents-share-group-duplicate-name-mismatch",
-      writerContext: true,
     }),
   ).rejects.toMatchObject({
     code: "object_mismatch",
@@ -51,6 +52,8 @@ test("a duplicate group share rejects a name the signed policy does not commit",
 });
 
 test("a duplicate group share with the chosen name still short-circuits", async () => {
+  // A writer context lets the duplicate path run to completion, which needs
+  // the grant to reference the group's real head.
   const { containerId, groupId, logs, shareCallCount } =
     await runGroupShareScenario({
       currentGroupKeyEpoch: 2,

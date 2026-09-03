@@ -146,9 +146,11 @@ The group display name is committed in the signed group payload. The
 member shares a container with a group they chose by name, the client checks
 that name against the verified payload and fails closed on a mismatch, so a
 relabeled read-model row cannot redirect a share onto another group. Signed
-names are unique within an organization by construction: group creation
-verifies every group in the signed directory before committing a new name.
-This is also a greenfield flag-day. A group signed before names were committed
+names are unique within an organization because conforming clients enforce
+it: group creation verifies every group in the signed directory before
+committing a new name. The server does not index group names uniquely, and a
+compromised server cannot mint a signed group, so the client-side check is the
+only one. This is also a greenfield flag-day. A group signed before names were committed
 fails every policy mutation and every share with a typed verification error,
 and its organization must be reprovisioned.
 
