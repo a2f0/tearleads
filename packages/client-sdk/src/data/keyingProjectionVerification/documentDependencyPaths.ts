@@ -3,7 +3,10 @@ import {
   type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import { loadAccessManifestCheckpoint } from "../persistence/keyingCheckpointPersistence";
-import type { ExecSql } from "../sqlite/sqlSchema";
+import {
+  observeDependencyFloors,
+  type ProjectionCheckpointContext,
+} from "./checkpointContext";
 
 type ContainerPathByManifestHash = Map<
   string,
@@ -117,41 +120,53 @@ export function resolveEventContainerPaths(input: {
  * successor must cite the current authority head.
  */
 export async function assertHeadDependenciesNotBehindCheckpoints(input: {
-  readonly execSql: ExecSql;
+  readonly checkpointContext: ProjectionCheckpointContext;
   readonly label: string;
   readonly paths: readonly (
     | readonly VerifiedContainerAccessManifest[]
     | undefined
   )[];
 }): Promise<void> {
+  // Access along a path is the union of every element's grants, so an
+  // inherited grant on a stale ancestor is as usable as one on the leaf:
+  // every element is held to the checkpoint, not just the leaf.
+  const manifests = new Map<string, VerifiedContainerAccessManifest>();
   for (const path of input.paths) {
-    const leaf = path?.at(-1);
-    if (!leaf) {
-      continue;
+    for (const manifest of path ?? []) {
+      manifests.set(manifest.manifestHash, manifest);
     }
+  }
+  for (const manifest of manifests.values()) {
     const checkpoint = await loadAccessManifestCheckpoint(
-      input.execSql,
+      input.checkpointContext.execSql,
       "container",
-      leaf.state.organizationId,
-      leaf.state.containerId,
+      manifest.state.organizationId,
+      manifest.state.containerId,
     );
     if (!checkpoint) {
       continue;
     }
-    if (leaf.state.epoch < checkpoint.epoch) {
+    if (manifest.state.epoch < checkpoint.epoch) {
       throw new KeyingVerificationError(
         "rollback",
-        `${input.label} cites container ${leaf.state.containerId} at epoch ${leaf.state.epoch}, behind the local checkpoint at epoch ${checkpoint.epoch}`,
+        `${input.label} cites container ${manifest.state.containerId} at epoch ${manifest.state.epoch}, behind the local checkpoint at epoch ${checkpoint.epoch}`,
       );
     }
     if (
-      leaf.state.epoch === checkpoint.epoch &&
-      leaf.manifestHash !== checkpoint.manifestHash
+      manifest.state.epoch === checkpoint.epoch &&
+      manifest.manifestHash !== checkpoint.manifestHash
     ) {
       throw new KeyingVerificationError(
         "equivocation",
-        `${input.label} cites container ${leaf.state.containerId} at a manifest that conflicts with the local checkpoint`,
+        `${input.label} cites container ${manifest.state.containerId} at a manifest that conflicts with the local checkpoint`,
       );
     }
   }
+  // The read above is an early exit; the same floors are re-checked inside
+  // the atomic checkpoint transaction so a concurrent advance cannot slip in
+  // between this verification and the commit.
+  observeDependencyFloors(
+    input.checkpointContext,
+    [...manifests.values()].map((manifest) => manifest.checkpoint),
+  );
 }

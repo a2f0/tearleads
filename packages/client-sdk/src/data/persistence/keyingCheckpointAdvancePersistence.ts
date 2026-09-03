@@ -42,9 +42,45 @@ export interface AccessManifestCheckpointAdvance {
 
 interface KeyingCheckpointValidationInput {
   readonly access: readonly AccessManifestCheckpointAdvance[];
+  /**
+   * Manifests a verified head relied on as authorization evidence without
+   * advancing them (a document head's dependency container paths). The durable
+   * pin for each must not be newer than the cited manifest, and an equal epoch
+   * must be the same manifest; re-checked inside the transaction so a
+   * concurrent checkpoint advance cannot slip between the verification-time
+   * read and the commit.
+   */
+  readonly accessFloors?: readonly AccessManifestCheckpoint[] | undefined;
   readonly execSql: ExecSql;
   readonly policies: readonly AnyVerifiedPrincipalPolicy[];
   readonly stillCurrent?: (() => boolean) | undefined;
+}
+
+async function validateAccessFloors(
+  tx: ClientSQLiteTransactionScope,
+  floors: readonly AccessManifestCheckpoint[],
+): Promise<void> {
+  for (const floor of floors) {
+    const stored = await loadStoredAccessManifestCheckpoint(tx, floor);
+    if (!stored) {
+      continue;
+    }
+    if (stored.epoch > floor.epoch) {
+      throw new KeyingVerificationError(
+        "rollback",
+        `access manifest evidence for ${accessManifestObjectKey(floor)} at epoch ${floor.epoch} is behind the local checkpoint at epoch ${stored.epoch}`,
+      );
+    }
+    if (
+      stored.epoch === floor.epoch &&
+      stored.manifestHash !== floor.manifestHash
+    ) {
+      throw new KeyingVerificationError(
+        "equivocation",
+        `access manifest evidence for ${accessManifestObjectKey(floor)} conflicts with the local checkpoint`,
+      );
+    }
+  }
 }
 
 interface VerifiedPrincipalPolicyBundleEntry {
@@ -268,6 +304,7 @@ export async function validateKeyingCheckpointsAtomically(
   await ensureKeyingCheckpointValidationTables(input);
   const validate = async (tx: ClientSQLiteTransactionScope) => {
     await validateAccessAdvances(tx, input.access);
+    await validateAccessFloors(tx, input.accessFloors ?? []);
     await validatePolicyAdvances(tx, input.policies);
   };
   const runtime = getClientSQLitePersistenceRuntime(input.execSql);
@@ -286,20 +323,19 @@ export async function validateKeyingCheckpointsAtomically(
  * fetching happen before this short transaction; only checkpoint comparison
  * and persistence are serialized here.
  */
-export async function advanceKeyingCheckpointsAtomically(input: {
-  readonly access: readonly AccessManifestCheckpointAdvance[];
-  readonly documentPurgeCheckpoint?: DocumentPurgeCheckpoint | undefined;
-  readonly execSql: ExecSql;
-  readonly organizationId?: string | undefined;
-  readonly policies: readonly AnyVerifiedPrincipalPolicy[];
-  readonly stillCurrent?: (() => boolean) | undefined;
-}): Promise<void> {
+export async function advanceKeyingCheckpointsAtomically(
+  input: KeyingCheckpointValidationInput & {
+    readonly documentPurgeCheckpoint?: DocumentPurgeCheckpoint | undefined;
+    readonly organizationId?: string | undefined;
+  },
+): Promise<void> {
   await ensureKeyingCheckpointValidationTables(input);
   const updatedAt = new Date().toISOString();
 
   const runtime = getClientSQLitePersistenceRuntime(input.execSql);
   const advance = async (tx: ClientSQLiteTransactionScope) => {
     const access = await validateAccessAdvances(tx, input.access);
+    await validateAccessFloors(tx, input.accessFloors ?? []);
     const policies = await validatePolicyAdvances(tx, input.policies);
 
     await writeAccessCheckpoints(tx, access, updatedAt);

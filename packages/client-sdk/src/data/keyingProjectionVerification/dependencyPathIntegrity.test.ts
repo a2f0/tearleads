@@ -4,6 +4,7 @@ import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   toFingerprint,
+  type VerifiedAccessManifestCheckpointEvidence,
   type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import {
@@ -15,12 +16,17 @@ import {
   createContainerRevokeManifestFixture,
   createParentProjection,
 } from "../../../test/helpers/containerFixtures";
+import { createAuthor } from "../../../test/helpers/documentFixturePrimitives";
 import { createResponse } from "../../../test/helpers/documentFixtures";
 import { createLinkSetResponseFromRequest } from "../../../test/helpers/documentResponseFixtures";
-import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
+import {
+  createTestTrustedUserIdentity,
+  createTestTrustedUserIdentityResolver,
+} from "../../../test/helpers/trustedUserIdentity";
 import { buildMaterializedDocumentCreatePlan } from "../../workflows/documents/create";
 import { buildMaterializedDocumentLinkSetMutationPlan } from "../../workflows/documents/linkSet";
 import { verifyDocumentWriterProjection } from "../keyingProjectionVerification";
+import { advanceKeyingCheckpointsAtomically } from "../persistence/keyingCheckpointAdvancePersistence";
 import { enforceAccessManifestCheckpoints } from "./accessManifestCheckpointEnforcement";
 
 // Dependency container paths authorize document link events. A compromised API
@@ -253,6 +259,184 @@ test("an unseen head cannot cite container evidence behind the local checkpoint"
     ).rejects.toMatchObject({
       code: "rollback",
       message: expect.stringContaining("behind the local checkpoint"),
+    });
+  } finally {
+    close();
+  }
+});
+
+// Inherited grants live on ancestors, so a stale ancestor manifest in a
+// dependency path is as usable to a revoked writer as a stale leaf.
+test("an unseen head cannot lean on a stale ancestor manifest either", async () => {
+  const { author, signingPublicKey } = await createAuthor({
+    organizationId: "nested-org",
+    userId: "nested-owner",
+  });
+  const keyPair = generateKemSeedAndKeyPair();
+  const fixtureInput = {
+    encapsulationPublicKey: keyPair.publicKey,
+    organizationId: author.organizationId,
+    signerKeyFingerprint: author.signerKeyFingerprint,
+    signerPrivateKey: author.signerPrivateKey,
+    userId: author.signerUserId,
+  };
+  const root = await createContainerWriterProjectionFixture({
+    ...fixtureInput,
+    containerId: "nested-root",
+  });
+  const child = await createContainerWriterProjectionFixture({
+    ...fixtureInput,
+    containerId: "nested-child",
+    parentProjection: root,
+  });
+  const other = await createContainerWriterProjectionFixture({
+    ...fixtureInput,
+    containerId: "nested-other",
+  });
+  const resolveUserKey = createTestTrustedUserIdentityResolver({
+    encapsulationPublicKey: keyPair.publicKey,
+    signingKeyFingerprint: author.signerKeyFingerprint,
+    signingPublicKey,
+    userId: author.signerUserId,
+  });
+  const created = await buildMaterializedDocumentCreatePlan({
+    author,
+    containerProjection: child,
+    documentId: "document-nested-dependency-path",
+    targetSecretKey: keyPair.secretKey,
+    trustedLocalProjection: true,
+  });
+  const createResponseBody = createResponse(created.plan);
+  const initialProjection: DocumentWriterProjectionResponse = {
+    authorizingContainerPaths: [child],
+    contentKeyBundle: createResponseBody.contentKeyBundle,
+    documentId: createResponseBody.id,
+    documentKekTargets: createResponseBody.documentKekTargets,
+    documentManifest: createResponseBody.accessManifest,
+    documentManifestHistory: [],
+    documentManifestContainerPaths: [[...child.path]],
+    documentContainerManifestHistory: [],
+  };
+  const { close, execSql } = await createTestExecSql(
+    "dependency-path-stale-ancestor",
+  );
+  try {
+    await verifyDocumentWriterProjection({
+      execSql,
+      projection: initialProjection,
+      resolveUserKey,
+    });
+
+    // The root advances (a revocation the client has checkpointed).
+    const [rootManifest] = root.path;
+    if (!rootManifest) {
+      throw new Error("Expected the root manifest");
+    }
+    const advancedRoot = {
+      checkpoint: {
+        epoch: 2,
+        manifestHash: `${"3".repeat(63)}a`,
+        objectId: root.containerId,
+        objectKind: "container",
+        organizationId: author.organizationId,
+      },
+      manifest: { previousManifestHash: rootManifest.manifestHash },
+      manifestHash: `${"3".repeat(63)}a`,
+    } as unknown as VerifiedAccessManifestCheckpointEvidence;
+    await enforceAccessManifestCheckpoints({
+      execSql,
+      organizationId: author.organizationId,
+      policies: [],
+      verifiedHeads: [advancedRoot],
+      verifiedManifests: [advancedRoot],
+    });
+
+    // A new head whose dependency path still carries the pre-rotation root.
+    const linked = await buildMaterializedDocumentLinkSetMutationPlan({
+      author,
+      operation: "link",
+      targetContainerProjection: other,
+      targetSecretKey: keyPair.secretKey,
+      trustedLocalProjection: true,
+      writerProjection: initialProjection,
+    });
+    const linkResponse = await createLinkSetResponseFromRequest(
+      initialProjection.documentId,
+      linked.plan.request,
+    );
+    await expect(
+      verifyDocumentWriterProjection({
+        execSql,
+        projection: {
+          ...initialProjection,
+          authorizingContainerPaths: [other],
+          contentKeyBundle: linkResponse.contentKeyBundle,
+          documentKekTargets: linkResponse.documentKekTargets,
+          documentManifest: linkResponse.accessManifest,
+          documentManifestHistory: [initialProjection.documentManifest],
+          documentManifestContainerPaths: [[...child.path], [...other.path]],
+        },
+        resolveUserKey,
+      }),
+    ).rejects.toMatchObject({
+      code: "rollback",
+      message: expect.stringContaining("nested-root"),
+    });
+  } finally {
+    close();
+  }
+});
+
+// The floors are re-validated inside the atomic checkpoint transaction, so a
+// container pin that advanced after the verification-time read still fails
+// the commit.
+test("dependency floors are enforced inside the atomic checkpoint advance", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "dependency-floors-atomic",
+  );
+  const stored = {
+    checkpoint: {
+      epoch: 2,
+      manifestHash: `${"4".repeat(63)}b`,
+      objectId: "floor-container",
+      objectKind: "container",
+      organizationId: "floor-org",
+    },
+    manifest: { previousManifestHash: null },
+    manifestHash: `${"4".repeat(63)}b`,
+  } as unknown as VerifiedAccessManifestCheckpointEvidence;
+  try {
+    await enforceAccessManifestCheckpoints({
+      execSql,
+      organizationId: "floor-org",
+      policies: [],
+      verifiedHeads: [stored],
+      verifiedManifests: [stored],
+    });
+
+    await expect(
+      advanceKeyingCheckpointsAtomically({
+        access: [],
+        accessFloors: [{ ...stored.checkpoint, epoch: 1 }],
+        execSql,
+        policies: [],
+      }),
+    ).rejects.toMatchObject({ code: "rollback" });
+    await expect(
+      advanceKeyingCheckpointsAtomically({
+        access: [],
+        accessFloors: [
+          { ...stored.checkpoint, manifestHash: `${"5".repeat(63)}c` },
+        ],
+        execSql,
+        policies: [],
+      }),
+    ).rejects.toMatchObject({ code: "equivocation" });
+    await advanceKeyingCheckpointsAtomically({
+      access: [],
+      accessFloors: [stored.checkpoint],
+      execSql,
+      policies: [],
     });
   } finally {
     close();

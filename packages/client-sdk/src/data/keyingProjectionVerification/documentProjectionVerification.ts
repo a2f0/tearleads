@@ -254,7 +254,7 @@ export async function verifyDocumentManifestBundle(input: {
     manifest.epoch > checkpointVerification.localCheckpoint.epoch
   ) {
     await assertHeadDependenciesNotBehindCheckpoints({
-      execSql: input.checkpointContext.execSql,
+      checkpointContext: input.checkpointContext,
       label: input.label,
       paths: [...dependencyContainerPaths, targetContainerPath],
     });

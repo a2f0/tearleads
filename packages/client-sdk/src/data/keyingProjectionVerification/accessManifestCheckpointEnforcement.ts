@@ -1,4 +1,5 @@
 import {
+  type AccessManifestCheckpoint,
   type AnyVerifiedPrincipalPolicy,
   KeyingVerificationError,
   type VerifiedAccessManifestCheckpointEvidence,
@@ -64,6 +65,7 @@ function accessManifestCheckpointAdvances(input: {
 }
 
 export async function validateAccessManifestCheckpoints(input: {
+  readonly accessFloors?: readonly AccessManifestCheckpoint[] | undefined;
   readonly execSql: ExecSql;
   readonly policies: readonly AnyVerifiedPrincipalPolicy[];
   readonly stillCurrent?: (() => boolean) | undefined;
@@ -72,6 +74,7 @@ export async function validateAccessManifestCheckpoints(input: {
 }): Promise<void> {
   await validateKeyingCheckpointsAtomically({
     access: accessManifestCheckpointAdvances(input),
+    accessFloors: input.accessFloors,
     execSql: input.execSql,
     policies: input.policies,
     stillCurrent: input.stillCurrent,
@@ -79,6 +82,7 @@ export async function validateAccessManifestCheckpoints(input: {
 }
 
 export async function enforceAccessManifestCheckpoints(input: {
+  readonly accessFloors?: readonly AccessManifestCheckpoint[] | undefined;
   readonly execSql: ExecSql;
   readonly organizationId?: string | undefined;
   readonly documentPurgeCheckpoint?: DocumentPurgeCheckpoint | undefined;
@@ -89,6 +93,7 @@ export async function enforceAccessManifestCheckpoints(input: {
 }): Promise<void> {
   await advanceKeyingCheckpointsAtomically({
     access: accessManifestCheckpointAdvances(input),
+    accessFloors: input.accessFloors,
     documentPurgeCheckpoint: input.documentPurgeCheckpoint,
     execSql: input.execSql,
     organizationId: input.organizationId,

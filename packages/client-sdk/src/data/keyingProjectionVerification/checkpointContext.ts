@@ -1,4 +1,5 @@
 import {
+  type AccessManifestCheckpoint,
   type AnyVerifiedPrincipalPolicy,
   KeyingVerificationError,
   type VerifiedAccessManifestCheckpointEvidence,
@@ -12,6 +13,12 @@ import {
 import { assertProjectionVerificationCurrent } from "./types";
 
 export interface ProjectionCheckpointContext {
+  /**
+   * Manifests a new head relied on as authorization evidence without
+   * advancing them; the atomic finalization re-checks that no durable pin has
+   * moved past them.
+   */
+  readonly dependencyFloors: AccessManifestCheckpoint[];
   readonly execSql: ExecSql;
   organizationId?: string | undefined;
   readonly policies: AnyVerifiedPrincipalPolicy[];
@@ -31,12 +38,20 @@ export function createProjectionCheckpointContext(input: {
   }
 
   return {
+    dependencyFloors: [],
     execSql: input.execSql,
     organizationId: input.organizationId,
     policies: [],
     verifiedHeads: [],
     verifiedManifests: [],
   };
+}
+
+export function observeDependencyFloors(
+  context: ProjectionCheckpointContext,
+  floors: readonly AccessManifestCheckpoint[],
+): void {
+  context.dependencyFloors.push(...floors);
 }
 
 export function observeAccessManifestCheckpoints(
@@ -79,6 +94,7 @@ export async function commitProjectionCheckpoints(
 ): Promise<void> {
   assertProjectionVerificationCurrent(input?.stillCurrent);
   await enforceAccessManifestCheckpoints({
+    accessFloors: context.dependencyFloors,
     documentPurgeCheckpoint: input?.documentPurgeCheckpoint,
     execSql: input?.execSql ?? context.execSql,
     organizationId: context.organizationId,
@@ -100,6 +116,7 @@ async function validateProjectionCheckpoints(
 ): Promise<void> {
   assertProjectionVerificationCurrent(input?.stillCurrent);
   await validateAccessManifestCheckpoints({
+    accessFloors: context.dependencyFloors,
     execSql: input?.execSql ?? context.execSql,
     policies: context.policies,
     stillCurrent: input?.stillCurrent,
