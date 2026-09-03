@@ -186,7 +186,8 @@ test("probe signal kernels replay onto the RestartProbeConvergence model", () =>
   recorder.record({ action: "MarkContainerTreeReady" });
   recorder.record({ action: "DeclareKnownContainers" });
 
-  // The matching ack requests revalidation: the real kernels arm the probe.
+  // The matching ack requests revalidation. The arming call below mirrors
+  // the production reconnect wiring; the kernels then own the signal.
   allowDocumentStoreRemoteSync(state);
   markDocumentStoreRemoteSyncPending(state, "independent");
   recorder.record({

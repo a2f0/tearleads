@@ -3,19 +3,20 @@ import type { Tearleads } from "@tearleads/client-sdk";
 import {
   createRestartProbeTraceRecorder,
   persistRestartProbeTrace,
+  type RestartProbeTraceRecorder,
 } from "@tearleads/test-utils";
 import {
   serializeWsServerMessage,
   type WsInvalidationHint,
 } from "@tearleads/validators/realtime";
-import {
-  routeIncomingWsMessage,
-  startContainerInterestDeclaration,
-} from "./serverEventsBinding";
+import { startContainerInterestDeclaration } from "./containerInterest";
+import { routeIncomingWsMessage } from "./serverEventsRouting";
 
 /**
  * Projects a fault-injected run of the real interest-barrier seams onto the
- * RestartProbeConvergence model's action vocabulary. The declaration ordering
+ * RestartProbeConvergence model's action vocabulary. The imports stay on the
+ * leaf modules so the scenario runs without built package output (the
+ * client-sdk import is type-only). The declaration ordering
  * below is decided by the production machinery: `routeIncomingWsMessage`
  * parses the frames, `startContainerInterestDeclaration` decides when the
  * authoritative declaration is sent and which acknowledgement matches. The
@@ -41,7 +42,7 @@ function createFakeContainerStore() {
   };
 }
 
-function createFakeSocket() {
+function createFakeSocket(recorder: RestartProbeTraceRecorder | null) {
   const sent: string[] = [];
   return {
     sent,
@@ -49,6 +50,12 @@ function createFakeSocket() {
       readyState: WebSocket.OPEN,
       send: (message: string) => {
         sent.push(message);
+        // The declaration action is recorded at the moment the real interest
+        // machine emits the frame, so its ordering comes from the seam.
+        const parsed = JSON.parse(message) as { type?: unknown };
+        if (recorder && parsed.type === "known_containers") {
+          recorder.record({ action: "DeclareKnownContainers" });
+        }
       },
     } as unknown as WebSocket,
   };
@@ -62,8 +69,11 @@ interface InterestHarness {
   readonly stop: () => void;
 }
 
-function startInterestHarness(baseline: readonly string[]): InterestHarness {
-  const { sent, ws } = createFakeSocket();
+function startInterestHarness(
+  baseline: readonly string[],
+  recorder: RestartProbeTraceRecorder | null,
+): InterestHarness {
+  const { sent, ws } = createFakeSocket(recorder);
   const tearleads = {
     deviceFirst: {
       open: () => ({ containerStore: createFakeContainerStore().store }),
@@ -82,6 +92,10 @@ function startInterestHarness(baseline: readonly string[]): InterestHarness {
         }
       },
       onInterestState: (interestBaseline) => {
+        // The baseline action is recorded inside the routing handler, before
+        // the declaration machine reacts, so the two orderings are observed
+        // rather than authored.
+        recorder?.record({ action: "ReceiveInterestBaseline" });
         handle?.stop();
         handle = startContainerInterestDeclaration(
           tearleads,
@@ -136,7 +150,7 @@ test("interest barrier seams replay onto the RestartProbeConvergence model", () 
   const recorder = createRestartProbeTraceRecorder("interest-barrier-seams");
 
   // Pre-trace settle to the model's Init: connected, declared, acknowledged.
-  let harness = startInterestHarness([CONTAINER_ID]);
+  let harness = startInterestHarness([CONTAINER_ID], null);
   harness.route(acknowledgeFrame(sentDeclarationId(harness.sent)));
   expect(harness.acknowledged).toHaveLength(1);
 
@@ -149,13 +163,12 @@ test("interest barrier seams replay onto the RestartProbeConvergence model", () 
 
   // Reconnect: the server's interest baseline restores protocol context, and
   // the real declaration machine — seeing a ready container tree — sends the
-  // authoritative declaration immediately. Both orderings are implementation
-  // decisions recorded from observed frames.
-  harness = startInterestHarness([CONTAINER_ID]);
-  recorder.record({ action: "ReceiveInterestBaseline" });
+  // authoritative declaration immediately. Both actions are recorded at their
+  // seams (the routing handler and the observed frame), so the ordering the
+  // model checks is the implementation's own.
+  harness = startInterestHarness([CONTAINER_ID], recorder);
   expect(harness.sent).toHaveLength(1);
   const declarationId = sentDeclarationId(harness.sent);
-  recorder.record({ action: "DeclareKnownContainers" });
 
   // An acknowledgement from an older connection must not cross this
   // declaration: the real machine refuses it, so no model action is recorded.

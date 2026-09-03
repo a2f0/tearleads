@@ -81,7 +81,8 @@ sequence or projected bit the model rejects deadlocks TLC and fails the check.
 Two negative controls run every time — a dropped declaration and a flipped
 settled-probe observation — so the oracle cannot silently go vacuous.
 Boundaries: the probe scenario scripts the interest-side transitions (the app
-scenario records them from its own seams), restart re-initialization arming is
-scripted to mirror `initializeDocumentStore`, and each trace validates one
-recorded interleaving, not the full state space — the registered bounded model
-run remains the exploration.
+scenario records them from its own seams), the restart re-initialization and
+post-acknowledgement revalidation arming calls are scripted to mirror
+`initializeDocumentStore` and the reconnect wiring (the kernels then own the
+armed signal), and each trace validates one recorded interleaving, not the
+full state space — the registered bounded model run remains the exploration.
