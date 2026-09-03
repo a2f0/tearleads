@@ -50,6 +50,7 @@ export {
   deriveDocumentTargetFromProjection,
   mergeTargetEnvelopes,
   readLinkedContainerIdsFromDocumentManifest,
+  verifiedDocumentWrapTargets,
 } from "./projectionTargets";
 
 import type { ProjectionVerificationOptions } from "./types";
@@ -100,6 +101,40 @@ function assertAuthorizingContainerPathsMatchDocumentTargets(input: {
       `Document writer projection authorization path[${index}] is not a document target`,
     );
   }
+}
+
+function assertDocumentTargetsCoverLinkedContainers(
+  targets: readonly DocumentContentKeyTarget[],
+  writerProjection: DocumentWriterProjectionResponse,
+): void {
+  // One target per linked container: a second epoch for the same container
+  // would let a re-wrap land on a KEK a revoked member still holds.
+  if (
+    new Set(targets.map((target) => target.containerId)).size !== targets.length
+  ) {
+    throw new Error(
+      "Document writer projection targets name a linked container more than once",
+    );
+  }
+  assertSortedStringsEqual(
+    uniqueSortedStrings(targets.map((target) => target.containerId)),
+    readLinkedContainerIdsFromDocumentManifest(writerProjection),
+    "Document writer projection targets do not match linked containers",
+  );
+  assertSortedStringsEqual(
+    uniqueSortedStrings(
+      writerProjection.documentKekTargets.linkedContainerManifestHashes,
+    ),
+    uniqueSortedStrings(targets.map((target) => target.containerManifestHash)),
+    "Document writer projection target manifest summary mismatch",
+  );
+  assertSortedStringsEqual(
+    uniqueSortedStrings(
+      writerProjection.documentKekTargets.linkedContainerKeyEpochIds,
+    ),
+    uniqueSortedStrings(targets.map((target) => target.containerKeyEpochId)),
+    "Document writer projection target KEK summary mismatch",
+  );
 }
 
 async function assertProjectionContentKeyBundleConsistent(
@@ -228,25 +263,7 @@ async function assertDocumentWriterProjectionConsistentInternal(
     throw new Error("Document writer projection target hash is not canonical");
   }
 
-  assertSortedStringsEqual(
-    uniqueSortedStrings(targets.map((target) => target.containerId)),
-    readLinkedContainerIdsFromDocumentManifest(writerProjection),
-    "Document writer projection targets do not match linked containers",
-  );
-  assertSortedStringsEqual(
-    uniqueSortedStrings(
-      writerProjection.documentKekTargets.linkedContainerManifestHashes,
-    ),
-    uniqueSortedStrings(targets.map((target) => target.containerManifestHash)),
-    "Document writer projection target manifest summary mismatch",
-  );
-  assertSortedStringsEqual(
-    uniqueSortedStrings(
-      writerProjection.documentKekTargets.linkedContainerKeyEpochIds,
-    ),
-    uniqueSortedStrings(targets.map((target) => target.containerKeyEpochId)),
-    "Document writer projection target KEK summary mismatch",
-  );
+  assertDocumentTargetsCoverLinkedContainers(targets, writerProjection);
   assertAuthorizingContainerPathsMatchDocumentTargets({
     targets,
     writerProjection,

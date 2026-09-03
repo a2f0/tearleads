@@ -29,6 +29,7 @@ import {
   readLinkedContainerIdsFromDocumentManifest,
   unwrapContainerKekPath,
   unwrapDocumentContentKeyFromWriterProjection,
+  verifiedDocumentWrapTargets,
 } from "../../data/documents/shared/projection";
 import {
   assertDocumentManifestBundleConsistent,
@@ -395,7 +396,13 @@ export async function buildMaterializedDocumentLinkSetMutationPlan(
               ...verificationOptions,
             })
           ).keksByEpochId,
-          targets: targetState.targets,
+          // The rotated key is wrapped only to verified current heads of the
+          // remaining linked containers, never to a server-listed epoch.
+          targets: verifiedDocumentWrapTargets({
+            linkedContainerIds: targetState.linkedContainerIds,
+            serverTargets: targetState.targets,
+            writerProjection: input.writerProjection,
+          }),
         });
 
   const plan = await buildDocumentLinkSetMutationPlan({
