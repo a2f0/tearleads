@@ -26,6 +26,12 @@ describe("createRouteApp", () => {
     expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
       "https://app.example.test",
     );
+    const exposedHeaders =
+      response.headers.get("Access-Control-Expose-Headers")?.toLowerCase() ??
+      "";
+    expect(exposedHeaders).toContain("etag");
+    expect(exposedHeaders).toContain("vary");
+    expect(exposedHeaders).toContain("x-tearleads-blob-id");
   });
 
   test("allows the multipart blob part headers in CORS preflight", async () => {
@@ -52,6 +58,26 @@ describe("createRouteApp", () => {
     expect(allowHeaders).toContain("x-tearleads-blob-part-byte-length");
     expect(allowHeaders).toContain("x-tearleads-blob-part-sha256");
     expect(allowHeaders).toContain("x-tearleads-blob-upload-id");
+  });
+
+  test("allows operation-declared attribution headers in CORS preflight", async () => {
+    const app = createRouteApp(
+      {},
+      { corsOrigins: ["https://app.example.test"] },
+    );
+
+    const response = await app.request("/documents/document-1/attribution", {
+      method: "OPTIONS",
+      headers: {
+        Origin: "https://app.example.test",
+        "Access-Control-Request-Method": "GET",
+        "Access-Control-Request-Headers": "if-none-match",
+      },
+    });
+
+    expect(
+      response.headers.get("Access-Control-Allow-Headers")?.toLowerCase(),
+    ).toContain("if-none-match");
   });
 
   test("does not emit CORS allow-origin for unconfigured origins", async () => {

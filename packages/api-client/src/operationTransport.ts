@@ -2,10 +2,14 @@ import {
   type HttpOperation,
   type JsonOperation,
   type OperationSchemaInput,
-  type OperationSchemaOutput,
   operationRequestPathForInput,
 } from "@tearleads/validators/operation";
-import { errorMessage } from "./requestInternals";
+import {
+  additionalOperationSuccessStatuses,
+  decodeJsonOperationResponse,
+  type JsonOperationResponse,
+  type JsonOperationResponseEnvelope,
+} from "./operationResponse";
 import type {
   RequestResult,
   RequestResultOptions,
@@ -38,13 +42,10 @@ export type JsonOperationRequestInput<Operation extends JsonOperation> = {
   SchemaInputProperty<Operation, "headers"> &
   SchemaInputProperty<Operation, "query">;
 
-type JsonOperationResponseSchema<Operation extends JsonOperation> =
-  Operation["responses"][keyof Operation["responses"]];
-
-export type JsonOperationResponse<Operation extends JsonOperation> =
-  OperationSchemaOutput<
-    Extract<JsonOperationResponseSchema<Operation>, HttpOperation["params"]>
-  >;
+export type {
+  JsonOperationResponse,
+  JsonOperationResponseEnvelope,
+} from "./operationResponse";
 
 interface JsonOperationRequest {
   readonly body?: BodyInit | undefined;
@@ -64,6 +65,16 @@ export interface JsonOperationTransport {
     input: JsonOperationRequestInput<Operation>,
     options?: RequestResultOptions,
   ): Promise<RequestResult<JsonOperationResponse<Operation>>>;
+  requestResponse<Operation extends JsonOperation>(
+    operation: Operation,
+    input: JsonOperationRequestInput<Operation>,
+    options?: RequestResultOptions,
+  ): Promise<JsonOperationResponseEnvelope<Operation> | null>;
+  requestResponseResult<Operation extends JsonOperation>(
+    operation: Operation,
+    input: JsonOperationRequestInput<Operation>,
+    options?: RequestResultOptions,
+  ): Promise<RequestResult<JsonOperationResponseEnvelope<Operation>>>;
 }
 
 function invalidRequest(operation: JsonOperation, component: string): never {
@@ -164,65 +175,8 @@ export function supportsJsonOperationTransport(
     (operation.requestMediaType ?? "application/json") === "application/json" &&
     Object.values(operation.responseMediaTypes ?? {}).every(
       (mediaType) => mediaType === "application/json",
-    ) &&
-    operation.responseHeaders === undefined &&
-    (operation.emptyResponseStatuses?.length ?? 0) === 0
+    )
   );
-}
-
-async function decodeJsonResponse(
-  request: ResponseRequestFn,
-  operation: JsonOperation,
-  response: Response,
-  path: string,
-  options: RequestResultOptions,
-): Promise<RequestResult<unknown>> {
-  const schema = operation.responses[response.status];
-  if (!schema) {
-    return request.reportFailure({
-      kind: "shape",
-      message: `Invalid response status ${response.status} for ${path}`,
-      method: operation.method,
-      options,
-      path,
-      status: response.status,
-      statusText: response.statusText,
-    });
-  }
-
-  let value: unknown;
-  try {
-    value = await response.json();
-  } catch (error) {
-    const message = errorMessage(error);
-    return request.reportFailure({
-      kind: "json",
-      message: `${operation.method} ${path}: failed to parse JSON: ${message}`,
-      method: operation.method,
-      options,
-      path,
-      status: response.status,
-      statusText: response.statusText,
-    });
-  }
-
-  const parsed = schema.safeParse(value);
-  if (!parsed.success) {
-    return request.reportFailure({
-      kind: "shape",
-      message: `Invalid response shape for ${path}`,
-      method: operation.method,
-      options,
-      path,
-      status: response.status,
-      statusText: response.statusText,
-    });
-  }
-
-  return {
-    data: parsed.data,
-    ok: true,
-  };
 }
 
 function mergeRequestHeaders(
@@ -245,12 +199,12 @@ function mergeRequestHeaders(
 export function createJsonOperationTransport(
   responseRequest: ResponseRequestFn,
 ): JsonOperationTransport {
-  function requestResult<Operation extends JsonOperation>(
+  function requestResponseResult<Operation extends JsonOperation>(
     operation: Operation,
     input: JsonOperationRequestInput<Operation>,
     options?: RequestResultOptions,
-  ): Promise<RequestResult<JsonOperationResponse<Operation>>>;
-  async function requestResult(
+  ): Promise<RequestResult<JsonOperationResponseEnvelope<Operation>>>;
+  async function requestResponseResult(
     operation: JsonOperation,
     input: RuntimeJsonOperationRequestInput,
     options: RequestResultOptions = {},
@@ -269,11 +223,12 @@ export function createJsonOperationTransport(
       derived.method,
       derived.body,
       requestOptions,
+      additionalOperationSuccessStatuses(operation),
     );
     if (!result.ok) {
       return result;
     }
-    return decodeJsonResponse(
+    return decodeJsonOperationResponse(
       responseRequest,
       operation,
       result.data,
@@ -282,11 +237,25 @@ export function createJsonOperationTransport(
     );
   }
 
+  async function requestResult<Operation extends JsonOperation>(
+    operation: Operation,
+    input: JsonOperationRequestInput<Operation>,
+    options?: RequestResultOptions,
+  ): Promise<RequestResult<JsonOperationResponse<Operation>>> {
+    const result = await requestResponseResult(operation, input, options);
+    return result.ok ? { data: result.data.data, ok: true } : result;
+  }
+
   return {
     async request(operation, input, options) {
       const result = await requestResult(operation, input, options);
       return result.ok ? result.data : null;
     },
     requestResult,
+    async requestResponse(operation, input, options) {
+      const result = await requestResponseResult(operation, input, options);
+      return result.ok ? result.data : null;
+    },
+    requestResponseResult,
   };
 }

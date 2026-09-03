@@ -62,6 +62,7 @@ import {
   errorMessage,
   evictWriterProjectionIfSyncChanged,
   hasHeader,
+  isSuccessfulResponse,
   listContainerDocumentsRequestKey,
   listContainerParentLanesRequestKey,
   normalizeApiBaseUrl,
@@ -189,8 +190,7 @@ export class ApiClient {
     >();
   private readonly documentAttachmentListRequestsByDocumentId =
     new BoundedCache<Promise<ListDocumentAttachmentsResponse | null>>();
-  private readonly documentAttributionRequests =
-    new DocumentAttributionRequests((...args) => this.request(...args));
+  private readonly documentAttributionRequests: DocumentAttributionRequests;
   private readonly userIdentityRequestsByUserId = new BoundedCache<
     Promise<UserIdentityResponse | null>
   >();
@@ -201,7 +201,6 @@ export class ApiClient {
   private readonly transport: JsonOperationTransport;
   private readonly request: RequestFn;
   private readonly responseRequest: ResponseRequestFn;
-
   constructor(baseUrl?: string | null) {
     this.baseUrl = normalizeApiBaseUrl(baseUrl);
     bindPrototypeMethods(this, ApiClient.prototype);
@@ -210,8 +209,10 @@ export class ApiClient {
       reportFailure: this.reportResponseRequestFailure,
     });
     this.transport = createJsonOperationTransport(this.responseRequest);
+    this.documentAttributionRequests = new DocumentAttributionRequests(
+      this.transport,
+    );
   }
-
   private clearAuthScopedCaches(): void {
     this.containerDocumentListRequestsByKey.clear();
     this.containerParentLaneRequestsByKey.clear();
@@ -391,6 +392,7 @@ export class ApiClient {
     method: HttpMethod,
     body?: RequestBody,
     options: RequestResultOptions = {},
+    additionalSuccessStatuses: readonly number[] = [],
   ): Promise<RequestResult<Response>> {
     const authToken = this.authToken;
     const responseResult = await this.fetchResponseRequest(
@@ -403,14 +405,13 @@ export class ApiClient {
     if (!responseResult.ok) {
       return responseResult;
     }
-
-    const { response } = responseResult;
-    if (response.ok) {
+    const response = responseResult.data;
+    if (isSuccessfulResponse(response, additionalSuccessStatuses)) {
       this.requestFailuresByKey.delete(requestFailureKey({ method, path }));
       return { data: response, ok: true };
     }
 
-    const errorDescription = responseResult.errorDescription;
+    const errorDescription = await describeErrorResponse(response);
     if (
       await shouldRetryAfterSessionExpired({
         authToken,
@@ -433,17 +434,18 @@ export class ApiClient {
       if (!retryResult.ok) {
         return retryResult;
       }
-      if (retryResult.response.ok) {
+      const retryResponse = retryResult.data;
+      if (isSuccessfulResponse(retryResponse, additionalSuccessStatuses)) {
         this.requestFailuresByKey.delete(requestFailureKey({ method, path }));
-        return { data: retryResult.response, ok: true };
+        return { data: retryResponse, ok: true };
       }
 
       return this.httpFailure({
-        errorDescription: retryResult.errorDescription,
+        errorDescription: await describeErrorResponse(retryResponse),
         method,
         options,
         path,
-        response: retryResult.response,
+        response: retryResponse,
       });
     }
 
@@ -462,14 +464,7 @@ export class ApiClient {
     body: RequestBody | undefined,
     options: RequestResultOptions,
     authToken: string | null,
-  ): Promise<
-    | RequestFailure
-    | {
-        readonly errorDescription: ErrorResponseDescription;
-        readonly ok: true;
-        readonly response: Response;
-      }
-  > {
+  ): Promise<RequestResult<Response>> {
     const reportErrors = options.reportErrors ?? true;
     const init: RequestInit & { duplex?: "half" } = {
       method,
@@ -502,16 +497,7 @@ export class ApiClient {
 
     this.onNetworkSuccess?.();
 
-    if (!response.ok) {
-      const errorDescription = await describeErrorResponse(response);
-      return { errorDescription, ok: true, response };
-    }
-
-    return {
-      errorDescription: { code: null, detail: "", error: null },
-      ok: true,
-      response,
-    };
+    return { data: response, ok: true };
   }
 
   private httpFailure(input: {

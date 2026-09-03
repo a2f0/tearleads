@@ -152,6 +152,10 @@ export {
   isDocumentSyncOperationResponse,
 } from "./documentSync";
 export {
+  operationRequestHeaderNames,
+  operationResponseHeaderNames,
+} from "./headerNames";
+export {
   getHealthOperation,
   isGetHealthOperationResponse,
 } from "./health";
