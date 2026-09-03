@@ -7,6 +7,9 @@ fail() {
   exit 1
 }
 
+SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd) ||
+  fail "could not resolve the protocol check script directory."
+
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) ||
   fail "Protocol model checks must run inside a Git repository."
 REGISTRY_PATH=formal/protocol-models.txt
@@ -144,10 +147,12 @@ TLA_TOOLS_ROOT=$(mise where github:tlaplus/tlaplus 2>/dev/null) ||
 TLA_TOOLS_JAR=$TLA_TOOLS_ROOT/tla2tools.jar
 [ -f "$TLA_TOOLS_JAR" ] || fail "$TLA_TOOLS_JAR does not exist."
 
-# TLC gates the protocol contract, but the GitHub release publishes no digest
-# and mise records no checksum for this asset, so the jar bytes are pinned
-# here. Update the pin only for an intentional TLA+ tools upgrade.
-TLA_TOOLS_JAR_SHA256=${TLA_TOOLS_JAR_SHA256:-936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88}
+# The pinned jar digest is shared with the protocol trace generator; see
+# scripts/checks/tlaToolsPin.sh. Update the pin only for an intentional TLA+
+# tools upgrade.
+# shellcheck source=scripts/checks/tlaToolsPin.sh
+. "$SCRIPT_DIR/tlaToolsPin.sh"
+TLA_TOOLS_JAR_SHA256=${TLA_TOOLS_JAR_SHA256:-$TLA_TOOLS_JAR_SHA256_PIN}
 if command -v sha256sum >/dev/null 2>&1; then
   tla_tools_jar_sha256=$(sha256sum "$TLA_TOOLS_JAR" | cut -d ' ' -f 1)
 else
