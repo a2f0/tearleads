@@ -3,6 +3,7 @@ import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import { isAccessEventType } from "../../keyingProjectionRecords";
+import type { PublishedRealtimeEvent } from "../../realtime/publishedRealtimeEvents";
 import { publishBestEffort } from "../../utils/publishBestEffort";
 
 function readNullableString(value: unknown): string | null | undefined {
@@ -47,7 +48,7 @@ function readGrantUserRecipientId(
 export async function publishContainerMutationCreated(input: {
   readonly expectedEventType: AccessEventType;
   readonly origin: { readonly sessionId: string; readonly userId: string };
-  readonly publish: (event: Record<string, unknown>) => Promise<void>;
+  readonly publish: (event: PublishedRealtimeEvent) => Promise<void>;
   readonly request: ContainerMutationRequest;
   readonly response: ContainerMutationResponse;
 }) {

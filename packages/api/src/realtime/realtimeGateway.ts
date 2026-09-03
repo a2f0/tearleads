@@ -1,19 +1,18 @@
+import {
+  MAX_WS_CLIENT_MESSAGE_BYTES,
+  serializeWsServerMessage,
+} from "@tearleads/validators/realtime";
 import type { ServerWebSocket } from "bun";
 import { addListener } from "../adapters/redisPubSub";
 import { sendSafely } from "./wsConnection";
 import type { WebSocketTicketIdentity } from "./wsIdentity";
 import { wsInterestStore } from "./wsInterestStore";
 import {
-  KNOWN_ORGANIZATIONS_ACK,
   type OrganizationInterestDeclaration,
   type OrganizationReadModelAudience,
   readOrganizationReadModelAudienceMessage,
 } from "./wsOrganizationRouting";
-import {
-  type AppliedInterest,
-  MAX_CLIENT_MESSAGE_BYTES,
-  WsEventRouter,
-} from "./wsRouting";
+import { type AppliedInterest, WsEventRouter } from "./wsRouting";
 
 type InterestStore = Pick<typeof wsInterestStore, "apply" | "load">;
 type Subscribe = typeof addListener;
@@ -107,7 +106,9 @@ async function hydrateSocketInterest(input: {
     console.error("Failed to hydrate websocket interest:", error);
     containerIds = [];
   }
-  input.ws.send(JSON.stringify({ type: "interest_state", containerIds }));
+  input.ws.send(
+    serializeWsServerMessage({ type: "interest_state", containerIds }),
+  );
 }
 
 type OrganizationSocket = ServerWebSocket<WebSocketTicketIdentity>;
@@ -210,8 +211,8 @@ class OrganizationInterestAuthorizer {
   ): void {
     sendSafely(
       ws,
-      JSON.stringify({
-        type: KNOWN_ORGANIZATIONS_ACK,
+      serializeWsServerMessage({
+        type: "known_organizations_ack",
         declarationId: declaration.declarationId,
         organizationId: declaration.organizationId,
         authorized,
@@ -316,7 +317,7 @@ function createWebsocketHandler(input: {
   readonly router: WsEventRouter;
 }) {
   return {
-    maxPayloadLength: MAX_CLIENT_MESSAGE_BYTES,
+    maxPayloadLength: MAX_WS_CLIENT_MESSAGE_BYTES,
     async open(ws: ServerWebSocket<WebSocketTicketIdentity>) {
       input.router.open(ws);
       await hydrateSocketInterest({ ...input, ws });
@@ -343,7 +344,7 @@ function createWebsocketHandler(input: {
       if (action.declarationId) {
         sendSafely(
           ws,
-          JSON.stringify({
+          serializeWsServerMessage({
             type: "known_containers_ack",
             declarationId: action.declarationId,
           }),

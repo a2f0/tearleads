@@ -6,6 +6,7 @@ import {
   requireAuth as defaultRequireAuth,
   type SessionEnv,
 } from "./middleware/session";
+import type { PublishedRealtimeEvent } from "./realtime/publishedRealtimeEvents";
 import {
   type ApiServiceRuntime,
   getDefaultApiServiceRuntime,
@@ -15,7 +16,7 @@ export interface RouteAppOverrides {
   readonly destroySession?: (c: Context) => Promise<void>;
   readonly destroyUserSession?: typeof defaultDestroyUserSession;
   readonly listUserSessions?: typeof defaultListUserSessions;
-  readonly publish?: (event: Record<string, unknown>) => Promise<void>;
+  readonly publish?: (event: PublishedRealtimeEvent) => Promise<void>;
   readonly requireAuth?: MiddlewareHandler<SessionEnv>;
   readonly runtime?: ApiServiceRuntime;
 }

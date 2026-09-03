@@ -1,18 +1,9 @@
-import { isPlainObject } from "@tearleads/validators/isPlainObject";
-import { isUuidV4String } from "@tearleads/validators/util";
+import { serializeWsServerMessage } from "@tearleads/validators/realtime";
 import {
-  isSameSession,
-  readOrigin,
-  sendSafely,
-  type WsConnection,
-} from "./wsConnection";
-
-export const KNOWN_ORGANIZATIONS_REPLACE = "known_organizations";
-export const KNOWN_ORGANIZATIONS_ACK = "known_organizations_ack";
-export const ORGANIZATION_READ_MODEL_CHANGED =
-  "organization_read_model_changed";
-const ORGANIZATION_READ_MODEL_ACCESS_REVOKED =
-  "organization_read_model_access_revoked";
+  type PublishedOrganizationReadModelChangedEvent,
+  parsePublishedRealtimeEvent,
+} from "./publishedRealtimeEvents";
+import { isSameSession, sendSafely, type WsConnection } from "./wsConnection";
 
 export type OrganizationInterestDeclaration = {
   readonly declarationId: string;
@@ -20,54 +11,27 @@ export type OrganizationInterestDeclaration = {
   readonly organizationId: string | null;
 };
 
-export function readOrganizationInterest(
-  value: unknown,
-): string | null | undefined {
-  if (!Array.isArray(value) || value.length > 1) {
-    return undefined;
-  }
-  if (value.some((entry) => !isUuidV4String(entry))) {
-    return undefined;
-  }
-  return value[0] ?? null;
-}
-
 export interface OrganizationReadModelAudience {
   readonly organizationId: string;
   readonly recipientUserIds: ReadonlySet<string>;
 }
 
-function readOrganizationReadModelAudience(
-  event: Record<string, unknown>,
-): OrganizationReadModelAudience | null {
-  const organizationId = Reflect.get(event, "organizationId");
-  const recipientUserIds = Reflect.get(event, "recipientUserIds");
-  if (
-    typeof organizationId !== "string" ||
-    !isUuidV4String(organizationId) ||
-    !Array.isArray(recipientUserIds) ||
-    recipientUserIds.some(
-      (userId) => typeof userId !== "string" || !isUuidV4String(userId),
-    )
-  ) {
-    return null;
-  }
-  return { organizationId, recipientUserIds: new Set(recipientUserIds) };
+function organizationReadModelAudience(
+  event: PublishedOrganizationReadModelChangedEvent,
+): OrganizationReadModelAudience {
+  return {
+    organizationId: event.organizationId,
+    recipientUserIds: new Set(event.recipientUserIds),
+  };
 }
 
 /** Parse the trusted internal audience used to revalidate a denied interest. */
 export function readOrganizationReadModelAudienceMessage(
   rawMessage: string,
 ): OrganizationReadModelAudience | null {
-  let event: unknown;
-  try {
-    event = JSON.parse(rawMessage);
-  } catch {
-    return null;
-  }
-  return isPlainObject(event) &&
-    Reflect.get(event, "type") === ORGANIZATION_READ_MODEL_CHANGED
-    ? readOrganizationReadModelAudience(event)
+  const event = parsePublishedRealtimeEvent(rawMessage);
+  return event?.type === "organization_read_model_changed"
+    ? organizationReadModelAudience(event)
     : null;
 }
 
@@ -145,24 +109,23 @@ export class WsOrganizationRouter {
   }
 
   /**
-   * Route only through the authoritative internal audience. Missing or
-   * malformed audiences fail closed, and client frames are reconstructed so
-   * neither the audience nor authoring origin crosses the websocket boundary.
+   * Route only through the authoritative internal audience. Client frames are
+   * reconstructed from the shared public schema so neither the audience nor
+   * the authoring origin crosses the websocket boundary.
    */
-  routeReadModelChanged(event: Record<string, unknown>): void {
-    const audience = readOrganizationReadModelAudience(event);
-    if (!audience) {
-      return;
-    }
+  routeReadModelChanged(
+    event: PublishedOrganizationReadModelChangedEvent,
+  ): void {
+    const audience = organizationReadModelAudience(event);
     const interested = this.socketsByOrganizationId.get(
       audience.organizationId,
     );
     if (!interested) {
       return;
     }
-    const origin = readOrigin(event);
-    const revokedMessage = JSON.stringify({
-      type: ORGANIZATION_READ_MODEL_ACCESS_REVOKED,
+    const origin = event.origin ?? null;
+    const revokedMessage = serializeWsServerMessage({
+      type: "organization_read_model_access_revoked",
       organizationId: audience.organizationId,
     });
     for (const ws of [...interested]) {
@@ -173,8 +136,8 @@ export class WsOrganizationRouter {
         // Author echoes are deliberate: one session can own multiple clients.
         sendSafely(
           ws,
-          JSON.stringify({
-            type: ORGANIZATION_READ_MODEL_CHANGED,
+          serializeWsServerMessage({
+            type: "organization_read_model_changed",
             organizationId: audience.organizationId,
             originatedFromSession: origin ? isSameSession(ws, origin) : false,
           }),
