@@ -17,6 +17,11 @@ interface RuntimeOperationRequestInput {
   readonly query?: unknown;
 }
 
+interface RuntimeJsonOperationRequestInput
+  extends RuntimeOperationRequestInput {
+  readonly params: unknown;
+}
+
 type SchemaInputProperty<Operation, Key extends "body" | "headers" | "query"> =
   Operation extends Record<Key, infer Schema>
     ? {
@@ -121,15 +126,21 @@ export function deriveJsonOperationRequest<Operation extends JsonOperation>(
   operation: Operation,
   input: JsonOperationRequestInput<Operation>,
 ): JsonOperationRequest {
-  const genericInput: RuntimeOperationRequestInput = input;
+  return deriveRuntimeJsonOperationRequest(operation, input);
+}
+
+function deriveRuntimeJsonOperationRequest(
+  operation: JsonOperation,
+  input: RuntimeJsonOperationRequestInput,
+): JsonOperationRequest {
   const path = operationRequestPathForInput(
     operation,
     input.params,
-    genericInput.query,
+    input.query,
   );
 
-  const body = requestBody(operation, genericInput);
-  const declaredHeaders = requestHeaders(operation, genericInput);
+  const body = requestBody(operation, input);
+  const declaredHeaders = requestHeaders(operation, input);
   const headers =
     body === undefined && declaredHeaders === undefined
       ? undefined
@@ -147,7 +158,7 @@ export function deriveJsonOperationRequest<Operation extends JsonOperation>(
 
 export function supportsJsonOperationTransport(
   operation: HttpOperation,
-): operation is JsonOperation {
+): boolean {
   return (
     (operation.requestMediaType ?? "application/json") === "application/json" &&
     Object.values(operation.responseMediaTypes ?? {}).every(
@@ -158,13 +169,13 @@ export function supportsJsonOperationTransport(
   );
 }
 
-async function decodeJsonResponse<Operation extends JsonOperation>(
+async function decodeJsonResponse(
   request: ResponseRequestFn,
-  operation: Operation,
+  operation: JsonOperation,
   response: Response,
   path: string,
   options: RequestResultOptions,
-): Promise<RequestResult<JsonOperationResponse<Operation>>> {
+): Promise<RequestResult<unknown>> {
   const schema = operation.responses[response.status];
   if (!schema) {
     return request.reportFailure({
@@ -194,7 +205,8 @@ async function decodeJsonResponse<Operation extends JsonOperation>(
     });
   }
 
-  if (!isJsonOperationResponse(operation, response.status, value)) {
+  const parsed = schema.safeParse(value);
+  if (!parsed.success) {
     return request.reportFailure({
       kind: "shape",
       message: `Invalid response shape for ${path}`,
@@ -207,28 +219,30 @@ async function decodeJsonResponse<Operation extends JsonOperation>(
   }
 
   return {
-    data: value,
+    data: parsed.data,
     ok: true,
   };
-}
-
-function isJsonOperationResponse<Operation extends JsonOperation>(
-  operation: Operation,
-  status: number,
-  value: unknown,
-): value is JsonOperationResponse<Operation> {
-  return operation.responses[status]?.safeParse(value).success ?? false;
 }
 
 export function createJsonOperationTransport(
   responseRequest: ResponseRequestFn,
 ): JsonOperationTransport {
-  async function requestResult<Operation extends JsonOperation>(
+  function requestResult<Operation extends JsonOperation>(
     operation: Operation,
     input: JsonOperationRequestInput<Operation>,
+    options?: RequestResultOptions,
+  ): Promise<RequestResult<JsonOperationResponse<Operation>>>;
+  async function requestResult(
+    operation: JsonOperation,
+    input: RuntimeJsonOperationRequestInput,
     options: RequestResultOptions = {},
-  ): Promise<RequestResult<JsonOperationResponse<Operation>>> {
-    const derived = deriveJsonOperationRequest(operation, input);
+  ): Promise<RequestResult<unknown>> {
+    if (!supportsJsonOperationTransport(operation)) {
+      throw new TypeError(
+        `Unsupported JSON transport operation: ${operation.id}`,
+      );
+    }
+    const derived = deriveRuntimeJsonOperationRequest(operation, input);
     const headers = { ...derived.headers, ...options.headers };
     const requestOptions =
       Object.keys(headers).length === 0 ? options : { ...options, headers };

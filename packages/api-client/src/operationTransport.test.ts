@@ -111,6 +111,29 @@ test("decodes success bodies with the operation response schema", async () => {
   expect(calls).toEqual([["/", "GET", undefined, {}]]);
 });
 
+test("returns transformed response schema output", async () => {
+  const transformedHealthOperation = {
+    ...getHealthOperation,
+    responses: {
+      200: getHealthOperation.responses[200].transform(({ message }) => ({
+        message: message.toUpperCase(),
+      })),
+    },
+  };
+  const request = Object.assign(
+    async () => ({
+      data: Response.json({ message: "ok" }),
+      ok: true as const,
+    }),
+    { reportFailure: requestFailure },
+  ) as ResponseRequestFn;
+  const transport = createJsonOperationTransport(request);
+
+  await expect(
+    transport.request(transformedHealthOperation, { params: {} }),
+  ).resolves.toEqual({ message: "OK" });
+});
+
 test("reports malformed JSON and shapes through ApiClient policy", async () => {
   const reported: ResponseRequestValidationFailureInput[] = [];
   const responses = [
@@ -135,6 +158,28 @@ test("reports malformed JSON and shapes through ApiClient policy", async () => {
     await transport.requestResult(getHealthOperation, { params: {} }),
   ).toMatchObject({ kind: "shape", ok: false, path: "/", status: 200 });
   expect(reported.map((failure) => failure.kind)).toEqual(["json", "shape"]);
+});
+
+test("rejects special response operations before fetch", async () => {
+  let calls = 0;
+  const request = Object.assign(
+    async () => {
+      calls += 1;
+      return { data: Response.json({}), ok: true as const };
+    },
+    { reportFailure: requestFailure },
+  ) as ResponseRequestFn;
+  const transport = createJsonOperationTransport(request);
+
+  await expect(
+    transport.request(getDocumentAttributionOperation, {
+      headers: {},
+      params: { documentId },
+    }),
+  ).rejects.toThrow(
+    "Unsupported JSON transport operation: documents.attribution.get",
+  );
+  expect(calls).toBe(0);
 });
 
 test("registry coverage makes special response transports explicit", () => {
