@@ -414,6 +414,9 @@ export async function rekeyRemoteContainer(input: {
       input.apiClient.rekeyContainer(
         input.containerId,
         materializedPlan.plan.request,
+        {
+          expectedPaymentRequiredOrganizationId: input.author.organizationId,
+        },
       ),
   });
 }

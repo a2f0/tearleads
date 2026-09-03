@@ -224,6 +224,7 @@ async function discardOrphanedRemoteContainer(input: {
   }
   const discardFailure = await deleteRemoteContainer({
     containerId: input.created.containerId,
+    organizationId: input.created.organizationId,
     runtime: input.state.runtime,
   }).then(
     (deleted) => (deleted ? null : "the server rejected the delete"),

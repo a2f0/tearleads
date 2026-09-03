@@ -1,5 +1,6 @@
 import type {
   DocumentAttributionRangesQuery,
+  HttpOperation,
   HttpOperationMethod,
 } from "@tearleads/validators/operation";
 import type {
@@ -23,6 +24,8 @@ export type ListDocumentEditAttributionRangesOptions = Omit<
 };
 
 export interface RequestResultOptions {
+  /** Expected target for a declared 402; mismatched response identities fail closed. */
+  readonly expectedPaymentRequiredOrganizationId?: string | undefined;
   readonly headers?: Record<string, string> | undefined;
   readonly reportErrors?: boolean | undefined;
   readonly retryOnSessionExpired?: boolean | undefined;
@@ -34,7 +37,26 @@ export type RequestFn = <T>(
   method: HttpMethod,
   body?: RequestBody,
   options?: RequestResultOptions,
+  failureOperation?: HttpOperation,
 ) => Promise<T | null>;
+
+export type OperationRequestFn = <T>(
+  path: string,
+  validator: (value: unknown) => value is T,
+  method: HttpMethod,
+  body: RequestBody | undefined,
+  options: RequestResultOptions | undefined,
+  failureOperation: HttpOperation,
+) => Promise<T | null>;
+
+export type OperationRequestResultFn = <T>(
+  path: string,
+  validator: (value: unknown) => value is T,
+  method: HttpMethod,
+  body: RequestBody | undefined,
+  options: RequestResultOptions | undefined,
+  failureOperation: HttpOperation,
+) => Promise<RequestResult<T>>;
 
 export type RequestFailureKind = "http" | "network" | "json" | "shape";
 
@@ -75,6 +97,21 @@ export interface ResponseRequestFn {
     body?: RequestBody,
     options?: RequestResultOptions,
     additionalSuccessStatuses?: readonly number[],
+    failureOperation?: HttpOperation,
+  ): Promise<RequestResult<Response>>;
+  readonly reportFailure: (
+    input: ResponseRequestValidationFailureInput,
+  ) => RequestFailure;
+}
+
+export interface OperationResponseRequestFn {
+  (
+    path: string,
+    method: HttpMethod,
+    body: RequestBody | undefined,
+    options: RequestResultOptions | undefined,
+    additionalSuccessStatuses: readonly number[],
+    failureOperation: HttpOperation,
   ): Promise<RequestResult<Response>>;
   readonly reportFailure: (
     input: ResponseRequestValidationFailureInput,

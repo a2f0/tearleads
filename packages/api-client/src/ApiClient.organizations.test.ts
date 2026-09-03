@@ -139,6 +139,81 @@ testApiClient("reads native purchase eligibility before checkout", async () => {
   ]);
 });
 
+testApiClient(
+  "principal policy billing failures notify with the validated organization",
+  async () => {
+    server.use(
+      http.put(
+        `${apiBaseUrl}/principals/:principalType/:principalId/policy`,
+        () =>
+          HttpResponse.json(
+            {
+              error: "Organization cannot sync",
+              organizationId: principalPolicyId,
+              reason: "billing_inactive",
+            },
+            { status: 402, statusText: "Payment Required" },
+          ),
+      ),
+    );
+    const blockedOrganizations: (string | null)[] = [];
+    const client = new ApiClient(apiBaseUrl);
+    client.setOnPaymentRequired((organizationId) => {
+      blockedOrganizations.push(organizationId);
+    });
+
+    await expect(
+      client.putPrincipalPolicy(
+        "organization",
+        principalPolicyId,
+        createPrincipalPolicyRequest(),
+      ),
+    ).resolves.toBeNull();
+
+    expect(blockedOrganizations).toEqual([principalPolicyId]);
+  },
+);
+
+testApiClient(
+  "principal policy billing failures reject a mismatched organization",
+  async () => {
+    server.use(
+      http.put(
+        `${apiBaseUrl}/principals/:principalType/:principalId/policy`,
+        () =>
+          HttpResponse.json(
+            {
+              error: "Misdirected payment failure",
+              organizationId: dataUsageOrganizationId,
+              reason: "billing_inactive",
+            },
+            { status: 402, statusText: "Payment Required" },
+          ),
+      ),
+    );
+    const blockedOrganizations: (string | null)[] = [];
+    const errors: string[] = [];
+    const client = new ApiClient(apiBaseUrl);
+    client.setOnError((message) => errors.push(message));
+    client.setOnPaymentRequired((organizationId) => {
+      blockedOrganizations.push(organizationId);
+    });
+
+    await expect(
+      client.putPrincipalPolicy(
+        "organization",
+        principalPolicyId,
+        createPrincipalPolicyRequest(),
+      ),
+    ).resolves.toBeNull();
+
+    expect(blockedOrganizations).toEqual([]);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain("Invalid failure response body");
+    expect(errors[0]?.includes("Misdirected payment failure")).toBe(false);
+  },
+);
+
 testApiClient("coalesces only in-flight principal policy reads", async () => {
   let callCount = 0;
   const firstRequestStarted = createDeferred<void>();

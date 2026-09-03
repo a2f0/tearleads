@@ -36,7 +36,10 @@ export type ContainerWorkflowApi = Parameters<
   Parameters<typeof createRemoteDocument>[0]["apiClient"] & {
     deleteContainerResult(
       containerId: string,
-      options?: { reportErrors?: boolean },
+      options?: {
+        expectedPaymentRequiredOrganizationId?: string;
+        reportErrors?: boolean;
+      },
     ): Promise<
       | { data: ContainerDeleteResponse; ok: true }
       | {

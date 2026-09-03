@@ -1,4 +1,5 @@
 import type { Context, MiddlewareHandler } from "hono";
+import { HTTPException } from "hono/http-exception";
 import { validator } from "hono/validator";
 import type { SafeParseSchema } from "./schema";
 
@@ -44,7 +45,9 @@ export function requestBodyLimit({
 }
 
 export function jsonRequestValidator<Output>(schema: SafeParseSchema<Output>) {
-  return validator("json", (value, c) => {
+  const validatedContexts = new WeakSet<Context>();
+  const validate = validator("json", (value, c) => {
+    validatedContexts.add(c);
     const result = schema.safeParse(value);
     if (!result.success) {
       return c.json({ error: "Invalid request" }, 400);
@@ -52,4 +55,21 @@ export function jsonRequestValidator<Output>(schema: SafeParseSchema<Output>) {
 
     return result.data;
   });
+  const normalizeMalformedJson: typeof validate = async (context, next) => {
+    try {
+      return await validate(context, next);
+    } catch (error) {
+      if (
+        !validatedContexts.has(context) &&
+        error instanceof HTTPException &&
+        error.status === 400
+      ) {
+        return context.json({ error: "Invalid request" }, 400);
+      }
+      throw error;
+    } finally {
+      validatedContexts.delete(context);
+    }
+  };
+  return normalizeMalformedJson;
 }

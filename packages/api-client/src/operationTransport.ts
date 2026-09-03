@@ -11,9 +11,9 @@ import {
   type JsonOperationResponseEnvelope,
 } from "./operationResponse";
 import type {
+  OperationResponseRequestFn,
   RequestResult,
   RequestResultOptions,
-  ResponseRequestFn,
 } from "./types";
 
 export interface RuntimeOperationRequestInput {
@@ -209,7 +209,7 @@ export function mergeOperationRequestHeaders(
 }
 
 export function createJsonOperationTransport(
-  responseRequest: ResponseRequestFn,
+  responseRequest: OperationResponseRequestFn,
 ): JsonOperationTransport {
   function requestResponseResult<Operation extends JsonOperation>(
     operation: Operation,
@@ -239,6 +239,7 @@ export function createJsonOperationTransport(
       derived.body,
       requestOptions,
       additionalOperationSuccessStatuses(operation),
+      operation,
     );
     if (!result.ok) {
       return result;

@@ -4,6 +4,7 @@ import {
   StripeReturnUrlRequestSchema,
 } from "../request";
 import {
+  BillingErrorResponseSchema,
   ErrorResponseSchema,
   isStripeCancelResponse,
   isStripeCheckoutIntentResponse,
@@ -38,7 +39,10 @@ const baseFailureResponses = {
 
 export const getStripeCheckoutOptionsOperation = defineJsonOperation({
   auth: "session",
-  failureResponses: { ...baseFailureResponses, 409: ErrorResponseSchema },
+  failureResponses: {
+    ...baseFailureResponses,
+    409: BillingErrorResponseSchema,
+  },
   failureStatuses: [400, 401, 403, 404, 409, 500, 502],
   id: "organizations.billing.stripe.options.get",
   method: "GET",
@@ -51,7 +55,7 @@ export const createStripeCheckoutOperation = defineJsonOperation({
   auth: "session",
   failureResponses: {
     ...baseFailureResponses,
-    409: ErrorResponseSchema,
+    409: BillingErrorResponseSchema,
     503: ErrorResponseSchema,
   },
   failureStatuses: [400, 401, 403, 404, 409, 500, 502, 503],
@@ -65,7 +69,10 @@ export const createStripeCheckoutOperation = defineJsonOperation({
 export const createStripeCheckoutSessionOperation = defineJsonOperation({
   auth: "session",
   body: StripeReturnUrlRequestSchema,
-  failureResponses: { ...baseFailureResponses, 409: ErrorResponseSchema },
+  failureResponses: {
+    ...baseFailureResponses,
+    409: BillingErrorResponseSchema,
+  },
   failureStatuses: [400, 401, 403, 404, 409, 500, 502],
   id: "organizations.billing.stripe.checkoutSession.create",
   method: "POST",

@@ -121,3 +121,35 @@ testApiClient("rejects an invalid document sync response shape", async () => {
     "Invalid response shape for /documents/document-1/sync",
   ]);
 });
+
+testApiClient("rejects malformed coded document sync failures", async () => {
+  server.use(
+    http.post(`${apiBaseUrl}/documents/:documentId/sync`, () =>
+      HttpResponse.json(
+        {
+          code: "document_sync_state_stale",
+          error: "Untrusted stale state",
+          principalPolicies: [{}],
+        },
+        { status: 409, statusText: "Conflict" },
+      ),
+    ),
+  );
+
+  const client = new ApiClient(apiBaseUrl);
+  const result = await client.syncDocumentResult(
+    "document-1",
+    createDocumentSyncRequest(),
+    { reportErrors: false },
+  );
+
+  if (result.ok) {
+    throw new Error("Expected document sync result failure");
+  }
+  expect(result.kind).toBe("http");
+  expect(result.status).toBe(409);
+  expect(result.code).toBeUndefined();
+  expect(result.stalePrincipalPolicies).toBeUndefined();
+  expect(result.message).toContain("Invalid failure response body");
+  expect(result.message.includes("Untrusted stale state")).toBe(false);
+});

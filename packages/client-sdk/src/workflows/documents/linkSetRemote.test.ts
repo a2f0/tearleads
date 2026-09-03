@@ -62,11 +62,12 @@ test("relinkRemoteDocument rejects unlink without reading projections when its r
 
 test("relinkRemoteDocument submits a verified signed link-set mutation", async () => {
   const { author, signingPublicKey } = await createAuthor();
+  const resourceOrganizationId = "shared-organization";
   const keyPair = generateKemSeedAndKeyPair();
   const projection = await createContainerWriterProjectionFixture({
     containerId: "remote-link-root-container",
     encapsulationPublicKey: keyPair.publicKey,
-    organizationId: author.organizationId,
+    organizationId: resourceOrganizationId,
     signerKeyFingerprint: author.signerKeyFingerprint,
     signerPrivateKey: author.signerPrivateKey,
     userId: author.signerUserId,
@@ -74,7 +75,7 @@ test("relinkRemoteDocument submits a verified signed link-set mutation", async (
   const siblingProjection = await createContainerWriterProjectionFixture({
     containerId: "remote-link-sibling-container",
     encapsulationPublicKey: keyPair.publicKey,
-    organizationId: author.organizationId,
+    organizationId: resourceOrganizationId,
     parentProjection: projection,
     signerKeyFingerprint: author.signerKeyFingerprint,
     signerPrivateKey: author.signerPrivateKey,
@@ -103,6 +104,7 @@ test("relinkRemoteDocument submits a verified signed link-set mutation", async (
     documentManifest: createdResponse.accessManifest,
   };
   const submittedRequests: DocumentLinkSetMutationRequest[] = [];
+  let requestedOrganizationId: string | undefined;
   const primedProjections: Array<{
     documentId: string;
     projection: DocumentWriterProjectionResponse;
@@ -120,7 +122,9 @@ test("relinkRemoteDocument submits a verified signed link-set mutation", async (
       primeDocumentWriterProjection: (documentId, primed) => {
         primedProjections.push({ documentId, projection: primed });
       },
-      linkDocument: async (documentId, request) => {
+      linkDocument: async (documentId, request, options) => {
+        requestedOrganizationId =
+          options?.expectedPaymentRequiredOrganizationId;
         submittedRequests.push(request);
         return createLinkSetResponseFromRequest(documentId, request);
       },
@@ -138,6 +142,7 @@ test("relinkRemoteDocument submits a verified signed link-set mutation", async (
   });
 
   expect(submittedRequests).toHaveLength(1);
+  expect(requestedOrganizationId).toBe(resourceOrganizationId);
   expect(linked?.contentKeyRotated).toBe(false);
   expect(linked?.linkedContainerIds).toEqual(
     [projection.containerId, siblingProjection.containerId].sort(),

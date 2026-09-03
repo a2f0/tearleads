@@ -68,7 +68,7 @@ test("blob attachment routes reject invalid bodies at the boundary", async () =>
   }
 });
 
-test("blob attachment routes preserve malformed JSON behavior", async () => {
+test("blob attachment routes return JSON for malformed request bodies", async () => {
   const route = createRoute((_c, next) => next());
   const response = await route.request("/blobs/blob-1/attachment-bindings", {
     body: "{",
@@ -77,5 +77,5 @@ test("blob attachment routes preserve malformed JSON behavior", async () => {
   });
 
   expect(response.status).toBe(400);
-  expect(await response.text()).toBe("Malformed JSON in request body");
+  expect(await response.json()).toEqual({ error: "Invalid request" });
 });

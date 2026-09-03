@@ -177,7 +177,10 @@ export async function submitDocumentSync(input: {
         const result = await input.apiClient.syncDocumentResult(
           input.plan.documentId,
           input.plan.request,
-          { reportErrors: false },
+          {
+            expectedPaymentRequiredOrganizationId: input.plan.organizationId,
+            reportErrors: false,
+          },
         );
         return result.ok ? { ok: true, response: result.data } : result;
       }
@@ -185,6 +188,9 @@ export async function submitDocumentSync(input: {
       const response = await input.apiClient.syncDocument(
         input.plan.documentId,
         input.plan.request,
+        {
+          expectedPaymentRequiredOrganizationId: input.plan.organizationId,
+        },
       );
       return response ? { ok: true, response } : null;
     },

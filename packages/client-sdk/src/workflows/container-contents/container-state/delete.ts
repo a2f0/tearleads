@@ -21,6 +21,7 @@ export async function deleteContainerState(input: {
   if (isRemoteContainer) {
     const deletedRemoteContainer = await deleteRemoteContainer({
       containerId: input.containerState.container.id,
+      organizationId: input.containerState.container.organizationId,
       runtime: input.runtime,
     });
     if (!deletedRemoteContainer) {

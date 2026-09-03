@@ -226,6 +226,10 @@ async function stageAndBindBlobAttachment(input: {
   const response = await input.apiClient.bindBlobAttachment(
     input.blobId,
     request,
+    {
+      expectedPaymentRequiredOrganizationId:
+        input.material.manifestIdentity.organizationId,
+    },
   );
   if (!response) {
     return null;

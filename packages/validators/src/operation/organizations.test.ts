@@ -84,7 +84,7 @@ test("create organization paths are shared without parameters", () => {
 test("get organization data usage operation owns its HTTP contract metadata", () => {
   expect(getOrganizationDataUsageOperation).toMatchObject({
     auth: "session",
-    failureStatuses: [400, 401, 403, 404, 500],
+    failureStatuses: [400, 401, 403, 404, 500, 503],
     id: "organizations.dataUsage.get",
     method: "GET",
     params: OrganizationPathParamsSchema,
@@ -98,6 +98,7 @@ test("get organization data usage operation owns its HTTP contract metadata", ()
     403: OrganizationPresentationFailureResponseSchema,
     404: OrganizationPresentationFailureResponseSchema,
     500: ErrorResponseSchema,
+    503: ErrorResponseSchema,
   });
 });
 
@@ -120,7 +121,7 @@ test("get organization data usage paths derive from the shared operation", () =>
 test("organization read-model operation owns its HTTP contract", () => {
   expect(getOrganizationReadModelOperation).toMatchObject({
     auth: "session",
-    failureStatuses: [400, 401, 403, 404, 500],
+    failureStatuses: [400, 401, 403, 404, 500, 503],
     id: "organizations.readModel.get",
     method: "GET",
     params: OrganizationPathParamsSchema,
@@ -134,6 +135,7 @@ test("organization read-model operation owns its HTTP contract", () => {
     403: OrganizationPresentationFailureResponseSchema,
     404: OrganizationPresentationFailureResponseSchema,
     500: ErrorResponseSchema,
+    503: ErrorResponseSchema,
   });
 });
 
@@ -226,7 +228,7 @@ test("organization management operations own their HTTP contracts", () => {
   });
   expect(listOrganizationGroupMembersOperation).toMatchObject({
     auth: "session",
-    failureStatuses: [400, 401, 403, 404, 500],
+    failureStatuses: [400, 401, 403, 404, 500, 503],
     id: "organizations.groups.members.list",
     method: "GET",
     params: OrganizationGroupPathParamsSchema,
@@ -235,7 +237,7 @@ test("organization management operations own their HTTP contracts", () => {
   expect(updateOrganizationProfileOperation).toMatchObject({
     auth: "session",
     body: UpdateOrganizationProfileRequestSchema,
-    failureStatuses: [400, 401, 402, 403, 404, 500],
+    failureStatuses: [400, 401, 402, 403, 404, 500, 503],
     id: "organizations.profile.update",
     method: "PUT",
     params: OrganizationPathParamsSchema,
@@ -244,7 +246,7 @@ test("organization management operations own their HTTP contracts", () => {
   expect(updateOrganizationRosterEntryOperation).toMatchObject({
     auth: "session",
     body: UpdateOrganizationRosterEntryRequestSchema,
-    failureStatuses: [400, 401, 402, 403, 404, 500],
+    failureStatuses: [400, 401, 402, 403, 404, 500, 503],
     id: "organizations.roster.update",
     method: "PUT",
     params: OrganizationRosterPathParamsSchema,

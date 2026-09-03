@@ -1,6 +1,9 @@
 import { expect } from "bun:test";
 import type { ListContainerParentLanesRequest } from "@tearleads/validators/request";
-import type { ListContainerParentLanesResponse } from "@tearleads/validators/response";
+import {
+  CONTAINER_NOT_FOUND_ERROR_CODE,
+  type ListContainerParentLanesResponse,
+} from "@tearleads/validators/response";
 import { HttpResponse, http } from "msw";
 import {
   createContainerCreateWithMetadataDocumentRequest,
@@ -188,6 +191,7 @@ testApiClient(
       http.delete(`${apiBaseUrl}/containers/:containerId`, () => {
         return HttpResponse.json(
           {
+            code: CONTAINER_NOT_FOUND_ERROR_CODE,
             error: "Container not found",
           },
           {

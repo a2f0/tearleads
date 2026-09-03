@@ -146,7 +146,7 @@ test("organization management rejects invalid path parameters at the HTTP bounda
   }
 });
 
-test("organization management preserves malformed JSON behavior", async () => {
+test("organization management returns JSON for malformed request bodies", async () => {
   const routes = createRoutes((_c, next) => next());
   const response = await routes.profile.request(
     `/organizations/${organizationId}/profile`,
@@ -158,5 +158,5 @@ test("organization management preserves malformed JSON behavior", async () => {
   );
 
   expect(response.status).toBe(400);
-  expect(await response.text()).toBe("Malformed JSON in request body");
+  expect(await response.json()).toEqual({ error: "Invalid request" });
 });

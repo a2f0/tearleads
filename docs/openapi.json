@@ -76,6 +76,25 @@
               }
             },
             "description": "Failure JSON response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
           }
         },
         "security": []
@@ -186,6 +205,25 @@
               }
             },
             "description": "Failure JSON response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
           }
         },
         "security": []
@@ -241,6 +279,25 @@
             "description": "Failure JSON response"
           },
           "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "503": {
             "content": {
               "application/json": {
                 "schema": {
@@ -11766,6 +11823,25 @@
               }
             },
             "description": "Failure JSON response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
           }
         },
         "security": [
@@ -11875,6 +11951,25 @@
             "description": "Failure JSON response"
           },
           "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "503": {
             "content": {
               "application/json": {
                 "schema": {
@@ -12002,6 +12097,25 @@
             "description": "Failure JSON response"
           },
           "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "503": {
             "content": {
               "application/json": {
                 "schema": {
@@ -12205,6 +12319,25 @@
               }
             },
             "description": "Failure JSON response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
           }
         },
         "security": []
@@ -12259,6 +12392,25 @@
             "description": "Failure JSON response"
           },
           "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "503": {
             "content": {
               "application/json": {
                 "schema": {
@@ -13041,6 +13193,25 @@
               }
             },
             "description": "Failure JSON response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
           }
         },
         "security": [
@@ -13294,6 +13465,25 @@
               }
             },
             "description": "Failure JSON response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
           }
         },
         "security": [
@@ -13526,6 +13716,25 @@
               }
             },
             "description": "Failure JSON response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
           }
         },
         "security": [
@@ -13715,6 +13924,25 @@
             "description": "Failure JSON response"
           },
           "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "503": {
             "content": {
               "application/json": {
                 "schema": {
@@ -14207,7 +14435,8 @@
                       "type": "string"
                     },
                     "organizationId": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     },
                     "reason": {
                       "type": "string",
@@ -15116,7 +15345,8 @@
                       "type": "string"
                     },
                     "organizationId": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     },
                     "reason": {
                       "type": "string",
@@ -15399,6 +15629,25 @@
             "description": "Failure JSON response"
           },
           "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "503": {
             "content": {
               "application/json": {
                 "schema": {
@@ -15807,6 +16056,25 @@
             "description": "Failure JSON response"
           },
           "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "503": {
             "content": {
               "application/json": {
                 "schema": {
@@ -17254,7 +17522,8 @@
                       "type": "string"
                     },
                     "organizationId": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     },
                     "reason": {
                       "type": "string",
@@ -18296,6 +18565,25 @@
               }
             },
             "description": "Failure JSON response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
           }
         },
         "security": [
@@ -18582,6 +18870,25 @@
             "description": "Failure JSON response"
           },
           "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "503": {
             "content": {
               "application/json": {
                 "schema": {
@@ -19322,7 +19629,8 @@
                       "type": "string"
                     },
                     "organizationId": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     },
                     "reason": {
                       "type": "string",
@@ -19980,6 +20288,25 @@
             "description": "Failure JSON response"
           },
           "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "503": {
             "content": {
               "application/json": {
                 "schema": {
@@ -20720,7 +21047,8 @@
                       "type": "string"
                     },
                     "organizationId": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     },
                     "reason": {
                       "type": "string",
@@ -21378,6 +21706,25 @@
             "description": "Failure JSON response"
           },
           "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "503": {
             "content": {
               "application/json": {
                 "schema": {
@@ -22118,7 +22465,8 @@
                       "type": "string"
                     },
                     "organizationId": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     },
                     "reason": {
                       "type": "string",
@@ -22776,6 +23124,25 @@
             "description": "Failure JSON response"
           },
           "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "503": {
             "content": {
               "application/json": {
                 "schema": {
@@ -23516,7 +23883,8 @@
                       "type": "string"
                     },
                     "organizationId": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     },
                     "reason": {
                       "type": "string",
@@ -24174,6 +24542,25 @@
             "description": "Failure JSON response"
           },
           "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "503": {
             "content": {
               "application/json": {
                 "schema": {
@@ -24594,6 +24981,25 @@
               }
             },
             "description": "Failure JSON response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
           }
         },
         "security": [
@@ -24705,7 +25111,8 @@
                       "type": "string"
                     },
                     "organizationId": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     },
                     "reason": {
                       "type": "string",
@@ -25369,6 +25776,25 @@
             "description": "Failure JSON response"
           },
           "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "503": {
             "content": {
               "application/json": {
                 "schema": {
@@ -26092,7 +26518,8 @@
                       "type": "string"
                     },
                     "organizationId": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     },
                     "reason": {
                       "type": "string",
@@ -26767,6 +27194,25 @@
               }
             },
             "description": "Failure JSON response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
           }
         },
         "security": [
@@ -27178,6 +27624,25 @@
               }
             },
             "description": "Failure JSON response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
           }
         },
         "security": [
@@ -27568,6 +28033,25 @@
               }
             },
             "description": "Failure JSON response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
           }
         },
         "security": [
@@ -27858,6 +28342,25 @@
             "description": "Failure JSON response"
           },
           "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "503": {
             "content": {
               "application/json": {
                 "schema": {
@@ -28663,7 +29166,8 @@
                       "type": "string"
                     },
                     "organizationId": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     },
                     "reason": {
                       "type": "string",
@@ -29663,7 +30167,8 @@
                       "type": "string"
                     },
                     "organizationId": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     },
                     "reason": {
                       "type": "string",
@@ -30693,7 +31198,8 @@
                       "type": "string"
                     },
                     "organizationId": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     },
                     "reason": {
                       "type": "string",
@@ -31762,7 +32268,23 @@
             "description": "Successful JSON response"
           },
           "400": {
-            "description": "Response without a declared body"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
           },
           "401": {
             "content": {
@@ -31789,10 +32311,55 @@
             "description": "Failure JSON response"
           },
           "402": {
-            "description": "Response without a declared body"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "organizationId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "reason": {
+                      "type": "string",
+                      "enum": [
+                        "billing_inactive",
+                        "sync_seat_unassigned"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "organizationId",
+                    "reason"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
           },
           "403": {
-            "description": "Response without a declared body"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
           },
           "404": {
             "content": {
@@ -32407,10 +32974,42 @@
             "description": "Serialized document sync requests are limited to 16777216 bytes"
           },
           "500": {
-            "description": "Response without a declared body"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
           },
           "503": {
-            "description": "Response without a declared body"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
           }
         },
         "security": [
@@ -33239,7 +33838,8 @@
                       "type": "string"
                     },
                     "organizationId": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     },
                     "reason": {
                       "type": "string",
@@ -34180,6 +34780,25 @@
               }
             },
             "description": "Failure JSON response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
           }
         },
         "security": [
@@ -34950,7 +35569,8 @@
                       "type": "string"
                     },
                     "organizationId": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     },
                     "reason": {
                       "type": "string",
@@ -35517,6 +36137,25 @@
               }
             },
             "description": "Failure JSON response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
           }
         },
         "security": [
@@ -35670,6 +36309,25 @@
             "description": "Failure JSON response"
           },
           "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "503": {
             "content": {
               "application/json": {
                 "schema": {
@@ -35883,6 +36541,25 @@
             "description": "Failure JSON response"
           },
           "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "503": {
             "content": {
               "application/json": {
                 "schema": {
@@ -36398,6 +37075,25 @@
               }
             },
             "description": "Failure JSON response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
           }
         },
         "security": [
@@ -36556,6 +37252,13 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "billing_checkout_no_active_members",
+                        "billing_roster_over_capacity"
+                      ]
+                    },
                     "error": {
                       "type": "string"
                     }
@@ -36589,6 +37292,25 @@
             "description": "Failure JSON response"
           },
           "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "503": {
             "content": {
               "application/json": {
                 "schema": {
@@ -36750,6 +37472,13 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "billing_checkout_no_active_members",
+                        "billing_roster_over_capacity"
+                      ]
+                    },
                     "error": {
                       "type": "string"
                     }
@@ -37026,6 +37755,13 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "billing_checkout_no_active_members",
+                        "billing_roster_over_capacity"
+                      ]
+                    },
                     "error": {
                       "type": "string"
                     }
@@ -37059,6 +37795,25 @@
             "description": "Failure JSON response"
           },
           "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "503": {
             "content": {
               "application/json": {
                 "schema": {
@@ -37248,6 +38003,25 @@
             "description": "Failure JSON response"
           },
           "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "503": {
             "content": {
               "application/json": {
                 "schema": {
@@ -37557,6 +38331,25 @@
               }
             },
             "description": "Failure JSON response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
           }
         },
         "security": [
@@ -37813,6 +38606,25 @@
             "description": "Failure JSON response"
           },
           "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "503": {
             "content": {
               "application/json": {
                 "schema": {
@@ -38089,6 +38901,25 @@
               }
             },
             "description": "Failure JSON response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
           }
         },
         "security": [
@@ -38313,6 +39144,25 @@
             "description": "Failure JSON response"
           },
           "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "503": {
             "content": {
               "application/json": {
                 "schema": {
@@ -41322,7 +42172,8 @@
                       "type": "string"
                     },
                     "organizationId": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     },
                     "reason": {
                       "type": "string",
@@ -43037,7 +43888,8 @@
                       "type": "string"
                     },
                     "organizationId": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     },
                     "reason": {
                       "type": "string",
@@ -45350,7 +46202,8 @@
                       "type": "string"
                     },
                     "organizationId": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     },
                     "reason": {
                       "type": "string",
@@ -45611,7 +46464,8 @@
                       "type": "string"
                     },
                     "organizationId": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     },
                     "reason": {
                       "type": "string",
@@ -45671,6 +46525,25 @@
             "description": "Failure JSON response"
           },
           "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "503": {
             "content": {
               "application/json": {
                 "schema": {
@@ -46971,6 +47844,25 @@
               }
             },
             "description": "Failure JSON response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
           }
         },
         "security": [
@@ -47186,7 +48078,8 @@
                       "type": "string"
                     },
                     "organizationId": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     },
                     "reason": {
                       "type": "string",
@@ -47246,6 +48139,25 @@
             "description": "Failure JSON response"
           },
           "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "503": {
             "content": {
               "application/json": {
                 "schema": {
@@ -59329,6 +60241,25 @@
               }
             },
             "description": "Failure JSON response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
           }
         },
         "security": [
@@ -60855,6 +61786,38 @@
                   },
                   "required": [
                     "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "organizationId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "reason": {
+                      "type": "string",
+                      "enum": [
+                        "billing_inactive",
+                        "sync_seat_unassigned"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "organizationId",
+                    "reason"
                   ],
                   "additionalProperties": {}
                 }

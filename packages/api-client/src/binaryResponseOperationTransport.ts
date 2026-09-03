@@ -12,9 +12,9 @@ import {
   type RuntimeOperationRequestInput,
 } from "./operationTransport";
 import type {
+  OperationResponseRequestFn,
   RequestResult,
   RequestResultOptions,
-  ResponseRequestFn,
 } from "./types";
 
 export interface BinaryResponseOperation extends HttpOperation {
@@ -74,7 +74,7 @@ export function supportsBinaryResponseOperationTransport(
 }
 
 async function decodeBinaryOperationResponse(
-  request: ResponseRequestFn,
+  request: OperationResponseRequestFn,
   operation: BinaryResponseOperation,
   response: Response,
   path: string,
@@ -117,7 +117,7 @@ async function decodeBinaryOperationResponse(
 }
 
 export function createBinaryResponseOperationTransport(
-  responseRequest: ResponseRequestFn,
+  responseRequest: OperationResponseRequestFn,
 ): BinaryResponseOperationTransport {
   function requestBinaryResponseResult<
     Operation extends BinaryResponseOperation,
@@ -149,6 +149,7 @@ export function createBinaryResponseOperationTransport(
       derived.body,
       requestOptions,
       additionalOperationSuccessStatuses(operation),
+      operation,
     );
     if (!result.ok) {
       return result;

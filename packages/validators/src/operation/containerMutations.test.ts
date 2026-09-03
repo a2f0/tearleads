@@ -36,7 +36,7 @@ import {
   jsonRoundTrip,
 } from "./openApiTestFixtures";
 
-const standardFailureStatuses = [400, 401, 402, 403, 404, 409, 500];
+const standardFailureStatuses = [400, 401, 402, 403, 404, 409, 500, 503];
 const mutationOperations = [
   createContainerOperation,
   moveContainerOperation,
@@ -56,7 +56,7 @@ test("container mutation operations own their complete wire metadata", () => {
   }
   expect(createContainerWithMetadataDocumentOperation).toMatchObject({
     auth: "session",
-    failureStatuses: [...standardFailureStatuses, 503],
+    failureStatuses: standardFailureStatuses,
     method: "POST",
     runtimeRefinements: [organizationProvisioningContainerKeyringRefinement],
   });

@@ -40,6 +40,7 @@ test("uploadDocumentAttachment wraps blob keys with the blob content-key suite",
       readonly targets: readonly { readonly wrappingMetadata: unknown }[];
     };
   }[] = [];
+  let requestedOrganizationId: string | undefined;
   const multipart = createMultipartBlobStageFixture({
     stageId: "stage-blob-suite",
   });
@@ -49,7 +50,9 @@ test("uploadDocumentAttachment wraps blob keys with the blob content-key suite",
   const uploaded = await uploadDocumentAttachment({
     apiClient: {
       ...multipartApi,
-      bindBlobAttachment: async (requestBlobId, request) => {
+      bindBlobAttachment: async (requestBlobId, request, options) => {
+        requestedOrganizationId =
+          options?.expectedPaymentRequiredOrganizationId;
         const response = await createBlobAttachmentBindResponse({
           blobId: requestBlobId,
           documentManifest: writerProjection.documentManifest,
@@ -76,6 +79,7 @@ test("uploadDocumentAttachment wraps blob keys with the blob content-key suite",
 
   expect(uploaded?.blobId).toBe(blobId);
   expect(uploaded?.writerProjection).toBe(writerProjection);
+  expect(requestedOrganizationId).toBe(author.organizationId);
   const stagedBytes = getAssembledBytes();
   if (!stagedBytes) {
     throw new Error("Expected staged encrypted blob bytes.");

@@ -61,6 +61,7 @@ test("organization data usage OpenAPI documents its shared contract", () => {
     "403",
     "404",
     "500",
+    "503",
   ]);
   expect(operation["x-tearleads-runtime-refinements"]).toEqual(
     getOrganizationDataUsageOperation.runtimeRefinements,
@@ -93,6 +94,7 @@ test("organization read-model OpenAPI documents path, query, and response", () =
     "403",
     "404",
     "500",
+    "503",
   ]);
   expect(
     operation.responses["400"]?.content?.["application/json"]?.schema,

@@ -104,19 +104,19 @@ test("organization billing operations own their wire contracts", () => {
 
 test("organization billing operations document their handler failures", () => {
   expect(getOrganizationBillingOperation.failureStatuses).toEqual([
-    400, 401, 403, 404, 500,
+    400, 401, 403, 404, 500, 503,
   ]);
   expect(getOrganizationBillingHistoryOperation.failureStatuses).toEqual([
-    400, 401, 403, 404, 500,
+    400, 401, 403, 404, 500, 503,
   ]);
   expect(getOrganizationBillingManagementUrlOperation.failureStatuses).toEqual([
-    400, 401, 403, 404, 500,
+    400, 401, 403, 404, 500, 503,
   ]);
   expect(
     getOrganizationNativePurchaseEligibilityOperation.failureStatuses,
-  ).toEqual([400, 401, 403, 404, 409, 500]);
+  ).toEqual([400, 401, 403, 404, 409, 500, 503]);
   expect(startOrganizationTrialOperation.failureStatuses).toEqual([
-    400, 401, 403, 404, 409, 500,
+    400, 401, 403, 404, 409, 500, 503,
   ]);
   expect(claimNativeOrganizationSubscriptionOperation.failureStatuses).toEqual([
     400, 401, 403, 404, 409, 500, 503,

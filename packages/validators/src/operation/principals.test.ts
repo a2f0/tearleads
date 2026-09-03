@@ -24,7 +24,7 @@ const principalId = "11111111-1111-4111-8111-111111111111";
 test("principal policy operations own their HTTP contracts", () => {
   expect(getPrincipalPolicyOperation).toMatchObject({
     auth: "session",
-    failureStatuses: [400, 401, 404, 500],
+    failureStatuses: [400, 401, 404, 500, 503],
     id: "principals.policy.get",
     method: "GET",
     params: PrincipalPolicyPathParamsSchema,
@@ -36,11 +36,12 @@ test("principal policy operations own their HTTP contracts", () => {
     401: SessionFailureResponseSchema,
     404: PrincipalPolicyErrorResponseSchema,
     500: ErrorResponseSchema,
+    503: ErrorResponseSchema,
   });
   expect(putPrincipalPolicyOperation).toMatchObject({
     auth: "session",
     body: OrganizationPrincipalPolicyRequestSchema,
-    failureStatuses: [400, 401, 403, 404, 409, 500, 503],
+    failureStatuses: [400, 401, 402, 403, 404, 409, 500, 503],
     id: "principals.policy.update",
     method: "PUT",
     params: PrincipalPolicyPathParamsSchema,
@@ -50,6 +51,7 @@ test("principal policy operations own their HTTP contracts", () => {
   expect(putPrincipalPolicyOperation.failureResponses).toEqual({
     400: PrincipalPolicyErrorResponseSchema,
     401: SessionFailureResponseSchema,
+    402: PaymentRequiredErrorResponseSchema,
     403: PrincipalPolicyErrorResponseSchema,
     404: PrincipalPolicyErrorResponseSchema,
     409: PrincipalPolicyErrorResponseSchema,

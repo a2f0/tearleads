@@ -25,14 +25,14 @@ const sha256 = "a".repeat(64);
 test("blob byte operations own their HTTP contracts", () => {
   expect(getBlobBytesOperation).toMatchObject({
     auth: "session",
-    failureStatuses: [400, 401, 403, 404, 409, 500],
+    failureStatuses: [400, 401, 403, 404, 409, 500, 503],
     id: "blobs.bytes.get",
     method: "GET",
     responseMediaTypes: { 200: "application/octet-stream" },
   });
   expect(uploadMultipartBlobPartBytesOperation).toMatchObject({
     auth: "session",
-    failureStatuses: [400, 401, 403, 404, 409, 500],
+    failureStatuses: [400, 401, 403, 404, 409, 500, 503],
     id: "blobs.multipartStages.parts.upload",
     method: "PUT",
     requestMediaType: "application/octet-stream",
@@ -49,6 +49,7 @@ test("blob byte operations own their HTTP contracts", () => {
       404: ErrorResponseSchema,
       409: ErrorResponseSchema,
       500: ErrorResponseSchema,
+      503: ErrorResponseSchema,
     });
   }
 });
@@ -191,6 +192,7 @@ test("blob byte OpenAPI documents binary media, headers, and errors", () => {
       "404",
       "409",
       "500",
+      "503",
     ]);
   }
 });

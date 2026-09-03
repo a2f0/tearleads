@@ -120,20 +120,27 @@ export type ContainerMutationSubmitResult<T> =
     }
   | ContainerMutationSubmitFailure;
 
+export interface ContainerMutationRequestOptions {
+  readonly expectedPaymentRequiredOrganizationId?: string | undefined;
+  readonly reportErrors?: boolean | undefined;
+}
+
 export interface ContainerCreateApi {
   createContainer(
     input: ContainerMutationRequest,
+    options?: ContainerMutationRequestOptions,
   ): Promise<ContainerMutationResponse | null>;
   createContainerResult?(
     input: ContainerMutationRequest,
-    options?: { readonly reportErrors?: boolean | undefined },
+    options?: ContainerMutationRequestOptions,
   ): Promise<ContainerMutationSubmitResult<ContainerMutationResponse>>;
   createContainerWithMetadataDocument?(
     input: ContainerCreateWithMetadataDocumentRequest,
+    options?: ContainerMutationRequestOptions,
   ): Promise<ContainerCreateWithMetadataDocumentResponse | null>;
   createContainerWithMetadataDocumentResult?(
     input: ContainerCreateWithMetadataDocumentRequest,
-    options?: { readonly reportErrors?: boolean | undefined },
+    options?: ContainerMutationRequestOptions,
   ): Promise<
     ContainerMutationSubmitResult<ContainerCreateWithMetadataDocumentResponse>
   >;
@@ -154,6 +161,7 @@ export interface ContainerShareApi {
   shareContainer(
     containerId: string,
     input: ContainerMutationRequest,
+    options?: ContainerMutationRequestOptions,
   ): Promise<ContainerMutationResponse | null>;
 }
 
@@ -164,6 +172,7 @@ export interface ContainerMoveApi {
   moveContainer(
     containerId: string,
     input: ContainerMutationRequest,
+    options?: ContainerMutationRequestOptions,
   ): Promise<ContainerMutationResponse | null>;
 }
 
@@ -174,6 +183,7 @@ export interface ContainerRevokeApi {
   revokeContainer(
     containerId: string,
     input: ContainerMutationRequest,
+    options?: ContainerMutationRequestOptions,
   ): Promise<ContainerMutationResponse | null>;
 }
 
@@ -260,6 +270,7 @@ export interface ContainerRekeyApi {
   rekeyContainer(
     containerId: string,
     input: ContainerMutationRequest,
+    options?: ContainerMutationRequestOptions,
   ): Promise<ContainerMutationResponse | null>;
 }
 

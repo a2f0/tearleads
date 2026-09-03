@@ -13,6 +13,7 @@ const T4 = "2026-01-01T00:00:04.000Z";
 
 test("remote deletion fences only an exactly coded missing container", async () => {
   let reports = 0;
+  const requestedOrganizationIds: (string | undefined)[] = [];
   const result = (code?: string, status = 404) => ({
     ...(code === undefined ? {} : { code }),
     kind: "http" as const,
@@ -29,13 +30,22 @@ test("remote deletion fences only an exactly coded missing container", async () 
   const runtime = (code?: string, status?: number) =>
     ({
       apiClient: {
-        deleteContainerResult: async () => result(code, status),
+        deleteContainerResult: async (
+          _containerId: string,
+          options?: { expectedPaymentRequiredOrganizationId?: string },
+        ) => {
+          requestedOrganizationIds.push(
+            options?.expectedPaymentRequiredOrganizationId,
+          );
+          return result(code, status);
+        },
       },
     }) as unknown as ContainerWorkflowRuntime;
 
   await expect(
     deleteRemoteContainer({
       containerId: "container-1",
+      organizationId: "organization-1",
       runtime: runtime(CONTAINER_NOT_FOUND_ERROR_CODE),
     }),
   ).resolves.toEqual({ deletedAt: "9999-12-31T23:59:59.999Z" });
@@ -49,11 +59,15 @@ test("remote deletion fences only an exactly coded missing container", async () 
     await expect(
       deleteRemoteContainer({
         containerId: "container-1",
+        organizationId: "organization-1",
         runtime: runtime(code, status),
       }),
     ).resolves.toBeNull();
   }
   expect(reports).toBe(4);
+  expect(requestedOrganizationIds).toEqual(
+    Array.from({ length: 5 }, () => "organization-1"),
+  );
 });
 
 test("remote deletion uses the server clock for its hydration fence", async () => {

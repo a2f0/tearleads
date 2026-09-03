@@ -1005,6 +1005,19 @@ export interface operations {
                     };
                 };
             };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
         };
     };
     "auth.challenge": {
@@ -1076,6 +1089,19 @@ export interface operations {
                     };
                 };
             };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
         };
     };
     "auth.logout": {
@@ -1118,6 +1144,19 @@ export interface operations {
             };
             /** @description Failure JSON response */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4983,6 +5022,19 @@ export interface operations {
                     };
                 };
             };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
         };
     };
     "auth.sessions.destroy": {
@@ -5064,6 +5116,19 @@ export interface operations {
                     };
                 };
             };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
         };
     };
     "auth.userIdentity": {
@@ -5124,6 +5189,19 @@ export interface operations {
             };
             /** @description Failure JSON response */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5235,6 +5313,19 @@ export interface operations {
                     };
                 };
             };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
         };
     };
     "auth.webSocketTicket": {
@@ -5276,6 +5367,19 @@ export interface operations {
             };
             /** @description Failure JSON response */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6224,6 +6328,19 @@ export interface operations {
                     };
                 };
             };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
         };
     };
     "blobs.multipartStages.initiate": {
@@ -6324,6 +6441,19 @@ export interface operations {
             };
             /** @description Failure JSON response */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6446,6 +6576,19 @@ export interface operations {
             };
             /** @description Failure JSON response */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6580,6 +6723,19 @@ export interface operations {
                     };
                 };
             };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
         };
     };
     "blobs.multipartStages.parts.upload": {
@@ -6692,6 +6848,19 @@ export interface operations {
             };
             /** @description Failure JSON response */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7173,6 +7342,19 @@ export interface operations {
                     };
                 };
             };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
         };
     };
     "containers.delete": {
@@ -7441,6 +7623,19 @@ export interface operations {
                     };
                 };
             };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
         };
     };
     "containers.documents.list": {
@@ -7589,6 +7784,19 @@ export interface operations {
                     };
                 };
             };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
         };
     };
     "containers.kekLog.get": {
@@ -7713,6 +7921,19 @@ export interface operations {
             };
             /** @description Failure JSON response */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8196,6 +8417,19 @@ export interface operations {
                     };
                 };
             };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
         };
     };
     "containers.rekey": {
@@ -8657,6 +8891,19 @@ export interface operations {
             };
             /** @description Failure JSON response */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -9140,6 +9387,19 @@ export interface operations {
                     };
                 };
             };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
         };
     };
     "containers.share": {
@@ -9612,6 +9872,19 @@ export interface operations {
                     };
                 };
             };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
         };
     };
     "containers.writerProjection.get": {
@@ -9792,6 +10065,19 @@ export interface operations {
                     };
                 };
             };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
         };
     };
     "containers.parentLanes.query": {
@@ -9908,6 +10194,19 @@ export interface operations {
             };
             /** @description Failure JSON response */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -11169,6 +11468,19 @@ export interface operations {
                     };
                 };
             };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
         };
     };
     "documents.attribution.get": {
@@ -11295,6 +11607,19 @@ export interface operations {
             };
             /** @description Failure JSON response */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -11447,6 +11772,19 @@ export interface operations {
             };
             /** @description Failure JSON response */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -12843,12 +13181,18 @@ export interface operations {
                     };
                 };
             };
-            /** @description Response without a declared body */
+            /** @description Failure JSON response */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
             };
             /** @description Failure JSON response */
             401: {
@@ -12865,19 +13209,34 @@ export interface operations {
                     };
                 };
             };
-            /** @description Response without a declared body */
+            /** @description Failure JSON response */
             402: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        error: string;
+                        organizationId: string;
+                        /** @enum {string} */
+                        reason: "billing_inactive" | "sync_seat_unassigned";
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
             };
-            /** @description Response without a declared body */
+            /** @description Failure JSON response */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
             };
             /** @description Failure JSON response */
             404: {
@@ -13064,19 +13423,31 @@ export interface operations {
                     };
                 };
             };
-            /** @description Response without a declared body */
+            /** @description Failure JSON response */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
             };
-            /** @description Response without a declared body */
+            /** @description Failure JSON response */
             503: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
             };
         };
     };
@@ -13730,6 +14101,19 @@ export interface operations {
             };
             /** @description Failure JSON response */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -17656,6 +18040,19 @@ export interface operations {
                     };
                 };
             };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
         };
     };
     "organizations.billing.history.get": {
@@ -17780,6 +18177,19 @@ export interface operations {
                     };
                 };
             };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
         };
     };
     "organizations.billing.managementUrl.get": {
@@ -17864,6 +18274,19 @@ export interface operations {
             };
             /** @description Failure JSON response */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -18126,6 +18549,19 @@ export interface operations {
                     };
                 };
             };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
         };
     };
     "organizations.billing.stripe.cancel": {
@@ -18232,6 +18668,19 @@ export interface operations {
                     };
                 };
             };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
         };
     };
     "organizations.billing.stripe.checkout.create": {
@@ -18320,6 +18769,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @enum {string} */
+                        code?: "billing_checkout_no_active_members" | "billing_roster_over_capacity";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -18460,6 +18911,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @enum {string} */
+                        code?: "billing_checkout_no_active_members" | "billing_roster_over_capacity";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -18481,6 +18934,19 @@ export interface operations {
             };
             /** @description Failure JSON response */
             502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -18591,6 +19057,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @enum {string} */
+                        code?: "billing_checkout_no_active_members" | "billing_roster_over_capacity";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -18612,6 +19080,19 @@ export interface operations {
             };
             /** @description Failure JSON response */
             502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -18726,6 +19207,19 @@ export interface operations {
             };
             /** @description Failure JSON response */
             502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -18857,6 +19351,19 @@ export interface operations {
                     };
                 };
             };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
         };
     };
     "organizations.dataUsage.get": {
@@ -18958,6 +19465,19 @@ export interface operations {
             };
             /** @description Failure JSON response */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -20405,6 +20925,19 @@ export interface operations {
                     };
                 };
             };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
         };
     };
     "organizations.groups.policy.commit": {
@@ -21517,6 +22050,19 @@ export interface operations {
                     };
                 };
             };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
         };
     };
     "organizations.readModel.get": {
@@ -21817,6 +22363,19 @@ export interface operations {
                     };
                 };
             };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
         };
     };
     "organizations.roster.update": {
@@ -21937,6 +22496,19 @@ export interface operations {
             };
             /** @description Failure JSON response */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -22159,6 +22731,19 @@ export interface operations {
             };
             /** @description Failure JSON response */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -22641,6 +23226,22 @@ export interface operations {
                         /** @constant */
                         code?: "session_refresh_required";
                         error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                        organizationId: string;
+                        /** @enum {string} */
+                        reason: "billing_inactive" | "sync_seat_unassigned";
                     } & {
                         [key: string]: unknown;
                     };

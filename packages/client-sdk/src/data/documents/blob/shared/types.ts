@@ -54,10 +54,15 @@ export const BLOB_ENCRYPTED_BYTES_KEYS = new Set([
 ]);
 export const TEXT_ENCODER = new TextEncoder();
 
+export interface BlobAttachmentRequestOptions {
+  readonly expectedPaymentRequiredOrganizationId?: string | undefined;
+}
+
 export interface BlobAttachmentApi {
   bindBlobAttachment(
     blobId: string,
     input: BlobAttachmentBindRequest,
+    options?: BlobAttachmentRequestOptions,
   ): Promise<BlobAttachmentBindResponse | null>;
   clearWriterProjectionCaches?(): void;
   evictDocumentWriterProjection?(documentId: string): void;
@@ -95,6 +100,7 @@ export interface BlobAttachmentDetachApi {
     blobId: string,
     bindingId: string,
     input: BlobAttachmentDetachRequest,
+    options?: BlobAttachmentRequestOptions,
   ): Promise<BlobAttachmentDetachResponse | null>;
   getDocumentWriterProjection(
     documentId: string,

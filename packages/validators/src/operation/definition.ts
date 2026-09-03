@@ -1,5 +1,6 @@
 import type { z } from "zod";
 import { isPlainObject } from "../isPlainObject";
+import { ErrorResponseSchema } from "../response/error";
 
 export type HttpOperationMethod = "DELETE" | "GET" | "PATCH" | "POST" | "PUT";
 export type JsonOperationMethod = HttpOperationMethod;
@@ -42,16 +43,49 @@ export interface JsonOperation extends HttpOperation {
 export type OperationSchemaInput<Schema extends z.ZodType> = z.input<Schema>;
 export type OperationSchemaOutput<Schema extends z.ZodType> = z.output<Schema>;
 
+type OperationWithGlobalServiceUnavailable<Operation extends HttpOperation> =
+  Omit<Operation, "failureResponses" | "failureStatuses"> & {
+    readonly failureResponses: (Operation["failureResponses"] extends Readonly<
+      Record<number, z.ZodType>
+    >
+      ? Operation["failureResponses"]
+      : object) & { readonly 503: typeof ErrorResponseSchema };
+    readonly failureStatuses:
+      | Operation["failureStatuses"]
+      | readonly [...Operation["failureStatuses"], 503];
+  };
+
+// The API's outer error boundary maps transient database failures to this
+// envelope before any route-specific handler can respond. Keep it in the
+// operation constructor so every routed contract and client decoder agrees.
+function withGlobalServiceUnavailable<const Operation extends HttpOperation>(
+  operation: Operation,
+): OperationWithGlobalServiceUnavailable<Operation>;
+function withGlobalServiceUnavailable(
+  operation: HttpOperation,
+): OperationWithGlobalServiceUnavailable<HttpOperation> {
+  return {
+    ...operation,
+    failureResponses: {
+      503: ErrorResponseSchema,
+      ...operation.failureResponses,
+    },
+    failureStatuses: operation.failureStatuses.includes(503)
+      ? operation.failureStatuses
+      : [...operation.failureStatuses, 503],
+  };
+}
+
 export function defineHttpOperation<const Operation extends HttpOperation>(
   operation: Operation,
-): Operation {
-  return operation;
+): OperationWithGlobalServiceUnavailable<Operation> {
+  return withGlobalServiceUnavailable(operation);
 }
 
 export function defineJsonOperation<const Operation extends JsonOperation>(
   operation: Operation,
-): Operation {
-  return operation;
+): OperationWithGlobalServiceUnavailable<Operation> {
+  return withGlobalServiceUnavailable(operation);
 }
 
 const PATH_PARAMETER_PATTERN = /\{([^/{}]+)\}/g;

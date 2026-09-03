@@ -16,9 +16,9 @@ import {
   type RuntimeOperationRequestInput,
 } from "./operationTransport";
 import type {
+  OperationResponseRequestFn,
   RequestResult,
   RequestResultOptions,
-  ResponseRequestFn,
 } from "./types";
 
 export interface BinaryRequestOperation extends JsonResponseOperation {
@@ -78,7 +78,7 @@ function binaryRequestBody(
 }
 
 export function createBinaryRequestOperationTransport(
-  responseRequest: ResponseRequestFn,
+  responseRequest: OperationResponseRequestFn,
 ): BinaryRequestOperationTransport {
   function requestBinaryRequestResponseResult<
     Operation extends BinaryRequestOperation,
@@ -110,6 +110,7 @@ export function createBinaryRequestOperationTransport(
       body,
       { ...requestOptions, headers },
       additionalOperationSuccessStatuses(operation),
+      operation,
     );
     if (!result.ok) {
       return result;

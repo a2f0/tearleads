@@ -29,14 +29,14 @@ test("multipart control operations own their shared HTTP contracts", () => {
   expect(initiateMultipartBlobStageOperation).toMatchObject({
     auth: "session",
     body: InitiateMultipartBlobStageRequestSchema,
-    failureStatuses: [400, 401, 404, 409, 500],
+    failureStatuses: [400, 401, 404, 409, 500, 503],
     id: "blobs.multipartStages.initiate",
     method: "POST",
     responses: { 200: InitiateMultipartBlobStageResponseSchema },
   });
   expect(getMultipartBlobStageOperation).toMatchObject({
     auth: "session",
-    failureStatuses: [400, 401, 403, 404, 409, 500],
+    failureStatuses: [400, 401, 403, 404, 409, 500, 503],
     id: "blobs.multipartStages.get",
     method: "GET",
     params: MultipartBlobStagePathParamsSchema,
@@ -45,7 +45,7 @@ test("multipart control operations own their shared HTTP contracts", () => {
   expect(completeMultipartBlobStageOperation).toMatchObject({
     auth: "session",
     body: CompleteMultipartBlobStageRequestSchema,
-    failureStatuses: [400, 401, 403, 404, 409, 500],
+    failureStatuses: [400, 401, 403, 404, 409, 500, 503],
     id: "blobs.multipartStages.complete",
     method: "POST",
     params: MultipartBlobStagePathParamsSchema,
@@ -57,6 +57,7 @@ test("multipart control operations own their shared HTTP contracts", () => {
     404: ErrorResponseSchema,
     409: ErrorResponseSchema,
     500: ErrorResponseSchema,
+    503: ErrorResponseSchema,
   });
   expect(getMultipartBlobStageOperation.failureResponses).toEqual({
     400: ErrorResponseSchema,
@@ -65,6 +66,7 @@ test("multipart control operations own their shared HTTP contracts", () => {
     404: MultipartBlobStageNotFoundErrorResponseSchema,
     409: MultipartBlobStageConflictErrorResponseSchema,
     500: ErrorResponseSchema,
+    503: ErrorResponseSchema,
   });
   expect(completeMultipartBlobStageOperation.failureResponses).toEqual({
     400: ErrorResponseSchema,
@@ -73,6 +75,7 @@ test("multipart control operations own their shared HTTP contracts", () => {
     404: ErrorResponseSchema,
     409: ErrorResponseSchema,
     500: ErrorResponseSchema,
+    503: ErrorResponseSchema,
   });
 });
 
@@ -166,6 +169,7 @@ test("multipart control OpenAPI documents shared inputs and responses", () => {
     "404",
     "409",
     "500",
+    "503",
   ]);
   expect(status.operationId).toBe("blobs.multipartStages.get");
   expect(status.parameters[0]).toMatchObject({

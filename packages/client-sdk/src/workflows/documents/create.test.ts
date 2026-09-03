@@ -58,7 +58,6 @@ test("buildMaterializedDocumentCreatePlan wraps the content key to the target co
     containerKek: childContainerKek,
     envelope: targetEnvelope,
   });
-
   expect(Array.from(materialized.contentKey)).toEqual(Array.from(contentKey));
   expect(Array.from(unwrappedContentKey)).toEqual(Array.from(contentKey));
   expect(targetEnvelope.wrappingMetadata).toEqual(
@@ -125,7 +124,6 @@ test("createRemoteDocument submits the materialized request and persists the ver
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: keyPair.secretKey,
   });
-
   expect(created?.documentId).toBe("document-remote");
   if (!created) {
     throw new Error("Expected remote document create result");
@@ -265,7 +263,6 @@ test("createRemoteDocument adopts an existing remote document when a retry with 
     signingPublicKey,
     userId: author.signerUserId,
   });
-
   // Simulate a lost create response followed by a stable-id 409 retry.
   const server: {
     commitCount: number;
@@ -277,7 +274,13 @@ test("createRemoteDocument adopts an existing remote document when a retry with 
   }> = [];
   const apiClient = {
     createDocument: async () => null,
-    createDocumentResult: async (request: DocumentCreateRequest) => {
+    createDocumentResult: async (
+      request: DocumentCreateRequest,
+      options?: { expectedPaymentRequiredOrganizationId?: string },
+    ) => {
+      expect(options?.expectedPaymentRequiredOrganizationId).toBe(
+        author.organizationId,
+      );
       if (server.committed) {
         return {
           code: DOCUMENT_MUTATION_ERROR_CODES.manifestAlreadyExists,
@@ -317,7 +320,6 @@ test("createRemoteDocument adopts an existing remote document when a retry with 
     },
   };
   const { close, execSql } = await createTestExecSql("adopt-remote-document");
-
   const knownContentKey = crypto.getRandomValues(new Uint8Array(32));
   // First attempt: commits server-side, but the response is lost, so the caller
   // sees a failure and no result.
@@ -337,7 +339,6 @@ test("createRemoteDocument adopts an existing remote document when a retry with 
   if (!committedProjection) {
     throw new Error("Expected the first attempt to commit a document");
   }
-
   // Retry with the same stable id: the server 409s, and the client adopts the
   // already-committed document instead of creating a duplicate.
   const adopted = await createRemoteDocument({
@@ -353,7 +354,6 @@ test("createRemoteDocument adopts an existing remote document when a retry with 
   if (!adopted) {
     throw new Error("Expected the retry to adopt the existing remote document");
   }
-
   // Exactly one document was created server-side.
   expect(server.commitCount).toBe(1);
   expect(adopted.documentId).toBe("document-stable");
@@ -417,7 +417,6 @@ test("createRemoteDocument does not report a conflict when adoption fails transi
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: keyPair.secretKey,
   });
-
   // The conflict is expected during an idempotent retry; failing to adopt it yet
   // must not surface as a UI error — the sync engine retries on a later tick.
   expect(adopted).toBeNull();

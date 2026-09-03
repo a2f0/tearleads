@@ -1,13 +1,61 @@
 import { authChallengeSigningBytes, sign } from "@tearleads/crypto";
 import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
 import {
+  bindBlobAttachmentOperation,
   blobWireHeaderKeys,
+  cancelStripeSubscriptionOperation,
   challengeOperation,
+  claimNativeOrganizationSubscriptionOperation,
+  commitOrganizationGroupPolicyOperation,
+  completeMultipartBlobStageOperation,
+  createContainerOperation,
+  createContainerWithMetadataDocumentOperation,
+  createDocumentOperation,
+  createOrganizationGroupOperation,
   createOrganizationOperation,
+  createStripeCheckoutOperation,
+  createStripeCheckoutSessionOperation,
+  createStripePortalOperation,
+  deleteContainerOperation,
+  deleteOrganizationGroupOperation,
+  destroySessionOperation,
+  detachBlobAttachmentOperation,
+  documentSyncOperation,
+  getContainerKekLogOperation,
+  getContainerWriterProjectionOperation,
+  getDocumentPurgeProofOperation,
+  getDocumentWriterProjectionOperation,
   getHealthOperation,
+  getMultipartBlobStageOperation,
+  getOrganizationBillingHistoryOperation,
+  getOrganizationBillingManagementUrlOperation,
+  getOrganizationBillingOperation,
+  getOrganizationDataUsageOperation,
+  getOrganizationNativePurchaseEligibilityOperation,
   getOrganizationReadModelOperation,
+  getPrincipalPolicyOperation,
+  getStripeCheckoutOptionsOperation,
+  initiateMultipartBlobStageOperation,
+  linkDocumentOperation,
+  listContainerDocumentsOperation,
+  listContainerParentLanesOperation,
+  listDocumentAttachmentsOperation,
+  listOrganizationGroupMembersOperation,
+  listSessionsOperation,
+  logoutOperation,
+  moveContainerOperation,
+  purgeDocumentOperation,
+  putPrincipalPolicyOperation,
   registerOperation,
+  rekeyContainerOperation,
+  revokeContainerOperation,
+  shareContainerOperation,
+  startOrganizationTrialOperation,
+  unlinkDocumentOperation,
+  updateOrganizationProfileOperation,
+  updateOrganizationRosterEntryOperation,
   uploadMultipartBlobPartBytesOperation,
+  userIdentityOperation,
   verifyOperation,
   webSocketTicketOperation,
 } from "@tearleads/validators/operation";
@@ -51,6 +99,7 @@ import type {
   UserIdentityResponse,
 } from "@tearleads/validators/response";
 import { BoundedCache } from "./ApiCache";
+import { ApiRequestRuntime } from "./apiRequestRuntime";
 import {
   createOperationTransport,
   type OperationTransport,
@@ -59,16 +108,9 @@ import {
   bindPrototypeMethods,
   cachedRequest,
   dedupedRequest,
-  describeErrorResponse,
-  type ErrorResponseDescription,
-  errorMessage,
   evictWriterProjectionIfSyncChanged,
-  hasHeader,
-  isSuccessfulResponse,
   listContainerDocumentsRequestKey,
   listContainerParentLanesRequestKey,
-  normalizeApiBaseUrl,
-  requestFailureKey,
 } from "./requestInternals";
 import {
   destroySession as authDestroySession,
@@ -114,7 +156,6 @@ import {
   documentPurgeProof,
   documentUnlink,
 } from "./routes/documents/mutations";
-import { documentSync as sync } from "./routes/documents/sync";
 import { organizationBilling } from "./routes/organizations/billing";
 import { createOrganizationGroup as groupCreate } from "./routes/organizations/createGroup";
 import { getOrganizationDataUsage as organizationDataUsage } from "./routes/organizations/dataUsage";
@@ -132,19 +173,14 @@ import {
   containerWriterProjection,
   documentWriterProjection,
 } from "./routes/writerProjections";
-import { shouldRetryAfterSessionExpired } from "./sessionRefresh";
 import type {
   HttpMethod,
   ListContainerDocumentsOptions,
   ListDocumentEditAttributionRangesOptions,
-  RequestBody,
-  RequestFailure,
-  RequestFailureKind,
-  RequestFn,
+  OperationRequestFn,
+  OperationRequestResultFn,
   RequestResult,
   RequestResultOptions,
-  ResponseRequestFn,
-  ResponseRequestValidationFailureInput,
 } from "./types";
 
 type ExpiredHandler = () => boolean | Promise<boolean>;
@@ -160,13 +196,7 @@ interface InFlightWriterProjectionResult<T> {
 }
 
 export class ApiClient {
-  private authToken: string | null = null;
-  private readonly baseUrl: string;
-  private onError: ((message: string) => void) | null = null;
-  private onNetworkError: (() => void) | null = null;
-  private onNetworkSuccess: (() => void) | null = null;
-  private onSessionExpired: ExpiredHandler | null = null;
-  private onPaymentRequired: PaymentRequiredHandler | null = null;
+  private readonly requestRuntime: ApiRequestRuntime;
   private readonly containerDocumentListRequestsByKey = new Map<
     string,
     Promise<ListContainerDocumentsResponse | null>
@@ -198,18 +228,17 @@ export class ApiClient {
   private readonly principalPolicyRequestsByKey = new BoundedCache<
     Promise<PrincipalPolicyBundleResponse | null>
   >();
-  private readonly requestFailuresByKey = new Map<string, RequestFailure>();
   private readonly transport: OperationTransport;
-  private readonly request: RequestFn;
-  private readonly responseRequest: ResponseRequestFn;
+  private readonly request: OperationRequestFn;
+  private readonly requestResult: OperationRequestResultFn;
   constructor(baseUrl?: string | null) {
-    this.baseUrl = normalizeApiBaseUrl(baseUrl);
     bindPrototypeMethods(this, ApiClient.prototype);
-    this.request = this.makeRequest;
-    this.responseRequest = Object.assign(this.makeResponseRequest, {
-      reportFailure: this.reportResponseRequestFailure,
-    });
-    this.transport = createOperationTransport(this.responseRequest);
+    this.requestRuntime = new ApiRequestRuntime(baseUrl);
+    this.request = this.requestRuntime.request;
+    this.requestResult = this.requestRuntime.requestResult;
+    this.transport = createOperationTransport(
+      this.requestRuntime.responseRequest,
+    );
     this.documentAttributionRequests = new DocumentAttributionRequests(
       this.transport,
     );
@@ -264,280 +293,6 @@ export class ApiClient {
     this.containerWriterProjectionResultsInFlightByContainerId.delete(
       containerId,
     );
-  }
-
-  private buildHeaders(
-    body: RequestBody | undefined,
-    headers: Record<string, string> | undefined,
-    authToken: string | null,
-  ): Record<string, string> {
-    return {
-      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-      ...(typeof body === "string" && !hasHeader(headers, "Content-Type")
-        ? { "Content-Type": "application/json" }
-        : {}),
-      ...headers,
-    };
-  }
-
-  private async makeRequest<T>(
-    path: string,
-    validator: (value: unknown) => value is T,
-    method: HttpMethod,
-    body?: RequestBody,
-    options?: RequestResultOptions,
-  ): Promise<T | null> {
-    const result = await this.makeRequestResult(
-      path,
-      validator,
-      method,
-      body,
-      options,
-    );
-    return result.ok ? result.data : null;
-  }
-
-  private requestFailure(input: {
-    code?: string | undefined;
-    kind: RequestFailureKind;
-    message: string;
-    method: HttpMethod;
-    path: string;
-    reportErrors: boolean;
-    stalePrincipalPolicies: RequestFailure["stalePrincipalPolicies"];
-    status: number | null;
-    statusText: string;
-  }): RequestFailure {
-    const failure: RequestFailure = {
-      ...(input.code === undefined ? {} : { code: input.code }),
-      kind: input.kind,
-      message: input.message,
-      method: input.method,
-      ok: false,
-      path: input.path,
-      report: () => {
-        this.onError?.(input.message);
-      },
-      status: input.status,
-      statusText: input.statusText,
-      ...(input.stalePrincipalPolicies
-        ? { stalePrincipalPolicies: input.stalePrincipalPolicies }
-        : {}),
-    };
-    this.requestFailuresByKey.set(
-      requestFailureKey({ method: input.method, path: input.path }),
-      failure,
-    );
-
-    if (input.reportErrors) {
-      failure.report();
-    }
-
-    return failure;
-  }
-
-  private async makeRequestResult<T>(
-    path: string,
-    validator: (value: unknown) => value is T,
-    method: HttpMethod,
-    body?: RequestBody,
-    options: RequestResultOptions = {},
-  ): Promise<RequestResult<T>> {
-    const responseResult = await this.makeResponseRequest(
-      path,
-      method,
-      body,
-      options,
-    );
-    if (!responseResult.ok) {
-      return responseResult;
-    }
-
-    const response = responseResult.data;
-    const reportErrors = options.reportErrors ?? true;
-    let data: unknown;
-    try {
-      data = await response.json();
-    } catch (e) {
-      const message = errorMessage(e);
-      return this.requestFailure({
-        kind: "json",
-        message: `${method} ${path}: failed to parse JSON: ${message}`,
-        method,
-        path,
-        reportErrors,
-        stalePrincipalPolicies: undefined,
-        status: response.status,
-        statusText: response.statusText,
-      });
-    }
-
-    if (!validator(data)) {
-      return this.requestFailure({
-        kind: "shape",
-        message: `Invalid response shape for ${path}`,
-        method,
-        path,
-        reportErrors,
-        stalePrincipalPolicies: undefined,
-        status: response.status,
-        statusText: response.statusText,
-      });
-    }
-
-    return { data, ok: true };
-  }
-
-  private async makeResponseRequest(
-    path: string,
-    method: HttpMethod,
-    body?: RequestBody,
-    options: RequestResultOptions = {},
-    additionalSuccessStatuses: readonly number[] = [],
-  ): Promise<RequestResult<Response>> {
-    const authToken = this.authToken;
-    const responseResult = await this.fetchResponseRequest(
-      path,
-      method,
-      body,
-      options,
-      authToken,
-    );
-    if (!responseResult.ok) {
-      return responseResult;
-    }
-    const response = responseResult.data;
-    if (isSuccessfulResponse(response, additionalSuccessStatuses)) {
-      this.requestFailuresByKey.delete(requestFailureKey({ method, path }));
-      return { data: response, ok: true };
-    }
-
-    const errorDescription = await describeErrorResponse(response);
-    if (
-      await shouldRetryAfterSessionExpired({
-        authToken,
-        body,
-        code: errorDescription.code,
-        getCurrentAuthToken: () => this.authToken,
-        options,
-        refreshSession: () => this.onSessionExpired?.() ?? false,
-        reportError: (message) => this.onError?.(message),
-        responseStatus: response.status,
-      })
-    ) {
-      const retryResult = await this.fetchResponseRequest(
-        path,
-        method,
-        body,
-        options,
-        this.authToken,
-      );
-      if (!retryResult.ok) {
-        return retryResult;
-      }
-      const retryResponse = retryResult.data;
-      if (isSuccessfulResponse(retryResponse, additionalSuccessStatuses)) {
-        this.requestFailuresByKey.delete(requestFailureKey({ method, path }));
-        return { data: retryResponse, ok: true };
-      }
-
-      return this.httpFailure({
-        errorDescription: await describeErrorResponse(retryResponse),
-        method,
-        options,
-        path,
-        response: retryResponse,
-      });
-    }
-
-    return this.httpFailure({
-      errorDescription,
-      path,
-      method,
-      options,
-      response,
-    });
-  }
-
-  private async fetchResponseRequest(
-    path: string,
-    method: HttpMethod,
-    body: RequestBody | undefined,
-    options: RequestResultOptions,
-    authToken: string | null,
-  ): Promise<RequestResult<Response>> {
-    const reportErrors = options.reportErrors ?? true;
-    const init: RequestInit & { duplex?: "half" } = {
-      method,
-      headers: this.buildHeaders(body, options.headers, authToken),
-    };
-    if (body !== undefined) {
-      init.body = body;
-      if (body instanceof ReadableStream) {
-        init.duplex = "half";
-      }
-    }
-
-    let response: Response;
-    try {
-      response = await fetch(`${this.baseUrl}${path}`, init);
-    } catch (e) {
-      const message = errorMessage(e);
-      this.onNetworkError?.();
-      return this.requestFailure({
-        kind: "network",
-        message: `${method} ${path}: ${message}`,
-        method,
-        path,
-        reportErrors,
-        stalePrincipalPolicies: undefined,
-        status: null,
-        statusText: "",
-      });
-    }
-
-    this.onNetworkSuccess?.();
-
-    return { data: response, ok: true };
-  }
-
-  private httpFailure(input: {
-    readonly errorDescription: ErrorResponseDescription;
-    readonly method: HttpMethod;
-    readonly options: RequestResultOptions;
-    readonly path: string;
-    readonly response: Response;
-  }): RequestFailure {
-    const reportErrors = input.options.reportErrors ?? true;
-    if (input.response.status === 402) {
-      // Surface the target organization's billing block for rejected syncs.
-      this.onPaymentRequired?.(
-        input.errorDescription.paymentRequiredOrganizationId ?? null,
-      );
-    }
-    return this.requestFailure({
-      ...(input.errorDescription.code === null
-        ? {}
-        : { code: input.errorDescription.code }),
-      kind: "http",
-      message: `${input.method} ${input.path}: ${input.response.status} ${input.response.statusText}${input.errorDescription.detail}`,
-      method: input.method,
-      path: input.path,
-      reportErrors,
-      stalePrincipalPolicies: input.errorDescription.stalePrincipalPolicies,
-      status: input.response.status,
-      statusText: input.response.statusText,
-    });
-  }
-
-  private reportResponseRequestFailure(
-    input: ResponseRequestValidationFailureInput,
-  ): RequestFailure {
-    return this.requestFailure({
-      ...input,
-      reportErrors: input.options?.reportErrors ?? true,
-      stalePrincipalPolicies: undefined,
-    });
   }
 
   private updateCachedDocumentAttachmentList(
@@ -613,39 +368,37 @@ export class ApiClient {
   }
 
   setOnError(handler: ((message: string) => void) | null): void {
-    this.onError = handler;
+    this.requestRuntime.setOnError(handler);
   }
 
   setOnNetworkError(handler: (() => void) | null): void {
-    this.onNetworkError = handler;
+    this.requestRuntime.setOnNetworkError(handler);
   }
 
   setOnNetworkSuccess(handler: (() => void) | null): void {
-    this.onNetworkSuccess = handler;
+    this.requestRuntime.setOnNetworkSuccess(handler);
   }
 
   setOnSessionExpired(handler: ExpiredHandler | null): void {
-    this.onSessionExpired = handler;
+    this.requestRuntime.setOnSessionExpired(handler);
   }
 
   setOnPaymentRequired(handler: PaymentRequiredHandler | null): void {
-    this.onPaymentRequired = handler;
+    this.requestRuntime.setOnPaymentRequired(handler);
   }
 
   setAuthToken(token: string | null): void {
-    const changed = this.authToken !== token;
-    this.authToken = token;
-    if (changed) {
+    if (this.requestRuntime.setAuthToken(token)) {
       this.clearAuthScopedCaches();
     }
   }
 
   getAuthToken(): string | null {
-    return this.authToken;
+    return this.requestRuntime.getAuthToken();
   }
 
   getRequestFailure(input: { method: HttpMethod; path: string }) {
-    return this.requestFailuresByKey.get(requestFailureKey(input)) ?? null;
+    return this.requestRuntime.getRequestFailure(input);
   }
 
   async requestWebSocketTicket(): Promise<string | null> {
@@ -747,6 +500,9 @@ export class ApiClient {
         authUserIdentity.path(userId),
         authUserIdentity.isResponse,
         authUserIdentity.method,
+        undefined,
+        undefined,
+        userIdentityOperation,
       ),
     );
   }
@@ -763,6 +519,9 @@ export class ApiClient {
       authListSessions.path,
       authListSessions.isResponse,
       authListSessions.method,
+      undefined,
+      undefined,
+      listSessionsOperation,
     );
   }
 
@@ -771,6 +530,9 @@ export class ApiClient {
       authDestroySession.path(sessionId),
       authDestroySession.isResponse,
       authDestroySession.method,
+      undefined,
+      undefined,
+      destroySessionOperation,
     );
   }
 
@@ -781,6 +543,7 @@ export class ApiClient {
       authLogout.method,
       undefined,
       { retryOnSessionExpired: false },
+      logoutOperation,
     );
   }
 
@@ -796,6 +559,9 @@ export class ApiClient {
           principalPolicyGet.path(principalType, principalId),
           principalPolicyGet.isResponse,
           principalPolicyGet.method,
+          undefined,
+          undefined,
+          getPrincipalPolicyOperation,
         ),
     );
   }
@@ -812,6 +578,8 @@ export class ApiClient {
       principalPolicyPut.isResponse,
       principalPolicyPut.method,
       JSON.stringify(input),
+      { expectedPaymentRequiredOrganizationId: principalId },
+      putPrincipalPolicyOperation,
     ).finally(() => {
       this.principalPolicyRequestsByKey.delete(requestKey);
     });
@@ -834,6 +602,8 @@ export class ApiClient {
       organizationGroupPolicyCommit.isResponse,
       organizationGroupPolicyCommit.method,
       JSON.stringify(input),
+      { expectedPaymentRequiredOrganizationId: organizationId },
+      commitOrganizationGroupPolicyOperation,
     ).finally(() => {
       this.principalPolicyRequestsByKey.delete(groupRequestKey);
       this.principalPolicyRequestsByKey.delete(organizationRequestKey);
@@ -860,12 +630,13 @@ export class ApiClient {
     organizationId: string,
     options: RequestResultOptions = {},
   ): Promise<RequestResult<OrganizationDataUsageResponse>> {
-    return this.makeRequestResult(
+    return this.requestResult(
       organizationDataUsage.path(organizationId),
       organizationDataUsage.isResponse,
       organizationDataUsage.method,
       undefined,
       options,
+      getOrganizationDataUsageOperation,
     );
   }
 
@@ -874,6 +645,9 @@ export class ApiClient {
       organizationBilling.get.path(organizationId),
       organizationBilling.get.isResponse,
       organizationBilling.get.method,
+      undefined,
+      undefined,
+      getOrganizationBillingOperation,
     );
   }
 
@@ -882,6 +656,9 @@ export class ApiClient {
       organizationBilling.history.path(organizationId),
       organizationBilling.history.isResponse,
       organizationBilling.history.method,
+      undefined,
+      undefined,
+      getOrganizationBillingHistoryOperation,
     );
   }
 
@@ -890,6 +667,9 @@ export class ApiClient {
       organizationBilling.managementUrl.path(organizationId),
       organizationBilling.managementUrl.isResponse,
       organizationBilling.managementUrl.method,
+      undefined,
+      undefined,
+      getOrganizationBillingManagementUrlOperation,
     );
   }
 
@@ -901,6 +681,9 @@ export class ApiClient {
       organizationBilling.nativeEligibility.path(organizationId, store),
       organizationBilling.nativeEligibility.isResponse,
       organizationBilling.nativeEligibility.method,
+      undefined,
+      undefined,
+      getOrganizationNativePurchaseEligibilityOperation,
     );
   }
 
@@ -908,12 +691,13 @@ export class ApiClient {
     organizationId: string,
     store: NativeSubscriptionStore,
   ) {
-    return this.makeRequestResult(
+    return this.requestResult(
       organizationBilling.nativeClaim.path(organizationId, store),
       organizationBilling.nativeClaim.isResponse,
       organizationBilling.nativeClaim.method,
       undefined,
       { reportErrors: false },
+      claimNativeOrganizationSubscriptionOperation,
     );
   }
 
@@ -922,12 +706,13 @@ export class ApiClient {
     organizationId: string,
     options: RequestResultOptions = {},
   ) {
-    return this.makeRequestResult(
+    return this.requestResult(
       organizationStripeCheckout.options.path(organizationId),
       organizationStripeCheckout.options.isResponse,
       organizationStripeCheckout.options.method,
       undefined,
       options,
+      getStripeCheckoutOptionsOperation,
     );
   }
 
@@ -937,6 +722,9 @@ export class ApiClient {
       organizationStripeCheckout.checkout.path(organizationId),
       organizationStripeCheckout.checkout.isResponse,
       organizationStripeCheckout.checkout.method,
+      undefined,
+      undefined,
+      createStripeCheckoutOperation,
     );
   }
 
@@ -949,6 +737,8 @@ export class ApiClient {
       JSON.stringify(
         organizationStripeCheckout.checkoutSession.body(returnUrl),
       ),
+      undefined,
+      createStripeCheckoutSessionOperation,
     );
   }
 
@@ -959,6 +749,8 @@ export class ApiClient {
       organizationStripeCheckout.portal.isResponse,
       organizationStripeCheckout.portal.method,
       JSON.stringify(organizationStripeCheckout.portal.body(returnUrl)),
+      undefined,
+      createStripePortalOperation,
     );
   }
 
@@ -968,6 +760,9 @@ export class ApiClient {
       organizationStripeCheckout.cancel.path(organizationId),
       organizationStripeCheckout.cancel.isResponse,
       organizationStripeCheckout.cancel.method,
+      undefined,
+      undefined,
+      cancelStripeSubscriptionOperation,
     );
   }
 
@@ -976,6 +771,9 @@ export class ApiClient {
       organizationBilling.startTrial.path(organizationId),
       organizationBilling.startTrial.isResponse,
       organizationBilling.startTrial.method,
+      undefined,
+      undefined,
+      startOrganizationTrialOperation,
     );
   }
 
@@ -989,6 +787,8 @@ export class ApiClient {
       rosterUpdate.isResponse,
       rosterUpdate.method,
       JSON.stringify(input),
+      { expectedPaymentRequiredOrganizationId: organizationId },
+      updateOrganizationRosterEntryOperation,
     );
   }
 
@@ -1001,6 +801,8 @@ export class ApiClient {
       profileUpdate.isResponse,
       profileUpdate.method,
       JSON.stringify(input),
+      { expectedPaymentRequiredOrganizationId: organizationId },
+      updateOrganizationProfileOperation,
     );
   }
 
@@ -1020,6 +822,8 @@ export class ApiClient {
       groupCreate.isResponse,
       groupCreate.method,
       JSON.stringify(input),
+      { expectedPaymentRequiredOrganizationId: organizationId },
+      createOrganizationGroupOperation,
     ).finally(() => {
       this.principalPolicyRequestsByKey.delete(groupRequestKey);
       this.principalPolicyRequestsByKey.delete(organizationRequestKey);
@@ -1044,6 +848,8 @@ export class ApiClient {
       groupDelete.isResponse,
       groupDelete.method,
       JSON.stringify(input),
+      { expectedPaymentRequiredOrganizationId: organizationId },
+      deleteOrganizationGroupOperation,
     ).finally(() => {
       this.principalPolicyRequestsByKey.delete(groupRequestKey);
       this.principalPolicyRequestsByKey.delete(organizationRequestKey);
@@ -1056,15 +862,23 @@ export class ApiClient {
       groupMembers.path(organizationId, groupId),
       groupMembers.isResponse,
       groupMembers.method,
+      undefined,
+      undefined,
+      listOrganizationGroupMembersOperation,
     );
   }
 
-  createDocument(input: DocumentCreateRequest) {
+  createDocument(
+    input: DocumentCreateRequest,
+    options: RequestResultOptions = {},
+  ) {
     return this.request(
       documentCreate.path,
       documentCreate.isResponse,
       documentCreate.method,
       JSON.stringify(input),
+      options,
+      createDocumentOperation,
     );
   }
 
@@ -1072,12 +886,13 @@ export class ApiClient {
     input: DocumentCreateRequest,
     options: RequestResultOptions = {},
   ): Promise<RequestResult<DocumentCreateResponse>> {
-    return this.makeRequestResult(
+    return this.requestResult(
       documentCreate.path,
       documentCreate.isResponse,
       documentCreate.method,
       JSON.stringify(input),
       options,
+      createDocumentOperation,
     );
   }
 
@@ -1090,6 +905,9 @@ export class ApiClient {
           containerWriterProjection.path(containerId),
           containerWriterProjection.isResponse,
           containerWriterProjection.method,
+          undefined,
+          undefined,
+          getContainerWriterProjectionOperation,
         ),
     );
   }
@@ -1109,6 +927,9 @@ export class ApiClient {
       containerKekLog.path(containerId, options),
       containerKekLog.isResponse,
       containerKekLog.method,
+      undefined,
+      undefined,
+      getContainerKekLogOperation,
     );
   }
 
@@ -1123,6 +944,7 @@ export class ApiClient {
       containerWriterProjection.path(containerId),
       containerWriterProjection.isResponse,
       options,
+      getContainerWriterProjectionOperation,
     );
   }
 
@@ -1137,6 +959,7 @@ export class ApiClient {
     path: string,
     validator: (value: unknown) => value is T,
     options: RequestResultOptions,
+    failureOperation: Parameters<OperationRequestFn>[5],
   ): Promise<RequestResult<T>> {
     // Request-affecting options make the response caller-specific: run the
     // request directly with the caller's options, join no shared fetch, and
@@ -1146,7 +969,14 @@ export class ApiClient {
       options.headers !== undefined ||
       options.retryOnSessionExpired !== undefined
     ) {
-      return this.makeRequestResult(path, validator, "GET", undefined, options);
+      return this.requestResult(
+        path,
+        validator,
+        "GET",
+        undefined,
+        options,
+        failureOperation,
+      );
     }
 
     // A concurrent burst shares one fetch — failure included — so it cannot
@@ -1184,6 +1014,7 @@ export class ApiClient {
           cacheKey,
           path,
           validator,
+          failureOperation,
         ).finally(() => {
           if (inFlightResults.get(cacheKey) === entry) {
             inFlightResults.delete(cacheKey);
@@ -1216,6 +1047,7 @@ export class ApiClient {
     cacheKey: string,
     path: string,
     validator: (value: unknown) => value is T,
+    failureOperation: Parameters<OperationRequestFn>[5],
   ): Promise<RequestResult<T>> {
     let cached = cache.get(cacheKey);
     while (cached) {
@@ -1246,7 +1078,7 @@ export class ApiClient {
     // and taking no caller options is what guarantees nothing
     // request-affecting can be smuggled into the shared fetch.
     const invalidationStamp = cache.invalidationStamp(cacheKey);
-    const result = await this.makeRequestResult(
+    const result = await this.requestResult(
       path,
       validator,
       "GET",
@@ -1254,6 +1086,7 @@ export class ApiClient {
       {
         reportErrors: false,
       },
+      failureOperation,
     );
 
     if (result.ok) {
@@ -1277,12 +1110,17 @@ export class ApiClient {
     return result;
   }
 
-  createContainer(input: ContainerMutationRequest) {
+  createContainer(
+    input: ContainerMutationRequest,
+    options: RequestResultOptions = {},
+  ) {
     return this.request(
       containerCreate.path,
       containerCreate.isResponse,
       containerCreate.method,
       JSON.stringify(input),
+      options,
+      createContainerOperation,
     );
   }
 
@@ -1290,23 +1128,27 @@ export class ApiClient {
     input: ContainerMutationRequest,
     options: RequestResultOptions = {},
   ): Promise<RequestResult<ContainerMutationResponse>> {
-    return this.makeRequestResult(
+    return this.requestResult(
       containerCreate.path,
       containerCreate.isResponse,
       containerCreate.method,
       JSON.stringify(input),
       options,
+      createContainerOperation,
     );
   }
 
   createContainerWithMetadataDocument(
     input: ContainerCreateWithMetadataDocumentRequest,
+    options: RequestResultOptions = {},
   ) {
     return this.request(
       containerCreateWithMetadataDocument.path,
       containerCreateWithMetadataDocument.isResponse,
       containerCreateWithMetadataDocument.method,
       JSON.stringify(input),
+      options,
+      createContainerWithMetadataDocumentOperation,
     );
   }
 
@@ -1314,64 +1156,92 @@ export class ApiClient {
     input: ContainerCreateWithMetadataDocumentRequest,
     options: RequestResultOptions = {},
   ): Promise<RequestResult<ContainerCreateWithMetadataDocumentResponse>> {
-    return this.makeRequestResult(
+    return this.requestResult(
       containerCreateWithMetadataDocument.path,
       containerCreateWithMetadataDocument.isResponse,
       containerCreateWithMetadataDocument.method,
       JSON.stringify(input),
       options,
+      createContainerWithMetadataDocumentOperation,
     );
   }
 
-  shareContainer(containerId: string, input: ContainerMutationRequest) {
+  shareContainer(
+    containerId: string,
+    input: ContainerMutationRequest,
+    options: RequestResultOptions = {},
+  ) {
     return this.request(
       containerShare.path(containerId),
       containerShare.isResponse,
       containerShare.method,
       JSON.stringify(input),
+      options,
+      shareContainerOperation,
     ).finally(() => {
       this.clearWriterProjectionCaches();
     });
   }
 
-  revokeContainer(containerId: string, input: ContainerMutationRequest) {
+  revokeContainer(
+    containerId: string,
+    input: ContainerMutationRequest,
+    options: RequestResultOptions = {},
+  ) {
     return this.request(
       containerRevoke.path(containerId),
       containerRevoke.isResponse,
       containerRevoke.method,
       JSON.stringify(input),
+      options,
+      revokeContainerOperation,
     ).finally(() => {
       this.clearWriterProjectionCaches();
     });
   }
 
-  rekeyContainer(containerId: string, input: ContainerMutationRequest) {
+  rekeyContainer(
+    containerId: string,
+    input: ContainerMutationRequest,
+    options: RequestResultOptions = {},
+  ) {
     return this.request(
       containerRekey.path(containerId),
       containerRekey.isResponse,
       containerRekey.method,
       JSON.stringify(input),
+      options,
+      rekeyContainerOperation,
     ).finally(() => {
       this.clearWriterProjectionCaches();
     });
   }
 
-  moveContainer(containerId: string, input: ContainerMutationRequest) {
+  moveContainer(
+    containerId: string,
+    input: ContainerMutationRequest,
+    options: RequestResultOptions = {},
+  ) {
     return this.request(
       containerMove.path(containerId),
       containerMove.isResponse,
       containerMove.method,
       JSON.stringify(input),
+      options,
+      moveContainerOperation,
     ).finally(() => {
       this.clearWriterProjectionCaches();
     });
   }
 
-  deleteContainer(containerId: string) {
+  deleteContainer(containerId: string, options: RequestResultOptions = {}) {
     return this.request(
       containerDelete.path(containerId),
       containerDelete.isResponse,
       containerDelete.method,
+      undefined,
+      options,
+      deleteContainerOperation,
     ).finally(() => {
       this.clearWriterProjectionCaches();
     });
@@ -1381,12 +1251,13 @@ export class ApiClient {
     containerId: string,
     options: RequestResultOptions = {},
   ): Promise<RequestResult<ContainerDeleteResponse>> {
-    return this.makeRequestResult(
+    return this.requestResult(
       containerDelete.path(containerId),
       containerDelete.isResponse,
       containerDelete.method,
       undefined,
       options,
+      deleteContainerOperation,
     ).finally(() => {
       this.clearWriterProjectionCaches();
     });
@@ -1401,6 +1272,9 @@ export class ApiClient {
           documentWriterProjection.path(documentId),
           documentWriterProjection.isResponse,
           documentWriterProjection.method,
+          undefined,
+          undefined,
+          getDocumentWriterProjectionOperation,
         ),
     );
   }
@@ -1427,6 +1301,7 @@ export class ApiClient {
       documentWriterProjection.path(documentId),
       documentWriterProjection.isResponse,
       options,
+      getDocumentWriterProjectionOperation,
     );
   }
 
@@ -1492,13 +1367,19 @@ export class ApiClient {
     );
   }
 
-  linkDocument(documentId: string, input: DocumentLinkSetMutationRequest) {
+  linkDocument(
+    documentId: string,
+    input: DocumentLinkSetMutationRequest,
+    options: RequestResultOptions = {},
+  ) {
     this.invalidateDocumentAttribution(documentId);
     return this.request(
       documentLink.path(documentId),
       documentLink.isResponse,
       documentLink.method,
       JSON.stringify(input),
+      options,
+      linkDocumentOperation,
     ).finally(() => {
       this.invalidateDocumentAttribution(documentId);
       this.evictDocumentWriterProjection(documentId);
@@ -1508,13 +1389,16 @@ export class ApiClient {
   linkDocumentResult(
     documentId: string,
     input: DocumentLinkSetMutationRequest,
+    options: RequestResultOptions = {},
   ) {
     this.invalidateDocumentAttribution(documentId);
-    return this.makeRequestResult(
+    return this.requestResult(
       documentLink.path(documentId),
       documentLink.isResponse,
       documentLink.method,
       JSON.stringify(input),
+      options,
+      linkDocumentOperation,
     ).finally(() => {
       this.invalidateDocumentAttribution(documentId);
       this.evictDocumentWriterProjection(documentId);
@@ -1532,6 +1416,8 @@ export class ApiClient {
             containerParentLanes.isResponseForRequest(input, value),
           containerParentLanes.method,
           JSON.stringify(input),
+          undefined,
+          listContainerParentLanesOperation,
         ),
     );
   }
@@ -1548,6 +1434,9 @@ export class ApiClient {
           containerDocuments.path(containerId, options),
           containerDocuments.isResponse,
           containerDocuments.method,
+          undefined,
+          undefined,
+          listContainerDocumentsOperation,
         ),
     );
   }
@@ -1557,22 +1446,29 @@ export class ApiClient {
     options?: ListContainerDocumentsOptions,
     requestOptions: RequestResultOptions = {},
   ): Promise<RequestResult<ListContainerDocumentsResponse>> {
-    return this.makeRequestResult(
+    return this.requestResult(
       containerDocuments.path(containerId, options),
       containerDocuments.isResponse,
       containerDocuments.method,
       undefined,
       requestOptions,
+      listContainerDocumentsOperation,
     );
   }
 
-  unlinkDocument(documentId: string, input: DocumentLinkSetMutationRequest) {
+  unlinkDocument(
+    documentId: string,
+    input: DocumentLinkSetMutationRequest,
+    options: RequestResultOptions = {},
+  ) {
     this.invalidateDocumentAttribution(documentId);
     return this.request(
       documentUnlink.path(documentId),
       documentUnlink.isResponse,
       documentUnlink.method,
       JSON.stringify(input),
+      options,
+      unlinkDocumentOperation,
     ).finally(() => {
       this.invalidateDocumentAttribution(documentId);
       this.evictDocumentWriterProjection(documentId);
@@ -1582,26 +1478,35 @@ export class ApiClient {
   unlinkDocumentResult(
     documentId: string,
     input: DocumentLinkSetMutationRequest,
+    options: RequestResultOptions = {},
   ) {
     this.invalidateDocumentAttribution(documentId);
-    return this.makeRequestResult(
+    return this.requestResult(
       documentUnlink.path(documentId),
       documentUnlink.isResponse,
       documentUnlink.method,
       JSON.stringify(input),
+      options,
+      unlinkDocumentOperation,
     ).finally(() => {
       this.invalidateDocumentAttribution(documentId);
       this.evictDocumentWriterProjection(documentId);
     });
   }
 
-  purgeDocument(documentId: string, input: DocumentPurgeRequest) {
+  purgeDocument(
+    documentId: string,
+    input: DocumentPurgeRequest,
+    options: RequestResultOptions = {},
+  ) {
     this.invalidateDocumentAttribution(documentId);
     return this.request(
       documentPurge.path(documentId),
       documentPurge.isResponse,
       documentPurge.method,
       JSON.stringify(input),
+      options,
+      purgeDocumentOperation,
     ).finally(() => {
       this.invalidateDocumentAttribution(documentId);
       this.evictDocumentWriterProjection(documentId);
@@ -1612,24 +1517,35 @@ export class ApiClient {
   getDocumentPurgeProof(
     documentId: string,
     options?: DocumentPurgeProofOptions,
+    requestOptions: RequestResultOptions = {},
   ) {
     return this.request(
       documentPurgeProof.path(documentId, options),
       documentPurgeProof.isResponse,
       documentPurgeProof.method,
+      undefined,
+      requestOptions,
+      getDocumentPurgeProofOperation,
     );
   }
 
-  syncDocument(documentId: string, input: DocumentSyncRequest) {
+  syncDocument(
+    documentId: string,
+    input: DocumentSyncRequest,
+    options: RequestResultOptions = {},
+  ) {
     this.invalidateDocumentAttribution(documentId);
     const cachedBefore =
       this.documentWriterProjectionRequestsByDocumentId.get(documentId);
-    return this.request(
-      sync.path(documentId),
-      sync.isResponse,
-      sync.method,
-      JSON.stringify(input),
-    )
+    return this.transport
+      .request(
+        documentSyncOperation,
+        {
+          body: input,
+          params: { documentId },
+        },
+        options,
+      )
       .then(async (response) => {
         if (response) {
           if (response.updates.length > 0) {
@@ -1686,11 +1602,9 @@ export class ApiClient {
     const cachedBefore =
       this.documentWriterProjectionRequestsByDocumentId.get(documentId);
     try {
-      const result = await this.makeRequestResult(
-        sync.path(documentId),
-        sync.isResponse,
-        sync.method,
-        JSON.stringify(input),
+      const result = await this.transport.requestResult(
+        documentSyncOperation,
+        { body: input, params: { documentId } },
         options,
       );
       if (result.ok) {
@@ -1727,6 +1641,8 @@ export class ApiClient {
       multipartInitiate.isResponse,
       multipartInitiate.method,
       JSON.stringify(input),
+      undefined,
+      initiateMultipartBlobStageOperation,
     );
   }
 
@@ -1735,6 +1651,9 @@ export class ApiClient {
       multipartGet.path(stageId),
       multipartGet.isResponse,
       multipartGet.method,
+      undefined,
+      undefined,
+      getMultipartBlobStageOperation,
     );
   }
 
@@ -1785,6 +1704,8 @@ export class ApiClient {
       multipartComplete.isResponse,
       multipartComplete.method,
       JSON.stringify(input),
+      undefined,
+      completeMultipartBlobStageOperation,
     );
   }
 
@@ -1792,12 +1713,18 @@ export class ApiClient {
     return getBlobBytes(this.transport, blobId);
   }
 
-  bindBlobAttachment(blobId: string, input: BlobAttachmentBindRequest) {
+  bindBlobAttachment(
+    blobId: string,
+    input: BlobAttachmentBindRequest,
+    options: RequestResultOptions = {},
+  ) {
     return this.request(
       blobAttachmentBind.path(blobId),
       blobAttachmentBind.isResponse,
       blobAttachmentBind.method,
       JSON.stringify(input),
+      options,
+      bindBlobAttachmentOperation,
     )
       .then((response) => {
         if (response) {
@@ -1817,12 +1744,15 @@ export class ApiClient {
     blobId: string,
     bindingId: string,
     input: BlobAttachmentDetachRequest,
+    options: RequestResultOptions = {},
   ) {
     return this.request(
       blobAttachmentDetach.path(blobId, bindingId),
       blobAttachmentDetach.isResponse,
       blobAttachmentDetach.method,
       JSON.stringify(input),
+      options,
+      detachBlobAttachmentOperation,
     )
       .then((response) => {
         if (response) {
@@ -1847,6 +1777,9 @@ export class ApiClient {
           documentAttachmentsList.path(documentId),
           documentAttachmentsList.isResponse,
           documentAttachmentsList.method,
+          undefined,
+          undefined,
+          listDocumentAttachmentsOperation,
         ),
     );
   }

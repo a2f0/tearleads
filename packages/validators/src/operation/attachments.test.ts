@@ -43,7 +43,7 @@ test("attachment operations own their shared HTTP contracts", () => {
   });
   expect(listDocumentAttachmentsOperation).toMatchObject({
     auth: "session",
-    failureStatuses: [400, 401, 403, 404, 409, 500],
+    failureStatuses: [400, 401, 403, 404, 409, 500, 503],
     id: "documents.attachments.list",
     method: "GET",
     params: DocumentAttachmentsPathParamsSchema,
@@ -73,6 +73,7 @@ test("attachment operations own their shared HTTP contracts", () => {
     404: ErrorResponseSchema,
     409: ErrorResponseSchema,
     500: ErrorResponseSchema,
+    503: ErrorResponseSchema,
   });
 });
 

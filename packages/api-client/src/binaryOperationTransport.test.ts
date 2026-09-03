@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
   blobWireHeaderKeys,
   getBlobBytesOperation,
+  type HttpOperation,
   protocolOperations,
   uploadMultipartBlobPartBytesOperation,
 } from "@tearleads/validators/operation";
@@ -88,7 +89,9 @@ test("derives binary response requests and preserves live streams", async () => 
     response,
     status: 200,
   });
-  expect(calls).toEqual([[`/blobs/${blobId}/bytes`, "GET", undefined, {}, []]]);
+  expect(calls).toEqual([
+    [`/blobs/${blobId}/bytes`, "GET", undefined, {}, [], getBlobBytesOperation],
+  ]);
   await expect(new Response(result?.response.body).text()).resolves.toBe(
     "encrypted-blob-bytes",
   );
@@ -215,7 +218,8 @@ test("derives binary request bodies and decodes JSON responses", async () => {
     stageId,
     uploadId: "upload-1",
   });
-  const [path, method, body, options, successStatuses] = calls[0] ?? [];
+  const [path, method, body, options, successStatuses, failureOperation] =
+    calls[0] ?? [];
   expect(path).toBe(`/blobs/stages/multipart/${stageId}/parts/2/bytes`);
   expect(method).toBe("PUT");
   expect(encodedBody).toBe(encryptedBytes);
@@ -230,6 +234,7 @@ test("derives binary request bodies and decodes JSON responses", async () => {
     },
   });
   expect(successStatuses).toEqual([]);
+  expect(failureOperation).toBe(uploadMultipartBlobPartBytesOperation);
 });
 
 test("rejects invalid binary request input before encoding or fetch", async () => {
@@ -312,6 +317,15 @@ test("reports malformed binary-request JSON responses through policy", async () 
 });
 
 test("registry coverage includes every operation transport", () => {
+  expect(
+    protocolOperations.flatMap((registeredOperation) => {
+      const operation: HttpOperation = registeredOperation;
+      return operation.failureStatuses
+        .filter((status) => !operation.failureResponses?.[status])
+        .map((status) => `${operation.id}:${status}`);
+    }),
+  ).toEqual([]);
+
   const unsupported = protocolOperations
     .filter((operation) => !supportsJsonOperationTransport(operation))
     .map((operation) => operation.id);

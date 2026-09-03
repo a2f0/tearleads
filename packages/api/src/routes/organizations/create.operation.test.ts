@@ -53,7 +53,7 @@ test("create organization rejects invalid input at the HTTP boundary", async () 
   expect(await response.json()).toEqual({ error: "Invalid request" });
 });
 
-test("create organization preserves the malformed JSON response", async () => {
+test("create organization returns JSON for malformed request bodies", async () => {
   const route = createTestRoute((_c, next) => next());
   const response = await route.request("/organizations", {
     body: "{",
@@ -62,5 +62,5 @@ test("create organization preserves the malformed JSON response", async () => {
   });
 
   expect(response.status).toBe(400);
-  expect(await response.text()).toBe("Malformed JSON in request body");
+  expect(await response.json()).toEqual({ error: "Invalid request" });
 });

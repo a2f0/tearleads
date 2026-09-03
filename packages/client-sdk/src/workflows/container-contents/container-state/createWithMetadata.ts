@@ -36,18 +36,14 @@ import type {
 } from "./types";
 
 /**
- * Sentinel outcome for a container-with-metadata create whose response was lost:
- * the re-submit reports that the container manifest already exists, so the
- * object is committed remotely. Callers treat this as a benign
- * idempotent-retry conflict — they neither surface it as an error nor create a
- * duplicate. The committed container's metadata state (documentId +
- * accessStateHash) lands when the parent's contents are next hydrated, which
- * marks the pending create intent synced.
+ * Sentinel for a lost-response retry whose manifest already exists remotely.
+ * Callers avoid a duplicate; the next parent hydration settles local state.
  */
 export const CONTAINER_ALREADY_COMMITTED = Symbol("containerAlreadyCommitted");
 export type ContainerAlreadyCommitted = typeof CONTAINER_ALREADY_COMMITTED;
 
 async function submitContainerWithMetadataDocument(input: {
+  readonly organizationId: string;
   readonly request: ContainerCreateWithMetadataDocumentRequest;
   readonly runtime: ContainerWorkflowRuntime;
   readonly stillCurrent?: (() => boolean) | undefined;
@@ -64,18 +60,19 @@ async function submitContainerWithMetadataDocument(input: {
   if (apiClient.createContainerWithMetadataDocumentResult) {
     const result = await apiClient.createContainerWithMetadataDocumentResult(
       input.request,
-      { reportErrors: false },
+      {
+        expectedPaymentRequiredOrganizationId: input.organizationId,
+        reportErrors: false,
+      },
     );
-
     return result.ok ? { ok: true, response: result.data } : result;
   }
 
-  if (!apiClient.createContainerWithMetadataDocument) {
-    return null;
-  }
+  if (!apiClient.createContainerWithMetadataDocument) return null;
 
   const response = await apiClient.createContainerWithMetadataDocument(
     input.request,
+    { expectedPaymentRequiredOrganizationId: input.organizationId },
   );
   return response ? { ok: true, response } : null;
 }
@@ -353,6 +350,7 @@ async function createRemoteContainerWithMetadataDocumentAttempt(input: {
     trustedLocalProjection: true,
   });
   const submitted = await submitContainerWithMetadataDocument({
+    organizationId: containerPlan.plan.state.organizationId,
     request: {
       systemSlot: input.systemSlot ?? null,
       container: containerPlan.plan.request,

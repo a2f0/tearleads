@@ -116,6 +116,9 @@ export async function shareRemoteContainer(input: {
       input.apiClient.shareContainer(
         input.containerId,
         materializedPlan.plan.request,
+        {
+          expectedPaymentRequiredOrganizationId: input.author.organizationId,
+        },
       ),
   });
 }
@@ -346,6 +349,7 @@ export async function shareRemoteContainerWithGroup(
   const response = await input.apiClient.shareContainer(
     input.containerId,
     materializedPlan.plan.request,
+    { expectedPaymentRequiredOrganizationId: input.author.organizationId },
   );
   if (!response) {
     return null;

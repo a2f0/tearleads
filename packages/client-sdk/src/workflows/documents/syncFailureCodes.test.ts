@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
-import { documentSyncOperation } from "@tearleads/validators/operation";
+import {
+  documentSyncOperation,
+  type HttpOperation,
+} from "@tearleads/validators/operation";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import {
   DOCUMENT_MUTATION_ERROR_CODES,
@@ -47,12 +50,33 @@ function parsedFailureCode(input: {
   status: number;
 }): string | undefined {
   if (input.status >= 200 && input.status < 300) return undefined;
-  return typeof input.error === "string" &&
-    input.error.trim().length > 0 &&
-    typeof input.code === "string" &&
-    input.code.length > 0
-    ? input.code
-    : undefined;
+  const failureResponses: NonNullable<HttpOperation["failureResponses"]> =
+    documentSyncOperation.failureResponses;
+  const schema = failureResponses[input.status];
+  if (!schema) return undefined;
+  const parsed = schema.safeParse({
+    code: input.code,
+    error: input.error,
+  });
+  if (!parsed.success) return undefined;
+
+  const body = parsed.data;
+  if (
+    body === null ||
+    typeof body !== "object" ||
+    !("code" in body) ||
+    typeof body.code !== "string" ||
+    body.code.length === 0
+  ) {
+    return undefined;
+  }
+
+  return schema.safeParse({
+    ...body,
+    code: `${body.code}\u0000unregistered`,
+  }).success
+    ? undefined
+    : body.code;
 }
 
 test("document sync stale-state retries depend on status and code", () => {

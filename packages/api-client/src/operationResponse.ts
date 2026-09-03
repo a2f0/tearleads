@@ -5,9 +5,9 @@ import {
 } from "@tearleads/validators/operation";
 import { errorMessage } from "./requestInternals";
 import type {
+  OperationResponseRequestFn,
   RequestResult,
   RequestResultOptions,
-  ResponseRequestFn,
 } from "./types";
 
 export interface JsonResponseOperation extends HttpOperation {
@@ -85,7 +85,7 @@ interface RuntimeJsonOperationResponseEnvelope {
 }
 
 export function operationResponseFailure(
-  request: ResponseRequestFn,
+  request: OperationResponseRequestFn,
   operation: HttpOperation,
   response: Response,
   path: string,
@@ -125,7 +125,7 @@ export function decodeOperationResponseHeaders(
 }
 
 export async function decodeJsonOperationResponse(
-  request: ResponseRequestFn,
+  request: OperationResponseRequestFn,
   operation: JsonResponseOperation,
   response: Response,
   path: string,

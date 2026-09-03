@@ -77,20 +77,26 @@ test("submitDocumentSync returns a completed single page", async () => {
     supportsPullPagination: true,
     supportsUntrackedCommitLsn: true,
   };
-  const plan = { documentId: DOCUMENT_ID, request } as DocumentSyncPlan;
+  const plan = {
+    documentId: DOCUMENT_ID,
+    organizationId: "organization-1",
+    request,
+  } as DocumentSyncPlan;
   const page = response({
     commitLsn: "0/2",
     cursor: null,
     updateId: "update-1",
   });
   const requests: DocumentSyncRequest[] = [];
+  const requestOptions: unknown[] = [];
   const apiClient = {
     getDocumentWriterProjection: async () => null,
     syncDocument: async () => {
       throw new Error("Expected result-aware document sync");
     },
-    syncDocumentResult: async (_documentId, nextRequest) => {
+    syncDocumentResult: async (_documentId, nextRequest, options) => {
       requests.push(nextRequest);
+      requestOptions.push(options);
       return { data: page, ok: true as const };
     },
   } satisfies DocumentSyncApi;
@@ -102,6 +108,12 @@ test("submitDocumentSync returns a completed single page", async () => {
   expect(result.pullComplete).toBe(true);
   expect(requests).toHaveLength(1);
   expect(requests[0]).toBe(request);
+  expect(requestOptions).toEqual([
+    {
+      expectedPaymentRequiredOrganizationId: "organization-1",
+      reportErrors: false,
+    },
+  ]);
   expect(result.response.updates.map(({ id }) => id)).toEqual(["update-1"]);
   expect(result.response.acceptedOutgoingUpdateIds).toEqual(["outgoing-1"]);
   expect(result.response.contentKeyBundles).toHaveLength(1);

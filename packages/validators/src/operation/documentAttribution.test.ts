@@ -24,14 +24,14 @@ test("document attribution operations own their HTTP contracts", () => {
   expect(getDocumentAttributionOperation).toMatchObject({
     auth: "session",
     emptyResponseStatuses: [304],
-    failureStatuses: [400, 401, 403, 404, 409, 500],
+    failureStatuses: [400, 401, 403, 404, 409, 500, 503],
     id: "documents.attribution.get",
     method: "GET",
     responses: { 200: DocumentEditAttributionResponseSchema },
   });
   expect(listDocumentAttributionRangesOperation).toMatchObject({
     auth: "session",
-    failureStatuses: [400, 401, 403, 404, 409, 500],
+    failureStatuses: [400, 401, 403, 404, 409, 500, 503],
     id: "documents.attribution.ranges.list",
     method: "GET",
     responses: { 200: ListDocumentEditAttributionRangesResponseSchema },
@@ -47,6 +47,7 @@ test("document attribution operations own their HTTP contracts", () => {
       404: ErrorResponseSchema,
       409: ErrorResponseSchema,
       500: ErrorResponseSchema,
+      503: ErrorResponseSchema,
     });
   }
 });
@@ -112,6 +113,7 @@ test("document attribution OpenAPI documents caching, pagination, and errors", (
     "404",
     "409",
     "500",
+    "503",
   ]);
   expect(compact.responses["304"]?.content).toBeUndefined();
   expect(compact.responses["304"]?.headers).toHaveProperty(
