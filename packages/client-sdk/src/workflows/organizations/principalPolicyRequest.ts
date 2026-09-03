@@ -207,7 +207,9 @@ export async function buildInitialGroupPolicyRequest(
   // format characters (bidi overrides, zero-width joiners, newlines) would let
   // one signed name render as another. A lone surrogate would be re-encoded
   // as U+FFFD in the signed payload and no longer match the name sent to the
-  // server. Refuse all of them where the name is signed.
+  // server. Refuse all of them where the name is signed. This deliberately
+  // refuses U+200D too, so ZWJ emoji sequences cannot name a group: a label
+  // is an identifier here, and no format character may hide in one.
   if (name.length === 0 || /[\p{Cc}\p{Cf}\p{Cs}]/u.test(name)) {
     throw new Error(
       "Group names must be non-empty and contain no control, format, or surrogate characters",

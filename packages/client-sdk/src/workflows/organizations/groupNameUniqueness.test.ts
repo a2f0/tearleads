@@ -180,10 +180,14 @@ test("a directory group served at another head fails closed", async () => {
   );
   try {
     directory.servedGroups["group-1"] = directory.memberPolicy;
-    await expect(assertUnique("Finance")).rejects.toMatchObject({
-      code: "object_mismatch",
-      message: expect.stringContaining("does not match its signed head"),
-    });
+    // Head drift can come from a concurrent admin, so it is a plain error to
+    // retry on rather than a security incident.
+    await expect(assertUnique("Finance")).rejects.toThrow(
+      "does not match the signed organization directory",
+    );
+    await expect(assertUnique("Finance")).rejects.not.toBeInstanceOf(
+      KeyingVerificationError,
+    );
   } finally {
     close();
   }

@@ -338,11 +338,6 @@ export async function shareRemoteContainer(input: {
   );
 }
 
-/**
- * Binds a chosen group name to the signed group policy without sharing. Used
- * before a duplicate-share short-circuit so a relabeled row cannot report a
- * successful share with a group the user did not choose.
- */
 export async function shareRemoteContainerWithGroup(input: {
   accessLevel: "read" | "write" | "admin";
   containerId: string;

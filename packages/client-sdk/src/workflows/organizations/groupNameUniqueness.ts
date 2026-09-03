@@ -1,7 +1,6 @@
-import {
-  KeyingVerificationError,
-  type PrincipalPolicyExternalAuthority,
-  type VerifiedPrincipalPolicy,
+import type {
+  PrincipalPolicyExternalAuthority,
+  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { throwKeyingVerificationErrorWithContext } from "../../data/keyingProjectionVerification/error";
@@ -81,9 +80,11 @@ async function loadDirectoryGroupBundle(
       head,
     )
   ) {
-    throw new KeyingVerificationError(
-      "object_mismatch",
-      "Organization directory group policy does not match its signed head",
+    // Head drift is reachable by a concurrent admin mutation, so it is a
+    // plain error to retry on, not an incident (as in the share path). The
+    // typed errors stay for signature and projection failures.
+    throw new Error(
+      "Organization directory group policy does not match the signed organization directory",
     );
   }
   return { bundle, localCheckpoint };

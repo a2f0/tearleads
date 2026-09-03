@@ -108,6 +108,11 @@ export interface ContainerContentsStore {
     trashContainerId: string,
     options?: PurgeOptions,
   ) => Promise<boolean>;
+  // `options.requireExistingGrant` gates the preparation check only. The
+  // prepared `rewrap` is always grant-preserving: it re-wraps a signed grant
+  // and never mints one, so it carries no chosen group name, and it throws
+  // (rather than healing through a policy mutation) when the container
+  // manifest grants the group but the verified policy has no matching grant.
   prepareGroupRewrap: (
     containerId: string,
     groupId: string,
