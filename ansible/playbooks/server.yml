@@ -120,6 +120,16 @@
     code_assist_github_webhook_secret: "{{ lookup('env', 'CODE_ASSIST_GITHUB_WEBHOOK_SECRET') | default('', true) }}"
     code_assist_github_private_key_src: "{{ lookup('env', 'CODE_ASSIST_GITHUB_PRIVATE_KEY_SRC') | default('', true) }}"
   tasks:
+    - name: Validate extra demo zone names
+      ansible.builtin.assert:
+        that:
+          - extra_demo_domains is sequence
+          - extra_demo_domains is not string
+          - extra_demo_domains | select('match', '^demo[.-]') | list | length == 0
+        fail_msg: >-
+          TF_VAR_extra_demo_domains must be a JSON array of bare zone names,
+          for example ["tearleads.de"]. The demo label is added per tier.
+
     - name: Apply shared Linux security baseline
       ansible.builtin.import_tasks: tasks/linuxSecurityBaseline.yml
 

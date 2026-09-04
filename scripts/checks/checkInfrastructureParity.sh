@@ -196,6 +196,15 @@ assert_demo_static_ingress() {
     return 1
   fi
 
+  local server_yml="$REPO_ROOT/ansible/playbooks/server.yml"
+
+  if ! grep -Fq "lookup('env', 'TF_VAR_extra_demo_domains')" "$server_yml" ||
+    ! grep -Fq "map('regex_replace', '^(.+)\$', app_demo_host_prefix ~ '\\\\1')" "$server_yml" ||
+    ! grep -Fq '([app_hostname] + app_demo_hostnames)' "$server_yml"; then
+    echo "ERROR: Demo hostnames must derive from TF_VAR_extra_demo_domains and reach the API CORS allowlist." >&2
+    return 1
+  fi
+
   app_server="$(sed -n '/server_name app.example.test;/,/^}/p' "$rendered_app")"
   demo_server="$(sed -n '/server_name demo.example.test demo.example.de;/,/^}/p' "$rendered_app")"
   if ! grep -Fq 'root /var/www/app-web;' <<<"$app_server" ||

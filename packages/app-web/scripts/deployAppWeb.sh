@@ -71,12 +71,19 @@ if [ -n "${TF_VAR_extra_demo_domains:-}" ]; then
     echo "ERROR: jq is required to read TF_VAR_extra_demo_domains." >&2
     exit 1
   fi
-  if ! extra_demo_zone_list="$(printf '%s' "$TF_VAR_extra_demo_domains" | jq -er '.[]')"; then
-    echo "ERROR: TF_VAR_extra_demo_domains is not a non-empty JSON array of zone names." >&2
+  if ! extra_demo_zone_list="$(printf '%s' "$TF_VAR_extra_demo_domains" |
+    jq -r 'if type == "array" then .[] else error("not an array") end')"; then
+    echo "ERROR: TF_VAR_extra_demo_domains must be a JSON array of zone names." >&2
     exit 1
   fi
   while IFS= read -r zone; do
     [ -n "$zone" ] || continue
+    case "$zone" in
+      demo.* | demo-*)
+        echo "ERROR: TF_VAR_extra_demo_domains takes bare zone names; got $zone." >&2
+        exit 1
+        ;;
+    esac
     extra_demo_zones+=("$zone")
   done <<< "$extra_demo_zone_list"
 fi
@@ -111,6 +118,8 @@ deploy_app_web_dist() {
 build_app_web "app" "app-web"
 deploy_app_web_dist "app-web" "/var/www/app-web"
 
+# `bun run build` clears dist/, so the demo build must follow the app bundle's
+# rsync: it leaves dist/ holding the demo bundle, not the app one.
 build_app_web "demo" "app-demo"
 deploy_app_web_dist "app-demo" "/var/www/app-demo"
 
