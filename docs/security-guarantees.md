@@ -107,15 +107,15 @@ a direct `admin` signer; organization and Admins states cannot cite it.
 
 Client verification resolves every non-null citation to that exact Admins
 history entry and tests its projection, rather than unioning historical admins.
-Historical child states may cite historical exact heads. Every child successor
-newer than a local checkpoint must instead cite the fetched, verified current
-Admins head, and cited heads cannot roll back within a chain. Thus a removed
-admin cannot append after the client checkpoints the child policy.
+Successors may cite historical heads after Admins advances. Citations cannot
+roll back within a chain; policies must descend from local checkpoints. Clients
+refuse only what an honest server cannot produce, so accepting honest history
+never depends on another device's cache or write.
 
-A cold client has no cross-object ordering checkpoint, so the two signed
-histories do not prove a historical Admins head was current when cited. Honest
-writes enforce this; detecting a malicious first-contact stale view needs
-cross-object transparency, witnessing, or gossip.
+A removed admin with a compromised server can append using historical
+authority until a current admin's successor cites newer authority. The in-chain
+rule makes that advance final. The API requires current authority at commit;
+proving currentness needs witnessing or gossip (#1555).
 
 The signed organization descriptor selects `Admins`; display and read-model
 projections never authorize policy or keying. Root and metadata repairs use
