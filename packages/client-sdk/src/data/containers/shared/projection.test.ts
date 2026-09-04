@@ -332,7 +332,9 @@ test("unwrapContainerKekPath verifies move-back-to-root projections with histori
           secretKey: parent.secretKey,
         }),
       ).rejects.toThrow(
-        "Container writer projection path[1] previous manifest manifest verification failed",
+        // The previous manifest was moved under parent A and cites A's head;
+        // with A's proof withheld that head cannot be resolved.
+        "Container writer projection path[1] previous manifest does not cite a served head of its parent container projection-parent-a",
       );
       return unwrapContainerKekPath({
         execSql,

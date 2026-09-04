@@ -7,6 +7,9 @@ that facade.
 - `readers.ts` decodes canonical wire records into crypto verification inputs.
 - `bundleVerification.ts` owns the canonical-equality assert, bundle-map
   helper, and signed access-event bundle verification shared by both halves.
+- `containerAncestorCitations.ts` rebuilds a container event's authorization
+  path from the ancestor heads its signed event cites, and holds the
+  currency and no-regression rules those citations must satisfy.
 - `containerManifestVerification.ts` verifies container manifest bundles,
   including parent-path resolution and previous-manifest checks.
 - `containerProjectionVerification.ts` verifies container KEK projections and

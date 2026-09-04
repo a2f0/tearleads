@@ -243,6 +243,31 @@ authorizing-container head makes the proof fail closed because its ordering
 relative to the purge is not signed. Document predecessor history can still
 advance an older document checkpoint to the purge-time head.
 
+A container manifest pins the parent manifest it was created or moved under,
+and successor manifests inherit that pin, so the pin does not say which
+ancestor heads a later grant, revoke, or rekey was authorized under. Those
+heads are signed into the event: every container event cites the manifest
+hashes of the path it was committed against, and the API refuses an event
+whose citations are not the current heads at commit time. The client
+authorizes a head's signer against the cited heads, rebuilt root to parent
+from the served bundles, rather than against whatever path the server pairs
+with the manifest. For every ancestor, a head must cite a head that is or
+descends, through verified predecessors, from the head an earlier signed
+statement already established, so neither an older head nor a same-epoch fork
+of that ancestor can authorize a later child event. A served path must be a
+root-to-leaf chain of parent edges.
+
+Not yet applied to containers is the principal-policy rule that a successor
+new to a device must cite the authority's current head. The API today refuses
+any mutation on a container whose pinned parent manifest is no longer the
+parent's head, so a child head that rule rejected could never be superseded,
+and a device that missed a child event and the ancestor change after it would
+be locked out of the child for good. Until descendants can re-cite their
+ancestors, every device accepts a child head authorized under an older
+ancestor head, whether or not it has checkpointed a newer one; only a signed
+statement that already established the newer head makes a citation that does
+not descend from it a rollback.
+
 ### Content Confidentiality
 
 Encrypted document, blob, and metadata content remains confidential from a

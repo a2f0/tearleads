@@ -201,23 +201,32 @@ export async function verifyContainerManifestPath(input: {
 }): Promise<VerifiedContainerAccessManifest[]> {
   const verifiedPath: VerifiedContainerAccessManifest[] = [];
   for (const [index, bundle] of input.path.entries()) {
-    verifiedPath.push(
-      await verifyContainerManifestBundle({
-        authorizationMembership: input.authorizationMembership,
-        authorizationEvidence: input.authorizationEvidence,
-        bundle,
-        bundlesByHash: input.bundlesByHash,
-        checkpointContext: input.checkpointContext,
-        enforceLocalCheckpoint: input.enforceLocalCheckpoints,
-        label: `${input.label}[${index}]`,
-        parentPath: verifiedPath,
-        principalPolicyCache: input.principalPolicyCache,
-        resolveUserKey: input.resolveUserKey,
-        requireAuthorizationEvidence: input.requireAuthorizationEvidence,
-        verifiedByHash: input.verifiedByHash,
-        warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-      }),
-    );
+    const verified = await verifyContainerManifestBundle({
+      authorizationMembership: input.authorizationMembership,
+      authorizationEvidence: input.authorizationEvidence,
+      bundle,
+      bundlesByHash: input.bundlesByHash,
+      checkpointContext: input.checkpointContext,
+      enforceLocalCheckpoint: input.enforceLocalCheckpoints,
+      label: `${input.label}[${index}]`,
+      parentPath: verifiedPath,
+      principalPolicyCache: input.principalPolicyCache,
+      resolveUserKey: input.resolveUserKey,
+      requireAuthorizationEvidence: input.requireAuthorizationEvidence,
+      verifiedByHash: input.verifiedByHash,
+      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+    });
+    // Access along a path is the union of its elements' grants, so a served
+    // path must be a genuine root-to-leaf ancestor chain: each element is the
+    // parent of the next, and the first is a root.
+    const expectedParentId = verifiedPath.at(-1)?.state.containerId ?? null;
+    if (verified.state.parentContainerId !== expectedParentId) {
+      throw new KeyingVerificationError(
+        "object_mismatch",
+        `${input.label}[${index}] parent container does not precede it in the path`,
+      );
+    }
+    verifiedPath.push(verified);
   }
 
   return verifiedPath;

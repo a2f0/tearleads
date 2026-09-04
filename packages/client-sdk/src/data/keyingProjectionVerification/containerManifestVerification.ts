@@ -13,6 +13,11 @@ import {
 } from "./bundleVerification";
 import type { ProjectionCheckpointContext } from "./checkpointContext";
 import {
+  assertCitedAncestorsDoNotRegress,
+  type CitedLineageInput,
+  resolveCitedAncestorPath,
+} from "./containerAncestorCitations";
+import {
   loadManifestCheckpointVerification,
   verifyCachedManifestCheckpoint,
 } from "./manifestCheckpointVerification";
@@ -80,6 +85,11 @@ export async function verifyContainerManifestBundle(input: {
   readonly resolveUserKey: ProjectionUserKeyResolver;
   readonly requireAuthorizationEvidence?: boolean | undefined;
   readonly verifiedByHash: Map<string, VerifiedContainerAccessManifest>;
+  // Manifest hashes whose verification is in progress up the call stack.
+  // Previous manifests, pinned parents, and cited ancestors all recurse
+  // before a bundle's own hash is checked, so served bundles that refer to
+  // each other under claimed hashes would otherwise recurse without end.
+  readonly verifying?: Set<string> | undefined;
   readonly warmReferencedPrincipalPolicies?:
     | ReferencedPrincipalPolicyWarmer
     | undefined;
@@ -103,33 +113,50 @@ export async function verifyContainerManifestBundle(input: {
     return cached;
   }
 
+  const verifying = input.verifying ?? new Set<string>();
+  if (verifying.has(input.bundle.manifestHash)) {
+    throw new KeyingVerificationError(
+      "object_mismatch",
+      `${input.label} refers back to a manifest whose verification it is part of`,
+    );
+  }
+  verifying.add(input.bundle.manifestHash);
+  try {
+    return await verifyFreshContainerManifestBundle(
+      { ...input, verifying },
+      parentPath,
+    );
+  } finally {
+    verifying.delete(input.bundle.manifestHash);
+  }
+}
+
+type CitedAncestorInput = Parameters<typeof verifyContainerManifestBundle>[0];
+
+async function verifyFreshContainerManifestBundle(
+  input: CitedAncestorInput,
+  parentPath: readonly VerifiedContainerAccessManifest[],
+): Promise<VerifiedContainerAccessManifest> {
   const event = await verifyAccessEventBundle(input);
   const manifest = readAccessManifest(
     input.bundle.manifest,
     `${input.label} manifest`,
   );
-  const previousManifest =
-    event.event.previousManifestHash === null
-      ? null
-      : await verifyPreviousContainerManifest({
-          ...input,
-          parentPath,
-          previousManifestHash: event.event.previousManifestHash,
-        });
-  const referencedPrincipalHeads = [
-    ...parentPath.flatMap(
-      (parentManifest) => parentManifest.state.referencedPrincipalHeads,
-    ),
-    ...(previousManifest?.state.referencedPrincipalHeads ?? []),
-    ...manifest.referencedPrincipalHeads,
-  ];
-  const authorizationEvidence = input.authorizationEvidence ?? [];
+  const authorization = await resolveContainerManifestAuthorization(
+    input,
+    event,
+    parentPath,
+  );
+  const { citedAncestors, previousManifest, sourceAncestors } = authorization;
   const principalPolicies = await collectManifestAuthorizationPolicies({
-    authorizationEvidence,
+    authorizationEvidence: input.authorizationEvidence ?? [],
     checkpointContext: input.checkpointContext,
     organizationId: event.event.organizationId,
     principalPolicyCache: input.principalPolicyCache,
-    referencedPrincipalHeads,
+    referencedPrincipalHeads: [
+      ...authorization.referencedPrincipalHeads,
+      ...manifest.referencedPrincipalHeads,
+    ],
     requireAuthorizationEvidence: input.requireAuthorizationEvidence ?? false,
     resolveUserKey: input.resolveUserKey,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
@@ -144,16 +171,16 @@ export async function verifyContainerManifestBundle(input: {
 
   const verified = await verifyContainerAccessManifest({
     authorizationMembership: input.authorizationMembership,
-    destinationParentContainerPath: parentPath,
+    destinationParentContainerPath: citedAncestors,
     event,
     expectedManifestHash: input.bundle.manifestHash,
     manifest,
-    parentContainerPath: parentPath,
+    parentContainerPath: citedAncestors,
     principalPolicies,
     ...(checkpointVerification ?? {}),
     ...(previousManifest
       ? {
-          previousContainerPath: [...parentPath, previousManifest],
+          previousContainerPath: [...sourceAncestors, previousManifest],
           previousManifest,
         }
       : { previousManifest: null }),
@@ -175,6 +202,121 @@ export async function verifyContainerManifestBundle(input: {
   return verified.value;
 }
 
+/**
+ * The paths a container event is authorized against: its previous manifest
+ * and the ancestor heads its signed event cites, root to parent.
+ */
+async function resolveContainerManifestAuthorization(
+  input: CitedAncestorInput,
+  event: VerifiedContainerAccessManifest["event"],
+  parentPath: readonly VerifiedContainerAccessManifest[],
+) {
+  const previousManifest =
+    event.event.previousManifestHash === null
+      ? null
+      : await verifyPreviousContainerManifest({
+          ...input,
+          parentPath,
+          previousManifestHash: event.event.previousManifestHash,
+        });
+  // The parent this event leaves the container under comes from signed data:
+  // the previous manifest for a grant, revoke, or rekey, and the signed body
+  // for a create or move, never from the server-supplied wire state.
+  const eventType = event.event.eventType;
+  const { parentContainerId, parentManifestHash } =
+    previousManifest && eventType !== "container.move"
+      ? previousManifest.state
+      : readContainerEventBodyParentReference(event, input.label);
+  if (
+    previousManifest === null &&
+    parentManifestHash !== null &&
+    !event.event.dependencyManifestHashes.includes(parentManifestHash)
+  ) {
+    throw new KeyingVerificationError(
+      "missing_dependency",
+      `${input.label} does not cite the parent manifest it was created under`,
+    );
+  }
+  const lineage: CitedLineageInput = {
+    bundlesByHash: input.bundlesByHash,
+    label: input.label,
+    verifiedByHash: input.verifiedByHash,
+  };
+  const citedAncestors = await resolveCitedAncestors(input, event, {
+    parentContainerId,
+  });
+  assertCitedAncestorsDoNotRegress({
+    ...lineage,
+    citedAncestors,
+    previousManifest,
+  });
+  // A move's source path leads to the previous manifest's parent, and the
+  // move event cites that path too; the destination path is the one above.
+  // The source path is held to the same no-regression rule.
+  const sourceAncestors =
+    eventType === "container.move" && previousManifest
+      ? await resolveCitedAncestors(input, event, {
+          parentContainerId: previousManifest.state.parentContainerId,
+        })
+      : citedAncestors;
+  if (sourceAncestors !== citedAncestors) {
+    assertCitedAncestorsDoNotRegress({
+      ...lineage,
+      citedAncestors: sourceAncestors,
+      previousManifest,
+    });
+  }
+  const ancestors = [
+    ...parentPath,
+    ...citedAncestors,
+    ...(sourceAncestors === citedAncestors ? [] : sourceAncestors),
+  ];
+  return {
+    citedAncestors,
+    previousManifest,
+    referencedPrincipalHeads: [
+      ...ancestors.flatMap(
+        (ancestor) => ancestor.state.referencedPrincipalHeads,
+      ),
+      ...(previousManifest?.state.referencedPrincipalHeads ?? []),
+    ],
+    sourceAncestors,
+  };
+}
+
+function citedAncestorResolutionInput(input: CitedAncestorInput) {
+  return {
+    bundlesByHash: input.bundlesByHash,
+    label: input.label,
+    verifiedByHash: input.verifiedByHash,
+    // A cited head older than the served one is history: authorize it at the
+    // membership it referenced, as the previous manifest is.
+    verifyHistoryBundle: (
+      bundle: AccessManifestBundleWireResponse,
+      label: string,
+    ) =>
+      verifyContainerManifestBundle({
+        ...input,
+        authorizationMembership: "referenced",
+        bundle,
+        enforceLocalCheckpoint: false,
+        label,
+      }),
+  };
+}
+
+function resolveCitedAncestors(
+  input: CitedAncestorInput,
+  event: VerifiedContainerAccessManifest["event"],
+  reference: { readonly parentContainerId: string | null },
+): Promise<VerifiedContainerAccessManifest[]> {
+  return resolveCitedAncestorPath({
+    ...citedAncestorResolutionInput(input),
+    event,
+    parentContainerId: reference.parentContainerId,
+  });
+}
+
 function assertContainerParentPathMatches(input: {
   readonly label: string;
   readonly parentPath: readonly VerifiedContainerAccessManifest[];
@@ -189,27 +331,44 @@ function assertContainerParentPathMatches(input: {
   }
 }
 
-function readContainerManifestParentReference(
-  bundle: AccessManifestBundleWireResponse,
-  label: string,
-): {
+interface ContainerParentReference {
   parentContainerId: string | null;
   parentManifestHash: string | null;
-} {
-  const state = readCanonicalRecord(bundle.state, `${label} state`);
+}
+
+function readParentReference(
+  value: unknown,
+  label: string,
+): ContainerParentReference {
+  const record = readCanonicalRecord(value, label);
 
   return {
     parentContainerId: readRecordNullableString(
-      state,
+      record,
       "parentContainerId",
-      `${label} state`,
+      label,
     ),
     parentManifestHash: readRecordNullableString(
-      state,
+      record,
       "parentManifestHash",
-      `${label} state`,
+      label,
     ),
   };
+}
+
+function readContainerManifestParentReference(
+  bundle: AccessManifestBundleWireResponse,
+  label: string,
+): ContainerParentReference {
+  return readParentReference(bundle.state, `${label} state`);
+}
+
+/** The parent a create or move body pins, read from the signed body. */
+function readContainerEventBodyParentReference(
+  event: VerifiedContainerAccessManifest["event"],
+  label: string,
+): ContainerParentReference {
+  return readParentReference(event.body, `${label} event body`);
 }
 
 async function resolveContainerManifestVerificationParentPath(input: {
@@ -284,6 +443,7 @@ async function verifyPreviousContainerManifest(input: {
   readonly resolveUserKey: ProjectionUserKeyResolver;
   readonly requireAuthorizationEvidence?: boolean | undefined;
   readonly verifiedByHash: Map<string, VerifiedContainerAccessManifest>;
+  readonly verifying?: Set<string> | undefined;
   readonly warmReferencedPrincipalPolicies?:
     | ReferencedPrincipalPolicyWarmer
     | undefined;
@@ -312,6 +472,7 @@ async function verifyPreviousContainerManifest(input: {
     resolveUserKey: input.resolveUserKey,
     requireAuthorizationEvidence: input.requireAuthorizationEvidence,
     verifiedByHash: input.verifiedByHash,
+    verifying: input.verifying,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
 }
