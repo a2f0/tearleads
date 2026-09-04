@@ -17,7 +17,7 @@ export function resolveEventContainerPaths(input: {
     readonly VerifiedContainerAccessManifest[]
   >;
   readonly dependencyManifestHashes: readonly string[];
-  readonly targetManifestHash: string;
+  readonly targetManifestHash?: string;
 }): {
   dependencyContainerPaths: VerifiedContainerAccessManifest[][];
   targetContainerPath: readonly VerifiedContainerAccessManifest[] | undefined;

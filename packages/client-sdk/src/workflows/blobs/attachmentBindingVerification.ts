@@ -7,16 +7,14 @@ import {
   readCanonicalJson,
   readCanonicalRecord,
 } from "../../data/keyingCanonicalJson";
-import type {
-  DocumentWriterProjectionAuthorization,
-  ProjectionUserKeyResolver,
-} from "../../data/keyingProjectionVerification";
-import { resolveEventContainerPaths } from "../../data/keyingProjectionVerification/documentDependencyPaths";
 import {
+  type DocumentWriterProjectionAuthorization,
+  type ProjectionUserKeyResolver,
   readAccessEvent,
   readRecordString,
   readRequiredRecordValue,
-} from "../../data/keyingProjectionVerification/readers";
+  resolveEventContainerPaths,
+} from "../../data/keyingProjectionVerification";
 
 export async function assertAttachmentBindingVerified(input: {
   readonly authorization: DocumentWriterProjectionAuthorization | undefined;
@@ -70,7 +68,6 @@ export async function assertAttachmentBindingVerified(input: {
     dependencyManifestHashes: event.dependencyManifestHashes.filter(
       (hash) => hash !== input.binding.documentManifestHash,
     ),
-    targetManifestHash: "",
   });
   const verified = await verifyAttachmentBindingEvent({
     authorizingContainerPaths: dependencyContainerPaths,

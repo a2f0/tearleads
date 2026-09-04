@@ -80,3 +80,32 @@ test("an uncited target does not acquire a path from server metadata", async () 
   });
   expect(resolved.targetContainerPath).toBeUndefined();
 });
+
+test("citation reconstruction bounds depth and rejects cycles", async () => {
+  const { root1 } = await createScenario();
+  // Synthetic structural variants exercise only the resolver's graph bounds;
+  // they are not offered as cryptographic verification evidence.
+  const heads = Array.from({ length: 101 }, (_, index) => ({
+    ...root1,
+    manifestHash: `depth-${index}`,
+    state: {
+      ...root1.state,
+      containerId: `container-${index}`,
+      parentContainerId: index === 0 ? null : `container-${index - 1}`,
+    },
+  }));
+  const resolve = (values: typeof heads) =>
+    resolveEventContainerPaths({
+      containerPathByManifestHash: index(values),
+      dependencyManifestHashes: values.map((head) => head.manifestHash),
+    });
+  expect(
+    resolve(heads.slice(0, 100)).dependencyContainerPaths.at(-1),
+  ).toHaveLength(100);
+  expect(() => resolve(heads)).toThrow("cyclic or too deep");
+  const cycle = heads.slice(0, 2).map((head) => ({
+    ...head,
+    state: { ...head.state, parentContainerId: "container-1" },
+  }));
+  expect(() => resolve(cycle)).toThrow("cyclic or too deep");
+});
