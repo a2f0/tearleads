@@ -70,19 +70,29 @@ export async function assertManifestHeadCurrent(
 }
 
 /**
- * Each element must be the child of the one before it, by container id. A
- * manifest pins the parent manifest it was created or moved under, and that
- * pin lags once the parent's head advances; requiring the pin to equal the
- * parent's current head here would refuse every mutation on a descendant
- * after any ancestor change. The heads a mutation is authorized against are
- * the current ones (assertCurrentContainerPath checks each element is a
- * head), and the event signs them as its dependencies, so the pin stays a
- * creation-time fact and is not a condition here.
+ * The path must start at a root and each element must be the child of the
+ * one before it, by container id. A manifest pins the parent manifest it was
+ * created or moved under, and that pin lags once the parent's head advances;
+ * requiring the pin to equal the parent's current head here would refuse
+ * every mutation on a descendant after any ancestor change. The heads a
+ * mutation is authorized against are the current ones
+ * (assertCurrentContainerPath checks each element is a head), and the event
+ * signs them as its dependencies, so the pin stays a creation-time fact and
+ * is not a condition here. The root anchor is: the event cites exactly this
+ * path, and stored re-verification rebuilds the path from those citations,
+ * so a path missing its top would commit a head that can never be verified.
  */
 function assertContainerPathEdges(
   path: readonly VerifiedContainerAccessManifest[],
   label: string,
 ): void {
+  if (path[0] && path[0].state.parentContainerId !== null) {
+    throw new ContainerMutationError(
+      `${label} does not start at a root container`,
+      409,
+    );
+  }
+
   for (let index = 1; index < path.length; index += 1) {
     const parent = path[index - 1];
     const child = path[index];

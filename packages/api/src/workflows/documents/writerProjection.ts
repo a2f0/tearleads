@@ -349,7 +349,7 @@ async function loadContainerHistoryBundle(
   );
   if (loaded.objectKind !== "container") {
     throw new DocumentWriterProjectionError(
-      "Container manifest predecessor has the wrong object kind",
+      "Container manifest history entry has the wrong object kind",
       409,
     );
   }

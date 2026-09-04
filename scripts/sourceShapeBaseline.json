@@ -184,7 +184,7 @@
     },
     "packages/api/src/workflows/documents/writerProjection.ts": {
       "lines": 684,
-      "bytes": 21684
+      "bytes": 21686
     },
     "packages/api/src/workflows/principals/accessLossTombstones.ts": {
       "lines": 539,

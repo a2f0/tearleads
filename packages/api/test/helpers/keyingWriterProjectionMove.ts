@@ -166,7 +166,7 @@ export async function moveContainer(input: {
     },
   );
 
-  expect(response.status).toBe(200);
+  expect(response.status, await response.clone().text()).toBe(200);
   const moved = await response.json();
   expect(isContainerMutationResponse(moved)).toBe(true);
   return moved as ContainerMutationResponse;

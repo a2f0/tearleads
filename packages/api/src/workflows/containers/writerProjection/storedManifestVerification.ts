@@ -191,8 +191,13 @@ function citedAncestorPath(
   parentContainerId: string | null,
 ): VerifiedContainerAccessManifest[] {
   const reversed: VerifiedContainerAccessManifest[] = [];
+  const seen = new Set<string>();
   let containerId = parentContainerId;
   while (containerId !== null) {
+    if (seen.has(containerId)) {
+      throw integrityError("cited ancestor path contains a cycle");
+    }
+    seen.add(containerId);
     if (reversed.length >= MAX_CONTAINER_PATH_DEPTH) {
       throw integrityError("container path exceeds maximum depth");
     }
