@@ -54,7 +54,7 @@ async function signSoloGroupState(
     keyFingerprint: await toFingerprint(groupKem.publicKey),
     members: [{ userId: actor.userId }],
     projection,
-    payloadCiphertext: JSON.stringify({ members: projection }),
+    payloadCiphertext: await groupPolicyPayload(principalId, projection),
     signedAt: "2026-04-08T16:00:00.000Z",
     signerUserId: actor.userId,
     signerUserKeyFingerprint: actor.fingerprint,
@@ -181,3 +181,5 @@ test("PUT granted access still succeeds when shared_with_you publish throws", as
     sortByMemberId(storedPolicy.groupPolicy.currentMemberEnvelopes.envelopes),
   ).toEqual(sortByMemberId(request.memberEnvelopes));
 });
+
+import { groupPolicyPayload } from "../../../test/helpers/groupPolicyPayload";

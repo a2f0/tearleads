@@ -115,9 +115,12 @@ export async function createSignedPrincipalState(input: {
     projection,
     grants: [...(input.grants ?? [])],
     externalAuthority: input.externalAuthority ?? null,
-    payloadCiphertext: bytesToBase64(
-      new TextEncoder().encode(JSON.stringify(input.members)),
-    ),
+    payloadCiphertext:
+      input.principalType === "group"
+        ? await groupPolicyPayload(input.principalId, input.members)
+        : bytesToBase64(
+            new TextEncoder().encode(JSON.stringify(input.members)),
+          ),
     signedAt:
       input.signedAt ?? new Date("2026-04-08T16:00:00.000Z").toISOString(),
     signerUserId: input.signerUserId,
@@ -320,3 +323,5 @@ export async function submitOrganizationGroupPolicyCommit(input: {
     },
   );
 }
+
+import { groupPolicyPayload } from "./groupPolicyPayload";

@@ -75,8 +75,9 @@ async function createSignedPolicy(input: {
     keyFingerprint: await toFingerprint(input.principalKem.publicKey),
     members: input.projection.map((member) => ({ userId: member.userId })),
     projection: input.projection,
-    payloadCiphertext: bytesToBase64(
-      new TextEncoder().encode(JSON.stringify(input.projection)),
+    payloadCiphertext: await groupPolicyPayload(
+      input.principalId,
+      input.projection,
     ),
     signedAt: input.signedAt,
     signerUserId: input.signer.userId,
@@ -294,3 +295,5 @@ test("recipient-key rejection rolls back every policy artifact", async () => {
   expect(envelopes).toEqual([]);
   expect(await getCurrentPrincipalState("group", principalId, db)).toBeNull();
 }, 10_000);
+
+import { groupPolicyPayload } from "../../../test/helpers/groupPolicyPayload";

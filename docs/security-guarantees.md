@@ -158,10 +158,10 @@ flag-day. A group signed before names were committed fails every policy
 mutation and every share; reprovisioning is required. With old API instances
 stopped, deployment rejects unnamed group payloads before rollout.
 
-Membership writes carry the selected label to the
-verified policy check before recipient resolution, wrapping, or signing. Add
-and remove refuse mismatched names. Group creation requires the
-API listing name to equal the signed name; grant-revoke labels are not bound.
+Membership writes bind the label to the verified signed policy before
+recipient resolution, wrapping, or signing. Add and remove refuse mismatches.
+Group creation binds its listing name to the signed name; every successor
+must preserve it. Known gap: grant-revoke labels remain unbound.
 
 The app repeats these checks on fetched policy bundles. A bundle with a
 tampered projection, payload, state hash, chain link, signer, or checkpoint

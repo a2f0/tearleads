@@ -76,8 +76,9 @@ async function signGroupSuccessor(input: {
     projection,
     grants: [...input.grants],
     memberEnvelopes,
-    payloadCiphertext: bytesToBase64(
-      new TextEncoder().encode(JSON.stringify({ members: projection })),
+    payloadCiphertext: await groupPolicyPayload(
+      input.current.principalId,
+      projection,
     ),
     signedAt: new Date(
       Date.parse(input.current.state.signedAt) + 1_000,
@@ -472,3 +473,5 @@ export async function revokeRootRotatedReadGroup(input: {
     successor,
   });
 }
+
+import { groupPolicyPayload } from "./groupPolicyPayload";

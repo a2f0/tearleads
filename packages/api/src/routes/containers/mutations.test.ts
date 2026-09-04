@@ -361,9 +361,7 @@ async function putGroupPrincipalPolicy(input: {
     members: stateMembers,
     projection,
     grants: [...policyGrants],
-    payloadCiphertext: bytesToBase64(
-      new TextEncoder().encode(JSON.stringify({ members: projection })),
-    ),
+    payloadCiphertext: await groupPolicyPayload(input.principalId, projection),
     signedAt:
       input.signedAt ?? new Date("2026-04-30T00:00:00.000Z").toISOString(),
     signerUserId: input.actor.userId,
@@ -3818,3 +3816,5 @@ test("POST share group grant prunes member tombstones", async () => {
     .where(eq(containerSyncTombstones.userId, recipient.userId));
   expect(remaining).toEqual([]);
 });
+
+import { groupPolicyPayload } from "../../../test/helpers/groupPolicyPayload";

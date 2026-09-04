@@ -1,3 +1,4 @@
+import { readSignedGroupPolicyName } from "@tearleads/api-shared";
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { principalStatePayloads } from "@tearleads/api-shared/schema";
 import { and, eq, gt } from "drizzle-orm";
@@ -5,16 +6,8 @@ import { and, eq, gt } from "drizzle-orm";
 const PAGE_SIZE = 256;
 
 function hasGroupName(ciphertext: string): boolean {
-  // The current group payload format is signed plaintext base64 JSON.
   try {
-    const payload: unknown = JSON.parse(
-      Buffer.from(ciphertext, "base64").toString("utf8"),
-    );
-    const name: unknown =
-      payload !== null && typeof payload === "object"
-        ? Reflect.get(payload, "name")
-        : undefined;
-    return typeof name === "string" && name.trim().length > 0;
+    return readSignedGroupPolicyName(ciphertext) !== null;
   } catch {
     return false;
   }
