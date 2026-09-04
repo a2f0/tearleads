@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploy the Tearleads app-web static bundle to production.
+# Deploy the Tearleads app-web and app-demo static bundles to production.
 
 set -euo pipefail
 

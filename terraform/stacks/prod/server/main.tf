@@ -1,8 +1,12 @@
 locals {
-  hostname_suffix        = var.deployment_tier == "staging" ? "-staging" : ""
-  api_hostname           = "api${local.hostname_suffix}.${var.domain}"
-  app_hostname           = "app${local.hostname_suffix}.${var.domain}"
-  primary_zone_hostnames = toset([local.website_hostname, local.app_hostname, local.api_hostname])
+  hostname_suffix = var.deployment_tier == "staging" ? "-staging" : ""
+  api_hostname    = "api${local.hostname_suffix}.${var.domain}"
+  app_hostname    = "app${local.hostname_suffix}.${var.domain}"
+  demo_hostname   = "demo${local.hostname_suffix}.${var.domain}"
+  # Demo hosts outside this stack's zone (e.g. demo.tearleads.de) ride the same
+  # tunnel; only their DNS records live in another zone.
+  demo_hostnames         = concat([local.demo_hostname], [for domain in var.extra_demo_domains : "demo.${domain}"])
+  primary_zone_hostnames = toset([local.website_hostname, local.app_hostname, local.demo_hostname, local.api_hostname])
   tailscale_hostname     = var.deployment_tier
   tunnel_cname           = module.tunnel.tunnel_cname
   tunnel_http_service    = "http://localhost:80"
@@ -89,6 +93,17 @@ data "cloudflare_zone" "production" {
   }
 }
 
+data "cloudflare_zone" "extra_demo" {
+  for_each = toset(var.extra_demo_domains)
+
+  filter = {
+    account = {
+      id = var.cloudflare_account_id
+    }
+    name = each.value
+  }
+}
+
 moved {
   from = module.website_cache
   to   = module.website_cache[0]
@@ -112,20 +127,28 @@ module "tunnel" {
   tunnel_name         = var.deployment_tier
   create_dns_records  = false
 
-  ingress_rules = [
-    {
-      hostname = local.website_hostname
-      service  = local.tunnel_http_service
-    },
-    {
-      hostname = local.app_hostname
-      service  = local.tunnel_http_service
-    },
-    {
-      hostname = local.api_hostname
-      service  = local.tunnel_http_service
-    }
-  ]
+  ingress_rules = concat(
+    [
+      {
+        hostname = local.website_hostname
+        service  = local.tunnel_http_service
+      },
+      {
+        hostname = local.app_hostname
+        service  = local.tunnel_http_service
+      },
+      {
+        hostname = local.api_hostname
+        service  = local.tunnel_http_service
+      }
+    ],
+    [
+      for hostname in local.demo_hostnames : {
+        hostname = hostname
+        service  = local.tunnel_http_service
+      }
+    ]
+  )
 }
 
 resource "cloudflare_dns_record" "primary_zone_tunnel" {
@@ -133,6 +156,17 @@ resource "cloudflare_dns_record" "primary_zone_tunnel" {
 
   zone_id = data.cloudflare_zone.production.id
   name    = each.value
+  type    = "CNAME"
+  content = local.tunnel_cname
+  proxied = true
+  ttl     = 1
+}
+
+resource "cloudflare_dns_record" "extra_demo_tunnel" {
+  for_each = data.cloudflare_zone.extra_demo
+
+  zone_id = each.value.id
+  name    = "demo.${each.key}"
   type    = "CNAME"
   content = local.tunnel_cname
   proxied = true

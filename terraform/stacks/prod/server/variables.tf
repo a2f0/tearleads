@@ -20,6 +20,12 @@ variable "deployment_tier" {
   default     = "prod"
 }
 
+variable "extra_demo_domains" {
+  description = "Additional Cloudflare zone names that should route demo.<domain> to this server."
+  type        = list(string)
+  default     = []
+}
+
 variable "manage_website_cache" {
   description = "Whether this stack owns the zone-level website cache ruleset"
   type        = bool

@@ -16,9 +16,12 @@
 
 ## Public Hostnames
 
-Production uses `tearleads.com`, `app.tearleads.com`, and `api.tearleads.com`.
-Staging uses `website-staging.tearleads.com`, `app-staging.tearleads.com`, and
-`api-staging.tearleads.com`. Realtime events share each tier's API hostname at
+Production uses `tearleads.com`, `app.tearleads.com`, `demo.tearleads.com`, and
+`api.tearleads.com`. Staging uses `website-staging.tearleads.com`,
+`app-staging.tearleads.com`, `demo-staging.tearleads.com`, and
+`api-staging.tearleads.com`. The demo hosts serve the two-pane demo variant of
+the same bundle, and `APP_DEMO_HOSTNAMES` adds demo hosts in other zones (for
+example `demo.tearleads.de`). Realtime events share each tier's API hostname at
 `/events`; code-assist shares it at `/code-assist/webhook`.
 
 ## Running Tests

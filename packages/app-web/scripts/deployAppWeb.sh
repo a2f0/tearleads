@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploy the Tearleads app-web static bundles to a server environment.
+# Deploy the Tearleads app-web and app-demo static bundles to a server environment.
 
 set -euo pipefail
 
@@ -51,12 +51,55 @@ case "$TIER" in
   prod)
     API_HOSTNAME="api.${DOMAIN}"
     APP_HOSTNAME="app.${DOMAIN}"
+    DEMO_HOSTNAME="demo.${DOMAIN}"
     ;;
   staging)
     API_HOSTNAME="api-staging.${DOMAIN}"
     APP_HOSTNAME="app-staging.${DOMAIN}"
+    DEMO_HOSTNAME="demo-staging.${DOMAIN}"
     ;;
 esac
+
+# Every demo host serves the same bundle from /var/www/app-demo, so the deploy
+# purges each of them. APP_DEMO_HOSTNAMES is the same comma-separated override
+# the server playbook reads when demo hosts live in more than one zone.
+read_demo_hosts() {
+  local value="$1"
+  local item
+
+  IFS=',' read -r -a demo_hosts <<< "$value"
+  for i in "${!demo_hosts[@]}"; do
+    item="${demo_hosts[$i]}"
+    item="${item#"${item%%[![:space:]]*}"}"
+    item="${item%"${item##*[![:space:]]}"}"
+    demo_hosts[i]="$item"
+  done
+}
+
+demo_hosts=()
+if [ -n "${APP_DEMO_HOSTNAMES:-}" ]; then
+  read_demo_hosts "$APP_DEMO_HOSTNAMES"
+else
+  demo_hosts=("$DEMO_HOSTNAME")
+fi
+
+# A purge is scoped to the zone that owns the host: hosts under this tier's
+# domain purge against it, and a `demo.<zone>` host in another zone names its
+# own.
+purge_demo_host() {
+  local host="$1"
+
+  if [ -z "$host" ]; then
+    return 0
+  fi
+  if [[ "$host" == *".${DOMAIN}" ]]; then
+    purge_cloudflare_cache_for_hosts "$DOMAIN" "$host"
+  elif [[ "$host" == demo.* ]]; then
+    purge_cloudflare_cache_for_hosts "${host#demo.}" "$host"
+  else
+    echo "Skipping Cloudflare cache purge for $host: cannot infer zone."
+  fi
+}
 
 build_app_web() {
   local variant="$1"
@@ -88,8 +131,14 @@ deploy_app_web_dist() {
 build_app_web "app" "app-web"
 deploy_app_web_dist "app-web" "/var/www/app-web"
 
+build_app_web "demo" "app-demo"
+deploy_app_web_dist "app-demo" "/var/www/app-demo"
+
 ssh "$SSH_TARGET" sudo systemctl reload nginx
 
-echo "App-web deployed."
+echo "App-web and app-demo deployed."
 
 purge_cloudflare_cache_for_hosts "$DOMAIN" "$APP_HOSTNAME"
+for demo_host in "${demo_hosts[@]}"; do
+  purge_demo_host "$demo_host"
+done
