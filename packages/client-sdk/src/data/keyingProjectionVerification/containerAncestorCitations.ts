@@ -23,8 +23,8 @@ import { readRecordNullableString } from "./readers";
  * head one signed statement established can never be rolled back or forked
  * away for a later one.
  *
- * Not applied, by design: the principal-policy rule that a successor new to
- * a device must cite the authority's current head. An honest server serves a
+ * As with principal policies, a successor new to a device need not cite the
+ * authority's served current head. An honest server serves a
  * child head citing the ancestor head that was current when it was
  * committed, signed by a member since revoked at that ancestor, and refusing
  * that shape would leave every device holding the child unable to supersede

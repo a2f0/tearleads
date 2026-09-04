@@ -113,8 +113,8 @@ refuse only what an honest server cannot produce, so accepting honest history
 never depends on another device's cache or write.
 
 A removed admin with a compromised server can append using historical authority
-until a current admin's successor cites newer authority. It is final for clients
-that observed it. The API requires current authority at commit; independently
+until a current admin's successor cites newer authority, final for clients
+that observed that advance. The API requires current authority at commit;
 proving currentness needs witnessing or gossip (#1555).
 
 The signed organization descriptor selects `Admins`; display and read-model
@@ -265,8 +265,8 @@ served for the same leaf, whatever order the server lists them in. Whether a
 link's container evidence predates a later rotation of that container is the
 same ordering boundary as for container heads.
 
-Not applied to containers, by design, is the principal-policy rule that a
-successor new to a device must cite the authority's current head. An honest
+Neither container nor principal-policy verification requires a successor new
+to a device to cite the authority's served current head. An honest
 server routinely serves a descendant head that cites the ancestor head
 current when it was committed, signed by a member since revoked at that
 ancestor, and a device cannot tell that member's last honest event, delivered
