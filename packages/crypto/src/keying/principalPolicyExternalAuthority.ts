@@ -59,6 +59,8 @@ function buildExternalAuthorityStateMap(
     statesByHead.set(key, state);
   }
 
+  // Bundle consistency only: the current head is not a freshness requirement
+  // for historical citations. Honest successors can arrive after it advances.
   if (!statesByHead.has(externalAuthorityHeadKey(authority.currentHead))) {
     throwVerification(
       "missing_dependency",

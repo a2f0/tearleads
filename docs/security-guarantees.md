@@ -105,16 +105,16 @@ externally authorized organization-group state instead commits the exact
 reserved `Admins` policy head. The API accepts only its current exact head and
 a direct `admin` signer; organization and Admins states cannot cite it.
 
-Client verification resolves every non-null citation to that exact Admins
+Verification resolves every non-null citation to that exact Admins
 history entry and tests its projection, rather than unioning historical admins.
 Successors may cite historical heads after Admins advances. Citations cannot
 roll back within a chain; policies must descend from local checkpoints. Clients
 refuse only what an honest server cannot produce, so accepting honest history
 never depends on another device's cache or write.
 
-A removed admin with a compromised server can append using historical
-authority until a current admin's successor cites newer authority. The in-chain
-rule makes that advance final. The API requires current authority at commit;
+A removed admin with a compromised server can append using historical authority
+until a current admin's successor cites newer authority. It is final for clients
+that observed it. The API requires current authority at commit; independently
 proving currentness needs witnessing or gossip (#1555).
 
 The signed organization descriptor selects `Admins`; display and read-model

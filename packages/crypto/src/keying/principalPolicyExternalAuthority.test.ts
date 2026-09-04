@@ -113,7 +113,7 @@ test("verifyPrincipalPolicyBundle accepts external admin signers for successors 
   expectVerificationError(initialResult, "unauthorized");
 });
 
-test("verifyPrincipalPolicyBundle accepts late successors without regressing cited authority", async () => {
+test("historical admin authority permits writes until a newer citation is observed", async () => {
   const removedAdmin = await createPolicySigner("removed-admin");
   const replacementAdmin = await createPolicySigner("replacement-admin");
   const childAdmin = await createPolicySigner("child-admin");
@@ -197,6 +197,9 @@ test("verifyPrincipalPolicyBundle accepts late successors without regressing cit
     signerPublicKeys: [childAdmin, removedAdmin],
   });
 
+  // The signatures cannot distinguish an honest delayed write from a removed
+  // admin's late forgery citing the same history. Rejecting this shape would
+  // also reject honest chains; the API enforces currency at commit instead.
   expect(result.ok).toBe(true);
 
   const childV3 = await signPolicyState({
@@ -204,7 +207,7 @@ test("verifyPrincipalPolicyBundle accepts late successors without regressing cit
     version: 3,
     prevStateHash: childV2.state.stateHash,
     keyEpoch: 3,
-    members: childV1.entry.projection,
+    members: childV1.entry.projection.map(({ userId }) => ({ userId })),
     projection: childV1.entry.projection,
     externalAuthority: adminV2Head,
     signer: replacementAdmin,
@@ -239,7 +242,7 @@ test("verifyPrincipalPolicyBundle accepts late successors without regressing cit
     version: 4,
     prevStateHash: childV3.state.stateHash,
     keyEpoch: 4,
-    members: childV1.entry.projection,
+    members: childV1.entry.projection.map(({ userId }) => ({ userId })),
     projection: childV1.entry.projection,
     externalAuthority: adminV1Head,
     signer: removedAdmin,

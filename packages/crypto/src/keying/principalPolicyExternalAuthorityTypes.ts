@@ -10,8 +10,9 @@ export interface PrincipalPolicyExternalAuthorityState {
 
 /**
  * Verified state history for the external policy that can authorize this
- * principal. `currentHead` rejects successors that cite stale authority after
- * the caller's local principal-policy checkpoint.
+ * principal. `currentHead` selects the authority for new mutations. Historical
+ * verification only checks that it belongs to `states`; each entry authorizes
+ * its signer at its exact citation, which may predate this head.
  */
 export interface PrincipalPolicyExternalAuthority {
   readonly currentHead: PrincipalStateExternalAuthority;

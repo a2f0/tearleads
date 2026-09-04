@@ -126,7 +126,9 @@ test("an honest group history remains readable across an intervening Admins adva
   await addUserToAdminGroup({ actor, member: replacement, organizationId });
   // The device missed the group successor before Admins advanced. Its old
   // checkpoint must accept that successor, and later chains containing it.
-  expect((await verifyAtInitialCheckpoint()).ok).toBe(true);
+  const delayed = await verifyAtInitialCheckpoint();
+  invariant(delayed.ok, "expected delayed successor to verify");
+  expect(delayed.value.version).toBe(initial.currentState.version + 1);
   await advanceGroup();
   const final = await verifyAtInitialCheckpoint();
   invariant(final.ok, "expected delayed history to verify");
