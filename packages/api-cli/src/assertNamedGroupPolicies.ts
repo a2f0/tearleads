@@ -5,6 +5,7 @@ import { and, eq, gt } from "drizzle-orm";
 const PAGE_SIZE = 256;
 
 function hasGroupName(ciphertext: string): boolean {
+  // The current group payload format is signed plaintext base64 JSON.
   try {
     const payload: unknown = JSON.parse(
       Buffer.from(ciphertext, "base64").toString("utf8"),

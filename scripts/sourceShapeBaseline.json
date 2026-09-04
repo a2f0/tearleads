@@ -195,8 +195,8 @@
       "bytes": 16424
     },
     "packages/api/test/helpers/registration.ts": {
-      "lines": 1142,
-      "bytes": 39493
+      "lines": 1146,
+      "bytes": 39558
     },
     "packages/app-capacitor/ios/App/App.xcodeproj/project.pbxproj": {
       "lines": 494,

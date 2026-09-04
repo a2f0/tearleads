@@ -39,10 +39,6 @@ interface OrgManagerMembershipMutationsParams {
 async function addUserToSelectedGroup(
   params: OrgManagerMembershipMutationsParams,
 ): Promise<void> {
-  if (params.selectedGroupName === null) {
-    params.setError(ORG_MANAGER_LABELS.groupNameUnavailable);
-    return;
-  }
   const targetUserId = params.addUserId.trim();
   const directoryUser = params.directory?.users.find(
     (user) => user.userId === targetUserId,
@@ -57,6 +53,10 @@ async function addUserToSelectedGroup(
     !params.appData.crypto.signingKeyPair ||
     !params.appData.crypto.encapsulationKeyPair
   ) {
+    return;
+  }
+  if (params.selectedGroupName === null) {
+    params.setError(ORG_MANAGER_LABELS.groupNameUnavailable);
     return;
   }
   const memberGroupId = params.memberGroupId;
@@ -111,10 +111,6 @@ async function removeUserFromSelectedGroup(
   params: OrgManagerMembershipMutationsParams,
   removedUserId: string,
 ): Promise<void> {
-  if (params.selectedGroupName === null) {
-    params.setError(ORG_MANAGER_LABELS.groupNameUnavailable);
-    return;
-  }
   if (
     !params.selectedGroupId ||
     !params.appData.auth.userId ||
@@ -122,6 +118,10 @@ async function removeUserFromSelectedGroup(
     !params.appData.crypto.signingKeyPair ||
     !params.directory
   ) {
+    return;
+  }
+  if (params.selectedGroupName === null) {
+    params.setError(ORG_MANAGER_LABELS.groupNameUnavailable);
     return;
   }
   const selectedGroupId = params.selectedGroupId;
