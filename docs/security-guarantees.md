@@ -251,8 +251,10 @@ hashes of the path it was committed against, and the API refuses an event
 whose citations are not the current heads at commit time. The client
 authorizes a head's signer against the cited heads, rebuilt root to parent
 from the served bundles, rather than against whatever path the server pairs
-with the manifest. A head must not cite an older head of any ancestor than an
-earlier signed statement already proved current, and a served path must be a
+with the manifest. For every ancestor, a head must cite a head that is or
+descends, through verified predecessors, from the head an earlier signed
+statement already established, so neither an older head nor a same-epoch fork
+of that ancestor can authorize a later child event. A served path must be a
 root-to-leaf chain of parent edges.
 
 Not yet applied to containers is the principal-policy rule that a successor
@@ -263,8 +265,8 @@ and a device that missed a child event and the ancestor change after it would
 be locked out of the child for good. Until descendants can re-cite their
 ancestors, every device accepts a child head authorized under an older
 ancestor head, whether or not it has checkpointed a newer one; only a signed
-statement that already established the newer head makes the older citation a
-rollback.
+statement that already established the newer head makes a citation that does
+not descend from it a rollback.
 
 ### Content Confidentiality
 

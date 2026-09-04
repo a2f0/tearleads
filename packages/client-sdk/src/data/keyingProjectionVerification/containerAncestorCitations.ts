@@ -18,9 +18,10 @@ import { readRecordNullableString } from "./readers";
  * parent, and the signer is checked against those heads rather than against
  * whatever path the server pairs with the manifest.
  *
- * A head must also not cite an older head of any ancestor than an earlier
- * signed statement already proved current, so an ancestor head one signed
- * statement established can never be rolled back for a later one.
+ * A head must also cite, for every ancestor, a head that is or descends from
+ * the head an earlier signed statement already established, so an ancestor
+ * head one signed statement established can never be rolled back or forked
+ * away for a later one.
  *
  * Not applied here: the principal-policy rule that a successor new to this
  * device must cite the authority's current head. The API today refuses any
@@ -54,7 +55,7 @@ function bundleContainerId(
 }
 
 function citedContainerId(
-  input: CitedAncestorResolutionInput,
+  input: CitedLineageInput,
   manifestHash: string,
 ): string | null {
   const verified = input.verifiedByHash.get(manifestHash);
@@ -140,8 +141,14 @@ export async function resolveCitedAncestorPath(
   return chain;
 }
 
+/** What the lineage rules read: the served and the verified bundles. */
+export type CitedLineageInput = Pick<
+  CitedAncestorResolutionInput,
+  "bundlesByHash" | "label" | "verifiedByHash"
+>;
+
 function verifiedCitedHead(
-  input: CitedAncestorResolutionInput,
+  input: CitedLineageInput,
   cited: readonly string[],
   containerId: string,
 ): VerifiedContainerAccessManifest | undefined {
@@ -154,13 +161,42 @@ function verifiedCitedHead(
 }
 
 /**
- * A head must not cite an older head of any ancestor than an earlier signed
- * statement already proved current: the manifest before it cited that
- * ancestor, or a cited child of that ancestor was itself created or moved
- * under it. Ancestors a statement cannot be resolved for are skipped.
+ * The cited head must be the established head or descend from it through
+ * verified predecessors. Epochs alone would let a same-epoch fork signed
+ * under an older head pass; lineage cannot be forged without the chain.
+ * Every predecessor of a verified manifest was verified with it, so a hop
+ * that is not in the verified set means the chain was not served.
+ */
+function assertCitedHeadDescendsFrom(
+  input: CitedLineageInput,
+  cited: VerifiedContainerAccessManifest,
+  floor: VerifiedContainerAccessManifest,
+): void {
+  const containerId = cited.state.containerId;
+  let current: VerifiedContainerAccessManifest | undefined = cited;
+  while (current && current.state.epoch >= floor.state.epoch) {
+    if (current.manifestHash === floor.manifestHash) return;
+    const previousHash: string | null = current.state.previousManifestHash;
+    current =
+      previousHash === null
+        ? undefined
+        : input.verifiedByHash.get(previousHash);
+  }
+  throw new KeyingVerificationError(
+    "rollback",
+    `${input.label} cites a head of container ${containerId} that does not descend from the head an earlier signed statement already proved current`,
+  );
+}
+
+/**
+ * A head must not cite a head of any ancestor that does not descend from the
+ * head an earlier signed statement already established: the manifest before
+ * it cited that ancestor, the previous manifest's own pin when this is its
+ * parent, or a cited child of that ancestor was created or moved under it and
+ * cited it. Ancestors no statement establishes are skipped.
  */
 export function assertCitedAncestorsDoNotRegress(
-  input: CitedAncestorResolutionInput & {
+  input: CitedLineageInput & {
     readonly citedAncestors: readonly VerifiedContainerAccessManifest[];
     readonly previousManifest: VerifiedContainerAccessManifest | null;
   },
@@ -169,9 +205,6 @@ export function assertCitedAncestorsDoNotRegress(
   const previousCited = previous?.event.event.dependencyManifestHashes ?? [];
   input.citedAncestors.forEach((ancestor, index) => {
     const containerId = ancestor.state.containerId;
-    // Statements that already established a head of this ancestor: what the
-    // previous manifest cited for it, the previous manifest's own pin when
-    // this is its parent, and what the cited child pins and cites.
     const citedChild = input.citedAncestors[index + 1] ?? previous;
     const floors = [
       verifiedCitedHead(input, previousCited, containerId),
@@ -187,15 +220,8 @@ export function assertCitedAncestorsDoNotRegress(
         : []),
     ];
     for (const floor of floors) {
-      if (
-        floor &&
-        floor.state.containerId === ancestor.state.containerId &&
-        ancestor.state.epoch < floor.state.epoch
-      ) {
-        throw new KeyingVerificationError(
-          "rollback",
-          `${input.label} cites an older head of container ${ancestor.state.containerId} than an earlier signed statement already proved current`,
-        );
+      if (floor && floor.state.containerId === containerId) {
+        assertCitedHeadDescendsFrom(input, ancestor, floor);
       }
     }
   });

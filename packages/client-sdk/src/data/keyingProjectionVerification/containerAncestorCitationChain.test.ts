@@ -1,6 +1,14 @@
 import { expect, test } from "bun:test";
-import type { VerifiedContainerAccessManifest } from "@tearleads/crypto";
-import { createContainerManifestFixture } from "@tearleads/crypto/test-fixtures";
+import type {
+  ContainerAccessEventBody,
+  ContainerAccessManifestState,
+  VerifiedContainerAccessManifest,
+} from "@tearleads/crypto";
+import { deriveContainerAccessManifest } from "@tearleads/crypto";
+import {
+  createContainerManifestFixture,
+  createVerifiedContainerAccessEvent,
+} from "@tearleads/crypto/test-fixtures";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
   checkpointRootAt,
@@ -8,6 +16,7 @@ import {
   createScenario,
   grantBy,
   ORGANIZATION_ID,
+  ROOT_ID,
   type Signer,
   successor,
   verifyPath,
@@ -44,7 +53,7 @@ test("a head must not cite an older grandparent head than a cited child was crea
       }),
     ).rejects.toMatchObject({
       code: "rollback",
-      message: expect.stringContaining("older head"),
+      message: expect.stringContaining("does not descend"),
     });
   } finally {
     close();
@@ -213,7 +222,7 @@ test("a move must not cite an older source ancestor head than its predecessor ci
       }),
     ).rejects.toMatchObject({
       code: "rollback",
-      message: expect.stringContaining("older head"),
+      message: expect.stringContaining("does not descend"),
     });
   } finally {
     close();
@@ -240,6 +249,115 @@ test("a device that checkpointed a newer ancestor head still accepts a child hea
       path: [scenario.root2, forged],
     });
     expect(verified).toHaveLength(2);
+  } finally {
+    close();
+  }
+});
+
+test("a same-epoch fork of an ancestor cannot authorize a later child head", async () => {
+  const scenario = await createScenario();
+  // The child's latest grant established root2.
+  const child2 = await grantBy({
+    cited: [scenario.root2.manifestHash, scenario.child1.manifestHash],
+    previous: scenario.child1,
+    signer: scenario.alice,
+    subjectId: "bob",
+  });
+  // Mallory forks the root at the same epoch from root1, where she was still
+  // an admin, so the fork verifies as history and keeps her grant.
+  const forkedRoot = await grantBy({
+    cited: [scenario.root1.manifestHash],
+    previous: scenario.root1,
+    signer: scenario.mallory,
+    subjectId: "carol",
+  });
+  expect(forkedRoot.state.epoch).toBe(scenario.root2.state.epoch);
+  const forged = await grantBy({
+    cited: [forkedRoot.manifestHash, child2.manifestHash],
+    previous: child2,
+    signer: scenario.mallory,
+    subjectId: scenario.mallory.userId,
+  });
+  const { close, execSql } = await createTestExecSql("ancestor-fork");
+  try {
+    await expect(
+      verifyPath(scenario, execSql, {
+        bundles: [
+          scenario.root1,
+          scenario.root2,
+          forkedRoot,
+          scenario.child1,
+          child2,
+          forged,
+        ],
+        path: [scenario.root2, forged],
+      }),
+    ).rejects.toMatchObject({
+      code: "rollback",
+      message: expect.stringContaining("does not descend"),
+    });
+  } finally {
+    close();
+  }
+});
+
+test("served bundles that refer to each other under claimed hashes fail instead of recursing", async () => {
+  const scenario = await createScenario();
+  const claimedX = "1".repeat(64);
+  const claimedY = "2".repeat(64);
+  // Two root grants whose signed previous links point at each other's
+  // claimed hashes; neither hash is real, so neither ever verifies.
+  const forgeRootGrant = async (previousManifestHash: string) => {
+    const grant = {
+      accessLevel: "admin" as const,
+      subjectId: "carol",
+      subjectType: "user" as const,
+    };
+    const body: ContainerAccessEventBody = {
+      eventType: "container.grant",
+      containerKeyEpochId: scenario.root1.state.containerKeyEpochId,
+      grant,
+      referencedPrincipalHead: null,
+    };
+    const event = await createVerifiedContainerAccessEvent({
+      body,
+      dependencyManifestHashes: [previousManifestHash],
+      objectId: ROOT_ID,
+      organizationId: ORGANIZATION_ID,
+      previousManifestHash,
+      signer: scenario.alice.keyPair,
+      signerUserId: scenario.alice.userId,
+    });
+    const state: ContainerAccessManifestState = {
+      ...scenario.root1.state,
+      directGrants: [...scenario.root1.state.directGrants, grant],
+      epoch: 2,
+      eventHash: event.eventHash,
+      previousManifestHash,
+    };
+    const manifest = await deriveContainerAccessManifest(state);
+    return { event, manifest, state } as VerifiedContainerAccessManifest;
+  };
+  const x = { ...(await forgeRootGrant(claimedY)), manifestHash: claimedX };
+  const y = { ...(await forgeRootGrant(claimedX)), manifestHash: claimedY };
+  // The child cites X as its root head.
+  const child = await grantBy({
+    cited: [claimedX, scenario.child1.manifestHash],
+    previous: scenario.child1,
+    signer: scenario.alice,
+    subjectId: "bob",
+  });
+  const { close, execSql } = await createTestExecSql("ancestor-cycle");
+  try {
+    await expect(
+      verifyPath(scenario, execSql, {
+        bundles: [scenario.root1, scenario.child1, x, y, child],
+        path: [scenario.root2, child],
+      }),
+    ).rejects.toMatchObject({
+      code: "object_mismatch",
+      message: expect.stringContaining("refers back"),
+    });
   } finally {
     close();
   }

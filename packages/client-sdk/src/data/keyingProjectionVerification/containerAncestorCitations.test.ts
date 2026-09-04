@@ -100,7 +100,7 @@ test("a head must not cite an older parent head than its predecessor cited", asy
       }),
     ).rejects.toMatchObject({
       code: "rollback",
-      message: expect.stringContaining("older head"),
+      message: expect.stringContaining("does not descend"),
     });
   } finally {
     close();
@@ -216,6 +216,24 @@ test("a create must cite the parent manifest it pins", async () => {
     ).rejects.toMatchObject({
       code: "missing_dependency",
       message: expect.stringContaining("created under"),
+    });
+  } finally {
+    close();
+  }
+});
+
+test("a served path must start at a root", async () => {
+  const scenario = await createScenario();
+  const { close, execSql } = await createTestExecSql("ancestor-cites-noroot");
+  try {
+    await expect(
+      verifyPath(scenario, execSql, {
+        bundles: [scenario.root1, scenario.child1],
+        path: [scenario.child1],
+      }),
+    ).rejects.toMatchObject({
+      code: "object_mismatch",
+      message: expect.stringContaining("parent container"),
     });
   } finally {
     close();

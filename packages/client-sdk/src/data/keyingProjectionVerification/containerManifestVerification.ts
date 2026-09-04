@@ -14,6 +14,7 @@ import {
 import type { ProjectionCheckpointContext } from "./checkpointContext";
 import {
   assertCitedAncestorsDoNotRegress,
+  type CitedLineageInput,
   resolveCitedAncestorPath,
 } from "./containerAncestorCitations";
 import {
@@ -77,7 +78,6 @@ export async function verifyContainerManifestBundle(input: {
   readonly bundle: AccessManifestBundleWireResponse;
   readonly bundlesByHash: ReadonlyMap<string, AccessManifestBundleWireResponse>;
   readonly checkpointContext: ProjectionCheckpointContext;
-  readonly citationDepth?: number | undefined;
   readonly enforceLocalCheckpoint: boolean;
   readonly label: string;
   readonly parentPath: readonly VerifiedContainerAccessManifest[];
@@ -85,6 +85,11 @@ export async function verifyContainerManifestBundle(input: {
   readonly resolveUserKey: ProjectionUserKeyResolver;
   readonly requireAuthorizationEvidence?: boolean | undefined;
   readonly verifiedByHash: Map<string, VerifiedContainerAccessManifest>;
+  // Manifest hashes whose verification is in progress up the call stack.
+  // Previous manifests, pinned parents, and cited ancestors all recurse
+  // before a bundle's own hash is checked, so served bundles that refer to
+  // each other under claimed hashes would otherwise recurse without end.
+  readonly verifying?: Set<string> | undefined;
   readonly warmReferencedPrincipalPolicies?:
     | ReferencedPrincipalPolicyWarmer
     | undefined;
@@ -108,6 +113,30 @@ export async function verifyContainerManifestBundle(input: {
     return cached;
   }
 
+  const verifying = input.verifying ?? new Set<string>();
+  if (verifying.has(input.bundle.manifestHash)) {
+    throw new KeyingVerificationError(
+      "object_mismatch",
+      `${input.label} refers back to a manifest whose verification it is part of`,
+    );
+  }
+  verifying.add(input.bundle.manifestHash);
+  try {
+    return await verifyFreshContainerManifestBundle(
+      { ...input, verifying },
+      parentPath,
+    );
+  } finally {
+    verifying.delete(input.bundle.manifestHash);
+  }
+}
+
+type CitedAncestorInput = Parameters<typeof verifyContainerManifestBundle>[0];
+
+async function verifyFreshContainerManifestBundle(
+  input: CitedAncestorInput,
+  parentPath: readonly VerifiedContainerAccessManifest[],
+): Promise<VerifiedContainerAccessManifest> {
   const event = await verifyAccessEventBundle(input);
   const manifest = readAccessManifest(
     input.bundle.manifest,
@@ -173,8 +202,6 @@ export async function verifyContainerManifestBundle(input: {
   return verified.value;
 }
 
-type CitedAncestorInput = Parameters<typeof verifyContainerManifestBundle>[0];
-
 /**
  * The paths a container event is authorized against: its previous manifest
  * and the ancestor heads its signed event cites, root to parent.
@@ -210,11 +237,16 @@ async function resolveContainerManifestAuthorization(
       `${input.label} does not cite the parent manifest it was created under`,
     );
   }
+  const lineage: CitedLineageInput = {
+    bundlesByHash: input.bundlesByHash,
+    label: input.label,
+    verifiedByHash: input.verifiedByHash,
+  };
   const citedAncestors = await resolveCitedAncestors(input, event, {
     parentContainerId,
   });
   assertCitedAncestorsDoNotRegress({
-    ...citedAncestorResolutionInput(input),
+    ...lineage,
     citedAncestors,
     previousManifest,
   });
@@ -229,16 +261,21 @@ async function resolveContainerManifestAuthorization(
       : citedAncestors;
   if (sourceAncestors !== citedAncestors) {
     assertCitedAncestorsDoNotRegress({
-      ...citedAncestorResolutionInput(input),
+      ...lineage,
       citedAncestors: sourceAncestors,
       previousManifest,
     });
   }
+  const ancestors = [
+    ...parentPath,
+    ...citedAncestors,
+    ...(sourceAncestors === citedAncestors ? [] : sourceAncestors),
+  ];
   return {
     citedAncestors,
     previousManifest,
     referencedPrincipalHeads: [
-      ...[...parentPath, ...citedAncestors, ...sourceAncestors].flatMap(
+      ...ancestors.flatMap(
         (ancestor) => ancestor.state.referencedPrincipalHeads,
       ),
       ...(previousManifest?.state.referencedPrincipalHeads ?? []),
@@ -247,18 +284,7 @@ async function resolveContainerManifestAuthorization(
   };
 }
 
-// Cited ancestors resolve recursively (an ancestor's own citations), so bound
-// the depth against served bundles that cite each other.
-const MAX_CITED_ANCESTRY_DEPTH = 100;
-
 function citedAncestorResolutionInput(input: CitedAncestorInput) {
-  const citationDepth = input.citationDepth ?? 0;
-  if (citationDepth > MAX_CITED_ANCESTRY_DEPTH) {
-    throw new KeyingVerificationError(
-      "object_mismatch",
-      `${input.label} cited ancestry exceeds the maximum depth`,
-    );
-  }
   return {
     bundlesByHash: input.bundlesByHash,
     label: input.label,
@@ -273,7 +299,6 @@ function citedAncestorResolutionInput(input: CitedAncestorInput) {
         ...input,
         authorizationMembership: "referenced",
         bundle,
-        citationDepth: citationDepth + 1,
         enforceLocalCheckpoint: false,
         label,
       }),
@@ -418,6 +443,7 @@ async function verifyPreviousContainerManifest(input: {
   readonly resolveUserKey: ProjectionUserKeyResolver;
   readonly requireAuthorizationEvidence?: boolean | undefined;
   readonly verifiedByHash: Map<string, VerifiedContainerAccessManifest>;
+  readonly verifying?: Set<string> | undefined;
   readonly warmReferencedPrincipalPolicies?:
     | ReferencedPrincipalPolicyWarmer
     | undefined;
@@ -446,6 +472,7 @@ async function verifyPreviousContainerManifest(input: {
     resolveUserKey: input.resolveUserKey,
     requireAuthorizationEvidence: input.requireAuthorizationEvidence,
     verifiedByHash: input.verifiedByHash,
+    verifying: input.verifying,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
 }

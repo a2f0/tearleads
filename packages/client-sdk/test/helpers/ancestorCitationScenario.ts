@@ -40,7 +40,7 @@ export type Signer = {
   readonly userId: string;
 };
 
-function manifestBundle(
+export function manifestBundle(
   value: VerifiedContainerAccessManifest,
 ): AccessManifestBundleWireResponse {
   return {
