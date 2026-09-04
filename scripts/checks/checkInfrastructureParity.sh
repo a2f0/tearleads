@@ -174,6 +174,40 @@ assert_document_sync_ingress_cors() {
   fi
 }
 
+assert_demo_static_ingress() {
+  local app_template="$REPO_ROOT/ansible/playbooks/templates/etc/nginx/sites-available/app.conf.j2"
+  local nginx_template="$REPO_ROOT/ansible/playbooks/templates/etc/nginx/nginx.conf.j2"
+  local render_dir
+  local rendered_app
+  local app_server
+  local demo_server
+
+  render_dir="$(mktemp -d)"
+  trap 'rm -rf "$render_dir"' RETURN
+  rendered_app="$render_dir/app.conf"
+  if ! ANSIBLE_LOCALHOST_WARNING=false \
+    ANSIBLE_INVENTORY_UNPARSED_WARNING=false \
+    ansible localhost --connection local \
+      -m ansible.builtin.template \
+      -a "src=$app_template dest=$rendered_app mode=0600" \
+      -e '{"app_hostname":"app.example.test","app_demo_hostnames":["demo.example.test","demo.example.de"]}' \
+      </dev/null >/dev/null 2>"$render_dir/ansible.stderr"; then
+    sed -n '1,120p' "$render_dir/ansible.stderr" >&2
+    return 1
+  fi
+
+  app_server="$(sed -n '/server_name app.example.test;/,/^}/p' "$rendered_app")"
+  demo_server="$(sed -n '/server_name demo.example.test demo.example.de;/,/^}/p' "$rendered_app")"
+  if ! grep -Fq 'root /var/www/app-web;' <<<"$app_server" ||
+    ! grep -Fq 'root /var/www/app-demo;' <<<"$demo_server" ||
+    ! grep -Fq "try_files \$uri \$uri/ /index.html;" <<<"$demo_server" ||
+    ! grep -Fq 'listen 127.0.0.1:80 default_server;' "$nginx_template" ||
+    ! grep -Fq 'return 444;' "$nginx_template"; then
+    echo "ERROR: Every demo host must be served the app-demo bundle, and unrouted hosts must hit a refusing default server." >&2
+    return 1
+  fi
+}
+
 list_stack_files() {
   local stack_dir="$1"
 
@@ -219,5 +253,6 @@ assert_blob_gc_failure_alerting
 assert_blob_gc_healthcheck_url_validation
 assert_superseded_timer_ordering
 assert_document_sync_ingress_cors
+assert_demo_static_ingress
 
 echo "Infrastructure tier parity passed."

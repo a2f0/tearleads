@@ -5,7 +5,8 @@ locals {
   demo_hostname   = "demo${local.hostname_suffix}.${var.domain}"
   # Demo hosts outside this stack's zone (e.g. demo.tearleads.de) ride the same
   # tunnel; only their DNS records live in another zone.
-  demo_hostnames         = concat([local.demo_hostname], [for domain in var.extra_demo_domains : "demo${local.hostname_suffix}.${domain}"])
+  extra_demo_hostnames   = { for domain in var.extra_demo_domains : domain => "demo${local.hostname_suffix}.${domain}" }
+  demo_hostnames         = concat([local.demo_hostname], values(local.extra_demo_hostnames))
   primary_zone_hostnames = toset([local.website_hostname, local.app_hostname, local.demo_hostname, local.api_hostname])
   tailscale_hostname     = var.deployment_tier
   tunnel_cname           = module.tunnel.tunnel_cname
@@ -166,7 +167,7 @@ resource "cloudflare_dns_record" "extra_demo_tunnel" {
   for_each = data.cloudflare_zone.extra_demo
 
   zone_id = each.value.id
-  name    = "demo${local.hostname_suffix}.${each.key}"
+  name    = local.extra_demo_hostnames[each.key]
   type    = "CNAME"
   content = local.tunnel_cname
   proxied = true

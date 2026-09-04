@@ -67,9 +67,18 @@ DEMO_HOSTNAME="${DEMO_HOST_PREFIX}${DOMAIN}"
 # and so each purge names the zone that actually owns its host.
 extra_demo_zones=()
 if [ -n "${TF_VAR_extra_demo_domains:-}" ]; then
+  if ! command -v jq >/dev/null 2>&1; then
+    echo "ERROR: jq is required to read TF_VAR_extra_demo_domains." >&2
+    exit 1
+  fi
+  if ! extra_demo_zone_list="$(printf '%s' "$TF_VAR_extra_demo_domains" | jq -er '.[]')"; then
+    echo "ERROR: TF_VAR_extra_demo_domains is not a non-empty JSON array of zone names." >&2
+    exit 1
+  fi
   while IFS= read -r zone; do
-    [ -n "$zone" ] && extra_demo_zones+=("$zone")
-  done < <(printf '%s' "$TF_VAR_extra_demo_domains" | jq -r '.[]')
+    [ -n "$zone" ] || continue
+    extra_demo_zones+=("$zone")
+  done <<< "$extra_demo_zone_list"
 fi
 
 build_app_web() {
