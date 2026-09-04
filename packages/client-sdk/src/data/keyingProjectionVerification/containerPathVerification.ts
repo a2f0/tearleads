@@ -173,7 +173,6 @@ export async function verifyContainerManifestPath(
         execSql: input.checkpointContext.execSql,
         head: verified,
         label,
-        localCheckpoints: input.checkpointContext.localCheckpoints,
         servedAncestors,
         verifiedByHash: input.verifiedByHash,
       });

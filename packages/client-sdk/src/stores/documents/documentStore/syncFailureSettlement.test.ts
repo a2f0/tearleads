@@ -28,8 +28,8 @@ function createState(input: {
 test("a stale ancestor citation is recorded, named, and shown by the lane", async () => {
   // The device cannot tell that member's last honest event from one committed
   // later with the server's help; only a later event on the container by a
-  // member with current authority resolves it. The lane records the failure
-  // and backs off, and the pending writes stay queued.
+  // member with current authority resolves it. The refusal is recorded and
+  // named, and the pass fails like any other verification failure.
   const incidents: unknown[] = [];
   const logs: string[] = [];
   const staleCitation = new KeyingVerificationError(

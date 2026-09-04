@@ -150,20 +150,20 @@ export type CitedLineageInput = Pick<
  * event cites one head per container, so a second verified one is a served
  * citation set that was tampered with, not a choice to make.
  */
-export function verifiedCitedHead(
-  verifiedByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>,
-  cited: readonly string[],
-  containerId: string,
-  label: string,
-): VerifiedContainerAccessManifest | undefined {
+export function verifiedCitedHead(input: {
+  readonly cited: readonly string[];
+  readonly containerId: string;
+  readonly label: string;
+  readonly verifiedByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>;
+}): VerifiedContainerAccessManifest | undefined {
   let found: VerifiedContainerAccessManifest | undefined;
-  for (const manifestHash of cited) {
-    const verified = verifiedByHash.get(manifestHash);
-    if (verified?.state.containerId !== containerId) continue;
+  for (const manifestHash of input.cited) {
+    const verified = input.verifiedByHash.get(manifestHash);
+    if (verified?.state.containerId !== input.containerId) continue;
     if (found && found.manifestHash !== verified.manifestHash) {
       throw new KeyingVerificationError(
         "duplicate_entry",
-        `${label} cites more than one head of container ${containerId}`,
+        `${input.label} cites more than one head of container ${input.containerId}`,
       );
     }
     found = verified;
@@ -225,21 +225,21 @@ export function assertCitedAncestorsDoNotRegress(
     const containerId = ancestor.state.containerId;
     const citedChild = input.citedAncestors[index + 1] ?? previous;
     const floors = [
-      verifiedCitedHead(
-        input.verifiedByHash,
-        previousCited,
+      verifiedCitedHead({
+        cited: previousCited,
         containerId,
-        input.label,
-      ),
+        label: input.label,
+        verifiedByHash: input.verifiedByHash,
+      }),
       ...(citedChild
         ? [
             input.verifiedByHash.get(citedChild.state.parentManifestHash ?? ""),
-            verifiedCitedHead(
-              input.verifiedByHash,
-              citedChild.event.event.dependencyManifestHashes,
+            verifiedCitedHead({
+              cited: citedChild.event.event.dependencyManifestHashes,
               containerId,
-              input.label,
-            ),
+              label: input.label,
+              verifiedByHash: input.verifiedByHash,
+            }),
           ]
         : []),
     ];

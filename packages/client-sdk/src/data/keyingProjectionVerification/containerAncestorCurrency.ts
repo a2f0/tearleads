@@ -25,12 +25,12 @@ function staleAncestorCitations(input: {
   const stale: string[] = [];
   for (const served of input.servedAncestors) {
     const containerId = served.state.containerId;
-    const cited = verifiedCitedHead(
-      input.verifiedByHash,
-      citations,
+    const cited = verifiedCitedHead({
+      cited: citations,
       containerId,
-      input.label,
-    );
+      label: input.label,
+      verifiedByHash: input.verifiedByHash,
+    });
     // An ancestor the head does not cite at all joined the path after the
     // head was signed, when an ancestor between them moved: the head is as
     // stale toward it as toward an advanced one.
@@ -97,7 +97,6 @@ async function staleMoveSourceCitations(input: {
   readonly execSql: ExecSql;
   readonly head: VerifiedContainerAccessManifest;
   readonly label: string;
-  readonly localCheckpoints: Map<string, AccessManifestCheckpoint | null>;
   readonly verifiedByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>;
 }): Promise<string[]> {
   const previousHash = input.head.state.previousManifestHash;
@@ -115,12 +114,12 @@ async function staleMoveSourceCitations(input: {
   let containerId = previous.state.parentContainerId;
   while (containerId !== null && !seen.has(containerId)) {
     seen.add(containerId);
-    const cited = verifiedCitedHead(
-      input.verifiedByHash,
-      citations,
+    const cited = verifiedCitedHead({
+      cited: citations,
       containerId,
-      input.label,
-    );
+      label: input.label,
+      verifiedByHash: input.verifiedByHash,
+    });
     if (!cited) {
       // The cited ancestor path already resolved the whole source chain.
       throw new KeyingVerificationError(
@@ -130,7 +129,6 @@ async function staleMoveSourceCitations(input: {
     }
     const localCheckpoint = await loadLocalAccessManifestCheckpoint({
       execSql: input.execSql,
-      localCheckpoints: input.localCheckpoints,
       objectId: containerId,
       objectKind: "container",
       organizationId: input.head.state.organizationId,
@@ -193,14 +191,15 @@ export async function assertNewHeadCitesServedAncestors(input: {
   readonly execSql: ExecSql;
   readonly head: VerifiedContainerAccessManifest;
   readonly label: string;
-  readonly localCheckpoints: Map<string, AccessManifestCheckpoint | null>;
   readonly servedAncestors: readonly VerifiedContainerAccessManifest[];
   readonly verifiedByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>;
 }): Promise<void> {
   if (input.servedAncestors.length === 0) return;
+  // Read the checkpoint fresh rather than from the pass's cache: the atomic
+  // advance re-validates checkpoint order, not this rule, so a checkpoint a
+  // concurrent pass commits must be seen here, at the cost of one read.
   const localCheckpoint = await loadLocalAccessManifestCheckpoint({
     execSql: input.execSql,
-    localCheckpoints: input.localCheckpoints,
     objectId: input.head.state.containerId,
     objectKind: "container",
     organizationId: input.head.state.organizationId,

@@ -12,6 +12,7 @@ import {
   ROOT_ID,
   verifyPath,
 } from "../../../test/helpers/ancestorCitationScenario";
+import { verifiedCitedHead } from "./containerAncestorCitations";
 
 // A child manifest pins the parent it was created under, and successors
 // inherit that pin, so a member revoked from an ancestor could keep signing
@@ -238,4 +239,30 @@ test("a served path must start at a root", async () => {
   } finally {
     close();
   }
+});
+
+test("a citation set naming two verified heads of one container is refused", async () => {
+  // An event cites one head per container; two verified ones is a served
+  // citation set that was tampered with, whichever the rule would pick.
+  const scenario = await createScenario();
+  const verifiedByHash = new Map([
+    [scenario.root1.manifestHash, scenario.root1],
+    [scenario.root2.manifestHash, scenario.root2],
+  ]);
+  expect(() =>
+    verifiedCitedHead({
+      cited: [scenario.root1.manifestHash, scenario.root2.manifestHash],
+      containerId: ROOT_ID,
+      label: "Ancestor citation path[1]",
+      verifiedByHash,
+    }),
+  ).toThrow(/more than one head/);
+  expect(
+    verifiedCitedHead({
+      cited: [scenario.root2.manifestHash],
+      containerId: ROOT_ID,
+      label: "Ancestor citation path[1]",
+      verifiedByHash,
+    })?.manifestHash,
+  ).toBe(scenario.root2.manifestHash);
 });
