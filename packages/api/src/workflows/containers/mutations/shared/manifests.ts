@@ -69,6 +69,16 @@ export async function assertManifestHeadCurrent(
   }
 }
 
+/**
+ * Each element must be the child of the one before it, by container id. A
+ * manifest pins the parent manifest it was created or moved under, and that
+ * pin lags once the parent's head advances; requiring the pin to equal the
+ * parent's current head here would refuse every mutation on a descendant
+ * after any ancestor change. The heads a mutation is authorized against are
+ * the current ones (assertCurrentContainerPath checks each element is a
+ * head), and the event signs them as its dependencies, so the pin stays a
+ * creation-time fact and is not a condition here.
+ */
 function assertContainerPathEdges(
   path: readonly VerifiedContainerAccessManifest[],
   label: string,
@@ -81,10 +91,7 @@ function assertContainerPathEdges(
       continue;
     }
 
-    if (
-      child.state.parentContainerId !== parent.state.containerId ||
-      child.state.parentManifestHash !== parent.manifestHash
-    ) {
+    if (child.state.parentContainerId !== parent.state.containerId) {
       throw new ContainerMutationError(
         `${label} does not match container parent edges`,
         409,

@@ -53,6 +53,19 @@ function containerKekStateCacheKey(input: {
   ].join("||");
 }
 
+// A manifest's event cites the ancestor heads it was committed against, which
+// may no longer be on the current path nor be any manifest's pin (the parent
+// advanced, or the container has since moved). The client authorizes the
+// event against those cited heads, so serve them too.
+function enqueueCitedHeads(
+  manifest: VerifiedContainerAccessManifest,
+  enqueue: (manifestHash: string | null) => void,
+): void {
+  for (const citedHash of manifest.event.event.dependencyManifestHashes) {
+    enqueue(citedHash);
+  }
+}
+
 export async function loadContainerKekManifestHistory(input: {
   readonly context: ContainerWriterProjectionContext;
   readonly currentManifest: VerifiedContainerAccessManifest;
@@ -80,6 +93,9 @@ export async function loadContainerKekManifestHistory(input: {
   enqueue(input.keyEpoch.createdByManifestHash);
   for (const wrap of input.wraps) {
     enqueue(wrap.wrapManifestHash);
+  }
+  if (!input.onlyCurrentContainer) {
+    enqueueCitedHeads(input.currentManifest, enqueue);
   }
 
   const bundles: ContainerKekManifestHistory["bundles"] = [];
@@ -116,6 +132,7 @@ export async function loadContainerKekManifestHistory(input: {
     }
     if (!input.onlyCurrentContainer) {
       enqueue(verifiedManifest.state.parentManifestHash);
+      enqueueCitedHeads(verifiedManifest, enqueue);
     }
   }
 

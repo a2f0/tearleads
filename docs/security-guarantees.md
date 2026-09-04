@@ -266,15 +266,16 @@ link's container evidence predates a later rotation of that container is the
 same ordering boundary as for container heads.
 
 Not yet applied to containers is the principal-policy rule that a successor
-new to a device must cite the authority's current head. The API today refuses
-any mutation on a container whose pinned parent manifest is no longer the
-parent's head, so a child head that rule rejected could never be superseded,
-and a device that missed a child event and the ancestor change after it would
-be locked out of the child for good. Until descendants can re-cite their
-ancestors, every device accepts a child head authorized under an older
-ancestor head, whether or not it has checkpointed a newer one; only a signed
-statement that already established the newer head makes a citation that does
-not descend from it a rollback.
+new to a device must cite the authority's current head. The API accepts a
+mutation on a container whose pinned parent manifest is no longer the parent's
+head, as long as the event cites the current ancestor heads, and it serves the
+heads an event cites alongside the projection even when they are neither on
+the current path nor pinned by any manifest. A child head that rule would
+reject can therefore be superseded by a later child event citing the newer
+ancestor. Until a client applies the rule, every device accepts a child head
+authorized under an older ancestor head, whether or not it has checkpointed a
+newer one; only a signed statement that already established the newer head
+makes a citation that does not descend from it a rollback.
 
 ### Content Confidentiality
 

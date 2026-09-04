@@ -159,46 +159,85 @@ function verifyHistoricalContainerManifest(
   });
 }
 
+/**
+ * The manifests a stored event cites, verified and indexed by container. An
+ * event was authorized against the heads current when it was committed, and
+ * it signs exactly those as its dependencies (assertAccessEventDependencies
+ * checks the set), so they, not the creation-time pins the manifest carries,
+ * are the paths to re-verify it against. One head per container: the paths a
+ * mutation submits are all current, so they cannot disagree on a container.
+ */
+async function loadCitedManifestsByContainer(input: {
+  readonly parsed: VerifiedContainerAccessManifest;
+  readonly verifyHash: (
+    manifestHash: string,
+  ) => Promise<VerifiedContainerAccessManifest>;
+}): Promise<ReadonlyMap<string, VerifiedContainerAccessManifest>> {
+  const byContainer = new Map<string, VerifiedContainerAccessManifest>();
+  for (const manifestHash of input.parsed.event.event
+    .dependencyManifestHashes) {
+    const cited = await input.verifyHash(manifestHash);
+    if (byContainer.has(cited.state.containerId)) {
+      throw integrityError("access event cites two heads of one container");
+    }
+    byContainer.set(cited.state.containerId, cited);
+  }
+  return byContainer;
+}
+
+/** The cited ancestor chain, root first, ending at `parentContainerId`. */
+function citedAncestorPath(
+  cited: ReadonlyMap<string, VerifiedContainerAccessManifest>,
+  parentContainerId: string | null,
+): VerifiedContainerAccessManifest[] {
+  const reversed: VerifiedContainerAccessManifest[] = [];
+  let containerId = parentContainerId;
+  while (containerId !== null) {
+    if (reversed.length >= MAX_CONTAINER_PATH_DEPTH) {
+      throw integrityError("container path exceeds maximum depth");
+    }
+    const ancestor = cited.get(containerId);
+    if (!ancestor) {
+      throw integrityError(
+        `access event does not cite a head of ancestor container ${containerId}`,
+      );
+    }
+    reversed.push(ancestor);
+    containerId = ancestor.state.parentContainerId;
+  }
+  return reversed.reverse();
+}
+
 async function loadStoredManifestArtifacts(input: {
   readonly parsed: VerifiedContainerAccessManifest;
   readonly verifyHash: (
     manifestHash: string,
   ) => Promise<VerifiedContainerAccessManifest>;
 }): Promise<StoredManifestArtifacts> {
-  const loadPath = async (
-    manifestHash: string | null,
-  ): Promise<VerifiedContainerAccessManifest[] | undefined> => {
-    if (!manifestHash) {
-      return;
-    }
-    const reversed: VerifiedContainerAccessManifest[] = [];
-    let currentHash: string | null = manifestHash;
-    while (currentHash) {
-      if (reversed.length >= MAX_CONTAINER_PATH_DEPTH) {
-        throw integrityError("container path exceeds maximum depth");
-      }
-      const current = await input.verifyHash(currentHash);
-      reversed.push(current);
-      currentHash = current.state.parentManifestHash;
-    }
-    return reversed.reverse();
-  };
-
-  const previousManifest = input.parsed.state.previousManifestHash
-    ? await input.verifyHash(input.parsed.state.previousManifestHash)
+  const { parsed } = input;
+  const eventType = parsed.event.event.eventType;
+  const previousManifest = parsed.state.previousManifestHash
+    ? await input.verifyHash(parsed.state.previousManifestHash)
     : null;
+  const cited = await loadCitedManifestsByContainer(input);
+  // A create's parent path and a move's destination path end at the parent
+  // the signed body pins; the crypto verifier holds that last element to the
+  // pin. The path above the mutated container is the one its event cites.
   return {
     previousManifest,
     previousPath: previousManifest
-      ? await loadPath(previousManifest.manifestHash)
+      ? [
+          ...citedAncestorPath(cited, previousManifest.state.parentContainerId),
+          previousManifest,
+        ]
       : undefined,
     parentPath:
-      input.parsed.event.event.eventType === "container.create"
-        ? await loadPath(input.parsed.state.parentManifestHash)
+      eventType === "container.create"
+        ? citedAncestorPath(cited, parsed.state.parentContainerId)
         : undefined,
     destinationParentPath:
-      input.parsed.event.event.eventType === "container.move"
-        ? await loadPath(input.parsed.state.parentManifestHash)
+      eventType === "container.move"
+        ? citedAncestorPath(cited, parsed.state.parentContainerId)
         : undefined,
   };
 }
