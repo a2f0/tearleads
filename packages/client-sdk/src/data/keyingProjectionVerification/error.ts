@@ -25,23 +25,6 @@ export function isKeyingVerificationError(
   );
 }
 
-/**
- * A served head newer than the local checkpoint, signed by a member with no
- * current authority, that cites a stale ancestor head. The device cannot tell
- * that member's last honest event from one committed later with the server's
- * help, so the head is not used; a later event on the container by a member
- * with current authority supersedes it, and no fresh projection resolves it.
- * Boundaries record it and defer rather than fail.
- */
-function isStaleCitationError(error: unknown): boolean {
-  return isKeyingVerificationError(error) && error.code === "stale_citation";
-}
-
-/** Whether a stale citation is the verification failure in the cause chain. */
-export function isStaleCitationInCauseChain(error: unknown): boolean {
-  return isStaleCitationError(keyingVerificationErrorInCauseChain(error));
-}
-
 export function rethrowKeyingVerificationError(error: unknown): void {
   if (isKeyingVerificationError(error)) {
     throw error;
@@ -62,10 +45,6 @@ function keyingVerificationErrorInCauseChain(
   return null;
 }
 
-/**
- * True when the cause chain holds a keying verification error; callers use
- * the result to preserve the boundary. Reporting is best-effort.
- */
 export async function reportKeyingVerificationErrorInCauseChain(
   error: unknown,
   reporter: SecurityIncidentReporter | undefined,

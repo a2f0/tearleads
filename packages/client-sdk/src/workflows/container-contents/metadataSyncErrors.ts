@@ -1,7 +1,6 @@
 import { isDocumentSyncUpdateIsolationError } from "../../data/documents/shared/documentSyncUpdateIsolation";
 import {
   isKeyingVerificationError,
-  isStaleCitationInCauseChain,
   reportKeyingVerificationErrorInCauseChain,
 } from "../../data/keyingProjectionVerification/error";
 import { isPrincipalPolicyNotCachedError } from "../../data/keyingProjectionVerification/principalPolicyVerification";
@@ -50,27 +49,6 @@ export async function deferRecoverableMetadataSyncError(input: {
     );
     input.runtime.util.log(
       `Container contents: quarantined incoming metadata updates for ${input.containerId}; deferred this container without blocking later metadata syncs.`,
-    );
-    return null;
-  }
-
-  // A served head by a member with no current authority that cites a stale
-  // ancestor head cannot be told from that member's last honest event until
-  // a member with current authority commits a later event on the container.
-  // Record it, then keep needing-sync set for that event.
-  if (isStaleCitationInCauseChain(input.error)) {
-    await reportKeyingVerificationErrorInCauseChain(
-      input.error,
-      input.runtime.util.reportSecurityIncident,
-      {
-        objectId: input.containerId,
-        objectKind: "container",
-        operation: "container.metadata.sync",
-        organizationId: input.runtime.auth.organizationId,
-      },
-    );
-    input.runtime.util.log(
-      `Container contents: deferred metadata sync for ${input.containerId} because its head cites a stale ancestor head and its signer holds no current authority; a later event on the container by a member with current authority supersedes it.`,
     );
     return null;
   }

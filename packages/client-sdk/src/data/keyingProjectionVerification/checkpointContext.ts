@@ -18,8 +18,6 @@ export interface ProjectionCheckpointContext {
   readonly localCheckpoints: Map<string, AccessManifestCheckpoint | null>;
   organizationId?: string | undefined;
   readonly policies: AnyVerifiedPrincipalPolicy[];
-  // Heads checked against the durable pins at commit but never advanced.
-  readonly validatedHeads: VerifiedAccessManifestCheckpointEvidence[];
   readonly verifiedHeads: VerifiedAccessManifestCheckpointEvidence[];
   readonly verifiedManifests: VerifiedAccessManifestCheckpointEvidence[];
 }
@@ -40,7 +38,6 @@ export function createProjectionCheckpointContext(input: {
     localCheckpoints: new Map(),
     organizationId: input.organizationId,
     policies: [],
-    validatedHeads: [],
     verifiedHeads: [],
     verifiedManifests: [],
   };
@@ -49,14 +46,10 @@ export function createProjectionCheckpointContext(input: {
 export function observeAccessManifestCheckpoints(
   context: ProjectionCheckpointContext,
   input: {
-    readonly validatedHeads?:
-      | readonly VerifiedAccessManifestCheckpointEvidence[]
-      | undefined;
     readonly verifiedHeads: readonly VerifiedAccessManifestCheckpointEvidence[];
     readonly verifiedManifests: readonly VerifiedAccessManifestCheckpointEvidence[];
   },
 ): void {
-  context.validatedHeads.push(...(input.validatedHeads ?? []));
   context.verifiedHeads.push(...input.verifiedHeads);
   context.verifiedManifests.push(...input.verifiedManifests);
 }
@@ -95,7 +88,6 @@ export async function commitProjectionCheckpoints(
     organizationId: context.organizationId,
     policies: context.policies,
     stillCurrent: input?.stillCurrent,
-    validatedHeads: context.validatedHeads,
     verifiedHeads: context.verifiedHeads,
     verifiedManifests: context.verifiedManifests,
   });
@@ -115,7 +107,6 @@ async function validateProjectionCheckpoints(
     execSql: input?.execSql ?? context.execSql,
     policies: context.policies,
     stillCurrent: input?.stillCurrent,
-    validatedHeads: context.validatedHeads,
     verifiedHeads: context.verifiedHeads,
     verifiedManifests: context.verifiedManifests,
   });

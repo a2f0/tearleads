@@ -8,11 +8,11 @@ import { loadAccessManifestCheckpoint } from "../persistence/keyingCheckpointPer
 import type { ExecSql } from "../sqlite/sqlSchema";
 
 /**
- * The local checkpoint for one object, read once per verification for the
- * checkpoint check, which the atomic advance re-validates at commit. The
- * currency rule reads uncached, since nothing re-validates it at commit.
+ * The local checkpoint for one object, read once per verification: every
+ * checkpoint-enforced element of a served path reads its own checkpoint,
+ * and the atomic advance re-validates every checkpoint at commit.
  */
-export async function loadLocalAccessManifestCheckpoint(input: {
+async function loadLocalAccessManifestCheckpoint(input: {
   readonly execSql: ExecSql;
   readonly localCheckpoints?:
     | Map<string, AccessManifestCheckpoint | null>

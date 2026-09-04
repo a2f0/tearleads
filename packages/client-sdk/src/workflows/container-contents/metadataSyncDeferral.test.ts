@@ -324,7 +324,7 @@ test("malformed durable metadata progress forces a page-one recovery", async () 
   expect(logs).toEqual([]);
 });
 
-test("syncContainerMetadataState defers no keying verification failure but a stale citation", async () => {
+test("syncContainerMetadataState never defers keying verification failures", async () => {
   const container = createContainerRecord({
     id: "container-integrity-failure",
     metadataDocumentId: "metadata-document-integrity-failure",
@@ -355,47 +355,4 @@ test("syncContainerMetadataState defers no keying verification failure but a sta
     }),
   ).rejects.toBe(integrityError);
   expect(logs).toEqual([]);
-});
-
-test("syncContainerMetadataState defers a head that cites a stale ancestor head", async () => {
-  // A served head by a member with no current authority that cites a stale
-  // ancestor head is recorded, and the container keeps its needing-sync
-  // state until a member with current authority commits a later event.
-  const container = createContainerRecord({
-    id: "container-5",
-    metadataDocumentId: "metadata-document-5",
-    parentId: null,
-  });
-  const doc = await createContainerMetadataDocument(container.id);
-  const record = createDocumentRecord({
-    documentId: "metadata-document-5",
-    id: container.id,
-  });
-  const logs: string[] = [];
-  const incidents: unknown[] = [];
-  const staleCitation = new KeyingVerificationError(
-    "stale_citation",
-    "path[1] cites a stale head of ancestor container root",
-  );
-
-  const synced = await syncContainerMetadataState({
-    ...createForcedMetadataSyncInput(
-      createMetadataSyncRuntime({
-        getDocumentWriterProjection: async () => {
-          throw staleCitation;
-        },
-        logs,
-        reportSecurityIncident: async (error) => {
-          incidents.push(error);
-        },
-      }),
-    ),
-    metadataState: { container, doc, record },
-  });
-
-  expect(synced).toBeNull();
-  expect(incidents).toEqual([staleCitation]);
-  expect(logs).toEqual([
-    "Container contents: deferred metadata sync for container-5 because its head cites a stale ancestor head and its signer holds no current authority; a later event on the container by a member with current authority supersedes it.",
-  ]);
 });

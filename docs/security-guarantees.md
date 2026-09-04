@@ -265,54 +265,25 @@ served for the same leaf, whatever order the server lists them in. Whether a
 link's container evidence predates a later rotation of that container is the
 same ordering boundary as for container heads.
 
-Containers also follow the principal-policy rule that a successor new to a
-device must cite the authority's current head, in the form the pinned-parent
-design allows: a served container head newer than the device's checkpoint for
-that container must either cite, for every ancestor, the head the projection
-serves as current, or be signed by a member who still holds the authority the
-event needs at the served current path, read from the served ancestors and
-the container's own state as the device last accepted it, never from the
-unheld history between the checkpoint and the head. The rule reads the served
-heads, so it composes with the ancestor's own checkpoint: a device that has
-also checkpointed the newer ancestor head cannot be served the older one, and
-a served ancestor head that does not descend from the head a child event
-cites is a rollback, since the signed event proves the cited head exists. An
-ancestor a head does not cite at all, because an ancestor between them has
-since moved, counts as stale. What remains refused, as `stale_citation`, is a
-head signed by a member since revoked at an ancestor: the device cannot tell
-that member's last honest event, delivered late, from one committed afterwards
-with the server's help, and either way no current admin approved it. A device
-with no checkpoint for the child is at first contact with it and takes the
-served history as it is.
-
-A move takes its admin authority from the source ancestors, which the
-projection does not serve, so their cited heads are held to the device's own
-checkpoints for them instead, with no authority to re-check: a cited source
-head older than the checkpoint is refused, one at or past it must be or
-descend from the checkpointed manifest, and a move that raced an advance of a
-source ancestor the device had already checkpointed is refused too, until a
-later event on the moved container supersedes it.
-
-Only the head is held to the rule, not the history between the checkpoint and
-it, so a later event on the container by a member with current authority
-supersedes the refused head and verifies it as a predecessor; the API accepts
-such an event and serves the heads it cites. The refusing device cannot
-produce that event itself, because every mutation verifies the same
-projection first: recovery needs a device that accepted the head before the
-ancestor advanced, or one at first contact with the container, and until one
-commits, the container stays deferred. Container metadata sync records the
-refusal in the security-incident ledger and keeps the container needing
-sync; document sync records it and fails the pass as it would any other
-verification failure, retrying on the next trigger with its pending writes
-still queued; other boundaries surface it as the verification failure it
-is. A signed path snapshot, such as a purge's authorizing path, is verified
-at the membership it referenced and is not held to the rule; it is checked
-against the container checkpoints the device holds, at verification and
-again when the purge commits, but does not advance them, so a head the rule
-would refuse cannot become a checkpoint through a purge. The trade is that a
-purge proof no longer sets a rollback floor for a container the device knows
-only through that purge; the first projection the device verifies for the
-container sets it.
+Not applied to containers, by design, is the principal-policy rule that a
+successor new to a device must cite the authority's current head. An honest
+server routinely serves a descendant head that cites the ancestor head
+current when it was committed, signed by a member since revoked at that
+ancestor, and a device cannot tell that member's last honest event, delivered
+late, from one committed afterwards with the server's help. Refusing the
+shape would leave every device that already holds the descendant unable to
+supersede its head, since every mutation verifies the same projection first,
+so a device's ability to read or write would depend on another device with no
+history for the container. The API refuses the forgery at commit, and the
+lineage rule above makes the next legitimate event on the descendant final.
+The residual is that a member revoked at an ancestor, with a compromised
+server, can keep authority over a descendant until that next event; a
+best-effort re-cite of the descendants a revoking client already holds
+shortens that window without any device depending on another. What the
+client does refuse is the opposite disagreement: a served current ancestor
+head that does not descend from a head a child's signed event cites is a
+stale or forked ancestor, whatever the server calls current, since the
+signature proves the cited head exists.
 
 ### Content Confidentiality
 

@@ -10,7 +10,6 @@ export const KEYING_VERIFICATION_CODES = [
   "rollback",
   "signature_mismatch",
   "signer_mismatch",
-  "stale_citation",
   "stale_predecessor",
   "unauthorized",
 ] as const;

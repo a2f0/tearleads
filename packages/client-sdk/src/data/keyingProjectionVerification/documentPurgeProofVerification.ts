@@ -97,9 +97,6 @@ async function verifyPurgeContainerPaths(input: {
     // This signed path is the purge's authorization boundary. A later local
     // head makes the purge ambiguous because ancestry does not order the purge
     // signature; fail closed instead of accepting server-supplied descendants.
-    // The path is the snapshot the purge cited, which no later event can
-    // re-cite; verified at referenced membership, it is not held to the
-    // served current ancestor heads.
     enforceLocalCheckpoints: input.enforceLocalCheckpoints,
     label: "Document purge authorizing container path",
     path: input.proof.authorizingContainerPath,
@@ -144,16 +141,8 @@ async function verifyPurgeContainerPaths(input: {
       containerPathByManifestHash.set(leaf.manifestHash, verifiedPath);
     }
   }
-  // The authorizing path is checked against the container checkpoints this
-  // device holds, here and again inside the commit transaction, so a
-  // checkpoint advanced meanwhile still fails the purge closed; but it does
-  // not advance them: it is the snapshot the purge cited, verified at
-  // referenced membership and not held to the served current ancestor heads,
-  // so a head that rule would refuse must not become a checkpoint through a
-  // purge and be taken as already accepted later.
   observeAccessManifestCheckpoints(input.checkpointContext, {
-    validatedHeads: authorizingContainerPath,
-    verifiedHeads: [],
+    verifiedHeads: authorizingContainerPath,
     verifiedManifests: verifiedContainerManifestsForBundles(
       bundlesByHash,
       verifiedByHash,

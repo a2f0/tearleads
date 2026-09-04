@@ -28,9 +28,11 @@ import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
 // Every container event signs the ancestor heads it was committed against,
 // so the verifier authorizes a head at those cited heads and refuses a head
 // that cites an older ancestor head than an earlier signed statement proved.
-// A head newer than a device's checkpoint must also cite the served current
-// ancestor heads unless its signer still holds authority at them; a later
-// child event by a member with current authority recovers a refused one.
+// It does not require a head new to a device to cite the served current
+// heads: an honest server serves that shape routinely, and refusing it would
+// leave every device holding the child unable to supersede it. The served
+// current ancestor heads must instead be or descend from the heads a child
+// cites, since the child's signed event proves those exist.
 
 export const ORGANIZATION_ID = "organization-1";
 export const ROOT_ID = "ancestor-root";
@@ -217,19 +219,14 @@ export function verifyPath(
   input: {
     readonly bundles: readonly VerifiedContainerAccessManifest[];
     readonly path: readonly VerifiedContainerAccessManifest[];
-    // "referenced" for a signed snapshot such as a purge's authorizing path.
-    readonly authorizationMembership?: "current" | "referenced" | undefined;
-    // False for a dependency path a link event cites.
-    readonly enforceLocalCheckpoints?: boolean | undefined;
   },
 ) {
   return verifyContainerManifestPath({
-    authorizationMembership: input.authorizationMembership,
     bundlesByHash: new Map(
       input.bundles.map((value) => [value.manifestHash, manifestBundle(value)]),
     ),
     checkpointContext: createProjectionCheckpointContext({ execSql }),
-    enforceLocalCheckpoints: input.enforceLocalCheckpoints ?? true,
+    enforceLocalCheckpoints: true,
     label: "Ancestor citation path",
     path: input.path.map(manifestBundle),
     principalPolicyCache: principalPolicyCacheForVerifiedPolicies([]),

@@ -45,13 +45,6 @@ interface KeyingCheckpointValidationInput {
   readonly execSql: ExecSql;
   readonly policies: readonly AnyVerifiedPrincipalPolicy[];
   readonly stillCurrent?: (() => boolean) | undefined;
-  // Heads re-checked against the durable pins inside the transaction but
-  // never written: a signed snapshot such as a purge's authorizing path must
-  // still fail closed against a checkpoint advanced since it was verified,
-  // without becoming the checkpoint itself.
-  readonly validatedAccess?:
-    | readonly AccessManifestCheckpointAdvance[]
-    | undefined;
 }
 
 interface VerifiedPrincipalPolicyBundleEntry {
@@ -275,7 +268,6 @@ export async function validateKeyingCheckpointsAtomically(
   await ensureKeyingCheckpointValidationTables(input);
   const validate = async (tx: ClientSQLiteTransactionScope) => {
     await validateAccessAdvances(tx, input.access);
-    await validateAccessAdvances(tx, input.validatedAccess ?? []);
     await validatePolicyAdvances(tx, input.policies);
   };
   const runtime = getClientSQLitePersistenceRuntime(input.execSql);
@@ -294,19 +286,20 @@ export async function validateKeyingCheckpointsAtomically(
  * fetching happen before this short transaction; only checkpoint comparison
  * and persistence are serialized here.
  */
-export async function advanceKeyingCheckpointsAtomically(
-  input: KeyingCheckpointValidationInput & {
-    readonly documentPurgeCheckpoint?: DocumentPurgeCheckpoint | undefined;
-    readonly organizationId?: string | undefined;
-  },
-): Promise<void> {
+export async function advanceKeyingCheckpointsAtomically(input: {
+  readonly access: readonly AccessManifestCheckpointAdvance[];
+  readonly documentPurgeCheckpoint?: DocumentPurgeCheckpoint | undefined;
+  readonly execSql: ExecSql;
+  readonly organizationId?: string | undefined;
+  readonly policies: readonly AnyVerifiedPrincipalPolicy[];
+  readonly stillCurrent?: (() => boolean) | undefined;
+}): Promise<void> {
   await ensureKeyingCheckpointValidationTables(input);
   const updatedAt = new Date().toISOString();
 
   const runtime = getClientSQLitePersistenceRuntime(input.execSql);
   const advance = async (tx: ClientSQLiteTransactionScope) => {
     const access = await validateAccessAdvances(tx, input.access);
-    await validateAccessAdvances(tx, input.validatedAccess ?? []);
     const policies = await validatePolicyAdvances(tx, input.policies);
 
     await writeAccessCheckpoints(tx, access, updatedAt);

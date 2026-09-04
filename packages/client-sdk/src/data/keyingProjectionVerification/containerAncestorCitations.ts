@@ -23,12 +23,15 @@ import { readRecordNullableString } from "./readers";
  * head one signed statement established can never be rolled back or forked
  * away for a later one.
  *
- * A served head newer than this device's checkpoint for its container must
- * also cite the ancestor heads the projection serves as current, or be signed
- * by a member who still holds the authority the event needs at them: the
- * container form of the principal-policy rule that a successor new to a
- * device must cite the authority's current head. That rule lives in
- * containerAncestorCurrency.ts and builds on the helpers here.
+ * Not applied, by design: the principal-policy rule that a successor new to
+ * a device must cite the authority's current head. An honest server serves a
+ * child head citing the ancestor head that was current when it was
+ * committed, signed by a member since revoked at that ancestor, and refusing
+ * that shape would leave every device holding the child unable to supersede
+ * it. What can be refused is the opposite disagreement: a served current
+ * ancestor head that does not descend from a head the child's signed event
+ * proves exists is a stale or forked ancestor, whatever the server calls
+ * current.
  */
 
 interface CitedAncestorResolutionInput {
@@ -181,7 +184,7 @@ export function verifiedCitedHead(input: {
  * predecessor of a verified manifest was verified with it, so a hop that is
  * not in the verified set means the chain was not served.
  */
-export function descendsFrom(
+function descendsFrom(
   verifiedByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>,
   head: VerifiedContainerAccessManifest,
   floor: VerifiedContainerAccessManifest,
@@ -252,4 +255,36 @@ export function assertCitedAncestorsDoNotRegress(
       }
     }
   });
+}
+
+/**
+ * Every served current ancestor head must be, or descend through verified
+ * predecessors from, the head of that container the head's signed event
+ * cites. A served head older than the cited one, or a same-epoch fork of it,
+ * is a rollback the signature proves: the cited head exists. A served head
+ * newer than the cited one is the ordinary lag of a descendant behind its
+ * ancestors, and an ancestor the head does not cite at all joined the path
+ * when an ancestor between them moved; neither is refused.
+ */
+export function assertServedAncestorsDescendFromCitations(input: {
+  readonly head: VerifiedContainerAccessManifest;
+  readonly label: string;
+  readonly servedAncestors: readonly VerifiedContainerAccessManifest[];
+  readonly verifiedByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>;
+}): void {
+  const citations = input.head.event.event.dependencyManifestHashes;
+  for (const served of input.servedAncestors) {
+    const containerId = served.state.containerId;
+    const cited = verifiedCitedHead({
+      cited: citations,
+      containerId,
+      label: input.label,
+      verifiedByHash: input.verifiedByHash,
+    });
+    if (!cited || descendsFrom(input.verifiedByHash, served, cited)) continue;
+    throw new KeyingVerificationError(
+      "rollback",
+      `${input.label} cites a head of ancestor container ${containerId} that the served current head does not descend from`,
+    );
+  }
 }
