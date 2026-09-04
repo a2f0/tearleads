@@ -56,6 +56,12 @@ function keyingVerificationErrorInCauseChain(
   return null;
 }
 
+/**
+ * True when the cause chain holds a keying verification error, whether or
+ * not it was reported: a stale citation is recognized but never an incident.
+ * Callers use the result to preserve the boundary, not to learn whether the
+ * ledger was written.
+ */
 export async function reportKeyingVerificationErrorInCauseChain(
   error: unknown,
   reporter: SecurityIncidentReporter | undefined,

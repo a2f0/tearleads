@@ -78,6 +78,37 @@ test("a device that checkpointed the newer ancestor head cannot be served the ol
   }
 });
 
+test("a served ancestor head older than the one a head cites is a rollback, not a stale citation", async () => {
+  const scenario = await createScenario();
+  // Committed against root2: the signed event proves root2 exists, so a
+  // server presenting root1 as current is stale or forked, and the device
+  // must not wait on it as it would on an older citation.
+  const child2 = await grantBy({
+    cited: [scenario.root2.manifestHash, scenario.child1.manifestHash],
+    previous: scenario.child1,
+    signer: scenario.alice,
+    subjectId: "bob",
+  });
+  const { close, execSql } = await createTestExecSql("ancestor-reversed");
+  try {
+    await checkpointChildAt(scenario, execSql, scenario.child1, [
+      scenario.root1,
+      scenario.child1,
+    ]);
+    await expect(
+      verifyPath(scenario, execSql, {
+        bundles: [scenario.root1, scenario.root2, scenario.child1, child2],
+        path: [scenario.root1, child2],
+      }),
+    ).rejects.toMatchObject({
+      code: "rollback",
+      message: expect.stringContaining("does not descend"),
+    });
+  } finally {
+    close();
+  }
+});
+
 test("a later child event that cites the current heads recovers a refused head", async () => {
   const scenario = await createScenario();
   // Committed while root1 was current, then first seen after root2: refused

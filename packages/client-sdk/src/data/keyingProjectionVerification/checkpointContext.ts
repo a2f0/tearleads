@@ -1,4 +1,5 @@
 import {
+  type AccessManifestCheckpoint,
   type AnyVerifiedPrincipalPolicy,
   KeyingVerificationError,
   type VerifiedAccessManifestCheckpointEvidence,
@@ -13,6 +14,8 @@ import { assertProjectionVerificationCurrent } from "./types";
 
 export interface ProjectionCheckpointContext {
   readonly execSql: ExecSql;
+  // Local checkpoints read during this verification, one read per object.
+  readonly localCheckpoints: Map<string, AccessManifestCheckpoint | null>;
   organizationId?: string | undefined;
   readonly policies: AnyVerifiedPrincipalPolicy[];
   readonly verifiedHeads: VerifiedAccessManifestCheckpointEvidence[];
@@ -32,6 +35,7 @@ export function createProjectionCheckpointContext(input: {
 
   return {
     execSql: input.execSql,
+    localCheckpoints: new Map(),
     organizationId: input.organizationId,
     policies: [],
     verifiedHeads: [],

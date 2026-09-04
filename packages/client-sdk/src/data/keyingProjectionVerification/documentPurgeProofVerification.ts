@@ -102,6 +102,7 @@ async function verifyPurgeContainerPaths(input: {
     // The path is the snapshot the purge cited, which no later event can
     // re-cite, so it is not held to the served current ancestor heads.
     enforceLocalCheckpoints: input.enforceLocalCheckpoints,
+    requireCurrentAncestorCitations: false,
     label: "Document purge authorizing container path",
     path: input.proof.authorizingContainerPath,
     principalPolicyCache: input.principalPolicyCache,
@@ -134,6 +135,7 @@ async function verifyPurgeContainerPaths(input: {
       checkpointContext: input.checkpointContext,
       enforceLocalCheckpoints: false,
       label: `Document purge dependency path[${index}]`,
+      requireCurrentAncestorCitations: false,
       path,
       principalPolicyCache: input.principalPolicyCache,
       resolveUserKey: input.resolveUserKey,

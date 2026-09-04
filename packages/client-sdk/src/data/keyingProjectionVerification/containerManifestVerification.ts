@@ -107,6 +107,7 @@ export async function verifyContainerManifestBundle(input: {
       await verifyCachedManifestCheckpoint({
         current: cached,
         execSql: input.checkpointContext.execSql,
+        localCheckpoints: input.checkpointContext.localCheckpoints,
         verifiedManifests: input.verifiedByHash,
       });
     }
@@ -165,6 +166,7 @@ async function verifyFreshContainerManifestBundle(
     ? await loadManifestCheckpointVerification({
         current: manifest,
         execSql: input.checkpointContext.execSql,
+        localCheckpoints: input.checkpointContext.localCheckpoints,
         verifiedManifests: input.verifiedByHash,
       })
     : null;

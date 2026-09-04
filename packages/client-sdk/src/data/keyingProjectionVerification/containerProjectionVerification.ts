@@ -196,10 +196,10 @@ export async function verifyContainerManifestPath(input: {
   readonly resolveUserKey: ProjectionUserKeyResolver;
   readonly requireAuthorizationEvidence?: boolean | undefined;
   // With checkpoints enforced, also hold an element newer than its local
-  // checkpoint to citing the elements served above it. Set for a path that
+  // checkpoint to citing the elements served above it. True for a path that
   // is the current one, which a later event on the container can re-cite;
-  // not for a signed snapshot such as a purge's authorizing path.
-  readonly requireCurrentAncestorCitations?: boolean | undefined;
+  // false for a signed snapshot such as a purge's authorizing path.
+  readonly requireCurrentAncestorCitations: boolean;
   readonly verifiedByHash: Map<string, VerifiedContainerAccessManifest>;
   readonly warmReferencedPrincipalPolicies?:
     | ReferencedPrincipalPolicyWarmer
@@ -240,7 +240,9 @@ export async function verifyContainerManifestPath(input: {
         execSql: input.checkpointContext.execSql,
         head: verified,
         label: `${input.label}[${index}]`,
+        localCheckpoints: input.checkpointContext.localCheckpoints,
         servedAncestors: verifiedPath,
+        verifiedByHash: input.verifiedByHash,
       });
     }
     verifiedPath.push(verified);

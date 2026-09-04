@@ -168,6 +168,7 @@ async function verifyProjectionContainerPaths(input: {
       checkpointContext: input.checkpointContext,
       enforceLocalCheckpoints: false,
       label: `Document writer projection dependency path[${index}]`,
+      requireCurrentAncestorCitations: false,
       path,
       principalPolicyCache: input.principalPolicyCache,
       resolveUserKey: input.resolveUserKey,
@@ -227,6 +228,7 @@ export async function verifyDocumentManifestBundle(input: {
       await verifyCachedManifestCheckpoint({
         current: cached,
         execSql: input.checkpointContext.execSql,
+        localCheckpoints: input.checkpointContext.localCheckpoints,
         verifiedManifests: input.verifiedByHash,
       });
     }
@@ -268,6 +270,7 @@ export async function verifyDocumentManifestBundle(input: {
     ? await loadManifestCheckpointVerification({
         current: manifest,
         execSql: input.checkpointContext.execSql,
+        localCheckpoints: input.checkpointContext.localCheckpoints,
         verifiedManifests: input.verifiedByHash,
       })
     : null;

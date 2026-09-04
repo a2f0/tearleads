@@ -1,12 +1,13 @@
 import {
+  type AccessManifestCheckpoint,
   KeyingVerificationError,
   type VerifiedAccessEvent,
   type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import { readCanonicalRecord } from "../keyingCanonicalJson";
-import { loadAccessManifestCheckpoint } from "../persistence/keyingCheckpointPersistence";
 import type { ExecSql } from "../sqlite/sqlSchema";
+import { loadLocalAccessManifestCheckpoint } from "./manifestCheckpointVerification";
 import { readRecordNullableString } from "./readers";
 
 /**
@@ -145,44 +146,51 @@ export type CitedLineageInput = Pick<
   "bundlesByHash" | "label" | "verifiedByHash"
 >;
 
+/** The verified head of `containerId` among the cited hashes, if any. */
 function verifiedCitedHead(
-  input: CitedLineageInput,
+  verifiedByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>,
   cited: readonly string[],
   containerId: string,
 ): VerifiedContainerAccessManifest | undefined {
-  const manifestHash = cited.find(
-    (candidate) => citedContainerId(input, candidate) === containerId,
-  );
-  return manifestHash === undefined
-    ? undefined
-    : input.verifiedByHash.get(manifestHash);
+  for (const manifestHash of cited) {
+    const verified = verifiedByHash.get(manifestHash);
+    if (verified?.state.containerId === containerId) return verified;
+  }
+  return undefined;
 }
 
 /**
- * The cited head must be the established head or descend from it through
- * verified predecessors. Epochs alone would let a same-epoch fork signed
- * under an older head pass; lineage cannot be forged without the chain.
- * Every predecessor of a verified manifest was verified with it, so a hop
- * that is not in the verified set means the chain was not served.
+ * Whether `head` is `floor` or descends from it through verified
+ * predecessors. Epochs alone would let a same-epoch fork signed under an
+ * older head pass; lineage cannot be forged without the chain. Every
+ * predecessor of a verified manifest was verified with it, so a hop that is
+ * not in the verified set means the chain was not served.
  */
+function descendsFrom(
+  verifiedByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>,
+  head: VerifiedContainerAccessManifest,
+  floor: VerifiedContainerAccessManifest,
+): boolean {
+  let current: VerifiedContainerAccessManifest | undefined = head;
+  while (current && current.state.epoch >= floor.state.epoch) {
+    if (current.manifestHash === floor.manifestHash) return true;
+    const previousHash: string | null = current.state.previousManifestHash;
+    current =
+      previousHash === null ? undefined : verifiedByHash.get(previousHash);
+  }
+  return false;
+}
+
+/** The cited head must be the established head or descend from it. */
 function assertCitedHeadDescendsFrom(
   input: CitedLineageInput,
   cited: VerifiedContainerAccessManifest,
   floor: VerifiedContainerAccessManifest,
 ): void {
-  const containerId = cited.state.containerId;
-  let current: VerifiedContainerAccessManifest | undefined = cited;
-  while (current && current.state.epoch >= floor.state.epoch) {
-    if (current.manifestHash === floor.manifestHash) return;
-    const previousHash: string | null = current.state.previousManifestHash;
-    current =
-      previousHash === null
-        ? undefined
-        : input.verifiedByHash.get(previousHash);
-  }
+  if (descendsFrom(input.verifiedByHash, cited, floor)) return;
   throw new KeyingVerificationError(
     "rollback",
-    `${input.label} cites a head of container ${containerId} that does not descend from the head an earlier signed statement already proved current`,
+    `${input.label} cites a head of container ${cited.state.containerId} that does not descend from the head an earlier signed statement already proved current`,
   );
 }
 
@@ -205,12 +213,12 @@ export function assertCitedAncestorsDoNotRegress(
     const containerId = ancestor.state.containerId;
     const citedChild = input.citedAncestors[index + 1] ?? previous;
     const floors = [
-      verifiedCitedHead(input, previousCited, containerId),
+      verifiedCitedHead(input.verifiedByHash, previousCited, containerId),
       ...(citedChild
         ? [
             input.verifiedByHash.get(citedChild.state.parentManifestHash ?? ""),
             verifiedCitedHead(
-              input,
+              input.verifiedByHash,
               citedChild.event.event.dependencyManifestHashes,
               containerId,
             ),
@@ -228,11 +236,12 @@ export function assertCitedAncestorsDoNotRegress(
 /**
  * A served head newer than this device's checkpoint for its container must
  * cite, for every ancestor, the head the projection serves as current. A
- * member revoked from an ancestor could otherwise, with a server that still
- * presents the older ancestor head as current, commit a child event that a
- * device already holding the child would take for a stale delivery. A device
- * with no checkpoint is at first contact and takes the served history as it
- * is, as it does for principal policies.
+ * member revoked from an ancestor could otherwise commit a child event citing
+ * the ancestor head that still granted them, and a device already holding
+ * the child would take it for a stale delivery. The rule reads the served
+ * heads, so it composes with the ancestor's own checkpoint; a device with no
+ * checkpoint for the child is at first contact with it and takes the served
+ * history as it is, as it does for principal policies.
  *
  * Only the head is held to this, not the history between the checkpoint and
  * it: a child head committed before an ancestor advanced and first seen after
@@ -241,30 +250,55 @@ export function assertCitedAncestorsDoNotRegress(
  * `stale_citation`, its own code, because the device cannot tell that honest
  * ordering from a forgery and must simply wait: sync defers rather than
  * records an incident, and no fresh projection resolves it.
+ *
+ * The opposite disagreement is not that: the signed event proves the head it
+ * cites exists, so a served ancestor head that does not descend from the
+ * cited one is a stale or forked ancestor head, whatever the server calls
+ * current, and stays a reportable rollback.
  */
 export async function assertNewHeadCitesServedAncestors(input: {
   readonly execSql: ExecSql;
   readonly head: VerifiedContainerAccessManifest;
   readonly label: string;
+  readonly localCheckpoints: Map<string, AccessManifestCheckpoint | null>;
   readonly servedAncestors: readonly VerifiedContainerAccessManifest[];
+  readonly verifiedByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>;
 }): Promise<void> {
   if (input.servedAncestors.length === 0) return;
-  const localCheckpoint = await loadAccessManifestCheckpoint(
-    input.execSql,
-    "container",
-    input.head.state.organizationId,
-    input.head.state.containerId,
-  );
+  const localCheckpoint = await loadLocalAccessManifestCheckpoint({
+    execSql: input.execSql,
+    localCheckpoints: input.localCheckpoints,
+    objectId: input.head.state.containerId,
+    objectKind: "container",
+    organizationId: input.head.state.organizationId,
+  });
   if (!localCheckpoint || input.head.state.epoch <= localCheckpoint.epoch) {
     return;
   }
-  const cited = new Set(input.head.event.event.dependencyManifestHashes);
-  for (const ancestor of input.servedAncestors) {
-    if (!cited.has(ancestor.manifestHash)) {
+  const citations = input.head.event.event.dependencyManifestHashes;
+  for (const served of input.servedAncestors) {
+    const containerId = served.state.containerId;
+    const cited = verifiedCitedHead(
+      input.verifiedByHash,
+      citations,
+      containerId,
+    );
+    if (!cited) {
       throw new KeyingVerificationError(
-        "stale_citation",
-        `${input.label} is newer than the local checkpoint but cites a stale head of ancestor container ${ancestor.state.containerId} rather than the served current head; a later event on the container that cites the current heads supersedes it`,
+        "missing_dependency",
+        `${input.label} does not cite a verified head of ancestor container ${containerId}`,
       );
     }
+    if (cited.manifestHash === served.manifestHash) continue;
+    if (descendsFrom(input.verifiedByHash, served, cited)) {
+      throw new KeyingVerificationError(
+        "stale_citation",
+        `${input.label} is newer than the local checkpoint but cites a stale head of ancestor container ${containerId} rather than the served current head; a later event on the container that cites the current heads supersedes it`,
+      );
+    }
+    throw new KeyingVerificationError(
+      "rollback",
+      `${input.label} cites a head of ancestor container ${containerId} that the served current head does not descend from`,
+    );
   }
 }

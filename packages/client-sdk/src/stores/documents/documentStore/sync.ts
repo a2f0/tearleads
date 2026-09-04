@@ -1,8 +1,6 @@
-import { reportAndRethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
 import {
   type DocumentRecord,
   type DocumentSyncLane,
-  isDatabaseUnavailableError,
   type PendingUpdateRecord,
   registerDocumentSyncLane,
   resolveDocumentCreateAuthor,
@@ -25,6 +23,7 @@ import {
 } from "./syncAcceptedUpdateIds";
 import { syncPendingAttachments } from "./syncAttachments";
 import { syncDetachedAttachmentBindings } from "./syncDetachedAttachments";
+import { settleScheduledSyncFailure } from "./syncFailureSettlement";
 import { finalizeDocumentSync } from "./syncFinalize";
 import {
   captureDocumentStoreAttachmentSyncGeneration,
@@ -389,21 +388,7 @@ async function runScheduledSyncIteration(
     await runDocumentSyncPass(state, syncLaneGeneration);
     return true;
   } catch (error) {
-    if (isDatabaseUnavailableError(error)) {
-      return false;
-    }
-
-    await reportAndRethrowKeyingVerificationError(
-      error,
-      state.runtime.util.reportSecurityIncident,
-      {
-        objectId: state.record?.documentId ?? state.localId,
-        objectKind: "document",
-        operation: "document.sync",
-      },
-    );
-
-    throw error;
+    return settleScheduledSyncFailure(state, error);
   }
 }
 

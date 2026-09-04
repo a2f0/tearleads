@@ -7,6 +7,38 @@ import {
 import { loadAccessManifestCheckpoint } from "../persistence/keyingCheckpointPersistence";
 import type { ExecSql } from "../sqlite/sqlSchema";
 
+/**
+ * The local checkpoint for one object, read once per verification: every
+ * checkpoint-enforced element of a served path reads its own checkpoint, and
+ * the currency rule reads it again, while nothing commits a checkpoint until
+ * the whole projection has verified.
+ */
+export async function loadLocalAccessManifestCheckpoint(input: {
+  readonly execSql: ExecSql;
+  readonly localCheckpoints?:
+    | Map<string, AccessManifestCheckpoint | null>
+    | undefined;
+  readonly objectId: string;
+  readonly objectKind: AccessManifest["objectKind"];
+  readonly organizationId: string;
+}): Promise<AccessManifestCheckpoint | null> {
+  const key = JSON.stringify([
+    input.objectKind,
+    input.organizationId,
+    input.objectId,
+  ]);
+  const cached = input.localCheckpoints?.get(key);
+  if (cached !== undefined) return cached;
+  const loaded = await loadAccessManifestCheckpoint(
+    input.execSql,
+    input.objectKind,
+    input.organizationId,
+    input.objectId,
+  );
+  input.localCheckpoints?.set(key, loaded);
+  return loaded;
+}
+
 interface ManifestCheckpointVerificationInput<
   TManifest extends VerifiedAccessManifestCheckpointEvidence,
 > {
@@ -34,14 +66,18 @@ export async function loadManifestCheckpointVerification<
 >(input: {
   readonly current: AccessManifest;
   readonly execSql: ExecSql;
+  readonly localCheckpoints?:
+    | Map<string, AccessManifestCheckpoint | null>
+    | undefined;
   readonly verifiedManifests: ReadonlyMap<string, TManifest>;
 }): Promise<ManifestCheckpointVerificationInput<TManifest>> {
-  const localCheckpoint = await loadAccessManifestCheckpoint(
-    input.execSql,
-    input.current.objectKind,
-    input.current.organizationId,
-    input.current.objectId,
-  );
+  const localCheckpoint = await loadLocalAccessManifestCheckpoint({
+    execSql: input.execSql,
+    localCheckpoints: input.localCheckpoints,
+    objectId: input.current.objectId,
+    objectKind: input.current.objectKind,
+    organizationId: input.current.organizationId,
+  });
   const checkpointPredecessors = localCheckpoint
     ? [...input.verifiedManifests.values()]
         .filter((candidate) =>
@@ -59,6 +95,9 @@ export async function loadManifestCheckpointVerification<
 export async function verifyCachedManifestCheckpoint(input: {
   readonly current: VerifiedAccessManifestCheckpointEvidence;
   readonly execSql: ExecSql;
+  readonly localCheckpoints?:
+    | Map<string, AccessManifestCheckpoint | null>
+    | undefined;
   readonly verifiedManifests: ReadonlyMap<
     string,
     VerifiedAccessManifestCheckpointEvidence
@@ -67,6 +106,7 @@ export async function verifyCachedManifestCheckpoint(input: {
   const checkpoint = await loadManifestCheckpointVerification({
     current: input.current.manifest,
     execSql: input.execSql,
+    localCheckpoints: input.localCheckpoints,
     verifiedManifests: input.verifiedManifests,
   });
   verifyAccessManifestLocalCheckpoint({
