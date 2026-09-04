@@ -20,6 +20,20 @@ variable "deployment_tier" {
   default     = "staging"
 }
 
+variable "extra_demo_domains" {
+  description = "Additional Cloudflare zone names that should route this tier's demo host to this server."
+  type        = list(string)
+  default     = []
+
+  validation {
+    # Entries are bare zone names; the demo label is added per tier. Accepting
+    # an already-prefixed name would publish demo.demo.<zone> across DNS, tunnel
+    # ingress, nginx server_name, and the API CORS allowlist alike.
+    condition     = alltrue([for domain in var.extra_demo_domains : can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$", domain)) && !startswith(domain, "demo.") && !startswith(domain, "demo-")])
+    error_message = "extra_demo_domains entries must be bare zone names without a demo label (for example tearleads.de)."
+  }
+}
+
 variable "manage_website_cache" {
   description = "Whether this stack owns the zone-level website cache ruleset"
   type        = bool

@@ -1,0 +1,58 @@
+---
+# Nginx server blocks and document roots for the statically served bundles:
+# the app host, the demo hosts, and the marketing website.
+- name: Configure nginx site for application
+  ansible.builtin.template:
+    src: etc/nginx/sites-available/app.conf.j2
+    dest: /etc/nginx/sites-available/app.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload nginx
+
+- name: Enable nginx site
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/app.conf
+    dest: /etc/nginx/sites-enabled/app.conf
+    state: link
+  notify: Reload nginx
+
+- name: Create website directory
+  ansible.builtin.file:
+    path: /var/www/website
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: "0755"
+
+- name: Create app-web directory
+  ansible.builtin.file:
+    path: /var/www/app-web
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: "0755"
+
+- name: Create app-demo directory
+  ansible.builtin.file:
+    path: /var/www/app-demo
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: "0755"
+
+- name: Configure nginx site for website
+  ansible.builtin.template:
+    src: etc/nginx/sites-available/website.conf.j2
+    dest: /etc/nginx/sites-available/website.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload nginx
+
+- name: Enable nginx website site
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/website.conf
+    dest: /etc/nginx/sites-enabled/website.conf
+    state: link
+  notify: Reload nginx

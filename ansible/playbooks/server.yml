@@ -40,6 +40,19 @@
     app_hostname: >-
       {{ 'app-staging.' ~ domain if deployment_tier == 'staging'
       else 'app.' ~ domain }}
+    app_demo_host_prefix: "{{ 'demo-staging.' if deployment_tier == 'staging' else 'demo.' }}"
+    app_demo_hostname: "{{ app_demo_host_prefix ~ domain }}"
+    # The demo also answers on other Cloudflare zones (e.g. tearleads.de). One
+    # zone list drives all three of its surfaces -- Terraform reads
+    # TF_VAR_extra_demo_domains for the DNS records and tunnel ingress, and this
+    # play and the app-web deploy read the same value -- so a host can never be
+    # routed here without a server block and a CORS origin to answer it.
+    extra_demo_domain_pattern: '^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$'
+    extra_demo_domains_raw: "{{ lookup('env', 'TF_VAR_extra_demo_domains') | default('[]', true) }}"
+    extra_demo_domains: "{{ extra_demo_domains_raw | from_json }}"
+    app_demo_hostnames: >-
+      {{ [app_demo_hostname] + (extra_demo_domains |
+      map('regex_replace', '^', app_demo_host_prefix) | list) }}
     website_hostname: >-
       {{ 'website-staging.' ~ domain if deployment_tier == 'staging'
       else domain }}
@@ -81,8 +94,10 @@
     blob_s3_secret_access_key: "{{ lookup('env', 'BLOB_OBJECT_STORE_S3_SECRET_ACCESS_KEY') | default('', true) }}"
     blob_s3_key_prefix: "{{ lookup('env', 'BLOB_OBJECT_STORE_S3_KEY_PREFIX') | default('', true) }}"
     # The Capacitor Android/iOS WebView serves the app from https://localhost; release builds fetch the API cross-origin, so allow it.
-    api_web_cors_origins: "{{ [app_hostname] | map('regex_replace', '^(.*)$', 'https://\\1') | list }}"
+    api_web_cors_origins: "{{ ([app_hostname] + app_demo_hostnames) | map('regex_replace', '^(.*)$', 'https://\\1') | list }}"
     api_default_cors_origins: "{{ (api_web_cors_origins + ['https://localhost']) | join(',') }}"
+    # An explicit API_CORS_ORIGINS replaces the computed list outright, demo
+    # origins included; set it only with the full allowlist for the tier.
     api_cors_origins: "{{ lookup('env', 'API_CORS_ORIGINS') | default(api_default_cors_origins, true) }}"
     revenuecat_webhook_auth_header: "{{ lookup('env', 'REVENUECAT_WEBHOOK_AUTH_HEADER') | default('', true) }}"
     revenuecat_v2_secret_key: "{{ lookup('env', 'REVENUECAT_V2_SECRET_KEY') | default('', true) }}"
@@ -108,6 +123,9 @@
     code_assist_github_webhook_secret: "{{ lookup('env', 'CODE_ASSIST_GITHUB_WEBHOOK_SECRET') | default('', true) }}"
     code_assist_github_private_key_src: "{{ lookup('env', 'CODE_ASSIST_GITHUB_PRIVATE_KEY_SRC') | default('', true) }}"
   tasks:
+    - name: Validate extra demo zone names
+      ansible.builtin.import_tasks: tasks/demoZones.yml
+
     - name: Apply shared Linux security baseline
       ansible.builtin.import_tasks: tasks/linuxSecurityBaseline.yml
 
@@ -155,53 +173,8 @@
         state: absent
       notify: Reload nginx
 
-    - name: Configure nginx site for application
-      ansible.builtin.template:
-        src: etc/nginx/sites-available/app.conf.j2
-        dest: /etc/nginx/sites-available/app.conf
-        owner: root
-        group: root
-        mode: "0644"
-      notify: Reload nginx
-
-    - name: Enable nginx site
-      ansible.builtin.file:
-        src: /etc/nginx/sites-available/app.conf
-        dest: /etc/nginx/sites-enabled/app.conf
-        state: link
-      notify: Reload nginx
-
-    - name: Create website directory
-      ansible.builtin.file:
-        path: /var/www/website
-        state: directory
-        owner: www-data
-        group: www-data
-        mode: "0755"
-
-    - name: Create app-web directory
-      ansible.builtin.file:
-        path: /var/www/app-web
-        state: directory
-        owner: www-data
-        group: www-data
-        mode: "0755"
-
-    - name: Configure nginx site for website
-      ansible.builtin.template:
-        src: etc/nginx/sites-available/website.conf.j2
-        dest: /etc/nginx/sites-available/website.conf
-        owner: root
-        group: root
-        mode: "0644"
-      notify: Reload nginx
-
-    - name: Enable nginx website site
-      ansible.builtin.file:
-        src: /etc/nginx/sites-available/website.conf
-        dest: /etc/nginx/sites-enabled/website.conf
-        state: link
-      notify: Reload nginx
+    - name: Configure static site roots and nginx sites
+      ansible.builtin.import_tasks: tasks/staticSites.yml
 
     - name: Configure nginx site for API
       ansible.builtin.template:

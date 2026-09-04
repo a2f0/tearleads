@@ -58,7 +58,7 @@
     "lint:openapi:compatibility": "sh scripts/checks/checkOpenApiCompatibility.sh",
     "lint:package-assertions": "bun scripts/lintPackageAssertions.ts",
     "lint:ruby": "sh scripts/checks/checkRuby.sh",
-    "lint:scripts": "shellcheck --severity=info ansible/scripts/*.sh scripts/*.sh scripts/*/*.sh terraform/scripts/*.sh terraform/stacks/staging/server/scripts/*.sh terraform/stacks/prod/server/scripts/*.sh",
+    "lint:scripts": "shellcheck --severity=info ansible/scripts/*.sh packages/*/scripts/*.sh scripts/*.sh scripts/*/*.sh terraform/scripts/*.sh terraform/stacks/staging/server/scripts/*.sh terraform/stacks/prod/server/scripts/*.sh",
     "lint:source-shape": "bun scripts/lintSourceShape.ts",
     "report:dependencies": "bun scripts/reportDependencyGraph.ts",
     "report:dependencies:archi": "bun scripts/reportDependencyGraph.ts --format archi",

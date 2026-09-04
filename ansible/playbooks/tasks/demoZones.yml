@@ -1,0 +1,23 @@
+---
+# The playbook runs without Terraform (--skip-terraform, or run-server-*.sh
+# directly), so it cannot rely on the variable's Terraform validation: these
+# names reach nginx's server_name and the API's CORS allowlist.
+- name: Validate the extra demo zone list is JSON
+  ansible.builtin.assert:
+    that:
+      - extra_demo_domains_raw is match('^\\s*\\[')
+    fail_msg: >-
+      TF_VAR_extra_demo_domains must be a JSON array, quoted in the tier's
+      secrets file: TF_VAR_extra_demo_domains='["tearleads.de"]'.
+
+- name: Validate extra demo zone names
+  ansible.builtin.assert:
+    that:
+      - extra_demo_domains is sequence
+      - extra_demo_domains is not string
+      - extra_demo_domains is not mapping
+      - extra_demo_domains | reject('match', extra_demo_domain_pattern) | list | length == 0
+      - extra_demo_domains | select('match', '^demo[.-]') | list | length == 0
+    fail_msg: >-
+      TF_VAR_extra_demo_domains must be a JSON array of bare zone names,
+      for example ["tearleads.de"]. The demo label is added per tier.
