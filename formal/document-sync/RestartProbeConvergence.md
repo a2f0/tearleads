@@ -56,3 +56,33 @@ an armed probe eventually succeed. A dropped hint after acknowledged readiness
 may remain stale until a later recovery trigger. Unopened-document policy,
 HTTP failure/backoff, encrypted payload integrity, attachment binding/blob
 hydration, SQLite transactionality, and Loro merge correctness are out of scope.
+
+## Implementation trace projection
+
+`bun run check:protocol-projection` (part of `check:fast`) replays recorded
+implementation runs through this model. Two scenario tests drive the real
+seams with fault injection and record each run as a sequence of the model's
+actions:
+
+- `packages/client-sdk/src/stores/documents/documentStore/restartProbeProjection.test.ts`
+  drives the probe-signal kernels (`handleDocumentRemoteEvents`,
+  `clearConsumedRemoteUpdateSignal`, the arming helpers) through delivered and
+  echoed hints, a mid-flight hint, a restart, and the post-ack revalidation,
+  recording the implementation-projected `probeRequested` bit after each step.
+- `packages/app/src/providers/sdk/restartProbeProjection.test.ts` drives the
+  interest-barrier seams (`routeIncomingWsMessage`,
+  `startContainerInterestDeclaration`) through a disconnect, reconnect
+  baseline, authoritative declaration, a stale-acknowledgement refusal, and
+  the matching acknowledgement, recording the observed frame ordering.
+
+The check generates a TLC module per trace whose next-state relation conjoins
+the model's own action (and the recorded observation bits) for each step; a
+sequence or projected bit the model rejects deadlocks TLC and fails the check.
+Two negative controls run every time — a dropped declaration and a flipped
+settled-probe observation — so the oracle cannot silently go vacuous.
+Boundaries: the probe scenario scripts the interest-side transitions (the app
+scenario records them from its own seams), the restart re-initialization and
+post-acknowledgement revalidation arming calls are scripted to mirror
+`initializeDocumentStore` and the reconnect wiring (the kernels then own the
+armed signal), and each trace validates one recorded interleaving, not the
+full state space — the registered bounded model run remains the exploration.

@@ -6,7 +6,7 @@ import {
   handleOrganizationReadModelInterestAcknowledgement,
   subscribeOrganizationReadModelRealtime,
 } from "./organizationReadModelRealtime";
-import { routeIncomingWsMessage } from "./serverEventsBinding";
+import { routeIncomingWsMessage } from "./serverEventsRouting";
 import {
   acknowledgeLatestDeclaration,
   createRuntimeHarness,
