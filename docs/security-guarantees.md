@@ -255,7 +255,15 @@ with the manifest. For every ancestor, a head must cite a head that is or
 descends, through verified predecessors, from the head an earlier signed
 statement already established, so neither an older head nor a same-epoch fork
 of that ancestor can authorize a later child event. A served path must be a
-root-to-leaf chain of parent edges.
+root-to-leaf chain of parent edges, checked by container id. Document link
+events are authorized through dependency container paths served the same
+way; those are verified at the membership they referenced and without
+checkpoint enforcement, because a historical link legitimately cites the
+container heads current when it was signed. The checkpoint-enforced
+authorizing path recorded for a leaf takes precedence over any dependency path
+served for the same leaf, whatever order the server lists them in. Whether a
+link's container evidence predates a later rotation of that container is the
+same ordering boundary as for container heads.
 
 Not yet applied to containers is the principal-policy rule that a successor
 new to a device must cite the authority's current head. The API today refuses
