@@ -265,17 +265,25 @@ served for the same leaf, whatever order the server lists them in. Whether a
 link's container evidence predates a later rotation of that container is the
 same ordering boundary as for container heads.
 
-Not yet applied to containers is the principal-policy rule that a successor
-new to a device must cite the authority's current head. The API accepts a
-mutation on a container whose pinned parent manifest is no longer the parent's
-head, as long as the event cites the current ancestor heads, and it serves the
-heads an event cites alongside the projection even when they are neither on
-the current path nor pinned by any manifest. A child head that rule would
-reject can therefore be superseded by a later child event citing the newer
-ancestor. Until a client applies the rule, every device accepts a child head
-authorized under an older ancestor head, whether or not it has checkpointed a
-newer one; only a signed statement that already established the newer head
-makes a citation that does not descend from it a rollback.
+Not applied to containers, by design, is the principal-policy rule that a
+successor new to a device must cite the authority's current head. An honest
+server routinely serves a descendant head that cites the ancestor head
+current when it was committed, signed by a member since revoked at that
+ancestor, and a device cannot tell that member's last honest event, delivered
+late, from one committed afterwards with the server's help. Refusing the
+shape would leave every device that already holds the descendant unable to
+supersede its head, since every mutation verifies the same projection first,
+so a device's ability to read or write would depend on another device with no
+history for the container. The API refuses the forgery at commit, and the
+lineage rule above makes the next legitimate event on the descendant final.
+The residual is that a member revoked at an ancestor, with a compromised
+server, can keep authority over a descendant until that next event; a
+best-effort re-cite of the descendants a revoking client already holds
+shortens that window without any device depending on another. What the
+client does refuse is the opposite disagreement: a served current ancestor
+head that does not descend from a head a child's signed event cites is a
+stale or forked ancestor, whatever the server calls current, since the
+signature proves the cited head exists.
 
 ### Content Confidentiality
 

@@ -24,10 +24,10 @@ import {
   observeAccessManifestCheckpoints,
   type ProjectionCheckpointContext,
 } from "./checkpointContext";
+import { verifyContainerManifestPath } from "./containerPathVerification";
 import {
   addContainerWriterProjectionBundles,
   verifiedContainerManifestsForBundles,
-  verifyContainerManifestPath,
   verifyContainerWriterProjectionWithContext,
 } from "./containerProjectionVerification";
 import {
@@ -227,6 +227,7 @@ export async function verifyDocumentManifestBundle(input: {
       await verifyCachedManifestCheckpoint({
         current: cached,
         execSql: input.checkpointContext.execSql,
+        localCheckpoints: input.checkpointContext.localCheckpoints,
         verifiedManifests: input.verifiedByHash,
       });
     }
@@ -268,6 +269,7 @@ export async function verifyDocumentManifestBundle(input: {
     ? await loadManifestCheckpointVerification({
         current: manifest,
         execSql: input.checkpointContext.execSql,
+        localCheckpoints: input.checkpointContext.localCheckpoints,
         verifiedManifests: input.verifiedByHash,
       })
     : null;

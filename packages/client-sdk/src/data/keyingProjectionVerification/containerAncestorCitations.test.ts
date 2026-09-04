@@ -12,6 +12,7 @@ import {
   ROOT_ID,
   verifyPath,
 } from "../../../test/helpers/ancestorCitationScenario";
+import { verifiedCitedHead } from "./containerAncestorCitations";
 
 // A child manifest pins the parent it was created under, and successors
 // inherit that pin, so a member revoked from an ancestor could keep signing
@@ -234,6 +235,87 @@ test("a served path must start at a root", async () => {
     ).rejects.toMatchObject({
       code: "object_mismatch",
       message: expect.stringContaining("parent container"),
+    });
+  } finally {
+    close();
+  }
+});
+
+test("a citation set naming two verified heads of one container is refused", async () => {
+  // An event cites one head per container; two verified ones is a served
+  // citation set that was tampered with, whichever the rule would pick.
+  const scenario = await createScenario();
+  const verifiedByHash = new Map([
+    [scenario.root1.manifestHash, scenario.root1],
+    [scenario.root2.manifestHash, scenario.root2],
+  ]);
+  expect(() =>
+    verifiedCitedHead({
+      cited: [scenario.root1.manifestHash, scenario.root2.manifestHash],
+      containerId: ROOT_ID,
+      label: "Ancestor citation path[1]",
+      verifiedByHash,
+    }),
+  ).toThrow(/more than one head/);
+  expect(
+    verifiedCitedHead({
+      cited: [scenario.root2.manifestHash],
+      containerId: ROOT_ID,
+      label: "Ancestor citation path[1]",
+      verifiedByHash,
+    })?.manifestHash,
+  ).toBe(scenario.root2.manifestHash);
+});
+
+test("a device that checkpointed the child still accepts a head citing an older ancestor head", async () => {
+  const scenario = await createScenario();
+  // Mallory, revoked at root2, signs a child event citing root1. A device
+  // that holds the child cannot tell her last honest share, delivered late,
+  // from a share forged with the server's help, and an honest server serves
+  // this shape routinely; refusing it would leave every device holding the
+  // child unable to supersede it. The API refuses the forgery at commit.
+  const child2 = await grantBy({
+    cited: [scenario.root1.manifestHash, scenario.child1.manifestHash],
+    previous: scenario.child1,
+    signer: scenario.mallory,
+    subjectId: scenario.mallory.userId,
+  });
+  const { close, execSql } = await createTestExecSql("ancestor-cites-held");
+  try {
+    await checkpointChildAt(scenario, execSql, scenario.child1, [
+      scenario.root1,
+      scenario.child1,
+    ]);
+    const verified = await verifyPath(scenario, execSql, {
+      bundles: [scenario.root1, scenario.root2, scenario.child1, child2],
+      path: [scenario.root2, child2],
+    });
+    expect(verified).toHaveLength(2);
+  } finally {
+    close();
+  }
+});
+
+test("a served ancestor head older than the one a head cites is a rollback", async () => {
+  const scenario = await createScenario();
+  // Committed against root2: the signed event proves root2 exists, so a
+  // server presenting root1 as current is stale or forked.
+  const child2 = await grantBy({
+    cited: [scenario.root2.manifestHash, scenario.child1.manifestHash],
+    previous: scenario.child1,
+    signer: scenario.alice,
+    subjectId: "bob",
+  });
+  const { close, execSql } = await createTestExecSql("ancestor-reversed");
+  try {
+    await expect(
+      verifyPath(scenario, execSql, {
+        bundles: [scenario.root1, scenario.root2, scenario.child1, child2],
+        path: [scenario.root1, child2],
+      }),
+    ).rejects.toMatchObject({
+      code: "rollback",
+      message: expect.stringContaining("does not descend"),
     });
   } finally {
     close();

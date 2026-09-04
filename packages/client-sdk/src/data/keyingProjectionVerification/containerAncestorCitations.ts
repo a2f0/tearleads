@@ -23,13 +23,15 @@ import { readRecordNullableString } from "./readers";
  * head one signed statement established can never be rolled back or forked
  * away for a later one.
  *
- * Not applied here: the principal-policy rule that a successor new to this
- * device must cite the authority's current head. The API accepts a mutation
- * on a container whose pinned parent manifest is no longer the parent's head
- * as long as the event cites the current ancestor heads, and serves the
- * cited heads with the projection, so a later child event can supersede a
- * head that rule would reject. Applying the rule here, with that recovery,
- * is a follow-up.
+ * Not applied, by design: the principal-policy rule that a successor new to
+ * a device must cite the authority's current head. An honest server serves a
+ * child head citing the ancestor head that was current when it was
+ * committed, signed by a member since revoked at that ancestor, and refusing
+ * that shape would leave every device holding the child unable to supersede
+ * it. What can be refused is the opposite disagreement: a served current
+ * ancestor head that does not descend from a head the child's signed event
+ * proves exists is a stale or forked ancestor, whatever the server calls
+ * current.
  */
 
 interface CitedAncestorResolutionInput {
@@ -146,44 +148,67 @@ export type CitedLineageInput = Pick<
   "bundlesByHash" | "label" | "verifiedByHash"
 >;
 
-function verifiedCitedHead(
-  input: CitedLineageInput,
-  cited: readonly string[],
-  containerId: string,
-): VerifiedContainerAccessManifest | undefined {
-  const manifestHash = cited.find(
-    (candidate) => citedContainerId(input, candidate) === containerId,
-  );
-  return manifestHash === undefined
-    ? undefined
-    : input.verifiedByHash.get(manifestHash);
+/**
+ * The verified head of `containerId` among the cited hashes, if any. Reads
+ * verified manifests only: a cited hash the pass has not verified is not a
+ * head to reason about, and every caller runs after the cited ancestor path
+ * resolved and verified the chain. An event cites one head per container,
+ * so a second verified one is a served citation set that was tampered with,
+ * not a choice to make.
+ */
+export function verifiedCitedHead(input: {
+  readonly cited: readonly string[];
+  readonly containerId: string;
+  readonly label: string;
+  readonly verifiedByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>;
+}): VerifiedContainerAccessManifest | undefined {
+  let found: VerifiedContainerAccessManifest | undefined;
+  for (const manifestHash of input.cited) {
+    const verified = input.verifiedByHash.get(manifestHash);
+    if (verified?.state.containerId !== input.containerId) continue;
+    if (found && found.manifestHash !== verified.manifestHash) {
+      throw new KeyingVerificationError(
+        "duplicate_entry",
+        `${input.label} cites more than one head of container ${input.containerId}`,
+      );
+    }
+    found = verified;
+  }
+  return found;
 }
 
 /**
- * The cited head must be the established head or descend from it through
- * verified predecessors. Epochs alone would let a same-epoch fork signed
- * under an older head pass; lineage cannot be forged without the chain.
- * Every predecessor of a verified manifest was verified with it, so a hop
- * that is not in the verified set means the chain was not served.
+ * Whether `head` is `floor` or descends from it through verified
+ * predecessors. Epochs alone would let a same-epoch fork signed under an
+ * older head pass; lineage cannot be forged without the chain. Every
+ * predecessor of a verified manifest was verified with it, so a hop that is
+ * not in the verified set means the chain was not served.
  */
+function descendsFrom(
+  verifiedByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>,
+  head: VerifiedContainerAccessManifest,
+  floor: VerifiedContainerAccessManifest,
+): boolean {
+  let current: VerifiedContainerAccessManifest | undefined = head;
+  while (current && current.state.epoch >= floor.state.epoch) {
+    if (current.manifestHash === floor.manifestHash) return true;
+    const previousHash: string | null = current.state.previousManifestHash;
+    current =
+      previousHash === null ? undefined : verifiedByHash.get(previousHash);
+  }
+  return false;
+}
+
+/** The cited head must be the established head or descend from it. */
 function assertCitedHeadDescendsFrom(
   input: CitedLineageInput,
   cited: VerifiedContainerAccessManifest,
   floor: VerifiedContainerAccessManifest,
 ): void {
-  const containerId = cited.state.containerId;
-  let current: VerifiedContainerAccessManifest | undefined = cited;
-  while (current && current.state.epoch >= floor.state.epoch) {
-    if (current.manifestHash === floor.manifestHash) return;
-    const previousHash: string | null = current.state.previousManifestHash;
-    current =
-      previousHash === null
-        ? undefined
-        : input.verifiedByHash.get(previousHash);
-  }
+  if (descendsFrom(input.verifiedByHash, cited, floor)) return;
   throw new KeyingVerificationError(
     "rollback",
-    `${input.label} cites a head of container ${containerId} that does not descend from the head an earlier signed statement already proved current`,
+    `${input.label} cites a head of container ${cited.state.containerId} that does not descend from the head an earlier signed statement already proved current`,
   );
 }
 
@@ -206,15 +231,21 @@ export function assertCitedAncestorsDoNotRegress(
     const containerId = ancestor.state.containerId;
     const citedChild = input.citedAncestors[index + 1] ?? previous;
     const floors = [
-      verifiedCitedHead(input, previousCited, containerId),
+      verifiedCitedHead({
+        cited: previousCited,
+        containerId,
+        label: input.label,
+        verifiedByHash: input.verifiedByHash,
+      }),
       ...(citedChild
         ? [
             input.verifiedByHash.get(citedChild.state.parentManifestHash ?? ""),
-            verifiedCitedHead(
-              input,
-              citedChild.event.event.dependencyManifestHashes,
+            verifiedCitedHead({
+              cited: citedChild.event.event.dependencyManifestHashes,
               containerId,
-            ),
+              label: input.label,
+              verifiedByHash: input.verifiedByHash,
+            }),
           ]
         : []),
     ];
@@ -224,4 +255,36 @@ export function assertCitedAncestorsDoNotRegress(
       }
     }
   });
+}
+
+/**
+ * Every served current ancestor head must be, or descend through verified
+ * predecessors from, the head of that container the head's signed event
+ * cites. A served head older than the cited one, or a same-epoch fork of it,
+ * is a rollback the signature proves: the cited head exists. A served head
+ * newer than the cited one is the ordinary lag of a descendant behind its
+ * ancestors, and an ancestor the head does not cite at all joined the path
+ * when an ancestor between them moved; neither is refused.
+ */
+export function assertServedAncestorsDescendFromCitations(input: {
+  readonly head: VerifiedContainerAccessManifest;
+  readonly label: string;
+  readonly servedAncestors: readonly VerifiedContainerAccessManifest[];
+  readonly verifiedByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>;
+}): void {
+  const citations = input.head.event.event.dependencyManifestHashes;
+  for (const served of input.servedAncestors) {
+    const containerId = served.state.containerId;
+    const cited = verifiedCitedHead({
+      cited: citations,
+      containerId,
+      label: input.label,
+      verifiedByHash: input.verifiedByHash,
+    });
+    if (!cited || descendsFrom(input.verifiedByHash, served, cited)) continue;
+    throw new KeyingVerificationError(
+      "rollback",
+      `${input.label} cites a head of ancestor container ${containerId} that the served current head does not descend from`,
+    );
+  }
 }

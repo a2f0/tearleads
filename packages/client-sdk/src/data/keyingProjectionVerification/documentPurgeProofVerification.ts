@@ -17,10 +17,8 @@ import {
   observeAccessManifestCheckpoints,
   observePrincipalPolicy,
 } from "./checkpointContext";
-import {
-  verifiedContainerManifestsForBundles,
-  verifyContainerManifestPath,
-} from "./containerProjectionVerification";
+import { verifyContainerManifestPath } from "./containerPathVerification";
+import { verifiedContainerManifestsForBundles } from "./containerProjectionVerification";
 import { authenticateDocumentPurgeArtifacts } from "./documentPurgePrincipalEvidence";
 import { rethrowDatabaseUnavailableError } from "./error";
 import {

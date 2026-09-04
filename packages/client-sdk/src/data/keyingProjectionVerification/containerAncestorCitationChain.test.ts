@@ -229,9 +229,10 @@ test("a move must not cite an older source ancestor head than its predecessor ci
   }
 });
 
-// Pins the boundary the security docs state: until descendants can re-cite
-// their ancestors (#2166), a device accepts a child head authorized under an
-// older ancestor head even when it has checkpointed the newer one. Only a
+// Pins the boundary the security docs state: a device accepts a child head
+// authorized under an older ancestor head even when it has checkpointed the
+// newer one, because an honest server serves that shape and refusing it
+// would leave every device holding the child unable to supersede it. Only a
 // signed statement that already established the newer head rejects it.
 test("a device that checkpointed a newer ancestor head still accepts a child head citing the older one", async () => {
   const scenario = await createScenario();

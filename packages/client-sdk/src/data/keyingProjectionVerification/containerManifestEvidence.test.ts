@@ -23,7 +23,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { manifestBundle } from "../../../test/helpers/ancestorCitationScenario";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import { createProjectionCheckpointContext } from "./checkpointContext";
-import { verifyContainerManifestPath } from "./containerProjectionVerification";
+import { verifyContainerManifestPath } from "./containerPathVerification";
 import { principalPolicyCacheForVerifiedPolicies } from "./principalPolicyCache";
 
 function policyState(
