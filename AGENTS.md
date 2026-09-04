@@ -10,6 +10,9 @@ Run the smallest command that matches the handoff risk:
 - `bun run check:protocol-models`: all bounded TLC checks registered in
   `formal/protocol-models.txt`, using the Java and TLA+ tools pinned in
   `.mise.toml`.
+- `bun run check:protocol-traces` and `bun run check:protocol-projection`:
+  the TLC trace fixture drift check and the implementation-trace projection
+  (both also inside `check:fast`; both need the mise-pinned Java/TLA+ tools).
 - `bun run check:affected`: `check:fast`, TypeScript, and affected Turbo tests.
 - `bun run check`: `check:fast`, TypeScript, and the full Turbo test suite.
 - `bun run lint:knip:production`: production-only dependency and source reachability.

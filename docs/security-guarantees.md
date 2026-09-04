@@ -141,6 +141,28 @@ drop and recreate pre-grant-index API databases and local client databases;
 the client fails startup with a reset-required error if it detects the legacy
 principal-policy table shape.
 
+The group display name is committed in the signed group payload. The
+`groups.name` column and the organization read model are listing aids; when a
+member shares a container with a group they chose by name, the client checks
+that name against the verified payload and fails closed on a mismatch, so a
+relabeled read-model row cannot redirect a share onto another group. Signed
+names are unique within an organization because conforming clients enforce
+it: group creation verifies every group in the signed directory before
+committing a new name. The server does not index group names uniquely, and a
+compromised server cannot mint a signed group, so the client-side check is the
+only one. Two admins creating the same name at once cannot both succeed: each
+creation commits a successor of the signed organization directory, and the
+API rejects a successor that does not cite the current directory head, so the
+loser reloads the directory and re-runs the check. This is also a greenfield
+flag-day. A group signed before names were committed fails every policy
+mutation and every share, and its organization must be reprovisioned.
+
+Known gap: the organization manager's membership picker is not bound the same
+way yet. Adding or removing a member signs a policy for the group id the
+read-model row carries, so a relabeled row could land a user in another group
+and its container grants. The signed name now exists to close this; the
+membership mutations do not compare it yet.
+
 The app repeats these checks on fetched policy bundles. A bundle with a
 tampered projection, payload, state hash, chain link, signer, or checkpoint
 raises a typed terminal verification error. It is neither cached nor used for
@@ -220,6 +242,31 @@ verifying it against pinned identities and local checkpoints. A later pinned
 authorizing-container head makes the proof fail closed because its ordering
 relative to the purge is not signed. Document predecessor history can still
 advance an older document checkpoint to the purge-time head.
+
+A container manifest pins the parent manifest it was created or moved under,
+and successor manifests inherit that pin, so the pin does not say which
+ancestor heads a later grant, revoke, or rekey was authorized under. Those
+heads are signed into the event: every container event cites the manifest
+hashes of the path it was committed against, and the API refuses an event
+whose citations are not the current heads at commit time. The client
+authorizes a head's signer against the cited heads, rebuilt root to parent
+from the served bundles, rather than against whatever path the server pairs
+with the manifest. For every ancestor, a head must cite a head that is or
+descends, through verified predecessors, from the head an earlier signed
+statement already established, so neither an older head nor a same-epoch fork
+of that ancestor can authorize a later child event. A served path must be a
+root-to-leaf chain of parent edges.
+
+Not yet applied to containers is the principal-policy rule that a successor
+new to a device must cite the authority's current head. The API today refuses
+any mutation on a container whose pinned parent manifest is no longer the
+parent's head, so a child head that rule rejected could never be superseded,
+and a device that missed a child event and the ancestor change after it would
+be locked out of the child for good. Until descendants can re-cite their
+ancestors, every device accepts a child head authorized under an older
+ancestor head, whether or not it has checkpointed a newer one; only a signed
+statement that already established the newer head makes a citation that does
+not descend from it a rollback.
 
 ### Content Confidentiality
 

@@ -48,6 +48,9 @@ function readOptionalProjectionString(
 }
 
 async function resolveCurrentGroupKeyEpoch(input: {
+  // Bound here, in the one verified load a duplicate share performs, so a
+  // duplicate never reports success for a group the user did not choose.
+  expectedGroupName?: string | undefined;
   groupId: string;
   organizationId: string;
   runtime: ContainerWorkflowRuntime;
@@ -57,6 +60,7 @@ async function resolveCurrentGroupKeyEpoch(input: {
   const verified = await loadVerifiedGroupSharePrincipalPolicy({
     apiClient: input.runtime.apiClient,
     execSql: input.runtime.infra.execSql,
+    expectedGroupName: input.expectedGroupName,
     groupId: input.groupId,
     organizationId: input.organizationId,
     resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
@@ -100,6 +104,7 @@ function groupGrantIsStale(input: {
 async function loadRemoteContainerShareContext(input: {
   accessLevel: ContainerShareAccessLevel;
   containerState: ContainerState;
+  expectedGroupName?: string | undefined;
   forceExistingGrantRewrap?: boolean | undefined;
   requireExistingGrant?: boolean | undefined;
   runtime: ContainerWorkflowRuntime;
@@ -158,6 +163,7 @@ async function loadRemoteContainerShareContext(input: {
     );
     const currentKeyEpoch = pinnedHead
       ? await resolveCurrentGroupKeyEpoch({
+          expectedGroupName: input.expectedGroupName,
           groupId: input.subjectId,
           organizationId: remoteState.organizationId,
           runtime: input.runtime,
@@ -356,6 +362,7 @@ export async function shareContainerState(input: {
 export async function shareContainerStateWithGroup(input: {
   accessLevel: ContainerShareAccessLevel;
   containerState: ContainerState;
+  expectedGroupName?: string | undefined;
   knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
   persistence: ContainerContentsPersistence;
   recipientGroupId: string;
@@ -368,10 +375,18 @@ export async function shareContainerStateWithGroup(input: {
   runtime: ContainerWorkflowRuntime;
   stillCurrent?: (() => boolean) | undefined;
 }): Promise<SharedContainerStateResult | null> {
+  // A share chosen by name must carry that name so it can be bound to the
+  // signed group policy. Only the grant-preserving re-wrap, which never mints
+  // a grant, may run without one. Enforced here, in the workflow facade, so
+  // every caller (not only the store) meets the invariant.
+  if (!input.requireExistingGrant && input.expectedGroupName === undefined) {
+    throw new Error("Container group share requires the chosen group name");
+  }
   if (input.stillCurrent?.() === false) return null;
   const shareContext = await loadRemoteContainerShareContext({
     accessLevel: input.accessLevel,
     containerState: input.containerState,
+    expectedGroupName: input.expectedGroupName,
     forceExistingGrantRewrap:
       input.requireExistingGrant && input.knownContainerKeks !== undefined,
     requireExistingGrant: input.requireExistingGrant,
@@ -384,6 +399,10 @@ export async function shareContainerStateWithGroup(input: {
     return null;
   }
   if (shareContext.matchingGrant) {
+    // A duplicate share mints nothing, but it must not report success for a
+    // group the user did not choose. A matching grant is only found after the
+    // key-epoch probe verified the group's policy with the chosen name bound,
+    // so the name is already checked here.
     input.runtime.util.log(
       `Container contents: skipped duplicate share for container ${input.containerState.container.id} with group ${input.recipientGroupId}`,
     );
@@ -400,6 +419,7 @@ export async function shareContainerStateWithGroup(input: {
   const shared = await shareRemoteContainerWithGroup({
     accessLevel: input.accessLevel,
     containerId: input.containerState.container.id,
+    expectedGroupName: input.expectedGroupName,
     knownContainerKeks: input.knownContainerKeks,
     previousProjection: shareContext.projection,
     recipientGroupId: input.recipientGroupId,

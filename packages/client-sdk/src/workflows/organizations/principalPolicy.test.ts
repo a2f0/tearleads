@@ -138,15 +138,22 @@ test("group creation and deletion persist authenticated organization directory s
   );
   const adminGroupId = crypto.randomUUID();
   const memberGroupId = crypto.randomUUID();
-  const adminPolicy = await policyBundleFromInitialRequest(
-    await buildInitialGroupPolicyRequest({
+  const builtinGroup = (groupId: string, name: string) =>
+    buildInitialGroupPolicyRequest({
       creatorEncapsulationKeyPair: creatorKem,
-      groupId: adminGroupId,
-      name: "Admins",
+      groupId,
+      name,
       signerUserId,
       signingFingerprint,
       signingKeyPair,
-    }),
+    });
+  const adminPolicy = await policyBundleFromInitialRequest(
+    await builtinGroup(adminGroupId, "Admins"),
+  );
+  // A real Members policy: creation walks every directory group to keep
+  // signed names unique, so the head must resolve to a verifiable bundle.
+  const memberPolicy = await policyBundleFromInitialRequest(
+    await builtinGroup(memberGroupId, "Members"),
   );
   let organizationPolicy = await organizationPolicyBundleFromInitialRequest(
     organizationId,
@@ -155,7 +162,7 @@ test("group creation and deletion persist authenticated organization directory s
       encapsulationPublicKey: creatorKem.publicKey,
       groupHeads: [
         principalPolicyHead(adminPolicy),
-        principalPolicyHead(adminPolicy, memberGroupId),
+        principalPolicyHead(memberPolicy),
       ],
       memberGroupId,
       organizationId,
@@ -222,6 +229,9 @@ test("group creation and deletion persist authenticated organization directory s
         }
         if (principalId === adminGroupId) {
           return adminPolicy;
+        }
+        if (principalId === memberGroupId) {
+          return memberPolicy;
         }
         expect(createdPolicyBundle).not.toBeNull();
         if (!createdPolicyBundle) {

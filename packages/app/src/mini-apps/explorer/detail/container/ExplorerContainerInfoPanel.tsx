@@ -31,6 +31,7 @@ import {
   useExplorerContainerInfoPeerShare,
 } from "./ExplorerContainerInfoState";
 import { ExplorerContainerInfoSyncCursorsSection } from "./ExplorerContainerInfoSyncCursorsSection";
+import { getContainerInfoShareableGroups } from "./explorerContainerInfoStateHelpers";
 
 interface Props {
   canManageIcon: boolean;
@@ -62,6 +63,7 @@ interface Props {
     containerId: string,
     groupId: string,
     accessLevel: ContainerShareAccessLevel,
+    options: { expectedGroupName: string },
   ) => Promise<boolean>;
   shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
 }
@@ -89,11 +91,22 @@ function useExplorerContainerInfoPanelState(params: Props) {
     reloadToken: params.containerSyncStatus,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const remoteInfo = containerInfoState.containerInfo?.remoteInfo;
   const handleShareWithGroup = useExplorerContainerInfoGroupShare({
     canShareContainer: params.canShareContainer,
     containerId,
     draftShareAccessLevel: containerInfoState.draftShareAccessLevel,
     draftShareGroupId: containerInfoState.draftShareGroupId,
+    // The label bound to the signed group name is the one displayed for the
+    // chosen id at the moment Share is clicked, so what the user sees and
+    // what the SDK verifies never diverge; the default selection carries its
+    // label the same way. A label the read model changed underneath fails the
+    // share closed at the SDK rather than binding a stale one.
+    draftShareGroupName: remoteInfo
+      ? getContainerInfoShareableGroups(remoteInfo).find(
+          (group) => group.groupId === containerInfoState.draftShareGroupId,
+        )?.name
+      : undefined,
     isSubmitting,
     reloadContainerInfo: containerInfoState.reloadContainerInfo,
     setIsSubmitting,

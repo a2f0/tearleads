@@ -1,0 +1,428 @@
+import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
+import {
+  createContainerWriterProjectionFixture,
+  createMockApiClient,
+  createTestExecSql,
+} from "@tearleads/test-utils";
+import { createMemoryBlobStore } from "../../src/data/blobs/memoryBlobStore";
+import { createInitializedContainerMetadataDocument } from "../../src/data/containers/containerMetadataDocument";
+import { defaultDocumentProjectorRegistry } from "../../src/data/documents/documentKinds";
+import { createDomainScope } from "../../src/data/domainScope";
+import { loadPrincipalPolicyCheckpoint } from "../../src/data/persistence/keyingCheckpointPersistence";
+import { shareContainerStateWithGroup } from "../../src/workflows/container-contents/container-state/share";
+import { withDirectGroupGrant } from "../../src/workflows/container-contents/container-state/share.testFixtures";
+import { defaultContainerContentsPersistence } from "../../src/workflows/container-contents/containerPersistence";
+import type { ContainerState } from "../../src/workflows/container-contents/remoteHydration";
+import {
+  type ContainerContentsWorkflowRuntimeInput,
+  createContainerContentsWorkflowRuntime,
+} from "../../src/workflows/container-contents/runtime";
+import { buildInitialGroupPolicyRequest } from "../../src/workflows/organizations/principalPolicy";
+import { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/registerIdentity";
+import { createAuthor } from "./containerFixtures";
+import { createSuccessorGroupPolicyBundle } from "./groupPolicyFixtures";
+import {
+  organizationPolicyBundleFromInitialRequest,
+  policyBundleFromInitialRequest,
+  principalPolicyHead,
+} from "./principalPolicyFixtures";
+import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
+
+type ShareAuthor = Awaited<ReturnType<typeof createAuthor>>;
+type KemKeyPair = ReturnType<typeof generateKemSeedAndKeyPair>;
+
+interface ShareTestRuntimeInput {
+  apiClient: ReturnType<typeof createMockApiClient>;
+  author: ShareAuthor["author"];
+  // Absent by default, so the share flow stops where the writer context is
+  // resolved; supply it to drive the flow through to the mutation.
+  crypto?: ContainerContentsWorkflowRuntimeInput["crypto"] | undefined;
+  execSql: Awaited<ReturnType<typeof createTestExecSql>>["execSql"];
+  logs: string[];
+  resolveTrustedUserIdentity?:
+    | ReturnType<
+        typeof createContainerContentsWorkflowRuntime
+      >["resolveTrustedUserIdentity"]
+    | undefined;
+}
+
+export function createShareTestRuntime(
+  input: ShareTestRuntimeInput,
+): ReturnType<typeof createContainerContentsWorkflowRuntime> {
+  return createContainerContentsWorkflowRuntime(
+    createShareTestRuntimeInput(input),
+  );
+}
+
+/** The raw runtime input, for callers that wrap it in a store runtime. */
+function createShareTestRuntimeInput(
+  input: ShareTestRuntimeInput,
+): ContainerContentsWorkflowRuntimeInput {
+  return {
+    apiClient: input.apiClient,
+    auth: {
+      isAuthenticated: true,
+      organizationId: input.author.organizationId,
+      userId: input.author.signerUserId,
+    },
+    crypto: input.crypto ?? {
+      encapsulationKeyPair: null,
+      signingFingerprint: null,
+      signingKeyPair: null,
+    },
+    infra: {
+      blobStore: createMemoryBlobStore(),
+      dbStatus: "ready",
+      documentProjectors: defaultDocumentProjectorRegistry,
+      execSql: input.execSql,
+    },
+    resolveTrustedUserIdentity:
+      input.resolveTrustedUserIdentity ?? (async () => null),
+    state: {
+      containerId: null,
+      domainScope: createDomainScope(),
+      events: [],
+      online: true,
+    },
+    util: {
+      log: (message) => input.logs.push(message),
+      reportSecurityIncident: async () => undefined,
+    },
+  };
+}
+
+function createGroupShareContainerState(input: {
+  containerId: string;
+  doc: Awaited<
+    ReturnType<typeof createInitializedContainerMetadataDocument>
+  >["doc"];
+  initialUpdate: Uint8Array;
+  organizationId: string;
+}): ContainerState {
+  return {
+    container: {
+      id: input.containerId,
+      effectiveAccessLevel: "admin",
+      organizationId: input.organizationId,
+      parentId: null,
+      metadataDocumentId: `${input.containerId}-metadata-document`,
+      name: "Docs",
+      icon: null,
+    },
+    doc: input.doc,
+    record: {
+      accessEpoch: 1,
+      accessStateHash: "stale-access-state-hash",
+      contentKeyBundle: null,
+      documentId: `${input.containerId}-metadata-document`,
+      documentKekTargets: null,
+      documentManifestBundle: null,
+      id: input.containerId,
+      lastCommitLsn: null,
+      metadataUpdates: bytesToBase64(input.initialUpdate),
+      snapshotEndVersion: "",
+    },
+  };
+}
+
+const ADMIN_GROUP_ID = "admins-group";
+const MEMBER_GROUP_ID = "members-group";
+
+/** An Admins group, a Members group at the requested key epoch, and the
+ * organization policy whose directory commits both heads. */
+async function createGroupSharePolicies(input: {
+  author: ShareAuthor["author"];
+  currentGroupKeyEpoch: number;
+  keyPair: KemKeyPair;
+  signingPublicKey: ShareAuthor["signingPublicKey"];
+}) {
+  const { author } = input;
+  const signingKeyPair = {
+    signingPrivateKey: author.signerPrivateKey,
+    signingPublicKey: input.signingPublicKey,
+  };
+  const groupRequest = (groupId: string, name: string) =>
+    buildInitialGroupPolicyRequest({
+      creatorEncapsulationKeyPair:
+        groupId === ADMIN_GROUP_ID
+          ? input.keyPair
+          : generateKemSeedAndKeyPair(),
+      groupId,
+      name,
+      signerUserId: author.signerUserId,
+      signingFingerprint: author.signerKeyFingerprint,
+      signingKeyPair,
+    });
+  const adminPolicy = await policyBundleFromInitialRequest(
+    await groupRequest(ADMIN_GROUP_ID, "Admins"),
+  );
+  const currentGroupPolicy = await createSuccessorGroupPolicyBundle({
+    author,
+    groupId: MEMBER_GROUP_ID,
+    groupKem: generateKemSeedAndKeyPair(),
+    keyEpoch: input.currentGroupKeyEpoch,
+    memberPublicKey: input.keyPair.publicKey,
+    previousBundle: await policyBundleFromInitialRequest(
+      await groupRequest(MEMBER_GROUP_ID, "Members"),
+    ),
+    signedAt: "2026-05-22T12:15:00.000Z",
+    userId: author.signerUserId,
+  });
+  const organizationPolicy = await organizationPolicyBundleFromInitialRequest(
+    author.organizationId,
+    await buildInitialOrganizationPolicyRequest({
+      adminGroupId: ADMIN_GROUP_ID,
+      encapsulationPublicKey: input.keyPair.publicKey,
+      groupHeads: [
+        principalPolicyHead(adminPolicy),
+        principalPolicyHead(currentGroupPolicy),
+      ],
+      memberGroupId: MEMBER_GROUP_ID,
+      organizationId: author.organizationId,
+      signingKeyPair,
+      userId: author.signerUserId,
+    }),
+  );
+  return { adminPolicy, currentGroupPolicy, organizationPolicy };
+}
+
+interface GroupShareScenarioInput {
+  currentGroupKeyEpoch: number;
+  currentPolicyError?: unknown;
+  // Defaults to the group's signed name for a share that could mint a grant;
+  // `null` omits it, to exercise the facade's guard against a nameless mint.
+  expectedGroupName?: string | null | undefined;
+  grantedGroupId?: string;
+  onShareCall?: (() => void) | undefined;
+  pinnedKeyEpoch: number;
+  preparedRewrap?: boolean;
+  remoteAccessStateHash: string;
+  requireExistingGrant?: boolean;
+  testLabel: string;
+  // Runs the share through a caller-supplied path (for instance the store's
+  // shareWithGroup) instead of the workflow facade directly. The scenario's
+  // `shared` is then null; assert through the hook or the rejection.
+  runShare?:
+    | ((input: {
+        containerState: ContainerState;
+        expectedGroupName: string | undefined;
+        runtimeInput: ContainerContentsWorkflowRuntimeInput;
+      }) => Promise<void>)
+    | undefined;
+  // Gives the runtime the author's keys so the share reaches the steps that
+  // need a writer context (the name binding, the mutation) instead of logging
+  // that the context is unavailable.
+  writerContext?: boolean | undefined;
+}
+
+function resolveScenarioGroupName(
+  input: GroupShareScenarioInput,
+): string | undefined {
+  if (input.expectedGroupName === null) return undefined;
+  if (input.expectedGroupName !== undefined) return input.expectedGroupName;
+  // A grant-preserving re-wrap carries no name; anything else must.
+  return input.requireExistingGrant ? undefined : "Members";
+}
+
+interface GroupShareScenarioRecorder {
+  currentPolicyCalls: Array<{ principalId: string; principalType: string }>;
+  logs: string[];
+  shareCallCount: number;
+}
+
+function createGroupShareScenarioRuntimeInput(input: {
+  author: ShareAuthor["author"];
+  execSql: Awaited<ReturnType<typeof createTestExecSql>>["execSql"];
+  keyPair: KemKeyPair;
+  policies: Awaited<ReturnType<typeof createGroupSharePolicies>>;
+  recorder: GroupShareScenarioRecorder;
+  remoteProjection: ReturnType<typeof withDirectGroupGrant>;
+  scenario: GroupShareScenarioInput;
+  signingPublicKey: ShareAuthor["signingPublicKey"];
+}): ContainerContentsWorkflowRuntimeInput {
+  const { author, keyPair, policies, recorder, scenario, signingPublicKey } =
+    input;
+  return createShareTestRuntimeInput({
+    apiClient: createMockApiClient({
+      getContainerWriterProjection: async () => input.remoteProjection,
+      getCurrentPrincipalPolicy: async (principalType, principalId) => {
+        if (principalType === "organization") {
+          return policies.organizationPolicy;
+        }
+        if (principalId === ADMIN_GROUP_ID) {
+          return policies.adminPolicy;
+        }
+        recorder.currentPolicyCalls.push({ principalId, principalType });
+        if (scenario.currentPolicyError) {
+          if (scenario.currentPolicyError instanceof Error) {
+            throw scenario.currentPolicyError;
+          }
+          throw new Error("current principal policy unavailable");
+        }
+        return policies.currentGroupPolicy;
+      },
+      shareContainer: async () => {
+        recorder.shareCallCount += 1;
+        scenario.onShareCall?.();
+        return null;
+      },
+    }),
+    author,
+    crypto: scenario.writerContext
+      ? {
+          encapsulationKeyPair: keyPair,
+          signingFingerprint: author.signerKeyFingerprint,
+          signingKeyPair: {
+            signingPrivateKey: author.signerPrivateKey,
+            signingPublicKey,
+          },
+        }
+      : undefined,
+    execSql: input.execSql,
+    logs: recorder.logs,
+    resolveTrustedUserIdentity: async (userId) =>
+      userId === author.signerUserId
+        ? createTestTrustedUserIdentity({
+            encapsulationPublicKey: keyPair.publicKey,
+            signingKeyFingerprint: author.signerKeyFingerprint,
+            signingPublicKey,
+            userId,
+          })
+        : null,
+  });
+}
+
+async function createGroupShareProjection(input: {
+  author: ShareAuthor["author"];
+  containerId: string;
+  keyPair: KemKeyPair;
+  policies: Awaited<ReturnType<typeof createGroupSharePolicies>>;
+  scenario: GroupShareScenarioInput;
+}) {
+  const { author, scenario } = input;
+  return withDirectGroupGrant({
+    accessLevel: "read",
+    createdAt: "2026-05-22T12:00:00.000Z",
+    groupId: scenario.grantedGroupId ?? MEMBER_GROUP_ID,
+    // With a writer context the flow runs to completion and caches the
+    // referenced policy, which must then be the group's real head.
+    pinnedHead:
+      scenario.writerContext &&
+      scenario.pinnedKeyEpoch === scenario.currentGroupKeyEpoch
+        ? { ...principalPolicyHead(input.policies.currentGroupPolicy) }
+        : undefined,
+    pinnedKeyEpoch: scenario.pinnedKeyEpoch,
+    projection: await createContainerWriterProjectionFixture({
+      containerId: input.containerId,
+      encapsulationPublicKey: input.keyPair.publicKey,
+      organizationId: author.organizationId,
+      signerKeyFingerprint: author.signerKeyFingerprint,
+      signerPrivateKey: author.signerPrivateKey,
+      userId: author.signerUserId,
+    }),
+    remoteAccessStateHash: scenario.remoteAccessStateHash,
+    remoteEpoch: 2,
+    updatedAt: "2026-05-22T12:30:00.000Z",
+  });
+}
+
+export async function runGroupShareScenario(
+  input: GroupShareScenarioInput,
+): Promise<
+  GroupShareScenarioRecorder & {
+    containerId: string;
+    currentGroupPolicyStateHash: string;
+    groupCheckpoint: Awaited<ReturnType<typeof loadPrincipalPolicyCheckpoint>>;
+    groupId: string;
+    shared: Awaited<ReturnType<typeof shareContainerStateWithGroup>>;
+  }
+> {
+  const { close, execSql } = await createTestExecSql(input.testLabel);
+
+  try {
+    const { author, signingPublicKey } = await createAuthor({
+      organizationId: "organization-1",
+      userId: "owner-user",
+    });
+    const keyPair = generateKemSeedAndKeyPair();
+    const containerId = `${input.testLabel}-container`;
+    const groupId = MEMBER_GROUP_ID;
+    const policies = await createGroupSharePolicies({
+      author,
+      currentGroupKeyEpoch: input.currentGroupKeyEpoch,
+      keyPair,
+      signingPublicKey,
+    });
+    const remoteProjection = await createGroupShareProjection({
+      author,
+      containerId,
+      keyPair,
+      policies,
+      scenario: input,
+    });
+    const recorder: GroupShareScenarioRecorder = {
+      currentPolicyCalls: [],
+      logs: [],
+      shareCallCount: 0,
+    };
+    const runtimeInput = createGroupShareScenarioRuntimeInput({
+      author,
+      execSql,
+      keyPair,
+      policies,
+      recorder,
+      remoteProjection,
+      scenario: input,
+      signingPublicKey,
+    });
+    await defaultContainerContentsPersistence.ensureSchema(execSql);
+    const { doc, initialUpdate } =
+      await createInitializedContainerMetadataDocument(containerId, {
+        icon: null,
+        name: "Docs",
+      });
+    const containerState = createGroupShareContainerState({
+      containerId,
+      doc,
+      initialUpdate,
+      organizationId: author.organizationId,
+    });
+    const expectedGroupName = resolveScenarioGroupName(input);
+
+    let shared: Awaited<ReturnType<typeof shareContainerStateWithGroup>> = null;
+    if (input.runShare) {
+      await input.runShare({ containerState, expectedGroupName, runtimeInput });
+    } else {
+      shared = await shareContainerStateWithGroup({
+        accessLevel: "read",
+        containerState,
+        expectedGroupName,
+        knownContainerKeks: input.preparedRewrap
+          ? new Map([["captured-root-epoch", new Uint8Array(32)]])
+          : undefined,
+        persistence: defaultContainerContentsPersistence,
+        recipientGroupId: groupId,
+        requireExistingGrant: input.requireExistingGrant,
+        resolveProjectionUserKey: async () => null,
+        runtime: createContainerContentsWorkflowRuntime(runtimeInput),
+      });
+    }
+
+    return {
+      ...recorder,
+      containerId,
+      currentGroupPolicyStateHash:
+        policies.currentGroupPolicy.currentState.stateHash,
+      groupCheckpoint: await loadPrincipalPolicyCheckpoint(
+        execSql,
+        "group",
+        groupId,
+      ),
+      groupId,
+      shared,
+    };
+  } finally {
+    close();
+  }
+}

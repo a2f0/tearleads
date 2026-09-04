@@ -20,7 +20,7 @@ import {
   fixtureHash,
 } from "@tearleads/crypto/test-fixtures";
 import { createTestExecSql } from "@tearleads/test-utils";
-import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
+import { manifestBundle } from "../../../test/helpers/ancestorCitationScenario";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import { createProjectionCheckpointContext } from "./checkpointContext";
 import { verifyContainerManifestPath } from "./containerProjectionVerification";
@@ -37,21 +37,6 @@ function policyState(
     stateHash: reference.stateHash,
     keyFingerprint: reference.keyFingerprint,
   } as VerifiedPrincipalPolicy["state"];
-}
-
-function manifestBundle(
-  value: VerifiedContainerAccessManifest,
-): AccessManifestBundleWireResponse {
-  return {
-    event: {
-      body: value.event.body,
-      event: value.event.event,
-      eventHash: value.event.eventHash,
-    },
-    manifest: value.manifest,
-    manifestHash: value.manifestHash,
-    state: value.state,
-  } as unknown as AccessManifestBundleWireResponse;
 }
 
 test("required purge evidence reaches every recursive container predecessor", async () => {

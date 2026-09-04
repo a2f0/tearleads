@@ -15,7 +15,10 @@ import { savePrincipalPolicyBundle } from "../../../data/persistence/principalPo
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { buildInitialGroupPolicyRequest } from "../../organizations/principalPolicy";
 import { buildInitialOrganizationPolicyRequest } from "../../registration/registerIdentity";
-import { loadVerifiedGroupSharePrincipalPolicy } from "./sharePrincipalPolicy";
+import {
+  GroupShareNameMismatchError,
+  loadVerifiedGroupSharePrincipalPolicy,
+} from "./sharePrincipalPolicy";
 
 async function createDirectoryFixture(
   input: { includeTargetHead?: boolean; successor?: boolean } = {},
@@ -140,6 +143,63 @@ test("expected group-head verification reuses an exact local bundle without a po
 
     expect(verified.bundle).toEqual(fixture.targetPolicy);
     expect(policyGetCount).toBe(0);
+  } finally {
+    close();
+  }
+});
+
+// The share picker labels groups from the organization read model, which a
+// compromised server can relabel. The name the user chose is therefore checked
+// against the name committed in the verified group policy, not the row.
+test("a share fails closed when the chosen name is not the signed group name", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "group-share-policy-name-mismatch",
+  );
+  try {
+    const fixture = await createDirectoryFixture();
+    const load = (expectedGroupName: string) =>
+      loadVerifiedGroupSharePrincipalPolicy({
+        apiClient: createMockApiClient({
+          getCurrentPrincipalPolicy: (principalType, principalId) =>
+            fixture.load(principalType, principalId, () => undefined),
+        }),
+        execSql,
+        expectedGroupName,
+        groupId: fixture.targetPolicy.currentState.principalId,
+        organizationId: fixture.organizationId,
+        resolveTrustedUserIdentity: fixture.resolveTrustedUserIdentity,
+      });
+
+    await expect(load("Executives")).rejects.toMatchObject({
+      code: "object_mismatch",
+      message: expect.stringContaining("group name"),
+    });
+    // Its own class, so a caller can tell this refusal from every other
+    // object_mismatch and say what happened.
+    await expect(load("Executives")).rejects.toBeInstanceOf(
+      GroupShareNameMismatchError,
+    );
+    // A relabeled row carrying a bidi override or zero-width joiner would
+    // canonicalize onto the signed name; the raw label is refused first.
+    await expect(
+      load(`Operators${String.fromCodePoint(0x202e)}`),
+    ).rejects.toMatchObject({
+      code: "object_mismatch",
+      message: expect.stringContaining("control or format"),
+    });
+    await expect(
+      load(`Oper${String.fromCodePoint(0x200d)}ators`),
+    ).rejects.toMatchObject({
+      code: "object_mismatch",
+      message: expect.stringContaining("control or format"),
+    });
+    await expect(load("Operators\ud83d")).rejects.toMatchObject({
+      code: "object_mismatch",
+      message: expect.stringContaining("control or format"),
+    });
+    await expect(load("Operators")).resolves.toMatchObject({
+      bundle: fixture.targetPolicy,
+    });
   } finally {
     close();
   }

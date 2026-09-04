@@ -23,7 +23,7 @@ ls:
   packages/app/src/mini-apps/explorer/detail/*:
     .dir: regex:(blob|container|document|sync)
     .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-16
-    .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-6
+    .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-7
     .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-3
 
   packages/app/src/mini-apps/explorer/detail/*/*:

@@ -108,6 +108,11 @@ export interface ContainerContentsStore {
     trashContainerId: string,
     options?: PurgeOptions,
   ) => Promise<boolean>;
+  // `options.requireExistingGrant` gates the preparation check only. The
+  // prepared `rewrap` is always grant-preserving: it re-wraps a signed grant
+  // and never mints one, so it carries no chosen group name, and it throws
+  // (rather than healing through a policy mutation) when the container
+  // manifest grants the group but the verified policy has no matching grant.
   prepareGroupRewrap: (
     containerId: string,
     groupId: string,
@@ -136,7 +141,15 @@ export interface ContainerContentsStore {
     containerId: string,
     groupId: string,
     accessLevel: ContainerContentsShareAccessLevel,
-    options?: { requireExistingGrant?: boolean } | undefined,
+    options: {
+      /**
+       * The display name the group was chosen by. Required: the share fails
+       * closed if the verified group policy commits a different name. Signed
+       * names are unique within an organization by construction (enforced at
+       * group creation), so the target's own name identifies it.
+       */
+      expectedGroupName: string;
+    },
   ) => Promise<boolean>;
   shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
   getCachedContainerWriterProjection: (

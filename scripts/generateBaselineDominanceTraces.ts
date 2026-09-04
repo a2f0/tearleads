@@ -8,10 +8,8 @@
  * drives the fixture through the real dominance and redirect kernels.
  */
 import { spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { resolveTlcTools, runTlc } from "./tlcTools";
 
 const EXPORT_MODULE = "formal/document-sync/BaselineDominanceTraceExport.tla";
 const EXPORT_CONFIG = "formal/document-sync/BaselineDominanceTraceExport.cfg";
@@ -52,75 +50,18 @@ function repoRoot(): string {
   return result.stdout.trim();
 }
 
-function commandOutput(command: string, args: readonly string[]): string {
-  const result = spawnSync(command, [...args], { encoding: "utf8" });
-  if (result.status !== 0) {
-    fail(`\`${command} ${args.join(" ")}\` failed: ${result.stderr.trim()}`);
-  }
-  return result.stdout.trim();
-}
-
-function pinnedJarSha256(root: string): string {
-  const pinSource = readFileSync(
-    join(root, "scripts/checks/tlaToolsPin.sh"),
-    "utf8",
-  );
-  const match = pinSource.match(
-    /^(?:export )?TLA_TOOLS_JAR_SHA256_PIN=([0-9a-f]{64})$/m,
-  );
-  if (!match?.[1]) {
-    fail("scripts/checks/tlaToolsPin.sh does not declare the jar pin.");
-  }
-  return match[1];
-}
-
 function runTraceExport(root: string): string {
-  const javaBin = commandOutput("mise", ["which", "java"]);
-  const tlaToolsRoot = commandOutput("mise", [
-    "where",
-    "github:tlaplus/tlaplus",
-  ]);
-  const jarPath = join(tlaToolsRoot, "tla2tools.jar");
-  const jarSha256 = createHash("sha256")
-    .update(readFileSync(jarPath))
-    .digest("hex");
-  const pinnedSha256 = pinnedJarSha256(root);
-  if (jarSha256 !== pinnedSha256) {
+  const result = runTlc(resolveTlcTools(root), {
+    configPath: EXPORT_CONFIG,
+    cwd: root,
+    modulePath: EXPORT_MODULE,
+  });
+  if (!result.ok) {
     fail(
-      `${jarPath} sha256 ${jarSha256} does not match the pinned ${pinnedSha256}.`,
+      `TLC did not complete cleanly for ${EXPORT_MODULE}:\n${result.output}`,
     );
   }
-
-  const stateDirectory = mkdtempSync(join(tmpdir(), "tearleads-bdtrace-"));
-  try {
-    const result = spawnSync(
-      javaBin,
-      [
-        "-XX:+UseParallelGC",
-        "-jar",
-        jarPath,
-        "-workers",
-        "1",
-        "-metadir",
-        stateDirectory,
-        "-config",
-        EXPORT_CONFIG,
-        EXPORT_MODULE,
-      ],
-      { cwd: root, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
-    );
-    if (result.status !== 0) {
-      fail(
-        `TLC failed for ${EXPORT_MODULE}:\n${result.stdout}${result.stderr}`,
-      );
-    }
-    if (!result.stdout.includes("Model checking completed. No error")) {
-      fail(`TLC did not complete cleanly for ${EXPORT_MODULE}.`);
-    }
-    return result.stdout;
-  } finally {
-    rmSync(stateDirectory, { force: true, recursive: true });
-  }
+  return result.output;
 }
 
 function parseScalar(token: string): boolean | number | string {

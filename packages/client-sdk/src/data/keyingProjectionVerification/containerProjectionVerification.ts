@@ -201,7 +201,6 @@ export async function verifyContainerManifestPath(input: {
 }): Promise<VerifiedContainerAccessManifest[]> {
   const verifiedPath: VerifiedContainerAccessManifest[] = [];
   for (const [index, bundle] of input.path.entries()) {
-    const label = `${input.label}[${index}]`;
     const verified = await verifyContainerManifestBundle({
       authorizationMembership: input.authorizationMembership,
       authorizationEvidence: input.authorizationEvidence,
@@ -209,7 +208,7 @@ export async function verifyContainerManifestPath(input: {
       bundlesByHash: input.bundlesByHash,
       checkpointContext: input.checkpointContext,
       enforceLocalCheckpoint: input.enforceLocalCheckpoints,
-      label,
+      label: `${input.label}[${index}]`,
       parentPath: verifiedPath,
       principalPolicyCache: input.principalPolicyCache,
       resolveUserKey: input.resolveUserKey,
@@ -217,33 +216,20 @@ export async function verifyContainerManifestPath(input: {
       verifiedByHash: input.verifiedByHash,
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
-    assertContainerPathEdge({ label, parent: verifiedPath.at(-1), verified });
+    // Access along a path is the union of its elements' grants, so a served
+    // path must be a genuine root-to-leaf ancestor chain: each element is the
+    // parent of the next, and the first is a root.
+    const expectedParentId = verifiedPath.at(-1)?.state.containerId ?? null;
+    if (verified.state.parentContainerId !== expectedParentId) {
+      throw new KeyingVerificationError(
+        "object_mismatch",
+        `${input.label}[${index}] parent container does not precede it in the path`,
+      );
+    }
     verifiedPath.push(verified);
   }
 
   return verifiedPath;
-}
-
-/**
- * A served path is a root-to-leaf ancestor chain: the first element is a root
- * and every later element names the preceding one as its parent. Access along
- * a path is the union of every element's grants, so without this a server
- * could prefix a leaf with an unrelated container whose grants would then
- * authorize a signer against the leaf. The API asserts the same edges when it
- * builds a path; the client must not take its word for it.
- */
-function assertContainerPathEdge(input: {
-  readonly label: string;
-  readonly parent: VerifiedContainerAccessManifest | undefined;
-  readonly verified: VerifiedContainerAccessManifest;
-}): void {
-  const expectedParentId = input.parent?.state.containerId ?? null;
-  if (input.verified.state.parentContainerId !== expectedParentId) {
-    throw new KeyingVerificationError(
-      "object_mismatch",
-      `${input.label} parent container does not match the preceding path element`,
-    );
-  }
 }
 
 interface ContainerWriterProjectionVerificationInput {

@@ -11,7 +11,7 @@ import {
   toFingerprint,
   wrapDekForRecipients,
 } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import type {
   CreateOrganizationGroupRequest,
   PrincipalMemberEnvelopeRequest,
@@ -47,12 +47,88 @@ function projectionToStateMembers(
   return projection.map((member) => ({ userId: member.userId }));
 }
 
+/**
+ * The group's display name rides in the signed payload. The server keeps a
+ * mutable `name` column for listings, but a share must land on the group the
+ * user saw, so the name shown at share time is checked against this committed
+ * copy rather than the read model.
+ */
 function payloadCiphertextForProjection(
   projection: ReadonlyArray<PrincipalProjectionMemberRequest>,
+  name: string,
 ): string {
   return bytesToBase64(
-    new TextEncoder().encode(JSON.stringify({ members: projection })),
+    new TextEncoder().encode(JSON.stringify({ members: projection, name })),
   );
+}
+
+/**
+ * Code points that must never appear in a group name: control and format
+ * characters (bidi overrides, zero-width joiners, newlines), lone surrogates
+ * (re-encoded as U+FFFD when signed, so the signed name would no longer match
+ * the one sent to the server), and every other default-ignorable code point
+ * (Hangul fillers, variation selectors), which render as nothing and would
+ * let one name pass for another. A group name is an identifier here, so this
+ * deliberately refuses ZWJ emoji sequences as well. One predicate serves the
+ * signing-time and the share-time refusal so the two cannot drift.
+ */
+export function hasForbiddenGroupNameCharacter(name: string): boolean {
+  return /[\p{Cc}\p{Cf}\p{Cs}\p{Default_Ignorable_Code_Point}]/u.test(name);
+}
+
+/**
+ * The comparison key for a group display name: width- and compatibility-
+ * normalized, stripped of control, format, and default-ignorable characters,
+ * whitespace-collapsed, and case-folded. Two names that a user cannot tell
+ * apart in a picker must compare equal, or a look-alike name would slip past
+ * the share-time binding. Cross-script homoglyphs (Latin "A" against Greek
+ * "Α") are not folded: that needs the UTS #39 confusables table, and both
+ * names would still have to be signed groups the organization's own admins
+ * created.
+ */
+export function canonicalGroupNameKey(name: string): string {
+  return (
+    name
+      .normalize("NFKC")
+      .replace(/[\p{Cc}\p{Cf}\p{Default_Ignorable_Code_Point}]/gu, "")
+      .replace(/\s+/gu, " ")
+      .trim()
+      .toLocaleLowerCase("en-US")
+      // Case folding can leave the string un-normalized (U+0130 lowercases to
+      // "i" plus a combining dot), so normalize once more after it.
+      .normalize("NFKC")
+  );
+}
+
+/**
+ * The display name committed in a group policy's signed payload. A payload
+ * without one is the pre-name flag-day state, not tampering (the payload hash
+ * was verified before this runs), so it is a plain error: group mutations run
+ * under security-incident reporting, and a legacy group is no incident.
+ */
+export function readGroupPolicyPayloadName(
+  bundle: PrincipalPolicyBundleResponse,
+): string {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(
+      new TextDecoder().decode(base64ToBytes(bundle.currentPayload.ciphertext)),
+    );
+  } catch {
+    throw new Error("Group policy payload is not canonical JSON");
+  }
+  const name =
+    parsed !== null && typeof parsed === "object"
+      ? Reflect.get(parsed, "name")
+      : undefined;
+  if (typeof name !== "string" || name.trim().length === 0) {
+    // Flag-day: groups signed before display names were committed cannot be
+    // mutated or shared by name; the organization must be reprovisioned.
+    throw new Error(
+      "Group policy payload does not commit a display name; groups signed before this protocol version must be reprovisioned",
+    );
+  }
+  return name;
 }
 
 export async function signedGroupPolicyRequest(input: {
@@ -65,6 +141,7 @@ export async function signedGroupPolicyRequest(input: {
   readonly keyFingerprint: string;
   readonly grants: ReadonlyArray<PrincipalContainerGrant>;
   readonly memberEnvelopes: ReadonlyArray<PrincipalMemberEnvelopeRequest>;
+  readonly name: string;
   readonly principalId: string;
   readonly projection: ReadonlyArray<PrincipalProjectionMemberRequest>;
   readonly signedAt: string;
@@ -74,7 +151,10 @@ export async function signedGroupPolicyRequest(input: {
 }): Promise<PutPrincipalPolicyRequest> {
   const projection = normalizePrincipalProjectionMembers(input.projection);
   const grants = normalizePrincipalContainerGrants(input.grants);
-  const payloadCiphertext = payloadCiphertextForProjection(projection);
+  const payloadCiphertext = payloadCiphertextForProjection(
+    projection,
+    input.name,
+  );
   const state = await signPrincipalState(
     await buildPrincipalStateSigningInput({
       principalType: "group",
@@ -141,6 +221,15 @@ export async function buildInitialGroupPolicyRequest(
       wrappedKey: bytesToBase64(creatorEnvelope.wrappedKey),
     });
   }
+  const name = input.name.trim();
+  // A name is compared by canonical key but displayed raw, so an invisible
+  // code point would let one signed name render as another. Refuse them
+  // where the name is signed.
+  if (name.length === 0 || hasForbiddenGroupNameCharacter(name)) {
+    throw new Error(
+      "Group names must be non-empty and contain no control, format, or surrogate characters",
+    );
+  }
   const policyRequest = await signedGroupPolicyRequest({
     encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
     externalAuthority: input.externalAuthority ?? null,
@@ -148,6 +237,7 @@ export async function buildInitialGroupPolicyRequest(
     keyFingerprint: await toFingerprint(groupKem.publicKey),
     grants: input.grants ?? [],
     memberEnvelopes,
+    name,
     principalId: input.groupId,
     projection,
     signedAt: new Date().toISOString(),
@@ -158,7 +248,7 @@ export async function buildInitialGroupPolicyRequest(
 
   return {
     groupId: input.groupId,
-    name: input.name.trim(),
+    name,
     initialGroupPolicy: policyRequest,
   };
 }

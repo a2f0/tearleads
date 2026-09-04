@@ -22,6 +22,24 @@ configuration as `model|config`. The checker validates the complete registry
 before starting Java, rejects unregistered configuration files, sorts pairs
 deterministically, and gives each TLC invocation an isolated state directory.
 
+Model documentation that maps abstract actions to production seams does so in
+`Model action … | Production …` tables; the registry in
+`scripts/lintFormalAbstractionMaps.ts` pins which documents carry them.
+`bun run lint:formal-maps` (part of `check:fast`) verifies every backticked
+model token is declared in the module the table documents and every backticked
+production seam occurs in production package source code, so a rename or
+removal on either side fails the check instead of leaving the map prose-only.
+`ContainerGrantScope` and `KeyringReachability` document their seams in prose
+and carry no map tables.
+
+The bridge also runs in the implementation-to-model direction:
+`bun run check:protocol-projection` (part of `check:fast`) records
+fault-injected runs of the real probe and interest seams and replays them as
+action sequences through `RestartProbeConvergence` with TLC, failing on any
+trace the model rejects. See the
+[trace projection section](./document-sync/RestartProbeConvergence.md) for the
+recorded scenarios, negative controls, and boundaries.
+
 To add a model, commit its `.tla` and bounded `.cfg` files and register the pair.
 One module may appear with multiple configurations, but each configuration must
 appear exactly once. Keep registered bounds small enough for `check:fast`;
@@ -156,9 +174,9 @@ The abstraction maps to production at these seams:
 | `QueueEdit` / `DeferEdit` | `pendingDeltaSinceBase`, `enqueuePendingUpdate`, `persistDocument`, and `advancePendingBaseVersion` |
 | `CapturePreparation` | `prepareDocumentOutgoingCoverage` using `extendDocumentVersionCoverage` before its first await |
 | `MaterializeCapturedTail` | `prepareDocumentOutgoingCoverage` exporting and durably enqueuing an uncovered captured delta, whether its capture stays live or becomes stale |
-| `AbortStalePreparation` | post-enqueue generation checks returning without marker publication; an enqueue already submitted to persistence may still finish |
+| `AbortStalePreparation` | post-enqueue generation checks in `prepareDocumentOutgoingCoverage` returning without marker publication; an enqueue already submitted to persistence may still finish |
 | `PlanMarkerPersist` / `StartMarkerPersist` / `CompleteLiveMarkerPersist` | freezing `nextBaseVersion` before adapter awaits, the later successful `canStartDurableMutation` check and mutation claim, and post-await non-null persistence result in `prepareDocumentOutgoingCoverage` |
-| `CompleteStaleMarkerPersist` | a claimed marker mutation returning after reset, with a null persistence result suppressing replacement-store publication and effects |
+| `CompleteStaleMarkerPersist` | a claimed marker mutation (`runSerializedSqlMutation`) returning after reset, with a null persistence result suppressing replacement-store publication and effects |
 | `ResetReinitialize` | replacement of any `DocumentStoreSyncGeneration` identity: `currentDoc`, `domainScope`, `execSql`, or `resolveProjectionUserKey` |
 | `BeginSyncResponse` | `captureDocumentStoreSyncGeneration` plus the sync attempt's plan and captured `currentRecord` identity/access/keying context |
 | `ValidateIncomingResponse` | required `SyncRemoteDocumentInput.validateIncomingUpdates`, normally `validateDocumentSyncUpdateImports`, after authenticated decryption and before the caller can persist the response; scratch imports free their WASM-backed documents deterministically |
@@ -166,7 +184,7 @@ The abstraction maps to production at these seams:
 | `Relink` / `StartedDurableOpSerializesRelink` | document-id, container, access, and keying-context writes sharing `chainIdentityWrite`, so none can overtake a durable operation that already started there |
 | `StartResponseDurableOp` | `canStartDurableMutation` rechecking generation and `documentSyncContextMatches` immediately before `runSerializedSqlMutation` claims the persistence or deletion queue |
 | `CompleteLiveResponsePersist` / `CompleteLiveDeletion` | the post-await generation check allowing response publication or `markDocumentStoreRemoved` only into the still-matching generation |
-| `CompleteStaleResponseDurableOp` | a claimed response persist or deletion returning after reset, followed by no additional in-memory publication or effect callback on the replacement store |
+| `CompleteStaleResponseDurableOp` | a claimed response persist or deletion (`runSerializedSqlMutation`) returning after reset, followed by no additional in-memory publication or effect callback on the replacement store |
 | `CancelOrIgnoreResponse` | response cancellation or `finalizeDocumentSync` returning and re-arming without response-derived snapshot, marker, or queue mutation |
 | `CompleteCapturedPass` | `shouldSkipCleanScheduledDocumentSync` after outgoing coverage preparation |
 
@@ -264,7 +282,7 @@ The abstraction maps to production at these seams:
 | `BeginBaselinelessUnlink` / `CommitBaselinelessUnlink` | `assertBaselinelessUnlinkHasEmptyCommittedFrontier` inside `mutateDocumentLinkSetWithExecutor` |
 | `CommitCoveringUnlink` | `assertAtomicRotationBaselineCoversCommittedFrontier` + `appendAtomicRotationBaseline` |
 | `WriterMayCommit` | the exclusive manifest-head locks in `lockDocumentLinkSetMutationFrontier` and `lockSyncDocumentWriteFrontier` |
-| the client never sending an empty baseline | `buildDocumentRotationBaseline` returning null for a zero-span snapshot |
+| the client never sending an empty baseline (boundary assumption) | `buildDocumentRotationBaseline` returning null for a zero-span snapshot |
 
 The checked configuration sets `LockedUnlink = TRUE`, matching production, and
 the invariants require that no rotation ever orphans an uncovered committed

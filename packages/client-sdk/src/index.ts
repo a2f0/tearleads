@@ -360,6 +360,7 @@ export {
   containerWriterProjectionFromRekeyPlan,
   createRemoteContainer,
   fetchContainerKekLog,
+  GroupShareNameMismatchError,
   HistoricalWrapUnavailableError,
   type HistoricalWrapUnavailableReason,
   moveRemoteContainer,

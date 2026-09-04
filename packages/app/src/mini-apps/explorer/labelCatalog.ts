@@ -59,6 +59,8 @@ export const EXPLORER_LABELS = {
   containerIconPlaylistOption: "Music Playlist",
   containerIconUpdateFailure: "Failed to update the folder icon.",
   containerInfoChooseGroupError: "Choose a group.",
+  containerInfoChosenGroupUnavailableError:
+    "The chosen group is no longer available. Choose another group.",
   containerInfoCreatedRow: "Created",
   containerInfoCursorColumn: "Cursor",
   containerInfoEntryCountOne: "entry",
@@ -105,6 +107,8 @@ export const EXPLORER_LABELS = {
   containerInfoShareGenericFailure: "Failed to share container.",
   containerInfoShareGenericFailureLog: "Failed to share container:",
   containerInfoShareToGroupFailure: "Failed to share container with group.",
+  containerInfoShareToGroupNameMismatch:
+    "The chosen group's name does not match its signed policy. Nothing was shared; reload and choose again.",
   containerInfoShareToGroupHeading: "Share To Group",
   containerInfoShareToPeerAction: "Share With Peer",
   containerInfoShareToPeerFailure: "Failed to share container with peer.",
