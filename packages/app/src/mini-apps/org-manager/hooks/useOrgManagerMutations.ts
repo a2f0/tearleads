@@ -297,6 +297,8 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     refreshDirectoryAndGroups,
     refreshSelectedGroupDetails,
     selectedGroupId,
+    selectedGroupName:
+      groups.find((group) => group.groupId === selectedGroupId)?.name ?? null,
     selectedGroupIsAdminsGroup,
     selectedGroupIsMembersGroup,
     setAddUserId,

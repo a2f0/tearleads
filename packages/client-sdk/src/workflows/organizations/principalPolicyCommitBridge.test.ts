@@ -199,6 +199,7 @@ test("remove group user bridges committed policy writes before caching the rotat
     );
 
     const returnedPolicy = await removeOrganizationGroupUser({
+      expectedGroupName: "Operators",
       afterPolicyCommitBeforeCache: async () => {
         calls.push("bridge");
         expect(calls).toEqual([
@@ -362,6 +363,7 @@ test("remove group user bridges committed policy writes before caching the rotat
         signingFingerprint,
         signingKeyPair,
         targetUserId: removedUserId,
+        expectedGroupName: "Operators",
       }),
     ).rejects.toThrow("Updated group policy advanced during root re-wrap");
 

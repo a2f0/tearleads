@@ -18,6 +18,7 @@ import type {
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import { loadOrganizationExternalAdminPolicy } from "../principals/externalAdminPolicy";
+import { assertGroupMembershipName } from "./groupMembershipName";
 import { prepareAuthoredGroupPolicy } from "./groupPolicyMutationAcknowledgement";
 import {
   cacheGroupPolicy,
@@ -256,6 +257,7 @@ export async function addOrganizationGroupUser(input: {
   readonly apiClient: PrincipalPolicyReadWriteApi;
   readonly currentUserSecretKey: Uint8Array;
   readonly execSql: ExecSql;
+  readonly expectedGroupName: string;
   readonly groupId: string;
   readonly organizationId: string;
   readonly signerUserId: string;
@@ -274,16 +276,11 @@ export async function addOrganizationGroupUser(input: {
     | PrepareGroupContainerMutations
     | undefined;
 }): Promise<PrincipalPolicyMutationResponse> {
-  const policyContext = await loadGroupPolicyMutationContext({
-    apiClient: input.apiClient,
-    execSql: input.execSql,
-    groupId: input.groupId,
-    organizationId: input.organizationId,
-    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
-    signerUserId: input.signerUserId,
-    signingFingerprint: input.signingFingerprint,
-    signingKeyPair: input.signingKeyPair,
-  });
+  const policyContext = await loadGroupPolicyMutationContext(input);
+  assertGroupMembershipName(
+    policyContext.currentPolicy,
+    input.expectedGroupName,
+  );
   const identities = await resolveRequiredUserIdentities({
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
     userIds: [
@@ -331,6 +328,7 @@ export async function removeOrganizationGroupUser(input: {
   readonly afterPolicyCommitBeforeCache?: (() => Promise<void>) | undefined;
   readonly apiClient: PrincipalPolicyReadWriteApi;
   readonly execSql: ExecSql;
+  readonly expectedGroupName: string;
   readonly groupId: string;
   readonly organizationId: string;
   readonly removedUserId: string;
@@ -349,16 +347,11 @@ export async function removeOrganizationGroupUser(input: {
     | PrepareGroupContainerMutations
     | undefined;
 }): Promise<PrincipalPolicyMutationResponse> {
-  const policyContext = await loadGroupPolicyMutationContext({
-    apiClient: input.apiClient,
-    execSql: input.execSql,
-    groupId: input.groupId,
-    organizationId: input.organizationId,
-    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
-    signerUserId: input.signerUserId,
-    signingFingerprint: input.signingFingerprint,
-    signingKeyPair: input.signingKeyPair,
-  });
+  const policyContext = await loadGroupPolicyMutationContext(input);
+  assertGroupMembershipName(
+    policyContext.currentPolicy,
+    input.expectedGroupName,
+  );
   const removedKey = input.removedUserId;
   const projection = policyContext.currentPolicy.currentProjection.filter(
     (member) => member.userId !== removedKey,

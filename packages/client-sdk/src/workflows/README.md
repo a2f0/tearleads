@@ -4,6 +4,10 @@ Workflow facades are the SDK's public domain-operation boundary. They may
 compose API calls, local persistence, key/projection verification, and sync
 coordination, but they must stay React-free and product-UI-free.
 
+Membership add/remove calls require the selected `expectedGroupName`. The
+verified policy must commit that name before recipient key use; callers can
+identify a relabeled selection by `GroupMembershipNameMismatchError`.
+
 ## Facade Taxonomy
 
 | Facade | Classification | Notes |

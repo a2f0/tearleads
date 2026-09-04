@@ -19,6 +19,7 @@ import {
   persistPrincipalPolicyAccessLossTombstones,
 } from "./accessLossTombstones";
 import { getPrincipalPolicyForStateWithExecutor } from "./getCurrentPrincipalPolicy";
+import { assertGroupPolicyNamePreserved } from "./groupPolicyName";
 import {
   lockGroupPolicyRematerializationInTransaction,
   lockGroupReferenceExclusiveInTransaction,
@@ -256,6 +257,7 @@ export async function putPrincipalPolicyInTransaction(
         ),
     },
   );
+  await assertGroupPolicyNamePreserved(tx, input);
   // Gate after authorization so an unauthorized signer still gets the
   // authorization error, not a billing error.
   await assertPrincipalOrganizationIsSyncEntitled(

@@ -25,6 +25,7 @@ test("a policy write past the version ceiling is rejected, not a 500", async () 
   await authenticate(actor);
   const principalId = crypto.randomUUID();
   const signed = await createSignedPrincipalState({
+    groupName: "Nonexistent test group",
     principalType: "group",
     principalId,
     members: [{ userId: actor.userId }],

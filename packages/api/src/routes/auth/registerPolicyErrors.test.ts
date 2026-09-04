@@ -9,17 +9,17 @@ import { createRegistrationRequestBody } from "../../../test/helpers/api";
 import { del } from "../../adapters/redis";
 import { routeApp } from "../../routeApp";
 
-let fingerprint: string;
+const fingerprints = new Set<string>();
 
 afterAll(async () => {
-  await del(fingerprint);
+  await Promise.all([...fingerprints].map((fingerprint) => del(fingerprint)));
 });
 
 test("POST /auth/register preserves principal policy authorization errors", async () => {
   const { signingPrivateKey, signingPublicKey } =
     generateSigningSeedAndKeyPair();
   const { publicKey } = generateKemSeedAndKeyPair();
-  fingerprint = await toFingerprint(signingPublicKey);
+  fingerprints.add(await toFingerprint(signingPublicKey));
   const body = await createRegistrationRequestBody(
     signingPublicKey,
     signingPrivateKey,
@@ -44,5 +44,44 @@ test("POST /auth/register preserves principal policy authorization errors", asyn
   expect(response.status).toBe(403);
   expect(await response.json()).toEqual({
     error: "Invalid principal state signature",
+  });
+});
+
+test.each([
+  "initialAdminGroup",
+  "initialMemberGroup",
+] as const)("POST /auth/register binds the reserved %s name to its signed payload", async (groupField) => {
+  const { signingPrivateKey, signingPublicKey } =
+    generateSigningSeedAndKeyPair();
+  const { publicKey } = generateKemSeedAndKeyPair();
+  const body = await createRegistrationRequestBody(
+    signingPublicKey,
+    signingPrivateKey,
+    publicKey,
+  );
+  const group = body[groupField];
+  fingerprints.add(await toFingerprint(signingPublicKey));
+  const response = await routeApp.request("/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ...body,
+      [groupField]: {
+        ...group,
+        initialGroupPolicy: {
+          ...group.initialGroupPolicy,
+          encryptedPayload: {
+            ...group.initialGroupPolicy.encryptedPayload,
+            ciphertext: bytesToBase64(
+              new TextEncoder().encode(JSON.stringify({ name: "Other" })),
+            ),
+          },
+        },
+      },
+    }),
+  });
+  expect(response.status).toBe(400);
+  expect(await response.json()).toEqual({
+    error: "Group name must match the signed policy display name",
   });
 });

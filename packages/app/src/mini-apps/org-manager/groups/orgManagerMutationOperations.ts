@@ -2,6 +2,7 @@ import type { OrganizationDirectory } from "@tearleads/client-sdk";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import type { Dispatch, SetStateAction } from "react";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
+import { RESERVED_ORGANIZATION_GROUP_NAMES } from "../../../utils/organizationGroupNames";
 import { ORG_MANAGER_LABELS } from "../labels";
 import type { useOrgManagerRefreshers } from "../refreshers/useOrgManagerRefreshers";
 
@@ -68,6 +69,7 @@ async function resolveRosterTargetUser(input: {
 // when the operation went stale or the membership list failed to load.
 async function ensureRosterUserInGroup(input: {
   groupId: string;
+  groupName: string;
   isOperationActive: IsOperationActive;
   operationOrganizationId: string;
   orgManagerActions: OrgManagerActions;
@@ -91,7 +93,11 @@ async function ensureRosterUserInGroup(input: {
   if (alreadyMember) {
     return "already-member";
   }
-  await input.orgManagerActions.addUserToGroup(input.groupId, input.userId);
+  await input.orgManagerActions.addUserToGroup(
+    input.groupId,
+    input.userId,
+    input.groupName,
+  );
 
   return input.isOperationActive(input.operationOrganizationId)
     ? "added"
@@ -120,6 +126,7 @@ export async function prepareRosterImport(input: {
   const membership = await ensureRosterUserInGroup({
     ...input,
     groupId: input.memberGroupId,
+    groupName: RESERVED_ORGANIZATION_GROUP_NAMES.members,
     userId: targetUser.userId,
   });
 
@@ -129,6 +136,7 @@ export async function prepareRosterImport(input: {
 export async function addRosterUserToGroup(input: {
   directoryUser: OrganizationDirectory["users"][number] | undefined;
   groupId: string;
+  groupName: string;
   isAdminGroup: boolean;
   isOperationActive: IsOperationActive;
   memberGroupId: string | null;
@@ -152,6 +160,7 @@ export async function addRosterUserToGroup(input: {
     const membership = await ensureRosterUserInGroup({
       ...input,
       groupId: input.memberGroupId,
+      groupName: RESERVED_ORGANIZATION_GROUP_NAMES.members,
       userId: targetUser.userId,
     });
     if (!membership) {
@@ -168,6 +177,7 @@ export async function addRosterUserToGroup(input: {
     const bundle = await input.orgManagerActions.addUserToGroup(
       input.groupId,
       targetUser.userId,
+      input.groupName,
     );
     return input.isOperationActive(input.operationOrganizationId)
       ? bundle

@@ -27,11 +27,7 @@ import {
 } from "../../../data/principals/principalPolicyAdminSigners";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
-import {
-  canonicalGroupNameKey,
-  hasForbiddenGroupNameCharacter,
-  readGroupPolicyPayloadName,
-} from "../../organizations/principalPolicyRequest";
+import { groupPolicyNameMismatch } from "../../organizations/principalPolicyRequest";
 import {
   externalAdminPolicyPersistenceEntries,
   loadOrganizationExternalAdminPolicy,
@@ -231,15 +227,16 @@ function assertShareGroupName(input: {
   // The label comes from the untrusted read model. Signed names never carry
   // an invisible code point, so a label that does is a look-alike that would
   // only match after canonicalization strips it; refuse it outright.
-  if (hasForbiddenGroupNameCharacter(input.expectedGroupName)) {
+  const mismatch = groupPolicyNameMismatch(
+    input.bundle,
+    input.expectedGroupName,
+  );
+  if (mismatch === "forbidden_characters") {
     throw new GroupShareNameMismatchError(
       "Container share group name contains control or format characters",
     );
   }
-  if (
-    canonicalGroupNameKey(readGroupPolicyPayloadName(input.bundle)) !==
-    canonicalGroupNameKey(input.expectedGroupName)
-  ) {
+  if (mismatch === "name_mismatch") {
     throw new GroupShareNameMismatchError(
       "Container share group name does not match the signed group policy",
     );

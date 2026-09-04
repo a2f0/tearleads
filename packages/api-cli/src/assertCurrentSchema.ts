@@ -3,6 +3,7 @@ import {
   organizationBilling,
   organizationBillingLifecycleEvents,
 } from "@tearleads/api-shared/schema";
+import { assertNamedGroupPolicies } from "./assertNamedGroupPolicies";
 
 const RESET_REQUIRED_MESSAGE =
   "API database schema is not the current greenfield baseline; destroy and reprovision the database before deploying this release";
@@ -53,6 +54,7 @@ export async function assertCurrentApiSchema(
       .select({ id: organizationBillingLifecycleEvents.id })
       .from(organizationBillingLifecycleEvents)
       .limit(0);
+    await assertNamedGroupPolicies(executor);
   } catch (cause) {
     if (isMissingCurrentApiSchemaError(cause)) {
       throw new Error(RESET_REQUIRED_MESSAGE, { cause });
