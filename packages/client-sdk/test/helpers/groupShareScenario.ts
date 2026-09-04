@@ -56,7 +56,7 @@ export function createShareTestRuntime(
 }
 
 /** The raw runtime input, for callers that wrap it in a store runtime. */
-export function createShareTestRuntimeInput(
+function createShareTestRuntimeInput(
   input: ShareTestRuntimeInput,
 ): ContainerContentsWorkflowRuntimeInput {
   return {
