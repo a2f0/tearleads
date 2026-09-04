@@ -14,3 +14,4 @@ export {
   getDefaultApiDatabaseKind,
   initializeApiDatabase,
 } from "./adapters/postgres";
+export { readSignedGroupPolicyName } from "./groupPolicyName";

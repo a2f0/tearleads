@@ -20,6 +20,7 @@ import {
 import { storeVerifiedPrincipalPolicyInTransaction } from "../principals/storeVerifiedPrincipalPolicy";
 import { requireDirectOrganizationAccess } from "./access";
 import { OrganizationManagerError } from "./errors";
+import { assertCreatedGroupPolicyName } from "./groupPolicyName";
 import { toGroupSummary } from "./groupSummary";
 import { wasOrganizationGroupDeleted } from "./groupTombstone";
 import { requireSerializedOrganizationMutationAccess } from "./mutationAccess";
@@ -132,6 +133,10 @@ function validateOrganizationGroupCreation(
   if (name.length === 0) {
     throw new OrganizationManagerError("Group name cannot be empty", 400);
   }
+  assertCreatedGroupPolicyName({
+    name,
+    ciphertext: input.initialGroupPolicy.encryptedPayload.ciphertext,
+  });
   if (input.initialGroupPolicy.state.principalType !== "group") {
     throw new OrganizationManagerError(
       "Initial group policy must target a group principal",

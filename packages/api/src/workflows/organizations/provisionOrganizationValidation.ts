@@ -3,6 +3,8 @@ import type {
   OrganizationProvisioningRequest,
   PutPrincipalPolicyRequest,
 } from "@tearleads/validators/request";
+import { OrganizationManagerError } from "./errors";
+import { assertCreatedGroupPolicyName } from "./groupPolicyName";
 import { parseOrganizationAuthorityDescriptor } from "./organizationAuthorityDescriptor";
 import { groupHeadsEqual } from "./organizationGroupDirectoryValidation";
 import { OrganizationProvisioningError } from "./provisionOrganizationError";
@@ -168,6 +170,18 @@ function validateInitialGroupInput(input: {
       `${groupLabel} name must be ${expectedName}`,
       400,
     );
+  }
+
+  try {
+    assertCreatedGroupPolicyName({
+      ciphertext: group.initialGroupPolicy.encryptedPayload.ciphertext,
+      name: expectedName,
+    });
+  } catch (error) {
+    if (error instanceof OrganizationManagerError) {
+      throw new OrganizationProvisioningError(error.message, 400);
+    }
+    throw error;
   }
 
   if (state.principalType !== "group" || state.principalId !== group.groupId) {

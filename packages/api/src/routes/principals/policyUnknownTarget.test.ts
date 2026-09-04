@@ -11,6 +11,7 @@ test("PUT principal policy rejects standalone group updates", async () => {
   await authenticate(actor);
   const principalId = crypto.randomUUID();
   const signedState = await createSignedPrincipalState({
+    groupName: "Nonexistent test group",
     members: [{ userId: actor.userId }],
     principalId,
     principalType: "group",

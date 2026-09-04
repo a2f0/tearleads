@@ -10,6 +10,38 @@ import { registerUser } from "../../../test/helpers/registerUser";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { routeApp } from "../../routeApp";
 
+test("group creation binds its listing name to the signed policy name", async () => {
+  const actor = createTestUser();
+  await registerUser(actor);
+  await authenticate(actor);
+  const organizationId = await getDefaultOrganizationId(actor.userId);
+  const groupId = crypto.randomUUID();
+  const request = await createGroupRequest({
+    actor,
+    groupId,
+    name: "Operators",
+  });
+  const response = await routeApp.request(
+    `/organizations/${organizationId}/groups`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${actor.token}`,
+      },
+      body: JSON.stringify({ ...request, name: "Executives" }),
+    },
+  );
+  expect(response.status).toBe(400);
+  expect(await response.json()).toEqual({
+    error: "Group name must match the signed policy display name",
+  });
+  expect(await getCurrentPrincipalState("group", groupId, db)).toBeNull();
+  expect(await db.select().from(groups).where(eq(groups.id, groupId))).toEqual(
+    [],
+  );
+});
+
 test.each([
   [
     "organization id",

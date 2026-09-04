@@ -56,7 +56,9 @@ export async function createGroupRequest(input: {
     })),
   ]);
   const payloadCiphertext = bytesToBase64(
-    new TextEncoder().encode(JSON.stringify({ members: projection })),
+    new TextEncoder().encode(
+      JSON.stringify({ members: projection, name: input.name.trim() }),
+    ),
   );
   const { memberEnvelopes, stateMembers } =
     await createPrincipalMemberEnvelopes({
