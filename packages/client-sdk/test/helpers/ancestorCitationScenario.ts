@@ -28,8 +28,8 @@ import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
 // Every container event signs the ancestor heads it was committed against,
 // so the verifier authorizes a head at those cited heads and refuses a head
 // that cites an older ancestor head than an earlier signed statement proved.
-// It does not yet require a head new to a device to cite the current heads;
-// see #2166 for why that waits on descendants being able to re-cite.
+// A head newer than a device's checkpoint must also cite the served current
+// ancestor heads; a later child event that does so recovers a refused one.
 
 export const ORGANIZATION_ID = "organization-1";
 export const ROOT_ID = "ancestor-root";

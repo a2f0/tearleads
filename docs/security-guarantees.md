@@ -265,17 +265,21 @@ served for the same leaf, whatever order the server lists them in. Whether a
 link's container evidence predates a later rotation of that container is the
 same ordering boundary as for container heads.
 
-Not yet applied to containers is the principal-policy rule that a successor
-new to a device must cite the authority's current head. The API accepts a
-mutation on a container whose pinned parent manifest is no longer the parent's
-head, as long as the event cites the current ancestor heads, and it serves the
-heads an event cites alongside the projection even when they are neither on
-the current path nor pinned by any manifest. A child head that rule would
-reject can therefore be superseded by a later child event citing the newer
-ancestor. Until a client applies the rule, every device accepts a child head
-authorized under an older ancestor head, whether or not it has checkpointed a
-newer one; only a signed statement that already established the newer head
-makes a citation that does not descend from it a rollback.
+Containers also follow the principal-policy rule that a successor new to a
+device must cite the authority's current head: a served container head newer
+than the device's checkpoint for that container must cite, for every ancestor,
+the head the projection serves as current. A member revoked from an ancestor
+therefore cannot, with a server that still presents the older ancestor head,
+commit a child event that a device already holding the child would take for a
+stale delivery. A device with no checkpoint for the container is at first
+contact and takes the served history as it is. Only the head is held to the
+rule: a child head committed before an ancestor advanced and first seen after
+is refused until any later child event cites the current heads, and that event
+then verifies the refused head as its predecessor. The API accepts such an
+event, since a mutation on a container whose pinned parent manifest is no
+longer the parent's head is valid as long as it cites the current ancestor
+heads, and it serves the cited heads even when they are neither on the current
+path nor pinned by any manifest.
 
 ### Content Confidentiality
 

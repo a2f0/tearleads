@@ -5,6 +5,8 @@ import {
 } from "@tearleads/crypto";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import { readCanonicalRecord } from "../keyingCanonicalJson";
+import { loadAccessManifestCheckpoint } from "../persistence/keyingCheckpointPersistence";
+import type { ExecSql } from "../sqlite/sqlSchema";
 import { readRecordNullableString } from "./readers";
 
 /**
@@ -23,13 +25,10 @@ import { readRecordNullableString } from "./readers";
  * head one signed statement established can never be rolled back or forked
  * away for a later one.
  *
- * Not applied here: the principal-policy rule that a successor new to this
- * device must cite the authority's current head. The API accepts a mutation
- * on a container whose pinned parent manifest is no longer the parent's head
- * as long as the event cites the current ancestor heads, and serves the
- * cited heads with the projection, so a later child event can supersede a
- * head that rule would reject. Applying the rule here, with that recovery,
- * is a follow-up.
+ * A served head newer than this device's checkpoint for its container must
+ * also cite the ancestor heads the projection serves as current: the
+ * container form of the principal-policy rule that a successor new to a
+ * device must cite the authority's current head.
  */
 
 interface CitedAncestorResolutionInput {
@@ -224,4 +223,45 @@ export function assertCitedAncestorsDoNotRegress(
       }
     }
   });
+}
+
+/**
+ * A served head newer than this device's checkpoint for its container must
+ * cite, for every ancestor, the head the projection serves as current. A
+ * member revoked from an ancestor could otherwise, with a server that still
+ * presents the older ancestor head as current, commit a child event that a
+ * device already holding the child would take for a stale delivery. A device
+ * with no checkpoint is at first contact and takes the served history as it
+ * is, as it does for principal policies.
+ *
+ * Only the head is held to this, not the history between the checkpoint and
+ * it: a child head committed before an ancestor advanced and first seen after
+ * is refused until any later child event cites the current heads, and that
+ * event then verifies the refused head as its predecessor.
+ */
+export async function assertNewHeadCitesServedAncestors(input: {
+  readonly execSql: ExecSql;
+  readonly head: VerifiedContainerAccessManifest;
+  readonly label: string;
+  readonly servedAncestors: readonly VerifiedContainerAccessManifest[];
+}): Promise<void> {
+  if (input.servedAncestors.length === 0) return;
+  const localCheckpoint = await loadAccessManifestCheckpoint(
+    input.execSql,
+    "container",
+    input.head.state.organizationId,
+    input.head.state.containerId,
+  );
+  if (!localCheckpoint || input.head.state.epoch <= localCheckpoint.epoch) {
+    return;
+  }
+  const cited = new Set(input.head.event.event.dependencyManifestHashes);
+  for (const ancestor of input.servedAncestors) {
+    if (!cited.has(ancestor.manifestHash)) {
+      throw new KeyingVerificationError(
+        "rollback",
+        `${input.label} is newer than the local checkpoint but cites a stale head of ancestor container ${ancestor.state.containerId} rather than the served current head`,
+      );
+    }
+  }
 }

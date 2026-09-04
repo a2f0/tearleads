@@ -22,6 +22,7 @@ import {
   observeAccessManifestCheckpoints,
   type ProjectionCheckpointContext,
 } from "./checkpointContext";
+import { assertNewHeadCitesServedAncestors } from "./containerAncestorCitations";
 import { verifyContainerManifestBundle } from "./containerManifestVerification";
 import { rethrowProjectionVerificationBoundaryError } from "./error";
 import { collectReferencedPrincipalPolicies } from "./principalPolicyVerification";
@@ -225,6 +226,14 @@ export async function verifyContainerManifestPath(input: {
         "object_mismatch",
         `${input.label}[${index}] parent container does not precede it in the path`,
       );
+    }
+    if (input.enforceLocalCheckpoints) {
+      await assertNewHeadCitesServedAncestors({
+        execSql: input.checkpointContext.execSql,
+        head: verified,
+        label: `${input.label}[${index}]`,
+        servedAncestors: verifiedPath,
+      });
     }
     verifiedPath.push(verified);
   }
