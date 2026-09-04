@@ -270,7 +270,10 @@ device must cite the authority's current head, in the form the pinned-parent
 design allows: a served container head newer than the device's checkpoint for
 that container must either cite, for every ancestor, the head the projection
 serves as current, or be signed by a member who still holds the authority the
-event needs at the served current path. The rule reads the served heads, so it
+event needs at the served current path, read from the served ancestors and
+the container's own state as the device last accepted it, never from the
+unheld history between the checkpoint and the head. The rule reads the
+served heads, so it
 composes with the ancestor's own checkpoint: a device that has also
 checkpointed the newer ancestor head cannot be served the older one, and a
 served ancestor head that does not descend from the head a child event cites
@@ -278,7 +281,10 @@ is a rollback, since the signed event proves the cited head exists. An
 ancestor a head does not cite at all, because an ancestor between them has
 since moved, counts as stale. A move takes its admin authority from the
 source ancestors, which the projection does not serve, so their cited heads
-are held to the device's own checkpoints for them instead. What remains
+are held to the device's own checkpoints for them instead, with no authority
+to re-check: a move that raced an advance of a source ancestor the device
+had already checkpointed is refused too, until a later event on the moved
+container supersedes it. What remains
 refused, as `stale_citation`, is a head signed by a member since
 revoked at an ancestor: the device cannot tell that member's last honest
 event, delivered late, from one committed afterwards with the server's help,

@@ -1,4 +1,5 @@
 import {
+  type AccessManifestCheckpoint,
   type AnyVerifiedPrincipalPolicy,
   type ContainerAccessLevel,
   KeyingVerificationError,
@@ -40,26 +41,26 @@ interface ContainerManifestPathInput {
  * manifest verifier requires it at the cited path: write on the parent path
  * for a create and on the destination path for a move (a move's source
  * admin authority is held to this device's checkpoints instead), and admin
- * or write on the container's previous state beneath its ancestors for a
- * grant, revoke, or rekey.
+ * or write on the container's own state beneath its ancestors for a grant,
+ * revoke, or rekey.
  */
 function containerEventServedPathAccess(
   head: VerifiedContainerAccessManifest,
   label: string,
 ): {
   readonly minimumAccessLevel: ContainerAccessLevel;
-  readonly ownsPrevious: boolean;
+  readonly ownState: boolean;
 } {
   const eventType = head.event.event.eventType;
   switch (eventType) {
     case "container.create":
     case "container.move":
-      return { minimumAccessLevel: "write", ownsPrevious: false };
+      return { minimumAccessLevel: "write", ownState: false };
     case "container.grant":
     case "container.revoke":
-      return { minimumAccessLevel: "admin", ownsPrevious: true };
+      return { minimumAccessLevel: "admin", ownState: true };
     case "container.rekey":
-      return { minimumAccessLevel: "write", ownsPrevious: true };
+      return { minimumAccessLevel: "write", ownState: true };
     default:
       throw new KeyingVerificationError(
         "invalid_shape",
@@ -70,33 +71,34 @@ function containerEventServedPathAccess(
 
 /**
  * The access a container event needs, checked at the served current path
- * instead of the ancestors the event cites: the parent path for a create
- * and for a move's destination, and the container's own previous state
- * beneath its ancestors for a grant, revoke, or rekey, as the manifest
- * verifier checks it at the cited path.
+ * instead of the ancestors the event cites. The container's own grants are
+ * read from its state as this device last accepted it, the manifest at the
+ * local checkpoint, never from the head's unheld predecessors: those a
+ * member revoked at an ancestor could have written themselves, citing the
+ * head that still granted them, to lend the re-check an authority no
+ * current admin gave.
  */
 function servedPathAuthorization(
   input: ContainerManifestPathInput,
   head: VerifiedContainerAccessManifest,
   label: string,
   servedAncestors: readonly VerifiedContainerAccessManifest[],
-): () => Promise<void> {
-  return async () => {
+): (localCheckpoint: AccessManifestCheckpoint) => Promise<void> {
+  return async (localCheckpoint) => {
     const access = containerEventServedPathAccess(head, label);
-    const previousHash = head.state.previousManifestHash;
-    const previous =
-      previousHash === null
-        ? undefined
-        : input.verifiedByHash.get(previousHash);
-    if (access.ownsPrevious && !previous) {
+    const checkpointed = input.verifiedByHash.get(localCheckpoint.manifestHash);
+    if (
+      access.ownState &&
+      checkpointed?.state.containerId !== head.state.containerId
+    ) {
       throw new KeyingVerificationError(
         "missing_dependency",
-        `${label} previous manifest is not verified`,
+        `${label} manifest at this device's checkpoint is not served`,
       );
     }
     const path =
-      access.ownsPrevious && previous
-        ? [...servedAncestors, previous]
+      access.ownState && checkpointed
+        ? [...servedAncestors, checkpointed]
         : [...servedAncestors];
     const principalPolicies = await collectReferencedPrincipalPolicies({
       checkpointContext: input.checkpointContext,

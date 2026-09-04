@@ -157,6 +157,7 @@ function verifiedCitedHead(
   verifiedByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>,
   cited: readonly string[],
   containerId: string,
+  label: string,
 ): VerifiedContainerAccessManifest | undefined {
   let found: VerifiedContainerAccessManifest | undefined;
   for (const manifestHash of cited) {
@@ -165,7 +166,7 @@ function verifiedCitedHead(
     if (found && found.manifestHash !== verified.manifestHash) {
       throw new KeyingVerificationError(
         "duplicate_entry",
-        `event cites more than one head of container ${containerId}`,
+        `${label} cites more than one head of container ${containerId}`,
       );
     }
     found = verified;
@@ -227,7 +228,12 @@ export function assertCitedAncestorsDoNotRegress(
     const containerId = ancestor.state.containerId;
     const citedChild = input.citedAncestors[index + 1] ?? previous;
     const floors = [
-      verifiedCitedHead(input.verifiedByHash, previousCited, containerId),
+      verifiedCitedHead(
+        input.verifiedByHash,
+        previousCited,
+        containerId,
+        input.label,
+      ),
       ...(citedChild
         ? [
             input.verifiedByHash.get(citedChild.state.parentManifestHash ?? ""),
@@ -235,6 +241,7 @@ export function assertCitedAncestorsDoNotRegress(
               input.verifiedByHash,
               citedChild.event.event.dependencyManifestHashes,
               containerId,
+              input.label,
             ),
           ]
         : []),
@@ -268,6 +275,7 @@ function staleAncestorCitations(input: {
       input.verifiedByHash,
       citations,
       containerId,
+      input.label,
     );
     // An ancestor the head does not cite at all joined the path after the
     // head was signed, when an ancestor between them moved: the head is as
@@ -357,8 +365,15 @@ async function staleMoveSourceCitations(input: {
       input.verifiedByHash,
       citations,
       containerId,
+      input.label,
     );
-    if (!cited) break;
+    if (!cited) {
+      // The cited ancestor path already resolved the whole source chain.
+      throw new KeyingVerificationError(
+        "missing_dependency",
+        `${input.label} does not cite a verified head of source ancestor container ${containerId}`,
+      );
+    }
     const localCheckpoint = await loadLocalAccessManifestCheckpoint({
       execSql: input.execSql,
       localCheckpoints: input.localCheckpoints,
@@ -393,7 +408,11 @@ async function staleMoveSourceCitations(input: {
  * the ancestor head that still granted them, and a device already holding
  * the child would take it for a stale delivery; a member with current
  * authority gains nothing by citing an older head, so their late event is
- * accepted as the stale delivery it is. The rule reads the served heads, so
+ * accepted as the stale delivery it is. That authority is read from the
+ * served ancestors and the container's own state as this device last
+ * accepted it, never from the unheld history between the checkpoint and
+ * the head, which the same member could have written. The rule reads the
+ * served heads, so
  * it composes with the ancestor's own checkpoint; a device with no checkpoint
  * for the child is at first contact with it and takes the served history as
  * it is, as it does for principal policies.
@@ -411,10 +430,13 @@ async function staleMoveSourceCitations(input: {
  * refusal and defers the container rather than failing it.
  */
 export async function assertNewHeadCitesServedAncestors(input: {
-  // Re-checks the head's signer at the served current path. Called only
-  // when the head cites a stale ancestor head; throws `unauthorized` when
-  // the signer holds no authority there.
-  readonly authorizeAtServedPath: () => Promise<void>;
+  // Re-checks the head's signer at the served current path above the
+  // container's state as this device last accepted it, the manifest at the
+  // given checkpoint. Called only when the head cites a stale ancestor head;
+  // throws `unauthorized` when the signer holds no authority there.
+  readonly authorizeAtServedPath: (
+    localCheckpoint: AccessManifestCheckpoint,
+  ) => Promise<void>;
   readonly execSql: ExecSql;
   readonly head: VerifiedContainerAccessManifest;
   readonly label: string;
@@ -445,7 +467,7 @@ export async function assertNewHeadCitesServedAncestors(input: {
   const stale = staleAncestorCitations(input);
   if (stale.length === 0) return;
   try {
-    await input.authorizeAtServedPath();
+    await input.authorizeAtServedPath(localCheckpoint);
   } catch (error) {
     if (!isKeyingVerificationError(error) || error.code !== "unauthorized") {
       throw error;
