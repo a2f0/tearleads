@@ -858,7 +858,9 @@ async function createRootMetadataDocumentRequest(input: {
   };
   const { event, eventHash } = await signRegistrationEvent({
     body,
-    dependencyManifestHashes: [target.containerManifestHash],
+    dependencyManifestHashes: input.containerProjection.path.map(
+      (bundle) => bundle.manifestHash,
+    ),
     eventType: "document.link",
     objectKind: "document",
     objectId: input.rootMetadataDocumentId,

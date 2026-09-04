@@ -325,9 +325,8 @@ test("a stale dependency path never replaces the authorizing path for its leaf",
       ],
     });
 
-    // The control, on a device that has never seen the root advance (the
-    // share above already checkpointed it here): were the stale path the
-    // authorizing one, Mallory is no writer through the child.
+    // The control withholds the newer ancestor that Mallory signed into her
+    // event. The stale path cannot substitute for that missing citation.
     const control = await createTestExecSql(
       "dependency-path-no-overwrite-control",
     );
@@ -338,7 +337,12 @@ test("a stale dependency path never replaces the authorizing path for its leaf",
           projection: served(childStale),
           resolveUserKey: resolveIdentity,
         }),
-      ).rejects.toMatchObject({ code: "unauthorized" });
+      ).rejects.toMatchObject({
+        code: "missing_dependency",
+        message: expect.stringContaining(
+          "cites an unavailable container manifest",
+        ),
+      });
     } finally {
       control.close();
     }

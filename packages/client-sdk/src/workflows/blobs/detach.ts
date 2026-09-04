@@ -1,6 +1,5 @@
 import type { BlobAttachmentDetachRequest } from "@tearleads/validators/request";
 import { signBlobAttachmentDetachEvent } from "../../data/documents/blob/shared/events";
-import { listedBlobTargetsFromDocumentProjection } from "../../data/documents/blob/shared/projection";
 import { assertBlobAttachmentDetachResponse } from "../../data/documents/blob/shared/responses";
 import type {
   DetachDocumentAttachmentInput,
@@ -43,11 +42,7 @@ export async function detachDocumentAttachment({
   const { manifestIdentity, writerProjection: resolvedWriterProjection } =
     resolved;
 
-  const targets = listedBlobTargetsFromDocumentProjection({
-    bindingId,
-    documentId,
-    writerProjection: resolvedWriterProjection,
-  });
+  const pathRefs = authorizingContainerPathRefs(resolvedWriterProjection);
   const { body, event } = await signBlobAttachmentDetachEvent({
     author,
     bindingId,
@@ -57,14 +52,12 @@ export async function detachDocumentAttachment({
     manifestIdentity,
     signedAt,
     slotId,
-    targets,
+    authorizingContainerPathRefs: pathRefs,
   });
   const request: BlobAttachmentDetachRequest = {
     event: readCanonicalRecord(event, "Blob attachment detach event"),
     body: readCanonicalRecord(body, "Blob attachment detach body"),
-    authorizingContainerPathRefs: authorizingContainerPathRefs(
-      resolvedWriterProjection,
-    ),
+    authorizingContainerPathRefs: pathRefs,
   };
   const response = await apiClient.detachBlobAttachment(
     blobId,

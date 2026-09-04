@@ -52,9 +52,9 @@ export async function buildDocumentLinkRequest(input: {
     body,
     dependencyManifestHashes: [
       ...new Set(
-        [authorizingContainerPath.at(-1), childBundle]
-          .filter((bundle): bundle is AccessManifestBundleWire => !!bundle)
-          .map((bundle) => bundle.manifestHash),
+        [...authorizingContainerPath, input.root.bundle, childBundle].map(
+          (bundle) => bundle.manifestHash,
+        ),
       ),
     ],
     objectId: documentId,
@@ -186,9 +186,9 @@ export async function buildDocumentUnlinkRequest(input: {
     body,
     dependencyManifestHashes: [
       ...new Set(
-        [unlinkedContainerPath.at(-1), remainingContainerPath.at(-1)]
-          .filter((bundle): bundle is AccessManifestBundleWire => !!bundle)
-          .map((bundle) => bundle.manifestHash),
+        [...unlinkedContainerPath, ...remainingContainerPath].map(
+          (bundle) => bundle.manifestHash,
+        ),
       ),
     ],
     objectId: documentId,

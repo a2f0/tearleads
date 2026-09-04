@@ -14,9 +14,7 @@ import type { ExecSql } from "../sqlite/sqlSchema";
  */
 async function loadLocalAccessManifestCheckpoint(input: {
   readonly execSql: ExecSql;
-  readonly localCheckpoints?:
-    | Map<string, AccessManifestCheckpoint | null>
-    | undefined;
+  readonly localCheckpoints: Map<string, AccessManifestCheckpoint | null>;
   readonly objectId: string;
   readonly objectKind: AccessManifest["objectKind"];
   readonly organizationId: string;
@@ -26,7 +24,7 @@ async function loadLocalAccessManifestCheckpoint(input: {
     input.organizationId,
     input.objectId,
   ]);
-  const cached = input.localCheckpoints?.get(key);
+  const cached = input.localCheckpoints.get(key);
   if (cached !== undefined) return cached;
   const loaded = await loadAccessManifestCheckpoint(
     input.execSql,
@@ -34,7 +32,7 @@ async function loadLocalAccessManifestCheckpoint(input: {
     input.organizationId,
     input.objectId,
   );
-  input.localCheckpoints?.set(key, loaded);
+  input.localCheckpoints.set(key, loaded);
   return loaded;
 }
 
@@ -65,9 +63,7 @@ export async function loadManifestCheckpointVerification<
 >(input: {
   readonly current: AccessManifest;
   readonly execSql: ExecSql;
-  readonly localCheckpoints?:
-    | Map<string, AccessManifestCheckpoint | null>
-    | undefined;
+  readonly localCheckpoints: Map<string, AccessManifestCheckpoint | null>;
   readonly verifiedManifests: ReadonlyMap<string, TManifest>;
 }): Promise<ManifestCheckpointVerificationInput<TManifest>> {
   const localCheckpoint = await loadLocalAccessManifestCheckpoint({
@@ -94,9 +90,7 @@ export async function loadManifestCheckpointVerification<
 export async function verifyCachedManifestCheckpoint(input: {
   readonly current: VerifiedAccessManifestCheckpointEvidence;
   readonly execSql: ExecSql;
-  readonly localCheckpoints?:
-    | Map<string, AccessManifestCheckpoint | null>
-    | undefined;
+  readonly localCheckpoints: Map<string, AccessManifestCheckpoint | null>;
   readonly verifiedManifests: ReadonlyMap<
     string,
     VerifiedAccessManifestCheckpointEvidence

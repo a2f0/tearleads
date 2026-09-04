@@ -162,8 +162,9 @@ function verifyHistoricalContainerManifest(
 /**
  * The manifests a stored event cites, verified and indexed by container. An
  * event was authorized against the heads current when it was committed, and
- * it signs exactly those as its dependencies (assertAccessEventDependencies
- * checks the set), so they, not the creation-time pins the manifest carries,
+ * it signs exactly those as its dependencies (the mutation-time
+ * assertAccessEventDependenciesMatchRequest checks the set), so they,
+ * not the creation-time pins the manifest carries,
  * are the paths to re-verify it against. One head per container: the paths a
  * mutation submits are all current, so they cannot disagree on a container.
  */

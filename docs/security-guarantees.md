@@ -141,6 +141,12 @@ drop and recreate pre-grant-index API databases and local client databases;
 the client fails startup with a reset-required error if it detects the legacy
 principal-policy table shape.
 
+Document and attachment events also sign their full authorization paths,
+deduplicated. Verification rebuilds paths by parent id from those citations,
+never from creation-time pins. Missing ancestors or two heads of one container
+are rejected. This is a flag-day: reset and reprovision API and client data
+containing leaf-only document events; there is no translation or leaf fallback.
+
 The group display name is committed in the signed group payload. The
 `groups.name` column and the organization read model are listing aids; when a
 member shares a container with a group they chose by name, the client checks
@@ -278,9 +284,9 @@ history for the container. The API refuses the forgery at commit, and the
 lineage rule above makes the next legitimate event on the descendant final.
 The residual is that a member revoked at an ancestor, with a compromised
 server, can keep authority over a descendant until that next event; a
-best-effort re-cite of the descendants a revoking client already holds
-shortens that window without any device depending on another. What the
-client does refuse is the opposite disagreement: a served current ancestor
+best-effort re-cite of descendants already held by the revoking client is
+planned in #2171, not implemented yet. On a checkpoint-enforced current path,
+the client does refuse the opposite disagreement: a served current ancestor
 head that does not descend from a head a child's signed event cites is a
 stale or forked ancestor, whatever the server calls current, since the
 signature proves the cited head exists.

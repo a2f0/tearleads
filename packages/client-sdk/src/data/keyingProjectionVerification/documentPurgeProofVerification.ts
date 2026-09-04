@@ -137,8 +137,13 @@ async function verifyPurgeContainerPaths(input: {
       verifiedByHash,
     });
     const leaf = verifiedPath.at(-1);
-    if (leaf) {
+    if (leaf && !containerPathByManifestHash.has(leaf.manifestHash)) {
       containerPathByManifestHash.set(leaf.manifestHash, verifiedPath);
+    }
+  }
+  for (const [hash, manifest] of verifiedByHash) {
+    if (!containerPathByManifestHash.has(hash)) {
+      containerPathByManifestHash.set(hash, [manifest]);
     }
   }
   observeAccessManifestCheckpoints(input.checkpointContext, {

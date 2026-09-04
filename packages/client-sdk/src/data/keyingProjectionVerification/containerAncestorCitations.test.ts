@@ -315,7 +315,9 @@ test("a served ancestor head older than the one a head cites is a rollback", asy
       }),
     ).rejects.toMatchObject({
       code: "rollback",
-      message: expect.stringContaining("does not descend"),
+      message: expect.stringContaining(
+        "the served current head does not descend from",
+      ),
     });
   } finally {
     close();

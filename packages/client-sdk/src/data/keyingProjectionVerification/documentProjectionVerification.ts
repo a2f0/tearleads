@@ -30,10 +30,7 @@ import {
   verifiedContainerManifestsForBundles,
   verifyContainerWriterProjectionWithContext,
 } from "./containerProjectionVerification";
-import {
-  addReconstructedVerifiedContainerPaths,
-  resolveEventContainerPaths,
-} from "./documentDependencyPaths";
+import { resolveEventContainerPaths } from "./documentDependencyPaths";
 import {
   collectDocumentManifestPrincipalPolicies,
   recordUsedDocumentContainerManifests,
@@ -181,10 +178,13 @@ async function verifyProjectionContainerPaths(input: {
     }
   }
 
-  addReconstructedVerifiedContainerPaths({
-    containerPathByManifestHash,
-    manifests: verifiedByHash,
-  });
+  // Index historical heads as evidence without inventing ancestor paths from
+  // their parent pins. Each document event selects its own signed path heads.
+  for (const [hash, manifest] of verifiedByHash) {
+    if (!containerPathByManifestHash.has(hash)) {
+      containerPathByManifestHash.set(hash, [manifest]);
+    }
+  }
 
   observeAccessManifestCheckpoints(input.checkpointContext, {
     verifiedHeads: [],

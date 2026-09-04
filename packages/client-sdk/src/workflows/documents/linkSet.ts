@@ -275,6 +275,7 @@ async function buildDocumentLinkSetMutationPlan({
     operation,
     organizationId,
     signedAt,
+    targetContainerPathRefs: containerPathRefs(targetContainerProjection.path),
     targetState,
     writerProjection,
   });

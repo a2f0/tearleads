@@ -83,8 +83,8 @@
       "bytes": 28639
     },
     "docs/security-guarantees.md": {
-      "lines": 617,
-      "bytes": 33711
+      "lines": 623,
+      "bytes": 34108
     },
     "formal/document-sync/BaselineDominanceTraces.json": {
       "lines": 2059,
@@ -195,8 +195,8 @@
       "bytes": 16424
     },
     "packages/api/test/helpers/registration.ts": {
-      "lines": 1142,
-      "bytes": 39493
+      "lines": 1144,
+      "bytes": 39535
     },
     "packages/app-capacitor/ios/App/App.xcodeproj/project.pbxproj": {
       "lines": 494,
