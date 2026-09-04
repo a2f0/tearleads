@@ -66,6 +66,23 @@ test("nested attachment bind and detach require exactly their signed full path",
     message: "Attachment event dependencies do not match supplied paths",
   });
   // Rejection leaves the staged blob usable by the exact, fully cited request.
+  await expect(
+    bindForTest({
+      blobId,
+      owner,
+      request: {
+        ...bound.request,
+        authorizingContainerPathRefs:
+          bound.request.authorizingContainerPathRefs?.map((path) =>
+            [...path].reverse(),
+          ),
+      },
+    }),
+  ).rejects.toMatchObject({
+    status: 409,
+    message:
+      "authorizingContainerPathRefs[0] does not start at a root container",
+  });
   await bindForTest({ blobId, owner, request: bound.request });
   const detached = await buildDetach({
     binding: bound.binding,

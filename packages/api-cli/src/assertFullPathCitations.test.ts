@@ -78,9 +78,21 @@ test("deployment inspects full-path history beyond the first bounded page", asyn
           row(index, index === 256 ? ["child-head"] : ["root-head"]),
         ),
       );
-    await expect(assertCurrentApiSchema(managed.db)).rejects.toThrow(
+    let selectCalls = 0;
+    const counted = new Proxy(managed.db, {
+      get(target, property, receiver) {
+        if (property === "select")
+          return (...args: unknown[]) => {
+            selectCalls += 1;
+            return Reflect.apply(target.select, target, args);
+          };
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    await expect(assertCurrentApiSchema(counted)).rejects.toThrow(
       "complete signed container path",
     );
+    expect(selectCalls).toBeLessThanOrEqual(10);
   } finally {
     await managed.close();
   }
@@ -102,6 +114,21 @@ test.each([
     await expect(assertCurrentApiSchema(managed.db)).rejects.toThrow(
       "complete signed container path",
     );
+  } finally {
+    await managed.close();
+  }
+}, 15_000);
+
+test("retained blob events may name purged metadata document history", async () => {
+  const { managed, row } = await fixture();
+  try {
+    await managed.db.insert(accessEvents).values({
+      ...row(0, ["root-head", "child-head", "purged-document-head"]),
+      eventType: "attachment.bind",
+      objectKind: "blob",
+      body: { documentManifestHash: "purged-document-head" },
+    });
+    await expect(assertCurrentApiSchema(managed.db)).resolves.toBeUndefined();
   } finally {
     await managed.close();
   }

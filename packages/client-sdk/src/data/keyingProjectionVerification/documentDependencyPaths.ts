@@ -74,8 +74,11 @@ export function resolveEventContainerPaths(input: {
   });
   return {
     dependencyContainerPaths,
-    targetContainerPath: dependencyContainerPaths.find(
-      (path) => path.at(-1)?.manifestHash === input.targetManifestHash,
-    ),
+    targetContainerPath:
+      input.targetManifestHash === undefined
+        ? undefined
+        : dependencyContainerPaths.find(
+            (path) => path.at(-1)?.manifestHash === input.targetManifestHash,
+          ),
   };
 }

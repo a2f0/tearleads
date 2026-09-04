@@ -15,6 +15,7 @@ import type {
   MutateContainerWithExecutorInput,
 } from "./types";
 
+export { assertContainerPathEdges } from "./shared/manifests";
 export type { MutateContainerInput };
 export { ContainerMutationError };
 

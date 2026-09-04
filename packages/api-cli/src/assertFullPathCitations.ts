@@ -54,36 +54,66 @@ function assertCompleteTree(
   }
 }
 
-async function assertEventPaths(
+type CitationEvent = Pick<
+  typeof accessEvents.$inferSelect,
+  "id" | "organizationId" | "dependencyManifestHashes" | "eventType" | "body"
+>;
+type CitedManifest = Pick<
+  typeof accessManifests.$inferSelect,
+  "manifestHash" | "objectKind" | "objectId" | "organizationId" | "state"
+>;
+
+function containerDependencies(event: CitationEvent): string[] {
+  // Metadata teardown can remove document history while retaining blob events.
+  // That document hash is not container ancestry and is excluded explicitly.
+  const documentHash =
+    event.eventType.startsWith("attachment.") &&
+    event.body &&
+    typeof event.body === "object"
+      ? Reflect.get(event.body, "documentManifestHash")
+      : undefined;
+  return event.dependencyManifestHashes.filter((hash) => hash !== documentHash);
+}
+
+async function loadPageManifests(
   executor: DatabaseSession,
-  event: {
-    id: string;
-    organizationId: string;
-    dependencyManifestHashes: string[];
-  },
-): Promise<void> {
-  const parents = new Map<string, string | null>();
-  for (
-    let offset = 0;
-    offset < event.dependencyManifestHashes.length;
-    offset += PAGE_SIZE
-  ) {
-    const hashes = event.dependencyManifestHashes.slice(
-      offset,
-      offset + PAGE_SIZE,
-    );
+  hashes: readonly string[],
+) {
+  const manifests = new Map<string, CitedManifest>();
+  // Batch the page's union, keeping SQL parameter counts bounded on SQLite.
+  for (let offset = 0; offset < hashes.length; offset += PAGE_SIZE) {
     const rows = await executor
       .select({
+        manifestHash: accessManifests.manifestHash,
         objectKind: accessManifests.objectKind,
         objectId: accessManifests.objectId,
         organizationId: accessManifests.organizationId,
         state: accessManifests.state,
       })
       .from(accessManifests)
-      .where(inArray(accessManifests.manifestHash, hashes));
-    if (rows.length !== hashes.length) resetRequired(event.id);
-    collectParents(parents, rows, event);
+      .where(
+        inArray(
+          accessManifests.manifestHash,
+          hashes.slice(offset, offset + PAGE_SIZE),
+        ),
+      );
+    for (const row of rows) manifests.set(row.manifestHash, row);
   }
+  return manifests;
+}
+
+function assertEventPaths(
+  event: CitationEvent,
+  dependencies: readonly string[],
+  manifests: ReadonlyMap<string, CitedManifest>,
+): void {
+  const rows = dependencies.map((hash) => {
+    const row = manifests.get(hash);
+    if (!row) resetRequired(event.id);
+    return row;
+  });
+  const parents = new Map<string, string | null>();
+  collectParents(parents, rows, event);
   assertCompleteTree(parents, event.id);
 }
 
@@ -102,6 +132,8 @@ export async function assertFullPathCitations(
         id: accessEvents.id,
         organizationId: accessEvents.organizationId,
         dependencyManifestHashes: accessEvents.dependencyManifestHashes,
+        eventType: accessEvents.eventType,
+        body: accessEvents.body,
       })
       .from(accessEvents)
       .where(
@@ -112,7 +144,15 @@ export async function assertFullPathCitations(
       )
       .orderBy(accessEvents.id)
       .limit(PAGE_SIZE);
-    for (const row of rows) await assertEventPaths(executor, row);
+    const events = rows.map((event) => ({
+      event,
+      dependencies: containerDependencies(event),
+    }));
+    const manifests = await loadPageManifests(executor, [
+      ...new Set(events.flatMap(({ dependencies }) => dependencies)),
+    ]);
+    for (const { event, dependencies } of events)
+      assertEventPaths(event, dependencies, manifests);
     const last = rows.at(-1);
     if (!last || rows.length < PAGE_SIZE) return;
     lastId = last.id;
