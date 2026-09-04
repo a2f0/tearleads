@@ -66,27 +66,22 @@ function readDocumentProjectionContainerPaths(
   ];
 }
 
-async function verifyProjectionContainerPaths(input: {
-  readonly checkpointContext: ProjectionCheckpointContext;
-  readonly principalPolicyCache: PrincipalPolicyCache;
-  readonly projection: DocumentWriterProjectionResponse;
-  readonly resolveUserKey: ProjectionUserKeyResolver;
-  readonly verifiedByHash?: VerifiedManifestMap | undefined;
-  readonly warmReferencedPrincipalPolicies?: PolicyWarmer;
-}): Promise<Map<string, readonly VerifiedContainerAccessManifest[]>> {
+function collectDocumentProjectionContainerBundles(
+  projection: DocumentWriterProjectionResponse,
+): Map<string, AccessManifestBundleWireResponse> {
   const bundlesByHash = new Map<string, AccessManifestBundleWireResponse>();
   for (const [
     index,
-    projection,
-  ] of input.projection.authorizingContainerPaths.entries()) {
+    authorizing,
+  ] of projection.authorizingContainerPaths.entries()) {
     addContainerWriterProjectionBundles(
       bundlesByHash,
-      projection,
+      authorizing,
       `Document writer projection authorizing path[${index}]`,
     );
   }
   for (const [index, path] of readDocumentProjectionContainerPaths(
-    input.projection,
+    projection,
   ).entries()) {
     for (const [pathIndex, bundle] of path.entries()) {
       addBundleByHash(
@@ -99,14 +94,27 @@ async function verifyProjectionContainerPaths(input: {
   for (const [
     index,
     bundle,
-  ] of input.projection.documentContainerManifestHistory.entries()) {
+  ] of projection.documentContainerManifestHistory.entries()) {
     addBundleByHash(
       bundlesByHash,
       bundle,
       `Document writer projection container history[${index}]`,
     );
   }
+  return bundlesByHash;
+}
 
+async function verifyProjectionContainerPaths(input: {
+  readonly checkpointContext: ProjectionCheckpointContext;
+  readonly principalPolicyCache: PrincipalPolicyCache;
+  readonly projection: DocumentWriterProjectionResponse;
+  readonly resolveUserKey: ProjectionUserKeyResolver;
+  readonly verifiedByHash?: VerifiedManifestMap | undefined;
+  readonly warmReferencedPrincipalPolicies?: PolicyWarmer;
+}): Promise<Map<string, readonly VerifiedContainerAccessManifest[]>> {
+  const bundlesByHash = collectDocumentProjectionContainerBundles(
+    input.projection,
+  );
   const containerPathByManifestHash = new Map<
     string,
     readonly VerifiedContainerAccessManifest[]
@@ -134,9 +142,14 @@ async function verifyProjectionContainerPaths(input: {
       verifiedByHash.set(manifest.manifestHash, manifest);
     }
   }
-  for (const [index, path] of readDocumentProjectionContainerPaths(
-    input.projection,
-  ).entries()) {
+  // Only the dependency paths are walked here: the authorizing paths above
+  // are already verified with checkpoints enforced and recorded, and the
+  // guard below keeps them, so the precedence is a rule of this loop rather
+  // than of the order the server listed the paths in.
+  for (const [
+    index,
+    path,
+  ] of input.projection.documentManifestContainerPaths.entries()) {
     // Dependency paths are the container evidence a link event was signed
     // against. They are verified without checkpoint enforcement because a
     // historical link event legitimately cites the container manifests that
@@ -144,11 +157,11 @@ async function verifyProjectionContainerPaths(input: {
     // root-to-leaf chain: verifyContainerManifestPath asserts that each
     // element is a child of the one before it by container id, not that the
     // element is the parent's current head, so a served path can pair a leaf
-    // with an older manifest of the right parent. That is why a dependency
-    // path never replaces the checkpoint-enforced authorizing path recorded
-    // for the same leaf. Whether a head's evidence is stale relative to a
-    // later container rotation is the ordering boundary the container
-    // ancestry section of docs/security-guarantees.md describes.
+    // with an older manifest of the right parent, and the checkpoint-enforced
+    // authorizing path recorded for that leaf takes precedence. Whether a
+    // head's evidence is stale relative to a later container rotation is the
+    // ordering boundary the container ancestry section of
+    // docs/security-guarantees.md describes.
     const verifiedPath = await verifyContainerManifestPath({
       authorizationMembership: "referenced",
       bundlesByHash,
@@ -161,8 +174,7 @@ async function verifyProjectionContainerPaths(input: {
       verifiedByHash,
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
-    // A dependency path never replaces the checkpoint-enforced authorizing
-    // path for the same leaf.
+    // The authorizing path recorded for the same leaf takes precedence.
     const leaf = verifiedPath.at(-1);
     if (leaf && !containerPathByManifestHash.has(leaf.manifestHash)) {
       containerPathByManifestHash.set(leaf.manifestHash, verifiedPath);
@@ -346,12 +358,11 @@ async function verifyDocumentWriterProjectionWithContext(
       `Document writer projection manifest history[${index}]`,
     );
   }
-  // History is verified without checkpoint enforcement and cached by hash. A
-  // copy of the head placed in the history would be verified there, at the
-  // membership it referenced, and then served to the head verification from
-  // the cache, where only the local checkpoint is re-checked and the head's
-  // authorization at current membership is not. An honest API never repeats
-  // the head in its history, so the repeat itself is the signal.
+  // An honest API never lists the head in its own history (it seeds the walk
+  // with the head), so a repeat is a malformed or tampered projection and is
+  // refused as such, rather than letting the head reach its verification
+  // through the history cache and relying on the cached branch to re-run
+  // every check the fresh path would.
   if (
     history.some(
       (bundle) =>

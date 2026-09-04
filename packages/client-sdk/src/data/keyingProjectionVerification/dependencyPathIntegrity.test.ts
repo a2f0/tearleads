@@ -28,7 +28,9 @@ import { verifyDocumentWriterProjection } from "../keyingProjectionVerification"
 // API controls their order. Access along a path is the union of every element's
 // grants, so a served path must be a genuine root-to-leaf ancestor chain, or an
 // unrelated container an attacker administers could be prefixed to the
-// document's container and make the attacker a "writer through" it.
+// document's container and make the attacker a "writer through" it. The chain
+// check itself lives in verifyContainerManifestPath (#2167); these tests pin
+// it, and the precedence rules around it, for document dependency paths.
 
 async function createScenario() {
   const parent = await createParentProjection();
@@ -154,10 +156,9 @@ test("a new head citing genuine dependency paths still verifies", async () => {
   }
 });
 
-// History is verified without checkpoint enforcement, at referenced
-// membership, and cached by hash, so a head smuggled into the history would
-// reach the head verification through the cache without its authorization at
-// current membership being checked.
+// An honest API never lists the head in its own history, so a repeat is
+// refused as a malformed projection instead of letting the head reach its
+// verification through the history cache.
 test("the current head cannot be repeated in the manifest history", async () => {
   const scenario = await createScenario();
   const linkedHead = await linkedHeadProjection(scenario);
@@ -186,7 +187,9 @@ test("the current head cannot be repeated in the manifest history", async () => 
 // The authorizing path for a leaf is checkpoint-enforced; a dependency path
 // served for the same leaf is not, and only its container-id edges are
 // checked, so a server can pair the leaf with an older manifest of the right
-// parent. That path must never replace the authorizing one: a writer granted
+// parent. The authorizing path must take precedence whatever order the server
+// lists the two in. The listing order already put authorizing paths last, so
+// this pins the precedence rather than a reachable overwrite: a writer granted
 // only at the parent's current head would otherwise lose (or, in the mirror
 // case, gain) access through the document.
 test("a stale dependency path never replaces the authorizing path for its leaf", async () => {
@@ -340,7 +343,7 @@ test("a stale dependency path never replaces the authorizing path for its leaf",
       control.close();
     }
     // With the current head as the authorizing path, her link verifies: the
-    // stale dependency path did not replace it.
+    // stale dependency path did not take precedence over it.
     await expect(
       verifyDocumentWriterProjection({
         execSql,
