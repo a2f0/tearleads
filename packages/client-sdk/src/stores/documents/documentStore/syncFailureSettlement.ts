@@ -2,8 +2,20 @@ import {
   isStaleCitationInCauseChain,
   reportKeyingVerificationErrorInCauseChain,
 } from "../../../data/keyingProjectionVerification/error";
+import type { SecurityIncidentReporter } from "../../../data/securityIncidents";
 import { isDatabaseUnavailableError } from "../../../workflows/documents";
-import type { DocumentStoreState } from "./state";
+
+/** The slice of a document store's state the settlement reads. */
+export interface ScheduledSyncFailureState {
+  readonly localId: string;
+  readonly record: { readonly documentId: string | null } | null;
+  readonly runtime: {
+    readonly util: {
+      readonly log: (message: string) => void;
+      readonly reportSecurityIncident: SecurityIncidentReporter;
+    };
+  };
+}
 
 /**
  * Settles a scheduled sync pass that threw. A database that went away ends
@@ -15,7 +27,7 @@ import type { DocumentStoreState } from "./state";
  * authority resolves it. Pending writes stay queued either way.
  */
 export async function settleScheduledSyncFailure(
-  state: Pick<DocumentStoreState, "localId" | "record" | "runtime">,
+  state: ScheduledSyncFailureState,
   error: unknown,
 ): Promise<boolean> {
   if (isDatabaseUnavailableError(error)) {

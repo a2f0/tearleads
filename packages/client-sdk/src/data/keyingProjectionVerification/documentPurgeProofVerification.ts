@@ -144,8 +144,13 @@ async function verifyPurgeContainerPaths(input: {
       containerPathByManifestHash.set(leaf.manifestHash, verifiedPath);
     }
   }
+  // The authorizing path is checked against the container checkpoints this
+  // device holds, but it does not advance them: it is the snapshot the purge
+  // cited, verified at referenced membership and not held to the served
+  // current ancestor heads, so a head that rule would refuse must not become
+  // a checkpoint through a purge and be taken as already accepted later.
   observeAccessManifestCheckpoints(input.checkpointContext, {
-    verifiedHeads: authorizingContainerPath,
+    verifiedHeads: [],
     verifiedManifests: verifiedContainerManifestsForBundles(
       bundlesByHash,
       verifiedByHash,

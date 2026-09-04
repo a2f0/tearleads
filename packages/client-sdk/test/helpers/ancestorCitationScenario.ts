@@ -219,6 +219,8 @@ export function verifyPath(
     readonly path: readonly VerifiedContainerAccessManifest[];
     // "referenced" for a signed snapshot such as a purge's authorizing path.
     readonly authorizationMembership?: "current" | "referenced" | undefined;
+    // False for a dependency path a link event cites.
+    readonly enforceLocalCheckpoints?: boolean | undefined;
   },
 ) {
   return verifyContainerManifestPath({
@@ -227,7 +229,7 @@ export function verifyPath(
       input.bundles.map((value) => [value.manifestHash, manifestBundle(value)]),
     ),
     checkpointContext: createProjectionCheckpointContext({ execSql }),
-    enforceLocalCheckpoints: true,
+    enforceLocalCheckpoints: input.enforceLocalCheckpoints ?? true,
     label: "Ancestor citation path",
     path: input.path.map(manifestBundle),
     principalPolicyCache: principalPolicyCacheForVerifiedPolicies([]),

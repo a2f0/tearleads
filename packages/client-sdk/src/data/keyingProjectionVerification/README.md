@@ -9,7 +9,11 @@ that facade.
   helper, and signed access-event bundle verification shared by both halves.
 - `containerAncestorCitations.ts` rebuilds a container event's authorization
   path from the ancestor heads its signed event cites, and holds the
-  currency and no-regression rules those citations must satisfy.
+  no-regression rule those citations must satisfy.
+- `containerAncestorCurrency.ts` holds the currency rule: a served head newer
+  than the local checkpoint must cite the served current ancestor heads or be
+  signed by a member still authorized at them, with a move's source ancestors
+  held to the device's own checkpoints.
 - `containerManifestVerification.ts` verifies container manifest bundles,
   including parent-path resolution and previous-manifest checks.
 - `containerPathVerification.ts` verifies a served container path as a

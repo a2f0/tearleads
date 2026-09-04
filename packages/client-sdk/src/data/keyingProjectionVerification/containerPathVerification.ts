@@ -8,7 +8,7 @@ import {
 } from "@tearleads/crypto";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import type { ProjectionCheckpointContext } from "./checkpointContext";
-import { assertNewHeadCitesServedAncestors } from "./containerAncestorCitations";
+import { assertNewHeadCitesServedAncestors } from "./containerAncestorCurrency";
 import { verifyContainerManifestBundle } from "./containerManifestVerification";
 import { collectReferencedPrincipalPolicies } from "./principalPolicyVerification";
 import type {

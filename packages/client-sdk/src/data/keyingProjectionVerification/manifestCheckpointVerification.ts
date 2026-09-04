@@ -12,9 +12,12 @@ import type { ExecSql } from "../sqlite/sqlSchema";
  * checkpoint-enforced element of a served path reads its own checkpoint, and
  * the currency rule reads it again. The verification itself commits nothing
  * until it has finished. A checkpoint another verification commits meanwhile
- * is not seen by this one: the atomic advance re-validates checkpoint order,
- * not the currency rule, so a head this pass accepts against the older
- * reading is held to the newer checkpoint on the next pass.
+ * is not seen by this one, and the cache widens that window from the instant
+ * of a read to the whole pass: the atomic advance re-validates checkpoint
+ * order, not the currency rule, so a head this pass accepts against the
+ * older reading becomes the checkpoint as accepted. The two verifications
+ * read the same durable store, so this is the ordering of two concurrent
+ * passes over one device, not something a server can widen.
  */
 export async function loadLocalAccessManifestCheckpoint(input: {
   readonly execSql: ExecSql;

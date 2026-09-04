@@ -273,8 +273,8 @@ serves as current, or be signed by a member who still holds the authority the
 event needs at the served current path, read from the served ancestors and
 the container's own state as the device last accepted it, never from the
 unheld history between the checkpoint and the head. The rule reads the
-served heads, so it
-composes with the ancestor's own checkpoint: a device that has also
+served heads, so it composes with the ancestor's own checkpoint: a device
+that has also
 checkpointed the newer ancestor head cannot be served the older one, and a
 served ancestor head that does not descend from the head a child event cites
 is a rollback, since the signed event proves the cited head exists. An
@@ -284,9 +284,9 @@ source ancestors, which the projection does not serve, so their cited heads
 are held to the device's own checkpoints for them instead, with no authority
 to re-check: a move that raced an advance of a source ancestor the device
 had already checkpointed is refused too, until a later event on the moved
-container supersedes it. What remains
-refused, as `stale_citation`, is a head signed by a member since
-revoked at an ancestor: the device cannot tell that member's last honest
+container supersedes it. What remains refused, as `stale_citation`, is a
+head signed by a member since revoked at an ancestor: the device cannot tell
+that member's last honest
 event, delivered late, from one committed afterwards with the server's help,
 and either way no current admin approved it. A device with no checkpoint for
 the child is at first contact with it and takes the served history as it is.
@@ -302,7 +302,9 @@ sync record the refusal in the security-incident ledger and keep the
 container's work pending rather than treating it as terminal; other
 boundaries surface it as the verification failure it is. A signed path
 snapshot, such as a purge's authorizing path, is verified at the membership
-it referenced and is not held to the rule.
+it referenced and is not held to the rule; it is checked against the
+container checkpoints the device holds but does not advance them, so a head
+the rule would refuse cannot become a checkpoint through a purge.
 
 ### Content Confidentiality
 

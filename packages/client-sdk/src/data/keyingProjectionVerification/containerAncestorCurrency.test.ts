@@ -224,6 +224,34 @@ test("a signed path snapshot is not held to the served current ancestor heads", 
   }
 });
 
+test("a path verified without checkpoint enforcement is not held to the served current ancestor heads", async () => {
+  const scenario = await createScenario();
+  const child2 = await grantBy({
+    cited: [scenario.root1.manifestHash, scenario.child1.manifestHash],
+    previous: scenario.child1,
+    signer: scenario.mallory,
+    subjectId: scenario.mallory.userId,
+  });
+  const { close, execSql } = await createTestExecSql("ancestor-dependency");
+  try {
+    await checkpointChildAt(scenario, execSql, scenario.child1, [
+      scenario.root1,
+      scenario.child1,
+    ]);
+    // A dependency path a link event cites is history, verified at the
+    // membership it referenced and without checkpoint enforcement.
+    const verified = await verifyPath(scenario, execSql, {
+      authorizationMembership: "referenced",
+      bundles: [scenario.root1, scenario.root2, scenario.child1, child2],
+      enforceLocalCheckpoints: false,
+      path: [scenario.root2, child2],
+    });
+    expect(verified).toHaveLength(2);
+  } finally {
+    close();
+  }
+});
+
 test("an intermediate path element newer than its checkpoint is held to the served heads above it", async () => {
   const scenario = await createGrandchildScenario();
   // Bob becomes admin at root3 and revokes Alice at root4; Alice's event on

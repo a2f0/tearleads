@@ -1,11 +1,14 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
-import { settleScheduledSyncFailure } from "./syncFailureSettlement";
+import {
+  type ScheduledSyncFailureState,
+  settleScheduledSyncFailure,
+} from "./syncFailureSettlement";
 
 function createState(input: {
   readonly incidents: unknown[];
   readonly logs: string[];
-}) {
+}): ScheduledSyncFailureState {
   return {
     localId: "local-1",
     record: { documentId: "document-1" },
@@ -19,7 +22,7 @@ function createState(input: {
         },
       },
     },
-  } as unknown as Parameters<typeof settleScheduledSyncFailure>[0];
+  };
 }
 
 test("a stale ancestor citation is recorded, named, and shown by the lane", async () => {
