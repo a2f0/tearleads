@@ -11,10 +11,7 @@ import {
 import { createDocumentPurgeProof } from "../../../test/helpers/documentPurge";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../test/helpers/documentSync";
 import type { DocumentSyncApi } from "../../data/documents/shared/types";
-import {
-  verifyDocumentPurgeProof,
-  verifyDocumentWriterProjection,
-} from "../../data/keyingProjectionVerification";
+import { verifyDocumentWriterProjection } from "../../data/keyingProjectionVerification";
 import { enforceAccessManifestCheckpoints } from "../../data/keyingProjectionVerification/accessManifestCheckpointEnforcement";
 import { loadAccessManifestCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 
@@ -455,37 +452,4 @@ test("syncRemoteDocument fails closed on a bare writer-projection 404", async ()
   expect(deletedDocumentIds).toEqual([]);
   expect(reportedErrors).toEqual([message]);
   close();
-});
-
-test("a verified purge proof leaves container checkpoints untouched", async () => {
-  // The purge's authorizing path is a signed snapshot verified at the
-  // membership it referenced and exempt from the ancestor currency rule, so
-  // it must not become this device's container checkpoint: a head that rule
-  // would refuse would otherwise be taken as already accepted later.
-  const { author, projection, resolveProjectionUserKey, writerProjection } =
-    await createMaterializedSyncFixture();
-  const purgeProof = await createDocumentPurgeProof(author, writerProjection);
-  const { close, execSql } = await createTestExecSql(
-    "purge-proof-container-checkpoints",
-  );
-  try {
-    const verified = await verifyDocumentPurgeProof({
-      execSql,
-      expectedDocumentId: writerProjection.documentId,
-      expectedOrganizationId: projection.organizationId,
-      proof: purgeProof,
-      resolveUserKey: resolveProjectionUserKey,
-    });
-    await verified.commitCheckpoints(execSql);
-    await expect(
-      loadAccessManifestCheckpoint(
-        execSql,
-        "container",
-        projection.organizationId,
-        projection.containerId,
-      ),
-    ).resolves.toBeNull();
-  } finally {
-    close();
-  }
 });

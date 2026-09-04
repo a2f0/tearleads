@@ -43,7 +43,7 @@ test("a stale ancestor citation is recorded, named, and shown by the lane", asyn
   ).rejects.toBe(failure);
   expect(incidents).toEqual([staleCitation]);
   expect(logs).toEqual([
-    "Document sync: deferred document-1 because a container head cites a stale ancestor head and its signer holds no current authority; a later event on the container by a member with current authority supersedes it.",
+    "Document sync: will retry document-1; a container head cites a stale ancestor head and its signer holds no current authority, and only a later event on the container by a member with current authority supersedes it.",
   ]);
 });
 

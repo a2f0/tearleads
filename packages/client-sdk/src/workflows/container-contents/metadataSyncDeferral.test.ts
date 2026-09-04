@@ -324,7 +324,7 @@ test("malformed durable metadata progress forces a page-one recovery", async () 
   expect(logs).toEqual([]);
 });
 
-test("syncContainerMetadataState never defers keying verification failures", async () => {
+test("syncContainerMetadataState defers no keying verification failure but a stale citation", async () => {
   const container = createContainerRecord({
     id: "container-integrity-failure",
     metadataDocumentId: "metadata-document-integrity-failure",

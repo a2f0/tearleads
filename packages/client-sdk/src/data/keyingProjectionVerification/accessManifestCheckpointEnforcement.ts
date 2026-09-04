@@ -63,10 +63,26 @@ function accessManifestCheckpointAdvances(input: {
   return advances;
 }
 
+function validatedAccessAdvances(input: {
+  readonly validatedHeads?:
+    | readonly VerifiedAccessManifestCheckpointEvidence[]
+    | undefined;
+  readonly verifiedManifests: readonly VerifiedAccessManifestCheckpointEvidence[];
+}): AccessManifestCheckpointAdvance[] {
+  return accessManifestCheckpointAdvances({
+    verifiedHeads: input.validatedHeads ?? [],
+    verifiedManifests: input.verifiedManifests,
+  });
+}
+
 export async function validateAccessManifestCheckpoints(input: {
   readonly execSql: ExecSql;
   readonly policies: readonly AnyVerifiedPrincipalPolicy[];
   readonly stillCurrent?: (() => boolean) | undefined;
+  // Heads checked against the durable pins but never advanced.
+  readonly validatedHeads?:
+    | readonly VerifiedAccessManifestCheckpointEvidence[]
+    | undefined;
   readonly verifiedHeads: readonly VerifiedAccessManifestCheckpointEvidence[];
   readonly verifiedManifests: readonly VerifiedAccessManifestCheckpointEvidence[];
 }): Promise<void> {
@@ -75,6 +91,7 @@ export async function validateAccessManifestCheckpoints(input: {
     execSql: input.execSql,
     policies: input.policies,
     stillCurrent: input.stillCurrent,
+    validatedAccess: validatedAccessAdvances(input),
   });
 }
 
@@ -84,6 +101,10 @@ export async function enforceAccessManifestCheckpoints(input: {
   readonly documentPurgeCheckpoint?: DocumentPurgeCheckpoint | undefined;
   readonly policies: readonly AnyVerifiedPrincipalPolicy[];
   readonly stillCurrent?: (() => boolean) | undefined;
+  // Heads checked against the durable pins but never advanced.
+  readonly validatedHeads?:
+    | readonly VerifiedAccessManifestCheckpointEvidence[]
+    | undefined;
   readonly verifiedHeads: readonly VerifiedAccessManifestCheckpointEvidence[];
   readonly verifiedManifests: readonly VerifiedAccessManifestCheckpointEvidence[];
 }): Promise<void> {
@@ -94,5 +115,6 @@ export async function enforceAccessManifestCheckpoints(input: {
     organizationId: input.organizationId,
     policies: input.policies,
     stillCurrent: input.stillCurrent,
+    validatedAccess: validatedAccessAdvances(input),
   });
 }

@@ -86,6 +86,10 @@ function servedPathAuthorization(
 ): (localCheckpoint: AccessManifestCheckpoint) => Promise<void> {
   return async (localCheckpoint) => {
     const access = containerEventServedPathAccess(head, label);
+    // The head's whole predecessor lineage verified before this, and the
+    // checkpoint check proved the head extends the checkpoint, so the
+    // manifest at the checkpoint is served and verified; this fails closed
+    // rather than trusting that.
     const checkpointed = input.verifiedByHash.get(localCheckpoint.manifestHash);
     if (
       access.ownState &&

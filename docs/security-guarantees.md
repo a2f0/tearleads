@@ -300,10 +300,12 @@ such an event and serves the heads it cites. The refusing device cannot
 produce that event itself, because every mutation verifies the same
 projection first: recovery needs a device that accepted the head before the
 ancestor advanced, or one at first contact with the container, and until one
-commits, the container stays deferred. Container metadata sync and document
-sync record the refusal in the security-incident ledger and keep the
-container's work pending rather than treating it as terminal; other
-boundaries surface it as the verification failure it is. A signed path
+commits, the container stays deferred. Container metadata sync records the
+refusal in the security-incident ledger and keeps the container needing
+sync; document sync records it and fails the pass as it would any other
+verification failure, retrying on the next trigger with its pending writes
+still queued; other boundaries surface it as the verification failure it
+is. A signed path
 snapshot, such as a purge's authorizing path, is verified at the membership
 it referenced and is not held to the rule; it is checked against the
 container checkpoints the device holds but does not advance them, so a head

@@ -29,7 +29,7 @@ export interface ScheduledSyncFailureState {
 export async function settleScheduledSyncFailure(
   state: ScheduledSyncFailureState,
   error: unknown,
-): Promise<boolean> {
+): Promise<false> {
   if (isDatabaseUnavailableError(error)) {
     return false;
   }
@@ -45,7 +45,7 @@ export async function settleScheduledSyncFailure(
   );
   if (isStaleCitationInCauseChain(error)) {
     state.runtime.util.log(
-      `Document sync: deferred ${documentId} because a container head cites a stale ancestor head and its signer holds no current authority; a later event on the container by a member with current authority supersedes it.`,
+      `Document sync: will retry ${documentId}; a container head cites a stale ancestor head and its signer holds no current authority, and only a later event on the container by a member with current authority supersedes it.`,
     );
   }
   throw error;
