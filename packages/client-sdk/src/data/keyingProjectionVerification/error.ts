@@ -25,6 +25,17 @@ export function isKeyingVerificationError(
   );
 }
 
+/**
+ * A served head newer than the local checkpoint that cites a stale ancestor
+ * head is an ordering the device cannot resolve yet, not a trust-boundary
+ * failure: the head is not used, and any later event on the container that
+ * cites the current heads supersedes it. Boundaries still stop on it, but it
+ * is not a security incident and no fresh projection resolves it.
+ */
+export function isStaleCitationError(error: unknown): boolean {
+  return isKeyingVerificationError(error) && error.code === "stale_citation";
+}
+
 export function rethrowKeyingVerificationError(error: unknown): void {
   if (isKeyingVerificationError(error)) {
     throw error;
@@ -52,6 +63,7 @@ export async function reportKeyingVerificationErrorInCauseChain(
 ): Promise<boolean> {
   const verificationError = keyingVerificationErrorInCauseChain(error);
   if (!verificationError) return false;
+  if (isStaleCitationError(verificationError)) return true;
   try {
     await reporter?.(verificationError, context);
   } catch {

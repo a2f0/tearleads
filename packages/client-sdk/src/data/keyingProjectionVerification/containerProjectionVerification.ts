@@ -195,6 +195,11 @@ export async function verifyContainerManifestPath(input: {
   readonly principalPolicyCache: PrincipalPolicyCache;
   readonly resolveUserKey: ProjectionUserKeyResolver;
   readonly requireAuthorizationEvidence?: boolean | undefined;
+  // With checkpoints enforced, also hold an element newer than its local
+  // checkpoint to citing the elements served above it. Set for a path that
+  // is the current one, which a later event on the container can re-cite;
+  // not for a signed snapshot such as a purge's authorizing path.
+  readonly requireCurrentAncestorCitations?: boolean | undefined;
   readonly verifiedByHash: Map<string, VerifiedContainerAccessManifest>;
   readonly warmReferencedPrincipalPolicies?:
     | ReferencedPrincipalPolicyWarmer
@@ -227,7 +232,10 @@ export async function verifyContainerManifestPath(input: {
         `${input.label}[${index}] parent container does not precede it in the path`,
       );
     }
-    if (input.enforceLocalCheckpoints) {
+    if (
+      input.enforceLocalCheckpoints &&
+      input.requireCurrentAncestorCitations
+    ) {
       await assertNewHeadCitesServedAncestors({
         execSql: input.checkpointContext.execSql,
         head: verified,
@@ -301,6 +309,7 @@ export async function verifyContainerWriterProjectionWithContext(
     label: "Container writer projection path",
     path: input.projection.path,
     principalPolicyCache,
+    requireCurrentAncestorCitations: true,
     resolveUserKey: input.resolveUserKey,
     verifiedByHash,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,

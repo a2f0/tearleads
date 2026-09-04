@@ -356,3 +356,45 @@ test("syncContainerMetadataState never defers keying verification failures", asy
   ).rejects.toBe(integrityError);
   expect(logs).toEqual([]);
 });
+
+test("syncContainerMetadataState defers a head that cites a stale ancestor head", async () => {
+  // A served head newer than this device's checkpoint that cites a stale
+  // ancestor head cannot be told from a stale delivery; the container keeps
+  // its needing-sync state until a later event cites the current heads.
+  const container = createContainerRecord({
+    id: "container-5",
+    metadataDocumentId: "metadata-document-5",
+    parentId: null,
+  });
+  const doc = await createContainerMetadataDocument(container.id);
+  const record = createDocumentRecord({
+    documentId: "metadata-document-5",
+    id: container.id,
+  });
+  const logs: string[] = [];
+  const incidents: unknown[] = [];
+
+  const synced = await syncContainerMetadataState({
+    ...createForcedMetadataSyncInput(
+      createMetadataSyncRuntime({
+        getDocumentWriterProjection: async () => {
+          throw new KeyingVerificationError(
+            "stale_citation",
+            "path[1] cites a stale head of ancestor container root",
+          );
+        },
+        logs,
+        reportSecurityIncident: async (error) => {
+          incidents.push(error);
+        },
+      }),
+    ),
+    metadataState: { container, doc, record },
+  });
+
+  expect(synced).toBeNull();
+  expect(incidents).toEqual([]);
+  expect(logs).toEqual([
+    "Container contents: deferred metadata sync for container-5 because its head cites a stale ancestor head; a later event on the container that cites the current heads supersedes it.",
+  ]);
+});

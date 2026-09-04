@@ -99,6 +99,8 @@ async function verifyPurgeContainerPaths(input: {
     // This signed path is the purge's authorization boundary. A later local
     // head makes the purge ambiguous because ancestry does not order the purge
     // signature; fail closed instead of accepting server-supplied descendants.
+    // The path is the snapshot the purge cited, which no later event can
+    // re-cite, so it is not held to the served current ancestor heads.
     enforceLocalCheckpoints: input.enforceLocalCheckpoints,
     label: "Document purge authorizing container path",
     path: input.proof.authorizingContainerPath,

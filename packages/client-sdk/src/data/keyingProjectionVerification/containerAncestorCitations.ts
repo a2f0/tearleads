@@ -237,7 +237,10 @@ export function assertCitedAncestorsDoNotRegress(
  * Only the head is held to this, not the history between the checkpoint and
  * it: a child head committed before an ancestor advanced and first seen after
  * is refused until any later child event cites the current heads, and that
- * event then verifies the refused head as its predecessor.
+ * event then verifies the refused head as its predecessor. The refusal is
+ * `stale_citation`, its own code, because the device cannot tell that honest
+ * ordering from a forgery and must simply wait: sync defers rather than
+ * records an incident, and no fresh projection resolves it.
  */
 export async function assertNewHeadCitesServedAncestors(input: {
   readonly execSql: ExecSql;
@@ -259,8 +262,8 @@ export async function assertNewHeadCitesServedAncestors(input: {
   for (const ancestor of input.servedAncestors) {
     if (!cited.has(ancestor.manifestHash)) {
       throw new KeyingVerificationError(
-        "rollback",
-        `${input.label} is newer than the local checkpoint but cites a stale head of ancestor container ${ancestor.state.containerId} rather than the served current head`,
+        "stale_citation",
+        `${input.label} is newer than the local checkpoint but cites a stale head of ancestor container ${ancestor.state.containerId} rather than the served current head; a later event on the container that cites the current heads supersedes it`,
       );
     }
   }

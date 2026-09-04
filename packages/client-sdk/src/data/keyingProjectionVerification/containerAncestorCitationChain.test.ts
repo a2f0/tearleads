@@ -229,11 +229,12 @@ test("a move must not cite an older source ancestor head than its predecessor ci
   }
 });
 
-// Pins the boundary the security docs state: until descendants can re-cite
-// their ancestors (#2166), a device accepts a child head authorized under an
-// older ancestor head even when it has checkpointed the newer one. Only a
-// signed statement that already established the newer head rejects it.
-test("a device that checkpointed a newer ancestor head still accepts a child head citing the older one", async () => {
+// Pins the boundary the security docs state: the currency rule reads the
+// device's checkpoint for the child, so a device with none is at first
+// contact with the child and accepts a head authorized under an older
+// ancestor head even when it has checkpointed the newer ancestor head. Only
+// a signed statement that already established the newer head rejects it.
+test("a device with no checkpoint for the child accepts a child head citing an older ancestor head", async () => {
   const scenario = await createScenario();
   const forged = await grantBy({
     cited: [scenario.root1.manifestHash, scenario.child1.manifestHash],

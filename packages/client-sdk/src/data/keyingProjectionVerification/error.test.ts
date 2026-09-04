@@ -1,7 +1,10 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { DocumentSyncUpdateIsolationError } from "../documents/shared/documentSyncUpdateIsolation";
-import { reportAndRethrowKeyingVerificationError } from "./error";
+import {
+  isStaleCitationError,
+  reportAndRethrowKeyingVerificationError,
+} from "./error";
 
 test("nested verification failures report without replacing their boundary", async () => {
   const verificationError = new KeyingVerificationError(
@@ -52,4 +55,30 @@ test("verification cause traversal is bounded and cycle-safe", async () => {
   );
 
   expect(reported).toBe(false);
+});
+
+test("a stale ancestor citation stops the boundary without an incident", async () => {
+  // The device cannot tell that ordering from a forgery and must wait for a
+  // later event on the container; it is not a trust-boundary failure.
+  const staleCitation = new KeyingVerificationError(
+    "stale_citation",
+    "path[1] cites a stale head of ancestor container root",
+  );
+  const reported: unknown[] = [];
+
+  expect(isStaleCitationError(staleCitation)).toBe(true);
+  await expect(
+    reportAndRethrowKeyingVerificationError(
+      staleCitation,
+      async (error) => {
+        reported.push(error);
+      },
+      {
+        objectId: "container-1",
+        objectKind: "container",
+        operation: "container.metadata.sync",
+      },
+    ),
+  ).rejects.toBe(staleCitation);
+  expect(reported).toEqual([]);
 });

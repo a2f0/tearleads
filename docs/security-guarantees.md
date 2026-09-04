@@ -268,18 +268,25 @@ same ordering boundary as for container heads.
 Containers also follow the principal-policy rule that a successor new to a
 device must cite the authority's current head: a served container head newer
 than the device's checkpoint for that container must cite, for every ancestor,
-the head the projection serves as current. A member revoked from an ancestor
-therefore cannot, with a server that still presents the older ancestor head,
-commit a child event that a device already holding the child would take for a
-stale delivery. A device with no checkpoint for the container is at first
-contact and takes the served history as it is. Only the head is held to the
-rule: a child head committed before an ancestor advanced and first seen after
-is refused until any later child event cites the current heads, and that event
-then verifies the refused head as its predecessor. The API accepts such an
-event, since a mutation on a container whose pinned parent manifest is no
-longer the parent's head is valid as long as it cites the current ancestor
-heads, and it serves the cited heads even when they are neither on the current
-path nor pinned by any manifest.
+the head the projection serves as current. The rule reads the served heads, so
+it composes with the ancestor's own checkpoint: a member revoked from an
+ancestor cannot commit a child event, citing the ancestor head that still
+granted them, that a device holding the child accepts once the newer ancestor
+head is served, and a device that has also checkpointed the newer ancestor head
+cannot be served the older one. A device with no checkpoint for the child is at
+first contact with it, and one with no checkpoint for the ancestor is at first
+contact with that ancestor; both take the served history as it is. Only the
+head is held to the rule: a child head committed before an ancestor advanced
+and first seen after is refused as `stale_citation` until any later child
+event cites the current heads, and that event then verifies the refused head
+as its predecessor. Sync defers such a container without recording an
+incident, since the device cannot tell that ordering from a forgery and no
+fresh projection resolves it. The API accepts the recovering event, since a
+mutation on a container whose pinned parent manifest is no longer the parent's
+head is valid as long as it cites the current ancestor heads, and it serves
+the cited heads even when they are neither on the current path nor pinned by
+any manifest. A signed path snapshot, such as a purge's authorizing path, is
+not held to the rule, because no later event can re-cite it.
 
 ### Content Confidentiality
 

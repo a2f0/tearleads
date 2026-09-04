@@ -1,6 +1,7 @@
 import { isDocumentSyncUpdateIsolationError } from "../../data/documents/shared/documentSyncUpdateIsolation";
 import {
   isKeyingVerificationError,
+  isStaleCitationError,
   reportKeyingVerificationErrorInCauseChain,
 } from "../../data/keyingProjectionVerification/error";
 import { isPrincipalPolicyNotCachedError } from "../../data/keyingProjectionVerification/principalPolicyVerification";
@@ -49,6 +50,16 @@ export async function deferRecoverableMetadataSyncError(input: {
     );
     input.runtime.util.log(
       `Container contents: quarantined incoming metadata updates for ${input.containerId}; deferred this container without blocking later metadata syncs.`,
+    );
+    return null;
+  }
+
+  // A served head newer than this device's checkpoint that cites a stale
+  // ancestor head cannot be told from a stale delivery until a later event on
+  // the container cites the current heads. Keep needing-sync set for then.
+  if (isStaleCitationError(input.error)) {
+    input.runtime.util.log(
+      `Container contents: deferred metadata sync for ${input.containerId} because its head cites a stale ancestor head; a later event on the container that cites the current heads supersedes it.`,
     );
     return null;
   }

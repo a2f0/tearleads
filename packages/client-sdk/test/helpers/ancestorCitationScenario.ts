@@ -216,6 +216,8 @@ export function verifyPath(
   input: {
     readonly bundles: readonly VerifiedContainerAccessManifest[];
     readonly path: readonly VerifiedContainerAccessManifest[];
+    // Off for a signed snapshot such as a purge's authorizing path.
+    readonly requireCurrentAncestorCitations?: boolean | undefined;
   },
 ) {
   return verifyContainerManifestPath({
@@ -227,6 +229,8 @@ export function verifyPath(
     label: "Ancestor citation path",
     path: input.path.map(manifestBundle),
     principalPolicyCache: principalPolicyCacheForVerifiedPolicies([]),
+    requireCurrentAncestorCitations:
+      input.requireCurrentAncestorCitations ?? true,
     resolveUserKey: scenario.resolveUserKey,
     verifiedByHash: new Map(),
   });
