@@ -40,16 +40,18 @@
     app_hostname: >-
       {{ 'app-staging.' ~ domain if deployment_tier == 'staging'
       else 'app.' ~ domain }}
-    app_demo_hostname: >-
-      {{ 'demo-staging.' ~ domain if deployment_tier == 'staging'
-      else 'demo.' ~ domain }}
-    # Demo hosts in other zones (e.g. demo.tearleads.de) arrive as a
-    # comma-separated override; unset serves only this tier's demo host.
-    app_demo_hostnames_env: "{{ lookup('env', 'APP_DEMO_HOSTNAMES') | default('', true) }}"
+    app_demo_host_prefix: "{{ 'demo-staging.' if deployment_tier == 'staging' else 'demo.' }}"
+    app_demo_hostname: "{{ app_demo_host_prefix ~ domain }}"
+    # The demo also answers on other Cloudflare zones (e.g. tearleads.de). One
+    # zone list drives all three of its surfaces -- Terraform reads
+    # TF_VAR_extra_demo_domains for the DNS records and tunnel ingress, and this
+    # play and the app-web deploy read the same value -- so a host can never be
+    # routed here without a server block and a CORS origin to answer it.
+    extra_demo_domains: >-
+      {{ lookup('env', 'TF_VAR_extra_demo_domains') | default('[]', true) | from_json }}
     app_demo_hostnames: >-
-      {{ app_demo_hostnames_env.split(',') | map('trim') |
-      reject('equalto', '') | list if app_demo_hostnames_env != '' else
-      [app_demo_hostname] }}
+      {{ [app_demo_hostname] + (extra_demo_domains |
+      map('regex_replace', '^(.+)$', app_demo_host_prefix ~ '\\1') | list) }}
     website_hostname: >-
       {{ 'website-staging.' ~ domain if deployment_tier == 'staging'
       else domain }}

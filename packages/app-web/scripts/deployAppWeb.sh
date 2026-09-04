@@ -51,55 +51,26 @@ case "$TIER" in
   prod)
     API_HOSTNAME="api.${DOMAIN}"
     APP_HOSTNAME="app.${DOMAIN}"
-    DEMO_HOSTNAME="demo.${DOMAIN}"
+    DEMO_HOST_PREFIX="demo."
     ;;
   staging)
     API_HOSTNAME="api-staging.${DOMAIN}"
     APP_HOSTNAME="app-staging.${DOMAIN}"
-    DEMO_HOSTNAME="demo-staging.${DOMAIN}"
+    DEMO_HOST_PREFIX="demo-staging."
     ;;
 esac
+DEMO_HOSTNAME="${DEMO_HOST_PREFIX}${DOMAIN}"
 
-# Every demo host serves the same bundle from /var/www/app-demo, so the deploy
-# purges each of them. APP_DEMO_HOSTNAMES is the same comma-separated override
-# the server playbook reads when demo hosts live in more than one zone.
-read_demo_hosts() {
-  local value="$1"
-  local item
-
-  IFS=',' read -r -a demo_hosts <<< "$value"
-  for i in "${!demo_hosts[@]}"; do
-    item="${demo_hosts[$i]}"
-    item="${item#"${item%%[![:space:]]*}"}"
-    item="${item%"${item##*[![:space:]]}"}"
-    demo_hosts[i]="$item"
-  done
-}
-
-demo_hosts=()
-if [ -n "${APP_DEMO_HOSTNAMES:-}" ]; then
-  read_demo_hosts "$APP_DEMO_HOSTNAMES"
-else
-  demo_hosts=("$DEMO_HOSTNAME")
+# The demo also answers on other Cloudflare zones. Read the same zone list that
+# publishes their DNS records (TF_VAR_extra_demo_domains, which the server
+# playbook reads too) so a purge cannot miss a host that is being routed here,
+# and so each purge names the zone that actually owns its host.
+extra_demo_zones=()
+if [ -n "${TF_VAR_extra_demo_domains:-}" ]; then
+  while IFS= read -r zone; do
+    [ -n "$zone" ] && extra_demo_zones+=("$zone")
+  done < <(printf '%s' "$TF_VAR_extra_demo_domains" | jq -r '.[]')
 fi
-
-# A purge is scoped to the zone that owns the host: hosts under this tier's
-# domain purge against it, and a `demo.<zone>` host in another zone names its
-# own.
-purge_demo_host() {
-  local host="$1"
-
-  if [ -z "$host" ]; then
-    return 0
-  fi
-  if [[ "$host" == *".${DOMAIN}" ]]; then
-    purge_cloudflare_cache_for_hosts "$DOMAIN" "$host"
-  elif [[ "$host" == demo.* ]]; then
-    purge_cloudflare_cache_for_hosts "${host#demo.}" "$host"
-  else
-    echo "Skipping Cloudflare cache purge for $host: cannot infer zone."
-  fi
-}
 
 build_app_web() {
   local variant="$1"
@@ -138,7 +109,7 @@ ssh "$SSH_TARGET" sudo systemctl reload nginx
 
 echo "App-web and app-demo deployed."
 
-purge_cloudflare_cache_for_hosts "$DOMAIN" "$APP_HOSTNAME"
-for demo_host in "${demo_hosts[@]}"; do
-  purge_demo_host "$demo_host"
+purge_cloudflare_cache_for_hosts "$DOMAIN" "$APP_HOSTNAME" "$DEMO_HOSTNAME"
+for zone in ${extra_demo_zones[@]+"${extra_demo_zones[@]}"}; do
+  purge_cloudflare_cache_for_hosts "$zone" "${DEMO_HOST_PREFIX}${zone}"
 done

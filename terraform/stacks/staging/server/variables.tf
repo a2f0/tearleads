@@ -21,7 +21,7 @@ variable "deployment_tier" {
 }
 
 variable "extra_demo_domains" {
-  description = "Additional Cloudflare zone names that should route demo.<domain> to this server."
+  description = "Additional Cloudflare zone names that should route this tier's demo host to this server."
   type        = list(string)
   default     = []
 }
