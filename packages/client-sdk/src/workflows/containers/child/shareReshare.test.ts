@@ -44,6 +44,7 @@ test("shareRemoteContainer replaces stale wraps when re-sharing a user", async (
   const shared = await shareRemoteContainer({
     accessLevel: "write",
     apiClient: {
+      reciteContainer: async () => null,
       getContainerWriterProjection: async () => projectionWithExistingShare,
       shareContainer: async (_containerId, request) => {
         submittedRequests.push(request);

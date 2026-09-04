@@ -171,6 +171,7 @@ async function createFixture(input: {
     requestedContainerIds,
     input: {
       apiClient: {
+        reciteContainer: async () => null,
         getContainerWriterProjection: async (containerId: string) => {
           requestedContainerIds.push(containerId);
           return projections.get(containerId) ?? null;

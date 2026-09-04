@@ -55,6 +55,7 @@ test("raw rotation reports unavailable predecessor history after its persisted-s
     if (!previousKek) throw new Error("Expected a container KEK fixture");
     const rekeyed = await rekeyRemoteContainer({
       apiClient: {
+        reciteContainer: async () => null,
         getContainerWriterProjection: async () => fixture.projection,
         rekeyContainer: async (_containerId, request) =>
           createMutationResponseFromRequest(request, previousKek),

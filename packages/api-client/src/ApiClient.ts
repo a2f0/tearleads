@@ -46,6 +46,7 @@ import {
   moveContainerOperation,
   purgeDocumentOperation,
   putPrincipalPolicyOperation,
+  reciteContainerOperation,
   registerOperation,
   rekeyContainerOperation,
   revokeContainerOperation,
@@ -66,6 +67,7 @@ import type {
   CompleteMultipartBlobStageRequest,
   ContainerCreateWithMetadataDocumentRequest,
   ContainerMutationRequest,
+  ContainerReciteRequest,
   CreateOrganizationGroupWithPolicyRequest,
   CreateOrganizationRequest,
   DeleteOrganizationGroupRequest,
@@ -136,6 +138,7 @@ import {
   containerCreateWithMetadataDocument,
   containerDelete,
   containerMove,
+  containerRecite,
   containerRekey,
   containerRevoke,
   containerShare,
@@ -1216,6 +1219,21 @@ export class ApiClient {
     ).finally(() => {
       this.clearWriterProjectionCaches();
     });
+  }
+
+  reciteContainer(
+    containerId: string,
+    input: ContainerReciteRequest,
+    options: RequestResultOptions = {},
+  ) {
+    return this.request(
+      containerRecite.path(containerId),
+      containerRecite.isResponse,
+      containerRecite.method,
+      JSON.stringify(input),
+      options,
+      reciteContainerOperation,
+    ).finally(() => this.clearWriterProjectionCaches());
   }
 
   moveContainer(

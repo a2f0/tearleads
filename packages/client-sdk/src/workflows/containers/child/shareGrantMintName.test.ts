@@ -61,6 +61,7 @@ test("minting a group grant without the chosen name fails closed", async () => {
       shareRemoteContainerWithGroup({
         accessLevel: "read",
         apiClient: {
+          reciteContainer: async () => null,
           commitOrganizationGroupPolicy: async () => {
             policyCommits += 1;
             return null;

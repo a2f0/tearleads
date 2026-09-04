@@ -3,6 +3,7 @@ import { organizationProvisioningContainerKeyringRefinement } from "../organizat
 import {
   ContainerCreateWithMetadataDocumentRequestSchema,
   ContainerMutationRequestSchema,
+  ContainerReciteRequestSchema,
   isContainerCreateWithMetadataDocumentRequest,
   isContainerMutationRequest,
 } from "../request";
@@ -12,6 +13,7 @@ import {
   ContainerMutationFailureResponseSchema,
   ContainerMutationResponseSchema,
   ContainerNotFoundErrorResponseSchema,
+  ContainerReciteResponseSchema,
   ErrorResponseSchema,
   isContainerCreateWithMetadataDocumentResponse,
   isContainerDeleteResponse,
@@ -101,6 +103,18 @@ function defineContainerMutationOperation<
 export const shareContainerOperation = defineContainerMutationOperation({
   id: "containers.share",
   path: "/containers/{containerId}/share",
+});
+
+export const reciteContainerOperation = defineJsonOperation({
+  auth: "session",
+  body: ContainerReciteRequestSchema,
+  failureResponses: containerMutationFailureResponses,
+  failureStatuses: containerMutationFailureStatuses,
+  id: "containers.recite",
+  method: "POST",
+  params: ContainerMutationPathParamsSchema,
+  path: "/containers/{containerId}/recite",
+  responses: { 200: ContainerReciteResponseSchema },
 });
 
 export const revokeContainerOperation = defineContainerMutationOperation({

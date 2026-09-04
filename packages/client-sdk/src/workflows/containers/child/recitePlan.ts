@@ -1,0 +1,109 @@
+import {
+  type AnyVerifiedPrincipalPolicy,
+  computeAccessManifestHash,
+  deriveContainerAccessManifest,
+} from "@tearleads/crypto";
+import type { ContainerReciteRequest } from "@tearleads/validators/request";
+import type { ContainerReciteResponse } from "@tearleads/validators/response";
+import { signContainerMutationEvent } from "../../../data/containers/shared/events";
+import type { HeldContainerHead } from "../../../data/containers/shared/heldContainerHeads";
+import { principalPolicyRequestRecord } from "../../../data/containers/shared/principalPolicies";
+import type { ContainerMutationAuthor } from "../../../data/containers/shared/types";
+import {
+  canonicalKeyingJsonString,
+  readCanonicalRecord,
+} from "../../../data/keyingCanonicalJson";
+
+export async function buildContainerRecitePlan(input: {
+  readonly author: ContainerMutationAuthor;
+  readonly path: readonly HeldContainerHead[];
+  readonly policies: readonly AnyVerifiedPrincipalPolicy[];
+}) {
+  const previous = input.path.at(-1);
+  if (!previous) throw new Error("Recitation requires a held container path");
+  if (
+    input.path.some(
+      (head) => head.state.organizationId !== input.author.organizationId,
+    )
+  ) {
+    throw new Error("Recitation cannot cross organizations");
+  }
+  const body = {
+    eventType: "container.recite" as const,
+    containerKeyEpochId: previous.state.containerKeyEpochId,
+  };
+  const { event, eventHash } = await signContainerMutationEvent({
+    author: input.author,
+    body,
+    containerId: previous.state.containerId,
+    dependencyManifestHashes: input.path.map(
+      (head) => head.bundle.manifestHash,
+    ),
+    eventId: crypto.randomUUID(),
+    previousManifestHash: previous.bundle.manifestHash,
+    signedAt: new Date().toISOString(),
+  });
+  const state = {
+    ...previous.state,
+    epoch: previous.state.epoch + 1,
+    eventHash,
+    previousManifestHash: previous.bundle.manifestHash,
+  };
+  const manifest = await deriveContainerAccessManifest(state);
+  const manifestHash = await computeAccessManifestHash(manifest);
+  const referencedIds = new Set(
+    input.path.flatMap((head) =>
+      head.state.referencedPrincipalHeads.map(
+        (ref) => `${ref.principalType}:${ref.principalId}`,
+      ),
+    ),
+  );
+  const request: ContainerReciteRequest = {
+    body,
+    event: readCanonicalRecord(event, "Recitation event"),
+    manifest: readCanonicalRecord(manifest, "Recitation manifest"),
+    expectedManifestHash: manifestHash,
+    previousManifest: previous.bundle,
+    previousContainerPath: input.path.map((head) => head.bundle),
+    principalPolicies: input.policies
+      .filter((policy) =>
+        referencedIds.has(`${policy.principalType}:${policy.principalId}`),
+      )
+      .map((policy) => principalPolicyRequestRecord(policy)),
+  };
+  return { body, event, eventHash, manifest, manifestHash, state, request };
+}
+
+export function assertContainerReciteAcknowledgement(
+  plan: Awaited<ReturnType<typeof buildContainerRecitePlan>>,
+  response: ContainerReciteResponse,
+): void {
+  const expectedBundle = {
+    event: { event: plan.event, eventHash: plan.eventHash, body: plan.body },
+    manifest: plan.manifest,
+    manifestHash: plan.manifestHash,
+    state: plan.state,
+  };
+  if (
+    response.containerId !== plan.state.containerId ||
+    response.organizationId !== plan.state.organizationId ||
+    response.parentId !== plan.state.parentContainerId ||
+    response.manifestHead.epoch !== plan.state.epoch ||
+    response.manifestHead.manifestHash !== plan.manifestHash ||
+    canonicalKeyingJsonString(
+      response.accessManifest,
+      "Recitation response",
+    ) !== canonicalKeyingJsonString(expectedBundle, "Recitation plan") ||
+    canonicalKeyingJsonString(
+      response.referencedPrincipalHeads,
+      "Recitation references",
+    ) !==
+      canonicalKeyingJsonString(
+        plan.manifest.referencedPrincipalHeads,
+        "Recitation planned references",
+      )
+  )
+    throw new Error(
+      "Container recitation response does not match the signed plan",
+    );
+}

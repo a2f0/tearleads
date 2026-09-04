@@ -47,6 +47,7 @@ test("share planning rolls back checkpoints after its generation expires", async
     const shared = await shareRemoteContainer({
       accessLevel: "write",
       apiClient: {
+        reciteContainer: async () => null,
         getContainerWriterProjection: async () => parent.projection,
         shareContainer: async () => {
           shareCallCount += 1;
@@ -97,6 +98,7 @@ test("shareRemoteContainer does not return an unacknowledged committed response"
     const shared = await shareRemoteContainer({
       accessLevel: "write",
       apiClient: {
+        reciteContainer: async () => null,
         getContainerWriterProjection: async () => parent.projection,
         shareContainer: async (_containerId, request) => {
           const response = await createMutationResponseFromRequest(request);
@@ -167,6 +169,7 @@ test("a group share does not acknowledge a policy after its generation expires d
     const shared = await shareRemoteContainerWithGroup({
       accessLevel: "read",
       apiClient: {
+        reciteContainer: async () => null,
         commitOrganizationGroupPolicy: async (
           _organizationId,
           _groupId,
@@ -287,6 +290,7 @@ test("a missing group grant returns null when projection verification expires", 
     const shared = await shareRemoteContainerWithGroup({
       accessLevel: "read",
       apiClient: {
+        reciteContainer: async () => null,
         commitOrganizationGroupPolicy: async () => {
           submissions += 1;
           throw new Error("Expired preparation must not be committed");

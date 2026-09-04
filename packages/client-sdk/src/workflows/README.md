@@ -17,6 +17,12 @@ coordination, but they must stay React-free and product-UI-free.
 | `registration` | Platform runtime | Local registration and atomic organization bootstrap helpers, including the initial encrypted roster and organization-profile bodies. |
 | `sync` | Platform runtime | Shared sync coordinator helpers and organization-scoped remote-state reset/recovery inputs. |
 
+Container mutation API implementations must provide `ContainerReciteApi`.
+Acknowledged mutations schedule a bounded, best-effort pass over already-held
+verified descendants; it performs no subtree fetches or retries and never
+blocks the original operation. A re-cite advances only the signed manifest,
+not key material or grants. The pass is process-local and cancellation-aware.
+
 The documents facade also admits explicit `historyMode: "raw"` reads through
 `syncRemoteDocument`. A raw consumer must start at a null version vector, send
 no writes, validate every bounded page in scratch state, and publish only after

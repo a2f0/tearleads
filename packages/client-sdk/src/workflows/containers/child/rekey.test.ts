@@ -32,6 +32,7 @@ test("a poisoned keyring is rebuilt from the log and repaired by rekey", async (
   // the retiring key.
   const rekeyed = await rekeyRemoteContainer({
     apiClient: {
+      reciteContainer: async () => null,
       getContainerWriterProjection: async () => parent.projection,
       rekeyContainer: async (_containerId, request) => {
         submitted.push(request);
@@ -116,6 +117,7 @@ test("a poisoned keyring is rebuilt from the log and repaired by rekey", async (
   // Repair is an ordinary rekey sealing the rebuilt entries.
   const repaired = await rekeyRemoteContainer({
     apiClient: {
+      reciteContainer: async () => null,
       getContainerWriterProjection: async () => epoch2Projection,
       rekeyContainer: async (_containerId, request) => {
         submitted.push(request);
@@ -193,6 +195,7 @@ test("a severed bridge is recovered through the retained historical wrap", async
   // An honest rotation to epoch 2 writes the real epoch-2 bridge.
   const rekeyed = await rekeyRemoteContainer({
     apiClient: {
+      reciteContainer: async () => null,
       getContainerWriterProjection: async () => parent.projection,
       rekeyContainer: async (_containerId, request) => {
         submitted.push(request);
@@ -278,6 +281,7 @@ test("a severed bridge is recovered through the retained historical wrap", async
   };
   const repaired = await rekeyRemoteContainer({
     apiClient: {
+      reciteContainer: async () => null,
       getContainerWriterProjection: async () => epoch2Projection,
       rekeyContainer: async (_containerId, request) =>
         createMutationResponseFromRequest(
@@ -316,6 +320,7 @@ test("a substituted keyring is rejected at acknowledgement", async () => {
   await expect(
     rekeyRemoteContainer({
       apiClient: {
+        reciteContainer: async () => null,
         getContainerWriterProjection: async () => parent.projection,
         rekeyContainer: async (_containerId, request) => {
           const response = await createMutationResponseFromRequest(

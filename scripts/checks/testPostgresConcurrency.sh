@@ -37,6 +37,7 @@ fi
 # itself only runs the multi-connection concurrency tests.
 cd packages/api
 exec bun test \
+  src/routes/containers/reciteConcurrency.pg.test.ts \
   src/routes/containers/rotationConcurrency.pg.test.ts \
   src/routes/documents/accessMutationConcurrency.pg.test.ts \
   src/routes/documents/grantSyncConcurrency.pg.test.ts \

@@ -373,6 +373,8 @@ export async function moveRemoteContainer(input: {
   );
   if (!materializedPlan) return null;
   return submitAcknowledgedContainerMutation({
+    apiClient: input.apiClient,
+    author: input.author,
     containerKey: materializedPlan.containerKey,
     execSql: input.execSql,
     plan: materializedPlan.plan,

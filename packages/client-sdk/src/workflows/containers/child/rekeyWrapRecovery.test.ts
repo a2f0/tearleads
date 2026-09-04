@@ -124,6 +124,7 @@ test("a keyring entry claiming an uncommitted epoch id is rejected", async () =>
 
   const rekeyed = await rekeyRemoteContainer({
     apiClient: {
+      reciteContainer: async () => null,
       getContainerWriterProjection: async () => parent.projection,
       rekeyContainer: async (_containerId, request) =>
         createMutationResponseFromRequest(
@@ -395,6 +396,7 @@ test("a repair override inventing a predecessor epoch is rejected", async () => 
   await expect(
     rekeyRemoteContainer({
       apiClient: {
+        reciteContainer: async () => null,
         getContainerWriterProjection: async () => parent.projection,
         rekeyContainer: async (_containerId, request) =>
           createMutationResponseFromRequest(

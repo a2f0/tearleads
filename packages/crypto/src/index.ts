@@ -70,6 +70,7 @@ export type {
   ContainerKeyEpoch,
   ContainerKeyWrap,
   ContainerMoveAccessEventBody,
+  ContainerReciteAccessEventBody,
   ContainerRekeyAccessEventBody,
   ContainerRevokeAccessEventBody,
   ContainerUserRecipientKey,

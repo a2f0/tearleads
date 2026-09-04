@@ -43,6 +43,7 @@ test("shareRemoteContainer rejects a response that drops the unchanged keyring",
     shareRemoteContainer({
       accessLevel: "read",
       apiClient: {
+        reciteContainer: async () => null,
         getContainerWriterProjection: async () => projectionWithKeyring,
         shareContainer: async (_containerId, request) => {
           const response = await createMutationResponseFromRequest(request);
@@ -94,6 +95,7 @@ test("shareRemoteContainer rejects a keyring injected into an epoch that had non
     shareRemoteContainer({
       accessLevel: "read",
       apiClient: {
+        reciteContainer: async () => null,
         getContainerWriterProjection: async () => parent.projection,
         shareContainer: async (_containerId, request) => {
           const response = await createMutationResponseFromRequest(request);

@@ -11,7 +11,9 @@ import type { MutateContainerInput } from "../types";
 
 export async function verifyMutationEvent(
   executor: DatabaseTransaction,
-  input: MutateContainerInput,
+  input: Omit<MutateContainerInput, "request"> & {
+    readonly request: Pick<ContainerMutationRequest, "body" | "event">;
+  },
 ): Promise<VerifiedAccessEvent> {
   const event = readProjectionAccessEvent(
     input.request.event,
@@ -69,8 +71,16 @@ function appendPathManifestHashes(
   }
 }
 
+type ContainerDependencyRequest = Pick<
+  ContainerMutationRequest,
+  | "parentContainerPath"
+  | "previousManifest"
+  | "previousContainerPath"
+  | "destinationParentContainerPath"
+>;
+
 function expectedAccessEventDependencyHashes(
-  request: ContainerMutationRequest,
+  request: ContainerDependencyRequest,
   eventType: AccessEventType,
 ): string[] {
   const hashes: string[] = [];
@@ -92,7 +102,7 @@ function expectedAccessEventDependencyHashes(
 }
 
 export function assertAccessEventDependenciesMatchRequest(
-  request: ContainerMutationRequest,
+  request: ContainerDependencyRequest,
   event: VerifiedAccessEvent,
 ): void {
   const expected = expectedAccessEventDependencyHashes(

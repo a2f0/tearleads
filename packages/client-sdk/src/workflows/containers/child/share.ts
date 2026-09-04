@@ -8,7 +8,6 @@ import type {
   ContainerWriterProjectionResponse,
   PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
-import { acknowledgeContainerMutation } from "../../../data/containers/shared/mutationAcknowledgement";
 import type {
   ContainerMutationAuthor,
   ContainerShareApi,
@@ -108,6 +107,8 @@ export async function shareRemoteContainer(input: {
   });
   if (!materializedPlan) return null;
   return submitAcknowledgedContainerMutation({
+    apiClient: input.apiClient,
+    author: input.author,
     containerKey: materializedPlan.containerKey,
     execSql: input.execSql,
     plan: materializedPlan.plan,
@@ -366,21 +367,21 @@ export async function shareRemoteContainerWithGroup(
   });
   if (!materializedPlan) return null;
   if (input.stillCurrent?.() === false) return null;
-  const response = await input.apiClient.shareContainer(
-    input.containerId,
-    materializedPlan.plan.request,
-    { expectedPaymentRequiredOrganizationId: input.author.organizationId },
-  );
-  if (!response) {
-    return null;
-  }
-
-  await acknowledgeContainerMutation({
+  const result = await submitAcknowledgedContainerMutation({
+    apiClient: input.apiClient,
+    author: input.author,
+    containerKey: materializedPlan.containerKey,
     execSql: input.execSql,
     plan: materializedPlan.plan,
-    response,
     stillCurrent: input.stillCurrent,
+    submit: () =>
+      input.apiClient.shareContainer(
+        input.containerId,
+        materializedPlan.plan.request,
+        { expectedPaymentRequiredOrganizationId: input.author.organizationId },
+      ),
   });
+  if (!result) return null;
 
   // Keep the previously cached group epoch available until the old container
   // wrap has been unwrapped and the replacement has committed. Root has no
@@ -397,9 +398,5 @@ export async function shareRemoteContainerWithGroup(
   }
   if (input.stillCurrent?.() === false) return null;
 
-  return {
-    containerKey: materializedPlan.containerKey,
-    plan: materializedPlan.plan,
-    response,
-  };
+  return result;
 }

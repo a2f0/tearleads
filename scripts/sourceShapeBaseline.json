@@ -47,8 +47,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 564,
-      "bytes": 26708
+      "lines": 570,
+      "bytes": 27168
     },
     "docs/developer/revenuecat-billing.md": {
       "lines": 360,
@@ -75,16 +75,16 @@
       "bytes": 23535
     },
     "docs/openapi.json": {
-      "lines": 61966,
-      "bytes": 2582526
+      "lines": 63011,
+      "bytes": 2624900
     },
     "docs/protocol-specification.md": {
       "lines": 585,
       "bytes": 28639
     },
     "docs/security-guarantees.md": {
-      "lines": 617,
-      "bytes": 33711
+      "lines": 635,
+      "bytes": 34917
     },
     "formal/document-sync/BaselineDominanceTraces.json": {
       "lines": 2059,
@@ -95,8 +95,8 @@
       "bytes": 23392
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 1786,
-      "bytes": 58043
+      "lines": 1797,
+      "bytes": 58169
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 567,
@@ -180,7 +180,7 @@
     },
     "packages/api/src/workflows/containers/mutations/shared/persistence.ts": {
       "lines": 655,
-      "bytes": 19072
+      "bytes": 19073
     },
     "packages/api/src/workflows/documents/writerProjection.ts": {
       "lines": 684,
@@ -316,7 +316,7 @@
     },
     "packages/crypto/src/keying/containerAccess.ts": {
       "lines": 1332,
-      "bytes": 38337
+      "bytes": 38837
     },
     "packages/crypto/src/keying/containerKek.test.ts": {
       "lines": 650,
@@ -347,16 +347,16 @@
       "bytes": 30430
     },
     "packages/crypto/src/keying/types.ts": {
-      "lines": 1163,
-      "bytes": 36433
+      "lines": 1162,
+      "bytes": 36611
     },
     "packages/sqlite-worker/src/crossTabRuntime.ts": {
       "lines": 555,
       "bytes": 19200
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 23325,
-      "bytes": 976590
+      "lines": 23707,
+      "bytes": 992456
     },
     "packages/validators/src/response/response.test.ts": {
       "lines": 1159,

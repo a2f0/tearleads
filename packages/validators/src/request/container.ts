@@ -48,6 +48,26 @@ export type ContainerMutationRequest = z.infer<
   typeof ContainerMutationRequestSchema
 >;
 
+export const ContainerReciteRequestSchema = loosePlainObject({
+  body: requiredUnknownSchema,
+  event: plainObjectSchema,
+  expectedManifestHash: nonEmptyStringSchema,
+  manifest: plainObjectSchema,
+  previousContainerPath: arraySchema(AccessManifestBundleWireSchema, 100),
+  previousManifest: AccessManifestBundleWireSchema,
+  principalPolicies: arraySchema(plainObjectSchema),
+});
+
+export type ContainerReciteRequest = z.infer<
+  typeof ContainerReciteRequestSchema
+>;
+
+export function isContainerReciteRequest(
+  value: unknown,
+): value is ContainerReciteRequest {
+  return ContainerReciteRequestSchema.safeParse(value).success;
+}
+
 export function isContainerMutationRequest(
   value: unknown,
 ): value is ContainerMutationRequest {

@@ -5,6 +5,7 @@ import {
   verifyAccessManifest,
 } from "./accessEvent";
 import { computeKeyingDomainHash } from "./canonical";
+import { normalizeContainerReciteAccessEventBody } from "./containerAccessReciteBody";
 import { normalizeContainerRekeyAccessEventBody } from "./containerAccessRekeyBody";
 import {
   normalizeContainerGrantPrincipalHead,
@@ -39,6 +40,7 @@ import type {
   ContainerGrantAccessEventBody,
   ContainerGrantPrincipalHead,
   ContainerMoveAccessEventBody,
+  ContainerReciteAccessEventBody,
   ContainerRekeyAccessEventBody,
   ContainerRevokeAccessEventBody,
   KeyingCanonicalJson,
@@ -627,6 +629,10 @@ export function normalizeContainerAccessEventBody(
     return normalizeContainerRekeyAccessEventBody(value);
   }
 
+  if (eventType === "container.recite") {
+    return normalizeContainerReciteAccessEventBody(value);
+  }
+
   if (eventType === "container.move") {
     return normalizeContainerMoveAccessEventBody(value);
   }
@@ -1070,13 +1076,13 @@ function preparePreviousContainerAccessTransition(
   };
 }
 
-function deriveContainerGrantManifestState(
+function deriveUnrotatedContainerManifestState(
   input: ContainerAccessManifestDerivationInput,
-  body: ContainerGrantAccessEventBody,
+  body: ContainerGrantAccessEventBody | ContainerReciteAccessEventBody,
   previous: PreviousContainerAccessTransition,
 ): ContainerAccessManifestState {
   requireContainerPathUserAccess({
-    label: "container.grant",
+    label: body.eventType,
     minimumAccessLevel: "admin",
     membershipAt: input.authorizationMembership,
     path: input.previousContainerPath,
@@ -1087,23 +1093,27 @@ function deriveContainerGrantManifestState(
   if (body.containerKeyEpochId !== previous.previousState.containerKeyEpochId) {
     throwVerification(
       "key_epoch_reuse",
-      "container.grant must keep the current container KEK epoch",
+      `${body.eventType} must keep the current container KEK epoch`,
     );
   }
 
   return normalizeContainerAccessManifestState({
     ...previous.nextBase,
     containerKeyEpochId: body.containerKeyEpochId,
-    directGrants: upsertContainerDirectGrant(
-      previous.previousState.directGrants,
-      body.grant,
-    ),
-    referencedPrincipalHeads: body.referencedPrincipalHead
-      ? upsertReferencedPrincipalHead(
-          previous.previousState.referencedPrincipalHeads,
-          body.referencedPrincipalHead,
-        )
-      : previous.previousState.referencedPrincipalHeads,
+    directGrants:
+      body.eventType === "container.recite"
+        ? previous.previousState.directGrants
+        : upsertContainerDirectGrant(
+            previous.previousState.directGrants,
+            body.grant,
+          ),
+    referencedPrincipalHeads:
+      body.eventType === "container.grant" && body.referencedPrincipalHead
+        ? upsertReferencedPrincipalHead(
+            previous.previousState.referencedPrincipalHeads,
+            body.referencedPrincipalHead,
+          )
+        : previous.previousState.referencedPrincipalHeads,
   });
 }
 
@@ -1238,8 +1248,11 @@ function deriveContainerAccessManifestStateFromEvent(
 
   const previous = preparePreviousContainerAccessTransition(input);
 
-  if (input.body.eventType === "container.grant") {
-    return deriveContainerGrantManifestState(input, input.body, previous);
+  if (
+    input.body.eventType === "container.grant" ||
+    input.body.eventType === "container.recite"
+  ) {
+    return deriveUnrotatedContainerManifestState(input, input.body, previous);
   }
 
   if (input.body.eventType === "container.revoke") {

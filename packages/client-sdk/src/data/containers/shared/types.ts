@@ -29,6 +29,10 @@ import type {
   PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
 import type { ExecSql } from "../../sqlite/sqlSchema";
+import type { ContainerMutationRequestOptions } from "./mutationRequestOptions";
+import type { ContainerReciteApi } from "./reciteApi";
+
+export type { ContainerMutationRequestOptions } from "./mutationRequestOptions";
 
 export interface ContainerMutationAuthor {
   organizationId: string;
@@ -120,11 +124,6 @@ export type ContainerMutationSubmitResult<T> =
     }
   | ContainerMutationSubmitFailure;
 
-export interface ContainerMutationRequestOptions {
-  readonly expectedPaymentRequiredOrganizationId?: string | undefined;
-  readonly reportErrors?: boolean | undefined;
-}
-
 export interface ContainerCreateApi {
   createContainer(
     input: ContainerMutationRequest,
@@ -154,7 +153,7 @@ export interface ContainerCreateApi {
   ): Promise<PrincipalPolicyBundleResponse | null>;
 }
 
-export interface ContainerShareApi {
+export interface ContainerShareApi extends ContainerReciteApi {
   getContainerWriterProjection(
     containerId: string,
   ): Promise<ContainerWriterProjectionResponse | null>;
@@ -165,7 +164,7 @@ export interface ContainerShareApi {
   ): Promise<ContainerMutationResponse | null>;
 }
 
-export interface ContainerMoveApi {
+export interface ContainerMoveApi extends ContainerReciteApi {
   getContainerWriterProjection(
     containerId: string,
   ): Promise<ContainerWriterProjectionResponse | null>;
@@ -176,7 +175,7 @@ export interface ContainerMoveApi {
   ): Promise<ContainerMutationResponse | null>;
 }
 
-export interface ContainerRevokeApi {
+export interface ContainerRevokeApi extends ContainerReciteApi {
   getContainerWriterProjection(
     containerId: string,
   ): Promise<ContainerWriterProjectionResponse | null>;
@@ -263,7 +262,7 @@ export interface MaterializedContainerRekeyPlan {
   writerProjection: ContainerWriterProjectionResponse;
 }
 
-export interface ContainerRekeyApi {
+export interface ContainerRekeyApi extends ContainerReciteApi {
   getContainerWriterProjection(
     containerId: string,
   ): Promise<ContainerWriterProjectionResponse | null>;

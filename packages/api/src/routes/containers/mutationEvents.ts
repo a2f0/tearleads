@@ -6,13 +6,18 @@ import { isAccessEventType } from "../../keyingProjectionRecords";
 import type { PublishedRealtimeEvent } from "../../realtime/publishedRealtimeEvents";
 import { publishBestEffort } from "../../utils/publishBestEffort";
 
+type MutationEventRequest = Pick<
+  ContainerMutationRequest,
+  "body" | "previousManifest"
+>;
+
 function readNullableString(value: unknown): string | null | undefined {
   if (value === null) return null;
   return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
 function readContainerMutationBodyEventType(
-  request: ContainerMutationRequest,
+  request: MutationEventRequest,
 ): AccessEventType | null {
   if (!isPlainObject(request.body)) return null;
   const eventType = Reflect.get(request.body, "eventType");
@@ -20,7 +25,7 @@ function readContainerMutationBodyEventType(
 }
 
 function readContainerMutationPreviousParentId(
-  request: ContainerMutationRequest,
+  request: MutationEventRequest,
 ): string | null | undefined {
   const previousState = request.previousManifest?.state;
   return previousState
@@ -31,7 +36,7 @@ function readContainerMutationPreviousParentId(
 // A direct user recipient has not declared interest in this container yet, so
 // the scoped access event cannot reach them. A user-scoped hint fills that gap.
 function readGrantUserRecipientId(
-  request: ContainerMutationRequest,
+  request: MutationEventRequest,
 ): string | null {
   if (!isPlainObject(request.body)) return null;
   const grant = Reflect.get(request.body, "grant");
@@ -49,8 +54,11 @@ export async function publishContainerMutationCreated(input: {
   readonly expectedEventType: AccessEventType;
   readonly origin: { readonly sessionId: string; readonly userId: string };
   readonly publish: (event: PublishedRealtimeEvent) => Promise<void>;
-  readonly request: ContainerMutationRequest;
-  readonly response: ContainerMutationResponse;
+  readonly request: MutationEventRequest;
+  readonly response: Pick<
+    ContainerMutationResponse,
+    "containerId" | "parentId" | "updatedAt"
+  >;
 }) {
   const previousParentId = readContainerMutationPreviousParentId(input.request);
   const eventType =

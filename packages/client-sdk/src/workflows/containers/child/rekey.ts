@@ -406,6 +406,8 @@ export async function rekeyRemoteContainer(input: {
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
   return submitAcknowledgedContainerMutation({
+    apiClient: input.apiClient,
+    author: input.author,
     containerKey: materializedPlan.containerKey,
     execSql: input.execSql,
     plan: materializedPlan.plan,

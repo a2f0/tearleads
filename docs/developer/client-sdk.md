@@ -128,6 +128,13 @@ chains; sync derives successor targets and coded retries. Preserve
 `KeyingVerificationError`; missing [raw-history](../raw-document-history-recovery.md)
 epochs throw `DocumentRawHistoryUnavailableError`.
 
+Custom container mutation APIs must implement `ContainerReciteApi` (including
+`reciteContainer`); the built-in API client supplies it. Container mutations
+and atomic group-policy rematerializations schedule non-blocking re-cites for
+already-held verified descendants, bounded to 256 retained heads. The pass
+fetches no subtree, retries nothing, and honors cancellation; it leaves keys
+and grants unchanged. It is not a descendant-rekey or freshness guarantee.
+
 `tearleads.network` defaults to automatic mode: browser events and API request
 results set `online`. Hosts can force diagnostics with `setMode("offline")` or
 `setMode("online")`, then resume detection with `setMode("automatic")`.

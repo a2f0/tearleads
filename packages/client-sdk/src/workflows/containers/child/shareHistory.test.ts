@@ -112,6 +112,7 @@ test("repeated shares submit every same-container manifest needed by retained wr
       return createMutationResponseFromRequest(request);
     };
     const apiClient = {
+      reciteContainer: async () => null,
       getContainerWriterProjection: async () => projection,
       shareContainer,
     };

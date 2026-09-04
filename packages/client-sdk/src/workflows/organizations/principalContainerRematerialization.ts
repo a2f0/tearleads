@@ -8,12 +8,14 @@ import type {
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import { rememberVerifiedContainerHeads } from "../../data/containers/shared/heldContainerHeads";
 import type { AuthoredContainerMutationHead } from "../../data/containers/shared/mutationAcknowledgement";
 import { acknowledgeContainerMutationBatch } from "../../data/containers/shared/mutationAcknowledgement";
 import {
   getTargetContainerContext,
   readContainerState,
 } from "../../data/containers/shared/projection";
+import type { ContainerReciteApi } from "../../data/containers/shared/reciteApi";
 import type {
   ContainerMutationAuthor,
   MaterializedContainerRekeyPlan,
@@ -27,11 +29,12 @@ import {
 import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification/userKeyResolver";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
+import { scheduleHeldDescendantRecitations } from "../containers/child/recite";
 import { buildMaterializedContainerRekeyPlan } from "../containers/child/rekey";
 import { buildMaterializedContainerRevokePlan } from "../containers/child/revoke";
 import { buildMaterializedContainerSharePlan } from "../containers/child/shareMaterialization";
 
-interface RematerializationApi {
+interface RematerializationApi extends ContainerReciteApi {
   getContainerWriterProjection(
     containerId: string,
   ): Promise<ContainerWriterProjectionResponse | null>;
@@ -268,12 +271,26 @@ export async function preparePrincipalContainerRematerializationBatch(
   return {
     plans,
     requests: plans.map((planned) => planned.plan.request),
-    acknowledge: (responses, stillCurrent) =>
-      acknowledgeContainerMutationBatch({
+    acknowledge: async (responses, stillCurrent) => {
+      await acknowledgeContainerMutationBatch({
         execSql: input.execSql,
         plans: plans.map(authoredMutationHead),
         responses,
         stillCurrent,
-      }),
+      });
+      if (stillCurrent?.() === false) return;
+      rememberVerifiedContainerHeads({
+        execSql: input.execSql,
+        heads: [],
+        policies: [input.nextPolicy],
+      });
+      scheduleHeldDescendantRecitations({
+        apiClient: input.apiClient,
+        author: input.author,
+        execSql: input.execSql,
+        plans: plans.map(authoredMutationHead),
+        stillCurrent,
+      });
+    },
   };
 }

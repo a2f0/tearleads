@@ -234,6 +234,7 @@ test("a stale dependency path never replaces the authorizing path for its leaf",
     const shared = await shareRemoteContainer({
       accessLevel: "write",
       apiClient: {
+        reciteContainer: async () => null,
         getContainerWriterProjection: async () => parent.projection,
         shareContainer: async (_containerId, request) =>
           createMutationResponseFromRequest(request),

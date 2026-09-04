@@ -30,6 +30,7 @@ test("shareRemoteContainer stops before network I/O on trusted identity failure"
       shareRemoteContainer({
         accessLevel: "read",
         apiClient: {
+          reciteContainer: async () => null,
           getContainerWriterProjection: async () => {
             projectionRead = true;
             return parent.projection;
@@ -67,6 +68,7 @@ test("shareRemoteContainer rejects an identity bound to another user before read
       shareRemoteContainer({
         accessLevel: "read",
         apiClient: {
+          reciteContainer: async () => null,
           getContainerWriterProjection: async () => {
             projectionRead = true;
             return parent.projection;

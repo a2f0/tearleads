@@ -3,7 +3,9 @@ import {
   type AnyVerifiedPrincipalPolicy,
   KeyingVerificationError,
   type VerifiedAccessManifestCheckpointEvidence,
+  type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
+import { rememberVerifiedContainerHeads } from "../containers/shared/heldContainerHeads";
 import type { DocumentPurgeCheckpoint } from "../persistence/documentPurgeCheckpointPersistence";
 import type { ExecSql } from "../sqlite/sqlSchema";
 import {
@@ -13,6 +15,7 @@ import {
 import { assertProjectionVerificationCurrent } from "./types";
 
 export interface ProjectionCheckpointContext {
+  readonly heldContainerHeads: VerifiedContainerAccessManifest[];
   readonly execSql: ExecSql;
   // Local checkpoints read during this verification, one read per object.
   readonly localCheckpoints: Map<string, AccessManifestCheckpoint | null>;
@@ -34,6 +37,7 @@ export function createProjectionCheckpointContext(input: {
   }
 
   return {
+    heldContainerHeads: [],
     execSql: input.execSql,
     localCheckpoints: new Map(),
     organizationId: input.organizationId,
@@ -121,7 +125,15 @@ export async function finalizeProjectionCheckpoints(
     readonly stillCurrent?: (() => boolean) | undefined;
   },
 ): Promise<void> {
-  return input.persistVerificationCheckpoints === false
-    ? validateProjectionCheckpoints(context, input)
-    : commitProjectionCheckpoints(context, input);
+  if (input.persistVerificationCheckpoints === false) {
+    await validateProjectionCheckpoints(context, input);
+  } else {
+    await commitProjectionCheckpoints(context, input);
+  }
+  assertProjectionVerificationCurrent(input.stillCurrent);
+  rememberVerifiedContainerHeads({
+    execSql: input.execSql ?? context.execSql,
+    heads: context.heldContainerHeads,
+    policies: context.policies,
+  });
 }
