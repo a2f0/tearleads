@@ -2,6 +2,8 @@ import {
   type AnyVerifiedPrincipalPolicy,
   computeAccessManifestHash,
   deriveContainerAccessManifest,
+  KeyingVerificationError,
+  MAX_CONTAINER_RECITATION_EPOCH,
 } from "@tearleads/crypto";
 import type { ContainerReciteRequest } from "@tearleads/validators/request";
 import type { ContainerReciteResponse } from "@tearleads/validators/response";
@@ -21,6 +23,9 @@ export async function buildContainerRecitePlan(input: {
 }) {
   const previous = input.path.at(-1);
   if (!previous) throw new Error("Recitation requires a held container path");
+  if (previous.state.epoch >= MAX_CONTAINER_RECITATION_EPOCH) {
+    throw new Error("Container re-citation history budget is exhausted");
+  }
   if (
     input.path.some(
       (head) => head.state.organizationId !== input.author.organizationId,
@@ -103,7 +108,8 @@ export function assertContainerReciteAcknowledgement(
         "Recitation planned references",
       )
   )
-    throw new Error(
+    throw new KeyingVerificationError(
+      "object_mismatch",
       "Container recitation response does not match the signed plan",
     );
 }

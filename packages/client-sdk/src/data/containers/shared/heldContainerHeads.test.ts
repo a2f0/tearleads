@@ -180,3 +180,16 @@ test("validate-only projection completion does not populate the held-head cache"
   });
   expect(heldContainerSnapshot(execSql, "cache-org").heads.size).toBe(0);
 });
+
+test("an optional cache-fill failure cannot reject completed checkpoint finalization", async () => {
+  const execSql = executor();
+  const context = createProjectionCheckpointContext({
+    execSql,
+    organizationId: "cache-org",
+  });
+  context.heldContainerHeads.push(head(await seed, "foreign", 1, "other-org"));
+  await expect(
+    finalizeProjectionCheckpoints(context, {}),
+  ).resolves.toBeUndefined();
+  expect(heldContainerSnapshot(execSql, "cache-org").heads.size).toBe(0);
+});

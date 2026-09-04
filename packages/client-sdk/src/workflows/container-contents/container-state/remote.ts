@@ -313,6 +313,7 @@ export async function shareRemoteContainer(input: {
   const { apiClient, author, execSql, secretKey: targetSecretKey } = writer;
 
   const shared = await shareRemoteContainerMutation({
+    reportSecurityIncident: input.runtime.util.reportSecurityIncident,
     accessLevel: input.accessLevel,
     apiClient,
     author,
@@ -359,6 +360,7 @@ export async function shareRemoteContainerWithGroup(input: {
   const { apiClient, author, execSql, secretKey: targetSecretKey } = writer;
 
   const shared = await shareRemoteContainerWithGroupMutation({
+    reportSecurityIncident: input.runtime.util.reportSecurityIncident,
     accessLevel: input.accessLevel,
     apiClient,
     author,
@@ -401,6 +403,7 @@ export async function moveRemoteContainer(input: {
   const { apiClient, author, execSql, secretKey: targetSecretKey } = writer;
 
   const moved = await moveRemoteContainerMutation({
+    reportSecurityIncident: input.runtime.util.reportSecurityIncident,
     apiClient,
     author,
     containerId: input.containerId,

@@ -1,3 +1,4 @@
+import { KeyingVerificationError } from "@tearleads/crypto";
 import {
   type HeldContainerHead,
   heldContainerPath,
@@ -12,6 +13,7 @@ import {
   advanceLocallyAcknowledgedAccessManifestHeadsAtomically,
   locallyAuthoredAccessManifestHead,
 } from "../../../data/persistence/locallyAcknowledgedCheckpointPersistence";
+import type { SecurityIncidentReporter } from "../../../data/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   assertContainerReciteAcknowledgement,
@@ -26,6 +28,7 @@ interface ReciteHeldDescendantsInput {
   readonly author: ContainerMutationAuthor;
   readonly ancestorIds: readonly string[];
   readonly execSql: ExecSql;
+  readonly reportSecurityIncident: SecurityIncidentReporter;
   readonly stillCurrent?: (() => boolean) | undefined;
 }
 
@@ -61,7 +64,25 @@ async function recitePinnedPath(
     reportErrors: false,
   });
   if (!response || input.stillCurrent?.() === false) return null;
-  assertContainerReciteAcknowledgement(plan, response);
+  try {
+    assertContainerReciteAcknowledgement(plan, response);
+  } catch (error) {
+    const failure =
+      error instanceof KeyingVerificationError
+        ? error
+        : new KeyingVerificationError(
+            "invalid_shape",
+            "Malformed re-citation acknowledgement",
+          );
+    await input.reportSecurityIncident(failure, {
+      operation: "container.recite.acknowledge",
+      objectKind: "container",
+      objectId: id,
+      organizationId: input.author.organizationId,
+      evidenceHashes: { plannedManifestHash: plan.manifestHash },
+    });
+    return null;
+  }
   const acknowledged =
     await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
       execSql: input.execSql,
@@ -75,6 +96,19 @@ async function recitePinnedPath(
       id,
     ) ?? null
   );
+}
+
+async function waitForPinnedPath(
+  input: ReciteHeldDescendantsInput,
+  path: readonly HeldContainerHead[],
+  attempts: number,
+): Promise<boolean> {
+  if (!(await pathIsPinned(input.execSql, path))) return false;
+  if (attempts > 0) {
+    await new Promise((resolve) => setTimeout(resolve, RECITE_SPACING_MS));
+    if (!(await pathIsPinned(input.execSql, path))) return false;
+  }
+  return input.stillCurrent?.() !== false;
 }
 
 /**
@@ -108,12 +142,7 @@ export async function reciteHeldDescendants(
       // Every held head must still equal its durable pin. A failed projection,
       // concurrent mutation, or verify-without-persist result cannot become an
       // implicit checkpoint advance through this opportunistic path.
-      if (attempts > 0) {
-        await new Promise((resolve) => setTimeout(resolve, RECITE_SPACING_MS));
-      }
-      const pinned = await pathIsPinned(input.execSql, path);
-      if (input.stillCurrent?.() === false) return;
-      if (!pinned) continue;
+      if (!(await waitForPinnedPath(input, path, attempts))) continue;
       attempts += 1;
       const updated = await recitePinnedPath(input, path, snapshot.policies);
       if (updated) snapshot.heads.set(id, updated);
@@ -145,7 +174,11 @@ export function scheduleHeldDescendantRecitations(
   void Promise.resolve()
     .then(() =>
       reciteHeldDescendants({
-        ...input,
+        apiClient: input.apiClient,
+        author: input.author,
+        execSql: input.execSql,
+        reportSecurityIncident: input.reportSecurityIncident,
+        stillCurrent: input.stillCurrent,
         ancestorIds: input.plans.map((plan) => plan.containerId),
       }),
     )

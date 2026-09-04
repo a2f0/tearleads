@@ -4,6 +4,10 @@ import type {
   KeyingCanonicalJson,
 } from "./types";
 
+// Re-citations may only consume the first quarter of the API verifier's 4096
+// manifest budget. Ordinary mutations retain the remaining history capacity.
+export const MAX_CONTAINER_RECITATION_EPOCH = 1024;
+
 export function normalizeContainerReciteAccessEventBody(
   value: KeyingCanonicalJson,
 ): ContainerReciteAccessEventBody {

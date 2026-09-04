@@ -19,6 +19,7 @@ import {
   principalPolicyHead,
 } from "../../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
+import { heldContainerSnapshot } from "../../../data/containers/shared/heldContainerHeads";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/containerKekPath";
 import {
   ensurePrincipalPolicyTables,
@@ -236,6 +237,7 @@ test("same-level Admins re-wrap survives a group rotation and cold root unwrap",
       secretKey: memberKem.secretKey,
     });
     const shared = await shareRemoteContainerWithGroup({
+      reportSecurityIncident: async () => {},
       accessLevel: "admin",
       apiClient: {
         reciteContainer: async () => null,
@@ -269,6 +271,15 @@ test("same-level Admins re-wrap survives a group rotation and cold root unwrap",
     });
 
     expect(shared).not.toBeNull();
+    expect(
+      heldContainerSnapshot(execSql, ORGANIZATION_ID).policies,
+    ).toContainEqual(
+      expect.objectContaining({
+        principalId: ADMIN_GROUP_ID,
+        stateHash: epochTwoPolicy.currentState.stateHash,
+        keyEpoch: 2,
+      }),
+    );
     expect(submittedRequests).toHaveLength(1);
     if (!shared) {
       throw new Error("Expected root Admins re-wrap");

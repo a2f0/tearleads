@@ -47,8 +47,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 575,
-      "bytes": 27455
+      "lines": 578,
+      "bytes": 27684
     },
     "docs/developer/revenuecat-billing.md": {
       "lines": 360,
@@ -83,8 +83,8 @@
       "bytes": 28639
     },
     "docs/security-guarantees.md": {
-      "lines": 636,
-      "bytes": 35002
+      "lines": 643,
+      "bytes": 35532
     },
     "formal/document-sync/BaselineDominanceTraces.json": {
       "lines": 2059,
@@ -315,8 +315,8 @@
       "bytes": 23438
     },
     "packages/crypto/src/keying/containerAccess.ts": {
-      "lines": 1332,
-      "bytes": 38837
+      "lines": 1344,
+      "bytes": 39115
     },
     "packages/crypto/src/keying/containerKek.test.ts": {
       "lines": 650,

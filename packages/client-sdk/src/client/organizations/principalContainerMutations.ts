@@ -24,6 +24,7 @@ export async function preparePrincipalContainerMutations(input: {
     );
   }
   return preparePrincipalContainerRematerializationBatch({
+    reportSecurityIncident: input.runtime.util.reportSecurityIncident,
     apiClient: input.runtime.apiClient,
     author,
     execSql: input.runtime.infra.execSql,

@@ -32,6 +32,7 @@ test("shareRemoteContainer rejects tampered projected container state before sen
   let shareCalled = false;
   await expect(
     shareRemoteContainer({
+      reportSecurityIncident: async () => {},
       accessLevel: "read",
       apiClient: {
         reciteContainer: async () => null,
@@ -83,6 +84,7 @@ test("shareRemoteContainer rejects bad previous projection signatures before sen
   let shareCalled = false;
   await expect(
     shareRemoteContainer({
+      reportSecurityIncident: async () => {},
       accessLevel: "read",
       apiClient: {
         reciteContainer: async () => null,
@@ -121,6 +123,7 @@ test("shareRemoteContainer includes existing direct user recipient keys", async 
   const database = await createTestExecSql("container-share-user");
   const submittedRequests: ContainerMutationRequest[] = [];
   const shared = await shareRemoteContainer({
+    reportSecurityIncident: async () => {},
     accessLevel: "write",
     apiClient: {
       reciteContainer: async () => null,

@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { MAX_CONTAINER_RECITATION_EPOCH } from "@tearleads/crypto";
 import { createContainerReciteScenario } from "../../../../test/helpers/containerReciteFixtures";
 import { heldContainerSnapshot } from "../../../data/containers/shared/heldContainerHeads";
 import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
@@ -7,8 +8,37 @@ import { buildContainerRecitePlan } from "./recitePlan";
 
 type Scenario = Awaited<ReturnType<typeof createContainerReciteScenario>>;
 
+test("the SDK does not sign re-citations after the history budget", async () => {
+  const scenario = await createContainerReciteScenario();
+  try {
+    const held = heldContainerSnapshot(
+      scenario.execSql,
+      scenario.parent.author.organizationId,
+    );
+    const child = held.heads.get("held-child");
+    if (!child) throw new Error("Expected held child");
+    // Exercise the planner boundary, not cryptographic chain verification.
+    await expect(
+      buildContainerRecitePlan({
+        author: scenario.parent.author,
+        path: [
+          {
+            ...child,
+            state: { ...child.state, epoch: MAX_CONTAINER_RECITATION_EPOCH },
+          },
+        ],
+        policies: held.policies,
+      }),
+    ).rejects.toThrow("history budget is exhausted");
+    expect(scenario.requests).toEqual([]);
+  } finally {
+    await scenario.close();
+  }
+});
+
 function cascadeInput(scenario: Scenario) {
   return {
+    reportSecurityIncident: async () => {},
     apiClient: { reciteContainer: scenario.reciteContainer },
     author: scenario.parent.author,
     ancestorIds: [scenario.parent.projection.containerId],
@@ -78,8 +108,12 @@ test.each([
   try {
     await scenario.advanceAncestor();
     const attempts: string[] = [];
+    const incidents: unknown[] = [];
     await reciteHeldDescendants({
       ...cascadeInput(scenario),
+      reportSecurityIncident: async (error, context) => {
+        incidents.push({ error, context });
+      },
       apiClient: {
         reciteContainer: async (id, request) => {
           attempts.push(id);
@@ -113,6 +147,18 @@ test.each([
       },
     });
     expect(attempts).toEqual(["held-child", "held-grandchild"]);
+    expect(incidents).toHaveLength(
+      failure === "mismatched" || failure === "injected-grants" ? 1 : 0,
+    );
+    if (incidents.length) {
+      expect(incidents[0]).toMatchObject({
+        error: { code: "object_mismatch" },
+        context: {
+          operation: "container.recite.acknowledge",
+          objectId: "held-child",
+        },
+      });
+    }
     expect((await checkpoint(scenario, "held-child"))?.manifestHash).toBe(
       scenario.child.bundle.manifestHash,
     );

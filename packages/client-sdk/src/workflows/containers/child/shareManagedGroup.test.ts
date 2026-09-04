@@ -66,6 +66,7 @@ test("shareRemoteContainerWithGroup grants a managed principal with the selected
 
   const shared = await withTestExecSql("container-group-share", (execSql) =>
     shareRemoteContainerWithGroup({
+      reportSecurityIncident: async () => {},
       accessLevel: "read",
       apiClient: {
         reciteContainer: async () => null,
@@ -245,6 +246,7 @@ test("shareRemoteContainerWithGroup accepts empty groups signed by an org admin"
     "container-empty-group-share",
     (execSql) =>
       shareRemoteContainerWithGroup({
+        reportSecurityIncident: async () => {},
         accessLevel: "read",
         apiClient: {
           reciteContainer: async () => null,

@@ -5,7 +5,10 @@ import {
   verifyAccessManifest,
 } from "./accessEvent";
 import { computeKeyingDomainHash } from "./canonical";
-import { normalizeContainerReciteAccessEventBody } from "./containerAccessReciteBody";
+import {
+  MAX_CONTAINER_RECITATION_EPOCH,
+  normalizeContainerReciteAccessEventBody,
+} from "./containerAccessReciteBody";
 import { normalizeContainerRekeyAccessEventBody } from "./containerAccessRekeyBody";
 import {
   normalizeContainerGrantPrincipalHead,
@@ -1081,6 +1084,15 @@ function deriveUnrotatedContainerManifestState(
   body: ContainerGrantAccessEventBody | ContainerReciteAccessEventBody,
   previous: PreviousContainerAccessTransition,
 ): ContainerAccessManifestState {
+  if (
+    body.eventType === "container.recite" &&
+    previous.previousState.epoch >= MAX_CONTAINER_RECITATION_EPOCH
+  ) {
+    throwVerification(
+      "invalid_shape",
+      "Container re-citation history budget is exhausted",
+    );
+  }
   requireContainerPathUserAccess({
     label: body.eventType,
     minimumAccessLevel: "admin",

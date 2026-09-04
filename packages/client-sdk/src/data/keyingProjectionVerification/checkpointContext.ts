@@ -135,10 +135,15 @@ export async function finalizeProjectionCheckpoints(
     context.organizationId ??
     context.heldContainerHeads[0]?.state.organizationId;
   if (organizationId === undefined) return;
-  rememberVerifiedContainerHeads({
-    organizationId,
-    execSql: input.execSql ?? context.execSql,
-    heads: context.heldContainerHeads,
-    policies: context.policies,
-  });
+  try {
+    rememberVerifiedContainerHeads({
+      organizationId,
+      execSql: input.execSql ?? context.execSql,
+      heads: context.heldContainerHeads,
+      policies: context.policies,
+    });
+  } catch {
+    // Checkpoints are already committed. Optional re-citation evidence must
+    // never change successful verification into a caller-visible refusal.
+  }
 }

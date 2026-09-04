@@ -27,6 +27,9 @@ verified descendants: eight attempts per pass, spaced 250 ms apart, with no
 fetches, retries, or blocking of the original operation. A re-cite advances the
 manifest, not key material or grants. The pass is process-local and
 cancellation-aware.
+Container mutation facades require `reportSecurityIncident` for contradictory
+background acknowledgements. Re-citation is refused at prior epoch 1024 so it
+cannot exhaust the API's 4096-manifest verification budget by itself.
 
 The documents facade also admits explicit `historyMode: "raw"` reads through
 `syncRemoteDocument`. A raw consumer must start at a null version vector, send

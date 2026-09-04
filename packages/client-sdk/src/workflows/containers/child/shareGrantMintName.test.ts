@@ -59,6 +59,7 @@ test("minting a group grant without the chosen name fails closed", async () => {
   await expect(
     withTestExecSql("container-group-share-mint-unnamed", (execSql) =>
       shareRemoteContainerWithGroup({
+        reportSecurityIncident: async () => {},
         accessLevel: "read",
         apiClient: {
           reciteContainer: async () => null,

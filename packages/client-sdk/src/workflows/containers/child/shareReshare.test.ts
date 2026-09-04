@@ -42,6 +42,7 @@ test("shareRemoteContainer replaces stale wraps when re-sharing a user", async (
   const database = await createTestExecSql("container-reshare-user");
 
   const shared = await shareRemoteContainer({
+    reportSecurityIncident: async () => {},
     accessLevel: "write",
     apiClient: {
       reciteContainer: async () => null,

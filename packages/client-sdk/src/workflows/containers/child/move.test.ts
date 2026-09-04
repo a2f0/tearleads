@@ -24,6 +24,7 @@ test("moveRemoteContainer rejects bad source projection signatures before sendin
 
   await expect(
     moveRemoteContainer({
+      reportSecurityIncident: async () => {},
       apiClient: {
         reciteContainer: async () => null,
         getContainerWriterProjection: async (containerId) =>
@@ -63,6 +64,7 @@ test("moveRemoteContainer rejects bad destination projection signatures before s
 
   await expect(
     moveRemoteContainer({
+      reportSecurityIncident: async () => {},
       apiClient: {
         reciteContainer: async () => null,
         getContainerWriterProjection: async (containerId) =>
@@ -107,6 +109,7 @@ test("move planning rolls back checkpoints after its generation expires", async 
 
   try {
     const moved = await moveRemoteContainer({
+      reportSecurityIncident: async () => {},
       apiClient: {
         reciteContainer: async () => null,
         getContainerWriterProjection: async () => parent.projection,

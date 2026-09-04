@@ -294,12 +294,19 @@ its durable checkpoint, and signs complete path citations parent-first.
 `container.recite` changes only the access-manifest head: grants, parent pins,
 key epochs, keyrings, and wraps stay unchanged. The API checks current paths
 and principal policies under the mutation locks and requires admin authority.
+The signed transition stops admitting re-citations once the prior container
+epoch reaches 1024. This reserves the rest of the API verifier's 4096-manifest
+history budget for ordinary mutations; it is not history compaction. The SDK
+skips signing at that boundary, and the API independently rejects it.
 
 This background pass never fetches a subtree or a principal policy, never
 retries a failed re-cite, and never delays or changes the original mutation's
 result. One pass runs per executor, capped at eight attempts with a 250 ms gap
 between requests. The cap, overlap, eviction, missing evidence, stale policies,
 conflicts, and cancellation can leave descendants untouched.
+Acknowledgements that contradict the signed plan are reported through the
+host's security-incident reporter without advancing the descendant checkpoint.
+Network refusals remain best effort and do not become integrity incidents.
 There is no dependency on another device's cache and no new read-time currency
 rule. Re-citation narrows the residual authorization window when it succeeds;
 it does not rekey descendants or promise post-revocation confidentiality.

@@ -11,6 +11,7 @@ import {
 import { createContainerReciteScenario } from "../../../../test/helpers/containerReciteFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
+import { scheduleHeldDescendantRecitations } from "./recite";
 import { shareRemoteContainer } from "./share";
 
 test("a completed share does not await a hanging descendant re-cite", async () => {
@@ -22,6 +23,7 @@ test("a completed share does not await a hanging descendant re-cite", async () =
     const recipientKem = generateKemSeedAndKeyPair();
     const recipientSigning = generateSigningSeedAndKeyPair();
     const result = await shareRemoteContainer({
+      reportSecurityIncident: async () => {},
       accessLevel: "read",
       apiClient: {
         getContainerWriterProjection: async () => scenario.parent.projection,
@@ -51,6 +53,23 @@ test("a completed share does not await a hanging descendant re-cite", async () =
     });
     expect(result).not.toBeNull();
     await started.promise;
+    if (!result) throw new Error("Expected acknowledged share");
+    let overlappingRequests = 0;
+    scheduleHeldDescendantRecitations({
+      apiClient: {
+        reciteContainer: async () => {
+          overlappingRequests += 1;
+          return null;
+        },
+      },
+      author: scenario.parent.author,
+      execSql: scenario.execSql,
+      plans: [result.plan],
+      reportSecurityIncident: async () => {},
+      stillCurrent: () => active,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    expect(overlappingRequests).toBe(0);
     expect(
       (
         await loadAccessManifestCheckpoint(

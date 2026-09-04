@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
+import { MAX_CONTAINER_RECITATION_EPOCH } from "./containerAccessReciteBody";
 import {
   computeAccessManifestHash,
   deriveContainerAccessManifest,
@@ -12,19 +13,27 @@ import {
 } from "./testFixtures";
 
 async function recite(
-  input: { signerUserId?: string; keyEpochId?: string } = {},
+  input: {
+    signerUserId?: string;
+    keyEpochId?: string;
+    previousEpoch?: number;
+  } = {},
 ) {
   const signer = generateSigningSeedAndKeyPair();
   const parent = await createContainerManifestFixture({
     containerId: "parent",
     directGrants: [
       { subjectType: "user", subjectId: "owner", accessLevel: "admin" },
+      { subjectType: "user", subjectId: "writer", accessLevel: "write" },
     ],
     signer,
     signerUserId: "owner",
   });
   const previous = await createContainerManifestFixture({
     containerId: "empty-child",
+    // The fixture is the trusted predecessor boundary of this transition
+    // test, not evidence that an abbreviated 1024-head chain verifies.
+    epoch: input.previousEpoch ?? 1,
     containerKeyEpochId: "child-key",
     directGrants: [],
     parentContainerId: parent.state.containerId,
@@ -70,8 +79,27 @@ test("recitation advances the access head without changing an empty child's gran
 });
 
 test("recitation requires admin access through its authorization path", async () => {
-  const { result } = await recite({ signerUserId: "stranger" });
-  expect(result).toMatchObject({ ok: false, error: { code: "unauthorized" } });
+  for (const signerUserId of ["stranger", "writer"]) {
+    const { result } = await recite({ signerUserId });
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "unauthorized" },
+    });
+  }
+});
+
+test("recitation reserves the remaining verifier history budget for ordinary mutations", async () => {
+  const accepted = await recite({
+    previousEpoch: MAX_CONTAINER_RECITATION_EPOCH - 1,
+  });
+  expect(accepted.result.ok).toBe(true);
+  const refused = await recite({
+    previousEpoch: MAX_CONTAINER_RECITATION_EPOCH,
+  });
+  expect(refused.result).toMatchObject({
+    ok: false,
+    error: { code: "invalid_shape" },
+  });
 });
 
 test("recitation cannot change the key epoch", async () => {

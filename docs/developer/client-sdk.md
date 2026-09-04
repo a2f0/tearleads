@@ -139,6 +139,9 @@ and atomic group-policy rematerializations schedule non-blocking re-cites for
 already-held verified descendants, with 256 retained heads and eight attempts
 per pass, spaced 250 ms apart. No subtree fetch or retry occurs; it leaves keys
 and grants unchanged. It is not a descendant-rekey or freshness guarantee.
+These mutation facades require `reportSecurityIncident`; the built-in runtime
+wires its durable incident service. Re-citation stops at container epoch 1024
+to reserve the remaining verifier history budget for ordinary mutations.
 
 `tearleads.network` defaults to automatic mode: browser events and API request
 results set `online`. Hosts can force diagnostics with `setMode("offline")` or

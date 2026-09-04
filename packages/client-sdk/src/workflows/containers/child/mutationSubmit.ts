@@ -1,7 +1,10 @@
+import type { AnyVerifiedPrincipalPolicy } from "@tearleads/crypto";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
+import { rememberVerifiedContainerHeads } from "../../../data/containers/shared/heldContainerHeads";
 import { acknowledgeContainerMutation } from "../../../data/containers/shared/mutationAcknowledgement";
 import type { ContainerReciteApi } from "../../../data/containers/shared/reciteApi";
 import type { ContainerMutationAuthor } from "../../../data/containers/shared/types";
+import type { SecurityIncidentReporter } from "../../../data/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { scheduleHeldDescendantRecitations } from "./recite";
 
@@ -18,6 +21,8 @@ export async function submitAcknowledgedContainerMutation<
   containerKey: Uint8Array;
   execSql: ExecSql;
   plan: TPlan;
+  recitationPolicies: readonly AnyVerifiedPrincipalPolicy[];
+  reportSecurityIncident: SecurityIncidentReporter;
   stillCurrent?: (() => boolean) | undefined;
   submit: () => Promise<ContainerMutationResponse | null>;
 }): Promise<{
@@ -39,7 +44,20 @@ export async function submitAcknowledgedContainerMutation<
   });
   if (input.stillCurrent?.() === false) return null;
 
-  scheduleHeldDescendantRecitations({ ...input, plans: [input.plan] });
+  rememberVerifiedContainerHeads({
+    execSql: input.execSql,
+    organizationId: input.author.organizationId,
+    heads: [],
+    policies: input.recitationPolicies,
+  });
+  scheduleHeldDescendantRecitations({
+    apiClient: input.apiClient,
+    author: input.author,
+    execSql: input.execSql,
+    plans: [input.plan],
+    reportSecurityIncident: input.reportSecurityIncident,
+    stillCurrent: input.stillCurrent,
+  });
   return {
     containerKey: input.containerKey,
     plan: input.plan,

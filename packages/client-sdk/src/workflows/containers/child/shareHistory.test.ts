@@ -124,6 +124,7 @@ test("repeated shares submit every same-container manifest needed by retained wr
         signingPublicKey: generateSigningSeedAndKeyPair().signingPublicKey,
       });
       const shared = await shareRemoteContainer({
+        reportSecurityIncident: async () => {},
         accessLevel: "read",
         apiClient,
         author: parent.author,

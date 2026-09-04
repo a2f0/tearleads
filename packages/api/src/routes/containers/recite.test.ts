@@ -6,11 +6,13 @@ import {
 } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import {
+  isContainerMutationResponse,
   isContainerReciteResponse,
   isContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { buildRootGrantRequest } from "../../../test/helpers/containerGrantMutation";
 import {
   postRecite as post,
   buildReciteRequest as request,
@@ -120,6 +122,45 @@ test("a signer without inherited admin authority cannot recite a child", async (
     }),
   );
   expect(response.status, await response.clone().text()).toBe(403);
+});
+
+test("an inherited write grant does not authorize re-citation", async () => {
+  const { owner, root, child } = await scenario();
+  const writer = createTestUser();
+  await registerUser(writer);
+  await authenticate(writer);
+  const grant = await buildRootGrantRequest({
+    accessLevel: "write",
+    previous: root.bundle,
+    previousKekState: root.kekState,
+    recipient: writer,
+    signer: owner,
+  });
+  const granted = await routeApp.request(
+    `/containers/${root.kekState.containerId}/share`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(grant),
+    },
+  );
+  expect(granted.status, await granted.clone().text()).toBe(200);
+  const response: unknown = await granted.json();
+  if (!isContainerMutationResponse(response))
+    throw new Error("Expected granted root");
+  const recited = await post(
+    child.containerId,
+    writer,
+    await request({
+      path: [response.accessManifest, child.accessManifest],
+      signer: writer,
+    }),
+  );
+  expect(recited.status, await recited.clone().text()).toBe(403);
+  expect(await recited.text()).toContain("admin");
 });
 
 test("a child re-cites an advanced ancestor and rejects the old authorizing path", async () => {

@@ -170,6 +170,7 @@ async function createFixture(input: {
     grants,
     requestedContainerIds,
     input: {
+      reportSecurityIncident: async () => {},
       apiClient: {
         reciteContainer: async () => null,
         getContainerWriterProjection: async (containerId: string) => {

@@ -45,6 +45,7 @@ test("share planning rolls back checkpoints after its generation expires", async
 
   try {
     const shared = await shareRemoteContainer({
+      reportSecurityIncident: async () => {},
       accessLevel: "write",
       apiClient: {
         reciteContainer: async () => null,
@@ -96,6 +97,7 @@ test("shareRemoteContainer does not return an unacknowledged committed response"
 
   try {
     const shared = await shareRemoteContainer({
+      reportSecurityIncident: async () => {},
       accessLevel: "write",
       apiClient: {
         reciteContainer: async () => null,
@@ -167,6 +169,7 @@ test("a group share does not acknowledge a policy after its generation expires d
 
   try {
     const shared = await shareRemoteContainerWithGroup({
+      reportSecurityIncident: async () => {},
       accessLevel: "read",
       apiClient: {
         reciteContainer: async () => null,
@@ -288,6 +291,7 @@ test("a missing group grant returns null when projection verification expires", 
 
   try {
     const shared = await shareRemoteContainerWithGroup({
+      reportSecurityIncident: async () => {},
       accessLevel: "read",
       apiClient: {
         reciteContainer: async () => null,

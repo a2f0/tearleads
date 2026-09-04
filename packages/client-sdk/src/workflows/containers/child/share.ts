@@ -23,6 +23,7 @@ import {
 } from "../../../data/keyingProjectionVerification";
 import { principalPolicyCacheForVerifiedPolicies } from "../../../data/keyingProjectionVerification/principalPolicyCache";
 import { savePrincipalPolicyBundle } from "../../../data/persistence/principalPolicyPersistence";
+import type { SecurityIncidentReporter } from "../../../data/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   requireTrustedUserIdentityResolver,
@@ -49,6 +50,7 @@ async function buildCurrentContainerSharePlan(
 }
 
 export async function shareRemoteContainer(input: {
+  reportSecurityIncident: SecurityIncidentReporter;
   accessLevel: ContainerAccessLevel;
   apiClient: ContainerShareApi;
   author: ContainerMutationAuthor;
@@ -107,6 +109,8 @@ export async function shareRemoteContainer(input: {
   });
   if (!materializedPlan) return null;
   return submitAcknowledgedContainerMutation({
+    reportSecurityIncident: input.reportSecurityIncident,
+    recitationPolicies: [],
     apiClient: input.apiClient,
     author: input.author,
     containerKey: materializedPlan.containerKey,
@@ -125,6 +129,7 @@ export async function shareRemoteContainer(input: {
 }
 
 interface RemoteContainerGroupShareInput {
+  reportSecurityIncident: SecurityIncidentReporter;
   accessLevel: ContainerAccessLevel;
   apiClient: ContainerManagedPrincipalShareApi;
   author: ContainerMutationAuthor;
@@ -172,6 +177,7 @@ async function prepareMissingGroupGrantMutations(input: {
 }) {
   const { currentPolicy, nextPolicy, shareInput } = input;
   return preparePrincipalContainerRematerializationBatch({
+    reportSecurityIncident: shareInput.reportSecurityIncident,
     apiClient: shareInput.apiClient,
     author: shareInput.author,
     execSql: shareInput.execSql,
@@ -366,8 +372,9 @@ export async function shareRemoteContainerWithGroup(
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
   if (!materializedPlan) return null;
-  if (input.stillCurrent?.() === false) return null;
   const result = await submitAcknowledgedContainerMutation({
+    reportSecurityIncident: input.reportSecurityIncident,
+    recitationPolicies: verifiedPrincipalPolicy.checkpointPolicies,
     apiClient: input.apiClient,
     author: input.author,
     containerKey: materializedPlan.containerKey,

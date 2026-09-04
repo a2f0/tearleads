@@ -269,6 +269,7 @@ export async function revokeOrganizationGrant(
               ...signingContext,
             })
           : await revokeOrganizationContainerGrant({
+              reportSecurityIncident: input.runtime.util.reportSecurityIncident,
               apiClient: input.runtime.apiClient,
               containerId: input.containerId,
               encapsulationKeyPair,

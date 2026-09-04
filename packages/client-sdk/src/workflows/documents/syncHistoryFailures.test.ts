@@ -191,6 +191,7 @@ test("authenticated raw history reports a retained epoch with no predecessor key
     const previousKek = fixture.projection.containerKeks.at(-1);
     if (!previousKek) throw new Error("Expected a container KEK fixture");
     const rekeyed = await rekeyRemoteContainer({
+      reportSecurityIncident: async () => {},
       apiClient: {
         reciteContainer: async () => null,
         getContainerWriterProjection: async () => fixture.projection,

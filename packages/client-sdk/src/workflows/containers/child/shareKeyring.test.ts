@@ -41,6 +41,7 @@ test("shareRemoteContainer rejects a response that drops the unchanged keyring",
   // A server that drops it is rewriting immutable state.
   await expect(
     shareRemoteContainer({
+      reportSecurityIncident: async () => {},
       accessLevel: "read",
       apiClient: {
         reciteContainer: async () => null,
@@ -93,6 +94,7 @@ test("shareRemoteContainer rejects a keyring injected into an epoch that had non
 
   await expect(
     shareRemoteContainer({
+      reportSecurityIncident: async () => {},
       accessLevel: "read",
       apiClient: {
         reciteContainer: async () => null,

@@ -54,6 +54,7 @@ test("revokeRemoteContainer removes a direct user grant and rotates the KEK", as
   });
 
   const revoked = await revokeRemoteContainer({
+    reportSecurityIncident: async () => {},
     apiClient: {
       reciteContainer: async () => null,
       getContainerWriterProjection: async () => parent.projection,

@@ -123,6 +123,7 @@ test("a keyring entry claiming an uncommitted epoch id is rejected", async () =>
   const database = await createTestExecSql("keyring-forged-epoch");
 
   const rekeyed = await rekeyRemoteContainer({
+    reportSecurityIncident: async () => {},
     apiClient: {
       reciteContainer: async () => null,
       getContainerWriterProjection: async () => parent.projection,
@@ -395,6 +396,7 @@ test("a repair override inventing a predecessor epoch is rejected", async () => 
 
   await expect(
     rekeyRemoteContainer({
+      reportSecurityIncident: async () => {},
       apiClient: {
         reciteContainer: async () => null,
         getContainerWriterProjection: async () => parent.projection,

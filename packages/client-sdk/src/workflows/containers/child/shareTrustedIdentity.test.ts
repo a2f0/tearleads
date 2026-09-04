@@ -28,6 +28,7 @@ test("shareRemoteContainer stops before network I/O on trusted identity failure"
   await withTestExecSql("container-share-identity-failure", async (execSql) => {
     await expect(
       shareRemoteContainer({
+        reportSecurityIncident: async () => {},
         accessLevel: "read",
         apiClient: {
           reciteContainer: async () => null,
@@ -66,6 +67,7 @@ test("shareRemoteContainer rejects an identity bound to another user before read
   await withTestExecSql("container-share-unbound-identity", async (execSql) => {
     await expect(
       shareRemoteContainer({
+        reportSecurityIncident: async () => {},
         accessLevel: "read",
         apiClient: {
           reciteContainer: async () => null,

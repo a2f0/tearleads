@@ -27,6 +27,7 @@ import {
   verifyContainerWriterProjection,
 } from "../../data/keyingProjectionVerification";
 import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification/userKeyResolver";
+import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import { scheduleHeldDescendantRecitations } from "../containers/child/recite";
@@ -41,6 +42,7 @@ interface RematerializationApi extends ContainerReciteApi {
 }
 
 interface PrincipalContainerRematerializationInput {
+  readonly reportSecurityIncident: SecurityIncidentReporter;
   readonly apiClient: RematerializationApi;
   readonly author: ContainerMutationAuthor;
   readonly execSql: ExecSql;
@@ -291,6 +293,7 @@ export async function preparePrincipalContainerRematerializationBatch(
         execSql: input.execSql,
         plans: plans.map(authoredMutationHead),
         stillCurrent,
+        reportSecurityIncident: input.reportSecurityIncident,
       });
     },
   };
