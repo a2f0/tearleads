@@ -16,9 +16,10 @@ import {
   manifestBundle,
 } from "../../../../test/helpers/ancestorCitationScenario";
 import { verifyDocumentWriterProjectionAuthorization } from "../../keyingProjectionVerification";
+import { loadAccessManifestCheckpoint } from "../../persistence/keyingCheckpointPersistence";
 import { documentWriteAuthorizationForHeader } from "./syncResponseAuthorization";
 
-test("a superseded child write target retains inherited writer authority", async () => {
+test("a new-to-device document head and its historical write retain cited ancestor authority", async () => {
   const scenario = await createScenario();
   const { alice, mallory, child1, root1, root2 } = scenario;
   if (!child1.state.containerKeyEpochId)
@@ -107,6 +108,19 @@ test("a superseded child write target retains inherited writer authority", async
       projection,
       resolveUserKey: scenario.resolveUserKey,
     });
+    // The current document head is accepted and pinned at its historical
+    // citations despite the served root's later revocation. Distinguishing a
+    // delayed honest head from a server-assisted later forgery is #1555 scope.
+    expect(
+      (
+        await loadAccessManifestCheckpoint(
+          database.execSql,
+          "document",
+          organizationId,
+          documentId,
+        )
+      )?.manifestHash,
+    ).toBe(document.manifestHash);
     const authorization = await documentWriteAuthorizationForHeader({
       allowMissingAuthorization: false,
       authorizationTargets: targets,

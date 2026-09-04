@@ -40,8 +40,10 @@ import {
 import { projectionVerificationOptions } from "../../data/documents/shared/types";
 import { readCanonicalRecord } from "../../data/keyingCanonicalJson";
 import type { DocumentWriterProjectionAuthorization } from "../../data/keyingProjectionVerification";
-import { requireProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
-import { readRecordString } from "../../data/keyingProjectionVerification/readers";
+import {
+  readRecordString,
+  requireProjectionUserKeyResolver,
+} from "../../data/keyingProjectionVerification";
 
 import { assertAttachmentBindingVerified } from "./attachmentBindingVerification";
 

@@ -3,6 +3,7 @@ import {
   organizationBilling,
   organizationBillingLifecycleEvents,
 } from "@tearleads/api-shared/schema";
+import { assertFullPathCitations } from "./assertFullPathCitations";
 import { assertNamedGroupPolicies } from "./assertNamedGroupPolicies";
 
 const RESET_REQUIRED_MESSAGE =
@@ -55,6 +56,7 @@ export async function assertCurrentApiSchema(
       .from(organizationBillingLifecycleEvents)
       .limit(0);
     await assertNamedGroupPolicies(executor);
+    await assertFullPathCitations(executor);
   } catch (cause) {
     if (isMissingCurrentApiSchemaError(cause)) {
       throw new Error(RESET_REQUIRED_MESSAGE, { cause });

@@ -1,4 +1,9 @@
-import type { VerifiedContainerAccessManifest } from "@tearleads/crypto";
+import {
+  KeyingVerificationError,
+  type VerifiedContainerAccessManifest,
+} from "@tearleads/crypto";
+
+const MAX_CONTAINER_PATH_DEPTH = 100;
 
 /**
  * Content-write headers commit leaf targets, unlike document/attachment
@@ -18,8 +23,12 @@ export function addHistoricalContainerTargetPaths(input: {
     const seen = new Set<string>();
     let head: VerifiedContainerAccessManifest | undefined = leaf;
     while (head) {
-      if (seen.has(head.manifestHash) || reversed.length >= 100) {
-        throw new Error(
+      if (
+        seen.has(head.manifestHash) ||
+        reversed.length >= MAX_CONTAINER_PATH_DEPTH
+      ) {
+        throw new KeyingVerificationError(
+          "object_mismatch",
           "Verified container target ancestry is cyclic or too deep",
         );
       }

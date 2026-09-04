@@ -141,6 +141,8 @@ async function verifyPurgeContainerPaths(input: {
       containerPathByManifestHash.set(leaf.manifestHash, verifiedPath);
     }
   }
+  // Purge verification consumes event citations only, never content-write
+  // headers, so historical evidence needs no pinned target-path grouping.
   for (const [hash, manifest] of verifiedByHash) {
     if (!containerPathByManifestHash.has(hash)) {
       containerPathByManifestHash.set(hash, [manifest]);

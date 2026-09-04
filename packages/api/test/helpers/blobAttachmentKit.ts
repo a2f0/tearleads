@@ -17,6 +17,7 @@ import {
   verifyAttachmentBindingEvent,
 } from "@tearleads/crypto";
 import type {
+  AccessManifestBundleWire,
   BlobAttachmentBindRequest,
   BlobAttachmentDetachRequest,
 } from "@tearleads/validators/request";
@@ -141,6 +142,7 @@ export async function buildBind(input: {
   readonly documents?: readonly DocumentCreateResponse[];
   readonly owner: TestUser;
   readonly root: StoredRootFixture;
+  readonly containerPath?: readonly AccessManifestBundleWire[];
   readonly slotId?: string;
   readonly stagedBlob?: Awaited<ReturnType<typeof stageBlob>>;
 }): Promise<{
@@ -149,6 +151,9 @@ export async function buildBind(input: {
 }> {
   const manifest = documentManifest(input.document);
   const containerManifest = asVerifiedContainerManifest(input.root.bundle);
+  const path = (input.containerPath ?? [input.root.bundle]).map(
+    asVerifiedContainerManifest,
+  );
   const body: AttachmentBindAccessEventBody = {
     bindingId: crypto.randomUUID(),
     blobId: input.blobId,
@@ -162,7 +167,7 @@ export async function buildBind(input: {
     body,
     dependencyManifestHashes: [
       manifest.manifestHash,
-      containerManifest.manifestHash,
+      ...path.map((head) => head.manifestHash),
     ],
     objectId: input.blobId,
     objectKind: "blob",
@@ -171,7 +176,7 @@ export async function buildBind(input: {
     signer: input.owner,
   });
   const bindingResult = await verifyAttachmentBindingEvent({
-    authorizingContainerPaths: [[containerManifest]],
+    authorizingContainerPaths: [path],
     body: body as unknown as KeyingCanonicalJson,
     documentManifest: manifest,
     event: event.event,
@@ -201,12 +206,10 @@ export async function buildBind(input: {
   const contentKeyEpoch = input.contentKeyEpoch ?? 1;
   const request: BlobAttachmentBindRequest = {
     authorizingContainerPathRefs: [
-      [
-        {
-          containerId: containerManifest.state.containerId,
-          manifestHash: containerManifest.manifestHash,
-        },
-      ],
+      path.map((head) => ({
+        containerId: head.state.containerId,
+        manifestHash: head.manifestHash,
+      })),
     ],
     body,
     contentKeyBundle: {
@@ -236,9 +239,12 @@ export async function buildDetach(input: {
   readonly document: DocumentCreateResponse;
   readonly owner: TestUser;
   readonly root: StoredRootFixture;
+  readonly containerPath?: readonly AccessManifestBundleWire[];
 }): Promise<BlobAttachmentDetachRequest> {
   const manifest = documentManifest(input.document);
-  const containerManifest = asVerifiedContainerManifest(input.root.bundle);
+  const path = (input.containerPath ?? [input.root.bundle]).map(
+    asVerifiedContainerManifest,
+  );
   const body: AttachmentDetachAccessEventBody = {
     bindingId: input.binding.bindingId,
     blobId: input.binding.blobId,
@@ -251,7 +257,7 @@ export async function buildDetach(input: {
     body,
     dependencyManifestHashes: [
       manifest.manifestHash,
-      containerManifest.manifestHash,
+      ...path.map((head) => head.manifestHash),
     ],
     objectId: input.binding.blobId,
     objectKind: "blob",
@@ -261,12 +267,10 @@ export async function buildDetach(input: {
   });
   return {
     authorizingContainerPathRefs: [
-      [
-        {
-          containerId: containerManifest.state.containerId,
-          manifestHash: containerManifest.manifestHash,
-        },
-      ],
+      path.map((head) => ({
+        containerId: head.state.containerId,
+        manifestHash: head.manifestHash,
+      })),
     ],
     body,
     event: event.event as unknown as Record<string, unknown>,

@@ -146,6 +146,10 @@ deduplicated. Verification rebuilds paths by parent id from those citations,
 never from creation-time pins. Missing ancestors or two heads of one container
 are rejected. This is a flag-day: reset and reprovision API and client data
 containing leaf-only document events; there is no translation or leaf fallback.
+With outgoing API instances stopped, the deployment schema check scans retained
+document/attachment events in bounded pages and refuses missing ancestor
+citations with an explicit destroy-and-reprovision error. This is structural
+deployment detection; runtime readers still verify every signature and hash.
 
 The group display name is committed in the signed group payload. The
 `groups.name` column and the organization read model are listing aids; when a
@@ -265,11 +269,19 @@ root-to-leaf chain of parent edges, checked by container id. Document link
 events are authorized through dependency container paths served the same
 way; those are verified at the membership they referenced and without
 checkpoint enforcement, because a historical link legitimately cites the
-container heads current when it was signed. The checkpoint-enforced
-authorizing path recorded for a leaf takes precedence over any dependency path
-served for the same leaf, whatever order the server lists them in. Whether a
-link's container evidence predates a later rotation of that container is the
-same ordering boundary as for container heads.
+container heads current when it was signed. Every document and attachment
+event, including a document head new to this device, selects exactly its
+signed full-path citations. A checkpoint-enforced current path cannot replace
+an event's cited ancestor. Content-write headers instead commit leaf targets;
+their index prefers a checkpoint-enforced path for a current leaf and retains
+verified pinned ancestry for historical targets.
+
+The owner-directed scope of #2158 and #1555 excludes semantic-currentness
+witnessing: a new-to-device document head signed by a since-revoked ancestor
+member can be accepted at its complete historical citations. This is also the
+shape of an honestly delayed head. The API enforces current paths at commit;
+clients do not claim to distinguish it from a later forgery assisted by the
+server. Existing document checkpoints still reject rollback and forks.
 
 Neither container nor principal-policy verification requires a successor new
 to a device to cite the authority's served current head. An honest
