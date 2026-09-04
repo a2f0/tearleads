@@ -9,6 +9,7 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { isCommitOrganizationGroupPolicyResponse } from "@tearleads/validators/response";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { groupPolicyPayload } from "../../../test/helpers/groupPolicyPayload";
 import { prepareUserForAdminGroup } from "../../../test/helpers/organizationAdmin";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
 import {
@@ -54,7 +55,7 @@ async function signSoloGroupState(
     keyFingerprint: await toFingerprint(groupKem.publicKey),
     members: [{ userId: actor.userId }],
     projection,
-    payloadCiphertext: JSON.stringify({ members: projection }),
+    payloadCiphertext: await groupPolicyPayload(principalId, projection),
     signedAt: "2026-04-08T16:00:00.000Z",
     signerUserId: actor.userId,
     signerUserKeyFingerprint: actor.fingerprint,

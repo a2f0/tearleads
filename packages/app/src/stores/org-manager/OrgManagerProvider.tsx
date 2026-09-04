@@ -71,10 +71,12 @@ interface OrgManagerMembershipActions {
   addUserToGroup: (
     groupId: string,
     targetUserId: string,
+    expectedGroupName: string,
   ) => ReturnType<Organizations["addUserToGroup"]>;
   removeUserFromGroup: (
     groupId: string,
     removedUserId: string,
+    expectedGroupName: string,
   ) => ReturnType<Organizations["removeUserFromGroup"]>;
 }
 
@@ -113,11 +115,19 @@ export function createOrgManagerContextValue(
 ): OrgManagerContextValue {
   return {
     ...projectBoundFacade(organizations, organizationActionKeys),
-    addUserToGroup: (groupId: string, targetUserId: string) =>
-      organizations.addUserToGroup({ groupId, targetUserId }),
+    addUserToGroup: (groupId, targetUserId, expectedGroupName) =>
+      organizations.addUserToGroup({
+        groupId,
+        targetUserId,
+        expectedGroupName,
+      }),
     ...behavior,
-    removeUserFromGroup: (groupId: string, removedUserId: string) =>
-      organizations.removeUserFromGroup({ groupId, removedUserId }),
+    removeUserFromGroup: (groupId, removedUserId, expectedGroupName) =>
+      organizations.removeUserFromGroup({
+        groupId,
+        removedUserId,
+        expectedGroupName,
+      }),
   };
 }
 

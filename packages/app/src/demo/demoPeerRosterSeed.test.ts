@@ -268,6 +268,7 @@ function fakeRosterSeedActions(overrides: {
   let addArgs: {
     groupId: string;
     targetUserId: string;
+    groupName: string;
   } | null = null;
   const actions: DemoRosterSeedActions = {
     loadDirectoryAndGroups: () =>
@@ -277,9 +278,9 @@ function fakeRosterSeedActions(overrides: {
       calls.importUserById += 1;
       return Promise.resolve(overrides.importedUser ?? null);
     },
-    addUserToGroup: (groupId, targetUserId) => {
+    addUserToGroup: (groupId, targetUserId, groupName) => {
       calls.addUserToGroup += 1;
-      addArgs = { groupId, targetUserId };
+      addArgs = { groupId, targetUserId, groupName };
       return Promise.resolve({});
     },
     ensureRosterProfileDocument: (user, nickname) => {
@@ -315,6 +316,7 @@ test("seedPeerRosterEntry adds the peer to the member group, then retries", asyn
   expect(getAddArgs()).toEqual({
     groupId: "mg",
     targetUserId: "peer",
+    groupName: "Members",
   });
   expect(calls.ensureRosterProfileDocument).toBe(0);
 });

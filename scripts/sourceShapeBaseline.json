@@ -47,8 +47,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 564,
-      "bytes": 26708
+      "lines": 568,
+      "bytes": 26988
     },
     "docs/developer/revenuecat-billing.md": {
       "lines": 360,
@@ -147,8 +147,8 @@
       "bytes": 17390
     },
     "packages/api/src/routes/containers/mutations.test.ts": {
-      "lines": 3822,
-      "bytes": 126138
+      "lines": 3823,
+      "bytes": 126238
     },
     "packages/api/src/routes/documents/purgeDocument.test.ts": {
       "lines": 1275,
@@ -195,8 +195,8 @@
       "bytes": 16424
     },
     "packages/api/test/helpers/registration.ts": {
-      "lines": 1144,
-      "bytes": 39535
+      "lines": 1148,
+      "bytes": 39608
     },
     "packages/app-capacitor/ios/App/App.xcodeproj/project.pbxproj": {
       "lines": 494,

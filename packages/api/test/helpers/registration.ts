@@ -164,7 +164,9 @@ export async function createInitialAdminGroupRequest(input: {
   const groupKem = generateKemSeedAndKeyPair();
   const projection = groupProjectionMember(input.userId);
   const payloadCiphertext = bytesToBase64(
-    new TextEncoder().encode(JSON.stringify({ members: projection })),
+    new TextEncoder().encode(
+      JSON.stringify({ members: projection, name: input.name ?? "Admins" }),
+    ),
   );
   const [memberEnvelope] = await wrapDekForRecipients(groupKem.secretKey, [
     input.encapsulationPublicKey,
@@ -240,7 +242,9 @@ export async function createInitialMemberGroupRequest(input: {
     },
   ];
   const payloadCiphertext = bytesToBase64(
-    new TextEncoder().encode(JSON.stringify({ members: projection })),
+    new TextEncoder().encode(
+      JSON.stringify({ members: projection, name: "Members" }),
+    ),
   );
   const [userEnvelope] = await wrapDekForRecipients(groupKem.secretKey, [
     input.encapsulationPublicKey,

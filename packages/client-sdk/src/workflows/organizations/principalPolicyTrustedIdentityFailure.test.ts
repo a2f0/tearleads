@@ -16,6 +16,7 @@ import {
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import type { TrustedUserIdentity } from "../../data/trustedUserIdentity";
 import { buildInitialOrganizationPolicyRequest } from "../registration/registerIdentity";
+import { assertGroupMembershipName } from "./groupMembershipName";
 import { buildAddGroupUserPolicyRequest } from "./groupPolicyRequests";
 import {
   addOrganizationGroupUser,
@@ -37,6 +38,26 @@ interface GroupPolicyFixture {
   readonly signingFingerprint: string;
   readonly signingKeyPair: ReturnType<typeof generateSigningSeedAndKeyPair>;
 }
+
+test("membership name binding treats an unnamed payload as a flag-day reset, not an incident", async () => {
+  const { initialPolicy } = await createGroupPolicyFixture();
+  const unnamed = {
+    ...initialPolicy,
+    currentPayload: {
+      ...initialPolicy.currentPayload,
+      ciphertext: Buffer.from(JSON.stringify({ members: [] })).toString(
+        "base64",
+      ),
+    },
+  };
+  const check = () => assertGroupMembershipName(unnamed, "Operators");
+  expect(check).toThrow("must be reprovisioned");
+  try {
+    check();
+  } catch (error) {
+    expect(error).not.toBeInstanceOf(KeyingVerificationError);
+  }
+});
 
 async function createGroupPolicyFixture(): Promise<GroupPolicyFixture> {
   const creatorKem = generateKemSeedAndKeyPair();
@@ -179,7 +200,10 @@ async function createMutationApi(
   return { apiClient, calls };
 }
 
-test("group add propagates target identity equivocation before wrapping or mutation", async () => {
+test.each([
+  "Operators",
+  " ｏｐｅｒａｔｏｒｓ ",
+])("group add accepts matching label %j before checking recipient identity", async (expectedGroupName) => {
   const fixture = await createGroupPolicyFixture();
   const targetUserId = crypto.randomUUID();
   const integrityError = new KeyingVerificationError(
@@ -223,6 +247,7 @@ test("group add propagates target identity equivocation before wrapping or mutat
         signingFingerprint: fixture.signingFingerprint,
         signingKeyPair: fixture.signingKeyPair,
         targetUserId,
+        expectedGroupName,
       }),
     ).rejects.toBe(integrityError);
   } finally {
@@ -232,6 +257,93 @@ test("group add propagates target identity equivocation before wrapping or mutat
   expect(resolvedUserIds).toContain(targetUserId);
   expect(policyRequestBuilt).toBe(0);
   expect(calls).toEqual({ commitPolicy: 0 });
+});
+
+test.each([
+  "Executives",
+  "Operators\u200b",
+  "Operators\u202e",
+  "",
+])("group add refuses a relabeled selection %j before resolving the recipient", async (expectedGroupName) => {
+  const fixture = await createGroupPolicyFixture();
+  const { apiClient, calls } = await createMutationApi(
+    fixture,
+    fixture.initialPolicy,
+  );
+  const targetUserId = crypto.randomUUID();
+  const resolvedUserIds: string[] = [];
+  let prepared = false;
+  const { close, execSql } = await createTestExecSql("group-add-name-binding");
+  try {
+    await expect(
+      addOrganizationGroupUser({
+        apiClient,
+        beforePolicyCommit: () => {
+          prepared = true;
+        },
+        currentUserSecretKey: fixture.creatorKem.secretKey,
+        execSql,
+        expectedGroupName,
+        groupId: fixture.groupId,
+        organizationId: fixture.organizationId,
+        resolveTrustedUserIdentity: async (userId) => {
+          resolvedUserIds.push(userId);
+          return userId === fixture.signerUserId
+            ? fixture.signerIdentity
+            : null;
+        },
+        signerUserId: fixture.signerUserId,
+        signingFingerprint: fixture.signingFingerprint,
+        signingKeyPair: fixture.signingKeyPair,
+        targetUserId,
+      }),
+    ).rejects.toMatchObject({
+      code: "object_mismatch",
+      name: "GroupMembershipNameMismatchError",
+    });
+    expect(resolvedUserIds).not.toContain(targetUserId);
+    expect(prepared).toBe(false);
+    expect(calls.commitPolicy).toBe(0);
+  } finally {
+    close();
+  }
+});
+
+test("group removal refuses a relabeled selection before committing", async () => {
+  const fixture = await createGroupPolicyFixture();
+  const { apiClient, calls } = await createMutationApi(
+    fixture,
+    fixture.initialPolicy,
+  );
+  const { close, execSql } = await createTestExecSql(
+    "group-remove-name-binding",
+  );
+  try {
+    await expect(
+      removeOrganizationGroupUser({
+        apiClient,
+        beforePolicyCommit: () => {
+          throw new Error("Unexpected policy preparation");
+        },
+        execSql,
+        expectedGroupName: "Executives",
+        groupId: fixture.groupId,
+        organizationId: fixture.organizationId,
+        removedUserId: fixture.signerUserId,
+        resolveTrustedUserIdentity: async (userId) =>
+          userId === fixture.signerUserId ? fixture.signerIdentity : null,
+        signerUserId: fixture.signerUserId,
+        signingFingerprint: fixture.signingFingerprint,
+        signingKeyPair: fixture.signingKeyPair,
+      }),
+    ).rejects.toMatchObject({
+      code: "object_mismatch",
+      name: "GroupMembershipNameMismatchError",
+    });
+    expect(calls.commitPolicy).toBe(0);
+  } finally {
+    close();
+  }
 });
 
 test("group removal propagates remaining identity equivocation before rekey or mutation", async () => {
@@ -280,6 +392,7 @@ test("group removal propagates remaining identity equivocation before rekey or m
   try {
     await expect(
       removeOrganizationGroupUser({
+        expectedGroupName: "Operators",
         afterPolicyCommitBeforeCache: async () => {
           throw new Error("Unexpected policy commit bridge");
         },

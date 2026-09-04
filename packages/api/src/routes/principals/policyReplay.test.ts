@@ -17,6 +17,7 @@ import { isCommitOrganizationGroupPolicyResponse } from "@tearleads/validators/r
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { groupPolicyPayload } from "../../../test/helpers/groupPolicyPayload";
 import { addOrganizationMember } from "../../../test/helpers/organizationMembership";
 import {
   createPolicyTestGroup,
@@ -75,8 +76,9 @@ async function createSignedPolicy(input: {
     keyFingerprint: await toFingerprint(input.principalKem.publicKey),
     members: input.projection.map((member) => ({ userId: member.userId })),
     projection: input.projection,
-    payloadCiphertext: bytesToBase64(
-      new TextEncoder().encode(JSON.stringify(input.projection)),
+    payloadCiphertext: await groupPolicyPayload(
+      input.principalId,
+      input.projection,
     ),
     signedAt: input.signedAt,
     signerUserId: input.signer.userId,

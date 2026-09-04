@@ -168,6 +168,7 @@ test("local admin projections cannot authorize a group membership mutation", asy
         signingFingerprint: attemptedSignerFingerprint,
         signingKeyPair: attemptedSignerKeys,
         targetUserId: crypto.randomUUID(),
+        expectedGroupName: "Operators",
       }),
     ).rejects.toThrow("Organization admin authority is required");
     expect(calls).toEqual({
@@ -372,6 +373,7 @@ test("a verified Admins member can mutate another group after the signed directo
       signingFingerprint: founderSigningFingerprint,
       signingKeyPair: founderKeys,
       targetUserId: signerUserId,
+      expectedGroupName: "Admins",
     });
 
     const result = await addOrganizationGroupUser({
@@ -387,6 +389,7 @@ test("a verified Admins member can mutate another group after the signed directo
       signingFingerprint,
       signingKeyPair: signerKeys,
       targetUserId,
+      expectedGroupName: "Operators",
     });
 
     expect(result.currentProjection).toEqual([
@@ -423,6 +426,7 @@ test("a verified Admins member can mutate another group after the signed directo
       groupId,
       organizationId,
       removedUserId: targetUserId,
+      expectedGroupName: "Operators",
       resolveTrustedUserIdentity: async (userId) =>
         identities.get(userId) ?? null,
       signerUserId,
@@ -438,6 +442,7 @@ test("a verified Admins member can mutate another group after the signed directo
       groupId: adminGroupId,
       organizationId,
       removedUserId: signerUserId,
+      expectedGroupName: "Admins",
       resolveTrustedUserIdentity: async (userId) =>
         identities.get(userId) ?? null,
       signerUserId: founderUserId,
@@ -460,6 +465,7 @@ test("a verified Admins member can mutate another group after the signed directo
         signingFingerprint,
         signingKeyPair: signerKeys,
         targetUserId: crypto.randomUUID(),
+        expectedGroupName: "Operators",
       }),
     ).rejects.toThrow("Organization admin authority is required");
     expect(policyPutCount).toBe(committedPutCount);

@@ -90,6 +90,7 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "DirectCheckoutUnavailableError",
   "DocumentRawHistoryUnavailableError",
   "Events",
+  "GroupMembershipNameMismatchError",
   "GroupShareNameMismatchError",
   "HistoricalWrapUnavailableError",
   "IDENTITY_KEY_PACKAGE_FORMAT",
