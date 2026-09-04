@@ -100,8 +100,8 @@ a managed principal may name only active roster entries. The signed organization
 payload binds both IDs, and `Admins` contains only `admin` users. Each signed
 principal state uses a null
 `externalAuthority` for direct authorization or the exact Admins head for
-external authorization. Historical citations match exact signed Admins states;
-post-checkpoint child successors must cite its verified current head.
+external authorization. Citations match exact signed Admins states without
+in-chain rollback; only API commits require the current head.
 Display/read-model projections never provide keying inputs.
 
 ## Signed Access Manifests

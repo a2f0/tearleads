@@ -113,7 +113,7 @@ test("verifyPrincipalPolicyBundle accepts external admin signers for successors 
   expectVerificationError(initialResult, "unauthorized");
 });
 
-test("verifyPrincipalPolicyBundle rejects a post-checkpoint successor citing a removed admin's historical authority head", async () => {
+test("historical admin authority permits writes until a newer citation is observed", async () => {
   const removedAdmin = await createPolicySigner("removed-admin");
   const replacementAdmin = await createPolicySigner("replacement-admin");
   const childAdmin = await createPolicySigner("child-admin");
@@ -163,7 +163,7 @@ test("verifyPrincipalPolicyBundle rejects a post-checkpoint successor citing a r
     members: [{ userId: childAdmin.userId }],
     signer: childAdmin,
   });
-  const forgedChildV2 = await signPolicyState({
+  const childV2 = await signPolicyState({
     principalId: childV1.state.principalId,
     version: 2,
     prevStateHash: childV1.state.stateHash,
@@ -178,7 +178,7 @@ test("verifyPrincipalPolicyBundle rejects a post-checkpoint successor citing a r
 
   const result = await verifyPrincipalPolicyBundle({
     bundle: createBundle({
-      current: forgedChildV2,
+      current: childV2,
       previous: [childV1.entry],
     }),
     externalAuthority: {
@@ -197,5 +197,67 @@ test("verifyPrincipalPolicyBundle rejects a post-checkpoint successor citing a r
     signerPublicKeys: [childAdmin, removedAdmin],
   });
 
-  expectVerificationError(result, "rollback");
+  // The signatures cannot distinguish an honest delayed write from a removed
+  // admin's late forgery citing the same history. Rejecting this shape would
+  // also reject honest chains; the API enforces currency at commit instead.
+  expect(result.ok).toBe(true);
+
+  const childV3 = await signPolicyState({
+    principalId: childV1.state.principalId,
+    version: 3,
+    prevStateHash: childV2.state.stateHash,
+    keyEpoch: 3,
+    members: childV1.entry.projection.map(({ userId }) => ({ userId })),
+    projection: childV1.entry.projection,
+    externalAuthority: adminV2Head,
+    signer: replacementAdmin,
+  });
+  const verificationInput = {
+    externalAuthority: {
+      currentHead: adminV2Head,
+      states: (verifiedAdmins.value.history ?? []).map((entry) => ({
+        head: toHead(entry.state),
+        projection: entry.projection,
+      })),
+    },
+    localCheckpoint: {
+      principalType: "group" as const,
+      principalId: childV1.state.principalId,
+      version: 1,
+      stateHash: childV1.state.stateHash,
+    },
+    signerPublicKeys: [childAdmin, removedAdmin, replacementAdmin],
+  };
+  const advanced = await verifyPrincipalPolicyBundle({
+    ...verificationInput,
+    bundle: createBundle({
+      current: childV3,
+      previous: [childV1.entry, childV2.entry],
+    }),
+  });
+  expect(advanced.ok).toBe(true);
+
+  const regressed = await signPolicyState({
+    principalId: childV1.state.principalId,
+    version: 4,
+    prevStateHash: childV3.state.stateHash,
+    keyEpoch: 4,
+    members: childV1.entry.projection.map(({ userId }) => ({ userId })),
+    projection: childV1.entry.projection,
+    externalAuthority: adminV1Head,
+    signer: removedAdmin,
+  });
+  const rollback = await verifyPrincipalPolicyBundle({
+    ...verificationInput,
+    bundle: createBundle({
+      current: regressed,
+      previous: [childV1.entry, childV2.entry, childV3.entry],
+    }),
+  });
+  expectVerificationError(rollback, "rollback");
+  if (!rollback.ok) {
+    expect(rollback.error.message).toContain(
+      "principal policy external authority head rolled back",
+    );
+  }
 });
