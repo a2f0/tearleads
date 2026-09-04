@@ -249,14 +249,21 @@ ancestor heads a later grant, revoke, or rekey was authorized under. Those
 heads are signed into the event: every container event cites the manifest
 hashes of the path it was committed against, and the API refuses an event
 whose citations are not the current heads at commit time. The client
-authorizes a head's signer against the cited heads, not the pin, so a member
-revoked from an ancestor cannot keep signing child events under the manifest
-that still granted them. Two rules mirror the principal-policy authority
-rules: a head that is new to a device (beyond its local checkpoint for the
-container) must cite the ancestor heads the projection serves as current, and
-a head must not cite an older parent head than its previous manifest cited. A
-device with no checkpoint on the container cannot order a child event against
-an ancestor change and accepts the cited history, as it does for policies.
+authorizes a head's signer against the cited heads, rebuilt root to parent
+from the served bundles, rather than against whatever path the server pairs
+with the manifest. A head must not cite an older head of any ancestor than an
+earlier signed statement already proved current, and a served path must be a
+root-to-leaf chain of parent edges.
+
+Not yet applied to containers is the principal-policy rule that a successor
+new to a device must cite the authority's current head. The API today refuses
+any mutation on a container whose pinned parent manifest is no longer the
+parent's head, so a child head that rule rejected could never be superseded,
+and a device that missed a child event and the ancestor change after it would
+be locked out of the child for good. Until descendants can re-cite their
+ancestors, a device that has not itself observed a newer ancestor head accepts
+a child head authorized under an older one, as it does for principal policies
+without a checkpoint.
 
 ### Content Confidentiality
 

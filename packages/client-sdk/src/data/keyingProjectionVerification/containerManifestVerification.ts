@@ -7,15 +7,13 @@ import {
 } from "@tearleads/crypto";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import { readCanonicalJson, readCanonicalRecord } from "../keyingCanonicalJson";
-import { loadAccessManifestCheckpoint } from "../persistence/keyingCheckpointPersistence";
 import {
   assertCanonicalEqual,
   verifyAccessEventBundle,
 } from "./bundleVerification";
 import type { ProjectionCheckpointContext } from "./checkpointContext";
 import {
-  assertCitedParentDoesNotRegress,
-  assertNewHeadCitesCurrentAncestors,
+  assertCitedAncestorsDoNotRegress,
   resolveCitedAncestorPath,
 } from "./containerAncestorCitations";
 import {
@@ -79,6 +77,7 @@ export async function verifyContainerManifestBundle(input: {
   readonly bundle: AccessManifestBundleWireResponse;
   readonly bundlesByHash: ReadonlyMap<string, AccessManifestBundleWireResponse>;
   readonly checkpointContext: ProjectionCheckpointContext;
+  readonly citationDepth?: number | undefined;
   readonly enforceLocalCheckpoint: boolean;
   readonly label: string;
   readonly parentPath: readonly VerifiedContainerAccessManifest[];
@@ -94,7 +93,18 @@ export async function verifyContainerManifestBundle(input: {
     await resolveContainerManifestVerificationParentPath(input);
   const cached = input.verifiedByHash.get(input.bundle.manifestHash);
   if (cached) {
-    await reuseVerifiedContainerManifest(input, cached, parentPath);
+    assertContainerParentPathMatches({
+      label: input.label,
+      parentPath,
+      verifiedManifest: cached,
+    });
+    if (input.enforceLocalCheckpoint) {
+      await verifyCachedManifestCheckpoint({
+        current: cached,
+        execSql: input.checkpointContext.execSql,
+        verifiedManifests: input.verifiedByHash,
+      });
+    }
     return cached;
   }
 
@@ -152,15 +162,6 @@ export async function verifyContainerManifestBundle(input: {
       `${input.label} manifest verification failed: ${verified.error.message}`,
     );
   }
-  if (input.enforceLocalCheckpoint) {
-    assertNewHeadCitesCurrentAncestors({
-      citedAncestors,
-      label: input.label,
-      localCheckpoint: checkpointVerification?.localCheckpoint ?? null,
-      servedAncestors: input.parentPath,
-      state: verified.value.state,
-    });
-  }
 
   assertCanonicalEqual({
     actual: input.bundle.state,
@@ -173,40 +174,6 @@ export async function verifyContainerManifestBundle(input: {
 }
 
 type CitedAncestorInput = Parameters<typeof verifyContainerManifestBundle>[0];
-
-async function reuseVerifiedContainerManifest(
-  input: CitedAncestorInput,
-  cached: VerifiedContainerAccessManifest,
-  parentPath: readonly VerifiedContainerAccessManifest[],
-): Promise<void> {
-  assertContainerParentPathMatches({
-    label: input.label,
-    parentPath,
-    verifiedManifest: cached,
-  });
-  if (!input.enforceLocalCheckpoint) return;
-  await verifyCachedManifestCheckpoint({
-    current: cached,
-    execSql: input.checkpointContext.execSql,
-    verifiedManifests: input.verifiedByHash,
-  });
-  // A manifest first verified as history may now be served as a head; the
-  // currency rule is about heads, so it runs here too.
-  assertNewHeadCitesCurrentAncestors({
-    citedAncestors: await resolveCitedAncestors(input, cached.event, {
-      parentContainerId: cached.state.parentContainerId,
-    }),
-    label: input.label,
-    localCheckpoint: await loadAccessManifestCheckpoint(
-      input.checkpointContext.execSql,
-      "container",
-      cached.state.organizationId,
-      cached.state.containerId,
-    ),
-    servedAncestors: input.parentPath,
-    state: cached.state,
-  });
-}
 
 /**
  * The paths a container event is authorized against: its previous manifest
@@ -240,20 +207,24 @@ async function resolveContainerManifestAuthorization(
   const citedAncestors = await resolveCitedAncestors(input, event, {
     parentContainerId,
   });
-  assertCitedParentDoesNotRegress({
+  assertCitedAncestorsDoNotRegress({
     ...citedAncestorResolutionInput(input),
     citedAncestors,
     previousManifest,
   });
-  // A move's source path is not served once the container has left it, so
-  // the source authorization keeps the pinned path the verifier always used.
+  // A move's source path leads to the previous manifest's parent, and the
+  // move event cites that path too; the destination path is the one above.
   const sourceAncestors =
-    event.event.eventType === "container.move" ? parentPath : citedAncestors;
+    event.event.eventType === "container.move" && previousManifest
+      ? await resolveCitedAncestors(input, event, {
+          parentContainerId: previousManifest.state.parentContainerId,
+        })
+      : citedAncestors;
   return {
     citedAncestors,
     previousManifest,
     referencedPrincipalHeads: [
-      ...[...parentPath, ...citedAncestors].flatMap(
+      ...[...parentPath, ...citedAncestors, ...sourceAncestors].flatMap(
         (ancestor) => ancestor.state.referencedPrincipalHeads,
       ),
       ...(previousManifest?.state.referencedPrincipalHeads ?? []),
@@ -262,18 +233,33 @@ async function resolveContainerManifestAuthorization(
   };
 }
 
+// Cited ancestors resolve recursively (an ancestor's own citations), so bound
+// the depth against served bundles that cite each other.
+const MAX_CITED_ANCESTRY_DEPTH = 100;
+
 function citedAncestorResolutionInput(input: CitedAncestorInput) {
+  const citationDepth = input.citationDepth ?? 0;
+  if (citationDepth > MAX_CITED_ANCESTRY_DEPTH) {
+    throw new KeyingVerificationError(
+      "object_mismatch",
+      `${input.label} cited ancestry exceeds the maximum depth`,
+    );
+  }
   return {
     bundlesByHash: input.bundlesByHash,
     label: input.label,
     verifiedByHash: input.verifiedByHash,
+    // A cited head older than the served one is history: authorize it at the
+    // membership it referenced, as the previous manifest is.
     verifyHistoryBundle: (
       bundle: AccessManifestBundleWireResponse,
       label: string,
     ) =>
       verifyContainerManifestBundle({
         ...input,
+        authorizationMembership: "referenced",
         bundle,
+        citationDepth: citationDepth + 1,
         enforceLocalCheckpoint: false,
         label,
       }),

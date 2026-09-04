@@ -1,0 +1,150 @@
+import { expect, test } from "bun:test";
+import type { VerifiedContainerAccessManifest } from "@tearleads/crypto";
+import { createContainerManifestFixture } from "@tearleads/crypto/test-fixtures";
+import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  createGrandchildScenario,
+  createScenario,
+  grantBy,
+  ORGANIZATION_ID,
+  type Signer,
+  successor,
+  verifyPath,
+} from "../../../test/helpers/ancestorCitationScenario";
+
+// Citations along a deeper chain, and the two paths a move cites.
+
+test("a head must not cite an older grandparent head than a cited child was created under", async () => {
+  const scenario = await createGrandchildScenario();
+  // The middle container pins root2, so citing root1 above it is a rollback
+  // whatever the leaf's own history says.
+  const forged = await grantBy({
+    cited: [
+      scenario.root1.manifestHash,
+      scenario.middle.manifestHash,
+      scenario.leaf.manifestHash,
+    ],
+    previous: scenario.leaf,
+    signer: scenario.mallory,
+    subjectId: scenario.mallory.userId,
+  });
+  const { close, execSql } = await createTestExecSql("ancestor-grandparent");
+  try {
+    await expect(
+      verifyPath(scenario, execSql, {
+        bundles: [
+          scenario.root1,
+          scenario.root2,
+          scenario.middle,
+          scenario.leaf,
+          forged,
+        ],
+        path: [scenario.root2, scenario.middle, forged],
+      }),
+    ).rejects.toMatchObject({
+      code: "rollback",
+      message: expect.stringContaining("older head"),
+    });
+  } finally {
+    close();
+  }
+});
+
+test("a move's source path is authorized at the source ancestors it cites", async () => {
+  const scenario = await createScenario();
+  // Mallory administers her own root but not the child's source root.
+  const malloryRoot = await createContainerManifestFixture({
+    containerId: "ancestor-mallory-root",
+    containerKeyEpochId: "mallory-root-key-1",
+    directGrants: [
+      {
+        accessLevel: "admin",
+        subjectId: scenario.mallory.userId,
+        subjectType: "user",
+      },
+    ],
+    organizationId: ORGANIZATION_ID,
+    signer: scenario.mallory.keyPair,
+    signerUserId: scenario.mallory.userId,
+  });
+  const moveBy = (signer: Signer) =>
+    successor({
+      body: {
+        eventType: "container.move",
+        parentContainerId: malloryRoot.state.containerId,
+        parentManifestHash: malloryRoot.manifestHash,
+        containerKeyEpochId: "child-key-2",
+        keyringHash: `${"a".repeat(64)}`,
+        predecessorBridgeHash: `${"b".repeat(64)}`,
+      },
+      cited: [
+        scenario.root2.manifestHash,
+        scenario.child1.manifestHash,
+        malloryRoot.manifestHash,
+      ],
+      previous: scenario.child1,
+      signer,
+      state: () => ({
+        containerKeyEpochId: "child-key-2",
+        parentContainerId: malloryRoot.state.containerId,
+        parentManifestHash: malloryRoot.manifestHash,
+      }),
+    });
+  const { close, execSql } = await createTestExecSql("ancestor-move-source");
+  try {
+    const bundlesFor = (moved: VerifiedContainerAccessManifest) => [
+      scenario.root1,
+      scenario.root2,
+      scenario.child1,
+      malloryRoot,
+      moved,
+    ];
+    const stolen = await moveBy(scenario.mallory);
+    await expect(
+      verifyPath(scenario, execSql, {
+        bundles: bundlesFor(stolen),
+        path: [malloryRoot, stolen],
+      }),
+    ).rejects.toMatchObject({
+      code: "unauthorized",
+      message: expect.stringContaining("container.move source"),
+    });
+    // Alice administers the source root; she may only move it where she can
+    // write, so grant her that on Mallory's root first.
+    const sharedRoot = await grantBy({
+      cited: [malloryRoot.manifestHash],
+      previous: malloryRoot,
+      signer: scenario.mallory,
+      subjectId: scenario.alice.userId,
+    });
+    const legitimate = await successor({
+      body: {
+        eventType: "container.move",
+        parentContainerId: sharedRoot.state.containerId,
+        parentManifestHash: sharedRoot.manifestHash,
+        containerKeyEpochId: "child-key-2",
+        keyringHash: `${"a".repeat(64)}`,
+        predecessorBridgeHash: `${"b".repeat(64)}`,
+      },
+      cited: [
+        scenario.root2.manifestHash,
+        scenario.child1.manifestHash,
+        sharedRoot.manifestHash,
+      ],
+      previous: scenario.child1,
+      signer: scenario.alice,
+      state: () => ({
+        containerKeyEpochId: "child-key-2",
+        parentContainerId: sharedRoot.state.containerId,
+        parentManifestHash: sharedRoot.manifestHash,
+      }),
+    });
+    const verified = await verifyPath(scenario, execSql, {
+      bundles: [...bundlesFor(legitimate), sharedRoot],
+      path: [sharedRoot, legitimate],
+    });
+    expect(verified).toHaveLength(2);
+  } finally {
+    close();
+  }
+});

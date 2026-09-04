@@ -1,5 +1,4 @@
 import {
-  type AccessManifestCheckpoint,
   KeyingVerificationError,
   type VerifiedAccessEvent,
   type VerifiedContainerAccessManifest,
@@ -17,17 +16,20 @@ import { readRecordNullableString } from "./readers";
  * an event whose citations are not the current heads at commit time. So a
  * head's authorization path is rebuilt here from its citations, root to
  * parent, and the signer is checked against those heads rather than against
- * the stale creation-time pin.
+ * whatever path the server pairs with the manifest.
  *
- * Two further rules mirror the principal-policy external-authority rules. A
- * head that is new to this device (its epoch is beyond the device's local
- * checkpoint for the container) must cite the ancestor heads the projection
- * serves as current, exactly as a post-checkpoint policy successor must cite
- * the current authority head. And a head must not cite an older parent head
- * than the manifest before it did, so an ancestor head an earlier child event
- * already saw can never be rolled back for a later one. A device with no
- * checkpoint on the container cannot order the child event against an
- * ancestor change and accepts the cited history, as it does for policies.
+ * A head must also not cite an older head of any ancestor than an earlier
+ * signed statement already proved current, so an ancestor head one signed
+ * statement established can never be rolled back for a later one.
+ *
+ * Not applied here: the principal-policy rule that a successor new to this
+ * device must cite the authority's current head. The API today refuses any
+ * mutation on a container whose pinned parent manifest is no longer the
+ * parent's head, so no later child event could ever supersede a head that
+ * rule rejected, and one ordinary sequence (share a child, then change its
+ * parent, then sync a device that missed both) would lock that device out of
+ * the child for good. That rule follows once descendants can re-cite their
+ * ancestors.
  */
 
 export interface CitedAncestorResolutionInput {
@@ -138,69 +140,54 @@ export async function resolveCitedAncestorPath(
   return chain;
 }
 
-/**
- * A head beyond the device's local checkpoint must cite the ancestor heads
- * the projection serves as current.
- */
-export function assertNewHeadCitesCurrentAncestors(input: {
-  readonly citedAncestors: readonly VerifiedContainerAccessManifest[];
-  readonly label: string;
-  readonly localCheckpoint: AccessManifestCheckpoint | null;
-  readonly servedAncestors: readonly VerifiedContainerAccessManifest[];
-  readonly state: { readonly epoch: number };
-}): void {
-  if (
-    !input.localCheckpoint ||
-    input.state.epoch <= input.localCheckpoint.epoch
-  ) {
-    return;
-  }
-  for (const ancestor of input.citedAncestors) {
-    if (
-      !input.servedAncestors.some(
-        (served) => served.manifestHash === ancestor.manifestHash,
-      )
-    ) {
-      throw new KeyingVerificationError(
-        "rollback",
-        `${input.label} is new to this device but cites a head of container ${ancestor.state.containerId} that is no longer current`,
-      );
-    }
-  }
+function verifiedCitedHead(
+  input: CitedAncestorResolutionInput,
+  cited: readonly string[],
+  containerId: string,
+): VerifiedContainerAccessManifest | undefined {
+  const manifestHash = cited.find(
+    (candidate) => citedContainerId(input, candidate) === containerId,
+  );
+  return manifestHash === undefined
+    ? undefined
+    : input.verifiedByHash.get(manifestHash);
 }
 
 /**
- * A head must not cite an older head of its parent than the manifest before
- * it cited. Skipped when the parent changed (a move) or the previous
- * manifest's own citation cannot be resolved from the served bundles.
+ * A head must not cite an older head of any ancestor than an earlier signed
+ * statement already proved current: the manifest before it cited that
+ * ancestor, or a cited child of that ancestor was itself created or moved
+ * under it. Ancestors a statement cannot be resolved for are skipped.
  */
-export function assertCitedParentDoesNotRegress(
+export function assertCitedAncestorsDoNotRegress(
   input: CitedAncestorResolutionInput & {
     readonly citedAncestors: readonly VerifiedContainerAccessManifest[];
     readonly previousManifest: VerifiedContainerAccessManifest | null;
   },
 ): void {
-  const parent = input.citedAncestors.at(-1);
-  const previous = input.previousManifest;
-  if (
-    !parent ||
-    !previous ||
-    previous.state.parentContainerId !== parent.state.containerId
-  ) {
-    return;
-  }
-  const previousParentHash = previous.event.event.dependencyManifestHashes.find(
-    (manifestHash) =>
-      citedContainerId(input, manifestHash) === parent.state.containerId,
-  );
-  const previousParent =
-    previousParentHash === undefined
-      ? undefined
-      : input.verifiedByHash.get(previousParentHash);
-  if (previousParent && parent.state.epoch < previousParent.state.epoch) {
-    throw new KeyingVerificationError(
-      "rollback",
-      `${input.label} cites an older head of container ${parent.state.containerId} than its previous manifest cited`,
-    );
-  }
+  const previousCited =
+    input.previousManifest?.event.event.dependencyManifestHashes ?? [];
+  input.citedAncestors.forEach((ancestor, index) => {
+    const floors = [
+      verifiedCitedHead(input, previousCited, ancestor.state.containerId),
+    ];
+    const citedChild = input.citedAncestors[index + 1];
+    if (citedChild?.state.parentManifestHash) {
+      floors.push(
+        input.verifiedByHash.get(citedChild.state.parentManifestHash),
+      );
+    }
+    for (const floor of floors) {
+      if (
+        floor &&
+        floor.state.containerId === ancestor.state.containerId &&
+        ancestor.state.epoch < floor.state.epoch
+      ) {
+        throw new KeyingVerificationError(
+          "rollback",
+          `${input.label} cites an older head of container ${ancestor.state.containerId} than an earlier signed statement already proved current`,
+        );
+      }
+    }
+  });
 }
