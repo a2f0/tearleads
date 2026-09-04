@@ -28,6 +28,17 @@ http {
     ''      close;
   }
 
+  # Without an explicit default server nginx falls back to the first server
+  # block it parses -- alphabetically api.conf -- so a hostname routed here by
+  # DNS and tunnel ingress but missing from every server_name would reach the
+  # API proxy. Refuse it here instead, before the sites are included.
+  server {
+    listen 127.0.0.1:80 default_server;
+    listen [::1]:80 default_server;
+    server_name _;
+    return 444;
+  }
+
   include /etc/nginx/conf.d/*.conf;
   include /etc/nginx/sites-enabled/*;
 }

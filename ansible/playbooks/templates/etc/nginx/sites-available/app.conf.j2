@@ -1,5 +1,6 @@
 # {{ ansible_managed }}
-# Static application server block for {{ app_hostname }}
+# Static application server blocks for {{ app_hostname }} and
+# {{ app_demo_hostnames | join(' ') }}
 
 {% macro static_app_server(hostnames, root_path) -%}
 server {
@@ -44,3 +45,4 @@ server {
 {%- endmacro %}
 
 {{ static_app_server([app_hostname], '/var/www/app-web') }}
+{{ static_app_server(app_demo_hostnames, '/var/www/app-demo') }}

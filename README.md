@@ -16,10 +16,18 @@
 
 ## Public Hostnames
 
-Production uses `tearleads.com`, `app.tearleads.com`, and `api.tearleads.com`.
-Staging uses `website-staging.tearleads.com`, `app-staging.tearleads.com`, and
-`api-staging.tearleads.com`. Realtime events share each tier's API hostname at
-`/events`; code-assist shares it at `/code-assist/webhook`.
+Production uses `tearleads.com`, `app.tearleads.com`, `demo.tearleads.com`, and
+`api.tearleads.com`. Staging uses `website-staging.tearleads.com`,
+`app-staging.tearleads.com`, `demo-staging.tearleads.com`, and
+`api-staging.tearleads.com`. The demo hosts serve the two-pane demo variant of
+the same bundle, and `TF_VAR_extra_demo_domains` adds Cloudflare zones that
+serve it too (for example `tearleads.de`, reached at `demo.tearleads.de`). Set
+it in `.secrets/<tier>.env`, where Terraform, the server playbook, and the
+app-web deploy all read it — quoted, since that file is sourced by bash:
+`TF_VAR_extra_demo_domains='["tearleads.de"]'`. The Cloudflare token in
+`TF_VAR_cloudflare_api_token` needs access to each listed zone. Realtime events
+share each tier's API hostname at `/events`; code-assist shares it at
+`/code-assist/webhook`.
 
 ## Running Tests
 

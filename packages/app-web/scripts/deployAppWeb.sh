@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploy the Tearleads app-web static bundles to a server environment.
+# Deploy the Tearleads app-web and app-demo static bundles to a server environment.
 
 set -euo pipefail
 
@@ -51,12 +51,46 @@ case "$TIER" in
   prod)
     API_HOSTNAME="api.${DOMAIN}"
     APP_HOSTNAME="app.${DOMAIN}"
+    DEMO_HOST_PREFIX="demo."
     ;;
   staging)
     API_HOSTNAME="api-staging.${DOMAIN}"
     APP_HOSTNAME="app-staging.${DOMAIN}"
+    DEMO_HOST_PREFIX="demo-staging."
     ;;
 esac
+DEMO_HOSTNAME="${DEMO_HOST_PREFIX}${DOMAIN}"
+
+# The demo also answers on other Cloudflare zones. Read the same zone list that
+# publishes their DNS records (TF_VAR_extra_demo_domains, which the server
+# playbook reads too) so a purge cannot miss a host that is being routed here,
+# and so each purge names the zone that actually owns its host.
+extra_demo_zones=()
+if [ -n "${TF_VAR_extra_demo_domains:-}" ]; then
+  if ! command -v jq >/dev/null 2>&1; then
+    echo "ERROR: jq is required to read TF_VAR_extra_demo_domains." >&2
+    exit 1
+  fi
+  if ! extra_demo_zone_list="$(printf '%s' "$TF_VAR_extra_demo_domains" |
+    jq -r 'if type == "array" then .[] else error("not an array") end')"; then
+    echo "ERROR: TF_VAR_extra_demo_domains must be a JSON array of zone names." >&2
+    exit 1
+  fi
+  while IFS= read -r zone; do
+    [ -n "$zone" ] || continue
+    case "$zone" in
+      demo.* | demo-*)
+        echo "ERROR: TF_VAR_extra_demo_domains takes bare zone names; got $zone." >&2
+        exit 1
+        ;;
+    esac
+    if ! [[ "$zone" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$ ]]; then
+      echo "ERROR: TF_VAR_extra_demo_domains entry is not a zone name: $zone." >&2
+      exit 1
+    fi
+    extra_demo_zones+=("$zone")
+  done <<< "$extra_demo_zone_list"
+fi
 
 build_app_web() {
   local variant="$1"
@@ -88,8 +122,16 @@ deploy_app_web_dist() {
 build_app_web "app" "app-web"
 deploy_app_web_dist "app-web" "/var/www/app-web"
 
+# `bun run build` clears dist/, so the demo build must follow the app bundle's
+# rsync: it leaves dist/ holding the demo bundle, not the app one.
+build_app_web "demo" "app-demo"
+deploy_app_web_dist "app-demo" "/var/www/app-demo"
+
 ssh "$SSH_TARGET" sudo systemctl reload nginx
 
-echo "App-web deployed."
+echo "App-web and app-demo deployed."
 
-purge_cloudflare_cache_for_hosts "$DOMAIN" "$APP_HOSTNAME"
+purge_cloudflare_cache_for_hosts "$DOMAIN" "$APP_HOSTNAME" "$DEMO_HOSTNAME"
+for zone in ${extra_demo_zones[@]+"${extra_demo_zones[@]}"}; do
+  purge_cloudflare_cache_for_hosts "$zone" "${DEMO_HOST_PREFIX}${zone}"
+done
