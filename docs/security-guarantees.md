@@ -155,13 +155,13 @@ creation commits a successor of the signed organization directory, and the
 API rejects a successor that does not cite the current directory head, so the
 loser reloads the directory and re-runs the check. This is also a greenfield
 flag-day. A group signed before names were committed fails every policy
-mutation and every share; reprovisioning is required. Deployment also rejects
-unnamed group payloads before rollout.
+mutation and every share; reprovisioning is required. With old API instances
+stopped, deployment rejects unnamed group payloads before rollout.
 
-Organization-manager membership mutations carry the selected label to the
+Membership mutations carry the selected label to the
 verified policy check before recipient resolution, wrapping, or signing. Add
 and remove both refuse a mismatched name. Group creation also requires the
-API listing name to equal the name committed in the signed payload.
+API listing name to equal the signed name; grant-revoke labels are not bound.
 
 The app repeats these checks on fetched policy bundles. A bundle with a
 tampered projection, payload, state hash, chain link, signer, or checkpoint

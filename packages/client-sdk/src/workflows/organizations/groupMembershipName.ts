@@ -1,10 +1,6 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import {
-  canonicalGroupNameKey,
-  hasForbiddenGroupNameCharacter,
-  readGroupPolicyPayloadName,
-} from "./principalPolicyRequest";
+import { groupPolicyNameMismatch } from "./principalPolicyRequest";
 
 export class GroupMembershipNameMismatchError extends KeyingVerificationError {
   constructor() {
@@ -21,11 +17,7 @@ export function assertGroupMembershipName(
   verifiedBundle: PrincipalPolicyBundleResponse,
   expectedGroupName: string,
 ): void {
-  if (
-    hasForbiddenGroupNameCharacter(expectedGroupName) ||
-    canonicalGroupNameKey(readGroupPolicyPayloadName(verifiedBundle)) !==
-      canonicalGroupNameKey(expectedGroupName)
-  ) {
+  if (groupPolicyNameMismatch(verifiedBundle, expectedGroupName)) {
     throw new GroupMembershipNameMismatchError();
   }
 }

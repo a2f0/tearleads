@@ -7,6 +7,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { useCallback } from "react";
 import type { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
+import { RESERVED_ORGANIZATION_GROUP_NAMES } from "../../../utils/organizationGroupNames";
 import { refreshAfterGroupMutation } from "../groups/orgManagerMutationOperations";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { canDisableRosterUser } from "../permissions";
@@ -45,24 +46,35 @@ function hasDirectUserMember(
   return members.members.some((member) => member.userId === userId);
 }
 
+interface RosterDisableMembershipTarget {
+  readonly groupId: string;
+  readonly name: string;
+}
+
 function collectRosterDisableMembershipTargets(input: {
   adminGroupId: string | null;
   adminMembers: OrganizationGroupMembers | null;
   disabledUserId: string;
   memberGroupId: string;
   memberMembers: OrganizationGroupMembers;
-}): string[] {
-  const targets: string[] = [];
+}): RosterDisableMembershipTarget[] {
+  const targets: RosterDisableMembershipTarget[] = [];
 
   if (
     input.adminGroupId &&
     input.adminMembers &&
     hasDirectUserMember(input.adminMembers, input.disabledUserId)
   ) {
-    targets.push(input.adminGroupId);
+    targets.push({
+      groupId: input.adminGroupId,
+      name: RESERVED_ORGANIZATION_GROUP_NAMES.admins,
+    });
   }
   if (hasDirectUserMember(input.memberMembers, input.disabledUserId)) {
-    targets.push(input.memberGroupId);
+    targets.push({
+      groupId: input.memberGroupId,
+      name: RESERVED_ORGANIZATION_GROUP_NAMES.members,
+    });
   }
 
   return targets;
@@ -76,7 +88,7 @@ async function loadRosterDisableMembershipTargets(input: {
   organizationId: string;
   orgManagerActions: ReturnType<typeof useOrgManagerActions>;
   setError: Dispatch<SetStateAction<string | null>>;
-}): Promise<string[] | null> {
+}): Promise<RosterDisableMembershipTarget[] | null> {
   const [memberGroupMembers, adminGroupMembers] = await Promise.all([
     input.orgManagerActions.loadGroupMembers(input.memberGroupId),
     input.adminGroupId
@@ -108,20 +120,19 @@ async function loadRosterDisableMembershipTargets(input: {
 
 async function removeRosterDisableMembershipTargets(input: {
   disabledUserId: string;
-  memberGroupId: string;
   isOperationActive: (organizationId: string) => boolean;
   organizationId: string;
   orgManagerActions: ReturnType<typeof useOrgManagerActions>;
-  targets: ReadonlyArray<string>;
+  targets: ReadonlyArray<RosterDisableMembershipTarget>;
 }): Promise<boolean> {
-  for (const groupId of input.targets) {
+  for (const { groupId, name } of input.targets) {
     if (!input.isOperationActive(input.organizationId)) {
       return false;
     }
     await input.orgManagerActions.removeUserFromGroup(
       groupId,
       input.disabledUserId,
-      groupId === input.memberGroupId ? "Members" : "Admins",
+      name,
     );
   }
   return input.isOperationActive(input.organizationId);
@@ -167,7 +178,6 @@ async function disableRosterUser(
 
       const removed = await removeRosterDisableMembershipTargets({
         disabledUserId: input.disabledUserId,
-        memberGroupId,
         isOperationActive: input.isOperationActive,
         organizationId: operationOrganizationId,
         orgManagerActions: input.orgManagerActions,

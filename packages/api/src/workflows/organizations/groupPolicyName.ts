@@ -1,6 +1,8 @@
 import { base64ToBytes } from "@tearleads/encoding";
 import { OrganizationManagerError } from "./errors";
 
+// Group payloads currently carry signed plaintext base64 JSON despite the
+// encrypted-payload wire field names; the client commits this same encoding.
 export function assertCreatedGroupPolicyName(input: {
   readonly ciphertext: string;
   readonly name: string;

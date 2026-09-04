@@ -16,6 +16,7 @@ import {
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import type { TrustedUserIdentity } from "../../data/trustedUserIdentity";
 import { buildInitialOrganizationPolicyRequest } from "../registration/registerIdentity";
+import { assertGroupMembershipName } from "./groupMembershipName";
 import { buildAddGroupUserPolicyRequest } from "./groupPolicyRequests";
 import {
   addOrganizationGroupUser,
@@ -37,6 +38,26 @@ interface GroupPolicyFixture {
   readonly signingFingerprint: string;
   readonly signingKeyPair: ReturnType<typeof generateSigningSeedAndKeyPair>;
 }
+
+test("membership name binding treats an unnamed payload as a flag-day reset, not an incident", async () => {
+  const { initialPolicy } = await createGroupPolicyFixture();
+  const unnamed = {
+    ...initialPolicy,
+    currentPayload: {
+      ...initialPolicy.currentPayload,
+      ciphertext: Buffer.from(JSON.stringify({ members: [] })).toString(
+        "base64",
+      ),
+    },
+  };
+  const check = () => assertGroupMembershipName(unnamed, "Operators");
+  expect(check).toThrow("must be reprovisioned");
+  try {
+    check();
+  } catch (error) {
+    expect(error).not.toBeInstanceOf(KeyingVerificationError);
+  }
+});
 
 async function createGroupPolicyFixture(): Promise<GroupPolicyFixture> {
   const creatorKem = generateKemSeedAndKeyPair();

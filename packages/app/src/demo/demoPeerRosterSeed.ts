@@ -6,6 +6,7 @@ import type {
   OrganizationGroupMembers,
 } from "@tearleads/client-sdk";
 import { KeyingVerificationError } from "@tearleads/crypto";
+import { RESERVED_ORGANIZATION_GROUP_NAMES } from "../utils/organizationGroupNames";
 
 // Demo-only roster seeding. The demo panes each register their own personal
 // organization; this module decides whether the pane still owes an "add the peer
@@ -192,7 +193,7 @@ export async function seedPeerRosterEntry(
       await actions.addUserToGroup(
         plan.memberGroupId,
         importedUser.userId,
-        "Members",
+        RESERVED_ORGANIZATION_GROUP_NAMES.members,
       );
     }
     // The membership write (or a prior one) has not surfaced in this directory

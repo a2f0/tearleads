@@ -72,7 +72,7 @@ function payloadCiphertextForProjection(
  * deliberately refuses ZWJ emoji sequences as well. One predicate serves the
  * signing-time and the share-time refusal so the two cannot drift.
  */
-export function hasForbiddenGroupNameCharacter(name: string): boolean {
+function hasForbiddenGroupNameCharacter(name: string): boolean {
   return /[\p{Cc}\p{Cf}\p{Cs}\p{Default_Ignorable_Code_Point}]/u.test(name);
 }
 
@@ -129,6 +129,20 @@ export function readGroupPolicyPayloadName(
     );
   }
   return name;
+}
+
+/** One binding predicate for every operation selected by a read-model label. */
+export function groupPolicyNameMismatch(
+  bundle: PrincipalPolicyBundleResponse,
+  expectedGroupName: string,
+): "forbidden_characters" | "name_mismatch" | null {
+  if (hasForbiddenGroupNameCharacter(expectedGroupName)) {
+    return "forbidden_characters";
+  }
+  return canonicalGroupNameKey(readGroupPolicyPayloadName(bundle)) ===
+    canonicalGroupNameKey(expectedGroupName)
+    ? null
+    : "name_mismatch";
 }
 
 export async function signedGroupPolicyRequest(input: {

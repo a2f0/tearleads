@@ -243,5 +243,17 @@ test("a failed Admins add after a Members add reports the user is now a billed m
 
   expect(result).toBeNull();
   expect(addUserToGroup).toHaveBeenCalledTimes(2);
+  expect(addUserToGroup).toHaveBeenNthCalledWith(
+    1,
+    "members",
+    TARGET_USER.userId,
+    "Members",
+  );
+  expect(addUserToGroup).toHaveBeenNthCalledWith(
+    2,
+    "admins",
+    TARGET_USER.userId,
+    "Admins",
+  );
   expect(observed).toContain(ORG_MANAGER_LABELS.failedAddAdminAfterMemberAdd);
 });
