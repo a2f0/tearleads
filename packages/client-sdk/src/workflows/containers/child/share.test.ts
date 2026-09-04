@@ -143,8 +143,7 @@ test("shareRemoteContainer includes existing direct user recipient keys", async 
           ...response,
           containerKek: {
             ...response.containerKek,
-            // Postgres returns wraps in recipient-key order, which need not
-            // match the sender's semantically equivalent request order.
+            // Postgres returns wraps in recipient-key order, not request order.
             wraps: [...response.containerKek.wraps].reverse(),
           },
         };
@@ -321,6 +320,7 @@ test("shareRemoteContainerWithGroup grants a managed principal with the selected
       author,
       containerId: parent.projection.containerId,
       execSql,
+      expectedGroupName: "Admins",
       recipientGroupId: groupId,
       resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
       resolveTrustedUserIdentity: async (userId) => {
@@ -473,6 +473,7 @@ test("shareRemoteContainerWithGroup accepts empty groups signed by an org admin"
         author,
         containerId: parent.projection.containerId,
         execSql,
+        expectedGroupName: "Operators",
         recipientGroupId: groupId,
         resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
         resolveTrustedUserIdentity: async (userId) => {

@@ -1,8 +1,9 @@
-import type {
-  ManagedPrincipalKind,
-  PrincipalPolicyCheckpoint,
-  ReferencedPrincipalHead,
-  VerifiedPrincipalPolicy,
+import {
+  KeyingVerificationError,
+  type ManagedPrincipalKind,
+  type PrincipalPolicyCheckpoint,
+  type ReferencedPrincipalHead,
+  type VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type { CommitOrganizationGroupPolicyRequest } from "@tearleads/validators/request";
 import type {
@@ -26,6 +27,11 @@ import {
 } from "../../../data/principals/principalPolicyAdminSigners";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
+import {
+  canonicalGroupNameKey,
+  hasForbiddenGroupNameCharacter,
+  readGroupPolicyPayloadName,
+} from "../../organizations/principalPolicyRequest";
 import {
   externalAdminPolicyPersistenceEntries,
   loadOrganizationExternalAdminPolicy,
@@ -196,10 +202,60 @@ async function loadGroupSharePolicyBundle(input: {
   return bundle;
 }
 
+/**
+ * The chosen group label does not match the name in the group's verified
+ * policy. A KeyingVerificationError (so it is reported as an incident), with
+ * its own class so a caller can tell this refusal from every other
+ * `object_mismatch` and say what happened.
+ */
+export class GroupShareNameMismatchError extends KeyingVerificationError {
+  constructor(message: string) {
+    super("object_mismatch", message);
+    this.name = "GroupShareNameMismatchError";
+  }
+}
+
+/**
+ * The share picker labels groups from the organization read model, which a
+ * compromised server can relabel, so the name the user chose must equal the
+ * name committed in the target's verified policy. Names compare by their
+ * canonical key so look-alike spellings count as the same name. Uniqueness of
+ * signed names within an organization is enforced where names enter — group
+ * creation verifies every group in the signed directory — so a single
+ * verified match identifies the group.
+ */
+function assertShareGroupName(input: {
+  bundle: PrincipalPolicyBundleResponse;
+  expectedGroupName: string;
+}): void {
+  // The label comes from the untrusted read model. Signed names never carry
+  // an invisible code point, so a label that does is a look-alike that would
+  // only match after canonicalization strips it; refuse it outright.
+  if (hasForbiddenGroupNameCharacter(input.expectedGroupName)) {
+    throw new GroupShareNameMismatchError(
+      "Container share group name contains control or format characters",
+    );
+  }
+  if (
+    canonicalGroupNameKey(readGroupPolicyPayloadName(input.bundle)) !==
+    canonicalGroupNameKey(input.expectedGroupName)
+  ) {
+    throw new GroupShareNameMismatchError(
+      "Container share group name does not match the signed group policy",
+    );
+  }
+}
+
 export async function loadVerifiedGroupSharePrincipalPolicy(input: {
   apiClient: ContainerManagedPrincipalShareApi;
   execSql: ExecSql;
   expectedGroupHead?: ReferencedPrincipalHead | undefined;
+  /**
+   * The display name the user chose the group by. The read model that labels
+   * groups is a server projection; only the name committed in the signed
+   * group payload can confirm the share lands on the group the user saw.
+   */
+  expectedGroupName?: string | undefined;
   groupId: string;
   organizationId: string;
   resolveTrustedUserIdentity: TrustedUserIdentityResolver;
@@ -260,6 +316,12 @@ export async function loadVerifiedGroupSharePrincipalPolicy(input: {
       verified.error,
       "Container share principal policy verification failed",
     );
+  }
+  if (input.expectedGroupName !== undefined) {
+    assertShareGroupName({
+      bundle,
+      expectedGroupName: input.expectedGroupName,
+    });
   }
 
   const checkpointPolicies = await retainVerifiedSharePolicies({

@@ -83,8 +83,8 @@
       "bytes": 28639
     },
     "docs/security-guarantees.md": {
-      "lines": 553,
-      "bytes": 29348
+      "lines": 575,
+      "bytes": 30809
     },
     "formal/document-sync/BaselineDominanceTraces.json": {
       "lines": 2059,
@@ -227,8 +227,8 @@
       "bytes": 18114
     },
     "packages/app/src/mini-apps/explorer/labelCatalog.ts": {
-      "lines": 461,
-      "bytes": 20948
+      "lines": 464,
+      "bytes": 21157
     },
     "packages/app/src/mini-apps/identity-manager/IdentityManager.test.tsx": {
       "lines": 565,
@@ -278,10 +278,6 @@
       "lines": 545,
       "bytes": 18896
     },
-    "packages/client-sdk/src/workflows/container-contents/container-state/share.test.ts": {
-      "lines": 722,
-      "bytes": 23942
-    },
     "packages/client-sdk/src/workflows/container-contents/documentDiscovery.test.ts": {
       "lines": 1017,
       "bytes": 30465
@@ -311,8 +307,8 @@
       "bytes": 62568
     },
     "packages/client-sdk/src/workflows/organizations/principalPolicy.test.ts": {
-      "lines": 533,
-      "bytes": 19048
+      "lines": 543,
+      "bytes": 19460
     },
     "packages/crypto/src/keying/containerAccess.test.ts": {
       "lines": 748,

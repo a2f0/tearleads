@@ -23,6 +23,7 @@ import {
   toRecipientEntries,
 } from "./principalPolicyRecipients";
 import {
+  readGroupPolicyPayloadName,
   signedGroupPolicyRequest,
   userProjectionMember,
 } from "./principalPolicyRequest";
@@ -91,6 +92,7 @@ async function buildRotatedKeyGroupPolicyRequest(
     keyFingerprint: await toFingerprint(groupKem.publicKey),
     grants,
     memberEnvelopes,
+    name: readGroupPolicyPayloadName(input.currentPolicy),
     principalId: input.currentPolicy.currentState.principalId,
     projection,
     signedAt: new Date().toISOString(),
@@ -137,6 +139,7 @@ async function buildDirectAdminAddGroupUserPolicyRequest(
     keyFingerprint: input.currentPolicy.currentState.keyFingerprint,
     grants: input.currentPolicy.currentGrants,
     memberEnvelopes,
+    name: readGroupPolicyPayloadName(input.currentPolicy),
     principalId: input.currentPolicy.currentState.principalId,
     projection,
     signedAt: new Date().toISOString(),
@@ -250,6 +253,7 @@ export async function buildSetGroupContainerGrantPolicyRequest(
     keyFingerprint: input.currentPolicy.currentState.keyFingerprint,
     grants,
     memberEnvelopes: input.currentPolicy.currentMemberEnvelopes.envelopes,
+    name: readGroupPolicyPayloadName(input.currentPolicy),
     principalId: input.currentPolicy.currentState.principalId,
     projection: input.currentPolicy.currentProjection,
     signedAt: new Date().toISOString(),

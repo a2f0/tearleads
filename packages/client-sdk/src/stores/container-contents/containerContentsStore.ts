@@ -205,6 +205,9 @@ function createPrepareGroupRewrapMethod(
                 {
                   ...options,
                   knownContainerKeks: preparation.knownContainerKeks,
+                  // A prepared re-wrap is grant-preserving by definition, so
+                  // it never mints a grant and never needs the chosen name.
+                  requireExistingGrant: true,
                 },
                 isCurrent,
               ),

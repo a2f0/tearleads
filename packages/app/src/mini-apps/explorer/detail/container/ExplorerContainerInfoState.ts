@@ -1,7 +1,8 @@
-import type {
-  ContainerInfo,
-  ContainerShareAccessLevel,
-  OrganizationDirectoryAndGroups,
+import {
+  type ContainerInfo,
+  type ContainerShareAccessLevel,
+  GroupShareNameMismatchError,
+  type OrganizationDirectoryAndGroups,
 } from "@tearleads/client-sdk";
 import { type FormEvent, useCallback, useRef, useState } from "react";
 import { EXPLORER_LABELS } from "../../labels";
@@ -28,10 +29,16 @@ interface ExplorerContainerInfoGroupShareParams
   extends ExplorerContainerInfoShareParams {
   draftShareAccessLevel: ContainerShareAccessLevel;
   draftShareGroupId: string;
+  /**
+   * The label the user picked the group by. Passed to the share so the SDK
+   * can check it against the name committed in the signed group policy.
+   */
+  draftShareGroupName?: string | undefined;
   shareWithGroup: (
     containerId: string,
     groupId: string,
     accessLevel: ContainerShareAccessLevel,
+    options: { expectedGroupName: string },
   ) => Promise<boolean>;
 }
 
@@ -165,6 +172,9 @@ export function useExplorerContainerInfo(params: ExplorerContainerInfoParams) {
 // panel's container info on success.
 async function runContainerInfoShare(params: {
   errorLabel: string;
+  // A label for a specific thrown error, taking precedence over errorLabel
+  // when it returns one.
+  errorLabelFor?: ((error: unknown) => string | null) | undefined;
   errorLogLabel: string;
   failureLabel: string;
   optimisticGrant: NonNullable<
@@ -177,6 +187,7 @@ async function runContainerInfoShare(params: {
 }): Promise<void> {
   const {
     errorLabel,
+    errorLabelFor,
     errorLogLabel,
     failureLabel,
     optimisticGrant,
@@ -197,7 +208,7 @@ async function runContainerInfoShare(params: {
     await reloadContainerInfo({ optimisticGrant });
   } catch (error) {
     console.error(errorLogLabel, error);
-    setPanelError(errorLabel);
+    setPanelError(errorLabelFor?.(error) ?? errorLabel);
   } finally {
     setIsSubmitting(false);
   }
@@ -211,6 +222,7 @@ export function useExplorerContainerInfoGroupShare(
     containerId,
     draftShareAccessLevel,
     draftShareGroupId,
+    draftShareGroupName,
     isSubmitting,
     reloadContainerInfo,
     setIsSubmitting,
@@ -229,9 +241,22 @@ export function useExplorerContainerInfoGroupShare(
         setPanelError(EXPLORER_LABELS.containerInfoChooseGroupError);
         return;
       }
+      // Without the label the user chose, the SDK cannot bind the share to the
+      // signed group name. The picker still shows the stale selection, so say
+      // that the group went away rather than that none was chosen.
+      if (!draftShareGroupName) {
+        setPanelError(EXPLORER_LABELS.containerInfoChosenGroupUnavailableError);
+        return;
+      }
 
       await runContainerInfoShare({
         errorLabel: EXPLORER_LABELS.containerInfoShareGenericFailure,
+        // The SDK refused to wrap for a group whose signed name is not the
+        // label the user chose: say so, rather than a generic failure.
+        errorLabelFor: (error) =>
+          error instanceof GroupShareNameMismatchError
+            ? EXPLORER_LABELS.containerInfoShareToGroupNameMismatch
+            : null,
         errorLogLabel: EXPLORER_LABELS.containerInfoShareGenericFailureLog,
         failureLabel: EXPLORER_LABELS.containerInfoShareToGroupFailure,
         optimisticGrant: {
@@ -243,13 +268,21 @@ export function useExplorerContainerInfoGroupShare(
         setIsSubmitting,
         setPanelError,
         share: () =>
-          shareWithGroup(containerId, draftShareGroupId, draftShareAccessLevel),
+          shareWithGroup(
+            containerId,
+            draftShareGroupId,
+            draftShareAccessLevel,
+            {
+              expectedGroupName: draftShareGroupName,
+            },
+          ),
       });
     },
     [
       canShareContainer,
       containerId,
       draftShareAccessLevel,
+      draftShareGroupName,
       draftShareGroupId,
       isSubmitting,
       reloadContainerInfo,

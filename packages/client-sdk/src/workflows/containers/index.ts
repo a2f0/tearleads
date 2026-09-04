@@ -38,6 +38,7 @@ export { buildMaterializedContainerSharePlan } from "./child/shareMaterializatio
 export { referencedPrincipalHeadFromPolicy } from "./child/sharePlanCore";
 export {
   advanceVerifiedSharePolicies,
+  GroupShareNameMismatchError,
   loadVerifiedGroupSharePrincipalPolicy,
   type VerifiedSharePrincipalPolicy,
 } from "./child/sharePrincipalPolicy";
