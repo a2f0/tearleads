@@ -9,17 +9,14 @@ interface ExternalAuthorityPolicyEntry {
   readonly state: {
     readonly externalAuthority: PrincipalStateExternalAuthority | null;
     readonly signerUserId: string;
-    readonly version: number;
   };
 }
 
 export interface PrincipalPolicyExternalAuthorityVerifier {
-  readonly authority: PrincipalPolicyExternalAuthority | undefined;
   readonly authorityStates: ReadonlyMap<
     string,
     PrincipalPolicyExternalAuthorityState
   >;
-  readonly localCheckpointVersion: number | null;
   latestReference: PrincipalStateExternalAuthority | null;
 }
 
@@ -62,6 +59,8 @@ function buildExternalAuthorityStateMap(
     statesByHead.set(key, state);
   }
 
+  // Bundle consistency only: the current head is not a freshness requirement
+  // for historical citations. Honest successors can arrive after it advances.
   if (!statesByHead.has(externalAuthorityHeadKey(authority.currentHead))) {
     throwVerification(
       "missing_dependency",
@@ -74,12 +73,9 @@ function buildExternalAuthorityStateMap(
 
 export function createPrincipalPolicyExternalAuthorityVerifier(input: {
   readonly authority: PrincipalPolicyExternalAuthority | undefined;
-  readonly localCheckpoint: { readonly version: number } | null | undefined;
 }): PrincipalPolicyExternalAuthorityVerifier {
   return {
-    authority: input.authority,
     authorityStates: buildExternalAuthorityStateMap(input.authority),
-    localCheckpointVersion: input.localCheckpoint?.version ?? null,
     latestReference: null,
   };
 }
@@ -125,21 +121,6 @@ export function verifyPrincipalPolicyExternalAuthorityProgress(input: {
     throwVerification(
       "rollback",
       "principal policy external authority head rolled back",
-    );
-  }
-
-  if (
-    input.verifier.authority &&
-    input.verifier.localCheckpointVersion !== null &&
-    input.entry.state.version > input.verifier.localCheckpointVersion &&
-    !externalAuthorityHeadsEqual(
-      reference,
-      input.verifier.authority.currentHead,
-    )
-  ) {
-    throwVerification(
-      "rollback",
-      "principal policy successor cites a stale external authority head",
     );
   }
 

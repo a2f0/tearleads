@@ -32,8 +32,9 @@ committed entry.
 Every signed principal-state header has an `externalAuthority` field. Directly
 authorized states use `null`; externally administered organization groups cite
 the exact signed Admins head used to authorize that state. Historical citations
-are checked against exact signed Admins history, while child successors newer
-than a local checkpoint must cite the currently verified Admins head. This
+are checked against exact signed Admins history without in-chain rollback.
+The API requires current Admins authority at commit; delayed histories remain
+verifiable after Admins advances, including on checkpointed devices. This
 contract has no legacy fallback: pre-contract state requires reset and
 reprovisioning rather than translation.
 

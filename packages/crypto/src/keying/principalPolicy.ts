@@ -453,7 +453,6 @@ async function verifyPrincipalPolicyChainEntrySignature(input: {
 async function verifyPrincipalPolicyChain(input: {
   readonly bundle: PrincipalPolicySnapshot;
   readonly externalAuthority: VerifyPrincipalPolicyBundleInput["externalAuthority"];
-  readonly localCheckpoint: PrincipalPolicyCheckpoint | null | undefined;
   readonly signerPublicKeyByUserAndFingerprint: ReadonlyMap<string, Uint8Array>;
 }): Promise<NormalizedPrincipalPolicyStateChainEntry[]> {
   const chain = [
@@ -473,7 +472,6 @@ async function verifyPrincipalPolicyChain(input: {
   const normalizedChain: NormalizedPrincipalPolicyStateChainEntry[] = [];
   const authorityVerifier = createPrincipalPolicyExternalAuthorityVerifier({
     authority: input.externalAuthority,
-    localCheckpoint: input.localCheckpoint,
   });
 
   for (let index = 0; index < chain.length; index += 1) {
@@ -540,7 +538,6 @@ async function verifyPrincipalPolicyAuthorizationEvidence(input: {
   const normalizedChain = await verifyPrincipalPolicyChain({
     bundle: input.bundle,
     externalAuthority: input.externalAuthority,
-    localCheckpoint: input.localCheckpoint,
     signerPublicKeyByUserAndFingerprint,
   });
   const currentEntry = normalizedChain.at(-1);
