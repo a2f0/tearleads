@@ -269,13 +269,16 @@ async function buildDocumentLinkSetMutationPlan({
     targetState.targets,
     targetEnvelopes,
   );
+  const targetContainerPathRefs = containerPathRefs(
+    targetContainerProjection.path,
+  );
   const eventPlan = await buildDocumentLinkSetEventPlan({
     author,
     eventId,
     operation,
     organizationId,
     signedAt,
-    targetContainerPathRefs: containerPathRefs(targetContainerProjection.path),
+    targetContainerPathRefs,
     targetState,
     writerProjection,
   });
@@ -310,9 +313,7 @@ async function buildDocumentLinkSetMutationPlan({
       body: readCanonicalRecord(eventPlan.body, "Document link-set body"),
       expectedManifestHash: manifestHash,
       manifest: readCanonicalRecord(manifest, "Document link-set manifest"),
-      targetContainerPathRefs: containerPathRefs(
-        targetContainerProjection.path,
-      ),
+      targetContainerPathRefs,
       authorizingContainerPathRefs: eventPlan.authorizingContainerPathRefs,
       contentKeyBundle: {
         contentKeyEpoch,

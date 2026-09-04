@@ -43,7 +43,7 @@ function storedContainer(response: unknown): StoredContainer {
 }
 
 interface ShareInput {
-  readonly accessLevel?: "read" | "write";
+  readonly accessLevel?: "read" | "write" | undefined;
   readonly container: StoredContainer;
   readonly history?: readonly AccessManifestBundleWire[] | undefined;
   readonly parentKekState: VerifiedContainerKekState | null;

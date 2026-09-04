@@ -3,11 +3,13 @@ import {
   type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 
+const MAX_CONTAINER_PATH_DEPTH = 100;
+
 /**
  * Rebuild historical authorization from the event's signed heads, not from
  * creation-time parent pins or the server's grouping of dependency paths.
- * The caller retains checkpoint-enforced authorizing paths when indexing
- * evidence for a leaf; unsigned dependency paths cannot overwrite them.
+ * Paths in the evidence index only supply verified manifests. Authorization
+ * uses exactly the ancestor heads this event signed, regardless of grouping.
  */
 export function resolveEventContainerPaths(input: {
   readonly containerPathByManifestHash: ReadonlyMap<
@@ -48,7 +50,10 @@ export function resolveEventContainerPaths(input: {
     const seen = new Set<string>();
     let containerId: string | null = leaf.state.containerId;
     while (containerId !== null) {
-      if (seen.has(containerId) || reversed.length >= 100) {
+      if (
+        seen.has(containerId) ||
+        reversed.length >= MAX_CONTAINER_PATH_DEPTH
+      ) {
         throw new KeyingVerificationError(
           "object_mismatch",
           "Document event cited container path is cyclic or too deep",

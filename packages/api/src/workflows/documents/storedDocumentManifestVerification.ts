@@ -32,7 +32,8 @@ import {
 } from "../principals/principalPolicyProjection";
 import { loadSignerPublicKey } from "../signerPublicKey";
 
-const MAX_CONTAINER_PATH_DEPTH = 100;
+import { loadCitedDocumentContainerPaths } from "./storedDocumentContainerPaths";
+
 const MAX_DOCUMENT_HISTORY_DEPTH = 4_096;
 const verifiedStoredDocumentManifests =
   new StoredVerificationCache<VerifiedDocumentLinkSetManifest>(2_048);
@@ -204,57 +205,25 @@ function targetContainerManifestHash(
   return hash;
 }
 
-function citedContainerPath(
-  cited: ReadonlyMap<string, VerifiedContainerAccessManifest>,
-  leaf: VerifiedContainerAccessManifest,
-): VerifiedContainerAccessManifest[] {
-  const reversed: VerifiedContainerAccessManifest[] = [];
-  const seen = new Set<string>();
-  let containerId: string | null = leaf.state.containerId;
-  while (containerId !== null) {
-    if (seen.has(containerId)) {
-      throw integrityError("cited container path contains a cycle");
-    }
-    seen.add(containerId);
-    if (reversed.length >= MAX_CONTAINER_PATH_DEPTH) {
-      throw integrityError("container path exceeds maximum depth");
-    }
-    const manifest = cited.get(containerId);
-    if (!manifest) {
-      throw integrityError(
-        `document event does not cite ancestor ${containerId}`,
-      );
-    }
-    reversed.push(manifest);
-    containerId = manifest.state.parentContainerId;
-  }
-  return reversed.reverse();
-}
-
 async function loadContainerPaths(input: {
   readonly context: ContainerWriterProjectionContext;
   readonly event: VerifiedAccessEvent;
 }): Promise<VerifiedContainerAccessManifest[][]> {
-  const cited = new Map<string, VerifiedContainerAccessManifest>();
-  for (const manifestHash of input.event.event.dependencyManifestHashes) {
-    const bundle = await loadContainerManifestBundleByHash(
-      input.context,
-      manifestHash,
-    );
-    const manifest = await verifyStoredContainerManifest({
-      bundle,
-      context: input.context,
-      loadBundle: (hash) =>
-        loadContainerManifestBundleByHash(input.context, hash),
-    });
-    if (cited.has(manifest.state.containerId)) {
-      throw integrityError("document event cites two heads of one container");
-    }
-    cited.set(manifest.state.containerId, manifest);
-  }
-  return [...cited.values()].map((manifest) =>
-    citedContainerPath(cited, manifest),
-  );
+  return loadCitedDocumentContainerPaths({
+    dependencyManifestHashes: input.event.event.dependencyManifestHashes,
+    loadManifest: async (manifestHash) => {
+      const bundle = await loadContainerManifestBundleByHash(
+        input.context,
+        manifestHash,
+      );
+      return verifyStoredContainerManifest({
+        bundle,
+        context: input.context,
+        loadBundle: (hash) =>
+          loadContainerManifestBundleByHash(input.context, hash),
+      });
+    },
+  });
 }
 
 async function verifyBundle(input: {

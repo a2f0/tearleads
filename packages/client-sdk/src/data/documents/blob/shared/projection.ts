@@ -41,25 +41,6 @@ function blobTargetsFor(
 }
 
 /**
- * The document's current KEK targets as the server lists them, for operations
- * that only reference targets in a signed event and wrap nothing — a detach
- * must stay possible for a writer who can open only one of several linked
- * containers. Never use this list to choose a wrap recipient.
- */
-export function listedBlobTargetsFromDocumentProjection(input: {
-  bindingId: string;
-  documentId: string;
-  writerProjection: DocumentWriterProjectionResponse;
-}): BlobContentKeyTarget[] {
-  return blobTargetsFor(
-    input,
-    normalizeDocumentKekTargetResponse(
-      input.writerProjection.documentKekTargets,
-    ),
-  );
-}
-
-/**
  * The targets a blob content key may be wrapped to: the verified current
  * heads of the document's linked containers. The server list only names which
  * containers a bundle must cover.
