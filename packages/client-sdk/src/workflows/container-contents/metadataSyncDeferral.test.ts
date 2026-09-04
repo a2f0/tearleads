@@ -358,9 +358,9 @@ test("syncContainerMetadataState never defers keying verification failures", asy
 });
 
 test("syncContainerMetadataState defers a head that cites a stale ancestor head", async () => {
-  // A served head newer than this device's checkpoint that cites a stale
-  // ancestor head cannot be told from a stale delivery; the container keeps
-  // its needing-sync state until a later event cites the current heads.
+  // A served head by a member with no current authority that cites a stale
+  // ancestor head is recorded, and the container keeps its needing-sync
+  // state until a member with current authority commits a later event.
   const container = createContainerRecord({
     id: "container-5",
     metadataDocumentId: "metadata-document-5",
@@ -373,15 +373,16 @@ test("syncContainerMetadataState defers a head that cites a stale ancestor head"
   });
   const logs: string[] = [];
   const incidents: unknown[] = [];
+  const staleCitation = new KeyingVerificationError(
+    "stale_citation",
+    "path[1] cites a stale head of ancestor container root",
+  );
 
   const synced = await syncContainerMetadataState({
     ...createForcedMetadataSyncInput(
       createMetadataSyncRuntime({
         getDocumentWriterProjection: async () => {
-          throw new KeyingVerificationError(
-            "stale_citation",
-            "path[1] cites a stale head of ancestor container root",
-          );
+          throw staleCitation;
         },
         logs,
         reportSecurityIncident: async (error) => {
@@ -393,8 +394,8 @@ test("syncContainerMetadataState defers a head that cites a stale ancestor head"
   });
 
   expect(synced).toBeNull();
-  expect(incidents).toEqual([]);
+  expect(incidents).toEqual([staleCitation]);
   expect(logs).toEqual([
-    "Container contents: deferred metadata sync for container-5 because its head cites a stale ancestor head; a later event on the container that cites the current heads supersedes it.",
+    "Container contents: deferred metadata sync for container-5 because its head cites a stale ancestor head and its signer holds no current authority; a later event on the container by a member with current authority supersedes it.",
   ]);
 });

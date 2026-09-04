@@ -7,6 +7,7 @@ import {
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import { readCanonicalRecord } from "../keyingCanonicalJson";
 import type { ExecSql } from "../sqlite/sqlSchema";
+import { isKeyingVerificationError } from "./error";
 import { loadLocalAccessManifestCheckpoint } from "./manifestCheckpointVerification";
 import { readRecordNullableString } from "./readers";
 
@@ -27,7 +28,8 @@ import { readRecordNullableString } from "./readers";
  * away for a later one.
  *
  * A served head newer than this device's checkpoint for its container must
- * also cite the ancestor heads the projection serves as current: the
+ * also cite the ancestor heads the projection serves as current, or be signed
+ * by a member who still holds the authority the event needs at them: the
  * container form of the principal-policy rule that a successor new to a
  * device must cite the authority's current head.
  */
@@ -234,29 +236,75 @@ export function assertCitedAncestorsDoNotRegress(
 }
 
 /**
+ * The served ancestors a head cites at a stale head, by container id. A
+ * served head equal to the cited one is current; one that descends from it
+ * is the ambiguous ordering; one that does not is a stale or forked ancestor
+ * head, whatever the server calls current, since the signed event proves the
+ * cited head exists.
+ */
+function staleAncestorCitations(input: {
+  readonly head: VerifiedContainerAccessManifest;
+  readonly label: string;
+  readonly servedAncestors: readonly VerifiedContainerAccessManifest[];
+  readonly verifiedByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>;
+}): string[] {
+  const citations = input.head.event.event.dependencyManifestHashes;
+  const stale: string[] = [];
+  for (const served of input.servedAncestors) {
+    const containerId = served.state.containerId;
+    const cited = verifiedCitedHead(
+      input.verifiedByHash,
+      citations,
+      containerId,
+    );
+    if (!cited) {
+      // Unreachable once the cited ancestor path resolved: both chains run
+      // by parent id from the same parent. Kept as the invariant it is.
+      throw new KeyingVerificationError(
+        "missing_dependency",
+        `${input.label} does not cite a verified head of ancestor container ${containerId}`,
+      );
+    }
+    if (cited.manifestHash === served.manifestHash) continue;
+    if (!descendsFrom(input.verifiedByHash, served, cited)) {
+      throw new KeyingVerificationError(
+        "rollback",
+        `${input.label} cites a head of ancestor container ${containerId} that the served current head does not descend from`,
+      );
+    }
+    stale.push(containerId);
+  }
+  return stale;
+}
+
+/**
  * A served head newer than this device's checkpoint for its container must
- * cite, for every ancestor, the head the projection serves as current. A
+ * cite, for every ancestor, the head the projection serves as current, or be
+ * signed by a member who still holds the authority the event needs at the
+ * served current path: the container form of the principal-policy rule that
+ * a successor new to a device must cite the authority's current head. A
  * member revoked from an ancestor could otherwise commit a child event citing
  * the ancestor head that still granted them, and a device already holding
- * the child would take it for a stale delivery. The rule reads the served
- * heads, so it composes with the ancestor's own checkpoint; a device with no
- * checkpoint for the child is at first contact with it and takes the served
- * history as it is, as it does for principal policies.
+ * the child would take it for a stale delivery; a member with current
+ * authority gains nothing by citing an older head, so their late event is
+ * accepted as the stale delivery it is. The rule reads the served heads, so
+ * it composes with the ancestor's own checkpoint; a device with no checkpoint
+ * for the child is at first contact with it and takes the served history as
+ * it is, as it does for principal policies.
  *
- * Only the head is held to this, not the history between the checkpoint and
- * it: a child head committed before an ancestor advanced and first seen after
- * is refused until any later child event cites the current heads, and that
- * event then verifies the refused head as its predecessor. The refusal is
- * `stale_citation`, its own code, because the device cannot tell that honest
- * ordering from a forgery and must simply wait: sync defers rather than
- * records an incident, and no fresh projection resolves it.
- *
- * The opposite disagreement is not that: the signed event proves the head it
- * cites exists, so a served ancestor head that does not descend from the
- * cited one is a stale or forked ancestor head, whatever the server calls
- * current, and stays a reportable rollback.
+ * What remains refused, as `stale_citation`, is a head by a member since
+ * revoked at an ancestor. Only the head is held to this, not the history
+ * between the checkpoint and it, so a later event on the container by a
+ * member with current authority supersedes the refused head and verifies it
+ * as a predecessor. The refusing device cannot commit that event itself,
+ * since every mutation verifies this projection first; sync records the
+ * refusal and defers the container rather than failing it.
  */
 export async function assertNewHeadCitesServedAncestors(input: {
+  // Re-checks the head's signer at the served current path. Called only
+  // when the head cites a stale ancestor head; throws `unauthorized` when
+  // the signer holds no authority there.
+  readonly authorizeAtServedPath: () => Promise<void>;
   readonly execSql: ExecSql;
   readonly head: VerifiedContainerAccessManifest;
   readonly label: string;
@@ -275,30 +323,17 @@ export async function assertNewHeadCitesServedAncestors(input: {
   if (!localCheckpoint || input.head.state.epoch <= localCheckpoint.epoch) {
     return;
   }
-  const citations = input.head.event.event.dependencyManifestHashes;
-  for (const served of input.servedAncestors) {
-    const containerId = served.state.containerId;
-    const cited = verifiedCitedHead(
-      input.verifiedByHash,
-      citations,
-      containerId,
-    );
-    if (!cited) {
-      throw new KeyingVerificationError(
-        "missing_dependency",
-        `${input.label} does not cite a verified head of ancestor container ${containerId}`,
-      );
-    }
-    if (cited.manifestHash === served.manifestHash) continue;
-    if (descendsFrom(input.verifiedByHash, served, cited)) {
-      throw new KeyingVerificationError(
-        "stale_citation",
-        `${input.label} is newer than the local checkpoint but cites a stale head of ancestor container ${containerId} rather than the served current head; a later event on the container that cites the current heads supersedes it`,
-      );
+  const stale = staleAncestorCitations(input);
+  if (stale.length === 0) return;
+  try {
+    await input.authorizeAtServedPath();
+  } catch (error) {
+    if (!isKeyingVerificationError(error) || error.code !== "unauthorized") {
+      throw error;
     }
     throw new KeyingVerificationError(
-      "rollback",
-      `${input.label} cites a head of ancestor container ${containerId} that the served current head does not descend from`,
+      "stale_citation",
+      `${input.label} is newer than the local checkpoint, cites a stale head of ancestor container ${stale.join(", ")} rather than the served current head, and its signer holds no authority at the served current path; a later event on the container by a member with current authority supersedes it`,
     );
   }
 }

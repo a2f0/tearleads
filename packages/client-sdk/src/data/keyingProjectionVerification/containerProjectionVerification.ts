@@ -1,5 +1,4 @@
 import {
-  type AnyVerifiedPrincipalPolicy,
   type ContainerUserRecipientKey,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
@@ -22,8 +21,8 @@ import {
   observeAccessManifestCheckpoints,
   type ProjectionCheckpointContext,
 } from "./checkpointContext";
-import { assertNewHeadCitesServedAncestors } from "./containerAncestorCitations";
 import { verifyContainerManifestBundle } from "./containerManifestVerification";
+import { verifyContainerManifestPath } from "./containerPathVerification";
 import { rethrowProjectionVerificationBoundaryError } from "./error";
 import { collectReferencedPrincipalPolicies } from "./principalPolicyVerification";
 import {
@@ -182,75 +181,6 @@ async function verifyContainerKekProjection(input: {
   return verified.value;
 }
 
-export async function verifyContainerManifestPath(input: {
-  readonly authorizationMembership?: "current" | "referenced" | undefined;
-  readonly authorizationEvidence?:
-    | readonly AnyVerifiedPrincipalPolicy[]
-    | undefined;
-  readonly bundlesByHash: ReadonlyMap<string, AccessManifestBundleWireResponse>;
-  readonly checkpointContext: ProjectionCheckpointContext;
-  readonly enforceLocalCheckpoints: boolean;
-  readonly label: string;
-  readonly path: readonly AccessManifestBundleWireResponse[];
-  readonly principalPolicyCache: PrincipalPolicyCache;
-  readonly resolveUserKey: ProjectionUserKeyResolver;
-  readonly requireAuthorizationEvidence?: boolean | undefined;
-  // With checkpoints enforced, also hold an element newer than its local
-  // checkpoint to citing the elements served above it. True for a path that
-  // is the current one, which a later event on the container can re-cite;
-  // false for a signed snapshot such as a purge's authorizing path.
-  readonly requireCurrentAncestorCitations: boolean;
-  readonly verifiedByHash: Map<string, VerifiedContainerAccessManifest>;
-  readonly warmReferencedPrincipalPolicies?:
-    | ReferencedPrincipalPolicyWarmer
-    | undefined;
-}): Promise<VerifiedContainerAccessManifest[]> {
-  const verifiedPath: VerifiedContainerAccessManifest[] = [];
-  for (const [index, bundle] of input.path.entries()) {
-    const verified = await verifyContainerManifestBundle({
-      authorizationMembership: input.authorizationMembership,
-      authorizationEvidence: input.authorizationEvidence,
-      bundle,
-      bundlesByHash: input.bundlesByHash,
-      checkpointContext: input.checkpointContext,
-      enforceLocalCheckpoint: input.enforceLocalCheckpoints,
-      label: `${input.label}[${index}]`,
-      parentPath: verifiedPath,
-      principalPolicyCache: input.principalPolicyCache,
-      resolveUserKey: input.resolveUserKey,
-      requireAuthorizationEvidence: input.requireAuthorizationEvidence,
-      verifiedByHash: input.verifiedByHash,
-      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-    });
-    // Access along a path is the union of its elements' grants, so a served
-    // path must be a genuine root-to-leaf ancestor chain: each element is the
-    // parent of the next, and the first is a root.
-    const expectedParentId = verifiedPath.at(-1)?.state.containerId ?? null;
-    if (verified.state.parentContainerId !== expectedParentId) {
-      throw new KeyingVerificationError(
-        "object_mismatch",
-        `${input.label}[${index}] parent container does not precede it in the path`,
-      );
-    }
-    if (
-      input.enforceLocalCheckpoints &&
-      input.requireCurrentAncestorCitations
-    ) {
-      await assertNewHeadCitesServedAncestors({
-        execSql: input.checkpointContext.execSql,
-        head: verified,
-        label: `${input.label}[${index}]`,
-        localCheckpoints: input.checkpointContext.localCheckpoints,
-        servedAncestors: verifiedPath,
-        verifiedByHash: input.verifiedByHash,
-      });
-    }
-    verifiedPath.push(verified);
-  }
-
-  return verifiedPath;
-}
-
 interface ContainerWriterProjectionVerificationInput {
   readonly execSql: ExecSql;
   readonly persistVerificationCheckpoints?: boolean | undefined;
@@ -311,7 +241,6 @@ export async function verifyContainerWriterProjectionWithContext(
     label: "Container writer projection path",
     path: input.projection.path,
     principalPolicyCache,
-    requireCurrentAncestorCitations: true,
     resolveUserKey: input.resolveUserKey,
     verifiedByHash,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,

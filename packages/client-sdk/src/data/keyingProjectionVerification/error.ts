@@ -26,14 +26,20 @@ export function isKeyingVerificationError(
 }
 
 /**
- * A served head newer than the local checkpoint that cites a stale ancestor
- * head is an ordering the device cannot resolve yet, not a trust-boundary
- * failure: the head is not used, and any later event on the container that
- * cites the current heads supersedes it. Boundaries still stop on it, but it
- * is not a security incident and no fresh projection resolves it.
+ * A served head newer than the local checkpoint, signed by a member with no
+ * current authority, that cites a stale ancestor head. The device cannot tell
+ * that member's last honest event from one committed later with the server's
+ * help, so the head is not used; a later event on the container by a member
+ * with current authority supersedes it, and no fresh projection resolves it.
+ * Boundaries record it and defer rather than fail.
  */
 export function isStaleCitationError(error: unknown): boolean {
   return isKeyingVerificationError(error) && error.code === "stale_citation";
+}
+
+/** Whether a stale citation is the verification failure in the cause chain. */
+export function isStaleCitationInCauseChain(error: unknown): boolean {
+  return isStaleCitationError(keyingVerificationErrorInCauseChain(error));
 }
 
 export function rethrowKeyingVerificationError(error: unknown): void {
@@ -57,10 +63,8 @@ function keyingVerificationErrorInCauseChain(
 }
 
 /**
- * True when the cause chain holds a keying verification error, whether or
- * not it was reported: a stale citation is recognized but never an incident.
- * Callers use the result to preserve the boundary, not to learn whether the
- * ledger was written.
+ * True when the cause chain holds a keying verification error; callers use
+ * the result to preserve the boundary. Reporting is best-effort.
  */
 export async function reportKeyingVerificationErrorInCauseChain(
   error: unknown,
@@ -69,7 +73,6 @@ export async function reportKeyingVerificationErrorInCauseChain(
 ): Promise<boolean> {
   const verificationError = keyingVerificationErrorInCauseChain(error);
   if (!verificationError) return false;
-  if (isStaleCitationError(verificationError)) return true;
   try {
     await reporter?.(verificationError, context);
   } catch {

@@ -233,6 +233,7 @@ export {
   openContainerKekKeyring,
   principalPolicyMatchesReference,
   principalPolicyTransparencyLeaf,
+  requireContainerPathUserAccess,
   resolveContainerPathUserAccessLevel,
   resolveHistoricalContainerPathUserAccessLevel,
   sealContainerKekKeyring,

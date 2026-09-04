@@ -1,7 +1,7 @@
 import { isDocumentSyncUpdateIsolationError } from "../../data/documents/shared/documentSyncUpdateIsolation";
 import {
   isKeyingVerificationError,
-  isStaleCitationError,
+  isStaleCitationInCauseChain,
   reportKeyingVerificationErrorInCauseChain,
 } from "../../data/keyingProjectionVerification/error";
 import { isPrincipalPolicyNotCachedError } from "../../data/keyingProjectionVerification/principalPolicyVerification";
@@ -54,12 +54,23 @@ export async function deferRecoverableMetadataSyncError(input: {
     return null;
   }
 
-  // A served head newer than this device's checkpoint that cites a stale
-  // ancestor head cannot be told from a stale delivery until a later event on
-  // the container cites the current heads. Keep needing-sync set for then.
-  if (isStaleCitationError(input.error)) {
+  // A served head by a member with no current authority that cites a stale
+  // ancestor head cannot be told from that member's last honest event until
+  // a member with current authority commits a later event on the container.
+  // Record it, then keep needing-sync set for that event.
+  if (isStaleCitationInCauseChain(input.error)) {
+    await reportKeyingVerificationErrorInCauseChain(
+      input.error,
+      input.runtime.util.reportSecurityIncident,
+      {
+        objectId: input.containerId,
+        objectKind: "container",
+        operation: "container.metadata.sync",
+        organizationId: input.runtime.auth.organizationId,
+      },
+    );
     input.runtime.util.log(
-      `Container contents: deferred metadata sync for ${input.containerId} because its head cites a stale ancestor head; a later event on the container that cites the current heads supersedes it.`,
+      `Container contents: deferred metadata sync for ${input.containerId} because its head cites a stale ancestor head and its signer holds no current authority; a later event on the container by a member with current authority supersedes it.`,
     );
     return null;
   }

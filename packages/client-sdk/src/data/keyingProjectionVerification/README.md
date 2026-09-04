@@ -12,6 +12,9 @@ that facade.
   currency and no-regression rules those citations must satisfy.
 - `containerManifestVerification.ts` verifies container manifest bundles,
   including parent-path resolution and previous-manifest checks.
+- `containerPathVerification.ts` verifies a served container path as a
+  root-to-leaf chain and holds a current path's elements to the served heads
+  above them, re-checking a stale-citing head's signer at the current path.
 - `containerProjectionVerification.ts` verifies container KEK projections and
   full container writer projections, and collects their principal policies.
 - `documentProjectionVerification.ts` verifies document manifest bundles and

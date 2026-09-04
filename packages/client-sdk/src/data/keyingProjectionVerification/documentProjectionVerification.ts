@@ -24,10 +24,10 @@ import {
   observeAccessManifestCheckpoints,
   type ProjectionCheckpointContext,
 } from "./checkpointContext";
+import { verifyContainerManifestPath } from "./containerPathVerification";
 import {
   addContainerWriterProjectionBundles,
   verifiedContainerManifestsForBundles,
-  verifyContainerManifestPath,
   verifyContainerWriterProjectionWithContext,
 } from "./containerProjectionVerification";
 import {
@@ -168,7 +168,6 @@ async function verifyProjectionContainerPaths(input: {
       checkpointContext: input.checkpointContext,
       enforceLocalCheckpoints: false,
       label: `Document writer projection dependency path[${index}]`,
-      requireCurrentAncestorCitations: false,
       path,
       principalPolicyCache: input.principalPolicyCache,
       resolveUserKey: input.resolveUserKey,

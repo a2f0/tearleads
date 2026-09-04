@@ -23,7 +23,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { manifestBundle } from "../../../test/helpers/ancestorCitationScenario";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import { createProjectionCheckpointContext } from "./checkpointContext";
-import { verifyContainerManifestPath } from "./containerProjectionVerification";
+import { verifyContainerManifestPath } from "./containerPathVerification";
 import { principalPolicyCacheForVerifiedPolicies } from "./principalPolicyCache";
 
 function policyState(
@@ -196,7 +196,6 @@ test("required purge evidence reaches every recursive container predecessor", as
       bundlesByHash,
       checkpointContext: createProjectionCheckpointContext({ execSql }),
       enforceLocalCheckpoints: false,
-      requireCurrentAncestorCitations: false,
       label: "Warm cached container path",
       path: [manifestBundle(granted)],
       principalPolicyCache: principalPolicyCacheForVerifiedPolicies([policy]),
@@ -212,7 +211,6 @@ test("required purge evidence reaches every recursive container predecessor", as
         bundlesByHash,
         checkpointContext: createProjectionCheckpointContext({ execSql }),
         enforceLocalCheckpoints: false,
-        requireCurrentAncestorCitations: false,
         label: "Cold purge container path",
         path: [manifestBundle(granted)],
         principalPolicyCache: principalPolicyCacheForVerifiedPolicies([policy]),

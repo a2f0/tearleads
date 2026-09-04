@@ -17,7 +17,7 @@ import {
 import type { createTestExecSql } from "@tearleads/test-utils";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import { createProjectionCheckpointContext } from "../../src/data/keyingProjectionVerification/checkpointContext";
-import { verifyContainerManifestPath } from "../../src/data/keyingProjectionVerification/containerProjectionVerification";
+import { verifyContainerManifestPath } from "../../src/data/keyingProjectionVerification/containerPathVerification";
 import { principalPolicyCacheForVerifiedPolicies } from "../../src/data/keyingProjectionVerification/principalPolicyCache";
 import { advanceKeyingCheckpointsAtomically } from "../../src/data/persistence/keyingCheckpointAdvancePersistence";
 import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
@@ -29,7 +29,8 @@ import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
 // so the verifier authorizes a head at those cited heads and refuses a head
 // that cites an older ancestor head than an earlier signed statement proved.
 // A head newer than a device's checkpoint must also cite the served current
-// ancestor heads; a later child event that does so recovers a refused one.
+// ancestor heads unless its signer still holds authority at them; a later
+// child event by a member with current authority recovers a refused one.
 
 export const ORGANIZATION_ID = "organization-1";
 export const ROOT_ID = "ancestor-root";
@@ -216,11 +217,12 @@ export function verifyPath(
   input: {
     readonly bundles: readonly VerifiedContainerAccessManifest[];
     readonly path: readonly VerifiedContainerAccessManifest[];
-    // Off for a signed snapshot such as a purge's authorizing path.
-    readonly requireCurrentAncestorCitations?: boolean | undefined;
+    // "referenced" for a signed snapshot such as a purge's authorizing path.
+    readonly authorizationMembership?: "current" | "referenced" | undefined;
   },
 ) {
   return verifyContainerManifestPath({
+    authorizationMembership: input.authorizationMembership,
     bundlesByHash: new Map(
       input.bundles.map((value) => [value.manifestHash, manifestBundle(value)]),
     ),
@@ -229,8 +231,6 @@ export function verifyPath(
     label: "Ancestor citation path",
     path: input.path.map(manifestBundle),
     principalPolicyCache: principalPolicyCacheForVerifiedPolicies([]),
-    requireCurrentAncestorCitations:
-      input.requireCurrentAncestorCitations ?? true,
     resolveUserKey: scenario.resolveUserKey,
     verifiedByHash: new Map(),
   });

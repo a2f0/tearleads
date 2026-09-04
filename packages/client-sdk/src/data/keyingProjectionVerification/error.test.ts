@@ -3,6 +3,7 @@ import { KeyingVerificationError } from "@tearleads/crypto";
 import { DocumentSyncUpdateIsolationError } from "../documents/shared/documentSyncUpdateIsolation";
 import {
   isStaleCitationError,
+  isStaleCitationInCauseChain,
   reportAndRethrowKeyingVerificationError,
 } from "./error";
 
@@ -57,19 +58,22 @@ test("verification cause traversal is bounded and cycle-safe", async () => {
   expect(reported).toBe(false);
 });
 
-test("a stale ancestor citation stops the boundary without an incident", async () => {
-  // The device cannot tell that ordering from a forgery and must wait for a
-  // later event on the container; it is not a trust-boundary failure.
+test("a stale ancestor citation is recorded and preserves the boundary", async () => {
+  // A head by a member with no current authority that cites a stale ancestor
+  // head is recorded like any refusal; the deferral is the sync boundary's.
   const staleCitation = new KeyingVerificationError(
     "stale_citation",
     "path[1] cites a stale head of ancestor container root",
   );
+  const wrapped = new Error("metadata sync failed", { cause: staleCitation });
   const reported: unknown[] = [];
 
   expect(isStaleCitationError(staleCitation)).toBe(true);
+  expect(isStaleCitationError(wrapped)).toBe(false);
+  expect(isStaleCitationInCauseChain(wrapped)).toBe(true);
   await expect(
     reportAndRethrowKeyingVerificationError(
-      staleCitation,
+      wrapped,
       async (error) => {
         reported.push(error);
       },
@@ -79,6 +83,6 @@ test("a stale ancestor citation stops the boundary without an incident", async (
         operation: "container.metadata.sync",
       },
     ),
-  ).rejects.toBe(staleCitation);
-  expect(reported).toEqual([]);
+  ).rejects.toBe(wrapped);
+  expect(reported).toEqual([staleCitation]);
 });

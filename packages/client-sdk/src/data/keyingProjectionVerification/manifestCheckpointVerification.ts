@@ -10,8 +10,10 @@ import type { ExecSql } from "../sqlite/sqlSchema";
 /**
  * The local checkpoint for one object, read once per verification: every
  * checkpoint-enforced element of a served path reads its own checkpoint, and
- * the currency rule reads it again, while nothing commits a checkpoint until
- * the whole projection has verified.
+ * the currency rule reads it again. The verification itself commits nothing
+ * until it has finished; a checkpoint another verification commits meanwhile
+ * is seen by the atomic advance, which re-validates every checkpoint, and by
+ * the next verification.
  */
 export async function loadLocalAccessManifestCheckpoint(input: {
   readonly execSql: ExecSql;

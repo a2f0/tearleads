@@ -22,24 +22,26 @@ function createState(input: {
   } as unknown as Parameters<typeof settleScheduledSyncFailure>[0];
 }
 
-test("a stale ancestor citation ends the pass without an incident", async () => {
-  // The device cannot tell that ordering from a stale delivery until a later
-  // event on the container cites the current heads; the next trigger retries.
+test("a stale ancestor citation is recorded and ends the pass", async () => {
+  // The device cannot tell that member's last honest event from one committed
+  // later with the server's help; only a later event on the container by a
+  // member with current authority resolves it, so the next trigger retries.
   const incidents: unknown[] = [];
   const logs: string[] = [];
+  const staleCitation = new KeyingVerificationError(
+    "stale_citation",
+    "path[1] cites a stale head of ancestor container root",
+  );
 
   const settled = await settleScheduledSyncFailure(
     createState({ incidents, logs }),
-    new KeyingVerificationError(
-      "stale_citation",
-      "path[1] cites a stale head of ancestor container root",
-    ),
+    new Error("sync pass failed", { cause: staleCitation }),
   );
 
   expect(settled).toBe(true);
-  expect(incidents).toEqual([]);
+  expect(incidents).toEqual([staleCitation]);
   expect(logs).toEqual([
-    "Document sync: deferred document-1 because a container head cites a stale ancestor head; a later event on the container that cites the current heads supersedes it.",
+    "Document sync: deferred document-1 because a container head cites a stale ancestor head and its signer holds no current authority; a later event on the container by a member with current authority supersedes it.",
   ]);
 });
 

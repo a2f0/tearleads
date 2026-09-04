@@ -17,10 +17,8 @@ import {
   observeAccessManifestCheckpoints,
   observePrincipalPolicy,
 } from "./checkpointContext";
-import {
-  verifiedContainerManifestsForBundles,
-  verifyContainerManifestPath,
-} from "./containerProjectionVerification";
+import { verifyContainerManifestPath } from "./containerPathVerification";
+import { verifiedContainerManifestsForBundles } from "./containerProjectionVerification";
 import { authenticateDocumentPurgeArtifacts } from "./documentPurgePrincipalEvidence";
 import { rethrowDatabaseUnavailableError } from "./error";
 import {
@@ -100,9 +98,9 @@ async function verifyPurgeContainerPaths(input: {
     // head makes the purge ambiguous because ancestry does not order the purge
     // signature; fail closed instead of accepting server-supplied descendants.
     // The path is the snapshot the purge cited, which no later event can
-    // re-cite, so it is not held to the served current ancestor heads.
+    // re-cite; verified at referenced membership, it is not held to the
+    // served current ancestor heads.
     enforceLocalCheckpoints: input.enforceLocalCheckpoints,
-    requireCurrentAncestorCitations: false,
     label: "Document purge authorizing container path",
     path: input.proof.authorizingContainerPath,
     principalPolicyCache: input.principalPolicyCache,
@@ -135,7 +133,6 @@ async function verifyPurgeContainerPaths(input: {
       checkpointContext: input.checkpointContext,
       enforceLocalCheckpoints: false,
       label: `Document purge dependency path[${index}]`,
-      requireCurrentAncestorCitations: false,
       path,
       principalPolicyCache: input.principalPolicyCache,
       resolveUserKey: input.resolveUserKey,
