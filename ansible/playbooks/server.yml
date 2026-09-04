@@ -47,6 +47,7 @@
     # TF_VAR_extra_demo_domains for the DNS records and tunnel ingress, and this
     # play and the app-web deploy read the same value -- so a host can never be
     # routed here without a server block and a CORS origin to answer it.
+    extra_demo_domain_pattern: '^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$'
     extra_demo_domains: >-
       {{ lookup('env', 'TF_VAR_extra_demo_domains') | default('[]', true) | from_json }}
     app_demo_hostnames: >-
@@ -95,6 +96,8 @@
     # The Capacitor Android/iOS WebView serves the app from https://localhost; release builds fetch the API cross-origin, so allow it.
     api_web_cors_origins: "{{ ([app_hostname] + app_demo_hostnames) | map('regex_replace', '^(.*)$', 'https://\\1') | list }}"
     api_default_cors_origins: "{{ (api_web_cors_origins + ['https://localhost']) | join(',') }}"
+    # An explicit API_CORS_ORIGINS replaces the computed list outright, demo
+    # origins included; set it only with the full allowlist for the tier.
     api_cors_origins: "{{ lookup('env', 'API_CORS_ORIGINS') | default(api_default_cors_origins, true) }}"
     revenuecat_webhook_auth_header: "{{ lookup('env', 'REVENUECAT_WEBHOOK_AUTH_HEADER') | default('', true) }}"
     revenuecat_v2_secret_key: "{{ lookup('env', 'REVENUECAT_V2_SECRET_KEY') | default('', true) }}"
@@ -120,11 +123,16 @@
     code_assist_github_webhook_secret: "{{ lookup('env', 'CODE_ASSIST_GITHUB_WEBHOOK_SECRET') | default('', true) }}"
     code_assist_github_private_key_src: "{{ lookup('env', 'CODE_ASSIST_GITHUB_PRIVATE_KEY_SRC') | default('', true) }}"
   tasks:
+    # The playbook runs without Terraform (--skip-terraform, or run-server-*.sh
+    # directly), so it cannot rely on the variable's Terraform validation: these
+    # names reach nginx's server_name and the API's CORS allowlist.
     - name: Validate extra demo zone names
       ansible.builtin.assert:
         that:
           - extra_demo_domains is sequence
           - extra_demo_domains is not string
+          - extra_demo_domains is not mapping
+          - extra_demo_domains | reject('match', extra_demo_domain_pattern) | list | length == 0
           - extra_demo_domains | select('match', '^demo[.-]') | list | length == 0
         fail_msg: >-
           TF_VAR_extra_demo_domains must be a JSON array of bare zone names,

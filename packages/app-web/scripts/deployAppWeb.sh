@@ -84,6 +84,10 @@ if [ -n "${TF_VAR_extra_demo_domains:-}" ]; then
         exit 1
         ;;
     esac
+    if ! [[ "$zone" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$ ]]; then
+      echo "ERROR: TF_VAR_extra_demo_domains entry is not a zone name: $zone." >&2
+      exit 1
+    fi
     extra_demo_zones+=("$zone")
   done <<< "$extra_demo_zone_list"
 fi

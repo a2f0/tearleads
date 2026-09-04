@@ -23,9 +23,11 @@ Production uses `tearleads.com`, `app.tearleads.com`, `demo.tearleads.com`, and
 the same bundle, and `TF_VAR_extra_demo_domains` adds Cloudflare zones that
 serve it too (for example `tearleads.de`, reached at `demo.tearleads.de`). Set
 it in `.secrets/<tier>.env`, where Terraform, the server playbook, and the
-app-web deploy all read it, and give `TF_VAR_cloudflare_api_token` access to
-each listed zone. Realtime events share each tier's API hostname at `/events`;
-code-assist shares it at `/code-assist/webhook`.
+app-web deploy all read it — quoted, since that file is sourced by bash:
+`TF_VAR_extra_demo_domains='["tearleads.de"]'`. The Cloudflare token in
+`TF_VAR_cloudflare_api_token` needs access to each listed zone. Realtime events
+share each tier's API hostname at `/events`; code-assist shares it at
+`/code-assist/webhook`.
 
 ## Running Tests
 
