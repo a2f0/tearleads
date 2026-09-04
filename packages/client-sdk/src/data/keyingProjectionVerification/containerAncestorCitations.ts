@@ -24,13 +24,12 @@ import { readRecordNullableString } from "./readers";
  * away for a later one.
  *
  * Not applied here: the principal-policy rule that a successor new to this
- * device must cite the authority's current head. The API today refuses any
- * mutation on a container whose pinned parent manifest is no longer the
- * parent's head, so no later child event could ever supersede a head that
- * rule rejected, and one ordinary sequence (share a child, then change its
- * parent, then sync a device that missed both) would lock that device out of
- * the child for good. That rule follows once descendants can re-cite their
- * ancestors.
+ * device must cite the authority's current head. The API accepts a mutation
+ * on a container whose pinned parent manifest is no longer the parent's head
+ * as long as the event cites the current ancestor heads, and serves the
+ * cited heads with the projection, so a later child event can supersede a
+ * head that rule would reject. Applying the rule here, with that recovery,
+ * is a follow-up.
  */
 
 interface CitedAncestorResolutionInput {

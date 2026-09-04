@@ -44,6 +44,12 @@ function userRecipientKeysFromKekTargets(
 
 export async function buildContainerGrantRequest(input: {
   readonly accessLevel?: "admin" | "read" | "write" | undefined;
+  // Further manifests of this container the KEK binding needs, such as the
+  // key epoch's creation manifest once the head has advanced past it; a
+  // client takes these from its writer projection history.
+  readonly containerManifestHistory?:
+    | readonly AccessManifestBundleWire[]
+    | undefined;
   readonly parentKekState: VerifiedContainerKekState | null;
   readonly previous: AccessManifestBundleWire;
   readonly previousContainerPath: readonly AccessManifestBundleWire[];
@@ -104,7 +110,10 @@ export async function buildContainerGrantRequest(input: {
 
   return {
     body,
-    containerManifestHistory: [input.previous],
+    containerManifestHistory: [
+      input.previous,
+      ...(input.containerManifestHistory ?? []),
+    ],
     event: event.event,
     expectedManifestHash: bundle.manifestHash,
     keyEpoch: input.previousKekState.keyEpoch,

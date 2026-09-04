@@ -83,8 +83,8 @@
       "bytes": 28639
     },
     "docs/security-guarantees.md": {
-      "lines": 608,
-      "bytes": 33056
+      "lines": 609,
+      "bytes": 33165
     },
     "formal/document-sync/BaselineDominanceTraces.json": {
       "lines": 2059,
@@ -183,8 +183,8 @@
       "bytes": 19072
     },
     "packages/api/src/workflows/documents/writerProjection.ts": {
-      "lines": 694,
-      "bytes": 21353
+      "lines": 684,
+      "bytes": 21686
     },
     "packages/api/src/workflows/principals/accessLossTombstones.ts": {
       "lines": 539,

@@ -35,6 +35,7 @@ async function loadDocumentPurgeAuthorizationMaterialWithCache(input: {
     containerPathsByLeafHash: new Map(),
     executor: input.executor,
     manifestCache: input.manifestCache,
+    walkedCitations: new Set(),
     walkedContainerPredecessors: new Set(),
   };
   const authorizingContainerPath: AccessManifestBundleWireResponse[] = [];

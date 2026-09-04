@@ -334,7 +334,55 @@ export interface ContainerDependencyLoadState {
   >;
   readonly executor: DatabaseSession;
   readonly manifestCache: Map<string, LoadedProjectionManifestBundle>;
+  readonly walkedCitations: Set<string>;
   readonly walkedContainerPredecessors: Set<string>;
+}
+
+async function loadContainerHistoryBundle(
+  state: ContainerDependencyLoadState,
+  manifestHash: string,
+): Promise<AccessManifestBundleWireResponse> {
+  const loaded = await loadProjectionManifestBundleByHash(
+    state.executor,
+    manifestHash,
+    state.manifestCache,
+  );
+  if (loaded.objectKind !== "container") {
+    throw new DocumentWriterProjectionError(
+      "Container manifest history entry has the wrong object kind",
+      409,
+    );
+  }
+  state.containerHistoryByHash.set(loaded.bundle.manifestHash, loaded.bundle);
+  return loaded.bundle;
+}
+
+/**
+ * A container event cites the ancestor heads it was committed against, which
+ * may be neither on the current path nor any manifest's pin once the parent
+ * advanced or the container moved. The client authorizes the event against
+ * those cited heads, so every history manifest's citations are served too,
+ * along with their own predecessors and citations.
+ */
+async function collectContainerCitedHeads(input: {
+  readonly bundle: AccessManifestBundleWireResponse;
+  readonly state: ContainerDependencyLoadState;
+}): Promise<void> {
+  const pending = readEventDependencyManifestHashes(
+    input.bundle,
+    "Document writer projection container dependency",
+  ).filter((manifestHash) => !input.state.walkedCitations.has(manifestHash));
+  for (const manifestHash of pending) {
+    input.state.walkedCitations.add(manifestHash);
+    const bundle =
+      input.state.containerHistoryByHash.get(manifestHash) ??
+      (await loadContainerHistoryBundle(input.state, manifestHash));
+    await collectContainerDependencyPredecessors({
+      bundle,
+      state: input.state,
+    });
+    await collectContainerCitedHeads({ bundle, state: input.state });
+  }
 }
 
 async function collectContainerDependencyPredecessors(input: {
@@ -350,23 +398,10 @@ async function collectContainerDependencyPredecessors(input: {
     !input.state.walkedContainerPredecessors.has(previousHash)
   ) {
     input.state.walkedContainerPredecessors.add(previousHash);
-    const loaded = await loadProjectionManifestBundleByHash(
-      input.state.executor,
-      previousHash,
-      input.state.manifestCache,
-    );
-    if (loaded.objectKind !== "container") {
-      throw new DocumentWriterProjectionError(
-        "Container manifest predecessor has the wrong object kind",
-        409,
-      );
-    }
-    input.state.containerHistoryByHash.set(
-      loaded.bundle.manifestHash,
-      loaded.bundle,
-    );
+    const bundle = await loadContainerHistoryBundle(input.state, previousHash);
+    await collectContainerCitedHeads({ bundle, state: input.state });
     previousHash = readManifestPreviousManifestHash(
-      loaded.bundle,
+      bundle,
       "Document writer projection container dependency history",
     );
   }
@@ -411,6 +446,10 @@ export async function loadContainerDependencyPath(input: {
       bundle: loaded.bundle,
       state: input.state,
     });
+    await collectContainerCitedHeads({
+      bundle: loaded.bundle,
+      state: input.state,
+    });
     manifestHash = readContainerParentManifestHash(
       loaded.bundle,
       "Document writer projection container dependency",
@@ -437,6 +476,7 @@ export async function loadDocumentContainerDependencyMaterial(input: {
     >(),
     executor: input.executor,
     manifestCache: input.manifestCache,
+    walkedCitations: new Set<string>(),
     walkedContainerPredecessors: new Set<string>(),
   };
   const documentBundles = [

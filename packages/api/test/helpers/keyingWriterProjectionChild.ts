@@ -29,9 +29,12 @@ export async function createChildContainer(input: {
     readonly bundle: AccessManifestBundleWire | VerifiedContainerAccessManifest;
     readonly kekState: VerifiedContainerKekState;
   };
+  // The parent's own ancestors, root first; empty when the parent is a root.
+  readonly parentPath?: readonly AccessManifestBundleWire[] | undefined;
   readonly signer: TestUser;
 }): Promise<ContainerMutationResponse> {
   const parentBundle = input.parent.bundle as AccessManifestBundleWire;
+  const parentContainerPath = [...(input.parentPath ?? []), parentBundle];
   const containerId = crypto.randomUUID();
   const { containerKeyEpochId } = await createTestContainerKekMaterial({
     containerId,
@@ -49,7 +52,9 @@ export async function createChildContainer(input: {
   };
   const event = await createSignedAccessEvent({
     body,
-    dependencyManifestHashes: [parentBundle.manifestHash],
+    dependencyManifestHashes: parentContainerPath.map(
+      (bundle) => bundle.manifestHash,
+    ),
     objectId: containerId,
     objectKind: "container",
     organizationId: parentManifest.state.organizationId,
@@ -84,15 +89,14 @@ export async function createChildContainer(input: {
     parentKekState: input.parent.kekState,
     wrapManifestHash: bundle.manifestHash,
   });
-  const principalPolicies = await loadPrincipalPoliciesForContainerPath([
-    parentBundle,
-  ]);
+  const principalPolicies =
+    await loadPrincipalPoliciesForContainerPath(parentContainerPath);
   const request: ContainerMutationRequest = {
     event: event.event as unknown as Record<string, unknown>,
     body: body as unknown,
     expectedManifestHash: bundle.manifestHash,
     manifest: bundle.manifest,
-    parentContainerPath: [parentBundle],
+    parentContainerPath,
     principalPolicies: principalPolicies as unknown as Record<
       string,
       unknown
