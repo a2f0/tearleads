@@ -174,6 +174,70 @@ assert_document_sync_ingress_cors() {
   fi
 }
 
+# Render the play's own demo variables. The hostnames reach nginx server_name
+# and the API CORS allowlist through Jinja, where a plausible-looking expression
+# can still produce the wrong string -- a folded scalar carrying `\\1` rendered
+# `demo.\1` for every extra zone while matching any source-text assertion.
+assert_demo_zone_rule_agreement() {
+  local pattern='[a-z0-9]([a-z0-9-]*[a-z0-9])?'
+  local file
+
+  # Terraform validates the variable, but the playbook and the app-web deploy
+  # read the same value and run without it (--skip-terraform), so all three
+  # copies of the rule have to stay identical.
+  for file in \
+    "$REPO_ROOT/terraform/stacks/prod/server/variables.tf" \
+    "$REPO_ROOT/terraform/stacks/staging/server/variables.tf" \
+    "$REPO_ROOT/ansible/playbooks/server.yml" \
+    "$REPO_ROOT/packages/app-web/scripts/deployAppWeb.sh"; do
+    if ! grep -Fq "$pattern" "$file"; then
+      echo "ERROR: extra demo zone names must be validated identically in ${file#"$REPO_ROOT"/}." >&2
+      return 1
+    fi
+  done
+}
+
+assert_demo_hostname_derivation() {
+  local server_yml="$REPO_ROOT/ansible/playbooks/server.yml"
+  local render_dir
+  local play_vars
+  local tier
+  local prefix
+  local hostnames
+  local cors
+
+  render_dir="$(mktemp -d)"
+  trap 'rm -rf "$render_dir"' RETURN
+  play_vars="$render_dir/vars.yml"
+  sed -n '/^  vars:/,/^  tasks:/p' "$server_yml" | sed '1d;$d' | sed 's/^    //' >"$play_vars"
+
+  for tier in prod staging; do
+    prefix="demo."
+    [ "$tier" = "prod" ] || prefix="demo-staging."
+
+    if ! hostnames="$(TF_VAR_extra_demo_domains='["example.de"]' \
+      ANSIBLE_LOCALHOST_WARNING=false \
+      ANSIBLE_INVENTORY_UNPARSED_WARNING=false \
+      ansible localhost --connection local \
+        -m ansible.builtin.debug \
+        -a 'var=api_default_cors_origins' \
+        -e "@$play_vars" \
+        -e "deployment_tier=$tier" \
+        -e domain=example.test \
+        </dev/null 2>"$render_dir/ansible.stderr")"; then
+      sed -n '1,120p' "$render_dir/ansible.stderr" >&2
+      return 1
+    fi
+
+    cors="https://${prefix}example.test,https://${prefix}example.de"
+    if ! grep -Fq "$cors" <<<"$hostnames"; then
+      echo "ERROR: $tier demo hostnames must cover the tier host and every extra zone in the API CORS allowlist." >&2
+      printf '%s\n' "$hostnames" >&2
+      return 1
+    fi
+  done
+}
+
 assert_demo_static_ingress() {
   local app_template="$REPO_ROOT/ansible/playbooks/templates/etc/nginx/sites-available/app.conf.j2"
   local nginx_template="$REPO_ROOT/ansible/playbooks/templates/etc/nginx/nginx.conf.j2"
@@ -193,15 +257,6 @@ assert_demo_static_ingress() {
       -e '{"app_hostname":"app.example.test","app_demo_hostnames":["demo.example.test","demo.example.de"]}' \
       </dev/null >/dev/null 2>"$render_dir/ansible.stderr"; then
     sed -n '1,120p' "$render_dir/ansible.stderr" >&2
-    return 1
-  fi
-
-  local server_yml="$REPO_ROOT/ansible/playbooks/server.yml"
-
-  if ! grep -Fq "lookup('env', 'TF_VAR_extra_demo_domains')" "$server_yml" ||
-    ! grep -q 'app_demo_hostnames:.*\|^ *{{ \[app_demo_hostname\] + (extra_demo_domains' "$server_yml" ||
-    ! grep -Fq '([app_hostname] + app_demo_hostnames)' "$server_yml"; then
-    echo "ERROR: Demo hostnames must derive from TF_VAR_extra_demo_domains and reach the API CORS allowlist." >&2
     return 1
   fi
 
@@ -263,5 +318,7 @@ assert_blob_gc_healthcheck_url_validation
 assert_superseded_timer_ordering
 assert_document_sync_ingress_cors
 assert_demo_static_ingress
+assert_demo_hostname_derivation
+assert_demo_zone_rule_agreement
 
 echo "Infrastructure tier parity passed."

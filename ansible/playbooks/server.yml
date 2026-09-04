@@ -48,11 +48,11 @@
     # play and the app-web deploy read the same value -- so a host can never be
     # routed here without a server block and a CORS origin to answer it.
     extra_demo_domain_pattern: '^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$'
-    extra_demo_domains: >-
-      {{ lookup('env', 'TF_VAR_extra_demo_domains') | default('[]', true) | from_json }}
+    extra_demo_domains_raw: "{{ lookup('env', 'TF_VAR_extra_demo_domains') | default('[]', true) }}"
+    extra_demo_domains: "{{ extra_demo_domains_raw | from_json }}"
     app_demo_hostnames: >-
       {{ [app_demo_hostname] + (extra_demo_domains |
-      map('regex_replace', '^(.+)$', app_demo_host_prefix ~ '\\1') | list) }}
+      map('regex_replace', '^', app_demo_host_prefix) | list) }}
     website_hostname: >-
       {{ 'website-staging.' ~ domain if deployment_tier == 'staging'
       else domain }}
@@ -123,20 +123,8 @@
     code_assist_github_webhook_secret: "{{ lookup('env', 'CODE_ASSIST_GITHUB_WEBHOOK_SECRET') | default('', true) }}"
     code_assist_github_private_key_src: "{{ lookup('env', 'CODE_ASSIST_GITHUB_PRIVATE_KEY_SRC') | default('', true) }}"
   tasks:
-    # The playbook runs without Terraform (--skip-terraform, or run-server-*.sh
-    # directly), so it cannot rely on the variable's Terraform validation: these
-    # names reach nginx's server_name and the API's CORS allowlist.
     - name: Validate extra demo zone names
-      ansible.builtin.assert:
-        that:
-          - extra_demo_domains is sequence
-          - extra_demo_domains is not string
-          - extra_demo_domains is not mapping
-          - extra_demo_domains | reject('match', extra_demo_domain_pattern) | list | length == 0
-          - extra_demo_domains | select('match', '^demo[.-]') | list | length == 0
-        fail_msg: >-
-          TF_VAR_extra_demo_domains must be a JSON array of bare zone names,
-          for example ["tearleads.de"]. The demo label is added per tier.
+      ansible.builtin.import_tasks: tasks/demoZones.yml
 
     - name: Apply shared Linux security baseline
       ansible.builtin.import_tasks: tasks/linuxSecurityBaseline.yml

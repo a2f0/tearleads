@@ -172,6 +172,14 @@ resource "cloudflare_dns_record" "extra_demo_tunnel" {
   content = local.tunnel_cname
   proxied = true
   ttl     = 1
+
+  lifecycle {
+    precondition {
+      # primary_zone_tunnel already publishes this tier's own demo host.
+      condition     = !contains(var.extra_demo_domains, var.domain)
+      error_message = "extra_demo_domains must not repeat this tier's own domain."
+    }
+  }
 }
 
 resource "terraform_data" "cloudflare_tunnel_destroy_grace" {
