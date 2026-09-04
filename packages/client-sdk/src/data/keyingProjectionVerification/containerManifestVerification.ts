@@ -7,11 +7,17 @@ import {
 } from "@tearleads/crypto";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import { readCanonicalJson, readCanonicalRecord } from "../keyingCanonicalJson";
+import { loadAccessManifestCheckpoint } from "../persistence/keyingCheckpointPersistence";
 import {
   assertCanonicalEqual,
   verifyAccessEventBundle,
 } from "./bundleVerification";
 import type { ProjectionCheckpointContext } from "./checkpointContext";
+import {
+  assertCitedParentDoesNotRegress,
+  assertNewHeadCitesCurrentAncestors,
+  resolveCitedAncestorPath,
+} from "./containerAncestorCitations";
 import {
   loadManifestCheckpointVerification,
   verifyCachedManifestCheckpoint,
@@ -88,18 +94,7 @@ export async function verifyContainerManifestBundle(input: {
     await resolveContainerManifestVerificationParentPath(input);
   const cached = input.verifiedByHash.get(input.bundle.manifestHash);
   if (cached) {
-    assertContainerParentPathMatches({
-      label: input.label,
-      parentPath,
-      verifiedManifest: cached,
-    });
-    if (input.enforceLocalCheckpoint) {
-      await verifyCachedManifestCheckpoint({
-        current: cached,
-        execSql: input.checkpointContext.execSql,
-        verifiedManifests: input.verifiedByHash,
-      });
-    }
+    await reuseVerifiedContainerManifest(input, cached, parentPath);
     return cached;
   }
 
@@ -108,28 +103,21 @@ export async function verifyContainerManifestBundle(input: {
     input.bundle.manifest,
     `${input.label} manifest`,
   );
-  const previousManifest =
-    event.event.previousManifestHash === null
-      ? null
-      : await verifyPreviousContainerManifest({
-          ...input,
-          parentPath,
-          previousManifestHash: event.event.previousManifestHash,
-        });
-  const referencedPrincipalHeads = [
-    ...parentPath.flatMap(
-      (parentManifest) => parentManifest.state.referencedPrincipalHeads,
-    ),
-    ...(previousManifest?.state.referencedPrincipalHeads ?? []),
-    ...manifest.referencedPrincipalHeads,
-  ];
-  const authorizationEvidence = input.authorizationEvidence ?? [];
+  const authorization = await resolveContainerManifestAuthorization(
+    input,
+    event,
+    parentPath,
+  );
+  const { citedAncestors, previousManifest, sourceAncestors } = authorization;
   const principalPolicies = await collectManifestAuthorizationPolicies({
-    authorizationEvidence,
+    authorizationEvidence: input.authorizationEvidence ?? [],
     checkpointContext: input.checkpointContext,
     organizationId: event.event.organizationId,
     principalPolicyCache: input.principalPolicyCache,
-    referencedPrincipalHeads,
+    referencedPrincipalHeads: [
+      ...authorization.referencedPrincipalHeads,
+      ...manifest.referencedPrincipalHeads,
+    ],
     requireAuthorizationEvidence: input.requireAuthorizationEvidence ?? false,
     resolveUserKey: input.resolveUserKey,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
@@ -144,16 +132,16 @@ export async function verifyContainerManifestBundle(input: {
 
   const verified = await verifyContainerAccessManifest({
     authorizationMembership: input.authorizationMembership,
-    destinationParentContainerPath: parentPath,
+    destinationParentContainerPath: citedAncestors,
     event,
     expectedManifestHash: input.bundle.manifestHash,
     manifest,
-    parentContainerPath: parentPath,
+    parentContainerPath: citedAncestors,
     principalPolicies,
     ...(checkpointVerification ?? {}),
     ...(previousManifest
       ? {
-          previousContainerPath: [...parentPath, previousManifest],
+          previousContainerPath: [...sourceAncestors, previousManifest],
           previousManifest,
         }
       : { previousManifest: null }),
@@ -164,6 +152,15 @@ export async function verifyContainerManifestBundle(input: {
       `${input.label} manifest verification failed: ${verified.error.message}`,
     );
   }
+  if (input.enforceLocalCheckpoint) {
+    assertNewHeadCitesCurrentAncestors({
+      citedAncestors,
+      label: input.label,
+      localCheckpoint: checkpointVerification?.localCheckpoint ?? null,
+      servedAncestors: input.parentPath,
+      state: verified.value.state,
+    });
+  }
 
   assertCanonicalEqual({
     actual: input.bundle.state,
@@ -173,6 +170,126 @@ export async function verifyContainerManifestBundle(input: {
   input.verifiedByHash.set(input.bundle.manifestHash, verified.value);
 
   return verified.value;
+}
+
+type CitedAncestorInput = Parameters<typeof verifyContainerManifestBundle>[0];
+
+async function reuseVerifiedContainerManifest(
+  input: CitedAncestorInput,
+  cached: VerifiedContainerAccessManifest,
+  parentPath: readonly VerifiedContainerAccessManifest[],
+): Promise<void> {
+  assertContainerParentPathMatches({
+    label: input.label,
+    parentPath,
+    verifiedManifest: cached,
+  });
+  if (!input.enforceLocalCheckpoint) return;
+  await verifyCachedManifestCheckpoint({
+    current: cached,
+    execSql: input.checkpointContext.execSql,
+    verifiedManifests: input.verifiedByHash,
+  });
+  // A manifest first verified as history may now be served as a head; the
+  // currency rule is about heads, so it runs here too.
+  assertNewHeadCitesCurrentAncestors({
+    citedAncestors: await resolveCitedAncestors(input, cached.event, {
+      parentContainerId: cached.state.parentContainerId,
+    }),
+    label: input.label,
+    localCheckpoint: await loadAccessManifestCheckpoint(
+      input.checkpointContext.execSql,
+      "container",
+      cached.state.organizationId,
+      cached.state.containerId,
+    ),
+    servedAncestors: input.parentPath,
+    state: cached.state,
+  });
+}
+
+/**
+ * The paths a container event is authorized against: its previous manifest
+ * and the ancestor heads its signed event cites, root to parent.
+ */
+async function resolveContainerManifestAuthorization(
+  input: CitedAncestorInput,
+  event: VerifiedContainerAccessManifest["event"],
+  parentPath: readonly VerifiedContainerAccessManifest[],
+) {
+  const { parentContainerId, parentManifestHash } =
+    readContainerManifestParentReference(input.bundle, input.label);
+  const previousManifest =
+    event.event.previousManifestHash === null
+      ? null
+      : await verifyPreviousContainerManifest({
+          ...input,
+          parentPath,
+          previousManifestHash: event.event.previousManifestHash,
+        });
+  if (
+    previousManifest === null &&
+    parentManifestHash !== null &&
+    !event.event.dependencyManifestHashes.includes(parentManifestHash)
+  ) {
+    throw new KeyingVerificationError(
+      "missing_dependency",
+      `${input.label} does not cite the parent manifest it was created under`,
+    );
+  }
+  const citedAncestors = await resolveCitedAncestors(input, event, {
+    parentContainerId,
+  });
+  assertCitedParentDoesNotRegress({
+    ...citedAncestorResolutionInput(input),
+    citedAncestors,
+    previousManifest,
+  });
+  // A move's source path is not served once the container has left it, so
+  // the source authorization keeps the pinned path the verifier always used.
+  const sourceAncestors =
+    event.event.eventType === "container.move" ? parentPath : citedAncestors;
+  return {
+    citedAncestors,
+    previousManifest,
+    referencedPrincipalHeads: [
+      ...[...parentPath, ...citedAncestors].flatMap(
+        (ancestor) => ancestor.state.referencedPrincipalHeads,
+      ),
+      ...(previousManifest?.state.referencedPrincipalHeads ?? []),
+    ],
+    sourceAncestors,
+  };
+}
+
+function citedAncestorResolutionInput(input: CitedAncestorInput) {
+  return {
+    bundlesByHash: input.bundlesByHash,
+    label: input.label,
+    verifiedByHash: input.verifiedByHash,
+    verifyHistoryBundle: (
+      bundle: AccessManifestBundleWireResponse,
+      label: string,
+    ) =>
+      verifyContainerManifestBundle({
+        ...input,
+        bundle,
+        enforceLocalCheckpoint: false,
+        label,
+      }),
+  };
+}
+
+function resolveCitedAncestors(
+  input: CitedAncestorInput,
+  event: VerifiedContainerAccessManifest["event"],
+  reference: { readonly parentContainerId: string | null },
+): Promise<VerifiedContainerAccessManifest[]> {
+  return resolveCitedAncestorPath({
+    ...citedAncestorResolutionInput(input),
+    event,
+    parentContainerId: reference.parentContainerId,
+  });
 }
 
 function assertContainerParentPathMatches(input: {
