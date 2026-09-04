@@ -261,9 +261,10 @@ any mutation on a container whose pinned parent manifest is no longer the
 parent's head, so a child head that rule rejected could never be superseded,
 and a device that missed a child event and the ancestor change after it would
 be locked out of the child for good. Until descendants can re-cite their
-ancestors, a device that has not itself observed a newer ancestor head accepts
-a child head authorized under an older one, as it does for principal policies
-without a checkpoint.
+ancestors, every device accepts a child head authorized under an older
+ancestor head, whether or not it has checkpointed a newer one; only a signed
+statement that already established the newer head makes the older citation a
+rollback.
 
 ### Content Confidentiality
 

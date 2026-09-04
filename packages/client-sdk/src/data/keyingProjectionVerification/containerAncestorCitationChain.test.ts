@@ -3,6 +3,7 @@ import type { VerifiedContainerAccessManifest } from "@tearleads/crypto";
 import { createContainerManifestFixture } from "@tearleads/crypto/test-fixtures";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
+  checkpointRootAt,
   createGrandchildScenario,
   createScenario,
   grantBy,
@@ -142,6 +143,101 @@ test("a move's source path is authorized at the source ancestors it cites", asyn
     const verified = await verifyPath(scenario, execSql, {
       bundles: [...bundlesFor(legitimate), sharedRoot],
       path: [sharedRoot, legitimate],
+    });
+    expect(verified).toHaveLength(2);
+  } finally {
+    close();
+  }
+});
+
+test("a move must not cite an older source ancestor head than its predecessor cited", async () => {
+  const scenario = await createScenario();
+  // The child's latest grant already cited root2.
+  const child2 = await grantBy({
+    cited: [scenario.root2.manifestHash, scenario.child1.manifestHash],
+    previous: scenario.child1,
+    signer: scenario.alice,
+    subjectId: "bob",
+  });
+  const malloryRoot = await createContainerManifestFixture({
+    containerId: "ancestor-mallory-root-2",
+    containerKeyEpochId: "mallory-root-2-key-1",
+    directGrants: [
+      {
+        accessLevel: "admin",
+        subjectId: scenario.mallory.userId,
+        subjectType: "user",
+      },
+    ],
+    organizationId: ORGANIZATION_ID,
+    signer: scenario.mallory.keyPair,
+    signerUserId: scenario.mallory.userId,
+  });
+  // Revoked at root2, Mallory cites root1 for the source path, where she was
+  // still an admin, to move the child into her own root.
+  const stolen = await successor({
+    body: {
+      eventType: "container.move",
+      parentContainerId: malloryRoot.state.containerId,
+      parentManifestHash: malloryRoot.manifestHash,
+      containerKeyEpochId: "child-key-3",
+      keyringHash: `${"a".repeat(64)}`,
+      predecessorBridgeHash: `${"b".repeat(64)}`,
+    },
+    cited: [
+      scenario.root1.manifestHash,
+      child2.manifestHash,
+      malloryRoot.manifestHash,
+    ],
+    previous: child2,
+    signer: scenario.mallory,
+    state: () => ({
+      containerKeyEpochId: "child-key-3",
+      parentContainerId: malloryRoot.state.containerId,
+      parentManifestHash: malloryRoot.manifestHash,
+    }),
+  });
+  const { close, execSql } = await createTestExecSql("ancestor-move-regress");
+  try {
+    await expect(
+      verifyPath(scenario, execSql, {
+        bundles: [
+          scenario.root1,
+          scenario.root2,
+          scenario.child1,
+          child2,
+          malloryRoot,
+          stolen,
+        ],
+        path: [malloryRoot, stolen],
+      }),
+    ).rejects.toMatchObject({
+      code: "rollback",
+      message: expect.stringContaining("older head"),
+    });
+  } finally {
+    close();
+  }
+});
+
+// Pins the boundary the security docs state: until descendants can re-cite
+// their ancestors (#2166), a device accepts a child head authorized under an
+// older ancestor head even when it has checkpointed the newer one. Only a
+// signed statement that already established the newer head rejects it.
+test("a device that checkpointed a newer ancestor head still accepts a child head citing the older one", async () => {
+  const scenario = await createScenario();
+  const forged = await grantBy({
+    cited: [scenario.root1.manifestHash, scenario.child1.manifestHash],
+    previous: scenario.child1,
+    signer: scenario.mallory,
+    subjectId: scenario.mallory.userId,
+  });
+  const { close, execSql } = await createTestExecSql("ancestor-boundary");
+  try {
+    await checkpointRootAt(scenario, execSql, scenario.root2);
+    const verified = await verifyPath(scenario, execSql, {
+      bundles: [scenario.root1, scenario.root2, scenario.child1, forged],
+      path: [scenario.root2, forged],
     });
     expect(verified).toHaveLength(2);
   } finally {

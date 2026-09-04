@@ -26,20 +26,21 @@ import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
 // inherit that pin, so a member revoked from an ancestor could keep signing
 // child events that verify against the manifest that still granted them.
 // Every container event signs the ancestor heads it was committed against,
-// so the verifier authorizes a head at those cited heads, refuses a head that
-// is new to this device unless it cites the served current heads, and refuses
-// a head that cites an older parent head than its predecessor did.
+// so the verifier authorizes a head at those cited heads and refuses a head
+// that cites an older ancestor head than an earlier signed statement proved.
+// It does not yet require a head new to a device to cite the current heads;
+// see #2166 for why that waits on descendants being able to re-cite.
 
 export const ORGANIZATION_ID = "organization-1";
 export const ROOT_ID = "ancestor-root";
-export const CHILD_ID = "ancestor-child";
+const CHILD_ID = "ancestor-child";
 
 export type Signer = {
   readonly keyPair: ReturnType<typeof generateSigningSeedAndKeyPair>;
   readonly userId: string;
 };
 
-export function manifestBundle(
+function manifestBundle(
   value: VerifiedContainerAccessManifest,
 ): AccessManifestBundleWireResponse {
   return {
@@ -207,7 +208,7 @@ export async function createScenario() {
   return { alice, child1, mallory, resolveUserKey, root1, root2 };
 }
 
-export type Scenario = Awaited<ReturnType<typeof createScenario>>;
+type Scenario = Awaited<ReturnType<typeof createScenario>>;
 
 export function verifyPath(
   scenario: Scenario,
@@ -314,4 +315,22 @@ export async function createGrandchildScenario() {
     signerUserId: scenario.alice.userId,
   });
   return { ...scenario, leaf, middle };
+}
+
+/** Records a verified root head as this device's local checkpoint for it. */
+export async function checkpointRootAt(
+  scenario: Scenario,
+  execSql: Awaited<ReturnType<typeof createTestExecSql>>["execSql"],
+  head: VerifiedContainerAccessManifest,
+): Promise<void> {
+  const [verifiedHead] = await verifyPath(scenario, execSql, {
+    bundles: [scenario.root1, head],
+    path: [head],
+  });
+  if (!verifiedHead) throw new Error("Expected the root head to verify");
+  await advanceKeyingCheckpointsAtomically({
+    access: [{ head: verifiedHead, predecessors: [] }],
+    execSql,
+    policies: [],
+  });
 }

@@ -184,8 +184,6 @@ async function resolveContainerManifestAuthorization(
   event: VerifiedContainerAccessManifest["event"],
   parentPath: readonly VerifiedContainerAccessManifest[],
 ) {
-  const { parentContainerId, parentManifestHash } =
-    readContainerManifestParentReference(input.bundle, input.label);
   const previousManifest =
     event.event.previousManifestHash === null
       ? null
@@ -194,6 +192,14 @@ async function resolveContainerManifestAuthorization(
           parentPath,
           previousManifestHash: event.event.previousManifestHash,
         });
+  // The parent this event leaves the container under comes from signed data:
+  // the previous manifest for a grant, revoke, or rekey, and the signed body
+  // for a create or move, never from the server-supplied wire state.
+  const eventType = event.event.eventType;
+  const { parentContainerId, parentManifestHash } =
+    previousManifest && eventType !== "container.move"
+      ? previousManifest.state
+      : readContainerEventBodyParentReference(event, input.label);
   if (
     previousManifest === null &&
     parentManifestHash !== null &&
@@ -214,12 +220,20 @@ async function resolveContainerManifestAuthorization(
   });
   // A move's source path leads to the previous manifest's parent, and the
   // move event cites that path too; the destination path is the one above.
+  // The source path is held to the same no-regression rule.
   const sourceAncestors =
-    event.event.eventType === "container.move" && previousManifest
+    eventType === "container.move" && previousManifest
       ? await resolveCitedAncestors(input, event, {
           parentContainerId: previousManifest.state.parentContainerId,
         })
       : citedAncestors;
+  if (sourceAncestors !== citedAncestors) {
+    assertCitedAncestorsDoNotRegress({
+      ...citedAncestorResolutionInput(input),
+      citedAncestors: sourceAncestors,
+      previousManifest,
+    });
+  }
   return {
     citedAncestors,
     previousManifest,
@@ -292,27 +306,44 @@ function assertContainerParentPathMatches(input: {
   }
 }
 
-function readContainerManifestParentReference(
-  bundle: AccessManifestBundleWireResponse,
-  label: string,
-): {
+interface ContainerParentReference {
   parentContainerId: string | null;
   parentManifestHash: string | null;
-} {
-  const state = readCanonicalRecord(bundle.state, `${label} state`);
+}
+
+function readParentReference(
+  value: unknown,
+  label: string,
+): ContainerParentReference {
+  const record = readCanonicalRecord(value, label);
 
   return {
     parentContainerId: readRecordNullableString(
-      state,
+      record,
       "parentContainerId",
-      `${label} state`,
+      label,
     ),
     parentManifestHash: readRecordNullableString(
-      state,
+      record,
       "parentManifestHash",
-      `${label} state`,
+      label,
     ),
   };
+}
+
+function readContainerManifestParentReference(
+  bundle: AccessManifestBundleWireResponse,
+  label: string,
+): ContainerParentReference {
+  return readParentReference(bundle.state, `${label} state`);
+}
+
+/** The parent a create or move body pins, read from the signed body. */
+function readContainerEventBodyParentReference(
+  event: VerifiedContainerAccessManifest["event"],
+  label: string,
+): ContainerParentReference {
+  return readParentReference(event.body, `${label} event body`);
 }
 
 async function resolveContainerManifestVerificationParentPath(input: {

@@ -32,7 +32,7 @@ import { readRecordNullableString } from "./readers";
  * ancestors.
  */
 
-export interface CitedAncestorResolutionInput {
+interface CitedAncestorResolutionInput {
   readonly bundlesByHash: ReadonlyMap<string, AccessManifestBundleWireResponse>;
   readonly label: string;
   readonly verifiedByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>;
@@ -165,18 +165,27 @@ export function assertCitedAncestorsDoNotRegress(
     readonly previousManifest: VerifiedContainerAccessManifest | null;
   },
 ): void {
-  const previousCited =
-    input.previousManifest?.event.event.dependencyManifestHashes ?? [];
+  const previous = input.previousManifest;
+  const previousCited = previous?.event.event.dependencyManifestHashes ?? [];
   input.citedAncestors.forEach((ancestor, index) => {
+    const containerId = ancestor.state.containerId;
+    // Statements that already established a head of this ancestor: what the
+    // previous manifest cited for it, the previous manifest's own pin when
+    // this is its parent, and what the cited child pins and cites.
+    const citedChild = input.citedAncestors[index + 1] ?? previous;
     const floors = [
-      verifiedCitedHead(input, previousCited, ancestor.state.containerId),
+      verifiedCitedHead(input, previousCited, containerId),
+      ...(citedChild
+        ? [
+            input.verifiedByHash.get(citedChild.state.parentManifestHash ?? ""),
+            verifiedCitedHead(
+              input,
+              citedChild.event.event.dependencyManifestHashes,
+              containerId,
+            ),
+          ]
+        : []),
     ];
-    const citedChild = input.citedAncestors[index + 1];
-    if (citedChild?.state.parentManifestHash) {
-      floors.push(
-        input.verifiedByHash.get(citedChild.state.parentManifestHash),
-      );
-    }
     for (const floor of floors) {
       if (
         floor &&
