@@ -146,9 +146,12 @@ export type CitedLineageInput = Pick<
 >;
 
 /**
- * The verified head of `containerId` among the cited hashes, if any. An
- * event cites one head per container, so a second verified one is a served
- * citation set that was tampered with, not a choice to make.
+ * The verified head of `containerId` among the cited hashes, if any. Reads
+ * verified manifests only: a cited hash the pass has not verified is not a
+ * head to reason about, and every caller runs after the cited ancestor path
+ * resolved and verified the chain. An event cites one head per container,
+ * so a second verified one is a served citation set that was tampered with,
+ * not a choice to make.
  */
 export function verifiedCitedHead(input: {
   readonly cited: readonly string[];

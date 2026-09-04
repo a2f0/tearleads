@@ -112,7 +112,13 @@ async function staleMoveSourceCitations(input: {
   const stale: string[] = [];
   const seen = new Set<string>();
   let containerId = previous.state.parentContainerId;
-  while (containerId !== null && !seen.has(containerId)) {
+  while (containerId !== null) {
+    if (seen.has(containerId)) {
+      throw new KeyingVerificationError(
+        "object_mismatch",
+        `${input.label} cited source ancestors form a cycle at ${containerId}`,
+      );
+    }
     seen.add(containerId);
     const cited = verifiedCitedHead({
       cited: citations,

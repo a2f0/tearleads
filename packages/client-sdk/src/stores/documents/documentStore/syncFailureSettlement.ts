@@ -2,18 +2,21 @@ import {
   isStaleCitationInCauseChain,
   reportKeyingVerificationErrorInCauseChain,
 } from "../../../data/keyingProjectionVerification/error";
-import type { SecurityIncidentReporter } from "../../../data/securityIncidents";
 import { isDatabaseUnavailableError } from "../../../workflows/documents";
+import type { DocumentStoreState } from "./state";
 
 /** The slice of a document store's state the settlement reads. */
 export interface ScheduledSyncFailureState {
-  readonly localId: string;
-  readonly record: { readonly documentId: string | null } | null;
+  readonly localId: DocumentStoreState["localId"];
+  readonly record: Pick<
+    NonNullable<DocumentStoreState["record"]>,
+    "documentId"
+  > | null;
   readonly runtime: {
-    readonly util: {
-      readonly log: (message: string) => void;
-      readonly reportSecurityIncident: SecurityIncidentReporter;
-    };
+    readonly util: Pick<
+      DocumentStoreState["runtime"]["util"],
+      "log" | "reportSecurityIncident"
+    >;
   };
 }
 

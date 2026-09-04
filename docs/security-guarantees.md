@@ -305,11 +305,14 @@ refusal in the security-incident ledger and keeps the container needing
 sync; document sync records it and fails the pass as it would any other
 verification failure, retrying on the next trigger with its pending writes
 still queued; other boundaries surface it as the verification failure it
-is. A signed path
-snapshot, such as a purge's authorizing path, is verified at the membership
-it referenced and is not held to the rule; it is checked against the
-container checkpoints the device holds but does not advance them, so a head
-the rule would refuse cannot become a checkpoint through a purge.
+is. A signed path snapshot, such as a purge's authorizing path, is verified
+at the membership it referenced and is not held to the rule; it is checked
+against the container checkpoints the device holds, at verification and
+again when the purge commits, but does not advance them, so a head the rule
+would refuse cannot become a checkpoint through a purge. The trade is that a
+purge proof no longer sets a rollback floor for a container the device knows
+only through that purge; the first projection the device verifies for the
+container sets it.
 
 ### Content Confidentiality
 
