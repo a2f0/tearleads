@@ -74,6 +74,12 @@ export function addReconstructedVerifiedContainerPaths(input: {
   }
 }
 
+/**
+ * The container paths a link event's citations and target resolve to. A
+ * cited hash with no served path is dropped here, not rejected: the crypto
+ * verifier fails closed downstream, since a signer must show write access
+ * through a cited linked container and the target path must be present.
+ */
 export function resolveEventContainerPaths(input: {
   readonly containerPathByManifestHash: ReadonlyMap<
     string,

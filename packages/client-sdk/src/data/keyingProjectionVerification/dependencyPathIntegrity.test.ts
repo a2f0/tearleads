@@ -1,15 +1,25 @@
 import { expect, test } from "bun:test";
+import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import {
   createContainerWriterProjectionFixture,
   createTestExecSql,
 } from "@tearleads/test-utils";
-import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
+import type {
+  ContainerWriterProjectionResponse,
+  DocumentWriterProjectionResponse,
+} from "@tearleads/validators/response";
 import {
+  createAuthor,
+  createMutationResponseFromRequest,
   createParentProjection,
   createParentProjectionUserKeyResolver,
+  SIGNED_AT,
 } from "../../../test/helpers/containerFixtures";
 import { createResponse } from "../../../test/helpers/documentFixtures";
 import { createLinkSetResponseFromRequest } from "../../../test/helpers/documentResponseFixtures";
+import { createChildContainerProjection } from "../../../test/helpers/projectionHierarchy";
+import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
+import { shareRemoteContainer } from "../../workflows/containers/child/share";
 import { buildMaterializedDocumentCreatePlan } from "../../workflows/documents/create";
 import { buildMaterializedDocumentLinkSetMutationPlan } from "../../workflows/documents/linkSet";
 import { verifyDocumentWriterProjection } from "../keyingProjectionVerification";
@@ -111,7 +121,7 @@ test("a dependency path must be a root-to-leaf ancestor chain", async () => {
       }),
     ).rejects.toMatchObject({
       code: "object_mismatch",
-      message: expect.stringContaining("parent container"),
+      message: expect.stringContaining("does not precede"),
     });
   } finally {
     close();
@@ -144,9 +154,10 @@ test("a new head citing genuine dependency paths still verifies", async () => {
   }
 });
 
-// History is verified without checkpoint enforcement and cached by hash, so a
-// head smuggled into the history would reach the head verification through the
-// cache with its checks skipped.
+// History is verified without checkpoint enforcement, at referenced
+// membership, and cached by hash, so a head smuggled into the history would
+// reach the head verification through the cache without its authorization at
+// current membership being checked.
 test("the current head cannot be repeated in the manifest history", async () => {
   const scenario = await createScenario();
   const linkedHead = await linkedHeadProjection(scenario);
@@ -167,6 +178,178 @@ test("the current head cannot be repeated in the manifest history", async () => 
         resolveUserKey: scenario.resolveUserKey,
       }),
     ).rejects.toMatchObject({ code: "duplicate_entry" });
+  } finally {
+    close();
+  }
+});
+
+// The authorizing path for a leaf is checkpoint-enforced; a dependency path
+// served for the same leaf is not, and only its container-id edges are
+// checked, so a server can pair the leaf with an older manifest of the right
+// parent. That path must never replace the authorizing one: a writer granted
+// only at the parent's current head would otherwise lose (or, in the mirror
+// case, gain) access through the document.
+test("a stale dependency path never replaces the authorizing path for its leaf", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "dependency-path-no-overwrite",
+  );
+  try {
+    const parent = await createParentProjection();
+    const organizationId = parent.projection.organizationId;
+    const malloryKem = generateKemSeedAndKeyPair();
+    const mallory = await createAuthor({ organizationId, userId: "mallory" });
+    const identities = new Map([
+      [
+        parent.userId,
+        createTestTrustedUserIdentity({
+          encapsulationPublicKey: parent.encapsulationPublicKey,
+          signingKeyFingerprint: parent.author.signerKeyFingerprint,
+          signingPublicKey: parent.signingPublicKey,
+          userId: parent.userId,
+        }),
+      ],
+      [
+        "mallory",
+        createTestTrustedUserIdentity({
+          encapsulationPublicKey: malloryKem.publicKey,
+          signingKeyFingerprint: mallory.author.signerKeyFingerprint,
+          signingPublicKey: mallory.signingPublicKey,
+          userId: "mallory",
+        }),
+      ],
+    ]);
+    const resolveIdentity = async (userId: string) =>
+      identities.get(userId) ?? null;
+    // The child is created under the root's first head.
+    const child = await createChildContainerProjection({
+      containerId: "dependency-no-overwrite-child",
+      parent,
+      parentProjection: parent.projection,
+    });
+    // The root then advances by granting Mallory write. A grant keeps the
+    // root's KEK epoch, so the child's key edge stays valid under both heads.
+    const shared = await shareRemoteContainer({
+      accessLevel: "write",
+      apiClient: {
+        getContainerWriterProjection: async () => parent.projection,
+        shareContainer: async (_containerId, request) =>
+          createMutationResponseFromRequest(request),
+      },
+      author: parent.author,
+      containerId: parent.projection.containerId,
+      execSql,
+      recipientUserId: "mallory",
+      resolveProjectionUserKey: resolveIdentity,
+      resolveTrustedUserIdentity: resolveIdentity,
+      signedAt: SIGNED_AT,
+      targetSecretKey: parent.secretKey,
+    });
+    const childKek = child.projection.containerKeks.at(-1);
+    const [rootFirstHead] = parent.projection.path;
+    if (!shared || !childKek || !rootFirstHead) {
+      throw new Error("Expected the shared root");
+    }
+    const childCurrent: ContainerWriterProjectionResponse = {
+      ...child.projection,
+      containerKeks: [
+        {
+          ...shared.response.containerKek,
+          // The response fixture re-encodes the previous head; serve the same
+          // bundle the stale path carries so the two are not equivocal.
+          containerManifestHistory: [rootFirstHead],
+        },
+        childKek,
+      ],
+      path: [shared.response.accessManifest, child.bundle],
+    };
+    const childStale = child.projection;
+    // The owner creates the document in the child.
+    const created = await buildMaterializedDocumentCreatePlan({
+      author: parent.author,
+      containerProjection: childCurrent,
+      documentId: "document-no-overwrite",
+      targetSecretKey: parent.secretKey,
+      trustedLocalProjection: true,
+    });
+    const createResponseBody = createResponse(created.plan);
+    const initialProjection: DocumentWriterProjectionResponse = {
+      authorizingContainerPaths: [childCurrent],
+      contentKeyBundle: createResponseBody.contentKeyBundle,
+      documentId: createResponseBody.id,
+      documentKekTargets: createResponseBody.documentKekTargets,
+      documentManifest: createResponseBody.accessManifest,
+      documentManifestHistory: [],
+      documentManifestContainerPaths: [[...childCurrent.path]],
+      documentContainerManifestHistory: [],
+    };
+    // Mallory, a writer through the child only via the root's current head,
+    // links her own root. A link needs write through an already linked
+    // container, and the child is the only one.
+    const malloryRoot = await createContainerWriterProjectionFixture({
+      containerId: "no-overwrite-mallory-root",
+      encapsulationPublicKey: malloryKem.publicKey,
+      organizationId,
+      signerKeyFingerprint: mallory.author.signerKeyFingerprint,
+      signerPrivateKey: mallory.author.signerPrivateKey,
+      userId: "mallory",
+    });
+    const malloryLink = await buildMaterializedDocumentLinkSetMutationPlan({
+      author: mallory.author,
+      operation: "link",
+      targetContainerProjection: malloryRoot,
+      targetSecretKey: malloryKem.secretKey,
+      trustedLocalProjection: true,
+      writerProjection: initialProjection,
+    });
+    const malloryResponse = await createLinkSetResponseFromRequest(
+      initialProjection.documentId,
+      malloryLink.plan.request,
+    );
+    const served = (
+      childPath: ContainerWriterProjectionResponse,
+    ): DocumentWriterProjectionResponse => ({
+      ...initialProjection,
+      authorizingContainerPaths: [childPath, malloryRoot],
+      contentKeyBundle: malloryResponse.contentKeyBundle,
+      documentKekTargets: malloryResponse.documentKekTargets,
+      documentManifest: malloryResponse.accessManifest,
+      documentManifestHistory: [initialProjection.documentManifest],
+      // The dependency path for the child pairs it with the root's first
+      // head, where Mallory has no access.
+      documentManifestContainerPaths: [
+        [...childStale.path],
+        [...malloryRoot.path],
+      ],
+    });
+
+    // The control, on a device that has never seen the root advance (the
+    // share above already checkpointed it here): were the stale path the
+    // authorizing one, Mallory is no writer through the child.
+    const control = await createTestExecSql(
+      "dependency-path-no-overwrite-control",
+    );
+    try {
+      await expect(
+        verifyDocumentWriterProjection({
+          execSql: control.execSql,
+          projection: served(childStale),
+          resolveUserKey: resolveIdentity,
+        }),
+      ).rejects.toMatchObject({ code: "unauthorized" });
+    } finally {
+      control.close();
+    }
+    // With the current head as the authorizing path, her link verifies: the
+    // stale dependency path did not replace it.
+    await expect(
+      verifyDocumentWriterProjection({
+        execSql,
+        projection: served(childCurrent),
+        resolveUserKey: resolveIdentity,
+      }),
+    ).resolves.toMatchObject({
+      manifestHash: malloryResponse.accessManifest.manifestHash,
+    });
   } finally {
     close();
   }

@@ -141,12 +141,14 @@ async function verifyProjectionContainerPaths(input: {
     // against. They are verified without checkpoint enforcement because a
     // historical link event legitimately cites the container manifests that
     // were current when it was signed. Each path must still be a genuine
-    // root-to-leaf chain (verifyContainerManifestPath asserts the edges), and
-    // it never replaces the checkpoint-enforced authorizing path for the same
-    // leaf. Whether a head's evidence is stale relative to a later container
-    // rotation is a cross-object ordering question this client cannot decide
-    // from signed state alone; that boundary is documented with the
-    // cold-client limits in docs/security-guarantees.md.
+    // root-to-leaf chain: verifyContainerManifestPath asserts that each
+    // element is a child of the one before it by container id, not that the
+    // element is the parent's current head, so a served path can pair a leaf
+    // with an older manifest of the right parent. That is why a dependency
+    // path never replaces the checkpoint-enforced authorizing path recorded
+    // for the same leaf. Whether a head's evidence is stale relative to a
+    // later container rotation is the ordering boundary the container
+    // ancestry section of docs/security-guarantees.md describes.
     const verifiedPath = await verifyContainerManifestPath({
       authorizationMembership: "referenced",
       bundlesByHash,
@@ -345,8 +347,11 @@ async function verifyDocumentWriterProjectionWithContext(
     );
   }
   // History is verified without checkpoint enforcement and cached by hash. A
-  // copy of the head placed in the history would be verified there and then
-  // served to the head verification from the cache, skipping its checks.
+  // copy of the head placed in the history would be verified there, at the
+  // membership it referenced, and then served to the head verification from
+  // the cache, where only the local checkpoint is re-checked and the head's
+  // authorization at current membership is not. An honest API never repeats
+  // the head in its history, so the repeat itself is the signal.
   if (
     history.some(
       (bundle) =>
