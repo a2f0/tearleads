@@ -1,4 +1,4 @@
-import { assertExactKeys, readString } from "./shared";
+import { assertExactKeys, readNullableString } from "./shared";
 import type {
   ContainerReciteAccessEventBody,
   KeyingCanonicalJson,
@@ -14,7 +14,7 @@ export function normalizeContainerReciteAccessEventBody(
   );
   return {
     eventType: "container.recite",
-    containerKeyEpochId: readString(
+    containerKeyEpochId: readNullableString(
       record,
       "containerKeyEpochId",
       "container.recite event body",

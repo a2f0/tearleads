@@ -131,8 +131,8 @@ epochs throw `DocumentRawHistoryUnavailableError`.
 Custom container mutation APIs must implement `ContainerReciteApi` (including
 `reciteContainer`); the built-in API client supplies it. Container mutations
 and atomic group-policy rematerializations schedule non-blocking re-cites for
-already-held verified descendants, bounded to 256 retained heads. The pass
-fetches no subtree, retries nothing, and honors cancellation; it leaves keys
+already-held verified descendants, with 256 retained heads and eight attempts
+per pass, spaced 250 ms apart. No subtree fetch or retry occurs; it leaves keys
 and grants unchanged. It is not a descendant-rekey or freshness guarantee.
 
 `tearleads.network` defaults to automatic mode: browser events and API request

@@ -93,3 +93,12 @@ test("recitation bodies cannot carry grants or rotation artifacts", () => {
     ).toThrow();
   }
 });
+
+test("recitation normalizes the same nullable key state as an unrotated grant", () => {
+  expect(
+    normalizeContainerAccessEventBody({
+      eventType: "container.recite",
+      containerKeyEpochId: null,
+    }),
+  ).toEqual({ eventType: "container.recite", containerKeyEpochId: null });
+});

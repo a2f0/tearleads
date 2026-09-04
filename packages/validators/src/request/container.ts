@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { registerJsonSchemaView } from "../jsonSchema";
+import {
+  registerJsonSchemaFragment,
+  registerJsonSchemaView,
+  toJsonSchema,
+} from "../jsonSchema";
 import {
   arraySchema,
   loosePlainObject,
@@ -48,12 +52,23 @@ export type ContainerMutationRequest = z.infer<
   typeof ContainerMutationRequestSchema
 >;
 
+const ReciteContainerPathSchema = arraySchema(
+  AccessManifestBundleWireSchema,
+  100,
+);
+
 export const ContainerReciteRequestSchema = loosePlainObject({
   body: requiredUnknownSchema,
   event: plainObjectSchema,
   expectedManifestHash: nonEmptyStringSchema,
   manifest: plainObjectSchema,
-  previousContainerPath: arraySchema(AccessManifestBundleWireSchema, 100),
+  previousContainerPath: registerJsonSchemaFragment(
+    ReciteContainerPathSchema.refine(
+      (path) => path.length > 0,
+      "Recitation requires a non-empty authorization path",
+    ),
+    { ...toJsonSchema(ReciteContainerPathSchema), minItems: 1 },
+  ),
   previousManifest: AccessManifestBundleWireSchema,
   principalPolicies: arraySchema(plainObjectSchema),
 });

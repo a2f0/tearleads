@@ -48,7 +48,7 @@
     },
     "docs/developer/client-sdk.md": {
       "lines": 570,
-      "bytes": 27168
+      "bytes": 27174
     },
     "docs/developer/revenuecat-billing.md": {
       "lines": 360,
@@ -75,16 +75,16 @@
       "bytes": 23535
     },
     "docs/openapi.json": {
-      "lines": 63011,
-      "bytes": 2624900
+      "lines": 63012,
+      "bytes": 2624935
     },
     "docs/protocol-specification.md": {
       "lines": 585,
       "bytes": 28639
     },
     "docs/security-guarantees.md": {
-      "lines": 635,
-      "bytes": 34917
+      "lines": 636,
+      "bytes": 34986
     },
     "formal/document-sync/BaselineDominanceTraces.json": {
       "lines": 2059,

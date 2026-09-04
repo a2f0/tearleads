@@ -1,7 +1,9 @@
 import { expect, test } from "bun:test";
 import { createContainerReciteScenario } from "../../../../test/helpers/containerReciteFixtures";
+import { heldContainerSnapshot } from "../../../data/containers/shared/heldContainerHeads";
 import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
 import { reciteHeldDescendants } from "./recite";
+import { buildContainerRecitePlan } from "./recitePlan";
 
 type Scenario = Awaited<ReturnType<typeof createContainerReciteScenario>>;
 
@@ -70,6 +72,7 @@ test.each([
   "refused",
   "throws",
   "mismatched",
+  "injected-grants",
 ] as const)("a %s re-cite neither retries nor blocks another held descendant", async (failure) => {
   const scenario = await createContainerReciteScenario();
   try {
@@ -83,6 +86,25 @@ test.each([
           if (id !== "held-child") return scenario.reciteContainer(id, request);
           if (failure === "refused") return null;
           if (failure === "throws") throw new Error("offline");
+          if (failure === "injected-grants") {
+            const response = await scenario.reciteContainer(id, request);
+            return {
+              ...response,
+              accessManifest: {
+                ...response.accessManifest,
+                state: {
+                  ...response.accessManifest.state,
+                  directGrants: [
+                    {
+                      subjectType: "user",
+                      subjectId: "intruder",
+                      accessLevel: "admin",
+                    },
+                  ],
+                },
+              },
+            };
+          }
           return {
             ...(await scenario.reciteContainer(id, request)),
             containerId: "wrong-container",
@@ -94,7 +116,11 @@ test.each([
     expect((await checkpoint(scenario, "held-child"))?.manifestHash).toBe(
       scenario.child.bundle.manifestHash,
     );
-    expect((await checkpoint(scenario, "held-grandchild"))?.epoch).toBe(2);
+    // A bad acknowledgement may hide a committed child head. The honest API
+    // then rejects the old child path instead of accepting a stale grandchild.
+    expect((await checkpoint(scenario, "held-grandchild"))?.epoch).toBe(
+      failure === "mismatched" || failure === "injected-grants" ? 1 : 2,
+    );
   } finally {
     await scenario.close();
   }
@@ -131,6 +157,56 @@ test("cancellation during a response prevents acknowledgement and later attempts
     expect(scenario.requests).toHaveLength(1);
     expect((await checkpoint(scenario, "held-child"))?.epoch).toBe(1);
     expect((await checkpoint(scenario, "held-grandchild"))?.epoch).toBe(1);
+  } finally {
+    await scenario.close();
+  }
+});
+
+test("a pass caps write amplification and spaces requests without retrying", async () => {
+  const scenario = await createContainerReciteScenario(10);
+  const times: number[] = [];
+  try {
+    await scenario.advanceAncestor();
+    await reciteHeldDescendants({
+      ...cascadeInput(scenario),
+      apiClient: {
+        reciteContainer: async () => {
+          times.push(performance.now());
+          return null;
+        },
+      },
+    });
+    expect(times).toHaveLength(8);
+    for (let index = 1; index < times.length; index += 1) {
+      expect(
+        (times[index] ?? 0) - (times[index - 1] ?? 0),
+      ).toBeGreaterThanOrEqual(225);
+    }
+    expect((await checkpoint(scenario, "held-child"))?.epoch).toBe(1);
+  } finally {
+    await scenario.close();
+  }
+});
+
+test("a recitation plan refuses a cross-organization held path", async () => {
+  const scenario = await createContainerReciteScenario();
+  try {
+    const snapshot = heldContainerSnapshot(
+      scenario.execSql,
+      scenario.parent.author.organizationId,
+    );
+    const head = snapshot.heads.get("held-child");
+    if (!head) throw new Error("Expected held child");
+    await expect(
+      buildContainerRecitePlan({
+        author: {
+          ...scenario.parent.author,
+          organizationId: "another-organization",
+        },
+        path: [head],
+        policies: [],
+      }),
+    ).rejects.toThrow("cannot cross organizations");
   } finally {
     await scenario.close();
   }

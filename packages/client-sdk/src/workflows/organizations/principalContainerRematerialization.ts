@@ -280,6 +280,7 @@ export async function preparePrincipalContainerRematerializationBatch(
       });
       if (stillCurrent?.() === false) return;
       rememberVerifiedContainerHeads({
+        organizationId: input.author.organizationId,
         execSql: input.execSql,
         heads: [],
         policies: [input.nextPolicy],

@@ -1,5 +1,6 @@
 import type { ApiDatabase } from "@tearleads/api-shared/postgres";
 import type { VerifiedContainerAccessManifest } from "@tearleads/crypto";
+import { isContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { ContainerReciteRequest } from "@tearleads/validators/request";
 import type { ContainerReciteResponse } from "@tearleads/validators/response";
 import { storeVerifiedAccessManifestInTransaction } from "../../../access/write/accessManifestStore";
@@ -109,6 +110,9 @@ async function persistRecitation(
     operation: "replace",
   });
   return {
+    ...(isContainerSystemSlot(container.systemSlot)
+      ? { systemSlot: container.systemSlot }
+      : {}),
     containerId: manifest.state.containerId,
     organizationId: manifest.state.organizationId,
     parentId: manifest.state.parentContainerId,

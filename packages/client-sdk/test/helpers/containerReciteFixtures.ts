@@ -32,7 +32,7 @@ import {
 } from "./containerFixtures";
 import { createChildContainerProjection } from "./projectionHierarchy";
 
-export async function createContainerReciteScenario() {
+export async function createContainerReciteScenario(extraChildren = 0) {
   const parent = await createParentProjection();
   const child = await createChildContainerProjection({
     containerId: "held-child",
@@ -53,10 +53,29 @@ export async function createContainerReciteScenario() {
     resolveUserKey: createParentProjectionUserKeyResolver(parent),
   });
   const byHash = new Map(verifiedPath.map((head) => [head.manifestHash, head]));
+  for (let index = 0; index < extraChildren; index += 1) {
+    const extra = await createChildContainerProjection({
+      containerId: `held-extra-${index}`,
+      parent,
+      parentProjection: parent.projection,
+    });
+    const path = await verifyContainerWriterProjection({
+      execSql,
+      projection: extra.projection,
+      resolveUserKey: createParentProjectionUserKeyResolver(parent),
+    });
+    for (const head of path) byHash.set(head.manifestHash, head);
+  }
+  const currentHashById = new Map(
+    [...byHash.values()].map((head) => [
+      head.state.containerId,
+      head.manifestHash,
+    ]),
+  );
   const requests: ContainerReciteRequest[] = [];
   const responses: ContainerReciteResponse[] = [];
   const reciteContainer = async (
-    _id: string,
+    id: string,
     request: ContainerReciteRequest,
   ): Promise<ContainerReciteResponse> => {
     requests.push(request);
@@ -73,6 +92,15 @@ export async function createContainerReciteScenario() {
     });
     const previous = path.at(-1);
     if (!previous) throw new Error("Expected previous manifest");
+    if (
+      previous.state.containerId !== id ||
+      path.some(
+        (head) =>
+          currentHashById.get(head.state.containerId) !== head.manifestHash,
+      )
+    ) {
+      throw new Error("Recitation cited a stale current path");
+    }
     expect(event.value.event.dependencyManifestHashes).toEqual(
       [...new Set(path.map((head) => head.manifestHash))].sort(),
     );
@@ -88,6 +116,10 @@ export async function createContainerReciteScenario() {
     });
     if (!result.ok) throw result.error;
     byHash.set(result.value.manifestHash, result.value);
+    currentHashById.set(
+      result.value.state.containerId,
+      result.value.manifestHash,
+    );
     const response = reciteResponse(result.value);
     responses.push(response);
     return response;

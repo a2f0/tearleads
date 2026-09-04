@@ -127,11 +127,16 @@ export async function finalizeProjectionCheckpoints(
 ): Promise<void> {
   if (input.persistVerificationCheckpoints === false) {
     await validateProjectionCheckpoints(context, input);
-  } else {
-    await commitProjectionCheckpoints(context, input);
+    return;
   }
+  await commitProjectionCheckpoints(context, input);
   assertProjectionVerificationCurrent(input.stillCurrent);
+  const organizationId =
+    context.organizationId ??
+    context.heldContainerHeads[0]?.state.organizationId;
+  if (organizationId === undefined) return;
   rememberVerifiedContainerHeads({
+    organizationId,
     execSql: input.execSql ?? context.execSql,
     heads: context.heldContainerHeads,
     policies: context.policies,

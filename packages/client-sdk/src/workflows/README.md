@@ -19,9 +19,10 @@ coordination, but they must stay React-free and product-UI-free.
 
 Container mutation API implementations must provide `ContainerReciteApi`.
 Acknowledged mutations schedule a bounded, best-effort pass over already-held
-verified descendants; it performs no subtree fetches or retries and never
-blocks the original operation. A re-cite advances only the signed manifest,
-not key material or grants. The pass is process-local and cancellation-aware.
+verified descendants: eight attempts per pass, spaced 250 ms apart, with no
+fetches, retries, or blocking of the original operation. A re-cite advances the
+manifest, not key material or grants. The pass is process-local and
+cancellation-aware.
 
 The documents facade also admits explicit `historyMode: "raw"` reads through
 `syncRemoteDocument`. A raw consumer must start at a null version vector, send

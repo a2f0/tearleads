@@ -15,7 +15,13 @@ export interface HeldContainerHead {
 
 interface HeldContainers {
   readonly heads: Map<string, HeldContainerHead>;
-  readonly policies: Map<string, AnyVerifiedPrincipalPolicy>;
+  readonly policies: Map<
+    string,
+    {
+      readonly organizationId: string;
+      readonly policy: AnyVerifiedPrincipalPolicy;
+    }
+  >;
 }
 
 // Opportunistic, process-local evidence, not a persistent cache or freshness
@@ -50,17 +56,26 @@ function boundedSet<T>(
 function rememberHead(execSql: ExecSql, head: HeldContainerHead): void {
   const heads = heldContainers(execSql).heads;
   const previous = heads.get(head.state.containerId);
-  if (previous && previous.state.epoch >= head.state.epoch) return;
+  if (previous && previous.state.epoch >= head.state.epoch) {
+    if (previous.bundle.manifestHash === head.bundle.manifestHash) {
+      boundedSet(heads, head.state.containerId, previous, MAX_HEADS);
+    }
+    return;
+  }
   boundedSet(heads, head.state.containerId, structuredClone(head), MAX_HEADS);
 }
 
 /** Called only after the complete projection and its durable pins validate. */
 export function rememberVerifiedContainerHeads(input: {
+  readonly organizationId: string;
   readonly execSql: ExecSql;
   readonly heads: readonly VerifiedContainerAccessManifest[];
   readonly policies: readonly AnyVerifiedPrincipalPolicy[];
 }): void {
   for (const head of input.heads) {
+    if (head.state.organizationId !== input.organizationId) {
+      throw new Error("Held container head belongs to another organization");
+    }
     rememberHead(input.execSql, {
       state: head.state,
       bundle: {
@@ -76,9 +91,20 @@ export function rememberVerifiedContainerHeads(input: {
   }
   const policies = heldContainers(input.execSql).policies;
   for (const policy of input.policies) {
-    const key = `${policy.principalType}:${policy.principalId}`;
-    if ((policies.get(key)?.version ?? 0) >= policy.version) continue;
-    boundedSet(policies, key, policy, MAX_POLICIES);
+    const key = `${input.organizationId}:${policy.principalType}:${policy.principalId}`;
+    const previous = policies.get(key);
+    if (previous && previous.policy.version > policy.version) continue;
+    if (
+      previous?.policy.version === policy.version &&
+      previous.policy.stateHash !== policy.stateHash
+    )
+      continue;
+    boundedSet(
+      policies,
+      key,
+      { organizationId: input.organizationId, policy },
+      MAX_POLICIES,
+    );
   }
 }
 
@@ -122,7 +148,9 @@ export function heldContainerSnapshot(
         ([, head]) => head.state.organizationId === organizationId,
       ),
     ),
-    policies: [...held.policies.values()],
+    policies: [...held.policies.values()]
+      .filter((entry) => entry.organizationId === organizationId)
+      .map((entry) => entry.policy),
   };
 }
 

@@ -145,9 +145,14 @@ const ContainerManifestMutationResponseShape = {
   updatedAt: z.string(),
 };
 
+const { accessManifest, containerId, ...containerMutationResponseFields } =
+  ContainerManifestMutationResponseShape;
+
 export const ContainerMutationResponseSchema = loosePlainObject({
-  ...ContainerManifestMutationResponseShape,
+  accessManifest,
+  containerId,
   containerKek: ContainerKekResponseSchema,
+  ...containerMutationResponseFields,
 });
 
 export type ContainerMutationResponse = z.infer<

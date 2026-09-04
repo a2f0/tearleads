@@ -288,8 +288,8 @@ signature proves the cited head exists.
 Container mutation workflows (share, revoke, rekey, and move) and atomic
 group-policy rematerializations schedule a best-effort descendant re-cite
 after exact acknowledgement. The SDK retains at most 256 verified or locally
-acknowledged container heads and 512 verified principal policies per SQLite
-executor. It reconstructs held paths from parent IDs, checks every head against
+acknowledged container heads and 512 organization-scoped verified policies per
+SQLite executor. It reconstructs held paths from parent IDs, checks each against
 its durable checkpoint, and signs complete path citations parent-first.
 `container.recite` changes only the access-manifest head: grants, parent pins,
 key epochs, keyrings, and wraps stay unchanged. The API checks current paths
@@ -297,8 +297,9 @@ and principal policies under the mutation locks and requires admin authority.
 
 This background pass never fetches a subtree or a principal policy, never
 retries a failed re-cite, and never delays or changes the original mutation's
-result. Only one pass runs per executor; overlap, eviction, missing evidence,
-stale policies, conflicts, and cancellation can leave descendants untouched.
+result. One pass runs per executor, capped at eight attempts with a 250 ms gap
+between requests. The cap, overlap, eviction, missing evidence, stale policies,
+conflicts, and cancellation can leave descendants untouched.
 There is no dependency on another device's cache and no new read-time currency
 rule. Re-citation narrows the residual authorization window when it succeeds;
 it does not rekey descendants or promise post-revocation confidentiality.

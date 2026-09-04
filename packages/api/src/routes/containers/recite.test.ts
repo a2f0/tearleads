@@ -77,6 +77,18 @@ test("re-citing an empty child advances its manifest and preserves every KEK row
 
 test("recitation rejects missing ancestor citations and changed key epochs", async () => {
   const { owner, root, child } = await scenario();
+  const signed = await request({
+    path: [root.bundle, child.accessManifest],
+    signer: owner,
+  });
+  expect(
+    (
+      await post(child.containerId, owner, {
+        ...signed,
+        previousContainerPath: [],
+      })
+    ).status,
+  ).toBe(400);
   for (const options of [
     { omitAncestor: true },
     { keyEpochId: "changed-key" },

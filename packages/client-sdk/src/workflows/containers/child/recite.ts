@@ -18,6 +18,9 @@ import {
   buildContainerRecitePlan,
 } from "./recitePlan";
 
+const MAX_RECITES_PER_PASS = 8;
+const RECITE_SPACING_MS = 250;
+
 interface ReciteHeldDescendantsInput {
   readonly apiClient: ContainerReciteApi;
   readonly author: ContainerMutationAuthor;
@@ -42,6 +45,38 @@ async function pathIsPinned(
   return true;
 }
 
+async function recitePinnedPath(
+  input: ReciteHeldDescendantsInput,
+  path: readonly HeldContainerHead[],
+  policies: ReturnType<typeof heldContainerSnapshot>["policies"],
+): Promise<HeldContainerHead | null> {
+  const plan = await buildContainerRecitePlan({
+    author: input.author,
+    path,
+    policies,
+  });
+  if (input.stillCurrent?.() === false) return null;
+  const id = plan.state.containerId;
+  const response = await input.apiClient.reciteContainer(id, plan.request, {
+    reportErrors: false,
+  });
+  if (!response || input.stillCurrent?.() === false) return null;
+  assertContainerReciteAcknowledgement(plan, response);
+  const acknowledged =
+    await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
+      execSql: input.execSql,
+      heads: [locallyAuthoredAccessManifestHead(plan)],
+      stillCurrent: input.stillCurrent,
+    });
+  if (!acknowledged || input.stillCurrent?.() === false) return null;
+  rememberAcknowledgedContainerHead(input.execSql, plan);
+  return (
+    heldContainerSnapshot(input.execSql, input.author.organizationId).heads.get(
+      id,
+    ) ?? null
+  );
+}
+
 /**
  * Best effort only: never fetches a subtree or policy, never retries conflicts,
  * and never turns an unavailable/missing descendant into an ancestor refusal.
@@ -63,7 +98,9 @@ export async function reciteHeldDescendants(
         path?.some((head) => ancestors.has(head.state.containerId)),
     )
     .sort((a, b) => (a.path?.length ?? 0) - (b.path?.length ?? 0));
+  let attempts = 0;
   for (const { id } of candidates) {
+    if (attempts >= MAX_RECITES_PER_PASS) return;
     if (input.stillCurrent?.() === false) return;
     try {
       const path = heldContainerPath(snapshot.heads, id);
@@ -71,31 +108,14 @@ export async function reciteHeldDescendants(
       // Every held head must still equal its durable pin. A failed projection,
       // concurrent mutation, or verify-without-persist result cannot become an
       // implicit checkpoint advance through this opportunistic path.
+      if (attempts > 0) {
+        await new Promise((resolve) => setTimeout(resolve, RECITE_SPACING_MS));
+      }
       const pinned = await pathIsPinned(input.execSql, path);
-      if (!pinned || input.stillCurrent?.() === false) continue;
-      const plan = await buildContainerRecitePlan({
-        author: input.author,
-        path,
-        policies: snapshot.policies,
-      });
       if (input.stillCurrent?.() === false) return;
-      const response = await input.apiClient.reciteContainer(id, plan.request, {
-        reportErrors: false,
-      });
-      if (!response || input.stillCurrent?.() === false) continue;
-      assertContainerReciteAcknowledgement(plan, response);
-      const acknowledged =
-        await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
-          execSql: input.execSql,
-          heads: [locallyAuthoredAccessManifestHead(plan)],
-          stillCurrent: input.stillCurrent,
-        });
-      if (!acknowledged || input.stillCurrent?.() === false) return;
-      rememberAcknowledgedContainerHead(input.execSql, plan);
-      const updated = heldContainerSnapshot(
-        input.execSql,
-        input.author.organizationId,
-      ).heads.get(id);
+      if (!pinned) continue;
+      attempts += 1;
+      const updated = await recitePinnedPath(input, path, snapshot.policies);
       if (updated) snapshot.heads.set(id, updated);
     } catch {
       // A later reconciliation can observe any committed response we lost.
