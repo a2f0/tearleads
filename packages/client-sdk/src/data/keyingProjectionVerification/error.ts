@@ -33,7 +33,7 @@ export function isKeyingVerificationError(
  * with current authority supersedes it, and no fresh projection resolves it.
  * Boundaries record it and defer rather than fail.
  */
-export function isStaleCitationError(error: unknown): boolean {
+function isStaleCitationError(error: unknown): boolean {
   return isKeyingVerificationError(error) && error.code === "stale_citation";
 }
 

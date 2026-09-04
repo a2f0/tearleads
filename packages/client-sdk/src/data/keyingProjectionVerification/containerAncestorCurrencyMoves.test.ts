@@ -234,3 +234,96 @@ test("a head under an ancestor that has since moved is re-checked at the served 
     close();
   }
 });
+
+test("a move citing a same-epoch fork of a source ancestor is refused", async () => {
+  const scenario = await createScenario();
+  // Mallory forks the root at root2's epoch from root1, where she was admin,
+  // and moves the child out under that fork.
+  const rootFork = await grantBy({
+    cited: [scenario.root1.manifestHash],
+    previous: scenario.root1,
+    signer: scenario.mallory,
+    subjectId: "eve",
+  });
+  const malloryRoot = await ownRoot("currency-mallory-root", scenario.mallory);
+  const stolen = await moveBy({
+    cited: [
+      rootFork.manifestHash,
+      scenario.child1.manifestHash,
+      malloryRoot.manifestHash,
+    ],
+    destination: malloryRoot,
+    keyEpoch: "child-key-2",
+    previous: scenario.child1,
+    signer: scenario.mallory,
+  });
+  const { close, execSql } = await createTestExecSql("ancestor-move-fork");
+  try {
+    await checkpointChildAt(scenario, execSql, scenario.child1, [
+      scenario.root1,
+      scenario.child1,
+    ]);
+    await checkpointRootAt(scenario, execSql, scenario.root2);
+    await expect(
+      verifyPath(scenario, execSql, {
+        bundles: [
+          scenario.root1,
+          rootFork,
+          scenario.child1,
+          malloryRoot,
+          stolen,
+        ],
+        path: [malloryRoot, stolen],
+      }),
+    ).rejects.toMatchObject({
+      code: "equivocation",
+      message: expect.stringContaining("forks the head"),
+    });
+  } finally {
+    close();
+  }
+});
+
+test("a move citing a source ancestor head that descends from the device's checkpoint is accepted", async () => {
+  const scenario = await createScenario();
+  const root3 = await grantBy({
+    cited: [scenario.root2.manifestHash],
+    previous: scenario.root2,
+    signer: scenario.alice,
+    subjectId: "bob",
+  });
+  const otherRoot = await ownRoot("currency-other-root", scenario.alice);
+  const moved = await moveBy({
+    cited: [
+      root3.manifestHash,
+      scenario.child1.manifestHash,
+      otherRoot.manifestHash,
+    ],
+    destination: otherRoot,
+    keyEpoch: "child-key-2",
+    previous: scenario.child1,
+    signer: scenario.alice,
+  });
+  const { close, execSql } = await createTestExecSql("ancestor-move-ahead");
+  try {
+    await checkpointChildAt(scenario, execSql, scenario.child1, [
+      scenario.root1,
+      scenario.child1,
+    ]);
+    await checkpointRootAt(scenario, execSql, scenario.root2);
+    const verified = await verifyPath(scenario, execSql, {
+      bundles: [
+        scenario.root1,
+        scenario.root2,
+        root3,
+        scenario.child1,
+        otherRoot,
+        moved,
+      ],
+      path: [otherRoot, moved],
+    });
+    expect(verified).toHaveLength(2);
+  } finally {
+    close();
+  }
+});

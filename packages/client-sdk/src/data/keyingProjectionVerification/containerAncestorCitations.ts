@@ -148,17 +148,29 @@ export type CitedLineageInput = Pick<
   "bundlesByHash" | "label" | "verifiedByHash"
 >;
 
-/** The verified head of `containerId` among the cited hashes, if any. */
+/**
+ * The verified head of `containerId` among the cited hashes, if any. An
+ * event cites one head per container, so a second verified one is a served
+ * citation set that was tampered with, not a choice to make.
+ */
 function verifiedCitedHead(
   verifiedByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>,
   cited: readonly string[],
   containerId: string,
 ): VerifiedContainerAccessManifest | undefined {
+  let found: VerifiedContainerAccessManifest | undefined;
   for (const manifestHash of cited) {
     const verified = verifiedByHash.get(manifestHash);
-    if (verified?.state.containerId === containerId) return verified;
+    if (verified?.state.containerId !== containerId) continue;
+    if (found && found.manifestHash !== verified.manifestHash) {
+      throw new KeyingVerificationError(
+        "duplicate_entry",
+        `event cites more than one head of container ${containerId}`,
+      );
+    }
+    found = verified;
   }
-  return undefined;
+  return found;
 }
 
 /**
@@ -277,10 +289,47 @@ function staleAncestorCitations(input: {
 }
 
 /**
+ * Whether a cited source head is the head this device checkpointed for the
+ * container or descends from it. Epochs alone would let a same-epoch fork
+ * signed under an older head pass; the predecessor chain down to the
+ * checkpointed epoch is served with the citation and fully verified, so the
+ * hash at that epoch settles it.
+ */
+function assertCitedHeadReachesCheckpoint(input: {
+  readonly cited: VerifiedContainerAccessManifest;
+  readonly label: string;
+  readonly localCheckpoint: AccessManifestCheckpoint;
+  readonly verifiedByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>;
+}): void {
+  const containerId = input.cited.state.containerId;
+  let current: VerifiedContainerAccessManifest | undefined = input.cited;
+  while (current && current.state.epoch > input.localCheckpoint.epoch) {
+    const previousHash: string | null = current.state.previousManifestHash;
+    current =
+      previousHash === null
+        ? undefined
+        : input.verifiedByHash.get(previousHash);
+  }
+  if (!current || current.state.epoch !== input.localCheckpoint.epoch) {
+    throw new KeyingVerificationError(
+      "missing_dependency",
+      `${input.label} cites a head of source ancestor container ${containerId} whose history down to this device's checkpoint is not served`,
+    );
+  }
+  if (current.manifestHash !== input.localCheckpoint.manifestHash) {
+    throw new KeyingVerificationError(
+      "equivocation",
+      `${input.label} cites a head of source ancestor container ${containerId} that forks the head this device checkpointed`,
+    );
+  }
+}
+
+/**
  * The source ancestors a move cites at a head older than this device's own
  * checkpoint for that container. The projection serves the destination path,
  * not the source's current heads, so the device's checkpoints stand in for
  * them; a device with none for a source ancestor is at first contact with it.
+ * A cited head at or past the checkpoint must be or descend from it.
  */
 async function staleMoveSourceCitations(input: {
   readonly execSql: ExecSql;
@@ -300,8 +349,10 @@ async function staleMoveSourceCitations(input: {
   }
   const citations = input.head.event.event.dependencyManifestHashes;
   const stale: string[] = [];
+  const seen = new Set<string>();
   let containerId = previous.state.parentContainerId;
-  while (containerId !== null) {
+  while (containerId !== null && !seen.has(containerId)) {
+    seen.add(containerId);
     const cited = verifiedCitedHead(
       input.verifiedByHash,
       citations,
@@ -313,10 +364,19 @@ async function staleMoveSourceCitations(input: {
       localCheckpoints: input.localCheckpoints,
       objectId: containerId,
       objectKind: "container",
-      organizationId: cited.state.organizationId,
+      organizationId: input.head.state.organizationId,
     });
-    if (localCheckpoint && cited.state.epoch < localCheckpoint.epoch) {
-      stale.push(containerId);
+    if (localCheckpoint) {
+      if (cited.state.epoch < localCheckpoint.epoch) {
+        stale.push(containerId);
+      } else {
+        assertCitedHeadReachesCheckpoint({
+          cited,
+          label: input.label,
+          localCheckpoint,
+          verifiedByHash: input.verifiedByHash,
+        });
+      }
     }
     containerId = cited.state.parentContainerId;
   }

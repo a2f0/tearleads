@@ -2,7 +2,6 @@ import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { DocumentSyncUpdateIsolationError } from "../documents/shared/documentSyncUpdateIsolation";
 import {
-  isStaleCitationError,
   isStaleCitationInCauseChain,
   reportAndRethrowKeyingVerificationError,
 } from "./error";
@@ -68,9 +67,9 @@ test("a stale ancestor citation is recorded and preserves the boundary", async (
   const wrapped = new Error("metadata sync failed", { cause: staleCitation });
   const reported: unknown[] = [];
 
-  expect(isStaleCitationError(staleCitation)).toBe(true);
-  expect(isStaleCitationError(wrapped)).toBe(false);
+  expect(isStaleCitationInCauseChain(staleCitation)).toBe(true);
   expect(isStaleCitationInCauseChain(wrapped)).toBe(true);
+  expect(isStaleCitationInCauseChain(new Error("unrelated"))).toBe(false);
   await expect(
     reportAndRethrowKeyingVerificationError(
       wrapped,
