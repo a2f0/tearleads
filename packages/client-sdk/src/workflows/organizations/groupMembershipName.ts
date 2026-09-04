@@ -3,10 +3,12 @@ import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/respon
 import { groupPolicyNameMismatch } from "./principalPolicyRequest";
 
 export class GroupMembershipNameMismatchError extends KeyingVerificationError {
-  constructor() {
+  constructor(reason: "forbidden_characters" | "name_mismatch") {
     super(
       "object_mismatch",
-      "Group membership name does not match the signed group policy",
+      reason === "forbidden_characters"
+        ? "Group membership name contains forbidden control or format characters"
+        : "Group membership name does not match the signed group policy",
     );
     this.name = "GroupMembershipNameMismatchError";
   }
@@ -17,7 +19,8 @@ export function assertGroupMembershipName(
   verifiedBundle: PrincipalPolicyBundleResponse,
   expectedGroupName: string,
 ): void {
-  if (groupPolicyNameMismatch(verifiedBundle, expectedGroupName)) {
-    throw new GroupMembershipNameMismatchError();
+  const mismatch = groupPolicyNameMismatch(verifiedBundle, expectedGroupName);
+  if (mismatch) {
+    throw new GroupMembershipNameMismatchError(mismatch);
   }
 }

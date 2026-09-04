@@ -9,17 +9,17 @@ import { createRegistrationRequestBody } from "../../../test/helpers/api";
 import { del } from "../../adapters/redis";
 import { routeApp } from "../../routeApp";
 
-let fingerprint: string;
+const fingerprints = new Set<string>();
 
 afterAll(async () => {
-  await del(fingerprint);
+  await Promise.all([...fingerprints].map((fingerprint) => del(fingerprint)));
 });
 
 test("POST /auth/register preserves principal policy authorization errors", async () => {
   const { signingPrivateKey, signingPublicKey } =
     generateSigningSeedAndKeyPair();
   const { publicKey } = generateKemSeedAndKeyPair();
-  fingerprint = await toFingerprint(signingPublicKey);
+  fingerprints.add(await toFingerprint(signingPublicKey));
   const body = await createRegistrationRequestBody(
     signingPublicKey,
     signingPrivateKey,
@@ -60,6 +60,7 @@ test.each([
     publicKey,
   );
   const group = body[groupField];
+  fingerprints.add(await toFingerprint(signingPublicKey));
   const response = await routeApp.request("/auth/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

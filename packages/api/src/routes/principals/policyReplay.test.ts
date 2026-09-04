@@ -17,6 +17,7 @@ import { isCommitOrganizationGroupPolicyResponse } from "@tearleads/validators/r
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { groupPolicyPayload } from "../../../test/helpers/groupPolicyPayload";
 import { addOrganizationMember } from "../../../test/helpers/organizationMembership";
 import {
   createPolicyTestGroup,
@@ -295,5 +296,3 @@ test("recipient-key rejection rolls back every policy artifact", async () => {
   expect(envelopes).toEqual([]);
   expect(await getCurrentPrincipalState("group", principalId, db)).toBeNull();
 }, 10_000);
-
-import { groupPolicyPayload } from "../../../test/helpers/groupPolicyPayload";

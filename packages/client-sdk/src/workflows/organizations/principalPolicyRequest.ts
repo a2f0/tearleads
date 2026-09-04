@@ -139,7 +139,9 @@ export function groupPolicyNameMismatch(
   if (hasForbiddenGroupNameCharacter(expectedGroupName)) {
     return "forbidden_characters";
   }
-  return canonicalGroupNameKey(readGroupPolicyPayloadName(bundle)) ===
+  const signedName = readGroupPolicyPayloadName(bundle);
+  if (hasForbiddenGroupNameCharacter(signedName)) return "forbidden_characters";
+  return canonicalGroupNameKey(signedName) ===
     canonicalGroupNameKey(expectedGroupName)
     ? null
     : "name_mismatch";

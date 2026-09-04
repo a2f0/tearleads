@@ -16,6 +16,8 @@ export function assertCreatedGroupPolicyName(input: {
       400,
     );
   }
+  // Group labels are immutable: there is no rename endpoint. Creation stores
+  // this exact signed spelling, and successors must preserve that spelling.
   if (name !== input.name) {
     throw new OrganizationManagerError(
       "Group name must match the signed policy display name",

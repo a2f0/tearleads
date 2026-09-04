@@ -9,6 +9,7 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { isCommitOrganizationGroupPolicyResponse } from "@tearleads/validators/response";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { groupPolicyPayload } from "../../../test/helpers/groupPolicyPayload";
 import { prepareUserForAdminGroup } from "../../../test/helpers/organizationAdmin";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
 import {
@@ -181,5 +182,3 @@ test("PUT granted access still succeeds when shared_with_you publish throws", as
     sortByMemberId(storedPolicy.groupPolicy.currentMemberEnvelopes.envelopes),
   ).toEqual(sortByMemberId(request.memberEnvelopes));
 });
-
-import { groupPolicyPayload } from "../../../test/helpers/groupPolicyPayload";

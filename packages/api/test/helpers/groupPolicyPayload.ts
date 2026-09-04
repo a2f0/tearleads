@@ -6,13 +6,14 @@ import { eq } from "drizzle-orm";
 export async function groupPolicyPayload(
   groupId: string,
   members: unknown,
+  nameForNewGroup?: string,
 ): Promise<string> {
   const [group] = await db
     .select({ name: groups.name })
     .from(groups)
     .where(eq(groups.id, groupId))
     .limit(1);
-  // Creation and unknown-target tests sign before a group row exists.
-  const name = group?.name ?? "Test group";
+  const name = group?.name ?? nameForNewGroup;
+  if (name === undefined) throw new Error("Expected a named test group");
   return Buffer.from(JSON.stringify({ name, members })).toString("base64");
 }

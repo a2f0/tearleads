@@ -13,7 +13,11 @@ function hasGroupName(ciphertext: string): boolean {
   }
 }
 
-/** Run with outgoing API instances stopped; policy reads still verify signatures. */
+/**
+ * Run with outgoing API instances stopped; policy reads still verify signatures.
+ * Remove this flag-day gate once all deployment databases have been
+ * reprovisioned with named group policies, including their retained history.
+ */
 export async function assertNamedGroupPolicies(
   executor: DatabaseSession,
 ): Promise<void> {

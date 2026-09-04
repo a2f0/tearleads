@@ -26,6 +26,7 @@ import {
 import invariant from "invariant";
 import { routeApp } from "../../src/routeApp";
 import { buildRootContainerRekeyMutation } from "./containerRekey";
+import { groupPolicyPayload } from "./groupPolicyPayload";
 import {
   accessManifestFromContainerResponse,
   asVerifiedContainerManifest,
@@ -473,5 +474,3 @@ export async function revokeRootRotatedReadGroup(input: {
     successor,
   });
 }
-
-import { groupPolicyPayload } from "./groupPolicyPayload";

@@ -17,6 +17,7 @@ export async function assertGroupPolicyNamePreserved(
     .from(groups)
     .where(eq(groups.id, input.state.principalId))
     .limit(1);
+  // Defensive check: the caller already locked this target before validation.
   if (!group) throw new PrincipalPolicyError("Group not found", 404);
   try {
     assertCreatedGroupPolicyName({

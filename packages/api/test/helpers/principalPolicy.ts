@@ -22,6 +22,7 @@ import { getCurrentPrincipalState } from "../../src/access/read/principalStateSt
 import { routeApp } from "../../src/routeApp";
 import { parseOrganizationAuthorityDescriptor } from "../../src/workflows/organizations/organizationAuthorityDescriptor";
 import { runGetCurrentPrincipalPolicyWorkflow } from "../../src/workflows/principals/getCurrentPrincipalPolicy";
+import { groupPolicyPayload } from "./groupPolicyPayload";
 import { createPrincipalMemberEnvelopes } from "./principalMemberEnvelopes";
 import {
   createProjectionWithAdminSigner,
@@ -73,6 +74,7 @@ export async function loadVerifiedPrincipalPolicy(
 }
 
 export async function createSignedPrincipalState(input: {
+  groupName?: string;
   externalAuthority?: Parameters<
     typeof signPrincipalStateBundle
   >[0]["externalAuthority"];
@@ -117,7 +119,11 @@ export async function createSignedPrincipalState(input: {
     externalAuthority: input.externalAuthority ?? null,
     payloadCiphertext:
       input.principalType === "group"
-        ? await groupPolicyPayload(input.principalId, input.members)
+        ? await groupPolicyPayload(
+            input.principalId,
+            input.members,
+            input.groupName,
+          )
         : bytesToBase64(
             new TextEncoder().encode(JSON.stringify(input.members)),
           ),
@@ -323,5 +329,3 @@ export async function submitOrganizationGroupPolicyCommit(input: {
     },
   );
 }
-
-import { groupPolicyPayload } from "./groupPolicyPayload";

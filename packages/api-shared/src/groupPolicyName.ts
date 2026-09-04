@@ -1,3 +1,5 @@
+import { base64ToBytes } from "@tearleads/encoding";
+
 /**
  * Current group payloads are signed plaintext base64 JSON. This is the format
  * deployed by the SDK, despite the encrypted-payload wire field names. A future
@@ -5,7 +7,7 @@
  */
 export function readSignedGroupPolicyName(ciphertext: string): string | null {
   const payload: unknown = JSON.parse(
-    Buffer.from(ciphertext, "base64").toString("utf8"),
+    new TextDecoder().decode(base64ToBytes(ciphertext)),
   );
   const name: unknown =
     payload !== null && typeof payload === "object"
