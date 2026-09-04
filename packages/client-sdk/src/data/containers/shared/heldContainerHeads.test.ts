@@ -88,6 +88,13 @@ test("held heads are copied, organization-scoped, and never replaced by older or
   expect(snapshot.heads.get("current")?.bundle.manifestHash).toBe(
     "hash:cache-org:current:2",
   );
+  const snapshotHead = snapshot.heads.get("current");
+  if (!snapshotHead) throw new Error("Expected snapshot head");
+  snapshotHead.state.directGrants = latest.state.directGrants;
+  expect(
+    heldContainerSnapshot(execSql, "cache-org").heads.get("current")?.state
+      .directGrants,
+  ).toEqual([]);
   expect([...heldContainerSnapshot(execSql, "other-org").heads.keys()]).toEqual(
     ["foreign"],
   );

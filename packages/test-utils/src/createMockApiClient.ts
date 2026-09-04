@@ -71,6 +71,7 @@ export function createMockApiClient(
     putPrincipalPolicy: async () => null,
     registerUser: async () => null,
     rekeyContainer: async () => null,
+    reciteContainer: async () => null,
     revokeContainer: async () => null,
     shareContainer: async () => null,
     initiateMultipartBlobStage: async () => null,

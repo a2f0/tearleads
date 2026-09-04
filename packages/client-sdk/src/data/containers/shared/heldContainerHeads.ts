@@ -144,9 +144,9 @@ export function heldContainerSnapshot(
   const held = heldContainers(execSql);
   return {
     heads: new Map(
-      [...held.heads].filter(
-        ([, head]) => head.state.organizationId === organizationId,
-      ),
+      [...held.heads]
+        .filter(([, head]) => head.state.organizationId === organizationId)
+        .map(([id, head]) => [id, structuredClone(head)] as const),
     ),
     policies: [...held.policies.values()]
       .filter((entry) => entry.organizationId === organizationId)

@@ -281,12 +281,17 @@ export async function preparePrincipalContainerRematerializationBatch(
         stillCurrent,
       });
       if (stillCurrent?.() === false) return;
-      rememberVerifiedContainerHeads({
-        organizationId: input.author.organizationId,
-        execSql: input.execSql,
-        heads: [],
-        policies: [input.nextPolicy],
-      });
+      try {
+        rememberVerifiedContainerHeads({
+          organizationId: input.author.organizationId,
+          execSql: input.execSql,
+          heads: [],
+          policies: [input.nextPolicy],
+        });
+      } catch {
+        // Cache failure must not invalidate the durably acknowledged batch.
+        return;
+      }
       scheduleHeldDescendantRecitations({
         apiClient: input.apiClient,
         author: input.author,

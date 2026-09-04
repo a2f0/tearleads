@@ -83,22 +83,26 @@ export function assertContainerReciteAcknowledgement(
   plan: Awaited<ReturnType<typeof buildContainerRecitePlan>>,
   response: ContainerReciteResponse,
 ): void {
-  const expectedBundle = {
-    event: { event: plan.event, eventHash: plan.eventHash, body: plan.body },
-    manifest: plan.manifest,
-    manifestHash: plan.manifestHash,
-    state: plan.state,
-  };
+  const bundle = response.accessManifest;
+  const signedFieldsMatch = [
+    [bundle.event.event, plan.event],
+    [bundle.event.body, plan.body],
+    [bundle.manifest, plan.manifest],
+    [bundle.state, plan.state],
+  ].every(
+    ([actual, expected]) =>
+      canonicalKeyingJsonString(actual, "Recitation response") ===
+      canonicalKeyingJsonString(expected, "Recitation plan"),
+  );
   if (
     response.containerId !== plan.state.containerId ||
     response.organizationId !== plan.state.organizationId ||
     response.parentId !== plan.state.parentContainerId ||
     response.manifestHead.epoch !== plan.state.epoch ||
     response.manifestHead.manifestHash !== plan.manifestHash ||
-    canonicalKeyingJsonString(
-      response.accessManifest,
-      "Recitation response",
-    ) !== canonicalKeyingJsonString(expectedBundle, "Recitation plan") ||
+    bundle.manifestHash !== plan.manifestHash ||
+    bundle.event.eventHash !== plan.eventHash ||
+    !signedFieldsMatch ||
     canonicalKeyingJsonString(
       response.referencedPrincipalHeads,
       "Recitation references",

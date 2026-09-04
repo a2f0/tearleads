@@ -296,7 +296,9 @@ key epochs, keyrings, and wraps stay unchanged. The API checks current paths
 and principal policies under the mutation locks and requires admin authority.
 The signed transition stops admitting re-citations once the prior container
 epoch reaches 1024. This reserves the rest of the API verifier's 4096-manifest
-history budget for ordinary mutations; it is not history compaction. The SDK
+history budget (`MAX_CONTAINER_HISTORY_DEPTH` in
+`packages/api/src/workflows/containers/writerProjection/storedManifestVerification.ts`)
+for ordinary mutations; it is not history compaction. The SDK
 skips signing at that boundary, and the API independently rejects it.
 
 This background pass never fetches a subtree or a principal policy, never

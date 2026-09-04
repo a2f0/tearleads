@@ -67,7 +67,7 @@
       "bytes": 19355
     },
     "docs/keying-design.md": {
-      "lines": 1031,
+      "lines": 1032,
       "bytes": 47194
     },
     "docs/loro-e2ee-sync-protocol.md": {
@@ -80,11 +80,11 @@
     },
     "docs/protocol-specification.md": {
       "lines": 585,
-      "bytes": 28639
+      "bytes": 28664
     },
     "docs/security-guarantees.md": {
-      "lines": 643,
-      "bytes": 35532
+      "lines": 645,
+      "bytes": 35654
     },
     "formal/document-sync/BaselineDominanceTraces.json": {
       "lines": 2059,

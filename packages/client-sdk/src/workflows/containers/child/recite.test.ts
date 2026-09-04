@@ -4,9 +4,59 @@ import { createContainerReciteScenario } from "../../../../test/helpers/containe
 import { heldContainerSnapshot } from "../../../data/containers/shared/heldContainerHeads";
 import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
 import { reciteHeldDescendants } from "./recite";
-import { buildContainerRecitePlan } from "./recitePlan";
+import {
+  assertContainerReciteAcknowledgement,
+  buildContainerRecitePlan,
+} from "./recitePlan";
 
 type Scenario = Awaited<ReturnType<typeof createContainerReciteScenario>>;
+
+test("acknowledgement compares signed fields but permits bundle metadata", async () => {
+  const scenario = await createContainerReciteScenario();
+  try {
+    const held = heldContainerSnapshot(
+      scenario.execSql,
+      scenario.parent.author.organizationId,
+    );
+    const parent = held.heads.get(scenario.parent.projection.containerId);
+    const child = held.heads.get("held-child");
+    if (!parent || !child) throw new Error("Expected held path");
+    const plan = await buildContainerRecitePlan({
+      author: scenario.parent.author,
+      path: [parent, child],
+      policies: held.policies,
+    });
+    const response = await scenario.reciteContainer("held-child", plan.request);
+    const enriched = {
+      ...response,
+      accessManifest: {
+        ...response.accessManifest,
+        transportMetadata: "not part of the signed bundle",
+        event: { ...response.accessManifest.event, storedAt: "metadata" },
+      },
+    };
+    expect(() =>
+      assertContainerReciteAcknowledgement(plan, enriched),
+    ).not.toThrow();
+    for (const accessManifest of [
+      { ...enriched.accessManifest, manifestHash: "wrong-hash" },
+      {
+        ...enriched.accessManifest,
+        event: { ...enriched.accessManifest.event, eventHash: "wrong-hash" },
+      },
+      { ...enriched.accessManifest, state: { ...plan.state, epoch: 99 } },
+    ]) {
+      expect(() =>
+        assertContainerReciteAcknowledgement(plan, {
+          ...enriched,
+          accessManifest,
+        }),
+      ).toThrow("does not match the signed plan");
+    }
+  } finally {
+    await scenario.close();
+  }
+});
 
 test("the SDK does not sign re-citations after the history budget", async () => {
   const scenario = await createContainerReciteScenario();

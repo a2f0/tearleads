@@ -44,20 +44,24 @@ export async function submitAcknowledgedContainerMutation<
   });
   if (input.stillCurrent?.() === false) return null;
 
-  rememberVerifiedContainerHeads({
-    execSql: input.execSql,
-    organizationId: input.author.organizationId,
-    heads: [],
-    policies: input.recitationPolicies,
-  });
-  scheduleHeldDescendantRecitations({
-    apiClient: input.apiClient,
-    author: input.author,
-    execSql: input.execSql,
-    plans: [input.plan],
-    reportSecurityIncident: input.reportSecurityIncident,
-    stillCurrent: input.stillCurrent,
-  });
+  try {
+    rememberVerifiedContainerHeads({
+      execSql: input.execSql,
+      organizationId: input.author.organizationId,
+      heads: [],
+      policies: input.recitationPolicies,
+    });
+    scheduleHeldDescendantRecitations({
+      apiClient: input.apiClient,
+      author: input.author,
+      execSql: input.execSql,
+      plans: [input.plan],
+      reportSecurityIncident: input.reportSecurityIncident,
+      stillCurrent: input.stillCurrent,
+    });
+  } catch {
+    // Optional cache population cannot change an acknowledged mutation result.
+  }
   return {
     containerKey: input.containerKey,
     plan: input.plan,
