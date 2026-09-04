@@ -28,6 +28,7 @@ interface OrgManagerMembershipMutationsParams {
   readonly refreshDirectoryAndGroups: Refreshers["refreshDirectoryAndGroups"];
   readonly refreshSelectedGroupDetails: Refreshers["refreshSelectedGroupDetails"];
   readonly selectedGroupId: string | null;
+  readonly selectedGroupName: string | null;
   readonly selectedGroupIsAdminsGroup: boolean;
   readonly selectedGroupIsMembersGroup: boolean;
   readonly setAddUserId: Dispatch<SetStateAction<string>>;
@@ -47,6 +48,7 @@ async function addUserToSelectedGroup(
     !params.members ||
     targetUserId.length === 0 ||
     !params.selectedGroupId ||
+    params.selectedGroupName === null ||
     !params.appData.auth.userId ||
     !params.appData.crypto.signingFingerprint ||
     !params.appData.crypto.signingKeyPair ||
@@ -56,6 +58,7 @@ async function addUserToSelectedGroup(
   }
   const memberGroupId = params.memberGroupId;
   const selectedGroupId = params.selectedGroupId;
+  const groupName = params.selectedGroupName;
   const operationOrganizationId = params.directory.organizationId;
   if (!params.isOperationActive(operationOrganizationId)) {
     return;
@@ -75,6 +78,7 @@ async function addUserToSelectedGroup(
       const policyBundle = await addRosterUserToGroup({
         directoryUser,
         groupId: selectedGroupId,
+        groupName,
         isAdminGroup: params.selectedGroupIsAdminsGroup,
         isOperationActive: params.isOperationActive,
         memberGroupId,
@@ -106,6 +110,7 @@ async function removeUserFromSelectedGroup(
 ): Promise<void> {
   if (
     !params.selectedGroupId ||
+    params.selectedGroupName === null ||
     !params.appData.auth.userId ||
     !params.appData.crypto.signingFingerprint ||
     !params.appData.crypto.signingKeyPair ||
@@ -114,6 +119,7 @@ async function removeUserFromSelectedGroup(
     return;
   }
   const selectedGroupId = params.selectedGroupId;
+  const groupName = params.selectedGroupName;
   const operationOrganizationId = params.directory.organizationId;
   await runScopedOrgMutation({
     isOperationActive: params.isOperationActive,
@@ -122,6 +128,7 @@ async function removeUserFromSelectedGroup(
       await params.orgManagerActions.removeUserFromGroup(
         selectedGroupId,
         removedUserId,
+        groupName,
       );
       if (!params.isOperationActive(operationOrganizationId)) {
         return;
@@ -159,6 +166,7 @@ export function useOrgManagerMembershipMutations(
       params.refreshDirectoryAndGroups,
       params.refreshSelectedGroupDetails,
       params.selectedGroupId,
+      params.selectedGroupName,
       params.selectedGroupIsAdminsGroup,
       params.selectedGroupIsMembersGroup,
       params.setAddUserId,
@@ -180,6 +188,7 @@ export function useOrgManagerMembershipMutations(
       params.refreshDirectoryAndGroups,
       params.refreshSelectedGroupDetails,
       params.selectedGroupId,
+      params.selectedGroupName,
       params.setError,
       params.setMutating,
     ],

@@ -144,6 +144,7 @@ test("roster import reports no result when the organization changes during its m
   expect(addUserToGroup).toHaveBeenCalledWith(
     MEMBERS.groupId,
     TARGET_USER.userId,
+    "Members",
   );
   expect(result).toBeNull();
 });
@@ -161,6 +162,7 @@ test("adding a roster user stops before the write when an import resolves in a s
   const resultPromise = addRosterUserToGroup({
     directoryUser: undefined,
     groupId: "custom-group",
+    groupName: "Operators",
     isAdminGroup: false,
     isOperationActive,
     memberGroupId: null,
@@ -191,6 +193,7 @@ test("adding a roster user reports a stale result when the organization changes 
   const result = await addRosterUserToGroup({
     directoryUser: undefined,
     groupId: "custom-group",
+    groupName: "Operators",
     isAdminGroup: false,
     isOperationActive,
     memberGroupId: null,
@@ -204,6 +207,7 @@ test("adding a roster user reports a stale result when the organization changes 
   expect(addUserToGroup).toHaveBeenCalledWith(
     "custom-group",
     TARGET_USER.userId,
+    "Operators",
   );
   expect(result).toBeNull();
 });
@@ -227,6 +231,7 @@ test("a failed Admins add after a Members add reports the user is now a billed m
   const result = await addRosterUserToGroup({
     directoryUser: { ...TARGET_USER } as never,
     groupId: "admins",
+    groupName: "Admins",
     isAdminGroup: true,
     isOperationActive: () => true,
     memberGroupId: "members",

@@ -112,6 +112,7 @@ export interface DemoRosterSeedActions {
   readonly addUserToGroup: (
     groupId: string,
     targetUserId: string,
+    expectedGroupName: string,
   ) => Promise<unknown>;
   readonly ensureRosterProfileDocument: (
     user: OrganizationDirectoryUser,
@@ -188,7 +189,11 @@ export async function seedPeerRosterEntry(
       if (!importedUser) {
         return false;
       }
-      await actions.addUserToGroup(plan.memberGroupId, importedUser.userId);
+      await actions.addUserToGroup(
+        plan.memberGroupId,
+        importedUser.userId,
+        "Members",
+      );
     }
     // The membership write (or a prior one) has not surfaced in this directory
     // snapshot yet; retry so the next attempt can seed the profile nickname.

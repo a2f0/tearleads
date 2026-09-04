@@ -108,6 +108,7 @@ async function loadRosterDisableMembershipTargets(input: {
 
 async function removeRosterDisableMembershipTargets(input: {
   disabledUserId: string;
+  memberGroupId: string;
   isOperationActive: (organizationId: string) => boolean;
   organizationId: string;
   orgManagerActions: ReturnType<typeof useOrgManagerActions>;
@@ -120,6 +121,7 @@ async function removeRosterDisableMembershipTargets(input: {
     await input.orgManagerActions.removeUserFromGroup(
       groupId,
       input.disabledUserId,
+      groupId === input.memberGroupId ? "Members" : "Admins",
     );
   }
   return input.isOperationActive(input.organizationId);
@@ -165,6 +167,7 @@ async function disableRosterUser(
 
       const removed = await removeRosterDisableMembershipTargets({
         disabledUserId: input.disabledUserId,
+        memberGroupId,
         isOperationActive: input.isOperationActive,
         organizationId: operationOrganizationId,
         orgManagerActions: input.orgManagerActions,

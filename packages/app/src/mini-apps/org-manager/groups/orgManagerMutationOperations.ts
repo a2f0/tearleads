@@ -91,7 +91,11 @@ async function ensureRosterUserInGroup(input: {
   if (alreadyMember) {
     return "already-member";
   }
-  await input.orgManagerActions.addUserToGroup(input.groupId, input.userId);
+  await input.orgManagerActions.addUserToGroup(
+    input.groupId,
+    input.userId,
+    "Members",
+  );
 
   return input.isOperationActive(input.operationOrganizationId)
     ? "added"
@@ -129,6 +133,7 @@ export async function prepareRosterImport(input: {
 export async function addRosterUserToGroup(input: {
   directoryUser: OrganizationDirectory["users"][number] | undefined;
   groupId: string;
+  groupName: string;
   isAdminGroup: boolean;
   isOperationActive: IsOperationActive;
   memberGroupId: string | null;
@@ -168,6 +173,7 @@ export async function addRosterUserToGroup(input: {
     const bundle = await input.orgManagerActions.addUserToGroup(
       input.groupId,
       targetUser.userId,
+      input.groupName,
     );
     return input.isOperationActive(input.operationOrganizationId)
       ? bundle
