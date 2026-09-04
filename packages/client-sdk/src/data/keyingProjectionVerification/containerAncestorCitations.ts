@@ -257,13 +257,12 @@ function staleAncestorCitations(input: {
       citations,
       containerId,
     );
+    // An ancestor the head does not cite at all joined the path after the
+    // head was signed, when an ancestor between them moved: the head is as
+    // stale toward it as toward an advanced one.
     if (!cited) {
-      // Unreachable once the cited ancestor path resolved: both chains run
-      // by parent id from the same parent. Kept as the invariant it is.
-      throw new KeyingVerificationError(
-        "missing_dependency",
-        `${input.label} does not cite a verified head of ancestor container ${containerId}`,
-      );
+      stale.push(containerId);
+      continue;
     }
     if (cited.manifestHash === served.manifestHash) continue;
     if (!descendsFrom(input.verifiedByHash, served, cited)) {
@@ -273,6 +272,53 @@ function staleAncestorCitations(input: {
       );
     }
     stale.push(containerId);
+  }
+  return stale;
+}
+
+/**
+ * The source ancestors a move cites at a head older than this device's own
+ * checkpoint for that container. The projection serves the destination path,
+ * not the source's current heads, so the device's checkpoints stand in for
+ * them; a device with none for a source ancestor is at first contact with it.
+ */
+async function staleMoveSourceCitations(input: {
+  readonly execSql: ExecSql;
+  readonly head: VerifiedContainerAccessManifest;
+  readonly label: string;
+  readonly localCheckpoints: Map<string, AccessManifestCheckpoint | null>;
+  readonly verifiedByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>;
+}): Promise<string[]> {
+  const previousHash = input.head.state.previousManifestHash;
+  const previous =
+    previousHash === null ? undefined : input.verifiedByHash.get(previousHash);
+  if (!previous) {
+    throw new KeyingVerificationError(
+      "missing_dependency",
+      `${input.label} previous manifest is not verified`,
+    );
+  }
+  const citations = input.head.event.event.dependencyManifestHashes;
+  const stale: string[] = [];
+  let containerId = previous.state.parentContainerId;
+  while (containerId !== null) {
+    const cited = verifiedCitedHead(
+      input.verifiedByHash,
+      citations,
+      containerId,
+    );
+    if (!cited) break;
+    const localCheckpoint = await loadLocalAccessManifestCheckpoint({
+      execSql: input.execSql,
+      localCheckpoints: input.localCheckpoints,
+      objectId: containerId,
+      objectKind: "container",
+      organizationId: cited.state.organizationId,
+    });
+    if (localCheckpoint && cited.state.epoch < localCheckpoint.epoch) {
+      stale.push(containerId);
+    }
+    containerId = cited.state.parentContainerId;
   }
   return stale;
 }
@@ -291,6 +337,10 @@ function staleAncestorCitations(input: {
  * it composes with the ancestor's own checkpoint; a device with no checkpoint
  * for the child is at first contact with it and takes the served history as
  * it is, as it does for principal policies.
+ *
+ * A move takes its admin authority from the source ancestors, which the
+ * projection does not serve, so their cited heads are held to this device's
+ * own checkpoints for them instead, with no authority to re-check.
  *
  * What remains refused, as `stale_citation`, is a head by a member since
  * revoked at an ancestor. Only the head is held to this, not the history
@@ -322,6 +372,15 @@ export async function assertNewHeadCitesServedAncestors(input: {
   });
   if (!localCheckpoint || input.head.state.epoch <= localCheckpoint.epoch) {
     return;
+  }
+  if (input.head.event.event.eventType === "container.move") {
+    const staleSource = await staleMoveSourceCitations(input);
+    if (staleSource.length > 0) {
+      throw new KeyingVerificationError(
+        "stale_citation",
+        `${input.label} is newer than the local checkpoint and cites a head of source ancestor container ${staleSource.join(", ")} older than this device's checkpoint for it; a later event on the container by a member with current authority supersedes it`,
+      );
+    }
   }
   const stale = staleAncestorCitations(input);
   if (stale.length === 0) return;
