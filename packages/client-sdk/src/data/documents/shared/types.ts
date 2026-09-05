@@ -167,10 +167,6 @@ export interface MaterializedDocumentCreatePlan {
 }
 
 export interface DocumentCreateApi {
-  createDocument(
-    input: DocumentCreateRequest,
-    options?: DocumentSyncRequestResultOptions,
-  ): Promise<DocumentCreateResponse | null>;
   // Lets idempotent create inspect an expected already-exists conflict.
   createDocumentResult(
     input: DocumentCreateRequest,
@@ -331,21 +327,11 @@ export interface DocumentLinkSetMutationApi {
     documentId: string,
     projection: DocumentWriterProjectionResponse,
   ): void;
-  linkDocument(
-    documentId: string,
-    input: DocumentLinkSetMutationRequest,
-    options?: DocumentSyncRequestResultOptions,
-  ): Promise<DocumentLinkSetMutationResponse | null>;
   linkDocumentResult(
     documentId: string,
     input: DocumentLinkSetMutationRequest,
     options?: DocumentSyncRequestResultOptions,
   ): Promise<DocumentLinkSetMutationResult>;
-  unlinkDocument(
-    documentId: string,
-    input: DocumentLinkSetMutationRequest,
-    options?: DocumentSyncRequestResultOptions,
-  ): Promise<DocumentLinkSetMutationResponse | null>;
   unlinkDocumentResult(
     documentId: string,
     input: DocumentLinkSetMutationRequest,
@@ -514,11 +500,6 @@ export interface DocumentSyncApi {
       }
     | DocumentSyncSubmitFailure
   >;
-  syncDocument(
-    documentId: string,
-    input: DocumentSyncRequest,
-    options?: DocumentSyncRequestResultOptions,
-  ): Promise<DocumentSyncResponse | null>;
   syncDocumentResult(
     documentId: string,
     input: DocumentSyncRequest,

@@ -51,7 +51,8 @@ not older adapter shapes. `deviceFirst.open()` supplies the unified handle;
 there are no separate view/reconciler aliases. Container creation always uses
 the compound container-plus-metadata endpoint. Custom create, document link,
 unlink, writer-projection, and sync APIs must implement the structured `Result`
-methods and return complete transport failures. Container persistence must
+methods and return complete transport failures; unused nullable mutation
+methods are not required host members. Container persistence must
 atomically save pending mutations and settle or record errors against the exact
 intent revision; unconditional settlement is not supported.
 
@@ -59,6 +60,7 @@ Local document tables require the current columns at startup. Reset obsolete
 tables instead of expecting additive schema upgrades. Principal-policy warming
 always verifies and persists its cache. Group policy writes require an explicit
 organization owner, pinned atomically with current/history/checkpoint rows.
+Unowned persisted group evidence requires a full local reset before scoped purge.
 The wire contract requires explicit
 commit-LSN mode, inline-rekey commit markers for nonempty batches, and original
 document/blob write-authorization evidence. Historical signed manifests and

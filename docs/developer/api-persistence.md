@@ -37,9 +37,20 @@ cannot catch this earlier migration failure. Reset is an operator precondition,
 not an automatic recovery path; do not retry with constraints disabled. This
 cutover procedure authorizes no deletion of a deployed database by tooling.
 
+The same precondition applies to obsolete billing state, including
+`organization_billing_stripe_seats` capacities above the largest current tier
+(10), superseded product identifiers, and native subscription bindings without
+stored provider-identity audit evidence. Reset and reprovision rather than
+retrying an unrepresentable seat state or inferring identity from a new claim.
+Unnamed group policies and incomplete historical path citations likewise
+require reset before the deployment guard permits startup.
+
 Old client document tables and obsolete Loro encodings likewise require local
 reset and reprovisioning, not an in-place conversion. Retain any unsynced data
 offline before reset; it is not automatically imported into the new contract.
+An unowned local group-policy cache, including retained-history-only or
+checkpoint-only rows, refuses organization purge and requires a full local
+database reset; a scoped purge cannot safely guess which organization owns it.
 
 ### Connection settings
 

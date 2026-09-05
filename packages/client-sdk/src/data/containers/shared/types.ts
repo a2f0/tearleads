@@ -126,18 +126,10 @@ export interface ContainerMutationRequestOptions {
 }
 
 export interface ContainerCreateApi {
-  createContainer(
-    input: ContainerMutationRequest,
-    options?: ContainerMutationRequestOptions,
-  ): Promise<ContainerMutationResponse | null>;
   createContainerResult(
     input: ContainerMutationRequest,
     options?: ContainerMutationRequestOptions,
   ): Promise<ContainerMutationSubmitResult<ContainerMutationResponse>>;
-  createContainerWithMetadataDocument(
-    input: ContainerCreateWithMetadataDocumentRequest,
-    options?: ContainerMutationRequestOptions,
-  ): Promise<ContainerCreateWithMetadataDocumentResponse | null>;
   createContainerWithMetadataDocumentResult(
     input: ContainerCreateWithMetadataDocumentRequest,
     options?: ContainerMutationRequestOptions,

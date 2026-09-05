@@ -15,6 +15,85 @@ import { clearRemoteSyncState } from "./remoteReset";
 
 const STALE = "2026-08-01T00:00:00.000Z";
 
+test.each([
+  "current",
+  "history",
+  "references",
+  "checkpoint",
+] as const)("unowned %s group evidence refuses scoped purge without deleting or backfilling", async (placement) => {
+  const { close, execSql } = await createTestExecSql(
+    `sync-remote-reset-unowned-${placement}`,
+  );
+  try {
+    await ensureSqlTables(execSql, clientSqlTables);
+    const { db } = getClientSQLitePersistenceRuntime(execSql);
+    const owned = policyRow("owned-group", "owned-head");
+    const owner = {
+      principalId: "owned-group",
+      principalType: "group" as const,
+      organizationId: "org-purged",
+    };
+    await db.insert(principalPolicies).values(owned);
+    await db.insert(principalPolicyOrganizations).values(owner);
+    // Display rows are not ownership evidence, even when they look usable.
+    await db
+      .insert(organizationReadModelGroups)
+      .values(groupRow("org-purged", "unowned-group"));
+    if (placement === "current" || placement === "history") {
+      await db
+        .insert(
+          placement === "current"
+            ? principalPolicies
+            : principalPolicyBundleHistory,
+        )
+        .values(policyRow("unowned-group", "unowned-head"));
+    } else if (placement === "references") {
+      await db.insert(principalPolicyBundleReferences).values({
+        principalType: "group",
+        principalId: "unowned-group",
+        version: 1,
+        stateHash: "unowned-head",
+        keyEpoch: 1,
+        keyFingerprint: "key",
+        bundleVersion: 1,
+        bundleStateHash: "unowned-head",
+      });
+    } else {
+      await db.insert(principalPolicyCheckpoints).values({
+        principalType: "group",
+        principalId: "unowned-group",
+        version: 1,
+        stateHash: "unowned-head",
+        updatedAt: STALE,
+      });
+    }
+    const tables = [
+      principalPolicies,
+      principalPolicyBundleHistory,
+      principalPolicyBundleReferences,
+      principalPolicyCheckpoints,
+      principalPolicyOrganizations,
+      organizationReadModelGroups,
+    ] as const;
+    const before = await Promise.all(
+      tables.map((table) => db.select().from(table)),
+    );
+    await expect(
+      clearRemoteSyncState(execSql, { organizationId: "org-purged" }),
+    ).rejects.toThrow(
+      "Unowned group policy cache requires a local database reset",
+    );
+    expect(
+      await Promise.all(tables.map((table) => db.select().from(table))),
+    ).toEqual(before);
+    expect(await db.select().from(principalPolicyOrganizations)).toEqual([
+      owner,
+    ]);
+  } finally {
+    close();
+  }
+});
+
 function policyRow(principalId: string, stateHash: string) {
   return {
     principalType: "group" as const,

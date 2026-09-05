@@ -134,6 +134,15 @@ was increased for incidental edits.
 
 ## Remaining audit queue
 
+Review round 3 repaired the old unowned-cache case without restoring ownership
+inference: scoped purge refuses current, history-only, reference-only, and
+checkpoint-only group evidence without a pinned owner. Four regression cases
+assert every table remains unchanged and no ownership is backfilled; all 22
+remote-reset tests pass. The operator cutover precondition also names obsolete
+Stripe seat outbox state. Removed six unused nullable mutation methods from
+required SDK host interfaces; current API-client conveniences remain separate
+from the SDK's minimum adapter contract.
+
 - Integrate the completed issue PRs; regenerate final contracts and exact
   temporary OpenAPI exceptions; complete validation, review, and submission.
 
