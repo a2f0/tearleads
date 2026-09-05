@@ -240,7 +240,10 @@ order and per-operation inference are unchanged; no broad type erasure is used.
   use their owning configuration/state to retire them before fresh provisioning.
 - Candidates: remove the Ansible cleanup/import and its ordering assertion,
   both Terraform `moved` blocks, stale backend/store/webhook cutover guidance,
-  and the 50 exact OpenAPI exceptions whose removal condition was met by #2181.
+  and the 50 exact OpenAPI exceptions whose removal condition was met by #2181
+  (`896d4efa`). The deleted entries cite issue #2158; #2181 is the PR that
+  landed the final contract on main. Replace the brand-specific backup ignore
+  rules with `*backup.json`, keeping both old and current local backups ignored.
 - Risk: old hosts must be replaced, not reused with old services still running;
   dropping state for live resources is not a substitute for retiring them.
 - Baseline: infrastructure parity passed; Ansible lint passed on 38 files
@@ -253,3 +256,18 @@ order and per-operation inference are unchanged; no broad type erasure is used.
   its regression fixtures, bounded models, architecture, and source shape.
   The code audit finds no remaining SymCrypt references in Terraform/Ansible.
   Independent review and handoff results are recorded in the follow-up PR.
+- Read-only deployment audit for the first review's operational concerns:
+  staging's current and former backend states have no website-cache resource;
+  production's former backend state already uses `module.website_cache[0]`.
+  Neither tier needs the removed address migration. Staging has no old-brand
+  systemd unit files, loaded units, `/opt/symcrypt`, or `/etc/symcrypt`; current
+  Tearleads API and maintenance timers are running.
+- Production remains in the former `symcrypt-terraform-state` backend; its
+  current-backend server state is empty even though Hetzner still lists the
+  production server. Its state-provided SSH hostname does not resolve, and it
+  is not visible in the local Tailscale peer list, so its systemd state could
+  not be certified. This code-only cleanup does not authorize treating that
+  empty backend as a fresh production environment: retire the existing
+  production resources through their owning state before fresh provisioning,
+  as required by the owner's replacement-only direction. Do not run the new
+  playbook on that unverified host. No server or remote state was changed.
