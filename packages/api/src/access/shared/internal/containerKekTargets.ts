@@ -3,7 +3,10 @@ import {
   accessManifestHeads,
   accessManifests,
 } from "@tearleads/api-shared/schema";
-import type { ContainerKekTarget } from "@tearleads/crypto";
+import {
+  type ContainerKekTarget,
+  MAX_CONTAINER_RECITATION_EPOCH,
+} from "@tearleads/crypto";
 import { sql } from "drizzle-orm";
 import { uniqueSortedStrings as unique } from "../../../utils/array";
 import { isRecord } from "../../../utils/record";
@@ -156,7 +159,7 @@ function isContainerAncestorClosureRow(
 interface ContainerManifestBindingHistoryRow {
   readonly containerId: string;
   readonly containerKeyEpochId: string;
-  readonly cycleDetected: boolean;
+  readonly depth: number;
   readonly eventHash: string;
   readonly manifestHash: string;
   readonly objectId: string;
@@ -173,7 +176,7 @@ function isContainerManifestBindingHistoryRow(
     value !== null &&
     typeof Reflect.get(value, "containerId") === "string" &&
     typeof Reflect.get(value, "containerKeyEpochId") === "string" &&
-    isSqlBooleanValue(Reflect.get(value, "cycleDetected")) &&
+    Number.isSafeInteger(Reflect.get(value, "depth")) &&
     typeof Reflect.get(value, "eventHash") === "string" &&
     typeof Reflect.get(value, "manifestHash") === "string" &&
     typeof Reflect.get(value, "objectId") === "string" &&
@@ -294,13 +297,9 @@ function assertBindingHistoryRowCurrent(input: {
   readonly row: ContainerManifestBindingHistoryRow;
   readonly targetByContainerId: ReadonlyMap<string, ContainerManifestTarget>;
 }): void {
-  const cycleDetected = readSqlBoolean(
-    input.row.cycleDetected,
-    "cycleDetected",
-  );
-  if (cycleDetected) {
+  if (input.row.depth >= MAX_CONTAINER_RECITATION_EPOCH) {
     throw new ContainerKekTargetError(
-      `Container manifest history cycle detected at container ${input.row.containerId}`,
+      `Container same-epoch manifest history exceeds maximum depth for ${input.row.containerId}; rekey required`,
       409,
     );
   }
@@ -365,6 +364,8 @@ async function loadSameEpochContainerManifestBindingHistories(input: {
     return new Map();
   }
 
+  // One sentinel detects overflow. Bounded rows detect cycles below without
+  // quadratic visited-path strings in SQL.
   const result = await input.executor.execute(sql`
     with recursive manifest_targets(
       container_id,
@@ -389,8 +390,6 @@ async function loadSameEpochContainerManifestBindingHistories(input: {
         m.event_hash,
         m.previous_manifest_hash,
         m.state,
-        ${visitedPathStart(sql`m.manifest_hash`)} as visited_path,
-        false as cycle_detected,
         0 as depth
       from manifest_targets
       inner join ${accessManifests} m
@@ -405,16 +404,11 @@ async function loadSameEpochContainerManifestBindingHistories(input: {
         pm.event_hash,
         pm.previous_manifest_hash,
         pm.state,
-        ${visitedPathAppend(sql`mp.visited_path`, sql`pm.manifest_hash`)},
-        ${visitedPathContains(
-          sql`mp.visited_path`,
-          sql`pm.manifest_hash`,
-        )} as cycle_detected,
         mp.depth + 1
       from manifest_path mp
       inner join ${accessManifests} pm
         on pm.manifest_hash = mp.previous_manifest_hash
-      where not mp.cycle_detected
+      where mp.depth < ${MAX_CONTAINER_RECITATION_EPOCH}
         and mp.previous_manifest_hash is not null
         and pm.object_kind = 'container'
         and pm.object_id = mp.container_id
@@ -424,7 +418,7 @@ async function loadSameEpochContainerManifestBindingHistories(input: {
     select
       container_id as "containerId",
       container_key_epoch_id as "containerKeyEpochId",
-      cycle_detected as "cycleDetected",
+      depth as "depth",
       event_hash as "eventHash",
       manifest_hash as "manifestHash",
       object_id as "objectId",
@@ -456,6 +450,12 @@ async function loadSameEpochContainerManifestBindingHistories(input: {
       eventHashByManifestHash: new Map<string, string>(),
       manifestHashes: new Set<string>(),
     };
+    if (history.manifestHashes.has(row.manifestHash)) {
+      throw new ContainerKekTargetError(
+        `Container manifest history cycle detected at container ${row.containerId}`,
+        409,
+      );
+    }
     history.manifestHashes.add(row.manifestHash);
     history.eventHashByManifestHash.set(row.manifestHash, row.eventHash);
     historyByContainerId.set(row.containerId, history);

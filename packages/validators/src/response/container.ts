@@ -145,6 +145,7 @@ const ContainerManifestMutationResponseShape = {
   updatedAt: z.string(),
 };
 
+// Preserve the canonical generated field order while sharing the signed-head shape.
 const { accessManifest, containerId, ...containerMutationResponseFields } =
   ContainerManifestMutationResponseShape;
 

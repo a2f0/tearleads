@@ -217,6 +217,7 @@ export {
   KEYING_VERIFICATION_CODES,
   KeyingVerificationError,
   MAX_CONTAINER_KEY_EPOCH,
+  MAX_CONTAINER_RECITATION_EPOCH,
   makeVerifiedAccessEvent,
   makeVerifiedBlobKekTargets,
   makeVerifiedContainerAccessManifest,
@@ -263,7 +264,6 @@ export {
   verifyTransparencyProof,
   verifyWriteHeader,
 } from "./keying";
-export { MAX_CONTAINER_RECITATION_EPOCH } from "./keying/containerAccessReciteBody";
 export {
   computePrincipalContainerGrantRoot,
   normalizePrincipalContainerGrants,

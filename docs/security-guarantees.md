@@ -311,6 +311,14 @@ eight-attempt pass can therefore add eight organization-wide refreshes to one
 user mutation. These invalidations are not batched; the per-pass cap and pacing
 bound amplification, not the total cost of later reads or refreshes.
 
+Document/blob writes also walk each ancestor's same-KEK manifest history to
+validate key bindings. That SQL walk admits at most 1024 manifests per container,
+with one overflow sentinel; it fails closed and requires a rekey beyond that
+boundary. It uses constant-size recursive rows and detects duplicate hashes
+after loading, rather than accumulating quadratic visited-path strings. This
+separate write-side bound applies to ordinary grant/move events too. A rekey
+starts a new same-KEK run; it does not compact the signed writer-projection chain.
+
 This background pass never fetches a subtree or a principal policy, never
 retries a failed re-cite, and never delays or changes the original mutation's
 result. One pass runs per executor, capped at eight attempts with a 250 ms gap
