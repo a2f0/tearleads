@@ -21,7 +21,6 @@ const fields: EquipmentDocumentFields = {
 };
 
 const inputIds = {
-  equipmentType: "appliance-type",
   make: "appliance-make",
   model: "appliance-model",
   serialNumber: "appliance-serial-number",
@@ -64,7 +63,21 @@ test("read mode reports an unselected type as empty", () => {
   expect(view.getByText("None")).toBeTruthy();
 });
 
-test("edit mode offers the hard-coded type list in a dropdown", () => {
+// The type control is the shared themed select menu, not a native <select>:
+// a combobox trigger opening a listbox of options.
+function getTypeMenu(view: ReturnType<typeof render>): HTMLButtonElement {
+  return view.getByRole("combobox", {
+    name: "Appliance type",
+  }) as HTMLButtonElement;
+}
+
+function listTypeOptionLabels(view: ReturnType<typeof render>): string[] {
+  return view
+    .getAllByRole("option")
+    .map((option) => option.textContent?.trim() ?? "");
+}
+
+test("edit mode offers the hard-coded type list in a themed dropdown", () => {
   const patches: Array<Partial<EquipmentDocumentFields>> = [];
   const view = renderEquipmentFields({
     isEditing: true,
@@ -73,19 +86,36 @@ test("edit mode offers the hard-coded type list in a dropdown", () => {
     },
   });
 
-  const select = view.getByLabelText("Appliance type") as HTMLSelectElement;
-  expect(select.value).toBe("dishwasher");
-  expect(Array.from(select.options).map((option) => option.value)).toEqual([
-    "",
-    ...APPLIANCE_TYPE_OPTIONS.map((option) => option.value),
-  ]);
+  const trigger = getTypeMenu(view);
+  expect(trigger.textContent).toContain("Dishwasher");
+  expect(view.container.querySelector("select")).toBeNull();
   expect(
     (view.getByLabelText("Appliance make") as HTMLInputElement).value,
   ).toBe("Bosch");
 
-  fireEvent.change(select, { target: { value: "refrigerator" } });
+  fireEvent.click(trigger);
+  expect(listTypeOptionLabels(view)).toEqual(
+    APPLIANCE_TYPE_OPTIONS.map((option) => option.label),
+  );
+
+  const refrigerator = view
+    .getByText("Refrigerator")
+    .closest('[role="option"]');
+  if (!(refrigerator instanceof HTMLElement)) {
+    throw new Error("Expected the Refrigerator option.");
+  }
+  fireEvent.click(refrigerator);
 
   expect(patches).toEqual([{ equipmentType: "refrigerator" }]);
+});
+
+test("edit mode shows a placeholder until a type is chosen", () => {
+  const view = renderEquipmentFields({
+    fields: { ...fields, equipmentType: "" },
+    isEditing: true,
+  });
+
+  expect(getTypeMenu(view).textContent).toContain("Select a type");
 });
 
 test("edit mode keeps a stored type that is not in this client's list", () => {
@@ -94,9 +124,26 @@ test("edit mode keeps a stored type that is not in this client's list", () => {
     isEditing: true,
   });
 
-  const select = view.getByLabelText("Appliance type") as HTMLSelectElement;
-  expect(select.value).toBe("wine_cooler");
-  expect(select.selectedOptions[0]?.textContent).toBe("Wine Cooler");
+  const trigger = getTypeMenu(view);
+  expect(trigger.textContent).toContain("Wine Cooler");
+
+  fireEvent.click(trigger);
+  expect(listTypeOptionLabels(view)[0]).toBe("Wine Cooler");
+});
+
+test("whitespace around a stored type does not duplicate its option", () => {
+  const view = renderEquipmentFields({
+    fields: { ...fields, equipmentType: " dryer " },
+    isEditing: true,
+  });
+
+  const trigger = getTypeMenu(view);
+  expect(trigger.textContent).toContain("Dryer");
+
+  fireEvent.click(trigger);
+  const labels = listTypeOptionLabels(view);
+  expect(labels).toHaveLength(APPLIANCE_TYPE_OPTIONS.length);
+  expect(labels.filter((label) => label === "Dryer")).toHaveLength(1);
 });
 
 test("edit toggle lives in the toolbar, not the document body", () => {
