@@ -12,12 +12,14 @@ import {
   revenuecatWebhookEvents,
 } from "@tearleads/api-shared/schema";
 import { getSyncBillingTierForNativeProduct } from "@tearleads/validators/billing";
+import type { OrganizationBillingSubscriptionSource } from "@tearleads/validators/response";
 import { and, desc, eq, gt, gte, inArray } from "drizzle-orm";
 import {
   createTrialBillingFields,
   type OrganizationBilling,
   organizationSeatPeriodKey,
 } from "../../billing/organizationBilling";
+import type { StripeApiDeps } from "../../billing/stripeApi";
 import { requireDirectOrganizationAccess } from "../organizations/access";
 import { OrganizationManagerError } from "../organizations/errors";
 import { withOrganizationAdminTransaction } from "../organizations/mutationAccess";
@@ -29,6 +31,7 @@ import {
 } from "./organizationBillingState";
 import { reconcileOrganizationBillingSeats } from "./organizationSeats";
 import { loadOrganizationBillingSeatUsage } from "./organizationSeatUsage";
+import { resolveOrganizationSubscriptionOwnership } from "./organizationSubscriptionSource";
 import {
   freeTrialLifecycleSourceId,
   recordFreeTrialInitialized,
@@ -130,7 +133,7 @@ export async function runGetOrganizationBillingWorkflow(
   db: ApiDatabase,
   organizationId: string,
   sessionUserId: string,
-  now: Date = new Date(),
+  deps: { readonly now?: Date; readonly stripe?: StripeApiDeps } = {},
 ): Promise<{
   readonly activeMemberCount: number;
   readonly assignedSeatCount: number;
@@ -138,7 +141,9 @@ export async function runGetOrganizationBillingWorkflow(
   readonly billing: OrganizationBilling;
   readonly currentUserHasSyncSeat: boolean;
   readonly pendingSeatCount: number | null;
+  readonly subscriptionSource: OrganizationBillingSubscriptionSource | null;
 }> {
+  const now = deps.now ?? new Date();
   return db.transaction(async (tx) => {
     const billing = await resolveOrganizationBilling(tx, organizationId, now);
     if (billing.status === "deleting" || billing.status === "purged") {
@@ -177,7 +182,31 @@ export async function runGetOrganizationBillingWorkflow(
       organizationId,
       sessionUserId,
     });
-    return { activeMemberCount, billing, pendingSeatCount, ...seatUsage };
+    const [stripeBinding] = await tx
+      .select({
+        priceId: organizationBillingStripeSeats.priceId,
+        subscriptionId: organizationBillingStripeSeats.subscriptionId,
+        subscriptionItemId: organizationBillingStripeSeats.subscriptionItemId,
+      })
+      .from(organizationBillingStripeSeats)
+      .where(eq(organizationBillingStripeSeats.organizationId, organizationId))
+      .limit(1);
+    const { subscriptionSource } = resolveOrganizationSubscriptionOwnership({
+      hasActiveStripeSubscription: hasActiveStripeBinding(stripeBinding),
+      hasStripeSubscription: hasStripeBindingIdentity(stripeBinding),
+      provider: billing.provider,
+      providerCustomerId: billing.providerCustomerId,
+      providerProductId: billing.providerProductId,
+      status: billing.status,
+      ...(deps.stripe ? { stripe: deps.stripe } : {}),
+    });
+    return {
+      activeMemberCount,
+      billing,
+      pendingSeatCount,
+      subscriptionSource,
+      ...seatUsage,
+    };
   });
 }
 

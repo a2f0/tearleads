@@ -5,6 +5,7 @@ import type {
 import type {
   OrganizationBillingHistoryResponse,
   OrganizationBillingResponse,
+  OrganizationBillingSubscriptionSource,
 } from "@tearleads/validators/response";
 
 export const FREE_TRIAL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -100,6 +101,7 @@ export function serializeOrganizationBilling(
     readonly assignedUserIds: readonly string[];
     readonly currentUserHasSyncSeat: boolean;
     readonly pendingSeatCount: number | null;
+    readonly subscriptionSource: OrganizationBillingSubscriptionSource | null;
   },
 ): OrganizationBillingResponse {
   return {
@@ -111,6 +113,7 @@ export function serializeOrganizationBilling(
     status: billing.status,
     trialEndsAt: billing.trialEndsAt?.toISOString() ?? null,
     provider: billing.provider,
+    subscriptionSource: usage.subscriptionSource,
     currentPeriodStartsAt: billing.currentPeriodStartsAt?.toISOString() ?? null,
     currentPeriodEndsAt: billing.currentPeriodEndsAt?.toISOString() ?? null,
     seatCount: billing.seatCount,

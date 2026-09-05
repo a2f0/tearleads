@@ -30,6 +30,7 @@ function view(
     currentUserHasSyncSeat: false,
     syncSeatUnavailable: false,
     pendingSeatCount: null,
+    subscriptionSource: null,
     needsAttention: false,
     ...overrides,
   };

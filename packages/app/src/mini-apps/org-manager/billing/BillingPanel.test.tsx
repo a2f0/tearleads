@@ -50,7 +50,17 @@ function stubEnvironment(
   // Most syncing fixtures represent active billing unless marked trialing.
   const isActive = overrides.isActive ?? canSync;
   const isTrialing = overrides.isTrialing ?? false;
-  const { billing, view } = billingFixture(canSync, isActive, isTrialing);
+  const canCancelDirectly =
+    overrides.canCancelDirectly ??
+    (isActive && overrides.managementUrl === undefined);
+  // The snapshot names the subscription's owner; the management lookup only
+  // adds the link and the direct-cancel affordance.
+  const subscriptionSource =
+    overrides.subscriptionSource ??
+    (canCancelDirectly ? "stripe" : overrides.managementUrl ? "native" : null);
+  const fixture = billingFixture(canSync, isActive, isTrialing);
+  const billing = { ...fixture.billing, subscriptionSource };
+  const view = { ...fixture.view, subscriptionSource };
   spies.push(
     spyOn(BillingProvider, "useOrganizationBilling").mockReturnValue({
       billing,
@@ -75,17 +85,8 @@ function stubEnvironment(
           (() => Promise.resolve({ options: [OPTION] })),
         loadBillingManagementUrl: () =>
           Promise.resolve({
-            canCancelDirectly:
-              overrides.canCancelDirectly ??
-              (isActive && overrides.managementUrl === undefined),
+            canCancelDirectly,
             managementUrl: overrides.managementUrl ?? null,
-            subscriptionSource:
-              overrides.subscriptionSource ??
-              (overrides.canCancelDirectly === true
-                ? "stripe"
-                : overrides.managementUrl
-                  ? "native"
-                  : null),
           }),
         loadBillingHistory: () => Promise.resolve(null),
         cancelStripeSubscription: () => Promise.resolve({ cancelAt: null }),

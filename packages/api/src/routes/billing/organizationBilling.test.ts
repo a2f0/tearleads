@@ -17,7 +17,10 @@ import {
 import { registerUser } from "../../../test/helpers/registerUser";
 import { addSyntheticEffectiveOrganizationMembers } from "../../../test/helpers/revenuecatWebhook";
 import { routeApp } from "../../routeApp";
-import { getOrganizationBillingManagementUrl } from "../../services/billing/organizationBilling";
+import {
+  getOrganizationBilling,
+  getOrganizationBillingManagementUrl,
+} from "../../services/billing/organizationBilling";
 import { getDefaultApiServiceRuntime } from "../../services/runtime";
 
 async function registerAndAuthenticate(user: TestUser): Promise<string> {
@@ -159,17 +162,30 @@ test("management identifies Stripe and native subscription ownership", async () 
     })
     .where(eq(organizationBilling.organizationId, organizationId));
 
+  // The snapshot names the same owner the management resolution acts on.
+  const stripeDeps = {
+    stripe: { env: { STRIPE_SYNC_SOLO_PRICE_ID: "price_solo_test" } },
+  };
+  const snapshotSource = async (deps?: typeof stripeDeps) =>
+    (
+      await getOrganizationBilling(
+        getDefaultApiServiceRuntime(),
+        organizationId,
+        admin.userId,
+        deps,
+      )
+    ).subscriptionSource;
   const stripeManagement = await getOrganizationBillingManagementUrl(
     getDefaultApiServiceRuntime(),
     organizationId,
     admin.userId,
-    { stripe: { env: { STRIPE_SYNC_SOLO_PRICE_ID: "price_solo_test" } } },
+    stripeDeps,
   );
   expect(stripeManagement).toEqual({
     canCancelDirectly: true,
     managementUrl: null,
-    subscriptionSource: "stripe",
   });
+  expect(await snapshotSource(stripeDeps)).toBe("stripe");
 
   await db
     .update(organizationBilling)
@@ -185,8 +201,8 @@ test("management identifies Stripe and native subscription ownership", async () 
   ).toEqual({
     canCancelDirectly: true,
     managementUrl: null,
-    subscriptionSource: "stripe",
   });
+  expect(await snapshotSource(stripeDeps)).toBe("stripe");
 
   await db
     .update(organizationBilling)
@@ -233,8 +249,8 @@ test("management identifies Stripe and native subscription ownership", async () 
   expect(nativeManagement).toEqual({
     canCancelDirectly: true,
     managementUrl: "https://apps.apple.com/account/subscriptions",
-    subscriptionSource: "native",
   });
+  expect(await snapshotSource()).toBe("native");
 
   await db
     .update(organizationBilling)
@@ -249,8 +265,8 @@ test("management identifies Stripe and native subscription ownership", async () 
   expect(lapsedNativeManagement).toEqual({
     canCancelDirectly: false,
     managementUrl: "https://apps.apple.com/account/subscriptions",
-    subscriptionSource: "native",
   });
+  expect(await snapshotSource()).toBe("native");
 
   await db
     .update(organizationBilling)
@@ -265,8 +281,9 @@ test("management identifies Stripe and native subscription ownership", async () 
   expect(staleStripeManagement).toEqual({
     canCancelDirectly: false,
     managementUrl: null,
-    subscriptionSource: null,
   });
+  // A lapsed Stripe identity no longer owns anything: a new checkout may run.
+  expect(await snapshotSource(stripeDeps)).toBeNull();
 
   await db
     .update(organizationBilling)
@@ -289,8 +306,8 @@ test("management identifies Stripe and native subscription ownership", async () 
   expect(rotatedStripeManagement).toEqual({
     canCancelDirectly: true,
     managementUrl: null,
-    subscriptionSource: "stripe",
   });
+  expect(await snapshotSource()).toBe("stripe");
 });
 
 test("a non-member cannot read or change another org's billing", async () => {

@@ -152,7 +152,7 @@ function useDirectCheckoutWiring(input: {
       !view.isActive &&
       allowsPurchaseForBillingStatus(view.status) &&
       view.status !== "past_due" &&
-      input.management.subscriptionSource !== "stripe",
+      view.subscriptionSource !== "stripe",
   );
   const checkout = useDirectCheckoutFlow({
     // Deliberately NOT `actions.canSubscribe`: that folds in
@@ -387,9 +387,8 @@ export function BillingPanel({
   const refresh = recovery.active ? recovery.refresh : billing.refresh;
   const handleRefresh = useVoidRefresh(refresh);
   const subscriptionManagement = useOpenSubscriptionManagement(handleRefresh);
-  // Resolve the owner of an existing subscription before offering provider
-  // actions. Native plans may change tier through the store; an active Stripe
-  // plan must never be duplicated by starting a second native subscription.
+  // The management link and direct-cancel affordance for an existing
+  // subscription. Its owner comes from the billing snapshot itself.
   const management = useBillingManagementUrl(
     billingOrganizationId,
     isOrgAdmin &&
@@ -405,7 +404,7 @@ export function BillingPanel({
       isActive: billing.view.isActive,
       isPersonalOrganization: recovery.active ? true : isPersonalOrganization,
       status: billing.view.status,
-      subscriptionSource: management.subscriptionSource,
+      subscriptionSource: billing.view.subscriptionSource,
     });
   const actions = useBillingActions({
     ...billingActionSnapshot(billing.view),

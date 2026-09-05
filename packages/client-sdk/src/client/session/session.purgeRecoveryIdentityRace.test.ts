@@ -75,6 +75,7 @@ test("an identity switch during recovery rolls back reset and preserves the new 
         pendingSeatCount: null,
         provider: null,
         purgeAfter: null,
+        subscriptionSource: null,
         seatCount: active ? 1 : 0,
         status: active ? ("active" as const) : ("purged" as const),
         trialEndsAt: null,
