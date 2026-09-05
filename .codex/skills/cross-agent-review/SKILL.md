@@ -1,6 +1,6 @@
 ---
 name: cross-agent-review
-description: Review the current branch — before or after its PR is opened — with another AI agent (Claude Code by default, or a fresh Codex self-review) and repair blocking findings in bounded rounds
+description: Review the current branch — before or after its PR is opened — with another AI agent (Claude Code by default, or a fresh Codex self-review) and repair blocking findings until the review passes
 ---
 
 # Cross-Agent Review
@@ -16,11 +16,11 @@ available.
 This skill owns the full **review → repair → re-review** loop and the severity
 gate that drives it. Each review round first brings the branch up to date with
 its base — a merge of the latest base, never a rebase — so the review reflects the
-branch as it will actually merge, not a stale snapshot. Repairs are bounded by
-`--repair-rounds` (default `2`); each round changes the branch once and is
-followed by a fresh review of the new head, so the reported head is always a head
-that was itself reviewed. Pass `--repair-rounds 0` for a report-only review that
-changes nothing — the base sync included.
+branch as it will actually merge, not a stale snapshot. There is no limit on
+repair rounds: continue until no blocking findings remain. Each round changes
+the branch once and is followed by a fresh review of the new head, so the
+reported head is always a head that was itself reviewed. Pass `--report-only`
+for a review that changes nothing — the base sync included.
 
 ## Arguments
 
@@ -39,13 +39,11 @@ changes nothing — the base sync included.
   depth on a single diff; they never fix anything. A flag rather than a third
   positional argument, so it can be given without also supplying the agent and
   effort.
-- `--repair-rounds <n>` (optional flag, position-independent): maximum
-  blocking-finding repair rounds. **Defaults to `2`**. Each round may change the
-  branch once and therefore requires a fresh review of the new head. **Use `0`
-  for a report-only review** — findings are surfaced and nothing is touched.
+- `--report-only` (optional flag, position-independent): surface findings
+  without changing the branch, including base synchronization and repairs.
 
-`--passes` and `--repair-rounds` are different axes: passes re-read the same
-commit, repair rounds produce new commits to read.
+`--passes` controls reviews of one unchanged commit. Repairs produce new
+commits to review and have no round limit.
 
 ## Prerequisites
 
@@ -57,7 +55,7 @@ commit, repair rounds produce new commits to read.
   or may not** exist: with an open PR, local `HEAD` must equal the pushed PR
   head, and repairs are pushed to it; with no PR, the branch is reviewed against
   the repository's default branch and repairs stay local until the PR is opened.
-- Unless `--repair-rounds 0` is given: the worktree contains only changes
+- Unless `--report-only` is given: the worktree contains only changes
   intended for this branch, since repair rounds stage and commit from it.
 - A coordinating workflow may set both `AGENT_TOOL_REVIEW_BASE_REF` and
   `AGENT_TOOL_REVIEW_BASE_OID` to pin the branch name and exact base commit for
@@ -110,15 +108,14 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    - `codex` → Codex (self-review)
    - otherwise → Claude Code (default for Codex invoking this skill)
 
-   Then set `REPAIR_ROUND=0`. **This happens once, here — never inside the loop.**
-   Steps 2–5 form a loop that re-enters at step 2, so a counter initialized there
-   would reset on every repair, the `--repair-rounds` bound would never advance,
-   and the loop could commit and push without limit.
+   Set `REPAIR_ROUND=0` once for reporting. Steps 2–5 re-enter at step 2;
+   preserve the counter across repairs. It records work performed and never
+   limits the loop.
 
 2. **Sync with the base, then snapshot the candidate head**: before reviewing,
    bring the branch up to date with its base, so the review — and the head that
    is eventually merged — reflects the branch integrated with the *current* base
-   rather than a stale one. **Skip the sync under `--repair-rounds 0`**, whose
+   rather than a stale one. **Skip the sync under `--report-only`**, whose
    contract is to change nothing; take the snapshot as-is in that mode.
 
    Resolve the base ref and its exact OID from the repository that owns the PR,
@@ -317,7 +314,7 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
 
    e. Aggregate findings across all files into the final review output.
 
-5. **Review gate and bounded repair**: read the findings and classify them.
+5. **Review gate and repair**: read the findings and classify them.
    Every reviewer is prompted for **Blocker / Major / Minor / Suggestion**; if a
    review nonetheless speaks in **[P0]–[P3]**, treat them as one scale —
    **Blocker ≡ [P0]**, **Major ≡ [P1]**, **Minor ≡ [P2]**, **Suggestion ≡ [P3]**
@@ -327,10 +324,8 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
      (**Minor/Suggestion** or **[P2]/[P3]**), the loop is done. `REVIEWED_SHA` is
      the final reviewed head.
    - If the review raises a **blocking** finding, surface it. Then:
-     - If `--repair-rounds 0` was given, **stop and report** the findings without
+     - If `--report-only` was given, **stop and report** the findings without
        touching the branch. This is the report-only mode.
-     - If `REPAIR_ROUND` has reached `--repair-rounds`, **stop and report** the
-       unresolved findings along with the rounds already performed.
      - Otherwise repair:
        1. Confirm each fix is actionable, in scope, and requires no new authority
           or material user choice. Stop and ask for direction when that is false.
@@ -373,16 +368,13 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
 
 ## Notes
 
-- **Repairs are bounded** — at most two branch-changing repair rounds by default.
-  The bound is what keeps a review → fix → re-review cycle from running away and
-  surfacing ever-narrower findings; it is the reason this loop can be safe to own
-  here at all. `--repair-rounds 0` disables repair entirely and restores the
-  report-only review.
-- **`--passes` and `--repair-rounds` are orthogonal.** `--passes` controls
-  discovery depth on one unchanged head and never mutates anything;
-  `--repair-rounds` bounds how many times the branch may change and be
-  re-reviewed. Raising passes makes each look deeper; raising repair rounds makes
-  the loop longer.
+- **Repairs have no round limit.** Continue repairing actionable blocking
+  findings and reviewing each changed head until the severity gate passes.
+  Do not stop because a counter or a previous default budget was exhausted.
+  Honor user cancellation; stop for unavailable reviews or findings that require
+  new authority or a material user choice. `--report-only` disables repair.
+- **`--passes` controls discovery depth on one unchanged head.** It never
+  limits how many changed heads the repair loop can review.
 - **The reported head is a reviewed head.** `REVIEWED_SHA` is snapshotted before
   the review, verified unchanged after it, and re-snapshotted after every repair
   round — pushed when a PR is open, local when there is none. A caller that
@@ -408,7 +400,7 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
   when there is. The snapshot
   is fetched by OID from the repository that owns the PR, rather than assuming
   `origin` is that repository; a conflict aborts and stops for the user.
-  `--repair-rounds 0` skips it, keeping report-only inert.
+  `--report-only` skips it, keeping report-only inert.
 - Both reviewers get the prompt/diff via stdin (not argv) to avoid
   "Argument list too long" failures on large PRs.
 - The Claude reviewer runs with read-only tools (`--tools "Read,Grep,Glob"`) and

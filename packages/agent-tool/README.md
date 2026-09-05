@@ -74,8 +74,9 @@ the verdict gate), so callers can fall back to another reviewer on failure.
 Backs the `cross-agent-review` skill in `.claude/skills/` and `.codex/skills/`.
 
 These actions **only review**. The fallback chain, the severity gate, and the
-bounded repair loop live in the `cross-agent-review` skill *around* these calls
-— invoking the actions directly gets you one raw review and no repair.
+repair loop live in the `cross-agent-review` skill *around* these calls. The loop
+has no round limit; invoking the actions directly gets you one raw review and no
+repair.
 
 ## Open a PR
 
@@ -132,7 +133,7 @@ before the merge mutation.
 
 The `ship-pr` skill commits the work on a feature branch, hands it to
 `cross-agent-review` — which reviews the local commits (or the pushed head when
-a PR is already open), repairs blocking findings in up to two rounds by default,
+a PR is already open), repairs blocking findings until none remain,
 and re-reviews every head it changes — then opens or resumes the PR with a
 single push and squash-merges only the reviewed commit that review reports back.
 Opening the PR after the review is what keeps the branch to a single push
@@ -145,7 +146,7 @@ uninstalled. It adds no new CLI action; it orchestrates the `open-pr`,
 
 Review and repair are one unit, owned by `cross-agent-review`; `ship-pr` keeps
 only the merge gate (and `--merge-anyway` to override it). For a review that
-changes nothing, invoke `cross-agent-review` with `--repair-rounds 0`.
+changes nothing, invoke `cross-agent-review` with `--report-only`.
 
 ## Prerequisites
 
