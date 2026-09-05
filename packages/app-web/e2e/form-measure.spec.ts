@@ -120,7 +120,9 @@ test("tablet passport image stops at the measure", async ({ page }) => {
   await page.getByRole("button", { name: "New Document" }).click();
   await page.getByRole("button", { name: "Passport", exact: true }).click();
 
-  const attachmentSlots = page.locator(".passport-attachment-slots");
+  const attachmentSlots = page.locator(
+    ".structured-document-attachments--single",
+  );
   await expect(attachmentSlots).toBeVisible({ timeout: 30_000 });
   const geometry = await measureAttached("passport attachment slots", () =>
     attachmentSlots.evaluate((element) => {
@@ -133,7 +135,7 @@ test("tablet passport image stops at the measure", async ({ page }) => {
 
       const parent = element.parentElement;
       if (!parent) {
-        throw new Error("passport-attachment-slots has no parent to measure.");
+        throw new Error("The passport attachment slots have no parent.");
       }
       const rawCap = getComputedStyle(element).maxWidth;
 

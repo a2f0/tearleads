@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 import { useId } from "react";
+import { MiniAppSelectMenu } from "../../components/mini-app/controls/MiniAppSelectMenu";
 import type { useDocument } from "../../stores/documents/DocumentsProvider";
 import type { DocumentTypeAppProps } from "../types";
 import { createDocumentTypeApp } from "./createDocumentTypeApp";
@@ -20,14 +21,12 @@ import {
   useStructuredDocumentEditAction,
 } from "./StructuredDocument";
 import { useAttachedStructuredDocument } from "./useAttachedStructuredDocument";
-import "./EquipmentDocument.css";
 
 type EquipmentStructuredFieldSetter = ReturnType<
   typeof useDocument
 >["setStructuredFields"];
 
 interface EquipmentFieldInputIds {
-  equipmentType: string;
   make: string;
   model: string;
   serialNumber: string;
@@ -55,7 +54,11 @@ export function EquipmentFields(params: {
     ready,
     typeOptions,
   } = params;
-  const typeLabel = getEquipmentTypeLabel(typeOptions, fields.equipmentType);
+  // The stored value is compared trimmed everywhere — here, in the label
+  // helper, and as the menu's selected id — so a padded value written by
+  // another client reads and edits as the same option instead of a duplicate.
+  const storedType = fields.equipmentType.trim();
+  const typeLabel = getEquipmentTypeLabel(typeOptions, storedType);
 
   if (!isEditing) {
     return (
@@ -77,29 +80,24 @@ export function EquipmentFields(params: {
   // A stored type outside this client's option list stays selectable as
   // itself, so opening the editor never silently reverts it to the placeholder.
   const hasUnlistedType =
-    fields.equipmentType.length > 0 &&
-    !typeOptions.some((option) => option.value === fields.equipmentType);
+    storedType.length > 0 &&
+    !typeOptions.some((option) => option.value === storedType);
+  const typeMenuOptions = [
+    ...(hasUnlistedType ? [{ id: storedType, label: typeLabel }] : []),
+    ...typeOptions.map((option) => ({ id: option.value, label: option.label })),
+  ];
 
   return (
     <StructuredDocumentFields>
-      <StructuredDocumentField inputId={inputIds.equipmentType} label="Type">
-        <select
-          id={inputIds.equipmentType}
-          aria-label={`${ariaLabelPrefix} type`}
-          value={fields.equipmentType}
-          onChange={(event) => onChange({ equipmentType: event.target.value })}
+      <StructuredDocumentField label="Type">
+        <MiniAppSelectMenu
+          ariaLabel={`${ariaLabelPrefix} type`}
           disabled={disabled}
-        >
-          <option value="">{ready ? "Select a type" : "Loading..."}</option>
-          {hasUnlistedType ? (
-            <option value={fields.equipmentType}>{typeLabel}</option>
-          ) : null}
-          {typeOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+          onChange={(value) => onChange({ equipmentType: value })}
+          options={typeMenuOptions}
+          placeholder={ready ? "Select a type" : "Loading..."}
+          value={storedType}
+        />
       </StructuredDocumentField>
       <StructuredDocumentField inputId={inputIds.make} label="Make">
         <input
@@ -195,7 +193,6 @@ function EquipmentDocument(params: EquipmentDocumentProps) {
     slots: EQUIPMENT_ATTACHMENT_SLOTS,
   });
   const inputIds = {
-    equipmentType: useId(),
     make: useId(),
     model: useId(),
     serialNumber: useId(),
@@ -203,9 +200,10 @@ function EquipmentDocument(params: EquipmentDocumentProps) {
   return (
     <StructuredDocument
       attachments={
-        <div className="equipment-attachment-slots">
-          <DocumentAttachmentSlots {...doc.slotsProps} />
-        </div>
+        <DocumentAttachmentSlots
+          {...doc.slotsProps}
+          className="structured-document-attachments--single"
+        />
       }
       fields={
         <EquipmentDocumentFieldsPane

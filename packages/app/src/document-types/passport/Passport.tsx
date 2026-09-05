@@ -14,7 +14,6 @@ import {
   type PassportDocumentFields,
   readPassportFields,
 } from "./passportDocument";
-import "./Passport.css";
 
 type PassportStructuredFieldSetter = ReturnType<
   typeof useDocument
@@ -174,9 +173,10 @@ export function Passport(params: PassportProps) {
   return (
     <StructuredDocument
       attachments={
-        <div className="passport-attachment-slots">
-          <DocumentAttachmentSlots {...doc.slotsProps} />
-        </div>
+        <DocumentAttachmentSlots
+          {...doc.slotsProps}
+          className="structured-document-attachments--single"
+        />
       }
       fields={
         <PassportDocumentFieldsPane
