@@ -1,3 +1,5 @@
+const ORGANIZATION_ID = "fd48148f-2bb0-420d-925a-7007d5c1c40f";
+
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
@@ -38,7 +40,7 @@ async function insertReclaimableBlob(input: {
     byteLength: input.byteLength,
     historicalBytesRetained: false,
     liveStorageKey: input.storageKey,
-    organizationId: crypto.randomUUID(),
+    organizationId: ORGANIZATION_ID,
     retentionMode: "live_only",
     sha256: input.sha256,
   });
@@ -47,7 +49,7 @@ async function insertReclaimableBlob(input: {
 test("reclaimDereferencedBlobs deletes the reclaimed object-store bytes after commit", async () => {
   const runtime = createServiceTestRuntime();
   const blobId = crypto.randomUUID();
-  const storageKey = `blob-object:${blobId}`;
+  const storageKey = `organizations/${ORGANIZATION_ID}/blob-stages/${blobId}`;
   const bytes = "reclaimable-bytes";
   await uploadBlobObject(runtime.blobObjectStore, storageKey, bytes);
   await insertReclaimableBlob({
@@ -95,7 +97,7 @@ test("failed object deletion remains durable and a later sweep records completio
     },
   });
   const blobId = crypto.randomUUID();
-  const storageKey = `blob-object:${blobId}`;
+  const storageKey = `organizations/${ORGANIZATION_ID}/blob-stages/${blobId}`;
   const bytes = "retryable-reclaim-bytes";
   await uploadBlobObject(runtime.blobObjectStore, storageKey, bytes);
   await insertReclaimableBlob({
@@ -106,11 +108,12 @@ test("failed object deletion remains durable and a later sweep records completio
   });
 
   const expiredStageId = crypto.randomUUID();
-  const expiredStageKey = `blob-stages/${expiredStageId}`;
+  const expiredStageKey = `organizations/${ORGANIZATION_ID}/blob-stages/${expiredStageId}`;
   const { uploadId } = await runtime.blobObjectStore.createMultipartUpload({
     key: expiredStageKey,
   });
   await db.insert(blobStages).values({
+    organizationId: ORGANIZATION_ID,
     byteLength: 1,
     expiresAt: new Date("2000-01-01T00:00:00.000Z"),
     id: expiredStageId,
@@ -175,7 +178,7 @@ test("failed object deletion remains durable and a later sweep records completio
 test("a sweep acknowledges an object deleted before its database acknowledgement", async () => {
   const runtime = createServiceTestRuntime();
   const blobId = crypto.randomUUID();
-  const storageKey = `blob-object:${blobId}`;
+  const storageKey = `organizations/${ORGANIZATION_ID}/blob-stages/${blobId}`;
   const bytes = "deleted-before-acknowledgement";
   await uploadBlobObject(runtime.blobObjectStore, storageKey, bytes);
   await db.insert(blobAuditObjects).values({
@@ -184,7 +187,7 @@ test("a sweep acknowledges an object deleted before its database acknowledgement
     historicalBytesRetained: false,
     liveStorageKey: storageKey,
     objectDeleteAttemptedAt: new Date(Date.now() - HOUR_MS),
-    organizationId: crypto.randomUUID(),
+    organizationId: ORGANIZATION_ID,
     prunedAt: new Date(Date.now() - 2 * HOUR_MS),
     retentionMode: "live_only",
     sha256: await sha256Hex(bytes),
@@ -219,7 +222,7 @@ test("a sweep acknowledges an object deleted before its database acknowledgement
 test("a poison deletion does not starve newly pending object work", async () => {
   const objectStore = createMemoryBlobObjectStore();
   const poisonBlobId = crypto.randomUUID();
-  const poisonStorageKey = `blob-object:${poisonBlobId}`;
+  const poisonStorageKey = `organizations/${ORGANIZATION_ID}/blob-stages/${poisonBlobId}`;
   const runtime = createServiceTestRuntime(db, {
     blobObjectStore: {
       ...objectStore,
@@ -256,7 +259,7 @@ test("a poison deletion does not starve newly pending object work", async () => 
     .where(eq(blobAuditObjects.blobId, poisonBlobId));
 
   const healthyBlobId = crypto.randomUUID();
-  const healthyStorageKey = `blob-object:${healthyBlobId}`;
+  const healthyStorageKey = `organizations/${ORGANIZATION_ID}/blob-stages/${healthyBlobId}`;
   const healthyBytes = "healthy-reclaim-bytes";
   await uploadBlobObject(
     runtime.blobObjectStore,
@@ -299,7 +302,7 @@ test("a poison deletion does not starve newly pending object work", async () => 
 test("continuously arriving object work does not starve a due retry", async () => {
   const objectStore = createMemoryBlobObjectStore();
   const poisonBlobId = crypto.randomUUID();
-  const poisonStorageKey = `blob-object:${poisonBlobId}`;
+  const poisonStorageKey = `organizations/${ORGANIZATION_ID}/blob-stages/${poisonBlobId}`;
   const runtime = createServiceTestRuntime(db, {
     blobObjectStore: {
       ...objectStore,
@@ -335,7 +338,7 @@ test("continuously arriving object work does not starve a due retry", async () =
     .where(eq(blobAuditObjects.blobId, poisonBlobId));
 
   const newBlobId = crypto.randomUUID();
-  const newStorageKey = `blob-object:${newBlobId}`;
+  const newStorageKey = `organizations/${ORGANIZATION_ID}/blob-stages/${newBlobId}`;
   const newBytes = "new-work-waits-for-due-retry";
   await uploadBlobObject(runtime.blobObjectStore, newStorageKey, newBytes);
   await insertReclaimableBlob({
@@ -368,7 +371,7 @@ test("continuously arriving object work does not starve a due retry", async () =
 test("a corrupt reclaim candidate does not block the durable deletion queue", async () => {
   const runtime = createServiceTestRuntime();
   const pendingBlobId = crypto.randomUUID();
-  const pendingStorageKey = `blob-object:${pendingBlobId}`;
+  const pendingStorageKey = `organizations/${ORGANIZATION_ID}/blob-stages/${pendingBlobId}`;
   const pendingBytes = "already-pruned-pending-bytes";
   await uploadBlobObject(
     runtime.blobObjectStore,
@@ -380,14 +383,14 @@ test("a corrupt reclaim candidate does not block the durable deletion queue", as
     byteLength: pendingBytes.length,
     historicalBytesRetained: false,
     liveStorageKey: pendingStorageKey,
-    organizationId: crypto.randomUUID(),
+    organizationId: ORGANIZATION_ID,
     prunedAt: new Date(Date.now() - HOUR_MS),
     retentionMode: "live_only",
     sha256: await sha256Hex(pendingBytes),
   });
 
   const corruptBlobId = crypto.randomUUID();
-  const corruptStorageKey = `blob-object:${corruptBlobId}`;
+  const corruptStorageKey = `organizations/${ORGANIZATION_ID}/blob-stages/${corruptBlobId}`;
   const corruptBytes = "corrupt-audit-metadata-bytes";
   await insertReclaimableBlob({
     blobId: corruptBlobId,
@@ -424,7 +427,7 @@ test("a corrupt reclaim candidate does not block the durable deletion queue", as
 test("a corrupt reclaim candidate does not block expired stage cleanup", async () => {
   const runtime = createServiceTestRuntime();
   const corruptBlobId = crypto.randomUUID();
-  const corruptStorageKey = `blob-object:${corruptBlobId}`;
+  const corruptStorageKey = `organizations/${ORGANIZATION_ID}/blob-stages/${corruptBlobId}`;
   const corruptBytes = "corrupt-candidate-before-stage-cleanup";
   await insertReclaimableBlob({
     blobId: corruptBlobId,
@@ -438,11 +441,12 @@ test("a corrupt reclaim candidate does not block expired stage cleanup", async (
     .where(eq(blobAuditObjects.blobId, corruptBlobId));
 
   const stageId = crypto.randomUUID();
-  const stageStorageKey = `blob-stages/${stageId}`;
+  const stageStorageKey = `organizations/${ORGANIZATION_ID}/blob-stages/${stageId}`;
   const { uploadId } = await runtime.blobObjectStore.createMultipartUpload({
     key: stageStorageKey,
   });
   await db.insert(blobStages).values({
+    organizationId: ORGANIZATION_ID,
     byteLength: 1,
     expiresAt: new Date("2000-01-01T00:00:00.000Z"),
     id: stageId,

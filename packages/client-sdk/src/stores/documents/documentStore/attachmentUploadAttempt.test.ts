@@ -176,7 +176,11 @@ test("reuses a multipart stage when retrying a null upload result", async () => 
   let bindRequests = 0;
   let completeRequests = 0;
   let initiatedRequest:
-    | { readonly byteLength: number; readonly sha256: string }
+    | {
+        readonly byteLength: number;
+        readonly sha256: string;
+        readonly organizationId: string;
+      }
     | undefined;
   let initiateRequests = 0;
   let projectionRequests = 0;

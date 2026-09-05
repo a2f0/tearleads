@@ -133,6 +133,7 @@ test("session responses", () => {
 
 test("multipart blob stage responses", () => {
   const initiated = {
+    organizationId: "organization-1",
     byteLength: 12,
     expiresAt: new Date().toISOString(),
     sha256: "sha256-1",
@@ -157,6 +158,7 @@ test("multipart blob stage responses", () => {
   ).toBe(true);
   expect(
     isCompleteMultipartBlobStageResponse({
+      organizationId: "organization-1",
       byteLength: 12,
       expiresAt: new Date().toISOString(),
       sha256: "sha256-1",

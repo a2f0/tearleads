@@ -1,3 +1,5 @@
+const ORGANIZATION_ID = "fd48148f-2bb0-420d-925a-7007d5c1c40f";
+
 import { expect, test } from "bun:test";
 import { blobStages } from "@tearleads/api-shared/schema";
 import { eq } from "drizzle-orm";
@@ -37,12 +39,13 @@ test("loads only an owned, unexpired blob stage", async () => {
   const stageId = crypto.randomUUID();
   const userId = crypto.randomUUID();
   await runtime.db.insert(blobStages).values({
+    organizationId: ORGANIZATION_ID,
     byteLength: 12,
     expiresAt: new Date("2100-01-01T00:00:00.000Z"),
     id: stageId,
     ownerUserId: userId,
     sha256: "stage-sha256",
-    storageKey: `blob-stages/${stageId}`,
+    storageKey: `organizations/${ORGANIZATION_ID}/blob-stages/${stageId}`,
     uploadId: "upload-1",
   });
 

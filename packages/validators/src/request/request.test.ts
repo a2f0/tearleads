@@ -95,15 +95,20 @@ test("isVerifyRequest", () => {
 test("isInitiateMultipartBlobStageRequest", () => {
   expect(
     isInitiateMultipartBlobStageRequest({
+      organizationId: "organization-1",
       byteLength: 6,
       sha256: "sha256-1",
     }),
   ).toBe(true);
   expect(
     isInitiateMultipartBlobStageRequest({
+      organizationId: "organization-1",
       byteLength: 0,
       sha256: "sha256-1",
     }),
+  ).toBe(false);
+  expect(
+    isInitiateMultipartBlobStageRequest({ byteLength: 6, sha256: "sha256-1" }),
   ).toBe(false);
   expect(isInitiateMultipartBlobStageRequest(null)).toBe(false);
 });

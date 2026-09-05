@@ -11,7 +11,7 @@ import type {
   UploadMultipartBlobPartResponse,
 } from "@tearleads/validators/response";
 import { MULTIPART_BLOB_STAGE_ERROR_CODES } from "@tearleads/validators/response";
-import { eq, inArray, lte } from "drizzle-orm";
+import { and, eq, inArray, lte } from "drizzle-orm";
 import {
   type BlobObjectPart,
   BlobObjectStoreError,
@@ -23,6 +23,11 @@ import {
   loadOwnedActiveBlobStage,
   type OwnedActiveBlobStage,
 } from "../../workflows/blobs/stageAccess";
+import {
+  persistBlobStageInOrganization,
+  requireBlobStageOrganizationAccess,
+} from "../../workflows/blobs/stageOrganizationAccess";
+import { storageKeyForBlobStage } from "../../workflows/blobs/storageKeys";
 import type { ApiServiceRuntime } from "../runtime";
 
 type MultipartBlobStageStatus = 400 | 403 | 404 | 409 | 500;
@@ -33,6 +38,7 @@ interface AuthenticatedMultipartBlobStageInput {
 }
 
 export interface CleanupExpiredBlobStagesInput {
+  readonly organizationId?: string;
   readonly limit?: number | undefined;
   readonly now?: Date | undefined;
 }
@@ -88,10 +94,6 @@ function toMultipartBlobStageError(
   }
 
   return new MultipartBlobStageError(error.message, 400);
-}
-
-function storageKeyForStage(stageId: string): string {
-  return `blob-stages/${stageId}`;
 }
 
 function normalizeCleanupLimit(limit: number | undefined): number {
@@ -165,6 +167,7 @@ async function listStageParts(
 export async function cleanupExpiredBlobStages(
   runtime: ApiServiceRuntime,
   input: CleanupExpiredBlobStagesInput = {},
+  hooks?: { readonly assertObjectDeletionLease: () => Promise<void> },
 ): Promise<CleanupExpiredBlobStagesResult> {
   const now = input.now ?? new Date();
   const limit = normalizeCleanupLimit(input.limit);
@@ -173,7 +176,14 @@ export async function cleanupExpiredBlobStages(
       id: blobStages.id,
     })
     .from(blobStages)
-    .where(lte(blobStages.expiresAt, now))
+    .where(
+      and(
+        lte(blobStages.expiresAt, now),
+        input.organizationId === undefined
+          ? undefined
+          : eq(blobStages.organizationId, input.organizationId),
+      ),
+    )
     .limit(limit);
   let abortedMultipartUploads = 0;
   let deletedMultipartObjects = 0;
@@ -183,6 +193,7 @@ export async function cleanupExpiredBlobStages(
 
   for (const candidate of stages) {
     try {
+      await hooks?.assertObjectDeletionLease();
       const stage = await expireBlobStageForCleanup(runtime.db, {
         now,
         stageId: candidate.id,
@@ -226,8 +237,14 @@ export async function initiateMultipartBlobStage(
   runtime: ApiServiceRuntime,
   input: InitiateMultipartBlobStageRequest & { readonly userId: string },
 ): Promise<InitiateMultipartBlobStageResponse> {
+  const organizationId = input.organizationId.toLowerCase();
+  await requireBlobStageOrganizationAccess(
+    runtime.db,
+    { ...input, organizationId },
+    (message, status) => new MultipartBlobStageError(message, status),
+  );
   const stageId = crypto.randomUUID();
-  const storageKey = storageKeyForStage(stageId);
+  const storageKey = storageKeyForBlobStage(organizationId, stageId);
   const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
   try {
@@ -236,15 +253,20 @@ export async function initiateMultipartBlobStage(
     });
 
     try {
-      await runtime.db.insert(blobStages).values({
-        id: stageId,
-        ownerUserId: input.userId,
-        storageKey,
-        uploadId: upload.uploadId,
-        byteLength: input.byteLength,
-        sha256: input.sha256,
-        expiresAt,
-      });
+      await persistBlobStageInOrganization(
+        runtime.db,
+        {
+          id: stageId,
+          ownerUserId: input.userId,
+          organizationId,
+          storageKey,
+          uploadId: upload.uploadId,
+          byteLength: input.byteLength,
+          sha256: input.sha256,
+          expiresAt,
+        },
+        (message, status) => new MultipartBlobStageError(message, status),
+      );
     } catch (error) {
       // Without the stage row, expiry cleanup cannot discover this upload.
       // Abort it best-effort and preserve the database failure.
@@ -255,6 +277,7 @@ export async function initiateMultipartBlobStage(
     }
 
     return {
+      organizationId,
       byteLength: input.byteLength,
       expiresAt: expiresAt.toISOString(),
       sha256: input.sha256,
@@ -288,6 +311,7 @@ export async function getMultipartBlobStage(
     }
 
     return {
+      organizationId: stage.organizationId,
       byteLength: stage.byteLength,
       completed,
       expiresAt: stage.expiresAt.toISOString(),
@@ -351,6 +375,7 @@ function multipartStageCompleteResponse(
   stage: OwnedActiveBlobStage,
 ): CompleteMultipartBlobStageResponse {
   return {
+    organizationId: stage.organizationId,
     byteLength: stage.byteLength,
     expiresAt: stage.expiresAt.toISOString(),
     sha256: stage.sha256,

@@ -75,12 +75,12 @@
       "bytes": 23535
     },
     "docs/openapi.json": {
-      "lines": 63099,
-      "bytes": 2645302
+      "lines": 63137,
+      "bytes": 2646534
     },
     "docs/protocol-specification.md": {
-      "lines": 585,
-      "bytes": 28664
+      "lines": 601,
+      "bytes": 29809
     },
     "docs/security-guarantees.md": {
       "lines": 737,
@@ -175,8 +175,8 @@
       "bytes": 18390
     },
     "packages/api/src/services/blobs/blobMutations.test.ts": {
-      "lines": 1289,
-      "bytes": 38827
+      "lines": 1291,
+      "bytes": 39050
     },
     "packages/api/src/workflows/containers/mutations/shared/persistence.ts": {
       "lines": 655,
@@ -355,12 +355,12 @@
       "bytes": 19200
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 23730,
-      "bytes": 992733
+      "lines": 23746,
+      "bytes": 993291
     },
     "packages/validators/src/response/response.test.ts": {
-      "lines": 1167,
-      "bytes": 34772
+      "lines": 1168,
+      "bytes": 34850
     },
     "scripts/subsystems.ts": {
       "lines": 743,

@@ -113,6 +113,13 @@
       "when": 1788565508279,
       "tag": "0015_blushing_franklin_richards",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1788632972215,
+      "tag": "0016_organization_blob_namespace",
+      "breakpoints": true
     }
   ]
 }

@@ -1,3 +1,5 @@
+const ORGANIZATION_ID = "fd48148f-2bb0-420d-925a-7007d5c1c40f";
+
 import { expect, test } from "bun:test";
 import {
   createDefaultManagedApiDatabase,
@@ -13,11 +15,12 @@ async function assertFailedStageCleanup(
 ): Promise<void> {
   const baseRuntime = createServiceTestRuntime(managedDatabase.db);
   const stageId = crypto.randomUUID();
-  const storageKey = `blob-stages/${stageId}`;
+  const storageKey = `organizations/${ORGANIZATION_ID}/blob-stages/${stageId}`;
   const { uploadId } = await baseRuntime.blobObjectStore.createMultipartUpload({
     key: storageKey,
   });
   await managedDatabase.db.insert(blobStages).values({
+    organizationId: ORGANIZATION_ID,
     byteLength: 1,
     expiresAt: new Date("2000-01-01T00:00:00.000Z"),
     id: stageId,

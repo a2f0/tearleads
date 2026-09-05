@@ -7,6 +7,7 @@ import {
   blobObjectBytes,
   uploadBlobObject,
 } from "../../../test/helpers/blobObjectStore";
+import { createBlobStageOwner } from "../../../test/helpers/blobStageOwner";
 import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
 import type { SessionEnv } from "../../middleware/session";
 import { createRouteApp } from "../../routeApp";
@@ -42,11 +43,13 @@ function createAuthenticatedTestApp(
 test("multipart blob stage routes support resumable upload completion", async () => {
   const encryptedBytes = "route-multipart-encrypted-bytes";
   const runtime = createServiceTestRuntime();
-  const app = createAuthenticatedTestApp(crypto.randomUUID(), runtime);
+  const { userId, organizationId } = await createBlobStageOwner();
+  const app = createAuthenticatedTestApp(userId, runtime);
   const initiateResponse = await app.request("/blobs/stages/multipart", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      organizationId,
       byteLength: new TextEncoder().encode(encryptedBytes).byteLength,
       sha256: await sha256Hex(encryptedBytes),
     }),
@@ -143,7 +146,7 @@ test("multipart blob stage routes support resumable upload completion", async ()
   expect(recoveredStage?.completedAt).not.toBeNull();
 
   await runtime.blobObjectStore.deleteObject(
-    `blob-stages/${initiated.stageId}`,
+    `organizations/${organizationId}/blob-stages/${initiated.stageId}`,
   );
   const missingObjectResponse = await app.request(
     `/blobs/stages/multipart/${initiated.stageId}`,
@@ -156,14 +159,14 @@ test("multipart blob stage routes support resumable upload completion", async ()
 });
 
 test("multipart status identifies replaceable missing and expired stages", async () => {
-  const userId = crypto.randomUUID();
+  const { userId, organizationId } = await createBlobStageOwner();
   const runtime = createServiceTestRuntime();
   const app = createAuthenticatedTestApp(userId, runtime);
   const initiateStage = async (sha256: string) => {
     const response = await app.request("/blobs/stages/multipart", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ byteLength: 12, sha256 }),
+      body: JSON.stringify({ organizationId, byteLength: 12, sha256 }),
     });
     expect(response.status).toBe(200);
     return response.json();
@@ -180,7 +183,7 @@ test("multipart status identifies replaceable missing and expired stages", async
 
   const orphaned = await initiateStage("orphaned-stage-sha256");
   await runtime.blobObjectStore.abortMultipartUpload({
-    key: `blob-stages/${orphaned.stageId}`,
+    key: `organizations/${organizationId}/blob-stages/${orphaned.stageId}`,
     uploadId: orphaned.uploadId,
   });
   const orphanedResponse = await app.request(
@@ -210,10 +213,11 @@ test("multipart status identifies replaceable missing and expired stages", async
 
 test("multipart status keeps recovered object corruption terminal", async () => {
   const runtime = createServiceTestRuntime();
-  const userId = crypto.randomUUID();
+  const { userId, organizationId } = await createBlobStageOwner();
   const app = createAuthenticatedTestApp(userId, runtime);
   const encryptedBytes = "expected-object";
   const initiated = await initiateMultipartBlobStage(runtime, {
+    organizationId,
     byteLength: encryptedBytes.length,
     sha256: await sha256Hex(encryptedBytes),
     userId,
@@ -235,7 +239,7 @@ test("multipart status keeps recovered object corruption terminal", async () => 
   });
   await uploadBlobObject(
     runtime.blobObjectStore,
-    `blob-stages/${initiated.stageId}`,
+    `organizations/${organizationId}/blob-stages/${initiated.stageId}`,
     "tampered-object",
   );
   await runtime.db

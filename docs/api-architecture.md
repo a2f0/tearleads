@@ -274,7 +274,12 @@ Blob staging is implemented as blob services. The
 `/blobs/stages/multipart` routes validate request shape and map service errors
 to HTTP responses, while the services own digest/byte-length validation,
 staged-row creation, object-store multipart state, binary part upload, and
-completion.
+completion. The client supplies the destination organization from the verified
+document projection. Stages persist that organization, use
+`organizations/<organizationId>/blob-stages/<stageId>` keys, and can only be
+promoted into that organization. The full key is preserved in `blobs` and
+`blob_audit_objects` through physical deletion retries. Organization purge also
+expires its staged uploads and waits for their object-store cleanup.
 
 Document attachment listing is implemented as a document service. The
 `/documents/:documentId/attachments` route maps service errors to HTTP

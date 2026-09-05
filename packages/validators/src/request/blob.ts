@@ -13,6 +13,7 @@ import { ContainerMutationRequestSchema } from "./container";
 import { ContainerManifestRefArrayArraySchema } from "./document";
 
 export const InitiateMultipartBlobStageRequestSchema = loosePlainObject({
+  organizationId: nonEmptyStringSchema,
   byteLength: positiveIntegerSchema,
   sha256: nonEmptyStringSchema,
 });

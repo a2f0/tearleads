@@ -99,6 +99,7 @@ export function createMultipartBlobStageFixture(
   let initiatedRequest: {
     readonly byteLength: number;
     readonly sha256: string;
+    readonly organizationId: string;
   } | null = null;
 
   const initiateMultipartBlobStage: InitiateMultipartBlobStage = async (
@@ -221,6 +222,7 @@ export function createMultipartBlobStageFixture(
     assembledBytes = assembled;
     completed = true;
     return {
+      organizationId: initiatedRequest.organizationId,
       byteLength: initiatedRequest.byteLength,
       expiresAt: DEFAULT_MULTIPART_EXPIRES_AT,
       sha256: initiatedRequest.sha256,
