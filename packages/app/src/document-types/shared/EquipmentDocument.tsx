@@ -27,6 +27,7 @@ type EquipmentStructuredFieldSetter = ReturnType<
 >["setStructuredFields"];
 
 interface EquipmentFieldInputIds {
+  equipmentType: string;
   make: string;
   model: string;
   serialNumber: string;
@@ -89,11 +90,18 @@ export function EquipmentFields(params: {
 
   return (
     <StructuredDocumentFields>
-      <StructuredDocumentField label="Type">
+      <StructuredDocumentField inputId={inputIds.equipmentType} label="Type">
         <MiniAppSelectMenu
           ariaLabel={`${ariaLabelPrefix} type`}
           disabled={disabled}
-          onChange={(value) => onChange({ equipmentType: value })}
+          id={inputIds.equipmentType}
+          onChange={(value) => {
+            // The menu reports every pick, so re-choosing the current type
+            // must not issue a no-op write.
+            if (value !== storedType) {
+              onChange({ equipmentType: value });
+            }
+          }}
           options={typeMenuOptions}
           placeholder={ready ? "Select a type" : "Loading..."}
           value={storedType}
@@ -193,6 +201,7 @@ function EquipmentDocument(params: EquipmentDocumentProps) {
     slots: EQUIPMENT_ATTACHMENT_SLOTS,
   });
   const inputIds = {
+    equipmentType: useId(),
     make: useId(),
     model: useId(),
     serialNumber: useId(),

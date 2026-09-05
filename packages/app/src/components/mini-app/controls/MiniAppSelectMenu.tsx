@@ -24,6 +24,8 @@ interface MiniAppSelectMenuProps {
         onSelect: () => void;
       }
     | undefined;
+  /** Trigger element id, so a `<label htmlFor>` can target the combobox. */
+  id?: string | undefined;
   onChange: (value: string) => void;
   options: ReadonlyArray<MiniAppSelectMenuOption>;
   placeholder?: string;
@@ -65,6 +67,7 @@ function MiniAppSelectMenuTrigger(props: {
   controller: MiniAppSelectMenuController;
   disabled: boolean;
   hasFooter: boolean;
+  id: string | undefined;
   optionCount: number;
   placeholder: string | undefined;
   selectRef: RefObject<HTMLButtonElement | null>;
@@ -81,6 +84,7 @@ function MiniAppSelectMenuTrigger(props: {
       aria-label={props.ariaLabel}
       className="mini-app-select-menu-trigger"
       disabled={props.disabled || (props.optionCount === 0 && !props.hasFooter)}
+      id={props.id}
       onClick={() => {
         if (controller.open) {
           controller.close();
@@ -259,6 +263,7 @@ export function MiniAppSelectMenu(props: MiniAppSelectMenuProps) {
         controller={controller}
         disabled={disabled}
         hasFooter={hasFooter}
+        id={props.id}
         optionCount={props.options.length}
         placeholder={props.placeholder}
         selectRef={selectRef}
