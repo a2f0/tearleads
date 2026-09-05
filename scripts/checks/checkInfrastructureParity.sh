@@ -159,6 +159,88 @@ assert_document_sync_ingress_cors() {
 # and the API CORS allowlist through Jinja, where a plausible-looking expression
 # can still produce the wrong string -- a folded scalar carrying `\\1` rendered
 # `demo.\1` for every extra zone while matching any source-text assertion.
+# The Stripe key-mode guard must reject a live key on staging (and vice
+# versa), an incomplete set, and must be called by every deploy path that
+# renders or bundles Stripe configuration.
+assert_stripe_env_guard() {
+  local guard="$REPO_ROOT/terraform/scripts/stripeEnv.sh"
+  local file
+
+  run_guard() {
+    # shellcheck disable=SC2016 # the inner script reads its own positionals
+    env -i bash -c '
+      set -euo pipefail
+      # shellcheck disable=SC1090
+      . "$1"
+      shift
+      export STRIPE_WEBHOOK_SECRET=whsec_x
+      export STRIPE_SYNC_SOLO_PRICE_ID=price_a
+      export STRIPE_SYNC_TEAM_5_PRICE_ID=price_b
+      export STRIPE_SYNC_TEAM_10_PRICE_ID=price_c
+      export STRIPE_SECRET_KEY="$2"
+      export BUN_PUBLIC_STRIPE_PUBLISHABLE_KEY="$3"
+      validate_stripe_env "$1"
+    ' bash "$guard" "$@" >/dev/null 2>&1
+  }
+
+  if ! run_guard staging sk_test_x pk_test_x ||
+    ! run_guard staging rk_test_x pk_test_x ||
+    ! run_guard prod sk_live_x pk_live_x ||
+    run_guard staging sk_live_x pk_test_x ||
+    run_guard staging sk_test_x pk_live_x ||
+    run_guard prod sk_test_x pk_live_x ||
+    run_guard prod sk_live_x pk_test_x ||
+    run_guard staging "" pk_test_x ||
+    run_guard staging sk_test_x "" ||
+    run_guard sandbox sk_test_x pk_test_x; then
+    echo "ERROR: validate_stripe_env must accept only a complete, tier-mode-consistent Stripe configuration." >&2
+    return 1
+  fi
+
+  # A deploy run under `bash -x` must not print the secrets it validates, in
+  # either the accepting or the rejecting branch. The environment is set up
+  # before tracing starts so only the guard's own execution is traced.
+  local sentinel="SENTINEL_STRIPE_VALUE_MUST_NOT_LEAK"
+  local server_key
+  local traced_output
+  for server_key in "sk_test_$sentinel" "sk_live_$sentinel"; do
+    # shellcheck disable=SC2016 # the inner script reads its own positionals
+    traced_output="$(
+      env -i bash -c '
+        set -euo pipefail
+        # shellcheck disable=SC1090
+        . "$1"
+        export STRIPE_WEBHOOK_SECRET="whsec_$2"
+        export STRIPE_SYNC_SOLO_PRICE_ID="price_$2"
+        export STRIPE_SYNC_TEAM_5_PRICE_ID="price_$2"
+        export STRIPE_SYNC_TEAM_10_PRICE_ID="price_$2"
+        export STRIPE_SECRET_KEY="$3"
+        export BUN_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_test_$2"
+        set -x
+        validate_stripe_env staging || true
+        [[ "$-" == *x* ]] || echo "xtrace was not restored"
+      ' bash "$guard" "$sentinel" "$server_key" 2>&1
+    )"
+    if printf '%s' "$traced_output" | grep -Fq "$sentinel" ||
+      printf '%s' "$traced_output" | grep -Fq "xtrace was not restored"; then
+      echo "ERROR: validate_stripe_env must suspend xtrace while it reads Stripe secrets and restore it afterwards." >&2
+      return 1
+    fi
+  done
+
+  for file in \
+    "$REPO_ROOT/scripts/deployStaging.sh" \
+    "$REPO_ROOT/scripts/deployProduction.sh" \
+    "$REPO_ROOT/ansible/scripts/run-server.sh" \
+    "$REPO_ROOT/packages/app-web/scripts/deployAppWeb.sh"; do
+    # shellcheck disable=SC2016 # matches the literal "$TIER" call form
+    if ! grep -Eq '^validate_stripe_env (staging|prod|"\$TIER")$' "$file"; then
+      echo "ERROR: ${file#"$REPO_ROOT"/} must call validate_stripe_env after loading tier secrets." >&2
+      return 1
+    fi
+  done
+}
+
 assert_demo_zone_rule_agreement() {
   local pattern='[a-z0-9]([a-z0-9-]*[a-z0-9])?'
   local file
@@ -300,5 +382,6 @@ assert_document_sync_ingress_cors
 assert_demo_static_ingress
 assert_demo_hostname_derivation
 assert_demo_zone_rule_agreement
+assert_stripe_env_guard
 
 echo "Infrastructure tier parity passed."

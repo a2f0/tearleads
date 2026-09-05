@@ -31,6 +31,7 @@ APP_WEB_DIR="$REPO_ROOT/packages/app-web"
 
 load_secrets_env "$TIER"
 validate_aws_env
+validate_stripe_env "$TIER"
 
 if [ -z "${SSH_TARGET:-}" ]; then
   STACK_DIR="$REPO_ROOT/$STACK_RELATIVE_DIR"

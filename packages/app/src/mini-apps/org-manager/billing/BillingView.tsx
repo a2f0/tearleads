@@ -28,7 +28,12 @@ import "./BillingCheckout.css";
 import { BillingPlanSwitcher } from "./BillingPlanSwitcher";
 
 /** Which action is currently in flight (`subscribe:<packageId>` while purchasing). */
-export type BillingBusyAction = "trial" | "restore" | "refresh" | string;
+export type BillingBusyAction =
+  | "trial"
+  | "restore"
+  | "refresh"
+  | "checkout"
+  | `subscribe:${string}`;
 
 export function BillingRecoveryStatus({
   error,
