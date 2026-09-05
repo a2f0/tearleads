@@ -188,7 +188,12 @@ function refreshPersistedDocument(
   document: DocumentSummary,
 ): void {
   const containerIds = new Set(state.summaryLoadByContainerId.keys());
-  if (state.activeContainerId) containerIds.add(state.activeContainerId);
+  if (
+    state.activeContainerId &&
+    state.activeContainerId === document.containerId
+  ) {
+    containerIds.add(state.activeContainerId);
+  }
   for (const [containerId, summaries] of state.cache.summariesByContainerId) {
     if (
       containerId === document.containerId ||

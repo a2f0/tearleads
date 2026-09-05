@@ -103,12 +103,15 @@ test("rotation never settles a row appended after provenance verification", asyn
     armed = true;
 
     await expect(assertDocumentStoreCanRotateContentKey(state)).rejects.toThrow(
-      "changed after rotation provenance verification",
+      "found unverified local history",
     );
 
     armed = false;
     expect(injected).toBe(true);
-    expect(requests).toEqual([{ historyMode: "raw", outgoingCount: 0 }]);
+    expect(requests).toEqual([
+      { historyMode: "raw", outgoingCount: 0 },
+      { historyMode: "raw", outgoingCount: 0 },
+    ]);
     expect(await listPendingUpdates(state)).toHaveLength(2);
   } finally {
     close();

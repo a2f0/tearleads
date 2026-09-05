@@ -1,20 +1,37 @@
 import type { DocumentStoreState } from "./state";
+import {
+  captureDocumentStoreSyncLaneGeneration,
+  type DocumentStoreSyncLaneGeneration,
+  isDocumentStoreSyncLaneGenerationCurrent,
+} from "./syncGeneration";
 
-const remoteWorkByState = new WeakMap<DocumentStoreState, Promise<void>>();
+const remoteWorkByState = new WeakMap<
+  DocumentStoreState,
+  {
+    generation: DocumentStoreSyncLaneGeneration;
+    tail: Promise<void>;
+  }
+>();
 
-/** Serialize remote sync and rotation settlement without blocking local edits. */
+/** Serialize live remote work; abandoned coordinators cannot hold replacements. */
 export function chainDocumentRemoteWork<T>(
   state: DocumentStoreState,
   task: () => Promise<T>,
 ): Promise<T> {
-  const previous = remoteWorkByState.get(state) ?? Promise.resolve();
-  const work = previous.then(task);
-  remoteWorkByState.set(
-    state,
-    work.then(
+  const generation = captureDocumentStoreSyncLaneGeneration(state);
+  const previous = remoteWorkByState.get(state);
+  const tail =
+    previous &&
+    isDocumentStoreSyncLaneGenerationCurrent(state, previous.generation)
+      ? previous.tail
+      : Promise.resolve();
+  const work = tail.then(task);
+  remoteWorkByState.set(state, {
+    generation,
+    tail: work.then(
       () => undefined,
       () => undefined,
     ),
-  );
+  });
   return work;
 }

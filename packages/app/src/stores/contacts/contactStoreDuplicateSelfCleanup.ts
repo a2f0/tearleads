@@ -49,19 +49,45 @@ async function deleteDuplicateSelfContact(input: {
       return "failed";
     }
 
-    const purgeDocument = runtime.purgeDocument;
     scheduleRemoteContactCleanup({
       current: guard,
       localId: entry.id,
       state,
       run: async () => {
-        if (!guard() || !(await purgeDocument(loadedDocument)) || !guard()) {
+        const currentRuntime = state.runtime;
+        const summary = await currentRuntime.loadDocumentSummary(entry.id);
+        const trackedId = state.contactDocumentStoresById
+          .get(entry.id)
+          ?.store.getSnapshot().documentId;
+        if (
+          !guard() ||
+          !summary ||
+          summary.documentId !== remoteDocumentId ||
+          (trackedId && trackedId !== remoteDocumentId) ||
+          !currentRuntime.purgeDocument ||
+          !(await currentRuntime.purgeDocument(summary)) ||
+          !guard()
+        ) {
           return false;
         }
-        return (
-          (await deleteLocalDuplicateSelfContact({ entry, guard, state })) ===
-          "deleted"
+        // Only local settlement joins the write queue. A queued edit gets its
+        // turn first and the duplicate guard is rechecked before deletion.
+        const deletion = state.writeChain
+          .catch(() => undefined)
+          .then(
+            async () =>
+              guard() &&
+              (await deleteLocalDuplicateSelfContact({
+                entry,
+                guard,
+                state,
+              })) === "deleted",
+          );
+        state.writeChain = deletion.then(
+          () => undefined,
+          () => undefined,
         );
+        return deletion;
       },
     });
     return "deferred";

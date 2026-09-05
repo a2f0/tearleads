@@ -18,6 +18,7 @@ import {
   renameContainer,
 } from "./operations";
 import { purgeContainer } from "./purgeContainerOperation";
+import { invalidateRemoteContainerWrites } from "./remoteWriteGuards";
 import { chainRemoteContainerTask } from "./remoteWriteQueue";
 import { setContainerIcon } from "./setContainerIconOperation";
 import {
@@ -112,20 +113,20 @@ function createContainerContentsStoreSyncHost(
 function chainContainerWrite(
   state: ContainerContentsStoreState,
   work: (isCurrent: () => boolean) => ContainerContentsStoreState["writeChain"],
+  changedIds: readonly string[] | null = null,
+  movedId?: string,
 ): ContainerContentsStoreState["writeChain"] {
   const isCurrent = captureContainerWriteGeneration(state);
+  invalidateRemoteContainerWrites(state, changedIds, movedId);
   state.writeChain = state.writeChain
     .catch(() => null)
-    .then(() => (isCurrent() ? work(isCurrent) : null))
+    .then(() => {
+      if (!isCurrent()) return null;
+      invalidateRemoteContainerWrites(state, changedIds, movedId);
+      return work(isCurrent);
+    })
     .then((node) => (isCurrent() ? node : null));
   return state.writeChain;
-}
-
-function chainNodePresenceWrite(
-  state: ContainerContentsStoreState,
-  work: (isCurrent: () => boolean) => ContainerContentsStoreState["writeChain"],
-): Promise<boolean> {
-  return chainContainerWrite(state, work).then((node) => node !== null);
 }
 
 type ContainerWriteMethods = Pick<
@@ -165,6 +166,7 @@ function createPrepareGroupRewrapMethod(
           options,
           isCurrent,
         ),
+      containerId,
     );
     return preparation?.status === "prepared"
       ? {
@@ -173,39 +175,89 @@ function createPrepareGroupRewrapMethod(
             expectedContainerId,
             expectedOrganizationId,
           ) =>
-            chainRemoteContainerTask(state, syncAgent, false, (isCurrent) =>
-              verifyContainerGroupRewrapCurrent(
-                state,
-                containerId,
-                groupId,
-                accessLevel,
-                expectedGroupHead,
-                expectedContainerId,
-                expectedOrganizationId,
-                isCurrent,
-              ),
+            chainRemoteContainerTask(
+              state,
+              syncAgent,
+              false,
+              (isCurrent) =>
+                verifyContainerGroupRewrapCurrent(
+                  state,
+                  containerId,
+                  groupId,
+                  accessLevel,
+                  expectedGroupHead,
+                  expectedContainerId,
+                  expectedOrganizationId,
+                  isCurrent,
+                ),
+              containerId,
             ),
           rewrap: () =>
-            chainRemoteContainerTask(state, syncAgent, null, (isCurrent) =>
-              shareContainerWithGroup(
-                state,
-                syncAgent,
-                containerId,
-                groupId,
-                accessLevel,
-                {
-                  ...options,
-                  knownContainerKeks: preparation.knownContainerKeks,
-                  // A prepared re-wrap is grant-preserving by definition, so
-                  // it never mints a grant and never needs the chosen name.
-                  requireExistingGrant: true,
-                },
-                isCurrent,
-              ),
+            chainRemoteContainerTask(
+              state,
+              syncAgent,
+              null,
+              (isCurrent) =>
+                shareContainerWithGroup(
+                  state,
+                  syncAgent,
+                  containerId,
+                  groupId,
+                  accessLevel,
+                  {
+                    ...options,
+                    knownContainerKeks: preparation.knownContainerKeks,
+                    // A prepared re-wrap is grant-preserving by definition, so
+                    // it never mints a grant and never needs the chosen name.
+                    requireExistingGrant: true,
+                  },
+                  isCurrent,
+                ),
+              containerId,
             ).then((node) => node !== null),
           status: "prepared" as const,
         }
       : (preparation ?? null);
+  };
+}
+
+function createContainerSharingMethods(
+  state: ContainerContentsStoreState,
+  syncAgent: ContainerContentsStoreSyncAgent,
+): Pick<ContainerWriteMethods, "shareWithUser" | "shareWithGroup"> {
+  return {
+    shareWithUser: (containerId, userId) =>
+      chainRemoteContainerTask(
+        state,
+        syncAgent,
+        null,
+        (isCurrent) =>
+          shareContainerWithUser(
+            state,
+            syncAgent,
+            containerId,
+            userId,
+            isCurrent,
+          ),
+        containerId,
+      ).then((node) => node !== null),
+    shareWithGroup: (containerId, groupId, accessLevel, options) =>
+      chainRemoteContainerTask(
+        state,
+        syncAgent,
+        null,
+        (isCurrent) =>
+          shareContainerWithGroup(
+            state,
+            syncAgent,
+            containerId,
+            groupId,
+            accessLevel,
+            options,
+            isCurrent,
+          ),
+        containerId,
+      ).then((node) => node !== null),
   };
 }
 
@@ -214,26 +266,40 @@ function createContainerWriteMethods(
   syncAgent: ReturnType<typeof createContainerContentsStoreSyncAgent>,
 ): ContainerWriteMethods {
   return {
+    ...createContainerSharingMethods(state, syncAgent),
     createChild: (parentId, name) =>
-      chainContainerWrite(state, (isCurrent) =>
-        createChildContainer(state, syncAgent, parentId, name, isCurrent),
+      chainContainerWrite(
+        state,
+        (isCurrent) =>
+          createChildContainer(state, syncAgent, parentId, name, isCurrent),
+        [parentId],
       ),
-    deleteContainer: (containerId) => {
-      const work = (isCurrent: () => boolean) =>
-        deleteContainer(state, syncAgent, containerId, isCurrent);
-      return state.containersById.get(containerId)?.record.documentId
-        ? chainRemoteContainerTask(state, syncAgent, null, work).then(
-            (node) => node !== null,
-          )
-        : chainNodePresenceWrite(state, work);
-    },
+    deleteContainer: (containerId) =>
+      chainRemoteContainerTask(
+        state,
+        syncAgent,
+        null,
+        (isCurrent) =>
+          deleteContainer(state, syncAgent, containerId, isCurrent),
+        containerId,
+      ).then((node) => node !== null),
     purgeContainer: (containerId, options) =>
-      chainRemoteContainerTask(state, syncAgent, false, (isCurrent) =>
-        purgeContainer(state, syncAgent, containerId, options, isCurrent),
+      chainRemoteContainerTask(
+        state,
+        syncAgent,
+        false,
+        (isCurrent) =>
+          purgeContainer(state, syncAgent, containerId, options, isCurrent),
+        containerId,
       ),
     emptyTrash: (trashContainerId, options) =>
-      chainRemoteContainerTask(state, syncAgent, false, (isCurrent) =>
-        emptyTrash(state, syncAgent, trashContainerId, options, isCurrent),
+      chainRemoteContainerTask(
+        state,
+        syncAgent,
+        false,
+        (isCurrent) =>
+          emptyTrash(state, syncAgent, trashContainerId, options, isCurrent),
+        trashContainerId,
       ),
     ensureSystemContainer: (systemSlot, name, options) => {
       const work = (isCurrent: () => boolean) =>
@@ -250,40 +316,28 @@ function createContainerWriteMethods(
         : chainRemoteContainerTask(state, syncAgent, null, work);
     },
     moveContainer: (containerId, parentId) =>
-      chainContainerWrite(state, (isCurrent) =>
-        moveContainer(state, syncAgent, containerId, parentId, isCurrent),
+      chainContainerWrite(
+        state,
+        (isCurrent) =>
+          moveContainer(state, syncAgent, containerId, parentId, isCurrent),
+        [containerId, parentId],
+        containerId,
       ),
     prepareGroupRewrap: createPrepareGroupRewrapMethod(state, syncAgent),
     renameContainer: (containerId, name) =>
-      chainContainerWrite(state, (isCurrent) =>
-        renameContainer(state, syncAgent, containerId, name, isCurrent),
+      chainContainerWrite(
+        state,
+        (isCurrent) =>
+          renameContainer(state, syncAgent, containerId, name, isCurrent),
+        [containerId],
       ),
     setContainerIcon: (containerId, icon) =>
-      chainContainerWrite(state, (isCurrent) =>
-        setContainerIcon(state, syncAgent, containerId, icon, isCurrent),
+      chainContainerWrite(
+        state,
+        (isCurrent) =>
+          setContainerIcon(state, syncAgent, containerId, icon, isCurrent),
+        [containerId],
       ),
-    shareWithUser: (containerId, userId) =>
-      chainRemoteContainerTask(state, syncAgent, null, (isCurrent) =>
-        shareContainerWithUser(
-          state,
-          syncAgent,
-          containerId,
-          userId,
-          isCurrent,
-        ),
-      ).then((node) => node !== null),
-    shareWithGroup: (containerId, groupId, accessLevel, options) =>
-      chainRemoteContainerTask(state, syncAgent, null, (isCurrent) =>
-        shareContainerWithGroup(
-          state,
-          syncAgent,
-          containerId,
-          groupId,
-          accessLevel,
-          options,
-          isCurrent,
-        ),
-      ).then((node) => node !== null),
   };
 }
 

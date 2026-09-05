@@ -25,8 +25,10 @@ import {
 import type { DocumentState, DocumentStoreState } from "./state";
 import { createStoredDocument } from "./storedDocument";
 import {
-  captureDocumentStoreSyncGeneration,
+  captureDocumentStoreAttachmentSyncGeneration,
+  captureDocumentStoreSyncLaneGeneration,
   type DocumentStoreSyncGeneration,
+  type DocumentStoreSyncLaneGeneration,
   isDocumentStoreSyncGenerationCurrent,
 } from "./syncGeneration";
 import { deleteUpstreamDeletedDocument } from "./syncRequest";
@@ -298,6 +300,7 @@ function installRotationRecovery(input: {
 
 async function recoverFullHistoryForRotation(
   state: DocumentStoreState,
+  laneGeneration: DocumentStoreSyncLaneGeneration,
 ): Promise<Uint8Array> {
   assertRotationRecoveryPrerequisites(state);
   await invalidatePullContinuationBeforeRotation(state);
@@ -311,7 +314,11 @@ async function recoverFullHistoryForRotation(
   // The teardown guard for the recovery's terminal-failure handler: captured
   // before the pull so a discard (row 21) racing this preflight invalidates
   // it, and the stale handler cannot resurrect a deleted failure row.
-  const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
+  const generation = captureDocumentStoreAttachmentSyncGeneration(
+    state,
+    currentDoc,
+    laneGeneration,
+  );
   if (!generation) {
     throw new Error(
       "Document changed during rotation recovery; retry key rotation",
@@ -354,6 +361,7 @@ async function recoverFullHistoryForRotation(
         state,
         verifiedOrdinaryVersion,
         pendingUpdates,
+        generation,
       );
       assertCapturedDocumentCurrent({
         capturedVersion,
@@ -401,7 +409,12 @@ async function recoverFullHistoryForRotation(
 export function assertDocumentStoreCanRotateContentKey(
   state: DocumentStoreState,
 ): Promise<Uint8Array> {
-  const generation = captureDocumentStoreSyncGeneration(state, state.doc);
+  const laneGeneration = captureDocumentStoreSyncLaneGeneration(state);
+  const generation = captureDocumentStoreAttachmentSyncGeneration(
+    state,
+    state.doc,
+    laneGeneration,
+  );
   return chainDocumentRemoteWork(state, async () => {
     await state.writeChain.catch(() => undefined);
     if (
@@ -414,7 +427,7 @@ export function assertDocumentStoreCanRotateContentKey(
     }
     for (let attempt = 0; ; attempt += 1) {
       try {
-        return await recoverFullHistoryForRotation(state);
+        return await recoverFullHistoryForRotation(state, laneGeneration);
       } catch (error) {
         // A conflict can re-key a queued update during settlement. Its new id
         // is not covered by the old proof: repeat the entire raw proof instead

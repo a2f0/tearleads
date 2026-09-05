@@ -65,7 +65,19 @@ for (const reconnectBeforeFailure of [false, true]) {
       purgeDocument: async () => {
         attempts += 1;
         purgeStarted.resolve(undefined);
-        return attempts === 1 ? releasePurge.promise : true;
+        return releasePurge.promise;
+      },
+    };
+    let reloads = 0;
+    const reconnected: ContactsRuntime = {
+      ...runtime,
+      loadDocumentSummary: async (id) => {
+        reloads += 1;
+        return runtime.loadDocumentSummary(id);
+      },
+      purgeDocument: async () => {
+        attempts += 1;
+        return true;
       },
     };
     const store = createContactsStore(runtime, {
@@ -111,7 +123,7 @@ for (const reconnectBeforeFailure of [false, true]) {
 
       if (reconnectBeforeFailure) {
         store.updateRuntime(base);
-        store.updateRuntime(runtime);
+        store.updateRuntime(reconnected);
         expect(attempts).toBe(1);
       }
       releasePurge.resolve(false);
@@ -120,7 +132,7 @@ for (const reconnectBeforeFailure of [false, true]) {
       if (!reconnectBeforeFailure) {
         store.updateRuntime(base);
         expect(attempts).toBe(1);
-        store.updateRuntime(runtime);
+        store.updateRuntime(reconnected);
       }
       await waitForCondition(
         () =>
@@ -128,6 +140,7 @@ for (const reconnectBeforeFailure of [false, true]) {
         "Remote cleanup did not retry after reconnect",
       );
       expect(attempts).toBe(2);
+      expect(reloads).toBeGreaterThan(0);
       expect(
         await defaultDocumentsPersistence.loadDocument(
           base.documents.infra.execSql,
