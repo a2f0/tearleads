@@ -162,7 +162,7 @@ const baseConfig = {
       project: ["src/**/*.ts", "tests/**/*.ts"],
     },
     "packages/test-utils": {
-      // Knip discovers the public entry from package.json exports.
+      // Public package exports plus the package's executable test entries.
       entry: ["src/**/*.test.ts"],
       project: ["src/**/*.ts"],
     },

@@ -306,7 +306,10 @@ export async function runStripeSeatSynchronization(
       if (error instanceof StripeSeatPeriodRebound) {
         continue;
       }
-      if (error instanceof StripeSeatBindingInvalid) {
+      if (
+        error instanceof StripeSeatBindingInvalid ||
+        error instanceof RangeError
+      ) {
         console.error(
           `Stripe seat sync for organization ${claim.organizationId} requires attention: ${error.message}`,
         );

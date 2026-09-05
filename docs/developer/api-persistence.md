@@ -23,13 +23,18 @@ database was not reset.
 
 ### Required authorization cutover (#2158)
 
-Before applying migration `0015` in either dialect, stop all outgoing API
-writers and provision a fresh database if any retained document update or blob
-lacks its original signed `authorization` or `authorization_targets`. Preserve
-an offline backup first if the old data is needed for investigation. Point the
+This greenfield cutover requires fresh server and client databases. Do not
+apply it as a data-preserving upgrade to an earlier deployment, even when its
+columns appear complete. Before applying migration `0015` in either dialect,
+stop all outgoing API writers. Preserve an offline backup first if the old
+data is needed for investigation. Point the
 new deployment at the fresh database, run its migrations, and reprovision the
 organization and clients; do not resume old writers against the new contract.
 
+The following obsolete states illustrate why reset is required; they are not
+an exhaustive compatibility audit that permits an older database to be reused.
+Retained document updates and blobs require their original signed
+`authorization` and `authorization_targets`.
 The PostgreSQL `SET NOT NULL` and SQLite/Turso table rebuild intentionally fail
 on old null evidence. They do not backfill from current container targets,
 fabricate signatures, or silently delete rows. The post-migration schema guard
@@ -51,9 +56,13 @@ not covered by the post-migration column guard.
 
 The same precondition applies to obsolete billing state, including
 `organization_billing_stripe_seats` capacities above the largest current tier
-(10), superseded product identifiers, and native subscription bindings without
+(10), Stripe subscription-item quantities other than exactly one (including
+missing quantities), superseded product identifiers, and native bindings without
 stored provider-identity audit evidence. Reset and reprovision rather than
 retrying an unrepresentable seat state or inferring identity from a new claim.
+Reprovision the provider subscription with a current fixed-tier price and a
+single subscription item of quantity one; do not replay paid legacy invoices
+until their billing state has been investigated and corrected by the operator.
 Unnamed group policies and incomplete historical path citations likewise
 require reset before the deployment guard permits startup.
 

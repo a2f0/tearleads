@@ -150,6 +150,12 @@ reprovision rather than synthesizing evidence. The protocol overview now names
 the required conditional inline-rekey marker and commit-LSN mode. A stale
 container settlement comment was updated to the revision-CAS method.
 
+Review round 5 made the cutover unconditionally fresh-database, not a partial
+legacy-content audit. It explicitly names non-unit/missing Stripe subscription
+item quantities and provider reprovisioning. Out-of-contract Stripe seat targets
+now emit the existing operator-attention diagnostic as well as durable retry
+state; no unsupported paid entitlement is fabricated.
+
 - Integrate the completed issue PRs; regenerate final contracts and exact
   temporary OpenAPI exceptions; complete validation, review, and submission.
 
