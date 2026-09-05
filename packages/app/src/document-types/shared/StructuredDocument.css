@@ -67,8 +67,10 @@
   min-width: 0;
 }
 
+/* Native text controls only. A dropdown in a structured document is the
+   shared MiniAppSelectMenu (a themed custom listbox), never a bare <select>,
+   whose popup the theme tokens cannot reach. */
 .structured-document-field input,
-.structured-document-field select,
 .structured-document-field textarea {
   width: 100%;
   min-height: var(--control-height);
@@ -89,6 +91,14 @@
   display: grid;
   gap: var(--space-md);
   grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+}
+
+/* A document with a single slot (a passport's image, a tool's receipt) would
+   otherwise stretch it across the entire detail pane on iPad. Keep it at the
+   shared form measure while the mobile tier's token override still lets it use
+   the available width. */
+.structured-document-attachments--single {
+  max-width: var(--form-measure);
 }
 
 .structured-document-slot {

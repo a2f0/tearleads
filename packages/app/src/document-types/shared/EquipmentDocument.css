@@ -1,6 +1,0 @@
-/* An equipment document has one receipt slot, so it would otherwise stretch
-   across the entire detail pane on iPad. Keep it at the shared form measure
-   like the passport's single image slot. */
-.equipment-attachment-slots {
-  max-width: var(--form-measure);
-}
