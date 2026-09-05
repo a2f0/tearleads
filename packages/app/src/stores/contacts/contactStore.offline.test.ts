@@ -33,8 +33,9 @@ async function seedDuplicates(runtime: ContactsRuntime) {
   return localId;
 }
 
-for (const reconnectBeforeFailure of [false, true]) {
-  test(`local edits finish during a stalled purge and retry when reconnect ${reconnectBeforeFailure ? "precedes" : "follows"} its failure`, async () => {
+for (const reconnect of ["before", "after", "database"] as const) {
+  const reconnectBeforeFailure = reconnect === "before";
+  test(`local edits finish during a stalled purge and recover on ${reconnect} reconnect`, async () => {
     const base = await createRecoveryContactsRuntime({
       signingFingerprint: "offline-self",
       userId: "self-user",
@@ -132,6 +133,15 @@ for (const reconnectBeforeFailure of [false, true]) {
       if (!reconnectBeforeFailure) {
         store.updateRuntime(base);
         expect(attempts).toBe(1);
+        if (reconnect === "database") {
+          store.updateRuntime({
+            ...reconnected,
+            documents: {
+              ...reconnected.documents,
+              infra: { ...reconnected.documents.infra, dbStatus: "idle" },
+            },
+          });
+        }
         store.updateRuntime(reconnected);
       }
       await waitForCondition(
@@ -209,6 +219,89 @@ test("offline self bootstrap retains synced duplicates without calling purge or 
       ),
     ).not.toBeNull();
   } finally {
+    base.close();
+  }
+});
+
+test("a confirmed duplicate purge retries local cleanup without purging its missing remote document", async () => {
+  const base = await createRecoveryContactsRuntime({
+    signingFingerprint: "offline-self",
+    userId: "self-user",
+  });
+  const localId = await seedDuplicates(base);
+  let purges = 0;
+  let localDeletes = 0;
+  const errors: string[] = [];
+  const runtime: ContactsRuntime = {
+    ...base,
+    documents: {
+      ...base.documents,
+      state: { ...base.documents.state, online: true },
+    },
+    loadDocumentSummary: async (id) =>
+      id === localId && purges === 0
+        ? {
+            id,
+            containerId: CONTACTS_CONTAINER_ID,
+            documentId: "remote-fallback",
+            title: "self-user",
+            updatedAt: "2026-09-05T00:00:00.000Z",
+          }
+        : null,
+    purgeDocument: async () => {
+      purges += 1;
+      // Model the purge workflow's durable removal before the app settles its cache.
+      await defaultDocumentsPersistence.deleteDocument(
+        base.documents.infra.execSql,
+        localId,
+      );
+      return true;
+    },
+    deleteDocument: async (id) => {
+      localDeletes += 1;
+      return localDeletes === 1 ? false : base.deleteDocument(id);
+    },
+  };
+  const store = createContactsStore(runtime, {
+    resolveUserIdentity: async () => null,
+    logError: (message) => {
+      errors.push(String(message));
+    },
+  });
+  try {
+    store.updateRuntime(runtime);
+    await waitForCondition(
+      () => errors.length === 1,
+      "Local cleanup did not reach its injected failure",
+    );
+    expect(purges).toBe(1);
+    expect(localDeletes).toBe(1);
+    expect(
+      store.getSnapshot().entries.some((entry) => entry.id === localId),
+    ).toBe(true);
+    expect(
+      await defaultDocumentsPersistence.loadDocument(
+        base.documents.infra.execSql,
+        localId,
+      ),
+    ).toBeNull();
+    store.updateRuntime(base);
+    store.updateRuntime(runtime);
+    await waitForCondition(
+      () => !store.getSnapshot().entries.some((entry) => entry.id === localId),
+      "Acknowledged purge did not finish its local cleanup",
+      1500,
+    );
+    expect(purges).toBe(1);
+    expect(localDeletes).toBe(2);
+  } finally {
+    store.updateRuntime({
+      ...base,
+      documents: {
+        ...base.documents,
+        infra: { ...base.documents.infra, dbStatus: "terminated" },
+      },
+    });
     base.close();
   }
 });

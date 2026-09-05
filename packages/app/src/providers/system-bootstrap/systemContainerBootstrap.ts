@@ -43,6 +43,7 @@ export async function ensureSystemBootstrapContainer(input: {
         input.systemContainer.systemSlot,
         input.systemContainer.name,
         {
+          deferRemoteBootstrap: true,
           deferRemoteSync:
             existing.syncState.status === "local-only" ? true : undefined,
           icon: input.systemContainer.icon,
