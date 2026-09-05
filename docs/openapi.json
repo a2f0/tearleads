@@ -13027,6 +13027,10 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "organizationId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
                     "byteLength": {
                       "exclusiveMinimum": 0,
                       "maximum": 1.7976931348623157e+308,
@@ -13044,6 +13048,7 @@
                     }
                   },
                   "required": [
+                    "organizationId",
                     "byteLength",
                     "expiresAt",
                     "sha256",
@@ -13502,6 +13507,10 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "organizationId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
                     "byteLength": {
                       "exclusiveMinimum": 0,
                       "maximum": 1.7976931348623157e+308,
@@ -13553,6 +13562,7 @@
                     }
                   },
                   "required": [
+                    "organizationId",
                     "byteLength",
                     "completed",
                     "expiresAt",
@@ -13734,6 +13744,10 @@
               "schema": {
                 "type": "object",
                 "properties": {
+                  "organizationId": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                    "type": "string"
+                  },
                   "byteLength": {
                     "exclusiveMinimum": 0,
                     "maximum": 1.7976931348623157e+308,
@@ -13745,6 +13759,7 @@
                   }
                 },
                 "required": [
+                  "organizationId",
                   "byteLength",
                   "sha256"
                 ],
@@ -13761,6 +13776,10 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "organizationId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
                     "byteLength": {
                       "exclusiveMinimum": 0,
                       "maximum": 1.7976931348623157e+308,
@@ -13809,6 +13828,7 @@
                     }
                   },
                   "required": [
+                    "organizationId",
                     "byteLength",
                     "expiresAt",
                     "sha256",
@@ -13854,6 +13874,25 @@
                     "error": {
                       "type": "string",
                       "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
                     }
                   },
                   "required": [

@@ -29,7 +29,7 @@ test("multipart control operations own their shared HTTP contracts", () => {
   expect(initiateMultipartBlobStageOperation).toMatchObject({
     auth: "session",
     body: InitiateMultipartBlobStageRequestSchema,
-    failureStatuses: [400, 401, 404, 409, 500, 503],
+    failureStatuses: [400, 401, 403, 404, 409, 500, 503],
     id: "blobs.multipartStages.initiate",
     method: "POST",
     responses: { 200: InitiateMultipartBlobStageResponseSchema },
@@ -54,6 +54,7 @@ test("multipart control operations own their shared HTTP contracts", () => {
   expect(initiateMultipartBlobStageOperation.failureResponses).toEqual({
     400: ErrorResponseSchema,
     401: SessionFailureResponseSchema,
+    403: ErrorResponseSchema,
     404: ErrorResponseSchema,
     409: ErrorResponseSchema,
     500: ErrorResponseSchema,
@@ -161,11 +162,12 @@ test("multipart control OpenAPI documents shared inputs and responses", () => {
   expect(initiate.parameters).toEqual([]);
   expect(
     initiate.requestBody.content["application/json"]?.schema.required,
-  ).toEqual(["byteLength", "sha256"]);
+  ).toEqual(["organizationId", "byteLength", "sha256"]);
   expect(Object.keys(initiate.responses)).toEqual([
     "200",
     "400",
     "401",
+    "403",
     "404",
     "409",
     "500",

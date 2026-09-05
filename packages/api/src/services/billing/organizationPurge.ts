@@ -10,6 +10,7 @@ import {
   renewOrganizationPurgeClaim,
 } from "../../workflows/billing/organizationPurgeCandidates";
 import { reclaimDereferencedBlobs } from "../blobs/blobMaintenance";
+import { cleanupExpiredBlobStages } from "../blobs/multipartStage";
 import type { ApiServiceRuntime } from "../runtime";
 
 interface OrganizationPurgeSummary {
@@ -61,6 +62,23 @@ export async function runOrganizationPurgeMaintenance(
         clock,
         runtime,
       });
+      while (true) {
+        const stages = await cleanupExpiredBlobStages(
+          runtime,
+          {
+            organizationId: claim.organizationId,
+            now,
+          },
+          { assertObjectDeletionLease },
+        );
+        if (stages.failedStages > 0) {
+          throw new AggregateError(
+            stages.failures,
+            "Organization staged blob cleanup failed",
+          );
+        }
+        if (stages.scannedStages === 0) break;
+      }
       for (const batch of organizationPurgeBatches(blobIds)) {
         await assertObjectDeletionLease();
         await reclaimDereferencedBlobs(

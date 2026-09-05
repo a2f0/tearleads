@@ -35,6 +35,7 @@ function createApi(input: {
     bindBlobAttachment: async () => null,
     completeMultipartBlobStage: async (stageId) => ({
       byteLength: 1,
+      organizationId: "organization-1",
       expiresAt: "2026-04-27T01:00:00.000Z",
       sha256: "encrypted-sha256",
       stageId,
@@ -46,6 +47,7 @@ function createApi(input: {
       input.onInitiate();
       return {
         ...request,
+        organizationId: "organization-1",
         expiresAt: "2026-04-27T01:00:00.000Z",
         stageId: "stage-fresh",
         uploadedParts: [],
@@ -79,6 +81,7 @@ test("opens a fresh stage only after coded absence or expiry", async () => {
   for (const failure of failures) {
     let initiateCalls = 0;
     const stageId = await stageMultipartBlobAttachment({
+      organizationId: "organization-1",
       apiClient: createApi({
         failure,
         onInitiate: () => {
@@ -128,6 +131,7 @@ test("preserves resumable state after unproven lookup failures", async () => {
     let unavailableCalls = 0;
     await expect(
       stageMultipartBlobAttachment({
+        organizationId: "organization-1",
         apiClient: createApi({
           failure,
           onInitiate: () => {
@@ -158,6 +162,7 @@ test("a durable owner renews its identity before a missing stage is replaced", a
   const unavailableStages: string[] = [];
   await expect(
     stageMultipartBlobAttachment({
+      organizationId: "organization-1",
       apiClient: createApi({
         failure: {
           code: MULTIPART_BLOB_STAGE_ERROR_CODES.notFound,

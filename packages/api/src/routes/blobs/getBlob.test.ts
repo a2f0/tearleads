@@ -11,6 +11,7 @@ import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { uploadBlobObject } from "../../../test/helpers/blobObjectStore";
 import { createCurrentDocumentProjection } from "../../../test/helpers/currentProtocolProjection";
+import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { del } from "../../adapters/redis";
 import { routeApp } from "../../routeApp";
@@ -63,7 +64,7 @@ test("GET /blobs/:blobId/bytes streams committed encrypted blob bytes", async ()
   const createdDocument = await createAliceDocumentFixture();
   const documentId = String(createdDocument.id ?? "");
   const stagedBlobInput = await createStagedBlobInput("streamed-image-bytes");
-  const storageKey = `blob-stages/${crypto.randomUUID()}`;
+  const storageKey = `organizations/${await getDefaultOrganizationId(alice.userId)}/blob-stages/${crypto.randomUUID()}`;
   await uploadBlobObject(
     getDefaultApiServiceRuntime().blobObjectStore,
     storageKey,

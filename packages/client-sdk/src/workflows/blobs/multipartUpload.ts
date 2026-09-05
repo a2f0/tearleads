@@ -260,6 +260,7 @@ async function resolveMultipartStageStatus(input: {
   readonly apiClient: BlobAttachmentApi;
   readonly byteLength: number;
   readonly multipart: NonNullable<UploadDocumentAttachmentInput["multipart"]>;
+  readonly organizationId: string;
   readonly onStageUnavailable?:
     | ((stageId: string) => Promise<void>)
     | undefined;
@@ -285,11 +286,12 @@ async function resolveMultipartStageStatus(input: {
       // inconsistent persisted state or a bad server response, not proof that
       // the existing stage is safe to abandon.
       if (
+        resumed.organizationId !== input.organizationId ||
         resumed.byteLength !== input.byteLength ||
         resumed.sha256 !== input.sha256
       ) {
         throw new Error(
-          `Multipart blob resume stage ${resumeStageId} does not match the requested bytes.`,
+          `Multipart blob resume stage ${resumeStageId} does not match the requested organization or bytes.`,
         );
       }
       return resumed;
@@ -297,6 +299,7 @@ async function resolveMultipartStageStatus(input: {
   }
 
   const stage = await input.apiClient.initiateMultipartBlobStage({
+    organizationId: input.organizationId,
     byteLength: input.byteLength,
     sha256: input.sha256,
   });
@@ -309,7 +312,11 @@ async function resolveMultipartStageStatus(input: {
       }),
     );
   }
-  if (stage.byteLength !== input.byteLength || stage.sha256 !== input.sha256) {
+  if (
+    stage.organizationId !== input.organizationId ||
+    stage.byteLength !== input.byteLength ||
+    stage.sha256 !== input.sha256
+  ) {
     throw new Error(
       "Multipart blob stage initiation response does not match its request.",
     );
@@ -342,6 +349,7 @@ export async function stageMultipartBlobAttachment(input: {
   readonly apiClient: BlobAttachmentApi;
   readonly encryption: BlobEncryptionPlan;
   readonly multipart: NonNullable<UploadDocumentAttachmentInput["multipart"]>;
+  readonly organizationId: string;
   readonly onMultipartProgress?: MultipartUploadProgressListener | undefined;
   readonly onStageResolved?: MultipartStageResolvedListener | undefined;
   readonly onStageUnavailable?:
@@ -358,6 +366,7 @@ export async function stageMultipartBlobAttachment(input: {
     apiClient: input.apiClient,
     byteLength: input.encryption.byteLength,
     multipart: input.multipart,
+    organizationId: input.organizationId,
     onStageUnavailable: input.onStageUnavailable,
     sha256: input.encryption.sha256,
   });
@@ -435,6 +444,7 @@ export async function stageMultipartBlobAttachment(input: {
     );
   }
   if (
+    completed.organizationId !== input.organizationId ||
     completed.stageId !== status.stageId ||
     completed.byteLength !== input.encryption.byteLength ||
     completed.sha256 !== input.encryption.sha256

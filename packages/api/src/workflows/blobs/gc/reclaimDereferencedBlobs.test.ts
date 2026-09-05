@@ -9,6 +9,8 @@ import {
 import { eq } from "drizzle-orm";
 import { runReclaimDereferencedBlobsWorkflow } from "./reclaimDereferencedBlobs";
 
+const ORGANIZATION_ID = "fd48148f-2bb0-420d-925a-7007d5c1c40f";
+
 const HOUR_MS = 60 * 60 * 1000;
 
 async function insertDereferencedBlob(input: {
@@ -16,7 +18,9 @@ async function insertDereferencedBlob(input: {
   readonly dereferencedAt: Date;
   readonly storageKey?: string;
 }): Promise<void> {
-  const storageKey = input.storageKey ?? `blob-object:${input.id}`;
+  const storageKey =
+    input.storageKey ??
+    `organizations/${ORGANIZATION_ID}/blob-stages/${input.id}`;
   await db.insert(blobs).values({
     id: input.id,
     storageKey,
@@ -29,7 +33,7 @@ async function insertDereferencedBlob(input: {
     byteLength: 1,
     historicalBytesRetained: false,
     liveStorageKey: storageKey,
-    organizationId: crypto.randomUUID(),
+    organizationId: ORGANIZATION_ID,
     retentionMode: "live_only",
     sha256: `sha256:${input.id}`,
   });
@@ -64,7 +68,9 @@ test("reclaims an unreferenced blob dereferenced past the grace period", async (
     })
     .from(blobAuditObjects)
     .where(eq(blobAuditObjects.blobId, blobId));
-  expect(auditObject?.liveStorageKey).toBe(`blob-object:${blobId}`);
+  expect(auditObject?.liveStorageKey).toBe(
+    `organizations/${ORGANIZATION_ID}/blob-stages/${blobId}`,
+  );
   expect(auditObject?.objectDeletedAt).toBeNull();
   expect(auditObject?.prunedAt).toBeInstanceOf(Date);
 });
@@ -91,7 +97,7 @@ test("fails closed when required audit deletion state is missing", async () => {
     dereferencedAt: new Date(Date.now() - 48 * HOUR_MS),
     id: blobId,
     sha256: `sha256:${blobId}`,
-    storageKey: `blob-object:${blobId}`,
+    storageKey: `organizations/${ORGANIZATION_ID}/blob-stages/${blobId}`,
   });
 
   await expect(

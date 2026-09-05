@@ -7,12 +7,14 @@ import {
   plainObjectSchema,
   positiveIntegerSchema,
   requiredUnknownSchema,
+  uuidV4StringSchema,
 } from "../schema";
 import { MAX_INLINE_CONTAINER_REKEYS } from "../util";
 import { ContainerMutationRequestSchema } from "./container";
 import { ContainerManifestRefArrayArraySchema } from "./document";
 
 export const InitiateMultipartBlobStageRequestSchema = loosePlainObject({
+  organizationId: uuidV4StringSchema,
   byteLength: positiveIntegerSchema,
   sha256: nonEmptyStringSchema,
 });
