@@ -10,6 +10,7 @@ import {
 import {
   createContainerManifestFixture,
   createVerifiedContainerAccessEvent,
+  fixtureHash,
 } from "./testFixtures";
 
 async function recite(
@@ -17,6 +18,7 @@ async function recite(
     signerUserId?: string;
     keyEpochId?: string;
     previousEpoch?: number;
+    withGrants?: boolean;
   } = {},
 ) {
   const signer = generateSigningSeedAndKeyPair();
@@ -35,7 +37,24 @@ async function recite(
     // test, not evidence that an abbreviated 1024-head chain verifies.
     epoch: input.previousEpoch ?? 1,
     containerKeyEpochId: "child-key",
-    directGrants: [],
+    directGrants: input.withGrants
+      ? [
+          { subjectType: "group", subjectId: "readers", accessLevel: "read" },
+          { subjectType: "user", subjectId: "owner", accessLevel: "admin" },
+        ]
+      : [],
+    referencedPrincipalHeads: input.withGrants
+      ? [
+          {
+            principalType: "group",
+            principalId: "readers",
+            version: 2,
+            keyEpoch: 1,
+            stateHash: await fixtureHash("readers-policy"),
+            keyFingerprint: await fixtureHash("readers-key"),
+          },
+        ]
+      : [],
     parentContainerId: parent.state.containerId,
     parentManifestHash: parent.manifestHash,
     signer,
@@ -67,8 +86,29 @@ async function recite(
     previousManifest: previous,
     previousContainerPath: [parent, previous],
   });
-  return { result, state };
+  return { result, state, previous };
 }
+
+test("recitation preserves non-empty direct grants and exact principal pins", async () => {
+  const { result, previous } = await recite({ withGrants: true });
+  if (!result.ok) throw result.error;
+  expect(previous.state.directGrants).toHaveLength(2);
+  expect(previous.state.referencedPrincipalHeads).toHaveLength(1);
+  expect(result.value.state.directGrants).toEqual(previous.state.directGrants);
+  expect(result.value.manifest.grantRoot).toBe(previous.manifest.grantRoot);
+  expect(result.value.state.referencedPrincipalHeads).toEqual(
+    previous.state.referencedPrincipalHeads,
+  );
+  expect(result.value.state.parentContainerId).toBe(
+    previous.state.parentContainerId,
+  );
+  expect(result.value.state.parentManifestHash).toBe(
+    previous.state.parentManifestHash,
+  );
+  expect(result.value.state.containerKeyEpochId).toBe(
+    previous.state.containerKeyEpochId,
+  );
+});
 
 test("recitation advances the access head without changing an empty child's grants or keys", async () => {
   const { result, state } = await recite();

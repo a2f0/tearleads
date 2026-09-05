@@ -47,8 +47,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 578,
-      "bytes": 27684
+      "lines": 581,
+      "bytes": 27898
     },
     "docs/developer/revenuecat-billing.md": {
       "lines": 360,
@@ -83,8 +83,8 @@
       "bytes": 28664
     },
     "docs/security-guarantees.md": {
-      "lines": 645,
-      "bytes": 35654
+      "lines": 655,
+      "bytes": 36329
     },
     "formal/document-sync/BaselineDominanceTraces.json": {
       "lines": 2059,

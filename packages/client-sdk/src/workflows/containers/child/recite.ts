@@ -90,12 +90,7 @@ async function recitePinnedPath(
       stillCurrent: input.stillCurrent,
     });
   if (!acknowledged || input.stillCurrent?.() === false) return null;
-  rememberAcknowledgedContainerHead(input.execSql, plan);
-  return (
-    heldContainerSnapshot(input.execSql, input.author.organizationId).heads.get(
-      id,
-    ) ?? null
-  );
+  return rememberAcknowledgedContainerHead(input.execSql, plan);
 }
 
 async function waitForPinnedPath(

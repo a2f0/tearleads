@@ -41,6 +41,7 @@ import {
   runForAuthenticatedOrganization,
   runForOrganization,
 } from "./organizationWorkflowRuntime";
+import { currentOrganizationMutation } from "./principalMutationScope";
 import {
   type AddOrganizationGroupUserInput,
   addUserToOrganizationGroup,
@@ -207,7 +208,7 @@ class OrganizationsService implements Organizations {
       ...input,
       containerContents: this.containerContents,
       readModelCoordinator: this.readModelCoordinator,
-      runtime: this.runtimeService.workflowInput(),
+      ...currentOrganizationMutation(this.runtimeService),
     });
   }
 
@@ -470,7 +471,7 @@ class OrganizationsService implements Organizations {
       ...input,
       containerContents: this.containerContents,
       readModelCoordinator: this.readModelCoordinator,
-      runtime: this.runtimeService.workflowInput(),
+      ...currentOrganizationMutation(this.runtimeService),
     });
   }
 
@@ -479,7 +480,7 @@ class OrganizationsService implements Organizations {
       ...grant,
       containerContents: this.containerContents,
       readModelCoordinator: this.readModelCoordinator,
-      runtime: this.runtimeService.workflowInput(),
+      ...currentOrganizationMutation(this.runtimeService),
     });
   }
 

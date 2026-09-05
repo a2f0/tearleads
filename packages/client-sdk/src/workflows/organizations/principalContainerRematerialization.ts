@@ -274,13 +274,15 @@ export async function preparePrincipalContainerRematerializationBatch(
     plans,
     requests: plans.map((planned) => planned.plan.request),
     acknowledge: async (responses, stillCurrent) => {
+      const isCurrent = () =>
+        input.stillCurrent?.() !== false && stillCurrent?.() !== false;
       await acknowledgeContainerMutationBatch({
         execSql: input.execSql,
         plans: plans.map(authoredMutationHead),
         responses,
-        stillCurrent,
+        stillCurrent: isCurrent,
       });
-      if (stillCurrent?.() === false) return;
+      if (!isCurrent()) return;
       try {
         rememberVerifiedContainerHeads({
           organizationId: input.author.organizationId,
@@ -297,7 +299,7 @@ export async function preparePrincipalContainerRematerializationBatch(
         author: input.author,
         execSql: input.execSql,
         plans: plans.map(authoredMutationHead),
-        stillCurrent,
+        stillCurrent: isCurrent,
         reportSecurityIncident: input.reportSecurityIncident,
       });
     },

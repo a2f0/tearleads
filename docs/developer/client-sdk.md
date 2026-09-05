@@ -142,6 +142,9 @@ and grants unchanged. It is not a descendant-rekey or freshness guarantee.
 These mutation facades require `reportSecurityIncident`; the built-in runtime
 wires its durable incident service. Re-citation stops at container epoch 1024
 to reserve the remaining verifier history budget for ordinary mutations.
+Organization grant revocation requires a live `stillCurrent` guard. The client
+facade binds it, and group rematerialization cascades, to the captured session,
+organization, signing identity, and database lifetime.
 
 `tearleads.network` defaults to automatic mode: browser events and API request
 results set `online`. Hosts can force diagnostics with `setMode("offline")` or

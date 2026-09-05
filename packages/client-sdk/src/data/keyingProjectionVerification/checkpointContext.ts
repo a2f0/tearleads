@@ -130,7 +130,6 @@ export async function finalizeProjectionCheckpoints(
     return;
   }
   await commitProjectionCheckpoints(context, input);
-  assertProjectionVerificationCurrent(input.stillCurrent);
   const organizationId =
     context.organizationId ??
     context.heldContainerHeads[0]?.state.organizationId;

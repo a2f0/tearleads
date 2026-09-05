@@ -18,6 +18,7 @@ type OrganizationContainerGrantRevocationApi = Parameters<
 >[0]["apiClient"];
 
 export async function revokeOrganizationContainerGrant(input: {
+  readonly stillCurrent: () => boolean;
   readonly reportSecurityIncident: SecurityIncidentReporter;
   readonly apiClient: OrganizationContainerGrantRevocationApi;
   readonly containerId: string;
@@ -54,6 +55,7 @@ export async function revokeOrganizationContainerGrant(input: {
   }
 
   const revoked = await revokeRemoteContainer({
+    stillCurrent: input.stillCurrent,
     reportSecurityIncident: input.reportSecurityIncident,
     apiClient: input.apiClient,
     author,

@@ -301,6 +301,16 @@ history budget (`MAX_CONTAINER_HISTORY_DEPTH` in
 for ordinary mutations; it is not history compaction. The SDK
 skips signing at that boundary, and the API independently rejects it.
 
+Every successful re-cite permanently adds one manifest to the descendant's
+history. Writer projections return and re-verify that chain, so repeated
+ancestor changes can increase per-read bytes and verification cost up to this
+bound even when the descendant itself is never edited. Re-citation also
+advances `metadataAccessStateHash`: each accepted event invalidates the
+organization grants lane and emits the normal container/access hints. A full
+eight-attempt pass can therefore add eight organization-wide refreshes to one
+user mutation. These invalidations are not batched; the per-pass cap and pacing
+bound amplification, not the total cost of later reads or refreshes.
+
 This background pass never fetches a subtree or a principal policy, never
 retries a failed re-cite, and never delays or changes the original mutation's
 result. One pass runs per executor, capped at eight attempts with a 250 ms gap

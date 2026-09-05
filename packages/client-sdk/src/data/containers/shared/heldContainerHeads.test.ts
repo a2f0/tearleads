@@ -104,6 +104,22 @@ test("held heads are copied, organization-scoped, and never replaced by older or
   );
 });
 
+test("a mixed-organization observation rejects the whole batch without caching a prefix", async () => {
+  const execSql = executor();
+  const base = await seed;
+  remember(execSql, [head(base, "existing")]);
+  expect(() =>
+    remember(execSql, [
+      head(base, "new"),
+      head(base, "foreign", 1, "other-org"),
+    ]),
+  ).toThrow("another organization");
+  expect([...heldContainerSnapshot(execSql, "cache-org").heads.keys()]).toEqual(
+    ["existing"],
+  );
+  expect(heldContainerSnapshot(execSql, "other-org").heads.size).toBe(0);
+});
+
 test("held principal policies are bounded, organization-scoped, and monotonic", () => {
   const execSql = executor();
   const policy = (id: string, version = 1) =>

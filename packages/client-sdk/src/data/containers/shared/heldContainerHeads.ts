@@ -76,6 +76,8 @@ export function rememberVerifiedContainerHeads(input: {
     if (head.state.organizationId !== input.organizationId) {
       throw new Error("Held container head belongs to another organization");
     }
+  }
+  for (const head of input.heads) {
     rememberHead(input.execSql, {
       state: head.state,
       bundle: {
@@ -115,8 +117,8 @@ export function rememberAcknowledgedContainerHead(
     AuthoredContainerMutationHead,
     "body" | "event" | "eventHash" | "manifest" | "manifestHash" | "state"
   >,
-): void {
-  rememberHead(execSql, {
+): HeldContainerHead {
+  const head: HeldContainerHead = {
     state: plan.state,
     bundle: {
       event: readCanonicalRecord(
@@ -134,7 +136,9 @@ export function rememberAcknowledgedContainerHead(
       manifestHash: plan.manifestHash,
       state: readCanonicalRecord(plan.state, "Acknowledged container state"),
     },
-  });
+  };
+  rememberHead(execSql, head);
+  return head;
 }
 
 export function heldContainerSnapshot(

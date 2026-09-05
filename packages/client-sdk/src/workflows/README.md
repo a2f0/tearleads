@@ -30,6 +30,9 @@ cancellation-aware.
 Container mutation facades require `reportSecurityIncident` for contradictory
 background acknowledgements. Re-citation is refused at prior epoch 1024 so it
 cannot exhaust the API's 4096-manifest verification budget by itself.
+Organization grant revocation requires a live `stillCurrent` guard. The client
+facade binds it, and group rematerialization cascades, to the captured session,
+organization, signing identity, and database lifetime.
 
 The documents facade also admits explicit `historyMode: "raw"` reads through
 `syncRemoteDocument`. A raw consumer must start at a null version vector, send
