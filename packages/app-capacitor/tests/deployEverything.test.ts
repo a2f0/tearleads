@@ -28,9 +28,7 @@ const commandPaths = [
   "scripts/uploadAndroidStagingRelease.sh",
   "scripts/uploadAndroidRelease.sh",
   "scripts/deployStaging.sh",
-  "packages/code-assist/scripts/deployStagingCodeAssist.sh",
   "scripts/deployProduction.sh",
-  "packages/code-assist/scripts/deployProductionCodeAssist.sh",
 ] as const;
 
 interface HarnessRun {
@@ -74,10 +72,10 @@ async function runHarness(
       "#!/usr/bin/env bash",
       "load_secrets_env() {",
       '  case "$1" in',
-      `    staging) SSH_TARGET="\${STUB_STAGING_SECRET_TARGET:-}"; CODE_ASSIST_ENABLED="\${STUB_STAGING_CODE_ASSIST_ENABLED:-false}" ;;`,
-      `    prod) SSH_TARGET="\${STUB_PRODUCTION_SECRET_TARGET:-}"; CODE_ASSIST_ENABLED="\${STUB_PRODUCTION_CODE_ASSIST_ENABLED:-false}" ;;`,
+      `    staging) SSH_TARGET="\${STUB_STAGING_SECRET_TARGET:-}" ;;`,
+      `    prod) SSH_TARGET="\${STUB_PRODUCTION_SECRET_TARGET:-}" ;;`,
       "  esac",
-      "  export SSH_TARGET CODE_ASSIST_ENABLED",
+      "  export SSH_TARGET",
       "}",
       "validate_aws_env() { :; }",
       "wait_for_ssh_ready() {",
@@ -154,8 +152,8 @@ async function runHarness(
     `  deployStaging.sh|deployProduction.sh) [ "\${1:-}" = "--skip-terraform" ] || exit 24 ;;`,
     "esac",
     'case "$name" in',
-    `  deployStaging.sh|deployStagingCodeAssist.sh) target="\${STAGING_SSH_TARGET:-}" ;;`,
-    `  deployProduction.sh|deployProductionCodeAssist.sh) target="\${PRODUCTION_SSH_TARGET:-}" ;;`,
+    `  deployStaging.sh) target="\${STAGING_SSH_TARGET:-}" ;;`,
+    `  deployProduction.sh) target="\${PRODUCTION_SSH_TARGET:-}" ;;`,
     `  *) target="\${SSH_TARGET:-}" ;;`,
     "esac",
     `printf '%s|%s|%s\\n' "$name" "$target" "$PWD" >> "$DEPLOY_EVERYTHING_TEST_LOG"`,
@@ -186,8 +184,6 @@ async function runHarness(
         STUB_FAIL_READY_TARGET: options.failReadyTarget ?? "",
         STUB_STAGING_MACHINE_ID: "11111111111111111111111111111111",
         STUB_PRODUCTION_MACHINE_ID: "22222222222222222222222222222222",
-        STUB_STAGING_CODE_ASSIST_ENABLED: "true",
-        STUB_PRODUCTION_CODE_ASSIST_ENABLED: "true",
         ...options.environment,
       },
       stdout: "ignore",
@@ -212,12 +208,10 @@ test("runs every release in promotion order from the repository root", async () 
   expect(run.calls.map((call) => call.split("|").slice(0, 2))).toEqual([
     ["terraform-staging", ""],
     ["deployStaging.sh", "staging-user@staging-host"],
-    ["deployStagingCodeAssist.sh", "staging-user@staging-host"],
     ["uploadIosStagingRelease.sh", ""],
     ["uploadAndroidStagingRelease.sh", ""],
     ["terraform-production", ""],
     ["deployProduction.sh", "prod-user@prod-host"],
-    ["deployProductionCodeAssist.sh", "prod-user@prod-host"],
     ["uploadIosRelease.sh", ""],
     ["uploadAndroidRelease.sh", ""],
   ]);
@@ -233,29 +227,8 @@ test("stops at the first failing release command", async () => {
   expect(run.calls.map((call) => call.split("|")[0])).toEqual([
     "terraform-staging",
     "deployStaging.sh",
-    "deployStagingCodeAssist.sh",
     "uploadIosStagingRelease.sh",
     "uploadAndroidStagingRelease.sh",
-  ]);
-});
-
-test("skips Code Assist for tiers where it is disabled", async () => {
-  const run = await runHarness({
-    environment: {
-      STUB_STAGING_CODE_ASSIST_ENABLED: "false",
-      STUB_PRODUCTION_CODE_ASSIST_ENABLED: "false",
-    },
-  });
-  expect(run.exitCode, run.stderr).toBe(0);
-  expect(run.calls.map((call) => call.split("|")[0])).toEqual([
-    "terraform-staging",
-    "deployStaging.sh",
-    "uploadIosStagingRelease.sh",
-    "uploadAndroidStagingRelease.sh",
-    "terraform-production",
-    "deployProduction.sh",
-    "uploadIosRelease.sh",
-    "uploadAndroidRelease.sh",
   ]);
 });
 
@@ -283,8 +256,6 @@ test("keeps distinct tier overrides isolated", async () => {
   expect(run.exitCode, run.stderr).toBe(0);
   expect(run.calls.map((call) => call.split("|")[1]).filter(Boolean)).toEqual([
     "staging-user@explicit-staging",
-    "staging-user@explicit-staging",
-    "prod-user@explicit-production",
     "prod-user@explicit-production",
   ]);
 });

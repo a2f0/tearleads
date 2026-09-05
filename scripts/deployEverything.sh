@@ -4,8 +4,8 @@
 #
 # Runs in order:
 #   1. Read existing stack targets and verify known destinations are distinct
-#   2. Staging Terraform, server services, optional Code Assist, and native releases
-#   3. Production Terraform, server services, optional Code Assist, and native releases
+#   2. Staging Terraform, server services, and native releases
+#   3. Production Terraform, server services, and native releases
 
 set -euo pipefail
 
@@ -17,8 +17,8 @@ usage() {
 Usage: $(basename "$0")
 
 Deploys and publishes every staging target before promoting the same release
-to production. Terraform, Ansible, server applications, the separately
-released Code Assist service when enabled, and both native stores are included.
+to production. Terraform, Ansible, server applications, and both native stores
+are included.
 
 Options:
   -h, --help    Show this help and exit.
@@ -94,24 +94,6 @@ read_tier_ssh_target() {
   backend_config="$(get_backend_config)" || return 1
   terraform -chdir="$stack_dir" init -reconfigure -backend-config="$backend_config" >&2 || return 1
   read_stack_ssh_target "$stack_dir"
-}
-
-read_tier_code_assist_enabled() {
-  local tier="$1"
-  local normalized_value
-  local CODE_ASSIST_ENABLED=""
-  local SSH_TARGET=""
-
-  load_secrets_env "$tier" || return 1
-  normalized_value="$(printf '%s' "${CODE_ASSIST_ENABLED:-false}" | tr '[:upper:]' '[:lower:]')"
-  case "$normalized_value" in
-    true | yes | on | 1) printf 'true\n' ;;
-    false | no | off | 0 | "") printf 'false\n' ;;
-    *)
-      echo "Error: CODE_ASSIST_ENABLED must be a boolean for $tier." >&2
-      return 1
-      ;;
-  esac
 }
 
 ssh_target_literal_host() {
@@ -251,9 +233,6 @@ if [[ -n "${STAGING_SSH_TARGET:-}" && -n "${PRODUCTION_SSH_TARGET:-}" ]]; then
   reject_shared_ssh_host "$STAGING_SSH_TARGET" "$PRODUCTION_SSH_TARGET"
 fi
 
-STAGING_CODE_ASSIST_ENABLED="$(read_tier_code_assist_enabled staging)" || exit 1
-PRODUCTION_CODE_ASSIST_ENABLED="$(read_tier_code_assist_enabled prod)" || exit 1
-
 STAGING_PREFLIGHT_STATUS=0
 STAGING_PREFLIGHT_SSH_TARGET="$(
   read_tier_ssh_target staging "${STAGING_SSH_TARGET:-}"
@@ -335,12 +314,6 @@ fi
 
 run_tier_step "deploy-staging" staging "$STAGING_EFFECTIVE_SSH_TARGET" \
   "$SCRIPT_DIR/deployStaging.sh" --skip-terraform
-if [[ "$STAGING_CODE_ASSIST_ENABLED" == true ]]; then
-  run_tier_step "code-assist-staging" staging "$STAGING_EFFECTIVE_SSH_TARGET" \
-    "$REPO_ROOT/packages/code-assist/scripts/deployStagingCodeAssist.sh"
-else
-  echo "[code-assist-staging] skipped because CODE_ASSIST_ENABLED is false."
-fi
 run_step "ios-staging" "$SCRIPT_DIR/uploadIosStagingRelease.sh"
 run_step "android-staging" "$SCRIPT_DIR/uploadAndroidStagingRelease.sh"
 
@@ -353,12 +326,6 @@ reject_shared_ssh_host \
   "$STAGING_EFFECTIVE_SSH_TARGET" "$PRODUCTION_EFFECTIVE_SSH_TARGET"
 run_tier_step "deploy-production" prod "$PRODUCTION_EFFECTIVE_SSH_TARGET" \
   "$SCRIPT_DIR/deployProduction.sh" --skip-terraform
-if [[ "$PRODUCTION_CODE_ASSIST_ENABLED" == true ]]; then
-  run_tier_step "code-assist-production" prod "$PRODUCTION_EFFECTIVE_SSH_TARGET" \
-    "$REPO_ROOT/packages/code-assist/scripts/deployProductionCodeAssist.sh"
-else
-  echo "[code-assist-production] skipped because CODE_ASSIST_ENABLED is false."
-fi
 run_step "ios-production" "$SCRIPT_DIR/uploadIosRelease.sh"
 run_step "android-production" "$SCRIPT_DIR/uploadAndroidRelease.sh"
 

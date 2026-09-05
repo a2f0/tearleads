@@ -126,10 +126,6 @@ const baseConfig = {
       ],
       project: ["src/**/*.ts", "test/**/*.ts"],
     },
-    "packages/code-assist": {
-      entry: ["src/**/*.test.ts"],
-      project: ["src/**/*.ts", "scripts/**/*.ts"],
-    },
     "packages/crypto": {
       entry: ["src/**/*.test.ts"],
       project: ["src/**/*.ts"],
@@ -226,10 +222,6 @@ const productionConfig = {
     },
     "packages/client-sdk": {
       entry: ["src/**/*.ts!", "!src/**/*.test.ts"],
-      project: [],
-    },
-    "packages/code-assist": {
-      entry: ["src/**/*.ts!", "!src/**/*.test.ts", "scripts/**/*.ts!"],
       project: [],
     },
     "packages/crypto": {
