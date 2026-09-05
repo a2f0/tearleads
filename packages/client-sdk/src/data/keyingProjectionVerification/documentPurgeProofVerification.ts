@@ -41,8 +41,15 @@ interface VerifiedDocumentPurgeProofCommit {
   readonly documentCheckpoint: AccessManifestCheckpoint;
 }
 
+type PurgeContainerEvidence = Pick<
+  DocumentPurgeProofResponse,
+  | "authorizingContainerPath"
+  | "documentContainerManifestHistory"
+  | "documentManifestContainerPaths"
+>;
+
 function collectContainerBundles(
-  proof: DocumentPurgeProofResponse,
+  proof: PurgeContainerEvidence,
 ): Map<string, AccessManifestBundleWireResponse> {
   const bundlesByHash = new Map<string, AccessManifestBundleWireResponse>();
   for (const [index, bundle] of proof.authorizingContainerPath.entries()) {
@@ -77,14 +84,14 @@ function collectContainerBundles(
   return bundlesByHash;
 }
 
-async function verifyPurgeContainerPaths(input: {
+export async function verifyPurgeContainerPaths(input: {
   readonly authorizationEvidence: readonly AnyVerifiedPrincipalPolicy[];
   readonly checkpointContext: ReturnType<
     typeof createProjectionCheckpointContext
   >;
   readonly enforceLocalCheckpoints: boolean;
   readonly principalPolicyCache: PrincipalPolicyCache;
-  readonly proof: DocumentPurgeProofResponse;
+  readonly proof: PurgeContainerEvidence;
   readonly resolveUserKey: ProjectionUserKeyResolver;
 }) {
   const bundlesByHash = collectContainerBundles(input.proof);

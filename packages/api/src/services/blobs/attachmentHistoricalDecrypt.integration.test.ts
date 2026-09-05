@@ -192,9 +192,9 @@ test("SDK decrypts a historical binding after ancestor head changes and document
       projection.documentManifest,
       ...projection.documentManifestHistory,
     ]) {
-      expect(bundle.event.event.dependencyManifestHashes).not.toContain(
-        bindAncestor.plan.manifestHash,
-      );
+      expect(
+        Reflect.get(bundle.event.event, "dependencyManifestHashes"),
+      ).not.toContain(bindAncestor.plan.manifestHash);
     }
     expect(
       projection.documentContainerManifestHistory.map(

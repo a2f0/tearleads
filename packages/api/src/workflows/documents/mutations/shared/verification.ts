@@ -51,11 +51,6 @@ import {
   assertCurrentContainerPathRefs,
 } from "./currentContainerPaths";
 
-export {
-  assertCurrentContainerPathRefGroups,
-  assertCurrentContainerPathRefs,
-} from "./currentContainerPaths";
-
 import { assertDocumentAccessEventDependenciesMatchRequest as assertDependencies } from "./eventDependencies";
 import {
   readVerifiedDocumentManifest,
@@ -63,6 +58,8 @@ import {
 } from "./records";
 
 type CurrentDocumentKekTargets = Awaited<ReturnType<typeof resolveTargets>>;
+
+export { assertCurrentContainerPathRefGroups, assertCurrentContainerPathRefs };
 
 export async function verifyDocumentEvent(input: {
   readonly body: unknown;
