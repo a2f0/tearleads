@@ -42,3 +42,8 @@ the backup. A modified unencrypted backup can therefore seed new trust pins or
 checkpoints, especially on a fresh device. Such a restore relies on the user
 trusting the file's origin and integrity; structural validation does not
 authenticate its contents.
+
+Encryption authenticates the file against the supplied password, not the
+identity of its author. Users must trust the source of a backup in either
+format. The restore UI highlights unencrypted files and labels their action
+"Restore Unencrypted Backup" so the user explicitly chooses that restore.

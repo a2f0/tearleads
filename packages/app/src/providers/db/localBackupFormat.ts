@@ -141,7 +141,7 @@ export async function encodeBackupFile(input: {
   readonly payload: BackupPayload;
 }): Promise<string> {
   if (input.password === undefined) {
-    return `${JSON.stringify(input.payload, null, 2)}\n`;
+    return `${JSON.stringify(input.payload)}\n`;
   }
   if (!input.password) {
     throw new Error("Enter a backup password.");

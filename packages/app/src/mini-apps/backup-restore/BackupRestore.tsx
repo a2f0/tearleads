@@ -220,10 +220,10 @@ function BackupRestorePanel({
           />
         </MiniAppField>
       ) : (
-        <p className="backup-restore-password-notice">
+        <MiniAppStatus tone="error">
           This backup is not encrypted. Anyone with the file can read or modify
-          its contents.
-        </p>
+          its contents. Only restore a file you trust.
+        </MiniAppStatus>
       )}
       <MiniAppButton
         block
@@ -233,7 +233,9 @@ function BackupRestorePanel({
         withIcon
       >
         <ArrowsClockwiseIcon aria-hidden size={16} />
-        Restore Backup
+        {model.restoreRequiresPassword
+          ? "Restore Backup"
+          : "Restore Unencrypted Backup"}
       </MiniAppButton>
     </MiniAppFormPanel>
   );
