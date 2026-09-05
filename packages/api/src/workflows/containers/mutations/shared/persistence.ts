@@ -200,7 +200,7 @@ async function touchContainerStructure(
   return updated;
 }
 
-async function persistContainerStructure(
+export async function persistContainerStructure(
   executor: DatabaseTransaction,
   manifest: VerifiedContainerAccessManifest,
   updatedAt: Date,

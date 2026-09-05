@@ -1,8 +1,11 @@
-import type { VerifiedPrincipalPolicy } from "@tearleads/crypto";
+import type {
+  AnyVerifiedPrincipalPolicy,
+  VerifiedPrincipalPolicy,
+} from "@tearleads/crypto";
 import { readCanonicalRecord } from "../../keyingCanonicalJson";
 
 export function principalPolicyRequestRecord(
-  policy: VerifiedPrincipalPolicy,
+  policy: AnyVerifiedPrincipalPolicy,
   label = "Container principal policy",
 ): Record<string, unknown> {
   return readCanonicalRecord(

@@ -66,17 +66,19 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     "POST /documents/:documentId/sync": 30,
     "GET /containers/:containerId/documents": 27,
     "GET /containers": 0,
-    "POST /containers/parent-lanes/query": 9,
+    // Four held descendants re-cite the shared root and publish refresh hints.
+    "POST /containers/parent-lanes/query": 11,
     "GET /auth/user-identity/:userId": 2,
     "POST /auth/ws-ticket": 2,
     "GET /containers/:containerId/writer-projection": 3,
     "GET /documents/:documentId/attachments": 2,
     "GET /organizations/:organizationId/billing": 2,
-    "GET /organizations/:organizationId/read-model": 2,
+    "GET /organizations/:organizationId/read-model": 6,
     "GET /principals/group/:groupId/policy": 2,
     "GET /organizations/:organizationId/groups": 0,
     "POST /containers/with-metadata-document": 3,
     "POST /containers/:containerId/share": 1,
+    "POST /containers/:containerId/recite": 4,
   },
 };
 

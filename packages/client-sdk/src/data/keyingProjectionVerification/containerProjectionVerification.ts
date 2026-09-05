@@ -296,6 +296,7 @@ export async function verifyContainerWriterProjectionWithContext(
     ),
   });
 
+  checkpointContext.heldContainerHeads.push(...verifiedPath);
   return verifiedPath;
 }
 

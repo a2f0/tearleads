@@ -15,6 +15,10 @@ POST /containers/{containerId}/move the response's body `type` changed from `obj
 # #2158 greenfield shim removal; remove this exception once main contains this contract.
 POST /containers/{containerId}/move removed the required property `error` from the response with the `409` status
 # #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /containers/{containerId}/recite the response's body `type` changed from `object` to `any` for status `409`
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /containers/{containerId}/recite removed the required property `error` from the response with the `409` status
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
 POST /containers/{containerId}/rekey the response's body `type` changed from `object` to `any` for status `409`
 # #2158 greenfield shim removal; remove this exception once main contains this contract.
 POST /containers/{containerId}/rekey removed the required property `error` from the response with the `409` status
@@ -54,6 +58,10 @@ DELETE /containers/{containerId} removed the optional property `principalPolicie
 POST /containers/{containerId}/move removed the optional property `code` from the response with the `409` status
 # #2158 greenfield shim removal; remove this exception once main contains this contract.
 POST /containers/{containerId}/move removed the optional property `principalPolicies` from the response with the `409` status
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /containers/{containerId}/recite removed the optional property `code` from the response with the `409` status
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /containers/{containerId}/recite removed the optional property `principalPolicies` from the response with the `409` status
 # #2158 greenfield shim removal; remove this exception once main contains this contract.
 POST /containers/{containerId}/rekey removed the optional property `code` from the response with the `409` status
 # #2158 greenfield shim removal; remove this exception once main contains this contract.

@@ -1,3 +1,4 @@
+export type { ContainerReciteApi } from "../../data/containers/shared/reciteApi";
 export type {
   ContainerMutationAuthor,
   MaterializedContainerRekeyPlan,

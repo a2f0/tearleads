@@ -229,13 +229,13 @@ test("lane reads chunk under SQLite's bind-variable limit", async () => {
   }
 });
 
-test("root sync cursors are isolated by organization", async () => {
+test("root listings use one global cursor matching the cross-organization API feed", async () => {
   const { close, execSql } = await createTestExecSql(
-    "container-sync-watermark-organization-scope-test",
+    "container-sync-watermark-global-root-test",
   );
   try {
-    const first = containerParentSyncLane(null, "org-first");
-    const second = containerParentSyncLane(null, "org-second");
+    const first = containerParentSyncLane(null);
+    const second = containerParentSyncLane(null);
     await sqlContainerSyncWatermarkPersistence.saveWatermark(execSql, first, {
       id: "first-root",
       updatedAt: "2026-08-27T00:00:00.000Z",
@@ -248,8 +248,8 @@ test("root sync cursors are isolated by organization", async () => {
     await expect(
       sqlContainerSyncWatermarkPersistence.loadWatermark(execSql, first),
     ).resolves.toEqual({
-      id: "first-root",
-      updatedAt: "2026-08-27T00:00:00.000Z",
+      id: "second-root",
+      updatedAt: "2026-08-27T00:01:00.000Z",
     });
     await expect(
       sqlContainerSyncWatermarkPersistence.loadWatermark(execSql, second),

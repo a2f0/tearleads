@@ -20,14 +20,14 @@ witnessing, or substitute identity keys on first contact.
 The confidentiality boundary is:
 
 - The server cannot decrypt encrypted content without recipient private keys
- or unwrapped DEKs.
+  or unwrapped DEKs.
 - The server cannot forge a valid signed group or organization policy state
- unless it controls an authorized policy signer key, can substitute the signer
- identity key trusted by the client, or can make the client accept invalid
- policy state.
+  unless it controls an authorized policy signer key, can substitute the signer
+  identity key trusted by the client, or can make the client accept invalid
+  policy state.
 - The server cannot make an honest client accept object grants or recipient
- targets that are not justified by signed access manifests and verified
- principal policy heads.
+  targets that are not justified by signed access manifests and verified
+  principal policy heads.
 
 ## Threat Model
 
@@ -38,7 +38,7 @@ The security properties assume:
 - Cryptographic primitives hold.
 - Clients do not intentionally ignore policy validation failures.
 - Server-side API and database code may be malicious, compromised, stale, or
- inconsistent.
+  inconsistent.
 
 The properties are relative to the authenticity of registered user identity
 keys. The client fetches each complete user identity through one strict gateway,
@@ -52,39 +52,39 @@ is still TOFU, not a key-transparency or out-of-band identity proof.
 The access and policy handshake has these layers:
 
 1. User registration stores the user's signing key, encapsulation key, personal
- organization, reserved `Admins` group, reserved `Members` group, root
- container, root metadata state, optional roster-profile bootstrap material,
- and initial signed principal policies inside one registration transaction.
+   organization, reserved `Admins` group, reserved `Members` group, root
+   container, root metadata state, optional roster-profile bootstrap material,
+   and initial signed principal policies inside one registration transaction.
 2. The initial `Admins` policy must project the registering user as the sole
- admin. The initial `Members` policy must project the registering user as an
- admin. The initial organization policy must be version `1`, must target the
- new organization, must be signed by the registering user, must project only
- the registering user as admin, and its version-2 authority descriptor must
- commit the exact initial `Admins` and `Members` policy heads.
+   admin. The initial `Members` policy must project the registering user as an
+   admin. The initial organization policy must be version `1`, must target the
+   new organization, must be signed by the registering user, must project only
+   the registering user as admin, and its version-2 authority descriptor must
+   commit the exact initial `Admins` and `Members` policy heads.
 3. Later group and organization policy states are signed principal states. The
- server verifies the signature, state hash, projection and envelope roots,
- encrypted payload hash, member count, previous-state link, and admin-signer
- rule before storage.
+   server verifies the signature, state hash, projection and envelope roots,
+   encrypted payload hash, member count, previous-state link, and admin-signer
+   rule before storage.
 4. The signed state commits the exact direct-member envelope set. State,
- payload, projection, and envelopes are accepted atomically; the API rejects
- missing, extra, altered, or fingerprint-mismatched envelopes.
+   payload, projection, and envelopes are accepted atomically; the API rejects
+   missing, extra, altered, or fingerprint-mismatched envelopes.
 5. Access changes are represented as signed access events and derived access
- manifests. Manifests bind the object, organization, epoch, predecessor hash,
- event hash, structural hash, grant root, referenced principal heads, and
- key-target hash.
+   manifests. Manifests bind the object, organization, epoch, predecessor hash,
+   event hash, structural hash, grant root, referenced principal heads, and
+   key-target hash.
 6. App clients fetch referenced principal policy bundles, verify them, and
- cache only bundles whose signed state chain matches the object reference.
+   cache only bundles whose signed state chain matches the object reference.
 7. App clients unwrap group or organization addressed object envelopes only
- through verified cached principal policies, valid member envelopes, and signed
- access manifests.
+   through verified cached principal policies, valid member envelopes, and signed
+   access manifests.
 8. Writes commit to the verified access manifest hash and derived recipient
- target hash so stale or forged access views fail verification.
+   target hash so stale or forged access views fail verification.
 9. Clients persist exact full-bundle identity pins and monotonic checkpoints for
- principal policy heads and access manifest heads.
+   principal policy heads and access manifest heads.
 10. Terminal trust-boundary verification failures are appended to a local
- security-incident ledger before the workflow rethrows them. The ledger is not
- part of remote-state reset and contains typed codes and object references, not
- exception text or decrypted data.
+    security-incident ledger before the workflow rethrows them. The ledger is not
+    part of remote-state reset and contains typed codes and object references, not
+    exception text or decrypted data.
 
 ## Security Properties
 
@@ -232,12 +232,12 @@ Access manifests are deterministic, signed commitments to the access state used
 for key derivation:
 
 - container manifests include container identity, parent edge, metadata
- document identity, direct grants, referenced principal heads, predecessor
- hash, and key target hash
+  document identity, direct grants, referenced principal heads, predecessor
+  hash, and key target hash
 - document link-set manifests include document identity, linked containers,
- predecessor hash, and key target hash
+  predecessor hash, and key target hash
 - attachment, document, and blob key targets are derived from verified
- manifests rather than API-provided recipient lists
+  manifests rather than API-provided recipient lists
 
 Clients should commit writes to the verified manifest hash and derived target
 hash. Projection hashes may still be useful cache keys, but they are not the
@@ -301,13 +301,108 @@ so a device's ability to read or write would depend on another device with no
 history for the container. The API refuses the forgery at commit, and the
 lineage rule above makes the next legitimate event on the descendant final.
 The residual is that a member revoked at an ancestor, with a compromised
-server, can keep authority over a descendant until that next event; a
-best-effort re-cite of descendants already held by the revoking client is
-planned in #2171, not implemented yet. On a checkpoint-enforced current path,
+server, can keep authority over a descendant until that next event. The bounded
+re-citation described below advances descendants already held by the mutating
+client, without claiming complete subtree coverage. On a checkpoint-enforced
+current path,
 the client does refuse the opposite disagreement: a served current ancestor
 head that does not descend from a head a child's signed event cites is a
 stale or forked ancestor, whatever the server calls current, since the
 signature proves the cited head exists.
+
+### Held descendant re-citation
+
+Container mutation workflows (share, revoke, rekey, and move) and atomic
+group-policy rematerializations schedule a best-effort descendant re-cite
+after exact acknowledgement. The SDK retains at most 256 verified or locally
+acknowledged container heads and 512 verified policies total per canonical
+SQLite executor, shared by its locked wrappers and across organizations.
+Snapshots remain organization-scoped. It reconstructs held
+paths from parent IDs, checks each against
+its durable checkpoint, and signs complete path citations parent-first.
+Before signing, it calculates current admin access from those trusted states
+and held verified policies using the crypto access rules. Self-revocation
+therefore skips descendants locally; a server cannot obtain an unauthorized
+signed re-cite to echo into the durable checkpoint. Mutation lifetime also pins
+a monotonic internal session generation, so logout/login expires pending work
+even if no guard call observes the intermediate logged-out state.
+Each policy used by a plan must match its durable policy checkpoint before
+signing and submission. The acknowledgement transaction compares those exact
+policy pins and every cited container checkpoint again before advancing the
+descendant. Concurrent membership or ancestor-grant revocation therefore
+cannot turn stale held evidence into a locally accepted head.
+`container.recite` changes only the access-manifest head: grants, parent pins,
+key epochs, keyrings, and wraps stay unchanged. The API checks current paths
+and principal policies under the mutation locks and requires admin authority.
+The signed transition stops admitting re-citations once the prior container
+epoch reaches 512. This leaves at least 512 ordinary same-key mutations before
+the 1024-entry write-history bound, even without a prior rekey. Re-citations
+cannot restart their allowance by rekeying. They also reserve most of the
+API verifier's 4096-manifest
+history budget (`MAX_CONTAINER_HISTORY_DEPTH` in
+`packages/api/src/workflows/containers/writerProjection/storedManifestVerification.ts`)
+for ordinary mutations; it is not history compaction. The SDK
+skips signing at that boundary, and the API independently rejects it.
+
+Local listing cursors use one cross-organization root feed and globally unique
+container IDs for child/document feeds, matching the API's actual scope. An
+organization purge clears the global root cursor and its owned feeds, not feeds
+belonging to other organizations. Viewing a foreign shared container therefore
+cannot leave a cursor in the viewer's namespace after that container is removed.
+Existing organization-prefixed cursor databases require a local reset; this
+flag-day contract does not read or translate those keys.
+
+Every successful re-cite permanently adds one manifest to the descendant's
+history. Writer projections return and re-verify that chain, so repeated
+ancestor changes can increase per-read bytes and verification cost up to this
+bound even when the descendant itself is never edited. Re-citation also
+advances `metadataAccessStateHash`: each accepted event invalidates the
+organization grants lane and emits the normal container/access hints. It also
+advances `containers.updatedAt`, re-emitting the container in incremental lists.
+A full eight-attempt pass can add eight organization-wide refreshes to one
+user mutation. These invalidations are not batched; the per-pass cap and pacing
+bound amplification, not the total cost of later reads or refreshes.
+Each signed re-cite is an independent HTTP transaction, including when a client
+stops midway through a pass. Its cursor must commit with its new manifest so a
+reader between requests, or after that interruption, sees the new access
+identity. There is no server-side pass transaction whose final request can
+safely replace those durable invalidations. This is the bounded one-mutation-
+per-held-descendant cost selected in #2171, not a batch notification protocol.
+The authoring API client also invalidates its container/document
+writer-projection caches after each request, so a full pass can clear them
+eight times.
+
+Document/blob writes also walk each ancestor's same-KEK manifest history to
+validate key bindings. That SQL walk admits at most 1024 manifests per container,
+using the independent API `MAX_SAME_EPOCH_MANIFEST_HISTORY` limit, with one
+overflow sentinel; it fails closed and requires a rekey beyond that
+boundary. It uses constant-size recursive rows and detects duplicate hashes
+after loading, rather than accumulating quadratic visited-path strings. This
+separate write-side bound applies to ordinary grant/move events too. A rekey
+starts a new same-KEK run; it does not compact the signed writer-projection chain.
+This is an intentional greenfield flag day: already-persisted histories above
+the same-key bound are refused too, with no compatibility migration. The bounds
+tests construct persisted stable/changing-grant runs before the first read
+and exercise both refusal and recovery after rekey.
+
+This background pass never fetches a subtree or a principal policy, never
+retries a failed re-cite, and never delays or changes the original mutation's
+result. One pass runs per executor, capped at eight attempts with a 250 ms gap
+between requests. The cap, overlap, eviction, missing evidence, stale policies,
+conflicts, and cancellation can leave descendants untouched.
+Rematerialization scopes held policies and authors to each signed plan's
+organization, which may differ from the caller's current organization. The
+one-active-pass guard remains connection-wide; a mixed-organization batch can
+therefore leave other organizations' descendants for a later pass.
+The per-pass cap and pacing are advisory SDK limits, not API rate limits.
+An authorized admin using another client can fill the allowed history budget
+quickly and permanently increase read cost; server rate limiting is not provided.
+Acknowledgements that contradict the signed plan are reported through the
+host's security-incident reporter without advancing the descendant checkpoint.
+Network refusals remain best effort and do not become integrity incidents.
+There is no dependency on another device's cache and no new read-time currency
+rule. Re-citation narrows the residual authorization window when it succeeds;
+it does not rekey descendants or promise post-revocation confidentiality.
 
 ### Content Confidentiality
 
@@ -541,8 +636,8 @@ Active roster state is synchronized from users reachable through the reserved
 `Members` group, and disabled rows may remain visible after access removal.
 `Admins` is no longer nested into `Members`, so admins are not members by
 construction. Instead the policy write refuses any managed principal naming a
-*disabled* roster user, and refuses `Admins` specifically unless every user it
-names is an *active* roster entry — including after a `Members` transition,
+_disabled_ roster user, and refuses `Admins` specifically unless every user it
+names is an _active_ roster entry — including after a `Members` transition,
 which is re-checked against `Admins`. An admin is therefore always an active
 organization member, and always counted as a seat. Ordinary groups may still
 name users who are not in `Members`, exactly as they could under nesting.
@@ -600,35 +695,35 @@ Result: not reliably detected without prior trust in the identity key binding.
 ## Invariant Summary
 
 - Signed principal policy state is the authority for group and organization
- crypto membership.
+  crypto membership.
 - Unsigned group or organization membership rows are not sufficient to create
- managed-principal crypto recipients.
+  managed-principal crypto recipients.
 - Organization-scoped group management is authorized through the reserved
- `Admins` group. A direct group admin has no separate server-side management
- authority unless that user is also an organization admin.
+  `Admins` group. A direct group admin has no separate server-side management
+  authority unless that user is also an organization admin.
 - Organization membership is verified from the reserved `Members` group, not
- from mutable roster rows or product roles on the organization principal.
+  from mutable roster rows or product roles on the organization principal.
 - Principal policy bundles fetched by the app are verified before caching and
   make the receiving workflow fail hard on validation failure. Transport-level
   absence remains a recoverable cache miss, but hostile policy material does
   not degrade to that availability path.
 - Principal member envelopes must match the active direct signed projection.
 - Group membership and access shrink rotate affected KEKs atomically; stale
- group-grant references and organization successors with stale references are
- rejected.
+  group-grant references and organization successors with stale references are
+  rejected.
 - Organization policies commit every current group head. Group mutations
   atomically advance group and organization policies; share, membership, and
   rotation checks reject bundles that do not match that directory.
 - Signed access manifests are the authority for object grant and document-link
- state used by key derivation.
+  state used by key derivation.
 - Object writes commit to the verified access manifest hash and derived target
- hash.
+  hash.
 - Durable full-bundle identity pins detect identity changes after first use;
- local checkpoints detect replayed or conflicting principal policy and access
- manifest heads after a client has seen newer state.
+  local checkpoints detect replayed or conflicting principal policy and access
+  manifest heads after a client has seen newer state.
 - First-contact key substitution, withholding, and split views without a
- pinned checkpoint, witness, or gossip peer remain outside the guarantee
- boundary.
+  pinned checkpoint, witness, or gossip peer remain outside the guarantee
+  boundary.
 
 ## Strengthening The Boundary
 

@@ -46,6 +46,19 @@ identify a relabeled selection by `GroupMembershipNameMismatchError`.
 | `registration` | Platform runtime | Local registration and atomic organization bootstrap helpers, including the initial encrypted roster and organization-profile bodies. |
 | `sync` | Platform runtime | Shared sync coordinator helpers and organization-scoped remote-state reset/recovery inputs. |
 
+Container mutation API implementations must provide `ContainerReciteApi`.
+Acknowledged mutations schedule a bounded, best-effort pass over already-held
+verified descendants: eight attempts per pass, spaced 250 ms apart, with no
+fetches, retries, or blocking of the original operation. A re-cite advances the
+manifest, not key material or grants. The pass is process-local and
+cancellation-aware.
+Container mutation facades require `reportSecurityIncident` for contradictory
+background acknowledgements. Re-citation is refused at prior epoch 512 so it
+cannot exhaust the API's 4096-manifest verification budget by itself.
+Organization grant revocation requires a live `stillCurrent` guard. The client
+facade binds it, and group rematerialization cascades, to the captured session,
+organization, signing identity, and database lifetime.
+
 The documents facade also admits explicit `historyMode: "raw"` reads through
 `syncRemoteDocument`. A raw consumer must start at a null version vector, send
 no writes, validate every bounded page in scratch state, and publish only after
@@ -60,8 +73,10 @@ The `sync` facade exposes read-only coordinator snapshots through
 those snapshots to show lane status, request/run/error counts, and last action
 timestamps without reaching into coordinator internals or owning sync policy.
 `clearRemoteSyncState(execSql, { organizationId })` clears only one
-organization's remote-derived rows and cursor lanes while retaining local Loro
-history for republish. A post-purge replacement supplies a fresh organization
+organization's remote-derived rows and child/document cursor lanes, plus the
+global cross-organization root-list cursor, while retaining local Loro history
+for republish. Cursor keys never include the viewer's selected organization.
+A post-purge replacement supplies a fresh organization
 and root through `replacement`; normal session consumers use
 `session.recoverPurgedOrganization(...)` after billing reaches `purged`. The
 method exposes the replacement organization and root-container ids through

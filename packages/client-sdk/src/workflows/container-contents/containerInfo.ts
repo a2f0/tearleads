@@ -199,30 +199,20 @@ interface ContainerInfoSyncCursorDefinition {
 
 function getContainerSyncCursorDefinitions(input: {
   containerId: string;
-  organizationId: string | null;
   parentId: string | null;
 }): ContainerInfoSyncCursorDefinition[] {
   return [
     {
       label: "Parent Listing",
-      lane: containerParentSyncLane(
-        input.parentId,
-        input.organizationId ?? undefined,
-      ),
+      lane: containerParentSyncLane(input.parentId),
     },
     {
       label: "Child Containers",
-      lane: containerParentSyncLane(
-        input.containerId,
-        input.organizationId ?? undefined,
-      ),
+      lane: containerParentSyncLane(input.containerId),
     },
     {
       label: "Documents",
-      lane: containerContentsSyncLane(
-        input.containerId,
-        input.organizationId ?? undefined,
-      ),
+      lane: containerContentsSyncLane(input.containerId),
     },
   ];
 }
@@ -230,7 +220,6 @@ function getContainerSyncCursorDefinitions(input: {
 async function loadContainerSyncCursors(input: {
   containerId: string;
   execSql: ExecSql | null;
-  organizationId: string | null;
   parentId: string | null;
 }): Promise<ContainerInfoSyncCursor[]> {
   const cursorDefinitions = getContainerSyncCursorDefinitions(input);
@@ -363,7 +352,6 @@ export async function loadContainerInfo(input: {
     loadContainerSyncCursors({
       containerId: input.containerId,
       execSql: input.execSql ?? null,
-      organizationId: localContainerInfo.organizationId,
       parentId: localContainerInfo.parentId,
     }),
   ]);

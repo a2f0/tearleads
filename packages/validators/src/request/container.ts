@@ -2,6 +2,7 @@ import { z } from "zod";
 import { registerJsonSchemaView } from "../jsonSchema";
 import {
   arraySchema,
+  boundedNonEmptyArraySchema,
   loosePlainObject,
   nonEmptyStringSchema,
   plainObjectSchema,
@@ -47,6 +48,29 @@ export const ContainerMutationRequestSchema = loosePlainObject({
 export type ContainerMutationRequest = z.infer<
   typeof ContainerMutationRequestSchema
 >;
+
+export const ContainerReciteRequestSchema = loosePlainObject({
+  body: requiredUnknownSchema,
+  event: plainObjectSchema,
+  expectedManifestHash: nonEmptyStringSchema,
+  manifest: plainObjectSchema,
+  previousContainerPath: boundedNonEmptyArraySchema(
+    AccessManifestBundleWireSchema,
+    100,
+  ),
+  previousManifest: AccessManifestBundleWireSchema,
+  principalPolicies: arraySchema(plainObjectSchema),
+});
+
+export type ContainerReciteRequest = z.infer<
+  typeof ContainerReciteRequestSchema
+>;
+
+export function isContainerReciteRequest(
+  value: unknown,
+): value is ContainerReciteRequest {
+  return ContainerReciteRequestSchema.safeParse(value).success;
+}
 
 export function isContainerMutationRequest(
   value: unknown,

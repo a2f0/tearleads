@@ -8,12 +8,14 @@ import type {
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import { rememberVerifiedContainerHeads } from "../../data/containers/shared/heldContainerHeads";
 import type { AuthoredContainerMutationHead } from "../../data/containers/shared/mutationAcknowledgement";
 import { acknowledgeContainerMutationBatch } from "../../data/containers/shared/mutationAcknowledgement";
 import {
   getTargetContainerContext,
   readContainerState,
 } from "../../data/containers/shared/projection";
+import type { ContainerReciteApi } from "../../data/containers/shared/reciteApi";
 import type {
   ContainerMutationAuthor,
   MaterializedContainerRekeyPlan,
@@ -25,19 +27,22 @@ import {
   verifyContainerWriterProjection,
 } from "../../data/keyingProjectionVerification";
 import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification/userKeyResolver";
+import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
+import { scheduleHeldDescendantRecitations } from "../containers/child/recite";
 import { buildMaterializedContainerRekeyPlan } from "../containers/child/rekey";
 import { buildMaterializedContainerRevokePlan } from "../containers/child/revoke";
 import { buildMaterializedContainerSharePlan } from "../containers/child/shareMaterialization";
 
-interface RematerializationApi {
+interface RematerializationApi extends ContainerReciteApi {
   getContainerWriterProjection(
     containerId: string,
   ): Promise<ContainerWriterProjectionResponse | null>;
 }
 
 interface PrincipalContainerRematerializationInput {
+  readonly reportSecurityIncident: SecurityIncidentReporter;
   readonly apiClient: RematerializationApi;
   readonly author: ContainerMutationAuthor;
   readonly execSql: ExecSql;
@@ -268,12 +273,48 @@ export async function preparePrincipalContainerRematerializationBatch(
   return {
     plans,
     requests: plans.map((planned) => planned.plan.request),
-    acknowledge: (responses, stillCurrent) =>
-      acknowledgeContainerMutationBatch({
+    acknowledge: async (responses, stillCurrent) => {
+      const isCurrent = () =>
+        input.stillCurrent?.() !== false && stillCurrent?.() !== false;
+      const acknowledged = await acknowledgeContainerMutationBatch({
         execSql: input.execSql,
         plans: plans.map(authoredMutationHead),
         responses,
-        stillCurrent,
-      }),
+        stillCurrent: isCurrent,
+      });
+      if (!acknowledged || !isCurrent()) return;
+      const plansByOrganization = new Map<
+        string,
+        AuthoredContainerMutationHead[]
+      >();
+      for (const planned of plans) {
+        const head = authoredMutationHead(planned);
+        const organizationId = head.state.organizationId;
+        const group = plansByOrganization.get(organizationId) ?? [];
+        group.push(head);
+        plansByOrganization.set(organizationId, group);
+      }
+      for (const [organizationId, organizationPlans] of plansByOrganization) {
+        try {
+          rememberVerifiedContainerHeads({
+            organizationId,
+            execSql: input.execSql,
+            heads: [],
+            policies: [input.nextPolicy],
+          });
+        } catch {
+          // Cache failure must not invalidate the durably acknowledged batch.
+          continue;
+        }
+        scheduleHeldDescendantRecitations({
+          apiClient: input.apiClient,
+          author: { ...input.author, organizationId },
+          execSql: input.execSql,
+          plans: organizationPlans,
+          stillCurrent: isCurrent,
+          reportSecurityIncident: input.reportSecurityIncident,
+        });
+      }
+    },
   };
 }

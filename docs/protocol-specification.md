@@ -84,6 +84,7 @@ type AccessEvent = {
     | "container.grant"
     | "container.move"
     | "container.rekey"
+    | "container.recite"
     | "container.revoke"
     | "document.link"
     | "document.unlink";

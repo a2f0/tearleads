@@ -112,7 +112,9 @@ export async function moveContainerProjection(input: {
 }) {
   const { close, execSql } = await createTestExecSql(input.eventId);
   const moved = await moveRemoteContainer({
+    reportSecurityIncident: async () => {},
     apiClient: {
+      reciteContainer: async () => null,
       getContainerWriterProjection: async (containerId) => {
         if (containerId === input.sourceProjection.containerId) {
           return input.sourceProjection;

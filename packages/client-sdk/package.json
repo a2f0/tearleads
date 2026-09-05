@@ -1,7 +1,7 @@
 {
   "name": "@tearleads/client-sdk",
   "version": "0.1.0",
-  "description": "React-free Tearleads runtime with atomic document/container writes, required revision-CAS host adapters, unified device-first handles, signed-name group mutations, verified keying, sync, and encrypted blob storage.",
+  "description": "React-free Tearleads runtime with atomic document/container writes, required revision-CAS host adapters, unified device-first handles, signed-name group mutations, verified keying, held-descendant re-citation, sync, and encrypted blob storage.",
   "private": true,
   "sideEffects": false,
   "type": "module",

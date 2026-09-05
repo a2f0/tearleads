@@ -158,6 +158,26 @@ chains; sync derives successor targets and coded retries. Preserve
 `KeyingVerificationError`; missing [raw-history](../raw-document-history-recovery.md)
 epochs throw `DocumentRawHistoryUnavailableError`.
 
+Custom container mutation APIs must implement `ContainerReciteApi` (including
+`reciteContainer`); the built-in API client supplies it. Container mutations
+and atomic group-policy rematerializations schedule non-blocking re-cites for
+already-held verified descendants, with 256 retained heads and eight attempts
+per pass, spaced 250 ms apart. No subtree fetch or retry occurs; it leaves keys
+and grants unchanged. It is not a descendant-rekey or freshness guarantee.
+These mutation facades require `reportSecurityIncident`; the built-in runtime
+wires its durable incident service. Re-citation stops at container epoch 512
+to reserve the remaining verifier history budget for ordinary mutations.
+Organization grant revocation requires a live `stillCurrent` guard. The client
+facade binds it, and group rematerialization cascades, to the captured session,
+organization, signing identity, and database lifetime.
+
+Container listing cursors mirror the API's feeds: one `root` cursor lists all
+accessible organizations; `parent:<containerId>` and document lanes use the
+globally unique container ID, never the viewer's selected organization. Purging
+an organization clears that global root cursor and only its own child/document
+lanes. Reset local databases created with organization-prefixed cursors; no
+conversion or dual-read path is provided.
+
 `tearleads.network` defaults to automatic mode: browser events and API request
 results set `online`. Hosts can force diagnostics with `setMode("offline")` or
 `setMode("online")`, then resume detection with `setMode("automatic")`.

@@ -101,7 +101,7 @@ database has been destroyed by this cleanup.
 | Additive local schema upgrades | Fresh schema defaults and three missing-column rejection tests; serialized ensure machinery unchanged | Old document tables require reset, never `ALTER TABLE` backfill |
 | Optional rekey principal heads | Current signed rekey preserves grants and advances explicit pins; omitted/null field refused | Every `container.rekey` signs `referencedPrincipalHeads` |
 | Legacy principal cache ownership | Existing organization-scoped reset tests; a misleading read-model row cannot override pinned ownership | No ownership inference or inserts during reset |
-| Legacy unscoped reset cursors | Current organization/parent/document cursor tests preserve the other organization | Remove `root` and `parent:` unscoped-lane handling |
+| Alternate cursor namespaces | Root/child/document cursor tests and real foreign-group removal/re-addition recovery | Use one global root feed and globally unique container IDs; remove viewer-organization prefixes and optional namespace arguments |
 | LSN capability negotiation | Tracked PostgreSQL/SQLite and untracked Turso tests | Required response mode; no old token echo or omitted-mode default |
 | Unmarked inline rekeys | Current SDK replay/rollback tests; validator marker/batch iff tests | Durable commit marker required for each non-empty batch |
 | Missing historical write evidence | Historical target tamper/isolation and blob hydrate tests; required-field refusal tests | Non-null stored document/blob authorization; no current-target substitution |
@@ -162,6 +162,20 @@ Malformed-JavaScript tests still prove atomic runtime refusal. Stripe seat
 capacity errors now have a dedicated subtype so unrelated `RangeError`s are
 not mislabeled. Documentation distinguishes the CLI's specific name/path
 content checks from its column guard and the general fresh-database requirement.
+
+Review round 7 found that unscoped parent cursors were still produced by current
+callers, so merely removing their purge handling was incomplete. Re-citation's
+app preflight also exposed a viewer/owner namespace mismatch that stranded
+shared-container cursors after access loss. The reviewed re-citation repair
+canonicalizes producers, readers, deletion, and reset together: one global root
+feed, plus child/document feeds keyed by globally unique container IDs. This
+integration preserves that implementation and its recovery regression; no
+alternate key format or upgrade path remains. The root feed is current API
+semantics, not a legacy compatibility branch.
+
+The extracted principal-rematerialization fixture retains its explicit policy
+owner. Required rekey principal heads, structured adapter methods, and atomic
+checkpoint read dependencies remain intact across the issue-branch integration.
 
 - Integrate the completed issue PRs; regenerate final contracts and exact
   temporary OpenAPI exceptions; complete validation, review, and submission.

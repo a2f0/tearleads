@@ -262,7 +262,7 @@ export async function acknowledgeContainerMutationBatch(input: {
   readonly plans: readonly AuthoredContainerMutationHead[];
   readonly responses: readonly ContainerMutationResponse[];
   readonly stillCurrent?: (() => boolean) | undefined;
-}): Promise<void> {
+}): Promise<boolean> {
   if (input.plans.length !== input.responses.length) {
     throw new Error("Container mutation acknowledgement batch is incomplete");
   }
@@ -277,7 +277,7 @@ export async function acknowledgeContainerMutationBatch(input: {
       return locallyAcknowledgedContainerMutationHead({ plan, response });
     }),
   );
-  await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
+  return advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
     execSql: input.execSql,
     heads,
     stillCurrent: input.stillCurrent,

@@ -48,6 +48,10 @@ test("SDK decrypts a historical binding after ancestor head changes and document
   );
   const apiClient = new ApiClient("http://attachment-history.test");
   apiClient.setAuthToken(owner.token);
+  // Keep the deliberately old descendant heads in this historical-decryption
+  // scenario. Optional re-citation can be unavailable without affecting blob
+  // correctness; successful background recitation has its own endpoint tests.
+  apiClient.reciteContainer = async () => null;
   const originalFetch = globalThis.fetch;
   const fetchHandler = (
     input: Parameters<typeof fetch>[0],

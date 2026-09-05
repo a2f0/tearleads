@@ -354,6 +354,7 @@ export {
 export type {
   AggregatedContainerKekLog,
   ContainerMutationAuthor,
+  ContainerReciteApi,
   KeyringRebuildResult,
   MaterializedContainerRekeyPlan,
 } from "./workflows/containers";

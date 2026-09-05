@@ -3,6 +3,7 @@ export * from "./accessManifestSnapshot";
 export * from "./canonical";
 export * from "./checkpoints";
 export * from "./containerAccess";
+export { MAX_CONTAINER_RECITATION_EPOCH } from "./containerAccessReciteBody";
 export * from "./containerKek";
 export {
   assertSealedContainerKekKeyringLength,
@@ -22,6 +23,7 @@ export {
   normalizeContainerKekPredecessorBridge,
   unwrapContainerKekPredecessorBridge,
 } from "./containerKekPredecessor";
+export { resolveContainerStatePathUserAccessLevel } from "./containerPathAccess";
 export * from "./documentAccess";
 export {
   type DocumentPurgeAccessEventBody,

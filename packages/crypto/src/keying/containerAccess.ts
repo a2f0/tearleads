@@ -5,12 +5,30 @@ import {
   verifyAccessManifest,
 } from "./accessEvent";
 import { computeKeyingDomainHash } from "./canonical";
+import {
+  MAX_CONTAINER_RECITATION_EPOCH,
+  normalizeContainerReciteAccessEventBody,
+} from "./containerAccessReciteBody";
 import { normalizeContainerRekeyAccessEventBody } from "./containerAccessRekeyBody";
 import {
   normalizeContainerGrantPrincipalHead,
   normalizeContainerGrantPrincipalHeads,
 } from "./containerGrantPrincipalHead";
-import { principalPolicyEntryForReference } from "./principalPolicyReference";
+import {
+  containerAccessLevelRank,
+  grantAccessLevelForUser,
+  mergeContainerAccessLevel,
+  requireContainerPathUserAccess,
+} from "./containerPathAccess";
+
+export {
+  containerAccessLevelRank,
+  principalPolicyMatchesReference,
+  requireContainerPathUserAccess,
+  resolveContainerPathUserAccessLevel,
+  resolveHistoricalContainerPathUserAccessLevel,
+} from "./containerPathAccess";
+
 import {
   assertExactKeys,
   normalizeContainerAccessLevel,
@@ -39,45 +57,17 @@ import type {
   ContainerGrantAccessEventBody,
   ContainerGrantPrincipalHead,
   ContainerMoveAccessEventBody,
+  ContainerReciteAccessEventBody,
   ContainerRekeyAccessEventBody,
   ContainerRevokeAccessEventBody,
   KeyingCanonicalJson,
   KeyingCanonicalPayload,
   KeyingVerificationResult,
-  ReferencedPrincipalHead,
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
   VerifyContainerAccessManifestInput,
 } from "./types";
 import { makeVerifiedContainerAccessManifest } from "./types";
-
-export function containerAccessLevelRank(
-  accessLevel: ContainerAccessLevel,
-): number {
-  if (accessLevel === "admin") {
-    return 3;
-  }
-
-  if (accessLevel === "write") {
-    return 2;
-  }
-
-  return 1;
-}
-
-function mergeContainerAccessLevel(
-  current: ContainerAccessLevel | null,
-  incoming: ContainerAccessLevel,
-): ContainerAccessLevel {
-  if (
-    current === null ||
-    containerAccessLevelRank(incoming) > containerAccessLevelRank(current)
-  ) {
-    return incoming;
-  }
-
-  return current;
-}
 
 function normalizeContainerDirectGrant(value: unknown): ContainerDirectGrant {
   const record = assertExactKeys(
@@ -627,6 +617,10 @@ export function normalizeContainerAccessEventBody(
     return normalizeContainerRekeyAccessEventBody(value);
   }
 
+  if (eventType === "container.recite") {
+    return normalizeContainerReciteAccessEventBody(value);
+  }
+
   if (eventType === "container.move") {
     return normalizeContainerMoveAccessEventBody(value);
   }
@@ -715,141 +709,6 @@ function requirePathLastMatchesManifest(input: {
     throwVerification(
       "missing_dependency",
       `${input.label} path does not end at the expected manifest`,
-    );
-  }
-}
-
-export function principalPolicyMatchesReference(input: {
-  readonly policy: AnyVerifiedPrincipalPolicy;
-  readonly reference: ReferencedPrincipalHead;
-}): boolean {
-  return principalPolicyEntryForReference(input) !== undefined;
-}
-
-function grantAccessLevelForUser(input: {
-  readonly grant: ContainerDirectGrant;
-  readonly membershipAt: "current" | "referenced";
-  readonly principalPolicies: readonly AnyVerifiedPrincipalPolicy[];
-  readonly state: Pick<
-    ContainerAccessManifestState,
-    "referencedPrincipalHeads"
-  >;
-  readonly userId: string;
-}): ContainerAccessLevel | null {
-  if (input.grant.subjectType === "user") {
-    return input.grant.subjectId === input.userId
-      ? input.grant.accessLevel
-      : null;
-  }
-
-  const referencedHead = input.state.referencedPrincipalHeads.find(
-    (principalHead) =>
-      principalHead.principalType === input.grant.subjectType &&
-      principalHead.principalId === input.grant.subjectId,
-  );
-
-  if (!referencedHead) {
-    return null;
-  }
-
-  const verifiedPolicy = input.principalPolicies.find((policy) =>
-    principalPolicyMatchesReference({ policy, reference: referencedHead }),
-  );
-  if (!verifiedPolicy) {
-    return null;
-  }
-  const projection =
-    input.membershipAt === "current"
-      ? verifiedPolicy.projection
-      : principalPolicyEntryForReference({
-          policy: verifiedPolicy,
-          reference: referencedHead,
-        })?.projection;
-
-  return projection?.some((member) => member.userId === input.userId)
-    ? input.grant.accessLevel
-    : null;
-}
-
-function resolveContainerPathUserAccessLevelAt(input: {
-  readonly membershipAt: "current" | "referenced";
-  readonly path: readonly VerifiedContainerAccessManifest[];
-  readonly principalPolicies?: readonly AnyVerifiedPrincipalPolicy[];
-  readonly userId: string;
-}): ContainerAccessLevel | null {
-  let accessLevel: ContainerAccessLevel | null = null;
-
-  for (const containerManifest of input.path) {
-    for (const grant of containerManifest.state.directGrants) {
-      const grantAccessLevel = grantAccessLevelForUser({
-        grant,
-        membershipAt: input.membershipAt,
-        principalPolicies: input.principalPolicies ?? [],
-        state: containerManifest.state,
-        userId: input.userId,
-      });
-
-      if (grantAccessLevel) {
-        accessLevel = mergeContainerAccessLevel(accessLevel, grantAccessLevel);
-      }
-    }
-  }
-
-  return accessLevel;
-}
-
-export function resolveContainerPathUserAccessLevel(
-  input: Omit<
-    Parameters<typeof resolveContainerPathUserAccessLevelAt>[0],
-    "membershipAt"
-  >,
-): ContainerAccessLevel | null {
-  return resolveContainerPathUserAccessLevelAt({
-    ...input,
-    membershipAt: "current",
-  });
-}
-
-export function resolveHistoricalContainerPathUserAccessLevel(
-  input: Omit<
-    Parameters<typeof resolveContainerPathUserAccessLevelAt>[0],
-    "membershipAt"
-  >,
-): ContainerAccessLevel | null {
-  return resolveContainerPathUserAccessLevelAt({
-    ...input,
-    membershipAt: "referenced",
-  });
-}
-
-export function requireContainerPathUserAccess(input: {
-  readonly membershipAt?: "current" | "referenced";
-  readonly label: string;
-  readonly minimumAccessLevel: ContainerAccessLevel;
-  readonly path: readonly VerifiedContainerAccessManifest[] | undefined;
-  readonly principalPolicies: readonly AnyVerifiedPrincipalPolicy[];
-  readonly userId: string;
-}): void {
-  const path = input.path;
-  if (!path || path.length === 0) {
-    throwVerification("missing_dependency", `${input.label} path is required`);
-  }
-
-  const accessLevel = resolveContainerPathUserAccessLevelAt({
-    membershipAt: input.membershipAt ?? "current",
-    path,
-    principalPolicies: input.principalPolicies,
-    userId: input.userId,
-  });
-
-  if (
-    accessLevel === null ||
-    containerAccessLevelRank(accessLevel) <
-      containerAccessLevelRank(input.minimumAccessLevel)
-  ) {
-    throwVerification(
-      "unauthorized",
-      `${input.label} signer lacks ${input.minimumAccessLevel} access`,
     );
   }
 }
@@ -1070,13 +929,22 @@ function preparePreviousContainerAccessTransition(
   };
 }
 
-function deriveContainerGrantManifestState(
+function deriveUnrotatedContainerManifestState(
   input: ContainerAccessManifestDerivationInput,
-  body: ContainerGrantAccessEventBody,
+  body: ContainerGrantAccessEventBody | ContainerReciteAccessEventBody,
   previous: PreviousContainerAccessTransition,
 ): ContainerAccessManifestState {
+  if (
+    body.eventType === "container.recite" &&
+    previous.previousState.epoch >= MAX_CONTAINER_RECITATION_EPOCH
+  ) {
+    throwVerification(
+      "invalid_shape",
+      "Container re-citation history budget is exhausted",
+    );
+  }
   requireContainerPathUserAccess({
-    label: "container.grant",
+    label: body.eventType,
     minimumAccessLevel: "admin",
     membershipAt: input.authorizationMembership,
     path: input.previousContainerPath,
@@ -1087,23 +955,27 @@ function deriveContainerGrantManifestState(
   if (body.containerKeyEpochId !== previous.previousState.containerKeyEpochId) {
     throwVerification(
       "key_epoch_reuse",
-      "container.grant must keep the current container KEK epoch",
+      `${body.eventType} must keep the current container KEK epoch`,
     );
   }
 
   return normalizeContainerAccessManifestState({
     ...previous.nextBase,
     containerKeyEpochId: body.containerKeyEpochId,
-    directGrants: upsertContainerDirectGrant(
-      previous.previousState.directGrants,
-      body.grant,
-    ),
-    referencedPrincipalHeads: body.referencedPrincipalHead
-      ? upsertReferencedPrincipalHead(
-          previous.previousState.referencedPrincipalHeads,
-          body.referencedPrincipalHead,
-        )
-      : previous.previousState.referencedPrincipalHeads,
+    directGrants:
+      body.eventType === "container.recite"
+        ? previous.previousState.directGrants
+        : upsertContainerDirectGrant(
+            previous.previousState.directGrants,
+            body.grant,
+          ),
+    referencedPrincipalHeads:
+      body.eventType === "container.grant" && body.referencedPrincipalHead
+        ? upsertReferencedPrincipalHead(
+            previous.previousState.referencedPrincipalHeads,
+            body.referencedPrincipalHead,
+          )
+        : previous.previousState.referencedPrincipalHeads,
   });
 }
 
@@ -1236,8 +1108,11 @@ function deriveContainerAccessManifestStateFromEvent(
 
   const previous = preparePreviousContainerAccessTransition(input);
 
-  if (input.body.eventType === "container.grant") {
-    return deriveContainerGrantManifestState(input, input.body, previous);
+  if (
+    input.body.eventType === "container.grant" ||
+    input.body.eventType === "container.recite"
+  ) {
+    return deriveUnrotatedContainerManifestState(input, input.body, previous);
   }
 
   if (input.body.eventType === "container.revoke") {

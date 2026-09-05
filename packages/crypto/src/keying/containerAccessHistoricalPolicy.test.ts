@@ -10,6 +10,7 @@ import {
   computeAccessManifestHash,
   deriveContainerAccessManifest,
   resolveContainerPathUserAccessLevel,
+  resolveContainerStatePathUserAccessLevel,
   resolveHistoricalContainerPathUserAccessLevel,
   verifyContainerAccessManifest,
 } from "./index";
@@ -93,6 +94,28 @@ test("historical access resolves membership at the manifest's exact policy head"
       userId: formerMember.userId,
     }),
   ).toBe("read");
+  for (const userId of [formerMember.userId, laterMember.userId]) {
+    expect(
+      resolveContainerStatePathUserAccessLevel({
+        states: [historicalManifest.state],
+        principalPolicies: [policy],
+        userId,
+      }),
+    ).toBe(
+      resolveContainerPathUserAccessLevel({
+        path: [historicalManifest],
+        principalPolicies: [policy],
+        userId,
+      }),
+    );
+  }
+  expect(
+    resolveContainerStatePathUserAccessLevel({
+      states: [historicalManifest.state],
+      principalPolicies: [policy],
+      userId: formerMember.userId,
+    }),
+  ).toBeNull();
   expect(
     resolveHistoricalContainerPathUserAccessLevel({
       path: [historicalManifest],

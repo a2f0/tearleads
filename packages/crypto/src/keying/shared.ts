@@ -290,6 +290,7 @@ function isAccessEventType(value: string): value is AccessEventType {
     value === "container.create" ||
     value === "container.grant" ||
     value === "container.move" ||
+    value === "container.recite" ||
     value === "container.rekey" ||
     value === "container.revoke" ||
     value === "document.link" ||

@@ -235,7 +235,6 @@ async function clearScopedRemoteRows(
   await clearScopedDocumentRows(input);
   await clearRemoteResetSyncCursors({
     containerIds: input.snapshot.containerIds,
-    organizationId,
     tx,
   });
 }

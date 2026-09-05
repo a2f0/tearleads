@@ -15,6 +15,7 @@ export async function preparePrincipalContainerMutations(input: {
   readonly organizationId: string;
   readonly revokedContainerId?: string | undefined;
   readonly runtime: InternalWorkflowRuntimeInput;
+  readonly stillCurrent: () => boolean;
 }): Promise<PreparedPrincipalContainerRematerializationBatch> {
   const author = resolveDocumentCreateAuthor(input.runtime);
   const targetSecretKey = input.runtime.crypto.encapsulationKeyPair?.secretKey;
@@ -24,6 +25,8 @@ export async function preparePrincipalContainerMutations(input: {
     );
   }
   return preparePrincipalContainerRematerializationBatch({
+    stillCurrent: input.stillCurrent,
+    reportSecurityIncident: input.runtime.util.reportSecurityIncident,
     apiClient: input.runtime.apiClient,
     author,
     execSql: input.runtime.infra.execSql,

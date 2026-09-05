@@ -58,6 +58,7 @@ export type AccessEventType =
   | "container.create"
   | "container.grant"
   | "container.move"
+  | "container.recite"
   | "container.rekey"
   | "container.revoke"
   | "document.link"
@@ -212,6 +213,11 @@ export interface ContainerRekeyAccessEventBody {
   referencedPrincipalHeads: ContainerGrantPrincipalHead[];
 }
 
+export interface ContainerReciteAccessEventBody
+  extends ContainerAccessKeyState {
+  eventType: "container.recite";
+}
+
 export interface ContainerMoveAccessEventBody
   extends ContainerAccessStructural,
     ContainerAccessKeyState {
@@ -224,6 +230,7 @@ export type ContainerAccessEventBody =
   | ContainerCreateAccessEventBody
   | ContainerGrantAccessEventBody
   | ContainerMoveAccessEventBody
+  | ContainerReciteAccessEventBody
   | ContainerRekeyAccessEventBody
   | ContainerRevokeAccessEventBody;
 

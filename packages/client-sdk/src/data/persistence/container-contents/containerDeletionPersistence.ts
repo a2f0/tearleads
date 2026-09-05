@@ -159,15 +159,6 @@ async function applyContainerRemovals(input: {
   tx: ClientSQLiteTransactionScope;
 }): Promise<ReadonlyArray<string>> {
   const containerIds = input.removals.map((removal) => removal.containerId);
-  const organizationRows = await input.tx
-    .select({ id: containers.id, organizationId: containers.organizationId })
-    .from(containers)
-    .where(inArray(containers.id, containerIds));
-  const organizationIdByContainerId = new Map(
-    organizationRows.flatMap((row) =>
-      row.id ? [[row.id, row.organizationId] as const] : [],
-    ),
-  );
   await recordContainerHydrationTombstones({
     removals: input.removals,
     tx: input.tx,
@@ -194,11 +185,7 @@ async function applyContainerRemovals(input: {
     input.tx,
     input.metadataDeleteIds,
   );
-  await deleteContainerWatermarksInTransaction(
-    input.tx,
-    containerIds,
-    organizationIdByContainerId,
-  );
+  await deleteContainerWatermarksInTransaction(input.tx, containerIds);
   return containerIds;
 }
 

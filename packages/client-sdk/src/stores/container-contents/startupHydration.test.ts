@@ -82,7 +82,7 @@ test("startup restores a fresh durable root-lane hydration marker", async () => 
   try {
     await markContainerSyncLaneChecked(
       execSql,
-      createContainerParentSyncLane(null, TEST_ORGANIZATION_ID),
+      createContainerParentSyncLane(null),
     );
     let hydrationRequestCount = 0;
     const state = {
@@ -132,7 +132,7 @@ test("startup schedules stale-root recovery with no durable sync work", async ()
   try {
     await markContainerSyncLaneChecked(
       execSql,
-      createContainerParentSyncLane(null, TEST_ORGANIZATION_ID),
+      createContainerParentSyncLane(null),
     );
     let hydrationRequestCount = 0;
     const state = {

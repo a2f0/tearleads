@@ -232,8 +232,10 @@ test("a stale dependency path never replaces the authorizing path for its leaf",
     // The root then advances by granting Mallory write. A grant keeps the
     // root's KEK epoch, so the child's key edge stays valid under both heads.
     const shared = await shareRemoteContainer({
+      reportSecurityIncident: async () => {},
       accessLevel: "write",
       apiClient: {
+        reciteContainer: async () => null,
         getContainerWriterProjection: async () => parent.projection,
         shareContainer: async (_containerId, request) =>
           createMutationResponseFromRequest(request),

@@ -129,6 +129,9 @@ function deriveMutationState(input: {
       parentManifestHash: body.parentManifestHash,
     };
   }
+  if (body.eventType === "container.recite") {
+    return base;
+  }
   return {
     ...base,
     containerKeyEpochId: body.containerKeyEpochId,
