@@ -241,6 +241,7 @@ export async function discoverContainerDocuments({
   containerId,
   loadContainerDocumentWatermark,
   listContainerDocuments,
+  onFullListing,
   replaceDocumentLinksBatch,
   saveContainerDocumentWatermark,
   upsertDiscoveredDocuments,
@@ -290,6 +291,10 @@ export async function discoverContainerDocuments({
     listedDocuments,
     saveContainerDocumentWatermark,
   });
+
+  if (listedDocuments.isFullListing) {
+    onFullListing?.(listedDocuments.items.map((document) => document.id));
+  }
 
   return [...discoveredDocuments, ...tombstoneDocumentSummaries];
 }

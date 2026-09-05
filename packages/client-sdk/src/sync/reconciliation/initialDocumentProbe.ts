@@ -22,6 +22,10 @@ export interface InitialDocumentProbeHost {
 
 export interface InitialDocumentProbe {
   readonly arm: (eligibleContainerIds: ReadonlyArray<string>) => void;
+  /** Accept a completed full discovery listing only in the current probe session. */
+  readonly captureListing: (
+    containerId: string,
+  ) => (documentIds: ReadonlyArray<string>) => void;
   readonly canRun: () => boolean;
   readonly continuationDelayMs: () => number;
   readonly hasPendingWork: () => boolean;
@@ -368,6 +372,26 @@ export function createInitialDocumentProbe(
   const state = createInitialDocumentProbeState();
   return {
     arm: (eligibleContainerIds) => armProbe(state, eligibleContainerIds),
+    captureListing: (containerId) => {
+      const generation = state.generation;
+      return (documentIds) => {
+        if (
+          state.generation !== generation ||
+          !state.armed ||
+          !state.eligibleContainerIds.has(containerId) ||
+          state.listedDocumentIdsByContainer.has(containerId)
+        ) {
+          return;
+        }
+        state.listedDocumentIdsByContainer.set(
+          containerId,
+          new Set(documentIds),
+        );
+        state.listedDocumentIds = null;
+        state.listingAttemptsByContainer.delete(containerId);
+        state.listingRetryNotBeforeByContainer.delete(containerId);
+      };
+    },
     canRun: () => canRun(state),
     continuationDelayMs: () => continuationDelayMs(state),
     hasPendingWork: () => state.armed && hasPendingWork(state),

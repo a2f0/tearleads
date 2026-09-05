@@ -1,13 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME } from "@tearleads/client-sdk";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
+import { act, cleanup, fireEvent, within } from "@testing-library/react";
 import invariant from "invariant";
 import { waitForAppTestRuntimeToSettle } from "../../../../test/helpers/appRuntimeIdle";
 import {
@@ -28,6 +21,7 @@ import {
   restorePaneRecoveryKey,
 } from "../../../../test/helpers/dual-pane/dualPaneRecoveryKit";
 import { openOrgManager } from "../../../../test/helpers/dual-pane/dualPaneSharingKit";
+import { createAdditionalOrganization } from "../../../../test/helpers/dual-pane/organizationCreation";
 import {
   resetMockServer,
   useTestApiAppHandlers,
@@ -45,44 +39,6 @@ function getPaneStatusValue(pane: HTMLElement, label: string): string {
   const value = row.querySelector("td");
   invariant(value, `Expected ${label} status value.`);
   return value.textContent?.trim() ?? "";
-}
-
-async function createOrganization(pane: HTMLElement, name: string) {
-  const organizationSelect = within(pane).getByRole("combobox", {
-    name: "Organizations",
-  });
-  invariant(
-    organizationSelect instanceof HTMLButtonElement,
-    "Expected organization selector.",
-  );
-  await waitFor(() => {
-    expect(organizationSelect.disabled).toBe(false);
-  });
-  await interact(() => {
-    fireEvent.click(organizationSelect);
-  });
-  await interact(() => {
-    fireEvent.click(
-      within(pane).getByRole("button", { name: "New Organization" }),
-    );
-  });
-
-  const dialog = await screen.findByRole("dialog", {
-    name: "New Organization",
-  });
-  await interact(() => {
-    fireEvent.change(within(dialog).getByLabelText("Organization name"), {
-      target: { value: name },
-    });
-  });
-  await interact(() => {
-    fireEvent.click(within(dialog).getByRole("button", { name: "Create" }));
-  });
-  await waitForCondition(
-    () => screen.queryByRole("dialog", { name: "New Organization" }) === null,
-    `Organization creation did not finish: ${dialog.textContent?.trim() ?? "unknown dialog state"}`,
-    20_000,
-  );
 }
 
 function ensureOrganizationOptionsOpen(pane: HTMLElement): boolean {
@@ -262,7 +218,10 @@ test(
       );
     });
 
-    await createOrganization(secondaryPane, REALTIME_ORGANIZATION_NAME);
+    await createAdditionalOrganization(
+      secondaryPane,
+      REALTIME_ORGANIZATION_NAME,
+    );
     await waitForCondition(
       () =>
         within(secondaryPane)

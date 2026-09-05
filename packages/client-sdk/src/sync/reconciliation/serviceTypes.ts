@@ -27,6 +27,7 @@ export interface ReconciliationHost extends InitialDocumentProbeHost {
   /** Discover + persist documents; `null` means the lane was not fully listed. */
   discoverContainerDocuments: (
     containerId: string,
+    onFullListing?: ((documentIds: ReadonlyArray<string>) => void) | undefined,
   ) => Promise<ReadonlyArray<DocumentSummary> | null>;
   /** Read a container's freshly-persisted summaries+links from SQLite. */
   loadContainerDelta: (

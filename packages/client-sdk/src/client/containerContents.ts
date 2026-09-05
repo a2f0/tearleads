@@ -20,7 +20,6 @@ import {
   type DocumentAttributionRangesPage,
   loadDocumentAttributionRanges,
 } from "../workflows/container-contents/documentAttributionRanges";
-import { discoverContainerDocumentsFromApi } from "../workflows/container-contents/documentDiscovery";
 import {
   type DocumentInfo,
   loadDocumentInfo,
@@ -47,11 +46,9 @@ import {
   type ContainerContentsStoreWorkflowRuntime,
   createContainerContentsDocumentsRuntime,
   createContainerContentsStoreWorkflowRuntime,
-  createContainerContentsWorkflowRuntime,
 } from "../workflows/container-contents/runtime";
 import { createContainerDocumentObjectSyncState } from "../workflows/container-contents/syncState";
 import type { DocumentsWorkflowRuntime } from "../workflows/documents";
-import { createRuntimePrincipalPolicyWarmer } from "../workflows/principals/runtimePolicyWarmer";
 import type {
   ContainerContents,
   ContainerDocumentLinks,
@@ -61,6 +58,7 @@ import type {
   MoveDocumentToContainerInput,
   OpenContainerDocumentInput,
 } from "./containerContentsTypes";
+import { discoverContainerDocumentsForRuntime } from "./containerDocumentDiscovery";
 import {
   createOrganizationReadModelCoordinator,
   type OrganizationReadModelCoordinator,
@@ -324,31 +322,10 @@ class ContainerContentsService implements ContainerContents {
   discoverContainerDocuments(
     containerId: string,
   ): Promise<ReadonlyArray<DocumentSummary> | null> {
-    const input = this.runtimeService.workflowInput();
-    if (input.infra.dbStatus !== "ready") {
-      return Promise.resolve(null);
-    }
-    const runtime = createContainerContentsWorkflowRuntime(input);
-    const containerOrganizationId = this.openTree()
-      .getSnapshot()
-      .nodes.find((node) => node.id === containerId)?.organizationId;
-    const warmReferencedPrincipalPolicies =
-      createRuntimePrincipalPolicyWarmer(runtime);
-
-    return discoverContainerDocumentsFromApi({
-      // The queries object is a plain record of closures and the discovery
-      // persistence contract is a structural subset of it; no per-method
-      // forwarding needed.
-      ...createContainerDocumentQueriesFromRuntime(runtime),
-      apiClient: runtime.apiClient,
-      cacheReferencedPrincipalPolicies: (references) =>
-        containerOrganizationId
-          ? warmReferencedPrincipalPolicies({
-              organizationId: containerOrganizationId,
-              references,
-            })
-          : Promise.resolve(),
+    return discoverContainerDocumentsForRuntime({
       containerId,
+      getContainerStore: () => this.openTree(),
+      runtimeService: this.runtimeService,
     });
   }
 

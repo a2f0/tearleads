@@ -3,7 +3,10 @@ import type { ReconciliationHost } from "./serviceTypes";
 export async function reconcileOneContainer(
   host: ReconciliationHost,
   containerId: string,
-  options: { forceDocumentContentPull?: boolean } = {},
+  options: {
+    forceDocumentContentPull?: boolean;
+    onFullListing?: ((documentIds: ReadonlyArray<string>) => void) | undefined;
+  } = {},
 ): Promise<boolean> {
   // A queued local root/system id can become stale before the document phase.
   if (!host.canDiscoverContainerDocuments(containerId)) {
@@ -11,7 +14,10 @@ export async function reconcileOneContainer(
   }
 
   try {
-    const discovered = await host.discoverContainerDocuments(containerId);
+    const discovered = await host.discoverContainerDocuments(
+      containerId,
+      options.onFullListing,
+    );
     if (discovered === null) {
       return false;
     }
