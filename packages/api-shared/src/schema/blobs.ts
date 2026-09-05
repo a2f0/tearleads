@@ -72,6 +72,7 @@ export const blobs = pgTable(
  * Columns:
  * - `id`: Stage id returned to the client.
  * - `ownerUserId`: User who created the stage and is allowed to promote it.
+ * - `organizationId`: Immutable organization namespace, checked at promotion.
  * - `storageKey`: Object-store key used for the multipart upload.
  * - `uploadId`: Object-store multipart upload id.
  * - `completedAt`: Multipart completion timestamp; null while pending.
@@ -85,6 +86,7 @@ export const blobStages = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     ownerUserId: uuid("owner_user_id").notNull(),
+    organizationId: uuid("organization_id").notNull(),
     storageKey: text("storage_key").notNull(),
     uploadId: text("upload_id").notNull(),
     completedAt: timestamp("completed_at"),
@@ -95,6 +97,11 @@ export const blobStages = pgTable(
   },
   (table) => [
     index("blob_stages_expires_at_idx").on(table.expiresAt, table.id),
+    index("blob_stages_organization_expires_at_idx").on(
+      table.organizationId,
+      table.expiresAt,
+      table.id,
+    ),
   ],
 );
 

@@ -7,6 +7,7 @@ interface StoredPart {
 }
 
 interface StoredStage {
+  readonly organizationId: string;
   readonly byteLength: number;
   completedBytes: Uint8Array<ArrayBuffer> | null;
   readonly parts: Map<number, StoredPart>;
@@ -99,6 +100,7 @@ export function createDocumentStoreMultipartApi(): {
       const stage = stages.get(stageId);
       if (!stage) return null;
       return {
+        organizationId: stage.organizationId,
         byteLength: stage.byteLength,
         completed: stage.completedBytes !== null,
         expiresAt: EXPIRES_AT,
@@ -149,6 +151,7 @@ export function createDocumentStoreMultipartApi(): {
       }
       stage.completedBytes = bytes;
       return {
+        organizationId: stage.organizationId,
         byteLength: stage.byteLength,
         expiresAt: EXPIRES_AT,
         sha256: stage.sha256,

@@ -46,6 +46,7 @@ function createMultipartApi(
     bindBlobAttachment: async () => null,
     completeMultipartBlobStage: async (stageId) => ({
       byteLength: 6,
+      organizationId: "organization-1",
       expiresAt: "2026-04-27T01:00:00.000Z",
       sha256: "plan-sha256",
       stageId,
@@ -54,6 +55,7 @@ function createMultipartApi(
     getMultipartBlobStage: async () => null,
     initiateMultipartBlobStage: async (request) => ({
       ...request,
+      organizationId: "organization-1",
       expiresAt: "2026-04-27T01:00:00.000Z",
       stageId: "stage-new",
       uploadedParts: [],
@@ -96,9 +98,11 @@ describe("stageMultipartBlobAttachment", () => {
     });
 
     await stageMultipartBlobAttachment({
+      organizationId: "organization-1",
       apiClient: createMultipartApi({
         completeMultipartBlobStage: async (stageId) => ({
           byteLength: encryption.byteLength,
+          organizationId: "organization-1",
           expiresAt: "2026-04-27T01:00:00.000Z",
           sha256: encryption.sha256,
           stageId,
@@ -107,6 +111,7 @@ describe("stageMultipartBlobAttachment", () => {
           expect(encryptedPartIndices).toEqual([]);
           return {
             ...request,
+            organizationId: "organization-1",
             expiresAt: "2026-04-27T01:00:00.000Z",
             stageId: "stage-lazy",
             uploadedParts: [],
@@ -140,6 +145,7 @@ describe("stageMultipartBlobAttachment", () => {
   test("surfaces the failed binary multipart part number", async () => {
     await expect(
       stageMultipartBlobAttachment({
+        organizationId: "organization-1",
         apiClient: createMultipartApi({
           uploadMultipartBlobPartBytes: async (stageId, partNumber, request) =>
             partNumber === 1
@@ -174,6 +180,7 @@ describe("stageMultipartBlobAttachment", () => {
     let completed = false;
 
     const upload = stageMultipartBlobAttachment({
+      organizationId: "organization-1",
       apiClient: createMultipartApi({
         completeMultipartBlobStage: async () => {
           completed = true;
@@ -243,10 +250,12 @@ describe("stageMultipartBlobAttachment", () => {
     });
 
     const stageId = await stageMultipartBlobAttachment({
+      organizationId: "organization-1",
       apiClient: createMultipartApi({
         getMultipartBlobStage: async (id) => ({
           byteLength: encryption.byteLength,
           completed: false,
+          organizationId: "organization-1",
           expiresAt: "2026-04-27T01:00:00.000Z",
           sha256: encryption.sha256,
           stageId: id,
@@ -312,6 +321,7 @@ describe("stageMultipartBlobAttachment", () => {
       partCount: 3,
     });
     await stageMultipartBlobAttachment({
+      organizationId: "organization-1",
       apiClient: createMultipartApi({
         completeMultipartBlobStage: async () => {
           throw new Error("Completed stage must not be completed again");
@@ -319,6 +329,7 @@ describe("stageMultipartBlobAttachment", () => {
         getMultipartBlobStage: async (id) => ({
           byteLength: encryption.byteLength,
           completed: true,
+          organizationId: "organization-1",
           expiresAt: "2026-04-27T01:00:00.000Z",
           sha256: encryption.sha256,
           stageId: id,
@@ -362,6 +373,7 @@ describe("stageMultipartBlobAttachment", () => {
       });
       await expect(
         stageMultipartBlobAttachment({
+          organizationId: "organization-1",
           apiClient: createMultipartApi({
             getMultipartBlobStage: async (id) => ({
               byteLength:
@@ -369,6 +381,7 @@ describe("stageMultipartBlobAttachment", () => {
                   ? encryption.byteLength + 1
                   : encryption.byteLength,
               completed: false,
+              organizationId: "organization-1",
               expiresAt: "2026-04-27T01:00:00.000Z",
               sha256:
                 mismatch === "sha256" ? "stale-sha256" : encryption.sha256,
@@ -391,7 +404,7 @@ describe("stageMultipartBlobAttachment", () => {
           },
         }),
       ).rejects.toThrow(
-        "Multipart blob resume stage stage-stale does not match the requested bytes.",
+        "Multipart blob resume stage stage-stale does not match the requested organization or bytes.",
       );
 
       expect(encryptCalls).toBe(0);
@@ -405,6 +418,7 @@ describe("stageMultipartBlobAttachment", () => {
     let initiated = false;
     await expect(
       stageMultipartBlobAttachment({
+        organizationId: "organization-1",
         apiClient: createMultipartApi({
           initiateMultipartBlobStage: async () => {
             initiated = true;
@@ -430,6 +444,7 @@ describe("stageMultipartBlobAttachment", () => {
     let uploadCalls = 0;
     await expect(
       stageMultipartBlobAttachment({
+        organizationId: "organization-1",
         apiClient: createMultipartApi({
           uploadMultipartBlobPartBytes: async () => {
             uploadCalls += 1;
@@ -452,6 +467,7 @@ describe("stageMultipartBlobAttachment", () => {
   test("caps caller-configured upload concurrency", async () => {
     await expect(
       stageMultipartBlobAttachment({
+        organizationId: "organization-1",
         apiClient: createMultipartApi(),
         encryption: createFakePlan({ partCount: 1 }),
         multipart: {

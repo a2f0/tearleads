@@ -12,6 +12,7 @@ const MAX_LIMIT = 1000;
 
 interface PendingBlobObjectDeletion {
   readonly blobId: string;
+  readonly organizationId: string;
   readonly storageKey: string;
 }
 
@@ -22,6 +23,7 @@ interface PendingDeletionCandidate extends PendingBlobObjectDeletion {
 interface PendingDeletionRow {
   readonly attemptedAt: Date | null;
   readonly blobId: string;
+  readonly organizationId: string;
   readonly prunedAt: Date | null;
   readonly storageKey: string | null;
 }
@@ -41,7 +43,14 @@ function toPendingCandidates(
     const queuedAt = row[queuedAtColumn];
     return queuedAt === null || row.storageKey === null
       ? []
-      : [{ blobId: row.blobId, queuedAt, storageKey: row.storageKey }];
+      : [
+          {
+            blobId: row.blobId,
+            organizationId: row.organizationId,
+            queuedAt,
+            storageKey: row.storageKey,
+          },
+        ];
   });
 }
 
@@ -70,6 +79,7 @@ export async function listPendingBlobObjectDeletions(
   const selectedColumns = {
     attemptedAt: blobAuditObjects.objectDeleteAttemptedAt,
     blobId: blobAuditObjects.blobId,
+    organizationId: blobAuditObjects.organizationId,
     prunedAt: blobAuditObjects.prunedAt,
     storageKey: blobAuditObjects.liveStorageKey,
   };
@@ -104,7 +114,11 @@ export async function listPendingBlobObjectDeletions(
     limit,
   );
 
-  return selected.map(({ blobId, storageKey }) => ({ blobId, storageKey }));
+  return selected.map(({ blobId, organizationId, storageKey }) => ({
+    blobId,
+    organizationId,
+    storageKey,
+  }));
 }
 
 /**
@@ -121,6 +135,7 @@ export async function recordBlobObjectDeletionAttempt(
     .where(
       and(
         eq(blobAuditObjects.blobId, input.blobId),
+        eq(blobAuditObjects.organizationId, input.organizationId),
         eq(blobAuditObjects.liveStorageKey, input.storageKey),
         isNotNull(blobAuditObjects.prunedAt),
         isNull(blobAuditObjects.objectDeletedAt),
@@ -144,6 +159,7 @@ export async function recordBlobObjectDeleted(
     .where(
       and(
         eq(blobAuditObjects.blobId, input.blobId),
+        eq(blobAuditObjects.organizationId, input.organizationId),
         eq(blobAuditObjects.liveStorageKey, input.storageKey),
         isNotNull(blobAuditObjects.prunedAt),
         isNull(blobAuditObjects.objectDeletedAt),
@@ -163,7 +179,12 @@ export async function recordBlobObjectDeleted(
       objectDeletedAt: blobAuditObjects.objectDeletedAt,
     })
     .from(blobAuditObjects)
-    .where(eq(blobAuditObjects.blobId, input.blobId))
+    .where(
+      and(
+        eq(blobAuditObjects.blobId, input.blobId),
+        eq(blobAuditObjects.organizationId, input.organizationId),
+      ),
+    )
     .limit(1);
   if (current?.liveStorageKey === null && current.objectDeletedAt !== null) {
     return;

@@ -2,6 +2,7 @@ import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { blobStages } from "@tearleads/api-shared/schema";
 import { and, eq, lte } from "drizzle-orm";
 import { lockRowForUpdate } from "../../utils/sqlDialect";
+import { assertBlobStorageKeyOrganization } from "./storageKeys";
 
 type BlobStageAccessStatus = 403 | 404 | 409;
 
@@ -11,6 +12,7 @@ export interface OwnedActiveBlobStage {
   readonly expiresAt: Date;
   readonly id: string;
   readonly ownerUserId: string;
+  readonly organizationId: string;
   readonly sha256: string;
   readonly storageKey: string;
   readonly uploadId: string;
@@ -32,6 +34,7 @@ export async function loadOwnedActiveBlobStage(
       expiresAt: blobStages.expiresAt,
       id: blobStages.id,
       ownerUserId: blobStages.ownerUserId,
+      organizationId: blobStages.organizationId,
       sha256: blobStages.sha256,
       storageKey: blobStages.storageKey,
       uploadId: blobStages.uploadId,
@@ -51,6 +54,7 @@ export async function loadOwnedActiveBlobStage(
     throw input.error("Blob stage has expired", 409);
   }
 
+  assertBlobStorageKeyOrganization(stage.storageKey, stage.organizationId);
   return stage;
 }
 
@@ -74,5 +78,7 @@ export async function expireBlobStageForCleanup(
       ),
     )
     .returning();
+  if (stage)
+    assertBlobStorageKeyOrganization(stage.storageKey, stage.organizationId);
   return stage ?? null;
 }

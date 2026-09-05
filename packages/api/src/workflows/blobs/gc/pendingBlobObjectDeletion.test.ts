@@ -9,6 +9,8 @@ import {
   recordBlobObjectDeletionAttempt,
 } from "./pendingBlobObjectDeletion";
 
+const ORGANIZATION_ID = "fd48148f-2bb0-420d-925a-7007d5c1c40f";
+
 test("pending deletion selection deduplicates rows across query snapshots", () => {
   const duplicate = {
     blobId: "duplicate",
@@ -34,13 +36,13 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
   "object deletion timestamps use the database clock",
   async () => {
     const blobId = crypto.randomUUID();
-    const storageKey = `blob-object:${blobId}`;
+    const storageKey = `organizations/${ORGANIZATION_ID}/blob-stages/${blobId}`;
     await db.insert(blobAuditObjects).values({
       blobId,
       byteLength: 1,
       historicalBytesRetained: false,
       liveStorageKey: storageKey,
-      organizationId: crypto.randomUUID(),
+      organizationId: ORGANIZATION_ID,
       prunedAt: new Date("2000-01-01T00:00:00.000Z"),
       retentionMode: "live_only",
       sha256: `sha256:${blobId}`,
@@ -50,9 +52,17 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
       try {
         setSystemTime(new Date("2099-01-01T00:00:00.000Z"));
         expect(
-          await recordBlobObjectDeletionAttempt(db, { blobId, storageKey }),
+          await recordBlobObjectDeletionAttempt(db, {
+            blobId,
+            organizationId: ORGANIZATION_ID,
+            storageKey,
+          }),
         ).toBe(true);
-        await recordBlobObjectDeleted(db, { blobId, storageKey });
+        await recordBlobObjectDeleted(db, {
+          blobId,
+          organizationId: ORGANIZATION_ID,
+          storageKey,
+        });
       } finally {
         setSystemTime();
       }
@@ -78,13 +88,13 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
   "two maintenance workers safely acknowledge the same deletion",
   async () => {
     const blobId = crypto.randomUUID();
-    const storageKey = `blob-object:${blobId}`;
+    const storageKey = `organizations/${ORGANIZATION_ID}/blob-stages/${blobId}`;
     await db.insert(blobAuditObjects).values({
       blobId,
       byteLength: 1,
       historicalBytesRetained: false,
       liveStorageKey: storageKey,
-      organizationId: crypto.randomUUID(),
+      organizationId: ORGANIZATION_ID,
       prunedAt: new Date("2000-01-01T00:00:00.000Z"),
       retentionMode: "live_only",
       sha256: `sha256:${blobId}`,
@@ -105,8 +115,12 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
         listPendingBlobObjectDeletions(db, { limit: 1 }),
         listPendingBlobObjectDeletions(db, { limit: 1 }),
       ]);
-      expect(firstSelection).toEqual([{ blobId, storageKey }]);
-      expect(secondSelection).toEqual([{ blobId, storageKey }]);
+      expect(firstSelection).toEqual([
+        { blobId, organizationId: ORGANIZATION_ID, storageKey },
+      ]);
+      expect(secondSelection).toEqual([
+        { blobId, organizationId: ORGANIZATION_ID, storageKey },
+      ]);
       const firstPending = firstSelection[0];
       const secondPending = secondSelection[0];
       if (!firstPending || !secondPending) {

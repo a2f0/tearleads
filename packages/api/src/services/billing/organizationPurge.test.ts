@@ -54,7 +54,7 @@ async function insertDereferencedBlob(
   dereferencedAt: Date,
 ): Promise<string> {
   const blobId = crypto.randomUUID();
-  const storageKey = `purge-scope:${blobId}`;
+  const storageKey = `organizations/${organizationId}/blob-stages/${blobId}`;
   const bytes = `blob:${blobId}`;
   await db.insert(blobs).values({
     id: blobId,
@@ -357,7 +357,7 @@ test("organization stays deleting until object-store purge work succeeds", async
     .set({ purgeAfter: new Date(firstNow.getTime() - 1), status: "disabled" })
     .where(eq(organizationBilling.organizationId, organizationId));
   const blobId = crypto.randomUUID();
-  const storageKey = `purge-retry:${blobId}`;
+  const storageKey = `organizations/${organizationId}/blob-stages/${blobId}`;
   const bytes = "remote organization bytes";
   await db.insert(blobs).values({
     id: blobId,

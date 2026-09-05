@@ -74,7 +74,7 @@ test("getBlobBytes streams object-store blobs for readable users", async () => {
     signerUserId: registration.userId,
   });
   const encryptedBytes = "streamed-service-blob-bytes";
-  const storageKey = `blob-stages/${crypto.randomUUID()}`;
+  const storageKey = `organizations/${registration.organizationId}/blob-stages/${crypto.randomUUID()}`;
   const objectStore = createServiceTestRuntime().blobObjectStore;
   const sha256 = await sha256Hex(encryptedBytes);
   await uploadBlobObject(objectStore, storageKey, encryptedBytes);
@@ -132,7 +132,7 @@ test("getBlobBytes returns object streams without buffering them", async () => {
     signerUserId: registration.userId,
   });
   const encryptedBytes = "lazy-streamed-service-blob";
-  const storageKey = `blob-stages/${crypto.randomUUID()}`;
+  const storageKey = `organizations/${registration.organizationId}/blob-stages/${crypto.randomUUID()}`;
   const sha256 = await sha256Hex(encryptedBytes);
   const [blob] = await db
     .insert(blobs)
