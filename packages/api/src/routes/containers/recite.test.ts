@@ -91,6 +91,11 @@ test("recitation rejects missing ancestor citations and changed key epochs", asy
       })
     ).status,
   ).toBe(400);
+  const truncated = await post(child.containerId, owner, {
+    ...signed,
+    previousContainerPath: signed.previousContainerPath.slice(1),
+  });
+  expect(truncated.status, await truncated.clone().text()).toBe(409);
   for (const options of [
     { omitAncestor: true },
     { keyEpochId: "changed-key" },

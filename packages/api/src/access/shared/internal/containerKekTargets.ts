@@ -3,10 +3,7 @@ import {
   accessManifestHeads,
   accessManifests,
 } from "@tearleads/api-shared/schema";
-import {
-  type ContainerKekTarget,
-  MAX_CONTAINER_RECITATION_EPOCH,
-} from "@tearleads/crypto";
+import type { ContainerKekTarget } from "@tearleads/crypto";
 import { sql } from "drizzle-orm";
 import { uniqueSortedStrings as unique } from "../../../utils/array";
 import { isRecord } from "../../../utils/record";
@@ -21,6 +18,8 @@ import {
   visitedPathStart,
 } from "../../../utils/sqlDialect";
 import { getContainerKeyEpochsById } from "./containerKekStore";
+
+export const MAX_SAME_EPOCH_MANIFEST_HISTORY = 1024;
 
 export type ContainerKekTargetStatus = 404 | 409;
 
@@ -297,7 +296,7 @@ function assertBindingHistoryRowCurrent(input: {
   readonly row: ContainerManifestBindingHistoryRow;
   readonly targetByContainerId: ReadonlyMap<string, ContainerManifestTarget>;
 }): void {
-  if (input.row.depth >= MAX_CONTAINER_RECITATION_EPOCH) {
+  if (input.row.depth >= MAX_SAME_EPOCH_MANIFEST_HISTORY) {
     throw new ContainerKekTargetError(
       `Container same-epoch manifest history exceeds maximum depth for ${input.row.containerId}; rekey required`,
       409,
@@ -408,7 +407,7 @@ async function loadSameEpochContainerManifestBindingHistories(input: {
       from manifest_path mp
       inner join ${accessManifests} pm
         on pm.manifest_hash = mp.previous_manifest_hash
-      where mp.depth < ${MAX_CONTAINER_RECITATION_EPOCH}
+      where mp.depth < ${MAX_SAME_EPOCH_MANIFEST_HISTORY}
         and mp.previous_manifest_hash is not null
         and pm.object_kind = 'container'
         and pm.object_id = mp.container_id

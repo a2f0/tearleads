@@ -6,7 +6,6 @@ import {
   containerKeyEpochs,
 } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
-import { MAX_CONTAINER_RECITATION_EPOCH } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
 import {
   asVerifiedContainerManifest,
@@ -14,9 +13,15 @@ import {
 } from "../../../test/helpers/keyingWriterProjectionKit";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { containerAccessManifestStateRecord } from "../../keyingProjectionRecords";
-import { resolveCurrentContainerKekTargets } from "../shared/internal/containerKekTargets";
+import {
+  MAX_SAME_EPOCH_MANIFEST_HISTORY,
+  resolveCurrentContainerKekTargets,
+} from "../shared/internal/containerKekTargets";
 
-test("same-epoch KEK lookup accepts the bound, rejects overflow, and resumes after rekey", async () => {
+test.each([
+  "recite",
+  "grant",
+] as const)("same-epoch %s history accepts the bound, refuses overflow, and resumes after rekey", async (eventType) => {
   const owner = createTestUser();
   await registerUser(owner);
   const root = await bootstrapRoot(owner);
@@ -34,7 +39,7 @@ test("same-epoch KEK lookup accepts the bound, rejects overflow, and resumes aft
   // Storage-shape fixtures exercise the read-side bound after the signed-event
   // boundary. They are never submitted to the cryptographic verifier.
   const rows = Array.from(
-    { length: MAX_CONTAINER_RECITATION_EPOCH },
+    { length: MAX_SAME_EPOCH_MANIFEST_HISTORY },
     (_, index) => {
       const epoch = initial.epoch + index + 1;
       const manifestHash = `${initial.manifestHash}:${epoch}`;
@@ -52,6 +57,17 @@ test("same-epoch KEK lookup accepts the bound, rejects overflow, and resumes aft
         previousManifestHash,
         state: containerAccessManifestStateRecord({
           ...state,
+          directGrants:
+            eventType === "grant"
+              ? [
+                  ...state.directGrants,
+                  ...Array.from({ length: index + 1 }, (_, grantIndex) => ({
+                    accessLevel: "read" as const,
+                    subjectId: `reader-${grantIndex}`,
+                    subjectType: "user" as const,
+                  })),
+                ]
+              : state.directGrants,
           epoch,
           eventHash,
           previousManifestHash,
