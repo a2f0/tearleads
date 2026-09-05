@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { createContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
 import type { DomainScope } from "../../data/domainScope";
@@ -14,11 +15,11 @@ import {
 } from "./state";
 import type { ContainerContentsStoreSyncAgent } from "./syncAgent";
 
-async function createFixture() {
+async function createFixture(execSql: ExecSql = (async () => []) as ExecSql) {
   const state = createContainerContentsStoreState(
     createContainerContentsTestRuntime({
       domainScope: {} as DomainScope,
-      execSql: (async () => []) as ExecSql,
+      execSql,
     }),
     defaultContainerContentsPersistence,
   );
@@ -204,6 +205,82 @@ for (const scope of ["root", "trash"]) {
       release.resolve();
       await sweep;
       for (const entry of state.containersById.values()) entry.doc.free();
+    }
+  });
+}
+
+for (const sameSlot of [false, true]) {
+  test(`local system-folder creation ${sameSlot ? "invalidates its matching" : "preserves an unrelated"} pending probe`, async () => {
+    const database = await createTestExecSql(
+      `pending-system-probe-${sameSlot}`,
+    );
+    const { state, syncAgent } = await createFixture(database.execSql);
+    const requestedSlot =
+      "sys_v1_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" as ContainerSystemSlot;
+    const createdSlot = sameSlot
+      ? requestedSlot
+      : ("sys_v1_ccccccccccccccccccccccccccccccccccccccccccc" as ContainerSystemSlot);
+    const started = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const unexpected = () => {
+      throw new Error("Unexpected remote I/O");
+    };
+    const fullSyncAgent: ContainerContentsStoreSyncAgent = {
+      ...syncAgent,
+      ensureInitialized: unexpected,
+      handleRemoteEvents: unexpected,
+      ingestRemoteContainer: async () => unexpected(),
+      primeDocumentsForSharedSubtree: async () => unexpected(),
+      refresh: async () => unexpected(),
+      refreshRootLane: async () => unexpected(),
+      requestRemoteHydration: async () => unexpected(),
+      scheduleSync: () => {},
+    };
+    let probe: Promise<boolean> | null = null;
+    try {
+      await defaultContainerContentsPersistence.ensureSchema(database.execSql);
+      for (const entry of state.containersById.values()) {
+        await defaultContainerContentsPersistence.saveContainer(
+          database.execSql,
+          entry.container,
+          null,
+        );
+      }
+      updateContainerContentsSnapshot(state);
+      probe = chainRemoteContainerTask(
+        state,
+        syncAgent,
+        false,
+        async (current) => {
+          started.resolve();
+          await release.promise;
+          return current();
+        },
+        { rootId: "root", systemSlot: requestedSlot },
+      );
+      await started.promise;
+      const created = await createContainerWriteMethods(
+        state,
+        fullSyncAgent,
+      ).ensureSystemContainer(createdSlot, "New system folder", {
+        deferRemoteBootstrap: true,
+        deferRemoteSync: true,
+      });
+      expect(created).not.toBeNull();
+      expect(
+        (
+          await defaultContainerContentsPersistence.loadContainers(
+            database.execSql,
+          )
+        ).some(({ container }) => container.id === created?.id),
+      ).toBe(true);
+      release.resolve();
+      expect(await probe).toBe(!sameSlot);
+    } finally {
+      release.resolve();
+      await probe;
+      for (const entry of state.containersById.values()) entry.doc.free();
+      database.close();
     }
   });
 }

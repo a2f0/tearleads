@@ -13,7 +13,10 @@ import { persistContainerState } from "./containerStatePersistence";
 import { updateExistingSystemContainer } from "./existingSystemContainer";
 import { getContainerContentsStoreLogLabel } from "./logLabel";
 import { removeMissingContainerState } from "./missingContainerState";
-import { invalidateRemoteContainerWrites } from "./remoteWriteGuards";
+import {
+  invalidateRemoteContainerWrites,
+  invalidateRemoteSystemContainerWrite,
+} from "./remoteWriteGuards";
 import { updateContainerContentsSnapshot } from "./state";
 import type {
   ContainerContentsStoreSyncAgent,
@@ -123,6 +126,25 @@ async function findOrHydrateSystemContainer(input: {
     : null;
 }
 
+function canCreateSystemContainer(
+  state: ContainerContentsStoreState,
+  rootState: ContainerState,
+  systemSlot: ContainerSystemSlot,
+  options: EnsureSystemContainerOptions,
+): boolean {
+  if (
+    options.skipAdvancedManagedRoot &&
+    hasAdvancedManagedPrincipalReference(rootState)
+  ) {
+    state.runtime.util.log(
+      `${getContainerContentsStoreLogLabel(state)}: skipped background system container "${systemSlot}" because the root has advanced managed-principal references`,
+    );
+    return false;
+  }
+
+  return true;
+}
+
 export async function ensureSystemContainer(
   state: ContainerContentsStoreState,
   syncAgent: ContainerContentsStoreSyncAgent,
@@ -164,17 +186,15 @@ export async function ensureSystemContainer(
   if (!rootState) {
     return null;
   }
-  if (
-    options.skipAdvancedManagedRoot &&
-    hasAdvancedManagedPrincipalReference(rootState)
-  ) {
-    state.runtime.util.log(
-      `${getContainerContentsStoreLogLabel(state)}: skipped background system container "${systemSlot}" because the root has advanced managed-principal references`,
-    );
+  if (!canCreateSystemContainer(state, rootState, systemSlot, options))
     return null;
-  }
 
   if (options.deferRemoteBootstrap) {
+    invalidateRemoteSystemContainerWrite(
+      state,
+      rootState.container.id,
+      systemSlot,
+    );
     invalidateRemoteContainerWrites(state, [rootState.container.id]);
   }
   const createRemote =

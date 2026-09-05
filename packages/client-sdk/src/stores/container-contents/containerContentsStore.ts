@@ -111,6 +111,7 @@ function createContainerContentsStoreSyncHost(
   };
 }
 
+// null marks an unknown mutation scope; [] delegates invalidation to actual writes.
 function chainContainerWrite(
   state: ContainerContentsStoreState,
   work: (isCurrent: () => boolean) => ContainerContentsStoreState["writeChain"],
@@ -262,6 +263,68 @@ function createContainerSharingMethods(
   };
 }
 
+function createDeleteContainerMethod(
+  state: ContainerContentsStoreState,
+  syncAgent: ContainerContentsStoreSyncAgent,
+): ContainerContentsStore["deleteContainer"] {
+  return (containerId) => {
+    const current = captureContainerWriteGeneration(state);
+    const remoteDelete = () =>
+      chainRemoteContainerTask(
+        state,
+        syncAgent,
+        null,
+        (isCurrent) =>
+          deleteContainer(state, syncAgent, containerId, isCurrent),
+        containerId,
+      ).then((node) => node !== null);
+    if (state.containersById.get(containerId)?.record.documentId)
+      return remoteDelete();
+    let promoted = false;
+    return chainContainerWrite(
+      state,
+      (isCurrent) => {
+        // Promotion can win while this local operation was queued. Hand it to
+        // the remote queue after releasing the local chain, before any HTTP I/O.
+        promoted = Boolean(
+          state.containersById.get(containerId)?.record.documentId,
+        );
+        return promoted
+          ? Promise.resolve(null)
+          : deleteContainer(state, syncAgent, containerId, isCurrent);
+      },
+      [containerId],
+    ).then((node) => (promoted && current() ? remoteDelete() : node !== null));
+  };
+}
+
+function createEnsureSystemContainerMethod(
+  state: ContainerContentsStoreState,
+  syncAgent: ContainerContentsStoreSyncAgent,
+): ContainerContentsStore["ensureSystemContainer"] {
+  return (systemSlot, name, options) => {
+    const work = (isCurrent: () => boolean) =>
+      ensureSystemContainer(
+        state,
+        syncAgent,
+        systemSlot,
+        name,
+        options,
+        isCurrent,
+      );
+    const rootId = findRootContainerState(state)?.container.id;
+    return options?.deferRemoteBootstrap
+      ? chainContainerWrite(state, work, [])
+      : chainRemoteContainerTask(
+          state,
+          syncAgent,
+          null,
+          work,
+          rootId ? { rootId, systemSlot } : undefined,
+        );
+  };
+}
+
 export function createContainerWriteMethods(
   state: ContainerContentsStoreState,
   syncAgent: ReturnType<typeof createContainerContentsStoreSyncAgent>,
@@ -275,15 +338,7 @@ export function createContainerWriteMethods(
           createChildContainer(state, syncAgent, parentId, name, isCurrent),
         [parentId],
       ),
-    deleteContainer: (containerId) =>
-      chainRemoteContainerTask(
-        state,
-        syncAgent,
-        null,
-        (isCurrent) =>
-          deleteContainer(state, syncAgent, containerId, isCurrent),
-        containerId,
-      ).then((node) => node !== null),
+    deleteContainer: createDeleteContainerMethod(state, syncAgent),
     purgeContainer: (containerId, options) =>
       chainRemoteContainerTask(
         state,
@@ -302,21 +357,7 @@ export function createContainerWriteMethods(
           emptyTrash(state, syncAgent, trashContainerId, options, isCurrent),
         trashContainerId,
       ),
-    ensureSystemContainer: (systemSlot, name, options) => {
-      const work = (isCurrent: () => boolean) =>
-        ensureSystemContainer(
-          state,
-          syncAgent,
-          systemSlot,
-          name,
-          options,
-          isCurrent,
-        );
-      const rootId = findRootContainerState(state)?.container.id;
-      return options?.deferRemoteBootstrap
-        ? chainContainerWrite(state, work, [])
-        : chainRemoteContainerTask(state, syncAgent, null, work, rootId);
-    },
+    ensureSystemContainer: createEnsureSystemContainerMethod(state, syncAgent),
     moveContainer: (containerId, parentId) =>
       chainContainerWrite(
         state,

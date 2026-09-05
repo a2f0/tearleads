@@ -1,146 +1,16 @@
 import { expect, test } from "bun:test";
-import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
-import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import {
+  createAuthenticatedRuntime,
+  ROOT_CONTAINER_ID,
+  TEST_SYSTEM_SLOT,
+  withReadyStore,
+} from "../../../test/helpers/deviceFirstSystemContainer";
 import { waitFor } from "../../../test/helpers/waitFor";
 import type { DomainScope } from "../../data/domainScope";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import { createContainerContentsStore } from "./containerContentsStore";
-import {
-  createContainerContentsTestRuntime,
-  seedLocalRootContainer,
-} from "./runtime.testFixtures";
-
-// A non-built-in system slot is enough to exercise the device-first create path;
-// the slot string only needs to be stable for `findSystemContainerState`.
-const TEST_SYSTEM_SLOT =
-  "sys_v1_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" as ContainerSystemSlot;
-const ROOT_CONTAINER_ID = "device-first-root";
-
-test("a stalled explicit system-container probe cannot block ordinary local folder writes", async () => {
-  let release = () => {};
-  let started = false;
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  await withReadyStore(
-    true,
-    async () => {
-      started = true;
-      await gate;
-      return null;
-    },
-    async (store, execSql) => {
-      const probe = store.ensureSystemContainer(
-        TEST_SYSTEM_SLOT,
-        "Remote probe",
-      );
-      try {
-        await waitFor(() => started, "Explicit probe did not start");
-        let created: Awaited<ReturnType<typeof store.createChild>> = null;
-        const create = store
-          .createChild(ROOT_CONTAINER_ID, "Local during outage")
-          .then((node) => {
-            created = node;
-          });
-        await waitFor(
-          () => created !== null,
-          "A stalled remote probe blocked local folder creation",
-        );
-        await create;
-        const child = store
-          .getSnapshot()
-          .nodes.find((node) => node.name === "Local during outage");
-        if (!child) throw new Error("Missing locally created folder");
-        await store.renameContainer(child.id, "Renamed during outage");
-        const stored =
-          await defaultContainerContentsPersistence.loadContainers(execSql);
-        expect(
-          stored.some(
-            ({ container }) =>
-              container.id === child.id &&
-              container.name === "Renamed during outage",
-          ),
-        ).toBe(true);
-      } finally {
-        release();
-        await expect(probe).resolves.toBeNull();
-      }
-    },
-  );
-});
-
-function createAuthenticatedRuntime(input: {
-  apiClient: ReturnType<typeof createMockApiClient>;
-  domainScope: DomainScope;
-  execSql: ExecSql;
-  online: boolean;
-  organizationId?: string | undefined;
-  rootContainerId?: string | undefined;
-  writerReady?: boolean | undefined;
-}) {
-  return createContainerContentsTestRuntime({
-    apiClient: input.apiClient,
-    containerId: input.rootContainerId ?? ROOT_CONTAINER_ID,
-    domainScope: input.domainScope,
-    encapsulationKeyPair: input.writerReady
-      ? generateKemSeedAndKeyPair()
-      : null,
-    execSql: input.execSql,
-    online: input.online,
-    organizationId: input.organizationId ?? "org-1",
-  });
-}
-
-async function withReadyStore(
-  online: boolean,
-  listContainerParentLanes: ReturnType<
-    typeof createMockApiClient
-  >["listContainerParentLanes"],
-  body: (
-    store: ReturnType<typeof createContainerContentsStore>,
-    execSql: ExecSql,
-  ) => Promise<void>,
-  options: {
-    apiClientOverrides?: Partial<ReturnType<typeof createMockApiClient>>;
-    writerReady?: boolean | undefined;
-  } = {},
-): Promise<void> {
-  const { close, execSql } = await createTestExecSql(
-    "ensure-system-container-device-first-test",
-  );
-  try {
-    await seedLocalRootContainer(execSql, {
-      rootContainerId: ROOT_CONTAINER_ID,
-    });
-    const runtime = createAuthenticatedRuntime({
-      apiClient: createMockApiClient({
-        listContainerParentLanes,
-        ...options.apiClientOverrides,
-      }),
-      domainScope: {} as DomainScope,
-      execSql,
-      online,
-      writerReady: options.writerReady,
-    });
-    const store = createContainerContentsStore(runtime);
-    store.updateRuntime(runtime);
-
-    await waitFor(
-      () => store.getSnapshot().ready,
-      "Container contents store did not become ready from the local root.",
-      2_000,
-    );
-    expect(store.getSnapshot().nodes.map((node) => node.id)).toContain(
-      ROOT_CONTAINER_ID,
-    );
-
-    await body(store, execSql);
-  } finally {
-    close();
-  }
-}
+import { seedLocalRootContainer } from "./runtime.testFixtures";
 
 test("ensureSystemContainer creates the slot locally when parent-lane hydration returns a network failure (null)", async () => {
   // The ApiClient surfaces a "Failed to fetch" as a null result, not a throw.

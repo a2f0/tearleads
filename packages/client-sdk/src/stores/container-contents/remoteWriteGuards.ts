@@ -1,8 +1,16 @@
+import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import { findSystemContainerStateForRoot } from "./systemContainerLookup";
 import type { ContainerContentsStoreState } from "./types";
 
+export type RemoteContainerWriteScope =
+  | string
+  | {
+      rootId: string;
+      systemSlot: ContainerSystemSlot;
+    };
 interface ActiveRemoteWrite {
   changed: boolean;
-  rootId: string | undefined;
+  scope: RemoteContainerWriteScope | undefined;
 }
 const activeByState = new WeakMap<
   ContainerContentsStoreState,
@@ -31,12 +39,20 @@ export function invalidateRemoteContainerWrites(
   movedId?: string,
 ): void {
   for (const write of activeByState.get(state) ?? []) {
-    const rootId = write.rootId;
+    const rootId =
+      typeof write.scope === "object"
+        ? findSystemContainerStateForRoot(
+            state,
+            write.scope.systemSlot,
+            state.containersById.get(write.scope.rootId) ?? null,
+          )?.container.id
+        : write.scope;
     if (
-      rootId === undefined ||
+      write.scope === undefined ||
       changedIds === null ||
-      changedIds.some((id) => isWithin(state, id, rootId)) ||
-      (movedId !== undefined && isWithin(state, rootId, movedId))
+      (rootId !== undefined &&
+        (changedIds.some((id) => isWithin(state, id, rootId)) ||
+          (movedId !== undefined && isWithin(state, rootId, movedId))))
     ) {
       write.changed = true;
     }
@@ -45,11 +61,11 @@ export function invalidateRemoteContainerWrites(
 
 export function trackRemoteContainerWrite(
   state: ContainerContentsStoreState,
-  rootId?: string,
+  scope?: RemoteContainerWriteScope,
 ) {
   const active = activeByState.get(state) ?? new Set<ActiveRemoteWrite>();
   activeByState.set(state, active);
-  const write: ActiveRemoteWrite = { changed: false, rootId };
+  const write: ActiveRemoteWrite = { changed: false, scope };
   active.add(write);
   return {
     changed: () => write.changed,
@@ -57,4 +73,21 @@ export function trackRemoteContainerWrite(
       active.delete(write);
     },
   };
+}
+
+/** An undiscovered system child has a stable slot before it has a local id. */
+export function invalidateRemoteSystemContainerWrite(
+  state: ContainerContentsStoreState,
+  rootId: string,
+  systemSlot: ContainerSystemSlot,
+): void {
+  for (const write of activeByState.get(state) ?? []) {
+    if (
+      typeof write.scope === "object" &&
+      write.scope.rootId === rootId &&
+      write.scope.systemSlot === systemSlot
+    ) {
+      write.changed = true;
+    }
+  }
 }

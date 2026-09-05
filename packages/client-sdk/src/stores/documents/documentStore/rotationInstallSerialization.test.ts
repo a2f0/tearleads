@@ -106,7 +106,9 @@ test("rotation serializes its final verification and history install", async () 
 
     releaseCompetingWrite();
     await competingWriteRef.current;
-    await expect(recovery).rejects.toThrow("Document changed");
+    // The retry must prove the competing edit too. This fixture has neither
+    // authenticated remote history nor an ordinary queued row for that edit.
+    await expect(recovery).rejects.toThrow("found unverified local history");
     expect(installAttempts).toBe(0);
     expect(state.doc && getTextValue(state.doc)).toBe("concurrent sync winner");
   } finally {

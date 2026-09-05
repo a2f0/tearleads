@@ -1,5 +1,8 @@
 import { errorMessage } from "../../data/errorMessage";
-import { trackRemoteContainerWrite } from "./remoteWriteGuards";
+import {
+  type RemoteContainerWriteScope,
+  trackRemoteContainerWrite,
+} from "./remoteWriteGuards";
 import type { ContainerContentsStoreSyncAgent } from "./syncAgent";
 import type { ContainerContentsStoreState } from "./types";
 import { captureContainerWriteGeneration } from "./writeGeneration";
@@ -18,7 +21,7 @@ export function chainRemoteContainerTask<T>(
   >,
   staleResult: T,
   work: (isCurrent: () => boolean) => Promise<T>,
-  rootId?: string,
+  scope?: RemoteContainerWriteScope,
 ): Promise<T> {
   const contextCurrent = captureContainerWriteGeneration(state);
   const previous = remoteWritesByState.get(state);
@@ -29,7 +32,7 @@ export function chainRemoteContainerTask<T>(
     // immediately afterward; an ongoing stream cannot starve the remote task.
     const boundary = state.writeChain
       .catch(() => null)
-      .then(() => trackRemoteContainerWrite(state, rootId));
+      .then(() => trackRemoteContainerWrite(state, scope));
     state.writeChain = boundary.then(() => null);
     const tracked = await boundary;
     const isCurrent = () => contextCurrent() && !tracked.changed();
