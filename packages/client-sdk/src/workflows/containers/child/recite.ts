@@ -188,7 +188,9 @@ export function scheduleHeldDescendantRecitations(
       reciteHeldDescendants({
         apiClient: input.apiClient,
         author: input.author,
-        execSql: input.execSql,
+        // Background work outlives the caller's lock scope. Use the canonical
+        // executor so its checkpoint write acquires a new mutation lock.
+        execSql: canonical,
         reportSecurityIncident: input.reportSecurityIncident,
         stillCurrent: input.stillCurrent,
         ancestorIds: input.plans.map((plan) => plan.containerId),
