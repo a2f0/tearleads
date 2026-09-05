@@ -16,7 +16,13 @@ import {
 // minimized); right click opens the window's own menu, so a minimized window
 // can be brought back — or a visible one pushed away — without touching its
 // title bar.
-export function PaneFooterWindowButton({ entry }: { entry: WindowEntry }) {
+export function PaneFooterWindowButton({
+  entry,
+  active,
+}: {
+  entry: WindowEntry;
+  active: boolean;
+}) {
   const { close, maximize, minimize, restore } = useWindowActions();
   const {
     closeContextMenu: closeMenu,
@@ -39,6 +45,8 @@ export function PaneFooterWindowButton({ entry }: { entry: WindowEntry }) {
         type="button"
         className="tearleads-action-button pane-footer-window"
         aria-label={`Activate ${entry.title} window`}
+        aria-pressed={active}
+        data-minimized={entry.minimized}
         title={entry.title}
         onClick={() => restore(entry.id)}
         onContextMenu={(event) => {

@@ -10,9 +10,13 @@
   min-height: 100px;
   background: var(--color-light);
   border: var(--border-strong);
+  border-radius: var(--app-radius-surface);
+  box-shadow: var(--app-shadow-window);
 }
 
 .window--maximized {
   min-width: unset;
   min-height: unset;
+  border-radius: 0;
+  box-shadow: none;
 }
