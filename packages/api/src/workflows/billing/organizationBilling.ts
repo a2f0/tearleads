@@ -12,23 +12,27 @@ import {
   revenuecatWebhookEvents,
 } from "@tearleads/api-shared/schema";
 import { getSyncBillingTierForNativeProduct } from "@tearleads/validators/billing";
+import type { OrganizationBillingSubscriptionSource } from "@tearleads/validators/response";
 import { and, desc, eq, gt, gte, inArray } from "drizzle-orm";
 import {
   createTrialBillingFields,
   type OrganizationBilling,
   organizationSeatPeriodKey,
 } from "../../billing/organizationBilling";
+import type { StripeApiDeps } from "../../billing/stripeApi";
 import { requireDirectOrganizationAccess } from "../organizations/access";
 import { OrganizationManagerError } from "../organizations/errors";
 import { withOrganizationAdminTransaction } from "../organizations/mutationAccess";
 import { listUsersReachableFromCurrentGroup } from "../organizations/principalReachability";
 import {
+  applyBillingLapse,
   loadOrganizationBilling,
   type OrganizationBillingRow,
   resolveOrganizationBilling,
 } from "./organizationBillingState";
 import { reconcileOrganizationBillingSeats } from "./organizationSeats";
 import { loadOrganizationBillingSeatUsage } from "./organizationSeatUsage";
+import { resolveOrganizationSubscriptionSourceInTransaction } from "./organizationSubscriptionSource";
 import {
   freeTrialLifecycleSourceId,
   recordFreeTrialInitialized,
@@ -130,7 +134,7 @@ export async function runGetOrganizationBillingWorkflow(
   db: ApiDatabase,
   organizationId: string,
   sessionUserId: string,
-  now: Date = new Date(),
+  deps: { readonly now?: Date; readonly stripe?: StripeApiDeps } = {},
 ): Promise<{
   readonly activeMemberCount: number;
   readonly assignedSeatCount: number;
@@ -138,9 +142,14 @@ export async function runGetOrganizationBillingWorkflow(
   readonly billing: OrganizationBilling;
   readonly currentUserHasSyncSeat: boolean;
   readonly pendingSeatCount: number | null;
+  readonly subscriptionSource: OrganizationBillingSubscriptionSource | null;
 }> {
+  const now = deps.now ?? new Date();
   return db.transaction(async (tx) => {
-    const billing = await resolveOrganizationBilling(tx, organizationId, now);
+    // Ownership reads the persisted row: a lapsed period whose renewal webhook
+    // is still in flight must not look ownerless and re-offer checkout.
+    const persisted = await loadOrganizationBilling(tx, organizationId);
+    const billing = applyBillingLapse(persisted, now);
     if (billing.status === "deleting" || billing.status === "purged") {
       const [retainedMember] = await tx
         .select({ id: organizationRosterEntries.id })
@@ -177,7 +186,20 @@ export async function runGetOrganizationBillingWorkflow(
       organizationId,
       sessionUserId,
     });
-    return { activeMemberCount, billing, pendingSeatCount, ...seatUsage };
+    const subscriptionSource =
+      await resolveOrganizationSubscriptionSourceInTransaction({
+        executor: tx,
+        organizationId,
+        persisted,
+        ...(deps.stripe ? { stripe: deps.stripe } : {}),
+      });
+    return {
+      activeMemberCount,
+      billing,
+      pendingSeatCount,
+      subscriptionSource,
+      ...seatUsage,
+    };
   });
 }
 
@@ -373,6 +395,7 @@ export async function runStartOrganizationTrialWorkflow(
   readonly assignedUserIds: readonly string[];
   readonly billing: OrganizationBilling;
   readonly currentUserHasSyncSeat: boolean;
+  readonly subscriptionSource: OrganizationBillingSubscriptionSource | null;
 }> {
   return db.transaction(async (tx) => {
     const billing = await startOrganizationTrialInTransaction({
@@ -390,6 +413,14 @@ export async function runStartOrganizationTrialWorkflow(
       organizationId,
       sessionUserId,
     });
-    return { activeMemberCount, billing, ...seatUsage };
+    // The idempotent path returns an already trialing or active organization
+    // unchanged, so its owner has to come from the persisted row too.
+    const subscriptionSource =
+      await resolveOrganizationSubscriptionSourceInTransaction({
+        executor: tx,
+        organizationId,
+        persisted: await loadOrganizationBilling(tx, organizationId),
+      });
+    return { activeMemberCount, billing, subscriptionSource, ...seatUsage };
   });
 }

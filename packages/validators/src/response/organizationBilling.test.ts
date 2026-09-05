@@ -19,10 +19,23 @@ const BILLING_RESPONSE = {
   pendingSeatCount: null,
   disabledAt: null,
   purgeAfter: null,
+  subscriptionSource: null,
 };
 
 test("isOrganizationBillingResponse accepts the seat billing shape", () => {
   expect(isOrganizationBillingResponse(BILLING_RESPONSE)).toBe(true);
+  expect(
+    isOrganizationBillingResponse({
+      ...BILLING_RESPONSE,
+      subscriptionSource: "stripe",
+    }),
+  ).toBe(true);
+  expect(
+    isOrganizationBillingResponse({
+      ...BILLING_RESPONSE,
+      subscriptionSource: "paypal",
+    }),
+  ).toBe(false);
 });
 
 test("isOrganizationBillingResponse requires a non-negative integer seat count", () => {

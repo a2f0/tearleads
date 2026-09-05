@@ -18388,6 +18388,7 @@ export interface operations {
                         seatCount: number;
                         /** @enum {string} */
                         status: "local" | "trialing" | "active" | "past_due" | "disabled" | "deleting" | "purged";
+                        subscriptionSource: ("native" | "stripe") | null;
                         trialEndsAt: string | null;
                     } & {
                         [key: string]: unknown;
@@ -18633,7 +18634,6 @@ export interface operations {
                     "application/json": {
                         canCancelDirectly: boolean;
                         managementUrl: string | null;
-                        subscriptionSource: ("native" | "stripe") | null;
                     } & {
                         [key: string]: unknown;
                     };
@@ -18754,6 +18754,7 @@ export interface operations {
                         seatCount: number;
                         /** @enum {string} */
                         status: "local" | "trialing" | "active" | "past_due" | "disabled" | "deleting" | "purged";
+                        subscriptionSource: ("native" | "stripe") | null;
                         trialEndsAt: string | null;
                     } & {
                         [key: string]: unknown;
@@ -19686,6 +19687,7 @@ export interface operations {
                         seatCount: number;
                         /** @enum {string} */
                         status: "local" | "trialing" | "active" | "past_due" | "disabled" | "deleting" | "purged";
+                        subscriptionSource: ("native" | "stripe") | null;
                         trialEndsAt: string | null;
                     } & {
                         [key: string]: unknown;

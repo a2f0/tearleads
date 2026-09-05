@@ -71,8 +71,8 @@
       "bytes": 23535
     },
     "docs/openapi.json": {
-      "lines": 63137,
-      "bytes": 2646602
+      "lines": 63167,
+      "bytes": 2647592
     },
     "docs/protocol-specification.md": {
       "lines": 601,
@@ -230,10 +230,6 @@
       "lines": 565,
       "bytes": 17309
     },
-    "packages/app/src/mini-apps/org-manager/billing/BillingPanel.test.tsx": {
-      "lines": 504,
-      "bytes": 15651
-    },
     "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerModel.ts": {
       "lines": 523,
       "bytes": 16822
@@ -351,8 +347,8 @@
       "bytes": 19200
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 23746,
-      "bytes": 993291
+      "lines": 23748,
+      "bytes": 993439
     },
     "packages/validators/src/response/response.test.ts": {
       "lines": 1168,

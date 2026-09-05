@@ -5,16 +5,11 @@ import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { useScopedOrganizationLoad } from "./useScopedOrganizationLoad";
 
-interface ManagementUrlSnapshot {
-  readonly canCancelDirectly: boolean;
-  readonly managementUrl: string | null;
-  readonly subscriptionSource: OrganizationBillingManagementUrl["subscriptionSource"];
-}
+type ManagementUrlSnapshot = OrganizationBillingManagementUrl;
 
 const NO_MANAGEMENT_URL: ManagementUrlSnapshot = {
   canCancelDirectly: false,
   managementUrl: null,
-  subscriptionSource: null,
 };
 
 /**
@@ -42,7 +37,6 @@ export function useBillingManagementUrl(
         return {
           canCancelDirectly: result?.canCancelDirectly ?? false,
           managementUrl: result?.managementUrl ?? null,
-          subscriptionSource: result?.subscriptionSource ?? null,
         };
       } catch (loadError) {
         console.error("Failed to load billing management URL:", loadError);

@@ -8,6 +8,7 @@ import type {
   OrganizationBillingManagementUrlResponse,
   OrganizationBillingResponse,
   OrganizationBillingStatus,
+  OrganizationBillingSubscriptionSource,
   OrganizationNativePurchaseEligibilityResponse,
   StripeCancelResponse,
   StripeCheckoutIntentResponse,
@@ -216,6 +217,8 @@ export interface OrganizationBillingView {
   readonly syncSeatUnavailable: boolean;
   /** Native destination tier announced by the store but not effective yet. */
   readonly pendingSeatCount: number | null;
+  /** Store of record for the bound subscription, or null when none binds. */
+  readonly subscriptionSource: OrganizationBillingSubscriptionSource | null;
   /** Sync is expected but currently off (lapsed/disabled/past_due) — prompt to fix. */
   readonly needsAttention: boolean;
 }
@@ -273,6 +276,7 @@ export function resolveOrganizationBillingView(
     currentUserHasSyncSeat: billing.currentUserHasSyncSeat,
     syncSeatUnavailable: organizationCanSync && !billing.currentUserHasSyncSeat,
     pendingSeatCount: billing.pendingSeatCount,
+    subscriptionSource: billing.subscriptionSource,
     needsAttention: !isLocal && !canSync,
   };
 }
