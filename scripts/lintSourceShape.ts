@@ -99,66 +99,6 @@ function trackedFiles(): string[] {
     .sort();
 }
 
-function gitRefExists(ref: string): boolean {
-  try {
-    execFileSync("git", ["rev-parse", "--verify", ref], {
-      stdio: "ignore",
-    });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function resolveBaseRef(): string {
-  try {
-    return execFileSync(
-      "git",
-      ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
-      { encoding: "utf8" },
-    ).trim();
-  } catch {
-    // Fall through to CI/base-branch resolution below.
-  }
-
-  const { GITHUB_BASE_REF: githubBaseRef } = process.env;
-
-  if (githubBaseRef) {
-    const baseRef = `origin/${githubBaseRef}`;
-
-    if (!gitRefExists(baseRef)) {
-      try {
-        execFileSync(
-          "git",
-          [
-            "fetch",
-            "--depth=1",
-            "origin",
-            `${githubBaseRef}:refs/remotes/origin/${githubBaseRef}`,
-          ],
-          { stdio: "ignore" },
-        );
-      } catch {
-        // Fall through to the local fallback refs below.
-      }
-    }
-
-    if (gitRefExists(baseRef)) {
-      return baseRef;
-    }
-  }
-
-  if (gitRefExists("origin/main")) {
-    return "origin/main";
-  }
-
-  if (gitRefExists("main")) {
-    return "main";
-  }
-
-  throw new Error("cannot determine base branch for comparison");
-}
-
 function parseRange(args: readonly string[]): string | undefined {
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
@@ -193,22 +133,6 @@ function filesChangedIn(args: readonly string[]): string[] {
     return execFileSync(
       "git",
       ["diff", "--name-only", "--diff-filter=ACMRD", range],
-      { encoding: "utf8" },
-    )
-      .split("\n")
-      .filter((path) => path.length > 0)
-      .sort();
-  }
-
-  if (args.includes("--from-upstream")) {
-    return execFileSync(
-      "git",
-      [
-        "diff",
-        "--name-only",
-        "--diff-filter=ACMRD",
-        `${resolveBaseRef()}..HEAD`,
-      ],
       { encoding: "utf8" },
     )
       .split("\n")
@@ -489,13 +413,22 @@ function sourceShapeViolations(args: readonly string[]): Violation[] {
   return violations;
 }
 
-const rawArgs = process.argv.slice(2);
-const fileLimitsOnly = rawArgs.includes("--file-limits-only");
-const args = rawArgs.filter((arg) => arg !== "--file-limits-only");
+const args = process.argv.slice(2);
+const supportedArgs =
+  args.length === 0 ||
+  (args.length === 1 && args[0] === "--staged") ||
+  (args.length === 2 && args[0] === "--range" && Boolean(args[1])) ||
+  (args.length === 1 &&
+    Boolean(args[0]?.startsWith("--range=") && args[0].slice(8)));
+if (!supportedArgs) {
+  throw new Error(
+    "Usage: lintSourceShape.ts [--staged | --range <base>..<head>]",
+  );
+}
 
 const violations = [
   ...fileSizeViolations(args),
-  ...(fileLimitsOnly ? [] : sourceShapeViolations(args)),
+  ...sourceShapeViolations(args),
 ];
 
 if (violations.length > 0) {

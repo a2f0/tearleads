@@ -122,6 +122,7 @@ database has been destroyed by this cleanup.
 | Verify-without-persistence warming | Policy/checkpoint/lifecycle suites; all remaining callers formerly persisted | Remove the unreachable mode and callback/export plumbing |
 | Obsolete Loro encodings | Current binary exports, update/snapshot identity and provenance tests | Refuse outdated-update/outdated-snapshot before import mutation |
 | Blob byte-length header fallback | Streamed and native-buffered response tests; runtime/OpenAPI required-header assertions | Content-Length no longer substitutes for X-Tearleads-Blob-Byte-Length |
+| Old file-size checker entry point | Full, staged, and explicit-range source-shape checks; obsolete-flag refusal | Delete `lint:file-limits`, its forwarding shell wrapper, and its file-size-only/upstream modes |
 
 These candidates reduce branching without introducing replacement adapters.
 The containing commit can be reverted independently of prior issue PRs.
@@ -176,6 +177,12 @@ semantics, not a legacy compatibility branch.
 The extracted principal-rematerialization fixture retains its explicit policy
 owner. Required rekey principal heads, structured adapter methods, and atomic
 checkpoint read dependencies remain intact across the issue-branch integration.
+
+The tooling sweep found `checkFileLimits.sh`, reduced to a forwarding wrapper
+when source-shape checks replaced it in #883. Its only caller was the obsolete
+package-script alias. Current hooks use explicit source-shape ranges. Removed
+that wrapper/alias and its private modes; unsupported arguments now fail with
+usage instead of silently suppressing part of the check.
 
 - Integrate the completed issue PRs; regenerate final contracts and exact
   temporary OpenAPI exceptions; complete validation, review, and submission.
