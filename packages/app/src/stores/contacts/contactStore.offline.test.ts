@@ -225,12 +225,22 @@ test("offline self bootstrap retains synced duplicates without calling purge or 
   }
 });
 
-test("a confirmed duplicate purge retries local cleanup without purging its missing remote document", async () => {
+test.each([
+  false,
+  true,
+])("a confirmed purge retries local cleanup but preserves a recreated identity (%s)", async (recreate) => {
   const base = await createRecoveryContactsRuntime({
     signingFingerprint: "offline-self",
     userId: "self-user",
   });
   const localId = await seedDuplicates(base);
+  const original = await defaultDocumentsPersistence.loadDocument(
+    base.documents.infra.execSql,
+    localId,
+  );
+  if (!original) throw new Error("Missing duplicate fixture");
+  let recreated = false;
+  let reloads = 0;
   let purges = 0;
   let localDeletes = 0;
   const errors: string[] = [];
@@ -240,16 +250,23 @@ test("a confirmed duplicate purge retries local cleanup without purging its miss
       ...base.documents,
       state: { ...base.documents.state, online: true },
     },
-    loadDocumentSummary: async (id) =>
-      id === localId && purges === 0
+    // No incidental document-store notification may rescue the cleanup retry.
+    openDocumentStore: (input) => ({
+      ...base.openDocumentStore(input),
+      subscribe: () => () => {},
+    }),
+    loadDocumentSummary: async (id) => {
+      if (purges > 0) reloads += 1;
+      return id === localId && (purges === 0 || recreated)
         ? {
             id,
             containerId: CONTACTS_CONTAINER_ID,
-            documentId: "remote-fallback",
+            documentId: recreated ? "remote-replacement" : "remote-fallback",
             title: "self-user",
             updatedAt: "2026-09-05T00:00:00.000Z",
           }
-        : null,
+        : null;
+    },
     purgeDocument: async () => {
       purges += 1;
       // Model the purge workflow's durable removal before the app settles its cache.
@@ -287,8 +304,33 @@ test("a confirmed duplicate purge retries local cleanup without purging its miss
         localId,
       ),
     ).toBeNull();
+    if (recreate) {
+      await defaultDocumentsPersistence.saveDocument(
+        base.documents.infra.execSql,
+        { ...original, documentId: "remote-replacement" },
+      );
+      recreated = true;
+    }
+    const previousReloads = reloads;
     store.updateRuntime(base);
     store.updateRuntime(runtime);
+    if (recreate) {
+      await waitForCondition(
+        () => reloads > previousReloads,
+        "Cleanup retry did not recheck the replacement",
+      );
+      expect(localDeletes).toBe(1);
+      expect(
+        (
+          await defaultDocumentsPersistence.loadDocument(
+            base.documents.infra.execSql,
+            localId,
+          )
+        )?.documentId,
+      ).toBe("remote-replacement");
+      expect(purges).toBe(1);
+      return;
+    }
     await waitForCondition(
       () => !store.getSnapshot().entries.some((entry) => entry.id === localId),
       "Acknowledged purge did not finish its local cleanup",

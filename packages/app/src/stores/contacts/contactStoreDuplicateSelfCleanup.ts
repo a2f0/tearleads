@@ -50,6 +50,7 @@ async function deleteDuplicateSelfContact(input: {
       return "failed";
     }
 
+    let purgeAcknowledged = false;
     scheduleRemoteContactCleanup({
       current: guard,
       localId: entry.id,
@@ -63,15 +64,25 @@ async function deleteDuplicateSelfContact(input: {
           ?.store.getSnapshot().documentId;
         if (
           !guard() ||
-          !summary ||
-          summary.documentId !== remoteDocumentId ||
-          (trackedId && trackedId !== remoteDocumentId) ||
-          !currentRuntime.purgeDocument ||
-          !(await currentRuntime.purgeDocument(summary)) ||
-          !guard()
+          (summary
+            ? summary.documentId !== remoteDocumentId
+            : !purgeAcknowledged) ||
+          (trackedId && trackedId !== remoteDocumentId)
         ) {
           return false;
         }
+        if (!purgeAcknowledged) {
+          if (
+            !summary ||
+            !currentRuntime.purgeDocument ||
+            !(await currentRuntime.purgeDocument(summary))
+          )
+            return false;
+          // Purge removes the durable row. A local failure must retry settlement
+          // without requiring that row, while still rejecting a new identity.
+          purgeAcknowledged = true;
+        }
+        if (!guard()) return false;
         // Only local settlement joins the write queue. A queued edit gets its
         // turn first and the duplicate guard is rechecked before deletion.
         const deletion = state.writeChain
