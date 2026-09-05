@@ -15,10 +15,7 @@ async function prepareContainerParentLanePage(input: {
   state: RemoteContainerHydrationState;
 }) {
   const { lane, laneId, state } = input;
-  const syncLane = createContainerParentSyncLane(
-    lane.parentId,
-    state.runtime.auth?.organizationId ?? undefined,
-  );
+  const syncLane = createContainerParentSyncLane(lane.parentId);
   const watermark =
     lane.watermark === undefined
       ? await loadContainerSyncWatermark(state.runtime.infra.execSql, syncLane)

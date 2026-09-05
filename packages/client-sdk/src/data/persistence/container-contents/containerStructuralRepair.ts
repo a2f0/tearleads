@@ -284,12 +284,6 @@ export async function deleteLocalContainerRows(input: {
   tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
   const { containerId, tx } = input;
-  const [container] = await tx
-    .select({ organizationId: containers.organizationId })
-    .from(containers)
-    .where(eq(containers.id, containerId))
-    .limit(1);
-
   await tx
     .delete(containerCreateIntents)
     .where(eq(containerCreateIntents.containerId, containerId))
@@ -304,11 +298,5 @@ export async function deleteLocalContainerRows(input: {
     .run();
   await tx.delete(containers).where(eq(containers.id, containerId)).run();
   await deleteContainerMetadataDocumentRowsInTransaction(tx, [containerId]);
-  await deleteContainerWatermarksInTransaction(
-    tx,
-    [containerId],
-    container?.organizationId
-      ? new Map([[containerId, container.organizationId]])
-      : undefined,
-  );
+  await deleteContainerWatermarksInTransaction(tx, [containerId]);
 }

@@ -146,6 +146,13 @@ Organization grant revocation requires a live `stillCurrent` guard. The client
 facade binds it, and group rematerialization cascades, to the captured session,
 organization, signing identity, and database lifetime.
 
+Container listing cursors mirror the API's feeds: one `root` cursor lists all
+accessible organizations; `parent:<containerId>` and document lanes use the
+globally unique container ID, never the viewer's selected organization. Purging
+an organization clears that global root cursor and only its own child/document
+lanes. Reset local databases created with organization-prefixed cursors; no
+conversion or dual-read path is provided.
+
 `tearleads.network` defaults to automatic mode: browser events and API request
 results set `online`. Hosts can force diagnostics with `setMode("offline")` or
 `setMode("online")`, then resume detection with `setMode("automatic")`.

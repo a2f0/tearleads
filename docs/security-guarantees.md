@@ -344,6 +344,14 @@ history budget (`MAX_CONTAINER_HISTORY_DEPTH` in
 for ordinary mutations; it is not history compaction. The SDK
 skips signing at that boundary, and the API independently rejects it.
 
+Local listing cursors use one cross-organization root feed and globally unique
+container IDs for child/document feeds, matching the API's actual scope. An
+organization purge clears the global root cursor and its owned feeds, not feeds
+belonging to other organizations. Viewing a foreign shared container therefore
+cannot leave a cursor in the viewer's namespace after that container is removed.
+Existing organization-prefixed cursor databases require a local reset; this
+flag-day contract does not read or translate those keys.
+
 Every successful re-cite permanently adds one manifest to the descendant's
 history. Writer projections return and re-verify that chain, so repeated
 ancestor changes can increase per-read bytes and verification cost up to this

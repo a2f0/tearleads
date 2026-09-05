@@ -191,8 +191,19 @@ test(
     await waitForPrincipalRematerialization();
 
     await removeGroupMember(ownerPane, GROUP_NAME, peerUserId);
+    const readdRequestStart = listProxiedApiRequests().length;
     await addGroupMember(ownerPane, GROUP_NAME, peerUserId);
     await clickExplorerRefresh(peerPane);
+    expect(
+      listProxiedApiRequests()
+        .slice(readdRequestStart)
+        .some(
+          (request) =>
+            request.method === "POST" &&
+            request.url.endsWith("/recite") &&
+            request.status === 200,
+        ),
+    ).toBe(true);
     await waitForExplorerNoteVisible(peerPane, NOTE_TEXT, 20_000);
     await selectExplorerNoteByName(peerPane, NOTE_TEXT);
     await waitForSelectedNoteText(

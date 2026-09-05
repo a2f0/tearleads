@@ -48,8 +48,10 @@ The `sync` facade exposes read-only coordinator snapshots through
 those snapshots to show lane status, request/run/error counts, and last action
 timestamps without reaching into coordinator internals or owning sync policy.
 `clearRemoteSyncState(execSql, { organizationId })` clears only one
-organization's remote-derived rows and cursor lanes while retaining local Loro
-history for republish. A post-purge replacement supplies a fresh organization
+organization's remote-derived rows and child/document cursor lanes, plus the
+global cross-organization root-list cursor, while retaining local Loro history
+for republish. Cursor keys never include the viewer's selected organization.
+A post-purge replacement supplies a fresh organization
 and root through `replacement`; normal session consumers use
 `session.recoverPurgedOrganization(...)` after billing reaches `purged`. The
 method exposes the replacement organization and root-container ids through

@@ -23,13 +23,11 @@ const LANE_SELECT_BATCH_SIZE = 100;
 export type ContainerSyncWatermarkLane =
   | {
       kind: typeof CONTAINER_PARENT_LANE;
-      organizationId?: string | undefined;
       parentId: string | null;
     }
   | {
       kind: typeof CONTAINER_DOCUMENTS_LANE;
       containerId: string;
-      organizationId?: string | undefined;
     };
 
 interface SelectedContainerSyncWatermark {
@@ -59,20 +57,16 @@ interface ContainerSyncMarkerMutationOptions {
 
 export const containerParentSyncLane = (
   parentId: string | null,
-  organizationId?: string,
 ): ContainerSyncWatermarkLane => ({
   kind: CONTAINER_PARENT_LANE,
-  organizationId,
   parentId,
 });
 
 export const containerContentsSyncLane = (
   containerId: string,
-  organizationId?: string,
 ): ContainerSyncWatermarkLane => ({
   kind: CONTAINER_DOCUMENTS_LANE,
   containerId,
-  organizationId,
 });
 
 export function containerSyncWatermarkLaneKey(
@@ -85,21 +79,14 @@ export function containerSyncWatermarkLaneKey(
     case CONTAINER_PARENT_LANE:
       return {
         laneKind: lane.kind,
-        laneId: organizationLaneId(
-          lane.organizationId ?? "",
-          containerParentLaneId(lane.parentId),
-        ),
+        laneId: containerParentLaneId(lane.parentId),
       };
     case CONTAINER_DOCUMENTS_LANE:
       return {
         laneKind: lane.kind,
-        laneId: organizationLaneId(lane.organizationId ?? "", lane.containerId),
+        laneId: lane.containerId,
       };
   }
-}
-
-function organizationLaneId(organizationId: string, laneId: string): string {
-  return organizationId ? `${organizationId}:${laneId}` : laneId;
 }
 
 function containerParentLaneId(parentId: string | null): string {
@@ -116,25 +103,13 @@ function containerParentLaneId(parentId: string | null): string {
 export async function deleteContainerWatermarksInTransaction(
   tx: ClientSQLiteDatabase | ClientSQLiteTransactionScope,
   containerIds: ReadonlyArray<string>,
-  organizationIdByContainerId?: ReadonlyMap<string, string>,
 ): Promise<void> {
   const uniqueContainerIds = Array.from(new Set(containerIds));
   if (uniqueContainerIds.length === 0) {
     return;
   }
-  const parentLaneIds = uniqueContainerIds.flatMap((containerId) => {
-    const laneId = containerParentLaneId(containerId);
-    const organizationId = organizationIdByContainerId?.get(containerId);
-    return organizationId
-      ? [laneId, organizationLaneId(organizationId, laneId)]
-      : [laneId];
-  });
-  const documentLaneIds = uniqueContainerIds.flatMap((containerId) => {
-    const organizationId = organizationIdByContainerId?.get(containerId);
-    return organizationId
-      ? [containerId, organizationLaneId(organizationId, containerId)]
-      : [containerId];
-  });
+  const parentLaneIds = uniqueContainerIds.map(containerParentLaneId);
+  const documentLaneIds = uniqueContainerIds;
   await tx
     .delete(containerSyncWatermarks)
     .where(
@@ -425,7 +400,6 @@ export const sqlContainerSyncWatermarkPersistence = {
   async deleteWatermarksForContainers(
     execSql: ExecSql,
     containerIds: ReadonlyArray<string>,
-    organizationIdByContainerId?: ReadonlyMap<string, string>,
   ): Promise<void> {
     const uniqueContainerIds = Array.from(new Set(containerIds));
     if (uniqueContainerIds.length === 0) {
@@ -434,11 +408,7 @@ export const sqlContainerSyncWatermarkPersistence = {
 
     await sqlContainerSyncWatermarkPersistence.ensureSchema(execSql);
     await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-      await deleteContainerWatermarksInTransaction(
-        db,
-        uniqueContainerIds,
-        organizationIdByContainerId,
-      );
+      await deleteContainerWatermarksInTransaction(db, uniqueContainerIds);
     });
   },
 };

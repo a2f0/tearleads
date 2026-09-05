@@ -56,10 +56,7 @@ async function getStaleStartupRemoteHydrationParentIds(
 ): Promise<Array<string | null> | null> {
   const parentIds = [null, ...state.containersById.keys()];
   const syncLanes = parentIds.map((parentId) =>
-    createContainerParentSyncLane(
-      parentId,
-      state.runtime.auth.organizationId ?? undefined,
-    ),
+    createContainerParentSyncLane(parentId),
   );
   const checkRecords = await loadContainerSyncLaneCheckRecords(
     state.runtime.infra.execSql,

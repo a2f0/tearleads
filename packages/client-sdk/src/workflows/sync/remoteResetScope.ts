@@ -233,14 +233,12 @@ async function loadSnapshotCounts(input: {
       watermarks.filter((row) =>
         isRemoteResetSyncCursor({
           containerIds: scopedContainerIds,
-          organizationId,
           row,
         }),
       ).length +
       laneChecks.filter((row) =>
         isRemoteResetSyncCursor({
           containerIds: scopedContainerIds,
-          organizationId,
           row,
         }),
       ).length,
