@@ -69,9 +69,10 @@ serialized, guarded metadata writes preserve the rename and the grant, and the
 recipient eventually sees the new name. The caller still receives success for
 the verified grant when its local installation is superseded; runtime replacement
 and incomplete operations remain unsuccessful. A queued move overlapping a held
-autosave response retries its structural preflight automatically after settlement,
-completes link and unlink, and retains the edited text without another event,
-reconnect, or manual refresh.
+autosave response retries its structural preflight automatically after settlement
+when the document context stays unchanged. If the move changes that context, it
+completes before the abandoned response returns. Both cases complete link and
+unlink and retain the edit without another event, reconnect, or manual refresh.
 
 ## Scope of the offline contract
 

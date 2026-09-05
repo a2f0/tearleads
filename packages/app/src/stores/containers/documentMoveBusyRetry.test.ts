@@ -3,6 +3,7 @@ import {
   getOrCreateDomainSyncCoordinator,
   type SyncLaneConfig,
 } from "@tearleads/client-sdk";
+import type { ExecSql } from "@tearleads/client-sdk/sqlite";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { waitFor } from "@testing-library/react";
 import { createHeadlessApiClient } from "../../../test/helpers/headlessApiClient";
@@ -14,10 +15,29 @@ import {
 
 afterEach(resetMockServer);
 
-test("a queued move retries after a held autosave settles without an external trigger", async () => {
+test.each([
+  false,
+  true,
+])("a queued move recovers beside a held autosave (same context: %s)", async (sameContext) => {
   useTestApiAppHandlers();
   const db = await createTestExecSql("document-move-busy-retry");
-  const sdk = await createHeadlessApiClient(db.execSql, "move-busy-retry");
+  let replayPaused = sameContext;
+  const delayedDiscovery = new Proxy(db.execSql, {
+    apply: async (target, _receiver, args: Parameters<ExecSql>) => {
+      const rows = await target(...args);
+      // Keep the durable move undiscovered while its destination-scoped edit
+      // starts. The retry must then wake itself after that held edit settles.
+      return replayPaused &&
+        args[0].startsWith("select") &&
+        args[0].includes('from "document_move_intents"')
+        ? []
+        : rows;
+    },
+  });
+  const sdk = await createHeadlessApiClient(
+    delayedDiscovery,
+    "move-busy-retry",
+  );
   const coordinator = getOrCreateDomainSyncCoordinator(
     sdk.runtime.input().state.domainScope,
   );
@@ -49,6 +69,27 @@ test("a queued move retries after a held autosave settles without an external tr
     if (!documentId || !captured.config) {
       throw new Error("Document did not establish its sync lane");
     }
+    const queueMove = async () => {
+      const summary = (await sdk.documents.list())?.rows.find(
+        (row) => row.id === localId,
+      );
+      if (!summary) throw new Error("Saved note is missing");
+      const moved = await sdk.containerContents
+        .documentLinks()
+        .moveDocumentToContainer({
+          expandNode: () => undefined,
+          mergeDocumentSummary: () => undefined,
+          note: summary,
+          setLinkedContainerIdsForDocument: () => undefined,
+          sourceContainerId: rootId,
+          targetContainerId: target.id,
+        });
+      expect(moved.note?.containerId).toBe(target.id);
+    };
+    if (sameContext) {
+      await queueMove();
+      expect(await coordinator.waitForIdle({ timeoutMs: 10_000 })).toBe(true);
+    }
     registerLane(laneKey, { ...captured.config, watchdogMs: 20 });
     globalThis.fetch = (async (input, init) => {
       const response = await previousFetch(input, init);
@@ -69,44 +110,41 @@ test("a queued move retries after a held autosave settles without an external tr
       ).toBe(true),
     );
     registerLane(laneKey, captured.config);
-    const summary = (await sdk.documents.list())?.rows.find(
-      (row) => row.id === localId,
-    );
-    if (!summary) throw new Error("Saved note is missing");
-    const moved = await sdk.containerContents
-      .documentLinks()
-      .moveDocumentToContainer({
-        expandNode: () => undefined,
-        mergeDocumentSummary: () => undefined,
-        note: summary,
-        setLinkedContainerIdsForDocument: () => undefined,
-        sourceContainerId: rootId,
-        targetContainerId: target.id,
+    if (sameContext) {
+      replayPaused = false;
+      tree.requestSync();
+    } else {
+      await queueMove();
+    }
+    if (sameContext) {
+      await waitFor(async () => {
+        const rows = await db.execSql(
+          'select "last_error" from "document_move_intents" where "document_id" = ?',
+          [documentId],
+        );
+        expect(rows).toEqual([
+          {
+            last_error:
+              "Failed to sync document move: Document remote work is still running; retry the operation",
+          },
+        ]);
       });
-    expect(moved.note?.containerId).toBe(target.id);
-    await waitFor(async () => {
-      const rows = await db.execSql(
-        'select "last_error" from "document_move_intents" where "document_id" = ?',
-        [documentId],
+    }
+    const waitForMove = () =>
+      waitFor(
+        async () =>
+          expect(
+            await db.execSql(
+              'select "id" from "document_move_intents" where "document_id" = ?',
+              [documentId],
+            ),
+          ).toEqual([]),
+        { timeout: 15_000 },
       );
-      expect(rows).toEqual([
-        {
-          last_error:
-            "Failed to sync document move: Document remote work is still running; retry the operation",
-        },
-      ]);
-    });
+    if (!sameContext) await waitForMove();
     release.resolve();
-    await waitFor(
-      async () =>
-        expect(
-          await db.execSql(
-            'select "id" from "document_move_intents" where "document_id" = ?',
-            [documentId],
-          ),
-        ).toEqual([]),
-      { timeout: 15_000 },
-    );
+    await waitForMove();
+    expect(await coordinator.waitForIdle({ timeoutMs: 10_000 })).toBe(true);
     expect(note.getSnapshot().text).toBe("Edited during move");
     const mutations = listProxiedApiRequests()
       .filter(
@@ -123,6 +161,7 @@ test("a queued move retries after a held autosave settles without an external tr
         ?.containerId,
     ).toBe(target.id);
   } finally {
+    replayPaused = false;
     release.resolve();
     globalThis.fetch = previousFetch;
     coordinator.registerLane = registerLane;
