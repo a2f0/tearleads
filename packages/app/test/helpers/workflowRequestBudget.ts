@@ -51,7 +51,10 @@ export async function measureWorkflowRequests(input: {
       matches,
       `${input.label}: ${mutation.method} ${mutation.path}`,
     ).toHaveLength(mutation.count);
-    expect(matches.every((request) => request.status === 200)).toBe(true);
+    expect(
+      matches.every((request) => request.status === 200),
+      `${input.label}: ${mutation.method} ${mutation.path} statuses=${matches.map((request) => request.status).join(",")}`,
+    ).toBe(true);
   }
   return requests;
 }

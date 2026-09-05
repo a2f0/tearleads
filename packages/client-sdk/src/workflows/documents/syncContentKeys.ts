@@ -235,7 +235,9 @@ function assertBundleMatchesUpdateHeaders(input: {
           header.targetHash !== input.bundle.targetHash))
     ) {
       throw new Error(
-        "Document sync response content-key bundle does not match its update headers",
+        input.requireOriginalTargets
+          ? "Document sync response content key is unavailable and its bundle differs from the original update headers"
+          : "Document sync response content-key bundle does not match its update headers",
       );
     }
   }

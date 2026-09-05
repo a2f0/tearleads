@@ -1,3 +1,4 @@
+import type { DocumentSummary } from "../data/documents/documentSummary";
 import type { ContainerContentsStore } from "../stores/container-contents";
 import { discoverContainerDocumentsFromApi } from "../workflows/container-contents/documentDiscovery";
 import { createContainerDocumentQueriesFromRuntime } from "../workflows/container-contents/documentQueries";
@@ -16,7 +17,7 @@ export function discoverContainerDocumentsForRuntime({
   getContainerStore: () => ContainerContentsStore;
   onFullListing?: ((documentIds: ReadonlyArray<string>) => void) | undefined;
   runtimeService: InternalRuntime;
-}) {
+}): Promise<ReadonlyArray<DocumentSummary> | null> {
   const input = runtimeService.workflowInput();
   if (input.infra.dbStatus !== "ready") {
     return Promise.resolve(null);

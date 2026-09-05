@@ -71,7 +71,9 @@ writer/history authorization and authenticated ciphertext/plaintext validation.
 Document identity, content epoch, canonical target hashes and consistent key
 unwraps remain checked. An unavailable key still must match the original signed
 target commitments before being classified as missing history; forged unavailable
-targets remain integrity failures. Ordinary and raw-history decryption tests,
+targets remain integrity failures. A substituted key that unwraps but cannot
+authenticate the record is isolated at `decrypt` instead of `content_key`.
+Ordinary and raw-history decryption tests,
 existing tampering/isolation tests, and the real application link/unlink/Trash
 sequence cover this distinction.
 

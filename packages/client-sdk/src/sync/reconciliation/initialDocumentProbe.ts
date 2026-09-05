@@ -373,6 +373,8 @@ export function createInitialDocumentProbe(
   return {
     arm: (eligibleContainerIds) => armProbe(state, eligibleContainerIds),
     captureListing: (containerId) => {
+      // Early active-container discovery may precede arming; a later probe
+      // deliberately re-reads when it cannot reuse this session's listing.
       const generation = state.generation;
       return (documentIds) => {
         if (

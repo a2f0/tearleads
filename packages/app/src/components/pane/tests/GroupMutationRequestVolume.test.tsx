@@ -62,7 +62,9 @@ test("group creation and adding a peer have separate request budgets", async () 
           () => {
             expect(input.value).toBe("");
             expect(
-              pane.querySelector(`strong[title="${peerId}"]`) !== null,
+              Array.from(pane.querySelectorAll("strong")).some(
+                (element) => element.getAttribute("title") === peerId,
+              ),
             ).toBe(true);
           },
           { timeout: 15_000 },
