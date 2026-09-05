@@ -122,28 +122,43 @@ function BackupExportPanel({
         void model.handleExportBackup();
       }}
     >
-      <MiniAppField>
-        <span>Password</span>
-        <MiniAppInput
-          autoComplete="new-password"
+      <label className="backup-restore-password-option">
+        <input
+          checked={model.backupWithoutPassword}
           disabled={busy}
-          type="password"
-          value={model.backupPassword}
-          onChange={(event) => model.setBackupPassword(event.target.value)}
-        />
-      </MiniAppField>
-      <MiniAppField>
-        <span>Confirm Password</span>
-        <MiniAppInput
-          autoComplete="new-password"
-          disabled={busy}
-          type="password"
-          value={model.confirmBackupPassword}
+          type="checkbox"
           onChange={(event) =>
-            model.setConfirmBackupPassword(event.target.value)
+            model.setBackupWithoutPassword(event.target.checked)
           }
         />
-      </MiniAppField>
+        <span>Back up without a password</span>
+      </label>
+      {!model.backupWithoutPassword && (
+        <>
+          <MiniAppField>
+            <span>Password</span>
+            <MiniAppInput
+              autoComplete="new-password"
+              disabled={busy}
+              type="password"
+              value={model.backupPassword}
+              onChange={(event) => model.setBackupPassword(event.target.value)}
+            />
+          </MiniAppField>
+          <MiniAppField>
+            <span>Confirm Password</span>
+            <MiniAppInput
+              autoComplete="new-password"
+              disabled={busy}
+              type="password"
+              value={model.confirmBackupPassword}
+              onChange={(event) =>
+                model.setConfirmBackupPassword(event.target.value)
+              }
+            />
+          </MiniAppField>
+        </>
+      )}
       <MiniAppButton
         block
         className="backup-restore-action-button"
@@ -189,16 +204,18 @@ function BackupRestorePanel({
       <MiniAppStatus>
         {model.selectedRestoreFileName ?? "No backup file selected."}
       </MiniAppStatus>
-      <MiniAppField>
-        <span>Password</span>
-        <MiniAppInput
-          autoComplete="current-password"
-          disabled={busy}
-          type="password"
-          value={model.restorePassword}
-          onChange={(event) => model.setRestorePassword(event.target.value)}
-        />
-      </MiniAppField>
+      {model.restoreRequiresPassword && (
+        <MiniAppField>
+          <span>Password</span>
+          <MiniAppInput
+            autoComplete="current-password"
+            disabled={busy}
+            type="password"
+            value={model.restorePassword}
+            onChange={(event) => model.setRestorePassword(event.target.value)}
+          />
+        </MiniAppField>
+      )}
       <MiniAppButton
         block
         className="backup-restore-action-button"

@@ -8,6 +8,7 @@ import {
 } from "./localBackupData";
 import {
   type BackupSummary,
+  backupFileRequiresPassword,
   createBackupFileName,
   decodeBackupFile,
   encodeBackupFile,
@@ -15,10 +16,11 @@ import {
 
 export type { BackupProgress } from "./localBackupData";
 export type { BackupSummary } from "./localBackupFormat";
+export { backupFileRequiresPassword } from "./localBackupFormat";
 
 interface LocalBackupOperationInput {
   readonly onProgress?: ((progress: BackupProgress) => void) | undefined;
-  readonly password: string;
+  readonly password?: string | undefined;
 }
 
 interface ExportLocalBackupInput extends LocalBackupOperationInput {}
@@ -61,7 +63,9 @@ export function useLocalBackupOperations() {
         onProgress,
         signingFingerprint: runtime.signingFingerprint,
       });
-      onProgress?.({ current: 0, phase: "encrypting", total: 1 });
+      if (password) {
+        onProgress?.({ current: 0, phase: "encrypting", total: 1 });
+      }
 
       return {
         fileName: createBackupFileName(payload),
@@ -78,7 +82,11 @@ export function useLocalBackupOperations() {
       password,
       text,
     }: RestoreLocalBackupInput): Promise<BackupSummary> => {
-      onProgress?.({ current: 0, phase: "decrypting", total: 1 });
+      onProgress?.({
+        current: 0,
+        phase: backupFileRequiresPassword(text) ? "decrypting" : "preparing",
+        total: 1,
+      });
       const payload = await decodeBackupFile({ password, text });
       const runtime = await resolveRuntime();
 

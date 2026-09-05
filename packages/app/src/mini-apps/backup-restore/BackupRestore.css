@@ -39,6 +39,14 @@
   min-width: 0;
 }
 
+.backup-restore-password-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: var(--control-height);
+  font-size: var(--font-size-sm);
+}
+
 /* Chrome comes from the shared MiniAppButton (withIcon lays out the icon+label
    row); only per-surface deltas here. */
 .backup-restore-inline-action {
