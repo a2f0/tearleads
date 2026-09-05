@@ -28,7 +28,8 @@ _stripe_env_prefix_error() {
 validate_stripe_env() {
   local tier="$1"
   local mode
-  local server_key_prefix
+  local status=0
+  local xtrace_was_enabled=0
 
   case "$tier" in
     staging) mode="test" ;;
@@ -38,6 +39,24 @@ validate_stripe_env() {
       return 1
       ;;
   esac
+
+  # Every branch below reads a secret. Under `bash -x` the trace would print
+  # the value, so tracing is suspended for the comparison and restored after.
+  if [[ "$-" == *x* ]]; then
+    xtrace_was_enabled=1
+    set +x
+  fi
+  _validate_stripe_env_untraced "$tier" "$mode" || status=$?
+  if [[ "$xtrace_was_enabled" -eq 1 ]]; then
+    set -x
+  fi
+  return "$status"
+}
+
+_validate_stripe_env_untraced() {
+  local tier="$1"
+  local mode="$2"
+  local server_key_prefix
 
   # A full secret key or a restricted key both authenticate the API; either
   # must carry the tier's mode.

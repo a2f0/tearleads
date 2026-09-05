@@ -197,6 +197,37 @@ assert_stripe_env_guard() {
     return 1
   fi
 
+  # A deploy run under `bash -x` must not print the secrets it validates, in
+  # either the accepting or the rejecting branch. The environment is set up
+  # before tracing starts so only the guard's own execution is traced.
+  local sentinel="SENTINEL_STRIPE_VALUE_MUST_NOT_LEAK"
+  local server_key
+  local traced_output
+  for server_key in "sk_test_$sentinel" "sk_live_$sentinel"; do
+    # shellcheck disable=SC2016 # the inner script reads its own positionals
+    traced_output="$(
+      env -i bash -c '
+        set -euo pipefail
+        # shellcheck disable=SC1090
+        . "$1"
+        export STRIPE_WEBHOOK_SECRET="whsec_$2"
+        export STRIPE_SYNC_SOLO_PRICE_ID="price_$2"
+        export STRIPE_SYNC_TEAM_5_PRICE_ID="price_$2"
+        export STRIPE_SYNC_TEAM_10_PRICE_ID="price_$2"
+        export STRIPE_SECRET_KEY="$3"
+        export BUN_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_test_$2"
+        set -x
+        validate_stripe_env staging || true
+        [[ "$-" == *x* ]] || echo "xtrace was not restored"
+      ' bash "$guard" "$sentinel" "$server_key" 2>&1
+    )"
+    if printf '%s' "$traced_output" | grep -Fq "$sentinel" ||
+      printf '%s' "$traced_output" | grep -Fq "xtrace was not restored"; then
+      echo "ERROR: validate_stripe_env must suspend xtrace while it reads Stripe secrets and restore it afterwards." >&2
+      return 1
+    fi
+  done
+
   for file in \
     "$REPO_ROOT/scripts/deployStaging.sh" \
     "$REPO_ROOT/scripts/deployProduction.sh" \
