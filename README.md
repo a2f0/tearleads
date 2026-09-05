@@ -43,6 +43,13 @@ current state bucket, provision the intended tier, and run its full Ansible
 deployment. Current Tearleads resources with current state remain maintainable;
 this does not require recreating them on every deploy.
 
+Production retirement is still open as of the 2026-09-05 audit: its live
+resources remain owned by `symcrypt-terraform-state`, while the production
+server state in `tearleads-terraform-state` is empty. Do not use that empty
+state to provision over the existing resources or deploy onto the unverified
+production host. Retire them using their owning state before fresh provisioning;
+remove this notice only after that retirement is verified.
+
 ## Running Tests
 
 ```sh
