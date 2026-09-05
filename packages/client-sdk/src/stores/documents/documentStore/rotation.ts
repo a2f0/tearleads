@@ -12,19 +12,23 @@ import { requestDocumentStoreSync } from "../registry";
 import { installRebuiltDocument } from "./historyRebuild";
 import { chainIdentityWrite } from "./identityWriteChain";
 import { listPendingUpdates } from "./persistence";
+import { runDocumentRemoteWork } from "./remoteWork";
 import {
   assertExactDocumentHistory,
   importProvenOrdinaryPendingHistory,
 } from "./rotationProvenance";
 import {
   invalidatePullContinuationBeforeRotation,
+  RotationPendingUpdatesChangedError,
   settleOrdinaryDocumentUpdatesBeforeRotation,
 } from "./rotationSettlement";
 import type { DocumentState, DocumentStoreState } from "./state";
 import { createStoredDocument } from "./storedDocument";
 import {
-  captureDocumentStoreSyncGeneration,
+  captureDocumentStoreAttachmentSyncGeneration,
+  captureDocumentStoreSyncLaneGeneration,
   type DocumentStoreSyncGeneration,
+  type DocumentStoreSyncLaneGeneration,
   isDocumentStoreSyncGenerationCurrent,
 } from "./syncGeneration";
 import { deleteUpstreamDeletedDocument } from "./syncRequest";
@@ -225,6 +229,8 @@ async function collectVerifiedRawHistoryForRotation(input: {
   }
 }
 
+class RotationDocumentChangedError extends Error {}
+
 function assertCapturedDocumentCurrent(input: {
   capturedVersion: string;
   currentDocument: DocumentState;
@@ -238,7 +244,7 @@ function assertCapturedDocumentCurrent(input: {
       input.capturedVersion,
     )
   ) {
-    throw new Error(
+    throw new RotationDocumentChangedError(
       "Document changed during rotation recovery; retry key rotation",
     );
   }
@@ -253,8 +259,50 @@ function currentRotationRecoveryRecord(
   );
 }
 
+function installRotationRecovery(input: {
+  capturedVersion: string;
+  collection: Awaited<ReturnType<typeof collectVerifiedRawHistoryForRotation>>;
+  currentDoc: DocumentState;
+  generation: DocumentStoreSyncGeneration;
+  state: DocumentStoreState;
+}) {
+  const { capturedVersion, collection, currentDoc, generation, state } = input;
+  const installation = state.writeChain
+    .catch(() => undefined)
+    .then(() =>
+      chainIdentityWrite(state, async () => {
+        assertCapturedDocumentCurrent({
+          capturedVersion,
+          currentDocument: currentDoc,
+          generation,
+          state,
+        });
+        assertExactDocumentHistory({
+          currentDocument: currentDoc,
+          rebuiltDocument: collection.rebuiltDocument,
+        });
+        return installRebuiltDocument({
+          consumedPullContinuation: collection.consumedPullContinuation,
+          currentRecord: collection.currentRecord,
+          generation,
+          rebuiltDoc: collection.rebuiltDocument,
+          state,
+          synced: collection.synced,
+        });
+      }),
+    );
+  // Only the checked local install occupies the write queue. Network recovery
+  // uses the remote queue, so an outage cannot hold new edits hostage.
+  state.writeChain = installation.then(
+    () => undefined,
+    () => undefined,
+  );
+  return installation;
+}
+
 async function recoverFullHistoryForRotation(
   state: DocumentStoreState,
+  laneGeneration: DocumentStoreSyncLaneGeneration,
 ): Promise<Uint8Array> {
   assertRotationRecoveryPrerequisites(state);
   await invalidatePullContinuationBeforeRotation(state);
@@ -268,7 +316,11 @@ async function recoverFullHistoryForRotation(
   // The teardown guard for the recovery's terminal-failure handler: captured
   // before the pull so a discard (row 21) racing this preflight invalidates
   // it, and the stale handler cannot resurrect a deleted failure row.
-  const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
+  const generation = captureDocumentStoreAttachmentSyncGeneration(
+    state,
+    currentDoc,
+    laneGeneration,
+  );
   if (!generation) {
     throw new Error(
       "Document changed during rotation recovery; retry key rotation",
@@ -297,7 +349,12 @@ async function recoverFullHistoryForRotation(
       state,
     });
     const pendingUpdates = await listPendingUpdates(state);
-    assertRotationRecoveryGeneration({ generation, state });
+    assertCapturedDocumentCurrent({
+      capturedVersion,
+      currentDocument: currentDoc,
+      generation,
+      state,
+    });
     const verifiedOrdinaryVersion = importProvenOrdinaryPendingHistory({
       currentDocument: currentDoc,
       pendingUpdates,
@@ -311,6 +368,7 @@ async function recoverFullHistoryForRotation(
         state,
         verifiedOrdinaryVersion,
         pendingUpdates,
+        generation,
       );
       assertCapturedDocumentCurrent({
         capturedVersion,
@@ -326,25 +384,12 @@ async function recoverFullHistoryForRotation(
       collection.rebuiltDocument.free();
       collection = definitiveCollection;
     }
-    const installed = await chainIdentityWrite(state, async () => {
-      assertCapturedDocumentCurrent({
-        capturedVersion,
-        currentDocument: currentDoc,
-        generation,
-        state,
-      });
-      assertExactDocumentHistory({
-        currentDocument: currentDoc,
-        rebuiltDocument: collection.rebuiltDocument,
-      });
-      return installRebuiltDocument({
-        consumedPullContinuation: collection.consumedPullContinuation,
-        currentRecord: collection.currentRecord,
-        generation,
-        rebuiltDoc: collection.rebuiltDocument,
-        state,
-        synced: collection.synced,
-      });
+    const installed = await installRotationRecovery({
+      capturedVersion,
+      collection,
+      currentDoc,
+      generation,
+      state,
     });
     settlementRequiresRetry = installed.settlementRequiresRetry;
     if (settlementRequiresRetry) {
@@ -364,22 +409,47 @@ async function recoverFullHistoryForRotation(
 }
 
 /**
- * Serialize rotation recovery behind local writes. New writes enqueue behind
- * this promise, so the reconstructed document is installed before they mutate
- * it. This is a preflight, not an atomic link-set/rotation transaction.
+ * Wait for prior local writes and serialize with other remote work. Edits can
+ * continue during the pull; the checked install rejects a changed document so
+ * a stale recovery cannot replace them. This preflight can then be retried.
  */
 export function assertDocumentStoreCanRotateContentKey(
   state: DocumentStoreState,
 ): Promise<Uint8Array> {
-  const recovery = state.writeChain
-    .catch(() => undefined)
-    .then(() => recoverFullHistoryForRotation(state));
-  // The returned promise reports the preflight failure to its caller. Keep the
-  // internal serialization tail fulfilled so the same rejection is not also
-  // emitted as an unhandled promise and later writes/rotation retries can run.
-  state.writeChain = recovery.then(
-    () => undefined,
-    () => undefined,
+  const laneGeneration = captureDocumentStoreSyncLaneGeneration(state);
+  const generation = captureDocumentStoreAttachmentSyncGeneration(
+    state,
+    state.doc,
+    laneGeneration,
   );
-  return recovery;
+  return runDocumentRemoteWork(state, async () => {
+    await state.writeChain.catch(() => undefined);
+    if (
+      !generation ||
+      !isDocumentStoreSyncGenerationCurrent(state, generation)
+    ) {
+      throw new Error(
+        "Document changed before rotation recovery; retry key rotation",
+      );
+    }
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        return await recoverFullHistoryForRotation(state, laneGeneration);
+      } catch (error) {
+        // Autosaves and conflict re-keying can invalidate the proven frontier.
+        // Repeat the complete proof without blocking new local edits; repeated
+        // changes remain bounded and leave the durable queue retryable.
+        if (
+          !(
+            error instanceof RotationPendingUpdatesChangedError ||
+            error instanceof RotationDocumentChangedError
+          ) ||
+          attempt >= 2 ||
+          !isDocumentStoreSyncGenerationCurrent(state, generation)
+        ) {
+          throw error;
+        }
+      }
+    }
+  });
 }

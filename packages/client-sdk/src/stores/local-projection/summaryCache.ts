@@ -38,10 +38,17 @@ function setSummariesForContainer(
 function mergeLinks(
   cache: SummaryCache,
   links: ReadonlyMap<string, ReadonlyArray<string>>,
-): void {
+): boolean {
+  let changed = false;
   for (const [documentId, containerIds] of links) {
+    const previous = cache.linkedContainerIdsByDocumentId.get(documentId);
+    changed ||=
+      !previous ||
+      previous.length !== containerIds.length ||
+      previous.some((id, index) => id !== containerIds[index]);
     cache.linkedContainerIdsByDocumentId.set(documentId, containerIds);
   }
+  return changed;
 }
 
 /**
@@ -60,12 +67,13 @@ export function applyContainerSummaries(
   },
 ): boolean {
   const previous = cache.summariesByContainerId.get(input.containerId);
-  const changed =
+  let changed =
     !previous || !areSummaryListsEqual(previous, input.documentSummaries);
 
   setSummariesForContainer(cache, input.containerId, input.documentSummaries);
   if (input.linkedContainerIdsByDocumentId) {
-    mergeLinks(cache, input.linkedContainerIdsByDocumentId);
+    changed =
+      mergeLinks(cache, input.linkedContainerIdsByDocumentId) || changed;
   }
 
   return changed;
@@ -117,6 +125,9 @@ function areSummaryListsEqual(
       leftSummary.id === rightSummary.id &&
       leftSummary.documentId === rightSummary.documentId &&
       leftSummary.containerId === rightSummary.containerId &&
+      leftSummary.documentKind === rightSummary.documentKind &&
+      leftSummary.createdAt === rightSummary.createdAt &&
+      leftSummary.effectiveAccessLevel === rightSummary.effectiveAccessLevel &&
       leftSummary.title === rightSummary.title &&
       leftSummary.updatedAt === rightSummary.updatedAt &&
       leftSummary.accessStateHash === rightSummary.accessStateHash

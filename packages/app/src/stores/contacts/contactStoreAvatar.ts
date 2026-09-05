@@ -5,6 +5,7 @@ import type {
 import { CONTACT_AVATAR_SLOT_ID } from "../../document-types/contact/contactAvatarSlot";
 import { ensureContactDocumentStore } from "./contactStoreInitialization";
 import { contactEntryFromDocumentStore } from "./contactStoreLookup";
+import { resolveContactWriteTarget } from "./contactStoreRemoteCleanup";
 import { upsertContactEntry } from "./contactStoreSnapshotMutations";
 import type { ContactsStoreState } from "./contactStoreTypes";
 import {
@@ -23,11 +24,13 @@ async function mutateContactAvatarFromRuntime(
   mutateAvatar: (store: DocumentStore) => void,
   errorMessage: string,
 ): Promise<void> {
+  contactId = resolveContactWriteTarget(state, contactId);
   if (!(await contactsRuntimeWritable(state, contactId))) {
     return;
   }
 
   await queueContactWrite(state, errorMessage, () => {
+    contactId = resolveContactWriteTarget(state, contactId);
     const store = ensureContactDocumentStore(state, contactId);
     const snapshot = store.getSnapshot();
     if (snapshot.ready && !snapshot.canWrite) {

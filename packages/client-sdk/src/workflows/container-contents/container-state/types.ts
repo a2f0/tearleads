@@ -106,6 +106,7 @@ export interface SharedContainerState {
 
 export type SharedContainerStateResult =
   | { status: "missing" }
+  | { status: "confirmed" }
   | (SharedContainerState & {
       status: "identity-superseded" | "persisted";
     });

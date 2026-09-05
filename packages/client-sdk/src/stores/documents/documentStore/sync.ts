@@ -12,6 +12,10 @@ import { awaitInitializationForSync } from "./initialization";
 import { listPendingUpdates } from "./persistence";
 import { logRevalidationUnavailable as logUnavailable } from "./remoteRevalidationTelemetry";
 import {
+  getActiveDocumentRemoteWork,
+  runDocumentRemoteWork,
+} from "./remoteWork";
+import {
   type DocumentState,
   type DocumentStoreState,
   type DocumentSyncAttempt,
@@ -439,9 +443,25 @@ export function registerDocumentStoreSyncLane(
     localId: state.localId,
     run: () => {
       const syncLaneGeneration = getSyncLaneGeneration();
-      return syncLaneGeneration
-        ? runScheduledSyncLoop(state, syncLaneGeneration)
-        : Promise.resolve();
+      if (!syncLaneGeneration) return Promise.resolve();
+      const activeWork = getActiveDocumentRemoteWork(state);
+      if (activeWork) {
+        // Re-arm on settlement, not immediately: immediate re-requests would
+        // spin this lane and starve other work while the HTTP request is held.
+        void activeWork.then(() => {
+          if (
+            isDocumentStoreSyncLaneGenerationCurrent(state, syncLaneGeneration)
+          ) {
+            requestDocumentStoreSync(state);
+          }
+        });
+        return Promise.resolve();
+      }
+      return runDocumentRemoteWork(state, () =>
+        isDocumentStoreSyncLaneGenerationCurrent(state, syncLaneGeneration)
+          ? runScheduledSyncLoop(state, syncLaneGeneration)
+          : Promise.resolve(),
+      );
     },
   });
 }

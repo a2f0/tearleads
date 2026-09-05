@@ -1,4 +1,8 @@
 import type { ContactEntry } from "../../document-types/contact/contactDocumentModel";
+import {
+  resolveContactWriteTarget,
+  scheduleRemoteContactCleanup,
+} from "./contactStoreRemoteCleanup";
 import { removeContactEntry } from "./contactStoreSnapshotMutations";
 import type { ContactsStoreState } from "./contactStoreTypes";
 import {
@@ -8,11 +12,16 @@ import {
 
 export type ContactStoreOperationGuard = () => boolean;
 
-type DuplicateSelfContactRemovalResult = "deleted" | "failed" | "stale";
+type DuplicateSelfContactRemovalResult =
+  | "deleted"
+  | "deferred"
+  | "failed"
+  | "stale";
 
 async function deleteDuplicateSelfContact(input: {
   entry: ContactEntry;
   guard: ContactStoreOperationGuard;
+  primaryContactId: string;
   state: ContactsStoreState;
 }): Promise<DuplicateSelfContactRemovalResult> {
   const { entry, guard, state } = input;
@@ -44,17 +53,73 @@ async function deleteDuplicateSelfContact(input: {
       return "failed";
     }
 
-    const purged = await runtime.purgeDocument(loadedDocument);
-    if (!guard()) {
-      return "stale";
-    }
-    if (!purged) {
-      state.dependencies.logError(
-        `Contacts: failed to purge duplicate self contact ${entry.id}.`,
-      );
-      return "failed";
-    }
+    let purgeAcknowledged = false;
+    scheduleRemoteContactCleanup({
+      current: guard,
+      localId: entry.id,
+      replacementLocalId: input.primaryContactId,
+      state,
+      run: async () => {
+        const currentRuntime = state.runtime;
+        const summary = await currentRuntime.loadDocumentSummary(entry.id);
+        const trackedId = state.contactDocumentStoresById
+          .get(entry.id)
+          ?.store.getSnapshot().documentId;
+        if (
+          !guard() ||
+          (summary
+            ? summary.documentId !== remoteDocumentId
+            : !purgeAcknowledged) ||
+          (trackedId && trackedId !== remoteDocumentId)
+        ) {
+          return false;
+        }
+        if (!purgeAcknowledged) {
+          if (
+            !summary ||
+            !currentRuntime.purgeDocument ||
+            !(await currentRuntime.purgeDocument(summary))
+          )
+            return false;
+          // Purge removes the durable row. A local failure must retry settlement
+          // without requiring that row, while still rejecting a new identity.
+          purgeAcknowledged = true;
+        }
+        if (!guard()) return false;
+        // Only local settlement joins the write queue. A queued edit gets its
+        // turn first and the duplicate guard is rechecked before deletion.
+        const deletion = state.writeChain
+          .catch(() => undefined)
+          .then(
+            async () =>
+              guard() &&
+              (await deleteLocalDuplicateSelfContact({
+                entry,
+                guard,
+                state,
+              })) === "deleted",
+          );
+        state.writeChain = deletion.then(
+          () => undefined,
+          () => undefined,
+        );
+        return deletion;
+      },
+    });
+    return "deferred";
   }
+
+  return deleteLocalDuplicateSelfContact(input);
+}
+
+async function deleteLocalDuplicateSelfContact(input: {
+  entry: ContactEntry;
+  guard: ContactStoreOperationGuard;
+  state: ContactsStoreState;
+}): Promise<DuplicateSelfContactRemovalResult> {
+  const { entry, guard, state } = input;
+  const runtime = state.runtime;
+  const trackedStore = state.contactDocumentStoresById.get(entry.id);
 
   // A successful remote purge already removed the SQLite row. This second,
   // idempotent local delete also publishes the private projection-cache
@@ -83,6 +148,10 @@ export async function removeDuplicateSelfContacts(
   identity: ResolvedSelfContactIdentity,
   guard: ContactStoreOperationGuard,
 ): Promise<void> {
+  primaryContactId = resolveContactWriteTarget(state, primaryContactId);
+  const generation = state.initializationGeneration;
+  const userId = state.runtime.documents.auth.userId;
+  const signingFingerprint = state.runtime.documents.crypto.signingFingerprint;
   for (const entry of state.entriesById.values()) {
     if (!guard()) {
       return;
@@ -92,7 +161,23 @@ export async function removeDuplicateSelfContacts(
     }
     const removalResult = await deleteDuplicateSelfContact({
       entry,
-      guard,
+      primaryContactId,
+      guard: () => {
+        const currentEntry = state.entriesById.get(entry.id);
+        return (
+          guard() &&
+          state.initializationGeneration === generation &&
+          state.runtime.documents.auth.userId === userId &&
+          state.runtime.documents.crypto.signingFingerprint ===
+            signingFingerprint &&
+          currentEntry !== undefined &&
+          shouldRemoveDuplicateSelfContact(
+            currentEntry,
+            primaryContactId,
+            identity,
+          )
+        );
+      },
       state,
     });
     if (removalResult === "stale") {

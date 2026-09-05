@@ -10,24 +10,25 @@ import {
   installDetachedContainerMetadataState,
 } from "../../workflows/container-contents/metadataStateIsolation";
 import { persistContainerState } from "./containerStatePersistence";
+import { updateExistingSystemContainer } from "./existingSystemContainer";
 import { getContainerContentsStoreLogLabel } from "./logLabel";
 import { removeMissingContainerState } from "./missingContainerState";
+import {
+  invalidateRemoteContainerWrites,
+  invalidateRemoteSystemContainerWrite,
+} from "./remoteWriteGuards";
 import { updateContainerContentsSnapshot } from "./state";
 import type {
   ContainerContentsStoreSyncAgent,
   ContainerState,
 } from "./syncAgent";
 import { probeExistingSystemContainer } from "./systemContainerHydration";
-import { applySystemContainerIcon } from "./systemContainerIcon";
 import {
   findRootContainerState,
   findSystemContainerStateForRoot,
 } from "./systemContainerLookup";
 import { finalizeCreatedSystemContainer } from "./systemContainerPostCreate";
-import {
-  hasAdvancedManagedPrincipalReference,
-  promoteExistingLocalSystemContainerSync,
-} from "./systemContainerPromotion";
+import { hasAdvancedManagedPrincipalReference } from "./systemContainerPromotion";
 import type {
   ContainerContentsStoreState,
   EnsureSystemContainerOptions,
@@ -81,69 +82,6 @@ export async function createChildContainer(
   return toContainerNode(created.containerState);
 }
 
-async function updateExistingSystemContainer(
-  state: ContainerContentsStoreState,
-  syncAgent: ContainerContentsStoreSyncAgent,
-  existing: ContainerState,
-  options: EnsureSystemContainerOptions,
-  isCurrent: ContainerWriteGuard,
-) {
-  if ("icon" in options) {
-    const iconApplied = await applySystemContainerIcon({
-      containerState: existing,
-      icon: options.icon,
-      persistIcon: async (containerState, icon, update) =>
-        (
-          await persistContainerState(
-            state,
-            containerState,
-            { icon },
-            false,
-            undefined,
-            { localMetadataPatch: { icon }, localUpdate: update },
-            { isCurrent },
-          )
-        ).status,
-      state,
-      syncAgent,
-      isCurrent,
-    });
-    if (!iconApplied || !isCurrent()) {
-      return null;
-    }
-  }
-  const promoted = await promoteExistingLocalSystemContainerSync({
-    containerState: existing,
-    logLabel: getContainerContentsStoreLogLabel(state),
-    options,
-    persistPromotion: async (containerState, promotion) =>
-      (
-        await persistContainerState(
-          state,
-          containerState,
-          {},
-          true,
-          promotion.queueCreateIntent
-            ? {
-                createIntent: {
-                  parentContainerId: promotion.parentContainerId,
-                },
-              }
-            : undefined,
-          promotion.metadataUpdate
-            ? { localUpdate: promotion.metadataUpdate }
-            : undefined,
-          { isCurrent },
-        )
-      ).status === "persisted",
-    rootState: findRootContainerState(state),
-    state,
-    syncAgent,
-    isCurrent,
-  });
-  return promoted && isCurrent() ? toContainerNode(existing) : null;
-}
-
 function canEnsureSystemContainer(
   state: ContainerContentsStoreState,
   name: string,
@@ -188,6 +126,25 @@ async function findOrHydrateSystemContainer(input: {
     : null;
 }
 
+function canCreateSystemContainer(
+  state: ContainerContentsStoreState,
+  rootState: ContainerState,
+  systemSlot: ContainerSystemSlot,
+  options: EnsureSystemContainerOptions,
+): boolean {
+  if (
+    options.skipAdvancedManagedRoot &&
+    hasAdvancedManagedPrincipalReference(rootState)
+  ) {
+    state.runtime.util.log(
+      `${getContainerContentsStoreLogLabel(state)}: skipped background system container "${systemSlot}" because the root has advanced managed-principal references`,
+    );
+    return false;
+  }
+
+  return true;
+}
+
 export async function ensureSystemContainer(
   state: ContainerContentsStoreState,
   syncAgent: ContainerContentsStoreSyncAgent,
@@ -229,16 +186,17 @@ export async function ensureSystemContainer(
   if (!rootState) {
     return null;
   }
-  if (
-    options.skipAdvancedManagedRoot &&
-    hasAdvancedManagedPrincipalReference(rootState)
-  ) {
-    state.runtime.util.log(
-      `${getContainerContentsStoreLogLabel(state)}: skipped background system container "${systemSlot}" because the root has advanced managed-principal references`,
-    );
+  if (!canCreateSystemContainer(state, rootState, systemSlot, options))
     return null;
-  }
 
+  if (options.deferRemoteBootstrap) {
+    invalidateRemoteSystemContainerWrite(
+      state,
+      rootState.container.id,
+      systemSlot,
+    );
+    invalidateRemoteContainerWrites(state, [rootState.container.id]);
+  }
   const createRemote =
     allowSynchronousRemoteBootstrap &&
     state.runtime.auth.isAuthenticated &&

@@ -77,7 +77,7 @@ test("a share settlement removes only the exact state deleted durably", async ()
     "unexpected share",
   );
 
-  expect(result).toBeNull();
+  expect(result).toBe(false);
   expect(state.containersById.has(source.container.id)).toBe(false);
   expect(state.snapshot.nodes).toEqual([]);
   expect(calls).toEqual({ prime: 0, sync: 0 });
@@ -119,7 +119,7 @@ test("a share settlement publishes a replacement identity without success effect
     "unexpected share",
   );
 
-  expect(result).toBeNull();
+  expect(result).toBe(false);
   expect(source.container).toEqual(authoritativeContainer);
   expect(source.record).toEqual(authoritativeRecord);
   expect(state.snapshot.nodes[0]).toMatchObject({
@@ -170,13 +170,16 @@ test("shared-subtree priming receives the active structural guard", async () => 
       "shared",
       isCurrent,
     ),
-  ).toBeNull();
+  ).toBe(true);
   expect(receivedGuard).toBe(isCurrent);
   expect(receivedGuard?.()).toBe(false);
   expect(syncRequests).toBe(0);
 });
 
-test("a committed share from an expired generation schedules reconciliation", async () => {
+test.each([
+  false,
+  true,
+])("an expired share reconciles and preserves only a confirmed result (%s)", async (confirmed) => {
   const source = await createRemoteState();
   const state = createContainerContentsStoreState(
     createContainerContentsTestRuntime({
@@ -205,13 +208,13 @@ test("a committed share from an expired generation schedules reconciliation", as
     source.container.id,
     async () => {
       current = false;
-      return null;
+      return confirmed ? { status: "confirmed" } : null;
     },
     "expired share",
     () => current,
   );
 
-  expect(result).toBeNull();
+  expect(result).toBe(confirmed);
   expect(state.localContainersNeedRefresh).toBe(true);
   expect(state.containerParentIdsNeedingHydration).toEqual(new Set([null]));
   expect(localRefreshes).toBe(1);

@@ -19,6 +19,7 @@ import {
 } from "./rotationRecoveryHelpers.test";
 import { settleOrdinaryDocumentUpdatesBeforeRotation } from "./rotationSettlement";
 import { createDocumentStoreState } from "./state";
+import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
 
 test("rotation refuses to relabel an uncovered checkpoint gap as ordinary", async () => {
   const { close, execSql } = await createTestExecSql(
@@ -72,11 +73,14 @@ test("rotation refuses to relabel an uncovered checkpoint gap as ordinary", asyn
     state.record = await sqlDocumentsPersistence.loadDocument(execSql, localId);
     const provenPendingUpdates = await listPendingUpdates(state);
 
+    const generation = captureDocumentStoreSyncGeneration(state, state.doc);
+    if (!generation) throw new Error("Missing live generation");
     await expect(
       settleOrdinaryDocumentUpdatesBeforeRotation(
         state,
         emptyVersionVector(),
         provenPendingUpdates,
+        generation,
       ),
     ).rejects.toThrow("may be checkpoint-derived");
     expect(syncCalls).toBe(0);

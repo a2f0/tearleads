@@ -14,6 +14,7 @@ import { openDocumentStore } from "../stores/documents";
 import {
   requestRegisteredDocumentRemoteSync,
   subscribeToPersistedDocumentDeletions,
+  subscribeToPersistedDocuments,
 } from "../stores/documents/registry";
 import {
   getOrCreateLocalProjectionStore,
@@ -81,6 +82,7 @@ interface DeviceFirstScopeEntry {
   contents: DeviceFirstContainerContents;
   disconnectReconciliationTriggers: () => void;
   unsubscribePersistedDocumentDeletions: () => void;
+  unsubscribePersistedDocuments: () => void;
 }
 
 function createInitialDocumentProbeHost(
@@ -160,6 +162,7 @@ class DeviceFirstService implements DeviceFirst {
       entry.contents.reconciler.stop();
       entry.disconnectReconciliationTriggers();
       entry.unsubscribePersistedDocumentDeletions();
+      entry.unsubscribePersistedDocuments();
       disposeDomainSyncCoordinator(domainScope);
     }
     this.entriesByScope.clear();
@@ -198,6 +201,10 @@ class DeviceFirstService implements DeviceFirst {
       subscribeToPersistedDocumentDeletions(domainScope, (localId) => {
         store.removePersistedDocument(localId);
       });
+    const unsubscribePersistedDocuments = subscribeToPersistedDocuments(
+      domainScope,
+      (document) => store.refreshPersistedDocument(document),
+    );
     service.start();
 
     const view: LocalProjectionView = {
@@ -216,6 +223,7 @@ class DeviceFirstService implements DeviceFirst {
       },
       disconnectReconciliationTriggers,
       unsubscribePersistedDocumentDeletions,
+      unsubscribePersistedDocuments,
     };
     this.entriesByScope.set(domainScope, entry);
     return entry;

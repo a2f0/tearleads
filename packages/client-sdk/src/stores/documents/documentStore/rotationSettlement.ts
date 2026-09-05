@@ -22,6 +22,8 @@ import { prepareDocumentOutgoingCoverage } from "./syncOutgoingCoverage";
 import { requestRemoteDocumentSync } from "./syncRequest";
 import { extendDocumentVersionCoverage } from "./versionCoverage";
 
+export class RotationPendingUpdatesChangedError extends Error {}
+
 function ordinaryPendingUpdates(
   pendingUpdates: readonly PendingUpdateRecord[],
 ): PendingUpdateRecord[] {
@@ -62,7 +64,7 @@ function assertOrdinaryRowsWereProven(input: {
       !provenUpdate ||
       !pendingUpdateMatchesProvenRow(pendingUpdate, provenUpdate)
     ) {
-      throw new Error(
+      throw new RotationPendingUpdatesChangedError(
         "Document local updates changed after rotation provenance verification",
       );
     }
@@ -211,6 +213,7 @@ async function persistStagedSettlementOnIdentityChain(input: {
 }
 
 async function settleOrdinaryUpdatePass(input: {
+  generation: DocumentStoreSyncGeneration;
   pendingUpdates: PendingUpdateRecord[];
   state: DocumentStoreState;
   verifiedBaseVersion: string;
@@ -224,8 +227,8 @@ async function settleOrdinaryUpdatePass(input: {
       "Document changed while local updates were settling for key rotation",
     );
   }
-  const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
-  if (!generation) {
+  const generation = input.generation;
+  if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
     throw new Error(
       "Document changed while local updates were settling for key rotation",
     );
@@ -307,6 +310,7 @@ export async function settleOrdinaryDocumentUpdatesBeforeRotation(
   state: DocumentStoreState,
   verifiedBaseVersion: string,
   provenPendingUpdates: readonly PendingUpdateRecord[],
+  generation: DocumentStoreSyncGeneration,
 ): Promise<void> {
   const stalledQueueStates = new Set<string>();
   let verifiedCoverage = verifiedBaseVersion;
@@ -343,6 +347,7 @@ export async function settleOrdinaryDocumentUpdatesBeforeRotation(
     }
     stalledQueueStates.add(queueState);
     verifiedCoverage = await settleOrdinaryUpdatePass({
+      generation,
       pendingUpdates: allPendingUpdates,
       state,
       verifiedBaseVersion: verifiedCoverage,

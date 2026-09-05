@@ -74,7 +74,7 @@ interface DocumentStoreRemoteSyncGeneration
   readonly remoteSyncGeneration: number;
 }
 
-function captureDocumentStoreGenerationIdentity(
+export function captureDocumentStoreGenerationIdentity(
   state: DocumentStoreState,
 ): DocumentStoreGenerationIdentity {
   return {
@@ -333,7 +333,7 @@ export function isDocumentStoreSyncLaneGenerationCurrent(
   );
 }
 
-function isDocumentStoreGenerationIdentityCurrent(
+export function isDocumentStoreGenerationIdentityCurrent(
   state: DocumentStoreState,
   generation: DocumentStoreGenerationIdentity,
 ): boolean {
