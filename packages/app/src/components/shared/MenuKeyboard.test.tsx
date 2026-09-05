@@ -139,3 +139,67 @@ test("a portaled combobox retains its selected highlight and trigger focus", () 
   expect(view.queryByRole("listbox")).toBeNull();
   expect(document.activeElement).toBe(trigger);
 });
+
+test("checkbox-only menus focus and navigate their controls without swallowing Space", () => {
+  let toggled = false;
+  const view = render(
+    <Menu position={{ x: 24, y: 48 }} onClose={() => {}}>
+      <input
+        type="checkbox"
+        aria-label="Name column"
+        onChange={() => {
+          toggled = true;
+        }}
+      />
+      <input type="checkbox" aria-label="Disabled column" disabled />
+      <input type="checkbox" aria-label="Date column" />
+    </Menu>,
+  );
+  const name = view.getByRole("checkbox", { name: "Name column" });
+  const date = view.getByRole("checkbox", { name: "Date column" });
+  expect(document.activeElement).toBe(name);
+  fireEvent.keyDown(name, { key: "ArrowDown" });
+  expect(document.activeElement).toBe(date);
+  fireEvent.keyDown(date, { key: "Home" });
+  expect(document.activeElement).toBe(name);
+  expect(fireEvent.keyDown(name, { key: " " })).toBe(true);
+  fireEvent.click(name);
+  expect(toggled).toBe(true);
+});
+
+test("Escape outside the menu and modified arrows remain available to other controls", () => {
+  const view = openMenu();
+  const first = view.getByRole("button", { name: "First" });
+  expect(fireEvent.keyDown(first, { key: "ArrowDown", altKey: true })).toBe(
+    true,
+  );
+  expect(document.activeElement).toBe(first);
+  const outside = view.getByRole("button", { name: "Outside" });
+  outside.focus();
+  expect(fireEvent.keyDown(outside, { key: "Escape" })).toBe(true);
+  expect(view.getByRole("button", { name: "First" })).toBeTruthy();
+  expect(document.activeElement).toBe(outside);
+});
+
+test("an all-disabled menu can still be dismissed with Escape", () => {
+  let closed = false;
+  render(
+    <Menu
+      position={{ x: 24, y: 48 }}
+      onClose={() => {
+        closed = true;
+      }}
+    >
+      <MenuItem label="Unavailable" disabled onClick={() => {}} />
+    </Menu>,
+  );
+  fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+  expect(closed).toBe(true);
+});
+
+test("clicking a non-focusable surface dismisses without restoring the launcher", () => {
+  const view = openMenu();
+  fireEvent.mouseDown(document.body);
+  expect(view.queryByRole("button", { name: "First" })).toBeNull();
+  expect(document.activeElement).not.toBe(view.trigger);
+});

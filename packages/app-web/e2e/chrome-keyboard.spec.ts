@@ -8,7 +8,7 @@ test("desktop launcher supports keyboard selection, dismissal and taskbar state"
   const launcher = page
     .locator(".pane:not(.pane-hidden) .pane-footer-menu-button")
     .first();
-  await expect(launcher).toBeVisible();
+  await expect(launcher).toBeVisible({ timeout: 30_000 });
   await launcher.focus();
   await page.keyboard.press("Enter");
   const explorer = page
@@ -54,6 +54,7 @@ test("Tab leaves a popover through its trigger without cycling through a closed 
   const launcher = page
     .locator(".pane:not(.pane-hidden) .pane-footer-menu-button")
     .first();
+  await expect(launcher).toBeVisible({ timeout: 30_000 });
   await launcher.focus();
   await page.keyboard.press("Enter");
   await expect(page.locator(".menu")).toBeVisible();

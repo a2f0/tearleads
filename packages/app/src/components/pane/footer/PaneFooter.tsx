@@ -2,8 +2,10 @@ import { TearleadsLogo } from "@tearleads/ui";
 import type { ReactNode } from "react";
 import { WorkspaceSwitcher } from "../../layout/workspace/WorkspaceSwitcher";
 import { useContextMenuPositionState } from "../../shared/useContextMenuState";
-import { useWindowStateData } from "../../window/WindowStateProvider";
-import { findTopWindow } from "../../window/WindowStateProvider/util/findTopWindow";
+import {
+  findTopWindow,
+  useWindowStateData,
+} from "../../window/WindowStateProvider";
 import { PaneMenu } from "../shell/PaneMenu";
 import "./PaneFooter.css";
 import { PaneFooterWindowButton } from "./PaneFooterWindowButton";

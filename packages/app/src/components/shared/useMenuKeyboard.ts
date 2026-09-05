@@ -1,5 +1,26 @@
 import { type RefObject, useEffect, useEffectEvent } from "react";
 
+function nextControl(
+  controls: HTMLElement[],
+  focused: Element | null,
+  key: string,
+) {
+  if (controls.length === 0) return undefined;
+  const index = focused instanceof HTMLElement ? controls.indexOf(focused) : -1;
+  switch (key) {
+    case "ArrowDown":
+      return controls[(index + 1) % controls.length];
+    case "ArrowUp":
+      return controls[(index - 1 + controls.length) % controls.length];
+    case "Home":
+      return controls[0];
+    case "End":
+      return controls.at(-1);
+    default:
+      return undefined;
+  }
+}
+
 export function useMenuKeyboard(
   menuRef: RefObject<HTMLDivElement | null>,
   ready: boolean,
@@ -12,18 +33,21 @@ export function useMenuKeyboard(
     if (!ready || !menu) return;
 
     const trigger = document.activeElement;
+    let dismissedByPointer = false;
     const items = () =>
       Array.from(
-        menu.querySelectorAll<HTMLButtonElement>(
-          "button:not(:disabled):not([hidden])",
+        menu.querySelectorAll<HTMLElement>(
+          ":is(button, input[type=checkbox]):not(:disabled):not([hidden])",
         ),
       );
-    items()[0]?.focus({ preventScroll: true });
+    const focusFirst = () =>
+      (items()[0] ?? menu).focus({ preventScroll: true });
+    focusFirst();
     // Startup and sync can replace an action while its menu is open. Recover
     // focus only when that replacement dropped it onto the document body.
     const observer = new MutationObserver(() => {
-      if (document.activeElement === document.body) {
-        items()[0]?.focus({ preventScroll: true });
+      if (!dismissedByPointer && document.activeElement === document.body) {
+        focusFirst();
       }
     });
     observer.observe(menu, { childList: true, subtree: true });
@@ -35,6 +59,8 @@ export function useMenuKeyboard(
     }
 
     function handleKeyDown(event: KeyboardEvent) {
+      if (event.altKey || event.ctrlKey || event.metaKey) return;
+      if (!menu?.contains(document.activeElement)) return;
       if (event.key === "Escape") {
         event.preventDefault();
         event.stopPropagation();
@@ -42,45 +68,34 @@ export function useMenuKeyboard(
         close();
         return;
       }
-      if (!menu?.contains(document.activeElement)) return;
       if (event.key === "Tab") {
         restoreFocus();
         close();
         return;
       }
-      const buttons = items();
-      const focused = document.activeElement;
-      const index =
-        focused instanceof HTMLButtonElement ? buttons.indexOf(focused) : -1;
-      let next: number;
-      switch (event.key) {
-        case "ArrowDown":
-          next = (index + 1) % buttons.length;
-          break;
-        case "ArrowUp":
-          next = (index - 1 + buttons.length) % buttons.length;
-          break;
-        case "Home":
-          next = 0;
-          break;
-        case "End":
-          next = buttons.length - 1;
-          break;
-        default:
-          return;
+      const next = nextControl(items(), document.activeElement, event.key);
+      if (next) {
+        event.preventDefault();
+        event.stopPropagation();
+        next.focus();
       }
-      event.preventDefault();
-      event.stopPropagation();
-      buttons[next]?.focus();
     }
 
+    function handleMouseDown(event: MouseEvent) {
+      dismissedByPointer =
+        event.target instanceof Node && !menu?.contains(event.target);
+    }
+
+    document.addEventListener("mousedown", handleMouseDown, true);
     document.addEventListener("keydown", handleKeyDown, true);
     return () => {
       observer.disconnect();
+      document.removeEventListener("mousedown", handleMouseDown, true);
       document.removeEventListener("keydown", handleKeyDown, true);
       if (
-        menu.contains(document.activeElement) ||
-        document.activeElement === document.body
+        !dismissedByPointer &&
+        (menu.contains(document.activeElement) ||
+          document.activeElement === document.body)
       ) {
         restoreFocus();
       }

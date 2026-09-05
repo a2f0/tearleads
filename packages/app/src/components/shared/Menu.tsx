@@ -121,8 +121,7 @@ export function Menu({
       return;
     }
 
-    function updatePlacement() {
-      if (!menu) return;
+    const updatePlacement = () => {
       const rect = menu.getBoundingClientRect();
       setPlacement(
         placeMenuInViewport({
@@ -134,7 +133,7 @@ export function Menu({
           width: rect.width,
         }),
       );
-    }
+    };
     updatePlacement();
     const observer = new ResizeObserver(updatePlacement);
     observer.observe(menu);
@@ -181,7 +180,7 @@ export function Menu({
     : MEASUREMENT_MENU_STYLE;
 
   return createPortal(
-    <div ref={menuRef} className="menu" style={menuStyle}>
+    <div ref={menuRef} className="menu" style={menuStyle} tabIndex={-1}>
       {children}
     </div>,
     document.body,
