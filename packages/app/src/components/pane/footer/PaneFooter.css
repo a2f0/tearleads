@@ -4,6 +4,7 @@
   gap: var(--space-xs);
   padding: var(--space-md);
   background: var(--color-muted);
+  border-top: var(--border-width) solid var(--color-hairline);
 }
 
 /* On the muted footer surface the frame's default #fff hover is nearly
@@ -24,10 +25,17 @@
   line-height: 1;
 }
 
+.pane-footer-window[aria-pressed="true"] {
+  background: var(--emphasis-surface);
+  color: var(--emphasis-text);
+  box-shadow: inset 0 -2px 0 currentColor;
+}
+
 /* Icon-only "Start"-style button: the Tearleads mark replaces the text label,
    matching the app's mobile drawer button (a square, borderless glyph over the
    footer) rather than the bordered text chips. */
-.pane-footer-menu-button {
+.pane-footer .pane-footer-menu-button {
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -72,6 +80,7 @@
 /* Trailing cluster: anchored to the trailing edge of the footer, opposite the
    Menu button. Holds the workspace switcher and the system tray together. */
 .pane-footer-end {
+  flex: 0 0 auto;
   margin-left: auto;
   display: flex;
   align-items: center;
@@ -104,4 +113,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.pane-footer-window[data-minimized="true"] .pane-footer-window-label {
+  opacity: var(--opacity-muted);
 }

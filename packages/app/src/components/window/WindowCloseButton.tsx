@@ -3,8 +3,7 @@ import type { RefObject } from "react";
 // The floating-window close control (the `×` in the title bar). Shared beyond
 // WindowTitleBar so any surface dressing as a window — e.g. the note attachment
 // preview — closes with the identical glyph and chrome instead of a look-alike.
-// `label` names it for assistive tech (omitted, the title bar's own close keeps
-// its historical unlabelled `×`); `buttonRef` lets a caller move focus to it.
+// `label` names it for assistive tech; `buttonRef` lets a caller move focus to it.
 export function WindowCloseButton({
   buttonRef,
   label,

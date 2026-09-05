@@ -1,0 +1,59 @@
+/* App-only surface tokens live on the navigation root so body portals inherit
+   them too. Shared website styles retain their own visual treatment. */
+:root[data-navigation-mode] {
+  --app-radius-control: 0.375rem;
+  --app-radius-surface: 0.75rem;
+  --app-control-border: color-mix(
+    in srgb,
+    var(--color-dark) 55%,
+    var(--color-light)
+  );
+  --app-hover-surface: color-mix(
+    in srgb,
+    var(--color-dark) 8%,
+    var(--color-light)
+  );
+  --app-shadow-surface: 0 0.5rem 2rem rgb(0 0 0 / 14%);
+  --app-shadow-window:
+    0 1rem 3rem rgb(0 0 0 / 12%), 0 0.25rem 0.75rem rgb(0 0 0 / 8%);
+  --border-strong-color: color-mix(
+    in srgb,
+    var(--color-dark) 28%,
+    var(--color-light)
+  );
+}
+
+:root[data-navigation-mode][data-theme="dark"] {
+  --app-shadow-surface: 0 0.5rem 2rem rgb(0 0 0 / 32%);
+  --app-shadow-window:
+    0 1rem 3rem rgb(0 0 0 / 28%), 0 0.25rem 0.75rem rgb(0 0 0 / 20%);
+}
+
+/* An inset ring remains visible inside scrolling toolbars and clipped rows.
+   currentColor follows both ordinary controls and filled selections. */
+:where(:root[data-navigation-mode])
+  :where(
+    button,
+    input:not([type="checkbox"], [type="radio"]),
+    select,
+    textarea,
+    [tabindex]:not(a, input)
+  ):focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: -3px;
+}
+
+:root[data-navigation-mode] .tearleads-action-button {
+  border-color: var(--app-control-border);
+  border-radius: var(--app-radius-control);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-navigation-mode] {
+    --transition: 0s;
+  }
+
+  :root[data-navigation-mode] .routed-pane-sheet {
+    transition: none;
+  }
+}

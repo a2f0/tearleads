@@ -25,6 +25,9 @@ function WindowControls() {
       <button type="button" onClick={() => notes && minimize(notes.id)}>
         Minimize Notes
       </button>
+      <button type="button" onClick={() => create("Contacts", 0, 0)}>
+        Open Contacts
+      </button>
       <output data-testid="notes-state">
         {notes === undefined
           ? "closed"
@@ -79,6 +82,26 @@ test("keeps minimized mini-apps in the taskbar and restores them", () => {
   expect(view.getByTestId("notes-state").textContent).toBe("minimized");
   fireEvent.click(taskbarButton);
   expect(view.getByTestId("notes-state").textContent).toBe("visible");
+});
+
+test("marks only the frontmost visible window active across minimize and restore", () => {
+  const view = renderFooter();
+  const notes = openNotes(view);
+  expect(notes.getAttribute("aria-pressed")).toBe("true");
+  fireEvent.click(view.getByRole("button", { name: "Open Contacts" }));
+  const contacts = view.getByRole("button", {
+    name: "Activate Contacts window",
+  });
+  expect(notes.getAttribute("aria-pressed")).toBe("false");
+  expect(contacts.getAttribute("aria-pressed")).toBe("true");
+  fireEvent.click(notes);
+  expect(notes.getAttribute("aria-pressed")).toBe("true");
+  expect(contacts.getAttribute("aria-pressed")).toBe("false");
+  fireEvent.click(view.getByRole("button", { name: "Minimize Notes" }));
+  expect(notes.getAttribute("aria-pressed")).toBe("false");
+  expect(contacts.getAttribute("aria-pressed")).toBe("true");
+  fireEvent.click(notes);
+  expect(notes.getAttribute("aria-pressed")).toBe("true");
 });
 
 test("taskbar context menu minimizes a visible window", () => {

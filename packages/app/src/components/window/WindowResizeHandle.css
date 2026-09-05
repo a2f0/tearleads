@@ -6,8 +6,8 @@
  * The bracket is drawn in --color-dark, the theme's foreground primitive, so it
  * reads as the window's own edge lit up and stays crisp in both themes (a
  * charcoal bracket on the light surface, a near-white one on the dark surface).
- * Corners are kept square (no radius) to match the app's hard-edged window
- * chrome (--radius: 0).
+ * Each bracket follows the rounded window corner while its hit target stays
+ * square, keeping the outermost corner easy to grab.
  */
 .window-resize {
   position: absolute;
@@ -28,6 +28,7 @@
 }
 
 .window-resize--se {
+  border-bottom-right-radius: var(--app-radius-surface);
   right: 0;
   bottom: 0;
   cursor: se-resize;
@@ -36,6 +37,7 @@
 }
 
 .window-resize--sw {
+  border-bottom-left-radius: var(--app-radius-surface);
   bottom: 0;
   left: 0;
   cursor: sw-resize;
@@ -44,6 +46,7 @@
 }
 
 .window-resize--ne {
+  border-top-right-radius: var(--app-radius-surface);
   top: 0;
   right: 0;
   cursor: ne-resize;
@@ -52,6 +55,7 @@
 }
 
 .window-resize--nw {
+  border-top-left-radius: var(--app-radius-surface);
   top: 0;
   left: 0;
   cursor: nw-resize;
