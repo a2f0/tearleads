@@ -103,7 +103,6 @@ function purchases(isAvailable: boolean) {
   return {
     isAvailable,
     nativeStore: isAvailable ? "test_store" : null,
-    supportsEmbeddedCheckout: isAvailable,
     identify: () => Promise.resolve(),
     reset: () => Promise.resolve(),
     // A RevenueCat option whose row is indistinguishable from the direct

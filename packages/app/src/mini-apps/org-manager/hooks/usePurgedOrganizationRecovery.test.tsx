@@ -99,7 +99,6 @@ function wrapperWithPurchases(
           nativeStore: null,
           purchaseSync,
           reset: () => Promise.resolve(),
-          supportsEmbeddedCheckout: false,
         }) as never,
       wsUrl: "ws://localhost",
     });

@@ -11,7 +11,6 @@ import {
   registerServiceWorkerAfterLoad,
 } from "./serviceWorkerRegistration";
 import { createWebDirectCheckout } from "./webDirectCheckout";
-import { createWebPurchases } from "./webPurchases";
 
 const elem = document.getElementById("root");
 if (!elem) {
@@ -31,7 +30,6 @@ const hostConfig = createAppHostConfig({
     target: "web",
     version: process.env.BUN_PUBLIC_APP_VERSION,
   }),
-  createPurchases: createWebPurchases,
   createDirectCheckout: createWebDirectCheckout,
   wsUrl,
   profile: resolveAppHostProfile(process.env.BUN_PUBLIC_APP_VARIANT),

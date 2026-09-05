@@ -1,12 +1,6 @@
 import type { OrganizationBillingView } from "@tearleads/client-sdk";
 import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
-import {
-  type FormEvent,
-  type RefObject,
-  useCallback,
-  useId,
-  useRef,
-} from "react";
+import { type FormEvent, useCallback, useId } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -198,7 +192,6 @@ function useDirectCheckoutWiring(input: {
 function BillingPanelSubscriptionControls(input: {
   readonly actions: ReturnType<typeof useBillingActions>;
   readonly billing: ReturnType<typeof useOrganizationBilling>;
-  readonly checkoutHostRef: RefObject<HTMLDivElement | null>;
   readonly direct: ReturnType<typeof useDirectCheckoutWiring>;
   readonly isOrgAdmin: boolean;
   readonly isPersonalOrganization: boolean | null;
@@ -227,10 +220,7 @@ function BillingPanelSubscriptionControls(input: {
         activationPending={actions.activationPending}
         busy={direct.checkoutActive ? "checkout" : actions.busy}
         canSubscribe={actions.canSubscribe}
-        checkoutActive={actions.checkoutActive}
-        checkoutHostRef={input.checkoutHostRef}
         directCheckoutAvailable={direct.checkout.available}
-        embeddedCheckout={actions.embeddedCheckout}
         error={billing.error}
         isOrgAdmin={input.isOrgAdmin}
         loading={billing.loading}
@@ -243,7 +233,6 @@ function BillingPanelSubscriptionControls(input: {
         nativePurchaseRestricted={
           actions.purchaseAvailable && input.isPersonalOrganization === false
         }
-        onCancelCheckout={actions.cancelCheckout}
         onManageSubscription={input.subscriptionManagement.open}
         onRefresh={input.onRefresh}
         onRestore={actions.requestSubscriptionMove}
@@ -418,15 +407,11 @@ export function BillingPanel({
       status: billing.view.status,
       subscriptionSource: management.subscriptionSource,
     });
-  // Where the Web Billing checkout embeds so a purchase runs inside the panel
-  // (the view keeps the div mounted; the hook reads it at purchase time).
-  const checkoutHostRef = useRef<HTMLDivElement | null>(null);
   const actions = useBillingActions({
     ...billingActionSnapshot(billing.view),
     ...restoreOrganization,
     isOrgAdmin,
     nativePurchaseAllowed,
-    checkoutHostRef,
     organizationId: billingOrganizationId,
     refresh,
     startTrial: billing.startTrial,
@@ -454,7 +439,6 @@ export function BillingPanel({
       <BillingPanelSubscriptionControls
         actions={actions}
         billing={billing}
-        checkoutHostRef={checkoutHostRef}
         direct={direct}
         isOrgAdmin={isOrgAdmin}
         isPersonalOrganization={recovery.active ? true : isPersonalOrganization}
