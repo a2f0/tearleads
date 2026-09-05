@@ -47,6 +47,8 @@
 .window-close,
 .window-maximize,
 .window-minimize {
+  /* Interactive title controls get a larger hit area than the informational
+     status/menu bars; keep their compact shared bar token unchanged. */
   display: inline-flex;
   align-items: center;
   justify-content: center;

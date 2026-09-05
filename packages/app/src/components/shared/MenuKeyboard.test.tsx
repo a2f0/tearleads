@@ -203,3 +203,14 @@ test("clicking a non-focusable surface dismisses without restoring the launcher"
   expect(view.queryByRole("button", { name: "First" })).toBeNull();
   expect(document.activeElement).not.toBe(view.trigger);
 });
+
+test("Tab dismisses a context menu without a focused trigger without advancing into the portal", () => {
+  const view = render(<MenuHarness />);
+  fireEvent.click(view.getByRole("button", { name: "Open menu" }));
+  const allowed = fireEvent.keyDown(document.activeElement ?? document.body, {
+    key: "Tab",
+  });
+  expect(allowed).toBe(false);
+  expect(view.queryByRole("button", { name: "First" })).toBeNull();
+  expect(document.activeElement).toBe(document.body);
+});

@@ -227,6 +227,7 @@
   aspect-ratio: 1;
   padding: var(--space-sm);
   border: var(--border);
+  border-color: var(--app-control-border);
   background: var(--color-light);
   font: inherit;
   text-align: center;

@@ -4,7 +4,7 @@
   gap: var(--space-xs);
   padding: var(--space-md);
   background: var(--color-muted);
-  border-top: var(--border);
+  border-top: var(--border-width) solid var(--color-hairline);
 }
 
 /* On the muted footer surface the frame's default #fff hover is nearly

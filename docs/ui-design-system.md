@@ -102,8 +102,8 @@ motion. Rules:
 App-specific chrome refinements live in `components/layout/AppChrome.css`,
 scoped to the navigation attribute on the root so portaled menus inherit them
 without changing website chrome. The `--app-*` tokens define control/surface
-radii, hover fill, control borders, and overlay/window shadows. Content dividers
-use hairlines; input and button outlines retain a stronger control border.
+radii, hover fill, control borders, and overlay/window shadows. Table rules and
+shell separators use hairlines without weakening the borders of other controls.
 Keyboard focus uses an inset ring so scrolling toolbars do not clip it, and
 reduced-motion preferences disable chrome transitions, including the launcher.
 
@@ -114,6 +114,8 @@ enabled action, support arrow keys and Home/End, and restore focus on Escape or
 selection. Tab dismisses the menu and continues from its trigger.
 Portaled comboboxes opt out of menu keyboard handling; their existing
 `aria-activedescendant` controller keeps focus on the trigger.
+Title bars deliberately grow to fit their interactive controls; informational
+status bars retain the compact bar height and follow the window's bottom corners.
 
 ## Form measure
 

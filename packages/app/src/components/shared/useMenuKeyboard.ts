@@ -11,7 +11,11 @@ function nextControl(
     case "ArrowDown":
       return controls[(index + 1) % controls.length];
     case "ArrowUp":
-      return controls[(index - 1 + controls.length) % controls.length];
+      return controls[
+        index < 0
+          ? controls.length - 1
+          : (index - 1 + controls.length) % controls.length
+      ];
     case "Home":
       return controls[0];
     case "End":
@@ -55,7 +59,9 @@ export function useMenuKeyboard(
     function restoreFocus() {
       if (trigger instanceof HTMLElement && trigger.isConnected) {
         trigger.focus({ preventScroll: true });
+        return document.activeElement === trigger && trigger !== document.body;
       }
+      return false;
     }
 
     function handleKeyDown(event: KeyboardEvent) {
@@ -69,7 +75,7 @@ export function useMenuKeyboard(
         return;
       }
       if (event.key === "Tab") {
-        restoreFocus();
+        if (!restoreFocus()) event.preventDefault();
         close();
         return;
       }

@@ -23,7 +23,7 @@
     calc(18px + var(--window-bar-block-padding) * 2)
   );
   background: var(--color-muted);
-  border-top: var(--border);
+  border-top: var(--border-width) solid var(--color-hairline);
   user-select: none;
 }
 
