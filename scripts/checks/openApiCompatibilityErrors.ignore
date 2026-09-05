@@ -1,4 +1,0 @@
-# Issue #2193: the billing snapshot now carries `subscriptionSource`; the
-# management-url response no longer duplicates it. Flag-day contract change.
-# Remove when origin/main contains the snapshot-sourced subscription owner.
-GET /organizations/{organizationId}/billing/management-url removed the required property `subscriptionSource` from the response with the `200` status
