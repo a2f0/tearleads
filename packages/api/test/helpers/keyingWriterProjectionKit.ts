@@ -383,7 +383,9 @@ export async function createDocumentRequest(input: {
   };
   const event = await createSignedAccessEvent({
     body,
-    dependencyManifestHashes: [input.root.bundle.manifestHash],
+    dependencyManifestHashes: (input.containerPath ?? [input.root.bundle]).map(
+      (bundle) => bundle.manifestHash,
+    ),
     objectId: documentId,
     objectKind: "document",
     organizationId: asVerifiedContainerManifest(input.root.bundle).state

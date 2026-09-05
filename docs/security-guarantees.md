@@ -141,6 +141,16 @@ drop and recreate pre-grant-index API databases and local client databases;
 the client fails startup with a reset-required error if it detects the legacy
 principal-policy table shape.
 
+Document and attachment events also sign their full authorization paths,
+deduplicated. Verification rebuilds paths by parent id from those citations,
+never from creation-time pins. Missing ancestors or two heads of one container
+are rejected. This is a flag-day: reset and reprovision API and client data
+containing leaf-only document events; there is no translation or leaf fallback.
+With outgoing API instances stopped, the deployment schema check scans retained
+document/attachment events in bounded pages and refuses missing ancestor
+citations with an explicit destroy-and-reprovision error. This is structural
+deployment detection; runtime readers still verify every signature and hash.
+
 The group display name is committed in the signed group payload. The
 `groups.name` column and the organization read model are listing aids; when a
 member shares a container with a group they chose by name, the client checks
@@ -259,11 +269,25 @@ root-to-leaf chain of parent edges, checked by container id. Document link
 events are authorized through dependency container paths served the same
 way; those are verified at the membership they referenced and without
 checkpoint enforcement, because a historical link legitimately cites the
-container heads current when it was signed. The checkpoint-enforced
-authorizing path recorded for a leaf takes precedence over any dependency path
-served for the same leaf, whatever order the server lists them in. Whether a
-link's container evidence predates a later rotation of that container is the
-same ordering boundary as for container heads.
+container heads current when it was signed. Every document and attachment
+event, including a document head new to this device, selects exactly its
+signed full-path citations. A checkpoint-enforced current path cannot replace
+an event's cited ancestor. Nor can a citation set mix an older or forked ancestor
+with a descendant whose own signed citations prove a newer ancestor exists.
+Both client and stored-document verification enforce these lineage floors;
+consistent historical snapshots remain valid. Content-write headers instead
+commit leaf targets;
+their index prefers a checkpoint-enforced path for a current leaf and retains
+verified pinned ancestry for historical targets. If that ancestry is incomplete,
+the signed leaf can still authorize its own direct writer; it cannot confer
+inherited authority. Previously, that incomplete-path case refused all writers.
+
+The owner-directed scope of #2158 and #1555 excludes semantic-currentness
+witnessing: a new-to-device document head signed by a since-revoked ancestor
+member can be accepted at its complete historical citations. This is also the
+shape of an honestly delayed head. The API enforces current paths at commit;
+clients do not claim to distinguish it from a later forgery assisted by the
+server. Existing document checkpoints still reject rollback and forks.
 
 Neither container nor principal-policy verification requires a successor new
 to a device to cite the authority's served current head. An honest
@@ -278,9 +302,9 @@ history for the container. The API refuses the forgery at commit, and the
 lineage rule above makes the next legitimate event on the descendant final.
 The residual is that a member revoked at an ancestor, with a compromised
 server, can keep authority over a descendant until that next event; a
-best-effort re-cite of the descendants a revoking client already holds
-shortens that window without any device depending on another. What the
-client does refuse is the opposite disagreement: a served current ancestor
+best-effort re-cite of descendants already held by the revoking client is
+planned in #2171, not implemented yet. On a checkpoint-enforced current path,
+the client does refuse the opposite disagreement: a served current ancestor
 head that does not descend from a head a child's signed event cites is a
 stale or forked ancestor, whatever the server calls current, since the
 signature proves the cited head exists.

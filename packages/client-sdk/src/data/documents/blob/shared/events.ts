@@ -11,14 +11,11 @@ import {
   type UnsignedAccessEvent,
   type WriteHeader,
 } from "@tearleads/crypto";
+import type { ContainerManifestRef } from "@tearleads/validators/request";
 import { readCanonicalJson } from "../../../keyingCanonicalJson";
 import { uniqueSortedStrings } from "../../shared/readers";
 import type { DocumentCreateAuthor } from "../../shared/types";
-import type {
-  BlobContentKeyTarget,
-  BlobEncryptionPlan,
-  DocumentManifestIdentity,
-} from "./types";
+import type { BlobEncryptionPlan, DocumentManifestIdentity } from "./types";
 
 async function signBlobAttachmentBodyEvent<
   Body extends AttachmentBindAccessEventBody | AttachmentDetachAccessEventBody,
@@ -30,7 +27,7 @@ async function signBlobAttachmentBodyEvent<
     eventId: string;
     manifestIdentity: DocumentManifestIdentity;
     signedAt: string;
-    targets: readonly BlobContentKeyTarget[];
+    authorizingContainerPathRefs: readonly (readonly ContainerManifestRef[])[];
   },
 ): Promise<{ body: Body; event: AccessEvent }> {
   const bodyLabel =
@@ -47,7 +44,9 @@ async function signBlobAttachmentBodyEvent<
     previousManifestHash: null,
     dependencyManifestHashes: uniqueSortedStrings([
       input.manifestIdentity.manifestHash,
-      ...input.targets.map((target) => target.containerManifestHash),
+      ...input.authorizingContainerPathRefs.flatMap((path) =>
+        path.map((ref) => ref.manifestHash),
+      ),
     ]),
     bodyHash: await computeAccessEventBodyHash(
       readCanonicalJson(body, bodyLabel),
@@ -74,7 +73,7 @@ export async function signBlobAttachmentEvent(input: {
   manifestIdentity: DocumentManifestIdentity;
   signedAt: string;
   slotId: string;
-  targets: readonly BlobContentKeyTarget[];
+  authorizingContainerPathRefs: readonly (readonly ContainerManifestRef[])[];
 }): Promise<{ body: AttachmentBindAccessEventBody; event: AccessEvent }> {
   return signBlobAttachmentBodyEvent(
     {
@@ -99,7 +98,7 @@ export async function signBlobAttachmentDetachEvent(input: {
   manifestIdentity: DocumentManifestIdentity;
   signedAt: string;
   slotId: string;
-  targets: readonly BlobContentKeyTarget[];
+  authorizingContainerPathRefs: readonly (readonly ContainerManifestRef[])[];
 }): Promise<{ body: AttachmentDetachAccessEventBody; event: AccessEvent }> {
   return signBlobAttachmentBodyEvent(
     {

@@ -1,84 +1,18 @@
-import type { VerifiedContainerAccessManifest } from "@tearleads/crypto";
+import {
+  KeyingVerificationError,
+  type VerifiedContainerAccessManifest,
+} from "@tearleads/crypto";
+import { assertCitedAncestorsDoNotRegress } from "./containerAncestorCitations";
 
-type ContainerPathByManifestHash = Map<
-  string,
-  readonly VerifiedContainerAccessManifest[]
->;
-
-function reconstructVerifiedContainerPath(input: {
-  readonly cache: Map<
-    string,
-    readonly VerifiedContainerAccessManifest[] | null
-  >;
-  readonly manifestHash: string;
-  readonly manifests: ReadonlyMap<string, VerifiedContainerAccessManifest>;
-  readonly visiting: Set<string>;
-}): readonly VerifiedContainerAccessManifest[] | null {
-  const cached = input.cache.get(input.manifestHash);
-  if (cached !== undefined) {
-    return cached;
-  }
-  if (input.visiting.has(input.manifestHash)) {
-    throw new Error("Verified container history contains a hierarchy cycle");
-  }
-  const manifest = input.manifests.get(input.manifestHash);
-  if (!manifest) {
-    input.cache.set(input.manifestHash, null);
-    return null;
-  }
-  const parentManifestHash = manifest.state.parentManifestHash;
-  if (parentManifestHash === null) {
-    const path = [manifest];
-    input.cache.set(input.manifestHash, path);
-    return path;
-  }
-
-  input.visiting.add(input.manifestHash);
-  const parentPath = reconstructVerifiedContainerPath({
-    ...input,
-    manifestHash: parentManifestHash,
-  });
-  input.visiting.delete(input.manifestHash);
-  const parent = parentPath?.at(-1);
-  if (
-    !parentPath ||
-    !parent ||
-    parent.state.containerId !== manifest.state.parentContainerId
-  ) {
-    input.cache.set(input.manifestHash, null);
-    return null;
-  }
-  const path = [...parentPath, manifest];
-  input.cache.set(input.manifestHash, path);
-  return path;
-}
-
-export function addReconstructedVerifiedContainerPaths(input: {
-  readonly containerPathByManifestHash: ContainerPathByManifestHash;
-  readonly manifests: ReadonlyMap<string, VerifiedContainerAccessManifest>;
-}): void {
-  const cache = new Map<
-    string,
-    readonly VerifiedContainerAccessManifest[] | null
-  >();
-  for (const manifestHash of input.manifests.keys()) {
-    const path = reconstructVerifiedContainerPath({
-      cache,
-      manifestHash,
-      manifests: input.manifests,
-      visiting: new Set(),
-    });
-    if (path && !input.containerPathByManifestHash.has(manifestHash)) {
-      input.containerPathByManifestHash.set(manifestHash, path);
-    }
-  }
-}
+const MAX_CONTAINER_PATH_DEPTH = 100;
 
 /**
- * The container paths a link event's citations and target resolve to. A
- * cited hash with no served path is dropped here, not rejected: the crypto
- * verifier fails closed downstream, since a signer must show write access
- * through a cited linked container and the target path must be present.
+ * Rebuild historical authorization from the event's signed heads, not from
+ * creation-time parent pins or the server's grouping of dependency paths.
+ * Paths in the evidence index only supply verified manifests. Authorization
+ * uses exactly the ancestor heads this event signed, regardless of grouping.
+ * Prefix paths are evidence too; crypto authorization admits only leaves named
+ * by the signed document link set or committed content target set.
  */
 export function resolveEventContainerPaths(input: {
   readonly containerPathByManifestHash: ReadonlyMap<
@@ -86,23 +20,85 @@ export function resolveEventContainerPaths(input: {
     readonly VerifiedContainerAccessManifest[]
   >;
   readonly dependencyManifestHashes: readonly string[];
-  readonly targetManifestHash: string;
+  readonly targetManifestHash?: string;
 }): {
   dependencyContainerPaths: VerifiedContainerAccessManifest[][];
   targetContainerPath: readonly VerifiedContainerAccessManifest[] | undefined;
 } {
+  const manifests = new Map<string, VerifiedContainerAccessManifest>();
+  for (const path of input.containerPathByManifestHash.values()) {
+    for (const manifest of path) {
+      manifests.set(manifest.manifestHash, manifest);
+    }
+  }
+  const cited = new Map<string, VerifiedContainerAccessManifest>();
+  for (const hash of input.dependencyManifestHashes) {
+    const manifest = manifests.get(hash);
+    if (!manifest) {
+      throw new KeyingVerificationError(
+        "missing_dependency",
+        "Document event cites an unavailable container manifest",
+      );
+    }
+    if (cited.has(manifest.state.containerId)) {
+      throw new KeyingVerificationError(
+        "duplicate_entry",
+        "Document event cites two heads of one container",
+      );
+    }
+    cited.set(manifest.state.containerId, manifest);
+  }
+  const dependencyContainerPaths = [...cited.values()].map((leaf) => {
+    const reversed: VerifiedContainerAccessManifest[] = [];
+    const seen = new Set<string>();
+    let containerId: string | null = leaf.state.containerId;
+    while (containerId !== null) {
+      if (
+        seen.has(containerId) ||
+        reversed.length >= MAX_CONTAINER_PATH_DEPTH
+      ) {
+        throw new KeyingVerificationError(
+          "object_mismatch",
+          "Document event cited container path is cyclic or too deep",
+        );
+      }
+      seen.add(containerId);
+      const ancestor = cited.get(containerId);
+      if (!ancestor) {
+        throw new KeyingVerificationError(
+          "missing_dependency",
+          `Document event does not cite ancestor ${containerId}`,
+        );
+      }
+      if (ancestor.state.organizationId !== leaf.state.organizationId) {
+        throw new KeyingVerificationError(
+          "object_mismatch",
+          "Document event cited container path crosses organizations",
+        );
+      }
+      reversed.push(ancestor);
+      containerId = ancestor.state.parentContainerId;
+    }
+    const path = reversed.reverse();
+    // The cited descendant is itself an earlier signed statement. Its own
+    // citations establish floors for every ancestor, even when the server
+    // supplied these verified manifests in separate projection paths.
+    assertCitedAncestorsDoNotRegress({
+      bundlesByHash: new Map(),
+      label: "Document event",
+      verifiedByHash: manifests,
+      citedAncestors: path.slice(0, -1),
+      previousManifest: leaf,
+    });
+    return path;
+  });
   return {
-    dependencyContainerPaths: input.dependencyManifestHashes
-      .map((manifestHash) =>
-        input.containerPathByManifestHash.get(manifestHash),
-      )
-      .filter(
-        (path): path is readonly VerifiedContainerAccessManifest[] =>
-          path !== undefined,
-      )
-      .map((path) => [...path]),
-    targetContainerPath: input.containerPathByManifestHash.get(
-      input.targetManifestHash,
-    ),
+    dependencyContainerPaths,
+    targetContainerPath:
+      input.targetManifestHash === undefined
+        ? undefined
+        : dependencyContainerPaths.find(
+            (path) => path.at(-1)?.manifestHash === input.targetManifestHash,
+          ),
   };
 }

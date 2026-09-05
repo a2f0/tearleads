@@ -14,7 +14,10 @@ export async function documentWriteAuthorizationForHeader(input: {
     | undefined;
   readonly contentKeyBundle: DocumentSyncResponse["contentKeyBundle"];
   readonly manifestHash: string;
-  readonly plan: DocumentSyncPlan;
+  readonly plan: Pick<
+    DocumentSyncPlan,
+    "documentId" | "organizationId" | "documentWriterAuthorization"
+  >;
   readonly targetHash: string;
 }) {
   const source = input.plan.documentWriterAuthorization;

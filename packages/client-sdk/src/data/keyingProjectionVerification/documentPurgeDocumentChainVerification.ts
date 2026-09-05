@@ -37,6 +37,7 @@ async function verifyPinnedChainEndpoint(input: {
   const checkpointVerification = await loadManifestCheckpointVerification({
     current: manifest,
     execSql: input.checkpointContext.execSql,
+    localCheckpoints: input.checkpointContext.localCheckpoints,
     verifiedManifests: new Map(),
   });
   const localCheckpoint = checkpointVerification.localCheckpoint;
@@ -252,6 +253,7 @@ export async function verifyPurgeDocumentManifest(input: {
     ? await loadManifestCheckpointVerification({
         current: manifest,
         execSql: input.checkpointContext.execSql,
+        localCheckpoints: input.checkpointContext.localCheckpoints,
         verifiedManifests: verifiedByHash,
       })
     : undefined;

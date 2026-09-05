@@ -82,7 +82,7 @@ export async function assertManifestHeadCurrent(
  * path, and stored re-verification rebuilds the path from those citations,
  * so a path missing its top would commit a head that can never be verified.
  */
-function assertContainerPathEdges(
+export function assertContainerPathEdges(
   path: readonly VerifiedContainerAccessManifest[],
   label: string,
 ): void {
