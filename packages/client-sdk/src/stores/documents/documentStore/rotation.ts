@@ -12,7 +12,7 @@ import { requestDocumentStoreSync } from "../registry";
 import { installRebuiltDocument } from "./historyRebuild";
 import { chainIdentityWrite } from "./identityWriteChain";
 import { listPendingUpdates } from "./persistence";
-import { chainDocumentRemoteWork } from "./remoteWork";
+import { runDocumentRemoteWork } from "./remoteWork";
 import {
   assertExactDocumentHistory,
   importProvenOrdinaryPendingHistory,
@@ -417,7 +417,7 @@ export function assertDocumentStoreCanRotateContentKey(
     state.doc,
     laneGeneration,
   );
-  return chainDocumentRemoteWork(state, async () => {
+  return runDocumentRemoteWork(state, async () => {
     await state.writeChain.catch(() => undefined);
     if (
       !generation ||

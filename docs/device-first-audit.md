@@ -15,7 +15,7 @@ still reports online.
 | Projection notification | Link-only or access-only changes could update internal data without publishing a new snapshot. | Include links and all summary fields in change detection. |
 | Self-contact bootstrap | A missing local self key could fall back to a remote lookup; duplicate cleanup could await a remote purge inside the contact write queue. | Keep self-key resolution local and run remote cleanup separately. Preserve duplicates until authorized purge succeeds; retry on reconnect, including reconnect during a pending attempt. Each retry reloads its summary and uses the current runtime. |
 | Container mutation queue | A stalled explicit online operation could block ordinary folder writes behind the same promise. | Serialize online work separately; keep never-synced folder deletion local, including promotion races. A newer local write in the affected subtree invalidates older remote settlement and schedules reconciliation. System-folder probes watch their slot instead of the whole root tree. |
-| Document rotation | Raw-history recovery occupied the local edit queue and could race ordinary remote sync. | Serialize remote work within a live coordinator and hold the local queue only for the checked installation. Replacing an abandoned coordinator can start fresh remote work immediately. Edits persist during a stalled pull; a changed document rejects the stale installation and repeats the full proof within a bounded retry. |
+| Document rotation | Raw-history recovery occupied the local edit queue and could race ordinary remote sync. Waiting on active remote work could also block the coordinator's serial pump. | Admit one remote operation per live document lane and hold the local queue only for the checked installation. Busy sync defers until settlement; overlapping rotation fails promptly and remains retryable. Replacing an abandoned coordinator can start fresh remote work immediately. Edits persist during a stalled pull; a changed document rejects the stale installation and repeats the full proof within a bounded retry. |
 | Queued move scope | Rotation preflight reopened the source scope after an optimistic move; opening the destination view invalidated its proof. | Open the preflight under the current local placement while preserving source-based remote link-set authorization. |
 | Offline edit followed by Trash | A conflict could re-key an outgoing update after rotation verified its old queue identity, leaving the move pending. | Repeat the complete raw-history proof for the changed queue, with at most three attempts per invocation. Repeated conflicts retain durable work for a later retry. |
 
@@ -46,6 +46,11 @@ rotation retries a changed frontier. Duplicate-contact cleanup retries when
 connectivity or authentication returns; a transient failure with no such
 transition waits for the next reconnect. Existing signed-history, checkpoint-substitution,
 keying-isolation, and mutation-generation tests remain part of verification.
+
+Coordinator regressions hold rotation while unrelated lanes run, then require
+deferred document sync to resume. A watchdog-abandoned sync cannot hold a later
+structural rotation; that attempt retains pending edits and succeeds on retry
+after the abandoned request settles.
 
 ## Scope of the offline contract
 
