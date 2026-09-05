@@ -30,10 +30,7 @@ import {
   verifiedContainerManifestsForBundles,
   verifyContainerWriterProjectionWithContext,
 } from "./containerProjectionVerification";
-import {
-  addReconstructedVerifiedContainerPaths,
-  resolveEventContainerPaths,
-} from "./documentDependencyPaths";
+import { resolveEventContainerPaths } from "./documentDependencyPaths";
 import {
   collectDocumentManifestPrincipalPolicies,
   recordUsedDocumentContainerManifests,
@@ -42,6 +39,7 @@ import {
 import { requireVerifiedDocumentPredecessor } from "./documentManifestPredecessor";
 import { rejectPurgedDocumentProjection } from "./documentPurgeCheckpointEnforcement";
 import { rethrowProjectionVerificationBoundaryError } from "./error";
+import { addHistoricalContainerTargetPaths } from "./historicalContainerTargetPaths";
 import {
   loadManifestCheckpointVerification,
   verifyCachedManifestCheckpoint,
@@ -142,26 +140,17 @@ async function verifyProjectionContainerPaths(input: {
       verifiedByHash.set(manifest.manifestHash, manifest);
     }
   }
-  // Only the dependency paths are walked here: the authorizing paths above
-  // are already verified with checkpoints enforced and recorded, and the
-  // guard below keeps them, so the precedence is a rule of this loop rather
-  // than of the order the server listed the paths in.
+  // Current authorizing paths retain precedence in the content-write target
+  // index. Document/attachment events ignore its grouping and select exactly
+  // their own signed ancestor heads through resolveEventContainerPaths.
   for (const [
     index,
     path,
   ] of input.projection.documentManifestContainerPaths.entries()) {
-    // Dependency paths are the container evidence a link event was signed
-    // against. They are verified without checkpoint enforcement because a
-    // historical link event legitimately cites the container manifests that
-    // were current when it was signed. Each path must still be a genuine
-    // root-to-leaf chain: verifyContainerManifestPath asserts that each
-    // element is a child of the one before it by container id, not that the
-    // element is the parent's current head, so a served path can pair a leaf
-    // with an older manifest of the right parent, and the checkpoint-enforced
-    // authorizing path recorded for that leaf takes precedence. Whether a
-    // head's evidence is stale relative to a later container rotation is the
-    // ordering boundary the container ancestry section of
-    // docs/security-guarantees.md describes.
+    // Historical dependency evidence is verified without current checkpoint
+    // enforcement. Its grouping cannot substitute an uncited ancestor into
+    // document-event authorization. Content-write target lookups below still
+    // prefer the checkpoint-enforced path for a served current leaf.
     const verifiedPath = await verifyContainerManifestPath({
       authorizationMembership: "referenced",
       bundlesByHash,
@@ -181,7 +170,7 @@ async function verifyProjectionContainerPaths(input: {
     }
   }
 
-  addReconstructedVerifiedContainerPaths({
+  addHistoricalContainerTargetPaths({
     containerPathByManifestHash,
     manifests: verifiedByHash,
   });

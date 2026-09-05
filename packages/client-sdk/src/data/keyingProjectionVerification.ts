@@ -1,6 +1,13 @@
 import type { ProjectionUserKeyResolver } from "./keyingProjectionVerification/types";
 import { requireTrustedUserIdentityResolver } from "./trustedUserIdentity/requiredResolver";
 
+export { resolveEventContainerPaths } from "./keyingProjectionVerification/documentDependencyPaths";
+export {
+  readAccessEvent,
+  readRecordString,
+  readRequiredRecordValue,
+} from "./keyingProjectionVerification/readers";
+
 export type {
   PrincipalPolicyBundleCacheRequest,
   PrincipalPolicyCache,

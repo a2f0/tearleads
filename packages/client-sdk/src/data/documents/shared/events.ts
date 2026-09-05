@@ -9,6 +9,7 @@ import {
   signAccessEvent,
   type UnsignedAccessEvent,
 } from "@tearleads/crypto";
+import type { ContainerManifestRef } from "@tearleads/validators/request";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import {
   readCanonicalJson,
@@ -72,7 +73,9 @@ export async function buildDocumentCreatePlan({
     objectId: documentId,
     organizationId,
     previousManifestHash: null,
-    dependencyManifestHashes: [targetContainerManifestHash],
+    dependencyManifestHashes: uniqueSortedStrings(
+      containerProjection.path.map((bundle) => bundle.manifestHash),
+    ),
     bodyHash,
     signerUserId: author.signerUserId,
     signerDeviceId: author.signerDeviceId,
@@ -130,6 +133,7 @@ export async function buildDocumentLinkSetEventPlan(input: {
   // container's org — never the acting member's personal org.
   organizationId: string;
   signedAt: string;
+  targetContainerPathRefs: readonly ContainerManifestRef[];
   targetState: DocumentLinkSetTargetState;
   writerProjection: DocumentWriterProjectionResponse;
 }): Promise<DocumentLinkSetEventPlan> {
@@ -148,12 +152,12 @@ export async function buildDocumentLinkSetEventPlan(input: {
     targetContainerId: input.targetState.target.containerId,
     writerProjection: input.writerProjection,
   });
-  const dependencyManifestHashes = uniqueSortedStrings([
-    input.targetState.target.containerManifestHash,
-    ...authorizingContainerPathRefs
-      .map((path) => path.at(-1)?.manifestHash)
-      .filter((hash): hash is string => typeof hash === "string"),
-  ]);
+  const dependencyManifestHashes = uniqueSortedStrings(
+    [
+      ...input.targetContainerPathRefs,
+      ...authorizingContainerPathRefs.flat(),
+    ].map((ref) => ref.manifestHash),
+  );
   const unsignedEvent: UnsignedAccessEvent = {
     version: 1,
     eventId: input.eventId,

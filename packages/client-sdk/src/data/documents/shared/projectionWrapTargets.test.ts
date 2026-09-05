@@ -5,10 +5,7 @@ import {
 } from "@tearleads/crypto";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { createStaleBundleSyncFixture } from "../../../../test/helpers/staleBundleSyncFixture";
-import {
-  listedBlobTargetsFromDocumentProjection,
-  verifiedBlobWrapTargetsFromDocumentProjection,
-} from "../blob/shared/projection";
+import { verifiedBlobWrapTargetsFromDocumentProjection } from "../blob/shared/projection";
 import {
   assertDocumentWriterProjectionConsistent,
   buildRotatedDocumentContentKeyBundle,
@@ -142,7 +139,7 @@ test("blob upload targets come from verified leaves, not the server list", async
 // A writer who can open only one of several linked containers can still
 // detach (the event only references the listed targets) but cannot wrap a
 // blob key: the missing container is reported as unavailable, not as tamper.
-test("partial access lists targets for detach but cannot wrap to them", async () => {
+test("partial access cannot wrap to a listed target without verified key access", async () => {
   const { fixture, stale } = await poisonedStaleProjection();
   const otherTarget = {
     containerId: "other-linked-container",
@@ -176,15 +173,6 @@ test("partial access lists targets for detach but cannot wrap to them", async ()
     },
   };
 
-  expect(
-    listedBlobTargetsFromDocumentProjection({
-      bindingId: "binding-1",
-      documentId: partialAccess.documentId,
-      writerProjection: partialAccess,
-    }).map((target) => target.containerId),
-  ).toEqual(
-    [fixture.rotatedTarget.containerId, otherTarget.containerId].sort(),
-  );
   expect(() =>
     verifiedBlobWrapTargetsFromDocumentProjection({
       bindingId: "binding-1",

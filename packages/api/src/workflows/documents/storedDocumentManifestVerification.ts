@@ -32,7 +32,8 @@ import {
 } from "../principals/principalPolicyProjection";
 import { loadSignerPublicKey } from "../signerPublicKey";
 
-const MAX_CONTAINER_PATH_DEPTH = 100;
+import { loadCitedDocumentContainerPaths } from "./storedDocumentContainerPaths";
+
 const MAX_DOCUMENT_HISTORY_DEPTH = 4_096;
 const verifiedStoredDocumentManifests =
   new StoredVerificationCache<VerifiedDocumentLinkSetManifest>(2_048);
@@ -204,46 +205,29 @@ function targetContainerManifestHash(
   return hash;
 }
 
-async function loadVerifiedContainerPath(input: {
-  readonly context: ContainerWriterProjectionContext;
-  readonly leafManifestHash: string;
-}): Promise<VerifiedContainerAccessManifest[]> {
-  const reversed: VerifiedContainerAccessManifest[] = [];
-  let manifestHash: string | null = input.leafManifestHash;
-  while (manifestHash) {
-    if (reversed.length >= MAX_CONTAINER_PATH_DEPTH) {
-      throw integrityError("container path exceeds maximum depth");
-    }
-    const bundle = await loadContainerManifestBundleByHash(
-      input.context,
-      manifestHash,
-    );
-    const manifest = await verifyStoredContainerManifest({
-      bundle,
-      context: input.context,
-      loadBundle: (hash) =>
-        loadContainerManifestBundleByHash(input.context, hash),
-    });
-    reversed.push(manifest);
-    manifestHash = manifest.state.parentManifestHash;
-  }
-  return reversed.reverse();
-}
-
 async function loadContainerPaths(input: {
   readonly context: ContainerWriterProjectionContext;
   readonly event: VerifiedAccessEvent;
 }): Promise<VerifiedContainerAccessManifest[][]> {
-  const paths: VerifiedContainerAccessManifest[][] = [];
-  for (const manifestHash of input.event.event.dependencyManifestHashes) {
-    paths.push(
-      await loadVerifiedContainerPath({
+  return loadCitedDocumentContainerPaths({
+    dependencyManifestHashes: input.event.event.dependencyManifestHashes,
+    loadManifest: async (manifestHash) => {
+      const bundle = await loadContainerManifestBundleByHash(
+        input.context,
+        manifestHash,
+      );
+      return verifyStoredContainerManifest({
+        bundle,
         context: input.context,
-        leafManifestHash: manifestHash,
-      }),
-    );
-  }
-  return paths;
+        loadBundle: (hash) =>
+          loadContainerManifestBundleByHash(input.context, hash),
+      });
+    },
+  }).catch((error: unknown) => {
+    if (error instanceof KeyingVerificationError)
+      throw integrityError(error.message);
+    throw error;
+  });
 }
 
 async function verifyBundle(input: {

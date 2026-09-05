@@ -5,7 +5,6 @@ import {
   computeBlobContentKeyTargetHash,
   computeContentRecordNonceDomainHash,
   makeVerifiedBlobKekTargets,
-  verifyAttachmentBindingEvent,
   verifyWriteHeader,
 } from "@tearleads/crypto";
 import type { BlobKekTargetsResponse } from "@tearleads/validators/response";
@@ -38,17 +37,14 @@ import {
   uniqueSortedStrings,
 } from "../../data/documents/shared/readers";
 import { projectionVerificationOptions } from "../../data/documents/shared/types";
-import {
-  readCanonicalJson,
-  readCanonicalRecord,
-} from "../../data/keyingCanonicalJson";
+import { readCanonicalRecord } from "../../data/keyingCanonicalJson";
 import type { DocumentWriterProjectionAuthorization } from "../../data/keyingProjectionVerification";
-import { requireProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import {
-  readAccessEvent,
   readRecordString,
-  readRequiredRecordValue,
-} from "../../data/keyingProjectionVerification/readers";
+  requireProjectionUserKeyResolver,
+} from "../../data/keyingProjectionVerification";
+
+import { assertAttachmentBindingVerified } from "./attachmentBindingVerification";
 
 async function assertBlobEncryptionMetadata(input: {
   readonly contentKeyBundle: DecryptDocumentAttachmentBlobInput["binding"]["contentKeyBundle"];
@@ -394,83 +390,5 @@ async function assertBlobWriteHeaderVerified(input: {
   });
   if (!verified.ok) {
     throw verified.error;
-  }
-}
-
-async function assertAttachmentBindingVerified(input: {
-  readonly authorization: DocumentWriterProjectionAuthorization | undefined;
-  readonly binding: DecryptDocumentAttachmentBlobInput["binding"];
-  readonly expectedDocumentId: string;
-  readonly expectedSlotId: string;
-  readonly resolveProjectionUserKey: ReturnType<
-    typeof requireProjectionUserKeyResolver
-  >;
-}): Promise<void> {
-  if (!input.authorization) {
-    throw new Error("Attachment binding lacks verified document authority");
-  }
-  if (
-    !input.binding.bindingEvent ||
-    !input.binding.documentManifestHash ||
-    input.binding.previousBindingId === undefined
-  ) {
-    throw new Error("Attachment binding lacks signed verification material");
-  }
-  const eventBundle = readCanonicalRecord(
-    input.binding.bindingEvent,
-    "Attachment binding event bundle",
-  );
-  const event = readAccessEvent(
-    readRequiredRecordValue(
-      eventBundle,
-      "event",
-      "Attachment binding event bundle",
-    ),
-    "Attachment binding event",
-  );
-  const signer = await input.resolveProjectionUserKey(event.signerUserId);
-  if (!signer) {
-    throw new Error("Attachment binding signer identity is unavailable");
-  }
-  const documentManifest = input.authorization.documentManifestByHash.get(
-    input.binding.documentManifestHash,
-  );
-  if (!documentManifest) {
-    throw new Error("Attachment binding document manifest is unverified");
-  }
-  const verified = await verifyAttachmentBindingEvent({
-    authorizingContainerPaths: [
-      ...input.authorization.containerPathByManifestHash.values(),
-    ],
-    body: readCanonicalJson(
-      readRequiredRecordValue(
-        eventBundle,
-        "body",
-        "Attachment binding event bundle",
-      ),
-      "Attachment binding event body",
-    ),
-    documentManifest,
-    event,
-    expectedBindingId: input.binding.bindingId,
-    expectedBlobId: input.binding.blobId,
-    expectedDocumentId: input.expectedDocumentId,
-    expectedDocumentManifestHash: input.binding.documentManifestHash,
-    expectedPreviousBindingId: input.binding.previousBindingId,
-    principalPolicies: input.authorization.principalPolicies,
-    signerPublicKey: signer.signingPublicKey,
-  });
-  if (!verified.ok) {
-    throw verified.error;
-  }
-  if (
-    verified.value.slotId !== input.expectedSlotId ||
-    readRecordString(
-      eventBundle,
-      "eventHash",
-      "Attachment binding event bundle",
-    ) !== verified.value.event.eventHash
-  ) {
-    throw new Error("Attachment binding slot or event hash is inconsistent");
   }
 }
