@@ -1779,7 +1779,13 @@ export class ApiClient {
       });
   }
 
-  listDocumentAttachments(documentId: string) {
+  listDocumentAttachments(
+    documentId: string,
+    options: { refresh?: boolean } = {},
+  ) {
+    if (options.refresh) {
+      this.documentAttachmentListRequestsByDocumentId.delete(documentId);
+    }
     return cachedRequest(
       this.documentAttachmentListRequestsByDocumentId,
       documentId,

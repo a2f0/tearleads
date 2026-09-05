@@ -124,8 +124,10 @@ export async function resolveAttachmentUploadResume(
       // Recheck after the ambiguous bind, including an immediate projection
       // retry in this pass. A still-active commit must retain its identity for
       // normal adoption on the next pass; a failed read proves nothing.
-      const bindings =
-        await state.runtime.apiClient.listDocumentAttachments(documentId);
+      const bindings = await state.runtime.apiClient.listDocumentAttachments(
+        documentId,
+        { refresh: true },
+      );
       if (!bindings) throw new Error("Attachment recovery lookup failed.");
       if (
         !isDocumentStoreSyncGenerationCurrent(state, attachmentGeneration) ||

@@ -50,8 +50,9 @@ Replacing only the missing stage kept the old blob id, which the server rejects
 as already used even after garbage collection.
 
 The document owner now freshly reads bindings after a definitive stage absence
-or expiry. A matching active slot retains the identity for normal adoption; an
-unavailable listing retains all retry state. An absent or replaced slot causes
+or expiry, explicitly evicting the API client's cached list. A matching active
+slot retains the identity for normal adoption; an unavailable listing retains
+all retry state. An absent or replaced slot causes
 a durable identity replacement and a new pass with fresh encryption material
 and a fresh blob id. The replacement is persisted before upload. Tests cover the
 additional lookup failing, the original binding still being active, the binding
@@ -74,8 +75,8 @@ manual sync. Permission failures and exhausted conflict-recovery budgets can
 remain parked until their recovery signal or a manual retry. Preserved work
 does not imply continuous automatic retries during an outage.
 
-The implementation changes remain within the API and Client SDK ownership
-lanes and introduce no dependency between server and client implementation
+The implementation changes remain within the API, API Client, and Client SDK
+ownership lanes and introduce no dependency between server and client implementation
 code. No wire schema or public facade exports changed.
 
 ## Validation
@@ -83,6 +84,7 @@ code. No wire schema or public facade exports changed.
 The added regression tests live in:
 
 - `packages/api/src/services/blobs/multipartStageCleanup.pg.test.ts`
+- `packages/api-client/src/ApiClient.attachmentRefresh.test.ts`
 - `packages/client-sdk/src/stores/documents/documentStore/attachmentUploadResume.test.ts`
 - `packages/client-sdk/src/stores/documents/documentStore/attachmentUploadStageRecovery.test.ts`
 - `packages/client-sdk/src/workflows/blobs/multipartUpload.failureCodes.test.ts`

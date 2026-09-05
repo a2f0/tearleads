@@ -31,7 +31,13 @@ test("a consumed stage whose committed binding was removed renews the durable up
       status: 404,
     }),
     getDocumentWriterProjection: async () => fixture.writerProjection,
-    listDocumentAttachments: async () => bindings,
+    listDocumentAttachments: async (
+      _documentId: string,
+      options?: { refresh?: boolean },
+    ) => {
+      expect(options?.refresh).toBe(true);
+      return bindings;
+    },
     bindBlobAttachment: async (
       blobId: string,
       request: Parameters<
@@ -130,13 +136,25 @@ test("a consumed stage whose committed binding was removed renews the durable up
     bindings = [
       { blobId: original.blobId, slotId: pending.slotId },
     ] as DocumentAttachmentBinding[];
-    expect((await attempt(resume)).uploaded).toBeNull();
+    expect(await attempt(resume)).toMatchObject({
+      error: {
+        message:
+          "Multipart stage is unavailable; upload attempt stopped for recovery.",
+      },
+      uploaded: null,
+    });
     expect(pending.upload?.blobId).toBe(original.blobId);
 
     // Another client removed the binding after commit. Its blob id remains
     // reserved server-side, so replacing only the stage can never succeed.
     bindings = [];
-    expect((await attempt(resume)).uploaded).toBeNull();
+    expect(await attempt(resume)).toMatchObject({
+      error: {
+        message:
+          "Multipart stage is unavailable; upload attempt stopped for recovery.",
+      },
+      uploaded: null,
+    });
     expect(saved.at(-1)?.upload?.blobId).not.toBe(original.blobId);
     expect(saved.at(-1)?.upload?.stageId).toBeNull();
     expect(boundBlobIds).toEqual([]);

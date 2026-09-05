@@ -59,7 +59,7 @@ export async function assertMultipartStageReplaceable(input: {
   if (input.onStageUnavailable) {
     await input.onStageUnavailable(input.stageId);
     throw new Error(
-      "Multipart stage is unavailable; upload identity must be renewed.",
+      "Multipart stage is unavailable; upload attempt stopped for recovery.",
     );
   }
 }

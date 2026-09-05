@@ -175,7 +175,7 @@ test("a durable owner renews its identity before a missing stage is replaced", a
         unavailableStages.push(stageId);
       },
     }),
-  ).rejects.toThrow("upload identity must be renewed");
+  ).rejects.toThrow("upload attempt stopped for recovery");
   expect(unavailableStages).toEqual(["consumed-stage"]);
   expect(initiateCalls).toBe(0);
 });
