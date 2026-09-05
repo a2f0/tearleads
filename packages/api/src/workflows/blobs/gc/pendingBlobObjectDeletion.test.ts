@@ -1,5 +1,3 @@
-const ORGANIZATION_ID = "fd48148f-2bb0-420d-925a-7007d5c1c40f";
-
 import { expect, setSystemTime, test } from "bun:test";
 import { db, getDefaultApiDatabaseKind } from "@tearleads/api-shared/postgres";
 import { blobAuditObjects } from "@tearleads/api-shared/schema";
@@ -10,6 +8,8 @@ import {
   recordBlobObjectDeleted,
   recordBlobObjectDeletionAttempt,
 } from "./pendingBlobObjectDeletion";
+
+const ORGANIZATION_ID = "fd48148f-2bb0-420d-925a-7007d5c1c40f";
 
 test("pending deletion selection deduplicates rows across query snapshots", () => {
   const duplicate = {

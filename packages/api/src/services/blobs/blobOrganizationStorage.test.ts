@@ -28,7 +28,6 @@ import { getBlobBytes } from "./getBlob";
 import {
   cleanupExpiredBlobStages,
   completeMultipartBlobStage,
-  getMultipartBlobStage,
   initiateMultipartBlobStage,
   uploadMultipartBlobPartBytes,
 } from "./multipartStage";
@@ -306,28 +305,4 @@ test("initiateMultipartBlobStage aborts the upload when stage persistence fails"
   await expect(
     store.createMultipartUpload({ key: abortedUpload?.key ?? "missing" }),
   ).resolves.toHaveProperty("uploadId");
-});
-
-test("UUID spelling cannot create a second storage namespace for an organization", async () => {
-  const owner = await createBlobStageOwner();
-  const runtime = createServiceTestRuntime();
-  const stage = await initiateMultipartBlobStage(runtime, {
-    ...owner,
-    organizationId: owner.organizationId.toUpperCase(),
-    byteLength: bytes.byteLength,
-    sha256: sha256Hex(bytes),
-  });
-  expect(stage.organizationId).toBe(owner.organizationId);
-  const status = await getMultipartBlobStage(runtime, {
-    stageId: stage.stageId,
-    userId: owner.userId,
-  });
-  expect(status.organizationId).toBe(owner.organizationId);
-  const [stored] = await runtime.db
-    .select()
-    .from(blobStages)
-    .where(eq(blobStages.id, stage.stageId));
-  expect(stored?.storageKey).toBe(
-    `organizations/${owner.organizationId}/blob-stages/${stage.stageId}`,
-  );
 });

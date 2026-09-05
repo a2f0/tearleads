@@ -1,10 +1,10 @@
-const ORGANIZATION_ID = "fd48148f-2bb0-420d-925a-7007d5c1c40f";
-
 import { expect, test } from "bun:test";
 import { blobStages } from "@tearleads/api-shared/schema";
 import { eq } from "drizzle-orm";
 import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
 import { loadOwnedActiveBlobStage } from "./stageAccess";
+
+const ORGANIZATION_ID = "fd48148f-2bb0-420d-925a-7007d5c1c40f";
 
 class StageAccessError extends Error {
   constructor(

@@ -237,10 +237,10 @@ export async function initiateMultipartBlobStage(
   runtime: ApiServiceRuntime,
   input: InitiateMultipartBlobStageRequest & { readonly userId: string },
 ): Promise<InitiateMultipartBlobStageResponse> {
-  const organizationId = input.organizationId.toLowerCase();
+  const { organizationId } = input;
   await requireBlobStageOrganizationAccess(
     runtime.db,
-    { ...input, organizationId },
+    input,
     (message, status) => new MultipartBlobStageError(message, status),
   );
   const stageId = crypto.randomUUID();

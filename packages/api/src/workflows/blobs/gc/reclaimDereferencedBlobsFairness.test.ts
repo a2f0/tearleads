@@ -1,10 +1,10 @@
-const ORGANIZATION_ID = "fd48148f-2bb0-420d-925a-7007d5c1c40f";
-
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { blobAuditObjects, blobs } from "@tearleads/api-shared/schema";
 import { eq, inArray } from "drizzle-orm";
 import { runReclaimDereferencedBlobsWorkflow } from "./reclaimDereferencedBlobs";
+
+const ORGANIZATION_ID = "fd48148f-2bb0-420d-925a-7007d5c1c40f";
 
 const HOUR_MS = 60 * 60 * 1000;
 const GRACE_PERIOD_MS = 24 * HOUR_MS;

@@ -1,5 +1,5 @@
-import { expect, test } from "bun:test";
-import { blobStages } from "@tearleads/api-shared/schema";
+import { expect, mock, test } from "bun:test";
+import { blobStages, organizationBilling } from "@tearleads/api-shared/schema";
 import { MULTIPART_BLOB_STAGE_ERROR_CODES } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import { createMiddleware } from "hono/factory";
@@ -39,6 +39,63 @@ function createAuthenticatedTestApp(
     runtime,
   });
 }
+
+test.each([
+  "not-a-uuid",
+  "FD48148F-2BB0-420D-925A-7007D5C1C40F",
+  "fd48148f-2bb0-120d-925a-7007d5c1c40f",
+])("multipart initiation rejects invalid organization ID %s", async (organizationId) => {
+  const app = createAuthenticatedTestApp(crypto.randomUUID());
+  const response = await app.request("/blobs/stages/multipart", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ organizationId, byteLength: 1, sha256: "sha256" }),
+  });
+  expect(response.status).toBe(400);
+  await expect(response.json()).resolves.toEqual({ error: "Invalid request" });
+});
+
+test("multipart initiation conceals unknown and inaccessible organizations", async () => {
+  const owner = await createBlobStageOwner();
+  const runtime = createServiceTestRuntime();
+  const createUpload = mock(runtime.blobObjectStore.createMultipartUpload);
+  runtime.blobObjectStore = {
+    ...runtime.blobObjectStore,
+    createMultipartUpload: createUpload,
+  };
+  const app = createAuthenticatedTestApp(crypto.randomUUID(), runtime);
+  for (const organizationId of [owner.organizationId, crypto.randomUUID()]) {
+    const response = await app.request("/blobs/stages/multipart", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ organizationId, byteLength: 1, sha256: "sha256" }),
+    });
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      error: "Organization access denied",
+    });
+  }
+  expect(createUpload).not.toHaveBeenCalled();
+});
+
+test("multipart initiation rejects an organization being purged", async () => {
+  const { userId, organizationId } = await createBlobStageOwner();
+  const runtime = createServiceTestRuntime();
+  await runtime.db
+    .update(organizationBilling)
+    .set({ status: "deleting" })
+    .where(eq(organizationBilling.organizationId, organizationId));
+  const app = createAuthenticatedTestApp(userId, runtime);
+  const response = await app.request("/blobs/stages/multipart", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ organizationId, byteLength: 1, sha256: "sha256" }),
+  });
+  expect(response.status).toBe(409);
+  await expect(response.json()).resolves.toEqual({
+    error: "Organization is being purged",
+  });
+});
 
 test("multipart blob stage routes support resumable upload completion", async () => {
   const encryptedBytes = "route-multipart-encrypted-bytes";

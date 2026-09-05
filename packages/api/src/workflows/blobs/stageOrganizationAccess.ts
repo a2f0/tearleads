@@ -24,6 +24,9 @@ export async function requireBlobStageOrganizationAccess(
       input.organizationId,
     );
   } catch (cause) {
+    if (cause instanceof OrganizationManagerError && cause.status === 404) {
+      throw error("Organization access denied", 403);
+    }
     if (
       cause instanceof OrganizationManagerError &&
       (cause.status === 403 || cause.status === 409)
