@@ -5,6 +5,8 @@ import { dirname, resolve } from "node:path";
 
 interface TierFixture {
   readonly name: "staging" | "production";
+  /** Tier argument the orchestrator passes to the shared secret validators. */
+  readonly tier: "staging" | "prod";
   readonly sourceScript: string;
   readonly targetVariable: "STAGING_SSH_TARGET" | "PRODUCTION_SSH_TARGET";
   readonly commands: ReadonlyArray<readonly [name: string, path: string]>;
@@ -13,6 +15,7 @@ interface TierFixture {
 const fixtures: readonly TierFixture[] = [
   {
     name: "staging",
+    tier: "staging",
     sourceScript: resolve(import.meta.dir, "../../../scripts/deployStaging.sh"),
     targetVariable: "STAGING_SSH_TARGET",
     commands: [
@@ -25,6 +28,7 @@ const fixtures: readonly TierFixture[] = [
   },
   {
     name: "production",
+    tier: "prod",
     sourceScript: resolve(
       import.meta.dir,
       "../../../scripts/deployProduction.sh",
@@ -74,6 +78,9 @@ for (const fixture of fixtures) {
           "  export SSH_TARGET",
           "}",
           "validate_aws_env() { :; }",
+          "validate_stripe_env() {",
+          '  printf \'validate_stripe_env|%s\\n\' "$1" >> "$DEPLOY_TIER_TEST_LOG"',
+          "}",
         ].join("\n"),
       );
       for (const [name, path] of fixture.commands) {
@@ -105,6 +112,8 @@ for (const fixture of fixtures) {
       expect(exitCode, stderr).toBe(0);
       expect(stdout).toContain("skipped (--skip-terraform)");
       expect((await readFile(logPath, "utf8")).trim().split("\n")).toEqual([
+        // The Stripe key-mode guard runs for this tier before any step.
+        `validate_stripe_env|${fixture.tier}`,
         "ansible|deploy-user@tier-host|deploy-user@tier-host",
         "api|deploy-user@tier-host|deploy-user@tier-host",
         "website|deploy-user@tier-host|deploy-user@tier-host",

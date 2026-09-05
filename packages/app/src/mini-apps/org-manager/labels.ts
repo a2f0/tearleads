@@ -92,7 +92,8 @@ export const ORG_MANAGER_LABELS = {
     "Couldn't open Stripe checkout right now. Try again.",
   billingProviderStalled:
     "Billing stopped responding. Restart the app and try again.",
-  billingPurchaseUnavailable: "Purchases aren't available right now.",
+  billingPurchaseUnavailable:
+    "Purchases aren't available in this app. Open Tearleads in a browser to subscribe.",
   billingPurged: "Remote data purged",
   purgeRecoveryBillingRequired:
     "A replacement organization is ready. Activate sync billing to restore your retained local data.",

@@ -16,6 +16,8 @@ get_backend_config() {
 COMMON_SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 # shellcheck source=terraform/scripts/secretsEnv.sh
 . "$COMMON_SCRIPT_DIR/secretsEnv.sh"
+# shellcheck source=terraform/scripts/stripeEnv.sh
+. "$COMMON_SCRIPT_DIR/stripeEnv.sh"
 unset COMMON_SCRIPT_DIR
 
 # Validate required environment variables for Hetzner stacks (base)
