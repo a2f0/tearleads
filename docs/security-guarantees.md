@@ -320,6 +320,12 @@ SQLite executor, shared by its locked wrappers and across organizations.
 Snapshots remain organization-scoped. It reconstructs held
 paths from parent IDs, checks each against
 its durable checkpoint, and signs complete path citations parent-first.
+Before signing, it calculates current admin access from those trusted states
+and held verified policies using the crypto access rules. Self-revocation
+therefore skips descendants locally; a server cannot obtain an unauthorized
+signed re-cite to echo into the durable checkpoint. Mutation lifetime also pins
+a monotonic internal session generation, so logout/login expires pending work
+even if no guard call observes the intermediate logged-out state.
 `container.recite` changes only the access-manifest head: grants, parent pins,
 key epochs, keyrings, and wraps stay unchanged. The API checks current paths
 and principal policies under the mutation locks and requires admin authority.

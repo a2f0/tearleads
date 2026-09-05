@@ -77,6 +77,7 @@ export function createInternalRuntimeFixture(
 ): InternalRuntime {
   return {
     adoptRootContainer: overrides.adoptRootContainer ?? (() => false),
+    sessionGeneration: 0,
     pinLocalUserIdentity: async () => {},
     publicRuntime: {
       version: 0,

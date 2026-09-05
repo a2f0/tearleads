@@ -236,6 +236,7 @@ export {
   principalPolicyMatchesReference,
   principalPolicyTransparencyLeaf,
   resolveContainerPathUserAccessLevel,
+  resolveContainerStatePathUserAccessLevel,
   resolveHistoricalContainerPathUserAccessLevel,
   sealContainerKekKeyring,
   serializeKeyingCanonicalJson,

@@ -4,6 +4,7 @@ import {
   deriveContainerAccessManifest,
   KeyingVerificationError,
   MAX_CONTAINER_RECITATION_EPOCH,
+  resolveContainerStatePathUserAccessLevel,
 } from "@tearleads/crypto";
 import type { ContainerReciteRequest } from "@tearleads/validators/request";
 import type { ContainerReciteResponse } from "@tearleads/validators/response";
@@ -32,6 +33,18 @@ export async function buildContainerRecitePlan(input: {
     )
   ) {
     throw new Error("Recitation cannot cross organizations");
+  }
+  if (
+    resolveContainerStatePathUserAccessLevel({
+      states: input.path.map((head) => head.state),
+      principalPolicies: input.policies,
+      userId: input.author.signerUserId,
+    }) !== "admin"
+  ) {
+    throw new KeyingVerificationError(
+      "unauthorized",
+      "Container re-citation signer lacks admin access on the held path",
+    );
   }
   const body = {
     eventType: "container.recite" as const,

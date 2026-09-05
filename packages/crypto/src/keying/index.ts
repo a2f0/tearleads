@@ -23,6 +23,7 @@ export {
   normalizeContainerKekPredecessorBridge,
   unwrapContainerKekPredecessorBridge,
 } from "./containerKekPredecessor";
+export { resolveContainerStatePathUserAccessLevel } from "./containerPathAccess";
 export * from "./documentAccess";
 export {
   type DocumentPurgeAccessEventBody,
