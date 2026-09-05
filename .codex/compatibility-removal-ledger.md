@@ -156,6 +156,13 @@ item quantities and provider reprovisioning. Out-of-contract Stripe seat targets
 now emit the existing operator-attention diagnostic as well as durable retry
 state; no unsupported paid entitlement is fabricated.
 
+Review round 6 tightened the public cache options and bundle-save owner argument
+to required `string` types; all production callers already supplied ownership.
+Malformed-JavaScript tests still prove atomic runtime refusal. Stripe seat
+capacity errors now have a dedicated subtype so unrelated `RangeError`s are
+not mislabeled. Documentation distinguishes the CLI's specific name/path
+content checks from its column guard and the general fresh-database requirement.
+
 - Integrate the completed issue PRs; regenerate final contracts and exact
   temporary OpenAPI exceptions; complete validation, review, and submission.
 

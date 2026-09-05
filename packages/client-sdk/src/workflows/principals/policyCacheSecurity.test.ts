@@ -25,6 +25,7 @@ test("principal policy cache preserves trusted identity integrity failures", asy
     await expect(
       cacheReferencedPolicies({
         execSql,
+        organizationId: "org-1",
         getCurrentPrincipalPolicy: async () => bundle,
         getUserIdentity: async () => {
           throw integrityError;
@@ -57,6 +58,7 @@ test("principal policy cache reports integrity failures that expire the generati
     await expect(
       cacheReferencedPolicies({
         execSql,
+        organizationId: "org-1",
         getCurrentPrincipalPolicy: async () => bundle,
         getUserIdentity: async () => {
           current = false;
@@ -99,6 +101,7 @@ test("principal policy cache preserves foreign-instance integrity failures", asy
     await expect(
       cacheReferencedPolicies({
         execSql,
+        organizationId: "org-1",
         getCurrentPrincipalPolicy: async () => bundle,
         getUserIdentity: async () => {
           throw foreignInstanceError;
@@ -140,6 +143,7 @@ test("API-supplied policy bundles hard-fail when signed permissions are tampered
       cachePrincipalPolicyBundles({
         bundles: [tamperedBundle],
         execSql,
+        organizationId: "org-1",
         getCurrentPrincipalPolicy: async () => null,
         reportSecurityIncident: async () => undefined,
         resolveTrustedUserIdentity: async () =>

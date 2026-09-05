@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { getSyncBillingTierForStripePrice } from "./stripeHttp";
 import {
   normalizeStripeSeatQuantity,
+  StripeSeatQuantityInvalid,
   updateSubscriptionItemQuantity,
 } from "./stripeSeatQuantity";
 
@@ -17,8 +18,12 @@ test("live Stripe seat state has an explicit one-seat floor", () => {
   expect(normalizeStripeSeatQuantity(1)).toBe(1);
   expect(normalizeStripeSeatQuantity(4)).toBe(5);
   expect(normalizeStripeSeatQuantity(10)).toBe(10);
-  expect(() => normalizeStripeSeatQuantity(11)).toThrow(RangeError);
-  expect(() => normalizeStripeSeatQuantity(-1)).toThrow(RangeError);
+  expect(() => normalizeStripeSeatQuantity(11)).toThrow(
+    StripeSeatQuantityInvalid,
+  );
+  expect(() => normalizeStripeSeatQuantity(-1)).toThrow(
+    StripeSeatQuantityInvalid,
+  );
 });
 
 test("configured Stripe prices map exactly to their fixed tiers", () => {

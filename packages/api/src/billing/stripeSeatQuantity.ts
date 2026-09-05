@@ -3,6 +3,13 @@ import { resolveDeps, type StripeApiDeps, stripeRequest } from "./stripeHttp";
 
 type StripeSeatProrationBehavior = "create_prorations" | "none";
 
+export class StripeSeatQuantityInvalid extends RangeError {
+  constructor(message: string) {
+    super(message);
+    this.name = "StripeSeatQuantityInvalid";
+  }
+}
+
 interface StripeSeatQuantityUpdate {
   readonly subscriptionItemId: string;
   readonly seatQuantity: number;
@@ -16,11 +23,15 @@ interface StripeSeatQuantityUpdate {
  */
 export function normalizeStripeSeatQuantity(seatQuantity: number): number {
   if (!Number.isSafeInteger(seatQuantity) || seatQuantity < 0) {
-    throw new RangeError("Stripe seat quantity must be a non-negative integer");
+    throw new StripeSeatQuantityInvalid(
+      "Stripe seat quantity must be a non-negative integer",
+    );
   }
   const tier = getSyncBillingTierForSeatCount(Math.max(1, seatQuantity));
   if (!tier)
-    throw new RangeError("Stripe seat quantity exceeds the available tiers");
+    throw new StripeSeatQuantityInvalid(
+      "Stripe seat quantity exceeds the available tiers",
+    );
   return tier.seatLimit;
 }
 
@@ -31,7 +42,9 @@ export async function updateSubscriptionItemQuantity(
 ): Promise<boolean | null> {
   const tier = getSyncBillingTierForSeatCount(input.seatQuantity);
   if (!tier) {
-    throw new RangeError("Stripe seat target exceeds the available tiers");
+    throw new StripeSeatQuantityInvalid(
+      "Stripe seat target exceeds the available tiers",
+    );
   }
   if (!input.idempotencyKey.trim()) {
     throw new RangeError(

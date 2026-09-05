@@ -3,6 +3,7 @@ import type { StripeApiDeps } from "../../billing/stripeApi";
 import { getStripePriceIdForTier } from "../../billing/stripeHttp";
 import {
   normalizeStripeSeatQuantity,
+  StripeSeatQuantityInvalid,
   updateSubscriptionItemQuantity,
 } from "../../billing/stripeSeatQuantity";
 import {
@@ -308,7 +309,7 @@ export async function runStripeSeatSynchronization(
       }
       if (
         error instanceof StripeSeatBindingInvalid ||
-        error instanceof RangeError
+        error instanceof StripeSeatQuantityInvalid
       ) {
         console.error(
           `Stripe seat sync for organization ${claim.organizationId} requires attention: ${error.message}`,

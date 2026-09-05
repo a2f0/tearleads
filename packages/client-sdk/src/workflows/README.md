@@ -20,8 +20,9 @@ unconditional settlement or three-argument error-recorder fallback.
 Local document tables must contain the current required columns; obsolete tables
 require reset, not an additive upgrade. Principal-policy warming verifies and
 durably caches evidence; it has no verify-without-persistence mode. Group cache
-writes require an explicit organization owner, pinned in the same transaction
-as current policies, retained history, and checkpoint-only updates. Unowned
+writes require an explicit organization owner in the public cache/save
+TypeScript interfaces. It is pinned in the same transaction as current policies,
+retained history, and checkpoint-only updates. Unowned
 persisted group evidence refuses scoped purge and requires a full local reset. Native
 purchase providers invoke the supplied `onProviderPresented` callback exactly
 when their UI becomes uncancellable, with no capability-negotiation fallback.

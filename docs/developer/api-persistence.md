@@ -63,8 +63,10 @@ retrying an unrepresentable seat state or inferring identity from a new claim.
 Reprovision the provider subscription with a current fixed-tier price and a
 single subscription item of quantity one; do not replay paid legacy invoices
 until their billing state has been investigated and corrected by the operator.
-Unnamed group policies and incomplete historical path citations likewise
-require reset before the deployment guard permits startup.
+The API migration CLI separately checks unnamed group policies and incomplete
+historical path citations in `assertCurrentSchema.ts` before startup. Those
+specific content checks are not a general signed-history audit and do not
+relax this release's fresh-database precondition.
 
 Old client document tables and obsolete Loro encodings likewise require local
 reset and reprovisioning, not an in-place conversion. Retain any unsynced data

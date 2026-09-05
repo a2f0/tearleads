@@ -139,6 +139,7 @@ async function savePresentationState(execSql: ExecSql): Promise<void> {
     execSql,
     organizationPrincipalPolicy,
     persistedAt,
+    organizationId,
   );
   await reconcileOrganizationDataUsage({
     apiClient: {

@@ -23,7 +23,12 @@ test.each([
     const { bundle } = await createPrincipalPolicyBundle();
     const updatedAt = "2026-09-04T00:00:00.000Z";
     await expect(
-      savePrincipalPolicyBundle(execSql, bundle, updatedAt, organizationId),
+      Reflect.apply(savePrincipalPolicyBundle, undefined, [
+        execSql,
+        bundle,
+        updatedAt,
+        organizationId,
+      ]),
     ).rejects.toThrow("require an organization ID");
     const runtime = getClientSQLitePersistenceRuntime(execSql);
     await expect(

@@ -60,7 +60,12 @@ test("local organization policy history is bound to the projected verified head"
         response: initial,
       }),
     ).resolves.toBe("applied");
-    await savePrincipalPolicyBundle(execSql, bundle, CREATED_AT);
+    await savePrincipalPolicyBundle(
+      execSql,
+      bundle,
+      CREATED_AT,
+      ORGANIZATION_ID,
+    );
 
     const common = {
       currentUserId: organizationReadModelUserId,

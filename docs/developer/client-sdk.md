@@ -60,6 +60,7 @@ Local document tables require the current columns at startup. Reset obsolete
 tables instead of expecting additive schema upgrades. Principal-policy warming
 always verifies and persists its cache. Group policy writes require an explicit
 organization owner, pinned atomically with current/history/checkpoint rows.
+The public policy-cache and bundle-save interfaces require that owner in their types.
 Unowned persisted group evidence requires a full local reset before scoped purge.
 The wire contract requires explicit
 commit-LSN mode, inline-rekey commit markers for nonempty batches, and original

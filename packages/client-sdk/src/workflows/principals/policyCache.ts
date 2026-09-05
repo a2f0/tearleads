@@ -32,7 +32,7 @@ export interface CacheReferencedPrincipalPoliciesOptions {
     principalId: string,
   ) => Promise<PrincipalPolicyBundleResponse | null>;
   log?: (message: string) => void;
-  organizationId?: string | null | undefined;
+  organizationId: string;
   reportSecurityIncident: SecurityIncidentReporter;
   references: ReadonlyArray<ReferencedPrincipalStateResponse> | undefined;
   resolveTrustedUserIdentity: TrustedUserIdentityResolver;
@@ -80,7 +80,7 @@ async function cacheReferencedPrincipalPolicy(
   resolveTrustedUserIdentity: TrustedUserIdentityResolver,
   log: ((message: string) => void) | undefined,
   loadExternalAdminPolicy: () => Promise<VerifiedExternalAdminPolicy | null>,
-  organizationId: string | null | undefined,
+  organizationId: string,
   stillCurrent: (() => boolean) | undefined,
 ): Promise<VerifiedPrincipalPolicy[]> {
   const localCheckpoint = await loadPrincipalPolicyCheckpoint(
@@ -125,7 +125,7 @@ async function cacheReferencedPrincipalPolicy(
   await persistVerifiedPrincipalPolicyBundlesAtomically({
     entries: [...externalEntries, { bundle, policy: validation.policy }],
     execSql,
-    ...(organizationId ? { organizationId } : {}),
+    organizationId,
     updatedAt: new Date().toISOString(),
     stillCurrent,
   });
@@ -137,7 +137,7 @@ async function cachePrincipalPolicyBundle(input: {
   readonly execSql: ExecSql;
   readonly loadExternalAdminPolicy: () => Promise<VerifiedExternalAdminPolicy | null>;
   readonly log: ((message: string) => void) | undefined;
-  readonly organizationId: string | null | undefined;
+  readonly organizationId: string;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<VerifiedPrincipalPolicy[]> {
@@ -169,7 +169,7 @@ async function cachePrincipalPolicyBundle(input: {
       { bundle: input.bundle, policy: validation.policy },
     ],
     execSql: input.execSql,
-    ...(input.organizationId ? { organizationId: input.organizationId } : {}),
+    organizationId: input.organizationId,
     updatedAt: new Date().toISOString(),
     stillCurrent: input.stillCurrent,
   });
@@ -187,7 +187,7 @@ async function runPrincipalPolicyCache<Item, Result>(input: {
   readonly itemKey: (item: Item) => string;
   readonly items: ReadonlyArray<Item> | undefined;
   readonly log: ((message: string) => void) | undefined;
-  readonly organizationId: string | null | undefined;
+  readonly organizationId: string;
   readonly reportSecurityIncident: SecurityIncidentReporter;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   readonly stillCurrent?: (() => boolean) | undefined;
