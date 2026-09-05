@@ -230,10 +230,6 @@
       "lines": 565,
       "bytes": 17309
     },
-    "packages/app/src/mini-apps/org-manager/billing/BillingPanel.test.tsx": {
-      "lines": 504,
-      "bytes": 15651
-    },
     "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerModel.ts": {
       "lines": 523,
       "bytes": 16822
