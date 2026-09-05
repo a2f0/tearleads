@@ -37,6 +37,18 @@ cannot catch this earlier migration failure. Reset is an operator precondition,
 not an automatic recovery path; do not retry with constraints disabled. This
 cutover procedure authorizes no deletion of a deployed database by tooling.
 
+Apply the same reset/reprovisioning precondition to retained `access_events`
+whose `container.rekey` body omits `referencedPrincipalHeads`, including events
+retained only in a container's history or a client's local manifest cache.
+The current verifier requires the explicit signed array (which may be empty);
+it never inherits heads from a predecessor. Do not edit or re-sign stored
+historical bodies to manufacture this field. A database can satisfy migration
+`0015`'s column constraints and still contain these obsolete events: schema
+success is not a content-format audit. Such history fails verification with
+`invalid_shape`, so preserve it offline and provision a fresh organization and
+clients before resuming writes. This content precondition is operator-owned,
+not covered by the post-migration column guard.
+
 The same precondition applies to obsolete billing state, including
 `organization_billing_stripe_seats` capacities above the largest current tier
 (10), superseded product identifiers, and native subscription bindings without

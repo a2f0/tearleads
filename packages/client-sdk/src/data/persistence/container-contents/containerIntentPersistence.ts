@@ -406,7 +406,7 @@ export const containerIntentPersistence = {
   },
   async listUnsyncedMoveIntents(execSql) {
     const { db } = getClientSQLitePersistenceRuntime(execSql);
-    // No syncStatus filter: synced moves are deleted (see markMoveIntentSynced),
+    // No status filter: markMoveIntentRevisionSynced deletes settled rows,
     // so every surviving row is unsynced. Blocked intents replay too: "blocked"
     // names the reason the last attempt could not proceed, not a terminal
     // verdict — the missing container can appear via hydration, after which

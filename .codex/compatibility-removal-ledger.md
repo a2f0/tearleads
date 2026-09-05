@@ -143,6 +143,13 @@ Stripe seat outbox state. Removed six unused nullable mutation methods from
 required SDK host interfaces; current API-client conveniences remain separate
 from the SDK's minimum adapter contract.
 
+Review round 4 added an explicit operator precondition for stored rekey event
+bodies without signed principal heads, including historical/local copies.
+Column migration success cannot certify this signed content format; reset and
+reprovision rather than synthesizing evidence. The protocol overview now names
+the required conditional inline-rekey marker and commit-LSN mode. A stale
+container settlement comment was updated to the revision-CAS method.
+
 - Integrate the completed issue PRs; regenerate final contracts and exact
   temporary OpenAPI exceptions; complete validation, review, and submission.
 
