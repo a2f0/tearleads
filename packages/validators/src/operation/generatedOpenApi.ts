@@ -6358,6 +6358,7 @@ export interface operations {
             content: {
                 "application/json": {
                     byteLength: number;
+                    organizationId: string;
                     sha256: string;
                 } & {
                     [key: string]: unknown;
@@ -6374,6 +6375,7 @@ export interface operations {
                     "application/json": {
                         byteLength: number;
                         expiresAt: string;
+                        organizationId: string;
                         sha256: string;
                         stageId: string;
                         uploadedParts: ({
@@ -6411,6 +6413,19 @@ export interface operations {
                     "application/json": {
                         /** @constant */
                         code?: "session_refresh_required";
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -6492,6 +6507,7 @@ export interface operations {
                         byteLength: number;
                         completed: boolean;
                         expiresAt: string;
+                        organizationId: string;
                         sha256: string;
                         stageId: string;
                         uploadedParts: ({
@@ -6640,6 +6656,7 @@ export interface operations {
                     "application/json": {
                         byteLength: number;
                         expiresAt: string;
+                        organizationId: string;
                         sha256: string;
                         stageId: string;
                     } & {

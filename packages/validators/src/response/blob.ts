@@ -19,6 +19,7 @@ export type MultipartBlobStagePart = z.infer<
 >;
 
 export const InitiateMultipartBlobStageResponseSchema = loosePlainObject({
+  organizationId: nonEmptyStringSchema,
   byteLength: positiveIntegerSchema,
   expiresAt: z.string(),
   sha256: nonEmptyStringSchema,
@@ -32,6 +33,7 @@ export type InitiateMultipartBlobStageResponse = z.infer<
 >;
 
 export const MultipartBlobStageStatusResponseSchema = loosePlainObject({
+  organizationId: nonEmptyStringSchema,
   byteLength: positiveIntegerSchema,
   completed: z.boolean(),
   expiresAt: z.string(),
@@ -56,6 +58,7 @@ export type UploadMultipartBlobPartResponse = z.infer<
 >;
 
 export const CompleteMultipartBlobStageResponseSchema = loosePlainObject({
+  organizationId: nonEmptyStringSchema,
   byteLength: positiveIntegerSchema,
   expiresAt: z.string(),
   sha256: nonEmptyStringSchema,

@@ -2,6 +2,7 @@ import type { ApiDatabase } from "@tearleads/api-shared/postgres";
 import {
   blobAuditObjects,
   blobContentWriteHeaders,
+  blobStages,
   containers,
   documentContentWriteHeaders,
   organizationBilling,
@@ -76,7 +77,7 @@ async function organizationPurgeIsComplete(
   db: ApiDatabase,
   organizationId: string,
 ): Promise<boolean> {
-  const [container, documentHeader, blobHeader, pendingObject] =
+  const [container, documentHeader, blobHeader, pendingObject, stage] =
     await Promise.all([
       db
         .select({ id: containers.id })
@@ -104,12 +105,18 @@ async function organizationPurgeIsComplete(
           ),
         )
         .limit(1),
+      db
+        .select({ id: blobStages.id })
+        .from(blobStages)
+        .where(eq(blobStages.organizationId, organizationId))
+        .limit(1),
     ]);
   return (
     container.length === 0 &&
     documentHeader.length === 0 &&
     blobHeader.length === 0 &&
-    pendingObject.length === 0
+    pendingObject.length === 0 &&
+    stage.length === 0
   );
 }
 

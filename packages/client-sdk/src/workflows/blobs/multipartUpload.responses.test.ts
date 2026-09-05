@@ -29,6 +29,7 @@ function createApi(
     bindBlobAttachment: async () => null,
     completeMultipartBlobStage: async (stageId) => ({
       byteLength: 1,
+      organizationId: "organization-1",
       expiresAt: "2026-04-27T01:00:00.000Z",
       sha256: "encrypted-sha256",
       stageId,
@@ -37,6 +38,7 @@ function createApi(
     getMultipartBlobStage: async () => null,
     initiateMultipartBlobStage: async (request) => ({
       ...request,
+      organizationId: "organization-1",
       expiresAt: "2026-04-27T01:00:00.000Z",
       stageId: "stage-1",
       uploadedParts: [],
@@ -61,6 +63,7 @@ describe("multipart response identity", () => {
   test("rejects a part size that differs from the encryption layout", async () => {
     await expect(
       stageMultipartBlobAttachment({
+        organizationId: "organization-1",
         apiClient: createApi(),
         encryption: createPlan(),
         multipart: { partSize: CHUNK_SIZE + 1 },
@@ -70,11 +73,16 @@ describe("multipart response identity", () => {
     );
   });
 
-  test("rejects initiation responses for different bytes", async () => {
-    for (const mismatch of ["byteLength", "sha256"] as const) {
+  test("rejects initiation responses for a different organization or bytes", async () => {
+    for (const mismatch of [
+      "organizationId",
+      "byteLength",
+      "sha256",
+    ] as const) {
       let encryptCalls = 0;
       await expect(
         stageMultipartBlobAttachment({
+          organizationId: "organization-1",
           apiClient: createApi({
             initiateMultipartBlobStage: async (request) => ({
               ...request,
@@ -82,6 +90,10 @@ describe("multipart response identity", () => {
                 mismatch === "byteLength"
                   ? request.byteLength + 1
                   : request.byteLength,
+              organizationId:
+                mismatch === "organizationId"
+                  ? "organization-2"
+                  : "organization-1",
               expiresAt: "2026-04-27T01:00:00.000Z",
               sha256:
                 mismatch === "sha256" ? "different-sha256" : request.sha256,
@@ -106,10 +118,12 @@ describe("multipart response identity", () => {
   test("rejects a resume response for a different stage", async () => {
     await expect(
       stageMultipartBlobAttachment({
+        organizationId: "organization-1",
         apiClient: createApi({
           getMultipartBlobStage: async () => ({
             byteLength: 1,
             completed: false,
+            organizationId: "organization-1",
             expiresAt: "2026-04-27T01:00:00.000Z",
             sha256: "encrypted-sha256",
             stageId: "stage-wrong",
@@ -134,6 +148,7 @@ describe("multipart response identity", () => {
     ] as const) {
       await expect(
         stageMultipartBlobAttachment({
+          organizationId: "organization-1",
           apiClient: createApi({
             uploadMultipartBlobPartBytes: async (
               stageId,
@@ -164,12 +179,22 @@ describe("multipart response identity", () => {
   });
 
   test("rejects completion responses for a different object", async () => {
-    for (const mismatch of ["stageId", "byteLength", "sha256"] as const) {
+    for (const mismatch of [
+      "organizationId",
+      "stageId",
+      "byteLength",
+      "sha256",
+    ] as const) {
       await expect(
         stageMultipartBlobAttachment({
+          organizationId: "organization-1",
           apiClient: createApi({
             completeMultipartBlobStage: async (stageId) => ({
               byteLength: mismatch === "byteLength" ? 2 : 1,
+              organizationId:
+                mismatch === "organizationId"
+                  ? "organization-2"
+                  : "organization-1",
               expiresAt: "2026-04-27T01:00:00.000Z",
               sha256:
                 mismatch === "sha256" ? "different-sha256" : "encrypted-sha256",
@@ -184,4 +209,37 @@ describe("multipart response identity", () => {
       );
     }
   });
+});
+
+test("refuses to resume matching bytes staged in another organization", async () => {
+  let initiated = false;
+  let encrypted = false;
+  await expect(
+    stageMultipartBlobAttachment({
+      organizationId: "organization-1",
+      apiClient: createApi({
+        initiateMultipartBlobStage: async () => {
+          initiated = true;
+          return null;
+        },
+        getMultipartBlobStage: async () => ({
+          organizationId: "organization-2",
+          byteLength: 1,
+          completed: true,
+          sha256: "encrypted-sha256",
+          stageId: "stage-resume",
+          uploadedParts: [],
+          uploadId: "upload-1",
+          expiresAt: "2026-04-27T01:00:00.000Z",
+        }),
+      }),
+      encryption: createPlan(async () => {
+        encrypted = true;
+        return new Uint8Array([1]);
+      }),
+      multipart: { ...multipart, resumeStageId: "stage-resume" },
+    }),
+  ).rejects.toThrow("does not match the requested organization or bytes");
+  expect(initiated).toBe(false);
+  expect(encrypted).toBe(false);
 });

@@ -377,12 +377,30 @@ Blob bytes are staged before attachment binding:
 - `POST /blobs/stages/multipart/:stageId/complete`
 
 `InitiateMultipartBlobStageRequest` declares the completed encrypted object's
-`byteLength` and `sha256`. Each part is sent as `application/octet-stream` with
+`organizationId`, `byteLength`, and `sha256`. The caller must have direct
+organization access. Each part is sent as `application/octet-stream` with
 its byte length, SHA-256 digest, and upload id in request headers. The API stores
 only object-store multipart metadata in `blob_stages`; encrypted payload bytes
 are never encoded into JSON or stored in the database. Staged objects are not
 readable as committed blobs and are promoted only by a successful attachment
 bind. Incomplete or expired stages fail closed during bind.
+
+Object keys are `organizations/<organizationId>/blob-stages/<stageId>` and
+remain unchanged after promotion. The stage's immutable organization must match
+the destination document's verified organization, even when the uploader belongs
+to both organizations. Initiation, status, and completion responses include
+`organizationId`; clients check it before resuming an upload.
+
+GC retains the full key and organization in durable deletion work, checks their
+agreement before object deletion, and retries that exact key after a failure.
+Expiry cleanup uses the stored stage key for both multipart aborts and completed
+object deletion. Organization purge expires and drains only its own stages and
+waits for stage cleanup before finalizing. Stage persistence rechecks organization
+access under the organization row lock after object-store initiation, so a purge
+that wins that race causes the new multipart upload to be aborted.
+
+This is a predeployment contract change. Flat keys and organization-less stage
+requests are unsupported; there is no key migration or legacy fallback.
 
 A client replacing a persisted resume stage must require positive API proof:
 `GET /blobs/stages/multipart/:stageId` returns

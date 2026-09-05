@@ -199,6 +199,12 @@ S3 env vars:
 - `BLOB_OBJECT_STORE_S3_SECRET_ACCESS_KEY`
 - `BLOB_OBJECT_STORE_S3_KEY_PREFIX`
 
+Blob keys are `organizations/<organizationId>/blob-stages/<stageId>`. Promotion
+retains the stage key; GC aborts uploads and deletes objects using that stored key.
+The optional S3 key prefix wraps it as
+`<prefix>/organizations/<organizationId>/blob-stages/<stageId>`. The API and GC
+must use the same bucket and prefix configuration.
+
 LocalStack helper:
 
 ```sh

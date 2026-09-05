@@ -7,6 +7,7 @@ import {
   type ReclaimDereferencedBlobsInput,
   runReclaimDereferencedBlobsWorkflow,
 } from "../../workflows/blobs/gc/reclaimDereferencedBlobs";
+import { assertBlobStorageKeyOrganization } from "../../workflows/blobs/storageKeys";
 import type { ApiServiceRuntime } from "../runtime";
 import {
   type CleanupExpiredBlobStagesInput,
@@ -59,6 +60,10 @@ async function drainPendingBlobObjectDeletions(
           if (!shouldAttempt) {
             return;
           }
+          assertBlobStorageKeyOrganization(
+            pending.storageKey,
+            pending.organizationId,
+          );
           await runtime.blobObjectStore.deleteObject(pending.storageKey);
           await recordBlobObjectDeleted(runtime.db, pending);
           deletedObjectCount += 1;

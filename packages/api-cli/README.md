@@ -62,7 +62,11 @@ set -a && . /etc/tearleads/api.env && set +a && /opt/tearleads/bin/tearleads-api
 ### `blob-store:list-keys`
 
 Paginates `ListObjectsV2` over the configured S3 blob bucket and writes one key
-per line to stdout.
+per line to stdout. Blob uploads and promoted objects use
+`organizations/<organizationId>/blob-stages/<stageId>` keys. To list one
+organization's objects, pass `--prefix organizations/<organizationId>/`. If
+`BLOB_OBJECT_STORE_S3_KEY_PREFIX` is configured, prepend that deployment prefix
+too, for example `--prefix staging/organizations/<organizationId>/`.
 
 | Flag | Effect |
 | --- | --- |

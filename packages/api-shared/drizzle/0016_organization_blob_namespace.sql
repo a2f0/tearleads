@@ -1,0 +1,2 @@
+ALTER TABLE "blob_stages" ADD COLUMN "organization_id" uuid NOT NULL;--> statement-breakpoint
+CREATE INDEX "blob_stages_organization_expires_at_idx" ON "blob_stages" USING btree ("organization_id","expires_at","id");

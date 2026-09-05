@@ -25,6 +25,7 @@ import {
   lockRowForUpdate,
   wallClockNowExpression,
 } from "../../../utils/sqlDialect";
+import { assertBlobStorageKeyOrganization } from "../storageKeys";
 import { selectFairBlobWorkCandidates } from "./fairBlobWorkSelection";
 
 // A blob soft-deleted by purge is reclaimed only after this grace period, giving
@@ -213,6 +214,7 @@ async function reclaimOneBlob(
     const [auditObject] = await tx
       .select({
         blobId: blobAuditObjects.blobId,
+        organizationId: blobAuditObjects.organizationId,
         byteLength: blobAuditObjects.byteLength,
         liveStorageKey: blobAuditObjects.liveStorageKey,
         retentionMode: blobAuditObjects.retentionMode,
@@ -233,6 +235,10 @@ async function reclaimOneBlob(
       );
     }
 
+    assertBlobStorageKeyOrganization(
+      blob.storageKey,
+      auditObject.organizationId,
+    );
     await deleteBlobKeyRows(tx, input.blobId);
     await tx
       .delete(attachmentBindings)

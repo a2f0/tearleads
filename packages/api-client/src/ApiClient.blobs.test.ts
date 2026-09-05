@@ -25,6 +25,7 @@ testApiClient("uses blob multipart stage route namespace", async () => {
         return HttpResponse.json({
           byteLength: 12,
           completed: false,
+          organizationId: "organization-1",
           expiresAt: "2026-05-18T12:00:00.000Z",
           sha256: "sha256-1",
           stageId,
@@ -47,6 +48,7 @@ testApiClient("uses blob multipart stage route namespace", async () => {
       if (request.url.endsWith("/complete")) {
         return HttpResponse.json({
           byteLength: 12,
+          organizationId: "organization-1",
           expiresAt: "2026-05-18T12:00:00.000Z",
           sha256: "sha256-1",
           stageId,
@@ -55,6 +57,7 @@ testApiClient("uses blob multipart stage route namespace", async () => {
 
       return HttpResponse.json({
         byteLength: 12,
+        organizationId: "organization-1",
         expiresAt: "2026-05-18T12:00:00.000Z",
         sha256: "sha256-1",
         stageId,
@@ -65,7 +68,11 @@ testApiClient("uses blob multipart stage route namespace", async () => {
   );
 
   const client = new ApiClient(apiBaseUrl);
-  const initiateRequest = { byteLength: 12, sha256: "sha256-1" };
+  const initiateRequest = {
+    organizationId: "organization-1",
+    byteLength: 12,
+    sha256: "sha256-1",
+  };
   const encryptedPartBytes = new TextEncoder().encode("part-2");
   const encryptedPartBlob = new Blob([encryptedPartBytes]);
   const partBytesRequest = {

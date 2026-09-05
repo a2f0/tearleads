@@ -36,11 +36,12 @@ export const initiateMultipartBlobStageOperation = defineJsonOperation({
   failureResponses: {
     400: ErrorResponseSchema,
     401: SessionFailureResponseSchema,
+    403: ErrorResponseSchema,
     404: ErrorResponseSchema,
     409: ErrorResponseSchema,
     500: ErrorResponseSchema,
   },
-  failureStatuses: [400, 401, 404, 409, 500],
+  failureStatuses: [400, 401, 403, 404, 409, 500],
   id: "blobs.multipartStages.initiate",
   method: "POST",
   params: InitiateMultipartBlobStagePathParamsSchema,

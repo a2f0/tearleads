@@ -50,6 +50,7 @@ import {
   appendUnexpectedUserWrapToRekey,
   buildRootContainerRekeyMutation,
 } from "../../../test/helpers/containerRekey";
+import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
 import { loadVerifiedPrincipalPolicy } from "../../../test/helpers/principalPolicy";
 import { registerUser } from "../../../test/helpers/registerUser";
 import {
@@ -346,6 +347,7 @@ async function stageEncryptedBlob(
   const byteLength = new TextEncoder().encode(input.encryptedBytes).byteLength;
   const sha256 = await sha256Hex(input.encryptedBytes);
   const staged = await initiateMultipartBlobStage(serviceRuntime, {
+    organizationId: await getDefaultOrganizationId(input.owner.userId),
     byteLength,
     sha256,
     userId: input.owner.userId,
@@ -914,7 +916,7 @@ async function expectStagePromotesToObjectStore(input: {
     .where(eq(blobs.id, blobId))
     .limit(1);
   expect(storedBlob?.storageKey).toBe(
-    `blob-stages/${input.stagedBlob.stageId}`,
+    `organizations/${await getDefaultOrganizationId(owner.userId)}/blob-stages/${input.stagedBlob.stageId}`,
   );
 
   const blob = await getBlobBytes(input.serviceRuntime, {

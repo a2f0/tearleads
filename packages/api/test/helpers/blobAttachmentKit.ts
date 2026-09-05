@@ -37,6 +37,7 @@ import {
   createSignedAccessEvent,
   type StoredRootFixture,
 } from "./keyingWriterProjectionKit";
+import { getDefaultOrganizationId } from "./organizationMembership";
 import { createServiceTestRuntime } from "./serviceRuntime";
 
 const blobAttachmentTestRuntime = createServiceTestRuntime();
@@ -56,11 +57,13 @@ async function sha256Hex(value: string): Promise<string> {
   );
 }
 
-export async function stageBlob(owner: TestUser) {
+export async function stageBlob(owner: TestUser, organizationId?: string) {
   const encryptedBytes = `encrypted:${crypto.randomUUID()}`;
   const byteLength = new TextEncoder().encode(encryptedBytes).byteLength;
   const sha256 = await sha256Hex(encryptedBytes);
   const staged = await initiateMultipartBlobStage(blobAttachmentTestRuntime, {
+    organizationId:
+      organizationId ?? (await getDefaultOrganizationId(owner.userId)),
     byteLength,
     sha256,
     userId: owner.userId,

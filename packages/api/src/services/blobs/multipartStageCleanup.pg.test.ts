@@ -6,6 +6,7 @@ import {
   blobObjectBytes,
   readBlobObjectText,
 } from "../../../test/helpers/blobObjectStore";
+import { createBlobStageOwner } from "../../../test/helpers/blobStageOwner";
 import { gateTransactionSelectAfterExecution } from "../../../test/helpers/gateDatabaseSelect";
 import {
   holdPostgresLock,
@@ -23,7 +24,7 @@ import {
 
 async function createStageFixture() {
   const runtime = createServiceTestRuntime();
-  const userId = crypto.randomUUID();
+  const { userId, organizationId } = await createBlobStageOwner();
   const blobId = crypto.randomUUID();
   const bytes = blobObjectBytes("attachment committed during stage cleanup");
   const metadata = {
@@ -31,6 +32,7 @@ async function createStageFixture() {
     sha256: await sha256Hex(bytes),
   };
   const stage = await initiateMultipartBlobStage(runtime, {
+    organizationId,
     ...metadata,
     userId,
   });
@@ -48,10 +50,10 @@ async function createStageFixture() {
     uploadId: stage.uploadId,
     userId,
   });
-  const storageKey = `blob-stages/${stage.stageId}`;
+  const storageKey = `organizations/${organizationId}/blob-stages/${stage.stageId}`;
   const promotion = {
     blobId,
-    expectedOrganizationId: crypto.randomUUID(),
+    expectedOrganizationId: organizationId,
     prevalidatedMultipartStage: {
       ...metadata,
       stageId: stage.stageId,

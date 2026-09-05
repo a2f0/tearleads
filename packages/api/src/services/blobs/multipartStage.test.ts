@@ -6,9 +6,9 @@ import {
   readBlobObjectText,
   uploadBlobObject,
 } from "../../../test/helpers/blobObjectStore";
+import { createBlobStageOwner } from "../../../test/helpers/blobStageOwner";
 import { createFakeS3BlobObjectStore } from "../../../test/helpers/fakeS3BlobObjectStore";
 import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
-import { createMemoryBlobObjectStore } from "../../adapters/blobObjectStore";
 import { sha256Hex } from "../../utils/sha256";
 import type { ApiServiceRuntime } from "../runtime";
 import {
@@ -60,44 +60,12 @@ async function expectMultipartBlobStageError(
   throw new Error("Expected multipart blob stage to fail");
 }
 
-test("initiateMultipartBlobStage aborts the upload when stage persistence fails", async () => {
-  const store = createMemoryBlobObjectStore();
-  const aborted: { readonly key: string; readonly uploadId: string }[] = [];
-  const runtime = createServiceTestRuntime(undefined, {
-    blobObjectStore: {
-      ...store,
-      abortMultipartUpload: async (input) => {
-        aborted.push(input);
-        await store.abortMultipartUpload(input);
-      },
-    },
-  });
-  const insertError = new Error("insert failed");
-  runtime.db = {
-    insert: () => {
-      throw insertError;
-    },
-  } as unknown as typeof runtime.db;
-
-  await expect(
-    initiateMultipartBlobStage(runtime, {
-      ...(await createMultipartStageInput("multipart-insert-failure")),
-      userId: crypto.randomUUID(),
-    }),
-  ).rejects.toBe(insertError);
-  expect(aborted).toHaveLength(1);
-  const abortedUpload = aborted[0];
-  expect(abortedUpload).toBeDefined();
-  await expect(
-    store.createMultipartUpload({ key: abortedUpload?.key ?? "missing" }),
-  ).resolves.toHaveProperty("uploadId");
-});
-
 test("completeMultipartBlobStage recovers a pending record whose object was already assembled", async () => {
   const runtime = createServiceTestRuntime();
-  const userId = crypto.randomUUID();
+  const { userId, organizationId } = await createBlobStageOwner();
   const encryptedBytes = "multipart-recovery-payload";
   const initiated = await initiateMultipartBlobStage(runtime, {
+    organizationId,
     ...(await createMultipartStageInput(encryptedBytes)),
     userId,
   });
@@ -138,9 +106,10 @@ test("completeMultipartBlobStage recovers a pending record whose object was alre
 
 test("completeMultipartBlobStage recovery fails closed when the surviving object does not match", async () => {
   const runtime = createServiceTestRuntime();
-  const userId = crypto.randomUUID();
+  const { userId, organizationId } = await createBlobStageOwner();
   const encryptedBytes = "multipart-recovery-original";
   const initiated = await initiateMultipartBlobStage(runtime, {
+    organizationId,
     ...(await createMultipartStageInput(encryptedBytes)),
     userId,
   });
@@ -190,9 +159,10 @@ test("completeMultipartBlobStage recovery fails closed when the surviving object
 
 test("multipart blob stages upload resumable parts outside Postgres", async () => {
   const runtime = createServiceTestRuntime();
-  const userId = crypto.randomUUID();
+  const { userId, organizationId } = await createBlobStageOwner();
   const encryptedBytes = "multipart-encrypted-payload";
   const initiated = await initiateMultipartBlobStage(runtime, {
+    organizationId,
     ...(await createMultipartStageInput(encryptedBytes)),
     userId,
   });
@@ -228,6 +198,7 @@ test("multipart blob stages upload resumable parts outside Postgres", async () =
     userId,
   });
   expect(completed).toEqual({
+    organizationId,
     byteLength: initiated.byteLength,
     expiresAt: initiated.expiresAt,
     sha256: initiated.sha256,
@@ -264,8 +235,9 @@ test("S3 multipart completion rejects and deletes mismatched bytes", async () =>
   const runtime = createServiceTestRuntime(undefined, {
     blobObjectStore: store,
   });
-  const userId = crypto.randomUUID();
+  const { userId, organizationId } = await createBlobStageOwner();
   const initiated = await initiateMultipartBlobStage(runtime, {
+    organizationId,
     ...(await createMultipartStageInput("expected-bytes")),
     userId,
   });
@@ -291,16 +263,17 @@ test("S3 multipart completion rejects and deletes mismatched bytes", async () =>
   await expect(
     readBlobObjectText(
       runtime.blobObjectStore,
-      `blob-stages/${initiated.stageId}`,
+      `organizations/${organizationId}/blob-stages/${initiated.stageId}`,
     ),
   ).resolves.toBeNull();
 });
 
 test("multipart blob stages accept streamed part uploads", async () => {
   const runtime = createServiceTestRuntime();
-  const userId = crypto.randomUUID();
+  const { userId, organizationId } = await createBlobStageOwner();
   const encryptedBytes = "streamed-multipart-part";
   const initiated = await initiateMultipartBlobStage(runtime, {
+    organizationId,
     ...(await createMultipartStageInput(encryptedBytes)),
     userId,
   });
@@ -325,9 +298,10 @@ test("multipart blob stages accept streamed part uploads", async () => {
 
 test("expired blob stage cleanup aborts pending multipart uploads and deletes completed objects", async () => {
   const runtime = createServiceTestRuntime();
-  const userId = crypto.randomUUID();
+  const { userId, organizationId } = await createBlobStageOwner();
   const expiredAt = new Date("2000-01-01T00:00:00.000Z");
   const pending = await initiateMultipartBlobStage(runtime, {
+    organizationId,
     ...(await createMultipartStageInput("pending-expired-bytes")),
     userId,
   });
@@ -339,6 +313,7 @@ test("expired blob stage cleanup aborts pending multipart uploads and deletes co
     userId,
   });
   const completed = await initiateMultipartBlobStage(runtime, {
+    organizationId,
     ...(await createMultipartStageInput("completed-expired-bytes")),
     userId,
   });
@@ -373,13 +348,13 @@ test("expired blob stage cleanup aborts pending multipart uploads and deletes co
   });
   await expect(
     runtime.blobObjectStore.createMultipartUpload({
-      key: `blob-stages/${pending.stageId}`,
+      key: `organizations/${organizationId}/blob-stages/${pending.stageId}`,
     }),
   ).resolves.toHaveProperty("uploadId");
   await expect(
     readBlobObjectText(
       runtime.blobObjectStore,
-      `blob-stages/${completed.stageId}`,
+      `organizations/${organizationId}/blob-stages/${completed.stageId}`,
     ),
   ).resolves.toBeNull();
 
@@ -392,13 +367,15 @@ test("expired blob stage cleanup aborts pending multipart uploads and deletes co
 
 test("expired blob stage cleanup continues after object store cleanup failures", async () => {
   const baseRuntime = createServiceTestRuntime();
-  const userId = crypto.randomUUID();
+  const { userId, organizationId } = await createBlobStageOwner();
   const expiredAt = new Date("2000-01-01T00:00:00.000Z");
   const pending = await initiateMultipartBlobStage(baseRuntime, {
+    organizationId,
     ...(await createMultipartStageInput("pending-failure-bytes")),
     userId,
   });
   const completed = await initiateMultipartBlobStage(baseRuntime, {
+    organizationId,
     ...(await createMultipartStageInput("completed-after-failure")),
     userId,
   });
@@ -424,7 +401,10 @@ test("expired blob stage cleanup continues after object store cleanup failures",
     blobObjectStore: {
       ...baseRuntime.blobObjectStore,
       abortMultipartUpload: async (input) => {
-        if (input.key === `blob-stages/${pending.stageId}`) {
+        if (
+          input.key ===
+          `organizations/${organizationId}/blob-stages/${pending.stageId}`
+        ) {
           throw new Error("Simulated abort failure");
         }
 
@@ -448,7 +428,7 @@ test("expired blob stage cleanup continues after object store cleanup failures",
   await expect(
     readBlobObjectText(
       runtime.blobObjectStore,
-      `blob-stages/${completed.stageId}`,
+      `organizations/${organizationId}/blob-stages/${completed.stageId}`,
     ),
   ).resolves.toBeNull();
   const remainingStageIds = (
@@ -463,13 +443,15 @@ test("expired blob stage cleanup continues after object store cleanup failures",
 
 test("expired blob stage cleanup respects its batch limit", async () => {
   const runtime = createServiceTestRuntime();
-  const userId = crypto.randomUUID();
+  const { userId, organizationId } = await createBlobStageOwner();
   const expiredAt = new Date("2000-01-01T00:00:00.000Z");
   const first = await initiateMultipartBlobStage(runtime, {
+    organizationId,
     ...(await createMultipartStageInput("first-expired")),
     userId,
   });
   const second = await initiateMultipartBlobStage(runtime, {
+    organizationId,
     ...(await createMultipartStageInput("second-expired")),
     userId,
   });

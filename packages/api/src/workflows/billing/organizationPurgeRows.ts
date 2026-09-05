@@ -7,6 +7,7 @@ import {
   accessManifestHeads,
   accessManifestPrincipalHeadProjection,
   accessManifests,
+  blobStages,
   blobs,
   containerBuiltinGrants,
   containerDocumentSyncTombstones,
@@ -213,6 +214,10 @@ export async function deleteOrganizationRemoteRows(input: {
       retainAccessHistory: false,
     });
   }
+  await input.executor
+    .update(blobStages)
+    .set({ expiresAt: input.now })
+    .where(eq(blobStages.organizationId, input.organizationId));
   for (const blobBatch of organizationPurgeBatches(input.scope.blobIds)) {
     await input.executor
       .update(blobs)

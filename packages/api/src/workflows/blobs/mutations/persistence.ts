@@ -166,6 +166,10 @@ export async function promoteStagedBlobIfPresent(input: {
     userId: input.userId,
   });
 
+  if (stage.organizationId !== input.expectedOrganizationId) {
+    throw new BlobMutationError("Blob stage not found", 404);
+  }
+
   if (stage.completedAt === null) {
     throw new BlobMutationError("Blob multipart stage is not complete", 409);
   }

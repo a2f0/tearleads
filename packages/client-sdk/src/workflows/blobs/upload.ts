@@ -209,6 +209,7 @@ async function stageAndBindBlobAttachment(input: {
     targetHash: input.material.targetHash,
   });
   const stageId = await stageMultipartBlobAttachment({
+    organizationId: input.material.manifestIdentity.organizationId,
     apiClient: input.apiClient,
     encryption: input.material.encrypted,
     multipart: input.multipart,

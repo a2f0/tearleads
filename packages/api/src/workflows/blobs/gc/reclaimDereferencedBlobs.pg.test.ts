@@ -9,13 +9,15 @@ import {
   runReclaimDereferencedBlobsWorkflow,
 } from "./reclaimDereferencedBlobs";
 
+const ORGANIZATION_ID = "fd48148f-2bb0-420d-925a-7007d5c1c40f";
+
 const HOUR_MS = 60 * 60 * 1000;
 
 async function insertDereferencedBlob(input: {
   readonly id: string;
   readonly dereferencedAt: Date;
 }): Promise<void> {
-  const storageKey = `blob-object:${input.id}`;
+  const storageKey = `organizations/${ORGANIZATION_ID}/blob-stages/${input.id}`;
   await db.insert(blobs).values({
     id: input.id,
     storageKey,
@@ -28,7 +30,7 @@ async function insertDereferencedBlob(input: {
     byteLength: 1,
     historicalBytesRetained: false,
     liveStorageKey: storageKey,
-    organizationId: crypto.randomUUID(),
+    organizationId: ORGANIZATION_ID,
     retentionMode: "live_only",
     sha256: `sha256:${input.id}`,
   });
