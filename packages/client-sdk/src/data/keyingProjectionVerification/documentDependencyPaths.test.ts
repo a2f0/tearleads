@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import type { VerifiedContainerAccessManifest } from "@tearleads/crypto";
+import { createContainerManifestFixture } from "@tearleads/crypto/test-fixtures";
 import { createScenario } from "../../../test/helpers/ancestorCitationScenario";
 import { resolveEventContainerPaths } from "./documentDependencyPaths";
 
@@ -8,6 +9,21 @@ function index(manifests: readonly VerifiedContainerAccessManifest[]) {
     manifests.map((manifest) => [manifest.manifestHash, [manifest]]),
   );
 }
+
+test("a cited ancestor from another organization cannot contribute grants", async () => {
+  const { root1, child1 } = await createScenario();
+  const foreignRoot = await createContainerManifestFixture({
+    containerId: root1.state.containerId,
+    organizationId: "foreign-organization",
+    directGrants: [],
+  });
+  expect(() =>
+    resolveEventContainerPaths({
+      containerPathByManifestHash: index([foreignRoot, child1]),
+      dependencyManifestHashes: [foreignRoot.manifestHash, child1.manifestHash],
+    }),
+  ).toThrow("crosses organizations");
+});
 
 test("document paths use signed ancestors instead of creation-time pins", async () => {
   const { root1, root2, child1 } = await createScenario();

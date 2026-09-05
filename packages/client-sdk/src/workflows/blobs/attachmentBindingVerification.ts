@@ -1,7 +1,4 @@
-import {
-  type VerifiedContainerAccessManifest,
-  verifyAttachmentBindingEvent,
-} from "@tearleads/crypto";
+import { verifyAttachmentBindingEvent } from "@tearleads/crypto";
 import type { DecryptDocumentAttachmentBlobInput } from "../../data/documents/blob/shared/types";
 import {
   readCanonicalJson,
@@ -29,7 +26,7 @@ export async function assertAttachmentBindingVerified(input: {
   readonly expectedDocumentId: string;
   readonly expectedSlotId: string;
   readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
-}): Promise<VerifiedContainerAccessManifest[][]> {
+}): Promise<void> {
   if (!input.authorization) {
     throw new Error("Attachment binding lacks verified document authority");
   }
@@ -102,5 +99,4 @@ export async function assertAttachmentBindingVerified(input: {
   ) {
     throw new Error("Attachment binding slot or event hash is inconsistent");
   }
-  return dependencyContainerPaths;
 }

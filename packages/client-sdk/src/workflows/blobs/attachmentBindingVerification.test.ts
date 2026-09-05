@@ -52,7 +52,6 @@ async function historicalBinding(omitAncestor = false) {
     signerUserId: mallory.userId,
   });
   return {
-    expectedPath: [root1.manifestHash, child1.manifestHash],
     input: {
       authorization: {
         // Historical evidence is deliberately rootless and the served current
@@ -84,11 +83,8 @@ async function historicalBinding(omitAncestor = false) {
 }
 
 test("a historical binding reconstructs inherited authority from its own full citations", async () => {
-  const { expectedPath, input } = await historicalBinding();
-  const paths = await assertAttachmentBindingVerified(input);
-  expect(
-    paths.map((path) => path.map((head) => head.manifestHash)),
-  ).toContainEqual(expectedPath);
+  const { input } = await historicalBinding();
+  await expect(assertAttachmentBindingVerified(input)).resolves.toBeUndefined();
 });
 
 test("a historical binding cannot borrow an uncited ancestor from verified history", async () => {

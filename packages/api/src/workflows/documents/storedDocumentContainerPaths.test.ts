@@ -43,6 +43,22 @@ test("stored paths follow cited ancestors and ignore creation pins and input ord
   ]);
 });
 
+test("stored cited paths reject ancestors from another organization", async () => {
+  const { root1, child } = await scenario();
+  const foreignRoot = await createContainerManifestFixture({
+    containerId: root1.state.containerId,
+    organizationId: "foreign-organization",
+    directGrants: [],
+  });
+  await expect(
+    loadCitedDocumentContainerPaths({
+      dependencyManifestHashes: [foreignRoot.manifestHash, child.manifestHash],
+      loadManifest: async (hash) =>
+        hash === foreignRoot.manifestHash ? foreignRoot : child,
+    }),
+  ).rejects.toThrow("crosses organizations");
+});
+
 test("stored paths reject omitted ancestors even when the loader has the pinned head", async () => {
   const { child, loadManifest } = await scenario();
   await expect(

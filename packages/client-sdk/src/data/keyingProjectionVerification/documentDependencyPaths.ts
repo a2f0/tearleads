@@ -69,6 +69,12 @@ export function resolveEventContainerPaths(input: {
           `Document event does not cite ancestor ${containerId}`,
         );
       }
+      if (ancestor.state.organizationId !== leaf.state.organizationId) {
+        throw new KeyingVerificationError(
+          "object_mismatch",
+          "Document event cited container path crosses organizations",
+        );
+      }
       reversed.push(ancestor);
       containerId = ancestor.state.parentContainerId;
     }

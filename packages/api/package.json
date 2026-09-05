@@ -26,6 +26,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@tearleads/api-client": "workspace:*",
     "@tearleads/bob-and-alice": "workspace:*",
     "@tearleads/client-sdk": "workspace:*",
     "@tearleads/test-utils": "workspace:*",

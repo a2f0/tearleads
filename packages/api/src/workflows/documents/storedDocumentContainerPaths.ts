@@ -54,6 +54,12 @@ export async function loadCitedDocumentContainerPaths(input: {
           `document event does not cite ancestor ${id}`,
         );
       }
+      if (manifest.state.organizationId !== leaf.state.organizationId) {
+        throw new KeyingVerificationError(
+          "object_mismatch",
+          "cited container path crosses organizations",
+        );
+      }
       reversed.push(manifest);
       id = manifest.state.parentContainerId;
     }

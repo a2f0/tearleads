@@ -71,7 +71,7 @@ type CitedManifest = Pick<
 function containerDependencies(event: CitationEvent): string[] {
   // Metadata teardown can remove document history while retaining blob events.
   // That document hash is not container ancestry and is excluded explicitly.
-  const documentHash =
+  const documentHash: unknown =
     event.eventType.startsWith("attachment.") &&
     event.body &&
     typeof event.body === "object"
