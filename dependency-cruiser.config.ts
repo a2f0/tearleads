@@ -525,21 +525,6 @@ const corePackageRules = [
       ),
     },
   },
-  {
-    name: "code-assist-does-not-depend-on-product-source-packages",
-    severity: "error",
-    comment:
-      "Code Assist is standalone repository automation and should not become a product, server, or shared package layer.",
-    from: {
-      path: sourceRoot.codeAssist,
-      pathNot: testFilesPattern,
-    },
-    to: {
-      path: allPackageSourceRoots.filter(
-        (root) => root !== sourceRoot.codeAssist,
-      ),
-    },
-  },
 ] satisfies ForbiddenRules;
 
 const uiRules = [

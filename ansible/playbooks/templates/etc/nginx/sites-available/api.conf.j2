@@ -20,24 +20,6 @@ server {
 
   client_max_body_size 100M;
 
-{% if code_assist_enabled | bool %}
-  location = /code-assist/health {
-    proxy_pass http://127.0.0.1:{{ code_assist_port }}/health;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-  }
-
-  location = /code-assist/webhook {
-    proxy_pass http://127.0.0.1:{{ code_assist_port }}/webhook;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-  }
-{% endif %}
-
   location ~ ^/documents/.+/sync$ {
     # Nginx selects regex locations against the normalized URI, so encoded
     # separators cannot evade the sync body's 16 MiB ceiling. Link/unlink keep
