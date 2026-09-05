@@ -12,21 +12,15 @@ interface DocumentAccessDependencyRequest {
     | undefined;
 }
 
-function pathLeafManifestHash(
-  path: readonly ContainerManifestRef[] | undefined,
-): string | undefined {
-  return path?.at(-1)?.manifestHash;
-}
-
 export function assertDocumentAccessEventDependenciesMatchRequest(
   request: DocumentAccessDependencyRequest,
   event: Pick<VerifiedAccessEvent["event"], "dependencyManifestHashes">,
 ): void {
   const expected = uniqueSortedStrings(
     [
-      pathLeafManifestHash(request.targetContainerPathRefs),
-      ...(request.authorizingContainerPathRefs ?? []).map(pathLeafManifestHash),
-    ].filter((hash): hash is string => typeof hash === "string"),
+      ...(request.targetContainerPathRefs ?? []),
+      ...(request.authorizingContainerPathRefs ?? []).flat(),
+    ].map((ref) => ref.manifestHash),
   );
   const actual = [...event.dependencyManifestHashes].sort();
   if (

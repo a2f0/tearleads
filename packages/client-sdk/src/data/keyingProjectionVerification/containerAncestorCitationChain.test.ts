@@ -24,6 +24,51 @@ import {
 
 // Citations along a deeper chain, and the two paths a move cites.
 
+test("a stale intermediate head is refused under a leaf citing its successor", async () => {
+  const scenario = await createGrandchildScenario();
+  const middle2 = await grantBy({
+    cited: [scenario.root2.manifestHash, scenario.middle.manifestHash],
+    previous: scenario.middle,
+    signer: scenario.alice,
+    subjectId: "middle-reader",
+  });
+  const leaf2 = await grantBy({
+    cited: [
+      scenario.root2.manifestHash,
+      middle2.manifestHash,
+      scenario.leaf.manifestHash,
+    ],
+    previous: scenario.leaf,
+    signer: scenario.alice,
+    subjectId: "leaf-reader",
+  });
+  const { close, execSql } = await createTestExecSql(
+    "ancestor-stale-intermediate",
+  );
+  try {
+    await expect(
+      verifyPath(scenario, execSql, {
+        bundles: [
+          scenario.root1,
+          scenario.root2,
+          scenario.middle,
+          middle2,
+          scenario.leaf,
+          leaf2,
+        ],
+        path: [scenario.root2, scenario.middle, leaf2],
+      }),
+    ).rejects.toMatchObject({
+      code: "rollback",
+      message: expect.stringContaining(
+        "the served current head does not descend from",
+      ),
+    });
+  } finally {
+    close();
+  }
+});
+
 test("a head must not cite an older grandparent head than a cited child was created under", async () => {
   const scenario = await createGrandchildScenario();
   // The middle container pins root2, so citing root1 above it is a rollback

@@ -43,6 +43,7 @@ function storedContainer(response: unknown): StoredContainer {
 }
 
 interface ShareInput {
+  readonly accessLevel?: "read" | "write" | undefined;
   readonly container: StoredContainer;
   readonly history?: readonly AccessManifestBundleWire[] | undefined;
   readonly parentKekState: VerifiedContainerKekState | null;
@@ -53,7 +54,7 @@ interface ShareInput {
 
 async function postShare(input: ShareInput): Promise<Response> {
   const request = await buildContainerGrantRequest({
-    accessLevel: "read",
+    accessLevel: input.accessLevel ?? "read",
     containerManifestHistory: input.history,
     parentKekState: input.parentKekState,
     previous: input.container.bundle,
@@ -172,6 +173,94 @@ test("a child can be shared after its parent's head advanced", async () => {
   const lineage = await createLineage(root, owner);
   expect(lineage.child2.bundle.manifestHash).not.toBe(
     lineage.child1.bundle.manifestHash,
+  );
+  expect(lineage.child2.bundle).toMatchObject({
+    event: {
+      event: {
+        dependencyManifestHashes: expect.arrayContaining([
+          lineage.parent2.bundle.manifestHash,
+        ]),
+      },
+    },
+  });
+});
+
+test("a document authored through a newer parent grant verifies from its signed citations", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const bob = await registerReader();
+  const root = await bootstrapRoot(owner);
+  const parent1 = storedContainer(
+    await createChildContainer({ parent: root, signer: owner }),
+  );
+  const child1 = storedContainer(
+    await createChildContainer({
+      parent: { bundle: parent1.bundle, kekState: parent1.kekState },
+      parentPath: [root.bundle],
+      signer: owner,
+    }),
+  );
+  const parent2 = await shareContainer({
+    accessLevel: "write",
+    container: parent1,
+    parentKekState: root.kekState,
+    path: [root.bundle],
+    recipient: bob,
+    signer: owner,
+  });
+  expect(Reflect.get(child1.bundle.state, "parentManifestHash")).toBe(
+    parent1.bundle.manifestHash,
+  );
+  const document = await createDocument({
+    containerPath: [root.bundle, parent2.bundle, child1.bundle],
+    owner: bob,
+    root: {
+      bundle: child1.bundle,
+      kekState: child1.kekState,
+      principalPolicies: root.principalPolicies,
+    },
+  });
+  expect(document.accessManifest).toMatchObject({
+    event: {
+      event: {
+        dependencyManifestHashes: expect.arrayContaining([
+          root.bundle.manifestHash,
+          parent2.bundle.manifestHash,
+          child1.bundle.manifestHash,
+        ]),
+      },
+    },
+  });
+  // The signed parent2 must remain available even after it leaves the current
+  // path; the child's creation-time pin still names parent1.
+  await shareContainer({
+    container: parent2,
+    history: [parent1.bundle],
+    parentKekState: root.kekState,
+    path: [root.bundle],
+    recipient: await registerReader(),
+    signer: owner,
+  });
+  const response = await routeApp.request(
+    `/documents/${document.id}/writer-projection`,
+    {
+      headers: { Authorization: `Bearer ${bob.token}` },
+    },
+  );
+  expect(response.status, await response.clone().text()).toBe(200);
+  const projection: unknown = await response.json();
+  if (!isDocumentWriterProjectionResponse(projection))
+    throw new Error("Expected writer projection");
+  const served = new Set(
+    [
+      ...projection.documentContainerManifestHistory,
+      ...projection.documentManifestContainerPaths.flat(),
+    ].map((bundle) => bundle.manifestHash),
+  );
+  expect(served.has(parent2.bundle.manifestHash)).toBe(true);
+  expect(projection.documentManifest.manifestHash).toBe(
+    document.accessManifest.manifestHash,
   );
 });
 

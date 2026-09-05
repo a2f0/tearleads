@@ -91,6 +91,26 @@ export async function verifyAttachmentAuthorizationProof(input: {
     );
   }
 
+  const expected = uniqueSortedStrings([
+    documentManifest.manifestHash,
+    ...authorizingContainerPaths.flatMap((path) =>
+      path.map((manifest) => manifest.manifestHash),
+    ),
+  ]);
+  const actual = [
+    ...readBlobEvent(input.request.event, "Blob event")
+      .dependencyManifestHashes,
+  ].sort();
+  if (
+    expected.length !== actual.length ||
+    expected.some((hash, index) => hash !== actual[index])
+  ) {
+    throw new BlobMutationError(
+      "Attachment event dependencies do not match supplied paths",
+      409,
+    );
+  }
+
   const principalPolicies = await loadPrincipalPoliciesForContainerPaths(
     input.executor,
     authorizingContainerPaths,
