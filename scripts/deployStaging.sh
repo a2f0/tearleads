@@ -121,6 +121,7 @@ fi
 # Resolve SSH_TARGET once so sub-scripts reuse it.
 load_secrets_env staging
 validate_aws_env
+validate_stripe_env staging
 if [ -z "${SSH_TARGET:-}" ]; then
   STACK_DIR="$REPO_ROOT/terraform/stacks/staging/server"
   BACKEND_CONFIG="$(get_backend_config)"

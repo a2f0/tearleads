@@ -328,7 +328,7 @@ test("shows the Cancel button only during an embedded subscribe", () => {
   const embeddedBusy = props({
     purchaseAvailable: true,
     embeddedCheckout: true,
-    busy: "subscribe:monthly",
+    busy: "subscribe:monthly" as const,
     checkoutActive: true,
   });
   const view = render(<BillingView {...embeddedBusy} />);
@@ -350,7 +350,7 @@ test("shows the Cancel button only during an embedded subscribe", () => {
     <BillingView
       {...props({
         purchaseAvailable: true,
-        busy: "subscribe:monthly",
+        busy: "subscribe:monthly" as const,
         checkoutActive: true,
       })}
     />,
@@ -364,7 +364,7 @@ test("shows the Cancel button only during an embedded subscribe", () => {
       {...props({
         purchaseAvailable: true,
         embeddedCheckout: true,
-        busy: "subscribe:monthly",
+        busy: "subscribe:monthly" as const,
         checkoutActive: false,
       })}
     />,
@@ -379,7 +379,7 @@ test("clicking the Cancel button dismisses the embedded checkout", () => {
       {...props({
         purchaseAvailable: true,
         embeddedCheckout: true,
-        busy: "subscribe:monthly",
+        busy: "subscribe:monthly" as const,
         checkoutActive: true,
         onCancelCheckout: () => {
           cancelled += 1;
@@ -397,7 +397,7 @@ test("unmounting the checkout host dismisses the purchase", () => {
   const shared = {
     purchaseAvailable: true,
     embeddedCheckout: true,
-    busy: "subscribe:monthly",
+    busy: "subscribe:monthly" as const,
     onCancelCheckout: () => {
       cancelled += 1;
     },
@@ -417,7 +417,7 @@ test("native purchases get no checkout host and no detach cancellation", () => {
   const shared = {
     purchaseAvailable: true,
     embeddedCheckout: false,
-    busy: "subscribe:monthly",
+    busy: "subscribe:monthly" as const,
     onCancelCheckout: () => {
       cancelled += 1;
     },
