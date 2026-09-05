@@ -37,6 +37,7 @@ import {
   type ContainerContentsStoreSyncAgent,
   createContainerContentsStoreSyncAgent,
 } from "./syncAgent";
+import { findRootContainerState } from "./systemContainerLookup";
 import type {
   ContainerContentsStore,
   ContainerContentsStoreOptions,
@@ -261,7 +262,7 @@ function createContainerSharingMethods(
   };
 }
 
-function createContainerWriteMethods(
+export function createContainerWriteMethods(
   state: ContainerContentsStoreState,
   syncAgent: ReturnType<typeof createContainerContentsStoreSyncAgent>,
 ): ContainerWriteMethods {
@@ -311,9 +312,10 @@ function createContainerWriteMethods(
           options,
           isCurrent,
         );
+      const rootId = findRootContainerState(state)?.container.id;
       return options?.deferRemoteBootstrap
-        ? chainContainerWrite(state, work)
-        : chainRemoteContainerTask(state, syncAgent, null, work);
+        ? chainContainerWrite(state, work, [])
+        : chainRemoteContainerTask(state, syncAgent, null, work, rootId);
     },
     moveContainer: (containerId, parentId) =>
       chainContainerWrite(

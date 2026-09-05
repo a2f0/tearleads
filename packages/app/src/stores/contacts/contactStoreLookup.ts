@@ -11,7 +11,6 @@ import {
 import type { ContactsStoreState } from "./contactStoreTypes";
 
 interface ContactKeyLookupDependencies {
-  resolveUserIdentity: (userId: string) => Promise<ResolvedUserIdentity | null>;
   getLocalUserIdentity?:
     | ((userId: string) => Promise<ResolvedUserIdentity | null>)
     | undefined;

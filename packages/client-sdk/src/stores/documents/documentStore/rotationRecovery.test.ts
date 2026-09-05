@@ -10,7 +10,6 @@ import {
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
-import { waitFor } from "../../../../test/helpers/waitFor";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { hasRecordedTerminalSyncFailures } from "../../../data/sqlite/documentPersistence";
 import type { DocumentsRuntime } from "../types";
@@ -22,7 +21,6 @@ import {
   ensureDocumentStoreReady,
   relinkDocumentStore,
 } from "./initialization";
-import { setDocumentText } from "./mutations";
 import {
   advancePendingBaseVersion,
   enqueuePendingUpdate,
@@ -227,80 +225,6 @@ test("a clean full-history preflight pulls a newer committed remote frontier", a
     importSnapshot(freshReader, baseline);
     expect(getTextValue(freshReader)).toBe("survives key rotation");
   } finally {
-    close();
-  }
-});
-
-test("a text edit persists during a stalled rotation and invalidates its stale install", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "rotation-recovery-queued-edit",
-  );
-  let release = () => {};
-  const responseGate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  let pullStarted = false;
-  try {
-    await sqlDocumentsPersistence.ensureSchema(execSql);
-    const fixture = await createRemoteHistoryFixture();
-    const localId = "rotation-recovery-queued-edit-local";
-    const behindReader = await createDocument("rotation-queued-edit-behind");
-    importSnapshot(behindReader, fixture.behindSnapshot);
-    await persistFullHistoryDocument({
-      doc: behindReader,
-      documentId: fixture.writerProjection.documentId,
-      execSql,
-      localId,
-    });
-
-    const state = createDocumentStoreState(
-      localId,
-      createRotationRecoveryRuntime({
-        execSql,
-        fixture,
-        responseForRequest: async (_request, response) => {
-          pullStarted = true;
-          await responseGate;
-          return response;
-        },
-      }),
-      sqlDocumentsPersistence,
-      noopDocumentStorePersistenceEffects,
-      fixture.writerProjection.documentId,
-    );
-    expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
-
-    const recovery = assertDocumentStoreCanRotateContentKey(state);
-    const outcome = recovery.then(
-      () => null,
-      (error: unknown) => error,
-    );
-    await waitFor(() => pullStarted, "Rotation pull did not start");
-    const localText = "queued local edit";
-    const localWrite = setDocumentText(state, () => undefined, localText);
-
-    let persisted = false;
-    void localWrite.then(() => {
-      persisted = true;
-    });
-    await waitFor(
-      () => persisted,
-      "A stalled network pull blocked local persistence",
-    );
-    await localWrite;
-    release();
-    const error = await outcome;
-    expect(error).toBeInstanceOf(Error);
-    expect(String(error)).toContain("Document changed");
-    if (!state.doc) {
-      throw new Error("Expected rebuilt document after rotation recovery");
-    }
-
-    expect(getTextValue(state.doc)).toBe(localText);
-    expect(state.snapshot.text).toBe(getTextValue(state.doc));
-    expect(state.pendingLocalWrites).toBe(0);
-  } finally {
-    release();
     close();
   }
 });

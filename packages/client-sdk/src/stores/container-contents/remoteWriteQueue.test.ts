@@ -1,12 +1,18 @@
 import { expect, test } from "bun:test";
+import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { createContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
 import type { DomainScope } from "../../data/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
+import { createContainerWriteMethods } from "./containerContentsStore";
 import { invalidateRemoteContainerWrites } from "./remoteWriteGuards";
 import { chainRemoteContainerTask } from "./remoteWriteQueue";
 import { createContainerContentsTestRuntime } from "./runtime.testFixtures";
-import { createContainerContentsStoreState } from "./state";
+import {
+  createContainerContentsStoreState,
+  updateContainerContentsSnapshot,
+} from "./state";
+import type { ContainerContentsStoreSyncAgent } from "./syncAgent";
 
 async function createFixture() {
   const state = createContainerContentsStoreState(
@@ -143,3 +149,61 @@ test("a changed runtime starts remote work without waiting for an abandoned requ
     for (const entry of state.containersById.values()) entry.doc.free();
   }
 });
+
+for (const scope of ["root", "trash"]) {
+  test(`a deferred system-folder ensure does not cancel a remote ${scope} sweep`, async () => {
+    const { state, calls, syncAgent } = await createFixture();
+    const slot =
+      "sys_v1_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" as ContainerSystemSlot;
+    const trash = state.containersById.get("trash");
+    if (!trash) throw new Error("Missing Trash fixture");
+    trash.container.systemSlot = slot;
+    trash.record.documentId = "trash-metadata";
+    updateContainerContentsSnapshot(state);
+    const unexpected = () => {
+      throw new Error("Unexpected background work");
+    };
+    const fullSyncAgent: ContainerContentsStoreSyncAgent = {
+      ...syncAgent,
+      ensureInitialized: unexpected,
+      handleRemoteEvents: unexpected,
+      ingestRemoteContainer: async () => unexpected(),
+      primeDocumentsForSharedSubtree: async () => unexpected(),
+      refresh: async () => unexpected(),
+      refreshRootLane: async () => unexpected(),
+      requestRemoteHydration: async () => unexpected(),
+      scheduleSync: unexpected,
+    };
+    const started = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const sweep = chainRemoteContainerTask(
+      state,
+      syncAgent,
+      false,
+      async (current) => {
+        started.resolve();
+        await release.promise;
+        return current();
+      },
+      scope,
+    );
+    try {
+      await started.promise;
+      const writes = createContainerWriteMethods(state, fullSyncAgent);
+      expect(
+        (
+          await writes.ensureSystemContainer(slot, "Trash", {
+            deferRemoteBootstrap: true,
+          })
+        )?.id,
+      ).toBe("trash");
+      release.resolve();
+      expect(await sweep).toBe(true);
+      expect(calls).toEqual({ local: 0, remote: 0 });
+    } finally {
+      release.resolve();
+      await sweep;
+      for (const entry of state.containersById.values()) entry.doc.free();
+    }
+  });
+}

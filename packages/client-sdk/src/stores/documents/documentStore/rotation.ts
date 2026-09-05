@@ -229,6 +229,8 @@ async function collectVerifiedRawHistoryForRotation(input: {
   }
 }
 
+class RotationDocumentChangedError extends Error {}
+
 function assertCapturedDocumentCurrent(input: {
   capturedVersion: string;
   currentDocument: DocumentState;
@@ -242,7 +244,7 @@ function assertCapturedDocumentCurrent(input: {
       input.capturedVersion,
     )
   ) {
-    throw new Error(
+    throw new RotationDocumentChangedError(
       "Document changed during rotation recovery; retry key rotation",
     );
   }
@@ -429,11 +431,14 @@ export function assertDocumentStoreCanRotateContentKey(
       try {
         return await recoverFullHistoryForRotation(state, laneGeneration);
       } catch (error) {
-        // A conflict can re-key a queued update during settlement. Its new id
-        // is not covered by the old proof: repeat the entire raw proof instead
-        // of trusting it or parking a recoverable move. Bound repeated conflicts.
+        // Autosaves and conflict re-keying can invalidate the proven frontier.
+        // Repeat the complete proof without blocking new local edits; repeated
+        // changes remain bounded and leave the durable queue retryable.
         if (
-          !(error instanceof RotationPendingUpdatesChangedError) ||
+          !(
+            error instanceof RotationPendingUpdatesChangedError ||
+            error instanceof RotationDocumentChangedError
+          ) ||
           attempt >= 2 ||
           !isDocumentStoreSyncGenerationCurrent(state, generation)
         ) {

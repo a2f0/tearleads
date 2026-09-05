@@ -160,10 +160,10 @@ async function assertMoveIntentRotationPreflight<TRuntime>(input: {
 }): Promise<Uint8Array | null> {
   if (!input.isCurrent()) return null;
   const preflightStore = input.host.openDocumentStore({
-    containerId:
-      input.intent.sourceContainerId ??
-      input.existingContainerId ??
-      input.intent.targetContainerId,
+    // The optimistic move already changed local placement. Use that scope so
+    // opening the destination view cannot invalidate this shared store's proof.
+    // Remote link-set authorization still uses the intent's source below.
+    containerId: input.existingContainerId ?? input.intent.targetContainerId,
     documentId: input.intent.documentId,
     localId: input.intent.localId,
   });
