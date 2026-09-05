@@ -271,3 +271,8 @@ order and per-operation inference are unchanged; no broad type erasure is used.
   production resources through their owning state before fresh provisioning,
   as required by the owner's replacement-only direction. Do not run the new
   playbook on that unverified host. No server or remote state was changed.
+- Shipping clarification: after reviewing that production-state warning, the
+  owner explicitly confirmed the greenfield assumption and will destroy the
+  existing server. This is not an in-place rollout to that host. Retirement
+  through the owning state remains an operator prerequisite; the code cleanup
+  does not add a temporary old-host detector or first-provisioning opt-in shim.
