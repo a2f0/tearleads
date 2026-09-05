@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
 import { CONTAINER_KEK_LOG_PAGE_LIMIT } from "@tearleads/validators/util";
 import { fetchContainerKekLog } from "./containerKekLogFetch";
@@ -6,11 +6,15 @@ import { fetchContainerKekLog } from "./containerKekLogFetch";
 test("KEK recovery uses the real API client with an omitted initial cursor and positive continuation", async () => {
   const containerId = crypto.randomUUID();
   const requests: URL[] = [];
-  const server = Bun.serve({
-    hostname: "127.0.0.1",
-    port: 0,
-    fetch(request) {
-      const url = new URL(request.url);
+  const baseUrl = "https://kek-log-recovery.test";
+  const originalFetch = globalThis.fetch;
+  const fetchHandler: typeof fetch = Object.assign(
+    async (
+      input: Parameters<typeof fetch>[0],
+      init?: Parameters<typeof fetch>[1],
+    ) => {
+      const url = new URL(input instanceof Request ? input.url : String(input));
+      if (url.origin !== baseUrl) return originalFetch(input, init);
       requests.push(url);
       const after = Number(url.searchParams.get("afterKeyEpoch") ?? 0);
       const hasMore = after === 0;
@@ -32,10 +36,12 @@ test("KEK recovery uses the real API client with an omitted initial cursor and p
         ),
       });
     },
-  });
+    { preconnect: originalFetch.preconnect },
+  );
+  const fetchMock = spyOn(globalThis, "fetch").mockImplementation(fetchHandler);
   try {
     const log = await fetchContainerKekLog({
-      apiClient: new ApiClient(server.url.toString()),
+      apiClient: new ApiClient(baseUrl),
       containerId,
       keyringForEpoch: 2,
     });
@@ -55,6 +61,6 @@ test("KEK recovery uses the real API client with an omitted initial cursor and p
       Array.from({ length: CONTAINER_KEK_LOG_PAGE_LIMIT + 1 }, (_, i) => i + 1),
     );
   } finally {
-    await server.stop(true);
+    fetchMock.mockRestore();
   }
 });

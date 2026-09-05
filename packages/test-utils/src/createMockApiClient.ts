@@ -151,7 +151,7 @@ export function createMockApiClient(
     };
   }
 
-  if (!Object.hasOwn(overrides, "getDocumentWriterProjectionResult")) {
+  if (!overrides.getDocumentWriterProjectionResult) {
     apiClient.getDocumentWriterProjectionResult = async (documentId) => {
       const data = await apiClient.getDocumentWriterProjection(documentId);
       return data
@@ -164,7 +164,7 @@ export function createMockApiClient(
     };
   }
 
-  if (!Object.hasOwn(overrides, "getContainerWriterProjectionResult")) {
+  if (!overrides.getContainerWriterProjectionResult) {
     apiClient.getContainerWriterProjectionResult = async (containerId) => {
       const data = await apiClient.getContainerWriterProjection(containerId);
       return data

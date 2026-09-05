@@ -216,7 +216,7 @@ export interface ContainerContentsPersistence
   ) => Promise<ContainerCreateIntentRecord[]>;
   // Every move intent that has not yet synced, regardless of syncStatus —
   // a blocked move (destination parent not synced yet) is still unsynced, and
-  // synced moves are deleted (see markMoveIntentSynced), so every surviving
+  // synced moves are deleted (see markMoveIntentRevisionSynced), so every surviving
   // row qualifies. Blocked intents replay too: "blocked" names the reason the
   // last attempt could not proceed, not a terminal verdict.
   listUnsyncedMoveIntents: (
