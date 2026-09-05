@@ -21,7 +21,7 @@ import {
   createRotationRecoveryRuntime,
   persistFullHistoryDocument,
 } from "./rotationRecoveryHelpers.test";
-import { createDocumentStoreState } from "./state";
+import { createDocumentStoreState, resetDocumentStore } from "./state";
 import { registerDocumentStoreSyncLane } from "./sync";
 import {
   captureDocumentStoreSyncLaneGeneration,
@@ -226,6 +226,67 @@ test("a watchdog-abandoned sync cannot hold a later structural rotation", async 
     expect(await listPendingUpdates(state)).toHaveLength(0);
   } finally {
     release.resolve();
+    await coordinator.waitForIdle();
+    disposeDomainSyncCoordinator(state.runtime.state.domainScope);
+    db.close();
+  }
+});
+
+test.each([
+  "reattach",
+  "adapter",
+])("a %s releases remote-work ownership while an old request is held", async (change) => {
+  const db = await createTestExecSql(`rotation-runtime-${change}`);
+  const started = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  let requests = 0;
+  const { coordinator, state } = await createState(
+    db.execSql,
+    async (_request, response) => {
+      requests += 1;
+      if (requests === 1) {
+        started.resolve();
+        await release.promise;
+      }
+      return response;
+    },
+  );
+  const old = assertDocumentStoreCanRotateContentKey(state).catch(
+    (error: unknown) => error,
+  );
+  try {
+    await settleWithin(started.promise, "old runtime's raw pull");
+    if (change === "reattach") {
+      resetDocumentStore(state);
+      await ensureDocumentStoreReady(state, () => undefined);
+    } else {
+      state.runtime = {
+        ...state.runtime,
+        infra: { ...state.runtime.infra, execSql: new Proxy(db.execSql, {}) },
+      };
+    }
+    expect(
+      await settleWithin(
+        assertDocumentStoreCanRotateContentKey(state),
+        "replacement runtime rotation",
+      ),
+    ).toBeInstanceOf(Uint8Array);
+    expect(requests).toBeGreaterThan(1);
+    const record = await sqlDocumentsPersistence.loadDocument(
+      state.runtime.infra.execSql,
+      state.localId,
+    );
+    release.resolve();
+    expect(await old).toBeInstanceOf(Error);
+    expect(
+      await sqlDocumentsPersistence.loadDocument(
+        state.runtime.infra.execSql,
+        state.localId,
+      ),
+    ).toEqual(record);
+  } finally {
+    release.resolve();
+    await old;
     await coordinator.waitForIdle();
     disposeDomainSyncCoordinator(state.runtime.state.domainScope);
     db.close();

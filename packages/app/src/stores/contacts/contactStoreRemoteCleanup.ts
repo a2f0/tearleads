@@ -2,6 +2,7 @@ import type { ContactsStoreState } from "./contactStoreTypes";
 
 interface PendingCleanup {
   current: () => boolean;
+  replacementLocalId: string;
   running: boolean;
   retryRequested: boolean;
   run: () => Promise<boolean>;
@@ -11,6 +12,24 @@ const pendingByState = new WeakMap<
   ContactsStoreState,
   Map<string, PendingCleanup>
 >();
+
+/** Edits belong to the retained self contact once its duplicate is retiring. */
+export function resolveContactWriteTarget(
+  state: ContactsStoreState,
+  localId: string,
+): string {
+  const pending = pendingByState.get(state);
+  const visited = new Set<string>();
+  let target = localId;
+  for (;;) {
+    const cleanup = pending?.get(target);
+    if (!cleanup?.current()) return target;
+    if (visited.has(target))
+      throw new Error("Contact cleanup targets form a cycle");
+    visited.add(target);
+    target = cleanup.replacementLocalId;
+  }
+}
 
 /** Remote duplicate cleanup must never occupy the local contact write queue. */
 export function resumeRemoteContactCleanup(
@@ -63,6 +82,7 @@ export function resumeRemoteContactCleanup(
 export function scheduleRemoteContactCleanup(input: {
   current: () => boolean;
   localId: string;
+  replacementLocalId: string;
   run: () => Promise<boolean>;
   state: ContactsStoreState;
 }): void {
@@ -72,6 +92,7 @@ export function scheduleRemoteContactCleanup(input: {
   if (!existing || !existing.current()) {
     pending.set(input.localId, {
       current: input.current,
+      replacementLocalId: input.replacementLocalId,
       running: false,
       retryRequested: false,
       run: input.run,

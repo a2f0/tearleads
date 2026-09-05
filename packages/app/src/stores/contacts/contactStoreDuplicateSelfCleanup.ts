@@ -18,6 +18,7 @@ type DuplicateSelfContactRemovalResult =
 async function deleteDuplicateSelfContact(input: {
   entry: ContactEntry;
   guard: ContactStoreOperationGuard;
+  primaryContactId: string;
   state: ContactsStoreState;
 }): Promise<DuplicateSelfContactRemovalResult> {
   const { entry, guard, state } = input;
@@ -52,6 +53,7 @@ async function deleteDuplicateSelfContact(input: {
     scheduleRemoteContactCleanup({
       current: guard,
       localId: entry.id,
+      replacementLocalId: input.primaryContactId,
       state,
       run: async () => {
         const currentRuntime = state.runtime;
@@ -144,6 +146,7 @@ export async function removeDuplicateSelfContacts(
     }
     const removalResult = await deleteDuplicateSelfContact({
       entry,
+      primaryContactId,
       guard: () => {
         const currentEntry = state.entriesById.get(entry.id);
         return (

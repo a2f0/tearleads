@@ -30,7 +30,10 @@ import {
   getUserIdentityForSelfContact,
 } from "./contactStoreLookup";
 import { connectContactsStoreToPersistedDocuments } from "./contactStorePersistedDocuments";
-import { resumeRemoteContactCleanup } from "./contactStoreRemoteCleanup";
+import {
+  resolveContactWriteTarget,
+  resumeRemoteContactCleanup,
+} from "./contactStoreRemoteCleanup";
 import {
   removeContactEntry,
   upsertContactEntry,
@@ -80,6 +83,7 @@ async function writeContactPatch(
   if (!guard()) {
     return;
   }
+  contactId = resolveContactWriteTarget(state, contactId);
   const store = ensureContactDocumentStore(state, contactId, options);
   const snapshot = store.getSnapshot();
   if (snapshot.ready && !snapshot.canWrite) {

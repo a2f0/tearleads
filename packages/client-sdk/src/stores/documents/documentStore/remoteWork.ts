@@ -1,14 +1,16 @@
 import type { DocumentStoreState } from "./state";
 import {
+  captureDocumentStoreGenerationIdentity,
   captureDocumentStoreSyncLaneGeneration,
   type DocumentStoreSyncLaneGeneration,
-  isDocumentStoreSyncLaneGenerationCurrent,
+  isDocumentStoreGenerationIdentityCurrent,
 } from "./syncGeneration";
 
 const remoteWorkByState = new WeakMap<
   DocumentStoreState,
   {
-    generation: DocumentStoreSyncLaneGeneration;
+    generation: DocumentStoreSyncLaneGeneration &
+      ReturnType<typeof captureDocumentStoreGenerationIdentity>;
     tail: Promise<void>;
   }
 >();
@@ -25,7 +27,7 @@ export function getActiveDocumentRemoteWork(
 ): Promise<void> | null {
   const active = remoteWorkByState.get(state);
   return active &&
-    isDocumentStoreSyncLaneGenerationCurrent(state, active.generation)
+    isDocumentStoreGenerationIdentityCurrent(state, active.generation)
     ? active.tail
     : null;
 }
@@ -39,7 +41,11 @@ export function runDocumentRemoteWork<T>(
   if (pending) {
     return Promise.reject(new DocumentRemoteWorkBusyError(pending));
   }
-  const generation = captureDocumentStoreSyncLaneGeneration(state);
+  // Database/runtime replacement abandons ownership; ordinary local edits do not.
+  const generation = {
+    ...captureDocumentStoreGenerationIdentity(state),
+    ...captureDocumentStoreSyncLaneGeneration(state),
+  };
   const work = Promise.resolve()
     .then(task)
     .finally(() => {
