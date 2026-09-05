@@ -119,12 +119,26 @@ async function writeAcknowledgedHeads(
 export async function advanceLocallyAcknowledgedAccessManifestHeadsAtomically(input: {
   readonly execSql: ExecSql;
   readonly heads: readonly LocallyAcknowledgedAccessManifestHead[];
+  /** Optional optimistic read dependencies, checked inside the write transaction. */
+  readonly expectedPrincipalPolicyCheckpoints?: readonly PrincipalPolicyCheckpoint[];
   readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<boolean> {
   await ensureSqlTables(input.execSql, keyingCheckpointTables);
   const updatedAt = new Date().toISOString();
   const runtime = getClientSQLitePersistenceRuntime(input.execSql);
   const acknowledge = async (tx: ClientSQLiteTransactionScope) => {
+    for (const expected of input.expectedPrincipalPolicyCheckpoints ?? []) {
+      const current = await loadStoredPrincipalPolicyCheckpoint(tx, expected);
+      if (
+        current?.version !== expected.version ||
+        current.stateHash !== expected.stateHash
+      ) {
+        throw new KeyingVerificationError(
+          "stale_predecessor",
+          "A re-citation principal policy checkpoint changed before acknowledgement",
+        );
+      }
+    }
     const pending = await validateAcknowledgedHeads(tx, input.heads);
     await writeAcknowledgedHeads(tx, pending, updatedAt);
   };

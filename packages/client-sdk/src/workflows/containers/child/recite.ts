@@ -8,7 +8,10 @@ import {
 import type { AuthoredContainerMutationHead } from "../../../data/containers/shared/mutationAcknowledgement";
 import type { ContainerReciteApi } from "../../../data/containers/shared/reciteApi";
 import type { ContainerMutationAuthor } from "../../../data/containers/shared/types";
-import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
+import {
+  loadAccessManifestCheckpoint,
+  loadPrincipalPolicyCheckpoint,
+} from "../../../data/persistence/keyingCheckpointPersistence";
 import {
   advanceLocallyAcknowledgedAccessManifestHeadsAtomically,
   locallyAuthoredAccessManifestHead,
@@ -21,6 +24,7 @@ import {
 import {
   assertContainerReciteAcknowledgement,
   buildContainerRecitePlan,
+  referencedRecitationPolicies,
 } from "./recitePlan";
 
 const MAX_RECITES_PER_PASS = 8;
@@ -56,11 +60,14 @@ async function recitePinnedPath(
   path: readonly HeldContainerHead[],
   policies: ReturnType<typeof heldContainerSnapshot>["policies"],
 ): Promise<HeldContainerHead | null> {
+  const usedPolicies = referencedRecitationPolicies(path, policies);
+  if (!(await policiesArePinned(input.execSql, usedPolicies))) return null;
   const plan = await buildContainerRecitePlan({
     author: input.author,
     path,
-    policies,
+    policies: usedPolicies,
   });
+  if (!(await policiesArePinned(input.execSql, usedPolicies))) return null;
   if (input.stillCurrent?.() === false) return null;
   const id = plan.state.containerId;
   const response = await input.apiClient.reciteContainer(id, plan.request, {
@@ -92,6 +99,9 @@ async function recitePinnedPath(
       await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
         execSql: input.execSql,
         heads: [locallyAuthoredAccessManifestHead(plan)],
+        expectedPrincipalPolicyCheckpoints: usedPolicies.map(
+          (policy) => policy.checkpoint,
+        ),
         stillCurrent: input.stillCurrent,
       });
   } catch (error) {
@@ -104,6 +114,25 @@ async function recitePinnedPath(
   }
   if (!acknowledged || input.stillCurrent?.() === false) return null;
   return rememberAcknowledgedContainerHead(input.execSql, plan);
+}
+
+async function policiesArePinned(
+  execSql: ExecSql,
+  policies: ReturnType<typeof referencedRecitationPolicies>,
+): Promise<boolean> {
+  for (const policy of policies) {
+    const checkpoint = await loadPrincipalPolicyCheckpoint(
+      execSql,
+      policy.principalType,
+      policy.principalId,
+    );
+    if (
+      checkpoint?.version !== policy.version ||
+      checkpoint.stateHash !== policy.stateHash
+    )
+      return false;
+  }
+  return true;
 }
 
 async function waitForPinnedPath(

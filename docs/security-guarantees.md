@@ -326,6 +326,10 @@ therefore skips descendants locally; a server cannot obtain an unauthorized
 signed re-cite to echo into the durable checkpoint. Mutation lifetime also pins
 a monotonic internal session generation, so logout/login expires pending work
 even if no guard call observes the intermediate logged-out state.
+Each policy used by a plan must match its durable policy checkpoint before
+signing and submission. The acknowledgement transaction compares those exact
+policy pins again before advancing the descendant, so a concurrent membership
+revocation cannot turn a stale held policy into a locally accepted head.
 `container.recite` changes only the access-manifest head: grants, parent pins,
 key epochs, keyrings, and wraps stay unchanged. The API checks current paths
 and principal policies under the mutation locks and requires admin authority.

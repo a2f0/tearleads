@@ -17,6 +17,22 @@ import {
   readCanonicalRecord,
 } from "../../../data/keyingCanonicalJson";
 
+export function referencedRecitationPolicies(
+  path: readonly HeldContainerHead[],
+  policies: readonly AnyVerifiedPrincipalPolicy[],
+): readonly AnyVerifiedPrincipalPolicy[] {
+  const referencedIds = new Set(
+    path.flatMap((head) =>
+      head.state.referencedPrincipalHeads.map(
+        (ref) => `${ref.principalType}:${ref.principalId}`,
+      ),
+    ),
+  );
+  return policies.filter((policy) =>
+    referencedIds.has(`${policy.principalType}:${policy.principalId}`),
+  );
+}
+
 export async function buildContainerRecitePlan(input: {
   readonly author: ContainerMutationAuthor;
   readonly path: readonly HeldContainerHead[];
@@ -69,13 +85,6 @@ export async function buildContainerRecitePlan(input: {
   };
   const manifest = await deriveContainerAccessManifest(state);
   const manifestHash = await computeAccessManifestHash(manifest);
-  const referencedIds = new Set(
-    input.path.flatMap((head) =>
-      head.state.referencedPrincipalHeads.map(
-        (ref) => `${ref.principalType}:${ref.principalId}`,
-      ),
-    ),
-  );
   const request: ContainerReciteRequest = {
     body,
     event: readCanonicalRecord(event, "Recitation event"),
@@ -83,11 +92,10 @@ export async function buildContainerRecitePlan(input: {
     expectedManifestHash: manifestHash,
     previousManifest: previous.bundle,
     previousContainerPath: input.path.map((head) => head.bundle),
-    principalPolicies: input.policies
-      .filter((policy) =>
-        referencedIds.has(`${policy.principalType}:${policy.principalId}`),
-      )
-      .map((policy) => principalPolicyRequestRecord(policy)),
+    principalPolicies: referencedRecitationPolicies(
+      input.path,
+      input.policies,
+    ).map((policy) => principalPolicyRequestRecord(policy)),
   };
   return { body, event, eventHash, manifest, manifestHash, state, request };
 }

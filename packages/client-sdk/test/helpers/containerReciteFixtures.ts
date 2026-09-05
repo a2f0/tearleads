@@ -162,7 +162,7 @@ export async function createContainerReciteScenario(extraChildren = 0) {
   };
 }
 
-function reciteResponse(
+export function reciteResponse(
   head: VerifiedContainerAccessManifest,
 ): ContainerReciteResponse {
   return {
