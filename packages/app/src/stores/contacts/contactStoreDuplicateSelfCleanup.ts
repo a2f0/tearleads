@@ -1,4 +1,5 @@
 import type { ContactEntry } from "../../document-types/contact/contactDocumentModel";
+import { scheduleRemoteContactCleanup } from "./contactStoreRemoteCleanup";
 import { removeContactEntry } from "./contactStoreSnapshotMutations";
 import type { ContactsStoreState } from "./contactStoreTypes";
 import {
@@ -8,7 +9,11 @@ import {
 
 export type ContactStoreOperationGuard = () => boolean;
 
-type DuplicateSelfContactRemovalResult = "deleted" | "failed" | "stale";
+type DuplicateSelfContactRemovalResult =
+  | "deleted"
+  | "deferred"
+  | "failed"
+  | "stale";
 
 async function deleteDuplicateSelfContact(input: {
   entry: ContactEntry;
@@ -44,17 +49,35 @@ async function deleteDuplicateSelfContact(input: {
       return "failed";
     }
 
-    const purged = await runtime.purgeDocument(loadedDocument);
-    if (!guard()) {
-      return "stale";
-    }
-    if (!purged) {
-      state.dependencies.logError(
-        `Contacts: failed to purge duplicate self contact ${entry.id}.`,
-      );
-      return "failed";
-    }
+    const purgeDocument = runtime.purgeDocument;
+    scheduleRemoteContactCleanup({
+      current: guard,
+      localId: entry.id,
+      state,
+      run: async () => {
+        if (!guard() || !(await purgeDocument(loadedDocument)) || !guard()) {
+          return false;
+        }
+        return (
+          (await deleteLocalDuplicateSelfContact({ entry, guard, state })) ===
+          "deleted"
+        );
+      },
+    });
+    return "deferred";
   }
+
+  return deleteLocalDuplicateSelfContact(input);
+}
+
+async function deleteLocalDuplicateSelfContact(input: {
+  entry: ContactEntry;
+  guard: ContactStoreOperationGuard;
+  state: ContactsStoreState;
+}): Promise<DuplicateSelfContactRemovalResult> {
+  const { entry, guard, state } = input;
+  const runtime = state.runtime;
+  const trackedStore = state.contactDocumentStoresById.get(entry.id);
 
   // A successful remote purge already removed the SQLite row. This second,
   // idempotent local delete also publishes the private projection-cache
@@ -83,6 +106,9 @@ export async function removeDuplicateSelfContacts(
   identity: ResolvedSelfContactIdentity,
   guard: ContactStoreOperationGuard,
 ): Promise<void> {
+  const generation = state.initializationGeneration;
+  const userId = state.runtime.documents.auth.userId;
+  const signingFingerprint = state.runtime.documents.crypto.signingFingerprint;
   for (const entry of state.entriesById.values()) {
     if (!guard()) {
       return;
@@ -92,7 +118,22 @@ export async function removeDuplicateSelfContacts(
     }
     const removalResult = await deleteDuplicateSelfContact({
       entry,
-      guard,
+      guard: () => {
+        const currentEntry = state.entriesById.get(entry.id);
+        return (
+          guard() &&
+          state.initializationGeneration === generation &&
+          state.runtime.documents.auth.userId === userId &&
+          state.runtime.documents.crypto.signingFingerprint ===
+            signingFingerprint &&
+          currentEntry !== undefined &&
+          shouldRemoveDuplicateSelfContact(
+            currentEntry,
+            primaryContactId,
+            identity,
+          )
+        );
+      },
       state,
     });
     if (removalResult === "stale") {

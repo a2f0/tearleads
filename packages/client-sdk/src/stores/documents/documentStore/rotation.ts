@@ -12,12 +12,14 @@ import { requestDocumentStoreSync } from "../registry";
 import { installRebuiltDocument } from "./historyRebuild";
 import { chainIdentityWrite } from "./identityWriteChain";
 import { listPendingUpdates } from "./persistence";
+import { chainDocumentRemoteWork } from "./remoteWork";
 import {
   assertExactDocumentHistory,
   importProvenOrdinaryPendingHistory,
 } from "./rotationProvenance";
 import {
   invalidatePullContinuationBeforeRotation,
+  RotationPendingUpdatesChangedError,
   settleOrdinaryDocumentUpdatesBeforeRotation,
 } from "./rotationSettlement";
 import type { DocumentState, DocumentStoreState } from "./state";
@@ -253,6 +255,47 @@ function currentRotationRecoveryRecord(
   );
 }
 
+function installRotationRecovery(input: {
+  capturedVersion: string;
+  collection: Awaited<ReturnType<typeof collectVerifiedRawHistoryForRotation>>;
+  currentDoc: DocumentState;
+  generation: DocumentStoreSyncGeneration;
+  state: DocumentStoreState;
+}) {
+  const { capturedVersion, collection, currentDoc, generation, state } = input;
+  const installation = state.writeChain
+    .catch(() => undefined)
+    .then(() =>
+      chainIdentityWrite(state, async () => {
+        assertCapturedDocumentCurrent({
+          capturedVersion,
+          currentDocument: currentDoc,
+          generation,
+          state,
+        });
+        assertExactDocumentHistory({
+          currentDocument: currentDoc,
+          rebuiltDocument: collection.rebuiltDocument,
+        });
+        return installRebuiltDocument({
+          consumedPullContinuation: collection.consumedPullContinuation,
+          currentRecord: collection.currentRecord,
+          generation,
+          rebuiltDoc: collection.rebuiltDocument,
+          state,
+          synced: collection.synced,
+        });
+      }),
+    );
+  // Only the checked local install occupies the write queue. Network recovery
+  // uses the remote queue, so an outage cannot hold new edits hostage.
+  state.writeChain = installation.then(
+    () => undefined,
+    () => undefined,
+  );
+  return installation;
+}
+
 async function recoverFullHistoryForRotation(
   state: DocumentStoreState,
 ): Promise<Uint8Array> {
@@ -326,25 +369,12 @@ async function recoverFullHistoryForRotation(
       collection.rebuiltDocument.free();
       collection = definitiveCollection;
     }
-    const installed = await chainIdentityWrite(state, async () => {
-      assertCapturedDocumentCurrent({
-        capturedVersion,
-        currentDocument: currentDoc,
-        generation,
-        state,
-      });
-      assertExactDocumentHistory({
-        currentDocument: currentDoc,
-        rebuiltDocument: collection.rebuiltDocument,
-      });
-      return installRebuiltDocument({
-        consumedPullContinuation: collection.consumedPullContinuation,
-        currentRecord: collection.currentRecord,
-        generation,
-        rebuiltDoc: collection.rebuiltDocument,
-        state,
-        synced: collection.synced,
-      });
+    const installed = await installRotationRecovery({
+      capturedVersion,
+      collection,
+      currentDoc,
+      generation,
+      state,
     });
     settlementRequiresRetry = installed.settlementRequiresRetry;
     if (settlementRequiresRetry) {
@@ -364,22 +394,39 @@ async function recoverFullHistoryForRotation(
 }
 
 /**
- * Serialize rotation recovery behind local writes. New writes enqueue behind
- * this promise, so the reconstructed document is installed before they mutate
- * it. This is a preflight, not an atomic link-set/rotation transaction.
+ * Wait for prior local writes and serialize with other remote work. Edits can
+ * continue during the pull; the checked install rejects a changed document so
+ * a stale recovery cannot replace them. This preflight can then be retried.
  */
 export function assertDocumentStoreCanRotateContentKey(
   state: DocumentStoreState,
 ): Promise<Uint8Array> {
-  const recovery = state.writeChain
-    .catch(() => undefined)
-    .then(() => recoverFullHistoryForRotation(state));
-  // The returned promise reports the preflight failure to its caller. Keep the
-  // internal serialization tail fulfilled so the same rejection is not also
-  // emitted as an unhandled promise and later writes/rotation retries can run.
-  state.writeChain = recovery.then(
-    () => undefined,
-    () => undefined,
-  );
-  return recovery;
+  const generation = captureDocumentStoreSyncGeneration(state, state.doc);
+  return chainDocumentRemoteWork(state, async () => {
+    await state.writeChain.catch(() => undefined);
+    if (
+      !generation ||
+      !isDocumentStoreSyncGenerationCurrent(state, generation)
+    ) {
+      throw new Error(
+        "Document changed before rotation recovery; retry key rotation",
+      );
+    }
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        return await recoverFullHistoryForRotation(state);
+      } catch (error) {
+        // A conflict can re-key a queued update during settlement. Its new id
+        // is not covered by the old proof: repeat the entire raw proof instead
+        // of trusting it or parking a recoverable move. Bound repeated conflicts.
+        if (
+          !(error instanceof RotationPendingUpdatesChangedError) ||
+          attempt >= 2 ||
+          !isDocumentStoreSyncGenerationCurrent(state, generation)
+        ) {
+          throw error;
+        }
+      }
+    }
+  });
 }

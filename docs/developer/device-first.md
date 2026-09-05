@@ -28,7 +28,7 @@ online-regain, and WS events are *reconcile-in-place* signals, not resets: the
 already-visible list is patched with fresh data rather than blanked and
 re-fetched.
 
-The local read path is network-free.
+Local reads are network-free. See the [hardening audit](../device-first-audit.md).
 `workflows/container-contents/documentQueries.ts`
 (`listContainerItemWindow`, `loadDocumentSummary`,
 `listContainerDocumentSidebarWindow`) reads purely from SQLite, and the

@@ -10,6 +10,7 @@ import {
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
+import { waitFor } from "../../../../test/helpers/waitFor";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { hasRecordedTerminalSyncFailures } from "../../../data/sqlite/documentPersistence";
 import type { DocumentsRuntime } from "../types";
@@ -230,10 +231,15 @@ test("a clean full-history preflight pulls a newer committed remote frontier", a
   }
 });
 
-test("a text edit queued during rotation applies to the rebuilt document", async () => {
+test("a text edit persists during a stalled rotation and invalidates its stale install", async () => {
   const { close, execSql } = await createTestExecSql(
     "rotation-recovery-queued-edit",
   );
+  let release = () => {};
+  const responseGate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let pullStarted = false;
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
     const fixture = await createRemoteHistoryFixture();
@@ -249,7 +255,15 @@ test("a text edit queued during rotation applies to the rebuilt document", async
 
     const state = createDocumentStoreState(
       localId,
-      createRotationRecoveryRuntime({ execSql, fixture }),
+      createRotationRecoveryRuntime({
+        execSql,
+        fixture,
+        responseForRequest: async (_request, response) => {
+          pullStarted = true;
+          await responseGate;
+          return response;
+        },
+      }),
       sqlDocumentsPersistence,
       noopDocumentStorePersistenceEffects,
       fixture.writerProjection.documentId,
@@ -257,11 +271,27 @@ test("a text edit queued during rotation applies to the rebuilt document", async
     expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
 
     const recovery = assertDocumentStoreCanRotateContentKey(state);
+    const outcome = recovery.then(
+      () => null,
+      (error: unknown) => error,
+    );
+    await waitFor(() => pullStarted, "Rotation pull did not start");
     const localText = "queued local edit";
     const localWrite = setDocumentText(state, () => undefined, localText);
 
-    await recovery;
+    let persisted = false;
+    void localWrite.then(() => {
+      persisted = true;
+    });
+    await waitFor(
+      () => persisted,
+      "A stalled network pull blocked local persistence",
+    );
     await localWrite;
+    release();
+    const error = await outcome;
+    expect(error).toBeInstanceOf(Error);
+    expect(String(error)).toContain("Document changed");
     if (!state.doc) {
       throw new Error("Expected rebuilt document after rotation recovery");
     }
@@ -270,6 +300,7 @@ test("a text edit queued during rotation applies to the rebuilt document", async
     expect(state.snapshot.text).toBe(getTextValue(state.doc));
     expect(state.pendingLocalWrites).toBe(0);
   } finally {
+    release();
     close();
   }
 });

@@ -51,8 +51,10 @@ export async function getUserIdentityForSelfContact(
   dependencies: ContactKeyLookupDependencies,
   userId: string,
 ): Promise<ResolvedUserIdentity | null> {
-  const localUserIdentity = await dependencies.getLocalUserIdentity?.(userId);
-  return localUserIdentity ?? dependencies.resolveUserIdentity(userId);
+  // Self-contact maintenance participates in local bootstrap. The device's
+  // own key material is sufficient; a missing key must not turn startup into
+  // a network lookup. Explicit peer-key import owns remote resolution.
+  return (await dependencies.getLocalUserIdentity?.(userId)) ?? null;
 }
 
 export function canWriteContactEntry(

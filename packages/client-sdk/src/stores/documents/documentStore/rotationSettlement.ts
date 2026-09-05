@@ -22,6 +22,8 @@ import { prepareDocumentOutgoingCoverage } from "./syncOutgoingCoverage";
 import { requestRemoteDocumentSync } from "./syncRequest";
 import { extendDocumentVersionCoverage } from "./versionCoverage";
 
+export class RotationPendingUpdatesChangedError extends Error {}
+
 function ordinaryPendingUpdates(
   pendingUpdates: readonly PendingUpdateRecord[],
 ): PendingUpdateRecord[] {
@@ -62,7 +64,7 @@ function assertOrdinaryRowsWereProven(input: {
       !provenUpdate ||
       !pendingUpdateMatchesProvenRow(pendingUpdate, provenUpdate)
     ) {
-      throw new Error(
+      throw new RotationPendingUpdatesChangedError(
         "Document local updates changed after rotation provenance verification",
       );
     }

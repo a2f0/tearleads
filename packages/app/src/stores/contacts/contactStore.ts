@@ -30,6 +30,7 @@ import {
   getUserIdentityForSelfContact,
 } from "./contactStoreLookup";
 import { connectContactsStoreToPersistedDocuments } from "./contactStorePersistedDocuments";
+import { resumeRemoteContactCleanup } from "./contactStoreRemoteCleanup";
 import {
   removeContactEntry,
   upsertContactEntry,
@@ -334,6 +335,7 @@ function updateContactsStoreRuntime(
   state: ContactsStoreState,
   runtime: ContactsRuntime,
 ): void {
+  const previousDocuments = state.runtime.documents;
   const previousContainerId = state.runtime.documents.state.containerId;
   const previousDbStatus = state.runtime.documents.infra.dbStatus;
   const previousDomainScope = state.runtime.documents.state.domainScope;
@@ -380,6 +382,13 @@ function updateContactsStoreRuntime(
     connectContactsStoreToPersistedDocuments(state);
   }
   ensureContactsInitialized(state);
+  if (
+    runtime.documents.state.online &&
+    runtime.documents.auth.isAuthenticated &&
+    (!previousDocuments.state.online || !previousDocuments.auth.isAuthenticated)
+  ) {
+    resumeRemoteContactCleanup(state);
+  }
 }
 
 export function createContactsStore(

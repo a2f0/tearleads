@@ -11,6 +11,7 @@ import { requestDocumentStoreSync } from "../registry";
 import { awaitInitializationForSync } from "./initialization";
 import { listPendingUpdates } from "./persistence";
 import { logRevalidationUnavailable as logUnavailable } from "./remoteRevalidationTelemetry";
+import { chainDocumentRemoteWork } from "./remoteWork";
 import {
   type DocumentState,
   type DocumentStoreState,
@@ -440,7 +441,11 @@ export function registerDocumentStoreSyncLane(
     run: () => {
       const syncLaneGeneration = getSyncLaneGeneration();
       return syncLaneGeneration
-        ? runScheduledSyncLoop(state, syncLaneGeneration)
+        ? chainDocumentRemoteWork(state, () =>
+            isDocumentStoreSyncLaneGenerationCurrent(state, syncLaneGeneration)
+              ? runScheduledSyncLoop(state, syncLaneGeneration)
+              : Promise.resolve(),
+          )
         : Promise.resolve();
     },
   });

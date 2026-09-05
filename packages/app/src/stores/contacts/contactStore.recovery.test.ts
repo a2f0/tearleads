@@ -1,85 +1,20 @@
 import { expect, test } from "bun:test";
 import {
-  createDocumentsWorkflowRuntime,
   type DocumentSummary,
   defaultDocumentsPersistence,
-  deletePersistedDocument,
-  openDocumentStore,
   type ResolvedUserIdentity,
-  subscribeToPersistedDocuments,
 } from "@tearleads/client-sdk";
-import { createMockApiClient } from "@tearleads/test-utils";
-import { createSqlRuntimeBase } from "../../../test/helpers/createSqlRuntime";
+import {
+  CONTACTS_CONTAINER_ID,
+  createRecoveryContactsRuntime,
+} from "../../../test/helpers/contactStoreRecovery";
 import { createDeferred } from "../../../test/helpers/databaseRuntimeFactories";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
-import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../document-types/projectors";
 import {
   type ContactsRuntime,
   createContactsStore,
   getSelfContactLocalId,
 } from "./contactStore";
-
-const CONTACTS_CONTAINER_ID = "recovered-contacts-container";
-
-async function createRecoveryContactsRuntime(input: {
-  containerId?: string;
-  runtimeKey?: string;
-  signingFingerprint: string;
-  userId: string;
-}): Promise<ContactsRuntime & { close: () => void }> {
-  const runtimeBase = await createSqlRuntimeBase(
-    input.runtimeKey ?? "contacts-store-recovery-test",
-  );
-  const { close, ...runtimeInputBase } = runtimeBase;
-  const documents = createDocumentsWorkflowRuntime({
-    ...runtimeInputBase,
-    apiClient: createMockApiClient(),
-    auth: {
-      ...runtimeInputBase.auth,
-      isAuthenticated: true,
-      userId: input.userId,
-    },
-    crypto: {
-      ...runtimeInputBase.crypto,
-      signingFingerprint: input.signingFingerprint,
-    },
-    infra: {
-      ...runtimeInputBase.infra,
-      documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
-    },
-    state: {
-      ...runtimeInputBase.state,
-      containerId: input.containerId ?? CONTACTS_CONTAINER_ID,
-    },
-  });
-
-  return {
-    close,
-    deleteDocument: async (localId) => {
-      await deletePersistedDocument({
-        documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
-        execSql: documents.infra.execSql,
-        localId,
-        persistence: defaultDocumentsPersistence,
-      });
-      return true;
-    },
-    documents,
-    loadDocumentSummary: () => Promise.resolve(null),
-    moveDocumentToTrash: () => Promise.resolve(null),
-    openDocumentStore: (documentInput) =>
-      openDocumentStore(
-        documents.state.domainScope,
-        documentInput.localId,
-        documents,
-        documentInput.documentId ?? null,
-        documentInput.initialText,
-        documentInput.initialDocumentKind,
-      ),
-    subscribeToPersistedDocuments: (listener) =>
-      subscribeToPersistedDocuments(documents.state.domainScope, listener),
-  };
-}
 
 test("named recovered self contact remains under its remote local id", async () => {
   const selfKey: ResolvedUserIdentity = {
@@ -251,6 +186,10 @@ test("late recovered self contact purges a remotely synced fallback", async () =
   const cleanupOperations: string[] = [];
   const runtime: ContactsRuntime & { close: () => void } = {
     ...baseRuntime,
+    documents: {
+      ...baseRuntime.documents,
+      state: { ...baseRuntime.documents.state, online: true },
+    },
     deleteDocument: async (deletedLocalId) => {
       cleanupOperations.push(`delete:${deletedLocalId}`);
       return baseRuntime.deleteDocument(deletedLocalId);
@@ -336,7 +275,8 @@ test("late self reconciliation stops after an identity lookup crosses runtimes",
     userId: "replacement-user",
   });
   const store = createContactsStore(staleRuntime, {
-    resolveUserIdentity: async () => {
+    resolveUserIdentity: async () => null,
+    getLocalUserIdentity: async () => {
       lookupStarted.resolve(undefined);
       return lookupResult.promise;
     },

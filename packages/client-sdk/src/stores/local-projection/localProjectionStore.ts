@@ -1,3 +1,4 @@
+import type { DocumentSummary } from "../../data/documents/documentSummary";
 import { loadLocalContainerProjectionDocumentsFromRuntime } from "../../workflows/container-contents/projectionView";
 import { didRegainSyncPrerequisites } from "../../workflows/container-contents/syncLane";
 import {
@@ -44,6 +45,7 @@ export interface LocalProjectionStore {
   getActiveContainerId: () => string | null;
   applyReconciled: (delta: LocalProjectionReconciledDelta) => void;
   removePersistedDocument: (localId: string) => void;
+  refreshPersistedDocument: (document: DocumentSummary) => void;
   updateRuntime: (runtime: ContainerContentsStoreRuntime) => void;
   /** Registered by the reconciler; returns an unsubscribe handle. */
   onReconcileSignal: (listener: LocalProjectionReconcileListener) => () => void;
@@ -67,6 +69,7 @@ interface LocalProjectionStoreState {
   runtime: ContainerContentsStoreRuntime;
   snapshot: LocalProjectionSnapshot;
   summaryLoadByContainerId: Map<string, Promise<void>>;
+  summaryReloadNeeded: Set<string>;
 }
 
 const EMPTY_SNAPSHOT: LocalProjectionSnapshot = {
@@ -134,7 +137,10 @@ function loadActiveContainerSummaries(
       .then((documents) => {
         // A runtime reset (e.g. dbStatus loss) clears this entry and the cache
         // mid-flight; do not apply a stale read to a freshly reset cache.
-        if (state.summaryLoadByContainerId.get(containerId) !== loadPromise) {
+        if (
+          state.summaryLoadByContainerId.get(containerId) !== loadPromise ||
+          state.summaryReloadNeeded.has(containerId)
+        ) {
           return;
         }
         const changed = applyContainerSummaries(state.cache, {
@@ -153,10 +159,47 @@ function loadActiveContainerSummaries(
       .finally(() => {
         if (state.summaryLoadByContainerId.get(containerId) === loadPromise) {
           state.summaryLoadByContainerId.delete(containerId);
+          if (state.summaryReloadNeeded.delete(containerId)) {
+            state.cache.hydratedContainerIds.delete(containerId);
+            loadActiveContainerSummaries(state, containerId);
+          }
         }
       });
 
   state.summaryLoadByContainerId.set(containerId, loadPromise);
+}
+
+function refreshContainerSummaries(
+  state: LocalProjectionStoreState,
+  containerId: string,
+): void {
+  state.cache.hydratedContainerIds.delete(containerId);
+  if (state.summaryLoadByContainerId.has(containerId)) {
+    // A persisted write can overtake an asynchronous SQLite read. Coalesce
+    // writes into one trailing read, and never publish the superseded result.
+    state.summaryReloadNeeded.add(containerId);
+  } else {
+    loadActiveContainerSummaries(state, containerId);
+  }
+}
+
+function refreshPersistedDocument(
+  state: LocalProjectionStoreState,
+  document: DocumentSummary,
+): void {
+  const containerIds = new Set(state.summaryLoadByContainerId.keys());
+  if (state.activeContainerId) containerIds.add(state.activeContainerId);
+  for (const [containerId, summaries] of state.cache.summariesByContainerId) {
+    if (
+      containerId === document.containerId ||
+      summaries.some((summary) => summary.id === document.id)
+    ) {
+      containerIds.add(containerId);
+    }
+  }
+  for (const containerId of containerIds) {
+    refreshContainerSummaries(state, containerId);
+  }
 }
 
 function markHydratedIfReady(state: LocalProjectionStoreState): boolean {
@@ -243,9 +286,58 @@ function removePersistedDocumentFromCache(
   state: LocalProjectionStoreState,
   localId: string,
 ): void {
+  // The deleted row may exist only in an in-flight first read, so invalidating
+  // just containers that already cached it would allow it to reappear offline.
+  for (const containerId of state.summaryLoadByContainerId.keys()) {
+    refreshContainerSummaries(state, containerId);
+  }
   if (removeDocumentSummary(state.cache, localId)) {
     emit(state);
   }
+}
+
+function updateLocalProjectionRuntime(
+  state: LocalProjectionStoreState,
+  runtime: ContainerContentsStoreRuntime,
+): void {
+  const previousRuntime = state.runtime;
+  state.runtime = runtime;
+  if (
+    runtime.infra.execSql !== previousRuntime.infra.execSql ||
+    runtime.state.domainScope !== previousRuntime.state.domainScope
+  ) {
+    resetSummaryCache(state.cache);
+    state.summaryLoadByContainerId.clear();
+    state.summaryReloadNeeded.clear();
+    state.hydratedContainerSummaries = false;
+  }
+  state.containerStore.updateRuntime(runtime);
+
+  // Latch before the readiness checks so a regain that arrives while the
+  // database or container tree is still warming up is flushed after
+  // hydration instead of being lost to startup ordering.
+  if (didRegainSyncPrerequisites(previousRuntime, runtime)) {
+    state.pendingPrerequisitesRegained = true;
+  }
+
+  if (runtime.infra.dbStatus !== "ready") {
+    resetSummaryCache(state.cache);
+    state.summaryLoadByContainerId.clear();
+    state.summaryReloadNeeded.clear();
+    state.hydratedContainerSummaries = false;
+    emit(state);
+    return;
+  }
+
+  // Reload the active container's summaries when the local store becomes
+  // ready (e.g. first DB attach) so first paint reflects cached contents.
+  const didMarkHydrated = markHydratedIfReady(state);
+  emit(state);
+  if (didMarkHydrated) {
+    notifyHydrated(state);
+  }
+  // After emit, so triggered backfills read the refreshed snapshot.
+  flushPendingPrerequisitesRegained(state);
 }
 
 export function createLocalProjectionStore(input: {
@@ -263,6 +355,7 @@ export function createLocalProjectionStore(input: {
     runtime: input.runtime,
     snapshot: EMPTY_SNAPSHOT,
     summaryLoadByContainerId: new Map(),
+    summaryReloadNeeded: new Set(),
   };
   state.snapshot = computeSnapshot(state);
 
@@ -314,7 +407,7 @@ export function createLocalProjectionStore(input: {
       }
       state.activeContainerId = containerId;
       if (containerId) {
-        loadActiveContainerSummaries(state, containerId);
+        refreshContainerSummaries(state, containerId);
       }
       notifyReconcile(state, {
         reason: "active-changed",
@@ -323,42 +416,18 @@ export function createLocalProjectionStore(input: {
     },
     getActiveContainerId: () => state.activeContainerId,
     applyReconciled: (delta) => {
+      if (state.summaryLoadByContainerId.has(delta.containerId)) {
+        refreshContainerSummaries(state, delta.containerId);
+      }
       if (applyContainerSummaries(state.cache, delta)) {
         emit(state);
       }
     },
     removePersistedDocument: (localId) =>
       removePersistedDocumentFromCache(state, localId),
-    updateRuntime: (runtime) => {
-      const previousRuntime = state.runtime;
-      state.runtime = runtime;
-      state.containerStore.updateRuntime(runtime);
-
-      // Latch before the readiness checks so a regain that arrives while the
-      // database or container tree is still warming up is flushed after
-      // hydration instead of being lost to startup ordering.
-      if (didRegainSyncPrerequisites(previousRuntime, runtime)) {
-        state.pendingPrerequisitesRegained = true;
-      }
-
-      if (runtime.infra.dbStatus !== "ready") {
-        resetSummaryCache(state.cache);
-        state.summaryLoadByContainerId.clear();
-        state.hydratedContainerSummaries = false;
-        emit(state);
-        return;
-      }
-
-      // Reload the active container's summaries when the local store becomes
-      // ready (e.g. first DB attach) so first paint reflects cached contents.
-      const didMarkHydrated = markHydratedIfReady(state);
-      emit(state);
-      if (didMarkHydrated) {
-        notifyHydrated(state);
-      }
-      // After emit, so triggered backfills read the refreshed snapshot.
-      flushPendingPrerequisitesRegained(state);
-    },
+    refreshPersistedDocument: (document) =>
+      refreshPersistedDocument(state, document),
+    updateRuntime: (runtime) => updateLocalProjectionRuntime(state, runtime),
     onReconcileSignal: (listener) => {
       state.reconcileListeners.add(listener);
       return () => {
