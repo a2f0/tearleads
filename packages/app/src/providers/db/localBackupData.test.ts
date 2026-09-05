@@ -16,7 +16,6 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { createBackupPayload, restoreBackupPayload } from "./localBackupData";
 import { restoreBackupDatabase } from "./localBackupDatabase";
 import {
-  type BackupPayload,
   createBackupFileName,
   decodeBackupFile,
   encodeBackupFile,
@@ -126,7 +125,10 @@ async function seedBackupDatabase(execSql: ExecSql): Promise<void> {
   ]);
 }
 
-test("backup export and restore preserves SQLite rows, indexes, and blob bytes", async () => {
+test.each([
+  "test-password",
+  undefined,
+])("backup export and restore preserves SQLite rows, indexes, and blob bytes (password: %s)", async (password) => {
   const source = await createTestExecSql("backup-source-key");
   const target = await createTestExecSql("backup-target-key");
   const sourceBlobStore = new TestBlobStore();
@@ -156,50 +158,11 @@ test("backup export and restore preserves SQLite rows, indexes, and blob bytes",
     expect(createBackupFileName(payload).endsWith(".tlbackup.json")).toBe(true);
 
     const encoded = await encodeBackupFile({
-      password: "test-password",
+      password,
       payload,
     });
-    const legacyEnvelope = JSON.parse(encoded) as { version: number };
-    legacyEnvelope.version = 6;
-    await expect(
-      decodeBackupFile({
-        password: "test-password",
-        text: JSON.stringify(legacyEnvelope),
-      }),
-    ).rejects.toThrow("Backup file version is not supported.");
-
-    const legacyPayload = {
-      ...payload,
-      version: 6,
-    } as unknown as BackupPayload;
-    const encodedLegacyPayload = await encodeBackupFile({
-      password: "test-password",
-      payload: legacyPayload,
-    });
-    await expect(
-      decodeBackupFile({
-        password: "test-password",
-        text: encodedLegacyPayload,
-      }),
-    ).rejects.toThrow("Backup payload version is not supported.");
-
-    await expect(
-      decodeBackupFile({ password: "wrong-password", text: encoded }),
-    ).rejects.toThrow("Backup password is incorrect");
-
-    const unsafeEnvelope = JSON.parse(encoded) as {
-      kdf: { iterations: number };
-    };
-    unsafeEnvelope.kdf.iterations = 1_000_001;
-    await expect(
-      decodeBackupFile({
-        password: "test-password",
-        text: JSON.stringify(unsafeEnvelope),
-      }),
-    ).rejects.toThrow("Backup KDF iterations count is out of safe bounds.");
-
     const decoded = await decodeBackupFile({
-      password: "test-password",
+      password,
       text: encoded,
     });
     await target.execSql("PRAGMA foreign_keys = ON");

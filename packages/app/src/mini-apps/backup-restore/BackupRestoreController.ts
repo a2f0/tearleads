@@ -4,6 +4,7 @@ import { clearRestoredLocalCaches } from "../../providers/db/clearRestoredLocalC
 import {
   type BackupProgress,
   type BackupSummary,
+  backupFileRequiresPassword,
   useLocalBackupOperations,
 } from "../../providers/db/useLocalBackupOperations";
 import { useFileSaver } from "../../providers/file-saver/FileSaverProvider";
@@ -31,6 +32,7 @@ function formatSummary(summary: BackupSummary): string {
 
 function useExportBackupAction({
   backupPassword,
+  backupWithoutPassword,
   confirmBackupPassword,
   exportLocalBackup,
   fileSaver,
@@ -39,6 +41,7 @@ function useExportBackupAction({
   state,
 }: {
   readonly backupPassword: string;
+  readonly backupWithoutPassword: boolean;
   readonly confirmBackupPassword: string;
   readonly exportLocalBackup: ExportLocalBackup;
   readonly fileSaver: FileSaver;
@@ -59,11 +62,11 @@ function useExportBackupAction({
 
   return useCallback(async () => {
     resetOperationState();
-    if (!backupPassword) {
+    if (!backupWithoutPassword && !backupPassword) {
       setError("Enter a backup password.");
       return;
     }
-    if (backupPassword !== confirmBackupPassword) {
+    if (!backupWithoutPassword && backupPassword !== confirmBackupPassword) {
       setError("Backup passwords do not match.");
       return;
     }
@@ -72,7 +75,7 @@ function useExportBackupAction({
     try {
       const result = await exportLocalBackup({
         onProgress: setProgress,
-        password: backupPassword,
+        password: backupWithoutPassword ? undefined : backupPassword,
       });
       await downloadTextAsFile(fileSaver, {
         fileName: result.fileName,
@@ -93,6 +96,7 @@ function useExportBackupAction({
     }
   }, [
     backupPassword,
+    backupWithoutPassword,
     confirmBackupPassword,
     exportLocalBackup,
     fileSaver,
@@ -125,6 +129,7 @@ function useRestoreBackupAction({
   const {
     resetOperationState,
     restoreFileInputRef,
+    restoreRequiresPassword,
     selectedRestoreFileText,
     setBusy,
     setError,
@@ -132,6 +137,7 @@ function useRestoreBackupAction({
     setProgress,
     setRestoreComplete,
     setRestorePassword,
+    setRestoreRequiresPassword,
     setSelectedRestoreFileName,
     setSelectedRestoreFileText,
     setStatus,
@@ -143,7 +149,7 @@ function useRestoreBackupAction({
       setError("Choose a backup file.");
       return;
     }
-    if (!restorePassword) {
+    if (restoreRequiresPassword && !restorePassword) {
       setError("Enter the restore password.");
       return;
     }
@@ -152,11 +158,12 @@ function useRestoreBackupAction({
     try {
       const summary = await restoreLocalBackup({
         onProgress: setProgress,
-        password: restorePassword,
+        password: restoreRequiresPassword ? restorePassword : undefined,
         text: selectedRestoreFileText,
       });
       setLastSummary(summary);
       setRestorePassword("");
+      setRestoreRequiresPassword(true);
       setSelectedRestoreFileName(null);
       setSelectedRestoreFileText(null);
       setRestoreComplete(true);
@@ -179,6 +186,7 @@ function useRestoreBackupAction({
     restoreFileInputRef,
     restoreLocalBackup,
     restorePassword,
+    restoreRequiresPassword,
     selectedRestoreFileText,
     setBusy,
     setError,
@@ -186,6 +194,7 @@ function useRestoreBackupAction({
     setProgress,
     setRestoreComplete,
     setRestorePassword,
+    setRestoreRequiresPassword,
     setSelectedRestoreFileName,
     setSelectedRestoreFileText,
     setStatus,
@@ -202,6 +211,7 @@ function useRestoreFileSelection({
   const {
     resetOperationState,
     setError,
+    setRestoreRequiresPassword,
     setSelectedRestoreFileName,
     setSelectedRestoreFileText,
   } = state;
@@ -214,10 +224,12 @@ function useRestoreFileSelection({
       resetOperationState();
       selectionTokenRef.current += 1;
       const selectionToken = selectionTokenRef.current;
-      const file = event.currentTarget.files?.[0];
+      const fileInput = event.currentTarget;
+      const file = fileInput.files?.[0];
+      setSelectedRestoreFileText(null);
+      setRestoreRequiresPassword(true);
       if (!file) {
         setSelectedRestoreFileName(null);
-        setSelectedRestoreFileText(null);
         return;
       }
 
@@ -226,6 +238,7 @@ function useRestoreFileSelection({
         .text()
         .then((text) => {
           if (selectionTokenRef.current === selectionToken) {
+            setRestoreRequiresPassword(backupFileRequiresPassword(text));
             setSelectedRestoreFileText(text);
           }
         })
@@ -233,7 +246,8 @@ function useRestoreFileSelection({
           if (selectionTokenRef.current !== selectionToken) {
             return;
           }
-          logError("Failed to read local backup file", fileError);
+          logError("Failed to load local backup file", fileError);
+          fileInput.value = "";
           setSelectedRestoreFileName(null);
           setSelectedRestoreFileText(null);
           setError(unknownErrorMessage(fileError));
@@ -243,6 +257,7 @@ function useRestoreFileSelection({
       logError,
       resetOperationState,
       setError,
+      setRestoreRequiresPassword,
       setSelectedRestoreFileName,
       setSelectedRestoreFileText,
     ],
@@ -252,8 +267,10 @@ function useRestoreFileSelection({
 function useBackupRestoreState() {
   const restoreFileInputRef = useRef<HTMLInputElement>(null);
   const [backupPassword, setBackupPassword] = useState("");
+  const [backupWithoutPassword, setBackupWithoutPassword] = useState(false);
   const [confirmBackupPassword, setConfirmBackupPassword] = useState("");
   const [restorePassword, setRestorePassword] = useState("");
+  const [restoreRequiresPassword, setRestoreRequiresPassword] = useState(true);
   const [selectedRestoreFileName, setSelectedRestoreFileName] = useState<
     string | null
   >(null);
@@ -276,6 +293,7 @@ function useBackupRestoreState() {
 
   return {
     backupPassword,
+    backupWithoutPassword,
     busy,
     confirmBackupPassword,
     error,
@@ -285,9 +303,11 @@ function useBackupRestoreState() {
     restoreComplete,
     restoreFileInputRef,
     restorePassword,
+    restoreRequiresPassword,
     selectedRestoreFileName,
     selectedRestoreFileText,
     setBackupPassword,
+    setBackupWithoutPassword,
     setBusy,
     setConfirmBackupPassword,
     setError,
@@ -295,6 +315,7 @@ function useBackupRestoreState() {
     setProgress,
     setRestoreComplete,
     setRestorePassword,
+    setRestoreRequiresPassword,
     setSelectedRestoreFileName,
     setSelectedRestoreFileText,
     setStatus,
@@ -309,6 +330,7 @@ export function useBackupRestore() {
   const state = useBackupRestoreState();
   const handleExportBackup = useExportBackupAction({
     backupPassword: state.backupPassword,
+    backupWithoutPassword: state.backupWithoutPassword,
     confirmBackupPassword: state.confirmBackupPassword,
     exportLocalBackup,
     fileSaver,
@@ -340,6 +362,7 @@ export function useBackupRestore() {
 
   return {
     backupPassword: state.backupPassword,
+    backupWithoutPassword: state.backupWithoutPassword,
     busy: state.busy,
     confirmBackupPassword: state.confirmBackupPassword,
     error: state.error,
@@ -353,8 +376,10 @@ export function useBackupRestore() {
     restoreComplete: state.restoreComplete,
     restoreFileInputRef: state.restoreFileInputRef,
     restorePassword: state.restorePassword,
+    restoreRequiresPassword: state.restoreRequiresPassword,
     selectedRestoreFileName: state.selectedRestoreFileName,
     setBackupPassword: state.setBackupPassword,
+    setBackupWithoutPassword: state.setBackupWithoutPassword,
     setConfirmBackupPassword: state.setConfirmBackupPassword,
     setRestorePassword: state.setRestorePassword,
     status: state.status,

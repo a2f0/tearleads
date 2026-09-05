@@ -9,3 +9,7 @@
   host to serve a bundled worker at `/worker.js`.
 - Non-browser or custom hosts should provide their own `createSQLiteRuntime`
   through `AppHostConfig`.
+- Local backups support password encryption or an unencrypted JSON payload.
+  Restore detects the format and validates the same versioned payload in both
+  cases. `localBackupFormat.ts` handles file encoding and encryption;
+  `localBackupPayload.ts` owns the payload types and validation.

@@ -1,76 +1,105 @@
-import { afterEach, expect, mock, test } from "bun:test";
-import { cleanup, fireEvent, render } from "@testing-library/react";
-import type { useBackupRestore } from "./BackupRestoreController";
+import { afterAll, afterEach, beforeAll, expect, spyOn, test } from "bun:test";
+import type { SaveFileRequest } from "@tearleads/client-sdk";
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  waitFor,
+} from "@testing-library/react";
+import { createDeferred } from "../../../test/helpers/databaseRuntimeFactories";
+import {
+  cleanupIdentityManagerTestEnvironment,
+  createIdentityManagerHostConfig,
+  TestWebSocket,
+} from "../../../test/helpers/identityManagerTestRuntime";
+import { AppRuntimeProvider } from "../../providers/AppRuntimeProvider";
+import {
+  backupFileRequiresPassword,
+  decodeBackupFile,
+  encodeBackupFile,
+} from "../../providers/db/localBackupFormat";
+import {
+  type BackupProgress,
+  useLocalBackupOperations,
+} from "../../providers/db/useLocalBackupOperations";
+import { BackupRestore } from "./BackupRestore";
 
-type BackupRestoreModel = ReturnType<typeof useBackupRestore>;
+const originalWebSocket = globalThis.WebSocket;
 
-// The tab UI is presentational over the shared controller, so drive it against a
-// fake model rather than the full SQLite/identity runtime the real controller
-// needs. `mock.module` is registered before the component is dynamically
-// imported so the import binds to the fake.
-function createModel(
-  overrides: Partial<BackupRestoreModel> = {},
-): BackupRestoreModel {
-  return {
-    backupPassword: "",
-    busy: null,
-    confirmBackupPassword: "",
-    error: null,
-    handleChooseRestoreFile: () => {},
-    handleExportBackup: async () => {},
-    handleReload: () => {},
-    handleRestoreBackup: async () => {},
-    handleRestoreFileChange: () => {},
-    lastSummary: null,
-    progress: null,
-    restoreComplete: false,
-    restoreFileInputRef: { current: null },
-    restorePassword: "",
-    selectedRestoreFileName: null,
-    setBackupPassword: () => {},
-    setConfirmBackupPassword: () => {},
-    setRestorePassword: () => {},
-    status: null,
-    ...overrides,
-  };
+beforeAll(() => {
+  Reflect.set(globalThis, "WebSocket", TestWebSocket);
+});
+afterAll(() => {
+  Reflect.set(globalThis, "WebSocket", originalWebSocket);
+});
+afterEach(cleanupIdentityManagerTestEnvironment);
+
+function renderBackupRestore(saveGate?: Promise<void>) {
+  const savedFiles: SaveFileRequest[] = [];
+  const hostConfig = createIdentityManagerHostConfig().withOverrides({
+    createFileSaver: () => ({
+      async saveFile(request) {
+        savedFiles.push(request);
+        await saveGate;
+      },
+    }),
+  });
+  const view = render(
+    <AppRuntimeProvider autoProvisionEnabled={false} hostConfig={hostConfig}>
+      <BackupRestore />
+    </AppRuntimeProvider>,
+  );
+  return { ...view, savedFiles };
 }
 
-let activeModel = createModel();
+type BackupRestoreView = ReturnType<typeof renderBackupRestore>;
 
-mock.module("./BackupRestoreController", () => ({
-  useBackupRestore: () => activeModel,
-}));
+function chooseBackup(view: BackupRestoreView, text: string | Promise<string>) {
+  fireEvent.change(view.getByLabelText("Backup Restore File"), {
+    target: {
+      files: [{ name: "test.tlbackup.json", text: async () => text }],
+    },
+  });
+}
 
-const { BackupRestore } = await import("./BackupRestore");
-
-afterEach(() => {
-  cleanup();
-  activeModel = createModel();
-});
+async function exportBackup(view: BackupRestoreView, password?: string) {
+  if (password !== undefined) {
+    fireEvent.change(view.getByLabelText("Password"), {
+      target: { value: password },
+    });
+    fireEvent.change(view.getByLabelText("Confirm Password"), {
+      target: { value: password },
+    });
+  } else {
+    fireEvent.click(view.getByRole("checkbox"));
+  }
+  fireEvent.click(view.getByRole("button", { name: "Export Backup" }));
+  await waitFor(() =>
+    expect(view.queryByText(/Backup exported:/)).toBeTruthy(),
+  );
+  const savedFile = view.savedFiles[0];
+  if (!savedFile) throw new Error("Backup was not saved.");
+  return new TextDecoder().decode(savedFile.data);
+}
 
 test("exposes Backup and Restore as separate tabs, Backup first", () => {
-  const view = render(<BackupRestore />);
-
-  const tabs = view.getAllByRole("tab");
-  expect(tabs.map((tab) => tab.textContent)).toEqual(["Backup", "Restore"]);
+  const view = renderBackupRestore();
+  expect(view.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
+    "Backup",
+    "Restore",
+  ]);
   expect(
     view.getByRole("tab", { name: "Backup" }).getAttribute("aria-selected"),
   ).toBe("true");
-});
-
-test("Backup tab shows the export form and hides the restore form", () => {
-  const view = render(<BackupRestore />);
-
   expect(view.queryByRole("button", { name: "Export Backup" })).toBeTruthy();
   expect(view.queryByRole("button", { name: "Restore Backup" })).toBeNull();
   expect(view.queryByRole("button", { name: "Choose Backup File" })).toBeNull();
 });
 
 test("selecting the Restore tab swaps to the restore form", () => {
-  const view = render(<BackupRestore />);
-
+  const view = renderBackupRestore();
   fireEvent.click(view.getByRole("tab", { name: "Restore" }));
-
   expect(
     view.getByRole("tab", { name: "Restore" }).getAttribute("aria-selected"),
   ).toBe("true");
@@ -81,27 +110,194 @@ test("selecting the Restore tab swaps to the restore form", () => {
   expect(view.queryByRole("button", { name: "Export Backup" })).toBeNull();
 });
 
-test("shared status stays visible regardless of the active tab", () => {
-  activeModel = createModel({ error: "Backup passwords do not match." });
-  const view = render(<BackupRestore />);
-
-  // The error line lives above the tabs, so it shows on the Restore tab too.
+test("requires matching passwords unless the checkbox is checked", () => {
+  const view = renderBackupRestore();
+  fireEvent.click(view.getByRole("button", { name: "Export Backup" }));
+  expect(view.queryByText("Enter a backup password.")).toBeTruthy();
+  fireEvent.change(view.getByLabelText("Password"), {
+    target: { value: "password" },
+  });
+  fireEvent.click(view.getByRole("button", { name: "Export Backup" }));
+  expect(view.queryByText("Backup passwords do not match.")).toBeTruthy();
+  expect(view.savedFiles).toHaveLength(0);
   fireEvent.click(view.getByRole("tab", { name: "Restore" }));
   expect(view.queryByText("Backup passwords do not match.")).toBeTruthy();
 });
 
-// "Choose Backup File" lives inside the restore <form>, so it must not act as a
-// submit button (which would fire handleRestoreBackup before a file is picked).
-// MiniAppButton defaults type="button"; this guards that it stays that way.
 test("Choose Backup File does not submit the restore form", () => {
-  const handleChooseRestoreFile = mock(() => {});
-  const handleRestoreBackup = mock(async () => {});
-  activeModel = createModel({ handleChooseRestoreFile, handleRestoreBackup });
-  const view = render(<BackupRestore />);
+  const view = renderBackupRestore();
+  fireEvent.click(view.getByRole("tab", { name: "Restore" }));
+  const picker = spyOn(view.getByLabelText("Backup Restore File"), "click");
+  try {
+    fireEvent.click(view.getByRole("button", { name: "Choose Backup File" }));
+    expect(picker).toHaveBeenCalledTimes(1);
+    expect(view.queryByText("Choose a backup file.")).toBeNull();
+  } finally {
+    picker.mockRestore();
+  }
+});
+
+test("the checkbox hides both password fields and restores them when unchecked", () => {
+  const view = renderBackupRestore();
+  const checkbox = view.getByRole("checkbox", {
+    name: "Back up without a password",
+  });
+  expect(view.queryByLabelText("Password")).toBeTruthy();
+  expect(view.queryByLabelText("Confirm Password")).toBeTruthy();
+  fireEvent.click(checkbox);
+  expect(view.queryByLabelText("Password")).toBeNull();
+  expect(view.queryByLabelText("Confirm Password")).toBeNull();
+  expect(view.queryByText(/Anyone with this unencrypted backup/)).toBeTruthy();
+  fireEvent.click(checkbox);
+  expect(view.queryByLabelText("Password")).toBeTruthy();
+  expect(view.queryByLabelText("Confirm Password")).toBeTruthy();
+  expect(view.queryByText(/Anyone with this unencrypted backup/)).toBeNull();
+});
+
+test.each([
+  "{",
+  '{"format":"unknown"}',
+])("a rejected file clears the picker for reselection: %s", async (text) => {
+  const view = renderBackupRestore();
+  fireEvent.click(view.getByRole("tab", { name: "Restore" }));
+  const input = view.getByLabelText("Backup Restore File");
+  if (!(input instanceof HTMLInputElement)) {
+    throw new Error("Backup file input was not rendered.");
+  }
+  // Browsers populate a file input's value after the native picker returns.
+  Object.defineProperty(input, "value", {
+    configurable: true,
+    writable: true,
+    value: "C:\\fakepath\\test.tlbackup.json",
+  });
+  await act(async () => chooseBackup(view, text));
+  expect(
+    view.queryByText(
+      /Backup file (must be valid JSON|format is not supported)/,
+    ),
+  ).toBeTruthy();
+  expect(view.queryByText("No backup file selected.")).toBeTruthy();
+  expect(input.value).toBe("");
+  fireEvent.click(view.getByRole("button", { name: "Restore Backup" }));
+  expect(view.queryByText("Choose a backup file.")).toBeTruthy();
+});
+
+test("exports without a password despite stale mismatched fields and restores without prompting", async () => {
+  const view = renderBackupRestore();
+  fireEvent.change(view.getByLabelText("Password"), {
+    target: { value: "unused-password" },
+  });
+  const text = await exportBackup(view);
+  expect(backupFileRequiresPassword(text)).toBe(false);
 
   fireEvent.click(view.getByRole("tab", { name: "Restore" }));
-  fireEvent.click(view.getByRole("button", { name: "Choose Backup File" }));
+  chooseBackup(view, text);
+  await waitFor(() => expect(view.queryByLabelText("Password")).toBeNull());
+  expect(view.queryByText(/This backup is not encrypted/)).toBeTruthy();
+  fireEvent.click(
+    view.getByRole("button", { name: "Restore Unencrypted Backup" }),
+  );
+  await waitFor(() =>
+    expect(view.queryByText(/Backup restored:/)).toBeTruthy(),
+  );
+  expect(view.queryByRole("button", { name: "Reload App" })).toBeTruthy();
+  expect(view.queryByLabelText("Password")).toBeTruthy();
+  expect(view.queryByText(/This backup is not encrypted/)).toBeNull();
+});
 
-  expect(handleChooseRestoreFile).toHaveBeenCalledTimes(1);
-  expect(handleRestoreBackup).not.toHaveBeenCalled();
+test("encrypted backups still require the correct password and can be retried", async () => {
+  const view = renderBackupRestore();
+  const text = await exportBackup(view, "test-password");
+  expect(backupFileRequiresPassword(text)).toBe(true);
+  fireEvent.click(view.getByRole("tab", { name: "Restore" }));
+  await act(async () => chooseBackup(view, text));
+  expect(view.queryByText(/This backup is not encrypted/)).toBeNull();
+  fireEvent.click(view.getByRole("button", { name: "Restore Backup" }));
+  expect(view.queryByText("Enter the restore password.")).toBeTruthy();
+  fireEvent.change(view.getByLabelText("Password"), {
+    target: { value: "wrong-password" },
+  });
+  fireEvent.click(view.getByRole("button", { name: "Restore Backup" }));
+  await waitFor(() =>
+    expect(view.queryByText(/Backup password is incorrect/)).toBeTruthy(),
+  );
+  fireEvent.change(view.getByLabelText("Password"), {
+    target: { value: "test-password" },
+  });
+  fireEvent.click(view.getByRole("button", { name: "Restore Backup" }));
+  await waitFor(() =>
+    expect(view.queryByText(/Backup restored:/)).toBeTruthy(),
+  );
+});
+
+test("the password option is disabled while the backup is being saved", async () => {
+  const gate = createDeferred();
+  const view = renderBackupRestore(gate.promise);
+  try {
+    fireEvent.click(view.getByRole("checkbox"));
+    fireEvent.click(view.getByRole("button", { name: "Export Backup" }));
+    await waitFor(() => expect(view.savedFiles).toHaveLength(1));
+    expect(view.queryByText(/Encrypting backup/)).toBeNull();
+    expect(view.getByRole("checkbox").hasAttribute("disabled")).toBe(true);
+    expect(
+      view
+        .getByRole("button", { name: "Export Backup" })
+        .hasAttribute("disabled"),
+    ).toBe(true);
+  } finally {
+    await act(async () => gate.resolve());
+  }
+  expect(view.getByRole("checkbox").hasAttribute("disabled")).toBe(false);
+});
+
+test("switching files clears stale restore data and ignores superseded file reads", async () => {
+  const view = renderBackupRestore();
+  const plaintext = await exportBackup(view);
+  const payload = await decodeBackupFile({ text: plaintext });
+  const encrypted = await encodeBackupFile({ password: "password", payload });
+  fireEvent.click(view.getByRole("tab", { name: "Restore" }));
+  await act(async () => chooseBackup(view, plaintext));
+  expect(view.queryByLabelText("Password")).toBeNull();
+
+  const slowFile = createDeferred<string>();
+  chooseBackup(view, slowFile.promise);
+  fireEvent.click(view.getByRole("button", { name: "Restore Backup" }));
+  expect(view.queryByText("Choose a backup file.")).toBeTruthy();
+  await act(async () => chooseBackup(view, encrypted));
+  await act(async () => slowFile.resolve(plaintext));
+  expect(view.queryByLabelText("Password")).toBeTruthy();
+  fireEvent.click(view.getByRole("button", { name: "Restore Backup" }));
+  expect(view.queryByText("Enter the restore password.")).toBeTruthy();
+});
+
+test.each([
+  undefined,
+  "password",
+])("backup progress matches encryption (password: %s)", async (password) => {
+  const hostConfig = createIdentityManagerHostConfig();
+  const { result } = renderHook(useLocalBackupOperations, {
+    wrapper: ({ children }) => (
+      <AppRuntimeProvider autoProvisionEnabled={false} hostConfig={hostConfig}>
+        {children}
+      </AppRuntimeProvider>
+    ),
+  });
+  const exportProgress: BackupProgress["phase"][] = [];
+  const restoreProgress: BackupProgress["phase"][] = [];
+  await act(async () => {
+    const backup = await result.current.exportLocalBackup({
+      onProgress: ({ phase }) => exportProgress.push(phase),
+      password,
+    });
+    await result.current.restoreLocalBackup({
+      onProgress: ({ phase }) => restoreProgress.push(phase),
+      password,
+      text: backup.text,
+    });
+  });
+  expect(exportProgress).toContain("preparing");
+  expect(exportProgress.includes("encrypting")).toBe(password !== undefined);
+  expect(restoreProgress).toContain("preparing");
+  expect(restoreProgress.includes("decrypting")).toBe(password !== undefined);
+  expect(restoreProgress).toContain("restoring");
 });

@@ -39,7 +39,7 @@ function formatProgress(progress: BackupProgress): string {
     database: "SQLite rows",
     decrypting: "Decrypting backup",
     encrypting: "Encrypting backup",
-    preparing: "Preparing backup",
+    preparing: "Preparing data",
     restoring: "Restoring SQLite",
   };
   const count =
@@ -122,28 +122,47 @@ function BackupExportPanel({
         void model.handleExportBackup();
       }}
     >
-      <MiniAppField>
-        <span>Password</span>
-        <MiniAppInput
-          autoComplete="new-password"
+      <label className="backup-restore-password-option">
+        <input
+          checked={model.backupWithoutPassword}
           disabled={busy}
-          type="password"
-          value={model.backupPassword}
-          onChange={(event) => model.setBackupPassword(event.target.value)}
-        />
-      </MiniAppField>
-      <MiniAppField>
-        <span>Confirm Password</span>
-        <MiniAppInput
-          autoComplete="new-password"
-          disabled={busy}
-          type="password"
-          value={model.confirmBackupPassword}
+          type="checkbox"
           onChange={(event) =>
-            model.setConfirmBackupPassword(event.target.value)
+            model.setBackupWithoutPassword(event.target.checked)
           }
         />
-      </MiniAppField>
+        <span>Back up without a password</span>
+      </label>
+      {model.backupWithoutPassword ? (
+        <p className="backup-restore-password-notice">
+          Anyone with this unencrypted backup can read or modify its contents.
+        </p>
+      ) : (
+        <>
+          <MiniAppField>
+            <span>Password</span>
+            <MiniAppInput
+              autoComplete="new-password"
+              disabled={busy}
+              type="password"
+              value={model.backupPassword}
+              onChange={(event) => model.setBackupPassword(event.target.value)}
+            />
+          </MiniAppField>
+          <MiniAppField>
+            <span>Confirm Password</span>
+            <MiniAppInput
+              autoComplete="new-password"
+              disabled={busy}
+              type="password"
+              value={model.confirmBackupPassword}
+              onChange={(event) =>
+                model.setConfirmBackupPassword(event.target.value)
+              }
+            />
+          </MiniAppField>
+        </>
+      )}
       <MiniAppButton
         block
         className="backup-restore-action-button"
@@ -189,16 +208,23 @@ function BackupRestorePanel({
       <MiniAppStatus>
         {model.selectedRestoreFileName ?? "No backup file selected."}
       </MiniAppStatus>
-      <MiniAppField>
-        <span>Password</span>
-        <MiniAppInput
-          autoComplete="current-password"
-          disabled={busy}
-          type="password"
-          value={model.restorePassword}
-          onChange={(event) => model.setRestorePassword(event.target.value)}
-        />
-      </MiniAppField>
+      {model.restoreRequiresPassword ? (
+        <MiniAppField>
+          <span>Password</span>
+          <MiniAppInput
+            autoComplete="current-password"
+            disabled={busy}
+            type="password"
+            value={model.restorePassword}
+            onChange={(event) => model.setRestorePassword(event.target.value)}
+          />
+        </MiniAppField>
+      ) : (
+        <MiniAppStatus tone="error">
+          This backup is not encrypted. Anyone with the file can read or modify
+          its contents. Only restore a file you trust.
+        </MiniAppStatus>
+      )}
       <MiniAppButton
         block
         className="backup-restore-action-button"
@@ -207,7 +233,9 @@ function BackupRestorePanel({
         withIcon
       >
         <ArrowsClockwiseIcon aria-hidden size={16} />
-        Restore Backup
+        {model.restoreRequiresPassword
+          ? "Restore Backup"
+          : "Restore Unencrypted Backup"}
       </MiniAppButton>
     </MiniAppFormPanel>
   );
