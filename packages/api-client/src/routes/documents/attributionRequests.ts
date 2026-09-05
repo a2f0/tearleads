@@ -15,10 +15,10 @@ import {
 import { dedupedRequest } from "../../requestInternals";
 import type { ListDocumentEditAttributionRangesOptions } from "../../types";
 
-// The server must emit cache metadata, but a proxy or browser may omit it from
-// a readable response. Keep the wire contract intact and tolerate that only at
-// this read boundary; content type, ETag, and attribution data remain validated.
-const optionalCacheMetadata = {
+// The server's wire contract requires private caching and encoding variation.
+// The HTTP transport consumes that metadata; attribution reads do not use it.
+// Ignore it here while still validating content type, ETag, and attribution data.
+const unusedCacheMetadata = {
   [documentAttributionWireHeaderKeys.cacheControl]: true,
   [documentAttributionWireHeaderKeys.vary]: true,
 } as const;
@@ -26,19 +26,19 @@ const optionalCacheMetadata = {
 const getAttributionOperation = {
   ...getDocumentAttributionOperation,
   responseHeaders: {
-    200: getDocumentAttributionOperation.responseHeaders[200].partial(
-      optionalCacheMetadata,
+    200: getDocumentAttributionOperation.responseHeaders[200].omit(
+      unusedCacheMetadata,
     ),
-    304: getDocumentAttributionOperation.responseHeaders[304].partial(
-      optionalCacheMetadata,
+    304: getDocumentAttributionOperation.responseHeaders[304].omit(
+      unusedCacheMetadata,
     ),
   },
 };
 const listAttributionRangesOperation = {
   ...listDocumentAttributionRangesOperation,
   responseHeaders: {
-    200: listDocumentAttributionRangesOperation.responseHeaders[200].partial(
-      optionalCacheMetadata,
+    200: listDocumentAttributionRangesOperation.responseHeaders[200].omit(
+      unusedCacheMetadata,
     ),
   },
 };

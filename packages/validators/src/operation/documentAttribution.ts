@@ -109,27 +109,37 @@ export type DocumentAttributionRequestHeaders = z.infer<
   typeof DocumentAttributionRequestHeadersSchema
 >;
 
+// HTTP field names are case-insensitive. Spell out casing in the pattern so
+// OpenAPI preserves the same requirement without relying on RegExp flags.
+const attributionVaryPattern =
+  /(?:^|,)\s*(?:[Aa][Cc][Cc][Ee][Pp][Tt]-[Ee][Nn][Cc][Oo][Dd][Ii][Nn][Gg]|\*)\s*(?:,|$)/;
+const attributionVaryHeaderSchema = registerJsonSchemaFragment(
+  z.string().regex(attributionVaryPattern),
+  { pattern: attributionVaryPattern.source, type: "string" },
+);
+
 const DocumentAttributionResponseHeadersSchema = z.strictObject({
-  // Cache metadata can be reordered or extended by HTTP intermediaries. The
-  // transport owns caching; literal matching here must not discard valid edits.
-  [documentAttributionWireHeaderKeys.cacheControl]: nonEmptyStringSchema,
+  [documentAttributionWireHeaderKeys.cacheControl]:
+    z.literal("private, no-cache"),
   [documentAttributionWireHeaderKeys.contentEncoding]: z.string().optional(),
   [documentAttributionWireHeaderKeys.contentType]: nonEmptyStringSchema,
   [documentAttributionWireHeaderKeys.etag]: nonEmptyStringSchema,
-  [documentAttributionWireHeaderKeys.vary]: nonEmptyStringSchema,
+  [documentAttributionWireHeaderKeys.vary]: attributionVaryHeaderSchema,
 });
 
 const DocumentAttributionNotModifiedHeadersSchema = z.strictObject({
-  [documentAttributionWireHeaderKeys.cacheControl]: nonEmptyStringSchema,
+  [documentAttributionWireHeaderKeys.cacheControl]:
+    z.literal("private, no-cache"),
   [documentAttributionWireHeaderKeys.etag]: nonEmptyStringSchema,
-  [documentAttributionWireHeaderKeys.vary]: nonEmptyStringSchema,
+  [documentAttributionWireHeaderKeys.vary]: attributionVaryHeaderSchema,
 });
 
 const DocumentAttributionRangesResponseHeadersSchema = z.strictObject({
-  [documentAttributionWireHeaderKeys.cacheControl]: nonEmptyStringSchema,
+  [documentAttributionWireHeaderKeys.cacheControl]:
+    z.literal("private, no-cache"),
   [documentAttributionWireHeaderKeys.contentEncoding]: z.string().optional(),
   [documentAttributionWireHeaderKeys.contentType]: nonEmptyStringSchema,
-  [documentAttributionWireHeaderKeys.vary]: nonEmptyStringSchema,
+  [documentAttributionWireHeaderKeys.vary]: attributionVaryHeaderSchema,
 });
 
 const attributionFailureResponses = {

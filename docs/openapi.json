@@ -29040,7 +29040,7 @@
                 "required": true,
                 "schema": {
                   "type": "string",
-                  "minLength": 1
+                  "const": "private, no-cache"
                 }
               },
               "content-encoding": {
@@ -29059,8 +29059,8 @@
               "vary": {
                 "required": true,
                 "schema": {
-                  "type": "string",
-                  "minLength": 1
+                  "pattern": "(?:^|,)\\s*(?:[Aa][Cc][Cc][Ee][Pp][Tt]-[Ee][Nn][Cc][Oo][Dd][Ii][Nn][Gg]|\\*)\\s*(?:,|$)",
+                  "type": "string"
                 }
               }
             }
@@ -29333,7 +29333,7 @@
                 "required": true,
                 "schema": {
                   "type": "string",
-                  "minLength": 1
+                  "const": "private, no-cache"
                 }
               },
               "content-encoding": {
@@ -29359,8 +29359,8 @@
               "vary": {
                 "required": true,
                 "schema": {
-                  "type": "string",
-                  "minLength": 1
+                  "pattern": "(?:^|,)\\s*(?:[Aa][Cc][Cc][Ee][Pp][Tt]-[Ee][Nn][Cc][Oo][Dd][Ii][Nn][Gg]|\\*)\\s*(?:,|$)",
+                  "type": "string"
                 }
               }
             }
@@ -29372,7 +29372,7 @@
                 "required": true,
                 "schema": {
                   "type": "string",
-                  "minLength": 1
+                  "const": "private, no-cache"
                 }
               },
               "etag": {
@@ -29385,8 +29385,8 @@
               "vary": {
                 "required": true,
                 "schema": {
-                  "type": "string",
-                  "minLength": 1
+                  "pattern": "(?:^|,)\\s*(?:[Aa][Cc][Cc][Ee][Pp][Tt]-[Ee][Nn][Cc][Oo][Dd][Ii][Nn][Gg]|\\*)\\s*(?:,|$)",
+                  "type": "string"
                 }
               }
             }

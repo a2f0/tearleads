@@ -11918,7 +11918,7 @@ export interface operations {
             /** @description Successful JSON response */
             200: {
                 headers: {
-                    "cache-control": string;
+                    "cache-control": "private, no-cache";
                     "content-encoding"?: string;
                     "content-type": string;
                     etag: string;
@@ -11949,7 +11949,7 @@ export interface operations {
             /** @description Response without a declared body */
             304: {
                 headers: {
-                    "cache-control": string;
+                    "cache-control": "private, no-cache";
                     etag: string;
                     vary: string;
                     [name: string]: unknown;
@@ -12071,7 +12071,7 @@ export interface operations {
             /** @description Successful JSON response */
             200: {
                 headers: {
-                    "cache-control": string;
+                    "cache-control": "private, no-cache";
                     "content-encoding"?: string;
                     "content-type": string;
                     vary: string;

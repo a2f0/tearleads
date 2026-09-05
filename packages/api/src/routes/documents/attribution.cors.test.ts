@@ -78,6 +78,9 @@ test("compact, detailed, and revalidated attribution preserve CORS cache variati
     [ranges, listDocumentAttributionRangesOperation.responseHeaders[200]],
     [revalidated, getDocumentAttributionOperation.responseHeaders[304]],
   ] as const) {
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
+      "https://app.example.test",
+    );
     expect(response.headers.get("Vary"), `status ${response.status}`).toBe(
       "Origin, Accept-Encoding",
     );
