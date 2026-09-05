@@ -102,18 +102,17 @@ test("getOrCreateContainerContentsStore applies updated options to the cached sc
   expect(logs).toContain("Updated label: loaded 0 container(s)");
 });
 
-test("legacy container persistence adapters refuse queued child creation", async () => {
+test("incomplete container persistence adapters refuse queued child creation", async () => {
   const { close, execSql } = await createTestExecSql(
     "container-contents-legacy-persistence",
   );
   const domainScope = {} as DomainScope;
   try {
     await seedLocalRootContainer(execSql, { rootContainerId: "legacy-root" });
-    const {
-      saveContainerWithPendingUpdate: _unsupportedAtomicSave,
-      ...legacyPersistence
-    } = defaultContainerContentsPersistence;
-    const persistence: ContainerContentsPersistence = legacyPersistence;
+    const persistence: ContainerContentsPersistence = {
+      ...defaultContainerContentsPersistence,
+    };
+    Reflect.deleteProperty(persistence, "saveContainerWithPendingUpdate");
     const runtime = createContainerContentsTestRuntime({
       domainScope,
       execSql,

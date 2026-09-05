@@ -4,6 +4,31 @@ Workflow facades are the SDK's public domain-operation boundary. They may
 compose API calls, local persistence, key/projection verification, and sync
 coordination, but they must stay React-free and product-UI-free.
 
+## Current Host Contract
+
+Hosts implement the current interfaces directly; the SDK does not adapt older
+hosts or wire responses. `deviceFirst.open()` is the sole unified tree handle.
+Container creation always commits the container and its metadata document in
+one compound API request. Create, document link/unlink, writer-projection, and
+sync adapters provide their required structured `Result` methods, including
+complete transport failures. Unused nullable mutation methods are neither
+required host members nor an alternative to the structured methods.
+Container persistence provides atomic `saveContainerWithPendingUpdate` and
+revision-checked create/move settlement and error recording. There is no
+unconditional settlement or three-argument error-recorder fallback.
+
+Local document tables must contain the current required columns; obsolete tables
+require reset, not an additive upgrade. Principal-policy warming verifies and
+durably caches evidence; it has no verify-without-persistence mode. Group cache
+writes require an explicit organization owner in the public cache/save
+TypeScript interfaces. It is pinned in the same transaction as current policies,
+retained history, and checkpoint-only updates. Unowned
+persisted group evidence refuses scoped purge and requires a full local reset. Native
+purchase providers invoke the supplied `onProviderPresented` callback exactly
+when their UI becomes uncancellable, with no capability-negotiation fallback.
+Historical signed manifests and sealed keyrings remain current security
+evidence, not compatibility formats.
+
 Membership add/remove calls require the selected `expectedGroupName`. The
 verified policy must commit that name before recipient key use; callers can
 identify a relabeled selection by `GroupMembershipNameMismatchError`.

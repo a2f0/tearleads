@@ -78,6 +78,7 @@ function createSyncResponse() {
   return {
     acceptedOutgoingUpdateIds: [UPDATE_ID],
     commitLsn: null,
+    commitLsnMode: "tracked",
     contentKeyBundle: createContentKeyBundleResponse(),
     contentKeyBundles: [createContentKeyBundleResponse()],
     documentId: "document-1",
@@ -86,6 +87,14 @@ function createSyncResponse() {
     updates: [
       {
         accessEpoch: 1,
+        authorizationTargets: [
+          {
+            containerId: "container-1",
+            containerKeyEpoch: 1,
+            containerKeyEpochId: "container-key-epoch-id",
+            containerManifestHash: "manifest-hash",
+          },
+        ],
         authorFingerprint: "author-fingerprint",
         createdAt: "2026-07-17T00:00:00.000Z",
         documentId: "document-1",
@@ -129,12 +138,6 @@ test("document sync request guard preserves permissive envelope behavior", () =>
     }),
   ).toBe(true);
   expect(isDocumentSyncRequest({ ...valid, minLsn: undefined })).toBe(true);
-  expect(
-    isDocumentSyncRequest({ ...valid, supportsUntrackedCommitLsn: true }),
-  ).toBe(true);
-  expect(
-    isDocumentSyncRequest({ ...valid, supportsUntrackedCommitLsn: false }),
-  ).toBe(false);
   expect(isDocumentSyncRequest(classEnvelope)).toBe(false);
 });
 
@@ -281,6 +284,7 @@ test("document sync request mode preserves issue mapping", () => {
 
   const rekeysWithoutWriteResult = DocumentSyncRequestSchema.safeParse({
     ...valid,
+    inlineRekeyCommitId: "a".repeat(64),
     containerRekeys: [createContainerMutation()],
     outgoingUpdates: [],
   });
@@ -297,6 +301,7 @@ test("document sync request mode preserves issue mapping", () => {
 
   const malformedRekeysResult = DocumentSyncRequestSchema.safeParse({
     ...valid,
+    inlineRekeyCommitId: "a".repeat(64),
     containerRekeys: "invalid",
     outgoingUpdates: [],
   });
@@ -327,6 +332,7 @@ test("document sync request mode preserves issue mapping", () => {
     DocumentSyncRequestSchema.safeParse({
       ...valid,
       containerRekeys: [createContainerMutation()],
+      inlineRekeyCommitId: "a".repeat(64),
     }).success,
   ).toBe(true);
   expect(

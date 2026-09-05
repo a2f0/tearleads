@@ -31,15 +31,6 @@ export interface RequestResultOptions {
   readonly retryOnSessionExpired?: boolean | undefined;
 }
 
-export type RequestFn = <T>(
-  path: string,
-  validator: (value: unknown) => value is T,
-  method: HttpMethod,
-  body?: RequestBody,
-  options?: RequestResultOptions,
-  failureOperation?: HttpOperation,
-) => Promise<T | null>;
-
 export type OperationRequestFn = <T>(
   path: string,
   validator: (value: unknown) => value is T,
@@ -88,20 +79,6 @@ export interface ResponseRequestValidationFailureInput {
   readonly path: string;
   readonly status: number | null;
   readonly statusText: string;
-}
-
-export interface ResponseRequestFn {
-  (
-    path: string,
-    method: HttpMethod,
-    body?: RequestBody,
-    options?: RequestResultOptions,
-    additionalSuccessStatuses?: readonly number[],
-    failureOperation?: HttpOperation,
-  ): Promise<RequestResult<Response>>;
-  readonly reportFailure: (
-    input: ResponseRequestValidationFailureInput,
-  ) => RequestFailure;
 }
 
 export interface OperationResponseRequestFn {

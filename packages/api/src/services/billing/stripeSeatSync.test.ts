@@ -323,29 +323,37 @@ test("a rotated provider Price alerts while the worker backs off", async () => {
   }
 });
 
-test("legacy paid capacity above ten settles onto the largest tier", async () => {
-  const state = await insertState({
-    appliedPaidCapacity: 20,
-    desiredPaidCapacity: 10,
-    desiredRenewalQuantity: 10,
-  });
-  const requests: StripeRequest[] = [];
+test("paid capacity above ten fails without changing provider or paid state", async () => {
+  const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
+  try {
+    const state = await insertState({
+      appliedPaidCapacity: 20,
+      desiredPaidCapacity: 10,
+      desiredRenewalQuantity: 10,
+    });
+    const requests: StripeRequest[] = [];
 
-  expect(await runOne({ ...state, providerQuantity: 10, requests })).toEqual({
-    attempted: 1,
-    failed: 0,
-    synced: 1,
-  });
-  expect(requests).toEqual([]);
-  const [saved] = await db
-    .select({
-      appliedPaidCapacity: organizationBillingStripeSeats.appliedPaidCapacity,
-    })
-    .from(organizationBillingStripeSeats)
-    .where(
-      eq(organizationBillingStripeSeats.organizationId, state.organizationId),
+    expect(await runOne({ ...state, providerQuantity: 10, requests })).toEqual({
+      attempted: 1,
+      failed: 1,
+      synced: 0,
+    });
+    expect(requests).toEqual([]);
+    const [saved] = await db
+      .select({
+        appliedPaidCapacity: organizationBillingStripeSeats.appliedPaidCapacity,
+      })
+      .from(organizationBillingStripeSeats)
+      .where(
+        eq(organizationBillingStripeSeats.organizationId, state.organizationId),
+      );
+    expect(saved?.appliedPaidCapacity).toBe(20);
+    expect(errorSpy).toHaveBeenCalledWith(
+      `Stripe seat sync for organization ${state.organizationId} requires attention: Stripe seat quantity exceeds the available tiers`,
     );
-  expect(saved?.appliedPaidCapacity).toBe(10);
+  } finally {
+    errorSpy.mockRestore();
+  }
 });
 
 test("a provider period rollover rebinds before any Stripe update", async () => {

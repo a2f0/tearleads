@@ -1,0 +1,90 @@
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /containers the response's body `type` changed from `object` to `any` for status `409`
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /containers removed the required property `error` from the response with the `409` status
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /containers/with-metadata-document the response's body `type` changed from `object` to `any` for status `409`
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /containers/with-metadata-document removed the required property `error` from the response with the `409` status
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+DELETE /containers/{containerId} the response's body `type` changed from `object` to `any` for status `409`
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+DELETE /containers/{containerId} removed the required property `error` from the response with the `409` status
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /containers/{containerId}/move the response's body `type` changed from `object` to `any` for status `409`
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /containers/{containerId}/move removed the required property `error` from the response with the `409` status
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /containers/{containerId}/recite the response's body `type` changed from `object` to `any` for status `409`
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /containers/{containerId}/recite removed the required property `error` from the response with the `409` status
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /containers/{containerId}/rekey the response's body `type` changed from `object` to `any` for status `409`
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /containers/{containerId}/rekey removed the required property `error` from the response with the `409` status
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /containers/{containerId}/revoke the response's body `type` changed from `object` to `any` for status `409`
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /containers/{containerId}/revoke removed the required property `error` from the response with the `409` status
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /containers/{containerId}/share the response's body `type` changed from `object` to `any` for status `409`
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /containers/{containerId}/share removed the required property `error` from the response with the `409` status
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/supportsUntrackedCommitLsn`
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /auth/register removed the request property `initialOrganizationProfileDocument/initialSync/supportsUntrackedCommitLsn`
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /auth/register removed the request property `initialRootMetadataDocument/initialSync/supportsUntrackedCommitLsn`
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /auth/register removed the request property `initialRosterProfileContainer/initialMetadataSync/supportsUntrackedCommitLsn`
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /auth/register removed the request property `initialRosterProfileDocument/initialSync/supportsUntrackedCommitLsn`
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /auth/register removed the request property `initialSystemContainers/items/initialMetadataSync/supportsUntrackedCommitLsn`
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /containers removed the optional property `code` from the response with the `409` status
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /containers removed the optional property `principalPolicies` from the response with the `409` status
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /containers/with-metadata-document removed the optional property `code` from the response with the `409` status
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /containers/with-metadata-document removed the optional property `principalPolicies` from the response with the `409` status
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+DELETE /containers/{containerId} removed the optional property `code` from the response with the `409` status
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+DELETE /containers/{containerId} removed the optional property `principalPolicies` from the response with the `409` status
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /containers/{containerId}/move removed the optional property `code` from the response with the `409` status
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /containers/{containerId}/move removed the optional property `principalPolicies` from the response with the `409` status
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /containers/{containerId}/recite removed the optional property `code` from the response with the `409` status
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /containers/{containerId}/recite removed the optional property `principalPolicies` from the response with the `409` status
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /containers/{containerId}/rekey removed the optional property `code` from the response with the `409` status
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /containers/{containerId}/rekey removed the optional property `principalPolicies` from the response with the `409` status
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /containers/{containerId}/revoke removed the optional property `code` from the response with the `409` status
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /containers/{containerId}/revoke removed the optional property `principalPolicies` from the response with the `409` status
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /containers/{containerId}/share removed the optional property `code` from the response with the `409` status
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /containers/{containerId}/share removed the optional property `principalPolicies` from the response with the `409` status
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /documents/{documentId}/sync removed the request property `supportsUntrackedCommitLsn`
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /organizations removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/supportsUntrackedCommitLsn`
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /organizations removed the request property `initialOrganizationProfileDocument/initialSync/supportsUntrackedCommitLsn`
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /organizations removed the request property `initialRootMetadataDocument/initialSync/supportsUntrackedCommitLsn`
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /organizations removed the request property `initialRosterProfileContainer/initialMetadataSync/supportsUntrackedCommitLsn`
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /organizations removed the request property `initialRosterProfileDocument/initialSync/supportsUntrackedCommitLsn`
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /organizations removed the request property `initialSystemContainers/items/initialMetadataSync/supportsUntrackedCommitLsn`

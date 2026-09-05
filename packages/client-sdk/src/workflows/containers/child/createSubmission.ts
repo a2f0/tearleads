@@ -64,20 +64,14 @@ export async function submitRemoteContainerCreate(input: {
   | null
 > {
   if (input.stillCurrent?.() === false) return null;
-  if (input.apiClient.createContainerResult) {
-    const result = await input.apiClient.createContainerResult(
-      input.plan.request,
-      {
-        expectedPaymentRequiredOrganizationId: input.plan.state.organizationId,
-        reportErrors: false,
-      },
-    );
-    return result.ok ? { ok: true, response: result.data } : result;
-  }
-  const response = await input.apiClient.createContainer(input.plan.request, {
-    expectedPaymentRequiredOrganizationId: input.plan.state.organizationId,
-  });
-  return response ? { ok: true, response } : null;
+  const result = await input.apiClient.createContainerResult(
+    input.plan.request,
+    {
+      expectedPaymentRequiredOrganizationId: input.plan.state.organizationId,
+      reportErrors: false,
+    },
+  );
+  return result.ok ? { ok: true, response: result.data } : result;
 }
 
 export async function repairContainerCreateFailure(input: {
@@ -114,8 +108,7 @@ export async function repairContainerCreateFailure(input: {
   }
   if (
     input.state.didRepairStaleParent ||
-    !isStaleParentContainerPathFailure(input.failure) ||
-    !input.apiClient.evictContainerWriterProjection
+    !isStaleParentContainerPathFailure(input.failure)
   ) {
     return { kind: "none" };
   }

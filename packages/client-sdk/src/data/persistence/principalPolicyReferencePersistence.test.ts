@@ -15,7 +15,12 @@ test("exact principal policy lookup loads a current head", async () => {
   );
   try {
     const { bundle } = await createPrincipalPolicyBundle();
-    await savePrincipalPolicyBundle(execSql, bundle, "2026-07-18T00:00:00Z");
+    await savePrincipalPolicyBundle(
+      execSql,
+      bundle,
+      "2026-07-18T00:00:00Z",
+      "org-1",
+    );
 
     await expect(
       loadPrincipalPolicyBundleForReference(
@@ -39,7 +44,12 @@ test("exact principal policy lookup uses the newest current chain containing a h
     if (!previousState) {
       throw new Error("Expected a predecessor state");
     }
-    await savePrincipalPolicyBundle(execSql, bundle, "2026-07-18T00:00:00Z");
+    await savePrincipalPolicyBundle(
+      execSql,
+      bundle,
+      "2026-07-18T00:00:00Z",
+      "org-1",
+    );
 
     await expect(
       loadPrincipalPolicyBundleForReference(
@@ -65,11 +75,13 @@ test("exact principal policy lookup loads a retained bundle when current is abse
       execSql,
       retainedBundle,
       "2026-07-18T00:00:00Z",
+      "org-1",
     );
     await savePrincipalPolicyBundle(
       execSql,
       successorBundle,
       "2026-07-18T00:01:00Z",
+      "org-1",
     );
     await execSql(
       "DELETE FROM principal_policies WHERE principal_type = ? AND principal_id = ?",
@@ -98,7 +110,12 @@ test("exact principal policy lookup returns null for an honest miss", async () =
   try {
     const { bundle } = await createPrincipalPolicyBundle();
     const reference = referencedPrincipalStateFromBundle(bundle);
-    await savePrincipalPolicyBundle(execSql, bundle, "2026-07-18T00:00:00Z");
+    await savePrincipalPolicyBundle(
+      execSql,
+      bundle,
+      "2026-07-18T00:00:00Z",
+      "org-1",
+    );
 
     await expect(
       loadPrincipalPolicyBundleForReference(
@@ -123,7 +140,12 @@ test("exact principal policy lookup rejects a same-version current conflict", as
   try {
     const { bundle } = await createPrincipalPolicyBundle();
     const reference = referencedPrincipalStateFromBundle(bundle);
-    await savePrincipalPolicyBundle(execSql, bundle, "2026-07-18T00:00:00Z");
+    await savePrincipalPolicyBundle(
+      execSql,
+      bundle,
+      "2026-07-18T00:00:00Z",
+      "org-1",
+    );
 
     await expect(
       loadPrincipalPolicyBundleForReference(
@@ -150,7 +172,12 @@ test("exact principal policy lookup ignores a corrupt unrelated retained row", a
   try {
     const { bundle } = await createPrincipalPolicyBundle();
     const reference = referencedPrincipalStateFromBundle(bundle);
-    await savePrincipalPolicyBundle(execSql, bundle, "2026-07-18T00:00:00Z");
+    await savePrincipalPolicyBundle(
+      execSql,
+      bundle,
+      "2026-07-18T00:00:00Z",
+      "org-1",
+    );
     await execSql(
       `INSERT INTO principal_policy_bundle_history
          (principal_type, principal_id, state_hash, current_state_json,
@@ -187,7 +214,12 @@ test("exact principal policy lookup hard-fails for a corrupt indexed retained ro
   try {
     const { bundle } = await createPrincipalPolicyBundle();
     const reference = referencedPrincipalStateFromBundle(bundle);
-    await savePrincipalPolicyBundle(execSql, bundle, "2026-07-18T00:00:00Z");
+    await savePrincipalPolicyBundle(
+      execSql,
+      bundle,
+      "2026-07-18T00:00:00Z",
+      "org-1",
+    );
     await execSql(
       `INSERT INTO principal_policy_bundle_history
        SELECT * FROM principal_policies
@@ -231,7 +263,12 @@ test("exact principal policy lookup treats a head behind its checkpoint as a mis
     const { bundle: successorBundle } =
       await createSuccessorPrincipalPolicyBundle();
     const reference = referencedPrincipalStateFromBundle(bundle);
-    await savePrincipalPolicyBundle(execSql, bundle, "2026-07-18T00:00:00Z");
+    await savePrincipalPolicyBundle(
+      execSql,
+      bundle,
+      "2026-07-18T00:00:00Z",
+      "org-1",
+    );
 
     await expect(
       loadPrincipalPolicyBundleForReference(execSql, reference, {
@@ -253,7 +290,12 @@ test("exact principal policy lookup hard-fails on a same-version checkpoint conf
   try {
     const { bundle } = await createPrincipalPolicyBundle();
     const reference = referencedPrincipalStateFromBundle(bundle);
-    await savePrincipalPolicyBundle(execSql, bundle, "2026-07-18T00:00:00Z");
+    await savePrincipalPolicyBundle(
+      execSql,
+      bundle,
+      "2026-07-18T00:00:00Z",
+      "org-1",
+    );
 
     await expect(
       loadPrincipalPolicyBundleForReference(execSql, reference, {
@@ -310,11 +352,17 @@ test("exact principal policy lookup hard-fails on same-version indexed candidate
       ...bundle.currentState,
       stateHash: competingStateHash,
     };
-    await savePrincipalPolicyBundle(execSql, bundle, "2026-07-18T00:00:00Z");
+    await savePrincipalPolicyBundle(
+      execSql,
+      bundle,
+      "2026-07-18T00:00:00Z",
+      "org-1",
+    );
     await savePrincipalPolicyBundle(
       execSql,
       newerBundle,
       "2026-07-18T00:00:30Z",
+      "org-1",
     );
     await execSql(
       `INSERT INTO principal_policy_bundle_history
@@ -375,7 +423,12 @@ test("exact principal policy lookup rejects conflicting orphaned index metadata"
       throw new Error("Expected a predecessor state");
     }
     const reference = referencedPrincipalStateFromPolicyState(previousState);
-    await savePrincipalPolicyBundle(execSql, bundle, "2026-07-18T00:00:00Z");
+    await savePrincipalPolicyBundle(
+      execSql,
+      bundle,
+      "2026-07-18T00:00:00Z",
+      "org-1",
+    );
     await execSql(
       `INSERT INTO principal_policy_bundle_references
          (principal_type, principal_id, version, state_hash, key_epoch,

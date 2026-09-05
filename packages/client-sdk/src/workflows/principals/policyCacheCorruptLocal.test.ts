@@ -22,6 +22,7 @@ test("principal policy sync hard-fails without fetching or repairing an invalid 
       execSql,
       bundle,
       "2026-07-17T00:00:00.000Z",
+      "org-1",
     );
     await execSql(
       `UPDATE principal_policies
@@ -33,6 +34,7 @@ test("principal policy sync hard-fails without fetching or repairing an invalid 
     let policyReadCount = 0;
     await expect(
       cacheReferencedPolicies({
+        organizationId: "org-1",
         execSql,
         getCurrentPrincipalPolicy: async () => {
           policyReadCount += 1;

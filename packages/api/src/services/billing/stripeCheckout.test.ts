@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createHmac } from "node:crypto";
+
 import { db } from "@tearleads/api-shared/postgres";
 import { organizationBilling, users } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
@@ -11,11 +11,12 @@ import { addSyntheticMember } from "../../../test/helpers/revenuecatWebhook";
 import { activeStripePrice } from "../../../test/helpers/stripeCatalog";
 import { getDefaultApiServiceRuntime } from "../runtime";
 import {
+  authenticateStripeWebhook,
   cancelStripeSubscription,
   createStripeCheckout,
   createStripeCheckoutSession,
   createStripePortalUrl,
-  processStripeWebhook,
+  processAuthenticatedStripeWebhook,
 } from "./stripeCheckout";
 import { getStripeCheckoutOptions } from "./stripeCheckoutOptions";
 
@@ -58,18 +59,6 @@ function respondingFetch(
   }) as typeof fetch;
 }
 
-function signedDelivery(event: unknown): {
-  payload: string;
-  signatureHeader: string;
-} {
-  const payload = JSON.stringify(event);
-  const timestamp = Math.floor(Date.now() / 1000);
-  const signature = createHmac("sha256", WEBHOOK_SECRET)
-    .update(`${timestamp}.${payload}`)
-    .digest("hex");
-  return { payload, signatureHeader: `t=${timestamp},v1=${signature}` };
-}
-
 const PAID_EVENT = {
   type: "invoice.paid",
   data: {
@@ -79,8 +68,7 @@ const PAID_EVENT = {
 
 test("an unsigned delivery is unauthorized and touches nothing", async () => {
   const urls: string[] = [];
-  const outcome = await processStripeWebhook(
-    getDefaultApiServiceRuntime(),
+  const outcome = await authenticateStripeWebhook(
     { payload: JSON.stringify(PAID_EVENT), signatureHeader: undefined },
     { stripe: { env: STRIPE_ENV, fetchImpl: respondingFetch([], urls) } },
   );
@@ -90,9 +78,9 @@ test("an unsigned delivery is unauthorized and touches nothing", async () => {
 
 test("a subscription without an org binding is recorded as ignored", async () => {
   const urls: string[] = [];
-  const outcome = await processStripeWebhook(
+  const outcome = await processAuthenticatedStripeWebhook(
     getDefaultApiServiceRuntime(),
-    signedDelivery(PAID_EVENT),
+    PAID_EVENT,
     {
       stripe: {
         env: STRIPE_ENV,
@@ -116,9 +104,9 @@ test("a subscription without an org binding is recorded as ignored", async () =>
 });
 
 test("a paid invoice with no Stripe API config asks for redelivery", async () => {
-  const outcome = await processStripeWebhook(
+  const outcome = await processAuthenticatedStripeWebhook(
     getDefaultApiServiceRuntime(),
-    signedDelivery(PAID_EVENT),
+    PAID_EVENT,
     {
       // Webhook secret present, Stripe API key absent: acknowledging with a 2xx
       // would strand the paid subscription forever.
@@ -177,8 +165,7 @@ test("options select Team 5 for a two-member effective roster", async () => {
 });
 
 test("a missing webhook secret fails closed", async () => {
-  const outcome = await processStripeWebhook(
-    getDefaultApiServiceRuntime(),
+  const outcome = await authenticateStripeWebhook(
     { payload: "{}", signatureHeader: "t=1,v1=abc" },
     { stripe: { env: {} } },
   );
@@ -547,9 +534,9 @@ test("a 404 subscription on the Stripe webhook is acknowledged as ignored", asyn
     urls.push(String(input));
     return new Response("{}", { status: 404 });
   }) as typeof fetch;
-  const outcome = await processStripeWebhook(
+  const outcome = await processAuthenticatedStripeWebhook(
     getDefaultApiServiceRuntime(),
-    signedDelivery(PAID_EVENT),
+    PAID_EVENT,
     {
       stripe: { env: STRIPE_ENV, fetchImpl: notFoundFetch },
       revenueCat: { env: REVENUECAT_ENV },

@@ -1,6 +1,5 @@
 import {
   getContainerKekLogOperation,
-  normalizeContainerKekLogEpochQuery,
   operationRoutePath,
 } from "@tearleads/validators/operation";
 import type { ContainerKekLogResponse } from "@tearleads/validators/response";
@@ -39,10 +38,9 @@ export function createContainerKekLogRoute({
       try {
         return c.json<ContainerKekLogResponse>(
           await getContainerKekLog(runtime, {
-            afterKeyEpoch: normalizeContainerKekLogEpochQuery(afterKeyEpoch),
+            afterKeyEpoch: Number(afterKeyEpoch ?? 0),
             containerId,
-            keyringForEpoch:
-              normalizeContainerKekLogEpochQuery(keyringForEpoch),
+            keyringForEpoch: Number(keyringForEpoch ?? 0),
             userId: session.userId,
           }),
         );

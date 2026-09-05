@@ -270,8 +270,13 @@ testApiClient(
         {
           bindingId: "binding-1",
           blobId: "blob-1",
+          bindingEvent: attachmentBinding.bindingEvent,
           blobKekTargets: attachmentBinding.blobKekTargets,
           contentKeyBundle: attachmentBinding.contentKeyBundle,
+          documentManifestHash: attachmentBinding.documentManifestHash,
+          previousBindingId: attachmentBinding.previousBindingId,
+          writeAuthorization: attachmentBinding.writeAuthorization,
+          writeHeader: attachmentBinding.writeHeader,
           slotId: "slot-a",
         },
       ],

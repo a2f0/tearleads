@@ -44,7 +44,7 @@ interface BlobContentKeyBundleEntry {
     ReturnType<typeof resolveCurrentBlobKekTargets>
   >;
   readonly writeHeader: {
-    readonly authorization: BlobWriteAuthorization | null;
+    readonly authorization: BlobWriteAuthorization;
     readonly header: WriteHeader;
     readonly headerHash: string;
   };
@@ -167,8 +167,7 @@ export async function runListDocumentAttachmentsWorkflow(
       );
     }
     if (!row.attachmentEventHash || !row.documentManifestHash) {
-      // This is an intentional verification flag day for legacy bindings. A
-      // partial listing would let the server hide an attachment without the
+      // A partial listing would let the server hide an attachment without the
       // client detecting that its binding evidence was omitted.
       throw new ListDocumentAttachmentsError(
         "Attachment binding verification material missing",
@@ -193,13 +192,9 @@ export async function runListDocumentAttachmentsWorkflow(
       previousBindingId: row.previousBindingId,
       slotId: row.slotId,
       writeHeader: { ...blobKeying.writeHeader.header },
-      ...(blobKeying.writeHeader.authorization
-        ? {
-            writeAuthorization: toBlobKekTargetsResponse(
-              blobKeying.writeHeader.authorization,
-            ),
-          }
-        : {}),
+      writeAuthorization: toBlobKekTargetsResponse(
+        blobKeying.writeHeader.authorization,
+      ),
     };
   });
 }

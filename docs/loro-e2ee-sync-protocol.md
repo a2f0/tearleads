@@ -123,12 +123,10 @@ application memory. Sync responses include a `commitLsn`: accepted
 current-epoch writes return the append LSN, and read-only syncs return the
 current WAL LSN observed after the missing-update read. Sync requests may
 include `minLsn` as a consistency hook for
-replica-safe read-after-write behavior. A request may also advertise
-`supportsUntrackedCommitLsn: true`; a remote-primary backend without a portable
-WAL position then returns `commitLsnMode: "untracked"` and the `0/0` reset
-sentinel. Without that capability, an untracked backend echoes `minLsn` only as
-a legacy compatibility token, not as a durability watermark. Tracked mode
-retains the normal `commitLsn >= minLsn` requirement.
+replica-safe read-after-write behavior. Every response declares its mode. A
+remote-primary backend without a portable WAL position returns
+`commitLsnMode: "untracked"` and the `0/0` reset sentinel. Tracked mode retains
+the normal `commitLsn >= minLsn` requirement.
 
 The sync response no longer tells the client to `rewrap` or `rotate` through a
 dedicated action field. Clients derive that decision from the signed link-set

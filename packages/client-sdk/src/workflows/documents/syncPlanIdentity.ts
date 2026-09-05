@@ -291,9 +291,6 @@ export async function buildDocumentSyncPlan(
     outgoingUpdates,
     ...(input.pullCursor === undefined ? {} : { pullCursor: input.pullCursor }),
     supportsPullPagination: true,
-    // Capability negotiation keeps this additive request compatible with old
-    // servers while allowing a Turso server to reset an old tracked checkpoint.
-    supportsUntrackedCommitLsn: true,
   };
 
   return {

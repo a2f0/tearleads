@@ -15,10 +15,6 @@ export type PrincipalPolicyCache = Map<string, VerifiedPrincipalPolicy>;
 
 export interface ReferencedPrincipalPolicyWarmRequest {
   readonly organizationId: string;
-  /** Receives policies that were fully verified without durable persistence. */
-  readonly onVerifiedPolicies?:
-    | ((policies: readonly VerifiedPrincipalPolicy[]) => void)
-    | undefined;
   readonly references: readonly ReferencedPrincipalHead[];
   readonly stillCurrent?: (() => boolean) | undefined;
 }
@@ -37,10 +33,6 @@ export type ReferencedPrincipalPolicyWarmer = ((
   input: ReferencedPrincipalPolicyWarmRequest,
 ) => Promise<void>) & {
   readonly cacheBundles?: PrincipalPolicyBundleCacher | undefined;
-  readonly reportsVerifiedPolicies?: true | undefined;
-  readonly verifyWithoutPersistence?:
-    | ReferencedPrincipalPolicyWarmer
-    | undefined;
 };
 
 export class ProjectionVerificationCancelledError extends Error {
@@ -108,19 +100,9 @@ export function generationGuardedPrincipalPolicyWarmer(
             },
           }
         : {}),
-      ...(operation.reportsVerifiedPolicies
-        ? { reportsVerifiedPolicies: true as const }
-        : {}),
     });
   };
-  const guarded = guardWithCapabilities(warmer);
-  return warmer.verifyWithoutPersistence
-    ? Object.assign(guarded, {
-        verifyWithoutPersistence: guardWithCapabilities(
-          warmer.verifyWithoutPersistence,
-        ),
-      })
-    : guarded;
+  return guardWithCapabilities(warmer);
 }
 
 export function withGenerationGuardedPolicyWarmer<

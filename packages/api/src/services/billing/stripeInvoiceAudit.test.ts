@@ -7,11 +7,10 @@ import {
   paidInvoiceEvent,
   createRespondingFetch as respondingFetch,
   STRIPE_WEBHOOK_ENV as STRIPE_ENV,
-  signedStripeWebhookDelivery as signedDelivery,
   stripeSubscriptionBody,
 } from "../../../test/helpers/stripeWebhook";
 import { getDefaultApiServiceRuntime } from "../runtime";
-import { processStripeWebhook } from "./stripeCheckout";
+import { processAuthenticatedStripeWebhook } from "./stripeCheckout";
 
 async function findInvoiceRows(invoiceId: string) {
   return db
@@ -37,7 +36,7 @@ test("duplicate delivery records one exact financial snapshot", async () => {
     subscriptionId,
     subscriptionItemId,
     organizationId,
-    { id: "price_historical", intervalCount: 3, unitAmount: 499 },
+    { id: "price_historical", intervalCount: 1, unitAmount: 1_000 },
   );
   const event = paidInvoiceEvent({
     // Deliberately exceeds INT32 and differs from quantity * unit_amount. The
@@ -57,16 +56,16 @@ test("duplicate delivery records one exact financial snapshot", async () => {
     subscriptionId,
     subscriptionItemId,
     organizationId,
-    { unitAmount: 999 },
+    { unitAmount: 1_500 },
   );
   const responses = [
     { body: currentSubscription },
     { body: currentSubscription },
   ];
 
-  const first = await processStripeWebhook(
+  const first = await processAuthenticatedStripeWebhook(
     getDefaultApiServiceRuntime(),
-    signedDelivery(event),
+    event,
     {
       stripe: {
         env: STRIPE_ENV,
@@ -74,9 +73,9 @@ test("duplicate delivery records one exact financial snapshot", async () => {
       },
     },
   );
-  const second = await processStripeWebhook(
+  const second = await processAuthenticatedStripeWebhook(
     getDefaultApiServiceRuntime(),
-    signedDelivery(event),
+    event,
     {
       stripe: {
         env: STRIPE_ENV,
@@ -99,12 +98,12 @@ test("duplicate delivery records one exact financial snapshot", async () => {
     invoiceId,
     subscriptionId,
     billingReason: "subscription_cycle",
-    seatCount: 3,
+    seatCount: 5,
     priceId: "price_historical",
-    unitAmount: 499,
+    unitAmount: 1_000,
     currency: "usd",
     interval: "month",
-    intervalCount: 3,
+    intervalCount: 1,
     totalAmount,
     periodStartsAt: new Date(periodStart * 1000),
     periodEndsAt: new Date(periodEnd * 1000),
@@ -138,9 +137,9 @@ test("an incomplete delivery cannot freeze a partial snapshot", async () => {
   };
   const urls: string[] = [];
 
-  const incomplete = await processStripeWebhook(
+  const incomplete = await processAuthenticatedStripeWebhook(
     getDefaultApiServiceRuntime(),
-    signedDelivery(incompleteEvent),
+    incompleteEvent,
     {
       stripe: {
         env: STRIPE_ENV,
@@ -161,16 +160,14 @@ test("an incomplete delivery cannot freeze a partial snapshot", async () => {
   );
   expect(await findInvoiceRows(invoiceId)).toHaveLength(0);
 
-  const complete = await processStripeWebhook(
+  const complete = await processAuthenticatedStripeWebhook(
     getDefaultApiServiceRuntime(),
-    signedDelivery(
-      paidInvoiceEvent({
-        amountPaid: 998,
-        billingReason: "subscription_cycle",
-        invoiceId,
-        subscription,
-      }),
-    ),
+    paidInvoiceEvent({
+      amountPaid: 998,
+      billingReason: "subscription_cycle",
+      invoiceId,
+      subscription,
+    }),
     {
       stripe: {
         env: STRIPE_ENV,
@@ -205,9 +202,9 @@ test("a partial webhook is completed from the pinned invoice lookup", async () =
   });
   await createWebhookBillingOrganization(organizationId);
 
-  const outcome = await processStripeWebhook(
+  const outcome = await processAuthenticatedStripeWebhook(
     getDefaultApiServiceRuntime(),
-    signedDelivery({
+    {
       id: `evt_${invoiceId}_partial`,
       type: "invoice.paid",
       data: {
@@ -217,7 +214,7 @@ test("a partial webhook is completed from the pinned invoice lookup", async () =
           subscription: subscriptionId,
         },
       },
-    }),
+    },
     {
       stripe: {
         env: STRIPE_ENV,
@@ -253,16 +250,14 @@ test("subscription updates are audited without resetting the seat period", async
   );
   await createWebhookBillingOrganization(organizationId);
 
-  const outcome = await processStripeWebhook(
+  const outcome = await processAuthenticatedStripeWebhook(
     getDefaultApiServiceRuntime(),
-    signedDelivery(
-      paidInvoiceEvent({
-        amountPaid: 615,
-        billingReason: "subscription_update",
-        invoiceId,
-        subscription,
-      }),
-    ),
+    paidInvoiceEvent({
+      amountPaid: 615,
+      billingReason: "subscription_update",
+      invoiceId,
+      subscription,
+    }),
     {
       stripe: {
         env: STRIPE_ENV,
@@ -328,9 +323,9 @@ test("proration-only updates are audited without incomplete retries", async () =
     },
   };
 
-  const outcome = await processStripeWebhook(
+  const outcome = await processAuthenticatedStripeWebhook(
     getDefaultApiServiceRuntime(),
-    signedDelivery(event),
+    event,
     {
       stripe: {
         env: STRIPE_ENV,
@@ -382,9 +377,9 @@ test("conflicting redelivery leaves the first immutable snapshot", async () => {
   const responses = [{ body: subscription }, { body: subscription }];
 
   expect(
-    await processStripeWebhook(
+    await processAuthenticatedStripeWebhook(
       getDefaultApiServiceRuntime(),
-      signedDelivery(firstEvent),
+      firstEvent,
       {
         stripe: {
           env: STRIPE_ENV,
@@ -399,9 +394,9 @@ test("conflicting redelivery leaves the first immutable snapshot", async () => {
   const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
   try {
     expect(
-      await processStripeWebhook(
+      await processAuthenticatedStripeWebhook(
         getDefaultApiServiceRuntime(),
-        signedDelivery(conflictingEvent),
+        conflictingEvent,
         {
           stripe: {
             env: STRIPE_ENV,

@@ -7,7 +7,6 @@ import {
 } from "../metadataStateIsolation";
 import type { ContainerState } from "../remoteHydration";
 import { hasRemoteContainerMetadataState } from "../remoteHydration/reconciliation";
-import { recordContainerCreateIntentError } from "./createIntentErrorAdapter";
 import {
   settleContainerCreateIntent,
   settlePersistedContainerCreateIntent,
@@ -66,8 +65,7 @@ async function recordContainerCreateFailure(input: {
   if (!input.isCurrent()) {
     return "abandoned";
   }
-  await recordContainerCreateIntentError(
-    input.state.persistence,
+  await input.state.persistence.recordCreateIntentRevisionError(
     input.state.runtime.infra.execSql,
     {
       containerId: input.intent.containerId,
@@ -254,8 +252,7 @@ async function settleRemoteContainerCreate(input: {
     return "blocked";
   }
   if (!created) {
-    await recordContainerCreateIntentError(
-      state.persistence,
+    await state.persistence.recordCreateIntentRevisionError(
       state.runtime.infra.execSql,
       {
         containerId: intent.containerId,
@@ -362,7 +359,7 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
 
   if (!containerState || !parentState) {
     const execSql = state.runtime.infra.execSql;
-    await recordContainerCreateIntentError(state.persistence, execSql, {
+    await state.persistence.recordCreateIntentRevisionError(execSql, {
       containerId: intent.containerId,
       expectedIntentId: intent.id,
       expectedUpdatedAt: intent.updatedAt,
@@ -373,8 +370,7 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
   }
 
   if (typeof state.persistence.markCreateIntentRevisionSynced !== "function") {
-    await recordContainerCreateIntentError(
-      state.persistence,
+    await state.persistence.recordCreateIntentRevisionError(
       state.runtime.infra.execSql,
       {
         containerId: intent.containerId,

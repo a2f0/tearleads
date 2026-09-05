@@ -50,6 +50,10 @@ Encrypted Loro sync uses `POST /documents/{documentId}/sync`.
 - optional opaque `pullCursor`
 - `outgoingUpdates[]`
 
+`inlineRekeyCommitId` is required exactly when `containerRekeys[]` is non-empty.
+The durable marker makes the rekey and its outgoing write replay-safe as one
+transaction; unmarked batches and markers without a batch are rejected.
+
 Document sync updates carry encrypted bytes, partial version vectors, and a
 signed write header. Checkpoint fields are either all absent or the tuple
 `rotate_baseline`, `full_history_snapshot`, and a non-empty source vector.
@@ -119,9 +123,9 @@ makes bounded durable progress; a failed request advances nothing and relies on
 the normal sync scheduler/backoff rather than creating a busy loop.
 
 Tracked checkpoints are durable backend positions and must satisfy a requested
-`minLsn`. A client advertises `supportsUntrackedCommitLsn: true` to accept an
-untracked backend's `0/0` reset sentinel; clients without that capability receive
-their `minLsn` echoed as a compatibility token, which is not a durability claim.
+`minLsn`. Every response declares its `commitLsnMode`. An untracked backend
+returns `commitLsnMode: "untracked"` with the `0/0` reset sentinel; the client
+replaces a previously tracked checkpoint with that explicit mode and sentinel.
 
 ## Document Sync Conflict Codes
 

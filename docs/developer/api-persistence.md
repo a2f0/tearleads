@@ -15,10 +15,67 @@ Use `API_DATABASE` to select the database adapter:
 - `turso`: remote-only libSQL with the API SQLite Drizzle migrations applied by
   the deployment migration command.
 
-Each dialect keeps a single greenfield baseline migration. Pre-reset databases
-are not upgraded; reset and provision a fresh database instead. The deployment
-migration command verifies required baseline tables and columns after Drizzle
-runs, and fails before the API restarts when an old database was not reset.
+Each dialect keeps a greenfield baseline plus subsequent schema migrations.
+Pre-reset databases are not upgraded; reset and provision a fresh database
+instead. The deployment migration command verifies required baseline tables
+and columns after Drizzle runs, and fails before the API restarts when an old
+database was not reset.
+
+### Required authorization cutover (#2158)
+
+This greenfield cutover requires fresh server and client databases. Do not
+apply it as a data-preserving upgrade to an earlier deployment, even when its
+columns appear complete. Before applying migration `0015` in either dialect,
+stop all outgoing API writers. Preserve an offline backup first if the old
+data is needed for investigation. Point the
+new deployment at the fresh database, run its migrations, and reprovision the
+organization and clients; do not resume old writers against the new contract.
+
+The following obsolete states illustrate why reset is required; they are not
+an exhaustive compatibility audit that permits an older database to be reused.
+Retained document updates and blobs require their original signed
+`authorization` and `authorization_targets`.
+The PostgreSQL `SET NOT NULL` and SQLite/Turso table rebuild intentionally fail
+on old null evidence. They do not backfill from current container targets,
+fabricate signatures, or silently delete rows. The post-migration schema guard
+cannot catch this earlier migration failure. Reset is an operator precondition,
+not an automatic recovery path; do not retry with constraints disabled. This
+cutover procedure authorizes no deletion of a deployed database by tooling.
+
+Apply the same reset/reprovisioning precondition to retained `access_events`
+whose `container.rekey` body omits `referencedPrincipalHeads`, including events
+retained only in a container's history or a client's local manifest cache.
+The current verifier requires the explicit signed array (which may be empty);
+it never inherits heads from a predecessor. Do not edit or re-sign stored
+historical bodies to manufacture this field. A database can satisfy migration
+`0015`'s column constraints and still contain these obsolete events: schema
+success is not a content-format audit. Such history fails verification with
+`invalid_shape`, so preserve it offline and provision a fresh organization and
+clients before resuming writes. This content precondition is operator-owned,
+not covered by the post-migration column guard.
+
+The same precondition applies to obsolete billing state, including
+`organization_billing_stripe_seats` capacities above the largest current tier
+(10), Stripe subscription-item quantities other than exactly one (including
+missing quantities), superseded product identifiers, and native bindings without
+stored provider-identity audit evidence. Reset and reprovision rather than
+retrying an unrepresentable seat state or inferring identity from a new claim.
+Reprovision the provider subscription with a current fixed-tier price and a
+single subscription item of quantity one; do not replay paid legacy invoices
+until their billing state has been investigated and corrected by the operator.
+The API migration CLI separately checks unnamed group policies and incomplete
+historical path citations in `assertCurrentSchema.ts` before startup. Those
+specific content checks are not a general signed-history audit and do not
+relax this release's fresh-database precondition.
+
+Old client document tables and obsolete Loro encodings likewise require local
+reset and reprovisioning, not an in-place conversion. Retain any unsynced data
+offline before reset; it is not automatically imported into the new contract.
+An unowned local group-policy cache, including retained-history-only or
+checkpoint-only rows, refuses organization purge and requires a full local
+database reset; a scoped purge cannot safely guess which organization owns it.
+
+### Connection settings
 
 When `NODE_ENV=production`, `API_DATABASE` must be set explicitly.
 
@@ -96,13 +153,9 @@ opened explicitly in write mode. The adapter rejects TLS opt-out URLs and
 enables and verifies SQLite foreign-key enforcement on every remote statement
 session before application SQL runs. Because this configuration always reads
 the remote primary, the API bypasses replica-watermark waiting and emits the
-wire-compatible `0/0` LSN sentinel with `commitLsnMode: "untracked"` when a
-request advertises `supportsUntrackedCommitLsn: true`. Clients use that
-negotiated mode to replace a checkpoint from a previous backend without
+`0/0` LSN sentinel with `commitLsnMode: "untracked"`. Clients use that explicit
+mode to replace a checkpoint from a previous backend without
 weakening tracked-LSN validation when they later return to Postgres or SQLite.
-For older clients that omit the capability, Turso echoes a supplied `minLsn` as
-a compatibility token so they do not reject the response as stale; the echoed
-value is not a Turso durability watermark.
 
 The opt-in integration lane runs the multi-connection sync races against a
 dedicated remote test database. It does not accept the production variable

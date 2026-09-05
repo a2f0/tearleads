@@ -1,4 +1,3 @@
-import { createHmac } from "node:crypto";
 import { db } from "@tearleads/api-shared/postgres";
 import {
   organizationBilling,
@@ -48,7 +47,7 @@ export async function createWebhookBillingOrganization(
 }
 
 export function stripeSubscriptionBody(
-  quantity = 2,
+  seatCount = 2,
   periodStart = 1_783_036_800,
   periodEnd = 1_785_715_200,
   subscriptionId = "sub_1",
@@ -63,9 +62,9 @@ export function stripeSubscriptionBody(
   } = {},
 ) {
   const tierPriceId =
-    quantity <= 1
+    seatCount <= 1
       ? "price_sync"
-      : quantity <= 5
+      : seatCount <= 5
         ? "price_team_5"
         : "price_team_10";
   return {
@@ -79,7 +78,7 @@ export function stripeSubscriptionBody(
       data: [
         {
           id: subscriptionItemId,
-          quantity,
+          quantity: 1,
           price: {
             id: price.id ?? tierPriceId,
             currency: price.currency ?? "usd",
@@ -87,7 +86,9 @@ export function stripeSubscriptionBody(
               interval: price.interval ?? "month",
               interval_count: price.intervalCount ?? 1,
             },
-            unit_amount: price.unitAmount ?? 499,
+            unit_amount:
+              price.unitAmount ??
+              (seatCount <= 1 ? 500 : seatCount <= 5 ? 1_000 : 1_500),
           },
         },
       ],
@@ -143,18 +144,6 @@ export function paidInvoiceEvent(input: {
       },
     },
   };
-}
-
-export function signedStripeWebhookDelivery(event: unknown): {
-  payload: string;
-  signatureHeader: string;
-} {
-  const payload = JSON.stringify(event);
-  const timestamp = Math.floor(Date.now() / 1000);
-  const signature = createHmac("sha256", STRIPE_WEBHOOK_SECRET)
-    .update(`${timestamp}.${payload}`)
-    .digest("hex");
-  return { payload, signatureHeader: `t=${timestamp},v1=${signature}` };
 }
 
 export function createRespondingFetch(

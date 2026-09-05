@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import {
   createContainerWriterProjectionFixture,
+  createMockApiClient,
   createTestExecSql,
 } from "@tearleads/test-utils";
 import {
@@ -35,14 +36,14 @@ test("createRemoteDocument gates writes by the resolved container organization",
   );
 
   const created = await createRemoteDocument({
-    apiClient: {
+    apiClient: createMockApiClient({
       createDocument: async () => {
         submissionCount += 1;
         return null;
       },
       getContainerWriterProjection: async () => projection,
       primeDocumentWriterProjection: () => undefined,
-    },
+    }),
     author,
     containerId: projection.containerId,
     documentId: "blocked-custom-document",
@@ -81,13 +82,13 @@ test("syncRemoteDocument gates outgoing writes by the verified document plan org
   let submissionCount = 0;
 
   const synced = await syncRemoteDocument({
-    apiClient: {
+    apiClient: createMockApiClient({
       getDocumentWriterProjection: async () => writerProjection,
       syncDocument: async () => {
         submissionCount += 1;
         return null;
       },
-    },
+    }),
     author,
     documentId: writerProjection.documentId,
     execSql,
@@ -128,7 +129,7 @@ test("syncRemoteDocument still submits clean read-only probes for a blocked orga
   let submissionCount = 0;
 
   const synced = await syncRemoteDocument({
-    apiClient: {
+    apiClient: createMockApiClient({
       getDocumentWriterProjection: async () => writerProjection,
       syncDocument: async (documentId, request) => {
         submissionCount += 1;
@@ -142,7 +143,7 @@ test("syncRemoteDocument still submits clean read-only probes for a blocked orga
         });
         return createSyncResponse({ ...plan, request });
       },
-    },
+    }),
     author,
     documentId: writerProjection.documentId,
     execSql,

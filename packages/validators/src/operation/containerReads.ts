@@ -50,27 +50,24 @@ function listPageLimitSchema() {
   return registerJsonSchemaFragment(inputSchema.transform(Number), jsonSchema);
 }
 
-/**
- * KEK-log cursors deliberately fail open to epoch zero for compatibility.
- * This includes malformed, non-positive, unsafe, and out-of-domain values.
- */
-export function normalizeContainerKekLogEpochQuery(
-  value: number | string | undefined,
-): number {
-  const parsed = Number(value);
-  return Number.isSafeInteger(parsed) &&
-    parsed > 0 &&
-    parsed <= MAX_CONTAINER_KEY_EPOCH
-    ? parsed
-    : 0;
-}
-
 function containerKekLogEpochQuerySchema() {
-  return registerJsonSchemaFragment(z.union([z.number(), z.string()]), {
-    maximum: MAX_CONTAINER_KEY_EPOCH,
-    minimum: 1,
-    type: "integer",
-  });
+  return registerJsonSchemaFragment(
+    z.union([z.number(), z.string()]).refine((value) => {
+      if (typeof value === "string" && !DIGITS_PATTERN.test(value))
+        return false;
+      const parsed = Number(value);
+      return (
+        Number.isSafeInteger(parsed) &&
+        parsed > 0 &&
+        parsed <= MAX_CONTAINER_KEY_EPOCH
+      );
+    }, "Invalid key epoch"),
+    {
+      maximum: MAX_CONTAINER_KEY_EPOCH,
+      minimum: 1,
+      type: "integer",
+    },
+  );
 }
 
 export const ContainerReadPathParamsSchema = z.strictObject({

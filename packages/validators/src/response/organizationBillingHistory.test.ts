@@ -12,7 +12,7 @@ const ENTRY = {
   eventType: "INITIAL_PURCHASE",
   outcome: "applied",
   occurredAt: "2026-07-01T00:00:00.000Z",
-  productId: "sync_monthly",
+  productId: "sync_solo_monthly",
   transactionId: "transaction-1",
   invoiceId: null,
   subscriptionId: null,

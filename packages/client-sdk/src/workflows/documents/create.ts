@@ -187,7 +187,6 @@ async function buildMaterializedDocumentCreatePlanWithFreshProjection(input: {
     return await buildWithProjection(containerProjection);
   } catch (error) {
     if (
-      !input.apiClient.evictContainerWriterProjection ||
       !shouldRetryWithFreshProjection(error, (message) =>
         message.includes("could not be unwrapped"),
       )
@@ -198,7 +197,7 @@ async function buildMaterializedDocumentCreatePlanWithFreshProjection(input: {
 
   // Only this container's projection was stale; evict just it rather than
   // wiping every cached projection.
-  input.apiClient.evictContainerWriterProjection?.(input.containerId);
+  input.apiClient.evictContainerWriterProjection(input.containerId);
   const refreshedProjection = await fetchContainerWriterProjectionForCreate({
     apiClient: input.apiClient,
     containerId: input.containerId,
@@ -229,36 +228,8 @@ interface RemoteDocumentCreateInput {
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
   stillCurrent?: (() => boolean) | undefined;
-  /**
-   * Complete a required remote POST even after a compound caller's local
-   * generation expires. Local acknowledgement, verification checkpoints, and
-   * document projection cache priming remain guarded by `stillCurrent`.
-   */
-  submitWhenStale?: boolean | undefined;
   targetSecretKey: Uint8Array;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
-}
-
-function documentCreateSubmissionVerificationOptions(
-  input: RemoteDocumentCreateInput,
-): {
-  readonly persistVerificationCheckpoints: boolean | undefined;
-  readonly stillCurrent: (() => boolean) | undefined;
-} {
-  return input.submitWhenStale
-    ? { persistVerificationCheckpoints: false, stillCurrent: undefined }
-    : {
-        persistVerificationCheckpoints: undefined,
-        stillCurrent: input.stillCurrent,
-      };
-}
-
-function documentCreatePolicyWarmer(
-  input: RemoteDocumentCreateInput,
-): ReferencedPrincipalPolicyWarmer | undefined {
-  const warmer = input.warmReferencedPrincipalPolicies;
-  if (!warmer || !input.submitWhenStale) return warmer;
-  return warmer.verifyWithoutPersistence;
 }
 
 function isRemoteDocumentCreatePlanBlocked(
@@ -276,9 +247,8 @@ async function submitPlannedDocumentCreate(
   readonly createPlan: MaterializedDocumentCreatePlanWithProjection;
   readonly submission: DocumentCreateSubmission;
 } | null> {
-  const verificationOptions =
-    documentCreateSubmissionVerificationOptions(input);
-  const warmReferencedPrincipalPolicies = documentCreatePolicyWarmer(input);
+  const verificationOptions = { stillCurrent: input.stillCurrent };
+  const warmReferencedPrincipalPolicies = input.warmReferencedPrincipalPolicies;
   let createPlan = await buildMaterializedDocumentCreatePlanWithFreshProjection(
     {
       apiClient: input.apiClient,
@@ -304,17 +274,14 @@ async function submitPlannedDocumentCreate(
     return null;
   }
   if (isRemoteDocumentCreatePlanBlocked(input, createPlan)) return null;
-  if (!input.submitWhenStale && input.stillCurrent?.() === false) return null;
+  if (input.stillCurrent?.() === false) return null;
   let submission = await submitDocumentCreate(
     input.apiClient,
     createPlan.materializedPlan.plan.request,
     createPlan.containerProjection.organizationId,
   );
-  if (
-    isStaleDocumentCreateTargetConflict(submission) &&
-    input.apiClient.evictContainerWriterProjection
-  ) {
-    if (!input.submitWhenStale && input.stillCurrent?.() === false) {
+  if (isStaleDocumentCreateTargetConflict(submission)) {
+    if (input.stillCurrent?.() === false) {
       return { createPlan, submission };
     }
     input.apiClient.evictContainerWriterProjection(input.containerId);
@@ -344,7 +311,7 @@ async function submitPlannedDocumentCreate(
     }
     if (isRemoteDocumentCreatePlanBlocked(input, refreshedPlan)) return null;
     createPlan = refreshedPlan;
-    if (!input.submitWhenStale && input.stillCurrent?.() === false) return null;
+    if (input.stillCurrent?.() === false) return null;
     submission = await submitDocumentCreate(
       input.apiClient,
       createPlan.materializedPlan.plan.request,
@@ -479,20 +446,8 @@ async function submitDocumentCreate(
   request: DocumentCreateRequest,
   expectedOrganizationId: string,
 ): Promise<DocumentCreateSubmission> {
-  // Prefer the result-returning variant so an expected create conflict can be
-  // inspected without being reported as a UI error. Fall back to the plain
-  // method for simple test doubles; that path cannot adopt (it surfaces a null
-  // without a status) and preserves the pre-existing behavior.
-  if (apiClient.createDocumentResult) {
-    return apiClient.createDocumentResult(request, {
-      expectedPaymentRequiredOrganizationId: expectedOrganizationId,
-      reportErrors: false,
-    });
-  }
-  const response = await apiClient.createDocument(request, {
+  return apiClient.createDocumentResult(request, {
     expectedPaymentRequiredOrganizationId: expectedOrganizationId,
+    reportErrors: false,
   });
-  return response
-    ? { data: response, ok: true }
-    : { message: "", ok: false, status: null };
 }

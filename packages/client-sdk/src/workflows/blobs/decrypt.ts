@@ -345,8 +345,7 @@ async function assertBlobWriteHeaderVerified(input: {
   });
   const blobKekTargets = await verifiedBlobKekTargetsForBinding({
     binding: input.binding,
-    projection:
-      input.binding.writeAuthorization ?? input.binding.blobKekTargets,
+    projection: input.binding.writeAuthorization,
     // The signed binding proves which slot exposes the blob now. Writer
     // authorization describes the older target set committed when the bytes
     // were written, so a later valid binding need not appear in that set.

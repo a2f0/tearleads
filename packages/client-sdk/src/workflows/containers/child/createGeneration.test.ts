@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@tearleads/test-utils";
+import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import {
   createAuthor,
   createMutationResponseFromRequest,
@@ -31,14 +31,14 @@ test("container create planning rolls back checkpoints after generation expiry",
 
   try {
     const created = await createRemoteContainer({
-      apiClient: {
+      apiClient: createMockApiClient({
         createContainer: async () => {
           submitted = true;
           throw new Error("expired create must not submit");
         },
         getContainerWriterProjection: async () => parent.projection,
         getCurrentPrincipalPolicy: async () => null,
-      },
+      }),
       author,
       containerId: "expired-container-create",
       execSql: guardedExecSql,
@@ -85,14 +85,14 @@ test("container create hides state when its generation expires after acknowledge
 
   try {
     const created = await createRemoteContainer({
-      apiClient: {
+      apiClient: createMockApiClient({
         createContainer: async (request) => {
           submitted = true;
           return createMutationResponseFromRequest(request);
         },
         getContainerWriterProjection: async () => parent.projection,
         getCurrentPrincipalPolicy: async () => null,
-      },
+      }),
       author: parent.author,
       containerId: "expired-after-acknowledgement",
       execSql: guardedExecSql,

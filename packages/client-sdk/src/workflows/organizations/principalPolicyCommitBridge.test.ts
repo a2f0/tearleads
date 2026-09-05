@@ -196,6 +196,7 @@ test("remove group user bridges committed policy writes before caching the rotat
       execSql,
       previousPolicy,
       "2026-07-11T12:00:00.000Z",
+      organizationId,
     );
 
     const returnedPolicy = await removeOrganizationGroupUser({
@@ -321,6 +322,7 @@ test("remove group user bridges committed policy writes before caching the rotat
             execSql,
             currentPolicy,
             "2026-07-11T12:01:00.000Z",
+            organizationId,
           );
           const concurrentMutation = await buildAddGroupUserPolicyRequest({
             currentPolicy,

@@ -246,23 +246,16 @@ export async function cancelStripeSubscription(
   return cancelSubscriptionAtPeriodEnd(found.subscriptionId, deps.stripe ?? {});
 }
 
-type StripeWebhookOutcome =
+type StripeAuthenticatedWebhookOutcome =
   | { status: "associated"; subscriptionId: string; organizationId: string }
   | { status: "reconciled"; subscriptionId: string; organizationId: string }
   | { status: "ignored"; reason: string }
-  | { status: "retry"; reason: string }
-  | { status: "unauthorized" }
-  | { status: "unconfigured" };
+  | { status: "retry"; reason: string };
 
 type StripeWebhookAuthentication =
   | { status: "authenticated" }
   | { status: "unauthorized" }
   | { status: "unconfigured" };
-
-type StripeAuthenticatedWebhookOutcome = Exclude<
-  StripeWebhookOutcome,
-  { status: "unauthorized" | "unconfigured" }
->;
 
 interface PaidSubscriptionInvoiceInput {
   readonly binding: NonNullable<
@@ -477,24 +470,4 @@ export async function processAuthenticatedStripeWebhook(
     await promoteCustomerEmail(binding, invoice.subscriptionId, deps.stripe);
   }
   return outcome;
-}
-
-/** Compatibility facade that authenticates, parses, and fulfills a delivery. */
-export async function processStripeWebhook(
-  runtime: ApiServiceRuntime,
-  input: { payload: string; signatureHeader: string | undefined },
-  deps: StripeCheckoutServiceDeps = {},
-): Promise<StripeWebhookOutcome> {
-  const authentication = authenticateStripeWebhook(input, deps);
-  if (authentication.status !== "authenticated") {
-    return authentication;
-  }
-
-  let event: unknown;
-  try {
-    event = JSON.parse(input.payload);
-  } catch {
-    return { status: "ignored", reason: "Invalid JSON payload" };
-  }
-  return processAuthenticatedStripeWebhook(runtime, event, deps);
 }

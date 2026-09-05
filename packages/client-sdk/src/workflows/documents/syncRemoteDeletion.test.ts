@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 import type { VerifiedContainerAccessManifest } from "@tearleads/crypto";
-import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  createMockApiClient,
+  createMockRequestFailure,
+  createTestExecSql,
+} from "@tearleads/test-utils";
 import { DOCUMENT_NOT_FOUND_ERROR_CODE } from "@tearleads/validators/response";
 import { createContainerRevokeManifestFixture } from "../../../test/helpers/containerFixtures";
 import {
@@ -25,7 +29,7 @@ test("syncRemoteDocument notifies when submit returns coded document 404", async
   const purgeProof = await createDocumentPurgeProof(author, writerProjection);
 
   const synced = await syncRemoteDocument({
-    apiClient: {
+    apiClient: createMockApiClient({
       getDocumentPurgeProof: async () => purgeProof,
       getDocumentWriterProjection: async () => {
         throw new Error("Unexpected writer projection fetch");
@@ -34,6 +38,10 @@ test("syncRemoteDocument notifies when submit returns coded document 404", async
         throw new Error("Expected syncDocumentResult to return the failure");
       },
       syncDocumentResult: async () => ({
+        kind: "http",
+        method: "POST",
+        path: "mock-request",
+        statusText: "",
         code: DOCUMENT_NOT_FOUND_ERROR_CODE,
         message,
         ok: false,
@@ -42,7 +50,7 @@ test("syncRemoteDocument notifies when submit returns coded document 404", async
         },
         status: 404,
       }),
-    },
+    }),
     author,
     documentId: writerProjection.documentId,
     execSql,
@@ -115,22 +123,22 @@ test("purge authorized before a pinned revocation fails closed", async () => {
     >,
   ) =>
     syncRemoteDocument({
-      apiClient: {
+      apiClient: createMockApiClient({
         getDocumentPurgeProof,
         getDocumentWriterProjection: async () => {
           throw new Error("Expected getDocumentWriterProjectionResult");
         },
-        getDocumentWriterProjectionResult: async () => ({
-          code: DOCUMENT_NOT_FOUND_ERROR_CODE,
-          message: "Document not found",
-          ok: false,
-          report: () => undefined,
-          status: 404,
-        }),
+        getDocumentWriterProjectionResult: async () =>
+          createMockRequestFailure({
+            method: "GET",
+            code: DOCUMENT_NOT_FOUND_ERROR_CODE,
+            message: "Document not found",
+            status: 404,
+          }),
         syncDocument: async () => {
           throw new Error("Unexpected syncDocument call");
         },
-      },
+      }),
       author,
       documentId: writerProjection.documentId,
       execSql,
@@ -218,7 +226,7 @@ test("syncRemoteDocument authenticates an initial purge proof before disclosing 
   try {
     await expect(
       syncRemoteDocument({
-        apiClient: {
+        apiClient: createMockApiClient({
           getDocumentPurgeProof: async (_documentId, options) => {
             proofRequests.push(options);
             return {
@@ -232,14 +240,13 @@ test("syncRemoteDocument authenticates an initial purge proof before disclosing 
           syncDocument: async () => {
             throw new Error("Expected syncDocumentResult failure");
           },
-          syncDocumentResult: async () => ({
-            code: DOCUMENT_NOT_FOUND_ERROR_CODE,
-            message: "Document not found",
-            ok: false,
-            report: () => undefined,
-            status: 404,
-          }),
-        },
+          syncDocumentResult: async () =>
+            createMockRequestFailure({
+              code: DOCUMENT_NOT_FOUND_ERROR_CODE,
+              message: "Document not found",
+              status: 404,
+            }),
+        }),
         author,
         documentId: writerProjection.documentId,
         execSql,
@@ -277,7 +284,7 @@ test("syncRemoteDocument fails closed on a bare 404 without the deletion code", 
   const { close, execSql } = await createTestExecSql("bare-404-sync");
 
   const synced = await syncRemoteDocument({
-    apiClient: {
+    apiClient: createMockApiClient({
       getDocumentWriterProjection: async () => {
         throw new Error("Unexpected writer projection fetch");
       },
@@ -285,6 +292,10 @@ test("syncRemoteDocument fails closed on a bare 404 without the deletion code", 
         throw new Error("Expected syncDocumentResult to return the failure");
       },
       syncDocumentResult: async () => ({
+        kind: "http",
+        method: "POST",
+        path: "mock-request",
+        statusText: "",
         message,
         ok: false,
         report: () => {
@@ -292,7 +303,7 @@ test("syncRemoteDocument fails closed on a bare 404 without the deletion code", 
         },
         status: 404,
       }),
-    },
+    }),
     author,
     documentId: writerProjection.documentId,
     execSql,
@@ -322,7 +333,7 @@ test("syncRemoteDocument fails closed on a 404 with an unknown code", async () =
   const { close, execSql } = await createTestExecSql("unknown-code-404-sync");
 
   const synced = await syncRemoteDocument({
-    apiClient: {
+    apiClient: createMockApiClient({
       getDocumentWriterProjection: async () => {
         throw new Error("Unexpected writer projection fetch");
       },
@@ -330,6 +341,10 @@ test("syncRemoteDocument fails closed on a 404 with an unknown code", async () =
         throw new Error("Expected syncDocumentResult to return the failure");
       },
       syncDocumentResult: async () => ({
+        kind: "http",
+        method: "POST",
+        path: "mock-request",
+        statusText: "",
         code: "some_future_code",
         message,
         ok: false,
@@ -338,7 +353,7 @@ test("syncRemoteDocument fails closed on a 404 with an unknown code", async () =
         },
         status: 404,
       }),
-    },
+    }),
     author,
     documentId: writerProjection.documentId,
     execSql,
@@ -371,12 +386,16 @@ test("syncRemoteDocument notifies when writer projection returns coded document 
   const purgeProof = await createDocumentPurgeProof(author, writerProjection);
 
   const synced = await syncRemoteDocument({
-    apiClient: {
+    apiClient: createMockApiClient({
       getDocumentPurgeProof: async () => purgeProof,
       getDocumentWriterProjection: async () => {
         throw new Error("Expected getDocumentWriterProjectionResult");
       },
       getDocumentWriterProjectionResult: async () => ({
+        kind: "http",
+        method: "GET",
+        path: "mock-request",
+        statusText: "",
         code: DOCUMENT_NOT_FOUND_ERROR_CODE,
         message,
         ok: false,
@@ -388,7 +407,7 @@ test("syncRemoteDocument notifies when writer projection returns coded document 
       syncDocument: async () => {
         throw new Error("Unexpected syncDocument call");
       },
-    },
+    }),
     author,
     documentId: writerProjection.documentId,
     execSql,
@@ -419,11 +438,15 @@ test("syncRemoteDocument fails closed on a bare writer-projection 404", async ()
   );
 
   const synced = await syncRemoteDocument({
-    apiClient: {
+    apiClient: createMockApiClient({
       getDocumentWriterProjection: async () => {
         throw new Error("Expected getDocumentWriterProjectionResult");
       },
       getDocumentWriterProjectionResult: async () => ({
+        kind: "http",
+        method: "GET",
+        path: "mock-request",
+        statusText: "",
         message,
         ok: false,
         report: () => {
@@ -434,7 +457,7 @@ test("syncRemoteDocument fails closed on a bare writer-projection 404", async ()
       syncDocument: async () => {
         throw new Error("Unexpected syncDocument call");
       },
-    },
+    }),
     author,
     documentId: writerProjection.documentId,
     execSql,

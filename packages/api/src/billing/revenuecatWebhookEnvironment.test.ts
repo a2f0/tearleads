@@ -14,7 +14,7 @@ function makeEvent(
     expiration_at_ms: 2_000,
     id: "event-1",
     original_transaction_id: "original-transaction-1",
-    product_id: "sync_monthly",
+    product_id: "sync_solo_monthly",
     purchased_at_ms: 500,
     subscriber_attributes: {
       orgId: { value: "11111111-1111-4111-8111-111111111111" },

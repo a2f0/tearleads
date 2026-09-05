@@ -75,6 +75,7 @@ test("atomic advance stores and reloads access and policy pins", async () => {
     const manifest = manifestDouble({ epoch: 1, hash: "a1", prev: null });
     const policy = policyDouble({ stateHashes: ["p1"] });
     await advanceKeyingCheckpointsAtomically({
+      organizationId: "org-1",
       access: [{ head: manifest, predecessors: [] }],
       execSql,
       policies: [policy],
@@ -111,6 +112,7 @@ test("atomic advance rolls back when its generation changes before commit", asyn
 
   try {
     await advanceKeyingCheckpointsAtomically({
+      organizationId: "org-1",
       access: [],
       execSql: guardedExecSql,
       policies: [policyDouble({ stateHashes: ["stale"] })],
@@ -134,6 +136,7 @@ test("concurrent divergent policy pins yield exactly one success", async () => {
     const results = await Promise.allSettled(
       [first, second].map((policy) =>
         advanceKeyingCheckpointsAtomically({
+          organizationId: "org-1",
           access: [],
           execSql,
           policies: [policy],
@@ -162,6 +165,7 @@ test("a policy rollback prevents access pins in the same batch", async () => {
   try {
     const policy2 = policyDouble({ stateHashes: ["p1", "p2"] });
     await advanceKeyingCheckpointsAtomically({
+      organizationId: "org-1",
       access: [],
       execSql,
       policies: [policy2],
@@ -171,6 +175,7 @@ test("a policy rollback prevents access pins in the same batch", async () => {
 
     await expect(
       advanceKeyingCheckpointsAtomically({
+        organizationId: "org-1",
         access: [{ head: access, predecessors: [] }],
         execSql,
         policies: [policy1],
@@ -198,6 +203,7 @@ test("an observed predecessor does not reject a batch whose declared policy head
     const policy1 = policyDouble({ stateHashes: ["p1"] });
     const policy2 = policyDouble({ stateHashes: ["p1", "p2"] });
     await advanceKeyingCheckpointsAtomically({
+      organizationId: "org-1",
       access: [],
       execSql,
       policies: [policy2],
@@ -205,6 +211,7 @@ test("an observed predecessor does not reject a batch whose declared policy head
 
     await expect(
       advanceKeyingCheckpointsAtomically({
+        organizationId: "org-1",
         access: [],
         execSql,
         policies: [policy1, policy2],

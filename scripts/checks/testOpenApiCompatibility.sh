@@ -289,13 +289,20 @@ bun -e '
   await Bun.write(path, JSON.stringify(spec, null, 2) + "\n");
 ' "$TEST_ROOT/docs/openapi.json"
 
-brand_transition_output=$(
+if brand_transition_output=$(
   cd "$TEST_ROOT"
   GITHUB_ACTIONS='' \
     MISE_CONFIG_FILE="$SOURCE_ROOT/.mise.toml" \
     OPENAPI_BASE_REF="$revision_commit" \
     "$CHECK_SCRIPT" 2>&1
-) || fail "the clean-break brand transition should bypass old-contract checks."
-assert_contains "$brand_transition_output" "clean-break transition"
+); then
+  fail "renaming the API must not bypass contract checks."
+else
+  brand_transition_exit=$?
+fi
+[ "$brand_transition_exit" -eq 1 ] ||
+  fail "expected exit 1 for a breaking renamed contract, received $brand_transition_exit."
+assert_contains "$brand_transition_output" "[request-property-became-required]"
+assert_contains "$brand_transition_output" "name"
 
 echo "OpenAPI compatibility regression fixtures passed."

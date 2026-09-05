@@ -9,6 +9,7 @@ import {
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
+import { seedNativeSubscriptionStore } from "../../../test/helpers/nativeSubscriptionBindingFixture";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { getDefaultApiServiceRuntime } from "../runtime";
 import { claimNativeOrganizationSubscription } from "./organizationBilling";
@@ -234,6 +235,12 @@ test("a transfer follows an existing native binding outside the personal organiz
       status: "active",
     })
     .where(eq(organizationBilling.organizationId, destination.organizationId));
+  await seedNativeSubscriptionStore({
+    appUserId: destination.user.userId,
+    organizationId: destination.organizationId,
+    subscriptionId,
+    store: "PLAY_STORE",
+  });
   const event = {
     environment: "SANDBOX",
     event_timestamp_ms: Date.now(),

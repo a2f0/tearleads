@@ -57,7 +57,7 @@ test("listUnsyncedMoveIntents returns blocked moves until they sync", async () =
     // Syncing the move deletes the row, so the list no longer returns it.
     const [blockedIntent] = await persistence.listUnsyncedMoveIntents(execSql);
     expect(
-      await persistence.markMoveIntentSynced(execSql, {
+      await persistence.markMoveIntentRevisionSynced(execSql, {
         containerId: "child-1",
         expectedIntentId: blockedIntent?.id ?? "",
         expectedUpdatedAt: "stale-intent-version",
@@ -67,7 +67,7 @@ test("listUnsyncedMoveIntents returns blocked moves until they sync", async () =
     expect(await persistence.listUnsyncedMoveIntents(execSql)).toHaveLength(1);
 
     expect(
-      await persistence.markMoveIntentSynced(execSql, {
+      await persistence.markMoveIntentRevisionSynced(execSql, {
         containerId: "child-1",
         expectedIntentId: blockedIntent?.id ?? "",
         expectedUpdatedAt: blockedIntent?.updatedAt ?? "",
@@ -77,7 +77,7 @@ test("listUnsyncedMoveIntents returns blocked moves until they sync", async () =
     expect(await persistence.listUnsyncedMoveIntents(execSql)).toHaveLength(1);
 
     expect(
-      await persistence.markMoveIntentSynced(execSql, {
+      await persistence.markMoveIntentRevisionSynced(execSql, {
         containerId: "child-1",
         expectedIntentId: blockedIntent?.id ?? "",
         expectedUpdatedAt: blockedIntent?.updatedAt ?? "",

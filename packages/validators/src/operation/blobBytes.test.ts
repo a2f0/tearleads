@@ -111,7 +111,7 @@ test("blob byte header schemas preserve boundary validation", () => {
       [blobWireHeaderKeys.blobSha256]: sha256,
       [blobWireHeaderKeys.contentLength]: "12",
     }).success,
-  ).toBe(true);
+  ).toBe(false);
   expect(
     BlobBytesResponseHeadersSchema.safeParse({
       [blobWireHeaderKeys.blobByteLength]: "12",
@@ -135,18 +135,20 @@ test("blob byte header schemas preserve boundary validation", () => {
   ).toBe(false);
 });
 
-test("blob byte fallback validation remains an explicit OpenAPI gap", () => {
+test("OpenAPI requires the canonical blob byte-length header", () => {
   const get = openApiDocument.paths["/blobs/{blobId}/bytes"]?.get;
   const contentLength =
-    get?.responses["200"]?.headers?.[blobWireHeaderKeys.contentLength];
+    get?.responses["200"]?.headers?.[blobWireHeaderKeys.blobByteLength];
   if (contentLength === undefined || !("schema" in contentLength)) {
-    throw new Error("Blob byte Content-Length OpenAPI header is missing");
+    throw new Error("Canonical blob byte-length OpenAPI header is missing");
   }
+  expect(Reflect.get(contentLength, "required")).toBe(true);
   const validate = new Ajv2020({ strict: true }).compile(
     contentLength.schema as AnySchema,
   );
 
-  expect(validate("unusable")).toBe(true);
+  expect(validate("12")).toBe(true);
+  expect(validate("unusable")).toBe(false);
   expect(
     BlobBytesResponseHeadersSchema.safeParse({
       [blobWireHeaderKeys.blobId]: blobId,

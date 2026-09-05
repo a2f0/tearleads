@@ -17,7 +17,7 @@ import {
   getUpdateVersionVectors,
   importUpdates,
 } from "@tearleads/loro";
-import { createTestExecSql } from "@tearleads/test-utils";
+import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type {
   DocumentCreateRequest,
   DocumentSyncRequest,
@@ -53,7 +53,7 @@ async function requireJson(
 function createRouteSdkClient(token: string) {
   const primedDocumentProjections = new Map<string, unknown>();
 
-  return {
+  return createMockApiClient({
     createDocument: async (request: DocumentCreateRequest) => {
       const value = await requireJson(
         await routeApp.request("/documents", {
@@ -132,7 +132,7 @@ function createRouteSdkClient(token: string) {
       }
       return value;
     },
-  };
+  });
 }
 
 function documentAuthor(user: TestUser, organizationId: string) {

@@ -85,7 +85,10 @@ test("atomically pins first-seen purge policy snapshots", async () => {
     "principal-policy-snapshot-first-pin",
   );
   try {
-    const context = createProjectionCheckpointContext({ execSql });
+    const context = createProjectionCheckpointContext({
+      execSql,
+      organizationId: "snapshot-test-org",
+    });
     for (const policy of policies) observePrincipalPolicy(context, policy);
     await commitProjectionCheckpoints(context);
 

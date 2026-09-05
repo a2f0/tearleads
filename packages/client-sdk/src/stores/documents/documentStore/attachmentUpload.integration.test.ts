@@ -41,6 +41,7 @@ function createDocumentSyncResponse(input: {
       (update) => update.id,
     ),
     commitLsn: input.commitLsn,
+    commitLsnMode: "tracked",
     contentKeyBundle: input.storedDocument.contentKeyBundle,
     contentKeyBundles: [input.storedDocument.contentKeyBundle],
     documentId: input.storedDocument.id,
@@ -53,6 +54,14 @@ function createDocumentSyncResponse(input: {
       );
       return {
         accessEpoch: 1,
+        authorizationTargets: input.storedDocument.contentKeyBundle.targets.map(
+          (target) => ({
+            containerId: target.containerId,
+            containerKeyEpoch: target.containerKeyEpoch,
+            containerKeyEpochId: target.containerKeyEpochId,
+            containerManifestHash: target.containerManifestHash,
+          }),
+        ),
         authorFingerprint: writeHeader.writerKeyFingerprint,
         createdAt: "2026-04-27T00:00:00.000Z",
         documentId: input.storedDocument.id,

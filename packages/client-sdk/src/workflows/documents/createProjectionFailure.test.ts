@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import {
   createContainerWriterProjectionFixture,
+  createMockApiClient,
   createTestExecSql,
 } from "@tearleads/test-utils";
 import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
@@ -22,7 +23,7 @@ test("createRemoteDocument records a terminal failure when the container project
 
   try {
     const created = await createRemoteDocument({
-      apiClient: {
+      apiClient: createMockApiClient({
         createDocument: async () => {
           submissions += 1;
           return null;
@@ -33,6 +34,10 @@ test("createRemoteDocument records a terminal failure when the container project
           );
         },
         getContainerWriterProjectionResult: async () => ({
+          kind: "http",
+          method: "GET",
+          path: "/containers",
+          statusText: "Payment Required",
           message:
             "GET /containers/blocked-container/writer-projection: 402 Payment Required",
           ok: false as const,
@@ -42,7 +47,7 @@ test("createRemoteDocument records a terminal failure when the container project
           status: 402,
         }),
         primeDocumentWriterProjection: () => undefined,
-      },
+      }),
       author,
       containerId: "blocked-container",
       execSql,
@@ -71,7 +76,7 @@ test("createRemoteDocument records a terminal failure when the container project
   }
 });
 
-test("createRemoteDocument stays silent when a plain-fetch double yields no projection", async () => {
+test("createRemoteDocument records an unavailable projection", async () => {
   const { author } = await createAuthor();
   const keyPair = generateKemSeedAndKeyPair();
   const recordedFailures: Array<{ message: string; status: number | null }> =
@@ -82,11 +87,11 @@ test("createRemoteDocument stays silent when a plain-fetch double yields no proj
 
   try {
     const created = await createRemoteDocument({
-      apiClient: {
+      apiClient: createMockApiClient({
         createDocument: async () => null,
         getContainerWriterProjection: async () => null,
         primeDocumentWriterProjection: () => undefined,
-      },
+      }),
       author,
       containerId: "unfetchable-container",
       execSql,
@@ -101,7 +106,9 @@ test("createRemoteDocument stays silent when a plain-fetch double yields no proj
     });
 
     expect(created).toBeNull();
-    expect(recordedFailures).toEqual([]);
+    expect(recordedFailures).toEqual([
+      { message: "Mock container writer projection unavailable", status: null },
+    ]);
   } finally {
     close();
   }
@@ -129,11 +136,15 @@ test("createRemoteDocument records a terminal failure when the stale-target refe
 
   try {
     const created = await createRemoteDocument({
-      apiClient: {
+      apiClient: createMockApiClient({
         createDocument: async () => null,
         createDocumentResult: async () => {
           submissions += 1;
           return {
+            kind: "http",
+            method: "POST",
+            path: "/documents",
+            statusText: "Conflict",
             code: DOCUMENT_SYNC_ERROR_CODES.stateStale,
             message:
               "POST /documents: 409 Conflict: targetContainerPathRefs[0] is stale",
@@ -157,6 +168,10 @@ test("createRemoteDocument records a terminal failure when the stale-target refe
             return { data: projection, ok: true as const };
           }
           return {
+            kind: "http",
+            method: "GET",
+            path: "/containers",
+            statusText: "Forbidden",
             message:
               "GET /containers/stale-then-denied-container/writer-projection: 403 Forbidden",
             ok: false as const,
@@ -165,7 +180,7 @@ test("createRemoteDocument records a terminal failure when the stale-target refe
           };
         },
         primeDocumentWriterProjection: () => undefined,
-      },
+      }),
       author,
       containerId: projection.containerId,
       documentId: "stale-then-denied-document",

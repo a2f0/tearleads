@@ -909,3 +909,10 @@
   encode observable same-scope ordering. Consolidate only the redundant
   organization-transition invalidation, and document the boundary between the
   shared scope generation and those counters.
+
+## Greenfield compatibility removal (#2158 follow-ups)
+
+The separate [compatibility-removal ledger](compatibility-removal-ledger.md)
+records this owner's intentional flag-day cleanup, its preservation boundary,
+verification, review repairs, and rejected false positives. Earlier accepted
+refactor entries above remain unchanged.

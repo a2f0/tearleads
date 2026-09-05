@@ -12,7 +12,7 @@ interface PrincipalPolicyOrganizationInput {
 
 function resolveOrganizationId(
   input: PrincipalPolicyOrganizationInput,
-): string | null {
+): string {
   if (input.principalType === "organization") {
     if (
       input.organizationId !== undefined &&
@@ -25,7 +25,10 @@ function resolveOrganizationId(
     }
     return input.principalId;
   }
-  return input.organizationId ?? null;
+  if (!input.organizationId) {
+    throw new Error("Group policy cache writes require an organization ID");
+  }
+  return input.organizationId;
 }
 
 /** Pins cache ownership in the same transaction as the cached policy state. */
@@ -34,7 +37,6 @@ export async function recordPrincipalPolicyOrganizationInTransaction(
   input: PrincipalPolicyOrganizationInput,
 ): Promise<void> {
   const organizationId = resolveOrganizationId(input);
-  if (organizationId === null) return;
   const wherePrincipal = and(
     eq(principalPolicyOrganizations.principalType, input.principalType),
     eq(principalPolicyOrganizations.principalId, input.principalId),

@@ -22,7 +22,7 @@ function makeEvent(
     event_timestamp_ms: 1_000,
     purchased_at_ms: 500,
     expiration_at_ms: 2_000,
-    product_id: "sync_monthly",
+    product_id: "sync_solo_monthly",
     transaction_id: "transaction-1",
     original_transaction_id: "original-transaction-1",
     entitlement_ids: ["sync"],
@@ -44,7 +44,7 @@ test("a purchase event classifies as a grant that activates sync", () => {
     entitlementId: "sync",
     provider: "revenuecat",
     providerCustomerId: "user-1",
-    providerProductId: "sync_monthly",
+    providerProductId: "sync_solo_monthly",
     providerSubscriptionId: "original-transaction-1",
     providerTransactionId: "transaction-1",
     purgeAfter: null,
@@ -89,7 +89,7 @@ test("a native product change waits for the effective store event", () => {
   const transition = classifyRevenueCatEvent(
     makeEvent({
       new_product_id: "sync_team_5_monthly",
-      product_id: "sync_monthly",
+      product_id: "sync_solo_monthly",
       store: "APP_STORE",
       type: "PRODUCT_CHANGE",
     }),

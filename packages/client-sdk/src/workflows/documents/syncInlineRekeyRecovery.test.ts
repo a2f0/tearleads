@@ -1,7 +1,11 @@
 import { expect, test } from "bun:test";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { getUpdateVersionVectors } from "@tearleads/loro";
-import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  createMockApiClient,
+  createMockRequestFailure,
+  createTestExecSql,
+} from "@tearleads/test-utils";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import {
@@ -44,7 +48,7 @@ test("lost inline rekey recovery retains a held-back checkpoint", async () => {
   try {
     const runSync = () =>
       syncRemoteDocument({
-        apiClient: {
+        apiClient: createMockApiClient({
           evictDocumentWriterProjection: () => undefined,
           getDocumentWriterProjection: async () => writerProjection,
           syncDocument: async () => {
@@ -56,13 +60,11 @@ test("lost inline rekey recovery retains a held-back checkpoint", async () => {
               throw new Error("Simulated lost inline rekey response");
             }
             if (submittedRequests.length === 2) {
-              return {
+              return createMockRequestFailure({
                 code: DOCUMENT_SYNC_ERROR_CODES.updateIdConflict,
                 message: "Document update id conflict",
-                ok: false,
-                report: () => undefined,
                 status: 409,
-              };
+              });
             }
 
             const readOnlyPlan = await buildMaterializedDocumentSyncPlan({
@@ -83,7 +85,7 @@ test("lost inline rekey recovery retains a held-back checkpoint", async () => {
               ok: true,
             };
           },
-        },
+        }),
         author,
         buildContainerRekeys: async (currentProjection, verification) => {
           const previousProjection =

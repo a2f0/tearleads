@@ -167,12 +167,8 @@ export interface MaterializedDocumentCreatePlan {
 }
 
 export interface DocumentCreateApi {
-  createDocument(
-    input: DocumentCreateRequest,
-    options?: DocumentSyncRequestResultOptions,
-  ): Promise<DocumentCreateResponse | null>;
   // Lets idempotent create inspect an expected already-exists conflict.
-  createDocumentResult?(
+  createDocumentResult(
     input: DocumentCreateRequest,
     options?: DocumentSyncRequestResultOptions | undefined,
   ): Promise<
@@ -188,9 +184,8 @@ export interface DocumentCreateApi {
   // Result-returning variant used by the create path so a terminal projection
   // fetch failure (e.g. a 402 billing block or a 403 after access revocation)
   // can be persisted to the write queue instead of collapsing to a silent
-  // null. Optional so simple test doubles need only implement
-  // `getContainerWriterProjection`.
-  getContainerWriterProjectionResult?(
+  // null.
+  getContainerWriterProjectionResult(
     containerId: string,
     options?: DocumentSyncRequestResultOptions | undefined,
   ): Promise<
@@ -202,13 +197,11 @@ export interface DocumentCreateApi {
   >;
   // Needed to adopt an existing remote document on a create conflict: the
   // committed manifest, content-key bundle and KEK targets are refetched here
-  // (the create response that carried them was lost). Optional for the same
-  // reason as `createDocumentResult`.
-  getDocumentWriterProjection?(
+  // (the create response that carried them was lost).
+  getDocumentWriterProjection(
     documentId: string,
   ): Promise<DocumentWriterProjectionResponse | null>;
-  clearWriterProjectionCaches?(): void;
-  evictContainerWriterProjection?(containerId: string): void;
+  evictContainerWriterProjection(containerId: string): void;
   primeDocumentWriterProjection(
     documentId: string,
     projection: DocumentWriterProjectionResponse,
@@ -307,7 +300,7 @@ export interface DocumentLinkSetMutationApi {
   getContainerWriterProjection(
     containerId: string,
   ): Promise<ContainerWriterProjectionResponse | null>;
-  getContainerWriterProjectionResult?(
+  getContainerWriterProjectionResult(
     containerId: string,
     options?: DocumentSyncRequestResultOptions | undefined,
   ): Promise<
@@ -320,7 +313,7 @@ export interface DocumentLinkSetMutationApi {
   getDocumentWriterProjection(
     documentId: string,
   ): Promise<DocumentWriterProjectionResponse | null>;
-  getDocumentWriterProjectionResult?(
+  getDocumentWriterProjectionResult(
     documentId: string,
     options?: DocumentSyncRequestResultOptions | undefined,
   ): Promise<
@@ -334,22 +327,12 @@ export interface DocumentLinkSetMutationApi {
     documentId: string,
     projection: DocumentWriterProjectionResponse,
   ): void;
-  linkDocument(
-    documentId: string,
-    input: DocumentLinkSetMutationRequest,
-    options?: DocumentSyncRequestResultOptions,
-  ): Promise<DocumentLinkSetMutationResponse | null>;
-  linkDocumentResult?(
+  linkDocumentResult(
     documentId: string,
     input: DocumentLinkSetMutationRequest,
     options?: DocumentSyncRequestResultOptions,
   ): Promise<DocumentLinkSetMutationResult>;
-  unlinkDocument(
-    documentId: string,
-    input: DocumentLinkSetMutationRequest,
-    options?: DocumentSyncRequestResultOptions,
-  ): Promise<DocumentLinkSetMutationResponse | null>;
-  unlinkDocumentResult?(
+  unlinkDocumentResult(
     documentId: string,
     input: DocumentLinkSetMutationRequest,
     options?: DocumentSyncRequestResultOptions,
@@ -507,7 +490,7 @@ export interface DocumentSyncApi {
   getDocumentWriterProjection(
     documentId: string,
   ): Promise<DocumentWriterProjectionResponse | null>;
-  getDocumentWriterProjectionResult?(
+  getDocumentWriterProjectionResult(
     documentId: string,
     options?: DocumentSyncRequestResultOptions | undefined,
   ): Promise<
@@ -517,12 +500,7 @@ export interface DocumentSyncApi {
       }
     | DocumentSyncSubmitFailure
   >;
-  syncDocument(
-    documentId: string,
-    input: DocumentSyncRequest,
-    options?: DocumentSyncRequestResultOptions,
-  ): Promise<DocumentSyncResponse | null>;
-  syncDocumentResult?(
+  syncDocumentResult(
     documentId: string,
     input: DocumentSyncRequest,
     options?: DocumentSyncRequestResultOptions,

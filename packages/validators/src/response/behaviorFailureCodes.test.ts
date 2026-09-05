@@ -132,6 +132,25 @@ test("terminal uncoded failures remain valid but carry no behavior", () => {
   expect(isSessionRefreshRequiredFailure(terminal)).toBe(false);
 });
 
+test("container stale-policy failures require repair evidence at the operation boundary", () => {
+  for (const principalPolicies of [undefined, null, {}, [null]]) {
+    expect(
+      ContainerMutationFailureResponseSchema.safeParse({
+        code: "principal_policy_stale",
+        error: "Refresh the policy",
+        principalPolicies,
+      }).success,
+    ).toBe(false);
+  }
+  expect(
+    ContainerMutationFailureResponseSchema.safeParse({
+      code: "principal_policy_stale",
+      error: "Refresh the policy",
+      principalPolicies: [],
+    }).success,
+  ).toBe(true);
+});
+
 test("malformed and unknown behavior tags fail schema validation", () => {
   const invalidCodes: readonly unknown[] = [
     null,

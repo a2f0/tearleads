@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@tearleads/test-utils";
+import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { createMaterializedSyncFixture } from "../../../test/helpers/documentFixtures";
 import { adoptExistingRemoteDocument } from "./createAdoption";
@@ -29,14 +29,14 @@ test("create adoption does not prime or succeed after content-key unwrap expires
 
   try {
     const adopted = await adoptExistingRemoteDocument({
-      apiClient: {
+      apiClient: createMockApiClient({
         createDocument: async () => null,
         getContainerWriterProjection: async () => null,
         getDocumentWriterProjection: async () => writerProjection,
         primeDocumentWriterProjection: () => {
           primeCalls += 1;
         },
-      },
+      }),
       documentId: writerProjection.documentId,
       execSql: database.execSql,
       expectedContainerId: fixture.projection.containerId,

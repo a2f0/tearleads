@@ -51,20 +51,6 @@ function retireNativeCancellation(
   }
 }
 
-function retireLegacyNativeCancellation(
-  cancelPurchaseRef: CancelPurchaseRef,
-  cancelPurchase: () => void,
-  purchases: PurchasesCapability,
-): void {
-  if (
-    purchases.nativeStore !== null &&
-    purchases.supportsEmbeddedCheckout !== true &&
-    purchases.supportsProviderPresentationCallback !== true
-  ) {
-    retireNativeCancellation(cancelPurchaseRef, cancelPurchase, purchases);
-  }
-}
-
 function createAttemptHost(
   checkoutHost: HTMLElement | undefined,
 ): HTMLDivElement | undefined {
@@ -302,11 +288,6 @@ function startProviderPurchase(input: {
   readonly purchases: PurchasesCapability;
   readonly scope: BillingActionScope;
 }) {
-  retireLegacyNativeCancellation(
-    input.cancelPurchaseRef,
-    input.cancelPurchase,
-    input.purchases,
-  );
   return input.purchases.purchaseSync({
     organizationId: input.scope.organizationId,
     packageId: input.option.packageId,

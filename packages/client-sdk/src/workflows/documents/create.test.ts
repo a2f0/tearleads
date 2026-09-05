@@ -1,17 +1,12 @@
 import { expect, test } from "bun:test";
-import { unwrapDocumentContentKeyTarget } from "@tearleads/client-sdk";
-import {
-  DOCUMENT_CONTENT_KEY_WRAP_SUITE,
-  generateKemSeedAndKeyPair,
-} from "@tearleads/crypto";
+
+import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import {
   createContainerWriterProjectionFixture,
+  createMockApiClient,
   createTestExecSql,
 } from "@tearleads/test-utils";
-import {
-  type DocumentCreateRequest,
-  isDocumentCreateRequest,
-} from "@tearleads/validators/request";
+import type { DocumentCreateRequest } from "@tearleads/validators/request";
 import {
   DOCUMENT_MUTATION_ERROR_CODES,
   type DocumentWriterProjectionResponse,
@@ -25,61 +20,13 @@ import {
 import {
   createAuthor,
   createResponseFromRequest,
-  createWrappedProjection,
 } from "../../../test/helpers/documentFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../test/helpers/trustedUserIdentity";
 import { loadAccessManifestCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import {
-  buildMaterializedDocumentCreatePlan,
   createRemoteDocument,
   documentWriterProjectionFromCreateResponse,
 } from "./create";
-
-test("buildMaterializedDocumentCreatePlan wraps the content key to the target container KEK", async () => {
-  const { author } = await createAuthor();
-  const { childContainerKek, projection, secretKey } =
-    await createWrappedProjection();
-  const contentKey = crypto.getRandomValues(new Uint8Array(32));
-  const materialized = await buildMaterializedDocumentCreatePlan({
-    author,
-    containerProjection: projection,
-    contentKey,
-    documentId: "document-materialized",
-    eventId: "event-materialized",
-    signedAt: "2026-04-27T00:00:00.000Z",
-    targetSecretKey: secretKey,
-    trustedLocalProjection: true,
-  });
-  const [targetEnvelope] = materialized.plan.request.contentKeyBundle.targets;
-  if (!targetEnvelope) {
-    throw new Error("Expected a materialized content-key target");
-  }
-  const unwrappedContentKey = await unwrapDocumentContentKeyTarget({
-    containerKek: childContainerKek,
-    envelope: targetEnvelope,
-  });
-  expect(Array.from(materialized.contentKey)).toEqual(Array.from(contentKey));
-  expect(Array.from(unwrappedContentKey)).toEqual(Array.from(contentKey));
-  expect(targetEnvelope.wrappingMetadata).toEqual(
-    expect.objectContaining({
-      suite: DOCUMENT_CONTENT_KEY_WRAP_SUITE,
-    }),
-  );
-  const childManifest = projection.path[1];
-  const childKek = projection.containerKeks[1];
-  if (!childManifest || !childKek) {
-    throw new Error("Expected child projection fixture");
-  }
-  expect(materialized.plan.targets).toEqual([
-    {
-      containerId: projection.containerId,
-      containerManifestHash: childManifest.manifestHash,
-      containerKeyEpochId: childKek.containerKeyEpochId,
-      containerKeyEpoch: 1,
-    },
-  ]);
-  expect(isDocumentCreateRequest(materialized.plan.request)).toBe(true);
-});
 
 test("createRemoteDocument submits the materialized request and persists the verified response", async () => {
   const { author, signingPublicKey } = await createAuthor();
@@ -99,7 +46,7 @@ test("createRemoteDocument submits the materialized request and persists the ver
   }> = [];
   const { close, execSql } = await createTestExecSql("remote-document-create");
   const created = await createRemoteDocument({
-    apiClient: {
+    apiClient: createMockApiClient({
       createDocument: async (request) => {
         submittedRequests.push(request);
         return createResponseFromRequest(request);
@@ -109,7 +56,7 @@ test("createRemoteDocument submits the materialized request and persists the ver
       primeDocumentWriterProjection: (documentId, primed) => {
         primedProjections.push({ documentId, projection: primed });
       },
-    },
+    }),
     author,
     containerId: projection.containerId,
     documentId: "document-remote",
@@ -197,7 +144,7 @@ test("createRemoteDocument rejects a mismatched event body without pinning it", 
   try {
     await expect(
       createRemoteDocument({
-        apiClient: {
+        apiClient: createMockApiClient({
           createDocument: async (request) => {
             const response = await createResponseFromRequest(request);
             return {
@@ -219,7 +166,7 @@ test("createRemoteDocument rejects a mismatched event body without pinning it", 
           },
           getContainerWriterProjection: async () => projection,
           primeDocumentWriterProjection: () => undefined,
-        },
+        }),
         author,
         containerId: projection.containerId,
         documentId,
@@ -272,7 +219,7 @@ test("createRemoteDocument adopts an existing remote document when a retry with 
     documentId: string;
     projection: DocumentWriterProjectionResponse;
   }> = [];
-  const apiClient = {
+  const apiClient = createMockApiClient({
     createDocument: async () => null,
     createDocumentResult: async (
       request: DocumentCreateRequest,
@@ -283,6 +230,10 @@ test("createRemoteDocument adopts an existing remote document when a retry with 
       );
       if (server.committed) {
         return {
+          kind: "http",
+          method: "POST",
+          path: "/documents",
+          statusText: "Conflict",
           code: DOCUMENT_MUTATION_ERROR_CODES.manifestAlreadyExists,
           message: "POST /documents: 409 Conflict: already exists",
           ok: false as const,
@@ -300,6 +251,10 @@ test("createRemoteDocument adopts an existing remote document when a retry with 
       server.commitCount += 1;
       // The commit succeeded server-side, but the response never reached us.
       return {
+        kind: "network",
+        method: "POST",
+        path: "/documents",
+        statusText: "",
         message: "POST /documents: network error",
         ok: false as const,
         report: () => {},
@@ -318,7 +273,7 @@ test("createRemoteDocument adopts an existing remote document when a retry with 
     ) => {
       primedProjections.push({ documentId, projection: primed });
     },
-  };
+  });
   const { close, execSql } = await createTestExecSql("adopt-remote-document");
   const knownContentKey = crypto.getRandomValues(new Uint8Array(32));
   // First attempt: commits server-side, but the response is lost, so the caller
@@ -386,10 +341,14 @@ test("createRemoteDocument does not report a conflict when adoption fails transi
     "transient-document-adoption",
   );
   const adopted = await createRemoteDocument({
-    apiClient: {
+    apiClient: createMockApiClient({
       createDocument: async () => null,
       // Every submit 409s (the first attempt already committed remotely).
       createDocumentResult: async () => ({
+        kind: "http",
+        method: "POST",
+        path: "/documents",
+        statusText: "Conflict",
         code: DOCUMENT_MUTATION_ERROR_CODES.manifestAlreadyExists,
         message: "POST /documents: 409 Conflict: already exists",
         ok: false as const,
@@ -403,7 +362,7 @@ test("createRemoteDocument does not report a conflict when adoption fails transi
       // Adoption cannot complete: the writer-projection fetch fails transiently.
       getDocumentWriterProjection: async () => null,
       primeDocumentWriterProjection: () => {},
-    },
+    }),
     author,
     containerId: projection.containerId,
     documentId: "document-stable",
@@ -438,7 +397,7 @@ test("createRemoteDocument rejects substituted KEK material before submitting", 
 
   await expect(
     createRemoteDocument({
-      apiClient: {
+      apiClient: createMockApiClient({
         createDocument: async () => {
           createCalled = true;
           throw new Error("Unexpected document create");
@@ -448,7 +407,7 @@ test("createRemoteDocument rejects substituted KEK material before submitting", 
             ? tamperedProjection
             : null,
         primeDocumentWriterProjection: () => {},
-      },
+      }),
       author: parent.author,
       containerId: tamperedProjection.containerId,
       documentId: "document-substituted-kek",
@@ -473,7 +432,7 @@ test("createRemoteDocument rejects bad container projection signatures before su
 
   await expect(
     createRemoteDocument({
-      apiClient: {
+      apiClient: createMockApiClient({
         createDocument: async () => {
           createCalled = true;
           throw new Error("Unexpected document create");
@@ -483,7 +442,7 @@ test("createRemoteDocument rejects bad container projection signatures before su
             ? tamperedProjection
             : null,
         primeDocumentWriterProjection: () => {},
-      },
+      }),
       author: parent.author,
       containerId: tamperedProjection.containerId,
       documentId: "document-bad-container-signature",

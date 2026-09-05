@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import {
   createContainerWriterProjectionFixture,
+  createMockApiClient,
   createTestExecSql,
 } from "@tearleads/test-utils";
 import { DOCUMENT_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
@@ -64,9 +65,13 @@ test("create conflict adoption rejects another container or organization", async
 
     await expect(
       createRemoteDocument({
-        apiClient: {
+        apiClient: createMockApiClient({
           createDocument: async () => null,
           createDocumentResult: async () => ({
+            kind: "http",
+            method: "POST",
+            path: "/documents",
+            statusText: "Conflict",
             code: DOCUMENT_MUTATION_ERROR_CODES.manifestAlreadyExists,
             message:
               "POST /documents: 409 Conflict: Document manifest already exists",
@@ -79,7 +84,7 @@ test("create conflict adoption rejects another container or organization", async
           primeDocumentWriterProjection: () => {
             primed = true;
           },
-        },
+        }),
         author,
         containerId: expectedProjection.containerId,
         documentId: "document-stable",

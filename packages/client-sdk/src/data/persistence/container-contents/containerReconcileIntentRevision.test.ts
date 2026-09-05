@@ -184,23 +184,29 @@ test("same-timestamp root repair rotates descendant create and move revisions", 
     expect(currentCreate?.id).not.toBe(previousCreate.id);
     expect(currentMove?.id).not.toBe(previousMove.id);
     expect(
-      await sqlContainerContentsPersistence.markCreateIntentSynced(execSql, {
-        containerId: previousCreate.containerId,
-        expectedIntentId: previousCreate.id,
-        expectedUpdatedAt: previousCreate.updatedAt,
-        remoteContainerId: "stale-remote-container",
-        remoteMetadataAccessStateHash: "stale-access-state",
-        remoteMetadataDocumentId: "stale-metadata-document",
-        stillCurrent: () => true,
-      }),
+      await sqlContainerContentsPersistence.markCreateIntentRevisionSynced(
+        execSql,
+        {
+          containerId: previousCreate.containerId,
+          expectedIntentId: previousCreate.id,
+          expectedUpdatedAt: previousCreate.updatedAt,
+          remoteContainerId: "stale-remote-container",
+          remoteMetadataAccessStateHash: "stale-access-state",
+          remoteMetadataDocumentId: "stale-metadata-document",
+          stillCurrent: () => true,
+        },
+      ),
     ).toBe(false);
     expect(
-      await sqlContainerContentsPersistence.markMoveIntentSynced(execSql, {
-        containerId: previousMove.containerId,
-        expectedIntentId: previousMove.id,
-        expectedUpdatedAt: previousMove.updatedAt,
-        stillCurrent: () => true,
-      }),
+      await sqlContainerContentsPersistence.markMoveIntentRevisionSynced(
+        execSql,
+        {
+          containerId: previousMove.containerId,
+          expectedIntentId: previousMove.id,
+          expectedUpdatedAt: previousMove.updatedAt,
+          stillCurrent: () => true,
+        },
+      ),
     ).toBe(false);
   } finally {
     close();

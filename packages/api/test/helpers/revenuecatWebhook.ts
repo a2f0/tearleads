@@ -116,7 +116,7 @@ export function revenuecatWebhookBody(input: WebhookEventInput): string {
         input.originalTransactionId === undefined
           ? `native-${input.organizationId}`
           : input.originalTransactionId,
-      product_id: input.productId ?? "sync_monthly",
+      product_id: input.productId ?? "sync_solo_monthly",
       period_type: input.periodType,
       price_in_purchased_currency: input.priceInPurchasedCurrency,
       purchased_at_ms: input.purchasedAtMs,

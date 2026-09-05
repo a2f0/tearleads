@@ -1,7 +1,6 @@
 import { z } from "zod";
-import { arraySchema } from "../schema";
 import { DocumentMutationErrorCodeSchema } from "./documentMutationError";
-import { PrincipalPolicyBundleResponseSchema } from "./principal";
+import { PrincipalPolicyStaleErrorResponseSchema } from "./principal";
 
 export const CONTAINER_MUTATION_ERROR_CODES = {
   manifestAlreadyExists: "container_manifest_already_exists",
@@ -24,22 +23,13 @@ export type ContainerMutationErrorCode = z.infer<
   typeof ContainerMutationErrorCodeSchema
 >;
 
-export const ContainerMutationFailureResponseSchema = z.looseObject({
-  code: z
-    .union([
-      ContainerMutationErrorCodeSchema,
-      z.literal("principal_policy_stale"),
-    ])
-    .optional(),
-  error: z.string().min(1),
-  // Only `principal_policy_stale` activates repair, and the dedicated
-  // PrincipalPolicyStaleErrorResponse guard still requires this field. Keeping
-  // the operation envelope object-shaped preserves its backward-compatible
-  // required `error` property in OpenAPI.
-  principalPolicies: arraySchema(
-    PrincipalPolicyBundleResponseSchema,
-  ).optional(),
-});
+export const ContainerMutationFailureResponseSchema = z.union([
+  z.looseObject({
+    code: ContainerMutationErrorCodeSchema.optional(),
+    error: z.string().min(1),
+  }),
+  PrincipalPolicyStaleErrorResponseSchema,
+]);
 
 export type ContainerMutationFailureResponse = z.infer<
   typeof ContainerMutationFailureResponseSchema

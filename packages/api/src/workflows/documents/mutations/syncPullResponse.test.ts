@@ -29,6 +29,12 @@ function entry(sequence: number, contentKeyEpoch: number) {
     sequence,
     update: {
       accessEpoch: 1,
+      authorizationTargets: bundle(contentKeyEpoch).targets.map((target) => ({
+        containerId: target.containerId,
+        containerKeyEpoch: target.containerKeyEpoch,
+        containerKeyEpochId: target.containerKeyEpochId,
+        containerManifestHash: target.containerManifestHash,
+      })),
       authorFingerprint: "fingerprint",
       createdAt: "2026-08-23T00:00:00.000Z",
       documentId: DOCUMENT_ID,

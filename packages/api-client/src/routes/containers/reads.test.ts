@@ -20,9 +20,11 @@ test("container read client metadata derives from shared operations", () => {
       keyringForEpoch: 2,
     }),
   ).toBe("/containers/container%2F1/kek-log?keyringForEpoch=2&afterKeyEpoch=1");
-  expect(containerKekLog.path("container-1", { afterKeyEpoch: -1 })).toBe(
-    "/containers/container-1/kek-log?afterKeyEpoch=-1",
-  );
+  for (const afterKeyEpoch of [-1, 0, 1.5, Number.NaN, 65_537]) {
+    expect(() =>
+      containerKekLog.path("container-1", { afterKeyEpoch }),
+    ).toThrow(TypeError);
+  }
 
   expect(containerDocuments.method).toBe("GET");
   expect(

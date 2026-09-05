@@ -421,6 +421,7 @@ export async function createSyncResponse(
       (update) => update.id,
     ),
     commitLsn: "0/16B6C50",
+    commitLsnMode: "tracked",
     contentKeyBundle: plan.sourceContentKeyBundle,
     contentKeyBundles: [plan.sourceContentKeyBundle],
     documentId: plan.documentId,
@@ -482,6 +483,9 @@ export async function createSignedSyncResponseUpdate(input: {
 
   return {
     accessEpoch: 1,
+    authorizationTargets: input.plan.sourceContentKeyBundle.targets.map(
+      targetEnvelopeReference,
+    ),
     id,
     documentId: input.plan.documentId,
     authorFingerprint: input.author.signerKeyFingerprint,

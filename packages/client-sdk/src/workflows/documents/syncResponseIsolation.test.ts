@@ -6,7 +6,7 @@ import {
   exportAllUpdates,
   getUpdateVersionVectors,
 } from "@tearleads/loro";
-import { createTestExecSql } from "@tearleads/test-utils";
+import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import {
   createMaterializedSyncFixture,
   createPendingUpdateRecord,
@@ -172,10 +172,10 @@ test("pre-auth content-key failures quarantine the batch without naming a writer
 
     await expect(
       syncRemoteDocument({
-        apiClient: {
+        apiClient: createMockApiClient({
           getDocumentWriterProjection: async () => rotatedProjection,
           syncDocument: async () => response,
-        },
+        }),
         author,
         documentId: rotatedProjection.documentId,
         execSql,
@@ -261,10 +261,10 @@ test("forged pre-auth write headers cannot frame a writer", async () => {
 
     await expect(
       syncRemoteDocument({
-        apiClient: {
+        apiClient: createMockApiClient({
           getDocumentWriterProjection: async () => writerProjection,
           syncDocument: async () => response,
-        },
+        }),
         author,
         documentId: writerProjection.documentId,
         execSql,
@@ -334,10 +334,10 @@ test("pre-auth content-key wording preserves writer-key integrity errors", async
 
     await expect(
       syncRemoteDocument({
-        apiClient: {
+        apiClient: createMockApiClient({
           getDocumentWriterProjection: async () => writerProjection,
           syncDocument: async () => response,
-        },
+        }),
         author,
         documentId: writerProjection.documentId,
         execSql,
@@ -413,13 +413,13 @@ test("content-key recovery preserves projection integrity errors", async () => {
 
     await expect(
       syncRemoteDocument({
-        apiClient: {
+        apiClient: createMockApiClient({
           getDocumentWriterProjection: async () => rotatedProjection,
           syncDocument: async () => {
             responseSubmitted = true;
             return response;
           },
-        },
+        }),
         author,
         documentId: rotatedProjection.documentId,
         execSql,

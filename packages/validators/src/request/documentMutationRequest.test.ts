@@ -422,6 +422,7 @@ test("isDocumentSyncRequest", () => {
     writeHeader: { updateId: "550e8400-e29b-41d4-a716-446655440111" },
   };
   const validRequest = {
+    inlineRekeyCommitId: "a".repeat(64),
     authorizingContainerPathRefs: [
       [{ containerId: "container-1", manifestHash: "container-manifest-hash" }],
     ],
@@ -447,6 +448,7 @@ test("isDocumentSyncRequest", () => {
       ...validRequest,
       authorizingContainerPathRefs: undefined,
       containerRekeys: undefined,
+      inlineRekeyCommitId: undefined,
       outgoingUpdates: [],
     }),
   ).toBe(true);

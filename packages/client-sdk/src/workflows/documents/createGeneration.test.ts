@@ -5,6 +5,7 @@ import {
 } from "@tearleads/crypto";
 import {
   createContainerWriterProjectionFixture,
+  createMockApiClient,
   createTestExecSql,
 } from "@tearleads/test-utils";
 import { createAuthor } from "../../../test/helpers/documentFixturePrimitives";
@@ -41,7 +42,7 @@ test("document create guards projection verification after generation expiry", a
 
   try {
     const created = await createRemoteDocument({
-      apiClient: {
+      apiClient: createMockApiClient({
         createDocument: async (request) => {
           submitted = true;
           return createResponseFromRequest(request);
@@ -50,7 +51,7 @@ test("document create guards projection verification after generation expiry", a
         primeDocumentWriterProjection: () => {
           primed = true;
         },
-      },
+      }),
       author,
       containerId: projection.containerId,
       documentId: "document-create-expired-verification",
@@ -98,14 +99,14 @@ test("document create planning rolls back checkpoints after generation expiry", 
 
   try {
     const created = await createRemoteDocument({
-      apiClient: {
+      apiClient: createMockApiClient({
         createDocument: async () => {
           submitted = true;
           throw new Error("expired document create must not submit");
         },
         getContainerWriterProjection: async () => projection,
         primeDocumentWriterProjection: () => {},
-      },
+      }),
       author,
       containerId: projection.containerId,
       documentId: "document-create-expired-planning",
@@ -136,7 +137,7 @@ test("document create planning rolls back checkpoints after generation expiry", 
   }
 });
 
-test("stale-required create validates a newer durable container pin", async () => {
+test("document create rejects a projection below the durable container pin", async () => {
   const { author, signingPublicKey } = await createAuthor();
   const keyPair = generateKemSeedAndKeyPair();
   const projection = await createContainerWriterProjectionFixture({
@@ -174,14 +175,14 @@ test("stale-required create validates a newer durable container pin", async () =
 
     await expect(
       createRemoteDocument({
-        apiClient: {
+        apiClient: createMockApiClient({
           createDocument: async () => {
             submitted = true;
             throw new Error("stale projection must not be submitted");
           },
           getContainerWriterProjection: async () => projection,
           primeDocumentWriterProjection: () => undefined,
-        },
+        }),
         author,
         containerId: projection.containerId,
         containerProjection: projection,
@@ -193,7 +194,6 @@ test("stale-required create validates a newer durable container pin", async () =
           signingPublicKey,
           userId: author.signerUserId,
         }),
-        submitWhenStale: true,
         targetSecretKey: keyPair.secretKey,
       }),
     ).rejects.toMatchObject({ code: "rollback" });

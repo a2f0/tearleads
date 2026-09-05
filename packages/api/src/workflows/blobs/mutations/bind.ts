@@ -327,9 +327,9 @@ async function bindBlobAttachmentTransaction(
     currentTargets,
     writeHeader: storedWriteHeader.header,
     writeHeaderHash: writeHeaderHash ?? storedWriteHeader.headerHash,
-    writeAuthorization: storedWriteHeader.authorization
-      ? toBlobKekTargetsResponse(storedWriteHeader.authorization)
-      : undefined,
+    writeAuthorization: toBlobKekTargetsResponse(
+      storedWriteHeader.authorization,
+    ),
   });
 }
 

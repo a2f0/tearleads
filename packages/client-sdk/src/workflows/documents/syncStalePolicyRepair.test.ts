@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  createMockApiClient,
+  createMockRequestFailure,
+  createTestExecSql,
+} from "@tearleads/test-utils";
 import type {
   ContainerMutationRequest,
   DocumentSyncRequest,
@@ -108,7 +112,7 @@ test("syncRemoteDocument retries failed chained rekeys after caching stale polic
 
   try {
     const synced = await syncRemoteDocument({
-      apiClient: {
+      apiClient: createMockApiClient({
         clearWriterProjectionCaches: () => {
           events.push("clear-projections");
         },
@@ -128,14 +132,12 @@ test("syncRemoteDocument retries failed chained rekeys after caching stale polic
           events.push(`submit-${submittedRequests.length}`);
           if (submittedRequests.length === 1) {
             repairBundle = repairBundleForRequest(request);
-            return {
+            return createMockRequestFailure({
               code: DOCUMENT_SYNC_ERROR_CODES.stateStale,
               message: "Principal policy is stale",
-              ok: false,
-              report: () => undefined,
               stalePrincipalPolicies: [repairBundle],
               status: 409,
-            };
+            });
           }
 
           const contentKeyBundle = request.contentKeyBundle;
@@ -171,7 +173,7 @@ test("syncRemoteDocument retries failed chained rekeys after caching stale polic
             ok: true,
           };
         },
-      },
+      }),
       author,
       buildContainerRekeys: async (currentProjection, verification) => {
         rekeyBuildCount += 1;
@@ -336,7 +338,7 @@ test("response-loss recovery does not commit a second inline rekey", async () =>
   try {
     const runSync = () =>
       syncRemoteDocument({
-        apiClient: {
+        apiClient: createMockApiClient({
           evictDocumentWriterProjection: () => {
             projectionEvictionCount += 1;
           },
@@ -351,13 +353,11 @@ test("response-loss recovery does not commit a second inline rekey", async () =>
               throw new Error("Simulated lost document sync response");
             }
             if (submittedRequests.length === 2) {
-              return {
+              return createMockRequestFailure({
                 code: DOCUMENT_SYNC_ERROR_CODES.updateIdConflict,
                 message: "Document update id conflict",
-                ok: false,
-                report: () => undefined,
                 status: 409,
-              };
+              });
             }
 
             const materialized = await buildMaterializedDocumentSyncPlan({
@@ -378,7 +378,7 @@ test("response-loss recovery does not commit a second inline rekey", async () =>
               ok: true,
             };
           },
-        },
+        }),
         author,
         buildContainerRekeys: async (currentProjection, verification) => {
           rekeyBuildCount += 1;
@@ -462,14 +462,14 @@ test("persisted read-only sync does not invoke an available rekey builder", asyn
 
   try {
     const synced = await syncRemoteDocument({
-      apiClient: {
+      apiClient: createMockApiClient({
         getDocumentWriterProjection: async () => {
           projectionCalls += 1;
           return writerProjection;
         },
         syncDocument: async (documentId, request) =>
           createSyncResponse({ ...materialized.plan, documentId, request }),
-      },
+      }),
       author,
       buildContainerRekeys: async () => {
         builderCalls += 1;

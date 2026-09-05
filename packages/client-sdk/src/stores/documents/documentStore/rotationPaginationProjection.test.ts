@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createDocument, getTextValue, importSnapshot } from "@tearleads/loro";
-import { createTestExecSql } from "@tearleads/test-utils";
+import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import {
   createRemoteHistoryFixture,
@@ -63,11 +63,11 @@ test("raw continuation pages use projection state verified by the prior page", a
     let projectionFetches = 0;
     let staleRequests = 0;
     const requestEpochs: number[] = [];
-    const apiClient = {
+    const apiClient = createMockApiClient({
       ...baseApiClient,
-      getDocumentWriterProjection: async () => {
+      getDocumentWriterProjectionResult: async () => {
         projectionFetches += 1;
-        return fixture.writerProjection;
+        return { data: fixture.writerProjection, ok: true };
       },
       syncDocumentResult: async (
         documentId: Parameters<
@@ -116,7 +116,7 @@ test("raw continuation pages use projection state verified by the prior page", a
           ok: true as const,
         };
       },
-    } as unknown as typeof baseApiClient;
+    });
     const runtime = { ...baseRuntime, apiClient };
     const state = createDocumentStoreState(
       localId,

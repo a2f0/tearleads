@@ -46,7 +46,6 @@
     "lint:commit-msg": "sh -lc 'NPX=$(command -v npx); \"$NPX\" --yes --package @commitlint/cli --package @commitlint/config-conventional commitlint --config commitlint.config.mts --edit \"$1\"' --",
     "lint:files": "ls-lint",
     "lint:infrastructure-parity": "bash scripts/checks/checkInfrastructureParity.sh",
-    "lint:file-limits": "sh scripts/checks/checkFileLimits.sh",
     "lint:knip:all": "knip",
     "lint:knip:dependencies": "knip --dependencies",
     "lint:knip:exports": "knip --exports",

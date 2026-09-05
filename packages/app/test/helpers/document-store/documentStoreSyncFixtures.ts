@@ -31,11 +31,7 @@ import type {
   ListContainersResponse,
 } from "@tearleads/validators/response";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../src/document-types/projectors";
-import {
-  assertAccessEvent,
-  assertOptionalWriteHeader,
-  assertWriteHeader,
-} from "../keyingAssertions";
+import { assertAccessEvent, assertWriteHeader } from "../keyingAssertions";
 import { createTestRuntimeTrustedUserIdentityResolver } from "../trustedUserIdentity";
 
 export interface StoredDocumentsState {
@@ -290,6 +286,22 @@ export async function createDocumentSyncResponse(input: {
       return {
         accessEpoch: 1,
         id: update.id,
+        authorizationTargets: (
+          input.request.contentKeyBundle ??
+          input.storedDocument.contentKeyBundle
+        ).targets.map(
+          ({
+            containerId,
+            containerKeyEpoch,
+            containerKeyEpochId,
+            containerManifestHash,
+          }) => ({
+            containerId,
+            containerKeyEpoch,
+            containerKeyEpochId,
+            containerManifestHash,
+          }),
+        ),
         documentId: input.storedDocument.id,
         authorFingerprint: writeHeader.writerKeyFingerprint,
         encryptedData: update.encryptedData,
@@ -307,6 +319,7 @@ export async function createDocumentSyncResponse(input: {
       (update) => update.id,
     ),
     commitLsn: input.commitLsn,
+    commitLsnMode: "tracked",
     contentKeyBundle: input.storedDocument.contentKeyBundle,
     contentKeyBundles: [input.storedDocument.contentKeyBundle],
     documentId: input.storedDocument.id,
@@ -332,7 +345,7 @@ export async function createDocumentAttachmentBindResponse(input: {
   const bindingId = String(Reflect.get(body, "bindingId"));
   const documentId = String(Reflect.get(body, "documentId"));
   const slotId = String(Reflect.get(body, "slotId"));
-  const writeHeader = assertOptionalWriteHeader(
+  const writeHeader = assertWriteHeader(
     input.request.stagedBlob?.writeHeader,
     "staged blob write header",
   );
@@ -400,13 +413,9 @@ export async function createDocumentAttachmentBindResponse(input: {
       targets: input.request.contentKeyBundle.targets,
     },
     blobKekTargets,
-    ...(writeHeader
-      ? {
-          writeAuthorization: blobKekTargets,
-          writeHeader: { ...writeHeader },
-          writeHeaderHash: await computeWriteHeaderHash(writeHeader),
-        }
-      : {}),
+    writeAuthorization: blobKekTargets,
+    writeHeader: { ...writeHeader },
+    writeHeaderHash: await computeWriteHeaderHash(writeHeader),
   };
 }
 

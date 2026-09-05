@@ -168,7 +168,7 @@ export const blobContentKeyTargets = pgTable(
  * - `headerHash`: Hash of the canonical write header.
  * - `header`: Full canonical write header JSON.
  * - `authorization`: Exact verified blob KEK projection committed by the
- *   header when the write was accepted. Nullable only for legacy rows.
+ *   header when the write was accepted. Required for every stored write.
  * - `createdAt`: Server-side insertion timestamp.
  *
  * Indexes:
@@ -196,7 +196,9 @@ export const blobContentWriteHeaders = pgTable(
     nonceDomainHash: text("nonce_domain_hash").notNull(),
     headerHash: text("header_hash").notNull(),
     header: jsonb("header").$type<WriteHeader>().notNull(),
-    authorization: jsonb("authorization").$type<BlobWriteAuthorization>(),
+    authorization: jsonb("authorization")
+      .$type<BlobWriteAuthorization>()
+      .notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [

@@ -1,4 +1,8 @@
 import { expect, test } from "bun:test";
+import {
+  createMockApiClient,
+  createMockRequestFailure,
+} from "@tearleads/test-utils";
 import type { DocumentLinkSetMutationApi } from "../../data/documents/shared/types";
 import { relinkRemoteDocument } from "./linkSetRemote";
 
@@ -7,25 +11,25 @@ import { relinkRemoteDocument } from "./linkSetRemote";
 // failure must not mask a container denial.
 test("a dual projection failure reports the container 403", async () => {
   const failures: Array<{ message: string; status: number | null }> = [];
-  const apiClient = {
+  const apiClient = createMockApiClient({
     getContainerWriterProjection: async () => null,
-    getContainerWriterProjectionResult: async () => ({
-      message: "Container writer projection request failed (403)",
-      ok: false as const,
-      report: () => {},
-      status: 403,
-    }),
+    getContainerWriterProjectionResult: async () =>
+      createMockRequestFailure({
+        method: "GET",
+        message: "Container writer projection request failed (403)",
+        status: 403,
+      }),
     getDocumentWriterProjection: async () => null,
-    getDocumentWriterProjectionResult: async () => ({
-      message: "Document writer projection request failed (503)",
-      ok: false as const,
-      report: () => {},
-      status: 503,
-    }),
+    getDocumentWriterProjectionResult: async () =>
+      createMockRequestFailure({
+        method: "GET",
+        message: "Document writer projection request failed (503)",
+        status: 503,
+      }),
     linkDocument: async () => null,
     primeDocumentWriterProjection: () => {},
     unlinkDocument: async () => null,
-  } satisfies DocumentLinkSetMutationApi;
+  }) satisfies DocumentLinkSetMutationApi;
 
   const result = await relinkRemoteDocument({
     apiClient,

@@ -95,10 +95,9 @@ quantity `1`. Apple, Google, and RevenueCat Test Store represent them as three
 products. `organization_billing.seat_count` stores the tier capacity (1, 5, or
 10), not the number of currently active members.
 
-Old Solo aliases remain accepted for receipts. The Tearleads App Store, Google,
-and Test Store catalogs use the stems above. The six `symcrypt_`-prefixed App
-Store identifiers remain accepted only so delayed events from the superseded
-native apps can be reconciled during the cutover.
+The Tearleads App Store, Google, and Test Store catalogs use only the stems
+above, with staging and Play base-plan suffixes. Superseded product identifiers
+are rejected; there is no receipt alias translation.
 
 ## Entitlement
 

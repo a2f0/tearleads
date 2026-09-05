@@ -71,7 +71,7 @@ function createRuntime(input: {
   });
 }
 
-test("legacy compound create preserves its API client receiver", async () => {
+test("compound create refuses an adapter without the result method", async () => {
   const parent = await createParentProjection();
   const database = await createTestExecSql("compound-create-legacy-receiver");
   const apiClient = createMockApiClient();
@@ -96,16 +96,15 @@ test("legacy compound create preserves its API client receiver", async () => {
   });
 
   try {
-    const created = await createRemoteContainerWithMetadataDocument({
-      containerId: "compound-create-legacy-receiver-child",
-      parentContainerId: parent.projection.containerId,
-      parentProjection: parent.projection,
-      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
-      runtime,
-    });
-
-    expect(created).not.toBeNull();
-    expect(created).not.toBe(CONTAINER_ALREADY_COMMITTED);
+    await expect(
+      createRemoteContainerWithMetadataDocument({
+        containerId: "compound-create-legacy-receiver-child",
+        parentContainerId: parent.projection.containerId,
+        parentProjection: parent.projection,
+        resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+        runtime,
+      }),
+    ).rejects.toThrow("is not a function");
   } finally {
     database.close();
   }

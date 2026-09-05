@@ -19,10 +19,16 @@ test("referenced policy warming re-verifies an exact local bundle without a poli
   );
   try {
     const { bundle, signerKeyResponse } = await createPrincipalPolicyBundle();
-    await savePrincipalPolicyBundle(execSql, bundle, "2026-07-18T00:00:00Z");
+    await savePrincipalPolicyBundle(
+      execSql,
+      bundle,
+      "2026-07-18T00:00:00Z",
+      "org-1",
+    );
     let policyGetCount = 0;
 
     await cacheReferencedPolicies({
+      organizationId: "org-1",
       execSql,
       getCurrentPrincipalPolicy: async () => {
         policyGetCount += 1;
@@ -50,10 +56,12 @@ test("referenced policy warming performs one policy GET for a local head mismatc
       execSql,
       cachedBundle,
       "2026-07-18T00:00:00Z",
+      "org-1",
     );
     let policyGetCount = 0;
 
     await cacheReferencedPolicies({
+      organizationId: "org-1",
       execSql,
       getCurrentPrincipalPolicy: async () => {
         policyGetCount += 1;
@@ -82,6 +90,7 @@ test("referenced policy warming fetches once when the exact local chain is behin
       execSql,
       cachedBundle,
       "2026-07-18T00:00:00Z",
+      "org-1",
     );
     await execSql(
       `INSERT INTO principal_policy_checkpoints
@@ -98,6 +107,7 @@ test("referenced policy warming fetches once when the exact local chain is behin
     let policyGetCount = 0;
 
     await cacheReferencedPolicies({
+      organizationId: "org-1",
       execSql,
       getCurrentPrincipalPolicy: async () => {
         policyGetCount += 1;
@@ -125,6 +135,7 @@ test("referenced policy warming leaves stale local state unchanged when the cano
       execSql,
       cachedBundle,
       "2026-07-18T00:00:00Z",
+      "org-1",
     );
     await execSql(
       `INSERT INTO principal_policy_checkpoints
@@ -141,6 +152,7 @@ test("referenced policy warming leaves stale local state unchanged when the cano
     let policyGetCount = 0;
 
     await cacheReferencedPolicies({
+      organizationId: "org-1",
       execSql,
       getCurrentPrincipalPolicy: async () => {
         policyGetCount += 1;
@@ -185,6 +197,7 @@ test("referenced policy warming hard-fails and leaves stale local state unchange
       execSql,
       cachedBundle,
       "2026-07-18T00:00:00Z",
+      "org-1",
     );
     await execSql(
       `INSERT INTO principal_policy_checkpoints
@@ -202,6 +215,7 @@ test("referenced policy warming hard-fails and leaves stale local state unchange
 
     await expect(
       cacheReferencedPolicies({
+        organizationId: "org-1",
         execSql,
         getCurrentPrincipalPolicy: async () => {
           policyGetCount += 1;

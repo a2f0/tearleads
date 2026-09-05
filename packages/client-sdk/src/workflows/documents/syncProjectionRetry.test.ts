@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
-import { createTestExecSql } from "@tearleads/test-utils";
+import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import {
@@ -31,7 +31,7 @@ test("syncRemoteDocument refetches writer projection after a stale container KEK
   const { close, execSql } = await createTestExecSql("sync-projection-retry");
 
   const synced = await syncRemoteDocument({
-    apiClient: {
+    apiClient: createMockApiClient({
       evictDocumentWriterProjection: (documentId) => {
         evictedDocumentIds.push(documentId);
         secretKey.set(validSecretKey);
@@ -67,7 +67,7 @@ test("syncRemoteDocument refetches writer projection after a stale container KEK
           ok: true,
         };
       },
-    },
+    }),
     author,
     documentId: writerProjection.documentId,
     execSql,
@@ -102,7 +102,7 @@ test("retrySyncPlan refetches a fresh projection after a rollback verification e
   const { close, execSql } = await createTestExecSql("sync-rollback-retry");
 
   const planned = await retrySyncPlan({
-    apiClient: {
+    apiClient: createMockApiClient({
       evictDocumentWriterProjection: (documentId) => {
         evictedDocumentIds.push(documentId);
       },
@@ -111,7 +111,7 @@ test("retrySyncPlan refetches a fresh projection after a rollback verification e
       syncDocument: async () => {
         throw new Error("syncDocument is unused by retrySyncPlan");
       },
-    },
+    }),
     buildWithProjection: async (projection) => {
       buildCount += 1;
       if (projection === staleProjection) {
@@ -152,13 +152,13 @@ test("retrySyncPlan refetches once after a normalized invalid projection", async
   let evictionCount = 0;
 
   const planned = await retrySyncPlan({
-    apiClient: {
+    apiClient: createMockApiClient({
       evictDocumentWriterProjection: () => {
         evictionCount += 1;
       },
       getDocumentWriterProjection: async () => writerProjection,
       syncDocument: async () => null,
-    },
+    }),
     buildWithProjection: async (projection) => {
       buildCount += 1;
       if (projection === staleProjection) {
@@ -192,7 +192,7 @@ test("retrySyncPlan does not retry identity failures that resemble stale unwraps
 
   await expect(
     retrySyncPlan({
-      apiClient: {
+      apiClient: createMockApiClient({
         evictDocumentWriterProjection: () => {
           evictions += 1;
         },
@@ -201,7 +201,7 @@ test("retrySyncPlan does not retry identity failures that resemble stale unwraps
           return writerProjection;
         },
         syncDocument: async () => null,
-      },
+      }),
       buildWithProjection: async () => {
         builds += 1;
         throw integrityError;

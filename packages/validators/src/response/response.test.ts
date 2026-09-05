@@ -213,6 +213,11 @@ function createBlobKekTargetsResponse(overrides = {}) {
 
 test("isBlobAttachmentBindResponse", () => {
   const validResponse = {
+    bindingEvent: { body: {}, event: {}, eventHash: "event-hash" },
+    documentManifestHash: "document-manifest-hash",
+    previousBindingId: null,
+    writeHeader: {},
+    writeAuthorization: createBlobKekTargetsResponse(),
     bindingId: "550e8400-e29b-41d4-a716-446655440002",
     blobId: "550e8400-e29b-41d4-a716-446655440001",
     documentId: "550e8400-e29b-41d4-a716-446655440003",
@@ -223,6 +228,18 @@ test("isBlobAttachmentBindResponse", () => {
   };
 
   expect(isBlobAttachmentBindResponse(validResponse)).toBe(true);
+  for (const key of [
+    "bindingEvent",
+    "documentManifestHash",
+    "previousBindingId",
+    "writeHeader",
+    "writeAuthorization",
+    "writeHeaderHash",
+  ]) {
+    const missingEvidence = { ...validResponse };
+    Reflect.deleteProperty(missingEvidence, key);
+    expect(isBlobAttachmentBindResponse(missingEvidence)).toBe(false);
+  }
   expect(
     isBlobAttachmentBindResponse({
       ...validResponse,
@@ -244,6 +261,12 @@ test("isBlobAttachmentBindResponse", () => {
 
 test("isListDocumentAttachmentsResponse", () => {
   const validAttachment = {
+    bindingEvent: { body: {}, event: {}, eventHash: "event-hash" },
+    documentManifestHash: "document-manifest-hash",
+    previousBindingId: null,
+    writeHeader: {},
+    writeAuthorization: createBlobKekTargetsResponse(),
+    blobKekTargets: createBlobKekTargetsResponse(),
     bindingId: "550e8400-e29b-41d4-a716-446655440002",
     blobId: "550e8400-e29b-41d4-a716-446655440001",
     contentKeyBundle: createBlobContentKeyBundleResponse(),
@@ -1001,6 +1024,7 @@ test("isDocumentSyncResponse", () => {
   const validResponse = {
     acceptedOutgoingUpdateIds: ["update-1"],
     commitLsn: null,
+    commitLsnMode: "tracked",
     contentKeyBundle: createDocumentContentKeyBundleResponse(),
     contentKeyBundles: [createDocumentContentKeyBundleResponse()],
     documentId: "550e8400-e29b-41d4-a716-446655440001",
@@ -1010,6 +1034,7 @@ test("isDocumentSyncResponse", () => {
       {
         accessEpoch: 1,
         id: "update-2",
+        authorizationTargets: createDocumentContentKeyBundleResponse().targets,
         documentId: "550e8400-e29b-41d4-a716-446655440001",
         authorFingerprint: "author-fingerprint",
         encryptedData: "ciphertext",

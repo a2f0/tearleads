@@ -134,6 +134,7 @@ test("atomic profile initial syncs import cleanly into a fresh peer", async () =
         {
           ...outgoingUpdate,
           accessEpoch: 1,
+          authorizationTargets: profile.materialized.plan.targets,
           authorFingerprint,
           createdAt: "2026-07-13T00:00:00.000Z",
           documentId,

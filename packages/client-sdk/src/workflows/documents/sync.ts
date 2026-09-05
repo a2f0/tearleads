@@ -387,7 +387,7 @@ async function syncRemoteDocumentInternal(
 ): Promise<SyncRemoteDocumentResult | null> {
   if (input.stillCurrent?.() === false) return null;
   const resolveProjectionUserKey = resolveRemoteSyncProjectionUserKey(input);
-  const maxAttempts = input.apiClient.syncDocumentResult ? 3 : 1;
+  const maxAttempts = 3;
   let pendingUpdates = input.pendingUpdates ?? [];
   const pendingUpdateIds = pendingUpdates.map((update) => update.id);
   let recoveryPendingUpdatesById = new Map<string, PendingUpdateRecord>();

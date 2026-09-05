@@ -109,16 +109,16 @@ export type BlobKekTargetsResponse = z.infer<
 >;
 
 export const BlobAttachmentSummarySchema = loosePlainObject({
-  bindingEvent: AccessEventBundleWireResponseSchema.optional(),
+  bindingEvent: AccessEventBundleWireResponseSchema,
   bindingId: z.string(),
   blobId: z.string(),
-  blobKekTargets: BlobKekTargetsResponseSchema.optional(),
+  blobKekTargets: BlobKekTargetsResponseSchema,
   contentKeyBundle: BlobContentKeyBundleResponseSchema,
-  documentManifestHash: z.string().optional(),
-  previousBindingId: z.string().nullable().optional(),
+  documentManifestHash: z.string(),
+  previousBindingId: z.string().nullable(),
   slotId: z.string(),
-  writeAuthorization: BlobKekTargetsResponseSchema.optional(),
-  writeHeader: plainObjectSchema.optional(),
+  writeAuthorization: BlobKekTargetsResponseSchema,
+  writeHeader: plainObjectSchema,
 });
 
 export type BlobAttachmentSummary = z.infer<typeof BlobAttachmentSummarySchema>;
@@ -132,18 +132,18 @@ export type ListDocumentAttachmentsResponse = z.infer<
 >;
 
 export const BlobAttachmentBindResponseSchema = loosePlainObject({
-  bindingEvent: AccessEventBundleWireResponseSchema.optional(),
+  bindingEvent: AccessEventBundleWireResponseSchema,
   bindingId: z.string(),
   blobId: z.string(),
   blobKekTargets: BlobKekTargetsResponseSchema,
   contentKeyBundle: BlobContentKeyBundleResponseSchema,
   documentId: z.string(),
-  documentManifestHash: z.string().optional(),
-  previousBindingId: z.string().nullable().optional(),
+  documentManifestHash: z.string(),
+  previousBindingId: z.string().nullable(),
   slotId: z.string(),
-  writeAuthorization: BlobKekTargetsResponseSchema.optional(),
-  writeHeader: plainObjectSchema.optional(),
-  writeHeaderHash: z.string().optional(),
+  writeAuthorization: BlobKekTargetsResponseSchema,
+  writeHeader: plainObjectSchema,
+  writeHeaderHash: z.string(),
 });
 
 export type BlobAttachmentBindResponse = z.infer<

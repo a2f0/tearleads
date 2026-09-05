@@ -50,7 +50,7 @@ async function bindSubscription(input: {
     .set({
       provider: "revenuecat",
       providerCustomerId: input.buyerId,
-      providerProductId: input.productId ?? "com.tearleads.sync.monthly",
+      providerProductId: input.productId ?? "sync_solo_monthly",
       providerSubscriptionId: input.subscriptionId,
       seatCount: 1,
       status: input.status ?? "active",
@@ -80,7 +80,7 @@ async function recordBindingStore(input: {
     organizationId: input.organizationId,
     originalTransactionId: input.subscriptionId,
     outcome: "applied",
-    productId: input.productId ?? "com.tearleads.sync.monthly",
+    productId: input.productId ?? "sync_solo_monthly",
     store: input.store,
   });
 }
@@ -105,7 +105,7 @@ function nativeEvent(input: {
     ...(input.subscriptionId
       ? { original_transaction_id: input.subscriptionId }
       : {}),
-    product_id: input.productId ?? "com.tearleads.sync.monthly",
+    product_id: input.productId ?? "sync_solo_monthly",
     purchased_at_ms: now,
     store: input.store,
     subscriber_attributes: { orgId: { value: input.organizationId } },
@@ -445,7 +445,7 @@ for (const eventType of ["INITIAL_PURCHASE", "RENEWAL"] as const) {
     await bindSubscription({
       buyerId: user.userId,
       organizationId: restoredId,
-      productId: "com.tearleads.sync.monthly",
+      productId: "sync_solo_monthly",
       store: "PLAY_STORE",
       subscriptionId: `restored-solo-subscription-${caseId}`,
     });

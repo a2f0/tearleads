@@ -65,12 +65,6 @@ export interface DeviceFirst {
   open(
     options?: ContainerContentsStoreOptions | undefined,
   ): DeviceFirstContainerContents;
-  /** @deprecated Prefer `open().view` so reads and writes share one seam. */
-  openView(
-    options?: ContainerContentsStoreOptions | undefined,
-  ): LocalProjectionView;
-  /** @deprecated Prefer `open().reconciler`. */
-  reconciler(): ReconciliationService;
   /** Stop the current scope's reconciler (if one was created) on teardown. */
   dispose(): void;
 }
@@ -153,16 +147,6 @@ class DeviceFirstService implements DeviceFirst {
     options?: ContainerContentsStoreOptions | undefined,
   ): DeviceFirstContainerContents {
     return this.getOrCreateEntry(options).contents;
-  }
-
-  openView(
-    options?: ContainerContentsStoreOptions | undefined,
-  ): LocalProjectionView {
-    return this.open(options).view;
-  }
-
-  reconciler(): ReconciliationService {
-    return this.open().reconciler;
   }
 
   dispose(): void {

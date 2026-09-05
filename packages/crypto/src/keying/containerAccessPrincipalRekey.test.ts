@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
+import { normalizeContainerRekeyAccessEventBody } from "./containerAccessRekeyBody";
 import type { ContainerAccessEventBody } from "./index";
 import {
   computeAccessManifestHash,
@@ -94,69 +95,24 @@ test("a rekey advances a managed-principal pin without changing grants", async (
   }
 });
 
-test("a legacy rekey without principal heads preserves predecessor pins", async () => {
-  const writerUserId = "legacy-writer";
-  const groupId = "legacy-group";
-  const writerSigning = generateSigningSeedAndKeyPair();
-  const previousHead = {
-    principalType: "group" as const,
-    principalId: groupId,
-    version: 1,
-    keyEpoch: 1,
-    stateHash: await fixtureHash("legacy-group-state"),
-    keyFingerprint: await fixtureHash("legacy-group-key"),
-  };
-  const previous = await createContainerManifestFixture({
-    containerId: "legacy-container-rekey-principal",
-    containerKeyEpochId: "legacy-container-key-epoch-1",
-    directGrants: [
-      {
-        subjectType: "user",
-        subjectId: writerUserId,
-        accessLevel: "admin",
-      },
-      {
-        subjectType: "group",
-        subjectId: groupId,
-        accessLevel: "read",
-      },
-    ],
-    referencedPrincipalHeads: [previousHead],
-    signer: writerSigning,
-    signerUserId: writerUserId,
-  });
-  const body: ContainerAccessEventBody = {
+test("rekeys require explicit principal heads, including an empty list", () => {
+  const body = {
     eventType: "container.rekey",
-    containerKeyEpochId: "legacy-container-key-epoch-2",
+    containerKeyEpochId: "current-rekey-key",
     keyringHash: "1".repeat(64),
     predecessorBridgeHash: "0".repeat(64),
   };
-  const event = await createVerifiedContainerAccessEvent({
-    body,
-    objectId: previous.state.containerId,
-    organizationId: previous.state.organizationId,
-    previousManifestHash: previous.manifestHash,
-    signer: writerSigning,
-    signerUserId: writerUserId,
-  });
-  const manifest = await deriveContainerAccessManifest({
-    ...previous.state,
-    epoch: previous.state.epoch + 1,
-    previousManifestHash: previous.manifestHash,
-    eventHash: event.eventHash,
-    containerKeyEpochId: body.containerKeyEpochId,
-  });
-
-  const result = await verifyContainerAccessManifest({
-    manifest,
-    expectedManifestHash: await computeAccessManifestHash(manifest),
-    event,
-    previousManifest: previous,
-    previousContainerPath: [previous],
-  });
-
-  if (!result.ok) {
-    throw result.error;
-  }
-  expect(result.value.state.referencedPrincipalHeads).toEqual([previousHead]);
+  expect(() => normalizeContainerRekeyAccessEventBody(body)).toThrow();
+  expect(() =>
+    normalizeContainerRekeyAccessEventBody({
+      ...body,
+      referencedPrincipalHeads: null,
+    }),
+  ).toThrow("must be an array");
+  expect(
+    normalizeContainerRekeyAccessEventBody({
+      ...body,
+      referencedPrincipalHeads: [],
+    }).referencedPrincipalHeads,
+  ).toEqual([]);
 });

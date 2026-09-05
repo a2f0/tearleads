@@ -20,7 +20,6 @@ import {
   ListContainerDocumentsQuerySchema,
   listContainerDocumentsOperation,
   listContainerParentLanesOperation,
-  normalizeContainerKekLogEpochQuery,
 } from "./containerReads";
 import { openApiDocument } from "./openApi";
 import {
@@ -56,14 +55,31 @@ test("container read operations own their complete wire metadata", () => {
   });
 });
 
-test("container read operations preserve query compatibility", () => {
-  expect(normalizeContainerKekLogEpochQuery(undefined)).toBe(0);
-  expect(normalizeContainerKekLogEpochQuery("malformed")).toBe(0);
-  expect(normalizeContainerKekLogEpochQuery("2")).toBe(2);
-  expect(
-    ContainerKekLogQuerySchema.safeParse({ afterKeyEpoch: "malformed" })
-      .success,
-  ).toBe(true);
+test("container read operations validate current query contracts", () => {
+  expect(ContainerKekLogQuerySchema.parse({})).toEqual({});
+  expect(ContainerKekLogQuerySchema.parse({ afterKeyEpoch: "2" })).toEqual({
+    afterKeyEpoch: "2",
+  });
+  for (const value of [
+    "malformed",
+    "",
+    "1.5",
+    "1e2",
+    " 2 ",
+    "0",
+    "65537",
+    -1,
+    0,
+    1.5,
+    Number.MAX_SAFE_INTEGER,
+    Infinity,
+  ]) {
+    for (const field of ["afterKeyEpoch", "keyringForEpoch"]) {
+      expect(
+        ContainerKekLogQuerySchema.safeParse({ [field]: value }).success,
+      ).toBe(false);
+    }
+  }
   expect(ListContainerDocumentsQuerySchema.parse({ limit: "25" })).toEqual({
     limit: 25,
   });

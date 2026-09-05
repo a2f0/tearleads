@@ -17,8 +17,8 @@ import {
   operationTransportSurface,
 } from "./operationTransportSurface";
 import type {
+  OperationResponseRequestFn,
   RequestFailure,
-  ResponseRequestFn,
   ResponseRequestValidationFailureInput,
 } from "./types";
 
@@ -136,7 +136,7 @@ test("each transport surface refuses operations it does not own before fetch", a
         };
       },
     },
-  ) as ResponseRequestFn;
+  ) as OperationResponseRequestFn;
   const transport = createOperationTransport(request);
   const blobId = "22222222-2222-4222-8222-222222222222";
 

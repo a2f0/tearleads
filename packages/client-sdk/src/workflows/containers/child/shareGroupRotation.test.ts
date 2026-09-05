@@ -229,6 +229,7 @@ test("same-level Admins re-wrap survives a group rotation and cold root unwrap",
       execSql,
       epochOnePolicy,
       "2026-04-28T12:00:30.000Z",
+      ORGANIZATION_ID,
     );
     await unwrapContainerKekPath({
       execSql,
@@ -425,6 +426,7 @@ test("Admins rotation rekeys the root and a fresh current member opens all epoch
       warmDatabase.execSql,
       epochOnePolicy,
       "2026-04-28T12:00:30.000Z",
+      ORGANIZATION_ID,
     );
     const rekeyed = await buildMaterializedContainerRekeyPlan({
       author,
@@ -456,6 +458,7 @@ test("Admins rotation rekeys the root and a fresh current member opens all epoch
       coldDatabase.execSql,
       epochTwoPolicy,
       "2026-04-28T12:02:30.000Z",
+      ORGANIZATION_ID,
     );
     const coldKeks = await unwrapContainerKekPath({
       execSql: coldDatabase.execSql,

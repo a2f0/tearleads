@@ -8,7 +8,6 @@ export type {
   ListDocumentEditAttributionRangesOptions,
   RequestFailure,
   RequestFailureKind,
-  RequestFn,
   RequestResult,
   RequestResultOptions,
   RequestSuccess,

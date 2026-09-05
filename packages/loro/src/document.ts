@@ -1,6 +1,9 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
-import { decodeImportBlobMeta, LoroDoc, VersionVector } from "loro-crdt";
+import { LoroDoc, VersionVector } from "loro-crdt";
 import { serializeCanonicalHistory } from "./historyCanonicalization";
+import { getImportBlobMetadata } from "./importMetadata";
+
+export { getImportBlobMetadata, type ImportBlobMode } from "./importMetadata";
 
 function isPeerIdString(value: string): value is `${number}` {
   return /^\d+$/.test(value);
@@ -177,31 +180,6 @@ export function getUpdateVersionVectors(update: Uint8Array): {
   };
 }
 
-export type ImportBlobMode =
-  | "outdated-update"
-  | "snapshot"
-  | "shallow-snapshot"
-  | "update"
-  | "outdated-snapshot";
-
-export function getImportBlobMetadata(update: Uint8Array): {
-  mode: ImportBlobMode;
-  partialStartVersionVector: string;
-  partialEndVersionVector: string;
-} {
-  const metadata = decodeImportBlobMeta(update, true);
-
-  return {
-    mode: metadata.mode,
-    partialStartVersionVector: encodeEncodedVersionVector(
-      metadata.partialStartVersionVector,
-    ),
-    partialEndVersionVector: encodeEncodedVersionVector(
-      metadata.partialEndVersionVector,
-    ),
-  };
-}
-
 export function satisfiesVersionVector(
   encodedVersionVector: string | null | undefined,
   partialVersionVector: string,
@@ -289,6 +267,8 @@ export function versionVectorsEqual(
 }
 
 export function importUpdates(doc: LoroDoc, updates: Uint8Array[]): void {
+  // Reject an obsolete member before importBatch can mutate the document.
+  for (const update of updates) getImportBlobMetadata(update);
   const status = doc.importBatch(updates);
   if (status.pending != null && status.pending.size > 0) {
     // importBatch applies out-of-order batches correctly but can still report
@@ -315,6 +295,7 @@ export function importUpdates(doc: LoroDoc, updates: Uint8Array[]): void {
  * of silently loading a short document.
  */
 export function importSnapshot(doc: LoroDoc, snapshot: Uint8Array): void {
+  getImportBlobMetadata(snapshot);
   const status = doc.import(snapshot);
   // Reject only a genuinely incomplete import: `pending` can be an empty
   // VersionVector (size 0) rather than null when everything resolved, so test

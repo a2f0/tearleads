@@ -1,10 +1,14 @@
-import {
-  getLargestSyncBillingTier,
-  getSyncBillingTierForSeatCount,
-} from "@tearleads/validators/billing";
+import { getSyncBillingTierForSeatCount } from "@tearleads/validators/billing";
 import { resolveDeps, type StripeApiDeps, stripeRequest } from "./stripeHttp";
 
 type StripeSeatProrationBehavior = "create_prorations" | "none";
+
+export class StripeSeatQuantityInvalid extends RangeError {
+  constructor(message: string) {
+    super(message);
+    this.name = "StripeSeatQuantityInvalid";
+  }
+}
 
 interface StripeSeatQuantityUpdate {
   readonly subscriptionItemId: string;
@@ -14,19 +18,21 @@ interface StripeSeatQuantityUpdate {
 }
 
 /**
- * Rounds live seat state up to a fixed tier. Empty rosters retain Solo, and a
- * defensive fallback maps legacy oversized outbox state to the largest tier so the worker
- * can settle instead of retrying the same impossible target forever. Roster
- * writes and checkout reject new state above 10 before it reaches this helper.
+ * Rounds live seat state up to a fixed tier. Empty rosters retain Solo.
+ * Out-of-contract capacity is rejected, never silently under-provisioned.
  */
 export function normalizeStripeSeatQuantity(seatQuantity: number): number {
   if (!Number.isSafeInteger(seatQuantity) || seatQuantity < 0) {
-    throw new RangeError("Stripe seat quantity must be a non-negative integer");
+    throw new StripeSeatQuantityInvalid(
+      "Stripe seat quantity must be a non-negative integer",
+    );
   }
-  return (
-    getSyncBillingTierForSeatCount(Math.max(1, seatQuantity)) ??
-    getLargestSyncBillingTier()
-  ).seatLimit;
+  const tier = getSyncBillingTierForSeatCount(Math.max(1, seatQuantity));
+  if (!tier)
+    throw new StripeSeatQuantityInvalid(
+      "Stripe seat quantity exceeds the available tiers",
+    );
+  return tier.seatLimit;
 }
 
 /** Switches the subscription item to the fixed tier covering the seat target. */
@@ -36,7 +42,9 @@ export async function updateSubscriptionItemQuantity(
 ): Promise<boolean | null> {
   const tier = getSyncBillingTierForSeatCount(input.seatQuantity);
   if (!tier) {
-    throw new RangeError("Stripe seat target exceeds the available tiers");
+    throw new StripeSeatQuantityInvalid(
+      "Stripe seat target exceeds the available tiers",
+    );
   }
   if (!input.idempotencyKey.trim()) {
     throw new RangeError(

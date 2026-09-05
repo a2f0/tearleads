@@ -136,14 +136,15 @@ function createStripeInvoiceAuditInput(input: {
     line.priceId,
     input.stripeDeps,
   );
-  // Greenfield fixed tiers are quantity-one Prices whose unit amount identifies
-  // capacity; legacy per-seat lines are outside this contract.
+  // Fixed tiers are quantity-one Prices. Unknown economics must not turn a
+  // provider item count into licensed seat capacity.
   const economicsTier = hasCompleteTierEconomics
     ? (SYNC_BILLING_TIERS.find(
         (tier) => line.unitAmount === tier.monthlyPriceUsdCents,
       ) ?? null)
     : null;
-  const resolvedTier = economicsTier ?? configuredTier;
+  const resolvedTier =
+    line.quantity === 1 ? (economicsTier ?? configuredTier) : null;
   return {
     ...totalOnlySnapshot,
     interval: line.interval,
@@ -151,7 +152,7 @@ function createStripeInvoiceAuditInput(input: {
     periodEndsAt: line.periodEndsAt,
     periodStartsAt: line.periodStartsAt,
     priceId: line.priceId,
-    seatCount: resolvedTier?.seatLimit ?? line.quantity,
+    seatCount: resolvedTier?.seatLimit ?? null,
     unitAmount: line.unitAmount,
   };
 }

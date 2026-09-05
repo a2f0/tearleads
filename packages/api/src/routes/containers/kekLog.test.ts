@@ -283,17 +283,18 @@ test("the kek-log pages from a cursor and reports more", async () => {
   expect(emptyPage.epochs).toEqual([]);
   expect(emptyPage.hasMore).toBe(false);
 
-  // A malformed cursor reads as "from the beginning".
-  const malformedResponse = await getKekLog(
-    root.kekState.containerId,
-    owner.token,
+  for (const query of [
     "?afterKeyEpoch=not-a-number",
-  );
-  const malformedPage =
-    (await malformedResponse.json()) as ContainerKekLogResponse;
-  expect(malformedPage.epochs.map((epoch) => epoch.containerKeyEpoch)).toEqual([
-    1, 2, 3,
-  ]);
+    "?afterKeyEpoch=0",
+    "?keyringForEpoch=65537",
+  ]) {
+    const invalid = await getKekLog(
+      root.kekState.containerId,
+      owner.token,
+      query,
+    );
+    expect(invalid.status).toBe(400);
+  }
 }, 15_000);
 
 test("the kek-log discloses no other member's envelopes", async () => {

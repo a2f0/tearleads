@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
 import Ajv2020 from "ajv/dist/2020";
 import {
-  documentSyncRequestEnvelopeRefinements,
   documentSyncRequestPullRefinements,
   documentSyncRequestRotationRefinement,
   documentSyncResponseCommitLsnModeRefinement,
@@ -58,7 +57,15 @@ const witnesses = {
       "checkpoint fields must be absent or form a rotation baseline",
     kind: "request",
   },
-  [documentSyncRequestEnvelopeRefinements[0].id]: {
+  "request.inline-rekey-commit-marker": {
+    createInput: () => ({
+      ...createSyncRequest(),
+      inlineRekeyCommitId: undefined,
+    }),
+    expectedMessage: "inline rekey commit id must accompany container rekeys",
+    kind: "request",
+  },
+  "request.authorizing-paths-for-writes": {
     createInput: () => {
       const request = createSyncRequest();
       Reflect.deleteProperty(request, "authorizingContainerPathRefs");
@@ -68,12 +75,12 @@ const witnesses = {
       "authorizing container paths are required for outgoing updates",
     kind: "request",
   },
-  [documentSyncRequestEnvelopeRefinements[1].id]: {
+  "request.container-rekeys-require-write": {
     createInput: () => ({ ...createSyncRequest(), outgoingUpdates: [] }),
     expectedMessage: "container rekeys require an outgoing update",
     kind: "request",
   },
-  [documentSyncRequestEnvelopeRefinements[2].id]: {
+  "request.unique-outgoing-update-ids": {
     createInput: () => ({
       ...createSyncRequest(),
       outgoingUpdates: [firstOutgoingUpdate(), firstOutgoingUpdate()],

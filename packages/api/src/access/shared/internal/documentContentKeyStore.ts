@@ -661,7 +661,7 @@ interface StoreDocumentContentWriteHeaderInput {
 }
 
 interface DocumentContentWriteHeaderRow {
-  readonly authorizationTargets: DocumentContentKeyTarget[] | null;
+  readonly authorizationTargets: DocumentContentKeyTarget[];
   readonly header: WriteHeader;
   readonly headerHash: string;
   readonly recordId: string;
@@ -736,7 +736,7 @@ export async function listDocumentContentWriteHeaders(
   Map<
     string,
     {
-      authorizationTargets: DocumentContentKeyTarget[] | null;
+      authorizationTargets: DocumentContentKeyTarget[];
       header: WriteHeader;
       headerHash: string;
     }

@@ -9,6 +9,11 @@ export const documentSyncRequestRotationRefinement = {
 export const documentSyncRequestEnvelopeRefinements = [
   {
     description:
+      "inlineRekeyCommitId must be present exactly when containerRekeys is non-empty",
+    id: "request.inline-rekey-commit-marker",
+  },
+  {
+    description:
       "authorizingContainerPathRefs is required when outgoingUpdates is non-empty",
     id: "request.authorizing-paths-for-writes",
   },

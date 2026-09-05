@@ -5,6 +5,7 @@ import {
 } from "@tearleads/crypto";
 import {
   createContainerWriterProjectionFixture,
+  createMockApiClient,
   createTestExecSql,
 } from "@tearleads/test-utils";
 import type { DocumentLinkSetMutationRequest } from "@tearleads/validators/request";
@@ -88,7 +89,7 @@ test("relinkRemoteContainerDocument persists linked container projections after 
       operation: "link",
       resolveProjectionUserKey,
       runtime: {
-        apiClient: {
+        apiClient: createMockApiClient({
           getContainerWriterProjection: async (containerId) =>
             containerId === siblingProjection.containerId
               ? siblingProjection
@@ -106,7 +107,7 @@ test("relinkRemoteContainerDocument persists linked container projections after 
           unlinkDocument: async () => {
             throw new Error("Unexpected unlink call");
           },
-        },
+        }),
         auth: {
           isAuthenticated: true,
           organizationId: author.organizationId,
@@ -225,13 +226,13 @@ test("relinkRemoteContainerDocument propagates identity failures without soft-fa
         operation: "link",
         resolveProjectionUserKey: async () => null,
         runtime: {
-          apiClient: {
+          apiClient: createMockApiClient({
             getContainerWriterProjection: async () => null,
             getDocumentWriterProjection: async () => {
               projectionRequests += 1;
               throw integrityError;
             },
-          },
+          }),
           auth: {
             isAuthenticated: true,
             organizationId: author.organizationId,

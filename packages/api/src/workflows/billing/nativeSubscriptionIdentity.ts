@@ -204,11 +204,5 @@ export async function matchesLockedNativeStore(input: {
   );
   if (!matchesBindingIdentity) return false;
   const persistedStore = await resolvePersistedNativeSubscriptionStore(input);
-  if (persistedStore) return eventStore === persistedStore;
-  // Pre-audit bindings have no durable store row to consult. Their exact token,
-  // buyer, configured product, and native event store still form a safe legacy
-  // identity; a different token continues to fail closed.
-  return (
-    input.event.original_transaction_id === input.billing.providerSubscriptionId
-  );
+  return persistedStore !== null && eventStore === persistedStore;
 }

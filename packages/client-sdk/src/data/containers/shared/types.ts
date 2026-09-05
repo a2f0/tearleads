@@ -125,25 +125,17 @@ export type ContainerMutationSubmitResult<T> =
   | ContainerMutationSubmitFailure;
 
 export interface ContainerCreateApi {
-  createContainer(
-    input: ContainerMutationRequest,
-    options?: ContainerMutationRequestOptions,
-  ): Promise<ContainerMutationResponse | null>;
-  createContainerResult?(
+  createContainerResult(
     input: ContainerMutationRequest,
     options?: ContainerMutationRequestOptions,
   ): Promise<ContainerMutationSubmitResult<ContainerMutationResponse>>;
-  createContainerWithMetadataDocument?(
-    input: ContainerCreateWithMetadataDocumentRequest,
-    options?: ContainerMutationRequestOptions,
-  ): Promise<ContainerCreateWithMetadataDocumentResponse | null>;
-  createContainerWithMetadataDocumentResult?(
+  createContainerWithMetadataDocumentResult(
     input: ContainerCreateWithMetadataDocumentRequest,
     options?: ContainerMutationRequestOptions,
   ): Promise<
     ContainerMutationSubmitResult<ContainerCreateWithMetadataDocumentResponse>
   >;
-  evictContainerWriterProjection?(containerId: string): void;
+  evictContainerWriterProjection(containerId: string): void;
   getContainerWriterProjection(
     containerId: string,
   ): Promise<ContainerWriterProjectionResponse | null>;

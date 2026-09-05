@@ -465,7 +465,7 @@ export async function savePrincipalPolicyBundle(
   execSql: ExecSql,
   bundle: PrincipalPolicyBundleResponse,
   updatedAt: string,
-  organizationId?: string | undefined,
+  organizationId: string,
   options?: { stillCurrent?: (() => boolean) | undefined } | undefined,
 ): Promise<void> {
   await ensureSqlTables(execSql, [

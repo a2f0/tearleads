@@ -30,15 +30,13 @@ catalog work unless real subscribers exist when the change is made.
 | Team 5 | $10 | 5 | `sync_team_5_monthly` | `team_5` | 2 |
 | Team 10 | $20 | 10 | `sync_team_10_monthly` | `team_10` | 1 |
 
-The restored Tearleads App Store records use the unprefixed product stems they
-already own. The superseded SymCrypt records used `symcrypt_` prefixes; the API
-continues to recognize those receipts during the cutover. Staging Apple and
-Google product IDs append `_staging`.
+Tearleads App Store records use the unprefixed product stems above.
+Superseded product aliases are rejected. Staging Apple and Google product IDs
+append `_staging`.
 Google appends the `monthly` base-plan ID when the product is represented in
 RevenueCat, for example `sync_solo_monthly_staging:monthly`.
 
-Legacy product aliases only preserve receipt-to-tier mapping. They do not
-forward provider traffic: each deployment's RevenueCat and Stripe webhook
+Each deployment's RevenueCat and Stripe webhook
 integrations must be repointed to its Tearleads API hostname. Install the
 matching RevenueCat authorization header and Stripe endpoint signing secret
 before the SymCrypt endpoints are retired.

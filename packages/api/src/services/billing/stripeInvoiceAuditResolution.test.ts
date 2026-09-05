@@ -14,7 +14,7 @@ const BINDING: StripeSubscriptionBinding = {
   organizationId: "org-1",
   paymentMethodBillingEmail: "buyer@example.com",
   priceId: "price_sync",
-  seatQuantity: 3,
+  seatQuantity: 5,
   status: "active",
   subscriptionItemId: "si_1",
   unitAmount: 499,
@@ -42,7 +42,7 @@ function invoiceBody(input: {
           period: { start: 1_783_036_800, end: 1_785_715_200 },
           price: input.price,
           proration: false,
-          quantity: input.quantity ?? 3,
+          quantity: input.quantity ?? 1,
           subscription: "sub_1",
           subscription_item: "si_1",
         },
@@ -101,7 +101,7 @@ test("a matching line from a truncated embed is replaced by the complete list", 
   expect(audit).toMatchObject({
     interval: "month",
     intervalCount: 3,
-    seatCount: 3,
+    seatCount: null,
     unitAmount: 499,
   });
 });
@@ -193,7 +193,7 @@ test("historical invoice economics override a remapped configured Price", async 
   });
 });
 
-test("legacy quantity does not masquerade as fixed-tier economics", async () => {
+test("non-unit quantity does not produce licensed seat capacity", async () => {
   const audit = await resolveStripeInvoiceAuditInput({
     binding: { ...BINDING, priceId: "price_legacy", seatQuantity: 3 },
     invoice: parseInvoice(
@@ -214,7 +214,7 @@ test("legacy quantity does not masquerade as fixed-tier economics", async () => 
 
   expect(audit).toMatchObject({
     priceId: "price_legacy",
-    seatCount: 3,
+    seatCount: null,
     unitAmount: 1_000,
   });
 });
@@ -300,7 +300,7 @@ test("pinned line details enrich a signed total without replacing it", async () 
     intervalCount: 3,
     occurredAt: new Date(1_783_123_456 * 1000),
     providerEventId: "evt_1",
-    seatCount: 3,
+    seatCount: null,
     totalAmount: 1_497,
     unitAmount: 499,
   });

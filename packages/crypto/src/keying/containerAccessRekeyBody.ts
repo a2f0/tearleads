@@ -7,12 +7,10 @@ import {
   throwVerification,
 } from "./shared";
 import type {
-  ContainerGrantPrincipalHead,
   ContainerRekeyAccessEventBody,
   KeyingCanonicalJson,
 } from "./types";
 
-/** Legacy rekeys omit principal heads and inherit them from the predecessor. */
 export function normalizeContainerRekeyAccessEventBody(
   value: KeyingCanonicalJson,
 ): ContainerRekeyAccessEventBody {
@@ -22,41 +20,22 @@ export function normalizeContainerRekeyAccessEventBody(
       "container.rekey event body must be a plain object",
     );
   }
-  const hasReferencedPrincipalHeads = Object.hasOwn(
-    value,
-    "referencedPrincipalHeads",
-  );
   const record = assertExactKeys(
     value,
-    hasReferencedPrincipalHeads
-      ? [
-          "containerKeyEpochId",
-          "eventType",
-          "keyringHash",
-          "predecessorBridgeHash",
-          "referencedPrincipalHeads",
-        ]
-      : [
-          "containerKeyEpochId",
-          "eventType",
-          "keyringHash",
-          "predecessorBridgeHash",
-        ],
+    [
+      "containerKeyEpochId",
+      "eventType",
+      "keyringHash",
+      "predecessorBridgeHash",
+      "referencedPrincipalHeads",
+    ],
     "container.rekey event body",
   );
   const referencedPrincipalHeads = record.referencedPrincipalHeads;
-  let normalizedReferencedPrincipalHeads:
-    | ContainerGrantPrincipalHead[]
-    | undefined;
-  if (hasReferencedPrincipalHeads && !Array.isArray(referencedPrincipalHeads)) {
+  if (!Array.isArray(referencedPrincipalHeads)) {
     throwVerification(
       "invalid_shape",
       "container.rekey event body.referencedPrincipalHeads must be an array",
-    );
-  }
-  if (Array.isArray(referencedPrincipalHeads)) {
-    normalizedReferencedPrincipalHeads = normalizeContainerGrantPrincipalHeads(
-      referencedPrincipalHeads,
     );
   }
 
@@ -77,8 +56,8 @@ export function normalizeContainerRekeyAccessEventBody(
       "predecessorBridgeHash",
       "container.rekey event body",
     ),
-    ...(normalizedReferencedPrincipalHeads
-      ? { referencedPrincipalHeads: normalizedReferencedPrincipalHeads }
-      : {}),
+    referencedPrincipalHeads: normalizeContainerGrantPrincipalHeads(
+      referencedPrincipalHeads,
+    ),
   };
 }

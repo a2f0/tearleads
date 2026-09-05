@@ -18,7 +18,6 @@ export {
   buildContainerCreatePlan,
   buildMaterializedContainerCreatePlan,
   childContainerWriterProjectionFromCreatePlan,
-  continueRemoteContainerCreateForMetadataDocument,
   createRemoteContainer,
 } from "./child/create";
 export { moveRemoteContainer } from "./child/move";

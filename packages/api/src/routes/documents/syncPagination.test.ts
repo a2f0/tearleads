@@ -58,7 +58,6 @@ test("the sync route traverses more than 64 updates exactly once", async () => {
       outgoingUpdates: [],
       ...(pullCursor === undefined ? {} : { pullCursor }),
       supportsPullPagination: true,
-      supportsUntrackedCommitLsn: true,
     });
     expect(response.status).toBe(200);
     const body = (await response.json()) as DocumentSyncResponse;
@@ -84,7 +83,6 @@ test("a lost continuation response retries without skipped or duplicated updates
     localVersionVector: null,
     outgoingUpdates: [],
     supportsPullPagination: true,
-    supportsUntrackedCommitLsn: true,
   };
   const firstPageResponse = await postSync(
     owner.token,

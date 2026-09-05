@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  createMockApiClient,
+  createMockRequestFailure,
+  createTestExecSql,
+} from "@tearleads/test-utils";
 import { DOCUMENT_NOT_FOUND_ERROR_CODE } from "@tearleads/validators/response";
 import {
   createMaterializedSyncFixture,
@@ -28,7 +32,7 @@ test("purge proof for the same document id in another organization fails closed"
   try {
     await expect(
       syncRemoteDocument({
-        apiClient: {
+        apiClient: createMockApiClient({
           getDocumentPurgeProof: async () => {
             proofFetches += 1;
             return foreignProof;
@@ -39,14 +43,13 @@ test("purge proof for the same document id in another organization fails closed"
           syncDocument: async () => {
             throw new Error("Expected syncDocumentResult failure");
           },
-          syncDocumentResult: async () => ({
-            code: DOCUMENT_NOT_FOUND_ERROR_CODE,
-            message: "Document not found",
-            ok: false,
-            report: () => undefined,
-            status: 404,
-          }),
-        },
+          syncDocumentResult: async () =>
+            createMockRequestFailure({
+              code: DOCUMENT_NOT_FOUND_ERROR_CODE,
+              message: "Document not found",
+              status: 404,
+            }),
+        }),
         author: local.author,
         documentId: local.writerProjection.documentId,
         execSql,

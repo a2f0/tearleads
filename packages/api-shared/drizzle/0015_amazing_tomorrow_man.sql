@@ -1,0 +1,2 @@
+ALTER TABLE "blob_content_write_headers" ALTER COLUMN "authorization" SET NOT NULL;--> statement-breakpoint
+ALTER TABLE "document_content_write_headers" ALTER COLUMN "authorization_targets" SET NOT NULL;

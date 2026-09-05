@@ -20,7 +20,7 @@ function createDeferred<T>() {
 
 test("factory instances share native checkout identity serialization", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
-  fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
+  fixture.packages = [nativePackage("monthly", "sync_solo_monthly")];
   const purchaseResult = createDeferred<{ activeEntitlementIds: string[] }>();
   const purchaseStarted = createDeferred<void>();
   fixture.nativePurchasePromise = purchaseResult.promise;

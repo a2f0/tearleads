@@ -7,8 +7,8 @@ import {
 import type { BinaryOperationResponseEnvelope } from "./binaryResponseOperationTransport";
 import { createOperationTransport } from "./operationTransportFactory";
 import type {
+  OperationResponseRequestFn,
   RequestFailure,
-  ResponseRequestFn,
   ResponseRequestValidationFailureInput,
 } from "./types";
 
@@ -55,7 +55,7 @@ test("derives binary response requests and preserves live streams", async () => 
     }),
     {
       headers: {
-        "Content-Length": String(bytes.byteLength),
+        "X-Tearleads-Blob-Byte-Length": String(bytes.byteLength),
         "X-Tearleads-Blob-Id": blobId,
         "X-Tearleads-Blob-Sha256": "sha256-1",
       },
@@ -67,7 +67,7 @@ test("derives binary response requests and preserves live streams", async () => 
       return { data: response, ok: true as const };
     },
     { reportFailure: requestFailure },
-  ) as ResponseRequestFn;
+  ) as OperationResponseRequestFn;
   const transport = createOperationTransport(request);
 
   const result = await transport.requestBinaryResponse(getBlobBytesOperation, {
@@ -78,7 +78,7 @@ test("derives binary response requests and preserves live streams", async () => 
     headers: {
       [blobWireHeaderKeys.blobId]: blobId,
       [blobWireHeaderKeys.blobSha256]: "sha256-1",
-      [blobWireHeaderKeys.contentLength]: String(bytes.byteLength),
+      [blobWireHeaderKeys.blobByteLength]: String(bytes.byteLength),
     },
     response,
     status: 200,
@@ -104,7 +104,7 @@ test("reports malformed binary response headers through policy", async () => {
         return requestFailure(input);
       },
     },
-  ) as ResponseRequestFn;
+  ) as OperationResponseRequestFn;
   const transport = createOperationTransport(request);
 
   await expect(
@@ -134,7 +134,7 @@ test("rejects undeclared binary success statuses", async () => {
       ok: true as const,
     }),
     { reportFailure: requestFailure },
-  ) as ResponseRequestFn;
+  ) as OperationResponseRequestFn;
   const transport = createOperationTransport(request);
 
   await expect(
@@ -170,7 +170,7 @@ test("derives binary request bodies and decodes JSON responses", async () => {
       };
     },
     { reportFailure: requestFailure },
-  ) as ResponseRequestFn;
+  ) as OperationResponseRequestFn;
   const transport = createOperationTransport(request);
 
   const result = await transport.requestBinaryRequest(
@@ -231,7 +231,7 @@ test("rejects invalid binary request input before encoding or fetch", async () =
       return { data: Response.json({}), ok: true as const };
     },
     { reportFailure: requestFailure },
-  ) as ResponseRequestFn;
+  ) as OperationResponseRequestFn;
   const transport = createOperationTransport(request);
 
   await expect(
@@ -267,7 +267,7 @@ test("reports malformed binary-request JSON responses through policy", async () 
       ok: true as const,
     }),
     { reportFailure: requestFailure },
-  ) as ResponseRequestFn;
+  ) as OperationResponseRequestFn;
   const transport = createOperationTransport(request);
 
   await expect(

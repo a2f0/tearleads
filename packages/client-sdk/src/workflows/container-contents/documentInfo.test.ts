@@ -131,6 +131,22 @@ function createBlobContentKeyBundle(): BlobContentKeyBundleResponse {
   };
 }
 
+function createBlobTargets() {
+  return {
+    activeBindingIds: ["binding-1"],
+    blobId: "blob-1",
+    blobAccessManifestHash: "blob-manifest",
+    blobKeyTargetHash: "blob-key-target-hash",
+    documentManifestHashes: ["document-manifest-hash"],
+    linkedContainerKeyEpochIds: ["container-key-epoch-1"],
+    linkedContainerManifestHashes: ["container-manifest-hash"],
+    organizationId: "org-1",
+    targets: createBlobContentKeyBundle().targets.map((target) => ({
+      ...target,
+    })),
+  };
+}
+
 test("loadDocumentInfo reads local runtime, attachment, blob, and remote security summaries", async () => {
   const { close, execSql } = await createTestExecSql(
     "containerContents-document-info-test",
@@ -192,6 +208,12 @@ test("loadDocumentInfo reads local runtime, attachment, blob, and remote securit
             {
               bindingId: "binding-1",
               blobId: "blob-1",
+              bindingEvent: { body: {}, event: {}, eventHash: "event-hash" },
+              blobKekTargets: createBlobTargets(),
+              writeAuthorization: createBlobTargets(),
+              writeHeader: {},
+              documentManifestHash: "document-manifest-hash",
+              previousBindingId: null,
               contentKeyBundle: createBlobContentKeyBundle(),
               slotId: "slot-local",
             },

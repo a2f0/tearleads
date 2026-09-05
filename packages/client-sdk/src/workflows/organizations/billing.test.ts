@@ -192,7 +192,7 @@ test("loadOrganizationBillingHistory passes the org id through to the api client
         eventType: "INITIAL_PURCHASE",
         outcome: "applied",
         occurredAt: iso(0),
-        productId: "sync_monthly",
+        productId: "sync_solo_monthly",
         transactionId: "transaction-1",
         invoiceId: null,
         subscriptionId: null,
