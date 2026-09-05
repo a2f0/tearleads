@@ -33,3 +33,17 @@ principal policy checkpoints, and access manifest checkpoints, and aborts on
 overlapping conflicts. Older backup formats are rejected. Deliberately purging
 or recreating the local database resets this security history and should be
 presented to users as a security reset.
+
+Password-protected backups authenticate their contents with AES-GCM. Opting out
+of a password removes both encryption and integrity protection: anyone with the
+file can read or modify it. Restore still enforces the existing device's pin
+and checkpoint conflict rules, but imports previously unseen trust scopes from
+the backup. A modified unencrypted backup can therefore seed new trust pins or
+checkpoints, especially on a fresh device. Such a restore relies on the user
+trusting the file's origin and integrity; structural validation does not
+authenticate its contents.
+
+Encryption authenticates the file against the supplied password, not the
+identity of its author. Users must trust the source of a backup in either
+format. The restore UI highlights unencrypted files and labels their action
+"Restore Unencrypted Backup" so the user explicitly chooses that restore.
