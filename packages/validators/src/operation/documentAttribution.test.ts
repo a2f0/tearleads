@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import Ajv2020 from "ajv/dist/2020";
+import { toJsonSchema } from "../jsonSchema";
 import {
   DocumentEditAttributionResponseSchema,
   ErrorResponseSchema,
@@ -19,6 +20,37 @@ import {
 import { openApiDocument } from "./openApi";
 
 const documentId = "document/with spaces";
+
+test("attribution wire headers require private caching and encoding variation", () => {
+  const schema = getDocumentAttributionOperation.responseHeaders[200];
+  const validate = new Ajv2020().compile(toJsonSchema(schema));
+  const headers = {
+    "cache-control": "private, no-cache",
+    "content-type": "application/json",
+    etag: 'W/"revision-1"',
+    vary: "Origin, Accept-Encoding",
+  };
+  for (const vary of [
+    "Accept-Encoding",
+    "Origin, Accept-Encoding",
+    "ACCEPT-ENCODING, Origin",
+    "accept-encoding",
+    "*",
+  ]) {
+    const values = { ...headers, vary };
+    expect(schema.safeParse(values).success).toBe(true);
+    expect(validate(values)).toBe(true);
+  }
+  for (const values of [
+    { ...headers, "cache-control": "public, max-age=3600" },
+    { ...headers, vary: "Origin" },
+    { ...headers, vary: "X-Accept-Encoding" },
+    { ...headers, vary: "" },
+  ]) {
+    expect(schema.safeParse(values).success).toBe(false);
+    expect(validate(values)).toBe(false);
+  }
+});
 
 test("document attribution operations own their HTTP contracts", () => {
   expect(getDocumentAttributionOperation).toMatchObject({
