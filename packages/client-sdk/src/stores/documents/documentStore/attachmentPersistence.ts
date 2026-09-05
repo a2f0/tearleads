@@ -160,9 +160,8 @@ export function upsertPendingAttachments(
 /**
  * Persist a pending attachment's upload-resume identity (blob id, content key,
  * IV, and — once staged — the multipart stage id/part size) so a later attempt
- * reuses it instead of orphaning the stage. The caller mutates the record's
- * `upload` field in place (keeping the same object reference the sync loop tracks
- * by identity), so this only writes through to durable storage.
+ * reuses it instead of orphaning the stage. The caller publishes the saved
+ * identity on the live pending record only after this write succeeds.
  */
 export async function savePendingAttachmentUpload(
   state: DocumentStoreState,

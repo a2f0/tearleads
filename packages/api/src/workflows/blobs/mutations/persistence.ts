@@ -161,6 +161,7 @@ export async function promoteStagedBlobIfPresent(input: {
 
   const stage = await loadOwnedActiveBlobStage(input.executor, {
     error: (message, status) => new BlobMutationError(message, status),
+    lockForUpdate: true,
     stageId: input.request.stagedBlob.stageId,
     userId: input.userId,
   });

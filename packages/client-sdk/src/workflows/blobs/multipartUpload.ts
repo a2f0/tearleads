@@ -4,7 +4,6 @@ import type {
   MultipartBlobStagePart,
   MultipartBlobStageStatusResponse,
 } from "@tearleads/validators/response";
-import { MULTIPART_BLOB_STAGE_ERROR_CODES } from "@tearleads/validators/response";
 import { MAX_BLOB_CHUNK_COUNT } from "../../data/documents/blob/shared/blobEnvelopeV2";
 import type { BlobEncryptionPlan } from "../../data/documents/blob/shared/crypto";
 import type {
@@ -13,6 +12,11 @@ import type {
   MultipartUploadProgressListener,
   UploadDocumentAttachmentInput,
 } from "../../data/documents/blob/shared/types";
+import {
+  assertMultipartStageReplaceable,
+  multipartApiFailureMessage,
+  multipartStagePath,
+} from "./multipartStageFailures";
 
 const DEFAULT_MULTIPART_UPLOAD_CONCURRENCY = 4;
 const MAX_MULTIPART_UPLOAD_CONCURRENCY = 4;
@@ -29,19 +33,8 @@ interface MultipartPartUploadTask {
   readonly partNumber: number;
 }
 
-type RequestFailureInput = Parameters<
-  NonNullable<BlobAttachmentApi["getRequestFailure"]>
->[0];
-type RequestFailure = ReturnType<
-  NonNullable<BlobAttachmentApi["getRequestFailure"]>
->;
-
 function pathSegment(value: number | string): string {
   return encodeURIComponent(String(value));
-}
-
-function multipartStagePath(stageId: string): string {
-  return `/blobs/stages/multipart/${pathSegment(stageId)}`;
 }
 
 function multipartPartPath(input: {
@@ -50,29 +43,6 @@ function multipartPartPath(input: {
 }): string {
   const basePath = `${multipartStagePath(input.stageId)}/parts/${pathSegment(input.partNumber)}`;
   return `${basePath}/bytes`;
-}
-
-function multipartApiFailureMessage(input: {
-  readonly apiClient: BlobAttachmentApi;
-  readonly fallback: string;
-  readonly request: RequestFailureInput;
-}): string {
-  const failure = input.apiClient.getRequestFailure?.(input.request)?.message;
-  return failure
-    ? `${input.fallback} Last API failure: ${failure}`
-    : input.fallback;
-}
-
-function provesMultipartStageReplacement(
-  failure: RequestFailure | undefined,
-): boolean {
-  return (
-    failure?.kind === "http" &&
-    ((failure.status === 404 &&
-      failure.code === MULTIPART_BLOB_STAGE_ERROR_CODES.notFound) ||
-      (failure.status === 409 &&
-        failure.code === MULTIPART_BLOB_STAGE_ERROR_CODES.expired))
-  );
 }
 
 async function sha256BytesHex(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
@@ -290,26 +260,20 @@ async function resolveMultipartStageStatus(input: {
   readonly apiClient: BlobAttachmentApi;
   readonly byteLength: number;
   readonly multipart: NonNullable<UploadDocumentAttachmentInput["multipart"]>;
+  readonly onStageUnavailable?:
+    | ((stageId: string) => Promise<void>)
+    | undefined;
   readonly sha256: string;
 }): Promise<MultipartBlobStageStatusResponse> {
   const resumeStageId = input.multipart.resumeStageId;
   if (resumeStageId) {
     const resumed = await input.apiClient.getMultipartBlobStage(resumeStageId);
     if (!resumed) {
-      const request = {
-        method: "GET" as const,
-        path: multipartStagePath(resumeStageId),
-      };
-      const failure = input.apiClient.getRequestFailure?.(request);
-      if (!provesMultipartStageReplacement(failure)) {
-        throw new Error(
-          multipartApiFailureMessage({
-            apiClient: input.apiClient,
-            fallback: `Multipart blob resume stage lookup failed for stage ${resumeStageId}.`,
-            request,
-          }),
-        );
-      }
+      await assertMultipartStageReplaceable({
+        apiClient: input.apiClient,
+        onStageUnavailable: input.onStageUnavailable,
+        stageId: resumeStageId,
+      });
     }
     if (resumed && resumed.stageId !== resumeStageId) {
       throw new Error(
@@ -380,6 +344,9 @@ export async function stageMultipartBlobAttachment(input: {
   readonly multipart: NonNullable<UploadDocumentAttachmentInput["multipart"]>;
   readonly onMultipartProgress?: MultipartUploadProgressListener | undefined;
   readonly onStageResolved?: MultipartStageResolvedListener | undefined;
+  readonly onStageUnavailable?:
+    | ((stageId: string) => Promise<void>)
+    | undefined;
 }): Promise<string | null> {
   if (input.multipart.partSize !== input.encryption.chunkSize) {
     throw new Error(
@@ -391,6 +358,7 @@ export async function stageMultipartBlobAttachment(input: {
     apiClient: input.apiClient,
     byteLength: input.encryption.byteLength,
     multipart: input.multipart,
+    onStageUnavailable: input.onStageUnavailable,
     sha256: input.encryption.sha256,
   });
   // Surface the stage id before any parts upload so the caller can persist it;

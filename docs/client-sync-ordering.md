@@ -167,6 +167,16 @@ committed but its response was lost, the next document pass recognizes the same
 blob in the active slot and adopts that binding locally instead of uploading or
 binding a duplicate.
 
+If that stage is definitively missing or expired, the document owner freshly
+lists bindings before replacing the upload identity. An active matching slot
+retains its identity for adoption; a failed listing retains it for retry. If
+the binding is absent or replaced, the owner durably replaces the old identity
+and schedules a pass with a fresh blob id and encryption material. This also
+recovers a committed-but-unacknowledged bind that another device subsequently
+detached: the old blob id remains permanently reserved by server history.
+Identity and stage changes become visible in memory only after their local
+persistence succeeds.
+
 Remote blob encryption uses independently authenticated 5 MiB plaintext
 chunks, with one encrypted chunk per multipart part. Browser `File` input and
 encrypted OPFS storage remain range-readable, so attachment sync never needs a

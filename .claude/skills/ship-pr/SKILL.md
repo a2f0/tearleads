@@ -39,10 +39,9 @@ actually contains the merge commit; the final checkout reset belongs to `reset`.
 - `--passes <n>` (optional flag, position-independent): forwarded verbatim to
   `cross-agent-review`. **Defaults to `1`** there. Passes inspect one unchanged
   head; they are distinct from repair rounds.
-- `--repair-rounds <n>` (optional flag, position-independent): forwarded verbatim
-  to `cross-agent-review`, which owns the repair loop and bounds it. **Defaults
-  to `2`** there. Use `0` to retain stop-and-report behavior — the review runs and
-  reports, and this flow stops on any blocking finding.
+- `--report-only` (optional flag, position-independent): forwarded verbatim to
+  `cross-agent-review`, which skips base synchronization and repairs. This flow
+  stops on any blocking finding. Without this flag, repairs have no round limit.
 - `--merge-anyway` (optional flag, position-independent): override the merge gate.
   By default the flow stops when `cross-agent-review` reports unresolved blocking
   findings or could not review at all; with this flag it surfaces exactly what it
@@ -171,9 +170,10 @@ loop, subject-only squash, and `MERGED`-state verification.
 2. **Review and repair** — invoke `cross-agent-review` with
    `AGENT_TOOL_REVIEW_BASE_REF="$REVIEW_BASE_REF"` and
    `AGENT_TOOL_REVIEW_BASE_OID="$REVIEW_BASE_OID"`, forwarding the review-agent
-   argument and `--passes <n>` / `--repair-rounds <n>` when given.
+   argument and `--passes <n>` / `--report-only` when given.
 
-   That skill owns the review, the severity gate, and the bounded repair loop:
+   That skill owns the review, the severity gate, and repairs without a round
+   limit:
    for each candidate head it first brings the branch up to date with its base
    (a merge of the latest base — local while there is no PR, so this flow's
    single push is preserved), snapshots the head — the pushed PR head when one
@@ -216,8 +216,8 @@ loop, subject-only squash, and `MERGED`-state verification.
    **Merge gate** — decide on the reported verdict:
    - **Clean, or non-blocking nits only** — carry that exact `REVIEWED_SHA`
      forward to steps 3–4.
-   - **Unresolved blocking findings** — because the repair rounds were exhausted,
-     `--repair-rounds 0` was given, or the loop stopped to ask for direction —
+   - **Unresolved blocking findings** — because `--report-only` was given or
+     the loop needs new authority or a material user choice —
      **stop** and report them, unless `--merge-anyway` was given. In the fresh
      path no PR was opened, so stopping here leaves nothing to clean up.
    - **Review could not run** (every agent and fallback failed) — **stop** rather
@@ -232,7 +232,8 @@ loop, subject-only squash, and `MERGED`-state verification.
 
    **Never repair here.** Fixing a finding in this step would produce a head that
    `cross-agent-review` never read, and `REVIEWED_SHA` would no longer describe
-   the commit being merged. Raise `--repair-rounds` instead.
+   the commit being merged. Return to `cross-agent-review` instead; its repair
+   loop has no round limit.
 
 3. **Open the PR — the single push, bound to the reviewed head**:
 
@@ -300,8 +301,9 @@ loop, subject-only squash, and `MERGED`-state verification.
    **Refresh the base immediately before merging.** The base may advance while
    the review or the pre-push hook is running. A head that was current when it
    was reviewed can therefore become `BEHIND` before step 4. Set
-   `BASE_REFRESH_ROUND=0` and allow at most two base-refresh rounds for the whole
-   ship run.
+   `BASE_REFRESH_ROUND=0` for reporting. Base refreshes have no round limit;
+   continue integrating and reviewing the latest base until the merge succeeds
+   or an operational blocker requires intervention.
 
    This retry is safe only when GitHub atomically requires the head to contain
    the latest base before merging **and the authenticated actor cannot bypass
@@ -360,19 +362,19 @@ loop, subject-only squash, and `MERGED`-state verification.
    also checked to prove the reviewed head contains it. A different OID requires
    another review whether the base advanced or was force-rewound. When either
    check fails, do not merge the base here and do not push an unreviewed commit.
-   If `--repair-rounds 0` was given, stop with the PR open: report-only review
+   If `--report-only` was given, stop with the PR open: report-only review
    intentionally skips base synchronization, so it cannot produce a current
    reviewed head. Otherwise, increment
    `BASE_REFRESH_ROUND`, set `REVIEW_BASE_OID="$BASE_OID"`, and invoke
    `cross-agent-review` again with
    `AGENT_TOOL_REVIEW_BASE_REF="$REVIEW_BASE_REF"` and
    `AGENT_TOOL_REVIEW_BASE_OID="$REVIEW_BASE_OID"`, plus the same agent, pass,
-   and repair-round arguments. With the PR now open, that skill owns merging
+   and report-only arguments. With the PR now open, that skill owns merging
    this freshly pinned base, pushing the updated head without force, and
    reviewing the integrated result. Apply the same verdict gate as step 2,
    replace `REVIEWED_SHA` with the SHA it reports, verify it against local
-   `HEAD` and the PR head, then repeat this freshness check. Stop with the PR
-   open if a third refresh would be required.
+   `HEAD` and the PR head, then repeat this freshness check. The refresh counter
+   records work performed and never stops another required refresh.
 
    A base refresh is not a repair round: it responds to external base movement,
    while repair rounds address reviewer findings. It still requires a complete
@@ -422,7 +424,7 @@ loop, subject-only squash, and `MERGED`-state verification.
    The only retryable merge failure is an open PR whose merge state is
    `BEHIND`: the base advanced after the final freshness fetch. Return to step
    3's base-refresh gate, which synchronizes and re-reviews before producing a
-   new `REVIEWED_SHA`, subject to its two-round bound. For any other non-zero
+   new `REVIEWED_SHA`. Repeat as often as necessary. For any other non-zero
    result, stop with the PR and checkout intact. Never retry the merge with the
    stale SHA, bypass the review, or run cleanup after a failed merge.
 
@@ -473,18 +475,18 @@ loop, subject-only squash, and `MERGED`-state verification.
   immediately before merging. If the base advanced during review or pre-push
   checks, `cross-agent-review` integrates it, pushes, and reviews the new head
   before the SHA-bound merge is retried. GitHub's effective rules must enforce
-  strict base freshness, which atomically rejects any later race. Two refresh
-  rounds bound externally induced retries; exhaustion leaves the PR open.
+  strict base freshness, which atomically rejects any later race. Refresh and
+  re-review as often as necessary; no round count stops this recovery.
 - **Base-ref validation is fail-fast, not an atomic API precondition.** GitHub's
   synchronous merge API exposes `expectedHeadOid` but no corresponding expected
   base-ref input. This flow preserves the base identity used for review and
   checks it repeatedly, including immediately before the merge request, but the
   authenticated actor must not retarget the PR concurrently with that request.
 - **Repair belongs to `cross-agent-review`** — including the severity vocabulary
-  (Blocker/Major ≡ [P0]/[P1] are blocking), the round budget, and the re-review
-  of every changed head. This skill only reads the verdict it reports and
-  decides whether to merge. `--repair-rounds` and `--passes` are forwarded, not
-  interpreted.
+  (Blocker/Major ≡ [P0]/[P1] are blocking), repairs without a round limit, and
+  the re-review of every changed head. This skill only reads the verdict it
+  reports and decides whether to merge. `--report-only` and `--passes` are
+  forwarded, not interpreted.
 - **The merged head is the reviewed head** — `cross-agent-review` reports a SHA
   it actually reviewed; this skill re-verifies it against the local head (and
   against the pushed head once the PR is open) and passes it to `squash-merge`,

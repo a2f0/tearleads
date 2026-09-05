@@ -111,3 +111,55 @@ test("a stale generation never persists resume state", async () => {
   expect(resume.blobId).toBeTruthy();
   expect(saved).toHaveLength(0);
 });
+
+test("retries saving an upload identity after local persistence fails", async () => {
+  const saved: PendingAttachmentRecord[] = [];
+  let failSave = true;
+  const state = createState((record) => {
+    if (failSave) throw new Error("database unavailable");
+    saved.push(structuredClone(record));
+  });
+  const pending = createPendingAttachment();
+  const generation = captureGeneration(state);
+
+  await expect(
+    resolveAttachmentUploadResume(state, pending, "a".repeat(64), generation),
+  ).rejects.toThrow("database unavailable");
+  failSave = false;
+  const resumed = await resolveAttachmentUploadResume(
+    state,
+    pending,
+    "a".repeat(64),
+    generation,
+  );
+
+  expect(saved).toHaveLength(1);
+  expect(saved[0]?.upload?.blobId).toBe(resumed.blobId);
+});
+
+test("retries saving a resolved stage after local persistence fails", async () => {
+  const saved: PendingAttachmentRecord[] = [];
+  let failSave = false;
+  const state = createState((record) => {
+    if (failSave) throw new Error("database unavailable");
+    saved.push(structuredClone(record));
+  });
+  const pending = createPendingAttachment();
+  const generation = captureGeneration(state);
+  const resume = await resolveAttachmentUploadResume(
+    state,
+    pending,
+    "a".repeat(64),
+    generation,
+  );
+  const stage = { partSize: 5 * 1024 * 1024, stageId: "stage-retry" };
+  failSave = true;
+  await expect(resume.onStageResolved(stage)).rejects.toThrow(
+    "database unavailable",
+  );
+  failSave = false;
+  await resume.onStageResolved(stage);
+
+  expect(saved).toHaveLength(2);
+  expect(saved[1]?.upload?.stageId).toBe(stage.stageId);
+});

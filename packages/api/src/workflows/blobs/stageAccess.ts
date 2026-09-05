@@ -1,6 +1,7 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { blobStages } from "@tearleads/api-shared/schema";
-import { eq } from "drizzle-orm";
+import { and, eq, lte } from "drizzle-orm";
+import { lockRowForUpdate } from "../../utils/sqlDialect";
 
 type BlobStageAccessStatus = 403 | 404 | 409;
 
@@ -19,11 +20,12 @@ export async function loadOwnedActiveBlobStage(
   executor: DatabaseSession,
   input: {
     readonly error: (message: string, status: BlobStageAccessStatus) => Error;
+    readonly lockForUpdate?: boolean;
     readonly stageId: string;
     readonly userId: string;
   },
 ): Promise<OwnedActiveBlobStage> {
-  const [stage] = await executor
+  const query = executor
     .select({
       byteLength: blobStages.byteLength,
       completedAt: blobStages.completedAt,
@@ -37,6 +39,7 @@ export async function loadOwnedActiveBlobStage(
     .from(blobStages)
     .where(eq(blobStages.id, input.stageId))
     .limit(1);
+  const [stage] = await (input.lockForUpdate ? lockRowForUpdate(query) : query);
 
   if (!stage) {
     throw input.error("Blob stage not found", 404);
@@ -49,4 +52,27 @@ export async function loadOwnedActiveBlobStage(
   }
 
   return stage;
+}
+
+/**
+ * Serialize expiry against promotion before touching object storage. Promotion
+ * holds this row until commit; if it wins, the UPDATE returns no stage. If
+ * cleanup wins, the durable expiry prevents later binds, even if object-store
+ * cleanup fails or the process restarts. No DB lock is held across network I/O.
+ */
+export async function expireBlobStageForCleanup(
+  executor: DatabaseSession,
+  input: { readonly now: Date; readonly stageId: string },
+): Promise<OwnedActiveBlobStage | null> {
+  const [stage] = await executor
+    .update(blobStages)
+    .set({ expiresAt: new Date(0) })
+    .where(
+      and(
+        eq(blobStages.id, input.stageId),
+        lte(blobStages.expiresAt, input.now),
+      ),
+    )
+    .returning();
+  return stage ?? null;
 }

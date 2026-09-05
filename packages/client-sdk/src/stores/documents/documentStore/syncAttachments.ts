@@ -304,6 +304,13 @@ function createAttachmentBaseUploadInput(input: {
     multipart: input.resume.multipart,
     onMultipartProgress: input.uploadLane.onMultipartProgress,
     onStageResolved: input.resume.onStageResolved,
+    onStageUnavailable: async (stageId) => {
+      await input.resume.onStageUnavailable(
+        stageId,
+        input.pendingUpload.remoteDocumentId,
+      );
+      requestDocumentStoreSync(state);
+    },
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     slotId: pendingAttachment.slotId,
     sourceSnapshot: input.sourceSnapshot,
