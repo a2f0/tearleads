@@ -105,11 +105,6 @@ data "cloudflare_zone" "extra_demo" {
   }
 }
 
-moved {
-  from = module.website_cache
-  to   = module.website_cache[0]
-}
-
 module "website_cache" {
   count  = var.manage_website_cache ? 1 : 0
   source = "../../../modules/cloudflare-website-cache"

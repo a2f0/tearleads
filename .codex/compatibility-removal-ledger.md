@@ -224,3 +224,55 @@ order and per-operation inference are unchanged; no broad type erasure is used.
   compatibility policy/checker itself.
 - Stop-old-writer deployment guards: inspect separately from runtime shims;
   do not remove protection merely because it mentions an old deployment.
+
+## 2026-09-05 — Post-merge infrastructure rebrand cleanup
+
+- Authorization: the owner now explicitly requests removal of the superseded
+  rebrand infrastructure and permits replacing servers. This supersedes the
+  earlier decision to retain the one-time deployment cleanup. No live apply,
+  destroy, state migration, provider-console change, or deployment is needed.
+- History: #2140 introduced the old systemd/directory cleanup; #2102 introduced
+  the singleton-to-indexed website-cache address migration in both tiers.
+- Preservation boundary: fresh and current Tearleads deployments retain their
+  resource definitions, cache ownership, systemd units, maintenance ordering,
+  health checks, firewall, secrets handling, and tier parity. Retired hosts and
+  historical Terraform addresses no longer have an in-place transition path;
+  use their owning configuration/state to retire them before fresh provisioning.
+- Candidates: remove the Ansible cleanup/import and its ordering assertion,
+  both Terraform `moved` blocks, stale backend/store/webhook cutover guidance,
+  and the 50 exact OpenAPI exceptions whose removal condition was met by #2181
+  (`896d4efa`). The deleted entries cite issue #2158; #2181 is the PR that
+  landed the final contract on main. Replace the brand-specific backup ignore
+  rules with `*backup.json`, keeping both old and current local backups ignored.
+- Risk: old hosts must be replaced, not reused with old services still running;
+  dropping state for live resources is not a substitute for retiring them.
+- Baseline: infrastructure parity passed; Ansible lint passed on 38 files
+  (toolchain deprecation messages only); Terraform formatting, two mocked
+  module tests, and TFLint passed. OpenAPI compatibility fails on the now-unused
+  exceptions, as expected after the contract merged.
+- Verification: Ansible lint passes on 37 files after removal; infrastructure
+  parity, Terraform formatting, both mocked cache tests, and TFLint still pass.
+  Full `check:fast` passes, including OpenAPI compatibility without exceptions,
+  its regression fixtures, bounded models, architecture, and source shape.
+  The code audit finds no remaining SymCrypt references in Terraform/Ansible.
+  Independent review and handoff results are recorded in the follow-up PR.
+- Read-only deployment audit for the first review's operational concerns:
+  staging's current and former backend states have no website-cache resource;
+  production's former backend state already uses `module.website_cache[0]`.
+  Neither tier needs the removed address migration. Staging has no old-brand
+  systemd unit files, loaded units, `/opt/symcrypt`, or `/etc/symcrypt`; current
+  Tearleads API and maintenance timers are running.
+- Production remains in the former `symcrypt-terraform-state` backend; its
+  current-backend server state is empty even though Hetzner still lists the
+  production server. Its state-provided SSH hostname does not resolve, and it
+  is not visible in the local Tailscale peer list, so its systemd state could
+  not be certified. This code-only cleanup does not authorize treating that
+  empty backend as a fresh production environment: retire the existing
+  production resources through their owning state before fresh provisioning,
+  as required by the owner's replacement-only direction. Do not run the new
+  playbook on that unverified host. No server or remote state was changed.
+- Shipping clarification: after reviewing that production-state warning, the
+  owner explicitly confirmed the greenfield assumption and will destroy the
+  existing server. This is not an in-place rollout to that host. Retirement
+  through the owning state remains an operator prerequisite; the code cleanup
+  does not add a temporary old-host detector or first-provisioning opt-in shim.

@@ -29,6 +29,27 @@ app-web deploy all read it — quoted, since that file is sourced by bash:
 share each tier's API hostname at `/events`; code-assist shares it at
 `/code-assist/webhook`.
 
+## Infrastructure Lifecycle
+
+Terraform and Ansible provision and maintain current Tearleads deployments.
+They do not migrate retired deployment names, services, directories, or
+Terraform resource addresses. Replace retired hosts instead of running the
+current playbook alongside their old services and maintenance timers.
+
+Retire old resources using their owning configuration and state before fresh
+provisioning. Preserve any needed data offline, and never discard state for
+live resources or point a populated stack at an empty backend. Bootstrap the
+current state bucket, provision the intended tier, and run its full Ansible
+deployment. Current Tearleads resources with current state remain maintainable;
+this does not require recreating them on every deploy.
+
+Production retirement is still open as of the 2026-09-05 audit: its live
+resources remain owned by `symcrypt-terraform-state`, while the production
+server state in `tearleads-terraform-state` is empty. Do not use that empty
+state to provision over the existing resources or deploy onto the unverified
+production host. Retire them using their owning state before fresh provisioning;
+remove this notice only after that retirement is verified.
+
 ## Running Tests
 
 ```sh
