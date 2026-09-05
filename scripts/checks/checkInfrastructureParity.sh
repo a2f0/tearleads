@@ -131,7 +131,7 @@ assert_document_sync_ingress_cors() {
     ansible localhost --connection local \
       -m ansible.builtin.template \
       -a "src=$api_template dest=$rendered_api mode=0600" \
-      -e '{"api_hostname":"api.example.test","api_cors_origins":"https://app.example.test,,https://app.example.test, https://localhost","code_assist_enabled":false,"code_assist_port":3002}' \
+      -e '{"api_hostname":"api.example.test","api_cors_origins":"https://app.example.test,,https://app.example.test, https://localhost"}' \
       </dev/null >/dev/null 2>"$render_dir/ansible.stderr"; then
     sed -n '1,120p' "$render_dir/ansible.stderr" >&2
     return 1

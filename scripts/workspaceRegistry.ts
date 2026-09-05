@@ -82,12 +82,6 @@ export const workspaceRegistry = [
     role: "client-runtime",
   },
   {
-    directory: "code-assist",
-    key: "codeAssist",
-    packageName: "@tearleads/code-assist",
-    role: "tooling",
-  },
-  {
     directory: "crypto",
     key: "crypto",
     packageName: "@tearleads/crypto",

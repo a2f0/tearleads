@@ -26,8 +26,7 @@ it in `.secrets/<tier>.env`, where Terraform, the server playbook, and the
 app-web deploy all read it — quoted, since that file is sourced by bash:
 `TF_VAR_extra_demo_domains='["tearleads.de"]'`. The Cloudflare token in
 `TF_VAR_cloudflare_api_token` needs access to each listed zone. Realtime events
-share each tier's API hostname at `/events`; code-assist shares it at
-`/code-assist/webhook`.
+share each tier's API hostname at `/events`.
 
 ## Infrastructure Lifecycle
 

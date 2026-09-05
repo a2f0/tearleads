@@ -157,7 +157,7 @@ async function readNativeReleaseEnvironmentResult(
 
   const environment = { ...process.env };
   for (const name of [
-    "DEEPSEEK_API_KEY",
+    "SERVER_SECRET",
     "NATIVE_RELEASE_TIER",
     "NATIVE_RELEASE_PRODUCTION_VITE_REVENUECAT_ANDROID_API_KEY",
     "NATIVE_RELEASE_PRODUCTION_VITE_REVENUECAT_IOS_API_KEY",
@@ -241,14 +241,14 @@ describe("native release environments", () => {
   test("staging imports only its allowlisted native client settings", async () => {
     const snapshot = await readNativeReleaseEnvironment(
       "VITE_REVENUECAT_IOS_API_KEY=appl_root\nVITE_REVENUECAT_ANDROID_API_KEY=goog_root\nVITE_REVENUECAT_SYNC_ENTITLEMENT=sync\nVITE_WS_URL=wss://production.example\nNATIVE_TEST_VALUE=root\n",
-      "VITE_REVENUECAT_IOS_API_KEY=appl_staging\nVITE_REVENUECAT_ANDROID_API_KEY=goog_staging\nVITE_WS_URL=wss://staging.example\nNATIVE_TEST_VALUE=staging\nDEEPSEEK_API_KEY=server-secret\n",
+      "VITE_REVENUECAT_IOS_API_KEY=appl_staging\nVITE_REVENUECAT_ANDROID_API_KEY=goog_staging\nVITE_WS_URL=wss://staging.example\nNATIVE_TEST_VALUE=staging\nSERVER_SECRET=server-secret\n",
     );
 
     expect(snapshot).toEqual({
       ...stagingTarget,
       productionIosStoreKey: "appl_root",
       environment: {
-        DEEPSEEK_API_KEY: null,
+        SERVER_SECRET: null,
         NATIVE_TEST_VALUE: "root",
         VITE_API_BASE_URL: "https://api-staging.tearleads.com",
         VITE_REVENUECAT_ANDROID_API_KEY: "goog_staging",
@@ -286,7 +286,7 @@ describe("native release environments", () => {
       ...stagingTarget,
       productionIosStoreKey: "appl_root",
       environment: {
-        DEEPSEEK_API_KEY: null,
+        SERVER_SECRET: null,
         NATIVE_TEST_VALUE: "process",
         VITE_API_BASE_URL: "https://api-staging.tearleads.com",
         VITE_REVENUECAT_ANDROID_API_KEY: "goog_staging",
@@ -341,7 +341,7 @@ describe("native release environments", () => {
       ...stagingTarget,
       productionIosStoreKey: "appl_root",
       environment: {
-        DEEPSEEK_API_KEY: null,
+        SERVER_SECRET: null,
         NATIVE_TEST_VALUE: "root",
         VITE_API_BASE_URL: "https://api-staging.tearleads.com",
         VITE_REVENUECAT_ANDROID_API_KEY: null,
@@ -362,7 +362,7 @@ describe("native release environments", () => {
       ...stagingTarget,
       productionIosStoreKey: null,
       environment: {
-        DEEPSEEK_API_KEY: null,
+        SERVER_SECRET: null,
         NATIVE_TEST_VALUE: null,
         VITE_API_BASE_URL: "https://api-staging.tearleads.com",
         VITE_REVENUECAT_ANDROID_API_KEY: null,
@@ -376,7 +376,7 @@ describe("native release environments", () => {
   test("production keeps its default target and root release environment", async () => {
     const snapshot = await readNativeReleaseEnvironment(
       "VITE_REVENUECAT_IOS_API_KEY=appl_root\nVITE_REVENUECAT_ANDROID_API_KEY=goog_root\nVITE_WS_URL=wss://api.tearleads.com/events\nNATIVE_TEST_VALUE=root\n",
-      "VITE_REVENUECAT_IOS_API_KEY=appl_staging\nDEEPSEEK_API_KEY=server-secret\n",
+      "VITE_REVENUECAT_IOS_API_KEY=appl_staging\nSERVER_SECRET=server-secret\n",
       {},
       null,
     );
@@ -392,7 +392,7 @@ describe("native release environments", () => {
       releaseNativeDebugSymbolsRelativePath:
         "native-debug-symbols/release/native-debug-symbols.zip",
       environment: {
-        DEEPSEEK_API_KEY: null,
+        SERVER_SECRET: null,
         NATIVE_TEST_VALUE: "root",
         VITE_API_BASE_URL: "https://api.tearleads.com",
         VITE_REVENUECAT_ANDROID_API_KEY: "goog_root",

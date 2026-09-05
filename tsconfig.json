@@ -12,7 +12,6 @@
     { "path": "packages/app-electrobun" },
     { "path": "packages/bob-and-alice" },
     { "path": "packages/client-sdk" },
-    { "path": "packages/code-assist" },
     { "path": "packages/crypto" },
     { "path": "packages/encoding" },
     { "path": "packages/loro" },
