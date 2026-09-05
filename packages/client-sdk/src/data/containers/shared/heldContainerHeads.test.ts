@@ -8,7 +8,10 @@ import {
   createProjectionCheckpointContext,
   finalizeProjectionCheckpoints,
 } from "../../keyingProjectionVerification/checkpointContext";
-import { createExecSql } from "../../sqlite/sqlSchema";
+import {
+  createExecSql,
+  runSerializedSqlMutation,
+} from "../../sqlite/sqlSchema";
 import {
   heldContainerPath,
   heldContainerSnapshot,
@@ -54,6 +57,21 @@ function remember(
     policies: [],
   });
 }
+
+test("locked executors share the canonical connection's held evidence", async () => {
+  const execSql = executor();
+  const base = await seed;
+  await runSerializedSqlMutation(execSql, async (locked) => {
+    remember(locked, [head(base, "locked")]);
+    expect([
+      ...heldContainerSnapshot(execSql, "cache-org").heads.keys(),
+    ]).toEqual(["locked"]);
+    remember(execSql, [head(base, "canonical")]);
+    expect([
+      ...heldContainerSnapshot(locked, "cache-org").heads.keys(),
+    ]).toEqual(["locked", "canonical"]);
+  });
+});
 
 test("the held-head cache is bounded and re-observation refreshes eviction order", async () => {
   const execSql = executor();

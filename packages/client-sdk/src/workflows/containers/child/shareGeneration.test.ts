@@ -85,7 +85,10 @@ test("share planning rolls back checkpoints after its generation expires", async
   }
 });
 
-test("shareRemoteContainer does not return an unacknowledged committed response", async () => {
+test.each([
+  false,
+  true,
+])("shareRemoteContainer respects a refused checkpoint commit (guard revives: %s)", async (reviveGuard) => {
   const parent = await createParentProjection();
   const { author } = await createAuthor({
     organizationId: parent.projection.organizationId,
@@ -118,11 +121,25 @@ test("shareRemoteContainer does not return an unacknowledged committed response"
         signingKeyFingerprint: author.signerKeyFingerprint,
         signingPublicKey: parent.signingPublicKey,
       }),
-      stillCurrent: () => current,
+      stillCurrent: () => {
+        const permitted = current;
+        // A later guard evaluation cannot turn a rolled-back acknowledgement
+        // into a completed mutation, even if the host reports current again.
+        if (reviveGuard) current = true;
+        return permitted;
+      },
       targetSecretKey: parent.secretKey,
     });
 
     expect(shared).toBeNull();
+    await expect(
+      loadAccessManifestCheckpoint(
+        database.execSql,
+        "container",
+        parent.projection.organizationId,
+        parent.projection.containerId,
+      ),
+    ).resolves.toMatchObject({ epoch: 1 });
   } finally {
     database.close();
   }

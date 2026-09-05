@@ -5,7 +5,7 @@ import type {
 } from "@tearleads/crypto";
 import type { AccessManifestBundleWire } from "@tearleads/validators/request";
 import { readCanonicalRecord } from "../../keyingCanonicalJson";
-import type { ExecSql } from "../../sqlite/sqlSchema";
+import { type ExecSql, resolveCanonicalExecSql } from "../../sqlite/sqlSchema";
 import type { AuthoredContainerMutationHead } from "./mutationAcknowledgement";
 
 export interface HeldContainerHead {
@@ -33,10 +33,11 @@ const MAX_HEADS = 256;
 const MAX_POLICIES = 512;
 
 function heldContainers(execSql: ExecSql): HeldContainers {
-  let held = heldByDatabase.get(execSql);
+  const canonical = resolveCanonicalExecSql(execSql);
+  let held = heldByDatabase.get(canonical);
   if (!held) {
     held = { heads: new Map(), policies: new Map() };
-    heldByDatabase.set(execSql, held);
+    heldByDatabase.set(canonical, held);
   }
   return held;
 }

@@ -36,13 +36,13 @@ export async function submitAcknowledgedContainerMutation<
     return null;
   }
 
-  await acknowledgeContainerMutation({
+  const acknowledged = await acknowledgeContainerMutation({
     execSql: input.execSql,
     plan: input.plan,
     response,
     stillCurrent: input.stillCurrent,
   });
-  if (input.stillCurrent?.() === false) return null;
+  if (!acknowledged || input.stillCurrent?.() === false) return null;
 
   try {
     rememberVerifiedContainerHeads({

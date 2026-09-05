@@ -3,6 +3,10 @@ import { MAX_CONTAINER_RECITATION_EPOCH } from "@tearleads/crypto";
 import { createContainerReciteScenario } from "../../../../test/helpers/containerReciteFixtures";
 import { heldContainerSnapshot } from "../../../data/containers/shared/heldContainerHeads";
 import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
+import {
+  advanceLocallyAcknowledgedAccessManifestHeadsAtomically,
+  locallyAuthoredAccessManifestHead,
+} from "../../../data/persistence/locallyAcknowledgedCheckpointPersistence";
 import { reciteHeldDescendants } from "./recite";
 import {
   assertContainerReciteAcknowledgement,
@@ -217,6 +221,59 @@ test.each([
     expect((await checkpoint(scenario, "held-grandchild"))?.epoch).toBe(
       failure === "mismatched" || failure === "injected-grants" ? 1 : 2,
     );
+  } finally {
+    await scenario.close();
+  }
+});
+
+test("a concurrent contradictory checkpoint is reported without overwriting its pin", async () => {
+  const scenario = await createContainerReciteScenario();
+  try {
+    await scenario.advanceAncestor();
+    const snapshot = heldContainerSnapshot(
+      scenario.execSql,
+      scenario.parent.author.organizationId,
+    );
+    const parent = snapshot.heads.get(scenario.parent.projection.containerId);
+    const child = snapshot.heads.get("held-child");
+    if (!parent || !child) throw new Error("Expected held path");
+    const concurrent = await buildContainerRecitePlan({
+      author: scenario.parent.author,
+      path: [parent, child],
+      policies: snapshot.policies,
+    });
+    const incidents: unknown[] = [];
+    await reciteHeldDescendants({
+      ...cascadeInput(scenario),
+      reportSecurityIncident: async (error, context) => {
+        incidents.push({ error, context });
+      },
+      apiClient: {
+        reciteContainer: async (id, request) => {
+          const response = await scenario.reciteContainer(id, request);
+          // Simulate a different locally signed head becoming durable while
+          // this request is in flight; the response may not replace that pin.
+          await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
+            execSql: scenario.execSql,
+            heads: [locallyAuthoredAccessManifestHead(concurrent)],
+          });
+          return response;
+        },
+      },
+    });
+    expect(incidents).toHaveLength(1);
+    expect(incidents[0]).toMatchObject({
+      error: { code: "equivocation" },
+      context: {
+        operation: "container.recite.acknowledge",
+        objectId: "held-child",
+      },
+    });
+    expect((await checkpoint(scenario, "held-child"))?.manifestHash).toBe(
+      concurrent.manifestHash,
+    );
+    expect(scenario.requests).toHaveLength(1);
+    expect((await checkpoint(scenario, "held-grandchild"))?.epoch).toBe(1);
   } finally {
     await scenario.close();
   }

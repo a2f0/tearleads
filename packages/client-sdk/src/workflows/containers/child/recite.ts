@@ -14,7 +14,10 @@ import {
   locallyAuthoredAccessManifestHead,
 } from "../../../data/persistence/locallyAcknowledgedCheckpointPersistence";
 import type { SecurityIncidentReporter } from "../../../data/securityIncidents";
-import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import {
+  type ExecSql,
+  resolveCanonicalExecSql,
+} from "../../../data/sqlite/sqlSchema";
 import {
   assertContainerReciteAcknowledgement,
   buildContainerRecitePlan,
@@ -83,12 +86,25 @@ async function recitePinnedPath(
     });
     return null;
   }
-  const acknowledged =
-    await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
-      execSql: input.execSql,
-      heads: [locallyAuthoredAccessManifestHead(plan)],
-      stillCurrent: input.stillCurrent,
+  let acknowledged: boolean;
+  try {
+    acknowledged =
+      await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
+        execSql: input.execSql,
+        heads: [locallyAuthoredAccessManifestHead(plan)],
+        stillCurrent: input.stillCurrent,
+      });
+  } catch (error) {
+    if (!(error instanceof KeyingVerificationError)) throw error;
+    await input.reportSecurityIncident(error, {
+      operation: "container.recite.acknowledge",
+      objectKind: "container",
+      objectId: id,
+      organizationId: input.author.organizationId,
+      evidenceHashes: { plannedManifestHash: plan.manifestHash },
     });
+    return null;
+  }
   if (!acknowledged || input.stillCurrent?.() === false) return null;
   return rememberAcknowledgedContainerHead(input.execSql, plan);
 }
@@ -164,8 +180,9 @@ export function scheduleHeldDescendantRecitations(
   } catch {
     return;
   }
-  if (running.has(input.execSql)) return;
-  running.add(input.execSql);
+  const canonical = resolveCanonicalExecSql(input.execSql);
+  if (running.has(canonical)) return;
+  running.add(canonical);
   void Promise.resolve()
     .then(() =>
       reciteHeldDescendants({
@@ -180,5 +197,5 @@ export function scheduleHeldDescendantRecitations(
     .catch(() => {
       // Failure is deliberately independent of the user's completed mutation.
     })
-    .finally(() => running.delete(input.execSql));
+    .finally(() => running.delete(canonical));
 }

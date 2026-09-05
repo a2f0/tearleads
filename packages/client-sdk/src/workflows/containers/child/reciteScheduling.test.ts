@@ -11,6 +11,7 @@ import {
 import { createContainerReciteScenario } from "../../../../test/helpers/containerReciteFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
+import { runSerializedSqlMutation } from "../../../data/sqlite/sqlSchema";
 import { scheduleHeldDescendantRecitations } from "./recite";
 import { shareRemoteContainer } from "./share";
 
@@ -55,18 +56,20 @@ test("a completed share does not await a hanging descendant re-cite", async () =
     await started.promise;
     if (!result) throw new Error("Expected acknowledged share");
     let overlappingRequests = 0;
-    scheduleHeldDescendantRecitations({
-      apiClient: {
-        reciteContainer: async () => {
-          overlappingRequests += 1;
-          return null;
+    await runSerializedSqlMutation(scenario.execSql, async (locked) => {
+      scheduleHeldDescendantRecitations({
+        apiClient: {
+          reciteContainer: async () => {
+            overlappingRequests += 1;
+            return null;
+          },
         },
-      },
-      author: scenario.parent.author,
-      execSql: scenario.execSql,
-      plans: [result.plan],
-      reportSecurityIncident: async () => {},
-      stillCurrent: () => active,
+        author: scenario.parent.author,
+        execSql: locked,
+        plans: [result.plan],
+        reportSecurityIncident: async () => {},
+        stillCurrent: () => active,
+      });
     });
     await new Promise((resolve) => setTimeout(resolve, 250));
     expect(overlappingRequests).toBe(0);
