@@ -36,8 +36,7 @@ export function assertDecryptedDocumentUpdateMetadata(
   }
   if (
     update.checkpointKind === undefined &&
-    decodedMetadata.mode !== "update" &&
-    decodedMetadata.mode !== "outdated-update"
+    decodedMetadata.mode !== "update"
   ) {
     throw new Error("Document ordinary update payload is not an update blob");
   }

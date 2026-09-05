@@ -46,7 +46,7 @@ function appStorePurchase(input: {
     expiration_at_ms: now + THIRTY_DAYS_MS,
     id: input.eventId,
     original_transaction_id: input.eventId,
-    product_id: "com.tearleads.sync.monthly",
+    product_id: "sync_solo_monthly",
     purchased_at_ms: now,
     store: input.store ?? "APP_STORE",
     // A native store purchase carries no transaction metadata, so the org is
@@ -172,7 +172,7 @@ test("a verified native binding accepts a delayed initial event outside the defa
     .set({
       provider: "revenuecat",
       providerCustomerId: user.userId,
-      providerProductId: "com.tearleads.sync.monthly",
+      providerProductId: "sync_solo_monthly",
       providerSubscriptionId: eventId,
       seatCount: 1,
       status: "active",
@@ -186,7 +186,7 @@ test("a verified native binding accepts a delayed initial event outside the defa
     organizationId,
     originalTransactionId: eventId,
     outcome: "applied",
-    productId: "com.tearleads.sync.monthly",
+    productId: "sync_solo_monthly",
     store: "TEST_STORE",
   });
 
@@ -315,7 +315,7 @@ test("a native product change stays pending until its effective event", async ()
 
   expect(outcome).toMatchObject({ organizationId, status: "applied" });
   expect(await readBillingStatus(organizationId)).toMatchObject({
-    providerProductId: "com.tearleads.sync.monthly",
+    providerProductId: "sync_solo_monthly",
     seatCount: 1,
   });
   expect(
@@ -351,7 +351,7 @@ test("bound lifecycle grants reuse the immutable native tier", async () => {
     });
     expect(outcome).toMatchObject({ organizationId, status: "applied" });
     expect(await readBillingStatus(organizationId)).toMatchObject({
-      providerProductId: "com.tearleads.sync.monthly",
+      providerProductId: "sync_solo_monthly",
       providerSubscriptionId: initial.original_transaction_id,
       seatCount: 1,
     });

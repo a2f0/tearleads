@@ -11,11 +11,10 @@ import {
   paidInvoiceEvent,
   REVENUECAT_WEBHOOK_ENV,
   STRIPE_WEBHOOK_ENV,
-  signedStripeWebhookDelivery,
   stripeSubscriptionBody,
 } from "../../../test/helpers/stripeWebhook";
 import { getDefaultApiServiceRuntime } from "../runtime";
-import { processStripeWebhook } from "./stripeCheckout";
+import { processAuthenticatedStripeWebhook } from "./stripeCheckout";
 
 test("an ambiguous cycle records its total and still reconciles paid seats", async () => {
   const organizationId = crypto.randomUUID();
@@ -53,9 +52,9 @@ test("an ambiguous cycle records its total and still reconciles paid seats", asy
   ];
   await createWebhookBillingOrganization(organizationId);
 
-  const outcome = await processStripeWebhook(
+  const outcome = await processAuthenticatedStripeWebhook(
     getDefaultApiServiceRuntime(),
-    signedStripeWebhookDelivery(event),
+    event,
     {
       stripe: {
         env: STRIPE_WEBHOOK_ENV,
@@ -120,9 +119,9 @@ test("an unresolvable cycle line list falls back to its exact total", async () =
   await createWebhookBillingOrganization(organizationId);
   const urls: string[] = [];
 
-  const outcome = await processStripeWebhook(
+  const outcome = await processAuthenticatedStripeWebhook(
     getDefaultApiServiceRuntime(),
-    signedStripeWebhookDelivery(event),
+    event,
     {
       stripe: {
         env: STRIPE_WEBHOOK_ENV,
@@ -183,9 +182,9 @@ test("an initial purchase without an invoice id still fulfills", async () => {
   Reflect.deleteProperty(event.data.object, "id");
   await createWebhookBillingOrganization(organizationId);
 
-  const outcome = await processStripeWebhook(
+  const outcome = await processAuthenticatedStripeWebhook(
     getDefaultApiServiceRuntime(),
-    signedStripeWebhookDelivery(event),
+    event,
     {
       stripe: {
         env: STRIPE_WEBHOOK_ENV,
@@ -244,9 +243,9 @@ test("a mismatched purchase fails closed before unresolved line pagination", asy
   const revenueCatUrls: string[] = [];
   const stripeUrls: string[] = [];
 
-  const outcome = await processStripeWebhook(
+  const outcome = await processAuthenticatedStripeWebhook(
     getDefaultApiServiceRuntime(),
-    signedStripeWebhookDelivery(event),
+    event,
     {
       stripe: {
         env: STRIPE_WEBHOOK_ENV,
@@ -319,30 +318,26 @@ test("a compatible audit redelivery completes association after a partial failur
   await createWebhookBillingOrganization(organizationId);
 
   await expect(
-    processStripeWebhook(
-      getDefaultApiServiceRuntime(),
-      signedStripeWebhookDelivery(event),
-      {
-        stripe: {
-          env: STRIPE_WEBHOOK_ENV,
-          fetchImpl: createRespondingFetch(
-            [{ body: firstSubscription }, { body: event.data.object }],
-            [],
-          ),
-        },
-        revenueCat: {
-          env: REVENUECAT_WEBHOOK_ENV,
-          fetchImpl: createRespondingFetch([{ body: {}, status: 500 }], []),
-        },
+    processAuthenticatedStripeWebhook(getDefaultApiServiceRuntime(), event, {
+      stripe: {
+        env: STRIPE_WEBHOOK_ENV,
+        fetchImpl: createRespondingFetch(
+          [{ body: firstSubscription }, { body: event.data.object }],
+          [],
+        ),
       },
-    ),
+      revenueCat: {
+        env: REVENUECAT_WEBHOOK_ENV,
+        fetchImpl: createRespondingFetch([{ body: {}, status: 500 }], []),
+      },
+    }),
   ).rejects.toThrow("RevenueCat customer create failed with status 500");
 
   const warningSpy = spyOn(console, "warn").mockImplementation(() => undefined);
   try {
-    const outcome = await processStripeWebhook(
+    const outcome = await processAuthenticatedStripeWebhook(
       getDefaultApiServiceRuntime(),
-      signedStripeWebhookDelivery(event),
+      event,
       {
         stripe: {
           env: STRIPE_WEBHOOK_ENV,

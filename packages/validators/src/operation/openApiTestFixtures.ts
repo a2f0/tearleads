@@ -202,6 +202,7 @@ export function createDocumentPurgeRequest() {
 
 export function createSyncRequest() {
   return {
+    inlineRekeyCommitId: "a".repeat(64),
     authorizingContainerPathRefs: [
       [{ containerId: "container-1", manifestHash: "manifest-hash" }],
     ],
@@ -375,6 +376,7 @@ export function createSyncResponse() {
   return {
     acceptedOutgoingUpdateIds: [UPDATE_ID],
     commitLsn: null,
+    commitLsnMode: "tracked" as const,
     contentKeyBundle: createContentKeyBundleResponse(),
     contentKeyBundles: [createContentKeyBundleResponse()],
     documentId: "document-1",
@@ -391,6 +393,14 @@ export function createSyncResponse() {
     updates: [
       {
         accessEpoch: 1,
+        authorizationTargets: [
+          {
+            containerId: "container-1",
+            containerKeyEpoch: 1,
+            containerKeyEpochId: "container-key-epoch-id",
+            containerManifestHash: "manifest-hash",
+          },
+        ],
         authorFingerprint: "author-fingerprint",
         createdAt: "2026-07-17T00:00:00.000Z",
         documentId: "document-1",

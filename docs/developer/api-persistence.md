@@ -96,13 +96,9 @@ opened explicitly in write mode. The adapter rejects TLS opt-out URLs and
 enables and verifies SQLite foreign-key enforcement on every remote statement
 session before application SQL runs. Because this configuration always reads
 the remote primary, the API bypasses replica-watermark waiting and emits the
-wire-compatible `0/0` LSN sentinel with `commitLsnMode: "untracked"` when a
-request advertises `supportsUntrackedCommitLsn: true`. Clients use that
-negotiated mode to replace a checkpoint from a previous backend without
+`0/0` LSN sentinel with `commitLsnMode: "untracked"`. Clients use that explicit
+mode to replace a checkpoint from a previous backend without
 weakening tracked-LSN validation when they later return to Postgres or SQLite.
-For older clients that omit the capability, Turso echoes a supplied `minLsn` as
-a compatibility token so they do not reject the response as stale; the echoed
-value is not a Turso durability watermark.
 
 The opt-in integration lane runs the multi-connection sync races against a
 dedicated remote test database. It does not accept the production variable

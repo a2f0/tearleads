@@ -242,6 +242,22 @@ export async function createExplorerMetadataSyncResponse(input: {
       return {
         accessEpoch: 1,
         id: update.id,
+        authorizationTargets: (
+          input.request.contentKeyBundle ??
+          input.storedDocument.contentKeyBundle
+        ).targets.map(
+          ({
+            containerId,
+            containerKeyEpoch,
+            containerKeyEpochId,
+            containerManifestHash,
+          }) => ({
+            containerId,
+            containerKeyEpoch,
+            containerKeyEpochId,
+            containerManifestHash,
+          }),
+        ),
         documentId: input.storedDocument.id,
         authorFingerprint: writeHeader.writerKeyFingerprint,
         encryptedData: update.encryptedData,
@@ -259,6 +275,7 @@ export async function createExplorerMetadataSyncResponse(input: {
       (update) => update.id,
     ),
     commitLsn: input.commitLsn,
+    commitLsnMode: "tracked",
     contentKeyBundle: input.storedDocument.contentKeyBundle,
     contentKeyBundles: [input.storedDocument.contentKeyBundle],
     documentId: input.storedDocument.id,

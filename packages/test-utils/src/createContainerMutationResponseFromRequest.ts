@@ -132,9 +132,7 @@ function deriveMutationState(input: {
   return {
     ...base,
     containerKeyEpochId: body.containerKeyEpochId,
-    referencedPrincipalHeads: [
-      ...(body.referencedPrincipalHeads ?? previous.referencedPrincipalHeads),
-    ],
+    referencedPrincipalHeads: [...body.referencedPrincipalHeads],
   };
 }
 

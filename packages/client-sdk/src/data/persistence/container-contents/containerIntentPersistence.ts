@@ -294,22 +294,16 @@ export async function deleteContainerMoveIntentRevision(input: {
 
 async function recordCreateIntentErrorAttempt(
   execSql: ExecSql,
-  inputOrContainerId: ContainerCreateIntentErrorInput | string,
-  ...legacyMessage: [message?: string]
+  input: ContainerCreateIntentErrorInput,
 ): Promise<void> {
-  const legacy = typeof inputOrContainerId === "string";
-  const containerId = legacy
-    ? inputOrContainerId
-    : inputOrContainerId.containerId;
-  const message = legacy ? legacyMessage[0] : inputOrContainerId.message;
+  const {
+    containerId,
+    expectedIntentId,
+    expectedUpdatedAt,
+    message,
+    stillCurrent,
+  } = input;
   if (!message) throw new Error("Container create intent error is required");
-  const expectedIntentId = legacy
-    ? undefined
-    : inputOrContainerId.expectedIntentId;
-  const expectedUpdatedAt = legacy
-    ? undefined
-    : inputOrContainerId.expectedUpdatedAt;
-  const stillCurrent = legacy ? undefined : inputOrContainerId.stillCurrent;
   const runtime = getClientSQLitePersistenceRuntime(execSql);
   const record = async (tx: ClientSQLiteTransactionScope) => {
     const updatedAt = new Date().toISOString();
@@ -325,12 +319,8 @@ async function recordCreateIntentErrorAttempt(
           eq(containerCreateIntents.containerId, containerId),
           eq(containerCreateIntents.syncStatus, "pending"),
           eq(containerCreateIntents.intentType, CONTAINER_CREATE_INTENT_TYPE),
-          ...(expectedIntentId
-            ? [eq(containerCreateIntents.id, expectedIntentId)]
-            : []),
-          ...(expectedUpdatedAt
-            ? [eq(containerCreateIntents.updatedAt, expectedUpdatedAt)]
-            : []),
+          eq(containerCreateIntents.id, expectedIntentId),
+          eq(containerCreateIntents.updatedAt, expectedUpdatedAt),
         ),
       )
       .run();
@@ -378,13 +368,10 @@ type ContainerIntentPersistence = Pick<
   ContainerContentsPersistence,
   | "listPendingCreateIntents"
   | "listUnsyncedMoveIntents"
-  | "recordCreateIntentError"
   | "recordCreateIntentRevisionError"
   | "recordMoveIntentError"
   | "markCreateIntentRevisionSynced"
-  | "markCreateIntentSynced"
   | "markMoveIntentRevisionSynced"
-  | "markMoveIntentSynced"
 >;
 
 export const containerIntentPersistence = {
@@ -443,8 +430,6 @@ export const containerIntentPersistence = {
 
     return rows.map((row) => mapContainerMoveIntentRecord(row));
   },
-  recordCreateIntentError: (execSql, containerId, message) =>
-    recordCreateIntentErrorAttempt(execSql, containerId, message),
   recordCreateIntentRevisionError: (execSql, input) =>
     recordCreateIntentErrorAttempt(execSql, input),
   async recordMoveIntentError(execSql, input) {
@@ -485,7 +470,5 @@ export const containerIntentPersistence = {
     await runtime.transaction(record, { behavior: "immediate" });
   },
   markCreateIntentRevisionSynced,
-  markCreateIntentSynced: markCreateIntentRevisionSynced,
   markMoveIntentRevisionSynced,
-  markMoveIntentSynced: markMoveIntentRevisionSynced,
 } satisfies ContainerIntentPersistence;

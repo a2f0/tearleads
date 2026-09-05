@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@tearleads/test-utils";
+import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import {
   createMaterializedSyncFixture,
@@ -39,7 +39,7 @@ test("raw submitted-result refresh preserves an unavailable error when projectio
   try {
     await expect(
       syncRemoteDocument({
-        apiClient: {
+        apiClient: createMockApiClient({
           evictDocumentWriterProjection: () => undefined,
           getDocumentWriterProjection: async () => {
             projectionFetches += 1;
@@ -57,7 +57,7 @@ test("raw submitted-result refresh preserves an unavailable error when projectio
               updates: [responseUpdate],
             });
           },
-        },
+        }),
         author: fixture.author,
         documentId: fixture.writerProjection.documentId,
         execSql,
@@ -136,7 +136,7 @@ test("raw submitted-result refresh keeps the frozen response plan", async () => 
     let validateCalls = 0;
 
     const synced = await syncRemoteDocument({
-      apiClient: {
+      apiClient: createMockApiClient({
         evictDocumentWriterProjection: () => undefined,
         getDocumentWriterProjection: async () => {
           projectionFetches += 1;
@@ -146,7 +146,7 @@ test("raw submitted-result refresh keeps the frozen response plan", async () => 
           submissions += 1;
           return frozenResponse;
         },
-      },
+      }),
       author: fixture.author,
       documentId: fixture.writerProjection.documentId,
       execSql,

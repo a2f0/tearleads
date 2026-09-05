@@ -5,6 +5,7 @@ import {
   exportFullHistorySnapshot,
   getTextValue,
 } from "@tearleads/loro";
+import { createMockApiClient } from "@tearleads/test-utils";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
@@ -56,7 +57,7 @@ export function createRotationRecoveryRuntime(input: {
 }): DocumentsRuntime {
   const { author, publicKey, response, secretKey, signingPublicKey } =
     input.fixture;
-  const apiClient = {
+  const apiClient = createMockApiClient({
     getDocumentWriterProjection: async () => input.fixture.writerProjection,
     getUserIdentity: async () => null,
     syncDocument: async (
@@ -78,6 +79,14 @@ export function createRotationRecoveryRuntime(input: {
       }
       const echoedUpdates = request.outgoingUpdates.map((update) => ({
         accessEpoch: 1,
+        authorizationTargets: response.contentKeyBundle.targets.map(
+          (target) => ({
+            containerId: target.containerId,
+            containerKeyEpoch: target.containerKeyEpoch,
+            containerKeyEpochId: target.containerKeyEpochId,
+            containerManifestHash: target.containerManifestHash,
+          }),
+        ),
         ...(update.checkpointKind === undefined
           ? {}
           : { checkpointKind: update.checkpointKind }),
@@ -108,7 +117,7 @@ export function createRotationRecoveryRuntime(input: {
         ? await input.responseForRequest(request, defaultResponse)
         : defaultResponse;
     },
-  } as unknown as DocumentsRuntime["apiClient"];
+  }) as unknown as DocumentsRuntime["apiClient"];
 
   return {
     apiClient,

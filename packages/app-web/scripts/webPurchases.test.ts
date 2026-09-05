@@ -55,7 +55,7 @@ function createFakeSdk(options?: {
   }> = [];
   const monthlyPackage = packageWithProduct({
     packageId: "monthly",
-    productId: "sync_monthly",
+    productId: "sync_solo_monthly",
     title: "Sync monthly",
     description: "Cloud sync",
     priceLabel: "$4.99",
@@ -123,7 +123,7 @@ test("web RevenueCat backend configures with the app user id and maps offerings"
   expect(packages).toEqual([
     {
       identifier: "monthly",
-      productIdentifier: "sync_monthly",
+      productIdentifier: "sync_solo_monthly",
       title: "Sync monthly",
       description: "Cloud sync",
       priceString: "$4.99",

@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  createMockApiClient,
+  createMockRequestFailure,
+  createTestExecSql,
+} from "@tearleads/test-utils";
 import { isDocumentSyncRequest } from "@tearleads/validators/request";
 import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import {
@@ -88,7 +92,7 @@ test("raw history fails a stale cursor without restarting its frozen pull", asyn
     };
 
     const recovery = syncRemoteDocument({
-      apiClient: {
+      apiClient: createMockApiClient({
         getDocumentWriterProjection: async () => fixture.writerProjection,
         syncDocument: async () => {
           throw new Error("Expected syncDocumentResult to handle raw sync");
@@ -110,7 +114,7 @@ test("raw history fails a stale cursor without restarting its frozen pull", asyn
             ok: true,
           };
         },
-      },
+      }),
       author: fixture.author,
       documentId: fixture.writerProjection.documentId,
       execSql,
@@ -164,22 +168,20 @@ test("raw history fails a page-two state conflict without restarting", async () 
     };
 
     const recovery = syncRemoteDocument({
-      apiClient: {
+      apiClient: createMockApiClient({
         getDocumentWriterProjection: async () => fixture.writerProjection,
         syncDocument: async () => {
           throw new Error("Expected syncDocumentResult to handle raw sync");
         },
         syncDocumentResult: async (_documentId, request) => {
           requestedCursors.push(request.pullCursor);
-          return {
+          return createMockRequestFailure({
             code: DOCUMENT_SYNC_ERROR_CODES.stateStale,
             message: "Document sync state changed during frozen raw pull",
-            ok: false,
-            report: () => undefined,
             status: 409,
-          };
+          });
         },
-      },
+      }),
       author: fixture.author,
       documentId: fixture.writerProjection.documentId,
       execSql,

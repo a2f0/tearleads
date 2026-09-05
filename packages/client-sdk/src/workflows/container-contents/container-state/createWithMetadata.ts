@@ -57,24 +57,14 @@ async function submitContainerWithMetadataDocument(input: {
 > {
   if (input.stillCurrent?.() === false) return null;
   const { apiClient } = input.runtime;
-  if (apiClient.createContainerWithMetadataDocumentResult) {
-    const result = await apiClient.createContainerWithMetadataDocumentResult(
-      input.request,
-      {
-        expectedPaymentRequiredOrganizationId: input.organizationId,
-        reportErrors: false,
-      },
-    );
-    return result.ok ? { ok: true, response: result.data } : result;
-  }
-
-  if (!apiClient.createContainerWithMetadataDocument) return null;
-
-  const response = await apiClient.createContainerWithMetadataDocument(
+  const result = await apiClient.createContainerWithMetadataDocumentResult(
     input.request,
-    { expectedPaymentRequiredOrganizationId: input.organizationId },
+    {
+      expectedPaymentRequiredOrganizationId: input.organizationId,
+      reportErrors: false,
+    },
   );
-  return response ? { ok: true, response } : null;
+  return result.ok ? { ok: true, response: result.data } : result;
 }
 
 async function cacheStalePrincipalPolicyBundles(input: {
@@ -86,9 +76,9 @@ async function cacheStalePrincipalPolicyBundles(input: {
   const bundles = input.failure.stalePrincipalPolicies;
   const apiClient = input.runtime.apiClient;
   const getCurrentPrincipalPolicy =
-    apiClient.getCurrentPrincipalPolicy?.bind(apiClient);
+    apiClient.getCurrentPrincipalPolicy.bind(apiClient);
   if (input.stillCurrent?.() === false) return false;
-  if (!bundles || bundles.length === 0 || !getCurrentPrincipalPolicy) {
+  if (!bundles || bundles.length === 0) {
     return false;
   }
 

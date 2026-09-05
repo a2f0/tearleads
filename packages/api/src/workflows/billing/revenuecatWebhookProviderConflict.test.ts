@@ -338,7 +338,7 @@ test("a rejected RevenueCat Web Billing grant alerts the operator", async () => 
       event_timestamp_ms: Date.now(),
       id: eventId,
       metadata: { orgId: organizationId },
-      product_id: "sync_monthly",
+      product_id: "sync_solo_monthly",
       store: "RC_BILLING",
       type: "INITIAL_PURCHASE",
     });

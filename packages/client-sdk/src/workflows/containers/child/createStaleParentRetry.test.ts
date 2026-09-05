@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@tearleads/test-utils";
+import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import { CONTAINER_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
 import {
@@ -25,12 +25,16 @@ test("createRemoteContainer replans once after the parent head advances", async 
 
   try {
     const created = await createRemoteContainer({
-      apiClient: {
+      apiClient: createMockApiClient({
         createContainer: async () => null,
         createContainerResult: async (request) => {
           requests.push(request);
           if (requests.length === 1) {
             return {
+              kind: "http",
+              method: "POST",
+              path: "/containers",
+              statusText: "Conflict",
               code: CONTAINER_MUTATION_ERROR_CODES.stateStale,
               message: STALE_PARENT_FAILURE,
               ok: false as const,
@@ -55,7 +59,7 @@ test("createRemoteContainer replans once after the parent head advances", async 
           return parent.projection;
         },
         getCurrentPrincipalPolicy: async () => null,
-      },
+      }),
       author: parent.author,
       execSql,
       parentContainerId: parent.projection.containerId,
@@ -112,7 +116,7 @@ test("createRemoteContainer hides an unacknowledged committed response", async (
 
   try {
     const created = await createRemoteContainer({
-      apiClient: {
+      apiClient: createMockApiClient({
         createContainer: async (request) => {
           const response = await createMutationResponseFromRequest(request);
           current = false;
@@ -120,7 +124,7 @@ test("createRemoteContainer hides an unacknowledged committed response", async (
         },
         getContainerWriterProjection: async () => parent.projection,
         getCurrentPrincipalPolicy: async () => null,
-      },
+      }),
       author: parent.author,
       containerId: "expired-created-container",
       execSql,
@@ -159,11 +163,15 @@ test("createRemoteContainer does not retry or report after stale-parent refresh 
 
   try {
     const created = await createRemoteContainer({
-      apiClient: {
+      apiClient: createMockApiClient({
         createContainer: async () => null,
         createContainerResult: async () => {
           submissions += 1;
           return {
+            kind: "http",
+            method: "POST",
+            path: "/containers",
+            statusText: "Conflict",
             code: CONTAINER_MUTATION_ERROR_CODES.stateStale,
             message: STALE_PARENT_FAILURE,
             ok: false as const,
@@ -182,7 +190,7 @@ test("createRemoteContainer does not retry or report after stale-parent refresh 
           return parent.projection;
         },
         getCurrentPrincipalPolicy: async () => null,
-      },
+      }),
       author: parent.author,
       execSql,
       parentContainerId: parent.projection.containerId,
@@ -214,11 +222,15 @@ test("createRemoteContainer does not retry an unrelated conflict", async () => {
 
   try {
     const created = await createRemoteContainer({
-      apiClient: {
+      apiClient: createMockApiClient({
         createContainer: async () => null,
         createContainerResult: async () => {
           submissions += 1;
           return {
+            kind: "http",
+            method: "POST",
+            path: "/containers",
+            statusText: "Conflict",
             message: "POST /containers: 409 Conflict: unrelated conflict",
             ok: false as const,
             report: () => {
@@ -232,7 +244,7 @@ test("createRemoteContainer does not retry an unrelated conflict", async () => {
         },
         getContainerWriterProjection: async () => parent.projection,
         getCurrentPrincipalPolicy: async () => null,
-      },
+      }),
       author: parent.author,
       execSql,
       parentContainerId: parent.projection.containerId,

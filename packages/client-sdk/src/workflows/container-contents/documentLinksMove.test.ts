@@ -3,6 +3,7 @@ import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import { createDocument, exportFullHistorySnapshot } from "@tearleads/loro";
 import {
   createContainerWriterProjectionFixture,
+  createMockApiClient,
   createTestExecSql,
 } from "@tearleads/test-utils";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
@@ -97,7 +98,7 @@ async function runMoveRemoteContainerDocumentFixture(input: {
     const runtime: Parameters<
       typeof moveRemoteContainerDocument
     >[0]["runtime"] = {
-      apiClient: {
+      apiClient: createMockApiClient({
         getContainerWriterProjection: async (containerId) => {
           if (containerId === rootProjection.containerId) {
             return rootProjection;
@@ -185,7 +186,7 @@ async function runMoveRemoteContainerDocumentFixture(input: {
           if (input.invalidateAfterUnlink) current = false;
           return response;
         },
-      },
+      }),
       auth: {
         isAuthenticated: true,
         organizationId: author.organizationId,

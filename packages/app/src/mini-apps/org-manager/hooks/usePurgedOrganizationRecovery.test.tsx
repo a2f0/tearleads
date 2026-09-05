@@ -89,7 +89,7 @@ function wrapperWithPurchases(
                 description: "Cloud sync",
                 packageId: "monthly",
                 priceLabel: "$4.99",
-                productId: "sync_monthly",
+                productId: "sync_solo_monthly",
                 seatLimit: 1,
                 tierId: "solo",
                 title: "Sync",

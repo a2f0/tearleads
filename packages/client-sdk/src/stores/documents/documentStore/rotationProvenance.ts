@@ -27,7 +27,7 @@ function ordinaryPendingUpdateBytes(input: {
     const bytes = base64ToBytes(update.updateData);
     const metadata = getImportBlobMetadata(bytes);
     if (
-      (metadata.mode !== "update" && metadata.mode !== "outdated-update") ||
+      metadata.mode !== "update" ||
       !versionVectorsEqual(
         metadata.partialStartVersionVector,
         update.partialStartVersionVector,

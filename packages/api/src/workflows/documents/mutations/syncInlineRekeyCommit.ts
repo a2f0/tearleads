@@ -1,14 +1,17 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { documentInlineRekeyCommits } from "@tearleads/api-shared/schema";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
-import { documentUpdateIdConflict } from "./errors";
+import { DocumentMutationError, documentUpdateIdConflict } from "./errors";
 
 function inlineRekeyCommitId(request: DocumentSyncRequest): string | undefined {
-  // Optional for rolling compatibility with clients that predate durable
-  // inline-rekey replay markers. Current SDK plans always provide it.
-  return (request.containerRekeys?.length ?? 0) > 0
-    ? request.inlineRekeyCommitId
-    : undefined;
+  const hasRekeys = (request.containerRekeys?.length ?? 0) > 0;
+  if (hasRekeys !== (request.inlineRekeyCommitId !== undefined)) {
+    throw new DocumentMutationError(
+      "Inline rekey commit id must accompany container rekeys",
+      400,
+    );
+  }
+  return request.inlineRekeyCommitId;
 }
 
 /**

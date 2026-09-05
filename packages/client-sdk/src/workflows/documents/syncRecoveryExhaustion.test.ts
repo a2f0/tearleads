@@ -5,7 +5,11 @@ import {
   exportAllUpdates,
   getUpdateVersionVectors,
 } from "@tearleads/loro";
-import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  createMockApiClient,
+  createMockRequestFailure,
+  createTestExecSql,
+} from "@tearleads/test-utils";
 import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import {
   createMaterializedSyncFixture,
@@ -81,20 +85,18 @@ test("an exhausted row prevents mixed recovery from hot-looping", async () => {
   pendingUpdates = await listDocumentPendingUpdates(execSql, scope);
 
   const synced = await syncRemoteDocument({
-    apiClient: {
+    apiClient: createMockApiClient({
       getDocumentWriterProjection: async () => writerProjection,
       syncDocument: async () => {
         throw new Error("Expected syncDocumentResult to handle recovery");
       },
       syncDocumentResult: async (documentId, request) => {
         if (request.outgoingUpdates.length > 0) {
-          return {
+          return createMockRequestFailure({
             code: DOCUMENT_SYNC_ERROR_CODES.updateIdConflict,
             message: `POST /documents/${documentId}/sync: 409 Conflict: Document update id conflict`,
-            ok: false,
-            report: () => undefined,
             status: 409,
-          };
+          });
         }
         const readOnlyMaterialized = await buildMaterializedDocumentSyncPlan({
           author,
@@ -114,7 +116,7 @@ test("an exhausted row prevents mixed recovery from hot-looping", async () => {
           ok: true,
         };
       },
-    },
+    }),
     author,
     documentId: writerProjection.documentId,
     execSql,

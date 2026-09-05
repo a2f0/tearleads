@@ -52,7 +52,6 @@ function assertExpectedAdoptionScope(
 export async function adoptExistingRemoteDocument(
   input: RemoteDocumentAdoptionInput,
 ): Promise<CreateRemoteDocumentResult | null> {
-  if (!input.apiClient.getDocumentWriterProjection) return null;
   const writerProjection = await input.apiClient.getDocumentWriterProjection(
     input.documentId,
   );

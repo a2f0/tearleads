@@ -78,7 +78,7 @@ test("an admin purchase activates org sync and records the provider", async () =
       expirationAtMs,
       originalTransactionId: "original-transaction-1",
       organizationId,
-      productId: "sync_monthly",
+      productId: "sync_solo_monthly",
       purchasedAtMs,
       store: "APP_STORE",
       transactionId: "transaction-1",
@@ -93,7 +93,7 @@ test("an admin purchase activates org sync and records the provider", async () =
   expect(billing.provider).toBe("revenuecat");
   expect(billing.providerCustomerId).toBe(admin.userId);
   expect(billing.providerSubscriptionId).toBe("original-transaction-1");
-  expect(billing.providerProductId).toBe("sync_monthly");
+  expect(billing.providerProductId).toBe("sync_solo_monthly");
   expect(billing.providerTransactionId).toBe("transaction-1");
   expect(billing.entitlementId).toBe("sync");
   expect(billing.currentPeriodStartsAt?.getTime()).toBe(purchasedAtMs);

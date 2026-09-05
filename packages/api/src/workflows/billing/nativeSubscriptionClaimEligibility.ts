@@ -13,7 +13,6 @@ import {
 import {
   hasAcceptedPlayReplacement,
   resolvePersistedNativeSubscriptionStore,
-  revenueCatStoreForNativeStore,
 } from "./nativeSubscriptionIdentity";
 import type { VerifiedPlayReplacement } from "./revenuecatPlayReplacement";
 import {
@@ -53,28 +52,6 @@ async function loadStripeBinding(
     .where(eq(organizationBillingStripeSeats.organizationId, organizationId))
     .limit(1);
   return binding;
-}
-
-async function resolveClaimNativeStore(
-  input: NativeClaimEligibilityInput,
-): Promise<string | null> {
-  const persistedStore = await resolvePersistedNativeSubscriptionStore({
-    billing: input.target,
-    executor: input.executor,
-    organizationId: input.target.organizationId,
-  });
-  if (persistedStore) return persistedStore;
-  const claimsExistingNativeBinding = Boolean(
-    input.target.provider === "revenuecat" &&
-      input.target.providerCustomerId === input.appUserId &&
-      input.target.providerSubscriptionId === input.subscriptionId &&
-      getSyncBillingTierForNativeProduct(input.target.providerProductId),
-  );
-  // The provider-verified claim supplies store identity for an exact legacy
-  // binding that predates store audit rows. Never override a conflicting row.
-  return claimsExistingNativeBinding
-    ? revenueCatStoreForNativeStore(input.store)
-    : null;
 }
 
 async function hasConflictingActiveNativeBinding(
@@ -127,7 +104,11 @@ export async function assertNativeClaimEligibility(
     hasStripeBinding: hasStripeBinding && !hasExpiredStripeBinding,
     isOrgAdmin: true,
     isPersonalOrganization: true,
-    persistedNativeStore: await resolveClaimNativeStore(input),
+    persistedNativeStore: await resolvePersistedNativeSubscriptionStore({
+      billing: input.target,
+      executor: input.executor,
+      organizationId: input.target.organizationId,
+    }),
     sessionUserId: input.appUserId,
     targetNativeStore: input.store,
   });

@@ -287,6 +287,14 @@ test("access manifest schema stores critical rows through Drizzle", async () => 
     wrappingMetadata: wrapMetadata,
   });
   await db.insert(documentContentWriteHeaders).values({
+    authorizationTargets: [
+      {
+        containerId,
+        containerManifestHash,
+        containerKeyEpochId,
+        containerKeyEpoch: 1,
+      },
+    ],
     updateId: crypto.randomUUID(),
     documentId,
     organizationId,
@@ -317,6 +325,26 @@ test("access manifest schema stores critical rows through Drizzle", async () => 
     wrappingMetadata: wrapMetadata,
   });
   await db.insert(blobContentWriteHeaders).values({
+    authorization: {
+      activeBindingIds: [bindingId],
+      blobId,
+      blobAccessManifestHash: blobManifestHash,
+      blobKeyTargetHash: blobTargetHash,
+      documentManifestHashes: [documentManifestHash],
+      linkedContainerKeyEpochIds: [containerKeyEpochId],
+      linkedContainerManifestHashes: [containerManifestHash],
+      organizationId,
+      targets: [
+        {
+          bindingId,
+          documentId,
+          containerId,
+          containerManifestHash,
+          containerKeyEpochId,
+          containerKeyEpoch: 1,
+        },
+      ],
+    },
     recordId: crypto.randomUUID(),
     blobId,
     organizationId,

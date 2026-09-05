@@ -11,7 +11,7 @@ test("dispose() force-stops the active scope's coordinator and drops it", async 
   const sdk = new Tearleads({ logger: quietLogger, online: false });
   // Touch device-first so a reconciler exists for the scope; dispose() must
   // stop it without throwing in addition to tearing down the coordinator.
-  sdk.deviceFirst.reconciler();
+  sdk.deviceFirst.open();
 
   const scope = sdk.domainScope;
   const coordinator = getOrCreateDomainSyncCoordinator(scope);
@@ -40,14 +40,14 @@ test("dispose() tears down reconcilers/coordinators across all scopes", async ()
     logger: quietLogger,
     online: false,
   });
-  sdk.deviceFirst.reconciler();
+  sdk.deviceFirst.open();
   const scopeA = sdk.domainScope;
   const coordinatorA = getOrCreateDomainSyncCoordinator(scopeA);
 
   // Rotate the domain scope (anonymous -> authenticated) and create a second
   // reconciler so dispose() must tear down more than the current scope.
   await setGeneratedIdentity(sdk.identity);
-  sdk.deviceFirst.reconciler();
+  sdk.deviceFirst.open();
   const scopeB = sdk.domainScope;
   expect(scopeB).not.toBe(scopeA);
   const coordinatorB = getOrCreateDomainSyncCoordinator(scopeB);

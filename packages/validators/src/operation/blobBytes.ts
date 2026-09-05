@@ -135,47 +135,12 @@ export const MultipartBlobPartHeadersSchema = z.looseObject({
   [blobWireHeaderKeys.partUploadId]: nonEmptyStringSchema,
 });
 
-const BlobBytesResponseHeadersViewSchema = z.strictObject({
-  [blobWireHeaderKeys.blobByteLength]:
-    nonNegativeIntegerHeaderSchema.optional(),
+export const BlobBytesResponseHeadersSchema = z.strictObject({
+  [blobWireHeaderKeys.blobByteLength]: nonNegativeIntegerHeaderSchema,
   [blobWireHeaderKeys.blobId]: nonEmptyStringSchema,
   [blobWireHeaderKeys.blobSha256]: nonEmptyStringSchema,
   [blobWireHeaderKeys.contentLength]: z.string().optional(),
 });
-
-const blobByteLengthHeaderRuntimeRefinement = {
-  description:
-    "Blob byte responses include X-Tearleads-Blob-Byte-Length or Content-Length",
-  id: "blobs.bytes.byteLengthHeader",
-} as const;
-
-const fallbackBlobByteLengthHeaderRuntimeRefinement = {
-  description:
-    "Content-Length is a safe non-negative integer when X-Tearleads-Blob-Byte-Length is absent",
-  id: "response.blobs.bytes.fallbackByteLengthHeader",
-} as const;
-
-const BlobBytesResponseHeadersRuntimeSchema =
-  BlobBytesResponseHeadersViewSchema.refine((headers) => {
-    if (headers[blobWireHeaderKeys.blobByteLength] !== undefined) {
-      return true;
-    }
-    return nonNegativeIntegerHeaderSchema.safeParse(
-      headers[blobWireHeaderKeys.contentLength],
-    ).success;
-  });
-
-export const BlobBytesResponseHeadersSchema =
-  registerJsonSchemaRuntimeRefinements(
-    registerJsonSchemaView(
-      BlobBytesResponseHeadersRuntimeSchema,
-      BlobBytesResponseHeadersViewSchema,
-    ),
-    [
-      blobByteLengthHeaderRuntimeRefinement,
-      fallbackBlobByteLengthHeaderRuntimeRefinement,
-    ],
-  );
 
 export type MultipartBlobPartHeaders = z.infer<
   typeof MultipartBlobPartHeadersSchema
@@ -202,11 +167,7 @@ export const getBlobBytesOperation = defineHttpOperation({
   responseHeaders: { 200: BlobBytesResponseHeadersSchema },
   responseMediaTypes: { 200: "application/octet-stream" },
   responses: { 200: BinaryBodySchema },
-  runtimeRefinements: [
-    blobByteLengthHeaderRuntimeRefinement,
-    fallbackBlobByteLengthHeaderRuntimeRefinement,
-    safeIntegerHeaderRuntimeRefinement,
-  ],
+  runtimeRefinements: [safeIntegerHeaderRuntimeRefinement],
 });
 
 export const uploadMultipartBlobPartBytesOperation = defineHttpOperation({

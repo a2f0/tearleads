@@ -6,6 +6,7 @@ export {
 export { createContainerWriterProjectionFixture } from "./createContainerWriterProjectionFixture";
 export { createLargeText } from "./createLargeText";
 export { createMockApiClient } from "./createMockApiClient";
+export { createMockRequestFailure } from "./createMockRequestFailure";
 export {
   createTestExecSql,
   initTestSqliteDatabase,

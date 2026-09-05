@@ -13,6 +13,37 @@ function rekeyRequest(commitId = "a".repeat(64)): DocumentSyncRequest {
   } as unknown as DocumentSyncRequest;
 }
 
+test("inline rekeys require their marker and non-rekeys cannot reserve one", async () => {
+  const withMarker = rekeyRequest();
+  const { inlineRekeyCommitId: _marker, ...withoutMarker } = withMarker;
+  for (const request of [
+    withoutMarker,
+    { ...withMarker, containerRekeys: [] },
+  ]) {
+    await expect(
+      db.transaction((executor) =>
+        reserveInlineRekeyCommit({
+          documentId: crypto.randomUUID(),
+          executor,
+          request,
+        }),
+      ),
+    ).rejects.toMatchObject({
+      status: 400,
+      message: "Inline rekey commit id must accompany container rekeys",
+    });
+  }
+  await expect(
+    db.transaction((executor) =>
+      reserveInlineRekeyCommit({
+        documentId: crypto.randomUUID(),
+        executor,
+        request: { ...withoutMarker, containerRekeys: [] },
+      }),
+    ),
+  ).resolves.toBeUndefined();
+});
+
 test("inline rekey replay rejects only its durable commit marker", async () => {
   const documentId = crypto.randomUUID();
   const otherDocumentId = crypto.randomUUID();

@@ -28,7 +28,7 @@ export const OPTION: SyncSubscriptionOption = {
   tierId: "solo",
   seatLimit: 1,
   packageId: "monthly",
-  productId: "sync_monthly",
+  productId: "sync_solo_monthly",
   title: "Sync",
   description: "Cloud sync",
   priceLabel: "$4.99",

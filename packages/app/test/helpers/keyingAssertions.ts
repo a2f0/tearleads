@@ -112,17 +112,6 @@ export function assertAccessEvent(value: unknown, label: string): AccessEvent {
   return value;
 }
 
-export function assertOptionalWriteHeader(
-  value: unknown,
-  label: string,
-): WriteHeader | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-
-  return assertWriteHeader(value, label);
-}
-
 export function assertWriteHeader(value: unknown, label: string): WriteHeader {
   if (!isWriteHeader(value)) {
     throw new Error(`Expected ${label} to be a WriteHeader.`);

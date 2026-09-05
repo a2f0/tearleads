@@ -81,6 +81,8 @@ async function insertUpdate(input: {
     plaintextHash,
   });
   await db.insert(documentContentWriteHeaders).values({
+    // Attribution inspects signed metadata independently of container targets.
+    authorizationTargets: [],
     accessManifestHash: "manifest",
     contentKeyEpoch: input.contentKeyEpoch,
     contentRecordId: `record-${id}`,

@@ -65,10 +65,7 @@ const metadataTestPersistenceStubs = {
   async listUnsyncedMoveIntents() {
     return [];
   },
-  async markCreateIntentSynced() {
-    return true;
-  },
-  async markMoveIntentSynced() {
+  async markCreateIntentRevisionSynced() {
     return true;
   },
   async markMoveIntentRevisionSynced() {
@@ -78,7 +75,7 @@ const metadataTestPersistenceStubs = {
   async purgeDormantContainerMetadataCandidates() {
     return 0;
   },
-  async recordCreateIntentError() {},
+  async recordCreateIntentRevisionError() {},
   async recordMoveIntentError() {},
   async reassignContainerDocuments() {},
   async reconcileLocalRootContainer() {},

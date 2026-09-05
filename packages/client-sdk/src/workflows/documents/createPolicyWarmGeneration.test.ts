@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
-import { createTestExecSql } from "@tearleads/test-utils";
+import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import {
   createAuthor,
@@ -19,7 +19,7 @@ import { buildInitialGroupPolicyRequest } from "../organizations/principalPolicy
 import { createRuntimePrincipalPolicyWarmer } from "../principals/runtimePolicyWarmer";
 import { createRemoteDocument } from "./create";
 
-test("stale required document create verifies a group policy without caching it", async () => {
+test("expired document create does not fetch or cache a refreshed group policy", async () => {
   const organizationId = "stale-document-create-organization";
   const userId = "stale-document-create-user";
   const groupId = "stale-document-create-admins";
@@ -79,7 +79,7 @@ test("stale required document create verifies a group policy without caching it"
   let submissions = 0;
   let current = true;
   const warmReferencedPrincipalPolicies = createRuntimePrincipalPolicyWarmer({
-    apiClient: {
+    apiClient: createMockApiClient({
       getCurrentPrincipalPolicy: async (principalType, principalId) => {
         policyGets += 1;
         expect({ principalId, principalType }).toEqual({
@@ -88,7 +88,7 @@ test("stale required document create verifies a group policy without caching it"
         });
         return groupPolicy;
       },
-    },
+    }),
     infra: { execSql },
     resolveTrustedUserIdentity,
     util: {
@@ -99,7 +99,7 @@ test("stale required document create verifies a group policy without caching it"
 
   try {
     const created = await createRemoteDocument({
-      apiClient: {
+      apiClient: createMockApiClient({
         createDocument: async () => {
           throw new Error("result-returning create should be used");
         },
@@ -108,6 +108,10 @@ test("stale required document create verifies a group policy without caching it"
           if (submissions === 1) {
             current = false;
             return {
+              kind: "http",
+              method: "POST",
+              path: "/documents",
+              statusText: "Conflict",
               code: DOCUMENT_SYNC_ERROR_CODES.stateStale,
               message:
                 "POST /documents: 409 Conflict: targetContainerPathRefs[0] is stale",
@@ -126,7 +130,7 @@ test("stale required document create verifies a group policy without caching it"
         },
         getContainerWriterProjection: async () => refreshedProjection,
         primeDocumentWriterProjection: () => undefined,
-      },
+      }),
       author,
       containerId,
       containerProjection: initialProjection,
@@ -138,16 +142,15 @@ test("stale required document create verifies a group policy without caching it"
       ]),
       resolveProjectionUserKey: resolveTrustedUserIdentity,
       stillCurrent: () => current,
-      submitWhenStale: true,
       targetSecretKey: memberKem.secretKey,
       warmReferencedPrincipalPolicies,
     });
 
     expect(created).toBeNull();
     expect(current).toBe(false);
-    expect(policyGets).toBe(1);
-    expect(projectionEvictions).toBe(1);
-    expect(submissions).toBe(2);
+    expect(policyGets).toBe(0);
+    expect(projectionEvictions).toBe(0);
+    expect(submissions).toBe(1);
     await expect(
       loadPrincipalPolicyBundle(execSql, "group", groupId),
     ).resolves.toBeNull();

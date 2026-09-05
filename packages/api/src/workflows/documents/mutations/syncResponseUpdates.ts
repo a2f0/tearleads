@@ -117,7 +117,7 @@ async function listSyncCheckpointMetadata(
 function toSyncUpdate(
   update: Awaited<ReturnType<typeof listMissingDocumentUpdates>>[number],
   writeHeader: {
-    readonly authorizationTargets: readonly DocumentContentKeyTarget[] | null;
+    readonly authorizationTargets: readonly DocumentContentKeyTarget[];
     readonly header: WriteHeader;
     readonly headerHash: string;
   },
@@ -143,10 +143,7 @@ function toSyncUpdate(
       : { sourceVersionVector: checkpoint.sourceVersionVector }),
     createdAt: update.createdAt.toISOString(),
     writeHeader: writeHeaderRecord(writeHeader.header),
-    ...(writeHeader.authorizationTargets &&
-    writeHeader.authorizationTargets.length > 0
-      ? { authorizationTargets: [...writeHeader.authorizationTargets] }
-      : {}),
+    authorizationTargets: [...writeHeader.authorizationTargets],
   };
 }
 

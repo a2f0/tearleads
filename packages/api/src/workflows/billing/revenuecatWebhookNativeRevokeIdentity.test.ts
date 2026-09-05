@@ -124,9 +124,9 @@ test.each([
 });
 
 test.each([
-  ["RENEWAL", "active"],
-  ["EXPIRATION", "disabled"],
-] as const)("an exact-token legacy %s applies without audit store lineage", async (type, expectedStatus) => {
+  "RENEWAL",
+  "EXPIRATION",
+] as const)("an exact-token %s cannot bypass missing audit store lineage", async (type) => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
   const now = Date.now();
@@ -156,13 +156,18 @@ test.each([
     type,
   };
 
-  expect(await runRevenueCatWebhookWorkflow(db, event)).toMatchObject({
-    organizationId,
-    status: "applied",
-  });
+  const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
+  try {
+    expect(await runRevenueCatWebhookWorkflow(db, event)).toEqual({
+      reason: NATIVE_BINDING_CONFLICT_REASON,
+      status: "retry",
+    });
+  } finally {
+    errorSpy.mockRestore();
+  }
   const [billing] = await db
     .select({ status: organizationBilling.status })
     .from(organizationBilling)
     .where(eq(organizationBilling.organizationId, organizationId));
-  expect(billing?.status).toBe(expectedStatus);
+  expect(billing?.status).toBe("active");
 });

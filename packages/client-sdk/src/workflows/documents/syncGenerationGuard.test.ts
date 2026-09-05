@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  createMockApiClient,
+  createMockRequestFailure,
+  createTestExecSql,
+} from "@tearleads/test-utils";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import {
@@ -28,7 +32,7 @@ test("syncRemoteDocument does not retry after its generation expires", async () 
 
   try {
     const synced = await syncRemoteDocument({
-      apiClient: {
+      apiClient: createMockApiClient({
         getDocumentWriterProjection: async () => writerProjection,
         syncDocument: async () => {
           throw new Error("Expected syncDocumentResult to handle sync retries");
@@ -36,17 +40,16 @@ test("syncRemoteDocument does not retry after its generation expires", async () 
         syncDocumentResult: async (documentId, request) => {
           submittedRequests.push(request);
           current = false;
-          return {
+          return createMockRequestFailure({
             code: DOCUMENT_SYNC_ERROR_CODES.stateStale,
             message: `POST /documents/${documentId}/sync: 409 Conflict: state is stale`,
-            ok: false,
             report: () => {
               reported = true;
             },
             status: 409,
-          };
+          });
         },
-      },
+      }),
       author,
       documentId: writerProjection.documentId,
       execSql: database.execSql,
@@ -92,13 +95,13 @@ test("sync planning rolls back projection checkpoints after generation expiry", 
 
   try {
     const synced = await syncRemoteDocument({
-      apiClient: {
+      apiClient: createMockApiClient({
         getDocumentWriterProjection: async () => writerProjection,
         syncDocument: async () => {
           submitted = true;
           throw new Error("expired sync must not submit");
         },
-      },
+      }),
       author,
       documentId: writerProjection.documentId,
       execSql: guardedExecSql,

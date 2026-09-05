@@ -190,9 +190,9 @@ test("remote reset rebinds only the purged organization to its replacement", asy
   }
 });
 
-test("remote reset clears legacy cursor lanes owned by the purged organization", async () => {
+test("remote reset clears only current cursor lanes owned by the purged organization", async () => {
   const { close, execSql } = await createTestExecSql(
-    "sync-remote-reset-legacy-cursor-scope",
+    "sync-remote-reset-current-cursor-scope",
   );
   try {
     await ensureSqlTables(execSql, clientSqlTables);
@@ -220,10 +220,9 @@ test("remote reset clears legacy cursor lanes owned by the purged organization",
     const cursors = [
       ["container_parent", "org-old:root"],
       ["container_parent", "org-keep:root"],
-      ["container_parent", "root"],
-      ["container_parent", "parent:old-root"],
+      ["container_parent", "org-old:parent:old-root"],
       ["container_documents", "old-root"],
-      ["container_parent", "parent:keep-root"],
+      ["container_parent", "org-keep:parent:keep-root"],
       ["container_documents", "keep-root"],
     ] as const;
     await db.insert(containerSyncWatermarks).values(
@@ -247,11 +246,11 @@ test("remote reset clears legacy cursor lanes owned by the purged organization",
       organizationId: "org-old",
     });
 
-    expect(result.clearedSyncCursorCount).toBe(8);
+    expect(result.clearedSyncCursorCount).toBe(6);
     const expectedRetainedLaneIds = [
       "keep-root",
+      "org-keep:parent:keep-root",
       "org-keep:root",
-      "parent:keep-root",
     ];
     expect(
       (await db.select().from(containerSyncWatermarks))

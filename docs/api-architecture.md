@@ -93,8 +93,8 @@ The document sync request names protocol fields:
 `contentKeyEpoch`, `expectedLinkSetManifestHash`, `expectedTargetHash`,
 optional `contentKeyBundle`, optional `containerRekeys`, optional
 `authorizingContainerPathRefs`, `localVersionVector`, optional `minLsn`, and
-required `supportsPullPagination: true`, optional `pullCursor`, and optional
-`supportsUntrackedCommitLsn`, plus `outgoingUpdates[]` with per-update
+required `supportsPullPagination: true`, optional `pullCursor`, plus
+`outgoingUpdates[]` with per-update
 `writeHeader`. Cursor continuations are read-only. The path references identify
 signed container manifests already held by the API; the expected link-set hash
 pins the server-resolved document manifest.

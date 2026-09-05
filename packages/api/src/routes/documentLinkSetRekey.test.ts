@@ -31,7 +31,7 @@ function rekeyedChildFixture(
   const previousState = asVerifiedContainerManifest(previousBundle).state;
   const body = request.body as {
     containerKeyEpochId: string;
-    referencedPrincipalHeads?: ContainerAccessManifestState["referencedPrincipalHeads"];
+    referencedPrincipalHeads: ContainerAccessManifestState["referencedPrincipalHeads"];
   };
   const manifest = request.manifest as unknown as { eventHash: string };
   const state: ContainerAccessManifestState = {
@@ -40,8 +40,7 @@ function rekeyedChildFixture(
     epoch: previousState.epoch + 1,
     eventHash: manifest.eventHash,
     previousManifestHash: previousBundle.manifestHash,
-    referencedPrincipalHeads:
-      body.referencedPrincipalHeads ?? previousState.referencedPrincipalHeads,
+    referencedPrincipalHeads: body.referencedPrincipalHeads,
   };
   const previousKek = kekStateFromContainerResponse(previous);
   return {

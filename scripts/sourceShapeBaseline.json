@@ -47,8 +47,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 564,
-      "bytes": 26708
+      "lines": 585,
+      "bytes": 28000
     },
     "docs/developer/revenuecat-billing.md": {
       "lines": 360,
@@ -75,8 +75,8 @@
       "bytes": 23535
     },
     "docs/openapi.json": {
-      "lines": 61966,
-      "bytes": 2582526
+      "lines": 62031,
+      "bytes": 2599668
     },
     "docs/protocol-specification.md": {
       "lines": 585,
@@ -159,16 +159,16 @@
       "bytes": 74287
     },
     "packages/api/src/routes/organizations/organizations.test.ts": {
-      "lines": 840,
-      "bytes": 26203
+      "lines": 854,
+      "bytes": 26706
     },
     "packages/api/src/routes/principals/policy.test.ts": {
       "lines": 925,
       "bytes": 30275
     },
     "packages/api/src/schema.test.ts": {
-      "lines": 507,
-      "bytes": 16002
+      "lines": 536,
+      "bytes": 16737
     },
     "packages/api/src/services/billing/stripeCheckout.test.ts": {
       "lines": 572,
@@ -283,12 +283,12 @@
       "bytes": 30465
     },
     "packages/client-sdk/src/workflows/container-contents/documentInfo.test.ts": {
-      "lines": 621,
-      "bytes": 18863
+      "lines": 644,
+      "bytes": 19683
     },
     "packages/client-sdk/src/workflows/blobs/hydrate.test.ts": {
-      "lines": 705,
-      "bytes": 24732
+      "lines": 706,
+      "bytes": 24818
     },
     "packages/client-sdk/src/workflows/container-contents/documentMoveIntentSync.test.ts": {
       "lines": 725,
@@ -355,12 +355,12 @@
       "bytes": 19200
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 23325,
-      "bytes": 976590
+      "lines": 23342,
+      "bytes": 976657
     },
     "packages/validators/src/response/response.test.ts": {
-      "lines": 1159,
-      "bytes": 33895
+      "lines": 1167,
+      "bytes": 34772
     },
     "scripts/subsystems.ts": {
       "lines": 743,

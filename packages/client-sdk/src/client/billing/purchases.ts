@@ -76,13 +76,6 @@ export interface PurchasesCapability {
    * Cancel affordance.
    */
   readonly supportsEmbeddedCheckout?: boolean;
-  /**
-   * True when a native provider invokes `onProviderPresented` at the exact
-   * point its store sheet can no longer be withdrawn by the app. Legacy
-   * providers leave this false so callers stop offering cancellation before
-   * handing control to them.
-   */
-  readonly supportsProviderPresentationCallback?: boolean;
   /** Identify the buyer to the provider; the App User ID is the buyer's user id. */
   identify(input: { userId: string }): Promise<void>;
   /** Forget the identified buyer (e.g. on sign-out). */
@@ -104,7 +97,7 @@ export interface PurchasesCapability {
     packageId: string;
     checkoutHost?: HTMLElement;
     abortSignal?: AbortSignal;
-    /** Called synchronously when provider UI becomes impossible to dismiss. */
+    /** Providers must call this synchronously when their UI becomes impossible to dismiss. */
     onProviderPresented?: () => void;
   }): Promise<SyncPurchaseResult>;
   /** Publish a server-accepted organization binding for later lifecycle events. */
@@ -213,8 +206,6 @@ export interface RevenueCatPurchasesConfig {
    * carry their own dismissal.
    */
   readonly supportsEmbeddedCheckout?: boolean;
-  /** Whether the native backend honors the purchase presentation callback. */
-  readonly supportsProviderPresentationCallback?: boolean;
   /**
    * Maximum wait for provider setup, identity, and non-checkout operations.
    * Defaults to 30 seconds. Purchase checkout itself is not timed because the
@@ -275,10 +266,6 @@ function purchaseCapabilityFlags(
   return {
     supportsEmbeddedCheckout:
       purchasesEnabled && (config.supportsEmbeddedCheckout ?? false),
-    supportsProviderPresentationCallback:
-      purchasesEnabled &&
-      config.nativeStore !== null &&
-      config.supportsProviderPresentationCallback === true,
   };
 }
 

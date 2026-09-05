@@ -122,7 +122,7 @@ test("local deletion evicts a cached device-first summary until disposal", async
       slotId: "queued-slot",
       storageKey: "queued-storage",
     });
-    const view = deviceFirst.openView();
+    const view = deviceFirst.open().view;
     view.updateRuntime(runtime);
     await waitFor(
       () => view.getSnapshot().ready,

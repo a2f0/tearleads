@@ -78,7 +78,7 @@ export const DocumentSyncUpdateResponseSchema =
       accessEpoch: positiveIntegerSchema,
       authorizationTargets: nonEmptyArraySchema(
         DocumentContentKeyTargetResponseSchema,
-      ).optional(),
+      ),
       authorFingerprint: z.string(),
       checkpointKind: z
         .literal(DOCUMENT_SYNC_ROTATION_CHECKPOINT_KIND)
@@ -128,9 +128,7 @@ export const DocumentSyncResponseSchema = registerJsonSchemaRuntimeRefinements(
       MAX_DOCUMENT_SYNC_OUTGOING_UPDATES,
     ),
     commitLsn: z.string().nullable(),
-    commitLsnMode: z
-      .union([z.literal("tracked"), z.literal("untracked")])
-      .optional(),
+    commitLsnMode: z.union([z.literal("tracked"), z.literal("untracked")]),
     contentKeyBundle: DocumentContentKeyBundleResponseSchema,
     contentKeyBundles: arraySchema(DocumentContentKeyBundleResponseSchema),
     documentId: z.string(),

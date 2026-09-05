@@ -10,7 +10,7 @@ import {
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
-import { createTestExecSql } from "@tearleads/test-utils";
+import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import {
   type ContainerMutationRequest,
   isContainerMutationRequest,
@@ -305,7 +305,7 @@ test("createRemoteContainer fetches the parent projection and submits the materi
   const { close, execSql } = await createTestExecSql("remote-child-create");
   try {
     const result = await createRemoteContainer({
-      apiClient: {
+      apiClient: createMockApiClient({
         getContainerWriterProjection: async (containerId) =>
           containerId === parent.projection.containerId
             ? parent.projection
@@ -315,7 +315,7 @@ test("createRemoteContainer fetches the parent projection and submits the materi
           submittedRequests.push(request);
           return createMutationResponseFromRequest(request);
         },
-      },
+      }),
       author,
       containerId: "remote-child-container",
       execSql,
@@ -372,7 +372,7 @@ test("createRemoteContainer rejects a mismatched acknowledgement without pinning
   try {
     await expect(
       createRemoteContainer({
-        apiClient: {
+        apiClient: createMockApiClient({
           createContainer: async (request) => {
             const response = await createMutationResponseFromRequest(request);
             return {
@@ -385,7 +385,7 @@ test("createRemoteContainer rejects a mismatched acknowledgement without pinning
           },
           getContainerWriterProjection: async () => parent.projection,
           getCurrentPrincipalPolicy: async () => null,
-        },
+        }),
         author,
         containerId,
         execSql,
@@ -427,14 +427,14 @@ test("createRemoteContainer rejects bad parent projection signatures before send
   try {
     await expect(
       createRemoteContainer({
-        apiClient: {
+        apiClient: createMockApiClient({
           getContainerWriterProjection: async () => tamperedProjection,
           getCurrentPrincipalPolicy: async () => null,
           createContainer: async () => {
             createCalled = true;
             throw new Error("Unexpected create call");
           },
-        },
+        }),
         author,
         containerId: "bad-parent-signature-child",
         execSql,

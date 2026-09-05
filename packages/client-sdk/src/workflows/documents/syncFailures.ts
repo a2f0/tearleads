@@ -270,33 +270,25 @@ async function resolveDocumentSyncWriterProjection(input: {
     return input.reusableWriterProjection;
   }
 
-  if (input.apiClient.getDocumentWriterProjectionResult) {
-    const result = await input.apiClient.getDocumentWriterProjectionResult(
-      input.documentId,
-      { reportErrors: false },
-    );
-    if (input.stillCurrent?.() === false) return null;
-    if (result.ok) {
-      return result.data;
-    }
-    if (isUpstreamDeletedDocumentSyncFailure(result)) {
-      return REMOTE_DOCUMENT_DELETED;
-    }
-
-    traceProjectionFailed(input.onSyncTrace, {
-      code: result.code,
-      documentId: input.documentId,
-      status: result.status,
-    });
-    result.report();
-    await input.onTerminalFailure?.(result);
-    return null;
-  }
-
-  const projection = await input.apiClient.getDocumentWriterProjection(
+  const result = await input.apiClient.getDocumentWriterProjectionResult(
     input.documentId,
+    { reportErrors: false },
   );
-  return input.stillCurrent?.() === false ? null : projection;
+  if (input.stillCurrent?.() === false) return null;
+  if (result.ok) {
+    return result.data;
+  }
+  if (isUpstreamDeletedDocumentSyncFailure(result)) {
+    return REMOTE_DOCUMENT_DELETED;
+  }
+  traceProjectionFailed(input.onSyncTrace, {
+    code: result.code,
+    documentId: input.documentId,
+    status: result.status,
+  });
+  result.report();
+  await input.onTerminalFailure?.(result);
+  return null;
 }
 
 export async function retrySyncPlan(input: {

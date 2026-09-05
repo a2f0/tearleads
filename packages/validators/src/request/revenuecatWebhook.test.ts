@@ -14,7 +14,7 @@ function webhook(overrides: Record<string, unknown> = {}) {
       expiration_at_ms: 2_000,
       id: "event-1",
       original_transaction_id: "original-transaction-1",
-      product_id: "sync_monthly",
+      product_id: "sync_solo_monthly",
       transaction_id: "transaction-1",
       type: "INITIAL_PURCHASE",
       ...overrides,

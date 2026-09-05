@@ -4,6 +4,12 @@ import { isDocumentSyncResponse } from "./index";
 
 test("document sync responses declare only supported commit LSN modes", () => {
   const response = createSyncResponse();
+  expect(
+    isDocumentSyncResponse({ ...response, commitLsnMode: undefined }),
+  ).toBe(false);
+  expect(
+    isDocumentSyncResponse({ ...response, commitLsnMode: "tracked" }),
+  ).toBe(true);
 
   expect(
     isDocumentSyncResponse({

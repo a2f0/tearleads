@@ -60,21 +60,12 @@ function readCurrentSqliteCommitLsn(): string {
 export async function readCurrentCommitLsn(
   executor: DatabaseSession,
   databaseKind: ApiDatabaseKind = getDefaultApiDatabaseKind(),
-  options: {
-    readonly clientSupportsUntracked?: boolean | undefined;
-    readonly minimumLsn?: string | undefined;
-  } = {},
 ): Promise<string> {
   // Remote-only Turso always serves reads from the primary, so there is no
-  // replica watermark to wait for. New clients explicitly opt into resetting
-  // an old tracked checkpoint to the zero sentinel. Legacy clients ignore the
-  // additive response mode, so echo their requested minimum instead; it is not
-  // a Turso watermark, but it prevents an existing client from rejecting the
-  // response as stale during the capability rollout.
+  // replica watermark to wait for. The explicit untracked mode resets any
+  // previously tracked checkpoint to the zero sentinel.
   if (databaseKind === "turso") {
-    return options.clientSupportsUntracked
-      ? "0/0"
-      : (options.minimumLsn ?? "0/0");
+    return "0/0";
   }
   if (databaseKind === "sqlite") {
     await ensureSqliteCommitLsnSeeded(executor);
@@ -99,20 +90,6 @@ export async function readCurrentCommitLsn(
 
 export function readCommitLsnMode(
   databaseKind: ApiDatabaseKind = getDefaultApiDatabaseKind(),
-  options: {
-    readonly clientSupportsUntracked?: boolean | undefined;
-    readonly minimumLsn?: string | undefined;
-  } = {},
-): "tracked" | "untracked" | undefined {
-  if (databaseKind !== "turso") {
-    return "tracked";
-  }
-
-  // A legacy Turso response echoes the request's compatibility token rather
-  // than claiming it is a real watermark. Omitting the additive mode keeps
-  // that nonzero token from being mislabeled as an untracked checkpoint. A
-  // requested 0/0 already is the sentinel, so declaring it remains valid.
-  return options.clientSupportsUntracked || options.minimumLsn === "0/0"
-    ? "untracked"
-    : undefined;
+): "tracked" | "untracked" {
+  return databaseKind === "turso" ? "untracked" : "tracked";
 }

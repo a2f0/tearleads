@@ -30,10 +30,7 @@ export async function getBlobBytes(
   }
 
   const { headers, response } = result;
-  const byteLength = Number(
-    headers[blobWireHeaderKeys.blobByteLength] ??
-      headers[blobWireHeaderKeys.contentLength],
-  );
+  const byteLength = Number(headers[blobWireHeaderKeys.blobByteLength]);
 
   // On the browser / WKWebView-fetch path the body is streamed, so
   // `response.body` is a live ReadableStream. Under a native HTTP bridge

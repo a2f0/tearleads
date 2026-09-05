@@ -1,0 +1,10 @@
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+GET /blobs/{blobId}/bytes: refinement 'blobs.bytes.byteLengthHeader' has no request./response. prefix; classify it before changing it.
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+GET /blobs/{blobId}/bytes: response refinement 'response.blobs.bytes.fallbackByteLengthHeader' was removed; existing clients still validate responses against it.
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /auth/register: request refinement 'request.inline-rekey-commit-marker' was added; existing clients were not rejected by it.
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /documents/{documentId}/sync: request refinement 'request.inline-rekey-commit-marker' was added; existing clients were not rejected by it.
+# #2158 greenfield shim removal; remove this exception once main contains this contract.
+POST /organizations: request refinement 'request.inline-rekey-commit-marker' was added; existing clients were not rejected by it.

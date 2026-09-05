@@ -47,7 +47,7 @@ test("a stale lifecycle grant for a moved subscription is ignored", async () => 
     expiration_at_ms: now + 60_000,
     id: crypto.randomUUID(),
     original_transaction_id: subscriptionId,
-    product_id: "com.tearleads.sync.monthly",
+    product_id: "sync_solo_monthly",
     purchased_at_ms: now,
     store: "APP_STORE",
     subscriber_attributes: {

@@ -66,12 +66,6 @@ export type ContainerCreateIntentErrorInputRecorder = (
   input: ContainerCreateIntentErrorInput,
 ) => Promise<void>;
 
-export type ContainerCreateIntentErrorRecorder = (
-  execSql: ExecSql,
-  containerId: string,
-  message: string,
-) => Promise<void>;
-
 export interface ContainerMoveIntentRevisionInput {
   containerId: string;
   expectedIntentId: string;
@@ -241,11 +235,8 @@ export interface ContainerContentsPersistence
     containerId: string,
   ) => Promise<PendingUpdateRecord[]>;
   rekeyPendingUpdate: (execSql: ExecSql, id: string) => Promise<string | null>;
-  recordCreateIntentError: ContainerCreateIntentErrorRecorder;
   /** Revision-CAS error recorder used by asynchronous create replay. */
-  recordCreateIntentRevisionError?:
-    | ContainerCreateIntentErrorInputRecorder
-    | undefined;
+  recordCreateIntentRevisionError: ContainerCreateIntentErrorInputRecorder;
   recordMoveIntentError: (
     execSql: ExecSql,
     input: {
@@ -417,49 +408,34 @@ export interface ContainerContentsPersistence
   ) => Promise<ContainerRecord>;
   /**
    * Atomically saves a container and enqueues its first metadata update.
-   * Optional for adapters built before this operation existed; create flows
-   * that need the compound write refuse before mutation when it is unavailable.
+   * Host adapters must implement the compound write in their own transaction.
    */
-  saveContainerWithPendingUpdate?:
-    | ((
-        execSql: ExecSql,
-        container: ContainerRecord,
-        record: ContainerMetadataRecord,
-        options: SaveContainerWithPendingUpdateOptions,
-      ) => Promise<ContainerRecord>)
-    | undefined;
+  saveContainerWithPendingUpdate: (
+    execSql: ExecSql,
+    container: ContainerRecord,
+    record: ContainerMetadataRecord,
+    options: SaveContainerWithPendingUpdateOptions,
+  ) => Promise<ContainerRecord>;
   saveContainerAndDeletePendingUpdates: (
     execSql: ExecSql,
     container: ContainerRecord,
     record: ContainerMetadataRecord,
     pendingUpdateIds: readonly string[],
   ) => Promise<ContainerRecord>;
-  markCreateIntentSynced: (
+  /**
+   * Revision-CAS settlement used by asynchronous create replay. Invalid
+   * adapters are rejected before the remote mutation begins.
+   */
+  markCreateIntentRevisionSynced: (
     execSql: ExecSql,
     input: ContainerCreateIntentRevisionInput,
-  ) => Promise<boolean> | Promise<void>;
+  ) => Promise<boolean>;
   /**
-   * Revision-CAS settlement used by asynchronous create replay. Legacy
-   * adapters without it are rejected before the remote mutation begins.
+   * Revision-CAS settlement used by asynchronous move replay. Invalid adapters
+   * are rejected before the remote mutation begins.
    */
-  markCreateIntentRevisionSynced?:
-    | ((
-        execSql: ExecSql,
-        input: ContainerCreateIntentRevisionInput,
-      ) => Promise<boolean>)
-    | undefined;
-  markMoveIntentSynced: (
+  markMoveIntentRevisionSynced: (
     execSql: ExecSql,
     input: ContainerMoveIntentRevisionInput,
-  ) => Promise<boolean> | Promise<void>;
-  /**
-   * Revision-CAS settlement used by asynchronous move replay. Legacy adapters
-   * without this capability are rejected before the remote mutation begins.
-   */
-  markMoveIntentRevisionSynced?:
-    | ((
-        execSql: ExecSql,
-        input: ContainerMoveIntentRevisionInput,
-      ) => Promise<boolean>)
-    | undefined;
+  ) => Promise<boolean>;
 }

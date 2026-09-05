@@ -242,7 +242,8 @@ testApiClient("exposes streamed blob download responses", async () => {
         }),
         {
           headers: {
-            "Content-Length": encryptedBytes.byteLength.toString(),
+            "X-Tearleads-Blob-Byte-Length":
+              encryptedBytes.byteLength.toString(),
             "X-Tearleads-Blob-Id": blobId,
             "X-Tearleads-Blob-Sha256": "sha256-1",
           },

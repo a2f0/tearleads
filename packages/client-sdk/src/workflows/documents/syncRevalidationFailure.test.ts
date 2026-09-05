@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  createMockApiClient,
+  createMockRequestFailure,
+  createTestExecSql,
+} from "@tearleads/test-utils";
 import {
   DOCUMENT_NOT_FOUND_ERROR_CODE,
   DOCUMENT_PROJECTION_ERROR_CODES,
@@ -25,21 +29,21 @@ test("a read-only pass reports a refused projection read durably", async () => {
 
   try {
     const synced = await syncRemoteDocument({
-      apiClient: {
+      apiClient: createMockApiClient({
         getDocumentWriterProjection: async () => {
           throw new Error("Expected the Result variant to be used");
         },
-        getDocumentWriterProjectionResult: async () => ({
-          code: DOCUMENT_PROJECTION_ERROR_CODES.containerUnavailable,
-          message: "Container for this document is unavailable",
-          ok: false as const,
-          report: () => undefined,
-          status: 409,
-        }),
+        getDocumentWriterProjectionResult: async () =>
+          createMockRequestFailure({
+            method: "GET",
+            code: DOCUMENT_PROJECTION_ERROR_CODES.containerUnavailable,
+            message: "Container for this document is unavailable",
+            status: 409,
+          }),
         syncDocument: async () => {
           throw new Error("Sync must not run without a projection");
         },
-      },
+      }),
       author,
       documentId: writerProjection.documentId,
       execSql,
@@ -78,21 +82,21 @@ test("a write-bearing pass does not use the read-only handler", async () => {
 
   try {
     const synced = await syncRemoteDocument({
-      apiClient: {
+      apiClient: createMockApiClient({
         getDocumentWriterProjection: async () => {
           throw new Error("Expected the Result variant to be used");
         },
-        getDocumentWriterProjectionResult: async () => ({
-          code: DOCUMENT_PROJECTION_ERROR_CODES.containerConflict,
-          message: "Container keying conflicts with the document",
-          ok: false as const,
-          report: () => undefined,
-          status: 409,
-        }),
+        getDocumentWriterProjectionResult: async () =>
+          createMockRequestFailure({
+            method: "GET",
+            code: DOCUMENT_PROJECTION_ERROR_CODES.containerConflict,
+            message: "Container keying conflicts with the document",
+            status: 409,
+          }),
         syncDocument: async () => {
           throw new Error("Sync must not run without a projection");
         },
-      },
+      }),
       author,
       documentId: writerProjection.documentId,
       execSql,
@@ -139,26 +143,26 @@ test("an expired projection failure has no terminal side effects", async () => {
 
   try {
     const synced = await syncRemoteDocument({
-      apiClient: {
+      apiClient: createMockApiClient({
         getDocumentWriterProjection: async () => {
           throw new Error("Expected the Result variant to be used");
         },
         getDocumentWriterProjectionResult: async () => {
           current = false;
-          return {
+          return createMockRequestFailure({
+            method: "GET",
             code: DOCUMENT_PROJECTION_ERROR_CODES.containerUnavailable,
             message: "Container for this document is unavailable",
-            ok: false as const,
             report: () => {
               reported += 1;
             },
             status: 409,
-          };
+          });
         },
         syncDocument: async () => {
           throw new Error("Sync must not run after generation expiry");
         },
-      },
+      }),
       author,
       documentId: writerProjection.documentId,
       execSql,
@@ -203,24 +207,23 @@ test("an expired projection deletion has no deletion side effects", async () => 
 
   try {
     const synced = await syncRemoteDocument({
-      apiClient: {
+      apiClient: createMockApiClient({
         getDocumentWriterProjection: async () => {
           throw new Error("Expected the Result variant to be used");
         },
         getDocumentWriterProjectionResult: async () => {
           current = false;
-          return {
+          return createMockRequestFailure({
+            method: "GET",
             code: DOCUMENT_NOT_FOUND_ERROR_CODE,
             message: "Document not found",
-            ok: false as const,
-            report: () => undefined,
             status: 404,
-          };
+          });
         },
         syncDocument: async () => {
           throw new Error("Sync must not run after generation expiry");
         },
-      },
+      }),
       author,
       documentId: writerProjection.documentId,
       execSql,

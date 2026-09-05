@@ -148,7 +148,6 @@ test.skipIf(databaseKind !== "turso")(
     const response = await postDocumentSync(owner, created.id, {
       ...request,
       minLsn: "FFFFFFFF/FFFFFFFF",
-      supportsUntrackedCommitLsn: true,
     });
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({

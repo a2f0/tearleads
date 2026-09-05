@@ -36,38 +36,19 @@ async function submitLinkSetMutation(input: {
 }): Promise<DocumentLinkSetMutationResponse | null> {
   if (input.stillCurrent?.() === false) return null;
   const { apiClient } = input;
-  // Prefer the result-returning variants so a failure keeps its HTTP status
-  // instead of collapsing to null — the move-intent queue records it.
+  // Preserve the HTTP failure for the durable move-intent queue.
   const resultFn =
     input.operation === "link"
-      ? apiClient.linkDocumentResult?.bind(apiClient)
-      : apiClient.unlinkDocumentResult?.bind(apiClient);
-  if (resultFn) {
-    const result = await resultFn(input.documentId, input.request, {
-      expectedPaymentRequiredOrganizationId: input.expectedOrganizationId,
-    });
-    if (result.ok) {
-      return result.data;
-    }
-    input.onFailure?.({ message: result.message, status: result.status });
-    return null;
+      ? apiClient.linkDocumentResult.bind(apiClient)
+      : apiClient.unlinkDocumentResult.bind(apiClient);
+  const result = await resultFn(input.documentId, input.request, {
+    expectedPaymentRequiredOrganizationId: input.expectedOrganizationId,
+  });
+  if (result.ok) {
+    return result.data;
   }
-
-  const response =
-    input.operation === "link"
-      ? await apiClient.linkDocument(input.documentId, input.request, {
-          expectedPaymentRequiredOrganizationId: input.expectedOrganizationId,
-        })
-      : await apiClient.unlinkDocument(input.documentId, input.request, {
-          expectedPaymentRequiredOrganizationId: input.expectedOrganizationId,
-        });
-  if (!response) {
-    input.onFailure?.({
-      message: `Document ${input.operation} request failed`,
-      status: null,
-    });
-  }
-  return response;
+  input.onFailure?.({ message: result.message, status: result.status });
+  return null;
 }
 
 interface LinkSetProjectionFetch<TProjection> {
@@ -79,33 +60,20 @@ interface LinkSetProjectionFetch<TProjection> {
 // 403 to null would leave an access-denied link/unlink routinely retriable
 // instead of parking its move for the access-restored signal (row 7).
 async function fetchLinkSetProjection<TProjection>(input: {
-  fallbackMessage: string;
-  fetchProjection: () => Promise<TProjection | null>;
-  fetchProjectionResult:
-    | (() => Promise<
-        | { readonly data: TProjection; readonly ok: true }
-        | DocumentSyncSubmitFailure
-      >)
-    | undefined;
+  fetchProjectionResult: () => Promise<
+    | { readonly data: TProjection; readonly ok: true }
+    | DocumentSyncSubmitFailure
+  >;
 }): Promise<LinkSetProjectionFetch<TProjection>> {
-  if (input.fetchProjectionResult) {
-    const result = await input.fetchProjectionResult();
-    if (result.ok) {
-      return { failure: null, projection: result.data };
-    }
-    result.report();
-    return {
-      failure: { message: result.message, status: result.status },
-      projection: null,
-    };
+  const result = await input.fetchProjectionResult();
+  if (result.ok) {
+    return { failure: null, projection: result.data };
   }
-  const projection = await input.fetchProjection();
-  return projection
-    ? { failure: null, projection }
-    : {
-        failure: { message: input.fallbackMessage, status: null },
-        projection: null,
-      };
+  result.report();
+  return {
+    failure: { message: result.message, status: result.status },
+    projection: null,
+  };
 }
 
 function fetchLinkSetDocumentProjection(
@@ -113,9 +81,7 @@ function fetchLinkSetDocumentProjection(
   documentId: string,
 ): Promise<LinkSetProjectionFetch<DocumentWriterProjectionResponse>> {
   return fetchLinkSetProjection({
-    fallbackMessage: "Document writer projection is unavailable",
-    fetchProjection: () => apiClient.getDocumentWriterProjection(documentId),
-    fetchProjectionResult: apiClient.getDocumentWriterProjectionResult?.bind(
+    fetchProjectionResult: apiClient.getDocumentWriterProjectionResult.bind(
       apiClient,
       documentId,
       { reportErrors: false },
@@ -128,9 +94,7 @@ function fetchLinkSetContainerProjection(
   containerId: string,
 ): Promise<LinkSetProjectionFetch<ContainerWriterProjectionResponse>> {
   return fetchLinkSetProjection({
-    fallbackMessage: "Container writer projection is unavailable",
-    fetchProjection: () => apiClient.getContainerWriterProjection(containerId),
-    fetchProjectionResult: apiClient.getContainerWriterProjectionResult?.bind(
+    fetchProjectionResult: apiClient.getContainerWriterProjectionResult.bind(
       apiClient,
       containerId,
       { reportErrors: false },

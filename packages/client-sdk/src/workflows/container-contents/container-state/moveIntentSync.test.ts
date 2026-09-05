@@ -387,7 +387,7 @@ test("an accepted remote move is not settled when local persistence observes del
   let settled = false;
   const persistence: ContainerMoveIntentSyncState["persistence"] = {
     ...defaultContainerContentsPersistence,
-    markMoveIntentSynced: async () => {
+    markMoveIntentRevisionSynced: async () => {
       settled = true;
       return true;
     },
@@ -434,7 +434,7 @@ test("a generation change during move persistence cannot settle on a replacement
   let settled = false;
   const persistence: ContainerMoveIntentSyncState["persistence"] = {
     ...defaultContainerContentsPersistence,
-    markMoveIntentSynced: async () => {
+    markMoveIntentRevisionSynced: async () => {
       settled = true;
       return true;
     },

@@ -461,15 +461,3 @@ export async function createRemoteContainer(
     ? outcome.result
     : null;
 }
-
-/**
- * The legacy two-request create must finish its metadata document after the
- * container POST commits, even when local generation acknowledgement loses.
- * Keep that remote-only continuation separate from ordinary callers, which
- * must never receive unacknowledged state as a normal create success.
- */
-export async function continueRemoteContainerCreateForMetadataDocument(
-  input: RemoteContainerCreateInput,
-): Promise<CreateRemoteContainerResult | null> {
-  return (await createRemoteContainerOutcome(input))?.result ?? null;
-}

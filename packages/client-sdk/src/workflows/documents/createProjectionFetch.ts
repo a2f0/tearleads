@@ -13,8 +13,7 @@ export type DocumentCreateTerminalFailureHandler = (failure: {
  * a 402 billing block or a 403 after access revocation) is what the write
  * queue must surface — collapsing it to a silent null left the queued create
  * invisible forever: no failure row, no attempt timestamp, and sync telemetry
- * reporting no pending work. Falls back to the plain fetch for simple test
- * doubles, preserving the pre-existing silent-null behavior there.
+ * reporting no pending work.
  *
  * The recorded row follows the standard failure lifecycle rather than
  * sticking: a document whose create later succeeds cannot skip its follow-up
@@ -28,19 +27,14 @@ export async function fetchContainerWriterProjectionForCreate(input: {
   containerId: string;
   onTerminalSubmitFailure?: DocumentCreateTerminalFailureHandler | undefined;
 }): Promise<ContainerWriterProjectionResponse | null> {
-  if (input.apiClient.getContainerWriterProjectionResult) {
-    const result = await input.apiClient.getContainerWriterProjectionResult(
-      input.containerId,
-      { reportErrors: false },
-    );
-    if (result.ok) {
-      return result.data;
-    }
-
-    result.report();
-    await input.onTerminalSubmitFailure?.(result);
-    return null;
+  const result = await input.apiClient.getContainerWriterProjectionResult(
+    input.containerId,
+    { reportErrors: false },
+  );
+  if (result.ok) {
+    return result.data;
   }
-
-  return input.apiClient.getContainerWriterProjection(input.containerId);
+  result.report();
+  await input.onTerminalSubmitFailure?.(result);
+  return null;
 }

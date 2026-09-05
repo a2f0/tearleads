@@ -9,11 +9,10 @@ import {
   REVENUECAT_WEBHOOK_ENV as REVENUECAT_ENV,
   createRespondingFetch as respondingFetch,
   STRIPE_WEBHOOK_ENV as STRIPE_ENV,
-  signedStripeWebhookDelivery as signedDelivery,
   stripeSubscriptionBody,
 } from "../../../test/helpers/stripeWebhook";
 import { getDefaultApiServiceRuntime } from "../runtime";
-import { processStripeWebhook } from "./stripeCheckout";
+import { processAuthenticatedStripeWebhook } from "./stripeCheckout";
 
 const PAID_EVENT = paidInvoiceEvent({
   invoiceId: "in_first",
@@ -23,9 +22,9 @@ const PAID_EVENT = paidInvoiceEvent({
 test("a paid first invoice is associated with RevenueCat", async () => {
   await createWebhookBillingOrganization();
   const urls: string[] = [];
-  const outcome = await processStripeWebhook(
+  const outcome = await processAuthenticatedStripeWebhook(
     getDefaultApiServiceRuntime(),
-    signedDelivery(PAID_EVENT),
+    PAID_EVENT,
     {
       stripe: {
         env: STRIPE_ENV,
@@ -83,9 +82,9 @@ test("a new subscription promotes its card email to the Customer", async () => {
       billing_details: { email: "buyer@example.com" },
     },
   };
-  const outcome = await processStripeWebhook(
+  const outcome = await processAuthenticatedStripeWebhook(
     getDefaultApiServiceRuntime(),
-    signedDelivery(paidInvoiceEvent({ invoiceId: "in_email", subscription })),
+    paidInvoiceEvent({ invoiceId: "in_email", subscription }),
     {
       stripe: {
         env: STRIPE_ENV,
@@ -122,11 +121,9 @@ test("a new subscription without a recovery email is fulfilled and alerted", asy
   };
   const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
   try {
-    const outcome = await processStripeWebhook(
+    const outcome = await processAuthenticatedStripeWebhook(
       getDefaultApiServiceRuntime(),
-      signedDelivery(
-        paidInvoiceEvent({ invoiceId: "in_no_email", subscription }),
-      ),
+      paidInvoiceEvent({ invoiceId: "in_no_email", subscription }),
       {
         stripe: {
           env: STRIPE_ENV,
@@ -163,11 +160,9 @@ test("a permanent recovery email rejection cannot block entitlement", async () =
   };
   const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
   try {
-    const outcome = await processStripeWebhook(
+    const outcome = await processAuthenticatedStripeWebhook(
       getDefaultApiServiceRuntime(),
-      signedDelivery(
-        paidInvoiceEvent({ invoiceId: "in_rejected_email", subscription }),
-      ),
+      paidInvoiceEvent({ invoiceId: "in_rejected_email", subscription }),
       {
         stripe: {
           env: STRIPE_ENV,
@@ -210,11 +205,12 @@ test("a retryable email failure succeeds on webhook redelivery", async () => {
       billing_details: { email: "buyer@example.com" },
     },
   };
-  const delivery = signedDelivery(
-    paidInvoiceEvent({ invoiceId: "in_retry_email", subscription }),
-  );
+  const delivery = paidInvoiceEvent({
+    invoiceId: "in_retry_email",
+    subscription,
+  });
   await expect(
-    processStripeWebhook(getDefaultApiServiceRuntime(), delivery, {
+    processAuthenticatedStripeWebhook(getDefaultApiServiceRuntime(), delivery, {
       stripe: {
         env: STRIPE_ENV,
         fetchImpl: respondingFetch(
@@ -239,7 +235,7 @@ test("a retryable email failure succeeds on webhook redelivery", async () => {
   expect(stripeSeats?.subscriptionId).toBe("sub_1");
 
   const retryUrls: string[] = [];
-  const outcome = await processStripeWebhook(
+  const outcome = await processAuthenticatedStripeWebhook(
     getDefaultApiServiceRuntime(),
     delivery,
     {
@@ -269,15 +265,13 @@ test("a retryable email failure succeeds on webhook redelivery", async () => {
 test("renewal invoices reset the Stripe paid-capacity baseline", async () => {
   await createWebhookBillingOrganization();
   const subscription = stripeSubscriptionBody(1, 1_785_715_200, 1_788_393_600);
-  const outcome = await processStripeWebhook(
+  const outcome = await processAuthenticatedStripeWebhook(
     getDefaultApiServiceRuntime(),
-    signedDelivery(
-      paidInvoiceEvent({
-        billingReason: "subscription_cycle",
-        invoiceId: "in_renewal",
-        subscription,
-      }),
-    ),
+    paidInvoiceEvent({
+      billingReason: "subscription_cycle",
+      invoiceId: "in_renewal",
+      subscription,
+    }),
     {
       stripe: {
         env: STRIPE_ENV,
@@ -310,15 +304,13 @@ test("a delayed predecessor cannot replace or associate after its successor", as
     invoiceId: string,
     subscriptionBody: ReturnType<typeof stripeSubscriptionBody>,
   ) {
-    return processStripeWebhook(
+    return processAuthenticatedStripeWebhook(
       getDefaultApiServiceRuntime(),
-      signedDelivery(
-        paidInvoiceEvent({
-          billingReason,
-          invoiceId,
-          subscription: subscriptionBody,
-        }),
-      ),
+      paidInvoiceEvent({
+        billingReason,
+        invoiceId,
+        subscription: subscriptionBody,
+      }),
       {
         stripe: {
           env: STRIPE_ENV,

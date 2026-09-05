@@ -64,7 +64,7 @@ test("subscription binding reads the licensed sync item and recovery email", asy
   );
 });
 
-test("subscription binding alerts on a legacy non-unit quantity", async () => {
+test("subscription binding refuses seat capacity for a non-unit quantity", async () => {
   const fetchImpl = (async (_input: RequestInfo | URL, _init?: RequestInit) =>
     new Response(
       JSON.stringify({
@@ -92,9 +92,9 @@ test("subscription binding alerts on a legacy non-unit quantity", async () => {
       fetchImpl,
     });
 
-    expect(binding?.seatQuantity).toBe(10);
+    expect(binding?.seatQuantity).toBeNull();
     expect(errorSpy).toHaveBeenCalledWith(
-      "Stripe subscription sub_legacy uses legacy quantity 7; fixed-tier subscriptions require quantity 1",
+      "Stripe subscription sub_legacy has invalid quantity 7; fixed-tier subscriptions require quantity 1",
     );
   } finally {
     errorSpy.mockRestore();

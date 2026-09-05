@@ -67,8 +67,8 @@ function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
 /**
  * Prove that an update or snapshot blob contains the document's exact
  * operations for its declared version-vector range. Rebuild from the exact
- * prefix and compare canonical operation identity so equivalent legacy/current
- * encodings pass without letting same-peer/counter conflicts hide in an import.
+ * prefix and compare canonical operation identity across current update and
+ * snapshot forms without letting same-peer/counter conflicts hide in an import.
  */
 export function updateMatchesDocumentHistory(
   doc: LoroDoc,
@@ -115,11 +115,7 @@ export function updateMatchesDocumentHistory(
     candidate = doc.forkAt(
       rangeDependencyFrontiers(expectedRange, startVersion, endVersion),
     );
-    if (
-      metadata.mode === "snapshot" ||
-      metadata.mode === "outdated-snapshot" ||
-      metadata.mode === "shallow-snapshot"
-    ) {
+    if (metadata.mode === "snapshot" || metadata.mode === "shallow-snapshot") {
       importSnapshot(candidate, update);
     } else {
       importUpdates(candidate, [update]);

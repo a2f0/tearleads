@@ -59,31 +59,6 @@ base_spec_file=$(mktemp "${TMPDIR:-/tmp}/openapi-base.XXXXXX")
 trap 'rm -f "$base_spec_file"' EXIT
 git cat-file blob "$base_spec" >"$base_spec_file"
 
-read_openapi_title() {
-  bun -e '
-    const spec = await Bun.file(Bun.argv[1]).json();
-    const title = spec?.info?.title;
-    if (typeof title !== "string") process.exit(2);
-    process.stdout.write(title);
-  ' "$1"
-}
-
-base_title=$(read_openapi_title "$base_spec_file") ||
-  fail "cannot read info.title from $base_spec."
-revision_title=$(read_openapi_title "$OPENAPI_PATH") ||
-  fail "cannot read info.title from $OPENAPI_PATH."
-
-# The move to Tearleads deliberately resets the wire contract. This condition
-# is self-expiring: once the default branch carries the Tearleads title, future
-# Tearleads-to-Tearleads comparisons continue through the normal compatibility
-# checks below.
-if [ "$revision_title" = "Tearleads Protocol API" ] &&
-  [ "$base_title" != "$revision_title" ]; then
-  echo "Skipping compatibility for the clean-break transition to $revision_title."
-  rm -f "$base_spec_file"
-  trap - EXIT
-  exit 0
-fi
 
 if [ -f "$CUSTOM_IGNORE_PATH" ]; then
   bun "$script_dir/checkOpenApiRefinementCompatibility.ts" \

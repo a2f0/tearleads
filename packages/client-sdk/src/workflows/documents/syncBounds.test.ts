@@ -6,7 +6,11 @@ import {
   exportFullHistorySnapshot,
   getUpdateVersionVectors,
 } from "@tearleads/loro";
-import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  createMockApiClient,
+  createMockRequestFailure,
+  createTestExecSql,
+} from "@tearleads/test-utils";
 import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import { MAX_DOCUMENT_SYNC_REQUEST_BYTES } from "@tearleads/validators/util";
 import {
@@ -53,7 +57,7 @@ test("conflict recovery re-keys only updates submitted by a bounded request", as
   let submitCount = 0;
 
   const synced = await syncRemoteDocument({
-    apiClient: {
+    apiClient: createMockApiClient({
       getDocumentWriterProjection: async () => writerProjection,
       syncDocument: async () => {
         throw new Error("Expected syncDocumentResult to handle recovery");
@@ -62,13 +66,11 @@ test("conflict recovery re-keys only updates submitted by a bounded request", as
         submitCount += 1;
         if (submitCount === 1) {
           submittedIds.push(...request.outgoingUpdates.map(({ id }) => id));
-          return {
+          return createMockRequestFailure({
             code: DOCUMENT_SYNC_ERROR_CODES.updateIdConflict,
             message: `POST /documents/${documentId}/sync: 409 Conflict: Document update id conflict`,
-            ok: false,
-            report: () => undefined,
             status: 409,
-          };
+          });
         }
 
         const readPlan = await buildMaterializedDocumentSyncPlan({
@@ -88,7 +90,7 @@ test("conflict recovery re-keys only updates submitted by a bounded request", as
           ok: true,
         };
       },
-    },
+    }),
     author,
     documentId: writerProjection.documentId,
     execSql,
@@ -166,13 +168,13 @@ test("an encrypted update that cannot fit records a terminal queue failure", asy
   let submitCount = 0;
 
   const synced = await syncRemoteDocument({
-    apiClient: {
+    apiClient: createMockApiClient({
       getDocumentWriterProjection: async () => writerProjection,
       syncDocument: async () => {
         submitCount += 1;
         throw new Error("An oversized plan must not reach the network");
       },
-    },
+    }),
     author,
     documentId: writerProjection.documentId,
     execSql,
@@ -216,7 +218,7 @@ test("a high-actor write above the old vector ceiling remains syncable", async (
   let submittedVectorLength = 0;
 
   const synced = await syncRemoteDocument({
-    apiClient: {
+    apiClient: createMockApiClient({
       getDocumentWriterProjection: async () => fixture.writerProjection,
       syncDocument: async (documentId, request) => {
         submittedVectorLength =
@@ -239,7 +241,7 @@ test("a high-actor write above the old vector ceiling remains syncable", async (
           },
         );
       },
-    },
+    }),
     author: fixture.author,
     documentId: fixture.writerProjection.documentId,
     execSql,
@@ -263,7 +265,7 @@ test("a persisted oversized read frontier falls back to a complete pull", async 
   let submittedLocalVersionVector: string | null | undefined;
 
   const synced = await syncRemoteDocument({
-    apiClient: {
+    apiClient: createMockApiClient({
       getDocumentWriterProjection: async () => {
         throw new Error("Persisted read-only sync must not fetch a projection");
       },
@@ -282,7 +284,7 @@ test("a persisted oversized read frontier falls back to a complete pull", async 
           { acceptedOutgoingUpdateIds: [], updates: [] },
         );
       },
-    },
+    }),
     author: fixture.author,
     documentId: fixture.writerProjection.documentId,
     execSql,

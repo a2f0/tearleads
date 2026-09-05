@@ -172,6 +172,8 @@ async function insertBaselineCheckpoint(input: {
     .returning({ sequence: documentUpdates.sequence });
   if (!insertedUpdate) throw new Error("Failed to insert baseline update");
   await db.insert(documentContentWriteHeaders).values({
+    // This fixture tests baseline metadata, not write authorization.
+    authorizationTargets: [],
     updateId: input.baselineUpdateId,
     documentId: input.documentId,
     organizationId: randomUUID(),

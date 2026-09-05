@@ -773,19 +773,10 @@ export const containerSyncLaneChecks = sqliteTable(
 export const documentTables: ReadonlyArray<SqlTableSchema> = [
   {
     ...defineSqlTableSchema(documents),
-    additiveColumns: [
-      {
-        definition: '"pull_continuation" TEXT',
-        name: "pull_continuation",
-      },
-      {
-        definition: '"recovery_generation" INTEGER NOT NULL DEFAULT 0',
-        name: "recovery_generation",
-      },
-      {
-        definition: '"recovery_document_id" TEXT',
-        name: "recovery_document_id",
-      },
+    requiredColumns: [
+      "pull_continuation",
+      "recovery_generation",
+      "recovery_document_id",
     ],
   },
   defineSqlTableSchema(documentPendingUpdates),

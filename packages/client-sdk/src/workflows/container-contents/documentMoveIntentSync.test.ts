@@ -6,6 +6,7 @@ import {
 import { createDocument, exportFullHistorySnapshot } from "@tearleads/loro";
 import {
   createContainerWriterProjectionFixture,
+  createMockApiClient,
   createTestExecSql,
 } from "@tearleads/test-utils";
 import type { DocumentLinkSetMutationRequest } from "@tearleads/validators/request";
@@ -136,7 +137,7 @@ async function runQueuedDocumentMoveFixture(input: {
     const relinkInputs: DocumentStructuralMutationRelinkInput[] = [];
     const submittedOperations: string[] = [];
     const runtime: ContainerContentsWorkflowRuntime = {
-      apiClient: {
+      apiClient: createMockApiClient({
         getContainerWriterProjection: async (containerId: string) => {
           if (containerId === rootProjection.containerId) {
             return rootProjection;
@@ -152,6 +153,10 @@ async function runQueuedDocumentMoveFixture(input: {
         ...(input.containerProjectionFailure
           ? {
               getContainerWriterProjectionResult: async () => ({
+                kind: "http" as const,
+                method: "GET" as const,
+                path: `/containers/${trashProjection.containerId}/writer-projection`,
+                statusText: "Forbidden",
                 message: input.containerProjectionFailure?.message ?? "",
                 ok: false as const,
                 report: () => {},
@@ -162,6 +167,11 @@ async function runQueuedDocumentMoveFixture(input: {
         ...(input.linkFailure
           ? {
               linkDocumentResult: async () => ({
+                kind: "http" as const,
+                method: "POST" as const,
+                path: `/documents/${writerProjection.documentId}/links`,
+                statusText: "Conflict",
+                report: () => {},
                 message: input.linkFailure?.message ?? "",
                 ok: false as const,
                 status: input.linkFailure?.status ?? null,
@@ -232,7 +242,7 @@ async function runQueuedDocumentMoveFixture(input: {
           };
           return response;
         },
-      } as unknown as ContainerContentsWorkflowRuntime["apiClient"],
+      }) as unknown as ContainerContentsWorkflowRuntime["apiClient"],
       auth: {
         isAuthenticated: true,
         organizationId: author.organizationId,

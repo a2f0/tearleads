@@ -9,7 +9,6 @@ import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity
 import {
   cachePrincipalPolicyBundles,
   cacheReferencedPrincipalPolicies,
-  verifyReferencedPrincipalPolicies,
 } from "./policyCache";
 
 interface PrincipalPolicyWarmRuntime {
@@ -51,15 +50,6 @@ export function createRuntimePrincipalPolicyWarmer(
   const warmer = async (
     input: Parameters<ReferencedPrincipalPolicyWarmer>[0],
   ) => cacheReferencedPrincipalPolicies(policyInput(input));
-  const verifyWithoutPersistence = Object.assign(
-    async (input: Parameters<ReferencedPrincipalPolicyWarmer>[0]) => {
-      const verifiedPolicies = await verifyReferencedPrincipalPolicies(
-        policyInput(input),
-      );
-      input.onVerifiedPolicies?.(verifiedPolicies);
-    },
-    { reportsVerifiedPolicies: true as const },
-  );
   const cacheBundles = (input: PrincipalPolicyBundleCacheRequest) =>
     cachePrincipalPolicyBundles({
       bundles: input.bundles,
@@ -72,5 +62,5 @@ export function createRuntimePrincipalPolicyWarmer(
       resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
       stillCurrent: input.stillCurrent,
     });
-  return Object.assign(warmer, { cacheBundles, verifyWithoutPersistence });
+  return Object.assign(warmer, { cacheBundles });
 }

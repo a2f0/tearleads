@@ -220,7 +220,6 @@ export const DocumentSyncRequestSchema = registerJsonSchemaRuntimeRefinements(
       MAX_DOCUMENT_SYNC_PULL_CURSOR_LENGTH,
     ).optional(),
     supportsPullPagination: z.literal(true),
-    supportsUntrackedCommitLsn: z.literal(true).optional(),
   }).superRefine((request, context) => {
     if (!Array.isArray(request.outgoingUpdates)) {
       return;
@@ -240,6 +239,16 @@ export const DocumentSyncRequestSchema = registerJsonSchemaRuntimeRefinements(
     }
 
     const hasOutgoingUpdates = request.outgoingUpdates.length > 0;
+    if (
+      (request.containerRekeys?.length ?? 0) > 0 !==
+      (request.inlineRekeyCommitId !== undefined)
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "inline rekey commit id must accompany container rekeys",
+        path: ["inlineRekeyCommitId"],
+      });
+    }
     if (
       request.pullCursor !== undefined &&
       (hasOutgoingUpdates ||

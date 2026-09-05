@@ -44,6 +44,26 @@ immediately can keep the explicit call after configuring SQLite:
 const { rootContainerId } = await tearleads.identity.generate();
 ```
 
+## Current Host Contract
+
+This is a greenfield, flag-day SDK: custom hosts implement current interfaces,
+not older adapter shapes. `deviceFirst.open()` supplies the unified handle;
+there are no separate view/reconciler aliases. Container creation always uses
+the compound container-plus-metadata endpoint. Custom create, document link,
+unlink, writer-projection, and sync APIs must implement the structured `Result`
+methods and return complete transport failures. Container persistence must
+atomically save pending mutations and settle or record errors against the exact
+intent revision; unconditional settlement is not supported.
+
+Local document tables require the current columns at startup. Reset obsolete
+tables instead of expecting additive schema upgrades. Principal-policy warming
+always verifies and persists its cache. The wire contract requires explicit
+commit-LSN mode, inline-rekey commit markers for nonempty batches, and original
+document/blob write-authorization evidence. Historical signed manifests and
+sealed keyrings remain supported because they are current protocol evidence.
+See the [workflow contract](../../packages/client-sdk/src/workflows/README.md)
+for custom adapter details.
+
 ## Advanced Configuration
 
 Hosts that own API routing, encrypted blob storage, keyring-derived
@@ -532,9 +552,10 @@ attribution. Identity pending means retry; provider stalled means restart.
 Before purchase or restore, use
 `checkNativePurchaseEligibility(organizationId, store)` to block a second
 subscription; claims and webhooks still recheck ownership and conflicts. Native
-capabilities set `supportsProviderPresentationCallback` only when they precisely
-report store-sheet presentation; otherwise checkout is non-dismissible from
-provider start. Keep restore/claim/bind atomic.
+providers must invoke the supplied `onProviderPresented` callback exactly when
+their store sheet becomes uncancellable. Before that notification, cancellation
+must prevent later presentation; there is no capability flag or conservative
+provider-start fallback. Keep restore/claim/bind atomic.
 See [revenuecat-billing.md](./revenuecat-billing.md).
 
 ## Package Contract

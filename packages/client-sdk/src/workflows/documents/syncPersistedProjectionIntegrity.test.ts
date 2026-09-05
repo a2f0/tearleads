@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
-import { createTestExecSql } from "@tearleads/test-utils";
+import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import {
   createMaterializedSyncFixture,
@@ -53,7 +53,7 @@ function readOnlySyncApi(input: {
   zeroUpdateDocumentId?: string | undefined;
 }) {
   let projectionEvicted = false;
-  return {
+  return createMockApiClient({
     evictDocumentWriterProjection: (documentId: string) => {
       projectionEvicted = true;
       input.onProjectionEviction?.(documentId);
@@ -97,7 +97,7 @@ function readOnlySyncApi(input: {
             },
       );
     },
-  };
+  });
 }
 
 test.each([
@@ -476,13 +476,13 @@ test("remote sync rejects resolver-backed local trust before submission", async 
   const fixture = await createMaterializedSyncFixture();
   let submissions = 0;
   const input = {
-    apiClient: {
+    apiClient: createMockApiClient({
       getDocumentWriterProjection: async () => fixture.writerProjection,
       syncDocument: async () => {
         submissions += 1;
         return null;
       },
-    },
+    }),
     author: fixture.author,
     documentId: fixture.writerProjection.documentId,
     localVersionVector: null,

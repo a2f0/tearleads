@@ -16,8 +16,8 @@ import {
   deriveJsonOperationRequest,
 } from "./operationTransport";
 import type {
+  OperationResponseRequestFn,
   RequestFailure,
-  ResponseRequestFn,
   ResponseRequestValidationFailureInput,
 } from "./types";
 
@@ -154,7 +154,7 @@ test("decodes success bodies with the operation response schema", async () => {
       };
     },
     { reportFailure: requestFailure },
-  ) as ResponseRequestFn;
+  ) as OperationResponseRequestFn;
   const transport = createJsonOperationTransport(request);
 
   await expect(
@@ -178,7 +178,7 @@ test("returns transformed response schema output", async () => {
       ok: true as const,
     }),
     { reportFailure: requestFailure },
-  ) as ResponseRequestFn;
+  ) as OperationResponseRequestFn;
   const transport = createJsonOperationTransport(request);
 
   await expect(
@@ -201,7 +201,7 @@ test("caller headers override derived headers case-insensitively", async () => {
       });
     },
     { reportFailure: requestFailure },
-  ) as ResponseRequestFn;
+  ) as OperationResponseRequestFn;
   const transport = createJsonOperationTransport(request);
 
   await transport.requestResult(
@@ -229,7 +229,7 @@ test("reports malformed JSON and shapes through ApiClient policy", async () => {
         return requestFailure(input);
       },
     },
-  ) as ResponseRequestFn;
+  ) as OperationResponseRequestFn;
   const transport = createJsonOperationTransport(request);
 
   expect(
@@ -248,7 +248,7 @@ test("returns status-specific parsed response bodies and headers", async () => {
       ok: true as const,
     }),
     { reportFailure: requestFailure },
-  ) as ResponseRequestFn;
+  ) as OperationResponseRequestFn;
   const transport = createJsonOperationTransport(request);
 
   await expect(
@@ -282,7 +282,7 @@ test("accepts declared empty statuses without parsing a body", async () => {
       ok: true as const,
     }),
     { reportFailure: requestFailure },
-  ) as ResponseRequestFn;
+  ) as OperationResponseRequestFn;
   const transport = createJsonOperationTransport(request);
 
   await expect(
@@ -314,7 +314,7 @@ test("reports malformed declared response headers", async () => {
       ok: true as const,
     }),
     { reportFailure: requestFailure },
-  ) as ResponseRequestFn;
+  ) as OperationResponseRequestFn;
   const transport = createJsonOperationTransport(request);
 
   await expect(

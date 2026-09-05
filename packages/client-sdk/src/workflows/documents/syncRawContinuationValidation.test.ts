@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@tearleads/test-utils";
+import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import {
   createMaterializedSyncFixture,
   createPendingUpdateRecord,
@@ -49,7 +49,7 @@ test("an invalid empty raw continuation page is never resubmitted", async () => 
 
     await expect(
       syncRemoteDocument({
-        apiClient: {
+        apiClient: createMockApiClient({
           getDocumentWriterProjection: async () => {
             projectionFetches += 1;
             return fixture.writerProjection;
@@ -59,7 +59,7 @@ test("an invalid empty raw continuation page is never resubmitted", async () => 
             requests += 1;
             return { data: invalidResponse, ok: true as const };
           },
-        },
+        }),
         author: fixture.author,
         documentId: fixture.writerProjection.documentId,
         execSql,
@@ -131,7 +131,7 @@ test("a plain page-two raw validation failure is never resubmitted", async () =>
 
     await expect(
       syncRemoteDocument({
-        apiClient: {
+        apiClient: createMockApiClient({
           getDocumentWriterProjection: async () => fixture.writerProjection,
           syncDocument: async () => {
             throw new Error("Expected syncDocumentResult to handle raw sync");
@@ -146,7 +146,7 @@ test("a plain page-two raw validation failure is never resubmitted", async () =>
               ok: true as const,
             };
           },
-        },
+        }),
         author: fixture.author,
         documentId: fixture.writerProjection.documentId,
         execSql,

@@ -264,15 +264,15 @@ test("decryptDocumentAttachmentBlob accepts the signed write-time authorization 
   const decrypted = await decryptDocumentAttachmentBlob(decryptInput);
 
   expect(Array.from(decrypted)).toEqual(Array.from(fixture.bytes));
-  const { writeAuthorization: _legacyRow, ...legacyBinding } = advancedBinding;
+  // Deliberately corrupt the runtime envelope without a compatibility adapter.
+  const legacyBinding = structuredClone(advancedBinding);
+  Reflect.deleteProperty(legacyBinding, "writeAuthorization");
   await expect(
     decryptDocumentAttachmentBlob({
       ...decryptInput,
       binding: legacyBinding,
     }),
-  ).rejects.toThrow(
-    "write header access manifest hash does not match expected hash",
-  );
+  ).rejects.toThrow("lacks blob KEK verification material");
 });
 
 test("decryptDocumentAttachmentBlob accepts a binding created after the blob write", async () => {

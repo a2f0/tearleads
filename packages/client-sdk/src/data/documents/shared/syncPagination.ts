@@ -40,12 +40,6 @@ type DocumentSyncSubmission =
   | DocumentSyncSubmitFailure
   | null;
 
-function documentSyncCommitLsnMode(
-  response: DocumentSyncResponse,
-): DocumentSyncCommitLsnMode {
-  return response.commitLsnMode === "untracked" ? "untracked" : "tracked";
-}
-
 export function readPullContinuation(
   response: DocumentSyncResponse,
 ): DocumentSyncPullContinuation | null {
@@ -58,7 +52,7 @@ export function readPullContinuation(
   }
   return {
     commitLsn: response.commitLsn,
-    commitLsnMode: documentSyncCommitLsnMode(response),
+    commitLsnMode: response.commitLsnMode,
     cursor,
   };
 }
@@ -135,7 +129,7 @@ async function submitDocumentSyncPage(input: {
   if (!page || !page.ok) return page;
   if (
     input.expectedCommitLsnMode !== undefined &&
-    documentSyncCommitLsnMode(page.response) !== input.expectedCommitLsnMode
+    page.response.commitLsnMode !== input.expectedCommitLsnMode
   ) {
     throw new InvalidDocumentSyncPullContinuationError(
       "Document sync continuation commit LSN mode changed",
@@ -173,26 +167,15 @@ export async function submitDocumentSync(input: {
     expectedCommitLsnMode: input.expectedCommitLsnMode,
     plan: input.plan,
     submit: async () => {
-      if (input.apiClient.syncDocumentResult) {
-        const result = await input.apiClient.syncDocumentResult(
-          input.plan.documentId,
-          input.plan.request,
-          {
-            expectedPaymentRequiredOrganizationId: input.plan.organizationId,
-            reportErrors: false,
-          },
-        );
-        return result.ok ? { ok: true, response: result.data } : result;
-      }
-
-      const response = await input.apiClient.syncDocument(
+      const result = await input.apiClient.syncDocumentResult(
         input.plan.documentId,
         input.plan.request,
         {
           expectedPaymentRequiredOrganizationId: input.plan.organizationId,
+          reportErrors: false,
         },
       );
-      return response ? { ok: true, response } : null;
+      return result.ok ? { ok: true, response: result.data } : result;
     },
   });
 }

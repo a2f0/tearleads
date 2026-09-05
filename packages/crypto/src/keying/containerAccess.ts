@@ -1170,9 +1170,7 @@ function deriveContainerRekeyManifestState(
     ...previous.nextBase,
     containerKeyEpochId: body.containerKeyEpochId,
     directGrants: previous.previousState.directGrants,
-    referencedPrincipalHeads:
-      body.referencedPrincipalHeads ??
-      previous.previousState.referencedPrincipalHeads,
+    referencedPrincipalHeads: body.referencedPrincipalHeads,
   });
 }
 

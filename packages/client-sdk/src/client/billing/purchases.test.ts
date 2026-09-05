@@ -96,26 +96,6 @@ test("configures the backend lazily and only once", async () => {
   expect(backend.calls.filter((call) => call === "configure")).toHaveLength(1);
 });
 
-test("advertises native provider presentation callbacks only when configured", () => {
-  expect(
-    createRevenueCatPurchases(createFakeBackend(), CONFIG)
-      .supportsProviderPresentationCallback,
-  ).toBe(false);
-  expect(
-    createRevenueCatPurchases(createFakeBackend(), {
-      ...CONFIG,
-      supportsProviderPresentationCallback: true,
-    }).supportsProviderPresentationCallback,
-  ).toBe(true);
-  expect(
-    createRevenueCatPurchases(createFakeBackend(), {
-      ...CONFIG,
-      nativeStore: null,
-      supportsProviderPresentationCallback: true,
-    }).supportsProviderPresentationCallback,
-  ).toBe(false);
-});
-
 test("retries configuration after a failed attempt instead of caching the rejection", async () => {
   const backend = createFakeBackend();
   let shouldFail = true;
@@ -184,7 +164,7 @@ test("listSyncOptions maps provider packages to display options", async () => {
     packages: [
       {
         identifier: "monthly",
-        productIdentifier: "sync_monthly",
+        productIdentifier: "sync_solo_monthly",
         title: "Sync",
         description: "Cloud sync",
         priceString: "$4.99",
@@ -196,7 +176,7 @@ test("listSyncOptions maps provider packages to display options", async () => {
   expect(options).toEqual([
     {
       packageId: "monthly",
-      productId: "sync_monthly",
+      productId: "sync_solo_monthly",
       title: "Solo",
       description: "Cloud sync",
       priceLabel: "$4.99",
@@ -433,12 +413,10 @@ test("observation-only RevenueCat disables purchases but preserves entitlement r
     ...CONFIG,
     purchasesEnabled: false,
     supportsEmbeddedCheckout: true,
-    supportsProviderPresentationCallback: true,
   });
 
   expect(purchases.isAvailable).toBe(false);
   expect(purchases.supportsEmbeddedCheckout).toBe(false);
-  expect(purchases.supportsProviderPresentationCallback).toBe(false);
   expect(await purchases.listSyncOptions()).toEqual([]);
   await expect(
     purchases.purchaseSync({ organizationId: "org-1", packageId: "monthly" }),

@@ -47,7 +47,7 @@ const ENTRIES: ReadonlyArray<OrganizationBillingHistoryEntry> = [
     id: "renewal",
     eventType: "RENEWAL",
     occurredAt: "2026-07-10T12:00:00.000Z",
-    productId: "sync_monthly",
+    productId: "sync_solo_monthly",
     transactionId: "transaction-2",
   }),
   entry({
@@ -60,7 +60,7 @@ const ENTRIES: ReadonlyArray<OrganizationBillingHistoryEntry> = [
     id: "initial-purchase",
     eventType: "INITIAL_PURCHASE",
     occurredAt: "2026-07-01T12:00:00.000Z",
-    productId: "sync_monthly",
+    productId: "sync_solo_monthly",
     transactionId: "transaction-1",
   }),
 ];

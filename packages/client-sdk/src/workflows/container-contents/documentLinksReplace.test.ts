@@ -3,6 +3,7 @@ import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import { createDocument, exportFullHistorySnapshot } from "@tearleads/loro";
 import {
   createContainerWriterProjectionFixture,
+  createMockApiClient,
   createTestExecSql,
 } from "@tearleads/test-utils";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
@@ -150,7 +151,7 @@ test("moveRemoteContainerDocument can replace every existing link with the targe
       resolveProjectionUserKey,
       rotationSnapshot: await createRotationSnapshot(),
       runtime: {
-        apiClient: {
+        apiClient: createMockApiClient({
           getContainerWriterProjection: async (containerId) =>
             projectionsById.get(containerId) ?? null,
           getDocumentWriterProjection: async (documentId) =>
@@ -189,7 +190,7 @@ test("moveRemoteContainerDocument can replace every existing link with the targe
             });
             return createLinkSetResponseFromRequest(documentId, request);
           },
-        },
+        }),
         auth: {
           isAuthenticated: true,
           organizationId: author.organizationId,

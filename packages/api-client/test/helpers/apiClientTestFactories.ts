@@ -1,6 +1,4 @@
 import type {
-  BlobAttachmentBindRequest,
-  BlobAttachmentDetachRequest,
   ContainerCreateWithMetadataDocumentRequest,
   ContainerMutationRequest,
   CreateOrganizationGroupRequest,
@@ -11,7 +9,6 @@ import type {
   PutPrincipalPolicyRequest,
 } from "@tearleads/validators/request";
 import type {
-  BlobAttachmentBindResponse,
   ContainerCreateWithMetadataDocumentResponse,
   ContainerDeleteResponse,
   ContainerMutationResponse,
@@ -334,81 +331,13 @@ export function createDocumentSyncResponse(): DocumentSyncResponse {
   return {
     acceptedOutgoingUpdateIds: [],
     commitLsn: "0/16B6C50",
+    commitLsnMode: "tracked",
     contentKeyBundle: mutationResponse.contentKeyBundle,
     contentKeyBundles: [mutationResponse.contentKeyBundle],
     documentId: mutationResponse.id,
     documentKekTargets: mutationResponse.documentKekTargets,
     pullPage: { hasMore: false, nextCursor: null },
     updates: [],
-  };
-}
-
-export function createBlobAttachmentBindRequest(): BlobAttachmentBindRequest {
-  return {
-    authorizingContainerPathRefs: [],
-    body: {},
-    contentKeyBundle: {
-      contentKeyEpoch: 1,
-      targetHash: "blob-target-hash",
-      targets: [
-        {
-          bindingId: "binding-1",
-          containerId: "container-1",
-          containerKeyEpoch: 1,
-          containerKeyEpochId: "container-key-epoch-id",
-          containerManifestHash: "container-manifest-hash",
-          documentId: "document-1",
-          wrappedKey: "wrapped-key",
-          wrappingMetadata: {},
-        },
-      ],
-    },
-    event: {},
-  };
-}
-
-export function createBlobAttachmentDetachRequest(): BlobAttachmentDetachRequest {
-  return {
-    authorizingContainerPathRefs: [],
-    body: {},
-    event: {},
-  };
-}
-
-export function createBlobAttachmentBindResponse(): BlobAttachmentBindResponse {
-  return {
-    bindingId: "binding-1",
-    blobId: "blob-1",
-    blobKekTargets: {
-      activeBindingIds: ["binding-1"],
-      blobAccessManifestHash: "blob-manifest-hash",
-      blobId: "blob-1",
-      blobKeyTargetHash: "blob-target-hash",
-      documentManifestHashes: ["blob-manifest-hash"],
-      linkedContainerKeyEpochIds: ["container-key-epoch-id"],
-      linkedContainerManifestHashes: ["container-manifest-hash"],
-      organizationId: "organization-1",
-      targets: [],
-    },
-    contentKeyBundle: {
-      blobId: "blob-1",
-      contentKeyEpoch: 1,
-      targetHash: "blob-target-hash",
-      targets: [
-        {
-          bindingId: "binding-1",
-          containerId: "container-1",
-          containerKeyEpoch: 1,
-          containerKeyEpochId: "container-key-epoch-id",
-          containerManifestHash: "container-manifest-hash",
-          documentId: "document-1",
-          wrappedKey: "wrapped-key",
-          wrappingMetadata: {},
-        },
-      ],
-    },
-    documentId: "document-1",
-    slotId: "slot-a",
   };
 }
 
@@ -495,3 +424,9 @@ export function createUserIdentityResponse(
     userId,
   };
 }
+
+export {
+  createBlobAttachmentBindRequest,
+  createBlobAttachmentBindResponse,
+  createBlobAttachmentDetachRequest,
+} from "./blobTestFactories";

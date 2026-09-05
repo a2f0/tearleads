@@ -1,5 +1,6 @@
-import { ApiClient, type RequestFailure } from "@tearleads/api-client";
+import { ApiClient } from "@tearleads/api-client";
 import type { ListContainersResponse } from "@tearleads/validators/response";
+import { createMockRequestFailure as mockRequestFailure } from "./createMockRequestFailure";
 
 type PublicApiClient = Pick<ApiClient, keyof ApiClient>;
 
@@ -9,23 +10,6 @@ const EMPTY_LIST_CONTAINERS_RESPONSE: ListContainersResponse = {
   nextWatermark: null,
   tombstones: [],
 };
-
-function mockRequestFailure(input: {
-  readonly message: string;
-  readonly method: RequestFailure["method"];
-  readonly path: string;
-}): RequestFailure {
-  return {
-    kind: "network",
-    message: input.message,
-    method: input.method,
-    ok: false,
-    path: input.path,
-    report: () => {},
-    status: null,
-    statusText: "",
-  };
-}
 
 export function createMockApiClient(
   overrides: Partial<PublicApiClient> = {},
@@ -168,20 +152,54 @@ export function createMockApiClient(
   }
 
   if (!Object.hasOwn(overrides, "getDocumentWriterProjectionResult")) {
-    Object.defineProperty(apiClient, "getDocumentWriterProjectionResult", {
-      configurable: true,
-      value: undefined,
-      writable: true,
-    });
+    apiClient.getDocumentWriterProjectionResult = async (documentId) => {
+      const data = await apiClient.getDocumentWriterProjection(documentId);
+      return data
+        ? { data, ok: true }
+        : mockRequestFailure({
+            message: "Mock document writer projection unavailable",
+            method: "GET",
+            path: `/documents/${documentId}/writer-projection`,
+          });
+    };
   }
 
   if (!Object.hasOwn(overrides, "getContainerWriterProjectionResult")) {
-    Object.defineProperty(apiClient, "getContainerWriterProjectionResult", {
-      configurable: true,
-      value: undefined,
-      writable: true,
-    });
+    apiClient.getContainerWriterProjectionResult = async (containerId) => {
+      const data = await apiClient.getContainerWriterProjection(containerId);
+      return data
+        ? { data, ok: true }
+        : mockRequestFailure({
+            message: "Mock container writer projection unavailable",
+            method: "GET",
+            path: `/containers/${containerId}/writer-projection`,
+          });
+    };
   }
 
+  if (!overrides.linkDocumentResult) {
+    apiClient.linkDocumentResult = async (documentId, input, options) => {
+      const data = await apiClient.linkDocument(documentId, input, options);
+      return data
+        ? { data, ok: true }
+        : mockRequestFailure({
+            message: "Mock document link unavailable",
+            method: "POST",
+            path: `/documents/${documentId}/links`,
+          });
+    };
+  }
+  if (!overrides.unlinkDocumentResult) {
+    apiClient.unlinkDocumentResult = async (documentId, input, options) => {
+      const data = await apiClient.unlinkDocument(documentId, input, options);
+      return data
+        ? { data, ok: true }
+        : mockRequestFailure({
+            message: "Mock document unlink unavailable",
+            method: "POST",
+            path: `/documents/${documentId}/unlink`,
+          });
+    };
+  }
   return apiClient;
 }

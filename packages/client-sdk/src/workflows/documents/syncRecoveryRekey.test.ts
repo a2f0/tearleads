@@ -5,7 +5,11 @@ import {
   exportAllUpdates,
   getUpdateVersionVectors,
 } from "@tearleads/loro";
-import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  createMockApiClient,
+  createMockRequestFailure,
+  createTestExecSql,
+} from "@tearleads/test-utils";
 import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import {
   createMaterializedSyncFixture,
@@ -70,7 +74,7 @@ test("syncRemoteDocument re-keys pending conflicts recovery cannot settle", asyn
   }
   const submittedOutgoingCounts: number[] = [];
   const synced = await syncRemoteDocument({
-    apiClient: {
+    apiClient: createMockApiClient({
       getDocumentWriterProjection: async () => writerProjection,
       syncDocument: async () => {
         throw new Error("Expected syncDocumentResult to handle recovery");
@@ -78,13 +82,11 @@ test("syncRemoteDocument re-keys pending conflicts recovery cannot settle", asyn
       syncDocumentResult: async (documentId, request) => {
         submittedOutgoingCounts.push(request.outgoingUpdates.length);
         if (request.outgoingUpdates.length > 0) {
-          return {
+          return createMockRequestFailure({
             code: DOCUMENT_SYNC_ERROR_CODES.updateIdConflict,
             message: `POST /documents/${documentId}/sync: 409 Conflict: Document update id conflict`,
-            ok: false,
-            report: () => undefined,
             status: 409,
-          };
+          });
         }
 
         // Production shape for a lost-ack retry: the recovery request's
@@ -108,7 +110,7 @@ test("syncRemoteDocument re-keys pending conflicts recovery cannot settle", asyn
           ok: true,
         };
       },
-    },
+    }),
     author,
     documentId: writerProjection.documentId,
     execSql,
@@ -160,20 +162,18 @@ test("an exhausted pending update surfaces terminally and survives the pass", as
 
   const terminalFailures: string[] = [];
   const synced = await syncRemoteDocument({
-    apiClient: {
+    apiClient: createMockApiClient({
       getDocumentWriterProjection: async () => writerProjection,
       syncDocument: async () => {
         throw new Error("Expected syncDocumentResult to handle recovery");
       },
       syncDocumentResult: async (documentId, request) => {
         if (request.outgoingUpdates.length > 0) {
-          return {
+          return createMockRequestFailure({
             code: DOCUMENT_SYNC_ERROR_CODES.updateIdConflict,
             message: `POST /documents/${documentId}/sync: 409 Conflict: Document update id conflict`,
-            ok: false,
-            report: () => undefined,
             status: 409,
-          };
+          });
         }
         const readOnlyMaterialized = await buildMaterializedDocumentSyncPlan({
           author,
@@ -193,7 +193,7 @@ test("an exhausted pending update surfaces terminally and survives the pass", as
           ok: true,
         };
       },
-    },
+    }),
     author,
     documentId: writerProjection.documentId,
     execSql,
@@ -298,7 +298,7 @@ test("a projection refusal after recovery stays write-bearing", async () => {
   const submitFailures: number[] = [];
 
   const synced = await syncRemoteDocument({
-    apiClient: {
+    apiClient: createMockApiClient({
       getDocumentWriterProjection: async () => {
         throw new Error("Expected the Result variant to be used");
       },
@@ -307,24 +307,22 @@ test("a projection refusal after recovery stays write-bearing", async () => {
         if (projectionRequests === 1) {
           return { data: writerProjection, ok: true as const };
         }
-        return {
+        return createMockRequestFailure({
+          method: "GET",
           message: "Container keying conflicts with the document",
-          ok: false as const,
-          report: () => undefined,
           status: 409,
-        };
+        });
       },
       syncDocument: async () => {
         throw new Error("Expected syncDocumentResult to handle recovery");
       },
-      syncDocumentResult: async (documentId) => ({
-        code: DOCUMENT_SYNC_ERROR_CODES.updateIdConflict,
-        message: `POST /documents/${documentId}/sync: 409 Conflict: Document update id conflict`,
-        ok: false as const,
-        report: () => undefined,
-        status: 409,
-      }),
-    },
+      syncDocumentResult: async (documentId) =>
+        createMockRequestFailure({
+          code: DOCUMENT_SYNC_ERROR_CODES.updateIdConflict,
+          message: `POST /documents/${documentId}/sync: 409 Conflict: Document update id conflict`,
+          status: 409,
+        }),
+    }),
     author,
     documentId: writerProjection.documentId,
     execSql,
@@ -374,7 +372,7 @@ test("a terminal failure after recovery still records durably", async () => {
   let submissions = 0;
 
   const synced = await syncRemoteDocument({
-    apiClient: {
+    apiClient: createMockApiClient({
       getDocumentWriterProjection: async () => writerProjection,
       syncDocument: async () => {
         throw new Error("Expected syncDocumentResult to handle recovery");
@@ -382,22 +380,18 @@ test("a terminal failure after recovery still records durably", async () => {
       syncDocumentResult: async (documentId) => {
         submissions += 1;
         if (submissions === 1) {
-          return {
+          return createMockRequestFailure({
             code: DOCUMENT_SYNC_ERROR_CODES.updateIdConflict,
             message: `POST /documents/${documentId}/sync: 409 Conflict: Document update id conflict`,
-            ok: false as const,
-            report: () => undefined,
             status: 409,
-          };
+          });
         }
-        return {
+        return createMockRequestFailure({
           message: `POST /documents/${documentId}/sync: 403 Forbidden`,
-          ok: false as const,
-          report: () => undefined,
           status: 403,
-        };
+        });
       },
-    },
+    }),
     author,
     documentId: writerProjection.documentId,
     execSql,
@@ -441,7 +435,7 @@ test("a denied cursor pull records the failure blocking deferred writes", async 
   const submitFailures: number[] = [];
 
   const synced = await syncRemoteDocument({
-    apiClient: {
+    apiClient: createMockApiClient({
       getDocumentWriterProjection: async () => writerProjection,
       syncDocument: async () => {
         throw new Error("Expected syncDocumentResult to handle the denial");
@@ -451,14 +445,12 @@ test("a denied cursor pull records the failure blocking deferred writes", async 
           outgoingUpdateCount: request.outgoingUpdates.length,
           pullCursor: request.pullCursor,
         });
-        return {
+        return createMockRequestFailure({
           message: `POST /documents/${documentId}/sync: 403 Forbidden`,
-          ok: false as const,
-          report: () => undefined,
           status: 403,
-        };
+        });
       },
-    },
+    }),
     author,
     documentId: writerProjection.documentId,
     execSql,

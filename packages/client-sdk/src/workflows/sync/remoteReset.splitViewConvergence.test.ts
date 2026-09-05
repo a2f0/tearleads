@@ -13,6 +13,7 @@ import {
 } from "@tearleads/loro";
 import {
   createContainerWriterProjectionFixture,
+  createMockApiClient,
   createTestExecSql,
 } from "@tearleads/test-utils";
 import type { DocumentCreateRequest } from "@tearleads/validators/request";
@@ -167,11 +168,15 @@ async function createAdoptionServer(containerId: string) {
     committedProjection: DocumentWriterProjectionResponse | null;
     createCount: number;
   } = { committedProjection: null, createCount: 0 };
-  const apiClient = {
+  const apiClient = createMockApiClient({
     createDocument: async () => null,
     createDocumentResult: async (request: DocumentCreateRequest) => {
       if (server.committedProjection) {
         return {
+          kind: "http",
+          method: "POST",
+          path: "/documents",
+          statusText: "Conflict",
           code: DOCUMENT_MUTATION_ERROR_CODES.manifestAlreadyExists,
           message:
             "POST /documents: 409 Conflict: Document manifest already exists",
@@ -194,7 +199,7 @@ async function createAdoptionServer(containerId: string) {
         ? server.committedProjection
         : null,
     primeDocumentWriterProjection: () => undefined,
-  };
+  });
 
   return {
     organizationId: author.organizationId,

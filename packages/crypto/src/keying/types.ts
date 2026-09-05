@@ -209,7 +209,7 @@ export interface ContainerRekeyAccessEventBody {
   containerKeyEpochId: string;
   keyringHash: string;
   predecessorBridgeHash: string;
-  referencedPrincipalHeads?: ContainerGrantPrincipalHead[];
+  referencedPrincipalHeads: ContainerGrantPrincipalHead[];
 }
 
 export interface ContainerMoveAccessEventBody

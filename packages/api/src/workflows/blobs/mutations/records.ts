@@ -305,9 +305,9 @@ export function toBindResponse(input: {
   readonly blobId: string;
   readonly contentKeyBundle: StoredBlobContentKeyBundleWithTargets;
   readonly currentTargets: ResolvedBlobKekTargets;
-  readonly writeHeader: WriteHeader | undefined;
-  readonly writeHeaderHash: string | undefined;
-  readonly writeAuthorization: BlobKekTargetsResponse | undefined;
+  readonly writeHeader: WriteHeader;
+  readonly writeHeaderHash: string;
+  readonly writeAuthorization: BlobKekTargetsResponse;
 }) {
   return {
     bindingEvent: projectionVerifiedAccessEventRecord(input.binding.event),
@@ -319,12 +319,8 @@ export function toBindResponse(input: {
     slotId: input.binding.slotId,
     contentKeyBundle: toContentKeyBundleResponse(input.contentKeyBundle),
     blobKekTargets: toBlobKekTargetsResponse(input.currentTargets),
-    ...(input.writeHeader ? { writeHeader: { ...input.writeHeader } } : {}),
-    ...(input.writeHeaderHash
-      ? { writeHeaderHash: input.writeHeaderHash }
-      : {}),
-    ...(input.writeAuthorization
-      ? { writeAuthorization: { ...input.writeAuthorization } }
-      : {}),
+    writeHeader: { ...input.writeHeader },
+    writeHeaderHash: input.writeHeaderHash,
+    writeAuthorization: { ...input.writeAuthorization },
   };
 }

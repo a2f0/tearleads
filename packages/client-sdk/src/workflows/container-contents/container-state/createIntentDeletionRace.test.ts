@@ -131,20 +131,20 @@ async function runCreatePersistenceOutcome(
     recordCreateIntentRevisionError: async (_execSql, input) => {
       recordedErrors.push(input.message);
     },
-    markCreateIntentRevisionSynced:
-      persistenceStatus === "legacy-capability-missing"
-        ? undefined
-        : async (_execSql, input) => {
-            syncedIntents.push(input.containerId);
-            if (persistenceStatus === "settlement-stale") current = false;
-            if (persistenceStatus === "deleted-during-settlement") {
-              deleteContainerFromState();
-              return false;
-            }
-            if (persistenceStatus === "intent-superseded") return false;
-            return input.stillCurrent();
-          },
+    markCreateIntentRevisionSynced: async (_execSql, input) => {
+      syncedIntents.push(input.containerId);
+      if (persistenceStatus === "settlement-stale") current = false;
+      if (persistenceStatus === "deleted-during-settlement") {
+        deleteContainerFromState();
+        return false;
+      }
+      if (persistenceStatus === "intent-superseded") return false;
+      return input.stillCurrent();
+    },
   };
+  if (persistenceStatus === "legacy-capability-missing") {
+    Reflect.deleteProperty(persistence, "markCreateIntentRevisionSynced");
+  }
   const parentState = createTestContainerState({
     id: parentContainerId,
     parentId: "root",

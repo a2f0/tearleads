@@ -137,6 +137,8 @@ async function seedUsageDocument(input: {
 
       return {
         updateId: update.id,
+        // Usage accounting does not interpret authorization target contents.
+        authorizationTargets: [],
         documentId: input.documentId,
         organizationId: input.organizationId,
         contentKeyEpoch: 1,
@@ -202,6 +204,17 @@ async function seedOrganizationDataUsage(input: {
       return {
         recordId,
         blobId,
+        authorization: {
+          activeBindingIds: [],
+          blobId,
+          blobAccessManifestHash: header.accessManifestHash,
+          blobKeyTargetHash: header.targetHash,
+          documentManifestHashes: [],
+          linkedContainerKeyEpochIds: [],
+          linkedContainerManifestHashes: [],
+          organizationId: input.organizationId,
+          targets: [],
+        },
         organizationId: input.organizationId,
         contentKeyEpoch: 1,
         accessManifestHash: header.accessManifestHash,

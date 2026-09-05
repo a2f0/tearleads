@@ -5,6 +5,7 @@ import {
 } from "@tearleads/crypto";
 import {
   createContainerWriterProjectionFixture,
+  createMockApiClient,
   createTestExecSql,
 } from "@tearleads/test-utils";
 import type { DocumentCreateRequest } from "@tearleads/validators/request";
@@ -70,12 +71,16 @@ test("createRemoteDocument replans once when the target container head advances"
 
   try {
     const created = await createRemoteDocument({
-      apiClient: {
+      apiClient: createMockApiClient({
         createDocument: async () => null,
         createDocumentResult: async (request) => {
           submittedRequests.push(request);
           if (submittedRequests.length === 1) {
             return {
+              kind: "http",
+              method: "POST",
+              path: "/documents",
+              statusText: "Conflict",
               code: DOCUMENT_SYNC_ERROR_CODES.stateStale,
               message: "POST /documents: 409 Conflict: diagnostic changed",
               ok: false as const,
@@ -100,7 +105,7 @@ test("createRemoteDocument replans once when the target container head advances"
           return containerId === projection.containerId ? projection : null;
         },
         primeDocumentWriterProjection: () => undefined,
-      },
+      }),
       author,
       containerId: projection.containerId,
       contentKey,
@@ -165,7 +170,7 @@ test("createRemoteDocument refetches after a container projection rollback", asy
 
   try {
     const created = await createRemoteDocument({
-      apiClient: {
+      apiClient: createMockApiClient({
         createDocument: async (request) => {
           submittedRequests.push(request);
           return createResponseFromRequest(request);
@@ -178,7 +183,7 @@ test("createRemoteDocument refetches after a container projection rollback", asy
           return projection;
         },
         primeDocumentWriterProjection: () => undefined,
-      },
+      }),
       author,
       containerId: projection.containerId,
       documentId: "rollback-retry-document",
@@ -231,7 +236,7 @@ test("createRemoteDocument propagates rollback from the refetched projection", a
   try {
     await expect(
       createRemoteDocument({
-        apiClient: {
+        apiClient: createMockApiClient({
           createDocument: async () => {
             submissions += 1;
             return null;
@@ -244,7 +249,7 @@ test("createRemoteDocument propagates rollback from the refetched projection", a
             return projection;
           },
           primeDocumentWriterProjection: () => undefined,
-        },
+        }),
         author,
         containerId: projection.containerId,
         execSql,
@@ -288,7 +293,7 @@ test.each([
   try {
     await expect(
       createRemoteDocument({
-        apiClient: {
+        apiClient: createMockApiClient({
           createDocument: async () => {
             submissions += 1;
             return null;
@@ -301,7 +306,7 @@ test.each([
             return projection;
           },
           primeDocumentWriterProjection: () => undefined,
-        },
+        }),
         author,
         containerId: projection.containerId,
         execSql,

@@ -9,6 +9,7 @@ import { createTestUser } from "@tearleads/bob-and-alice";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { createOrganizationRequestBody } from "../../../test/helpers/api";
+import { seedNativeSubscriptionStore } from "../../../test/helpers/nativeSubscriptionBindingFixture";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { runCreateOrganizationWorkflow } from "../../workflows/organizations/createOrganization";
 import { getDefaultApiServiceRuntime } from "../runtime";
@@ -63,7 +64,7 @@ test("a store-specific transfer selects its exact binding for a multi-store buye
     .set({
       provider: "revenuecat",
       providerCustomerId: user.userId,
-      providerProductId: "com.tearleads.sync.monthly",
+      providerProductId: "sync_solo_monthly",
       providerSubscriptionId: appleSubscriptionId,
       seatCount: 1,
       status: "active",
@@ -81,6 +82,18 @@ test("a store-specific transfer selects its exact binding for a multi-store buye
     })
     .where(eq(organizationBilling.organizationId, restored.organizationId));
 
+  await seedNativeSubscriptionStore({
+    appUserId: user.userId,
+    organizationId: registered.organizationId,
+    subscriptionId: appleSubscriptionId,
+    store: "APP_STORE",
+  });
+  await seedNativeSubscriptionStore({
+    appUserId: user.userId,
+    organizationId: restored.organizationId,
+    subscriptionId: playSubscriptionId,
+    store: "PLAY_STORE",
+  });
   const outcome = await processRevenueCatWebhook(
     getDefaultApiServiceRuntime(),
     {
@@ -157,7 +170,7 @@ test("a pre-claim transfer retries across multiple retained bindings", async () 
     .set({
       provider: "revenuecat",
       providerCustomerId: user.userId,
-      providerProductId: "com.tearleads.sync.monthly",
+      providerProductId: "sync_solo_monthly",
       providerSubscriptionId: firstSubscriptionId,
       seatCount: 1,
       status: "active",

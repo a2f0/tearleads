@@ -3,6 +3,7 @@ import { type AccessEvent, generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import { createDocument, exportFullHistorySnapshot } from "@tearleads/loro";
 import {
   createContainerWriterProjectionFixture,
+  createMockApiClient,
   createTestExecSql,
 } from "@tearleads/test-utils";
 import type { DocumentLinkSetMutationRequest } from "@tearleads/validators/request";
@@ -28,7 +29,7 @@ test("relinkRemoteDocument rejects unlink without reading projections when its r
 
   await expect(
     relinkRemoteDocument({
-      apiClient: {
+      apiClient: createMockApiClient({
         getContainerWriterProjection: async () => {
           projectionReads += 1;
           throw new Error("Unexpected container projection read");
@@ -44,7 +45,7 @@ test("relinkRemoteDocument rejects unlink without reading projections when its r
         unlinkDocument: async () => {
           throw new Error("Unexpected unlink call");
         },
-      },
+      }),
       author,
       documentId: "document-without-rotation-snapshot",
       execSql,
@@ -112,7 +113,7 @@ test("relinkRemoteDocument submits a verified signed link-set mutation", async (
   const { close, execSql } = await createTestExecSql("remote-document-link");
 
   const linked = await relinkRemoteDocument({
-    apiClient: {
+    apiClient: createMockApiClient({
       getContainerWriterProjection: async (containerId) =>
         containerId === siblingProjection.containerId
           ? siblingProjection
@@ -131,7 +132,7 @@ test("relinkRemoteDocument submits a verified signed link-set mutation", async (
       unlinkDocument: async () => {
         throw new Error("Unexpected unlink call");
       },
-    },
+    }),
     author,
     documentId: writerProjection.documentId,
     execSql,
@@ -250,7 +251,7 @@ test("link planning rolls back checkpoints after generation expiry", async () =>
 
   try {
     const linked = await relinkRemoteDocument({
-      apiClient: {
+      apiClient: createMockApiClient({
         getContainerWriterProjection: async () => siblingProjection,
         getDocumentWriterProjection: async () => writerProjection,
         linkDocument: async () => {
@@ -261,7 +262,7 @@ test("link planning rolls back checkpoints after generation expiry", async () =>
         unlinkDocument: async () => {
           throw new Error("unexpected unlink");
         },
-      },
+      }),
       author,
       documentId: writerProjection.documentId,
       execSql: guardedExecSql,
@@ -386,7 +387,7 @@ test("relinkRemoteDocument rejects bad unlink target container signatures before
 
   await expect(
     relinkRemoteDocument({
-      apiClient: {
+      apiClient: createMockApiClient({
         getContainerWriterProjection: async (containerId) =>
           containerId === projection.containerId
             ? tamperedTargetProjection
@@ -403,7 +404,7 @@ test("relinkRemoteDocument rejects bad unlink target container signatures before
           unlinkCalled = true;
           throw new Error("Unexpected unlink call");
         },
-      },
+      }),
       author,
       documentId: linkedWriterProjection.documentId,
       execSql,

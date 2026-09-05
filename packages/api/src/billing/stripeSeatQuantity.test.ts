@@ -17,7 +17,7 @@ test("live Stripe seat state has an explicit one-seat floor", () => {
   expect(normalizeStripeSeatQuantity(1)).toBe(1);
   expect(normalizeStripeSeatQuantity(4)).toBe(5);
   expect(normalizeStripeSeatQuantity(10)).toBe(10);
-  expect(normalizeStripeSeatQuantity(11)).toBe(10);
+  expect(() => normalizeStripeSeatQuantity(11)).toThrow(RangeError);
   expect(() => normalizeStripeSeatQuantity(-1)).toThrow(RangeError);
 });
 

@@ -13,18 +13,18 @@ import {
 
 afterEach(cleanup);
 
-test("a scope switch keeps a legacy native purchase running", async () => {
+test("a scope switch keeps a presented native purchase running", async () => {
   let resolvePurchase: ((value: SyncPurchaseResult) => void) | undefined;
   const purchaseSync = mock(
-    () =>
+    (input: Parameters<PurchasesCapability["purchaseSync"]>[0]) =>
       new Promise<SyncPurchaseResult>((resolve) => {
+        input.onProviderPresented?.();
         resolvePurchase = resolve;
       }),
   );
   const purchases: PurchasesCapability = {
     ...createPurchases({ syncEntitlementActive: true }),
     supportsEmbeddedCheckout: false,
-    // Legacy providers neither advertise nor invoke presentation callbacks.
     purchaseSync,
   };
   const { result, rerender } = renderBillingActions({ purchases });

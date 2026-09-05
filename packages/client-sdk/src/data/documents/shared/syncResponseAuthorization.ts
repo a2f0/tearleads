@@ -4,14 +4,12 @@ import {
   makeVerifiedDocumentKekTargets,
 } from "@tearleads/crypto";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
-import { sortDocumentTargets, targetEnvelopeReference } from "./readers";
+import { sortDocumentTargets } from "./readers";
 import type { DocumentSyncPlan } from "./types";
 
 export async function documentWriteAuthorizationForHeader(input: {
   readonly allowMissingAuthorization: boolean;
-  readonly authorizationTargets?:
-    | readonly DocumentContentKeyTarget[]
-    | undefined;
+  readonly authorizationTargets: readonly DocumentContentKeyTarget[];
   readonly contentKeyBundle: DocumentSyncResponse["contentKeyBundle"];
   readonly manifestHash: string;
   readonly plan: DocumentSyncPlan;
@@ -40,24 +38,11 @@ export async function documentWriteAuthorizationForHeader(input: {
     );
   }
 
-  const contentBundleTargets = input.contentKeyBundle.targets.map(
-    targetEnvelopeReference,
-  );
-  const targets = sortDocumentTargets(
-    input.authorizationTargets ?? contentBundleTargets,
-  );
-  // Legacy rows can be proven only while their still-served bundle exactly
-  // matches the header. Once targets advance, accepting reconstructed current
-  // evidence would authorize a historical write by server assertion, so the
-  // compatibility path deliberately fails closed.
+  const targets = sortDocumentTargets(input.authorizationTargets);
   if (
     (await computeDocumentContentKeyTargetHash(targets)) !== input.targetHash
   ) {
-    throw new Error(
-      input.authorizationTargets
-        ? "Document sync response write targets are not canonical"
-        : "Document sync response lacks exact historical writer-authorization targets",
-    );
+    throw new Error("Document sync response write targets are not canonical");
   }
   const linkedContainerIds = new Set(documentManifest.state.linkedContainerIds);
   if (

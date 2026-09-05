@@ -36,8 +36,8 @@ describe("Tearleads constructor", () => {
     expect(sdk.documents.open).toBeFunction();
     expect(sdk.containerContents.openTree).toBeFunction();
     expect(sdk.deviceFirst.open).toBeFunction();
-    expect(sdk.deviceFirst.openView).toBeFunction();
-    expect(sdk.deviceFirst.reconciler).toBeFunction();
+    expect("openView" in sdk.deviceFirst).toBe(false);
+    expect("reconciler" in sdk.deviceFirst).toBe(false);
     expect(sdk.organizations.loadDirectoryAndGroups).toBeFunction();
   });
 
@@ -55,8 +55,8 @@ describe("Tearleads constructor", () => {
     expect(contents.containerStore.renameContainer).toBeFunction();
 
     const view = contents.view;
-    expect(sdk.deviceFirst.openView()).toBe(view);
-    expect(sdk.deviceFirst.reconciler()).toBe(contents.reconciler);
+    expect(sdk.deviceFirst.open().view).toBe(view);
+    expect(sdk.deviceFirst.open().reconciler).toBe(contents.reconciler);
 
     expect(view.getSnapshot).toBeFunction();
     expect(view.subscribe).toBeFunction();

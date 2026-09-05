@@ -274,6 +274,8 @@ export async function createBlobAttachmentBindResponse(input: {
     organizationId,
   });
   const stagedWriteHeader = input.request.stagedBlob?.writeHeader;
+  if (!stagedWriteHeader)
+    throw new Error("Upload fixture requires a staged write header");
 
   return {
     bindingEvent: {
@@ -318,13 +320,9 @@ export async function createBlobAttachmentBindResponse(input: {
       blobId: input.blobId,
       ...input.request.contentKeyBundle,
     },
-    ...(stagedWriteHeader
-      ? {
-          writeHeader: stagedWriteHeader,
-          writeHeaderHash: await computeWriteHeaderHash(
-            readWriteHeader(stagedWriteHeader, "Staged blob write header"),
-          ),
-        }
-      : {}),
+    writeHeader: stagedWriteHeader,
+    writeHeaderHash: await computeWriteHeaderHash(
+      readWriteHeader(stagedWriteHeader, "Staged blob write header"),
+    ),
   };
 }

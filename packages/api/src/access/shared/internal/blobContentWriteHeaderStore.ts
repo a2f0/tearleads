@@ -18,7 +18,7 @@ interface StoreBlobContentWriteHeaderInput {
 }
 
 interface BlobContentWriteHeaderRow {
-  readonly authorization: BlobWriteAuthorization | null;
+  readonly authorization: BlobWriteAuthorization;
   readonly header: WriteHeader;
   readonly headerHash: string;
   readonly recordId: string;
@@ -91,7 +91,7 @@ export async function listBlobContentWriteHeaders(
   Map<
     string,
     {
-      authorization: BlobWriteAuthorization | null;
+      authorization: BlobWriteAuthorization;
       header: WriteHeader;
       headerHash: string;
     }

@@ -1,4 +1,9 @@
 import { expect, test } from "bun:test";
+import type { RequestResult } from "@tearleads/api-client";
+import {
+  createMockApiClient,
+  createMockRequestFailure,
+} from "@tearleads/test-utils";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import { submitDocumentSync } from "./syncResponses";
@@ -59,23 +64,14 @@ function plan(): DocumentSyncPlan {
       minLsn: "0/1",
       outgoingUpdates: [],
       supportsPullPagination: true,
-      supportsUntrackedCommitLsn: true,
     } satisfies DocumentSyncRequest,
   } as unknown as DocumentSyncPlan;
 }
 
 function apiWithResults(
-  results: Array<
-    | { readonly data: DocumentSyncResponse; readonly ok: true }
-    | {
-        readonly message: string;
-        readonly ok: false;
-        readonly report: () => void;
-        readonly status: number | null;
-      }
-  >,
+  results: Array<RequestResult<DocumentSyncResponse>>,
 ): DocumentSyncApi {
-  return {
+  return createMockApiClient({
     getDocumentWriterProjection: async () => null,
     syncDocument: async () => null,
     syncDocumentResult: async () => {
@@ -83,16 +79,16 @@ function apiWithResults(
       if (!result) throw new Error("Unexpected document sync request");
       return result;
     },
-  };
+  });
 }
 
 test("an empty page can durably advance its continuation cursor", async () => {
-  const failure = {
-    message: "offline",
-    ok: false as const,
-    report: () => undefined,
-    status: null,
-  };
+  const failure: RequestResult<DocumentSyncResponse> = createMockRequestFailure(
+    {
+      message: "offline",
+      status: null,
+    },
+  );
   const results = [
     { data: page({ commitLsn: "0/2", cursor: "cursor-2" }), ok: true as const },
     failure,
@@ -222,14 +218,14 @@ test("one bounded page is returned before another continuation", async () => {
     })) as DocumentSyncResponse["updates"],
   };
   let requestCount = 0;
-  const apiClient = {
+  const apiClient = createMockApiClient({
     getDocumentWriterProjection: async () => null,
     syncDocument: async () => null,
     syncDocumentResult: async () => {
       requestCount += 1;
       return { data: fullPage, ok: true as const };
     },
-  } satisfies DocumentSyncApi;
+  }) satisfies DocumentSyncApi;
 
   const result = await submitDocumentSync({ apiClient, plan: plan() });
 

@@ -323,7 +323,7 @@ test("a rotated provider Price alerts while the worker backs off", async () => {
   }
 });
 
-test("legacy paid capacity above ten settles onto the largest tier", async () => {
+test("paid capacity above ten fails without changing provider or paid state", async () => {
   const state = await insertState({
     appliedPaidCapacity: 20,
     desiredPaidCapacity: 10,
@@ -333,8 +333,8 @@ test("legacy paid capacity above ten settles onto the largest tier", async () =>
 
   expect(await runOne({ ...state, providerQuantity: 10, requests })).toEqual({
     attempted: 1,
-    failed: 0,
-    synced: 1,
+    failed: 1,
+    synced: 0,
   });
   expect(requests).toEqual([]);
   const [saved] = await db
@@ -345,7 +345,7 @@ test("legacy paid capacity above ten settles onto the largest tier", async () =>
     .where(
       eq(organizationBillingStripeSeats.organizationId, state.organizationId),
     );
-  expect(saved?.appliedPaidCapacity).toBe(10);
+  expect(saved?.appliedPaidCapacity).toBe(20);
 });
 
 test("a provider period rollover rebinds before any Stripe update", async () => {

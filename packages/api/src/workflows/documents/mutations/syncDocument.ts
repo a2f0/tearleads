@@ -436,23 +436,12 @@ export async function runDocumentSyncWorkflow(
         userId: input.userId,
       }),
     );
-    const clientSupportsUntracked =
-      input.request.supportsUntrackedCommitLsn === true;
-    const commitLsnMode = readCommitLsnMode(undefined, {
-      clientSupportsUntracked,
-      minimumLsn: input.request.minLsn,
-    });
-    const commitLsn =
-      commitLsnMode === undefined && input.request.minLsn === undefined
-        ? null
-        : await readCurrentCommitLsn(db, undefined, {
-            clientSupportsUntracked,
-            minimumLsn: input.request.minLsn,
-          });
+    const commitLsnMode = readCommitLsnMode();
+    const commitLsn = await readCurrentCommitLsn(db);
     const response: DocumentSyncResponse = {
       ...transactionResult.responseWithoutCommit,
       commitLsn,
-      ...(commitLsnMode === undefined ? {} : { commitLsnMode }),
+      commitLsnMode,
     };
     return {
       containerRekeys: transactionResult.containerRekeys,

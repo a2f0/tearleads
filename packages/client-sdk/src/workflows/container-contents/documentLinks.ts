@@ -33,28 +33,15 @@ async function fetchMoveWriterProjection(input: {
   ReturnType<ContainerDocumentLinkApi["getDocumentWriterProjection"]>
 > | null> {
   const { apiClient } = input.runtime;
-  if (apiClient.getDocumentWriterProjectionResult) {
-    const result = await apiClient.getDocumentWriterProjectionResult(
-      input.documentId,
-      { reportErrors: false },
-    );
-    if (result.ok) {
-      return result.data;
-    }
-    result.report();
-    input.onFailure?.({ message: result.message, status: result.status });
-    return null;
-  }
-  const writerProjection = await apiClient.getDocumentWriterProjection(
+  const result = await apiClient.getDocumentWriterProjectionResult(
     input.documentId,
+    { reportErrors: false },
   );
-  if (writerProjection) {
-    return writerProjection;
+  if (result.ok) {
+    return result.data;
   }
-  input.onFailure?.({
-    message: "Document writer projection is unavailable",
-    status: null,
-  });
+  result.report();
+  input.onFailure?.({ message: result.message, status: result.status });
   return null;
 }
 

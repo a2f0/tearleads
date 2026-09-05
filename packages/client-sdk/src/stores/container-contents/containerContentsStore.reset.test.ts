@@ -188,6 +188,7 @@ test("executor replacement retries initialization against the new database", asy
   const resolvers: Array<(value: LoadResult) => void> = [];
   const persistence = {
     ...defaultContainerContentsPersistence,
+    ensureSchema: async () => {},
     loadContainers: mock(
       (execSql: ExecSql) =>
         new Promise<LoadResult>((resolve) => {
@@ -321,6 +322,7 @@ test("persistence replacement retries an in-flight initialization", async () => 
   let replacementLoadStarted = false;
   const originalPersistence = {
     ...defaultContainerContentsPersistence,
+    ensureSchema: async () => {},
     loadContainers: () =>
       new Promise<LoadResult>((resolve) => {
         originalLoadStarted = true;
@@ -329,6 +331,7 @@ test("persistence replacement retries an in-flight initialization", async () => 
   };
   const replacementPersistence = {
     ...defaultContainerContentsPersistence,
+    ensureSchema: async () => {},
     loadContainers: () =>
       new Promise<LoadResult>((resolve) => {
         replacementLoadStarted = true;

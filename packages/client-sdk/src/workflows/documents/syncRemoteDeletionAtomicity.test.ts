@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  createMockApiClient,
+  createMockRequestFailure,
+  createTestExecSql,
+} from "@tearleads/test-utils";
 import { DOCUMENT_NOT_FOUND_ERROR_CODE } from "@tearleads/validators/response";
 import {
   createMaterializedSyncFixture,
@@ -20,7 +24,7 @@ test("remote deletion cannot commit its purge proof without atomic teardown", as
   try {
     await expect(
       syncRemoteDocument({
-        apiClient: {
+        apiClient: createMockApiClient({
           getDocumentPurgeProof: async () => proof,
           getDocumentWriterProjection: async () => {
             throw new Error("Unexpected writer projection fetch");
@@ -28,14 +32,13 @@ test("remote deletion cannot commit its purge proof without atomic teardown", as
           syncDocument: async () => {
             throw new Error("Expected syncDocumentResult failure");
           },
-          syncDocumentResult: async () => ({
-            code: DOCUMENT_NOT_FOUND_ERROR_CODE,
-            message: "Document not found",
-            ok: false,
-            report: () => undefined,
-            status: 404,
-          }),
-        },
+          syncDocumentResult: async () =>
+            createMockRequestFailure({
+              code: DOCUMENT_NOT_FOUND_ERROR_CODE,
+              message: "Document not found",
+              status: 404,
+            }),
+        }),
         author,
         documentId: writerProjection.documentId,
         execSql,

@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
+import { createMockApiClient } from "@tearleads/test-utils";
 import { createContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
 import { DocumentSyncUpdateIsolationError } from "../../data/documents/shared/documentSyncUpdateIsolation";
 import { PrincipalPolicyNotCachedError } from "../../data/keyingProjectionVerification/principalPolicyVerification";
@@ -19,9 +20,9 @@ function createMetadataSyncRuntime(input: {
     | undefined;
 }) {
   return {
-    apiClient: {
+    apiClient: createMockApiClient({
       getDocumentWriterProjection: input.getDocumentWriterProjection,
-    },
+    }),
     auth: {
       deviceId: "device-1",
       organizationId: "org-1",

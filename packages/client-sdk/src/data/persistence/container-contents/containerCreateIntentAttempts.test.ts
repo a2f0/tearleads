@@ -63,23 +63,32 @@ test("create intent settlement reports overtaking and generation races", async (
     };
 
     expect(
-      await sqlContainerContentsPersistence.markCreateIntentSynced(execSql, {
-        ...settlement,
-        expectedUpdatedAt: "stale-intent-version",
-        stillCurrent: () => true,
-      }),
+      await sqlContainerContentsPersistence.markCreateIntentRevisionSynced(
+        execSql,
+        {
+          ...settlement,
+          expectedUpdatedAt: "stale-intent-version",
+          stillCurrent: () => true,
+        },
+      ),
     ).toBe(false);
     expect(
-      await sqlContainerContentsPersistence.markCreateIntentSynced(execSql, {
-        ...settlement,
-        stillCurrent: () => false,
-      }),
+      await sqlContainerContentsPersistence.markCreateIntentRevisionSynced(
+        execSql,
+        {
+          ...settlement,
+          stillCurrent: () => false,
+        },
+      ),
     ).toBe(false);
     expect(
-      await sqlContainerContentsPersistence.markCreateIntentSynced(execSql, {
-        ...settlement,
-        stillCurrent: () => true,
-      }),
+      await sqlContainerContentsPersistence.markCreateIntentRevisionSynced(
+        execSql,
+        {
+          ...settlement,
+          stillCurrent: () => true,
+        },
+      ),
     ).toBe(true);
     expect(
       await sqlContainerContentsPersistence.listPendingCreateIntents(execSql),

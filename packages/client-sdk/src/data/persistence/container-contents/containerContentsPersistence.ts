@@ -138,18 +138,7 @@ async function hasPendingContainerMetadataUpdates(input: {
   return rows.length > 0;
 }
 
-type SqlPersistence = Omit<
-  ContainerContentsPersistence,
-  "recordCreateIntentError" | "recordCreateIntentRevisionError"
-> & {
-  recordCreateIntentError: typeof containerIntentPersistence.recordCreateIntentError;
-  recordCreateIntentRevisionError: typeof containerIntentPersistence.recordCreateIntentRevisionError;
-  saveContainerWithPendingUpdate: NonNullable<
-    ContainerContentsPersistence["saveContainerWithPendingUpdate"]
-  >;
-};
-
-export const sqlContainerContentsPersistence: SqlPersistence = {
+export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
   ...containerIntentPersistence,
   ...containerMetadataPullContinuationPersistence,
   commitHydratedContainer: commitStoredHydratedContainer,

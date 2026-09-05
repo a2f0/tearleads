@@ -1,4 +1,8 @@
 import { expect, test } from "bun:test";
+import {
+  createMockApiClient,
+  createMockRequestFailure,
+} from "@tearleads/test-utils";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import {
@@ -75,7 +79,6 @@ test("submitDocumentSync returns a completed single page", async () => {
       { id: "outgoing-1" },
     ] as DocumentSyncRequest["outgoingUpdates"],
     supportsPullPagination: true,
-    supportsUntrackedCommitLsn: true,
   };
   const plan = {
     documentId: DOCUMENT_ID,
@@ -89,7 +92,7 @@ test("submitDocumentSync returns a completed single page", async () => {
   });
   const requests: DocumentSyncRequest[] = [];
   const requestOptions: unknown[] = [];
-  const apiClient = {
+  const apiClient = createMockApiClient({
     getDocumentWriterProjection: async () => null,
     syncDocument: async () => {
       throw new Error("Expected result-aware document sync");
@@ -99,7 +102,7 @@ test("submitDocumentSync returns a completed single page", async () => {
       requestOptions.push(options);
       return { data: page, ok: true as const };
     },
-  } satisfies DocumentSyncApi;
+  }) satisfies DocumentSyncApi;
 
   const result = await submitDocumentSync({ apiClient, plan });
 
@@ -132,7 +135,6 @@ test("submitDocumentSync returns one incomplete page for durable settlement", as
     localVersionVector: null,
     outgoingUpdates: [],
     supportsPullPagination: true,
-    supportsUntrackedCommitLsn: true,
   };
   const pages = [
     {
@@ -146,7 +148,7 @@ test("submitDocumentSync returns one incomplete page for durable settlement", as
     response({ commitLsn: "0/3", cursor: "cursor-3", updateId: "update-2" }),
   ];
   const requests: DocumentSyncRequest[] = [];
-  const apiClient = {
+  const apiClient = createMockApiClient({
     getDocumentWriterProjection: async () => null,
     syncDocument: async () => null,
     syncDocumentResult: async (_documentId, nextRequest) => {
@@ -155,7 +157,7 @@ test("submitDocumentSync returns one incomplete page for durable settlement", as
       if (!nextPage) throw new Error("Unexpected document sync request");
       return { data: nextPage, ok: true as const };
     },
-  } satisfies DocumentSyncApi;
+  }) satisfies DocumentSyncApi;
 
   const result = await submitDocumentSync({
     apiClient,
@@ -189,16 +191,15 @@ test("a cursor-bearing page requires a checkpoint before it can be applied", asy
       localVersionVector: null,
       outgoingUpdates: [],
       supportsPullPagination: true,
-      supportsUntrackedCommitLsn: true,
     },
   } as unknown as DocumentSyncPlan;
 
   await expect(
     submitDocumentSync({
-      apiClient: {
+      apiClient: createMockApiClient({
         getDocumentWriterProjection: async () => null,
         syncDocument: async () => page,
-      },
+      }),
       plan,
     }),
   ).rejects.toThrow(
@@ -214,7 +215,6 @@ test("an oversized version vector resumes beyond the first 64 updates", async ()
     localVersionVector: "V".repeat(MAX_DOCUMENT_SYNC_REQUEST_BYTES),
     outgoingUpdates: [],
     supportsPullPagination: true,
-    supportsUntrackedCommitLsn: true,
   };
   const firstRequest = limitDocumentSyncRequestBytes(oversizedRequest);
   expect(firstRequest.localVersionVector).toBeNull();
@@ -233,14 +233,14 @@ test("an oversized version vector resumes beyond the first 64 updates", async ()
   };
   const requests: DocumentSyncRequest[] = [];
   const firstResult = await submitDocumentSync({
-    apiClient: {
+    apiClient: createMockApiClient({
       getDocumentWriterProjection: async () => null,
       syncDocument: async () => null,
       syncDocumentResult: async (_documentId, request) => {
         requests.push(request);
         return { data: firstPage, ok: true as const };
       },
-    },
+    }),
     plan: {
       documentId: DOCUMENT_ID,
       request: firstRequest,
@@ -269,14 +269,14 @@ test("an oversized version vector resumes beyond the first 64 updates", async ()
     updateId: "update-064",
   });
   const resumedResult = await submitDocumentSync({
-    apiClient: {
+    apiClient: createMockApiClient({
       getDocumentWriterProjection: async () => null,
       syncDocument: async () => null,
       syncDocumentResult: async (_documentId, request) => {
         requests.push(request);
         return { data: finalPage, ok: true as const };
       },
-    },
+    }),
     plan: {
       documentId: DOCUMENT_ID,
       request: resumedRequest,
@@ -302,7 +302,6 @@ test("a resumed pull retains its original commit LSN mode", async () => {
     outgoingUpdates: [],
     pullCursor: "cursor-from-tracked-page",
     supportsPullPagination: true,
-    supportsUntrackedCommitLsn: true,
   };
   const switchedMode = {
     ...response({
@@ -315,14 +314,14 @@ test("a resumed pull retains its original commit LSN mode", async () => {
 
   await expect(
     submitDocumentSync({
-      apiClient: {
+      apiClient: createMockApiClient({
         getDocumentWriterProjection: async () => null,
         syncDocument: async () => null,
         syncDocumentResult: async () => ({
           data: switchedMode,
           ok: true as const,
         }),
-      },
+      }),
       expectedCommitLsnMode: "tracked",
       plan: {
         documentId: DOCUMENT_ID,
@@ -375,28 +374,26 @@ test("submitDocumentSync reports a continuation-page failure directly", async ()
     outgoingUpdates: [],
     pullCursor: "cursor-2",
     supportsPullPagination: true,
-    supportsUntrackedCommitLsn: true,
   };
   const plan = { documentId: DOCUMENT_ID, request } as DocumentSyncPlan;
   let requestCount = 0;
   let reported = false;
-  const apiClient = {
+  const apiClient = createMockApiClient({
     getDocumentWriterProjection: async () => null,
     syncDocument: async () => {
       throw new Error("Expected result-aware document sync");
     },
     syncDocumentResult: async () => {
       requestCount += 1;
-      return {
+      return createMockRequestFailure({
         message: "offline",
-        ok: false as const,
         report: () => {
           reported = true;
         },
         status: null,
-      };
+      });
     },
-  } satisfies DocumentSyncApi;
+  }) satisfies DocumentSyncApi;
 
   const result = await submitDocumentSync({ apiClient, plan });
 

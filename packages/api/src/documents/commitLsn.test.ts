@@ -2,29 +2,16 @@ import { expect, test } from "bun:test";
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { readCommitLsnMode, readCurrentCommitLsn } from "./commitLsn";
 
-test("Turso negotiates untracked LSNs without querying the database", async () => {
+test("Turso always reports an untracked LSN without querying the database", async () => {
   const executor = {
     execute: () => {
       throw new Error("Turso commit LSN must not execute a query");
     },
   } as unknown as DatabaseSession;
 
-  expect(
-    await readCurrentCommitLsn(executor, "turso", {
-      clientSupportsUntracked: true,
-      minimumLsn: "0/20",
-    }),
-  ).toBe("0/0");
-  expect(
-    await readCurrentCommitLsn(executor, "turso", { minimumLsn: "0/20" }),
-  ).toBe("0/20");
   expect(await readCurrentCommitLsn(executor, "turso")).toBe("0/0");
-  expect(readCommitLsnMode("turso")).toBeUndefined();
-  expect(readCommitLsnMode("turso", { clientSupportsUntracked: true })).toBe(
-    "untracked",
-  );
-  expect(readCommitLsnMode("turso", { minimumLsn: "0/0" })).toBe("untracked");
-  expect(readCommitLsnMode("turso", { minimumLsn: "0/20" })).toBeUndefined();
+  expect(readCommitLsnMode("turso")).toBe("untracked");
+  expect(readCommitLsnMode("sqlite")).toBe("tracked");
   expect(readCommitLsnMode("postgres")).toBe("tracked");
 });
 

@@ -1827,8 +1827,6 @@ export interface operations {
                             pullCursor?: string;
                             /** @constant */
                             supportsPullPagination: true;
-                            /** @constant */
-                            supportsUntrackedCommitLsn?: true;
                         } & {
                             [key: string]: unknown;
                         };
@@ -2487,8 +2485,6 @@ export interface operations {
                             pullCursor?: string;
                             /** @constant */
                             supportsPullPagination: true;
-                            /** @constant */
-                            supportsUntrackedCommitLsn?: true;
                         } & {
                             [key: string]: unknown;
                         };
@@ -2931,8 +2927,6 @@ export interface operations {
                             pullCursor?: string;
                             /** @constant */
                             supportsPullPagination: true;
-                            /** @constant */
-                            supportsUntrackedCommitLsn?: true;
                         } & {
                             [key: string]: unknown;
                         };
@@ -3234,8 +3228,6 @@ export interface operations {
                             pullCursor?: string;
                             /** @constant */
                             supportsPullPagination: true;
-                            /** @constant */
-                            supportsUntrackedCommitLsn?: true;
                         } & {
                             [key: string]: unknown;
                         };
@@ -3713,8 +3705,6 @@ export interface operations {
                             pullCursor?: string;
                             /** @constant */
                             supportsPullPagination: true;
-                            /** @constant */
-                            supportsUntrackedCommitLsn?: true;
                         } & {
                             [key: string]: unknown;
                         };
@@ -4016,8 +4006,6 @@ export interface operations {
                             pullCursor?: string;
                             /** @constant */
                             supportsPullPagination: true;
-                            /** @constant */
-                            supportsUntrackedCommitLsn?: true;
                         } & {
                             [key: string]: unknown;
                         };
@@ -5771,7 +5759,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        bindingEvent?: {
+                        bindingEvent: {
                             body: unknown;
                             event: {
                                 [key: string]: unknown;
@@ -5819,10 +5807,10 @@ export interface operations {
                             [key: string]: unknown;
                         };
                         documentId: string;
-                        documentManifestHash?: string;
-                        previousBindingId?: string | null;
+                        documentManifestHash: string;
+                        previousBindingId: string | null;
                         slotId: string;
-                        writeAuthorization?: {
+                        writeAuthorization: {
                             activeBindingIds: string[];
                             blobAccessManifestHash: string;
                             blobId: string;
@@ -5837,10 +5825,10 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         };
-                        writeHeader?: {
+                        writeHeader: {
                             [key: string]: unknown;
                         };
-                        writeHeaderHash?: string;
+                        writeHeaderHash: string;
                     } & {
                         [key: string]: unknown;
                     };
@@ -6239,7 +6227,7 @@ export interface operations {
             200: {
                 headers: {
                     "content-length"?: string;
-                    "x-tearleads-blob-byte-length"?: string;
+                    "x-tearleads-blob-byte-length": string;
                     "x-tearleads-blob-id": string;
                     "x-tearleads-blob-sha256": string;
                     [name: string]: unknown;
@@ -7179,10 +7167,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        code?: (("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found")) | "principal_policy_stale";
+                    "application/json": ({
+                        code?: ("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found");
                         error: string;
-                        principalPolicies?: ({
+                    } & {
+                        [key: string]: unknown;
+                    }) | ({
+                        /** @constant */
+                        code: "principal_policy_stale";
+                        error: string;
+                        principalPolicies: ({
                             currentGrants: ({
                                 /** @enum {string} */
                                 accessLevel: "admin" | "read" | "write";
@@ -7326,7 +7320,7 @@ export interface operations {
                         })[];
                     } & {
                         [key: string]: unknown;
-                    };
+                    });
                 };
             };
             /** @description Failure JSON response */
@@ -7460,10 +7454,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        code?: (("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found")) | "principal_policy_stale";
+                    "application/json": ({
+                        code?: ("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found");
                         error: string;
-                        principalPolicies?: ({
+                    } & {
+                        [key: string]: unknown;
+                    }) | ({
+                        /** @constant */
+                        code: "principal_policy_stale";
+                        error: string;
+                        principalPolicies: ({
                             currentGrants: ({
                                 /** @enum {string} */
                                 accessLevel: "admin" | "read" | "write";
@@ -7607,7 +7607,7 @@ export interface operations {
                         })[];
                     } & {
                         [key: string]: unknown;
-                    };
+                    });
                 };
             };
             /** @description Failure JSON response */
@@ -8254,10 +8254,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        code?: (("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found")) | "principal_policy_stale";
+                    "application/json": ({
+                        code?: ("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found");
                         error: string;
-                        principalPolicies?: ({
+                    } & {
+                        [key: string]: unknown;
+                    }) | ({
+                        /** @constant */
+                        code: "principal_policy_stale";
+                        error: string;
+                        principalPolicies: ({
                             currentGrants: ({
                                 /** @enum {string} */
                                 accessLevel: "admin" | "read" | "write";
@@ -8401,7 +8407,7 @@ export interface operations {
                         })[];
                     } & {
                         [key: string]: unknown;
-                    };
+                    });
                 };
             };
             /** @description Failure JSON response */
@@ -8739,10 +8745,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        code?: (("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found")) | "principal_policy_stale";
+                    "application/json": ({
+                        code?: ("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found");
                         error: string;
-                        principalPolicies?: ({
+                    } & {
+                        [key: string]: unknown;
+                    }) | ({
+                        /** @constant */
+                        code: "principal_policy_stale";
+                        error: string;
+                        principalPolicies: ({
                             currentGrants: ({
                                 /** @enum {string} */
                                 accessLevel: "admin" | "read" | "write";
@@ -8886,7 +8898,7 @@ export interface operations {
                         })[];
                     } & {
                         [key: string]: unknown;
-                    };
+                    });
                 };
             };
             /** @description Failure JSON response */
@@ -9224,10 +9236,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        code?: (("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found")) | "principal_policy_stale";
+                    "application/json": ({
+                        code?: ("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found");
                         error: string;
-                        principalPolicies?: ({
+                    } & {
+                        [key: string]: unknown;
+                    }) | ({
+                        /** @constant */
+                        code: "principal_policy_stale";
+                        error: string;
+                        principalPolicies: ({
                             currentGrants: ({
                                 /** @enum {string} */
                                 accessLevel: "admin" | "read" | "write";
@@ -9371,7 +9389,7 @@ export interface operations {
                         })[];
                     } & {
                         [key: string]: unknown;
-                    };
+                    });
                 };
             };
             /** @description Failure JSON response */
@@ -9709,10 +9727,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        code?: (("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found")) | "principal_policy_stale";
+                    "application/json": ({
+                        code?: ("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found");
                         error: string;
-                        principalPolicies?: ({
+                    } & {
+                        [key: string]: unknown;
+                    }) | ({
+                        /** @constant */
+                        code: "principal_policy_stale";
+                        error: string;
+                        principalPolicies: ({
                             currentGrants: ({
                                 /** @enum {string} */
                                 accessLevel: "admin" | "read" | "write";
@@ -9856,7 +9880,7 @@ export interface operations {
                         })[];
                     } & {
                         [key: string]: unknown;
-                    };
+                    });
                 };
             };
             /** @description Failure JSON response */
@@ -10760,10 +10784,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        code?: (("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found")) | "principal_policy_stale";
+                    "application/json": ({
+                        code?: ("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found");
                         error: string;
-                        principalPolicies?: ({
+                    } & {
+                        [key: string]: unknown;
+                    }) | ({
+                        /** @constant */
+                        code: "principal_policy_stale";
+                        error: string;
+                        principalPolicies: ({
                             currentGrants: ({
                                 /** @enum {string} */
                                 accessLevel: "admin" | "read" | "write";
@@ -10907,7 +10937,7 @@ export interface operations {
                         })[];
                     } & {
                         [key: string]: unknown;
-                    };
+                    });
                 };
             };
             /** @description Failure JSON response */
@@ -11315,7 +11345,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": ({
-                        bindingEvent?: {
+                        bindingEvent: {
                             body: unknown;
                             event: {
                                 [key: string]: unknown;
@@ -11326,7 +11356,7 @@ export interface operations {
                         };
                         bindingId: string;
                         blobId: string;
-                        blobKekTargets?: {
+                        blobKekTargets: {
                             activeBindingIds: string[];
                             blobAccessManifestHash: string;
                             blobId: string;
@@ -11362,10 +11392,10 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         };
-                        documentManifestHash?: string;
-                        previousBindingId?: string | null;
+                        documentManifestHash: string;
+                        previousBindingId: string | null;
                         slotId: string;
-                        writeAuthorization?: {
+                        writeAuthorization: {
                             activeBindingIds: string[];
                             blobAccessManifestHash: string;
                             blobId: string;
@@ -11380,7 +11410,7 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         };
-                        writeHeader?: {
+                        writeHeader: {
                             [key: string]: unknown;
                         };
                     } & {
@@ -13070,8 +13100,6 @@ export interface operations {
                     pullCursor?: string;
                     /** @constant */
                     supportsPullPagination: true;
-                    /** @constant */
-                    supportsUntrackedCommitLsn?: true;
                 } & {
                     [key: string]: unknown;
                 };
@@ -13087,7 +13115,7 @@ export interface operations {
                     "application/json": {
                         acceptedOutgoingUpdateIds: string[];
                         commitLsn: string | null;
-                        commitLsnMode?: "tracked" | "untracked";
+                        commitLsnMode: "tracked" | "untracked";
                         contentKeyBundle: {
                             contentKeyEpoch: number;
                             documentId: string;
@@ -13150,7 +13178,7 @@ export interface operations {
                         updates: ({
                             accessEpoch: number;
                             authorFingerprint: string;
-                            authorizationTargets?: ({
+                            authorizationTargets: ({
                                 containerId: string;
                                 containerKeyEpoch: number;
                                 containerKeyEpochId: string;
@@ -14784,8 +14812,6 @@ export interface operations {
                             pullCursor?: string;
                             /** @constant */
                             supportsPullPagination: true;
-                            /** @constant */
-                            supportsUntrackedCommitLsn?: true;
                         } & {
                             [key: string]: unknown;
                         };
@@ -15444,8 +15470,6 @@ export interface operations {
                             pullCursor?: string;
                             /** @constant */
                             supportsPullPagination: true;
-                            /** @constant */
-                            supportsUntrackedCommitLsn?: true;
                         } & {
                             [key: string]: unknown;
                         };
@@ -15888,8 +15912,6 @@ export interface operations {
                             pullCursor?: string;
                             /** @constant */
                             supportsPullPagination: true;
-                            /** @constant */
-                            supportsUntrackedCommitLsn?: true;
                         } & {
                             [key: string]: unknown;
                         };
@@ -16191,8 +16213,6 @@ export interface operations {
                             pullCursor?: string;
                             /** @constant */
                             supportsPullPagination: true;
-                            /** @constant */
-                            supportsUntrackedCommitLsn?: true;
                         } & {
                             [key: string]: unknown;
                         };
@@ -16670,8 +16690,6 @@ export interface operations {
                             pullCursor?: string;
                             /** @constant */
                             supportsPullPagination: true;
-                            /** @constant */
-                            supportsUntrackedCommitLsn?: true;
                         } & {
                             [key: string]: unknown;
                         };
@@ -16973,8 +16991,6 @@ export interface operations {
                             pullCursor?: string;
                             /** @constant */
                             supportsPullPagination: true;
-                            /** @constant */
-                            supportsUntrackedCommitLsn?: true;
                         } & {
                             [key: string]: unknown;
                         };

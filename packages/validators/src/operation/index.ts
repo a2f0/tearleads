@@ -95,7 +95,6 @@ export {
   ListContainerDocumentsQuerySchema,
   listContainerDocumentsOperation,
   listContainerParentLanesOperation,
-  normalizeContainerKekLogEpochQuery,
 } from "./containerReads";
 export {
   defineHttpOperation,

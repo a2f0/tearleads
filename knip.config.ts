@@ -163,6 +163,7 @@ const baseConfig = {
     },
     "packages/test-utils": {
       // Knip discovers the public entry from package.json exports.
+      entry: ["src/**/*.test.ts"],
       project: ["src/**/*.ts"],
     },
   },

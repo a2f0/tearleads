@@ -7,11 +7,10 @@ import {
   createWebhookBillingOrganization,
   paidInvoiceEvent,
   STRIPE_WEBHOOK_ENV,
-  signedStripeWebhookDelivery,
   stripeSubscriptionBody,
 } from "../../../test/helpers/stripeWebhook";
 import { getDefaultApiServiceRuntime } from "../runtime";
-import { processStripeWebhook } from "./stripeCheckout";
+import { processAuthenticatedStripeWebhook } from "./stripeCheckout";
 
 function recoverableUpdateFixture() {
   const organizationId = crypto.randomUUID();
@@ -79,9 +78,9 @@ test("an incomplete non-seat invoice is acknowledged without provider retries", 
   const urls: string[] = [];
   const warningSpy = spyOn(console, "warn").mockImplementation(() => undefined);
   try {
-    const outcome = await processStripeWebhook(
+    const outcome = await processAuthenticatedStripeWebhook(
       getDefaultApiServiceRuntime(),
-      signedStripeWebhookDelivery(event),
+      event,
       {
         stripe: {
           env: STRIPE_WEBHOOK_ENV,
@@ -137,9 +136,9 @@ test("a truncated non-seat invoice records its exact total without pagination", 
   await createWebhookBillingOrganization(organizationId);
   const urls: string[] = [];
 
-  const outcome = await processStripeWebhook(
+  const outcome = await processAuthenticatedStripeWebhook(
     getDefaultApiServiceRuntime(),
-    signedStripeWebhookDelivery(event),
+    event,
     {
       stripe: {
         env: STRIPE_WEBHOOK_ENV,
@@ -171,9 +170,9 @@ test("a recoverable non-seat invoice is completed from the pinned lookup", async
   await createWebhookBillingOrganization(fixture.organizationId);
   const urls: string[] = [];
 
-  const outcome = await processStripeWebhook(
+  const outcome = await processAuthenticatedStripeWebhook(
     getDefaultApiServiceRuntime(),
-    signedStripeWebhookDelivery(fixture.partialEvent),
+    fixture.partialEvent,
     {
       stripe: {
         env: STRIPE_WEBHOOK_ENV,
@@ -204,7 +203,7 @@ test("a recoverable non-seat invoice is completed from the pinned lookup", async
     providerEventId: `evt_${fixture.invoiceId}_partial`,
     seatCount: 5,
     totalAmount: 842,
-    unitAmount: 499,
+    unitAmount: 1_000,
   });
 });
 
@@ -213,9 +212,9 @@ test("a missing non-seat invoice is acknowledged after its pinned 404", async ()
   await createWebhookBillingOrganization(fixture.organizationId);
   const warningSpy = spyOn(console, "warn").mockImplementation(() => undefined);
   try {
-    const outcome = await processStripeWebhook(
+    const outcome = await processAuthenticatedStripeWebhook(
       getDefaultApiServiceRuntime(),
-      signedStripeWebhookDelivery(fixture.partialEvent),
+      fixture.partialEvent,
       {
         stripe: {
           env: STRIPE_WEBHOOK_ENV,
@@ -252,9 +251,9 @@ test("a transient non-seat invoice lookup still asks Stripe to redeliver", async
   await createWebhookBillingOrganization(fixture.organizationId);
 
   await expect(
-    processStripeWebhook(
+    processAuthenticatedStripeWebhook(
       getDefaultApiServiceRuntime(),
-      signedStripeWebhookDelivery(fixture.partialEvent),
+      fixture.partialEvent,
       {
         stripe: {
           env: STRIPE_WEBHOOK_ENV,
@@ -298,9 +297,9 @@ test("a renewal without an invoice id is terminally acknowledged", async () => {
   Reflect.deleteProperty(event.data.object, "id");
   await createWebhookBillingOrganization(organizationId);
 
-  const outcome = await processStripeWebhook(
+  const outcome = await processAuthenticatedStripeWebhook(
     getDefaultApiServiceRuntime(),
-    signedStripeWebhookDelivery(event),
+    event,
     {
       stripe: {
         env: STRIPE_WEBHOOK_ENV,

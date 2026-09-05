@@ -286,9 +286,8 @@ interface DeviceFirst {
 ```
 
 `containerStore` owns local tree mutations, `view` owns the subscribable read
-projection, and `reconciler` owns background discovery. Legacy `openView()` and
-`reconciler()` selectors alias the corresponding `open()` fields; new consumers
-use the unified handle.
+projection, and `reconciler` owns background discovery. All consumers use these
+fields on the unified `open()` handle.
 
 ## App-side consumption (`packages/app`)
 

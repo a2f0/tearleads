@@ -371,7 +371,6 @@ export function createCapacitorPurchases(input?: {
         ? "app_store"
         : "play_store",
     restorePurchasesUsesCheckoutTimeout: true,
-    supportsProviderPresentationCallback: true,
     syncEntitlementId,
     ...(operationTimeoutMs === undefined ? {} : { operationTimeoutMs }),
   });

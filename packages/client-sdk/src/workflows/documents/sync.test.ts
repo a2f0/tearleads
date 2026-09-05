@@ -17,6 +17,8 @@ import {
 } from "@tearleads/loro";
 import {
   createContainerWriterProjectionFixture,
+  createMockApiClient,
+  createMockRequestFailure,
   createTestExecSql,
 } from "@tearleads/test-utils";
 import {
@@ -189,7 +191,6 @@ test("buildDocumentSyncPlan signs document write headers with the current access
   });
 
   expect(isDocumentSyncRequest(plan.request)).toBe(true);
-  expect(plan.request.supportsUntrackedCommitLsn).toBe(true);
   // The server resolves the signed manifest bundle by hash.
   expect(plan.request.expectedLinkSetManifestHash).toBe(
     createResponse.accessManifest.manifestHash,
@@ -702,7 +703,7 @@ test("syncRemoteDocument submits a signed sync request and persists the verified
   } = await createMaterializedSyncFixture();
   const submittedRequests: DocumentSyncRequest[] = [];
   const synced = await syncRemoteDocument({
-    apiClient: {
+    apiClient: createMockApiClient({
       getDocumentWriterProjection: async () => {
         throw new Error("Unexpected writer projection fetch");
       },
@@ -723,7 +724,7 @@ test("syncRemoteDocument submits a signed sync request and persists the verified
           request,
         });
       },
-    },
+    }),
     author,
     documentId: writerProjection.documentId,
     execSql,
@@ -761,7 +762,7 @@ test("syncRemoteDocument uses persisted state for clean read-only sync probes", 
   let projectionRequestCount = 0;
 
   const synced = await syncRemoteDocument({
-    apiClient: {
+    apiClient: createMockApiClient({
       getDocumentWriterProjection: async (documentId) => {
         if (documentId === writerProjection.documentId) {
           projectionRequestCount += 1;
@@ -784,7 +785,7 @@ test("syncRemoteDocument uses persisted state for clean read-only sync probes", 
           request,
         });
       },
-    },
+    }),
     author,
     documentId: writerProjection.documentId,
     execSql,
@@ -832,7 +833,7 @@ test("syncRemoteDocument reuses a writer projection to process persisted read-on
   let projectionRequestCount = 0;
 
   const synced = await syncRemoteDocument({
-    apiClient: {
+    apiClient: createMockApiClient({
       getDocumentWriterProjection: async (documentId) => {
         if (documentId !== writerProjection.documentId) {
           return null;
@@ -863,7 +864,7 @@ test("syncRemoteDocument reuses a writer projection to process persisted read-on
           },
         );
       },
-    },
+    }),
     author,
     documentId: writerProjection.documentId,
     execSql,
@@ -896,7 +897,7 @@ test("syncRemoteDocument falls back to writer projection when persisted read-onl
   let projectionRequestCount = 0;
 
   const synced = await syncRemoteDocument({
-    apiClient: {
+    apiClient: createMockApiClient({
       getDocumentWriterProjection: async (documentId) => {
         if (documentId !== writerProjection.documentId) {
           return null;
@@ -914,6 +915,10 @@ test("syncRemoteDocument falls back to writer projection when persisted read-onl
         if (submittedRequests.length === 1) {
           const message = "Document content-key bundle is stale";
           return {
+            kind: "http",
+            method: "POST",
+            path: "mock-request",
+            statusText: "",
             code: DOCUMENT_SYNC_ERROR_CODES.stateStale,
             message,
             ok: false,
@@ -942,7 +947,7 @@ test("syncRemoteDocument falls back to writer projection when persisted read-onl
           ok: true,
         };
       },
-    },
+    }),
     author,
     documentId: writerProjection.documentId,
     execSql,
@@ -993,7 +998,7 @@ test("syncRemoteDocument decrypts returned updates with historical content-key b
     },
   };
   const synced = await syncRemoteDocument({
-    apiClient: {
+    apiClient: createMockApiClient({
       getDocumentWriterProjection: async (documentId) =>
         documentId === currentWriterProjection.documentId
           ? currentWriterProjection
@@ -1023,7 +1028,7 @@ test("syncRemoteDocument decrypts returned updates with historical content-key b
           },
         );
       },
-    },
+    }),
     author,
     documentId: currentWriterProjection.documentId,
     execSql,
@@ -1152,7 +1157,7 @@ test("syncRemoteDocument recovers pending write id conflicts with a read-only sy
   };
   const submittedOutgoingCounts: number[] = [];
   const synced = await syncRemoteDocument({
-    apiClient: {
+    apiClient: createMockApiClient({
       getDocumentWriterProjection: async (documentId) =>
         documentId === currentWriterProjection.documentId
           ? currentWriterProjection
@@ -1165,6 +1170,10 @@ test("syncRemoteDocument recovers pending write id conflicts with a read-only sy
         if (submittedOutgoingCounts.length === 1) {
           const message = `POST /documents/${documentId}/sync: 409 Conflict: Document update id conflict`;
           return {
+            kind: "http",
+            method: "POST",
+            path: "mock-request",
+            statusText: "",
             code: DOCUMENT_SYNC_ERROR_CODES.updateIdConflict,
             message,
             ok: false,
@@ -1200,7 +1209,7 @@ test("syncRemoteDocument recovers pending write id conflicts with a read-only sy
           ok: true,
         };
       },
-    },
+    }),
     author,
     documentId: currentWriterProjection.documentId,
     execSql,
@@ -1258,20 +1267,18 @@ test("syncRemoteDocument does not settle recovered pending conflicts with differ
     },
   };
   const synced = await syncRemoteDocument({
-    apiClient: {
+    apiClient: createMockApiClient({
       getDocumentWriterProjection: async () => currentWriterProjection,
       syncDocument: async () => {
         throw new Error("Expected syncDocumentResult to handle recovery");
       },
       syncDocumentResult: async (documentId, request) => {
         if (request.outgoingUpdates.length > 0) {
-          return {
+          return createMockRequestFailure({
             code: DOCUMENT_SYNC_ERROR_CODES.updateIdConflict,
             message: `POST /documents/${documentId}/sync: 409 Conflict: Document update id conflict`,
-            ok: false,
-            report: () => undefined,
             status: 409,
-          };
+          });
         }
 
         const currentMaterialized = await buildMaterializedDocumentSyncPlan({
@@ -1301,7 +1308,7 @@ test("syncRemoteDocument does not settle recovered pending conflicts with differ
           ok: true,
         };
       },
-    },
+    }),
     author,
     documentId: currentWriterProjection.documentId,
     execSql,
@@ -1333,7 +1340,7 @@ test("syncRemoteDocument replans once after a stale document sync conflict", asy
   let projectionRequestCount = 0;
 
   const synced = await syncRemoteDocument({
-    apiClient: {
+    apiClient: createMockApiClient({
       getDocumentWriterProjection: async (documentId) => {
         if (documentId !== writerProjection.documentId) {
           return null;
@@ -1351,6 +1358,10 @@ test("syncRemoteDocument replans once after a stale document sync conflict", asy
         if (submittedRequests.length === 1) {
           const message = `POST /documents/${documentId}/sync: 409 Conflict: authorizingContainerPathRefs[0][0] is stale`;
           return {
+            kind: "http",
+            method: "POST",
+            path: "mock-request",
+            statusText: "",
             code: DOCUMENT_SYNC_ERROR_CODES.stateStale,
             message,
             ok: false,
@@ -1379,7 +1390,7 @@ test("syncRemoteDocument replans once after a stale document sync conflict", asy
           ok: true,
         };
       },
-    },
+    }),
     author,
     documentId: writerProjection.documentId,
     execSql,
@@ -1664,7 +1675,7 @@ test("syncRemoteDocument regenerates a rejected queued checkpoint and resubmits"
   const traceLines: string[] = [];
 
   const synced = await syncRemoteDocument({
-    apiClient: {
+    apiClient: createMockApiClient({
       getDocumentWriterProjection: async () => writerProjection,
       syncDocument: async () => {
         throw new Error("Expected syncDocumentResult to handle sync retries");
@@ -1675,6 +1686,10 @@ test("syncRemoteDocument regenerates a rejected queued checkpoint and resubmits"
         if (submittedRequests.length === 1) {
           const message = `POST /documents/${documentId}/sync: 409 : Document content-key rotation baseline does not cover the committed frontier`;
           return {
+            kind: "http",
+            method: "POST",
+            path: "mock-request",
+            statusText: "",
             code: DOCUMENT_SYNC_ERROR_CODES.checkpointCoverageConflict,
             message,
             ok: false,
@@ -1696,7 +1711,7 @@ test("syncRemoteDocument regenerates a rejected queued checkpoint and resubmits"
           ok: true,
         };
       },
-    },
+    }),
     author,
     buildRotationSnapshot: async () => exportFullHistorySnapshot(doc),
     documentId: writerProjection.documentId,

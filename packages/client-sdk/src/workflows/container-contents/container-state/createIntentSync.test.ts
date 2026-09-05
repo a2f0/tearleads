@@ -75,13 +75,13 @@ test("stale container create identity failures do not report into a replacement"
     persistence,
     resolveProjectionUserKey: async () => null,
     runtime: {
-      apiClient: {
+      apiClient: createMockApiClient({
         getContainerWriterProjection: async () => {
           projectionRequests += 1;
           current = false;
           throw integrityError;
         },
-      } as unknown as ContainerCreateIntentSyncState["runtime"]["apiClient"],
+      }),
       auth: {
         isAuthenticated: true,
         organizationId: "organization",
@@ -341,7 +341,7 @@ test("container create sync keeps an intent pending while the container row lack
       syncedIntents.push(input.containerId);
       return true;
     },
-    recordCreateIntentError: async () => {
+    recordCreateIntentRevisionError: async () => {
       throw new Error("unexpected intent error");
     },
   };
