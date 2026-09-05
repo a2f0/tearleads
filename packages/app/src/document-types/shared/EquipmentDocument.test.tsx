@@ -21,6 +21,7 @@ const fields: EquipmentDocumentFields = {
 };
 
 const inputIds = {
+  equipmentType: "appliance-type",
   make: "appliance-make",
   model: "appliance-model",
   serialNumber: "appliance-serial-number",
@@ -144,6 +145,35 @@ test("whitespace around a stored type does not duplicate its option", () => {
   const labels = listTypeOptionLabels(view);
   expect(labels).toHaveLength(APPLIANCE_TYPE_OPTIONS.length);
   expect(labels.filter((label) => label === "Dryer")).toHaveLength(1);
+});
+
+test("the Type caption labels the combobox", () => {
+  const view = renderEquipmentFields({ isEditing: true });
+
+  expect(view.getByLabelText("Type")).toBe(getTypeMenu(view));
+});
+
+test("re-selecting the current type writes nothing", () => {
+  const patches: Array<Partial<EquipmentDocumentFields>> = [];
+  const view = renderEquipmentFields({
+    isEditing: true,
+    onChange: (next) => {
+      patches.push(next);
+    },
+  });
+
+  fireEvent.click(getTypeMenu(view));
+  // "Dishwasher" is also the closed trigger's text; pick the listed option.
+  const dishwasher = view
+    .getAllByText("Dishwasher")
+    .map((element) => element.closest('[role="option"]'))
+    .find((element): element is HTMLElement => element instanceof HTMLElement);
+  if (!dishwasher) {
+    throw new Error("Expected the Dishwasher option.");
+  }
+  fireEvent.click(dishwasher);
+
+  expect(patches).toEqual([]);
 });
 
 test("edit toggle lives in the toolbar, not the document body", () => {
