@@ -313,8 +313,6 @@
         mode: "0640"
       notify: Restart tearleads-api
       no_log: true
-    - name: Remove superseded SymCrypt deployment
-      ansible.builtin.import_tasks: tasks/removeSupersededSymCryptDeployment.yml
 
     - name: Deploy API systemd service
       ansible.builtin.template:

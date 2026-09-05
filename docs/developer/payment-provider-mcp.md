@@ -36,10 +36,9 @@ append `_staging`.
 Google appends the `monthly` base-plan ID when the product is represented in
 RevenueCat, for example `sync_solo_monthly_staging:monthly`.
 
-Each deployment's RevenueCat and Stripe webhook
-integrations must be repointed to its Tearleads API hostname. Install the
-matching RevenueCat authorization header and Stripe endpoint signing secret
-before the SymCrypt endpoints are retired.
+Configure each deployment's RevenueCat and Stripe webhook integrations with
+its Tearleads API hostname, matching RevenueCat authorization header, and
+Stripe endpoint signing secret before enabling billing.
 
 ## Codex MCP setup
 

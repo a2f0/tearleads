@@ -145,8 +145,8 @@ records:
 Use `sync_solo_monthly_staging`, `sync_team_5_monthly_staging`, and
 `sync_team_10_monthly_staging` for both staging stores. Keep the same RevenueCat
 package identifiers and attach each staging app's product to its matching
-package. The API still recognizes the superseded SymCrypt-prefixed Apple ids so
-delayed provider events remain recoverable during the cutover.
+package. Only current product identifiers are accepted; provision matching
+store and RevenueCat records before enabling billing.
 
 1. Register `com.tearleads.staging.app` in Apple Developer and create its App
    Store Connect app record with the In-App Purchase capability.

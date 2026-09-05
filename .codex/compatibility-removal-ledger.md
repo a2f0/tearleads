@@ -224,3 +224,32 @@ order and per-operation inference are unchanged; no broad type erasure is used.
   compatibility policy/checker itself.
 - Stop-old-writer deployment guards: inspect separately from runtime shims;
   do not remove protection merely because it mentions an old deployment.
+
+## 2026-09-05 — Post-merge infrastructure rebrand cleanup
+
+- Authorization: the owner now explicitly requests removal of the superseded
+  rebrand infrastructure and permits replacing servers. This supersedes the
+  earlier decision to retain the one-time deployment cleanup. No live apply,
+  destroy, state migration, provider-console change, or deployment is needed.
+- History: #2140 introduced the old systemd/directory cleanup; #2102 introduced
+  the singleton-to-indexed website-cache address migration in both tiers.
+- Preservation boundary: fresh and current Tearleads deployments retain their
+  resource definitions, cache ownership, systemd units, maintenance ordering,
+  health checks, firewall, secrets handling, and tier parity. Retired hosts and
+  historical Terraform addresses no longer have an in-place transition path;
+  use their owning configuration/state to retire them before fresh provisioning.
+- Candidates: remove the Ansible cleanup/import and its ordering assertion,
+  both Terraform `moved` blocks, stale backend/store/webhook cutover guidance,
+  and the 50 exact OpenAPI exceptions whose removal condition was met by #2181.
+- Risk: old hosts must be replaced, not reused with old services still running;
+  dropping state for live resources is not a substitute for retiring them.
+- Baseline: infrastructure parity passed; Ansible lint passed on 38 files
+  (toolchain deprecation messages only); Terraform formatting, two mocked
+  module tests, and TFLint passed. OpenAPI compatibility fails on the now-unused
+  exceptions, as expected after the contract merged.
+- Verification: Ansible lint passes on 37 files after removal; infrastructure
+  parity, Terraform formatting, both mocked cache tests, and TFLint still pass.
+  Full `check:fast` passes, including OpenAPI compatibility without exceptions,
+  its regression fixtures, bounded models, architecture, and source shape.
+  The code audit finds no remaining SymCrypt references in Terraform/Ansible.
+  Independent review and handoff results are recorded in the follow-up PR.
