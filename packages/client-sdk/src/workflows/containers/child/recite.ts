@@ -96,13 +96,10 @@ async function recitePinnedPath(
       });
   } catch (error) {
     if (!(error instanceof KeyingVerificationError)) throw error;
-    await input.reportSecurityIncident(error, {
-      operation: "container.recite.acknowledge",
-      objectKind: "container",
-      objectId: id,
-      organizationId: input.author.organizationId,
-      evidenceHashes: { plannedManifestHash: plan.manifestHash },
-    });
+    // Another local operation can advance the durable pin while the request
+    // is in flight. Refuse the write, but do not label that local race as a
+    // contradictory server response: the exact signed acknowledgement above
+    // already passed. Normal projection verification reconciles newer heads.
     return null;
   }
   if (!acknowledged || input.stillCurrent?.() === false) return null;

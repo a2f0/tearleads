@@ -20408,8 +20408,8 @@
                       "additionalProperties": {}
                     },
                     "maxItems": 100,
-                    "type": "array",
-                    "minItems": 1
+                    "minItems": 1,
+                    "type": "array"
                   },
                   "previousManifest": {
                     "type": "object",

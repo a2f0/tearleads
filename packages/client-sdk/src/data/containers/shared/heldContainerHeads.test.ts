@@ -138,6 +138,36 @@ test("a mixed-organization observation rejects the whole batch without caching a
   expect(heldContainerSnapshot(execSql, "other-org").heads.size).toBe(0);
 });
 
+test("a foreign organization policy rejects the whole observation before caching heads", async () => {
+  const execSql = executor();
+  const base = await seed;
+  const policy = createPrincipalPolicyFixture({
+    principalType: "group",
+    principalId: "foreign-org",
+    version: 1,
+    keyEpoch: 1,
+    stateHash: "foreign-policy",
+    keyFingerprint: "key",
+  });
+  expect(() =>
+    rememberVerifiedContainerHeads({
+      execSql,
+      organizationId: "cache-org",
+      heads: [head(base, "new")],
+      policies: [
+        {
+          ...policy,
+          principalType: "organization",
+          state: { ...policy.state, principalType: "organization" },
+          checkpoint: { ...policy.checkpoint, principalType: "organization" },
+        },
+      ],
+    }),
+  ).toThrow("another organization");
+  expect(heldContainerSnapshot(execSql, "cache-org").heads.size).toBe(0);
+  expect(heldContainerSnapshot(execSql, "cache-org").policies).toEqual([]);
+});
+
 test("held principal policies are bounded, organization-scoped, and monotonic", () => {
   const execSql = executor();
   const policy = (id: string, version = 1) =>

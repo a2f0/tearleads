@@ -1,7 +1,10 @@
 import { expect, test } from "bun:test";
 import { MAX_CONTAINER_RECITATION_EPOCH } from "@tearleads/crypto";
 import { createContainerReciteScenario } from "../../../../test/helpers/containerReciteFixtures";
-import { heldContainerSnapshot } from "../../../data/containers/shared/heldContainerHeads";
+import {
+  heldContainerSnapshot,
+  rememberAcknowledgedContainerHead,
+} from "../../../data/containers/shared/heldContainerHeads";
 import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
 import {
   advanceLocallyAcknowledgedAccessManifestHeadsAtomically,
@@ -226,7 +229,10 @@ test.each([
   }
 });
 
-test("a concurrent contradictory checkpoint is reported without overwriting its pin", async () => {
+test.each([
+  "same-epoch",
+  "newer",
+] as const)("a concurrent %s checkpoint is skipped without overwriting its pin or reporting an incident", async (race) => {
   const scenario = await createContainerReciteScenario();
   try {
     await scenario.advanceAncestor();
@@ -243,6 +249,7 @@ test("a concurrent contradictory checkpoint is reported without overwriting its 
       policies: snapshot.policies,
     });
     const incidents: unknown[] = [];
+    let concurrentHash = concurrent.manifestHash;
     await reciteHeldDescendants({
       ...cascadeInput(scenario),
       reportSecurityIncident: async (error, context) => {
@@ -257,20 +264,28 @@ test("a concurrent contradictory checkpoint is reported without overwriting its 
             execSql: scenario.execSql,
             heads: [locallyAuthoredAccessManifestHead(concurrent)],
           });
+          if (race === "newer") {
+            const next = await buildContainerRecitePlan({
+              author: scenario.parent.author,
+              path: [
+                parent,
+                rememberAcknowledgedContainerHead(scenario.execSql, concurrent),
+              ],
+              policies: snapshot.policies,
+            });
+            await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
+              execSql: scenario.execSql,
+              heads: [locallyAuthoredAccessManifestHead(next)],
+            });
+            concurrentHash = next.manifestHash;
+          }
           return response;
         },
       },
     });
-    expect(incidents).toHaveLength(1);
-    expect(incidents[0]).toMatchObject({
-      error: { code: "equivocation" },
-      context: {
-        operation: "container.recite.acknowledge",
-        objectId: "held-child",
-      },
-    });
+    expect(incidents).toEqual([]);
     expect((await checkpoint(scenario, "held-child"))?.manifestHash).toBe(
-      concurrent.manifestHash,
+      concurrentHash,
     );
     expect(scenario.requests).toHaveLength(1);
     expect((await checkpoint(scenario, "held-grandchild"))?.epoch).toBe(1);

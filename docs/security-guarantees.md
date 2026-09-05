@@ -315,8 +315,9 @@ signature proves the cited head exists.
 Container mutation workflows (share, revoke, rekey, and move) and atomic
 group-policy rematerializations schedule a best-effort descendant re-cite
 after exact acknowledgement. The SDK retains at most 256 verified or locally
-acknowledged container heads and 512 organization-scoped verified policies per
-canonical SQLite executor, shared by its locked wrappers. It reconstructs held
+acknowledged container heads and 512 verified policies total per canonical
+SQLite executor, shared by its locked wrappers and across organizations.
+Snapshots remain organization-scoped. It reconstructs held
 paths from parent IDs, checks each against
 its durable checkpoint, and signs complete path citations parent-first.
 `container.recite` changes only the access-manifest head: grants, parent pins,

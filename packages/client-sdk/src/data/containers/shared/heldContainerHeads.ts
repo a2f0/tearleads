@@ -84,6 +84,16 @@ export function rememberVerifiedContainerHeads(input: {
   readonly heads: readonly VerifiedContainerAccessManifest[];
   readonly policies: readonly AnyVerifiedPrincipalPolicy[];
 }): void {
+  for (const policy of input.policies) {
+    if (
+      policy.principalType === "organization" &&
+      policy.principalId !== input.organizationId
+    ) {
+      throw new Error("Held principal policy belongs to another organization");
+    }
+  }
+  // Group signed states contain no organization ID. Their scope is supplied
+  // by the already-verified projection/policy caller, not inferred here.
   for (const head of input.heads) {
     if (head.state.organizationId !== input.organizationId) {
       throw new Error("Held container head belongs to another organization");
