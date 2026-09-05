@@ -206,11 +206,23 @@ export function StructuredDocumentFields({ children }: PropsWithChildren) {
 export function StructuredDocumentField(
   params: PropsWithChildren<{
     action?: ReactNode;
-    inputId: string;
+    // Omit for a control that is not a labelable input — a custom menu whose
+    // trigger names itself via aria-label — so the caption is plain text
+    // rather than a <label> pointing at nothing.
+    inputId?: string | undefined;
     label: string;
   }>,
 ) {
   const { action, children, inputId, label } = params;
+
+  if (inputId === undefined) {
+    return (
+      <div className="structured-document-field">
+        <span>{label}</span>
+        {children}
+      </div>
+    );
+  }
 
   if (action === undefined) {
     return (
