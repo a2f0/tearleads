@@ -224,7 +224,8 @@ function useRestoreFileSelection({
       resetOperationState();
       selectionTokenRef.current += 1;
       const selectionToken = selectionTokenRef.current;
-      const file = event.currentTarget.files?.[0];
+      const fileInput = event.currentTarget;
+      const file = fileInput.files?.[0];
       setSelectedRestoreFileText(null);
       setRestoreRequiresPassword(true);
       if (!file) {
@@ -246,6 +247,7 @@ function useRestoreFileSelection({
             return;
           }
           logError("Failed to load local backup file", fileError);
+          fileInput.value = "";
           setSelectedRestoreFileName(null);
           setSelectedRestoreFileText(null);
           setError(unknownErrorMessage(fileError));

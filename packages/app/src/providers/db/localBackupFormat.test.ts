@@ -44,6 +44,12 @@ test("an empty password cannot silently disable backup encryption", async () => 
   );
 });
 
+test("password detection rejects unsupported backup formats", () => {
+  expect(() => backupFileRequiresPassword('{"format":"unknown"}')).toThrow(
+    "Backup file format is not supported.",
+  );
+});
+
 test("only encrypted backups report decryption work", async () => {
   const onDecrypt = mock(() => {});
   const plaintext = await encodeBackupFile({ payload });

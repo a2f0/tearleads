@@ -39,7 +39,7 @@ function formatProgress(progress: BackupProgress): string {
     database: "SQLite rows",
     decrypting: "Decrypting backup",
     encrypting: "Encrypting backup",
-    preparing: "Preparing backup",
+    preparing: "Preparing data",
     restoring: "Restoring SQLite",
   };
   const count =
@@ -134,7 +134,9 @@ function BackupExportPanel({
         <span>Back up without a password</span>
       </label>
       {model.backupWithoutPassword ? (
-        <MiniAppStatus>This backup will not be encrypted.</MiniAppStatus>
+        <p className="backup-restore-password-notice">
+          Anyone with this unencrypted backup can read or modify its contents.
+        </p>
       ) : (
         <>
           <MiniAppField>

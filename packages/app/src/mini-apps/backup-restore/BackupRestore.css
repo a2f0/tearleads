@@ -47,6 +47,11 @@
   font-size: var(--font-size-sm);
 }
 
+.backup-restore-password-notice {
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+
 /* Chrome comes from the shared MiniAppButton (withIcon lays out the icon+label
    row); only per-surface deltas here. */
 .backup-restore-inline-action {

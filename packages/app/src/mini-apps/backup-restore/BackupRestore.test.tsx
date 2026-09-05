@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, expect, spyOn, test } from "bun:test";
 import type { SaveFileRequest } from "@tearleads/client-sdk";
 import {
   act,
@@ -127,8 +127,14 @@ test("requires matching passwords unless the checkbox is checked", () => {
 test("Choose Backup File does not submit the restore form", () => {
   const view = renderBackupRestore();
   fireEvent.click(view.getByRole("tab", { name: "Restore" }));
-  fireEvent.click(view.getByRole("button", { name: "Choose Backup File" }));
-  expect(view.queryByText("Choose a backup file.")).toBeNull();
+  const picker = spyOn(view.getByLabelText("Backup Restore File"), "click");
+  try {
+    fireEvent.click(view.getByRole("button", { name: "Choose Backup File" }));
+    expect(picker).toHaveBeenCalledTimes(1);
+    expect(view.queryByText("Choose a backup file.")).toBeNull();
+  } finally {
+    picker.mockRestore();
+  }
 });
 
 test("the checkbox hides both password fields and restores them when unchecked", () => {
@@ -141,9 +147,39 @@ test("the checkbox hides both password fields and restores them when unchecked",
   fireEvent.click(checkbox);
   expect(view.queryByLabelText("Password")).toBeNull();
   expect(view.queryByLabelText("Confirm Password")).toBeNull();
+  expect(view.queryByText(/Anyone with this unencrypted backup/)).toBeTruthy();
   fireEvent.click(checkbox);
   expect(view.queryByLabelText("Password")).toBeTruthy();
   expect(view.queryByLabelText("Confirm Password")).toBeTruthy();
+  expect(view.queryByText(/Anyone with this unencrypted backup/)).toBeNull();
+});
+
+test.each([
+  "{",
+  '{"format":"unknown"}',
+])("a rejected file clears the picker for reselection: %s", async (text) => {
+  const view = renderBackupRestore();
+  fireEvent.click(view.getByRole("tab", { name: "Restore" }));
+  const input = view.getByLabelText("Backup Restore File");
+  if (!(input instanceof HTMLInputElement)) {
+    throw new Error("Backup file input was not rendered.");
+  }
+  // Browsers populate a file input's value after the native picker returns.
+  Object.defineProperty(input, "value", {
+    configurable: true,
+    writable: true,
+    value: "C:\\fakepath\\test.tlbackup.json",
+  });
+  await act(async () => chooseBackup(view, text));
+  expect(
+    view.queryByText(
+      /Backup file (must be valid JSON|format is not supported)/,
+    ),
+  ).toBeTruthy();
+  expect(view.queryByText("No backup file selected.")).toBeTruthy();
+  expect(input.value).toBe("");
+  fireEvent.click(view.getByRole("button", { name: "Restore Backup" }));
+  expect(view.queryByText("Choose a backup file.")).toBeTruthy();
 });
 
 test("exports without a password despite stale mismatched fields and restores without prompting", async () => {
