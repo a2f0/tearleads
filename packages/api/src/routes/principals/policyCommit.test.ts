@@ -38,6 +38,7 @@ async function defaultOrganization(userId: string) {
 async function prepareCompoundPolicy(input: {
   actor: ReturnType<typeof createTestUser>;
   commitNextGroupHead: boolean;
+  groupPayload?: Record<string, unknown>;
 }) {
   const organization = await defaultOrganization(input.actor.userId);
   const groupState = await getCurrentPrincipalState(
@@ -72,7 +73,10 @@ async function prepareCompoundPolicy(input: {
     projection: groupBundle.currentProjection,
     grants: groupBundle.currentGrants,
     externalAuthority: null,
-    payloadCiphertext: groupBundle.currentPayload.ciphertext,
+    payloadCiphertext:
+      input.groupPayload === undefined
+        ? groupBundle.currentPayload.ciphertext
+        : Buffer.from(JSON.stringify(input.groupPayload)).toString("base64"),
     signedAt: "2026-08-11T12:00:00.000Z",
     signerUserId: input.actor.userId,
     signerUserKeyFingerprint: input.actor.fingerprint,
@@ -191,6 +195,40 @@ test("group policy commits atomically advance the signed organization directory"
   expect(body.organizationPolicy.currentState.version).toBe(
     prepared.organizationPolicy.state.version,
   );
+});
+
+test.each([
+  {},
+  { name: "Other" },
+  { name: "Mem\u200bbers" },
+])("group successors cannot discard or change their signed creation name: %j", async (groupPayload) => {
+  const actor = createTestUser();
+  await registerUser(actor);
+  await authenticate(actor);
+  const prepared = await prepareCompoundPolicy({
+    actor,
+    commitNextGroupHead: true,
+    groupPayload,
+  });
+  const response = await commitPrepared(actor, prepared);
+  expect(response.status).toBe(400);
+  expect(await response.json()).toEqual({
+    error: "Group name must match the signed policy display name",
+  });
+  expect(
+    await getCurrentPrincipalState(
+      "group",
+      prepared.organization.memberGroupId,
+      db,
+    ),
+  ).toMatchObject({ stateHash: prepared.previousGroupStateHash });
+  expect(
+    await getCurrentPrincipalState(
+      "organization",
+      prepared.organization.organizationId,
+      db,
+    ),
+  ).toMatchObject({ stateHash: prepared.previousOrganizationStateHash });
 });
 
 test("a stateless group row blocks organization policy commits", async () => {

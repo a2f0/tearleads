@@ -144,7 +144,11 @@ export async function prepareUserForAdminGroup(input: {
     })),
     projection: nextProjection,
     grants: currentPolicy.grants,
-    payloadCiphertext: JSON.stringify({ members: nextProjection }),
+    payloadCiphertext: bytesToBase64(
+      new TextEncoder().encode(
+        JSON.stringify({ members: nextProjection, name: "Admins" }),
+      ),
+    ),
     signedAt: SIGNED_AT,
     signerUserId: input.actor.userId,
     signerUserKeyFingerprint: input.actor.fingerprint,

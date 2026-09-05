@@ -92,7 +92,7 @@ export async function addOrganizationMember(input: {
     projection,
     externalAuthority: null,
     payloadCiphertext: bytesToBase64(
-      new TextEncoder().encode(JSON.stringify(members)),
+      new TextEncoder().encode(JSON.stringify({ members, name: "Members" })),
     ),
     signedAt: new Date("2026-04-08T16:00:00.000Z").toISOString(),
     signerUserId: input.actor.userId,

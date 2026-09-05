@@ -36,6 +36,7 @@ export {
   reconcileOrganizationDataUsage,
 } from "./dataUsageReadModel";
 export { deleteOrganizationGroup } from "./deleteOrganizationGroup";
+export { GroupMembershipNameMismatchError } from "./groupMembershipName";
 export {
   type LocalOrganizationSummary,
   listLocalOrganizations,

@@ -88,6 +88,7 @@ import {
 } from "../../../test/helpers/containerParentLaneQuery";
 import { buildRootContainerRekeyMutation } from "../../../test/helpers/containerRekey";
 import { expectDocumentAccessHistoryAbsent } from "../../../test/helpers/documentAccessHistory";
+import { groupPolicyPayload } from "../../../test/helpers/groupPolicyPayload";
 import {
   setTestOrganizationBillingExpiredTrial,
   setTestOrganizationBillingLocal,
@@ -361,8 +362,10 @@ async function putGroupPrincipalPolicy(input: {
     members: stateMembers,
     projection,
     grants: [...policyGrants],
-    payloadCiphertext: bytesToBase64(
-      new TextEncoder().encode(JSON.stringify({ members: projection })),
+    payloadCiphertext: await groupPolicyPayload(
+      input.principalId,
+      projection,
+      isInitialState ? "Test group" : undefined,
     ),
     signedAt:
       input.signedAt ?? new Date("2026-04-30T00:00:00.000Z").toISOString(),

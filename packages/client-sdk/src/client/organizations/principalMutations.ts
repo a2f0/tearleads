@@ -23,6 +23,7 @@ export interface OrganizationGrantRef {
 
 export interface OrganizationGroupUserMutationInput {
   groupId: string;
+  expectedGroupName: string;
 }
 
 export interface AddOrganizationGroupUserInput
@@ -102,6 +103,7 @@ export async function addUserToOrganizationGroup(
         currentUserSecretKey: requireEncapsulationKeyPair(input.runtime)
           .secretKey,
         execSql: input.runtime.infra.execSql,
+        expectedGroupName: input.expectedGroupName,
         groupId: input.groupId,
         prepareContainerMutations: ({ currentPolicy, nextPolicy }) =>
           preparePrincipalContainerMutations({
@@ -199,6 +201,7 @@ export async function removeUserFromOrganizationGroup(
           memberGroupId = authority.memberGroupId;
         },
         execSql: input.runtime.infra.execSql,
+        expectedGroupName: input.expectedGroupName,
         groupId: input.groupId,
         prepareContainerMutations: ({ currentPolicy, nextPolicy }) =>
           preparePrincipalContainerMutations({

@@ -433,6 +433,7 @@ export {
   DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME,
   deriveOrganizationMetadataContainerSystemSlot,
   deriveOrganizationRosterProfileContainerSystemSlot,
+  GroupMembershipNameMismatchError,
   getOrganizationProfileDocumentLocalId,
   getRosterProfileDocumentLocalId,
   importOrganizationUser,

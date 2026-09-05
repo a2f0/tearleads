@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1049.0",
-    "@tearleads/api-shared": "workspace:*"
+    "@tearleads/api-shared": "workspace:*",
+    "drizzle-orm": "0.45.1"
   },
   "devDependencies": {
     "@types/bun": "catalog:"

@@ -102,6 +102,11 @@ const tearleads = new Tearleads({
 const { rootContainerId } = await tearleads.identity.generate();
 ```
 
+Group membership add/remove inputs require `expectedGroupName`, captured from
+the label the user selected. The SDK verifies the signed policy name before
+recipient resolution or key use. A mismatch raises
+`GroupMembershipNameMismatchError` and is reported as a security incident.
+
 Client capabilities:
 
 | Namespace | Owns |

@@ -64,7 +64,9 @@ async function updateMemberGroupUsers(
         ),
   );
   const payloadCiphertext = bytesToBase64(
-    new TextEncoder().encode(JSON.stringify({ members: projection })),
+    new TextEncoder().encode(
+      JSON.stringify({ members: projection, name: "Members" }),
+    ),
   );
   const principalKem = generateKemSeedAndKeyPair();
   const { memberEnvelopes, stateMembers } =

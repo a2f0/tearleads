@@ -20,3 +20,7 @@ export {
   type RestartProbeTraceRecorder,
   type RestartProbeTraceStep,
 } from "./restartProbeTrace";
+export {
+  SIGNED_GROUP_INVALID_PAYLOADS,
+  SIGNED_GROUP_NAME_CASES,
+} from "./signedGroupNameCases";

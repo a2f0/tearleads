@@ -98,14 +98,20 @@ test("Org Manager keeps its narrow bound surface and positional adapters", async
   expect((await createGroup("admins")).name).toBe("org:admins");
   expect("loadBilling" in view.result.current).toBe(false);
 
-  await view.result.current.addUserToGroup("group-1", "user-1");
-  await view.result.current.removeUserFromGroup("group-1", "user-2");
+  await view.result.current.addUserToGroup("group-1", "user-1", "Operators");
+  await view.result.current.removeUserFromGroup(
+    "group-1",
+    "user-2",
+    "Operators",
+  );
   expect(organizations.addUserToGroup).toHaveBeenCalledWith({
     groupId: "group-1",
     targetUserId: "user-1",
+    expectedGroupName: "Operators",
   });
   expect(organizations.removeUserFromGroup).toHaveBeenCalledWith({
     groupId: "group-1",
     removedUserId: "user-2",
+    expectedGroupName: "Operators",
   });
 });
