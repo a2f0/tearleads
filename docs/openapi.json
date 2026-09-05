@@ -29040,7 +29040,7 @@
                 "required": true,
                 "schema": {
                   "type": "string",
-                  "const": "private, no-cache"
+                  "minLength": 1
                 }
               },
               "content-encoding": {
@@ -29060,7 +29060,7 @@
                 "required": true,
                 "schema": {
                   "type": "string",
-                  "const": "Accept-Encoding"
+                  "minLength": 1
                 }
               }
             }
@@ -29333,7 +29333,7 @@
                 "required": true,
                 "schema": {
                   "type": "string",
-                  "const": "private, no-cache"
+                  "minLength": 1
                 }
               },
               "content-encoding": {
@@ -29360,7 +29360,7 @@
                 "required": true,
                 "schema": {
                   "type": "string",
-                  "const": "Accept-Encoding"
+                  "minLength": 1
                 }
               }
             }
@@ -29372,7 +29372,7 @@
                 "required": true,
                 "schema": {
                   "type": "string",
-                  "const": "private, no-cache"
+                  "minLength": 1
                 }
               },
               "etag": {
@@ -29386,7 +29386,7 @@
                 "required": true,
                 "schema": {
                   "type": "string",
-                  "const": "Accept-Encoding"
+                  "minLength": 1
                 }
               }
             }

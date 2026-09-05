@@ -110,27 +110,26 @@ export type DocumentAttributionRequestHeaders = z.infer<
 >;
 
 const DocumentAttributionResponseHeadersSchema = z.strictObject({
-  [documentAttributionWireHeaderKeys.cacheControl]:
-    z.literal("private, no-cache"),
+  // Cache metadata can be reordered or extended by HTTP intermediaries. The
+  // transport owns caching; literal matching here must not discard valid edits.
+  [documentAttributionWireHeaderKeys.cacheControl]: nonEmptyStringSchema,
   [documentAttributionWireHeaderKeys.contentEncoding]: z.string().optional(),
   [documentAttributionWireHeaderKeys.contentType]: nonEmptyStringSchema,
   [documentAttributionWireHeaderKeys.etag]: nonEmptyStringSchema,
-  [documentAttributionWireHeaderKeys.vary]: z.literal("Accept-Encoding"),
+  [documentAttributionWireHeaderKeys.vary]: nonEmptyStringSchema,
 });
 
 const DocumentAttributionNotModifiedHeadersSchema = z.strictObject({
-  [documentAttributionWireHeaderKeys.cacheControl]:
-    z.literal("private, no-cache"),
+  [documentAttributionWireHeaderKeys.cacheControl]: nonEmptyStringSchema,
   [documentAttributionWireHeaderKeys.etag]: nonEmptyStringSchema,
-  [documentAttributionWireHeaderKeys.vary]: z.literal("Accept-Encoding"),
+  [documentAttributionWireHeaderKeys.vary]: nonEmptyStringSchema,
 });
 
 const DocumentAttributionRangesResponseHeadersSchema = z.strictObject({
-  [documentAttributionWireHeaderKeys.cacheControl]:
-    z.literal("private, no-cache"),
+  [documentAttributionWireHeaderKeys.cacheControl]: nonEmptyStringSchema,
   [documentAttributionWireHeaderKeys.contentEncoding]: z.string().optional(),
   [documentAttributionWireHeaderKeys.contentType]: nonEmptyStringSchema,
-  [documentAttributionWireHeaderKeys.vary]: z.literal("Accept-Encoding"),
+  [documentAttributionWireHeaderKeys.vary]: nonEmptyStringSchema,
 });
 
 const attributionFailureResponses = {

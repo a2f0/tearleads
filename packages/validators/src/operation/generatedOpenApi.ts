@@ -11918,11 +11918,11 @@ export interface operations {
             /** @description Successful JSON response */
             200: {
                 headers: {
-                    "cache-control": "private, no-cache";
+                    "cache-control": string;
                     "content-encoding"?: string;
                     "content-type": string;
                     etag: string;
-                    vary: "Accept-Encoding";
+                    vary: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -11949,9 +11949,9 @@ export interface operations {
             /** @description Response without a declared body */
             304: {
                 headers: {
-                    "cache-control": "private, no-cache";
+                    "cache-control": string;
                     etag: string;
-                    vary: "Accept-Encoding";
+                    vary: string;
                     [name: string]: unknown;
                 };
                 content?: never;
@@ -12071,10 +12071,10 @@ export interface operations {
             /** @description Successful JSON response */
             200: {
                 headers: {
-                    "cache-control": "private, no-cache";
+                    "cache-control": string;
                     "content-encoding"?: string;
                     "content-type": string;
-                    vary: "Accept-Encoding";
+                    vary: string;
                     [name: string]: unknown;
                 };
                 content: {
