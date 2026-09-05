@@ -8,12 +8,16 @@
   box-sizing: border-box;
   background: var(--color-light);
   border: var(--border-strong);
+  padding: var(--space-xs);
+  border-radius: var(--app-radius-surface);
+  box-shadow: var(--app-shadow-surface);
 }
 
 .menu button {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
+  min-height: var(--control-height);
   padding: var(--menu-item-padding);
   border: none;
   background: none;
@@ -22,11 +26,12 @@
   white-space: nowrap;
   overflow: hidden;
   cursor: pointer;
+  border-radius: var(--app-radius-control);
 }
 
 .menu button:hover:not(:disabled),
 .menu button:focus-visible:not(:disabled) {
-  background: var(--color-muted);
+  background: var(--app-hover-surface);
 }
 
 .menu button:disabled {

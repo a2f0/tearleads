@@ -21,6 +21,7 @@
 /* Borderless rows: the active/hover fill is the only affordance, so the rail
    reads as a launcher list rather than a stack of buttons. */
 .routed-pane-nav-link {
+  border-radius: var(--app-radius-control);
   display: flex;
   align-items: center;
   gap: var(--space-xs);
@@ -121,6 +122,8 @@
 }
 
 .routed-pane-sheet {
+  border-radius: var(--app-radius-surface) var(--app-radius-surface) 0 0;
+  box-shadow: var(--app-shadow-surface);
   position: absolute;
   inset-inline: 0;
   inset-block-end: 0;
@@ -215,6 +218,7 @@
 }
 
 .routed-pane-sheet-tile {
+  border-radius: var(--app-radius-surface);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -223,7 +227,8 @@
   aspect-ratio: 1;
   padding: var(--space-sm);
   border: var(--border);
-  background: transparent;
+  border-color: var(--app-control-border);
+  background: var(--color-light);
   font: inherit;
   text-align: center;
   cursor: pointer;

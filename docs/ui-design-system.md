@@ -99,6 +99,24 @@ motion. Rules:
 - Each component ships a sibling `.css` file imported by its `.tsx`; class
   names are composed with `classNames` from `components/shared/classNames`.
 
+App-specific chrome refinements live in `components/layout/AppChrome.css`,
+scoped to the navigation attribute on the root so portaled menus inherit them
+without changing website chrome. The `--app-*` tokens define control/surface
+radii, hover fill, control borders, and overlay/window shadows. Table rules and
+shell separators use hairlines without weakening the borders of other controls.
+Keyboard focus uses an inset ring so scrolling toolbars do not clip it, and
+reduced-motion preferences disable chrome transitions, including the launcher.
+
+Floating windows have named, 28px minimum title-bar controls and truncate long
+titles before the control cluster. The taskbar marks the frontmost visible
+window with a filled, underlined chip. Shared popover menus focus the first
+enabled action, support arrow keys and Home/End, and restore focus on Escape or
+selection. Tab dismisses the menu and continues from its trigger.
+Portaled comboboxes opt out of menu keyboard handling; their existing
+`aria-activedescendant` controller keeps focus on the trigger.
+Title bars deliberately grow to fit their interactive controls; informational
+status bars retain the compact bar height and follow the window's bottom corners.
+
 ## Form measure
 
 Text-entry controls are capped, content is not. A field stretched to the width

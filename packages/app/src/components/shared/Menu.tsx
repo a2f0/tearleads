@@ -8,6 +8,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import "./Menu.css";
+import { useMenuKeyboard } from "./useMenuKeyboard";
 
 const MENU_VIEWPORT_MARGIN_PX = 8;
 const MEASUREMENT_MENU_STYLE: CSSProperties = {
@@ -100,11 +101,13 @@ export function Menu({
   position,
   onClose,
   direction = "up",
+  keyboardNavigation = true,
   children,
 }: PropsWithChildren<{
   position: MenuPosition;
   onClose: () => void;
   direction?: "up" | "down";
+  keyboardNavigation?: boolean;
 }>) {
   const menuRef = useRef<HTMLDivElement>(null);
   const { x, y } = position;
@@ -118,17 +121,27 @@ export function Menu({
       return;
     }
 
-    const rect = menu.getBoundingClientRect();
-    setPlacement(
-      placeMenuInViewport({
-        direction,
-        height: rect.height,
-        position,
-        viewportHeight: window.innerHeight,
-        viewportWidth: window.innerWidth,
-        width: rect.width,
-      }),
-    );
+    const updatePlacement = () => {
+      const rect = menu.getBoundingClientRect();
+      setPlacement(
+        placeMenuInViewport({
+          direction,
+          height: rect.height,
+          position,
+          viewportHeight: window.innerHeight,
+          viewportWidth: window.innerWidth,
+          width: rect.width,
+        }),
+      );
+    };
+    updatePlacement();
+    const observer = new ResizeObserver(updatePlacement);
+    observer.observe(menu);
+    window.addEventListener("resize", updatePlacement);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", updatePlacement);
+    };
   }, [x, y, direction]);
 
   useEffect(() => {
@@ -152,6 +165,11 @@ export function Menu({
     placement.anchorX === position.x &&
     placement.anchorY === position.y &&
     placement.anchorDirection === direction;
+  useMenuKeyboard(
+    menuRef,
+    placementMatchesAnchor && keyboardNavigation,
+    onClose,
+  );
   const menuStyle: CSSProperties = placementMatchesAnchor
     ? {
         left: placement.left,
@@ -162,7 +180,7 @@ export function Menu({
     : MEASUREMENT_MENU_STYLE;
 
   return createPortal(
-    <div ref={menuRef} className="menu" style={menuStyle}>
+    <div ref={menuRef} className="menu" style={menuStyle} tabIndex={-1}>
       {children}
     </div>,
     document.body,

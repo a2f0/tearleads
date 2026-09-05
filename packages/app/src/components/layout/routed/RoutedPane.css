@@ -140,7 +140,8 @@
   min-width: var(--control-height);
   min-height: var(--control-height);
   padding: 0;
-  border: var(--border);
+  border: var(--border-width) solid transparent;
+  border-radius: var(--app-radius-control);
   background: transparent;
   color: inherit;
   font: inherit;
@@ -150,6 +151,10 @@
 
 .routed-pane-iconbutton:hover:not(:disabled),
 .routed-pane-iconbutton:focus-visible:not(:disabled) {
+  background: var(--app-hover-surface);
+}
+
+.routed-pane-iconbutton[aria-expanded="true"] {
   background: var(--emphasis-surface);
   color: var(--emphasis-text);
 }
@@ -259,6 +264,7 @@
 }
 
 .routed-pane-taskbar-menu-button {
+  border-radius: var(--app-radius-control);
   grid-column: 2;
   justify-self: center;
   display: inline-flex;

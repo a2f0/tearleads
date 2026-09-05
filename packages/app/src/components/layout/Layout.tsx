@@ -17,6 +17,7 @@ import {
 import { ThemeProvider } from "../../theme/ThemeProvider";
 import { BillingBanner } from "./BillingBanner";
 import "./Layout.css";
+import "./AppChrome.css";
 import { Workspace } from "./workspace/Workspace";
 import {
   SINGLE_WORKSPACE_IDS,

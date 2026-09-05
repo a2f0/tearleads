@@ -267,6 +267,7 @@ export function MiniAppSelectMenu(props: MiniAppSelectMenuProps) {
       {portalPosition ? (
         <Menu
           direction="down"
+          keyboardNavigation={false}
           onClose={controller.close}
           position={portalPosition}
         >

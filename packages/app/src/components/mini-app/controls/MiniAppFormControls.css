@@ -5,7 +5,9 @@
   min-height: var(--control-height);
   box-sizing: border-box;
   border: var(--border);
-  background: transparent;
+  border-color: var(--app-control-border);
+  border-radius: var(--app-radius-control);
+  background: var(--color-light);
   color: inherit;
   font: inherit;
 }
