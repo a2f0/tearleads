@@ -10,7 +10,7 @@ still reports online.
 | Seam | Failure | Repair |
 | --- | --- | --- |
 | Local document projection | Persisted creations and edits did not update an already hydrated folder cache without remote reconciliation. | Subscribe to persisted documents and reload affected local views from SQLite. Reopening a folder also refreshes its local cache. |
-| Local read completion | A first SQLite read could restore a document deleted while that read was pending. | Invalidate the superseded read and coalesce changes into a trailing local read. |
+| Local read completion | A first SQLite read could restore a document deleted while that read was pending; frequent autosaves could prevent first paint. | Discard reads superseded by deletion or reconciliation. Publish ordinary reads before a coalesced trailing refresh so autosaves cannot starve the view. |
 | Database replacement | Swapping a ready SQLite adapter could retain summaries from the old database. | Reset summary caches and pending reads when the adapter or domain changes. |
 | Projection notification | Link-only or access-only changes could update internal data without publishing a new snapshot. | Include links and all summary fields in change detection. |
 | Self-contact bootstrap | A missing local self key could fall back to a remote lookup; duplicate cleanup could await a remote purge inside the contact write queue. | Keep self-key resolution local and run remote cleanup separately. Preserve duplicates until authorized purge succeeds; retry on reconnect, including reconnect during a pending attempt. Each retry reloads its summary and uses the current runtime. |
@@ -34,9 +34,9 @@ in Trash.
 
 SDK tests additionally cover offline document creation, editing, relinking,
 deletion, and restoration through a fresh runtime over the same SQLite database.
-Projection race tests hold an old SQL result across deletion and replace a ready
-database adapter. All four new projection regressions fail against the
-pre-audit implementation.
+Projection race tests hold an old SQL result across deletion, replace a ready
+database adapter, and require snapshots to publish while repeated autosaves
+keep trailing reads pending in the same or another folder.
 
 Stalled-request tests hold a system-container probe, a duplicate-contact purge,
 and a raw-history pull while ordinary local writes complete. Rotation conflict

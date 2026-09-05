@@ -69,6 +69,7 @@ interface LocalProjectionStoreState {
   runtime: ContainerContentsStoreRuntime;
   snapshot: LocalProjectionSnapshot;
   summaryLoadByContainerId: Map<string, Promise<void>>;
+  summaryReadsToDiscard: Set<string>;
   summaryReloadNeeded: Set<string>;
 }
 
@@ -139,7 +140,7 @@ function loadActiveContainerSummaries(
         // mid-flight; do not apply a stale read to a freshly reset cache.
         if (
           state.summaryLoadByContainerId.get(containerId) !== loadPromise ||
-          state.summaryReloadNeeded.has(containerId)
+          state.summaryReadsToDiscard.has(containerId)
         ) {
           return;
         }
@@ -159,6 +160,7 @@ function loadActiveContainerSummaries(
       .finally(() => {
         if (state.summaryLoadByContainerId.get(containerId) === loadPromise) {
           state.summaryLoadByContainerId.delete(containerId);
+          state.summaryReadsToDiscard.delete(containerId);
           if (state.summaryReloadNeeded.delete(containerId)) {
             state.cache.hydratedContainerIds.delete(containerId);
             loadActiveContainerSummaries(state, containerId);
@@ -172,12 +174,16 @@ function loadActiveContainerSummaries(
 function refreshContainerSummaries(
   state: LocalProjectionStoreState,
   containerId: string,
+  discardPendingRead = false,
 ): void {
   state.cache.hydratedContainerIds.delete(containerId);
   if (state.summaryLoadByContainerId.has(containerId)) {
-    // A persisted write can overtake an asynchronous SQLite read. Coalesce
-    // writes into one trailing read, and never publish the superseded result.
+    // Publish ordinary reads before the trailing refresh so autosaves cannot
+    // starve first paint. Deletion and reconciliation must reject older rows.
     state.summaryReloadNeeded.add(containerId);
+    if (discardPendingRead) {
+      state.summaryReadsToDiscard.add(containerId);
+    }
   } else {
     loadActiveContainerSummaries(state, containerId);
   }
@@ -294,7 +300,7 @@ function removePersistedDocumentFromCache(
   // The deleted row may exist only in an in-flight first read, so invalidating
   // just containers that already cached it would allow it to reappear offline.
   for (const containerId of state.summaryLoadByContainerId.keys()) {
-    refreshContainerSummaries(state, containerId);
+    refreshContainerSummaries(state, containerId, true);
   }
   if (removeDocumentSummary(state.cache, localId)) {
     emit(state);
@@ -313,6 +319,7 @@ function updateLocalProjectionRuntime(
   ) {
     resetSummaryCache(state.cache);
     state.summaryLoadByContainerId.clear();
+    state.summaryReadsToDiscard.clear();
     state.summaryReloadNeeded.clear();
     state.hydratedContainerSummaries = false;
   }
@@ -328,6 +335,7 @@ function updateLocalProjectionRuntime(
   if (runtime.infra.dbStatus !== "ready") {
     resetSummaryCache(state.cache);
     state.summaryLoadByContainerId.clear();
+    state.summaryReadsToDiscard.clear();
     state.summaryReloadNeeded.clear();
     state.hydratedContainerSummaries = false;
     emit(state);
@@ -360,6 +368,7 @@ export function createLocalProjectionStore(input: {
     runtime: input.runtime,
     snapshot: EMPTY_SNAPSHOT,
     summaryLoadByContainerId: new Map(),
+    summaryReadsToDiscard: new Set(),
     summaryReloadNeeded: new Set(),
   };
   state.snapshot = computeSnapshot(state);
@@ -422,7 +431,7 @@ export function createLocalProjectionStore(input: {
     getActiveContainerId: () => state.activeContainerId,
     applyReconciled: (delta) => {
       if (state.summaryLoadByContainerId.has(delta.containerId)) {
-        refreshContainerSummaries(state, delta.containerId);
+        refreshContainerSummaries(state, delta.containerId, true);
       }
       if (applyContainerSummaries(state.cache, delta)) {
         emit(state);
