@@ -11922,7 +11922,7 @@ export interface operations {
                     "content-encoding"?: string;
                     "content-type": string;
                     etag: string;
-                    vary: "Accept-Encoding";
+                    vary: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -11951,7 +11951,7 @@ export interface operations {
                 headers: {
                     "cache-control": "private, no-cache";
                     etag: string;
-                    vary: "Accept-Encoding";
+                    vary: string;
                     [name: string]: unknown;
                 };
                 content?: never;
@@ -12074,7 +12074,7 @@ export interface operations {
                     "cache-control": "private, no-cache";
                     "content-encoding"?: string;
                     "content-type": string;
-                    vary: "Accept-Encoding";
+                    vary: string;
                     [name: string]: unknown;
                 };
                 content: {

@@ -99,7 +99,6 @@ function registerCompactAttributionRoute(
           "private, no-cache",
         );
         c.header(documentAttributionWireHeaderNames.etag, etag);
-        c.header(documentAttributionWireHeaderNames.vary, "Accept-Encoding");
         if (
           ifNoneMatchMatches(
             headers[documentAttributionWireHeaderKeys.ifNoneMatch],
@@ -162,7 +161,6 @@ function registerAttributionRangesRoute(
           documentAttributionWireHeaderNames.cacheControl,
           "private, no-cache",
         );
-        c.header(documentAttributionWireHeaderNames.vary, "Accept-Encoding");
         return c.json<ListDocumentEditAttributionRangesResponse>(response);
       } catch (error) {
         return respondToStatusError(c, error, DocumentEditAttributionError);
@@ -179,7 +177,18 @@ export function createDocumentAttributionRoute({
   runtime,
 }: DocumentAttributionRouteDeps) {
   const route = new Hono<SessionEnv>();
-  const compressAttribution = compress({ threshold: 1024 });
+  const compressResponse = compress({ threshold: 1024 });
+  const compressAttribution: MiddlewareHandler<SessionEnv> = async (
+    c,
+    next,
+  ) => {
+    await compressResponse(c, next);
+    // CORS may have initialized a response with Vary: Origin. Append to the
+    // finalized response so Hono's response merge preserves both dimensions.
+    c.header(documentAttributionWireHeaderNames.vary, "Accept-Encoding", {
+      append: true,
+    });
+  };
   const deps = {
     loadAttribution,
     listAttributionRanges,
