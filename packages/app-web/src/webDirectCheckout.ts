@@ -216,22 +216,17 @@ function createSession(
       });
       // Check the unmount BEFORE mapping: `toConfirmation` throws for a
       // non-buyer error, which would reject instead of honoring the
-      // cancelled-on-unmount contract. A succeeded confirm is the one case
-      // that still has to be reported (see below) — it charged the card.
+      // cancelled-on-unmount contract. An unmount racing a confirm normally
+      // means the buyer walked away, so every error outcome becomes a
+      // cancellation. A confirm that already CHARGED the card is the one
+      // case that must still be reported — saying "cancelled" would be a lie
+      // about money. The caller's own staleness check may still drop it,
+      // which is safe because the webhook, not this return value, is what
+      // grants the entitlement.
       if (unmounted && error) {
         return { kind: "cancelled" };
       }
-      const outcome = toConfirmation(error);
-      // An unmount racing a confirm normally means the buyer walked away, so
-      // report cancellation. But a confirm that already CHARGED the card is
-      // not cancellable — saying so would be a lie about money. Report the
-      // success; the caller's own staleness check may still drop it, which is
-      // safe because the webhook, not this return value, is what grants the
-      // entitlement.
-      if (unmounted && outcome.kind !== "succeeded") {
-        return { kind: "cancelled" };
-      }
-      return outcome;
+      return toConfirmation(error);
     },
     unmount() {
       unmounted = true;

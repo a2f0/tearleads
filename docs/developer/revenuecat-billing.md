@@ -25,14 +25,12 @@ and the current external-account handoff live in
 | Web payment UI | Direct Stripe Payment Element or the Stripe-hosted Checkout fallback |
 | Cross-platform `sync` entitlement and grant/revoke events | RevenueCat |
 
-New web purchases use direct Stripe checkout. A RevenueCat Web Billing package
-does not participate in the product flow, so
-[`createWebPurchases`](../../packages/app-web/src/webPurchases.ts) configures the
-RevenueCat capability with `purchasesEnabled: false`: identification and
-entitlement reads remain available, while package listing returns no options and
-purchase attempts fail closed. Keep RevenueCat's provider-hosted flow for
-native stores ([revenuecat-native-stores.md](./revenuecat-native-stores.md))
-only. Native purchases are personal-org only; restore always creates a new org.
+New web purchases use direct Stripe checkout. The web shell loads no RevenueCat
+SDK at all: RevenueCat's role for web is server-side, mirroring the Stripe
+receipt into the `sync` entitlement and delivering lifecycle webhooks. Keep
+RevenueCat's provider-hosted flow for native stores
+([revenuecat-native-stores.md](./revenuecat-native-stores.md)) only. Native
+purchases are personal-org only; restore always creates a new org.
 
 ## Native restore and subscription moves
 
@@ -103,42 +101,32 @@ are rejected; there is no receipt alias translation.
 
 The app gates org sync on a single entitlement, **`sync`**
 (`DEFAULT_SYNC_ENTITLEMENT_ID` in
-[`webPurchases.ts`](../../packages/app-web/src/webPurchases.ts) and
 [`capacitorPurchases.ts`](../../packages/app-capacitor/src/billing/capacitorPurchases.ts)).
-Override it per target via `BUN_PUBLIC_REVENUECAT_SYNC_ENTITLEMENT` (web) or
-`VITE_REVENUECAT_SYNC_ENTITLEMENT` (capacitor); both default to `sync`.
+Override it for the native shell via `VITE_REVENUECAT_SYNC_ENTITLEMENT`; it
+defaults to `sync`.
 
-## Public SDK keys (client)
+## Public SDK keys (native client)
 
-Each platform reads a **public** RevenueCat SDK key at build time. These are safe
-to inline in the shipped client bundle. When a key is absent the app degrades to
-an unavailable RevenueCat capability. On web this affects entitlement
-observation, not the direct Stripe purchase path; the Stripe path has its own
-publishable key.
+The native shell reads a **public** RevenueCat SDK key at build time. These are
+safe to inline in the shipped bundle. When a key is absent the app degrades to
+an unavailable purchases capability. The web shell has no RevenueCat key: its
+purchase path is direct Stripe checkout, configured by
+`BUN_PUBLIC_STRIPE_PUBLISHABLE_KEY` alone.
 
 | Platform | Env var | How it's injected |
 | --- | --- | --- |
-| Web | `BUN_PUBLIC_REVENUECAT_WEB_API_KEY` | Set in `.secrets/<tier>.env`; `deployAppWeb.sh` sources tier secrets and passes it to `bun build --env='BUN_PUBLIC_*'`, which inlines it. |
 | iOS | `VITE_REVENUECAT_IOS_API_KEY` | `.secrets/root.env`, loaded by Fastlane and inlined by Vite. |
 | Android | `VITE_REVENUECAT_ANDROID_API_KEY` | `.secrets/root.env`, same path. |
 
 Local web development with fixed-tier checkout enabled:
 
 ```sh
-BUN_PUBLIC_REVENUECAT_WEB_API_KEY=<key> \
-BUN_PUBLIC_STRIPE_PUBLISHABLE_KEY=<key> \
-bun run --filter=app-web dev
+BUN_PUBLIC_STRIPE_PUBLISHABLE_KEY=<key> bun run --filter=app-web dev
 ```
 
-### Web key types
-
-- A **Test Store** key (`test_…`) can simulate RevenueCat purchases upstream,
-  but Tearleads disables that purchase API on web. Test fixed-tier enrollment
-  through direct checkout with Stripe test-mode keys instead.
-- A **Web Billing** key (`rcb_…`) may still observe entitlements from the
-  connected Stripe account, but it does not enable Tearleads web purchases. Do
-  not re-enable the embedded adapter without the same server-authoritative tier
-  contract.
+A RevenueCat **Web Billing** key (`rcb_…`) has no consumer in this repository.
+Do not reintroduce a web RevenueCat adapter without the same
+server-authoritative tier contract that direct checkout enforces.
 
 ## Provider deadlines
 

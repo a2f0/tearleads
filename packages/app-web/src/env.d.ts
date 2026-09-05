@@ -5,8 +5,6 @@ declare namespace NodeJS {
     BUN_PUBLIC_APP_VERSION?: string;
     BUN_PUBLIC_APP_VARIANT?: string;
     BUN_PUBLIC_GIT_SHA?: string;
-    BUN_PUBLIC_REVENUECAT_SYNC_ENTITLEMENT?: string;
-    BUN_PUBLIC_REVENUECAT_WEB_API_KEY?: string;
     /** Stripe publishable key for the direct checkout Payment Element. */
     BUN_PUBLIC_STRIPE_PUBLISHABLE_KEY?: string;
     BUN_PUBLIC_WS_URL?: string;

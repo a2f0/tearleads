@@ -24,7 +24,6 @@ test("a scope switch keeps a presented native purchase running", async () => {
   );
   const purchases: PurchasesCapability = {
     ...createPurchases({ syncEntitlementActive: true }),
-    supportsEmbeddedCheckout: false,
     purchaseSync,
   };
   const { result, rerender } = renderBillingActions({ purchases });

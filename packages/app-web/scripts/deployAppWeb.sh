@@ -31,6 +31,7 @@ APP_WEB_DIR="$REPO_ROOT/packages/app-web"
 
 load_secrets_env "$TIER"
 validate_aws_env
+validate_stripe_env "$TIER"
 
 if [ -z "${SSH_TARGET:-}" ]; then
   STACK_DIR="$REPO_ROOT/$STACK_RELATIVE_DIR"
@@ -102,7 +103,6 @@ build_app_web() {
     BUN_PUBLIC_APP_VARIANT="$variant" \
     BUN_PUBLIC_API_BASE_URL="https://${API_HOSTNAME}" \
     BUN_PUBLIC_WS_URL="wss://${API_HOSTNAME}/events" \
-    BUN_PUBLIC_REVENUECAT_WEB_API_KEY="${BUN_PUBLIC_REVENUECAT_WEB_API_KEY:-}" \
     BUN_PUBLIC_STRIPE_PUBLISHABLE_KEY="${BUN_PUBLIC_STRIPE_PUBLISHABLE_KEY:-}" \
     bun run build)
 }

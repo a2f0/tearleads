@@ -18,13 +18,6 @@ export interface BillingActionState extends BillingActionScope {
   readonly activationPending: boolean;
   /** Paid or pending tier the server snapshot must reach after a purchase. */
   readonly activationTargetSeatCount: number | null;
-  /**
-   * True only while a purchase's checkout can still be cancelled — from flow
-   * start until the purchase race settles. Distinct from `busy`, which also
-   * spans the post-payment billing refresh, when there is nothing left to
-   * cancel.
-   */
-  readonly checkoutActive: boolean;
 }
 
 export interface BillingScopeRef {
@@ -56,6 +49,5 @@ export function emptyActionState(
     actionError: null,
     activationPending: false,
     activationTargetSeatCount: null,
-    checkoutActive: false,
   };
 }

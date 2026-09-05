@@ -1,14 +1,15 @@
 /**
- * Client purchases capability for org **sync** billing.
+ * Client purchases capability for org **sync** billing through a native store.
  *
  * Sync is the single paid feature; a purchase is made on behalf of an
  * organization and ultimately drives the server RevenueCat webhook, which grants
  * the org's sync entitlement. This module keeps the capability provider-agnostic:
  * the {@link PurchasesCapability} interface is what the app consumes, the
  * injectable {@link RevenueCatBackend} is the minimal native surface a platform
- * shell wires up (e.g. `@revenuecat/purchases-capacitor`), and
- * {@link createUnavailablePurchases} is the stub for platforms without an
- * in-app-purchase provider.
+ * shell wires up (`@revenuecat/purchases-capacitor`), and
+ * {@link createUnavailablePurchases} is the stub for platforms without a store.
+ * Web sells through the direct Stripe checkout instead and never loads a
+ * RevenueCat SDK; RevenueCat's web role is server-side receipt mirroring.
  */
 
 import {
@@ -60,22 +61,14 @@ export interface SyncPurchaseResult {
 
 /**
  * The purchases surface the app consumes. A platform either provides a real
- * implementation (Capacitor / Web Billing) or the {@link createUnavailablePurchases}
- * stub; callers gate purchase UI on {@link isAvailable}.
+ * implementation (Capacitor) or the {@link createUnavailablePurchases} stub;
+ * callers gate purchase UI on {@link isAvailable}.
  */
 export interface PurchasesCapability {
   /** False when purchasing is not supported on this platform (the stub). */
   readonly isAvailable: boolean;
   /** Native receipt store this capability can restore, or null off-device. */
   readonly nativeStore: NativeSubscriptionStore | null;
-  /**
-   * True when {@link purchaseSync}'s `checkoutHost` embeds a checkout this
-   * platform can actually cancel from the app's own UI (Web Billing). Absent
-   * or false on platforms whose checkout is a native sheet with its own
-   * dismissal — billing UI uses this to decide whether to offer an in-app
-   * Cancel affordance.
-   */
-  readonly supportsEmbeddedCheckout?: boolean;
   /** Identify the buyer to the provider; the App User ID is the buyer's user id. */
   identify(input: { userId: string }): Promise<void>;
   /** Forget the identified buyer (e.g. on sign-out). */
@@ -84,18 +77,13 @@ export interface PurchasesCapability {
   listSyncOptions(): Promise<SyncSubscriptionOption[]>;
   /**
    * Purchase sync for one organization, binding the purchase to that org.
-   * `checkoutHost` optionally embeds the provider's checkout UI inside the
-   * given element instead of a full-page overlay; providers whose checkout is
-   * native (Capacitor) ignore it. `abortSignal` lets the caller withdraw a
-   * purchase that has not reached the provider checkout yet — an embedded
-   * checkout has no provider-side close control, so once the caller has
-   * dismissed its own UI the backend must not mount a new checkout for a flow
-   * nobody can see.
+   * `abortSignal` lets the caller withdraw a purchase that has not reached the
+   * store sheet yet — a presented sheet cannot be dismissed programmatically,
+   * so the backend honors the abort only before it presents.
    */
   purchaseSync(input: {
     organizationId: string;
     packageId: string;
-    checkoutHost?: HTMLElement;
     abortSignal?: AbortSignal;
     /** Providers must call this synchronously when their UI becomes impossible to dismiss. */
     onProviderPresented?: () => void;
@@ -151,18 +139,12 @@ export interface RevenueCatBackend {
     abortSignal?: AbortSignal;
   }): Promise<unknown>;
   /**
-   * `htmlTarget` embeds the provider checkout in the given element (Web
-   * Billing); backends with a native checkout ignore it, as they do
-   * `metadata`, which is attached to the provider transaction itself (Web
-   * Billing only). `abortSignal` asks the backend to stop before presenting a
-   * checkout the caller has already abandoned — honored by every backend,
-   * since neither an embedded widget nor a native store sheet can be
-   * dismissed programmatically once it is up.
+   * `abortSignal` asks the backend to stop before presenting a store sheet the
+   * caller has already abandoned; a presented sheet cannot be dismissed
+   * programmatically once it is up.
    */
   purchasePackage(input: {
     packageId: string;
-    htmlTarget?: HTMLElement;
-    metadata?: Record<string, string>;
     abortSignal?: AbortSignal;
     preparedPurchase?: unknown;
     onProviderPresented?: () => void;
@@ -176,7 +158,7 @@ export interface RevenueCatPurchasesConfig {
   readonly apiKey: string;
   /** Entitlement id that grants sync (e.g. "sync"). */
   readonly syncEntitlementId: string;
-  /** Store represented by this SDK key; null for Web Billing. */
+  /** Store represented by this SDK key. */
   readonly nativeStore: NativeSubscriptionStore | null;
   /**
    * Whether restore uses the longer checkout-settlement deadline. Native
@@ -190,22 +172,11 @@ export interface RevenueCatPurchasesConfig {
    */
   readonly checkoutSettlementTimeoutMs?: number;
   /**
-   * Whether this platform may start RevenueCat purchases. Defaults to true.
-   * Set false when RevenueCat is retained only for entitlement observation.
-   */
-  readonly purchasesEnabled?: boolean;
-  /**
    * Subscriber attribute key that binds a purchase to an organization. The
    * server webhook reads this to resolve the org being paid for. Defaults to
    * "orgId".
    */
   readonly organizationAttributeKey?: string;
-  /**
-   * Whether this platform's backend honors `checkoutHost` with a cancellable
-   * embedded checkout (Web Billing). Defaults to false — native store sheets
-   * carry their own dismissal.
-   */
-  readonly supportsEmbeddedCheckout?: boolean;
   /**
    * Maximum wait for provider setup, identity, and non-checkout operations.
    * Defaults to 30 seconds. Purchase checkout itself is not timed because the
@@ -251,24 +222,6 @@ function toSyncSubscriptionOptions(
     : [];
 }
 
-function requirePurchasesEnabled(enabled: boolean): void {
-  if (!enabled) {
-    throw new PurchasesUnavailableError(
-      "RevenueCat purchases are disabled on this platform",
-    );
-  }
-}
-
-function purchaseCapabilityFlags(
-  config: RevenueCatPurchasesConfig,
-  purchasesEnabled: boolean,
-) {
-  return {
-    supportsEmbeddedCheckout:
-      purchasesEnabled && (config.supportsEmbeddedCheckout ?? false),
-  };
-}
-
 /**
  * Adapts a {@link RevenueCatBackend} into a {@link PurchasesCapability}. The
  * provider is configured lazily and exactly once (the first call that needs it),
@@ -278,7 +231,6 @@ export function createRevenueCatPurchases(
   backend: RevenueCatBackend,
   config: RevenueCatPurchasesConfig,
 ): PurchasesCapability {
-  const purchasesEnabled = config.purchasesEnabled ?? true;
   const attributeKey =
     config.organizationAttributeKey ?? DEFAULT_ORGANIZATION_ATTRIBUTE_KEY;
   const identity = createRevenueCatIdentityCoordinator({
@@ -290,9 +242,8 @@ export function createRevenueCatPurchases(
     timeoutMs: revenueCatOperationTimeoutMs(config.operationTimeoutMs),
   });
   return {
-    isAvailable: purchasesEnabled,
+    isAvailable: true,
     nativeStore: config.nativeStore,
-    ...purchaseCapabilityFlags(config, purchasesEnabled),
     identify(input) {
       return identity
         .identify(input.userId)
@@ -300,7 +251,6 @@ export function createRevenueCatPurchases(
     },
     reset: () => identity.reset().catch(normalizeRevenueCatIdentityError),
     async listSyncOptions() {
-      if (!purchasesEnabled) return [];
       const packages = await identity
         .runProviderOperation({
           operation: () => backend.getCurrentPackages(),
@@ -311,30 +261,22 @@ export function createRevenueCatPurchases(
       return packages.flatMap(toSyncSubscriptionOptions);
     },
     async purchaseSync(input) {
-      requirePurchasesEnabled(purchasesEnabled);
-      // A dismissed web checkout can remain unsettled on an isolated SDK
-      // instance, so it must not hold provider reads or block a replacement.
-      // Identity changes wait until checkout settles or the caller abandons
-      // it; the web backend isolates an abandoned provider instance.
+      // Identity changes wait until the store sheet settles: a presented
+      // sheet cannot be dismissed, so its gate stays held until the result.
       let preparedPurchase: unknown;
       const info = await identity
         .runCheckout({
-          abortReleasesIdentityGate: config.supportsEmbeddedCheckout === true,
           ...(input.abortSignal ? { abortSignal: input.abortSignal } : {}),
           operation: () =>
             backend.purchasePackage({
               packageId: input.packageId,
-              // Web metadata is immutable per transaction. Native backends
-              // ignore it and use the customer attribute prepared above.
-              metadata: { [attributeKey]: input.organizationId },
               ...(preparedPurchase === undefined ? {} : { preparedPurchase }),
-              ...(input.checkoutHost ? { htmlTarget: input.checkoutHost } : {}),
               ...(input.abortSignal ? { abortSignal: input.abortSignal } : {}),
               ...providerPresentedInput(input.onProviderPresented),
             }),
           // Bind inside the checkout gate so native events carry the org the
-          // webhook resolves. Web metadata is immutable per transaction;
-          // native stores continue to rely on this mutable customer attribute.
+          // webhook resolves. A store purchase carries no transaction
+          // metadata, so this mutable customer attribute is the binding.
           prepare: async () => {
             preparedPurchase = await prepareRevenueCatPurchase({
               abortSignal: input.abortSignal,
@@ -355,7 +297,6 @@ export function createRevenueCatPurchases(
       };
     },
     async bindOrganization(input) {
-      requirePurchasesEnabled(purchasesEnabled);
       await identity
         .runCustomerMutation({
           operation: () =>
@@ -380,16 +321,15 @@ export function createRevenueCatPurchases(
 }
 
 /**
- * The no-op purchases capability for platforms without an in-app-purchase
- * provider (web/desktop until Web Billing lands, or a Capacitor web preview).
- * Read methods degrade quietly (no options, no entitlement) so callers can query
- * safely; only an actual purchase attempt throws.
+ * The no-op purchases capability for platforms without a store (web and
+ * desktop, or a Capacitor web preview). Read methods degrade quietly (no
+ * options, no entitlement) so callers can query safely; only an actual
+ * purchase attempt throws.
  */
 export function createUnavailablePurchases(): PurchasesCapability {
   return {
     isAvailable: false,
     nativeStore: null,
-    supportsEmbeddedCheckout: false,
     identify() {
       return Promise.resolve();
     },

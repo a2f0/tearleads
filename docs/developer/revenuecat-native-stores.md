@@ -56,7 +56,7 @@ is specific to the native bridge, as opposed to the web one:
 - **Org binding rides the subscriber attribute.** A native store purchase
   carries no transaction metadata, so `orgId` is set as a customer-level
   subscriber attribute immediately before the purchase and the webhook resolves
-  against it. Unlike the Web Billing metadata this is **mutable** — a later
+  against it. The attribute is **mutable** — a later
   purchase for another org overwrites it — so it cannot attribute a purchase
   that completes after another has started. The server therefore accepts the
   grant only when the attributed organization is still the buyer's personal

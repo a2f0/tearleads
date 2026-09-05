@@ -7,7 +7,7 @@ import type {
 } from "@tearleads/client-sdk";
 import type { OrganizationNativePurchaseEligibilityResponse } from "@tearleads/validators/response";
 import { renderHook } from "@testing-library/react";
-import { type PropsWithChildren, type RefObject, useLayoutEffect } from "react";
+import { type PropsWithChildren, useLayoutEffect } from "react";
 import {
   type CreatePurchasesFn,
   createAppHostConfig,
@@ -59,7 +59,6 @@ export function createPurchases(
     bindOrganization: mock(() => Promise.resolve()),
     isAvailable: true,
     nativeStore: "test_store",
-    supportsEmbeddedCheckout: true,
     identify: mock(() => Promise.resolve()),
     reset: mock(() => Promise.resolve()),
     listSyncOptions: mock(() => Promise.resolve([OPTION])),
@@ -116,7 +115,6 @@ export function renderBillingActions(input: {
   billingIsActive?: boolean;
   billingPendingSeatCount?: number | null;
   billingSeatCount?: number | null;
-  checkoutHostRef?: RefObject<HTMLElement | null>;
   purchases: PurchasesCapability;
   nativePurchaseAllowed?: boolean;
   optionsRetryDelaysMs?: readonly number[];
@@ -167,9 +165,6 @@ export function renderBillingActions(input: {
           input.checkNativePurchaseEligibility ??
           (() => Promise.resolve({ eligible: true, reason: null })),
         completeRestoreOrganization: () => Promise.resolve(true),
-        ...(input.checkoutHostRef
-          ? { checkoutHostRef: input.checkoutHostRef }
-          : {}),
         createRestoreOrganization:
           input.createRestoreOrganization ??
           (() => Promise.resolve(RESTORE_ORGANIZATION)),

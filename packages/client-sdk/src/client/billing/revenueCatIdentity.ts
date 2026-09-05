@@ -397,7 +397,6 @@ class RevenueCatIdentityCoordinatorState
   }
 
   runCheckout<T>(checkoutInput: {
-    readonly abortReleasesIdentityGate?: boolean;
     readonly abortSignal?: AbortSignal;
     readonly operation: () => Promise<T>;
     readonly prepare?: () => Promise<void>;
@@ -415,14 +414,10 @@ class RevenueCatIdentityCoordinatorState
     }
     const ready = this.startConfiguration();
     let abandoned = checkoutInput.abortSignal?.aborted ?? false;
-    const gate = this.checkouts.create(
-      checkoutInput.abortSignal,
-      checkoutInput.abortReleasesIdentityGate === true,
-      () => {
-        abandoned = true;
-        void ready.catch(() => undefined);
-      },
-    );
+    const gate = this.checkouts.create(checkoutInput.abortSignal, () => {
+      abandoned = true;
+      void ready.catch(() => undefined);
+    });
     const abandon = () => {
       abandoned = true;
       gate.release();

@@ -180,7 +180,6 @@
       "name": "app-web",
       "version": "0.1.0",
       "dependencies": {
-        "@revenuecat/purchases-js": "1.47.0",
         "@stripe/stripe-js": "8.0.0",
         "@tearleads/client-sdk": "workspace:*",
         "@tearleads/sqlite-worker": "workspace:*",
@@ -871,8 +870,6 @@
     "@redocly/openapi-core": ["@redocly/openapi-core@1.34.17", "", { "dependencies": { "@redocly/ajv": "8.11.2", "@redocly/config": "0.22.0", "colorette": "1.4.0", "https-proxy-agent": "7.0.6", "js-levenshtein": "1.1.6", "js-yaml": "4.2.0", "minimatch": "5.1.9", "pluralize": "8.0.0", "yaml-ast-parser": "0.0.43" } }, "sha512-wsV2keCt6B806XpSdezbWZ9aFJYf14YVh+XQf0ESt7M90yqVuxH9//PxvtC70sgj9OCkRM3nRaLfu4MsGQZRig=="],
 
     "@revenuecat/purchases-capacitor": ["@revenuecat/purchases-capacitor@13.2.1", "", { "dependencies": { "@revenuecat/purchases-typescript-internal-esm": "18.18.0" }, "peerDependencies": { "@capacitor/core": ">=8.0.0" } }, "sha512-NruMHWdDjt4lxteHumHU0h+H1v33/5esl6BQeb3Gd20dLyrvwCltnwNWh4eNymdBjfV5IwYmBJ7o8jPOBljTrA=="],
-
-    "@revenuecat/purchases-js": ["@revenuecat/purchases-js@1.47.0", "", {}, "sha512-bytRHMnz4LKSeZLNE4crLo6FjbS2f80iJO+P4ZJ6U+qMJNMtWTkURVufCM3tHszVizhLtW8JYe8TdbLNADhiEQ=="],
 
     "@revenuecat/purchases-typescript-internal-esm": ["@revenuecat/purchases-typescript-internal-esm@18.18.0", "", {}, "sha512-MmjlKtFESIMpb3TGt2xGyQKVBwIII3GQ5jA5Zh3AAF5oSebQ4DR84ds2y4YMV8TsoCgCZvHP4wJN+oHp3I09Iw=="],
 

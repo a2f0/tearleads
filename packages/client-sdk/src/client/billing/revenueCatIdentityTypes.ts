@@ -34,7 +34,6 @@ export interface RevenueCatIdentityCoordinator {
   runCustomerMutation(input: RevenueCatCustomerMutation): Promise<void>;
   runProviderOperation<T>(input: RevenueCatProviderOperation<T>): Promise<T>;
   runCheckout<T>(input: {
-    readonly abortReleasesIdentityGate?: boolean;
     readonly abortSignal?: AbortSignal;
     readonly operation: () => Promise<T>;
     readonly prepare?: () => Promise<void>;

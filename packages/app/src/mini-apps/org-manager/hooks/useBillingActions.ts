@@ -41,10 +41,6 @@ import { useResolvedBillingOptions } from "./useResolvedBillingOptions";
 export interface BillingActions {
   readonly purchaseAvailable: boolean;
   readonly canSubscribe: boolean;
-  /** Whether this platform embeds a cancellable checkout in the panel. */
-  readonly embeddedCheckout: boolean;
-  /** True while an embedded checkout can still be cancelled (not the refresh tail). */
-  readonly checkoutActive: boolean;
   readonly options: ReadonlyArray<SyncSubscriptionOption>;
   readonly busy: BillingBusyAction | null;
   readonly actionError: string | null;
@@ -54,7 +50,6 @@ export interface BillingActions {
   readonly subscriptionMoveOpen: boolean;
   readonly startTrial: () => void;
   readonly subscribe: (option: SyncSubscriptionOption) => void;
-  readonly cancelCheckout: () => void;
   readonly retryOptions: () => void;
   /** Starts the webhook-settlement poll after an embedded checkout succeeds. */
   readonly markActivationPending: () => void;
@@ -109,40 +104,33 @@ function useStartTrialAction(
 
 /**
  * Owns the cancel action for the purchase currently in flight. Lifecycle
- * cleanup cancels eligibility and identity work before any provider UI starts.
- * Native flows retire this action when the store sheet opens because the app
- * cannot dismiss that sheet; embedded web keeps it through checkout teardown.
+ * cleanup — a scope switch, lost eligibility, or unmount — cancels eligibility,
+ * identity, and native preparation work before the store sheet presents. The
+ * flow retires the action when the sheet opens, because the app cannot
+ * dismiss it; after that the cleanup finds nothing to cancel.
  */
-function useCheckoutCancellation(
+function usePurchaseAbortOnScopeChange(
   organizationId: string,
   userId: string | null,
   canSubscribe: boolean,
-): {
-  cancelPurchaseRef: RefObject<(() => void) | null>;
-  cancelCheckout: () => void;
-} {
+): RefObject<(() => void) | null> {
   const cancelPurchaseRef = useRef<(() => void) | null>(null);
-  const cancelCheckout = useCallback(() => {
-    cancelPurchaseRef.current?.();
-  }, []);
   useLayoutEffect(() => {
     return () => {
       cancelPurchaseRef.current?.();
     };
   }, [organizationId, userId, canSubscribe]);
-  return { cancelPurchaseRef, cancelCheckout };
+  return cancelPurchaseRef;
 }
 
 /**
- * The provider-hosted purchase actions (trial, subscribe, restore) plus the
- * embedded-checkout cancellation they share. Grouped so the top-level hook
- * reads as state → options → actions → poll → projection.
+ * The provider-hosted purchase actions (trial, subscribe, restore). Grouped so
+ * the top-level hook reads as state → options → actions → poll → projection.
  */
 function usePurchaseActions(input: {
   canSubscribe: boolean;
   checkNativePurchaseEligibility: CheckNativePurchaseEligibility;
   checkoutEligible: boolean;
-  checkoutHostRef?: RefObject<HTMLElement | null> | undefined;
   currentScope: BillingActionScope;
   organizationId: string;
   purchases: PurchasesCapability;
@@ -159,7 +147,7 @@ function usePurchaseActions(input: {
     input.startTrialRequest,
     input.updateActionState,
   );
-  const { cancelCheckout, cancelPurchaseRef } = useCheckoutCancellation(
+  const cancelPurchaseRef = usePurchaseAbortOnScopeChange(
     input.organizationId,
     input.userId,
     input.checkoutEligible,
@@ -168,7 +156,6 @@ function usePurchaseActions(input: {
     canSubscribe: input.canSubscribe,
     cancelPurchaseRef,
     checkNativePurchaseEligibility: input.checkNativePurchaseEligibility,
-    checkoutHostRef: input.checkoutHostRef,
     currentScope: input.currentScope,
     purchases: input.purchases,
     refresh: input.refresh,
@@ -182,12 +169,7 @@ function usePurchaseActions(input: {
     input.refresh,
     input.updateActionState,
   );
-  return {
-    cancelCheckout,
-    markActivationPending,
-    startTrial,
-    subscribe,
-  };
+  return { markActivationPending, startTrial, subscribe };
 }
 
 /**
@@ -288,8 +270,6 @@ interface UseBillingActionsInput {
     store: NativeSubscriptionStore,
   ) => Promise<boolean>;
   completeRestoreOrganization: (organizationId: string) => Promise<boolean>;
-  /** Checkout embed host, read at purchase time; absent = full-page overlay. */
-  checkoutHostRef?: RefObject<HTMLElement | null>;
   createRestoreOrganization: () => Promise<SessionCreateOrganizationResult | null>;
   isOrgAdmin: boolean;
   /** New native purchases are offered only for the buyer's personal organization. */
@@ -320,10 +300,6 @@ function projectBillingActions(input: {
   return {
     purchaseAvailable: input.purchases.isAvailable,
     canSubscribe: input.canSubscribe,
-    embeddedCheckout: input.purchases.supportsEmbeddedCheckout === true,
-    checkoutActive: input.actionStateMatches
-      ? input.actionState.checkoutActive
-      : false,
     options: input.options,
     busy,
     actionError: scopedActionError ?? optionsError,
@@ -335,7 +311,6 @@ function projectBillingActions(input: {
     subscriptionMoveOpen: input.subscriptionMove.open,
     startTrial: input.actions.startTrial,
     subscribe: input.actions.subscribe,
-    cancelCheckout: input.actions.cancelCheckout,
     retryOptions: input.retryOptions,
     markActivationPending: input.actions.markActivationPending,
     requestSubscriptionMove: input.subscriptionMove.request,
@@ -379,7 +354,6 @@ export function useBillingActions({
   checkNativePurchaseEligibility,
   claimNativeSubscription,
   completeRestoreOrganization,
-  checkoutHostRef,
   createRestoreOrganization,
   isOrgAdmin,
   nativePurchaseAllowed = true,
@@ -438,7 +412,6 @@ export function useBillingActions({
     canSubscribe: purchaseCanSubscribe,
     checkNativePurchaseEligibility,
     checkoutEligible: canSubscribe,
-    checkoutHostRef,
     currentScope,
     organizationId,
     purchases,

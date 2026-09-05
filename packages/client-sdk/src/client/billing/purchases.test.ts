@@ -5,7 +5,6 @@ import {
   PurchaseCancelledError,
   PurchaseIdentityPendingError,
   PurchaseProviderStalledError,
-  PurchasesUnavailableError,
   type RevenueCatBackend,
   type RevenueCatCustomerInfo,
   type RevenueCatPackage,
@@ -17,8 +16,6 @@ interface RecordingBackend extends RevenueCatBackend {
   readonly attributes: Record<string, string | null>;
   readonly purchaseInputs: Array<{
     packageId: string;
-    htmlTarget?: HTMLElement;
-    metadata?: Record<string, string>;
     abortSignal?: AbortSignal;
     onProviderPresented?: () => void;
   }>;
@@ -203,17 +200,15 @@ test("purchaseSync binds the org attribute before buying and reports the entitle
   );
 });
 
-test("purchaseSync forwards the checkout host and abort signal to the backend", async () => {
+test("purchaseSync forwards the abort signal and presentation callback", async () => {
   const backend = createFakeBackend();
   const purchases = createRevenueCatPurchases(backend, CONFIG);
-  const checkoutHost = { id: "checkout-host" } as unknown as HTMLElement;
   const abortSignal = new AbortController().signal;
   const onProviderPresented = () => {};
 
   await purchases.purchaseSync({
     organizationId: "org-9",
     packageId: "monthly",
-    checkoutHost,
     abortSignal,
     onProviderPresented,
   });
@@ -222,12 +217,10 @@ test("purchaseSync forwards the checkout host and abort signal to the backend", 
     packageId: "monthly",
   });
 
-  expect(backend.purchaseInputs[0]?.htmlTarget).toBe(checkoutHost);
   expect(backend.purchaseInputs[0]?.abortSignal).toBe(abortSignal);
   expect(backend.purchaseInputs[0]?.onProviderPresented).toBe(
     onProviderPresented,
   );
-  expect(backend.purchaseInputs[1]?.htmlTarget).toBeUndefined();
   expect(backend.purchaseInputs[1]?.abortSignal).toBeUndefined();
   expect(backend.purchaseInputs[1]?.onProviderPresented).toBeUndefined();
 });
@@ -345,35 +338,6 @@ test("purchaseSync normalizes post-abort preparation failures to cancellation", 
   ).rejects.toThrow("network down");
 });
 
-test("purchaseSync stamps the org onto the transaction metadata", async () => {
-  const backend = createFakeBackend();
-  const purchases = createRevenueCatPurchases(backend, CONFIG);
-
-  await purchases.purchaseSync({
-    organizationId: "org-9",
-    packageId: "monthly",
-  });
-
-  // The metadata mirrors the subscriber attribute but is per-transaction and
-  // immutable, so a purchase that completes late is still attributed to the
-  // org it was started for.
-  expect(backend.purchaseInputs[0]?.metadata).toEqual({ orgId: "org-9" });
-});
-
-test("purchaseSync honors a custom attribute key in the metadata too", async () => {
-  const backend = createFakeBackend();
-  const purchases = createRevenueCatPurchases(backend, {
-    ...CONFIG,
-    organizationAttributeKey: "$organizationId",
-  });
-
-  await purchases.purchaseSync({ organizationId: "org-1", packageId: "p" });
-
-  expect(backend.purchaseInputs[0]?.metadata).toEqual({
-    $organizationId: "org-1",
-  });
-});
-
 test("purchaseSync reports an inactive entitlement when the purchase grants none", async () => {
   const backend = createFakeBackend({ entitlementsAfterPurchase: [] });
   const purchases = createRevenueCatPurchases(backend, CONFIG);
@@ -405,34 +369,4 @@ test("hasActiveSyncEntitlement reflects the current customer entitlements", asyn
   );
   expect(await withSync.hasActiveSyncEntitlement()).toBe(true);
   expect(await withoutSync.hasActiveSyncEntitlement()).toBe(false);
-});
-
-test("observation-only RevenueCat disables purchases but preserves entitlement reads", async () => {
-  const backend = createFakeBackend({ entitlementsNow: ["sync"] });
-  const purchases = createRevenueCatPurchases(backend, {
-    ...CONFIG,
-    purchasesEnabled: false,
-    supportsEmbeddedCheckout: true,
-  });
-
-  expect(purchases.isAvailable).toBe(false);
-  expect(purchases.supportsEmbeddedCheckout).toBe(false);
-  expect(await purchases.listSyncOptions()).toEqual([]);
-  await expect(
-    purchases.purchaseSync({ organizationId: "org-1", packageId: "monthly" }),
-  ).rejects.toBeInstanceOf(PurchasesUnavailableError);
-  await expect(
-    purchases.bindOrganization({ organizationId: "org-1" }),
-  ).rejects.toBeInstanceOf(PurchasesUnavailableError);
-  await expect(
-    purchases.moveNativeSubscription({
-      claim: () => Promise.resolve(true),
-      prepareClaim: () => Promise.resolve("org-1"),
-      userId: "user-1",
-    }),
-  ).rejects.toBeInstanceOf(PurchasesUnavailableError);
-  expect(await purchases.hasActiveSyncEntitlement()).toBe(true);
-  expect(backend.calls).not.toContain("getCurrentPackages");
-  expect(backend.calls).not.toContain("setAttributes");
-  expect(backend.calls).not.toContain("purchasePackage:monthly");
 });
