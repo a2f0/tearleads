@@ -208,7 +208,7 @@ function BackupRestorePanel({
       <MiniAppStatus>
         {model.selectedRestoreFileName ?? "No backup file selected."}
       </MiniAppStatus>
-      {model.restoreRequiresPassword && (
+      {model.restoreRequiresPassword ? (
         <MiniAppField>
           <span>Password</span>
           <MiniAppInput
@@ -219,6 +219,11 @@ function BackupRestorePanel({
             onChange={(event) => model.setRestorePassword(event.target.value)}
           />
         </MiniAppField>
+      ) : (
+        <p className="backup-restore-password-notice">
+          This backup is not encrypted. Anyone with the file can read or modify
+          its contents.
+        </p>
       )}
       <MiniAppButton
         block

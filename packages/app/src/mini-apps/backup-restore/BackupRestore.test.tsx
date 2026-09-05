@@ -193,12 +193,14 @@ test("exports without a password despite stale mismatched fields and restores wi
   fireEvent.click(view.getByRole("tab", { name: "Restore" }));
   chooseBackup(view, text);
   await waitFor(() => expect(view.queryByLabelText("Password")).toBeNull());
+  expect(view.queryByText(/This backup is not encrypted/)).toBeTruthy();
   fireEvent.click(view.getByRole("button", { name: "Restore Backup" }));
   await waitFor(() =>
     expect(view.queryByText(/Backup restored:/)).toBeTruthy(),
   );
   expect(view.queryByRole("button", { name: "Reload App" })).toBeTruthy();
   expect(view.queryByLabelText("Password")).toBeTruthy();
+  expect(view.queryByText(/This backup is not encrypted/)).toBeNull();
 });
 
 test("encrypted backups still require the correct password and can be retried", async () => {
@@ -207,6 +209,7 @@ test("encrypted backups still require the correct password and can be retried", 
   expect(backupFileRequiresPassword(text)).toBe(true);
   fireEvent.click(view.getByRole("tab", { name: "Restore" }));
   await act(async () => chooseBackup(view, text));
+  expect(view.queryByText(/This backup is not encrypted/)).toBeNull();
   fireEvent.click(view.getByRole("button", { name: "Restore Backup" }));
   expect(view.queryByText("Enter the restore password.")).toBeTruthy();
   fireEvent.change(view.getByLabelText("Password"), {
