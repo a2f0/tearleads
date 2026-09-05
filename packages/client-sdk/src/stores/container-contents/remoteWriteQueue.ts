@@ -22,6 +22,7 @@ export function chainRemoteContainerTask<T>(
   staleResult: T,
   work: (isCurrent: () => boolean) => Promise<T>,
   scope?: RemoteContainerWriteScope,
+  options: { preserveResultOnLocalWrite?: boolean } = {},
 ): Promise<T> {
   const contextCurrent = captureContainerWriteGeneration(state);
   const previous = remoteWritesByState.get(state);
@@ -39,7 +40,11 @@ export function chainRemoteContainerTask<T>(
     try {
       if (!isCurrent()) return staleResult;
       const result = await work(isCurrent);
-      return isCurrent() ? result : staleResult;
+      // Only completed operations opt in. A replaced runtime always cancels.
+      return contextCurrent() &&
+        (!tracked.changed() || options.preserveResultOnLocalWrite)
+        ? result
+        : staleResult;
     } finally {
       tracked.dispose();
       if (contextCurrent() && tracked.changed()) {

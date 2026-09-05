@@ -38,15 +38,21 @@ export function invalidateRemoteContainerWrites(
   changedIds: readonly string[] | null,
   movedId?: string,
 ): void {
+  if (changedIds?.length === 0 && movedId === undefined) return;
   for (const write of activeByState.get(state) ?? []) {
-    const rootId =
-      typeof write.scope === "object"
-        ? findSystemContainerStateForRoot(
-            state,
-            write.scope.systemSlot,
-            state.containersById.get(write.scope.rootId) ?? null,
-          )?.container.id
-        : write.scope;
+    let rootId: string | undefined;
+    if (typeof write.scope === "object") {
+      const root = state.containersById.get(write.scope.rootId);
+      if (root) {
+        rootId = findSystemContainerStateForRoot(
+          state,
+          write.scope.systemSlot,
+          root,
+        )?.container.id;
+      }
+    } else {
+      rootId = write.scope;
+    }
     if (
       write.scope === undefined ||
       changedIds === null ||

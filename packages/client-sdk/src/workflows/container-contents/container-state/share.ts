@@ -346,9 +346,8 @@ export async function shareContainerState(input: {
     stillCurrent: input.stillCurrent,
   });
 
-  if (!shared || input.stillCurrent?.() === false) {
-    return null;
-  }
+  if (!shared) return null;
+  if (input.stillCurrent?.() === false) return { status: "confirmed" };
 
   return persistSharedContainerState({
     containerState: input.containerState,
@@ -428,9 +427,8 @@ export async function shareContainerStateWithGroup(input: {
     stillCurrent: input.stillCurrent,
   });
 
-  if (!shared || input.stillCurrent?.() === false) {
-    return null;
-  }
+  if (!shared) return null;
+  if (input.stillCurrent?.() === false) return { status: "confirmed" };
 
   return persistSharedContainerState({
     containerState: input.containerState,

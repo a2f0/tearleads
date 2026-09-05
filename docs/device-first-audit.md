@@ -55,7 +55,9 @@ after the abandoned request settles.
 Real-API tests run the public SDK against SQLite. A share committed remotely
 then held during local persistence can race a rename of that same folder:
 serialized, guarded metadata writes preserve the rename and the grant, and the
-recipient eventually sees the new name. A queued move overlapping a held
+recipient eventually sees the new name. The caller still receives success for
+the verified grant when its local installation is superseded; runtime replacement
+and incomplete operations remain unsuccessful. A queued move overlapping a held
 autosave response retries its structural preflight automatically after settlement,
 completes link and unlink, and retains the edited text without another event,
 reconnect, or manual refresh.

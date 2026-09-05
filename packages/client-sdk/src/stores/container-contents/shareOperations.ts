@@ -16,7 +16,6 @@ import type {
   ContainerContentsShareAccessLevel,
   ContainerContentsStoreState,
 } from "./types";
-import { toContainerNode } from "./utils";
 import type { ContainerWriteGuard } from "./writeGeneration";
 
 export async function shareContainerUsing(
@@ -36,7 +35,7 @@ export async function shareContainerUsing(
     !state.runtime.state.online ||
     !isCurrent()
   ) {
-    return null;
+    return false;
   }
 
   const existingState = state.containersById.get(containerId);
@@ -46,12 +45,12 @@ export async function shareContainerUsing(
     typeof expectedAccessStateHash !== "string" ||
     expectedAccessStateHash.length === 0
   ) {
-    return null;
+    return false;
   }
 
   const shared = await share(existingState);
-  if (!shared || !isCurrent()) {
-    if (!isCurrent()) {
+  if (!shared || !isCurrent() || shared.status === "confirmed") {
+    if (!isCurrent() || shared?.status === "confirmed") {
       state.localContainersNeedRefresh = true;
       state.containerParentIdsNeedingHydration.add(
         existingState.container.parentId,
@@ -59,25 +58,25 @@ export async function shareContainerUsing(
       void syncAgent.refreshLocalContainers();
       syncAgent.scheduleRemoteHydration();
     }
-    return null;
+    return shared?.status === "confirmed" || shared?.status === "persisted";
   }
   if (shared.status === "missing") {
     removeMissingContainerState(state, existingState);
-    return null;
+    return false;
   }
 
   existingState.container = shared.container;
   installContainerMetadataRecord(existingState, shared.record);
   updateContainerContentsSnapshot(state);
-  if (shared.status === "identity-superseded") return null;
+  if (shared.status === "identity-superseded") return false;
 
   await syncAgent.primeDocumentsForSharedSubtree(containerId, isCurrent);
-  if (!isCurrent()) return null;
+  if (!isCurrent()) return true;
   syncAgent.scheduleSync();
   state.runtime.util.log(
     `${getContainerContentsStoreLogLabel(state)}: ${logMessage}`,
   );
-  return toContainerNode(existingState);
+  return true;
 }
 
 export async function shareContainerWithUser(

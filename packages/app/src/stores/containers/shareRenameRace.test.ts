@@ -78,7 +78,7 @@ test("a committed share racing a local rename preserves both after reconciliatio
     ]);
     const rename = tree.renameContainer(folder.id, "Renamed during share");
     releasePersist.resolve();
-    expect(await share).toBe(false);
+    expect(await share).toBe(true);
     expect((await rename)?.name).toBe("Renamed during share");
     expect(await coordinator.waitForIdle({ timeoutMs: 10_000 })).toBe(true);
     await waitFor(() =>

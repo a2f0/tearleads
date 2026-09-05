@@ -198,7 +198,7 @@ function createPrepareGroupRewrapMethod(
             chainRemoteContainerTask(
               state,
               syncAgent,
-              null,
+              false,
               (isCurrent) =>
                 shareContainerWithGroup(
                   state,
@@ -216,7 +216,8 @@ function createPrepareGroupRewrapMethod(
                   isCurrent,
                 ),
               containerId,
-            ).then((node) => node !== null),
+              { preserveResultOnLocalWrite: true },
+            ),
           status: "prepared" as const,
         }
       : (preparation ?? null);
@@ -232,7 +233,7 @@ function createContainerSharingMethods(
       chainRemoteContainerTask(
         state,
         syncAgent,
-        null,
+        false,
         (isCurrent) =>
           shareContainerWithUser(
             state,
@@ -242,12 +243,13 @@ function createContainerSharingMethods(
             isCurrent,
           ),
         containerId,
-      ).then((node) => node !== null),
+        { preserveResultOnLocalWrite: true },
+      ),
     shareWithGroup: (containerId, groupId, accessLevel, options) =>
       chainRemoteContainerTask(
         state,
         syncAgent,
-        null,
+        false,
         (isCurrent) =>
           shareContainerWithGroup(
             state,
@@ -259,7 +261,8 @@ function createContainerSharingMethods(
             isCurrent,
           ),
         containerId,
-      ).then((node) => node !== null),
+        { preserveResultOnLocalWrite: true },
+      ),
   };
 }
 

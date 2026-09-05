@@ -28,6 +28,8 @@ export interface MatchingRemoteContainerGrant {
   updatedAt: string | null;
 }
 
+// These helpers run only after the remote grant is verified. A skipped local
+// install does not undo that acknowledgement; reconciliation installs it later.
 export async function persistSharedContainerState(input: {
   containerState: ContainerState;
   persistence: ContainerContentsPersistence;
@@ -35,17 +37,17 @@ export async function persistSharedContainerState(input: {
   shared: SharedRemoteContainerState;
   stillCurrent?: (() => boolean) | undefined;
 }): Promise<SharedContainerStateResult | null> {
-  if (input.stillCurrent?.() === false) return null;
+  if (input.stillCurrent?.() === false) return { status: "confirmed" };
   await createRuntimePrincipalPolicyWarmer(input.runtime)({
     organizationId: input.shared.writerProjection.organizationId,
     references: input.shared.referencedPrincipalHeads,
     stillCurrent: input.stillCurrent,
   });
-  if (input.stillCurrent?.() === false) return null;
+  if (input.stillCurrent?.() === false) return { status: "confirmed" };
   const candidateState = await createDetachedContainerMetadataState(
     input.containerState,
   );
-  if (input.stillCurrent?.() === false) return null;
+  if (input.stillCurrent?.() === false) return { status: "confirmed" };
   candidateState.container = {
     ...input.containerState.container,
     createdAt: input.shared.createdAt,
@@ -75,7 +77,7 @@ export async function persistSharedContainerState(input: {
       },
     },
   });
-  if (input.stillCurrent?.() === false) return null;
+  if (input.stillCurrent?.() === false) return { status: "confirmed" };
   if (!persisted) return { status: "missing" };
   candidateState.container = persisted.container;
   installDetachedContainerMetadataState(input.containerState, candidateState, {
@@ -106,17 +108,17 @@ export async function persistDuplicateContainerShare(input: {
   runtime: ContainerWorkflowRuntime;
   stillCurrent?: (() => boolean) | undefined;
 }): Promise<SharedContainerStateResult | null> {
-  if (input.stillCurrent?.() === false) return null;
+  if (input.stillCurrent?.() === false) return { status: "confirmed" };
   await createRuntimePrincipalPolicyWarmer(input.runtime)({
     organizationId: input.projection.organizationId,
     references: input.grant.referencedPrincipalHeads,
     stillCurrent: input.stillCurrent,
   });
-  if (input.stillCurrent?.() === false) return null;
+  if (input.stillCurrent?.() === false) return { status: "confirmed" };
   const candidateState = await createDetachedContainerMetadataState(
     input.containerState,
   );
-  if (input.stillCurrent?.() === false) return null;
+  if (input.stillCurrent?.() === false) return { status: "confirmed" };
   candidateState.container = {
     ...input.containerState.container,
     ...(input.grant.createdAt
@@ -162,7 +164,7 @@ export async function persistDuplicateContainerShare(input: {
       },
     },
   });
-  if (input.stillCurrent?.() === false) return null;
+  if (input.stillCurrent?.() === false) return { status: "confirmed" };
   if (!persisted) return { status: "missing" };
   candidateState.container = persisted.container;
   installDetachedContainerMetadataState(input.containerState, candidateState, {
