@@ -13,6 +13,13 @@ const remoteWorkByState = new WeakMap<
   }
 >();
 
+export class DocumentRemoteWorkBusyError extends Error {
+  constructor(readonly whenIdle: Promise<void>) {
+    super("Document remote work is still running; retry the operation");
+    this.name = "DocumentRemoteWorkBusyError";
+  }
+}
+
 export function getActiveDocumentRemoteWork(
   state: DocumentStoreState,
 ): Promise<void> | null {
@@ -28,10 +35,9 @@ export function runDocumentRemoteWork<T>(
   state: DocumentStoreState,
   task: () => Promise<T>,
 ): Promise<T> {
-  if (getActiveDocumentRemoteWork(state)) {
-    return Promise.reject(
-      new Error("Document remote work is still running; retry the operation"),
-    );
+  const pending = getActiveDocumentRemoteWork(state);
+  if (pending) {
+    return Promise.reject(new DocumentRemoteWorkBusyError(pending));
   }
   const generation = captureDocumentStoreSyncLaneGeneration(state);
   const work = Promise.resolve()

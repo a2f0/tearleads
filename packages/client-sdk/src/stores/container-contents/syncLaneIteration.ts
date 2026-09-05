@@ -12,6 +12,7 @@ import type {
 import { createContainerContentsDocumentsRuntime } from "../../workflows/container-contents/runtime";
 import { openDocumentStore, requestDomainDocumentSync } from "../documents";
 import { relinkDocumentStoreWithCommitSideEffect } from "../documents/documentStore/internalRelink";
+import { DocumentRemoteWorkBusyError } from "../documents/documentStore/remoteWork";
 import { primeStoreDocuments, recoverStoreStaleRoot } from "./documentRecovery";
 import { runContainerDocumentWork } from "./documentWork";
 import {
@@ -67,6 +68,7 @@ function captureStructuralSyncGeneration(
 
 function createContainerContentsStoreDocumentMoveHost(
   state: ContainerContentsStoreSyncState,
+  isCurrent: () => boolean,
 ): DocumentMoveIntentSyncHost<ContainerContentsStorePrimeDocumentRuntime> {
   const runtime = state.runtime;
   const domainScope = runtime.state.domainScope;
@@ -81,7 +83,15 @@ function createContainerContentsStoreDocumentMoveHost(
         documentId,
       );
       return {
-        assertCanRotateContentKey: () => store.assertCanRotateContentKey(),
+        assertCanRotateContentKey: () =>
+          store.assertCanRotateContentKey().catch((error: unknown) => {
+            if (error instanceof DocumentRemoteWorkBusyError) {
+              void error.whenIdle.then(() => {
+                if (isCurrent()) requestContainerContentsStoreSync(state);
+              });
+            }
+            throw error;
+          }),
         ensureInitialized: () => store.ensureInitialized(),
         relink: ({ commitSideEffect, ...input }) =>
           commitSideEffect
@@ -104,7 +114,10 @@ function syncPendingStoreDocumentMoves(input: {
   state: ContainerContentsStoreSyncState;
 }) {
   return syncPendingDocumentMoveIntents({
-    host: createContainerContentsStoreDocumentMoveHost(input.state),
+    host: createContainerContentsStoreDocumentMoveHost(
+      input.state,
+      input.isCurrent,
+    ),
     isCurrent: input.isCurrent,
     isRemoteSyncBlocked: input.isRemoteSyncBlocked,
     state: input.state,
