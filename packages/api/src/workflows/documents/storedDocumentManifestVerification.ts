@@ -223,6 +223,10 @@ async function loadContainerPaths(input: {
           loadContainerManifestBundleByHash(input.context, hash),
       });
     },
+  }).catch((error: unknown) => {
+    if (error instanceof KeyingVerificationError)
+      throw integrityError(error.message);
+    throw error;
   });
 }
 

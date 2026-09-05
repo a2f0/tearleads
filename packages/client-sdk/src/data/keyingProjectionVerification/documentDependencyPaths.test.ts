@@ -1,7 +1,10 @@
 import { expect, test } from "bun:test";
 import type { VerifiedContainerAccessManifest } from "@tearleads/crypto";
 import { createContainerManifestFixture } from "@tearleads/crypto/test-fixtures";
-import { createScenario } from "../../../test/helpers/ancestorCitationScenario";
+import {
+  createScenario,
+  grantBy,
+} from "../../../test/helpers/ancestorCitationScenario";
 import { resolveEventContainerPaths } from "./documentDependencyPaths";
 
 function index(manifests: readonly VerifiedContainerAccessManifest[]) {
@@ -36,6 +39,38 @@ test("document paths use signed ancestors instead of creation-time pins", async 
   expect(
     resolved.targetContainerPath?.map((manifest) => manifest.manifestHash),
   ).toEqual([root2.manifestHash, child1.manifestHash]);
+});
+
+test("document citations cannot mix a stale or forked ancestor with a newer signed child", async () => {
+  const { alice, root1, root2, child1 } = await createScenario();
+  const child2 = await grantBy({
+    previous: child1,
+    cited: [root2.manifestHash, child1.manifestHash],
+    signer: alice,
+    subjectId: "reader",
+  });
+  const fork = await grantBy({
+    previous: root1,
+    cited: [root1.manifestHash],
+    signer: alice,
+    subjectId: "fork-reader",
+  });
+  const paths = index([root1, root2, fork, child1, child2]);
+  for (const ancestor of [root1, fork]) {
+    expect(() =>
+      resolveEventContainerPaths({
+        containerPathByManifestHash: paths,
+        dependencyManifestHashes: [ancestor.manifestHash, child2.manifestHash],
+      }),
+    ).toThrow("does not descend");
+  }
+  expect(
+    resolveEventContainerPaths({
+      containerPathByManifestHash: paths,
+      dependencyManifestHashes: [root2.manifestHash, child2.manifestHash],
+      targetManifestHash: child2.manifestHash,
+    }).targetContainerPath?.map((head) => head.manifestHash),
+  ).toEqual([root2.manifestHash, child2.manifestHash]);
 });
 
 test("a served parent pin cannot fill an omitted document citation", async () => {

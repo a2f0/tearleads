@@ -13,6 +13,7 @@ async function scenario() {
     directGrants: [],
     containerId: "cited-root",
     epoch: 2,
+    previousManifestHash: root1.manifestHash,
   });
   const child = await createContainerManifestFixture({
     directGrants: [],
@@ -40,6 +41,56 @@ test("stored paths follow cited ancestors and ignore creation pins and input ord
   expect(paths[0]?.map((head) => head.manifestHash)).toEqual([
     root2.manifestHash,
     child.manifestHash,
+  ]);
+});
+
+test("stored paths reject stale and forked ancestors proved by a descendant's citations", async () => {
+  const { root1, root2, child } = await scenario();
+  // The loader's boundary is already-verified manifests; these structural
+  // variants isolate lineage selection, not signature verification.
+  const grandchild = {
+    ...child,
+    manifestHash: "grandchild-head",
+    state: {
+      ...child.state,
+      containerId: "grandchild",
+      parentContainerId: child.state.containerId,
+      parentManifestHash: child.manifestHash,
+    },
+    event: {
+      ...child.event,
+      event: {
+        ...child.event.event,
+        dependencyManifestHashes: [root2.manifestHash, child.manifestHash],
+      },
+    },
+  };
+  const fork = { ...root2, manifestHash: "root-fork" };
+  const byHash = new Map(
+    [root1, root2, child, grandchild, fork].map((head) => [
+      head.manifestHash,
+      head,
+    ]),
+  );
+  const run = (ancestor: VerifiedContainerAccessManifest) =>
+    loadCitedDocumentContainerPaths({
+      dependencyManifestHashes: [
+        ancestor.manifestHash,
+        child.manifestHash,
+        grandchild.manifestHash,
+      ],
+      loadManifest: async (hash) => {
+        const found = byHash.get(hash);
+        if (!found) throw new Error("Missing lineage fixture");
+        return found;
+      },
+    });
+  for (const ancestor of [root1, fork])
+    await expect(run(ancestor)).rejects.toThrow("does not descend");
+  expect((await run(root2)).at(-1)?.map((head) => head.manifestHash)).toEqual([
+    root2.manifestHash,
+    child.manifestHash,
+    grandchild.manifestHash,
   ]);
 });
 

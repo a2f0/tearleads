@@ -272,7 +272,11 @@ checkpoint enforcement, because a historical link legitimately cites the
 container heads current when it was signed. Every document and attachment
 event, including a document head new to this device, selects exactly its
 signed full-path citations. A checkpoint-enforced current path cannot replace
-an event's cited ancestor. Content-write headers instead commit leaf targets;
+an event's cited ancestor. Nor can a citation set mix an older or forked ancestor
+with a descendant whose own signed citations prove a newer ancestor exists.
+Both client and stored-document verification enforce these lineage floors;
+consistent historical snapshots remain valid. Content-write headers instead
+commit leaf targets;
 their index prefers a checkpoint-enforced path for a current leaf and retains
 verified pinned ancestry for historical targets. If that ancestry is incomplete,
 the signed leaf can still authorize its own direct writer; it cannot confer

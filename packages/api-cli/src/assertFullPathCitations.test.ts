@@ -143,6 +143,7 @@ test.each([
   "duplicate-head",
   "malformed-state",
   "invalid-parent",
+  "non-container",
 ] as const)("deployment refuses %s citation evidence without modifying it", async (corruption) => {
   const { managed, row } = await fixture();
   try {
@@ -167,12 +168,14 @@ test.each([
         .set(
           corruption === "foreign-org"
             ? { organizationId: crypto.randomUUID() }
-            : {
-                state:
-                  corruption === "malformed-state"
-                    ? []
-                    : { parentContainerId: 42 },
-              },
+            : corruption === "non-container"
+              ? { objectKind: "document" }
+              : {
+                  state:
+                    corruption === "malformed-state"
+                      ? []
+                      : { parentContainerId: 42 },
+                },
         )
         .where(eq(accessManifests.manifestHash, "root-head"));
     }

@@ -2,6 +2,7 @@ import {
   KeyingVerificationError,
   type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
+import { assertStoredDocumentPathLineage } from "./storedDocumentPathLineage";
 
 const MAX_CONTAINER_PATH_DEPTH = 100;
 
@@ -13,7 +14,10 @@ export async function loadCitedDocumentContainerPaths(input: {
   ) => Promise<VerifiedContainerAccessManifest>;
 }): Promise<VerifiedContainerAccessManifest[][]> {
   const cited = new Map<string, VerifiedContainerAccessManifest>();
-  for (const hash of input.dependencyManifestHashes) {
+  const loaded = new Map<string, VerifiedContainerAccessManifest>();
+  const loadManifest = async (hash: string) => {
+    const cached = loaded.get(hash);
+    if (cached) return cached;
     const manifest = await input.loadManifest(hash);
     if (manifest.manifestHash !== hash) {
       throw new KeyingVerificationError(
@@ -21,6 +25,11 @@ export async function loadCitedDocumentContainerPaths(input: {
         "stored container dependency does not match its citation",
       );
     }
+    loaded.set(hash, manifest);
+    return manifest;
+  };
+  for (const hash of input.dependencyManifestHashes) {
+    const manifest = await loadManifest(hash);
     if (cited.has(manifest.state.containerId)) {
       throw new KeyingVerificationError(
         "duplicate_entry",
@@ -29,7 +38,7 @@ export async function loadCitedDocumentContainerPaths(input: {
     }
     cited.set(manifest.state.containerId, manifest);
   }
-  return [...cited.values()].map((leaf) => {
+  const paths = [...cited.values()].map((leaf) => {
     const reversed: VerifiedContainerAccessManifest[] = [];
     const seen = new Set<string>();
     let id: string | null = leaf.state.containerId;
@@ -65,4 +74,8 @@ export async function loadCitedDocumentContainerPaths(input: {
     }
     return reversed.reverse();
   });
+  for (const path of paths) {
+    await assertStoredDocumentPathLineage({ path, loadManifest });
+  }
+  return paths;
 }

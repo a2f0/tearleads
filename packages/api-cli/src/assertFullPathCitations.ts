@@ -27,7 +27,7 @@ function collectParents(
 ): void {
   for (const row of rows) {
     if (row.organizationId !== event.organizationId) resetRequired(event.id);
-    if (row.objectKind !== "container") continue;
+    if (row.objectKind !== "container") resetRequired(event.id);
     if (!row.state || typeof row.state !== "object" || Array.isArray(row.state))
       resetRequired(event.id);
     const parentId: unknown = Reflect.get(row.state, "parentContainerId");

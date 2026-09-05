@@ -2,6 +2,7 @@ import {
   KeyingVerificationError,
   type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
+import { assertCitedAncestorsDoNotRegress } from "./containerAncestorCitations";
 
 const MAX_CONTAINER_PATH_DEPTH = 100;
 
@@ -78,7 +79,18 @@ export function resolveEventContainerPaths(input: {
       reversed.push(ancestor);
       containerId = ancestor.state.parentContainerId;
     }
-    return reversed.reverse();
+    const path = reversed.reverse();
+    // The cited descendant is itself an earlier signed statement. Its own
+    // citations establish floors for every ancestor, even when the server
+    // supplied these verified manifests in separate projection paths.
+    assertCitedAncestorsDoNotRegress({
+      bundlesByHash: new Map(),
+      label: "Document event",
+      verifiedByHash: manifests,
+      citedAncestors: path.slice(0, -1),
+      previousManifest: leaf,
+    });
+    return path;
   });
   return {
     dependencyContainerPaths,
