@@ -19,6 +19,7 @@ import {
 } from "../../adapters/blobObjectStore";
 import { summarizeSha256Stream } from "../../utils/sha256";
 import {
+  expireBlobStageForCleanup,
   loadOwnedActiveBlobStage,
   type OwnedActiveBlobStage,
 } from "../../workflows/blobs/stageAccess";
@@ -169,10 +170,7 @@ export async function cleanupExpiredBlobStages(
   const limit = normalizeCleanupLimit(input.limit);
   const stages = await runtime.db
     .select({
-      completedAt: blobStages.completedAt,
       id: blobStages.id,
-      storageKey: blobStages.storageKey,
-      uploadId: blobStages.uploadId,
     })
     .from(blobStages)
     .where(lte(blobStages.expiresAt, now))
@@ -183,8 +181,13 @@ export async function cleanupExpiredBlobStages(
   const failures: unknown[] = [];
   const cleanedStageIds: string[] = [];
 
-  for (const stage of stages) {
+  for (const candidate of stages) {
     try {
+      const stage = await expireBlobStageForCleanup(runtime.db, {
+        now,
+        stageId: candidate.id,
+      });
+      if (!stage) continue;
       if (stage.completedAt === null) {
         await runtime.blobObjectStore.abortMultipartUpload({
           key: stage.storageKey,

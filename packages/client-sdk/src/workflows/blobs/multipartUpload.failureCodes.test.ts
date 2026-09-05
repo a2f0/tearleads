@@ -125,6 +125,7 @@ test("preserves resumable state after unproven lookup failures", async () => {
     let encryptCalls = 0;
     let initiateCalls = 0;
     let resolvedCalls = 0;
+    let unavailableCalls = 0;
     await expect(
       stageMultipartBlobAttachment({
         apiClient: createApi({
@@ -140,10 +141,41 @@ test("preserves resumable state after unproven lookup failures", async () => {
         onStageResolved: () => {
           resolvedCalls += 1;
         },
+        onStageUnavailable: async () => {
+          unavailableCalls += 1;
+        },
       }),
     ).rejects.toThrow(failure.message);
     expect(encryptCalls).toBe(0);
     expect(initiateCalls).toBe(0);
     expect(resolvedCalls).toBe(0);
+    expect(unavailableCalls).toBe(0);
   }
+});
+
+test("a durable owner renews its identity before a missing stage is replaced", async () => {
+  let initiateCalls = 0;
+  const unavailableStages: string[] = [];
+  await expect(
+    stageMultipartBlobAttachment({
+      apiClient: createApi({
+        failure: {
+          code: MULTIPART_BLOB_STAGE_ERROR_CODES.notFound,
+          kind: "http",
+          message: "stage consumed by a committed bind",
+          status: 404,
+        },
+        onInitiate: () => {
+          initiateCalls += 1;
+        },
+      }),
+      encryption: createPlan(),
+      multipart: { partSize: CHUNK_SIZE, resumeStageId: "consumed-stage" },
+      onStageUnavailable: async (stageId) => {
+        unavailableStages.push(stageId);
+      },
+    }),
+  ).rejects.toThrow("upload identity must be renewed");
+  expect(unavailableStages).toEqual(["consumed-stage"]);
+  expect(initiateCalls).toBe(0);
 });

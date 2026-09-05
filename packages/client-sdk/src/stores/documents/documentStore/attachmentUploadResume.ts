@@ -36,6 +36,10 @@ export interface AttachmentUploadResume {
   readonly nonceSeed: Uint8Array;
   readonly multipart: { partSize: number; resumeStageId: string } | undefined;
   readonly onStageResolved: MultipartStageResolvedListener;
+  readonly onStageUnavailable: (
+    stageId: string,
+    documentId: string,
+  ) => Promise<void>;
 }
 
 /**
@@ -52,7 +56,7 @@ export async function resolveAttachmentUploadResume(
   plaintextSha256: string,
   attachmentGeneration: DocumentStoreSyncGeneration,
 ): Promise<AttachmentUploadResume> {
-  const uploadIdentity =
+  let uploadIdentity =
     pendingAttachment.upload?.plaintextSha256 === plaintextSha256
       ? pendingAttachment.upload
       : createPendingUploadIdentity(plaintextSha256);
@@ -60,12 +64,14 @@ export async function resolveAttachmentUploadResume(
     pendingAttachment.upload !== uploadIdentity &&
     isDocumentStoreSyncGenerationCurrent(state, attachmentGeneration)
   ) {
-    pendingAttachment.upload = uploadIdentity;
     await savePendingAttachmentUpload(
       state,
-      pendingAttachment,
+      { ...pendingAttachment, upload: uploadIdentity },
       attachmentGeneration,
     );
+    if (isDocumentStoreSyncGenerationCurrent(state, attachmentGeneration)) {
+      pendingAttachment.upload = uploadIdentity;
+    }
   }
 
   const multipart =
@@ -88,13 +94,18 @@ export async function resolveAttachmentUploadResume(
     if (!isDocumentStoreSyncGenerationCurrent(state, attachmentGeneration)) {
       return;
     }
-    uploadIdentity.partSize = partSize;
-    uploadIdentity.stageId = stageId;
+    const nextUploadIdentity = { ...uploadIdentity, partSize, stageId };
     await savePendingAttachmentUpload(
       state,
-      pendingAttachment,
+      { ...pendingAttachment, upload: nextUploadIdentity },
       attachmentGeneration,
     );
+    if (isDocumentStoreSyncGenerationCurrent(state, attachmentGeneration)) {
+      // Publish only after persistence succeeds: a failed save must leave the
+      // next attempt responsible for making this identity durable.
+      uploadIdentity = nextUploadIdentity;
+      pendingAttachment.upload = nextUploadIdentity;
+    }
   };
 
   return {
@@ -104,5 +115,41 @@ export async function resolveAttachmentUploadResume(
     nonceSeed: base64ToBytes(uploadIdentity.nonceSeed),
     multipart,
     onStageResolved,
+    onStageUnavailable: async (stageId, documentId) => {
+      if (
+        !isDocumentStoreSyncGenerationCurrent(state, attachmentGeneration) ||
+        pendingAttachment.upload?.stageId !== stageId
+      )
+        return;
+      // Recheck after the ambiguous bind, including an immediate projection
+      // retry in this pass. A still-active commit must retain its identity for
+      // normal adoption on the next pass; a failed read proves nothing.
+      const bindings =
+        await state.runtime.apiClient.listDocumentAttachments(documentId);
+      if (!bindings) throw new Error("Attachment recovery lookup failed.");
+      if (
+        !isDocumentStoreSyncGenerationCurrent(state, attachmentGeneration) ||
+        pendingAttachment.upload?.stageId !== stageId ||
+        bindings.some(
+          (binding) =>
+            binding.slotId === pendingAttachment.slotId &&
+            binding.blobId === uploadIdentity.blobId,
+        )
+      )
+        return;
+      // A missing stage may have been consumed by a committed bind whose
+      // response was lost and whose slot was subsequently replaced/detached.
+      // That blob id is permanently reserved, so a replacement stage must use
+      // fresh crypto material and an id persisted before any bytes are sent.
+      const nextUploadIdentity = createPendingUploadIdentity(plaintextSha256);
+      await savePendingAttachmentUpload(
+        state,
+        { ...pendingAttachment, upload: nextUploadIdentity },
+        attachmentGeneration,
+      );
+      if (isDocumentStoreSyncGenerationCurrent(state, attachmentGeneration)) {
+        pendingAttachment.upload = nextUploadIdentity;
+      }
+    },
   };
 }

@@ -173,6 +173,7 @@ async function stageAndBindBlobAttachment(input: {
   multipart: NonNullable<UploadDocumentAttachmentInput["multipart"]>;
   onMultipartProgress?: MultipartUploadProgressListener | undefined;
   onStageResolved?: MultipartStageResolvedListener | undefined;
+  onStageUnavailable?: ((stageId: string) => Promise<void>) | undefined;
   signedAt: string;
   slotId: string;
 }): Promise<{
@@ -213,6 +214,7 @@ async function stageAndBindBlobAttachment(input: {
     multipart: input.multipart,
     onMultipartProgress: input.onMultipartProgress,
     onStageResolved: input.onStageResolved,
+    onStageUnavailable: input.onStageUnavailable,
   });
   if (!stageId) {
     return null;
@@ -267,6 +269,9 @@ async function stageAndBindBlobAttachment(input: {
 interface PreparedUploadDocumentAttachmentInput
   extends UploadDocumentAttachmentInput {
   readonly sourceSnapshot?: BlobSourceSnapshot | undefined;
+  readonly onStageUnavailable?:
+    | ((stageId: string) => Promise<void>)
+    | undefined;
 }
 
 async function uploadDocumentAttachmentImpl({
@@ -286,6 +291,7 @@ async function uploadDocumentAttachmentImpl({
   multipart,
   onMultipartProgress,
   onStageResolved,
+  onStageUnavailable,
   resolveProjectionUserKey,
   signedAt = new Date().toISOString(),
   slotId,
@@ -362,6 +368,7 @@ async function uploadDocumentAttachmentImpl({
     multipart: resolvedMultipart,
     onMultipartProgress,
     onStageResolved,
+    onStageUnavailable,
     signedAt,
     slotId,
   });
