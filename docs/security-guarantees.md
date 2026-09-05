@@ -301,19 +301,23 @@ so a device's ability to read or write would depend on another device with no
 history for the container. The API refuses the forgery at commit, and the
 lineage rule above makes the next legitimate event on the descendant final.
 The residual is that a member revoked at an ancestor, with a compromised
-server, can keep authority over a descendant until that next event; a
-best-effort re-cite of descendants already held by the revoking client is
-planned in #2171, not implemented yet. On a checkpoint-enforced current path,
+server, can keep authority over a descendant until that next event. The bounded
+re-citation described below advances descendants already held by the mutating
+client, without claiming complete subtree coverage. On a checkpoint-enforced
+current path,
 the client does refuse the opposite disagreement: a served current ancestor
 head that does not descend from a head a child's signed event cites is a
 stale or forked ancestor, whatever the server calls current, since the
 signature proves the cited head exists.
 
+### Held descendant re-citation
+
 Container mutation workflows (share, revoke, rekey, and move) and atomic
 group-policy rematerializations schedule a best-effort descendant re-cite
 after exact acknowledgement. The SDK retains at most 256 verified or locally
 acknowledged container heads and 512 organization-scoped verified policies per
-SQLite executor. It reconstructs held paths from parent IDs, checks each against
+canonical SQLite executor, shared by its locked wrappers. It reconstructs held
+paths from parent IDs, checks each against
 its durable checkpoint, and signs complete path citations parent-first.
 `container.recite` changes only the access-manifest head: grants, parent pins,
 key epochs, keyrings, and wraps stay unchanged. The API checks current paths
@@ -366,6 +370,10 @@ retries a failed re-cite, and never delays or changes the original mutation's
 result. One pass runs per executor, capped at eight attempts with a 250 ms gap
 between requests. The cap, overlap, eviction, missing evidence, stale policies,
 conflicts, and cancellation can leave descendants untouched.
+Rematerialization scopes held policies and authors to each signed plan's
+organization, which may differ from the caller's current organization. The
+one-active-pass guard remains connection-wide; a mixed-organization batch can
+therefore leave other organizations' descendants for a later pass.
 The per-pass cap and pacing are advisory SDK limits, not API rate limits.
 An authorized admin using another client can fill the allowed history budget
 quickly and permanently increase read cost; server rate limiting is not provided.

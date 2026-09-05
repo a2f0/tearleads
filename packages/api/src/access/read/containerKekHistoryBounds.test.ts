@@ -6,6 +6,7 @@ import {
   containerKeyEpochs,
 } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
+import { MAX_CONTAINER_RECITATION_EPOCH } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
 import {
   asVerifiedContainerManifest,
@@ -17,6 +18,12 @@ import {
   MAX_SAME_EPOCH_MANIFEST_HISTORY,
   resolveCurrentContainerKekTargets,
 } from "../shared/internal/containerKekTargets";
+
+test("re-citation reserves at least its own budget for ordinary same-key mutations", () => {
+  expect(2 * MAX_CONTAINER_RECITATION_EPOCH).toBeLessThanOrEqual(
+    MAX_SAME_EPOCH_MANIFEST_HISTORY,
+  );
+});
 
 test.each([
   "unchanged",

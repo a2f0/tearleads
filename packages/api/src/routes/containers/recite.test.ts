@@ -1,8 +1,10 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
+  accessManifestHeads,
   containerKeyEpochs,
   containerKeyWraps,
+  organizationBilling,
 } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import {
@@ -26,8 +28,42 @@ import {
   buildReciteRequest as request,
   createReciteScenario as scenario,
 } from "../../../test/helpers/containerRecite";
+import { setTestOrganizationBillingLocal } from "../../../test/helpers/organizationBilling";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
+
+test.each([
+  "billing_inactive",
+  "sync_seat_unassigned",
+] as const)("recitation refuses %s without advancing the head", async (reason) => {
+  const { owner, root, child } = await scenario();
+  const organizationId = child.organizationId;
+  const signed = await request({
+    path: [root.bundle, child.accessManifest],
+    signer: owner,
+  });
+  await setTestOrganizationBillingLocal(organizationId);
+  if (reason === "sync_seat_unassigned") {
+    await db
+      .update(organizationBilling)
+      .set({
+        currentPeriodEndsAt: new Date("2099-01-01T00:00:00.000Z"),
+        currentPeriodStartsAt: new Date("2098-12-01T00:00:00.000Z"),
+        seatCount: 1,
+        status: "active",
+      })
+      .where(eq(organizationBilling.organizationId, organizationId));
+  }
+  const response = await post(child.containerId, owner, signed);
+  expect(response.status).toBe(402);
+  expect(await response.json()).toMatchObject({ organizationId, reason });
+  expect(
+    await db
+      .select({ manifestHash: accessManifestHeads.manifestHash })
+      .from(accessManifestHeads)
+      .where(eq(accessManifestHeads.objectId, child.containerId)),
+  ).toEqual([{ manifestHash: child.accessManifest.manifestHash }]);
+});
 
 test("re-citing an empty child advances its manifest and preserves every KEK row", async () => {
   const { owner, root, child } = await scenario();

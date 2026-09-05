@@ -276,32 +276,45 @@ export async function preparePrincipalContainerRematerializationBatch(
     acknowledge: async (responses, stillCurrent) => {
       const isCurrent = () =>
         input.stillCurrent?.() !== false && stillCurrent?.() !== false;
-      await acknowledgeContainerMutationBatch({
+      const acknowledged = await acknowledgeContainerMutationBatch({
         execSql: input.execSql,
         plans: plans.map(authoredMutationHead),
         responses,
         stillCurrent: isCurrent,
       });
-      if (!isCurrent()) return;
-      try {
-        rememberVerifiedContainerHeads({
-          organizationId: input.author.organizationId,
-          execSql: input.execSql,
-          heads: [],
-          policies: [input.nextPolicy],
-        });
-      } catch {
-        // Cache failure must not invalidate the durably acknowledged batch.
-        return;
+      if (!acknowledged || !isCurrent()) return;
+      const plansByOrganization = new Map<
+        string,
+        AuthoredContainerMutationHead[]
+      >();
+      for (const planned of plans) {
+        const head = authoredMutationHead(planned);
+        const organizationId = head.state.organizationId;
+        const group = plansByOrganization.get(organizationId) ?? [];
+        group.push(head);
+        plansByOrganization.set(organizationId, group);
       }
-      scheduleHeldDescendantRecitations({
-        apiClient: input.apiClient,
-        author: input.author,
-        execSql: input.execSql,
-        plans: plans.map(authoredMutationHead),
-        stillCurrent: isCurrent,
-        reportSecurityIncident: input.reportSecurityIncident,
-      });
+      for (const [organizationId, organizationPlans] of plansByOrganization) {
+        try {
+          rememberVerifiedContainerHeads({
+            organizationId,
+            execSql: input.execSql,
+            heads: [],
+            policies: [input.nextPolicy],
+          });
+        } catch {
+          // Cache failure must not invalidate the durably acknowledged batch.
+          continue;
+        }
+        scheduleHeldDescendantRecitations({
+          apiClient: input.apiClient,
+          author: { ...input.author, organizationId },
+          execSql: input.execSql,
+          plans: organizationPlans,
+          stillCurrent: isCurrent,
+          reportSecurityIncident: input.reportSecurityIncident,
+        });
+      }
     },
   };
 }
