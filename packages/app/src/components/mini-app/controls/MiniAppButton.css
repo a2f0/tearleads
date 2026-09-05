@@ -2,17 +2,21 @@
   min-height: var(--control-height);
   padding: var(--control-padding-block) var(--control-padding-inline);
   border: var(--border);
+  border-color: var(--app-control-border);
+  border-radius: var(--app-radius-control);
   background: transparent;
   color: inherit;
   font: inherit;
   text-align: center;
   cursor: pointer;
+  transition:
+    background var(--transition),
+    color var(--transition);
 }
 
 .mini-app-button:hover:not(:disabled),
 .mini-app-button:focus-visible:not(:disabled) {
-  background: var(--emphasis-surface);
-  color: var(--emphasis-text);
+  background: var(--app-hover-surface);
 }
 
 .mini-app-button:disabled {

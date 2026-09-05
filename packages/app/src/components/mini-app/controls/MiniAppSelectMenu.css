@@ -26,6 +26,9 @@
 }
 
 .mini-app-select-menu-popover {
+  padding: var(--space-xs);
+  border-radius: var(--app-radius-surface);
+  box-shadow: var(--app-shadow-surface);
   position: absolute;
   top: calc(100% + var(--space-2xs));
   right: 0;
@@ -37,6 +40,8 @@
 }
 
 .mini-app-select-menu-popover--portal {
+  padding: 0;
+  box-shadow: none;
   position: static;
   min-width: 12rem;
   border: 0;
@@ -49,6 +54,7 @@
 }
 
 .mini-app-select-menu-option {
+  border-radius: var(--app-radius-control);
   width: 100%;
   min-height: var(--control-height);
   padding: 0 var(--space-sm);

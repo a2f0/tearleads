@@ -2,6 +2,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--space-sm);
   min-height: var(--window-bar-height);
   padding: var(--window-bar-padding);
   background: var(--tearleads-window-titlebar-background);
@@ -9,6 +10,15 @@
   line-height: var(--window-bar-line-height);
   cursor: grab;
   user-select: none;
+  border-radius: var(--app-radius-surface) var(--app-radius-surface) 0 0;
+}
+
+.window-titlebar-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
 }
 
 .window-titlebar:active {
@@ -17,10 +27,12 @@
 
 .window--maximized .window-titlebar {
   cursor: default;
+  border-radius: 0;
 }
 
 .window-titlebar-buttons {
   display: flex;
+  flex: 0 0 auto;
   gap: var(--space-xs);
   /* Sit above the corner resize handles, which are absolutely positioned and
      rendered after the titlebar, so they otherwise paint over this group and
@@ -35,15 +47,21 @@
 .window-close,
 .window-maximize,
 .window-minimize {
+  /* Interactive title controls get a larger hit area than the informational
+     status/menu bars; keep their compact shared bar token unchanged. */
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  min-width: 28px;
+  min-height: 28px;
   padding: 0 var(--space-xs);
   border: none;
   background: none;
   color: var(--tearleads-window-titlebar-text);
   cursor: pointer;
   line-height: 1;
+  border-radius: var(--app-radius-control);
+  transition: background var(--transition);
 }
 
 .window-close:hover,
@@ -52,12 +70,17 @@
 .window-close:focus-visible,
 .window-maximize:focus-visible,
 .window-minimize:focus-visible {
-  opacity: var(--opacity-muted);
+  background: color-mix(in srgb, currentColor 18%, transparent);
 }
 
 .window-close:focus-visible,
 .window-maximize:focus-visible,
 .window-minimize:focus-visible {
-  outline: var(--border-width) solid var(--tearleads-window-titlebar-text);
-  outline-offset: calc(-1 * var(--border-width));
+  outline: 2px solid currentColor;
+  outline-offset: -3px;
+}
+
+.window-close:hover {
+  background: var(--color-danger);
+  color: var(--color-light);
 }

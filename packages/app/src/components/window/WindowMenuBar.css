@@ -32,15 +32,20 @@
   min-width: 7.5rem;
   background: var(--color-light);
   border: var(--border-strong);
+  padding: var(--space-xs);
+  border-radius: var(--app-radius-surface);
+  box-shadow: var(--app-shadow-surface);
 }
 
 .window-menubar-dropdown button {
+  min-height: var(--control-height);
   padding: var(--menu-item-padding);
   border: none;
   background: none;
   text-align: left;
   white-space: nowrap;
   cursor: pointer;
+  border-radius: var(--app-radius-control);
 }
 
 .window-menubar-dropdown button:hover:not(:disabled),

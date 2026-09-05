@@ -11,6 +11,7 @@
 }
 
 .window-statusbar {
+  border-radius: 0 0 var(--app-radius-surface) var(--app-radius-surface);
   display: block;
   min-height: var(--window-bar-height);
   overflow: hidden;
@@ -20,4 +21,8 @@
   text-overflow: ellipsis;
   user-select: none;
   white-space: nowrap;
+}
+
+.window--maximized .window-statusbar {
+  border-radius: 0;
 }

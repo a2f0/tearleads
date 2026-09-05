@@ -59,11 +59,13 @@ export function WindowTitleBar({
         openContextMenuAt({ x: event.clientX, y: event.clientY });
       }}
     >
-      <span>{title}</span>
+      <span className="window-titlebar-title" title={title}>
+        {title}
+      </span>
       <div className="window-titlebar-buttons">
         <WindowMinimizeButton onClick={onMinimize} />
         <WindowMaximizeButton onClick={onMaximize} />
-        <WindowCloseButton onClick={onClose} />
+        <WindowCloseButton label="Close window" onClick={onClose} />
       </div>
       {contextMenu && (
         <Menu
