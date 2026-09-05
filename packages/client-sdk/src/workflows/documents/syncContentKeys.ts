@@ -219,6 +219,7 @@ function syncResponseUpdatesByContentKeyEpoch(
 
 function assertBundleMatchesUpdateHeaders(input: {
   bundle: DocumentSyncResponse["contentKeyBundle"];
+  requireOriginalTargets: boolean;
   updates: readonly SyncResponseUpdate[];
 }): void {
   for (const update of input.updates) {
@@ -229,13 +230,52 @@ function assertBundleMatchesUpdateHeaders(input: {
     if (
       header.objectId !== input.bundle.documentId ||
       header.contentKeyEpoch !== input.bundle.contentKeyEpoch ||
-      header.accessManifestHash !== input.bundle.linkSetManifestHash ||
-      header.targetHash !== input.bundle.targetHash
+      (input.requireOriginalTargets &&
+        (header.accessManifestHash !== input.bundle.linkSetManifestHash ||
+          header.targetHash !== input.bundle.targetHash))
     ) {
       throw new Error(
-        "Document sync response content-key bundle does not match its update headers",
+        input.requireOriginalTargets
+          ? "Document sync response content key is unavailable and its bundle differs from the original update headers"
+          : "Document sync response content-key bundle does not match its update headers",
       );
     }
+  }
+}
+
+/**
+ * Linking can rewrap a retained key at the same content epoch. Its latest bundle
+ * then has newer targets than older signed updates. A usable key is validated
+ * by the caller's authenticated record decryption; the update's own historical
+ * manifest, targets and signature are verified independently before this step.
+ *
+ * If the key cannot be recovered, require the original target commitments before
+ * calling that an availability failure. Substituted unavailable targets must
+ * still be quarantined, never disguised as legitimate missing history.
+ */
+async function unwrapHistoricalContentKey(input: {
+  bundle: DocumentSyncResponse["contentKeyBundle"];
+  collectedKeks: Awaited<
+    ReturnType<typeof collectContainerKeksForDocumentSync>
+  >;
+  updates: readonly SyncResponseUpdate[];
+}): Promise<Uint8Array> {
+  assertBundleMatchesUpdateHeaders({ ...input, requireOriginalTargets: false });
+  try {
+    return await unwrapDocumentContentKeyFromBundle(
+      input.bundle,
+      input.collectedKeks.keksByEpochId,
+      input.collectedKeks.predecessorFailuresByEpochId,
+      input.collectedKeks.unattributedPredecessorFailuresByContainerId,
+    );
+  } catch (error) {
+    if (isRawHistoryUnavailableCause(error)) {
+      assertBundleMatchesUpdateHeaders({
+        ...input,
+        requireOriginalTargets: true,
+      });
+    }
+    throw error;
   }
 }
 
@@ -338,15 +378,13 @@ export async function unwrapDocumentSyncResponseContentKeys(
       });
     }
     try {
-      assertBundleMatchesUpdateHeaders({ bundle, updates: responseUpdates });
       contentKeysByEpoch.set(
         bundle.contentKeyEpoch,
-        await unwrapDocumentContentKeyFromBundle(
+        await unwrapHistoricalContentKey({
           bundle,
-          collectedKeks.keksByEpochId,
-          collectedKeks.predecessorFailuresByEpochId,
-          collectedKeks.unattributedPredecessorFailuresByContainerId,
-        ),
+          collectedKeks,
+          updates: responseUpdates,
+        }),
       );
     } catch (error) {
       if (input.historyMode === "raw" && isRawHistoryUnavailableCause(error)) {

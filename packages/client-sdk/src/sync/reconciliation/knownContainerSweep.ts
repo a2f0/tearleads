@@ -40,6 +40,7 @@ export async function reconcileMarkedContainer(
   try {
     const reconciled = await reconcileOneContainer(host, containerId, {
       forceDocumentContentPull,
+      onFullListing: state.initialDocumentProbe.captureListing(containerId),
     });
     if (!reconciled) {
       state.discoveredContainerIds.delete(containerId);

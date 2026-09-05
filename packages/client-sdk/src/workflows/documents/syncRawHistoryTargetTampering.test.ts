@@ -82,76 +82,91 @@ test("tampered unavailable targets remain poison instead of availability", async
   expect(error.batchUpdateIds).toEqual([update.id]);
 });
 
-test("rehashed unavailable targets must match the authenticated update header", async () => {
-  const fixture = await createMaterializedSyncFixture();
-  const currentBundle = {
-    ...fixture.writerProjection.contentKeyBundle,
-    contentKeyEpoch: 3,
-  };
-  const currentWriterProjection = {
-    ...fixture.writerProjection,
-    contentKeyBundle: currentBundle,
-  };
-  const materializedPlan = await buildMaterializedDocumentSyncPlan({
-    author: fixture.author,
-    historyMode: "raw",
-    localVersionVector: null,
-    pendingUpdates: [],
-    targetSecretKey: fixture.secretKey,
-    trustedLocalProjection: true,
-    writerProjection: currentWriterProjection,
-  });
-  const historicalTarget = currentBundle.targets[0];
-  if (!historicalTarget) throw new Error("Expected historical target");
-  const substitutedTarget = {
-    ...historicalTarget,
-    containerKeyEpochId: "550e8400-e29b-41d4-a716-446655440497",
-  };
-  const substitutedBundle = {
-    ...currentBundle,
-    contentKeyEpoch: 1,
-    targetHash: await computeDocumentContentKeyTargetHash([
-      targetEnvelopeReference(substitutedTarget),
-    ]),
-    targets: [substitutedTarget],
-  };
-  const update = {
-    ...(await createSignedSyncResponseUpdate({
-      accessManifestHash: materializedPlan.plan.expectedLinkSetManifestHash,
+for (const mismatchedField of ["targetHash", "linkSetManifestHash"] as const) {
+  test(`unavailable bundles with mismatched ${mismatchedField} remain integrity failures`, async () => {
+    const fixture = await createMaterializedSyncFixture();
+    const currentBundle = {
+      ...fixture.writerProjection.contentKeyBundle,
+      contentKeyEpoch: 3,
+    };
+    const currentWriterProjection = {
+      ...fixture.writerProjection,
+      contentKeyBundle: currentBundle,
+    };
+    const materializedPlan = await buildMaterializedDocumentSyncPlan({
       author: fixture.author,
+      historyMode: "raw",
+      localVersionVector: null,
+      pendingUpdates: [],
+      targetSecretKey: fixture.secretKey,
+      trustedLocalProjection: true,
+      writerProjection: currentWriterProjection,
+    });
+    const historicalTarget = currentBundle.targets[0];
+    if (!historicalTarget) throw new Error("Expected historical target");
+    const substitutedTarget = {
+      ...historicalTarget,
+      containerKeyEpochId: "550e8400-e29b-41d4-a716-446655440497",
+    };
+    const substitutedBundle = {
+      ...currentBundle,
       contentKeyEpoch: 1,
-      id: "550e8400-e29b-41d4-a716-446655440468",
-      plan: materializedPlan.plan,
-      // The signed header retains the genuine target commitment.
-      targetHash: currentBundle.targetHash,
-    })),
-    authorizationTargets: [targetEnvelopeReference(historicalTarget)],
-  };
-  const response = await createSyncResponse(materializedPlan.plan, {
-    acceptedOutgoingUpdateIds: [],
-    contentKeyBundles: [substitutedBundle, currentBundle],
-    updates: [update],
+      linkSetManifestHash:
+        mismatchedField === "linkSetManifestHash"
+          ? "substituted-manifest-hash"
+          : currentBundle.linkSetManifestHash,
+      targetHash: await computeDocumentContentKeyTargetHash([
+        targetEnvelopeReference(substitutedTarget),
+      ]),
+      targets: [substitutedTarget],
+    };
+    const update = {
+      ...(await createSignedSyncResponseUpdate({
+        accessManifestHash: materializedPlan.plan.expectedLinkSetManifestHash,
+        author: fixture.author,
+        contentKeyEpoch: 1,
+        id: "550e8400-e29b-41d4-a716-446655440468",
+        plan: materializedPlan.plan,
+        // Keep every other bundle/header field consistent to isolate each check.
+        targetHash:
+          mismatchedField === "targetHash"
+            ? currentBundle.targetHash
+            : substitutedBundle.targetHash,
+      })),
+      authorizationTargets: [
+        targetEnvelopeReference(
+          mismatchedField === "targetHash"
+            ? historicalTarget
+            : substitutedTarget,
+        ),
+      ],
+    };
+    const response = await createSyncResponse(materializedPlan.plan, {
+      acceptedOutgoingUpdateIds: [],
+      contentKeyBundles: [substitutedBundle, currentBundle],
+      updates: [update],
+    });
+
+    const error = await unwrapDocumentSyncResponseContentKeys({
+      currentContentKey: materializedPlan.contentKey,
+      currentContentKeyEpoch: materializedPlan.plan.contentKeyEpoch,
+      historyMode: "raw",
+      response,
+      targetSecretKey: fixture.secretKey,
+      trustedLocalProjection: true,
+      writerProjection: currentWriterProjection,
+    }).then(
+      () => null,
+      (thrown: unknown) => thrown,
+    );
+
+    expect(isDocumentSyncUpdateIsolationError(error)).toBe(true);
+    expect(error).not.toBeInstanceOf(DocumentRawHistoryUnavailableError);
+    if (!isDocumentSyncUpdateIsolationError(error)) return;
+    expect(error.stage).toBe("content_key");
+    expect(error.batchUpdateIds).toEqual([update.id]);
   });
-
-  const error = await unwrapDocumentSyncResponseContentKeys({
-    currentContentKey: materializedPlan.contentKey,
-    currentContentKeyEpoch: materializedPlan.plan.contentKeyEpoch,
-    historyMode: "raw",
-    response,
-    targetSecretKey: fixture.secretKey,
-    trustedLocalProjection: true,
-    writerProjection: currentWriterProjection,
-  }).then(
-    () => null,
-    (thrown: unknown) => thrown,
-  );
-
-  expect(isDocumentSyncUpdateIsolationError(error)).toBe(true);
-  expect(error).not.toBeInstanceOf(DocumentRawHistoryUnavailableError);
-  if (!isDocumentSyncUpdateIsolationError(error)) return;
-  expect(error.stage).toBe("content_key");
-  expect(error.batchUpdateIds).toEqual([update.id]);
-});
+}
 
 test("malformed unavailable encrypted records remain poison", async () => {
   const fixture = await createMaterializedSyncFixture();

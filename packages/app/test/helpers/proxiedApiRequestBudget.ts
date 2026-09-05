@@ -90,6 +90,8 @@ function normalizeRequestPath(path: string): string {
         "/documents/:documentId/writer-projection",
       )
       .replace(/^\/documents\/[^/]+\/sync$/u, "/documents/:documentId/sync")
+      .replace(/^\/documents\/[^/]+\/link$/u, "/documents/:documentId/link")
+      .replace(/^\/documents\/[^/]+\/unlink$/u, "/documents/:documentId/unlink")
       .replace(
         /^\/documents\/[^/]+\/attachments$/u,
         "/documents/:documentId/attachments",

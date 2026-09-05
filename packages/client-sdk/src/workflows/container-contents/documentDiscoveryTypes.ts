@@ -90,6 +90,8 @@ export interface DiscoverContainerDocumentsOptions {
     references: ReadonlyArray<ReferencedPrincipalStateResponse>,
   ) => Promise<void>;
   containerId: string;
+  /** Completed unwatermarked listing, published only after local apply succeeds. */
+  onFullListing?: ((documentIds: ReadonlyArray<string>) => void) | undefined;
   loadContainerDocumentWatermark: (
     containerId: string,
   ) => Promise<SyncWatermark | null>;
@@ -107,6 +109,7 @@ export interface DiscoverContainerDocumentsOptions {
 }
 
 export interface ListedContainerDocuments {
+  isFullListing: boolean;
   items: ListedContainerDocument[];
   nextWatermark: SyncWatermark | null;
   tombstones: ContainerDocumentTombstone[];

@@ -57,6 +57,8 @@ export async function listAllContainerDocuments(input: {
   const tombstones: ContainerDocumentTombstone[] = [];
   let watermark = await input.loadContainerDocumentWatermark(input.containerId);
 
+  const isFullListing = watermark === null;
+
   while (true) {
     const response = await input.listContainerDocuments(input.containerId, {
       watermark,
@@ -69,7 +71,7 @@ export async function listAllContainerDocuments(input: {
     watermark = response.nextWatermark;
 
     if (!response.hasMore) {
-      return { items, nextWatermark: watermark, tombstones };
+      return { isFullListing, items, nextWatermark: watermark, tombstones };
     }
     if (!watermark) {
       return null;
