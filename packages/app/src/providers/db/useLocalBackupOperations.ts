@@ -8,7 +8,6 @@ import {
 } from "./localBackupData";
 import {
   type BackupSummary,
-  backupFileRequiresPassword,
   createBackupFileName,
   decodeBackupFile,
   encodeBackupFile,
@@ -63,7 +62,7 @@ export function useLocalBackupOperations() {
         onProgress,
         signingFingerprint: runtime.signingFingerprint,
       });
-      if (password) {
+      if (password !== undefined) {
         onProgress?.({ current: 0, phase: "encrypting", total: 1 });
       }
 
@@ -82,12 +81,13 @@ export function useLocalBackupOperations() {
       password,
       text,
     }: RestoreLocalBackupInput): Promise<BackupSummary> => {
-      onProgress?.({
-        current: 0,
-        phase: backupFileRequiresPassword(text) ? "decrypting" : "preparing",
-        total: 1,
+      onProgress?.({ current: 0, phase: "preparing", total: 1 });
+      const payload = await decodeBackupFile({
+        onDecrypt: () =>
+          onProgress?.({ current: 0, phase: "decrypting", total: 1 }),
+        password,
+        text,
       });
-      const payload = await decodeBackupFile({ password, text });
       const runtime = await resolveRuntime();
 
       return restoreBackupPayload({

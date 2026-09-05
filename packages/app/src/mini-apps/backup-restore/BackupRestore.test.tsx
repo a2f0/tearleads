@@ -1,6 +1,12 @@
 import { afterAll, afterEach, beforeAll, expect, test } from "bun:test";
 import type { SaveFileRequest } from "@tearleads/client-sdk";
-import { act, fireEvent, render, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  waitFor,
+} from "@testing-library/react";
 import { createDeferred } from "../../../test/helpers/databaseRuntimeFactories";
 import {
   cleanupIdentityManagerTestEnvironment,
@@ -11,7 +17,12 @@ import { AppRuntimeProvider } from "../../providers/AppRuntimeProvider";
 import {
   backupFileRequiresPassword,
   decodeBackupFile,
+  encodeBackupFile,
 } from "../../providers/db/localBackupFormat";
+import {
+  type BackupProgress,
+  useLocalBackupOperations,
+} from "../../providers/db/useLocalBackupOperations";
 import { BackupRestore } from "./BackupRestore";
 
 const originalWebSocket = globalThis.WebSocket;
@@ -53,7 +64,7 @@ function chooseBackup(view: BackupRestoreView, text: string | Promise<string>) {
 }
 
 async function exportBackup(view: BackupRestoreView, password?: string) {
-  if (password) {
+  if (password !== undefined) {
     fireEvent.change(view.getByLabelText("Password"), {
       target: { value: password },
     });
@@ -151,6 +162,7 @@ test("exports without a password despite stale mismatched fields and restores wi
     expect(view.queryByText(/Backup restored:/)).toBeTruthy(),
   );
   expect(view.queryByRole("button", { name: "Reload App" })).toBeTruthy();
+  expect(view.queryByLabelText("Password")).toBeTruthy();
 });
 
 test("encrypted backups still require the correct password and can be retried", async () => {
@@ -184,6 +196,7 @@ test("the password option is disabled while the backup is being saved", async ()
     fireEvent.click(view.getByRole("checkbox"));
     fireEvent.click(view.getByRole("button", { name: "Export Backup" }));
     await waitFor(() => expect(view.savedFiles).toHaveLength(1));
+    expect(view.queryByText(/Encrypting backup/)).toBeNull();
     expect(view.getByRole("checkbox").hasAttribute("disabled")).toBe(true);
     expect(
       view
@@ -200,9 +213,6 @@ test("switching files clears stale restore data and ignores superseded file read
   const view = renderBackupRestore();
   const plaintext = await exportBackup(view);
   const payload = await decodeBackupFile({ text: plaintext });
-  const { encodeBackupFile } = await import(
-    "../../providers/db/localBackupFormat"
-  );
   const encrypted = await encodeBackupFile({ password: "password", payload });
   fireEvent.click(view.getByRole("tab", { name: "Restore" }));
   await act(async () => chooseBackup(view, plaintext));
@@ -217,4 +227,36 @@ test("switching files clears stale restore data and ignores superseded file read
   expect(view.queryByLabelText("Password")).toBeTruthy();
   fireEvent.click(view.getByRole("button", { name: "Restore Backup" }));
   expect(view.queryByText("Enter the restore password.")).toBeTruthy();
+});
+
+test.each([
+  undefined,
+  "password",
+])("backup progress matches encryption (password: %s)", async (password) => {
+  const hostConfig = createIdentityManagerHostConfig();
+  const { result } = renderHook(useLocalBackupOperations, {
+    wrapper: ({ children }) => (
+      <AppRuntimeProvider autoProvisionEnabled={false} hostConfig={hostConfig}>
+        {children}
+      </AppRuntimeProvider>
+    ),
+  });
+  const exportProgress: BackupProgress["phase"][] = [];
+  const restoreProgress: BackupProgress["phase"][] = [];
+  await act(async () => {
+    const backup = await result.current.exportLocalBackup({
+      onProgress: ({ phase }) => exportProgress.push(phase),
+      password,
+    });
+    await result.current.restoreLocalBackup({
+      onProgress: ({ phase }) => restoreProgress.push(phase),
+      password,
+      text: backup.text,
+    });
+  });
+  expect(exportProgress).toContain("preparing");
+  expect(exportProgress.includes("encrypting")).toBe(password !== undefined);
+  expect(restoreProgress).toContain("preparing");
+  expect(restoreProgress.includes("decrypting")).toBe(password !== undefined);
+  expect(restoreProgress).toContain("restoring");
 });

@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, mock, test } from "bun:test";
 import {
   BACKUP_FORMAT_VERSION,
   BACKUP_PAYLOAD_FORMAT,
@@ -25,11 +25,8 @@ const payload: BackupPayload = {
   version: BACKUP_FORMAT_VERSION,
 };
 
-test.each([
-  undefined,
-  "",
-])("passwordless backups contain a validated readable payload (password: %s)", async (password) => {
-  const text = await encodeBackupFile({ password, payload });
+test("passwordless backups contain a validated readable payload", async () => {
+  const text = await encodeBackupFile({ payload });
   expect(JSON.parse(text)).toEqual(payload);
   expect(backupFileRequiresPassword(text)).toBe(false);
   await expect(decodeBackupFile({ text })).resolves.toEqual(payload);
@@ -39,6 +36,22 @@ test.each([
   await expect(
     decodeBackupFile({ password: "unused-password", text }),
   ).resolves.toEqual(payload);
+});
+
+test("an empty password cannot silently disable backup encryption", async () => {
+  await expect(encodeBackupFile({ password: "", payload })).rejects.toThrow(
+    "Enter a backup password.",
+  );
+});
+
+test("only encrypted backups report decryption work", async () => {
+  const onDecrypt = mock(() => {});
+  const plaintext = await encodeBackupFile({ payload });
+  await decodeBackupFile({ onDecrypt, text: plaintext });
+  expect(onDecrypt).not.toHaveBeenCalled();
+  const encrypted = await encodeBackupFile({ password: "password", payload });
+  await decodeBackupFile({ onDecrypt, password: "password", text: encrypted });
+  expect(onDecrypt).toHaveBeenCalledTimes(1);
 });
 
 test("encrypted backups require a password and reject incorrect passwords", async () => {
@@ -121,6 +134,5 @@ test.each([
     "Backup table 1 row 1 column id must be a string, number, or null.",
   ],
 ])("rejects malformed backup %s", async (text, message) => {
-  expect(() => backupFileRequiresPassword(text)).toThrow(message);
   await expect(decodeBackupFile({ text })).rejects.toThrow(message);
 });

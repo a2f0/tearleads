@@ -133,7 +133,9 @@ function BackupExportPanel({
         />
         <span>Back up without a password</span>
       </label>
-      {!model.backupWithoutPassword && (
+      {model.backupWithoutPassword ? (
+        <MiniAppStatus>This backup will not be encrypted.</MiniAppStatus>
+      ) : (
         <>
           <MiniAppField>
             <span>Password</span>

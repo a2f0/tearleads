@@ -140,8 +140,11 @@ export async function encodeBackupFile(input: {
   readonly password?: string | undefined;
   readonly payload: BackupPayload;
 }): Promise<string> {
-  if (!input.password) {
+  if (input.password === undefined) {
     return `${JSON.stringify(input.payload, null, 2)}\n`;
+  }
+  if (!input.password) {
+    throw new Error("Enter a backup password.");
   }
 
   const salt = randomBytes(BACKUP_SALT_BYTES);
@@ -186,10 +189,16 @@ function readBackupFile(text: string): BackupPayload | BackupFileEnvelope {
 }
 
 export function backupFileRequiresPassword(text: string): boolean {
-  return readBackupFile(text).format === BACKUP_FILE_FORMAT;
+  const file = readRecord(parseJson(text), "Backup file");
+  const format = readProperty(file, "format");
+  if (format !== BACKUP_FILE_FORMAT && format !== BACKUP_PAYLOAD_FORMAT) {
+    throw new Error("Backup file format is not supported.");
+  }
+  return format === BACKUP_FILE_FORMAT;
 }
 
 export async function decodeBackupFile(input: {
+  readonly onDecrypt?: (() => void) | undefined;
   readonly password?: string | undefined;
   readonly text: string;
 }): Promise<BackupPayload> {
@@ -201,6 +210,7 @@ export async function decodeBackupFile(input: {
     throw new Error("Enter the restore password.");
   }
 
+  input.onDecrypt?.();
   const key = await deriveBackupKey({
     iterations: envelope.kdf.iterations,
     password: input.password,

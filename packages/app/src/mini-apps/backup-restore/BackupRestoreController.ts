@@ -137,6 +137,7 @@ function useRestoreBackupAction({
     setProgress,
     setRestoreComplete,
     setRestorePassword,
+    setRestoreRequiresPassword,
     setSelectedRestoreFileName,
     setSelectedRestoreFileText,
     setStatus,
@@ -162,6 +163,7 @@ function useRestoreBackupAction({
       });
       setLastSummary(summary);
       setRestorePassword("");
+      setRestoreRequiresPassword(true);
       setSelectedRestoreFileName(null);
       setSelectedRestoreFileText(null);
       setRestoreComplete(true);
@@ -192,6 +194,7 @@ function useRestoreBackupAction({
     setProgress,
     setRestoreComplete,
     setRestorePassword,
+    setRestoreRequiresPassword,
     setSelectedRestoreFileName,
     setSelectedRestoreFileText,
     setStatus,
@@ -242,7 +245,7 @@ function useRestoreFileSelection({
           if (selectionTokenRef.current !== selectionToken) {
             return;
           }
-          logError("Failed to read local backup file", fileError);
+          logError("Failed to load local backup file", fileError);
           setSelectedRestoreFileName(null);
           setSelectedRestoreFileText(null);
           setError(unknownErrorMessage(fileError));
