@@ -24,13 +24,12 @@ export class RevenueCatCheckoutGateCoordinator {
 
   reserve(): { gate: RevenueCatCheckoutGate; ready: Promise<void> } {
     const current = Array.from(this.active);
-    const gate = this.create(undefined, false, () => {});
+    const gate = this.create(undefined, () => {});
     return { gate, ready: Promise.all(current).then(() => undefined) };
   }
 
   create(
     abortSignal: AbortSignal | undefined,
-    releaseOnAbort: boolean,
     markAbandoned: () => void,
   ): RevenueCatCheckoutGate {
     let resolveGate = () => {};
@@ -38,11 +37,10 @@ export class RevenueCatCheckoutGateCoordinator {
     const promise = new Promise<void>((resolve) => {
       resolveGate = resolve;
     });
+    // A store sheet is not cancellable once presented, so an abort only marks
+    // the checkout abandoned; its identity gate stays held until the result.
     const onAbort = () => {
       markAbandoned();
-      // An isolated Web Billing instance can release immediately. Native store
-      // sheets are not cancellable, so their identity gate stays until result.
-      if (releaseOnAbort) release();
     };
     const release = () => {
       if (released) return;

@@ -257,30 +257,6 @@ test("abort wins over a pending configuration failure", async () => {
   );
 });
 
-test("an aborted checkout releases its identity gate", async () => {
-  const backend = createBackend();
-  const checkoutStarted = createDeferred();
-  const abortController = new AbortController();
-  const identity = coordinator(backend);
-  await identity.identify("user-1");
-  void identity
-    .runCheckout({
-      abortReleasesIdentityGate: true,
-      abortSignal: abortController.signal,
-      operation: () => {
-        checkoutStarted.resolve();
-        return new Promise<void>(() => {});
-      },
-    })
-    .catch(() => undefined);
-  await checkoutStarted.promise;
-
-  const identifying = identity.identify("user-2");
-  abortController.abort();
-  await identifying;
-  expect(backend.calls).toEqual(["configure:user-1", "login:user-2"]);
-});
-
 test("native abort keeps identity gated until the store settles", async () => {
   const backend = createBackend();
   const checkout = createDeferred();

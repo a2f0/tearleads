@@ -97,7 +97,6 @@ function wrapperFor(lane: "native" | "stripe") {
           nativeStore: purchasesAvailable ? "test_store" : null,
           purchaseSync: () => new Promise(() => undefined),
           reset: () => Promise.resolve(),
-          supportsEmbeddedCheckout: false,
         }) as never,
       wsUrl: "ws://localhost",
     });

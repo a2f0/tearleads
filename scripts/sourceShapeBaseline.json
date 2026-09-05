@@ -50,10 +50,6 @@
       "lines": 615,
       "bytes": 29970
     },
-    "docs/developer/revenuecat-billing.md": {
-      "lines": 360,
-      "bytes": 20391
-    },
     "docs/developer/revenuecat-native-stores.md": {
       "lines": 364,
       "bytes": 20904
@@ -398,9 +394,6 @@
       "biomeIgnore": 1
     },
     "packages/app/src/mini-apps/explorer/sidebar/useExplorerSidebarWindows.ts": {
-      "biomeIgnore": 1
-    },
-    "packages/app/src/mini-apps/org-manager/billing/BillingCheckout.css": {
       "biomeIgnore": 1
     },
     "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerModel.ts": {
