@@ -1,4 +1,5 @@
 import {
+  documentAttributionWireHeaderKeys,
   getDocumentAttributionOperation,
   listDocumentAttributionRangesOperation,
 } from "@tearleads/validators/operation";
@@ -13,6 +14,34 @@ import {
 } from "../../operationTransport";
 import { dedupedRequest } from "../../requestInternals";
 import type { ListDocumentEditAttributionRangesOptions } from "../../types";
+
+// The server must emit cache metadata, but a proxy or browser may omit it from
+// a readable response. Keep the wire contract intact and tolerate that only at
+// this read boundary; content type, ETag, and attribution data remain validated.
+const optionalCacheMetadata = {
+  [documentAttributionWireHeaderKeys.cacheControl]: true,
+  [documentAttributionWireHeaderKeys.vary]: true,
+} as const;
+
+const getAttributionOperation = {
+  ...getDocumentAttributionOperation,
+  responseHeaders: {
+    200: getDocumentAttributionOperation.responseHeaders[200].partial(
+      optionalCacheMetadata,
+    ),
+    304: getDocumentAttributionOperation.responseHeaders[304].partial(
+      optionalCacheMetadata,
+    ),
+  },
+};
+const listAttributionRangesOperation = {
+  ...listDocumentAttributionRangesOperation,
+  responseHeaders: {
+    200: listDocumentAttributionRangesOperation.responseHeaders[200].partial(
+      optionalCacheMetadata,
+    ),
+  },
+};
 
 export class DocumentAttributionRequests {
   private readonly compactByGeneration = new BoundedCache<
@@ -53,7 +82,7 @@ export class DocumentAttributionRequests {
       `${documentId}\u0000${this.generation(documentId)}\u0000${requestKey}`,
       async () => {
         const response = await this.transport.requestResponse(
-          getDocumentAttributionOperation,
+          getAttributionOperation,
           { headers: {}, params: { documentId } },
         );
         return response?.status === 200 ? response.data : null;
@@ -75,12 +104,12 @@ export class DocumentAttributionRequests {
       },
     };
     const path = deriveJsonOperationRequest(
-      listDocumentAttributionRangesOperation,
+      listAttributionRangesOperation,
       input,
     ).path;
     const cacheKey = `${this.generation(documentId)}\u0000${path}`;
     return dedupedRequest(this.rangesByPath, cacheKey, () =>
-      this.transport.request(listDocumentAttributionRangesOperation, input),
+      this.transport.request(listAttributionRangesOperation, input),
     );
   }
 }

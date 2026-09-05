@@ -33,7 +33,12 @@ import {
 } from "../../../../test/helpers/mswServer";
 import { waitForPaneRuntimeToSettle } from "../../../../test/helpers/paneTestUtils";
 
+const corsOriginsEnvKey = "API_CORS_ORIGINS";
+const originalCorsOrigins = process.env[corsOriginsEnvKey];
+
 afterEach(async () => {
+  if (originalCorsOrigins === undefined) delete process.env[corsOriginsEnvKey];
+  else process.env[corsOriginsEnvKey] = originalCorsOrigins;
   cleanup();
   globalThis.localStorage.clear();
   await resetMockServer();
@@ -117,6 +122,8 @@ async function expectNoteAttribution(
       headers: { Authorization: request.authorization },
     });
     expect(response.status).toBe(200);
+    expect(response.headers.get("Vary")).toBe("Origin, Accept-Encoding");
+    expect(response.headers.get("Cache-Control")).toBe("private, no-cache");
     const page: unknown = await response.json();
     invariant(
       isListDocumentEditAttributionRangesResponse(page),
@@ -139,6 +146,8 @@ async function expectNoteAttribution(
 test(
   "shared note attribution loads for both peers after editing and refreshing",
   async () => {
+    // Exercise the production CORS configuration that initializes Vary: Origin.
+    process.env[corsOriginsEnvKey] = "http://localhost:3100";
     useTestApiAppHandlers();
     const view = renderDualPane();
     const leftPane = getPaneRoot(view, "left");

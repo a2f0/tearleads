@@ -29,14 +29,19 @@ const ranges = {
   nextCursor: null,
 };
 
-for (const headers of [
+const cacheHeaders: Record<string, string>[] = [
   // Older servers let CORS overwrite this header before response finalization.
   { "Cache-Control": "private, no-cache", Vary: "Origin" },
   { "Cache-Control": "private, no-cache", Vary: "accept-encoding" },
   { "Cache-Control": "private, no-cache", Vary: "Origin, Accept-Encoding" },
   { "Cache-Control": "no-cache, private", Vary: "Accept-Encoding" },
   { "Cache-Control": "private, no-cache, no-store", Vary: "*" },
-]) {
+  { "Cache-Control": "private, no-cache" },
+  { Vary: "Origin, Accept-Encoding" },
+  {},
+];
+
+for (const headers of cacheHeaders) {
   testApiClient(
     `attribution accepts HTTP cache metadata ${JSON.stringify(headers)}`,
     async () => {
@@ -63,6 +68,47 @@ for (const headers of [
     },
   );
 }
+
+testApiClient("attribution 304 tolerates omitted cache metadata", async () => {
+  server.use(
+    http.get(
+      `${apiBaseUrl}/documents/:documentId/attribution`,
+      () =>
+        new HttpResponse(null, {
+          headers: { ETag: 'W/"attribution-1"' },
+          status: 304,
+        }),
+    ),
+  );
+  const errors: string[] = [];
+  const client = new ApiClient(apiBaseUrl);
+  client.setOnError((message) => errors.push(message));
+  expect(await client.getDocumentEditAttribution("document-1")).toBeNull();
+  expect(errors).toEqual([]);
+});
+
+testApiClient("attribution still requires ETag and valid data", async () => {
+  server.use(
+    http.get(`${apiBaseUrl}/documents/:documentId/attribution`, () =>
+      HttpResponse.json(compact),
+    ),
+  );
+  const errors: string[] = [];
+  const client = new ApiClient(apiBaseUrl);
+  client.setOnError((message) => errors.push(message));
+  expect(await client.getDocumentEditAttribution("document-1")).toBeNull();
+  expect(errors[0]).toContain("Invalid response headers");
+  server.use(
+    http.get(`${apiBaseUrl}/documents/:documentId/attribution`, () =>
+      HttpResponse.json(
+        { ...compact, attributionRevision: -1 },
+        { headers: { ETag: 'W/"attribution-1"' } },
+      ),
+    ),
+  );
+  expect(await client.getDocumentEditAttribution("document-1")).toBeNull();
+  expect(errors[1]).toContain("Invalid response shape");
+});
 
 testApiClient(
   "attribution recovers from a failed read on the next request",
