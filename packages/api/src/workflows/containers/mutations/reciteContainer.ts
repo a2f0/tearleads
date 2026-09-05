@@ -103,6 +103,9 @@ async function persistRecitation(
   if (manifestHead.manifestHash !== manifest.manifestHash)
     throw mutationStateStale("Container manifest head is stale");
   // No KEK, wrap, grant, parent edge, or tombstone changes accompany a re-cite.
+  // The grants read model includes metadataAccessStateHash from the current
+  // manifest head (organizations/containerGrants.ts), so omitting this lane
+  // invalidation would leave the materialized access identity stale.
   await appendOrganizationReadModelChangeInTransaction(context.executor, {
     organizationId: manifest.state.organizationId,
     lane: "grants",
@@ -161,7 +164,8 @@ export async function runReciteContainerWorkflow(
         throw new Error("Organization read-model cursor head is missing");
       }
       // Match other container mutations: verify mutable heads and authority
-      // again after acquiring the group -> organization mutation lock scope.
+      // again after assertVerifiedContainerGrantReferencesValid acquired the
+      // group locks and the organization-head lock above completed the scope.
       context.manifestHeadByContainerId.clear();
       const manifest = await verifyRecitation(context, input);
       if (manifest.state.organizationId !== initial.state.organizationId)

@@ -4,11 +4,10 @@ import type {
   KeyingCanonicalJson,
 } from "./types";
 
-// Re-citations may only consume the first quarter of the API verifier's 4096
-// manifest budget (MAX_CONTAINER_HISTORY_DEPTH in the API's
-// workflows/containers/writerProjection/storedManifestVerification.ts).
-// Ordinary mutations retain the remaining history capacity.
-export const MAX_CONTAINER_RECITATION_EPOCH = 1024;
+// Reserve half of the API's 1024 same-KEK write-history budget and most of
+// its 4096 projection-history budget for ordinary mutations. This absolute
+// epoch ceiling does not reset when a container rekeys.
+export const MAX_CONTAINER_RECITATION_EPOCH = 512;
 
 export function normalizeContainerReciteAccessEventBody(
   value: KeyingCanonicalJson,

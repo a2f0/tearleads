@@ -295,7 +295,10 @@ its durable checkpoint, and signs complete path citations parent-first.
 key epochs, keyrings, and wraps stay unchanged. The API checks current paths
 and principal policies under the mutation locks and requires admin authority.
 The signed transition stops admitting re-citations once the prior container
-epoch reaches 1024. This reserves the rest of the API verifier's 4096-manifest
+epoch reaches 512. This leaves at least 512 ordinary same-key mutations before
+the 1024-entry write-history bound, even without a prior rekey. Re-citations
+cannot restart their allowance by rekeying. They also reserve most of the
+API verifier's 4096-manifest
 history budget (`MAX_CONTAINER_HISTORY_DEPTH` in
 `packages/api/src/workflows/containers/writerProjection/storedManifestVerification.ts`)
 for ordinary mutations; it is not history compaction. The SDK
@@ -320,6 +323,10 @@ boundary. It uses constant-size recursive rows and detects duplicate hashes
 after loading, rather than accumulating quadratic visited-path strings. This
 separate write-side bound applies to ordinary grant/move events too. A rekey
 starts a new same-KEK run; it does not compact the signed writer-projection chain.
+This is an intentional greenfield flag day: already-persisted histories above
+the same-key bound are refused too, with no compatibility migration. The bounds
+tests construct persisted grant-only and re-citation runs before the first read
+and exercise both refusal and recovery after rekey.
 
 This background pass never fetches a subtree or a principal policy, never
 retries a failed re-cite, and never delays or changes the original mutation's

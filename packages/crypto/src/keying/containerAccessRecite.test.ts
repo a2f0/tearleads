@@ -34,7 +34,7 @@ async function recite(
   const previous = await createContainerManifestFixture({
     containerId: "empty-child",
     // The fixture is the trusted predecessor boundary of this transition
-    // test, not evidence that an abbreviated 1024-head chain verifies.
+    // test, not evidence that an abbreviated ceiling-length chain verifies.
     epoch: input.previousEpoch ?? 1,
     containerKeyEpochId: "child-key",
     directGrants: input.withGrants

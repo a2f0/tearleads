@@ -27,6 +27,8 @@ interface HeldContainers {
 // Opportunistic, process-local evidence, not a persistent cache or freshness
 // oracle. No secret keys are retained. Eviction merely limits cascade coverage.
 const heldByDatabase = new WeakMap<ExecSql, HeldContainers>();
+// Executor-wide limits: another organization's activity may evict evidence,
+// which only skips optional recitations and never changes durable checkpoints.
 const MAX_HEADS = 256;
 const MAX_POLICIES = 512;
 

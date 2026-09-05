@@ -2,6 +2,7 @@ import {
   operationRoutePath,
   reciteContainerOperation,
 } from "@tearleads/validators/operation";
+import type { ContainerReciteResponse } from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
@@ -45,7 +46,7 @@ export function createContainerReciteRoute(input: {
           request,
           response,
         });
-        return c.json(response);
+        return c.json<ContainerReciteResponse>(response);
       } catch (error) {
         if (error instanceof ContainerMutationError)
           return c.json(error.body ?? { error: error.message }, error.status);
