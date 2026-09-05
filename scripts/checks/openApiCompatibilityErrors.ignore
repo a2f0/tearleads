@@ -1,3 +1,0 @@
-# Issue: organization-scoped blob storage, a predeployment flag-day contract change.
-# Remove when origin/main contains the required organizationId stage request.
-POST /blobs/stages/multipart added the new required request property `organizationId`
