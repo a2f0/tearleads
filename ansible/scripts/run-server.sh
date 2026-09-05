@@ -33,6 +33,7 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 
 load_secrets_env "$TIER"
 validate_aws_env
+validate_stripe_env "$TIER"
 
 STACK_DIR="$REPO_ROOT/terraform/stacks/$TIER/server"
 BACKEND_CONFIG="$(get_backend_config)"
