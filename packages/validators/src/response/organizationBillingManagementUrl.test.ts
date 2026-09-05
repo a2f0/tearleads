@@ -6,7 +6,6 @@ test("accepts a management URL string", () => {
     isOrganizationBillingManagementUrlResponse({
       canCancelDirectly: false,
       managementUrl: "https://billing.example/manage",
-      subscriptionSource: "native",
     }),
   ).toBe(true);
 });
@@ -16,7 +15,6 @@ test("accepts a null management URL", () => {
     isOrganizationBillingManagementUrlResponse({
       canCancelDirectly: true,
       managementUrl: null,
-      subscriptionSource: "stripe",
     }),
   ).toBe(true);
 });
@@ -29,21 +27,7 @@ test("rejects a missing or non-string management URL", () => {
   expect(
     isOrganizationBillingManagementUrlResponse({
       canCancelDirectly: false,
-      managementUrl: null,
-    }),
-  ).toBe(false);
-  expect(
-    isOrganizationBillingManagementUrlResponse({
-      canCancelDirectly: false,
       managementUrl: 42,
-      subscriptionSource: null,
-    }),
-  ).toBe(false);
-  expect(
-    isOrganizationBillingManagementUrlResponse({
-      canCancelDirectly: false,
-      managementUrl: null,
-      subscriptionSource: "paypal",
     }),
   ).toBe(false);
   expect(isOrganizationBillingManagementUrlResponse(null)).toBe(false);

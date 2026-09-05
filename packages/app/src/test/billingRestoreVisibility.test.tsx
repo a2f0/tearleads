@@ -41,6 +41,7 @@ function props(overrides: Partial<BillingViewProps> = {}): BillingViewProps {
       needsAttention: false,
       pendingSeatCount: null,
       seatCount: 1,
+      subscriptionSource: "native",
       currentUserHasSyncSeat: true,
       syncSeatUnavailable: false,
       status: "active",

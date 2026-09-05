@@ -37,6 +37,7 @@ function billing(
     pendingSeatCount: null,
     disabledAt: null,
     purgeAfter: null,
+    subscriptionSource: null,
     ...overrides,
   };
 }
@@ -234,7 +235,6 @@ test("loadOrganizationBillingManagementUrl passes through the org id", async () 
         return {
           canCancelDirectly: false,
           managementUrl: "https://manage.example/x",
-          subscriptionSource: "native" as const,
         };
       },
     },
@@ -244,7 +244,6 @@ test("loadOrganizationBillingManagementUrl passes through the org id", async () 
   expect(result).toEqual({
     canCancelDirectly: false,
     managementUrl: "https://manage.example/x",
-    subscriptionSource: "native",
   });
 });
 

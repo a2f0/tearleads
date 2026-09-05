@@ -59,6 +59,7 @@ const BASE_VIEW: OrganizationBillingView = {
   currentUserHasSyncSeat: true,
   syncSeatUnavailable: false,
   pendingSeatCount: null,
+  subscriptionSource: null,
   needsAttention: false,
 };
 
@@ -111,6 +112,7 @@ function activePlanProps(
       trialEndsAtMs: null,
       seatCount,
       pendingSeatCount,
+      subscriptionSource: "native",
     },
   };
 }

@@ -61,7 +61,6 @@ test("a managed subscription resolves to its provider URL", async () => {
       Promise.resolve({
         canCancelDirectly: false,
         managementUrl: "https://rc.example/manage",
-        subscriptionSource: "native",
       }),
   });
 
@@ -71,7 +70,6 @@ test("a managed subscription resolves to its provider URL", async () => {
     expect(result.current).toEqual({
       canCancelDirectly: false,
       managementUrl: "https://rc.example/manage",
-      subscriptionSource: "native",
     }),
   );
 });
@@ -82,7 +80,6 @@ test("no managed subscription hides the link rather than erroring", async () => 
       Promise.resolve({
         canCancelDirectly: false,
         managementUrl: null,
-        subscriptionSource: null,
       }),
   });
 
@@ -92,7 +89,6 @@ test("no managed subscription hides the link rather than erroring", async () => 
     expect(result.current).toEqual({
       canCancelDirectly: false,
       managementUrl: null,
-      subscriptionSource: null,
     }),
   );
 });
@@ -103,7 +99,6 @@ test("a Stripe subscription exposes direct cancellation without a URL", async ()
       Promise.resolve({
         canCancelDirectly: true,
         managementUrl: null,
-        subscriptionSource: "stripe",
       }),
   });
 
@@ -113,7 +108,6 @@ test("a Stripe subscription exposes direct cancellation without a URL", async ()
     expect(result.current).toEqual({
       canCancelDirectly: true,
       managementUrl: null,
-      subscriptionSource: "stripe",
     }),
   );
 });
@@ -130,7 +124,6 @@ test("a failed lookup degrades to no link", async () => {
     expect(result.current).toEqual({
       canCancelDirectly: false,
       managementUrl: null,
-      subscriptionSource: null,
     }),
   );
 });
@@ -140,7 +133,6 @@ test("a disabled hook never asks", async () => {
     Promise.resolve({
       canCancelDirectly: false,
       managementUrl: "https://rc.example/manage",
-      subscriptionSource: "native",
     }),
   );
   stubOrganizations({ loadBillingManagementUrl });
@@ -150,7 +142,6 @@ test("a disabled hook never asks", async () => {
   expect(result.current).toEqual({
     canCancelDirectly: false,
     managementUrl: null,
-    subscriptionSource: null,
   });
   expect(loadBillingManagementUrl).not.toHaveBeenCalled();
 });
@@ -163,7 +154,6 @@ test("a URL fetched for a previous org never leaks across a switch", async () =>
       Promise.resolve({
         canCancelDirectly: false,
         managementUrl: "https://rc.example/org-1",
-        subscriptionSource: "native",
       }),
   });
 
@@ -175,7 +165,6 @@ test("a URL fetched for a previous org never leaks across a switch", async () =>
     expect(result.current).toEqual({
       canCancelDirectly: false,
       managementUrl: "https://rc.example/org-1",
-      subscriptionSource: "native",
     }),
   );
 
@@ -183,7 +172,6 @@ test("a URL fetched for a previous org never leaks across a switch", async () =>
   expect(result.current).toEqual({
     canCancelDirectly: false,
     managementUrl: null,
-    subscriptionSource: null,
   });
 });
 
@@ -265,7 +253,6 @@ test("replacing the SDK runtime re-fetches for the same organization", async () 
       Promise.resolve({
         canCancelDirectly: false,
         managementUrl: "https://rc.example/first",
-        subscriptionSource: "native",
       }),
   });
   const { rerender, result } = renderHook(() =>
@@ -283,7 +270,6 @@ test("replacing the SDK runtime re-fetches for the same organization", async () 
       Promise.resolve({
         canCancelDirectly: false,
         managementUrl: "https://rc.example/second",
-        subscriptionSource: "native",
       }),
   });
   rerender();

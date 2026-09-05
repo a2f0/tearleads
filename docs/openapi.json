@@ -37391,26 +37391,11 @@
                           "type": "null"
                         }
                       ]
-                    },
-                    "subscriptionSource": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "enum": [
-                            "native",
-                            "stripe"
-                          ]
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
                     }
                   },
                   "required": [
                     "canCancelDirectly",
-                    "managementUrl",
-                    "subscriptionSource"
+                    "managementUrl"
                   ],
                   "additionalProperties": {}
                 }
@@ -37871,6 +37856,20 @@
                         }
                       ]
                     },
+                    "subscriptionSource": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "native",
+                            "stripe"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "currentPeriodStartsAt": {
                       "anyOf": [
                         {
@@ -37938,6 +37937,7 @@
                     "status",
                     "trialEndsAt",
                     "provider",
+                    "subscriptionSource",
                     "currentPeriodStartsAt",
                     "currentPeriodEndsAt",
                     "seatCount",
@@ -39324,6 +39324,20 @@
                         }
                       ]
                     },
+                    "subscriptionSource": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "native",
+                            "stripe"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "currentPeriodStartsAt": {
                       "anyOf": [
                         {
@@ -39391,6 +39405,7 @@
                     "status",
                     "trialEndsAt",
                     "provider",
+                    "subscriptionSource",
                     "currentPeriodStartsAt",
                     "currentPeriodEndsAt",
                     "seatCount",
@@ -39635,6 +39650,20 @@
                         }
                       ]
                     },
+                    "subscriptionSource": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "native",
+                            "stripe"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "currentPeriodStartsAt": {
                       "anyOf": [
                         {
@@ -39702,6 +39731,7 @@
                     "status",
                     "trialEndsAt",
                     "provider",
+                    "subscriptionSource",
                     "currentPeriodStartsAt",
                     "currentPeriodEndsAt",
                     "seatCount",

@@ -55,7 +55,6 @@ function stubTerminalBilling(status: "deleting" | "purged") {
           Promise.resolve({
             canCancelDirectly: false,
             managementUrl: null,
-            subscriptionSource: null,
           }),
         loadStripeCheckoutOptions,
       },
