@@ -112,6 +112,7 @@ test("repeated shares submit every same-container manifest needed by retained wr
       return createMutationResponseFromRequest(request);
     };
     const apiClient = {
+      reciteContainer: async () => null,
       getContainerWriterProjection: async () => projection,
       shareContainer,
     };
@@ -123,6 +124,7 @@ test("repeated shares submit every same-container manifest needed by retained wr
         signingPublicKey: generateSigningSeedAndKeyPair().signingPublicKey,
       });
       const shared = await shareRemoteContainer({
+        reportSecurityIncident: async () => {},
         accessLevel: "read",
         apiClient,
         author: parent.author,

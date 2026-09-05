@@ -331,7 +331,7 @@ function readPrincipalPolicyRequestArtifact(
 }
 
 export function principalPoliciesFromRequest(
-  request: ContainerMutationRequest,
+  request: Pick<ContainerMutationRequest, "principalPolicies">,
 ): PrincipalPolicyRequestArtifact[] {
   return request.principalPolicies.map((policy, index) =>
     readPrincipalPolicyRequestArtifact(policy, `principalPolicies[${index}]`),

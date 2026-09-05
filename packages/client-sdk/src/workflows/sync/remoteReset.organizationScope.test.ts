@@ -101,14 +101,14 @@ test("remote reset rebinds only the purged organization to its replacement", asy
     await db.insert(containerSyncWatermarks).values([
       {
         laneKind: "container_parent",
-        laneId: "org-old:root",
+        laneId: "root",
         watermarkUpdatedAt: STALE,
         watermarkId: "old-root",
         updatedAt: STALE,
       },
       {
         laneKind: "container_parent",
-        laneId: "org-keep:root",
+        laneId: "parent:keep-root",
         watermarkUpdatedAt: STALE,
         watermarkId: "keep-root",
         updatedAt: STALE,
@@ -177,7 +177,7 @@ test("remote reset rebinds only the purged organization to its replacement", asy
       }),
     );
     expect(await db.select().from(containerSyncWatermarks)).toEqual([
-      expect.objectContaining({ laneId: "org-keep:root" }),
+      expect.objectContaining({ laneId: "parent:keep-root" }),
     ]);
     expect(await db.select().from(documentHistoryCheckpoints)).toEqual([
       expect.objectContaining({ localId: "keep-local" }),
@@ -190,9 +190,9 @@ test("remote reset rebinds only the purged organization to its replacement", asy
   }
 });
 
-test("remote reset clears legacy cursor lanes owned by the purged organization", async () => {
+test("remote reset clears the global root feed and only the purged organization's child feeds", async () => {
   const { close, execSql } = await createTestExecSql(
-    "sync-remote-reset-legacy-cursor-scope",
+    "sync-remote-reset-cursor-feed-scope",
   );
   try {
     await ensureSqlTables(execSql, clientSqlTables);
@@ -218,8 +218,6 @@ test("remote reset clears legacy cursor lanes owned by the purged organization",
       },
     ]);
     const cursors = [
-      ["container_parent", "org-old:root"],
-      ["container_parent", "org-keep:root"],
       ["container_parent", "root"],
       ["container_parent", "parent:old-root"],
       ["container_documents", "old-root"],
@@ -247,12 +245,8 @@ test("remote reset clears legacy cursor lanes owned by the purged organization",
       organizationId: "org-old",
     });
 
-    expect(result.clearedSyncCursorCount).toBe(8);
-    const expectedRetainedLaneIds = [
-      "keep-root",
-      "org-keep:root",
-      "parent:keep-root",
-    ];
+    expect(result.clearedSyncCursorCount).toBe(6);
+    const expectedRetainedLaneIds = ["keep-root", "parent:keep-root"];
     expect(
       (await db.select().from(containerSyncWatermarks))
         .map((row) => row.laneId)

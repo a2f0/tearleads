@@ -34,7 +34,8 @@ import {
 // chain for reference-bound checks reduces the mutation to 40 requests in each
 // of ten runs; freshness-sensitive mutation and current-head reads stay remote.
 // Keep navigation and mutation separate so UI reads cannot hide a sync
-// regression. Only the atomic group-policy commits are writes.
+// regression. Atomic group-policy commits and bounded descendant recitations
+// are the only writes.
 // The second read-model GET is the deferred author-echo release: a
 // session-scoped origin flag cannot prove the deferred hint was this client's
 // own echo (a sibling client shares the login session), so the release
@@ -67,7 +68,9 @@ const ADMIN_GROUP_OPEN_REQUEST_BUDGET: ProxiedApiRequestBudget = {
 // a separately committed repair would reintroduce the recovery gap this flow is
 // meant to close.
 const ADMIN_GROUP_MUTATION_REQUEST_BUDGET: ProxiedApiRequestBudget = {
-  total: 52,
+  // Two held descendants now re-cite the acknowledged root. The measured
+  // mutation has 56 requests, including those POSTs and their refresh hints.
+  total: 58,
   byRequest: {
     "GET /containers": 0,
     "POST /containers/parent-lanes/query": 13,
@@ -88,6 +91,7 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     "GET /principals/organization/:organizationId/policy": 2,
     "POST /containers/:containerId/share": 0,
     "PUT /organizations/:organizationId/groups/:groupId/policy-commit": 2,
+    "POST /containers/:containerId/recite": 2,
   },
 };
 function documentSyncIntentCounts(

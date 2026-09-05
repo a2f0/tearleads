@@ -42,6 +42,7 @@ import {
   type ReferencedPrincipalPolicyWarmer,
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
+import type { SecurityIncidentReporter } from "../../../data/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   sealRotationKeyring,
@@ -370,6 +371,7 @@ function buildContainerRekeyPlan(input: {
 }
 
 export async function rekeyRemoteContainer(input: {
+  reportSecurityIncident: SecurityIncidentReporter;
   apiClient: ContainerRekeyApi;
   author: ContainerMutationAuthor;
   containerId: string;
@@ -406,6 +408,10 @@ export async function rekeyRemoteContainer(input: {
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
   return submitAcknowledgedContainerMutation({
+    reportSecurityIncident: input.reportSecurityIncident,
+    recitationPolicies: [],
+    apiClient: input.apiClient,
+    author: input.author,
     containerKey: materializedPlan.containerKey,
     execSql: input.execSql,
     plan: materializedPlan.plan,

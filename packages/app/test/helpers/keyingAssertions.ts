@@ -16,6 +16,7 @@ function isAccessEventType(value: unknown): value is AccessEventType {
     value === "container.grant" ||
     value === "container.move" ||
     value === "container.rekey" ||
+    value === "container.recite" ||
     value === "container.revoke" ||
     value === "document.link" ||
     value === "document.unlink"

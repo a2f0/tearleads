@@ -2,6 +2,7 @@ import type { ContainerDirectGrant } from "@tearleads/crypto";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import type { ReferencedPrincipalPolicyWarmer } from "../../data/keyingProjectionVerification";
 import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification/userKeyResolver";
+import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import { revokeRemoteContainer } from "../containers";
@@ -17,6 +18,8 @@ type OrganizationContainerGrantRevocationApi = Parameters<
 >[0]["apiClient"];
 
 export async function revokeOrganizationContainerGrant(input: {
+  readonly stillCurrent: () => boolean;
+  readonly reportSecurityIncident: SecurityIncidentReporter;
   readonly apiClient: OrganizationContainerGrantRevocationApi;
   readonly containerId: string;
   readonly encapsulationKeyPair: {
@@ -52,6 +55,8 @@ export async function revokeOrganizationContainerGrant(input: {
   }
 
   const revoked = await revokeRemoteContainer({
+    stillCurrent: input.stillCurrent,
+    reportSecurityIncident: input.reportSecurityIncident,
     apiClient: input.apiClient,
     author,
     containerId: input.containerId,

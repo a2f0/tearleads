@@ -32,7 +32,10 @@ export {
 export {
   type ContainerMutationRequest,
   ContainerMutationRequestSchema,
+  type ContainerReciteRequest,
+  ContainerReciteRequestSchema,
   isContainerMutationRequest,
+  isContainerReciteRequest,
 } from "./container";
 export {
   type ContainerCreateWithMetadataDocumentRequest,

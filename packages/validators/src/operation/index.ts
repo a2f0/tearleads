@@ -77,6 +77,7 @@ export {
   isCreateContainerWithMetadataDocumentOperationResponse,
   isDeleteContainerOperationResponse,
   moveContainerOperation,
+  reciteContainerOperation,
   rekeyContainerOperation,
   revokeContainerOperation,
   shareContainerOperation,

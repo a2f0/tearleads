@@ -8,7 +8,6 @@ import type {
   ContainerWriterProjectionResponse,
   PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
-import { acknowledgeContainerMutation } from "../../../data/containers/shared/mutationAcknowledgement";
 import type {
   ContainerMutationAuthor,
   ContainerShareApi,
@@ -24,6 +23,7 @@ import {
 } from "../../../data/keyingProjectionVerification";
 import { principalPolicyCacheForVerifiedPolicies } from "../../../data/keyingProjectionVerification/principalPolicyCache";
 import { savePrincipalPolicyBundle } from "../../../data/persistence/principalPolicyPersistence";
+import type { SecurityIncidentReporter } from "../../../data/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   requireTrustedUserIdentityResolver,
@@ -50,6 +50,7 @@ async function buildCurrentContainerSharePlan(
 }
 
 export async function shareRemoteContainer(input: {
+  reportSecurityIncident: SecurityIncidentReporter;
   accessLevel: ContainerAccessLevel;
   apiClient: ContainerShareApi;
   author: ContainerMutationAuthor;
@@ -108,6 +109,10 @@ export async function shareRemoteContainer(input: {
   });
   if (!materializedPlan) return null;
   return submitAcknowledgedContainerMutation({
+    reportSecurityIncident: input.reportSecurityIncident,
+    recitationPolicies: [],
+    apiClient: input.apiClient,
+    author: input.author,
     containerKey: materializedPlan.containerKey,
     execSql: input.execSql,
     plan: materializedPlan.plan,
@@ -124,6 +129,7 @@ export async function shareRemoteContainer(input: {
 }
 
 interface RemoteContainerGroupShareInput {
+  reportSecurityIncident: SecurityIncidentReporter;
   accessLevel: ContainerAccessLevel;
   apiClient: ContainerManagedPrincipalShareApi;
   author: ContainerMutationAuthor;
@@ -171,6 +177,7 @@ async function prepareMissingGroupGrantMutations(input: {
 }) {
   const { currentPolicy, nextPolicy, shareInput } = input;
   return preparePrincipalContainerRematerializationBatch({
+    reportSecurityIncident: shareInput.reportSecurityIncident,
     apiClient: shareInput.apiClient,
     author: shareInput.author,
     execSql: shareInput.execSql,
@@ -365,22 +372,23 @@ export async function shareRemoteContainerWithGroup(
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
   if (!materializedPlan) return null;
-  if (input.stillCurrent?.() === false) return null;
-  const response = await input.apiClient.shareContainer(
-    input.containerId,
-    materializedPlan.plan.request,
-    { expectedPaymentRequiredOrganizationId: input.author.organizationId },
-  );
-  if (!response) {
-    return null;
-  }
-
-  await acknowledgeContainerMutation({
+  const result = await submitAcknowledgedContainerMutation({
+    reportSecurityIncident: input.reportSecurityIncident,
+    recitationPolicies: verifiedPrincipalPolicy.checkpointPolicies,
+    apiClient: input.apiClient,
+    author: input.author,
+    containerKey: materializedPlan.containerKey,
     execSql: input.execSql,
     plan: materializedPlan.plan,
-    response,
     stillCurrent: input.stillCurrent,
+    submit: () =>
+      input.apiClient.shareContainer(
+        input.containerId,
+        materializedPlan.plan.request,
+        { expectedPaymentRequiredOrganizationId: input.author.organizationId },
+      ),
   });
+  if (!result) return null;
 
   // Keep the previously cached group epoch available until the old container
   // wrap has been unwrapped and the replacement has committed. Root has no
@@ -397,9 +405,5 @@ export async function shareRemoteContainerWithGroup(
   }
   if (input.stillCurrent?.() === false) return null;
 
-  return {
-    containerKey: materializedPlan.containerKey,
-    plan: materializedPlan.plan,
-    response,
-  };
+  return result;
 }

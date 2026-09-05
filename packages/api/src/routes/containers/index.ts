@@ -7,6 +7,7 @@ import { createContainerKekLogRoute } from "./kekLog";
 import { createListContainerDocumentsRoute } from "./listContainerDocuments";
 import { createListContainerParentLanesRoute } from "./listContainerParentLanes";
 import { createContainerMutationsRoute } from "./mutations";
+import { createContainerReciteRoute } from "./recite";
 import { createContainerWriterProjectionRoute } from "./writerProjection";
 
 interface ContainersRouterDeps {
@@ -32,6 +33,7 @@ export function createContainersRouter({
     createListContainerParentLanesRoute({ requireAuth, runtime }),
   );
   containersRouter.route("/", createContainerMutationsRoute(routeDeps));
+  containersRouter.route("/", createContainerReciteRoute(routeDeps));
   containersRouter.route(
     "/",
     createContainerWriterProjectionRoute({ requireAuth, runtime }),

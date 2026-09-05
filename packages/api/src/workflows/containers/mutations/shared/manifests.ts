@@ -181,7 +181,7 @@ export async function assertMutationHeadCanAdvance(
 }
 
 export async function verifyContainerManifestFromRequest(
-  request: ContainerMutationRequest,
+  request: Pick<ContainerMutationRequest, "manifest" | "expectedManifestHash">,
   event: VerifiedAccessEvent,
   artifacts: VerifyContainerManifestFromRequestArtifacts,
 ): Promise<VerifiedContainerAccessManifest> {

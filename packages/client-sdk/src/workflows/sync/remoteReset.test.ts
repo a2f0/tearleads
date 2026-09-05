@@ -252,14 +252,14 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
       });
       await tx.insert(containerSyncWatermarks).values({
         laneKind: "container_parent",
-        laneId: "org-old:root",
+        laneId: "root",
         watermarkUpdatedAt: stale,
         watermarkId: "child",
         updatedAt: stale,
       });
       await tx.insert(containerSyncLaneChecks).values({
         laneKind: "container_parent",
-        laneId: "org-old:root",
+        laneId: "root",
         checkedAt: stale,
       });
       await tx.insert(organizationReadModelState).values({

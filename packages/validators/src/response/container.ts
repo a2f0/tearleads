@@ -128,10 +128,9 @@ export function isContainerKekLogResponse(
   return ContainerKekLogResponseSchema.safeParse(value).success;
 }
 
-export const ContainerMutationResponseSchema = loosePlainObject({
+const ContainerManifestMutationResponseShape = {
   accessManifest: AccessManifestBundleWireResponseSchema,
   containerId: z.string(),
-  containerKek: ContainerKekResponseSchema,
   createdAt: z.string(),
   manifestHead: loosePlainObject({
     epoch: z.number(),
@@ -144,11 +143,35 @@ export const ContainerMutationResponseSchema = loosePlainObject({
   ),
   systemSlot: ContainerSystemSlotSchema.nullable().optional(),
   updatedAt: z.string(),
+};
+
+// Preserve the canonical generated field order while sharing the signed-head shape.
+const { accessManifest, containerId, ...containerMutationResponseFields } =
+  ContainerManifestMutationResponseShape;
+
+export const ContainerMutationResponseSchema = loosePlainObject({
+  accessManifest,
+  containerId,
+  containerKek: ContainerKekResponseSchema,
+  ...containerMutationResponseFields,
 });
 
 export type ContainerMutationResponse = z.infer<
   typeof ContainerMutationResponseSchema
 >;
+
+export const ContainerReciteResponseSchema = loosePlainObject(
+  ContainerManifestMutationResponseShape,
+);
+export type ContainerReciteResponse = z.infer<
+  typeof ContainerReciteResponseSchema
+>;
+
+export function isContainerReciteResponse(
+  value: unknown,
+): value is ContainerReciteResponse {
+  return ContainerReciteResponseSchema.safeParse(value).success;
+}
 
 export const ContainerDeleteResponseSchema = loosePlainObject({
   containerId: z.string(),

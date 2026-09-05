@@ -4,6 +4,7 @@ import {
   containerCreateWithMetadataDocument,
   containerDelete,
   containerMove,
+  containerRecite,
   containerRekey,
   containerRevoke,
   containerShare,
@@ -29,6 +30,7 @@ test("container mutation client metadata derives from shared operations", () => 
     [containerRevoke, "revoke"],
     [containerRekey, "rekey"],
     [containerMove, "move"],
+    [containerRecite, "recite"],
   ] as const) {
     const [metadata, suffix] = mutation;
     expect(metadata.method).toBe("POST");

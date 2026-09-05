@@ -76,6 +76,7 @@ function requireEncapsulationKeyPair(
 }
 
 interface PrincipalMutationRuntime {
+  readonly stillCurrent: () => boolean;
   readonly containerContents: ContainerContents;
   readonly readModelCoordinator: OrganizationReadModelCoordinator;
   readonly runtime: InternalWorkflowRuntimeInput;
@@ -112,6 +113,7 @@ export async function addUserToOrganizationGroup(
             nextPolicy,
             organizationId: signingContext.organizationId,
             runtime: input.runtime,
+            stillCurrent: input.stillCurrent,
           }),
         resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
         targetUserId: input.targetUserId,
@@ -210,6 +212,7 @@ export async function removeUserFromOrganizationGroup(
             nextPolicy,
             organizationId: signingContext.organizationId,
             runtime: input.runtime,
+            stillCurrent: input.stillCurrent,
           }),
         removedUserId: input.removedUserId,
         resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
@@ -263,12 +266,15 @@ export async function revokeOrganizationGrant(
                   organizationId: signingContext.organizationId,
                   revokedContainerId: input.containerId,
                   runtime: input.runtime,
+                  stillCurrent: input.stillCurrent,
                 }),
               resolveTrustedUserIdentity:
                 input.runtime.resolveTrustedUserIdentity,
               ...signingContext,
             })
           : await revokeOrganizationContainerGrant({
+              stillCurrent: input.stillCurrent,
+              reportSecurityIncident: input.runtime.util.reportSecurityIncident,
               apiClient: input.runtime.apiClient,
               containerId: input.containerId,
               encapsulationKeyPair,

@@ -47,8 +47,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 568,
-      "bytes": 26988
+      "lines": 589,
+      "bytes": 28329
     },
     "docs/developer/revenuecat-billing.md": {
       "lines": 360,
@@ -67,7 +67,7 @@
       "bytes": 19355
     },
     "docs/keying-design.md": {
-      "lines": 1031,
+      "lines": 1032,
       "bytes": 47194
     },
     "docs/loro-e2ee-sync-protocol.md": {
@@ -75,16 +75,16 @@
       "bytes": 23535
     },
     "docs/openapi.json": {
-      "lines": 61966,
-      "bytes": 2582526
+      "lines": 63012,
+      "bytes": 2624935
     },
     "docs/protocol-specification.md": {
       "lines": 585,
-      "bytes": 28639
+      "bytes": 28664
     },
     "docs/security-guarantees.md": {
-      "lines": 642,
-      "bytes": 35387
+      "lines": 737,
+      "bytes": 41880
     },
     "formal/document-sync/BaselineDominanceTraces.json": {
       "lines": 2059,
@@ -95,8 +95,8 @@
       "bytes": 23392
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 1786,
-      "bytes": 58043
+      "lines": 1797,
+      "bytes": 58169
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 567,
@@ -180,7 +180,7 @@
     },
     "packages/api/src/workflows/containers/mutations/shared/persistence.ts": {
       "lines": 655,
-      "bytes": 19072
+      "bytes": 19073
     },
     "packages/api/src/workflows/documents/writerProjection.ts": {
       "lines": 684,
@@ -315,8 +315,8 @@
       "bytes": 23438
     },
     "packages/crypto/src/keying/containerAccess.ts": {
-      "lines": 1332,
-      "bytes": 38337
+      "lines": 1195,
+      "bytes": 34889
     },
     "packages/crypto/src/keying/containerKek.test.ts": {
       "lines": 650,
@@ -347,16 +347,16 @@
       "bytes": 30430
     },
     "packages/crypto/src/keying/types.ts": {
-      "lines": 1163,
-      "bytes": 36433
+      "lines": 1162,
+      "bytes": 36611
     },
     "packages/sqlite-worker/src/crossTabRuntime.ts": {
       "lines": 555,
       "bytes": 19200
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 23325,
-      "bytes": 976590
+      "lines": 23707,
+      "bytes": 992456
     },
     "packages/validators/src/response/response.test.ts": {
       "lines": 1159,

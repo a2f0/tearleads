@@ -5,6 +5,7 @@ import {
   type ContainerKekRecipientTarget,
   type ContainerKeyEpoch,
   type ContainerMoveAccessEventBody,
+  type ContainerReciteAccessEventBody,
   type ContainerRekeyAccessEventBody,
   type ContainerRevokeAccessEventBody,
   computeAccessEventBodyHash,
@@ -95,6 +96,7 @@ export async function signContainerMutationEvent(input: {
     | ContainerGrantAccessEventBody
     | ContainerMoveAccessEventBody
     | ContainerRekeyAccessEventBody
+    | ContainerReciteAccessEventBody
     | ContainerRevokeAccessEventBody;
   containerId: string;
   dependencyManifestHashes: readonly string[];

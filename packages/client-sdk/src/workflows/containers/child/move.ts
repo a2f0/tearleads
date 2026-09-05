@@ -41,6 +41,7 @@ import {
   type ReferencedPrincipalPolicyWarmer,
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
+import type { SecurityIncidentReporter } from "../../../data/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   buildMoveRotationWithBody,
@@ -327,6 +328,7 @@ async function buildMaterializedContainerMovePlan(
 }
 
 export async function moveRemoteContainer(input: {
+  reportSecurityIncident: SecurityIncidentReporter;
   apiClient: ContainerMoveApi;
   author: ContainerMutationAuthor;
   containerId: string;
@@ -373,6 +375,10 @@ export async function moveRemoteContainer(input: {
   );
   if (!materializedPlan) return null;
   return submitAcknowledgedContainerMutation({
+    reportSecurityIncident: input.reportSecurityIncident,
+    recitationPolicies: [],
+    apiClient: input.apiClient,
+    author: input.author,
     containerKey: materializedPlan.containerKey,
     execSql: input.execSql,
     plan: materializedPlan.plan,

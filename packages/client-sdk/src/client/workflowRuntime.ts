@@ -53,6 +53,7 @@ export interface InternalWorkflowRuntimeInput extends WorkflowRuntimeGroups {
 }
 
 export interface InternalRuntime {
+  readonly sessionGeneration: number;
   readonly adoptRootContainer: ContainerContentsRootAdopter;
   readonly publicRuntime: Runtime;
   pinLocalUserIdentity(
@@ -124,6 +125,9 @@ export function createRuntime(
   );
 
   return {
+    get sessionGeneration() {
+      return runtimeSubscription.sessionGeneration;
+    },
     adoptRootContainer: (input) =>
       adoptSessionRootContainer(dependencies, input),
     async pinLocalUserIdentity(userId, candidate) {
@@ -152,6 +156,8 @@ export function createRuntime(
 function createRuntimeSubscription(dependencies: WorkflowRuntimeDependencies) {
   const listeners = createListenerSet();
   let version = 0;
+  let sessionGeneration = 0;
+  let sessionSnapshot = dependencies.session.snapshot;
   const notifyListeners = () => {
     version += 1;
     listeners.notify();
@@ -161,10 +167,25 @@ function createRuntimeSubscription(dependencies: WorkflowRuntimeDependencies) {
   dependencies.events.subscribe(notifyListeners);
   dependencies.identity.subscribe(notifyListeners);
   dependencies.network.subscribe(() => notifyListeners());
-  dependencies.session.subscribe(notifyListeners);
+  dependencies.session.subscribe(() => {
+    const next = dependencies.session.snapshot;
+    if (
+      next.authToken !== sessionSnapshot.authToken ||
+      next.isAuthenticated !== sessionSnapshot.isAuthenticated ||
+      next.organizationId !== sessionSnapshot.organizationId ||
+      next.userId !== sessionSnapshot.userId
+    ) {
+      sessionGeneration += 1;
+    }
+    sessionSnapshot = next;
+    notifyListeners();
+  });
   dependencies.syncBillingGate?.subscribe(notifyListeners);
 
   return {
+    get sessionGeneration() {
+      return sessionGeneration;
+    },
     get version() {
       return version;
     },

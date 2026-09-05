@@ -9,10 +9,21 @@ import {
   isDeleteContainerOperationResponse,
   moveContainerOperation,
   operationRequestPath,
+  reciteContainerOperation,
   rekeyContainerOperation,
   revokeContainerOperation,
   shareContainerOperation,
 } from "@tearleads/validators/operation";
+import { isContainerReciteRequest } from "@tearleads/validators/request";
+import { isContainerReciteResponse } from "@tearleads/validators/response";
+
+export const containerRecite = {
+  isRequest: isContainerReciteRequest,
+  isResponse: isContainerReciteResponse,
+  method: reciteContainerOperation.method,
+  path: (containerId: string) =>
+    operationRequestPath(reciteContainerOperation, { containerId }),
+} as const;
 
 export const containerCreate = {
   isRequest: isContainerMutationOperationRequest,
