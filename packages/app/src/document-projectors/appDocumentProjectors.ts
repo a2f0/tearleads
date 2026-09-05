@@ -1,4 +1,5 @@
 import type { DocumentProjectorDefinition } from "@tearleads/client-sdk";
+import { applianceDocumentProjectorDefinition } from "../document-types/appliance/applianceDocumentDefinition";
 import { audioDocumentProjectorDefinition } from "../document-types/audio/audioDocumentDefinition";
 import { bloodPressureDocumentProjectorDefinition } from "../document-types/blood-pressure/bloodPressureDocumentDefinition";
 import { contactDocumentProjectorDefinition } from "../document-types/contact/contactDocumentDefinition";
@@ -11,6 +12,7 @@ import { jsonFileDocumentProjectorDefinition } from "../document-types/json-file
 import { noteDocumentProjectorDefinition } from "../document-types/note/noteDocumentDefinition";
 import { passportDocumentProjectorDefinition } from "../document-types/passport/passportDocumentDefinition";
 import { pdfDocumentProjectorDefinition } from "../document-types/pdf/pdfDocumentDefinition";
+import { toolDocumentProjectorDefinition } from "../document-types/tool/toolDocumentDefinition";
 import type { AppDocumentProjectorDefinition } from "../document-types/types";
 import { videoDocumentProjectorDefinition } from "../document-types/video/videoDocumentDefinition";
 import { weightDocumentProjectorDefinition } from "../document-types/weight/weightDocumentDefinition";
@@ -43,6 +45,8 @@ export const APP_DOCUMENT_TYPE_PROJECTOR_DEFINITIONS: ReadonlyArray<AppDocumentP
     envFileDocumentProjectorDefinition,
     bloodPressureDocumentProjectorDefinition,
     weightDocumentProjectorDefinition,
+    toolDocumentProjectorDefinition,
+    applianceDocumentProjectorDefinition,
     jsonFileDocumentProjectorDefinition,
     imageDocumentProjectorDefinition,
     audioDocumentProjectorDefinition,

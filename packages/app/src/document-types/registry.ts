@@ -5,6 +5,8 @@ import {
   type StoredDocumentKind,
 } from "@tearleads/client-sdk";
 import type { ComponentType } from "react";
+import { ApplianceDocumentApp } from "./appliance/ApplianceApp";
+import { APPLIANCE_DOCUMENT_KIND } from "./appliance/applianceDocumentDefinition";
 import { AudioDocumentApp } from "./audio/AudioDocumentApp";
 import { AUDIO_DOCUMENT_KIND } from "./audio/audioDocumentDefinition";
 import { BloodPressureDocumentApp } from "./blood-pressure/BloodPressureApp";
@@ -34,6 +36,8 @@ import {
   APP_DOCUMENT_PROJECTOR_DEFINITIONS,
   APP_DOCUMENT_TYPE_PROJECTOR_DEFINITIONS,
 } from "./projectors";
+import { ToolDocumentApp } from "./tool/ToolApp";
+import { TOOL_DOCUMENT_KIND } from "./tool/toolDocumentDefinition";
 import type { DocumentTypeAppProps } from "./types";
 import { VideoDocumentApp } from "./video/VideoDocumentApp";
 import { VIDEO_DOCUMENT_KIND } from "./video/videoDocumentDefinition";
@@ -59,6 +63,8 @@ const documentTypeAppsByKind = new Map<
   [ENV_FILE_DOCUMENT_KIND, EnvFileDocumentApp],
   [BLOOD_PRESSURE_DOCUMENT_KIND, BloodPressureDocumentApp],
   [WEIGHT_DOCUMENT_KIND, WeightDocumentApp],
+  [TOOL_DOCUMENT_KIND, ToolDocumentApp],
+  [APPLIANCE_DOCUMENT_KIND, ApplianceDocumentApp],
   [JSON_FILE_DOCUMENT_KIND, JsonFileDocumentApp],
   [IMAGE_DOCUMENT_KIND, ImageDocumentApp],
   [AUDIO_DOCUMENT_KIND, AudioDocumentApp],

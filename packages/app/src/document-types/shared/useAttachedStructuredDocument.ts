@@ -31,8 +31,9 @@ interface AttachedStructuredDocument<Fields> {
 
 /**
  * The hook stack every attachment-slotted structured document (passport,
- * credit card, driver's license) shares: the document store, the typed-field
- * view, edit toggling, and the attachment plumbing for its slots.
+ * credit card, driver's license, tool, appliance) shares: the document store,
+ * the typed-field view, edit toggling, and the attachment plumbing for its
+ * slots.
  * `slotsProps` spreads straight into {@link DocumentAttachmentSlots}.
  */
 export function useAttachedStructuredDocument<Fields>(
