@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createDefaultManagedApiDatabase } from "@tearleads/api-shared/postgres";
 import { accessEvents, accessManifests } from "@tearleads/api-shared/schema";
+import { eq } from "drizzle-orm";
 import { assertCurrentApiSchema } from "./assertCurrentSchema";
 
 async function fixture() {
@@ -110,6 +111,9 @@ test.each([
       ...row(0, ["child-head"]),
       eventType,
       objectKind: eventType.startsWith("attachment") ? "blob" : "document",
+      body: eventType.startsWith("attachment")
+        ? { documentManifestHash: "document-head" }
+        : {},
     });
     await expect(assertCurrentApiSchema(managed.db)).rejects.toThrow(
       "complete signed container path",
@@ -129,6 +133,72 @@ test("retained blob events may name purged metadata document history", async () 
       body: { documentManifestHash: "purged-document-head" },
     });
     await expect(assertCurrentApiSchema(managed.db)).resolves.toBeUndefined();
+  } finally {
+    await managed.close();
+  }
+}, 15_000);
+
+test.each([
+  "foreign-org",
+  "duplicate-head",
+  "malformed-state",
+  "invalid-parent",
+] as const)("deployment refuses %s citation evidence without modifying it", async (corruption) => {
+  const { managed, row } = await fixture();
+  try {
+    const [root] = await managed.db
+      .select()
+      .from(accessManifests)
+      .where(eq(accessManifests.manifestHash, "root-head"));
+    if (!root) throw new Error("Expected fixture root");
+    const dependencies = ["root-head", "child-head"];
+    if (corruption === "duplicate-head") {
+      await managed.db.insert(accessManifests).values({
+        ...root,
+        id: crypto.randomUUID(),
+        manifestHash: "second-root",
+        eventHash: "second-root-event",
+        epoch: 2,
+      });
+      dependencies.push("second-root");
+    } else {
+      await managed.db
+        .update(accessManifests)
+        .set(
+          corruption === "foreign-org"
+            ? { organizationId: crypto.randomUUID() }
+            : {
+                state:
+                  corruption === "malformed-state"
+                    ? []
+                    : { parentContainerId: 42 },
+              },
+        )
+        .where(eq(accessManifests.manifestHash, "root-head"));
+    }
+    await managed.db.insert(accessEvents).values(row(0, dependencies));
+    const before = await managed.db.select().from(accessManifests);
+    await expect(assertCurrentApiSchema(managed.db)).rejects.toThrow(
+      "complete signed container path",
+    );
+    expect(await managed.db.select().from(accessManifests)).toEqual(before);
+  } finally {
+    await managed.close();
+  }
+}, 15_000);
+
+test("deployment refuses a malformed attachment document reference", async () => {
+  const { managed, row } = await fixture();
+  try {
+    await managed.db.insert(accessEvents).values({
+      ...row(0, ["root-head"]),
+      eventType: "attachment.bind",
+      objectKind: "blob",
+      body: { documentManifestHash: 42 },
+    });
+    await expect(assertCurrentApiSchema(managed.db)).rejects.toThrow(
+      "complete signed container path",
+    );
   } finally {
     await managed.close();
   }

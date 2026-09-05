@@ -5,7 +5,6 @@ import {
   computeBlobContentKeyTargetHash,
   computeContentRecordNonceDomainHash,
   makeVerifiedBlobKekTargets,
-  type VerifiedContainerAccessManifest,
   verifyWriteHeader,
 } from "@tearleads/crypto";
 import type { BlobKekTargetsResponse } from "@tearleads/validators/response";
@@ -167,7 +166,7 @@ export async function decryptDocumentAttachmentBlob({
     expectedBlobId: binding.blobId,
     organizationId,
   });
-  const bindingContainerPaths = await assertAttachmentBindingVerified({
+  await assertAttachmentBindingVerified({
     authorization: documentAuthorization,
     binding,
     expectedDocumentId,
@@ -175,7 +174,6 @@ export async function decryptDocumentAttachmentBlob({
     resolveProjectionUserKey: requiredResolveProjectionUserKey,
   });
   await assertBlobWriteHeaderVerified({
-    bindingContainerPaths,
     authorization: documentAuthorization,
     binding,
     encrypted,
@@ -319,7 +317,6 @@ function attachmentBindingDocumentId(
 }
 
 async function assertBlobWriteHeaderVerified(input: {
-  readonly bindingContainerPaths: readonly (readonly VerifiedContainerAccessManifest[])[];
   readonly authorization: DocumentWriterProjectionAuthorization | undefined;
   readonly binding: DecryptDocumentAttachmentBlobInput["binding"];
   readonly encrypted: BlobEncryptedBytesRecord;
@@ -377,7 +374,6 @@ async function assertBlobWriteHeaderVerified(input: {
     blobAuthorization: {
       authorizingContainerPaths: [
         ...input.authorization.containerPathByManifestHash.values(),
-        ...input.bindingContainerPaths,
       ],
       blobKekTargets,
       principalPolicies: input.authorization.principalPolicies,

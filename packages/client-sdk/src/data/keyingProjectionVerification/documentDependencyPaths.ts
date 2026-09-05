@@ -10,6 +10,8 @@ const MAX_CONTAINER_PATH_DEPTH = 100;
  * creation-time parent pins or the server's grouping of dependency paths.
  * Paths in the evidence index only supply verified manifests. Authorization
  * uses exactly the ancestor heads this event signed, regardless of grouping.
+ * Prefix paths are evidence too; crypto authorization admits only leaves named
+ * by the signed document link set or committed content target set.
  */
 export function resolveEventContainerPaths(input: {
   readonly containerPathByManifestHash: ReadonlyMap<

@@ -3,6 +3,7 @@ import { accessEvents, accessManifests } from "@tearleads/api-shared/schema";
 import { and, gt, inArray } from "drizzle-orm";
 
 const PAGE_SIZE = 256;
+const MAX_CONTAINER_PATH_DEPTH = 100;
 const EVENT_TYPES = [
   "document.link",
   "document.unlink",
@@ -46,7 +47,11 @@ function assertCompleteTree(
     const seen = new Set<string>();
     let current: string | null = id;
     while (current !== null) {
-      if (seen.has(current) || seen.size >= 100 || !parents.has(current))
+      if (
+        seen.has(current) ||
+        seen.size >= MAX_CONTAINER_PATH_DEPTH ||
+        !parents.has(current)
+      )
         resetRequired(eventId);
       seen.add(current);
       current = parents.get(current) ?? null;
@@ -72,6 +77,12 @@ function containerDependencies(event: CitationEvent): string[] {
     typeof event.body === "object"
       ? Reflect.get(event.body, "documentManifestHash")
       : undefined;
+  if (
+    event.eventType.startsWith("attachment.") &&
+    typeof documentHash !== "string"
+  ) {
+    resetRequired(event.id);
+  }
   return event.dependencyManifestHashes.filter((hash) => hash !== documentHash);
 }
 
