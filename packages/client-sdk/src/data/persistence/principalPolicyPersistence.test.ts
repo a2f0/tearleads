@@ -180,6 +180,7 @@ test("principal policy persistence stores and reloads the current verified bundl
       execSql,
       bundle,
       "2026-04-08T00:01:00.000Z",
+      "org-1",
     );
 
     await expect(
@@ -220,6 +221,7 @@ test("principal policy persistence rejects a competing head at the cached versio
       execSql,
       bundle,
       "2026-04-08T00:01:00.000Z",
+      "org-1",
     );
 
     await expect(
@@ -227,6 +229,7 @@ test("principal policy persistence rejects a competing head at the cached versio
         execSql,
         competingBundle,
         "2026-04-08T00:02:00.000Z",
+        "org-1",
       ),
     ).rejects.toMatchObject({
       code: "equivocation",
@@ -257,8 +260,10 @@ test("principal policy persistence rejects a stored-head fork below a newer chec
       execSql,
       storedVersion2,
       "2026-04-08T00:01:00.000Z",
+      "org-1",
     );
     await advanceKeyingCheckpointsAtomically({
+      organizationId: "org-1",
       access: [],
       execSql,
       policies: [
@@ -272,6 +277,7 @@ test("principal policy persistence rejects a stored-head fork below a newer chec
         execSql,
         competingVersion2,
         "2026-04-08T00:02:00.000Z",
+        "org-1",
       ),
     ).rejects.toMatchObject({
       code: "equivocation",
@@ -315,16 +321,19 @@ test("principal policy persistence retains old epoch material without allowing c
       execSql,
       bundle,
       "2026-04-08T00:01:00.000Z",
+      "org-1",
     );
     await savePrincipalPolicyBundle(
       execSql,
       successor,
       "2026-04-08T00:02:00.000Z",
+      "org-1",
     );
     await savePrincipalPolicyBundle(
       execSql,
       bundle,
       "2026-04-08T00:03:00.000Z",
+      "org-1",
     );
 
     await expect(
@@ -353,14 +362,21 @@ test.each([
     const version3 = successorBundleForPersistence(version2, "3");
     const verified2 = verifiedPolicyForPersistence(version2);
     const verified3 = verifiedPolicyForPersistence(version3);
-    await savePrincipalPolicyBundle(execSql, version1, "2026-04-08T00:01:00Z");
+    await savePrincipalPolicyBundle(
+      execSql,
+      version1,
+      "2026-04-08T00:01:00Z",
+      "org-1",
+    );
     await retainVerifiedPrincipalPolicyBundle({
+      organizationId: "org-1",
       bundle: version2,
       execSql,
       policy: verified2,
       updatedAt: "2026-04-08T00:02:00Z",
     });
     await advanceKeyingCheckpointsAtomically({
+      organizationId: "org-1",
       access: [],
       execSql,
       policies: [verified2, verified3],
@@ -371,14 +387,21 @@ test.each([
         execSql,
         version2,
         "2026-04-08T00:03:00Z",
+        "org-1",
       );
     }
-    await savePrincipalPolicyBundle(execSql, version3, "2026-04-08T00:04:00Z");
+    await savePrincipalPolicyBundle(
+      execSql,
+      version3,
+      "2026-04-08T00:04:00Z",
+      "org-1",
+    );
     if (ordering === "save-v3-before-v2") {
       await savePrincipalPolicyBundle(
         execSql,
         version2,
         "2026-04-08T00:05:00Z",
+        "org-1",
       );
     }
 
@@ -410,6 +433,7 @@ test("verified policy retention rejects a mismatched proof", async () => {
 
     await expect(
       retainVerifiedPrincipalPolicyBundle({
+        organizationId: "org-1",
         bundle: version2,
         execSql,
         policy: verifiedPolicyForPersistence(differentVersion2),

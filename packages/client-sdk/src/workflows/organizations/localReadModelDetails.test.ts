@@ -343,7 +343,12 @@ test("local group policy history requires an exact projected policy head", async
         response: policySnapshot({ bundle }),
       }),
     ).resolves.toBe("applied");
-    await savePrincipalPolicyBundle(execSql, bundle, CREATED_AT);
+    await savePrincipalPolicyBundle(
+      execSql,
+      bundle,
+      CREATED_AT,
+      ORGANIZATION_ID,
+    );
 
     const common = {
       currentUserId: CURRENT_USER_ID,
@@ -388,7 +393,12 @@ test("local group policy history rejects a stale stored policy bundle", async ()
         }),
       }),
     ).resolves.toBe("applied");
-    await savePrincipalPolicyBundle(execSql, bundle, CREATED_AT);
+    await savePrincipalPolicyBundle(
+      execSql,
+      bundle,
+      CREATED_AT,
+      ORGANIZATION_ID,
+    );
 
     await expect(
       loadLocalOrganizationGroupPolicyHistory({

@@ -162,6 +162,7 @@ async function createFixture(input: {
     database.execSql,
     previousBundle,
     "2026-04-28T12:00:30.000Z",
+    ORGANIZATION_ID,
   );
   const requestedContainerIds: string[] = [];
 

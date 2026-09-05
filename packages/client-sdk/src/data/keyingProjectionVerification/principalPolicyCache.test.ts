@@ -115,6 +115,7 @@ test("filterUncachedPrincipalPolicyReferences treats an exact currentState match
       execSql,
       bundle,
       "2026-04-08T00:00:00.000Z",
+      "org-1",
     );
 
     const uncached = await filterUncachedPrincipalPolicyReferences({
@@ -142,6 +143,7 @@ test("filterUncachedPrincipalPolicyReferences treats an exact previousStates mat
       execSql,
       bundle,
       "2026-04-08T00:00:00.000Z",
+      "org-1",
     );
 
     const uncached = await filterUncachedPrincipalPolicyReferences({
@@ -170,6 +172,7 @@ test("filterUncachedPrincipalPolicyReferences re-warms when the stored bundle la
       execSql,
       olderBundle,
       "2026-04-08T00:00:00.000Z",
+      "org-1",
     );
     const reference = referencedPrincipalStateFromBundle(newerBundle);
 
@@ -341,6 +344,7 @@ test("filterUncachedPrincipalPolicyReferences re-warms a cache behind the durabl
       execSql,
       olderBundle,
       "2026-04-08T00:00:00.000Z",
+      "org-1",
     );
     await loadPrincipalPolicyCheckpoint(execSql, "group", "group-1");
     await execSql(
@@ -385,14 +389,17 @@ test("filterUncachedPrincipalPolicyReferences uses retained history ahead of the
       execSql,
       currentBundle,
       "2026-04-08T00:00:00.000Z",
+      "org-1",
     );
     await retainVerifiedPrincipalPolicyBundle({
+      organizationId: "org-1",
       bundle: retainedBundle,
       execSql,
       policy: retainedPolicy,
       updatedAt: "2026-04-08T00:01:00.000Z",
     });
     await advanceKeyingCheckpointsAtomically({
+      organizationId: "org-1",
       access: [],
       execSql,
       policies: [retainedPolicy],

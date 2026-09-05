@@ -15,10 +15,33 @@ Use `API_DATABASE` to select the database adapter:
 - `turso`: remote-only libSQL with the API SQLite Drizzle migrations applied by
   the deployment migration command.
 
-Each dialect keeps a single greenfield baseline migration. Pre-reset databases
-are not upgraded; reset and provision a fresh database instead. The deployment
-migration command verifies required baseline tables and columns after Drizzle
-runs, and fails before the API restarts when an old database was not reset.
+Each dialect keeps a greenfield baseline plus subsequent schema migrations.
+Pre-reset databases are not upgraded; reset and provision a fresh database
+instead. The deployment migration command verifies required baseline tables
+and columns after Drizzle runs, and fails before the API restarts when an old
+database was not reset.
+
+### Required authorization cutover (#2158)
+
+Before applying migration `0015` in either dialect, stop all outgoing API
+writers and provision a fresh database if any retained document update or blob
+lacks its original signed `authorization` or `authorization_targets`. Preserve
+an offline backup first if the old data is needed for investigation. Point the
+new deployment at the fresh database, run its migrations, and reprovision the
+organization and clients; do not resume old writers against the new contract.
+
+The PostgreSQL `SET NOT NULL` and SQLite/Turso table rebuild intentionally fail
+on old null evidence. They do not backfill from current container targets,
+fabricate signatures, or silently delete rows. The post-migration schema guard
+cannot catch this earlier migration failure. Reset is an operator precondition,
+not an automatic recovery path; do not retry with constraints disabled. This
+cutover procedure authorizes no deletion of a deployed database by tooling.
+
+Old client document tables and obsolete Loro encodings likewise require local
+reset and reprovisioning, not an in-place conversion. Retain any unsynced data
+offline before reset; it is not automatically imported into the new contract.
+
+### Connection settings
 
 When `NODE_ENV=production`, `API_DATABASE` must be set explicitly.
 

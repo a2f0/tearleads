@@ -219,6 +219,7 @@ test("an interrupted client warms a rotated-group policy and recovers in the sam
       execSql,
       policies.initial,
       "2026-08-12T12:01:00.000Z",
+      ORGANIZATION_ID,
     );
     const resolveTrustedUserIdentity = createTestTrustedUserIdentityResolver({
       encapsulationPublicKey: rotated.fixture.publicKey,

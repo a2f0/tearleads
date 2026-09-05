@@ -955,6 +955,7 @@ test("unwrapContainerKekPath verifies cached group policies before managed-princ
       execSql,
       groupBundle,
       "2026-04-28T12:01:00.000Z",
+      parent.author.organizationId,
     );
 
     const groupMemberKeks = await unwrapContainerKekPath({

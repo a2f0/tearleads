@@ -47,8 +47,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 590,
-      "bytes": 28281
+      "lines": 592,
+      "bytes": 28397
     },
     "docs/developer/revenuecat-billing.md": {
       "lines": 360,
@@ -75,8 +75,8 @@
       "bytes": 23535
     },
     "docs/openapi.json": {
-      "lines": 62031,
-      "bytes": 2599668
+      "lines": 62038,
+      "bytes": 2599962
     },
     "docs/protocol-specification.md": {
       "lines": 585,

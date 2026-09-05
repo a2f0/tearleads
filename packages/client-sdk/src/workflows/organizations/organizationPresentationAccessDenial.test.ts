@@ -129,7 +129,12 @@ async function savePresentationState(execSql: ExecSql): Promise<void> {
     requestedCursor: null,
     response: presentationSnapshot(),
   });
-  await savePrincipalPolicyBundle(execSql, groupPolicyBundle(), persistedAt);
+  await savePrincipalPolicyBundle(
+    execSql,
+    groupPolicyBundle(),
+    persistedAt,
+    organizationId,
+  );
   await savePrincipalPolicyBundle(
     execSql,
     organizationPrincipalPolicy,

@@ -57,6 +57,29 @@ database has been destroyed by this cleanup.
   explorer tests passed again after splitting the oversized share test file.
 - TypeScript, both Knip modes, architecture, Markdown, OpenAPI regression, and
   shell checks passed before integration of the remaining issue branches.
+- After signed-group integration, the SDK/client/validator/test-helper/Loro
+  suite passed 2,574 tests. `check:fast` passed before that integration.
+
+## Independent review repairs
+
+- The strict positive KEK cursor exposed an unchanged SDK first-page request
+  that still sent zero. Recovery now omits the initial cursor and sends the last
+  served positive epoch for continuation. Nine recovery tests pass, including
+  a real `ApiClient` talking to an isolated HTTP server across two pages.
+- `docs/developer/api-persistence.md` now states the operator precondition for
+  migration `0015`: stop outgoing writers, preserve old evidence offline, and
+  provision a fresh database when required authorization is absent. PostgreSQL
+  and SQLite/Turso intentionally refuse nulls; no destructive migration or
+  invented historical evidence was added.
+- Group-policy current/history/checkpoint writes now require a pinned owner in
+  their transaction, so organization-scoped reset cannot strand new cache rows.
+  Missing/empty-owner tests prove no partial policy, history, checkpoint, or
+  ownership rows remain. Older test fixtures now supply current ownership.
+- Both container-failure union branches require non-empty error messages; the
+  dead compound-create capability check was removed. Absent Stripe quantity
+  remains invalid for fixed-tier products, and obsolete Loro imports remain
+  fail-closed before mutation. Baseline/usage/attribution SQL unit fixtures are
+  deliberately partial storage fixtures, not sync-response acceptance tests.
 
 ## Completed candidates
 

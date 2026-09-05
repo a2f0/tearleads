@@ -169,7 +169,7 @@ export type PrincipalPolicyErrorResponse = z.infer<
 
 export const PrincipalPolicyStaleErrorResponseSchema = loosePlainObject({
   code: z.literal("principal_policy_stale"),
-  error: z.string(),
+  error: z.string().min(1),
   principalPolicies: arraySchema(PrincipalPolicyBundleResponseSchema),
 });
 

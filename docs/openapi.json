@@ -17618,7 +17618,8 @@
                           "const": "principal_policy_stale"
                         },
                         "error": {
-                          "type": "string"
+                          "type": "string",
+                          "minLength": 1
                         },
                         "principalPolicies": {
                           "type": "array",
@@ -19739,7 +19740,8 @@
                           "const": "principal_policy_stale"
                         },
                         "error": {
-                          "type": "string"
+                          "type": "string",
+                          "minLength": 1
                         },
                         "principalPolicies": {
                           "type": "array",
@@ -21171,7 +21173,8 @@
                           "const": "principal_policy_stale"
                         },
                         "error": {
-                          "type": "string"
+                          "type": "string",
+                          "minLength": 1
                         },
                         "principalPolicies": {
                           "type": "array",
@@ -22603,7 +22606,8 @@
                           "const": "principal_policy_stale"
                         },
                         "error": {
-                          "type": "string"
+                          "type": "string",
+                          "minLength": 1
                         },
                         "principalPolicies": {
                           "type": "array",
@@ -24035,7 +24039,8 @@
                           "const": "principal_policy_stale"
                         },
                         "error": {
-                          "type": "string"
+                          "type": "string",
+                          "minLength": 1
                         },
                         "principalPolicies": {
                           "type": "array",
@@ -25283,7 +25288,8 @@
                           "const": "principal_policy_stale"
                         },
                         "error": {
-                          "type": "string"
+                          "type": "string",
+                          "minLength": 1
                         },
                         "principalPolicies": {
                           "type": "array",
@@ -26698,7 +26704,8 @@
                           "const": "principal_policy_stale"
                         },
                         "error": {
-                          "type": "string"
+                          "type": "string",
+                          "minLength": 1
                         },
                         "principalPolicies": {
                           "type": "array",

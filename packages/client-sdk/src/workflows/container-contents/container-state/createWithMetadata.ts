@@ -448,13 +448,6 @@ export async function createRemoteContainerWithMetadataDocument(input: {
     return null;
   }
 
-  if (
-    !apiClient.createContainerWithMetadataDocument &&
-    !apiClient.createContainerWithMetadataDocumentResult
-  ) {
-    return null;
-  }
-
   const parentProjection =
     input.parentProjection ??
     (await apiClient.getContainerWriterProjection(input.parentContainerId));

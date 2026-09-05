@@ -137,6 +137,7 @@ test("same-head timestamp and envelope-order differences are a no-op", async () 
     const { bundle, policy } = await policyFixture();
     const firstUpdatedAt = "2026-07-14T00:00:00.000Z";
     await persistLocallyAcknowledgedPrincipalPolicyBundle({
+      organizationId: "org-1",
       bundle,
       execSql,
       policy,
@@ -161,6 +162,7 @@ test("same-head timestamp and envelope-order differences are a no-op", async () 
       execSql,
       equivalent,
       "2026-07-14T00:02:00.000Z",
+      "org-1",
     );
 
     await expect(
@@ -192,6 +194,7 @@ test("same-head history timestamps are not security conflicts", async () => {
       execSql,
       successor,
       "2026-07-14T00:00:00.000Z",
+      "org-1",
     );
     const previous = successor.previousStates[0];
     if (!previous) {
@@ -220,6 +223,7 @@ test("same-head history timestamps are not security conflicts", async () => {
         ],
       },
       "2026-07-14T00:02:00.000Z",
+      "org-1",
     );
     await expect(
       loadPrincipalPolicyBundle(
@@ -244,6 +248,7 @@ test.each([
   try {
     const { bundle, policy } = await policyFixture();
     await persistLocallyAcknowledgedPrincipalPolicyBundle({
+      organizationId: "org-1",
       bundle,
       execSql,
       policy,
@@ -255,6 +260,7 @@ test.each([
         execSql,
         securityVariant(bundle, kind),
         "2026-07-14T00:01:00.000Z",
+        "org-1",
       ),
     ).rejects.toMatchObject({
       code: "equivocation",
@@ -279,6 +285,7 @@ test("same-head conflicts cannot replace an archived acknowledged bundle", async
   try {
     const { bundle, policy } = await policyFixture();
     await persistLocallyAcknowledgedPrincipalPolicyBundle({
+      organizationId: "org-1",
       bundle,
       execSql,
       policy,
@@ -289,6 +296,7 @@ test("same-head conflicts cannot replace an archived acknowledged bundle", async
       execSql,
       successor,
       "2026-07-14T00:01:00.000Z",
+      "org-1",
     );
 
     await expect(
@@ -296,6 +304,7 @@ test("same-head conflicts cannot replace an archived acknowledged bundle", async
         execSql,
         securityVariant(bundle, "envelopes"),
         "2026-07-14T00:02:00.000Z",
+        "org-1",
       ),
     ).rejects.toMatchObject({ code: "equivocation" });
     await expect(
@@ -319,6 +328,7 @@ test("concurrent identical policy acknowledgements both succeed", async () => {
     const results = await Promise.allSettled(
       ["first", "second"].map((suffix) =>
         persistLocallyAcknowledgedPrincipalPolicyBundle({
+          organizationId: "org-1",
           bundle,
           execSql,
           policy,
@@ -350,6 +360,7 @@ test("concurrent divergent same-head acknowledgements accept exactly one bundle"
     const results = await Promise.allSettled(
       candidates.map((candidate) =>
         persistLocallyAcknowledgedPrincipalPolicyBundle({
+          organizationId: "org-1",
           bundle: candidate,
           execSql,
           policy,
@@ -403,6 +414,7 @@ test("checkpoint write failure rolls back the acknowledged bundle", async () => 
 
     await expect(
       persistLocallyAcknowledgedPrincipalPolicyBundles({
+        organizationId: "org-1",
         entries: [{ bundle, policy }],
         execSql,
         updatedAt: "2026-07-14T00:00:00.000Z",

@@ -57,7 +57,9 @@ intent revision; unconditional settlement is not supported.
 
 Local document tables require the current columns at startup. Reset obsolete
 tables instead of expecting additive schema upgrades. Principal-policy warming
-always verifies and persists its cache. The wire contract requires explicit
+always verifies and persists its cache. Group policy writes require an explicit
+organization owner, pinned atomically with current/history/checkpoint rows.
+The wire contract requires explicit
 commit-LSN mode, inline-rekey commit markers for nonempty batches, and original
 document/blob write-authorization evidence. Historical signed manifests and
 sealed keyrings remain supported because they are current protocol evidence.

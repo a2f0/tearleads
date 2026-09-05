@@ -38,6 +38,7 @@ test("principal policy sync caches a verified referenced principal bundle and sk
     let getCurrentPrincipalPolicyCallCount = 0;
 
     await cacheReferencedPolicies({
+      organizationId: "org-1",
       execSql,
       getCurrentPrincipalPolicy: async () => {
         getCurrentPrincipalPolicyCallCount += 1;
@@ -55,6 +56,7 @@ test("principal policy sync caches a verified referenced principal bundle and sk
     ).resolves.toEqual(bundle);
 
     await cacheReferencedPolicies({
+      organizationId: "org-1",
       execSql,
       getCurrentPrincipalPolicy: async () => {
         getCurrentPrincipalPolicyCallCount += 1;
@@ -83,10 +85,12 @@ test("principal policy sync fetches a newer referenced state when an older bundl
       execSql,
       predecessorBundleFromSuccessor(bundle),
       "2026-04-08T00:00:30.000Z",
+      "org-1",
     );
     let getCurrentPrincipalPolicyCallCount = 0;
 
     await cacheReferencedPolicies({
+      organizationId: "org-1",
       execSql,
       getCurrentPrincipalPolicy: async () => {
         getCurrentPrincipalPolicyCallCount += 1;
@@ -238,6 +242,7 @@ test("principal policy sync verifies successor state from the fetched chain when
     const logs: string[] = [];
 
     await cacheReferencedPolicies({
+      organizationId: "org-1",
       execSql,
       getCurrentPrincipalPolicy: async () => bundle,
       getUserIdentity: async () => signerKeyResponse,
@@ -269,6 +274,7 @@ test("principal policy sync caches current state when the reference points at a 
     const logs: string[] = [];
 
     await cacheReferencedPolicies({
+      organizationId: "org-1",
       execSql,
       getCurrentPrincipalPolicy: async () => bundle,
       getUserIdentity: async () => signerKeyResponse,
@@ -303,6 +309,7 @@ test("principal policy sync reuses and re-verifies a cached successor for a hist
       references: Parameters<typeof cacheReferencedPolicies>[0]["references"],
     ) =>
       cacheReferencedPolicies({
+        organizationId: "org-1",
         execSql,
         getCurrentPrincipalPolicy: async () => {
           policyReadCount += 1;
@@ -342,6 +349,7 @@ test("principal policy sync rejects shrinking successors that reuse the key epoc
       });
     await expect(
       cacheReferencedPolicies({
+        organizationId: "org-1",
         execSql,
         getCurrentPrincipalPolicy: async () => bundle,
         getUserIdentity: async () => signerKeyResponse,
@@ -385,6 +393,7 @@ test("principal policy sync rejects bundles whose projection does not match the 
 
     await expect(
       cacheReferencedPolicies({
+        organizationId: "org-1",
         execSql,
         getCurrentPrincipalPolicy: async () => tamperedBundle,
         getUserIdentity: async () => signerKeyResponse,
@@ -413,8 +422,10 @@ test("principal policy sync rejects successor bundles signed by non-admins", asy
     await ensurePrincipalPolicyTables(execSql);
     await expect(
       cacheReferencedPolicies({
+        organizationId: "org-1",
         execSql,
-        getCurrentPrincipalPolicy: async () => bundle,
+        getCurrentPrincipalPolicy: async (principalType) =>
+          principalType === "group" ? bundle : null,
         getUserIdentity: async (userId) =>
           signerKeyResponses.get(userId) ?? null,
         references: [referencedPrincipalStateFromBundle(bundle)],
@@ -442,6 +453,7 @@ test("principal policy sync rejects bundles when the signer key does not match",
 
     await expect(
       cacheReferencedPolicies({
+        organizationId: "org-1",
         execSql,
         getCurrentPrincipalPolicy: async () => bundle,
         getUserIdentity: async () => ({

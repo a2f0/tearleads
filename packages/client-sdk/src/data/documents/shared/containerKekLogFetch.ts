@@ -58,6 +58,10 @@ export async function fetchContainerKekLog(input: {
 }): Promise<AggregatedContainerKekLog> {
   const epochs: ContainerKekLogEpochResponse[] = [];
   let afterKeyEpoch = 0;
+  let options: { afterKeyEpoch?: number; keyringForEpoch?: number } =
+    input.keyringForEpoch === undefined
+      ? {}
+      : { keyringForEpoch: input.keyringForEpoch };
   // A hostile server could claim `hasMore` forever. Two independent caps
   // bound the walk: the protocol's lifetime rotation ceiling, and a page
   // budget — a server that advances one epoch per page cannot force 65,536
@@ -70,12 +74,10 @@ export async function fetchContainerKekLog(input: {
     if (pages > maxPages) {
       throw new Error("Container KEK log exceeds its page budget");
     }
-    const page = await input.apiClient.getContainerKekLog(input.containerId, {
-      afterKeyEpoch,
-      ...(input.keyringForEpoch === undefined
-        ? {}
-        : { keyringForEpoch: input.keyringForEpoch }),
-    });
+    const page = await input.apiClient.getContainerKekLog(
+      input.containerId,
+      options,
+    );
     if (!page) {
       throw new Error("Container KEK log is unavailable");
     }
@@ -102,6 +104,7 @@ export async function fetchContainerKekLog(input: {
       throw new Error("Container KEK log page did not advance");
     }
     afterKeyEpoch = lastEpoch;
+    options = { ...options, afterKeyEpoch: lastEpoch };
   }
   throw new Error("Container KEK log exceeds the maximum key epoch");
 }

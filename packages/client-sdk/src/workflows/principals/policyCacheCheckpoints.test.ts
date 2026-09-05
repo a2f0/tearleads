@@ -21,6 +21,7 @@ test("principal policy sync hard-fails rollback after the mutable bundle cache i
     const { bundle, signerKeyResponse } =
       await createSuccessorPrincipalPolicyBundle();
     await cacheReferencedPolicies({
+      organizationId: "org-1",
       execSql,
       getCurrentPrincipalPolicy: async () => bundle,
       getUserIdentity: async () => signerKeyResponse,
@@ -37,6 +38,7 @@ test("principal policy sync hard-fails rollback after the mutable bundle cache i
     const olderBundle = predecessorBundleFromSuccessor(bundle);
     await expect(
       cacheReferencedPolicies({
+        organizationId: "org-1",
         execSql,
         getCurrentPrincipalPolicy: async () => olderBundle,
         getUserIdentity: async () => signerKeyResponse,
@@ -69,6 +71,7 @@ test("principal policy sync cannot pin a head when its full bundle write fails",
     const logs: string[] = [];
 
     await cacheReferencedPolicies({
+      organizationId: "org-1",
       execSql,
       getCurrentPrincipalPolicy: async () => bundle,
       getUserIdentity: async () => signerKeyResponse,

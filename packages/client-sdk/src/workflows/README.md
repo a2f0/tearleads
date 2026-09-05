@@ -18,7 +18,9 @@ unconditional settlement or three-argument error-recorder fallback.
 
 Local document tables must contain the current required columns; obsolete tables
 require reset, not an additive upgrade. Principal-policy warming verifies and
-durably caches evidence; it has no verify-without-persistence mode. Native
+durably caches evidence; it has no verify-without-persistence mode. Group cache
+writes require an explicit organization owner, pinned in the same transaction
+as current policies, retained history, and checkpoint-only updates. Native
 purchase providers invoke the supplied `onProviderPresented` callback exactly
 when their UI becomes uncancellable, with no capability-negotiation fallback.
 Historical signed manifests and sealed keyrings remain current security

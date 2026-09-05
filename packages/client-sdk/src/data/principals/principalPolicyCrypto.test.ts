@@ -155,6 +155,7 @@ test("principal policy crypto unwraps an object key addressed to a cached group 
       execSql,
       bundle,
       "2026-04-08T00:01:00.000Z",
+      "org-1",
     );
 
     const [wrappedObjectEntry] = await wrapDekForRecipients(objectKey, [

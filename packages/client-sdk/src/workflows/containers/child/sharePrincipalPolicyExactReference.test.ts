@@ -124,6 +124,7 @@ test("expected group-head verification reuses an exact local bundle without a po
       execSql,
       fixture.targetPolicy,
       "2026-07-18T00:00:00Z",
+      fixture.organizationId,
     );
     let policyGetCount = 0;
 
@@ -215,6 +216,7 @@ test("expected group-head verification fetches once when the local head is wrong
       execSql,
       fixture.predecessor,
       "2026-07-18T00:00:00Z",
+      fixture.organizationId,
     );
     let policyGetCount = 0;
 
@@ -249,6 +251,7 @@ test("signed organization directory permits an exact cached group bundle", async
       execSql,
       fixture.targetPolicy,
       "2026-07-18T00:00:00Z",
+      fixture.organizationId,
     );
     let policyGetCount = 0;
 
