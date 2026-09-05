@@ -310,6 +310,95 @@ test("management identifies Stripe and native subscription ownership", async () 
   expect(await snapshotSource()).toBe("stripe");
 });
 
+test("a Stripe subscription awaiting renewal keeps its owner past period end", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  const stripeDeps = {
+    stripe: { env: { STRIPE_SYNC_SOLO_PRICE_ID: "price_solo_test" } },
+  };
+  const now = Date.now();
+  await db
+    .update(organizationBilling)
+    .set({
+      currentPeriodEndsAt: new Date(now - 10 * 24 * 60 * 60 * 1000),
+      currentPeriodStartsAt: new Date(now - 40 * 24 * 60 * 60 * 1000),
+      provider: "revenuecat",
+      providerProductId: "price_solo_test",
+      seatCount: 1,
+      status: "active",
+    })
+    .where(eq(organizationBilling.organizationId, organizationId));
+
+  // The read path projects the lapse in memory, but the renewal webhook has
+  // not landed: the subscription is still owned, so no second checkout is
+  // offered and the management resolution agrees.
+  const snapshot = await getOrganizationBilling(
+    getDefaultApiServiceRuntime(),
+    organizationId,
+    admin.userId,
+    stripeDeps,
+  );
+  expect(snapshot.status).toBe("disabled");
+  expect(snapshot.subscriptionSource).toBe("stripe");
+  expect(
+    await getOrganizationBillingManagementUrl(
+      getDefaultApiServiceRuntime(),
+      organizationId,
+      admin.userId,
+      stripeDeps,
+    ),
+  ).toEqual({ canCancelDirectly: true, managementUrl: null });
+
+  // Once the lifecycle event has persisted the lapse, the owner is released.
+  await db
+    .update(organizationBilling)
+    .set({ status: "disabled" })
+    .where(eq(organizationBilling.organizationId, organizationId));
+  expect(
+    (
+      await getOrganizationBilling(
+        getDefaultApiServiceRuntime(),
+        organizationId,
+        admin.userId,
+        stripeDeps,
+      )
+    ).subscriptionSource,
+  ).toBeNull();
+});
+
+test("starting a trial on an active native organization reports its owner", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  await db
+    .update(organizationBilling)
+    .set({
+      currentPeriodEndsAt: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000),
+      currentPeriodStartsAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
+      provider: "revenuecat",
+      providerCustomerId: admin.userId,
+      providerProductId: "sync_solo_monthly",
+      providerSubscriptionId: "native-sub-trial-idempotent",
+      seatCount: 1,
+      status: "active",
+    })
+    .where(eq(organizationBilling.organizationId, organizationId));
+
+  // The trial request is idempotent for an already active organization and
+  // must return that organization's snapshot, owner included.
+  const response = await routeApp.request(
+    `/organizations/${organizationId}/billing/trial`,
+    { headers: authHeader(admin), method: "POST" },
+  );
+  expect(response.status).toBe(200);
+  const billing = await response.json();
+  invariant(
+    isOrganizationBillingResponse(billing),
+    "expected billing response",
+  );
+  expect(billing.status).toBe("active");
+  expect(billing.subscriptionSource).toBe("native");
+});
+
 test("a non-member cannot read or change another org's billing", async () => {
   const owner = createTestUser();
   const organizationId = await registerAndAuthenticate(owner);

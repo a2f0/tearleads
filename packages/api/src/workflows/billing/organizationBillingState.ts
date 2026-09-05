@@ -58,7 +58,22 @@ export async function resolveOrganizationBilling(
   organizationId: string,
   now: Date = new Date(),
 ): Promise<OrganizationBillingRow> {
-  const billing = await loadOrganizationBilling(executor, organizationId);
+  return applyBillingLapse(
+    await loadOrganizationBilling(executor, organizationId),
+    now,
+  );
+}
+
+/**
+ * The in-memory `disabled` projection of a row whose trial or paid period has
+ * passed. Pure, so a caller that also needs the persisted row — for a decision
+ * that must not flip before the lifecycle webhook lands, such as who owns the
+ * subscription — can keep both without a second read.
+ */
+export function applyBillingLapse(
+  billing: OrganizationBillingRow,
+  now: Date,
+): OrganizationBillingRow {
   const disabledAt =
     billing.status === "trialing" &&
     billing.trialEndsAt !== null &&

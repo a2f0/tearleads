@@ -132,8 +132,6 @@ export async function startOrganizationTrial(
   return serializeOrganizationBilling(result.billing, {
     ...result,
     pendingSeatCount: null,
-    // A trial starts only from `local`, so no subscription is bound yet.
-    subscriptionSource: null,
   });
 }
 

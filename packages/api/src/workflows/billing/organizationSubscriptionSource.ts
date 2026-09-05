@@ -1,11 +1,18 @@
-import type {
-  OrganizationBillingProvider,
-  OrganizationBillingStatus,
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import {
+  type OrganizationBillingProvider,
+  type OrganizationBillingStatus,
+  organizationBillingStripeSeats,
 } from "@tearleads/api-shared/schema";
 import { getSyncBillingTierForNativeProduct } from "@tearleads/validators/billing";
 import type { OrganizationBillingSubscriptionSource } from "@tearleads/validators/response";
+import { eq } from "drizzle-orm";
 import type { StripeApiDeps } from "../../billing/stripeApi";
 import { getSyncBillingTierForStripePrice } from "../../billing/stripeHttp";
+import {
+  hasActiveStripeBinding,
+  hasStripeBindingIdentity,
+} from "./stripeBindingPolicy";
 
 interface OrganizationSubscriptionOwnership {
   /** Our API may cancel the subscription through Stripe from any surface. */
@@ -24,6 +31,11 @@ interface OrganizationSubscriptionOwnership {
  * identity counts while it can still bill; once it has lapsed the
  * organization is free to enroll again. A remaining RevenueCat customer with
  * neither identity is treated as native so its store link stays reachable.
+ *
+ * `status` must be the persisted status, never the in-memory lapse
+ * projection: a paid period that has ended while its renewal webhook is still
+ * in flight is still owned, and offering a second checkout there would race
+ * the renewal (the server would refuse it anyway).
  */
 export function resolveOrganizationSubscriptionOwnership(input: {
   readonly hasActiveStripeSubscription: boolean;
@@ -67,4 +79,41 @@ export function resolveOrganizationSubscriptionOwnership(input: {
     };
   }
   return { canCancelDirectly: false, subscriptionSource: null };
+}
+
+/**
+ * Resolves the owner of an organization's subscription inside an open
+ * transaction, from its persisted billing row and Stripe binding.
+ */
+export async function resolveOrganizationSubscriptionSourceInTransaction(input: {
+  readonly executor: DatabaseSession;
+  readonly organizationId: string;
+  readonly persisted: {
+    readonly provider: OrganizationBillingProvider | null;
+    readonly providerCustomerId: string | null;
+    readonly providerProductId: string | null;
+    readonly status: OrganizationBillingStatus;
+  };
+  readonly stripe?: StripeApiDeps;
+}): Promise<OrganizationBillingSubscriptionSource | null> {
+  const [stripeBinding] = await input.executor
+    .select({
+      priceId: organizationBillingStripeSeats.priceId,
+      subscriptionId: organizationBillingStripeSeats.subscriptionId,
+      subscriptionItemId: organizationBillingStripeSeats.subscriptionItemId,
+    })
+    .from(organizationBillingStripeSeats)
+    .where(
+      eq(organizationBillingStripeSeats.organizationId, input.organizationId),
+    )
+    .limit(1);
+  return resolveOrganizationSubscriptionOwnership({
+    hasActiveStripeSubscription: hasActiveStripeBinding(stripeBinding),
+    hasStripeSubscription: hasStripeBindingIdentity(stripeBinding),
+    provider: input.persisted.provider,
+    providerCustomerId: input.persisted.providerCustomerId,
+    providerProductId: input.persisted.providerProductId,
+    status: input.persisted.status,
+    ...(input.stripe ? { stripe: input.stripe } : {}),
+  }).subscriptionSource;
 }
