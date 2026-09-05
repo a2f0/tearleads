@@ -320,6 +320,9 @@ reader between requests, or after that interruption, sees the new access
 identity. There is no server-side pass transaction whose final request can
 safely replace those durable invalidations. This is the bounded one-mutation-
 per-held-descendant cost selected in #2171, not a batch notification protocol.
+The authoring API client also invalidates its container/document
+writer-projection caches after each request, so a full pass can clear them
+eight times.
 
 Document/blob writes also walk each ancestor's same-KEK manifest history to
 validate key bindings. That SQL walk admits at most 1024 manifests per container,
@@ -331,7 +334,7 @@ separate write-side bound applies to ordinary grant/move events too. A rekey
 starts a new same-KEK run; it does not compact the signed writer-projection chain.
 This is an intentional greenfield flag day: already-persisted histories above
 the same-key bound are refused too, with no compatibility migration. The bounds
-tests construct persisted grant-only and re-citation runs before the first read
+tests construct persisted stable/changing-grant runs before the first read
 and exercise both refusal and recovery after rekey.
 
 This background pass never fetches a subtree or a principal policy, never

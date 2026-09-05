@@ -55,16 +55,25 @@ function boundedSet<T>(
   }
 }
 
-function rememberHead(execSql: ExecSql, head: HeldContainerHead): void {
+function rememberHead(
+  execSql: ExecSql,
+  head: Pick<VerifiedContainerAccessManifest, "state" | "manifestHash">,
+  build: () => HeldContainerHead,
+): void {
   const heads = heldContainers(execSql).heads;
   const previous = heads.get(head.state.containerId);
   if (previous && previous.state.epoch >= head.state.epoch) {
-    if (previous.bundle.manifestHash === head.bundle.manifestHash) {
+    if (previous.bundle.manifestHash === head.manifestHash) {
       boundedSet(heads, head.state.containerId, previous, MAX_HEADS);
     }
     return;
   }
-  boundedSet(heads, head.state.containerId, structuredClone(head), MAX_HEADS);
+  boundedSet(
+    heads,
+    head.state.containerId,
+    structuredClone(build()),
+    MAX_HEADS,
+  );
 }
 
 /** Called only after the complete projection and its durable pins validate. */
@@ -80,7 +89,7 @@ export function rememberVerifiedContainerHeads(input: {
     }
   }
   for (const head of input.heads) {
-    rememberHead(input.execSql, {
+    rememberHead(input.execSql, head, () => ({
       state: head.state,
       bundle: {
         event: readCanonicalRecord(head.event, "Verified container event"),
@@ -91,7 +100,7 @@ export function rememberVerifiedContainerHeads(input: {
         manifestHash: head.manifestHash,
         state: readCanonicalRecord(head.state, "Verified container state"),
       },
-    });
+    }));
   }
   const policies = heldContainers(input.execSql).policies;
   for (const policy of input.policies) {
@@ -139,7 +148,7 @@ export function rememberAcknowledgedContainerHead(
       state: readCanonicalRecord(plan.state, "Acknowledged container state"),
     },
   };
-  rememberHead(execSql, head);
+  rememberHead(execSql, plan, () => head);
   return head;
 }
 

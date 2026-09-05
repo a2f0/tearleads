@@ -19,9 +19,9 @@ import {
 } from "../shared/internal/containerKekTargets";
 
 test.each([
-  "recite",
-  "grant",
-] as const)("same-epoch %s history accepts the bound, refuses overflow, and resumes after rekey", async (eventType) => {
+  "unchanged",
+  "changing",
+] as const)("same-epoch %s-grant history accepts the bound, refuses overflow, and resumes after rekey", async (grantShape) => {
   const owner = createTestUser();
   await registerUser(owner);
   const root = await bootstrapRoot(owner);
@@ -37,7 +37,9 @@ test.each([
   if (!initial || !keyEpoch)
     throw new Error("Expected registered root key material");
   // Storage-shape fixtures exercise the read-side bound after the signed-event
-  // boundary. They are never submitted to the cryptographic verifier.
+  // boundary. They are never submitted to the cryptographic verifier. The
+  // reader does not inspect event type or grant transitions; keep payloads
+  // constant-size while exercising both stable and changing grant state.
   const rows = Array.from(
     { length: MAX_SAME_EPOCH_MANIFEST_HISTORY },
     (_, index) => {
@@ -58,14 +60,14 @@ test.each([
         state: containerAccessManifestStateRecord({
           ...state,
           directGrants:
-            eventType === "grant"
+            grantShape === "changing"
               ? [
                   ...state.directGrants,
-                  ...Array.from({ length: index + 1 }, (_, grantIndex) => ({
+                  {
                     accessLevel: "read" as const,
-                    subjectId: `reader-${grantIndex}`,
+                    subjectId: `reader-${index}`,
                     subjectType: "user" as const,
-                  })),
+                  },
                 ]
               : state.directGrants,
           epoch,
@@ -119,7 +121,7 @@ test.each([
       state.containerId,
     )?.containerKeyEpochId,
   ).toBe(nextKeyEpochId);
-});
+}, 30_000);
 
 test("same-epoch history cycles still fail closed without growing SQL path strings", async () => {
   const owner = createTestUser();

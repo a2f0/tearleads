@@ -363,8 +363,8 @@ async function loadSameEpochContainerManifestBindingHistories(input: {
     return new Map();
   }
 
-  // One sentinel detects overflow. Bounded rows detect cycles below without
-  // quadratic visited-path strings in SQL.
+  // One overflow row bounds history and cycles; JS rejects duplicate hashes.
+  // SQL rows never accumulate quadratic visited-path strings.
   const result = await input.executor.execute(sql`
     with recursive manifest_targets(
       container_id,
