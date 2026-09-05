@@ -98,14 +98,15 @@ test("an options failure does not cancel an open checkout", async () => {
   await waitFor(() => expect(result.current.options).toEqual([OPTION]));
 
   act(() => result.current.subscribe(OPTION));
-  await waitFor(() => expect(result.current.checkoutActive).toBe(true));
+  await waitFor(() =>
+    expect(result.current.busy).toBe(`subscribe:${OPTION.packageId}`),
+  );
   purchases.identify = mock(() =>
     Promise.reject(new PurchaseProviderStalledError()),
   );
   act(() => result.current.retryOptions());
 
   expect(result.current.actionError).toBeNull();
-  expect(result.current.checkoutActive).toBe(true);
   expect(result.current.busy).toBe("subscribe:monthly");
 
   finishPurchase({ syncEntitlementActive: true });

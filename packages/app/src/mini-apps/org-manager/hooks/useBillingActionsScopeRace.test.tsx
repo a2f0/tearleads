@@ -26,7 +26,6 @@ test("a scope switch aborts native preparation before layout can present it", as
   });
   const purchases: PurchasesCapability = {
     ...createPurchases({ syncEntitlementActive: true }),
-    supportsEmbeddedCheckout: false,
     purchaseSync: purchaseSync as PurchasesCapability["purchaseSync"],
   };
   const { result, rerender } = renderBillingActions({

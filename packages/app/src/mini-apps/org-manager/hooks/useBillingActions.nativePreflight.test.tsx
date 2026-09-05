@@ -39,7 +39,6 @@ test("losing eligibility cancels a stalled native preflight", async () => {
     | undefined;
   const purchases: PurchasesCapability = {
     ...createPurchases({ syncEntitlementActive: true }),
-    supportsEmbeddedCheckout: false,
   };
   const { result, rerender } = renderBillingActions({
     checkNativePurchaseEligibility: () =>
@@ -51,7 +50,9 @@ test("losing eligibility cancels a stalled native preflight", async () => {
   await waitFor(() => expect(result.current.options).toEqual([OPTION]));
 
   act(() => result.current.subscribe(OPTION));
-  await waitFor(() => expect(result.current.checkoutActive).toBe(true));
+  await waitFor(() =>
+    expect(result.current.busy).toBe(`subscribe:${OPTION.packageId}`),
+  );
   rerender({
     billingIsActive: false,
     isOrgAdmin: false,
@@ -74,7 +75,6 @@ test("losing eligibility aborts native preparation before the store sheet", asyn
   });
   const purchases: PurchasesCapability = {
     ...createPurchases({ syncEntitlementActive: true }),
-    supportsEmbeddedCheckout: false,
     purchaseSync: async (input): Promise<SyncPurchaseResult> => {
       await preparation;
       if (input.abortSignal?.aborted) throw new PurchaseAbortedError();
@@ -87,7 +87,9 @@ test("losing eligibility aborts native preparation before the store sheet", asyn
   await waitFor(() => expect(result.current.options).toEqual([OPTION]));
 
   act(() => result.current.subscribe(OPTION));
-  await waitFor(() => expect(result.current.checkoutActive).toBe(true));
+  await waitFor(() =>
+    expect(result.current.busy).toBe(`subscribe:${OPTION.packageId}`),
+  );
   rerender({
     billingIsActive: false,
     isOrgAdmin: false,

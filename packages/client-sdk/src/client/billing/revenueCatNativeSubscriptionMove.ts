@@ -18,7 +18,6 @@ interface NativeSubscriptionMoveBackend {
 interface NativeSubscriptionMoveConfig {
   readonly nativeStore: NativeSubscriptionStore | null;
   readonly operationTimeoutMs?: number;
-  readonly purchasesEnabled?: boolean;
   readonly restorePurchasesUsesCheckoutTimeout: boolean;
   readonly syncEntitlementId: string;
 }
@@ -120,7 +119,7 @@ export function nativeMove(
     config.operationTimeoutMs,
   );
   return async (request) => {
-    if (config.purchasesEnabled === false || !config.nativeStore) {
+    if (!config.nativeStore) {
       throw new PurchasesUnavailableError();
     }
     return moveRevenueCatNativeSubscription({
