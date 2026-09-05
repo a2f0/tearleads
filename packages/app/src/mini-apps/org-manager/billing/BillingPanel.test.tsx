@@ -1,164 +1,19 @@
 import { afterEach, expect, mock, spyOn, test } from "bun:test";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
-import type { PropsWithChildren } from "react";
-import { billingFixture } from "../../../../test/helpers/organizationBillingTestFixtures";
 import {
-  createAppHostConfig,
-  type OpenSubscriptionManagementFn,
-} from "../../../host/AppHostConfig";
-import * as BillingProvider from "../../../providers/billing/BillingProvider";
-import { DirectCheckoutProvider } from "../../../providers/direct-checkout/DirectCheckoutProvider";
-import { AppHostConfigProvider } from "../../../providers/host/AppHostConfigProvider";
-import * as IdentityProvider from "../../../providers/identity/IdentityProvider";
-import { LogProvider } from "../../../providers/logging/LogProvider";
-import { PurchasesProvider } from "../../../providers/purchases/PurchasesProvider";
-import * as TearleadsProvider from "../../../providers/sdk/TearleadsProvider";
+  restoreBillingPanelSpies,
+  spies,
+  stubEnvironment,
+  wrapper,
+  wrapperWith,
+} from "../../../../test/helpers/billingPanelTestKit";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { BillingPanel } from "./BillingPanel";
 
-const spies: { mockRestore: () => void }[] = [];
-
 afterEach(() => {
   cleanup();
-  while (spies.length > 0) {
-    spies.pop()?.mockRestore();
-  }
+  restoreBillingPanelSpies();
 });
-
-const OPTION = {
-  tierId: "solo" as const,
-  seatLimit: 1,
-  priceId: "price_1",
-  productName: "Sync",
-  currency: "usd",
-  unitAmount: 499,
-  interval: "month",
-  intervalCount: 1,
-};
-
-function stubEnvironment(
-  canSync: boolean,
-  overrides: {
-    isActive?: boolean;
-    isTrialing?: boolean;
-    canCancelDirectly?: boolean;
-    managementUrl?: string | null;
-    subscriptionSource?: "native" | "stripe" | null;
-    loadStripeCheckoutOptions?: () => Promise<unknown>;
-  } = {},
-) {
-  // Most syncing fixtures represent active billing unless marked trialing.
-  const isActive = overrides.isActive ?? canSync;
-  const isTrialing = overrides.isTrialing ?? false;
-  const { billing, view } = billingFixture(canSync, isActive, isTrialing);
-  spies.push(
-    spyOn(BillingProvider, "useOrganizationBilling").mockReturnValue({
-      billing,
-      error: null,
-      loading: false,
-      refresh: () => Promise.resolve(),
-      startTrial: () => Promise.resolve(true),
-      view,
-    }),
-  );
-  spies.push(
-    spyOn(IdentityProvider, "useIdentity").mockReturnValue({
-      persistSession: () => Promise.resolve(true),
-    } as ReturnType<typeof IdentityProvider.useIdentity>),
-  );
-  spies.push(
-    spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
-      organizations: {
-        claimNativeSubscription: () => Promise.resolve(null),
-        loadStripeCheckoutOptions:
-          overrides.loadStripeCheckoutOptions ??
-          (() => Promise.resolve({ options: [OPTION] })),
-        loadBillingManagementUrl: () =>
-          Promise.resolve({
-            canCancelDirectly:
-              overrides.canCancelDirectly ??
-              (isActive && overrides.managementUrl === undefined),
-            managementUrl: overrides.managementUrl ?? null,
-            subscriptionSource:
-              overrides.subscriptionSource ??
-              (overrides.canCancelDirectly === true
-                ? "stripe"
-                : overrides.managementUrl
-                  ? "native"
-                  : null),
-          }),
-        loadBillingHistory: () => Promise.resolve(null),
-        cancelStripeSubscription: () => Promise.resolve({ cancelAt: null }),
-      },
-    } as never),
-  );
-}
-
-/**
- * The real providers, so the panel exercises the same capability injection it
- * uses in production. `createPurchases` is deliberately UNAVAILABLE: the card
- * checkout must not depend on the RevenueCat capability being configured.
- */
-function purchases(isAvailable: boolean) {
-  return {
-    isAvailable,
-    nativeStore: isAvailable ? "test_store" : null,
-    identify: () => Promise.resolve(),
-    reset: () => Promise.resolve(),
-    // A RevenueCat option whose row is indistinguishable from the direct
-    // checkout's — which is exactly what made the two-row state confusing.
-    listSyncOptions: () =>
-      Promise.resolve([
-        {
-          tierId: "solo",
-          seatLimit: 1,
-          packageId: "monthly",
-          productId: "sync_solo_monthly",
-          title: "Sync",
-          description: "Cloud sync",
-          priceLabel: "$4.99",
-        },
-      ]),
-    purchaseSync: () => new Promise(() => undefined),
-    hasActiveSyncEntitlement: () => Promise.resolve(false),
-  } as never;
-}
-
-function wrapperWith(
-  revenueCatAvailable: boolean,
-  {
-    directCheckoutAvailable = true,
-    openSubscriptionManagement,
-  }: {
-    directCheckoutAvailable?: boolean;
-    openSubscriptionManagement?: OpenSubscriptionManagementFn;
-  } = {},
-) {
-  return function Wrapper({ children }: PropsWithChildren) {
-    const hostConfig = createAppHostConfig({
-      apiBaseUrl: "http://localhost",
-      createDirectCheckout: () =>
-        ({
-          isAvailable: directCheckoutAvailable,
-          mount: () => new Promise(() => undefined),
-        }) as never,
-      createPurchases: () => purchases(revenueCatAvailable),
-      openSubscriptionManagement,
-      wsUrl: "ws://localhost",
-    });
-    return (
-      <AppHostConfigProvider value={hostConfig}>
-        <PurchasesProvider>
-          <LogProvider>
-            <DirectCheckoutProvider>{children}</DirectCheckoutProvider>
-          </LogProvider>
-        </PurchasesProvider>
-      </AppHostConfigProvider>
-    );
-  };
-}
-
-const wrapper = wrapperWith(false);
 
 test("an org that cannot sync is offered the in-app card checkout", async () => {
   stubEnvironment(false);

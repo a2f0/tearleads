@@ -31,6 +31,20 @@ export type OrganizationBillingProvider = z.infer<
 >;
 
 /**
+ * Purchase system that owns an organization's subscription: `stripe` for a
+ * direct-checkout subscription our API can cancel, `native` for an App Store,
+ * Play, or RevenueCat Test Store receipt managed through the store.
+ */
+export const OrganizationBillingSubscriptionSourceSchema = z.literal([
+  "native",
+  "stripe",
+]);
+
+export type OrganizationBillingSubscriptionSource = z.infer<
+  typeof OrganizationBillingSubscriptionSourceSchema
+>;
+
+/**
  * Per-organization sync-billing snapshot returned to the client. Sync is the one
  * paid feature; `status` decides whether the organization may sync at all. A
  * `local` organization is free and on-device only. `trialEndsAt` is set while
@@ -39,6 +53,9 @@ export type OrganizationBillingProvider = z.infer<
  * period. `activeMemberCount` is the server-authoritative signed Members-group
  * count used by the plan switcher; assigned seat fields expose the stable
  * per-user subset that may sync within the licensed capacity.
+ * `subscriptionSource` names the store of record for the current or lapsed
+ * subscription, so the client can decide from this one read whether to offer
+ * native plan changes, the direct card checkout, or neither.
  */
 export const OrganizationBillingResponseSchema =
   registerJsonSchemaRuntimeRefinements(
@@ -51,6 +68,12 @@ export const OrganizationBillingResponseSchema =
       status: OrganizationBillingStatusSchema,
       trialEndsAt: z.string().nullable(),
       provider: OrganizationBillingProviderSchema.nullable(),
+      /**
+       * Store of record while a subscription can still bill or be repaired;
+       * null when nothing a new purchase would conflict with is bound.
+       */
+      subscriptionSource:
+        OrganizationBillingSubscriptionSourceSchema.nullable(),
       currentPeriodStartsAt: z.string().nullable(),
       currentPeriodEndsAt: z.string().nullable(),
       seatCount: safeNonNegativeIntegerSchema,

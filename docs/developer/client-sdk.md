@@ -571,11 +571,11 @@ Org sync billing exposes two provider-neutral capabilities:
 
 | Capability | Who owns the payment UI | Injected by |
 | --- | --- | --- |
-| `PurchasesCapability` | App Store or Play; web uses it only to observe RevenueCat entitlements | `AppHostConfig.createPurchases` |
+| `PurchasesCapability` | App Store or Play via RevenueCat; web and desktop use the stub | `AppHostConfig.createPurchases` |
 | `DirectCheckoutCapability` | The app around Stripe's mounted element | `AppHostConfig.createDirectCheckout` |
 
-Both have unavailable stubs. Web only observes RevenueCat and purchases through
-direct checkout. Native purchases are personal-org only. Handle
+Both have unavailable stubs. Web loads no RevenueCat SDK and purchases only
+through direct checkout. Native purchases are personal-org only. Handle
 `PurchaseAlreadyOwnedError` with `purchases.moveNativeSubscription`: verify the
 receipt, prepare a fresh org outside the claim deadline, claim it, then publish
 attribution. Identity pending means retry; provider stalled means restart.

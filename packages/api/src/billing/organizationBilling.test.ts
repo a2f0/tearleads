@@ -115,6 +115,7 @@ describe("organization billing lifecycle", () => {
           assignedUserIds: ["user-1"],
           currentUserHasSyncSeat: true,
           pendingSeatCount: null,
+          subscriptionSource: null,
         },
       ),
     ).toEqual({
@@ -126,6 +127,7 @@ describe("organization billing lifecycle", () => {
       status: "trialing",
       trialEndsAt: trialEndsAt.toISOString(),
       provider: null,
+      subscriptionSource: null,
       currentPeriodStartsAt: null,
       currentPeriodEndsAt: null,
       seatCount: 1,
