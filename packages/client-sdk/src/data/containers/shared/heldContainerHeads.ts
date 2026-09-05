@@ -106,7 +106,7 @@ export function rememberVerifiedContainerHeads(input: {
     boundedSet(
       policies,
       key,
-      { organizationId: input.organizationId, policy },
+      { organizationId: input.organizationId, policy: structuredClone(policy) },
       MAX_POLICIES,
     );
   }
@@ -156,7 +156,7 @@ export function heldContainerSnapshot(
     ),
     policies: [...held.policies.values()]
       .filter((entry) => entry.organizationId === organizationId)
-      .map((entry) => entry.policy),
+      .map((entry) => structuredClone(entry.policy)),
   };
 }
 

@@ -106,6 +106,8 @@ async function persistRecitation(
   // The grants read model includes metadataAccessStateHash from the current
   // manifest head (organizations/containerGrants.ts), so omitting this lane
   // invalidation would leave the materialized access identity stale.
+  // Each request commits independently; a client can stop before its next
+  // descendant. A later request therefore cannot own this durable cursor.
   await appendOrganizationReadModelChangeInTransaction(context.executor, {
     organizationId: manifest.state.organizationId,
     lane: "grants",

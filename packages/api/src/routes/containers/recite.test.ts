@@ -15,6 +15,7 @@ import {
   isContainerMutationResponse,
   isContainerReciteResponse,
   isContainerWriterProjectionResponse,
+  isOrganizationReadModelResponse,
   isPrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
@@ -208,9 +209,33 @@ test("a child re-cites an advanced ancestor and rejects the old authorizing path
 
 test("the SDK verifies and unwraps an API recitation without new KEK material", async () => {
   const { owner, root } = await scenario();
+  const readModelPath = `/organizations/${Reflect.get(root.bundle.state, "organizationId")}/read-model`;
+  const headers = { Authorization: `Bearer ${owner.token}` };
+  const beforeResponse = await routeApp.request(readModelPath, { headers });
+  const before: unknown = await beforeResponse.json();
+  if (!isOrganizationReadModelResponse(before) || before.mode !== "snapshot")
+    throw new Error("Expected organization snapshot");
   const signed = await request({ path: [root.bundle], signer: owner });
   const response = await post(root.kekState.containerId, owner, signed);
   expect(response.status, await response.clone().text()).toBe(200);
+  // Observe immediately after this single committed request, without relying
+  // on another descendant request or a background pass completion signal.
+  const query = new URLSearchParams({ cursor: before.nextCursor });
+  const afterResponse = await routeApp.request(`${readModelPath}?${query}`, {
+    headers,
+  });
+  const after: unknown = await afterResponse.json();
+  if (!isOrganizationReadModelResponse(after) || after.mode !== "delta")
+    throw new Error("Expected organization delta");
+  const grants = after.lanes.grants?.grants.filter(
+    (grant) => grant.containerId === root.kekState.containerId,
+  );
+  expect(grants?.length).toBeGreaterThan(0);
+  expect(
+    grants?.every(
+      (grant) => grant.metadataAccessStateHash === signed.expectedManifestHash,
+    ),
+  ).toBe(true);
   const projectionResponse = await routeApp.request(
     `/containers/${root.kekState.containerId}/writer-projection`,
     { headers: { Authorization: `Bearer ${owner.token}` } },

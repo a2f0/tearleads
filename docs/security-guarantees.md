@@ -314,6 +314,12 @@ advances `containers.updatedAt`, re-emitting the container in incremental lists.
 A full eight-attempt pass can add eight organization-wide refreshes to one
 user mutation. These invalidations are not batched; the per-pass cap and pacing
 bound amplification, not the total cost of later reads or refreshes.
+Each signed re-cite is an independent HTTP transaction, including when a client
+stops midway through a pass. Its cursor must commit with its new manifest so a
+reader between requests, or after that interruption, sees the new access
+identity. There is no server-side pass transaction whose final request can
+safely replace those durable invalidations. This is the bounded one-mutation-
+per-held-descendant cost selected in #2171, not a batch notification protocol.
 
 Document/blob writes also walk each ancestor's same-KEK manifest history to
 validate key bindings. That SQL walk admits at most 1024 manifests per container,

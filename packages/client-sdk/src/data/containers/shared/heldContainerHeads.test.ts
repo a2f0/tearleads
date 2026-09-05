@@ -163,6 +163,34 @@ test("held principal policies are bounded, organization-scoped, and monotonic", 
   ).toBe(2);
 });
 
+test("held policies isolate both the observed input and returned snapshots", () => {
+  const execSql = executor();
+  const policy = createPrincipalPolicyFixture({
+    principalType: "group",
+    principalId: "isolated",
+    version: 1,
+    keyEpoch: 1,
+    stateHash: "policy:isolated:1",
+    keyFingerprint: "key",
+  });
+  const expected = structuredClone(policy);
+  rememberVerifiedContainerHeads({
+    execSql,
+    organizationId: "cache-org",
+    heads: [],
+    policies: [policy],
+  });
+  Reflect.set(policy, "stateHash", "mutated-input");
+  const first = heldContainerSnapshot(execSql, "cache-org").policies;
+  expect(first).toEqual([expected]);
+  const returned = first[0];
+  if (!returned) throw new Error("Expected held policy");
+  Reflect.set(returned, "stateHash", "mutated-snapshot");
+  expect(heldContainerSnapshot(execSql, "cache-org").policies).toEqual([
+    expected,
+  ]);
+});
+
 test("held path reconstruction rejects missing ancestors, cycles, and excess depth", async () => {
   const execSql = executor();
   const base = await seed;
