@@ -68,6 +68,7 @@ async function recitePinnedPath(
     policies: usedPolicies,
   });
   if (!(await policiesArePinned(input.execSql, usedPolicies))) return null;
+  if (!(await pathIsPinned(input.execSql, path))) return null;
   if (input.stillCurrent?.() === false) return null;
   const id = plan.state.containerId;
   const response = await input.apiClient.reciteContainer(id, plan.request, {
@@ -99,6 +100,13 @@ async function recitePinnedPath(
       await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
         execSql: input.execSql,
         heads: [locallyAuthoredAccessManifestHead(plan)],
+        expectedAccessManifestCheckpoints: path.map((head) => ({
+          objectKind: "container",
+          objectId: head.state.containerId,
+          organizationId: head.state.organizationId,
+          epoch: head.state.epoch,
+          manifestHash: head.bundle.manifestHash,
+        })),
         expectedPrincipalPolicyCheckpoints: usedPolicies.map(
           (policy) => policy.checkpoint,
         ),
