@@ -133,7 +133,7 @@ budgets reflect the required-evidence union. The SDK documentation budget grows
 to document the flag-day host contract. No production source-size allowance
 was increased for incidental edits.
 
-## Remaining audit queue
+## Integration and later review repairs
 
 Review round 3 repaired the old unowned-cache case without restoring ownership
 inference: scoped purge refuses current, history-only, reference-only, and
@@ -184,8 +184,29 @@ package-script alias. Current hooks use explicit source-shape ranges. Removed
 that wrapper/alias and its private modes; unsupported arguments now fail with
 usage instead of silently suppressing part of the check.
 
-- Integrate the completed issue PRs; regenerate final contracts and exact
-  temporary OpenAPI exceptions; complete validation, review, and submission.
+## Final integrated validation
+
+The reviewed re-citation implementation is integrated without retaining the
+abandoned historical-key-read experiment. Current-source full runs pass:
+
+- SDK, crypto, and test-utils: 2,273 passed, no failures.
+- API memory and SQLite: 1,313 passed and 49 skipped on each database.
+- App: 2,357 passed, one skipped, no failures.
+- TypeScript and `check:fast`, including bounded protocol models, trace and
+  projection drift checks, architecture, and both OpenAPI checkers.
+- Source-shape full, staged, and both explicit-range syntaxes pass. The removed
+  file-size-only and upstream-resolution flags each exit unsuccessfully with
+  usage, rather than silently weakening the check.
+
+The earlier dedicated PostgreSQL cleanup run passed 59 tests, with three remote
+Turso tests skipped; its disposable database was removed afterward. Required
+PostgreSQL CI is checked again before handoff. Remote Turso remains untested
+because its dedicated connection settings are unavailable.
+
+The operation registry now declares its exact readonly operation tuple using
+`typeof` aliases, avoiding TypeScript declaration-serialization expansion after
+the required response union and re-citation endpoint are combined. Runtime
+order and per-operation inference are unchanged; no broad type erasure is used.
 
 ## Rejected false positives
 
