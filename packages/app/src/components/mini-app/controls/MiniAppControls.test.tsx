@@ -11,6 +11,7 @@ import {
   MiniAppStatus,
   MiniAppTextarea,
 } from "../MiniAppLayout";
+import { MiniAppSelectMenu } from "./MiniAppSelectMenu";
 
 const originalClipboardDescriptor = Object.getOwnPropertyDescriptor(
   Navigator.prototype,
@@ -189,6 +190,25 @@ test("mini app form controls preserve class names and forwarded refs", () => {
   expect(textareaRef.current?.className).toBe(
     "mini-app-textarea custom-textarea",
   );
+});
+
+test("mini app select menu forwards an id so a label can target its trigger", () => {
+  const view = render(
+    <>
+      <label htmlFor="choice-menu">Choice</label>
+      <MiniAppSelectMenu
+        ariaLabel="Choice picker"
+        id="choice-menu"
+        onChange={() => undefined}
+        options={[{ id: "a", label: "A" }]}
+        value="a"
+      />
+    </>,
+  );
+
+  const trigger = view.getByRole("combobox", { name: "Choice picker" });
+  expect(trigger.id).toBe("choice-menu");
+  expect(view.getByLabelText("Choice")).toBe(trigger);
 });
 
 test("mini app field group shares field styling without nesting controls in a label", () => {
