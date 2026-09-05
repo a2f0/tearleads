@@ -349,7 +349,12 @@ async function recoverFullHistoryForRotation(
       state,
     });
     const pendingUpdates = await listPendingUpdates(state);
-    assertRotationRecoveryGeneration({ generation, state });
+    assertCapturedDocumentCurrent({
+      capturedVersion,
+      currentDocument: currentDoc,
+      generation,
+      state,
+    });
     const verifiedOrdinaryVersion = importProvenOrdinaryPendingHistory({
       currentDocument: currentDoc,
       pendingUpdates,

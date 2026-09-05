@@ -231,6 +231,7 @@ async function updateContactFromRuntime(
   contactId: string,
   patch: ContactEntryPatch,
 ): Promise<void> {
+  contactId = resolveContactWriteTarget(state, contactId);
   if (!(await contactsRuntimeWritable(state, contactId))) {
     return;
   }

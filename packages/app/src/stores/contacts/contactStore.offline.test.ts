@@ -4,36 +4,12 @@ import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import {
   CONTACTS_CONTAINER_ID,
   createRecoveryContactsRuntime,
+  seedDuplicateSelfContacts as seedDuplicates,
 } from "../../../test/helpers/contactStoreRecovery";
 import { createDeferred } from "../../../test/helpers/databaseRuntimeFactories";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
 import { loadProjectedContacts } from "./contactProjection";
-import {
-  type ContactsRuntime,
-  createContactsStore,
-  getSelfContactLocalId,
-} from "./contactStore";
-
-async function seedDuplicates(runtime: ContactsRuntime) {
-  const localId = getSelfContactLocalId("offline-self");
-  for (const id of [localId, "recovered-self"]) {
-    const doc = runtime.openDocumentStore({
-      localId: id,
-      initialDocumentKind: "contact",
-    });
-    await doc.setStructuredFields(
-      "contact",
-      {
-        encapsulationPublicKey: "self-key",
-        isSelf: "1",
-        userId: "self-user",
-        ...(id === "recovered-self" ? { firstName: "Recovered" } : {}),
-      },
-      { deferRemoteSync: true },
-    );
-  }
-  return localId;
-}
+import { type ContactsRuntime, createContactsStore } from "./contactStore";
 
 for (const reconnect of ["before", "after", "database"] as const) {
   const reconnectBeforeFailure = reconnect === "before";

@@ -13,7 +13,7 @@ still reports online.
 | Local read completion | A first SQLite read could restore a document deleted while that read was pending; frequent autosaves could prevent first paint. | Discard reads superseded by deletion or reconciliation. Publish ordinary reads before a coalesced trailing refresh so autosaves cannot starve the view. |
 | Database replacement | Swapping a ready SQLite adapter could retain summaries from the old database. | Reset summary caches and pending reads when the adapter or domain changes. |
 | Projection notification | Link-only or access-only changes could update internal data without publishing a new snapshot. | Include links and all summary fields in change detection. |
-| Self-contact bootstrap | A missing local self key could fall back to a remote lookup; duplicate cleanup could await a remote purge inside the contact write queue. | Keep self-key resolution local and run remote cleanup separately. Preserve duplicates until authorized purge succeeds; retry on reconnect, including reconnect during a pending attempt. Each retry reloads its summary and uses the current runtime. Preserve a successful purge acknowledgement so failed local settlement can retry after the remote row is gone. Edits to a retiring duplicate, including avatars, go to the retained self contact before the purge completes. |
+| Self-contact bootstrap | A missing local self key could fall back to a remote lookup; duplicate cleanup could await a remote purge inside the contact write queue. | Keep self-key resolution local and run remote cleanup separately. Preserve duplicates until authorized purge succeeds; retry on reconnect, including reconnect during a pending attempt. Each retry reloads its summary and uses the current runtime. Preserve a successful purge acknowledgement so failed local settlement can retry after the remote row is gone. Edits to a retiring duplicate, including avatars, capture the retained self-contact target before queuing, so settlement cannot erase that target. |
 | Container mutation queue | A stalled explicit online operation could block ordinary folder writes behind the same promise. | Serialize online work separately; keep never-synced folder deletion local, including promotion races. A newer local write in the affected subtree invalidates older remote settlement and schedules reconciliation. System-folder probes watch their slot instead of the whole root tree. |
 | System bootstrap | Correcting an existing system-folder icon could wait behind a stalled online operation. | Route icon corrections through the local queue, just like initial system-folder creation. |
 | Document rotation | Raw-history recovery occupied the local edit queue and could race ordinary remote sync. Waiting on active remote work could also block the coordinator's serial pump. | Admit one remote operation per live document lane and hold the local queue only for the checked installation. Busy sync defers until settlement; overlapping rotation fails promptly and wakes its queued move when the active work settles. Generation guards exclude replaced runtimes and database resets, even when the coordinator stays alive. Replacing an abandoned coordinator can start fresh remote work immediately. Edits persist during a stalled pull; a changed document rejects the stale installation and repeats the full proof within a bounded retry. |
@@ -44,13 +44,15 @@ online probe. Other tests hold a system-container probe, a duplicate-contact pur
 and a raw-history pull while ordinary local writes complete. Rotation conflict
 coverage checks the retry bound, retained pending content after exhaustion, and
 a later successful retry. Concurrent-edit tests prove autosaves stay local while
-rotation retries a changed frontier. Duplicate-contact cleanup retries when
+rotation retries a changed frontier, including an edit during the pending-update
+read after raw history was verified. Duplicate-contact cleanup retries when
 connectivity or authentication returns; a transient failure with no such
 transition waits for the next reconnect. Tests also cover reconnect during
 database reattachment and local cleanup retry after an acknowledged remote purge,
 without relying on incidental document-store notifications.
 Concurrent field and avatar edits to a retiring duplicate persist on the retained
 self contact while the purge is held, whether that purge succeeds or fails.
+An edit queued during local deletion also retains its surviving contact target.
 Existing signed-history, checkpoint-substitution, keying-isolation, and
 mutation-generation tests remain part of verification.
 

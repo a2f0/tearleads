@@ -7,7 +7,10 @@ import {
 } from "@tearleads/client-sdk";
 import { createMockApiClient } from "@tearleads/test-utils";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../src/document-types/projectors";
-import type { ContactsRuntime } from "../../src/stores/contacts/contactStore";
+import {
+  type ContactsRuntime,
+  getSelfContactLocalId,
+} from "../../src/stores/contacts/contactStore";
 import { createSqlRuntimeBase } from "./createSqlRuntime";
 export const CONTACTS_CONTAINER_ID = "recovered-contacts-container";
 
@@ -69,4 +72,25 @@ export async function createRecoveryContactsRuntime(input: {
     subscribeToPersistedDocuments: (listener) =>
       subscribeToPersistedDocuments(documents.state.domainScope, listener),
   };
+}
+
+export async function seedDuplicateSelfContacts(runtime: ContactsRuntime) {
+  const localId = getSelfContactLocalId("offline-self");
+  for (const id of [localId, "recovered-self"]) {
+    const doc = runtime.openDocumentStore({
+      localId: id,
+      initialDocumentKind: "contact",
+    });
+    await doc.setStructuredFields(
+      "contact",
+      {
+        encapsulationPublicKey: "self-key",
+        isSelf: "1",
+        userId: "self-user",
+        ...(id === "recovered-self" ? { firstName: "Recovered" } : {}),
+      },
+      { deferRemoteSync: true },
+    );
+  }
+  return localId;
 }

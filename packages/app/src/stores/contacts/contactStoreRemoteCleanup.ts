@@ -13,7 +13,10 @@ const pendingByState = new WeakMap<
   Map<string, PendingCleanup>
 >();
 
-/** Edits belong to the retained self contact once its duplicate is retiring. */
+/**
+ * Resolve at submission and the queue boundary: cleanup can finish between them,
+ * but an accepted edit still belongs to the retained self contact.
+ */
 export function resolveContactWriteTarget(
   state: ContactsStoreState,
   localId: string,
