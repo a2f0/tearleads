@@ -93,9 +93,15 @@ export function scheduleRemoteContactCleanup(input: {
   pendingByState.set(input.state, pending);
   const existing = pending.get(input.localId);
   if (!existing || !existing.current()) {
+    const replacementLocalId = resolveContactWriteTarget(
+      input.state,
+      input.replacementLocalId,
+    );
+    if (replacementLocalId === input.localId)
+      throw new Error("Contact cleanup cannot retire its retained target");
     pending.set(input.localId, {
       current: input.current,
-      replacementLocalId: input.replacementLocalId,
+      replacementLocalId,
       running: false,
       retryRequested: false,
       run: input.run,

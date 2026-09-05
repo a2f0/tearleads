@@ -1,5 +1,8 @@
 import type { ContactEntry } from "../../document-types/contact/contactDocumentModel";
-import { scheduleRemoteContactCleanup } from "./contactStoreRemoteCleanup";
+import {
+  resolveContactWriteTarget,
+  scheduleRemoteContactCleanup,
+} from "./contactStoreRemoteCleanup";
 import { removeContactEntry } from "./contactStoreSnapshotMutations";
 import type { ContactsStoreState } from "./contactStoreTypes";
 import {
@@ -145,6 +148,7 @@ export async function removeDuplicateSelfContacts(
   identity: ResolvedSelfContactIdentity,
   guard: ContactStoreOperationGuard,
 ): Promise<void> {
+  primaryContactId = resolveContactWriteTarget(state, primaryContactId);
   const generation = state.initializationGeneration;
   const userId = state.runtime.documents.auth.userId;
   const signingFingerprint = state.runtime.documents.crypto.signingFingerprint;

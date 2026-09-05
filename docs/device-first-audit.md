@@ -53,6 +53,8 @@ without relying on incidental document-store notifications.
 Concurrent field and avatar edits to a retiring duplicate persist on the retained
 self contact while the purge is held, whether that purge succeeds or fails.
 An edit queued during local deletion also retains its surviving contact target.
+Importing the self key during purge returns and maintains the surviving contact,
+even when both entries are unnamed. Cleanup rejects circular replacement targets.
 Existing signed-history, checkpoint-substitution, keying-isolation, and
 mutation-generation tests remain part of verification.
 

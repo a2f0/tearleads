@@ -155,10 +155,11 @@ async function ensureSelfContactFromRuntime(
     identity,
     input.lookupUserId,
   );
-  const contactId = resolveSelfContactId(existingContact, identity);
-  if (!contactId) {
+  const selectedContactId = resolveSelfContactId(existingContact, identity);
+  if (!selectedContactId) {
     return null;
   }
+  let contactId = resolveContactWriteTarget(state, selectedContactId);
   const deferRemoteSync = input.deferRemoteSync === true;
   // A signed-out bootstrap only knows the deterministic device-local id. If
   // that id already belongs to a self contact promoted while authenticated,
@@ -183,6 +184,7 @@ async function ensureSelfContactFromRuntime(
       if (!guard()) {
         return;
       }
+      contactId = resolveContactWriteTarget(state, contactId);
       if (!current || !deferRemoteSync) {
         await removeDuplicateSelfContacts(state, contactId, identity, guard);
         if (!guard()) {
@@ -258,11 +260,15 @@ async function importKeyFromRuntime(
   const existingContact = isSelf
     ? findSelfContact(state.entriesById, userIdentity.userId)
     : findContactByUserId(state.entriesById, userIdentity.userId);
-  const contactId = existingContact?.id ?? userIdentity.userId;
+  let contactId = resolveContactWriteTarget(
+    state,
+    existingContact?.id ?? userIdentity.userId,
+  );
   await queueContactWrite(
     state,
     "Contacts: failed to import user key.",
     async () => {
+      contactId = resolveContactWriteTarget(state, contactId);
       const identity = toResolvedSelfContactIdentity({
         encapsulationPublicKey: userIdentity.encapsulationPublicKey,
         userId: userIdentity.userId,
