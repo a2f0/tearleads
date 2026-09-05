@@ -821,7 +821,10 @@ async function buildMetadataDocumentCreateRequest(input: {
       objectId: containerBody.metadataDocumentId,
       organizationId: parentState.organizationId,
       previousManifestHash: null,
-      dependencyManifestHashes: [target.containerManifestHash],
+      dependencyManifestHashes: [
+        input.parent.manifestHash,
+        target.containerManifestHash,
+      ],
       bodyHash: await computeAccessEventBodyHash(
         body as unknown as KeyingCanonicalJson,
       ),

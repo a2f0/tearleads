@@ -81,13 +81,13 @@ test("deployment inspects full-path history beyond the first bounded page", asyn
       );
     let selectCalls = 0;
     const counted = new Proxy(managed.db, {
-      get(target, property, receiver) {
+      get(target, property) {
         if (property === "select")
           return (...args: unknown[]) => {
             selectCalls += 1;
             return Reflect.apply(target.select, target, args);
           };
-        return Reflect.get(target, property, receiver);
+        return Reflect.get(target, property, target);
       },
     });
     await expect(assertCurrentApiSchema(counted)).rejects.toThrow(

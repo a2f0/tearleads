@@ -274,7 +274,9 @@ event, including a document head new to this device, selects exactly its
 signed full-path citations. A checkpoint-enforced current path cannot replace
 an event's cited ancestor. Content-write headers instead commit leaf targets;
 their index prefers a checkpoint-enforced path for a current leaf and retains
-verified pinned ancestry for historical targets.
+verified pinned ancestry for historical targets. If that ancestry is incomplete,
+the signed leaf can still authorize its own direct writer; it cannot confer
+inherited authority. Previously, that incomplete-path case refused all writers.
 
 The owner-directed scope of #2158 and #1555 excludes semantic-currentness
 witnessing: a new-to-device document head signed by a since-revoked ancestor

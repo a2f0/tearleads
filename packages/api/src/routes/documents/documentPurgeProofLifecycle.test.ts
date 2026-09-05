@@ -128,7 +128,7 @@ test("document purge rejects a disconnected signed authorization path", async ()
   });
   expect(purgeResponse.status).toBe(409);
   await expect(purgeResponse.json()).resolves.toEqual({
-    error: "document purge authorization path is not contiguous",
+    error: "authorizingContainerPathRefs does not match container parent edges",
   });
 });
 
@@ -153,7 +153,7 @@ test("document purge rejects a signed authorization path with omitted ancestors"
   });
   expect(purgeResponse.status).toBe(409);
   await expect(purgeResponse.json()).resolves.toEqual({
-    error: "document purge authorization path must start at a root container",
+    error: "authorizingContainerPathRefs does not start at a root container",
   });
 });
 
