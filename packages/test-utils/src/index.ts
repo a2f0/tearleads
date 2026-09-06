@@ -8,10 +8,23 @@ export { createLargeText } from "./createLargeText";
 export { createMockApiClient } from "./createMockApiClient";
 export { createMockRequestFailure } from "./createMockRequestFailure";
 export {
+  createNativeTestExecSql,
+  type NativeTestExecSql,
+} from "./createNativeTestExecSql";
+export {
   createTestExecSql,
   initTestSqliteDatabase,
   type TestExecSql,
 } from "./createTestExecSql";
+export {
+  createNoBrickTraceRecorder,
+  type NoBrickOutcome,
+  type NoBrickProjection,
+  type NoBrickTrace,
+  type NoBrickTraceRecorder,
+  type NoBrickTraceStep,
+  persistNoBrickTrace,
+} from "./noBrickTrace";
 export {
   createRestartProbeTraceRecorder,
   persistRestartProbeTrace,

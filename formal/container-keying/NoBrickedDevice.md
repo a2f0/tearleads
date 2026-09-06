@@ -84,6 +84,41 @@ single rule, and requires TLC to report exactly the named violation:
 A future refusal rule is added as one more parameter, set `TRUE` in the
 registered configurations only once the liveness run still passes.
 
+## Implementation trace projection
+
+`bun run check:no-brick-projection` (part of `check:fast`) replays recorded
+implementation runs through this model. Two scenario tests in
+`packages/client-sdk` drive the real verifiers and record each run as a
+sequence of the model's actions with the outcome the verifier produced:
+
+- `src/data/keyingProjectionVerification/noBrickContainerProjection.test.ts`
+  drives `verifyContainerManifestPath` against a device's persisted
+  checkpoints over the ancestor-citation scenario: a late-delivered head by
+  Mallory after her revocation is accepted; a served root rolled back below
+  the checkpoint, a forgery citing the head that revoked her, a same-epoch
+  fork of the held head, a citation regression, and a served root older than
+  the cited one are refused; the documented residual is accepted; and a device
+  with no history refuses a stale served root on the citation alone.
+- `.../noBrickPolicyProjection.test.ts` drives `verifyPrincipalPolicyBundle`
+  through the #2173 shape: a group successor by a since-removed admin citing
+  the older Admins head is accepted after Admins advances, a later successor
+  by the replacement admin is accepted with that entry in its chain, and a
+  citation regression, the removed admin citing the head that removed them,
+  and a rollback below the checkpoint are refused.
+
+Each recorded verification becomes one `HonestSync` or `Verify` step whose
+projection the recorder derives from the served bundles: the head's epoch,
+how far its chain agrees with the honest chain, the root head its event
+cites, its signer, and the served root's epoch. The generated module
+(`scripts/noBrickTraceModule.ts`) conjoins the model's own action, the
+model's `WellFormed` bound on what a server can serve, and the recorded
+outcome per step, and pins the device's initial checkpoint; a sequence, a
+served shape, or an outcome the model's rules disagree with deadlocks TLC and
+fails the check. Three negative controls run every time — a flipped final
+outcome in each late-delivery trace and a dropped revocation — so the oracle
+cannot silently go vacuous. Each trace validates one recorded interleaving,
+not the state space; the registered bounded runs remain the exploration.
+
 ## Boundary
 
 Authority heads need an admin signature, so a dishonest server can roll one

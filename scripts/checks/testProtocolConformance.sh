@@ -20,6 +20,7 @@ exec bun test \
   scripts/lintFormalAbstractionMaps.test.ts \
   scripts/restartProbeTraceModule.test.ts \
   scripts/protocolNegativeControls.test.ts \
+  scripts/noBrickTraceModule.test.ts \
   packages/api/src/documents/documentBaselineDominanceTraceReplay.test.ts \
   packages/crypto/src/keying/transparencyProofs.test.ts \
   packages/crypto/src/keying/transparencyProofMutations.test.ts \
