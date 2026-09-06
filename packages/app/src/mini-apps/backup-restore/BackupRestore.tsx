@@ -2,9 +2,9 @@ import { ArrowsClockwiseIcon } from "@phosphor-icons/react/dist/csr/ArrowsClockw
 import { DownloadSimpleIcon } from "@phosphor-icons/react/dist/csr/DownloadSimple";
 import { UploadSimpleIcon } from "@phosphor-icons/react/dist/csr/UploadSimple";
 import { useId, useState } from "react";
-import { MiniAppCheckbox } from "../../components/mini-app/controls/MiniAppCheckbox";
 import {
   MiniAppButton,
+  MiniAppCheckbox,
   MiniAppField,
   MiniAppFormPanel,
   MiniAppInput,

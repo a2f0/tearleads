@@ -9,6 +9,7 @@
   margin: 0;
   padding: 0;
   border: var(--border-width) solid var(--app-control-border, var(--color-dark));
+  /* Keep the selection box square, distinct from rounded action buttons. */
   border-radius: var(--radius);
   background: var(--color-light);
   color: var(--color-dark);

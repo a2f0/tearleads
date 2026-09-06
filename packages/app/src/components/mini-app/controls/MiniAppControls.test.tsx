@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { createRef } from "react";
 import {
   MiniAppButton,
+  MiniAppCheckbox,
   MiniAppClipboardButton,
   MiniAppField,
   MiniAppFieldGroup,
@@ -209,6 +210,32 @@ test("mini app select menu forwards an id so a label can target its trigger", ()
   const trigger = view.getByRole("combobox", { name: "Choice picker" });
   expect(trigger.id).toBe("choice-menu");
   expect(view.getByLabelText("Choice")).toBe(trigger);
+});
+
+test("mini app checkboxes preserve label activation and imperative focus", () => {
+  const checkboxRef = createRef<HTMLInputElement>();
+  const changes: boolean[] = [];
+  const view = render(
+    <>
+      <label htmlFor="keep-data">Keep data</label>
+      <MiniAppCheckbox
+        id="keep-data"
+        ref={checkboxRef}
+        className="custom-checkbox"
+        onChange={(event) => changes.push(event.currentTarget.checked)}
+      />
+    </>,
+  );
+  const checkbox = view.getByRole("checkbox", { name: "Keep data" });
+  expect(checkboxRef.current).toBe(checkbox as HTMLInputElement);
+  expect(checkbox.getAttribute("type")).toBe("checkbox");
+  expect(checkbox.className).toBe("mini-app-checkbox custom-checkbox");
+
+  fireEvent.click(view.getByText("Keep data"));
+  expect(changes).toEqual([true]);
+  expect(checkboxRef.current?.checked).toBe(true);
+  checkboxRef.current?.focus();
+  expect(document.activeElement).toBe(checkbox);
 });
 
 test("mini app field group shares field styling without nesting controls in a label", () => {

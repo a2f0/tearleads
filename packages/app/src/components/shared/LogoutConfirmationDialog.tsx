@@ -1,8 +1,8 @@
 import { type FormEvent, useId, useState } from "react";
-import { MiniAppCheckbox } from "../mini-app/controls/MiniAppCheckbox";
 import {
   MiniAppActions,
   MiniAppButton,
+  MiniAppCheckbox,
   MiniAppModalBackdrop,
   MiniAppModalForm,
   MiniAppModalPanel,

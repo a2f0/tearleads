@@ -25,7 +25,7 @@ for (const colorScheme of ["light", "dark"] as const) {
 
       test("backup checkbox has a border and a distinct checked state", async ({
         page,
-      }, testInfo) => {
+      }) => {
         await page.setViewportSize(
           mobile ? { width: 390, height: 844 } : { width: 1440, height: 1200 },
         );
@@ -59,9 +59,6 @@ for (const colorScheme of ["light", "dark"] as const) {
           const box = await label.boundingBox();
           expect(box?.height).toBeGreaterThanOrEqual(44);
         }
-        await label.screenshot({
-          path: testInfo.outputPath("unchecked.png"),
-        });
 
         // Clicking the label changes both the visual and the backup form.
         await page
@@ -77,7 +74,6 @@ for (const colorScheme of ["light", "dark"] as const) {
         expect(checked.markContent).toBe('""');
         expect(checked.markWidth).toBeGreaterThanOrEqual(1);
         expect(checked.markColor).not.toBe(checked.background);
-        await label.screenshot({ path: testInfo.outputPath("checked.png") });
 
         // Native Space activation and a visible focus ring survive the reset.
         await checkbox.press("Space");

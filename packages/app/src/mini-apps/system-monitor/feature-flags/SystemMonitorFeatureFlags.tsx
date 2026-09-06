@@ -1,6 +1,6 @@
 import { useId } from "react";
-import { MiniAppCheckbox } from "../../../components/mini-app/controls/MiniAppCheckbox";
 import {
+  MiniAppCheckbox,
   MiniAppSection,
   MiniAppSectionHeading,
 } from "../../../components/mini-app/MiniAppLayout";

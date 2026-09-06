@@ -3,7 +3,7 @@ import { type MouseEvent, useId } from "react";
 import { classNames } from "../../shared/classNames";
 import { Menu } from "../../shared/Menu";
 import { useContextMenuPositionState } from "../../shared/useContextMenuState";
-import { MiniAppCheckbox } from "../controls/MiniAppCheckbox";
+import { MiniAppCheckbox } from "../MiniAppLayout";
 import type { MiniAppColumnVisibility } from "./MiniAppColumnVisibility";
 import "./MiniAppColumnMenuButton.css";
 

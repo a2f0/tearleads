@@ -40,6 +40,7 @@ test("keeps local data by default and confirms with keepLocalData true", () => {
 
   const checkbox = view.getByRole("checkbox") as HTMLInputElement;
   expect(checkbox.checked).toBe(true);
+  expect(checkbox.classList.contains("mini-app-checkbox")).toBe(true);
   // The destructive warning is hidden while data is kept.
   expect(view.queryByText(/permanently destroyed/u)).toBeNull();
 
