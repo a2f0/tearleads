@@ -332,6 +332,24 @@ test("mini app select menu closes a portaled list when the page scrolls", () => 
   expect(view.queryByRole("listbox")).toBeNull();
 });
 
+test("mini app select menu keeps an in-flow list open when the page scrolls", () => {
+  const view = render(
+    <MiniAppSelectMenu
+      ariaLabel="Choice picker"
+      onChange={() => undefined}
+      options={[{ id: "a", label: "A" }]}
+      value="a"
+    />,
+  );
+
+  fireEvent.click(view.getByRole("combobox", { name: "Choice picker" }));
+  expect(view.getByRole("listbox")).toBeTruthy();
+
+  // Not portaled: the list scrolls with its trigger, so nothing to re-anchor.
+  fireEvent.scroll(document.body);
+  expect(view.getByRole("listbox")).toBeTruthy();
+});
+
 test("mini app select menu reports a re-select when asked to", () => {
   const changes: string[] = [];
   const view = render(

@@ -240,26 +240,6 @@ export function MiniAppSelectMenu(props: MiniAppSelectMenuProps) {
     selectRef,
     value: props.value,
   });
-  const { close, open } = controller;
-  // A portaled list is anchored once, from the trigger's rect at open, so a
-  // scroll anywhere but inside the list itself would leave it floating where
-  // the trigger used to be. Close it instead. Capture phase, because scroll
-  // events do not bubble.
-  useEffect(() => {
-    if (!open || !portaled) {
-      return;
-    }
-
-    const handleScroll = (event: Event) => {
-      const target = event.target;
-      if (target instanceof Node && portalRef.current?.contains(target)) {
-        return;
-      }
-      close();
-    };
-    document.addEventListener("scroll", handleScroll, true);
-    return () => document.removeEventListener("scroll", handleScroll, true);
-  }, [close, open, portaled]);
   const portalPosition: MenuPosition | null = (() => {
     if (!controller.open || !portaled || !selectRef.current) {
       return null;
