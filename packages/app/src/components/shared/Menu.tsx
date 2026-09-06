@@ -1,7 +1,9 @@
 import {
   type CSSProperties,
   type PropsWithChildren,
+  type RefObject,
   useEffect,
+  useEffectEvent,
   useLayoutEffect,
   useRef,
   useState,
@@ -17,6 +19,87 @@ const MEASUREMENT_MENU_STYLE: CSSProperties = {
   top: MENU_VIEWPORT_MARGIN_PX,
   visibility: "hidden",
 };
+
+// Fractional layout or zoom can report a spurious pixel of overflow; treat
+// that as fitting, since a false positive hands touch panning to the page.
+const SCROLL_OVERFLOW_TOLERANCE_PX = 1;
+
+function overflows(element: HTMLElement): boolean {
+  return (
+    element.scrollHeight > element.clientHeight + SCROLL_OVERFLOW_TOLERANCE_PX
+  );
+}
+
+/**
+ * Whether touch should be allowed to pan inside the menu: its own box scrolls,
+ * or a descendant scroll container (a select menu's option list) does. The
+ * menu box is a scroll container by its stylesheet; descendants qualify by
+ * their computed overflow so a plain overflowing block does not count.
+ */
+function hasTouchScrollableContent(menu: HTMLElement): boolean {
+  if (overflows(menu)) {
+    return true;
+  }
+
+  for (const element of Array.from(menu.querySelectorAll<HTMLElement>("*"))) {
+    if (!overflows(element)) {
+      continue;
+    }
+    const overflowY = getComputedStyle(element).overflowY;
+    if (overflowY === "auto" || overflowY === "scroll") {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Dismiss the menu on a pointer press or a scroll outside it. The closer is
+ * read through an effect event: consumers commonly pass an inline one, and
+ * the document listeners should subscribe once, not on every render.
+ */
+function useMenuOutsideDismissal(
+  menuRef: RefObject<HTMLDivElement | null>,
+  onClose: () => void,
+): void {
+  const close = useEffectEvent(onClose);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      const target = e.target;
+      if (!(target instanceof Node)) {
+        close();
+        return;
+      }
+
+      if (menuRef.current && !menuRef.current.contains(target)) {
+        close();
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [menuRef]);
+
+  // The menu is anchored once, from its trigger's position, so a scroll
+  // anywhere else would leave it floating where the trigger used to be. Close
+  // it instead. Scrolls inside the menu — its own overflow, or a list it
+  // hosts — are the menu working as intended. Capture phase, because scroll
+  // events do not bubble. The check covers this menu's own subtree only: a
+  // nested Menu is portaled to the body too, so scrolling one would close its
+  // parent. Nothing nests menus today; revisit here if that changes.
+  useEffect(() => {
+    function handleScroll(e: Event) {
+      const target = e.target;
+      if (target instanceof Node && menuRef.current?.contains(target)) {
+        return;
+      }
+      close();
+    }
+    document.addEventListener("scroll", handleScroll, true);
+    return () => document.removeEventListener("scroll", handleScroll, true);
+  }, [menuRef]);
+}
 
 export interface MenuPosition {
   x: number;
@@ -110,10 +193,25 @@ export function Menu({
   keyboardNavigation?: boolean;
 }>) {
   const menuRef = useRef<HTMLDivElement>(null);
+  useMenuOutsideDismissal(menuRef, onClose);
   const { x, y } = position;
   const [placement, setPlacement] = useState(() =>
     createInitialMenuPlacement(position, direction),
   );
+  // Whether anything in the menu scrolls, so the stylesheet can let touch pan
+  // it while consuming swipes on a menu that fits (see Menu.css).
+  const [scrollable, setScrollable] = useState(false);
+
+  // Re-measure after every commit as well as on resize below: children can be
+  // swapped or filtered while the menu is open without its box changing size,
+  // which moves scrollHeight but not the ResizeObserver. setState bails out
+  // when the answer is unchanged.
+  useLayoutEffect(() => {
+    const menu = menuRef.current;
+    if (menu) {
+      setScrollable(hasTouchScrollableContent(menu));
+    }
+  });
 
   useLayoutEffect(() => {
     const menu = menuRef.current;
@@ -133,6 +231,7 @@ export function Menu({
           width: rect.width,
         }),
       );
+      setScrollable(hasTouchScrollableContent(menu));
     };
     updatePlacement();
     const observer = new ResizeObserver(updatePlacement);
@@ -143,39 +242,6 @@ export function Menu({
       window.removeEventListener("resize", updatePlacement);
     };
   }, [x, y, direction]);
-
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      const target = e.target;
-      if (!(target instanceof Node)) {
-        onClose();
-        return;
-      }
-
-      if (menuRef.current && !menuRef.current.contains(target)) {
-        onClose();
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [onClose]);
-
-  // The menu is anchored once, from its trigger's position, so a scroll
-  // anywhere else would leave it floating where the trigger used to be. Close
-  // it instead. Scrolls inside the menu — its own overflow, or a list it
-  // hosts — are the menu working as intended. Capture phase, because scroll
-  // events do not bubble.
-  useEffect(() => {
-    function handleScroll(e: Event) {
-      const target = e.target;
-      if (target instanceof Node && menuRef.current?.contains(target)) {
-        return;
-      }
-      onClose();
-    }
-    document.addEventListener("scroll", handleScroll, true);
-    return () => document.removeEventListener("scroll", handleScroll, true);
-  }, [onClose]);
 
   const placementMatchesAnchor =
     placement.measured &&
@@ -197,7 +263,13 @@ export function Menu({
     : MEASUREMENT_MENU_STYLE;
 
   return createPortal(
-    <div ref={menuRef} className="menu" style={menuStyle} tabIndex={-1}>
+    <div
+      ref={menuRef}
+      className="menu"
+      data-scrollable={scrollable || undefined}
+      style={menuStyle}
+      tabIndex={-1}
+    >
       {children}
     </div>,
     document.body,
