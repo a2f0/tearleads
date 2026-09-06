@@ -120,6 +120,13 @@
       "when": 1788632972215,
       "tag": "0016_organization_blob_namespace",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1788725945916,
+      "tag": "0017_root_identities",
+      "breakpoints": true
     }
   ]
 }

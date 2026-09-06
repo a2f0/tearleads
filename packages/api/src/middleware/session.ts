@@ -15,6 +15,15 @@ import {
 import { notifySessionRevoked } from "../realtime/sessionRevocation";
 import type { SessionCreateInput, SessionData } from "../validators/session";
 import { isSessionData, isSessionId } from "../validators/session";
+import {
+  normalizeRequestIpAddress,
+  type RouteRequestBindings,
+  readRequestIpAddress,
+} from "./requestIp";
+import {
+  recordUserActivity as defaultRecordUserActivity,
+  type UserActivityRecorder,
+} from "./userActivity";
 
 const SESSION_TTL_SECONDS = 86400;
 const SESSION_ID_PREFIX = "session-id:";
@@ -40,14 +49,7 @@ type SessionStoreSet = (
 type SessionStoreSetKeepTtl = (key: string, value: string) => Promise<void>;
 type SessionRevocationNotifier = (session: SessionData) => Promise<void>;
 
-/**
- * Per-request bindings the composition root passes to `routeApp.fetch`. Tests
- * that call `fetch` without bindings leave `c.env` undefined, so readers must
- * tolerate its absence.
- */
-export interface RouteRequestBindings {
-  readonly directClientIp?: string | null | undefined;
-}
+export type { RouteRequestBindings } from "./requestIp";
 
 export interface SessionEnv {
   Bindings: RouteRequestBindings;
@@ -86,77 +88,6 @@ function extractToken(c: Context): string | null {
   }
   const token = header.slice(7);
   return isSessionId(token) ? token : null;
-}
-
-function normalizeRequestIpAddress(
-  value: string | null | undefined,
-): string | null {
-  let normalized = value?.trim();
-  if (!normalized) {
-    return null;
-  }
-
-  if (normalized.startsWith('"') && normalized.endsWith('"')) {
-    normalized = normalized.slice(1, -1).trim();
-  }
-  if (normalized.startsWith("[") && normalized.includes("]")) {
-    normalized = normalized.slice(1, normalized.indexOf("]"));
-  }
-  if (/^\d{1,3}(?:\.\d{1,3}){3}:\d+$/u.test(normalized)) {
-    normalized = normalized.slice(0, normalized.lastIndexOf(":"));
-  }
-
-  if (normalized.length === 0 || normalized.length > 128) {
-    return null;
-  }
-  if (normalized.toLowerCase() === "unknown") {
-    return null;
-  }
-
-  return normalized;
-}
-
-function firstHeaderIpAddress(value: string | null | undefined): string | null {
-  for (const candidate of value?.split(",") ?? []) {
-    const ipAddress = normalizeRequestIpAddress(candidate);
-    if (ipAddress) {
-      return ipAddress;
-    }
-  }
-
-  return null;
-}
-
-function forwardedHeaderIpAddress(
-  value: string | null | undefined,
-): string | null {
-  for (const entry of value?.split(",") ?? []) {
-    const forPart = entry
-      .split(";")
-      .find((part) => part.trim().toLowerCase().startsWith("for="));
-    if (!forPart) {
-      continue;
-    }
-
-    const ipAddress = normalizeRequestIpAddress(
-      forPart.slice(forPart.indexOf("=") + 1),
-    );
-    if (ipAddress) {
-      return ipAddress;
-    }
-  }
-
-  return null;
-}
-
-export function readRequestIpAddress(c: Context<SessionEnv>): string | null {
-  return (
-    normalizeRequestIpAddress(c.req.header("cf-connecting-ip")) ??
-    normalizeRequestIpAddress(c.req.header("x-real-ip")) ??
-    firstHeaderIpAddress(c.req.header("x-forwarded-for")) ??
-    forwardedHeaderIpAddress(c.req.header("forwarded")) ??
-    normalizeRequestIpAddress(c.env?.directClientIp)
-  );
 }
 
 function withSessionActivity(
@@ -261,6 +192,7 @@ export const destroySession = createDestroySession(
 export function createRequireAuth(
   getSession: SessionStoreGet,
   setSessionKeepTtl: SessionStoreSetKeepTtl,
+  recordUserActivity?: UserActivityRecorder,
 ) {
   return createMiddleware<SessionEnv>(
     async (c: Context<SessionEnv>, next: Next) => {
@@ -311,6 +243,16 @@ export function createRequireAuth(
         } catch (error) {
           console.error("Failed to update session activity metadata:", error);
         }
+        if (recordUserActivity) {
+          try {
+            await recordUserActivity({
+              lastActiveAt: now,
+              userId: session.userId,
+            });
+          } catch (error) {
+            console.error("Failed to record user activity:", error);
+          }
+        }
       }
 
       c.set("session", session);
@@ -321,7 +263,11 @@ export function createRequireAuth(
   );
 }
 
-export const requireAuth = createRequireAuth(get, setKeepTtl);
+export const requireAuth = createRequireAuth(
+  get,
+  setKeepTtl,
+  defaultRecordUserActivity,
+);
 
 export function createListUserSessions(
   getSession: SessionStoreGet,
@@ -466,6 +412,7 @@ export function createSessionTokenIssuer(
   setSession: SessionStoreSet,
   addSetMember: SessionStoreAddSetMember,
   expireKey: SessionStoreExpire,
+  recordUserActivity?: UserActivityRecorder,
 ) {
   return async (data: SessionCreateInput): Promise<string> => {
     const token = bytesToHex(generateChallenge(32));
@@ -489,8 +436,26 @@ export function createSessionTokenIssuer(
     await addSetMember(userSessionsKey(session.userId), session.id);
     await expireKey(userSessionsKey(session.userId), SESSION_TTL_SECONDS);
 
+    // Login is itself activity; without this a user seen only within the
+    // throttle window after logging in would have no last_active_at at all.
+    if (recordUserActivity) {
+      try {
+        await recordUserActivity({
+          lastActiveAt: session.createdAt,
+          userId: session.userId,
+        });
+      } catch (error) {
+        console.error("Failed to record login activity:", error);
+      }
+    }
+
     return token;
   };
 }
 
-export const createSession = createSessionTokenIssuer(set, sadd, expire);
+export const createSession = createSessionTokenIssuer(
+  set,
+  sadd,
+  expire,
+  defaultRecordUserActivity,
+);

@@ -105,6 +105,22 @@ the required `contentKeyBundles` array (empty when no additional epoch bundle is
 needed), `documentKekTargets`, required `pullPage: {hasMore, nextCursor}`, and
 encrypted `updates[]`.
 
+Operator surface (internal, outside the protocol operation registry and the
+generated OpenAPI contract):
+
+| Capability | Route |
+| --- | --- |
+| List platform identities (newest first, cursor paged, optional `fingerprint` filter) | `GET /root/identities` |
+| Get one identity with its last activity and live sessions | `GET /root/identities/:userId` |
+| List an identity's organizations with roster status and billing standing | `GET /root/identities/:userId/organizations` |
+
+These routes run `requireAuth` then `requireRoot`, which admits only identities
+whose `users.is_root` flag is set. The flag is an operational boolean for
+internal staff and technical support, granted and revoked with the API CLI's
+`make-admin` / `revoke-admin` commands; it carries no access-plane keys.
+`users.last_active_at` is written by the session middleware's throttled
+activity path so operators can see when an identity was last seen.
+
 ## Code Layers
 
 The API is organized in layers like this:

@@ -130,6 +130,19 @@ export const subsystems: readonly Subsystem[] = [
     ],
   },
   {
+    name: "Root Administration",
+    package: "api",
+    responsibility:
+      "Internal staff/support surface: the root-identity gate and read-only lookups of identities, activity, sessions, organizations, and billing.",
+    seam: "routes/root via createRootRouter; services/root facade; middleware/root.ts",
+    paths: [
+      `${api}/routes/root/`,
+      `${api}/services/root/`,
+      `${api}/workflows/root/`,
+      `${api}/middleware/root.ts`,
+    ],
+  },
+  {
     name: "Access Plane & Keying",
     package: "api",
     responsibility:
@@ -167,7 +180,9 @@ export const subsystems: readonly Subsystem[] = [
       "Bearer-token session storage, activity/IP tracking, request-IP binding, and session revocation (clear WS interest + publish session_revoked).",
     seam: "middleware/session.ts (requireAuth) and realtime/sessionRevocation.ts",
     paths: [
+      `${api}/middleware/requestIp.ts`,
       `${api}/middleware/session.ts`,
+      `${api}/middleware/userActivity.ts`,
       `${api}/realtime/sessionRevocation.ts`,
       `${api}/validators/session.ts`,
     ],

@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid } from "./columns";
+import { boolean, index, pgTable, text, timestamp, uuid } from "./columns";
 
 /**
  * Registered human users and their long-lived public key material.
@@ -27,19 +27,38 @@ import { pgTable, text, timestamp, uuid } from "./columns";
  * - `registrationSourceIpAddress`: Best-effort source IP observed on the
  *   registration request. It is nullable when registration is created outside
  *   an HTTP request or no usable client IP metadata is available.
+ * - `isRoot`: Platform-operator flag for internal staff and technical support.
+ *   Root identities may call the `/root` administration routes, which are
+ *   gated by `requireRoot`. This is a plain operational boolean, not part of
+ *   the signed access plane; it is granted and revoked only through the API
+ *   CLI (`make-admin` / `revoke-admin`).
+ * - `lastActiveAt`: Most recent authenticated request timestamp, written on
+ *   the session middleware's throttled activity path (about once a minute per
+ *   session). Nullable until the user's first authenticated request after
+ *   registration.
  * - `createdAt`: Server-side registration timestamp.
  *
  * Indexes:
  * - `users_fingerprint_unique` enforces one signing key fingerprint per user
  *   and gives auth challenge verification an indexed `fingerprint` lookup.
+ * - `users_created_at_id_idx` backs the root identity listing's keyset
+ *   pagination (newest registrations first).
  */
-export const users = pgTable("users", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  fingerprint: text("fingerprint").notNull().unique(),
-  signingPublicKey: text("signing_public_key").notNull(),
-  encapsulationPublicKey: text("encapsulation_public_key").notNull(),
-  encapsulationKeyFingerprint: text("encapsulation_key_fingerprint").notNull(),
-  defaultOrganizationId: uuid("default_organization_id").notNull(),
-  registrationSourceIpAddress: text("registration_source_ip_address"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const users = pgTable(
+  "users",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    fingerprint: text("fingerprint").notNull().unique(),
+    signingPublicKey: text("signing_public_key").notNull(),
+    encapsulationPublicKey: text("encapsulation_public_key").notNull(),
+    encapsulationKeyFingerprint: text(
+      "encapsulation_key_fingerprint",
+    ).notNull(),
+    defaultOrganizationId: uuid("default_organization_id").notNull(),
+    registrationSourceIpAddress: text("registration_source_ip_address"),
+    isRoot: boolean("is_root").default(false).notNull(),
+    lastActiveAt: timestamp("last_active_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [index("users_created_at_id_idx").on(table.createdAt, table.id)],
+);
