@@ -39,6 +39,9 @@ and [event binding](../packages/app/src/providers/sdk/serverEventsBinding.ts).
   a nested revoked/deleted child. Repeated ordinary root hints skip settled lanes;
   newer force generations survive older completions. Temporary failures retain
   force, with bounded automatic retries for rejected discovery.
+  The temporary-404 regression uses the production error classifier, observes the
+  failed root sweep, and verifies automatic child recovery with its force retained
+  while the already-settled sibling stays untouched.
 - A reconnect installs and acknowledges the current interest set before advancing
   the connection generation, clears projection caches and runs authoritative
   reconciliation. Interest routes hints; it grants no access. Distinct login
@@ -88,6 +91,8 @@ lookahead now performs zero document-link expansion queries, verified through th
 real route. Selected documents retain the same readable-container gate and access
 resolver. No new route, database index, dependency or cryptographic shortcut is
 introduced.
+The live page also provides a positive control for the expansion-query assertion
+and compares its timestamp with the same row decoded by the native ORM mapping.
 
 ## Measurement method
 

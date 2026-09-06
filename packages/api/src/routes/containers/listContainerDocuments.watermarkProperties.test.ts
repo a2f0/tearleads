@@ -157,6 +157,18 @@ test("document discovery watermarks exhaust every mixed change exactly once", as
   // The first page contains only a tombstone. Its live lookahead must not
   // expand linked-container paths that will not be returned to this caller.
   const selects = spyOn(db, "select");
+  const countLinkExpansions = () =>
+    selects.mock.calls.filter(
+      ([fields]) =>
+        fields &&
+        Object.keys(fields).length === 2 &&
+        Object.values(fields).includes(
+          accessManifestDocumentLinkProjection.containerId,
+        ) &&
+        Object.values(fields).includes(
+          accessManifestDocumentLinkProjection.manifestHash,
+        ),
+    ).length;
   try {
     const first = await requestPage({
       containerId: owner.rootContainerId,
@@ -171,18 +183,25 @@ test("document discovery watermarks exhaust every mixed change exactly once", as
     expect(first.hasMore).toBe(true);
     expect(selects).toHaveBeenCalled();
     expect(first.tombstones).toHaveLength(1);
-    expect(
-      selects.mock.calls.filter(
-        ([fields]) =>
-          fields &&
-          Object.values(fields).includes(
-            accessManifestDocumentLinkProjection.containerId,
-          ) &&
-          Object.values(fields).includes(
-            accessManifestDocumentLinkProjection.manifestHash,
-          ),
-      ),
-    ).toHaveLength(0);
+    expect(countLinkExpansions()).toBe(0);
+
+    selects.mockClear();
+    const next = await requestPage({
+      containerId: owner.rootContainerId,
+      limit: 1,
+      token: owner.token,
+      watermark: first.nextWatermark,
+    });
+    expect(next.items).toHaveLength(1);
+    expect(countLinkExpansions()).toBe(1);
+    const item = next.items[0];
+    if (!item) throw new Error("Expected the live item after the tombstone");
+    const [nativeRow] = await db
+      .select({ updatedAt: documents.updatedAt })
+      .from(documents)
+      .where(eq(documents.id, item.id));
+    if (!nativeRow) throw new Error("Expected the stored live document");
+    expect(item.updatedAt).toBe(nativeRow.updatedAt.toISOString());
   } finally {
     selects.mockRestore();
   }
