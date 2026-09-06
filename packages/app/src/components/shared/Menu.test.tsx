@@ -181,12 +181,37 @@ test("subscribes its document listeners once across re-renders", () => {
   }
 });
 
-test("flags a menu that overflows its height budget so touch may pan it", () => {
-  const view = render(
-    <Menu position={{ x: 24, y: 48 }} onClose={() => {}}>
-      <MenuItem label="Open" onClick={() => {}} />
-    </Menu>,
+// Give one element a scroll range without touching the prototype; the
+// element is discarded with the render, so nothing needs restoring.
+function mockScrollRange(
+  element: HTMLElement,
+  input: {
+    clientHeight: number;
+    scrollHeight: number;
+  },
+): void {
+  Object.defineProperty(element, "scrollHeight", {
+    configurable: true,
+    get: () => input.scrollHeight,
+  });
+  Object.defineProperty(element, "clientHeight", {
+    configurable: true,
+    get: () => input.clientHeight,
+  });
+}
+
+function menuWithList(anchorY: number) {
+  return (
+    <Menu position={{ x: 24, y: anchorY }} onClose={() => {}}>
+      <div data-testid="list" style={{ overflowY: "auto" }}>
+        <MenuItem label="Open" onClick={() => {}} />
+      </div>
+    </Menu>
   );
+}
+
+test("flags a menu whose own box overflows so touch may pan it", () => {
+  const view = render(menuWithList(48));
   const menu = view.getByText("Open").closest(".menu");
   if (!(menu instanceof HTMLElement)) {
     throw new Error("Expected the menu element.");
@@ -194,42 +219,39 @@ test("flags a menu that overflows its height budget so touch may pan it", () => 
   // Fits: no scroll range, so the stylesheet consumes touch gestures.
   expect(menu.hasAttribute("data-scrollable")).toBe(false);
 
-  const originalScrollHeight = Object.getOwnPropertyDescriptor(
-    HTMLElement.prototype,
-    "scrollHeight",
-  );
-  const originalClientHeight = Object.getOwnPropertyDescriptor(
-    HTMLElement.prototype,
-    "clientHeight",
-  );
-  Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
-    configurable: true,
-    get: () => 400,
-  });
-  Object.defineProperty(HTMLElement.prototype, "clientHeight", {
-    configurable: true,
-    get: () => 200,
-  });
-  try {
-    // Re-measure: a new anchor re-runs the placement effect.
-    view.rerender(
-      <Menu position={{ x: 24, y: 64 }} onClose={() => {}}>
-        <MenuItem label="Open" onClick={() => {}} />
-      </Menu>,
-    );
-    expect(menu.getAttribute("data-scrollable")).toBe("true");
-  } finally {
-    for (const [name, descriptor] of [
-      ["scrollHeight", originalScrollHeight],
-      ["clientHeight", originalClientHeight],
-    ] as const) {
-      if (descriptor) {
-        Object.defineProperty(HTMLElement.prototype, name, descriptor);
-      } else {
-        Reflect.deleteProperty(HTMLElement.prototype, name);
-      }
-    }
+  mockScrollRange(menu, { clientHeight: 200, scrollHeight: 400 });
+  view.rerender(menuWithList(48));
+  expect(menu.getAttribute("data-scrollable")).toBe("true");
+});
+
+test("flags a menu whose inner scroll container overflows", () => {
+  const view = render(menuWithList(48));
+  const menu = view.getByText("Open").closest(".menu");
+  if (!(menu instanceof HTMLElement)) {
+    throw new Error("Expected the menu element.");
   }
+  expect(menu.hasAttribute("data-scrollable")).toBe(false);
+
+  // The menu box fits; only the list inside it (a select menu's option list,
+  // say) has a scroll range. Touch must still be able to pan that list.
+  mockScrollRange(view.getByTestId("list"), {
+    clientHeight: 200,
+    scrollHeight: 400,
+  });
+  view.rerender(menuWithList(48));
+  expect(menu.getAttribute("data-scrollable")).toBe("true");
+});
+
+test("a spurious pixel of overflow still counts as fitting", () => {
+  const view = render(menuWithList(48));
+  const menu = view.getByText("Open").closest(".menu");
+  if (!(menu instanceof HTMLElement)) {
+    throw new Error("Expected the menu element.");
+  }
+
+  mockScrollRange(menu, { clientHeight: 200, scrollHeight: 201 });
+  view.rerender(menuWithList(48));
+  expect(menu.hasAttribute("data-scrollable")).toBe(false);
 });
 
 test("keeps upward-opening menus visible at the top of the viewport", async () => {

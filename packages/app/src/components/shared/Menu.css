@@ -8,9 +8,10 @@
   /* Touch. The menu closes on any scroll outside itself, so a swipe on it must
      never pan the page. A menu whose content fits has no scroll range, is not
      in the scroll chain at all, and overscroll-behavior would not apply — so
-     consume the gesture outright. A menu that overflows (flagged by Menu.tsx)
-     may pan vertically instead; contain keeps a swipe at the end of its range
-     from chaining outward. */
+     consume the gesture outright. When the menu, or a scroll container inside
+     it, overflows (flagged by Menu.tsx) vertical panning is allowed instead;
+     contain keeps a swipe at the end of the menu's own range from chaining
+     outward, and an inner scroller contains its own. */
   touch-action: none;
   overscroll-behavior: contain;
   box-sizing: border-box;
