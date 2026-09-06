@@ -18,8 +18,6 @@ const DOCUMENT_ORGANIZATION_SQL = getContainerOrganizationAttributionSql({
   projectionAlias: "projection",
 });
 
-// Timestamp comparisons pad canonical UTC fractions: local JS dates have
-// milliseconds and remote discovery can carry PostgreSQL microseconds.
 const PENDING_WRITE_SOURCE_SQL = `
   WITH pending_update_groups AS (
     SELECT
@@ -392,13 +390,7 @@ const PENDING_WRITE_SOURCE_SQL = `
   WHERE container.local_updated_at IS NOT NULL
     AND (
       container.server_updated_at IS NULL
-      OR (
-        rtrim(container.local_updated_at, 'Z') ||
-          substr('000000', 1, 27 - length(container.local_updated_at))
-      ) > (
-        rtrim(container.server_updated_at, 'Z') ||
-          substr('000000', 1, 27 - length(container.server_updated_at))
-      )
+      OR container.local_updated_at > container.server_updated_at
     )
 `;
 

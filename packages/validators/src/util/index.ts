@@ -39,7 +39,6 @@ export {
   MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES,
   MAX_DOCUMENT_SYNC_RESPONSE_UPDATE_PAGE_BYTES,
 } from "./documentSyncLimits";
-export { compareIsoTimestamps, normalizeIsoTimestamp } from "./isoTimestamp";
 export {
   isSerializedKeyEnvelope,
   isSerializedKeyEnvelopeArray,

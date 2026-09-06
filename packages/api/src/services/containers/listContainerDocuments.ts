@@ -36,7 +36,7 @@ import {
   normalizeSyncWatermark,
   watermarkPredicate,
 } from "./syncPaging";
-import { syncTimestampExpression } from "./syncTimestamp";
+import { syncItemTimestamp, syncTimestampExpression } from "./syncTimestamp";
 import { createContainerWriterProjectionContext } from "./writerProjection";
 
 interface ListContainerDocumentsOptions {
@@ -338,7 +338,7 @@ async function buildListContainerDocumentsResponse(input: {
         linkedContainerIds,
         referencedPrincipals:
           collectReferencedPrincipalsFromContainerAccess(accessPaths),
-        updatedAt: documentRow.updatedAt,
+        updatedAt: syncItemTimestamp(documentRow.updatedAt),
       };
     },
   );
@@ -349,7 +349,7 @@ async function buildListContainerDocumentsResponse(input: {
     tombstones: page.tombstoneRows.map((row) => ({
       containerId: input.containerId,
       documentId: row.documentId,
-      updatedAt: row.updatedAt,
+      updatedAt: syncItemTimestamp(row.updatedAt),
     })),
   };
 }

@@ -58,39 +58,3 @@ test("listPendingWrites exposes an otherwise-uncovered local container timestamp
     close();
   }
 });
-
-test("mixed precision does not invent pending writes for an equal or newer server timestamp", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "pending-writes-timestamp-precision",
-  );
-  try {
-    await defaultContainerContentsPersistence.ensureSchema(execSql);
-    await saveTestSyncedContainer({
-      execSql,
-      id: "container-a",
-      name: "Container A",
-      organizationId: "organization-a",
-      timestamp: "2026-01-01T00:00:00.123Z",
-    });
-    const queries = createContainerDocumentQueriesFromRuntime({
-      infra: { execSql },
-    });
-    for (const serverTimestamp of [
-      "2026-01-01T00:00:00.123000Z",
-      "2026-01-01T00:00:00.123001Z",
-    ]) {
-      await execSql(
-        "UPDATE containers SET server_updated_at = ? WHERE id = ?",
-        [serverTimestamp, "container-a"],
-      );
-      expect(await queries.listPendingWrites()).toEqual([]);
-    }
-    await execSql("UPDATE containers SET local_updated_at = ? WHERE id = ?", [
-      "2026-01-01T00:00:00.124Z",
-      "container-a",
-    ]);
-    expect(await queries.listPendingWrites()).toHaveLength(1);
-  } finally {
-    await close();
-  }
-});

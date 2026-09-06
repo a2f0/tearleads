@@ -2,7 +2,6 @@ import type {
   ContainerSyncTombstone,
   ListContainersResponse,
 } from "@tearleads/validators/response";
-import { compareIsoTimestamps } from "@tearleads/validators/util";
 import { removeIndexedContainerChild } from "./childIndex";
 import { containerStateMatchesFingerprint } from "./containerStateFingerprint";
 import {
@@ -22,10 +21,7 @@ function latestContainerItemsById(
   const latestItems = new Map<string, ListedRemoteContainerPageItem>();
   for (const item of items) {
     const current = latestItems.get(item.id);
-    if (
-      !current ||
-      compareIsoTimestamps(current.updatedAt, item.updatedAt) < 0
-    ) {
+    if (!current || current.updatedAt < item.updatedAt) {
       latestItems.set(item.id, item);
     }
   }
@@ -41,8 +37,8 @@ function latestContainerTombstonesById(
     const current = latestTombstones.get(tombstone.containerId);
     if (
       !current ||
-      compareIsoTimestamps(current.updatedAt, tombstone.updatedAt) < 0 ||
-      (compareIsoTimestamps(current.updatedAt, tombstone.updatedAt) === 0 &&
+      current.updatedAt < tombstone.updatedAt ||
+      (current.updatedAt === tombstone.updatedAt &&
         current.reason === "access_revoked" &&
         tombstone.reason === "deleted")
     ) {
@@ -63,9 +59,8 @@ function getApplicableContainerTombstones(
     const item = latestItems.get(tombstone.containerId);
     return (
       !item ||
-      compareIsoTimestamps(item.updatedAt, tombstone.updatedAt) < 0 ||
-      (compareIsoTimestamps(item.updatedAt, tombstone.updatedAt) === 0 &&
-        tombstone.reason === "deleted")
+      item.updatedAt < tombstone.updatedAt ||
+      (item.updatedAt === tombstone.updatedAt && tombstone.reason === "deleted")
     );
   });
 }
@@ -78,8 +73,8 @@ export function getApplicableRemoteContainerItems(
     const tombstone = latestTombstones.get(item.id);
     return (
       !tombstone ||
-      compareIsoTimestamps(tombstone.updatedAt, item.updatedAt) < 0 ||
-      (compareIsoTimestamps(tombstone.updatedAt, item.updatedAt) === 0 &&
+      tombstone.updatedAt < item.updatedAt ||
+      (tombstone.updatedAt === item.updatedAt &&
         tombstone.reason === "access_revoked")
     );
   });

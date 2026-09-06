@@ -1,8 +1,7 @@
-import { compareIsoTimestamps } from "@tearleads/validators/util";
 /**
  * Picks the later of two ISO-8601 timestamps, defaulting a fully absent pair
- * to now. Local JS dates and server discovery dates can have different
- * fractional precision; compare their instants instead of the raw strings.
+ * to now. ISO-8601 strings order lexicographically, so localeCompare is the
+ * comparison, not a display concern.
  */
 export function getLatestTimestamp(
   left: string | null | undefined,
@@ -15,5 +14,5 @@ export function getLatestTimestamp(
     return left;
   }
 
-  return compareIsoTimestamps(left, right) >= 0 ? left : right;
+  return left.localeCompare(right) >= 0 ? left : right;
 }

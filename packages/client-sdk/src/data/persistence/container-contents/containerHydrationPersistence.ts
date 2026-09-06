@@ -1,5 +1,4 @@
-import { compareIsoTimestamps } from "@tearleads/validators/util";
-import { eq, type SQL, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { documentSyncPullContinuationsEqual } from "../../documents/shared/pullContinuation";
 import { containerHydrationTombstones, containers } from "../../sqlite/schema";
 import {
@@ -71,12 +70,6 @@ function sameHydrationTombstone(
   );
 }
 
-// Local/server timestamps are canonical UTC strings with 3 or 6 fractional
-// digits. Pad the comparison key, retaining the original stored representation.
-function timestampOrderKey(timestamp: SQL): SQL {
-  return sql`rtrim(${timestamp}, 'Z') || substr('000000', 1, 27 - length(${timestamp}))`;
-}
-
 export async function recordContainerHydrationTombstones(input: {
   removals: ReadonlyArray<{
     containerId: string;
@@ -97,11 +90,7 @@ export async function recordContainerHydrationTombstones(input: {
           WHEN ${containerHydrationTombstones.reason} = 'deleted' THEN 'deleted'
           ELSE excluded.reason
         END`,
-        updatedAt: sql`CASE
-          WHEN ${timestampOrderKey(sql`${containerHydrationTombstones.updatedAt}`)} >= ${timestampOrderKey(sql`excluded.updated_at`)}
-          THEN ${containerHydrationTombstones.updatedAt}
-          ELSE excluded.updated_at
-        END`,
+        updatedAt: sql`MAX(${containerHydrationTombstones.updatedAt}, excluded.updated_at)`,
       },
     })
     .run();
@@ -139,7 +128,7 @@ export async function commitStoredHydratedContainer(
       );
       if (
         fence &&
-        compareIsoTimestamps(fence.updatedAt, input.remoteUpdatedAt) >= 0 &&
+        fence.updatedAt >= input.remoteUpdatedAt &&
         (fence.reason === "deleted" ||
           !sameHydrationTombstone(fence, input.expectedHydrationTombstone))
       ) {

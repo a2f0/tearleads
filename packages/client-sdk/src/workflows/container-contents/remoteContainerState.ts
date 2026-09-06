@@ -1,4 +1,3 @@
-import { compareIsoTimestamps } from "@tearleads/validators/util";
 import {
   createContainerMetadataDocument,
   getDefaultContainerName,
@@ -69,7 +68,7 @@ function resolveRemoteContainerHydrationLocalUpdatedAt(input: {
   } = input;
   if (
     !previousLocalUpdatedAt ||
-    compareIsoTimestamps(previousLocalUpdatedAt, remoteContainer.updatedAt) <= 0
+    previousLocalUpdatedAt.localeCompare(remoteContainer.updatedAt) <= 0
   ) {
     return remoteContainer.updatedAt;
   }
@@ -130,8 +129,7 @@ export async function listRemoteContainerIdsWithPendingMetadataUpdates(input: {
     )?.container.localUpdatedAt;
 
     return previousLocalUpdatedAt &&
-      compareIsoTimestamps(previousLocalUpdatedAt, remoteContainer.updatedAt) >
-        0
+      previousLocalUpdatedAt.localeCompare(remoteContainer.updatedAt) > 0
       ? [remoteContainer.id]
       : [];
   });

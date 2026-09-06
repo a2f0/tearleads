@@ -6,10 +6,7 @@ import type {
   ListContainersResponse,
   SyncWatermark,
 } from "@tearleads/validators/response";
-import {
-  compareIsoTimestamps,
-  isUuidV4String,
-} from "@tearleads/validators/util";
+import { isUuidV4String } from "@tearleads/validators/util";
 import { type SQL, sql } from "drizzle-orm";
 import { textExpression } from "../../utils/sqlDialect";
 import {
@@ -28,7 +25,11 @@ import {
   normalizeSyncWatermark,
   watermarkPredicate,
 } from "./syncPaging";
-import { syncTimestampExpression } from "./syncTimestamp";
+import {
+  compareSyncTimestamps,
+  syncItemTimestamp,
+  syncTimestampExpression,
+} from "./syncTimestamp";
 import { createContainerWriterProjectionContext } from "./writerProjection";
 
 interface ListContainersOptions {
@@ -134,7 +135,7 @@ function compareContainerChangeCandidates(
   left: ContainerChangeCandidate,
   right: ContainerChangeCandidate,
 ): number {
-  const updatedAtOrder = compareIsoTimestamps(left.updatedAt, right.updatedAt);
+  const updatedAtOrder = compareSyncTimestamps(left.updatedAt, right.updatedAt);
   return updatedAtOrder === 0
     ? left.id.localeCompare(right.id)
     : updatedAtOrder;
@@ -250,7 +251,7 @@ async function resolveVisibleContainerSummaries(input: {
         collectReferencedPrincipalsFromContainerAccess([accessResult.value]),
       organizationId: containerRow.organizationId,
       parentId: containerRow.parentId,
-      updatedAt: containerRow.updatedAt,
+      updatedAt: syncItemTimestamp(containerRow.updatedAt),
     });
   }
 
@@ -268,7 +269,7 @@ function buildListContainersResponse(input: {
       depth: row.depth,
       parentId: row.parentId,
       reason: row.reason,
-      updatedAt: row.updatedAt,
+      updatedAt: syncItemTimestamp(row.updatedAt),
     }),
   );
 

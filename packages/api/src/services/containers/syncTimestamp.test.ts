@@ -1,7 +1,11 @@
 import { expect, test } from "bun:test";
-import { compareIsoTimestamps } from "@tearleads/validators/util";
 import { normalizeSyncWatermark } from "./syncPaging";
-import { normalizeSyncTimestamp, readSyncTimestamp } from "./syncTimestamp";
+import {
+  compareSyncTimestamps,
+  normalizeSyncTimestamp,
+  readSyncTimestamp,
+  syncItemTimestamp,
+} from "./syncTimestamp";
 
 test("discovery cursors retain microseconds through UTC normalization", () => {
   expect(
@@ -22,19 +26,19 @@ test("discovery cursors retain microseconds through UTC normalization", () => {
 
 test("mixed millisecond and microsecond changes sort by time before id", () => {
   expect(
-    compareIsoTimestamps(
+    compareSyncTimestamps(
       "2026-08-31T12:00:00.123Z",
       "2026-08-31T12:00:00.123001Z",
     ),
   ).toBeLessThan(0);
   expect(
-    compareIsoTimestamps(
+    compareSyncTimestamps(
       "2026-08-31T12:00:00.123999Z",
       "2026-08-31T12:00:00.124Z",
     ),
   ).toBeLessThan(0);
   expect(
-    compareIsoTimestamps(
+    compareSyncTimestamps(
       "2026-08-31T12:00:00.123Z",
       "2026-08-31T12:00:00.123000Z",
     ),
@@ -45,4 +49,16 @@ test("Date driver values retain milliseconds", () => {
   expect(readSyncTimestamp(new Date("2026-01-01T00:00:00.123Z"))).toBe(
     "2026-01-01T00:00:00.123Z",
   );
+});
+
+test("entity timestamps match millisecond mutation responses while cursors retain precision", () => {
+  const timestamp = readSyncTimestamp("2026-01-01T00:00:00.123456Z");
+  expect(timestamp).toBe("2026-01-01T00:00:00.123456Z");
+  expect(syncItemTimestamp(timestamp)).toBe("2026-01-01T00:00:00.123Z");
+  for (const value of [
+    "2026-01-01T00:00:00.123456",
+    "2026-01-01T00:00:00.123456z",
+  ]) {
+    expect(normalizeSyncTimestamp(value)).toBeNull();
+  }
 });

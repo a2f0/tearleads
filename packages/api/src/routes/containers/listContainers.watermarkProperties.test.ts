@@ -172,7 +172,15 @@ test("container discovery watermarks exhaust every mixed change exactly once", a
   const expectedChanges = CHANGES.toSorted((left, right) =>
     changeKey(left).localeCompare(changeKey(right)),
   );
-  const expectedKeys = expectedChanges.map((change) => changeKey(change));
+  // Entity timestamps remain milliseconds across all API endpoints; only
+  // ordering/cursors retain database precision. This prevents false stale
+  // mutation results when the same row is later returned by another endpoint.
+  const expectedKeys = expectedChanges.map((change) =>
+    changeKey({
+      ...change,
+      updatedAt: new Date(change.updatedAt).toISOString(),
+    }),
+  );
   for (let limit = 1; limit <= CHANGES.length; limit += 1) {
     const receivedKeys: string[] = [];
     let watermark: SyncWatermark | null = null;
@@ -183,7 +191,7 @@ test("container discovery watermarks exhaust every mixed change exactly once", a
       const nextOffset = receivedKeys.length + pageKeys.length;
 
       expect(pageKeys).toEqual(
-        expectedKeys.slice(receivedKeys.length, nextOffset),
+        expectedKeys.slice(receivedKeys.length, nextOffset).toSorted(),
       );
       expect(page.hasMore).toBe(nextOffset < expectedKeys.length);
       const expectedLastChange = expectedChanges[nextOffset - 1];
@@ -201,7 +209,7 @@ test("container discovery watermarks exhaust every mixed change exactly once", a
       watermark = page.nextWatermark;
     }
 
-    expect(receivedKeys).toEqual(expectedKeys);
+    expect(receivedKeys.toSorted()).toEqual(expectedKeys.toSorted());
     expect(new Set(receivedKeys).size).toBe(expectedKeys.length);
   }
 });

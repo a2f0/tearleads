@@ -1,4 +1,3 @@
-import { compareIsoTimestamps } from "@tearleads/validators/util";
 import {
   maxEffectiveAccessLevel,
   normalizeEffectiveAccessLevel,
@@ -96,7 +95,7 @@ export function getApplicableDocumentTombstones(
     const existingDocument = latestItemsByDocumentId.get(document.id);
     if (
       !existingDocument ||
-      compareIsoTimestamps(existingDocument.updatedAt, document.updatedAt) < 0
+      existingDocument.updatedAt.localeCompare(document.updatedAt) < 0
     ) {
       latestItemsByDocumentId.set(document.id, document);
     }
@@ -107,7 +106,7 @@ export function getApplicableDocumentTombstones(
     return (
       !item ||
       !item.linkedContainerIds.includes(tombstone.containerId) ||
-      compareIsoTimestamps(item.updatedAt, tombstone.updatedAt) < 0
+      item.updatedAt.localeCompare(tombstone.updatedAt) < 0
     );
   });
 }
