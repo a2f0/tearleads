@@ -2,6 +2,7 @@ import {
   type CSSProperties,
   type PropsWithChildren,
   useEffect,
+  useEffectEvent,
   useLayoutEffect,
   useRef,
   useState,
@@ -110,6 +111,9 @@ export function Menu({
   keyboardNavigation?: boolean;
 }>) {
   const menuRef = useRef<HTMLDivElement>(null);
+  // Consumers commonly pass an inline closer; read it through an effect event
+  // so the document listeners below subscribe once instead of on every render.
+  const close = useEffectEvent(onClose);
   const { x, y } = position;
   const [placement, setPlacement] = useState(() =>
     createInitialMenuPlacement(position, direction),
@@ -148,34 +152,36 @@ export function Menu({
     function handleClick(e: MouseEvent) {
       const target = e.target;
       if (!(target instanceof Node)) {
-        onClose();
+        close();
         return;
       }
 
       if (menuRef.current && !menuRef.current.contains(target)) {
-        onClose();
+        close();
       }
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
-  }, [onClose]);
+  }, []);
 
   // The menu is anchored once, from its trigger's position, so a scroll
   // anywhere else would leave it floating where the trigger used to be. Close
   // it instead. Scrolls inside the menu — its own overflow, or a list it
   // hosts — are the menu working as intended. Capture phase, because scroll
-  // events do not bubble.
+  // events do not bubble. The check covers this menu's own subtree only: a
+  // nested Menu is portaled to the body too, so scrolling one would close its
+  // parent. Nothing nests menus today; revisit here if that changes.
   useEffect(() => {
     function handleScroll(e: Event) {
       const target = e.target;
       if (target instanceof Node && menuRef.current?.contains(target)) {
         return;
       }
-      onClose();
+      close();
     }
     document.addEventListener("scroll", handleScroll, true);
     return () => document.removeEventListener("scroll", handleScroll, true);
-  }, [onClose]);
+  }, []);
 
   const placementMatchesAnchor =
     placement.measured &&

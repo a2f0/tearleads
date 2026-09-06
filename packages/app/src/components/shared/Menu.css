@@ -5,6 +5,10 @@
   flex-direction: column;
   width: max-content;
   overflow: auto;
+  /* A swipe on a menu whose content fits, or at the end of its range, must not
+     chain to an ancestor scroll: the menu closes on outside scroll, and a
+     chained one would dismiss it mid-gesture on touch. */
+  overscroll-behavior: contain;
   box-sizing: border-box;
   background: var(--color-light);
   border: var(--border-strong);

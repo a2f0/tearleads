@@ -133,6 +133,27 @@ test("closes when the page scrolls but not when the menu itself does", () => {
   expect(closes).toBe(1);
 });
 
+test("calls the latest inline closer without resubscribing", () => {
+  const calls: string[] = [];
+  const menuAt = (label: string) => (
+    <Menu
+      position={{ x: 24, y: 48 }}
+      onClose={() => {
+        calls.push(label);
+      }}
+    >
+      <MenuItem label="Open" onClick={() => {}} />
+    </Menu>
+  );
+  const view = render(menuAt("first"));
+  view.rerender(menuAt("second"));
+
+  fireEvent.scroll(document.body);
+  fireEvent.mouseDown(document.body);
+
+  expect(calls).toEqual(["second", "second"]);
+});
+
 test("keeps upward-opening menus visible at the top of the viewport", async () => {
   setViewportSize({ height: 600, width: 800 });
   mockMenuSize({ height: 96, width: 180 });
