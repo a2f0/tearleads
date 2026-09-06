@@ -50,33 +50,30 @@ import {
   type ProxiedApiRequestBudget,
   profileProxiedApiRequests,
 } from "../../../../test/helpers/proxiedApiRequestBudget";
+import { documentSyncIntentCounts } from "../../../../test/helpers/proxiedApiRequestMetrics";
 
 const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
-  // Startup recovery deliberately adds two read-only document probes; one may
-  // also warm a writer projection. Initial hydration now authoritatively lists
-  // remotely listable lanes across both panes and forces normal sync for local
-  // documents absent from those listings, including primary projections that
-  // have not acquired a discovery-link row yet. Repair profiles measured 102
-  // total requests, at most 27 container-document listings, and 28 document
-  // syncs. Keep narrow headroom and the deleted singular endpoint pinned to
-  // zero.
-  total: 105,
+  // Measure after provisioning/roster import, including background settlement.
+  // Retain headroom for independently scheduled verification/recovery pulls.
+  // See docs/request-budget-closeout.md for phase, byte and sync-intent data.
+  total: 67,
+  bodyBytes: { request: 380_000, response: 1_100_000 },
   byRequest: {
-    "GET /documents/:documentId/writer-projection": 11,
-    "POST /documents/:documentId/sync": 30,
-    "GET /containers/:containerId/documents": 27,
+    "GET /documents/:documentId/writer-projection": 9,
+    "POST /documents/:documentId/sync": 18,
+    "GET /containers/:containerId/documents": 10,
     "GET /containers": 0,
     // Four held descendants re-cite the shared root and publish refresh hints.
     "POST /containers/parent-lanes/query": 11,
-    "GET /auth/user-identity/:userId": 2,
-    "POST /auth/ws-ticket": 2,
+    "GET /auth/user-identity/:userId": 0,
+    "POST /auth/ws-ticket": 0,
     "GET /containers/:containerId/writer-projection": 3,
     "GET /documents/:documentId/attachments": 2,
-    "GET /organizations/:organizationId/billing": 2,
+    "GET /organizations/:organizationId/billing": 0,
     "GET /organizations/:organizationId/read-model": 6,
-    "GET /principals/group/:groupId/policy": 2,
+    "GET /principals/group/:groupId/policy": 0,
     "GET /organizations/:organizationId/groups": 0,
-    "POST /containers/with-metadata-document": 3,
+    "POST /containers/with-metadata-document": 1,
     "POST /containers/:containerId/share": 1,
     "POST /containers/:containerId/recite": 4,
   },
@@ -312,6 +309,11 @@ test(
       .at(-1);
     expect(shareRequest?.status).toBe(200);
     profileProxiedApiRequests("test total", testRequestStartIndex);
+    const syncIntents = documentSyncIntentCounts(
+      listProxiedApiRequests().slice(testRequestStartIndex),
+    );
+    expect(syncIntents.writeBearing).toBe(2);
+    expect(syncIntents.readOnly).toBeLessThanOrEqual(16);
     expectProxiedApiRequestBudget(
       "active-roster-user root attachment share",
       listProxiedApiRequests().slice(testRequestStartIndex),

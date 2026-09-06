@@ -16,6 +16,7 @@ import {
 import { currentPrincipalStateHashSql } from "../../workflows/principals/currentPrincipalStateSql";
 import type { ApiServiceRuntime } from "../runtime";
 import { watermarkPredicate } from "./syncPaging";
+import { readSyncTimestamp, syncTimestampExpression } from "./syncTimestamp";
 
 export interface AccessibleContainerRow {
   createdAt: string;
@@ -294,7 +295,7 @@ export async function listAccessibleContainersForUser(input: {
       ${textExpression(sql`accessible.parent_id`)} as "parentId",
       ${intExpression(sql`accessible.depth`)} as "depth",
       accessible.created_at as "createdAt",
-      accessible.updated_at as "updatedAt",
+      ${syncTimestampExpression(sql`accessible.updated_at`)} as "updatedAt",
       ${intExpression(sql`accessible.epoch`)} as "metadataAccessEpoch",
       ${textExpression(sql`accessible.manifest_hash`)} as "metadataAccessStateHash"
     from visible_candidate_containers accessible
@@ -326,7 +327,7 @@ export async function listAccessibleContainersForUser(input: {
       ...row,
       createdAt: readDateIso(row.createdAt, "createdAt"),
       depth: readRequiredNumber(row.depth, "depth"),
-      updatedAt: readDateIso(row.updatedAt, "updatedAt"),
+      updatedAt: readSyncTimestamp(row.updatedAt),
       ...(metadataAccessEpoch === undefined ? {} : { metadataAccessEpoch }),
       ...(metadataAccessStateHash === undefined
         ? {}

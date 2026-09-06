@@ -1,6 +1,7 @@
 import type { SyncWatermark } from "@tearleads/validators/response";
 import { type SQL, sql } from "drizzle-orm";
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";
+import { normalizeSyncTimestamp } from "./syncTimestamp";
 
 const DEFAULT_LIMIT = 100;
 const MAX_LIMIT = 500;
@@ -35,14 +36,14 @@ export function normalizeSyncWatermark(
     throw createError();
   }
 
-  const updatedAt = new Date(value.updatedAt);
-  if (Number.isNaN(updatedAt.getTime())) {
+  const updatedAt = normalizeSyncTimestamp(value.updatedAt);
+  if (updatedAt === null) {
     throw createError();
   }
 
   return {
     id: value.id,
-    updatedAt: updatedAt.toISOString(),
+    updatedAt,
   };
 }
 
@@ -55,9 +56,8 @@ export function watermarkPredicate(
     return sql``;
   }
 
-  const updatedAt = new Date(watermark.updatedAt);
   const updatedAtValue = isSqliteApiDatabase()
-    ? updatedAt.getTime()
-    : updatedAt;
+    ? new Date(watermark.updatedAt).getTime()
+    : sql`${watermark.updatedAt}::timestamp`;
   return sql`and (${updatedAtExpression}, ${idExpression}) > (${updatedAtValue}, ${watermark.id})`;
 }

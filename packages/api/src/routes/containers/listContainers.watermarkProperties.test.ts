@@ -14,10 +14,11 @@ import {
   readContainerParentLanePage,
   requestContainerParentLanes,
 } from "../../../test/helpers/containerParentLaneQuery";
+import {
+  discoveryTimestamp,
+  discoveryTimestampValue,
+} from "../../../test/helpers/discoveryTimestamp";
 import { registerUser } from "../../../test/helpers/registerUser";
-
-const FIRST_UPDATED_AT = "2026-08-31T13:00:00.000Z";
-const SECOND_UPDATED_AT = "2026-08-31T13:00:01.000Z";
 
 type ContainerChangeFixture = {
   readonly id: string;
@@ -29,42 +30,42 @@ const CHANGES: readonly ContainerChangeFixture[] = [
   {
     id: "10000000-0000-4000-8000-000000000001",
     kind: "container",
-    updatedAt: FIRST_UPDATED_AT,
+    updatedAt: discoveryTimestamp("2026-08-31T12:00:00.000900Z"),
   },
   {
     id: "10000000-0000-4000-8000-000000000002",
     kind: "tombstone",
-    updatedAt: FIRST_UPDATED_AT,
+    updatedAt: discoveryTimestamp("2026-08-31T12:00:00.000100Z"),
   },
   {
     id: "10000000-0000-4000-8000-000000000003",
     kind: "container",
-    updatedAt: FIRST_UPDATED_AT,
+    updatedAt: discoveryTimestamp("2026-08-31T12:00:00.000100Z"),
   },
   {
     id: "10000000-0000-4000-8000-000000000004",
     kind: "tombstone",
-    updatedAt: FIRST_UPDATED_AT,
+    updatedAt: discoveryTimestamp("2026-08-31T12:00:00.000500Z"),
   },
   {
     id: "10000000-0000-4000-8000-000000000005",
     kind: "tombstone",
-    updatedAt: SECOND_UPDATED_AT,
+    updatedAt: discoveryTimestamp("2026-08-31T12:00:00.001900Z"),
   },
   {
     id: "10000000-0000-4000-8000-000000000006",
     kind: "container",
-    updatedAt: SECOND_UPDATED_AT,
+    updatedAt: discoveryTimestamp("2026-08-31T12:00:00.001100Z"),
   },
   {
     id: "10000000-0000-4000-8000-000000000007",
     kind: "tombstone",
-    updatedAt: SECOND_UPDATED_AT,
+    updatedAt: discoveryTimestamp("2026-08-31T12:00:00.001100Z"),
   },
   {
     id: "10000000-0000-4000-8000-000000000008",
     kind: "container",
-    updatedAt: SECOND_UPDATED_AT,
+    updatedAt: discoveryTimestamp("2026-08-31T12:00:00.001500Z"),
   },
 ];
 
@@ -142,7 +143,7 @@ test("container discovery watermarks exhaust every mixed change exactly once", a
       id: change.id,
       organizationId: root.organizationId,
       parentId: owner.rootContainerId,
-      updatedAt: new Date(change.updatedAt),
+      updatedAt: discoveryTimestampValue(change.updatedAt),
     });
     await storeChildContainerAccessManifest({
       childContainerId: change.id,
@@ -163,7 +164,7 @@ test("container discovery watermarks exhaust every mixed change exactly once", a
         organizationId: root.organizationId,
         parentId: owner.rootContainerId,
         reason: "deleted" as const,
-        updatedAt: new Date(change.updatedAt),
+        updatedAt: discoveryTimestampValue(change.updatedAt),
         userId: owner.userId,
       })),
   );
@@ -171,18 +172,26 @@ test("container discovery watermarks exhaust every mixed change exactly once", a
   const expectedChanges = CHANGES.toSorted((left, right) =>
     changeKey(left).localeCompare(changeKey(right)),
   );
-  const expectedKeys = expectedChanges.map((change) => changeKey(change));
+  // Entity timestamps remain milliseconds across all API endpoints; only
+  // ordering/cursors retain database precision. This prevents false stale
+  // mutation results when the same row is later returned by another endpoint.
+  const expectedKeys = expectedChanges.map((change) =>
+    changeKey({
+      ...change,
+      updatedAt: new Date(change.updatedAt).toISOString(),
+    }),
+  );
   for (let limit = 1; limit <= CHANGES.length; limit += 1) {
     const receivedKeys: string[] = [];
     let watermark: SyncWatermark | null = null;
 
-    while (true) {
+    for (let pageIndex = 0; pageIndex <= CHANGES.length; pageIndex += 1) {
       const page = await requestPage({ limit, owner, watermark });
       const pageKeys = pageChangeKeys(page);
       const nextOffset = receivedKeys.length + pageKeys.length;
 
       expect(pageKeys).toEqual(
-        expectedKeys.slice(receivedKeys.length, nextOffset),
+        expectedKeys.slice(receivedKeys.length, nextOffset).toSorted(),
       );
       expect(page.hasMore).toBe(nextOffset < expectedKeys.length);
       const expectedLastChange = expectedChanges[nextOffset - 1];
@@ -200,7 +209,7 @@ test("container discovery watermarks exhaust every mixed change exactly once", a
       watermark = page.nextWatermark;
     }
 
-    expect(receivedKeys).toEqual(expectedKeys);
+    expect(receivedKeys.toSorted()).toEqual(expectedKeys.toSorted());
     expect(new Set(receivedKeys).size).toBe(expectedKeys.length);
   }
 });

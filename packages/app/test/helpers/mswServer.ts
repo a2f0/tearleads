@@ -18,6 +18,10 @@ import { sql } from "drizzle-orm";
 import { HttpResponse, http, ws } from "msw";
 import { setupServer } from "msw/node";
 import { createMswEventRouter, type MswSocketClient } from "./mswEventRouter";
+import {
+  type ProxiedApiRequest,
+  recordProxiedApiResponse,
+} from "./proxiedApiResponse";
 import { recordUnhandledRequest } from "./unhandledRequests";
 
 export const wsUrl = "ws://localhost:3002";
@@ -42,14 +46,7 @@ const eventRouter = createMswEventRouter({
     return createWebSocketTicketConsumer(async () => true)(ticket);
   },
 });
-const proxiedApiRequests: Array<{
-  authorization: string | null;
-  method: string;
-  requestBody: string | null;
-  responseBody: string;
-  status: number;
-  url: string;
-}> = [];
+const proxiedApiRequests: ProxiedApiRequest[] = [];
 
 interface ProxiedApiNetworkActivitySnapshot {
   activeRequestCount: number;
@@ -736,14 +733,7 @@ export async function resetMockServer(
   server.resetHandlers();
 }
 
-export function listProxiedApiRequests(): ReadonlyArray<{
-  authorization: string | null;
-  method: string;
-  requestBody: string | null;
-  responseBody: string;
-  status: number;
-  url: string;
-}> {
+export function listProxiedApiRequests(): ReadonlyArray<ProxiedApiRequest> {
   return [...proxiedApiRequests];
 }
 
@@ -778,20 +768,14 @@ async function proxyRequestToApiApp(
       await delay(options.responseDelayMs);
     }
 
-    const responseBody = await response.text();
-    proxiedApiRequests.push({
-      authorization: request.headers.get("authorization"),
-      method: request.method,
-      requestBody:
-        requestBody === null
-          ? null
-          : new TextDecoder().decode(new Uint8Array(requestBody)),
-      responseBody,
-      status: response.status,
-      url: request.url,
+    const { record, responseBytes } = await recordProxiedApiResponse({
+      request,
+      requestBody,
+      response,
     });
+    proxiedApiRequests.push(record);
 
-    return new HttpResponse(responseBody, {
+    return new HttpResponse(responseBytes, {
       status: response.status,
       headers: toHeadersObject(response.headers),
     });
