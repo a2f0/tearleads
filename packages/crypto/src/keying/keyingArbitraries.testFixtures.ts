@@ -1,5 +1,4 @@
 import fc from "fast-check";
-import { generateKemSeedAndKeyPair } from "../encapsulation/generateKeyPair";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
 import { fixtureContainerKekMaterialId } from "./containerKekMaterial.testFixtures";
 import {
@@ -8,21 +7,21 @@ import {
   type ContainerDirectGrant,
   type ContainerUserRecipientKey,
   computeAccessManifestHash,
+  type DocumentAccessEventBody,
   deriveContainerAccessManifest,
   type VerifiedContainerAccessManifest,
   type VerifiedContainerKekState,
+  type VerifiedDocumentLinkSetManifest,
   verifyContainerAccessManifest,
   verifyContainerKekState,
+  verifyDocumentLinkSetManifest,
 } from "./index";
-import {
-  createBundle,
-  createPolicySigner,
-  signPolicyState,
-} from "./principalPolicyTestFixtures";
 import {
   createContainerKeyEpochFixture,
   createContainerKeyWrap,
+  createDocumentLinkSetManifestFixture,
   createVerifiedContainerAccessEvent,
+  createVerifiedDocumentAccessEvent,
   fixtureHash,
 } from "./testFixtures";
 
@@ -35,7 +34,7 @@ import {
  * dominate the cost of a run.
  */
 
-export const ORGANIZATION_ID = "organization-property";
+const ORGANIZATION_ID = "organization-property";
 const ACCESS_LEVELS = ["read", "write", "admin"] as const;
 type AccessLevel = (typeof ACCESS_LEVELS)[number];
 
@@ -44,7 +43,7 @@ interface PoolSigner {
   readonly signing: ReturnType<typeof generateSigningSeedAndKeyPair>;
 }
 
-const POOL_SIZE = 4;
+export const POOL_SIZE = 4;
 let poolPromise: Promise<readonly PoolSigner[]> | undefined;
 
 /** The creator is always `pool[0]`; the others are grantees or forgers. */
@@ -76,7 +75,7 @@ interface ContainerChainPlan {
   readonly steps: readonly ContainerStepPlan[];
 }
 
-const granteeArb = fc.integer({ min: 1, max: POOL_SIZE - 1 });
+export const granteeArb = fc.integer({ min: 1, max: POOL_SIZE - 1 });
 const levelArb = fc.constantFrom(...ACCESS_LEVELS);
 
 export const containerChainPlanArb: fc.Arbitrary<ContainerChainPlan> =
@@ -286,6 +285,66 @@ export async function buildContainerChain(
   return { containerId, creator, manifests };
 }
 
+/**
+ * A document linked to every given container head through successive
+ * signed link events, each verified by the production link-set verifier
+ * against the previous verified manifest, so the honest input is one the
+ * verifier itself accepted.
+ */
+export async function buildLinkedDocument(input: {
+  readonly creator: PoolSigner;
+  readonly documentId: string;
+  readonly heads: readonly VerifiedContainerAccessManifest[];
+}): Promise<VerifiedDocumentLinkSetManifest> {
+  let previous: VerifiedDocumentLinkSetManifest | null = null;
+  const linked: string[] = [];
+  for (const [index, head] of input.heads.entries()) {
+    const body: DocumentAccessEventBody = {
+      eventType: "document.link",
+      containerId: head.state.containerId,
+      containerManifestHash: head.manifestHash,
+    };
+    const event = await createVerifiedDocumentAccessEvent({
+      body,
+      dependencyManifestHashes: input.heads
+        .slice(0, index + 1)
+        .map((manifest) => manifest.manifestHash),
+      objectId: input.documentId,
+      organizationId: ORGANIZATION_ID,
+      previousManifestHash: previous?.manifestHash ?? null,
+      signer: input.creator.signing,
+      signerUserId: input.creator.userId,
+    });
+    linked.push(head.state.containerId);
+    const candidate = await createDocumentLinkSetManifestFixture({
+      documentId: input.documentId,
+      event,
+      linkedContainerIds: [...linked],
+      organizationId: ORGANIZATION_ID,
+      previousManifestHash: previous?.manifestHash ?? null,
+      epoch: index + 1,
+    });
+    const verified = await verifyDocumentLinkSetManifest({
+      manifest: candidate.manifest,
+      expectedManifestHash: candidate.manifestHash,
+      event,
+      targetContainerPath: [head],
+      ...(previous
+        ? {
+            previousManifest: previous,
+            authorizingContainerPaths: input.heads
+              .slice(0, index)
+              .map((manifest) => [manifest]),
+          }
+        : {}),
+    });
+    if (!verified.ok) throw verified.error;
+    previous = verified.value;
+  }
+  if (!previous) throw new Error("a linked document needs a container");
+  return previous;
+}
+
 export function checkpointOf(manifest: VerifiedContainerAccessManifest) {
   return {
     objectKind: "container" as const,
@@ -346,121 +405,4 @@ export async function buildKekState(
   });
   if (!result.ok) throw result.error;
   return { keyEpoch, recipients, wraps, state: result.value };
-}
-
-type PolicyStepPlan =
-  | { readonly kind: "add"; readonly user: number }
-  | { readonly kind: "remove"; readonly user: number };
-
-interface PolicyChainPlan {
-  readonly initial: readonly number[];
-  readonly steps: readonly PolicyStepPlan[];
-}
-
-export const policyChainPlanArb: fc.Arbitrary<PolicyChainPlan> = fc.record({
-  initial: fc.uniqueArray(granteeArb, { maxLength: POOL_SIZE - 1 }),
-  steps: fc.array(
-    fc.oneof(
-      fc.record({ kind: fc.constant("add" as const), user: granteeArb }),
-      fc.record({ kind: fc.constant("remove" as const), user: granteeArb }),
-    ),
-    { maxLength: 3 },
-  ),
-});
-
-type SignedPolicy = Awaited<ReturnType<typeof signPolicyState>>;
-
-export interface PolicyChain {
-  readonly principalId: string;
-  /** The encapsulation key pair of the head's key epoch. */
-  readonly principalKeyPair: ReturnType<typeof generateKemSeedAndKeyPair>;
-  /** The key pair each state was signed under, by index; a shrink rotates it. */
-  readonly keyPairs: readonly ReturnType<typeof generateKemSeedAndKeyPair>[];
-  readonly signer: Awaited<ReturnType<typeof createPolicySigner>>;
-  readonly states: readonly SignedPolicy[];
-}
-
-let policySignerPromise:
-  | Promise<Awaited<ReturnType<typeof createPolicySigner>>>
-  | undefined;
-
-export async function buildPolicyChain(
-  plan: PolicyChainPlan,
-  label: string,
-): Promise<PolicyChain> {
-  policySignerPromise ??= createPolicySigner("policy-admin");
-  const signer = await policySignerPromise;
-  const principalId = `group-${label}`;
-  let principalKeyPair = generateKemSeedAndKeyPair();
-  const memberIds = (users: readonly number[]) => [
-    { userId: signer.userId },
-    ...users.map((user) => ({ userId: `member-${user}` })),
-  ];
-  let members = [...new Set(plan.initial)];
-  const first = await signPolicyState({
-    principalId,
-    principalKeyPair,
-    version: 1,
-    prevStateHash: null,
-    members: memberIds(members),
-    signer,
-  });
-  const states: SignedPolicy[] = [first];
-  const keyPairs = [principalKeyPair];
-  for (const step of plan.steps) {
-    const previous = states.at(-1);
-    if (!previous) throw new Error("chain is never empty");
-    if (step.kind === "add") {
-      if (members.includes(step.user)) continue;
-      members = [...members, step.user];
-      states.push(
-        await signPolicyState({
-          principalId,
-          principalKeyPair,
-          version: previous.state.version + 1,
-          prevStateHash: previous.state.stateHash,
-          keyEpoch: previous.state.keyEpoch,
-          members: memberIds(members),
-          signer,
-        }),
-      );
-      keyPairs.push(principalKeyPair);
-    } else {
-      if (!members.includes(step.user)) continue;
-      members = members.filter((user) => user !== step.user);
-      // A shrink rotates the key epoch, and a new epoch carries a new key.
-      principalKeyPair = generateKemSeedAndKeyPair();
-      states.push(
-        await signPolicyState({
-          principalId,
-          principalKeyPair,
-          version: previous.state.version + 1,
-          prevStateHash: previous.state.stateHash,
-          keyEpoch: previous.state.keyEpoch + 1,
-          members: memberIds(members),
-          signer,
-        }),
-      );
-      keyPairs.push(principalKeyPair);
-    }
-  }
-  return { principalId, principalKeyPair, keyPairs, signer, states };
-}
-
-export function policyBundleAt(chain: PolicyChain, index: number) {
-  const current = chain.states[index];
-  if (!current) throw new Error("policy chain index out of range");
-  return createBundle({
-    current,
-    previous: chain.states.slice(0, index).map((state) => state.entry),
-  });
-}
-
-export function policyCheckpointOf(state: SignedPolicy) {
-  return {
-    principalType: "group" as const,
-    principalId: state.state.principalId,
-    version: state.state.version,
-    stateHash: state.state.stateHash,
-  };
 }

@@ -4,7 +4,6 @@ import { generateKemSeedAndKeyPair } from "../encapsulation/generateKeyPair";
 import {
   type ContainerDirectGrant,
   computeAccessManifestHash,
-  type DocumentAccessEventBody,
   deriveContainerAccessManifest,
   deriveDocumentKekTargets,
   verifyAccessManifestLocalCheckpoint,
@@ -15,24 +14,22 @@ import {
 import {
   buildContainerChain,
   buildKekState,
-  buildPolicyChain,
+  buildLinkedDocument,
   checkpointOf,
   containerChainPlanArb,
   containerSuccessor,
-  ORGANIZATION_ID,
+  signerPool,
+  sortedGrants,
+} from "./keyingArbitraries.testFixtures";
+import {
+  buildPolicyChain,
   type PolicyChain,
   policyBundleAt,
   policyChainPlanArb,
   policyCheckpointOf,
-  signerPool,
-  sortedGrants,
-} from "./keyingArbitraries.testFixtures";
+} from "./keyingPolicyArbitraries.testFixtures";
 import { createBundle, signPolicyState } from "./principalPolicyTestFixtures";
-import {
-  createDocumentLinkSetManifestFixture,
-  createVerifiedDocumentAccessEvent,
-  expectVerificationError,
-} from "./testFixtures";
+import { expectVerificationError } from "./testFixtures";
 
 /**
  * Property-based tests over the keying verifiers (#2192 Gate F2). Each
@@ -122,28 +119,10 @@ test("property: a document key target set missing a linked container is refused"
         const states = await Promise.all(
           heads.map((head) => buildKekState(head)),
         );
-        const first = heads[0];
-        if (!first) throw new Error("at least two containers");
-        const body: DocumentAccessEventBody = {
-          eventType: "document.link",
-          containerId: first.state.containerId,
-          containerManifestHash: first.manifestHash,
-        };
-        const documentId = label("document");
-        const event = await createVerifiedDocumentAccessEvent({
-          body,
-          dependencyManifestHashes: heads.map((head) => head.manifestHash),
-          objectId: documentId,
-          organizationId: ORGANIZATION_ID,
-          previousManifestHash: null,
-          signer: creator.signing,
-          signerUserId: creator.userId,
-        });
-        const documentManifest = await createDocumentLinkSetManifestFixture({
-          documentId,
-          event,
-          linkedContainerIds: heads.map((head) => head.state.containerId),
-          organizationId: ORGANIZATION_ID,
+        const documentManifest = await buildLinkedDocument({
+          creator,
+          documentId: label("document"),
+          heads,
         });
         const honest = await deriveDocumentKekTargets({
           documentManifest,
@@ -368,7 +347,35 @@ test("property: removing a policy member without a new key epoch is refused; wit
   );
 });
 
-test("property: a second policy state at a checkpointed version is an equivocation; a lower one is a rollback", async () => {
+test("property: a served projection row the signed policy state does not commit is refused", async () => {
+  await fc.assert(
+    fc.asyncProperty(policyChainPlanArb, async (plan) => {
+      const chain = await buildPolicyChain(plan, label("split-row"));
+      const bundle = policyBundleAt(chain, chain.states.length - 1);
+      const honest = await verifyPrincipalPolicyBundle({
+        bundle,
+        signerPublicKeys: [chain.signer],
+      });
+      expect(honest.ok).toBe(true);
+      // The signed state commits to the membership root; a row the server
+      // adds to the served projection is not under it.
+      const split = await verifyPrincipalPolicyBundle({
+        bundle: {
+          ...bundle,
+          currentProjection: [
+            ...bundle.currentProjection,
+            { userId: "split-row", role: "member" },
+          ],
+        },
+        signerPublicKeys: [chain.signer],
+      });
+      expectVerificationError(split, "hash_mismatch");
+    }),
+    { numRuns: RUNS },
+  );
+});
+
+test("property: a second signed policy state at a checkpointed version is an equivocation; a lower one is a rollback", async () => {
   await fc.assert(
     fc.asyncProperty(
       policyChainPlanArb,
