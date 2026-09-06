@@ -179,16 +179,27 @@ test("property: a key wrap addressed to a swapped recipient key is refused", asy
       const built = await buildKekState(head);
       const [first, second] = built.wraps;
       if (!first || !second) throw new Error("two wraps");
+      // Every recipient keeps a wrap, so only the exchanged fingerprints can
+      // be the reason for a refusal.
       const swapped = await verifyContainerKekState({
         containerManifest: head,
         keyEpoch: built.keyEpoch,
         userRecipientKeys: built.recipients,
-        wraps: [
-          { ...first, recipientKeyFingerprint: second.recipientKeyFingerprint },
-          { ...second, recipientKeyFingerprint: first.recipientKeyFingerprint },
-        ],
+        wraps: built.wraps.map((wrap, index) =>
+          index === 0
+            ? {
+                ...wrap,
+                recipientKeyFingerprint: second.recipientKeyFingerprint,
+              }
+            : index === 1
+              ? {
+                  ...wrap,
+                  recipientKeyFingerprint: first.recipientKeyFingerprint,
+                }
+              : wrap,
+        ),
       });
-      expect(swapped.ok).toBe(false);
+      expectVerificationError(swapped, "hash_mismatch");
     }),
     { numRuns: RUNS },
   );
