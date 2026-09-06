@@ -1,7 +1,6 @@
 import type { SyncWatermark } from "@tearleads/validators/response";
 import { type SQL, sql } from "drizzle-orm";
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";
-
 import { normalizeSyncTimestamp } from "./syncTimestamp";
 
 const DEFAULT_LIMIT = 100;

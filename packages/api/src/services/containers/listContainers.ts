@@ -6,7 +6,10 @@ import type {
   ListContainersResponse,
   SyncWatermark,
 } from "@tearleads/validators/response";
-import { isUuidV4String } from "@tearleads/validators/util";
+import {
+  compareIsoTimestamps,
+  isUuidV4String,
+} from "@tearleads/validators/util";
 import { type SQL, sql } from "drizzle-orm";
 import { textExpression } from "../../utils/sqlDialect";
 import {
@@ -25,10 +28,7 @@ import {
   normalizeSyncWatermark,
   watermarkPredicate,
 } from "./syncPaging";
-import {
-  compareSyncTimestamps,
-  syncTimestampExpression,
-} from "./syncTimestamp";
+import { syncTimestampExpression } from "./syncTimestamp";
 import { createContainerWriterProjectionContext } from "./writerProjection";
 
 interface ListContainersOptions {
@@ -134,7 +134,7 @@ function compareContainerChangeCandidates(
   left: ContainerChangeCandidate,
   right: ContainerChangeCandidate,
 ): number {
-  const updatedAtOrder = compareSyncTimestamps(left.updatedAt, right.updatedAt);
+  const updatedAtOrder = compareIsoTimestamps(left.updatedAt, right.updatedAt);
   return updatedAtOrder === 0
     ? left.id.localeCompare(right.id)
     : updatedAtOrder;

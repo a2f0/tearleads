@@ -1,3 +1,4 @@
+import { compareIsoTimestamps } from "@tearleads/validators/util";
 import { and, eq, inArray } from "drizzle-orm";
 import { documentSyncPullContinuationsEqual } from "../../documents/shared/pullContinuation";
 import {
@@ -235,7 +236,10 @@ function staleServerMutationResult(
   const hasOlderContainerTimestamp =
     incomingServerUpdatedAt != null &&
     currentState?.container.serverUpdatedAt != null &&
-    currentState.container.serverUpdatedAt > incomingServerUpdatedAt;
+    compareIsoTimestamps(
+      currentState.container.serverUpdatedAt,
+      incomingServerUpdatedAt,
+    ) > 0;
   const hasOlderMetadataAccessEpoch =
     currentState?.record != null &&
     currentState.record.documentId === input.record.documentId &&

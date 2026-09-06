@@ -1,3 +1,4 @@
+import { compareIsoTimestamps } from "@tearleads/validators/util";
 import { normalizeEffectiveAccessLevel } from "../../../data/accessLevel";
 import { DEFAULT_DOCUMENT_KIND } from "../../../data/documents/documentConstants";
 import type { StoredDocumentKind } from "../../../data/documents/documentKinds";
@@ -12,9 +13,8 @@ export function compareContainerContentsDocumentSummaries(
   left: DocumentSummary,
   right: DocumentSummary,
 ): number {
-  if (right.updatedAt !== left.updatedAt) {
-    return right.updatedAt > left.updatedAt ? 1 : -1;
-  }
+  const timeOrder = compareIsoTimestamps(right.updatedAt, left.updatedAt);
+  if (timeOrder !== 0) return timeOrder;
 
   if (right.id !== left.id) {
     return right.id > left.id ? 1 : -1;
@@ -71,7 +71,8 @@ function hasPendingLocalTimestamp(
 
   return (
     localUpdatedAt !== null &&
-    (serverUpdatedAt === null || localUpdatedAt > serverUpdatedAt)
+    (serverUpdatedAt === null ||
+      compareIsoTimestamps(localUpdatedAt, serverUpdatedAt) > 0)
   );
 }
 

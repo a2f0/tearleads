@@ -50,11 +50,10 @@ import {
   type ProxiedApiRequestBudget,
   profileProxiedApiRequests,
 } from "../../../../test/helpers/proxiedApiRequestBudget";
-
 import { documentSyncIntentCounts } from "../../../../test/helpers/proxiedApiRequestMetrics";
 
 const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
-  // Ten current runs after provisioning/roster import: 61/61/64 requests.
+  // Measure after provisioning/roster import, including background settlement.
   // Retain headroom for independently scheduled verification/recovery pulls.
   // See docs/request-budget-closeout.md for phase, byte and sync-intent data.
   total: 67,

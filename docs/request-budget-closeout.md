@@ -70,6 +70,12 @@ merging, cursor normalization and SQL predicates retain microseconds. SQLite kee
 integer milliseconds and exercises ID ties with the same fixture. SQL WHERE and
 ORDER BY keep the timestamp columns unmodified; formatting occurs in SELECT, so
 this fix does not replace indexed timestamp comparison with a truncation function.
+The API and SDK share timestamp normalization/comparison through the leaf-level
+validators package. SDK item/tombstone selection, local-versus-server freshness,
+deletion guards and anti-resurrection fences compare instants across both
+precisions. Fence upserts also pad their SQL comparison keys without adding a
+read or discarding the stored representation. This covers newly written local
+JavaScript dates as well as server timestamps; it is not a legacy-client shim.
 This establishes exhaustion of a static discovery stream, not a durable log of
 concurrent writes or access changes; forced full reconciliation still matters.
 
@@ -113,10 +119,11 @@ DUAL_PANE_REQUEST_PROFILE=1 DUAL_PANE_REQUEST_PROFILE_DETAIL=1 \
 Each `[dual-pane-request-metrics]` JSON line contains the phase, total, body bytes,
 sync intents and normalized endpoint counts/bytes. The detailed text profile also
 identifies repeated exact paths. Tables below use **min / median / max**; zeroes
-include runs in which an endpoint was absent. Byte variation includes generated
-IDs, signatures, ciphertext and timing-dependent projection paths.
+include runs in which an endpoint was absent. Fractional medians are retained.
+Byte variation includes generated IDs, signatures, ciphertext and timing-dependent
+projection paths.
 
-## Ten-run phases (2026-09-06)
+## Ten-run phases (2026-09-06, after review repair)
 
 | Scenario / phase | Requests | Request bytes | Response bytes | Pull-only syncs | Write-bearing syncs |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -124,10 +131,10 @@ IDs, signatures, ciphertext and timing-dependent projection paths.
 | root / open right explorer | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 |
 | root / create empty folder | 1 / 1 / 1 | 0 / 0 / 0 | 13,594 / 13,594 / 13,594 | 0 / 0 / 0 | 0 / 0 / 0 |
 | root / create note with attachment | 9 / 9 / 9 | 75,731 / 75,731 / 75,731 | 53,681 / 53,681 / 53,681 | 0 / 0 / 0 | 1 / 1 / 1 |
-| root / share root + post-share settle | 49 / 52 / 54 | 265,917 / 266,394 / 266,791 | 696,561 / 778,644 / 929,143 | 11 / 12 / 14 | 1 / 1 / 1 |
+| root / share root + post-share settle | 49 / 53 / 54 | 265,917 / 266,553 / 266,791 | 696,561 / 806,005 / 929,143 | 11 / 13 / 14 | 1 / 1 / 1 |
 | root / auto-discover shared note settle | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 |
-| root / test total | 59 / 62 / 64 | 341,648 / 342,125 / 342,522 | 763,836 / 845,919 / 996,418 | 11 / 12 / 14 | 2 / 2 / 2 |
-| admin / provisioning + settle | 50 / 50 / 50 | 819,784 / 819,938 / 820,013 | 430,268 / 430,268 / 430,268 | 10 / 10 / 10 | 6 / 6 / 6 |
+| root / test total | 59 / 63 / 64 | 341,648 / 342,284 / 342,522 | 763,836 / 873,280 / 996,418 | 11 / 13 / 14 | 2 / 2 / 2 |
+| admin / provisioning + settle | 50 / 50 / 50 | 819,841 / 819,949.5 / 820,019 | 430,268 / 430,268 / 430,268 | 10 / 10 / 10 | 6 / 6 / 6 |
 | admin / open org manager + select Admins | 1 / 1 / 1 | 0 / 0 / 0 | 20,659 / 20,659 / 20,659 | 0 / 0 / 0 | 0 / 0 / 0 |
 | admin / admin-group add + settle | 57 / 57 / 57 | 318,247 / 318,247 / 318,247 | 1,516,066 / 1,516,066 / 1,516,066 | 11 / 11 / 11 | 0 / 0 / 0 |
 | admin / admin-group mutation + settle | 56 / 56 / 56 | 318,247 / 318,247 / 318,247 | 1,495,407 / 1,495,407 / 1,495,407 | 11 / 11 / 11 | 0 / 0 / 0 |
@@ -140,7 +147,7 @@ IDs, signatures, ciphertext and timing-dependent projection paths.
 | `GET /containers/:containerId/documents` | 8 / 9 / 9 | 0 / 0 / 0 | 2,789 / 2,934 / 2,934 |
 | `GET /containers/:containerId/writer-projection` | 2 / 2 / 2 | 0 / 0 / 0 | 39,577 / 39,577 / 39,577 |
 | `GET /documents/:documentId/attachments` | 2 / 2 / 2 | 0 / 0 / 0 | 35,614 / 35,614 / 35,614 |
-| `GET /documents/:documentId/writer-projection` | 5 / 6 / 8 | 0 / 0 / 0 | 435,893 / 517,860 / 664,873 |
+| `GET /documents/:documentId/writer-projection` | 5 / 7 / 8 | 0 / 0 / 0 | 435,893 / 545,183 / 664,873 |
 | `GET /organizations/:organizationId/read-model` | 6 / 6 / 6 | 0 / 0 / 0 | 12,125 / 12,125 / 12,125 |
 | `POST /blobs/:blobId/attachment-bindings` | 1 / 1 / 1 | 15,441 / 15,441 / 15,441 | 17,942 / 17,942 / 17,942 |
 | `POST /blobs/stages/multipart` | 1 / 1 / 1 | 150 / 150 / 150 | 307 / 307 / 307 |
@@ -150,7 +157,7 @@ IDs, signatures, ciphertext and timing-dependent projection paths.
 | `POST /containers/parent-lanes/query` | 10 / 10 / 10 | 1,983 / 2,063 / 2,063 | 56,832 / 56,832 / 57,913 |
 | `POST /containers/with-metadata-document` | 1 / 1 / 1 | 41,525 / 41,525 / 41,525 | 21,098 / 21,098 / 21,098 |
 | `POST /documents` | 1 / 1 / 1 | 8,615 / 8,615 / 8,615 | 9,761 / 9,761 / 9,761 |
-| `POST /documents/:documentId/sync` | 13 / 14 / 16 | 30,081 / 30,558 / 31,035 | 66,961 / 67,076 / 69,627 |
+| `POST /documents/:documentId/sync` | 13 / 15 / 16 | 30,081 / 30,717 / 31,035 | 66,961 / 67,115 / 69,627 |
 | `PUT /blobs/stages/multipart/:stageId/parts/:partNumber/bytes` | 1 / 1 / 1 | 529 / 529 / 529 | 215 / 215 / 215 |
 
 ## Root endpoints: share root + post-share settle
@@ -161,12 +168,12 @@ IDs, signatures, ciphertext and timing-dependent projection paths.
 | `GET /containers/:containerId/documents` | 7 / 8 / 8 | 0 / 0 / 0 | 2,724 / 2,869 / 2,869 |
 | `GET /containers/:containerId/writer-projection` | 1 / 1 / 1 | 0 / 0 / 0 | 25,983 / 25,983 / 25,983 |
 | `GET /documents/:documentId/attachments` | 2 / 2 / 2 | 0 / 0 / 0 | 35,614 / 35,614 / 35,614 |
-| `GET /documents/:documentId/writer-projection` | 5 / 6 / 8 | 0 / 0 / 0 | 435,893 / 517,860 / 664,873 |
+| `GET /documents/:documentId/writer-projection` | 5 / 7 / 8 | 0 / 0 / 0 | 435,893 / 545,183 / 664,873 |
 | `GET /organizations/:organizationId/read-model` | 5 / 5 / 5 | 0 / 0 / 0 | 10,620 / 10,620 / 10,620 |
 | `POST /containers/:containerId/recite` | 4 / 4 / 4 | 190,412 / 190,412 / 190,412 | 37,323 / 37,323 / 37,323 |
 | `POST /containers/:containerId/share` | 1 / 1 / 1 | 52,680 / 52,680 / 52,680 | 26,487 / 26,487 / 26,487 |
 | `POST /containers/parent-lanes/query` | 10 / 10 / 10 | 1,983 / 2,063 / 2,063 | 56,832 / 56,832 / 57,913 |
-| `POST /documents/:documentId/sync` | 12 / 14 / 15 | 20,762 / 21,239 / 21,716 | 64,411 / 64,526 / 67,077 |
+| `POST /documents/:documentId/sync` | 12 / 14 / 15 | 20,762 / 21,398 / 21,716 | 64,411 / 64,565 / 67,077 |
 
 ## Admin endpoints: admin-group mutation + settle
 

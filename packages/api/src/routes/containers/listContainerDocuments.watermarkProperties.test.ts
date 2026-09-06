@@ -168,6 +168,7 @@ test("document discovery watermarks exhaust every mixed change exactly once", as
       },
     });
     expect(first.items).toHaveLength(0);
+    expect(first.hasMore).toBe(true);
     expect(first.tombstones).toHaveLength(1);
     expect(
       selects.mock.calls.filter(

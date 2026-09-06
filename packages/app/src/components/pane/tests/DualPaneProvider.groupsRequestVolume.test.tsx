@@ -25,7 +25,6 @@ import {
   type ProxiedApiRequestBudget,
   profileProxiedApiRequests,
 } from "../../../../test/helpers/proxiedApiRequestBudget";
-
 import { documentSyncIntentCounts } from "../../../../test/helpers/proxiedApiRequestMetrics";
 
 // Separate navigation from mutation so UI reads cannot conceal sync churn.

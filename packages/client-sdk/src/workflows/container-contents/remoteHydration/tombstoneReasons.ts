@@ -1,4 +1,5 @@
 import type { ContainerSyncTombstone } from "@tearleads/validators/response";
+import { compareIsoTimestamps } from "@tearleads/validators/util";
 import type { ContainerChildIndex } from "./types";
 
 interface RemovedContainerCollection {
@@ -35,7 +36,8 @@ function shouldReplaceInheritedRemoval(
   return (
     !current ||
     (current.reason === "access_revoked" && next.reason === "deleted") ||
-    (current.reason === next.reason && current.updatedAt < next.updatedAt)
+    (current.reason === next.reason &&
+      compareIsoTimestamps(current.updatedAt, next.updatedAt) < 0)
   );
 }
 

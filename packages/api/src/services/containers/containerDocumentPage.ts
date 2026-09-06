@@ -1,5 +1,5 @@
 import type { SyncWatermark } from "@tearleads/validators/response";
-import { compareSyncTimestamps } from "./syncTimestamp";
+import { compareIsoTimestamps } from "@tearleads/validators/util";
 
 export interface ContainerDocumentRow {
   createdAt: Date;
@@ -25,7 +25,7 @@ export function selectContainerDocumentPage(input: {
     ...input.documentRows.map((row) => ({ kind: "document" as const, row })),
     ...input.tombstoneRows.map((row) => ({ kind: "tombstone" as const, row })),
   ].sort((left, right) => {
-    const timeOrder = compareSyncTimestamps(
+    const timeOrder = compareIsoTimestamps(
       left.row.updatedAt,
       right.row.updatedAt,
     );

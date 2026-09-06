@@ -1,3 +1,4 @@
+import { compareIsoTimestamps } from "@tearleads/validators/util";
 import { inArray } from "drizzle-orm";
 import { ensureDocumentProjectionTables } from "../../sqlite/documentPersistence";
 import {
@@ -48,7 +49,7 @@ function normalizeContainerRemovals(
       !current ||
       (current.reason === "access_revoked" && removal.reason === "deleted") ||
       (current.reason === removal.reason &&
-        current.updatedAt < removal.updatedAt)
+        compareIsoTimestamps(current.updatedAt, removal.updatedAt) < 0)
     ) {
       removalByContainerId.set(removal.containerId, removal);
     }
@@ -118,7 +119,8 @@ async function canApplyContainerRemovals(input: {
     return (
       (!guard || sameGuardedContainerRow(currentRow, guard)) &&
       (currentRow?.serverUpdatedAt == null ||
-        currentRow.serverUpdatedAt <= removal.updatedAt)
+        compareIsoTimestamps(currentRow.serverUpdatedAt, removal.updatedAt) <=
+          0)
     );
   });
 }
