@@ -160,6 +160,23 @@ export function Menu({
     return () => document.removeEventListener("mousedown", handleClick);
   }, [onClose]);
 
+  // The menu is anchored once, from its trigger's position, so a scroll
+  // anywhere else would leave it floating where the trigger used to be. Close
+  // it instead. Scrolls inside the menu — its own overflow, or a list it
+  // hosts — are the menu working as intended. Capture phase, because scroll
+  // events do not bubble.
+  useEffect(() => {
+    function handleScroll(e: Event) {
+      const target = e.target;
+      if (target instanceof Node && menuRef.current?.contains(target)) {
+        return;
+      }
+      onClose();
+    }
+    document.addEventListener("scroll", handleScroll, true);
+    return () => document.removeEventListener("scroll", handleScroll, true);
+  }, [onClose]);
+
   const placementMatchesAnchor =
     placement.measured &&
     placement.anchorX === position.x &&
