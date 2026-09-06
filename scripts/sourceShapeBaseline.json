@@ -63,8 +63,8 @@
       "bytes": 19355
     },
     "docs/keying-design.md": {
-      "lines": 1032,
-      "bytes": 47194
+      "lines": 1039,
+      "bytes": 47648
     },
     "docs/loro-e2ee-sync-protocol.md": {
       "lines": 548,
@@ -335,8 +335,8 @@
       "bytes": 22038
     },
     "packages/crypto/src/keying/transparency.ts": {
-      "lines": 1131,
-      "bytes": 30430
+      "lines": 511,
+      "bytes": 13564
     },
     "packages/crypto/src/keying/types.ts": {
       "lines": 1162,

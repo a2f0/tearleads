@@ -18,6 +18,7 @@
     "@tearleads/validators": "workspace:*"
   },
   "devDependencies": {
-    "@types/bun": "catalog:"
+    "@types/bun": "catalog:",
+    "fast-check": "catalog:testing"
   }
 }

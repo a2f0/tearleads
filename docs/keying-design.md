@@ -832,7 +832,14 @@ deriveDocumentKekTargets(input): DocumentKekTarget[] | VerificationError;
 deriveBlobKekTargets(input): BlobKekTarget[] | VerificationError;
 verifyWriteHeader(input): VerifiedWriteHeader | VerificationError;
 verifyTransparencyProof(input): VerifiedTransparencyProof | VerificationError;
+verifyTransparencyInclusionProof(input): TransparencyTreeCheckpoint | VerificationError;
+verifyTransparencyConsistencyProof(input): TransparencyTreeCheckpoint | VerificationError;
 ```
+
+The two standalone transparency verifiers work on tree checkpoints (log id,
+size, root) rather than signed heads, so a client can check that a served
+head extends its persisted checkpoint without an unrelated leaf or inclusion
+proof. `verifyTransparencyProof` composes them over signed heads.
 
 These functions should be deterministic and side-effect free. API routes may
 use them for validation, but the security guarantee comes from app clients
