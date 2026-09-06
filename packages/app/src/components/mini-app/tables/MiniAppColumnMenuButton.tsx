@@ -1,8 +1,9 @@
 import { GearSixIcon } from "@phosphor-icons/react/dist/csr/GearSix";
-import type { MouseEvent } from "react";
+import { type MouseEvent, useId } from "react";
 import { classNames } from "../../shared/classNames";
 import { Menu } from "../../shared/Menu";
 import { useContextMenuPositionState } from "../../shared/useContextMenuState";
+import { MiniAppCheckbox } from "../controls/MiniAppCheckbox";
 import type { MiniAppColumnVisibility } from "./MiniAppColumnVisibility";
 import "./MiniAppColumnMenuButton.css";
 
@@ -30,6 +31,7 @@ export function MiniAppColumnMenuButton<ColumnId extends string>({
   stateLabels,
   toggleColumn,
 }: MiniAppColumnMenuButtonProps<ColumnId>) {
+  const checkboxIdPrefix = useId();
   const { closeContextMenu, contextMenu, openContextMenuAt } =
     useContextMenuPositionState();
 
@@ -63,12 +65,15 @@ export function MiniAppColumnMenuButton<ColumnId extends string>({
             {options.map((option) => {
               const isVisible = !hiddenColumns.has(option.id);
               return (
-                <label className="mini-app-column-menu-item" key={option.id}>
-                  <input
+                <label
+                  className="mini-app-column-menu-item"
+                  htmlFor={`${checkboxIdPrefix}-${option.id}`}
+                  key={option.id}
+                >
+                  <MiniAppCheckbox
+                    id={`${checkboxIdPrefix}-${option.id}`}
                     checked={isVisible}
-                    className="mini-app-column-menu-checkbox"
                     onChange={() => toggleColumn(option.id)}
-                    type="checkbox"
                   />
                   <span className="mini-app-column-menu-label">
                     {option.label}
