@@ -238,6 +238,65 @@ test("mini app checkboxes preserve label activation and imperative focus", () =>
   expect(document.activeElement).toBe(checkbox);
 });
 
+test("mini app select menu does not report re-selecting the current option", () => {
+  const changes: string[] = [];
+  const view = render(
+    <MiniAppSelectMenu
+      ariaLabel="Choice picker"
+      onChange={(value) => {
+        changes.push(value);
+      }}
+      options={[
+        { id: "a", label: "A" },
+        { id: "b", label: "B" },
+      ]}
+      value="a"
+    />,
+  );
+  const trigger = view.getByRole("combobox", { name: "Choice picker" });
+  const pick = (label: string) => {
+    fireEvent.click(trigger);
+    // The closed trigger also shows the selected label; pick the option.
+    const option = view
+      .getAllByText(label)
+      .map((element) => element.closest('[role="option"]'))
+      .find(
+        (element): element is HTMLElement => element instanceof HTMLElement,
+      );
+    if (!option) {
+      throw new Error(`Expected the ${label} option.`);
+    }
+    fireEvent.click(option);
+  };
+
+  pick("A");
+  expect(changes).toEqual([]);
+  expect(view.queryByRole("listbox")).toBeNull();
+
+  pick("B");
+  expect(changes).toEqual(["b"]);
+});
+
+test("mini app select menu reports a re-select when asked to", () => {
+  const changes: string[] = [];
+  const view = render(
+    <MiniAppSelectMenu
+      ariaLabel="Sort picker"
+      onChange={(value) => {
+        changes.push(value);
+      }}
+      options={[{ id: "a", label: "A" }]}
+      reportReselect
+      value="a"
+    />,
+  );
+
+  fireEvent.click(view.getByRole("combobox", { name: "Sort picker" }));
+  fireEvent.click(view.getByRole("option", { name: "A" }));
+
+  expect(changes).toEqual(["a"]);
+});
+
 test("mini app field group shares field styling without nesting controls in a label", () => {
   const view = render(
     <MiniAppFieldGroup className="custom-field-group">

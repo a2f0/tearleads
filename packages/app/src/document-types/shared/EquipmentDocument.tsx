@@ -90,20 +90,18 @@ export function EquipmentFields(params: {
 
   return (
     <StructuredDocumentFields>
+      {/* Portaled so the open listbox floats over the pane instead of growing
+          the document's scroll region, and so its option buttons never render
+          inside this field's <label>. */}
       <StructuredDocumentField inputId={inputIds.equipmentType} label="Type">
         <MiniAppSelectMenu
           ariaLabel={`${ariaLabelPrefix} type`}
           disabled={disabled}
           id={inputIds.equipmentType}
-          onChange={(value) => {
-            // The menu reports every pick, so re-choosing the current type
-            // must not issue a no-op write.
-            if (value !== storedType) {
-              onChange({ equipmentType: value });
-            }
-          }}
+          onChange={(value) => onChange({ equipmentType: value })}
           options={typeMenuOptions}
           placeholder={ready ? "Select a type" : "Loading..."}
+          portaled
           value={storedType}
         />
       </StructuredDocumentField>

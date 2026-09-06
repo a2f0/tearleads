@@ -119,6 +119,8 @@ export function MiniAppCompactSortMenu<TKey extends string>(params: {
               : labels[key],
         }))}
         portaled
+        // Repeating the active key reverses its direction.
+        reportReselect
         value={sort.key}
       />
     </>
