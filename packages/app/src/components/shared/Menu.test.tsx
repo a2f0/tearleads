@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { cleanup, render, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { Menu } from "./Menu";
 import { MenuItem } from "./MenuItem";
 
@@ -105,6 +105,32 @@ test("renders into document.body so nested menus escape parent stacking contexts
   expect(menu).toBeTruthy();
   expect(host.contains(item)).toBe(false);
   expect(document.body.contains(item)).toBe(true);
+});
+
+test("closes when the page scrolls but not when the menu itself does", () => {
+  let closes = 0;
+  const view = render(
+    <Menu
+      position={{ x: 24, y: 48 }}
+      onClose={() => {
+        closes += 1;
+      }}
+    >
+      <MenuItem label="Open" onClick={() => {}} />
+    </Menu>,
+  );
+  const menu = view.getByText("Open").closest(".menu");
+  if (!(menu instanceof HTMLElement)) {
+    throw new Error("Expected the menu element.");
+  }
+
+  // The menu's own overflow, and anything inside it, is the menu working.
+  fireEvent.scroll(menu);
+  fireEvent.scroll(view.getByText("Open"));
+  expect(closes).toBe(0);
+
+  fireEvent.scroll(document.body);
+  expect(closes).toBe(1);
 });
 
 test("keeps upward-opening menus visible at the top of the viewport", async () => {
