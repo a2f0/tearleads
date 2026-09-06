@@ -4,6 +4,7 @@ import { UploadSimpleIcon } from "@phosphor-icons/react/dist/csr/UploadSimple";
 import { useId, useState } from "react";
 import {
   MiniAppButton,
+  MiniAppCheckbox,
   MiniAppField,
   MiniAppFormPanel,
   MiniAppInput,
@@ -112,6 +113,8 @@ function BackupExportPanel({
   busy: boolean;
   model: BackupRestoreModel;
 }) {
+  const checkboxId = useId();
+
   return (
     <MiniAppFormPanel
       aria-label="Export local backup"
@@ -122,11 +125,11 @@ function BackupExportPanel({
         void model.handleExportBackup();
       }}
     >
-      <label className="backup-restore-password-option">
-        <input
+      <label className="backup-restore-password-option" htmlFor={checkboxId}>
+        <MiniAppCheckbox
+          id={checkboxId}
           checked={model.backupWithoutPassword}
           disabled={busy}
-          type="checkbox"
           onChange={(event) =>
             model.setBackupWithoutPassword(event.target.checked)
           }

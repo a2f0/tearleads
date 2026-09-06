@@ -1,5 +1,6 @@
 import { useId } from "react";
 import {
+  MiniAppCheckbox,
   MiniAppSection,
   MiniAppSectionHeading,
 } from "../../../components/mini-app/MiniAppLayout";
@@ -36,14 +37,12 @@ function SystemMonitorFeatureFlagToggle({
         <span className="system-monitor-feature-flag-state">
           {formatFeatureFlagState(enabled)}
         </span>
-        <input
+        <MiniAppCheckbox
           aria-checked={enabled}
           aria-label={switchLabel}
           checked={enabled}
-          className="system-monitor-feature-flag-switch"
           id={toggleId}
           role="switch"
-          type="checkbox"
           onChange={(event) => {
             onChange(event.currentTarget.checked);
           }}

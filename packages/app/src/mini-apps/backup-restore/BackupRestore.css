@@ -45,6 +45,7 @@
   gap: var(--space-sm);
   min-height: var(--control-height);
   font-size: var(--font-size-sm);
+  cursor: pointer;
 }
 
 .backup-restore-password-notice {

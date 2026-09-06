@@ -2,6 +2,7 @@ import { type FormEvent, useId, useState } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
+  MiniAppCheckbox,
   MiniAppModalBackdrop,
   MiniAppModalForm,
   MiniAppModalPanel,
@@ -59,12 +60,10 @@ export function LogoutConfirmationDialog({
           <h2 id={titleId}>Log out</h2>
           <p>Log out of this session?</p>
           <label className="logout-confirmation-keep-data" htmlFor={checkboxId}>
-            <input
+            <MiniAppCheckbox
               id={checkboxId}
               checked={keepLocalData}
-              className="logout-confirmation-checkbox"
               disabled={busy}
-              type="checkbox"
               onChange={(event) => setKeepLocalData(event.target.checked)}
             />
             <span>Keep local data on this device</span>
