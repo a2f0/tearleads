@@ -63,39 +63,42 @@ test("the 5 → 6 consistency proof has the RFC 6962 shape and verifies", async 
   }
 });
 
-test("every prefix consistency proof through size 64 verifies", async () => {
+// Keep each complete target-size matrix within Bun's per-test timeout on CI.
+// The 65 groups still cover all 2,145 prefix pairs, including the empty tree.
+test.each(
+  Array.from({ length: MATRIX_TREE_SIZE + 1 }, (_, size) => size),
+)("every prefix consistency proof for tree size %i verifies", async (treeSize) => {
   const refused: string[] = [];
   let cases = 0;
-  for (let treeSize = 0; treeSize <= MATRIX_TREE_SIZE; treeSize += 1) {
-    for (let previous = 0; previous <= treeSize; previous += 1) {
-      cases += 1;
-      const result = await verifyTransparencyConsistencyProof(
-        await honestConsistency(previous, treeSize),
-      );
-      if (!result.ok) {
-        refused.push(`${previous} → ${treeSize}: ${result.error.code}`);
-      }
+  for (let previous = 0; previous <= treeSize; previous += 1) {
+    cases += 1;
+    const result = await verifyTransparencyConsistencyProof(
+      await honestConsistency(previous, treeSize),
+    );
+    if (!result.ok) {
+      refused.push(`${previous} → ${treeSize}: ${result.error.code}`);
     }
   }
-  expect(cases).toBe(2145);
+  expect(cases).toBe(treeSize + 1);
   expect(refused).toEqual([]);
 });
 
-test("every inclusion proof through size 64 verifies", async () => {
+// The 64 target-size groups retain all 2,080 inclusion proofs.
+test.each(
+  Array.from({ length: MATRIX_TREE_SIZE }, (_, size) => size + 1),
+)("every inclusion proof for tree size %i verifies", async (treeSize) => {
   const refused: string[] = [];
   let cases = 0;
-  for (let treeSize = 1; treeSize <= MATRIX_TREE_SIZE; treeSize += 1) {
-    for (let leafIndex = 0; leafIndex < treeSize; leafIndex += 1) {
-      cases += 1;
-      const result = await verifyTransparencyInclusionProof(
-        await honestInclusion(treeSize, leafIndex),
-      );
-      if (!result.ok) {
-        refused.push(`leaf ${leafIndex} of ${treeSize}: ${result.error.code}`);
-      }
+  for (let leafIndex = 0; leafIndex < treeSize; leafIndex += 1) {
+    cases += 1;
+    const result = await verifyTransparencyInclusionProof(
+      await honestInclusion(treeSize, leafIndex),
+    );
+    if (!result.ok) {
+      refused.push(`leaf ${leafIndex} of ${treeSize}: ${result.error.code}`);
     }
   }
-  expect(cases).toBe(2080);
+  expect(cases).toBe(treeSize);
   expect(refused).toEqual([]);
 });
 
