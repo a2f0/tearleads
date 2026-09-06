@@ -277,6 +277,61 @@ test("mini app select menu does not report re-selecting the current option", () 
   expect(changes).toEqual(["b"]);
 });
 
+test("mini app select menu keyboard commit of the current option is silent", () => {
+  const changes: string[] = [];
+  const view = render(
+    <MiniAppSelectMenu
+      ariaLabel="Choice picker"
+      onChange={(value) => {
+        changes.push(value);
+      }}
+      options={[
+        { id: "a", label: "A" },
+        { id: "b", label: "B" },
+      ]}
+      value="a"
+    />,
+  );
+  const trigger = view.getByRole("combobox", { name: "Choice picker" });
+
+  // Enter opens with the current option highlighted; Enter again commits it.
+  fireEvent.keyDown(trigger, { key: "Enter" });
+  expect(view.getByRole("listbox")).toBeTruthy();
+  fireEvent.keyDown(trigger, { key: "Enter" });
+  expect(changes).toEqual([]);
+  expect(view.queryByRole("listbox")).toBeNull();
+
+  fireEvent.keyDown(trigger, { key: "Enter" });
+  fireEvent.keyDown(trigger, { key: "ArrowDown" });
+  fireEvent.keyDown(trigger, { key: "Enter" });
+  expect(changes).toEqual(["b"]);
+});
+
+test("mini app select menu closes a portaled list when the page scrolls", () => {
+  const view = render(
+    <MiniAppSelectMenu
+      ariaLabel="Choice picker"
+      onChange={() => undefined}
+      options={[
+        { id: "a", label: "A" },
+        { id: "b", label: "B" },
+      ]}
+      portaled
+      value="a"
+    />,
+  );
+  const trigger = view.getByRole("combobox", { name: "Choice picker" });
+
+  fireEvent.click(trigger);
+  const listbox = view.getByRole("listbox");
+  // The list scrolls internally when it is long; that must not close it.
+  fireEvent.scroll(listbox);
+  expect(view.getByRole("listbox")).toBeTruthy();
+
+  fireEvent.scroll(document.body);
+  expect(view.queryByRole("listbox")).toBeNull();
+});
+
 test("mini app select menu reports a re-select when asked to", () => {
   const changes: string[] = [];
   const view = render(
