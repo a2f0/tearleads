@@ -182,6 +182,13 @@ The de-facto component library is `packages/app/src/components`:
   `MiniAppPanel` / `MiniAppSidebar` / `MiniAppToolbar`
   (`components/mini-app/layout/*`), modal/sheet via
   `components/mini-app/overlays/MiniAppModal.tsx`.
+- **Checkboxes**: use `MiniAppCheckbox`
+  (`components/mini-app/controls/MiniAppCheckbox.tsx`) with a clickable label.
+  It owns the bordered square, checked fill and checkmark, keyboard focus,
+  disabled styling, and native forced-colors appearance. Keep feature CSS to
+  label layout; in the routed shell the label must provide a
+  `--control-height` minimum tap target. Feature-flag switches use the same
+  control with `role="switch"`.
 - **Tables, rows, virtual lists**: `components/mini-app/tables/*`, `rows/*`,
   `virtual/*`.
 - **Import paths**: the canonical barrels are

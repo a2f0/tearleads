@@ -337,9 +337,7 @@ test(
     const dialog = await view.findByRole("dialog");
     const checkbox = within(dialog).getByRole("checkbox") as HTMLInputElement;
     expect(checkbox.checked).toBe(true);
-    expect(checkbox.classList.contains("logout-confirmation-checkbox")).toBe(
-      true,
-    );
+    expect(checkbox.classList.contains("mini-app-checkbox")).toBe(true);
     expect(getPaneStatusText(view)).not.toMatch(/session:\s*none/);
 
     fireEvent.click(within(dialog).getByRole("button", { name: "Log Out" }));

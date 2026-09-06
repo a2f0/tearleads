@@ -101,19 +101,3 @@
 .system-monitor-feature-flag-state {
   opacity: var(--opacity-subtle);
 }
-
-.system-monitor-feature-flag-switch {
-  width: 1rem;
-  height: 1rem;
-  accent-color: var(--color-dark);
-}
-
-/*
- * Touch sizing (routed layout). The feature-flag switch is not inside a
- * virtualized row, so it can grow freely within its 44px-tall flag row. (Tab
- * touch sizing is handled by the shared MiniAppTabs.css.)
- */
-:root[data-navigation-mode="routed"] .system-monitor-feature-flag-switch {
-  width: 1.5rem;
-  height: 1.5rem;
-}
