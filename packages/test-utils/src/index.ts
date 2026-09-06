@@ -13,6 +13,15 @@ export {
   type TestExecSql,
 } from "./createTestExecSql";
 export {
+  createNoBrickTraceRecorder,
+  type NoBrickOutcome,
+  type NoBrickProjection,
+  type NoBrickTrace,
+  type NoBrickTraceRecorder,
+  type NoBrickTraceStep,
+  persistNoBrickTrace,
+} from "./noBrickTrace";
+export {
   createRestartProbeTraceRecorder,
   persistRestartProbeTrace,
   type RestartProbeActionName,
