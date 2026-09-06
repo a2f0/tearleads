@@ -1,5 +1,7 @@
 formal/container-keying/ContainerGrantScope.tla|formal/container-keying/ContainerGrantScope.cfg
 formal/container-keying/KeyringReachability.tla|formal/container-keying/KeyringReachability.cfg
+formal/container-keying/NoBrickedDevice.tla|formal/container-keying/NoBrickedDevice.cfg
+formal/container-keying/NoBrickedDevice.tla|formal/container-keying/NoBrickedDeviceAdversary.cfg
 formal/document-sync/BaselineDominance.tla|formal/document-sync/BaselineDominance.cfg
 formal/document-sync/BaselineDominanceTraceExport.tla|formal/document-sync/BaselineDominanceTraceExport.cfg
 formal/document-sync/DeferredTailSettlement.tla|formal/document-sync/DeferredTailSettlement.cfg
