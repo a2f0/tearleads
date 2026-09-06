@@ -1,7 +1,11 @@
 import { expect, spyOn, test } from "bun:test";
 import { SESSION_ERROR_CODES } from "@tearleads/validators/response";
 import { Hono } from "hono";
-import { createRequireAuth, type SessionEnv } from "./session";
+import {
+  createRequireAuth,
+  createSessionTokenIssuer,
+  type SessionEnv,
+} from "./session";
 
 const TOKEN = "a".repeat(64);
 
@@ -108,4 +112,27 @@ test("a failing activity recorder does not fail the request", async () => {
   } finally {
     consoleError.mockRestore();
   }
+});
+
+test("issuing a session records the login as user activity", async () => {
+  const recorded: { lastActiveAt: number; userId: string }[] = [];
+  const createSession = createSessionTokenIssuer(
+    async () => undefined,
+    async () => undefined,
+    async () => undefined,
+    async (input) => {
+      recorded.push(input);
+    },
+  );
+
+  const token = await createSession({
+    createdAt: 1_700_000_000_000,
+    fingerprint: "c".repeat(64),
+    userId: ACTIVE_USER_ID,
+  });
+
+  expect(token).toHaveLength(64);
+  expect(recorded).toEqual([
+    { lastActiveAt: 1_700_000_000_000, userId: ACTIVE_USER_ID },
+  ]);
 });

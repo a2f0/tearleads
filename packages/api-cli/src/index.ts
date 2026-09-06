@@ -142,6 +142,10 @@ async function setRootAccess(
   args: readonly string[],
   isRoot: boolean,
 ): Promise<void> {
+  // The schema module resolves the database dialect when it is imported, and
+  // it throws under NODE_ENV=production without API_DATABASE, so the default
+  // must be in place before anything that imports the schema loads.
+  process.env[apiDatabaseEnvKey] ??= "postgres";
   const {
     formatRootAccessOutcome,
     parseRootAccessArgs,
@@ -149,7 +153,6 @@ async function setRootAccess(
   } = await import("./rootAccess");
   const { fingerprint } = parseRootAccessArgs(args);
 
-  process.env[apiDatabaseEnvKey] ??= "postgres";
   const { closeApiDatabase, db } = await import(
     "@tearleads/api-shared/postgres"
   );

@@ -412,6 +412,7 @@ export function createSessionTokenIssuer(
   setSession: SessionStoreSet,
   addSetMember: SessionStoreAddSetMember,
   expireKey: SessionStoreExpire,
+  recordUserActivity?: UserActivityRecorder,
 ) {
   return async (data: SessionCreateInput): Promise<string> => {
     const token = bytesToHex(generateChallenge(32));
@@ -435,8 +436,26 @@ export function createSessionTokenIssuer(
     await addSetMember(userSessionsKey(session.userId), session.id);
     await expireKey(userSessionsKey(session.userId), SESSION_TTL_SECONDS);
 
+    // Login is itself activity; without this a user seen only within the
+    // throttle window after logging in would have no last_active_at at all.
+    if (recordUserActivity) {
+      try {
+        await recordUserActivity({
+          lastActiveAt: session.createdAt,
+          userId: session.userId,
+        });
+      } catch (error) {
+        console.error("Failed to record login activity:", error);
+      }
+    }
+
     return token;
   };
 }
 
-export const createSession = createSessionTokenIssuer(set, sadd, expire);
+export const createSession = createSessionTokenIssuer(
+  set,
+  sadd,
+  expire,
+  defaultRecordUserActivity,
+);
