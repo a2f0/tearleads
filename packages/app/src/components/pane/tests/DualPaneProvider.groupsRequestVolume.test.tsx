@@ -26,22 +26,12 @@ import {
   profileProxiedApiRequests,
 } from "../../../../test/helpers/proxiedApiRequestBudget";
 
-// #1565 originally measured the whole open-and-add gesture at 84 requests;
-// #1566 reduced it to 69. The #1500 membership projection reduces the
-// deterministic profile to 1 request to open/select Admins. Parent-lane
-// batching then reduces click-through convergence from a 47-request median to
-// a 43-request maximum. Reusing an exact, independently verified local policy
-// chain for reference-bound checks reduces the mutation to 40 requests in each
-// of ten runs; freshness-sensitive mutation and current-head reads stay remote.
-// Keep navigation and mutation separate so UI reads cannot hide a sync
-// regression. Atomic group-policy commits and bounded descendant recitations
-// are the only writes.
-// The second read-model GET is the deferred author-echo release: a
-// session-scoped origin flag cannot prove the deferred hint was this client's
-// own echo (a sibling client shares the login session), so the release
-// reconciles the feed instead of trusting a repaint shortcut. Per-client
-// origin attribution under #1512 can reclaim it. The unopened peer Org
-// Manager still declares no demand and performs no organization feed GET.
+import { documentSyncIntentCounts } from "../../../../test/helpers/proxiedApiRequestMetrics";
+
+// Separate navigation from mutation so UI reads cannot conceal sync churn.
+// The deferred author-echo release still reads the feed: a sibling client can
+// share this login session, so session origin alone cannot prove an own echo.
+// Keep that correctness read; #1512's speculative protocol work is retired.
 const ADMIN_GROUP_OPEN_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   total: 1,
   byRequest: {
@@ -71,12 +61,13 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // Two held descendants now re-cite the acknowledged root. The measured
   // mutation has 56 requests, including those POSTs and their refresh hints.
   total: 58,
+  bodyBytes: { request: 350_000, response: 1_650_000 },
   byRequest: {
     "GET /containers": 0,
-    "POST /containers/parent-lanes/query": 13,
-    "GET /principals/group/:groupId/policy": 10,
-    "GET /containers/:containerId/documents": 9,
-    "GET /documents/:documentId/writer-projection": 11,
+    "POST /containers/parent-lanes/query": 8,
+    "GET /principals/group/:groupId/policy": 9,
+    "GET /containers/:containerId/documents": 6,
+    "GET /documents/:documentId/writer-projection": 9,
     "POST /documents/:documentId/sync": 12,
     "GET /auth/user-identity/:userId": 2,
     "GET /organizations/:organizationId/read-model": 6,
@@ -94,30 +85,6 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     "POST /containers/:containerId/recite": 2,
   },
 };
-function documentSyncIntentCounts(
-  requests: ReturnType<typeof listProxiedApiRequests>,
-): { readOnly: number; writeBearing: number } {
-  let readOnly = 0;
-  let writeBearing = 0;
-  for (const request of requests) {
-    if (
-      request.method !== "POST" ||
-      !/^\/documents\/[^/]+\/sync$/u.test(new URL(request.url).pathname)
-    ) {
-      continue;
-    }
-    const body = JSON.parse(request.requestBody ?? "{}") as {
-      outgoingUpdates?: unknown[] | undefined;
-    };
-    if ((body.outgoingUpdates?.length ?? 0) === 0) {
-      readOnly += 1;
-    } else {
-      writeBearing += 1;
-    }
-  }
-  return { readOnly, writeBearing };
-}
-
 afterEach(async () => {
   cleanup();
   globalThis.localStorage.clear();

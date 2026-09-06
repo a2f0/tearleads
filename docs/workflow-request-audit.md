@@ -1,5 +1,9 @@
 # Workflow request audit
 
+This records the #2191 workflow audit. The subsequent
+[request-budget closeout](request-budget-closeout.md) audits #1512, records its
+final dispositions, and measures current owner-root/Admin scenarios in ten runs.
+
 These measurements use the real application, SDK and test API through the
 proxied-request recorder. They include background convergence after a successful
 operation. They are healthy-network fixture budgets, not retry limits or a claim

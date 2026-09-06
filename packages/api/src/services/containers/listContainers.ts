@@ -25,6 +25,10 @@ import {
   normalizeSyncWatermark,
   watermarkPredicate,
 } from "./syncPaging";
+import {
+  compareSyncTimestamps,
+  syncTimestampExpression,
+} from "./syncTimestamp";
 import { createContainerWriterProjectionContext } from "./writerProjection";
 
 interface ListContainersOptions {
@@ -97,7 +101,9 @@ async function listContainerTombstones(input: {
       depth: containerSyncTombstones.depth,
       parentId: containerSyncTombstones.parentId,
       reason: containerSyncTombstones.reason,
-      updatedAt: containerSyncTombstones.updatedAt,
+      updatedAt: syncTimestampExpression(
+        sql`${containerSyncTombstones.updatedAt}`,
+      ),
     })
     .from(containerSyncTombstones)
     .where(sql`
@@ -120,7 +126,7 @@ async function listContainerTombstones(input: {
     depth: row.depth,
     parentId: row.parentId,
     reason: row.reason,
-    updatedAt: row.updatedAt.toISOString(),
+    updatedAt: row.updatedAt,
   }));
 }
 
@@ -128,7 +134,7 @@ function compareContainerChangeCandidates(
   left: ContainerChangeCandidate,
   right: ContainerChangeCandidate,
 ): number {
-  const updatedAtOrder = left.updatedAt.localeCompare(right.updatedAt);
+  const updatedAtOrder = compareSyncTimestamps(left.updatedAt, right.updatedAt);
   return updatedAtOrder === 0
     ? left.id.localeCompare(right.id)
     : updatedAtOrder;

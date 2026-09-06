@@ -1,6 +1,7 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
+  accessManifestDocumentLinkProjection,
   containerDocumentSyncTombstones,
   containers,
   documents,
@@ -11,11 +12,12 @@ import type { SyncWatermark } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { createCurrentDocumentProjection } from "../../../test/helpers/currentProtocolProjection";
+import {
+  discoveryTimestamp,
+  discoveryTimestampValue,
+} from "../../../test/helpers/discoveryTimestamp";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
-
-const FIRST_UPDATED_AT = "2026-08-31T12:00:00.000Z";
-const SECOND_UPDATED_AT = "2026-08-31T12:00:01.000Z";
 
 type DocumentChangeFixture = {
   readonly id: string;
@@ -27,42 +29,42 @@ const CHANGES: readonly DocumentChangeFixture[] = [
   {
     id: "00000000-0000-4000-8000-000000000001",
     kind: "document",
-    updatedAt: FIRST_UPDATED_AT,
+    updatedAt: discoveryTimestamp("2026-08-31T12:00:00.000900Z"),
   },
   {
     id: "00000000-0000-4000-8000-000000000002",
     kind: "tombstone",
-    updatedAt: FIRST_UPDATED_AT,
+    updatedAt: discoveryTimestamp("2026-08-31T12:00:00.000100Z"),
   },
   {
     id: "00000000-0000-4000-8000-000000000003",
     kind: "document",
-    updatedAt: FIRST_UPDATED_AT,
+    updatedAt: discoveryTimestamp("2026-08-31T12:00:00.000100Z"),
   },
   {
     id: "00000000-0000-4000-8000-000000000004",
     kind: "tombstone",
-    updatedAt: FIRST_UPDATED_AT,
+    updatedAt: discoveryTimestamp("2026-08-31T12:00:00.000500Z"),
   },
   {
     id: "00000000-0000-4000-8000-000000000005",
     kind: "tombstone",
-    updatedAt: SECOND_UPDATED_AT,
+    updatedAt: discoveryTimestamp("2026-08-31T12:00:00.001900Z"),
   },
   {
     id: "00000000-0000-4000-8000-000000000006",
     kind: "document",
-    updatedAt: SECOND_UPDATED_AT,
+    updatedAt: discoveryTimestamp("2026-08-31T12:00:00.001100Z"),
   },
   {
     id: "00000000-0000-4000-8000-000000000007",
     kind: "tombstone",
-    updatedAt: SECOND_UPDATED_AT,
+    updatedAt: discoveryTimestamp("2026-08-31T12:00:00.001100Z"),
   },
   {
     id: "00000000-0000-4000-8000-000000000008",
     kind: "document",
-    updatedAt: SECOND_UPDATED_AT,
+    updatedAt: discoveryTimestamp("2026-08-31T12:00:00.001500Z"),
   },
 ];
 
@@ -139,7 +141,7 @@ test("document discovery watermarks exhaust every mixed change exactly once", as
     });
     await db
       .update(documents)
-      .set({ updatedAt: new Date(change.updatedAt) })
+      .set({ updatedAt: discoveryTimestampValue(change.updatedAt) })
       .where(eq(documents.id, change.id));
   }
   await db.insert(containerDocumentSyncTombstones).values(
@@ -148,9 +150,40 @@ test("document discovery watermarks exhaust every mixed change exactly once", as
       .map((change) => ({
         containerId: owner.rootContainerId,
         documentId: change.id,
-        updatedAt: new Date(change.updatedAt),
+        updatedAt: discoveryTimestampValue(change.updatedAt),
       })),
   );
+
+  // The first page contains only a tombstone. Its live lookahead must not
+  // expand linked-container paths that will not be returned to this caller.
+  const selects = spyOn(db, "select");
+  try {
+    const first = await requestPage({
+      containerId: owner.rootContainerId,
+      limit: 1,
+      token: owner.token,
+      watermark: {
+        id: "00000000-0000-4000-8000-000000000001",
+        updatedAt: discoveryTimestamp("2026-08-31T12:00:00.000100Z"),
+      },
+    });
+    expect(first.items).toHaveLength(0);
+    expect(first.tombstones).toHaveLength(1);
+    expect(
+      selects.mock.calls.filter(
+        ([fields]) =>
+          fields &&
+          Object.values(fields).includes(
+            accessManifestDocumentLinkProjection.containerId,
+          ) &&
+          Object.values(fields).includes(
+            accessManifestDocumentLinkProjection.manifestHash,
+          ),
+      ),
+    ).toHaveLength(0);
+  } finally {
+    selects.mockRestore();
+  }
 
   const expectedChanges = CHANGES.toSorted((left, right) =>
     changeKey(left).localeCompare(changeKey(right)),
@@ -160,7 +193,7 @@ test("document discovery watermarks exhaust every mixed change exactly once", as
     const receivedKeys: string[] = [];
     let watermark: SyncWatermark | null = null;
 
-    while (true) {
+    for (let pageIndex = 0; pageIndex <= CHANGES.length; pageIndex += 1) {
       const page = await requestPage({
         containerId: owner.rootContainerId,
         limit,

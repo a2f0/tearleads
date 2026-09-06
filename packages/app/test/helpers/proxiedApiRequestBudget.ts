@@ -5,8 +5,13 @@ import {
   requestPathAndQuery,
 } from "./dualPaneRequestSummary";
 import { listProxiedApiRequests } from "./mswServer";
+import {
+  documentSyncIntentCounts,
+  proxiedApiBodyBytes,
+} from "./proxiedApiRequestMetrics";
 
 export interface ProxiedApiRequestBudget {
+  bodyBytes?: { request: number; response: number };
   byRequest?: Readonly<Record<string, number>>;
   total: number;
 }
@@ -208,6 +213,28 @@ export function profileProxiedApiRequests(
     requestStartIndex,
     requestEndIndex,
   );
+  const bodyBytes = proxiedApiBodyBytes(requests);
+  const syncIntents = documentSyncIntentCounts(requests);
+  const metrics = {
+    label,
+    total: requests.length,
+    bodyBytes,
+    syncIntents,
+    byRequest: Object.fromEntries(
+      [...countProxiedApiRequestVolume(requests)].map(([key, value]) => [
+        key,
+        {
+          count: value.count,
+          bodyBytes: proxiedApiBodyBytes(
+            requests.filter(
+              (request) => proxiedApiRequestVolumeKey(request) === key,
+            ),
+          ),
+        },
+      ]),
+    ),
+  };
+  console.info(`[dual-pane-request-metrics] ${JSON.stringify(metrics)}`);
   console.info(
     `[dual-pane-request-profile] ${label} total=${requests.length}\n${summarizeProxiedApiRequestVolume(requests)}`,
   );
@@ -232,6 +259,15 @@ export function expectProxiedApiRequestBudget(
     `${label} exceeded proxied API request budget ${budget.total}.\n${failureSummary}`,
   ).toBeLessThanOrEqual(budget.total);
 
+  if (budget.bodyBytes) {
+    const bytes = proxiedApiBodyBytes(requests);
+    expect(bytes.request, `${label}: request body bytes`).toBeLessThanOrEqual(
+      budget.bodyBytes.request,
+    );
+    expect(bytes.response, `${label}: response body bytes`).toBeLessThanOrEqual(
+      budget.bodyBytes.response,
+    );
+  }
   const countsByRequest = countProxiedApiRequestVolume(requests);
   for (const [requestKey, requestBudget] of Object.entries(
     budget.byRequest ?? {},
