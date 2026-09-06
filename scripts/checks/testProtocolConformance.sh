@@ -3,7 +3,10 @@
 # Pure protocol-conformance tests cheap enough for the always-on lint job:
 # the TypeScript/TLA+ baseline-dominance parity suite, the transparency proof
 # matrices (exhaustive prefix completeness against an independent root oracle
-# plus mutation negatives and fast-check properties), the validators schema,
+# plus mutation negatives and fast-check properties), the keying verifier
+# properties (fast-check plans materialized into signed manifests, policies,
+# and key states, each forgery paired with its accepted honest twin), the
+# validators schema,
 # operation-registry, and OpenAPI conformance suites, and the API-client
 # transport-surface guard that keeps every registered operation claimed by
 # exactly one low-level transport. The TLC model cannot detect defects in the
@@ -24,5 +27,6 @@ exec bun test \
   packages/api/src/documents/documentBaselineDominanceTraceReplay.test.ts \
   packages/crypto/src/keying/transparencyProofs.test.ts \
   packages/crypto/src/keying/transparencyProofMutations.test.ts \
+  packages/crypto/src/keying/keyingProperties.test.ts \
   packages/api-client/src/operationTransportSurface.test.ts \
   packages/validators/src
