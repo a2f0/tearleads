@@ -30,6 +30,12 @@ interface MiniAppSelectMenuControllerParams {
   onChange: (value: string) => void;
   options: ReadonlyArray<MiniAppSelectMenuOption>;
   portalRef: RefObject<HTMLDivElement | null>;
+  /**
+   * Report picking the already-selected option as a change. Off by default,
+   * like a native <select>; the table sort menu turns it on to reverse the
+   * direction of the active column.
+   */
+  reportReselect: boolean;
   selectRef: RefObject<HTMLButtonElement | null>;
   value: string;
 }
@@ -213,12 +219,21 @@ function useSelectMenuOpenActions(params: {
   hasFooter: boolean;
   onChange: (value: string) => void;
   options: ReadonlyArray<MiniAppSelectMenuOption>;
+  reportReselect: boolean;
   selectRef: RefObject<HTMLButtonElement | null>;
   selectedOptionId: string | undefined;
   setHighlightedId: (value: string) => void;
   setOpen: (open: boolean) => void;
 }) {
-  const { onChange, options, selectRef, setHighlightedId, setOpen } = params;
+  const {
+    onChange,
+    options,
+    reportReselect,
+    selectedOptionId,
+    selectRef,
+    setHighlightedId,
+    setOpen,
+  } = params;
 
   const close = useCallback(() => setOpen(false), [setOpen]);
   const openList = useCallback(() => {
@@ -226,12 +241,12 @@ function useSelectMenuOpenActions(params: {
       return;
     }
 
-    setHighlightedId(params.selectedOptionId ?? options[0]?.id ?? "");
+    setHighlightedId(selectedOptionId ?? options[0]?.id ?? "");
     setOpen(true);
   }, [
     params.disabled,
     params.hasFooter,
-    params.selectedOptionId,
+    selectedOptionId,
     options,
     setHighlightedId,
     setOpen,
@@ -239,12 +254,24 @@ function useSelectMenuOpenActions(params: {
 
   const selectOption = useCallback(
     (option: MiniAppSelectMenuOption) => {
-      onChange(option.id);
+      // Like a native <select>, re-choosing the current option is not a
+      // change: close without reporting it, so no consumer issues a no-op
+      // write for a pick that changed nothing — unless it asked to hear it.
+      if (reportReselect || option.id !== selectedOptionId) {
+        onChange(option.id);
+      }
       setHighlightedId(option.id);
       setOpen(false);
       selectRef.current?.focus();
     },
-    [onChange, selectRef, setHighlightedId, setOpen],
+    [
+      onChange,
+      reportReselect,
+      selectedOptionId,
+      selectRef,
+      setHighlightedId,
+      setOpen,
+    ],
   );
 
   return { close, openList, selectOption };
@@ -314,6 +341,7 @@ export function useMiniAppSelectMenuController(
     onChange,
     options,
     portalRef,
+    reportReselect,
     selectRef,
     value,
   } = params;
@@ -336,6 +364,7 @@ export function useMiniAppSelectMenuController(
     hasFooter,
     onChange,
     options,
+    reportReselect,
     selectRef,
     selectedOptionId: selectedOption?.id,
     setHighlightedId,
