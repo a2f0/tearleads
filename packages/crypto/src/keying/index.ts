@@ -45,6 +45,17 @@ export {
   getPrincipalPolicyTransitionMismatchReason,
 } from "./principalPolicyTransition";
 export * from "./transparency";
+export {
+  type VerifyTransparencyConsistencyProofInput,
+  type VerifyTransparencyInclusionProofInput,
+  verifyTransparencyConsistencyProof,
+  verifyTransparencyInclusionProof,
+} from "./transparencyProofs";
+export {
+  computeTransparencyMerkleRoot,
+  createTransparencyConsistencyProof,
+  createTransparencyInclusionProof,
+} from "./transparencyTree";
 export * from "./types";
 export {
   isKeyingVerificationCode,
