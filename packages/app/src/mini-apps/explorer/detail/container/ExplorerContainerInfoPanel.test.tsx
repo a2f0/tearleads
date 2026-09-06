@@ -214,9 +214,13 @@ test("container info tabs split general, sharing, security, and sync details", a
 // matches the signed name fails the share closed instead of diverging.
 test("a group share binds the label displayed at submit", async () => {
   const shareCalls: Array<{ groupId: string; expectedGroupName: string }> = [];
+  // Writers is the preselected draft; the user picks Editors (group-3), which
+  // the server later relabels. Re-picking the preselected group would be a
+  // no-op for the menu and never exercise the choice.
   const groupsByName = (name: string) => [
     createGroup({ groupId: "group-1", name: "Admins" }),
-    createGroup({ groupId: "group-2", name }),
+    createGroup({ groupId: "group-2", name: "Writers" }),
+    createGroup({ groupId: "group-3", name }),
   ];
   const panelInput = (name: string, syncStatus: string) => ({
     containerSyncStatus: syncStatus,
@@ -238,23 +242,22 @@ test("a group share binds the label displayed at submit", async () => {
       return true;
     },
   });
-  const view = render(containerInfoPanelElement(panelInput("Writers", "a")));
+  const view = render(containerInfoPanelElement(panelInput("Editors", "a")));
 
   await waitFor(() => {
     expect(view.getByText("Local Details")).toBeTruthy();
   });
   fireEvent.click(view.getByRole("tab", { name: "Sharing" }));
   fireEvent.click(view.getByRole("combobox", { name: "Group" }));
-  // The menu's own label also reads "Writers"; pick the listed option.
-  const option = (await view.findAllByText("Writers"))
+  const option = (await view.findAllByText("Editors"))
     .map((element) => element.closest('[role="option"]'))
     .find((element): element is HTMLElement => element instanceof HTMLElement);
   if (!option) {
-    throw new Error("Expected the Writers option.");
+    throw new Error("Expected the Editors option.");
   }
   fireEvent.click(option);
 
-  // The server relabels group-2 before the user submits.
+  // The server relabels group-3 before the user submits.
   view.rerender(containerInfoPanelElement(panelInput("Auditors", "b")));
   await waitFor(() => {
     expect(view.queryByText("Auditors")).toBeTruthy();
@@ -263,7 +266,7 @@ test("a group share binds the label displayed at submit", async () => {
   fireEvent.click(view.getByRole("button", { name: "Share" }));
   await waitFor(() => {
     expect(shareCalls).toEqual([
-      { expectedGroupName: "Auditors", groupId: "group-2" },
+      { expectedGroupName: "Auditors", groupId: "group-3" },
     ]);
   });
 });
