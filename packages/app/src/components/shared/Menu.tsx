@@ -118,6 +118,9 @@ export function Menu({
   const [placement, setPlacement] = useState(() =>
     createInitialMenuPlacement(position, direction),
   );
+  // Whether the menu's content exceeds its height budget, so the stylesheet
+  // can let touch pan a scrolling menu while consuming swipes on one that fits.
+  const [scrollable, setScrollable] = useState(false);
 
   useLayoutEffect(() => {
     const menu = menuRef.current;
@@ -137,6 +140,7 @@ export function Menu({
           width: rect.width,
         }),
       );
+      setScrollable(menu.scrollHeight > menu.clientHeight);
     };
     updatePlacement();
     const observer = new ResizeObserver(updatePlacement);
@@ -203,7 +207,13 @@ export function Menu({
     : MEASUREMENT_MENU_STYLE;
 
   return createPortal(
-    <div ref={menuRef} className="menu" style={menuStyle} tabIndex={-1}>
+    <div
+      ref={menuRef}
+      className="menu"
+      data-scrollable={scrollable || undefined}
+      style={menuStyle}
+      tabIndex={-1}
+    >
       {children}
     </div>,
     document.body,

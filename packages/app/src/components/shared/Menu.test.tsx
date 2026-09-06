@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, expect, spyOn, test } from "bun:test";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { Menu } from "./Menu";
 import { MenuItem } from "./MenuItem";
@@ -133,7 +133,7 @@ test("closes when the page scrolls but not when the menu itself does", () => {
   expect(closes).toBe(1);
 });
 
-test("calls the latest inline closer without resubscribing", () => {
+test("calls the latest inline closer, not a stale one", () => {
   const calls: string[] = [];
   const menuAt = (label: string) => (
     <Menu
@@ -152,6 +152,84 @@ test("calls the latest inline closer without resubscribing", () => {
   fireEvent.mouseDown(document.body);
 
   expect(calls).toEqual(["second", "second"]);
+});
+
+test("subscribes its document listeners once across re-renders", () => {
+  const addListener = spyOn(document, "addEventListener");
+  try {
+    const calls: string[] = [];
+    const menuAt = (label: string) => (
+      <Menu position={{ x: 24, y: 48 }} onClose={() => calls.push(label)}>
+        <MenuItem label="Open" onClick={() => {}} />
+      </Menu>
+    );
+    // The keyboard hook adds its own mousedown listener once placement is
+    // ready, so assert no growth rather than an absolute count.
+    const registrations = () =>
+      addListener.mock.calls
+        .map(([type]) => type)
+        .filter((type) => type === "scroll" || type === "mousedown").length;
+    const view = render(menuAt("first"));
+    const afterMount = registrations();
+    expect(afterMount).toBeGreaterThan(0);
+
+    view.rerender(menuAt("second"));
+    view.rerender(menuAt("third"));
+    expect(registrations()).toBe(afterMount);
+  } finally {
+    addListener.mockRestore();
+  }
+});
+
+test("flags a menu that overflows its height budget so touch may pan it", () => {
+  const view = render(
+    <Menu position={{ x: 24, y: 48 }} onClose={() => {}}>
+      <MenuItem label="Open" onClick={() => {}} />
+    </Menu>,
+  );
+  const menu = view.getByText("Open").closest(".menu");
+  if (!(menu instanceof HTMLElement)) {
+    throw new Error("Expected the menu element.");
+  }
+  // Fits: no scroll range, so the stylesheet consumes touch gestures.
+  expect(menu.hasAttribute("data-scrollable")).toBe(false);
+
+  const originalScrollHeight = Object.getOwnPropertyDescriptor(
+    HTMLElement.prototype,
+    "scrollHeight",
+  );
+  const originalClientHeight = Object.getOwnPropertyDescriptor(
+    HTMLElement.prototype,
+    "clientHeight",
+  );
+  Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
+    configurable: true,
+    get: () => 400,
+  });
+  Object.defineProperty(HTMLElement.prototype, "clientHeight", {
+    configurable: true,
+    get: () => 200,
+  });
+  try {
+    // Re-measure: a new anchor re-runs the placement effect.
+    view.rerender(
+      <Menu position={{ x: 24, y: 64 }} onClose={() => {}}>
+        <MenuItem label="Open" onClick={() => {}} />
+      </Menu>,
+    );
+    expect(menu.getAttribute("data-scrollable")).toBe("true");
+  } finally {
+    for (const [name, descriptor] of [
+      ["scrollHeight", originalScrollHeight],
+      ["clientHeight", originalClientHeight],
+    ] as const) {
+      if (descriptor) {
+        Object.defineProperty(HTMLElement.prototype, name, descriptor);
+      } else {
+        Reflect.deleteProperty(HTMLElement.prototype, name);
+      }
+    }
+  }
 });
 
 test("keeps upward-opening menus visible at the top of the viewport", async () => {

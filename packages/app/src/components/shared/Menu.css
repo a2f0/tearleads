@@ -5,9 +5,13 @@
   flex-direction: column;
   width: max-content;
   overflow: auto;
-  /* A swipe on a menu whose content fits, or at the end of its range, must not
-     chain to an ancestor scroll: the menu closes on outside scroll, and a
-     chained one would dismiss it mid-gesture on touch. */
+  /* Touch. The menu closes on any scroll outside itself, so a swipe on it must
+     never pan the page. A menu whose content fits has no scroll range, is not
+     in the scroll chain at all, and overscroll-behavior would not apply — so
+     consume the gesture outright. A menu that overflows (flagged by Menu.tsx)
+     may pan vertically instead; contain keeps a swipe at the end of its range
+     from chaining outward. */
+  touch-action: none;
   overscroll-behavior: contain;
   box-sizing: border-box;
   background: var(--color-light);
@@ -15,6 +19,10 @@
   padding: var(--space-xs);
   border-radius: var(--app-radius-surface);
   box-shadow: var(--app-shadow-surface);
+}
+
+.menu[data-scrollable] {
+  touch-action: pan-y;
 }
 
 .menu button {
