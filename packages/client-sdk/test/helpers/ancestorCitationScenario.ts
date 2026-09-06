@@ -219,6 +219,8 @@ export function verifyPath(
   input: {
     readonly bundles: readonly VerifiedContainerAccessManifest[];
     readonly path: readonly VerifiedContainerAccessManifest[];
+    /** Receives every manifest the pass verifies, chain predecessors included. */
+    readonly verifiedByHash?: Map<string, VerifiedContainerAccessManifest>;
   },
 ) {
   return verifyContainerManifestPath({
@@ -231,7 +233,7 @@ export function verifyPath(
     path: input.path.map(manifestBundle),
     principalPolicyCache: principalPolicyCacheForVerifiedPolicies([]),
     resolveUserKey: scenario.resolveUserKey,
-    verifiedByHash: new Map(),
+    verifiedByHash: input.verifiedByHash ?? new Map(),
   });
 }
 

@@ -43,7 +43,10 @@ recorded scenarios, negative controls, and boundaries.
 `bun run check:protocol-negative-controls` (part of `check:fast`) proves the
 invariants are not vacuous: each entry in `scripts/protocolNegativeControls.ts`
 flips one rule or lock in a registered configuration and requires TLC to
-report exactly the named violation.
+report exactly the named violation. `bun run check:no-brick-projection` (also
+in `check:fast`) replays recorded runs of the real container-path and
+principal-policy verifiers through `NoBrickedDevice` the way the restart-probe
+projection does; see the [trace projection section](./container-keying/NoBrickedDevice.md).
 
 To add a model, commit its `.tla` and bounded `.cfg` files and register the pair.
 One module may appear with multiple configurations, but each configuration must
