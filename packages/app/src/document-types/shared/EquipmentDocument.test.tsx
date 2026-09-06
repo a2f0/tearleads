@@ -153,6 +153,22 @@ test("the Type caption labels the combobox", () => {
   expect(view.getByLabelText("Type")).toBe(getTypeMenu(view));
 });
 
+test("the open type list renders outside the field label", () => {
+  const view = renderEquipmentFields({ isEditing: true });
+  const trigger = getTypeMenu(view);
+  const label = trigger.closest("label");
+  if (!label) {
+    throw new Error("Expected the type trigger inside its field label.");
+  }
+
+  fireEvent.click(trigger);
+  const options = view.getAllByRole("option");
+  expect(options.length).toBeGreaterThan(0);
+  for (const option of options) {
+    expect(label.contains(option)).toBe(false);
+  }
+});
+
 test("re-selecting the current type writes nothing", () => {
   const patches: Array<Partial<EquipmentDocumentFields>> = [];
   const view = renderEquipmentFields({

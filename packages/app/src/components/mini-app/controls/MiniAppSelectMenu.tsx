@@ -30,6 +30,11 @@ interface MiniAppSelectMenuProps {
   options: ReadonlyArray<MiniAppSelectMenuOption>;
   placeholder?: string;
   portaled?: boolean;
+  /**
+   * Report picking the already-selected option as a change. Off by default,
+   * like a native <select>, so a re-pick never triggers a no-op write.
+   */
+  reportReselect?: boolean;
   selectRef?: RefObject<HTMLButtonElement | null>;
   value: string;
 }
@@ -231,6 +236,7 @@ export function MiniAppSelectMenu(props: MiniAppSelectMenuProps) {
     onChange: props.onChange,
     options: props.options,
     portalRef,
+    reportReselect: props.reportReselect ?? false,
     selectRef,
     value: props.value,
   });
