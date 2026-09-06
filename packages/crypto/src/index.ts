@@ -154,6 +154,8 @@ export type {
   VerifyPrincipalPolicyBundleInput,
   VerifyPrincipalPolicySnapshotInput,
   VerifySignedTransparencyTreeHeadInput,
+  VerifyTransparencyConsistencyProofInput,
+  VerifyTransparencyInclusionProofInput,
   VerifyTransparencyProofInput,
   VerifyWriteHeaderInput,
   WriteHeader,
@@ -262,6 +264,8 @@ export {
   verifyPrincipalPolicySnapshot,
   verifySignedAccessEvent,
   verifySignedTransparencyTreeHead,
+  verifyTransparencyConsistencyProof,
+  verifyTransparencyInclusionProof,
   verifyTransparencyProof,
   verifyWriteHeader,
 } from "./keying";

@@ -259,18 +259,25 @@ function assertTransparencyConsistencyShape(
   }
 }
 
-/** The empty and same-size cases need no walk; true when handled. */
+/**
+ * The empty and same-size cases need no walk; true when handled. An empty
+ * tree has exactly one valid root, so both checkpoints are held to it before
+ * the size cases, which also keeps 0 → 0 from accepting an arbitrary root.
+ */
 async function assertTrivialTransparencyConsistency(
   input: VerifyTransparencyConsistencyProofInput,
 ): Promise<boolean> {
-  if (input.previousCheckpoint.treeSize === 0) {
-    const emptyRoot = await computeTransparencyEmptyTreeHash();
-    if (input.previousCheckpoint.rootHash !== emptyRoot) {
+  const emptyRoot = await computeTransparencyEmptyTreeHash();
+  for (const point of [input.previousCheckpoint, input.checkpoint]) {
+    if (point.treeSize === 0 && point.rootHash !== emptyRoot) {
       throwVerification(
         "hash_mismatch",
         "empty transparency tree checkpoint root is invalid",
       );
     }
+  }
+
+  if (input.previousCheckpoint.treeSize === 0) {
     if (input.proof.nodeHashes.length !== 0) {
       throwVerification(
         "invalid_shape",

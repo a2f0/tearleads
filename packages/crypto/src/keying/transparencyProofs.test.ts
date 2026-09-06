@@ -147,6 +147,26 @@ test("consistency proof shape mismatches are refused before any hashing", async 
 
   const fromEmpty = await honestConsistency(0, 5);
   expect((await verifyTransparencyConsistencyProof(fromEmpty)).ok).toBe(true);
+  const emptyToEmpty = await honestConsistency(0, 0);
+  expect((await verifyTransparencyConsistencyProof(emptyToEmpty)).ok).toBe(
+    true,
+  );
+  // An empty tree has one valid root; 0 → 0 must not accept any other.
+  expectVerificationError(
+    await verifyTransparencyConsistencyProof({
+      ...emptyToEmpty,
+      checkpoint: checkpoint(0, roots[1] ?? ""),
+    }),
+    "hash_mismatch",
+  );
+  expectVerificationError(
+    await verifyTransparencyConsistencyProof({
+      ...emptyToEmpty,
+      previousCheckpoint: checkpoint(0, roots[1] ?? ""),
+      checkpoint: checkpoint(0, roots[1] ?? ""),
+    }),
+    "hash_mismatch",
+  );
   expectVerificationError(
     await verifyTransparencyConsistencyProof({
       ...fromEmpty,
