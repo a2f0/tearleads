@@ -8,6 +8,10 @@ export { createLargeText } from "./createLargeText";
 export { createMockApiClient } from "./createMockApiClient";
 export { createMockRequestFailure } from "./createMockRequestFailure";
 export {
+  createNativeTestExecSql,
+  type NativeTestExecSql,
+} from "./createNativeTestExecSql";
+export {
   createTestExecSql,
   initTestSqliteDatabase,
   type TestExecSql,

@@ -4,8 +4,8 @@ import {
   type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import {
+  createNativeTestExecSql,
   createNoBrickTraceRecorder,
-  createTestExecSql,
   type NoBrickOutcome,
   type NoBrickProjection,
   type NoBrickTraceRecorder,
@@ -34,7 +34,7 @@ import { advanceKeyingCheckpointsAtomically } from "../persistence/keyingCheckpo
 const DEVICE = "d1";
 
 type Scenario = Awaited<ReturnType<typeof createScenario>>;
-type ExecSql = Awaited<ReturnType<typeof createTestExecSql>>["execSql"];
+type ExecSql = ReturnType<typeof createNativeTestExecSql>["execSql"];
 
 interface World {
   readonly scenario: Scenario;
@@ -280,7 +280,7 @@ async function dishonestSync(
 
 test("a late-delivered head is accepted, and rollback, a revoked signer, a fork, and the residual project onto the model", async () => {
   const scenario = await createScenario();
-  const { close, execSql } = await createTestExecSql("no-brick-late-delivery");
+  const { close, execSql } = createNativeTestExecSql();
   try {
     const recorder = createNoBrickTraceRecorder("container-late-delivery", {
       [DEVICE]: 1,
@@ -339,7 +339,7 @@ test("a late-delivered head is accepted, and rollback, a revoked signer, a fork,
 
 test("a chain whose middle entry cites an older root is accepted, and a regression and a stale served root are refused", async () => {
   const scenario = await createScenario();
-  const { close, execSql } = await createTestExecSql("no-brick-late-chain");
+  const { close, execSql } = createNativeTestExecSql();
   try {
     const recorder = createNoBrickTraceRecorder("container-late-chain", {
       [DEVICE]: 1,
@@ -380,7 +380,7 @@ test("a chain whose middle entry cites an older root is accepted, and a regressi
 
 test("a device with no history refuses a stale served root and accepts the current projection", async () => {
   const scenario = await createScenario();
-  const { close, execSql } = await createTestExecSql("no-brick-fresh-device");
+  const { close, execSql } = createNativeTestExecSql();
   try {
     const recorder = createNoBrickTraceRecorder("container-fresh-device", {
       [DEVICE]: 0,

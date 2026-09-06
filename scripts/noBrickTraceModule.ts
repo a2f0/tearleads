@@ -68,7 +68,7 @@ export function projectionFail(message: string): never {
   throw new ProjectionError(message);
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+function isObject(value: unknown): value is object {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
@@ -80,26 +80,55 @@ function isOutcome(value: unknown): value is NoBrickOutcome {
   return OUTCOMES.some((outcome) => outcome === value);
 }
 
+interface LooseObserved {
+  readonly outcome?: unknown;
+}
+
+interface LooseProjection {
+  readonly head?: unknown;
+  readonly honestPrefix?: unknown;
+  readonly cited?: unknown;
+  readonly late?: unknown;
+  readonly authority?: unknown;
+}
+
+interface LooseStep {
+  readonly action?: unknown;
+  readonly late?: unknown;
+  readonly device?: unknown;
+  readonly observed?: unknown;
+  readonly projection?: unknown;
+}
+
+interface LooseTrace {
+  readonly model?: unknown;
+  readonly scenario?: unknown;
+  readonly initialCheckpoints?: unknown;
+  readonly steps?: unknown;
+}
+
 function isObservedOutcome(value: unknown): boolean {
-  return (
-    isRecord(value) &&
-    Object.keys(value).length === 1 &&
-    isOutcome(value.outcome)
-  );
+  if (!isObject(value) || Object.keys(value).length !== 1) {
+    return false;
+  }
+  const observed: LooseObserved = value;
+  return isOutcome(observed.outcome);
 }
 
 function isProjection(value: unknown): value is NoBrickProjection {
+  if (!isObject(value) || Object.keys(value).length !== 5) {
+    return false;
+  }
+  const projection: LooseProjection = value;
   return (
-    isRecord(value) &&
-    Object.keys(value).length === 5 &&
-    isVersion(value.head) &&
-    (value.head as number) >= 1 &&
-    isVersion(value.honestPrefix) &&
-    isVersion(value.cited) &&
-    (value.cited as number) >= 1 &&
-    typeof value.late === "boolean" &&
-    isVersion(value.authority) &&
-    (value.authority as number) >= 1
+    isVersion(projection.head) &&
+    projection.head >= 1 &&
+    isVersion(projection.honestPrefix) &&
+    isVersion(projection.cited) &&
+    projection.cited >= 1 &&
+    typeof projection.late === "boolean" &&
+    isVersion(projection.authority) &&
+    projection.authority >= 1
   );
 }
 
@@ -108,30 +137,31 @@ function isDevice(value: unknown, devices: readonly string[]): boolean {
 }
 
 function isStep(value: unknown, devices: readonly string[]): boolean {
-  if (!isRecord(value)) {
+  if (!isObject(value)) {
     return false;
   }
   const keys = Object.keys(value).sort().join(",");
-  switch (value.action) {
+  const step: LooseStep = value;
+  switch (step.action) {
     case "AdvanceAuthority":
     case "RevokeLateSigner":
       return keys === "action";
     case "CommitDependent":
-      return keys === "action,late" && typeof value.late === "boolean";
+      return keys === "action,late" && typeof step.late === "boolean";
     case "SyncAuthority":
-      return keys === "action,device" && isDevice(value.device, devices);
+      return keys === "action,device" && isDevice(step.device, devices);
     case "HonestSync":
       return (
         keys === "action,device,observed" &&
-        isDevice(value.device, devices) &&
-        isObservedOutcome(value.observed)
+        isDevice(step.device, devices) &&
+        isObservedOutcome(step.observed)
       );
     case "Verify":
       return (
         keys === "action,device,observed,projection" &&
-        isDevice(value.device, devices) &&
-        isObservedOutcome(value.observed) &&
-        isProjection(value.projection)
+        isDevice(step.device, devices) &&
+        isObservedOutcome(step.observed) &&
+        isProjection(step.projection)
       );
     default:
       return false;
@@ -143,33 +173,32 @@ export function parseRecordedTrace(
   name: string,
   raw: string,
 ): RecordedNoBrickTrace {
-  const trace: unknown = JSON.parse(raw);
+  const parsed: unknown = JSON.parse(raw);
+  if (!isObject(parsed)) {
+    projectionFail(`recorded trace ${name} is malformed.`);
+  }
+  const trace: LooseTrace = parsed;
   if (
-    !isRecord(trace) ||
     trace.model !== "NoBrickedDevice" ||
     typeof trace.scenario !== "string" ||
-    !isRecord(trace.initialCheckpoints) ||
+    !isObject(trace.initialCheckpoints) ||
     !Array.isArray(trace.steps)
   ) {
     projectionFail(`recorded trace ${name} is malformed.`);
   }
-  const devices = Object.keys(trace.initialCheckpoints);
+  const checkpoints = Object.entries(trace.initialCheckpoints);
+  const devices = checkpoints.map(([device]) => device);
   if (
-    devices.length === 0 ||
-    devices.some(
-      (device) =>
-        !DEVICE_PATTERN.test(device) ||
-        ![0, 1].includes(
-          (trace.initialCheckpoints as Record<string, unknown>)[
-            device
-          ] as number,
-        ),
+    checkpoints.length === 0 ||
+    checkpoints.some(
+      ([device, checkpoint]) =>
+        !DEVICE_PATTERN.test(device) || (checkpoint !== 0 && checkpoint !== 1),
     ) ||
     trace.steps.some((step) => !isStep(step, devices))
   ) {
     projectionFail(`recorded trace ${name} is malformed.`);
   }
-  return trace as unknown as RecordedNoBrickTrace;
+  return parsed as RecordedNoBrickTrace;
 }
 
 function tla(value: boolean): string {
