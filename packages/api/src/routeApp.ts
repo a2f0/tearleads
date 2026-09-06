@@ -11,6 +11,7 @@ import type { SessionEnv } from "./middleware/session";
 import type { PublishedRealtimeEvent } from "./realtime/publishedRealtimeEvents";
 import {
   productionRouteAppOverrides,
+  type ResolvedRouteAppDeps,
   type RouteAppOverrides,
   resolveRouteAppDeps,
 } from "./routeAppDeps";
@@ -22,6 +23,7 @@ import { createDocumentsRouter } from "./routes/documents";
 import { createHealthRoute } from "./routes/health";
 import { createOrganizationsRouter } from "./routes/organizations";
 import { createPrincipalPolicyRoute } from "./routes/principals/policy";
+import { createRootRouter } from "./routes/root";
 import {
   publishOrganizationReadModelChanged,
   resolveCommittedOrganizationReadModelChanges,
@@ -153,58 +155,42 @@ function createApiRouteApp(): Hono<SessionEnv> {
   return app;
 }
 
-export function createRouteApp(
-  overrides: RouteAppOverrides,
-  options: RouteAppOptions = {},
-) {
-  const {
-    destroySession: resolvedDestroySession,
-    destroyUserSession: resolvedDestroyUserSession,
-    listUserSessions: resolvedListUserSessions,
-    publish: resolvedPublish,
-    requireAuth: resolvedRequireAuth,
-    runtime: resolvedRuntime,
-  } = resolveRouteAppDeps(overrides);
-  const routeApp = createApiRouteApp();
-
-  const corsOrigins = options.corsOrigins ?? readApiCorsOrigins();
-  routeApp.use("*", createApiCorsMiddleware(corsOrigins));
-  routeApp.use(
-    "*",
-    createReadModelHintMiddleware(resolvedPublish, resolvedRuntime),
-  );
-
+function mountRouters(
+  routeApp: Hono<SessionEnv>,
+  deps: ResolvedRouteAppDeps,
+  corsOrigins: ApiCorsOrigins,
+): void {
   routeApp.route(
     "/",
     createAuthRouter({
-      destroySession: resolvedDestroySession,
-      destroyUserSession: resolvedDestroyUserSession,
-      listUserSessions: resolvedListUserSessions,
-      requireAuth: resolvedRequireAuth,
-      runtime: resolvedRuntime,
+      destroySession: deps.destroySession,
+      destroyUserSession: deps.destroyUserSession,
+      listUserSessions: deps.listUserSessions,
+      requireAuth: deps.requireAuth,
+      runtime: deps.runtime,
     }),
   );
   routeApp.route(
     "/",
     createContainersRouter({
-      publish: resolvedPublish,
-      requireAuth: resolvedRequireAuth,
-      runtime: resolvedRuntime,
+      publish: deps.publish,
+      requireAuth: deps.requireAuth,
+      runtime: deps.runtime,
     }),
   );
   routeApp.route(
     "/",
     createBlobsRouter({
-      requireAuth: resolvedRequireAuth,
-      runtime: resolvedRuntime,
+      requireAuth: deps.requireAuth,
+      runtime: deps.runtime,
     }),
   );
   routeApp.route(
     "/",
     createDocumentsRouter({
-      publish: resolvedPublish,
-      requireAuth: resolvedRequireAuth,
-      runtime: resolvedRuntime,
+      publish: deps.publish,
+      requireAuth: deps.requireAuth,
+      runtime: deps.runtime,
     }),
   );
   routeApp.route("/", createHealthRoute());
@@ -212,25 +198,48 @@ export function createRouteApp(
     "/",
     createBillingRouter({
       corsOrigins,
-      requireAuth: resolvedRequireAuth,
-      runtime: resolvedRuntime,
+      requireAuth: deps.requireAuth,
+      runtime: deps.runtime,
     }),
   );
   routeApp.route(
     "/",
     createOrganizationsRouter({
-      requireAuth: resolvedRequireAuth,
-      runtime: resolvedRuntime,
+      requireAuth: deps.requireAuth,
+      runtime: deps.runtime,
     }),
   );
   routeApp.route(
     "/",
     createPrincipalPolicyRoute({
-      publish: resolvedPublish,
-      requireAuth: resolvedRequireAuth,
-      runtime: resolvedRuntime,
+      publish: deps.publish,
+      requireAuth: deps.requireAuth,
+      runtime: deps.runtime,
     }),
   );
+  routeApp.route(
+    "/",
+    createRootRouter({
+      listUserSessions: deps.listUserSessions,
+      requireAuth: deps.requireAuth,
+      requireRoot: deps.requireRoot,
+      runtime: deps.runtime,
+    }),
+  );
+}
+
+export function createRouteApp(
+  overrides: RouteAppOverrides,
+  options: RouteAppOptions = {},
+) {
+  const deps = resolveRouteAppDeps(overrides);
+  const routeApp = createApiRouteApp();
+
+  const corsOrigins = options.corsOrigins ?? readApiCorsOrigins();
+  routeApp.use("*", createApiCorsMiddleware(corsOrigins));
+  routeApp.use("*", createReadModelHintMiddleware(deps.publish, deps.runtime));
+
+  mountRouters(routeApp, deps, corsOrigins);
 
   // Sync writes blocked by organization entitlement or the caller's stable seat
   // throw deep in their workflows; surface both uniformly as 402 responses.

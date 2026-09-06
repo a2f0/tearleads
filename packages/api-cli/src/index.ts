@@ -15,7 +15,9 @@ function usage(): string {
     "",
     "Commands:",
     "  blob-store:list-keys [--prefix <prefix>] [--with-size]    List configured S3 blob store keys",
+    "  make-admin <fingerprint>      Grant root (global admin) access to the identity with this signing key fingerprint",
     "  migrate    Run API database migrations",
+    "  revoke-admin <fingerprint>    Revoke root (global admin) access from the identity with this signing key fingerprint",
   ].join("\n");
 }
 
@@ -136,14 +138,42 @@ async function listBlobStoreKeys(args: readonly string[]): Promise<void> {
   await listS3BlobStoreKeys(parseListBlobStoreKeysArgs(args));
 }
 
+async function setRootAccess(
+  args: readonly string[],
+  isRoot: boolean,
+): Promise<void> {
+  const {
+    formatRootAccessOutcome,
+    parseRootAccessArgs,
+    setIdentityRootAccess,
+  } = await import("./rootAccess");
+  const { fingerprint } = parseRootAccessArgs(args);
+
+  process.env[apiDatabaseEnvKey] ??= "postgres";
+  const { closeApiDatabase, db } = await import(
+    "@tearleads/api-shared/postgres"
+  );
+
+  try {
+    const result = await setIdentityRootAccess(db, { fingerprint, isRoot });
+    console.log(formatRootAccessOutcome(fingerprint, isRoot, result));
+  } finally {
+    await closeApiDatabase();
+  }
+}
+
 const command = process.argv[2];
 
 if (isHelpArg(command)) {
   console.log(usage());
 } else if (command === "blob-store:list-keys") {
   await listBlobStoreKeys(process.argv.slice(3));
+} else if (command === "make-admin") {
+  await setRootAccess(process.argv.slice(3), true);
 } else if (command === "migrate") {
   await runMigrations();
+} else if (command === "revoke-admin") {
+  await setRootAccess(process.argv.slice(3), false);
 } else {
   if (command) {
     console.error(`Unknown command: ${command}`);

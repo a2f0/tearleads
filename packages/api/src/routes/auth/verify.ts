@@ -4,10 +4,8 @@ import {
 } from "@tearleads/validators/operation";
 import type { VerifyResponse } from "@tearleads/validators/response";
 import { Hono } from "hono";
-import {
-  readRequestIpAddress,
-  type SessionEnv,
-} from "../../middleware/session";
+import { readRequestIpAddress } from "../../middleware/requestIp";
+import type { SessionEnv } from "../../middleware/session";
 import {
   VerifyChallengeError,
   verifyChallenge,

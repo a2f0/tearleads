@@ -13,7 +13,9 @@ Usage: tearleads-api-cli <command>
 
 Commands:
   blob-store:list-keys [--prefix <prefix>] [--with-size]    List configured S3 blob store keys
+  make-admin <fingerprint>      Grant root (global admin) access to the identity with this signing key fingerprint
   migrate    Run API database migrations
+  revoke-admin <fingerprint>    Revoke root (global admin) access from the identity with this signing key fingerprint
 ```
 
 A missing command prints usage to stderr and exits `1`; an unknown command
@@ -98,6 +100,32 @@ remotely:
 
 ```bash
 scripts/listGarageBucketKeys.sh <staging|prod> [prefix] [--with-size]
+```
+
+### `make-admin` / `revoke-admin`
+
+Sets or clears `users.is_root` for the identity registered with the given
+signing key fingerprint (the 64-character lowercase hex value shown as
+`signingKeyFingerprint` in the app and API). Root identities may call the
+API's internal `/root` operator routes, which list platform identities with
+their last activity, live sessions, organization memberships, and
+per-organization billing standing. Root is a plain operational boolean for
+internal staff and technical support; it grants no access-plane keys and is
+never exposed as a user-facing feature.
+
+```bash
+tearleads-api-cli make-admin <fingerprint>
+tearleads-api-cli revoke-admin <fingerprint>
+```
+
+The command reads the database the same way `migrate` does (`API_DATABASE`
+defaults to `postgres`, connection variables from the environment). It prints
+whether the identity `is now root` or `was already root`, and fails with a
+non-zero exit when the fingerprint is malformed, extra arguments are passed, or
+no identity is registered under that fingerprint. On a deployed server:
+
+```bash
+set -a && . /etc/tearleads/api.env && set +a && /opt/tearleads/bin/tearleads-api-cli make-admin <fingerprint>
 ```
 
 ## Local development

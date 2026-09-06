@@ -1,4 +1,5 @@
 import type { Context, MiddlewareHandler } from "hono";
+import { createRequireRoot } from "./middleware/root";
 import {
   destroySession as defaultDestroySession,
   destroyUserSession as defaultDestroyUserSession,
@@ -7,6 +8,7 @@ import {
   type SessionEnv,
 } from "./middleware/session";
 import type { PublishedRealtimeEvent } from "./realtime/publishedRealtimeEvents";
+import { hasRootAccess } from "./services/root/identities";
 import {
   type ApiServiceRuntime,
   getDefaultApiServiceRuntime,
@@ -18,10 +20,15 @@ export interface RouteAppOverrides {
   readonly listUserSessions?: typeof defaultListUserSessions;
   readonly publish?: (event: PublishedRealtimeEvent) => Promise<void>;
   readonly requireAuth?: MiddlewareHandler<SessionEnv>;
+  /**
+   * Gate for the `/root` operator routes. Defaults to a lookup of
+   * `users.is_root` through the resolved runtime's database.
+   */
+  readonly requireRoot?: MiddlewareHandler<SessionEnv>;
   readonly runtime?: ApiServiceRuntime;
 }
 
-type ResolvedRouteAppDeps = Required<RouteAppOverrides>;
+export type ResolvedRouteAppDeps = Required<RouteAppOverrides>;
 
 // `runtime` is intentionally omitted: resolveRouteAppDeps falls back to the
 // lazily-built default, so neither importing this module nor reading these
@@ -39,6 +46,7 @@ export function resolveRouteAppDeps({
   listUserSessions,
   publish,
   requireAuth,
+  requireRoot,
   runtime,
 }: RouteAppOverrides): ResolvedRouteAppDeps {
   const runtimeBase = runtime ?? getDefaultApiServiceRuntime();
@@ -61,6 +69,9 @@ export function resolveRouteAppDeps({
     listUserSessions: listUserSessions ?? defaultListUserSessions,
     publish: resolvedPublish,
     requireAuth: resolvedRequireAuth,
+    requireRoot:
+      requireRoot ??
+      createRequireRoot((userId) => hasRootAccess(resolvedRuntime, userId)),
     runtime: resolvedRuntime,
   };
 }
