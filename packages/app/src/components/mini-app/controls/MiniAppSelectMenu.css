@@ -50,6 +50,9 @@
 .mini-app-select-menu-list {
   max-height: min(16rem, 50vh);
   overflow: auto;
+  /* Portaled inside a Menu that closes on outside scroll: a swipe at the end
+     of this list's range must not chain to the page. */
+  overscroll-behavior: contain;
   scrollbar-gutter: var(--scrollbar-gutter);
 }
 
