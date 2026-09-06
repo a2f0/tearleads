@@ -50,7 +50,7 @@
 
 .mini-app-column-menu-item {
   display: grid;
-  grid-template-columns: 0.9rem minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-xs);
   min-width: 12rem;
@@ -62,36 +62,6 @@
 .mini-app-column-menu-item:hover,
 .mini-app-column-menu-item:focus-within {
   background: var(--color-muted);
-}
-
-.mini-app-column-menu-checkbox {
-  -webkit-appearance: none;
-  appearance: none;
-  display: grid;
-  place-items: center;
-  width: 0.9rem;
-  height: 0.9rem;
-  margin: 0;
-  border: var(--border);
-  background: transparent;
-}
-
-.mini-app-column-menu-checkbox:checked {
-  background: var(--emphasis-surface);
-}
-
-.mini-app-column-menu-checkbox:focus-visible {
-  outline: var(--border-width) solid var(--color-dark);
-  outline-offset: 1px;
-}
-
-.mini-app-column-menu-checkbox:checked::after {
-  content: "";
-  width: 0.25rem;
-  height: 0.5rem;
-  border: solid var(--emphasis-text);
-  border-width: 0 var(--border-width) var(--border-width) 0;
-  transform: rotate(45deg);
 }
 
 .mini-app-column-menu-label {
