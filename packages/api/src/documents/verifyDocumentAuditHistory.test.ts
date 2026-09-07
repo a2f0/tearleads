@@ -10,10 +10,10 @@ import {
 } from "@tearleads/api-shared/schema";
 import { eq } from "drizzle-orm";
 import { sha256Hex } from "../utils/sha256";
+import { verifyDocumentAuditHistory } from "./auditHistory.testUtils";
 import { appendDocumentAttachmentAuditEntries } from "./documentAttachmentAuditEvents";
 import { maybeWriteDocumentAuditCheckpoint } from "./documentAuditCheckpoints";
 import { appendDocumentUpdateAuditEntries } from "./documentAuditEntries";
-import { verifyDocumentAuditHistory } from "./verifyDocumentAuditHistory";
 
 const ACCESS_EPOCH = 1;
 const ACCESS_MANIFEST_HASH = "audit-history-access-manifest";

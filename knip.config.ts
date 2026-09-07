@@ -167,102 +167,98 @@ const baseConfig = {
   },
 } satisfies KnipConfig;
 
+// Production reachability starts at executable roots and public package exports.
+// Test helpers remain checked by the default pass, without making test-only
+// importers keep runtime implementation alive in this pass.
+const productionProject = [
+  "src/**/*.{ts,tsx}!",
+  "!src/**/*.test.{ts,tsx}",
+  "!src/**/*.testFixtures.{ts,tsx}",
+  "!src/**/testFixtures.{ts,tsx}",
+  "!src/**/testUtils.{ts,tsx}",
+  "!src/**/*.testUtils.{ts,tsx}",
+  "!src/**/*TestFixtures.ts",
+  "!src/**/test/**",
+];
+
 const productionConfig = {
   ...strictConfigDefaults,
-  // Keep production entries broad enough to validate runtime dependency
-  // declarations without letting test reachability hide production drift.
-  // The default config above stays narrower for dead-file and export checks.
+  // The default pass checks exports, including intentional test seams. This
+  // pass adds runtime file reachability without treating test seams as dead API.
+  exclude: ["exports", "types", "enumMembers", "namespaceMembers"],
   workspaces: {
     ".": rootToolingWorkspace,
     "packages/agent-tool": {
-      entry: ["src/**/*.ts!", "!src/**/*.test.ts"],
-      project: [],
+      entry: ["src/index.ts!"],
+      project: productionProject,
     },
     "packages/api": {
-      entry: ["src/**/*.ts!", "!src/**/*.test.ts", "!src/appTestRuntime.ts"],
-      project: [],
-    },
-    "packages/api-client": {
-      entry: ["src/**/*.ts!", "!src/**/*.test.ts"],
-      project: [],
-    },
-    "packages/api-cli": {
-      entry: ["src/**/*.ts!", "!src/**/*.test.ts", "scripts/**/*.ts!"],
-      project: [],
-    },
-    "packages/api-shared": {
-      entry: ["src/**/*.ts!", "drizzle.config.ts!"],
-      project: [],
-    },
-    "packages/app": {
       entry: [
-        "src/**/*.{ts,tsx}!",
-        "!src/**/*.test.{ts,tsx}",
-        "!src/**/testUtils.{ts,tsx}",
+        "src/index.ts!",
+        "scripts/blobGc.ts!",
+        "scripts/stripeSeatSync.ts!",
       ],
-      project: [],
+      project: [...productionProject, "!src/appTestRuntime.ts"],
     },
+    "packages/api-client": { project: productionProject },
+    "packages/api-cli": {
+      entry: ["src/index.ts!"],
+      project: productionProject,
+    },
+    "packages/api-shared": { project: productionProject },
+    "packages/app": { project: productionProject },
     "packages/app-web": {
-      entry: ["src/**/*.{ts,tsx}!", "!src/servers/e2eServer.ts"],
-      project: [],
+      entry: ["src/index.tsx!", "src/servers/devServer.ts!"],
+      project: [...productionProject, "!src/servers/e2eServer.ts"],
     },
     "packages/app-capacitor": {
-      entry: ["capacitor.config.ts!", "src/**/*.{ts,tsx}!"],
-      project: [],
+      entry: [
+        "src/index.tsx!",
+        "capacitor.config.ts!",
+        "scripts/buildWorker.ts!",
+      ],
+      project: productionProject,
       ignoreDependencies: [
         ...capacitorNativePluginDependencies,
         "@capacitor/core",
       ],
     },
     "packages/app-electrobun": {
-      entry: ["electrobun.config.ts!", "src/**/*.{ts,tsx}!"],
-      project: [],
+      entry: [
+        "electrobun.config.ts!",
+        "src/bun/index.ts!",
+        "src/renderer/index.tsx!",
+        "src/renderer/databaseWorker.ts!",
+      ],
+      project: productionProject,
     },
-    "packages/bob-and-alice": {
-      entry: ["src/**/*.ts!", "!src/**/*.test.ts"],
-      project: [],
-    },
+    "packages/bob-and-alice": { project: productionProject },
     "packages/client-sdk": {
-      entry: ["src/**/*.ts!", "!src/**/*.test.ts"],
-      project: [],
+      // The manifest points at dist; these are its runtime source facades.
+      entry: ["src/index.ts!", "src/sqlite.ts!"],
+      project: productionProject,
     },
-    "packages/crypto": {
-      entry: ["src/**/*.ts!", "!src/**/*.test.ts"],
-      project: [],
-    },
-    "packages/encoding": {
-      entry: ["src/**/*.ts!", "!src/**/*.test.ts"],
-      project: [],
-    },
-    "packages/loro": {
-      entry: ["src/**/*.ts!", "!src/**/*.test.ts"],
-      project: [],
-    },
-    "packages/ui": {
-      entry: ["src/**/*.{ts,tsx}!"],
-      project: [],
-    },
+    "packages/crypto": { project: productionProject },
+    "packages/encoding": { project: productionProject },
+    "packages/loro": { project: productionProject },
+    "packages/ui": { project: productionProject },
     "packages/validators": {
-      entry: ["src/**/*.ts!", "!src/**/*.test.ts"],
-      project: [],
+      // OpenAPI generator implementation/output is checked by the default pass.
+      project: [
+        ...productionProject,
+        "!src/operation/openApi.ts",
+        "!src/operation/openApiResponseMetadata.ts",
+        "!src/operation/generatedOpenApi.ts",
+      ],
     },
     "packages/website": {
-      entry: ["astro.config.ts!", "src/**/*.{astro,ts,tsx}!"],
-      project: [],
+      entry: ["astro.config.ts!", "src/pages/**/*.astro!"],
+      project: ["src/**/*.{astro,ts,tsx}!", "!src/**/*.test.ts"],
       ignoreDependencies: ["@astrojs/react", "react-dom"],
     },
-    "packages/sqlite-instance": {
-      entry: ["src/**/*.ts!"],
-      project: [],
-    },
-    "packages/sqlite-worker": {
-      entry: ["src/**/*.ts!"],
-      project: [],
-    },
-    "packages/test-utils": {
-      entry: ["src/**/*.ts!"],
-      project: [],
-    },
+    "packages/sqlite-instance": { project: productionProject },
+    "packages/sqlite-worker": { project: productionProject },
+    "packages/test-utils": { project: productionProject },
   },
 } satisfies KnipConfig;
 

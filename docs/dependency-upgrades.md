@@ -59,6 +59,9 @@ registries and release instructions; the exceptions below are deliberate.
   types needed by declaration emit remain exported. Two source-size baselines
   change only for formatter expansion of existing tests; the subsystem registry
   grows by one entry for the shared Redis client factory.
+  Knip's production-entry patch is still needed in 6.34.0: the production
+  reachability regression fails without it and passes with it. The patch and
+  its removal condition live in [dependency patches](../patches/README.md).
 - **Android:** regenerate the Gradle 9.7.1 wrapper and verify its distribution
   checksum. AGP 9.4 uses built-in Kotlin, so the application no longer applies
   the duplicate Kotlin Android plugin. See the
