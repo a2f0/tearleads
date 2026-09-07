@@ -98,45 +98,43 @@ function SessionsTable({
   return (
     <MiniAppTableFrame>
       <MiniAppTable aria-label="Live sessions" columns={SESSION_COLUMNS}>
-        <tbody>
-          {sessions.length === 0 ? (
-            <MiniAppTableEmptyRow colSpan={SESSION_COLUMNS.length}>
-              No live sessions.
-            </MiniAppTableEmptyRow>
-          ) : (
-            sessions.map((session) => (
-              <MiniAppTableRow key={session.id}>
-                <MiniAppTableCell>
-                  <MiniAppTableText truncate={false}>
-                    {formatRootTimestamp(session.lastActiveAt)}
-                  </MiniAppTableText>
-                </MiniAppTableCell>
-                <MiniAppTableCell>
-                  <MiniAppTableText>
-                    {session.lastActiveIp ?? "None"}
-                  </MiniAppTableText>
-                </MiniAppTableCell>
-                <MiniAppTableCell>
-                  <MiniAppTableText title={session.ipAddresses.join(", ")}>
-                    {session.ipAddresses.length === 0
-                      ? "None"
-                      : session.ipAddresses.join(", ")}
-                  </MiniAppTableText>
-                </MiniAppTableCell>
-                <MiniAppTableCell>
-                  <MiniAppTableText truncate={false}>
-                    {formatRootTimestamp(session.createdAt)}
-                  </MiniAppTableText>
-                </MiniAppTableCell>
-                <MiniAppTableCell>
-                  <MiniAppTableText title={session.signingKeyFingerprint}>
-                    {compactRootIdentifier(session.signingKeyFingerprint)}
-                  </MiniAppTableText>
-                </MiniAppTableCell>
-              </MiniAppTableRow>
-            ))
-          )}
-        </tbody>
+        {sessions.length === 0 ? (
+          <MiniAppTableEmptyRow colSpan={SESSION_COLUMNS.length}>
+            No live sessions.
+          </MiniAppTableEmptyRow>
+        ) : (
+          sessions.map((session) => (
+            <MiniAppTableRow key={session.id}>
+              <MiniAppTableCell>
+                <MiniAppTableText truncate={false}>
+                  {formatRootTimestamp(session.lastActiveAt)}
+                </MiniAppTableText>
+              </MiniAppTableCell>
+              <MiniAppTableCell>
+                <MiniAppTableText>
+                  {session.lastActiveIp ?? "None"}
+                </MiniAppTableText>
+              </MiniAppTableCell>
+              <MiniAppTableCell>
+                <MiniAppTableText title={session.ipAddresses.join(", ")}>
+                  {session.ipAddresses.length === 0
+                    ? "None"
+                    : session.ipAddresses.join(", ")}
+                </MiniAppTableText>
+              </MiniAppTableCell>
+              <MiniAppTableCell>
+                <MiniAppTableText truncate={false}>
+                  {formatRootTimestamp(session.createdAt)}
+                </MiniAppTableText>
+              </MiniAppTableCell>
+              <MiniAppTableCell>
+                <MiniAppTableText title={session.signingKeyFingerprint}>
+                  {compactRootIdentifier(session.signingKeyFingerprint)}
+                </MiniAppTableText>
+              </MiniAppTableCell>
+            </MiniAppTableRow>
+          ))
+        )}
       </MiniAppTable>
     </MiniAppTableFrame>
   );
@@ -150,51 +148,49 @@ function OrganizationsTable({
   return (
     <MiniAppTableFrame>
       <MiniAppTable aria-label="Organizations" columns={ORGANIZATION_COLUMNS}>
-        <tbody>
-          {organizations.length === 0 ? (
-            <MiniAppTableEmptyRow colSpan={ORGANIZATION_COLUMNS.length}>
-              No organization memberships.
-            </MiniAppTableEmptyRow>
-          ) : (
-            organizations.map((organization) => (
-              <MiniAppTableRow key={organization.organizationId}>
-                <MiniAppTableCell>
-                  <MiniAppTableText title={organization.organizationId}>
-                    {organization.name}
-                    {organization.isDefaultOrganization ? " (default)" : ""}
-                  </MiniAppTableText>
-                </MiniAppTableCell>
-                <MiniAppTableCell>
-                  <MiniAppTableText>
-                    {organization.roster.status}
-                  </MiniAppTableText>
-                </MiniAppTableCell>
-                <MiniAppTableCell>
-                  <MiniAppTableText>
-                    {organization.billing?.status ?? "none"}
-                  </MiniAppTableText>
-                </MiniAppTableCell>
-                <MiniAppTableCell>
-                  <MiniAppTableText truncate={false}>
-                    {formatRootTimestamp(organization.billing?.trialEndsAt)}
-                  </MiniAppTableText>
-                </MiniAppTableCell>
-                <MiniAppTableCell>
-                  <MiniAppTableText truncate={false}>
-                    {formatRootTimestamp(
-                      organization.billing?.currentPeriodEndsAt,
-                    )}
-                  </MiniAppTableText>
-                </MiniAppTableCell>
-                <MiniAppTableCell>
-                  <MiniAppTableText>
-                    {organization.billing?.seatCount ?? 0}
-                  </MiniAppTableText>
-                </MiniAppTableCell>
-              </MiniAppTableRow>
-            ))
-          )}
-        </tbody>
+        {organizations.length === 0 ? (
+          <MiniAppTableEmptyRow colSpan={ORGANIZATION_COLUMNS.length}>
+            No organization memberships.
+          </MiniAppTableEmptyRow>
+        ) : (
+          organizations.map((organization) => (
+            <MiniAppTableRow key={organization.organizationId}>
+              <MiniAppTableCell>
+                <MiniAppTableText title={organization.organizationId}>
+                  {organization.name}
+                  {organization.isDefaultOrganization ? " (default)" : ""}
+                </MiniAppTableText>
+              </MiniAppTableCell>
+              <MiniAppTableCell>
+                <MiniAppTableText>
+                  {organization.roster.status}
+                </MiniAppTableText>
+              </MiniAppTableCell>
+              <MiniAppTableCell>
+                <MiniAppTableText>
+                  {organization.billing?.status ?? "none"}
+                </MiniAppTableText>
+              </MiniAppTableCell>
+              <MiniAppTableCell>
+                <MiniAppTableText truncate={false}>
+                  {formatRootTimestamp(organization.billing?.trialEndsAt)}
+                </MiniAppTableText>
+              </MiniAppTableCell>
+              <MiniAppTableCell>
+                <MiniAppTableText truncate={false}>
+                  {formatRootTimestamp(
+                    organization.billing?.currentPeriodEndsAt,
+                  )}
+                </MiniAppTableText>
+              </MiniAppTableCell>
+              <MiniAppTableCell>
+                <MiniAppTableText>
+                  {organization.billing?.seatCount ?? 0}
+                </MiniAppTableText>
+              </MiniAppTableCell>
+            </MiniAppTableRow>
+          ))
+        )}
       </MiniAppTable>
     </MiniAppTableFrame>
   );
