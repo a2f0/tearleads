@@ -272,3 +272,39 @@ test("usage failures show an error and refresh can recover", async () => {
     restore();
   }
 });
+
+for (const origin of ["Reports", "Organizations"] as const) {
+  test(`organization identity drill-down returns to ${origin}`, async () => {
+    const { restore, view } = await renderRootWithSession(true);
+    const directory =
+      origin === "Reports" ? "Data usage by organization" : "Organizations";
+    try {
+      fireEvent.click(view.getByRole("button", { name: origin }));
+      const table = await view.findByRole("table", { name: directory });
+      fireEvent.click(await within(table).findByText("Root Test Org"));
+      fireEvent.click(view.getByRole("tab", { name: "Identities" }));
+      const roster = await view.findByRole("table", {
+        name: "Organization identities",
+      });
+      const fingerprint = ROOT_TEST_IDENTITIES[1]?.signingKeyFingerprint;
+      if (!fingerprint) throw new Error("Expected member fingerprint");
+      fireEvent.click(
+        await within(roster).findByRole("button", {
+          name: `Open identity ${fingerprint}`,
+        }),
+      );
+      await view.findByRole("table", { name: "Identity" });
+      fireEvent.click(view.getByRole("button", { name: "Back" }));
+      expect(
+        view
+          .getByRole("tab", { name: "Identities" })
+          .getAttribute("aria-selected"),
+      ).toBe("true");
+      await view.findByRole("table", { name: "Organization identities" });
+      fireEvent.click(view.getByRole("button", { name: "Back" }));
+      await view.findByRole("table", { name: directory });
+    } finally {
+      restore();
+    }
+  });
+}

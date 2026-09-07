@@ -22,7 +22,10 @@ export function useRootNavigation(
         userId,
         view: "identities",
         ...(route.view === "organizations" && route.organizationId
-          ? { returnOrganizationId: route.organizationId }
+          ? {
+              returnOrganizationId: route.organizationId,
+              ...(route.returnView ? { returnView: route.returnView } : {}),
+            }
           : {}),
       }),
     [route, setRoute],
@@ -37,6 +40,7 @@ export function useRootNavigation(
               view: "organizations",
               organizationId: route.returnOrganizationId,
               tab: "identities",
+              ...(route.returnView ? { returnView: route.returnView } : {}),
             }
           : IDENTITIES_ROOT_ROUTE,
         { replace: true },
