@@ -83,6 +83,11 @@ import {
   listRootIdentityOrganizationsOperation,
 } from "./root";
 import {
+  getRootOrganizationOperation,
+  listRootOrganizationIdentitiesOperation,
+  listRootOrganizationsOperation,
+} from "./rootOrganizations";
+import {
   cancelStripeSubscriptionOperation,
   createStripeCheckoutOperation,
   createStripeCheckoutSessionOperation,
@@ -159,6 +164,9 @@ export const protocolOperations: readonly [
   typeof commitOrganizationGroupPolicyOperation,
   typeof putPrincipalPolicyOperation,
   typeof listRootIdentitiesOperation,
+  typeof listRootOrganizationsOperation,
+  typeof getRootOrganizationOperation,
+  typeof listRootOrganizationIdentitiesOperation,
   typeof getRootIdentityOperation,
   typeof listRootIdentityOrganizationsOperation,
   typeof documentSyncOperation,
@@ -225,6 +233,9 @@ export const protocolOperations: readonly [
   commitOrganizationGroupPolicyOperation,
   putPrincipalPolicyOperation,
   listRootIdentitiesOperation,
+  listRootOrganizationsOperation,
+  getRootOrganizationOperation,
+  listRootOrganizationIdentitiesOperation,
   getRootIdentityOperation,
   listRootIdentityOrganizationsOperation,
   documentSyncOperation,

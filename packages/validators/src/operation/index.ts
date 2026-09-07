@@ -249,6 +249,13 @@ export {
   RootIdentityPathParamsSchema,
 } from "./root";
 export {
+  getRootOrganizationOperation,
+  listRootOrganizationIdentitiesOperation,
+  listRootOrganizationsOperation,
+  type RootOrganizationPageQuery,
+  type RootOrganizationsQuery,
+} from "./rootOrganizations";
+export {
   cancelStripeSubscriptionOperation,
   createStripeCheckoutOperation,
   createStripeCheckoutSessionOperation,

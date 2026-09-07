@@ -34,3 +34,14 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.root-console-fact {
+  overflow-wrap: anywhere;
+}
+.root-console-history-entry {
+  padding: var(--space-sm);
+}
+.root-console-history-entry summary {
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}

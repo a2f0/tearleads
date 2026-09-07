@@ -53,7 +53,7 @@ export interface RootIdentitiesApi {
   ) => Promise<RequestResult<RootIdentityOrganizationsResponse>>;
 }
 
-function toOutcome<Data>(
+export function toOutcome<Data>(
   result: RequestResult<Data>,
 ): RootRequestOutcome<Data> {
   if (result.ok) {

@@ -23,7 +23,7 @@ const DIGITS_PATTERN = /^\d+$/u;
 
 // Query values arrive as strings over HTTP and as numbers from typed clients;
 // both are accepted, and the OpenAPI view stays a bounded integer.
-function rootIdentityPageLimitSchema() {
+export function rootIdentityPageLimitSchema() {
   return registerJsonSchemaFragment(
     z.union([z.number(), z.string()]).superRefine((value, context) => {
       if (typeof value === "string" && !DIGITS_PATTERN.test(value)) {

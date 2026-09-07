@@ -26,7 +26,7 @@ import {
   runResolveOrganizationBillingCustomerWorkflow,
   runStartOrganizationTrialWorkflow,
 } from "../../workflows/billing/organizationBilling";
-import { runGetOrganizationBillingHistoryWorkflow } from "../../workflows/billing/organizationBillingHistory";
+import { runGetOrganizationBillingHistoryWorkflow } from "../../workflows/billing/organizationBillingHistoryAccess";
 import { resolveOrganizationSubscriptionOwnership } from "../../workflows/billing/organizationSubscriptionSource";
 import { resolveVerifiedPlayReplacement } from "../../workflows/billing/revenuecatPlayReplacement";
 import { OrganizationManagerError } from "../../workflows/organizations/errors";

@@ -1,8 +1,8 @@
 import type { OrganizationBillingHistoryEntry } from "@tearleads/client-sdk";
 import { MiniAppRowText } from "../../../components/mini-app/rows/MiniAppRow";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
+import { formatPrice, formatTotalAmount } from "../../shared/billingFormatters";
 import { getOrgManagerSeatsLabel } from "../labels";
-import { formatPrice, formatTotalAmount } from "./billingFormatters";
 
 interface BillingHistoryEntryDetailsProps {
   readonly entry: OrganizationBillingHistoryEntry;

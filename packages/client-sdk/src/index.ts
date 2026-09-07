@@ -486,7 +486,18 @@ export type {
 export {
   listRootIdentities,
   listRootIdentityOrganizations,
+  listRootOrganizationIdentities,
+  listRootOrganizations,
   loadRootIdentity,
+  loadRootOrganization,
+  type RootOrganization,
+  type RootOrganizationDetail,
+  type RootOrganizationIdentitiesPage,
+  type RootOrganizationIdentity,
+  type RootOrganizationPageQueryInput,
+  type RootOrganizationsApi,
+  type RootOrganizationsPage,
+  type RootOrganizationsQueryInput,
 } from "./workflows/root";
 export type {
   ClearRemoteSyncStateResult,

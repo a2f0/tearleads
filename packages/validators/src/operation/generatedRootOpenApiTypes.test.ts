@@ -3,6 +3,9 @@ import type {
   RootIdentitiesResponse,
   RootIdentityDetailResponse,
   RootIdentityOrganizationsResponse,
+  RootOrganizationDetailResponse,
+  RootOrganizationIdentitiesResponse,
+  RootOrganizationsResponse,
 } from "../response";
 import type { operations, paths } from "./generatedOpenApi";
 
@@ -91,6 +94,33 @@ test("generated OpenAPI types match the root administration contracts", () => {
     IsAssignable<
       NormalizeWireType<ListIdentityOrganizationsResponse>,
       NormalizeWireType<RootIdentityOrganizationsResponse>
+    >
+  >();
+});
+
+test("generated root organization responses match their wire contracts", () => {
+  assertType<
+    IsAssignable<
+      NormalizeWireType<
+        operations["root.organizations.list"]["responses"][200]["content"]["application/json"]
+      >,
+      NormalizeWireType<RootOrganizationsResponse>
+    >
+  >();
+  assertType<
+    IsAssignable<
+      NormalizeWireType<
+        operations["root.organizations.get"]["responses"][200]["content"]["application/json"]
+      >,
+      NormalizeWireType<RootOrganizationDetailResponse>
+    >
+  >();
+  assertType<
+    IsAssignable<
+      NormalizeWireType<
+        operations["root.organizations.identities.list"]["responses"][200]["content"]["application/json"]
+      >,
+      NormalizeWireType<RootOrganizationIdentitiesResponse>
     >
   >();
 });

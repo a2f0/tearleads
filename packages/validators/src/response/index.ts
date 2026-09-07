@@ -447,6 +447,18 @@ export {
   RootIdentitySummaryResponseSchema,
 } from "./root";
 export {
+  type RootOrganizationDetailResponse,
+  RootOrganizationDetailResponseSchema,
+  type RootOrganizationIdentitiesResponse,
+  RootOrganizationIdentitiesResponseSchema,
+  type RootOrganizationIdentityResponse,
+  RootOrganizationIdentityResponseSchema,
+  type RootOrganizationSummaryResponse,
+  RootOrganizationSummaryResponseSchema,
+  type RootOrganizationsResponse,
+  RootOrganizationsResponseSchema,
+} from "./rootOrganizations";
+export {
   isStripeCancelResponse,
   isStripeCheckoutIntentResponse,
   isStripeCheckoutOptionsResponse,

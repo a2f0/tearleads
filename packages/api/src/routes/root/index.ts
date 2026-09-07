@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
 import { createRootIdentitiesRoute } from "./identities";
+import { createRootOrganizationsRoute } from "./organizations";
 import type { RootRouterDeps } from "./shared";
 
 /**
@@ -13,6 +14,8 @@ export function createRootRouter(deps: RootRouterDeps) {
   const rootRouter = new Hono<SessionEnv>();
 
   rootRouter.route("/", createRootIdentitiesRoute(deps));
+
+  rootRouter.route("/", createRootOrganizationsRoute(deps));
 
   return rootRouter;
 }

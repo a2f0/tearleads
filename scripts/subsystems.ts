@@ -302,7 +302,7 @@ export const subsystems: readonly Subsystem[] = [
     name: "Root Console Client",
     package: "client-sdk",
     responsibility:
-      "Platform-operator identity lookups for the root console, gated locally on the session's server-reported root flag.",
+      "Root-only identity, organization, roster, and billing lookups, gated by the session's server-reported root flag.",
     seam: "tearleads.root facade; workflows/root",
     paths: [`${sdk}/workflows/root/`, `${sdk}/client/root/`],
   },
@@ -469,7 +469,7 @@ export const subsystems: readonly Subsystem[] = [
     name: "Root Console",
     package: "app",
     responsibility:
-      "The root mini-app for platform operators: identity listing, identity detail with live sessions, and organization membership with billing standing. Offered only to sessions the server reports as root.",
+      "The root mini-app: identity and organization directories, live sessions, rosters, and detailed billing/history. Offered only to sessions the server reports as root.",
     seam: "mini-apps/root",
     paths: [`${app}/mini-apps/root/`],
   },

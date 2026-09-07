@@ -1,3 +1,4 @@
+import "../../../test/helpers/mswServer";
 import { afterEach, expect, spyOn, test } from "bun:test";
 import type { Tearleads } from "@tearleads/client-sdk";
 import { generateSigningSeedAndKeyPair } from "@tearleads/crypto";
@@ -14,7 +15,7 @@ import {
   IdentityManagerTestRuntime,
   TestWebSocket,
 } from "../../../test/helpers/identityManagerTestRuntime";
-import { ROOT_TEST_IDENTITIES } from "../../../test/helpers/mswServer";
+import { ROOT_TEST_IDENTITIES } from "../../../test/helpers/rootConsoleFixtures";
 import { Root } from "./Root";
 
 const TEST_HOST_CONFIG = createIdentityManagerHostConfig();
@@ -133,6 +134,68 @@ test("the root console lists identities and opens their detail", async () => {
     await waitFor(() => {
       expect(view.getByRole("table", { name: "Identities" })).toBeTruthy();
     });
+  } finally {
+    restore();
+  }
+});
+
+test("operators browse organizations, inspect invoices, and traverse both directions", async () => {
+  const { restore, view } = await renderRootWithSession(true);
+  try {
+    fireEvent.click(view.getByRole("button", { name: "Organizations" }));
+    const list = await view.findByRole("table", { name: "Organizations" });
+    const organization = await within(list).findByText("Root Test Org");
+    fireEvent.click(organization);
+    const billing = await view.findByRole("table", {
+      name: "Organization billing",
+    });
+    expect(within(billing).getByText("cus_test")).toBeTruthy();
+    expect(view.getByRole("table", { name: "Stripe billing" })).toBeTruthy();
+    const history = view.getByText(/INVOICE_PAID/);
+    fireEvent.click(history);
+    expect(
+      view.getByRole("table", { name: "Billing event event-test" }),
+    ).toBeTruthy();
+    expect(view.getByText(/60[.,]00/)).toBeTruthy();
+    const roster = await view.findByRole("table", {
+      name: "Organization identities",
+    });
+    const fingerprint = ROOT_TEST_IDENTITIES[1]?.signingKeyFingerprint;
+    if (!fingerprint) throw new Error("Expected member fingerprint");
+    fireEvent.click(
+      await within(roster).findByRole("button", {
+        name: `Open identity ${fingerprint}`,
+      }),
+    );
+    await view.findByRole("table", { name: "Identity" });
+    fireEvent.click(view.getByRole("button", { name: "Back" }));
+    await view.findByRole("table", { name: "Organization" });
+    const refreshedRoster = await view.findByRole("table", {
+      name: "Organization identities",
+    });
+    fireEvent.click(await within(refreshedRoster).findByTitle(fingerprint));
+    await view.findByRole("table", { name: "Identity" });
+    fireEvent.click(await view.findByText("Root Test Org (default)"));
+    await view.findByRole("table", { name: "Organization billing" });
+  } finally {
+    restore();
+  }
+});
+
+test("organization search handles empty results and restores the directory", async () => {
+  const { restore, view } = await renderRootWithSession(true);
+  try {
+    fireEvent.click(view.getByRole("button", { name: "Organizations" }));
+    await view.findByText("Root Test Org");
+    const input = view.getByRole("textbox", { name: "Search organizations" });
+    fireEvent.change(input, { target: { value: "missing" } });
+    const form = input.closest("form");
+    if (!form) throw new Error("Expected search form");
+    fireEvent.submit(form);
+    await view.findByText("No organizations found.");
+    fireEvent.change(input, { target: { value: "Root Test" } });
+    fireEvent.submit(form);
+    await view.findByText("Root Test Org");
   } finally {
     restore();
   }

@@ -14,10 +14,13 @@ import { useCryptoSession } from "../../providers/crypto/CryptoSessionProvider";
 import "./Root.css";
 import { IdentitiesView } from "./identities/IdentitiesView";
 import { IdentityDetailView } from "./identities/IdentityDetailView";
+import { OrganizationDetailView } from "./organizations/OrganizationDetailView";
+import { OrganizationsView } from "./organizations/OrganizationsView";
 import { RootMenu } from "./RootMenu";
 import { useRootSidebarPanel } from "./RootSidebar";
 import {
   IDENTITIES_ROOT_ROUTE,
+  ORGANIZATIONS_ROOT_ROUTE,
   type RootRoute,
   type RootView,
   rootRouteForView,
@@ -67,21 +70,66 @@ function RootContent({
     [setRoute],
   );
   const openIdentity = useCallback(
-    (userId: string) => setRoute({ userId, view: "identities" }),
-    [setRoute],
+    (userId: string) =>
+      setRoute({
+        userId,
+        view: "identities",
+        ...(route.view === "organizations" && route.organizationId
+          ? { returnOrganizationId: route.organizationId }
+          : {}),
+      }),
+    [route, setRoute],
   );
   // Leaving the detail replaces the history entry rather than pushing the
   // list again, so the browser's Back does not reopen the detail just left.
   const closeIdentity = useCallback(
-    () => setRoute(IDENTITIES_ROOT_ROUTE, { replace: true }),
+    () =>
+      setRoute(
+        route.view === "identities" && route.returnOrganizationId
+          ? {
+              view: "organizations",
+              organizationId: route.returnOrganizationId,
+            }
+          : IDENTITIES_ROOT_ROUTE,
+        { replace: true },
+      ),
+    [route, setRoute],
+  );
+
+  const openOrganization = useCallback(
+    (organizationId: string) =>
+      setRoute({ view: "organizations", organizationId }),
+    [setRoute],
+  );
+  const closeOrganization = useCallback(
+    () => setRoute(ORGANIZATIONS_ROOT_ROUTE, { replace: true }),
     [setRoute],
   );
 
   if (route.view === "menu") {
     return <RootMenu setView={setView} />;
   }
+  if (route.view === "organizations") {
+    return route.organizationId === null ? (
+      <OrganizationsView onSelectOrganization={openOrganization} />
+    ) : (
+      <OrganizationDetailView
+        key={route.organizationId}
+        organizationId={route.organizationId}
+        onBack={closeOrganization}
+        onSelectIdentity={openIdentity}
+      />
+    );
+  }
   if (route.userId !== null) {
-    return <IdentityDetailView onBack={closeIdentity} userId={route.userId} />;
+    return (
+      <IdentityDetailView
+        key={route.userId}
+        onBack={closeIdentity}
+        userId={route.userId}
+        onSelectOrganization={openOrganization}
+      />
+    );
   }
   return <IdentitiesView onSelectIdentity={openIdentity} />;
 }
