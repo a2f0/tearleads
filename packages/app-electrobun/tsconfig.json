@@ -1,5 +1,5 @@
 {
-  "extends": ["../../tsconfig.base.json", "./.hutch/devkit/tsconfig.json"],
+  "extends": ["./.hutch/devkit/tsconfig.json", "../../tsconfig.base.json"],
   "compilerOptions": {
     "lib": ["ESNext", "DOM"],
     "ignoreDeprecations": "6.0",
