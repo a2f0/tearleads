@@ -226,10 +226,6 @@
       "lines": 464,
       "bytes": 21157
     },
-    "packages/app/src/mini-apps/identity-manager/IdentityManager.test.tsx": {
-      "lines": 565,
-      "bytes": 17309
-    },
     "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerModel.ts": {
       "lines": 523,
       "bytes": 16822

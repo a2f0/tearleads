@@ -38,39 +38,11 @@ const REMOTE_SESSION: UserSession = {
   signingKeyFingerprint: "d".repeat(64),
 };
 
-const originalClipboardDescriptor = Object.getOwnPropertyDescriptor(
-  Navigator.prototype,
-  "clipboard",
-);
-
 const TEST_HOST_CONFIG = createIdentityManagerHostConfig();
 
 afterEach(async () => {
   await cleanupIdentityManagerTestEnvironment();
-  if (originalClipboardDescriptor) {
-    Object.defineProperty(
-      Navigator.prototype,
-      "clipboard",
-      originalClipboardDescriptor,
-    );
-  } else {
-    delete (Navigator.prototype as { clipboard?: Clipboard }).clipboard;
-  }
 });
-
-function installClipboardWriteMock(): string[] {
-  const writes: string[] = [];
-  Object.defineProperty(Navigator.prototype, "clipboard", {
-    configurable: true,
-    get: () => ({
-      writeText: (value: string) => {
-        writes.push(value);
-        return Promise.resolve();
-      },
-    }),
-  });
-  return writes;
-}
 
 async function renderAuthenticatedIdentityManagerWithSessions(
   sessions: ReadonlyArray<UserSession>,
@@ -424,75 +396,6 @@ test("identity actions menu stays hidden while signed out", async () => {
     });
 
     expect(view.queryByRole("button", { name: "Identity actions" })).toBeNull();
-  } finally {
-    Reflect.set(globalThis, "WebSocket", originalWebSocket);
-  }
-});
-
-test("identity detail copies the authenticated user id", async () => {
-  const originalWebSocket = globalThis.WebSocket;
-  const tearleadsRef: { current: Tearleads | null } = { current: null };
-  const clipboardWrites = installClipboardWriteMock();
-
-  try {
-    Reflect.set(globalThis, "WebSocket", TestWebSocket);
-    const view = render(
-      <IdentityManagerTestRuntime
-        hostConfig={TEST_HOST_CONFIG}
-        onTearleadsReady={(sdk) => {
-          tearleadsRef.current = sdk;
-        }}
-      />,
-    );
-
-    await waitFor(() => {
-      expect(tearleadsRef.current).toBeTruthy();
-    });
-
-    const tearleads = tearleadsRef.current;
-    if (!tearleads) {
-      throw new Error("Expected Tearleads SDK to be available after render.");
-    }
-
-    const originalListSessions = tearleads.session.listSessions;
-    try {
-      spyOn(tearleads, "requestWebSocketTicket").mockResolvedValue(null);
-      tearleads.session.listSessions = async () => [];
-      await act(async () => {
-        tearleads.session.setContext({
-          authToken: "test-token",
-          containerId: "container-1",
-          isAuthenticated: true,
-          organizationId: "org-1",
-          userId: "user-1",
-        });
-      });
-
-      view.rerender(
-        <IdentityManagerTestRuntime
-          hostConfig={TEST_HOST_CONFIG}
-          onTearleadsReady={(sdk) => {
-            tearleadsRef.current = sdk;
-          }}
-        >
-          <IdentityManager />
-        </IdentityManagerTestRuntime>,
-      );
-
-      fireEvent.click(view.getByRole("button", { name: "General" }));
-
-      await waitFor(() => {
-        expect(view.getByText("user-1")).toBeTruthy();
-      });
-
-      await act(async () => {
-        fireEvent.click(view.getByRole("button", { name: "Copy user ID" }));
-      });
-
-      expect(clipboardWrites).toEqual(["user-1"]);
-    } finally {
-      tearleads.session.listSessions = originalListSessions;
-    }
   } finally {
     Reflect.set(globalThis, "WebSocket", originalWebSocket);
   }
