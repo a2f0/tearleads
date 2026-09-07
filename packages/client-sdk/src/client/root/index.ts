@@ -9,7 +9,10 @@ import {
   type RootIdentityOrganization,
   type RootRequestOutcome,
 } from "../../workflows/root";
-import type { WorkflowRuntimeAuthInput } from "../../workflows/runtimeInput";
+import type {
+  WorkflowRuntimeAuthInput,
+  WorkflowRuntimeCryptoInput,
+} from "../../workflows/runtimeInput";
 
 export type {
   RootIdentitiesPage,
@@ -37,16 +40,18 @@ export interface Root {
 }
 
 /**
- * What the facade needs from the runtime: the session-authority generation,
- * which advances on login, logout, and identity changes, and the current auth
- * snapshot plus api client. Narrower than the full runtime so tests can drive
- * it with a fake.
+ * What the facade needs from the runtime: the session-authority generation
+ * (advanced by login, logout, and session context changes), the signing
+ * identity (which can change or vanish without touching the session), and the
+ * current auth snapshot plus api client. Narrower than the full runtime so
+ * tests can drive it with a fake.
  */
 export interface RootRuntime {
   readonly sessionGeneration: number;
   workflowInput(): {
     readonly apiClient: RootIdentitiesApi;
     readonly auth: WorkflowRuntimeAuthInput;
+    readonly crypto: Pick<WorkflowRuntimeCryptoInput, "signingFingerprint">;
   };
 }
 
@@ -71,8 +76,10 @@ export function createRoot(runtimeService: RootRuntime): Root {
   };
 
   // Operator data must never surface into a session other than the one that
-  // asked for it. A logout or identity switch while a request is in flight
-  // advances the generation, so a late reply is dropped instead of returned.
+  // asked for it. A logout or session change advances the generation, but a
+  // key-pair swap or destruction leaves it alone, so the signing fingerprint
+  // is captured too; if either moved while a request was in flight, the late
+  // reply is dropped instead of returned.
   const guarded = async <Data>(
     request: (api: RootIdentitiesApi) => Promise<RootRequestOutcome<Data>>,
   ): Promise<RootRequestOutcome<Data>> => {
@@ -81,9 +88,13 @@ export function createRoot(runtimeService: RootRuntime): Root {
       return NOT_AVAILABLE;
     }
     const generation = runtimeService.sessionGeneration;
+    const fingerprint =
+      runtimeService.workflowInput().crypto.signingFingerprint;
     const outcome = await request(api);
     if (
       runtimeService.sessionGeneration !== generation ||
+      runtimeService.workflowInput().crypto.signingFingerprint !==
+        fingerprint ||
       activeApi() === null
     ) {
       return SESSION_CHANGED;

@@ -1,4 +1,6 @@
 import { expect, test } from "bun:test";
+import { generateSigningSeedAndKeyPair } from "@tearleads/crypto";
+import { createMemoryBlobStore } from "../../data/blobs/memoryBlobStore";
 import { Tearleads } from "../Tearleads";
 
 const ROOT_CONTEXT = {
@@ -83,6 +85,7 @@ function createDeferredRootRuntime() {
       userId: "user-root",
     },
     sessionGeneration: 1,
+    signingFingerprint: "f".repeat(64) as string | null,
   };
   const runtime: RootRuntime = {
     get sessionGeneration() {
@@ -99,6 +102,7 @@ function createDeferredRootRuntime() {
         },
       },
       auth: state.auth,
+      crypto: { signingFingerprint: state.signingFingerprint },
     }),
   };
   const page: RootIdentitiesResponse = { identities: [], nextCursor: null };
@@ -144,6 +148,80 @@ test("a lookup that completes after an identity switch is dropped", async () => 
   state.auth = { ...state.auth, userId: "user-other-root" };
   state.sessionGeneration += 1;
   resolveListing();
+
+  const outcome = await pending;
+  expect(outcome.ok).toBe(false);
+});
+
+test("a lookup that completes after the signing identity changes is dropped", async () => {
+  const { resolveListing, root, state } = createDeferredRootRuntime();
+
+  const pending = root.listIdentities();
+  // Swapping key pairs does not touch the session generation, so the guard
+  // must notice the fingerprint moving on its own.
+  state.signingFingerprint = "0".repeat(64);
+  resolveListing();
+
+  const outcome = await pending;
+  expect(outcome.ok).toBe(false);
+});
+
+test("a lookup that completes after the identity is destroyed is dropped", async () => {
+  const { resolveListing, root, state } = createDeferredRootRuntime();
+
+  const pending = root.listIdentities();
+  state.signingFingerprint = null;
+  resolveListing();
+
+  const outcome = await pending;
+  expect(outcome.ok).toBe(false);
+});
+
+test("a real SDK key-pair swap drops an in-flight lookup", async () => {
+  const sdk = new Tearleads({
+    blobStoreFactory: () => createMemoryBlobStore(),
+  });
+  await sdk.identity.setKeyPairs({
+    encapsulationKeyPair: null,
+    signingFingerprint: "1".repeat(64),
+    signingKeyPair: generateSigningSeedAndKeyPair(),
+  });
+  sdk.session.setContext(ROOT_CONTEXT);
+  let resolveListing: (result: RequestResult<RootIdentitiesResponse>) => void =
+    () => undefined;
+  const listing = new Promise<RequestResult<RootIdentitiesResponse>>(
+    (resolve) => {
+      resolveListing = resolve;
+    },
+  );
+  // Adapter over the real SDK: session and identity come from the live
+  // runtime, only the network call is faked so it can be held open.
+  const root = createRoot({
+    get sessionGeneration() {
+      return 0;
+    },
+    workflowInput: () => ({
+      apiClient: {
+        getRootIdentityResult: async () => {
+          throw new Error("not used");
+        },
+        listRootIdentitiesResult: () => listing,
+        listRootIdentityOrganizationsResult: async () => {
+          throw new Error("not used");
+        },
+      },
+      auth: sdk.runtime.input().auth,
+      crypto: sdk.runtime.input().crypto,
+    }),
+  });
+
+  const pending = root.listIdentities();
+  await sdk.identity.setKeyPairs({
+    encapsulationKeyPair: null,
+    signingFingerprint: "2".repeat(64),
+    signingKeyPair: generateSigningSeedAndKeyPair(),
+  });
+  resolveListing({ data: { identities: [], nextCursor: null }, ok: true });
 
   const outcome = await pending;
   expect(outcome.ok).toBe(false);
