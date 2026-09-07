@@ -298,14 +298,13 @@ export function createLazyEncryptedBlobStore(
   function getStore(): Promise<BlobStore> {
     if (!innerStorePromise) {
       innerStorePromise = (async () => {
-        try {
-          const key = await keyProvider();
-          return createEncryptedBlobStore(namespace, { key });
-        } catch (error) {
-          innerStorePromise = null;
-          throw error;
-        }
-      })();
+        const key = await keyProvider();
+        return createEncryptedBlobStore(namespace, { key });
+      })().catch((error: unknown) => {
+        // Run cleanup after assignment, even if keyProvider throws synchronously.
+        innerStorePromise = null;
+        throw error;
+      });
     }
 
     return innerStorePromise;

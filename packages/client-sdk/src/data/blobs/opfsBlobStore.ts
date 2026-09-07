@@ -94,7 +94,10 @@ class OpfsBlobStore implements BlobStore {
 
   private async getDirectory() {
     if (!this.directoryPromise) {
-      this.directoryPromise = this.createDirectory();
+      this.directoryPromise = this.createDirectory().catch((error: unknown) => {
+        this.directoryPromise = null;
+        throw error;
+      });
     }
 
     return this.directoryPromise;
