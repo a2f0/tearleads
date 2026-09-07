@@ -66,7 +66,7 @@ function useAutoProvisionIdentity(enabled: boolean): void {
     // generateKey() guards itself against re-entrancy, so a transient re-run
     // (e.g. StrictMode's double-invoke) is a no-op while generation is in
     // flight; once a key exists the gate above stops it firing again.
-    generateKey();
+    void generateKey();
   }, [
     enabled,
     features.autoGenerateIdentity,

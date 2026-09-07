@@ -15,6 +15,9 @@ Run the smallest command that matches the handoff risk:
   (both also inside `check:fast`; both need the mise-pinned Java/TLA+ tools).
 - `bun run check:affected`: `check:fast`, TypeScript, and affected Turbo tests.
 - `bun run check`: `check:fast`, TypeScript, and the full Turbo test suite.
+- `bun run lint:biome:promises`: production promise checks for API, SDK, app,
+  and crypto. Included in `lint:biome` and `check:fast`; its separate
+  `biome.promises.jsonc` keeps type scanning out of formatting hooks.
 - `bun run lint:knip:production`: production-only dependency and source reachability.
 - `bun run test:knip:production`: production entrypoint regression fixtures.
   Run `bun install` to apply the pinned dependency patch in `patches/`.
