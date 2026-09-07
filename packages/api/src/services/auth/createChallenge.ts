@@ -1,8 +1,10 @@
+import { users } from "@tearleads/api-shared/schema";
 import {
   bytesToHex,
   CHALLENGE_TTL_SECONDS,
   generateChallenge,
 } from "@tearleads/crypto";
+import { eq } from "drizzle-orm";
 import type { ApiServiceRuntime } from "../runtime";
 
 interface CreateChallengeInput {
@@ -28,8 +30,12 @@ export async function createChallenge(
   runtime: ApiServiceRuntime,
   input: CreateChallengeInput,
 ): Promise<CreateChallengeResult> {
-  const storedKey = await runtime.keyValueStore.get(input.fingerprint);
-  if (!storedKey) {
+  const [user] = await runtime.db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.fingerprint, input.fingerprint))
+    .limit(1);
+  if (!user) {
     throw new CreateChallengeError(
       "Unknown fingerprint",
       "unknown_fingerprint",

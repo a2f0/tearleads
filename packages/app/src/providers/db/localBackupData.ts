@@ -4,6 +4,7 @@ import {
   runSerializedSqlMutation,
 } from "@tearleads/client-sdk/sqlite";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { validateBackupSchema } from "./backupSchemaValidation";
 import {
   preflightSecurityAnchorRestore,
   quoteSqlIdentifier,
@@ -153,7 +154,7 @@ function summarizeBackup(input: {
   };
 }
 
-export async function createBackupPayload({
+async function readBackupPayload({
   blobStore,
   databaseId,
   execSql,
@@ -194,6 +195,24 @@ export async function createBackupPayload({
     summary,
     version: BACKUP_FORMAT_VERSION,
   };
+}
+
+export async function createBackupPayload(
+  input: CreateBackupPayloadInput,
+): Promise<BackupPayload> {
+  return runSerializedSqlMutation(input.execSql, async (execSql) => {
+    await execSql("BEGIN IMMEDIATE");
+    try {
+      // Keep tables, attachment references, and bytes in one snapshot while
+      // sync and purge mutations wait on the shared connection lock.
+      const payload = await readBackupPayload({ ...input, execSql });
+      await execSql("COMMIT");
+      return payload;
+    } catch (error) {
+      await execSql("ROLLBACK").catch(() => undefined);
+      throw error;
+    }
+  });
 }
 
 async function rollbackBlobWrites(
@@ -243,6 +262,7 @@ export async function restoreBackupPayload({
   onProgress,
   payload,
 }: RestoreBackupPayloadInput): Promise<BackupSummary> {
+  validateBackupSchema(payload.database);
   return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
     await preflightSecurityAnchorRestore({
       execSql: lockedExecSql,

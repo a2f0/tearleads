@@ -45,17 +45,17 @@ export function normalizeCanonicalJsonValue(
     throwVerification("invalid_shape", `${label} must be canonical JSON`);
   }
 
-  const normalized: Record<string, KeyingCanonicalJson> = {};
-
-  for (const key of Object.keys(value).sort(compareCanonicalStrings)) {
-    const item = value[key];
-    if (item === undefined) {
-      throwVerification("invalid_shape", `${label}.${key} is undefined`);
-    }
-    normalized[key] = normalizeCanonicalJsonValue(item, `${label}.${key}`);
-  }
-
-  return normalized;
+  return Object.fromEntries(
+    Object.keys(value)
+      .sort(compareCanonicalStrings)
+      .map((key) => {
+        const item = value[key];
+        if (item === undefined) {
+          throwVerification("invalid_shape", `${label}.${key} is undefined`);
+        }
+        return [key, normalizeCanonicalJsonValue(item, `${label}.${key}`)];
+      }),
+  );
 }
 
 function stringifyNormalizedCanonicalJson(value: KeyingCanonicalJson): string {
