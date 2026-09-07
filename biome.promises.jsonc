@@ -1,7 +1,12 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.5.12/schema.json",
-  "extends": ["./biome.jsonc"],
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
   "files": {
+    "ignoreUnknown": true,
     "includes": [
       "packages/{api,app,client-sdk,crypto}/src/**",
       "!**/*.test.{ts,tsx}",
@@ -18,6 +23,7 @@
   },
   "linter": {
     "rules": {
+      "recommended": false,
       "nursery": {
         "noFloatingPromises": "error"
       }
