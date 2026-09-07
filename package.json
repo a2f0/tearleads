@@ -45,7 +45,7 @@
     "lint:architecture": "bun scripts/lintArchitecture.ts",
     "lint:binary-files": "sh scripts/checks/checkBinaryFiles.sh",
     "lint:biome": "biome check --error-on-warnings && bun scripts/checks/checkRuntimeScopedMemoDependencies.ts && bun run lint:biome:promises",
-    "lint:biome:promises": "biome lint --config-path biome.promises.jsonc --error-on-warnings packages/api/src packages/app/src packages/client-sdk/src packages/crypto/src",
+    "lint:biome:promises": "bun run --cwd packages/client-sdk build && biome lint --config-path biome.promises.jsonc --only=lint/nursery/noFloatingPromises --error-on-warnings packages/api/src packages/app/src packages/client-sdk/src packages/crypto/src",
     "lint:branch-name": "bun scripts/lintBranchName.ts",
     "lint:commit-msg": "sh -lc 'NPX=$(command -v npx); \"$NPX\" --yes --package @commitlint/cli --package @commitlint/config-conventional commitlint --config commitlint.config.mts --edit \"$1\"' --",
     "lint:files": "ls-lint",
