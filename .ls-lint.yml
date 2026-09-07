@@ -68,7 +68,7 @@ ls:
     .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-2
 
   packages/app/src/mini-apps/root/*:
-    .dir: regex:(identities|organizations)
+    .dir: regex:(identities|organizations|reports)
     .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-10
     .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-6
     .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-2

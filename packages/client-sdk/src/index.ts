@@ -484,12 +484,16 @@ export type {
   RootRequestOutcome,
 } from "./workflows/root";
 export {
+  listRootDataUsageReport,
   listRootIdentities,
   listRootIdentityOrganizations,
   listRootOrganizationIdentities,
   listRootOrganizations,
   loadRootIdentity,
   loadRootOrganization,
+  loadRootOrganizationDataUsage,
+  type RootDataUsageApi,
+  type RootDataUsageReportPage,
   type RootOrganization,
   type RootOrganizationDetail,
   type RootOrganizationIdentitiesPage,

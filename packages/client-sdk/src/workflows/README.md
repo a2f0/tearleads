@@ -230,3 +230,9 @@ For example, the SDK exports `workflows/organizations`, while the app can keep
 `bun run lint:architecture` guards this taxonomy by rejecting product window
 vocabulary in SDK TypeScript source and by checking that this table lists every
 workflow facade aggregated by the root SDK entry point exactly once.
+
+Root exposes `loadOrganizationDataUsage(organizationId)` for the synced document
+and blob breakdown, and `listDataUsageReport({ search, cursor, limit })` for
+paginated usage by organization. Both enforce the same session lifecycle gate
+as other Root lookups. Report rows include zero-usage organizations; each page
+is read on demand and does not represent a frozen platform-wide snapshot.

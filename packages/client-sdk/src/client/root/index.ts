@@ -1,10 +1,15 @@
+import type { OrganizationDataUsageResponse } from "@tearleads/validators/response";
 import {
+  listRootDataUsageReport,
   listRootIdentities,
   listRootIdentityOrganizations,
   listRootOrganizationIdentities,
   listRootOrganizations,
   loadRootIdentity,
   loadRootOrganization,
+  loadRootOrganizationDataUsage,
+  type RootDataUsageApi,
+  type RootDataUsageReportPage,
   type RootIdentitiesApi,
   type RootIdentitiesPage,
   type RootIdentitiesQueryInput,
@@ -38,9 +43,15 @@ export type {
  * is authenticated and the server reported it as root at login; the API still
  * enforces root access on its own, so this gate only avoids doomed requests.
  */
-type RootApi = RootIdentitiesApi & RootOrganizationsApi;
+type RootApi = RootIdentitiesApi & RootOrganizationsApi & RootDataUsageApi;
 
 export interface Root {
+  loadOrganizationDataUsage(
+    organizationId: string,
+  ): Promise<RootRequestOutcome<OrganizationDataUsageResponse>>;
+  listDataUsageReport(
+    query?: RootOrganizationsQueryInput,
+  ): Promise<RootRequestOutcome<RootDataUsageReportPage>>;
   listOrganizations(
     query?: RootOrganizationsQueryInput,
   ): Promise<RootRequestOutcome<RootOrganizationsPage>>;
@@ -183,6 +194,10 @@ export function createRoot(runtimeService: RootRuntime): Root {
     get isAvailable() {
       return activeApi() !== null;
     },
+    loadOrganizationDataUsage: (organizationId) =>
+      guarded((api) => loadRootOrganizationDataUsage(api, organizationId)),
+    listDataUsageReport: (query) =>
+      guarded((api) => listRootDataUsageReport(api, query)),
     listOrganizations: (query) =>
       guarded((api) => listRootOrganizations(api, query)),
     loadOrganization: (organizationId) =>

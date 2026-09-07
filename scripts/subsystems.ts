@@ -133,7 +133,7 @@ export const subsystems: readonly Subsystem[] = [
     name: "Root Administration",
     package: "api",
     responsibility:
-      "Internal staff/support surface: the root-identity gate and read-only lookups of identities, activity, sessions, organizations, and billing.",
+      "Root-gated, read-only staff lookups of identities, activity, sessions, organizations, billing, and synced data usage.",
     seam: "routes/root via createRootRouter; services/root facade; middleware/root.ts",
     paths: [
       `${api}/routes/root/`,
@@ -302,7 +302,7 @@ export const subsystems: readonly Subsystem[] = [
     name: "Root Console Client",
     package: "client-sdk",
     responsibility:
-      "Root-only identity, organization, roster, and billing lookups, gated by the session's server-reported root flag.",
+      "Root-only identity, organization, roster, billing, and data usage lookups, gated by the session's server-reported root flag.",
     seam: "tearleads.root facade; workflows/root",
     paths: [`${sdk}/workflows/root/`, `${sdk}/client/root/`],
   },
@@ -469,7 +469,7 @@ export const subsystems: readonly Subsystem[] = [
     name: "Root Console",
     package: "app",
     responsibility:
-      "The root mini-app: identity and organization directories, live sessions, rosters, and detailed billing/history. Offered only to sessions the server reports as root.",
+      "The root mini-app: identity and organization directories, live sessions, rosters, tabbed billing/history and data usage, and organization usage reports. Offered only to sessions the server reports as root.",
     seam: "mini-apps/root",
     paths: [`${app}/mini-apps/root/`],
   },

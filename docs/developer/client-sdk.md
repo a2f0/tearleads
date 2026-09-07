@@ -613,3 +613,9 @@ bun run --filter='@tearleads/client-sdk' build
   workflow, or store package facades directly.
 - Product window vocabulary such as `OrgManager` and `mini-app` stays in
   `packages/app`; SDK source uses platform workflow names.
+
+Root exposes `loadOrganizationDataUsage(organizationId)` for the synced document
+and blob breakdown, and `listDataUsageReport({ search, cursor, limit })` for
+paginated usage by organization. Both enforce the same session lifecycle gate
+as other Root lookups. Report rows include zero-usage organizations; each page
+is read on demand and does not represent a frozen platform-wide snapshot.

@@ -1,6 +1,9 @@
 import { z } from "zod";
+import { organizationDataUsageResponseRuntimeRefinements } from "../organizationDataUsageRefinements";
 import {
   ErrorResponseSchema,
+  OrganizationDataUsageResponseSchema,
+  RootDataUsageReportResponseSchema,
   RootOrganizationDetailResponseSchema,
   RootOrganizationIdentitiesResponseSchema,
   RootOrganizationsResponseSchema,
@@ -71,4 +74,33 @@ export const listRootOrganizationIdentitiesOperation = defineJsonOperation({
   path: "/root/organizations/{organizationId}/identities",
   query: RootOrganizationPageQuerySchema,
   responses: { 200: RootOrganizationIdentitiesResponseSchema },
+});
+
+export const getRootOrganizationDataUsageOperation = defineJsonOperation({
+  auth: "session",
+  failureResponses,
+  failureStatuses: [400, 401, 403, 404, 500],
+  id: "root.organizations.dataUsage.get",
+  method: "GET",
+  params: RootOrganizationParamsSchema,
+  path: "/root/organizations/{organizationId}/data-usage",
+  responses: { 200: OrganizationDataUsageResponseSchema },
+  runtimeRefinements: organizationDataUsageResponseRuntimeRefinements,
+});
+export const listRootDataUsageReportOperation = defineJsonOperation({
+  auth: "session",
+  failureResponses: {
+    400: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
+    403: ErrorResponseSchema,
+    500: ErrorResponseSchema,
+  },
+  failureStatuses: [400, 401, 403, 500],
+  id: "root.reports.dataUsage.list",
+  method: "GET",
+  params: z.strictObject({}),
+  path: "/root/reports/data-usage",
+  query: RootOrganizationsQuerySchema,
+  responses: { 200: RootDataUsageReportResponseSchema },
+  runtimeRefinements: organizationDataUsageResponseRuntimeRefinements,
 });

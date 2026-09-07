@@ -38,6 +38,8 @@ function createRuntime() {
       },
       crypto: { signingFingerprint: "f".repeat(64) },
       apiClient: {
+        getRootOrganizationDataUsageResult: failAfterRelease,
+        listRootDataUsageReportResult: failAfterRelease,
         getRootIdentityResult: failAfterRelease,
         listRootIdentitiesResult: failAfterRelease,
         listRootIdentityOrganizationsResult: failAfterRelease,
@@ -59,14 +61,24 @@ function createRuntime() {
 }
 
 test("every organization lookup is locally gated and drops replies after demotion", async () => {
-  for (const lookup of ["list", "detail", "identities"] as const) {
+  for (const lookup of [
+    "list",
+    "detail",
+    "identities",
+    "usage",
+    "report",
+  ] as const) {
     const runtime = createRuntime();
     const request = () =>
       lookup === "list"
         ? runtime.root.listOrganizations()
         : lookup === "detail"
           ? runtime.root.loadOrganization("org")
-          : runtime.root.listOrganizationIdentities("org");
+          : lookup === "usage"
+            ? runtime.root.loadOrganizationDataUsage("org")
+            : lookup === "report"
+              ? runtime.root.listDataUsageReport()
+              : runtime.root.listOrganizationIdentities("org");
     const pending = request();
     expect(runtime.calls()).toBe(1);
     runtime.demote();

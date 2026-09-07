@@ -18,6 +18,7 @@ import { OrganizationDetailView } from "./organizations/OrganizationDetailView";
 import { OrganizationsView } from "./organizations/OrganizationsView";
 import { RootMenu } from "./RootMenu";
 import { useRootSidebarPanel } from "./RootSidebar";
+import { DataUsageReportView } from "./reports/DataUsageReportView";
 import {
   IDENTITIES_ROOT_ROUTE,
   ORGANIZATIONS_ROOT_ROUTE,
@@ -89,6 +90,7 @@ function RootContent({
           ? {
               view: "organizations",
               organizationId: route.returnOrganizationId,
+              tab: "identities",
             }
           : IDENTITIES_ROOT_ROUTE,
         { replace: true },
@@ -109,6 +111,15 @@ function RootContent({
   if (route.view === "menu") {
     return <RootMenu setView={setView} />;
   }
+  if (route.view === "reports") {
+    return (
+      <DataUsageReportView
+        onSelectOrganization={(organizationId) =>
+          setRoute({ view: "organizations", organizationId, tab: "data-usage" })
+        }
+      />
+    );
+  }
   if (route.view === "organizations") {
     return route.organizationId === null ? (
       <OrganizationsView onSelectOrganization={openOrganization} />
@@ -116,6 +127,8 @@ function RootContent({
       <OrganizationDetailView
         key={route.organizationId}
         organizationId={route.organizationId}
+        activeTab={route.tab ?? "overview"}
+        onTabChange={(tab) => setRoute({ ...route, tab }, { replace: true })}
         onBack={closeOrganization}
         onSelectIdentity={openIdentity}
       />

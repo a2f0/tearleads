@@ -17,8 +17,7 @@ import {
   type OrganizationDocumentUsageCategory,
   type OrganizationDocumentUsageCategoryBreakdown,
 } from "@tearleads/validators/response";
-import { sql } from "drizzle-orm";
-import { uuidValue } from "../../utils/sqlDialect";
+import { inArray, sql } from "drizzle-orm";
 import { requireDirectOrganizationAccess } from "./access";
 
 // Fixed render order for the document breakdown. Built-in/system artifacts the
@@ -30,11 +29,13 @@ const DOCUMENT_USAGE_CATEGORY_ORDER: readonly OrganizationDocumentUsageCategory[
   ORGANIZATION_DOCUMENT_USAGE_CATEGORIES;
 
 interface OrganizationBlobUsageRow {
+  organizationId: string;
   blobByteLength: unknown;
   blobCount: unknown;
 }
 
 interface OrganizationDocumentCategoryRow {
+  organizationId: string;
   byteLength: unknown;
   category: unknown;
   documentCount: unknown;
@@ -91,43 +92,41 @@ function sumUsageField(
   return toNonNegativeSafeInteger(total, label);
 }
 
-async function loadOrganizationDataUsageInTransaction(input: {
-  executor: DatabaseSession;
-  organizationId: string;
-  sessionUserId: string;
-}): Promise<OrganizationDataUsageResponse> {
-  await requireDirectOrganizationAccess({
-    executor: input.executor,
-    organizationId: input.organizationId,
-    userId: input.sessionUserId,
-  });
-
+/** Read-only usage projection; callers enforce organization or root access. */
+export async function loadOrganizationsDataUsage(
+  executor: DatabaseSession,
+  organizationIds: readonly string[],
+): Promise<Map<string, OrganizationDataUsageResponse>> {
+  if (organizationIds.length === 0) return new Map();
   // Classify each of the org's documents into exactly one category. The three
   // system categories are recognized by direct joins: container metadata
   // documents (one per container), per-member roster profile documents, and the
   // organization's own public profile document. Anything left over is a user
   // document. Categories partition the document set, so summing them reproduces
   // the org-wide totals.
-  const categoryResult = await input.executor.execute(sql`
+  const categoryResult = await executor.execute(sql`
     with document_rows as (
       select
+        ${documentContentWriteHeaders.organizationId} as "organizationId",
         ${documentUpdates.id} as "updateId",
         ${documentUpdates.documentId} as "documentId",
         ${documentUpdates.byteLength} as "byteLength"
       from ${documentUpdates}
       inner join ${documentContentWriteHeaders}
         on ${documentContentWriteHeaders.updateId} = ${documentUpdates.id}
-      where ${documentContentWriteHeaders.organizationId} = ${uuidValue(input.organizationId)}
+      where ${inArray(documentContentWriteHeaders.organizationId, [...organizationIds])}
       group by
+        ${documentContentWriteHeaders.organizationId},
         ${documentUpdates.id},
         ${documentUpdates.documentId},
         ${documentUpdates.byteLength}
     ),
     distinct_documents as (
-      select distinct "documentId" from document_rows
+      select distinct "organizationId", "documentId" from document_rows
     ),
     document_categories as (
       select
+        distinct_documents."organizationId" as "organizationId",
         distinct_documents."documentId" as "documentId",
         case
           when ${containerMetadataDocuments.documentId} is not null
@@ -142,17 +141,19 @@ async function loadOrganizationDataUsageInTransaction(input: {
       left join ${containerMetadataDocuments}
         on ${containerMetadataDocuments.documentId} = distinct_documents."documentId"
       left join (
-        select distinct ${organizationRosterEntries.profileDocumentId} as "profileDocumentId"
+        select distinct ${organizationRosterEntries.organizationId} as "organizationId", ${organizationRosterEntries.profileDocumentId} as "profileDocumentId"
         from ${organizationRosterEntries}
-        where ${organizationRosterEntries.organizationId} = ${uuidValue(input.organizationId)}
+        where ${inArray(organizationRosterEntries.organizationId, [...organizationIds])}
           and ${organizationRosterEntries.profileDocumentId} is not null
       ) as roster_profiles
         on roster_profiles."profileDocumentId" = distinct_documents."documentId"
+        and roster_profiles."organizationId" = distinct_documents."organizationId"
       left join ${organizations}
-        on ${organizations.id} = ${uuidValue(input.organizationId)}
+        on ${organizations.id} = distinct_documents."organizationId"
         and ${organizations.profileDocumentId} = distinct_documents."documentId"
     )
     select
+      document_rows."organizationId" as "organizationId",
       document_categories."category" as "category",
       coalesce(sum(document_rows."byteLength"), 0) as "byteLength",
       count(distinct document_rows."documentId") as "documentCount",
@@ -160,30 +161,61 @@ async function loadOrganizationDataUsageInTransaction(input: {
     from document_rows
     inner join document_categories
       on document_categories."documentId" = document_rows."documentId"
-    group by document_categories."category"
+      and document_categories."organizationId" = document_rows."organizationId"
+    group by document_rows."organizationId", document_categories."category"
   `);
 
-  const blobResult = await input.executor.execute(sql`
+  const blobResult = await executor.execute(sql`
     with blob_rows as (
       select distinct
+        ${blobContentWriteHeaders.organizationId} as "organizationId",
         ${blobs.id} as "blobId",
         ${blobs.byteLength} as "byteLength"
       from ${blobs}
       inner join ${blobContentWriteHeaders}
         on ${blobContentWriteHeaders.blobId} = ${blobs.id}
-      where ${blobContentWriteHeaders.organizationId} = ${uuidValue(input.organizationId)}
+      where ${inArray(blobContentWriteHeaders.organizationId, [...organizationIds])}
     )
     select
+      "organizationId",
       coalesce(sum("byteLength"), 0) as "blobByteLength",
       count("blobId") as "blobCount"
     from blob_rows
+    group by "organizationId"
   `);
 
+  const categoryRows = categoryResult.rows.map((row) => {
+    if (!isOrganizationDocumentCategoryRow(row))
+      throw new Error("Invalid document usage row");
+    return row;
+  });
+  const blobRows = blobResult.rows.map((row) => {
+    if (!isOrganizationBlobUsageRow(row))
+      throw new Error("Invalid blob usage row");
+    return row;
+  });
+  return new Map(
+    organizationIds.map((organizationId) => [
+      organizationId,
+      serializeUsage(
+        organizationId,
+        categoryRows.filter((row) => row.organizationId === organizationId),
+        blobRows.find((row) => row.organizationId === organizationId),
+      ),
+    ]),
+  );
+}
+
+function serializeUsage(
+  organizationId: string,
+  categoryRows: OrganizationDocumentCategoryRow[],
+  blobRow: OrganizationBlobUsageRow | undefined,
+): OrganizationDataUsageResponse {
   const usageByCategory = new Map<
     OrganizationDocumentUsageCategory,
     { byteLength: number; documentCount: number; updateCount: number }
   >();
-  for (const row of categoryResult.rows) {
+  for (const row of categoryRows) {
     if (!isOrganizationDocumentCategoryRow(row)) {
       throw new Error("Missing organization data usage row");
     }
@@ -235,19 +267,15 @@ async function loadOrganizationDataUsageInTransaction(input: {
     "documentUpdateCount",
   );
 
-  const blobRow = blobResult.rows[0];
-  if (!isOrganizationBlobUsageRow(blobRow)) {
-    throw new Error("Missing organization data usage row");
-  }
   const blobByteLength = toNonNegativeSafeInteger(
-    blobRow.blobByteLength,
+    blobRow?.blobByteLength ?? 0,
     "blobByteLength",
   );
 
   return {
-    organizationId: input.organizationId,
+    organizationId,
     blobs: {
-      blobCount: toNonNegativeSafeInteger(blobRow.blobCount, "blobCount"),
+      blobCount: toNonNegativeSafeInteger(blobRow?.blobCount ?? 0, "blobCount"),
       byteLength: blobByteLength,
     },
     documents: {
@@ -268,11 +296,16 @@ export async function runGetOrganizationDataUsageWorkflow(
   organizationId: string,
   sessionUserId: string,
 ): Promise<OrganizationDataUsageResponse> {
-  return db.transaction((tx) =>
-    loadOrganizationDataUsageInTransaction({
+  return db.transaction(async (tx) => {
+    await requireDirectOrganizationAccess({
       executor: tx,
       organizationId,
-      sessionUserId,
-    }),
-  );
+      userId: sessionUserId,
+    });
+    const usage = (await loadOrganizationsDataUsage(tx, [organizationId])).get(
+      organizationId,
+    );
+    if (!usage) throw new Error("Missing organization data usage");
+    return usage;
+  });
 }

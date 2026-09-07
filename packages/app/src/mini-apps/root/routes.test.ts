@@ -35,6 +35,9 @@ test("organization routes and identity return paths survive URL round trips", ()
   for (const segments of [
     ["organizations"],
     ["organizations", "org-1"],
+    ["reports"],
+    ["organizations", "org-1", "data-usage"],
+    ["organizations", "org-1", "identities"],
     ["identities", "user-1", "organizations", "org-1"],
   ]) {
     expect(formatRootRouteSegments(parseRootRouteSegments(segments))).toEqual(

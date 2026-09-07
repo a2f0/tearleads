@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, render } from "@testing-library/react";
-import { ORG_MANAGER_LABELS } from "../labels";
 import { DataUsageView } from "./DataUsageView";
+import { DATA_USAGE_LABELS } from "./dataUsageLabels";
 
 afterEach(() => cleanup());
 
@@ -47,8 +47,8 @@ test("usage explains the synced-only zero for a local organization", () => {
     <DataUsageView canSync={false} dataUsage={EMPTY_USAGE} pending={false} />,
   );
 
-  expect(view.getByText(ORG_MANAGER_LABELS.usageDefinition)).toBeTruthy();
-  expect(view.getByText(ORG_MANAGER_LABELS.usageSyncOff)).toBeTruthy();
+  expect(view.getByText(DATA_USAGE_LABELS.usageDefinition)).toBeTruthy();
+  expect(view.getByText(DATA_USAGE_LABELS.usageSyncOff)).toBeTruthy();
   expect(view.getByText("0 documents, 0 updates")).toBeTruthy();
 });
 
@@ -57,5 +57,5 @@ test("usage does not claim sync is off before billing resolves", () => {
     <DataUsageView canSync={null} dataUsage={EMPTY_USAGE} pending={false} />,
   );
 
-  expect(view.queryByText(ORG_MANAGER_LABELS.usageSyncOff)).toBeNull();
+  expect(view.queryByText(DATA_USAGE_LABELS.usageSyncOff)).toBeNull();
 });

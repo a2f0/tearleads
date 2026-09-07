@@ -35,6 +35,7 @@ import {
   getOrganizationReadModelOperation,
   getPrincipalPolicyOperation,
   getRootIdentityOperation,
+  getRootOrganizationDataUsageOperation,
   getRootOrganizationOperation,
   getStripeCheckoutOptionsOperation,
   initiateMultipartBlobStageOperation,
@@ -43,6 +44,7 @@ import {
   listContainerParentLanesOperation,
   listDocumentAttachmentsOperation,
   listOrganizationGroupMembersOperation,
+  listRootDataUsageReportOperation,
   listRootIdentitiesOperation,
   listRootIdentityOrganizationsOperation,
   listRootOrganizationIdentitiesOperation,
@@ -107,6 +109,7 @@ import type {
   OrganizationDataUsageResponse,
   OrganizationReadModelResponse,
   PrincipalPolicyBundleResponse,
+  RootDataUsageReportResponse,
   RootIdentitiesResponse,
   RootIdentityDetailResponse,
   RootIdentityOrganizationsResponse,
@@ -641,6 +644,27 @@ export class ApiClient {
         params: { organizationId },
         query: { cursor },
       },
+      options,
+    );
+  }
+
+  getRootOrganizationDataUsageResult(
+    organizationId: string,
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<OrganizationDataUsageResponse>> {
+    return this.transport.requestResult(
+      getRootOrganizationDataUsageOperation,
+      { params: { organizationId } },
+      options,
+    );
+  }
+  listRootDataUsageReportResult(
+    query: RootOrganizationsQuery = {},
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<RootDataUsageReportResponse>> {
+    return this.transport.requestResult(
+      listRootDataUsageReportOperation,
+      { params: {}, query },
       options,
     );
   }

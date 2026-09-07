@@ -83,7 +83,9 @@ import {
   listRootIdentityOrganizationsOperation,
 } from "./root";
 import {
+  getRootOrganizationDataUsageOperation,
   getRootOrganizationOperation,
+  listRootDataUsageReportOperation,
   listRootOrganizationIdentitiesOperation,
   listRootOrganizationsOperation,
 } from "./rootOrganizations";
@@ -165,6 +167,8 @@ export const protocolOperations: readonly [
   typeof putPrincipalPolicyOperation,
   typeof listRootIdentitiesOperation,
   typeof listRootOrganizationsOperation,
+  typeof getRootOrganizationDataUsageOperation,
+  typeof listRootDataUsageReportOperation,
   typeof getRootOrganizationOperation,
   typeof listRootOrganizationIdentitiesOperation,
   typeof getRootIdentityOperation,
@@ -234,6 +238,8 @@ export const protocolOperations: readonly [
   putPrincipalPolicyOperation,
   listRootIdentitiesOperation,
   listRootOrganizationsOperation,
+  getRootOrganizationDataUsageOperation,
+  listRootDataUsageReportOperation,
   getRootOrganizationOperation,
   listRootOrganizationIdentitiesOperation,
   getRootIdentityOperation,
