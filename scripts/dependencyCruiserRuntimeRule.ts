@@ -15,6 +15,7 @@ export const runtimeDependencyRule = {
     // Other architecture rules still apply to these files.
     pathNot: [
       testFilePattern.source,
+      "TestFixtures\\.[tj]sx?$",
       "\\.d\\.[cm]?ts$",
       "\\.(testFixtures|testUtils)\\.[tj]sx?$",
       "/(test|tests|testFixtures|testUtils)/",

@@ -44,10 +44,10 @@ test("runtime dependency policy covers every lane and preserves test/type import
       );
       await Bun.write(
         join(fixture, `node_modules/${name}/index.d.ts`),
-        "export interface Value { value: number }",
+        "export declare const value: number; export interface Value { value: number }",
       );
     }
-    const expected = [];
+    const expected: string[] = [];
     for (const workspace of workspaceRegistry) {
       const workspacePath = `packages/${workspace.directory}`;
       await Bun.write(
@@ -70,10 +70,15 @@ test("runtime dependency policy covers every lane and preserves test/type import
         "runtime.testUtils.ts": 'import "dev-only";',
         "runtime.testFixtures.ts": 'import "dev-only";',
         "test/helper.ts": 'import "dev-only";',
+        "tests/helper.ts": 'import "dev-only";',
+        "testUtils.ts": 'import "dev-only";',
+        "testFixtures.ts": 'import "dev-only";',
+        "runtimeTestFixtures.ts": 'import "dev-only";',
+        "reexport.ts": 'export type { Value } from "dev-only";',
       })) {
         await Bun.write(join(fixture, workspacePath, "src", file), source);
       }
-      if (workspace.role !== "test-support") {
+      if (!["bob-and-alice", "test-utils"].includes(workspace.directory)) {
         expected.push(
           `${workspacePath}/src/runtime.ts`,
           `${workspacePath}/src/dynamic.ts`,

@@ -39,6 +39,8 @@ test("production roots retain runtime code but reject test-only modules", async 
       "packages/api/src/testOnly.ts": "export const unused = 1;",
       "packages/api/src/consumer.test.ts": 'import "./testOnly";',
       "packages/api/src/helper.testUtils.ts": "export const fixture = 1;",
+      "packages/api/src/runtimeTestFixtures.tsx": "export const fixture = 1;",
+      "packages/api/src/tests/helper.ts": "export const fixture = 1;",
       "packages/client-sdk/package.json": JSON.stringify({
         name: "fixture-sdk",
         exports: { ".": "./dist/index.js", "./sqlite": "./dist/sqlite.js" },
