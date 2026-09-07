@@ -41,3 +41,9 @@ export function describeRootFailure(failure: {
   }
   return failure.message;
 }
+
+export function describeThrown(error: unknown): string {
+  return error instanceof Error && error.message.length > 0
+    ? error.message
+    : "The request could not be sent.";
+}

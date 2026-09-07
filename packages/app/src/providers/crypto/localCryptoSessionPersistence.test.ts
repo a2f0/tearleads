@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createSharedMemoryLocalKeyringFactory } from "../../../test/helpers/sharedMemoryLocalKeyring";
+import { encryptLocalIdentityPayload } from "../identity/localIdentityPackageCrypto";
 import { localIdentityScope } from "../local-keyring/localKeyringScopes";
 import {
   clearPersistedCryptoSessionForIdentity,
@@ -215,4 +216,77 @@ test("clearing an identity session wins over an older in-flight write", async ()
   ).toBe(false);
 
   expect(globalThis.localStorage.getItem(storageKey)).toBeNull();
+});
+
+test("the root flag round-trips and a pre-root envelope restores as non-root", async () => {
+  const namespace = `session-root-${crypto.randomUUID()}`;
+  const signingFingerprint = "e".repeat(64);
+  const keyring = createSharedMemoryLocalKeyringFactory()();
+  const scope = localIdentityScope(namespace);
+  (await keyring.getOrCreateSession(scope)).dispose();
+  const storage = createMemoryStorage();
+  const storageKey = localCryptoSessionStorageKey(
+    namespace,
+    signingFingerprint,
+  );
+  const localPersistence: LocalCryptoSessionPersistence = {
+    keyring,
+    scope,
+    storage,
+    storageKey,
+  };
+  const context = {
+    authToken: "token-root",
+    containerId: "container-root",
+    defaultOrganizationId: "default-org-root",
+    isAuthenticated: true,
+    isRoot: true,
+    organizationId: "org-root",
+    userId: "user-root",
+  };
+
+  expect(
+    await persistCryptoSession({
+      context,
+      localPersistence,
+      signingFingerprint,
+    }),
+  ).toBe(true);
+  expect(
+    await restorePersistedCryptoSession({
+      localPersistence,
+      signingFingerprint,
+    }),
+  ).toEqual(context);
+
+  // Envelopes written before the flag existed carry no `isRoot`. They must
+  // still restore, as non-root, so an upgrade does not sign everyone out.
+  const { isRoot: _omitted, ...legacyContext } = context;
+  const keyringSession = await keyring.loadSession(scope);
+  if (!keyringSession) {
+    throw new Error("expected keyring session");
+  }
+  try {
+    storage.setItem(
+      storageKey,
+      await encryptLocalIdentityPayload({
+        identityPersistenceKey: keyringSession.identityPersistenceKey,
+        payload: {
+          ...legacyContext,
+          format: "tearleads.app.crypto-session",
+          signingFingerprint,
+          storedAt: new Date().toISOString(),
+          version: 1,
+        },
+      }),
+    );
+  } finally {
+    keyringSession.dispose();
+  }
+  expect(
+    await restorePersistedCryptoSession({
+      localPersistence,
+      signingFingerprint,
+    }),
+  ).toEqual({ ...legacyContext, isRoot: false });
 });

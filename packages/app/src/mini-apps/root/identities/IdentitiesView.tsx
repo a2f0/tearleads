@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   MiniAppButton,
   MiniAppInput,
@@ -17,14 +17,23 @@ export function IdentitiesView({
   onSelectIdentity: (userId: string) => void;
 }) {
   const [fingerprintDraft, setFingerprintDraft] = useState("");
-  const fingerprintFilter = useMemo(
-    () => parseFingerprintFilter(fingerprintDraft),
-    [fingerprintDraft],
+  // The applied filter only moves when the draft is empty or a complete
+  // fingerprint. Mid-edit drafts keep the last applied listing on screen with
+  // a hint instead of refetching everything or firing a rejected request.
+  const [appliedFingerprint, setAppliedFingerprint] = useState<string | null>(
+    null,
   );
-  // An unparsable draft keeps the last valid listing on screen with a hint,
-  // rather than firing a request the server would reject.
+  const draftIsIncomplete =
+    parseFingerprintFilter(fingerprintDraft) === undefined;
+  const updateFingerprintDraft = useCallback((draft: string) => {
+    setFingerprintDraft(draft);
+    const parsed = parseFingerprintFilter(draft);
+    if (parsed !== undefined) {
+      setAppliedFingerprint(parsed);
+    }
+  }, []);
   const { error, identities, loadMore, loading, nextCursor, refresh } =
-    useRootIdentities(fingerprintFilter ?? null);
+    useRootIdentities(appliedFingerprint);
 
   return (
     <MiniAppSection>
@@ -35,7 +44,7 @@ export function IdentitiesView({
         <MiniAppInput
           aria-label="Filter by signing key fingerprint"
           className="root-console-filter"
-          onChange={(event) => setFingerprintDraft(event.target.value)}
+          onChange={(event) => updateFingerprintDraft(event.target.value)}
           placeholder="Signing key fingerprint"
           spellCheck={false}
           value={fingerprintDraft}
@@ -44,7 +53,7 @@ export function IdentitiesView({
           {loading ? "Loading..." : "Refresh"}
         </MiniAppButton>
       </MiniAppToolbar>
-      {fingerprintFilter === undefined && (
+      {draftIsIncomplete && (
         <MiniAppStatus>
           Enter the full 64-character hex signing key fingerprint.
         </MiniAppStatus>

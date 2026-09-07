@@ -1,7 +1,7 @@
 import type { RootIdentity } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
-import { describeRootFailure } from "./rootDisplay";
+import { describeRootFailure, describeThrown } from "./rootDisplay";
 
 interface RootIdentitiesState {
   readonly error: string | null;
@@ -35,11 +35,19 @@ export function useRootIdentities(fingerprint: string | null) {
         error: null,
         identities: cursor === null ? [] : current.identities,
         loading: true,
+        // A restart forgets the previous continuation so a failed reload
+        // cannot resume paging past identities it never showed.
+        nextCursor: cursor === null ? null : current.nextCursor,
       }));
-      const outcome = await tearleads.root.listIdentities({
-        ...(cursor === null ? {} : { cursor }),
-        ...(fingerprint === null ? {} : { fingerprint }),
-      });
+      let outcome: Awaited<ReturnType<typeof tearleads.root.listIdentities>>;
+      try {
+        outcome = await tearleads.root.listIdentities({
+          ...(cursor === null ? {} : { cursor }),
+          ...(fingerprint === null ? {} : { fingerprint }),
+        });
+      } catch (error) {
+        outcome = { message: describeThrown(error), ok: false, status: null };
+      }
       if (sequence !== requestSequence.current) {
         return;
       }

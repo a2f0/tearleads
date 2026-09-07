@@ -244,7 +244,7 @@ describe("session", () => {
         authenticateCalls += 1;
         return {
           authenticated: true,
-          isRoot: false,
+          isRoot: true,
           organizationId: "org-1",
           token: "test-token",
           userId: "user-1",
@@ -261,8 +261,43 @@ describe("session", () => {
     expect(api.getAuthToken()).toBe("test-token");
     expect(session.defaultOrganizationId).toBe("org-1");
     expect(session.isAuthenticated).toBe(true);
+    // The server's root verdict is taken as reported, never inferred locally.
+    expect(session.isRoot).toBe(true);
     expect(session.organizationId).toBe("org-1");
     expect(session.userId).toBe("user-1");
+  });
+
+  test("a failed login and a logout both clear a prior root flag", async () => {
+    let authenticated = true;
+    const api = createApi({
+      authenticate: async () =>
+        authenticated
+          ? {
+              authenticated: true,
+              isRoot: true,
+              organizationId: "org-1",
+              token: "test-token",
+              userId: "user-1",
+            }
+          : null,
+    });
+    const { identity, session } = createSessionHarness({ api });
+    await setGeneratedIdentity(identity);
+
+    await expect(session.login()).resolves.toBe(true);
+    expect(session.isRoot).toBe(true);
+
+    session.logout();
+    expect(session.isAuthenticated).toBe(false);
+    expect(session.isRoot).toBe(false);
+
+    await expect(session.login()).resolves.toBe(true);
+    expect(session.isRoot).toBe(true);
+
+    authenticated = false;
+    await expect(session.login()).resolves.toBe(false);
+    expect(session.isAuthenticated).toBe(false);
+    expect(session.isRoot).toBe(false);
   });
 
   test("does not apply authentication context after the identity changes", async () => {

@@ -9,7 +9,8 @@ test("identity transition clears the full session and prior server events", () =
     containerId: "container-a",
     defaultOrganizationId: "default-org-a",
     isAuthenticated: true,
-    isRoot: false,
+    // Start from a root session so the transition provably clears the flag.
+    isRoot: true,
     organizationId: "org-a",
     userId: "user-a",
   });

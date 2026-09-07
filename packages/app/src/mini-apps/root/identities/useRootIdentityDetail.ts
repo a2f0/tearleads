@@ -4,7 +4,7 @@ import type {
 } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
-import { describeRootFailure } from "./rootDisplay";
+import { describeRootFailure, describeThrown } from "./rootDisplay";
 
 interface RootIdentityDetailState {
   readonly detail: RootIdentityDetail | null;
@@ -29,10 +29,27 @@ export function useRootIdentityDetail(userId: string) {
   const load = useCallback(async () => {
     const sequence = ++requestSequence.current;
     setState({ ...EMPTY_STATE, loading: true });
-    const [detail, organizations] = await Promise.all([
-      tearleads.root.loadIdentity(userId),
-      tearleads.root.listIdentityOrganizations(userId),
-    ]);
+    let detail: Awaited<ReturnType<typeof tearleads.root.loadIdentity>>;
+    let organizations: Awaited<
+      ReturnType<typeof tearleads.root.listIdentityOrganizations>
+    >;
+    try {
+      [detail, organizations] = await Promise.all([
+        tearleads.root.loadIdentity(userId),
+        tearleads.root.listIdentityOrganizations(userId),
+      ]);
+    } catch (error) {
+      // A malformed id in the URL fails client-side validation before any
+      // request is sent; report it like a server failure instead of leaving
+      // the view loading forever.
+      const failure = {
+        message: describeThrown(error),
+        ok: false as const,
+        status: null,
+      };
+      detail = failure;
+      organizations = failure;
+    }
     if (sequence !== requestSequence.current) {
       return;
     }
