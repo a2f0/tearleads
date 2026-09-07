@@ -18,7 +18,11 @@ registries and release instructions; the exceptions below are deliberate.
   [Astro upgrade guide](https://docs.astro.build/en/guides/upgrade-to/v7/).
 - **Electrobun 2:** use the paired Hutch SDK through `electrobun sync`, extend its
   generated TypeScript configuration, and retain the Bun main process explicitly.
-  Public renderer environment values now use bundler `define` entries. The SDK
+  Public renderer environment values use bundler `define` entries, including
+  explicit `undefined` values for optional settings in WebViews without Node.
+  The empty root TypeScript solution can reference this non-composite leaf;
+  `tsc --build` checks its imported SDK without unrelated vendor test sources.
+  The SDK
   lives in ignored `.hutch/` output and is prepared by the repository checks.
   Follow the [Electrobun 2 migration guide](https://github.com/blackboardsh/electrobun/blob/main/docs/src/content/docs/electrobun/guides/migrating-to-v2.mdx).
 - **Redis client 6:** explicitly retain RESP2, the prior keepalive delay, and

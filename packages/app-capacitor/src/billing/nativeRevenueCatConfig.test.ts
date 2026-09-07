@@ -260,7 +260,7 @@ test("Android registers a bounded RevenueCat purchase plugin", async () => {
     .sort();
   const capacitorReplacementModes = installedCapacitorReplacementModes();
   const nativePurchasesVersionByHybridCommon = new Map([
-    ["18.18.0", "10.11.0"],
+    ["18.33.1", "10.19.1"],
   ]);
   const expectedPurchasesVersion =
     nativePurchasesVersionByHybridCommon.get(hybridCommonVersion) ??

@@ -34,7 +34,7 @@ const baseConfig = {
     },
     "packages/api": {
       // The package test script launches Bun from `scripts/testAllDatabases.ts`;
-      // `test/preload.ts` is loaded by Bun from `bunfig.toml`. Operator scripts
+      // Knip's Bun plugin discovers `test/preload.ts` via `bunfig.toml`. Operator scripts
       // are standalone cron/systemd entrypoints rather than package scripts, so
       // they must be declared explicitly.
       entry: [
@@ -95,11 +95,13 @@ const baseConfig = {
     "packages/app-electrobun": {
       entry: [
         "electrobun.config.ts",
+        "hutch.config.ts",
+        "scripts/packageElectrobunAssets.ts",
         "src/bun/index.ts",
         "src/renderer/index.tsx",
         "src/renderer/databaseWorker.ts",
       ],
-      project: ["src/**/*.{ts,tsx}"],
+      project: ["src/**/*.{ts,tsx}", "scripts/**/*.ts", "*.config.ts"],
     },
     "packages/bob-and-alice": {
       entry: ["src/**/*.test.ts"],

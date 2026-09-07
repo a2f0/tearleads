@@ -43,8 +43,8 @@ const { apiBaseUrl, wsUrl } = resolveAppHostRuntimeConfig({
 renderApp(createRoot(elem), {
   hostConfig: createAppHostConfig({
     apiBaseUrl,
-    // Stamped by scripts/withBuildInfoEnv.sh and inlined by the `env` passthrough
-    // this view declares in electrobun.config.ts.
+    // Stamped by scripts/withBuildInfoEnv.sh and inlined by the renderer defines
+    // in electrobun.config.ts.
     buildInfo: createAppBuildInfo({
       commit: process.env.BUN_PUBLIC_GIT_SHA,
       target: "electrobun",
