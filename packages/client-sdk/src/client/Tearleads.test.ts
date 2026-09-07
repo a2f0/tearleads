@@ -563,6 +563,7 @@ describe("Tearleads", () => {
     sdk.session.setContext({
       containerId: "container-1",
       isAuthenticated: true,
+      isRoot: false,
       organizationId: "organization-1",
       userId: "user-1",
     });
@@ -869,6 +870,7 @@ describe("Tearleads", () => {
         containerId: "container-1",
         defaultOrganizationId: "organization-1",
         isAuthenticated: false,
+        isRoot: false,
         organizationId: "organization-1",
         userId: "user-1",
       },
@@ -877,6 +879,7 @@ describe("Tearleads", () => {
         containerId: "container-1",
         defaultOrganizationId: "organization-1",
         isAuthenticated: true,
+        isRoot: false,
         organizationId: "organization-1",
         userId: "user-1",
       },

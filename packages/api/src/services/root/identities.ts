@@ -14,11 +14,8 @@ import { listRootIdentities } from "../../workflows/root/listIdentities";
 import { createDatabaseWorkflowService } from "../databaseWorkflowService";
 import type { ApiServiceRuntime } from "../runtime";
 
-export type { RootIdentityOrganization } from "../../workflows/root/identityOrganizations";
-export type { RootIdentitySummary } from "../../workflows/root/identitySummary";
-
 const DEFAULT_ROOT_IDENTITY_PAGE_SIZE = 50;
-export const MAX_ROOT_IDENTITY_PAGE_SIZE = 200;
+const MAX_ROOT_IDENTITY_PAGE_SIZE = 200;
 
 export class RootIdentityError extends Error {
   constructor(
@@ -35,8 +32,8 @@ interface ListRootIdentitiesPageInput {
   readonly limit?: number | undefined;
 }
 
-export interface RootIdentitiesPage {
-  readonly identities: readonly RootIdentitySummary[];
+interface RootIdentitiesPage {
+  readonly identities: RootIdentitySummary[];
   readonly nextCursor: string | null;
 }
 
@@ -108,7 +105,7 @@ const loadIdentityOrganizations = createDatabaseWorkflowService(
 export async function getIdentityOrganizations(
   runtime: ApiServiceRuntime,
   userId: string,
-): Promise<readonly RootIdentityOrganization[]> {
+): Promise<RootIdentityOrganization[]> {
   const organizations = await loadIdentityOrganizations(runtime, userId);
   if (!organizations) {
     throw new RootIdentityError("User not found", 404);

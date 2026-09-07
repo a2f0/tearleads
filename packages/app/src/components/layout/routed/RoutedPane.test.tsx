@@ -5,6 +5,7 @@ import {
   forceTabletRoutedTier,
   renderRoutedPane,
 } from "../../../../test/helpers/routedPaneTestUtils";
+import { filterVisibleMiniAppItems } from "../../../mini-apps/miniAppVisibility";
 import { ROUTED_MINI_APP_NAV_ITEMS } from "../../../mini-apps/registry";
 import {
   initialRoutedSidebarExpanded,
@@ -41,6 +42,12 @@ function installTestVisualViewport(): {
     restore: () => Reflect.set(window, "visualViewport", original),
   };
 }
+
+// These shells render without a root session, so the root-only entry is hidden.
+const VISIBLE_NAV_ITEM_COUNT = filterVisibleMiniAppItems(
+  ROUTED_MINI_APP_NAV_ITEMS,
+  { isRoot: false },
+).length;
 
 test("mobile starts every mini-app with the sidebar collapsed", () => {
   // The mobile sidebar is a dismissable overlay, so it must not auto-open —
@@ -83,7 +90,7 @@ test("mobile routed shell opens the nav sheet from the bottom menu bar", () => {
     // system section ride along.
     expect(sheet?.querySelector(".routed-pane-nav-panel")).toBeNull();
     expect(sheet?.querySelectorAll(".routed-pane-sheet-tile").length ?? 0).toBe(
-      ROUTED_MINI_APP_NAV_ITEMS.length,
+      VISIBLE_NAV_ITEM_COUNT,
     );
 
     const menuButton = view.getByRole("button", { name: "Menu" });
@@ -330,12 +337,10 @@ test("tablet rail carries app links only", () => {
     }
 
     // One link per routed mini-app...
-    expect(rail.querySelectorAll("a").length).toBe(
-      ROUTED_MINI_APP_NAV_ITEMS.length,
-    );
+    expect(rail.querySelectorAll("a").length).toBe(VISIBLE_NAV_ITEM_COUNT);
     // ...each badged with its app glyph...
     expect(rail.querySelectorAll(".routed-pane-nav-link svg").length).toBe(
-      ROUTED_MINI_APP_NAV_ITEMS.length,
+      VISIBLE_NAV_ITEM_COUNT,
     );
     // ...and no system or per-app contextual actions: those moved to the app
     // bar toolbar, leaving the rail toggle as the rail's only button.

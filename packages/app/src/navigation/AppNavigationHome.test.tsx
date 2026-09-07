@@ -25,6 +25,7 @@ const TEST_MINI_APPS: Readonly<Record<MiniAppId, MiniAppDefinition>> = {
   },
   notes: { createComponent: () => EmptyMiniApp, title: "Notes" },
   "org-manager": { createComponent: () => EmptyMiniApp, title: "Org Manager" },
+  root: { createComponent: () => () => null, title: "Root" },
   "system-monitor": {
     createComponent: () => EmptyMiniApp,
     title: "System Monitor",

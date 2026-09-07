@@ -15,6 +15,8 @@ interface VerifyChallengeInput {
 }
 
 interface VerifyChallengeResult {
+  /** Platform-operator flag from `users.is_root`; gates the root console. */
+  isRoot: boolean;
   organizationId: string;
   token: string;
   userId: string;
@@ -52,6 +54,7 @@ export async function verifyChallenge(
     .select({
       defaultOrganizationId: users.defaultOrganizationId,
       id: users.id,
+      isRoot: users.isRoot,
       signingPublicKey: users.signingPublicKey,
     })
     .from(users)
@@ -93,6 +96,7 @@ export async function verifyChallenge(
   });
 
   return {
+    isRoot: user.isRoot,
     organizationId: user.defaultOrganizationId,
     token,
     userId: user.id,

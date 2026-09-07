@@ -62,6 +62,20 @@ ls:
   packages/app/src/mini-apps/org-manager/*/*:
     .dir: exists:0
 
+  packages/app/src/mini-apps/root:
+    .*: regex:[A-Za-z0-9][A-Za-z0-9-]* | exists:0-10
+    .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-4
+    .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-2
+
+  packages/app/src/mini-apps/root/*:
+    .dir: regex:(identities)
+    .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-10
+    .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-6
+    .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-2
+
+  packages/app/src/mini-apps/root/*/*:
+    .dir: exists:0
+
   packages/app/src/mini-apps/system-monitor:
     .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-12
     .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-4

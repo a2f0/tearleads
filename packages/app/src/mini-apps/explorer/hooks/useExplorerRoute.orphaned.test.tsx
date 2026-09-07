@@ -82,6 +82,7 @@ const TEST_MINI_APPS = {
   },
   notes: { createComponent: () => EmptyMiniApp, title: "Notes" },
   "org-manager": { createComponent: () => EmptyMiniApp, title: "Org" },
+  root: { createComponent: () => () => null, title: "Root" },
   "system-monitor": { createComponent: () => EmptyMiniApp, title: "System" },
 } satisfies Readonly<Record<MiniAppId, MiniAppDefinition>>;
 

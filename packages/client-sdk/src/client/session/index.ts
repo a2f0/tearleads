@@ -59,6 +59,7 @@ class SessionService implements Session {
     containerId: null,
     defaultOrganizationId: null,
     isAuthenticated: false,
+    isRoot: false,
     organizationId: null,
     userId: null,
   };
@@ -79,6 +80,10 @@ class SessionService implements Session {
 
   get isAuthenticated(): boolean {
     return this.snapshotValue.isAuthenticated;
+  }
+
+  get isRoot(): boolean {
+    return this.snapshotValue.isRoot;
   }
 
   get organizationId(): string | null {
@@ -193,6 +198,7 @@ class SessionService implements Session {
       this.setContext({
         authToken: null,
         isAuthenticated: false,
+        isRoot: false,
       });
       this.dependencies.log("Authentication failed");
       return false;
@@ -205,7 +211,11 @@ class SessionService implements Session {
         signingPublicKey: signingKeyPair.signingPublicKey,
       });
     } catch (error) {
-      this.setContext({ authToken: null, isAuthenticated: false });
+      this.setContext({
+        authToken: null,
+        isAuthenticated: false,
+        isRoot: false,
+      });
       throw error;
     }
     if (this.dependencies.identity.snapshot !== identitySnapshot) {
@@ -215,6 +225,7 @@ class SessionService implements Session {
       authToken: authentication.token,
       defaultOrganizationId: authentication.organizationId,
       isAuthenticated: true,
+      isRoot: authentication.isRoot,
       organizationId: authentication.organizationId,
       userId: authentication.userId,
     });
@@ -223,7 +234,7 @@ class SessionService implements Session {
   }
 
   logout(): void {
-    this.setContext({ authToken: null, isAuthenticated: false });
+    this.setContext({ authToken: null, isAuthenticated: false, isRoot: false });
   }
 
   async logoutRemote(): Promise<boolean> {
@@ -410,6 +421,10 @@ class SessionService implements Session {
         "isAuthenticated" in context
           ? (context.isAuthenticated ?? false)
           : this.snapshotValue.isAuthenticated,
+      isRoot:
+        "isRoot" in context
+          ? (context.isRoot ?? false)
+          : this.snapshotValue.isRoot,
       organizationId:
         "organizationId" in context
           ? (context.organizationId ?? null)
@@ -451,6 +466,7 @@ class SessionService implements Session {
       previous.containerId === next.containerId &&
       previous.defaultOrganizationId === next.defaultOrganizationId &&
       previous.isAuthenticated === next.isAuthenticated &&
+      previous.isRoot === next.isRoot &&
       previous.organizationId === next.organizationId &&
       previous.userId === next.userId
     ) {

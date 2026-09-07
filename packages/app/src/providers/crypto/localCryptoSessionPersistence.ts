@@ -29,6 +29,8 @@ export interface PersistedCryptoSessionContext {
   readonly containerId: string | null;
   readonly defaultOrganizationId: string | null;
   readonly isAuthenticated: boolean;
+  /** Platform-operator flag reported at login; the API enforces root access. */
+  readonly isRoot: boolean;
   readonly organizationId: string | null;
   readonly userId: string | null;
 }
@@ -92,6 +94,14 @@ function parsePersistedCryptoSession(
     "defaultOrganizationId",
   );
   const userId = readNullableString(value, "userId");
+  // Envelopes written before the root flag existed omit it. Treat them as
+  // non-root: the flag only offers the root console, and the next login
+  // refreshes it from the server.
+  const isRootValue = Reflect.get(value, "isRoot");
+  const isRoot = isRootValue === undefined ? false : isRootValue;
+  if (typeof isRoot !== "boolean") {
+    return null;
+  }
   if (
     authToken === undefined ||
     containerId === undefined ||
@@ -115,6 +125,7 @@ function parsePersistedCryptoSession(
     defaultOrganizationId,
     format: LOCAL_CRYPTO_SESSION_FORMAT,
     isAuthenticated,
+    isRoot,
     organizationId,
     signingFingerprint,
     storedAt,
@@ -220,6 +231,7 @@ export async function restorePersistedCryptoSession(input: {
       defaultOrganizationId: persistedSession.defaultOrganizationId,
       isAuthenticated:
         persistedSession.isAuthenticated && persistedSession.authToken !== null,
+      isRoot: persistedSession.isRoot,
       organizationId: persistedSession.organizationId,
       userId: persistedSession.userId,
     };

@@ -132,6 +132,7 @@ test("container info does not reconcile or cross an identity scope change", asyn
     ...baseWorkflowInput,
     auth: {
       isAuthenticated: false,
+      isRoot: false,
       organizationId: null,
       userId: null,
     },
@@ -148,6 +149,7 @@ test("container info does not reconcile or cross an identity scope change", asyn
       ...baseWorkflowInput,
       auth: {
         isAuthenticated: true,
+        isRoot: false,
         organizationId: "organization-b",
         userId: organizationReadModelUserId,
       },
@@ -158,6 +160,7 @@ test("container info does not reconcile or cross an identity scope change", asyn
       ...baseWorkflowInput,
       auth: {
         isAuthenticated: true,
+        isRoot: false,
         organizationId: parent.projection.organizationId,
         userId: organizationReadModelUserId,
       },
@@ -180,6 +183,7 @@ test("container info does not reconcile or cross an identity scope change", asyn
       ...baseWorkflowInput,
       auth: {
         isAuthenticated: true,
+        isRoot: false,
         organizationId: "organization-b",
         userId: organizationReadModelUserId,
       },
@@ -190,6 +194,7 @@ test("container info does not reconcile or cross an identity scope change", asyn
       ...baseWorkflowInput,
       auth: {
         isAuthenticated: true,
+        isRoot: false,
         organizationId: parent.projection.organizationId,
         userId: organizationReadModelUserId,
       },
@@ -201,6 +206,7 @@ test("container info does not reconcile or cross an identity scope change", asyn
       ...baseWorkflowInput,
       auth: {
         isAuthenticated: true,
+        isRoot: false,
         organizationId: parent.projection.organizationId,
         userId: "different-user",
       },

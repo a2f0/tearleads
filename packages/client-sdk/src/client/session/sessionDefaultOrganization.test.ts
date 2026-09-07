@@ -7,6 +7,7 @@ test("default organization is stable and distinct from active context", () => {
     containerId: "container-1",
     defaultOrganizationId: "personal-org",
     isAuthenticated: true,
+    isRoot: false,
     organizationId: "personal-org",
     userId: "user-1",
   });
@@ -15,6 +16,7 @@ test("default organization is stable and distinct from active context", () => {
   expect(input.auth).toEqual({
     defaultOrganizationId: "personal-org",
     isAuthenticated: true,
+    isRoot: false,
     organizationId: "personal-org",
     userId: "user-1",
   });

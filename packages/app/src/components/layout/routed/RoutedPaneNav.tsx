@@ -7,6 +7,7 @@ import {
 } from "react";
 import { ROUTED_MINI_APP_NAV_ITEMS } from "../../../mini-apps/registry";
 import type { MiniAppId } from "../../../mini-apps/types";
+import { useVisibleMiniAppItems } from "../../../mini-apps/useVisibleMiniAppItems";
 import { useAppNavigationActions } from "../../../navigation/AppNavigationProvider";
 import type { RoutedLayoutTier } from "../../../navigation/useRoutedLayoutTier";
 import { classNames } from "../../shared/classNames";
@@ -87,9 +88,10 @@ function RoutedPaneNavPanel({
   id: string;
   onNavigate: () => void;
 }) {
+  const visibleNavItems = useVisibleMiniAppItems(ROUTED_MINI_APP_NAV_ITEMS);
   return (
     <nav aria-label="Apps" className="routed-pane-nav-panel" id={id}>
-      {ROUTED_MINI_APP_NAV_ITEMS.map(({ appId, icon, label }) => (
+      {visibleNavItems.map(({ appId, icon, label }) => (
         <RoutedPaneNavLink
           key={appId}
           activeAppId={activeAppId}
@@ -178,10 +180,11 @@ function RoutedPaneMobileNav({
   onNavigate: () => void;
 }) {
   const { getMiniAppHref, openMiniApp } = useAppNavigationActions();
+  const visibleNavItems = useVisibleMiniAppItems(ROUTED_MINI_APP_NAV_ITEMS);
 
   return (
     <nav aria-label="Apps" className="routed-pane-sheet-grid">
-      {ROUTED_MINI_APP_NAV_ITEMS.map(({ appId, icon, label }) => (
+      {visibleNavItems.map(({ appId, icon, label }) => (
         <RoutedPaneMobileNavTile
           key={appId}
           active={activeAppId === appId}

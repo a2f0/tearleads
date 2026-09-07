@@ -15,7 +15,7 @@ interface ListRootIdentitiesInput {
 }
 
 interface ListRootIdentitiesResult {
-  readonly identities: readonly RootIdentitySummary[];
+  readonly identities: RootIdentitySummary[];
   /** The last returned user id when more identities remain, else null. */
   readonly nextAfterUserId: string | null;
 }

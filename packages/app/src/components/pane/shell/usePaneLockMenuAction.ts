@@ -22,6 +22,7 @@ export function usePaneLockMenuAction(onClose: () => void) {
       containerId: null,
       defaultOrganizationId: null,
       isAuthenticated: false,
+      isRoot: false,
       organizationId: null,
       userId: null,
     });

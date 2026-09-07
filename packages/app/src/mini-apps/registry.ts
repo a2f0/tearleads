@@ -5,12 +5,14 @@ import { BuildingsIcon } from "@phosphor-icons/react/dist/csr/Buildings";
 import { FolderIcon } from "@phosphor-icons/react/dist/csr/Folder";
 import { IdentificationCardIcon } from "@phosphor-icons/react/dist/csr/IdentificationCard";
 import { NoteIcon } from "@phosphor-icons/react/dist/csr/Note";
+import { ShieldCheckIcon } from "@phosphor-icons/react/dist/csr/ShieldCheck";
 import { BackupRestoreApp } from "./backup-restore/BackupRestoreApp";
 import { ContactsApp } from "./contacts/ContactsApp";
 import { ExplorerApp } from "./explorer/ExplorerApp";
 import { IdentityManagerApp } from "./identity-manager/IdentityManagerApp";
 import { createNotesWindowComponent } from "./notes/NotesApp";
 import { OrgManagerApp } from "./org-manager/OrgManagerApp";
+import { RootApp } from "./root/RootApp";
 import { SystemMonitorIcon } from "./system-monitor/icon";
 import { SystemMonitorApp } from "./system-monitor/SystemMonitorApp";
 import type { MiniAppDefinition, MiniAppId } from "./types";
@@ -41,6 +43,10 @@ export const MINI_APPS: Readonly<Record<MiniAppId, MiniAppDefinition>> = {
     createComponent: () => OrgManagerApp,
     title: "Org Manager",
   },
+  root: {
+    createComponent: () => RootApp,
+    title: "Root",
+  },
   "system-monitor": {
     createComponent: () => SystemMonitorApp,
     initialShowSidebar: false,
@@ -64,6 +70,7 @@ export const MINI_APP_MENU_ITEMS = [
     label: "Backup / Restore",
   },
   { appId: "system-monitor", icon: SystemMonitorIcon, label: "System Monitor" },
+  { appId: "root", icon: ShieldCheckIcon, label: "Root" },
 ] satisfies ReadonlyArray<{
   appId: MiniAppId;
   icon: Icon;
@@ -91,5 +98,6 @@ export const MINI_APP_ICONS: Readonly<Record<MiniAppId, Icon>> = {
   "identity-manager": IdentificationCardIcon,
   notes: NoteIcon,
   "org-manager": BuildingsIcon,
+  root: ShieldCheckIcon,
   "system-monitor": SystemMonitorIcon,
 };

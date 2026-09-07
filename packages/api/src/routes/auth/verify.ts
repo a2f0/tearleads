@@ -29,6 +29,7 @@ export function createVerifyRoute(runtime: ApiServiceRuntime) {
 
         return c.json<VerifyResponse>({
           authenticated: true,
+          isRoot: result.isRoot,
           organizationId: result.organizationId,
           token: result.token,
           userId: result.userId,

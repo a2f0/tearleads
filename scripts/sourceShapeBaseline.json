@@ -48,7 +48,7 @@
     },
     "docs/developer/client-sdk.md": {
       "lines": 615,
-      "bytes": 29970
+      "bytes": 30120
     },
     "docs/developer/revenuecat-native-stores.md": {
       "lines": 364,
@@ -71,8 +71,8 @@
       "bytes": 23535
     },
     "docs/openapi.json": {
-      "lines": 63167,
-      "bytes": 2647592
+      "lines": 63999,
+      "bytes": 2674703
     },
     "docs/protocol-specification.md": {
       "lines": 601,
@@ -91,8 +91,8 @@
       "bytes": 23392
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 1803,
-      "bytes": 58326
+      "lines": 1843,
+      "bytes": 59420
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 567,
@@ -231,8 +231,8 @@
       "bytes": 16822
     },
     "packages/app/test/helpers/mswServer.ts": {
-      "lines": 815,
-      "bytes": 24041
+      "lines": 894,
+      "bytes": 26758
     },
     "packages/client-sdk/src/client/Tearleads.test.ts": {
       "lines": 1001,
@@ -343,16 +343,24 @@
       "bytes": 19200
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 23748,
-      "bytes": 993439
+      "lines": 24165,
+      "bytes": 1007004
     },
     "packages/validators/src/response/response.test.ts": {
       "lines": 1168,
       "bytes": 34850
     },
+    "packages/app/src/navigation/AppNavigationProvider.test.tsx": {
+      "lines": 501,
+      "bytes": 15214
+    },
+    "packages/client-sdk/src/index.ts": {
+      "lines": 513,
+      "bytes": 14887
+    },
     "scripts/subsystems.ts": {
-      "lines": 743,
-      "bytes": 27335
+      "lines": 755,
+      "bytes": 28111
     }
   },
   "categories": {

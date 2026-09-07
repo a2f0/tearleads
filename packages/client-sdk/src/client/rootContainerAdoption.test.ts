@@ -19,6 +19,7 @@ function createFixture(options: FixtureOptions = {}) {
     containerId: options.containerId ?? "stale-root",
     defaultOrganizationId: options.defaultOrganizationId ?? "organization-1",
     isAuthenticated: options.isAuthenticated ?? true,
+    isRoot: false,
     organizationId: options.organizationId ?? "organization-1",
     setContainerId(containerId: string | null) {
       setContainerIds.push(containerId);

@@ -15,6 +15,8 @@ export interface WorkflowRuntimeAuthInput {
   /** Server-backed personal organization; independent of organizationId. */
   readonly defaultOrganizationId?: string | null;
   readonly isAuthenticated: boolean;
+  /** Platform-operator flag from the server; the API enforces root access. */
+  readonly isRoot?: boolean | undefined;
   readonly organizationId: string | null;
   readonly userId: string | null;
 }

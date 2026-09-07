@@ -129,6 +129,7 @@ test("isVerifyResponse", () => {
   const successResponse = {
     authenticated: true as const,
     extension: true,
+    isRoot: false,
     organizationId: "org-1",
     token: "abc123",
     userId: "user-1",

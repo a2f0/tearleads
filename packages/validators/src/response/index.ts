@@ -428,6 +428,25 @@ export {
   RegistrationResponseSchema,
 } from "./registration";
 export {
+  isRootIdentitiesResponse,
+  isRootIdentityDetailResponse,
+  isRootIdentityOrganizationsResponse,
+  type RootIdentitiesResponse,
+  RootIdentitiesResponseSchema,
+  type RootIdentityDetailResponse,
+  RootIdentityDetailResponseSchema,
+  type RootIdentityOrganizationBillingResponse,
+  RootIdentityOrganizationBillingResponseSchema,
+  type RootIdentityOrganizationResponse,
+  RootIdentityOrganizationResponseSchema,
+  type RootIdentityOrganizationsResponse,
+  RootIdentityOrganizationsResponseSchema,
+  type RootIdentitySessionResponse,
+  RootIdentitySessionResponseSchema,
+  type RootIdentitySummaryResponse,
+  RootIdentitySummaryResponseSchema,
+} from "./root";
+export {
   isStripeCancelResponse,
   isStripeCheckoutIntentResponse,
   isStripeCheckoutOptionsResponse,

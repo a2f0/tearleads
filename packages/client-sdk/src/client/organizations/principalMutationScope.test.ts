@@ -72,6 +72,7 @@ test("reauthentication expires pending work even when no guard observes the logo
   const context = {
     authToken: "same-restored-token",
     isAuthenticated: true,
+    isRoot: false,
     organizationId: "org",
     userId: "owner",
   };

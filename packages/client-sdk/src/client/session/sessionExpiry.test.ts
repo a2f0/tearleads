@@ -55,6 +55,7 @@ describe("session expiry", () => {
       if (url.pathname === "/auth/verify") {
         return jsonResponse({
           authenticated: true,
+          isRoot: false,
           organizationId: "org-2",
           token: "fresh-token",
           userId: "22222222-2222-4222-8222-222222222222",
@@ -83,6 +84,7 @@ describe("session expiry", () => {
         authToken: "stale-token",
         defaultOrganizationId: "org-1",
         isAuthenticated: true,
+        isRoot: false,
         organizationId: "org-1",
         userId: "user-1",
       });
@@ -94,6 +96,7 @@ describe("session expiry", () => {
         containerId: null,
         defaultOrganizationId: "org-2",
         isAuthenticated: true,
+        isRoot: false,
         organizationId: "org-2",
         userId: "22222222-2222-4222-8222-222222222222",
       });
