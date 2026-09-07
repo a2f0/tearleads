@@ -177,8 +177,9 @@ const productionProject = [
   "!src/**/testFixtures.{ts,tsx}",
   "!src/**/testUtils.{ts,tsx}",
   "!src/**/*.testUtils.{ts,tsx}",
-  "!src/**/*TestFixtures.ts",
+  "!src/**/*TestFixtures.{ts,tsx}",
   "!src/**/test/**",
+  "!src/**/tests/**",
 ];
 
 const productionConfig = {

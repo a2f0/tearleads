@@ -39,6 +39,8 @@ test("production roots retain runtime code but reject test-only modules", async 
       "packages/api/src/testOnly.ts": "export const unused = 1;",
       "packages/api/src/consumer.test.ts": 'import "./testOnly";',
       "packages/api/src/helper.testUtils.ts": "export const fixture = 1;",
+      "packages/api/src/runtimeTestFixtures.tsx": "export const fixture = 1;",
+      "packages/api/src/tests/helper.ts": "export const fixture = 1;",
       "packages/client-sdk/package.json": JSON.stringify({
         name: "fixture-sdk",
         exports: { ".": "./dist/index.js", "./sqlite": "./dist/sqlite.js" },
@@ -57,7 +59,7 @@ test("production roots retain runtime code but reject test-only modules", async 
       [process.execPath, knipBin, "--production", "--reporter", "json"],
       { cwd: fixture, stdout: "pipe", stderr: "pipe" },
     );
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode, result.stderr.toString()).toBe(1);
     const report = JSON.parse(result.stdout.toString()) as {
       issues: { file: string; files: unknown[] }[];
     };
@@ -73,4 +75,4 @@ test("production roots retain runtime code but reject test-only modules", async 
   } finally {
     await rm(fixture, { recursive: true, force: true });
   }
-});
+}, 60_000);
