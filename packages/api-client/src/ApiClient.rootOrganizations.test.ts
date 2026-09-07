@@ -1,4 +1,5 @@
 import { expect } from "bun:test";
+import { ORGANIZATION_DOCUMENT_USAGE_CATEGORIES } from "@tearleads/validators/response";
 import { HttpResponse, http } from "msw";
 import {
   apiBaseUrl,
@@ -96,5 +97,70 @@ testApiClient(
     );
     await expect(client.getRootOrganizationResult("bad-id")).rejects.toThrow();
     expect(requests).toBe(1);
+  },
+);
+
+testApiClient(
+  "root usage transport checks query encoding and rejects inconsistent totals",
+  async () => {
+    const usage = {
+      organizationId,
+      blobs: { blobCount: 0, byteLength: 0 },
+      documents: {
+        breakdown: ORGANIZATION_DOCUMENT_USAGE_CATEGORIES.map((category) => ({
+          category,
+          byteLength: 0,
+          documentCount: 0,
+          updateCount: 0,
+        })),
+        byteLength: 0,
+        documentCount: 0,
+        updateCount: 0,
+      },
+      totalByteLength: 0,
+    };
+    let invalidTotal = false;
+    server.use(
+      http.get<{ organizationId: string }>(
+        `${apiBaseUrl}/root/organizations/:organizationId/data-usage`,
+        ({ params }) => {
+          expect(params.organizationId).toBe(organizationId);
+          return HttpResponse.json({
+            ...usage,
+            totalByteLength: invalidTotal ? 1 : 0,
+          });
+        },
+      ),
+      http.get(`${apiBaseUrl}/root/reports/data-usage`, ({ request }) => {
+        const query = new URL(request.url).searchParams;
+        expect(query.get("search")).toBe("A & B%");
+        expect(query.get("cursor")).toBe("opaque");
+        return HttpResponse.json({
+          organizations: [
+            {
+              organization,
+              dataUsage: { ...usage, totalByteLength: invalidTotal ? 1 : 0 },
+            },
+          ],
+          nextCursor: null,
+        });
+      }),
+    );
+    const client = new ApiClient(apiBaseUrl);
+    const report = () =>
+      client.listRootDataUsageReportResult({
+        search: "A & B%",
+        cursor: "opaque",
+        limit: 2,
+      });
+    expect(
+      await client.getRootOrganizationDataUsageResult(organizationId),
+    ).toEqual({ ok: true, data: usage });
+    expect((await report()).ok).toBe(true);
+    invalidTotal = true;
+    expect(
+      (await client.getRootOrganizationDataUsageResult(organizationId)).ok,
+    ).toBe(false);
+    expect((await report()).ok).toBe(false);
   },
 );

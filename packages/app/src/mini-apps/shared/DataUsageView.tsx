@@ -4,23 +4,24 @@ import {
   MiniAppSection,
   MiniAppSectionHeading,
   MiniAppStatus,
-} from "../../../components/mini-app/MiniAppLayout";
+} from "../../components/mini-app/MiniAppLayout";
 import {
   MiniAppRow,
   MiniAppRowStack,
   MiniAppRowText,
-} from "../../../components/mini-app/rows/MiniAppRow";
-import { formatByteLength } from "../../../utils/formatByteLength";
-import { ORG_MANAGER_LABELS } from "../labels";
+} from "../../components/mini-app/rows/MiniAppRow";
+import { formatByteLength } from "../../utils/formatByteLength";
+import { DATA_USAGE_LABELS } from "./dataUsageLabels";
+import "./DataUsageView.css";
 
 const DOCUMENT_CATEGORY_LABELS: Record<
   OrganizationDocumentUsageCategory,
   string
 > = {
-  containerMetadata: ORG_MANAGER_LABELS.usageCategoryContainerMetadata,
-  organizationMetadata: ORG_MANAGER_LABELS.usageCategoryOrganizationMetadata,
-  rosterProfiles: ORG_MANAGER_LABELS.usageCategoryRosterProfiles,
-  user: ORG_MANAGER_LABELS.usageCategoryUser,
+  containerMetadata: DATA_USAGE_LABELS.usageCategoryContainerMetadata,
+  organizationMetadata: DATA_USAGE_LABELS.usageCategoryOrganizationMetadata,
+  rosterProfiles: DATA_USAGE_LABELS.usageCategoryRosterProfiles,
+  user: DATA_USAGE_LABELS.usageCategoryUser,
 };
 
 function getUsageCountLabel(
@@ -37,12 +38,12 @@ function getDocumentUsageDetail(
 ): string {
   return `${getUsageCountLabel(
     documentCount,
-    ORG_MANAGER_LABELS.usageDocument,
-    ORG_MANAGER_LABELS.usageDocumentsUnit,
+    DATA_USAGE_LABELS.usageDocument,
+    DATA_USAGE_LABELS.usageDocumentsUnit,
   )}, ${getUsageCountLabel(
     updateCount,
-    ORG_MANAGER_LABELS.usageUpdate,
-    ORG_MANAGER_LABELS.usageUpdatesUnit,
+    DATA_USAGE_LABELS.usageUpdate,
+    DATA_USAGE_LABELS.usageUpdatesUnit,
   )}`;
 }
 
@@ -56,13 +57,13 @@ function UsageMetric({
   label: string;
 }) {
   return (
-    <MiniAppRow className="org-manager-usage-row" density="roomy">
+    <MiniAppRow className="organization-usage-row" density="roomy">
       <MiniAppRowStack>
         <strong>{label}</strong>
         <MiniAppRowText muted>{detail}</MiniAppRowText>
       </MiniAppRowStack>
       <strong
-        title={`${byteLength.toLocaleString()} ${ORG_MANAGER_LABELS.usageBytesUnit}`}
+        title={`${byteLength.toLocaleString()} ${DATA_USAGE_LABELS.usageBytesUnit}`}
       >
         {formatByteLength(byteLength)}
       </strong>
@@ -81,10 +82,10 @@ export function DataUsageView({
 }) {
   if (!dataUsage) {
     return (
-      <MiniAppStatus className="org-manager-hint">
+      <MiniAppStatus>
         {pending
-          ? ORG_MANAGER_LABELS.loadingDataUsage
-          : ORG_MANAGER_LABELS.usageUnavailable}
+          ? DATA_USAGE_LABELS.loadingDataUsage
+          : DATA_USAGE_LABELS.usageUnavailable}
       </MiniAppStatus>
     );
   }
@@ -97,15 +98,11 @@ export function DataUsageView({
     <div>
       <MiniAppSection>
         <MiniAppSectionHeading>
-          {ORG_MANAGER_LABELS.organizationDataUsage}
+          {DATA_USAGE_LABELS.organizationDataUsage}
         </MiniAppSectionHeading>
-        <MiniAppStatus className="org-manager-hint">
-          {ORG_MANAGER_LABELS.usageDefinition}
-        </MiniAppStatus>
+        <MiniAppStatus>{DATA_USAGE_LABELS.usageDefinition}</MiniAppStatus>
         {canSync === false && (
-          <MiniAppStatus className="org-manager-hint">
-            {ORG_MANAGER_LABELS.usageSyncOff}
-          </MiniAppStatus>
+          <MiniAppStatus>{DATA_USAGE_LABELS.usageSyncOff}</MiniAppStatus>
         )}
         <UsageMetric
           byteLength={dataUsage.documents.byteLength}
@@ -113,13 +110,13 @@ export function DataUsageView({
             dataUsage.documents.documentCount,
             dataUsage.documents.updateCount,
           )}
-          label={ORG_MANAGER_LABELS.usageDocuments}
+          label={DATA_USAGE_LABELS.usageDocuments}
         />
         {documentBreakdown.length > 0 && (
-          <div className="org-manager-usage-breakdown">
+          <div className="organization-usage-breakdown">
             {documentBreakdown.map((entry) => (
               <MiniAppRow
-                className="org-manager-usage-subrow"
+                className="organization-usage-subrow"
                 density="compact"
                 key={entry.category}
               >
@@ -136,7 +133,7 @@ export function DataUsageView({
                 </MiniAppRowStack>
                 <MiniAppRowText
                   muted
-                  title={`${entry.byteLength.toLocaleString()} ${ORG_MANAGER_LABELS.usageBytesUnit}`}
+                  title={`${entry.byteLength.toLocaleString()} ${DATA_USAGE_LABELS.usageBytesUnit}`}
                 >
                   {formatByteLength(entry.byteLength)}
                 </MiniAppRowText>
@@ -148,15 +145,15 @@ export function DataUsageView({
           byteLength={dataUsage.blobs.byteLength}
           detail={getUsageCountLabel(
             dataUsage.blobs.blobCount,
-            ORG_MANAGER_LABELS.usageBlob,
-            ORG_MANAGER_LABELS.usageBlobsUnit,
+            DATA_USAGE_LABELS.usageBlob,
+            DATA_USAGE_LABELS.usageBlobsUnit,
           )}
-          label={ORG_MANAGER_LABELS.usageBlobs}
+          label={DATA_USAGE_LABELS.usageBlobs}
         />
         <UsageMetric
           byteLength={dataUsage.totalByteLength}
-          detail={ORG_MANAGER_LABELS.usageData}
-          label={ORG_MANAGER_LABELS.usageTotal}
+          detail={DATA_USAGE_LABELS.usageData}
+          label={DATA_USAGE_LABELS.usageTotal}
         />
       </MiniAppSection>
     </div>

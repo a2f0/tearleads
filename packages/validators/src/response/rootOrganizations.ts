@@ -7,6 +7,7 @@ import {
 } from "../schema";
 import { OrganizationBillingStatusSchema } from "./organizationBilling";
 import { OrganizationBillingHistoryEntrySchema } from "./organizationBillingHistory";
+import { OrganizationDataUsageResponseSchema } from "./organizationDataUsage";
 import {
   RootIdentitySummaryResponseSchema,
   RootRosterSchema,
@@ -83,4 +84,17 @@ export const RootOrganizationIdentitiesResponseSchema = loosePlainObject({
 });
 export type RootOrganizationIdentitiesResponse = z.infer<
   typeof RootOrganizationIdentitiesResponseSchema
+>;
+
+export const RootDataUsageReportResponseSchema = loosePlainObject({
+  organizations: arraySchema(
+    loosePlainObject({
+      organization: RootOrganizationSummaryResponseSchema,
+      dataUsage: OrganizationDataUsageResponseSchema,
+    }),
+  ),
+  nextCursor: z.string().nullable(),
+});
+export type RootDataUsageReportResponse = z.infer<
+  typeof RootDataUsageReportResponseSchema
 >;

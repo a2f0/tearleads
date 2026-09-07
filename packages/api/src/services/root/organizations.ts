@@ -52,22 +52,26 @@ function pageInput(query: RootOrganizationPageQuery, scope: string) {
     limit: Math.min(Number(query.limit ?? 50), MAX_ROOT_IDENTITY_PAGE_SIZE),
   };
 }
-function nextCursor(afterId: string | null, scope: string) {
+export function nextCursor(afterId: string | null, scope: string) {
   return afterId === null ? null : encodeCursor({ afterId, scope });
+}
+export function organizationListInput(
+  query: RootOrganizationsQuery,
+  scopePrefix: string,
+) {
+  // Bound the cursor even when a search contains multibyte characters or JSON escapes.
+  const searchHash = createHash("sha256")
+    .update(query.search?.trim().toLowerCase() ?? "")
+    .digest("hex");
+  const scope = `${scopePrefix}:${searchHash}`;
+  return { scope, input: { ...pageInput(query, scope), search: query.search } };
 }
 export async function listOrganizations(
   runtime: ApiServiceRuntime,
   query: RootOrganizationsQuery,
 ): Promise<RootOrganizationsResponse> {
-  // Bound the cursor even when a search contains multibyte characters or JSON escapes.
-  const searchHash = createHash("sha256")
-    .update(query.search?.trim().toLowerCase() ?? "")
-    .digest("hex");
-  const scope = `organizations:${searchHash}`;
-  const result = await listRootOrganizations(runtime.db, {
-    ...pageInput(query, scope),
-    search: query.search,
-  });
+  const { scope, input } = organizationListInput(query, "organizations");
+  const result = await listRootOrganizations(runtime.db, input);
   return {
     organizations: result.organizations,
     nextCursor: nextCursor(result.nextAfterId, scope),

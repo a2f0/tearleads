@@ -447,6 +447,8 @@ export {
   RootIdentitySummaryResponseSchema,
 } from "./root";
 export {
+  type RootDataUsageReportResponse,
+  RootDataUsageReportResponseSchema,
   type RootOrganizationDetailResponse,
   RootOrganizationDetailResponseSchema,
   type RootOrganizationIdentitiesResponse,

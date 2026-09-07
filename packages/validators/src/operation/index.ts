@@ -249,7 +249,9 @@ export {
   RootIdentityPathParamsSchema,
 } from "./root";
 export {
+  getRootOrganizationDataUsageOperation,
   getRootOrganizationOperation,
+  listRootDataUsageReportOperation,
   listRootOrganizationIdentitiesOperation,
   listRootOrganizationsOperation,
   type RootOrganizationPageQuery,

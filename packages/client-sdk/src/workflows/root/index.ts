@@ -1,4 +1,10 @@
 export {
+  listRootDataUsageReport,
+  loadRootOrganizationDataUsage,
+  type RootDataUsageApi,
+  type RootDataUsageReportPage,
+} from "./dataUsage";
+export {
   listRootIdentities,
   listRootIdentityOrganizations,
   loadRootIdentity,
@@ -11,7 +17,6 @@ export {
   type RootIdentitySession,
   type RootRequestOutcome,
 } from "./identities";
-
 export {
   listRootOrganizationIdentities,
   listRootOrganizations,

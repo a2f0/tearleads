@@ -26,6 +26,7 @@ import {
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 import { useRegisterCurrentIdentity } from "../../../identity/useRegisterCurrentIdentity";
 import { ORG_MANAGER_LABELS } from "../../../mini-apps/org-manager/labels";
+import { DATA_USAGE_LABELS } from "../../../mini-apps/shared/dataUsageLabels";
 import { SystemMonitorDeveloperModeProvider } from "../../../mini-apps/system-monitor/systemMonitorDeveloperMode";
 import {
   saveSystemMonitorMode,
@@ -168,7 +169,7 @@ async function openOrgManagerUsage(pane: HTMLElement) {
   await waitFor(
     () => {
       expect(
-        within(pane).getByText(ORG_MANAGER_LABELS.organizationDataUsage),
+        within(pane).getByText(DATA_USAGE_LABELS.organizationDataUsage),
       ).toBeTruthy();
     },
     { timeout: ORG_MANAGER_RENDER_TIMEOUT_MS },

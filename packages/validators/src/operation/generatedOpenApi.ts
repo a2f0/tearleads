@@ -1041,6 +1041,22 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/root/organizations/{organizationId}/data-usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["root.organizations.dataUsage.get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/root/organizations/{organizationId}/identities": {
         parameters: {
             query?: never;
@@ -1049,6 +1065,22 @@ export type paths = {
             cookie?: never;
         };
         get: operations["root.organizations.identities.list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/root/reports/data-usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["root.reports.dataUsage.list"];
         put?: never;
         post?: never;
         delete?: never;
@@ -24508,6 +24540,127 @@ export interface operations {
             };
         };
     };
+    "root.organizations.dataUsage.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful JSON response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        blobs: {
+                            blobCount: number;
+                            byteLength: number;
+                        };
+                        documents: {
+                            breakdown: {
+                                byteLength: number;
+                                /** @enum {string} */
+                                category: "containerMetadata" | "rosterProfiles" | "organizationMetadata" | "user";
+                                documentCount: number;
+                                updateCount: number;
+                            }[];
+                            byteLength: number;
+                            documentCount: number;
+                            updateCount: number;
+                        };
+                        organizationId: string;
+                        totalByteLength: number;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
     "root.organizations.identities.list": {
         parameters: {
             query?: {
@@ -24601,6 +24754,133 @@ export interface operations {
             };
             /** @description Failure JSON response */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    "root.reports.dataUsage.list": {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful JSON response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        nextCursor: string | null;
+                        organizations: ({
+                            dataUsage: {
+                                blobs: {
+                                    blobCount: number;
+                                    byteLength: number;
+                                };
+                                documents: {
+                                    breakdown: {
+                                        byteLength: number;
+                                        /** @enum {string} */
+                                        category: "containerMetadata" | "rosterProfiles" | "organizationMetadata" | "user";
+                                        documentCount: number;
+                                        updateCount: number;
+                                    }[];
+                                    byteLength: number;
+                                    documentCount: number;
+                                    updateCount: number;
+                                };
+                                organizationId: string;
+                                totalByteLength: number;
+                            };
+                            organization: {
+                                billingStatus: ("local" | "trialing" | "active" | "past_due" | "disabled" | "deleting" | "purged") | null;
+                                createdAt: string;
+                                name: string;
+                                organizationId: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
