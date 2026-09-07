@@ -40,6 +40,7 @@ test("organization routes and identity return paths survive URL round trips", ()
     ["organizations", "org-1", "data-usage"],
     ["organizations", "org-1", "identities"],
     ["identities", "user-1", "organizations", "org-1"],
+    ["identities", "user-1", "organizations", "org-1", "reports"],
   ]) {
     expect(formatRootRouteSegments(parseRootRouteSegments(segments))).toEqual(
       segments,
@@ -48,5 +49,26 @@ test("organization routes and identity return paths survive URL round trips", ()
   expect(rootRouteForView("organizations")).toEqual({
     organizationId: null,
     view: "organizations",
+  });
+});
+
+test("identity routes retain Reports only with an organization return path", () => {
+  expect(
+    parseRootRouteSegments([
+      "identities",
+      "user-1",
+      "organizations",
+      "org-1",
+      "reports",
+    ]),
+  ).toEqual({
+    view: "identities",
+    userId: "user-1",
+    returnOrganizationId: "org-1",
+    returnView: "reports",
+  });
+  expect(parseRootRouteSegments(["identities", "user-1", "reports"])).toEqual({
+    view: "identities",
+    userId: "user-1",
   });
 });

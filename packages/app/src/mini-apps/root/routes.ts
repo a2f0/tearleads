@@ -14,6 +14,7 @@ export type RootRoute =
       readonly userId: string | null;
       readonly view: "identities";
       readonly returnOrganizationId?: string;
+      readonly returnView?: "reports";
     }
   | {
       readonly organizationId: string | null;
@@ -34,13 +35,18 @@ export const ORGANIZATIONS_ROOT_ROUTE: RootRoute = {
 export function parseRootRouteSegments(
   pathSegments: ReadonlyArray<string>,
 ): RootRoute {
-  const [view, id, returnView, returnId] = pathSegments;
+  const [view, id, returnView, returnId, returnRootView] = pathSegments;
   if (view === "identities")
     return {
       userId: id || null,
       view,
       ...(id && returnView === "organizations" && returnId
-        ? { returnOrganizationId: returnId }
+        ? {
+            returnOrganizationId: returnId,
+            ...(returnRootView === "reports"
+              ? { returnView: "reports" as const }
+              : {}),
+          }
         : {}),
     };
   if (view === "reports") return { view };
@@ -76,7 +82,11 @@ export function formatRootRouteSegments(
     route.view,
     route.userId,
     ...(route.returnOrganizationId
-      ? ["organizations", route.returnOrganizationId]
+      ? [
+          "organizations",
+          route.returnOrganizationId,
+          ...(route.returnView ? [route.returnView] : []),
+        ]
       : []),
   ];
 }
