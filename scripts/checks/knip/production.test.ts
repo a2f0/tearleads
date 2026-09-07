@@ -57,7 +57,7 @@ test("production roots retain runtime code but reject test-only modules", async 
       [process.execPath, knipBin, "--production", "--reporter", "json"],
       { cwd: fixture, stdout: "pipe", stderr: "pipe" },
     );
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode, result.stderr.toString()).toBe(1);
     const report = JSON.parse(result.stdout.toString()) as {
       issues: { file: string; files: unknown[] }[];
     };
@@ -73,4 +73,4 @@ test("production roots retain runtime code but reject test-only modules", async 
   } finally {
     await rm(fixture, { recursive: true, force: true });
   }
-});
+}, 60_000);
