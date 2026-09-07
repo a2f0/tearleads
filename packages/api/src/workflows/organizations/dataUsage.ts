@@ -65,13 +65,23 @@ function toNonNegativeSafeInteger(value: unknown, label: string): number {
 function isOrganizationBlobUsageRow(
   value: unknown,
 ): value is OrganizationBlobUsageRow {
-  return typeof value === "object" && value !== null;
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "organizationId" in value &&
+    typeof value.organizationId === "string"
+  );
 }
 
 function isOrganizationDocumentCategoryRow(
   value: unknown,
 ): value is OrganizationDocumentCategoryRow {
-  return typeof value === "object" && value !== null;
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "organizationId" in value &&
+    typeof value.organizationId === "string"
+  );
 }
 
 function isDocumentUsageCategory(
@@ -216,9 +226,6 @@ function serializeUsage(
     { byteLength: number; documentCount: number; updateCount: number }
   >();
   for (const row of categoryRows) {
-    if (!isOrganizationDocumentCategoryRow(row)) {
-      throw new Error("Missing organization data usage row");
-    }
     const category = row.category;
     if (!isDocumentUsageCategory(category)) {
       throw new Error(

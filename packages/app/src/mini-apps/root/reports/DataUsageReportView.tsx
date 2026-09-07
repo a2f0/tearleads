@@ -116,12 +116,14 @@ export function DataUsageReportView({
                     {compactRootIdentifier(org.organizationId)}
                   </MiniAppTableText>
                 </MiniAppTableCell>
-                {[
-                  dataUsage.documents.byteLength,
-                  dataUsage.blobs.byteLength,
-                  dataUsage.totalByteLength,
-                ].map((bytes, index) => (
-                  <MiniAppTableCell key={COLUMNS[index + 2]?.id}>
+                {(
+                  [
+                    ["documents", dataUsage.documents.byteLength],
+                    ["blobs", dataUsage.blobs.byteLength],
+                    ["total", dataUsage.totalByteLength],
+                  ] as const
+                ).map(([id, bytes]) => (
+                  <MiniAppTableCell key={id}>
                     <MiniAppTableText title={`${bytes.toLocaleString()} bytes`}>
                       {formatByteLength(bytes)}
                     </MiniAppTableText>

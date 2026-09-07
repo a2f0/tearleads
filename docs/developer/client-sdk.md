@@ -131,6 +131,12 @@ Client capabilities:
 | `tearleads.userIdentities` | pinned user identity bundles for cryptographic workflows |
 | `tearleads.securityIncidents` | durable local records of terminal trust-boundary verification failures |
 
+Root exposes `loadOrganizationDataUsage(organizationId)` for the synced document
+and blob breakdown, and `listDataUsageReport({ search, cursor, limit })` for
+paginated usage by organization. Both enforce the same session lifecycle gate
+as other Root lookups. Report rows include zero-usage organizations; each page
+is read on demand and does not represent a frozen platform-wide snapshot.
+
 Prefer instance services so document and container stores share the active
 database, identity, sync, and subscription scope. Product code should use the
 namespaces above; import internals only for SDK development or
@@ -613,9 +619,3 @@ bun run --filter='@tearleads/client-sdk' build
   workflow, or store package facades directly.
 - Product window vocabulary such as `OrgManager` and `mini-app` stays in
   `packages/app`; SDK source uses platform workflow names.
-
-Root exposes `loadOrganizationDataUsage(organizationId)` for the synced document
-and blob breakdown, and `listDataUsageReport({ search, cursor, limit })` for
-paginated usage by organization. Both enforce the same session lifecycle gate
-as other Root lookups. Report rows include zero-usage organizations; each page
-is read on demand and does not represent a frozen platform-wide snapshot.

@@ -19,6 +19,7 @@ export type RootRoute =
       readonly organizationId: string | null;
       readonly view: "organizations";
       readonly tab?: RootOrganizationTab;
+      readonly returnView?: "reports";
     };
 export const MENU_ROOT_ROUTE: RootRoute = { view: "menu" };
 export const IDENTITIES_ROOT_ROUTE: RootRoute = {
@@ -45,7 +46,14 @@ export function parseRootRouteSegments(
   if (view === "reports") return { view };
   if (view === "organizations") {
     const tab = ROOT_ORGANIZATION_TABS.find((tab) => tab.id === returnView)?.id;
-    return { organizationId: id || null, view, ...(id && tab ? { tab } : {}) };
+    return {
+      organizationId: id || null,
+      view,
+      ...(id && tab ? { tab } : {}),
+      ...(id && returnId === "reports"
+        ? { returnView: "reports" as const }
+        : {}),
+    };
   }
   return MENU_ROOT_ROUTE;
 }
@@ -57,7 +65,12 @@ export function formatRootRouteSegments(
   if (route.view === "organizations")
     return route.organizationId === null
       ? [route.view]
-      : [route.view, route.organizationId, ...(route.tab ? [route.tab] : [])];
+      : [
+          route.view,
+          route.organizationId,
+          ...(route.tab || route.returnView ? [route.tab ?? "overview"] : []),
+          ...(route.returnView ? [route.returnView] : []),
+        ];
   if (route.userId === null) return [route.view];
   return [
     route.view,

@@ -21,11 +21,11 @@ import { useRootSidebarPanel } from "./RootSidebar";
 import { DataUsageReportView } from "./reports/DataUsageReportView";
 import {
   IDENTITIES_ROOT_ROUTE,
-  ORGANIZATIONS_ROOT_ROUTE,
   type RootRoute,
   type RootView,
   rootRouteForView,
 } from "./routes";
+import { useRootNavigation } from "./useRootNavigation";
 import { useRootRoute } from "./useRootRoute";
 
 function RootAccessGate({ isAuthenticated }: { isAuthenticated: boolean }) {
@@ -66,47 +66,13 @@ function RootContent({
   route: RootRoute;
   setRoute: (route: RootRoute, options?: MiniAppRouteSetOptions) => void;
 }) {
-  const setView = useCallback(
-    (view: RootView) => setRoute(rootRouteForView(view)),
-    [setRoute],
-  );
-  const openIdentity = useCallback(
-    (userId: string) =>
-      setRoute({
-        userId,
-        view: "identities",
-        ...(route.view === "organizations" && route.organizationId
-          ? { returnOrganizationId: route.organizationId }
-          : {}),
-      }),
-    [route, setRoute],
-  );
-  // Leaving the detail replaces the history entry rather than pushing the
-  // list again, so the browser's Back does not reopen the detail just left.
-  const closeIdentity = useCallback(
-    () =>
-      setRoute(
-        route.view === "identities" && route.returnOrganizationId
-          ? {
-              view: "organizations",
-              organizationId: route.returnOrganizationId,
-              tab: "identities",
-            }
-          : IDENTITIES_ROOT_ROUTE,
-        { replace: true },
-      ),
-    [route, setRoute],
-  );
-
-  const openOrganization = useCallback(
-    (organizationId: string) =>
-      setRoute({ view: "organizations", organizationId }),
-    [setRoute],
-  );
-  const closeOrganization = useCallback(
-    () => setRoute(ORGANIZATIONS_ROOT_ROUTE, { replace: true }),
-    [setRoute],
-  );
+  const {
+    setView,
+    openIdentity,
+    closeIdentity,
+    openOrganization,
+    closeOrganization,
+  } = useRootNavigation(route, setRoute);
 
   if (route.view === "menu") {
     return <RootMenu setView={setView} />;
@@ -115,7 +81,12 @@ function RootContent({
     return (
       <DataUsageReportView
         onSelectOrganization={(organizationId) =>
-          setRoute({ view: "organizations", organizationId, tab: "data-usage" })
+          setRoute({
+            view: "organizations",
+            organizationId,
+            tab: "data-usage",
+            returnView: "reports",
+          })
         }
       />
     );

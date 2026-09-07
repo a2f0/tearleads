@@ -42,16 +42,19 @@ function createUsageWriteHeader(input: {
   };
 }
 
-async function seedUsageDocument(input: {
+export async function seedUsageDocument(input: {
   actor: TestUser;
   organizationId: string;
   documentId: string;
   updates: ReadonlyArray<{ id: string; byteLength: number }>;
 }) {
-  await db.insert(documents).values({
-    id: input.documentId,
-    createdByFingerprint: input.actor.fingerprint,
-  });
+  await db
+    .insert(documents)
+    .values({
+      id: input.documentId,
+      createdByFingerprint: input.actor.fingerprint,
+    })
+    .onConflictDoNothing();
   await db.insert(documentUpdates).values(
     input.updates.map((update, index) => ({
       id: update.id,

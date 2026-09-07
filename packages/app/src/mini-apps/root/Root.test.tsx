@@ -244,6 +244,8 @@ test("reports show usage by org, paginate, search, and open the shared usage tab
       view.getByRole("tab", { name: "Overview" }).getAttribute("aria-selected"),
     ).toBe("true");
     await view.findByRole("table", { name: "Organization" });
+    fireEvent.click(view.getByRole("button", { name: "Back" }));
+    await view.findByRole("table", { name: "Data usage by organization" });
   } finally {
     restore();
   }

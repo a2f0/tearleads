@@ -1,6 +1,4 @@
-import { DATA_USAGE_LABELS } from "../shared/dataUsageLabels";
 export const ORG_MANAGER_LABELS = {
-  ...DATA_USAGE_LABELS,
   add: "Add",
   addUser: "Add user",
   authenticate: "Authenticate to manage an organization.",
@@ -270,7 +268,6 @@ export const ORG_MANAGER_LABELS = {
   unnamedOrganization: "Untitled organization",
   updated: "Updated",
   usage: "Usage",
-  usageDocumentsBreakdown: "Document breakdown",
   user: "User",
   userContainerLinks: "Direct user container links",
   userDetailUnavailable: "This roster entry hasn't synced yet. Try Refresh.",
