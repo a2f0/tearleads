@@ -299,28 +299,36 @@ test("lazy encrypted blob store defers key loading until first operation", async
   });
 });
 
-test("lazy encrypted blob store retries after key provider failure", async () => {
-  await withFakeOpfs(async () => {
-    let keyProviderCalls = 0;
-    const store = createLazyEncryptedBlobStore("identity-a", async () => {
-      keyProviderCalls += 1;
-      if (keyProviderCalls === 1) {
-        throw new Error("temporary key provider failure");
-      }
+test.each(["synchronous", "asynchronous"])(
+  "lazy encrypted blob store retries after %s key provider failure",
+  async (failureMode) => {
+    await withFakeOpfs(async () => {
+      let keyProviderCalls = 0;
+      const store = createLazyEncryptedBlobStore("identity-a", () => {
+        keyProviderCalls += 1;
+        if (keyProviderCalls === 1) {
+          const error = new Error("temporary key provider failure");
+          if (failureMode === "synchronous") throw error;
+          return Promise.reject(error);
+        }
 
-      return "test-key";
+        return Promise.resolve("test-key");
+      });
+
+      await expect(
+        store.writeBytes("attachment-1", blobBytes("bytes")),
+      ).rejects.toThrow("temporary key provider failure");
+      await store.writeBytes(
+        "attachment-1",
+        blobBytes("local attachment bytes"),
+      );
+      await expect(store.readBytes("attachment-1")).resolves.toEqual(
+        blobBytes("local attachment bytes"),
+      );
+      expect(keyProviderCalls).toBe(2);
     });
-
-    await expect(
-      store.writeBytes("attachment-1", blobBytes("bytes")),
-    ).rejects.toThrow("temporary key provider failure");
-    await store.writeBytes("attachment-1", blobBytes("local attachment bytes"));
-    await expect(store.readBytes("attachment-1")).resolves.toEqual(
-      blobBytes("local attachment bytes"),
-    );
-    expect(keyProviderCalls).toBe(2);
-  });
-});
+  },
+);
 
 test("encrypted blob store rejects the removed version-one JSON format", async () => {
   const { rawBytesByKey, store: innerStore } = createInspectableBlobStore();
