@@ -1,6 +1,6 @@
 import type { IConfiguration } from "dependency-cruiser";
-
 import { dependencyCruiserDeploymentRules } from "./scripts/dependencyCruiserDeploymentRules";
+import { runtimeDependencyRule } from "./scripts/dependencyCruiserRuntimeRule";
 import {
   allPackageSourceRoots,
   deploymentTargetSourceRoots,
@@ -114,21 +114,7 @@ const standardRules = [
       dependencyTypes: ["npm-no-pkg", "npm-unknown"],
     },
   },
-  {
-    name: "not-to-dev-dep",
-    severity: "error",
-    comment:
-      "Production app and API modules must not import runtime values from devDependencies.",
-    from: {
-      path: "^packages/(api|api-cli|api-shared|app|client-sdk)/src/",
-      pathNot: testFilesPattern,
-    },
-    to: {
-      dependencyTypes: ["npm-dev"],
-      dependencyTypesNot: ["type-only"],
-      pathNot: "node_modules/@types/",
-    },
-  },
+  runtimeDependencyRule,
   {
     name: "no-duplicate-dep-types",
     severity: "error",

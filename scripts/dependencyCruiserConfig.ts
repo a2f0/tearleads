@@ -16,14 +16,9 @@ export function createDependencyCruiserOptions(
 
   return {
     ...options,
-    // Cache the module graph so unchanged runs skip the ~3.5s analysis. The
-    // metadata strategy keys off git, so uncommitted edits still invalidate the
-    // cache and are re-analyzed. The cache lives under node_modules/.cache, so it
-    // is ephemeral in CI (cold each run) and never committed.
-    cache: {
-      folder: "node_modules/.cache/dependency-cruiser",
-      strategy: "metadata",
-    },
+    // Manifest-only edits can reuse stale npm classifications in the graph
+    // cache. Recompute so dependency declaration checks see the current files.
+    cache: false,
     ...(outputType ? { outputType } : {}),
     ruleSet,
     validate: Object.keys(ruleSet).length > 0,
