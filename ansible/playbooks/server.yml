@@ -292,6 +292,22 @@
         - /opt/tearleads/bin
         - /etc/tearleads
 
+    - name: Add deployed executables to login shell PATH
+      ansible.builtin.template:
+        src: etc/profile-d/tearleads.sh.j2
+        dest: /etc/profile.d/tearleads.sh
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Deploy API CLI operator wrapper
+      ansible.builtin.template:
+        src: usr/local/bin/tearleads-api-cli.j2
+        dest: /usr/local/bin/tearleads-api-cli
+        owner: root
+        group: root
+        mode: "0755"
+
     - name: Configure Garage S3 object storage
       ansible.builtin.import_tasks: tasks/garage.yml
 

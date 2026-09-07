@@ -165,6 +165,22 @@ async function setRootAccess(
   }
 }
 
+// Operators run these by hand over SSH; a usage or lookup failure is an
+// expected outcome, so report the message alone rather than a stack trace.
+async function runRootAccessCommand(
+  args: readonly string[],
+  isRoot: boolean,
+): Promise<void> {
+  try {
+    await setRootAccess(args, isRoot);
+  } catch (error) {
+    console.error(
+      `Error: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    process.exit(1);
+  }
+}
+
 const command = process.argv[2];
 
 if (isHelpArg(command)) {
@@ -172,11 +188,11 @@ if (isHelpArg(command)) {
 } else if (command === "blob-store:list-keys") {
   await listBlobStoreKeys(process.argv.slice(3));
 } else if (command === "make-admin") {
-  await setRootAccess(process.argv.slice(3), true);
+  await runRootAccessCommand(process.argv.slice(3), true);
 } else if (command === "migrate") {
   await runMigrations();
 } else if (command === "revoke-admin") {
-  await setRootAccess(process.argv.slice(3), false);
+  await runRootAccessCommand(process.argv.slice(3), false);
 } else {
   if (command) {
     console.error(`Unknown command: ${command}`);

@@ -122,11 +122,30 @@ The command reads the database the same way `migrate` does (`API_DATABASE`
 defaults to `postgres`, connection variables from the environment). It prints
 whether the identity `is now root` or `was already root`, and fails with a
 non-zero exit when the fingerprint is malformed, extra arguments are passed, or
-no identity is registered under that fingerprint. On a deployed server:
+no identity is registered under that fingerprint. In an SSH session on a
+deployed server the operator wrapper (see below) supplies the environment:
 
 ```bash
-set -a && . /etc/tearleads/api.env && set +a && /opt/tearleads/bin/tearleads-api-cli make-admin <fingerprint>
+tearleads-api-cli make-admin <fingerprint>
 ```
+
+## Running on a deployed server
+
+Ansible installs two conveniences for SSH sessions (`ansible/playbooks/server.yml`):
+
+- `/etc/profile.d/tearleads.sh` appends `/opt/tearleads/bin` to the login
+  shell `PATH`, so every deployed executable resolves by name.
+- `/usr/local/bin/tearleads-api-cli` is a wrapper that sources
+  `/etc/tearleads/api.env` and execs the real CLI. It sits ahead of
+  `/opt/tearleads/bin` on `PATH` on purpose: `tearleads-api-cli <command>`
+  then runs with the server's database and object-store settings while those
+  secrets reach only the CLI process, not the interactive shell. The file is
+  readable by root and the deploy user, and the wrapper fails closed for anyone
+  else.
+
+The deploy scripts keep calling the binary by full path with an explicit
+`set -a && . /etc/tearleads/api.env && set +a`, so they do not depend on the
+wrapper being installed yet.
 
 ## Local development
 
