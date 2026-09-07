@@ -14,6 +14,16 @@ editor or `tsc` resolves the package. Root `build:packages` and `check:fast` pre
 it automatically. The repository's TypeScript rules take precedence over the
 SDK config; the package lists its vendor compatibility exceptions explicitly.
 
+The pinned npm package selects Hutch 0.24.3 for Electrobun 2.0.1. Its
+[bootstrap](https://github.com/blackboardsh/electrobun/blob/v2.0.1/npm/electrobun/bin/resolve-hutch.cjs)
+checks the release index's archive size and SHA-256, then validates cached
+launcher/engine hashes. It reuses `~/.hutch/` on subsequent runs. After the first
+setup, `DASH_RELEASE_OFFLINE=1 bun run --cwd packages/app-electrobun prepare:devkit`
+works without downloading; this was verified during the upgrade. A fresh CI
+runner downloads the paired release once, like the other mise-managed tools.
+Deleting `.hutch/devkit/` requires rerunning preparation before standalone
+`bun tsc --build` or `bun run lint:knip:all` / `bun run lint:knip:production`.
+
 Run `bun run --cwd packages/app-electrobun dev` to start the desktop app, or
 `bun run --cwd packages/app-electrobun build:dev` to build it. The main process
 continues to use Bun. Renderer settings are explicit build-time defines:

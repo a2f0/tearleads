@@ -38,6 +38,18 @@ registries and release instructions; the exceptions below are deliberate.
   Cache-variation tests assert both Origin and Accept-Encoding, independent of
   header order, for normal and revalidated attribution responses. See the
   [compression middleware documentation](https://hono.dev/docs/middleware/builtin/compress).
+- **Noble and Scure:** review the
+  [post-quantum changelog](https://github.com/paulmillr/noble-post-quantum/releases),
+  [hash changes](https://github.com/paulmillr/noble-hashes/releases), and
+  [BIP39 changes](https://github.com/paulmillr/scure-bip39/releases). The removed
+  hybrid aliases and stricter malformed-input checks do not change the app's
+  ML-DSA-87 / ML-KEM-1024 identity derivation. Fixed vectors captured with the
+  previous dependencies pin both BIP39 phrases and all four complete key hashes;
+  both old and new packages recover identical identities.
+- **Stripe.js 9:** the [major release changes](https://github.com/stripe/stripe-js/releases/tag/v9.0.0)
+  affect `elements.update`'s return type and removed/renamed APIs not used by
+  direct checkout. The existing `/pure` loader, `elements`, and `confirmPayment`
+  integration still typechecks and passes its checkout tests.
 - **Bun:** invalid HTTP statuses are reported without awaiting cancellation of a
   cloned response body. Cancellation can wait for the other branch; the client
   regression tests cover that case without weakening status validation.
