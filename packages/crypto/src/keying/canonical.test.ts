@@ -108,6 +108,17 @@ test("document plaintext HMAC uses the domain-framed bytes", async () => {
   );
 });
 
+test("canonical JSON preserves prototype-named properties at every depth", () => {
+  for (const value of [null, false, 7, "value", { nested: true }]) {
+    const object = { ["__proto__"]: value, constructor: "own value" };
+    const expected = JSON.stringify(object);
+    expect(serializeKeyingCanonicalJson(object)).toBe(expected);
+    expect(serializeKeyingCanonicalJson({ body: object })).toBe(
+      `{"body":${expected}}`,
+    );
+  }
+});
+
 test("keying target hashes sort arrays where ordering is a set", async () => {
   const firstTarget: ContainerKekTarget = {
     containerId: "container-a",

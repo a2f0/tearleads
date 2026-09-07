@@ -5,6 +5,7 @@ import {
   type SqlRow,
   type SqlRowValue,
 } from "@tearleads/client-sdk/sqlite";
+import { validateBackupSchema } from "./backupSchemaValidation";
 import type {
   BackupIndex,
   BackupSqlValue,
@@ -219,6 +220,7 @@ export async function restoreBackupDatabase(input: {
   readonly indexes: ReadonlyArray<BackupIndex>;
   readonly tables: ReadonlyArray<BackupTable>;
 }): Promise<void> {
+  validateBackupSchema(input);
   await runSerializedSqlMutation(input.execSql, async (execSql) => {
     const wasForeignKeysEnabled =
       readNumber((await execSql("PRAGMA foreign_keys"))[0], "foreign_keys") ===

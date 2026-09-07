@@ -85,6 +85,25 @@ test("verifyChallenge returns a session token for a valid signature", async () =
   expect(result.token).toBe("test-session");
 });
 
+test("registered users can log in after the Redis identity cache is lost", async () => {
+  const { fingerprint, runtime, user } = await registerAuthServiceUser();
+  await runtime.keyValueStore.del(fingerprint);
+  await runtime.keyValueStore.del(`challenge:${fingerprint}`);
+
+  const { challenge } = await createChallenge(runtime, { fingerprint });
+  const result = await verifyChallenge(runtime, {
+    fingerprint,
+    signature: Array.from(
+      sign(
+        authChallengeSigningBytes({ challengeHex: challenge, fingerprint }),
+        user.signing.signingPrivateKey,
+      ),
+    ),
+  });
+
+  expect(result.token).toBe("test-session");
+});
+
 test("verifyChallenge rejects raw challenge signatures without the auth domain", async () => {
   const { fingerprint, runtime, user } = await registerAuthServiceUser();
   const { challenge } = await createChallenge(runtime, { fingerprint });
@@ -145,7 +164,12 @@ test("verifyChallenge rejects challenges backed only by stale redis keys", async
     fingerprint,
     bytesToBase64(staleKeys.signingPublicKey),
   );
-  const { challenge } = await createChallenge(runtime, { fingerprint });
+  const challengeError = await expectCreateChallengeError(
+    createChallenge(runtime, { fingerprint }),
+  );
+  expect(challengeError.reason).toBe("unknown_fingerprint");
+  const challenge = "ab".repeat(32);
+  await runtime.keyValueStore.set(`challenge:${fingerprint}`, challenge);
   const signature = sign(
     authChallengeSigningBytes({ challengeHex: challenge, fingerprint }),
     staleKeys.signingPrivateKey,

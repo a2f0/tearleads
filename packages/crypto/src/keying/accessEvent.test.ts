@@ -54,6 +54,17 @@ test("verifySignedAccessEvent rejects unexpected and missing fields", async () =
   expectVerificationError(missingFieldResult, "invalid_shape");
 });
 
+test("verifySignedAccessEvent rejects added prototype-named body fields", async () => {
+  const fixture = await createSignedContainerEvent({});
+  const result = await verifySignedAccessEvent({
+    body: { ...fixture.body, ["__proto__"]: "unsigned field" },
+    event: fixture.event,
+    signerPublicKey: fixture.signingPublicKey,
+  });
+
+  expectVerificationError(result, "hash_mismatch");
+});
+
 test("verifySignedAccessEvent rejects tampered bodies and wrong domain hashes", async () => {
   const fixture = await createSignedContainerEvent({});
   const tamperedBodyResult = await verifySignedAccessEvent({
