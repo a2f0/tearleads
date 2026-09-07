@@ -10,6 +10,7 @@
       "!**/*TestFixtures.{ts,tsx}",
       "!packages/api/src/appTestRuntime.ts",
       "!**/{test,tests,testUtils,testFixtures}/**",
+      "!!docs/openapi.json",
       // Generated contracts are verified by lint:openapi. Exclude this file
       // from type scanning to avoid Biome's generated-type count limit.
       "!!packages/validators/src/operation/generatedOpenApi.ts"

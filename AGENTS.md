@@ -19,6 +19,9 @@ Run the smallest command that matches the handoff risk:
   checks production promises in API, SDK, app, and crypto. Included in
   `lint:biome`, `check:fast`, and pre-push; its separate `biome.promises.jsonc`
   keeps type scanning out of formatting hooks.
+- `bun run test:biome:promises`: builds SDK declarations and proves the promise
+  gate resolves SDK calls through gitignored build output. Included in the
+  production promise lint command.
 - `bun run lint:knip:production`: production-only dependency and source reachability.
 - `bun run test:knip:production`: production entrypoint regression fixtures.
   Run `bun install` to apply the pinned dependency patch in `patches/`.
