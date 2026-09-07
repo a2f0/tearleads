@@ -3,6 +3,20 @@ import { generateSigningSeedAndKeyPair } from "@tearleads/crypto";
 import { createMemoryBlobStore } from "../../data/blobs/memoryBlobStore";
 import { Tearleads } from "../Tearleads";
 
+const ROOT_FINGERPRINT = "1".repeat(64);
+
+async function createRootSdk(): Promise<Tearleads> {
+  const sdk = new Tearleads({
+    blobStoreFactory: () => createMemoryBlobStore(),
+  });
+  await sdk.identity.setKeyPairs({
+    encapsulationKeyPair: null,
+    signingFingerprint: ROOT_FINGERPRINT,
+    signingKeyPair: generateSigningSeedAndKeyPair(),
+  });
+  return sdk;
+}
+
 const ROOT_CONTEXT = {
   authToken: "token-root",
   containerId: "container-1",
@@ -13,8 +27,8 @@ const ROOT_CONTEXT = {
   userId: "user-root",
 } as const;
 
-test("the root flag reaches the session snapshot and workflow runtime", () => {
-  const sdk = new Tearleads();
+test("the root flag reaches the session snapshot and workflow runtime", async () => {
+  const sdk = await createRootSdk();
   expect(sdk.session.isRoot).toBe(false);
   expect(sdk.root.isAvailable).toBe(false);
 
@@ -26,8 +40,8 @@ test("the root flag reaches the session snapshot and workflow runtime", () => {
   expect(sdk.root.isAvailable).toBe(true);
 });
 
-test("a partial context update keeps the root flag until it is cleared", () => {
-  const sdk = new Tearleads();
+test("a partial context update keeps the root flag until it is cleared", async () => {
+  const sdk = await createRootSdk();
   sdk.session.setContext(ROOT_CONTEXT);
 
   sdk.session.setContext({ authToken: "token-renewed" });
@@ -39,8 +53,8 @@ test("a partial context update keeps the root flag until it is cleared", () => {
   expect(sdk.root.isAvailable).toBe(false);
 });
 
-test("logout drops the root flag along with the session", () => {
-  const sdk = new Tearleads();
+test("logout drops the root flag along with the session", async () => {
+  const sdk = await createRootSdk();
   sdk.session.setContext(ROOT_CONTEXT);
 
   sdk.session.logout();
@@ -52,7 +66,7 @@ test("logout drops the root flag along with the session", () => {
 });
 
 test("the root facade refuses calls without a root session", async () => {
-  const sdk = new Tearleads();
+  const sdk = await createRootSdk();
   sdk.session.setContext({ ...ROOT_CONTEXT, isRoot: false });
 
   const outcome = await sdk.root.listIdentities();
@@ -86,7 +100,12 @@ function createDeferredRootRuntime() {
     },
     signingFingerprint: "f".repeat(64) as string | null,
   };
+  const listeners = new Set<() => void>();
   const runtime: RootRuntime = {
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
     workflowInput: () => ({
       apiClient: {
         getRootIdentityResult: async () => {
@@ -102,7 +121,13 @@ function createDeferredRootRuntime() {
     }),
   };
   const page: RootIdentitiesResponse = { identities: [], nextCursor: null };
+  const notify = () => {
+    for (const listener of listeners) {
+      listener();
+    }
+  };
   return {
+    notify,
     resolveListing: () => resolveListing({ data: page, ok: true }),
     root: createRoot(runtime),
     state,
@@ -120,10 +145,11 @@ test("a lookup that completes in the same session returns its data", async () =>
 });
 
 test("a lookup that completes after a logout is dropped", async () => {
-  const { resolveListing, root, state } = createDeferredRootRuntime();
+  const { notify, resolveListing, root, state } = createDeferredRootRuntime();
 
   const pending = root.listIdentities();
   state.auth = { ...state.auth, isAuthenticated: false, isRoot: false };
+  notify();
   resolveListing();
 
   const outcome = await pending;
@@ -135,12 +161,13 @@ test("a lookup that completes after a logout is dropped", async () => {
 });
 
 test("a lookup that completes after an identity switch is dropped", async () => {
-  const { resolveListing, root, state } = createDeferredRootRuntime();
+  const { notify, resolveListing, root, state } = createDeferredRootRuntime();
 
   const pending = root.listIdentities();
   // A switch to another root identity still advances the generation, so the
   // reply requested by the previous identity must not surface to the new one.
   state.auth = { ...state.auth, userId: "user-other-root" };
+  notify();
   resolveListing();
 
   const outcome = await pending;
@@ -148,25 +175,60 @@ test("a lookup that completes after an identity switch is dropped", async () => 
 });
 
 test("a lookup that completes after an auth-token renewal is kept", async () => {
-  const { resolveListing, root, state } = createDeferredRootRuntime();
+  const { notify, resolveListing, root, state } = createDeferredRootRuntime();
 
   const pending = root.listIdentities();
   // The api client renews an expired token and retries transparently; the
   // user and identity are unchanged, so the retried reply must still land.
   state.auth = { ...state.auth };
+  notify();
   resolveListing();
 
   const outcome = await pending;
   expect(outcome.ok).toBe(true);
 });
 
+test("a logout followed by a login of the same user drops the in-flight reply", async () => {
+  const { notify, resolveListing, root, state } = createDeferredRootRuntime();
+  const rootAuth = state.auth;
+
+  const pending = root.listIdentities();
+  state.auth = { ...rootAuth, isAuthenticated: false, isRoot: false };
+  notify();
+  state.auth = rootAuth;
+  notify();
+  resolveListing();
+
+  const outcome = await pending;
+  expect(outcome.ok).toBe(false);
+});
+
+test("a switch to another identity and back drops the in-flight reply", async () => {
+  const { notify, resolveListing, root, state } = createDeferredRootRuntime();
+  const rootAuth = state.auth;
+  const rootFingerprint = state.signingFingerprint;
+
+  const pending = root.listIdentities();
+  state.auth = { ...rootAuth, userId: "user-b" };
+  state.signingFingerprint = "b".repeat(64);
+  notify();
+  state.auth = rootAuth;
+  state.signingFingerprint = rootFingerprint;
+  notify();
+  resolveListing();
+
+  const outcome = await pending;
+  expect(outcome.ok).toBe(false);
+});
+
 test("a lookup that completes after the signing identity changes is dropped", async () => {
-  const { resolveListing, root, state } = createDeferredRootRuntime();
+  const { notify, resolveListing, root, state } = createDeferredRootRuntime();
 
   const pending = root.listIdentities();
   // Swapping key pairs does not touch the session generation, so the guard
   // must notice the fingerprint moving on its own.
   state.signingFingerprint = "0".repeat(64);
+  notify();
   resolveListing();
 
   const outcome = await pending;
@@ -174,10 +236,11 @@ test("a lookup that completes after the signing identity changes is dropped", as
 });
 
 test("a lookup that completes after the identity is destroyed is dropped", async () => {
-  const { resolveListing, root, state } = createDeferredRootRuntime();
+  const { notify, resolveListing, root, state } = createDeferredRootRuntime();
 
   const pending = root.listIdentities();
   state.signingFingerprint = null;
+  notify();
   resolveListing();
 
   const outcome = await pending;
@@ -204,6 +267,7 @@ test("a real SDK key-pair swap drops an in-flight lookup", async () => {
   // Adapter over the real SDK: session and identity come from the live
   // runtime, only the network call is faked so it can be held open.
   const root = createRoot({
+    subscribe: (listener) => sdk.runtime.subscribe(listener),
     workflowInput: () => ({
       apiClient: {
         getRootIdentityResult: async () => {
@@ -229,4 +293,26 @@ test("a real SDK key-pair swap drops an in-flight lookup", async () => {
 
   const outcome = await pending;
   expect(outcome.ok).toBe(false);
+});
+
+test("a key-pair swap after login unbinds root until the next login", async () => {
+  const sdk = await createRootSdk();
+  sdk.session.setContext(ROOT_CONTEXT);
+  expect(sdk.root.isAvailable).toBe(true);
+
+  // The session still holds identity A's token and root flag, but the loaded
+  // signing identity is now B; B must not inherit A's operator standing.
+  await sdk.identity.setKeyPairs({
+    encapsulationKeyPair: null,
+    signingFingerprint: "2".repeat(64),
+    signingKeyPair: generateSigningSeedAndKeyPair(),
+  });
+  expect(sdk.root.isAvailable).toBe(false);
+  const refused = await sdk.root.listIdentities();
+  expect(refused.ok).toBe(false);
+
+  // A fresh login as B (the server reporting root) binds root to B.
+  sdk.session.setContext({ ...ROOT_CONTEXT, isRoot: false });
+  sdk.session.setContext({ ...ROOT_CONTEXT, userId: "user-b" });
+  expect(sdk.root.isAvailable).toBe(true);
 });

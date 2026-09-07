@@ -1,5 +1,6 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
 import type { Tearleads } from "@tearleads/client-sdk";
+import { generateSigningSeedAndKeyPair } from "@tearleads/crypto";
 import {
   act,
   fireEvent,
@@ -43,6 +44,13 @@ async function renderRootWithSession(isRoot: boolean) {
   }
   spyOn(tearleads, "requestWebSocketTicket").mockResolvedValue(null);
   await act(async () => {
+    // Root standing is bound to the signing identity that logged in, so the
+    // session needs a loaded key pair just as a real login would.
+    await tearleads.identity.setKeyPairs({
+      encapsulationKeyPair: null,
+      signingFingerprint: "c".repeat(64),
+      signingKeyPair: generateSigningSeedAndKeyPair(),
+    });
     tearleads.session.setContext({
       authToken: "test-token",
       containerId: "container-1",

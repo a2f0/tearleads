@@ -13,6 +13,7 @@ import type {
   WorkflowRuntimeAuthInput,
   WorkflowRuntimeCryptoInput,
 } from "../../workflows/runtimeInput";
+import type { InternalRuntime } from "../workflowRuntime";
 
 export type {
   RootIdentitiesPage,
@@ -40,16 +41,27 @@ export interface Root {
 }
 
 /**
- * What the facade needs from the runtime: the current auth snapshot, the
- * signing identity (which can change or vanish without touching the session),
- * and the api client. Narrower than the full runtime so tests can drive it
- * with a fake.
+ * What the facade needs from the runtime: change notifications, the current
+ * auth snapshot, the signing identity (which can change or vanish without
+ * touching the session), and the api client. Narrower than the full runtime
+ * so tests can drive it with a fake.
  */
 export interface RootRuntime {
+  subscribe(listener: () => void): () => void;
   workflowInput(): {
     readonly apiClient: RootIdentitiesApi;
     readonly auth: WorkflowRuntimeAuthInput;
     readonly crypto: Pick<WorkflowRuntimeCryptoInput, "signingFingerprint">;
+  };
+}
+
+/** The SDK's internal runtime, narrowed to what the root facade observes. */
+export function rootRuntimeOf(
+  runtime: Pick<InternalRuntime, "publicRuntime" | "workflowInput">,
+): RootRuntime {
+  return {
+    subscribe: (listener) => runtime.publicRuntime.subscribe(listener),
+    workflowInput: () => runtime.workflowInput(),
   };
 }
 
@@ -66,25 +78,56 @@ const SESSION_CHANGED: RootRequestOutcome<never> = {
 };
 
 export function createRoot(runtimeService: RootRuntime): Root {
-  const activeApi = (): RootIdentitiesApi | null => {
-    const runtime = runtimeService.workflowInput();
-    return runtime.auth.isAuthenticated && runtime.auth.isRoot === true
-      ? runtime.apiClient
-      : null;
-  };
-
-  // Operator data must never surface into a session other than the one that
-  // asked for it. The reply is kept only while the same user and the same
-  // signing identity are still root: a logout, an identity switch, or a
-  // key-pair swap or destruction drops it. An automatic auth-token renewal
-  // changes neither, so a successful retried lookup is still returned.
   const principal = () => {
     const runtime = runtimeService.workflowInput();
     return {
       fingerprint: runtime.crypto.signingFingerprint,
+      isAuthenticated: runtime.auth.isAuthenticated,
+      isRoot: runtime.auth.isRoot === true,
       userId: runtime.auth.userId,
     };
   };
+
+  // Root standing belongs to the signing identity that authenticated, not to
+  // whichever key pair is loaded now. The fingerprint is bound when the
+  // session becomes root; a later key swap leaves the session's token in
+  // place but unbinds root until a fresh login re-establishes it.
+  let observed = principal();
+  let boundFingerprint: string | null =
+    observed.isAuthenticated && observed.isRoot ? observed.fingerprint : null;
+  // Every change of principal, counted as it happens, so a round trip such
+  // as logout then login, or a switch to another identity and back, is still
+  // two changes even though the endpoints match. An automatic auth-token
+  // renewal changes none of these, so a retried lookup is still returned.
+  let lifecycle = 0;
+  runtimeService.subscribe(() => {
+    const next = principal();
+    const becameRoot =
+      next.isAuthenticated &&
+      next.isRoot &&
+      !(observed.isAuthenticated && observed.isRoot);
+    if (
+      next.fingerprint !== observed.fingerprint ||
+      next.isAuthenticated !== observed.isAuthenticated ||
+      next.isRoot !== observed.isRoot ||
+      next.userId !== observed.userId
+    ) {
+      lifecycle += 1;
+      boundFingerprint = becameRoot ? next.fingerprint : null;
+      observed = next;
+    }
+  });
+
+  const activeApi = (): RootIdentitiesApi | null => {
+    const runtime = runtimeService.workflowInput();
+    return runtime.auth.isAuthenticated &&
+      runtime.auth.isRoot === true &&
+      boundFingerprint !== null &&
+      runtime.crypto.signingFingerprint === boundFingerprint
+      ? runtime.apiClient
+      : null;
+  };
+
   const guarded = async <Data>(
     request: (api: RootIdentitiesApi) => Promise<RootRequestOutcome<Data>>,
   ): Promise<RootRequestOutcome<Data>> => {
@@ -92,14 +135,9 @@ export function createRoot(runtimeService: RootRuntime): Root {
     if (!api) {
       return NOT_AVAILABLE;
     }
-    const before = principal();
+    const startedIn = lifecycle;
     const outcome = await request(api);
-    const after = principal();
-    if (
-      activeApi() === null ||
-      after.userId !== before.userId ||
-      after.fingerprint !== before.fingerprint
-    ) {
+    if (activeApi() === null || lifecycle !== startedIn) {
       return SESSION_CHANGED;
     }
     return outcome;
