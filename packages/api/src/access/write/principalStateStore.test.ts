@@ -251,80 +251,79 @@ test("storeVerifiedPrincipalState rejects encrypted payloads that do not match t
   );
 });
 
-test.each([
-  "memberCount",
-  "grantCount",
-  "grantRoot",
-] as const)("storeVerifiedPrincipalState rejects signed headers whose %s does not match its projection", async (mismatchedArtifact) => {
-  const { publicKey } = generateKemSeedAndKeyPair();
-  const { signingPrivateKey, signingPublicKey } =
-    generateSigningSeedAndKeyPair();
-  const signer = await createPrincipalStateSigner(signingPublicKey);
-  const principalId = crypto.randomUUID();
-  const projection = [
-    {
-      userId: signer.signerUserId,
-      role: "admin" as const,
-    },
-  ];
-  const payloadCiphertext = JSON.stringify({ members: projection });
-  const state = await signPrincipalStateHeader(
-    {
-      principalType: "group",
-      principalId,
-      version: 1,
-      prevStateHash: null,
-      keyEpoch: 1,
-      encapsulationPublicKey: bytesToBase64(publicKey),
-      keyFingerprint: await toFingerprint(publicKey),
-      membershipMode: "projection",
-      membershipRoot: await computePrincipalMembershipRoot([
-        { userId: signer.signerUserId },
-      ]),
-      memberEnvelopesRoot: await computePrincipalMemberEnvelopesRoot([]),
-      projectionRoot: await computePrincipalProjectionRoot(projection),
-      grantRoot:
-        mismatchedArtifact === "grantRoot"
-          ? "0".repeat(64)
-          : await computePrincipalContainerGrantRoot([]),
-      payloadCiphertextHash:
-        await computePrincipalStatePayloadCiphertextHash(payloadCiphertext),
-      memberCount:
-        mismatchedArtifact === "memberCount"
-          ? projection.length + 1
-          : projection.length,
-      grantCount: mismatchedArtifact === "grantCount" ? 1 : 0,
-      externalAuthority: null,
-      signedAt: "2026-04-07T12:07:00.000Z",
-      signerUserId: signer.signerUserId,
-      signerUserKeyFingerprint: signer.signerUserKeyFingerprint,
-    },
-    signingPrivateKey,
-  );
-
-  await expect(
-    storeVerifiedPrincipalState(
+test.each(["memberCount", "grantCount", "grantRoot"] as const)(
+  "storeVerifiedPrincipalState rejects signed headers whose %s does not match its projection",
+  async (mismatchedArtifact) => {
+    const { publicKey } = generateKemSeedAndKeyPair();
+    const { signingPrivateKey, signingPublicKey } =
+      generateSigningSeedAndKeyPair();
+    const signer = await createPrincipalStateSigner(signingPublicKey);
+    const principalId = crypto.randomUUID();
+    const projection = [
       {
-        state,
-        encryptedPayload: {
-          cipherSuite: "aes-256-gcm",
-          ciphertext: payloadCiphertext,
-          ciphertextHash: state.payloadCiphertextHash,
-        },
-        projection,
-        grants: [],
-        memberEnvelopes: [],
+        userId: signer.signerUserId,
+        role: "admin" as const,
       },
-      db,
-    ),
-  ).rejects.toThrow(
-    mismatchedArtifact === "memberCount"
-      ? "Principal state memberCount does not match projection"
-      : mismatchedArtifact === "grantCount"
-        ? "Principal state grantCount does not match grant projection"
-        : "Principal state grantRoot does not match grant projection",
-  );
-});
+    ];
+    const payloadCiphertext = JSON.stringify({ members: projection });
+    const state = await signPrincipalStateHeader(
+      {
+        principalType: "group",
+        principalId,
+        version: 1,
+        prevStateHash: null,
+        keyEpoch: 1,
+        encapsulationPublicKey: bytesToBase64(publicKey),
+        keyFingerprint: await toFingerprint(publicKey),
+        membershipMode: "projection",
+        membershipRoot: await computePrincipalMembershipRoot([
+          { userId: signer.signerUserId },
+        ]),
+        memberEnvelopesRoot: await computePrincipalMemberEnvelopesRoot([]),
+        projectionRoot: await computePrincipalProjectionRoot(projection),
+        grantRoot:
+          mismatchedArtifact === "grantRoot"
+            ? "0".repeat(64)
+            : await computePrincipalContainerGrantRoot([]),
+        payloadCiphertextHash:
+          await computePrincipalStatePayloadCiphertextHash(payloadCiphertext),
+        memberCount:
+          mismatchedArtifact === "memberCount"
+            ? projection.length + 1
+            : projection.length,
+        grantCount: mismatchedArtifact === "grantCount" ? 1 : 0,
+        externalAuthority: null,
+        signedAt: "2026-04-07T12:07:00.000Z",
+        signerUserId: signer.signerUserId,
+        signerUserKeyFingerprint: signer.signerUserKeyFingerprint,
+      },
+      signingPrivateKey,
+    );
+
+    await expect(
+      storeVerifiedPrincipalState(
+        {
+          state,
+          encryptedPayload: {
+            cipherSuite: "aes-256-gcm",
+            ciphertext: payloadCiphertext,
+            ciphertextHash: state.payloadCiphertextHash,
+          },
+          projection,
+          grants: [],
+          memberEnvelopes: [],
+        },
+        db,
+      ),
+    ).rejects.toThrow(
+      mismatchedArtifact === "memberCount"
+        ? "Principal state memberCount does not match projection"
+        : mismatchedArtifact === "grantCount"
+          ? "Principal state grantCount does not match grant projection"
+          : "Principal state grantRoot does not match grant projection",
+    );
+  },
+);
 
 test("storeVerifiedPrincipalState accepts empty initial states signed by authorized external admins", async () => {
   const { publicKey } = generateKemSeedAndKeyPair();

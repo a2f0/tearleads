@@ -62,72 +62,75 @@ test.each([
   ["icon", false],
   ["local move", false],
   ["remote move", true],
-] as const)("%s returns null and removes stale state when a concurrent delete wins", async (operation, remote) => {
-  const logs: string[] = [];
-  const execSql = (async () => []) as ExecSql;
-  const persistence: ContainerContentsPersistence = {
-    ...defaultContainerContentsPersistence,
-    loadContainerMetadataState: async () => null,
-  };
-  const state = createContainerContentsStoreState(
-    createContainerContentsTestRuntime({
-      domainScope: {} as DomainScope,
-      execSql,
-      log: (message) => logs.push(message),
-    }),
-    persistence,
-  );
-  const source = await createState({
-    documentId: remote ? "remote-source" : null,
-    id: "source",
-    parentId: "old-parent",
-  });
-  const oldParent = await createState({
-    documentId: "remote-old-parent",
-    id: "old-parent",
-    parentId: null,
-  });
-  const newParent = await createState({
-    documentId: "remote-new-parent",
-    id: "new-parent",
-    parentId: null,
-  });
-  state.containersById.set(source.container.id, source);
-  state.containersById.set(oldParent.container.id, oldParent);
-  state.containersById.set(newParent.container.id, newParent);
-  updateContainerContentsSnapshot(state);
-  let syncRequests = 0;
-  const syncAgent = {
-    scheduleSync: () => {
-      syncRequests += 1;
-    },
-  } as unknown as ContainerContentsStoreSyncAgent;
+] as const)(
+  "%s returns null and removes stale state when a concurrent delete wins",
+  async (operation, remote) => {
+    const logs: string[] = [];
+    const execSql = (async () => []) as ExecSql;
+    const persistence: ContainerContentsPersistence = {
+      ...defaultContainerContentsPersistence,
+      loadContainerMetadataState: async () => null,
+    };
+    const state = createContainerContentsStoreState(
+      createContainerContentsTestRuntime({
+        domainScope: {} as DomainScope,
+        execSql,
+        log: (message) => logs.push(message),
+      }),
+      persistence,
+    );
+    const source = await createState({
+      documentId: remote ? "remote-source" : null,
+      id: "source",
+      parentId: "old-parent",
+    });
+    const oldParent = await createState({
+      documentId: "remote-old-parent",
+      id: "old-parent",
+      parentId: null,
+    });
+    const newParent = await createState({
+      documentId: "remote-new-parent",
+      id: "new-parent",
+      parentId: null,
+    });
+    state.containersById.set(source.container.id, source);
+    state.containersById.set(oldParent.container.id, oldParent);
+    state.containersById.set(newParent.container.id, newParent);
+    updateContainerContentsSnapshot(state);
+    let syncRequests = 0;
+    const syncAgent = {
+      scheduleSync: () => {
+        syncRequests += 1;
+      },
+    } as unknown as ContainerContentsStoreSyncAgent;
 
-  const result =
-    operation === "rename"
-      ? await renameContainer(state, syncAgent, source.container.id, "After")
-      : operation === "icon"
-        ? await setContainerIcon(
-            state,
-            syncAgent,
-            source.container.id,
-            "folder-special",
-          )
-        : await moveContainer(
-            state,
-            syncAgent,
-            source.container.id,
-            newParent.container.id,
-          );
+    const result =
+      operation === "rename"
+        ? await renameContainer(state, syncAgent, source.container.id, "After")
+        : operation === "icon"
+          ? await setContainerIcon(
+              state,
+              syncAgent,
+              source.container.id,
+              "folder-special",
+            )
+          : await moveContainer(
+              state,
+              syncAgent,
+              source.container.id,
+              newParent.container.id,
+            );
 
-  expect(result).toBeNull();
-  expect(state.containersById.has(source.container.id)).toBe(false);
-  expect(state.snapshot.nodes.map((node) => node.id)).not.toContain(
-    source.container.id,
-  );
-  expect(syncRequests).toBe(0);
-  expect(logs).toEqual([]);
-});
+    expect(result).toBeNull();
+    expect(state.containersById.has(source.container.id)).toBe(false);
+    expect(state.snapshot.nodes.map((node) => node.id)).not.toContain(
+      source.container.id,
+    );
+    expect(syncRequests).toBe(0);
+    expect(logs).toEqual([]);
+  },
+);
 
 test("an online transition does not roll back a local metadata write", async () => {
   const database = await createTestExecSql("container-write-online-transition");
@@ -326,89 +329,91 @@ test("move fails explicitly and refreshes authoritative state when metadata iden
   expect(logs).toEqual([]);
 });
 
-test.each([
-  "rename",
-  "icon",
-] as const)("%s rolls back its detached edit when the structural generation expires", async (operation) => {
-  const database = await createTestExecSql(
-    `container-${operation}-generation-guard`,
-  );
-  try {
-    const source = await createState({
-      documentId: null,
-      id: "source",
-      parentId: "parent",
-    });
-    writeContainerMetadataValue(source.doc, {
-      icon: null,
-      name: "Before",
-    });
-    source.record.metadataUpdates = bytesToBase64(exportAllUpdates(source.doc));
-    await defaultContainerContentsPersistence.ensureSchema(database.execSql);
-    await defaultContainerContentsPersistence.saveContainer(
-      database.execSql,
-      source.container,
-      source.record,
+test.each(["rename", "icon"] as const)(
+  "%s rolls back its detached edit when the structural generation expires",
+  async (operation) => {
+    const database = await createTestExecSql(
+      `container-${operation}-generation-guard`,
     );
+    try {
+      const source = await createState({
+        documentId: null,
+        id: "source",
+        parentId: "parent",
+      });
+      writeContainerMetadataValue(source.doc, {
+        icon: null,
+        name: "Before",
+      });
+      source.record.metadataUpdates = bytesToBase64(
+        exportAllUpdates(source.doc),
+      );
+      await defaultContainerContentsPersistence.ensureSchema(database.execSql);
+      await defaultContainerContentsPersistence.saveContainer(
+        database.execSql,
+        source.container,
+        source.record,
+      );
 
-    let current = true;
-    const persistence: ContainerContentsPersistence = {
-      ...defaultContainerContentsPersistence,
-      commitMetadataMutation: async (...args) => {
-        current = false;
-        return defaultContainerContentsPersistence.commitMetadataMutation(
-          ...args,
-        );
-      },
-    };
-    const state = createContainerContentsStoreState(
-      createContainerContentsTestRuntime({
-        domainScope: {} as DomainScope,
-        execSql: database.execSql,
-      }),
-      persistence,
-    );
-    state.containersById.set(source.container.id, source);
-    updateContainerContentsSnapshot(state);
-    const syncAgent = {
-      scheduleSync: () => {
-        throw new Error("A stale metadata edit must not schedule sync");
-      },
-    } as unknown as ContainerContentsStoreSyncAgent;
-
-    const result =
-      operation === "rename"
-        ? await renameContainer(
-            state,
-            syncAgent,
-            source.container.id,
-            "After",
-            () => current,
-          )
-        : await setContainerIcon(
-            state,
-            syncAgent,
-            source.container.id,
-            "folder-special",
-            () => current,
+      let current = true;
+      const persistence: ContainerContentsPersistence = {
+        ...defaultContainerContentsPersistence,
+        commitMetadataMutation: async (...args) => {
+          current = false;
+          return defaultContainerContentsPersistence.commitMetadataMutation(
+            ...args,
           );
+        },
+      };
+      const state = createContainerContentsStoreState(
+        createContainerContentsTestRuntime({
+          domainScope: {} as DomainScope,
+          execSql: database.execSql,
+        }),
+        persistence,
+      );
+      state.containersById.set(source.container.id, source);
+      updateContainerContentsSnapshot(state);
+      const syncAgent = {
+        scheduleSync: () => {
+          throw new Error("A stale metadata edit must not schedule sync");
+        },
+      } as unknown as ContainerContentsStoreSyncAgent;
 
-    expect(result).toBeNull();
-    expect(readContainerMetadataValue(source.doc, "source")).toEqual({
-      icon: null,
-      name: "Before",
-    });
-    expect(
-      (
-        await defaultContainerContentsPersistence.loadContainers(
-          database.execSql,
-        )
-      )[0]?.container,
-    ).toMatchObject({ icon: null, name: "source" });
-    expect(
-      await database.execSql("SELECT local_id FROM document_pending_updates"),
-    ).toEqual([]);
-  } finally {
-    database.close();
-  }
-});
+      const result =
+        operation === "rename"
+          ? await renameContainer(
+              state,
+              syncAgent,
+              source.container.id,
+              "After",
+              () => current,
+            )
+          : await setContainerIcon(
+              state,
+              syncAgent,
+              source.container.id,
+              "folder-special",
+              () => current,
+            );
+
+      expect(result).toBeNull();
+      expect(readContainerMetadataValue(source.doc, "source")).toEqual({
+        icon: null,
+        name: "Before",
+      });
+      expect(
+        (
+          await defaultContainerContentsPersistence.loadContainers(
+            database.execSql,
+          )
+        )[0]?.container,
+      ).toMatchObject({ icon: null, name: "source" });
+      expect(
+        await database.execSql("SELECT local_id FROM document_pending_updates"),
+      ).toEqual([]);
+    } finally {
+      database.close();
+    }
+  },
+);

@@ -1,8 +1,8 @@
 # Dependency patches
 
-## Knip 6.0.6
+## Knip 6.34.0
 
-`knip-6.0.6.patch` preserves the production flag on entries discovered from
+`knip-6.34.0.patch` preserves the production flag on entries discovered from
 production package scripts, such as `start`. Without it, Knip classifies
 `bun src/index.ts` as a development entry and excludes it even when the
 configuration explicitly marks `src/index.ts!` as a production root.

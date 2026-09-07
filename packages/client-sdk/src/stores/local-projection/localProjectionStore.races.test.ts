@@ -63,67 +63,68 @@ function createView(execSql: ExecSql) {
   return { runtime, view };
 }
 
-test.each([
-  "root",
-  "other",
-])("autosaves in %s publish local reads before a pending trailing refresh", async (containerId) => {
-  const db = await createTestExecSql(`projection-autosaves-${containerId}`);
-  const releases: Array<() => void> = [];
-  const delayed = new Proxy(db.execSql, {
-    apply: async (target, _receiver, args: Parameters<ExecSql>) => {
-      const rows = await target(...args);
-      if (
-        args[0].startsWith("select") &&
-        args[0].includes('from "document_projection"')
-      ) {
-        await new Promise<void>((resolve) => releases.push(resolve));
+test.each(["root", "other"])(
+  "autosaves in %s publish local reads before a pending trailing refresh",
+  async (containerId) => {
+    const db = await createTestExecSql(`projection-autosaves-${containerId}`);
+    const releases: Array<() => void> = [];
+    const delayed = new Proxy(db.execSql, {
+      apply: async (target, _receiver, args: Parameters<ExecSql>) => {
+        const rows = await target(...args);
+        if (
+          args[0].startsWith("select") &&
+          args[0].includes('from "document_projection"')
+        ) {
+          await new Promise<void>((resolve) => releases.push(resolve));
+        }
+        return rows;
+      },
+    });
+    try {
+      await seed(db.execSql, "Cached");
+      const { view } = createView(delayed);
+      await waitFor(() => view.getSnapshot().ready, "Tree did not hydrate");
+      view.setActiveContainer("root");
+      const title = () =>
+        view.getSnapshot().documentSummariesByContainerId.get("root")?.[0]
+          ?.title;
+      const id = containerId === "root" ? "note" : "other-note";
+      for (let index = 0; index < 2; index += 1) {
+        await waitFor(
+          () => releases.length === index + 1,
+          "Local summary read was not held",
+        );
+        await seed(db.execSql, `Autosave ${index}`, containerId, id);
+        view.refreshPersistedDocument({
+          id,
+          containerId,
+          documentId: null,
+          title: `Autosave ${index}`,
+          updatedAt: `2026-09-05T00:00:0${index}.000Z`,
+        });
+        releases[index]?.();
+        await waitFor(
+          () => releases.length === index + 2,
+          "Trailing read was not scheduled",
+        );
+        expect(title()).toBe(
+          containerId === "root" && index === 1 ? "Autosave 0" : "Cached",
+        );
       }
-      return rows;
-    },
-  });
-  try {
-    await seed(db.execSql, "Cached");
-    const { view } = createView(delayed);
-    await waitFor(() => view.getSnapshot().ready, "Tree did not hydrate");
-    view.setActiveContainer("root");
-    const title = () =>
-      view.getSnapshot().documentSummariesByContainerId.get("root")?.[0]?.title;
-    const id = containerId === "root" ? "note" : "other-note";
-    for (let index = 0; index < 2; index += 1) {
+      releases[2]?.();
       await waitFor(
-        () => releases.length === index + 1,
-        "Local summary read was not held",
+        () => title() === (containerId === "root" ? "Autosave 1" : "Cached"),
+        "Trailing refresh did not converge",
       );
-      await seed(db.execSql, `Autosave ${index}`, containerId, id);
-      view.refreshPersistedDocument({
-        id,
-        containerId,
-        documentId: null,
-        title: `Autosave ${index}`,
-        updatedAt: `2026-09-05T00:00:0${index}.000Z`,
-      });
-      releases[index]?.();
-      await waitFor(
-        () => releases.length === index + 2,
-        "Trailing read was not scheduled",
-      );
-      expect(title()).toBe(
-        containerId === "root" && index === 1 ? "Autosave 0" : "Cached",
-      );
+    } finally {
+      for (const release of releases) {
+        release();
+      }
+      await Promise.resolve();
+      db.close();
     }
-    releases[2]?.();
-    await waitFor(
-      () => title() === (containerId === "root" ? "Autosave 1" : "Cached"),
-      "Trailing refresh did not converge",
-    );
-  } finally {
-    for (const release of releases) {
-      release();
-    }
-    await Promise.resolve();
-    db.close();
-  }
-});
+  },
+);
 
 test("a cached row deleted during first local hydration cannot reappear from the stale read", async () => {
   const db = await createTestExecSql("projection-deletion-during-read");

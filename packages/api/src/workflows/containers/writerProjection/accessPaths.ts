@@ -164,7 +164,7 @@ export async function loadContainerManifestBundleByHash(
         manifestHash,
         context.executor,
       );
-      if (!bundle || bundle.manifest.objectKind !== "container") {
+      if (bundle?.manifest.objectKind !== "container") {
         throw new ContainerWriterProjectionError(
           "Container manifest bundle missing",
           409,

@@ -14,10 +14,10 @@
     "test": "bun test src"
   },
   "dependencies": {
-    "@astrojs/react": "5.0.6",
+    "@astrojs/react": "6.0.5",
     "@phosphor-icons/react": "2.1.10",
     "@tearleads/ui": "workspace:*",
-    "astro": "6.4.0",
+    "astro": "7.3.1",
     "react": "catalog:react",
     "react-dom": "catalog:react"
   },

@@ -101,21 +101,21 @@ test("rejects unsupported encrypted file versions and unsafe KDF iterations", as
   ).rejects.toThrow("Backup KDF iterations count is out of safe bounds.");
 });
 
-test.each([
-  undefined,
-  "test-password",
-])("rejects legacy payloads in both formats (password: %s)", async (password) => {
-  const text = await encodeBackupFile({
-    password,
-    payload: {
-      ...payload,
-      version: BACKUP_FORMAT_VERSION - 1,
-    } as unknown as BackupPayload,
-  });
-  await expect(decodeBackupFile({ password, text })).rejects.toThrow(
-    "Backup payload version is not supported.",
-  );
-});
+test.each([undefined, "test-password"])(
+  "rejects legacy payloads in both formats (password: %s)",
+  async (password) => {
+    const text = await encodeBackupFile({
+      password,
+      payload: {
+        ...payload,
+        version: BACKUP_FORMAT_VERSION - 1,
+      } as unknown as BackupPayload,
+    });
+    await expect(decodeBackupFile({ password, text })).rejects.toThrow(
+      "Backup payload version is not supported.",
+    );
+  },
+);
 
 test.each([
   ["{", "Backup file must be valid JSON."],

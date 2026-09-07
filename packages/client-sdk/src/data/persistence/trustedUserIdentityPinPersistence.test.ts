@@ -180,7 +180,7 @@ test("concurrent divergent first contacts leave exactly one durable pin", async 
       },
     });
     const winner = fulfilled[0];
-    if (!winner || winner.status !== "fulfilled") {
+    if (winner?.status !== "fulfilled") {
       throw new Error("Expected one winning first-contact candidate");
     }
     await expect(

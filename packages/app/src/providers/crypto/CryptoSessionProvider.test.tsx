@@ -105,12 +105,13 @@ test("crypto session context changes only with its exposed state", async () => {
     expect(values[1]?.userId).toBe("user-1");
     expect(values[1]?.login).toBe(firstValue?.login);
 
+    if (!firstValue) throw new Error("Missing crypto session");
     await act(async () => {
-      expect(await firstValue?.login()).toBe(true);
+      expect(await firstValue.login()).toBe(true);
       expect(await firstValue?.loginWithChallenge("challenge")).toBe(true);
       expect(
         await (
-          firstValue?.login as (incidentalArgument: string) => Promise<boolean>
+          firstValue.login as (incidentalArgument: string) => Promise<boolean>
         )("ignored"),
       ).toBe(true);
     });

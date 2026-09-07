@@ -104,8 +104,7 @@ export function getApplicableDocumentTombstones(
   return listedDocuments.tombstones.filter((tombstone) => {
     const item = latestItemsByDocumentId.get(tombstone.documentId);
     return (
-      !item ||
-      !item.linkedContainerIds.includes(tombstone.containerId) ||
+      !item?.linkedContainerIds.includes(tombstone.containerId) ||
       item.updatedAt.localeCompare(tombstone.updatedAt) < 0
     );
   });

@@ -43,10 +43,7 @@ export async function deleteOrganizationGroup(input: {
     organizationId: input.organizationId,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
-  if (
-    !externalAdminPolicy ||
-    !externalAdminPolicy.signerUserIds.includes(input.signerUserId)
-  ) {
+  if (!externalAdminPolicy?.signerUserIds.includes(input.signerUserId)) {
     throw new Error("Organization admin authority could not be verified");
   }
   const adminProjection = externalAdminPolicy.adminBundle.currentProjection;

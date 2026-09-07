@@ -8,7 +8,7 @@ BUILD_DIR="$PACKAGE_DIR/build"
 
 cd "$PACKAGE_DIR"
 NODE_ENV=production sh "$REPO_ROOT/scripts/withBuildInfoEnv.sh" \
-  bun run electrobun build "$@"
+  bun --bun run electrobun build "$@"
 
 if [ ! -d "$BUILD_DIR" ]; then
   echo "Build directory $BUILD_DIR does not exist. The build may have failed." >&2

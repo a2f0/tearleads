@@ -139,7 +139,7 @@ async function loadCurrentDocumentManifestBundle(
   }
 
   const bundle = await getAccessManifestBundle(head.manifestHash, executor);
-  if (!bundle || bundle.manifest.objectKind !== "document") {
+  if (bundle?.manifest.objectKind !== "document") {
     throw new DocumentWriterProjectionError(
       "Document manifest bundle missing",
       409,

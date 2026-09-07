@@ -344,11 +344,9 @@ export async function describeErrorResponse(
 ): Promise<ErrorResponseDescription> {
   const schema = operation?.failureResponses?.[response.status];
   if (operation && !schema) {
-    try {
-      await response.body?.cancel();
-    } catch {
-      // The status is already invalid; body cleanup must not replace that failure.
-    }
+    // A cloned response can wait for its other branch to finish cancelling.
+    // Cleanup must not delay reporting an already-invalid status.
+    void response.body?.cancel().catch(() => {});
     return invalidErrorResponseDescription;
   }
   let responseText = "";

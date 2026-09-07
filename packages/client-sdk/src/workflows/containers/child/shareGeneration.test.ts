@@ -85,65 +85,67 @@ test("share planning rolls back checkpoints after its generation expires", async
   }
 });
 
-test.each([
-  false,
-  true,
-])("shareRemoteContainer respects a refused checkpoint commit (guard revives: %s)", async (reviveGuard) => {
-  const parent = await createParentProjection();
-  const { author } = await createAuthor({
-    organizationId: parent.projection.organizationId,
-    userId: parent.userId,
-  });
-  const recipientKeyPair = generateKemSeedAndKeyPair();
-  const database = await createTestExecSql("container-share-submit-generation");
-  let current = true;
-
-  try {
-    const shared = await shareRemoteContainer({
-      reportSecurityIncident: async () => {},
-      accessLevel: "write",
-      apiClient: {
-        reciteContainer: async () => null,
-        getContainerWriterProjection: async () => parent.projection,
-        shareContainer: async (_containerId, request) => {
-          const response = await createMutationResponseFromRequest(request);
-          current = false;
-          return response;
-        },
-      },
-      author,
-      containerId: parent.projection.containerId,
-      execSql: database.execSql,
-      recipientUserId: "user-2",
-      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
-      resolveTrustedUserIdentity: createRecipientIdentityResolver({
-        encapsulationPublicKey: recipientKeyPair.publicKey,
-        signingKeyFingerprint: author.signerKeyFingerprint,
-        signingPublicKey: parent.signingPublicKey,
-      }),
-      stillCurrent: () => {
-        const permitted = current;
-        // A later guard evaluation cannot turn a rolled-back acknowledgement
-        // into a completed mutation, even if the host reports current again.
-        if (reviveGuard) current = true;
-        return permitted;
-      },
-      targetSecretKey: parent.secretKey,
+test.each([false, true])(
+  "shareRemoteContainer respects a refused checkpoint commit (guard revives: %s)",
+  async (reviveGuard) => {
+    const parent = await createParentProjection();
+    const { author } = await createAuthor({
+      organizationId: parent.projection.organizationId,
+      userId: parent.userId,
     });
+    const recipientKeyPair = generateKemSeedAndKeyPair();
+    const database = await createTestExecSql(
+      "container-share-submit-generation",
+    );
+    let current = true;
 
-    expect(shared).toBeNull();
-    await expect(
-      loadAccessManifestCheckpoint(
-        database.execSql,
-        "container",
-        parent.projection.organizationId,
-        parent.projection.containerId,
-      ),
-    ).resolves.toMatchObject({ epoch: 1 });
-  } finally {
-    database.close();
-  }
-});
+    try {
+      const shared = await shareRemoteContainer({
+        reportSecurityIncident: async () => {},
+        accessLevel: "write",
+        apiClient: {
+          reciteContainer: async () => null,
+          getContainerWriterProjection: async () => parent.projection,
+          shareContainer: async (_containerId, request) => {
+            const response = await createMutationResponseFromRequest(request);
+            current = false;
+            return response;
+          },
+        },
+        author,
+        containerId: parent.projection.containerId,
+        execSql: database.execSql,
+        recipientUserId: "user-2",
+        resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+        resolveTrustedUserIdentity: createRecipientIdentityResolver({
+          encapsulationPublicKey: recipientKeyPair.publicKey,
+          signingKeyFingerprint: author.signerKeyFingerprint,
+          signingPublicKey: parent.signingPublicKey,
+        }),
+        stillCurrent: () => {
+          const permitted = current;
+          // A later guard evaluation cannot turn a rolled-back acknowledgement
+          // into a completed mutation, even if the host reports current again.
+          if (reviveGuard) current = true;
+          return permitted;
+        },
+        targetSecretKey: parent.secretKey,
+      });
+
+      expect(shared).toBeNull();
+      await expect(
+        loadAccessManifestCheckpoint(
+          database.execSql,
+          "container",
+          parent.projection.organizationId,
+          parent.projection.containerId,
+        ),
+      ).resolves.toMatchObject({ epoch: 1 });
+    } finally {
+      database.close();
+    }
+  },
+);
 
 test("a group share does not acknowledge a policy after its generation expires during commit", async () => {
   const parent = await createParentProjection();

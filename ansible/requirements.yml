@@ -1,8 +1,8 @@
 ---
 collections:
   - name: ansible.posix
-    version: "2.1.0"
+    version: "2.2.2"
   - name: community.general
-    version: "10.5.0"
+    version: "13.3.0"
   - name: community.postgresql
-    version: "3.4.0"
+    version: "4.2.0"

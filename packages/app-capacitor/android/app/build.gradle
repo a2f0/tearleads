@@ -1,5 +1,4 @@
 apply plugin: 'com.android.application'
-apply plugin: 'org.jetbrains.kotlin.android'
 
 android {
     namespace = "com.tearleads.app"
@@ -112,15 +111,15 @@ dependencies {
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation project(':capacitor-android')
-    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1'
-    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0'
     // The first-party purchase bridge imports the native SDK directly. Keep
     // this pin aligned with purchases-hybrid-common from the Capacitor plugin;
     // the resolution guard above pins platform-managed requests and rejects
     // explicit conflicting transitive pins.
     implementation "com.revenuecat.purchases:purchases:${rootProject.ext.revenueCatPurchasesVersion}"
     testImplementation "junit:junit:$junitVersion"
-    testImplementation 'org.json:json:20250517'
+    testImplementation 'org.json:json:20260814'
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')

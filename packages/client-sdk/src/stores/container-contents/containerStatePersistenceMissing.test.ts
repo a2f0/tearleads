@@ -38,38 +38,41 @@ async function createState(id: string): Promise<ContainerState> {
 test.each([
   ["mapped state", false],
   ["replacement state", true],
-] as const)("missing detached persistence preserves the %s reference guard", async (_name, installReplacement) => {
-  const execSql = (async () => []) as ExecSql;
-  const persistence: ContainerContentsPersistence = {
-    ...defaultContainerContentsPersistence,
-    deletePendingUpdates: async () => {},
-    loadContainerMetadataState: async () => null,
-    saveContainer: async () => {
-      throw new Error("a missing container must not be recreated");
-    },
-  };
-  const state = createContainerContentsStoreState(
-    createContainerContentsTestRuntime({
-      domainScope: createDomainScope(),
-      execSql,
-    }),
-    persistence,
-  );
-  const liveState = await createState("child");
-  const candidate = await createDetachedContainerMetadataState(liveState);
-  const replacementState = await createState("child");
-  state.containersById.set(
-    liveState.container.id,
-    installReplacement ? replacementState : liveState,
-  );
+] as const)(
+  "missing detached persistence preserves the %s reference guard",
+  async (_name, installReplacement) => {
+    const execSql = (async () => []) as ExecSql;
+    const persistence: ContainerContentsPersistence = {
+      ...defaultContainerContentsPersistence,
+      deletePendingUpdates: async () => {},
+      loadContainerMetadataState: async () => null,
+      saveContainer: async () => {
+        throw new Error("a missing container must not be recreated");
+      },
+    };
+    const state = createContainerContentsStoreState(
+      createContainerContentsTestRuntime({
+        domainScope: createDomainScope(),
+        execSql,
+      }),
+      persistence,
+    );
+    const liveState = await createState("child");
+    const candidate = await createDetachedContainerMetadataState(liveState);
+    const replacementState = await createState("child");
+    state.containersById.set(
+      liveState.container.id,
+      installReplacement ? replacementState : liveState,
+    );
 
-  await expect(
-    persistContainerState(state, candidate, {}, false, undefined, undefined, {
-      expectedStateWhenMissing: liveState,
-    }),
-  ).resolves.toEqual({ status: "missing" });
+    await expect(
+      persistContainerState(state, candidate, {}, false, undefined, undefined, {
+        expectedStateWhenMissing: liveState,
+      }),
+    ).resolves.toEqual({ status: "missing" });
 
-  expect(state.containersById.get(liveState.container.id)).toBe(
-    installReplacement ? replacementState : undefined,
-  );
-});
+    expect(state.containersById.get(liveState.container.id)).toBe(
+      installReplacement ? replacementState : undefined,
+    );
+  },
+);

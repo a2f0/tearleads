@@ -92,7 +92,7 @@ export function scheduleRemoteContactCleanup(input: {
   const pending = pendingByState.get(input.state) ?? new Map();
   pendingByState.set(input.state, pending);
   const existing = pending.get(input.localId);
-  if (!existing || !existing.current()) {
+  if (!existing?.current()) {
     const replacementLocalId = resolveContactWriteTarget(
       input.state,
       input.replacementLocalId,

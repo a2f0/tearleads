@@ -115,8 +115,7 @@ export function resolveLockedStripeTierFallback(input: {
 }): RevenueCatBillingTransition | null {
   const { billing } = input;
   if (
-    !billing ||
-    billing.provider !== "revenuecat" ||
+    billing?.provider !== "revenuecat" ||
     billing.providerCustomerId !== input.event.app_user_id ||
     billing.providerProductId === null ||
     billing.providerProductId !== input.resolution.priceId ||

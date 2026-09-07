@@ -35,6 +35,11 @@ OpenAPI compatibility and protocol-model checks use mise-pinned tooling. Run
 and fetch `origin/main` or set `OPENAPI_BASE_REF` when checking OpenAPI against
 another base commit.
 
+After `bun install`, run `bun run --cwd packages/app-electrobun prepare:devkit`
+before standalone TypeScript, Knip, or editor checks. Electrobun 2 generates the
+SDK configuration they consume. `check:fast` and `build:packages` already do this;
+see [desktop setup](packages/app-electrobun/README.md) for cache and offline use.
+
 Intentional flag-day OpenAPI breaks may temporarily list an exact oasdiff
 diagnostic in `scripts/checks/openApiCompatibilityErrors.ignore`. Each entry
 must name its issue and removal condition in adjacent comments, and must be

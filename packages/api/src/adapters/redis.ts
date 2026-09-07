@@ -1,4 +1,3 @@
-import { createClient } from "redis";
 import {
   clearInMemoryRedisData,
   inMemoryRedisDel,
@@ -12,8 +11,9 @@ import {
   inMemoryRedisSscanMembers,
   isInMemoryRedisEnabled,
 } from "./inMemoryRedis";
+import { createRedisClient } from "./redisClient";
 
-type RedisClient = ReturnType<typeof createClient>;
+type RedisClient = ReturnType<typeof createRedisClient>;
 
 let client: RedisClient | null = null;
 let connectPromise: Promise<RedisClient> | null = null;
@@ -23,7 +23,7 @@ function getClient(): RedisClient {
     return client;
   }
 
-  const nextClient = createClient();
+  const nextClient = createRedisClient();
   nextClient.on("error", (err) => {
     console.error("Redis client error:", err);
   });
@@ -170,7 +170,7 @@ export async function closeRedisClient(): Promise<void> {
   client = null;
   connectPromise = null;
 
-  if (!activeClient || !activeClient.isOpen) {
+  if (!activeClient?.isOpen) {
     return;
   }
 

@@ -47,7 +47,8 @@
 /* The mobile drawer normally starts below the top inset
    (RoutedPaneSidebar.css); under a banner the frame has already consumed that
    space, so the drawer can start at the routed pane's top edge. */
-.tearleads-frame.layout:has(> .billing-banner) .routed-pane--mobile
+.tearleads-frame.layout:has(> .billing-banner)
+  .routed-pane--mobile
   .routed-pane-sidebar {
   inset-block-start: 0;
 }

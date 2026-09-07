@@ -200,114 +200,114 @@ async function createMutationApi(
   return { apiClient, calls };
 }
 
-test.each([
-  "Operators",
-  " ｏｐｅｒａｔｏｒｓ ",
-])("group add accepts matching label %j before checking recipient identity", async (expectedGroupName) => {
-  const fixture = await createGroupPolicyFixture();
-  const targetUserId = crypto.randomUUID();
-  const integrityError = new KeyingVerificationError(
-    "equivocation",
-    "Trusted target identity changed",
-  );
-  const { apiClient, calls } = await createMutationApi(
-    fixture,
-    fixture.initialPolicy,
-  );
-  const resolvedUserIds: string[] = [];
-  let policyRequestBuilt = 0;
-  const { close, execSql } = await createTestExecSql(
-    "organization-add-target-identity-equivocation",
-  );
+test.each(["Operators", " ｏｐｅｒａｔｏｒｓ "])(
+  "group add accepts matching label %j before checking recipient identity",
+  async (expectedGroupName) => {
+    const fixture = await createGroupPolicyFixture();
+    const targetUserId = crypto.randomUUID();
+    const integrityError = new KeyingVerificationError(
+      "equivocation",
+      "Trusted target identity changed",
+    );
+    const { apiClient, calls } = await createMutationApi(
+      fixture,
+      fixture.initialPolicy,
+    );
+    const resolvedUserIds: string[] = [];
+    let policyRequestBuilt = 0;
+    const { close, execSql } = await createTestExecSql(
+      "organization-add-target-identity-equivocation",
+    );
 
-  try {
-    await expect(
-      addOrganizationGroupUser({
-        afterPolicyCommitBeforeCache: async () => {
-          throw new Error("Unexpected policy commit bridge");
-        },
-        apiClient,
-        beforePolicyCommit: () => {
-          policyRequestBuilt += 1;
-        },
-        currentUserSecretKey: fixture.creatorKem.secretKey,
-        execSql,
-        groupId: fixture.groupId,
-        organizationId: fixture.organizationId,
-        resolveTrustedUserIdentity: async (userId) => {
-          resolvedUserIds.push(userId);
-          if (userId === targetUserId) {
-            throw integrityError;
-          }
-          return userId === fixture.signerUserId
-            ? fixture.signerIdentity
-            : null;
-        },
-        signerUserId: fixture.signerUserId,
-        signingFingerprint: fixture.signingFingerprint,
-        signingKeyPair: fixture.signingKeyPair,
-        targetUserId,
-        expectedGroupName,
-      }),
-    ).rejects.toBe(integrityError);
-  } finally {
-    close();
-  }
+    try {
+      await expect(
+        addOrganizationGroupUser({
+          afterPolicyCommitBeforeCache: async () => {
+            throw new Error("Unexpected policy commit bridge");
+          },
+          apiClient,
+          beforePolicyCommit: () => {
+            policyRequestBuilt += 1;
+          },
+          currentUserSecretKey: fixture.creatorKem.secretKey,
+          execSql,
+          groupId: fixture.groupId,
+          organizationId: fixture.organizationId,
+          resolveTrustedUserIdentity: async (userId) => {
+            resolvedUserIds.push(userId);
+            if (userId === targetUserId) {
+              throw integrityError;
+            }
+            return userId === fixture.signerUserId
+              ? fixture.signerIdentity
+              : null;
+          },
+          signerUserId: fixture.signerUserId,
+          signingFingerprint: fixture.signingFingerprint,
+          signingKeyPair: fixture.signingKeyPair,
+          targetUserId,
+          expectedGroupName,
+        }),
+      ).rejects.toBe(integrityError);
+    } finally {
+      close();
+    }
 
-  expect(resolvedUserIds).toContain(targetUserId);
-  expect(policyRequestBuilt).toBe(0);
-  expect(calls).toEqual({ commitPolicy: 0 });
-});
+    expect(resolvedUserIds).toContain(targetUserId);
+    expect(policyRequestBuilt).toBe(0);
+    expect(calls).toEqual({ commitPolicy: 0 });
+  },
+);
 
-test.each([
-  "Executives",
-  "Operators\u200b",
-  "Operators\u202e",
-  "",
-])("group add refuses a relabeled selection %j before resolving the recipient", async (expectedGroupName) => {
-  const fixture = await createGroupPolicyFixture();
-  const { apiClient, calls } = await createMutationApi(
-    fixture,
-    fixture.initialPolicy,
-  );
-  const targetUserId = crypto.randomUUID();
-  const resolvedUserIds: string[] = [];
-  let prepared = false;
-  const { close, execSql } = await createTestExecSql("group-add-name-binding");
-  try {
-    await expect(
-      addOrganizationGroupUser({
-        apiClient,
-        beforePolicyCommit: () => {
-          prepared = true;
-        },
-        currentUserSecretKey: fixture.creatorKem.secretKey,
-        execSql,
-        expectedGroupName,
-        groupId: fixture.groupId,
-        organizationId: fixture.organizationId,
-        resolveTrustedUserIdentity: async (userId) => {
-          resolvedUserIds.push(userId);
-          return userId === fixture.signerUserId
-            ? fixture.signerIdentity
-            : null;
-        },
-        signerUserId: fixture.signerUserId,
-        signingFingerprint: fixture.signingFingerprint,
-        signingKeyPair: fixture.signingKeyPair,
-        targetUserId,
-      }),
-    ).rejects.toMatchObject({
-      code: "object_mismatch",
-      name: "GroupMembershipNameMismatchError",
-    });
-    expect(resolvedUserIds).not.toContain(targetUserId);
-    expect(prepared).toBe(false);
-    expect(calls.commitPolicy).toBe(0);
-  } finally {
-    close();
-  }
-});
+test.each(["Executives", "Operators\u200b", "Operators\u202e", ""])(
+  "group add refuses a relabeled selection %j before resolving the recipient",
+  async (expectedGroupName) => {
+    const fixture = await createGroupPolicyFixture();
+    const { apiClient, calls } = await createMutationApi(
+      fixture,
+      fixture.initialPolicy,
+    );
+    const targetUserId = crypto.randomUUID();
+    const resolvedUserIds: string[] = [];
+    let prepared = false;
+    const { close, execSql } = await createTestExecSql(
+      "group-add-name-binding",
+    );
+    try {
+      await expect(
+        addOrganizationGroupUser({
+          apiClient,
+          beforePolicyCommit: () => {
+            prepared = true;
+          },
+          currentUserSecretKey: fixture.creatorKem.secretKey,
+          execSql,
+          expectedGroupName,
+          groupId: fixture.groupId,
+          organizationId: fixture.organizationId,
+          resolveTrustedUserIdentity: async (userId) => {
+            resolvedUserIds.push(userId);
+            return userId === fixture.signerUserId
+              ? fixture.signerIdentity
+              : null;
+          },
+          signerUserId: fixture.signerUserId,
+          signingFingerprint: fixture.signingFingerprint,
+          signingKeyPair: fixture.signingKeyPair,
+          targetUserId,
+        }),
+      ).rejects.toMatchObject({
+        code: "object_mismatch",
+        name: "GroupMembershipNameMismatchError",
+      });
+      expect(resolvedUserIds).not.toContain(targetUserId);
+      expect(prepared).toBe(false);
+      expect(calls.commitPolicy).toBe(0);
+    } finally {
+      close();
+    }
+  },
+);
 
 test("group removal refuses a relabeled selection before committing", async () => {
   const fixture = await createGroupPolicyFixture();

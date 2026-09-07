@@ -285,33 +285,33 @@ for (const sameSlot of [false, true]) {
   });
 }
 
-test.each([
-  false,
-  true,
-])("a confirmed result survives a local edit but not runtime replacement (%s)", async (replaceRuntime) => {
-  const { state, calls, syncAgent } = await createFixture();
-  try {
-    const result = await chainRemoteContainerTask(
-      state,
-      syncAgent,
-      false,
-      async (current) => {
-        invalidateRemoteContainerWrites(state, ["trashed-child"]);
-        if (replaceRuntime) state.writeGeneration += 1;
-        expect(current()).toBe(false);
-        return true;
-      },
-      "trash",
-      { preserveResultOnLocalWrite: true },
-    );
-    expect(result).toBe(!replaceRuntime);
-    expect(calls).toEqual(
-      replaceRuntime ? { local: 0, remote: 0 } : { local: 1, remote: 1 },
-    );
-  } finally {
-    for (const entry of state.containersById.values()) entry.doc.free();
-  }
-});
+test.each([false, true])(
+  "a confirmed result survives a local edit but not runtime replacement (%s)",
+  async (replaceRuntime) => {
+    const { state, calls, syncAgent } = await createFixture();
+    try {
+      const result = await chainRemoteContainerTask(
+        state,
+        syncAgent,
+        false,
+        async (current) => {
+          invalidateRemoteContainerWrites(state, ["trashed-child"]);
+          if (replaceRuntime) state.writeGeneration += 1;
+          expect(current()).toBe(false);
+          return true;
+        },
+        "trash",
+        { preserveResultOnLocalWrite: true },
+      );
+      expect(result).toBe(!replaceRuntime);
+      expect(calls).toEqual(
+        replaceRuntime ? { local: 0, remote: 0 } : { local: 1, remote: 1 },
+      );
+    } finally {
+      for (const entry of state.containersById.values()) entry.doc.free();
+    }
+  },
+);
 
 test("a probe for an unknown root does not bind to another root's system slot", async () => {
   const { state, calls, syncAgent } = await createFixture();

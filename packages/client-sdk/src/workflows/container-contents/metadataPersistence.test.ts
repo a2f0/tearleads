@@ -157,30 +157,31 @@ test.each([
 ] satisfies Array<{
   label: string;
   patch: Partial<ContainerMetadataPatch>;
-}>)("clears the cached metadata writer projection when $label", async ({
-  patch,
-}) => {
-  const metadataState = await createMetadataState();
+}>)(
+  "clears the cached metadata writer projection when $label",
+  async ({ patch }) => {
+    const metadataState = await createMetadataState();
 
-  const persisted = await persistContainerMetadataStateFromRuntime({
-    metadataState,
-    patch,
-    persistence: createPersistenceForMetadataState(metadataState),
-    runtime,
-  });
-  if (!persisted) throw new Error("Expected persisted metadata state");
+    const persisted = await persistContainerMetadataStateFromRuntime({
+      metadataState,
+      patch,
+      persistence: createPersistenceForMetadataState(metadataState),
+      runtime,
+    });
+    if (!persisted) throw new Error("Expected persisted metadata state");
 
-  expect(metadataState.metadataWriterProjection).toBeNull();
-  expect(persisted.record).toMatchObject({
-    contentKeyBundle: null,
-    documentKekTargets: null,
-    documentManifestBundle: null,
-    pullContinuation: null,
-    ...patch,
-  });
-  installContainerMetadataRecord(metadataState, persisted.record);
-  expect(metadataState.pullContinuation).toBeNull();
-});
+    expect(metadataState.metadataWriterProjection).toBeNull();
+    expect(persisted.record).toMatchObject({
+      contentKeyBundle: null,
+      documentKekTargets: null,
+      documentManifestBundle: null,
+      pullContinuation: null,
+      ...patch,
+    });
+    installContainerMetadataRecord(metadataState, persisted.record);
+    expect(metadataState.pullContinuation).toBeNull();
+  },
+);
 
 test("metadata-only changes preserve writer projection and pull progress", async () => {
   const metadataState = await createMetadataState();

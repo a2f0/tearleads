@@ -23,8 +23,6 @@ import {
   type RemoteResetPrincipalKey,
 } from "./remoteResetPrincipalScope";
 
-export type { RemoteResetPrincipalKey } from "./remoteResetPrincipalScope";
-
 export interface RemoteResetReplacement {
   readonly organizationId: string;
   readonly rootContainerId: string;

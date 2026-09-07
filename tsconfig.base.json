@@ -7,5 +7,6 @@
     "noEmit": true,
     "skipLibCheck": true,
     "types": ["@types/bun"]
-  }
+  },
+  "files": ["./types/assets.d.ts"]
 }

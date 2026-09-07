@@ -9,7 +9,7 @@ import {
 import { MAX_PRINCIPAL_STATE_VERSION } from "../util";
 import { ContainerMutationRequestSchema } from "./container";
 
-export const PrincipalProjectionMemberRequestSchema = loosePlainObject({
+const PrincipalProjectionMemberRequestSchema = loosePlainObject({
   role: z.literal(["member", "admin"]),
   userId: uuidV4StringSchema,
 });
@@ -71,7 +71,7 @@ export type PrincipalStateEncryptedPayloadRequest = z.infer<
   typeof PrincipalStateEncryptedPayloadRequestSchema
 >;
 
-export const PrincipalMemberEnvelopeRequestSchema = loosePlainObject({
+const PrincipalMemberEnvelopeRequestSchema = loosePlainObject({
   kemCipherText: z.string(),
   memberKeyFingerprint: z.string(),
   userId: uuidV4StringSchema,

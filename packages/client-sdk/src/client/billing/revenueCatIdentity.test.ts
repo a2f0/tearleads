@@ -307,13 +307,11 @@ test("a stalled logout times out without leaving the caller busy", async () => {
   );
 });
 
-test.each([
-  0,
-  -1,
-  Number.NaN,
-  Number.POSITIVE_INFINITY,
-])("rejects an invalid operation timeout: %s", (timeoutMs) => {
-  expect(() => revenueCatOperationTimeoutMs(timeoutMs)).toThrow(
-    "RevenueCat operation timeout must be a positive finite number",
-  );
-});
+test.each([0, -1, Number.NaN, Number.POSITIVE_INFINITY])(
+  "rejects an invalid operation timeout: %s",
+  (timeoutMs) => {
+    expect(() => revenueCatOperationTimeoutMs(timeoutMs)).toThrow(
+      "RevenueCat operation timeout must be a positive finite number",
+    );
+  },
+);

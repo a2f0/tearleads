@@ -154,33 +154,33 @@ test("the checkbox hides both password fields and restores them when unchecked",
   expect(view.queryByText(/Anyone with this unencrypted backup/)).toBeNull();
 });
 
-test.each([
-  "{",
-  '{"format":"unknown"}',
-])("a rejected file clears the picker for reselection: %s", async (text) => {
-  const view = renderBackupRestore();
-  fireEvent.click(view.getByRole("tab", { name: "Restore" }));
-  const input = view.getByLabelText("Backup Restore File");
-  if (!(input instanceof HTMLInputElement)) {
-    throw new Error("Backup file input was not rendered.");
-  }
-  // Browsers populate a file input's value after the native picker returns.
-  Object.defineProperty(input, "value", {
-    configurable: true,
-    writable: true,
-    value: "C:\\fakepath\\test.tlbackup.json",
-  });
-  await act(async () => chooseBackup(view, text));
-  expect(
-    view.queryByText(
-      /Backup file (must be valid JSON|format is not supported)/,
-    ),
-  ).toBeTruthy();
-  expect(view.queryByText("No backup file selected.")).toBeTruthy();
-  expect(input.value).toBe("");
-  fireEvent.click(view.getByRole("button", { name: "Restore Backup" }));
-  expect(view.queryByText("Choose a backup file.")).toBeTruthy();
-});
+test.each(["{", '{"format":"unknown"}'])(
+  "a rejected file clears the picker for reselection: %s",
+  async (text) => {
+    const view = renderBackupRestore();
+    fireEvent.click(view.getByRole("tab", { name: "Restore" }));
+    const input = view.getByLabelText("Backup Restore File");
+    if (!(input instanceof HTMLInputElement)) {
+      throw new Error("Backup file input was not rendered.");
+    }
+    // Browsers populate a file input's value after the native picker returns.
+    Object.defineProperty(input, "value", {
+      configurable: true,
+      writable: true,
+      value: "C:\\fakepath\\test.tlbackup.json",
+    });
+    await act(async () => chooseBackup(view, text));
+    expect(
+      view.queryByText(
+        /Backup file (must be valid JSON|format is not supported)/,
+      ),
+    ).toBeTruthy();
+    expect(view.queryByText("No backup file selected.")).toBeTruthy();
+    expect(input.value).toBe("");
+    fireEvent.click(view.getByRole("button", { name: "Restore Backup" }));
+    expect(view.queryByText("Choose a backup file.")).toBeTruthy();
+  },
+);
 
 test("exports without a password despite stale mismatched fields and restores without prompting", async () => {
   const view = renderBackupRestore();
@@ -270,34 +270,37 @@ test("switching files clears stale restore data and ignores superseded file read
   expect(view.queryByText("Enter the restore password.")).toBeTruthy();
 });
 
-test.each([
-  undefined,
-  "password",
-])("backup progress matches encryption (password: %s)", async (password) => {
-  const hostConfig = createIdentityManagerHostConfig();
-  const { result } = renderHook(useLocalBackupOperations, {
-    wrapper: ({ children }) => (
-      <AppRuntimeProvider autoProvisionEnabled={false} hostConfig={hostConfig}>
-        {children}
-      </AppRuntimeProvider>
-    ),
-  });
-  const exportProgress: BackupProgress["phase"][] = [];
-  const restoreProgress: BackupProgress["phase"][] = [];
-  await act(async () => {
-    const backup = await result.current.exportLocalBackup({
-      onProgress: ({ phase }) => exportProgress.push(phase),
-      password,
+test.each([undefined, "password"])(
+  "backup progress matches encryption (password: %s)",
+  async (password) => {
+    const hostConfig = createIdentityManagerHostConfig();
+    const { result } = renderHook(useLocalBackupOperations, {
+      wrapper: ({ children }) => (
+        <AppRuntimeProvider
+          autoProvisionEnabled={false}
+          hostConfig={hostConfig}
+        >
+          {children}
+        </AppRuntimeProvider>
+      ),
     });
-    await result.current.restoreLocalBackup({
-      onProgress: ({ phase }) => restoreProgress.push(phase),
-      password,
-      text: backup.text,
+    const exportProgress: BackupProgress["phase"][] = [];
+    const restoreProgress: BackupProgress["phase"][] = [];
+    await act(async () => {
+      const backup = await result.current.exportLocalBackup({
+        onProgress: ({ phase }) => exportProgress.push(phase),
+        password,
+      });
+      await result.current.restoreLocalBackup({
+        onProgress: ({ phase }) => restoreProgress.push(phase),
+        password,
+        text: backup.text,
+      });
     });
-  });
-  expect(exportProgress).toContain("preparing");
-  expect(exportProgress.includes("encrypting")).toBe(password !== undefined);
-  expect(restoreProgress).toContain("preparing");
-  expect(restoreProgress.includes("decrypting")).toBe(password !== undefined);
-  expect(restoreProgress).toContain("restoring");
-});
+    expect(exportProgress).toContain("preparing");
+    expect(exportProgress.includes("encrypting")).toBe(password !== undefined);
+    expect(restoreProgress).toContain("preparing");
+    expect(restoreProgress.includes("decrypting")).toBe(password !== undefined);
+    expect(restoreProgress).toContain("restoring");
+  },
+);

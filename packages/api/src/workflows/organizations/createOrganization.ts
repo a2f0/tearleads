@@ -100,7 +100,7 @@ async function assertReplacementReady(
     .where(eq(organizationBilling.organizationId, replacedOrganizationId))
     .limit(1);
   const [billing] = await lockRowForUpdate(billingQuery);
-  if (!billing || billing.status !== "purged") {
+  if (billing?.status !== "purged") {
     throw new OrganizationProvisioningError(
       "The replaced organization's remote data purge is not complete",
       409,

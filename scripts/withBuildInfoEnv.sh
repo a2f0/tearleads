@@ -4,9 +4,9 @@
 #
 # The App Host Config's `buildInfo` is what the System Monitor's Environment tab
 # and its support report show, and each deployment target stamps it at its own
-# entry point. Web and Electrobun both bundle through Bun, which inlines
-# `BUN_PUBLIC_*`-prefixed vars into browser bundles, so both share this wrapper
-# verbatim. Capacitor bundles through Vite and reads the same two values via
+# entry point. Web uses Bun's environment passthrough; Electrobun uses explicit
+# renderer defines for these same variables, so both share this wrapper.
+# Capacitor bundles through Vite and reads the same two values via
 # `define` in its own vite.config.ts instead.
 #
 # Version comes from the invoking package's own package.json, so each target
