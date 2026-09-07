@@ -72,21 +72,19 @@ export function IdentitiesTable({
   return (
     <MiniAppTableFrame>
       <MiniAppTable aria-label="Identities" columns={IDENTITY_COLUMNS}>
-        <tbody>
-          {identities.length === 0 ? (
-            <MiniAppTableEmptyRow colSpan={IDENTITY_COLUMNS.length}>
-              {loading ? "Loading identities..." : "No identities found."}
-            </MiniAppTableEmptyRow>
-          ) : (
-            identities.map((identity) => (
-              <IdentityRow
-                identity={identity}
-                key={identity.userId}
-                onSelect={onSelect}
-              />
-            ))
-          )}
-        </tbody>
+        {identities.length === 0 ? (
+          <MiniAppTableEmptyRow colSpan={IDENTITY_COLUMNS.length}>
+            {loading ? "Loading identities..." : "No identities found."}
+          </MiniAppTableEmptyRow>
+        ) : (
+          identities.map((identity) => (
+            <IdentityRow
+              identity={identity}
+              key={identity.userId}
+              onSelect={onSelect}
+            />
+          ))
+        )}
       </MiniAppTable>
     </MiniAppTableFrame>
   );
