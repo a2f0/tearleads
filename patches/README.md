@@ -1,0 +1,13 @@
+# Dependency patches
+
+## Knip 6.0.6
+
+`knip-6.0.6.patch` preserves the production flag on entries discovered from
+production package scripts, such as `start`. Without it, Knip classifies
+`bun src/index.ts` as a development entry and excludes it even when the
+configuration explicitly marks `src/index.ts!` as a production root.
+
+The patch changes only production analysis. Remove it when an upstream release
+passes `bun run test:knip:production` without the patch. That regression also
+requires modules reachable only through tests to remain unused, and preserves
+public SDK source exports whose manifest targets generated `dist` files.

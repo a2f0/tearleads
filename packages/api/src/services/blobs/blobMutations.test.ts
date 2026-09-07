@@ -63,7 +63,7 @@ import {
   listContainerKeyWraps,
 } from "../../access/read/containerKekStore";
 import { storeVerifiedAccessManifest } from "../../access/write/accessManifestStore";
-import { verifyDocumentAuditHistory } from "../../documents/verifyDocumentAuditHistory";
+import { verifyDocumentAuditHistory } from "../../documents/auditHistory.testUtils";
 import {
   BlobMutationError,
   bindBlobAttachment,
