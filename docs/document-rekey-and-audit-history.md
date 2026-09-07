@@ -75,7 +75,7 @@ The codebase has history-side tables and services for:
 - `document_audit_checkpoints`
 - `blob_audit_objects`
 - typed `document_attachment_audit_events`
-- `verifyDocumentAuditHistory(...)`
+- Test-only `verifyDocumentAuditHistory(...)`
 
 Those helpers are covered by service tests and are also wired into normal
 application writes. Signed document sync appends audit rows for newly accepted

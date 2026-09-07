@@ -75,7 +75,7 @@ import { moveContainer } from "../../test/helpers/keyingWriterProjectionMove";
 import { buildRootRevokeRequest } from "../../test/helpers/keyingWriterProjectionRevoke";
 import { registerUser } from "../../test/helpers/registerUser";
 import { getCurrentContainerKeyEpoch } from "../access/read/containerKekStore";
-import { verifyDocumentAuditHistory } from "../documents/verifyDocumentAuditHistory";
+import { verifyDocumentAuditHistory } from "../documents/auditHistory.testUtils";
 import { routeApp } from "../routeApp";
 
 async function countDocumentAuditRows(documentId: string, updateId: string) {
