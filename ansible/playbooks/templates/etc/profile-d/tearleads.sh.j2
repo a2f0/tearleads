@@ -1,0 +1,10 @@
+# {{ ansible_managed }}
+# Put the deployed Tearleads executables on PATH for login shells, so an SSH
+# session can run tearleads-api-cli and friends by name. Appended, not
+# prepended: system directories stay authoritative, and the operator wrapper in
+# /usr/local/bin/tearleads-api-cli shadows the raw CLI binary on purpose.
+case ":${PATH}:" in
+  *":/opt/tearleads/bin:"*) ;;
+  *) PATH="${PATH}:/opt/tearleads/bin" ;;
+esac
+export PATH
