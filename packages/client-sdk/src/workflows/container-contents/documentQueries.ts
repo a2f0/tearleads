@@ -60,13 +60,11 @@ import type { ContainerDocumentObjectSyncState } from "./syncState";
 export type {
   ContainerDocumentLinkInput,
   ContainerDocumentSidebarRow,
-  ContainerDocumentSidebarWindow,
   ContainerDocumentTombstone,
   ContainerItemRow,
   ContainerItemSort,
   ContainerItemSortDirection,
   ContainerItemSortKey,
-  ContainerItemWindow,
 } from "./documentQueries/types";
 
 interface ListContainerItemWindowInput {

@@ -89,7 +89,7 @@ export async function recoverPurgedSessionOrganization(
     session.organizationId === sessionOrganizationId &&
     session.userId === userId;
   const billing = await dependencies.api.getOrganizationBilling(organizationId);
-  if (!billing || billing.status !== "purged") {
+  if (billing?.status !== "purged") {
     throw new Error(
       `Organization ${organizationId} cannot be recovered before its purge finishes`,
     );

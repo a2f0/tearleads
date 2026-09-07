@@ -42,10 +42,7 @@ export type OperationRequestInput<Operation extends HttpOperation> = {
 export type JsonOperationRequestInput<Operation extends JsonOperation> =
   OperationRequestInput<Operation>;
 
-export type {
-  JsonOperationResponse,
-  JsonOperationResponseEnvelope,
-} from "./operationResponse";
+export type { JsonOperationResponseEnvelope } from "./operationResponse";
 
 interface DerivedOperationRequestMetadata {
   readonly headers?: Record<string, string> | undefined;

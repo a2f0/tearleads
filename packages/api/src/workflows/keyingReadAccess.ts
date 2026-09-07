@@ -159,7 +159,7 @@ async function loadCurrentDocumentLinkSet(input: {
     head.manifestHash,
     input.executor,
   );
-  if (!bundle || bundle.manifest.objectKind !== "document") {
+  if (bundle?.manifest.objectKind !== "document") {
     throw new KeyingReadAccessError("Document manifest bundle missing", 409);
   }
 

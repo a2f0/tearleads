@@ -135,7 +135,7 @@ async function loadStoredDocumentBundle(
   manifestHash: string,
 ): Promise<AccessManifestBundleWireResponse> {
   const bundle = await getAccessManifestBundle(manifestHash, executor);
-  if (!bundle || bundle.manifest.objectKind !== "document") {
+  if (bundle?.manifest.objectKind !== "document") {
     throw integrityError("document manifest dependency is missing");
   }
   return toManifestBundleResponse(bundle);

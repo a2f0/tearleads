@@ -74,7 +74,8 @@
 
    Deliberately not gated on routed mode: the fold is also driven by the frame's
    own width, so it fires in a narrow desktop window too. */
-.mini-app-table-frame--compact.mini-app-table-frame--two-line .mini-app-table
+.mini-app-table-frame--compact.mini-app-table-frame--two-line
+  .mini-app-table
   tbody
   .mini-app-table-row:not(.mini-app-virtual-table-spacer-row) {
   height: var(--mini-app-virtual-row-height);

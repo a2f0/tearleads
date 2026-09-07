@@ -125,110 +125,115 @@ async function seedBackupDatabase(execSql: ExecSql): Promise<void> {
   ]);
 }
 
-test.each([
-  "test-password",
-  undefined,
-])("backup export and restore preserves SQLite rows, indexes, and blob bytes (password: %s)", async (password) => {
-  const source = await createTestExecSql("backup-source-key");
-  const target = await createTestExecSql("backup-target-key");
-  const sourceBlobStore = new TestBlobStore();
-  const targetBlobStore = new TestBlobStore();
+test.each(["test-password", undefined])(
+  "backup export and restore preserves SQLite rows, indexes, and blob bytes (password: %s)",
+  async (password) => {
+    const source = await createTestExecSql("backup-source-key");
+    const target = await createTestExecSql("backup-target-key");
+    const sourceBlobStore = new TestBlobStore();
+    const targetBlobStore = new TestBlobStore();
 
-  try {
-    await seedBackupDatabase(source.execSql as ExecSql);
-    await sourceBlobStore.writeBytes(
-      "pending-blob",
-      blobBytes("pending bytes"),
-    );
-    await sourceBlobStore.writeBytes("stored-blob", blobBytes("stored bytes"));
+    try {
+      await seedBackupDatabase(source.execSql as ExecSql);
+      await sourceBlobStore.writeBytes(
+        "pending-blob",
+        blobBytes("pending bytes"),
+      );
+      await sourceBlobStore.writeBytes(
+        "stored-blob",
+        blobBytes("stored bytes"),
+      );
 
-    const payload = await createBackupPayload({
-      blobStore: sourceBlobStore,
-      databaseId: "source-db",
-      execSql: source.execSql as ExecSql,
-      signingFingerprint: "fingerprint-source",
-    });
+      const payload = await createBackupPayload({
+        blobStore: sourceBlobStore,
+        databaseId: "source-db",
+        execSql: source.execSql as ExecSql,
+        signingFingerprint: "fingerprint-source",
+      });
 
-    expect(payload.version).toBe(7);
-    expect(payload.summary.rowCount).toBe(5);
-    expect(payload.summary.blobCount).toBe(2);
-    expect(payload.database.indexes.map((index) => index.name)).toContain(
-      "documents_title_idx",
-    );
-    expect(createBackupFileName(payload).endsWith(".tlbackup.json")).toBe(true);
+      expect(payload.version).toBe(7);
+      expect(payload.summary.rowCount).toBe(5);
+      expect(payload.summary.blobCount).toBe(2);
+      expect(payload.database.indexes.map((index) => index.name)).toContain(
+        "documents_title_idx",
+      );
+      expect(createBackupFileName(payload).endsWith(".tlbackup.json")).toBe(
+        true,
+      );
 
-    const encoded = await encodeBackupFile({
-      password,
-      payload,
-    });
-    const decoded = await decodeBackupFile({
-      password,
-      text: encoded,
-    });
-    await target.execSql("PRAGMA foreign_keys = ON");
-    await target.execSql(`
+      const encoded = await encodeBackupFile({
+        password,
+        payload,
+      });
+      const decoded = await decodeBackupFile({
+        password,
+        text: encoded,
+      });
+      await target.execSql("PRAGMA foreign_keys = ON");
+      await target.execSql(`
       CREATE TABLE documents (
         id TEXT PRIMARY KEY,
         stale TEXT NOT NULL
       )
     `);
-    await target.execSql(`
+      await target.execSql(`
       CREATE TABLE stale_values (
         id TEXT PRIMARY KEY
       )
     `);
-    await restoreBackupPayload({
-      blobStore: targetBlobStore,
-      execSql: target.execSql as ExecSql,
-      payload: decoded,
-    });
+      await restoreBackupPayload({
+        blobStore: targetBlobStore,
+        execSql: target.execSql as ExecSql,
+        payload: decoded,
+      });
 
-    await expect(
-      target.execSql(
-        "SELECT title, note_count, pull_continuation FROM documents",
-      ),
-    ).resolves.toEqual([
-      {
-        note_count: 3,
-        pull_continuation: '[1,"tracked","0/2","page-2"]',
-        title: "First",
-      },
-    ]);
-    await expect(
-      target.execSql(
-        "SELECT storage_key FROM document_attachment_blob_projection",
-      ),
-    ).resolves.toEqual([{ storage_key: "stored-blob" }]);
-    await expect(
-      target.execSql("SELECT parent_id FROM child_records"),
-    ).resolves.toEqual([{ parent_id: "parent-1" }]);
-    await expect(
-      target.execSql(
-        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'stale_values'",
-      ),
-    ).resolves.toEqual([]);
-    expect(
-      readRowValue(
-        (await target.execSql("PRAGMA foreign_keys"))[0],
-        "foreign_keys",
-      ),
-    ).toBe(1);
+      await expect(
+        target.execSql(
+          "SELECT title, note_count, pull_continuation FROM documents",
+        ),
+      ).resolves.toEqual([
+        {
+          note_count: 3,
+          pull_continuation: '[1,"tracked","0/2","page-2"]',
+          title: "First",
+        },
+      ]);
+      await expect(
+        target.execSql(
+          "SELECT storage_key FROM document_attachment_blob_projection",
+        ),
+      ).resolves.toEqual([{ storage_key: "stored-blob" }]);
+      await expect(
+        target.execSql("SELECT parent_id FROM child_records"),
+      ).resolves.toEqual([{ parent_id: "parent-1" }]);
+      await expect(
+        target.execSql(
+          "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'stale_values'",
+        ),
+      ).resolves.toEqual([]);
+      expect(
+        readRowValue(
+          (await target.execSql("PRAGMA foreign_keys"))[0],
+          "foreign_keys",
+        ),
+      ).toBe(1);
 
-    const indexes = await target.execSql("PRAGMA index_list(documents)");
-    expect(
-      indexes.some((row) => readRowName(row) === "documents_title_idx"),
-    ).toBe(true);
-    expect(decodeBlob(await targetBlobStore.readBytes("pending-blob"))).toBe(
-      "pending bytes",
-    );
-    expect(decodeBlob(await targetBlobStore.readBytes("stored-blob"))).toBe(
-      "stored bytes",
-    );
-  } finally {
-    source.close();
-    target.close();
-  }
-});
+      const indexes = await target.execSql("PRAGMA index_list(documents)");
+      expect(
+        indexes.some((row) => readRowName(row) === "documents_title_idx"),
+      ).toBe(true);
+      expect(decodeBlob(await targetBlobStore.readBytes("pending-blob"))).toBe(
+        "pending bytes",
+      );
+      expect(decodeBlob(await targetBlobStore.readBytes("stored-blob"))).toBe(
+        "stored bytes",
+      );
+    } finally {
+      source.close();
+      target.close();
+    }
+  },
+);
 
 test("restore resets the schema-ensure memo through a locked executor", async () => {
   const { close, execSql } = await createTestExecSql("backup-memo-reset");

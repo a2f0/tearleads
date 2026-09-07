@@ -348,79 +348,79 @@ test("principal policy persistence retains old epoch material without allowing c
   }
 });
 
-test.each([
-  "save-v2-before-v3",
-  "save-v3-before-v2",
-])("verified policy retention survives an overtaking checkpoint: %s", async (ordering) => {
-  const { close, execSql } = await createTestExecSql(
-    `principal-policy-retention-${ordering}`,
-  );
-
-  try {
-    const { bundle: version1 } = await createPrincipalPolicyBundle();
-    const version2 = successorBundleForPersistence(version1);
-    const version3 = successorBundleForPersistence(version2, "3");
-    const verified2 = verifiedPolicyForPersistence(version2);
-    const verified3 = verifiedPolicyForPersistence(version3);
-    await savePrincipalPolicyBundle(
-      execSql,
-      version1,
-      "2026-04-08T00:01:00Z",
-      "org-1",
+test.each(["save-v2-before-v3", "save-v3-before-v2"])(
+  "verified policy retention survives an overtaking checkpoint: %s",
+  async (ordering) => {
+    const { close, execSql } = await createTestExecSql(
+      `principal-policy-retention-${ordering}`,
     );
-    await retainVerifiedPrincipalPolicyBundle({
-      organizationId: "org-1",
-      bundle: version2,
-      execSql,
-      policy: verified2,
-      updatedAt: "2026-04-08T00:02:00Z",
-    });
-    await advanceKeyingCheckpointsAtomically({
-      organizationId: "org-1",
-      access: [],
-      execSql,
-      policies: [verified2, verified3],
-    });
 
-    if (ordering === "save-v2-before-v3") {
+    try {
+      const { bundle: version1 } = await createPrincipalPolicyBundle();
+      const version2 = successorBundleForPersistence(version1);
+      const version3 = successorBundleForPersistence(version2, "3");
+      const verified2 = verifiedPolicyForPersistence(version2);
+      const verified3 = verifiedPolicyForPersistence(version3);
       await savePrincipalPolicyBundle(
         execSql,
-        version2,
-        "2026-04-08T00:03:00Z",
+        version1,
+        "2026-04-08T00:01:00Z",
         "org-1",
       );
-    }
-    await savePrincipalPolicyBundle(
-      execSql,
-      version3,
-      "2026-04-08T00:04:00Z",
-      "org-1",
-    );
-    if (ordering === "save-v3-before-v2") {
+      await retainVerifiedPrincipalPolicyBundle({
+        organizationId: "org-1",
+        bundle: version2,
+        execSql,
+        policy: verified2,
+        updatedAt: "2026-04-08T00:02:00Z",
+      });
+      await advanceKeyingCheckpointsAtomically({
+        organizationId: "org-1",
+        access: [],
+        execSql,
+        policies: [verified2, verified3],
+      });
+
+      if (ordering === "save-v2-before-v3") {
+        await savePrincipalPolicyBundle(
+          execSql,
+          version2,
+          "2026-04-08T00:03:00Z",
+          "org-1",
+        );
+      }
       await savePrincipalPolicyBundle(
         execSql,
-        version2,
-        "2026-04-08T00:05:00Z",
+        version3,
+        "2026-04-08T00:04:00Z",
         "org-1",
       );
-    }
+      if (ordering === "save-v3-before-v2") {
+        await savePrincipalPolicyBundle(
+          execSql,
+          version2,
+          "2026-04-08T00:05:00Z",
+          "org-1",
+        );
+      }
 
-    await expect(
-      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
-    ).resolves.toEqual(version3);
-    const stateHashes = (await loadAllPrincipalPolicyBundles(execSql)).map(
-      (entry) => entry.currentState.stateHash,
-    );
-    expect([...new Set(stateHashes)].sort()).toEqual(
-      [version1, version2, version3]
-        .map((entry) => entry.currentState.stateHash)
-        .sort(),
-    );
-    expect(stateHashes).toHaveLength(3);
-  } finally {
-    close();
-  }
-});
+      await expect(
+        loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+      ).resolves.toEqual(version3);
+      const stateHashes = (await loadAllPrincipalPolicyBundles(execSql)).map(
+        (entry) => entry.currentState.stateHash,
+      );
+      expect([...new Set(stateHashes)].sort()).toEqual(
+        [version1, version2, version3]
+          .map((entry) => entry.currentState.stateHash)
+          .sort(),
+      );
+      expect(stateHashes).toHaveLength(3);
+    } finally {
+      close();
+    }
+  },
+);
 
 test("verified policy retention rejects a mismatched proof", async () => {
   const { close, execSql } = await createTestExecSql(

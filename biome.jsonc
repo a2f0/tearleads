@@ -1,12 +1,13 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.8/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.12/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
     "useIgnoreFile": true
   },
   "files": {
-    "ignoreUnknown": true
+    "ignoreUnknown": true,
+    "includes": ["**", "!!docs/openapi.json"]
   },
   "formatter": {
     "enabled": true,
@@ -16,7 +17,7 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true,
+      "preset": "recommended",
       "complexity": {
         "useLiteralKeys": "error",
         "noExcessiveCognitiveComplexity": {
@@ -35,6 +36,9 @@
         }
       },
       "style": {
+        // Component variants intentionally group selectors by behavior; preserve
+        // their cascade instead of adopting Biome 2.5 specificity ordering.
+        "noDescendingSpecificity": "off",
         "noRestrictedImports": {
           "level": "error",
           "options": {

@@ -128,7 +128,14 @@ async function expectNoteAttribution(
       },
     });
     expect(response.status).toBe(200);
-    expect(response.headers.get("Vary")).toBe("Origin, Accept-Encoding");
+    expect(
+      response.headers
+        .get("Vary")
+        ?.toLowerCase()
+        .split(",")
+        .map((value) => value.trim())
+        .sort(),
+    ).toEqual(["accept-encoding", "origin"]);
     expect(response.headers.get("Cache-Control")).toBe("private, no-cache");
     const page: unknown = await response.json();
     invariant(

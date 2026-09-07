@@ -1,4 +1,5 @@
 import type { ElectrobunConfig } from "electrobun";
+import { createRendererEnvironmentDefines } from "./src/rendererEnvironment";
 
 export default {
   app: {
@@ -10,17 +11,16 @@ export default {
     exitOnLastWindowClosed: true,
   },
   build: {
+    mainProcess: "bun",
     bun: {
       entrypoint: "src/bun/index.ts",
     },
     views: {
       mainview: {
         entrypoint: "src/renderer/index.html",
-        // Electrobun spreads a view's extra config into Bun.build, so this is
-        // the same env inlining app-web gets from `bun build --env`, letting
-        // both targets read build identity from `BUN_PUBLIC_*`. The vars are set
-        // by scripts/withBuildInfoEnv.sh in the build/dev shell scripts.
-        env: "BUN_PUBLIC_*",
+        // Hutch's bundler uses explicit defines for the existing public build
+        // environment supplied by scripts/withBuildInfoEnv.sh.
+        define: createRendererEnvironmentDefines(process.env),
       },
     },
   },

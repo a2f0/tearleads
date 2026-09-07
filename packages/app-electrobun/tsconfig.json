@@ -1,14 +1,19 @@
 {
-  "extends": "../../tsconfig.base.json",
+  "extends": ["./.hutch/devkit/tsconfig.json", "../../tsconfig.base.json"],
   "compilerOptions": {
     "lib": ["ESNext", "DOM"],
-    "composite": true,
+    // Remove when the generated devkit stops setting deprecated baseUrl.
+    "ignoreDeprecations": "6.0",
+    // Only the empty root solution references this deployment target. TS6306
+    // applies when the referencing project has inputs; it does not apply here.
+    // Check imported SDK sources without including unrelated vendor tests.
+    "composite": false,
     "jsx": "react-jsx",
     // Electrobun currently exports .ts sources that fail this stricter check.
     "exactOptionalPropertyTypes": false,
     // Electrobun currently has vendor code paths without explicit returns.
     "noImplicitReturns": false
   },
-  "include": ["src", "scripts", "electrobun.config.ts"],
+  "include": ["src", "scripts", "electrobun.config.ts", "hutch.config.ts"],
   "exclude": ["node_modules", "../../node_modules"]
 }

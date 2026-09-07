@@ -1,5 +1,5 @@
 terraform {
-  required_version = ">= 1.7"
+  required_version = ">= 1.16, < 2.0"
 
   backend "s3" {
     key = "prod/server/terraform.tfstate"
@@ -8,15 +8,15 @@ terraform {
   required_providers {
     hcloud = {
       source  = "hetznercloud/hcloud"
-      version = "~> 1.58"
+      version = "~> 1.68"
     }
     cloudflare = {
       source  = "cloudflare/cloudflare"
-      version = "~> 5.0"
+      version = "~> 5.24"
     }
     random = {
       source  = "hashicorp/random"
-      version = "~> 3.0"
+      version = "~> 3.9"
     }
   }
 }

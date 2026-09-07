@@ -77,8 +77,7 @@ export function usePromoteLocalSystemContainers(input: {
         currentRootContainerId,
       );
       if (
-        !node ||
-        node.syncState.status !== "local-only" ||
+        node?.syncState.status !== "local-only" ||
         promotingSystemSlotsRef.current.has(slot)
       ) {
         continue;

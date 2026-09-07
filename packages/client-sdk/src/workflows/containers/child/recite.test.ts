@@ -155,144 +155,146 @@ test("held descendants re-cite full current paths parent-first without changing 
   }
 });
 
-test.each([
-  "refused",
-  "throws",
-  "mismatched",
-  "injected-grants",
-] as const)("a %s re-cite neither retries nor blocks another held descendant", async (failure) => {
-  const scenario = await createContainerReciteScenario();
-  try {
-    await scenario.advanceAncestor();
-    const attempts: string[] = [];
-    const incidents: unknown[] = [];
-    await reciteHeldDescendants({
-      ...cascadeInput(scenario),
-      reportSecurityIncident: async (error, context) => {
-        incidents.push({ error, context });
-      },
-      apiClient: {
-        reciteContainer: async (id, request) => {
-          attempts.push(id);
-          if (id !== "held-child") return scenario.reciteContainer(id, request);
-          if (failure === "refused") return null;
-          if (failure === "throws") throw new Error("offline");
-          if (failure === "injected-grants") {
-            const response = await scenario.reciteContainer(id, request);
-            return {
-              ...response,
-              accessManifest: {
-                ...response.accessManifest,
-                state: {
-                  ...response.accessManifest.state,
-                  directGrants: [
-                    {
-                      subjectType: "user",
-                      subjectId: "intruder",
-                      accessLevel: "admin",
-                    },
-                  ],
-                },
-              },
-            };
-          }
-          return {
-            ...(await scenario.reciteContainer(id, request)),
-            containerId: "wrong-container",
-          };
+test.each(["refused", "throws", "mismatched", "injected-grants"] as const)(
+  "a %s re-cite neither retries nor blocks another held descendant",
+  async (failure) => {
+    const scenario = await createContainerReciteScenario();
+    try {
+      await scenario.advanceAncestor();
+      const attempts: string[] = [];
+      const incidents: unknown[] = [];
+      await reciteHeldDescendants({
+        ...cascadeInput(scenario),
+        reportSecurityIncident: async (error, context) => {
+          incidents.push({ error, context });
         },
-      },
-    });
-    expect(attempts).toEqual(["held-child", "held-grandchild"]);
-    expect(incidents).toHaveLength(
-      failure === "mismatched" || failure === "injected-grants" ? 1 : 0,
-    );
-    if (incidents.length) {
-      expect(incidents[0]).toMatchObject({
-        error: { code: "object_mismatch" },
-        context: {
-          operation: "container.recite.acknowledge",
-          objectId: "held-child",
+        apiClient: {
+          reciteContainer: async (id, request) => {
+            attempts.push(id);
+            if (id !== "held-child")
+              return scenario.reciteContainer(id, request);
+            if (failure === "refused") return null;
+            if (failure === "throws") throw new Error("offline");
+            if (failure === "injected-grants") {
+              const response = await scenario.reciteContainer(id, request);
+              return {
+                ...response,
+                accessManifest: {
+                  ...response.accessManifest,
+                  state: {
+                    ...response.accessManifest.state,
+                    directGrants: [
+                      {
+                        subjectType: "user",
+                        subjectId: "intruder",
+                        accessLevel: "admin",
+                      },
+                    ],
+                  },
+                },
+              };
+            }
+            return {
+              ...(await scenario.reciteContainer(id, request)),
+              containerId: "wrong-container",
+            };
+          },
         },
       });
+      expect(attempts).toEqual(["held-child", "held-grandchild"]);
+      expect(incidents).toHaveLength(
+        failure === "mismatched" || failure === "injected-grants" ? 1 : 0,
+      );
+      if (incidents.length) {
+        expect(incidents[0]).toMatchObject({
+          error: { code: "object_mismatch" },
+          context: {
+            operation: "container.recite.acknowledge",
+            objectId: "held-child",
+          },
+        });
+      }
+      expect((await checkpoint(scenario, "held-child"))?.manifestHash).toBe(
+        scenario.child.bundle.manifestHash,
+      );
+      // A bad acknowledgement may hide a committed child head. The honest API
+      // then rejects the old child path instead of accepting a stale grandchild.
+      expect((await checkpoint(scenario, "held-grandchild"))?.epoch).toBe(
+        failure === "mismatched" || failure === "injected-grants" ? 1 : 2,
+      );
+    } finally {
+      await scenario.close();
     }
-    expect((await checkpoint(scenario, "held-child"))?.manifestHash).toBe(
-      scenario.child.bundle.manifestHash,
-    );
-    // A bad acknowledgement may hide a committed child head. The honest API
-    // then rejects the old child path instead of accepting a stale grandchild.
-    expect((await checkpoint(scenario, "held-grandchild"))?.epoch).toBe(
-      failure === "mismatched" || failure === "injected-grants" ? 1 : 2,
-    );
-  } finally {
-    await scenario.close();
-  }
-});
+  },
+);
 
-test.each([
-  "same-epoch",
-  "newer",
-] as const)("a concurrent %s checkpoint is skipped without overwriting its pin or reporting an incident", async (race) => {
-  const scenario = await createContainerReciteScenario();
-  try {
-    await scenario.advanceAncestor();
-    const snapshot = heldContainerSnapshot(
-      scenario.execSql,
-      scenario.parent.author.organizationId,
-    );
-    const parent = snapshot.heads.get(scenario.parent.projection.containerId);
-    const child = snapshot.heads.get("held-child");
-    if (!parent || !child) throw new Error("Expected held path");
-    const concurrent = await buildContainerRecitePlan({
-      author: scenario.parent.author,
-      path: [parent, child],
-      policies: snapshot.policies,
-    });
-    const incidents: unknown[] = [];
-    let concurrentHash = concurrent.manifestHash;
-    await reciteHeldDescendants({
-      ...cascadeInput(scenario),
-      reportSecurityIncident: async (error, context) => {
-        incidents.push({ error, context });
-      },
-      apiClient: {
-        reciteContainer: async (id, request) => {
-          const response = await scenario.reciteContainer(id, request);
-          // Simulate a different locally signed head becoming durable while
-          // this request is in flight; the response may not replace that pin.
-          await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
-            execSql: scenario.execSql,
-            heads: [locallyAuthoredAccessManifestHead(concurrent)],
-          });
-          if (race === "newer") {
-            const next = await buildContainerRecitePlan({
-              author: scenario.parent.author,
-              path: [
-                parent,
-                rememberAcknowledgedContainerHead(scenario.execSql, concurrent),
-              ],
-              policies: snapshot.policies,
-            });
+test.each(["same-epoch", "newer"] as const)(
+  "a concurrent %s checkpoint is skipped without overwriting its pin or reporting an incident",
+  async (race) => {
+    const scenario = await createContainerReciteScenario();
+    try {
+      await scenario.advanceAncestor();
+      const snapshot = heldContainerSnapshot(
+        scenario.execSql,
+        scenario.parent.author.organizationId,
+      );
+      const parent = snapshot.heads.get(scenario.parent.projection.containerId);
+      const child = snapshot.heads.get("held-child");
+      if (!parent || !child) throw new Error("Expected held path");
+      const concurrent = await buildContainerRecitePlan({
+        author: scenario.parent.author,
+        path: [parent, child],
+        policies: snapshot.policies,
+      });
+      const incidents: unknown[] = [];
+      let concurrentHash = concurrent.manifestHash;
+      await reciteHeldDescendants({
+        ...cascadeInput(scenario),
+        reportSecurityIncident: async (error, context) => {
+          incidents.push({ error, context });
+        },
+        apiClient: {
+          reciteContainer: async (id, request) => {
+            const response = await scenario.reciteContainer(id, request);
+            // Simulate a different locally signed head becoming durable while
+            // this request is in flight; the response may not replace that pin.
             await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
               execSql: scenario.execSql,
-              heads: [locallyAuthoredAccessManifestHead(next)],
+              heads: [locallyAuthoredAccessManifestHead(concurrent)],
             });
-            concurrentHash = next.manifestHash;
-          }
-          return response;
+            if (race === "newer") {
+              const next = await buildContainerRecitePlan({
+                author: scenario.parent.author,
+                path: [
+                  parent,
+                  rememberAcknowledgedContainerHead(
+                    scenario.execSql,
+                    concurrent,
+                  ),
+                ],
+                policies: snapshot.policies,
+              });
+              await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
+                execSql: scenario.execSql,
+                heads: [locallyAuthoredAccessManifestHead(next)],
+              });
+              concurrentHash = next.manifestHash;
+            }
+            return response;
+          },
         },
-      },
-    });
-    expect(incidents).toEqual([]);
-    expect((await checkpoint(scenario, "held-child"))?.manifestHash).toBe(
-      concurrentHash,
-    );
-    expect(scenario.requests).toHaveLength(1);
-    expect((await checkpoint(scenario, "held-grandchild"))?.epoch).toBe(1);
-  } finally {
-    await scenario.close();
-  }
-});
+      });
+      expect(incidents).toEqual([]);
+      expect((await checkpoint(scenario, "held-child"))?.manifestHash).toBe(
+        concurrentHash,
+      );
+      expect(scenario.requests).toHaveLength(1);
+      expect((await checkpoint(scenario, "held-grandchild"))?.epoch).toBe(1);
+    } finally {
+      await scenario.close();
+    }
+  },
+);
 
 test("a durable head newer than held evidence skips the cascade without fetching", async () => {
   const scenario = await createContainerReciteScenario();

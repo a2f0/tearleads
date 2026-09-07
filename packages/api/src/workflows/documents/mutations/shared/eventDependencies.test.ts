@@ -42,12 +42,13 @@ test("document access dependencies reject an extra signed hash", () => {
 test.each([
   { hashes: ["source-hash", "target-hash"] },
   { hashes: ["root-hash", "root-hash", "source-hash", "target-hash"] },
-])("document access dependencies reject missing or repeated ancestors: %j", ({
-  hashes,
-}) => {
-  expect(() =>
-    assertDocumentAccessEventDependenciesMatchRequest(request, {
-      dependencyManifestHashes: [...hashes],
-    }),
-  ).toThrow("dependency hashes do not match");
-});
+])(
+  "document access dependencies reject missing or repeated ancestors: %j",
+  ({ hashes }) => {
+    expect(() =>
+      assertDocumentAccessEventDependenciesMatchRequest(request, {
+        dependencyManifestHashes: [...hashes],
+      }),
+    ).toThrow("dependency hashes do not match");
+  },
+);

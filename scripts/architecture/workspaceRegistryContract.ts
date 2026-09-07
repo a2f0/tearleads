@@ -153,10 +153,7 @@ async function tsconfigWorkspacePaths(): Promise<{
     (reference) => reference?.path,
   );
 
-  if (
-    !referencePaths ||
-    !referencePaths.every((value) => typeof value === "string")
-  ) {
+  if (!referencePaths?.every((value) => typeof value === "string")) {
     return {
       paths: [],
       violations: [

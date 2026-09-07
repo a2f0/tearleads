@@ -45,7 +45,7 @@ export function useNotesContextMenu(params: {
   });
 
   const deleteContextMenuNote = useCallback(async () => {
-    if (!contextMenu || contextMenu.id.kind !== "note") {
+    if (contextMenu?.id.kind !== "note") {
       return;
     }
 

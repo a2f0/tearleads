@@ -68,102 +68,105 @@ test.each([
     403,
     "Principal policy signer does not match authenticated requester",
   ] as const,
-])("group creation binds the signed organization successor to the route %s", async (mismatch, expectedStatus, expectedError) => {
-  const actor = createTestUser();
-  await registerUser(actor);
-  await authenticate(actor);
-  const organizationId = await getDefaultOrganizationId(actor.userId);
-  const groupId = crypto.randomUUID();
-  const request = await createGroupRequest({
-    actor,
-    groupId,
-    name: "Mismatched successor",
-  });
-  const differentId = crypto.randomUUID();
-  let body = request;
-  if (mismatch === "organization id") {
-    body = {
-      ...request,
-      organizationPolicy: {
-        ...request.organizationPolicy,
-        state: {
-          ...request.organizationPolicy.state,
-          principalId: differentId,
+])(
+  "group creation binds the signed organization successor to the route %s",
+  async (mismatch, expectedStatus, expectedError) => {
+    const actor = createTestUser();
+    await registerUser(actor);
+    await authenticate(actor);
+    const organizationId = await getDefaultOrganizationId(actor.userId);
+    const groupId = crypto.randomUUID();
+    const request = await createGroupRequest({
+      actor,
+      groupId,
+      name: "Mismatched successor",
+    });
+    const differentId = crypto.randomUUID();
+    let body = request;
+    if (mismatch === "organization id") {
+      body = {
+        ...request,
+        organizationPolicy: {
+          ...request.organizationPolicy,
+          state: {
+            ...request.organizationPolicy.state,
+            principalId: differentId,
+          },
         },
-      },
-    };
-  } else if (mismatch === "group and organization signers") {
-    body = {
-      ...request,
-      initialGroupPolicy: {
-        ...request.initialGroupPolicy,
-        state: {
-          ...request.initialGroupPolicy.state,
-          signerUserId: differentId,
+      };
+    } else if (mismatch === "group and organization signers") {
+      body = {
+        ...request,
+        initialGroupPolicy: {
+          ...request.initialGroupPolicy,
+          state: {
+            ...request.initialGroupPolicy.state,
+            signerUserId: differentId,
+          },
         },
-      },
-    };
-  } else if (mismatch === "initial group principal type") {
-    body = {
-      ...request,
-      initialGroupPolicy: {
-        ...request.initialGroupPolicy,
-        state: {
-          ...request.initialGroupPolicy.state,
-          principalType: "organization",
+      };
+    } else if (mismatch === "initial group principal type") {
+      body = {
+        ...request,
+        initialGroupPolicy: {
+          ...request.initialGroupPolicy,
+          state: {
+            ...request.initialGroupPolicy.state,
+            principalType: "organization",
+          },
         },
-      },
-    };
-  } else if (mismatch === "organization principal type") {
-    body = {
-      ...request,
-      organizationPolicy: {
-        ...request.organizationPolicy,
-        state: {
-          ...request.organizationPolicy.state,
-          principalType: "group",
+      };
+    } else if (mismatch === "organization principal type") {
+      body = {
+        ...request,
+        organizationPolicy: {
+          ...request.organizationPolicy,
+          state: {
+            ...request.organizationPolicy.state,
+            principalType: "group",
+          },
         },
-      },
-    };
-  } else {
-    body = {
-      ...request,
-      initialGroupPolicy: {
-        ...request.initialGroupPolicy,
-        state: {
-          ...request.initialGroupPolicy.state,
-          signerUserId: differentId,
+      };
+    } else {
+      body = {
+        ...request,
+        initialGroupPolicy: {
+          ...request.initialGroupPolicy,
+          state: {
+            ...request.initialGroupPolicy.state,
+            signerUserId: differentId,
+          },
         },
-      },
-      organizationPolicy: {
-        ...request.organizationPolicy,
-        state: {
-          ...request.organizationPolicy.state,
-          signerUserId: differentId,
+        organizationPolicy: {
+          ...request.organizationPolicy,
+          state: {
+            ...request.organizationPolicy.state,
+            signerUserId: differentId,
+          },
         },
-      },
-    };
-  }
+      };
+    }
 
-  const response = await routeApp.request(
-    `/organizations/${organizationId}/groups`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${actor.token}`,
+    const response = await routeApp.request(
+      `/organizations/${organizationId}/groups`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${actor.token}`,
+        },
+        body: JSON.stringify(body),
       },
-      body: JSON.stringify(body),
-    },
-  );
+    );
 
-  expect(response.status).toBe(expectedStatus);
-  expect(await response.json()).toEqual({ error: expectedError });
-  expect(
-    await db
-      .select({ groupId: groups.id })
-      .from(groups)
-      .where(eq(groups.id, groupId)),
-  ).toEqual([]);
-  expect(await getCurrentPrincipalState("group", groupId, db)).toBeNull();
-});
+    expect(response.status).toBe(expectedStatus);
+    expect(await response.json()).toEqual({ error: expectedError });
+    expect(
+      await db
+        .select({ groupId: groups.id })
+        .from(groups)
+        .where(eq(groups.id, groupId)),
+    ).toEqual([]);
+    expect(await getCurrentPrincipalState("group", groupId, db)).toBeNull();
+  },
+);

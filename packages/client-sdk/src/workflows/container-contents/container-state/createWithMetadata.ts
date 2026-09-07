@@ -349,7 +349,7 @@ async function createRemoteContainerWithMetadataDocumentAttempt(input: {
     runtime: input.runtime,
     stillCurrent: input.stillCurrent,
   });
-  if (!submitted || !submitted.ok) {
+  if (!submitted?.ok) {
     return submitted;
   }
   return settleContainerWithMetadataCreate({

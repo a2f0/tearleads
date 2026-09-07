@@ -43,28 +43,31 @@ async function bundleWithTargets(
 test.each([
   [availabilityTarget, integrityTarget],
   [integrityTarget, availabilityTarget],
-])("integrity failure outranks missing predecessor history in either target order", async (firstTarget, secondTarget) => {
-  const unavailable = new ContainerKekHistoryUnavailableError(
-    "Unavailable container",
-  );
-  const integrity = new KeyingVerificationError(
-    "missing_dependency",
-    "Verified predecessor history is corrupt",
-  );
-  const error = await unwrapDocumentContentKeyFromBundle(
-    await bundleWithTargets([firstTarget, secondTarget]),
-    new Map(),
-    new Map([
-      [availabilityTarget.containerKeyEpochId, unavailable],
-      [integrityTarget.containerKeyEpochId, integrity],
-    ]),
-  ).then(
-    () => null,
-    (thrown: unknown) => thrown,
-  );
+])(
+  "integrity failure outranks missing predecessor history in either target order",
+  async (firstTarget, secondTarget) => {
+    const unavailable = new ContainerKekHistoryUnavailableError(
+      "Unavailable container",
+    );
+    const integrity = new KeyingVerificationError(
+      "missing_dependency",
+      "Verified predecessor history is corrupt",
+    );
+    const error = await unwrapDocumentContentKeyFromBundle(
+      await bundleWithTargets([firstTarget, secondTarget]),
+      new Map(),
+      new Map([
+        [availabilityTarget.containerKeyEpochId, unavailable],
+        [integrityTarget.containerKeyEpochId, integrity],
+      ]),
+    ).then(
+      () => null,
+      (thrown: unknown) => thrown,
+    );
 
-  expect(error).toBeInstanceOf(DocumentHistoryUnavailableError);
-  expect((error as DocumentHistoryUnavailableError).historyCause).toBe(
-    integrity,
-  );
-});
+    expect(error).toBeInstanceOf(DocumentHistoryUnavailableError);
+    expect((error as DocumentHistoryUnavailableError).historyCause).toBe(
+      integrity,
+    );
+  },
+);

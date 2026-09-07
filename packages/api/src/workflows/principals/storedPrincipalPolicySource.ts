@@ -68,8 +68,7 @@ function externalAuthorityPrincipalId(
   }
   const [first] = authorities;
   if (
-    !first ||
-    first.principalType !== "group" ||
+    first?.principalType !== "group" ||
     authorities.some(
       (authority) =>
         authority.principalType !== "group" ||

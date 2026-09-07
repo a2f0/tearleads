@@ -81,9 +81,15 @@ test("compact, detailed, and revalidated attribution preserve CORS cache variati
     expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
       "https://app.example.test",
     );
-    expect(response.headers.get("Vary"), `status ${response.status}`).toBe(
-      "Origin, Accept-Encoding",
-    );
+    expect(
+      response.headers
+        .get("Vary")
+        ?.toLowerCase()
+        .split(",")
+        .map((value) => value.trim())
+        .sort(),
+      `status ${response.status}`,
+    ).toEqual(["accept-encoding", "origin"]);
     expect(response.headers.get("Cache-Control")).toBe("private, no-cache");
     const values: Record<string, string> = {};
     for (const name of Object.keys(schema.shape)) {

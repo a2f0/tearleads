@@ -100,111 +100,114 @@ function readOnlySyncApi(input: {
   });
 }
 
-test.each([
-  "rollback",
-  "invalid_shape",
-] as const)("persisted read-only sync refetches once after a cached %s failure", async (code) => {
-  const fixture = await createReadOnlyResponseFixture();
-  const { close, execSql } = await createTestExecSql(
-    `persisted-read-only-cached-${code}`,
-  );
-  let projectionFetches = 0;
-  let projectionEvictions = 0;
-  let injectRollback = true;
+test.each(["rollback", "invalid_shape"] as const)(
+  "persisted read-only sync refetches once after a cached %s failure",
+  async (code) => {
+    const fixture = await createReadOnlyResponseFixture();
+    const { close, execSql } = await createTestExecSql(
+      `persisted-read-only-cached-${code}`,
+    );
+    let projectionFetches = 0;
+    let projectionEvictions = 0;
+    let injectRollback = true;
 
-  try {
-    const synced = await syncRemoteDocument({
-      apiClient: readOnlySyncApi({
-        fixture,
-        onProjectionEviction: (documentId) => {
-          expect(documentId).toBe(fixture.writerProjection.documentId);
-          projectionEvictions += 1;
+    try {
+      const synced = await syncRemoteDocument({
+        apiClient: readOnlySyncApi({
+          fixture,
+          onProjectionEviction: (documentId) => {
+            expect(documentId).toBe(fixture.writerProjection.documentId);
+            projectionEvictions += 1;
+          },
+          onProjectionFetch: () => {
+            projectionFetches += 1;
+          },
+        }),
+        author: fixture.author,
+        documentId: fixture.writerProjection.documentId,
+        execSql,
+        localVersionVector: null,
+        persistedState: persistedStateFromProjection(fixture.writerProjection),
+        resolveProjectionUserKey: async (userId) => {
+          if (injectRollback) {
+            injectRollback = false;
+            throw new KeyingVerificationError(
+              code,
+              "cached projection is behind the local checkpoint",
+            );
+          }
+          return fixture.resolveProjectionUserKey(userId);
         },
-        onProjectionFetch: () => {
-          projectionFetches += 1;
-        },
-      }),
-      author: fixture.author,
-      documentId: fixture.writerProjection.documentId,
-      execSql,
-      localVersionVector: null,
-      persistedState: persistedStateFromProjection(fixture.writerProjection),
-      resolveProjectionUserKey: async (userId) => {
-        if (injectRollback) {
-          injectRollback = false;
-          throw new KeyingVerificationError(
-            code,
-            "cached projection is behind the local checkpoint",
-          );
-        }
-        return fixture.resolveProjectionUserKey(userId);
-      },
-      targetSecretKey: fixture.secretKey,
-      writerProjection: fixture.writerProjection,
-      resolveWriterPublicKey: writerKeyResolver(fixture),
-    });
+        targetSecretKey: fixture.secretKey,
+        writerProjection: fixture.writerProjection,
+        resolveWriterPublicKey: writerKeyResolver(fixture),
+      });
 
-    expect(projectionFetches).toBe(1);
-    expect(projectionEvictions).toBe(1);
-    expect(synced?.writerProjection).toBe(fixture.writerProjection);
-  } finally {
-    close();
-  }
-});
+      expect(projectionFetches).toBe(1);
+      expect(projectionEvictions).toBe(1);
+      expect(synced?.writerProjection).toBe(fixture.writerProjection);
+    } finally {
+      close();
+    }
+  },
+);
 
 test.each([
   ["caller-supplied", true, 1],
   ["API-cached", false, 2],
-] as const)("raw history refetches once after %s key unavailability", async (_projectionSource, supplyWriterProjection, expectedProjectionFetches) => {
-  const fixture = await createReadOnlyResponseFixture();
-  const { close, execSql } = await createTestExecSql(
-    "persisted-raw-history-cached-unavailable",
-  );
-  let projectionFetches = 0;
-  let projectionEvictions = 0;
-  let injectUnavailable = true;
+] as const)(
+  "raw history refetches once after %s key unavailability",
+  async (_projectionSource, supplyWriterProjection, expectedProjectionFetches) => {
+    const fixture = await createReadOnlyResponseFixture();
+    const { close, execSql } = await createTestExecSql(
+      "persisted-raw-history-cached-unavailable",
+    );
+    let projectionFetches = 0;
+    let projectionEvictions = 0;
+    let injectUnavailable = true;
 
-  try {
-    const synced = await syncRemoteDocument({
-      apiClient: readOnlySyncApi({
-        fixture,
-        onProjectionEviction: () => {
-          projectionEvictions += 1;
+    try {
+      const synced = await syncRemoteDocument({
+        apiClient: readOnlySyncApi({
+          fixture,
+          onProjectionEviction: () => {
+            projectionEvictions += 1;
+          },
+          onProjectionFetch: () => {
+            projectionFetches += 1;
+          },
+        }),
+        author: fixture.author,
+        documentId: fixture.writerProjection.documentId,
+        execSql,
+        historyMode: "raw",
+        localVersionVector: null,
+        persistedState: persistedStateFromProjection(fixture.writerProjection),
+        resolveProjectionUserKey: async (userId) => {
+          if (injectUnavailable) {
+            injectUnavailable = false;
+            throw new DocumentRawHistoryUnavailableError(
+              1,
+              new Error("cached projection omitted a predecessor key"),
+            );
+          }
+          return fixture.resolveProjectionUserKey(userId);
         },
-        onProjectionFetch: () => {
-          projectionFetches += 1;
-        },
-      }),
-      author: fixture.author,
-      documentId: fixture.writerProjection.documentId,
-      execSql,
-      historyMode: "raw",
-      localVersionVector: null,
-      persistedState: persistedStateFromProjection(fixture.writerProjection),
-      resolveProjectionUserKey: async (userId) => {
-        if (injectUnavailable) {
-          injectUnavailable = false;
-          throw new DocumentRawHistoryUnavailableError(
-            1,
-            new Error("cached projection omitted a predecessor key"),
-          );
-        }
-        return fixture.resolveProjectionUserKey(userId);
-      },
-      targetSecretKey: fixture.secretKey,
-      ...(supplyWriterProjection
-        ? { writerProjection: fixture.writerProjection }
-        : {}),
-      resolveWriterPublicKey: writerKeyResolver(fixture),
-    });
+        targetSecretKey: fixture.secretKey,
+        ...(supplyWriterProjection
+          ? { writerProjection: fixture.writerProjection }
+          : {}),
+        resolveWriterPublicKey: writerKeyResolver(fixture),
+      });
 
-    expect(projectionFetches).toBe(expectedProjectionFetches);
-    expect(projectionEvictions).toBe(1);
-    expect(synced?.writerProjection).toBe(fixture.writerProjection);
-  } finally {
-    close();
-  }
-});
+      expect(projectionFetches).toBe(expectedProjectionFetches);
+      expect(projectionEvictions).toBe(1);
+      expect(synced?.writerProjection).toBe(fixture.writerProjection);
+    } finally {
+      close();
+    }
+  },
+);
 
 test("persisted raw history preserves availability when refresh returns null", async () => {
   const fixture = await createReadOnlyResponseFixture();
@@ -433,44 +436,49 @@ test.each([
   "invalid_shape",
   "object_mismatch",
   "stale_predecessor",
-] as const)("persisted read-only sync propagates %s from a fresh projection", async (code) => {
-  const fixture = await createReadOnlyResponseFixture();
-  const { close, execSql } = await createTestExecSql(
-    `persisted-read-only-fresh-${code}`,
-  );
-  let projectionFetches = 0;
-  const integrityError = new KeyingVerificationError(
-    code,
-    `fresh projection failed with ${code}`,
-  );
+] as const)(
+  "persisted read-only sync propagates %s from a fresh projection",
+  async (code) => {
+    const fixture = await createReadOnlyResponseFixture();
+    const { close, execSql } = await createTestExecSql(
+      `persisted-read-only-fresh-${code}`,
+    );
+    let projectionFetches = 0;
+    const integrityError = new KeyingVerificationError(
+      code,
+      `fresh projection failed with ${code}`,
+    );
 
-  try {
-    await expect(
-      syncRemoteDocument({
-        apiClient: readOnlySyncApi({
-          corruptUpdate: true,
-          fixture,
-          onProjectionFetch: () => {
-            projectionFetches += 1;
+    try {
+      await expect(
+        syncRemoteDocument({
+          apiClient: readOnlySyncApi({
+            corruptUpdate: true,
+            fixture,
+            onProjectionFetch: () => {
+              projectionFetches += 1;
+            },
+          }),
+          author: fixture.author,
+          documentId: fixture.writerProjection.documentId,
+          execSql,
+          localVersionVector: null,
+          persistedState: persistedStateFromProjection(
+            fixture.writerProjection,
+          ),
+          resolveProjectionUserKey: async () => {
+            throw integrityError;
           },
+          targetSecretKey: fixture.secretKey,
+          resolveWriterPublicKey: writerKeyResolver(fixture),
         }),
-        author: fixture.author,
-        documentId: fixture.writerProjection.documentId,
-        execSql,
-        localVersionVector: null,
-        persistedState: persistedStateFromProjection(fixture.writerProjection),
-        resolveProjectionUserKey: async () => {
-          throw integrityError;
-        },
-        targetSecretKey: fixture.secretKey,
-        resolveWriterPublicKey: writerKeyResolver(fixture),
-      }),
-    ).rejects.toBe(integrityError);
-    expect(projectionFetches).toBe(1);
-  } finally {
-    close();
-  }
-});
+      ).rejects.toBe(integrityError);
+      expect(projectionFetches).toBe(1);
+    } finally {
+      close();
+    }
+  },
+);
 
 test("remote sync rejects resolver-backed local trust before submission", async () => {
   const fixture = await createMaterializedSyncFixture();

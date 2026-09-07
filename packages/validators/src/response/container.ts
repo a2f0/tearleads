@@ -58,7 +58,7 @@ const containerKekResponseShape = {
   wraps: nonEmptyArraySchema(plainObjectSchema),
 };
 
-export const ContainerKekResponseSchema = registerJsonSchemaRuntimeRefinements(
+const ContainerKekResponseSchema = registerJsonSchemaRuntimeRefinements(
   loosePlainObject(containerKekResponseShape).superRefine((value, context) => {
     if ((value.keyring === null) !== (value.containerKeyEpoch === 1)) {
       context.addIssue({

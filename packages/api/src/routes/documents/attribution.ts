@@ -183,11 +183,20 @@ export function createDocumentAttributionRoute({
     next,
   ) => {
     await compressResponse(c, next);
-    // CORS may have initialized a response with Vary: Origin. Append to the
-    // finalized response so Hono's response merge preserves both dimensions.
-    c.header(documentAttributionWireHeaderNames.vary, "Accept-Encoding", {
-      append: true,
-    });
+    // Hono adds this for compressible bodies. Also cover small bodies and
+    // 304 responses, preserving existing cache dimensions without duplicates.
+    const vary = c.res.headers.get(documentAttributionWireHeaderNames.vary);
+    if (
+      !vary
+        ?.split(",")
+        .some((value) =>
+          ["*", "accept-encoding"].includes(value.trim().toLowerCase()),
+        )
+    ) {
+      c.header(documentAttributionWireHeaderNames.vary, "Accept-Encoding", {
+        append: true,
+      });
+    }
   };
   const deps = {
     loadAttribution,

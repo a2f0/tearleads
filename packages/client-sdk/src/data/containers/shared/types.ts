@@ -32,8 +32,6 @@ import type { ExecSql } from "../../sqlite/sqlSchema";
 import type { ContainerMutationRequestOptions } from "./mutationRequestOptions";
 import type { ContainerReciteApi } from "./reciteApi";
 
-export type { ContainerMutationRequestOptions } from "./mutationRequestOptions";
-
 export interface ContainerMutationAuthor {
   organizationId: string;
   signerDeviceId: string;

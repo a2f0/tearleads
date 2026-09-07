@@ -153,16 +153,14 @@ test("an active subscription past its period cannot sync and needs attention", (
   expect(view.needsAttention).toBe(true);
 });
 
-test.each([
-  "disabled",
-  "past_due",
-  "deleting",
-  "purged",
-] as const)("%s cannot sync and needs attention", (status) => {
-  const view = resolveOrganizationBillingView(billing({ status }), NOW_MS);
-  expect(view.canSync).toBe(false);
-  expect(view.needsAttention).toBe(true);
-});
+test.each(["disabled", "past_due", "deleting", "purged"] as const)(
+  "%s cannot sync and needs attention",
+  (status) => {
+    const view = resolveOrganizationBillingView(billing({ status }), NOW_MS);
+    expect(view.canSync).toBe(false);
+    expect(view.needsAttention).toBe(true);
+  },
+);
 
 test("loadOrganizationBilling passes the org id through to the api client", async () => {
   const calls: string[] = [];

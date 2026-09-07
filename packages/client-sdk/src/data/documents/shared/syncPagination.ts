@@ -126,7 +126,7 @@ async function submitDocumentSyncPage(input: {
   readonly submit: () => Promise<DocumentSyncPageSubmission>;
 }): Promise<DocumentSyncSubmission> {
   const page = await input.submit();
-  if (!page || !page.ok) return page;
+  if (!page?.ok) return page;
   if (
     input.expectedCommitLsnMode !== undefined &&
     page.response.commitLsnMode !== input.expectedCommitLsnMode

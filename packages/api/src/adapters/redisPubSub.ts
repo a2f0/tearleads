@@ -1,4 +1,3 @@
-import { createClient } from "redis";
 import type { PublishedRealtimeEvent } from "../realtime/publishedRealtimeEvents";
 import {
   clearInMemoryRedisPubSub,
@@ -6,10 +5,11 @@ import {
   inMemoryRedisPublish,
   isInMemoryRedisEnabled,
 } from "./inMemoryRedis";
+import { createRedisClient } from "./redisClient";
 
 const CHANNEL = "events";
 
-type RedisClient = ReturnType<typeof createClient>;
+type RedisClient = ReturnType<typeof createRedisClient>;
 
 type EventListener = (message: string) => void;
 
@@ -26,7 +26,7 @@ function getPublisher(): RedisClient {
     return publisher;
   }
 
-  const nextPublisher = createClient();
+  const nextPublisher = createRedisClient();
   nextPublisher.on("error", (err) => {
     console.error("Redis publisher error:", err);
   });
@@ -39,7 +39,7 @@ function getSubscriber(): RedisClient {
     return subscriber;
   }
 
-  const nextSubscriber = createClient();
+  const nextSubscriber = createRedisClient();
   nextSubscriber.on("error", (err) => {
     console.error("Redis subscriber error:", err);
   });

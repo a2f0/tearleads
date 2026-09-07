@@ -30,14 +30,6 @@ import type {
 import type { Session } from "../session/sessionTypes";
 import type { InternalRuntime } from "../workflowRuntime";
 
-export type {
-  RootIdentitiesPage,
-  RootIdentitiesQueryInput,
-  RootIdentityDetail,
-  RootIdentityOrganization,
-  RootRequestOutcome,
-} from "../../workflows/root";
-
 /**
  * Platform-operator lookups. Every call is refused locally unless the session
  * is authenticated and the server reported it as root at login; the API still

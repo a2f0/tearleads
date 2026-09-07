@@ -8,20 +8,21 @@
     "dev:watch": "sh scripts/runElectronbun.sh dev --watch",
     "build": "sh scripts/buildElectrobun.sh",
     "build:dev": "sh scripts/buildElectrobun.sh --env dev",
-    "test": "bun test src --pass-with-no-tests"
+    "test": "bun test src --pass-with-no-tests",
+    "prepare:devkit": "bun --bun run electrobun sync"
   },
   "dependencies": {
     "@tearleads/client-sdk": "workspace:*",
     "@tearleads/sqlite-worker": "workspace:*",
     "app": "workspace:*",
-    "react-dom": "catalog:react",
-    "electrobun": "1.18.1"
+    "react-dom": "catalog:react"
   },
   "devDependencies": {
     "@types/bun": "catalog:",
-    "@types/react-dom": "catalog:react"
+    "@types/react-dom": "catalog:react",
+    "electrobun": "2.0.1"
   },
   "peerDependencies": {
-    "typescript": "^5.0.0"
+    "typescript": "^6.0.3"
   }
 }

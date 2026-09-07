@@ -94,81 +94,87 @@ async function openCoordinatedDocumentConnections() {
   };
 }
 
-test.each([
-  "discovery",
-  "relink",
-] as const)("%s cannot overwrite a newer pane's document frontier", async (operation) => {
-  const race = await openCoordinatedDocumentConnections();
-  let releasePausedRead = () => {};
-  const base = {
-    accessEpoch: 1,
-    containerId: "container-a",
-    documentId: "remote-document",
-    id: "local-document",
-    lastCommitLsn: "0/1",
-    pendingBaseVersion: "base-frontier",
-    pullContinuation: {
-      commitLsn: "0/1",
-      commitLsnMode: "tracked" as const,
-      cursor: "base-cursor",
-    },
-    snapshotEndVersion: "base-frontier",
-    text: "base",
-  };
-  try {
-    await sqlDocumentsPersistence.saveDocument(race.first.execSql, base);
-    const { firstRead, releaseFirstRead } = race.armFirstDocumentRead();
-    releasePausedRead = releaseFirstRead;
-    const structuralWrite =
-      operation === "discovery"
-        ? sqlDocumentsPersistence.upsertDiscoveredDocument(race.first.execSql, {
-            accessEpoch: 1,
-            containerId: "container-b",
-            createdAt: "2026-08-25T00:00:00.000Z",
-            documentId: base.documentId,
-            linkedContainerIds: ["container-b"],
-          })
-        : sqlDocumentsPersistence.relinkPersistedDocument(race.first.execSql, {
-            accessEpoch: 1,
-            containerId: "container-b",
-            documentId: base.documentId,
-            localId: base.id,
-          });
-    await firstRead;
+test.each(["discovery", "relink"] as const)(
+  "%s cannot overwrite a newer pane's document frontier",
+  async (operation) => {
+    const race = await openCoordinatedDocumentConnections();
+    let releasePausedRead = () => {};
+    const base = {
+      accessEpoch: 1,
+      containerId: "container-a",
+      documentId: "remote-document",
+      id: "local-document",
+      lastCommitLsn: "0/1",
+      pendingBaseVersion: "base-frontier",
+      pullContinuation: {
+        commitLsn: "0/1",
+        commitLsnMode: "tracked" as const,
+        cursor: "base-cursor",
+      },
+      snapshotEndVersion: "base-frontier",
+      text: "base",
+    };
+    try {
+      await sqlDocumentsPersistence.saveDocument(race.first.execSql, base);
+      const { firstRead, releaseFirstRead } = race.armFirstDocumentRead();
+      releasePausedRead = releaseFirstRead;
+      const structuralWrite =
+        operation === "discovery"
+          ? sqlDocumentsPersistence.upsertDiscoveredDocument(
+              race.first.execSql,
+              {
+                accessEpoch: 1,
+                containerId: "container-b",
+                createdAt: "2026-08-25T00:00:00.000Z",
+                documentId: base.documentId,
+                linkedContainerIds: ["container-b"],
+              },
+            )
+          : sqlDocumentsPersistence.relinkPersistedDocument(
+              race.first.execSql,
+              {
+                accessEpoch: 1,
+                containerId: "container-b",
+                documentId: base.documentId,
+                localId: base.id,
+              },
+            );
+      await firstRead;
 
-    const frontierWrite = sqlDocumentsPersistence.saveDocument(
-      race.second.execSql,
-      {
-        ...base,
+      const frontierWrite = sqlDocumentsPersistence.saveDocument(
+        race.second.execSql,
+        {
+          ...base,
+          lastCommitLsn: "0/9",
+          pendingBaseVersion: "newer-frontier",
+          pullContinuation: {
+            commitLsn: "0/9",
+            commitLsnMode: "tracked",
+            cursor: "newer-cursor",
+          },
+          snapshotEndVersion: "newer-frontier",
+          text: "newer",
+        },
+      );
+      await race.secondBegin;
+      releaseFirstRead();
+      await Promise.all([structuralWrite, frontierWrite]);
+
+      await expect(
+        sqlDocumentsPersistence.loadDocument(race.second.execSql, base.id),
+      ).resolves.toMatchObject({
         lastCommitLsn: "0/9",
         pendingBaseVersion: "newer-frontier",
-        pullContinuation: {
-          commitLsn: "0/9",
-          commitLsnMode: "tracked",
-          cursor: "newer-cursor",
-        },
+        pullContinuation: { commitLsn: "0/9", cursor: "newer-cursor" },
         snapshotEndVersion: "newer-frontier",
         text: "newer",
-      },
-    );
-    await race.secondBegin;
-    releaseFirstRead();
-    await Promise.all([structuralWrite, frontierWrite]);
-
-    await expect(
-      sqlDocumentsPersistence.loadDocument(race.second.execSql, base.id),
-    ).resolves.toMatchObject({
-      lastCommitLsn: "0/9",
-      pendingBaseVersion: "newer-frontier",
-      pullContinuation: { commitLsn: "0/9", cursor: "newer-cursor" },
-      snapshotEndVersion: "newer-frontier",
-      text: "newer",
-    });
-  } finally {
-    releasePausedRead();
-    race.close();
-  }
-});
+      });
+    } finally {
+      releasePausedRead();
+      race.close();
+    }
+  },
+);
 
 test("discovery cannot recreate a document after its purge checkpoint commits", async () => {
   const race = await openCoordinatedDocumentConnections();

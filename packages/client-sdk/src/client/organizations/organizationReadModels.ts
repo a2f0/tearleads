@@ -329,7 +329,7 @@ class OrganizationReadModelCoordinatorImpl
     organizationId?: string,
   ): Promise<OrganizationDirectoryAndGroups | null | undefined> {
     const active = activeReadModelRuntime(this.runtimeService, organizationId);
-    if (!active || !active.runtime.state.online) {
+    if (!active?.runtime.state.online) {
       return Promise.resolve(undefined);
     }
 
@@ -430,7 +430,7 @@ class OrganizationReadModelCoordinatorImpl
     organizationId?: string,
   ): Promise<OrganizationDirectoryAndGroups | null | undefined> {
     const active = activeReadModelRuntime(this.runtimeService, organizationId);
-    if (!active || !active.runtime.state.online) {
+    if (!active?.runtime.state.online) {
       return undefined;
     }
     const existing = this.reconciliationMap(active).get(

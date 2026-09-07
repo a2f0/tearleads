@@ -263,7 +263,7 @@ async function resolveStoredDocumentManifest(
   const stored = (await getAccessManifestBundles([manifestHash], executor)).get(
     manifestHash,
   );
-  if (!stored || stored.manifest.objectKind !== "document") {
+  if (stored?.manifest.objectKind !== "document") {
     throw new Error(
       `Document link-set manifest ${manifestHash} is missing from the access manifest store`,
     );

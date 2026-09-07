@@ -2,6 +2,8 @@ import type { KnipConfig } from "knip";
 
 const strictConfigDefaults = {
   treatConfigHintsAsErrors: true,
+  // Types used in exported signatures must remain nameable in declaration emit.
+  ignoreExportsUsedInFile: { interface: true, type: true },
 } as const;
 
 const rootToolingWorkspace = {
@@ -12,12 +14,11 @@ const rootToolingWorkspace = {
   // and neither `.mise.toml` nor CI installs Node). Knip cannot resolve the
   // binary through `bun x`, so the dependency has to be declared used here.
   ignoreDependencies: ["@commitlint/cli", "lint-staged", "markdownlint-cli2"],
-  ignoreBinaries: ["ansible-lint", "shellcheck"],
+  ignoreBinaries: ["ansible-lint", "du", "shellcheck", "tokei"],
 };
 
 const capacitorNativePluginDependencies = [
   "@capacitor-community/sqlite",
-  "@capacitor/ios",
   "@capawesome/capacitor-file-picker",
   "@capgo/capacitor-native-biometric",
 ];
@@ -33,13 +34,12 @@ const baseConfig = {
     },
     "packages/api": {
       // The package test script launches Bun from `scripts/testAllDatabases.ts`;
-      // `test/preload.ts` is loaded by Bun from `bunfig.toml`. Operator scripts
+      // Knip's Bun plugin discovers `test/preload.ts` via `bunfig.toml`. Operator scripts
       // are standalone cron/systemd entrypoints rather than package scripts, so
       // they must be declared explicitly.
       entry: [
         "src/appTestRuntime.ts",
         "src/**/*.test.ts",
-        "test/preload.ts",
         "scripts/blobGc.ts",
         "scripts/stripeSeatSync.ts",
       ],
@@ -95,11 +95,13 @@ const baseConfig = {
     "packages/app-electrobun": {
       entry: [
         "electrobun.config.ts",
+        "hutch.config.ts",
+        "scripts/packageElectrobunAssets.ts",
         "src/bun/index.ts",
         "src/renderer/index.tsx",
         "src/renderer/databaseWorker.ts",
       ],
-      project: ["src/**/*.{ts,tsx}"],
+      project: ["src/**/*.{ts,tsx}", "scripts/**/*.ts", "*.config.ts"],
     },
     "packages/bob-and-alice": {
       entry: ["src/**/*.test.ts"],
