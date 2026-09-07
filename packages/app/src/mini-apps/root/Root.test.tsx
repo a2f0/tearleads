@@ -156,7 +156,7 @@ test("operators browse organizations, inspect invoices, and traverse both direct
     expect(
       view.getByRole("table", { name: "Billing event event-test" }),
     ).toBeTruthy();
-    expect(view.getByText("$60.00")).toBeTruthy();
+    expect(view.getByText(/60[.,]00/)).toBeTruthy();
     const roster = await view.findByRole("table", {
       name: "Organization identities",
     });

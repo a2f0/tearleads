@@ -265,3 +265,47 @@ test("invalid queries fail without querying unbounded listings", async () => {
       .status,
   ).toBe(400);
 });
+
+test("long searches have usable cursors that cannot be reused for a different search", async () => {
+  const [source] = await db
+    .select()
+    .from(organizations)
+    .where(eq(organizations.id, organizationId));
+  if (!source) throw new Error("Expected organization fixture");
+  for (const search of ["組".repeat(200), '"'.repeat(200)]) {
+    const ids = [randomUUID(), randomUUID()];
+    for (const id of ids)
+      await db.insert(organizations).values({ ...source, id, name: search });
+    const firstResponse = await request(
+      `/root/organizations?limit=1&search=${encodeURIComponent(search)}`,
+    );
+    expect(firstResponse.status).toBe(200);
+    const first = RootOrganizationsResponseSchema.parse(
+      await firstResponse.json(),
+    );
+    expect(first.nextCursor).not.toBeNull();
+    const cursor = encodeURIComponent(first.nextCursor ?? "");
+    const secondResponse = await request(
+      `/root/organizations?limit=1&search=${encodeURIComponent(search)}&cursor=${cursor}`,
+    );
+    expect(secondResponse.status).toBe(200);
+    const second = RootOrganizationsResponseSchema.parse(
+      await secondResponse.json(),
+    );
+    expect(second.nextCursor).toBeNull();
+    expect(
+      new Set(
+        [...first.organizations, ...second.organizations].map(
+          (org) => org.organizationId,
+        ),
+      ),
+    ).toEqual(new Set(ids));
+    expect(
+      (
+        await request(
+          `/root/organizations?limit=1&search=different&cursor=${cursor}`,
+        )
+      ).status,
+    ).toBe(400);
+  }
+});
