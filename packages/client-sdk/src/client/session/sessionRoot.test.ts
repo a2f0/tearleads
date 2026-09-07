@@ -62,3 +62,89 @@ test("the root facade refuses calls without a root session", async () => {
   expect(outcome.status).toBeNull();
   expect(outcome.message).toContain("not a platform operator");
 });
+
+import type { RequestResult } from "@tearleads/api-client";
+import type { RootIdentitiesResponse } from "@tearleads/validators/response";
+import { createRoot, type RootRuntime } from "../root";
+
+function createDeferredRootRuntime() {
+  let resolveListing: (result: RequestResult<RootIdentitiesResponse>) => void =
+    () => undefined;
+  const listing = new Promise<RequestResult<RootIdentitiesResponse>>(
+    (resolve) => {
+      resolveListing = resolve;
+    },
+  );
+  const state = {
+    auth: {
+      isAuthenticated: true,
+      isRoot: true,
+      organizationId: "org-1",
+      userId: "user-root",
+    },
+    sessionGeneration: 1,
+  };
+  const runtime: RootRuntime = {
+    get sessionGeneration() {
+      return state.sessionGeneration;
+    },
+    workflowInput: () => ({
+      apiClient: {
+        getRootIdentityResult: async () => {
+          throw new Error("not used");
+        },
+        listRootIdentitiesResult: () => listing,
+        listRootIdentityOrganizationsResult: async () => {
+          throw new Error("not used");
+        },
+      },
+      auth: state.auth,
+    }),
+  };
+  const page: RootIdentitiesResponse = { identities: [], nextCursor: null };
+  return {
+    resolveListing: () => resolveListing({ data: page, ok: true }),
+    root: createRoot(runtime),
+    state,
+  };
+}
+
+test("a lookup that completes in the same session returns its data", async () => {
+  const { resolveListing, root } = createDeferredRootRuntime();
+
+  const pending = root.listIdentities();
+  resolveListing();
+
+  const outcome = await pending;
+  expect(outcome.ok).toBe(true);
+});
+
+test("a lookup that completes after a logout is dropped", async () => {
+  const { resolveListing, root, state } = createDeferredRootRuntime();
+
+  const pending = root.listIdentities();
+  state.auth = { ...state.auth, isAuthenticated: false, isRoot: false };
+  state.sessionGeneration += 1;
+  resolveListing();
+
+  const outcome = await pending;
+  expect(outcome.ok).toBe(false);
+  if (outcome.ok) {
+    throw new Error("expected a dropped outcome");
+  }
+  expect(outcome.message).toContain("session changed");
+});
+
+test("a lookup that completes after an identity switch is dropped", async () => {
+  const { resolveListing, root, state } = createDeferredRootRuntime();
+
+  const pending = root.listIdentities();
+  // A switch to another root identity still advances the generation, so the
+  // reply requested by the previous identity must not surface to the new one.
+  state.auth = { ...state.auth, userId: "user-other-root" };
+  state.sessionGeneration += 1;
+  resolveListing();
+
+  const outcome = await pending;
+  expect(outcome.ok).toBe(false);
+});

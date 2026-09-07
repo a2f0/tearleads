@@ -9,6 +9,7 @@ import {
 } from "../../components/mini-app/MiniAppLayout";
 import { useAuthenticateAction } from "../../identity/useAuthenticateAction";
 import { useCompactRoutedMode } from "../../navigation/useCompactRoutedMode";
+import type { MiniAppRouteSetOptions } from "../../navigation/useMiniAppRouteState";
 import { useCryptoSession } from "../../providers/crypto/CryptoSessionProvider";
 import "./Root.css";
 import { IdentitiesView } from "./identities/IdentitiesView";
@@ -59,14 +60,20 @@ function RootContent({
   setRoute,
 }: {
   route: RootRoute;
-  setRoute: (route: RootRoute) => void;
+  setRoute: (route: RootRoute, options?: MiniAppRouteSetOptions) => void;
 }) {
   const setView = useCallback(
     (view: RootView) => setRoute(rootRouteForView(view)),
     [setRoute],
   );
-  const selectIdentity = useCallback(
-    (userId: string | null) => setRoute({ userId, view: "identities" }),
+  const openIdentity = useCallback(
+    (userId: string) => setRoute({ userId, view: "identities" }),
+    [setRoute],
+  );
+  // Leaving the detail replaces the history entry rather than pushing the
+  // list again, so the browser's Back does not reopen the detail just left.
+  const closeIdentity = useCallback(
+    () => setRoute(IDENTITIES_ROOT_ROUTE, { replace: true }),
     [setRoute],
   );
 
@@ -74,14 +81,9 @@ function RootContent({
     return <RootMenu setView={setView} />;
   }
   if (route.userId !== null) {
-    return (
-      <IdentityDetailView
-        onBack={() => selectIdentity(null)}
-        userId={route.userId}
-      />
-    );
+    return <IdentityDetailView onBack={closeIdentity} userId={route.userId} />;
   }
-  return <IdentitiesView onSelectIdentity={selectIdentity} />;
+  return <IdentitiesView onSelectIdentity={openIdentity} />;
 }
 
 export function Root() {

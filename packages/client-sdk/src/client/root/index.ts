@@ -2,13 +2,14 @@ import {
   listRootIdentities,
   listRootIdentityOrganizations,
   loadRootIdentity,
+  type RootIdentitiesApi,
   type RootIdentitiesPage,
   type RootIdentitiesQueryInput,
   type RootIdentityDetail,
   type RootIdentityOrganization,
   type RootRequestOutcome,
 } from "../../workflows/root";
-import type { InternalRuntime } from "../workflowRuntime";
+import type { WorkflowRuntimeAuthInput } from "../../workflows/runtimeInput";
 
 export type {
   RootIdentitiesPage,
@@ -35,41 +36,68 @@ export interface Root {
   loadIdentity(userId: string): Promise<RootRequestOutcome<RootIdentityDetail>>;
 }
 
+/**
+ * What the facade needs from the runtime: the session-authority generation,
+ * which advances on login, logout, and identity changes, and the current auth
+ * snapshot plus api client. Narrower than the full runtime so tests can drive
+ * it with a fake.
+ */
+export interface RootRuntime {
+  readonly sessionGeneration: number;
+  workflowInput(): {
+    readonly apiClient: RootIdentitiesApi;
+    readonly auth: WorkflowRuntimeAuthInput;
+  };
+}
+
 const NOT_AVAILABLE: RootRequestOutcome<never> = {
   message: "The current session is not a platform operator.",
   ok: false,
   status: null,
 };
 
-export function createRoot(runtimeService: InternalRuntime): Root {
-  const activeRuntime = () => {
+const SESSION_CHANGED: RootRequestOutcome<never> = {
+  message: "The session changed while the request was in flight.",
+  ok: false,
+  status: null,
+};
+
+export function createRoot(runtimeService: RootRuntime): Root {
+  const activeApi = (): RootIdentitiesApi | null => {
     const runtime = runtimeService.workflowInput();
     return runtime.auth.isAuthenticated && runtime.auth.isRoot === true
-      ? runtime
+      ? runtime.apiClient
       : null;
+  };
+
+  // Operator data must never surface into a session other than the one that
+  // asked for it. A logout or identity switch while a request is in flight
+  // advances the generation, so a late reply is dropped instead of returned.
+  const guarded = async <Data>(
+    request: (api: RootIdentitiesApi) => Promise<RootRequestOutcome<Data>>,
+  ): Promise<RootRequestOutcome<Data>> => {
+    const api = activeApi();
+    if (!api) {
+      return NOT_AVAILABLE;
+    }
+    const generation = runtimeService.sessionGeneration;
+    const outcome = await request(api);
+    if (
+      runtimeService.sessionGeneration !== generation ||
+      activeApi() === null
+    ) {
+      return SESSION_CHANGED;
+    }
+    return outcome;
   };
 
   return {
     get isAvailable() {
-      return activeRuntime() !== null;
+      return activeApi() !== null;
     },
-    async listIdentities(query) {
-      const runtime = activeRuntime();
-      return runtime
-        ? listRootIdentities(runtime.apiClient, query)
-        : NOT_AVAILABLE;
-    },
-    async listIdentityOrganizations(userId) {
-      const runtime = activeRuntime();
-      return runtime
-        ? listRootIdentityOrganizations(runtime.apiClient, userId)
-        : NOT_AVAILABLE;
-    },
-    async loadIdentity(userId) {
-      const runtime = activeRuntime();
-      return runtime
-        ? loadRootIdentity(runtime.apiClient, userId)
-        : NOT_AVAILABLE;
-    },
+    listIdentities: (query) => guarded((api) => listRootIdentities(api, query)),
+    listIdentityOrganizations: (userId) =>
+      guarded((api) => listRootIdentityOrganizations(api, userId)),
+    loadIdentity: (userId) => guarded((api) => loadRootIdentity(api, userId)),
   };
 }
