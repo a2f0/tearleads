@@ -11,9 +11,6 @@ import type {
   ListContainerParentLanesResponse,
   ListSessionsResponse,
   OrganizationBillingResponse,
-  RootIdentitiesResponse,
-  RootIdentityDetailResponse,
-  RootIdentityOrganizationsResponse,
   UserIdentityResponse,
   VerifyResponse,
 } from "@tearleads/validators/response";
@@ -25,6 +22,7 @@ import {
   type ProxiedApiRequest,
   recordProxiedApiResponse,
 } from "./proxiedApiResponse";
+import { rootConsoleHandlers } from "./rootConsoleHandlers";
 import { recordUnhandledRequest } from "./unhandledRequests";
 
 export const wsUrl = "ws://localhost:3002";
@@ -83,28 +81,6 @@ interface TestApiKeyValueStore {
   srem: (key: string, member: string) => Promise<void>;
   sscanMembers: (key: string) => AsyncIterable<string[]>;
 }
-
-/** Identities served by the `/root/*` handlers; the first is itself root. */
-export const ROOT_TEST_IDENTITIES: RootIdentitiesResponse["identities"] = [
-  {
-    createdAt: "2026-08-01T00:00:00.000Z",
-    defaultOrganizationId: "org-root-1",
-    isRoot: true,
-    lastActiveAt: "2026-09-06T10:00:00.000Z",
-    registrationSourceIpAddress: "203.0.113.7",
-    signingKeyFingerprint: "a".repeat(64),
-    userId: "11111111-1111-4111-8111-111111111111",
-  },
-  {
-    createdAt: "2026-08-02T00:00:00.000Z",
-    defaultOrganizationId: "org-member-2",
-    isRoot: false,
-    lastActiveAt: null,
-    registrationSourceIpAddress: null,
-    signingKeyFingerprint: "b".repeat(64),
-    userId: "22222222-2222-4222-8222-222222222222",
-  },
-];
 
 const [appTestRuntimeModuleUrl, apiPostgresAdapterModuleUrl] = [
   "../../../api/src/appTestRuntime.ts",
@@ -273,77 +249,7 @@ const server = setupServer(
       });
     },
   ),
-  http.get("http://localhost:3001/root/identities", ({ request }) => {
-    const fingerprint = new URL(request.url).searchParams.get("fingerprint");
-    const identities = ROOT_TEST_IDENTITIES.filter(
-      (identity) =>
-        fingerprint === null || identity.signingKeyFingerprint === fingerprint,
-    );
-    return HttpResponse.json<RootIdentitiesResponse>({
-      identities,
-      nextCursor: null,
-    });
-  }),
-  http.get<{ userId: string }>(
-    "http://localhost:3001/root/identities/:userId",
-    ({ params }) => {
-      const identity = ROOT_TEST_IDENTITIES.find(
-        (candidate) => candidate.userId === params.userId,
-      );
-      if (!identity) {
-        return HttpResponse.json({ error: "User not found" }, { status: 404 });
-      }
-      return HttpResponse.json<RootIdentityDetailResponse>({
-        identity,
-        sessions: [
-          {
-            createdAt: "2026-09-01T09:00:00.000Z",
-            id: "e".repeat(64),
-            ipAddresses: ["203.0.113.7"],
-            lastActiveAt: "2026-09-06T10:00:00.000Z",
-            lastActiveIp: "203.0.113.7",
-            signingKeyFingerprint: identity.signingKeyFingerprint,
-          },
-        ],
-      });
-    },
-  ),
-  http.get<{ userId: string }>(
-    "http://localhost:3001/root/identities/:userId/organizations",
-    ({ params }) => {
-      const identity = ROOT_TEST_IDENTITIES.find(
-        (candidate) => candidate.userId === params.userId,
-      );
-      if (!identity) {
-        return HttpResponse.json({ error: "User not found" }, { status: 404 });
-      }
-      return HttpResponse.json<RootIdentityOrganizationsResponse>({
-        organizations: [
-          {
-            billing: {
-              currentPeriodEndsAt: null,
-              disabledAt: null,
-              provider: null,
-              purgeAfter: null,
-              purgedAt: null,
-              seatCount: 1,
-              status: "trialing",
-              trialEndsAt: "2099-01-01T00:00:00.000Z",
-            },
-            createdAt: "2026-08-01T00:00:00.000Z",
-            isDefaultOrganization: true,
-            name: "Root Test Org",
-            organizationId: identity.defaultOrganizationId,
-            roster: {
-              disabledAt: null,
-              joinedAt: "2026-08-01T00:00:00.000Z",
-              status: "active",
-            },
-          },
-        ],
-      });
-    },
-  ),
+  ...rootConsoleHandlers,
   http.post(
     "http://localhost:3001/containers/parent-lanes/query",
     async ({ request }) => {

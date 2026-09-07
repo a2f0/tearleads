@@ -8,7 +8,11 @@ import {
 } from "../schema";
 import { OrganizationBillingStatusSchema } from "./organizationBilling";
 
-const RootRosterStatusSchema = z.literal(["active", "disabled"]);
+export const RootRosterSchema = loosePlainObject({
+  disabledAt: z.string().nullable(),
+  joinedAt: z.string(),
+  status: z.literal(["active", "disabled"]),
+});
 
 /** Operator-facing view of one registered identity, from `GET /root/identities`. */
 export const RootIdentitySummaryResponseSchema = loosePlainObject({
@@ -58,7 +62,7 @@ export type RootIdentityDetailResponse = z.infer<
   typeof RootIdentityDetailResponseSchema
 >;
 
-export const RootIdentityOrganizationBillingResponseSchema = loosePlainObject({
+export const rootOrganizationBillingShape = {
   currentPeriodEndsAt: z.string().nullable(),
   disabledAt: z.string().nullable(),
   provider: z.string().nullable(),
@@ -67,7 +71,10 @@ export const RootIdentityOrganizationBillingResponseSchema = loosePlainObject({
   seatCount: nonNegativeIntegerSchema,
   status: OrganizationBillingStatusSchema,
   trialEndsAt: z.string().nullable(),
-});
+};
+export const RootIdentityOrganizationBillingResponseSchema = loosePlainObject(
+  rootOrganizationBillingShape,
+);
 
 export type RootIdentityOrganizationBillingResponse = z.infer<
   typeof RootIdentityOrganizationBillingResponseSchema
@@ -80,11 +87,7 @@ export const RootIdentityOrganizationResponseSchema = loosePlainObject({
   isDefaultOrganization: z.boolean(),
   name: z.string(),
   organizationId: nonEmptyStringSchema,
-  roster: loosePlainObject({
-    disabledAt: z.string().nullable(),
-    joinedAt: z.string(),
-    status: RootRosterStatusSchema,
-  }),
+  roster: RootRosterSchema,
 });
 
 export type RootIdentityOrganizationResponse = z.infer<

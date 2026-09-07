@@ -1,6 +1,7 @@
 import type { RootIdentity } from "@tearleads/client-sdk";
 import {
   MiniAppTable,
+  MiniAppTableActionButton,
   MiniAppTableCell,
   type MiniAppTableColumn,
   MiniAppTableEmptyRow,
@@ -26,15 +27,15 @@ function IdentityRow({
   onSelect: (userId: string) => void;
 }) {
   return (
-    <MiniAppTableRow
-      interactive
-      onActivate={() => onSelect(identity.userId)}
-      tabIndex={0}
-    >
+    <MiniAppTableRow interactive onActivate={() => onSelect(identity.userId)}>
       <MiniAppTableCell>
-        <MiniAppTableText title={identity.signingKeyFingerprint}>
+        <MiniAppTableActionButton
+          aria-label={`Open identity ${identity.signingKeyFingerprint}`}
+          onClick={() => onSelect(identity.userId)}
+          title={identity.signingKeyFingerprint}
+        >
           {compactRootIdentifier(identity.signingKeyFingerprint)}
-        </MiniAppTableText>
+        </MiniAppTableActionButton>
       </MiniAppTableCell>
       <MiniAppTableCell>
         <MiniAppTableText title={identity.userId}>

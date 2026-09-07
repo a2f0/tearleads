@@ -16,6 +16,7 @@ import {
   MiniAppInfoRow,
   MiniAppKeyValueTable,
   MiniAppTable,
+  MiniAppTableActionButton,
   MiniAppTableCell,
   type MiniAppTableColumn,
   MiniAppTableEmptyRow,
@@ -142,8 +143,10 @@ function SessionsTable({
 
 function OrganizationsTable({
   organizations,
+  onSelectOrganization,
 }: {
   organizations: ReadonlyArray<RootIdentityOrganization>;
+  onSelectOrganization: (organizationId: string) => void;
 }) {
   return (
     <MiniAppTableFrame>
@@ -154,12 +157,23 @@ function OrganizationsTable({
           </MiniAppTableEmptyRow>
         ) : (
           organizations.map((organization) => (
-            <MiniAppTableRow key={organization.organizationId}>
+            <MiniAppTableRow
+              key={organization.organizationId}
+              interactive
+              onActivate={() =>
+                onSelectOrganization(organization.organizationId)
+              }
+            >
               <MiniAppTableCell>
-                <MiniAppTableText title={organization.organizationId}>
+                <MiniAppTableActionButton
+                  onClick={() =>
+                    onSelectOrganization(organization.organizationId)
+                  }
+                  title={organization.organizationId}
+                >
                   {organization.name}
                   {organization.isDefaultOrganization ? " (default)" : ""}
-                </MiniAppTableText>
+                </MiniAppTableActionButton>
               </MiniAppTableCell>
               <MiniAppTableCell>
                 <MiniAppTableText>
@@ -199,9 +213,11 @@ function OrganizationsTable({
 export function IdentityDetailView({
   onBack,
   userId,
+  onSelectOrganization,
 }: {
   onBack: () => void;
   userId: string;
+  onSelectOrganization: (organizationId: string) => void;
 }) {
   const { detail, error, loading, organizations, refresh } =
     useRootIdentityDetail(userId);
@@ -230,7 +246,10 @@ export function IdentityDetailView({
       {organizations && (
         <>
           <MiniAppInfoHeading>Organizations</MiniAppInfoHeading>
-          <OrganizationsTable organizations={organizations} />
+          <OrganizationsTable
+            organizations={organizations}
+            onSelectOrganization={onSelectOrganization}
+          />
         </>
       )}
     </MiniAppSection>

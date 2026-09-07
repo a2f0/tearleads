@@ -15,7 +15,7 @@ import invariant from "invariant";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { runNativePurchaseEligibilityWorkflow } from "./nativePurchaseEligibility";
 import { runClaimNativeSubscriptionWorkflow } from "./nativeSubscriptionClaim";
-import { runGetOrganizationBillingHistoryWorkflow } from "./organizationBillingHistory";
+import { runGetOrganizationBillingHistoryWorkflow } from "./organizationBillingHistoryAccess";
 
 async function registerPersonalOrganization(): Promise<{
   readonly organizationId: string;

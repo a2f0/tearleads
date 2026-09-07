@@ -2,12 +2,12 @@ import { afterEach, expect, test } from "bun:test";
 import type { OrganizationBillingHistoryEntry } from "@tearleads/client-sdk";
 import { cleanup, render } from "@testing-library/react";
 import { createElement } from "react";
-import { BillingHistory } from "./BillingHistory";
 import {
   formatBillingAmount,
   formatPrice,
   formatTotalAmount,
-} from "./billingFormatters";
+} from "../../shared/billingFormatters";
+import { BillingHistory } from "./BillingHistory";
 
 afterEach(() => cleanup());
 

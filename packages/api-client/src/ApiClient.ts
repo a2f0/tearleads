@@ -35,6 +35,7 @@ import {
   getOrganizationReadModelOperation,
   getPrincipalPolicyOperation,
   getRootIdentityOperation,
+  getRootOrganizationOperation,
   getStripeCheckoutOptionsOperation,
   initiateMultipartBlobStageOperation,
   linkDocumentOperation,
@@ -44,12 +45,16 @@ import {
   listOrganizationGroupMembersOperation,
   listRootIdentitiesOperation,
   listRootIdentityOrganizationsOperation,
+  listRootOrganizationIdentitiesOperation,
+  listRootOrganizationsOperation,
   listSessionsOperation,
   logoutOperation,
   moveContainerOperation,
   purgeDocumentOperation,
   putPrincipalPolicyOperation,
   type RootIdentitiesQuery,
+  type RootOrganizationPageQuery,
+  type RootOrganizationsQuery,
   reciteContainerOperation,
   registerOperation,
   rekeyContainerOperation,
@@ -105,6 +110,9 @@ import type {
   RootIdentitiesResponse,
   RootIdentityDetailResponse,
   RootIdentityOrganizationsResponse,
+  RootOrganizationDetailResponse,
+  RootOrganizationIdentitiesResponse,
+  RootOrganizationsResponse,
   UserIdentityResponse,
 } from "@tearleads/validators/response";
 import { BoundedCache } from "./ApiCache";
@@ -633,6 +641,40 @@ export class ApiClient {
         params: { organizationId },
         query: { cursor },
       },
+      options,
+    );
+  }
+
+  listRootOrganizationsResult(
+    query: RootOrganizationsQuery = {},
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<RootOrganizationsResponse>> {
+    return this.transport.requestResult(
+      listRootOrganizationsOperation,
+      { params: {}, query },
+      options,
+    );
+  }
+
+  getRootOrganizationResult(
+    organizationId: string,
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<RootOrganizationDetailResponse>> {
+    return this.transport.requestResult(
+      getRootOrganizationOperation,
+      { params: { organizationId } },
+      options,
+    );
+  }
+
+  listRootOrganizationIdentitiesResult(
+    organizationId: string,
+    query: RootOrganizationPageQuery = {},
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<RootOrganizationIdentitiesResponse>> {
+    return this.transport.requestResult(
+      listRootOrganizationIdentitiesOperation,
+      { params: { organizationId }, query },
       options,
     );
   }

@@ -13,7 +13,7 @@ export function compactRootIdentifier(
 }
 
 export function formatRootTimestamp(value: string | null | undefined): string {
-  return value ? formatMiniAppDateTime(value) : "Never";
+  return value ? formatMiniAppDateTime(value) : "Not recorded";
 }
 
 const FINGERPRINT_PATTERN = /^[0-9a-f]{64}$/u;

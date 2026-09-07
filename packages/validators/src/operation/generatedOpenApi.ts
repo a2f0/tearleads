@@ -1009,6 +1009,54 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/root/organizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["root.organizations.list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/root/organizations/{organizationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["root.organizations.get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/root/organizations/{organizationId}/identities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["root.organizations.identities.list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 };
 export type webhooks = Record<string, never>;
 export type components = {
@@ -24075,6 +24123,436 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         })[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    "root.organizations.list": {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful JSON response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        nextCursor: string | null;
+                        organizations: ({
+                            billingStatus: ("local" | "trialing" | "active" | "past_due" | "disabled" | "deleting" | "purged") | null;
+                            createdAt: string;
+                            name: string;
+                            organizationId: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    "root.organizations.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful JSON response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        billing: ({
+                            createdAt: string;
+                            currentPeriodEndsAt: string | null;
+                            currentPeriodStartsAt: string | null;
+                            disabledAt: string | null;
+                            entitlementId: string | null;
+                            provider: string | null;
+                            providerCustomerId: string | null;
+                            providerProductId: string | null;
+                            providerSubscriptionId: string | null;
+                            providerTransactionId: string | null;
+                            purgeAfter: string | null;
+                            purgedAt: string | null;
+                            seatCount: number;
+                            /** @enum {string} */
+                            status: "local" | "trialing" | "active" | "past_due" | "disabled" | "deleting" | "purged";
+                            trialEndsAt: string | null;
+                            updatedAt: string;
+                        } & {
+                            [key: string]: unknown;
+                        }) | null;
+                        history: ({
+                            activeSeatCount: number | null;
+                            billingReason: string | null;
+                            /** @enum {string} */
+                            category: "lifecycle" | "seat" | "invoice";
+                            currency: string | null;
+                            environment: ("sandbox" | "production") | null;
+                            eventType: string;
+                            id: string;
+                            interval: string | null;
+                            intervalCount: number | null;
+                            invoiceId: string | null;
+                            occurredAt: string;
+                            /** @enum {string} */
+                            outcome: "applied" | "ignored";
+                            periodEndsAt: string | null;
+                            periodStartsAt: string | null;
+                            priceId: string | null;
+                            productId: string | null;
+                            /** @enum {string} */
+                            provider: "revenuecat" | "stripe" | "internal";
+                            seatCount: number | null;
+                            seatDelta: number | null;
+                            subscriptionId: string | null;
+                            totalAmount: number | null;
+                            totalCurrency: string | null;
+                            transactionId: string | null;
+                            unitAmount: number | null;
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        organization: {
+                            billingStatus: ("local" | "trialing" | "active" | "past_due" | "disabled" | "deleting" | "purged") | null;
+                            createdAt: string;
+                            name: string;
+                            organizationId: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        stripe: ({
+                            appliedPaidCapacity: number;
+                            attemptCount: number;
+                            customerId: string | null;
+                            desiredPaidCapacity: number;
+                            desiredRenewalQuantity: number;
+                            lastError: string | null;
+                            lastInvoiceId: string | null;
+                            lastSyncedAt: string | null;
+                            nextAttemptAt: string | null;
+                            observedQuantity: number | null;
+                            priceId: string | null;
+                            subscriptionId: string | null;
+                            subscriptionItemId: string | null;
+                        } & {
+                            [key: string]: unknown;
+                        }) | null;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    "root.organizations.identities.list": {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful JSON response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        identities: ({
+                            identity: {
+                                createdAt: string;
+                                defaultOrganizationId: string;
+                                isRoot: boolean;
+                                lastActiveAt: string | null;
+                                registrationSourceIpAddress: string | null;
+                                signingKeyFingerprint: string;
+                                userId: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            roster: {
+                                disabledAt: string | null;
+                                joinedAt: string;
+                                /** @enum {string} */
+                                status: "active" | "disabled";
+                            } & {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        nextCursor: string | null;
                     } & {
                         [key: string]: unknown;
                     };

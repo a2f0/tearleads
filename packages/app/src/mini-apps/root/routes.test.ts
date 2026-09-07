@@ -30,3 +30,19 @@ test("root routes round-trip through path segments", () => {
   });
   expect(rootRouteForView("menu")).toEqual({ view: "menu" });
 });
+
+test("organization routes and identity return paths survive URL round trips", () => {
+  for (const segments of [
+    ["organizations"],
+    ["organizations", "org-1"],
+    ["identities", "user-1", "organizations", "org-1"],
+  ]) {
+    expect(formatRootRouteSegments(parseRootRouteSegments(segments))).toEqual(
+      segments,
+    );
+  }
+  expect(rootRouteForView("organizations")).toEqual({
+    organizationId: null,
+    view: "organizations",
+  });
+});

@@ -1,12 +1,21 @@
 import {
   listRootIdentities,
   listRootIdentityOrganizations,
+  listRootOrganizationIdentities,
+  listRootOrganizations,
   loadRootIdentity,
+  loadRootOrganization,
   type RootIdentitiesApi,
   type RootIdentitiesPage,
   type RootIdentitiesQueryInput,
   type RootIdentityDetail,
   type RootIdentityOrganization,
+  type RootOrganizationDetail,
+  type RootOrganizationIdentitiesPage,
+  type RootOrganizationPageQueryInput,
+  type RootOrganizationsApi,
+  type RootOrganizationsPage,
+  type RootOrganizationsQueryInput,
   type RootRequestOutcome,
 } from "../../workflows/root";
 import type {
@@ -29,7 +38,19 @@ export type {
  * is authenticated and the server reported it as root at login; the API still
  * enforces root access on its own, so this gate only avoids doomed requests.
  */
+type RootApi = RootIdentitiesApi & RootOrganizationsApi;
+
 export interface Root {
+  listOrganizations(
+    query?: RootOrganizationsQueryInput,
+  ): Promise<RootRequestOutcome<RootOrganizationsPage>>;
+  loadOrganization(
+    organizationId: string,
+  ): Promise<RootRequestOutcome<RootOrganizationDetail>>;
+  listOrganizationIdentities(
+    organizationId: string,
+    query?: RootOrganizationPageQueryInput,
+  ): Promise<RootRequestOutcome<RootOrganizationIdentitiesPage>>;
   /** Whether the current session may use the root surface at all. */
   readonly isAvailable: boolean;
   listIdentities(
@@ -52,7 +73,7 @@ export interface RootRuntime {
   authToken(): string | null;
   subscribe(listener: () => void): () => void;
   workflowInput(): {
-    readonly apiClient: RootIdentitiesApi;
+    readonly apiClient: RootApi;
     readonly auth: WorkflowRuntimeAuthInput;
     readonly crypto: Pick<WorkflowRuntimeCryptoInput, "signingFingerprint">;
   };
@@ -133,7 +154,7 @@ export function createRoot(runtimeService: RootRuntime): Root {
     observedToken = token;
   });
 
-  const activeApi = (): RootIdentitiesApi | null => {
+  const activeApi = (): RootApi | null => {
     const runtime = runtimeService.workflowInput();
     return runtime.auth.isAuthenticated &&
       runtime.auth.isRoot === true &&
@@ -144,7 +165,7 @@ export function createRoot(runtimeService: RootRuntime): Root {
   };
 
   const guarded = async <Data>(
-    request: (api: RootIdentitiesApi) => Promise<RootRequestOutcome<Data>>,
+    request: (api: RootApi) => Promise<RootRequestOutcome<Data>>,
   ): Promise<RootRequestOutcome<Data>> => {
     const api = activeApi();
     if (!api) {
@@ -162,6 +183,14 @@ export function createRoot(runtimeService: RootRuntime): Root {
     get isAvailable() {
       return activeApi() !== null;
     },
+    listOrganizations: (query) =>
+      guarded((api) => listRootOrganizations(api, query)),
+    loadOrganization: (organizationId) =>
+      guarded((api) => loadRootOrganization(api, organizationId)),
+    listOrganizationIdentities: (organizationId, query) =>
+      guarded((api) =>
+        listRootOrganizationIdentities(api, organizationId, query),
+      ),
     listIdentities: (query) => guarded((api) => listRootIdentities(api, query)),
     listIdentityOrganizations: (userId) =>
       guarded((api) => listRootIdentityOrganizations(api, userId)),

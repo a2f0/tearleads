@@ -8,9 +8,9 @@ import {
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
+import { formatPrice } from "../../shared/billingFormatters";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { BillingPurchaseOption } from "./BillingPlanSwitcher";
-import { formatPrice } from "./billingFormatters";
 import type { DirectCheckoutState } from "./useDirectCheckout";
 import "./BillingCheckout.css";
 
