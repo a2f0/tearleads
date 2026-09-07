@@ -84,13 +84,9 @@ function createDeferredRootRuntime() {
       organizationId: "org-1",
       userId: "user-root",
     },
-    sessionGeneration: 1,
     signingFingerprint: "f".repeat(64) as string | null,
   };
   const runtime: RootRuntime = {
-    get sessionGeneration() {
-      return state.sessionGeneration;
-    },
     workflowInput: () => ({
       apiClient: {
         getRootIdentityResult: async () => {
@@ -128,7 +124,6 @@ test("a lookup that completes after a logout is dropped", async () => {
 
   const pending = root.listIdentities();
   state.auth = { ...state.auth, isAuthenticated: false, isRoot: false };
-  state.sessionGeneration += 1;
   resolveListing();
 
   const outcome = await pending;
@@ -146,11 +141,23 @@ test("a lookup that completes after an identity switch is dropped", async () => 
   // A switch to another root identity still advances the generation, so the
   // reply requested by the previous identity must not surface to the new one.
   state.auth = { ...state.auth, userId: "user-other-root" };
-  state.sessionGeneration += 1;
   resolveListing();
 
   const outcome = await pending;
   expect(outcome.ok).toBe(false);
+});
+
+test("a lookup that completes after an auth-token renewal is kept", async () => {
+  const { resolveListing, root, state } = createDeferredRootRuntime();
+
+  const pending = root.listIdentities();
+  // The api client renews an expired token and retries transparently; the
+  // user and identity are unchanged, so the retried reply must still land.
+  state.auth = { ...state.auth };
+  resolveListing();
+
+  const outcome = await pending;
+  expect(outcome.ok).toBe(true);
 });
 
 test("a lookup that completes after the signing identity changes is dropped", async () => {
@@ -197,9 +204,6 @@ test("a real SDK key-pair swap drops an in-flight lookup", async () => {
   // Adapter over the real SDK: session and identity come from the live
   // runtime, only the network call is faked so it can be held open.
   const root = createRoot({
-    get sessionGeneration() {
-      return 0;
-    },
     workflowInput: () => ({
       apiClient: {
         getRootIdentityResult: async () => {

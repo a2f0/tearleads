@@ -40,14 +40,12 @@ export interface Root {
 }
 
 /**
- * What the facade needs from the runtime: the session-authority generation
- * (advanced by login, logout, and session context changes), the signing
- * identity (which can change or vanish without touching the session), and the
- * current auth snapshot plus api client. Narrower than the full runtime so
- * tests can drive it with a fake.
+ * What the facade needs from the runtime: the current auth snapshot, the
+ * signing identity (which can change or vanish without touching the session),
+ * and the api client. Narrower than the full runtime so tests can drive it
+ * with a fake.
  */
 export interface RootRuntime {
-  readonly sessionGeneration: number;
   workflowInput(): {
     readonly apiClient: RootIdentitiesApi;
     readonly auth: WorkflowRuntimeAuthInput;
@@ -76,10 +74,17 @@ export function createRoot(runtimeService: RootRuntime): Root {
   };
 
   // Operator data must never surface into a session other than the one that
-  // asked for it. A logout or session change advances the generation, but a
-  // key-pair swap or destruction leaves it alone, so the signing fingerprint
-  // is captured too; if either moved while a request was in flight, the late
-  // reply is dropped instead of returned.
+  // asked for it. The reply is kept only while the same user and the same
+  // signing identity are still root: a logout, an identity switch, or a
+  // key-pair swap or destruction drops it. An automatic auth-token renewal
+  // changes neither, so a successful retried lookup is still returned.
+  const principal = () => {
+    const runtime = runtimeService.workflowInput();
+    return {
+      fingerprint: runtime.crypto.signingFingerprint,
+      userId: runtime.auth.userId,
+    };
+  };
   const guarded = async <Data>(
     request: (api: RootIdentitiesApi) => Promise<RootRequestOutcome<Data>>,
   ): Promise<RootRequestOutcome<Data>> => {
@@ -87,15 +92,13 @@ export function createRoot(runtimeService: RootRuntime): Root {
     if (!api) {
       return NOT_AVAILABLE;
     }
-    const generation = runtimeService.sessionGeneration;
-    const fingerprint =
-      runtimeService.workflowInput().crypto.signingFingerprint;
+    const before = principal();
     const outcome = await request(api);
+    const after = principal();
     if (
-      runtimeService.sessionGeneration !== generation ||
-      runtimeService.workflowInput().crypto.signingFingerprint !==
-        fingerprint ||
-      activeApi() === null
+      activeApi() === null ||
+      after.userId !== before.userId ||
+      after.fingerprint !== before.fingerprint
     ) {
       return SESSION_CHANGED;
     }
