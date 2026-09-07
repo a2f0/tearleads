@@ -13,6 +13,7 @@ import type {
   WorkflowRuntimeAuthInput,
   WorkflowRuntimeCryptoInput,
 } from "../../workflows/runtimeInput";
+import type { Session } from "../session/sessionTypes";
 import type { InternalRuntime } from "../workflowRuntime";
 
 export type {
@@ -47,6 +48,8 @@ export interface Root {
  * so tests can drive it with a fake.
  */
 export interface RootRuntime {
+  /** The session's current auth token; a new one marks a fresh login. */
+  authToken(): string | null;
   subscribe(listener: () => void): () => void;
   workflowInput(): {
     readonly apiClient: RootIdentitiesApi;
@@ -58,8 +61,10 @@ export interface RootRuntime {
 /** The SDK's internal runtime, narrowed to what the root facade observes. */
 export function rootRuntimeOf(
   runtime: Pick<InternalRuntime, "publicRuntime" | "workflowInput">,
+  session: Pick<Session, "authToken">,
 ): RootRuntime {
   return {
+    authToken: () => session.authToken,
     subscribe: (listener) => runtime.publicRuntime.subscribe(listener),
     workflowInput: () => runtime.workflowInput(),
   };
@@ -89,33 +94,43 @@ export function createRoot(runtimeService: RootRuntime): Root {
   };
 
   // Root standing belongs to the signing identity that authenticated, not to
-  // whichever key pair is loaded now. The fingerprint is bound when the
-  // session becomes root; a later key swap leaves the session's token in
-  // place but unbinds root until a fresh login re-establishes it.
+  // whichever key pair is loaded now. The fingerprint is bound whenever a
+  // login completes, which is observable as a new auth token carrying the
+  // server's verdict, or when the session first becomes root. A principal
+  // change without a new token (a key swap while the old token lingers)
+  // unbinds root until the next login. Every principal change is also
+  // counted as it happens, so a round trip such as logout then login, or a
+  // switch to another identity and back, is still two changes even though
+  // the endpoints match; a token renewal alone changes no principal, so a
+  // retried lookup is still returned.
   let observed = principal();
+  let observedToken = runtimeService.authToken();
   let boundFingerprint: string | null =
     observed.isAuthenticated && observed.isRoot ? observed.fingerprint : null;
-  // Every change of principal, counted as it happens, so a round trip such
-  // as logout then login, or a switch to another identity and back, is still
-  // two changes even though the endpoints match. An automatic auth-token
-  // renewal changes none of these, so a retried lookup is still returned.
   let lifecycle = 0;
   runtimeService.subscribe(() => {
     const next = principal();
-    const becameRoot =
-      next.isAuthenticated &&
-      next.isRoot &&
-      !(observed.isAuthenticated && observed.isRoot);
-    if (
+    const token = runtimeService.authToken();
+    const freshToken = token !== null && token !== observedToken;
+    const wasRoot = observed.isAuthenticated && observed.isRoot;
+    const isRootNow = next.isAuthenticated && next.isRoot;
+    const changed =
       next.fingerprint !== observed.fingerprint ||
       next.isAuthenticated !== observed.isAuthenticated ||
       next.isRoot !== observed.isRoot ||
-      next.userId !== observed.userId
-    ) {
+      next.userId !== observed.userId;
+    if (changed) {
       lifecycle += 1;
-      boundFingerprint = becameRoot ? next.fingerprint : null;
-      observed = next;
     }
+    if (!isRootNow) {
+      boundFingerprint = null;
+    } else if (freshToken || !wasRoot) {
+      boundFingerprint = next.fingerprint;
+    } else if (changed) {
+      boundFingerprint = null;
+    }
+    observed = next;
+    observedToken = token;
   });
 
   const activeApi = (): RootIdentitiesApi | null => {

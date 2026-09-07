@@ -212,7 +212,7 @@ export class Tearleads {
     this.containerContents = createContainerContents(runtime);
     this.deviceFirst = createDeviceFirst(runtime, this.containerContents);
     this.organizations = createOrganizations(runtime, this.containerContents);
-    this.root = createRoot(rootRuntimeOf(runtime));
+    this.root = createRoot(rootRuntimeOf(runtime, this.session));
     this.userIdentities = createUserIdentities({
       log: this.log,
       resolveTrustedUserIdentity: (userId) =>

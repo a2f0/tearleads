@@ -98,10 +98,12 @@ function createDeferredRootRuntime() {
       organizationId: "org-1",
       userId: "user-root",
     },
+    authToken: "token-1" as string | null,
     signingFingerprint: "f".repeat(64) as string | null,
   };
   const listeners = new Set<() => void>();
   const runtime: RootRuntime = {
+    authToken: () => state.authToken,
     subscribe: (listener) => {
       listeners.add(listener);
       return () => listeners.delete(listener);
@@ -267,6 +269,7 @@ test("a real SDK key-pair swap drops an in-flight lookup", async () => {
   // Adapter over the real SDK: session and identity come from the live
   // runtime, only the network call is faked so it can be held open.
   const root = createRoot({
+    authToken: () => sdk.session.authToken,
     subscribe: (listener) => sdk.runtime.subscribe(listener),
     workflowInput: () => ({
       apiClient: {
@@ -311,8 +314,17 @@ test("a key-pair swap after login unbinds root until the next login", async () =
   const refused = await sdk.root.listIdentities();
   expect(refused.ok).toBe(false);
 
-  // A fresh login as B (the server reporting root) binds root to B.
-  sdk.session.setContext({ ...ROOT_CONTEXT, isRoot: false });
-  sdk.session.setContext({ ...ROOT_CONTEXT, userId: "user-b" });
+  // A successful login as B is observable as a new auth token carrying the
+  // server's verdict; both flags were already true, so only the token moves.
+  sdk.session.setContext({ ...ROOT_CONTEXT, authToken: "token-b" });
+  expect(sdk.root.isAvailable).toBe(true);
+});
+
+test("a token renewal for the same identity keeps root available", async () => {
+  const sdk = await createRootSdk();
+  sdk.session.setContext(ROOT_CONTEXT);
+
+  sdk.session.setContext({ authToken: "token-renewed" });
+
   expect(sdk.root.isAvailable).toBe(true);
 });
