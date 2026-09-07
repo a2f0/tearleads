@@ -2,6 +2,7 @@
   "extends": ["./.hutch/devkit/tsconfig.json", "../../tsconfig.base.json"],
   "compilerOptions": {
     "lib": ["ESNext", "DOM"],
+    // Remove when the generated devkit stops setting deprecated baseUrl.
     "ignoreDeprecations": "6.0",
     // Only the empty root solution references this deployment target. TS6306
     // applies when the referencing project has inputs; it does not apply here.
