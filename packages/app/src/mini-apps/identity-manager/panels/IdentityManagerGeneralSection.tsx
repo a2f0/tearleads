@@ -106,6 +106,12 @@ export function IdentityManagerGeneralSection({
       )}
       <dl className="identity-manager-details">
         <IdentityDetail
+          action={
+            <MiniAppClipboardButton
+              label="Copy signing key fingerprint"
+              value={identity.signingFingerprint}
+            />
+          }
           label="Signing Key"
           value={identity.signingFingerprint}
         />
