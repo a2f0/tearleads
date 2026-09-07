@@ -7,6 +7,7 @@ export type MiniAppId =
   | "identity-manager"
   | "notes"
   | "org-manager"
+  | "root"
   | "system-monitor";
 
 export interface MiniAppDefinition {

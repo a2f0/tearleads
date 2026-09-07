@@ -3,6 +3,7 @@ import { LockIcon } from "@phosphor-icons/react/dist/csr/Lock";
 import { LockOpenIcon } from "@phosphor-icons/react/dist/csr/LockOpen";
 
 import { MINI_APP_MENU_ITEMS } from "../../../mini-apps/registry";
+import { useVisibleMiniAppItems } from "../../../mini-apps/useVisibleMiniAppItems";
 import type { MenuPosition } from "../../shared/Menu";
 import { MenuItem } from "../../shared/MenuItem";
 
@@ -29,6 +30,7 @@ export function PaneContextMenuItems({
     position,
   });
   const { canLockPane, lockPane } = usePaneLockMenuAction(onClose);
+  const visibleMenuItems = useVisibleMiniAppItems(MINI_APP_MENU_ITEMS);
 
   if (!hasSigningKeyPair && !paneLocked) {
     return (
@@ -52,7 +54,7 @@ export function PaneContextMenuItems({
       {canLockPane && (
         <MenuItem icon={LockIcon} label="Lock" onClick={lockPane} />
       )}
-      {MINI_APP_MENU_ITEMS.map(({ appId, icon, label }) => (
+      {visibleMenuItems.map(({ appId, icon, label }) => (
         <MenuItem
           key={appId}
           icon={icon}

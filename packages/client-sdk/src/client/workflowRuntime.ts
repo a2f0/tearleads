@@ -26,7 +26,7 @@ import type { Identity } from "./identity";
 import { createListenerSet } from "./listenerSet";
 import type { Network } from "./network";
 import { adoptSessionRootContainer } from "./rootContainerAdoption";
-import type { Session } from "./session/sessionTypes";
+import type { Session, SessionSnapshot } from "./session/sessionTypes";
 import type { SyncBillingGate } from "./syncBillingGate";
 
 type HostWorkflowRuntimeUtilInput = Omit<
@@ -169,12 +169,7 @@ function createRuntimeSubscription(dependencies: WorkflowRuntimeDependencies) {
   dependencies.network.subscribe(() => notifyListeners());
   dependencies.session.subscribe(() => {
     const next = dependencies.session.snapshot;
-    if (
-      next.authToken !== sessionSnapshot.authToken ||
-      next.isAuthenticated !== sessionSnapshot.isAuthenticated ||
-      next.organizationId !== sessionSnapshot.organizationId ||
-      next.userId !== sessionSnapshot.userId
-    ) {
+    if (sessionAuthorityChanged(sessionSnapshot, next)) {
       sessionGeneration += 1;
     }
     sessionSnapshot = next;
@@ -202,6 +197,30 @@ interface RuntimeInputFactory {
   ): InternalWorkflowRuntimeInput;
 }
 
+function sessionAuthInput(session: Session): WorkflowRuntimeAuthInput {
+  return {
+    defaultOrganizationId: session.defaultOrganizationId,
+    isAuthenticated: session.isAuthenticated,
+    isRoot: session.isRoot,
+    organizationId: session.organizationId,
+    userId: session.userId,
+  };
+}
+
+/** Fields whose change invalidates work keyed on the session's authority. */
+function sessionAuthorityChanged(
+  previous: SessionSnapshot,
+  next: SessionSnapshot,
+): boolean {
+  return (
+    next.authToken !== previous.authToken ||
+    next.isAuthenticated !== previous.isAuthenticated ||
+    next.isRoot !== previous.isRoot ||
+    next.organizationId !== previous.organizationId ||
+    next.userId !== previous.userId
+  );
+}
+
 function createRuntimeInputFactory(
   dependencies: WorkflowRuntimeDependencies,
   resolveTrustedUserIdentity: TrustedUserIdentityResolver,
@@ -226,12 +245,7 @@ function createRuntimeInputFactory(
         ? dependencies.session.containerId
         : containerId) ?? null;
 
-    auth = reuseIfShallowEqual(auth, {
-      defaultOrganizationId: dependencies.session.defaultOrganizationId,
-      isAuthenticated: dependencies.session.isAuthenticated,
-      organizationId: dependencies.session.organizationId,
-      userId: dependencies.session.userId,
-    });
+    auth = reuseIfShallowEqual(auth, sessionAuthInput(dependencies.session));
     crypto = reuseIfShallowEqual(crypto, {
       encapsulationKeyPair: dependencies.identity.encapsulationKeyPair,
       signingFingerprint: dependencies.identity.signingFingerprint,

@@ -299,6 +299,14 @@ export const subsystems: readonly Subsystem[] = [
     paths: [`${sdk}/workflows/organizations/`, `${sdk}/client/organizations/`],
   },
   {
+    name: "Root Console Client",
+    package: "client-sdk",
+    responsibility:
+      "Platform-operator identity lookups for the root console, gated locally on the session's server-reported root flag.",
+    seam: "tearleads.root facade; workflows/root",
+    paths: [`${sdk}/workflows/root/`, `${sdk}/client/root/`],
+  },
+  {
     name: "Principal Policy (client)",
     package: "client-sdk",
     responsibility:
@@ -458,6 +466,14 @@ export const subsystems: readonly Subsystem[] = [
     paths: [`${app}/mini-apps/org-manager/`, `${app}/stores/org-manager/`],
   },
   {
+    name: "Root Console",
+    package: "app",
+    responsibility:
+      "The root mini-app for platform operators: identity listing, identity detail with live sessions, and organization membership with billing standing. Offered only to sessions the server reports as root.",
+    seam: "mini-apps/root",
+    paths: [`${app}/mini-apps/root/`],
+  },
+  {
     name: "Identity Manager",
     package: "app",
     responsibility:
@@ -492,10 +508,12 @@ export const subsystems: readonly Subsystem[] = [
       `${app}/mini-apps/bus.tsx`,
       `${app}/mini-apps/LocalKeyringUnlockGate.tsx`,
       `${app}/mini-apps/miniAppLauncher.tsx`,
+      `${app}/mini-apps/miniAppVisibility.ts`,
       `${app}/mini-apps/registry.ts`,
       `${app}/mini-apps/shared/`,
       `${app}/mini-apps/SystemBootstrapGate.tsx`,
       `${app}/mini-apps/types.ts`,
+      `${app}/mini-apps/useVisibleMiniAppItems.ts`,
     ],
   },
   {

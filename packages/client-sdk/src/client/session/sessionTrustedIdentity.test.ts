@@ -19,6 +19,7 @@ async function createLoginHarness(
   const api = new ApiClient("");
   api.authenticate = async () => ({
     authenticated: true,
+    isRoot: false,
     organizationId: "organization-1",
     token: "token-1",
     userId: USER_ID,

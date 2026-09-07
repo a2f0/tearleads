@@ -78,6 +78,11 @@ import {
   putPrincipalPolicyOperation,
 } from "./principals";
 import {
+  getRootIdentityOperation,
+  listRootIdentitiesOperation,
+  listRootIdentityOrganizationsOperation,
+} from "./root";
+import {
   cancelStripeSubscriptionOperation,
   createStripeCheckoutOperation,
   createStripeCheckoutSessionOperation,
@@ -153,6 +158,9 @@ export const protocolOperations: readonly [
   typeof getPrincipalPolicyOperation,
   typeof commitOrganizationGroupPolicyOperation,
   typeof putPrincipalPolicyOperation,
+  typeof listRootIdentitiesOperation,
+  typeof getRootIdentityOperation,
+  typeof listRootIdentityOrganizationsOperation,
   typeof documentSyncOperation,
 ] = [
   getHealthOperation,
@@ -216,5 +224,8 @@ export const protocolOperations: readonly [
   getPrincipalPolicyOperation,
   commitOrganizationGroupPolicyOperation,
   putPrincipalPolicyOperation,
+  listRootIdentitiesOperation,
+  getRootIdentityOperation,
+  listRootIdentityOrganizationsOperation,
   documentSyncOperation,
 ];

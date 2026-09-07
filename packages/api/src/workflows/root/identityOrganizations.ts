@@ -47,7 +47,7 @@ function isoOrNull(value: Date | null): string | null {
 export async function listRootIdentityOrganizations(
   executor: DatabaseSession,
   userId: string,
-): Promise<readonly RootIdentityOrganization[] | null> {
+): Promise<RootIdentityOrganization[] | null> {
   const [user] = await executor
     .select({ defaultOrganizationId: users.defaultOrganizationId })
     .from(users)

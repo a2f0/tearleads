@@ -38,6 +38,7 @@ testApiClient(
         calls.push(await captureHttpCall(request));
         return HttpResponse.json({
           authenticated: true,
+          isRoot: false,
           organizationId: "organization-1",
           token: "token-1",
           userId: "user-1",
@@ -51,6 +52,7 @@ testApiClient(
       client.authenticate(fingerprint, signingPrivateKey),
     ).resolves.toEqual({
       authenticated: true,
+      isRoot: false,
       organizationId: "organization-1",
       token: "token-1",
       userId: "user-1",

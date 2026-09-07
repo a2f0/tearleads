@@ -6,6 +6,8 @@ export interface SessionContext {
   /** Server-backed personal organization; independent of the active org. */
   defaultOrganizationId?: string | null | undefined;
   isAuthenticated?: boolean | undefined;
+  /** Platform-operator flag reported by the server at login. */
+  isRoot?: boolean | undefined;
   organizationId?: string | null | undefined;
   userId?: string | null | undefined;
 }
@@ -16,6 +18,8 @@ export interface SessionSnapshot {
   /** Server-backed personal organization; independent of the active org. */
   defaultOrganizationId: string | null;
   isAuthenticated: boolean;
+  /** Platform-operator flag reported by the server at login. */
+  isRoot: boolean;
   organizationId: string | null;
   userId: string | null;
 }
@@ -78,6 +82,11 @@ export interface Session {
   /** Server-backed personal organization; independent of the active org. */
   readonly defaultOrganizationId: string | null;
   readonly isAuthenticated: boolean;
+  /**
+   * Platform-operator flag reported by the server at login. It only decides
+   * whether the root console is offered; the API enforces root access itself.
+   */
+  readonly isRoot: boolean;
   readonly organizationId: string | null;
   readonly snapshot: SessionSnapshot;
   /** Controls server replication without changing network connectivity. */

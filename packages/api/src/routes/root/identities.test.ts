@@ -143,12 +143,14 @@ test("pages identities through opaque cursors without gaps or repeats", async ()
 });
 
 test("rejects malformed listing queries", async () => {
+  // Unknown query keys are tolerated, matching every other registered
+  // operation's loose query contract; only declared keys are validated.
   for (const query of [
     "cursor=not-a-cursor",
     "limit=0",
     "limit=201",
+    "limit=abc",
     "fingerprint=abc",
-    "unknown=1",
   ]) {
     const response = await fetchAsRoot(`/root/identities?${query}`);
     expect(response.status).toBe(400);

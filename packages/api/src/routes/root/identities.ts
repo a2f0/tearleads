@@ -1,58 +1,27 @@
-import { isUuidV4String } from "@tearleads/validators/util";
+import {
+  getRootIdentityOperation,
+  listRootIdentitiesOperation,
+  listRootIdentityOrganizationsOperation,
+  operationRoutePath,
+} from "@tearleads/validators/operation";
+import type {
+  RootIdentitiesResponse,
+  RootIdentityDetailResponse,
+  RootIdentityOrganizationsResponse,
+  RootIdentitySessionResponse,
+} from "@tearleads/validators/response";
 import { Hono } from "hono";
-import { z } from "zod";
 import type { SessionEnv, UserSessionSummary } from "../../middleware/session";
 import {
   getIdentity,
   getIdentityOrganizations,
   listIdentities,
-  MAX_ROOT_IDENTITY_PAGE_SIZE,
-  type RootIdentitiesPage,
   RootIdentityError,
-  type RootIdentityOrganization,
-  type RootIdentitySummary,
 } from "../../services/root/identities";
 import { pathParamsValidator } from "../../validators/pathParams";
 import { queryParamsValidator } from "../../validators/queryParams";
 import { respondToStatusError } from "../errorResponse";
 import type { RootRouterDeps } from "./shared";
-
-const RootIdentitiesQuerySchema = z.strictObject({
-  cursor: z.string().min(1).optional(),
-  fingerprint: z
-    .string()
-    .regex(/^[0-9a-f]{64}$/u)
-    .optional(),
-  limit: z.coerce
-    .number()
-    .int()
-    .min(1)
-    .max(MAX_ROOT_IDENTITY_PAGE_SIZE)
-    .optional(),
-});
-
-const RootIdentityPathParamsSchema = z.strictObject({
-  userId: z.string().refine(isUuidV4String),
-});
-
-interface RootIdentitySessionResponse {
-  readonly createdAt: string;
-  readonly id: string;
-  readonly ipAddresses: readonly string[];
-  readonly lastActiveAt: string;
-  readonly lastActiveIp: string | null;
-  readonly signingKeyFingerprint: string;
-}
-
-interface RootIdentityDetailResponse {
-  readonly identity: RootIdentitySummary;
-  /** Sessions still live in the session store, most recently active first. */
-  readonly sessions: readonly RootIdentitySessionResponse[];
-}
-
-interface RootIdentityOrganizationsResponse {
-  readonly organizations: readonly RootIdentityOrganization[];
-}
 
 function toSessionResponse(
   session: UserSessionSummary,
@@ -75,15 +44,21 @@ export function createRootIdentitiesRoute({
 }: RootRouterDeps) {
   const route = new Hono<SessionEnv>();
 
-  route.get(
-    "/root/identities",
+  route.on(
+    listRootIdentitiesOperation.method,
+    operationRoutePath(listRootIdentitiesOperation),
     requireAuth,
     requireRoot,
-    queryParamsValidator(RootIdentitiesQuerySchema, "Invalid query"),
+    queryParamsValidator(listRootIdentitiesOperation.query, "Invalid query"),
     async (c) => {
       try {
-        return c.json<RootIdentitiesPage>(
-          await listIdentities(runtime, c.req.valid("query")),
+        const { cursor, fingerprint, limit } = c.req.valid("query");
+        return c.json<RootIdentitiesResponse>(
+          await listIdentities(runtime, {
+            cursor,
+            fingerprint,
+            limit: limit === undefined ? undefined : Number(limit),
+          }),
         );
       } catch (error) {
         return respondToStatusError(c, error, RootIdentityError);
@@ -91,11 +66,12 @@ export function createRootIdentitiesRoute({
     },
   );
 
-  route.get(
-    "/root/identities/:userId",
+  route.on(
+    getRootIdentityOperation.method,
+    operationRoutePath(getRootIdentityOperation),
     requireAuth,
     requireRoot,
-    pathParamsValidator(RootIdentityPathParamsSchema, "Invalid userId"),
+    pathParamsValidator(getRootIdentityOperation.params, "Invalid userId"),
     async (c) => {
       const { userId } = c.req.valid("param");
       try {
@@ -112,11 +88,15 @@ export function createRootIdentitiesRoute({
     },
   );
 
-  route.get(
-    "/root/identities/:userId/organizations",
+  route.on(
+    listRootIdentityOrganizationsOperation.method,
+    operationRoutePath(listRootIdentityOrganizationsOperation),
     requireAuth,
     requireRoot,
-    pathParamsValidator(RootIdentityPathParamsSchema, "Invalid userId"),
+    pathParamsValidator(
+      listRootIdentityOrganizationsOperation.params,
+      "Invalid userId",
+    ),
     async (c) => {
       const { userId } = c.req.valid("param");
       try {

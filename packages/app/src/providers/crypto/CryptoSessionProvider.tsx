@@ -32,6 +32,11 @@ export interface CryptoSessionContextValue {
   authToken: string | null;
   isAuthenticated: boolean;
   /**
+   * Platform-operator flag the server reported at login. It only decides
+   * whether the root console is offered; the API enforces root access itself.
+   */
+  isRoot: boolean;
+  /**
    * Whether the attempt to restore a persisted crypto session for the current
    * identity has settled — `false` while a restore is in flight, `true` once it
    * finishes (or there is no persisted session). The identity autopilot waits
@@ -248,6 +253,7 @@ function usePersistCryptoSession(input: {
       containerId,
       defaultOrganizationId,
       isAuthenticated,
+      isRoot,
       organizationId,
       userId,
     },
@@ -281,6 +287,7 @@ function usePersistCryptoSession(input: {
         containerId,
         defaultOrganizationId,
         isAuthenticated,
+        isRoot,
         organizationId,
         userId,
       },
@@ -295,6 +302,7 @@ function usePersistCryptoSession(input: {
     containerId,
     defaultOrganizationId,
     isAuthenticated,
+    isRoot,
     localPersistence,
     logError,
     organizationId,
@@ -331,6 +339,7 @@ function useSdkBackedCryptoSessionState(
       containerId: null,
       defaultOrganizationId: null,
       isAuthenticated: false,
+      isRoot: false,
       organizationId: null,
       userId: null,
     });
@@ -341,6 +350,7 @@ function useSdkBackedCryptoSessionState(
     containerId: snapshot.containerId,
     defaultOrganizationId: snapshot.defaultOrganizationId,
     isAuthenticated: snapshot.isAuthenticated,
+    isRoot: snapshot.isRoot,
     organizationId: snapshot.organizationId,
     resetSession,
     setContainerId,
@@ -361,6 +371,7 @@ function useCryptoSessionContextValue(
       authToken: sessionState.authToken,
       containerId: sessionState.containerId,
       isAuthenticated: sessionState.isAuthenticated,
+      isRoot: sessionState.isRoot,
       login,
       loginWithChallenge,
       logout,
@@ -379,6 +390,7 @@ function useCryptoSessionContextValue(
       sessionState.authToken,
       sessionState.containerId,
       sessionState.isAuthenticated,
+      sessionState.isRoot,
       sessionState.organizationId,
       sessionState.setContainerId,
       sessionState.setOrganizationId,

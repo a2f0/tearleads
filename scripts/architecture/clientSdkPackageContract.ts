@@ -66,6 +66,7 @@ export const clientSdkRootWorkflowFacadeReExports = [
   "./workflows/organizations",
   "./workflows/principals",
   "./workflows/registration",
+  "./workflows/root",
   "./workflows/sync",
 ] as const;
 

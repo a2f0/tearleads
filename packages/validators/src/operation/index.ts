@@ -236,6 +236,19 @@ export {
 } from "./principals";
 export { protocolOperations } from "./registry";
 export {
+  getRootIdentityOperation,
+  isGetRootIdentityOperationResponse,
+  isListRootIdentitiesOperationResponse,
+  isListRootIdentityOrganizationsOperationResponse,
+  listRootIdentitiesOperation,
+  listRootIdentityOrganizationsOperation,
+  MAX_ROOT_IDENTITY_PAGE_SIZE,
+  type RootIdentitiesQuery,
+  RootIdentitiesQuerySchema,
+  type RootIdentityPathParams,
+  RootIdentityPathParamsSchema,
+} from "./root";
+export {
   cancelStripeSubscriptionOperation,
   createStripeCheckoutOperation,
   createStripeCheckoutSessionOperation,

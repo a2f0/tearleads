@@ -9,6 +9,7 @@ test("identity transition clears the full session and prior server events", () =
     containerId: "container-a",
     defaultOrganizationId: "default-org-a",
     isAuthenticated: true,
+    isRoot: false,
     organizationId: "org-a",
     userId: "user-a",
   });
@@ -21,6 +22,7 @@ test("identity transition clears the full session and prior server events", () =
     containerId: null,
     defaultOrganizationId: null,
     isAuthenticated: false,
+    isRoot: false,
     organizationId: null,
     userId: null,
   });

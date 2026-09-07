@@ -156,6 +156,7 @@ describe("session", () => {
       containerId: "identity-b-container",
       defaultOrganizationId: "identity-b-default-organization",
       isAuthenticated: true,
+      isRoot: false,
       organizationId: "identity-b-organization",
       userId: "identity-b-user",
     };
@@ -243,6 +244,7 @@ describe("session", () => {
         authenticateCalls += 1;
         return {
           authenticated: true,
+          isRoot: false,
           organizationId: "org-1",
           token: "test-token",
           userId: "user-1",
@@ -270,6 +272,7 @@ describe("session", () => {
         await switchIdentity();
         return {
           authenticated: true,
+          isRoot: false,
           organizationId: "identity-a-organization",
           token: "identity-a-token",
           userId: "identity-a-user",
@@ -282,6 +285,7 @@ describe("session", () => {
       containerId: "identity-b-container",
       defaultOrganizationId: "identity-b-default-organization",
       isAuthenticated: true,
+      isRoot: false,
       organizationId: "identity-b-organization",
       userId: "identity-b-user",
     };

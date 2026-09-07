@@ -34,6 +34,7 @@ import {
   getOrganizationNativePurchaseEligibilityOperation,
   getOrganizationReadModelOperation,
   getPrincipalPolicyOperation,
+  getRootIdentityOperation,
   getStripeCheckoutOptionsOperation,
   initiateMultipartBlobStageOperation,
   linkDocumentOperation,
@@ -41,11 +42,14 @@ import {
   listContainerParentLanesOperation,
   listDocumentAttachmentsOperation,
   listOrganizationGroupMembersOperation,
+  listRootIdentitiesOperation,
+  listRootIdentityOrganizationsOperation,
   listSessionsOperation,
   logoutOperation,
   moveContainerOperation,
   purgeDocumentOperation,
   putPrincipalPolicyOperation,
+  type RootIdentitiesQuery,
   reciteContainerOperation,
   registerOperation,
   rekeyContainerOperation,
@@ -98,6 +102,9 @@ import type {
   OrganizationDataUsageResponse,
   OrganizationReadModelResponse,
   PrincipalPolicyBundleResponse,
+  RootIdentitiesResponse,
+  RootIdentityDetailResponse,
+  RootIdentityOrganizationsResponse,
   UserIdentityResponse,
 } from "@tearleads/validators/response";
 import { BoundedCache } from "./ApiCache";
@@ -626,6 +633,39 @@ export class ApiClient {
         params: { organizationId },
         query: { cursor },
       },
+      options,
+    );
+  }
+
+  listRootIdentitiesResult(
+    query: RootIdentitiesQuery = {},
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<RootIdentitiesResponse>> {
+    return this.transport.requestResult(
+      listRootIdentitiesOperation,
+      { params: {}, query },
+      options,
+    );
+  }
+
+  getRootIdentityResult(
+    userId: string,
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<RootIdentityDetailResponse>> {
+    return this.transport.requestResult(
+      getRootIdentityOperation,
+      { params: { userId } },
+      options,
+    );
+  }
+
+  listRootIdentityOrganizationsResult(
+    userId: string,
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<RootIdentityOrganizationsResponse>> {
+    return this.transport.requestResult(
+      listRootIdentityOrganizationsOperation,
+      { params: { userId } },
       options,
     );
   }

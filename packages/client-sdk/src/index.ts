@@ -474,6 +474,21 @@ export {
   registerIdentity,
 } from "./workflows/registration";
 export type {
+  RootIdentitiesApi,
+  RootIdentitiesPage,
+  RootIdentitiesQueryInput,
+  RootIdentity,
+  RootIdentityDetail,
+  RootIdentityOrganization,
+  RootIdentitySession,
+  RootRequestOutcome,
+} from "./workflows/root";
+export {
+  listRootIdentities,
+  listRootIdentityOrganizations,
+  loadRootIdentity,
+} from "./workflows/root";
+export type {
   ClearRemoteSyncStateResult,
   DomainSyncCoordinator,
   DomainSyncSnapshot,

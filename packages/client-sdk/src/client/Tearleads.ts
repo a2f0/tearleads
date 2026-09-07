@@ -27,6 +27,7 @@ import {
 import { type Logger, logErrorToConsole } from "./logger";
 import { Network } from "./network";
 import { createOrganizations, type Organizations } from "./organizations";
+import { createRoot, type Root } from "./root";
 import {
   createSecurityIncidentService,
   type SecurityIncidentListener,
@@ -109,6 +110,7 @@ export class Tearleads {
   readonly identity: Identity;
   readonly network: Network;
   readonly organizations: Organizations;
+  readonly root: Root;
   readonly runtime: Runtime;
   readonly securityIncidents: SecurityIncidents;
   readonly session: Session;
@@ -210,6 +212,7 @@ export class Tearleads {
     this.containerContents = createContainerContents(runtime);
     this.deviceFirst = createDeviceFirst(runtime, this.containerContents);
     this.organizations = createOrganizations(runtime, this.containerContents);
+    this.root = createRoot(runtime);
     this.userIdentities = createUserIdentities({
       log: this.log,
       resolveTrustedUserIdentity: (userId) =>

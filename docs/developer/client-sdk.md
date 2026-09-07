@@ -127,6 +127,7 @@ Client capabilities:
 | `tearleads.containerContents` | container tree, document queries/links, discovery, diagnostics, and runtime composition |
 | `tearleads.deviceFirst` | shared locally durable container mutation store, instant container/document projection, and background reconciler |
 | `tearleads.organizations` | strict local-first organization and durable data-usage projections, exact-head history from verified policy storage, and server-authoritative billing eligibility |
+| `tearleads.root` | platform-operator identity lookups (list, detail with sessions, organizations with billing), offered only when the session is root |
 | `tearleads.userIdentities` | pinned user identity bundles for cryptographic workflows |
 | `tearleads.securityIncidents` | durable local records of terminal trust-boundary verification failures |
 
