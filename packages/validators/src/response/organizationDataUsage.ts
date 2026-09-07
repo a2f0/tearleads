@@ -18,7 +18,7 @@ export const ORGANIZATION_DOCUMENT_USAGE_CATEGORIES = [
   "user",
 ] as const;
 
-export const OrganizationDocumentUsageCategorySchema = z.literal(
+const OrganizationDocumentUsageCategorySchema = z.literal(
   ORGANIZATION_DOCUMENT_USAGE_CATEGORIES,
 );
 

@@ -430,13 +430,16 @@ test.each([
   [404, ORG_MANAGER_LABELS.nativeClaimNotFound],
   [409, ORG_MANAGER_LABELS.nativeClaimConflict],
   [503, ORG_MANAGER_LABELS.nativeClaimPending],
-] as const)("restore surfaces an actionable %s claim failure", async (status, label) => {
-  const flow = setup({
-    claim: () =>
-      Promise.reject(Object.assign(new Error("claim rejected"), { status })),
-    restore: () => Promise.resolve({ syncEntitlementActive: true }),
-  });
-  startMove(flow.view);
+] as const)(
+  "restore surfaces an actionable %s claim failure",
+  async (status, label) => {
+    const flow = setup({
+      claim: () =>
+        Promise.reject(Object.assign(new Error("claim rejected"), { status })),
+      restore: () => Promise.resolve({ syncEntitlementActive: true }),
+    });
+    startMove(flow.view);
 
-  await waitFor(() => expect(flow.state().actionError).toBe(label));
-});
+    await waitFor(() => expect(flow.state().actionError).toBe(label));
+  },
+);

@@ -1,4 +1,6 @@
-import type { PgliteDatabase } from "drizzle-orm/pglite";
+import type { NodePgQueryResultHKT } from "drizzle-orm/node-postgres";
+import type { PgDatabase } from "drizzle-orm/pg-core";
+import type { PgliteQueryResultHKT } from "drizzle-orm/pglite";
 import type * as schema from "../schema";
 import type { ApiDatabaseKind } from "../schema/dialect";
 
@@ -6,7 +8,7 @@ export type { ApiDatabaseKind };
 
 export type ApiSchema = typeof schema;
 export type ApiDatabaseSurface = Pick<
-  PgliteDatabase<ApiSchema>,
+  PgDatabase<NodePgQueryResultHKT | PgliteQueryResultHKT, ApiSchema>,
   "delete" | "execute" | "insert" | "select" | "transaction" | "update"
 >;
 export type ApiDatabase = ApiDatabaseSurface;

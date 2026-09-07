@@ -44,16 +44,21 @@ test.each([
   "not-a-uuid",
   "FD48148F-2BB0-420D-925A-7007D5C1C40F",
   "fd48148f-2bb0-120d-925a-7007d5c1c40f",
-])("multipart initiation rejects invalid organization ID %s", async (organizationId) => {
-  const app = createAuthenticatedTestApp(crypto.randomUUID());
-  const response = await app.request("/blobs/stages/multipart", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ organizationId, byteLength: 1, sha256: "sha256" }),
-  });
-  expect(response.status).toBe(400);
-  await expect(response.json()).resolves.toEqual({ error: "Invalid request" });
-});
+])(
+  "multipart initiation rejects invalid organization ID %s",
+  async (organizationId) => {
+    const app = createAuthenticatedTestApp(crypto.randomUUID());
+    const response = await app.request("/blobs/stages/multipart", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ organizationId, byteLength: 1, sha256: "sha256" }),
+    });
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Invalid request",
+    });
+  },
+);
 
 test("multipart initiation conceals unknown and inaccessible organizations", async () => {
   const owner = await createBlobStageOwner();

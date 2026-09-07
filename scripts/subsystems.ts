@@ -218,6 +218,7 @@ export const subsystems: readonly Subsystem[] = [
     seam: "adapters/redis.ts, adapters/redisPubSub.ts (closed over by factories)",
     paths: [
       `${api}/adapters/redis.ts`,
+      `${api}/adapters/redisClient.ts`,
       `${api}/adapters/redisPubSub.ts`,
       `${api}/adapters/inMemoryRedis.ts`,
     ],

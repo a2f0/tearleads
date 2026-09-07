@@ -18,7 +18,7 @@ const OrganizationReadModelDirectoryUserResponseSchema = z.strictObject(
   OrganizationDirectoryUserResponseShape,
 );
 
-export const OrganizationReadModelDirectoryResponseSchema = z.strictObject({
+const OrganizationReadModelDirectoryResponseSchema = z.strictObject({
   organizationId: z.string(),
   profileDocumentId: z.string().nullable(),
   users: arraySchema(OrganizationReadModelDirectoryUserResponseSchema),
@@ -32,7 +32,7 @@ const OrganizationReadModelGrantResponseSchema = z.strictObject(
   OrganizationContainerGrantResponseShape,
 );
 
-export const OrganizationReadModelGrantsResponseSchema = z.strictObject({
+const OrganizationReadModelGrantsResponseSchema = z.strictObject({
   grants: arraySchema(OrganizationReadModelGrantResponseSchema),
   organizationId: z.string(),
 });
@@ -45,23 +45,21 @@ const OrganizationReadModelGroupMemberResponseSchema = z.strictObject(
   OrganizationGroupMemberResponseShape,
 );
 
-export const OrganizationReadModelGroupMembershipResponseSchema =
-  z.strictObject({
-    groupId: z.string(),
-    members: arraySchema(OrganizationReadModelGroupMemberResponseSchema),
-    stateHash: z.string().min(1),
-  });
+const OrganizationReadModelGroupMembershipResponseSchema = z.strictObject({
+  groupId: z.string(),
+  members: arraySchema(OrganizationReadModelGroupMemberResponseSchema),
+  stateHash: z.string().min(1),
+});
 
 export type OrganizationReadModelGroupMembershipResponse = z.infer<
   typeof OrganizationReadModelGroupMembershipResponseSchema
 >;
 
-export const OrganizationReadModelGroupMembershipsResponseSchema =
-  z.strictObject({
-    deletedGroupIds: arraySchema(z.string().min(1)),
-    groups: arraySchema(OrganizationReadModelGroupMembershipResponseSchema),
-    organizationId: z.string(),
-  });
+const OrganizationReadModelGroupMembershipsResponseSchema = z.strictObject({
+  deletedGroupIds: arraySchema(z.string().min(1)),
+  groups: arraySchema(OrganizationReadModelGroupMembershipResponseSchema),
+  organizationId: z.string(),
+});
 
 export type OrganizationReadModelGroupMembershipsResponse = z.infer<
   typeof OrganizationReadModelGroupMembershipsResponseSchema
@@ -82,14 +80,13 @@ const OrganizationReadModelGroupsResponseSchema = z.strictObject({
   organizationId: z.string(),
 });
 
-export const OrganizationReadModelOrganizationPolicyResponseSchema =
-  z.strictObject({
-    currentState: z.strictObject({
-      ...OrganizationGroupCurrentStateResponseShape,
-      stateHash: z.string().min(1),
-    }),
-    organizationId: z.string(),
-  });
+const OrganizationReadModelOrganizationPolicyResponseSchema = z.strictObject({
+  currentState: z.strictObject({
+    ...OrganizationGroupCurrentStateResponseShape,
+    stateHash: z.string().min(1),
+  }),
+  organizationId: z.string(),
+});
 
 export type OrganizationReadModelOrganizationPolicyResponse = z.infer<
   typeof OrganizationReadModelOrganizationPolicyResponseSchema
@@ -107,7 +104,7 @@ const OrganizationReadModelResponseBaseShape = {
   version: z.literal(6),
 };
 
-export const OrganizationReadModelSnapshotResponseSchema = z.strictObject({
+const OrganizationReadModelSnapshotResponseSchema = z.strictObject({
   ...OrganizationReadModelResponseBaseShape,
   hasMore: z.literal(false),
   lanes: z.strictObject({
@@ -124,7 +121,7 @@ export type OrganizationReadModelSnapshotResponse = z.infer<
   typeof OrganizationReadModelSnapshotResponseSchema
 >;
 
-export const OrganizationReadModelDeltaResponseSchema = z.strictObject({
+const OrganizationReadModelDeltaResponseSchema = z.strictObject({
   ...OrganizationReadModelResponseBaseShape,
   lanes: z.strictObject({
     directory: OrganizationReadModelDirectoryResponseSchema.optional(),

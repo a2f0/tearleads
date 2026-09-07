@@ -270,59 +270,60 @@ test("createRemoteDocument propagates rollback from the refetched projection", a
   }
 });
 
-test.each([
-  "equivocation",
-  "object_mismatch",
-  "stale_predecessor",
-] as const)("createRemoteDocument does not retry integrity failure %s", async (code) => {
-  const { author } = await createAuthor();
-  const keyPair = generateKemSeedAndKeyPair();
-  const projection = await createContainerWriterProjectionFixture({
-    containerId: `${code}-create-container`,
-    encapsulationPublicKey: keyPair.publicKey,
-    organizationId: author.organizationId,
-    signerKeyFingerprint: author.signerKeyFingerprint,
-    signerPrivateKey: author.signerPrivateKey,
-    userId: author.signerUserId,
-  });
-  let projectionReads = 0;
-  let evictions = 0;
-  let submissions = 0;
-  const { close, execSql } = await createTestExecSql(`document-create-${code}`);
+test.each(["equivocation", "object_mismatch", "stale_predecessor"] as const)(
+  "createRemoteDocument does not retry integrity failure %s",
+  async (code) => {
+    const { author } = await createAuthor();
+    const keyPair = generateKemSeedAndKeyPair();
+    const projection = await createContainerWriterProjectionFixture({
+      containerId: `${code}-create-container`,
+      encapsulationPublicKey: keyPair.publicKey,
+      organizationId: author.organizationId,
+      signerKeyFingerprint: author.signerKeyFingerprint,
+      signerPrivateKey: author.signerPrivateKey,
+      userId: author.signerUserId,
+    });
+    let projectionReads = 0;
+    let evictions = 0;
+    let submissions = 0;
+    const { close, execSql } = await createTestExecSql(
+      `document-create-${code}`,
+    );
 
-  try {
-    await expect(
-      createRemoteDocument({
-        apiClient: createMockApiClient({
-          createDocument: async () => {
-            submissions += 1;
-            return null;
+    try {
+      await expect(
+        createRemoteDocument({
+          apiClient: createMockApiClient({
+            createDocument: async () => {
+              submissions += 1;
+              return null;
+            },
+            evictContainerWriterProjection: () => {
+              evictions += 1;
+            },
+            getContainerWriterProjection: async () => {
+              projectionReads += 1;
+              return projection;
+            },
+            primeDocumentWriterProjection: () => undefined,
+          }),
+          author,
+          containerId: projection.containerId,
+          execSql,
+          resolveProjectionUserKey: async () => {
+            throw new KeyingVerificationError(
+              code,
+              "container key could not be unwrapped after integrity failure",
+            );
           },
-          evictContainerWriterProjection: () => {
-            evictions += 1;
-          },
-          getContainerWriterProjection: async () => {
-            projectionReads += 1;
-            return projection;
-          },
-          primeDocumentWriterProjection: () => undefined,
+          targetSecretKey: keyPair.secretKey,
         }),
-        author,
-        containerId: projection.containerId,
-        execSql,
-        resolveProjectionUserKey: async () => {
-          throw new KeyingVerificationError(
-            code,
-            "container key could not be unwrapped after integrity failure",
-          );
-        },
-        targetSecretKey: keyPair.secretKey,
-      }),
-    ).rejects.toMatchObject({ code });
-    expect(projectionReads).toBe(1);
-    expect(evictions).toBe(0);
-    expect(submissions).toBe(0);
-  } finally {
-    close();
-  }
-});
+      ).rejects.toMatchObject({ code });
+      expect(projectionReads).toBe(1);
+      expect(evictions).toBe(0);
+      expect(submissions).toBe(0);
+    } finally {
+      close();
+    }
+  },
+);

@@ -123,8 +123,8 @@
       "bytes": 32909
     },
     "packages/api/src/access/write/principalStateStore.test.ts": {
-      "lines": 923,
-      "bytes": 29001
+      "lines": 922,
+      "bytes": 29135
     },
     "packages/api/src/billing/stripeApi.test.ts": {
       "lines": 584,
@@ -359,8 +359,12 @@
       "bytes": 15349
     },
     "scripts/subsystems.ts": {
-      "lines": 755,
-      "bytes": 28111
+      "lines": 756,
+      "bytes": 28145
+    },
+    "packages/client-sdk/src/workflows/documents/syncPersistedProjectionIntegrity.test.ts": {
+      "lines": 508,
+      "bytes": 16825
     }
   },
   "categories": {

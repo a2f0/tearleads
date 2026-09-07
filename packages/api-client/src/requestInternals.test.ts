@@ -100,6 +100,22 @@ test("describeErrorResponse cancels bodies at undeclared statuses", async () => 
   expect(cancelled).toBe(true);
 });
 
+test("undeclared statuses do not wait for a cloned response body", async () => {
+  const response = new Response(new ReadableStream(), { status: 418 });
+  const clone = response.clone();
+  try {
+    expect(
+      await describeErrorResponse(response, webSocketTicketOperation),
+    ).toEqual({
+      code: null,
+      detail: ": Invalid failure response body",
+      error: null,
+    });
+  } finally {
+    await clone.body?.cancel();
+  }
+});
+
 test("describeErrorResponse preserves sync stale-policy repair bundles", async () => {
   const response = Response.json(
     {

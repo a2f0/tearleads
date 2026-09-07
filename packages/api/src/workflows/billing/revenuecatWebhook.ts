@@ -220,7 +220,7 @@ async function resolvePreclaimDisposition(
       now: input.now,
       resolution: input.stripeResolution,
     });
-    if (!fallback || fallback.kind !== "grant") {
+    if (fallback?.kind !== "grant") {
       return unresolvedStripeTierRetry(input.event);
     }
     transition = fallback;

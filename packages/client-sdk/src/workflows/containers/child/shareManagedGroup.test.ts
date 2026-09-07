@@ -291,8 +291,10 @@ test("shareRemoteContainerWithGroup accepts empty groups signed by an org admin"
 
   expect(shared).not.toBeNull();
   expect(groupPolicy.currentProjection).toEqual([]);
+  const submittedRequest = submittedRequests[0];
+  if (!submittedRequest) throw new Error("Missing share request");
   expect(
-    (submittedRequests[0]?.principalPolicies as Record<string, unknown>[]).map(
+    (submittedRequest.principalPolicies as Record<string, unknown>[]).map(
       (policy) => (policy as { principalId: unknown }).principalId,
     ),
   ).toEqual([groupId]);

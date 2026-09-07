@@ -149,6 +149,21 @@ printf '%s\n' \
   "# #2096; remove after merge to main." \
   "$max_items_diagnostic" \
   >"$TEST_ROOT/scripts/checks/openApiCustomCompatibility.ignore"
+# oasdiff 1.31 also detects this bound. Each independent guard must be
+# acknowledged; a custom waiver alone must not silence the upstream check.
+if upstream_max_items_output=$(
+  cd "$TEST_ROOT"
+  GITHUB_ACTIONS='' \
+    MISE_CONFIG_FILE="$SOURCE_ROOT/.mise.toml" \
+    OPENAPI_BASE_REF="$max_items_base_commit" \
+    "$CHECK_SCRIPT" 2>&1
+); then
+  fail "a custom waiver must not bypass oasdiff's maxItems check."
+fi
+assert_contains "$upstream_max_items_output" "[request-property-max-items-set]"
+printf '%s\n' \
+  "POST /widgets the \`tags\` request property's maxItems was set to \`10\`" \
+  >"$TEST_ROOT/scripts/checks/openApiCompatibilityErrors.ignore"
 (
   cd "$TEST_ROOT"
   GITHUB_ACTIONS='' \
@@ -157,6 +172,7 @@ printf '%s\n' \
     "$CHECK_SCRIPT"
 ) || fail "an exact request maxItems compatibility ignore should pass."
 rm "$TEST_ROOT/scripts/checks/openApiCustomCompatibility.ignore"
+rm "$TEST_ROOT/scripts/checks/openApiCompatibilityErrors.ignore"
 
 cp "$FIXTURE_ROOT/maxItemsRefBase.json" "$TEST_ROOT/docs/openapi.json"
 git -C "$TEST_ROOT" add docs/openapi.json

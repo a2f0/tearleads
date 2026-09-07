@@ -247,7 +247,7 @@ export async function createEncryptedColdDocument(input: {
       warmReferencedPrincipalPolicies,
       writerProjection: created.writerProjection,
     });
-    if (!synced || !synced.settledPendingUpdateIds.includes(updateId)) {
+    if (!synced?.settledPendingUpdateIds.includes(updateId)) {
       throw new Error("expected the SDK-authored update to reach the API");
     }
 

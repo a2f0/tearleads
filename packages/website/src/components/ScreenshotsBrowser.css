@@ -98,11 +98,11 @@
 }
 
 .screenshots-browser__toggle-button:hover:not(
-    .screenshots-browser__toggle-button--active
-  ),
+  .screenshots-browser__toggle-button--active
+),
 .screenshots-browser__toggle-button:focus-visible:not(
-    .screenshots-browser__toggle-button--active
-  ) {
+  .screenshots-browser__toggle-button--active
+) {
   background: var(--sb-accent);
   color: var(--sb-accent-text);
 }

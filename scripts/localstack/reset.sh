@@ -65,7 +65,7 @@ run_aws_cli() {
     -e AWS_ACCESS_KEY_ID="${BLOB_OBJECT_STORE_S3_ACCESS_KEY_ID}" \
     -e AWS_SECRET_ACCESS_KEY="${BLOB_OBJECT_STORE_S3_SECRET_ACCESS_KEY}" \
     -e AWS_DEFAULT_REGION="${BLOB_OBJECT_STORE_S3_REGION}" \
-    amazon/aws-cli:2.15.40 \
+    amazon/aws-cli:2.36.40 \
     --endpoint-url "${docker_endpoint}" "$@"
 }
 

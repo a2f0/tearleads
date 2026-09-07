@@ -44,7 +44,7 @@ function referenceForManagedGrant(input: {
       candidate.principalType === input.grant.subjectType &&
       candidate.principalId === input.grant.subjectId,
   );
-  if (!reference || reference.principalType !== "group") {
+  if (reference?.principalType !== "group") {
     throw new Error(
       `${input.operationLabel} referenced principal head is missing`,
     );

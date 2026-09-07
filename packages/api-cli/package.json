@@ -9,9 +9,9 @@
     "test": "bun test src"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "3.1049.0",
+    "@aws-sdk/client-s3": "3.1127.0",
     "@tearleads/api-shared": "workspace:*",
-    "drizzle-orm": "0.45.1"
+    "drizzle-orm": "0.45.2"
   },
   "devDependencies": {
     "@types/bun": "catalog:"

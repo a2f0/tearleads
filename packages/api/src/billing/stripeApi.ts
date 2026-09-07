@@ -254,7 +254,7 @@ export async function hasOpenOrgSubscription(
     fetchImpl,
     secretKey,
   });
-  if (!candidate || candidate.status !== "incomplete") {
+  if (candidate?.status !== "incomplete") {
     return candidate !== null;
   }
   const body = await stripeRequest({

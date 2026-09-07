@@ -61,93 +61,92 @@ function createRuntime(
   });
 }
 
-test.each([
-  "document",
-  "api-client",
-  "container",
-] as const)("a replaced %s generation cannot submit a planned remote sync", async (replacement) => {
-  const fixture = await createMaterializedSyncFixture();
-  const { close, execSql } = await createTestExecSql(
-    `document-store-stale-${replacement}-sync-submit`,
-  );
-
-  try {
-    await defaultDocumentsPersistence.ensureSchema(execSql);
-    const currentDoc = await createDocument("stale-sync-current");
-    const replacementDoc = await createDocument("stale-sync-replacement");
-    let state: ReturnType<typeof createDocumentStoreState>;
-    let projectionReads = 0;
-    let submissions = 0;
-    const apiClient = createMockApiClient({
-      getDocumentWriterProjectionResult: async () => {
-        projectionReads += 1;
-        if (replacement === "document") {
-          state.doc = replacementDoc;
-        } else if (replacement === "api-client") {
-          state.runtime = {
-            ...state.runtime,
-            apiClient: createMockApiClient(),
-          };
-        } else {
-          state.runtime = {
-            ...state.runtime,
-            state: {
-              ...state.runtime.state,
-              containerId: "replacement-container",
-            },
-          };
-        }
-        return { data: fixture.writerProjection, ok: true };
-      },
-      syncDocumentResult: async () => {
-        submissions += 1;
-        throw new Error("A superseded sync must not submit");
-      },
-    });
-    const record: DocumentRecord = {
-      accessEpoch: 1,
-      containerId: fixture.projection.containerId,
-      documentId: fixture.writerProjection.documentId,
-      id: "document-store-stale-sync-local",
-      snapshotEndVersion: encodeVersionVector(currentDoc),
-      text: "",
-    };
-    state = createDocumentStoreState(
-      record.id,
-      createRuntime(apiClient, execSql, fixture),
-      defaultDocumentsPersistence,
-      noopDocumentStorePersistenceEffects,
-      record.documentId,
+test.each(["document", "api-client", "container"] as const)(
+  "a replaced %s generation cannot submit a planned remote sync",
+  async (replacement) => {
+    const fixture = await createMaterializedSyncFixture();
+    const { close, execSql } = await createTestExecSql(
+      `document-store-stale-${replacement}-sync-submit`,
     );
-    state.doc = currentDoc;
-    state.initialized = true;
-    state.record = record;
-    const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
-    if (!generation) throw new Error("Expected a live sync generation");
 
-    const attempt = await requestRemoteDocumentSync({
-      currentDoc,
-      currentRecord: record,
-      encapsulationKeyPair: {
-        publicKey: fixture.publicKey,
-        secretKey: fixture.secretKey,
-      },
-      generation,
-      pendingUpdates: [],
-      state,
-      unavailableWriterLogMessage: "unexpected unavailable writer",
-    });
+    try {
+      await defaultDocumentsPersistence.ensureSchema(execSql);
+      const currentDoc = await createDocument("stale-sync-current");
+      const replacementDoc = await createDocument("stale-sync-replacement");
+      let state: ReturnType<typeof createDocumentStoreState>;
+      let projectionReads = 0;
+      let submissions = 0;
+      const apiClient = createMockApiClient({
+        getDocumentWriterProjectionResult: async () => {
+          projectionReads += 1;
+          if (replacement === "document") {
+            state.doc = replacementDoc;
+          } else if (replacement === "api-client") {
+            state.runtime = {
+              ...state.runtime,
+              apiClient: createMockApiClient(),
+            };
+          } else {
+            state.runtime = {
+              ...state.runtime,
+              state: {
+                ...state.runtime.state,
+                containerId: "replacement-container",
+              },
+            };
+          }
+          return { data: fixture.writerProjection, ok: true };
+        },
+        syncDocumentResult: async () => {
+          submissions += 1;
+          throw new Error("A superseded sync must not submit");
+        },
+      });
+      const record: DocumentRecord = {
+        accessEpoch: 1,
+        containerId: fixture.projection.containerId,
+        documentId: fixture.writerProjection.documentId,
+        id: "document-store-stale-sync-local",
+        snapshotEndVersion: encodeVersionVector(currentDoc),
+        text: "",
+      };
+      state = createDocumentStoreState(
+        record.id,
+        createRuntime(apiClient, execSql, fixture),
+        defaultDocumentsPersistence,
+        noopDocumentStorePersistenceEffects,
+        record.documentId,
+      );
+      state.doc = currentDoc;
+      state.initialized = true;
+      state.record = record;
+      const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
+      if (!generation) throw new Error("Expected a live sync generation");
 
-    expect(attempt).toBeNull();
-    expect(projectionReads).toBe(1);
-    expect(submissions).toBe(0);
-    expect(state.doc).toBe(
-      replacement === "document" ? replacementDoc : currentDoc,
-    );
-  } finally {
-    close();
-  }
-});
+      const attempt = await requestRemoteDocumentSync({
+        currentDoc,
+        currentRecord: record,
+        encapsulationKeyPair: {
+          publicKey: fixture.publicKey,
+          secretKey: fixture.secretKey,
+        },
+        generation,
+        pendingUpdates: [],
+        state,
+        unavailableWriterLogMessage: "unexpected unavailable writer",
+      });
+
+      expect(attempt).toBeNull();
+      expect(projectionReads).toBe(1);
+      expect(submissions).toBe(0);
+      expect(state.doc).toBe(
+        replacement === "document" ? replacementDoc : currentDoc,
+      );
+    } finally {
+      close();
+    }
+  },
+);
 
 test("a replaced store generation cannot submit a planned remote create", async () => {
   const fixture = await createMaterializedSyncFixture();

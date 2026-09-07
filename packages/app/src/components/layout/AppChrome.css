@@ -32,13 +32,13 @@
 /* An inset ring remains visible inside scrolling toolbars and clipped rows.
    currentColor follows both ordinary controls and filled selections. */
 :where(:root[data-navigation-mode])
-  :where(
-    button,
-    input:not([type="checkbox"], [type="radio"]),
-    select,
-    textarea,
-    [tabindex]:not(a, input)
-  ):focus-visible {
+:where(
+  button,
+  input:not([type="checkbox"], [type="radio"]),
+  select,
+  textarea,
+  [tabindex]:not(a, input)
+):focus-visible {
   outline: 2px solid currentColor;
   outline-offset: -3px;
 }

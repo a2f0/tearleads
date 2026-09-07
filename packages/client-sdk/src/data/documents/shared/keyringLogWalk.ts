@@ -135,7 +135,7 @@ function sortedCompleteLogEpochs(input: {
   );
   const genesis = epochs[0];
   const tail = epochs.at(-1);
-  if (!genesis || genesis.containerKeyEpoch !== 1) {
+  if (genesis?.containerKeyEpoch !== 1) {
     throw new Error("Container KEK log does not start at epoch 1");
   }
   if (!tail || tail.containerKeyEpochId !== input.currentContainerKeyEpochId) {

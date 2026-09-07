@@ -350,7 +350,7 @@ export const sqlDocumentMoveIntentPersistence = {
                       OR ${DENIED_INTENT_ORGANIZATION_SQL} IS NULL
                   )`
                : ""
-           }`,
+}`,
         [
           new Date().toISOString(),
           DOCUMENT_MOVE_INTENT_TYPE,

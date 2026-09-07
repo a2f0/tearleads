@@ -59,11 +59,11 @@
     cloudflare_tunnel_token: "{{ lookup('env', 'CLOUDFLARE_TUNNEL_TOKEN') | default('', true) }}"
     server_user: "{{ lookup('env', 'TF_VAR_server_username') | default('deploy', true) }}"
     bun_path: "/home/{{ server_user }}/.bun/bin/bun"
-    bun_version: "1.3.11"
-    bun_linux_x64_checksum: "sha256:8611ba935af886f05a6f38740a15160326c15e5d5d07adef966130b4493607ed"
+    bun_version: "1.4.2"
+    bun_linux_x64_checksum: "sha256:36368faef7527875d5ffa52e53cd48021741f2a83eb6208a8dd64068d422a913"
     nginx_worker_connections: 1024
     garage_enabled: "{{ lookup('env', 'GARAGE_ENABLED') | default('true', true) }}"
-    garage_version: "{{ lookup('env', 'GARAGE_VERSION') | default('v2.3.0', true) }}"
+    garage_version: "{{ lookup('env', 'GARAGE_VERSION') | default('v2.4.0', true) }}"
     garage_db_engine: "{{ lookup('env', 'GARAGE_DB_ENGINE') | default('lmdb', true) }}"
     garage_binary_arch_map:
       aarch64: aarch64-unknown-linux-musl
@@ -73,10 +73,10 @@
       i386: i686-unknown-linux-musl
       i686: i686-unknown-linux-musl
     garage_binary_checksums:
-      v2.3.0:
-        aarch64-unknown-linux-musl: sha256:8ced2ad3040262571de08aa600959aa51f97576d55da7946fcde6f66140705e2
-        i686-unknown-linux-musl: sha256:fbcc35b5b87bdceb227af610f09994a5b3aef7fb18d94453720d6e4478b0b024
-        x86_64-unknown-linux-musl: sha256:f98d317942bb341151a2775162016bb50cf86b865d0108de03eb5db16e2120cd
+      v2.4.0:
+        aarch64-unknown-linux-musl: sha256:1d0e5fa62b12eb10fcc26f83c857d762a22ddb45bd436f96cba5d824e2275c24
+        i686-unknown-linux-musl: sha256:e58f4d08dc3679e868eefd5180c044ced5543bf902c92d82fa9e64d84fcc44fd
+        x86_64-unknown-linux-musl: sha256:1a93848b61d3128a6f98aff301b7f23d66cdcc1dc9cf7aa0768e382901eebf37
     garage_binary_arch: "{{ garage_binary_arch_map.get(ansible_facts['architecture'], ansible_facts['architecture']) }}"
     garage_default_binary_checksum: "{{ garage_binary_checksums.get(garage_version, {}).get(garage_binary_arch, '') }}"
     garage_binary_url: "https://garagehq.deuxfleurs.fr/_releases/{{ garage_version }}/{{ garage_binary_arch }}/garage"
@@ -380,8 +380,8 @@
         state: started
 
     - name: Restrict PostgreSQL to loopback interfaces
-      community.postgresql.postgresql_set:
-        name: listen_addresses
+      community.postgresql.postgresql_alter_system:
+        param: listen_addresses
         value: "127.0.0.1, ::1"
       become: true
       become_user: postgres
@@ -407,7 +407,7 @@
 
     - name: Grant database privileges
       community.postgresql.postgresql_privs:
-        db: "{{ postgres_db }}"
+        login_db: "{{ postgres_db }}"
         role: "{{ postgres_user }}"
         type: database
         privs: ALL

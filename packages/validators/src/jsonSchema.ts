@@ -1,4 +1,9 @@
 import { z } from "zod";
+import {
+  constrainNativeNumber,
+  preserveDiscriminatedUnionEncoding,
+  preserveTypeUnionEncoding,
+} from "./jsonSchemaEncoding";
 
 interface JsonSchemaView {
   readonly key: string;
@@ -386,30 +391,6 @@ function applyRegisteredView(
   return true;
 }
 
-function constrainNativeNumber(context: JsonSchemaOverrideContext): void {
-  if (context.zodSchema._zod.def.type !== "number") {
-    return;
-  }
-
-  const minimum = Reflect.get(context.jsonSchema, "minimum");
-  if (
-    typeof minimum !== "number" ||
-    !Number.isFinite(minimum) ||
-    minimum < -Number.MAX_VALUE
-  ) {
-    Reflect.set(context.jsonSchema, "minimum", -Number.MAX_VALUE);
-  }
-
-  const maximum = Reflect.get(context.jsonSchema, "maximum");
-  if (
-    typeof maximum !== "number" ||
-    !Number.isFinite(maximum) ||
-    maximum > Number.MAX_VALUE
-  ) {
-    Reflect.set(context.jsonSchema, "maximum", Number.MAX_VALUE);
-  }
-}
-
 function overrideJsonSchema(
   context: JsonSchemaOverrideContext,
   resolving: Set<z.core.$ZodType>,
@@ -439,7 +420,11 @@ function overrideJsonSchema(
       `Missing JSON Schema view for ${context.zodSchema._zod.def.type} at ${location}`,
     );
   }
-  constrainNativeNumber(context);
+  constrainNativeNumber(context.zodSchema, context.jsonSchema);
+  // Existing root discriminated unions use oneOf; nested ones use anyOf.
+  if (context.path.length > 0) {
+    preserveDiscriminatedUnionEncoding(context.zodSchema, context.jsonSchema);
+  }
 }
 
 function projectJsonSchema(
@@ -463,6 +448,7 @@ function projectJsonSchema(
     });
 
     Reflect.deleteProperty(result, "$schema");
+    preserveTypeUnionEncoding(result);
     return result;
   } finally {
     resolving.delete(schema);

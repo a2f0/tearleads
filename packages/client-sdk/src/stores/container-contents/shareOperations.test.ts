@@ -176,50 +176,50 @@ test("shared-subtree priming receives the active structural guard", async () => 
   expect(syncRequests).toBe(0);
 });
 
-test.each([
-  false,
-  true,
-])("an expired share reconciles and preserves only a confirmed result (%s)", async (confirmed) => {
-  const source = await createRemoteState();
-  const state = createContainerContentsStoreState(
-    createContainerContentsTestRuntime({
-      domainScope: {} as DomainScope,
-      execSql: (async () => []) as ExecSql,
-    }),
-    defaultContainerContentsPersistence,
-  );
-  state.containersById.set(source.container.id, source);
-  updateContainerContentsSnapshot(state);
-  let current = true;
-  let localRefreshes = 0;
-  let remoteHydrations = 0;
-  const syncAgent = {
-    refreshLocalContainers: async () => {
-      localRefreshes += 1;
-    },
-    scheduleRemoteHydration: () => {
-      remoteHydrations += 1;
-    },
-  } as unknown as ContainerContentsStoreSyncAgent;
+test.each([false, true])(
+  "an expired share reconciles and preserves only a confirmed result (%s)",
+  async (confirmed) => {
+    const source = await createRemoteState();
+    const state = createContainerContentsStoreState(
+      createContainerContentsTestRuntime({
+        domainScope: {} as DomainScope,
+        execSql: (async () => []) as ExecSql,
+      }),
+      defaultContainerContentsPersistence,
+    );
+    state.containersById.set(source.container.id, source);
+    updateContainerContentsSnapshot(state);
+    let current = true;
+    let localRefreshes = 0;
+    let remoteHydrations = 0;
+    const syncAgent = {
+      refreshLocalContainers: async () => {
+        localRefreshes += 1;
+      },
+      scheduleRemoteHydration: () => {
+        remoteHydrations += 1;
+      },
+    } as unknown as ContainerContentsStoreSyncAgent;
 
-  const result = await shareContainerUsing(
-    state,
-    syncAgent,
-    source.container.id,
-    async () => {
-      current = false;
-      return confirmed ? { status: "confirmed" } : null;
-    },
-    "expired share",
-    () => current,
-  );
+    const result = await shareContainerUsing(
+      state,
+      syncAgent,
+      source.container.id,
+      async () => {
+        current = false;
+        return confirmed ? { status: "confirmed" } : null;
+      },
+      "expired share",
+      () => current,
+    );
 
-  expect(result).toBe(confirmed);
-  expect(state.localContainersNeedRefresh).toBe(true);
-  expect(state.containerParentIdsNeedingHydration).toEqual(new Set([null]));
-  expect(localRefreshes).toBe(1);
-  expect(remoteHydrations).toBe(1);
-});
+    expect(result).toBe(confirmed);
+    expect(state.localContainersNeedRefresh).toBe(true);
+    expect(state.containerParentIdsNeedingHydration).toEqual(new Set([null]));
+    expect(localRefreshes).toBe(1);
+    expect(remoteHydrations).toBe(1);
+  },
+);
 
 // The store forwards the chosen name into the signed-name binding, and a
 // mismatch there is recorded as a security incident on the way out: a

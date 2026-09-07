@@ -36,7 +36,7 @@
     "@tearleads/loro": "workspace:*",
     "@tearleads/sqlite-worker": "workspace:*",
     "@tearleads/validators": "workspace:*",
-    "drizzle-orm": "0.45.1"
+    "drizzle-orm": "0.45.2"
   },
   "devDependencies": {
     "@tearleads/test-utils": "workspace:*",

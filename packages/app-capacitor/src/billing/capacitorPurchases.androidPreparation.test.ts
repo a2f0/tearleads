@@ -164,30 +164,28 @@ test("fails closed when Android package preparation cannot validate", async () =
   expect(fixture.purchaseCalls).toEqual([]);
 });
 
-test.each([
-  "1",
-  "6",
-  "7",
-  "13",
-])("does not treat preparation error %s as a purchase outcome", async (code) => {
-  setEnv("VITE_REVENUECAT_ANDROID_API_KEY", "android-key");
-  fixture.platform = "android";
-  fixture.packages = [nativePackage("monthly", "sync_solo_monthly:monthly")];
-  const providerError = { code, message: "Preparation failed" };
-  fixture.nativePrepareRejection = providerError;
+test.each(["1", "6", "7", "13"])(
+  "does not treat preparation error %s as a purchase outcome",
+  async (code) => {
+    setEnv("VITE_REVENUECAT_ANDROID_API_KEY", "android-key");
+    fixture.platform = "android";
+    fixture.packages = [nativePackage("monthly", "sync_solo_monthly:monthly")];
+    const providerError = { code, message: "Preparation failed" };
+    fixture.nativePrepareRejection = providerError;
 
-  const error = await createCapacitorPurchases()
-    .purchaseSync({ organizationId: "org-1", packageId: "monthly" })
-    .then(
-      () => null,
-      (rejection: unknown) => rejection,
-    );
+    const error = await createCapacitorPurchases()
+      .purchaseSync({ organizationId: "org-1", packageId: "monthly" })
+      .then(
+        () => null,
+        (rejection: unknown) => rejection,
+      );
 
-  expect(error).toBe(providerError);
-  expect(error).not.toBeInstanceOf(PurchaseCancelledError);
-  expect(error).not.toBeInstanceOf(PurchaseAlreadyOwnedError);
-  expect(fixture.nativePurchaseCalls).toEqual([]);
-});
+    expect(error).toBe(providerError);
+    expect(error).not.toBeInstanceOf(PurchaseCancelledError);
+    expect(error).not.toBeInstanceOf(PurchaseAlreadyOwnedError);
+    expect(fixture.nativePurchaseCalls).toEqual([]);
+  },
+);
 
 test("normalizes an aborted preparation failure before checkout", async () => {
   setEnv("VITE_REVENUECAT_ANDROID_API_KEY", "android-key");

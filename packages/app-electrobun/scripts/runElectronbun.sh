@@ -144,4 +144,4 @@ build_workspace_deps
 cd "$PACKAGE_DIR"
 export TEARLEADS_ELECTROBUN_PACKAGE_DIR="$PACKAGE_DIR"
 exec sh "$REPO_ROOT/scripts/withBuildInfoEnv.sh" \
-  bun run electrobun "$ELECTROBUN_COMMAND" "$@"
+  bun --bun run electrobun "$ELECTROBUN_COMMAND" "$@"

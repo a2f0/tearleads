@@ -10,26 +10,29 @@ test.each([
   ['"pull_continuation" TEXT', "pull_continuation"],
   ['"recovery_generation" INTEGER NOT NULL DEFAULT 0', "recovery_generation"],
   ['"recovery_document_id" TEXT', "recovery_document_id"],
-])("obsolete document schema requires reset instead of adding %s", async (definition, column) => {
-  const { close, execSql } = await createTestExecSql(
-    "document-schema-flag-day",
-  );
-  try {
-    const obsoleteSql = documentsTable.createSql.replace(
-      `  ${definition},\n`,
-      "",
+])(
+  "obsolete document schema requires reset instead of adding %s",
+  async (definition, column) => {
+    const { close, execSql } = await createTestExecSql(
+      "document-schema-flag-day",
     );
-    expect(obsoleteSql).not.toContain(definition);
-    await execSql(obsoleteSql);
-    await expect(ensureSqlTables(execSql, [documentsTable])).rejects.toThrow(
-      "reset the local database before continuing",
-    );
-    const columns = await execSql("PRAGMA table_info(documents)");
-    expect(columns.some(({ name }) => name === column)).toBe(false);
-  } finally {
-    close();
-  }
-});
+    try {
+      const obsoleteSql = documentsTable.createSql.replace(
+        `  ${definition},\n`,
+        "",
+      );
+      expect(obsoleteSql).not.toContain(definition);
+      await execSql(obsoleteSql);
+      await expect(ensureSqlTables(execSql, [documentsTable])).rejects.toThrow(
+        "reset the local database before continuing",
+      );
+      const columns = await execSql("PRAGMA table_info(documents)");
+      expect(columns.some(({ name }) => name === column)).toBe(false);
+    } finally {
+      close();
+    }
+  },
+);
 
 test("a fresh document schema includes current durable progress and recovery fields", async () => {
   const { close, execSql } = await createTestExecSql("document-schema-current");

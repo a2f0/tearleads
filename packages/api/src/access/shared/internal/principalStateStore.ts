@@ -53,7 +53,6 @@ export { listContainerGrantsForState } from "./principalContainerGrantStore";
 export { listProjectionMembersForState } from "./principalProjectionStore";
 export type {
   PrincipalStateBundleInput,
-  PrincipalStateExternalSignerAuthorizationInput,
   PrincipalStateReference,
   StoredPrincipalContainerGrant,
   StoredPrincipalProjectionMember,

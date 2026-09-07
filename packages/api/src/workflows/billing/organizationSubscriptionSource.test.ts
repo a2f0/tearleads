@@ -72,19 +72,18 @@ describe("resolveOrganizationSubscriptionOwnership", () => {
     ).toEqual({ canCancelDirectly: true, subscriptionSource: "stripe" });
   });
 
-  test.each([
-    "active",
-    "past_due",
-    "trialing",
-  ] as const)("a configured Stripe Price owns a %s organization", (status) => {
-    expect(
-      ownership({
-        provider: "revenuecat",
-        providerProductId: "price_solo",
-        status,
-      }),
-    ).toEqual({ canCancelDirectly: true, subscriptionSource: "stripe" });
-  });
+  test.each(["active", "past_due", "trialing"] as const)(
+    "a configured Stripe Price owns a %s organization",
+    (status) => {
+      expect(
+        ownership({
+          provider: "revenuecat",
+          providerProductId: "price_solo",
+          status,
+        }),
+      ).toEqual({ canCancelDirectly: true, subscriptionSource: "stripe" });
+    },
+  );
 
   test("a lapsed Stripe identity frees the organization to enroll again", () => {
     expect(

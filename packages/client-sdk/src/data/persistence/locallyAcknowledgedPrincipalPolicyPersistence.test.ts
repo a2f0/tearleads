@@ -237,46 +237,45 @@ test("same-head history timestamps are not security conflicts", async () => {
   }
 });
 
-test.each([
-  "envelopes",
-  "payload",
-  "projection",
-] as const)("same-head %s conflicts preserve the acknowledged bundle", async (kind) => {
-  const { close, execSql } = await createTestExecSql(
-    `acknowledged-policy-${kind}-conflict`,
-  );
-  try {
-    const { bundle, policy } = await policyFixture();
-    await persistLocallyAcknowledgedPrincipalPolicyBundle({
-      organizationId: "org-1",
-      bundle,
-      execSql,
-      policy,
-      updatedAt: "2026-07-14T00:00:00.000Z",
-    });
+test.each(["envelopes", "payload", "projection"] as const)(
+  "same-head %s conflicts preserve the acknowledged bundle",
+  async (kind) => {
+    const { close, execSql } = await createTestExecSql(
+      `acknowledged-policy-${kind}-conflict`,
+    );
+    try {
+      const { bundle, policy } = await policyFixture();
+      await persistLocallyAcknowledgedPrincipalPolicyBundle({
+        organizationId: "org-1",
+        bundle,
+        execSql,
+        policy,
+        updatedAt: "2026-07-14T00:00:00.000Z",
+      });
 
-    await expect(
-      savePrincipalPolicyBundle(
-        execSql,
-        securityVariant(bundle, kind),
-        "2026-07-14T00:01:00.000Z",
-        "org-1",
-      ),
-    ).rejects.toMatchObject({
-      code: "equivocation",
-      name: "KeyingVerificationError",
-    });
-    await expect(
-      loadPrincipalPolicyBundle(
-        execSql,
-        policy.principalType,
-        policy.principalId,
-      ),
-    ).resolves.toEqual(bundle);
-  } finally {
-    close();
-  }
-});
+      await expect(
+        savePrincipalPolicyBundle(
+          execSql,
+          securityVariant(bundle, kind),
+          "2026-07-14T00:01:00.000Z",
+          "org-1",
+        ),
+      ).rejects.toMatchObject({
+        code: "equivocation",
+        name: "KeyingVerificationError",
+      });
+      await expect(
+        loadPrincipalPolicyBundle(
+          execSql,
+          policy.principalType,
+          policy.principalId,
+        ),
+      ).resolves.toEqual(bundle);
+    } finally {
+      close();
+    }
+  },
+);
 
 test("same-head conflicts cannot replace an archived acknowledged bundle", async () => {
   const { close, execSql } = await createTestExecSql(

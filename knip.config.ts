@@ -2,6 +2,8 @@ import type { KnipConfig } from "knip";
 
 const strictConfigDefaults = {
   treatConfigHintsAsErrors: true,
+  // Types used in exported signatures must remain nameable in declaration emit.
+  ignoreExportsUsedInFile: { interface: true, type: true },
 } as const;
 
 const rootToolingWorkspace = {
@@ -12,12 +14,11 @@ const rootToolingWorkspace = {
   // and neither `.mise.toml` nor CI installs Node). Knip cannot resolve the
   // binary through `bun x`, so the dependency has to be declared used here.
   ignoreDependencies: ["@commitlint/cli", "lint-staged", "markdownlint-cli2"],
-  ignoreBinaries: ["ansible-lint", "shellcheck"],
+  ignoreBinaries: ["ansible-lint", "du", "shellcheck", "tokei"],
 };
 
 const capacitorNativePluginDependencies = [
   "@capacitor-community/sqlite",
-  "@capacitor/ios",
   "@capawesome/capacitor-file-picker",
   "@capgo/capacitor-native-biometric",
 ];
@@ -39,7 +40,6 @@ const baseConfig = {
       entry: [
         "src/appTestRuntime.ts",
         "src/**/*.test.ts",
-        "test/preload.ts",
         "scripts/blobGc.ts",
         "scripts/stripeSeatSync.ts",
       ],

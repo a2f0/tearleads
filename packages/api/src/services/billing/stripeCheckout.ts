@@ -449,11 +449,7 @@ export async function processAuthenticatedStripeWebhook(
     }
     throw error;
   }
-  if (
-    !binding ||
-    !binding.organizationId ||
-    !isUuidV4String(binding.organizationId)
-  ) {
+  if (!binding?.organizationId || !isUuidV4String(binding.organizationId)) {
     return { status: "ignored", reason: "Subscription carries no org binding" };
   }
   const outcome = await applyPaidSubscriptionInvoice({

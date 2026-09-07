@@ -25,7 +25,7 @@ const wsOriginSchema = z.object({
   userId: z.string().min(1),
 });
 
-export const PublishedRealtimeEventSchema = z.discriminatedUnion("type", [
+const PublishedRealtimeEventSchema = z.discriminatedUnion("type", [
   WsDocumentUpdateCreatedHintSchema.extend({
     origin: wsOriginSchema.optional(),
   }),

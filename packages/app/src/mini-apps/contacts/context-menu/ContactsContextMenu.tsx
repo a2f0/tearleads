@@ -81,11 +81,7 @@ export function useContactsContextMenu(params: {
       : null;
 
   const removeContextMenuContact = useCallback(async () => {
-    if (
-      !contextMenu ||
-      contextMenu.id.kind !== "contact" ||
-      !canRemoveContextMenuContact
-    ) {
+    if (contextMenu?.id.kind !== "contact" || !canRemoveContextMenuContact) {
       return;
     }
 
