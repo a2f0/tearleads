@@ -12,8 +12,11 @@ export function compactRootIdentifier(
   return `${value.slice(0, 12)}...${value.slice(-8)}`;
 }
 
-export function formatRootTimestamp(value: string | null | undefined): string {
-  return value ? formatMiniAppDateTime(value) : "Not recorded";
+export function formatRootTimestamp(
+  value: string | null | undefined,
+  missing = "Never",
+): string {
+  return value ? formatMiniAppDateTime(value) : missing;
 }
 
 const FINGERPRINT_PATTERN = /^[0-9a-f]{64}$/u;

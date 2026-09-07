@@ -18,11 +18,11 @@ const pageShape = {
   cursor: z.string().min(1).optional(),
   limit: rootIdentityPageLimitSchema().optional(),
 };
-export const RootOrganizationPageQuerySchema = loosePlainObject(pageShape);
+const RootOrganizationPageQuerySchema = loosePlainObject(pageShape);
 export type RootOrganizationPageQuery = z.infer<
   typeof RootOrganizationPageQuerySchema
 >;
-export const RootOrganizationsQuerySchema = loosePlainObject({
+const RootOrganizationsQuerySchema = loosePlainObject({
   ...pageShape,
   search: boundedStringSchema(200).optional(),
 });

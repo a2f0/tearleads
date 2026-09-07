@@ -4,8 +4,11 @@ import {
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
 import { formatPrice, formatTotalAmount } from "../../shared/billingFormatters";
-import { formatRootTimestamp as date } from "../identities/rootDisplay";
+import { formatRootTimestamp } from "../identities/rootDisplay";
 import { RootFacts } from "./RootFacts";
+
+const date = (value: string | null) =>
+  formatRootTimestamp(value, "Not recorded");
 
 export function OrganizationBillingHistory({
   entries,

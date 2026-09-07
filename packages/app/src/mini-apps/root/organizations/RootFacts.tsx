@@ -22,14 +22,18 @@ export function RootFacts({
         {facts.map((fact) => (
           <MiniAppInfoRow key={fact.label} label={fact.label}>
             <span className="root-console-fact">
-              {fact.value ?? "Not recorded"}
+              {fact.value === ""
+                ? "Not recorded"
+                : (fact.value ?? "Not recorded")}
             </span>
-            {fact.copy && typeof fact.value === "string" && (
-              <MiniAppClipboardButton
-                label={`Copy ${fact.label}`}
-                value={fact.value}
-              />
-            )}
+            {fact.copy &&
+              typeof fact.value === "string" &&
+              fact.value.length > 0 && (
+                <MiniAppClipboardButton
+                  label={`Copy ${fact.label}`}
+                  value={fact.value}
+                />
+              )}
           </MiniAppInfoRow>
         ))}
       </tbody>

@@ -3,8 +3,11 @@ import {
   MiniAppInfoHeading,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
-import { formatRootTimestamp as date } from "../identities/rootDisplay";
+import { formatRootTimestamp } from "../identities/rootDisplay";
 import { RootFacts } from "./RootFacts";
+
+const date = (value: string | null) =>
+  formatRootTimestamp(value, "Not recorded");
 
 export function OrganizationBilling({
   billing,

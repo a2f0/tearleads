@@ -1,7 +1,8 @@
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
-import type {
-  RootOrganizationPageQuery,
-  RootOrganizationsQuery,
+import {
+  MAX_ROOT_IDENTITY_PAGE_SIZE,
+  type RootOrganizationPageQuery,
+  type RootOrganizationsQuery,
 } from "@tearleads/validators/operation";
 import { isUuidV4String } from "@tearleads/validators/util";
 import { decodeCursor, encodeCursor } from "../../utils/cursor";
@@ -42,7 +43,7 @@ function pageInput(query: RootOrganizationPageQuery, scope: string) {
         );
   return {
     afterId: cursor?.afterId,
-    limit: Math.min(Number(query.limit ?? 50), 200),
+    limit: Math.min(Number(query.limit ?? 50), MAX_ROOT_IDENTITY_PAGE_SIZE),
   };
 }
 function nextCursor(afterId: string | null, scope: string) {
