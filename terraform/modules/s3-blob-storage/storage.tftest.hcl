@@ -14,6 +14,23 @@ run "application_permissions_and_connection" {
 
   assert {
     condition = (
+      aws_s3_bucket_lifecycle_configuration.blobs.bucket == var.bucket.id &&
+      length(aws_s3_bucket_lifecycle_configuration.blobs.rule) == 1 &&
+      one(aws_s3_bucket_lifecycle_configuration.blobs.rule).status == "Enabled" &&
+      one(one(aws_s3_bucket_lifecycle_configuration.blobs.rule).filter).prefix == "" &&
+      length(one(one(aws_s3_bucket_lifecycle_configuration.blobs.rule).filter).and) == 0 &&
+      length(one(one(aws_s3_bucket_lifecycle_configuration.blobs.rule).filter).tag) == 0 &&
+      one(one(aws_s3_bucket_lifecycle_configuration.blobs.rule).abort_incomplete_multipart_upload).days_after_initiation == 7 &&
+      length(one(aws_s3_bucket_lifecycle_configuration.blobs.rule).expiration) == 0 &&
+      length(one(aws_s3_bucket_lifecycle_configuration.blobs.rule).transition) == 0 &&
+      length(one(aws_s3_bucket_lifecycle_configuration.blobs.rule).noncurrent_version_expiration) == 0 &&
+      length(one(aws_s3_bucket_lifecycle_configuration.blobs.rule).noncurrent_version_transition) == 0
+    )
+    error_message = "Lifecycle cleanup must abort seven-day-old incomplete uploads without expiring completed objects."
+  }
+
+  assert {
+    condition = (
       aws_s3_bucket_public_access_block.blobs.bucket == var.bucket.id &&
       aws_s3_bucket_public_access_block.blobs.block_public_acls &&
       aws_s3_bucket_public_access_block.blobs.block_public_policy &&

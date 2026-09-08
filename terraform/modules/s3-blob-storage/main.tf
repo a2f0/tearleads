@@ -22,6 +22,21 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "blobs" {
   }
 }
 
+resource "aws_s3_bucket_lifecycle_configuration" "blobs" {
+  bucket = var.bucket.id
+  rule {
+    id     = "abort-abandoned-multipart-uploads"
+    status = "Enabled"
+    filter {
+      prefix = ""
+    }
+    # API upload stages expire after one hour; retain a generous recovery window.
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 7
+    }
+  }
+}
+
 resource "aws_s3_bucket_policy" "tls" {
   bucket = var.bucket.id
   policy = jsonencode({

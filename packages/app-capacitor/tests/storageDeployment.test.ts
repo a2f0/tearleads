@@ -130,10 +130,7 @@ test("staging teardown without arguments preserves interactive confirmation", as
   expect(result.calls).toEqual(["server ", "storage staging destroy"]);
 });
 
-for (const args of [
-  ["prod", "destroy"],
-  ["unknown", "apply"],
-]) {
+for (const args of [[], ["prod"], ["prod", "destroy"], ["unknown", "apply"]]) {
   test(`storage wrapper rejects ${args.join(" ")} before loading credentials`, async () => {
     const result = await runStorageScript(
       "terraform/scripts/run-storage-stack.sh",

@@ -17,6 +17,12 @@ list its bucket and read, write, delete, and manage multipart uploads within it.
 It cannot administer buckets or access the other environment. Deployment AWS
 credentials from `.secrets/root.env` are used only on the deployment machine.
 
+An S3 lifecycle rule aborts incomplete multipart uploads after seven days,
+covering orphaned parts that have no database stage row for the application's GC
+to find. API upload stages expire after one hour. This rule has no completed-object
+expiration or storage-class transitions. See the
+[AWS incomplete-upload lifecycle documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/mpu-abort-incomplete-mpu-lifecycle-config.html).
+
 ## Provision and deploy
 
 Provision production storage once, independently of the server and Postgres:

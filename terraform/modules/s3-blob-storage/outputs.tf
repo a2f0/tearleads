@@ -17,6 +17,7 @@ output "api_storage" {
     aws_s3_bucket_public_access_block.blobs,
     aws_s3_bucket_ownership_controls.blobs,
     aws_s3_bucket_server_side_encryption_configuration.blobs,
+    aws_s3_bucket_lifecycle_configuration.blobs,
     aws_s3_bucket_policy.tls
   ]
 }
