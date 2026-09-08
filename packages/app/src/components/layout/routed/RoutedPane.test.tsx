@@ -160,6 +160,32 @@ test("mobile routed shell hides the taskbar while a text input is focused", () =
   }
 });
 
+test("routed shell docks the test-system warning directly above the taskbar", () => {
+  const restoreMatchMedia = forceMobileRoutedTier();
+  const viewport = installTestVisualViewport();
+  let view: ReturnType<typeof renderRoutedPane> | undefined;
+
+  try {
+    view = renderRoutedPane();
+    const banner = view.container.querySelector(".test-system-banner");
+    expect(banner?.nextElementSibling?.className).toBe("routed-pane-taskbar");
+
+    // The bar shares the taskbar's fate under the software keyboard: both give
+    // the shrunken viewport back to the content the user is typing into.
+    const input = document.createElement("input");
+    getRoutedMain(view.container).append(input);
+    act(() => input.focus());
+    expect(banner?.hasAttribute("hidden")).toBe(false);
+
+    viewport.setKeyboardVisible(true);
+    expect(banner?.hasAttribute("hidden")).toBe(true);
+  } finally {
+    view?.unmount();
+    viewport.restore();
+    restoreMatchMedia();
+  }
+});
+
 test("tablet routed shell keeps the taskbar while a text input is focused", () => {
   const restoreMatchMedia = forceTabletRoutedTier();
   const viewport = installTestVisualViewport();
