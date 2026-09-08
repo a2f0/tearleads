@@ -8,7 +8,16 @@
     migration_task: "{{ server_tasks | selectattr('name', 'equalto', 'Deploy migration environment file') | first }}"
     guard_task: "{{ server_tasks | selectattr('name', 'equalto', 'Validate managed PostgreSQL connection') | first }}"
     local_postgres_task: "{{ server_tasks | selectattr('name', 'equalto', 'Configure local PostgreSQL') | first }}"
+    config_directory_task: "{{ server_tasks | selectattr('name', 'equalto', 'Create root-owned configuration directory') | first }}"
   tasks:
+    - name: Protect the directory containing credentials sourced by root
+      ansible.builtin.assert:
+        that:
+          - config_directory_task['ansible.builtin.file'].path == '/etc/tearleads'
+          - config_directory_task['ansible.builtin.file'].owner == 'root'
+          - config_directory_task['ansible.builtin.file'].group == 'root'
+          - config_directory_task['ansible.builtin.file'].mode == '0755'
+
     - name: Keep runtime credentials readable only by root and the server group
       ansible.builtin.assert:
         that:

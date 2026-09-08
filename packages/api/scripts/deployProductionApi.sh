@@ -25,6 +25,12 @@ export SSH_TARGET
 PRODUCTION_SSH_TARGET="$SSH_TARGET"
 export PRODUCTION_SSH_TARGET
 
+echo "Checking migration prerequisites..."
+if ! ssh "$SSH_TARGET" 'sudo sh -c "test -x /usr/local/bin/tearleads-api-cli && test -r /etc/tearleads/migrations.env"'; then
+  echo "Run Ansible for this tier before deploying API artifacts; migration prerequisites are missing." >&2
+  exit 1
+fi
+
 REMOTE_BIN_PATH="/opt/tearleads/bin"
 REMOTE_STAGE_PATH="$REMOTE_BIN_PATH/.deploy-$(git rev-parse --short=12 HEAD)-$$"
 

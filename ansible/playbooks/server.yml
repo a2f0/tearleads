@@ -297,7 +297,14 @@
       loop:
         - /opt/tearleads
         - /opt/tearleads/bin
-        - /etc/tearleads
+
+    - name: Create root-owned configuration directory
+      ansible.builtin.file:
+        path: /etc/tearleads
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
 
     - name: Add deployed executables to login shell PATH
       ansible.builtin.template:
