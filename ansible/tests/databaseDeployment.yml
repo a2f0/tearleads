@@ -7,6 +7,7 @@
     runtime_task: "{{ server_tasks | selectattr('name', 'equalto', 'Deploy API environment file') | first }}"
     migration_task: "{{ server_tasks | selectattr('name', 'equalto', 'Deploy migration environment file') | first }}"
     guard_task: "{{ server_tasks | selectattr('name', 'equalto', 'Validate managed PostgreSQL connection') | first }}"
+    local_postgres_task: "{{ server_tasks | selectattr('name', 'equalto', 'Configure local PostgreSQL') | first }}"
   tasks:
     - name: Keep runtime credentials readable only by root and the server group
       ansible.builtin.assert:
@@ -33,3 +34,9 @@
         that:
           - guard_task['ansible.builtin.import_tasks'] == 'tasks/managedPostgres.yml'
           - guard_task.when == 'postgres_managed | bool'
+
+    - name: Install local PostgreSQL only for unmanaged connections
+      ansible.builtin.assert:
+        that:
+          - local_postgres_task['ansible.builtin.import_tasks'] == 'tasks/localPostgres.yml'
+          - local_postgres_task.when == 'not postgres_managed | bool'
