@@ -1,6 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import invariant from "invariant";
+import { waitForAppTestRuntimeToSettle } from "../../../../test/helpers/appRuntimeIdle";
 import {
   getExplorerSidebarItem,
   getPaneRoot,
@@ -121,6 +122,16 @@ test("folder creation, document linking, unlinking and trash have separate reque
     within(table).getByRole("button", { name: title }),
     "Get Info",
   );
+  // Get Info hydrates contributor profiles after loading attribution. Drain
+  // that navigation work before measuring the unrelated unlink mutation.
+  await interact(async () => {
+    expect(
+      await waitForAppTestRuntimeToSettle({
+        apiQuietMs: 200,
+        timeoutMs: 15_000,
+      }),
+    ).toBe(true);
+  });
   await interact(() => {
     fireEvent.click(within(pane).getByRole("tab", { name: "Links" }));
   });
