@@ -21,8 +21,10 @@ packages/website/scripts/deployProductionWebsite.sh
 Each script loads `.secrets/root.env` and its tier environment, builds Astro with
 the tier's application and billing URLs, publishes the Worker, then applies its
 domain stack. A failed build or upload stops before changing the domain.
-`--dry-run` builds and validates the Wrangler upload and Terraform plan without
-publishing. `--skip-terraform` publishes assets against an existing domain.
+`--dry-run` builds, checks the Wrangler configuration and bundle, and plans
+Terraform without uploading assets or publishing. `--skip-terraform` publishes
+assets against an existing domain. Both commands select the Worker name from
+the explicit Wrangler environment.
 
 Cloudflare credentials use `TF_VAR_cloudflare_api_token` and
 `TF_VAR_cloudflare_account_id`. The token needs Workers Scripts Edit, Workers
@@ -38,6 +40,8 @@ website domains still reconcile. Their `--skip-infra` also skips domain Terrafor
 website domain and deletes the staging Worker. For website-only teardown use
 `packages/website/scripts/destroyStagingWebsite.sh [--auto-approve]`. A failed
 domain teardown leaves the Worker available. Server-only destruction preserves it.
+The Terraform wrapper rejects production domain destruction before loading
+credentials. Intentional production removal requires operating the root directly.
 
 For the initial migration, apply the updated server stacks to remove their
 website tunnel DNS records before deploying the website domains. Existing A,
@@ -49,5 +53,7 @@ configuration and `/var/www/website` as part of the same migration.
 bundles and versioned screenshots receive immutable browser caching. Wrangler
 publishes assets as a deployment, so website deploys no longer purge the old
 origin cache. The server's former website cache rules are removed by Terraform.
+Favicons also revalidate because their URLs are not versioned; this lets icon
+updates reach returning browsers instead of retaining the old one for a year.
 Cloudflare's [static asset documentation](https://developers.cloudflare.com/workers/static-assets/)
 describes routing and deployment caching.

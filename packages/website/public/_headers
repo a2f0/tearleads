@@ -7,10 +7,6 @@
   ! Cache-Control
   Cache-Control: public, max-age=31536000, immutable
 
-/screenshot-gallery/*.webp
-  ! Cache-Control
-  Cache-Control: public, max-age=31536000, immutable
-
-/screenshot-gallery/*.png
+/screenshot-gallery/img/*
   ! Cache-Control
   Cache-Control: public, max-age=31536000, immutable

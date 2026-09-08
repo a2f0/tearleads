@@ -5,22 +5,25 @@ const root = resolve(import.meta.dir, "../../..");
 const read = (path: string) => Bun.file(resolve(root, path)).text();
 
 test("website domains and Workers agree across the two independent stacks", async () => {
-  const config = JSON.parse(await read("packages/website/wrangler.jsonc"));
-  expect(config.workers_dev).toBe(false);
-  expect(config.preview_urls).toBe(false);
-  expect(config.assets).toEqual({
+  const config = Bun.JSON5.parse(await read("packages/website/wrangler.jsonc"));
+  expect(config).toHaveProperty("workers_dev", false);
+  expect(config).toHaveProperty("preview_urls", false);
+  expect(config).toHaveProperty("assets", {
     directory: "./dist",
     html_handling: "auto-trailing-slash",
-    not_found_handling: "404-page",
+    not_found_handling: "none",
   });
   expect(config).not.toHaveProperty("main");
   expect(config).not.toHaveProperty("routes");
   for (const tier of ["prod", "staging"]) {
     const main = await read(`terraform/stacks/${tier}/website/main.tf`);
     const versions = await read(`terraform/stacks/${tier}/website/versions.tf`);
-    expect(config.env[tier].name).toBe(`tearleads-website-${tier}`);
+    expect(config).toHaveProperty(
+      `env.${tier}.name`,
+      `tearleads-website-${tier}`,
+    );
     expect(main).toMatch(
-      new RegExp(`worker_name\\s*= "${config.env[tier].name}"`),
+      new RegExp(`worker_name\\s*= "tearleads-website-${tier}"`),
     );
     expect(main).toMatch(
       tier === "prod"

@@ -50,6 +50,7 @@ async function runWebsite(script: string, args: string[] = [], failure = "") {
       [
         "#!/bin/sh",
         'printf "terraform|%s\\n" "$*" >> "$WEBSITE_TEST_LOG"',
+        'case "$*" in *" init "*) echo init-noise ;; *" output -raw url") echo https://fixture.test ;; esac',
         'case "$WEBSITE_TEST_FAILURE:$*" in terraform:*apply*|terraform:*destroy*) exit 9 ;; esac',
       ].join("\n"),
     );
@@ -78,7 +79,7 @@ async function runWebsite(script: string, args: string[] = [], failure = "") {
       ? (await Bun.file(log).text()).trim().replaceAll(root, "ROOT").split("\n")
       : [];
     expect(stdout + stderr).not.toContain("fixture-token");
-    return { exitCode, stderr, calls };
+    return { exitCode, stdout, stderr, calls };
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -169,6 +170,10 @@ for (const [script, args] of [
   ["terraform/scripts/run-website-stack.sh", []],
   ["terraform/scripts/run-website-stack.sh", ["unknown", "apply"]],
   ["terraform/scripts/run-website-stack.sh", ["prod", "unknown"]],
+  [
+    "terraform/scripts/run-website-stack.sh",
+    ["prod", "destroy", "-auto-approve"],
+  ],
 ] as const) {
   test(`${script} rejects ${args.join(" ")} before loading credentials`, async () => {
     const result = await runWebsite(script, [...args]);
@@ -176,3 +181,30 @@ for (const [script, args] of [
     expect(result.calls).toEqual([]);
   });
 }
+
+test("website output contains only the requested Terraform value", async () => {
+  const result = await runWebsite("terraform/scripts/run-website-stack.sh", [
+    "prod",
+    "output",
+    "-raw",
+    "url",
+  ]);
+  expect(result.exitCode, result.stderr).toBe(0);
+  expect(result.stdout).toBe("https://fixture.test\n");
+  expect(result.stderr).toContain("init-noise");
+});
+
+test("website initialization forwards provider upgrade arguments", async () => {
+  const result = await runWebsite("terraform/scripts/run-website-stack.sh", [
+    "staging",
+    "init",
+    "-upgrade",
+  ]);
+  expect(result.exitCode, result.stderr).toBe(0);
+  expect(result.calls.at(-1)).toBe(
+    "terraform|-chdir=ROOT/terraform/stacks/staging/website init -input=false -reconfigure -backend-config=/fixture/backend.hcl -upgrade",
+  );
+  expect(
+    result.calls.filter((call) => call.startsWith("terraform|")),
+  ).toHaveLength(1);
+});
