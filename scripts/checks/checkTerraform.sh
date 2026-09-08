@@ -29,7 +29,7 @@ run_terraform_fmt() {
 }
 
 run_terraform_tests() {
-  local module_dir="$TERRAFORM_DIR/modules/cloudflare-website-cache"
+  local module_dir="$1"
   local terraform_test_dir
   local terraform_test_status=0
 
@@ -43,7 +43,15 @@ run_terraform_tests() {
     return 1
   fi
 
-  echo "Running terraform tests..."
+  if [[ -f "$module_dir/.terraform.lock.hcl" ]]; then
+    cp "$module_dir/.terraform.lock.hcl" "$terraform_test_dir/" || {
+      rm -rf -- "$terraform_test_dir"
+      echo "Error: could not stage the Terraform provider lock file" >&2
+      return 1
+    }
+  fi
+
+  echo "Running terraform tests in ${module_dir#"$TERRAFORM_DIR"/}..."
   terraform -chdir="$terraform_test_dir" init -backend=false -input=false >/dev/null || terraform_test_status=$?
   if [ "$terraform_test_status" -eq 0 ]; then
     terraform -chdir="$terraform_test_dir" test -no-color || terraform_test_status=$?
@@ -67,9 +75,13 @@ if check_command terraform; then
   if ! run_terraform_fmt; then
     errors=$((errors + 1))
   fi
-  if ! run_terraform_tests; then
-    errors=$((errors + 1))
-  fi
+  for module_dir in \
+    "$TERRAFORM_DIR/modules/cloudflare-website-cache" \
+    "$TERRAFORM_DIR/stacks/prod/postgres"; do
+    if ! run_terraform_tests "$module_dir"; then
+      errors=$((errors + 1))
+    fi
+  done
 fi
 
 # TFLint rules
