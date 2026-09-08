@@ -66,10 +66,10 @@ const baseConfig = {
       includeEntryExports: true,
     },
     "packages/app-web": {
-      // `dev`/`start` launch devServer.ts through the scripts/withBuildInfoEnv.sh
-      // wrapper, so knip can no longer discover it from the package.json script
-      // and it must be declared explicitly.
+      // The environment wrapper hides these build/server entrypoints from
+      // package.json script discovery.
       entry: [
+        "scripts/buildApp.ts",
         "src/index.tsx",
         "src/servers/devServer.ts",
         "src/servers/e2eServer.ts",
@@ -209,7 +209,11 @@ const productionConfig = {
     "packages/api-shared": { project: productionProject },
     "packages/app": { project: productionProject },
     "packages/app-web": {
-      entry: ["src/index.tsx!", "src/servers/devServer.ts!"],
+      entry: [
+        "scripts/buildApp.ts!",
+        "src/index.tsx!",
+        "src/servers/devServer.ts!",
+      ],
       project: [...productionProject, "!src/servers/e2eServer.ts"],
     },
     "packages/app-capacitor": {
