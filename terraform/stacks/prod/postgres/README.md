@@ -93,6 +93,7 @@ From the repository root:
 umask 077
 bash terraform/scripts/run-postgres-stack.sh plan -out="$PWD/.secrets/planetscale-prod.tfplan"
 bash terraform/scripts/run-postgres-stack.sh apply "$PWD/.secrets/planetscale-prod.tfplan"
+rm -f "$PWD/.secrets/planetscale-prod.tfplan"
 bash terraform/scripts/run-postgres-stack.sh output -json database
 ```
 
