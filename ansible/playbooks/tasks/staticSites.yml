@@ -1,6 +1,6 @@
 ---
 # Nginx server blocks and document roots for the statically served bundles:
-# the app host, the demo hosts, and the marketing website.
+# the app host and demo hosts. Websites are deployed directly to Cloudflare.
 - name: Configure nginx site for application
   ansible.builtin.template:
     src: etc/nginx/sites-available/app.conf.j2
@@ -16,14 +16,6 @@
     dest: /etc/nginx/sites-enabled/app.conf
     state: link
   notify: Reload nginx
-
-- name: Create website directory
-  ansible.builtin.file:
-    path: /var/www/website
-    state: directory
-    owner: www-data
-    group: www-data
-    mode: "0755"
 
 - name: Create app-web directory
   ansible.builtin.file:
@@ -41,18 +33,12 @@
     group: www-data
     mode: "0755"
 
-- name: Configure nginx site for website
-  ansible.builtin.template:
-    src: etc/nginx/sites-available/website.conf.j2
-    dest: /etc/nginx/sites-available/website.conf
-    owner: root
-    group: root
-    mode: "0644"
-  notify: Reload nginx
-
-- name: Enable nginx website site
+- name: Remove obsolete server-hosted website files
   ansible.builtin.file:
-    src: /etc/nginx/sites-available/website.conf
-    dest: /etc/nginx/sites-enabled/website.conf
-    state: link
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/nginx/sites-enabled/website.conf
+    - /etc/nginx/sites-available/website.conf
+    - /var/www/website
   notify: Reload nginx

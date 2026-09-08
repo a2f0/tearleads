@@ -6,7 +6,7 @@
 #   2. terraform apply (staging server stack)
 #   3. ansible playbook (server configuration)
 #   4. API deploy (executable deploy, migrations, service restart)
-#   5. Website deploy (build, rsync to /var/www, nginx reload)
+#   5. Website deploy (build, Wrangler, independent domain Terraform)
 #   6. App-web deploy (build app + demo bundles, sync, nginx reload)
 #
 # Pass --skip-terraform when a caller already prepared storage and applied the
@@ -24,8 +24,8 @@ usage() {
 Usage: $(basename "$0") [--skip-terraform] [--skip-infra]
 
 Options:
-  --skip-terraform  Skip terraform but still configure the server with Ansible.
-  --skip-infra  Skip terraform and ansible; deploy application artifacts only.
+  --skip-terraform  Skip server/storage Terraform; website domains still reconcile.
+  --skip-infra  Skip all Terraform and Ansible; publish application artifacts only.
   -h, --help    Show this help and exit.
 
 Environment:
@@ -141,7 +141,11 @@ else
 fi
 
 run_step "api" "${REPO_ROOT}/packages/api/scripts/deployStagingApi.sh"
-run_step "website" "${REPO_ROOT}/packages/website/scripts/deployStagingWebsite.sh"
+if [[ "$SKIP_INFRA" == true ]]; then
+  run_step "website" "${REPO_ROOT}/packages/website/scripts/deployStagingWebsite.sh" --skip-terraform
+else
+  run_step "website" "${REPO_ROOT}/packages/website/scripts/deployStagingWebsite.sh"
+fi
 run_step "app-web" "${REPO_ROOT}/packages/app-web/scripts/deployStagingAppWeb.sh"
 
 echo "=== Deployment finished ==="

@@ -276,3 +276,22 @@ order and per-operation inference are unchanged; no broad type erasure is used.
   existing server. This is not an in-place rollout to that host. Retirement
   through the owning state remains an operator prerequisite; the code cleanup
   does not add a temporary old-host detector or first-provisioning opt-in shim.
+
+## Static website hosting migration (2026-09-08)
+
+The owner authorized moving both websites to Cloudflare and removing the old
+Ansible/Terraform hosting together, including a greenfield cutover interruption.
+The API servers, databases, S3 buckets, app hosting, and demo hosting are preserved.
+
+Removed the website nginx template, website tunnel ingress and DNS ownership,
+zone-level origin cache rules, and website-specific cache purge helper. Ansible
+removes the two obsolete nginx website files and `/var/www/website`; all content
+is reproducible from the Astro build. Independent website states own Worker custom
+domains, and Wrangler owns assets. Server rebuilds no longer affect these domains.
+
+Preservation checks cover tier URLs, routes/404, screenshot and manifest caching,
+Terraform plans limited to the intended website resources, deployment ordering,
+and failure before domain mutation. Local Wrangler tests exercise the real header
+file and both environments. Full tier deployments run after the migration PR is
+merged. Reverting to server hosting requires removing the Worker custom domains,
+restoring the previous server configuration, and republishing the static build.

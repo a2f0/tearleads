@@ -34,16 +34,6 @@ variable "extra_demo_domains" {
   }
 }
 
-variable "manage_website_cache" {
-  description = "Whether this stack owns the zone-level website cache ruleset"
-  type        = bool
-}
-
-variable "website_cache_additional_hostnames" {
-  description = "Additional website hostnames cached by the zone-level ruleset"
-  type        = list(string)
-}
-
 variable "server_location" {
   description = "Hetzner server location"
   type        = string

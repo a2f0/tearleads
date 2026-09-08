@@ -1,5 +1,5 @@
 #!/bin/sh
-# Destroy the staging server, then empty and destroy its independent S3 storage.
+# Destroy the staging server, S3 storage, and independently hosted website.
 # Usage: scripts/destroyStaging.sh [--auto-approve]
 # Terraform asks for confirmation unless --auto-approve is passed.
 
@@ -18,4 +18,5 @@ done
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 "$REPO_ROOT/terraform/stacks/staging/server/scripts/destroy.sh" "$@"
-exec "$REPO_ROOT/terraform/scripts/run-storage-stack.sh" staging destroy "$@"
+"$REPO_ROOT/terraform/scripts/run-storage-stack.sh" staging destroy "$@"
+exec "$REPO_ROOT/packages/website/scripts/destroyStagingWebsite.sh" "$@"

@@ -19,6 +19,7 @@ const fixtures: readonly TierFixture[] = [
     sourceScript: resolve(import.meta.dir, "../../../scripts/deployStaging.sh"),
     targetVariable: "STAGING_SSH_TARGET",
     commands: [
+      ["storage", "terraform/scripts/prepare-storage.sh"],
       ["terraform", "terraform/stacks/staging/server/scripts/apply.sh"],
       ["ansible", "ansible/scripts/run-server-staging.sh"],
       ["api", "packages/api/scripts/deployStagingApi.sh"],
@@ -35,6 +36,7 @@ const fixtures: readonly TierFixture[] = [
     ),
     targetVariable: "PRODUCTION_SSH_TARGET",
     commands: [
+      ["storage", "terraform/scripts/prepare-storage.sh"],
       ["terraform", "terraform/stacks/prod/server/scripts/apply.sh"],
       ["ansible", "ansible/scripts/run-server-prod.sh"],
       ["api", "packages/api/scripts/deployProductionApi.sh"],
@@ -55,72 +57,84 @@ async function writeExecutable(path: string, source: string) {
 }
 
 for (const fixture of fixtures) {
-  test(`${fixture.name} skips only Terraform when requested`, async () => {
-    const root = await mkdtemp(resolve(tmpdir(), "tearleads-deploy-tier-"));
-    const script = resolve(root, `scripts/deploy-${fixture.name}.sh`);
-    const logPath = resolve(root, "calls.log");
-    const binDirectory = resolve(root, "bin");
+  for (const flag of ["", "--skip-terraform", "--skip-infra"]) {
+    test(`${fixture.name} deploy preserves ordering with ${flag || "all infrastructure"}`, async () => {
+      const root = await mkdtemp(resolve(tmpdir(), "tearleads-deploy-tier-"));
+      const script = resolve(root, `scripts/deploy-${fixture.name}.sh`);
+      const logPath = resolve(root, "calls.log");
+      const binDirectory = resolve(root, "bin");
 
-    try {
-      await mkdir(dirname(script), { recursive: true });
-      await cp(fixture.sourceScript, script);
-      await chmod(script, 0o755);
-      await writeExecutable(
-        resolve(binDirectory, "git"),
-        "#!/bin/sh\nprintf '%s\\n' \"$DEPLOY_TIER_TEST_ROOT\"\n",
-      );
-      await writeExecutable(
-        resolve(root, "terraform/scripts/common.sh"),
-        [
-          "validate_tier_ssh_target_override() { :; }",
-          "load_secrets_env() {",
-          '  SSH_TARGET="deploy-user@tier-host"',
-          "  export SSH_TARGET",
-          "}",
-          "validate_aws_env() { :; }",
-          "validate_stripe_env() {",
-          '  printf \'validate_stripe_env|%s\\n\' "$1" >> "$DEPLOY_TIER_TEST_LOG"',
-          "}",
-        ].join("\n"),
-      );
-      for (const [name, path] of fixture.commands) {
+      try {
+        await mkdir(dirname(script), { recursive: true });
+        await cp(fixture.sourceScript, script);
+        await chmod(script, 0o755);
         await writeExecutable(
-          resolve(root, path),
-          `#!/bin/sh\nprintf '%s|%s|%s\\n' '${name}' "\${SSH_TARGET:-}" "\${${fixture.targetVariable}:-}" >> "$DEPLOY_TIER_TEST_LOG"\n`,
+          resolve(binDirectory, "git"),
+          "#!/bin/sh\nprintf '%s\\n' \"$DEPLOY_TIER_TEST_ROOT\"\n",
         );
-      }
+        await writeExecutable(
+          resolve(root, "terraform/scripts/common.sh"),
+          [
+            "validate_tier_ssh_target_override() { :; }",
+            "load_secrets_env() {",
+            '  SSH_TARGET="deploy-user@tier-host"',
+            "  export SSH_TARGET",
+            "}",
+            "validate_aws_env() { :; }",
+            "validate_stripe_env() {",
+            '  printf \'validate_stripe_env|%s\\n\' "$1" >> "$DEPLOY_TIER_TEST_LOG"',
+            "}",
+          ].join("\n"),
+        );
+        for (const [name, path] of fixture.commands) {
+          await writeExecutable(
+            resolve(root, path),
+            `#!/bin/sh\nprintf '%s|%s|%s\\n' '${name}' "\${SSH_TARGET:-}" "\${${fixture.targetVariable}:-}" >> "$DEPLOY_TIER_TEST_LOG"\n`,
+          );
+          if (name === "website") {
+            await Bun.write(
+              resolve(root, path),
+              (await readFile(resolve(root, path), "utf8")) +
+                'printf "website-args|%s\\n" "$*" >> "$DEPLOY_TIER_TEST_LOG"\n',
+            );
+          }
+        }
 
-      const child = Bun.spawn([script, "--skip-terraform"], {
-        cwd: tmpdir(),
-        env: {
-          ...process.env,
-          PATH: `${binDirectory}:${environmentValue("PATH") ?? ""}`,
-          SSH_TARGET: "",
-          STAGING_SSH_TARGET: "",
-          PRODUCTION_SSH_TARGET: "",
-          DEPLOY_TIER_TEST_ROOT: root,
-          DEPLOY_TIER_TEST_LOG: logPath,
-        },
-        stdout: "pipe",
-        stderr: "pipe",
-      });
-      const [exitCode, stdout, stderr] = await Promise.all([
-        child.exited,
-        new Response(child.stdout).text(),
-        new Response(child.stderr).text(),
-      ]);
-      expect(exitCode, stderr).toBe(0);
-      expect(stdout).toContain("skipped (--skip-terraform)");
-      expect((await readFile(logPath, "utf8")).trim().split("\n")).toEqual([
-        // The Stripe key-mode guard runs for this tier before any step.
-        `validate_stripe_env|${fixture.tier}`,
-        "ansible|deploy-user@tier-host|deploy-user@tier-host",
-        "api|deploy-user@tier-host|deploy-user@tier-host",
-        "website|deploy-user@tier-host|deploy-user@tier-host",
-        "app-web|deploy-user@tier-host|deploy-user@tier-host",
-      ]);
-    } finally {
-      await rm(root, { recursive: true, force: true });
-    }
-  });
+        const child = Bun.spawn([script, ...(flag ? [flag] : [])], {
+          cwd: tmpdir(),
+          env: {
+            ...process.env,
+            PATH: `${binDirectory}:${environmentValue("PATH") ?? ""}`,
+            SSH_TARGET: "",
+            STAGING_SSH_TARGET: "",
+            PRODUCTION_SSH_TARGET: "",
+            DEPLOY_TIER_TEST_ROOT: root,
+            DEPLOY_TIER_TEST_LOG: logPath,
+          },
+          stdout: "pipe",
+          stderr: "pipe",
+        });
+        const [exitCode, stdout, stderr] = await Promise.all([
+          child.exited,
+          new Response(child.stdout).text(),
+          new Response(child.stderr).text(),
+        ]);
+        expect(exitCode, stderr).toBe(0);
+        if (flag) expect(stdout).toContain(`skipped (${flag})`);
+        expect((await readFile(logPath, "utf8")).trim().split("\n")).toEqual([
+          ...(flag ? [] : ["storage||", "terraform||"]),
+          `validate_stripe_env|${fixture.tier}`,
+          ...(flag === "--skip-infra"
+            ? []
+            : ["ansible|deploy-user@tier-host|deploy-user@tier-host"]),
+          "api|deploy-user@tier-host|deploy-user@tier-host",
+          "website|deploy-user@tier-host|deploy-user@tier-host",
+          `website-args|${flag === "--skip-infra" ? "--skip-terraform" : ""}`,
+          "app-web|deploy-user@tier-host|deploy-user@tier-host",
+        ]);
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    });
+  }
 }

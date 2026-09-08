@@ -55,9 +55,6 @@
     app_demo_hostnames: >-
       {{ [app_demo_hostname] + (extra_demo_domains |
       map('regex_replace', '^', app_demo_host_prefix) | list) }}
-    website_hostname: >-
-      {{ 'website-staging.' ~ domain if deployment_tier == 'staging'
-      else domain }}
     cloudflare_tunnel_token: "{{ lookup('env', 'CLOUDFLARE_TUNNEL_TOKEN') | default('', true) }}"
     server_user: "{{ lookup('env', 'TF_VAR_server_username') | default('deploy', true) }}"
     bun_path: "/home/{{ server_user }}/.bun/bin/bun"

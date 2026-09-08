@@ -7,11 +7,10 @@ locals {
   # tunnel; only their DNS records live in another zone.
   extra_demo_hostnames   = { for domain in var.extra_demo_domains : domain => "demo${local.hostname_suffix}.${domain}" }
   demo_hostnames         = concat([local.demo_hostname], values(local.extra_demo_hostnames))
-  primary_zone_hostnames = toset([local.website_hostname, local.app_hostname, local.demo_hostname, local.api_hostname])
+  primary_zone_hostnames = toset([local.app_hostname, local.demo_hostname, local.api_hostname])
   tailscale_hostname     = var.deployment_tier
   tunnel_cname           = module.tunnel.tunnel_cname
   tunnel_http_service    = "http://localhost:80"
-  website_hostname       = var.deployment_tier == "staging" ? "website-staging.${var.domain}" : var.domain
 }
 
 data "hcloud_ssh_key" "main" {
@@ -105,15 +104,6 @@ data "cloudflare_zone" "extra_demo" {
   }
 }
 
-module "website_cache" {
-  count  = var.manage_website_cache ? 1 : 0
-  source = "../../../modules/cloudflare-website-cache"
-
-  zone_id              = data.cloudflare_zone.staging.id
-  hostname             = local.website_hostname
-  additional_hostnames = var.website_cache_additional_hostnames
-}
-
 module "tunnel" {
   source = "../../../modules/cloudflare-tunnel"
 
@@ -125,10 +115,6 @@ module "tunnel" {
 
   ingress_rules = concat(
     [
-      {
-        hostname = local.website_hostname
-        service  = local.tunnel_http_service
-      },
       {
         hostname = local.app_hostname
         service  = local.tunnel_http_service

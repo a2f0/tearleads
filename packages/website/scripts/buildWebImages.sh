@@ -6,7 +6,7 @@ set -e
 # Sourced from the shared brand logo in @tearleads/ui and generated into
 # public/ (gitignored). Astro serves public/ at the site root during `astro
 # dev` and copies it into dist/ during `astro build`, so a single output
-# location fixes dev 404s and still ships the icons in the deploy rsync.
+# location serves the same icons locally and in Cloudflare deployments.
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PACKAGE_DIR="$(dirname "$SCRIPT_DIR")"

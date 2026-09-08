@@ -30,7 +30,13 @@
         "$TURBO_ROOT$/terraform/scripts/run-postgres-stack.sh",
         "$TURBO_ROOT$/terraform/scripts/run-storage-stack.sh",
         "$TURBO_ROOT$/terraform/scripts/secretsEnv.sh",
-        "$TURBO_ROOT$/terraform/scripts/stripeEnv.sh"
+        "$TURBO_ROOT$/terraform/scripts/stripeEnv.sh",
+        "$TURBO_ROOT$/packages/website/scripts/*.sh",
+        "$TURBO_ROOT$/packages/website/wrangler.jsonc",
+        "$TURBO_ROOT$/terraform/scripts/run-website-stack.sh",
+        "$TURBO_ROOT$/terraform/stacks/*/website/*.tf",
+        "$TURBO_ROOT$/terraform/stacks/*/server/*.tf",
+        "$TURBO_ROOT$/ansible/playbooks/tasks/staticSites.yml"
       ]
     }
   }
