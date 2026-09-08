@@ -16,7 +16,7 @@ export function PaneMenu({
   const hasSigningKeyPair = signingKeyPair !== null;
   const paneLocked = localKeyringLock.isLocked && !hasSigningKeyPair;
   const generateKeyPair = useCallback(() => {
-    generateKey();
+    void generateKey();
     onClose();
   }, [generateKey, onClose]);
 

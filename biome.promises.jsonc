@@ -1,0 +1,32 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.12/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "ignoreUnknown": true,
+    "includes": [
+      "packages/{api,app,client-sdk,crypto}/src/**",
+      "!**/*.test.{ts,tsx}",
+      "!**/*.{testUtils,testFixtures}.{ts,tsx}",
+      "!**/{testUtils,testFixtures}.{ts,tsx}",
+      "!**/*TestFixtures.{ts,tsx}",
+      "!packages/api/src/appTestRuntime.ts",
+      "!**/{test,tests,testUtils,testFixtures}/**",
+      "!!docs/openapi.json",
+      // Generated contracts are verified by lint:openapi. Exclude this file
+      // from type scanning to avoid Biome's generated-type count limit.
+      "!!packages/validators/src/operation/generatedOpenApi.ts"
+    ]
+  },
+  "linter": {
+    "rules": {
+      "recommended": false,
+      "nursery": {
+        "noFloatingPromises": "error"
+      }
+    }
+  }
+}
