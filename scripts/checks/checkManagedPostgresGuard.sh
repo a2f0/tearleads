@@ -21,7 +21,7 @@ cat >"$GUARD_DIR/play.yml" <<EOF
 EOF
 
 for mutation in \
-  valid host runtime_port migration_port tls password migration_user \
+  valid host runtime_port migration_port tls user database password migration_user \
   migration_password missing_migration_user missing_migration_password; do
   python3 - "$1" "$GUARD_DIR/vars.json" "$mutation" <<'PY'
 import json
@@ -35,6 +35,8 @@ changes = {
     "runtime_port": {"postgres_port": "5432"},
     "migration_port": {"postgres_migration_port": "6432"},
     "tls": {"postgres_ssl": False},
+    "user": {"postgres_user": ""},
+    "database": {"postgres_db": ""},
     "password": {"postgres_password": ""},
     "migration_user": {"postgres_migration_user": values["postgres_user"]},
     "migration_password": {"postgres_migration_password": values["postgres_password"]},

@@ -144,7 +144,10 @@ its connection separately in root-owned `/etc/tearleads/migrations.env`, mode
 wrapper, which selects that file only for migrations. The runtime environment
 contains no migration credentials. The deploy account retains its existing
 administrative sudo access; these file permissions do not isolate credentials
-from an administrator or a compromised deploy account. Staging writes its
+from an administrator or a compromised deploy account. API and maintenance
+services run with `ProtectSystem=strict` and no writable application directory,
+so they cannot replace executables later invoked by the deployment operator.
+Staging writes its
 existing local login to both files. See [PlanetScale roles] and
 [connection options].
 

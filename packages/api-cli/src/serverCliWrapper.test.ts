@@ -71,8 +71,10 @@ beforeAll(async () => {
     )
     .replace("cli=/opt/tearleads/bin/tearleads-api-cli", `cli=${cliPath}`);
   expect(rendered).toContain(`\nenv_file=${envFilePath}\n`);
+  expect(rendered).toContain(`\n  env_file=${migrationEnvFilePath}\n`);
   expect(rendered).toContain(`\ncli=${cliPath}\n`);
   expect(rendered).not.toContain("\nenv_file=/etc/");
+  expect(rendered).not.toContain("\n  env_file=/etc/");
   expect(rendered).not.toContain("\ncli=/opt/");
   await writeFile(wrapperPath, rendered);
 });

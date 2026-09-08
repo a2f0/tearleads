@@ -1,6 +1,6 @@
 mock_provider "planetscale" {
+  override_during = plan
   mock_resource "planetscale_postgres_branch_role" {
-    override_during = plan
     defaults = {
       access_host_url = "fixture.pg.psdb.cloud"
       database_name   = "postgres"

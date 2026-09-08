@@ -14,14 +14,22 @@ if ! ansible-playbook -i localhost, --connection local \
   exit 1
 fi
 
-for managed in true false; do
+require_setting() {
+  if ! grep -q "$2" "$1"; then
+    echo "ERROR: $(basename "$1") is missing $2" >&2
+    exit 1
+  fi
+}
+
+for scenario in 'true true' 'true false' 'false true' 'false false'; do
+  read -r managed garage <<<"$scenario"
   host=127.0.0.1
   port=5432
   migration_vars=""
   if [[ "$managed" == true ]]; then
     host=fixture.pg.psdb.cloud
     port=6432
-    migration_vars='"postgres_migration_user": "migration.user", "postgres_migration_password": "fixture-migration-password",'
+    migration_vars='"postgres_migration_port": "5432", "postgres_migration_user": "migration.user", "postgres_migration_password": "fixture-migration-password",'
   fi
   cat >"$RENDER_DIR/vars.json" <<EOF
 {
@@ -29,7 +37,6 @@ for managed in true false; do
   "postgres_ssl": $managed,
   "postgres_host": "$host",
   "postgres_port": "$port",
-  "postgres_migration_port": "5432",
   $migration_vars
   "postgres_user": "fixture.user",
   "postgres_password": "fixture password # with spaces",
@@ -37,7 +44,7 @@ for managed in true false; do
   "redis_bind": "127.0.0.1",
   "api_cors_origins": "https://app.example.test",
   "document_sync_cursor_hmac_key": "fixture-cursor-key",
-  "garage_enabled": $managed
+  "garage_enabled": $garage
 }
 EOF
   for template in \
@@ -77,20 +84,37 @@ else
 fi
 VERIFY_ENV
 
+  if grep -Eq 'POSTGRES_MIGRATION_|fixture-migration-password|migration[.]user' "$RENDER_DIR/api.env"; then
+    echo "ERROR: Runtime environment contains migration credentials." >&2
+    exit 1
+  fi
+
   for service in "$RENDER_DIR"/*.service; do
-    grep -q '^Wants=network-online.target' "$service"
+    require_setting "$service" '^Wants=network-online.target'
+    require_setting "$service" '^ProtectSystem=strict$'
+    require_setting "$service" '^NoNewPrivileges=true$'
+    if grep -q '^ReadWritePaths=' "$service"; then
+      echo "ERROR: API and maintenance services must not write application executables." >&2
+      exit 1
+    fi
     if [[ "$managed" == true ]]; then
       if grep -q postgresql.service "$service"; then
         echo "ERROR: Managed Postgres must not depend on a local PostgreSQL service." >&2
         exit 1
       fi
-      grep -q '^After=.*garage.service' "$service"
     else
-      grep -q '^After=.*postgresql.service' "$service"
-      grep -q '^Wants=.*postgresql.service' "$service"
+      require_setting "$service" '^After=.*postgresql.service'
+      require_setting "$service" '^Wants=.*postgresql.service'
+    fi
+    if [[ "$garage" == true ]]; then
+      require_setting "$service" '^After=.*garage.service'
+      require_setting "$service" '^Wants=.*garage.service'
+    elif grep -q garage.service "$service"; then
+      echo "ERROR: Garage must not be a service dependency when disabled." >&2
+      exit 1
     fi
   done
-  if [[ "$managed" == true ]]; then
+  if [[ "$managed" == true && "$garage" == true ]]; then
     bash "$REPO_ROOT/scripts/checks/checkManagedPostgresGuard.sh" "$RENDER_DIR/vars.json"
   fi
 done
