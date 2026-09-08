@@ -95,15 +95,12 @@ function createContainerContentsStoreSyncHost(
       saveOptions,
       mutationOptions,
     ) =>
-      persistContainerState(
-        state,
-        containerState,
+      persistContainerState(state, containerState, {
         patch,
         updateView,
         saveOptions,
-        undefined,
-        mutationOptions,
-      ),
+        ...mutationOptions,
+      }),
     requestDocumentPriming: () => {
       state.documentStoresNeedPriming = true;
     },

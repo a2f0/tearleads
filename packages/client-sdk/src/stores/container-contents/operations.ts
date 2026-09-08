@@ -405,45 +405,26 @@ export async function moveContainer(
   }
 
   const isRemoteContainer = Boolean(existingState.record.documentId);
-  const previousParentId = existingState.container.parentId;
-  if (!isRemoteContainer) {
-    const persisted = await persistContainerState(
-      state,
-      existingState,
-      { parentId },
-      true,
-      {
-        createIntent: { parentContainerId: parentId },
-      },
-      undefined,
-      { isCurrent },
-    );
-    if (persisted.status !== "persisted" || !isCurrent()) return null;
-    syncAgent.scheduleSync();
-    state.runtime.util.log(
-      `${getContainerContentsStoreLogLabel(state)}: moved container ${containerId} under ${parentId}`,
-    );
-    return toContainerNode(existingState);
-  }
-
-  const persisted = await persistContainerState(
-    state,
-    existingState,
-    { parentId },
-    true,
-    {
-      moveIntent: {
-        parentContainerId: parentId,
-        previousParentContainerId: previousParentId,
-      },
-    },
-    undefined,
-    { isCurrent },
-  );
+  const saveOptions = isRemoteContainer
+    ? {
+        moveIntent: {
+          parentContainerId: parentId,
+          previousParentContainerId: existingState.container.parentId,
+        },
+      }
+    : { createIntent: { parentContainerId: parentId } };
+  const persisted = await persistContainerState(state, existingState, {
+    patch: { parentId },
+    saveOptions,
+    isCurrent,
+  });
   if (persisted.status !== "persisted" || !isCurrent()) return null;
   syncAgent.scheduleSync();
+  const action = isRemoteContainer
+    ? "queued container move"
+    : "moved container";
   state.runtime.util.log(
-    `${getContainerContentsStoreLogLabel(state)}: queued container move ${containerId} under ${parentId}`,
+    `${getContainerContentsStoreLogLabel(state)}: ${action} ${containerId} under ${parentId}`,
   );
   return toContainerNode(existingState);
 }
