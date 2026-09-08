@@ -16,6 +16,7 @@ import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvide
 import { AppFeatureFlagsProvider } from "../../../providers/feature-flags/AppFeatureFlagsProvider";
 import { ThemeToggleButton } from "../../../theme/ThemeToggleButton";
 import { RoutedPane } from "../../layout/routed/RoutedPane";
+import { TestSystemBanner } from "../../layout/TestSystemBanner";
 import type { MenuPosition } from "../../shared/Menu";
 import { Window } from "../../window/Window";
 import {
@@ -65,6 +66,7 @@ function PaneInner({
             <Window key={w.id} windowId={w.id} />
           ))}
         </div>
+        <TestSystemBanner />
         <PaneFooter
           tray={
             <>

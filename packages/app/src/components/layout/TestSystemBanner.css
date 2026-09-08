@@ -1,0 +1,34 @@
+/*
+ * The test-deployment strip that sits immediately above the taskbar in both
+ * shells. Deliberately quiet chrome — one centered line, no controls — tinted
+ * off the footer surface it butts against so it reads as its own bar rather
+ * than as part of the taskbar below it.
+ */
+.test-system-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  padding-block: var(--space-2xs);
+  /* Both edges are screen edges wherever this bar spans the shell, so keep the
+     text clear of a landscape cutout. The tokens are 0 off-device. */
+  padding-inline: calc(var(--space-sm) + var(--safe-area-left))
+    calc(var(--space-sm) + var(--safe-area-right));
+  color: var(--color-danger);
+  font-size: var(--font-size-sm);
+  background: color-mix(in srgb, var(--color-danger) 12%, var(--color-muted));
+  border-top: var(--border-width) solid var(--color-hairline);
+  text-align: center;
+}
+
+.test-system-banner[hidden] {
+  display: none;
+}
+
+/* Size the glyph off the strip's own type rather than the icon's `size`
+   attribute, so it stays optically matched to the sentence beside it. */
+.test-system-banner-icon {
+  flex: 0 0 auto;
+  width: 1.1em;
+  height: 1.1em;
+}
