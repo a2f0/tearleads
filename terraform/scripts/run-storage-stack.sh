@@ -29,7 +29,7 @@ else
   terraform -chdir="$STACK_DIR" init -input=false -reconfigure \
     -backend-config="$(get_backend_config)" >&2
   case "$ACTION" in
-    plan | apply | destroy) set -- -input=false "$@" ;;
+    plan | apply) set -- -input=false "$@" ;;
   esac
   terraform -chdir="$STACK_DIR" "$ACTION" "$@"
 fi

@@ -8,6 +8,8 @@
     migration_task: "{{ server_tasks | selectattr('name', 'equalto', 'Deploy migration environment file') | first }}"
     guard_task: "{{ server_tasks | selectattr('name', 'equalto', 'Validate managed PostgreSQL connection') | first }}"
     cutover_task: "{{ server_tasks | selectattr('name', 'equalto', 'Guard managed PostgreSQL cutover before configuring the host') | first }}"
+    storage_guard_task: "{{ server_tasks | selectattr('name', 'equalto', 'Validate managed S3 blob storage') | first }}"
+    storage_tasks: "{{ lookup('file', playbook_dir ~ '/../playbooks/tasks/managedS3.yml') | from_yaml }}"
     local_postgres_task: "{{ server_tasks | selectattr('name', 'equalto', 'Configure local PostgreSQL') | first }}"
     config_directory_task: "{{ server_tasks | selectattr('name', 'equalto', 'Create root-owned configuration directory') | first }}"
   tasks:
@@ -58,3 +60,11 @@
         that:
           - local_postgres_task['ansible.builtin.import_tasks'] == 'tasks/localPostgres.yml'
           - local_postgres_task.when == 'not postgres_managed | bool'
+
+    - name: Guard the Garage cutover before any host configuration
+      ansible.builtin.assert:
+        that:
+          - server_tasks[2] == storage_guard_task
+          - storage_guard_task['ansible.builtin.import_tasks'] == 'tasks/managedS3.yml'
+          - storage_guard_task.when == 'blob_storage_managed | bool'
+          - storage_tasks[-1]['ansible.builtin.import_tasks'] == 'managedS3Cutover.yml'

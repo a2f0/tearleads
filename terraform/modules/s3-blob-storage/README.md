@@ -79,18 +79,28 @@ S3 deployment, stop the API and blob-GC timer/service, finish or abort pending
 multipart uploads, and copy every Garage object to the environment's S3 bucket
 under the same key. Preserve metadata, compare object counts and sizes, and
 verify the copied bytes with SHA-256. Keep the database records unchanged.
+After verification, acknowledge the completed copy on that server by creating
+`/etc/tearleads/garage-migrated-to-tearleads-prod-us-east-1` for production, or
+`/etc/tearleads/garage-migrated-to-tearleads-staging-us-east-1` for staging,
+with `sudo touch`. Ansible refuses to configure a host with `/var/lib/garage/data`
+unless this bucket-and-region-specific acknowledgement file exists. Fresh servers
+without Garage data do not need a marker. The marker persists across deployments.
+
 Then run the tier deployment, which installs the S3 credentials and disables
 Garage without deleting its files. Verify application uploads, reads, deletion,
 and multipart aborts before retiring the old data. Switching back after new S3
 writes requires reconciling those writes first.
 
 Garage's installation tasks remain available for a deliberate rollback. Run
+`sudo rm` on that server's acknowledgement file before re-enabling Garage, so
+a later return to S3 requires a newly verified migration. Run
 `ansible-playbook` directly with the tier's inventory and normal database/secret
 variables, setting `blob_storage_managed=false`, `garage_enabled=true`, and the
 original Garage `blob_s3_*` connection values in a private extra-vars file.
 The standard server wrapper always installs the managed S3 configuration.
 
-For credential rotation, create a second IAM access key alongside the existing
-one, point `api_storage` at it, apply the storage stack, rerun tier Ansible, and
+For credential rotation, add a second `aws_iam_access_key` resource to this module
+alongside the existing one, point `api_storage` at it, apply the storage stack,
+rerun tier Ansible, and
 restart API and maintenance processes before removing the old key. Replacing
 the only key before updating the server causes an interruption.

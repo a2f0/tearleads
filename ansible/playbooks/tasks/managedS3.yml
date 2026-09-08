@@ -14,3 +14,6 @@
     fail_msg: >-
       Provision this environment's storage stack and configure it with
       ansible/scripts/run-server.sh. Each tier requires its own S3 credentials.
+
+- name: Guard the Garage data cutover before configuring managed S3
+  ansible.builtin.import_tasks: managedS3Cutover.yml

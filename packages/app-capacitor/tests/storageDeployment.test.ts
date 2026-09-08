@@ -70,7 +70,7 @@ async function runStorageScript(
     const calls = (await Bun.file(log).exists())
       ? (await Bun.file(log).text()).trim().split("\n")
       : [];
-    return { exitCode, stderr, calls };
+    return { exitCode, stderr, calls, root };
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -146,5 +146,29 @@ for (const argument of ["-target=module.server", "-var-file=server.tfvars"]) {
     ]);
     expect(result.exitCode).toBe(1);
     expect(result.calls).toEqual([]);
+  });
+}
+
+for (const [tier, action, args] of [
+  ["prod", "plan", ["-out=review.tfplan"]],
+  ["prod", "apply", ["review.tfplan"]],
+  ["prod", "output", ["-json", "api_storage"]],
+  ["staging", "destroy", []],
+  ["staging", "destroy", ["--auto-approve"]],
+] as const) {
+  test(`storage ${tier} ${action} preserves Terraform arguments and confirmation`, async () => {
+    const result = await runStorageScript(
+      "terraform/scripts/run-storage-stack.sh",
+      [tier, action, ...args],
+    );
+    const terraform = `terraform -chdir=${result.root}/terraform/stacks/${tier}/storage`;
+    const input =
+      action === "plan" || action === "apply" ? ["-input=false"] : [];
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(result.calls).toEqual([
+      "secrets",
+      `${terraform} init -input=false -reconfigure -backend-config=/dev/null`,
+      [terraform, action, ...input, ...args].join(" "),
+    ]);
   });
 }
