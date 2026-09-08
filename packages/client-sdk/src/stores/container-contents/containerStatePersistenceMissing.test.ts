@@ -66,8 +66,9 @@ test.each([
     );
 
     await expect(
-      persistContainerState(state, candidate, {}, false, undefined, undefined, {
+      persistContainerState(state, candidate, {
         expectedStateWhenMissing: liveState,
+        updateView: false,
       }),
     ).resolves.toEqual({ status: "missing" });
 

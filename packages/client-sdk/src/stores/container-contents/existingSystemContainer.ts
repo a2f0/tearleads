@@ -30,17 +30,14 @@ export async function updateExistingSystemContainer(
         if (options.deferRemoteBootstrap) {
           invalidateRemoteContainerWrites(state, [containerState.container.id]);
         }
-        return (
-          await persistContainerState(
-            state,
-            containerState,
-            { icon },
-            false,
-            undefined,
-            { localMetadataPatch: { icon }, localUpdate: update },
-            { isCurrent },
-          )
-        ).status;
+        const result = await persistContainerState(state, containerState, {
+          patch: { icon },
+          updateView: false,
+          localMetadataPatch: { icon },
+          localUpdate: update,
+          isCurrent,
+        });
+        return result.status;
       },
       state,
       syncAgent,
@@ -58,27 +55,14 @@ export async function updateExistingSystemContainer(
       if (options.deferRemoteBootstrap) {
         invalidateRemoteContainerWrites(state, [containerState.container.id]);
       }
-      return (
-        (
-          await persistContainerState(
-            state,
-            containerState,
-            {},
-            true,
-            promotion.queueCreateIntent
-              ? {
-                  createIntent: {
-                    parentContainerId: promotion.parentContainerId,
-                  },
-                }
-              : undefined,
-            promotion.metadataUpdate
-              ? { localUpdate: promotion.metadataUpdate }
-              : undefined,
-            { isCurrent },
-          )
-        ).status === "persisted"
-      );
+      const result = await persistContainerState(state, containerState, {
+        saveOptions: promotion.queueCreateIntent
+          ? { createIntent: { parentContainerId: promotion.parentContainerId } }
+          : undefined,
+        localUpdate: promotion.metadataUpdate || undefined,
+        isCurrent,
+      });
+      return result.status === "persisted";
     },
     rootState: findRootContainerState(state),
     state,

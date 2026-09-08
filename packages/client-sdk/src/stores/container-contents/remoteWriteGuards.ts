@@ -1,6 +1,7 @@
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { findSystemContainerStateForRoot } from "./systemContainerLookup";
 import type { ContainerContentsStoreState } from "./types";
+import { isContainerInSubtree } from "./utils";
 
 export type RemoteContainerWriteScope =
   | string
@@ -16,21 +17,6 @@ const activeByState = new WeakMap<
   ContainerContentsStoreState,
   Set<ActiveRemoteWrite>
 >();
-
-function isWithin(
-  state: ContainerContentsStoreState,
-  id: string,
-  rootId: string,
-): boolean {
-  const visited = new Set<string>();
-  let current: string | null = id;
-  while (current !== null && !visited.has(current)) {
-    if (current === rootId) return true;
-    visited.add(current);
-    current = state.containersById.get(current)?.container.parentId ?? null;
-  }
-  return false;
-}
 
 /** Invalidate remote settlement only when a local edit touches its subtree. */
 export function invalidateRemoteContainerWrites(
@@ -57,8 +43,11 @@ export function invalidateRemoteContainerWrites(
       write.scope === undefined ||
       changedIds === null ||
       (rootId !== undefined &&
-        (changedIds.some((id) => isWithin(state, id, rootId)) ||
-          (movedId !== undefined && isWithin(state, rootId, movedId))))
+        (changedIds.some((id) =>
+          isContainerInSubtree(state.containersById, id, rootId),
+        ) ||
+          (movedId !== undefined &&
+            isContainerInSubtree(state.containersById, rootId, movedId))))
     ) {
       write.changed = true;
     }

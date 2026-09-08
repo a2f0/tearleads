@@ -68,9 +68,12 @@ interface LocalProjectionStoreState {
   reconcileListeners: Set<LocalProjectionReconcileListener>;
   runtime: ContainerContentsStoreRuntime;
   snapshot: LocalProjectionSnapshot;
-  summaryLoadByContainerId: Map<string, Promise<void>>;
-  summaryReadsToDiscard: Set<string>;
-  summaryReloadNeeded: Set<string>;
+  pendingSummaryReads: Map<string, PendingSummaryRead>;
+}
+
+interface PendingSummaryRead {
+  discardResult: boolean;
+  reloadAfter: boolean;
 }
 
 const EMPTY_SNAPSHOT: LocalProjectionSnapshot = {
@@ -118,57 +121,60 @@ function notifyReconcile(
   }
 }
 
-function loadActiveContainerSummaries(
+function loadContainerSummaries(
   state: LocalProjectionStoreState,
   containerId: string,
 ): void {
   if (
     state.cache.hydratedContainerIds.has(containerId) ||
-    state.summaryLoadByContainerId.has(containerId) ||
+    state.pendingSummaryReads.has(containerId) ||
     state.runtime.infra.dbStatus !== "ready"
   ) {
     return;
   }
 
-  const loadPromise: Promise<void> =
-    loadLocalContainerProjectionDocumentsFromRuntime({
-      containerIds: [containerId],
-      runtime: state.runtime,
-    })
-      .then((documents) => {
-        // A runtime reset (e.g. dbStatus loss) clears this entry and the cache
-        // mid-flight; do not apply a stale read to a freshly reset cache.
-        if (
-          state.summaryLoadByContainerId.get(containerId) !== loadPromise ||
-          state.summaryReadsToDiscard.has(containerId)
-        ) {
-          return;
-        }
-        const changed = applyContainerSummaries(state.cache, {
-          containerId,
-          documentSummaries: documents.documentSummaries,
-          linkedContainerIdsByDocumentId:
-            documents.linkedContainerIdsByDocumentId,
-        });
-        if (changed) {
-          emit(state);
-        }
-      })
-      .catch(() => {
-        // Local read failures fall back to an empty list; the reconciler retries.
-      })
-      .finally(() => {
-        if (state.summaryLoadByContainerId.get(containerId) === loadPromise) {
-          state.summaryLoadByContainerId.delete(containerId);
-          state.summaryReadsToDiscard.delete(containerId);
-          if (state.summaryReloadNeeded.delete(containerId)) {
-            state.cache.hydratedContainerIds.delete(containerId);
-            loadActiveContainerSummaries(state, containerId);
-          }
-        }
+  const pendingRead: PendingSummaryRead = {
+    discardResult: false,
+    reloadAfter: false,
+  };
+  void loadLocalContainerProjectionDocumentsFromRuntime({
+    containerIds: [containerId],
+    runtime: state.runtime,
+  })
+    .then((documents) => {
+      // A runtime reset (e.g. dbStatus loss) clears this entry and the cache
+      // mid-flight; do not apply a stale read to a freshly reset cache.
+      if (
+        state.pendingSummaryReads.get(containerId) !== pendingRead ||
+        pendingRead.discardResult
+      ) {
+        return;
+      }
+      const changed = applyContainerSummaries(state.cache, {
+        containerId,
+        documentSummaries: documents.documentSummaries,
+        linkedContainerIdsByDocumentId:
+          documents.linkedContainerIdsByDocumentId,
       });
+      if (changed) {
+        emit(state);
+      }
+    })
+    .catch(() => {
+      // Local read failures fall back to an empty list; the reconciler retries.
+    })
+    .finally(() => {
+      if (state.pendingSummaryReads.get(containerId) !== pendingRead) {
+        return;
+      }
+      state.pendingSummaryReads.delete(containerId);
+      if (pendingRead.reloadAfter) {
+        state.cache.hydratedContainerIds.delete(containerId);
+        loadContainerSummaries(state, containerId);
+      }
+    });
 
-  state.summaryLoadByContainerId.set(containerId, loadPromise);
+  state.pendingSummaryReads.set(containerId, pendingRead);
 }
 
 function refreshContainerSummaries(
@@ -177,15 +183,14 @@ function refreshContainerSummaries(
   discardPendingRead = false,
 ): void {
   state.cache.hydratedContainerIds.delete(containerId);
-  if (state.summaryLoadByContainerId.has(containerId)) {
+  const pendingRead = state.pendingSummaryReads.get(containerId);
+  if (pendingRead) {
     // Publish ordinary reads before the trailing refresh so autosaves cannot
     // starve first paint. Deletion and reconciliation must reject older rows.
-    state.summaryReloadNeeded.add(containerId);
-    if (discardPendingRead) {
-      state.summaryReadsToDiscard.add(containerId);
-    }
+    pendingRead.reloadAfter = true;
+    pendingRead.discardResult ||= discardPendingRead;
   } else {
-    loadActiveContainerSummaries(state, containerId);
+    loadContainerSummaries(state, containerId);
   }
 }
 
@@ -193,7 +198,7 @@ function refreshPersistedDocument(
   state: LocalProjectionStoreState,
   document: DocumentSummary,
 ): void {
-  const containerIds = new Set(state.summaryLoadByContainerId.keys());
+  const containerIds = new Set(state.pendingSummaryReads.keys());
   if (
     state.activeContainerId &&
     state.activeContainerId === document.containerId
@@ -224,16 +229,9 @@ function markHydratedIfReady(state: LocalProjectionStoreState): boolean {
 
   state.hydratedContainerSummaries = true;
   if (state.activeContainerId) {
-    loadActiveContainerSummaries(state, state.activeContainerId);
+    loadContainerSummaries(state, state.activeContainerId);
   }
   return true;
-}
-
-function notifyHydrated(state: LocalProjectionStoreState): void {
-  notifyReconcile(state, {
-    reason: "hydrated",
-    activeContainerId: state.activeContainerId,
-  });
 }
 
 function flushPendingPrerequisitesRegained(
@@ -251,6 +249,26 @@ function flushPendingPrerequisitesRegained(
     reason: "prerequisites-regained",
     activeContainerId: state.activeContainerId,
   });
+}
+
+function publishHydration(state: LocalProjectionStoreState): boolean {
+  const didMarkHydrated = markHydratedIfReady(state);
+  emit(state);
+  if (didMarkHydrated) {
+    notifyReconcile(state, {
+      reason: "hydrated",
+      activeContainerId: state.activeContainerId,
+    });
+  }
+  // Backfills read getSnapshot(), so publish the tree before requesting them.
+  flushPendingPrerequisitesRegained(state);
+  return didMarkHydrated;
+}
+
+function resetProjection(state: LocalProjectionStoreState): void {
+  resetSummaryCache(state.cache);
+  state.pendingSummaryReads.clear();
+  state.hydratedContainerSummaries = false;
 }
 
 function hasRemoteBackedContainerMembershipGrowth(
@@ -299,7 +317,7 @@ function removePersistedDocumentFromCache(
 ): void {
   // The deleted row may exist only in an in-flight first read, so invalidating
   // just containers that already cached it would allow it to reappear offline.
-  for (const containerId of state.summaryLoadByContainerId.keys()) {
+  for (const containerId of state.pendingSummaryReads.keys()) {
     refreshContainerSummaries(state, containerId, true);
   }
   if (removeDocumentSummary(state.cache, localId)) {
@@ -317,11 +335,7 @@ function updateLocalProjectionRuntime(
     runtime.infra.execSql !== previousRuntime.infra.execSql ||
     runtime.state.domainScope !== previousRuntime.state.domainScope
   ) {
-    resetSummaryCache(state.cache);
-    state.summaryLoadByContainerId.clear();
-    state.summaryReadsToDiscard.clear();
-    state.summaryReloadNeeded.clear();
-    state.hydratedContainerSummaries = false;
+    resetProjection(state);
   }
   state.containerStore.updateRuntime(runtime);
 
@@ -333,24 +347,14 @@ function updateLocalProjectionRuntime(
   }
 
   if (runtime.infra.dbStatus !== "ready") {
-    resetSummaryCache(state.cache);
-    state.summaryLoadByContainerId.clear();
-    state.summaryReadsToDiscard.clear();
-    state.summaryReloadNeeded.clear();
-    state.hydratedContainerSummaries = false;
+    resetProjection(state);
     emit(state);
     return;
   }
 
   // Reload the active container's summaries when the local store becomes
   // ready (e.g. first DB attach) so first paint reflects cached contents.
-  const didMarkHydrated = markHydratedIfReady(state);
-  emit(state);
-  if (didMarkHydrated) {
-    notifyHydrated(state);
-  }
-  // After emit, so triggered backfills read the refreshed snapshot.
-  flushPendingPrerequisitesRegained(state);
+  publishHydration(state);
 }
 
 export function createLocalProjectionStore(input: {
@@ -367,9 +371,7 @@ export function createLocalProjectionStore(input: {
     reconcileListeners: new Set(),
     runtime: input.runtime,
     snapshot: EMPTY_SNAPSHOT,
-    summaryLoadByContainerId: new Map(),
-    summaryReadsToDiscard: new Set(),
-    summaryReloadNeeded: new Set(),
+    pendingSummaryReads: new Map(),
   };
   state.snapshot = computeSnapshot(state);
 
@@ -377,15 +379,7 @@ export function createLocalProjectionStore(input: {
   // hydration). This keeps the merged snapshot in step with the tree store.
   input.containerStore.subscribe(() => {
     const previousContainers = state.snapshot.containers;
-    const didMarkHydrated = markHydratedIfReady(state);
-    emit(state);
-    if (didMarkHydrated) {
-      notifyHydrated(state);
-    }
-    // Flush only after emit has recomputed the snapshot: the backfill the
-    // signal triggers enumerates known containers from getSnapshot(), so
-    // flushing earlier would run it over the stale pre-hydration list.
-    flushPendingPrerequisitesRegained(state);
+    const didMarkHydrated = publishHydration(state);
     // Authentication can schedule the initial idle backfill before the
     // asynchronous remote tree crawl discovers this identity's real root and
     // system children. Re-arm backfill after those remotely-listable ids become
@@ -430,7 +424,7 @@ export function createLocalProjectionStore(input: {
     },
     getActiveContainerId: () => state.activeContainerId,
     applyReconciled: (delta) => {
-      if (state.summaryLoadByContainerId.has(delta.containerId)) {
+      if (state.pendingSummaryReads.has(delta.containerId)) {
         refreshContainerSummaries(state, delta.containerId, true);
       }
       if (applyContainerSummaries(state.cache, delta)) {

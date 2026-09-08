@@ -1,5 +1,4 @@
 import {
-  type ContainerMetadataPatch,
   installContainerMetadataRecord,
   persistContainerMetadataStateFromRuntime,
 } from "../../workflows/container-contents/metadata";
@@ -9,58 +8,53 @@ import { updateContainerContentsSnapshot } from "./state";
 import type { ContainerState } from "./syncAgent";
 import type { ContainerContentsStoreState } from "./types";
 
-type PersistContainerSaveOptions = Parameters<
+type MetadataPersistenceInput = Parameters<
   typeof persistContainerMetadataStateFromRuntime
->[0]["saveOptions"];
-type LocalContainerMetadataMutation = Pick<
-  Parameters<typeof persistContainerMetadataStateFromRuntime>[0],
-  "localMetadataPatch" | "localUpdate"
->;
-type ContainerMetadataMutationOptions = Pick<
-  Parameters<typeof persistContainerMetadataStateFromRuntime>[0],
-  "preserveDurableStructureWhenPending"
->;
-type ContainerStateMutationOptions = ContainerMetadataMutationOptions & {
-  createIntentSettlement?: Parameters<
-    typeof persistContainerMetadataStateFromRuntime
-  >[0]["createIntentSettlement"];
-  moveIntentSettlement?: Parameters<
-    typeof persistContainerMetadataStateFromRuntime
-  >[0]["moveIntentSettlement"];
+>[0];
+
+interface PersistContainerStateOptions
+  extends Pick<
+    MetadataPersistenceInput,
+    | "patch"
+    | "saveOptions"
+    | "localMetadataPatch"
+    | "localUpdate"
+    | "createIntentSettlement"
+    | "moveIntentSettlement"
+    | "preserveDurableStructureWhenPending"
+  > {
   expectedStateWhenMissing?: ContainerState | undefined;
   isCurrent?: (() => boolean) | undefined;
-};
+  updateView?: boolean | undefined;
+}
 
 export async function persistContainerState(
   state: ContainerContentsStoreState,
   containerState: ContainerState,
-  patch: Partial<ContainerMetadataPatch> = {},
-  updateView = true,
-  saveOptions?: PersistContainerSaveOptions,
-  localMutation?: LocalContainerMetadataMutation,
-  mutationOptions?: ContainerStateMutationOptions,
+  options: PersistContainerStateOptions = {},
 ): Promise<PersistContainerStateResult> {
+  const { expectedStateWhenMissing, isCurrent, updateView = true } = options;
   const persisted = await persistContainerMetadataStateFromRuntime({
     metadataState: containerState,
-    localMetadataPatch: localMutation?.localMetadataPatch,
-    localUpdate: localMutation?.localUpdate,
-    patch,
+    localMetadataPatch: options.localMetadataPatch,
+    localUpdate: options.localUpdate,
+    patch: options.patch ?? {},
     persistence: state.persistence,
-    createIntentSettlement: mutationOptions?.createIntentSettlement,
-    moveIntentSettlement: mutationOptions?.moveIntentSettlement,
+    createIntentSettlement: options.createIntentSettlement,
+    moveIntentSettlement: options.moveIntentSettlement,
     preserveDurableStructureWhenPending:
-      mutationOptions?.preserveDurableStructureWhenPending,
+      options.preserveDurableStructureWhenPending,
     runtime: state.runtime,
-    saveOptions,
-    stillCurrent: mutationOptions?.isCurrent,
+    saveOptions: options.saveOptions,
+    stillCurrent: isCurrent,
   });
-  if (mutationOptions?.isCurrent?.() === false) {
+  if (isCurrent?.() === false) {
     return { status: "stale-generation" };
   }
   if (!persisted) {
     removeMissingContainerState(
       state,
-      mutationOptions?.expectedStateWhenMissing ?? containerState,
+      expectedStateWhenMissing ?? containerState,
     );
     return { status: "missing" };
   }

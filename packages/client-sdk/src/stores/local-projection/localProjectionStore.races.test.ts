@@ -213,6 +213,72 @@ test("replacing a ready database adapter reloads cached summaries without requir
   }
 });
 
+test("an old database read cannot publish or clear a replacement database's pending refresh", async () => {
+  const first = await createTestExecSql("projection-old-pending-read");
+  const second = await createTestExecSql("projection-new-pending-read");
+  const reads: Array<{ release: () => void; settled: boolean }> = [];
+  const holdSummaryReads = (execSql: ExecSql) =>
+    new Proxy(execSql, {
+      apply: async (target, _receiver, args: Parameters<ExecSql>) => {
+        const rows = await target(...args);
+        if (
+          args[0].startsWith("select") &&
+          args[0].includes('from "document_projection"')
+        ) {
+          const read = { release: () => {}, settled: false };
+          await new Promise<void>((resolve) => {
+            read.release = resolve;
+            reads.push(read);
+          });
+          read.settled = true;
+        }
+        return rows;
+      },
+    });
+
+  try {
+    await seed(first.execSql, "Old database");
+    await seed(second.execSql, "Replacement database");
+    const { runtime, view } = createView(holdSummaryReads(first.execSql));
+    const title = () =>
+      view.getSnapshot().documentSummariesByContainerId.get("root")?.[0]?.title;
+    const publishedTitles: Array<string | undefined> = [];
+    view.subscribe(() => publishedTitles.push(title()));
+    view.setActiveContainer("root");
+    await waitFor(() => reads.length === 1, "Old database read was not held");
+
+    view.updateRuntime({
+      ...runtime,
+      infra: { ...runtime.infra, execSql: holdSummaryReads(second.execSql) },
+    });
+    await waitFor(() => reads.length === 2, "Replacement read was not held");
+    reads[0]?.release();
+    await waitFor(() => reads[0]?.settled === true, "Old read did not settle");
+
+    await seed(second.execSql, "Saved during replacement read");
+    view.refreshPersistedDocument({
+      id: "note",
+      containerId: "root",
+      documentId: null,
+      title: "Saved during replacement read",
+      updatedAt: "2026-09-08T00:00:00.000Z",
+    });
+    reads[1]?.release();
+    await waitFor(() => reads.length === 3, "Trailing refresh did not start");
+    expect(title()).toBe("Replacement database");
+    reads[2]?.release();
+    await waitFor(
+      () => title() === "Saved during replacement read",
+      "Trailing refresh did not publish the saved document",
+    );
+    expect(publishedTitles).not.toContain("Old database");
+  } finally {
+    for (const read of reads) read.release();
+    first.close();
+    second.close();
+  }
+});
+
 test("link and access-only changes publish a new local projection snapshot", async () => {
   const db = await createTestExecSql("projection-link-and-access-delta");
   try {
