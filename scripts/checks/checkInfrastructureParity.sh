@@ -43,7 +43,7 @@ assert_api_deploy_ordering() {
   local start_line
   local maintenance_verify_line
 
-  verify_line="$(awk 'index($0, "test -x") { print NR; exit }' "$deploy_file")"
+  verify_line="$(awk 'index($0, "test -x \"$remote_stage_path/tearleads-api\"") { print NR; exit }' "$deploy_file")"
   stop_line="$(awk 'index($0, "systemctl stop tearleads-api") { print NR; exit }' "$deploy_file")"
   install_line="$(awk 'index($0, "mv -f") { print NR; exit }' "$deploy_file")"
   migration_line="$(awk 'index($0, "tearleads-api-cli migrate") { print NR; exit }' "$deploy_file")"

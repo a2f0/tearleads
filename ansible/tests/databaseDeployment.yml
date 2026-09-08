@@ -7,6 +7,7 @@
     runtime_task: "{{ server_tasks | selectattr('name', 'equalto', 'Deploy API environment file') | first }}"
     migration_task: "{{ server_tasks | selectattr('name', 'equalto', 'Deploy migration environment file') | first }}"
     guard_task: "{{ server_tasks | selectattr('name', 'equalto', 'Validate managed PostgreSQL connection') | first }}"
+    cutover_task: "{{ server_tasks | selectattr('name', 'equalto', 'Guard managed PostgreSQL cutover before configuring the host') | first }}"
     local_postgres_task: "{{ server_tasks | selectattr('name', 'equalto', 'Configure local PostgreSQL') | first }}"
     config_directory_task: "{{ server_tasks | selectattr('name', 'equalto', 'Create root-owned configuration directory') | first }}"
   tasks:
@@ -43,6 +44,14 @@
         that:
           - guard_task['ansible.builtin.import_tasks'] == 'tasks/managedPostgres.yml'
           - guard_task.when == 'postgres_managed | bool'
+
+    - name: Guard a local database cutover before any host configuration
+      ansible.builtin.assert:
+        that:
+          - cutover_task['ansible.builtin.import_tasks'] == 'tasks/managedPostgresCutover.yml'
+          - cutover_task.when == 'postgres_managed | bool'
+          - server_tasks[0] == guard_task
+          - server_tasks[1] == cutover_task
 
     - name: Install local PostgreSQL only for unmanaged connections
       ansible.builtin.assert:

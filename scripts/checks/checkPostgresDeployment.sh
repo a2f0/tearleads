@@ -14,6 +14,8 @@ if ! ansible-playbook -i localhost, --connection local \
   exit 1
 fi
 
+bash "$REPO_ROOT/scripts/checks/checkManagedPostgresCutover.sh"
+
 require_setting() {
   if ! grep -q "$2" "$1"; then
     echo "ERROR: $(basename "$1") is missing $2" >&2

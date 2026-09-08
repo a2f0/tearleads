@@ -121,6 +121,10 @@
       ansible.builtin.import_tasks: tasks/managedPostgres.yml
       when: postgres_managed | bool
 
+    - name: Guard managed PostgreSQL cutover before configuring the host
+      ansible.builtin.import_tasks: tasks/managedPostgresCutover.yml
+      when: postgres_managed | bool
+
     - name: Validate extra demo zone names
       ansible.builtin.import_tasks: tasks/demoZones.yml
 

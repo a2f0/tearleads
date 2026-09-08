@@ -1,0 +1,14 @@
+---
+- name: Inspect local PostgreSQL data before managed database configuration
+  ansible.builtin.stat:
+    path: /var/lib/postgresql
+  register: local_postgres_data
+
+- name: Require an explicit cutover for a host with local PostgreSQL data
+  ansible.builtin.assert:
+    that: not local_postgres_data.stat.exists
+    fail_msg: >-
+      Local PostgreSQL data exists. Stop writers and local PostgreSQL, back up
+      and restore the data into PlanetScale, and validate the restored database.
+      Retain the backup and move /var/lib/postgresql aside before retrying.
+      See terraform/stacks/prod/postgres/README.md for the cutover procedure.
