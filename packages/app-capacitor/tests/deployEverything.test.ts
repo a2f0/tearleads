@@ -21,6 +21,7 @@ const commonScript = resolve(
 );
 
 const commandPaths = [
+  "terraform/scripts/prepare-storage.sh",
   "terraform/stacks/staging/server/scripts/apply.sh",
   "terraform/stacks/prod/server/scripts/apply.sh",
   "scripts/uploadIosStagingRelease.sh",
@@ -143,6 +144,7 @@ async function runHarness(
     "#!/bin/sh",
     'name="$(basename "$0")"',
     'case "$0" in',
+    '  */prepare-storage.sh) case "$1" in staging) name=storage-staging ;; prod) name=storage-production ;; esac ;;',
     '  */terraform/stacks/staging/*) name="terraform-staging" ;;',
     '  */terraform/stacks/prod/*) name="terraform-production" ;;',
     "esac",
@@ -206,10 +208,12 @@ test("runs every release in promotion order from the repository root", async () 
   const run = await runHarness();
   expect(run.exitCode, run.stderr).toBe(0);
   expect(run.calls.map((call) => call.split("|").slice(0, 2))).toEqual([
+    ["storage-staging", ""],
     ["terraform-staging", ""],
     ["deployStaging.sh", "staging-user@staging-host"],
     ["uploadIosStagingRelease.sh", ""],
     ["uploadAndroidStagingRelease.sh", ""],
+    ["storage-production", ""],
     ["terraform-production", ""],
     ["deployProduction.sh", "prod-user@prod-host"],
     ["uploadIosRelease.sh", ""],
@@ -225,6 +229,7 @@ test("stops at the first failing release command", async () => {
   const run = await runHarness({ failAt: "uploadAndroidStagingRelease.sh" });
   expect(run.exitCode).toBe(23);
   expect(run.calls.map((call) => call.split("|")[0])).toEqual([
+    "storage-staging",
     "terraform-staging",
     "deployStaging.sh",
     "uploadIosStagingRelease.sh",

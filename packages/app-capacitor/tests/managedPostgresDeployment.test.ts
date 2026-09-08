@@ -7,6 +7,7 @@ async function runAnsibleWrapper(
   tier: string,
   missingDatabase = false,
   extraArgs: readonly string[] = [],
+  missingStorage = false,
 ) {
   const root = await mkdtemp(resolve(tmpdir(), "tearleads-managed-postgres-"));
   const bin = resolve(root, "bin");
@@ -52,13 +53,27 @@ async function runAnsibleWrapper(
       ].join("\n"),
     );
     await executable(
+      resolve(root, "terraform/scripts/run-storage-stack.sh"),
+      [
+        "#!/bin/sh",
+        'if [ "$STORAGE_TEST_MISSING" = true ]; then exit 8; fi',
+        'printf \'{"blob_s3_bucket":"tearleads-%s","blob_s3_secret_access_key":"fixture-storage-secret"}\\n\' "$1"',
+      ].join("\n"),
+    );
+    await executable(
       resolve(bin, "ansible-playbook"),
       [
         `#!${process.execPath}`,
         'import { statSync } from "node:fs";',
-        'const path = process.argv.find((arg) => arg.startsWith("@"))?.slice(1);',
+        'const paths = process.argv.filter((arg) => arg.startsWith("@")).map((arg) => arg.slice(1));',
+        "const path = paths.find((path) => path.endsWith('/postgres.json'));",
+        "const storagePath = paths.find((path) => path.endsWith('/storage.json'));",
+        "if (!storagePath) throw new Error('Missing storage extra-vars file');",
         "await Bun.write(process.env.POSTGRES_TEST_CAPTURE, JSON.stringify({",
         "  args: process.argv.slice(2),",
+        "  storagePath,",
+        "  storageMode: statSync(storagePath).mode & 0o777,",
+        "  storage: await Bun.file(storagePath).json(),",
         "  path: path ?? null,",
         "  mode: path ? statSync(path).mode & 0o777 : null,",
         "  connection: path ? await Bun.file(path).json() : null,",
@@ -73,6 +88,7 @@ async function runAnsibleWrapper(
         POSTGRES_TEST_CALLS: calls,
         POSTGRES_TEST_CAPTURE: capture,
         POSTGRES_TEST_MISSING: String(missingDatabase),
+        STORAGE_TEST_MISSING: String(missingStorage),
       },
       stdout: "pipe",
       stderr: "pipe",
@@ -93,6 +109,9 @@ async function runAnsibleWrapper(
       connectionFileRemains: captured?.path
         ? await Bun.file(captured.path).exists()
         : false,
+      storageFileRemains: captured?.storagePath
+        ? await Bun.file(captured.storagePath).exists()
+        : false,
       calls: (await Bun.file(calls).exists())
         ? (await Bun.file(calls).text()).trim().split("\n")
         : [],
@@ -110,7 +129,7 @@ test("production passes persistent credentials in a private temporary file", asy
   expect(result.exitCode, result.stderr).toBe(0);
   expect(result.calls).toEqual(["output", "-json", "api_connection"]);
   expect(result.captured.mode).toBe(0o600);
-  expect(result.captured.args.slice(-2)).toEqual([
+  expect(result.captured.args.slice(-4, -2)).toEqual([
     "-e",
     `@${result.captured.path}`,
   ]);
@@ -120,6 +139,14 @@ test("production passes persistent credentials in a private temporary file", asy
     postgres_ssl: true,
   });
   expect(result.connectionFileRemains).toBe(false);
+  expect(result.storageFileRemains).toBe(false);
+  expect(result.captured.storageMode).toBe(0o600);
+  expect(result.captured.args.slice(-2)).toEqual([
+    "-e",
+    `@${result.captured.storagePath}`,
+  ]);
+  expect(result.captured.storage.blob_s3_bucket).toBe("tearleads-prod");
+  expect(result.stdout + result.stderr).not.toContain("fixture-storage-secret");
   expect(result.stdout + result.stderr).not.toContain("fixture-password");
 });
 
@@ -134,4 +161,14 @@ test("staging configures its local database without consulting PlanetScale", asy
   expect(result.exitCode, result.stderr).toBe(0);
   expect(result.calls).toEqual([]);
   expect(result.captured.connection).toBeNull();
+  expect(result.captured.storage.blob_s3_bucket).toBe("tearleads-staging");
+  expect(result.storageFileRemains).toBe(false);
 });
+
+for (const tier of ["prod", "staging"]) {
+  test(`${tier} refuses to run Ansible without its S3 credentials`, async () => {
+    const result = await runAnsibleWrapper(tier, false, [], true);
+    expect(result.exitCode).toBe(8);
+    expect(result.captured).toBeNull();
+  });
+}

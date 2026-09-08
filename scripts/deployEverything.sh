@@ -302,6 +302,7 @@ print_timing_summary() {
 echo "=== Tearleads Everything Deployment ==="
 echo ""
 
+run_step "storage-staging" "$REPO_ROOT/terraform/scripts/prepare-storage.sh" staging
 run_step "terraform-staging" \
   "$REPO_ROOT/terraform/stacks/staging/server/scripts/apply.sh" --auto-approve
 STAGING_EFFECTIVE_SSH_TARGET="$(
@@ -317,6 +318,7 @@ run_tier_step "deploy-staging" staging "$STAGING_EFFECTIVE_SSH_TARGET" \
 run_step "ios-staging" "$SCRIPT_DIR/uploadIosStagingRelease.sh"
 run_step "android-staging" "$SCRIPT_DIR/uploadAndroidStagingRelease.sh"
 
+run_step "storage-production" "$REPO_ROOT/terraform/scripts/prepare-storage.sh" prod
 run_step "terraform-production" \
   "$REPO_ROOT/terraform/stacks/prod/server/scripts/apply.sh" --auto-approve
 PRODUCTION_EFFECTIVE_SSH_TARGET="$(

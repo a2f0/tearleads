@@ -110,3 +110,18 @@
   changed_when: false
   failed_when: garage_status.rc != 0
   when: garage_enabled | bool
+
+- name: Inspect previously managed Garage service
+  ansible.builtin.stat:
+    path: /etc/systemd/system/garage.service
+  register: garage_service_file
+  when: not garage_enabled | bool
+
+- name: Stop and disable Garage after moving blob storage
+  ansible.builtin.systemd:
+    name: garage
+    enabled: false
+    state: stopped
+  when:
+    - not garage_enabled | bool
+    - garage_service_file.stat.exists | default(false)

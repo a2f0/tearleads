@@ -1,0 +1,24 @@
+---
+- name: Inspect local Garage data before managed S3 configuration
+  ansible.builtin.stat:
+    path: /var/lib/garage/data
+  register: local_garage_data
+
+- name: Inspect the acknowledgement for this bucket and region
+  ansible.builtin.stat:
+    path: /etc/tearleads/garage-migrated-to-{{ blob_s3_bucket }}-{{ blob_s3_region }}
+  register: garage_cutover_marker
+  when: local_garage_data.stat.exists
+
+- name: Require a verified cutover for a host with local Garage data
+  ansible.builtin.assert:
+    that:
+      - >-
+        not local_garage_data.stat.exists or
+        (garage_cutover_marker.stat.isreg | default(false))
+    fail_msg: >-
+      Local Garage data requires an explicit migration. Stop API and maintenance
+      writers, copy the objects to S3, and verify their keys and SHA-256 checksums.
+      Then create /etc/tearleads/garage-migrated-to-{{ blob_s3_bucket }}-{{ blob_s3_region }}
+      to acknowledge the verified copy before retrying. Retain the original data.
+      See terraform/modules/s3-blob-storage/README.md for the cutover procedure.
