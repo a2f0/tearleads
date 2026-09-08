@@ -2,15 +2,15 @@
 # Full staging deployment for Tearleads
 #
 # Runs in order:
-#   1. Prepare independent S3 storage (create staging; require existing production)
+#   1. Prepare the environment's independent S3 storage
 #   2. terraform apply (staging server stack)
 #   3. ansible playbook (server configuration)
 #   4. API deploy (executable deploy, migrations, service restart)
 #   5. Website deploy (build, rsync to /var/www, nginx reload)
 #   6. App-web deploy (build app + demo bundles, sync, nginx reload)
 #
-# Pass --skip-terraform when a caller already prepared storage and applied the server stack, or --skip-infra
-# to skip both terraform and ansible and deploy only the application artifacts.
+# Pass --skip-terraform when a caller already prepared storage and applied the
+# server stack, or --skip-infra to deploy only the application artifacts.
 
 set -euo pipefail
 

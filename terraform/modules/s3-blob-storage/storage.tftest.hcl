@@ -14,7 +14,45 @@ run "application_permissions_and_connection" {
 
   assert {
     condition = (
+      aws_s3_bucket_public_access_block.blobs.bucket == var.bucket.id &&
+      aws_s3_bucket_public_access_block.blobs.block_public_acls &&
+      aws_s3_bucket_public_access_block.blobs.block_public_policy &&
+      aws_s3_bucket_public_access_block.blobs.ignore_public_acls &&
+      aws_s3_bucket_public_access_block.blobs.restrict_public_buckets &&
+      aws_s3_bucket_ownership_controls.blobs.bucket == var.bucket.id &&
+      one(aws_s3_bucket_ownership_controls.blobs.rule).object_ownership == "BucketOwnerEnforced" &&
+      aws_s3_bucket_server_side_encryption_configuration.blobs.bucket == var.bucket.id &&
+      one(one(aws_s3_bucket_server_side_encryption_configuration.blobs.rule).apply_server_side_encryption_by_default).sse_algorithm == "AES256"
+    )
+    error_message = "The blob bucket must block all public access, disable ACLs, and encrypt stored objects."
+  }
+
+  assert {
+    condition = (
+      aws_s3_bucket_policy.tls.bucket == var.bucket.id &&
+      jsondecode(aws_s3_bucket_policy.tls.policy) == jsondecode(jsonencode({
+        Version = "2012-10-17"
+        Statement = [{
+          Sid       = "RequireTLS"
+          Effect    = "Deny"
+          Principal = "*"
+          Action    = "s3:*"
+          Resource  = [var.bucket.arn, "${var.bucket.arn}/*"]
+          Condition = { Bool = { "aws:SecureTransport" = "false" } }
+        }]
+      }))
+    )
+    error_message = "The bucket policy must deny all non-TLS operations for every principal."
+  }
+
+  assert {
+    condition = (
+      aws_iam_user.api.name == var.iam_user_name &&
+      aws_iam_access_key.api.user == aws_iam_user.api.name &&
+      aws_iam_user_policy.blobs.user == aws_iam_user.api.name &&
       length(jsondecode(aws_iam_user_policy.blobs.policy).Statement) == 2 &&
+      jsondecode(aws_iam_user_policy.blobs.policy).Statement[0].Effect == "Allow" &&
+      jsondecode(aws_iam_user_policy.blobs.policy).Statement[1].Effect == "Allow" &&
       jsondecode(aws_iam_user_policy.blobs.policy).Statement[0].Resource == var.bucket.arn &&
       jsondecode(aws_iam_user_policy.blobs.policy).Statement[1].Resource == "${var.bucket.arn}/*" &&
       toset(jsondecode(aws_iam_user_policy.blobs.policy).Statement[0].Action) == toset([

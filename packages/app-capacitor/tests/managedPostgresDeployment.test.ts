@@ -68,6 +68,7 @@ async function runAnsibleWrapper(
         'const paths = process.argv.filter((arg) => arg.startsWith("@")).map((arg) => arg.slice(1));',
         "const path = paths.find((path) => path.endsWith('/postgres.json'));",
         "const storagePath = paths.find((path) => path.endsWith('/storage.json'));",
+        "if (!storagePath) throw new Error('Missing storage extra-vars file');",
         "await Bun.write(process.env.POSTGRES_TEST_CAPTURE, JSON.stringify({",
         "  args: process.argv.slice(2),",
         "  storagePath,",

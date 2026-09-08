@@ -65,6 +65,9 @@ scripts/destroyStaging.sh --auto-approve
 This first destroys the server, then Terraform empties and deletes staging's
 bucket and removes its IAM credentials. If server teardown fails, storage is
 retained. A later `scripts/deployStaging.sh` creates a fresh bucket and key.
+The full teardown accepts only the approval flag; partial Terraform operations
+must use the individual stack wrappers so they cannot accidentally delete storage
+while the server still runs.
 To rebuild only the staging server while retaining objects, use
 `terraform/stacks/staging/server/scripts/destroy.sh` instead. The storage stack
 can also be managed explicitly with `run-storage-stack.sh staging`.
@@ -80,6 +83,12 @@ Then run the tier deployment, which installs the S3 credentials and disables
 Garage without deleting its files. Verify application uploads, reads, deletion,
 and multipart aborts before retiring the old data. Switching back after new S3
 writes requires reconciling those writes first.
+
+Garage's installation tasks remain available for a deliberate rollback. Run
+`ansible-playbook` directly with the tier's inventory and normal database/secret
+variables, setting `blob_storage_managed=false`, `garage_enabled=true`, and the
+original Garage `blob_s3_*` connection values in a private extra-vars file.
+The standard server wrapper always installs the managed S3 configuration.
 
 For credential rotation, create a second IAM access key alongside the existing
 one, point `api_storage` at it, apply the storage stack, rerun tier Ansible, and

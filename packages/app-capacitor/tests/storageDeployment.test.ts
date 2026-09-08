@@ -22,13 +22,27 @@ async function runStorageScript(
       resolve(root, "bin/git"),
       '#!/bin/sh\nprintf "%s\\n" "$STORAGE_TEST_ROOT"\n',
     );
+    if (scriptPath !== "terraform/scripts/run-storage-stack.sh") {
+      await executable(
+        resolve(root, "terraform/scripts/run-storage-stack.sh"),
+        [
+          "#!/bin/sh",
+          'printf "storage %s\\n" "$*" >> "$STORAGE_TEST_LOG"',
+          '[ "$STORAGE_TEST_FAILURE" != storage ] || exit 8',
+        ].join("\n"),
+      );
+    }
     await executable(
-      resolve(root, "terraform/scripts/run-storage-stack.sh"),
+      resolve(root, "terraform/scripts/common.sh"),
       [
-        "#!/bin/sh",
-        'printf "storage %s\\n" "$*" >> "$STORAGE_TEST_LOG"',
-        '[ "$STORAGE_TEST_FAILURE" != storage ] || exit 8',
+        'load_secrets_env() { echo secrets >> "$STORAGE_TEST_LOG"; }',
+        "validate_aws_env() { :; }",
+        "get_backend_config() { echo /dev/null; }",
       ].join("\n"),
+    );
+    await executable(
+      resolve(root, "bin/terraform"),
+      '#!/bin/sh\nprintf "terraform %s\\n" "$*" >> "$STORAGE_TEST_LOG"\n',
     );
     await executable(
       resolve(root, "terraform/stacks/staging/server/scripts/destroy.sh"),
@@ -109,3 +123,28 @@ test("failed server teardown retains staging storage", async () => {
   expect(result.exitCode).toBe(9);
   expect(result.calls).toEqual(["server --auto-approve"]);
 });
+
+for (const args of [
+  ["prod", "destroy"],
+  ["unknown", "apply"],
+]) {
+  test(`storage wrapper rejects ${args.join(" ")} before loading credentials`, async () => {
+    const result = await runStorageScript(
+      "terraform/scripts/run-storage-stack.sh",
+      args,
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Usage:");
+    expect(result.calls).toEqual([]);
+  });
+}
+
+for (const argument of ["-target=module.server", "-var-file=server.tfvars"]) {
+  test(`full staging teardown rejects ${argument} before changing infrastructure`, async () => {
+    const result = await runStorageScript("scripts/destroyStaging.sh", [
+      argument,
+    ]);
+    expect(result.exitCode).toBe(1);
+    expect(result.calls).toEqual([]);
+  });
+}
