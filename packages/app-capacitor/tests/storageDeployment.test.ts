@@ -103,6 +103,18 @@ test("staging deployment provisions disposable storage", async () => {
   expect(result.calls).toEqual(["storage staging apply -auto-approve"]);
 });
 
+for (const args of [[], ["unknown"]]) {
+  test(`storage preparation rejects ${args.join(" ")} before changing infrastructure`, async () => {
+    const result = await runStorageScript(
+      "terraform/scripts/prepare-storage.sh",
+      args,
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Usage:");
+    expect(result.calls).toEqual([]);
+  });
+}
+
 test("staging teardown removes its server before emptying storage", async () => {
   const result = await runStorageScript("scripts/destroyStaging.sh", [
     "--auto-approve",

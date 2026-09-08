@@ -10,6 +10,9 @@
     cutover_task: "{{ server_tasks | selectattr('name', 'equalto', 'Guard managed PostgreSQL cutover before configuring the host') | first }}"
     storage_guard_task: "{{ server_tasks | selectattr('name', 'equalto', 'Validate managed S3 blob storage') | first }}"
     storage_tasks: "{{ lookup('file', playbook_dir ~ '/../playbooks/tasks/managedS3.yml') | from_yaml }}"
+    garage_tasks: "{{ lookup('file', playbook_dir ~ '/../playbooks/tasks/garage.yml') | from_yaml }}"
+    garage_probe: "{{ garage_tasks | selectattr('name', 'equalto', 'Inspect previously managed Garage service') | first }}"
+    garage_stop: "{{ garage_tasks | selectattr('name', 'equalto', 'Stop and disable Garage after moving blob storage') | first }}"
     local_postgres_task: "{{ server_tasks | selectattr('name', 'equalto', 'Configure local PostgreSQL') | first }}"
     config_directory_task: "{{ server_tasks | selectattr('name', 'equalto', 'Create root-owned configuration directory') | first }}"
   tasks:
@@ -68,3 +71,23 @@
           - storage_guard_task['ansible.builtin.import_tasks'] == 'tasks/managedS3.yml'
           - storage_guard_task.when == 'blob_storage_managed | bool'
           - storage_tasks[-1]['ansible.builtin.import_tasks'] == 'managedS3Cutover.yml'
+
+    - name: Disable an existing Garage service only when Garage is disabled
+      ansible.builtin.assert:
+        that:
+          - garage_probe['ansible.builtin.stat'].path == '/etc/systemd/system/garage.service'
+          - garage_probe.register == 'garage_service_file'
+          - garage_probe.when == 'not garage_enabled | bool'
+          - garage_stop['ansible.builtin.systemd'].name == 'garage'
+          - not garage_stop['ansible.builtin.systemd'].enabled
+          - garage_stop['ansible.builtin.systemd'].state == 'stopped'
+          - garage_stop.when == ['not garage_enabled | bool', 'garage_service_file.stat.exists | default(false)']
+          - garage_tasks.index(garage_probe) < garage_tasks.index(garage_stop)
+
+    - name: Retain Garage files during configuration and cutover
+      ansible.builtin.assert:
+        that:
+          - (item['ansible.builtin.file'] | default({})).state | default('') != 'absent'
+      loop: "{{ garage_tasks }}"
+      loop_control:
+        label: "{{ item.name }}"

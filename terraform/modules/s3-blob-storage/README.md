@@ -62,6 +62,11 @@ the storage wrapper also rejects `prod destroy`. Keep its configuration and
 state when rebuilding servers. These protections prevent accidental Terraform
 deletion, but do not prevent authorized application object deletion.
 
+Object versioning is disabled, preserving the application's current permanent
+deletion behavior. Deleted or overwritten blobs cannot be recovered from S3.
+The independent stack provides persistence across server rebuilds; object backup
+and recovery would require a separate retention policy.
+
 Staging uses `force_destroy = true`. To dispose of the entire staging environment:
 
 ```sh
