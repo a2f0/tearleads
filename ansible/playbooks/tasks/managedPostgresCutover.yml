@@ -1,0 +1,27 @@
+---
+- name: Inspect local PostgreSQL data before managed database configuration
+  ansible.builtin.stat:
+    path: /var/lib/postgresql
+  register: local_postgres_data
+
+- name: Find local PostgreSQL clusters across installed versions
+  ansible.builtin.find:
+    paths: /var/lib/postgresql
+    patterns: PG_VERSION
+    recurse: true
+    depth: 3
+    follow: true
+  register: local_postgres_clusters
+  when: local_postgres_data.stat.exists
+
+- name: Require an explicit cutover for a host with local PostgreSQL data
+  ansible.builtin.assert:
+    that:
+      - local_postgres_clusters.matched | default(0) == 0
+      - local_postgres_clusters.skipped_paths | default({}) | length == 0
+    fail_msg: >-
+      Local PostgreSQL cluster data exists or could not be inspected. Stop
+      writers and local PostgreSQL, back up and restore the data into PlanetScale,
+      and validate the restored database. Retain the backup and move the old
+      cluster directories out of /var/lib/postgresql before retrying.
+      See terraform/stacks/prod/postgres/README.md for the cutover procedure.

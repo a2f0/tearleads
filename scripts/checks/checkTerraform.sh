@@ -54,7 +54,17 @@ run_terraform_tests() {
   echo "Running terraform tests in ${module_dir#"$TERRAFORM_DIR"/}..."
   terraform -chdir="$terraform_test_dir" init -backend=false -input=false >/dev/null || terraform_test_status=$?
   if [ "$terraform_test_status" -eq 0 ]; then
-    terraform -chdir="$terraform_test_dir" test -no-color || terraform_test_status=$?
+    if [[ "$module_dir" == "$TERRAFORM_DIR/stacks/prod/postgres" ]]; then
+      terraform -chdir="$terraform_test_dir" test -json -verbose >"$terraform_test_dir/results.jsonl" || terraform_test_status=$?
+      jq -r --argjson exit_code "$terraform_test_status" \
+        'select(.type != "test_plan" and ($exit_code != 0 or .type != "diagnostic" or .diagnostic.severity != "error")) | .["@message"]' \
+        "$terraform_test_dir/results.jsonl"
+      if [ "$terraform_test_status" -eq 0 ]; then
+        "$SCRIPT_DIR/checkPostgresOutputContract.sh" "$terraform_test_dir/results.jsonl" || terraform_test_status=$?
+      fi
+    else
+      terraform -chdir="$terraform_test_dir" test -no-color || terraform_test_status=$?
+    fi
   fi
   rm -rf -- "$terraform_test_dir"
   return "$terraform_test_status"

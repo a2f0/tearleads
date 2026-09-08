@@ -1,4 +1,24 @@
-mock_provider "planetscale" {}
+mock_provider "planetscale" {
+  override_during = plan
+  mock_resource "planetscale_postgres_branch_role" {
+    defaults = {
+      access_host_url = "fixture.pg.psdb.cloud"
+      database_name   = "postgres"
+      username        = "api.fixture-branch"
+      password        = "fixture-password"
+    }
+  }
+}
+
+override_resource {
+  target          = planetscale_postgres_branch_role.migrations
+  override_during = plan
+  values = {
+    access_host_url = "fixture.pg.psdb.cloud"
+    username        = "migration.fixture-branch"
+    password        = "fixture-migration-password"
+  }
+}
 
 override_resource {
   target = planetscale_postgres_branch.main
@@ -77,4 +97,49 @@ run "reject_missing_branch_id" {
   }
 
   expect_failures = [var.planetscale_branch_id]
+}
+
+run "api_connection_uses_persistent_branch" {
+  command = plan
+
+  assert {
+    condition = (
+      planetscale_postgres_branch_role.runtime.organization == planetscale_postgres_branch.main.organization &&
+      planetscale_postgres_branch_role.runtime.database == planetscale_postgres_branch.main.database &&
+      planetscale_postgres_branch_role.runtime.branch == planetscale_postgres_branch.main.name &&
+      planetscale_postgres_branch_role.runtime.ttl == 0 &&
+      toset(planetscale_postgres_branch_role.runtime.inherited_roles) == toset(["pg_read_all_data", "pg_write_all_data"]) &&
+      toset(planetscale_postgres_branch_role.migrations.inherited_roles) == toset(["postgres"])
+    )
+    error_message = "The API login must target the persistent branch without expiring."
+  }
+
+  assert {
+    condition = (
+      output.api_connection.postgres_managed && output.api_connection.postgres_ssl &&
+      output.api_connection.postgres_port == "6432" &&
+      output.api_connection.postgres_migration_port == "5432" &&
+      output.api_connection.postgres_host == "fixture.pg.psdb.cloud" &&
+      output.api_connection.postgres_db == "postgres" &&
+      output.api_connection.postgres_user == "api.fixture-branch" &&
+      output.api_connection.postgres_password == "fixture-password" &&
+      output.api_connection.postgres_migration_user == "migration.fixture-branch" &&
+      output.api_connection.postgres_migration_password == "fixture-migration-password"
+    )
+    error_message = "Ansible must receive TLS credentials with pooled runtime and direct migration connections."
+  }
+}
+
+run "reject_mismatched_role_hosts" {
+  command = plan
+
+  override_resource {
+    target          = planetscale_postgres_branch_role.migrations
+    override_during = plan
+    values = {
+      access_host_url = "different.pg.psdb.cloud"
+    }
+  }
+
+  expect_failures = [output.api_connection]
 }

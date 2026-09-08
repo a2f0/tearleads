@@ -1,5 +1,5 @@
 output "database" {
-  description = "Managed PlanetScale database and branch (application credentials are created separately)"
+  description = "Managed PlanetScale database and branch (credentials are in the sensitive api_connection output)"
   value = {
     organization = planetscale_postgres_branch.main.organization
     name         = planetscale_postgres_branch.main.database

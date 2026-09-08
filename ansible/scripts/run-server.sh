@@ -60,7 +60,15 @@ if [[ -z "$TUNNEL_TOKEN" ]]; then
 fi
 
 INVENTORY_FILE=$(mktemp "/tmp/tearleads-${TIER}-inventory-XXXXXX")
-trap 'rm -f "$INVENTORY_FILE"' EXIT
+POSTGRES_VARS_FILE=""
+trap 'rm -f "$INVENTORY_FILE"; [[ -z "$POSTGRES_VARS_FILE" ]] || rm -f "$POSTGRES_VARS_FILE"' EXIT
+
+if [[ "$TIER" == prod ]]; then
+  POSTGRES_VARS_FILE=$(mktemp "/tmp/tearleads-prod-postgres-XXXXXX")
+  "$REPO_ROOT/terraform/scripts/run-postgres-stack.sh" output -json api_connection >"$POSTGRES_VARS_FILE"
+  # Persistent connection values take precedence over operator extra-vars.
+  set -- "$@" -e "@$POSTGRES_VARS_FILE"
+fi
 
 printf '[all]\n%s ansible_user=%s\n' "$HOSTNAME" "$USERNAME" >"$INVENTORY_FILE"
 

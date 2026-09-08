@@ -37,10 +37,15 @@ Use `bun run lint:source-shape -- --staged` before committing, and
 `bun run lint:source-shape -- --range <base>..<head>` before handing off a
 larger branch.
 
-OpenAPI compatibility and protocol-model checks use mise-pinned tooling. Run
-`mise install java github:oasdiff/oasdiff github:tlaplus/tlaplus` after cloning,
-and fetch `origin/main` or set `OPENAPI_BASE_REF` when checking OpenAPI against
-another base commit.
+OpenAPI compatibility, protocol-model, and infrastructure checks use mise-pinned
+tooling. After cloning, run:
+
+```sh
+mise install java github:oasdiff/oasdiff github:tlaplus/tlaplus pipx:ansible-core
+```
+
+Fetch `origin/main` or set `OPENAPI_BASE_REF` when checking OpenAPI against another
+base commit.
 
 After `bun install`, run `bun run --cwd packages/app-electrobun prepare:devkit`
 before standalone TypeScript, Knip, or editor checks. Electrobun 2 generates the

@@ -55,11 +55,19 @@ sh scripts/postgres/runPostgresMigration.sh
 ```
 
 On deploy, `packages/api/scripts/deployStagingApi.sh` and its production sibling
-run it over SSH with the server's environment loaded:
+run it over SSH through the operator wrapper:
 
 ```bash
-set -a && . /etc/tearleads/api.env && set +a && /opt/tearleads/bin/tearleads-api-cli migrate
+sudo /usr/local/bin/tearleads-api-cli migrate
 ```
+
+Run the tier's Ansible playbook before deploying API artifacts for the first
+time or upgrading to the separate migration credentials. It installs the wrapper
+and root-owned `/etc/tearleads/migrations.env`. The full
+`scripts/deployProduction.sh` and `scripts/deployStaging.sh` do this in order;
+`--skip-infra` requires that configuration to exist already. Production migrations
+use a dedicated PlanetScale login on direct port 5432, while runtime traffic
+uses the read/write login on pooled port 6432.
 
 ### `blob-store:list-keys`
 
@@ -136,16 +144,17 @@ Ansible installs two conveniences for SSH sessions (`ansible/playbooks/server.ym
 - `/etc/profile.d/tearleads.sh` appends `/opt/tearleads/bin` to the login
   shell `PATH`, so every deployed executable resolves by name.
 - `/usr/local/bin/tearleads-api-cli` is a wrapper that sources
-  `/etc/tearleads/api.env` and execs the real CLI. It sits ahead of
-  `/opt/tearleads/bin` on `PATH` on purpose: `tearleads-api-cli <command>`
+  `/etc/tearleads/api.env` for ordinary commands and the root-only
+  `/etc/tearleads/migrations.env` for `migrate`, then execs the real CLI. It
+  precedes `/opt/tearleads/bin` on `PATH`: `tearleads-api-cli <command>`
   then runs with the server's database and object-store settings while those
-  secrets reach only the CLI process, not the interactive shell. The file is
-  readable by root and the deploy user, and the wrapper fails closed for anyone
-  else.
+  secrets reach only the CLI process, not the interactive shell. Runtime settings
+  are readable by root and the deploy user; migration settings require root.
+  The wrapper fails closed when the selected file is not readable.
 
-The deploy scripts keep calling the binary by full path with an explicit
-`set -a && . /etc/tearleads/api.env && set +a`, so they do not depend on the
-wrapper being installed yet.
+The deploy scripts use `sudo /usr/local/bin/tearleads-api-cli migrate`, so the
+Ansible-installed wrapper and migration environment must exist first. Do not
+source the runtime environment to run production migrations.
 
 ## Local development
 

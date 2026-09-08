@@ -18,6 +18,8 @@
       - { key: "PubkeyAuthentication", value: "yes" }
       - { key: "MaxAuthTries", value: "3" }
       - { key: "KbdInteractiveAuthentication", value: "no" }
+    postgres_managed: "{{ deployment_tier == 'prod' }}"
+    postgres_ssl: false
     postgres_version: "16"
     postgres_db: "{{ lookup('env', 'POSTGRES_DATABASE') | default('tearleads', true) }}"
     postgres_user: "{{ lookup('env', 'POSTGRES_USER') | default('tearleads', true) }}"
@@ -113,7 +115,16 @@
     garage_default_access_key: "{{ blob_s3_access_key_id }}"
     garage_default_secret_key: "{{ blob_s3_secret_access_key }}"
     garage_default_bucket: "{{ blob_s3_bucket }}"
+
   tasks:
+    - name: Validate managed PostgreSQL connection
+      ansible.builtin.import_tasks: tasks/managedPostgres.yml
+      when: postgres_managed | bool
+
+    - name: Guard managed PostgreSQL cutover before configuring the host
+      ansible.builtin.import_tasks: tasks/managedPostgresCutover.yml
+      when: postgres_managed | bool
+
     - name: Validate extra demo zone names
       ansible.builtin.import_tasks: tasks/demoZones.yml
 
@@ -290,7 +301,14 @@
       loop:
         - /opt/tearleads
         - /opt/tearleads/bin
-        - /etc/tearleads
+
+    - name: Create root-owned configuration directory
+      ansible.builtin.file:
+        path: /etc/tearleads
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
 
     - name: Add deployed executables to login shell PATH
       ansible.builtin.template:
@@ -319,6 +337,15 @@
         group: "{{ server_user }}"
         mode: "0640"
       notify: Restart tearleads-api
+      no_log: true
+
+    - name: Deploy migration environment file
+      ansible.builtin.template:
+        src: etc/tearleads/migrations.env.j2
+        dest: /etc/tearleads/migrations.env
+        owner: root
+        group: root
+        mode: "0600"
       no_log: true
 
     - name: Deploy API systemd service
@@ -365,54 +392,9 @@
         enabled: true
         state: started
 
-    - name: Install PostgreSQL
-      ansible.builtin.apt:
-        name:
-          - "postgresql-{{ postgres_version }}"
-          - "postgresql-client-{{ postgres_version }}"
-          - python3-psycopg2
-        state: present
-
-    - name: Ensure PostgreSQL is enabled and started
-      ansible.builtin.systemd:
-        name: "postgresql@{{ postgres_version }}-main"
-        enabled: true
-        state: started
-
-    - name: Restrict PostgreSQL to loopback interfaces
-      community.postgresql.postgresql_alter_system:
-        param: listen_addresses
-        value: "127.0.0.1, ::1"
-      become: true
-      become_user: postgres
-      notify: Restart PostgreSQL
-
-    - name: Create or update PostgreSQL user
-      community.postgresql.postgresql_user:
-        name: "{{ postgres_user }}"
-        password: "{{ postgres_password }}"
-      become: true
-      become_user: postgres
-      no_log: true
-
-    - name: Create PostgreSQL database
-      community.postgresql.postgresql_db:
-        name: "{{ postgres_db }}"
-        owner: "{{ postgres_user }}"
-        encoding: UTF-8
-        lc_collate: en_US.UTF-8
-        lc_ctype: en_US.UTF-8
-      become: true
-      become_user: postgres
-
-    - name: Grant database privileges
-      community.postgresql.postgresql_privs:
-        login_db: "{{ postgres_db }}"
-        role: "{{ postgres_user }}"
-        type: database
-        privs: ALL
-      become: true
-      become_user: postgres
+    - name: Configure local PostgreSQL
+      ansible.builtin.import_tasks: tasks/localPostgres.yml
+      when: not postgres_managed | bool
 
   handlers:
     - name: Restart sshd
@@ -431,6 +413,7 @@
         state: restarted
 
     - name: Restart PostgreSQL
+      when: not postgres_managed | bool
       ansible.builtin.systemd:
         name: "postgresql@{{ postgres_version }}-main"
         state: restarted

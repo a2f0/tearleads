@@ -43,7 +43,7 @@ assert_api_deploy_ordering() {
   local start_line
   local maintenance_verify_line
 
-  verify_line="$(awk 'index($0, "test -x") { print NR; exit }' "$deploy_file")"
+  verify_line="$(awk 'index($0, "test -x \"$remote_stage_path/tearleads-api\"") { print NR; exit }' "$deploy_file")"
   stop_line="$(awk 'index($0, "systemctl stop tearleads-api") { print NR; exit }' "$deploy_file")"
   install_line="$(awk 'index($0, "mv -f") { print NR; exit }' "$deploy_file")"
   migration_line="$(awk 'index($0, "tearleads-api-cli migrate") { print NR; exit }' "$deploy_file")"
@@ -260,13 +260,13 @@ assert_demo_zone_rule_agreement() {
   done
 }
 
-assert_demo_hostname_derivation() {
+assert_server_tier_defaults() {
   local server_yml="$REPO_ROOT/ansible/playbooks/server.yml"
   local render_dir
   local play_vars
   local tier
   local prefix
-  local hostnames
+  local assertion_result
   local cors
 
   render_dir="$(mktemp -d)"
@@ -277,27 +277,24 @@ assert_demo_hostname_derivation() {
   for tier in prod staging; do
     prefix="demo."
     [ "$tier" = "prod" ] || prefix="demo-staging."
+    cors="https://${prefix}example.test,https://${prefix}example.de"
 
-    if ! hostnames="$(TF_VAR_extra_demo_domains='["example.de"]' \
+    if ! assertion_result="$(TF_VAR_extra_demo_domains='["example.de"]' \
       ANSIBLE_LOCALHOST_WARNING=false \
       ANSIBLE_INVENTORY_UNPARSED_WARNING=false \
       ansible localhost --connection local \
-        -m ansible.builtin.debug \
-        -a 'var=api_default_cors_origins' \
+        -m ansible.builtin.assert \
+        -a '{"that":["expected_cors in api_default_cors_origins", "(postgres_managed | bool) == (deployment_tier == \"prod\")", "not (postgres_ssl | bool)"], "fail_msg":"Server tier defaults must select demo hosts and managed Postgres consistently; managed TLS comes from the persistent output."}' \
         -e "@$play_vars" \
         -e "deployment_tier=$tier" \
         -e domain=example.test \
+        -e "expected_cors=$cors" \
         </dev/null 2>"$render_dir/ansible.stderr")"; then
+      printf '%s\n' "$assertion_result" >&2
       sed -n '1,120p' "$render_dir/ansible.stderr" >&2
       return 1
     fi
 
-    cors="https://${prefix}example.test,https://${prefix}example.de"
-    if ! grep -Fq "$cors" <<<"$hostnames"; then
-      echo "ERROR: $tier demo hostnames must cover the tier host and every extra zone in the API CORS allowlist." >&2
-      printf '%s\n' "$hostnames" >&2
-      return 1
-    fi
   done
 }
 
@@ -380,8 +377,9 @@ assert_blob_gc_failure_alerting
 assert_blob_gc_healthcheck_url_validation
 assert_document_sync_ingress_cors
 assert_demo_static_ingress
-assert_demo_hostname_derivation
+assert_server_tier_defaults
 assert_demo_zone_rule_agreement
 assert_stripe_env_guard
+bash "$REPO_ROOT/scripts/checks/checkPostgresDeployment.sh"
 
 echo "Infrastructure tier parity passed."
