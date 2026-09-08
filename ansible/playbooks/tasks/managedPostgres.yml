@@ -1,0 +1,15 @@
+---
+- name: Require separate PlanetScale runtime and migration connections
+  ansible.builtin.assert:
+    that:
+      - postgres_host is match('^[a-zA-Z0-9-]+[.]pg[.]psdb[.]cloud$')
+      - postgres_port | string == '6432'
+      - postgres_migration_port | default('') | string == '5432'
+      - postgres_db | length > 0
+      - postgres_user | length > 0
+      - postgres_password | length > 0
+      - postgres_migration_user | default('') | length > 0
+      - postgres_migration_user != postgres_user
+      - postgres_migration_password | default('') | length > 0
+      - postgres_ssl | bool
+    fail_msg: Apply the persistent Postgres stack and use ansible/scripts/run-server-prod.sh.

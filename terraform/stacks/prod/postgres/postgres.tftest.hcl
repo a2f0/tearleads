@@ -11,6 +11,15 @@ mock_provider "planetscale" {
 }
 
 override_resource {
+  target          = planetscale_postgres_branch_role.migrations
+  override_during = plan
+  values = {
+    username = "migration.fixture-branch"
+    password = "fixture-migration-password"
+  }
+}
+
+override_resource {
   target = planetscale_postgres_branch.main
   values = {
     replicas = 0
@@ -94,10 +103,12 @@ run "api_connection_uses_persistent_branch" {
 
   assert {
     condition = (
-      planetscale_postgres_branch_role.api.organization == planetscale_postgres_branch.main.organization &&
-      planetscale_postgres_branch_role.api.database == planetscale_postgres_branch.main.database &&
-      planetscale_postgres_branch_role.api.branch == planetscale_postgres_branch.main.name &&
-      planetscale_postgres_branch_role.api.ttl == 0
+      planetscale_postgres_branch_role.runtime.organization == planetscale_postgres_branch.main.organization &&
+      planetscale_postgres_branch_role.runtime.database == planetscale_postgres_branch.main.database &&
+      planetscale_postgres_branch_role.runtime.branch == planetscale_postgres_branch.main.name &&
+      planetscale_postgres_branch_role.runtime.ttl == 0 &&
+      toset(planetscale_postgres_branch_role.runtime.inherited_roles) == toset(["pg_read_all_data", "pg_write_all_data"]) &&
+      toset(planetscale_postgres_branch_role.migrations.inherited_roles) == toset(["postgres"])
     )
     error_message = "The API login must target the persistent branch without expiring."
   }
@@ -110,7 +121,9 @@ run "api_connection_uses_persistent_branch" {
       output.api_connection.postgres_host == "fixture.pg.psdb.cloud" &&
       output.api_connection.postgres_db == "postgres" &&
       output.api_connection.postgres_user == "api.fixture-branch" &&
-      output.api_connection.postgres_password == "fixture-password"
+      output.api_connection.postgres_password == "fixture-password" &&
+      output.api_connection.postgres_migration_user == "migration.fixture-branch" &&
+      output.api_connection.postgres_migration_password == "fixture-migration-password"
     )
     error_message = "Ansible must receive TLS credentials with pooled runtime and direct migration connections."
   }

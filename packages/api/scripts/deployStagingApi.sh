@@ -63,7 +63,7 @@ rmdir "$remote_stage_path"
 REMOTE_INSTALL
 
 echo "Running database migrations..."
-ssh "$SSH_TARGET" 'set -eu && set -a && . /etc/tearleads/api.env && POSTGRES_PORT=${POSTGRES_MIGRATION_PORT:-$POSTGRES_PORT} && set +a && /opt/tearleads/bin/tearleads-api-cli migrate'
+ssh "$SSH_TARGET" sudo /usr/local/bin/tearleads-api-cli migrate
 
 echo "Starting API service and maintenance timers..."
 ssh "$SSH_TARGET" "sudo systemctl start tearleads-api tearleads-blob-gc.timer tearleads-stripe-seat-sync.timer"

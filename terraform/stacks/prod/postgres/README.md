@@ -101,7 +101,7 @@ bash terraform/scripts/run-postgres-stack.sh output -json database
 ```
 
 The first plan should import one branch, optionally updating deletion
-protection, and create the dedicated API login. It must not create, replace,
+protection, and create the runtime and migration logins. It must not create, replace,
 or destroy the database branch. Confirm its region and PS-5 size match the
 database you created. Later plans should show no
 changes. A nonzero replica count fails the lifecycle check; correct it in
@@ -118,8 +118,9 @@ it; applying without a saved plan requires an explicit `-auto-approve` flag.
 
 ## Production API dependency
 
-This stack owns both the branch and its non-expiring `tearleads-api` login.
-Both use `prevent_destroy`; the branch also has PlanetScale deletion protection.
+This stack owns the branch and its non-expiring `tearleads-runtime` and
+`tearleads-migrations` logins. All three use `prevent_destroy`; the branch also
+has PlanetScale deletion protection.
 Keep this stack and its S3 state when rebuilding the server. Deletion protection
 is a guard against accidents, not a substitute for retaining state and backups.
 
@@ -135,24 +136,31 @@ Ansible writes the application connection to `/etc/tearleads/api.env` with mode
 database. Production skips local PostgreSQL installation and requires TLS with
 certificate verification. Staging keeps its local PostgreSQL setup.
 
-The current API and maintenance executables run migrations on startup, so their
-custom role inherits `postgres` privileges. Runtime traffic uses the included
-PgBouncer on port 6432 to share the small server's connection pool. Deployment
-migrations and the operator CLI's `migrate` command use direct port 5432 through
-`POSTGRES_MIGRATION_PORT`; staging defaults that variable to its normal port.
-This is a dedicated managed role, separate from the default `postgres` login.
-Splitting migration and runtime privileges requires changing that startup
-behavior first. See [PlanetScale roles] and [connection options].
+The runtime login inherits `pg_read_all_data` and `pg_write_all_data`. API and
+maintenance traffic uses the included PgBouncer on port 6432. The migration
+login inherits `postgres` and connects directly on port 5432; Ansible stores
+its connection separately in root-owned `/etc/tearleads/migrations.env`, mode
+0600. Deploy scripts run `sudo tearleads-api-cli migrate` through the operator
+wrapper, which selects that file only for migrations. The runtime environment
+contains no migration credentials. Staging writes its existing local login to
+both files. See [PlanetScale roles] and [connection options].
 
 Deployment order:
 
 1. Bootstrap the database once, then apply this persistent stack.
 2. Run `scripts/deployProduction.sh`: it applies the server stack, configures
    the host with Ansible, runs database migrations, and deploys the applications.
-3. For later server rebuilds, repeat step 2. The database and login survive.
+3. For later server rebuilds, repeat step 2. The database and both logins survive.
+
+This is the greenfield deployment path: the production server and database had
+no existing application data at bootstrap. It does not copy data from another
+Postgres server. For an existing deployment, stop API and maintenance writers,
+take and retain a database backup, restore it into PlanetScale with the migration
+login, and validate schema, row counts, and application access before running
+step 2. Keep the original database and backup until cutover is verified.
 
 A missing connection output stops production Ansible; apply this stack first.
-To rotate the login, create a replacement role alongside the existing one,
+To rotate a login, create a replacement role alongside the existing one,
 point `api_connection` at it, apply this stack, rerun Ansible, and restart API
 and maintenance processes before retiring the old role. Do not reset a password
 in the dashboard and expect Terraform to retrieve it: passwords are returned

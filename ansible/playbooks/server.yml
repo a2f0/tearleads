@@ -118,18 +118,8 @@
 
   tasks:
     - name: Validate managed PostgreSQL connection
-      ansible.builtin.assert:
-        that:
-          - postgres_host not in ['localhost', '127.0.0.1', '::1', '']
-          - postgres_port | string == '6432'
-          - postgres_migration_port | string == '5432'
-          - postgres_db | length > 0
-          - postgres_user | length > 0
-          - postgres_password | length > 0
-          - postgres_ssl | bool
-        fail_msg: Apply the persistent Postgres stack and use ansible/scripts/run-server-prod.sh.
+      ansible.builtin.import_tasks: tasks/managedPostgres.yml
       when: postgres_managed | bool
-      no_log: true
 
     - name: Validate extra demo zone names
       ansible.builtin.import_tasks: tasks/demoZones.yml
@@ -336,6 +326,15 @@
         group: "{{ server_user }}"
         mode: "0640"
       notify: Restart tearleads-api
+      no_log: true
+
+    - name: Deploy migration environment file
+      ansible.builtin.template:
+        src: etc/tearleads/migrations.env.j2
+        dest: /etc/tearleads/migrations.env
+        owner: root
+        group: root
+        mode: "0600"
       no_log: true
 
     - name: Deploy API systemd service

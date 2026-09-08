@@ -3,17 +3,19 @@
 #
 # Operator entry point for the deployed API CLI. The executable at
 # /opt/tearleads/bin/tearleads-api-cli reads its database and object-store
-# settings from the environment; the deploy scripts supply them by sourcing
-# /etc/tearleads/api.env around each call. This wrapper does the same, so an
-# SSH session can run `tearleads-api-cli <command>` directly while the secrets
-# in that file reach only the CLI process, never the login shell.
+# settings from the environment. Migrations use a separate, root-only env file;
+# run them with `sudo tearleads-api-cli migrate`. Other commands use the API
+# environment without exposing its secrets to the login shell.
 set -eu
 
 env_file=/etc/tearleads/api.env
+if [ "${1:-}" = migrate ]; then
+  env_file=/etc/tearleads/migrations.env
+fi
 cli=/opt/tearleads/bin/tearleads-api-cli
 
 if [ ! -r "$env_file" ]; then
-  echo "$env_file is not readable; run as the deploy user or root" >&2
+  echo "$env_file is not readable; run migrations as root, other commands as the deploy user" >&2
   exit 1
 fi
 if [ ! -x "$cli" ]; then
@@ -25,9 +27,5 @@ set -a
 # shellcheck disable=SC1090
 . "$env_file"
 set +a
-
-if [ "${1:-}" = migrate ]; then
-  export POSTGRES_PORT="${POSTGRES_MIGRATION_PORT:-$POSTGRES_PORT}"
-fi
 
 exec "$cli" "$@"

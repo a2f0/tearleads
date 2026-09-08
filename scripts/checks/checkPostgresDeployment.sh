@@ -8,13 +8,22 @@ RENDER_DIR=$(mktemp -d)
 trap 'rm -rf "$RENDER_DIR"' EXIT
 
 for managed in true false; do
+  host=127.0.0.1
+  port=5432
+  migration_vars=""
+  if [[ "$managed" == true ]]; then
+    host=fixture.pg.psdb.cloud
+    port=6432
+    migration_vars='"postgres_migration_user": "migration.user", "postgres_migration_password": "fixture-migration-password",'
+  fi
   cat >"$RENDER_DIR/vars.json" <<EOF
 {
   "postgres_managed": $managed,
   "postgres_ssl": $managed,
-  "postgres_host": "fixture.pg.psdb.cloud",
-  "postgres_port": "6432",
+  "postgres_host": "$host",
+  "postgres_port": "$port",
   "postgres_migration_port": "5432",
+  $migration_vars
   "postgres_user": "fixture.user",
   "postgres_password": "fixture password # with spaces",
   "postgres_db": "postgres",
@@ -26,6 +35,7 @@ for managed in true false; do
 EOF
   for template in \
     etc/tearleads/api.env \
+    etc/tearleads/migrations.env \
     etc/systemd/system/tearleads-api.service \
     etc/systemd/system/tearleads-blob-gc.service \
     etc/systemd/system/tearleads-stripe-seat-sync.service; do
@@ -40,29 +50,41 @@ EOF
     fi
   done
 
-  env -i PATH="$PATH" sh -s -- "$RENDER_DIR/api.env" "$managed" <<'VERIFY_ENV'
+  env -i PATH="$PATH" sh -s -- "$RENDER_DIR" "$managed" "$port" <<'VERIFY_ENV'
 set -eu
-. "$1"
+. "$1/api.env"
 test "$POSTGRES_SSL" = "$2"
 test "$POSTGRES_SSL_REJECT_UNAUTHORIZED" = true
 test "$POSTGRES_PASSWORD" = "fixture password # with spaces"
 test "$POSTGRES_DATABASE" = postgres
-test "$POSTGRES_PORT" = 6432
-test "$POSTGRES_MIGRATION_PORT" = 5432
+test "$POSTGRES_PORT" = "$3"
+test "$POSTGRES_USER" = fixture.user
+. "$1/migrations.env"
+test "$POSTGRES_PORT" = 5432
+if [ "$2" = true ]; then
+  test "$POSTGRES_USER" = migration.user
+  test "$POSTGRES_PASSWORD" = fixture-migration-password
+else
+  test "$POSTGRES_USER" = fixture.user
+  test "$POSTGRES_PASSWORD" = "fixture password # with spaces"
+fi
 VERIFY_ENV
 
   for service in "$RENDER_DIR"/*.service; do
+    grep -q '^Wants=network-online.target' "$service"
     if [[ "$managed" == true ]]; then
       if grep -q postgresql.service "$service"; then
         echo "ERROR: Managed Postgres must not depend on a local PostgreSQL service." >&2
         exit 1
       fi
-      grep -q '^Wants=network-online.target' "$service"
     else
       grep -q '^After=.*postgresql.service' "$service"
       grep -q '^Wants=.*postgresql.service' "$service"
     fi
   done
+  if [[ "$managed" == true ]]; then
+    bash "$REPO_ROOT/scripts/checks/checkManagedPostgresGuard.sh" "$RENDER_DIR/vars.json"
+  fi
 done
 
 echo "Postgres deployment templates passed."

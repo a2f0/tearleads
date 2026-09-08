@@ -17,6 +17,7 @@ const templatePath = fileURLToPath(
 let fixtureDir: string;
 let wrapperPath: string;
 let envFilePath: string;
+let migrationEnvFilePath: string;
 let cliPath: string;
 let cliRanMarker: string;
 
@@ -56,6 +57,7 @@ beforeAll(async () => {
   fixtureDir = await mkdtemp(join(tmpdir(), "tearleads-cli-wrapper-"));
   wrapperPath = join(fixtureDir, "tearleads-api-cli");
   envFilePath = join(fixtureDir, "api.env");
+  migrationEnvFilePath = join(fixtureDir, "migrations.env");
   cliPath = join(fixtureDir, "real-cli");
   cliRanMarker = join(fixtureDir, "cli-ran");
 
@@ -63,6 +65,10 @@ beforeAll(async () => {
   const rendered = template
     .replace("{{ ansible_managed }}", "test render")
     .replace("env_file=/etc/tearleads/api.env", `env_file=${envFilePath}`)
+    .replace(
+      "env_file=/etc/tearleads/migrations.env",
+      `env_file=${migrationEnvFilePath}`,
+    )
     .replace("cli=/opt/tearleads/bin/tearleads-api-cli", `cli=${cliPath}`);
   expect(rendered).toContain(`\nenv_file=${envFilePath}\n`);
   expect(rendered).toContain(`\ncli=${cliPath}\n`);
@@ -103,41 +109,52 @@ test("the wrapper loads the env file, preserves arguments, and propagates the ex
 });
 
 test.each([
-  ["migrate", "6432", "5432", "5432"],
-  ["make-admin", "6432", "5432", "6432"],
-  ["migrate", "5432", "", "5432"],
+  ["migrate", "5432|migration-login"],
+  ["make-admin", "6432|runtime-login"],
 ])(
-  "%s selects the database port from %s / %s",
-  async (command, runtimePort, migrationPort, expectedPort) => {
+  "%s selects the appropriate database credentials",
+  async (command, expectedConnection) => {
     await writeFile(
       envFilePath,
-      `POSTGRES_PORT=${runtimePort}\nPOSTGRES_MIGRATION_PORT=${migrationPort}\n`,
+      "POSTGRES_PORT=6432\nPOSTGRES_USER=runtime-login\n",
     );
-    await writeFile(cliPath, '#!/bin/sh\nprintf "%s" "$POSTGRES_PORT"\n');
+    await writeFile(
+      migrationEnvFilePath,
+      "POSTGRES_PORT=5432\nPOSTGRES_USER=migration-login\n",
+    );
+    await writeFile(
+      cliPath,
+      '#!/bin/sh\nprintf "%s|%s" "$POSTGRES_PORT" "$POSTGRES_USER"\n',
+    );
     await chmod(cliPath, 0o755);
 
     const result = await runWrapper([command]);
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe("");
-    expect(result.stdout).toBe(expectedPort);
+    expect(result.stdout).toBe(expectedConnection);
   },
 );
 
-test("the wrapper refuses to run without a readable env file", async () => {
-  await installFakeCli();
-  await rm(envFilePath, { force: true });
+test.each(["make-admin", "migrate"])(
+  "%s refuses to run without its env file",
+  async (command) => {
+    await installFakeCli();
+    const missingPath =
+      command === "migrate" ? migrationEnvFilePath : envFilePath;
+    await rm(missingPath, { force: true });
 
-  const result = await runWrapper(["make-admin"]);
+    const result = await runWrapper([command]);
 
-  expect(result.exitCode).toBe(1);
-  expect(result.stderr).toContain(`${envFilePath} is not readable`);
-  expect(result.stdout).toBe("");
-  await expect(Bun.file(cliRanMarker).exists()).resolves.toBe(false);
-});
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain(`${missingPath} is not readable`);
+    expect(result.stdout).toBe("");
+    await expect(Bun.file(cliRanMarker).exists()).resolves.toBe(false);
+  },
+);
 
 test("the wrapper refuses to run when the CLI is not installed", async () => {
-  await writeFile(envFilePath, "API_DATABASE=postgres\n");
+  await writeFile(migrationEnvFilePath, "API_DATABASE=postgres\n");
   await rm(cliPath, { force: true });
 
   const result = await runWrapper(["migrate"]);

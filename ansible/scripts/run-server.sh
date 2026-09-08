@@ -66,7 +66,7 @@ trap 'rm -f "$INVENTORY_FILE"; [[ -z "$POSTGRES_VARS_FILE" ]] || rm -f "$POSTGRE
 if [[ "$TIER" == prod ]]; then
   POSTGRES_VARS_FILE=$(mktemp "/tmp/tearleads-prod-postgres-XXXXXX")
   "$REPO_ROOT/terraform/scripts/run-postgres-stack.sh" output -json api_connection >"$POSTGRES_VARS_FILE"
-  set -- -e "@$POSTGRES_VARS_FILE" "$@"
+  set -- "$@" -e "@$POSTGRES_VARS_FILE"
 fi
 
 printf '[all]\n%s ansible_user=%s\n' "$HOSTNAME" "$USERNAME" >"$INVENTORY_FILE"

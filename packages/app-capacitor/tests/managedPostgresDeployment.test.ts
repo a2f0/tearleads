@@ -3,7 +3,11 @@ import { chmod, cp, mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 
-async function runAnsibleWrapper(tier: string, missingDatabase = false) {
+async function runAnsibleWrapper(
+  tier: string,
+  missingDatabase = false,
+  extraArgs: readonly string[] = [],
+) {
   const root = await mkdtemp(resolve(tmpdir(), "tearleads-managed-postgres-"));
   const bin = resolve(root, "bin");
   const capture = resolve(root, "ansible.json");
@@ -54,13 +58,14 @@ async function runAnsibleWrapper(tier: string, missingDatabase = false) {
         'import { statSync } from "node:fs";',
         'const path = process.argv.find((arg) => arg.startsWith("@"))?.slice(1);',
         "await Bun.write(process.env.POSTGRES_TEST_CAPTURE, JSON.stringify({",
+        "  args: process.argv.slice(2),",
         "  path: path ?? null,",
         "  mode: path ? statSync(path).mode & 0o777 : null,",
         "  connection: path ? await Bun.file(path).json() : null,",
         "}));",
       ].join("\n"),
     );
-    const child = Bun.spawn(["bash", script, tier], {
+    const child = Bun.spawn(["bash", script, tier, ...extraArgs], {
       cwd: tmpdir(),
       env: {
         PATH: `${bin}:/usr/bin:/bin`,
@@ -98,10 +103,17 @@ async function runAnsibleWrapper(tier: string, missingDatabase = false) {
 }
 
 test("production passes persistent credentials in a private temporary file", async () => {
-  const result = await runAnsibleWrapper("prod");
+  const result = await runAnsibleWrapper("prod", false, [
+    "-e",
+    "postgres_host=127.0.0.1",
+  ]);
   expect(result.exitCode, result.stderr).toBe(0);
   expect(result.calls).toEqual(["output", "-json", "api_connection"]);
   expect(result.captured.mode).toBe(0o600);
+  expect(result.captured.args.slice(-2)).toEqual([
+    "-e",
+    `@${result.captured.path}`,
+  ]);
   expect(result.captured.connection).toMatchObject({
     postgres_managed: true,
     postgres_host: "fixture.pg.psdb.cloud",
