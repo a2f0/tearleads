@@ -25,6 +25,7 @@ import {
   useWindowSidebar,
   WindowSidebarProvider,
 } from "../../window/WindowSidebarContext";
+import { TestSystemBanner } from "../TestSystemBanner";
 import "./RoutedPane.css";
 import { RoutedPaneAppBar } from "./RoutedPaneAppBar";
 import { ROUTED_PANE_NAV_PANEL_ID, RoutedPaneNav } from "./RoutedPaneNav";
@@ -220,6 +221,7 @@ function RoutedPaneSurface({
         <SystemMonitorPinned />
         <ActiveMiniApp />
       </main>
+      <TestSystemBanner hidden={mobileKeyboardVisible} />
       <RoutedPaneTaskBar
         drawerOpen={drawerOpen}
         hidden={mobileKeyboardVisible}

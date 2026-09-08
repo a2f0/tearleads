@@ -45,6 +45,7 @@
   grid-template:
     "appbar" auto
     "main" 1fr
+    "warning" auto
     "taskbar" auto
     / minmax(0, 1fr);
 }
@@ -56,6 +57,7 @@
   grid-template:
     "rail appbar" auto
     "rail main" 1fr
+    "rail warning" auto
     "rail taskbar" auto
     / auto minmax(0, 1fr);
 }
@@ -64,6 +66,7 @@
   grid-template:
     "rail appbar appbar" auto
     "rail sidebar main" 1fr
+    "rail warning warning" auto
     "rail taskbar taskbar" auto
     / auto auto minmax(0, 1fr);
 }
@@ -238,6 +241,12 @@
 /* Three columns keep the logo optically centered regardless of the corner
    controls' width: an empty balancing column, the centered logo, then the
    end-aligned system tray (the mode switch). */
+/* The test-deployment strip rides in its own row directly above the taskbar,
+   spanning the same columns; hidden it collapses the row to nothing. */
+.routed-pane .test-system-banner {
+  grid-area: warning;
+}
+
 .routed-pane-taskbar {
   grid-area: taskbar;
   display: grid;
@@ -346,6 +355,7 @@
     grid-template:
       "appbar" auto
       "main" 1fr
+      "warning" auto
       "taskbar" auto
       / minmax(0, 1fr);
   }
