@@ -1,4 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
+import { RegistrationResponseSchema } from "@tearleads/validators/response";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import invariant from "invariant";
 import {
@@ -15,7 +16,11 @@ import {
   moveContainer,
   openExplorer,
 } from "../../../../test/helpers/dual-pane/dualPaneExplorerKit";
-import { useTestApiAppHandlers } from "../../../../test/helpers/mswServer";
+import { requestPath } from "../../../../test/helpers/dualPaneRequestSummary";
+import {
+  listProxiedApiRequests,
+  useTestApiAppHandlers,
+} from "../../../../test/helpers/mswServer";
 import {
   cleanupPaneTestEnvironment,
   waitForPaneRuntimeToSettle,
@@ -56,6 +61,15 @@ test("folder creation, document linking, unlinking and trash have separate reque
   useTestApiAppHandlers();
   const pane = getPaneRoot(renderSinglePane(), "left");
   await waitForSinglePaneProvisioning(pane);
+  const registration = listProxiedApiRequests().find(
+    (request) =>
+      requestPath(request.url) === "/auth/register" && request.status === 200,
+  );
+  invariant(registration, "Expected successful registration");
+  const { rosterProfileDocumentId } = RegistrationResponseSchema.parse(
+    JSON.parse(registration.responseBody),
+  );
+  invariant(rosterProfileDocumentId, "Expected the registered roster profile");
   await openExplorer(pane);
   await measureWorkflowRequests({
     label: "create child folder",
@@ -117,10 +131,29 @@ test("folder creation, document linking, unlinking and trash have separate reque
     ],
   });
   const table = await selectContainerAndWaitForItemTable(pane, "/");
+  const beforeInfo = listProxiedApiRequests().length;
   await contextAction(
     within(table).getByRole("button", { name: title }),
     "Get Info",
   );
+  // Get Info hydrates contributor names; finish that read before counting unlink.
+  await waitFor(
+    () => {
+      expect(
+        listProxiedApiRequests()
+          .slice(beforeInfo)
+          .some(
+            (request) =>
+              request.method === "POST" &&
+              requestPath(request.url) ===
+                `/documents/${rosterProfileDocumentId}/sync` &&
+              request.status === 200,
+          ),
+      ).toBe(true);
+    },
+    { timeout: 20_000 },
+  );
+  await waitForPaneRuntimeToSettle();
   await interact(() => {
     fireEvent.click(within(pane).getByRole("tab", { name: "Links" }));
   });

@@ -38,7 +38,6 @@ import {
 } from "./organizationReadModels";
 import {
   authenticatedOrganizationId,
-  runForAuthenticatedOrganization,
   runForOrganization,
 } from "./organizationWorkflowRuntime";
 import { currentOrganizationMutation } from "./principalMutationScope";
@@ -235,10 +234,7 @@ class OrganizationsService implements Organizations {
   }
 
   loadBilling() {
-    return runForAuthenticatedOrganization(
-      this.runtimeService,
-      loadOrganizationBilling,
-    );
+    return runForOrganization(this.runtimeService, loadOrganizationBilling);
   }
 
   loadBillingForOrganization(organizationId: string) {
@@ -247,77 +243,61 @@ class OrganizationsService implements Organizations {
     // cannot reach resolves to `null`.
     return runForOrganization(
       this.runtimeService,
-      organizationId,
       loadOrganizationBilling,
+      organizationId,
     );
   }
 
   loadBillingHistory() {
-    return runForAuthenticatedOrganization(
+    return runForOrganization(
       this.runtimeService,
       loadOrganizationBillingHistory,
     );
   }
 
   loadBillingManagementUrl() {
-    return runForAuthenticatedOrganization(
+    return runForOrganization(
       this.runtimeService,
       loadOrganizationBillingManagementUrl,
     );
   }
+
   loadStripeCheckoutOptions(organizationId?: string) {
-    return organizationId !== undefined
-      ? runForOrganization(
-          this.runtimeService,
-          organizationId,
-          loadStripeCheckoutOptions,
-        )
-      : runForAuthenticatedOrganization(
-          this.runtimeService,
-          loadStripeCheckoutOptions,
-        );
+    return runForOrganization(
+      this.runtimeService,
+      loadStripeCheckoutOptions,
+      organizationId,
+    );
   }
+
   createStripeCheckout(organizationId?: string) {
-    return organizationId !== undefined
-      ? runForOrganization(
-          this.runtimeService,
-          organizationId,
-          createStripeCheckout,
-        )
-      : runForAuthenticatedOrganization(
-          this.runtimeService,
-          createStripeCheckout,
-        );
+    return runForOrganization(
+      this.runtimeService,
+      createStripeCheckout,
+      organizationId,
+    );
   }
 
   createStripeCheckoutSession(returnUrl: string, organizationId?: string) {
-    const runtime = this.runtimeService.workflowInput();
-    const targetOrganizationId =
-      organizationId === undefined
-        ? authenticatedOrganizationId(runtime)
-        : organizationId;
-    return authenticatedOrganizationId(runtime) && targetOrganizationId
-      ? createStripeCheckoutSession({
-          apiClient: runtime.apiClient,
-          organizationId: targetOrganizationId,
-          returnUrl,
-        })
-      : Promise.resolve(null);
+    return runForOrganization(
+      this.runtimeService,
+      (input) => createStripeCheckoutSession({ ...input, returnUrl }),
+      organizationId,
+    );
   }
 
   cancelStripeSubscription() {
-    return runForAuthenticatedOrganization(
-      this.runtimeService,
-      cancelStripeSubscription,
-    );
+    return runForOrganization(this.runtimeService, cancelStripeSubscription);
   }
 
   claimNativeSubscription(
     organizationId: string,
     store: NativeSubscriptionStore,
   ) {
-    return runForOrganization(this.runtimeService, organizationId, (input) =>
-      claimNativeOrganizationSubscription({ ...input, store }),
+    return runForOrganization(
+      this.runtimeService,
+      (input) => claimNativeOrganizationSubscription({ ...input, store }),
+      organizationId,
     );
   }
 
@@ -325,8 +305,10 @@ class OrganizationsService implements Organizations {
     organizationId: string,
     store: NativeSubscriptionStore,
   ) {
-    return runForOrganization(this.runtimeService, organizationId, (input) =>
-      checkNativePurchaseEligibility({ ...input, store }),
+    return runForOrganization(
+      this.runtimeService,
+      (input) => checkNativePurchaseEligibility({ ...input, store }),
+      organizationId,
     );
   }
 
@@ -485,15 +467,10 @@ class OrganizationsService implements Organizations {
   }
 
   startTrial(organizationId?: string) {
-    return organizationId !== undefined
-      ? runForOrganization(
-          this.runtimeService,
-          organizationId,
-          startOrganizationTrial,
-        )
-      : runForAuthenticatedOrganization(
-          this.runtimeService,
-          startOrganizationTrial,
-        );
+    return runForOrganization(
+      this.runtimeService,
+      startOrganizationTrial,
+      organizationId,
+    );
   }
 }

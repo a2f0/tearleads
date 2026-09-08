@@ -30,21 +30,16 @@ import {
   wasOrganizationPresentationAccessDeniedByServer,
 } from "../../workflows/organizations/organizationPresentationAccessState";
 import { createRuntimePrincipalPolicyWarmer } from "../../workflows/principals/runtimePolicyWarmer";
-import type {
-  InternalRuntime,
-  InternalWorkflowRuntimeInput,
-} from "../workflowRuntime";
+import type { InternalRuntime } from "../workflowRuntime";
+import {
+  type ActiveOrganizationDataRuntime,
+  activeOrganizationDataRuntime,
+} from "./organizationWorkflowRuntime";
 
 const coordinatorsByRuntime = new WeakMap<
   InternalRuntime,
   OrganizationReadModelCoordinator
 >();
-
-interface ActiveOrganizationReadModelRuntime {
-  readonly runtime: InternalWorkflowRuntimeInput;
-  readonly organizationId: string;
-  readonly userId: string;
-}
 
 export interface OrganizationReadModelCoordinator {
   loadLocal(
@@ -88,27 +83,6 @@ export interface OrganizationReadModelCoordinator {
   ): Promise<OrganizationDirectoryAndGroups | null | undefined>;
 }
 
-function activeReadModelRuntime(
-  runtimeService: InternalRuntime,
-  expectedOrganizationId?: string | undefined,
-): ActiveOrganizationReadModelRuntime | null {
-  const runtime = runtimeService.workflowInput();
-  const organizationId = runtime.auth.organizationId;
-  const userId = runtime.auth.userId;
-  if (
-    !runtime.auth.isAuthenticated ||
-    !organizationId ||
-    !userId ||
-    runtime.infra.dbStatus !== "ready" ||
-    (expectedOrganizationId !== undefined &&
-      organizationId !== expectedOrganizationId)
-  ) {
-    return null;
-  }
-
-  return { runtime, organizationId, userId };
-}
-
 class OrganizationReadModelCoordinatorImpl
   implements OrganizationReadModelCoordinator
 {
@@ -123,7 +97,7 @@ class OrganizationReadModelCoordinatorImpl
 
   constructor(private readonly runtimeService: InternalRuntime) {}
 
-  private reconciliationMap(active: ActiveOrganizationReadModelRuntime) {
+  private reconciliationMap(active: ActiveOrganizationDataRuntime) {
     const scope = active.runtime.state.domainScope;
     let byKey = this.reconciliationsByScope.get(scope);
     if (!byKey) {
@@ -133,7 +107,7 @@ class OrganizationReadModelCoordinatorImpl
     return byKey;
   }
 
-  private policyWarmerMap(active: ActiveOrganizationReadModelRuntime) {
+  private policyWarmerMap(active: ActiveOrganizationDataRuntime) {
     const scope = active.runtime.state.domainScope;
     let byKey = this.policyWarmersByScope.get(scope);
     if (!byKey) {
@@ -144,7 +118,7 @@ class OrganizationReadModelCoordinatorImpl
   }
 
   private async warmPolicyReference(
-    active: ActiveOrganizationReadModelRuntime,
+    active: ActiveOrganizationDataRuntime,
     reference: NonNullable<
       Awaited<ReturnType<typeof loadLocalOrganizationPolicyReference>>
     >,
@@ -171,7 +145,7 @@ class OrganizationReadModelCoordinatorImpl
   }
 
   private async loadPolicyHistoryAfterWarm<History>(input: {
-    readonly active: ActiveOrganizationReadModelRuntime;
+    readonly active: ActiveOrganizationDataRuntime;
     readonly loadLocal: () => Promise<History | null>;
     readonly principalId: string;
     readonly principalType: "group" | "organization";
@@ -226,7 +200,10 @@ class OrganizationReadModelCoordinatorImpl
   }
 
   async loadLocal(organizationId?: string) {
-    const active = activeReadModelRuntime(this.runtimeService, organizationId);
+    const active = activeOrganizationDataRuntime(
+      this.runtimeService,
+      organizationId,
+    );
     if (!active) {
       return null;
     }
@@ -238,7 +215,10 @@ class OrganizationReadModelCoordinatorImpl
   }
 
   async loadLocalGrants(organizationId?: string) {
-    const active = activeReadModelRuntime(this.runtimeService, organizationId);
+    const active = activeOrganizationDataRuntime(
+      this.runtimeService,
+      organizationId,
+    );
     if (!active) {
       return null;
     }
@@ -250,7 +230,10 @@ class OrganizationReadModelCoordinatorImpl
   }
 
   async loadLocalGroupContainers(groupId: string, organizationId?: string) {
-    const active = activeReadModelRuntime(this.runtimeService, organizationId);
+    const active = activeOrganizationDataRuntime(
+      this.runtimeService,
+      organizationId,
+    );
     if (!active || groupId.length === 0) {
       return null;
     }
@@ -263,7 +246,10 @@ class OrganizationReadModelCoordinatorImpl
   }
 
   async loadLocalGroupMembers(groupId: string, organizationId?: string) {
-    const active = activeReadModelRuntime(this.runtimeService, organizationId);
+    const active = activeOrganizationDataRuntime(
+      this.runtimeService,
+      organizationId,
+    );
     if (!active || groupId.length === 0) {
       return null;
     }
@@ -276,7 +262,10 @@ class OrganizationReadModelCoordinatorImpl
   }
 
   async loadGroupPolicyHistory(groupId: string, organizationId?: string) {
-    const active = activeReadModelRuntime(this.runtimeService, organizationId);
+    const active = activeOrganizationDataRuntime(
+      this.runtimeService,
+      organizationId,
+    );
     if (!active || groupId.length === 0) {
       return null;
     }
@@ -295,7 +284,10 @@ class OrganizationReadModelCoordinatorImpl
   }
 
   async loadOrganizationPolicyHistory(organizationId?: string) {
-    const active = activeReadModelRuntime(this.runtimeService, organizationId);
+    const active = activeOrganizationDataRuntime(
+      this.runtimeService,
+      organizationId,
+    );
     if (!active) {
       return null;
     }
@@ -313,7 +305,10 @@ class OrganizationReadModelCoordinatorImpl
   }
 
   async loadLocalUserDetail(userId: string, organizationId?: string) {
-    const active = activeReadModelRuntime(this.runtimeService, organizationId);
+    const active = activeOrganizationDataRuntime(
+      this.runtimeService,
+      organizationId,
+    );
     if (!active || userId.length === 0) {
       return null;
     }
@@ -328,7 +323,10 @@ class OrganizationReadModelCoordinatorImpl
   reconcile(
     organizationId?: string,
   ): Promise<OrganizationDirectoryAndGroups | null | undefined> {
-    const active = activeReadModelRuntime(this.runtimeService, organizationId);
+    const active = activeOrganizationDataRuntime(
+      this.runtimeService,
+      organizationId,
+    );
     if (!active?.runtime.state.online) {
       return Promise.resolve(undefined);
     }
@@ -429,7 +427,10 @@ class OrganizationReadModelCoordinatorImpl
   async reconcileAfterMutation(
     organizationId?: string,
   ): Promise<OrganizationDirectoryAndGroups | null | undefined> {
-    const active = activeReadModelRuntime(this.runtimeService, organizationId);
+    const active = activeOrganizationDataRuntime(
+      this.runtimeService,
+      organizationId,
+    );
     if (!active?.runtime.state.online) {
       return undefined;
     }
