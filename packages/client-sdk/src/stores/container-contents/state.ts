@@ -62,29 +62,10 @@ function didStructuralRuntimeChange(
   previousRuntime: ContainerContentsStoreRuntime,
   nextRuntime: ContainerContentsStoreRuntime,
 ): boolean {
+  // Structural sync also depends on connectivity and event delivery. Local
+  // writes use only the identity and storage checks shared below.
   return (
-    previousRuntime.adoptRootContainer !== nextRuntime.adoptRootContainer ||
-    previousRuntime.apiClient !== nextRuntime.apiClient ||
-    previousRuntime.auth.defaultOrganizationId !==
-      nextRuntime.auth.defaultOrganizationId ||
-    previousRuntime.auth.isAuthenticated !== nextRuntime.auth.isAuthenticated ||
-    previousRuntime.auth.organizationId !== nextRuntime.auth.organizationId ||
-    previousRuntime.auth.userId !== nextRuntime.auth.userId ||
-    previousRuntime.crypto.encapsulationKeyPair !==
-      nextRuntime.crypto.encapsulationKeyPair ||
-    previousRuntime.crypto.signingFingerprint !==
-      nextRuntime.crypto.signingFingerprint ||
-    previousRuntime.crypto.signingKeyPair !==
-      nextRuntime.crypto.signingKeyPair ||
-    previousRuntime.infra.blobStore !== nextRuntime.infra.blobStore ||
-    previousRuntime.infra.dbStatus !== nextRuntime.infra.dbStatus ||
-    previousRuntime.infra.documentProjectors !==
-      nextRuntime.infra.documentProjectors ||
-    previousRuntime.infra.execSql !== nextRuntime.infra.execSql ||
-    previousRuntime.resolveTrustedUserIdentity !==
-      nextRuntime.resolveTrustedUserIdentity ||
-    previousRuntime.state.containerId !== nextRuntime.state.containerId ||
-    previousRuntime.state.domainScope !== nextRuntime.state.domainScope ||
+    didContainerWriteRuntimeChange(previousRuntime, nextRuntime) ||
     previousRuntime.state.online !== nextRuntime.state.online ||
     previousRuntime.state.peerScope !== nextRuntime.state.peerScope ||
     previousRuntime.state.serverEventsConnectionGeneration !==
