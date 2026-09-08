@@ -9,7 +9,8 @@ override_resource {
 }
 
 variables {
-  planetscale_branch_id = "existing-main-branch"
+  planetscale_branch_id    = "existing-main-branch"
+  planetscale_cluster_size = "PS_5_AWS_ARM"
 }
 
 run "accept_single_node" {
@@ -22,7 +23,7 @@ run "accept_single_node" {
 
   assert {
     condition     = planetscale_postgres_branch.main.cluster_size == "PS_5_AWS_ARM"
-    error_message = "The branch must use the cheapest PS-5 ARM size by default."
+    error_message = "The branch must preserve the selected PS-5 ARM size."
   }
 
   assert {
@@ -45,6 +46,19 @@ run "reject_ha_branch" {
   expect_failures = [planetscale_postgres_branch.main]
 }
 
+run "preserve_x86_architecture" {
+  command = plan
+
+  variables {
+    planetscale_cluster_size = "PS_5_AWS_X86"
+  }
+
+  assert {
+    condition     = planetscale_postgres_branch.main.cluster_size == "PS_5_AWS_X86"
+    error_message = "An imported x86 branch must keep its selected architecture."
+  }
+}
+
 run "reject_larger_size" {
   command = plan
 
@@ -53,4 +67,14 @@ run "reject_larger_size" {
   }
 
   expect_failures = [var.planetscale_cluster_size]
+}
+
+run "reject_missing_branch_id" {
+  command = plan
+
+  variables {
+    planetscale_branch_id = "  "
+  }
+
+  expect_failures = [var.planetscale_branch_id]
 }

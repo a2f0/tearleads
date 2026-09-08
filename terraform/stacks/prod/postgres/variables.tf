@@ -23,7 +23,6 @@ variable "planetscale_branch_id" {
 variable "planetscale_cluster_size" {
   description = "PS-5 architecture selected during bootstrap; both cost $5/month with zero replicas in us-east-1"
   type        = string
-  default     = "PS_5_AWS_ARM"
 
   validation {
     condition     = contains(["PS_5_AWS_ARM", "PS_5_AWS_X86"], var.planetscale_cluster_size)

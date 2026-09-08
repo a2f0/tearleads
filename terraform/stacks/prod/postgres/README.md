@@ -43,6 +43,7 @@ Store these exports in the gitignored `.secrets/planetscale.env` with mode
 export PLANETSCALE_SERVICE_TOKEN_ID='your-token-id'
 export PLANETSCALE_SERVICE_TOKEN='your-token'
 export TF_VAR_planetscale_branch_id='your-main-branch-id'
+export TF_VAR_planetscale_cluster_size='PS_5_AWS_ARM'
 ```
 
 The wrapper loads backend AWS credentials from `.secrets/root.env` and then
@@ -74,9 +75,10 @@ creation, obtain the main branch ID:
 pscale branch show tearleads-prod main --org tearleads --format json | jq -r '.id'
 ```
 
-Set `TF_VAR_planetscale_branch_id` in `.secrets/planetscale.env` to that ID. If
-you selected x86 in the dashboard, also set
-`TF_VAR_planetscale_cluster_size=PS_5_AWS_X86` so Terraform keeps that choice.
+Set `TF_VAR_planetscale_branch_id` in `.secrets/planetscale.env` to that ID, and
+set `TF_VAR_planetscale_cluster_size` to the size you selected during creation:
+`PS_5_AWS_ARM` or `PS_5_AWS_X86`. Both inputs are required so an import preserves
+the architecture chosen during bootstrap.
 
 ## Import and manage
 
@@ -88,8 +90,9 @@ reported no changes.
 From the repository root:
 
 ```sh
-bash terraform/scripts/run-postgres-stack.sh plan
-bash terraform/scripts/run-postgres-stack.sh apply
+umask 077
+bash terraform/scripts/run-postgres-stack.sh plan -out="$PWD/.secrets/planetscale-prod.tfplan"
+bash terraform/scripts/run-postgres-stack.sh apply "$PWD/.secrets/planetscale-prod.tfplan"
 bash terraform/scripts/run-postgres-stack.sh output -json database
 ```
 
@@ -104,9 +107,9 @@ branch, including after deletion outside Terraform. Provision or recover a
 single-node branch and import it first: the replica postcondition runs after
 creation and cannot control the provider's creation defaults.
 
-The wrapper disables input prompts for initialization and planning, so missing
-variables fail planning immediately. `apply` retains Terraform's normal
-interactive approval unless you pass a saved plan or `-auto-approve`.
+The wrapper disables input prompts for initialization, planning, and applying,
+so missing variables fail immediately. Review the saved plan before applying
+it; applying without a saved plan requires an explicit `-auto-approve` flag.
 
 Application credentials, data migration, and changing the API connection are
 separate steps. This stack only manages the database infrastructure. The API
@@ -122,7 +125,8 @@ terraform -chdir=terraform/stacks/prod/postgres validate
 terraform -chdir=terraform/stacks/prod/postgres test
 ```
 
-The tests accept a single-node import and reject replicas and larger sizes.
+The tests accept a single-node import and reject replicas, larger sizes, and
+an empty branch ID.
 They also run through `bash scripts/checks/checkTerraform.sh`.
 
 [PlanetScale pricing]: https://planetscale.com/docs/postgres/pricing

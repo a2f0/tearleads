@@ -35,7 +35,7 @@ if [[ "$ACTION" == init ]]; then
 else
   terraform -chdir="$STACK_DIR" init -input=false -reconfigure \
     -backend-config="$(get_backend_config)" >&2
-  if [[ "$ACTION" == plan ]]; then
+  if [[ "$ACTION" == plan || "$ACTION" == apply ]]; then
     set -- -input=false "$@"
   fi
   terraform -chdir="$STACK_DIR" "$ACTION" "$@"
