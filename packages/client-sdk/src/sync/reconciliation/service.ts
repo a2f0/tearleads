@@ -28,28 +28,17 @@ function canReconcile(status: ReconciliationRuntimeStatus): boolean {
   return status.dbStatus === "ready" && status.isAuthenticated && status.online;
 }
 
+type RefreshScope = "root" | "full";
+
 interface ReconciliationState extends IdleBackfillState {
   active: boolean;
   lane: SyncLane | null;
   lifecycleGeneration: number;
   probeContinuationCancel: (() => void) | null;
-  /**
-   * In-flight sweep promise. {@link reconcileKnownContainersAfterRefresh}
-   * clears the queue and mutates the discovered set non-atomically,
-   * so two overlapping sweeps (e.g. the open catch-up racing a manual refresh)
-   * would tear each other's shared state. Callers share one promise instead of
-   * starting a second one underneath it — see
-   * {@link reconcileKnownContainersSingleFlight} for how root vs full sweeps
-   * coalesce or chain.
-   */
-  refreshPromise: Promise<void> | null;
-  /**
-   * Scope of the in-flight {@link refreshPromise}. A root-only sweep only
-   * refreshes the top-level lane, so a full sweep must not coalesce into it
-   * (that would skip whole-tree discovery); it chains after instead. A full
-   * sweep is a superset, so anything coalesces into an in-flight full.
-   */
-  refreshType: "root" | "full" | null;
+  pendingRefresh: {
+    readonly promise: Promise<void>;
+    readonly scope: RefreshScope;
+  } | null;
 }
 
 async function runReconcileLane(
@@ -138,7 +127,7 @@ function forgetIneligibleDiscoveredContainers(
   }
 }
 
-async function reconcileKnownContainersAfterRefresh(input: {
+async function refreshAndReconcileContainers(input: {
   forceAllDocumentContentPulls: boolean;
   host: ReconciliationHost;
   listContainerIds: () => ReadonlyArray<string>;
@@ -190,54 +179,59 @@ async function reconcileKnownContainersAfterRefresh(input: {
   }
 }
 
-// Serialize the sweep entry points (reconcileNow / reconcileRootContainersNow)
-// so they never run concurrently over the shared state. A second caller while a
-// sweep is in flight joins it instead of clearing the queue/discovered set
-// underneath the first — but a full sweep must NOT coalesce into an in-flight
-// root-only sweep, since the root-only sweep skips whole-tree discovery. In
-// that one case the full sweep is chained to run after the root-only sweep.
-function reconcileKnownContainersSingleFlight(
+// Sweeps share the queue and discovered set, so they must run serially.
+// Root requests join either kind of sweep; a full request after a root sweep
+// must wait for it and then refresh the whole tree.
+function requestContainerRefresh(input: {
+  host: ReconciliationHost;
+  state: ReconciliationState;
+  refreshTree: () => Promise<void>;
+  listContainerIds: () => ReadonlyArray<string>;
+  scope: RefreshScope;
+}): Promise<void> {
+  const { state, scope } = input;
+  const pending = state.pendingRefresh;
+  if (pending && (scope === "root" || pending.scope === "full")) {
+    return pending.promise;
+  }
+
+  const promise = (pending?.promise ?? Promise.resolve())
+    // A failed root sweep must not prevent the queued full refresh.
+    .catch(() => undefined)
+    .then(() =>
+      refreshAndReconcileContainers({
+        forceAllDocumentContentPulls: scope === "full",
+        host: input.host,
+        listContainerIds: input.listContainerIds,
+        refreshTree: input.refreshTree,
+        state,
+      }),
+    )
+    .finally(() => {
+      if (state.pendingRefresh?.promise === promise) {
+        state.pendingRefresh = null;
+      }
+    });
+  state.pendingRefresh = { promise, scope };
+  return promise;
+}
+
+function listFullRefreshContainerIds(
   host: ReconciliationHost,
   state: ReconciliationState,
-  refreshTree: () => Promise<void>,
-  listContainerIds: () => ReadonlyArray<string>,
-  type: "root" | "full",
-): Promise<void> {
-  const startSweep = (previous?: Promise<void>): Promise<void> => {
-    const refreshPromise = (previous ?? Promise.resolve())
-      // A chained full sweep ignores the prior sweep's outcome; its own
-      // try/catch in reconcileKnownContainersAfterRefresh handles its errors.
-      .catch(() => undefined)
-      .then(() =>
-        reconcileKnownContainersAfterRefresh({
-          forceAllDocumentContentPulls: type === "full",
-          host,
-          listContainerIds,
-          refreshTree,
-          state,
-        }),
-      )
-      .finally(() => {
-        if (state.refreshPromise === refreshPromise) {
-          state.refreshPromise = null;
-          state.refreshType = null;
-        }
-      });
-    state.refreshPromise = refreshPromise;
-    state.refreshType = type;
-    return refreshPromise;
-  };
-
-  if (!state.refreshPromise) {
-    return startSweep();
+): ReadonlyArray<string> {
+  const knownIds = host.listKnownContainerIds();
+  const activeContainerId = state.activeContainerId;
+  if (
+    !activeContainerId ||
+    knownIds.includes(activeContainerId) ||
+    !host.canDiscoverContainerDocuments(activeContainerId)
+  ) {
+    return knownIds;
   }
-  // An in-flight full sweep already covers any request; a root request coalesces
-  // into whatever is in flight. Only a full request waiting on a root sweep
-  // needs to chain so the whole-tree refresh still runs.
-  if (type === "root" || state.refreshType === "full") {
-    return state.refreshPromise;
-  }
-  return startSweep(state.refreshPromise);
+  // Explicit refresh also retries an open foreign system container that the
+  // background discovery list excludes.
+  return [...knownIds, activeContainerId];
 }
 
 function startReconciliationLane(
@@ -280,8 +274,7 @@ function createReconciliationState(
     nextForceGeneration: 0,
     probeContinuationCancel: null,
     queue: createReconcileQueue(),
-    refreshPromise: null,
-    refreshType: null,
+    pendingRefresh: null,
     unscopedInvalidationActive: false,
     unscopedInvalidatedContainerIds: new Set(),
   };
@@ -297,8 +290,7 @@ function stopReconciliationService(
   state.queue.clear();
   state.automaticRetryGenerations.clear();
   state.forcedContainerGenerations.clear();
-  state.refreshPromise = null;
-  state.refreshType = null;
+  state.pendingRefresh = null;
   state.initialDocumentProbe.resetPending();
   // Drop the per-session discovered suppression cache too: a stopped
   // reconciler is being torn down (scope/identity change) or paused across
@@ -383,35 +375,21 @@ export function createReconciliationService(
       state.initialDocumentProbe.resetSkippedListings();
     },
     reconcileRootContainersNow: () =>
-      reconcileKnownContainersSingleFlight(
+      requestContainerRefresh({
         host,
         state,
-        host.refreshRootTree,
-        host.listAutomaticRootCatchupContainerIds,
-        "root",
-      ),
+        refreshTree: host.refreshRootTree,
+        listContainerIds: host.listAutomaticRootCatchupContainerIds,
+        scope: "root",
+      }),
     reconcileNow: () =>
-      reconcileKnownContainersSingleFlight(
+      requestContainerRefresh({
         host,
         state,
-        host.refreshTree,
-        () => {
-          const knownIds = host.listKnownContainerIds();
-          const activeContainerId = state.activeContainerId;
-          if (
-            !activeContainerId ||
-            knownIds.includes(activeContainerId) ||
-            !host.canDiscoverContainerDocuments(activeContainerId)
-          ) {
-            return knownIds;
-          }
-          // The generic set excludes write-only foreign system containers.
-          // Refresh still retries an explicitly opened one while sweeps remain
-          // filtered.
-          return [...knownIds, activeContainerId];
-        },
-        "full",
-      ),
+        refreshTree: host.refreshTree,
+        listContainerIds: () => listFullRefreshContainerIds(host, state),
+        scope: "full",
+      }),
     stop: () => stopReconciliationService(host, state),
   };
 }
