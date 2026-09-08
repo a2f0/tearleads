@@ -355,6 +355,7 @@
     grid-template:
       "appbar" auto
       "main" 1fr
+      "warning" auto
       "taskbar" auto
       / minmax(0, 1fr);
   }
