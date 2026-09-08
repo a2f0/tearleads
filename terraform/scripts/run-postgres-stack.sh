@@ -30,10 +30,13 @@ if [[ "$ACTION" == plan || "$ACTION" == apply ]]; then
 fi
 
 if [[ "$ACTION" == init ]]; then
-  terraform -chdir="$STACK_DIR" init -reconfigure \
+  terraform -chdir="$STACK_DIR" init -input=false -reconfigure \
     -backend-config="$(get_backend_config)" "$@"
 else
-  terraform -chdir="$STACK_DIR" init -reconfigure \
+  terraform -chdir="$STACK_DIR" init -input=false -reconfigure \
     -backend-config="$(get_backend_config)" >&2
+  if [[ "$ACTION" == plan ]]; then
+    set -- -input=false "$@"
+  fi
   terraform -chdir="$STACK_DIR" "$ACTION" "$@"
 fi

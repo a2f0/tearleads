@@ -46,6 +46,7 @@ run_terraform_tests() {
   if [[ -f "$module_dir/.terraform.lock.hcl" ]]; then
     cp "$module_dir/.terraform.lock.hcl" "$terraform_test_dir/" || {
       rm -rf -- "$terraform_test_dir"
+      echo "Error: could not stage the Terraform provider lock file" >&2
       return 1
     }
   fi

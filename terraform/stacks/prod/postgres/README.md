@@ -80,6 +80,11 @@ you selected x86 in the dashboard, also set
 
 ## Import and manage
 
+Provider 1.9's [import schema] takes a JSON object containing `organization`,
+`database`, and `id`, where `id` is the existing branch ID. This exact format
+was used to import `tearleads-prod` successfully; the subsequent live plan
+reported no changes.
+
 From the repository root:
 
 ```sh
@@ -93,6 +98,15 @@ protection, with no creates, replacements, or destroys. Confirm its region
 and PS-5 size match the database you created. Later plans should show no
 changes. A nonzero replica count fails the lifecycle check; correct it in
 PlanetScale before proceeding. Terraform cannot change that setting.
+
+Do not apply a plan proposing a create or replacement for this production
+branch, including after deletion outside Terraform. Provision or recover a
+single-node branch and import it first: the replica postcondition runs after
+creation and cannot control the provider's creation defaults.
+
+The wrapper disables input prompts for initialization and planning, so missing
+variables fail planning immediately. `apply` retains Terraform's normal
+interactive approval unless you pass a saved plan or `-auto-approve`.
 
 Application credentials, data migration, and changing the API connection are
 separate steps. This stack only manages the database infrastructure. The API
@@ -113,5 +127,6 @@ They also run through `bash scripts/checks/checkTerraform.sh`.
 
 [PlanetScale pricing]: https://planetscale.com/docs/postgres/pricing
 [Provider 1.9]: https://github.com/planetscale/terraform-provider-planetscale/blob/v1.9.0/docs/resources/postgres_branch.md
+[import schema]: https://github.com/planetscale/terraform-provider-planetscale/blob/v1.9.0/docs/resources/postgres_branch.md#import
 [service token guide]: https://planetscale.com/docs/cli/service-tokens
 [PlanetScale CLI]: https://planetscale.com/docs/cli/planetscale-environment-setup

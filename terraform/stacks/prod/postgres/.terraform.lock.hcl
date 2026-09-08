@@ -5,6 +5,7 @@ provider "registry.terraform.io/planetscale/planetscale" {
   version     = "1.9.0"
   constraints = "~> 1.9.0"
   hashes = [
+    "h1:W4/zCbuNmvNFnTA5gvJA3I0R7IdVkpr4IaMjcdUEybo=",
     "h1:vgNKwedv3z3ZOTHdQytd/743UTlttVJGOZ+Ui6SMz8E=",
     "zh:16ac4d8e09ee2daf0457da2434efe7fb9d9915d0bd4417030bad1ba4bf7f1283",
     "zh:30e01f666d630375fb9c5cd5c1a9c6ec2fec4eee6b5fdff9f47353e146e9e20e",

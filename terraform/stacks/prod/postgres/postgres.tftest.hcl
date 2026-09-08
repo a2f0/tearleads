@@ -3,13 +3,7 @@ mock_provider "planetscale" {}
 override_resource {
   target = planetscale_postgres_branch.main
   values = {
-    organization       = "tearleads"
-    database           = "tearleads-prod"
-    name               = "main"
-    region             = "us-east"
-    cluster_size       = "PS_5_AWS_ARM"
-    deletion_protected = true
-    replicas           = 0
+    replicas = 0
   }
   override_during = plan
 }
@@ -20,6 +14,21 @@ variables {
 
 run "accept_single_node" {
   command = plan
+
+  assert {
+    condition     = planetscale_postgres_branch.main.region == "us-east"
+    error_message = "The branch must use PlanetScale's AWS us-east-1 region slug."
+  }
+
+  assert {
+    condition     = planetscale_postgres_branch.main.cluster_size == "PS_5_AWS_ARM"
+    error_message = "The branch must use the cheapest PS-5 ARM size by default."
+  }
+
+  assert {
+    condition     = planetscale_postgres_branch.main.deletion_protected
+    error_message = "The production branch must have deletion protection enabled."
+  }
 }
 
 run "reject_ha_branch" {
@@ -28,13 +37,7 @@ run "reject_ha_branch" {
   override_resource {
     target = planetscale_postgres_branch.main
     values = {
-      organization       = "tearleads"
-      database           = "tearleads-prod"
-      name               = "main"
-      region             = "us-east"
-      cluster_size       = "PS_5_AWS_ARM"
-      deletion_protected = true
-      replicas           = 2
+      replicas = 2
     }
     override_during = plan
   }
