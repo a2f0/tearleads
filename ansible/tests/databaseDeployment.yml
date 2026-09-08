@@ -1,0 +1,35 @@
+---
+- name: Check database credential deployment configuration
+  hosts: all
+  gather_facts: false
+  vars:
+    server_tasks: "{{ (lookup('file', playbook_dir ~ '/../playbooks/server.yml') | from_yaml)[0].tasks }}"
+    runtime_task: "{{ server_tasks | selectattr('name', 'equalto', 'Deploy API environment file') | first }}"
+    migration_task: "{{ server_tasks | selectattr('name', 'equalto', 'Deploy migration environment file') | first }}"
+    guard_task: "{{ server_tasks | selectattr('name', 'equalto', 'Validate managed PostgreSQL connection') | first }}"
+  tasks:
+    - name: Keep runtime credentials readable only by root and the server group
+      ansible.builtin.assert:
+        that:
+          - runtime_task['ansible.builtin.template'].src == 'etc/tearleads/api.env.j2'
+          - runtime_task['ansible.builtin.template'].dest == '/etc/tearleads/api.env'
+          - runtime_task['ansible.builtin.template'].owner == 'root'
+          - runtime_task['ansible.builtin.template'].group == ('{' ~ '{ server_user ' ~ '}' ~ '}')
+          - runtime_task['ansible.builtin.template'].mode == '0640'
+          - runtime_task.no_log | bool
+
+    - name: Keep migration credentials private to root
+      ansible.builtin.assert:
+        that:
+          - migration_task['ansible.builtin.template'].src == 'etc/tearleads/migrations.env.j2'
+          - migration_task['ansible.builtin.template'].dest == '/etc/tearleads/migrations.env'
+          - migration_task['ansible.builtin.template'].owner == 'root'
+          - migration_task['ansible.builtin.template'].group == 'root'
+          - migration_task['ansible.builtin.template'].mode == '0600'
+          - migration_task.no_log | bool
+
+    - name: Require the managed connection guard in the production play
+      ansible.builtin.assert:
+        that:
+          - guard_task['ansible.builtin.import_tasks'] == 'tasks/managedPostgres.yml'
+          - guard_task.when == 'postgres_managed | bool'

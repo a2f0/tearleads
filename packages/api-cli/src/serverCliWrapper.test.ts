@@ -154,6 +154,7 @@ test.each(["make-admin", "migrate"])(
 );
 
 test("the wrapper refuses to run when the CLI is not installed", async () => {
+  await writeFile(envFilePath, "API_DATABASE=postgres\n");
   await writeFile(migrationEnvFilePath, "API_DATABASE=postgres\n");
   await rm(cliPath, { force: true });
 

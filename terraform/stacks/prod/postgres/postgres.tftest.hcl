@@ -14,8 +14,9 @@ override_resource {
   target          = planetscale_postgres_branch_role.migrations
   override_during = plan
   values = {
-    username = "migration.fixture-branch"
-    password = "fixture-migration-password"
+    access_host_url = "fixture.pg.psdb.cloud"
+    username        = "migration.fixture-branch"
+    password        = "fixture-migration-password"
   }
 }
 
@@ -127,4 +128,18 @@ run "api_connection_uses_persistent_branch" {
     )
     error_message = "Ansible must receive TLS credentials with pooled runtime and direct migration connections."
   }
+}
+
+run "reject_mismatched_role_hosts" {
+  command = plan
+
+  override_resource {
+    target          = planetscale_postgres_branch_role.migrations
+    override_during = plan
+    values = {
+      access_host_url = "different.pg.psdb.cloud"
+    }
+  }
+
+  expect_failures = [output.api_connection]
 }

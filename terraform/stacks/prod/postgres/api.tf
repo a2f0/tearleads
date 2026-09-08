@@ -29,6 +29,10 @@ resource "planetscale_postgres_branch_role" "migrations" {
 output "api_connection" {
   description = "Sensitive Ansible variables for the production API database"
   sensitive   = true
+  precondition {
+    condition     = planetscale_postgres_branch_role.runtime.access_host_url == planetscale_postgres_branch_role.migrations.access_host_url
+    error_message = "The runtime and migration roles must share the branch connection host."
+  }
   value = {
     postgres_managed            = true
     postgres_host               = planetscale_postgres_branch_role.runtime.access_host_url

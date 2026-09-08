@@ -20,7 +20,9 @@ cat >"$GUARD_DIR/play.yml" <<EOF
       ansible.builtin.import_tasks: $REPO_ROOT/ansible/playbooks/tasks/managedPostgres.yml
 EOF
 
-for mutation in valid host tls password migration_user migration_password missing_migration_user; do
+for mutation in \
+  valid host runtime_port migration_port tls password migration_user \
+  migration_password missing_migration_user missing_migration_password; do
   python3 - "$1" "$GUARD_DIR/vars.json" "$mutation" <<'PY'
 import json
 import sys
@@ -30,15 +32,18 @@ with open(sys.argv[1]) as source:
 changes = {
     "valid": {},
     "host": {"postgres_host": "127.0.0.1"},
+    "runtime_port": {"postgres_port": "5432"},
+    "migration_port": {"postgres_migration_port": "6432"},
     "tls": {"postgres_ssl": False},
     "password": {"postgres_password": ""},
     "migration_user": {"postgres_migration_user": values["postgres_user"]},
     "migration_password": {"postgres_migration_password": values["postgres_password"]},
     "missing_migration_user": {},
+    "missing_migration_password": {},
 }
 values.update(changes[sys.argv[3]])
-if sys.argv[3] == "missing_migration_user":
-    del values["postgres_migration_user"]
+if sys.argv[3].startswith("missing_"):
+    del values["postgres_" + sys.argv[3].removeprefix("missing_")]
 with open(sys.argv[2], "w") as output:
     json.dump(values, output)
 PY

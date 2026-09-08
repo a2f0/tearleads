@@ -7,10 +7,10 @@ TEMPLATE_DIR="$REPO_ROOT/ansible/playbooks/templates"
 RENDER_DIR=$(mktemp -d)
 trap 'rm -rf "$RENDER_DIR"' EXIT
 
-guard_import=$(awk '/- name: Validate managed PostgreSQL connection/ { getline; print; getline; print }' "$REPO_ROOT/ansible/playbooks/server.yml")
-if ! grep -q 'import_tasks: tasks/managedPostgres.yml' <<<"$guard_import" ||
-  ! grep -q 'when: postgres_managed | bool' <<<"$guard_import"; then
-  echo "ERROR: Production must call the managed Postgres guard." >&2
+if ! ansible-playbook -i localhost, --connection local \
+  "$REPO_ROOT/ansible/tests/databaseDeployment.yml" \
+  </dev/null >"$RENDER_DIR/config-check.log" 2>&1; then
+  cat "$RENDER_DIR/config-check.log" >&2
   exit 1
 fi
 
@@ -37,7 +37,7 @@ for managed in true false; do
   "redis_bind": "127.0.0.1",
   "api_cors_origins": "https://app.example.test",
   "document_sync_cursor_hmac_key": "fixture-cursor-key",
-  "garage_enabled": false
+  "garage_enabled": $managed
 }
 EOF
   for template in \
@@ -84,6 +84,7 @@ VERIFY_ENV
         echo "ERROR: Managed Postgres must not depend on a local PostgreSQL service." >&2
         exit 1
       fi
+      grep -q '^After=.*garage.service' "$service"
     else
       grep -q '^After=.*postgresql.service' "$service"
       grep -q '^Wants=.*postgresql.service' "$service"
