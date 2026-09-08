@@ -13,6 +13,7 @@
         "$TURBO_ROOT$/scripts/deployEverything.sh",
         "$TURBO_ROOT$/scripts/deployProduction.sh",
         "$TURBO_ROOT$/scripts/deployStaging.sh",
+        "$TURBO_ROOT$/scripts/destroyStaging.sh",
         "$TURBO_ROOT$/scripts/nativeRelease.sh",
         "$TURBO_ROOT$/scripts/releaseGuards.sh",
         "$TURBO_ROOT$/scripts/uploadAndroidRelease.sh",
@@ -25,7 +26,9 @@
         "$TURBO_ROOT$/packages/api-cli/scripts/deployStagingApiCli.sh",
         "$TURBO_ROOT$/terraform/scripts/cloudflareCache.sh",
         "$TURBO_ROOT$/terraform/scripts/common.sh",
+        "$TURBO_ROOT$/terraform/scripts/prepare-storage.sh",
         "$TURBO_ROOT$/terraform/scripts/run-postgres-stack.sh",
+        "$TURBO_ROOT$/terraform/scripts/run-storage-stack.sh",
         "$TURBO_ROOT$/terraform/scripts/secretsEnv.sh",
         "$TURBO_ROOT$/terraform/scripts/stripeEnv.sh"
       ]

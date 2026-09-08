@@ -124,6 +124,12 @@ test("failed server teardown retains staging storage", async () => {
   expect(result.calls).toEqual(["server --auto-approve"]);
 });
 
+test("staging teardown without arguments preserves interactive confirmation", async () => {
+  const result = await runStorageScript("scripts/destroyStaging.sh", []);
+  expect(result.exitCode, result.stderr).toBe(0);
+  expect(result.calls).toEqual(["server ", "storage staging destroy"]);
+});
+
 for (const args of [
   ["prod", "destroy"],
   ["unknown", "apply"],

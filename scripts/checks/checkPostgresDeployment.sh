@@ -16,6 +16,7 @@ fi
 
 bash "$REPO_ROOT/scripts/checks/checkManagedPostgresCutover.sh"
 bash "$REPO_ROOT/scripts/checks/checkManagedS3Cutover.sh"
+bash "$REPO_ROOT/scripts/checks/checkManagedS3Guard.sh"
 
 require_setting() {
   if ! grep -q "$2" "$1"; then

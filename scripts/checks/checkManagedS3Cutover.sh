@@ -38,6 +38,7 @@ EOF
 
 for scenario in fresh unmigrated wrong_bucket wrong_region marker_directory migrated; do
   rm -f "$CUTOVER_DIR/configured"
+  rm -rf -- "$CUTOVER_DIR/data" "$CUTOVER_DIR"/migrated-to-*
   if [[ "$scenario" != fresh ]]; then
     mkdir -p "$CUTOVER_DIR/data"
     echo retained >"$CUTOVER_DIR/data/fixture"
@@ -47,7 +48,7 @@ for scenario in fresh unmigrated wrong_bucket wrong_region marker_directory migr
     wrong_bucket) touch "$CUTOVER_DIR/migrated-to-tearleads-staging-us-east-1" ;;
     wrong_region) touch "$CUTOVER_DIR/migrated-to-tearleads-prod-eu-west-1" ;;
     marker_directory) mkdir "$marker" ;;
-    migrated) rmdir "$marker"; touch "$marker" ;;
+    migrated) touch "$marker" ;;
   esac
   result=0
   ansible-playbook -i localhost, --connection local "$CUTOVER_DIR/play.yml" \
