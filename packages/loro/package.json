@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./bun-plugin": "./src/bunPlugin.ts",
     "./server": "./src/server/index.ts",
     "./shared": "./src/shared/index.ts"
   },

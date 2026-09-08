@@ -75,4 +75,8 @@ sudo systemctl is-enabled --quiet tearleads-blob-gc.timer
 sudo systemctl is-active --quiet tearleads-blob-gc.timer
 REMOTE_MAINTENANCE_VERIFY
 
+echo "Verifying API health..."
+ssh "$SSH_TARGET" \
+  'curl --fail --silent --show-error --retry 10 --retry-connrefused --retry-delay 1 --retry-max-time 30 --max-time 5 http://127.0.0.1:3001/ >/dev/null'
+
 echo "API deployed."

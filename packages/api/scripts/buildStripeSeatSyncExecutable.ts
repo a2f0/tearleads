@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url";
+import { loroWasmPlugin } from "@tearleads/loro/bun-plugin";
 
 const repoRoot = fileURLToPath(new URL("../../..", import.meta.url));
 process.chdir(repoRoot);
@@ -34,6 +35,7 @@ const result = await Bun.build({
     target: executableTarget,
   },
   target: "bun",
+  plugins: [loroWasmPlugin],
 });
 
 if (!result.success) {
