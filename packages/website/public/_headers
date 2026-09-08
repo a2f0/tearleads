@@ -1,0 +1,16 @@
+# HTML and manifests must discover the current deployment on every visit.
+/*
+  Cache-Control: public, no-cache, must-revalidate
+
+# Astro bundles and screenshot URLs are content-versioned.
+/_astro/*
+  ! Cache-Control
+  Cache-Control: public, max-age=31536000, immutable
+
+/screenshot-gallery/*.webp
+  ! Cache-Control
+  Cache-Control: public, max-age=31536000, immutable
+
+/screenshot-gallery/*.png
+  ! Cache-Control
+  Cache-Control: public, max-age=31536000, immutable

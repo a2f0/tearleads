@@ -52,6 +52,10 @@ async function runStorageScript(
         '[ "$STORAGE_TEST_FAILURE" != server ] || exit 9',
       ].join("\n"),
     );
+    await executable(
+      resolve(root, "packages/website/scripts/destroyStagingWebsite.sh"),
+      '#!/bin/sh\nprintf "website %s\\n" "$*" >> "$STORAGE_TEST_LOG"\n',
+    );
     const log = resolve(root, "calls.log");
     const child = Bun.spawn(["bash", script, ...args], {
       env: {
@@ -123,6 +127,7 @@ test("staging teardown removes its server before emptying storage", async () => 
   expect(result.calls).toEqual([
     "server --auto-approve",
     "storage staging destroy --auto-approve",
+    "website --auto-approve",
   ]);
 });
 
@@ -139,7 +144,11 @@ test("failed server teardown retains staging storage", async () => {
 test("staging teardown without arguments preserves interactive confirmation", async () => {
   const result = await runStorageScript("scripts/destroyStaging.sh", []);
   expect(result.exitCode, result.stderr).toBe(0);
-  expect(result.calls).toEqual(["server ", "storage staging destroy"]);
+  expect(result.calls).toEqual([
+    "server ",
+    "storage staging destroy",
+    "website",
+  ]);
 });
 
 for (const args of [[], ["prod"], ["prod", "destroy"], ["unknown", "apply"]]) {

@@ -40,7 +40,6 @@ validate_aws_env
 validate_hetzner_env
 validate_cloudflare_env
 validate_domain_env
-validate_website_cache_env
 validate_tailscale_env
 
 if [[ "$ACTION" != destroy ]]; then
