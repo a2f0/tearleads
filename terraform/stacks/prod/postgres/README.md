@@ -163,10 +163,12 @@ no existing application data at bootstrap. It does not copy data from another
 Postgres server. For an existing deployment, stop API and maintenance writers,
 take and retain a database backup, restore it into PlanetScale with the migration
 login, and validate schema, row counts, and application access before running
-step 2. Ansible refuses managed configuration while `/var/lib/postgresql`
-exists. After the restore is verified, stop and disable local PostgreSQL and
-move that directory aside, retaining the original data and backup. The guard
-runs before Ansible changes service configuration or credentials.
+step 2. Ansible refuses managed configuration while cluster markers
+(`/var/lib/postgresql/<version>/<cluster>/PG_VERSION`) exist. An empty Postgres
+home directory is allowed. After the restore is verified, stop and disable
+local PostgreSQL and move the old cluster directories aside, retaining the
+original data and backup. The guard runs before Ansible changes service
+configuration or credentials.
 
 A missing connection output stops production Ansible; apply this stack first.
 To rotate a login, create a replacement role alongside the existing one,
