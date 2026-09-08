@@ -3,7 +3,8 @@
 This stack manages `tearleads/tearleads-prod`, branch `main`, independently of
 the production server. Its S3 state key is `prod/postgres/terraform.tfstate`,
 using the existing backend in `terraform/configs/backend.hcl`. Server rebuilds
-and `deployProduction.sh` / `deployEverything.sh` do not run this stack.
+and `deployProduction.sh` / `deployEverything.sh` never apply or destroy this
+stack. Ansible reads its existing connection output when configuring production.
 
 ## Size and provider support
 
@@ -31,8 +32,10 @@ the [service token guide].
 
 After creating the database, grant database access to `tearleads-prod` with
 `read_branch` and `write_database` for reading the branch and enabling deletion
-protection. Additional changes such as resizing may require further scopes;
-use the permissions documented for the corresponding API operation. The CLI
+protection. Managing the API login also needs the create/read/update/delete
+Postgres role permissions. Additional changes such as resizing may require
+further scopes; use the permissions documented for the corresponding API
+operation. The CLI
 bootstrap below uses your interactive login, so Terraform does not need
 organization-wide database creation access.
 
@@ -98,8 +101,9 @@ bash terraform/scripts/run-postgres-stack.sh output -json database
 ```
 
 The first plan should import one branch, optionally updating deletion
-protection, with no creates, replacements, or destroys. Confirm its region
-and PS-5 size match the database you created. Later plans should show no
+protection, and create the dedicated API login. It must not create, replace,
+or destroy the database branch. Confirm its region and PS-5 size match the
+database you created. Later plans should show no
 changes. A nonzero replica count fails the lifecycle check; correct it in
 PlanetScale before proceeding. Terraform cannot change that setting.
 
@@ -112,9 +116,47 @@ The wrapper disables input prompts for initialization, planning, and applying,
 so missing variables fail immediately. Review the saved plan before applying
 it; applying without a saved plan requires an explicit `-auto-approve` flag.
 
-Application credentials, data migration, and changing the API connection are
-separate steps. This stack only manages the database infrastructure. The API
-still uses its existing Postgres connection until a migration is performed.
+## Production API dependency
+
+This stack owns both the branch and its non-expiring `tearleads-api` login.
+Both use `prevent_destroy`; the branch also has PlanetScale deletion protection.
+Keep this stack and its S3 state when rebuilding the server. Deletion protection
+is a guard against accidents, not a substitute for retaining state and backups.
+
+`ansible/scripts/run-server-prod.sh` reads the sensitive `api_connection`
+Terraform output into a mode-0600 temporary file, passes it to Ansible, and
+removes it on exit. Reading the output needs backend access; it does not apply
+this stack or need a PlanetScale API call. Credentials stay out of the server
+Terraform state and cloud-init. The server never receives the PlanetScale
+service token or AWS state credentials.
+
+Ansible writes the application connection to `/etc/tearleads/api.env` with mode
+0640 and configures the API and maintenance services to use the external
+database. Production skips local PostgreSQL installation and requires TLS with
+certificate verification. Staging keeps its local PostgreSQL setup.
+
+The current API and maintenance executables run migrations on startup, so their
+custom role inherits `postgres` privileges. Runtime traffic uses the included
+PgBouncer on port 6432 to share the small server's connection pool. Deployment
+migrations and the operator CLI's `migrate` command use direct port 5432 through
+`POSTGRES_MIGRATION_PORT`; staging defaults that variable to its normal port.
+This is a dedicated managed role, separate from the default `postgres` login.
+Splitting migration and runtime privileges requires changing that startup
+behavior first. See [PlanetScale roles] and [connection options].
+
+Deployment order:
+
+1. Bootstrap the database once, then apply this persistent stack.
+2. Run `scripts/deployProduction.sh`: it applies the server stack, configures
+   the host with Ansible, runs database migrations, and deploys the applications.
+3. For later server rebuilds, repeat step 2. The database and login survive.
+
+A missing connection output stops production Ansible; apply this stack first.
+To rotate the login, create a replacement role alongside the existing one,
+point `api_connection` at it, apply this stack, rerun Ansible, and restart API
+and maintenance processes before retiring the old role. Do not reset a password
+in the dashboard and expect Terraform to retrieve it: passwords are returned
+only at creation and retained in the sensitive Terraform state.
 
 ## Local checks
 
@@ -135,3 +177,6 @@ They also run through `bash scripts/checks/checkTerraform.sh`.
 [import schema]: https://github.com/planetscale/terraform-provider-planetscale/blob/v1.9.0/docs/resources/postgres_branch.md#import
 [service token guide]: https://planetscale.com/docs/cli/service-tokens
 [PlanetScale CLI]: https://planetscale.com/docs/cli/planetscale-environment-setup
+
+[PlanetScale roles]: https://planetscale.com/docs/postgres/connecting/roles
+[connection options]: https://planetscale.com/docs/postgres/connecting

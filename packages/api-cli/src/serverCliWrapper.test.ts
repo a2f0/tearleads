@@ -102,6 +102,28 @@ test("the wrapper loads the env file, preserves arguments, and propagates the ex
   await rm(cliRanMarker, { force: true });
 });
 
+test.each([
+  ["migrate", "6432", "5432", "5432"],
+  ["make-admin", "6432", "5432", "6432"],
+  ["migrate", "5432", "", "5432"],
+])(
+  "%s selects the database port from %s / %s",
+  async (command, runtimePort, migrationPort, expectedPort) => {
+    await writeFile(
+      envFilePath,
+      `POSTGRES_PORT=${runtimePort}\nPOSTGRES_MIGRATION_PORT=${migrationPort}\n`,
+    );
+    await writeFile(cliPath, '#!/bin/sh\nprintf "%s" "$POSTGRES_PORT"\n');
+    await chmod(cliPath, 0o755);
+
+    const result = await runWrapper([command]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toBe(expectedPort);
+  },
+);
+
 test("the wrapper refuses to run without a readable env file", async () => {
   await installFakeCli();
   await rm(envFilePath, { force: true });

@@ -5,6 +5,7 @@
     "test": {
       "inputs": [
         "$TURBO_EXTENDS$",
+        "$TURBO_ROOT$/ansible/scripts/run-server.sh",
         "$TURBO_ROOT$/scripts/buildAndroidRelease.sh",
         "$TURBO_ROOT$/scripts/buildAndroidStagingRelease.sh",
         "$TURBO_ROOT$/scripts/buildIosRelease.sh",

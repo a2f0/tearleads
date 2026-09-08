@@ -26,4 +26,8 @@ set -a
 . "$env_file"
 set +a
 
+if [ "${1:-}" = migrate ]; then
+  export POSTGRES_PORT="${POSTGRES_MIGRATION_PORT:-$POSTGRES_PORT}"
+fi
+
 exec "$cli" "$@"

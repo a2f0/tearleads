@@ -1,0 +1,11 @@
+{
+  "extends": ["//"],
+  "tasks": {
+    "test": {
+      "inputs": [
+        "$TURBO_EXTENDS$",
+        "$TURBO_ROOT$/ansible/playbooks/templates/usr/local/bin/tearleads-api-cli.j2"
+      ]
+    }
+  }
+}

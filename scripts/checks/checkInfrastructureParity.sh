@@ -383,5 +383,6 @@ assert_demo_static_ingress
 assert_demo_hostname_derivation
 assert_demo_zone_rule_agreement
 assert_stripe_env_guard
+bash "$REPO_ROOT/scripts/checks/checkPostgresDeployment.sh"
 
 echo "Infrastructure tier parity passed."

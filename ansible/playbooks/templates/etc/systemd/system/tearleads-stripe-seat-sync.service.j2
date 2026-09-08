@@ -1,7 +1,7 @@
 [Unit]
 Description=Tearleads Stripe Seat Sync
-After=network.target postgresql.service redis-server.service{{ ' garage.service' if garage_enabled | default(false) | bool else '' }}
-Wants=postgresql.service redis-server.service{{ ' garage.service' if garage_enabled | default(false) | bool else '' }}
+After=network-online.target redis-server.service{{ ' postgresql.service' if not postgres_managed | default(false) | bool else '' }}{{ ' garage.service' if garage_enabled | default(false) | bool else '' }}
+Wants=network-online.target redis-server.service{{ ' postgresql.service' if not postgres_managed | default(false) | bool else '' }}{{ ' garage.service' if garage_enabled | default(false) | bool else '' }}
 ConditionPathExists=/opt/tearleads/bin/tearleads-stripe-seat-sync
 
 [Service]
