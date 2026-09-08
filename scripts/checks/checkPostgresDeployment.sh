@@ -7,6 +7,13 @@ TEMPLATE_DIR="$REPO_ROOT/ansible/playbooks/templates"
 RENDER_DIR=$(mktemp -d)
 trap 'rm -rf "$RENDER_DIR"' EXIT
 
+guard_import=$(awk '/- name: Validate managed PostgreSQL connection/ { getline; print; getline; print }' "$REPO_ROOT/ansible/playbooks/server.yml")
+if ! grep -q 'import_tasks: tasks/managedPostgres.yml' <<<"$guard_import" ||
+  ! grep -q 'when: postgres_managed | bool' <<<"$guard_import"; then
+  echo "ERROR: Production must call the managed Postgres guard." >&2
+  exit 1
+fi
+
 for managed in true false; do
   host=127.0.0.1
   port=5432

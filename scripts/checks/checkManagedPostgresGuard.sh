@@ -2,6 +2,11 @@
 # Exercise the actual Ansible guard before it can configure production.
 set -euo pipefail
 
+if [[ $# != 1 ]]; then
+  echo "Usage: $(basename "$0") <fixture-vars.json>" >&2
+  exit 1
+fi
+
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 GUARD_DIR=$(mktemp -d)
 trap 'rm -rf "$GUARD_DIR"' EXIT
@@ -15,7 +20,7 @@ cat >"$GUARD_DIR/play.yml" <<EOF
       ansible.builtin.import_tasks: $REPO_ROOT/ansible/playbooks/tasks/managedPostgres.yml
 EOF
 
-for mutation in valid host tls password migration_user missing_migration_user; do
+for mutation in valid host tls password migration_user migration_password missing_migration_user; do
   python3 - "$1" "$GUARD_DIR/vars.json" "$mutation" <<'PY'
 import json
 import sys
@@ -28,6 +33,7 @@ changes = {
     "tls": {"postgres_ssl": False},
     "password": {"postgres_password": ""},
     "migration_user": {"postgres_migration_user": values["postgres_user"]},
+    "migration_password": {"postgres_migration_password": values["postgres_password"]},
     "missing_migration_user": {},
 }
 values.update(changes[sys.argv[3]])

@@ -142,8 +142,11 @@ login inherits `postgres` and connects directly on port 5432; Ansible stores
 its connection separately in root-owned `/etc/tearleads/migrations.env`, mode
 0600. Deploy scripts run `sudo tearleads-api-cli migrate` through the operator
 wrapper, which selects that file only for migrations. The runtime environment
-contains no migration credentials. Staging writes its existing local login to
-both files. See [PlanetScale roles] and [connection options].
+contains no migration credentials. The deploy account retains its existing
+administrative sudo access; these file permissions do not isolate credentials
+from an administrator or a compromised deploy account. Staging writes its
+existing local login to both files. See [PlanetScale roles] and
+[connection options].
 
 Deployment order:
 

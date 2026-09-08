@@ -11,12 +11,6 @@ resource "planetscale_postgres_branch_role" "runtime" {
   }
 }
 
-# Preserve the elevated login created during the greenfield bootstrap.
-moved {
-  from = planetscale_postgres_branch_role.api
-  to   = planetscale_postgres_branch_role.migrations
-}
-
 resource "planetscale_postgres_branch_role" "migrations" {
   organization    = planetscale_postgres_branch.main.organization
   database        = planetscale_postgres_branch.main.database
