@@ -7,7 +7,7 @@ import {
 import type { ContainerContents } from "../containerContents";
 import { createOrganizations } from ".";
 
-test("replacement billing mutations use their explicit organization target", async () => {
+test("billing targets follow the current authenticated session", async () => {
   const { close, execSql } = await createTestExecSql(
     "organizations-explicit-billing-target-test",
   );
@@ -32,7 +32,7 @@ test("replacement billing mutations use their explicit organization target", asy
       return null;
     },
   });
-  const workflowInput = createWorkflowInputFixture({
+  let workflowInput = createWorkflowInputFixture({
     apiClient,
     auth: { organizationId: activeOrganizationId, userId: "user-1" },
     execSql,
@@ -42,14 +42,20 @@ test("replacement billing mutations use their explicit organization target", asy
     {} as ContainerContents,
   );
 
+  async function runBilling(organizationId?: string) {
+    return Promise.all([
+      organizations.loadStripeCheckoutOptions(organizationId),
+      organizations.createStripeCheckout(organizationId),
+      organizations.createStripeCheckoutSession(
+        "https://app.test/billing",
+        organizationId,
+      ),
+      organizations.startTrial(organizationId),
+    ]);
+  }
+
   try {
-    await organizations.loadStripeCheckoutOptions(replacementOrganizationId);
-    await organizations.createStripeCheckout(replacementOrganizationId);
-    await organizations.createStripeCheckoutSession(
-      "https://app.test/billing",
-      replacementOrganizationId,
-    );
-    await organizations.startTrial(replacementOrganizationId);
+    await runBilling(replacementOrganizationId);
 
     expect(requests).toEqual([
       { operation: "options", organizationId: replacementOrganizationId },
@@ -61,14 +67,56 @@ test("replacement billing mutations use their explicit organization target", asy
       { operation: "trial", organizationId: replacementOrganizationId },
     ]);
 
-    await organizations.loadStripeCheckoutOptions("");
-    await organizations.createStripeCheckout("");
-    await organizations.createStripeCheckoutSession(
-      "https://app.test/billing",
-      "",
-    );
-    await organizations.startTrial("");
+    await expect(runBilling("")).resolves.toEqual([null, null, null, null]);
     expect(requests).toHaveLength(4);
+
+    requests.length = 0;
+    await runBilling();
+    expect(requests).toEqual([
+      { operation: "options", organizationId: activeOrganizationId },
+      { operation: "checkout", organizationId: activeOrganizationId },
+      { operation: "hosted-checkout", organizationId: activeOrganizationId },
+      { operation: "trial", organizationId: activeOrganizationId },
+    ]);
+
+    workflowInput = {
+      ...workflowInput,
+      auth: {
+        ...workflowInput.auth,
+        organizationId: replacementOrganizationId,
+      },
+    };
+    requests.length = 0;
+    await runBilling();
+    expect(requests).toEqual([
+      { operation: "options", organizationId: replacementOrganizationId },
+      { operation: "checkout", organizationId: replacementOrganizationId },
+      {
+        operation: "hosted-checkout",
+        organizationId: replacementOrganizationId,
+      },
+      { operation: "trial", organizationId: replacementOrganizationId },
+    ]);
+
+    for (const auth of [
+      { isAuthenticated: false, organizationId: activeOrganizationId },
+      { isAuthenticated: true, organizationId: null },
+      { isAuthenticated: true, organizationId: "" },
+    ]) {
+      workflowInput = {
+        ...workflowInput,
+        auth: { ...workflowInput.auth, ...auth },
+      };
+      requests.length = 0;
+      await expect(runBilling()).resolves.toEqual([null, null, null, null]);
+      await expect(runBilling(replacementOrganizationId)).resolves.toEqual([
+        null,
+        null,
+        null,
+        null,
+      ]);
+      expect(requests).toEqual([]);
+    }
   } finally {
     close();
   }
