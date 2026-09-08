@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url";
+import { loroWasmPlugin } from "@tearleads/loro/bun-plugin";
 import { Glob } from "bun";
 import { migrationAssetPatterns } from "../src/migrationAssets";
 
@@ -47,6 +48,7 @@ const result = await Bun.build({
     asset: "[dir]/[name].[ext]",
   },
   target: "bun",
+  plugins: [loroWasmPlugin],
 });
 
 if (!result.success) {
