@@ -135,7 +135,7 @@ test("routed tracker index folds on a phone and unfolds on a tablet", async ({
   await page.getByLabel("Quick add weight").fill("180");
   await page.getByRole("button", { name: "Save Entry" }).click();
   await expect(page.getByRole("button", { name: "Add Entry" })).toBeVisible();
-  await page.getByRole("button", { name: "Save" }).click();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("button", { name: "Edit" })).toBeVisible();
 
   const table = trackerTable(page, "Entries");
