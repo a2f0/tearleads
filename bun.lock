@@ -190,6 +190,7 @@
         "@playwright/test": "1.63.0",
         "@types/bun": "catalog:",
         "@types/react-dom": "catalog:react",
+        "loro-crdt": "catalog:",
       },
     },
     "packages/bob-and-alice": {

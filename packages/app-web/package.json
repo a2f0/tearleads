@@ -13,7 +13,7 @@
     "prescreenshots": "bun run build:client-sdk && bun run --cwd ../.. screenshots:seed",
     "screenshots": "env -u NO_COLOR -u FORCE_COLOR playwright test --config=playwright.screenshots.config.ts",
     "prebuild": "bun run build:client-sdk",
-    "build": "export NODE_ENV=production && rm -rf dist && sh ../../scripts/withBuildInfoEnv.sh bun build ./src/index.html --outdir=dist --sourcemap --target=browser --minify --env='BUN_PUBLIC_*' --public-path=/ && bun scripts/buildStaticAssets.ts && sh scripts/buildWebImages.sh && bun scripts/buildServiceWorker.ts",
+    "build": "export NODE_ENV=production && rm -rf dist && sh ../../scripts/withBuildInfoEnv.sh bun scripts/buildApp.ts && bun scripts/buildStaticAssets.ts && sh scripts/buildWebImages.sh && bun scripts/buildServiceWorker.ts",
     "prestart": "bun run build:client-sdk",
     "start": "sh ../../scripts/withBuildInfoEnv.sh bun src/servers/devServer.ts",
     "test": "bun test scripts --max-concurrency=1"
@@ -28,6 +28,7 @@
   "devDependencies": {
     "@playwright/test": "1.63.0",
     "@types/bun": "catalog:",
-    "@types/react-dom": "catalog:react"
+    "@types/react-dom": "catalog:react",
+    "loro-crdt": "catalog:"
   }
 }
