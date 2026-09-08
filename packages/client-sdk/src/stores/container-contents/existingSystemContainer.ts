@@ -59,7 +59,7 @@ export async function updateExistingSystemContainer(
         saveOptions: promotion.queueCreateIntent
           ? { createIntent: { parentContainerId: promotion.parentContainerId } }
           : undefined,
-        localUpdate: promotion.metadataUpdate || undefined,
+        localUpdate: promotion.metadataUpdate,
         isCurrent,
       });
       return result.status === "persisted";

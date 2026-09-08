@@ -21,6 +21,7 @@ const DEFAULT_SYNC_IDLE_TIMEOUT_MS = 500;
 // Slow down repeated failures and yield periodically during successful bursts
 // so lanes that keep requesting work cannot starve timers or other tasks.
 const FAILED_LANE_REARM_BACKOFF_MS = 1000;
+// Allow normal convergence bursts to finish without a timer delay.
 const SYNC_PUMP_MACROTASK_YIELD_INTERVAL = 16;
 // A timed-out run keeps its lane occupied until it settles, but releases the
 // serial pump so other lanes can proceed.
@@ -152,7 +153,8 @@ function startSyncLaneRun(
   lane.activeRunToken = runToken;
   publishSyncCoordinatorSnapshot(coordinatorState);
 
-  // Keep follow-up requests even on failure; clearing them would lose work.
+  // Keep follow-up requests even on failure to preserve phase ordering; see
+  // docs/client-sync-ordering.md.
   // The fallback also catches errors thrown by the lane's error handlers.
   const runResultPromise: Promise<SyncLaneRunResult> = runSyncLane(lane).then(
     (result) => result,
