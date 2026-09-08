@@ -1,5 +1,11 @@
 import { afterEach, expect, test } from "bun:test";
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import invariant from "invariant";
 import { waitForAppTestRuntimeToSettle } from "../../../../test/helpers/appRuntimeIdle";
 import {
@@ -124,7 +130,7 @@ test("folder creation, document linking, unlinking and trash have separate reque
   );
   // Get Info hydrates contributor profiles after loading attribution. Drain
   // that navigation work before measuring the unrelated unlink mutation.
-  await interact(async () => {
+  await act(async () => {
     expect(
       await waitForAppTestRuntimeToSettle({
         apiQuietMs: 200,
