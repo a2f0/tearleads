@@ -5,21 +5,16 @@ import {
   reconcileOrganizationDataUsage,
 } from "../../workflows/organizations";
 import { organizationAccessScopeKey } from "../../workflows/organizations/organizationPresentationAccessState";
-import type {
-  InternalRuntime,
-  InternalWorkflowRuntimeInput,
-} from "../workflowRuntime";
+import type { InternalRuntime } from "../workflowRuntime";
+import {
+  type ActiveOrganizationDataRuntime,
+  activeOrganizationDataRuntime,
+} from "./organizationWorkflowRuntime";
 
 const coordinatorsByRuntime = new WeakMap<
   InternalRuntime,
   OrganizationDataUsageCoordinator
 >();
-
-interface ActiveOrganizationDataUsageRuntime {
-  readonly organizationId: string;
-  readonly runtime: InternalWorkflowRuntimeInput;
-  readonly userId: string;
-}
 
 export interface OrganizationDataUsageCoordinator {
   loadLocal(
@@ -29,27 +24,6 @@ export interface OrganizationDataUsageCoordinator {
   reconcile(
     organizationId?: string | undefined,
   ): Promise<OrganizationDataUsage | null | undefined>;
-}
-
-function activeDataUsageRuntime(
-  runtimeService: InternalRuntime,
-  expectedOrganizationId?: string | undefined,
-): ActiveOrganizationDataUsageRuntime | null {
-  const runtime = runtimeService.workflowInput();
-  const organizationId = runtime.auth.organizationId;
-  const userId = runtime.auth.userId;
-  if (
-    !runtime.auth.isAuthenticated ||
-    !organizationId ||
-    !userId ||
-    runtime.infra.dbStatus !== "ready" ||
-    (expectedOrganizationId !== undefined &&
-      organizationId !== expectedOrganizationId)
-  ) {
-    return null;
-  }
-
-  return { organizationId, runtime, userId };
 }
 
 class OrganizationDataUsageCoordinatorImpl
@@ -62,7 +36,7 @@ class OrganizationDataUsageCoordinatorImpl
 
   constructor(private readonly runtimeService: InternalRuntime) {}
 
-  private reconciliationMap(active: ActiveOrganizationDataUsageRuntime) {
+  private reconciliationMap(active: ActiveOrganizationDataRuntime) {
     const scope = active.runtime.state.domainScope;
     let byKey = this.reconciliationsByScope.get(scope);
     if (!byKey) {
@@ -73,7 +47,10 @@ class OrganizationDataUsageCoordinatorImpl
   }
 
   async loadLocal(organizationId?: string) {
-    const active = activeDataUsageRuntime(this.runtimeService, organizationId);
+    const active = activeOrganizationDataRuntime(
+      this.runtimeService,
+      organizationId,
+    );
     if (!active) {
       return null;
     }
@@ -94,7 +71,10 @@ class OrganizationDataUsageCoordinatorImpl
   }
 
   reconcile(organizationId?: string) {
-    const active = activeDataUsageRuntime(this.runtimeService, organizationId);
+    const active = activeOrganizationDataRuntime(
+      this.runtimeService,
+      organizationId,
+    );
     if (!active) {
       return Promise.resolve(undefined);
     }
