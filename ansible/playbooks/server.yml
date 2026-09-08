@@ -64,6 +64,7 @@
     bun_version: "1.4.2"
     bun_linux_x64_checksum: "sha256:36368faef7527875d5ffa52e53cd48021741f2a83eb6208a8dd64068d422a913"
     nginx_worker_connections: 1024
+    blob_storage_managed: true
     garage_enabled: "{{ lookup('env', 'GARAGE_ENABLED') | default('true', true) }}"
     garage_version: "{{ lookup('env', 'GARAGE_VERSION') | default('v2.4.0', true) }}"
     garage_db_engine: "{{ lookup('env', 'GARAGE_DB_ENGINE') | default('lmdb', true) }}"
@@ -124,6 +125,10 @@
     - name: Guard managed PostgreSQL cutover before configuring the host
       ansible.builtin.import_tasks: tasks/managedPostgresCutover.yml
       when: postgres_managed | bool
+
+    - name: Validate managed S3 blob storage
+      ansible.builtin.import_tasks: tasks/managedS3.yml
+      when: blob_storage_managed | bool
 
     - name: Validate extra demo zone names
       ansible.builtin.import_tasks: tasks/demoZones.yml

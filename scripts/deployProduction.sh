@@ -2,13 +2,14 @@
 # Full production deployment for Tearleads
 #
 # Runs in order:
-#   1. terraform apply (production server stack)
-#   2. ansible playbook (server configuration)
-#   3. API deploy (executable deploy, migrations, service restart)
-#   4. Website deploy (build, rsync to /var/www, nginx reload)
-#   5. App-web deploy (build app + demo bundles, sync, nginx reload)
+#   1. Prepare independent S3 storage (create staging; require existing production)
+#   2. terraform apply (production server stack)
+#   3. ansible playbook (server configuration)
+#   4. API deploy (executable deploy, migrations, service restart)
+#   5. Website deploy (build, rsync to /var/www, nginx reload)
+#   6. App-web deploy (build app + demo bundles, sync, nginx reload)
 #
-# Pass --skip-terraform when a caller already applied the stack, or --skip-infra
+# Pass --skip-terraform when a caller already prepared storage and applied the server stack, or --skip-infra
 # to skip both terraform and ansible and deploy only the application artifacts.
 
 set -euo pipefail
@@ -113,6 +114,7 @@ if [[ "$SKIP_TERRAFORM" == true ]]; then
     echo ""
   fi
 else
+  run_step "storage" "${REPO_ROOT}/terraform/scripts/prepare-storage.sh" prod
   run_step "terraform" \
     "${REPO_ROOT}/terraform/stacks/prod/server/scripts/apply.sh" \
     --auto-approve

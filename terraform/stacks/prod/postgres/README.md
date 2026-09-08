@@ -154,16 +154,17 @@ existing local login to both files. See [PlanetScale roles] and
 Deployment order:
 
 1. Bootstrap the database once, then apply this persistent stack.
-2. Run `scripts/deployProduction.sh`: it applies the server stack, configures
+2. Provision the independent [S3 storage stack](../../../modules/s3-blob-storage/README.md).
+3. Run `scripts/deployProduction.sh`: it applies the server stack, configures
    the host with Ansible, runs database migrations, and deploys the applications.
-3. For later server rebuilds, repeat step 2. The database and both logins survive.
+4. For later server rebuilds, repeat step 3. The database and both logins survive.
 
 This is the greenfield deployment path: the production server and database had
 no existing application data at bootstrap. It does not copy data from another
 Postgres server. For an existing deployment, stop API and maintenance writers,
 take and retain a database backup, restore it into PlanetScale with the migration
 login, and validate schema, row counts, and application access before running
-step 2. Ansible refuses managed configuration while cluster markers
+step 3. Ansible refuses managed configuration while cluster markers
 (`/var/lib/postgresql/<version>/<cluster>/PG_VERSION`) exist. An empty Postgres
 home directory is allowed. After the restore is verified, stop and disable
 local PostgreSQL and move the old cluster directories aside, retaining the

@@ -1,0 +1,16 @@
+---
+- name: Require the environment's independent AWS S3 storage configuration
+  ansible.builtin.assert:
+    that:
+      - not garage_enabled | bool
+      - blob_object_store == 's3'
+      - blob_s3_bucket == 'tearleads-' ~ deployment_tier
+      - blob_s3_region == 'us-east-1'
+      - blob_s3_endpoint == ''
+      - not blob_s3_force_path_style | bool
+      - blob_s3_access_key_id | length > 0
+      - blob_s3_secret_access_key | length > 0
+      - blob_s3_key_prefix | default('') == ''
+    fail_msg: >-
+      Provision this environment's storage stack and configure it with
+      ansible/scripts/run-server.sh. Each tier requires its own S3 credentials.
