@@ -22,8 +22,11 @@
         "$TURBO_ROOT$/packages/api/scripts/deployStagingApi.sh",
         "$TURBO_ROOT$/packages/api-cli/scripts/deployProductionApiCli.sh",
         "$TURBO_ROOT$/packages/api-cli/scripts/deployStagingApiCli.sh",
+        "$TURBO_ROOT$/terraform/scripts/cloudflareCache.sh",
         "$TURBO_ROOT$/terraform/scripts/common.sh",
-        "$TURBO_ROOT$/terraform/scripts/secretsEnv.sh"
+        "$TURBO_ROOT$/terraform/scripts/run-postgres-stack.sh",
+        "$TURBO_ROOT$/terraform/scripts/secretsEnv.sh",
+        "$TURBO_ROOT$/terraform/scripts/stripeEnv.sh"
       ]
     }
   }
