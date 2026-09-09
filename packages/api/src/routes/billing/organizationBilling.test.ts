@@ -255,7 +255,13 @@ test("management identifies Stripe and native subscription ownership", async () 
     canCancelDirectly: false,
     managementUrl: "https://apps.apple.com/account/subscriptions",
   });
-  expect(await snapshotSource()).toBe("native");
+  expect(
+    await getOrganizationBilling(
+      getDefaultApiServiceRuntime(),
+      organizationId,
+      admin.userId,
+    ),
+  ).toMatchObject({ subscriptionSource: "native", canCancelDirectly: false });
 
   await db
     .update(organizationBilling)

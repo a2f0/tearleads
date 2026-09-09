@@ -123,7 +123,8 @@ function useDirectCheckoutWiring(input: {
   readonly view: OrganizationBillingView | null;
   readonly refresh: () => Promise<void>;
   readonly onPaid: () => void;
-  readonly management: ReturnType<typeof useBillingManagementUrl>;
+  readonly managementUrl: string | null;
+  readonly recoveryActive: boolean;
 }) {
   const { view } = input;
   const cancel = useCancelSubscription({ refresh: input.refresh });
@@ -156,13 +157,15 @@ function useDirectCheckoutWiring(input: {
   // The snapshot retains cancellation independently of native ownership, so
   // a quarantined Stripe subscription remains reachable without a URL lookup.
   const showInlineCancel =
-    input.isOrgAdmin && (view?.canCancelDirectly ?? false);
+    input.isOrgAdmin &&
+    !input.recoveryActive &&
+    (view?.canCancelDirectly ?? false);
   return {
     cancel,
     checkout,
     checkoutActive,
     checkoutEnabled,
-    managementUrl: input.management.managementUrl,
+    managementUrl: input.managementUrl,
     showInlineCancel,
   };
 }
@@ -365,8 +368,8 @@ export function BillingPanel({
   const refresh = recovery.active ? recovery.refresh : billing.refresh;
   const handleRefresh = useVoidRefresh(refresh);
   const subscriptionManagement = useOpenSubscriptionManagement(handleRefresh);
-  // The management link and direct-cancel affordance for an existing
-  // subscription. Its owner comes from the billing snapshot itself.
+  // Only the native store link needs a separate lookup. Ownership and direct
+  // cancellation availability come from the billing snapshot itself.
   const management = useBillingManagementUrl(
     billingOrganizationId,
     isOrgAdmin &&
@@ -406,7 +409,8 @@ export function BillingPanel({
     view: billing.view,
     refresh,
     onPaid: actions.markActivationPending,
-    management,
+    managementUrl: management.managementUrl,
+    recoveryActive: recovery.active,
   });
 
   return (

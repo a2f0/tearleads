@@ -18,18 +18,19 @@ test.each([
   ["pending", () => new Promise<never>(() => undefined)],
   ["failed", () => Promise.reject(new Error("500"))],
 ])(
-  "a lapsed Stripe subscription hides the checkout while management is %s",
+  "a lapsed Stripe subscription needs no management request (%s mock)",
   async (_state, loadBillingManagementUrl) => {
     // The renewal webhook is late: the read path projects the lapse as
     // `disabled`, but the snapshot still names Stripe as the owner. The
     // checkout gate comes from the snapshot, so a management lookup that never
     // answers, or fails, cannot open a second checkout against the renewal.
+    const loadManagementUrl = mock(loadBillingManagementUrl);
     const loadStripeCheckoutOptions = mock(() =>
       Promise.resolve({ options: [OPTION] }),
     );
     stubEnvironment(false, {
       canCancelDirectly: true,
-      loadBillingManagementUrl,
+      loadBillingManagementUrl: loadManagementUrl,
       loadStripeCheckoutOptions,
       status: "disabled",
       subscriptionSource: "stripe",
@@ -50,5 +51,6 @@ test.each([
       }),
     ).toBeDefined();
     expect(loadStripeCheckoutOptions).not.toHaveBeenCalled();
+    expect(loadManagementUrl).not.toHaveBeenCalled();
   },
 );

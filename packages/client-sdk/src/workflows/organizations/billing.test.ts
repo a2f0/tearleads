@@ -50,6 +50,7 @@ test("local orgs cannot sync and need no attention", () => {
   );
   expect(view.canSync).toBe(false);
   expect(view.isLocal).toBe(true);
+  expect(view.canCancelDirectly).toBe(false);
   expect(view.needsAttention).toBe(false);
   expect(view.trialDaysRemaining).toBeNull();
   expect(view.seatCount).toBe(0);
@@ -123,6 +124,8 @@ test("an active subscription within its period can sync", () => {
   const view = resolveOrganizationBillingView(
     billing({
       status: "active",
+      canCancelDirectly: true,
+      subscriptionSource: "stripe",
       currentPeriodStartsAt: iso(-20 * DAY_MS),
       currentPeriodEndsAt: iso(10 * DAY_MS),
       seatCount: 3,
@@ -132,6 +135,8 @@ test("an active subscription within its period can sync", () => {
   expect(view.canSync).toBe(true);
   expect(view.isActive).toBe(true);
   expect(view.currentPeriodStartsAtMs).toBe(Date.parse(iso(-20 * DAY_MS)));
+  expect(view.canCancelDirectly).toBe(true);
+  expect(view.subscriptionSource).toBe("stripe");
   expect(view.seatCount).toBe(3);
   expect(view.needsAttention).toBe(false);
 });
@@ -232,6 +237,7 @@ test("loadOrganizationBillingManagementUrl passes through the org id", async () 
       getOrganizationBillingManagementUrl: async (organizationId) => {
         calls.push(organizationId);
         return {
+          canCancelDirectly: false,
           managementUrl: "https://manage.example/x",
         };
       },
@@ -240,6 +246,7 @@ test("loadOrganizationBillingManagementUrl passes through the org id", async () 
   });
   expect(calls).toEqual(["org-9"]);
   expect(result).toEqual({
+    canCancelDirectly: false,
     managementUrl: "https://manage.example/x",
   });
 });
