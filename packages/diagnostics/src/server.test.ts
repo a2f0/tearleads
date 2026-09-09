@@ -19,6 +19,28 @@ const config: SentryConfig = {
 };
 afterEach(() => setSystemTime());
 
+test("an empty source root cannot admit a foreign frame through an empty script path", () => {
+  const event = sanitizeSentryEvent(
+    {
+      tags: { diagnostic_source: "request-error" },
+      exception: {
+        values: [
+          {
+            stacktrace: {
+              frames: [
+                { filename: `https://foreign.invalid/${secret}`, lineno: 1 },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    { ...config, serverSourceRoot: "" },
+  );
+  expect(event?.exception?.values?.[0]?.stacktrace).toBeUndefined();
+  expect(JSON.stringify(event)).not.toContain(secret);
+});
+
 test("API SDK sends only sanitized errors with exact source frames and isolated scopes", async () => {
   const requests: RequestInit[] = [];
   const fetchSpy = spyOn(globalThis, "fetch").mockImplementation(

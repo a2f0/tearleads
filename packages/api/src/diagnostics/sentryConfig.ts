@@ -14,6 +14,7 @@ export function resolveApiSentryConfig(input: {
 }): SentryConfig | undefined {
   if (
     !input.dsn ||
+    !input.sourceRoot ||
     !isHostedSentryDsn(input.dsn) ||
     !isSentryEnvironment(input.environment) ||
     !isSentryCommit(input.commit)

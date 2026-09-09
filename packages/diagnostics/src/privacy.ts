@@ -23,12 +23,7 @@ const ERROR_TYPES = new Set([
   "EvalError",
   "AggregateError",
 ]);
-const SERVER_SOURCES = new Set([
-  "request-error",
-  "websocket-error",
-  "startup-error",
-  "unhandled-error",
-]);
+const SERVER_SOURCES = new Set(["request-error", "websocket-error"]);
 const SOURCES = new Set([
   "boundary",
   "log",
@@ -66,6 +61,7 @@ function safeFrame(
       : url.origin === config.origin
         ? url.pathname
         : "";
+  if (!filename) return null;
   if (filename !== config.scriptPath && !config.scriptPaths?.has(filename))
     return null;
   return safePosition(frame, filename);

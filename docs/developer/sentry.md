@@ -174,6 +174,10 @@ stacks to source positions before filtering; only allowlisted
 repository-relative paths and positions leave the server, without source text or
 machine paths.
 
+Executable tests remove the build directory and run only the copied binary.
+They exercise the API's injected build configuration and real reporter for both
+tiers, asserting mapped application frames without raw error text or host paths.
+
 Run the tests in `packages/diagnostics/src`, both native and API diagnostics
 folders, and the privacy tests in `packages/app-web/scripts/sentry*.test.ts`,
 the real browser diagnostics test, and the app boundary/logging tests before

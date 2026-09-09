@@ -2,6 +2,13 @@ import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 import { isSentryCommit } from "@tearleads/diagnostics/config";
 
+export function apiDiagnosticsBuildOptions(root: string) {
+  return {
+    sourcemap: "linked" as const,
+    define: { API_DIAGNOSTICS_BUILD: JSON.stringify(diagnosticsBuild(root)) },
+  };
+}
+
 export function diagnosticsBuild(root: string) {
   const sourceRoot = resolve(root);
   const commit = execFileSync("git", ["rev-parse", "HEAD"], {

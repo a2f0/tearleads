@@ -231,8 +231,6 @@ export function createRouteApp(
 
   mountRouters(routeApp, deps, corsOrigins);
 
-  // Sync writes blocked by organization entitlement or the caller's stable seat
-  // throw deep in their workflows; surface both uniformly as 402 responses.
   routeApp.onError(createApiErrorHandler());
 
   return routeApp;

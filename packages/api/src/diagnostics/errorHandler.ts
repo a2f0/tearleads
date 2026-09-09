@@ -13,6 +13,7 @@ export function createApiErrorHandler(
   ) => void = captureApiError,
 ): ErrorHandler<SessionEnv> {
   return (error, c) => {
+    // Organization entitlement and stable-seat failures surface uniformly as 402.
     if (error instanceof OrganizationSyncDisabledError) {
       return c.json(
         {

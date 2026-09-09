@@ -8,11 +8,7 @@ import type { SentryConfig } from "./config";
 import { sanitizeSentryEvent } from "./privacy";
 import { createPrivateSentryTransport } from "./transport";
 
-export type ServerErrorSource =
-  | "request-error"
-  | "websocket-error"
-  | "startup-error"
-  | "unhandled-error";
+export type ServerErrorSource = "request-error" | "websocket-error";
 
 export function createServerDiagnostics(config: SentryConfig) {
   const client = new ServerRuntimeClient({

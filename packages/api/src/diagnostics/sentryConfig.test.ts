@@ -17,6 +17,7 @@ test("API diagnostics require a hosted DSN, explicit tier, and compiled commit",
     { dsn: "https://attacker.invalid/1" },
     { environment: "prod" },
     { commit: "unknown" },
+    { sourceRoot: "" },
   ])
     expect(resolveApiSentryConfig({ ...input, ...change })).toBeUndefined();
 });

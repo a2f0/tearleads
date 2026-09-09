@@ -1,10 +1,11 @@
 import { expect, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { copyFile, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 test("a compiled Bun executable reports mapped code positions without machine paths or error text", async () => {
   const directory = await mkdtemp(join(tmpdir(), "tearleads-diagnostics-"));
+  const deployed = await mkdtemp(join(tmpdir(), "tearleads-deployed-"));
   try {
     await Bun.write(
       join(directory, "fixture.ts"),
@@ -37,8 +38,10 @@ if (!result.success) process.exit(1);
       stderr: "pipe",
     });
     expect(await build.exited).toBe(0);
-    const run = Bun.spawn([join(directory, "fixture")], {
-      cwd: tmpdir(),
+    await copyFile(join(directory, "fixture"), join(deployed, "fixture"));
+    await rm(directory, { recursive: true, force: true });
+    const run = Bun.spawn([join(deployed, "fixture")], {
+      cwd: deployed,
       stdout: "pipe",
       stderr: "pipe",
     });
@@ -52,5 +55,6 @@ if (!result.success) process.exit(1);
     ]);
   } finally {
     await rm(directory, { recursive: true, force: true });
+    await rm(deployed, { recursive: true, force: true });
   }
 });
