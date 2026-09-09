@@ -42,6 +42,18 @@ current state bucket, provision the intended tier, and run its full Ansible
 deployment. Current Tearleads resources with current state remain maintainable;
 this does not require recreating them on every deploy.
 
+Production defaults to a Hetzner CPX11 in Ashburn (`ash`), near its PlanetScale
+Postgres database in `us-east-1`. Staging defaults to a CX23 in Helsinki (`hel1`)
+with Postgres on the same server. Registration performs many sequential database
+queries inside one transaction; placing the API across the Atlantic from the
+database can exceed Cloudflare's response timeout even though the write commits.
+The resulting edge error can appear in the browser as a missing CORS header.
+
+`TF_VAR_server_location` and `TF_VAR_server_type` override those tier defaults.
+Keep production near its database when changing placement. Moving the server
+replaces it and clears Redis sessions; the independently managed PlanetScale,
+S3, and Cloudflare website stacks survive the replacement.
+
 Production retirement is still open as of the 2026-09-05 audit: its live
 resources remain owned by `symcrypt-terraform-state`, while the production
 server state in `tearleads-terraform-state` is empty. Do not use that empty
