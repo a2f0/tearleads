@@ -7,7 +7,7 @@ import {
   within,
 } from "@testing-library/react";
 import invariant from "invariant";
-import { useEffect, useRef } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import {
   DualPaneProvider,
   PaneSideProvider,
@@ -166,27 +166,25 @@ function PaneAutoProvisioner() {
   return null;
 }
 
-// The dual-pane suite exercises the demo profile for its isolated per-pane
-// runtimes and peer-user-id plumbing, not the friendly peer seeding. Turn that
-// seeding off so its background contact imports/writes don't inject unrelated
-// system-container sync churn into the sharing/projection assertions here; the
-// seeding logic is covered directly by src/demo/demoPeerSeed.test.ts.
-const DUAL_PANE_TEST_PROFILE = {
-  ...APP_HOST_PROFILES.demo,
-  features: {
-    ...APP_HOST_PROFILES.demo.features,
-    seedPeerIdentities: false,
-  },
-};
-
+// Most sharing tests omit background demo imports. Mini-app write regressions
+// opt into seeding to exercise the complete cold-cache demo flow.
 export function renderDualPane({
   autoProvisionLeft = true,
   autoProvisionRight = true,
+  children,
+  seedPeerIdentities = false,
 }: {
   autoProvisionLeft?: boolean;
   autoProvisionRight?: boolean;
+  children?: ReactNode;
+  seedPeerIdentities?: boolean;
 } = {}): ReturnType<typeof render> {
-  const hostConfig = createTestHostConfig({ profile: DUAL_PANE_TEST_PROFILE });
+  const hostConfig = createTestHostConfig({
+    profile: {
+      ...APP_HOST_PROFILES.demo,
+      features: { ...APP_HOST_PROFILES.demo.features, seedPeerIdentities },
+    },
+  });
   saveSystemMonitorMode(systemMonitorModeStorageKey("left"), "pinned");
   saveSystemMonitorMode(systemMonitorModeStorageKey("right"), "pinned");
 
@@ -197,6 +195,7 @@ export function renderDualPane({
           <PaneProvider hostConfig={hostConfig}>
             <AppTestRuntimeScopeProbe />
             {autoProvisionLeft && <PaneAutoProvisioner />}
+            {children}
             <Pane className="pane pane-left" />
           </PaneProvider>
         </PaneSideProvider>
@@ -204,6 +203,7 @@ export function renderDualPane({
           <PaneProvider hostConfig={hostConfig}>
             <AppTestRuntimeScopeProbe />
             {autoProvisionRight && <PaneAutoProvisioner />}
+            {children}
             <Pane className="pane pane-right" />
           </PaneProvider>
         </PaneSideProvider>

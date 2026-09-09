@@ -1,11 +1,11 @@
 import {
   DEFAULT_DOCUMENT_KIND,
   type DocumentSummary,
-  getUntitledDocumentTitle,
 } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
-import { DEFAULT_DOCUMENT_ID } from "../../../stores/documents/DocumentsProvider";
+import { createDocumentDraft } from "../../../stores/documents/documentDraft";
+import { useDocumentDraft } from "../../../stores/documents/useDocumentDraft";
 import { useDocumentSummaries } from "../../../stores/documents/useDocumentSummaries";
 import { useDocumentTrash } from "../../shared/trash/useDocumentTrash";
 import type { ActiveNoteSelection } from "../types";
@@ -35,25 +35,27 @@ function resolveSelectedNoteId(
   currentNoteId: string | null,
   nextNotes: ReadonlyArray<DocumentSummary>,
   explicitNoteId: string | null,
+  emptyNoteId: string,
 ): string {
   if (explicitNoteId) {
     return explicitNoteId;
   }
   if (
     currentNoteId &&
-    (currentNoteId === DEFAULT_DOCUMENT_ID ||
+    (currentNoteId === emptyNoteId ||
       nextNotes.some((note) => note.id === currentNoteId))
   ) {
     return currentNoteId;
   }
 
-  return nextNotes[0]?.id ?? DEFAULT_DOCUMENT_ID;
+  return nextNotes[0]?.id ?? emptyNoteId;
 }
 
 // Keeps the in-memory note selection valid as the database comes online and the
 // note list changes (e.g. a note is created or deleted out from under it).
 function useSyncSelectedNote(input: {
   autoSelectInitialNote: boolean;
+  emptyNoteId: string;
   explicitNoteId: string | null;
   notes: ReadonlyArray<DocumentSummary>;
   ready: boolean;
@@ -62,6 +64,7 @@ function useSyncSelectedNote(input: {
   const appData = useTearleadsRuntime();
   const {
     autoSelectInitialNote,
+    emptyNoteId,
     explicitNoteId,
     notes,
     ready,
@@ -99,6 +102,7 @@ function useSyncSelectedNote(input: {
       selectedNoteId,
       notes,
       explicitNoteId,
+      emptyNoteId,
     );
     if (nextSelectedNoteId === selectedNoteId) {
       return;
@@ -111,6 +115,7 @@ function useSyncSelectedNote(input: {
   }, [
     appData.infra.dbStatus,
     autoSelectInitialNote,
+    emptyNoteId,
     explicitNoteId,
     notes,
     ready,
@@ -125,6 +130,7 @@ function useSyncSelectedNote(input: {
 // Trash (org-aware, lazily provisioned) instead of hard-deleting, then keep the
 // selection valid. Extracted from useNotesDirectory to keep that hook focused.
 function useDeleteNote(input: {
+  resetDraft: () => DocumentSummary;
   mergeNoteSummary: (summary: DocumentSummary) => void;
   moveToTrash: (document: DocumentSummary) => Promise<DocumentSummary | null>;
   notes: ReadonlyArray<DocumentSummary>;
@@ -135,6 +141,7 @@ function useDeleteNote(input: {
 }) {
   const appData = useTearleadsRuntime();
   const {
+    resetDraft,
     mergeNoteSummary,
     moveToTrash,
     notes,
@@ -165,11 +172,11 @@ function useDeleteNote(input: {
           return;
         }
 
-        // The trashed note was selected; fall back to the next visible note, or the
-        // default blank note when nothing else remains.
+        // The trashed note was selected; fall back to the next visible note,
+        // or a new blank note when nothing else remains.
         const nextNoteId =
           visibleNotes.find((entry) => entry.id !== noteId)?.id ??
-          DEFAULT_DOCUMENT_ID;
+          resetDraft().id;
         setSelectedNoteId(nextNoteId);
         selectNoteRoute({ noteId: nextNoteId }, { replace: true });
       } catch (error) {
@@ -178,6 +185,7 @@ function useDeleteNote(input: {
     },
     [
       appData.util.logError,
+      resetDraft,
       mergeNoteSummary,
       moveToTrash,
       notes,
@@ -196,6 +204,10 @@ export function useNotesDirectory({
 }: NotesDirectoryInput) {
   const appData = useTearleadsRuntime();
   const explicitNoteId = explicitSelection?.noteId ?? null;
+  const { draft: emptyNote, resetDraft } = useDocumentDraft({
+    containerId: appData.state.containerId,
+    scope: appData.state.domainScope,
+  });
   const {
     mergeSummary: mergeNoteSummary,
     ready,
@@ -215,6 +227,7 @@ export function useNotesDirectory({
   );
   const { selectedNoteId, setSelectedNoteId } = useSyncSelectedNote({
     autoSelectInitialNote,
+    emptyNoteId: emptyNote.id,
     explicitNoteId,
     notes: visibleNotes,
     ready,
@@ -222,17 +235,10 @@ export function useNotesDirectory({
   });
 
   const createNote = useCallback(() => {
-    const noteId = crypto.randomUUID();
-    const createdAt = new Date().toISOString();
-    const nextNote: DocumentSummary = {
-      createdAt,
-      id: noteId,
+    const nextNote = createDocumentDraft({
       containerId: appData.state.containerId,
-      documentKind: DEFAULT_DOCUMENT_KIND,
-      documentId: null,
-      title: getUntitledDocumentTitle(DEFAULT_DOCUMENT_KIND),
-      updatedAt: createdAt,
-    };
+    });
+    const noteId = nextNote.id;
 
     mergeNoteSummary(nextNote);
     setSelectedNoteId(noteId);
@@ -248,6 +254,7 @@ export function useNotesDirectory({
   );
 
   const deleteNote = useDeleteNote({
+    resetDraft,
     mergeNoteSummary,
     moveToTrash,
     notes,

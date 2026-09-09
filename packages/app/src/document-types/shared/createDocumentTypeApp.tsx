@@ -1,9 +1,7 @@
 import type { StoredDocumentKind } from "@tearleads/client-sdk";
 import type { ComponentType } from "react";
-import {
-  DEFAULT_DOCUMENT_ID,
-  DocumentsProvider,
-} from "../../stores/documents/DocumentsProvider";
+import { DocumentsProvider } from "../../stores/documents/DocumentsProvider";
+import { useDocumentDraft } from "../../stores/documents/useDocumentDraft";
 import type { DocumentTypeAppProps } from "../types";
 import { FileDocument } from "./FileDocument";
 
@@ -26,12 +24,17 @@ export function createDocumentTypeApp(
     containerId,
     documentId,
     initialEditing,
-    localId = DEFAULT_DOCUMENT_ID,
+    localId,
     readOnly,
   }: DocumentTypeAppProps) {
+    const { draft } = useDocumentDraft({
+      containerId,
+      documentKind: initialDocumentKind,
+    });
+    const resolvedLocalId = localId ?? documentId ?? draft.id;
     return (
       <Provider
-        localId={localId}
+        localId={resolvedLocalId}
         readOnly={readOnly}
         {...(containerId === undefined ? {} : { containerId })}
         {...(documentId === undefined ? {} : { documentId })}
@@ -40,7 +43,7 @@ export function createDocumentTypeApp(
         <Document
           containerId={containerId ?? null}
           initialEditing={initialEditing}
-          localId={localId}
+          localId={resolvedLocalId}
         />
       </Provider>
     );

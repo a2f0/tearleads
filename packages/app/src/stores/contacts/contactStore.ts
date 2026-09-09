@@ -4,6 +4,7 @@ import {
   type ContactEntryPatch,
   contactEntryToStructuredFieldPatch,
 } from "../../document-types/contact/contactDocumentModel";
+import { createDocumentDraft } from "../documents/documentDraft";
 import { loadContactDocumentSummary } from "./contactDocumentSummary";
 import {
   removeContactAvatarInStore,
@@ -112,7 +113,7 @@ async function createContactFromRuntime(
     return null;
   }
 
-  const contactId = crypto.randomUUID();
+  const contactId = createDocumentDraft({ documentKind: "contact" }).id;
   await queueContactWrite(state, "Contacts: failed to create contact.", () =>
     writeContactPatch(state, contactId, patch),
   );
@@ -257,23 +258,27 @@ async function importKeyFromRuntime(
   }
 
   const isSelf = userIdentity.userId === state.runtime.documents.auth.userId;
-  const existingContact = isSelf
-    ? findSelfContact(state.entriesById, userIdentity.userId)
-    : findContactByUserId(state.entriesById, userIdentity.userId);
-  let contactId = resolveContactWriteTarget(
-    state,
-    existingContact?.id ?? userIdentity.userId,
-  );
-  await queueContactWrite(
+  const contactId = await queueContactWrite(
     state,
     "Contacts: failed to import user key.",
     async () => {
-      contactId = resolveContactWriteTarget(state, contactId);
+      const containerId = state.runtime.documents.state.containerId;
+      if (!containerId) return null;
+      // Scope imports to their address book while retaining create idempotency
+      // across devices that have not hydrated their local contact projections.
+      const existingContact = isSelf
+        ? findSelfContact(state.entriesById, userIdentity.userId)
+        : findContactByUserId(state.entriesById, userIdentity.userId);
+      const importedContactId = resolveContactWriteTarget(
+        state,
+        existingContact?.id ??
+          `contact_v1_${containerId}_${userIdentity.userId}`,
+      );
       const identity = toResolvedSelfContactIdentity({
         encapsulationPublicKey: userIdentity.encapsulationPublicKey,
         userId: userIdentity.userId,
       });
-      await writeContactPatch(state, contactId, {
+      await writeContactPatch(state, importedContactId, {
         encapsulationPublicKey: userIdentity.encapsulationPublicKey,
         isSelf,
         userId: userIdentity.userId,
@@ -281,14 +286,15 @@ async function importKeyFromRuntime(
       if (isSelf && identity) {
         await removeDuplicateSelfContacts(
           state,
-          contactId,
+          importedContactId,
           identity,
           allowContactStoreOperation,
         );
       }
+      return importedContactId;
     },
   );
-  return contactId;
+  return contactId ?? null;
 }
 
 async function removeContactFromRuntime(

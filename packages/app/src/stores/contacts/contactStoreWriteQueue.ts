@@ -26,16 +26,18 @@ export async function contactsRuntimeWritable(
  * Appends `work` to the store's serialized write chain, funneling its failure
  * into the store log; resolves once the queued write settles.
  */
-export function queueContactWrite(
+export function queueContactWrite<T>(
   state: ContactsStoreState,
   errorMessage: string,
-  work: () => Promise<void> | void,
-): Promise<void> {
-  state.writeChain = state.writeChain
+  work: () => Promise<T> | T,
+): Promise<T | undefined> {
+  const result = state.writeChain
     .catch(() => undefined)
     .then(work)
     .catch((error: unknown) => {
       state.dependencies.logError(errorMessage, error);
+      return undefined;
     });
-  return state.writeChain;
+  state.writeChain = result.then(() => undefined);
+  return result;
 }
