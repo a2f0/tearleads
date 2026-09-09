@@ -55,7 +55,6 @@ test("billing status and trial labels format correctly", () => {
   expect(getOrgManagerBillingStatusLabel("local")).toBe("Local only");
   expect(getOrgManagerBillingStatusLabel("trialing")).toBe("Free trial");
   expect(getOrgManagerBillingStatusLabel("active")).toBe("Active subscription");
-  expect(getOrgManagerBillingStatusLabel("past_due")).toBe("Payment past due");
   expect(getOrgManagerBillingStatusLabel("disabled")).toBe("Sync disabled");
   expect(getOrgManagerTrialDaysLabel(1)).toBe("1 day left");
   expect(getOrgManagerTrialDaysLabel(5)).toBe("5 days left");

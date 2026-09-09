@@ -28,6 +28,7 @@ function billing(
     pendingSeatCount: null,
     disabledAt: null,
     purgeAfter: null,
+    canCancelDirectly: false,
     subscriptionSource: null,
     ...overrides,
   };
@@ -96,7 +97,7 @@ test("ignores the active organization's own block", async () => {
 test("stops warning once the blocked organization recovers", async () => {
   const gate = new SyncBillingGate();
   const { result, rerender } = renderBlocked(gate, async (organizationId) =>
-    billing(organizationId, "past_due"),
+    billing(organizationId, "disabled"),
   );
   act(() => gate.notifyPaymentRequired("custom-org"));
   await waitFor(() => expect(result.current).toBe(true));

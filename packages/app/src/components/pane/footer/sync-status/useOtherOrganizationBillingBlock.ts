@@ -10,7 +10,7 @@ import { useEffect, useRef, useState } from "react";
  * that warrants a warning: it mirrors `OrganizationBillingView.needsAttention`,
  * which excludes the free `local` tier. That exclusion is the whole point of
  * resolving at all — the server 402s a `local` organization exactly as it does a
- * `past_due` one, so the block alone cannot tell "you must pay to resume sync"
+ * `disabled` one, so the block alone cannot tell "you must pay to resume sync"
  * apart from "this organization was never syncing in the first place".
  */
 type BlockedBillingResolution = "lapsed" | "syncable";

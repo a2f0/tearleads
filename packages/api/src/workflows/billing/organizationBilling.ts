@@ -32,7 +32,7 @@ import {
 } from "./organizationBillingState";
 import { reconcileOrganizationBillingSeats } from "./organizationSeats";
 import { loadOrganizationBillingSeatUsage } from "./organizationSeatUsage";
-import { resolveOrganizationSubscriptionSourceInTransaction } from "./organizationSubscriptionSource";
+import { resolveOrganizationSubscriptionOwnershipInTransaction } from "./organizationSubscriptionSource";
 import {
   freeTrialLifecycleSourceId,
   recordFreeTrialInitialized,
@@ -45,8 +45,8 @@ import {
 /**
  * Starts an organization's free sync trial. Admin-only. A `local` organization
  * transitions to `trialing`; an already `trialing`/`active` organization is
- * returned unchanged (idempotent); a lapsed organization (`past_due`,
- * `disabled`, `deleting`, `purged`) cannot re-trial and must subscribe.
+ * returned unchanged (idempotent); a lapsed organization
+ * (`disabled`, `deleting`, `purged`) cannot re-trial and must subscribe.
  */
 async function startOrganizationTrialInTransaction(input: {
   executor: DatabaseSession;
@@ -143,6 +143,7 @@ export async function runGetOrganizationBillingWorkflow(
   readonly currentUserHasSyncSeat: boolean;
   readonly pendingSeatCount: number | null;
   readonly subscriptionSource: OrganizationBillingSubscriptionSource | null;
+  readonly canCancelDirectly: boolean;
 }> {
   const now = deps.now ?? new Date();
   return db.transaction(async (tx) => {
@@ -186,8 +187,8 @@ export async function runGetOrganizationBillingWorkflow(
       organizationId,
       sessionUserId,
     });
-    const subscriptionSource =
-      await resolveOrganizationSubscriptionSourceInTransaction({
+    const ownership =
+      await resolveOrganizationSubscriptionOwnershipInTransaction({
         executor: tx,
         organizationId,
         persisted,
@@ -197,7 +198,7 @@ export async function runGetOrganizationBillingWorkflow(
       activeMemberCount,
       billing,
       pendingSeatCount,
-      subscriptionSource,
+      ...ownership,
       ...seatUsage,
     };
   });
@@ -396,6 +397,7 @@ export async function runStartOrganizationTrialWorkflow(
   readonly billing: OrganizationBilling;
   readonly currentUserHasSyncSeat: boolean;
   readonly subscriptionSource: OrganizationBillingSubscriptionSource | null;
+  readonly canCancelDirectly: boolean;
 }> {
   return db.transaction(async (tx) => {
     const billing = await startOrganizationTrialInTransaction({
@@ -415,12 +417,12 @@ export async function runStartOrganizationTrialWorkflow(
     });
     // The idempotent path returns an already trialing or active organization
     // unchanged, so its owner has to come from the persisted row too.
-    const subscriptionSource =
-      await resolveOrganizationSubscriptionSourceInTransaction({
+    const ownership =
+      await resolveOrganizationSubscriptionOwnershipInTransaction({
         executor: tx,
         organizationId,
         persisted: await loadOrganizationBilling(tx, organizationId),
       });
-    return { activeMemberCount, billing, subscriptionSource, ...seatUsage };
+    return { activeMemberCount, billing, ...ownership, ...seatUsage };
   });
 }

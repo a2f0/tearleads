@@ -67,7 +67,6 @@ test.each([
   [{ isPersonalOrganization: false }, "personal_organization_required"],
   [{ status: "deleting" as const }, "terminal_organization"],
   [{ status: "purged" as const }, "terminal_organization"],
-  [{ status: "past_due" as const }, "billing_past_due"],
   [{ hasActiveStripeCheckoutAttempt: true }, "stripe_subscription_conflict"],
   [{ hasStripeBinding: true }, "stripe_subscription_conflict"],
 ] as const)("rejects an ineligible policy state", (overrides, reason) => {

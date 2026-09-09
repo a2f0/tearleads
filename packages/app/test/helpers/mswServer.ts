@@ -239,6 +239,7 @@ const server = setupServer(
         status: "trialing",
         trialEndsAt: "2099-01-01T00:00:00.000Z",
         provider: null,
+        canCancelDirectly: false,
         subscriptionSource: null,
         currentPeriodStartsAt: null,
         currentPeriodEndsAt: null,

@@ -19,7 +19,7 @@ test("accepts a null management URL", () => {
   ).toBe(true);
 });
 
-test("rejects a missing or non-string management URL", () => {
+test("rejects incomplete or invalid management responses", () => {
   expect(isOrganizationBillingManagementUrlResponse({})).toBe(false);
   expect(
     isOrganizationBillingManagementUrlResponse({ managementUrl: null }),

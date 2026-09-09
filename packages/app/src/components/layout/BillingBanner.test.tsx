@@ -30,6 +30,7 @@ function view(
     currentUserHasSyncSeat: false,
     syncSeatUnavailable: false,
     pendingSeatCount: null,
+    canCancelDirectly: false,
     subscriptionSource: null,
     needsAttention: false,
     ...overrides,
@@ -134,13 +135,4 @@ test("explains when the current user has no licensed sync seat", () => {
   expect(getByRole("alert").textContent).toContain(
     "all licensed seats are in use",
   );
-});
-
-test("warns with the past-due message", () => {
-  const { getByRole } = render(
-    <BillingBannerView
-      view={view({ status: "past_due", isLocal: false, needsAttention: true })}
-    />,
-  );
-  expect(getByRole("alert").textContent).toContain("past due");
 });

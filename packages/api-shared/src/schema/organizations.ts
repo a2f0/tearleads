@@ -122,7 +122,7 @@ export const organizationRosterEntries = pgTable(
  * Columns:
  * - `organizationId`: Organization this billing row belongs to (one per org).
  * - `status`: Sync-billing lifecycle. `local` (free, on-device only), `trialing`
- *   and `active` can sync; `past_due`, `disabled`, `deleting`, `purged` cannot.
+ *   and `active` can sync; `disabled`, `deleting`, `purged` cannot.
  * - `trialEndsAt`: When the free trial ends. Null unless `status` is `trialing`.
  * - `trialExpiry*`: Durable retry state for the out-of-process trial-expiry
  *   sweep. A failed row backs off so it cannot starve later due trials.

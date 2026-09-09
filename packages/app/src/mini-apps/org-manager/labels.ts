@@ -1,3 +1,5 @@
+import type { OrganizationBillingStatus } from "@tearleads/validators/response";
+
 export const ORG_MANAGER_LABELS = {
   add: "Add",
   addUser: "Add user",
@@ -59,8 +61,6 @@ export const ORG_MANAGER_LABELS = {
     "This subscription belongs to another buyer. Restore purchases from that buyer's account or contact support.",
   billingEligibilityExistingSubscription:
     "Manage or cancel the existing subscription before starting another purchase.",
-  billingEligibilityPastDue:
-    "Resolve the past-due subscription before starting another purchase.",
   billingEligibilityPersonalRequired:
     "Native purchases can only fund your personal organization.",
   billingEligibilityStripeConflict:
@@ -79,7 +79,6 @@ export const ORG_MANAGER_LABELS = {
     "Store checkout is unavailable in this app build. Update the app; contact support if you already have the latest version.",
   billingNoOptions: "No subscription options are available right now.",
   billingOptionsUnavailable: "Couldn't load subscription plans. Try again.",
-  billingPastDue: "Payment past due",
   billingPlanChangeTiming:
     "Upgrades take effect immediately with a store-managed mid-cycle adjustment. Downgrades start at the next renewal; use Manage subscription to change a scheduled downgrade.",
   billingPlanScheduled: "Scheduled",
@@ -276,14 +275,7 @@ export const ORG_MANAGER_LABELS = {
 } as const;
 
 export function getOrgManagerBillingStatusLabel(
-  status:
-    | "local"
-    | "trialing"
-    | "active"
-    | "past_due"
-    | "disabled"
-    | "deleting"
-    | "purged",
+  status: OrganizationBillingStatus,
 ): string {
   switch (status) {
     case "local":
@@ -292,8 +284,6 @@ export function getOrgManagerBillingStatusLabel(
       return ORG_MANAGER_LABELS.billingTrialing;
     case "active":
       return ORG_MANAGER_LABELS.billingActive;
-    case "past_due":
-      return ORG_MANAGER_LABELS.billingPastDue;
     case "disabled":
       return ORG_MANAGER_LABELS.billingDisabled;
     case "deleting":

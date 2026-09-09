@@ -189,23 +189,6 @@ test("management identifies Stripe and native subscription ownership", async () 
 
   await db
     .update(organizationBilling)
-    .set({ status: "past_due" })
-    .where(eq(organizationBilling.organizationId, organizationId));
-  expect(
-    await getOrganizationBillingManagementUrl(
-      getDefaultApiServiceRuntime(),
-      organizationId,
-      admin.userId,
-      { stripe: { env: { STRIPE_SYNC_SOLO_PRICE_ID: "price_solo_test" } } },
-    ),
-  ).toEqual({
-    canCancelDirectly: true,
-    managementUrl: null,
-  });
-  expect(await snapshotSource(stripeDeps)).toBe("stripe");
-
-  await db
-    .update(organizationBilling)
     .set({
       providerCustomerId: admin.userId,
       providerProductId: "sync_team_5_monthly",
@@ -250,7 +233,13 @@ test("management identifies Stripe and native subscription ownership", async () 
     canCancelDirectly: true,
     managementUrl: "https://apps.apple.com/account/subscriptions",
   });
-  expect(await snapshotSource()).toBe("native");
+  expect(
+    await getOrganizationBilling(
+      getDefaultApiServiceRuntime(),
+      organizationId,
+      admin.userId,
+    ),
+  ).toMatchObject({ subscriptionSource: "native", canCancelDirectly: true });
 
   await db
     .update(organizationBilling)
@@ -266,7 +255,13 @@ test("management identifies Stripe and native subscription ownership", async () 
     canCancelDirectly: false,
     managementUrl: "https://apps.apple.com/account/subscriptions",
   });
-  expect(await snapshotSource()).toBe("native");
+  expect(
+    await getOrganizationBilling(
+      getDefaultApiServiceRuntime(),
+      organizationId,
+      admin.userId,
+    ),
+  ).toMatchObject({ subscriptionSource: "native", canCancelDirectly: false });
 
   await db
     .update(organizationBilling)
@@ -340,6 +335,7 @@ test("a Stripe subscription awaiting renewal keeps its owner past period end", a
   );
   expect(snapshot.status).toBe("disabled");
   expect(snapshot.subscriptionSource).toBe("stripe");
+  expect(snapshot.canCancelDirectly).toBe(true);
   expect(
     await getOrganizationBillingManagementUrl(
       getDefaultApiServiceRuntime(),

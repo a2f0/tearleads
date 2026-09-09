@@ -79,7 +79,6 @@ describe("organization billing lifecycle", () => {
 
     const cannotSync: OrganizationBillingStatus[] = [
       "local",
-      "past_due",
       "disabled",
       "deleting",
       "purged",
@@ -115,6 +114,7 @@ describe("organization billing lifecycle", () => {
           assignedUserIds: ["user-1"],
           currentUserHasSyncSeat: true,
           pendingSeatCount: null,
+          canCancelDirectly: false,
           subscriptionSource: null,
         },
       ),
@@ -127,6 +127,7 @@ describe("organization billing lifecycle", () => {
       status: "trialing",
       trialEndsAt: trialEndsAt.toISOString(),
       provider: null,
+      canCancelDirectly: false,
       subscriptionSource: null,
       currentPeriodStartsAt: null,
       currentPeriodEndsAt: null,

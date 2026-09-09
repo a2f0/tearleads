@@ -9,8 +9,6 @@ function needsAttentionMessage(view: OrganizationBillingView): string {
     return BILLING_LABELS.bannerSyncSeatUnavailable;
   }
   switch (view.status) {
-    case "past_due":
-      return BILLING_LABELS.bannerPastDue;
     case "deleting":
       return BILLING_LABELS.bannerDeleting;
     case "purged":
@@ -26,8 +24,8 @@ const BILLING_ROUTE = {
 } as const;
 
 /**
- * Billing warning shown only while sync needs attention (lapsed/disabled/past
- * due) and the active pane route is not Organization Billing itself, where the
+ * Billing warning shown only while sync needs attention (lapsed/disabled) and
+ * the active pane route is not Organization Billing itself, where the
  * warning would duplicate the screen it points at. Trial promotion no longer
  * occupies app chrome.
  */

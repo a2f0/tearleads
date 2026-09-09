@@ -125,8 +125,12 @@ test("the card checkout replaces RevenueCat's subscribe list, not adds to it", a
   );
 });
 
-test("direct cancellation is offered for a Stripe subscription", async () => {
+test("Stripe cancellation renders from the snapshot without a management lookup", async () => {
+  const loadBillingManagementUrl = mock(() =>
+    Promise.reject(new Error("provider unavailable")),
+  );
   stubEnvironment(true, {
+    loadBillingManagementUrl,
     canCancelDirectly: true,
     isActive: true,
     managementUrl: null,
@@ -142,13 +146,16 @@ test("direct cancellation is offered for a Stripe subscription", async () => {
       name: ORG_MANAGER_LABELS.billingCancelSubscription,
     }),
   );
+  expect(loadBillingManagementUrl).not.toHaveBeenCalled();
   expect(cancelButton.classList.contains("mini-app-button")).toBe(true);
   expect(cancelButton.classList.contains("mini-app-row--button")).toBe(false);
   expect(view.queryByText(ORG_MANAGER_LABELS.billingSubscribe)).toBeNull();
 });
 
-test("native takeover keeps tier changes and Stripe cancellation", async () => {
+test("native takeover keeps Stripe cancellation when its store URL lookup fails", async () => {
   stubEnvironment(true, {
+    loadBillingManagementUrl: () =>
+      Promise.reject(new Error("store unavailable")),
     canCancelDirectly: true,
     isActive: true,
     managementUrl: "https://rc.example/manage",

@@ -75,6 +75,7 @@ function organizationBillingResponse(): OrganizationBillingResponse {
     organizationId: "org-1",
     provider: "revenuecat",
     purgeAfter: null,
+    canCancelDirectly: false,
     subscriptionSource: null,
     seatCount: 1,
     pendingSeatCount: null,

@@ -35,6 +35,7 @@ function billingSnapshot(
     pendingSeatCount: null,
     provider: null,
     purgeAfter: null,
+    canCancelDirectly: false,
     subscriptionSource: null,
     seatCount: active ? 1 : 0,
     status,

@@ -16,7 +16,6 @@ const STRIPE_CONFLICT_REASON =
   "Native entitlement is active while a retained Stripe subscription may still bill";
 for (const conflict of [
   { name: "active", status: "active", subscriptionId: "sub_live" },
-  { name: "past-due", status: "past_due", subscriptionId: "sub_past_due" },
   { name: "trialing", status: "trialing", subscriptionId: "sub_trialing" },
   { name: "item-only", status: "active", subscriptionId: null },
 ] as const) {

@@ -574,6 +574,12 @@ artifact model these operate on.
 
 ### Purchase capabilities
 
+`OrganizationBillingView` carries `subscriptionSource` and `canCancelDirectly`
+from the server billing snapshot. Use that snapshot to choose purchase controls
+and inline Stripe cancellation; a native owner can still have a quarantined
+Stripe subscription to cancel. Fetch the management URL separately for a native
+store link. A URL lookup failure must not hide cancellation.
+
 Org sync billing exposes two provider-neutral capabilities:
 
 | Capability | Who owns the payment UI | Injected by |

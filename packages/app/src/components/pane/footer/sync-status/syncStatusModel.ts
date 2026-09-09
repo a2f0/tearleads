@@ -75,7 +75,7 @@ type BillingBlockScope = "active" | "other";
 
 interface SyncStatusInput {
   /**
-   * Billing lapsed for the active org (expired trial / past due / disabled) so
+   * Billing lapsed for the active org (expired trial or disabled) so
    * sync is paused. Excludes the free "local" org, which is not trying to sync
    * and must not raise a warning. Mirrors `OrganizationBillingView.needsAttention`.
    */
@@ -121,7 +121,6 @@ const SYNC_STATUS_LABELS = {
   offlineSuffix: " (offline)",
   billingTrialEnded:
     "Free trial ended — sync paused. Update billing to resume.",
-  billingPastDue: "Payment past due — sync paused. Update billing to resume.",
   billingDisabled:
     "Subscription disabled — sync paused. Update billing to resume.",
   billingGeneric: "Sync paused — billing needs attention.",
@@ -135,8 +134,6 @@ function describeBillingBlock(status: BillingStatus | null): string {
     // elapsed without converting — i.e. the free trial expired.
     case "trialing":
       return SYNC_STATUS_LABELS.billingTrialEnded;
-    case "past_due":
-      return SYNC_STATUS_LABELS.billingPastDue;
     case "disabled":
       return SYNC_STATUS_LABELS.billingDisabled;
     default:

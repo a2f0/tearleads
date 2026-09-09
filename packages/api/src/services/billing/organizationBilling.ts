@@ -79,13 +79,12 @@ export function getOrganizationNativePurchaseEligibility(
 }
 
 /**
- * Resolves every safe management path for an organization's subscription. The
+ * Resolves the native store URL for an organization's subscription. The
  * owner decision is shared with the billing snapshot; this adds the
  * RevenueCat management link for a native owner, looked up through the stored
  * customer id so any admin, not just the buyer, can reach it. Provider calls
- * run outside the DB transaction and fail soft to a null URL. A native
- * takeover may retain a quarantined Stripe identity until its final event, so
- * both providers' paths stay exposed while it can bill.
+ * run outside the DB transaction and fail soft to a null URL. Direct Stripe
+ * cancellation remains available independently through the billing snapshot.
  */
 export async function getOrganizationBillingManagementUrl(
   runtime: ApiServiceRuntime,
@@ -116,6 +115,8 @@ export async function getOrganizationBillingManagementUrl(
           deps.revenueCat,
         )
       : null;
+  // Retain the existing response contract for installed native clients. Current
+  // clients use the billing snapshot for cancellation and request only the URL.
   return { canCancelDirectly: ownership.canCancelDirectly, managementUrl };
 }
 

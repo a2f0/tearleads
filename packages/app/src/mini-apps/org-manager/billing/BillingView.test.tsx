@@ -28,6 +28,7 @@ function billingView(
     currentUserHasSyncSeat: false,
     syncSeatUnavailable: false,
     pendingSeatCount: null,
+    canCancelDirectly: false,
     subscriptionSource: null,
     needsAttention: false,
     ...overrides,
@@ -325,13 +326,13 @@ test("refresh is always available to an admin", () => {
   expect(refreshed).toBe(1);
 });
 
-test("past-due Stripe billing cannot be replaced by a native purchase", () => {
+test("Stripe billing awaiting renewal cannot be replaced by a native purchase", () => {
   const shared = { isPersonalOrganization: true } as const;
   expect(
     allowsNativePurchase({
       ...shared,
       isActive: false,
-      status: "past_due",
+      status: "disabled",
       subscriptionSource: "stripe",
     }),
   ).toBe(false);

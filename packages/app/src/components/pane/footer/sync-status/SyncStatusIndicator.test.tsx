@@ -134,7 +134,7 @@ test("popover links to billing when billing blocks sync", () => {
       hasUnflushed={false}
       onOpenBilling={onOpenBilling}
       onOpenWriteQueue={noop}
-      title="Payment past due — sync paused. Update billing to resume."
+      title="Subscription disabled — sync paused. Update billing to resume."
     />,
   );
 

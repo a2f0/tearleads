@@ -217,9 +217,11 @@ export interface OrganizationBillingView {
   readonly syncSeatUnavailable: boolean;
   /** Native destination tier announced by the store but not effective yet. */
   readonly pendingSeatCount: number | null;
+  /** A retained Stripe subscription can be cancelled, including during native ownership. */
+  readonly canCancelDirectly: boolean;
   /** Store of record for the bound subscription, or null when none binds. */
   readonly subscriptionSource: OrganizationBillingSubscriptionSource | null;
-  /** Sync is expected but currently off (lapsed/disabled/past_due) — prompt to fix. */
+  /** Sync is expected but currently off (lapsed/disabled) — prompt to fix. */
   readonly needsAttention: boolean;
 }
 
@@ -277,6 +279,7 @@ export function resolveOrganizationBillingView(
     syncSeatUnavailable: organizationCanSync && !billing.currentUserHasSyncSeat,
     pendingSeatCount: billing.pendingSeatCount,
     subscriptionSource: billing.subscriptionSource,
+    canCancelDirectly: billing.canCancelDirectly,
     needsAttention: !isLocal && !canSync,
   };
 }

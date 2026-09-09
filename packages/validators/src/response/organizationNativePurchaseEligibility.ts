@@ -5,7 +5,6 @@ export const OrganizationNativePurchaseIneligibilityReasonSchema = z.literal([
   "organization_admin_required",
   "personal_organization_required",
   "terminal_organization",
-  "billing_past_due",
   "stripe_subscription_conflict",
   "existing_subscription_conflict",
   "native_subscription_buyer_mismatch",

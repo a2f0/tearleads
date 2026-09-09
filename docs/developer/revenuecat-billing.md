@@ -32,6 +32,12 @@ RevenueCat's provider-hosted flow for native stores
 ([revenuecat-native-stores.md](./revenuecat-native-stores.md)) only. Native
 purchases are personal-org only; restore always creates a new org.
 
+Organization billing has no separate `past_due` state. RevenueCat
+`BILLING_ISSUE` is informational; access continues only while the current
+paid period remains valid, and expiration follows the existing disabled and
+retention lifecycle. Stripe's upstream `past_due` status still prevents
+competing subscriptions and unsafe seat prorations.
+
 ## Native restore and subscription moves
 
 An App Store or Play subscription belongs to the store account, not to an app

@@ -54,19 +54,25 @@ export function stubEnvironment(
     overrides.canCancelDirectly ??
     (isActive && overrides.managementUrl === undefined);
   // The snapshot names the subscription's owner; the management lookup only
-  // adds the link and the direct-cancel affordance.
+  // adds the link.
   const subscriptionSource =
     overrides.subscriptionSource ??
     (canCancelDirectly ? "stripe" : overrides.managementUrl ? "native" : null);
   const fixture = billingFixture(canSync, isActive, isTrialing);
   const status = overrides.status ?? fixture.view.status;
-  const billing = { ...fixture.billing, status, subscriptionSource };
+  const billing = {
+    ...fixture.billing,
+    status,
+    subscriptionSource,
+    canCancelDirectly,
+  };
   const view = {
     ...fixture.view,
     isLocal: status === "local",
     needsAttention: status !== "local" && !canSync,
     status,
     subscriptionSource,
+    canCancelDirectly,
   };
   spies.push(
     spyOn(BillingProvider, "useOrganizationBilling").mockReturnValue({
