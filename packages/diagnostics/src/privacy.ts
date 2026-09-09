@@ -6,8 +6,8 @@ export interface SentryPrivacyConfig {
   scriptPath: string;
   environment: "staging" | "production";
   release: string;
-  dist: string;
-  scriptPaths?: readonly string[];
+  dist: "staging-app" | "production-app" | "staging" | "production";
+  scriptPaths?: ReadonlySet<string>;
   serverSourceRoot?: string;
   runtime?: "api";
   budgetResetMs?: number;
@@ -48,7 +48,7 @@ function safeFrame(
       : frame.filename.startsWith(`${serverRoot}/`)
         ? frame.filename.slice(serverRoot.length)
         : `/${frame.filename}`;
-    return config.scriptPaths?.includes(filename)
+    return config.scriptPaths?.has(filename)
       ? safePosition(frame, filename)
       : null;
   }
@@ -66,7 +66,7 @@ function safeFrame(
       : url.origin === config.origin
         ? url.pathname
         : "";
-  if (filename !== config.scriptPath && !config.scriptPaths?.includes(filename))
+  if (filename !== config.scriptPath && !config.scriptPaths?.has(filename))
     return null;
   return safePosition(frame, filename);
 }

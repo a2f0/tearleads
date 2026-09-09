@@ -14,7 +14,7 @@ globalThis.fetch = async (_url, init) => { console.log(String(init.body)); retur
 const client = createServerDiagnostics({
   dsn: "https://${"a".repeat(32)}@o1.ingest.us.sentry.io/1",
   environment: "staging", release: "tearleads-api@${"b".repeat(40)}", dist: "staging",
-  runtime: "api", origin: "", scriptPath: "", serverSourceRoot: ${JSON.stringify(directory)}, scriptPaths: ["/fixture.ts"]
+  runtime: "api", origin: "", scriptPath: "", serverSourceRoot: ${JSON.stringify(directory)}, scriptPaths: new Set(["/fixture.ts"])
 });
 client.captureError(new TypeError("SYNTHETIC_PRIVATE_DATABASE_VALUE"), "request-error");
 await client.flush();
@@ -35,7 +35,7 @@ await client.close();
     );
     expect(await build.exited).toBe(0);
     const run = Bun.spawn([join(directory, "fixture")], {
-      cwd: directory,
+      cwd: tmpdir(),
       stdout: "pipe",
       stderr: "pipe",
     });

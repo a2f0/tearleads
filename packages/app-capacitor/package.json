@@ -66,13 +66,13 @@
     "@capacitor/android": "8.5.1",
     "@capacitor/cli": "8.5.1",
     "@capacitor/ios": "8.5.1",
+    "@sentry/cli": "3.7.0",
     "@tearleads/sqlite-worker": "workspace:*",
     "@types/bun": "catalog:",
     "@types/react": "catalog:react",
     "@types/react-dom": "catalog:react",
     "@vitejs/plugin-react": "6.1.1",
     "vite": "8.2.2",
-    "vite-plugin-wasm": "3.6.0",
-    "@sentry/cli": "3.7.0"
+    "vite-plugin-wasm": "3.6.0"
   }
 }

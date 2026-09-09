@@ -28,7 +28,7 @@ export function resolveApiSentryConfig(input: {
     origin: "",
     scriptPath: "",
     serverSourceRoot: input.sourceRoot,
-    scriptPaths: input.sourcePaths,
+    scriptPaths: new Set(input.sourcePaths),
     budgetResetMs: 60 * 60 * 1000,
   };
 }

@@ -59,6 +59,6 @@ export function resolveNativeSentryConfig(
     release: `tearleads-${input.platform}@${input.commit}`,
     dist: `${input.environment}-app`,
     scriptPath: paths[0] ?? "",
-    scriptPaths: paths,
+    scriptPaths: new Set(paths),
   };
 }

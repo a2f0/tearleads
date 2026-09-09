@@ -98,6 +98,7 @@ test("the transport rejects every non-error item and reconstructs envelope metad
   expect(requests).toHaveLength(1);
   const request = requests[0];
   expect(request?.credentials).toBe("omit");
+  expect(request?.keepalive).toBe(true);
   expect(request?.referrerPolicy).toBe("no-referrer");
   const body = String(request?.body);
   expect(body).not.toContain(secret);

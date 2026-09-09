@@ -32,8 +32,12 @@ Environment:
                      Defaults to ${native_default_api}.
 
 Store credentials and signing values are loaded by Fastlane from
-.secrets/root.env plus .secrets/${native_tier}.env where applicable. Explicitly
-exported environment variables take precedence.
+.secrets/root.env plus the tier file (.secrets/prod.env or .secrets/staging.env).
+Explicitly exported environment variables take precedence.
+
+When the platform/tier Sentry DSN is configured, the build uploads JavaScript
+source maps before native packaging. Maps and the private SENTRY_AUTH_TOKEN are
+excluded from the app. An upload failure stops the build/upload wrapper.
 
 NATIVE_RELEASE_PRODUCTION_VITE_REVENUECAT_ANDROID_API_KEY and
 NATIVE_RELEASE_PRODUCTION_VITE_REVENUECAT_IOS_API_KEY may provide an independent

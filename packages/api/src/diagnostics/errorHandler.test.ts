@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import type { SessionEnv } from "../middleware/session";
+import { OrganizationSyncDisabledError } from "../workflows/billing/organizationSyncEligibility";
 import { createApiErrorHandler } from "./errorHandler";
 import { resolveApiSentryConfig } from "./sentryConfig";
 
@@ -11,6 +12,12 @@ test("API captures unexpected failures, preserves CORS/status, and ignores clien
   const log = spyOn(console, "error").mockImplementation(() => {});
   const app = new Hono<SessionEnv>();
   app.use("*", cors({ origin: "https://app.tearleads.com" }));
+  app.get("/entitlement", () => {
+    throw new OrganizationSyncDisabledError(
+      "synthetic-org",
+      "billing_inactive",
+    );
+  });
   app.get("/client", () => {
     throw new HTTPException(401);
   });
@@ -28,6 +35,7 @@ test("API captures unexpected failures, preserves CORS/status, and ignores clien
   app.onError(createApiErrorHandler(capture));
   try {
     for (const [path, status] of [
+      ["entitlement", 402],
       ["client", 401],
       ["server", 502],
       ["unexpected", 500],

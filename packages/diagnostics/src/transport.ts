@@ -1,4 +1,5 @@
-import { type ClientOptions, createTransport, type Event } from "@sentry/core";
+import { makeFetchTransport } from "@sentry/browser";
+import type { ClientOptions, Event } from "@sentry/core";
 import { createSentryEventBudget } from "./budget";
 import { type SentryPrivacyConfig, sanitizeSentryEvent } from "./privacy";
 
@@ -13,22 +14,14 @@ export function createPrivateSentryTransport(
 ): ClientOptions["transport"] {
   return (options) => {
     const admitEvent = createSentryEventBudget(config.budgetResetMs);
-    const transport = createTransport(options, async ({ body }) => {
-      const response = await fetch(options.url, {
-        method: "POST",
-        body: typeof body === "string" ? body : new Uint8Array(body),
+    const transport = makeFetchTransport(options, (url, init) =>
+      fetch(url, {
+        ...init,
         credentials: "omit",
         referrerPolicy: "no-referrer",
         signal: AbortSignal.timeout(5000),
-      });
-      return {
-        statusCode: response.status,
-        headers: {
-          "x-sentry-rate-limits": response.headers.get("X-Sentry-Rate-Limits"),
-          "retry-after": response.headers.get("Retry-After"),
-        },
-      };
-    });
+      }),
+    );
     return {
       flush: (timeout) => transport.flush(timeout),
       send(envelope) {

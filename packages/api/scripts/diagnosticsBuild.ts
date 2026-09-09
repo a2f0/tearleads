@@ -1,7 +1,9 @@
 import { execFileSync } from "node:child_process";
+import { resolve } from "node:path";
 import { isSentryCommit } from "@tearleads/diagnostics/config";
 
-export function diagnosticsBuild(sourceRoot: string) {
+export function diagnosticsBuild(root: string) {
+  const sourceRoot = resolve(root);
   const commit = execFileSync("git", ["rev-parse", "HEAD"], {
     cwd: sourceRoot,
     encoding: "utf8",
@@ -15,8 +17,9 @@ export function diagnosticsBuild(sourceRoot: string) {
   const sourcePaths = files
     .filter(
       (path) =>
-        /^packages\/[^/]+\/src\/.+\.tsx?$/u.test(path) &&
-        !/\.(?:test|spec)\./u.test(path),
+        /^packages\/(?:api|api-shared|crypto|diagnostics|encoding|loro|sqlite-instance|validators)\/src\/.+\.ts$/u.test(
+          path,
+        ) && !/\.(?:test|spec)\./u.test(path),
     )
     .map((path) => `/${path}`);
   return { commit, sourceRoot, sourcePaths };

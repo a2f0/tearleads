@@ -12,7 +12,7 @@ const config: SentryConfig = {
   dist: "staging",
   origin: "",
   scriptPath: "",
-  scriptPaths: ["/packages/api/src/routeApp.ts"],
+  scriptPaths: new Set(["/packages/api/src/routeApp.ts"]),
   serverSourceRoot: "/build/tearleads",
   runtime: "api",
   budgetResetMs: 3600000,

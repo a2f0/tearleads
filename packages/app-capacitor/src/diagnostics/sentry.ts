@@ -11,6 +11,8 @@ export async function configureNativeSentry() {
   )
     return undefined;
   try {
+    // Read the packaged allowlist before mounting React so initial boundary
+    // failures can report. This local request is bounded and fails closed.
     const response = await fetch(
       new URL("/sentry-assets.json", window.location.href),
       { signal: AbortSignal.timeout(2000) },
