@@ -14,7 +14,7 @@ import * as TearleadsProvider from "../../src/providers/sdk/TearleadsProvider";
 // spyOn patches the shared module namespace; bun runs every test file in one
 // process, so an unrestored spy would hand OTHER suites a stub Tearleads
 // client (and fail them on a missing store). Restore after each test.
-export const spies: { mockRestore: () => void }[] = [];
+const spies: { mockRestore: () => void }[] = [];
 export function restoreDirectCheckoutSpies() {
   for (const spy of spies.splice(0)) {
     spy.mockRestore();

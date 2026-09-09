@@ -138,6 +138,8 @@ function useDirectCheckoutWiring(input: {
       view.subscriptionSource !== "stripe",
   );
   const checkout = useDirectCheckoutFlow({
+    // Native actions.canSubscribe includes PurchasesCapability availability;
+    // direct checkout has its own capability and must remain independent.
     canSubscribe: input.isOrgAdmin && input.userId !== null,
     enabled: checkoutEnabled,
     organizationId: input.organizationId,

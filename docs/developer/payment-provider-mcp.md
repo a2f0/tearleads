@@ -117,7 +117,8 @@ Official references:
   `play_store.play_service_account_credentials_json` on app updates; an extra
   top-level `credentials` property is not the supported field. Read
   `.secrets/google-play-service-account-revenue-cat.json` directly into the
-  request without logging its contents. Verify each app's package name and
+  request without logging its contents or passing them in shell arguments.
+  Verify each app's package name and
   `credentials.configured` afterward, then check product store state. Keep this
   credential separate from the admin key used by Fastlane and store tooling.
   See the [app API](https://www.revenuecat.com/docs/api-v2/app).

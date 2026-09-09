@@ -28,6 +28,7 @@ test.each([
       Promise.resolve({ options: [OPTION] }),
     );
     stubEnvironment(false, {
+      canCancelDirectly: true,
       loadBillingManagementUrl,
       loadStripeCheckoutOptions,
       status: "disabled",
@@ -43,6 +44,11 @@ test.each([
       expect(view.getByText(ORG_MANAGER_LABELS.billingDisabled)).toBeDefined(),
     );
     expect(view.queryByText(ORG_MANAGER_LABELS.billingSubscribe)).toBeNull();
+    expect(
+      view.getByRole("button", {
+        name: ORG_MANAGER_LABELS.billingCancelSubscription,
+      }),
+    ).toBeDefined();
     expect(loadStripeCheckoutOptions).not.toHaveBeenCalled();
   },
 );

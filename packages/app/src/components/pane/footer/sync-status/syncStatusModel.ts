@@ -75,7 +75,7 @@ type BillingBlockScope = "active" | "other";
 
 interface SyncStatusInput {
   /**
-   * Billing lapsed for the active org (expired trial / past due / disabled) so
+   * Billing lapsed for the active org (expired trial or disabled) so
    * sync is paused. Excludes the free "local" org, which is not trying to sync
    * and must not raise a warning. Mirrors `OrganizationBillingView.needsAttention`.
    */

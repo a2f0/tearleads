@@ -217,8 +217,9 @@ export interface OrganizationBillingView {
   readonly syncSeatUnavailable: boolean;
   /** Native destination tier announced by the store but not effective yet. */
   readonly pendingSeatCount: number | null;
-  /** Store of record for the bound subscription, or null when none binds. */
+  /** A retained Stripe subscription can be cancelled, including during native ownership. */
   readonly canCancelDirectly: boolean;
+  /** Store of record for the bound subscription, or null when none binds. */
   readonly subscriptionSource: OrganizationBillingSubscriptionSource | null;
   /** Sync is expected but currently off (lapsed/disabled) — prompt to fix. */
   readonly needsAttention: boolean;

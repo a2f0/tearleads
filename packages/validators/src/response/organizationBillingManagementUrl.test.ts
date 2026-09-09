@@ -20,9 +20,6 @@ test("accepts a null management URL", () => {
 test("rejects a missing or non-string management URL", () => {
   expect(isOrganizationBillingManagementUrlResponse({})).toBe(false);
   expect(
-    isOrganizationBillingManagementUrlResponse({ managementUrl: null }),
-  ).toBe(true);
-  expect(
     isOrganizationBillingManagementUrlResponse({
       managementUrl: 42,
     }),

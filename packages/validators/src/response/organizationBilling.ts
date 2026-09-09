@@ -67,12 +67,12 @@ export const OrganizationBillingResponseSchema =
       status: OrganizationBillingStatusSchema,
       trialEndsAt: z.string().nullable(),
       provider: OrganizationBillingProviderSchema.nullable(),
+      /** A retained Stripe subscription can be cancelled even during native ownership. */
+      canCancelDirectly: z.boolean(),
       /**
        * Store of record while a subscription can still bill or be repaired;
        * null when nothing a new purchase would conflict with is bound.
        */
-      /** A retained Stripe subscription can be cancelled even during native ownership. */
-      canCancelDirectly: z.boolean(),
       subscriptionSource:
         OrganizationBillingSubscriptionSourceSchema.nullable(),
       currentPeriodStartsAt: z.string().nullable(),

@@ -1,3 +1,5 @@
+import type { OrganizationBillingStatus } from "@tearleads/validators/response";
+
 export const ORG_MANAGER_LABELS = {
   add: "Add",
   addUser: "Add user",
@@ -273,7 +275,7 @@ export const ORG_MANAGER_LABELS = {
 } as const;
 
 export function getOrgManagerBillingStatusLabel(
-  status: "local" | "trialing" | "active" | "disabled" | "deleting" | "purged",
+  status: OrganizationBillingStatus,
 ): string {
   switch (status) {
     case "local":

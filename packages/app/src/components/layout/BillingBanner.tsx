@@ -24,7 +24,8 @@ const BILLING_ROUTE = {
 } as const;
 
 /**
- * Billing warning shown only while sync needs attention (lapsed/disabled) and the active pane route is not Organization Billing itself, where the
+ * Billing warning shown only while sync needs attention (lapsed/disabled) and
+ * the active pane route is not Organization Billing itself, where the
  * warning would duplicate the screen it points at. Trial promotion no longer
  * occupies app chrome.
  */

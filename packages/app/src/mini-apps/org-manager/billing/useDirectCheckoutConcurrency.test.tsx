@@ -1,14 +1,12 @@
-import { afterEach, expect, mock, spyOn, test } from "bun:test";
+import { afterEach, expect, mock, test } from "bun:test";
 import { act, waitFor } from "@testing-library/react";
 import {
   capabilityWith,
   OPTION,
   renderFlow,
   restoreDirectCheckoutSpies,
-  spies,
   stubTearleads,
 } from "../../../../test/helpers/directCheckoutTestKit";
-import * as TearleadsProvider from "../../../providers/sdk/TearleadsProvider";
 
 afterEach(restoreDirectCheckoutSpies);
 
@@ -32,10 +30,7 @@ test("a begin that fails after a newer one started does not disturb it", async (
   // the shared teardown, which would cancel the attempt that replaced it.
   let rejectFirst: ((error: Error) => void) | undefined;
   let calls = 0;
-  const organizations = {
-    loadStripeCheckoutOptions: mock(() =>
-      Promise.resolve({ options: [OPTION] }),
-    ),
+  stubTearleads({
     createStripeCheckout: mock(() => {
       calls += 1;
       return calls === 1
@@ -47,12 +42,7 @@ test("a begin that fails after a newer one started does not disturb it", async (
             clientSecret: "pi_2",
           });
     }),
-  };
-  spies.push(
-    spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
-      organizations,
-    } as never),
-  );
+  });
   const unmount = mock(() => undefined);
   const { capability } = capabilityWith({ unmount });
   const { result } = renderFlow(capability);
@@ -132,22 +122,14 @@ test("a double-clicked Subscribe starts exactly one checkout", async () => {
   // second click from reaching the server and bumping the start token.
   let starts = 0;
   let release: ((intent: unknown) => void) | undefined;
-  const organizations = {
-    loadStripeCheckoutOptions: mock(() =>
-      Promise.resolve({ options: [OPTION] }),
-    ),
+  stubTearleads({
     createStripeCheckout: mock(() => {
       starts += 1;
       return new Promise((resolve) => {
         release = resolve;
       });
     }),
-  };
-  spies.push(
-    spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
-      organizations,
-    } as never),
-  );
+  });
   const { capability, mounted } = capabilityWith({});
   const { result } = renderFlow(capability);
   await waitFor(() => expect(result.current.option).toEqual(OPTION));
@@ -169,22 +151,14 @@ test("a failed start releases the guard so the buyer can retry", async () => {
   // Without clearing `startingRef` on the failure path, the Subscribe row
   // would come back but do nothing.
   let attempts = 0;
-  const organizations = {
-    loadStripeCheckoutOptions: mock(() =>
-      Promise.resolve({ options: [OPTION] }),
-    ),
+  stubTearleads({
     createStripeCheckout: mock(() => {
       attempts += 1;
       return attempts === 1
         ? Promise.reject(new Error("500"))
         : Promise.resolve({ subscriptionId: "sub_1", clientSecret: "pi_1" });
     }),
-  };
-  spies.push(
-    spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
-      organizations,
-    } as never),
-  );
+  });
   const { capability } = capabilityWith({});
   const { result } = renderFlow(capability);
   await waitFor(() => expect(result.current.option).toEqual(OPTION));
