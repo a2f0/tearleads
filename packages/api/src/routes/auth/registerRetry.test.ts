@@ -1,16 +1,28 @@
-import { expect, test } from "bun:test";
+import { afterAll, expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { containers, organizations, users } from "@tearleads/api-shared/schema";
 import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
+  toFingerprint,
 } from "@tearleads/crypto";
 import type { RegistrationRequest } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
 import { createRegistrationRequestBody } from "../../../test/helpers/api";
+import { del } from "../../adapters/redis";
 import { routeApp } from "../../routeApp";
 
-function register(body: RegistrationRequest) {
+const fingerprints = new Set<string>();
+
+afterAll(async () => {
+  for (const fingerprint of fingerprints) {
+    await del(fingerprint);
+    await del(`challenge:${fingerprint}`);
+  }
+});
+
+async function register(body: RegistrationRequest) {
+  fingerprints.add(await toFingerprint(new Uint8Array(body.signingPublicKey)));
   return routeApp.request("/auth/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

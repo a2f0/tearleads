@@ -22,23 +22,28 @@ test.each([false, true])(
     const originalFetch = globalThis.fetch;
     let registeredUserId: string | null = null;
     let registrationCount = 0;
+    const registrationStatuses: number[] = [];
     let failedRecoveryCount = 0;
     const fetchWithLostResponse = Object.assign(
       async (...args: Parameters<typeof fetch>) => {
         const request = new Request(...args);
         const path = new URL(request.url).pathname;
-        if (retry && path === "/auth/challenge" && failedRecoveryCount === 0) {
+        if (
+          retry &&
+          registrationCount === 1 &&
+          path === "/auth/challenge" &&
+          failedRecoveryCount === 0
+        ) {
           failedRecoveryCount += 1;
           return new Response(null, { status: 503 });
         }
         const response = await originalFetch(...args);
         if (path === "/auth/register" && request.method === "POST") {
           registrationCount += 1;
+          registrationStatuses.push(response.status);
           if (registrationCount > 1) {
-            expect(response.status).toBe(409);
             return response;
           }
-          expect(response.status).toBe(200);
           registeredUserId = (await response.json()).userId;
           return new Response(JSON.stringify({ error: "Response lost" }), {
             status: 524,
@@ -66,7 +71,9 @@ test.each([false, true])(
         );
         await waitForPaneRuntimeToSettle(PANE_LONG_ASYNC_TEST_TIMEOUT_MS);
         const manager = within(await openIdentityManagerFromPane(view));
-        fireEvent.click(manager.getByRole("button", { name: "Register" }));
+        fireEvent.click(
+          await manager.findByRole("button", { name: "Register" }),
+        );
       }
       await waitFor(
         () => {
@@ -79,6 +86,7 @@ test.each([false, true])(
         { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
       );
       expect(registrationCount).toBe(retry ? 2 : 1);
+      expect(registrationStatuses).toEqual(retry ? [200, 409] : [200]);
       await waitForPaneRuntimeToSettle(PANE_LONG_ASYNC_TEST_TIMEOUT_MS);
       const explorer = await openExplorer(view);
       await waitFor(
