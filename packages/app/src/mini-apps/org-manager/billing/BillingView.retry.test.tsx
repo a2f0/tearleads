@@ -21,6 +21,7 @@ const VIEW: OrganizationBillingView = {
   currentUserHasSyncSeat: false,
   syncSeatUnavailable: false,
   pendingSeatCount: null,
+  canCancelDirectly: false,
   subscriptionSource: null,
   needsAttention: false,
 };

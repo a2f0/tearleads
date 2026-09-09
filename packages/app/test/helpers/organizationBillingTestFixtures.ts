@@ -31,6 +31,7 @@ export function billingFixture(
       status,
       // Direct Stripe checkout is the default lane in app tests; native
       // scenarios override this on both the wire and view shapes.
+      canCancelDirectly: isActive,
       subscriptionSource: isActive ? "stripe" : null,
       trialEndsAt: isTrialing ? "2030-01-08T00:00:00.000Z" : null,
     },
@@ -46,6 +47,7 @@ export function billingFixture(
       needsAttention: false,
       pendingSeatCount: null,
       seatCount,
+      canCancelDirectly: isActive,
       subscriptionSource: isActive ? "stripe" : null,
       syncSeatUnavailable: false,
       status,

@@ -37,6 +37,7 @@ function billing(
     pendingSeatCount: null,
     disabledAt: null,
     purgeAfter: null,
+    canCancelDirectly: false,
     subscriptionSource: null,
     ...overrides,
   };

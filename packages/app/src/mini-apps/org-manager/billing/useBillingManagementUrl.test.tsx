@@ -59,7 +59,6 @@ test("a managed subscription resolves to its provider URL", async () => {
   stubOrganizations({
     loadBillingManagementUrl: () =>
       Promise.resolve({
-        canCancelDirectly: false,
         managementUrl: "https://rc.example/manage",
       }),
   });
@@ -68,7 +67,6 @@ test("a managed subscription resolves to its provider URL", async () => {
 
   await waitFor(() =>
     expect(result.current).toEqual({
-      canCancelDirectly: false,
       managementUrl: "https://rc.example/manage",
     }),
   );
@@ -78,7 +76,6 @@ test("no managed subscription hides the link rather than erroring", async () => 
   stubOrganizations({
     loadBillingManagementUrl: () =>
       Promise.resolve({
-        canCancelDirectly: false,
         managementUrl: null,
       }),
   });
@@ -87,26 +84,6 @@ test("no managed subscription hides the link rather than erroring", async () => 
 
   await waitFor(() =>
     expect(result.current).toEqual({
-      canCancelDirectly: false,
-      managementUrl: null,
-    }),
-  );
-});
-
-test("a Stripe subscription exposes direct cancellation without a URL", async () => {
-  stubOrganizations({
-    loadBillingManagementUrl: () =>
-      Promise.resolve({
-        canCancelDirectly: true,
-        managementUrl: null,
-      }),
-  });
-
-  const { result } = renderHook(() => useBillingManagementUrl("org-1", true));
-
-  await waitFor(() =>
-    expect(result.current).toEqual({
-      canCancelDirectly: true,
       managementUrl: null,
     }),
   );
@@ -122,7 +99,6 @@ test("a failed lookup degrades to no link", async () => {
 
   await waitFor(() =>
     expect(result.current).toEqual({
-      canCancelDirectly: false,
       managementUrl: null,
     }),
   );
@@ -131,7 +107,6 @@ test("a failed lookup degrades to no link", async () => {
 test("a disabled hook never asks", async () => {
   const loadBillingManagementUrl = mock(() =>
     Promise.resolve({
-      canCancelDirectly: false,
       managementUrl: "https://rc.example/manage",
     }),
   );
@@ -140,7 +115,6 @@ test("a disabled hook never asks", async () => {
   const { result } = renderHook(() => useBillingManagementUrl("org-1", false));
 
   expect(result.current).toEqual({
-    canCancelDirectly: false,
     managementUrl: null,
   });
   expect(loadBillingManagementUrl).not.toHaveBeenCalled();
@@ -152,7 +126,6 @@ test("a URL fetched for a previous org never leaks across a switch", async () =>
   stubOrganizations({
     loadBillingManagementUrl: () =>
       Promise.resolve({
-        canCancelDirectly: false,
         managementUrl: "https://rc.example/org-1",
       }),
   });
@@ -163,14 +136,12 @@ test("a URL fetched for a previous org never leaks across a switch", async () =>
   );
   await waitFor(() =>
     expect(result.current).toEqual({
-      canCancelDirectly: false,
       managementUrl: "https://rc.example/org-1",
     }),
   );
 
   rerender({ organizationId: "org-2" });
   expect(result.current).toEqual({
-    canCancelDirectly: false,
     managementUrl: null,
   });
 });
@@ -251,7 +222,6 @@ test("replacing the SDK runtime re-fetches for the same organization", async () 
   stubOrganizations({
     loadBillingManagementUrl: () =>
       Promise.resolve({
-        canCancelDirectly: false,
         managementUrl: "https://rc.example/first",
       }),
   });
@@ -268,7 +238,6 @@ test("replacing the SDK runtime re-fetches for the same organization", async () 
   stubOrganizations({
     loadBillingManagementUrl: () =>
       Promise.resolve({
-        canCancelDirectly: false,
         managementUrl: "https://rc.example/second",
       }),
   });

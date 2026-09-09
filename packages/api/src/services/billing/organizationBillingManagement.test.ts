@@ -48,7 +48,6 @@ test("a promotional grant retains its RevenueCat management path", async () => {
   );
 
   expect(result).toEqual({
-    canCancelDirectly: false,
     managementUrl: "https://provider.example/manage",
   });
 });

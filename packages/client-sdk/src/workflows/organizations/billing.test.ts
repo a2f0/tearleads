@@ -37,6 +37,7 @@ function billing(
     pendingSeatCount: null,
     disabledAt: null,
     purgeAfter: null,
+    canCancelDirectly: false,
     subscriptionSource: null,
     ...overrides,
   };
@@ -153,7 +154,7 @@ test("an active subscription past its period cannot sync and needs attention", (
   expect(view.needsAttention).toBe(true);
 });
 
-test.each(["disabled", "past_due", "deleting", "purged"] as const)(
+test.each(["disabled", "deleting", "purged"] as const)(
   "%s cannot sync and needs attention",
   (status) => {
     const view = resolveOrganizationBillingView(billing({ status }), NOW_MS);
@@ -231,7 +232,6 @@ test("loadOrganizationBillingManagementUrl passes through the org id", async () 
       getOrganizationBillingManagementUrl: async (organizationId) => {
         calls.push(organizationId);
         return {
-          canCancelDirectly: false,
           managementUrl: "https://manage.example/x",
         };
       },
@@ -240,7 +240,6 @@ test("loadOrganizationBillingManagementUrl passes through the org id", async () 
   });
   expect(calls).toEqual(["org-9"]);
   expect(result).toEqual({
-    canCancelDirectly: false,
     managementUrl: "https://manage.example/x",
   });
 });

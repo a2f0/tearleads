@@ -35,9 +35,7 @@ function hasLiveNativeBinding(
   billing: LockedBillingIdentity | undefined,
 ): boolean {
   const statusCanBill =
-    billing?.status === "active" ||
-    billing?.status === "past_due" ||
-    billing?.status === "trialing";
+    billing?.status === "active" || billing?.status === "trialing";
   return Boolean(
     statusCanBill &&
       billing.provider === "revenuecat" &&

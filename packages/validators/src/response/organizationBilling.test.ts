@@ -19,11 +19,24 @@ const BILLING_RESPONSE = {
   pendingSeatCount: null,
   disabledAt: null,
   purgeAfter: null,
+  canCancelDirectly: false,
   subscriptionSource: null,
 };
 
 test("isOrganizationBillingResponse accepts the seat billing shape", () => {
   expect(isOrganizationBillingResponse(BILLING_RESPONSE)).toBe(true);
+  expect(
+    isOrganizationBillingResponse({
+      ...BILLING_RESPONSE,
+      canCancelDirectly: true,
+    }),
+  ).toBe(true);
+  const { canCancelDirectly: _canCancelDirectly, ...missingCancellation } =
+    BILLING_RESPONSE;
+  expect(isOrganizationBillingResponse(missingCancellation)).toBe(false);
+  expect(
+    isOrganizationBillingResponse({ ...BILLING_RESPONSE, status: "past_due" }),
+  ).toBe(false);
   expect(
     isOrganizationBillingResponse({
       ...BILLING_RESPONSE,

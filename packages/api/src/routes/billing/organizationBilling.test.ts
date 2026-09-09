@@ -182,24 +182,6 @@ test("management identifies Stripe and native subscription ownership", async () 
     stripeDeps,
   );
   expect(stripeManagement).toEqual({
-    canCancelDirectly: true,
-    managementUrl: null,
-  });
-  expect(await snapshotSource(stripeDeps)).toBe("stripe");
-
-  await db
-    .update(organizationBilling)
-    .set({ status: "past_due" })
-    .where(eq(organizationBilling.organizationId, organizationId));
-  expect(
-    await getOrganizationBillingManagementUrl(
-      getDefaultApiServiceRuntime(),
-      organizationId,
-      admin.userId,
-      { stripe: { env: { STRIPE_SYNC_SOLO_PRICE_ID: "price_solo_test" } } },
-    ),
-  ).toEqual({
-    canCancelDirectly: true,
     managementUrl: null,
   });
   expect(await snapshotSource(stripeDeps)).toBe("stripe");
@@ -247,7 +229,6 @@ test("management identifies Stripe and native subscription ownership", async () 
     { revenueCat },
   );
   expect(nativeManagement).toEqual({
-    canCancelDirectly: true,
     managementUrl: "https://apps.apple.com/account/subscriptions",
   });
   expect(await snapshotSource()).toBe("native");
@@ -263,7 +244,6 @@ test("management identifies Stripe and native subscription ownership", async () 
     { revenueCat },
   );
   expect(lapsedNativeManagement).toEqual({
-    canCancelDirectly: false,
     managementUrl: "https://apps.apple.com/account/subscriptions",
   });
   expect(await snapshotSource()).toBe("native");
@@ -279,7 +259,6 @@ test("management identifies Stripe and native subscription ownership", async () 
     { stripe: { env: { STRIPE_SYNC_SOLO_PRICE_ID: "price_solo_test" } } },
   );
   expect(staleStripeManagement).toEqual({
-    canCancelDirectly: false,
     managementUrl: null,
   });
   // A lapsed Stripe identity no longer owns anything: a new checkout may run.
@@ -304,7 +283,6 @@ test("management identifies Stripe and native subscription ownership", async () 
     admin.userId,
   );
   expect(rotatedStripeManagement).toEqual({
-    canCancelDirectly: true,
     managementUrl: null,
   });
   expect(await snapshotSource()).toBe("stripe");
@@ -340,6 +318,7 @@ test("a Stripe subscription awaiting renewal keeps its owner past period end", a
   );
   expect(snapshot.status).toBe("disabled");
   expect(snapshot.subscriptionSource).toBe("stripe");
+  expect(snapshot.canCancelDirectly).toBe(true);
   expect(
     await getOrganizationBillingManagementUrl(
       getDefaultApiServiceRuntime(),
@@ -347,7 +326,7 @@ test("a Stripe subscription awaiting renewal keeps its owner past period end", a
       admin.userId,
       stripeDeps,
     ),
-  ).toEqual({ canCancelDirectly: true, managementUrl: null });
+  ).toEqual({ managementUrl: null });
 
   // Once the lifecycle event has persisted the lapse, the owner is released.
   await db

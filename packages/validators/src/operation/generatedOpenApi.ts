@@ -18508,6 +18508,7 @@ export interface operations {
                         activeMemberCount: number;
                         assignedSeatCount: number;
                         assignedUserIds: string[];
+                        canCancelDirectly: boolean;
                         currentPeriodEndsAt: string | null;
                         currentPeriodStartsAt: string | null;
                         currentUserHasSyncSeat: boolean;
@@ -18518,7 +18519,7 @@ export interface operations {
                         purgeAfter: string | null;
                         seatCount: number;
                         /** @enum {string} */
-                        status: "local" | "trialing" | "active" | "past_due" | "disabled" | "deleting" | "purged";
+                        status: "local" | "trialing" | "active" | "disabled" | "deleting" | "purged";
                         subscriptionSource: ("native" | "stripe") | null;
                         trialEndsAt: string | null;
                     } & {
@@ -18763,7 +18764,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        canCancelDirectly: boolean;
                         managementUrl: string | null;
                     } & {
                         [key: string]: unknown;
@@ -18874,6 +18874,7 @@ export interface operations {
                         activeMemberCount: number;
                         assignedSeatCount: number;
                         assignedUserIds: string[];
+                        canCancelDirectly: boolean;
                         currentPeriodEndsAt: string | null;
                         currentPeriodStartsAt: string | null;
                         currentUserHasSyncSeat: boolean;
@@ -18884,7 +18885,7 @@ export interface operations {
                         purgeAfter: string | null;
                         seatCount: number;
                         /** @enum {string} */
-                        status: "local" | "trialing" | "active" | "past_due" | "disabled" | "deleting" | "purged";
+                        status: "local" | "trialing" | "active" | "disabled" | "deleting" | "purged";
                         subscriptionSource: ("native" | "stripe") | null;
                         trialEndsAt: string | null;
                     } & {
@@ -19016,7 +19017,7 @@ export interface operations {
                         /** @constant */
                         eligible: false;
                         /** @enum {string} */
-                        reason: "organization_admin_required" | "personal_organization_required" | "terminal_organization" | "billing_past_due" | "stripe_subscription_conflict" | "existing_subscription_conflict" | "native_subscription_buyer_mismatch";
+                        reason: "organization_admin_required" | "personal_organization_required" | "terminal_organization" | "stripe_subscription_conflict" | "existing_subscription_conflict" | "native_subscription_buyer_mismatch";
                     } & {
                         [key: string]: unknown;
                     });
@@ -19807,6 +19808,7 @@ export interface operations {
                         activeMemberCount: number;
                         assignedSeatCount: number;
                         assignedUserIds: string[];
+                        canCancelDirectly: boolean;
                         currentPeriodEndsAt: string | null;
                         currentPeriodStartsAt: string | null;
                         currentUserHasSyncSeat: boolean;
@@ -19817,7 +19819,7 @@ export interface operations {
                         purgeAfter: string | null;
                         seatCount: number;
                         /** @enum {string} */
-                        status: "local" | "trialing" | "active" | "past_due" | "disabled" | "deleting" | "purged";
+                        status: "local" | "trialing" | "active" | "disabled" | "deleting" | "purged";
                         subscriptionSource: ("native" | "stripe") | null;
                         trialEndsAt: string | null;
                     } & {
@@ -24135,7 +24137,7 @@ export interface operations {
                                 purgedAt: string | null;
                                 seatCount: number;
                                 /** @enum {string} */
-                                status: "local" | "trialing" | "active" | "past_due" | "disabled" | "deleting" | "purged";
+                                status: "local" | "trialing" | "active" | "disabled" | "deleting" | "purged";
                                 trialEndsAt: string | null;
                             } & {
                                 [key: string]: unknown;
@@ -24264,7 +24266,7 @@ export interface operations {
                     "application/json": {
                         nextCursor: string | null;
                         organizations: ({
-                            billingStatus: ("local" | "trialing" | "active" | "past_due" | "disabled" | "deleting" | "purged") | null;
+                            billingStatus: ("local" | "trialing" | "active" | "disabled" | "deleting" | "purged") | null;
                             createdAt: string;
                             name: string;
                             organizationId: string;
@@ -24391,7 +24393,7 @@ export interface operations {
                             purgedAt: string | null;
                             seatCount: number;
                             /** @enum {string} */
-                            status: "local" | "trialing" | "active" | "past_due" | "disabled" | "deleting" | "purged";
+                            status: "local" | "trialing" | "active" | "disabled" | "deleting" | "purged";
                             trialEndsAt: string | null;
                             updatedAt: string;
                         } & {
@@ -24429,7 +24431,7 @@ export interface operations {
                             [key: string]: unknown;
                         })[];
                         organization: {
-                            billingStatus: ("local" | "trialing" | "active" | "past_due" | "disabled" | "deleting" | "purged") | null;
+                            billingStatus: ("local" | "trialing" | "active" | "disabled" | "deleting" | "purged") | null;
                             createdAt: string;
                             name: string;
                             organizationId: string;
@@ -24836,7 +24838,7 @@ export interface operations {
                                 totalByteLength: number;
                             };
                             organization: {
-                                billingStatus: ("local" | "trialing" | "active" | "past_due" | "disabled" | "deleting" | "purged") | null;
+                                billingStatus: ("local" | "trialing" | "active" | "disabled" | "deleting" | "purged") | null;
                                 createdAt: string;
                                 name: string;
                                 organizationId: string;

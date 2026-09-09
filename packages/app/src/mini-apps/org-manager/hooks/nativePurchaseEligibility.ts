@@ -42,7 +42,6 @@ export async function requireNativePurchaseEligibility(
 }
 
 const ELIGIBILITY_LABELS: Record<EligibilityFailure, string> = {
-  billing_past_due: ORG_MANAGER_LABELS.billingEligibilityPastDue,
   existing_subscription_conflict:
     ORG_MANAGER_LABELS.billingEligibilityExistingSubscription,
   native_subscription_buyer_mismatch:

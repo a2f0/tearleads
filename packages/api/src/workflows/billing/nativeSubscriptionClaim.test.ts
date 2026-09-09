@@ -421,7 +421,6 @@ test("revalidates an active Stripe checkout after native preflight", async () =>
 });
 
 for (const conflict of [
-  { name: "past-due billing", values: { status: "past_due" as const } },
   {
     name: "active billing without provider identity",
     values: { status: "active" as const },

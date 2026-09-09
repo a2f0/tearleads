@@ -86,9 +86,6 @@ export function resolveNativePurchaseEligibility(
   ) {
     return ineligible("terminal_organization");
   }
-  if (input.billing.status === "past_due") {
-    return ineligible("billing_past_due");
-  }
   if (input.hasActiveStripeCheckoutAttempt || input.hasStripeBinding) {
     return ineligible("stripe_subscription_conflict");
   }

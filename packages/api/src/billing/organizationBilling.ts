@@ -66,7 +66,7 @@ export function createTrialBillingFields(now: Date = new Date()): {
 /**
  * Whether an organization may sync to the server. Sync is the paid feature:
  * only non-expired active and trialing organizations sync; `local` (free),
- * `past_due`, `disabled`, `deleting`, and `purged` stay on-device.
+ * `disabled`, `deleting`, and `purged` stay on-device.
  *
  * Expiry is evaluated in-memory against `now` rather than trusting the
  * persisted status. A row whose billing period has passed but which has not yet
@@ -101,6 +101,7 @@ export function serializeOrganizationBilling(
     readonly assignedUserIds: readonly string[];
     readonly currentUserHasSyncSeat: boolean;
     readonly pendingSeatCount: number | null;
+    readonly canCancelDirectly: boolean;
     readonly subscriptionSource: OrganizationBillingSubscriptionSource | null;
   },
 ): OrganizationBillingResponse {
@@ -114,6 +115,7 @@ export function serializeOrganizationBilling(
     trialEndsAt: billing.trialEndsAt?.toISOString() ?? null,
     provider: billing.provider,
     subscriptionSource: usage.subscriptionSource,
+    canCancelDirectly: usage.canCancelDirectly,
     currentPeriodStartsAt: billing.currentPeriodStartsAt?.toISOString() ?? null,
     currentPeriodEndsAt: billing.currentPeriodEndsAt?.toISOString() ?? null,
     seatCount: billing.seatCount,

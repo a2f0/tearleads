@@ -59,6 +59,7 @@ const BASE_VIEW: OrganizationBillingView = {
   currentUserHasSyncSeat: true,
   syncSeatUnavailable: false,
   pendingSeatCount: null,
+  canCancelDirectly: false,
   subscriptionSource: null,
   needsAttention: false,
 };

@@ -113,13 +113,20 @@ Official references:
   select it on each production web config. The MCP and public API do not expose
   that owner-only flow; follow RevenueCat's
   [Stripe connection guide](https://www.revenuecat.com/docs/web/connect-stripe-account).
-- RevenueCat's MCP and public API v2 do not expose the Google Play service
-  account credential field. The API rejects an extra `credentials` property on
-  Play app updates. Upload
-  `.secrets/google-play-service-account-revenue-cat.json` to every Google Play
-  app under its RevenueCat app settings, then confirm a live product store-state
-  read succeeds. Keep this credential separate from the admin key used by
-  Fastlane and store-listing tooling.
+- RevenueCat API v2 accepts Google Play credentials through
+  `play_store.play_service_account_credentials_json` on app updates; an extra
+  top-level `credentials` property is not the supported field. Read
+  `.secrets/google-play-service-account-revenue-cat.json` directly into the
+  request without logging its contents. Verify each app's package name and
+  `credentials.configured` afterward, then check product store state. Keep this
+  credential separate from the admin key used by Fastlane and store tooling.
+  See the [app API](https://www.revenuecat.com/docs/api-v2/app).
+- RevenueCat API v2 can update existing webhook URLs and authorization headers
+  through `POST /projects/{project_id}/integrations/webhooks/{webhook_id}`.
+  Preserve the intended environment, event, and app filters and read them back
+  after updating. A saved URL alone does not establish successful delivery;
+  verify the receiving API's authentication and provider test delivery. See the
+  [integration API](https://www.revenuecat.com/docs/api-v2/integration).
 
 ## CLI and API fallbacks
 
@@ -131,7 +138,7 @@ or CLI tooling.
 | Stripe | Stripe MCP; Stripe CLI | `.secrets/root.env` plus the tier env | Prefer OAuth for MCP. `brew install stripe-cli`; use test mode until live credentials are explicitly selected. |
 | RevenueCat | RevenueCat MCP; API v2 | `REVENUECAT_V2_SECRET_KEY` and `REVENUECAT_PROJECT_ID` | Prefer OAuth for MCP. There is no separate RevenueCat CLI requirement. |
 | Apple | App Store Connect API; `asc` CLI | `APP_STORE_CONNECT_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`, and `.secrets/AuthKey_<id>.p8` | `brew install asc`; `asc` is community maintained, while the underlying API is Apple-supported. |
-| Google | Android Publisher API | `.secrets/google-play-service-account-admin.json` | `gcloud` manages Cloud/API bootstrap but not the Play subscription catalog. The pinned Fastlane Google client can read and write Android Publisher resources when its Play permissions allow it. RevenueCat uses the separate `.secrets/google-play-service-account-revenue-cat.json` credential uploaded to each Play app in its dashboard. |
+| Google | Android Publisher API | `.secrets/google-play-service-account-admin.json` | `gcloud` manages Cloud/API bootstrap but not the Play subscription catalog. The pinned Fastlane Google client can read and write Android Publisher resources when its Play permissions allow it. RevenueCat uses the separate `.secrets/google-play-service-account-revenue-cat.json` credential configured on each Play app through API v2 or its dashboard. |
 
 Configure `asc` without copying a private key into its own profile:
 

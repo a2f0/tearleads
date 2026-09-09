@@ -54,9 +54,7 @@ export function resolveOrganizationSubscriptionOwnership(input: {
     ? getSyncBillingTierForNativeProduct(input.providerProductId)
     : null;
   const statusCanBill =
-    input.status === "active" ||
-    input.status === "past_due" ||
-    input.status === "trialing";
+    input.status === "active" || input.status === "trialing";
   if (nativeTier !== null && !input.hasActiveStripeSubscription) {
     return {
       canCancelDirectly: input.hasStripeSubscription && statusCanBill,
@@ -85,7 +83,7 @@ export function resolveOrganizationSubscriptionOwnership(input: {
  * Resolves the owner of an organization's subscription inside an open
  * transaction, from its persisted billing row and Stripe binding.
  */
-export async function resolveOrganizationSubscriptionSourceInTransaction(input: {
+export async function resolveOrganizationSubscriptionOwnershipInTransaction(input: {
   readonly executor: DatabaseSession;
   readonly organizationId: string;
   readonly persisted: {
@@ -95,7 +93,7 @@ export async function resolveOrganizationSubscriptionSourceInTransaction(input: 
     readonly status: OrganizationBillingStatus;
   };
   readonly stripe?: StripeApiDeps;
-}): Promise<OrganizationBillingSubscriptionSource | null> {
+}): Promise<OrganizationSubscriptionOwnership> {
   const [stripeBinding] = await input.executor
     .select({
       priceId: organizationBillingStripeSeats.priceId,
@@ -115,5 +113,5 @@ export async function resolveOrganizationSubscriptionSourceInTransaction(input: 
     providerProductId: input.persisted.providerProductId,
     status: input.persisted.status,
     ...(input.stripe ? { stripe: input.stripe } : {}),
-  }).subscriptionSource;
+  });
 }

@@ -14,8 +14,6 @@ import { loosePlainObject } from "../schema";
  * this response.
  */
 export const OrganizationBillingManagementUrlResponseSchema = loosePlainObject({
-  /** Our API can cancel this Stripe subscription from any app surface. */
-  canCancelDirectly: z.boolean(),
   managementUrl: z.string().nullable(),
 });
 

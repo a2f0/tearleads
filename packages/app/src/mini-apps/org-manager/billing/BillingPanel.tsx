@@ -41,7 +41,6 @@ export function allowsNativePurchase(input: {
   return (
     input.isPersonalOrganization === true &&
     allowsPurchaseForBillingStatus(input.status) &&
-    input.status !== "past_due" &&
     input.subscriptionSource !== "stripe" &&
     (!input.isActive || input.subscriptionSource === "native")
   );
@@ -128,39 +127,17 @@ function useDirectCheckoutWiring(input: {
 }) {
   const { view } = input;
   const cancel = useCancelSubscription({ refresh: input.refresh });
-  // Gate on `isActive`, NOT `canSync`. `canSync` folds in trialing, which would
-  // hide the checkout for the whole trial; a trialing org has no subscription
-  // yet (the trial is a local status, no Stripe sub) and its admin may want to
-  // commit before the trial ends. So this offers the checkout in states where
-  // a paid subscription can start (local, trialing, fully lapsed). `past_due`
-  // is excluded because the existing Stripe subscription may still bill.
-  //
-  // This is close to, but not exactly, the server's checkout gate: the server
-  // refuses only a raw stored `status === "active"`, while `isActive` here also
-  // requires the current period not to have ended. They diverge only in a
-  // transient window — a still-`active` row whose period expired before the
-  // renewal/revoke webhook landed — where this offers a checkout the server
-  // then 409s. That window predates this gate (the old `!canSync` had it too)
-  // and self-heals on the next billing refresh, so it is left as-is.
-  //
-  // `enabled` is the render gate too: when it flips off mid-flow (the payment
-  // lands, the org becomes active) the hook tears the element down rather than
-  // having its host yanked out from under a live session.
+  // Ownership comes from persisted server billing, so a Stripe renewal that
+  // arrives after the paid period ends never offers a competing checkout.
+  // Flipping this gate off also tears down an in-flight payment element.
   const checkoutEnabled = Boolean(
     input.isOrgAdmin &&
       view !== null &&
       !view.isActive &&
       allowsPurchaseForBillingStatus(view.status) &&
-      view.status !== "past_due" &&
       view.subscriptionSource !== "stripe",
   );
   const checkout = useDirectCheckoutFlow({
-    // Deliberately NOT `actions.canSubscribe`: that folds in
-    // `purchases.isAvailable`, which is false without a RevenueCat web key.
-    // This checkout runs against our own Stripe account and needs only the
-    // publishable key — which the hook already gates on via the capability's
-    // `isAvailable`. Reusing `canSubscribe` would silently hide the form on a
-    // build configured for Stripe alone.
     canSubscribe: input.isOrgAdmin && input.userId !== null,
     enabled: checkoutEnabled,
     organizationId: input.organizationId,
@@ -173,12 +150,10 @@ function useDirectCheckoutWiring(input: {
     checkout.phase.kind === "collecting" ||
     checkout.phase.kind === "confirming" ||
     checkout.phase.kind === "starting";
-  // Offer inline cancel only when the server recognizes the immutable Stripe
-  // Price or live binding. This intentionally includes past-due Stripe plans:
-  // they can still bill and are exactly the state where an admin needs a
-  // direct cancellation path. Native subscriptions use their store URL.
+  // The snapshot retains cancellation independently of native ownership, so
+  // a quarantined Stripe subscription remains reachable without a URL lookup.
   const showInlineCancel =
-    input.isOrgAdmin && input.management.canCancelDirectly;
+    input.isOrgAdmin && (view?.canCancelDirectly ?? false);
   return {
     cancel,
     checkout,
@@ -394,8 +369,7 @@ export function BillingPanel({
     isOrgAdmin &&
       !recovery.active &&
       billing.view !== null &&
-      !billing.view.isLocal &&
-      !billing.view.isTrialing,
+      billing.view.subscriptionSource === "native",
     billing.billing,
   );
   const nativePurchaseAllowed =

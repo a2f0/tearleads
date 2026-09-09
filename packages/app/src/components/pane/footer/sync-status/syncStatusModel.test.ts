@@ -214,18 +214,7 @@ test("describeSyncStatus names an expired trial as the billing reason", () => {
   ).toContain("Free trial ended");
 });
 
-test("describeSyncStatus distinguishes past-due and disabled billing", () => {
-  expect(
-    describeSyncStatus({
-      status: "billing",
-      pendingWriteCount: 0,
-      failedWriteCount: 0,
-      firstWriteError: null,
-      online: true,
-      billingStatus: "past_due",
-      billingBlockScope: "active",
-    }),
-  ).toContain("past due");
+test("describeSyncStatus explains disabled billing", () => {
   expect(
     describeSyncStatus({
       status: "billing",

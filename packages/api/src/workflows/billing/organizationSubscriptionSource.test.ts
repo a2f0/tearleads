@@ -72,7 +72,7 @@ describe("resolveOrganizationSubscriptionOwnership", () => {
     ).toEqual({ canCancelDirectly: true, subscriptionSource: "stripe" });
   });
 
-  test.each(["active", "past_due", "trialing"] as const)(
+  test.each(["active", "trialing"] as const)(
     "a configured Stripe Price owns a %s organization",
     (status) => {
       expect(

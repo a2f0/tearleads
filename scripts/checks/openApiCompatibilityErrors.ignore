@@ -1,0 +1,4 @@
+# Issue #2193: cancellation availability now lives in the billing snapshot.
+# The management-url response returns only the URL in this flag-day change.
+# Remove as soon as origin/main contains this snapshot cancellation contract.
+GET /organizations/{organizationId}/billing/management-url removed the required property `canCancelDirectly` from the response with the `200` status

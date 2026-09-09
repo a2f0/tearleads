@@ -37389,9 +37389,6 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "canCancelDirectly": {
-                      "type": "boolean"
-                    },
                     "managementUrl": {
                       "anyOf": [
                         {
@@ -37404,7 +37401,6 @@
                     }
                   },
                   "required": [
-                    "canCancelDirectly",
                     "managementUrl"
                   ],
                   "additionalProperties": {}
@@ -37607,7 +37603,6 @@
                             "organization_admin_required",
                             "personal_organization_required",
                             "terminal_organization",
-                            "billing_past_due",
                             "stripe_subscription_conflict",
                             "existing_subscription_conflict",
                             "native_subscription_buyer_mismatch"
@@ -37839,7 +37834,6 @@
                         "local",
                         "trialing",
                         "active",
-                        "past_due",
                         "disabled",
                         "deleting",
                         "purged"
@@ -37865,6 +37859,9 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "canCancelDirectly": {
+                      "type": "boolean"
                     },
                     "subscriptionSource": {
                       "anyOf": [
@@ -37947,6 +37944,7 @@
                     "status",
                     "trialEndsAt",
                     "provider",
+                    "canCancelDirectly",
                     "subscriptionSource",
                     "currentPeriodStartsAt",
                     "currentPeriodEndsAt",
@@ -39307,7 +39305,6 @@
                         "local",
                         "trialing",
                         "active",
-                        "past_due",
                         "disabled",
                         "deleting",
                         "purged"
@@ -39333,6 +39330,9 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "canCancelDirectly": {
+                      "type": "boolean"
                     },
                     "subscriptionSource": {
                       "anyOf": [
@@ -39415,6 +39415,7 @@
                     "status",
                     "trialEndsAt",
                     "provider",
+                    "canCancelDirectly",
                     "subscriptionSource",
                     "currentPeriodStartsAt",
                     "currentPeriodEndsAt",
@@ -39633,7 +39634,6 @@
                         "local",
                         "trialing",
                         "active",
-                        "past_due",
                         "disabled",
                         "deleting",
                         "purged"
@@ -39659,6 +39659,9 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "canCancelDirectly": {
+                      "type": "boolean"
                     },
                     "subscriptionSource": {
                       "anyOf": [
@@ -39741,6 +39744,7 @@
                     "status",
                     "trialEndsAt",
                     "provider",
+                    "canCancelDirectly",
                     "subscriptionSource",
                     "currentPeriodStartsAt",
                     "currentPeriodEndsAt",
@@ -63267,7 +63271,6 @@
                                       "local",
                                       "trialing",
                                       "active",
-                                      "past_due",
                                       "disabled",
                                       "deleting",
                                       "purged"
@@ -64606,7 +64609,6 @@
                                 "local",
                                 "trialing",
                                 "active",
-                                "past_due",
                                 "disabled",
                                 "deleting",
                                 "purged"
@@ -64692,7 +64694,6 @@
                                 "local",
                                 "trialing",
                                 "active",
-                                "past_due",
                                 "disabled",
                                 "deleting",
                                 "purged"
@@ -65412,7 +65413,6 @@
                                   "local",
                                   "trialing",
                                   "active",
-                                  "past_due",
                                   "disabled",
                                   "deleting",
                                   "purged"
@@ -65653,7 +65653,6 @@
                                       "local",
                                       "trialing",
                                       "active",
-                                      "past_due",
                                       "disabled",
                                       "deleting",
                                       "purged"

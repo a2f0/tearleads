@@ -37,6 +37,7 @@ const billingResponse = {
   pendingSeatCount: null,
   disabledAt: null,
   purgeAfter: null,
+  canCancelDirectly: false,
   subscriptionSource: null,
   futureBillingField: true,
 };

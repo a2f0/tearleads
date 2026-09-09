@@ -17,7 +17,6 @@ test.each([
     ORG_MANAGER_LABELS.billingEligibilityPersonalRequired,
   ],
   ["terminal_organization", ORG_MANAGER_LABELS.billingEligibilityTerminal],
-  ["billing_past_due", ORG_MANAGER_LABELS.billingEligibilityPastDue],
   [
     "stripe_subscription_conflict",
     ORG_MANAGER_LABELS.billingEligibilityStripeConflict,

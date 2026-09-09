@@ -47,8 +47,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 621,
-      "bytes": 30563
+      "lines": 627,
+      "bytes": 30940
     },
     "docs/developer/revenuecat-native-stores.md": {
       "lines": 364,
@@ -343,7 +343,7 @@
       "bytes": 19200
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 24923,
+      "lines": 24925,
       "bytes": 1033101
     },
     "packages/validators/src/response/response.test.ts": {

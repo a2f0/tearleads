@@ -21,7 +21,6 @@ export type OrganizationBillingStatus =
   | "local"
   | "trialing"
   | "active"
-  | "past_due"
   | "disabled"
   | "deleting"
   | "purged";
