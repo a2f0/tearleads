@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./host/AppDiagnostics": "./src/host/AppDiagnostics.ts",
     "./App": "./src/App.tsx",
     "./client": "./src/client.tsx",
     "./host/AppHostConfig": "./src/host/AppHostConfig.ts"

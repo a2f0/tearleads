@@ -30,6 +30,10 @@ APP_WEB_DIR="$REPO_ROOT/packages/app-web"
 . "$REPO_ROOT/terraform/scripts/common.sh"
 
 load_secrets_env "$TIER"
+# shellcheck source=./sentryEnv.sh
+# shellcheck disable=SC1091
+. "$APP_WEB_DIR/scripts/sentryEnv.sh"
+configure_sentry_env "$TIER"
 validate_aws_env
 validate_stripe_env "$TIER"
 
@@ -104,7 +108,11 @@ build_app_web() {
     BUN_PUBLIC_API_BASE_URL="https://${API_HOSTNAME}" \
     BUN_PUBLIC_WS_URL="wss://${API_HOSTNAME}/events" \
     BUN_PUBLIC_STRIPE_PUBLISHABLE_KEY="${BUN_PUBLIC_STRIPE_PUBLISHABLE_KEY:-}" \
+    BUN_PUBLIC_SENTRY_DSN="${BUN_PUBLIC_SENTRY_DSN:-}" \
+    BUN_PUBLIC_SENTRY_ENVIRONMENT="${BUN_PUBLIC_SENTRY_ENVIRONMENT:-}" \
+    BUN_PUBLIC_SENTRY_COMMIT="${BUN_PUBLIC_SENTRY_COMMIT:-}" \
     bun run build)
+  upload_sentry_source_maps "$APP_WEB_DIR" "$variant"
 }
 
 deploy_app_web_dist() {
@@ -113,7 +121,7 @@ deploy_app_web_dist() {
 
   echo "Deploying $label static files to $SSH_TARGET:$remote_path ..."
   ssh "$SSH_TARGET" sudo mkdir -p "$remote_path"
-  rsync -avz --no-owner --no-group --delete --rsync-path="sudo rsync" \
+  rsync -avz --no-owner --no-group --delete --delete-excluded --exclude='*.map' --rsync-path="sudo rsync" \
     "$APP_WEB_DIR/dist/" "$SSH_TARGET:$remote_path/"
   ssh "$SSH_TARGET" sudo chown -R www-data:www-data "$remote_path"
   ssh "$SSH_TARGET" sudo chmod -R u=rwX,go=rX "$remote_path"

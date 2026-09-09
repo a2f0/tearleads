@@ -13,6 +13,7 @@ import type {
 } from "@tearleads/client-sdk/sqlite";
 import type { AppNavigationMode } from "../navigation/AppNavigationMode";
 import type { AppBuildInfo } from "./AppBuildInfo";
+import type { AppDiagnostics } from "./AppDiagnostics";
 import type { CreateFileViewerFn } from "./FileViewer";
 import type { CreateScannerFn } from "./Scanner";
 
@@ -194,6 +195,7 @@ export function resolveAppHostProfile(
 /** @public */
 export interface AppHostConfigOptions {
   readonly apiBaseUrl: string;
+  readonly diagnostics?: AppDiagnostics | undefined;
   /**
    * Build identity for the running bundle. Omitted by tests and by any shell
    * that does not stamp one; the Environment tab reports it as unknown rather
