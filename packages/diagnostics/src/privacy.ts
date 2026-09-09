@@ -1,17 +1,16 @@
-import type {
-  Breadcrumb,
-  ErrorEvent,
-  Event,
-  StackFrame,
-} from "@sentry/browser";
-import { isDiagnosticAction, isDiagnosticArea } from "app/host/AppDiagnostics";
+import type { Breadcrumb, ErrorEvent, Event, StackFrame } from "@sentry/core";
+import { isDiagnosticAction, isDiagnosticArea } from "./activity";
 
 export interface SentryPrivacyConfig {
   origin: string;
   scriptPath: string;
   environment: "staging" | "production";
   release: string;
-  dist: "staging-app" | "production-app";
+  dist: "staging-app" | "production-app" | "staging" | "production";
+  scriptPaths?: ReadonlySet<string>;
+  serverSourceRoot?: string;
+  runtime?: "api";
+  budgetResetMs?: number;
 }
 
 const ERROR_TYPES = new Set([
@@ -24,6 +23,7 @@ const ERROR_TYPES = new Set([
   "EvalError",
   "AggregateError",
 ]);
+const SERVER_SOURCES = new Set(["request-error", "websocket-error"]);
 const SOURCES = new Set([
   "boundary",
   "log",
@@ -36,6 +36,17 @@ function safeFrame(
   config: SentryPrivacyConfig,
 ): StackFrame | null {
   if (typeof frame.filename !== "string") return null;
+  const serverRoot = config.serverSourceRoot;
+  if (config.runtime === "api" && serverRoot) {
+    const filename = frame.filename.startsWith("app:///")
+      ? frame.filename.slice("app://".length)
+      : frame.filename.startsWith(`${serverRoot}/`)
+        ? frame.filename.slice(serverRoot.length)
+        : `/${frame.filename}`;
+    return config.scriptPaths?.has(filename)
+      ? safePosition(frame, filename)
+      : null;
+  }
   let url: URL;
   try {
     url = new URL(frame.filename);
@@ -50,7 +61,13 @@ function safeFrame(
       : url.origin === config.origin
         ? url.pathname
         : "";
-  if (filename !== config.scriptPath) return null;
+  if (!filename) return null;
+  if (filename !== config.scriptPath && !config.scriptPaths?.has(filename))
+    return null;
+  return safePosition(frame, filename);
+}
+
+function safePosition(frame: StackFrame, filename: string): StackFrame | null {
   if (
     typeof frame.lineno !== "number" ||
     !Number.isSafeInteger(frame.lineno) ||
@@ -94,14 +111,16 @@ export function sanitizeSentryEvent(
 ): ErrorEvent | null {
   if (event.type !== undefined) return null;
   const { area, diagnostic_source: source } = event.tags ?? {};
-  if (typeof source !== "string" || !SOURCES.has(source)) return null;
+  const sources = config.runtime === "api" ? SERVER_SOURCES : SOURCES;
+  if (typeof source !== "string" || !sources.has(source)) return null;
   const frames = (event.exception?.values?.[0]?.stacktrace?.frames ?? [])
     .map((frame) => safeFrame(frame, config))
     .filter((frame): frame is StackFrame => frame !== null)
     .slice(-40);
   // Includes anonymous Chrome DevTools and extension-only failures. An explicit
   // boundary still reports a generic failure if no usable stack is available.
-  if (!frames.length && source !== "boundary") return null;
+  if (!frames.length && source !== "boundary" && config.runtime !== "api")
+    return null;
   const type = event.exception?.values?.[0]?.type ?? "Error";
   return {
     type: undefined,
@@ -121,7 +140,12 @@ export function sanitizeSentryEvent(
     // Prevent Sentry's event ingestion from inferring the sender's IP as a user.
     user: { ip_address: "0.0.0.0" },
     tags: {
-      area: isDiagnosticArea(area) ? area : "app",
+      area:
+        config.runtime === "api"
+          ? "api"
+          : isDiagnosticArea(area)
+            ? area
+            : "app",
       diagnostic_source: source,
       privacy: "allowlist-v1",
     },
@@ -133,12 +157,17 @@ export function sanitizeSentryEvent(
           ...(frames.length ? { stacktrace: { frames } } : {}),
           mechanism: {
             type: "generic",
-            handled: source === "boundary" || source === "log",
+            handled: [
+              "boundary",
+              "log",
+              "request-error",
+              "websocket-error",
+            ].includes(source),
           },
         },
       ],
     },
-    breadcrumbs: (event.breadcrumbs ?? [])
+    breadcrumbs: (config.runtime === "api" ? [] : (event.breadcrumbs ?? []))
       .map(sanitizeBreadcrumb)
       .filter((breadcrumb): breadcrumb is Breadcrumb => breadcrumb !== null)
       .slice(-30),

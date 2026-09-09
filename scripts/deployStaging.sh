@@ -5,9 +5,9 @@
 #   1. Prepare the environment's independent S3 storage
 #   2. terraform apply (staging server stack)
 #   3. ansible playbook (server configuration)
-#   4. API deploy (executable deploy, migrations, service restart)
+#   4. API deploy (embedded source maps, migrations, service restart)
 #   5. Website deploy (build, Wrangler, independent domain Terraform)
-#   6. App-web deploy (build app + demo bundles, sync, nginx reload)
+#   6. App-web deploy (build, upload Sentry maps, sync, nginx reload)
 #
 # Pass --skip-terraform when a caller already prepared storage and applied the
 # server stack, or --skip-infra to deploy only the application artifacts.
@@ -30,6 +30,9 @@ Options:
 
 Environment:
   STAGING_SSH_TARGET  Optional explicit staging SSH target.
+
+Configured Sentry source maps are handled by the API and app-web deploy steps.
+Web map upload failures stop publication; API maps stay in the executable.
 
 SSH_TARGET is unsupported; use STAGING_SSH_TARGET so the deployment tier is
 explicit.

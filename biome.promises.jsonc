@@ -8,7 +8,7 @@
   "files": {
     "ignoreUnknown": true,
     "includes": [
-      "packages/{api,app,client-sdk,crypto}/src/**",
+      "packages/{api,app,client-sdk,crypto,diagnostics}/src/**",
       "!**/*.test.{ts,tsx}",
       "!**/*.{testUtils,testFixtures}.{ts,tsx}",
       "!**/{testUtils,testFixtures}.{ts,tsx}",

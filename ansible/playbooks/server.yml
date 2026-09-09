@@ -18,6 +18,8 @@
       - { key: "PubkeyAuthentication", value: "yes" }
       - { key: "MaxAuthTries", value: "3" }
       - { key: "KbdInteractiveAuthentication", value: "no" }
+    api_sentry_environment: "{{ 'production' if deployment_tier == 'prod' else 'staging' }}"
+    api_sentry_dsn: "{{ lookup('env', 'SENTRY_API_' ~ (api_sentry_environment | upper) ~ '_DSN') | default('', true) }}"
     postgres_managed: "{{ deployment_tier == 'prod' }}"
     postgres_ssl: false
     postgres_version: "16"
@@ -129,6 +131,15 @@
 
     - name: Validate extra demo zone names
       ansible.builtin.import_tasks: tasks/demoZones.yml
+
+    - name: Validate optional API Sentry DSN
+      ansible.builtin.assert:
+        that:
+          - >-
+            api_sentry_dsn | length == 0 or
+            api_sentry_dsn is match('^https://[a-f0-9]{32}@o[0-9]+\.ingest(?:\.(?:us|de))?\.sentry\.io/[0-9]+$')
+        fail_msg: API Sentry DSN must be a valid hosted Sentry client key URL.
+      no_log: true
 
     - name: Apply shared Linux security baseline
       ansible.builtin.import_tasks: tasks/linuxSecurityBaseline.yml

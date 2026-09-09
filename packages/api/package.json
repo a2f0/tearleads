@@ -17,6 +17,7 @@
     "@aws-sdk/client-s3": "3.1127.0",
     "@tearleads/api-shared": "workspace:*",
     "@tearleads/crypto": "workspace:*",
+    "@tearleads/diagnostics": "workspace:*",
     "@tearleads/encoding": "workspace:*",
     "@tearleads/loro": "workspace:*",
     "@tearleads/validators": "workspace:*",

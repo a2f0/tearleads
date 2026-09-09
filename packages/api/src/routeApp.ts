@@ -5,8 +5,8 @@ import {
 } from "@tearleads/validators/operation";
 import { Hono, type MiddlewareHandler } from "hono";
 import { cors } from "hono/cors";
-import { HTTPException } from "hono/http-exception";
 import { type ApiCorsOrigins, readApiCorsOrigins } from "./corsOrigins";
+import { createApiErrorHandler } from "./diagnostics/errorHandler";
 import type { SessionEnv } from "./middleware/session";
 import type { PublishedRealtimeEvent } from "./realtime/publishedRealtimeEvents";
 import {
@@ -29,8 +29,6 @@ import {
   resolveCommittedOrganizationReadModelChanges,
 } from "./services/organizations/readModelNotifications";
 import type { ApiServiceRuntime } from "./services/runtime";
-import { isTransientDatabaseFailure } from "./utils/databaseErrors";
-import { OrganizationSyncDisabledError } from "./workflows/billing/organizationSyncEligibility";
 import { collectOrganizationReadModelChanges } from "./workflows/organizations/readModelChanges";
 
 interface RouteAppOptions {
@@ -115,14 +113,6 @@ function createReadModelHintMiddleware(
         }),
       ),
     );
-  };
-}
-
-function organizationSyncErrorBody(error: OrganizationSyncDisabledError) {
-  return {
-    error: error.message,
-    organizationId: error.organizationId,
-    reason: error.reason,
   };
 }
 
@@ -241,22 +231,7 @@ export function createRouteApp(
 
   mountRouters(routeApp, deps, corsOrigins);
 
-  // Sync writes blocked by organization entitlement or the caller's stable seat
-  // throw deep in their workflows; surface both uniformly as 402 responses.
-  routeApp.onError((error, c) => {
-    if (error instanceof OrganizationSyncDisabledError) {
-      return c.json(organizationSyncErrorBody(error), 402);
-    }
-    if (error instanceof HTTPException) {
-      return error.getResponse();
-    }
-    if (isTransientDatabaseFailure(error)) {
-      console.error(error);
-      return c.json({ error: "Database temporarily unavailable" }, 503);
-    }
-    console.error(error);
-    return c.json({ error: "Internal Server Error" }, 500);
-  });
+  routeApp.onError(createApiErrorHandler());
 
   return routeApp;
 }
