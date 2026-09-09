@@ -66,9 +66,13 @@ export default defineConfig({
     }),
   ],
   resolve: {
-    alias: {
-      "@": resolve(import.meta.dirname, "src"),
-    },
+    alias: [
+      { find: "@", replacement: resolve(import.meta.dirname, "src") },
+      // Loro's production browser entry loads WASM with synchronous XHR,
+      // which yields an empty response in WKWebView with CapacitorHttp.
+      // The self-contained entry also avoids WASM wrapper chunk cycles.
+      { find: /^loro-crdt$/, replacement: "loro-crdt/base64" },
+    ],
   },
   server: {
     host: "127.0.0.1",
