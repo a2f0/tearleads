@@ -1,16 +1,14 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, render } from "@testing-library/react";
-import {
-  DEFAULT_DOCUMENT_ID,
-  type DocumentsProvider as RealDocumentsProvider,
-} from "../../stores/documents/DocumentsProvider";
+import type { DocumentsProvider as RealDocumentsProvider } from "../../stores/documents/DocumentsProvider";
 import {
   createDocumentTypeApp,
   createFileDocumentTypeApp,
 } from "./createDocumentTypeApp";
 
-let contentProps: Record<string, unknown> | null = null;
-let providerProps: Record<string, unknown> | null = null;
+type CapturedProps = Record<string, unknown> & { localId?: unknown };
+let contentProps: CapturedProps | null = null;
+let providerProps: CapturedProps | null = null;
 
 function TestProvider({
   children,
@@ -26,7 +24,7 @@ afterEach(() => {
   providerProps = null;
 });
 
-test("omits undefined optional provider inputs", () => {
+test("new document apps share a unique stable ID between their provider and content", () => {
   function TestDocument(props: {
     containerId: string | null;
     initialEditing?: boolean | undefined;
@@ -37,17 +35,28 @@ test("omits undefined optional provider inputs", () => {
   }
 
   const App = createDocumentTypeApp(undefined, TestDocument, TestProvider);
-  render(<App />);
+  const view = render(<App />);
+  const localId = providerProps?.localId;
+  expect(localId).toMatch(/^[0-9a-f-]{36}$/u);
 
   expect(providerProps).toEqual({
-    localId: DEFAULT_DOCUMENT_ID,
+    localId,
     readOnly: undefined,
   });
   expect(contentProps).toEqual({
     containerId: null,
     initialEditing: undefined,
-    localId: DEFAULT_DOCUMENT_ID,
+    localId,
   });
+  view.rerender(<App />);
+  expect(providerProps?.localId).toBe(localId);
+  render(<App />);
+  expect(providerProps?.localId).not.toBe(localId);
+  view.rerender(
+    <App localId="existing-document" documentId="remote-document" />,
+  );
+  expect(providerProps?.localId).toBe("existing-document");
+  expect(contentProps?.localId).toBe("existing-document");
 });
 
 test("file app display names identify their document kind", () => {

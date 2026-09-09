@@ -1,9 +1,9 @@
-import {
-  type DocumentSummary,
-  getUntitledDocumentTitle,
-  type StoredDocumentKind,
+import type {
+  DocumentSummary,
+  StoredDocumentKind,
 } from "@tearleads/client-sdk";
 import { useCallback } from "react";
+import { createDocumentDraft } from "../../../stores/documents/documentDraft";
 
 export type OpenInlineDocument = (
   containerId: string,
@@ -29,20 +29,12 @@ export function useInlineDocumentAction(params: {
       documentKind: StoredDocumentKind,
       localId?: string,
     ) => {
-      const nextLocalId = localId ?? crypto.randomUUID();
-
-      if (!localId) {
-        const createdAt = new Date().toISOString();
-        mergeDocumentSummary({
-          createdAt,
-          id: nextLocalId,
-          containerId,
-          documentKind,
-          documentId: null,
-          title: getUntitledDocumentTitle(documentKind),
-          updatedAt: createdAt,
-        });
-        onCreateDocument?.(nextLocalId, documentKind);
+      let nextLocalId = localId;
+      if (!nextLocalId) {
+        const draft = createDocumentDraft({ containerId, documentKind });
+        nextLocalId = draft.id;
+        mergeDocumentSummary(draft);
+        onCreateDocument?.(draft.id, documentKind);
       }
 
       setSelectedId(nextLocalId);

@@ -107,7 +107,10 @@ test("contacts store persists contacts as documents with app-owned projections",
       nickname: "Countess",
       userId: "ada-user",
     });
-    const importedContactId = await store.importKey(peerKey.userId);
+    const [importedContactId, repeatedImportId] = await Promise.all([
+      store.importKey(peerKey.userId),
+      store.importKey(peerKey.userId),
+    ]);
 
     if (!createdContactId) {
       throw new Error("Contact creation returned no id.");
@@ -115,7 +118,8 @@ test("contacts store persists contacts as documents with app-owned projections",
     if (!importedContactId) {
       throw new Error("Contact import returned no id.");
     }
-    expect(importedContactId).toBe(peerKey.userId);
+    expect(importedContactId).not.toBe(peerKey.userId);
+    expect(repeatedImportId).toBe(importedContactId);
     await waitForCondition(
       () =>
         store
@@ -157,7 +161,7 @@ test("contacts store persists contacts as documents with app-owned projections",
       documentId: null,
       encapsulationPublicKey: peerKey.encapsulationPublicKey,
       firstName: "",
-      id: peerKey.userId,
+      id: importedContactId,
       lastName: "",
       nickname: "",
       userId: peerKey.userId,
@@ -175,20 +179,22 @@ test("contacts store persists contacts as documents with app-owned projections",
           title: row.title,
         }))
         .sort((left, right) => left.id.localeCompare(right.id)),
-    ).toEqual([
-      {
-        containerId: CONTACTS_CONTAINER_ID,
-        documentKind: "contact",
-        id: createdContactId,
-        title: "Countess",
-      },
-      {
-        containerId: CONTACTS_CONTAINER_ID,
-        documentKind: "contact",
-        id: peerKey.userId,
-        title: peerKey.userId,
-      },
-    ]);
+    ).toEqual(
+      expect.arrayContaining([
+        {
+          containerId: CONTACTS_CONTAINER_ID,
+          documentKind: "contact",
+          id: createdContactId,
+          title: "Countess",
+        },
+        {
+          containerId: CONTACTS_CONTAINER_ID,
+          documentKind: "contact",
+          id: importedContactId,
+          title: peerKey.userId,
+        },
+      ]),
+    );
   } finally {
     runtime.close();
   }
@@ -219,13 +225,11 @@ test("contacts store imports self keys without a synthetic nickname", async () =
     );
 
     const contactId = await store.importKey(selfKey.userId);
-    expect(contactId).toBe(selfKey.userId);
+    if (!contactId) throw new Error("Self contact import returned no id.");
+    expect(contactId).not.toBe(selfKey.userId);
 
     await waitForCondition(
-      () =>
-        store
-          .getSnapshot()
-          .entries.some((entry) => entry.id === selfKey.userId),
+      () => store.getSnapshot().entries.some((entry) => entry.id === contactId),
       "Self contact did not appear in the store snapshot.",
     );
 
@@ -233,7 +237,7 @@ test("contacts store imports self keys without a synthetic nickname", async () =
       canWrite: true,
       encapsulationPublicKey: selfKey.encapsulationPublicKey,
       firstName: "",
-      id: selfKey.userId,
+      id: contactId,
       isSelf: true,
       lastName: "",
       nickname: "",
@@ -245,7 +249,7 @@ test("contacts store imports self keys without a synthetic nickname", async () =
     );
     expect(documentProjections).toContainEqual(
       expect.objectContaining({
-        id: selfKey.userId,
+        id: contactId,
         title: selfKey.userId,
       }),
     );
