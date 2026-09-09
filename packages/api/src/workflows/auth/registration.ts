@@ -5,6 +5,7 @@ import type {
 import { users } from "@tearleads/api-shared/schema";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { RegistrationRequest } from "@tearleads/validators/request";
+import { eq } from "drizzle-orm";
 import {
   type OrganizationProvisioningSigner,
   provisionOrganizationInTransaction,
@@ -73,8 +74,18 @@ export async function runRegistrationWorkflow(
   };
   await validateOrganizationProvisioningInput(input, signer);
   try {
-    const provisioned = await db.transaction((tx) =>
-      provisionOrganizationInTransaction(tx, input, signer, {
+    const provisioned = await db.transaction(async (tx) => {
+      // A lost response can leave the browser retrying an already committed
+      // registration with the same root ID. Check the key before provisioning.
+      const [existingUser] = await tx
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.fingerprint, keyMaterial.fingerprint))
+        .limit(1);
+      if (existingUser) {
+        throw new Error(DUPLICATE_FINGERPRINT_ERROR);
+      }
+      return provisionOrganizationInTransaction(tx, input, signer, {
         initialBilling: "trial",
         organizationName: PERSONAL_ORGANIZATION_NAME,
         onOrganizationRootCreated: async (organizationId) => {
@@ -88,8 +99,8 @@ export async function runRegistrationWorkflow(
             userId: input.userId,
           });
         },
-      }),
-    );
+      });
+    });
     return { userId: input.userId, ...provisioned };
   } catch (error) {
     const provisioningError = toOrganizationProvisioningError(error);

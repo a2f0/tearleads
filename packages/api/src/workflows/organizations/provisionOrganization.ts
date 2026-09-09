@@ -2,7 +2,6 @@ import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import {
   containerBuiltinGrants,
   containerMetadataDocuments,
-  containers,
   groups,
   organizationReadModelHeads,
   organizations,
@@ -43,6 +42,7 @@ import {
   readDocumentCreateRequestId,
 } from "./provisionOrganizationProfiles";
 import { storeInitialRootContainer } from "./provisionOrganizationRootContainer";
+import { createRootContainer } from "./provisionOrganizationRootRow";
 import {
   createInitialOrganizationMetadataContainer,
   createInitialRosterProfileContainer,
@@ -132,26 +132,6 @@ async function createOrganizationRow(
     .insert(organizationReadModelHeads)
     .values({ organizationId: org.id });
   return org;
-}
-
-async function createRootContainer(
-  tx: DatabaseTransaction,
-  rootContainerId: string,
-  organizationId: string,
-) {
-  const [container] = await tx
-    .insert(containers)
-    .values({
-      depth: 0,
-      id: rootContainerId,
-      organizationId,
-      parentId: null,
-    })
-    .returning({ id: containers.id });
-  if (!container) {
-    throw new Error("Failed to create root container");
-  }
-  return container;
 }
 
 async function createInitialGroup(
