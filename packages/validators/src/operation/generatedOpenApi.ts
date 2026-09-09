@@ -18764,6 +18764,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        canCancelDirectly: boolean;
                         managementUrl: string | null;
                     } & {
                         [key: string]: unknown;

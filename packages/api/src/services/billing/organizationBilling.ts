@@ -115,7 +115,9 @@ export async function getOrganizationBillingManagementUrl(
           deps.revenueCat,
         )
       : null;
-  return { managementUrl };
+  // Retain the existing response contract for installed native clients. Current
+  // clients use the billing snapshot for cancellation and request only the URL.
+  return { canCancelDirectly: ownership.canCancelDirectly, managementUrl };
 }
 
 export async function startOrganizationTrial(

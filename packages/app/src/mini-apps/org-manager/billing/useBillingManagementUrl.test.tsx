@@ -59,6 +59,7 @@ test("a managed subscription resolves to its provider URL", async () => {
   stubOrganizations({
     loadBillingManagementUrl: () =>
       Promise.resolve({
+        canCancelDirectly: false,
         managementUrl: "https://rc.example/manage",
       }),
   });
@@ -76,6 +77,7 @@ test("no managed subscription hides the link rather than erroring", async () => 
   stubOrganizations({
     loadBillingManagementUrl: () =>
       Promise.resolve({
+        canCancelDirectly: false,
         managementUrl: null,
       }),
   });
@@ -107,6 +109,7 @@ test("a failed lookup degrades to no link", async () => {
 test("a disabled hook never asks", async () => {
   const loadBillingManagementUrl = mock(() =>
     Promise.resolve({
+      canCancelDirectly: false,
       managementUrl: "https://rc.example/manage",
     }),
   );
@@ -126,6 +129,7 @@ test("a URL fetched for a previous org never leaks across a switch", async () =>
   stubOrganizations({
     loadBillingManagementUrl: () =>
       Promise.resolve({
+        canCancelDirectly: false,
         managementUrl: "https://rc.example/org-1",
       }),
   });
@@ -222,6 +226,7 @@ test("replacing the SDK runtime re-fetches for the same organization", async () 
   stubOrganizations({
     loadBillingManagementUrl: () =>
       Promise.resolve({
+        canCancelDirectly: false,
         managementUrl: "https://rc.example/first",
       }),
   });
@@ -238,6 +243,7 @@ test("replacing the SDK runtime re-fetches for the same organization", async () 
   stubOrganizations({
     loadBillingManagementUrl: () =>
       Promise.resolve({
+        canCancelDirectly: false,
         managementUrl: "https://rc.example/second",
       }),
   });

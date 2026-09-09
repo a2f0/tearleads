@@ -48,8 +48,9 @@ identify a relabeled selection by `GroupMembershipNameMismatchError`.
 | `sync` | Platform runtime | Shared sync coordinator helpers and organization-scoped remote-state reset/recovery inputs. |
 
 Organization billing views expose subscription ownership and direct cancellation
-availability in the billing snapshot. Management URL reads supply only the
-native store link; they do not gate inline Stripe cancellation.
+availability in the billing snapshot. Current clients use management URL reads
+only for the native store link; they do not gate inline Stripe cancellation.
+The management response retains its cancellation field for installed clients.
 
 Container mutation API implementations must provide `ContainerReciteApi`.
 Acknowledged mutations schedule a bounded, best-effort pass over already-held

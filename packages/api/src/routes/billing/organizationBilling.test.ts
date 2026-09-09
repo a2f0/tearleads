@@ -182,6 +182,7 @@ test("management identifies Stripe and native subscription ownership", async () 
     stripeDeps,
   );
   expect(stripeManagement).toEqual({
+    canCancelDirectly: true,
     managementUrl: null,
   });
   expect(await snapshotSource(stripeDeps)).toBe("stripe");
@@ -229,9 +230,16 @@ test("management identifies Stripe and native subscription ownership", async () 
     { revenueCat },
   );
   expect(nativeManagement).toEqual({
+    canCancelDirectly: true,
     managementUrl: "https://apps.apple.com/account/subscriptions",
   });
-  expect(await snapshotSource()).toBe("native");
+  expect(
+    await getOrganizationBilling(
+      getDefaultApiServiceRuntime(),
+      organizationId,
+      admin.userId,
+    ),
+  ).toMatchObject({ subscriptionSource: "native", canCancelDirectly: true });
 
   await db
     .update(organizationBilling)
@@ -244,6 +252,7 @@ test("management identifies Stripe and native subscription ownership", async () 
     { revenueCat },
   );
   expect(lapsedNativeManagement).toEqual({
+    canCancelDirectly: false,
     managementUrl: "https://apps.apple.com/account/subscriptions",
   });
   expect(await snapshotSource()).toBe("native");
@@ -259,6 +268,7 @@ test("management identifies Stripe and native subscription ownership", async () 
     { stripe: { env: { STRIPE_SYNC_SOLO_PRICE_ID: "price_solo_test" } } },
   );
   expect(staleStripeManagement).toEqual({
+    canCancelDirectly: false,
     managementUrl: null,
   });
   // A lapsed Stripe identity no longer owns anything: a new checkout may run.
@@ -283,6 +293,7 @@ test("management identifies Stripe and native subscription ownership", async () 
     admin.userId,
   );
   expect(rotatedStripeManagement).toEqual({
+    canCancelDirectly: true,
     managementUrl: null,
   });
   expect(await snapshotSource()).toBe("stripe");
@@ -326,7 +337,7 @@ test("a Stripe subscription awaiting renewal keeps its owner past period end", a
       admin.userId,
       stripeDeps,
     ),
-  ).toEqual({ managementUrl: null });
+  ).toEqual({ canCancelDirectly: true, managementUrl: null });
 
   // Once the lifecycle event has persisted the lapse, the owner is released.
   await db

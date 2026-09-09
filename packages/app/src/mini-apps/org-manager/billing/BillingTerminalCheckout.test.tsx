@@ -53,6 +53,7 @@ function stubTerminalBilling(status: "deleting" | "purged") {
         loadBillingHistory: () => Promise.resolve(null),
         loadBillingManagementUrl: () =>
           Promise.resolve({
+            canCancelDirectly: false,
             managementUrl: null,
           }),
         loadStripeCheckoutOptions,

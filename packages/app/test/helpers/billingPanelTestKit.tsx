@@ -100,6 +100,7 @@ export function stubEnvironment(
           overrides.loadBillingManagementUrl ??
           (() =>
             Promise.resolve({
+              canCancelDirectly,
               managementUrl: overrides.managementUrl ?? null,
             })),
         loadBillingHistory: () => Promise.resolve(null),

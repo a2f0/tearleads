@@ -56,8 +56,11 @@ continues through the paid period, and RevenueCat later sends the entitlement
 loss. The billing snapshot exposes `canCancelDirectly` on every app surface,
 so a web purchase can also be cancelled from a native shell. This flag is
 independent of `subscriptionSource`: a native takeover can retain a Stripe
-subscription that still needs cancellation. The management endpoint returns
-only the native store URL, and a failed URL lookup does not hide Stripe cancel.
+subscription that still needs cancellation. Current clients request the
+management endpoint only for a native store URL; a failed lookup does not hide
+Stripe cancel. Its response retains `canCancelDirectly` for installed native
+clients that still require that field. Members can read the organization-level
+cancellation flag; the cancellation endpoint still requires an administrator.
 
 Lost-key cancellation uses Stripe's shareable no-code portal login from the
 public website's **Manage subscription** footer link. Stripe emails a secure

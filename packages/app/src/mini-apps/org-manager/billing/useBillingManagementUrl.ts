@@ -5,7 +5,10 @@ import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { useScopedOrganizationLoad } from "./useScopedOrganizationLoad";
 
-type ManagementUrlSnapshot = OrganizationBillingManagementUrl;
+type ManagementUrlSnapshot = Pick<
+  OrganizationBillingManagementUrl,
+  "managementUrl"
+>;
 
 const NO_MANAGEMENT_URL: ManagementUrlSnapshot = {
   managementUrl: null,

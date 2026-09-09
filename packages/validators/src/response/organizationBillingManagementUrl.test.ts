@@ -4,6 +4,7 @@ import { isOrganizationBillingManagementUrlResponse } from "./organizationBillin
 test("accepts a management URL string", () => {
   expect(
     isOrganizationBillingManagementUrlResponse({
+      canCancelDirectly: false,
       managementUrl: "https://billing.example/manage",
     }),
   ).toBe(true);
@@ -12,15 +13,20 @@ test("accepts a management URL string", () => {
 test("accepts a null management URL", () => {
   expect(
     isOrganizationBillingManagementUrlResponse({
+      canCancelDirectly: true,
       managementUrl: null,
     }),
   ).toBe(true);
 });
 
-test("rejects a missing or non-string management URL", () => {
+test("rejects incomplete or invalid management responses", () => {
   expect(isOrganizationBillingManagementUrlResponse({})).toBe(false);
   expect(
+    isOrganizationBillingManagementUrlResponse({ managementUrl: null }),
+  ).toBe(false);
+  expect(
     isOrganizationBillingManagementUrlResponse({
+      canCancelDirectly: false,
       managementUrl: 42,
     }),
   ).toBe(false);

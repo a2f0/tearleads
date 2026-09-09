@@ -130,6 +130,7 @@ function useDirectCheckoutWiring(input: {
   // Ownership comes from persisted server billing, so a Stripe renewal that
   // arrives after the paid period ends never offers a competing checkout.
   // Flipping this gate off also tears down an in-flight payment element.
+  // isActive keeps checkout available during a free trial; canSync would hide it.
   const checkoutEnabled = Boolean(
     input.isOrgAdmin &&
       view !== null &&
