@@ -1,5 +1,6 @@
 import { type PropsWithChildren, useCallback } from "react";
 import { MiniAppRouteSegmentsProvider } from "../../navigation/MiniAppRouteSegmentsContext";
+import { MiniAppBoundary } from "../mini-app/MiniAppBoundary";
 import { useWindowActions, type WindowEntry } from "./WindowStateProvider";
 
 interface WindowMiniAppRouteBoundaryProps extends PropsWithChildren {
@@ -41,7 +42,7 @@ export function WindowMiniAppRouteBoundary({
       pathSegments={entry.miniAppPathSegments ?? EMPTY_ROUTE_SEGMENTS}
       setPathSegments={setPathSegments}
     >
-      {children}
+      <MiniAppBoundary appId={entry.appId}>{children}</MiniAppBoundary>
     </MiniAppRouteSegmentsProvider>
   );
 }

@@ -6,6 +6,7 @@ import {
   resolveAppHostRuntimeConfig,
 } from "app/host/AppHostConfig";
 import { createRoot } from "react-dom/client";
+import { configureSentry } from "./diagnostics/sentry";
 import {
   prepareControllingServiceWorker,
   registerServiceWorkerAfterLoad,
@@ -22,7 +23,21 @@ const { apiBaseUrl, wsUrl } = resolveAppHostRuntimeConfig({
   wsUrl: process.env.BUN_PUBLIC_WS_URL,
 });
 
+const diagnostics = configureSentry({
+  dsn: process.env.BUN_PUBLIC_SENTRY_DSN,
+  environment: process.env.BUN_PUBLIC_SENTRY_ENVIRONMENT,
+  commit: process.env.BUN_PUBLIC_SENTRY_COMMIT,
+  variant: process.env.BUN_PUBLIC_APP_VARIANT,
+  origin: window.location.origin,
+  scriptUrl: import.meta.url,
+});
+if (import.meta.hot)
+  import.meta.hot.dispose(() => {
+    void diagnostics?.dispose();
+  });
+
 const hostConfig = createAppHostConfig({
+  diagnostics,
   apiBaseUrl,
   // Stamped by scripts/withBuildInfoEnv.sh and inlined by `bun build --env`.
   buildInfo: createAppBuildInfo({

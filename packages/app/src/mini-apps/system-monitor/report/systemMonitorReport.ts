@@ -13,6 +13,10 @@ import {
   STATUS_LABELS,
   type SystemStatusSnapshot,
 } from "../../../components/pane/status/useSystemStatusSnapshot";
+import {
+  isDiagnosticAction,
+  isDiagnosticArea,
+} from "../../../host/AppDiagnostics";
 import { IDENTITY_TRANSITION_TRACE_FRAGMENT } from "../../../providers/identity/identityTransitionTrace";
 import { BILLING_PURCHASE_TRACE_FRAGMENT } from "../../../utils/billingPurchaseTrace";
 import type { EnvironmentRow } from "../environment/useSystemEnvironment";
@@ -94,6 +98,16 @@ function getClipboardSafeLogPattern(): RegExp {
 }
 
 function getClipboardSafeLogMessage(message: string): string | null {
+  if (message.startsWith("Activity: ")) {
+    const [area, action, ...rest] = message
+      .slice("Activity: ".length)
+      .split(".");
+    return isDiagnosticArea(area) &&
+      isDiagnosticAction(action) &&
+      rest.length === 0
+      ? message
+      : null;
+  }
   return getClipboardSafeLogPattern().exec(message)?.[1] ?? null;
 }
 

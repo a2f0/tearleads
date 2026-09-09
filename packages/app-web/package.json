@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "sentry:cli": "sentry-cli",
     "build:client-sdk": "bun run --cwd ../client-sdk build",
     "pree2e": "bun run build:client-sdk",
     "e2e": "env -u NO_COLOR -u FORCE_COLOR playwright test",
@@ -19,6 +20,7 @@
     "test": "bun test scripts --max-concurrency=1"
   },
   "dependencies": {
+    "@sentry/browser": "10.73.0",
     "@stripe/stripe-js": "9.15.0",
     "@tearleads/client-sdk": "workspace:*",
     "@tearleads/sqlite-worker": "workspace:*",
@@ -27,6 +29,7 @@
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",
+    "@sentry/cli": "3.7.0",
     "@tearleads/loro": "workspace:*",
     "@types/bun": "catalog:",
     "@types/react-dom": "catalog:react"

@@ -12,6 +12,7 @@ import { UploadSimpleIcon } from "@phosphor-icons/react/dist/csr/UploadSimple";
 import { WarningCircleIcon } from "@phosphor-icons/react/dist/csr/WarningCircle";
 import { Menu } from "../../../components/shared/Menu";
 import { MenuItem } from "../../../components/shared/MenuItem";
+import type { DiagnosticAction } from "../../../host/AppDiagnostics";
 import type { ExplorerContextMenuModel } from "../hooks/explorerPanelStateTypes";
 import { EXPLORER_LABELS } from "../labels";
 import type {
@@ -94,6 +95,7 @@ function ExplorerDocumentContextMenu(params: ExplorerDocumentContextMenuProps) {
         closeContextMenu={closeContextMenu}
         icon={DownloadSimpleIcon}
         label={EXPLORER_LABELS.documentDownloadAction}
+        diagnosticAction="export"
         disabled={!canDownloadSelectedDocument}
         onSelect={() => downloadDocument(contextMenu.id.localId)}
       />
@@ -101,6 +103,7 @@ function ExplorerDocumentContextMenu(params: ExplorerDocumentContextMenuProps) {
         closeContextMenu={closeContextMenu}
         icon={LinkSimpleIcon}
         label={EXPLORER_LABELS.documentLinkAction}
+        diagnosticAction="share"
         disabled={!canLinkSelectedDocument}
         onSelect={() => openLinkDocumentModal(contextMenu.id.localId)}
       />
@@ -108,6 +111,7 @@ function ExplorerDocumentContextMenu(params: ExplorerDocumentContextMenuProps) {
         closeContextMenu={closeContextMenu}
         icon={ArrowsOutCardinalIcon}
         label={EXPLORER_LABELS.documentMoveAction}
+        diagnosticAction="move"
         disabled={!canMoveSelectedDocument}
         onSelect={() => openMoveDocumentModal(contextMenu.id.localId)}
       />
@@ -115,6 +119,7 @@ function ExplorerDocumentContextMenu(params: ExplorerDocumentContextMenuProps) {
         closeContextMenu={closeContextMenu}
         icon={TrashIcon}
         label={EXPLORER_LABELS.documentDeleteAction}
+        diagnosticAction="move-to-trash"
         disabled={!canDeleteSelectedDocument}
         onSelect={() =>
           void deleteDocument(
@@ -127,6 +132,7 @@ function ExplorerDocumentContextMenu(params: ExplorerDocumentContextMenuProps) {
         closeContextMenu={closeContextMenu}
         icon={WarningCircleIcon}
         label={EXPLORER_LABELS.documentPurgeAction}
+        diagnosticAction="delete"
         disabled={!canPurgeSelectedDocument}
         onSelect={() =>
           void purgeDocument(contextMenu.id.localId, contextMenu.id.containerId)
@@ -199,6 +205,7 @@ function ExplorerContactsContainerContextMenu(
       <MenuItem
         icon={AddressBookIcon}
         label={EXPLORER_LABELS.newContactAction}
+        diagnosticAction="create"
         disabled={!canCreateContactContextMenuNode}
         onClick={() => {
           closeContextMenu();
@@ -215,6 +222,7 @@ function ExplorerOptionalMenuItem(params: {
   icon: Icon;
   label: string;
   onSelect: () => void;
+  diagnosticAction?: DiagnosticAction | undefined;
 }) {
   const { closeContextMenu, disabled, icon, label, onSelect } = params;
   if (disabled) {
@@ -225,6 +233,7 @@ function ExplorerOptionalMenuItem(params: {
     <MenuItem
       icon={icon}
       label={label}
+      diagnosticAction={params.diagnosticAction}
       onClick={() => {
         closeContextMenu();
         onSelect();
@@ -263,6 +272,7 @@ function ExplorerContainerEditMenuItems(
         {...optionalActionProps}
         icon={FilePlusIcon}
         label={EXPLORER_LABELS.newStructuredDocumentAction}
+        diagnosticAction="create"
         disabled={!canCreateStructuredDocumentContextMenuNode}
         onSelect={() => openNewStructuredDocumentRoute(containerId)}
       />
@@ -270,6 +280,7 @@ function ExplorerContainerEditMenuItems(
         {...optionalActionProps}
         icon={FolderPlusIcon}
         label={EXPLORER_LABELS.createChildFolderAction}
+        diagnosticAction="create"
         disabled={!canCreateChildContextMenuNode}
         onSelect={() => openCreateChildModal(containerId)}
       />
@@ -277,6 +288,7 @@ function ExplorerContainerEditMenuItems(
         {...optionalActionProps}
         icon={UploadSimpleIcon}
         label={EXPLORER_LABELS.uploadAction}
+        diagnosticAction="import"
         disabled={!canUploadToContextMenuNode}
         onSelect={() => triggerUpload(containerId)}
       />
@@ -284,6 +296,7 @@ function ExplorerContainerEditMenuItems(
         {...optionalActionProps}
         icon={PencilSimpleIcon}
         label="Rename"
+        diagnosticAction="edit"
         disabled={!canRenameContextMenuNode}
         onSelect={() => openRenameModal(containerId)}
       />
@@ -291,6 +304,7 @@ function ExplorerContainerEditMenuItems(
         {...optionalActionProps}
         icon={ArrowsOutCardinalIcon}
         label="Move"
+        diagnosticAction="move"
         disabled={!canMoveContextMenuNode}
         onSelect={() => openMoveModal(containerId)}
       />
@@ -330,6 +344,7 @@ function ExplorerContainerDestructiveMenuItems(
         {...optionalActionProps}
         icon={TrashIcon}
         label={EXPLORER_LABELS.containerEmptyTrashAction}
+        diagnosticAction="empty-trash"
         disabled={!canEmptyTrashContextMenuNode}
         onSelect={() => openEmptyTrashModal(containerId)}
       />
@@ -337,6 +352,7 @@ function ExplorerContainerDestructiveMenuItems(
         {...optionalActionProps}
         icon={TrashIcon}
         label={EXPLORER_LABELS.containerMoveToTrashAction}
+        diagnosticAction="move-to-trash"
         disabled={!canMoveToTrashContextMenuNode}
         onSelect={() => void moveContainerToTrash(containerId)}
       />
@@ -345,6 +361,7 @@ function ExplorerContainerDestructiveMenuItems(
         icon={WarningCircleIcon}
         label={EXPLORER_LABELS.documentPurgeAction}
         disabled={!canPurgeContextMenuNode}
+        diagnosticAction="delete"
         onSelect={() => openPurgeModal(containerId)}
       />
     </>

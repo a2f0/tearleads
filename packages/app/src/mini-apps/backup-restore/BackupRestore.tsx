@@ -171,6 +171,7 @@ function BackupExportPanel({
         className="backup-restore-action-button"
         disabled={busy}
         type="submit"
+        diagnosticAction="export"
         withIcon
       >
         <DownloadSimpleIcon aria-hidden size={16} />
@@ -202,6 +203,7 @@ function BackupRestorePanel({
         className="backup-restore-action-button"
         disabled={busy}
         onClick={model.handleChooseRestoreFile}
+        diagnosticAction="import"
         variant="ghost"
         withIcon
       >

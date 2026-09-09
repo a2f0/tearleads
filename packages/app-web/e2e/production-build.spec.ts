@@ -6,6 +6,12 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { expect, test } from "@playwright/test";
 import packageJson from "../package.json" with { type: "json" };
+import {
+  observeProductionSentry,
+  SENTRY_TEST_COMMIT,
+  SENTRY_TEST_DSN,
+  SENTRY_UPLOAD_TOKEN_SENTINEL,
+} from "./productionSentryAssertions";
 
 const appDir = fileURLToPath(new URL("../", import.meta.url));
 const contentTypes: Record<string, string> = {
@@ -57,6 +63,10 @@ for (const variant of ["app", "demo"]) {
         env: {
           ...process.env,
           BUN_PUBLIC_APP_VARIANT: variant,
+          BUN_PUBLIC_SENTRY_DSN: SENTRY_TEST_DSN,
+          BUN_PUBLIC_SENTRY_ENVIRONMENT: "staging",
+          BUN_PUBLIC_SENTRY_COMMIT: SENTRY_TEST_COMMIT,
+          SENTRY_AUTH_TOKEN: SENTRY_UPLOAD_TOKEN_SENTINEL,
           BUN_PUBLIC_API_BASE_URL: `${origin}/api`,
           BUN_PUBLIC_WS_URL: `${origin.replace("http:", "ws:")}/events`,
         },
@@ -71,6 +81,7 @@ for (const variant of ["app", "demo"]) {
         }
       });
 
+      const assertSentry = await observeProductionSentry(page);
       await page.goto(origin);
       const menu = page
         .getByRole("button", { name: "Menu", exact: true })
@@ -83,6 +94,7 @@ for (const variant of ["app", "demo"]) {
       await page.waitForFunction(
         () => navigator.serviceWorker.controller !== null,
       );
+      if (variant === "app") await assertSentry();
 
       await context.setOffline(true);
       await page.reload();

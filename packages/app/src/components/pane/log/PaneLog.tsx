@@ -1,4 +1,4 @@
-import { useLog } from "../../../providers/logging/LogProvider";
+import { useLogEntries } from "../../../providers/logging/LogProvider";
 
 export interface PaneLogEntry {
   id: string;
@@ -41,7 +41,7 @@ export function PaneLog({
   hideSubsecondPrecision = false,
   trailingEntries = [],
 }: PaneLogProps) {
-  const { entries: logEntries } = useLog();
+  const logEntries = useLogEntries();
   const entries = [...logEntries, ...trailingEntries];
 
   return (

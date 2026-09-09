@@ -17,6 +17,7 @@ import {
 } from "../../../navigation/useRoutedLayoutTier";
 import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";
 import { useAppHostConfig } from "../../../providers/host/AppHostConfigProvider";
+import { MiniAppBoundary } from "../../mini-app/MiniAppBoundary";
 import { useRegisterUserId } from "../../pane/dual-pane";
 import { SyncStatusIndicator } from "../../pane/footer/sync-status/SyncStatusIndicator";
 import { WindowMenuProvider } from "../../window/WindowMenuContext";
@@ -219,7 +220,9 @@ function RoutedPaneSurface({
             app in both routed tiers, replacing the pinned-monitor slot the old
             home launcher used to host. Renders nothing unless pinned. */}
         <SystemMonitorPinned />
-        <ActiveMiniApp />
+        <MiniAppBoundary appId={activeAppId}>
+          <ActiveMiniApp />
+        </MiniAppBoundary>
       </main>
       <TestSystemBanner hidden={mobileKeyboardVisible} />
       <RoutedPaneTaskBar

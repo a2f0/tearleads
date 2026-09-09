@@ -18,7 +18,10 @@ import {
 } from "../../src/mini-apps/org-manager/hooks/useBillingActions";
 import { DirectCheckoutProvider } from "../../src/providers/direct-checkout/DirectCheckoutProvider";
 import { AppHostConfigProvider } from "../../src/providers/host/AppHostConfigProvider";
-import { LogProvider, useLog } from "../../src/providers/logging/LogProvider";
+import {
+  LogProvider,
+  useLogEntries,
+} from "../../src/providers/logging/LogProvider";
 import { PurchasesProvider } from "../../src/providers/purchases/PurchasesProvider";
 
 /** Suspends post-purchase polling by default so tests can drive settlement. */
@@ -181,7 +184,7 @@ export function renderBillingActions(input: {
       useLayoutEffect(() => {
         input.observeLayout?.();
       }, [organizationId, userId]);
-      const { entries } = useLog();
+      const entries = useLogEntries();
       return {
         ...actions,
         logEntries: entries.map(({ level, message }) => ({ level, message })),

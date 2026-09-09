@@ -1,5 +1,6 @@
 import type { DocumentSummary } from "@tearleads/client-sdk";
 import { useCallback, useMemo } from "react";
+import { useDiagnosticBreadcrumb } from "../../../providers/logging/useDiagnosticBreadcrumb";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import { useTearleadsExternalStoreSnapshot } from "../../../providers/sdk/useTearleadsSubscription";
 import { useUserSystemContainers } from "../../../providers/system-bootstrap/UserSystemContainersProvider";
@@ -34,6 +35,7 @@ interface DocumentTrash {
 // shared device-first store; both the lazy Trash create and move persist locally
 // before their remote sync lanes converge.
 export function useDocumentTrash(): DocumentTrash {
+  const breadcrumb = useDiagnosticBreadcrumb();
   const tearleads = useTearleads();
   const { containerStore: store, runtime } = useDeviceFirstContainerContents();
   const snapshot = useTearleadsExternalStoreSnapshot(store);
@@ -89,6 +91,7 @@ export function useDocumentTrash(): DocumentTrash {
       }
 
       const documentLinks = tearleads.containerContents.documentLinks();
+      breadcrumb("move-to-trash");
       const result = await documentLinks.moveDocumentToContainer({
         expandNode: () => undefined,
         mergeDocumentSummary: () => undefined,
@@ -100,7 +103,14 @@ export function useDocumentTrash(): DocumentTrash {
       });
       return result.note;
     },
-    [currentOrganizationId, snapshot.ready, store, tearleads, trashSystemSlot],
+    [
+      breadcrumb,
+      currentOrganizationId,
+      snapshot.ready,
+      store,
+      tearleads,
+      trashSystemSlot,
+    ],
   );
 
   return { isContainerTrashed, moveToTrash, ready: snapshot.ready };

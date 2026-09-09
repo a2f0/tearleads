@@ -32,6 +32,7 @@ import {
 import { ExplorerContextMenuLayer } from "./context-menu/ExplorerContextMenuLayer";
 import type { ExplorerAttributionUserLabelResolver } from "./detail/attributionDisplay";
 import { ExplorerDetailPanel } from "./detail/ExplorerDetailPanel";
+import { useExplorerViewBreadcrumb } from "./diagnostics/useExplorerViewBreadcrumb";
 import { useExplorerRoutedChromeActions } from "./ExplorerRoutedChrome";
 import type { ExplorerAttributionProfileHydrationRequester } from "./hooks/explorerAttributionReadModel";
 import { useExplorerDocumentDownload } from "./hooks/useExplorerDocumentDownload";
@@ -267,6 +268,12 @@ function ExplorerContent() {
   const organizationPresentation = useExplorerOrganizationPresentation({
     appData,
     view: routeState.route.view,
+  });
+  useExplorerViewBreadcrumb({
+    containerId: model.selection.activeContainerId,
+    documentSelected: Boolean(model.selection.selectedDocument),
+    rootSelected: model.selection.selectedNode?.parentId === null,
+    trashContainerId: explorer.trashContainerId,
   });
   const catchupScope = appData.state.domainScope;
   useEffect(() => {

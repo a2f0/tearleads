@@ -12,6 +12,7 @@ import { FileViewerProvider } from "./file-viewer/FileViewerProvider";
 import { AppHostConfigProvider } from "./host/AppHostConfigProvider";
 import { IdentityProvider } from "./identity/IdentityProvider";
 import { LocalKeyringLockProvider } from "./local-keyring/LocalKeyringLockProvider";
+import { DiagnosticsIdentityReset } from "./logging/DiagnosticsIdentityReset";
 import { LogProvider } from "./logging/LogProvider";
 import { PurchasesProvider } from "./purchases/PurchasesProvider";
 import { TearleadsProvider } from "./sdk/TearleadsProvider";
@@ -41,11 +42,12 @@ export function AppRuntimeProvider({
           <PurchasesProvider>
             <DirectCheckoutProvider>
               <LocalKeyringLockProvider>
-                <LogProvider>
+                <LogProvider diagnostics={hostConfig.diagnostics}>
                   <SyncModeProvider>
                     <TearleadsProvider>
                       <DatabaseProvider>
                         <IdentityProvider>
+                          <DiagnosticsIdentityReset />
                           <CryptoSessionProvider>
                             <UserSystemContainersProvider>
                               <DeviceFirstProvider>

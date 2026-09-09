@@ -85,6 +85,25 @@ test("copied telemetry logs retain subsecond precision", () => {
   );
 });
 
+test("copied activity logs accept only the fixed diagnostics vocabulary", () => {
+  const report = formatSystemMonitorReport({
+    capturedAt: CAPTURED_AT,
+    environment: [],
+    status: createStatus(),
+    logEntries: [
+      createLogEntry(1, { message: "Activity: explorer.move-to-trash" }),
+      createLogEntry(2, {
+        message: "Activity: explorer.private document name",
+      }),
+      createLogEntry(3, {
+        message: "Activity: explorer.move-to-trash.private document name",
+      }),
+    ],
+  });
+  expect(report).toContain("Activity: explorer.move-to-trash");
+  expect(report).not.toContain("private document name");
+});
+
 test("report omits the feature flags section outside developer mode", () => {
   const base = {
     capturedAt: CAPTURED_AT,

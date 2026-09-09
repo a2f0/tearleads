@@ -7,6 +7,9 @@ declare namespace NodeJS {
     BUN_PUBLIC_GIT_SHA?: string;
     /** Stripe publishable key for the direct checkout Payment Element. */
     BUN_PUBLIC_STRIPE_PUBLISHABLE_KEY?: string;
+    BUN_PUBLIC_SENTRY_DSN?: string;
+    BUN_PUBLIC_SENTRY_ENVIRONMENT?: string;
+    BUN_PUBLIC_SENTRY_COMMIT?: string;
     BUN_PUBLIC_WS_URL?: string;
   }
 }
