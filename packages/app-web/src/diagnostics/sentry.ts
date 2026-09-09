@@ -13,7 +13,6 @@ import { sanitizeSentryEvent } from "./sentryPrivacy";
 import { createPrivateSentryTransport } from "./sentryTransport";
 
 export interface WebDiagnostics extends AppDiagnostics {
-  flush: () => PromiseLike<boolean>;
   dispose: () => PromiseLike<boolean>;
 }
 
@@ -80,10 +79,10 @@ function createDiagnostics(config: SentryConfig): WebDiagnostics {
         });
       }
     },
-    flush: () => client.flush(2000),
     dispose() {
       window.removeEventListener("error", onError);
       window.removeEventListener("unhandledrejection", onRejection);
+      window.removeEventListener("pagehide", onPageHide);
       return client.close(2000);
     },
   };
@@ -97,7 +96,11 @@ function createDiagnostics(config: SentryConfig): WebDiagnostics {
       area: "app",
       source: "unhandled-rejection",
     });
+  const onPageHide = () => {
+    void Promise.resolve(client.flush(2000)).catch(() => undefined);
+  };
   window.addEventListener("error", onError);
   window.addEventListener("unhandledrejection", onRejection);
+  window.addEventListener("pagehide", onPageHide);
   return diagnostics;
 }

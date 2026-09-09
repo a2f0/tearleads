@@ -5,6 +5,7 @@ import {
   DiagnosticAreaContext,
   useDiagnostics,
 } from "../../providers/logging/DiagnosticsProvider";
+import { useOptionalLogActions } from "../../providers/logging/LogProvider";
 import { useDiagnosticBreadcrumb } from "../../providers/logging/useDiagnosticBreadcrumb";
 import { AppErrorBoundary } from "../shared/AppErrorBoundary";
 
@@ -14,6 +15,7 @@ export function MiniAppBoundary({
 }: PropsWithChildren<{ appId: MiniAppId }>) {
   const diagnostics = useDiagnostics();
   const breadcrumb = useDiagnosticBreadcrumb(appId);
+  const logs = useOptionalLogActions();
   const { pathSegments } = useMiniAppRouteSegments(appId);
   // Route values are used only for local change detection. They never leave
   // this component and are never passed to a logger or diagnostics adapter.
@@ -31,6 +33,11 @@ export function MiniAppBoundary({
         key={appId}
         area={appId}
         diagnostics={diagnostics}
+        onError={(error) => {
+          // Keep the message in System Monitor, including on native targets.
+          // A string cause stays local; the boundary reports the Error once.
+          logs?.logError("Mini-app render failed", String(error));
+        }}
         onRetry={() => breadcrumb("retry")}
       >
         {children}

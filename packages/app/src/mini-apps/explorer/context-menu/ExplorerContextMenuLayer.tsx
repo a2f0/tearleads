@@ -222,7 +222,7 @@ function ExplorerOptionalMenuItem(params: {
   icon: Icon;
   label: string;
   onSelect: () => void;
-  diagnosticAction?: DiagnosticAction;
+  diagnosticAction?: DiagnosticAction | undefined;
 }) {
   const { closeContextMenu, disabled, icon, label, onSelect } = params;
   if (disabled) {

@@ -38,4 +38,9 @@ primitiveButton.onclick = () => {
 };
 document.body.append(primitiveButton);
 
+window.addEventListener("unhandledrejection", (event) => {
+  if (typeof event.reason === "string") {
+    Reflect.set(window, "stringRejectionObserved", true);
+  }
+});
 Reflect.set(window, "disposeDiagnostics", () => diagnostics.dispose());

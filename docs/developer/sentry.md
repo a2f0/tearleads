@@ -100,6 +100,8 @@ Actual `Error` objects supplied to `logError` also go through the private adapte
 formatted messages never become remote breadcrumbs. Safe actions appear locally
 as `Activity: explorer.move-to-trash`. The local report and Sentry trail can be
 compared without exporting raw logs.
+Mini-app render failures also enter the local log when Sentry is disabled.
+Activity entries share the local log's existing 1,000-entry retention limit.
 
 All mini-apps record opening and route changes. Explorer additionally records
 root/Trash/folder/document views and explicit context-menu actions. Notes records

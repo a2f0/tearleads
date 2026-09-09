@@ -1,10 +1,12 @@
 import { Component, type PropsWithChildren } from "react";
 import type { AppDiagnostics, DiagnosticArea } from "../../host/AppDiagnostics";
+import "../mini-app/controls/MiniAppStatus.css";
 
 interface Props extends PropsWithChildren {
   area: DiagnosticArea;
   diagnostics?: AppDiagnostics | undefined;
   onRetry?: (() => void) | undefined;
+  onError?: ((error: unknown) => void) | undefined;
 }
 
 export class AppErrorBoundary extends Component<Props, { failed: boolean }> {
@@ -15,6 +17,11 @@ export class AppErrorBoundary extends Component<Props, { failed: boolean }> {
   }
 
   override componentDidCatch(error: unknown) {
+    try {
+      this.props.onError?.(error);
+    } catch {
+      // Local logging must not prevent reporting or recovery either.
+    }
     try {
       this.props.diagnostics?.captureError(error, {
         area: this.props.area,

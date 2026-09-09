@@ -1,6 +1,6 @@
 // Only this vocabulary may cross the diagnostics boundary. Never add entity
 // IDs, names, document kinds, route segments, or arbitrary text to this contract.
-export const DIAGNOSTIC_AREAS = [
+const DIAGNOSTIC_AREAS = [
   "app",
   "backup-restore",
   "contacts",
@@ -11,7 +11,7 @@ export const DIAGNOSTIC_AREAS = [
   "root",
   "system-monitor",
 ] as const;
-export const DIAGNOSTIC_ACTIONS = [
+const DIAGNOSTIC_ACTIONS = [
   "open",
   "navigate",
   "retry",

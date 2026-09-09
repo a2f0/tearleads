@@ -75,6 +75,11 @@ test("real browser error envelopes exclude private data and automatic activity",
     await page.getByRole("button", { name: "Reject promise" }).click();
     await expect.poll(() => requests.length).toBe(2);
     await page.getByRole("button", { name: "Reject private string" }).click();
+    await expect
+      .poll(() =>
+        page.evaluate(() => Reflect.get(window, "stringRejectionObserved")),
+      )
+      .toBe(true);
     await page.evaluate(() => Reflect.get(window, "disposeDiagnostics")());
     expect(requests).toHaveLength(2);
     for (const request of requests) expectPrivateEnvelope(request);

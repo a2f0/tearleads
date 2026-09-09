@@ -18,7 +18,7 @@ type MiniAppButtonVariant = "default" | "ghost";
 type MiniAppButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   block?: boolean | undefined;
   variant?: MiniAppButtonVariant | undefined;
-  diagnosticAction?: DiagnosticAction;
+  diagnosticAction?: DiagnosticAction | undefined;
   /** Lays the children out as a centered icon + label row with a small gap. */
   withIcon?: boolean | undefined;
 };
