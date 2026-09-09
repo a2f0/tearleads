@@ -35,9 +35,9 @@ variable "extra_demo_domains" {
 }
 
 variable "server_location" {
-  description = "Hetzner server location"
+  description = "Optional Hetzner location override; defaults to Ashburn for production and Helsinki for staging"
   type        = string
-  default     = "hel1"
+  default     = null
 }
 
 variable "server_username" {
@@ -46,9 +46,9 @@ variable "server_username" {
 }
 
 variable "server_type" {
-  description = "Hetzner server type"
+  description = "Optional Hetzner server type override; defaults to CPX11 for production and CX23 for staging"
   type        = string
-  default     = "cx23"
+  default     = null
 }
 
 variable "server_user_data" {

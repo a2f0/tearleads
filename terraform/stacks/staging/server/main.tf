@@ -1,4 +1,9 @@
 locals {
+  # Registration performs many transactional queries. Keep production beside
+  # PlanetScale in us-east-1; cross-Atlantic round trips exceed proxy timeouts.
+  server_location = coalesce(var.server_location, var.deployment_tier == "prod" ? "ash" : "hel1")
+  server_type     = coalesce(var.server_type, var.deployment_tier == "prod" ? "cpx11" : "cx23")
+
   hostname_suffix = var.deployment_tier == "staging" ? "-staging" : ""
   api_hostname    = "api${local.hostname_suffix}.${var.domain}"
   app_hostname    = "app${local.hostname_suffix}.${var.domain}"
@@ -22,8 +27,8 @@ module "server" {
 
   name        = "${var.deployment_tier}-${var.domain}"
   ssh_key_id  = data.hcloud_ssh_key.main.id
-  server_type = var.server_type
-  location    = var.server_location
+  server_type = local.server_type
+  location    = local.server_location
 
   user_data = var.server_user_data != "" ? var.server_user_data : <<-EOF
     #cloud-config
