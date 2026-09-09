@@ -15,6 +15,12 @@ export interface NativeSentryInput {
   origin: string;
 }
 
+export function isNativeSentryAssetPath(path: unknown): path is string {
+  return (
+    typeof path === "string" && /^\/assets\/[a-zA-Z0-9_.-]+\.js$/u.test(path)
+  );
+}
+
 export function resolveNativeSentryConfig(
   input: NativeSentryInput,
   manifest: unknown,
@@ -44,11 +50,7 @@ export function resolveNativeSentryConfig(
     return undefined;
   const paths: string[] = [];
   for (const path of manifest.paths) {
-    if (
-      typeof path !== "string" ||
-      !/^\/assets\/[a-zA-Z0-9_.-]+\.js$/u.test(path)
-    )
-      return undefined;
+    if (!isNativeSentryAssetPath(path)) return undefined;
     paths.push(path);
   }
   if (paths.length === 0) return undefined;

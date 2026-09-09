@@ -1,4 +1,5 @@
 import type { Plugin } from "vite";
+import { isNativeSentryAssetPath } from "../src/diagnostics/sentryConfig";
 
 // This packaged manifest is the exact allowlist of generated JavaScript paths.
 // A filename pattern alone could mistake an entity ID in a URL for a code asset.
@@ -15,6 +16,11 @@ export function sentryAssetsPlugin(config: {
       const paths = Object.values(bundle)
         .filter((output) => output.type === "chunk")
         .map((output) => `/${output.fileName}`);
+      if (!paths.length || !paths.every(isNativeSentryAssetPath)) {
+        this.error(
+          "Native Sentry assets must use the packaged /assets/*.js layout",
+        );
+      }
       this.emitFile({
         type: "asset",
         fileName: "sentry-assets.json",

@@ -1,8 +1,32 @@
 import { expect, test } from "bun:test";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { sanitizeSentryEvent } from "@tearleads/diagnostics/privacy";
 import { diagnosticsBuild } from "../../scripts/diagnosticsBuild";
 import { resolveApiSentryConfig } from "./sentryConfig";
+
+test("source archives build without enabling API diagnostics", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "api-without-git-"));
+  try {
+    const build = diagnosticsBuild(directory);
+    expect(build).toEqual({
+      commit: "",
+      sourceRoot: directory,
+      sourcePaths: [],
+    });
+    expect(
+      resolveApiSentryConfig({
+        ...build,
+        dsn: `https://${"a".repeat(32)}@o1.ingest.us.sentry.io/1`,
+        environment: "production",
+      }),
+    ).toBeUndefined();
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
 
 test("the executable builder's trailing-slash root preserves absolute and relative API frames", () => {
   const root = fileURLToPath(new URL("../../../../", import.meta.url));

@@ -11,15 +11,32 @@ export function apiDiagnosticsBuildOptions(root: string) {
 
 export function diagnosticsBuild(root: string) {
   const sourceRoot = resolve(root);
+  try {
+    return readGitBuild(sourceRoot);
+  } catch {
+    // Source archives can still build the API; without Git, reporting stays off.
+    return { commit: "", sourceRoot, sourcePaths: [] };
+  }
+}
+
+function readGitBuild(sourceRoot: string) {
+  const env = { ...process.env };
+  for (const name of Object.keys(env)) {
+    if (name.startsWith("GIT_")) delete env[name];
+  }
   const commit = execFileSync("git", ["rev-parse", "HEAD"], {
     cwd: sourceRoot,
+    env,
     encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"],
   }).trim();
   if (!isSentryCommit(commit))
     throw new Error("Cannot determine the API release commit");
   const files = execFileSync("git", ["ls-files", "-z", "packages"], {
     cwd: sourceRoot,
+    env,
     encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"],
   }).split("\0");
   const sourcePaths = files
     .filter(

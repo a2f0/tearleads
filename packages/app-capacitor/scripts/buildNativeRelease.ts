@@ -1,4 +1,3 @@
-import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 import {
   nativeSentryBuildEnvironment,
@@ -6,6 +5,7 @@ import {
 } from "./sentryBuildEnvironment";
 import { uploadNativeSentryMaps } from "./sentryReleaseArtifacts";
 import { nativeSentryRelease } from "./sentryReleaseConfig";
+import { nativeSentryCommit } from "./sentryReleaseSource";
 
 const packageRoot = resolve(import.meta.dirname, "..");
 const repoRoot = resolve(packageRoot, "../..");
@@ -25,10 +25,8 @@ const env = {
   )),
   ...process.env,
 };
-const commit = execFileSync("git", ["rev-parse", "HEAD"], {
-  cwd: repoRoot,
-  encoding: "utf8",
-}).trim();
+const dsnName = `SENTRY_${platform.toUpperCase()}_${tier.toUpperCase()}_DSN`;
+const commit = env[dsnName] ? nativeSentryCommit(repoRoot) : "";
 const { SENTRY_AUTH_TOKEN } = env;
 const sentry = nativeSentryRelease(platform, tier, commit, env);
 // The upload credential stays in this parent process, including under fastlane.
@@ -40,38 +38,39 @@ const build = Bun.spawn(["bun", "run", "build"], {
 });
 if ((await build.exited) !== 0) throw new Error("Native web build failed");
 if (sentry) {
-  await uploadNativeSentryMaps(
-    resolve(packageRoot, "dist"),
-    () =>
-      Bun.spawn(
-        [
-          "bun",
-          "run",
-          "sentry:cli",
-          "sourcemaps",
-          "upload",
-          "--org",
-          sentry.org,
-          "--project",
-          sentry.project,
-          "--release",
-          sentry.release,
-          "--dist",
-          sentry.dist,
-          "--url-prefix",
-          "app:///assets",
-          "--validate",
-          "--strict",
-          "--wait-for",
-          "60",
-          "dist/assets",
-        ],
-        {
-          cwd: packageRoot,
-          env: { ...process.env, SENTRY_AUTH_TOKEN },
-          stdout: "inherit",
-          stderr: "inherit",
-        },
-      ).exited,
-  );
+  await uploadNativeSentryMaps(resolve(packageRoot, "dist"), () => {
+    if (nativeSentryCommit(repoRoot) !== sentry.commit) {
+      throw new Error("Source revision changed during the native Sentry build");
+    }
+    return Bun.spawn(
+      [
+        "bun",
+        "run",
+        "sentry:cli",
+        "sourcemaps",
+        "upload",
+        "--org",
+        sentry.org,
+        "--project",
+        sentry.project,
+        "--release",
+        sentry.release,
+        "--dist",
+        sentry.dist,
+        "--url-prefix",
+        "app:///assets",
+        "--validate",
+        "--strict",
+        "--wait-for",
+        "60",
+        "dist/assets",
+      ],
+      {
+        cwd: packageRoot,
+        env: { ...process.env, SENTRY_AUTH_TOKEN },
+        stdout: "inherit",
+        stderr: "inherit",
+      },
+    ).exited;
+  });
 }

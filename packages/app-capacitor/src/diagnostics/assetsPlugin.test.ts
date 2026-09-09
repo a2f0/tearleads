@@ -56,6 +56,20 @@ test("Vite's packaged allowlist contains the exact JS chunks, without maps or ot
         "sourceMappingURL",
       );
     }
+    await expect(
+      build({
+        root: directory,
+        configFile: false,
+        logLevel: "silent",
+        plugins: [sentryAssetsPlugin(config)],
+        build: {
+          rollupOptions: {
+            input: join(directory, "entry.js"),
+            output: { chunkFileNames: "assets/@[name]-[hash].js" },
+          },
+        },
+      }),
+    ).rejects.toThrow("Native Sentry assets must use");
     await build({
       root: directory,
       configFile: false,

@@ -30,7 +30,6 @@ Configure these variables in `.secrets/staging.env`; use `PRODUCTION` instead of
 ```sh
 SENTRY_STAGING_PROJECT='tearleads-web-staging'
 SENTRY_STAGING_DSN='https://PUBLIC_KEY@oORG.ingest.us.sentry.io/PROJECT_ID'
-SENTRY_API_STAGING_PROJECT='tearleads-api-staging'
 SENTRY_API_STAGING_DSN='https://PUBLIC_KEY@oORG.ingest.us.sentry.io/PROJECT_ID'
 SENTRY_ANDROID_STAGING_PROJECT='tearleads-android-staging'
 SENTRY_ANDROID_STAGING_DSN='https://PUBLIC_KEY@oORG.ingest.us.sentry.io/PROJECT_ID'
@@ -53,13 +52,15 @@ Web deployment selects the tier DSN, builds, uploads maps, then publishes
 assets. Missing upload credentials or an upload failure stop a configured
 deployment.
 
-Android release and Google Play builds, and iOS TestFlight builds, invoke `bun
+Google Play builds and iOS TestFlight builds invoke `bun
 run build:release android` or `bun run build:release ios` in
 `packages/app-capacitor`. `NATIVE_RELEASE_TIER` selects `staging` or
 `production` (default). The builder reads the root and selected tier secrets,
 injects only the selected public Sentry configuration, uploads maps, and removes
-them before Capacitor packaging. Upload failures stop packaging. Debug builds
-stay local. The root `scripts/buildAndroidRelease.sh`,
+them before Capacitor packaging. Publishing maps requires a clean Git checkout;
+staged, modified, or untracked sources stop the release before building. Upload
+failures stop packaging. Debug and local Android APK/sideload builds stay local.
+The root `scripts/buildAndroidRelease.sh`,
 `scripts/buildIosRelease.sh`, their `StagingRelease.sh` counterparts, and all
 corresponding `upload*Release.sh` wrappers reach this step through Fastlane.
 `scripts/deployEverything.sh` uses those wrappers too. No separate source-map
@@ -173,6 +174,8 @@ and `staging` / `production`. Bun embeds maps in the executable and resolves
 stacks to source positions before filtering; only allowlisted
 repository-relative paths and positions leave the server, without source text or
 machine paths.
+
+API source archives without Git still build, with remote diagnostics disabled.
 
 Executable tests remove the build directory and run only the copied binary.
 They exercise the API's injected build configuration and real reporter for both

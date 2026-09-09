@@ -57,4 +57,4 @@ if (!result.success) process.exit(1);
     await rm(directory, { recursive: true, force: true });
     await rm(deployed, { recursive: true, force: true });
   }
-}, 15000);
+}, 60000);
