@@ -62,7 +62,8 @@ dropped locally to bound retry-loop traffic and protect the project quota.
 Allowed:
 
 - Generic exception type and placeholder message; generated bundle filename,
-  line, and column. Original function names and source context are excluded.
+  line, and column. Runtime function names and source context are excluded from
+  transmitted events; Sentry can reconstruct code context from uploaded maps.
 - Git release, deployment environment, and app build variant.
 - Up to 30 breadcrumbs containing an approved mini-app name and action, plus
   timestamps. These describe attempts/navigation, not successful server commits.

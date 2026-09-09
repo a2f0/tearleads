@@ -1,26 +1,8 @@
 import { fileURLToPath } from "node:url";
 import { loroWasmPlugin } from "@tearleads/loro/bun-plugin";
-import { resolveSentryConfig } from "../src/diagnostics/sentryConfig";
+import { assertSentryBuildOutput } from "./sentryBuild";
 
 const appDir = new URL("../", import.meta.url);
-
-// The normal build-info wrapper stamps a short SHA for display. Sentry needs
-// the separate full commit captured by deployment for exact artifact matching.
-if (
-  process.env.BUN_PUBLIC_SENTRY_DSN &&
-  process.env.BUN_PUBLIC_APP_VARIANT === "app" &&
-  !resolveSentryConfig({
-    dsn: process.env.BUN_PUBLIC_SENTRY_DSN,
-    environment: process.env.BUN_PUBLIC_SENTRY_ENVIRONMENT,
-    commit: process.env.BUN_PUBLIC_SENTRY_COMMIT,
-    variant: "app",
-    origin: "https://app.invalid",
-    scriptUrl: "https://app.invalid/chunk-check.js",
-  })
-)
-  throw new Error(
-    "Invalid Sentry build configuration: check the tier DSN, environment and full commit.",
-  );
 
 const result = await Bun.build({
   entrypoints: [fileURLToPath(new URL("src/index.html", appDir))],
@@ -36,3 +18,16 @@ const result = await Bun.build({
 if (!result.success) {
   throw new AggregateError(result.logs, "Failed to build app-web.");
 }
+
+// Check the actual emitted entry. A naming or chunk-layout change must fail
+// deployment rather than silently disable the browser's strict frame filter.
+assertSentryBuildOutput(
+  {
+    dsn: process.env.BUN_PUBLIC_SENTRY_DSN,
+    environment: process.env.BUN_PUBLIC_SENTRY_ENVIRONMENT,
+    commit: process.env.BUN_PUBLIC_SENTRY_COMMIT,
+    variant: process.env.BUN_PUBLIC_APP_VARIANT,
+  },
+  fileURLToPath(new URL("dist/", appDir)),
+  result.outputs.map((output) => output.path),
+);

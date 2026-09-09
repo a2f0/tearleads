@@ -102,7 +102,7 @@ build_app_web() {
   local label="$2"
 
   echo "Building $label..."
-  (cd "$APP_WEB_DIR" && \
+  (cd "$APP_WEB_DIR" && unset SENTRY_AUTH_TOKEN && \
     NODE_ENV=production \
     BUN_PUBLIC_APP_VARIANT="$variant" \
     BUN_PUBLIC_API_BASE_URL="https://${API_HOSTNAME}" \

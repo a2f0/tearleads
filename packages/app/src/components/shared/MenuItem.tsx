@@ -1,4 +1,5 @@
 import type { Icon } from "@phosphor-icons/react";
+import type { MouseEventHandler } from "react";
 import type { DiagnosticAction } from "../../host/AppDiagnostics";
 import { useDiagnosticBreadcrumb } from "../../providers/logging/useDiagnosticBreadcrumb";
 
@@ -12,7 +13,7 @@ export function MenuItem({
   icon?: Icon;
   label: string;
   disabled?: boolean;
-  onClick: () => void;
+  onClick: MouseEventHandler<HTMLButtonElement>;
   diagnosticAction?: DiagnosticAction | undefined;
 }) {
   const breadcrumb = useDiagnosticBreadcrumb();
@@ -20,9 +21,9 @@ export function MenuItem({
     <button
       type="button"
       disabled={disabled}
-      onClick={() => {
+      onClick={(event) => {
         if (diagnosticAction) breadcrumb(diagnosticAction);
-        onClick();
+        onClick(event);
       }}
     >
       {IconComponent && (
