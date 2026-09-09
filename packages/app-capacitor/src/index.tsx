@@ -18,6 +18,7 @@ import { subscribeCapacitorKeyboardVisibility } from "./device/capacitorKeyboard
 import { createCapacitorNetworkStatus } from "./device/capacitorNetworkStatus";
 import { createCapacitorScanner } from "./device/capacitorScanner";
 import { syncStatusBarWithTheme } from "./device/statusBar";
+import { configureNativeSentry } from "./diagnostics/sentry";
 import { createCapacitorFileSaver } from "./files/capacitorFileSaver";
 import { createCapacitorFileViewer } from "./files/capacitorFileViewer";
 
@@ -63,6 +64,7 @@ const { apiBaseUrl, wsUrl } = resolveAppHostRuntimeConfig({
 
 const hostConfig = createAppHostConfig({
   apiBaseUrl,
+  diagnostics: await configureNativeSentry(),
   // Resolved and inlined by the `define` block in vite.config.ts.
   buildInfo: createAppBuildInfo({
     commit: import.meta.env.VITE_GIT_SHA,

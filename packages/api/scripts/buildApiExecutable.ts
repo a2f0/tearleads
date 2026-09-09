@@ -1,6 +1,8 @@
 import { fileURLToPath } from "node:url";
 import { loroWasmPlugin } from "@tearleads/loro/bun-plugin";
 
+import { diagnosticsBuild } from "./diagnosticsBuild";
+
 const repoRoot = fileURLToPath(new URL("../../..", import.meta.url));
 process.chdir(repoRoot);
 
@@ -35,6 +37,8 @@ const result = await Bun.build({
     target: executableTarget,
   },
   target: "bun",
+  sourcemap: "linked",
+  define: { API_DIAGNOSTICS_BUILD: JSON.stringify(diagnosticsBuild(repoRoot)) },
   plugins: [loroWasmPlugin],
 });
 

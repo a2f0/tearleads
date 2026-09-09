@@ -36,7 +36,9 @@
     "store:build-numbers": "NATIVE_RELEASE_TIER=production bundle exec fastlane store_build_numbers",
     "store:build-numbers:staging": "NATIVE_RELEASE_TIER=staging bundle exec fastlane store_build_numbers",
     "lint:rubocop": "bundle exec rubocop",
-    "test": "bun test src tests --pass-with-no-tests"
+    "test": "bun test src tests --pass-with-no-tests",
+    "build:release": "bun scripts/buildNativeRelease.ts",
+    "sentry:cli": "sentry-cli"
   },
   "dependencies": {
     "@capacitor-community/sqlite": "8.1.1",
@@ -53,6 +55,7 @@
     "@capgo/capacitor-native-biometric": "8.6.7",
     "@revenuecat/purchases-capacitor": "13.5.0",
     "@tearleads/client-sdk": "workspace:*",
+    "@tearleads/diagnostics": "workspace:*",
     "@tearleads/encoding": "workspace:*",
     "@tearleads/validators": "workspace:*",
     "app": "workspace:*",
@@ -69,6 +72,7 @@
     "@types/react-dom": "catalog:react",
     "@vitejs/plugin-react": "6.1.1",
     "vite": "8.2.2",
-    "vite-plugin-wasm": "3.6.0"
+    "vite-plugin-wasm": "3.6.0",
+    "@sentry/cli": "3.7.0"
   }
 }

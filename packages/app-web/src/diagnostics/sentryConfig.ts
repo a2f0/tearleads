@@ -1,4 +1,4 @@
-import type { SentryPrivacyConfig } from "./sentryPrivacy";
+import type { SentryPrivacyConfig } from "@tearleads/diagnostics/privacy";
 
 export interface SentryInput {
   dsn: string | undefined;
@@ -17,7 +17,7 @@ export function resolveSentryConfig(
   input: SentryInput,
 ): SentryConfig | undefined {
   // Demo has multiple independent identities on one page. Keep it local, as
-  // with native targets and development, until it has a scoped integration.
+  // with development, until it has a scoped integration.
   if (!input.dsn || input.variant !== "app") return undefined;
   if (input.environment !== "staging" && input.environment !== "production")
     return undefined;

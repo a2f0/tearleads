@@ -267,7 +267,7 @@ platform :android do
 
   desc 'Build release APK'
   lane :build_release do
-    sh('bun run build')
+    sh('bun run build:release android')
     sh("bun run #{NATIVE_CAPACITOR_SYNC_SCRIPT} android")
     ensure_release_capacitor_sync!
     run_android_gradle("assemble#{ANDROID_BUILD_VARIANT_TASK}")
@@ -284,7 +284,7 @@ platform :android do
     )
     release_build = next_android_release_build_number(options)
     require_android_release_signing!
-    sh('bun run build')
+    sh('bun run build:release android')
     sh("bun run #{NATIVE_CAPACITOR_SYNC_SCRIPT} android")
     ensure_release_capacitor_sync!
     generate_capacitor_image_assets!(ANDROID_BUILD_IMAGES_SCRIPT)

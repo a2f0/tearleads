@@ -7,8 +7,8 @@ import {
   test,
 } from "bun:test";
 import type { Event } from "@sentry/browser";
-import type { SentryPrivacyConfig } from "../src/diagnostics/sentryPrivacy";
-import { createPrivateSentryTransport } from "../src/diagnostics/sentryTransport";
+import type { SentryPrivacyConfig } from "@tearleads/diagnostics/privacy";
+import { createPrivateSentryTransport } from "@tearleads/diagnostics/transport";
 
 type Transport = ReturnType<ReturnType<typeof createPrivateSentryTransport>>;
 type Envelope = Parameters<Transport["send"]>[0];

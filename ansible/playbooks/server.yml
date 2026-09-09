@@ -18,6 +18,8 @@
       - { key: "PubkeyAuthentication", value: "yes" }
       - { key: "MaxAuthTries", value: "3" }
       - { key: "KbdInteractiveAuthentication", value: "no" }
+    api_sentry_environment: "{{ 'production' if deployment_tier == 'prod' else 'staging' }}"
+    api_sentry_dsn: "{{ lookup('env', 'SENTRY_API_' ~ (api_sentry_environment | upper) ~ '_DSN') | default('', true) }}"
     postgres_managed: "{{ deployment_tier == 'prod' }}"
     postgres_ssl: false
     postgres_version: "16"

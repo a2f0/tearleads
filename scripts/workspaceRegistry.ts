@@ -88,6 +88,12 @@ export const workspaceRegistry = [
     role: "shared-library",
   },
   {
+    directory: "diagnostics",
+    key: "diagnostics",
+    packageName: "@tearleads/diagnostics",
+    role: "shared-library",
+  },
+  {
     directory: "encoding",
     key: "encoding",
     packageName: "@tearleads/encoding",

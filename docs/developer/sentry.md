@@ -1,62 +1,78 @@
-# Browser error diagnostics
+# Private error diagnostics
 
-The web app can report errors to separate Sentry projects for staging and
-production. It is disabled without a tier DSN. Development, the two-identity demo,
-Capacitor, Electrobun, the website, and the API are not instrumented by this setup.
+The web app, Android and iOS WebViews, and API report to separate Sentry
+projects
+for staging and production. Reporting is disabled without the corresponding DSN.
+Development, the two-identity demo, Electrobun, and the website remain local.
 
 ## Account setup
 
-1. Create two **React** projects in your Sentry organization, for example
-   `tearleads-staging` and `tearleads-production`. Copy each project's browser DSN
-   from **Settings → Projects → project → Client Keys (DSN)**.
-2. Create an organization auth token for source-map uploads (`org:ci`, the
-   Sentry CI integration). Keep it out of browser variables. An existing token
-   with release-upload permissions can also be used.
-3. In each project's security/privacy settings, enable **Prevent Storing of IP
-   Addresses**. Keep server-side data scrubbing enabled. Limit allowed domains to
-   `app-staging.tearleads.com` or `app.tearleads.com`, respectively.
-4. Add the following values to the existing ignored secrets files. Use the actual
-   organization/project slugs, which may differ from their display names.
+The `tearleads` organization uses these projects:
 
-`.secrets/root.env`:
+| Target | Staging | Production |
+| --- | --- | --- |
+| Web | `tearleads-web-staging` | `tearleads-web-production` |
+| API | `tearleads-api-staging` | `tearleads-api-production` |
+| Android | `tearleads-android-staging` | `tearleads-android-production` |
+| iOS | `tearleads-ios-staging` | `tearleads-ios-production` |
+
+Keep **Prevent Storing of IP Addresses**, default data scrubbing, and data
+scrubbing enabled in every project. Copy DSNs from **Settings → Projects →
+project → Client Keys (DSN)**. Hosted US, EU, and legacy ingestion URLs work.
+
+The existing ignored `.secrets/root.env` holds `SENTRY_ORG=tearleads` and
+`SENTRY_AUTH_TOKEN`. The latter needs source-map upload access and stays in the
+build/deploy process. It must never have a `VITE_` or `BUN_PUBLIC_` prefix.
+
+Configure these variables in `.secrets/staging.env`; use `PRODUCTION` instead of
+`STAGING` in `.secrets/prod.env`:
 
 ```sh
-SENTRY_ORG='your-organization-slug'
-SENTRY_AUTH_TOKEN='your-private-upload-token'
-```
-
-`.secrets/staging.env`:
-
-```sh
-SENTRY_STAGING_PROJECT='tearleads-staging'
+SENTRY_STAGING_PROJECT='tearleads-web-staging'
 SENTRY_STAGING_DSN='https://PUBLIC_KEY@oORG.ingest.us.sentry.io/PROJECT_ID'
+SENTRY_API_STAGING_PROJECT='tearleads-api-staging'
+SENTRY_API_STAGING_DSN='https://PUBLIC_KEY@oORG.ingest.us.sentry.io/PROJECT_ID'
+SENTRY_ANDROID_STAGING_PROJECT='tearleads-android-staging'
+SENTRY_ANDROID_STAGING_DSN='https://PUBLIC_KEY@oORG.ingest.us.sentry.io/PROJECT_ID'
+SENTRY_IOS_STAGING_PROJECT='tearleads-ios-staging'
+SENTRY_IOS_STAGING_DSN='https://PUBLIC_KEY@oORG.ingest.us.sentry.io/PROJECT_ID'
 ```
 
-`.secrets/prod.env`:
+The DSNs above are placeholders. The DSN is public; the upload token is private.
 
-```sh
-SENTRY_PRODUCTION_PROJECT='tearleads-production'
-SENTRY_PRODUCTION_DSN='https://PUBLIC_KEY@oORG.ingest.us.sentry.io/PROJECT_ID'
-```
+## Deployment and releases
 
-The DSNs above are placeholders: paste the complete values Sentry provides.
-US, EU, and legacy hosted ingestion URLs are supported. The DSN is public; the
-upload token is private and must never use a `BUN_PUBLIC_` prefix.
+`scripts/deployStaging.sh` and `scripts/deployProduction.sh` apply Ansible's API
+configuration and deploy the compiled API and web app. Ansible writes only
+`API_SENTRY_DSN` and `API_SENTRY_ENVIRONMENT` to the protected API environment
+file;
+the executable embeds its commit and exact source-path allowlist. Run the full
+scripts the first time so the server environment is updated. Subsequent
+`--skip-infra` deploys reuse that environment.
 
-Once configured, run `scripts/deployStaging.sh --skip-infra` and
-`scripts/deployProduction.sh --skip-infra`. Their app-web deploy steps select the
-tier DSN, build, upload source maps, and then publish assets. Missing upload
-credentials or an upload failure stop a configured deployment before its app
-assets are published. No Terraform or Ansible secret needs to be put on the API
-server for browser diagnostics.
+Web deployment selects the tier DSN, builds, uploads maps, then publishes
+assets.
+Missing upload credentials or an upload failure stop a configured deployment.
+
+Android release and Google Play builds, and iOS TestFlight builds, invoke
+`bun run build:release android` or `bun run build:release ios` in
+`packages/app-capacitor`. `NATIVE_RELEASE_TIER` selects `staging` or
+`production`
+(default). The builder reads the root and selected tier secrets, injects only
+the
+selected public Sentry configuration, uploads maps, and removes them before
+Capacitor packaging. Upload failures stop packaging. Debug builds stay local.
+Existing installed mobile apps need a new release to start reporting.
 
 ## Collection policy
 
 The adapter uses a private Sentry client and scope with **no automatic SDK
-integrations**. It rebuilds each error from an allowlist before sending and repeats
+integrations**. It rebuilds each error from an allowlist before sending and
+repeats
 that validation at the transport boundary. Only error envelopes can leave.
 Repeated sanitized error locations are reported once per page load, with limits
-of five distinct errors per minute and twenty per page load. Excess reports are
+of five distinct errors per minute and twenty per page load. The API resets its
+twenty-error budget and deduplication once per hour. Excess reports are
 dropped locally to bound retry-loop traffic and protect the project quota.
 
 Allowed:
@@ -64,7 +80,7 @@ Allowed:
 - Generic exception type and placeholder message; generated bundle filename,
   line, and column. Runtime function names and source context are excluded from
   transmitted events; Sentry can reconstruct code context from uploaded maps.
-- Git release, deployment environment, and app build variant.
+- Git release, deployment environment, and target/build variant.
 - Up to 30 breadcrumbs containing an approved mini-app name and action, plus
   timestamps. These describe attempts/navigation, not successful server commits.
   The trail is cleared when the active identity changes or is locked.
@@ -87,8 +103,10 @@ generic report. String-only log messages stay local.
 
 This protects application content, not all network metadata: direct browser
 requests necessarily expose a connection IP, browser HTTP headers, and the site
-origin to Sentry's infrastructure. Requests omit credentials and the `Referer`
-header. The project setting above disables storage of IP addresses. Do not enable
+origin to Sentry's infrastructure. The transport requests omission of
+credentials and the `Referer`
+header; mobile network requests pass through Capacitor's native HTTP bridge. The
+project setting above disables storage of IP addresses. Do not enable
 Sentry's recommended automatic integrations without revisiting this policy.
 
 ## Error boundaries and System Monitor
@@ -99,8 +117,10 @@ remounts the failed view. It does not clear the user's cache or identity.
 Unhandled browser errors and promise rejections with application frames are also
 reported.
 
-System Monitor continues to gather its existing local logs through `LogProvider`.
-Actual `Error` objects supplied to `logError` also go through the private adapter;
+System Monitor continues to gather its existing local logs through
+`LogProvider`.
+Actual `Error` objects supplied to `logError` also go through the private
+adapter;
 formatted messages never become remote breadcrumbs. Safe actions appear locally
 as `Activity: explorer.move-to-trash`. The local report and Sentry trail can be
 compared without exporting raw logs.
@@ -108,25 +128,58 @@ Mini-app render failures also enter the local log when Sentry is disabled.
 Activity entries share the local log's existing 1,000-entry retention limit.
 
 All mini-apps record opening and route changes. Explorer additionally records
-root/Trash/folder/document views and explicit context-menu actions. Notes records
+root/Trash/folder/document views and explicit context-menu actions. Notes
+records
 moving documents to Trash; Backup / Restore records export/import actions.
 To instrument another action, use `useDiagnosticBreadcrumb()` or the typed
 `diagnosticAction` prop on `MiniAppButton` / `MenuItem`. Add vocabulary to
-`host/AppDiagnostics.ts` deliberately. Never derive it from text, IDs, or routes.
+`@tearleads/diagnostics/activity` deliberately. Never derive it from text, IDs,
+or routes.
+
+## Mobile and API coverage
+
+Mobile uses the same private JavaScript client, error boundaries, System Monitor
+adapter, and mini-app vocabulary as web. The packaged asset manifest restricts
+frames to exact generated code files, and must match the platform, tier, and
+commit. Pending events flush when the app pauses. Native crash collection,
+watchdogs, native breadcrumbs, and native attachments are disabled; this setup
+captures JavaScript failures inside the WebView.
+
+The API captures unexpected HTTP errors (500+, including temporary database
+failures) and failures during WebSocket handshakes. Expected client errors and
+organization entitlement failures keep their existing responses and stay local.
+Each captured API error has an independent scope and no breadcrumbs, preventing
+activity from different requests from mixing. Background task failures and
+process/native crashes are outside this integration.
 
 ## Source maps and verification
 
-Events use `tearleads-web@<git-sha>` releases and `staging-app` / `production-app`
+Events use `tearleads-web@<git-sha>` releases and `staging-app` /
+`production-app`
 distributions. The deploy script uploads the exact JS and linked maps with
-`app:///` artifact URLs, matching the sanitized stack filenames. Maps are excluded
+`app:///` artifact URLs, matching the sanitized stack filenames. Maps are
+excluded
 from rsync and removed from the public destination if previously deployed.
 Source maps contain application source code; upload tokens stay in the deploy
 process and are not inlined by Bun.
 
-Run the privacy tests in `packages/app-web/scripts/sentry*.test.ts`, the real
-browser diagnostics test, and the app boundary/logging tests before changing this
+Mobile events use `tearleads-android@<git-sha>` or `tearleads-ios@<git-sha>` and
+`staging-app` / `production-app`. Vite emits hidden maps; uploads use
+`app:///assets/` URLs matching the packaged JavaScript frames. Maps are removed
+from `dist` after successful upload. API releases use `tearleads-api@<git-sha>`
+and `staging` / `production`. Bun embeds maps in the executable and resolves
+stacks to source positions before filtering; only allowlisted
+repository-relative
+paths and positions leave the server, without source text or machine paths.
+
+Run the tests in `packages/diagnostics/src`, both native and API diagnostics
+folders, and the privacy tests in `packages/app-web/scripts/sentry*.test.ts`,
+the real
+browser diagnostics test, and the app boundary/logging tests before changing
+this
 integration. They inspect emitted envelopes with synthetic private values.
-After account setup, deploy staging first and confirm an error event arrives with
+After account setup, deploy staging first and confirm an error event arrives
+with
 symbolicated frames, the expected project/release, and only approved breadcrumbs
 before enabling production. SDK transport tests can verify sanitization locally;
 live ingestion and server-side symbolication require the account values above.

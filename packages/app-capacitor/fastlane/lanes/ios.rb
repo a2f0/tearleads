@@ -327,7 +327,7 @@ platform :ios do
     release_build = next_ios_release_build_number(options)
     team_id = require_ios_team_id!(options)
     Dir.chdir(IOS_PACKAGE_DIR) do
-      sh('bun run build')
+      sh('bun run build:release ios')
       sh("bun run #{NATIVE_CAPACITOR_SYNC_SCRIPT} ios")
     end
     ensure_release_ios_capacitor_sync!

@@ -16,6 +16,7 @@
     "@phosphor-icons/react": "2.1.10",
     "@tearleads/client-sdk": "workspace:*",
     "@tearleads/crypto": "workspace:*",
+    "@tearleads/diagnostics": "workspace:*",
     "@tearleads/encoding": "workspace:*",
     "@tearleads/ui": "workspace:*",
     "@tearleads/validators": "workspace:*",
