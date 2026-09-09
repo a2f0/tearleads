@@ -65,6 +65,7 @@ const leafSupportSourceRoots = [
   sourceRoot.crypto,
   sourceRoot.loro,
   sourceRoot.encoding,
+  sourceRoot.diagnostics,
   sourceRoot.validators,
   sourceRoot.sqliteInstance,
   sourceRoot.sqliteWorker,
@@ -386,6 +387,18 @@ const corePackageRules = [
     to: {
       path: allPackageSourceRoots.filter(
         (root) => root !== sourceRoot.validators,
+      ),
+    },
+  },
+  {
+    name: "diagnostics-stays-leaf",
+    severity: "error",
+    comment:
+      "Privacy filtering and diagnostics contracts must not depend on product or server implementation code.",
+    from: { path: sourceRoot.diagnostics, pathNot: testFilesPattern },
+    to: {
+      path: allPackageSourceRoots.filter(
+        (root) => root !== sourceRoot.diagnostics,
       ),
     },
   },

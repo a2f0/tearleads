@@ -7,8 +7,8 @@ import {
   test,
 } from "bun:test";
 import type { Event } from "@sentry/browser";
-import type { SentryPrivacyConfig } from "../src/diagnostics/sentryPrivacy";
-import { createPrivateSentryTransport } from "../src/diagnostics/sentryTransport";
+import type { SentryPrivacyConfig } from "@tearleads/diagnostics/privacy";
+import { createPrivateSentryTransport } from "@tearleads/diagnostics/transport";
 
 type Transport = ReturnType<ReturnType<typeof createPrivateSentryTransport>>;
 type Envelope = Parameters<Transport["send"]>[0];
@@ -98,6 +98,7 @@ test("the transport rejects every non-error item and reconstructs envelope metad
   expect(requests).toHaveLength(1);
   const request = requests[0];
   expect(request?.credentials).toBe("omit");
+  expect(request?.keepalive).toBe(true);
   expect(request?.referrerPolicy).toBe("no-referrer");
   const body = String(request?.body);
   expect(body).not.toContain(secret);

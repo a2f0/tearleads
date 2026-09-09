@@ -5,6 +5,8 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import wasm from "vite-plugin-wasm";
 
+import { sentryAssetsPlugin } from "./scripts/sentryAssetsPlugin";
+
 // Build identity for the System Monitor's Environment tab and support report.
 // The web and electrobun targets get these from scripts/withBuildInfoEnv.sh,
 // which exports `BUN_PUBLIC_*` for Bun's bundler to inline; Vite has no
@@ -45,8 +47,24 @@ Object.assign(process.env, {
   VITE_GIT_SHA: readGitCommit(),
 });
 
+const {
+  VITE_SENTRY_DSN,
+  VITE_SENTRY_COMMIT,
+  VITE_SENTRY_PLATFORM,
+  VITE_SENTRY_ENVIRONMENT,
+} = process.env;
+
 export default defineConfig({
-  plugins: [react(), wasm()],
+  plugins: [
+    react(),
+    wasm(),
+    sentryAssetsPlugin({
+      dsn: VITE_SENTRY_DSN,
+      commit: VITE_SENTRY_COMMIT,
+      platform: VITE_SENTRY_PLATFORM,
+      environment: VITE_SENTRY_ENVIRONMENT,
+    }),
+  ],
   resolve: {
     alias: {
       "@": resolve(import.meta.dirname, "src"),
@@ -62,6 +80,7 @@ export default defineConfig({
   },
   build: {
     outDir: "dist",
+    sourcemap: VITE_SENTRY_DSN ? "hidden" : false,
     target: "esnext",
   },
 });

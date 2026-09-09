@@ -4,7 +4,7 @@ import {
   type SentryPrivacyConfig,
   sanitizeBreadcrumb,
   sanitizeSentryEvent,
-} from "../src/diagnostics/sentryPrivacy";
+} from "@tearleads/diagnostics/privacy";
 
 const secret = "private-document-key-person@example.test";
 const config: SentryPrivacyConfig = {

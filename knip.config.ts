@@ -32,6 +32,10 @@ const baseConfig = {
       entry: ["src/**/*.test.ts"],
       project: ["src/**/*.ts"],
     },
+    "packages/diagnostics": {
+      entry: ["src/**/*.test.ts"],
+      project: ["src/**/*.ts"],
+    },
     "packages/api": {
       // The package test script launches Bun from `scripts/testAllDatabases.ts`;
       // Knip's Bun plugin discovers `test/preload.ts` via `bunfig.toml`. Operator scripts
@@ -246,6 +250,7 @@ const productionConfig = {
       project: productionProject,
     },
     "packages/crypto": { project: productionProject },
+    "packages/diagnostics": { project: productionProject },
     "packages/encoding": { project: productionProject },
     "packages/loro": { project: productionProject },
     "packages/ui": { project: productionProject },

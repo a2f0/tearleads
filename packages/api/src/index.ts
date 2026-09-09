@@ -3,6 +3,7 @@ import {
   initializeApiDatabase,
 } from "@tearleads/api-shared/postgres";
 import { MAX_UPLOAD_PART_BYTES } from "./adapters/blobObjectStore";
+import { captureApiError } from "./diagnostics/sentry";
 import type { RouteRequestBindings } from "./middleware/session";
 import { createRealtimeGateway } from "./realtime/realtimeGateway";
 import type { WebSocketTicketIdentity } from "./realtime/wsIdentity";
@@ -106,7 +107,10 @@ const server = {
     server: ApiServer,
   ): Response | Promise<Response | undefined> {
     if (req.headers.get("upgrade") === "websocket") {
-      return resolveWebSocketUpgrade(req, server);
+      return resolveWebSocketUpgrade(req, server).catch((error: unknown) => {
+        captureApiError(error, "websocket-error");
+        return new Response("Internal Server Error", { status: 500 });
+      });
     }
     return routeApp.fetch(req, createRouteRequestBindings(req, server));
   },

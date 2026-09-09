@@ -1,0 +1,60 @@
+import { expect, spyOn, test } from "bun:test";
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import { HTTPException } from "hono/http-exception";
+import type { SessionEnv } from "../middleware/session";
+import { OrganizationSyncDisabledError } from "../workflows/billing/organizationSyncEligibility";
+import { createApiErrorHandler } from "./errorHandler";
+
+test("API captures unexpected failures, preserves CORS/status, and ignores client errors", async () => {
+  const capture = spyOn({ capture: (_error: unknown) => {} }, "capture");
+  const log = spyOn(console, "error").mockImplementation(() => {});
+  const app = new Hono<SessionEnv>();
+  app.use("*", cors({ origin: "https://app.tearleads.com" }));
+  app.get("/entitlement", () => {
+    throw new OrganizationSyncDisabledError(
+      "synthetic-org",
+      "billing_inactive",
+    );
+  });
+  app.get("/client", () => {
+    throw new HTTPException(401);
+  });
+  app.get("/server", () => {
+    throw new HTTPException(502);
+  });
+  app.get("/unexpected", () => {
+    throw new Error("SYNTHETIC_PRIVATE_SQL");
+  });
+  app.get("/database", () => {
+    throw Object.assign(new Error("SYNTHETIC_PRIVATE_SQL"), {
+      code: "STREAM_EXPIRED",
+    });
+  });
+  app.onError(createApiErrorHandler(capture));
+  try {
+    for (const [path, status] of [
+      ["entitlement", 402],
+      ["client", 401],
+      ["server", 502],
+      ["unexpected", 500],
+      ["database", 503],
+    ] as const) {
+      const response = await app.request(`/${path}`, {
+        headers: { Origin: "https://app.tearleads.com" },
+      });
+      expect(response.status).toBe(status);
+      expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
+        "https://app.tearleads.com",
+      );
+    }
+    expect(capture).toHaveBeenCalledTimes(3);
+    expect(capture).toHaveBeenCalledWith(
+      expect.objectContaining({ code: "STREAM_EXPIRED" }),
+      "request-error",
+    );
+  } finally {
+    log.mockRestore();
+    capture.mockRestore();
+  }
+});
