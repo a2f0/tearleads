@@ -21,18 +21,21 @@ await client.flush();
 await client.close();
 `,
     );
-    const build = Bun.spawn(
-      [
-        process.execPath,
-        "build",
-        "fixture.ts",
-        "--compile",
-        "--sourcemap",
-        "--outfile",
-        "fixture",
-      ],
-      { cwd: directory, stdout: "pipe", stderr: "pipe" },
+    await Bun.write(
+      join(directory, "build.ts"),
+      `
+const result = await Bun.build({
+  entrypoints: ["fixture.ts"], compile: { outfile: "fixture" },
+  target: "bun", sourcemap: "linked",
+});
+if (!result.success) process.exit(1);
+`,
     );
+    const build = Bun.spawn([process.execPath, "build.ts"], {
+      cwd: directory,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
     expect(await build.exited).toBe(0);
     const run = Bun.spawn([join(directory, "fixture")], {
       cwd: tmpdir(),

@@ -1,6 +1,7 @@
 import { makeFetchTransport } from "@sentry/browser";
 import type { ClientOptions, Event } from "@sentry/core";
 import { createSentryEventBudget } from "./budget";
+import { fetchWithTimeout } from "./fetch";
 import { type SentryPrivacyConfig, sanitizeSentryEvent } from "./privacy";
 
 type SentryTransport = ReturnType<ClientOptions["transport"]>;
@@ -15,11 +16,10 @@ export function createPrivateSentryTransport(
   return (options) => {
     const admitEvent = createSentryEventBudget(config.budgetResetMs);
     const transport = makeFetchTransport(options, (url, init) =>
-      fetch(url, {
+      fetchWithTimeout(url, {
         ...init,
         credentials: "omit",
         referrerPolicy: "no-referrer",
-        signal: AbortSignal.timeout(5000),
       }),
     );
     return {

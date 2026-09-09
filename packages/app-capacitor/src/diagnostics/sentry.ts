@@ -1,6 +1,7 @@
 import { App } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
 import { createBrowserDiagnostics } from "@tearleads/diagnostics/browser";
+import { fetchWithTimeout } from "@tearleads/diagnostics/fetch";
 import { resolveNativeSentryConfig } from "./sentryConfig";
 
 export async function configureNativeSentry() {
@@ -13,9 +14,10 @@ export async function configureNativeSentry() {
   try {
     // Read the packaged allowlist before mounting React so initial boundary
     // failures can report. This local request is bounded and fails closed.
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       new URL("/sentry-assets.json", window.location.href),
-      { signal: AbortSignal.timeout(2000) },
+      {},
+      2000,
     );
     if (!response.ok) return undefined;
     const manifest: unknown = await response.json();

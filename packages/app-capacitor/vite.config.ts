@@ -47,10 +47,24 @@ Object.assign(process.env, {
   VITE_GIT_SHA: readGitCommit(),
 });
 
-const { VITE_SENTRY_DSN } = process.env;
+const {
+  VITE_SENTRY_DSN,
+  VITE_SENTRY_COMMIT,
+  VITE_SENTRY_PLATFORM,
+  VITE_SENTRY_ENVIRONMENT,
+} = process.env;
 
 export default defineConfig({
-  plugins: [react(), wasm(), sentryAssetsPlugin()],
+  plugins: [
+    react(),
+    wasm(),
+    sentryAssetsPlugin({
+      dsn: VITE_SENTRY_DSN,
+      commit: VITE_SENTRY_COMMIT,
+      platform: VITE_SENTRY_PLATFORM,
+      environment: VITE_SENTRY_ENVIRONMENT,
+    }),
+  ],
   resolve: {
     alias: {
       "@": resolve(import.meta.dirname, "src"),
