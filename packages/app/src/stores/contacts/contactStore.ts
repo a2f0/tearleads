@@ -258,26 +258,27 @@ async function importKeyFromRuntime(
   }
 
   const isSelf = userIdentity.userId === state.runtime.documents.auth.userId;
-  let contactId: string | null = null;
-  await queueContactWrite(
+  const contactId = await queueContactWrite(
     state,
     "Contacts: failed to import user key.",
     async () => {
-      // Resolve inside the write queue so concurrent imports reuse the first
-      // import's document while separate address books get independent IDs.
+      const containerId = state.runtime.documents.state.containerId;
+      if (!containerId) return null;
+      // Scope imports to their address book while retaining create idempotency
+      // across devices that have not hydrated their local contact projections.
       const existingContact = isSelf
         ? findSelfContact(state.entriesById, userIdentity.userId)
         : findContactByUserId(state.entriesById, userIdentity.userId);
-      contactId = resolveContactWriteTarget(
+      const importedContactId = resolveContactWriteTarget(
         state,
         existingContact?.id ??
-          createDocumentDraft({ documentKind: "contact" }).id,
+          `contact_v1_${containerId}_${userIdentity.userId}`,
       );
       const identity = toResolvedSelfContactIdentity({
         encapsulationPublicKey: userIdentity.encapsulationPublicKey,
         userId: userIdentity.userId,
       });
-      await writeContactPatch(state, contactId, {
+      await writeContactPatch(state, importedContactId, {
         encapsulationPublicKey: userIdentity.encapsulationPublicKey,
         isSelf,
         userId: userIdentity.userId,
@@ -285,14 +286,15 @@ async function importKeyFromRuntime(
       if (isSelf && identity) {
         await removeDuplicateSelfContacts(
           state,
-          contactId,
+          importedContactId,
           identity,
           allowContactStoreOperation,
         );
       }
+      return importedContactId;
     },
   );
-  return contactId;
+  return contactId ?? null;
 }
 
 async function removeContactFromRuntime(

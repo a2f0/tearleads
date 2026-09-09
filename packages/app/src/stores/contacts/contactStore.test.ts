@@ -170,6 +170,7 @@ test("contacts store persists contacts as documents with app-owned projections",
     const documentProjections = await defaultDocumentsPersistence.listDocuments(
       runtime.documents.infra.execSql,
     );
+    expect(documentProjections).toHaveLength(2);
     expect(
       documentProjections
         .map((row) => ({

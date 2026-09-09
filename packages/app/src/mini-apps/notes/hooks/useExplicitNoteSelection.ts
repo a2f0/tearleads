@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { createDocumentDraft } from "../../../stores/documents/documentDraft";
+import { useDocumentDraft } from "../../../stores/documents/useDocumentDraft";
 import type { ActiveNoteSelection, NotesAppProps } from "../types";
 
 export function useExplicitNoteSelection({
@@ -7,6 +7,7 @@ export function useExplicitNoteSelection({
   documentId,
   noteId,
 }: NotesAppProps): ActiveNoteSelection | null {
+  const { draft } = useDocumentDraft({ containerId });
   return useMemo(() => {
     if (
       noteId === undefined &&
@@ -17,9 +18,9 @@ export function useExplicitNoteSelection({
     }
 
     return {
-      noteId: noteId ?? documentId ?? createDocumentDraft({ containerId }).id,
+      noteId: noteId ?? documentId ?? draft.id,
       ...(containerId === undefined ? {} : { containerId }),
       ...(documentId === undefined ? {} : { documentId }),
     };
-  }, [containerId, documentId, noteId]);
+  }, [containerId, documentId, draft.id, noteId]);
 }

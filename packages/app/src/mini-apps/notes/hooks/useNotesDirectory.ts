@@ -5,6 +5,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
 import { createDocumentDraft } from "../../../stores/documents/documentDraft";
+import { useDocumentDraft } from "../../../stores/documents/useDocumentDraft";
 import { useDocumentSummaries } from "../../../stores/documents/useDocumentSummaries";
 import { useDocumentTrash } from "../../shared/trash/useDocumentTrash";
 import type { ActiveNoteSelection } from "../types";
@@ -129,6 +130,7 @@ function useSyncSelectedNote(input: {
 // Trash (org-aware, lazily provisioned) instead of hard-deleting, then keep the
 // selection valid. Extracted from useNotesDirectory to keep that hook focused.
 function useDeleteNote(input: {
+  resetDraft: () => DocumentSummary;
   mergeNoteSummary: (summary: DocumentSummary) => void;
   moveToTrash: (document: DocumentSummary) => Promise<DocumentSummary | null>;
   notes: ReadonlyArray<DocumentSummary>;
@@ -139,6 +141,7 @@ function useDeleteNote(input: {
 }) {
   const appData = useTearleadsRuntime();
   const {
+    resetDraft,
     mergeNoteSummary,
     moveToTrash,
     notes,
@@ -173,7 +176,7 @@ function useDeleteNote(input: {
         // or a new blank note when nothing else remains.
         const nextNoteId =
           visibleNotes.find((entry) => entry.id !== noteId)?.id ??
-          createDocumentDraft().id;
+          resetDraft().id;
         setSelectedNoteId(nextNoteId);
         selectNoteRoute({ noteId: nextNoteId }, { replace: true });
       } catch (error) {
@@ -182,6 +185,7 @@ function useDeleteNote(input: {
     },
     [
       appData.util.logError,
+      resetDraft,
       mergeNoteSummary,
       moveToTrash,
       notes,
@@ -200,10 +204,10 @@ export function useNotesDirectory({
 }: NotesDirectoryInput) {
   const appData = useTearleadsRuntime();
   const explicitNoteId = explicitSelection?.noteId ?? null;
-  const emptyNote = useMemo(
-    () => createDocumentDraft({ containerId: appData.state.containerId }),
-    [appData.state.containerId, appData.state.domainScope],
-  );
+  const { draft: emptyNote, resetDraft } = useDocumentDraft({
+    containerId: appData.state.containerId,
+    scope: appData.state.domainScope,
+  });
   const {
     mergeSummary: mergeNoteSummary,
     ready,
@@ -250,6 +254,7 @@ export function useNotesDirectory({
   );
 
   const deleteNote = useDeleteNote({
+    resetDraft,
     mergeNoteSummary,
     moveToTrash,
     notes,

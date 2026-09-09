@@ -1,7 +1,7 @@
 import type { StoredDocumentKind } from "@tearleads/client-sdk";
-import { type ComponentType, useState } from "react";
+import type { ComponentType } from "react";
 import { DocumentsProvider } from "../../stores/documents/DocumentsProvider";
-import { createDocumentDraft } from "../../stores/documents/documentDraft";
+import { useDocumentDraft } from "../../stores/documents/useDocumentDraft";
 import type { DocumentTypeAppProps } from "../types";
 import { FileDocument } from "./FileDocument";
 
@@ -27,12 +27,11 @@ export function createDocumentTypeApp(
     localId,
     readOnly,
   }: DocumentTypeAppProps) {
-    const [draftId] = useState(
-      () =>
-        createDocumentDraft({ containerId, documentKind: initialDocumentKind })
-          .id,
-    );
-    const resolvedLocalId = localId ?? documentId ?? draftId;
+    const { draft } = useDocumentDraft({
+      containerId,
+      documentKind: initialDocumentKind,
+    });
+    const resolvedLocalId = localId ?? documentId ?? draft.id;
     return (
       <Provider
         localId={resolvedLocalId}
