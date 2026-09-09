@@ -16,7 +16,7 @@ export interface RegisterCurrentIdentityResult {
 
 export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
   const { client: dbClient } = useDatabase();
-  const { userId, containerId, loginWithChallenge } = useCryptoSession();
+  const { userId, containerId, login, loginWithChallenge } = useCryptoSession();
   const { encapsulationKeyPair, signingKeyPair } = useIdentity();
   const tearleads = useTearleads();
   // Demo-only: name each pane's bootstrapped personal org after its peer label
@@ -48,17 +48,24 @@ export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
       return false;
     }
 
+    const identitySnapshot = tearleads.identity.snapshot;
     const response = await tearleads.session.registerIdentity({
       organizationProfileName,
       rosterProfileNickname,
     });
-    if (!response) {
+    if (tearleads.identity.snapshot !== identitySnapshot) {
       return false;
+    }
+    if (!response) {
+      // Registration may have committed before its response was lost. Recover
+      // through proof of key ownership instead of creating another identity.
+      return login();
     }
 
     return loginWithChallenge(response.challenge);
   }, [
     canRegisterCurrentIdentity,
+    login,
     loginWithChallenge,
     organizationProfileName,
     rosterProfileNickname,
