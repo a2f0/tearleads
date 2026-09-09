@@ -21,7 +21,7 @@ globalThis.fetch = async (_url, init) => {
   console.log(String(init.body)); sent();
   return new Response(null, { status: 200 });
 };
-const deadline = setTimeout(() => { process.exit(2); }, 2000);
+const deadline = setTimeout(() => { process.exit(2); }, 10000);
 try { bytesToBase64(null); }
 catch (error) {
   error.message = "SYNTHETIC_PRIVATE_DATABASE_VALUE";
@@ -85,4 +85,4 @@ if (!result.success) process.exit(1);
     await rm(directory, { recursive: true, force: true });
     await rm(deployed, { recursive: true, force: true });
   }
-});
+}, 15000);

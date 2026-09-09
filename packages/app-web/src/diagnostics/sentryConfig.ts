@@ -1,4 +1,9 @@
-import type { SentryPrivacyConfig } from "@tearleads/diagnostics/privacy";
+import {
+  isHostedSentryDsn,
+  isSentryCommit,
+  isSentryEnvironment,
+  type SentryConfig,
+} from "@tearleads/diagnostics/config";
 
 export interface SentryInput {
   dsn: string | undefined;
@@ -9,38 +14,28 @@ export interface SentryInput {
   scriptUrl: string;
 }
 
-export interface SentryConfig extends SentryPrivacyConfig {
-  dsn: string;
-}
-
 export function resolveSentryConfig(
   input: SentryInput,
 ): SentryConfig | undefined {
   // Demo has multiple independent identities on one page. Keep it local, as
   // with development, until it has a scoped integration.
-  if (!input.dsn || input.variant !== "app") return undefined;
-  if (input.environment !== "staging" && input.environment !== "production")
+  if (
+    !input.dsn ||
+    input.variant !== "app" ||
+    !isHostedSentryDsn(input.dsn) ||
+    !isSentryEnvironment(input.environment) ||
+    !isSentryCommit(input.commit)
+  )
     return undefined;
-  if (!input.commit || !/^[a-f0-9]{40}$/u.test(input.commit)) return undefined;
-  let dsn: URL;
   let script: URL;
   try {
-    dsn = new URL(input.dsn);
     script = new URL(input.scriptUrl);
   } catch {
     return undefined;
   }
   if (
     script.origin !== input.origin ||
-    !/^\/chunk-[a-z0-9]+\.js$/u.test(script.pathname) ||
-    dsn.protocol !== "https:" ||
-    !/^[a-f0-9]{32}$/u.test(dsn.username) ||
-    dsn.password ||
-    !/^o\d+\.ingest(?:\.(?:us|de))?\.sentry\.io$/u.test(dsn.hostname) ||
-    dsn.port ||
-    dsn.search ||
-    dsn.hash ||
-    !/^\/\d+$/u.test(dsn.pathname)
+    !/^\/chunk-[a-z0-9]+\.js$/u.test(script.pathname)
   )
     return undefined;
   const config: SentryConfig = {

@@ -49,6 +49,10 @@ test("API captures unexpected failures, preserves CORS/status, and ignores clien
       );
     }
     expect(capture).toHaveBeenCalledTimes(3);
+    expect(capture).toHaveBeenCalledWith(
+      expect.objectContaining({ code: "STREAM_EXPIRED" }),
+      "request-error",
+    );
   } finally {
     log.mockRestore();
     capture.mockRestore();
