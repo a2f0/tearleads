@@ -7,6 +7,7 @@ interface Props extends PropsWithChildren {
   diagnostics?: AppDiagnostics | undefined;
   onRetry?: (() => void) | undefined;
   onError?: ((error: unknown) => void) | undefined;
+  resetKey?: string | undefined;
 }
 
 export class AppErrorBoundary extends Component<Props, { failed: boolean }> {
@@ -14,6 +15,12 @@ export class AppErrorBoundary extends Component<Props, { failed: boolean }> {
 
   static getDerivedStateFromError() {
     return { failed: true };
+  }
+
+  override componentDidUpdate(previous: Props) {
+    if (this.state.failed && previous.resetKey !== this.props.resetKey) {
+      this.setState({ failed: false });
+    }
   }
 
   override componentDidCatch(error: unknown) {

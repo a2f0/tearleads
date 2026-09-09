@@ -61,3 +61,31 @@ test("a reporting failure does not break recovery", () => {
     consoleSpy.mockRestore();
   }
 });
+
+test("navigation recovers a failed view without remounting healthy views", () => {
+  let failed = false;
+  function Child() {
+    if (failed) throw new Error("private");
+    return <p>Healthy</p>;
+  }
+  const consoleSpy = spyOn(console, "error").mockImplementation(() => {});
+  const content = (resetKey: string) => (
+    <AppErrorBoundary area="explorer" resetKey={resetKey}>
+      <Child />
+    </AppErrorBoundary>
+  );
+  try {
+    const view = render(content("first-private-route"));
+    const healthy = view.getByText("Healthy");
+    view.rerender(content("second-private-route"));
+    expect(view.getByText("Healthy")).toBe(healthy);
+    failed = true;
+    view.rerender(content("second-private-route"));
+    expect(view.getByRole("alert")).toBeTruthy();
+    failed = false;
+    view.rerender(content("third-private-route"));
+    expect(view.getByText("Healthy")).toBeTruthy();
+  } finally {
+    consoleSpy.mockRestore();
+  }
+});

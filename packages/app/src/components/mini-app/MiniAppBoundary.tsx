@@ -32,6 +32,7 @@ export function MiniAppBoundary({
       <AppErrorBoundary
         key={appId}
         area={appId}
+        resetKey={routeKey}
         diagnostics={diagnostics}
         onError={(error) => {
           // Keep the message in System Monitor, including on native targets.

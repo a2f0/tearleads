@@ -8,7 +8,7 @@ import {
 } from "../../host/AppHostConfig";
 import { AppHostConfigProvider } from "../host/AppHostConfigProvider";
 import { LocalKeyringLockProvider } from "../local-keyring/LocalKeyringLockProvider";
-import { LogProvider, useLog } from "../logging/LogProvider";
+import { LogProvider, useLogEntries } from "../logging/LogProvider";
 import { SyncModeProvider } from "../sync-mode/SyncModeProvider";
 import { TearleadsProvider, useTearleads } from "./TearleadsProvider";
 
@@ -35,7 +35,7 @@ function LogProbe({
 }: {
   onEntries: (messages: ReadonlyArray<string>) => void;
 }) {
-  const { entries } = useLog();
+  const entries = useLogEntries();
   useEffect(() => {
     onEntries(entries.map((entry) => entry.message));
   }, [entries, onEntries]);

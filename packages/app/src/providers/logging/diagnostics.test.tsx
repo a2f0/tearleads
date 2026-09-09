@@ -15,9 +15,16 @@ test("recording activity does not rerender controls that only write logs", () =>
   let renders = 0;
   function Control() {
     renders++;
+    const { log } = useLog();
     const breadcrumb = useDiagnosticBreadcrumb();
     return (
-      <button type="button" onClick={() => breadcrumb("open")}>
+      <button
+        type="button"
+        onClick={() => {
+          log("Local log entry");
+          breadcrumb("open");
+        }}
+      >
         Open
       </button>
     );

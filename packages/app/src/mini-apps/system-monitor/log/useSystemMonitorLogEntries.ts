@@ -2,7 +2,7 @@ import type { PaneLogEntry } from "../../../components/pane/log/PaneLog";
 import { useBootPaneLogEntries } from "../../../components/pane/log/useBootPaneLogEntries";
 import { useIdentity } from "../../../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../../../providers/local-keyring/LocalKeyringLockProvider";
-import { useLog } from "../../../providers/logging/LogProvider";
+import { useLogEntries } from "../../../providers/logging/LogProvider";
 
 const BOOT_PANE_LOG_MESSAGE =
   "Generate a key pair from the pane menu to boot this pane.";
@@ -32,7 +32,7 @@ export function useSystemMonitorBootLogEntries(): ReadonlyArray<PaneLogEntry> {
  * than re-deriving which trailing entries the tab would have appended.
  */
 export function useSystemMonitorLogEntries(): ReadonlyArray<PaneLogEntry> {
-  const { entries } = useLog();
+  const entries = useLogEntries();
   const bootEntries = useSystemMonitorBootLogEntries();
 
   return [...entries, ...bootEntries];

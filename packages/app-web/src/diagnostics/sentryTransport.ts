@@ -3,6 +3,7 @@ import {
   type Event,
   makeFetchTransport,
 } from "@sentry/browser";
+import { createSentryEventBudget } from "./sentryBudget";
 import { type SentryPrivacyConfig, sanitizeSentryEvent } from "./sentryPrivacy";
 
 type SentryTransport = ReturnType<NonNullable<BrowserOptions["transport"]>>;
@@ -16,6 +17,7 @@ export function createPrivateSentryTransport(
   config: SentryPrivacyConfig,
 ): NonNullable<BrowserOptions["transport"]> {
   return (options) => {
+    const admitEvent = createSentryEventBudget();
     const transport = makeFetchTransport({
       ...options,
       fetchOptions: { credentials: "omit", referrerPolicy: "no-referrer" },
@@ -29,7 +31,8 @@ export function createPrivateSentryTransport(
         for (const item of envelope[1]) {
           if (!isEventItem(item)) continue;
           const event = sanitizeSentryEvent(item[1], config);
-          if (event) items.push([{ type: "event" }, event]);
+          if (event && admitEvent(event))
+            items.push([{ type: "event" }, event]);
         }
         return items.length
           ? transport.send([

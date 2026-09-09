@@ -47,7 +47,6 @@ test("crypto session context changes only with its exposed state", async () => {
   const spies = [
     spyOn(TearleadsProvider, "useTearleads").mockReturnValue(tearleads),
     spyOn(LogProvider, "useLog").mockReturnValue({
-      entries: [],
       log: () => undefined,
       logError: () => undefined,
     }),

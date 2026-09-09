@@ -55,6 +55,9 @@ server for browser diagnostics.
 The adapter uses a private Sentry client and scope with **no automatic SDK
 integrations**. It rebuilds each error from an allowlist before sending and repeats
 that validation at the transport boundary. Only error envelopes can leave.
+Repeated sanitized error locations are reported once per page load, with limits
+of five distinct errors per minute and twenty per page load. Excess reports are
+dropped locally to bound retry-loop traffic and protect the project quota.
 
 Allowed:
 
