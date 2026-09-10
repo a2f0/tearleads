@@ -12,6 +12,33 @@ import { SahPoolStepTimeoutError } from "../src/sahPoolHangTimeout";
 
 type SahPoolUtil = Awaited<ReturnType<Sqlite3Static["installOpfsSAHPoolVfs"]>>;
 
+test("SAHPool storage names preserve existing normalization", () => {
+  const cases = [
+    ["", "default"],
+    [" //// ", "default"],
+    ["___", "default"],
+    ["__..__", "default"],
+    ["__a.b__", "a.b"],
+    ["__a_b__", "a_b"],
+    [" /a//b 🦭 c/ ", "a_b_c"],
+    ["__a-_b__", "a-_b"],
+  ] as const;
+  for (const [input, segment] of cases) {
+    expect(persistentSahPoolStorageForDbName(input)).toEqual({
+      directory: `/tearleads-sqlite/${segment}`,
+      vfsName: `tearleads-opfs-sahpool-${segment}`,
+    });
+  }
+});
+
+test("SAHPool storage names preserve long internal underscore runs", () => {
+  const segment = `a${"_".repeat(100_000)}b`;
+  expect(persistentSahPoolStorageForDbName(`__${segment}__`)).toEqual({
+    directory: `/tearleads-sqlite/${segment}`,
+    vfsName: `tearleads-opfs-sahpool-${segment}`,
+  });
+});
+
 // A DOMException-like error matching the browser's lock-contention failure: the
 // new worker's SAHPool install collides with the previous worker's not-yet-freed
 // OPFS access handles. We can't reproduce real OPFS in Bun, so we model the exact

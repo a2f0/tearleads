@@ -183,7 +183,11 @@ export function normalizeApiBaseUrl(
     return "";
   }
 
-  return trimmed.replace(/\/+$/u, "");
+  let end = trimmed.length;
+  while (end > 0 && trimmed[end - 1] === "/") {
+    end -= 1;
+  }
+  return trimmed.slice(0, end);
 }
 
 export function hasHeader(
