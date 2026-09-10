@@ -27,6 +27,11 @@ Options:
   --log <path>  Read a specific log file.
   --log-path    Print the default log path and exit.
   -h, --help    Show this help and exit.
+
+Environment:
+  PUSH_GATE_TIMINGS_LOG  Overrides the default log path. The pre-push hook asks
+                         this script where to write, so setting it redirects the
+                         recording too — which is how the hook is tested.
 EOF
 }
 
@@ -67,7 +72,7 @@ done
 # Inside the git directory rather than the worktree: the log is per-checkout
 # scratch, it must never be committable, and a linked worktree keeps its own.
 if [ -z "$LOG_FILE" ]; then
-  LOG_FILE="$(git rev-parse --absolute-git-dir)/tearleads/pushGateTimings.tsv"
+  LOG_FILE="${PUSH_GATE_TIMINGS_LOG:-$(git rev-parse --absolute-git-dir)/tearleads/pushGateTimings.tsv}"
 fi
 
 if [ "$PRINT_LOG_PATH" = true ]; then

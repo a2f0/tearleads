@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
+import { chmodSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -134,6 +134,41 @@ test("a run that dies mid-step records the step it stopped in", async () => {
   `);
 
   expect(await Bun.file(file).text()).toContain("\tunfinished=tests\t");
+});
+
+test("a failing check stops the gate, and is recorded as the last step", async () => {
+  // The real hook, with `bun` stubbed to fail: its first check runs `bun run
+  // lint:branch-name`, so the gate dies in its first step. Everything the
+  // recording depends on — errexit, the EXIT trap, the refs file — is the
+  // hook's own wiring, which is only worth asserting against the hook itself.
+  const stubDirectory = mkdtempSync(join(tmpdir(), "stepTimings-bin-"));
+  await Bun.write(join(stubDirectory, "bun"), "#!/bin/sh\nexit 3\n");
+  chmodSync(join(stubDirectory, "bun"), 0o755);
+  const file = newLogPath();
+
+  const result = Bun.spawnSync({
+    cmd: ["sh", join(repoRoot, "scripts/git/hooks/pre-push"), "origin", "url"],
+    cwd: repoRoot,
+    env: {
+      ...process.env,
+      PATH: `${stubDirectory}:${process.env.PATH}`,
+      PUSH_GATE_TIMINGS_LOG: file,
+    },
+    stdin: Buffer.from(`refs/heads/x abc123 refs/heads/x def456\n`),
+  });
+
+  // The check's own status reaches git, so a failed gate still refuses the push.
+  expect(result.exitCode).toBe(3);
+  const output = result.stdout.toString();
+  expect(output).toContain("--- [branch-name] bun run lint:branch-name ---");
+  expect(output).not.toContain("[shellcheck]");
+  expect(output).not.toContain("All checks passed.");
+
+  const written = await Bun.file(file).text();
+  expect(written).toContain("\tstatus=failed\t");
+  expect(written).toContain("\tunfinished=branch-name\t");
+  expect(written).toContain("\thead=abc123\t");
+  expect(written).not.toContain("step\tbranch-name");
 });
 
 test("the log keeps only the most recent runs", async () => {
