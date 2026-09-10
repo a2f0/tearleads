@@ -1,9 +1,6 @@
 import type { OrganizationBillingStatus } from "@tearleads/validators/response";
 
 export const ORG_MANAGER_LABELS = {
-  personalOrganizationOwner: "Personal organization owner",
-  personalOrganizationOwnerProtection:
-    "The owner must remain an active member and admin of their personal organization.",
   add: "Add",
   addUser: "Add user",
   authenticate: "Authenticate to manage an organization.",
@@ -226,6 +223,9 @@ export const ORG_MANAGER_LABELS = {
     "The organization profile hasn't synced yet. Try Refresh.",
   open: "Open",
   openRosterEntryAction: "Open Roster Entry",
+  personalOrganizationOwner: "Personal organization owner",
+  personalOrganizationOwnerProtection:
+    "The owner must remain an active member and admin of their personal organization.",
   policyChangeAdded: "added",
   policyChangeAddedAs: "added as",
   policyChangeChangedFrom: "changed from",

@@ -1,5 +1,11 @@
 import { afterEach, expect, test } from "bun:test";
-import { cleanup, fireEvent, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import invariant from "invariant";
 import {
   getPaneUserId,
@@ -61,7 +67,7 @@ test("Peer 2 cannot remove Peer 1 from the personal org after becoming an admin"
   // Bypass the UI and send the fully signed group + org successors produced
   // by the real SDK, including container rekeying for the shrinking Admins set.
   const requestStart = listProxiedApiRequests().length;
-  await interact(async () => {
+  await act(async () => {
     await expect(
       rightRuntime.organizations.removeUserFromGroup({
         groupId: admins.groupId,

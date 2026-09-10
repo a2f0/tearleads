@@ -59,7 +59,10 @@ test("the personal owner is protected in Admins but removable from an ordinary g
       groupId: group.groupId,
       organizationId: group.organizationId,
       members: ["owner", "peer"].map((userId) => ({
-        ...owner,
+        signingKeyFingerprint: owner.signingKeyFingerprint,
+        signingPublicKey: owner.signingPublicKey,
+        encapsulationKeyFingerprint: owner.encapsulationKeyFingerprint,
+        encapsulationPublicKey: owner.encapsulationPublicKey,
         userId,
         role: "admin" as const,
       })),

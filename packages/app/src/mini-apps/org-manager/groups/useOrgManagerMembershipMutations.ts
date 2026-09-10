@@ -127,6 +127,7 @@ async function removeUserFromSelectedGroup(
         user.userId === removedUserId && user.isPersonalOrganizationOwner,
     )
   ) {
+    params.setError(ORG_MANAGER_LABELS.personalOrganizationOwnerProtection);
     return;
   }
   if (params.selectedGroupName === null) {

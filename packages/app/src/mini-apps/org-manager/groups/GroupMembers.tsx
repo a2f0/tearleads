@@ -84,6 +84,9 @@ export function GroupMembers({
                   </strong>
                   <MiniAppRowText muted>
                     {getOrgManagerPolicyRoleLabel(member.role)}
+                    {member.userId === protectedUserId
+                      ? ` · ${ORG_MANAGER_LABELS.personalOrganizationOwner}`
+                      : null}
                   </MiniAppRowText>
                 </MiniAppRowButton>
                 <MiniAppButton
