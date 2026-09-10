@@ -19,6 +19,7 @@ import {
   openContacts,
   openExplorer,
   openNotes,
+  PANE_ASYNC_TEST_TIMEOUT_MS,
   PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
 } from "../../../../test/helpers/paneTestUtils";
 import { CONTACTS_LABELS } from "../../../mini-apps/contacts/labels";
@@ -82,14 +83,17 @@ test(
     await registerAndWaitForUserId(view);
     const contactsWindow = await openContacts(view);
 
-    await waitFor(() => {
-      expect(
-        within(contactsWindow).getByText(CONTACTS_LABELS.emptyState),
-      ).toBeTruthy();
-      expect(
-        within(contactsWindow).queryByText(CONTACTS_LABELS.loadingState),
-      ).toBeNull();
-    });
+    await waitFor(
+      () => {
+        expect(
+          within(contactsWindow).getByText(CONTACTS_LABELS.emptyState),
+        ).toBeTruthy();
+        expect(
+          within(contactsWindow).queryByText(CONTACTS_LABELS.loadingState),
+        ).toBeNull();
+      },
+      { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
+    );
   },
   PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
 );

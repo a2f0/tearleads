@@ -1,10 +1,11 @@
 import { spawnSync } from "node:child_process";
-import { trackedShellScripts } from "./checks/shellScripts";
+import { shellScriptInventory } from "./checks/shellScripts";
 
-const files = trackedShellScripts(process.cwd());
+const { root, files } = shellScriptInventory(process.cwd());
 console.log(`ShellCheck: ${files.length} tracked shell scripts`);
 if (files.length > 0) {
   const result = spawnSync("shellcheck", ["--severity=info", "--", ...files], {
+    cwd: root,
     stdio: "inherit",
   });
   if (result.error) throw result.error;

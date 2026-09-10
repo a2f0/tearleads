@@ -17,9 +17,13 @@ export function fixture() {
   const cwd = mkdtempSync(join(tmpdir(), "tearleads-static-analysis-"));
   // Hooks export Git variables for the caller's checkout. Nested fixtures must
   // never use that checkout's index, worktree, or object database.
-  const env = Object.fromEntries(
-    Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
-  );
+  const env = {
+    ...Object.fromEntries(
+      Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
+    ),
+    GIT_CONFIG_GLOBAL: "/dev/null",
+    GIT_CONFIG_SYSTEM: "/dev/null",
+  };
   const git = (...args: string[]) =>
     execFileSync(
       "git",

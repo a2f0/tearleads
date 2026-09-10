@@ -34,8 +34,10 @@ policy; a category never exempts a file from checking.
 
 `bun run lint:scripts` and pre-push use the same `git ls-files` inventory. It
 includes `.sh` files at any depth and shell shebangs, including extensionless
-Git hooks. Filename spaces and newlines are preserved. Stage new files before
-running the command.
+Git hooks. Filename spaces and newlines are preserved. Invoking from a
+subdirectory still checks the repository root. The inventory reads only a file
+prefix to identify shebangs and skips missing working files and directories.
+Stage new files before running the command.
 
 Explicit exceptions live in `scripts/checks/shellScripts.ts`: the generated
 Gradle wrapper and the two Ansible Jinja shell templates. The wrapper is
