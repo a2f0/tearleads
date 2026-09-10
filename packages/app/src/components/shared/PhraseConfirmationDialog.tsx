@@ -17,6 +17,8 @@ import {
 import "./PhraseConfirmationDialog.css";
 
 interface PhraseConfirmationDialogProps {
+  readonly busy?: boolean;
+  readonly error?: string | null;
   /** Label of the submit button, enabled only once `phrase` is typed. */
   readonly confirmLabel: string;
   readonly isOpen: boolean;
@@ -33,6 +35,8 @@ interface PhraseConfirmationDialogProps {
  * has to type out, so the confirmation cannot be clicked through reflexively.
  */
 export function PhraseConfirmationDialog({
+  busy = false,
+  error,
   confirmLabel,
   isOpen,
   onCancel,
@@ -59,7 +63,7 @@ export function PhraseConfirmationDialog({
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!confirmed) {
+    if (!confirmed || busy) {
       return;
     }
 
@@ -91,6 +95,7 @@ export function PhraseConfirmationDialog({
               to continue
             </span>
             <MiniAppInput
+              disabled={busy}
               autoComplete="off"
               autoFocus
               id={inputId}
@@ -99,11 +104,12 @@ export function PhraseConfirmationDialog({
               onChange={(event) => setConfirmationText(event.target.value)}
             />
           </MiniAppField>
+          {error && <p role="alert">{error}</p>}
           <MiniAppActions>
-            <MiniAppButton onClick={onCancel} type="button">
+            <MiniAppButton disabled={busy} onClick={onCancel} type="button">
               Cancel
             </MiniAppButton>
-            <MiniAppButton disabled={!confirmed} type="submit">
+            <MiniAppButton disabled={!confirmed || busy} type="submit">
               {confirmLabel}
             </MiniAppButton>
           </MiniAppActions>

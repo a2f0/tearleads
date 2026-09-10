@@ -177,6 +177,8 @@ function IdentityManagerLayout(model: IdentityManagerModel) {
       </main>
       {isDestroyKeyPackageDialogOpen && (
         <DestroyKeyPackageConfirmationDialog
+          busy={identityMutations.destroying}
+          error={identityMutations.destroyError}
           isOpen={isDestroyKeyPackageDialogOpen}
           onCancel={identityMutations.closeDestroyKeyPackageDialog}
           onConfirm={identityMutations.confirmDestroyKeyPackage}
