@@ -5,7 +5,7 @@ import {
 } from "../../../test/helpers/databaseRuntimeFactories";
 import {
   logSQLiteRuntimeReuseUnavailable,
-  resetReusableSQLiteRuntimeDatabase,
+  resetSQLiteRuntimeDatabase,
   SQLiteRuntimeResetError,
 } from "./sqliteRuntimeRetention";
 
@@ -29,7 +29,7 @@ test("a close timeout terminates instead of reusing an open database", async () 
   const runtime = runtimeFactory.createSQLiteRuntime();
 
   await expect(
-    resetReusableSQLiteRuntimeDatabase(runtime, "close", 1),
+    resetSQLiteRuntimeDatabase(runtime, "close", 1),
   ).rejects.toBeInstanceOf(SQLiteRuntimeResetError);
   expect(runtimeFactory.getStats()).toMatchObject({
     closeCount: 1,
@@ -45,7 +45,7 @@ test("a delete failure terminates instead of retaining an unpurged worker", asyn
   const runtime = runtimeFactory.createSQLiteRuntime();
 
   await expect(
-    resetReusableSQLiteRuntimeDatabase(runtime, "delete"),
+    resetSQLiteRuntimeDatabase(runtime, "delete"),
   ).rejects.toBeInstanceOf(SQLiteRuntimeResetError);
   expect(runtimeFactory.getStats()).toMatchObject({
     clientDeleteCount: 1,

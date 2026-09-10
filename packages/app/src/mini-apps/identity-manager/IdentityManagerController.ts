@@ -6,7 +6,6 @@ import {
   useLogoutConfirmationDialogState,
 } from "../../components/shared/useLogoutConfirmation";
 import { useWindowRefreshMenuItem } from "../../components/window/WindowMenuContext";
-import { useAuthenticateAction } from "../../identity/useAuthenticateAction";
 import {
   type RegisterCurrentIdentityResult,
   useRegisterCurrentIdentity,
@@ -23,10 +22,10 @@ import {
 import { useLocalKeyringLock } from "../../providers/local-keyring/LocalKeyringLockProvider";
 import { useLog } from "../../providers/logging/LogProvider";
 import { useTearleads } from "../../providers/sdk/TearleadsProvider";
+import { useIdentityManagerIdentityMutations } from "./actions/useIdentityManagerIdentityMutations";
 import { CURRENT_SESSION_MUTATION_ID } from "./IdentityManagerConstants";
 import { getIdentityState } from "./IdentityManagerIdentityState";
 import { useIdentitySwitcher } from "./switcher/useIdentitySwitcher";
-import type { IdentityBusyState } from "./toolbar/IdentityManagerActionToolbar";
 
 type DatabaseContextValue = ReturnType<typeof useDatabase>;
 type LogContextValue = ReturnType<typeof useLog>;
@@ -193,100 +192,6 @@ function useIdentityManagerSessionMutations({
   return { endSession, logoutCurrentSession, mutatingSessionId };
 }
 
-function useIdentityManagerIdentityMutations({
-  clearSessionError,
-  clearSessions,
-  destroyKey,
-  logError,
-  logout,
-  registerCurrentIdentity,
-}: {
-  clearSessionError: () => void;
-  clearSessions: () => void;
-  destroyKey: IdentityContextValue["destroyKey"];
-  logError: LogContextValue["logError"];
-  logout: CryptoSessionContextValue["logout"];
-  registerCurrentIdentity: () => Promise<boolean>;
-}) {
-  // Authentication (with its network-aware failure reason) is shared with the
-  // Org Manager gate; registration stays local to this view. Merge the two into
-  // the single busy/error the layout renders.
-  // Destructure the stable action fns rather than depending on the hook's
-  // result object, whose identity changes every render and would defeat the
-  // useCallback memoization below.
-  const {
-    authenticate: runAuthenticate,
-    authenticating,
-    clearError: clearAuthError,
-    error: authError,
-  } = useAuthenticateAction();
-  const [registerError, setRegisterError] = useState<string | null>(null);
-  const [registering, setRegistering] = useState(false);
-  const [isDestroyKeyPackageDialogOpen, setDestroyKeyPackageDialogOpen] =
-    useState(false);
-
-  // Registration and authentication share one error line, so each clears the
-  // other's on start — otherwise a stale "Could not register key." would win the
-  // `??` below and mask a later authenticate outcome.
-  const handleRegisterIdentity = useCallback(async () => {
-    setRegistering(true);
-    setRegisterError(null);
-    clearAuthError();
-    try {
-      const registered = await registerCurrentIdentity();
-      if (!registered) {
-        setRegisterError("Could not register key.");
-      }
-    } catch (error: unknown) {
-      logError("Failed to register key", error);
-      setRegisterError("Could not register key.");
-    } finally {
-      setRegistering(false);
-    }
-  }, [clearAuthError, logError, registerCurrentIdentity]);
-
-  const authenticate = useCallback(async () => {
-    setRegisterError(null);
-    await runAuthenticate();
-  }, [runAuthenticate]);
-
-  const requestDestroyKeyPackage = useCallback(() => {
-    setDestroyKeyPackageDialogOpen(true);
-  }, []);
-
-  const closeDestroyKeyPackageDialog = useCallback(() => {
-    setDestroyKeyPackageDialogOpen(false);
-  }, []);
-
-  const confirmDestroyKeyPackage = useCallback(() => {
-    logout();
-    destroyKey();
-    clearSessions();
-    setRegisterError(null);
-    clearAuthError();
-    clearSessionError();
-    setDestroyKeyPackageDialogOpen(false);
-  }, [clearAuthError, clearSessionError, clearSessions, destroyKey, logout]);
-
-  const identityBusy: IdentityBusyState = registering
-    ? "register"
-    : authenticating
-      ? "authenticate"
-      : null;
-  const identityError = registerError ?? authError;
-
-  return {
-    authenticate,
-    closeDestroyKeyPackageDialog,
-    confirmDestroyKeyPackage,
-    handleRegisterIdentity,
-    identityBusy,
-    identityError,
-    isDestroyKeyPackageDialogOpen,
-    requestDestroyKeyPackage,
-  };
-}
-
 /**
  * Wire the logout-confirmation dialog to the session mutations: the dialog owns
  * open state, the mutations own the actual logout, and `onConfirmLogout` bridges
@@ -383,11 +288,12 @@ export function useIdentityManager() {
     clearSessions,
     destroyKey: identity.destroyKey,
     logError,
-    logout: session.logout,
+    signingFingerprint: identity.signingFingerprint,
     registerCurrentIdentity: registration.registerCurrentIdentity,
   });
   const switcherBusy =
     logoutDialog.isOpen ||
+    identityMutations.isDestroyKeyPackageDialogOpen ||
     logoutBusy ||
     identityMutations.identityBusy !== null;
   const identitySwitcher = useIdentitySwitcher(identity, switcherBusy);

@@ -13,10 +13,13 @@ import {
   MiniAppModalBackdrop,
   MiniAppModalForm,
   MiniAppModalPanel,
+  MiniAppStatus,
 } from "../mini-app/MiniAppLayout";
 import "./PhraseConfirmationDialog.css";
 
 interface PhraseConfirmationDialogProps {
+  readonly busy?: boolean;
+  readonly error?: string | null;
   /** Label of the submit button, enabled only once `phrase` is typed. */
   readonly confirmLabel: string;
   readonly isOpen: boolean;
@@ -33,6 +36,8 @@ interface PhraseConfirmationDialogProps {
  * has to type out, so the confirmation cannot be clicked through reflexively.
  */
 export function PhraseConfirmationDialog({
+  busy = false,
+  error,
   confirmLabel,
   isOpen,
   onCancel,
@@ -45,6 +50,7 @@ export function PhraseConfirmationDialog({
   const inputId = useId();
   const titleId = useId();
   const warningId = useId();
+  const errorId = useId();
   const confirmed = confirmationText.trim() === phrase;
 
   useEffect(() => {
@@ -59,7 +65,7 @@ export function PhraseConfirmationDialog({
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!confirmed) {
+    if (!confirmed || busy) {
       return;
     }
 
@@ -91,19 +97,25 @@ export function PhraseConfirmationDialog({
               to continue
             </span>
             <MiniAppInput
+              disabled={busy}
               autoComplete="off"
               autoFocus
               id={inputId}
-              aria-describedby={warningId}
+              aria-describedby={error ? `${warningId} ${errorId}` : warningId}
               value={confirmationText}
               onChange={(event) => setConfirmationText(event.target.value)}
             />
           </MiniAppField>
+          {error && (
+            <MiniAppStatus id={errorId} role="alert" tone="error">
+              {error}
+            </MiniAppStatus>
+          )}
           <MiniAppActions>
-            <MiniAppButton onClick={onCancel} type="button">
+            <MiniAppButton disabled={busy} onClick={onCancel} type="button">
               Cancel
             </MiniAppButton>
-            <MiniAppButton disabled={!confirmed} type="submit">
+            <MiniAppButton disabled={!confirmed || busy} type="submit">
               {confirmLabel}
             </MiniAppButton>
           </MiniAppActions>

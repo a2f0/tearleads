@@ -11,20 +11,17 @@ import type {
 import { type RefObject, useCallback, useEffect, useRef } from "react";
 import { useTearleadsStoreSnapshot } from "../sdk/useTearleadsSubscription";
 import type { ResolveSqliteCipherKey } from "./sqliteCipherKey";
-import { sqliteDbNameForSigningFingerprint } from "./sqliteDbName";
 import { startSQLiteRuntimeBoot } from "./sqliteRuntimeLifecycle";
+import type { SQLiteRuntimeOperation } from "./sqliteRuntimeOperation";
 import {
   canReuseSQLiteRuntime,
   logSQLiteRuntimeReuseUnavailable,
 } from "./sqliteRuntimeRetention";
 import { useReleaseRuntimeOnPageHide } from "./useReleaseRuntimeOnPageHide";
-import {
-  type SQLiteRuntimeOperation,
-  useSQLiteRuntimeActions,
-} from "./useSQLiteRuntimeActions";
+import { useSQLiteRuntimeActions } from "./useSQLiteRuntimeActions";
+import { useSQLiteRuntimeControls } from "./useSQLiteRuntimeControls";
 import { useTransientBootFailureRecovery } from "./useTransientBootFailureRecovery";
 import { useUnreadableDatabaseRecovery } from "./useUnreadableDatabaseRecovery";
-import { waitForReadySQLiteRuntime } from "./waitForReadySQLiteRuntime";
 
 type SQLiteRuntimeStatus = DatabaseStatus;
 
@@ -50,6 +47,8 @@ export interface DatabaseContextValue {
    * other hosts terminate the worker.
    */
   purgeWorker: () => Promise<void>;
+  /** Wipe only this fingerprint's database, including when it is not open. */
+  purgeIdentityDatabase: (signingFingerprint: string) => Promise<void>;
   spawnWorker: () => void;
 }
 
@@ -196,158 +195,6 @@ function useSpawnSQLiteRuntimeForDbName(params: {
     },
     [bootingRef, runtimeOperationRef, spawnRuntime, targetDbNameRef],
   );
-}
-
-function useEnsureReadyForDbName(params: {
-  clearCurrentRuntime: (nextStatus: SQLiteRuntimeStatus) => void;
-  currentDbNameRef: RefObject<string | null>;
-  reuseWorker: boolean;
-  runtimeRef: RefObject<SQLiteRuntime | null>;
-  spawnRuntimeForDbName: (nextDbName: string) => void;
-  targetDbNameRef: RefObject<string>;
-  tearleads: Tearleads;
-}) {
-  const {
-    clearCurrentRuntime,
-    currentDbNameRef,
-    reuseWorker,
-    runtimeRef,
-    spawnRuntimeForDbName,
-    targetDbNameRef,
-    tearleads,
-  } = params;
-  const readinessGenerationRef = useRef(0);
-  const readinessTargetDbNameRef = useRef<string | null>(null);
-  return useCallback(
-    (nextDbName: string) => {
-      if (readinessTargetDbNameRef.current !== nextDbName) {
-        readinessTargetDbNameRef.current = nextDbName;
-        readinessGenerationRef.current += 1;
-      }
-      const readinessGeneration = readinessGenerationRef.current;
-      targetDbNameRef.current = nextDbName;
-      const canReuse = canReuseSQLiteRuntime(reuseWorker, runtimeRef.current);
-      if (
-        !canReuse &&
-        currentDbNameRef.current &&
-        currentDbNameRef.current !== nextDbName
-      ) {
-        clearCurrentRuntime("idle");
-      }
-      if (
-        currentDbNameRef.current === nextDbName &&
-        tearleads.database.status === "error"
-      ) {
-        clearCurrentRuntime("idle");
-      }
-
-      return waitForReadySQLiteRuntime(
-        tearleads,
-        currentDbNameRef,
-        readinessGenerationRef,
-        readinessGeneration,
-        nextDbName,
-        () => spawnRuntimeForDbName(nextDbName),
-      );
-    },
-    [
-      clearCurrentRuntime,
-      currentDbNameRef,
-      reuseWorker,
-      runtimeRef,
-      spawnRuntimeForDbName,
-      targetDbNameRef,
-      tearleads,
-    ],
-  );
-}
-
-function useSQLiteRuntimeControls(params: {
-  clearCurrentRuntime: (nextStatus: SQLiteRuntimeStatus) => void;
-  currentDbNameRef: RefObject<string | null>;
-  destroyCurrentRuntime: (nextStatus: SQLiteRuntimeStatus) => void;
-  log: (message: string) => void;
-  purgeCurrentRuntime: () => Promise<void>;
-  reuseWorker: boolean;
-  runtimeRef: RefObject<SQLiteRuntime | null>;
-  spawnRuntimeForDbName: (nextDbName: string) => void;
-  targetDbNameRef: RefObject<string>;
-  tearleads: Tearleads;
-}) {
-  const {
-    clearCurrentRuntime,
-    currentDbNameRef,
-    destroyCurrentRuntime,
-    log,
-    purgeCurrentRuntime,
-    reuseWorker,
-    runtimeRef,
-    spawnRuntimeForDbName,
-    targetDbNameRef,
-    tearleads,
-  } = params;
-  const ensureReadyForDbName = useEnsureReadyForDbName({
-    clearCurrentRuntime,
-    currentDbNameRef,
-    reuseWorker,
-    runtimeRef,
-    spawnRuntimeForDbName,
-    targetDbNameRef,
-    tearleads,
-  });
-
-  const spawnRuntime = useCallback(() => {
-    spawnRuntimeForDbName(targetDbNameRef.current);
-  }, [spawnRuntimeForDbName]);
-
-  const ensureReady = useCallback(
-    () => ensureReadyForDbName(targetDbNameRef.current),
-    [ensureReadyForDbName],
-  );
-
-  const ensureIdentityReady = useCallback(
-    (signingFingerprint: string) =>
-      ensureReadyForDbName(
-        sqliteDbNameForSigningFingerprint(signingFingerprint),
-      ),
-    [ensureReadyForDbName],
-  );
-
-  // Detach SDK consumers, close the decrypted database, and retain a capable
-  // physical worker for the next boot.
-  const clearWorker = useCallback(() => {
-    clearCurrentRuntime("idle");
-  }, [clearCurrentRuntime]);
-
-  // Identity changes use the same safe close-and-renew path. In particular, a
-  // failed creation with no rollback target cannot leave the old DB open.
-  const clearWorkerForIdentitySwitch = useCallback(() => {
-    clearCurrentRuntime("idle");
-  }, [clearCurrentRuntime]);
-
-  const killWorker = useCallback(() => {
-    if (!runtimeRef.current) {
-      return;
-    }
-
-    destroyCurrentRuntime("terminated");
-    log("Worker killed");
-  }, [destroyCurrentRuntime, log]);
-
-  const purgeWorker = useCallback(async () => {
-    await purgeCurrentRuntime();
-    log("Local database wiped");
-  }, [log, purgeCurrentRuntime]);
-
-  return {
-    clearWorker,
-    clearWorkerForIdentitySwitch,
-    ensureIdentityReady,
-    ensureReady,
-    killWorker,
-    purgeWorker,
-    spawnWorker: spawnRuntime,
-  };
 }
 
 export function useManagedSQLiteRuntime(

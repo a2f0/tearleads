@@ -3,25 +3,31 @@ import { PhraseConfirmationDialog } from "./PhraseConfirmationDialog";
 export const DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE = "confirm delete";
 
 interface DestroyKeyPackageConfirmationDialogProps {
+  readonly busy?: boolean;
+  readonly error?: string | null;
   readonly isOpen: boolean;
   readonly onCancel: () => void;
   readonly onConfirm: () => void;
 }
 
 export function DestroyKeyPackageConfirmationDialog({
+  busy = false,
+  error = null,
   isOpen,
   onCancel,
   onConfirm,
 }: DestroyKeyPackageConfirmationDialogProps) {
   return (
     <PhraseConfirmationDialog
-      confirmLabel="Destroy Key Package"
+      busy={busy}
+      error={error}
+      confirmLabel={busy ? "Deleting local data..." : "Destroy Key Package"}
       isOpen={isOpen}
       onCancel={onCancel}
       onConfirm={onConfirm}
       phrase={DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE}
       title="Destroy key package"
-      warning="This is a non-recoverable operation. The local private keys and persisted key package for this pane will be permanently destroyed."
+      warning="This is a non-recoverable operation. Completing it permanently deletes this identity's local private keys, saved key package, database, and stored files. Other identities and data on the server will remain."
     />
   );
 }

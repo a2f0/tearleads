@@ -11,7 +11,8 @@ export function PaneMenu({
   position: MenuPosition;
   onClose: () => void;
 }) {
-  const { generateKey, signingKeyPair } = useIdentity();
+  const { generateKey, identityTransitionInFlight, signingKeyPair } =
+    useIdentity();
   const localKeyringLock = useLocalKeyringLock();
   const hasSigningKeyPair = signingKeyPair !== null;
   const paneLocked = localKeyringLock.isLocked && !hasSigningKeyPair;
@@ -23,6 +24,7 @@ export function PaneMenu({
   return (
     <Menu position={position} onClose={onClose}>
       <PaneContextMenuItems
+        identityTransitionInFlight={identityTransitionInFlight}
         hasSigningKeyPair={hasSigningKeyPair}
         paneLocked={paneLocked}
         position={position}
