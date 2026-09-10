@@ -145,13 +145,14 @@ test("a failing check stops the gate, and is recorded as the last step", async (
   await Bun.write(join(stubDirectory, "bun"), "#!/bin/sh\nexit 3\n");
   chmodSync(join(stubDirectory, "bun"), 0o755);
   const file = newLogPath();
+  const { PATH = "" } = process.env;
 
   const result = Bun.spawnSync({
     cmd: ["sh", join(repoRoot, "scripts/git/hooks/pre-push"), "origin", "url"],
     cwd: repoRoot,
     env: {
       ...process.env,
-      PATH: `${stubDirectory}:${process.env.PATH}`,
+      PATH: `${stubDirectory}:${PATH}`,
       PUSH_GATE_TIMINGS_LOG: file,
     },
     stdin: Buffer.from(`refs/heads/x abc123 refs/heads/x def456\n`),
