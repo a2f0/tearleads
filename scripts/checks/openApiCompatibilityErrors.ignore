@@ -1,6 +1,0 @@
-# Issue: personal-owner read-model contract, following the #2246 reproduction.
-# Intentional prelaunch flag day: isPersonalOrganizationOwner expands both strict
-# variants. Older clients reject it; update clients and API together and reset
-# local databases. This exception does not make old clients compatible.
-# Remove as soon as origin/main contains the personal-org owner response field.
-GET /organizations/{organizationId}/read-model added `subschema #1, subschema #2` to the response body `oneOf` list for the response status `200`
