@@ -441,6 +441,9 @@ test(
     );
     confirmDestroyKeyPackage(view);
 
+    await waitFor(() => {
+      expect(view.queryByRole("dialog")).toBeNull();
+    });
     await generateIdentityAndWaitForDb(view);
     const secondPublicKey = getPanePublicKey(view);
 

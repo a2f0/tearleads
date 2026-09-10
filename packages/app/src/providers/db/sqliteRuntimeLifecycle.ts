@@ -15,7 +15,7 @@ import {
   logSQLiteRuntimeReuseUnavailable,
   type ReusableSQLiteRuntime,
   renewReusableSQLiteRuntime,
-  resetReusableSQLiteRuntimeDatabase,
+  resetSQLiteRuntimeDatabase,
   SQLiteRuntimeResetError,
 } from "./sqliteRuntimeRetention";
 
@@ -357,7 +357,7 @@ function bootReusableSQLiteRuntimeForDbName(
     if (resetDatabase) {
       // Never proceed after a rejected or timed-out close: that could leave the
       // decrypted outgoing database open beside the replacement connection.
-      await resetReusableSQLiteRuntimeDatabase(existingRuntime, "close");
+      await resetSQLiteRuntimeDatabase(existingRuntime, "close");
       if (runtimeRef.current !== existingRuntime) {
         return;
       }

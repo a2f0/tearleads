@@ -6,28 +6,19 @@ import {
 import { type RefObject, useCallback, useMemo } from "react";
 import { unknownErrorMessage } from "../../utils/unknownErrorMessage";
 import {
+  type RuntimeRefs,
+  type SQLiteRuntimeOperation,
+  trackRuntimeOperation,
+} from "./sqliteRuntimeOperation";
+import {
   canReuseSQLiteRuntime,
   logSQLiteRuntimeReuseUnavailable,
   type ReusableSQLiteRuntime,
   releaseSQLiteRuntime,
   renewReusableSQLiteRuntime,
-  resetReusableSQLiteRuntimeDatabase,
+  resetSQLiteRuntimeDatabase,
   type SQLiteRuntimeResetMode,
 } from "./sqliteRuntimeRetention";
-
-export interface SQLiteRuntimeOperation {
-  readonly kind: "close" | "delete" | "purge" | "release";
-  readonly promise: Promise<void>;
-  readonly runtime: SQLiteRuntime | null;
-}
-
-interface RuntimeRefs {
-  readonly bootGenerationRef: RefObject<number>;
-  readonly bootingRef: RefObject<boolean>;
-  readonly currentDbNameRef: RefObject<string | null>;
-  readonly runtimeOperationRef: RefObject<SQLiteRuntimeOperation | null>;
-  readonly runtimeRef: RefObject<SQLiteRuntime | null>;
-}
 
 function clearRuntimeState(
   refs: RuntimeRefs,
@@ -38,30 +29,6 @@ function clearRuntimeState(
   refs.bootingRef.current = false;
   refs.currentDbNameRef.current = null;
   tearleads.database.clear(status);
-}
-
-function trackRuntimeOperation(
-  refs: RuntimeRefs,
-  runtime: SQLiteRuntime | null,
-  result: Promise<void>,
-  kind: SQLiteRuntimeOperation["kind"],
-): Promise<void> {
-  let operation!: SQLiteRuntimeOperation;
-  const settled = result.then(
-    () => {},
-    () => {},
-  );
-  operation = {
-    kind,
-    promise: settled.finally(() => {
-      if (refs.runtimeOperationRef.current === operation) {
-        refs.runtimeOperationRef.current = null;
-      }
-    }),
-    runtime,
-  };
-  refs.runtimeOperationRef.current = operation;
-  return result;
 }
 
 function terminateRuntime(
@@ -97,8 +64,7 @@ function retainRuntimeAfterReset(params: {
   readonly log: (message: string) => void;
 }): Promise<void> {
   const { refs, runtime, mode, log } = params;
-  let operation!: SQLiteRuntimeOperation;
-  const result = resetReusableSQLiteRuntimeDatabase(runtime, mode)
+  const result = resetSQLiteRuntimeDatabase(runtime, mode)
     .then(() => {
       // A purge may synchronously chain a name-based removal behind this close
       // and replace the operation gate. Runtime ownership is the authoritative
@@ -116,21 +82,7 @@ function retainRuntimeAfterReset(params: {
       );
       throw error;
     });
-  const settled = result.then(
-    () => {},
-    () => {},
-  );
-  operation = {
-    kind: mode,
-    promise: settled.finally(() => {
-      if (refs.runtimeOperationRef.current === operation) {
-        refs.runtimeOperationRef.current = null;
-      }
-    }),
-    runtime,
-  };
-  refs.runtimeOperationRef.current = operation;
-  return result;
+  return trackRuntimeOperation(refs, runtime, result, mode);
 }
 
 function purgeCapturedDatabaseAfterOperation(params: {
@@ -271,16 +223,60 @@ async function purgeSQLiteRuntime(params: {
   if (runtime) {
     logSQLiteRuntimeReuseUnavailable(reuseWorker, runtime, log);
     refs.runtimeRef.current = null;
-    const result = runtime.deleteData().catch((error: unknown) => {
-      runtime.terminateNow();
-      throw error;
-    });
+    // deleteData() is best-effort in the SDK and can resolve after a failure or
+    // timeout. Destructive UI needs the actual delete acknowledgement.
+    const result = resetSQLiteRuntimeDatabase(runtime, "delete").finally(() =>
+      runtime.terminateNow(),
+    );
     await trackRuntimeOperation(refs, runtime, result, "delete");
     return;
   }
   if (dbName) {
     await purgeCapturedDatabase({ dbName, refs, runtime: null });
   }
+}
+
+function usePurgeSQLiteRuntime({
+  log,
+  refs,
+  reuseWorker,
+  targetDbNameRef,
+  tearleads,
+}: {
+  readonly log: (message: string) => void;
+  readonly refs: RuntimeRefs;
+  readonly reuseWorker: boolean;
+  readonly targetDbNameRef: RefObject<string>;
+  readonly tearleads: Tearleads;
+}) {
+  return useCallback(
+    (requestedDbName?: string) => {
+      const dbName =
+        requestedDbName ??
+        refs.currentDbNameRef.current ??
+        targetDbNameRef.current;
+      if (requestedDbName && refs.currentDbNameRef.current !== dbName) {
+        // A named wipe must never delete another identity's live database.
+        // Queue behind any release and gate new boots until removal settles.
+        const pending =
+          refs.runtimeOperationRef.current?.promise ?? Promise.resolve();
+        return trackRuntimeOperation(
+          refs,
+          null,
+          pending.then(() => purgeOpfsSqliteDatabase(dbName)),
+          "purge",
+        );
+      }
+      return purgeSQLiteRuntime({
+        dbName,
+        log,
+        refs,
+        reuseWorker,
+        tearleads,
+      });
+    },
+    [log, refs, reuseWorker, targetDbNameRef, tearleads],
+  );
 }
 
 export function useSQLiteRuntimeActions(params: {
@@ -362,17 +358,13 @@ export function useSQLiteRuntimeActions(params: {
     ],
   );
 
-  const purgeCurrentRuntime = useCallback(
-    () =>
-      purgeSQLiteRuntime({
-        dbName: currentDbNameRef.current ?? targetDbNameRef.current,
-        log,
-        refs,
-        reuseWorker,
-        tearleads,
-      }),
-    [currentDbNameRef, log, refs, reuseWorker, targetDbNameRef, tearleads],
-  );
+  const purgeCurrentRuntime = usePurgeSQLiteRuntime({
+    log,
+    refs,
+    reuseWorker,
+    targetDbNameRef,
+    tearleads,
+  });
 
   return useMemo(
     () => ({

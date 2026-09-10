@@ -42,8 +42,8 @@ function timeoutError(mode: SQLiteRuntimeResetMode): Error {
   );
 }
 
-export async function resetReusableSQLiteRuntimeDatabase(
-  runtime: ReusableSQLiteRuntime,
+export async function resetSQLiteRuntimeDatabase(
+  runtime: SQLiteRuntime,
   mode: SQLiteRuntimeResetMode,
   timeoutMs = SQLITE_RUNTIME_RESET_TIMEOUT_MS,
 ): Promise<void> {

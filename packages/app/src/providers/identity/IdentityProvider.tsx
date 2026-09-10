@@ -22,7 +22,6 @@ import { useTearleads } from "../sdk/TearleadsProvider";
 import { useTearleadsStoreSnapshot } from "../sdk/useTearleadsSubscription";
 import { useGenerateKey } from "./localIdentityGeneration";
 import {
-  useDestroyKey,
   useLocalIdentityPersistence,
   useLocalIdentityRestore,
   usePersistLocalIdentity,
@@ -35,11 +34,12 @@ import {
   useImportLocalIdentity,
   useSwitchLocalIdentity,
 } from "./localIdentitySwitching";
+import { useDestroyKey } from "./useDestroyKey";
 
 export interface IdentityContextValue {
   createIdentity: () => Promise<boolean>;
   encapsulationKeyPair: EncapsulationKeyPair | null;
-  destroyKey: () => void;
+  destroyKey: (signingFingerprint: string) => Promise<boolean>;
   generateKey: () => Promise<boolean>;
   /**
    * Whether the user has explicitly destroyed the identity this session. The
@@ -72,8 +72,7 @@ export interface IdentityContextValue {
 const IdentityContext = createContext<IdentityContextValue | null>(null);
 
 interface IdentityProviderActionsInput {
-  /** Closes the database. A capable native host retains its physical worker. */
-  readonly clearDatabase: () => void;
+  readonly purgeIdentityDatabase: (signingFingerprint: string) => Promise<void>;
   /**
    * Close the current database ahead of a transition to a different one while
    * keeping a healthy physical worker alive under host reuse.
@@ -134,7 +133,7 @@ function useLocalIdentitySwitcherActions(
 
 function useIdentityProviderActions(input: IdentityProviderActionsInput) {
   const {
-    clearDatabase,
+    purgeIdentityDatabase,
     ensureIdentityDatabaseReady,
     generationIdRef,
     generationInFlight,
@@ -156,7 +155,9 @@ function useIdentityProviderActions(input: IdentityProviderActionsInput) {
     tearleads,
   });
   const { destroyKey, identityDestroyed } = useDestroyKey({
-    clearDatabase,
+    setTransitionInFlight: input.setTransitionInFlight,
+    transitionInFlightRef: input.transitionInFlightRef,
+    purgeIdentityDatabase,
     generationIdRef,
     generationInFlight,
     localPersistence,
@@ -288,7 +289,7 @@ function usePersistCurrentSession(input: {
 export function IdentityProvider({ children }: PropsWithChildren) {
   const hostConfig = useAppHostConfig();
   const {
-    clearWorker: clearDatabase,
+    purgeIdentityDatabase,
     clearWorkerForIdentitySwitch: clearDatabaseForIdentitySwitch,
     ensureIdentityReady: ensureIdentityDatabaseReady,
   } = useDatabase();
@@ -333,7 +334,7 @@ export function IdentityProvider({ children }: PropsWithChildren) {
     tearleads,
   });
   const identityActions = useIdentityProviderActions({
-    clearDatabase,
+    purgeIdentityDatabase,
     clearDatabaseForIdentitySwitch,
     ensureIdentityDatabaseReady,
     generationIdRef,

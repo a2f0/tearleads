@@ -295,7 +295,7 @@ test("wipes and recreates a persisted database that is unreadable with the resol
     // runtime was created and booted successfully.
     expect(runtimeFactory.getStats()).toEqual({
       createCount: 2,
-      deleteDataCount: 1,
+      clientDeleteCount: 1,
     });
   } finally {
     view.unmount();

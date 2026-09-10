@@ -11,6 +11,7 @@ import { usePaneLockMenuAction } from "./usePaneLockMenuAction";
 import { usePaneWindowMenuActions } from "./usePaneWindowMenuActions";
 
 interface PaneContextMenuItemsProps {
+  identityTransitionInFlight: boolean;
   hasSigningKeyPair: boolean;
   paneLocked: boolean;
   position: MenuPosition;
@@ -19,6 +20,7 @@ interface PaneContextMenuItemsProps {
 }
 
 export function PaneContextMenuItems({
+  identityTransitionInFlight,
   hasSigningKeyPair,
   paneLocked,
   position,
@@ -35,6 +37,7 @@ export function PaneContextMenuItems({
   if (!hasSigningKeyPair && !paneLocked) {
     return (
       <MenuItem
+        disabled={identityTransitionInFlight}
         icon={KeyIcon}
         label="Generate Key Pair"
         onClick={onGenerateKeyPair}
