@@ -21,6 +21,7 @@ bun run lint:branch-name
 
 echo "Running shellcheck..."
 bun run lint:scripts
+echo "Running static-analysis regressions..."
 bun run test:static-analysis
 
 echo "Running terraform linting..."

@@ -61,6 +61,10 @@ See [Bun's override semantics](https://bun.com/docs/pm/overrides#nested-override
 Owner: repository maintainers. Review by **2026-10-10**, or when upgrading the
 named parent, whichever comes first. Remove each override once the parent
 resolves a patched version itself and a fresh audit confirms it.
+`bun run test:static-analysis` fails if an exact parent version named by an
+override disappears from `bun.lock`, requiring its removal or a reviewed update.
+This checks configuration drift; a fresh audit still determines whether the
+replacement dependency is safe.
 
 | Parent/version | Override | Advisory rationale |
 | --- | --- | --- |

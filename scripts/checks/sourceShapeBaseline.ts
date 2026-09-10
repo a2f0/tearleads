@@ -15,6 +15,12 @@ export type SuppressionCounts = Record<
   number
 >;
 
+export interface SourceShapeBaseline {
+  readonly fileSizes: Readonly<Record<string, FileSizeBudget>>;
+  readonly suppressions: Readonly<Record<string, Partial<SuppressionCounts>>>;
+  readonly approvedStarExports: Readonly<Record<string, readonly string[]>>;
+}
+
 function record(value: unknown, context: string): Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(`${context}: expected an object`);
@@ -86,22 +92,22 @@ function suppressions(
 }
 
 function starExports(value: unknown, context: string): readonly string[] {
+  const items: unknown[] = Array.isArray(value) ? value : [];
   if (
-    !Array.isArray(value) ||
-    value.length === 0 ||
-    !value.every(
+    items.length === 0 ||
+    !items.every(
       (item): item is string => typeof item === "string" && item.length > 0,
     ) ||
-    new Set(value).size !== value.length
+    new Set(items).size !== items.length
   ) {
     throw new Error(
       `${context}: expected a nonempty array of distinct export specifiers`,
     );
   }
-  return value;
+  return items;
 }
 
-export function parseSourceShapeBaseline(source: string) {
+export function parseSourceShapeBaseline(source: string): SourceShapeBaseline {
   const baseline = record(JSON.parse(source), "source-shape baseline");
   keys(
     baseline,
