@@ -5,6 +5,7 @@ export {};
 
 interface DevToolsTarget {
   readonly type: string;
+  readonly url?: string;
   readonly webSocketDebuggerUrl?: string;
 }
 
@@ -105,7 +106,9 @@ async function readReadySnapshot(reopen: boolean): Promise<StorageSnapshot> {
       const targets = await readTargets();
       const page = targets.find(
         (target) =>
-          target.type === "page" && target.webSocketDebuggerUrl !== undefined,
+          target.type === "page" &&
+          target.url?.startsWith("http://127.0.0.1:") === true &&
+          target.webSocketDebuggerUrl !== undefined,
       );
       if (!page?.webSocketDebuggerUrl) {
         await delay(200);
