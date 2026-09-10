@@ -1,7 +1,42 @@
 import { expect, test } from "bun:test";
+import { execFileSync } from "node:child_process";
 import { mkdirSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { excludedScripts } from "../shellScripts";
 import { fixture } from "./fixture.testUtils";
+
+test("every ShellCheck exclusion still names a tracked file", () => {
+  const tracked = new Set(
+    execFileSync("git", ["ls-files", "-z"], {
+      cwd: resolve(import.meta.dir, "../../.."),
+      encoding: "utf8",
+      env: Object.fromEntries(
+        Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
+      ),
+    }).split("\0"),
+  );
+  for (const path of excludedScripts.keys()) {
+    expect(
+      tracked.has(path),
+      `Remove stale ShellCheck exclusion: ${path}`,
+    ).toBe(true);
+  }
+});
+
+test("an empty shell inventory cannot silently pass lint", () => {
+  const repo = fixture();
+  try {
+    repo.git("add", ".");
+    const result = Bun.spawnSync(
+      [process.execPath, resolve(import.meta.dir, "../../lintScripts.ts")],
+      { cwd: repo.cwd, env: repo.env, stdout: "pipe", stderr: "pipe" },
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr.toString()).toContain("ShellCheck inventory is empty");
+  } finally {
+    rmSync(repo.cwd, { recursive: true, force: true });
+  }
+});
 
 test("tracked inventory covers nested scripts and shell shebangs with explicit exceptions", () => {
   const repo = fixture();

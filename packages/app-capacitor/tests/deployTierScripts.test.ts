@@ -67,6 +67,10 @@ for (const fixture of fixtures) {
       try {
         await mkdir(dirname(script), { recursive: true });
         await cp(fixture.sourceScript, script);
+        await cp(
+          resolve(dirname(fixture.sourceScript), "stepTimings.sh"),
+          resolve(root, "scripts/stepTimings.sh"),
+        );
         await chmod(script, 0o755);
         await writeExecutable(
           resolve(binDirectory, "git"),

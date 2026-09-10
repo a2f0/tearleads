@@ -3,7 +3,7 @@ import { closeSync, fstatSync, openSync, readSync } from "node:fs";
 import { join } from "node:path";
 
 // These are templates or upstream output, not directly executable source.
-const excludedScripts = new Map([
+export const excludedScripts = new Map([
   [
     "packages/app-capacitor/android/gradlew",
     "generated Gradle wrapper maintained upstream",
