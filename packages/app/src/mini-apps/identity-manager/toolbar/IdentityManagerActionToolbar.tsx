@@ -4,7 +4,6 @@ import {
 } from "../../../components/mini-app/MiniAppLayout";
 
 export type IdentityBusyState =
-  | "destroy"
   | "authenticate"
   | "register"
   | "transition"

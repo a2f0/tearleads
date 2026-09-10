@@ -36,15 +36,16 @@ export function useIdentityManagerIdentityMutations({
   } = useAuthenticateAction();
   const [registerError, setRegisterError] = useState<string | null>(null);
   const [registering, setRegistering] = useState(false);
+  const onDestroyed = useCallback(() => {
+    clearSessions();
+    setRegisterError(null);
+    clearAuthError();
+    clearSessionError();
+  }, [clearSessions, clearAuthError, clearSessionError]);
   const destroyDialog = useDestroyIdentityDialog({
     destroyKey,
     signingFingerprint,
-    onDestroyed: () => {
-      clearSessions();
-      setRegisterError(null);
-      clearAuthError();
-      clearSessionError();
-    },
+    onDestroyed,
   });
 
   // Registration and authentication share one error line, so each clears the
@@ -73,7 +74,7 @@ export function useIdentityManagerIdentityMutations({
   }, [runAuthenticate]);
 
   const identityBusy: IdentityBusyState = destroyDialog.destroying
-    ? "destroy"
+    ? "transition"
     : registering
       ? "register"
       : authenticating

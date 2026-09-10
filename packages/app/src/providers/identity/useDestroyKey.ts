@@ -37,7 +37,8 @@ export function useDestroyKey(input: {
       if (generationInFlight.current || transitionInFlightRef.current) {
         return false;
       }
-      generationIdRef.current += 1;
+      const generationId = generationIdRef.current + 1;
+      generationIdRef.current = generationId;
       generationInFlight.current = true;
       transitionInFlightRef.current = true;
       setTransitionInFlight(true);
@@ -47,9 +48,9 @@ export function useDestroyKey(input: {
           prepareForIdentityTransition(tearleads);
           tearleads.identity.destroy();
         }
-        // Keep the registry entry until all data is gone so a failed wipe remains
-        // recoverable/retryable, even after reload. Retry uses the captured
-        // fingerprint, not the now-keyless SDK or another selected identity.
+        // Keep saved keys until all data is gone. After a partial failure, reload
+        // restores the saved identity; it does not resume deletion. Dialog retries
+        // use the captured fingerprint rather than the now-keyless SDK.
         await purgeIdentityDatabase(signingFingerprint);
         await purgeOpfsBlobStore(signingFingerprint);
         onIdentityRemoved(signingFingerprint);
@@ -62,7 +63,9 @@ export function useDestroyKey(input: {
         tearleads.logError("Failed to destroy local identity data", error);
         throw error;
       } finally {
-        generationInFlight.current = false;
+        if (generationIdRef.current === generationId) {
+          generationInFlight.current = false;
+        }
         transitionInFlightRef.current = false;
         setTransitionInFlight(false);
       }

@@ -182,6 +182,7 @@ for (const failure of ["sqlite", "blobs", "registry"] as const) {
         ).rejects.toThrow();
       });
       expect((await repository.load()).identities).toHaveLength(2);
+      expect((await repository.load()).activeKeyPackage).toEqual(identityA);
       expect(input.generationInFlight.current).toBe(false);
       expect(input.transitionInFlightRef.current).toBe(false);
       // Another identity can be selected after failure; retry must still target A.
@@ -238,6 +239,28 @@ test("repeated creation and destruction leaves no identity data behind", async (
       expect(opfs.blobs.size).toBe(0);
       expect((await repository.load()).identities).toHaveLength(0);
     }
+  } finally {
+    view.unmount();
+    fixture.dispose();
+  }
+});
+
+test("finishing a wipe does not release a newer generation's in-flight guard", async () => {
+  const fixture = await createFixture();
+  const { identityA, input } = fixture;
+  const purge = input.purgeIdentityDatabase;
+  input.purgeIdentityDatabase = async (fp) => {
+    await purge(fp);
+    input.generationIdRef.current += 1;
+  };
+  const view = renderHook(() => useDestroyKey(input));
+  try {
+    await act(async () => {
+      expect(
+        await view.result.current.destroyKey(identityA.signingFingerprint),
+      ).toBe(true);
+    });
+    expect(input.generationInFlight.current).toBe(true);
   } finally {
     view.unmount();
     fixture.dispose();

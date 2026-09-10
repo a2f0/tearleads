@@ -13,6 +13,7 @@ import {
   MiniAppModalBackdrop,
   MiniAppModalForm,
   MiniAppModalPanel,
+  MiniAppStatus,
 } from "../mini-app/MiniAppLayout";
 import "./PhraseConfirmationDialog.css";
 
@@ -49,6 +50,7 @@ export function PhraseConfirmationDialog({
   const inputId = useId();
   const titleId = useId();
   const warningId = useId();
+  const errorId = useId();
   const confirmed = confirmationText.trim() === phrase;
 
   useEffect(() => {
@@ -99,12 +101,16 @@ export function PhraseConfirmationDialog({
               autoComplete="off"
               autoFocus
               id={inputId}
-              aria-describedby={warningId}
+              aria-describedby={error ? `${warningId} ${errorId}` : warningId}
               value={confirmationText}
               onChange={(event) => setConfirmationText(event.target.value)}
             />
           </MiniAppField>
-          {error && <p role="alert">{error}</p>}
+          {error && (
+            <MiniAppStatus id={errorId} role="alert" tone="error">
+              {error}
+            </MiniAppStatus>
+          )}
           <MiniAppActions>
             <MiniAppButton disabled={busy} onClick={onCancel} type="button">
               Cancel

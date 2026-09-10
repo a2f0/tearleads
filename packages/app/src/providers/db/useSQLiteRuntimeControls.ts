@@ -149,11 +149,13 @@ export function useSQLiteRuntimeControls(params: {
   }, [log, purgeCurrentRuntime]);
 
   const purgeIdentityDatabase = useCallback(
-    (signingFingerprint: string) =>
-      purgeCurrentRuntime(
+    async (signingFingerprint: string) => {
+      await purgeCurrentRuntime(
         sqliteDbNameForSigningFingerprint(signingFingerprint),
-      ),
-    [purgeCurrentRuntime],
+      );
+      log(`Local identity database wiped: ${signingFingerprint}`);
+    },
+    [log, purgeCurrentRuntime],
   );
 
   return {

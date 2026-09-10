@@ -42,7 +42,7 @@ export function useDestroyIdentityDialog({
         setTarget(null);
       } catch {
         setDestroyError(
-          "Could not finish deleting this identity's local data. Retry to complete deletion.",
+          "Deletion failed and may be partial. Retry to complete deletion. Until it succeeds, reloading can restore the saved identity.",
         );
       } finally {
         inFlight.current = false;

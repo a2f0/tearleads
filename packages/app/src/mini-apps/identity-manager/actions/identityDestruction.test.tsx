@@ -106,7 +106,7 @@ for (const failure of ["sqlite", "blobs"] as const) {
       );
       expect(
         view.getByText(
-          /database, and stored files will be permanently deleted/u,
+          /permanently deletes this identity's local private keys/u,
         ),
       ).toBeTruthy();
       fireEvent.change(
@@ -138,6 +138,14 @@ for (const failure of ["sqlite", "blobs"] as const) {
           "Retry to complete deletion",
         );
       });
+      expect(view.getByRole("alert").textContent).toContain(
+        "reloading can restore the saved identity",
+      );
+      expect(
+        view
+          .getByLabelText(/Type confirm delete to continue/u)
+          .getAttribute("aria-describedby"),
+      ).toContain(view.getByRole("alert").id);
       expect(opfs.blobs.has(fingerprint)).toBe(true);
       fireEvent.click(
         view.getByRole("button", { name: "Destroy Key Package" }),

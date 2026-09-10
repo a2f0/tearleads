@@ -27,7 +27,7 @@ export function DestroyKeyPackageConfirmationDialog({
       onConfirm={onConfirm}
       phrase={DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE}
       title="Destroy key package"
-      warning="This is a non-recoverable operation. This identity's local private keys, saved key package, database, and stored files will be permanently deleted. Other identities and data on the server will remain."
+      warning="This is a non-recoverable operation. Completing it permanently deletes this identity's local private keys, saved key package, database, and stored files. Other identities and data on the server will remain."
     />
   );
 }
