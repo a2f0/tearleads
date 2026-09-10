@@ -11,6 +11,12 @@ export default {
     exitOnLastWindowClosed: true,
   },
   build: {
+    linux: {
+      // Electrobun's WebKitGTK worker does not reliably expose the OPFS APIs
+      // required by SQLite's SyncAccessHandle Pool VFS. Use the bundled Chromium
+      // renderer so Linux keeps the encrypted, persistent database contract.
+      bundleCEF: true,
+    },
     mainProcess: "bun",
     bun: {
       entrypoint: "src/bun/index.ts",

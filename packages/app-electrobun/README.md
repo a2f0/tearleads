@@ -24,13 +24,19 @@ runner downloads the paired release once, like the other mise-managed tools.
 Deleting `.hutch/devkit/` requires rerunning preparation before standalone
 `bun tsc --build` or `bun run lint:knip:all` / `bun run lint:knip:production`.
 
-Run `bun run --cwd packages/app-electrobun dev` to start the desktop app, or
+Run `./scripts/runElectrobun.sh` from the repository root (or
+`bun run --cwd packages/app-electrobun dev`) to start the desktop app. Arguments
+such as `--reset` are forwarded to the package launcher. Use
 `bun run --cwd packages/app-electrobun build:dev` to build it. The main process
 continues to use Bun. Renderer settings are explicit build-time defines:
 `BUN_PUBLIC_API_BASE_URL` defaults to localhost, `BUN_PUBLIC_WS_URL` defaults to
 the backend events endpoint, and the build wrapper stamps
 `BUN_PUBLIC_APP_VERSION` and `BUN_PUBLIC_GIT_SHA`. Unset settings compile to
 `undefined`, so a WebView never needs a Node `process` global.
+
+Linux builds bundle Electrobun's CEF renderer. The system WebKitGTK renderer can
+omit worker OPFS APIs required by the encrypted SQLite SyncAccessHandle Pool;
+CEF provides a consistent persistent-storage backend across Linux installations.
 
 See [dependency upgrade notes](../../docs/dependency-upgrades.md) and the
 [Electrobun migration guide](https://github.com/blackboardsh/electrobun/blob/main/docs/src/content/docs/electrobun/guides/migrating-to-v2.mdx)

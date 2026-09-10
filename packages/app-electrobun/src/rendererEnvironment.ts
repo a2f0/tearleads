@@ -15,3 +15,15 @@ export function createRendererEnvironmentDefines(
     ]),
   );
 }
+
+export function createRendererBuildConfig(
+  environment: Readonly<Record<string, string | undefined>>,
+  entrypoint: string,
+): Bun.BuildConfig {
+  return {
+    define: createRendererEnvironmentDefines(environment),
+    entrypoints: [entrypoint],
+    format: "esm",
+    target: "browser",
+  };
+}

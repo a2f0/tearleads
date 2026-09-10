@@ -85,7 +85,11 @@ function failSQLiteRuntimeBoot(params: {
   }
 
   bootingRef.current = false;
-  console.error("Failed to initialize database worker:", error);
+  console.error(
+    "Failed to initialize database worker:",
+    unknownErrorMessage(error),
+    error,
+  );
   tearleads.database.clear("error");
 }
 

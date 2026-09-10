@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import { runInNewContext } from "node:vm";
-import { createRendererEnvironmentDefines } from "./rendererEnvironment";
+import {
+  createRendererBuildConfig,
+  createRendererEnvironmentDefines,
+} from "./rendererEnvironment";
 
 function evaluateRendererEnvironment(
   environment: Record<string, string | undefined>,
@@ -42,5 +45,24 @@ test("desktop build overrides remain literal strings in the browser", () => {
     ws: "wss://api.example.test/events",
     version: 'release-"quoted"',
     commit: "abcdef1",
+  });
+});
+
+test("renderer build config applies the public environment defines", () => {
+  expect(
+    createRendererBuildConfig(
+      { BUN_PUBLIC_API_BASE_URL: "https://api.example.test" },
+      "renderer.html",
+    ),
+  ).toEqual({
+    define: {
+      "process.env.BUN_PUBLIC_API_BASE_URL": '"https://api.example.test"',
+      "process.env.BUN_PUBLIC_APP_VERSION": "undefined",
+      "process.env.BUN_PUBLIC_GIT_SHA": "undefined",
+      "process.env.BUN_PUBLIC_WS_URL": "undefined",
+    },
+    entrypoints: ["renderer.html"],
+    format: "esm",
+    target: "browser",
   });
 });
