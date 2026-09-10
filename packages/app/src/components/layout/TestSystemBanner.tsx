@@ -1,7 +1,7 @@
 import { WarningIcon } from "@phosphor-icons/react/dist/csr/Warning";
 import "./TestSystemBanner.css";
 
-export const TEST_SYSTEM_WARNING = "This is a test system. You will lose data.";
+export const TEST_SYSTEM_WARNING = "Test system. You will lose data.";
 
 /**
  * Standing deployment notice docked directly above the taskbar. Both shells
