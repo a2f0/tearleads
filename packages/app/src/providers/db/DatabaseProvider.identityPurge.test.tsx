@@ -14,17 +14,8 @@ afterEach(cleanup);
 for (const reuseDatabaseWorker of [false, true]) {
   test(`active identity purge awaits worker deletion (reuse=${reuseDatabaseWorker})`, async () => {
     const factory = createReusableSQLiteRuntimeFactory({ deferDelete: true });
-    const deleteGate = createDeferred();
     const view = renderDatabaseProvider({
-      createSQLiteRuntime: () => {
-        const runtime = factory.createSQLiteRuntime();
-        const deleteData = runtime.deleteData;
-        runtime.deleteData = async () => {
-          await deleteGate.promise;
-          await deleteData();
-        };
-        return runtime;
-      },
+      createSQLiteRuntime: factory.createSQLiteRuntime,
       reuseDatabaseWorker,
     });
     try {
@@ -48,7 +39,6 @@ for (const reuseDatabaseWorker of [false, true]) {
       await act(async () => {
         await Promise.resolve();
         expect(done).toBe(false);
-        deleteGate.resolve();
         factory.releaseDelete();
         await purge;
       });
@@ -56,10 +46,9 @@ for (const reuseDatabaseWorker of [false, true]) {
       expect(factory.getStats()).toMatchObject(
         reuseDatabaseWorker
           ? { clientDeleteCount: 1, closeCount: 0, renewCount: 1 }
-          : { deleteDataCount: 1 },
+          : { clientDeleteCount: 1, terminateCount: 1 },
       );
     } finally {
-      deleteGate.resolve();
       factory.releaseDelete();
       view.unmount();
     }
@@ -126,5 +115,66 @@ test("named purge waits for a pending close before deleting OPFS files", async (
     factory.releaseClose();
     view.unmount();
     opfs.restore();
+  }
+});
+
+for (const reuseDatabaseWorker of [false, true]) {
+  test(`clearing another identity during a named wipe closes it and gates boot (reuse=${reuseDatabaseWorker})`, async () => {
+    const gate = createDeferred();
+    const opfs = installIdentityDataTestStorage([A, B], () => gate.promise);
+    const factory = createReusableSQLiteRuntimeFactory();
+    const view = renderDatabaseProvider({
+      createSQLiteRuntime: factory.createSQLiteRuntime,
+      reuseDatabaseWorker,
+    });
+    try {
+      await view.controlsReady.promise;
+      await act(async () => {
+        await view.getControls().ensureIdentityReady(B);
+      });
+      await act(async () => {
+        const purge = view.getControls().purgeIdentityDatabase(A);
+        view.getControls().clearWorker();
+        expect(factory.getStats().closeCount).toBe(1);
+        const boot = view.getControls().ensureIdentityReady(A);
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(factory.getStats().initCount).toBe(1);
+        gate.resolve();
+        await Promise.all([purge, boot]);
+      });
+      expect(view.getControls().status).toBe("ready");
+      expect(factory.getStats().initCount).toBe(2);
+      expect(opfs.databases).toEqual(new Set([`app-identity-${B}.db`]));
+    } finally {
+      gate.resolve();
+      view.unmount();
+      opfs.restore();
+    }
+  });
+}
+
+test("an unacknowledged worker delete fails instead of reporting a successful wipe", async () => {
+  const factory = createReusableSQLiteRuntimeFactory({ deferDelete: true });
+  const view = renderDatabaseProvider({
+    createSQLiteRuntime: factory.createSQLiteRuntime,
+    reuseDatabaseWorker: false,
+  });
+  try {
+    await view.controlsReady.promise;
+    await act(async () => {
+      await view.getControls().ensureIdentityReady(A);
+      await expect(view.getControls().purgeIdentityDatabase(A)).rejects.toThrow(
+        /delete timed out/u,
+      );
+    });
+    expect(factory.getStats()).toMatchObject({
+      clientDeleteCount: 1,
+      deleteDataCount: 0,
+      terminateCount: 1,
+    });
+  } finally {
+    factory.releaseDelete();
+    view.unmount();
   }
 });

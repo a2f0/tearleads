@@ -22,10 +22,12 @@ export function trackRuntimeOperation(
   kind: SQLiteRuntimeOperation["kind"],
 ): Promise<void> {
   let operation!: SQLiteRuntimeOperation;
-  const settled = result.then(
-    () => {},
-    () => {},
-  );
+  // A close can overlap a named OPFS purge, but neither may release the boot
+  // gate before the other settles. Callers still receive their own result/error.
+  const settled = Promise.allSettled([
+    refs.runtimeOperationRef.current?.promise,
+    result,
+  ]).then(() => {});
   operation = {
     kind,
     promise: settled.finally(() => {

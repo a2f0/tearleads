@@ -362,7 +362,7 @@ export function createRestartSensitiveSQLiteRuntimeFactory() {
   };
 }
 
-// An unreadable database whose wipe (deleteData) also fails — recovery must
+// An unreadable database whose wipe (client.delete) also fails — recovery must
 // surface an error instead of hanging in a booting state.
 export function createUnreadableUnwipeableSQLiteRuntimeFactory() {
   let createCount = 0;
@@ -372,7 +372,9 @@ export function createUnreadableUnwipeableSQLiteRuntimeFactory() {
       createCount += 1;
       const client: SQLiteRuntime["client"] = {
         close: async () => ({ ok: true }),
-        delete: async () => ({ ok: true }),
+        delete: async () => {
+          throw new Error("planned wipe failure");
+        },
         destroy() {},
         exec: async () => {
           throw new Error(
@@ -399,10 +401,10 @@ export function createUnreadableUnwipeableSQLiteRuntimeFactory() {
 
 // First runtime simulates a persisted database encrypted under a now-lost key:
 // init succeeds but the page-1 readability probe fails with SQLITE_NOTADB. The
-// recovery should wipe it (deleteData) and the recreated runtime should boot.
+// recovery should wipe it (client.delete) and the recreated runtime should boot.
 export function createUnreadableThenHealedSQLiteRuntimeFactory() {
   let createCount = 0;
-  let deleteDataCount = 0;
+  let clientDeleteCount = 0;
 
   return {
     createSQLiteRuntime: (): SQLiteRuntime => {
@@ -410,7 +412,10 @@ export function createUnreadableThenHealedSQLiteRuntimeFactory() {
       const unreadable = createCount === 1;
       const client: SQLiteRuntime["client"] = {
         close: async () => ({ ok: true }),
-        delete: async () => ({ ok: true }),
+        delete: async () => {
+          clientDeleteCount += 1;
+          return { ok: true };
+        },
         destroy() {},
         exec: async () => {
           if (unreadable) {
@@ -428,7 +433,6 @@ export function createUnreadableThenHealedSQLiteRuntimeFactory() {
       return {
         client,
         deleteData: async () => {
-          deleteDataCount += 1;
           client.destroy();
         },
         destroy: () => client.destroy(),
@@ -436,6 +440,6 @@ export function createUnreadableThenHealedSQLiteRuntimeFactory() {
         terminateNow: () => client.destroy(),
       };
     },
-    getStats: () => ({ createCount, deleteDataCount }),
+    getStats: () => ({ createCount, clientDeleteCount }),
   };
 }

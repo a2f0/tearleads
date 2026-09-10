@@ -16,7 +16,7 @@ import {
   type ReusableSQLiteRuntime,
   releaseSQLiteRuntime,
   renewReusableSQLiteRuntime,
-  resetReusableSQLiteRuntimeDatabase,
+  resetSQLiteRuntimeDatabase,
   type SQLiteRuntimeResetMode,
 } from "./sqliteRuntimeRetention";
 
@@ -64,8 +64,7 @@ function retainRuntimeAfterReset(params: {
   readonly log: (message: string) => void;
 }): Promise<void> {
   const { refs, runtime, mode, log } = params;
-  let operation!: SQLiteRuntimeOperation;
-  const result = resetReusableSQLiteRuntimeDatabase(runtime, mode)
+  const result = resetSQLiteRuntimeDatabase(runtime, mode)
     .then(() => {
       // A purge may synchronously chain a name-based removal behind this close
       // and replace the operation gate. Runtime ownership is the authoritative
@@ -83,21 +82,7 @@ function retainRuntimeAfterReset(params: {
       );
       throw error;
     });
-  const settled = result.then(
-    () => {},
-    () => {},
-  );
-  operation = {
-    kind: mode,
-    promise: settled.finally(() => {
-      if (refs.runtimeOperationRef.current === operation) {
-        refs.runtimeOperationRef.current = null;
-      }
-    }),
-    runtime,
-  };
-  refs.runtimeOperationRef.current = operation;
-  return result;
+  return trackRuntimeOperation(refs, runtime, result, mode);
 }
 
 function purgeCapturedDatabaseAfterOperation(params: {
@@ -238,10 +223,11 @@ async function purgeSQLiteRuntime(params: {
   if (runtime) {
     logSQLiteRuntimeReuseUnavailable(reuseWorker, runtime, log);
     refs.runtimeRef.current = null;
-    const result = runtime.deleteData().catch((error: unknown) => {
-      runtime.terminateNow();
-      throw error;
-    });
+    // deleteData() is best-effort in the SDK and can resolve after a failure or
+    // timeout. Destructive UI needs the actual delete acknowledgement.
+    const result = resetSQLiteRuntimeDatabase(runtime, "delete").finally(() =>
+      runtime.terminateNow(),
+    );
     await trackRuntimeOperation(refs, runtime, result, "delete");
     return;
   }
@@ -276,7 +262,7 @@ function usePurgeSQLiteRuntime({
           refs.runtimeOperationRef.current?.promise ?? Promise.resolve();
         return trackRuntimeOperation(
           refs,
-          refs.runtimeRef.current,
+          null,
           pending.then(() => purgeOpfsSqliteDatabase(dbName)),
           "purge",
         );

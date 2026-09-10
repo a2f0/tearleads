@@ -19,7 +19,6 @@ afterEach(cleanupIdentityManagerTestEnvironment);
 
 async function renderDestruction(failure: "sqlite" | "blobs") {
   const originalWebSocket = globalThis.WebSocket;
-  Reflect.set(globalThis, "WebSocket", TestWebSocket);
   const host = createIdentityManagerHostConfig();
   const createRuntime = host.createSQLiteRuntime;
   if (!createRuntime) {
@@ -32,67 +31,76 @@ async function renderDestruction(failure: "sqlite" | "blobs") {
   const hostConfig = host.withOverrides({
     createSQLiteRuntime: () => {
       const runtime = createRuntime();
-      const deleteData = runtime.deleteData;
-      runtime.deleteData = async () => {
+      const deleteDatabase = runtime.client.delete;
+      runtime.client.delete = async () => {
         deleteCalls += 1;
         await gate.promise;
         if (failure === "sqlite") {
           throw new Error("Planned worker delete failure");
         }
-        await deleteData();
+        const result = await deleteDatabase();
         opfs?.databases.delete(
           sqliteDbNameForSigningFingerprint(fingerprint).slice(1),
         );
+        return result;
       };
       return runtime;
     },
   });
   const sdkRef: { current: Tearleads | null } = { current: null };
-  const view = render(
-    <IdentityManagerTestRuntime
-      hostConfig={hostConfig}
-      onTearleadsReady={(sdk) => {
-        sdkRef.current = sdk;
-      }}
-    >
-      <IdentityManager />
-    </IdentityManagerTestRuntime>,
-  );
-  await waitFor(() => {
-    expect(sdkRef.current).not.toBeNull();
-  });
-  const sdk = sdkRef.current;
-  if (!sdk) {
-    throw new Error("Missing SDK");
-  }
-  await act(async () => {
-    await sdk.identity.setKeyPairs({
-      encapsulationKeyPair: null,
-      signingKeyPair: generateSigningSeedAndKeyPair(),
-    });
-  });
-  await waitFor(() => {
-    expect(sdk.database.status).toBe("ready");
-  });
-  fingerprint = sdk.identity.signingFingerprint ?? "";
-  opfs = installIdentityDataTestStorage([fingerprint, "b".repeat(64)]);
-  if (failure === "blobs") {
-    opfs.failNextRemoval("blobs");
-  }
-  return {
-    view,
-    sdk,
-    opfs,
-    fingerprint,
-    gate,
-    getDeleteCalls: () => deleteCalls,
-    dispose: () => {
-      gate.resolve();
-      view.unmount();
-      opfs?.restore();
-      Reflect.set(globalThis, "WebSocket", originalWebSocket);
-    },
+  let view: ReturnType<typeof render> | null = null;
+  const dispose = () => {
+    gate.resolve();
+    view?.unmount();
+    opfs?.restore();
+    Reflect.set(globalThis, "WebSocket", originalWebSocket);
   };
+  try {
+    Reflect.set(globalThis, "WebSocket", TestWebSocket);
+    view = render(
+      <IdentityManagerTestRuntime
+        hostConfig={hostConfig}
+        onTearleadsReady={(sdk) => {
+          sdkRef.current = sdk;
+        }}
+      >
+        <IdentityManager />
+      </IdentityManagerTestRuntime>,
+    );
+    await waitFor(() => {
+      expect(sdkRef.current).not.toBeNull();
+    });
+    const sdk = sdkRef.current;
+    if (!sdk) {
+      throw new Error("Missing SDK");
+    }
+    await act(async () => {
+      await sdk.identity.setKeyPairs({
+        encapsulationKeyPair: null,
+        signingKeyPair: generateSigningSeedAndKeyPair(),
+      });
+    });
+    await waitFor(() => {
+      expect(sdk.database.status).toBe("ready");
+    });
+    fingerprint = sdk.identity.signingFingerprint ?? "";
+    opfs = installIdentityDataTestStorage([fingerprint, "b".repeat(64)]);
+    if (failure === "blobs") {
+      opfs.failNextRemoval("blobs");
+    }
+    return {
+      view,
+      sdk,
+      opfs,
+      fingerprint,
+      gate,
+      getDeleteCalls: () => deleteCalls,
+      dispose,
+    };
+  } catch (error) {
+    dispose();
+    throw error;
+  }
 }
 
 for (const failure of ["sqlite", "blobs"] as const) {

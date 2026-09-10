@@ -3,6 +3,7 @@ import { sqliteDbNameForSigningFingerprint } from "../../src/providers/db/sqlite
 /** OPFS directories exercised through the production SQLite/blob purge helpers. */
 export function installIdentityDataTestStorage(
   fingerprints: readonly string[],
+  beforeRemove?: () => Promise<void>,
 ) {
   const previousStorage = Object.getOwnPropertyDescriptor(navigator, "storage");
   const databases = new Set(
@@ -28,6 +29,7 @@ export function installIdentityDataTestStorage(
           }
           return {
             async removeEntry(leaf: string, options: { recursive: boolean }) {
+              await beforeRemove?.();
               const kind = name === "tearleads-sqlite" ? "sqlite" : "blobs";
               if (!options.recursive) {
                 throw new Error("Expected recursive removal");
