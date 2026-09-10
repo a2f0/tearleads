@@ -1,4 +1,5 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
+import { DeleteObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import {
   blobObjectBytes,
   readBlobObjectText,
@@ -84,21 +85,40 @@ test("default blob object store creates S3 adapter from env", () => {
   expect(store).toHaveProperty("uploadPart");
 });
 
-test("default blob object store applies an S3 key prefix", () => {
-  const store = createDefaultBlobObjectStore({
-    BLOB_OBJECT_STORE: "s3",
-    BLOB_OBJECT_STORE_S3_ACCESS_KEY_ID: "test",
-    BLOB_OBJECT_STORE_S3_BUCKET: "blob-test-bucket",
-    BLOB_OBJECT_STORE_S3_ENDPOINT: "http://127.0.0.1:9000",
-    BLOB_OBJECT_STORE_S3_FORCE_PATH_STYLE: "true",
-    BLOB_OBJECT_STORE_S3_KEY_PREFIX: "dev/blobs",
-    BLOB_OBJECT_STORE_S3_REGION: "us-east-1",
-    BLOB_OBJECT_STORE_S3_SECRET_ACCESS_KEY: "test",
-  });
+test("default blob object store normalizes S3 prefix boundaries", async () => {
+  const internalSlashes = `dev${"/".repeat(100_000)}blobs`;
+  const send = spyOn(S3Client.prototype, "send").mockImplementation(() =>
+    Promise.resolve({}),
+  );
+  try {
+    for (const [prefix, expectedKey] of [
+      ["dev/blobs", "dev/blobs/object"],
+      ["  ///dev//blobs///  ", "dev//blobs/object"],
+      ["///", "object"],
+      ["", "object"],
+      [`/${internalSlashes}///`, `${internalSlashes}/object`],
+    ]) {
+      send.mockClear();
+      const store = createDefaultBlobObjectStore({
+        BLOB_OBJECT_STORE: "s3",
+        BLOB_OBJECT_STORE_S3_BUCKET: "blob-test-bucket",
+        BLOB_OBJECT_STORE_S3_KEY_PREFIX: prefix,
+        BLOB_OBJECT_STORE_S3_REGION: "us-east-1",
+      });
 
-  expect(store).toHaveProperty("createMultipartUpload");
-  expect(store).toHaveProperty("uploadPart");
-});
+      await store.deleteObject("object");
+
+      const command = send.mock.calls[0]?.[0];
+      expect(command).toBeInstanceOf(DeleteObjectCommand);
+      if (!(command instanceof DeleteObjectCommand)) {
+        throw new Error("Expected an S3 delete command");
+      }
+      expect(command.input.Key).toBe(expectedKey);
+    }
+  } finally {
+    send.mockRestore();
+  }
+}, 1_000);
 
 test("default blob object store requires complete S3 credentials", () => {
   expect(() =>

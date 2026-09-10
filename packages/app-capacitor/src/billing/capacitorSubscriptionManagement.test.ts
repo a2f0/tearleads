@@ -42,6 +42,18 @@ test("uses StoreKit when Apple's management URL has a trailing slash", async () 
   expect(fixture.openedUrls).toEqual([]);
 });
 
+test("handles long slash runs in subscription management URLs", async () => {
+  const fixture = setup("ios");
+  const slashes = "/".repeat(100_000);
+  const appleUrl = "https://apps.apple.com/account/subscriptions";
+  const externalUrl = `${appleUrl}${slashes}x`;
+
+  expect(await fixture.manage(`${appleUrl}${slashes}`)).toBe("native-closed");
+  expect(await fixture.manage(externalUrl)).toBe("external-opened");
+  expect(fixture.nativeCalls).toEqual(["show"]);
+  expect(fixture.openedUrls).toEqual([externalUrl]);
+}, 1_000);
+
 test("uses StoreKit for Apple's locale-prefixed management URL", async () => {
   const fixture = setup("ios");
 
