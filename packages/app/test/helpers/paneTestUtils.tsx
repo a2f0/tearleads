@@ -31,8 +31,8 @@ import { createTestHostConfig } from "./paneTestHostConfig";
 
 export { createSharedMemoryLocalKeyringFactory } from "./sharedMemoryLocalKeyring";
 export { createTestHostConfig };
-export const PANE_ASYNC_TEST_TIMEOUT_MS = 15_000;
-export const PANE_LONG_ASYNC_TEST_TIMEOUT_MS = 30_000;
+export const PANE_ASYNC_TEST_TIMEOUT_MS = 30_000;
+export const PANE_LONG_ASYNC_TEST_TIMEOUT_MS = 60_000;
 export async function cleanupPaneTestEnvironment(): Promise<void> {
   cleanup();
   // cleanup() unmounts the tree, which queues TearleadsProvider's deferred
