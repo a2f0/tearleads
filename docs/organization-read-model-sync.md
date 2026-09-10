@@ -29,10 +29,12 @@ Directory rows expose `isPersonalOrganizationOwner` for UI affordances, includin
 when another admin views the owner. It is independent of requester-relative
 `isSelf` and is persisted in the local directory cache. The response field is
 optional for older read-model payloads; the current API always supplies it.
-It does not replace the server-side membership invariant. Local databases from
-before the owner column was added require reset under the current greenfield
-schema policy. Account deletion and organization purge are separate lifecycle
-operations, not roster removal.
+It does not replace the server-side membership invariant. This is an intentional
+prelaunch flag-day contract change: older clients reject the new field in the
+strict read-model response, so the API and clients must be updated together.
+Local databases from before the owner column was added require reset under the
+current greenfield schema policy. Account deletion and organization purge are
+separate lifecycle operations, not roster removal.
 
 Deleting a group requires a signed organization-policy successor that removes
 its directory entry. The durable tombstone prevents the deleted ID from being

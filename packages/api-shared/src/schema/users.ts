@@ -43,6 +43,8 @@ import { boolean, index, pgTable, text, timestamp, uuid } from "./columns";
  *   and gives auth challenge verification an indexed `fingerprint` lookup.
  * - `users_created_at_id_idx` backs the root identity listing's keyset
  *   pagination (newest registrations first).
+ * - `users_default_organization_id_idx` bounds personal-owner lookups during
+ *   reserved organization group policy commits.
  */
 export const users = pgTable(
   "users",
@@ -60,5 +62,8 @@ export const users = pgTable(
     lastActiveAt: timestamp("last_active_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
-  (table) => [index("users_created_at_id_idx").on(table.createdAt, table.id)],
+  (table) => [
+    index("users_created_at_id_idx").on(table.createdAt, table.id),
+    index("users_default_organization_id_idx").on(table.defaultOrganizationId),
+  ],
 );
