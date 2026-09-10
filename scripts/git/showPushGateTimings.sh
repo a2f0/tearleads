@@ -105,6 +105,8 @@ if [ -z "$RUN_BLOCK" ]; then
   exit 0
 fi
 
+# Prints the run line's values for a key: one per line, since a push that
+# carried several refs records one head= field per commit.
 run_field() {
   printf '%s\n' "$RUN_BLOCK" |
     awk -F'\t' -v key="$1" '
@@ -113,7 +115,6 @@ run_field() {
         for (field = 2; field <= NF; field++) {
           if (index($field, key "=") == 1) {
             print substr($field, length(key) + 2)
-            exit
           }
         }
       }
@@ -122,7 +123,8 @@ run_field() {
 
 printf 'Push gate: %s at %s (%s)\n' \
   "$(run_field branch)" "$(run_field at)" "$(run_field status)"
-printf '  head %s pushed to %s\n' "$(run_field head)" "$(run_field remote)"
+printf '  pushed %s to %s\n' \
+  "$(run_field head | paste -sd, - | sed 's/,/, /g')" "$(run_field remote)"
 UNFINISHED="$(run_field unfinished)"
 if [ -n "$UNFINISHED" ]; then
   printf '  stopped during %s\n' "$UNFINISHED"

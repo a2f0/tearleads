@@ -119,7 +119,10 @@ test("a logged run carries its metadata and one line per step", async () => {
   const lines = (await Bun.file(file).text()).trim().split("\n");
   expect(lines[0]).toStartWith("run\tat=");
   expect(lines[0]).toContain("\tstatus=passed\thead=abc123\tremote=origin");
-  expect(lines.slice(1)).toEqual(["step\tfirst\t0", "step\tsecond\t0"]);
+  // Seconds, not a fixed 0: a real clock can tick between two `date` calls.
+  expect(lines[1]).toMatch(/^step\tfirst\t\d+$/);
+  expect(lines[2]).toMatch(/^step\tsecond\t\d+$/);
+  expect(lines).toHaveLength(3);
 });
 
 test("a run that dies mid-step records the step it stopped in", async () => {
@@ -168,18 +171,34 @@ test("the reader reports the run that pushed a given head", () => {
 
   const latest = runReader("--log", file);
   expect(latest).toContain("Push gate: feat/x at ");
-  expect(latest).toContain("head bbb222 pushed to origin");
+  expect(latest).toContain("pushed bbb222 to origin");
   expect(summaryRows(latest).map((row) => row.label)).toEqual([
     "newer",
     "total",
   ]);
 
   const pinned = runReader("--log", file, "--head", "aaa111");
-  expect(pinned).toContain("head aaa111 pushed to origin");
+  expect(pinned).toContain("pushed aaa111 to origin");
   expect(summaryRows(pinned).map((row) => row.label)).toEqual([
     "older",
     "total",
   ]);
+});
+
+test("a push carrying several refs is found by any of its heads", () => {
+  const file = newLogPath();
+  runSh(`
+    step_timings_reset
+    step_timings_run only true >/dev/null
+    step_timings_append_log "${file}" status=passed head=aaa111 head=bbb222 remote=origin
+  `);
+
+  expect(runReader("--log", file)).toContain("pushed aaa111, bbb222 to origin");
+  for (const head of ["aaa111", "bbb222"]) {
+    expect(runReader("--log", file, "--head", head)).toContain(
+      "pushed aaa111, bbb222 to origin",
+    );
+  }
 });
 
 test("the reader stays quiet about pushes it has no record of", () => {

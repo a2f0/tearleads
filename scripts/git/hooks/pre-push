@@ -36,14 +36,17 @@ record_timings() {
   else
     timings_status=failed
   fi
-  # The commit being pushed, so a later reader can ask for the run that gated a
-  # particular head. A deletion pushes no commit; HEAD then names the run well
-  # enough to tell it apart from the others.
-  timings_head=$(awk -v zero="$zero_sha" '$2 != zero { print $2; exit }' "$refs_file")
+  # One head= field per commit pushed, so a later reader can ask for the run that
+  # gated any of them — a push may carry several refs. A deletion pushes no
+  # commit; HEAD then names the run well enough to tell it apart from the others.
+  timings_heads=$(awk -v zero="$zero_sha" '$2 != zero { print "head=" $2 }' "$refs_file")
+  [ -n "$timings_heads" ] || timings_heads="head=$(git rev-parse HEAD)"
+  # Deliberately unquoted: each line is one head= field, and they are hex SHAs.
+  # shellcheck disable=SC2086
   step_timings_append_log "$timings_log" \
     "status=$timings_status" \
     "branch=$(git rev-parse --abbrev-ref HEAD)" \
-    "head=${timings_head:-$(git rev-parse HEAD)}" \
+    $timings_heads \
     "remote=${push_remote:-unknown}"
 }
 
