@@ -120,6 +120,17 @@ async function removeUserFromSelectedGroup(
   ) {
     return;
   }
+  if (
+    (params.selectedGroupIsAdminsGroup ||
+      params.selectedGroupId === params.memberGroupId) &&
+    params.directory.users.some(
+      (user) =>
+        user.userId === removedUserId && user.isPersonalOrganizationOwner,
+    )
+  ) {
+    params.setError(ORG_MANAGER_LABELS.personalOrganizationOwnerProtection);
+    return;
+  }
   if (params.selectedGroupName === null) {
     params.setError(ORG_MANAGER_LABELS.groupNameUnavailable);
     return;
@@ -190,10 +201,12 @@ export function useOrgManagerMembershipMutations(
       params.directory,
       params.invalidateSelectedGroupDetails,
       params.isOperationActive,
+      params.memberGroupId,
       params.orgManagerActions,
       params.refreshDirectoryAndGroups,
       params.refreshSelectedGroupDetails,
       params.selectedGroupId,
+      params.selectedGroupIsAdminsGroup,
       params.selectedGroupName,
       params.setError,
       params.setMutating,

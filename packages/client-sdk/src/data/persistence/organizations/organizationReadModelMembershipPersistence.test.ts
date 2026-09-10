@@ -33,6 +33,7 @@ function directoryUser(userId: string): OrganizationDirectoryUserResponse {
     encapsulationKeyFingerprint: `encapsulation-fingerprint-${userId}`,
     createdAt: CREATED_AT,
     isSelf: userId === "user-1",
+    isPersonalOrganizationOwner: userId === "user-1",
     status: "active",
     profileDocumentId: `profile-${userId}`,
     joinedAt: CREATED_AT,
@@ -257,6 +258,25 @@ test("v6 snapshots persist visible, hidden Members, and empty group memberships"
       ADMINS_GROUP_ID,
       EMPTY_GROUP_ID,
     ]);
+    const peerProjection = await loadOrganizationReadModelProjection(
+      execSql,
+      ORGANIZATION_ID,
+      "user-2",
+    );
+    expect(peerProjection?.directory.users).toContainEqual(
+      expect.objectContaining({
+        userId: "user-1",
+        isSelf: false,
+        isPersonalOrganizationOwner: true,
+      }),
+    );
+    expect(peerProjection?.directory.users).toContainEqual(
+      expect.objectContaining({
+        userId: "user-2",
+        isSelf: true,
+        isPersonalOrganizationOwner: false,
+      }),
+    );
   } finally {
     close();
   }

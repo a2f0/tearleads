@@ -47923,6 +47923,9 @@
                                       "encapsulationPublicKey": {
                                         "type": "string"
                                       },
+                                      "isPersonalOrganizationOwner": {
+                                        "type": "boolean"
+                                      },
                                       "isSelf": {
                                         "type": "boolean"
                                       },
@@ -48479,6 +48482,9 @@
                                       },
                                       "encapsulationPublicKey": {
                                         "type": "string"
+                                      },
+                                      "isPersonalOrganizationOwner": {
+                                        "type": "boolean"
                                       },
                                       "isSelf": {
                                         "type": "boolean"
@@ -49206,6 +49212,9 @@
                     },
                     "encapsulationPublicKey": {
                       "type": "string"
+                    },
+                    "isPersonalOrganizationOwner": {
+                      "type": "boolean"
                     },
                     "isSelf": {
                       "type": "boolean"

@@ -223,6 +223,9 @@ export const ORG_MANAGER_LABELS = {
     "The organization profile hasn't synced yet. Try Refresh.",
   open: "Open",
   openRosterEntryAction: "Open Roster Entry",
+  personalOrganizationOwner: "Personal organization owner",
+  personalOrganizationOwnerProtection:
+    "The owner must remain an active member and admin of their personal organization.",
   policyChangeAdded: "added",
   policyChangeAddedAs: "added as",
   policyChangeChangedFrom: "changed from",

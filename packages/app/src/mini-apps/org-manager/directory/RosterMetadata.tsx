@@ -49,6 +49,12 @@ export function UserRosterMetadata({
 }) {
   return (
     <div className="org-manager-roster-metadata">
+      {user.isPersonalOrganizationOwner ? (
+        <RosterMetadataRow
+          label={ORG_MANAGER_LABELS.personalOrganizationOwner}
+          value={ORG_MANAGER_LABELS.personalOrganizationOwnerProtection}
+        />
+      ) : null}
       <RosterMetadataRow
         action={
           <MiniAppClipboardButton
