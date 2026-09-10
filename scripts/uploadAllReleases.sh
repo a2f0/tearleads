@@ -49,31 +49,18 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-RELEASE_START="$SECONDS"
-STEP_TIMINGS=()
 BUILD_NUMBERS=()
 CAPTURE_FILES=()
 
 trap 'rm -f "${CAPTURE_FILES[@]+"${CAPTURE_FILES[@]}"}"' EXIT
 
-format_duration() {
-  local total="$1"
-  printf '%dm%02ds' "$((total / 60))" "$((total % 60))"
-}
+# shellcheck source=stepTimings.sh
+# shellcheck disable=SC1091
+. "$SCRIPT_DIR/stepTimings.sh"
+step_timings_reset
 
-run_step() {
-  local label="$1"
-  shift
-  echo "=== [$label] $* ==="
-  local step_start="$SECONDS"
-  "$@"
-  local elapsed="$((SECONDS - step_start))"
-  STEP_TIMINGS+=("$(printf '%-12s %s' "$label" "$(format_duration "$elapsed")")")
-  echo "[$label] done in $(format_duration "$elapsed")."
-  echo ""
-}
-
-# Same as run_step, but also records the build number the upload script reports.
+# Same as step_timings_run, but also records the build number the upload script
+# reports.
 #
 # Scraping stdout is the only channel available: both upload scripts mktemp
 # their own IOS_/ANDROID_RELEASE_BUILD_NUMBER_FILE, export it over anything we
@@ -84,20 +71,16 @@ run_step() {
 run_upload_step() {
   local label="$1"
   shift
-  echo "=== [$label] $* ==="
-  local step_start="$SECONDS"
+  step_timings_begin "$label" "$@"
   local capture
   capture="$(mktemp "${TMPDIR:-/tmp}/uploadAllReleases-$label.XXXXXX")"
   CAPTURE_FILES+=("$capture")
   # pipefail (set above) makes a failing upload fail the pipeline, not tee.
   "$@" | tee "$capture"
-  local elapsed="$((SECONDS - step_start))"
   local reported
   reported="$(sed -n 's/^Build number: //p' "$capture" | tail -n 1)"
-  STEP_TIMINGS+=("$(printf '%-12s %s' "$label" "$(format_duration "$elapsed")")")
   BUILD_NUMBERS+=("$(printf '%-12s %s' "$label" "${reported:-not reported}")")
-  echo "[$label] done in $(format_duration "$elapsed")."
-  echo ""
+  step_timings_end
 }
 
 print_build_number_summary() {
@@ -109,16 +92,6 @@ print_build_number_summary() {
   echo ""
 }
 
-print_timing_summary() {
-  echo "--- Timing summary ---"
-  local row
-  for row in "${STEP_TIMINGS[@]+"${STEP_TIMINGS[@]}"}"; do
-    echo "  $row"
-  done
-  echo "  ----------------------"
-  printf '  %-12s %s\n' "total" "$(format_duration "$((SECONDS - RELEASE_START))")"
-}
-
 echo "=== Tearleads Full Release ==="
 echo ""
 
@@ -126,11 +99,11 @@ echo ""
 # uploadIosStagingRelease.sh and uploadAndroidStagingRelease.sh.
 run_upload_step "ios" "$SCRIPT_DIR/uploadIosRelease.sh"
 run_upload_step "android" "$SCRIPT_DIR/uploadAndroidRelease.sh"
-run_step "staging" "$SCRIPT_DIR/deployStaging.sh" --skip-infra
-run_step "production" "$SCRIPT_DIR/deployProduction.sh" --skip-infra
+step_timings_run "staging" "$SCRIPT_DIR/deployStaging.sh" --skip-infra
+step_timings_run "production" "$SCRIPT_DIR/deployProduction.sh" --skip-infra
 
 echo "=== Release finished ==="
 echo "All steps succeeded."
 echo ""
 print_build_number_summary
-print_timing_summary
+step_timings_summary
