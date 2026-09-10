@@ -37,6 +37,11 @@ Use `bun run lint:source-shape -- --staged` before committing, and
 `bun run lint:source-shape -- --range <base>..<head>` before handing off a
 larger branch.
 
+The pre-push hook times every check it runs and records the run in the git
+directory. `scripts/git/showPushGateTimings.sh` prints the last run's per-check
+timings — `--head <sha>` for the run that pushed a particular commit — so a slow
+or failed push can be dissected without re-running the gate.
+
 OpenAPI compatibility, protocol-model, and infrastructure checks use mise-pinned
 tooling. After cloning, run:
 
