@@ -43,6 +43,9 @@ export const organizationReadModelDirectoryUsers = sqliteTable(
     encapsulationKeyFingerprint: text(
       "encapsulation_key_fingerprint",
     ).notNull(),
+    isPersonalOrganizationOwner: integer("is_personal_organization_owner", {
+      mode: "boolean",
+    }),
     createdAt: text("created_at").notNull(),
     status: text("status").notNull(),
     profileDocumentId: text("profile_document_id"),

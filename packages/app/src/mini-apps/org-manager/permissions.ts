@@ -5,13 +5,13 @@ import type {
 } from "@tearleads/client-sdk";
 
 // A roster user can be disabled when disabling is available at all and the
-// target is an active user other than the operator themselves.
+// target is an active user other than the operator or personal-org owner.
 export function canDisableRosterUser(input: {
   authUserId: string | null;
   canDisableRosterUsers: boolean;
   targetUser: Pick<
     OrganizationDirectoryUser,
-    "isSelf" | "status" | "userId"
+    "isPersonalOrganizationOwner" | "isSelf" | "status" | "userId"
   > | null;
 }): boolean {
   const { authUserId, canDisableRosterUsers, targetUser } = input;
@@ -20,6 +20,7 @@ export function canDisableRosterUser(input: {
     canDisableRosterUsers &&
       targetUser &&
       targetUser.status === "active" &&
+      !targetUser.isPersonalOrganizationOwner &&
       !targetUser.isSelf &&
       targetUser.userId !== authUserId,
   );

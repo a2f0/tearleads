@@ -22656,6 +22656,7 @@ export interface operations {
                                     disabledByUserId: string | null;
                                     encapsulationKeyFingerprint: string;
                                     encapsulationPublicKey: string;
+                                    isPersonalOrganizationOwner?: boolean;
                                     isSelf: boolean;
                                     joinedAt: string;
                                     profileDocumentId: string | null;
@@ -22758,6 +22759,7 @@ export interface operations {
                                     disabledByUserId: string | null;
                                     encapsulationKeyFingerprint: string;
                                     encapsulationPublicKey: string;
+                                    isPersonalOrganizationOwner?: boolean;
                                     isSelf: boolean;
                                     joinedAt: string;
                                     profileDocumentId: string | null;
@@ -22967,6 +22969,7 @@ export interface operations {
                         disabledByUserId: string | null;
                         encapsulationKeyFingerprint: string;
                         encapsulationPublicKey: string;
+                        isPersonalOrganizationOwner?: boolean;
                         isSelf: boolean;
                         joinedAt: string;
                         profileDocumentId: string | null;

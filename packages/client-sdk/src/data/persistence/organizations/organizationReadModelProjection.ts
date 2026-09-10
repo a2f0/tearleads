@@ -62,6 +62,7 @@ interface SelectedDirectoryUser {
   readonly disabledByUserId: string | null;
   readonly encapsulationKeyFingerprint: string;
   readonly encapsulationPublicKey: string;
+  readonly isPersonalOrganizationOwner: boolean | null;
   readonly joinedAt: string;
   readonly profileDocumentId: string | null;
   readonly signingKeyFingerprint: string;
@@ -116,6 +117,9 @@ function toDirectoryUser(
     encapsulationPublicKey: row.encapsulationPublicKey,
     encapsulationKeyFingerprint: row.encapsulationKeyFingerprint,
     createdAt: row.createdAt,
+    ...(row.isPersonalOrganizationOwner === null
+      ? {}
+      : { isPersonalOrganizationOwner: row.isPersonalOrganizationOwner }),
     isSelf: row.userId === currentUserId,
     status: row.status,
     profileDocumentId: row.profileDocumentId,
@@ -222,6 +226,8 @@ async function loadDirectoryRows(
       encapsulationPublicKey:
         organizationReadModelDirectoryUsers.encapsulationPublicKey,
       joinedAt: organizationReadModelDirectoryUsers.joinedAt,
+      isPersonalOrganizationOwner:
+        organizationReadModelDirectoryUsers.isPersonalOrganizationOwner,
       profileDocumentId: organizationReadModelDirectoryUsers.profileDocumentId,
       signingKeyFingerprint:
         organizationReadModelDirectoryUsers.signingKeyFingerprint,
