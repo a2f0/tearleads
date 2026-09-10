@@ -27,6 +27,12 @@ Run the smallest command that matches the handoff risk:
   Run `bun install` to apply the pinned dependency patch in `patches/`.
 - `bun run test:architecture`: graph health and runtime dependency regression
   fixtures; also included in `check:fast`.
+- `bun run test:static-analysis`: Git snapshot, source-shape baseline, and
+  ShellCheck inventory fixtures; included in `check:fast` and pre-push.
+- `bun run lint:scripts`: ShellCheck over tracked shell files and shell shebangs.
+  See [static-analysis maintenance](docs/developer/static-analysis.md) for
+  snapshot semantics and explicit script exceptions, and
+  [dependency audit policy](docs/developer/dependency-audit.md) for advisory triage.
 - `bun run report:dependencies:json`: dependency-cruiser diagnostics for
   architecture debugging.
 - `bun run report:dependencies:mermaid`: graph output for quick dependency visualization.

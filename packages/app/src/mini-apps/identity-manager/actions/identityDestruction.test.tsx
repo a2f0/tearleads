@@ -11,6 +11,7 @@ import {
   TestWebSocket,
 } from "../../../../test/helpers/identityManagerTestRuntime";
 import "../../../../test/helpers/mswServer";
+import { PANE_ASYNC_TEST_TIMEOUT_MS } from "../../../../test/helpers/paneTestUtils";
 import { DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE } from "../../../components/shared/DestroyKeyPackageConfirmationDialog";
 import { sqliteDbNameForSigningFingerprint } from "../../../providers/db/sqliteDbName";
 import { IdentityManager } from "../IdentityManager";
@@ -104,72 +105,76 @@ async function renderDestruction(failure: "sqlite" | "blobs") {
 }
 
 for (const failure of ["sqlite", "blobs"] as const) {
-  test(`destroy dialog blocks during wipe and retries ${failure} failure for the original identity`, async () => {
-    const fixture = await renderDestruction(failure);
-    const { view, sdk, opfs, fingerprint, gate } = fixture;
-    try {
-      fireEvent.click(view.getByRole("button", { name: "General" }));
-      fireEvent.click(
-        await view.findByRole("button", { name: "Destroy Key Pair" }),
-      );
-      expect(
-        view.getByText(
-          /permanently deletes this identity's local private keys/u,
-        ),
-      ).toBeTruthy();
-      fireEvent.change(
-        view.getByLabelText(/Type confirm delete to continue/u),
-        { target: { value: DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE } },
-      );
-      fireEvent.click(
-        view.getByRole("button", { name: "Destroy Key Package" }),
-      );
-      expect(
-        (
-          view.getByRole("button", {
-            name: "Deleting local data...",
-          }) as HTMLButtonElement
-        ).disabled,
-      ).toBe(true);
-      expect(
-        (view.getByRole("button", { name: "Cancel" }) as HTMLButtonElement)
-          .disabled,
-      ).toBe(true);
-      expect(sdk.identity.signingFingerprint).toBeNull();
-      expect(opfs.blobs.has(fingerprint)).toBe(true);
-      expect(fixture.getDeleteCalls()).toBe(1);
-      await act(async () => {
-        gate.resolve();
-      });
-      await waitFor(() => {
-        expect(view.getByRole("alert").textContent).toContain(
-          "Retry to complete deletion",
+  test(
+    `destroy dialog blocks during wipe and retries ${failure} failure for the original identity`,
+    async () => {
+      const fixture = await renderDestruction(failure);
+      const { view, sdk, opfs, fingerprint, gate } = fixture;
+      try {
+        fireEvent.click(view.getByRole("button", { name: "General" }));
+        fireEvent.click(
+          await view.findByRole("button", { name: "Destroy Key Pair" }),
         );
-      });
-      expect(view.getByRole("alert").textContent).toContain(
-        "reloading can restore the saved identity",
-      );
-      expect(
-        view
-          .getByLabelText(/Type confirm delete to continue/u)
-          .getAttribute("aria-describedby"),
-      ).toContain(view.getByRole("alert").id);
-      expect(opfs.blobs.has(fingerprint)).toBe(true);
-      fireEvent.click(
-        view.getByRole("button", { name: "Destroy Key Package" }),
-      );
-      await waitFor(() => {
-        expect(view.queryByRole("dialog")).toBeNull();
-      });
-      expect(opfs.databases).toEqual(
-        new Set([`app-identity-${"b".repeat(64)}.db`]),
-      );
-      expect(opfs.blobs).toEqual(new Set(["b".repeat(64)]));
-      expect(sdk.identity.signingFingerprint).toBeNull();
-      expect(sdk.database.status).toBe("idle");
-      expect(view.getByText("No key pair")).toBeTruthy();
-    } finally {
-      fixture.dispose();
-    }
-  });
+        expect(
+          view.getByText(
+            /permanently deletes this identity's local private keys/u,
+          ),
+        ).toBeTruthy();
+        fireEvent.change(
+          view.getByLabelText(/Type confirm delete to continue/u),
+          { target: { value: DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE } },
+        );
+        fireEvent.click(
+          view.getByRole("button", { name: "Destroy Key Package" }),
+        );
+        expect(
+          (
+            view.getByRole("button", {
+              name: "Deleting local data...",
+            }) as HTMLButtonElement
+          ).disabled,
+        ).toBe(true);
+        expect(
+          (view.getByRole("button", { name: "Cancel" }) as HTMLButtonElement)
+            .disabled,
+        ).toBe(true);
+        expect(sdk.identity.signingFingerprint).toBeNull();
+        expect(opfs.blobs.has(fingerprint)).toBe(true);
+        expect(fixture.getDeleteCalls()).toBe(1);
+        await act(async () => {
+          gate.resolve();
+        });
+        await waitFor(() => {
+          expect(view.getByRole("alert").textContent).toContain(
+            "Retry to complete deletion",
+          );
+        });
+        expect(view.getByRole("alert").textContent).toContain(
+          "reloading can restore the saved identity",
+        );
+        expect(
+          view
+            .getByLabelText(/Type confirm delete to continue/u)
+            .getAttribute("aria-describedby"),
+        ).toContain(view.getByRole("alert").id);
+        expect(opfs.blobs.has(fingerprint)).toBe(true);
+        fireEvent.click(
+          view.getByRole("button", { name: "Destroy Key Package" }),
+        );
+        await waitFor(() => {
+          expect(view.queryByRole("dialog")).toBeNull();
+        });
+        expect(opfs.databases).toEqual(
+          new Set([`app-identity-${"b".repeat(64)}.db`]),
+        );
+        expect(opfs.blobs).toEqual(new Set(["b".repeat(64)]));
+        expect(sdk.identity.signingFingerprint).toBeNull();
+        expect(sdk.database.status).toBe("idle");
+        expect(view.getByText("No key pair")).toBeTruthy();
+      } finally {
+        fixture.dispose();
+      }
+    },
+    PANE_ASYNC_TEST_TIMEOUT_MS,
+  );
 }
