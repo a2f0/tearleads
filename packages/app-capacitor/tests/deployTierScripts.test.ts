@@ -3,6 +3,11 @@ import { chmod, cp, mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 
+const stepTimingsScript = resolve(
+  import.meta.dir,
+  "../../../scripts/stepTimings.sh",
+);
+
 interface TierFixture {
   readonly name: "staging" | "production";
   /** Tier argument the orchestrator passes to the shared secret validators. */
@@ -67,6 +72,7 @@ for (const fixture of fixtures) {
       try {
         await mkdir(dirname(script), { recursive: true });
         await cp(fixture.sourceScript, script);
+        await cp(stepTimingsScript, resolve(root, "scripts/stepTimings.sh"));
         await chmod(script, 0o755);
         await writeExecutable(
           resolve(binDirectory, "git"),

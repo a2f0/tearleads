@@ -15,6 +15,10 @@ const sourceScript = resolve(
   import.meta.dir,
   "../../../scripts/deployEverything.sh",
 );
+const stepTimingsScript = resolve(
+  import.meta.dir,
+  "../../../scripts/stepTimings.sh",
+);
 const commonScript = resolve(
   import.meta.dir,
   "../../../terraform/scripts/common.sh",
@@ -66,6 +70,7 @@ async function runHarness(
 
   await mkdir(dirname(script), { recursive: true });
   await cp(sourceScript, script);
+  await cp(stepTimingsScript, resolve(root, "scripts/stepTimings.sh"));
   await chmod(script, 0o755);
   await writeExecutable(
     resolve(root, "terraform/scripts/common.sh"),
