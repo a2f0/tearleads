@@ -1,37 +1,23 @@
-import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
-
-interface FileSizeBudget {
-  readonly bytes: number;
-  readonly lines: number;
-}
-
-interface SuppressionCounts {
-  readonly biomeIgnore: number;
-  readonly todo: number;
-  readonly tsExpectError: number;
-  readonly tsIgnore: number;
-}
-
-interface SourceShapeBaseline {
-  readonly approvedStarExports: Record<string, readonly string[]>;
-  readonly fileSizes: Record<string, FileSizeBudget>;
-  readonly suppressions: Record<string, Partial<SuppressionCounts>>;
-}
+import {
+  type FileSizeBudget,
+  parseSourceShapeBaseline,
+  type SuppressionCounts,
+  suppressionKinds,
+} from "./checks/sourceShapeBaseline";
+import { sourceShapeSnapshot } from "./checks/sourceShapeSnapshot";
 
 const lineLimit = 500;
 const byteLimit = 20_000;
 
-const sourceShapeBaseline = JSON.parse(
-  readFileSync("scripts/sourceShapeBaseline.json", "utf8"),
-) as SourceShapeBaseline;
-
-const suppressionKinds = [
-  "biomeIgnore",
-  "todo",
-  "tsExpectError",
-  "tsIgnore",
-] as const satisfies readonly (keyof SuppressionCounts)[];
+const snapshot = sourceShapeSnapshot(process.argv.slice(2));
+const baselineBuffer = snapshot.read("scripts/sourceShapeBaseline.json");
+if (!baselineBuffer)
+  throw new Error(
+    "Missing scripts/sourceShapeBaseline.json in selected snapshot",
+  );
+const sourceShapeBaseline = parseSourceShapeBaseline(
+  baselineBuffer.toString("utf8"),
+);
 
 const zeroSuppressions: SuppressionCounts = {
   biomeIgnore: 0,
@@ -90,57 +76,6 @@ const ignoredPathPatterns = [
 interface Violation {
   readonly detail: string;
   readonly filePath: string;
-}
-
-function trackedFiles(): string[] {
-  return execFileSync("git", ["ls-files"], { encoding: "utf8" })
-    .split("\n")
-    .filter((path) => path.length > 0)
-    .sort();
-}
-
-function parseRange(args: readonly string[]): string | undefined {
-  for (let index = 0; index < args.length; index += 1) {
-    const arg = args[index];
-
-    if (arg === "--range") {
-      return args[index + 1];
-    }
-
-    if (arg?.startsWith("--range=")) {
-      return arg.slice("--range=".length);
-    }
-  }
-
-  return undefined;
-}
-
-function filesChangedIn(args: readonly string[]): string[] {
-  if (args.includes("--staged")) {
-    return execFileSync(
-      "git",
-      ["diff", "--name-only", "--diff-filter=ACMRD", "--cached"],
-      { encoding: "utf8" },
-    )
-      .split("\n")
-      .filter((path) => path.length > 0)
-      .sort();
-  }
-
-  const range = parseRange(args);
-
-  if (range) {
-    return execFileSync(
-      "git",
-      ["diff", "--name-only", "--diff-filter=ACMRD", range],
-      { encoding: "utf8" },
-    )
-      .split("\n")
-      .filter((path) => path.length > 0)
-      .sort();
-  }
-
-  return trackedFiles();
 }
 
 function extensionOf(filePath: string): string {
@@ -231,19 +166,12 @@ function findFileSizeViolations(
     : [];
 }
 
-function sourceShapeFiles(args: readonly string[]): string[] {
-  return filesChangedIn(args);
-}
-
-function isFullSourceShapeScan(args: readonly string[]): boolean {
-  return args.length === 0 || args.includes("--all");
-}
-
-function fileSizeViolations(args: readonly string[]): Violation[] {
-  const files = sourceShapeFiles(args);
+function fileSizeViolations(): Violation[] {
+  const files = snapshot.files;
   const scannedFiles = new Set(files);
   const violations = files.flatMap((filePath) => {
-    if (!existsSync(filePath)) {
+    const buffer = snapshot.read(filePath);
+    if (!buffer) {
       return fileSizeBaseline[filePath]
         ? [
             {
@@ -258,8 +186,6 @@ function fileSizeViolations(args: readonly string[]): Violation[] {
       return [];
     }
 
-    const buffer = readFileSync(filePath);
-
     if (buffer.includes(0)) {
       return [];
     }
@@ -267,7 +193,7 @@ function fileSizeViolations(args: readonly string[]): Violation[] {
     return findFileSizeViolations(filePath, fileSizeOf(buffer));
   });
 
-  if (isFullSourceShapeScan(args)) {
+  if (snapshot.full) {
     for (const filePath of Object.keys(fileSizeBaseline)) {
       if (!scannedFiles.has(filePath)) {
         violations.push({
@@ -304,10 +230,13 @@ function findSuppressionViolations(
   return suppressionKinds.flatMap((kind) => {
     const extraCount = current[kind] - allowed[kind];
 
-    return extraCount > 0
+    return extraCount !== 0
       ? [
           {
-            detail: `${kind} count is ${current[kind]} but baseline allows ${allowed[kind]}`,
+            detail:
+              extraCount > 0
+                ? `${kind} count is ${current[kind]} but baseline allows ${allowed[kind]}`
+                : `${kind} allowance is stale: current count is ${current[kind]} but baseline allows ${allowed[kind]}; reduce or remove it`,
             filePath,
           },
         ]
@@ -340,23 +269,33 @@ function findStarExportViolations(
     approvedStarExports[filePath as keyof typeof approvedStarExports] ?? [],
   );
 
-  return starExportSpecifiers(source).flatMap((specifier) =>
-    approvedSpecifiers.has(specifier)
-      ? []
-      : [
-          {
-            detail: `unapproved export * from ${JSON.stringify(specifier)}`,
-            filePath,
-          },
-        ],
-  );
+  const actualSpecifiers = new Set(starExportSpecifiers(source));
+  return [
+    ...[...actualSpecifiers].flatMap((specifier) =>
+      approvedSpecifiers.has(specifier)
+        ? []
+        : [
+            {
+              detail: `unapproved export * from ${JSON.stringify(specifier)}`,
+              filePath,
+            },
+          ],
+    ),
+    ...[...approvedSpecifiers]
+      .filter((specifier) => !actualSpecifiers.has(specifier))
+      .map((specifier) => ({
+        filePath,
+        detail: `approved star export ${JSON.stringify(specifier)} is stale; remove it`,
+      })),
+  ];
 }
 
-function sourceShapeViolations(args: readonly string[]): Violation[] {
-  const files = sourceShapeFiles(args);
+function sourceShapeViolations(): Violation[] {
+  const files = snapshot.files;
   const scannedFiles = new Set(files);
   const violations = files.flatMap((filePath) => {
-    if (!existsSync(filePath)) {
+    const buffer = snapshot.read(filePath);
+    if (!buffer) {
       const missingBaselineViolations: Violation[] = [];
 
       if (filePath in suppressionBaseline) {
@@ -381,14 +320,14 @@ function sourceShapeViolations(args: readonly string[]): Violation[] {
       return [];
     }
 
-    const source = readFileSync(filePath, "utf8");
+    const source = buffer.toString("utf8");
     return [
       ...findSuppressionViolations(filePath, source),
       ...findStarExportViolations(filePath, source),
     ];
   });
 
-  if (isFullSourceShapeScan(args)) {
+  if (snapshot.full) {
     for (const filePath of Object.keys(suppressionBaseline)) {
       if (!scannedFiles.has(filePath)) {
         violations.push({
@@ -413,23 +352,23 @@ function sourceShapeViolations(args: readonly string[]): Violation[] {
   return violations;
 }
 
-const args = process.argv.slice(2);
-const supportedArgs =
-  args.length === 0 ||
-  (args.length === 1 && args[0] === "--staged") ||
-  (args.length === 2 && args[0] === "--range" && Boolean(args[1])) ||
-  (args.length === 1 &&
-    Boolean(args[0]?.startsWith("--range=") && args[0].slice(8)));
-if (!supportedArgs) {
-  throw new Error(
-    "Usage: lintSourceShape.ts [--staged | --range <base>..<head>]",
-  );
+const violations: Violation[] = [];
+for (const [baseline, applicable] of [
+  [fileSizeBaseline, shouldCheckFileSize],
+  [suppressionBaseline, shouldScan],
+  [approvedStarExports, shouldScan],
+] as const) {
+  for (const filePath of Object.keys(baseline)) {
+    if (!applicable(filePath)) {
+      violations.push({
+        filePath,
+        detail:
+          "baseline refers to an excluded file; remove the unused allowance",
+      });
+    }
+  }
 }
-
-const violations = [
-  ...fileSizeViolations(args),
-  ...sourceShapeViolations(args),
-];
+violations.push(...fileSizeViolations(), ...sourceShapeViolations());
 
 if (violations.length > 0) {
   console.error(
