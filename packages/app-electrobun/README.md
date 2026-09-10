@@ -38,6 +38,17 @@ Linux builds bundle Electrobun's CEF renderer. The system WebKitGTK renderer can
 omit worker OPFS APIs required by the encrypted SQLite SyncAccessHandle Pool;
 CEF provides a consistent persistent-storage backend across Linux installations.
 
+On a Linux desktop, exercise that native boundary and a real process restart:
+
+```sh
+bun run --cwd packages/app-electrobun test:linux-persistence
+```
+
+The smoke test builds the dev bundle, launches bundled CEF twice with an
+isolated home directory, exercises the database worker's real OPFS
+sync-access-handle backend, and confirms the populated identity database reopens
+after relaunch.
+
 See [dependency upgrade notes](../../docs/dependency-upgrades.md) and the
 [Electrobun migration guide](https://github.com/blackboardsh/electrobun/blob/main/docs/src/content/docs/electrobun/guides/migrating-to-v2.mdx)
 when changing the toolchain.
