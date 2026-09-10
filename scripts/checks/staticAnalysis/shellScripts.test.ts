@@ -81,12 +81,16 @@ test("tracked inventory covers nested scripts and shell shebangs with explicit e
   }
 });
 
-test.each([".", "nested"])(
-  "the lint command discovers root hooks from %s and propagates failures",
-  (subdirectory) => {
+test.each([
+  [".", "echo $unquoted", "SC2086"],
+  ["nested", "echo $unquoted", "SC2086"],
+  [".", "n=1; echo $(( $n + 1 ))", "SC2004"],
+])(
+  "lint from %s rejects %s, including style diagnostics",
+  (subdirectory, source, diagnostic) => {
     const repo = fixture();
     try {
-      repo.write("hooks/pre-push", "#!/bin/sh\necho $unquoted\n");
+      repo.write("hooks/pre-push", `#!/bin/sh\n${source}\n`);
       repo.git("add", ".");
       const cwd = join(repo.cwd, subdirectory);
       mkdirSync(cwd, { recursive: true });
@@ -95,7 +99,7 @@ test.each([".", "nested"])(
         { cwd, env: repo.env, stdout: "pipe", stderr: "pipe" },
       );
       expect(result.exitCode).toBe(1);
-      expect(result.stdout.toString()).toContain("SC2086");
+      expect(result.stdout.toString()).toContain(diagnostic);
     } finally {
       rmSync(repo.cwd, { recursive: true, force: true });
     }
