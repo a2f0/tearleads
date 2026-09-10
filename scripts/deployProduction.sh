@@ -68,57 +68,23 @@ done
 . "$REPO_ROOT/terraform/scripts/common.sh"
 validate_tier_ssh_target_override prod
 
-DEPLOY_START="$SECONDS"
-STEP_TIMINGS=()
-
-format_duration() {
-  local total="$1"
-  printf '%dm%02ds' "$((total / 60))" "$((total % 60))"
-}
-
-run_step() {
-  local label="$1"
-  shift
-  echo "--- [$label] $* ---"
-  local step_start="$SECONDS"
-  "$@"
-  local elapsed="$((SECONDS - step_start))"
-  STEP_TIMINGS+=("$(printf '%-12s %s' "$label" "$(format_duration "$elapsed")")")
-  echo "[$label] done in $(format_duration "$elapsed")."
-  echo ""
-}
-
-skip_step() {
-  local label="$1"
-  echo "--- [$label] skipped (--skip-infra) ---"
-  STEP_TIMINGS+=("$(printf '%-12s %s' "$label" "skipped")")
-  echo ""
-}
-
-print_timing_summary() {
-  echo "--- Timing summary ---"
-  local row
-  for row in "${STEP_TIMINGS[@]+"${STEP_TIMINGS[@]}"}"; do
-    echo "  $row"
-  done
-  echo "  ----------------------"
-  printf '  %-12s %s\n' "total" "$(format_duration "$((SECONDS - DEPLOY_START))")"
-}
+# shellcheck source=stepTimings.sh
+# shellcheck disable=SC1091
+. "$REPO_ROOT/scripts/stepTimings.sh"
+step_timings_reset
 
 echo "=== Tearleads Production Deployment ==="
 echo ""
 
 if [[ "$SKIP_TERRAFORM" == true ]]; then
   if [[ "$SKIP_INFRA" == true ]]; then
-    skip_step "terraform"
+    step_timings_skip "terraform" --skip-infra
   else
-    echo "--- [terraform] skipped (--skip-terraform) ---"
-    STEP_TIMINGS+=("$(printf '%-12s %s' "terraform" "skipped")")
-    echo ""
+    step_timings_skip "terraform" --skip-terraform
   fi
 else
-  run_step "storage" "${REPO_ROOT}/terraform/scripts/prepare-storage.sh" prod
-  run_step "terraform" \
+  step_timings_run "storage" "${REPO_ROOT}/terraform/scripts/prepare-storage.sh" prod
+  step_timings_run "terraform" \
     "${REPO_ROOT}/terraform/stacks/prod/server/scripts/apply.sh" \
     --auto-approve
 fi
@@ -138,20 +104,20 @@ PRODUCTION_SSH_TARGET="$SSH_TARGET"
 export PRODUCTION_SSH_TARGET
 
 if [[ "$SKIP_INFRA" == true ]]; then
-  skip_step "ansible"
+  step_timings_skip "ansible" --skip-infra
 else
-  run_step "ansible" "${REPO_ROOT}/ansible/scripts/run-server-prod.sh"
+  step_timings_run "ansible" "${REPO_ROOT}/ansible/scripts/run-server-prod.sh"
 fi
 
-run_step "api" "${REPO_ROOT}/packages/api/scripts/deployProductionApi.sh"
+step_timings_run "api" "${REPO_ROOT}/packages/api/scripts/deployProductionApi.sh"
 if [[ "$SKIP_INFRA" == true ]]; then
-  run_step "website" "${REPO_ROOT}/packages/website/scripts/deployProductionWebsite.sh" --skip-terraform
+  step_timings_run "website" "${REPO_ROOT}/packages/website/scripts/deployProductionWebsite.sh" --skip-terraform
 else
-  run_step "website" "${REPO_ROOT}/packages/website/scripts/deployProductionWebsite.sh"
+  step_timings_run "website" "${REPO_ROOT}/packages/website/scripts/deployProductionWebsite.sh"
 fi
-run_step "app-web" "${REPO_ROOT}/packages/app-web/scripts/deployProductionAppWeb.sh"
+step_timings_run "app-web" "${REPO_ROOT}/packages/app-web/scripts/deployProductionAppWeb.sh"
 
 echo "=== Deployment finished ==="
 echo "All steps succeeded."
 echo ""
-print_timing_summary
+step_timings_summary

@@ -254,26 +254,10 @@ if [[ -n "$STAGING_PREFLIGHT_SSH_TARGET" && -n "$PRODUCTION_PREFLIGHT_SSH_TARGET
     "$STAGING_PREFLIGHT_SSH_TARGET" "$PRODUCTION_PREFLIGHT_SSH_TARGET"
 fi
 
-DEPLOY_START="$SECONDS"
-STEP_TIMINGS=()
-
-format_duration() {
-  local total="$1"
-  printf '%dm%02ds' "$((total / 60))" "$((total % 60))"
-}
-
-run_step() {
-  local label="$1"
-  shift
-
-  echo "=== [$label] $* ==="
-  local step_start="$SECONDS"
-  "$@"
-  local elapsed="$((SECONDS - step_start))"
-  STEP_TIMINGS+=("$(printf '%-20s %s' "$label" "$(format_duration "$elapsed")")")
-  echo "[$label] done in $(format_duration "$elapsed")."
-  echo ""
-}
+# shellcheck source=stepTimings.sh
+# shellcheck disable=SC1091
+. "$REPO_ROOT/scripts/stepTimings.sh"
+step_timings_reset
 
 run_tier_step() {
   local label="$1"
@@ -286,24 +270,14 @@ run_tier_step() {
     staging) target_variable="STAGING_SSH_TARGET" ;;
     prod) target_variable="PRODUCTION_SSH_TARGET" ;;
   esac
-  run_step "$label" env "$target_variable=$ssh_target" "$@"
-}
-
-print_timing_summary() {
-  echo "--- Timing summary ---"
-  local row
-  for row in "${STEP_TIMINGS[@]+"${STEP_TIMINGS[@]}"}"; do
-    echo "  $row"
-  done
-  echo "  ----------------------------"
-  printf '  %-20s %s\n' "total" "$(format_duration "$((SECONDS - DEPLOY_START))")"
+  step_timings_run "$label" env "$target_variable=$ssh_target" "$@"
 }
 
 echo "=== Tearleads Everything Deployment ==="
 echo ""
 
-run_step "storage-staging" "$REPO_ROOT/terraform/scripts/prepare-storage.sh" staging
-run_step "terraform-staging" \
+step_timings_run "storage-staging" "$REPO_ROOT/terraform/scripts/prepare-storage.sh" staging
+step_timings_run "terraform-staging" \
   "$REPO_ROOT/terraform/stacks/staging/server/scripts/apply.sh" --auto-approve
 STAGING_EFFECTIVE_SSH_TARGET="$(
   resolve_tier_ssh_target staging "${STAGING_SSH_TARGET:-}"
@@ -315,11 +289,11 @@ fi
 
 run_tier_step "deploy-staging" staging "$STAGING_EFFECTIVE_SSH_TARGET" \
   "$SCRIPT_DIR/deployStaging.sh" --skip-terraform
-run_step "ios-staging" "$SCRIPT_DIR/uploadIosStagingRelease.sh"
-run_step "android-staging" "$SCRIPT_DIR/uploadAndroidStagingRelease.sh"
+step_timings_run "ios-staging" "$SCRIPT_DIR/uploadIosStagingRelease.sh"
+step_timings_run "android-staging" "$SCRIPT_DIR/uploadAndroidStagingRelease.sh"
 
-run_step "storage-production" "$REPO_ROOT/terraform/scripts/prepare-storage.sh" prod
-run_step "terraform-production" \
+step_timings_run "storage-production" "$REPO_ROOT/terraform/scripts/prepare-storage.sh" prod
+step_timings_run "terraform-production" \
   "$REPO_ROOT/terraform/stacks/prod/server/scripts/apply.sh" --auto-approve
 PRODUCTION_EFFECTIVE_SSH_TARGET="$(
   resolve_tier_ssh_target prod "${PRODUCTION_SSH_TARGET:-}"
@@ -328,10 +302,10 @@ reject_shared_ssh_host \
   "$STAGING_EFFECTIVE_SSH_TARGET" "$PRODUCTION_EFFECTIVE_SSH_TARGET"
 run_tier_step "deploy-production" prod "$PRODUCTION_EFFECTIVE_SSH_TARGET" \
   "$SCRIPT_DIR/deployProduction.sh" --skip-terraform
-run_step "ios-production" "$SCRIPT_DIR/uploadIosRelease.sh"
-run_step "android-production" "$SCRIPT_DIR/uploadAndroidRelease.sh"
+step_timings_run "ios-production" "$SCRIPT_DIR/uploadIosRelease.sh"
+step_timings_run "android-production" "$SCRIPT_DIR/uploadAndroidRelease.sh"
 
 echo "=== Everything deployment finished ==="
 echo "All steps succeeded."
 echo ""
-print_timing_summary
+step_timings_summary
