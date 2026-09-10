@@ -456,6 +456,22 @@ loop, subject-only squash, and `MERGED`-state verification.
    was skipped (`--keep-branch`, a dirty worktree, a merge that did not land),
    say so and what was left behind.
 
+   Once the merge has landed, also report **what the push gate cost**. The
+   pre-push hook times each check and appends the run to a log in the git
+   directory, so the timings outlive the push, the branch deletion, and the
+   reset:
+
+   ```bash
+   "$ROOT_DIR/scripts/git/showPushGateTimings.sh" --head "$REVIEWED_SHA"
+   ```
+
+   Print its per-check rows and total in the report. `--head` selects the run
+   that gated the merged commit; on the resume path, where repairs pushed more
+   than once, the earlier runs stay in the log. The command is read-only and
+   always exits 0 — when the gate was bypassed or the log is missing it says so,
+   and the report repeats that rather than inventing a timing. Never re-run the
+   gate to produce numbers.
+
 ## Notes
 
 - **Order is enforced**: commit → review-and-repair → open/resume → merge →
@@ -470,6 +486,11 @@ loop, subject-only squash, and `MERGED`-state verification.
   already-open PR and pushes repairs, and now the base merge, to it, as before.)
 - **The review gates the merge** — this flow never silently merges over a verdict
   that reports unresolved blocking findings, and never merges an unreviewed head.
+- **Push-gate timings outlive the push** — the pre-push hook records each run's
+  per-check timings under `.git/tearleads/pushGateTimings.tsv` (per checkout,
+  never committed, trimmed to the last runs), so the step 6 report can say what
+  the step 3 push cost. A run that fails mid-check is recorded too, marked with
+  the check it stopped in.
 - **The base-current gate closes the long-check race** — after the PR is pushed,
   the flow resolves and fetches the exact base snapshot from the PR repository
   immediately before merging. If the base advanced during review or pre-push

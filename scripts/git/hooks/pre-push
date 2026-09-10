@@ -4,10 +4,50 @@ set -e
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
+# shellcheck disable=SC1091
+. "$REPO_ROOT/scripts/stepTimings.sh"
+
 cd "$REPO_ROOT"
 
+push_remote=${1:-}
+zero_sha="0000000000000000000000000000000000000000"
+
 refs_file=$(mktemp)
-trap 'rm -f "$refs_file"' EXIT
+timings_log=$("$REPO_ROOT/scripts/git/showPushGateTimings.sh" --log-path 2>/dev/null) ||
+  timings_log=""
+
+# The gate is the slowest thing between finishing work and a merged PR, so every
+# run is persisted: `showPushGateTimings.sh` reads it back afterwards, and a run
+# that dies mid-check still records which check it died in.
+record_timings() {
+  [ -n "$timings_log" ] || return 0
+  if [ "$1" -eq 0 ]; then
+    timings_status=passed
+  else
+    timings_status=failed
+  fi
+  # One head= field per commit pushed, so a later reader can ask for the run that
+  # gated any of them — a push may carry several refs. A deletion pushes no
+  # commit; HEAD then names the run well enough to tell it apart from the others.
+  timings_heads=$(awk -v zero="$zero_sha" '$2 != zero { print "head=" $2 }' "$refs_file")
+  [ -n "$timings_heads" ] || timings_heads="head=$(git rev-parse HEAD)"
+  # Deliberately unquoted: each line is one head= field, and they are hex SHAs.
+  # shellcheck disable=SC2086
+  step_timings_append_log "$timings_log" \
+    "status=$timings_status" \
+    "branch=$(git rev-parse --abbrev-ref HEAD)" \
+    $timings_heads \
+    "remote=${push_remote:-unknown}"
+}
+
+on_exit() {
+  push_status=$?
+  # Records first: the run's metadata is read out of the refs file.
+  record_timings "$push_status" || true
+  rm -f "$refs_file"
+}
+
+trap on_exit EXIT
 trap 'exit 1' HUP INT TERM
 
 if [ -t 0 ]; then
@@ -16,43 +56,33 @@ else
   cat >"$refs_file"
 fi
 
-echo "Linting branch name..."
-bun run lint:branch-name
+step_timings_reset
 
-echo "Running shellcheck..."
-bun run lint:scripts
-echo "Running static-analysis regressions..."
-bun run test:static-analysis
+step_timings_run branch-name bun run lint:branch-name
 
-echo "Running terraform linting..."
-"$REPO_ROOT/scripts/checks/checkTerraform.sh"
+step_timings_run shellcheck bun run lint:scripts
 
-echo "Running TypeScript compiler..."
-bun tsc --build --pretty false
+step_timings_run static-analysis bun run test:static-analysis
 
-echo "Running biome check..."
-bun run lint:biome
+step_timings_run terraform "$REPO_ROOT/scripts/checks/checkTerraform.sh"
 
-echo "Running markdown linting..."
-bun run lint:markdown
+step_timings_run typescript bun tsc --build --pretty false
 
-echo "Checking package type assertions..."
-bun run lint:package-assertions
+step_timings_run biome bun run lint:biome
 
-echo "Running knip..."
-bun run lint:knip:all
+step_timings_run markdown bun run lint:markdown
 
-echo "Running production knip..."
-bun run lint:knip:production
+step_timings_run package-assertions bun run lint:package-assertions
 
-echo "Checking dependency graph and architecture boundaries..."
-bun run lint:architecture
+step_timings_run knip bun run lint:knip:all
 
-echo "Checking file names..."
-bun run lint:files
+step_timings_run knip-production bun run lint:knip:production
 
-echo "Checking commit signatures and co-authors..."
-zero_sha="0000000000000000000000000000000000000000"
+step_timings_run architecture bun run lint:architecture
+
+step_timings_run file-names bun run lint:files
+
+step_timings_begin commit-trust "Checking commit signatures and co-authors"
 
 while read -r _ local_sha _ remote_sha; do
   if [ "$local_sha" = "$zero_sha" ]; then
@@ -67,8 +97,9 @@ while read -r _ local_sha _ remote_sha; do
 
   "$REPO_ROOT/scripts/checks/checkCommitTrust.sh" --range "$range" </dev/null
 done <"$refs_file"
+step_timings_end
 
-echo "Checking source shape..."
+step_timings_begin source-shape "Checking source shape"
 
 while read -r _ local_sha _ remote_sha; do
   if [ "$local_sha" = "$zero_sha" ]; then
@@ -83,8 +114,9 @@ while read -r _ local_sha _ remote_sha; do
 
   bun scripts/lintSourceShape.ts --range "$range" </dev/null
 done <"$refs_file"
+step_timings_end
 
-echo "Checking for binary files..."
+step_timings_begin binary-files "Checking for binary files"
 
 while read -r _ local_sha _ remote_sha; do
   if [ "$local_sha" = "$zero_sha" ]; then
@@ -99,12 +131,12 @@ while read -r _ local_sha _ remote_sha; do
 
   "$REPO_ROOT/scripts/checks/checkBinaryFiles.sh" --range "$range" </dev/null
 done <"$refs_file"
+step_timings_end
 
-echo "Running Ruby linting..."
-bun run lint:ruby
+step_timings_run ruby bun run lint:ruby
 
-echo "Running bun tests..."
-bun run test:turbo:affected
+step_timings_run tests bun run test:turbo:affected
 
+step_timings_summary
 
 echo "All checks passed."
