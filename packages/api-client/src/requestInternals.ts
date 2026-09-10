@@ -183,7 +183,12 @@ export function normalizeApiBaseUrl(
     return "";
   }
 
-  return trimmed.replace(/\/+$/u, "");
+  // Scan from the end to avoid regex backtracking over internal slash runs.
+  let end = trimmed.length;
+  while (end > 0 && trimmed[end - 1] === "/") {
+    end -= 1;
+  }
+  return trimmed.slice(0, end);
 }
 
 export function hasHeader(

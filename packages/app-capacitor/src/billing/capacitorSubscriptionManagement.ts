@@ -26,11 +26,16 @@ function showNativeSubscriptionManagement(): Promise<void> {
 function isAppleSubscriptionManagementUrl(value: string): boolean {
   try {
     const url = new URL(value);
-    const pathname = url.pathname.replace(/\/+$/, "");
+    // Walk the suffix to avoid regex backtracking on long internal slash runs.
+    const pathname = url.pathname;
+    let end = pathname.length;
+    while (end > 0 && pathname[end - 1] === "/") {
+      end -= 1;
+    }
     return (
       url.protocol === "https:" &&
       url.hostname === "apps.apple.com" &&
-      /^\/(?:[a-z]{2}\/)?account\/subscriptions$/iu.test(pathname)
+      /^\/(?:[a-z]{2}\/)?account\/subscriptions$/iu.test(pathname.slice(0, end))
     );
   } catch {
     return false;

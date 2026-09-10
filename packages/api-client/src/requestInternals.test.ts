@@ -8,7 +8,30 @@ import { SESSION_ERROR_CODES } from "@tearleads/validators/response";
 import {
   describeErrorResponse,
   isRefreshableSessionError,
+  normalizeApiBaseUrl,
 } from "./requestInternals";
+
+test("API base URL normalization preserves internal paths and strips trailing slashes", () => {
+  const cases: ReadonlyArray<readonly [string | null | undefined, string]> = [
+    [null, ""],
+    [undefined, ""],
+    [" \n\t ", ""],
+    ["/", ""],
+    ["////", ""],
+    [" /api/// ", "/api"],
+    ["https://example.test/a//b/", "https://example.test/a//b"],
+    ["https://example.test/🦭/", "https://example.test/🦭"],
+  ];
+  for (const [input, expected] of cases) {
+    expect(normalizeApiBaseUrl(input)).toBe(expected);
+  }
+});
+
+test("API base URLs preserve long internal slash runs", () => {
+  const baseUrl = `https://example.test/${"/".repeat(100_000)}x`;
+  expect(normalizeApiBaseUrl(baseUrl)).toBe(baseUrl);
+  expect(normalizeApiBaseUrl(`${baseUrl}///`)).toBe(baseUrl);
+}, 1_000);
 
 test("session refresh requires the exact status and stable code", () => {
   expect(

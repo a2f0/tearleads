@@ -36,8 +36,13 @@ function canonicalHttpUrl(value: string, base?: string): string {
     );
   }
 
-  const pathname = url.pathname.replace(/\/+$/u, "");
-  return `${url.origin}${pathname}`;
+  // This uses the API base URL too; avoid backtracking over internal slash runs.
+  const pathname = url.pathname;
+  let end = pathname.length;
+  while (end > 0 && pathname[end - 1] === "/") {
+    end -= 1;
+  }
+  return `${url.origin}${pathname.slice(0, end)}`;
 }
 
 function readAmbientHref(): string | null {

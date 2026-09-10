@@ -84,7 +84,16 @@ function readBlobObjectStoreKeyPrefix(
     return undefined;
   }
 
-  const normalized = value.replace(/^\/+|\/+$/g, "");
+  // Walk the boundaries to avoid regex backtracking on internal slash runs.
+  let start = 0;
+  let end = value.length;
+  while (start < end && value[start] === "/") {
+    start += 1;
+  }
+  while (end > start && value[end - 1] === "/") {
+    end -= 1;
+  }
+  const normalized = value.slice(start, end);
   return normalized.length > 0 ? normalized : undefined;
 }
 
