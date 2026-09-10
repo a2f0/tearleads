@@ -113,6 +113,34 @@ test("a superseded boot never publishes the obsolete database", async () => {
   expect(runtimeFactory.getStats().renewCount).toBe(1);
 });
 
+test("a boot failure logs a serializable error message", async () => {
+  const runtimeFactory = createReusableSQLiteRuntimeFactory({
+    firstInitError: new Error("Missing required OPFS APIs."),
+  });
+  const harness = createLifecycleHarness({
+    createSQLiteRuntime: runtimeFactory.createSQLiteRuntime,
+  });
+  const originalConsoleError = console.error;
+  const errors: unknown[][] = [];
+  console.error = (...args: unknown[]) => {
+    errors.push(args);
+  };
+
+  try {
+    harness.boot(DB_A);
+    await waitFor(() => {
+      expect(harness.tearleads.database.status).toBe("error");
+    });
+  } finally {
+    console.error = originalConsoleError;
+  }
+
+  expect(errors).toHaveLength(1);
+  expect(errors[0]?.[0]).toBe("Failed to initialize database worker:");
+  expect(errors[0]?.[1]).toBe("Missing required OPFS APIs.");
+  expect(errors[0]?.[2]).toBeInstanceOf(Error);
+});
+
 test("a superseded unreadable failure boots the latest target without wiping", async () => {
   let transientRecoveryCount = 0;
   let unreadableRecoveryCount = 0;

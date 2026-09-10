@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { getSqliteWasmAssetUrl } from "@tearleads/sqlite-worker/assets";
 import { serve } from "bun";
 import { BrowserWindow, Utils } from "electrobun/bun";
+import { createRendererBuildConfig } from "../rendererEnvironment";
 import { planSaveFileRequest } from "../saveFileHandler";
 
 const packageDirEnvName = "TEARLEADS_ELECTROBUN_PACKAGE_DIR";
@@ -163,11 +164,9 @@ async function createDevServerConfig() {
     "../renderer/index.html",
   );
 
-  const webBuild = await Bun.build({
-    entrypoints: [webEntrypoint],
-    target: "browser",
-    format: "esm",
-  });
+  const webBuild = await Bun.build(
+    createRendererBuildConfig(process.env, webEntrypoint),
+  );
 
   if (!webBuild.success || webBuild.outputs.length === 0) {
     throw new Error("Web build failed", { cause: webBuild.logs });

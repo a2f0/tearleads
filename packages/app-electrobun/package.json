@@ -9,6 +9,7 @@
     "build": "sh scripts/buildElectrobun.sh",
     "build:dev": "sh scripts/buildElectrobun.sh --env dev",
     "test": "bun test src --pass-with-no-tests",
+    "test:linux-persistence": "sh scripts/testLinuxPersistence.sh",
     "prepare:devkit": "bun --bun run electrobun sync"
   },
   "dependencies": {

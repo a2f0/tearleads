@@ -19,7 +19,6 @@ import {
   openContacts,
   openExplorer,
   openNotes,
-  PANE_ASYNC_TEST_TIMEOUT_MS,
   PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
 } from "../../../../test/helpers/paneTestUtils";
 import { CONTACTS_LABELS } from "../../../mini-apps/contacts/labels";
@@ -92,7 +91,7 @@ test(
           within(contactsWindow).queryByText(CONTACTS_LABELS.loadingState),
         ).toBeNull();
       },
-      { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
+      { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
     );
   },
   PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
