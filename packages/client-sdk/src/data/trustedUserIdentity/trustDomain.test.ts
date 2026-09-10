@@ -1,6 +1,14 @@
 import { expect, test } from "bun:test";
 import { resolveIdentityTrustDomain } from "./trustDomain";
 
+test("identity trust domains preserve long internal slash runs", () => {
+  const apiBaseUrl = `https://example.test/${"/".repeat(100_000)}x`;
+  expect(resolveIdentityTrustDomain({ apiBaseUrl })).toBe(apiBaseUrl);
+  expect(resolveIdentityTrustDomain({ apiBaseUrl: `${apiBaseUrl}///` })).toBe(
+    apiBaseUrl,
+  );
+}, 1_000);
+
 test("identity trust domains canonicalize authority and retain API base path", () => {
   expect(
     resolveIdentityTrustDomain({

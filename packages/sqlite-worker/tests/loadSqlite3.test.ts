@@ -37,7 +37,7 @@ test("SAHPool storage names preserve long internal underscore runs", () => {
     directory: `/tearleads-sqlite/${segment}`,
     vfsName: `tearleads-opfs-sahpool-${segment}`,
   });
-});
+}, 1_000);
 
 // A DOMException-like error matching the browser's lock-contention failure: the
 // new worker's SAHPool install collides with the previous worker's not-yet-freed

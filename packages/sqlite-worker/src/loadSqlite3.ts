@@ -126,6 +126,7 @@ function sahPoolStorageSegmentForDbName(dbName: string): string {
     // Preserve dots so `a.b` and `a_b` do not collapse to the same SAHPool.
     .replace(/[^a-zA-Z0-9_.-]+/gu, "_")
     .replace(/^_+/u, "");
+  // Scan from the end to avoid regex backtracking over internal underscore runs.
   let end = normalized.length;
   while (end > 0 && normalized[end - 1] === "_") {
     end -= 1;

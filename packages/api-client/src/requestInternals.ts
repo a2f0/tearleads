@@ -183,6 +183,7 @@ export function normalizeApiBaseUrl(
     return "";
   }
 
+  // Scan from the end to avoid regex backtracking over internal slash runs.
   let end = trimmed.length;
   while (end > 0 && trimmed[end - 1] === "/") {
     end -= 1;

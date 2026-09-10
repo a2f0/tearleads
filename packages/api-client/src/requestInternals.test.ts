@@ -31,7 +31,7 @@ test("API base URLs preserve long internal slash runs", () => {
   const baseUrl = `https://example.test/${"/".repeat(100_000)}x`;
   expect(normalizeApiBaseUrl(baseUrl)).toBe(baseUrl);
   expect(normalizeApiBaseUrl(`${baseUrl}///`)).toBe(baseUrl);
-});
+}, 1_000);
 
 test("session refresh requires the exact status and stable code", () => {
   expect(

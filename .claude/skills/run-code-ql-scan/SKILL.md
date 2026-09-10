@@ -116,7 +116,9 @@ network requests or opening real databases for these probes.
 Write `report.md` under `SCAN_DIR`, with an optional standalone `report.html` for
 browsing longer traces. Include the revision/snapshot scope, CLI and query-pack
 versions, query/file counts, timings, all raw alerts with review notes, and
-reproduction commands. Keep `results.sarif` unchanged. Check that report counts
+reproduction commands. State that an archive snapshot has no installed
+dependencies or generated declarations, which may limit import/type resolution.
+Keep `results.sarif` unchanged. Check that report counts
 match SARIF and that local artifact links resolve.
 
 File extraction coverage is not proof of complete framework data-flow coverage.
