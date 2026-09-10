@@ -14,7 +14,10 @@ import { defineSqlTableSchema, type SqlTableSchema } from "./sqlTableSchema";
 export const organizationReadModelTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(organizationReadModelState),
   defineSqlTableSchema(organizationReadModelRequesters),
-  defineSqlTableSchema(organizationReadModelDirectoryUsers),
+  {
+    ...defineSqlTableSchema(organizationReadModelDirectoryUsers),
+    requiredColumns: ["is_personal_organization_owner"],
+  },
   defineSqlTableSchema(organizationReadModelGroups),
   defineSqlTableSchema(organizationReadModelPolicyHeads),
   defineSqlTableSchema(organizationReadModelGroupMemberships),

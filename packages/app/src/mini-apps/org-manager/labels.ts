@@ -1,6 +1,9 @@
 import type { OrganizationBillingStatus } from "@tearleads/validators/response";
 
 export const ORG_MANAGER_LABELS = {
+  personalOrganizationOwner: "Personal organization owner",
+  personalOrganizationOwnerProtection:
+    "The owner must remain an active member and admin of their personal organization.",
   add: "Add",
   addUser: "Add user",
   authenticate: "Authenticate to manage an organization.",

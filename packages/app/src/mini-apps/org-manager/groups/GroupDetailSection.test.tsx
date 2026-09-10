@@ -1,5 +1,8 @@
 import { afterEach, expect, test } from "bun:test";
-import type { OrganizationGroupSummary } from "@tearleads/client-sdk";
+import type {
+  OrganizationDirectoryUser,
+  OrganizationGroupSummary,
+} from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render, within } from "@testing-library/react";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { GroupDetailSection } from "./GroupDetailSection";
@@ -20,6 +23,75 @@ const group: OrganizationGroupSummary = {
   name: "Admins",
   organizationId: "organization-1",
 };
+
+test("the personal owner is protected in Admins but removable from an ordinary group", () => {
+  const owner: OrganizationDirectoryUser = {
+    userId: "owner",
+    isPersonalOrganizationOwner: true,
+    isSelf: false,
+    status: "active",
+    createdAt: group.createdAt,
+    joinedAt: group.createdAt,
+    updatedAt: group.createdAt,
+    profileDocumentId: null,
+    disabledAt: null,
+    disabledByUserId: null,
+    signingKeyFingerprint: "signing-fingerprint",
+    signingPublicKey: "signing-key",
+    encapsulationKeyFingerprint: "kem-fingerprint",
+    encapsulationPublicKey: "kem-key",
+  };
+  const props = {
+    addUser: () => undefined,
+    addUserId: "",
+    addUserListId: "add-user-list",
+    addableUsers: [],
+    canMutateSelectedGroup: true,
+    directory: {
+      organizationId: group.organizationId,
+      currentUser: { isOrgAdmin: true },
+      profileDocumentId: null,
+      users: [owner],
+    },
+    groupContainers: null,
+    groupPolicyHistory: null,
+    members: {
+      groupId: group.groupId,
+      organizationId: group.organizationId,
+      members: ["owner", "peer"].map((userId) => ({
+        ...owner,
+        userId,
+        role: "admin" as const,
+      })),
+    },
+    memberUserIds: new Set(["owner", "peer"]),
+    mutating: false,
+    pending: false,
+    openGroupContextMenu: () => undefined,
+    openRosterUser: () => undefined,
+    removeMember: () => undefined,
+    selectedGroup: group,
+    setAddUserId: () => undefined,
+    userId: "peer",
+  };
+  const view = render(<GroupDetailSection {...props} />);
+  expect(
+    view
+      .getByTitle(ORG_MANAGER_LABELS.personalOrganizationOwnerProtection)
+      .hasAttribute("disabled"),
+  ).toBe(true);
+  view.rerender(
+    <GroupDetailSection
+      {...props}
+      selectedGroup={{ ...group, isBuiltin: false, name: "Operators" }}
+    />,
+  );
+  expect(
+    view
+      .getAllByRole("button", { name: ORG_MANAGER_LABELS.remove })
+      .filter((button) => !button.hasAttribute("disabled")),
+  ).toHaveLength(1);
+});
 
 test("group detail separates members, policy history, and links into tabs", () => {
   const view = render(

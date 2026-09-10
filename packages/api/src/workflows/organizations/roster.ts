@@ -33,6 +33,8 @@ export function toOrganizationDirectoryUser(input: {
     encapsulationPublicKey: input.user.encapsulationPublicKey,
     encapsulationKeyFingerprint: input.user.encapsulationKeyFingerprint,
     createdAt: input.user.createdAt.toISOString(),
+    isPersonalOrganizationOwner:
+      input.user.defaultOrganizationId === input.rosterEntry.organizationId,
     isSelf: input.user.userId === input.sessionUserId,
     status: input.rosterEntry.status,
     profileDocumentId: input.rosterEntry.profileDocumentId,

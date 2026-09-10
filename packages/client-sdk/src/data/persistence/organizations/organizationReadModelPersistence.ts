@@ -77,6 +77,7 @@ async function replaceDirectoryLane(input: {
     signingPublicKey: user.signingPublicKey,
     encapsulationPublicKey: user.encapsulationPublicKey,
     encapsulationKeyFingerprint: user.encapsulationKeyFingerprint,
+    isPersonalOrganizationOwner: user.isPersonalOrganizationOwner ?? null,
     createdAt: user.createdAt,
     status: user.status,
     profileDocumentId: user.profileDocumentId,

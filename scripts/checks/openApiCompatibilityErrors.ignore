@@ -1,0 +1,4 @@
+# Issue: personal-org owner removal reproduced after #2246. The directory now
+# exposes isPersonalOrganizationOwner in both strict read-model variants.
+# Remove as soon as origin/main contains the personal-org owner response field.
+GET /organizations/{organizationId}/read-model added `subschema #1, subschema #2` to the response body `oneOf` list for the response status `200`
