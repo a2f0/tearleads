@@ -25,7 +25,7 @@ test("routed app bar carries the app's Refresh action", async ({ page }) => {
     .locator(".routed-pane-toolbar")
     .getByRole("button", { name: "Refresh" });
   await expect(refresh).toBeVisible({ timeout: 30_000 });
-  await expect(refresh).toBeEnabled();
+  await expect(refresh).toBeEnabled({ timeout: 30_000 });
 
   // Mid-refresh the registration re-labels itself "Refreshing..." and disables
   // the button, so an enabled "Refresh" again is the settled state.
