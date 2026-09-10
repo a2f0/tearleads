@@ -4,17 +4,6 @@ set -e
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
-# Source session.sh to get script paths for shellcheck.
-# shellcheck disable=SC2034
-tearleads_repo_root=$REPO_ROOT
-# shellcheck disable=SC1091
-. "$REPO_ROOT/scripts/session.sh"
-
-if [ -z "$repo_script_paths" ]; then
-  echo "Error: repo_script_paths is not defined" >&2
-  exit 1
-fi
-
 cd "$REPO_ROOT"
 
 refs_file=$(mktemp)
@@ -31,20 +20,8 @@ echo "Linting branch name..."
 bun run lint:branch-name
 
 echo "Running shellcheck..."
-old_ifs=$IFS
-IFS='
-'
-
-for path_dir in $repo_script_paths; do
-  [ -d "$path_dir" ] || continue
-  find "$path_dir" -name '*.sh' -exec shellcheck {} +
-done
-
-IFS=$old_ifs
-
-# Git hooks are installed under their exact hook names, so they carry no .sh
-# extension — match every regular file here rather than a glob that never hits.
-find "$REPO_ROOT/scripts/git/hooks" -type f -exec shellcheck {} +
+bun run lint:scripts
+bun run test:static-analysis
 
 echo "Running terraform linting..."
 "$REPO_ROOT/scripts/checks/checkTerraform.sh"
