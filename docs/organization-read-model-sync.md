@@ -18,6 +18,24 @@ and authoritative group set. The reserved `Admins` policy contains direct
 `admin` users only, so clients can verify its complete chain without consulting
 roster or group-catalog projections.
 
+A personal organization belongs to the user whose server-side
+`defaultOrganizationId` names it. That user must remain in `Members` and retain
+the `admin` role in `Admins`, even when another admin signs the change or the
+owner tries to leave. The API rejects violating policy commits with 409 before
+writing either signed successor or advancing the read-model cursor. Custom
+organizations and ordinary groups retain their existing membership rules.
+
+Directory rows expose `isPersonalOrganizationOwner` for UI affordances, including
+when another admin views the owner. It is independent of requester-relative
+`isSelf` and is persisted in the local directory cache. The response field is
+optional for older read-model payloads; the current API always supplies it.
+It does not replace the server-side membership invariant. This is an intentional
+prelaunch flag-day contract change: older clients reject the new field in the
+strict read-model response, so the API and clients must be updated together.
+Local databases from before the owner column was added require reset under the
+current greenfield schema policy. Account deletion and organization purge are
+separate lifecycle operations, not roster removal.
+
 Deleting a group requires a signed organization-policy successor that removes
 its directory entry. The durable tombstone prevents the deleted ID from being
 recreated, while the directory remains an exact set of active group heads.

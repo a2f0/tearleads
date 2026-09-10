@@ -4,6 +4,7 @@ import { inArray } from "drizzle-orm";
 
 export interface UserKeyRow {
   userId: string;
+  defaultOrganizationId: string;
   signingKeyFingerprint: string;
   signingPublicKey: string;
   encapsulationPublicKey: string;
@@ -22,6 +23,7 @@ export async function loadUsersById(
   const rows = await executor
     .select({
       userId: users.id,
+      defaultOrganizationId: users.defaultOrganizationId,
       signingKeyFingerprint: users.fingerprint,
       signingPublicKey: users.signingPublicKey,
       encapsulationPublicKey: users.encapsulationPublicKey,

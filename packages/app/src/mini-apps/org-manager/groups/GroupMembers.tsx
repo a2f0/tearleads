@@ -23,6 +23,7 @@ export function GroupMembers({
   members,
   mutating,
   openRosterUser,
+  protectedUserId,
   removeMember,
   userId,
 }: {
@@ -30,6 +31,7 @@ export function GroupMembers({
   members: ReadonlyArray<OrganizationGroupMember>;
   mutating: boolean;
   openRosterUser: (userId: string) => void;
+  protectedUserId: string | null;
   removeMember: (userId: string) => void;
   userId: string | null;
 }) {
@@ -61,7 +63,10 @@ export function GroupMembers({
         {virtualMembers.rows.map((member) => {
           const isLastAdmin = member.role === "admin" && adminCount <= 1;
           const canRemove =
-            canMutateGroup && member.userId !== userId && !isLastAdmin;
+            canMutateGroup &&
+            member.userId !== userId &&
+            member.userId !== protectedUserId &&
+            !isLastAdmin;
 
           return (
             <MiniAppVirtualListRow key={member.userId}>
@@ -79,10 +84,18 @@ export function GroupMembers({
                   </strong>
                   <MiniAppRowText muted>
                     {getOrgManagerPolicyRoleLabel(member.role)}
+                    {member.userId === protectedUserId
+                      ? ` · ${ORG_MANAGER_LABELS.personalOrganizationOwner}`
+                      : null}
                   </MiniAppRowText>
                 </MiniAppRowButton>
                 <MiniAppButton
                   disabled={!canRemove || mutating}
+                  title={
+                    member.userId === protectedUserId
+                      ? ORG_MANAGER_LABELS.personalOrganizationOwnerProtection
+                      : undefined
+                  }
                   onClick={() => removeMember(member.userId)}
                 >
                   {ORG_MANAGER_LABELS.remove}

@@ -1,7 +1,7 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
-import { groups, organizations } from "@tearleads/api-shared/schema";
+import { groups, organizations, users } from "@tearleads/api-shared/schema";
 import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
-import { eq } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import { listCurrentPrincipalProjectionMembers } from "../../access/read/principalStateStore";
 import { parseOrganizationAuthorityDescriptor } from "../organizations/organizationAuthorityDescriptor";
 import {
@@ -48,6 +48,48 @@ async function assertReservedAdminsPolicyShape(
       "Reserved Admins policy must contain only direct admin users",
       400,
     );
+  }
+}
+
+async function assertPersonalOrganizationOwnerRetained(
+  tx: DatabaseTransaction,
+  input: PrincipalPolicyAuthorityConstraintInput,
+): Promise<void> {
+  if (input.expectedPrincipalType !== "group") {
+    return;
+  }
+  const owners = await tx
+    .select({
+      userId: users.id,
+      adminGroupId: organizations.adminGroupId,
+    })
+    .from(groups)
+    .innerJoin(organizations, eq(organizations.id, groups.organizationId))
+    .innerJoin(users, eq(users.defaultOrganizationId, organizations.id))
+    .where(
+      and(
+        eq(groups.id, input.expectedPrincipalId),
+        or(
+          eq(groups.id, organizations.adminGroupId),
+          eq(groups.id, organizations.memberGroupId),
+        ),
+      ),
+    );
+
+  for (const owner of owners) {
+    const isAdmins = input.expectedPrincipalId === owner.adminGroupId;
+    if (
+      !input.projection.some(
+        (member) =>
+          member.userId === owner.userId &&
+          (!isAdmins || member.role === "admin"),
+      )
+    ) {
+      throw new PrincipalPolicyError(
+        "Personal organization owner must remain an active member and admin",
+        409,
+      );
+    }
   }
 }
 
@@ -112,5 +154,6 @@ export async function assertPolicyAuthorityConstraints(
   policy: PrincipalPolicyAuthorityConstraintInput,
 ): Promise<void> {
   await assertReservedAdminsPolicyShape(tx, policy);
+  await assertPersonalOrganizationOwnerRetained(tx, policy);
   await assertOrganizationAuthorityDescriptor(tx, policy);
 }

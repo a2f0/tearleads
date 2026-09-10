@@ -173,6 +173,13 @@ export function GroupDetailSection({
                 members={members?.members ?? []}
                 mutating={mutating}
                 openRosterUser={openRosterUser}
+                protectedUserId={
+                  selectedGroup.isBuiltin
+                    ? (directory?.users.find(
+                        (user) => user.isPersonalOrganizationOwner,
+                      )?.userId ?? null)
+                    : null
+                }
                 removeMember={removeMember}
                 userId={userId}
               />
