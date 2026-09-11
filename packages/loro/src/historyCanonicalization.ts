@@ -79,14 +79,13 @@ function canonicalHistoryOperation(operation: JsonOp): JsonOp {
 
 export function serializeCanonicalHistory(history: JsonSchema): string {
   const canonicalChanges = history.changes
-    .map((change) => ({
-      ...change,
-      ops: change.ops.map(canonicalHistoryOperation),
-    }))
-    .map((change) => ({
-      change,
-      identity: serializeCanonicalHistoryValue(change),
-    }))
+    .map((sourceChange) => {
+      const change = {
+        ...sourceChange,
+        ops: sourceChange.ops.map(canonicalHistoryOperation),
+      };
+      return { change, identity: serializeCanonicalHistoryValue(change) };
+    })
     .sort((left, right) =>
       compareCanonicalIdentity(left.identity, right.identity),
     )

@@ -92,6 +92,8 @@ test("deletion-shaped application values retain their exact identity", async () 
   try {
     negative.getMap("fields").set("value", { type: "delete", len: -1 });
     positive.getMap("fields").set("value", { type: "delete", len: 1 });
+    negative.commit();
+    positive.commit();
     expect(encodeVersionVector(negative)).toBe(encodeVersionVector(positive));
     expect(exportFullHistoryIdentity(negative)).not.toBe(
       exportFullHistoryIdentity(positive),
@@ -102,6 +104,39 @@ test("deletion-shaped application values retain their exact identity", async () 
   } finally {
     negative.free();
     positive.free();
+  }
+});
+
+test("coalesced backspaces still reject a conflicting same-peer deletion", async () => {
+  const original = await createDocument("coalesced-deletion-base");
+  const genuine = await createDocument("coalesced-deletion-writer");
+  const conflicting = await createDocument("coalesced-deletion-writer");
+  try {
+    original.getText("text").update("abcdef");
+    const snapshot = exportFullHistorySnapshot(original);
+    importSnapshot(genuine, snapshot);
+    importSnapshot(conflicting, snapshot);
+    const genuineUpdates: Uint8Array[] = [];
+    const conflictingUpdates: Uint8Array[] = [];
+    for (const position of [5, 4, 3]) {
+      const base = encodeVersionVector(genuine);
+      genuine.getText("text").delete(position, 1);
+      conflicting.getText("text").delete(0, 1);
+      genuineUpdates.push(exportUpdatesSince(genuine, base));
+      conflictingUpdates.push(exportUpdatesSince(conflicting, base));
+    }
+    importUpdates(original, genuineUpdates);
+    expect(encodeVersionVector(genuine)).toBe(encodeVersionVector(conflicting));
+    for (const update of genuineUpdates) {
+      expect(updateMatchesDocumentHistory(original, update)).toBe(true);
+    }
+    for (const update of conflictingUpdates) {
+      expect(updateMatchesDocumentHistory(original, update)).toBe(false);
+    }
+  } finally {
+    original.free();
+    genuine.free();
+    conflicting.free();
   }
 });
 
