@@ -3,6 +3,8 @@
 // reconciliation. Row locks, leases, DB predicates, and Stripe idempotency make
 // overlaps safe.
 import { closeApiDatabase } from "@tearleads/api-shared/postgres";
+import { reportBackgroundFailure } from "../src/diagnostics/reportBackgroundFailure";
+import { flushApiDiagnostics } from "../src/diagnostics/sentry";
 import { runOrganizationPurgeMaintenance } from "../src/services/billing/organizationPurge";
 import { expireOrganizationTrials } from "../src/services/billing/organizationTrialExpiry";
 import { runStripeSeatSynchronization } from "../src/services/billing/stripeSeatSync";
@@ -24,7 +26,11 @@ async function runMaintenancePhase<T>(
   try {
     return await run();
   } catch (error) {
+    // Each phase is independent, so a failure here is swallowed to let the
+    // remaining phases run. Only the exit status survives otherwise, and a
+    // timer that runs every minute makes a persistent fault easy to miss.
     console.error(`${name} failed:`, error);
+    reportBackgroundFailure(error);
     process.exitCode = 1;
     return null;
   }
@@ -57,7 +63,9 @@ try {
   }
 } catch (error) {
   console.error("Billing maintenance failed:", error);
+  reportBackgroundFailure(error);
   process.exitCode = 1;
 } finally {
+  await flushApiDiagnostics();
   await closeApiDatabase();
 }

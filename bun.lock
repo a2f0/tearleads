@@ -169,6 +169,7 @@
       "version": "0.0.1",
       "dependencies": {
         "@tearleads/client-sdk": "workspace:*",
+        "@tearleads/diagnostics": "workspace:*",
         "@tearleads/sqlite-worker": "workspace:*",
         "app": "workspace:*",
         "electrobun": "2.0.1",

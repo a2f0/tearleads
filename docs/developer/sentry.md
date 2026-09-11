@@ -193,10 +193,16 @@ the write already committed, read-model notification verification, session
 revocation notices, and post-handshake WebSocket interest handling — report
 under `diagnostic_source=background-error`, which keeps them out of the
 request 5xx signal. They are fire-and-forget: reporting cannot change the
-response, and the committed write stays committed. The blob-GC and
-Stripe-seat-sync executables are built with the same diagnostics
-configuration, so failures inside them report too. Process and native crashes
+response, and the committed write stays committed. Process and native crashes
 remain outside this integration.
+
+The blob-GC and Stripe-seat-sync executables build with the same diagnostics
+configuration and report their own swallowed maintenance failures: blob
+reclamation reports the aggregate carrying every per-object failure, and each
+billing phase reports independently so one failure does not hide the others.
+Both drain pending reports before exiting, because a short-lived process can
+otherwise finish and exit while a report is still in flight. Reporting never
+changes their exit status.
 
 ## Source maps and verification
 
