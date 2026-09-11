@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, mock, spyOn, test } from "bun:test";
-import { act, cleanup, renderHook } from "@testing-library/react";
+import { act, cleanup, fireEvent, renderHook } from "@testing-library/react";
 import type { FormEvent } from "react";
 import * as Session from "../../../providers/crypto/CryptoSessionProvider";
 import * as Identity from "../../../providers/identity/IdentityProvider";
@@ -124,3 +124,40 @@ test("locking discards a staged phrase and unlocking cannot revive it", () => {
   expect(view.result.current.restorePassphrase).toBe("");
   expect(restoreSeedPhrase).not.toHaveBeenCalled();
 });
+
+test.each(["visibilitychange", "pagehide"])(
+  "%s clears a staged restore phrase on backgrounding",
+  (event) => {
+    const view = renderHook(() => useRecoveryKeyRestore(feedback));
+    act(() =>
+      view.result.current.setRestorePassphrase("staged recovery phrase"),
+    );
+    const visibility = Object.getOwnPropertyDescriptor(
+      document,
+      "visibilityState",
+    );
+    try {
+      if (event === "visibilitychange") {
+        Object.defineProperty(document, "visibilityState", {
+          configurable: true,
+          value: "hidden",
+        });
+        fireEvent(document, new Event(event));
+        Object.defineProperty(document, "visibilityState", {
+          configurable: true,
+          value: "visible",
+        });
+        fireEvent(document, new Event(event));
+      } else {
+        fireEvent(window, new Event(event));
+        fireEvent(window, new Event("pageshow"));
+      }
+      expect(view.result.current.restorePassphrase).toBe("");
+      expect(restoreSeedPhrase).not.toHaveBeenCalled();
+    } finally {
+      if (visibility)
+        Object.defineProperty(document, "visibilityState", visibility);
+      else Reflect.deleteProperty(document, "visibilityState");
+    }
+  },
+);

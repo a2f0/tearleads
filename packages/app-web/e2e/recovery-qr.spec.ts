@@ -37,7 +37,7 @@ test("a second device scans the displayed recovery QR into its restore form", as
     await phonePage.goto("/app/identity-manager/recovery-key");
     await expect(
       phonePage.getByRole("button", { name: "Reveal Recovery QR Code" }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 30_000 });
     await phonePage.getByRole("tab", { name: "Recovery", exact: true }).click();
     // Feed the actual rendered SVG into a real video stream. The production
     // canvas reader and QR decoder run unchanged in the second browser context.

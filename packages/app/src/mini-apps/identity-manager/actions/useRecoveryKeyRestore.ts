@@ -5,6 +5,7 @@ import { useIdentity } from "../../../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../../../providers/local-keyring/LocalKeyringLockProvider";
 import { useLog } from "../../../providers/logging/LogProvider";
 import { unknownErrorMessage } from "../../../utils/unknownErrorMessage";
+import { useRecoveryKeyPrivacy } from "./useRecoveryKeyPrivacy";
 
 export type RecoveryKeyBusyState = "restore" | null;
 
@@ -24,6 +25,7 @@ export function useRecoveryKeyRestore(feedback: RecoveryKeyFeedback) {
   const [inputIdentity, setInputIdentity] = useState(signingFingerprint);
   const canRestore = !localKeyringLock.isLocked && !identityTransitionInFlight;
   const restoringRef = useRef(false);
+  useRecoveryKeyPrivacy(() => setRestorePassphrase(""));
   if (
     inputIdentity !== signingFingerprint ||
     (localKeyringLock.isLocked && restorePassphrase !== "")

@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import {
   createSeedPhraseFileName,
   downloadSeedPhraseFile,
@@ -11,22 +11,15 @@ import {
   RECOVERY_KEY_DISCLOSURES,
   type RecoveryKeyDisclosure,
 } from "./recoveryKeyDisclosure";
+import { useRecoveryKeyPrivacy } from "./useRecoveryKeyPrivacy";
 import type { RecoveryKeyFeedback } from "./useRecoveryKeyRestore";
 
-function useHideWhenBackgrounded(hide: () => void) {
-  const hideForBackground = useEffectEvent(hide);
-  useEffect(() => {
-    const onPageHide = () => hideForBackground();
-    const onVisibilityChange = () => {
-      if (document.visibilityState === "hidden") hideForBackground();
-    };
-    window.addEventListener("pagehide", onPageHide);
-    document.addEventListener("visibilitychange", onVisibilityChange);
-    return () => {
-      window.removeEventListener("pagehide", onPageHide);
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-    };
-  }, []);
+async function copyRecoveryKey(recoveryKey: string) {
+  if (typeof navigator === "undefined" || !navigator.clipboard) {
+    throw new Error("The clipboard is unavailable on this device.");
+  }
+
+  await navigator.clipboard.writeText(recoveryKey);
 }
 
 export function useRecoveryKeyDisclosure(
@@ -46,14 +39,16 @@ export function useRecoveryKeyDisclosure(
   // is *then* rather than the one captured in their closure.
   const currentIdentityRef = useRef(signingFingerprint);
   const activeRef = useRef(active);
-  activeRef.current = active;
+  useLayoutEffect(() => {
+    activeRef.current = active;
+  }, [active]);
 
   const hide = () => {
     setRevealed(false);
     setQrRevealed(false);
     if (revealed || qrRevealed) feedback.setStatus(null);
   };
-  useHideWhenBackgrounded(() => {
+  useRecoveryKeyPrivacy(() => {
     hide();
     setPendingDisclosure(null);
   });
@@ -80,14 +75,6 @@ export function useRecoveryKeyDisclosure(
       feedback.setStatus(null);
     }
   }
-
-  const copyRecoveryKey = async (recoveryKey: string) => {
-    if (typeof navigator === "undefined" || !navigator.clipboard) {
-      throw new Error("The clipboard is unavailable on this device.");
-    }
-
-    await navigator.clipboard.writeText(recoveryKey);
-  };
 
   const downloadRecoveryKey = async (recoveryKey: string) => {
     await downloadSeedPhraseFile(fileSaver, {

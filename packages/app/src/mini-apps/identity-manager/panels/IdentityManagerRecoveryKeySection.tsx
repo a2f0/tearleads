@@ -51,8 +51,8 @@ export function IdentityManagerRecoveryKeySection() {
           if (tab === activeTab) return;
           disclosure.hide();
           disclosure.cancelDisclosure();
+          setError(null);
           if (tab === "recovery") {
-            setError(null);
             setStatus(null);
           }
           if (tab !== "recovery") restore.setRestorePassphrase("");
@@ -78,7 +78,7 @@ export function IdentityManagerRecoveryKeySection() {
           </>
         ) : (
           <RecoveryKeyRestoreForm
-            key={signingFingerprint}
+            key={signingFingerprint ?? "no-identity"}
             busy={restore.busy}
             canRestore={restore.canRestore}
             identityTransitionInFlight={restore.identityTransitionInFlight}
