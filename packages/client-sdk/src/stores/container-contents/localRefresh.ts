@@ -7,6 +7,7 @@ import { currentMetadataPullContinuation } from "../../workflows/container-conte
 import type { ContainerState } from "../../workflows/container-contents/remoteHydration";
 import { reconcileLocalOnlyRootContainers } from "../../workflows/container-contents/remoteHydration/reconciliation";
 import type { ContainerContentsWorkflowRuntime } from "../../workflows/container-contents/runtime";
+import { isDatabaseUnavailableError } from "../../workflows/container-contents/syncLane";
 import {
   captureContainerStateMutationGenerations,
   containerStateMutatedAfter,
@@ -153,6 +154,33 @@ async function reconcileLocalsLoadedAfterRemoteState(
   }
 }
 
+/**
+ * Hand the tree-rebuild failure to host diagnostics as a real `Error`: the
+ * unguarded metadata import inside `loadLocalContainerStates` lands corrupt
+ * persisted state here, which the string-only log line cannot carry. That line
+ * is the fallback for a host without `logError`, so there is no second copy.
+ */
+function reportLocalContainerRefreshFailure(
+  util: ContainerContentsWorkflowRuntime["util"],
+  error: unknown,
+): void {
+  // Losing the database mid-flight is the teardown outcome the re-armed refresh
+  // already covers, not a defect.
+  if (!util.logError || isDatabaseUnavailableError(error)) return;
+  try {
+    // Callers run `void refreshLocalContainers()`, so a host logger that throws
+    // or rejects must not escape as an unhandled rejection carrying app frames.
+    void Promise.resolve(
+      util.logError(
+        "Container contents: local container refresh failed",
+        error,
+      ),
+    ).catch(() => undefined);
+  } catch {
+    // Hosts may throw synchronously or return a rejected promise.
+  }
+}
+
 export function refreshLocalContainerStates(input: {
   host: LocalContainerRefreshHost;
   state: LocalContainerRefreshState;
@@ -234,6 +262,7 @@ export function refreshLocalContainerStates(input: {
       state.runtime.util.log(
         `Failed to refresh local container states: ${errorMessage(error)}`,
       );
+      reportLocalContainerRefreshFailure(state.runtime.util, error);
     })
     .finally(() => {
       const shouldRetryAfterReplacement = !isCurrent();

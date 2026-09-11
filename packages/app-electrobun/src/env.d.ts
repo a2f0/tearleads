@@ -9,6 +9,14 @@ declare namespace NodeJS {
      */
     BUN_PUBLIC_APP_VERSION?: string;
     BUN_PUBLIC_GIT_SHA?: string;
+    /**
+     * Private error diagnostics, inlined only by the packaged release build.
+     * Reporting stays off unless all three are present and well formed; see
+     * docs/developer/sentry.md.
+     */
+    BUN_PUBLIC_SENTRY_ELECTROBUN_COMMIT?: string;
+    BUN_PUBLIC_SENTRY_ELECTROBUN_DSN?: string;
+    BUN_PUBLIC_SENTRY_ELECTROBUN_ENVIRONMENT?: string;
     /** Websocket override; defaults to the events path of the backend URL. */
     BUN_PUBLIC_WS_URL?: string;
   }

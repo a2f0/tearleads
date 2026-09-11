@@ -18,6 +18,8 @@ export const CONTAINER_CONTENTS_SYNC_LANE_KEY = "container-contents";
 
 export function registerContainerContentsSyncLane(input: {
   readonly domainScope: DomainScope;
+  /** Host diagnostics sink; bare runtimes do not structure errors. */
+  readonly logError?: ((message: string, error: unknown) => void) | undefined;
   readonly run: () => Promise<void>;
 }): ContainerContentsSyncLane {
   return getOrCreateDomainSyncCoordinator(input.domainScope).registerLane(
@@ -25,6 +27,12 @@ export function registerContainerContentsSyncLane(input: {
     {
       label: "Container contents",
       phase: "structural",
+      // Fixed literal: no container or identity id may reach a report. The
+      // mapped stack identifies which lane body threw. Returning the host's
+      // result hands a rejection to the lane reporter's wrapper; discarding it
+      // would surface as an unhandled rejection instead.
+      reportUnexpectedError: (error) =>
+        input.logError?.("Container contents: sync lane failed", error),
       run: input.run,
       shouldIgnoreError: isDatabaseUnavailableError,
     },

@@ -1,3 +1,4 @@
+import { reportBackgroundFailure } from "../../diagnostics/reportBackgroundFailure";
 import {
   claimDueOrganizationPurges,
   finalizeOrganizationPurge,
@@ -98,6 +99,7 @@ export async function runOrganizationPurgeMaintenance(
         `Organization purge failed for ${claim.organizationId}:`,
         error,
       );
+      reportBackgroundFailure(error);
     }
   }
 
@@ -120,6 +122,7 @@ export async function runOrganizationPurgeMaintenance(
         `Organization purge finalization failed for ${claim.organizationId}:`,
         error,
       );
+      reportBackgroundFailure(error);
     }
   }
   return { claimed: claims.length, failed, purged };

@@ -253,6 +253,12 @@ function startReconciliationLane(
       onUnexpectedError: (error) => {
         console.error("Device-first reconciliation failed:", error);
       },
+      // Fixed literal: no container or document id may reach a report. The
+      // mapped stack identifies which lane body threw. Returning the host's
+      // result hands a rejection to the lane reporter's wrapper; discarding it
+      // would surface as an unhandled rejection instead.
+      reportUnexpectedError: (error) =>
+        host.logError?.("Reconciliation: sync lane failed", error),
       run: () => runReconcileLane(host, state),
       shouldIgnoreError: host.isIgnorableError,
     },

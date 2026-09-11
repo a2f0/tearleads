@@ -7,6 +7,7 @@ import {
   hasPendingLaneWork,
   publishSyncCoordinatorSnapshot,
 } from "./coordinatorState";
+import type { SyncLaneConfig } from "./syncLaneConfig";
 import { compareSyncLaneOrder, createSyncTimestamp } from "./syncTelemetry";
 
 export interface SyncIdleOptions {
@@ -31,6 +32,40 @@ type SyncLaneRunResult =
   | { status: "completed" }
   | { status: "failed"; error: unknown };
 
+// Keyed on the registered config so a discarded lane is collectable.
+const lastReportedFailureByConfig = new WeakMap<SyncLaneConfig, string>();
+
+// Local-only dedup key. describeSyncLaneError joins messages without their
+// types, so the name keeps a swallowed DatabaseUnavailableError distinct from
+// a plain Error carrying the same text; the cause chain keeps a re-wrapped
+// failure distinct from its origin.
+function describeSyncLaneFailureSignature(error: unknown): string {
+  const name = error instanceof Error ? error.name : typeof error;
+  return JSON.stringify([name, describeSyncLaneError(error)]);
+}
+
+// Observability only: a failing lane re-arms every FAILED_LANE_REARM_BACKOFF_MS
+// for the rest of the session, and mobile WebViews are never reloaded, so an
+// unrecoverable lane would report once a second. The signature is deliberately
+// never cleared on a completed run: alternating success and failure would
+// re-admit the same report every pass and evict the surrounding diagnostic
+// trail from the host's bounded log.
+function reportUnexpectedSyncLaneFailure(
+  state: SyncLaneState,
+  error: unknown,
+): void {
+  const report = state.config.reportUnexpectedError;
+  if (!report) return;
+  const signature = describeSyncLaneFailureSignature(error);
+  if (lastReportedFailureByConfig.get(state.config) === signature) return;
+  lastReportedFailureByConfig.set(state.config, signature);
+  try {
+    void Promise.resolve(report(error)).catch(() => undefined);
+  } catch {
+    // Hosts may throw synchronously or return a rejected promise.
+  }
+}
+
 async function runSyncLane(state: SyncLaneState): Promise<SyncLaneRunResult> {
   try {
     await state.config.run();
@@ -39,6 +74,7 @@ async function runSyncLane(state: SyncLaneState): Promise<SyncLaneRunResult> {
     if (state.config.shouldIgnoreError?.(error)) {
       return { status: "completed" };
     }
+    reportUnexpectedSyncLaneFailure(state, error);
 
     if (state.config.onUnexpectedError) {
       state.config.onUnexpectedError(error);
@@ -49,6 +85,11 @@ async function runSyncLane(state: SyncLaneState): Promise<SyncLaneRunResult> {
   }
 }
 
+// Console-only on purpose. This runs only when the lane's OWN error handler
+// already threw, so it must never route through reportUnexpectedSyncLaneFailure
+// as well: re-entering a handler that just threw would reject runResultPromise
+// from inside its own onRejected callback, leaving `running` true and
+// `activeRunToken` set, which wedges the lane for the rest of the session.
 function reportUnexpectedSyncLaneError(state: SyncLaneState, error: unknown) {
   console.error(`Failed to run sync lane ${state.key}:`, error);
 }

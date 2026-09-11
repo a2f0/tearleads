@@ -1,9 +1,9 @@
 # Private error diagnostics
 
-The web app, Android and iOS WebViews, and API report to separate Sentry
-projects for staging and production. Reporting is disabled without the
-corresponding DSN. Development, the two-identity demo, Electrobun, and the
-website remain local.
+The web app, Android and iOS WebViews, the Electrobun desktop renderer, and
+the API report to separate Sentry projects for staging and production.
+Reporting is disabled without the corresponding DSN. Development, the
+two-identity demo, and the website remain local.
 
 ## Account setup
 
@@ -15,6 +15,7 @@ The `tearleads` organization uses these projects:
 | API | `tearleads-api-staging` | `tearleads-api-production` |
 | Android | `tearleads-android-staging` | `tearleads-android-production` |
 | iOS | `tearleads-ios-staging` | `tearleads-ios-production` |
+| Electrobun | `tearleads-electrobun-staging` | `tearleads-electrobun-production` |
 
 Keep **Prevent Storing of IP Addresses**, default data scrubbing, and data
 scrubbing enabled in every project. Copy DSNs from **Settings → Projects →
@@ -35,6 +36,8 @@ SENTRY_ANDROID_STAGING_PROJECT='tearleads-android-staging'
 SENTRY_ANDROID_STAGING_DSN='https://PUBLIC_KEY@oORG.ingest.us.sentry.io/PROJECT_ID'
 SENTRY_IOS_STAGING_PROJECT='tearleads-ios-staging'
 SENTRY_IOS_STAGING_DSN='https://PUBLIC_KEY@oORG.ingest.us.sentry.io/PROJECT_ID'
+SENTRY_ELECTROBUN_STAGING_PROJECT='tearleads-electrobun-staging'
+SENTRY_ELECTROBUN_STAGING_DSN='https://PUBLIC_KEY@oORG.ingest.us.sentry.io/PROJECT_ID'
 ```
 
 The DSNs above are placeholders. The DSN is public; the upload token is private.
@@ -140,6 +143,20 @@ budget. Reporting throws or rejections do not replace the quarantine or clear
 the write-queue error, and results from an invalidated sync generation are not
 reported.
 
+Failed local document writes and failed sync-lane runs report the same way.
+The document write chain deliberately swallows its errors so an un-awaited
+edit cannot reject, so a failed content, row, or attachment write was
+previously invisible; it now reaches the logger with the original `Error`.
+Sync lanes report through an observability-only lane callback that is separate
+from the lane's own error handling. Both suppress an identical repeat — the
+write chain per document store, a lane per registered lane, and a lane's
+signature is deliberately never cleared by a later success, because a lane
+alternating between failure and recovery would otherwise refill the local log.
+A vanished local database is teardown rather than lost durability and stays
+local, as do offline and expected HTTP outcomes, which never reach these
+paths. Messages are fixed literals: document, row, container, and lane
+identifiers stay in the local log line and are never reported.
+
 All mini-apps record opening and route changes. Explorer additionally records
 root/Trash/folder/document views and explicit context-menu actions. Notes
 records moving documents to Trash; Backup / Restore records export/import
@@ -148,7 +165,7 @@ typed `diagnosticAction` prop on `MiniAppButton` / `MenuItem`. Add vocabulary to
 `@tearleads/diagnostics/activity` deliberately. Never derive it from text, IDs,
 or routes.
 
-## Mobile and API coverage
+## Mobile, desktop, and API coverage
 
 Mobile uses the same private JavaScript client, error boundaries, System Monitor
 adapter, and mini-app vocabulary as web. The packaged asset manifest restricts
@@ -157,12 +174,42 @@ commit. Pending events flush when the app pauses. Native crash collection,
 watchdogs, native breadcrumbs, and native attachments are disabled; this setup
 captures JavaScript failures inside the WebView.
 
+The Electrobun desktop renderer uses that same private JavaScript client,
+boundaries, and adapter. Frames are restricted to the renderer bundle served
+from the desktop shell's pinned loopback origin. The Bun main process is not
+covered: it would need the compiled source-path allowlist the API builds into
+its executable, which Electrobun's packaging does not produce.
+
 The API captures unexpected HTTP errors (500+, including temporary database
-failures) and failures during WebSocket handshakes. Expected client errors and
-organization entitlement failures keep their existing responses and stay local.
-Each captured API error has an independent scope and no breadcrumbs, preventing
-activity from different requests from mixing. Background task failures and
-process/native crashes are outside this integration.
+failures) and failures during WebSocket handshakes. A domain error carrying a
+500+ status answers with its own status and body, which the shared handler
+never sees, so it is captured where it is answered instead. Its status is kept
+deliberately: propagating it would turn a retryable 503 into a permanent 500
+unless its cause chain happened to look like driver contention. Expected client
+errors and organization entitlement failures keep their existing responses and
+stay local. Each captured API error has an independent scope and no
+breadcrumbs, preventing activity from different requests from mixing.
+
+Failures the API logged and deliberately swallowed — a realtime publish after
+the write already committed, read-model notification verification, session
+revocation notices, and post-handshake WebSocket interest handling — report
+under `diagnostic_source=background-error`, which keeps them out of the
+request 5xx signal. They are fire-and-forget: reporting cannot change the
+response, and the committed write stays committed. Process and native crashes
+remain outside this integration.
+
+The blob-GC and Stripe-seat-sync executables build with the same diagnostics
+configuration and report their own swallowed maintenance failures: blob
+reclamation reports the aggregate carrying every per-object failure, and each
+billing phase reports independently so one failure does not hide the others.
+Per-item failures, which the sweeps count and drop rather than raise, report
+too; free-trial expiry reports at the attention threshold its backoff already
+defines rather than on every retryable attempt. An aggregate reports a bounded
+number of its constituents rather than itself, because only the first exception
+survives sanitizing and the aggregate's own stack is its construction site.
+Both binaries drain pending reports before exiting, since a short-lived process
+can otherwise finish and exit while a report is still in flight. Reporting never
+changes their exit status.
 
 ## Source maps and verification
 
@@ -180,6 +227,24 @@ from `dist` after the upload attempt, including failures. The pinned CLI
 [associates matching JavaScript and hidden map filenames](https://github.com/getsentry/sentry-cli/blob/3.7.0/src/utils/sourcemaps.rs#L105)
 and adds references to uploaded artifacts; matching release, dist, and canonical
 URLs provide symbolication without transmitting debug metadata.
+
+Electrobun events use `tearleads-electrobun@<git-sha>` and `staging-app` /
+`production-app`. `ELECTROBUN_RELEASE_TIER` selects `staging` or `production`;
+unset is an ordinary local build that reads no secrets and reports nothing.
+Only a release build inlines the desktop configuration at all: the dev server
+and Electrobun's own config read the ambient process environment directly, so
+the renderer defines drop these names unless the build is a release one.
+`scripts/withSentryReleaseEnv.ts` resolves that tier's DSN and the full commit
+into the public `BUN_PUBLIC_SENTRY_ELECTROBUN_*` renderer defines, and wraps
+both the Electrobun build and the packaged renderer rebuild so they inline the
+same configuration. It drops every inherited Sentry name first, so a shell that
+already exported the web or native release configuration cannot route desktop
+events into another project and the upload token never reaches a renderer
+bundle. A configured tier whose DSN is missing or malformed stops the build
+rather than shipping a desktop app that looks instrumented and is not.
+
+Desktop does not upload source maps yet, so its events carry unsymbolicated
+bundle frames. Maps can be uploaded against the same release later.
 
 API releases use `tearleads-api@<git-sha>`
 and `staging` / `production`. Bun embeds maps in the executable and resolves

@@ -49,6 +49,12 @@ afterEach(async () => {
 
 // Reproduce the reported batch while staying within one sync response page.
 const BACKSPACE_COUNT = 51;
+// Every propagation here queues behind BACKSPACE_COUNT sequential round trips,
+// so the shared 15s default — calibrated for a test that syncs once — has no
+// headroom left on a loaded machine and times out well inside this test's own
+// 60s budget. These waits are the assertions, so a short bound reports a
+// timeout rather than the mismatch it exists to catch.
+const RECOVERED_SYNC_TIMEOUT_MS = 30_000;
 const apps: readonly NoteEntryPoint[] = ["Notes", "Explorer"];
 for (const creator of apps) {
   for (const editor of apps) {
@@ -132,6 +138,7 @@ for (const creator of apps) {
               originalWindow,
               initialText,
               "Edits arrived before the delayed pull.",
+              RECOVERED_SYNC_TIMEOUT_MS,
             );
             if (creator === "Notes") await openExplorer(primary);
             await clickExplorerRefresh(primary);
@@ -143,6 +150,7 @@ for (const creator of apps) {
             originalWindow,
             text,
             "Original device did not receive backspaces.",
+            RECOVERED_SYNC_TIMEOUT_MS,
           );
           if (delayed)
             expect(
@@ -157,6 +165,7 @@ for (const creator of apps) {
             recoveredWindow,
             `${text}\nOriginal device edit`,
             "Recovered device did not receive the next edit.",
+            RECOVERED_SYNC_TIMEOUT_MS,
           );
           await waitForNoPostShareSyncFailures([primary, secondary], baseline);
         },

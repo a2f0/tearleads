@@ -105,6 +105,8 @@ const baseConfig = {
         "scripts/packageElectrobunAssets.ts",
         // Invoked by the native CEF persistence smoke-test harnesses.
         "scripts/probeCefPersistence.ts",
+        // Wraps both build steps in scripts/buildElectrobun.sh.
+        "scripts/withSentryReleaseEnv.ts",
         "src/bun/index.ts",
         "src/renderer/index.tsx",
         "src/renderer/databaseWorker.ts",

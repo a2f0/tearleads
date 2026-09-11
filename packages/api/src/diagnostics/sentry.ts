@@ -39,3 +39,17 @@ export function captureApiError(
     // Observability must not alter the application's error response.
   }
 }
+
+/**
+ * Drain pending reports before a short-lived process exits. The long-running
+ * server never needs this — its transport outlives every request — but a
+ * maintenance binary can finish its work and exit while a capture is still in
+ * flight, losing exactly the failure the run existed to surface.
+ */
+export async function flushApiDiagnostics(): Promise<void> {
+  try {
+    await diagnostics?.flush();
+  } catch {
+    // A failed flush must not change the exit status of the work itself.
+  }
+}

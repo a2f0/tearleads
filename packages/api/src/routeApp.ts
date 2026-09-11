@@ -7,6 +7,7 @@ import { Hono, type MiddlewareHandler } from "hono";
 import { cors } from "hono/cors";
 import { type ApiCorsOrigins, readApiCorsOrigins } from "./corsOrigins";
 import { createApiErrorHandler } from "./diagnostics/errorHandler";
+import { reportBackgroundFailure } from "./diagnostics/reportBackgroundFailure";
 import type { SessionEnv } from "./middleware/session";
 import type { PublishedRealtimeEvent } from "./realtime/publishedRealtimeEvents";
 import {
@@ -101,6 +102,7 @@ function createReadModelHintMiddleware(
         "Failed to verify organization read-model notifications:",
         error,
       );
+      reportBackgroundFailure(error);
       return;
     }
     await Promise.all(

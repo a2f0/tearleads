@@ -325,8 +325,23 @@ class DeviceFirstService implements DeviceFirst {
         await store.getContainerStore().refreshRootLane();
       },
       isIgnorableError: isDatabaseUnavailableError,
+      // Resolve the runtime per call: it is rebuilt as the active identity
+      // changes, and a reference captured here would report into a dead host.
+      logError: (message, error) =>
+        logReconciliationFailure(this.workflowRuntime(), message, error),
     };
   }
+}
+
+// Returns the host's result: both callbacks are declared `=> void` but may be
+// async, and the lane reporter only catches a rejection it is handed.
+function logReconciliationFailure(
+  runtime: ContainerContentsStoreWorkflowRuntime,
+  message: string,
+  error: unknown,
+): unknown {
+  const { log, logError } = runtime.util;
+  return logError ? logError(message, error) : log(message);
 }
 
 export function createDeviceFirstWorkflowRuntime(

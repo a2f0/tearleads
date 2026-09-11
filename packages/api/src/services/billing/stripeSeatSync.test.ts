@@ -5,6 +5,7 @@ import {
   organizationBillingStripeSeats,
 } from "@tearleads/api-shared/schema";
 import { eq } from "drizzle-orm";
+import * as background from "../../diagnostics/reportBackgroundFailure";
 import { getDefaultApiServiceRuntime } from "../runtime";
 import { runStripeSeatSynchronization } from "./stripeSeatSync";
 
@@ -200,6 +201,9 @@ test("a failed capacity update retries with the sticky idempotency key", async (
     desiredRenewalQuantity: 5,
   });
   const firstRequests: StripeRequest[] = [];
+  // The failure is counted into `failed` and dropped, so it never reaches the
+  // worker's phase catch; without a report the exit status is its only trace.
+  const report = spyOn(background, "reportBackgroundFailure");
   expect(
     await runOne({
       ...state,
@@ -208,6 +212,9 @@ test("a failed capacity update retries with the sticky idempotency key", async (
       requests: firstRequests,
     }),
   ).toEqual({ attempted: 1, failed: 1, synced: 0 });
+  expect(report).toHaveBeenCalledTimes(1);
+  expect(report.mock.calls[0]?.[0]).toBeInstanceOf(Error);
+  report.mockRestore();
   const firstCapacityKey = firstRequests[0]?.idempotencyKey;
   const [failedState] = await db
     .select()

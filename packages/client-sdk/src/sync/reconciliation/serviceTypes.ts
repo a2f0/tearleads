@@ -53,6 +53,8 @@ export interface ReconciliationHost extends InitialDocumentProbeHost {
   refreshRootTree: () => Promise<void>;
   /** True if the destroyed-db error should be swallowed rather than surfaced. */
   isIgnorableError: (error: unknown) => boolean;
+  /** Host diagnostics sink; bare runtimes do not structure errors. */
+  logError?: ((message: string, error: unknown) => void) | undefined;
 }
 
 export interface ReconciliationService {

@@ -10,6 +10,7 @@ import {
 } from "@tearleads/api-shared/schema";
 import { and, asc, desc, eq, inArray, isNull, lte, or } from "drizzle-orm";
 import { LAPSED_BILLING_PURGE_GRACE_MS } from "../../billing/organizationBilling";
+import { reportBackgroundFailure } from "../../diagnostics/reportBackgroundFailure";
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";
 
 const DEFAULT_EXPIRY_LIMIT = 100;
@@ -456,10 +457,13 @@ export async function runExpireOrganizationTrialsWorkflow(
           organizationId: candidate.organizationId,
         });
       } catch (deferError) {
+        // The backoff itself failing is a defect, not a retryable outcome: the
+        // candidate keeps its old attempt count and can spin every minute.
         console.error(
           `Free-trial expiry backoff failed for organization ${candidate.organizationId}:`,
           deferError,
         );
+        reportBackgroundFailure(deferError);
       }
       if (
         attemptCount !== null &&
@@ -469,6 +473,10 @@ export async function runExpireOrganizationTrialsWorkflow(
         console.error(
           `Free-trial expiry requires operator attention for organization ${candidate.organizationId} after ${attemptCount} attempts`,
         );
+        // Report only at the escalation the backoff already defines. Earlier
+        // attempts are expected to retry, so reporting each one would bury the
+        // exhausted candidate this branch exists to surface.
+        reportBackgroundFailure(error);
       }
       console.error(
         `Free-trial expiry failed for organization ${candidate.organizationId}:`,

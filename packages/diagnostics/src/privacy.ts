@@ -23,7 +23,11 @@ const ERROR_TYPES = new Set([
   "EvalError",
   "AggregateError",
 ]);
-const SERVER_SOURCES = new Set(["request-error", "websocket-error"]);
+const SERVER_SOURCES = new Set([
+  "background-error",
+  "request-error",
+  "websocket-error",
+]);
 const SOURCES = new Set([
   "boundary",
   "log",
@@ -158,6 +162,7 @@ export function sanitizeSentryEvent(
           mechanism: {
             type: "generic",
             handled: [
+              "background-error",
               "boundary",
               "log",
               "request-error",

@@ -18,6 +18,7 @@ import {
   LAPSED_BILLING_PURGE_GRACE_MS,
   organizationCanSync,
 } from "../../billing/organizationBilling";
+import * as background from "../../diagnostics/reportBackgroundFailure";
 import { routeApp } from "../../routeApp";
 import {
   runExpireOrganizationTrialsWorkflow,
@@ -363,6 +364,10 @@ test("trial sweep keeps retrying a repeatedly invalid lifecycle at the hourly ca
     .where(eq(organizationBilling.organizationId, organizationId));
 
   const errorSpy = spyOn(console, "error").mockImplementation(() => {});
+  // Reporting is deliberately tied to this escalation, not to every attempt:
+  // the backoff exists because early failures are expected to retry, so
+  // reporting each one would bury the candidate that has exhausted it.
+  const report = spyOn(background, "reportBackgroundFailure");
   try {
     expect(
       await runExpireOrganizationTrialsWorkflow(db, {
@@ -375,6 +380,9 @@ test("trial sweep keeps retrying a repeatedly invalid lifecycle at the hourly ca
       expired: 0,
       failed: 1,
     });
+    expect(report).toHaveBeenCalledTimes(1);
+    expect(report.mock.calls[0]?.[0]).toBeInstanceOf(Error);
+    report.mockRestore();
     expect(
       await runExpireOrganizationTrialsWorkflow(db, {
         now,

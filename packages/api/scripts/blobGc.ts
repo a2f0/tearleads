@@ -4,6 +4,8 @@
 // app process. Usage: API_DATABASE=postgres bun packages/api/scripts/blobGc.ts
 //   [--grace-ms <n>] [--limit <n>]
 import { closeApiDatabase } from "@tearleads/api-shared/postgres";
+import { reportBackgroundFailure } from "../src/diagnostics/reportBackgroundFailure";
+import { flushApiDiagnostics } from "../src/diagnostics/sentry";
 import { runBlobMaintenance } from "../src/services/blobs/blobMaintenance";
 import { getDefaultApiServiceRuntime } from "../src/services/runtime";
 
@@ -35,9 +37,14 @@ try {
   });
   console.log(JSON.stringify(summary, null, 2));
 } catch (error) {
-  // Report failures so a cron/systemd run is detectable as failed.
+  // Report failures so a cron/systemd run is detectable as failed. Nothing
+  // watches this binary's exit status the way a request watches a response, so
+  // the aggregate — which carries every per-object failure — is the only signal
+  // that reclamation is wedged.
   console.error("Blob GC maintenance failed:", error);
+  reportBackgroundFailure(error);
   process.exitCode = 1;
 } finally {
+  await flushApiDiagnostics();
   await closeApiDatabase();
 }

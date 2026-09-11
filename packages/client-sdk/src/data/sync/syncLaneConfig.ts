@@ -10,6 +10,8 @@ export interface SyncLaneConfig {
   label?: string | undefined;
   onUnexpectedError?: (error: unknown) => void;
   phase?: SyncLanePhase;
+  /** Observability only. Must not change lane behavior. */
+  reportUnexpectedError?: (error: unknown) => void;
   run: () => Promise<void>;
   shouldIgnoreError?: (error: unknown) => boolean;
   // Per-run liveness bound. When a run exceeds it, the pump records a watchdog

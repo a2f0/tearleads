@@ -34,6 +34,7 @@ import {
   pendingDeltaSinceBase,
   persistDocument,
 } from "./persistence";
+import { reportDocumentStoreWriteFailure } from "./reportWriteFailure";
 import {
   canAttachFiles,
   canWriteDocument,
@@ -41,6 +42,9 @@ import {
   setReadySnapshot,
 } from "./state";
 import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
+
+// Fixed literal: a reported message must never carry file names or slot ids.
+const ATTACHMENT_FAILURE_MESSAGE = "Documents: attachment mutation failed";
 
 function buildPendingAttachments(
   localId: string,
@@ -410,7 +414,7 @@ export async function attachFilesToDocumentStore(
   try {
     ready = await ensureDocumentStoreReady(state, scheduleSync);
   } catch (error) {
-    console.error("Failed to attach document files:", error);
+    reportDocumentStoreWriteFailure(state, ATTACHMENT_FAILURE_MESSAGE, error);
     return;
   }
 
@@ -424,7 +428,7 @@ export async function attachFilesToDocumentStore(
     .catch(() => undefined)
     .then(async () => persistAttachedFiles(state, files, writeGeneration))
     .catch((error: unknown) => {
-      console.error("Failed to attach document files:", error);
+      reportDocumentStoreWriteFailure(state, ATTACHMENT_FAILURE_MESSAGE, error);
     });
   return state.writeChain;
 }
@@ -438,7 +442,7 @@ export async function removeAttachmentFromDocumentStore(
   try {
     ready = await ensureDocumentStoreReady(state, scheduleSync);
   } catch (error) {
-    console.error("Failed to remove document attachment:", error);
+    reportDocumentStoreWriteFailure(state, ATTACHMENT_FAILURE_MESSAGE, error);
     return;
   }
 
@@ -452,7 +456,7 @@ export async function removeAttachmentFromDocumentStore(
     .catch(() => undefined)
     .then(async () => persistRemovedAttachment(state, slotId, writeGeneration))
     .catch((error: unknown) => {
-      console.error("Failed to remove document attachment:", error);
+      reportDocumentStoreWriteFailure(state, ATTACHMENT_FAILURE_MESSAGE, error);
     });
   return state.writeChain;
 }
@@ -467,7 +471,7 @@ export async function replaceAttachmentInDocumentStore(
   try {
     ready = await ensureDocumentStoreReady(state, scheduleSync);
   } catch (error) {
-    console.error("Failed to replace document attachment:", error);
+    reportDocumentStoreWriteFailure(state, ATTACHMENT_FAILURE_MESSAGE, error);
     return;
   }
 
@@ -483,7 +487,7 @@ export async function replaceAttachmentInDocumentStore(
       persistSlotAttachmentFile(state, slotId, file, writeGeneration),
     )
     .catch((error: unknown) => {
-      console.error("Failed to replace document attachment:", error);
+      reportDocumentStoreWriteFailure(state, ATTACHMENT_FAILURE_MESSAGE, error);
     });
   return state.writeChain;
 }
