@@ -52,6 +52,7 @@ for (const runtimeKind of ["documents", "container-contents"] as const) {
           batchUpdateIds: ["private-update"],
         });
         await documentIncomingUpdateIsolationFailureHandler(state)(failure);
+        await documentIncomingUpdateIsolationFailureHandler(state)(failure);
         expect(reported).toEqual([failure]);
         expect(await hasRecordedTerminalSyncFailures(database.execSql)).toBe(
           true,

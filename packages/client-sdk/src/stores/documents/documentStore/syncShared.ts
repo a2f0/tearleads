@@ -75,7 +75,11 @@ export function documentIncomingUpdateIsolationFailureHandler(
     await recordFailure({ message: failure.message, status: null });
     if (generation && !isDocumentStoreSyncGenerationCurrent(state, generation))
       return;
-    reportDocumentSyncQuarantine(state.runtime.util.logError, failure);
+    reportDocumentSyncQuarantine(
+      generation?.currentDoc ?? state.doc ?? state,
+      state.runtime.util.logError,
+      failure,
+    );
   };
 }
 

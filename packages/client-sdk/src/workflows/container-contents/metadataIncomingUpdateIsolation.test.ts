@@ -112,6 +112,7 @@ test("metadata quarantine preserves the original error and durable row when repo
     });
 
     await isolation.onIncomingUpdateIsolationFailure(failure);
+    await isolation.onIncomingUpdateIsolationFailure(failure);
 
     expect(reported).toEqual([failure]);
     expect(await hasRecordedTerminalSyncFailures(execSql)).toBe(true);

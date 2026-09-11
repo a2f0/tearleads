@@ -86,6 +86,8 @@ test("real browser error envelopes exclude private data and automatic activity",
         page.evaluate(() => Reflect.get(window, "stringRejectionObserved")),
       )
       .toBe(true);
+    // Disposal awaits the transport flush, so this also observes any duplicate
+    // envelope enqueued by the second handled-error click.
     await page.evaluate(() => Reflect.get(window, "disposeDiagnostics")());
     expect(requests).toHaveLength(3);
     for (const request of requests) expectPrivateEnvelope(request);

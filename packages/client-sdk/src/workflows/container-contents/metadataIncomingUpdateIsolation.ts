@@ -66,7 +66,11 @@ export function metadataIncomingUpdateIsolation(input: {
         },
       });
       if (input.isCurrent?.() === false) return;
-      reportDocumentSyncQuarantine(input.logError, failure);
+      reportDocumentSyncQuarantine(
+        input.currentDocument,
+        input.logError,
+        failure,
+      );
     },
     validateIncomingUpdates: (
       result: Pick<SyncRemoteDocumentResult, "decryptedUpdates" | "response">,

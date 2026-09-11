@@ -1,7 +1,7 @@
 # Client SDK
 
-`@tearleads/client-sdk` owns the React-free runtime: SQLite, identity keys,
-blob storage, and workflow composition. Hosts supply platform adapters.
+`@tearleads/client-sdk` owns SQLite, keys, blobs, and React-free workflows.
+Hosts adapt platform behavior into the SDK rather than duplicate its setup.
 
 ## Quick Start
 
