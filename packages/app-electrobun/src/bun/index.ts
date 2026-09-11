@@ -9,9 +9,9 @@ import { planSaveFileRequest } from "../saveFileHandler";
 
 const packageDirEnvName = "TEARLEADS_ELECTROBUN_PACKAGE_DIR";
 const isDev = process.env.NODE_ENV !== "production";
-// Keep Electrobun off app-web's default :3000 origin so stale app-web service
-// workers cannot control the desktop dev renderer.
-const devServerPort = 3002;
+// Keep the origin stable across launches: OPFS and localStorage are scoped
+// to its port. Stay off app-web's :3000 origin and its service workers.
+const appServerPort = 3002;
 
 // The renderer's WKWebView has no browser download destination, so the app posts
 // a file's bytes here (same origin, see src/renderer/electrobunFileSaver.ts) and
@@ -233,7 +233,7 @@ async function createDevServerConfig() {
 
 const appServer = serve({
   hostname: "127.0.0.1",
-  port: isDev ? devServerPort : 0,
+  port: appServerPort,
   ...(isDev ? await createDevServerConfig() : createPackagedServerConfig()),
   ...(isDev
     ? {

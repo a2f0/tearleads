@@ -27,8 +27,14 @@ trap cleanup EXIT
 
 echo "Downloading ${ARCHIVE_NAME}..."
 curl -fsSL -o "$WORK_DIR/$ARCHIVE_NAME" "$ARCHIVE_URL"
-printf '%s  %s\n' "$ARCHIVE_SHA256" "$WORK_DIR/$ARCHIVE_NAME" |
-  shasum -a 256 -c -
+# Git Bash provides sha256sum; macOS provides shasum.
+if command -v sha256sum >/dev/null 2>&1; then
+  printf '%s  %s\n' "$ARCHIVE_SHA256" "$WORK_DIR/$ARCHIVE_NAME" |
+    sha256sum -c -
+else
+  printf '%s  %s\n' "$ARCHIVE_SHA256" "$WORK_DIR/$ARCHIVE_NAME" |
+    shasum -a 256 -c -
+fi
 
 echo "Extracting..."
 unzip -q "$WORK_DIR/$ARCHIVE_NAME" -d "$WORK_DIR"

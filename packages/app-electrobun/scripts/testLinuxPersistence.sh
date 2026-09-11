@@ -118,7 +118,7 @@ env \
   sh "$package_dir/scripts/runElectronbun.sh" build:dev
 
 start_app first
-if ! bun "$script_dir/probeLinuxPersistence.ts" first >"$first_state"; then
+if ! bun "$script_dir/probeCefPersistence.ts" first >"$first_state"; then
   cat "$round_log" >&2
   exit 1
 fi
@@ -126,7 +126,7 @@ stop_app
 assert_cef_launch
 
 start_app reopen
-if ! bun "$script_dir/probeLinuxPersistence.ts" reopen "$first_state"; then
+if ! bun "$script_dir/probeCefPersistence.ts" reopen "$first_state"; then
   cat "$round_log" >&2
   exit 1
 fi

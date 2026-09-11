@@ -103,8 +103,8 @@ const baseConfig = {
         "electrobun.config.ts",
         "hutch.config.ts",
         "scripts/packageElectrobunAssets.ts",
-        // Invoked by the native Linux smoke-test shell harness.
-        "scripts/probeLinuxPersistence.ts",
+        // Invoked by the native CEF persistence smoke-test harnesses.
+        "scripts/probeCefPersistence.ts",
         "src/bun/index.ts",
         "src/renderer/index.tsx",
         "src/renderer/databaseWorker.ts",

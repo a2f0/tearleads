@@ -10,6 +10,7 @@
     "build:dev": "sh scripts/buildElectrobun.sh --env dev",
     "test": "bun test src --pass-with-no-tests",
     "test:linux-persistence": "sh scripts/testLinuxPersistence.sh",
+    "test:windows-persistence": "bun scripts/testWindowsPersistence.ts",
     "prepare:devkit": "bun --bun run electrobun sync"
   },
   "dependencies": {
@@ -20,6 +21,7 @@
     "react-dom": "catalog:react"
   },
   "devDependencies": {
+    "@tearleads/loro": "workspace:*",
     "@types/bun": "catalog:",
     "@types/react-dom": "catalog:react"
   },
