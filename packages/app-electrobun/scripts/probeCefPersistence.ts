@@ -178,7 +178,7 @@ function toPersistentState(snapshot: StorageSnapshot): PersistentState {
 async function main(): Promise<void> {
   const mode = Bun.argv[2];
   if (mode !== "first" && mode !== "reopen") {
-    throw new Error("Usage: probeLinuxPersistence.ts <first|reopen> [state]");
+    throw new Error("Usage: probeCefPersistence.ts <first|reopen> [state]");
   }
 
   const current = toPersistentState(await readReadySnapshot(mode === "reopen"));
@@ -198,9 +198,7 @@ async function main(): Promise<void> {
   if (current.databaseName !== first.databaseName) {
     throw new Error("Electrobun reopened a different identity database.");
   }
-  console.log(
-    `Electrobun reopened ${current.databaseName} from Linux CEF OPFS.`,
-  );
+  console.log(`Electrobun reopened ${current.databaseName} from CEF OPFS.`);
 }
 
 await main();
