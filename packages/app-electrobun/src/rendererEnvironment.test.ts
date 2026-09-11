@@ -59,10 +59,34 @@ test("renderer build config applies the public environment defines", () => {
       "process.env.BUN_PUBLIC_API_BASE_URL": '"https://api.example.test"',
       "process.env.BUN_PUBLIC_APP_VERSION": "undefined",
       "process.env.BUN_PUBLIC_GIT_SHA": "undefined",
+      "process.env.BUN_PUBLIC_SENTRY_ELECTROBUN_COMMIT": "undefined",
+      "process.env.BUN_PUBLIC_SENTRY_ELECTROBUN_DSN": "undefined",
+      "process.env.BUN_PUBLIC_SENTRY_ELECTROBUN_ENVIRONMENT": "undefined",
       "process.env.BUN_PUBLIC_WS_URL": "undefined",
     },
     entrypoints: ["renderer.html"],
     format: "esm",
     target: "browser",
   });
+});
+
+const sentryEnvironment = {
+  BUN_PUBLIC_SENTRY_ELECTROBUN_COMMIT: "b".repeat(40),
+  BUN_PUBLIC_SENTRY_ELECTROBUN_DSN: `https://${"a".repeat(32)}@o1.ingest.us.sentry.io/1`,
+  BUN_PUBLIC_SENTRY_ELECTROBUN_ENVIRONMENT: "staging",
+};
+
+test("the shipped renderer build inlines the desktop Sentry configuration", () => {
+  // scripts/packageElectrobunAssets.ts deletes Hutch's view output and rebuilds
+  // the packaged renderer through createRendererBuildConfig, so this config —
+  // not electrobun.config.ts's defines — is what actually ships. Stripping the
+  // Sentry names here would leave desktop reporting permanently unreachable
+  // while still looking wired.
+  const { define } = createRendererBuildConfig(sentryEnvironment, "index.html");
+  for (const [name, value] of Object.entries(sentryEnvironment)) {
+    expect(define?.[`process.env.${name}`]).toBe(JSON.stringify(value));
+  }
+  expect(createRendererEnvironmentDefines(sentryEnvironment)).toMatchObject(
+    define ?? {},
+  );
 });

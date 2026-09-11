@@ -1,4 +1,5 @@
 import { publish } from "../adapters/redisPubSub";
+import { reportBackgroundFailure } from "../diagnostics/reportBackgroundFailure";
 import type { SessionData } from "../validators/session";
 import type { PublishedRealtimeEvent } from "./publishedRealtimeEvents";
 import { wsInterestStore } from "./wsInterestStore";
@@ -28,6 +29,7 @@ export function createSessionRevocationNotifier({
   clearInterest,
   onClearInterestError = (error) => {
     console.error("Failed to clear websocket interest store:", error);
+    reportBackgroundFailure(error);
   },
   publishEvent,
 }: SessionRevocationNotifierDependencies) {

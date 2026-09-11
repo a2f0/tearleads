@@ -81,6 +81,15 @@ host diagnostics and apply privacy filtering there. Identical repeats within a
 live document do not call the host again. Stale generations do not report, and
 logger throws or rejections do not replace the quarantine.
 
+Document stores report failed local writes through the same callback. The
+write chain swallows its errors so an un-awaited edit cannot reject, so a
+failed content, row, or attachment persist is otherwise invisible; it now
+reaches `logError` with the original `Error`, suppressing an identical repeat
+per store and treating a vanished database as teardown rather than a fault.
+The container-contents local refresh and the link/unlink/move/purge choke
+point report the same way, keeping their existing local log line and failure
+contract unchanged.
+
 The `sync` facade exposes read-only coordinator snapshots through
 `getDomainSyncCoordinatorSnapshot(...)` and
 `subscribeToDomainSyncCoordinator(...)`. Host diagnostics and product UI may use

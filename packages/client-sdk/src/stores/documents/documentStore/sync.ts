@@ -441,6 +441,14 @@ export function registerDocumentStoreSyncLane(
   return registerDocumentSyncLane({
     domainScope: state.runtime.state.domainScope,
     localId: state.localId,
+    logError: (message, error) => {
+      // Read the runtime lazily: a store's runtime is replaced in place, and a
+      // reference captured here would report into a torn-down host.
+      const { log, logError } = state.runtime.util;
+      // Return the host's result: both callbacks are declared `=> void` but may
+      // be async, and the lane reporter only catches a rejection it is handed.
+      return logError ? logError(message, error) : log(message);
+    },
     run: () => {
       const syncLaneGeneration = getSyncLaneGeneration();
       if (!syncLaneGeneration) return Promise.resolve();

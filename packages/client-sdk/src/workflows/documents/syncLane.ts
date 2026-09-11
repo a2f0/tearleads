@@ -18,6 +18,8 @@ function getDocumentSyncLaneKey(localId: string): string {
 export function registerDocumentSyncLane(input: {
   readonly domainScope: DomainScope;
   readonly localId: string;
+  /** Host diagnostics sink; bare runtimes do not structure errors. */
+  readonly logError?: ((message: string, error: unknown) => void) | undefined;
   readonly run: () => Promise<void>;
 }): DocumentSyncLane {
   return getOrCreateDomainSyncCoordinator(input.domainScope).registerLane(
@@ -28,6 +30,12 @@ export function registerDocumentSyncLane(input: {
         console.error(`Failed to sync document ${input.localId}:`, error);
       },
       phase: "document",
+      // Fixed literal: the local id stays in the console line above, never in
+      // a report. The mapped stack identifies which lane body threw. Returning
+      // the host's result hands a rejection to the lane reporter's wrapper;
+      // discarding it would surface as an unhandled rejection instead.
+      reportUnexpectedError: (error) =>
+        input.logError?.("Documents: sync lane failed", error),
       run: input.run,
       shouldIgnoreError: isDatabaseUnavailableError,
     },

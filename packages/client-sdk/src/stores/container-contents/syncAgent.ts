@@ -230,6 +230,19 @@ function ensureContainerContentsStoreInitialized(input: {
   state.initializePromise = initializePromise;
 }
 
+// Read the runtime lazily: updateRuntime replaces state.runtime, so a
+// reference captured at lane registration would report into a dead identity's
+// host. Returns the host's result: both callbacks are declared `=> void` but
+// may be async, and the lane reporter only catches a rejection it is handed.
+function logSyncLaneFailure(
+  state: ContainerContentsStoreSyncState,
+  message: string,
+  error: unknown,
+): unknown {
+  const { log, logError } = state.runtime.util;
+  return logError ? logError(message, error) : log(message);
+}
+
 export function createContainerContentsStoreSyncAgent(input: {
   host: RemoteContainerHydrationHost;
   state: ContainerContentsStoreSyncState;
@@ -280,6 +293,7 @@ export function createContainerContentsStoreSyncAgent(input: {
 
   state.syncLane = registerContainerContentsSyncLane({
     domainScope: state.runtime.state.domainScope,
+    logError: (message, error) => logSyncLaneFailure(state, message, error),
     run: () =>
       runContainerContentsStoreSyncIteration({
         host,

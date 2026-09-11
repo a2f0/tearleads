@@ -16,6 +16,7 @@ import {
   pendingDeltaSinceBase,
   persistDocument,
 } from "./persistence";
+import { reportDocumentStoreWriteFailure } from "./reportWriteFailure";
 import {
   canWriteDocument,
   type DocumentState,
@@ -25,6 +26,9 @@ import {
   captureDocumentStoreSyncGeneration,
   isDocumentStoreSyncGenerationCurrent,
 } from "./syncGeneration";
+
+// Fixed literal: a reported message must never carry row ids or field values.
+const ROW_FAILURE_MESSAGE = "Documents: row mutation failed";
 
 // Stamp each row write with the local signing identity (or "" when
 // unauthenticated) and an ISO timestamp, matching the keys the edit-attribution
@@ -116,7 +120,7 @@ function queueRowMutation(
     .catch(() => undefined)
     .then(async () => persistRowMutation(state, writeGeneration, mutate))
     .catch((error: unknown) => {
-      console.error("Failed to persist document row changes:", error);
+      reportDocumentStoreWriteFailure(state, ROW_FAILURE_MESSAGE, error);
     });
   return state.writeChain;
 }
@@ -131,7 +135,7 @@ export async function addRowToDocumentStore(
   try {
     ready = await ensureDocumentStoreReady(state, scheduleSync);
   } catch (error) {
-    console.error("Failed to add document row:", error);
+    reportDocumentStoreWriteFailure(state, ROW_FAILURE_MESSAGE, error);
     return id;
   }
 
@@ -156,7 +160,7 @@ export async function updateRowInDocumentStore(
   try {
     ready = await ensureDocumentStoreReady(state, scheduleSync);
   } catch (error) {
-    console.error("Failed to update document row:", error);
+    reportDocumentStoreWriteFailure(state, ROW_FAILURE_MESSAGE, error);
     return;
   }
 
@@ -178,7 +182,7 @@ export async function removeRowFromDocumentStore(
   try {
     ready = await ensureDocumentStoreReady(state, scheduleSync);
   } catch (error) {
-    console.error("Failed to remove document row:", error);
+    reportDocumentStoreWriteFailure(state, ROW_FAILURE_MESSAGE, error);
     return;
   }
 

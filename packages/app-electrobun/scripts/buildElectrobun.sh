@@ -7,7 +7,11 @@ REPO_ROOT="$(CDPATH='' cd -- "$PACKAGE_DIR/../.." && pwd)"
 BUILD_DIR="$PACKAGE_DIR/build"
 
 cd "$PACKAGE_DIR"
+# ELECTROBUN_RELEASE_TIER (staging|production) selects the desktop Sentry DSN;
+# unset builds stay local. Both build steps go through the same wrapper so the
+# packaged renderer rebuild inlines the same configuration as the first pass.
 NODE_ENV=production sh "$REPO_ROOT/scripts/withBuildInfoEnv.sh" \
+  bun scripts/withSentryReleaseEnv.ts \
   bun --bun run electrobun build "$@"
 
 if [ ! -d "$BUILD_DIR" ]; then
@@ -32,6 +36,7 @@ elif [ ! -x "$ARTIFACT_PATH" ]; then
 fi
 
 NODE_ENV=production sh "$REPO_ROOT/scripts/withBuildInfoEnv.sh" \
+  bun scripts/withSentryReleaseEnv.ts \
   bun scripts/packageElectrobunAssets.ts "$ARTIFACT_PATH"
 
 printf 'Executable build artifact: %s\n' "$ARTIFACT_PATH"

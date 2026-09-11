@@ -40,6 +40,17 @@ through the lane owners. Manual Sync requests only pump-driven structural and
 document lanes. It never executes an observational blob row or fabricates a
 terminal upload state.
 
+A lane may also supply `reportUnexpectedError`, which the pump calls once for a
+failure that survived `shouldIgnoreError`, before the lane's own
+`onUnexpectedError`. It is observability only and must not change lane
+behavior: it is fire-and-forget, and an identical repeat is suppressed because
+a failing lane re-arms on a short backoff for the rest of the session. That
+suppression is deliberately not cleared by a later successful run. The pump's
+own `console.error` fallback stays separate, because it runs only when the
+lane's error handler already threw; routing it through the reporter as well
+would reject the run promise from inside its own rejection handler and leave
+the lane wedged.
+
 ## Reads, Writes, Documents, And Blobs
 
 The coordinator is not specifically read-only or write-only. It can schedule

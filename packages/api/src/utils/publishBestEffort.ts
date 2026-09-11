@@ -1,3 +1,4 @@
+import { reportBackgroundFailure } from "../diagnostics/reportBackgroundFailure";
 import type { PublishedRealtimeEvent } from "../realtime/publishedRealtimeEvents";
 
 type PublishEvent = (event: PublishedRealtimeEvent) => Promise<void>;
@@ -17,5 +18,6 @@ export async function publishBestEffort(
     await publish(event);
   } catch (error) {
     console.error(`Failed to publish ${label}:`, error);
+    reportBackgroundFailure(error);
   }
 }

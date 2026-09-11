@@ -21,6 +21,7 @@ import {
   pendingDeltaSinceBase,
   persistDocument,
 } from "./persistence";
+import { reportDocumentStoreWriteFailure } from "./reportWriteFailure";
 import {
   canWriteDocument,
   type DocumentState,
@@ -30,6 +31,10 @@ import {
   setReadySnapshot,
 } from "./state";
 import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
+
+// Fixed literals: a reported message must never carry document text or ids.
+const TEXT_FAILURE_MESSAGE = "Documents: local text persist failed";
+const FIELD_FAILURE_MESSAGE = "Documents: local field persist failed";
 
 function structuredMutationDurabilityOptions(
   options: DocumentMutationOptions,
@@ -162,8 +167,10 @@ function queueDocumentTextWrite(
       advancePendingBaseVersion(state, writeDoc);
       requestDocumentStoreSync(state);
     })
+    // The user is already looking at this text: publishDocumentTextSnapshot ran
+    // before the chain, and nothing downstream surfaces a failed persist.
     .catch((error: unknown) => {
-      console.error("Failed to persist document changes:", error);
+      reportDocumentStoreWriteFailure(state, TEXT_FAILURE_MESSAGE, error);
     })
     // Always settle, even on the value-equality short-circuit or a throw, so the
     // current document's counter cannot stick non-zero. The generation guard
@@ -305,7 +312,7 @@ function queueDocumentStructuredFieldWrite(
       }
     })
     .catch((error: unknown) => {
-      console.error("Failed to persist structured document changes:", error);
+      reportDocumentStoreWriteFailure(state, FIELD_FAILURE_MESSAGE, error);
     })
     // See queueDocumentTextWrite: the final current-generation write also
     // republishes any remote content that was held during the optimistic burst.

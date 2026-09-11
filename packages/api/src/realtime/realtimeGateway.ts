@@ -4,6 +4,7 @@ import {
 } from "@tearleads/validators/realtime";
 import type { ServerWebSocket } from "bun";
 import { addListener } from "../adapters/redisPubSub";
+import { reportBackgroundFailure } from "../diagnostics/reportBackgroundFailure";
 import { sendSafely } from "./wsConnection";
 import type { WebSocketTicketIdentity } from "./wsIdentity";
 import { wsInterestStore } from "./wsInterestStore";
@@ -78,6 +79,7 @@ function createOrderedInterestPersister(interestStore: InterestStore) {
       .then(() => interestStore.apply(userId, sessionId, applied))
       .catch((error: unknown) => {
         console.error("Failed to persist websocket interest:", error);
+        reportBackgroundFailure(error);
       });
     interestWriteChains.set(sessionKey, chain);
     void chain.finally(() => {
@@ -104,6 +106,7 @@ async function hydrateSocketInterest(input: {
     }
   } catch (error) {
     console.error("Failed to hydrate websocket interest:", error);
+    reportBackgroundFailure(error);
     containerIds = [];
   }
   input.ws.send(
@@ -229,6 +232,7 @@ class OrganizationInterestAuthorizer {
         "Failed to authorize websocket organization interest:",
         error,
       );
+      reportBackgroundFailure(error);
       return false;
     });
     return new Promise((resolve) => {
@@ -415,6 +419,7 @@ export function createRealtimeGateway(deps: RealtimeGatewayDeps = {}) {
             "Failed to prepare websocket organization event:",
             error,
           );
+          reportBackgroundFailure(error);
           routeMessage(message);
         });
     });

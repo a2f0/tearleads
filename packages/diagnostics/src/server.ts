@@ -8,7 +8,13 @@ import type { SentryConfig } from "./config";
 import { sanitizeSentryEvent } from "./privacy";
 import { createPrivateSentryTransport } from "./transport";
 
-export type ServerErrorSource = "request-error" | "websocket-error";
+// `background-error` covers post-commit and post-handshake failures the API
+// logged and swallowed: they produce no HTTP error response, so tagging them as
+// request failures would dilute the 5xx signal.
+export type ServerErrorSource =
+  | "background-error"
+  | "request-error"
+  | "websocket-error";
 
 export function createServerDiagnostics(config: SentryConfig) {
   const client = new ServerRuntimeClient({

@@ -12,6 +12,7 @@ import {
   srem,
   sscanMembers,
 } from "../adapters/redis";
+import { reportBackgroundFailure } from "../diagnostics/reportBackgroundFailure";
 import { notifySessionRevoked } from "../realtime/sessionRevocation";
 import type { SessionCreateInput, SessionData } from "../validators/session";
 import { isSessionData, isSessionId } from "../validators/session";
@@ -157,7 +158,10 @@ async function destroySessionToken(input: {
     try {
       await input.notifyRevoked(session);
     } catch (error) {
+      // The session rows are already gone; a failed fan-out must not resurrect
+      // them or fail the logout, so the report rides alongside the log.
       console.error("Failed to notify session revocation:", error);
+      reportBackgroundFailure(error);
     }
   }
 }

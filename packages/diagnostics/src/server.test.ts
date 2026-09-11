@@ -100,6 +100,22 @@ test("API SDK sends only sanitized errors with exact source frames and isolated 
   }
 });
 
+test("swallowed background failures are admitted as handled and never as a crash", () => {
+  const sanitize = (source: string) =>
+    sanitizeSentryEvent({ tags: { diagnostic_source: source } }, config);
+  for (const source of ["background-error", "request-error"]) {
+    const event = sanitize(source);
+    expect(event?.tags).toMatchObject({ diagnostic_source: source });
+    // An unhandled mechanism would be triaged as a crash; these were swallowed.
+    expect(event?.exception?.values?.[0]?.mechanism).toEqual({
+      type: "generic",
+      handled: true,
+    });
+  }
+  // Browser-only sources stay unknown to the API runtime and are dropped whole.
+  expect(sanitize("log")).toBeNull();
+});
+
 test("API budget resets after an hour so a long-lived server can report recurring failures", () => {
   const start = Date.now();
   setSystemTime(start);

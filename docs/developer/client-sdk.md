@@ -196,8 +196,9 @@ Runtime input snapshots are grouped by capability:
 | `state` | `containerId`, `domainScope`, `events`, `online` |
 | `util` | `log`, `logError`, `isRemoteSyncBlocked` |
 
-`util.logError` is optional for document/container runtimes. Quarantines retain
-the original `Error` for the host's [private diagnostics](./sentry.md).
+`util.logError` is optional for document/container runtimes. Quarantines,
+failed local writes, and failed lane runs retain the original `Error` for the
+host's [private diagnostics](./sentry.md), and never change an outcome.
 
 `auth.defaultOrganizationId` moves after local reset and finalization in
 [billing-purge recovery](./billing-purge-recovery.md).
