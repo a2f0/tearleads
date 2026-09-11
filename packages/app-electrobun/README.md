@@ -37,10 +37,12 @@ the backend events endpoint, and the build wrapper stamps
 Linux and Windows builds bundle and use Electrobun's CEF renderer. macOS builds
 use the native WKWebView and explicitly disable CEF bundling. These settings
 apply to both development and release builds in `electrobun.config.ts`.
+Windows CEF bundling is configured but has not yet been verified in a native
+build.
 
 On Linux, the system WebKitGTK renderer can omit worker OPFS APIs required by
-the encrypted SQLite SyncAccessHandle Pool;
-CEF provides a consistent persistent-storage backend across Linux installations.
+the encrypted SQLite SyncAccessHandle Pool; CEF provides a consistent
+persistent-storage backend across Linux installations.
 
 On a Linux desktop, exercise that native boundary and a real process restart:
 

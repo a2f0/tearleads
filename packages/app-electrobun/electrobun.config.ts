@@ -12,10 +12,12 @@ export default {
   },
   build: {
     mac: {
+      // macOS uses its built-in WKWebView.
       bundleCEF: false,
       defaultRenderer: "native",
     },
     win: {
+      // Use the same bundled Chromium renderer as Linux.
       bundleCEF: true,
       defaultRenderer: "cef",
     },
