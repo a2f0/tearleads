@@ -33,3 +33,31 @@ test.each(Object.entries(outcomes))(
     }
   },
 );
+
+test("an aggregate reports its constituents, bounded, not its own stack", () => {
+  // A sweep aggregates one error per item, and the sanitizer keeps only the
+  // first exception value — so reporting the aggregate itself would ship its
+  // construction site and discard every stack that identifies the real fault.
+  const capture = spyOn(sentry, "captureApiError").mockImplementation(
+    () => undefined,
+  );
+  try {
+    const failures = Array.from(
+      { length: 9 },
+      (_unused, index) => new Error(`SYNTHETIC_PRIVATE_ITEM_${index}`),
+    );
+    reportBackgroundFailure(new AggregateError(failures, "sweep failed"));
+    expect(capture).toHaveBeenCalledTimes(5);
+    for (const [reported] of capture.mock.calls) {
+      expect(failures as readonly unknown[]).toContain(reported);
+    }
+
+    // An empty aggregate still carries its own message and stack.
+    capture.mockClear();
+    const empty = new AggregateError([], "sweep failed");
+    reportBackgroundFailure(empty);
+    expect(capture).toHaveBeenCalledWith(empty, "background-error");
+  } finally {
+    capture.mockRestore();
+  }
+});

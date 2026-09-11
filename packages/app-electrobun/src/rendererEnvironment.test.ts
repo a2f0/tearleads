@@ -76,17 +76,32 @@ const sentryEnvironment = {
   BUN_PUBLIC_SENTRY_ELECTROBUN_ENVIRONMENT: "staging",
 };
 
+test("a dev build cannot inherit desktop Sentry values from the shell", () => {
+  // The dev server and electrobun.config.ts read the ambient process
+  // environment directly, never the release wrapper, so a developer who had
+  // exported a desktop DSN would otherwise report their local session.
+  const defines = createRendererEnvironmentDefines(sentryEnvironment);
+  for (const name of Object.keys(sentryEnvironment)) {
+    expect(defines[`process.env.${name}`]).toBe("undefined");
+  }
+  expect(
+    createRendererEnvironmentDefines({
+      ...sentryEnvironment,
+      NODE_ENV: "development",
+    })["process.env.BUN_PUBLIC_SENTRY_ELECTROBUN_DSN"],
+  ).toBe("undefined");
+});
+
 test("the shipped renderer build inlines the desktop Sentry configuration", () => {
   // scripts/packageElectrobunAssets.ts deletes Hutch's view output and rebuilds
   // the packaged renderer through createRendererBuildConfig, so this config —
   // not electrobun.config.ts's defines — is what actually ships. Stripping the
   // Sentry names here would leave desktop reporting permanently unreachable
   // while still looking wired.
-  const { define } = createRendererBuildConfig(sentryEnvironment, "index.html");
+  const release = { ...sentryEnvironment, NODE_ENV: "production" };
+  const { define } = createRendererBuildConfig(release, "index.html");
   for (const [name, value] of Object.entries(sentryEnvironment)) {
     expect(define?.[`process.env.${name}`]).toBe(JSON.stringify(value));
   }
-  expect(createRendererEnvironmentDefines(sentryEnvironment)).toMatchObject(
-    define ?? {},
-  );
+  expect(createRendererEnvironmentDefines(release)).toMatchObject(define ?? {});
 });

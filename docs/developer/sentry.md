@@ -182,8 +182,10 @@ its executable, which Electrobun's packaging does not produce.
 
 The API captures unexpected HTTP errors (500+, including temporary database
 failures) and failures during WebSocket handshakes. A domain error carrying a
-500+ status propagates to that handler rather than returning its own body, so
-it is captured and its raw message does not reach the client. Expected client
+500+ status answers with its own status and body, which the shared handler
+never sees, so it is captured where it is answered instead. Its status is kept
+deliberately: propagating it would turn a retryable 503 into a permanent 500
+unless its cause chain happened to look like driver contention. Expected client
 errors and organization entitlement failures keep their existing responses and
 stay local. Each captured API error has an independent scope and no
 breadcrumbs, preventing activity from different requests from mixing.
@@ -200,8 +202,13 @@ The blob-GC and Stripe-seat-sync executables build with the same diagnostics
 configuration and report their own swallowed maintenance failures: blob
 reclamation reports the aggregate carrying every per-object failure, and each
 billing phase reports independently so one failure does not hide the others.
-Both drain pending reports before exiting, because a short-lived process can
-otherwise finish and exit while a report is still in flight. Reporting never
+Per-item failures, which the sweeps count and drop rather than raise, report
+too; free-trial expiry reports at the attention threshold its backoff already
+defines rather than on every retryable attempt. An aggregate reports a bounded
+number of its constituents rather than itself, because only the first exception
+survives sanitizing and the aggregate's own stack is its construction site.
+Both binaries drain pending reports before exiting, since a short-lived process
+can otherwise finish and exit while a report is still in flight. Reporting never
 changes their exit status.
 
 ## Source maps and verification
@@ -224,6 +231,9 @@ URLs provide symbolication without transmitting debug metadata.
 Electrobun events use `tearleads-electrobun@<git-sha>` and `staging-app` /
 `production-app`. `ELECTROBUN_RELEASE_TIER` selects `staging` or `production`;
 unset is an ordinary local build that reads no secrets and reports nothing.
+Only a release build inlines the desktop configuration at all: the dev server
+and Electrobun's own config read the ambient process environment directly, so
+the renderer defines drop these names unless the build is a release one.
 `scripts/withSentryReleaseEnv.ts` resolves that tier's DSN and the full commit
 into the public `BUN_PUBLIC_SENTRY_ELECTROBUN_*` renderer defines, and wraps
 both the Electrobun build and the packaged renderer rebuild so they inline the
