@@ -26,6 +26,7 @@ for (const runtimeKind of ["documents", "container-contents"] as const) {
               return Promise.reject(
                 new Error("Diagnostic transport unavailable"),
               );
+            return undefined;
           },
         },
       });
