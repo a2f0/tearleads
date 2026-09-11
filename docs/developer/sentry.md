@@ -128,6 +128,18 @@ and Sentry trail can be compared without exporting raw logs. Mini-app render
 failures also enter the local log when Sentry is disabled. Activity entries
 share the local log's existing 1,000-entry retention limit.
 
+Incoming document and container-metadata quarantines pass the original `Error`
+to this logger after recording the durable failure. This covers ordinary sync
+and raw history recovery on web, Android, and iOS. Reports have
+`diagnostic_source=log` and `exception.mechanism.handled=true`; their mapped
+stacks identify the quarantine path. The raw quarantine message, update IDs,
+writer identity, causes, and document contents remain local. Identical repeats
+within a live document are suppressed before appending host logs or
+breadcrumbs. Reports also use the existing per-page deduplication and event
+budget. Reporting throws or rejections do not replace the quarantine or clear
+the write-queue error, and results from an invalidated sync generation are not
+reported.
+
 All mini-apps record opening and route changes. Explorer additionally records
 root/Trash/folder/document views and explicit context-menu actions. Notes
 records moving documents to Trash; Backup / Restore records export/import

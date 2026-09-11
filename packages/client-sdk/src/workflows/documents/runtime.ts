@@ -15,10 +15,11 @@ import type {
   WorkflowRuntimeUtilInput,
 } from "../runtimeInput";
 
-type DocumentsWorkflowRuntimeUtilInput = Omit<
-  WorkflowRuntimeUtilInput,
-  "logError"
->;
+interface DocumentsWorkflowRuntimeUtilInput
+  extends Omit<WorkflowRuntimeUtilInput, "logError"> {
+  /** Receives handled quarantine errors without converting them to strings. */
+  readonly logError?: WorkflowRuntimeUtilInput["logError"] | undefined;
+}
 
 export interface DocumentsWorkflowRuntimeInfra
   extends Omit<WorkflowRuntimeInfraInput, "dbStatus"> {

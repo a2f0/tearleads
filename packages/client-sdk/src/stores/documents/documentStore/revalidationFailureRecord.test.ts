@@ -26,7 +26,7 @@ test("incoming poison updates record a durable document-scoped quarantine", asyn
     await sqlDocumentsPersistence.ensureSchema(execSql);
     const state = {
       localId: "quarantined-doc",
-      runtime: { infra: { execSql } },
+      runtime: { infra: { execSql }, util: {} },
     } as unknown as DocumentStoreState;
     const failure = new DocumentSyncUpdateIsolationError({
       cause: new Error("invalid Loro payload"),

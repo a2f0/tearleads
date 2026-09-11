@@ -73,6 +73,14 @@ the reference consumer; ordinary sync must omit the mode. Raw consumers can
 handle `DocumentRawHistoryUnavailableError` by its stable code and numeric
 content-key epoch without parsing an integrity-error message.
 
+Document stores and container metadata report incoming-update quarantines
+through the optional `util.logError(message, error)` callback after recording
+the durable failure. The `Tearleads` client supplies its host logger; direct
+runtime consumers can provide their own. Preserve the original `Error` for
+host diagnostics and apply privacy filtering there. Identical repeats within a
+live document do not call the host again. Stale generations do not report, and
+logger throws or rejections do not replace the quarantine.
+
 The `sync` facade exposes read-only coordinator snapshots through
 `getDomainSyncCoordinatorSnapshot(...)` and
 `subscribeToDomainSyncCoordinator(...)`. Host diagnostics and product UI may use

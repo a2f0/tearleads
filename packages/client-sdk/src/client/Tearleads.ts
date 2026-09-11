@@ -271,9 +271,10 @@ export class Tearleads {
     this.logHandler(message);
   };
 
-  logError = (message: string | Error, cause?: unknown): void => {
+  // Preserve the host's return value so best-effort callers can also catch
+  // rejected promises from async loggers accepted by the void callback type.
+  logError = (message: string | Error, cause?: unknown): void =>
     this.logErrorHandler(message, cause);
-  };
 
   /**
    * Mint a single-use ticket to authenticate the server-events websocket

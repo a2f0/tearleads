@@ -1,10 +1,7 @@
 # Client SDK
 
-`@tearleads/client-sdk` is the React-free client runtime package. It owns local
-SQLite execution, identity key state, blob storage, and workflow runtime
-composition. React providers, browser workers, Electron wrappers, and UI stores
-should adapt host-specific behavior into this package rather than duplicating
-SDK setup.
+`@tearleads/client-sdk` owns SQLite, keys, blobs, and React-free workflows.
+Hosts adapt platform behavior into the SDK rather than duplicate its setup.
 
 ## Quick Start
 
@@ -198,6 +195,9 @@ Runtime input snapshots are grouped by capability:
 | `infra` | `dbStatus`, `execSql`, `blobStore`, `documentProjectors` |
 | `state` | `containerId`, `domainScope`, `events`, `online` |
 | `util` | `log`, `logError`, `isRemoteSyncBlocked` |
+
+`util.logError` is optional for document/container runtimes. Quarantines retain
+the original `Error` for the host's [private diagnostics](./sentry.md).
 
 `auth.defaultOrganizationId` moves after local reset and finalization in
 [billing-purge recovery](./billing-purge-recovery.md).

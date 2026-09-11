@@ -1,4 +1,5 @@
 import {
+  type DocumentSyncUpdateIsolationError,
   importDecryptedDocumentSyncUpdates,
   validateDocumentSyncUpdateImports,
 } from "../../data/documents/shared/documentSyncUpdateIsolation";
@@ -9,6 +10,8 @@ import {
   type ExecSql,
   runSerializedSqlMutation,
 } from "../../data/sqlite/sqlSchema";
+import { reportDocumentSyncQuarantine } from "../documents/reportDocumentSyncQuarantine";
+import type { WorkflowRuntimeUtilInput } from "../runtimeInput";
 import type { ContainerMetadataState } from "./metadataTypes";
 
 export async function recordCurrentMetadataSyncFailure(input: {
@@ -47,12 +50,13 @@ export function metadataIncomingUpdateIsolation(input: {
   currentDocument: ContainerMetadataState["doc"];
   execSql: ExecSql;
   isCurrent?: (() => boolean) | undefined;
+  logError?: WorkflowRuntimeUtilInput["logError"] | undefined;
   metadataScope: { appKind: string; localId: string };
 }) {
   return {
-    onIncomingUpdateIsolationFailure: async (failure: {
-      readonly message: string;
-    }) => {
+    onIncomingUpdateIsolationFailure: async (
+      failure: DocumentSyncUpdateIsolationError,
+    ) => {
       await recordCurrentMetadataSyncFailure({
         ...input,
         failure: {
@@ -61,6 +65,12 @@ export function metadataIncomingUpdateIsolation(input: {
           status: null,
         },
       });
+      if (input.isCurrent?.() === false) return;
+      reportDocumentSyncQuarantine(
+        input.currentDocument,
+        input.logError,
+        failure,
+      );
     },
     validateIncomingUpdates: (
       result: Pick<SyncRemoteDocumentResult, "decryptedUpdates" | "response">,

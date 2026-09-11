@@ -74,30 +74,42 @@ test("real browser error envelopes exclude private data and automatic activity",
     await expect.poll(() => requests.length).toBe(1);
     await page.getByRole("button", { name: "Reject promise" }).click();
     await expect.poll(() => requests.length).toBe(2);
+    const handledButton = page.getByRole("button", {
+      name: "Report handled quarantine",
+    });
+    await handledButton.click();
+    await expect.poll(() => requests.length).toBe(3);
+    await handledButton.click();
     await page.getByRole("button", { name: "Reject private string" }).click();
     await expect
       .poll(() =>
         page.evaluate(() => Reflect.get(window, "stringRejectionObserved")),
       )
       .toBe(true);
+    // Disposal awaits the transport flush, so this also observes any duplicate
+    // envelope enqueued by the second handled-error click.
     await page.evaluate(() => Reflect.get(window, "disposeDiagnostics")());
-    expect(requests).toHaveLength(2);
+    expect(requests).toHaveLength(3);
     for (const request of requests) expectPrivateEnvelope(request);
-    const last = JSON.parse(
-      requests.at(-1)?.body.trim().split("\n")[2] ?? "{}",
-    );
-    expect(
-      last.breadcrumbs.map((crumb: { data: unknown }) => crumb.data),
-    ).toEqual([
-      { area: "explorer", action: "move-to-trash" },
-      { area: "explorer", action: "root-view" },
-    ]);
+    expectHandledQuarantine(requests.at(-1)?.body ?? "");
   } finally {
     server.closeAllConnections();
     await new Promise<void>((resolve) => server.close(() => resolve()));
     await rm(output, { recursive: true, force: true });
   }
 });
+
+function expectHandledQuarantine(body: string) {
+  const event = JSON.parse(body.trim().split("\n")[2] ?? "{}");
+  expect(event.tags.diagnostic_source).toBe("log");
+  expect(event.exception.values[0].mechanism.handled).toBe(true);
+  expect(
+    event.breadcrumbs.map((crumb: { data: unknown }) => crumb.data),
+  ).toEqual([
+    { area: "explorer", action: "move-to-trash" },
+    { area: "explorer", action: "root-view" },
+  ]);
+}
 
 function expectPrivateEnvelope(request: {
   headers: Record<string, string>;

@@ -26,10 +26,6 @@ type DocumentsWorkflowRuntimeInput = Parameters<
 
 type ContainerContentsWorkflowApi = ApiClient &
   DocumentsWorkflowRuntimeInput["apiClient"];
-type ContainerContentsWorkflowRuntimeUtilInput = Omit<
-  WorkflowRuntimeUtilInput,
-  "logError"
->;
 
 export interface ContainerContentsWorkflowRuntimeAuth
   extends WorkflowRuntimeAuthInput {}
@@ -51,7 +47,7 @@ export interface ContainerContentsWorkflowRuntimeState
   extends WorkflowRuntimeStateInput {}
 
 export interface ContainerContentsWorkflowRuntimeUtil
-  extends ContainerContentsWorkflowRuntimeUtilInput {
+  extends Omit<WorkflowRuntimeUtilInput, "logError"> {
   // Store recovery is best-effort, so hosts may retain the causal error without
   // making structured error logging mandatory for general workflow runtimes.
   readonly logError?: WorkflowRuntimeUtilInput["logError"] | undefined;
