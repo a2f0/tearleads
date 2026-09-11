@@ -8,14 +8,37 @@ import { captureApiError } from "./sentry";
  */
 // The sanitizer rebuilds only the first exception value, so an aggregate would
 // arrive as its own construction site with every constituent stack discarded.
-// Report the constituents instead, bounded because a sweep aggregates one error
-// per item; the transport's signature deduplication collapses the repeats.
+// Report the leaves instead, bounded because a sweep aggregates one error per
+// item; the transport's signature deduplication collapses the repeats.
 const MAX_AGGREGATED_REPORTS = 5;
+// Blob maintenance nests them: it wraps each phase's own aggregate inside the
+// one it throws, so stopping at the first level would report a second
+// construction site instead of the failure. Bounded like `errorCauseChain`.
+const MAX_AGGREGATE_DEPTH = 5;
+
+function collectReportedFailures(
+  error: unknown,
+  collected: unknown[],
+  depth: number,
+): void {
+  if (collected.length >= MAX_AGGREGATED_REPORTS) return;
+  if (
+    depth < MAX_AGGREGATE_DEPTH &&
+    error instanceof AggregateError &&
+    error.errors.length
+  ) {
+    for (const nested of error.errors) {
+      collectReportedFailures(nested, collected, depth + 1);
+    }
+    return;
+  }
+  collected.push(error);
+}
 
 function reportedFailures(error: unknown): readonly unknown[] {
-  if (!(error instanceof AggregateError) || !error.errors.length)
-    return [error];
-  return error.errors.slice(0, MAX_AGGREGATED_REPORTS);
+  const collected: unknown[] = [];
+  collectReportedFailures(error, collected, 0);
+  return collected;
 }
 
 export function reportBackgroundFailure(error: unknown): void {

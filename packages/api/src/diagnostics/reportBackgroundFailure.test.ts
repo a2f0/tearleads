@@ -34,6 +34,41 @@ test.each(Object.entries(outcomes))(
   },
 );
 
+test("a nested aggregate reports its leaves, not an inner construction site", () => {
+  // runBlobMaintenance wraps each phase's own aggregate inside the one it
+  // throws, so a single-level unwrap would report that inner aggregate — whose
+  // stack is again where it was constructed, not where reclamation failed.
+  const capture = spyOn(sentry, "captureApiError").mockImplementation(
+    () => undefined,
+  );
+  try {
+    const stageFailure = new Error("SYNTHETIC_PRIVATE_STAGE_VALUE");
+    const reclaimFailure = new Error("SYNTHETIC_PRIVATE_RECLAIM_VALUE");
+    reportBackgroundFailure(
+      new AggregateError(
+        [
+          reclaimFailure,
+          new AggregateError([stageFailure], "stage cleanup failed"),
+        ],
+        "Blob maintenance failed",
+      ),
+    );
+    expect(capture.mock.calls.map(([reported]) => reported)).toEqual([
+      reclaimFailure,
+      stageFailure,
+    ]);
+
+    // A cyclic aggregate is bounded by depth rather than looping forever.
+    capture.mockClear();
+    const cyclic = new AggregateError([], "cyclic");
+    cyclic.errors = [cyclic];
+    expect(() => reportBackgroundFailure(cyclic)).not.toThrow();
+    expect(capture).toHaveBeenCalledTimes(1);
+  } finally {
+    capture.mockRestore();
+  }
+});
+
 test("an aggregate reports its constituents, bounded, not its own stack", () => {
   // A sweep aggregates one error per item, and the sanitizer keeps only the
   // first exception value — so reporting the aggregate itself would ship its
