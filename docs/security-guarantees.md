@@ -47,6 +47,17 @@ and `userId`. Later substitutions hard-fail, and policy verification also checks
 the signing fingerprint embedded in signed state. The first accepted response
 is still TOFU, not a key-transparency or out-of-band identity proof.
 
+## Recovery Key Disclosure
+
+Identity Manager's recovery QR contains the plaintext recovery phrase. It is
+generated and decoded locally, with the same acknowledgement as revealing the
+phrase. Scanning stages a validated phrase for the existing restore/login flow.
+Revealed keys are hidden on page hiding or backgrounding, but this cannot prevent
+screenshots or photographs. A native camera capture uses a temporary file that
+the adapter deletes before returning the photo for decoding; deletion failures
+are reported and the capture is rejected. Any retained image of the QR grants
+the same identity access as the recovery phrase itself.
+
 ## Protocol Handshake
 
 The access and policy handshake has these layers:

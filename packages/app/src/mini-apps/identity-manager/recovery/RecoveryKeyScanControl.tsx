@@ -1,12 +1,9 @@
-import {
-  normalizeIdentitySeedPhrase,
-  validateIdentitySeedPhrase,
-} from "@tearleads/crypto";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import {
   MiniAppButton,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
+import { recoveryKeyScanPhrase } from "../actions/recoveryKeyScanPhrase";
 import { startRecoveryKeyCamera } from "./recoveryKeyCamera";
 
 function RecoveryKeyCamera({
@@ -20,13 +17,14 @@ function RecoveryKeyCamera({
   const [error, setError] = useState<string | null>(null);
   const cancel = useEffectEvent(onCancel);
   const accept = useEffectEvent((value: string) => {
-    if (value.length > 512 || !validateIdentitySeedPhrase(value)) {
+    const phrase = recoveryKeyScanPhrase(value);
+    if (!phrase) {
       setError(
         "This QR code does not contain a valid recovery key. Scan the code shown in Identity Manager.",
       );
       return false;
     }
-    onScan(normalizeIdentitySeedPhrase(value));
+    onScan(phrase);
     return true;
   });
 

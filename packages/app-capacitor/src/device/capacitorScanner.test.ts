@@ -6,16 +6,25 @@ const EncodingType = { JPEG: 0, PNG: 1 } as const;
 const CameraErrorCode = {
   TakePhotoCancelled: "OS-PLUG-CAMR-0006",
 } as const;
+const nativeTakePhoto = mock(async () => cameraResult());
+const nativeDeleteFile = mock(async (_options: { path: string }) => undefined);
 
 mock.module("@capacitor/camera", () => ({
-  Camera: {},
+  Camera: { takePhoto: nativeTakePhoto },
   CameraErrorCode,
   EncodingType,
+}));
+mock.module("@capacitor/filesystem", () => ({
+  Filesystem: { deleteFile: nativeDeleteFile },
 }));
 
 const { createCapacitorScanner } = await import("./capacitorScanner");
 const deletePhoto = mock(async (_uri: string) => undefined);
-beforeEach(() => deletePhoto.mockClear());
+beforeEach(() => {
+  deletePhoto.mockClear();
+  nativeTakePhoto.mockClear();
+  nativeDeleteFile.mockClear();
+});
 
 function cameraResult(
   webPath = "capacitor://localhost/_capacitor_file_/photo.jpg",
@@ -218,6 +227,24 @@ test("rejects a native photo without a removable URI", async () => {
     },
     deletePhoto,
   });
-  await expect(scanner.capturePhoto()).rejects.toThrow("removable photo URI");
+  await expect(scanner.capturePhoto()).rejects.toBeInstanceOf(
+    ScannerPhotoCleanupError,
+  );
   expect(deletePhoto).not.toHaveBeenCalled();
+});
+
+test.each([
+  "file:///private/var/mobile/Containers/Data/Application/test/tmp/photo.jpg",
+  "/data/user/0/com.tearleads.app/cache/photo.jpg",
+])("default native camera wiring deletes its capture at %s", async (uri) => {
+  // Camera 8's iOS result is a file URL; Android's IonCameraFlow returns
+  // the absolute path it also passes to File() and BitmapFactory.decodeFile().
+  nativeTakePhoto.mockResolvedValueOnce({ ...cameraResult(), uri });
+  const scanner = createCapacitorScanner({
+    fetchPhoto: async () => new Response("photo"),
+  });
+  const photo = await scanner.capturePhoto();
+  expect(await photo?.text()).toBe("photo");
+  expect(nativeTakePhoto).toHaveBeenCalledTimes(1);
+  expect(nativeDeleteFile).toHaveBeenCalledWith({ path: uri });
 });

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import {
   createSeedPhraseFileName,
   downloadSeedPhraseFile,
@@ -10,10 +10,29 @@ import { unknownErrorMessage } from "../../../utils/unknownErrorMessage";
 import {
   RECOVERY_KEY_DISCLOSURES,
   type RecoveryKeyDisclosure,
-} from "../recovery/RecoveryKeyDisclosureDialog";
+} from "./recoveryKeyDisclosure";
 import type { RecoveryKeyFeedback } from "./useRecoveryKeyRestore";
 
-export function useRecoveryKeyDisclosure(feedback: RecoveryKeyFeedback) {
+function useHideWhenBackgrounded(hide: () => void) {
+  const hideForBackground = useEffectEvent(hide);
+  useEffect(() => {
+    const onPageHide = () => hideForBackground();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") hideForBackground();
+    };
+    window.addEventListener("pagehide", onPageHide);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.removeEventListener("pagehide", onPageHide);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, []);
+}
+
+export function useRecoveryKeyDisclosure(
+  feedback: RecoveryKeyFeedback,
+  active: boolean,
+) {
   const { seedPhrase, signingFingerprint } = useIdentity();
   const fileSaver = useFileSaver();
   const { log, logError } = useLog();
@@ -26,6 +45,18 @@ export function useRecoveryKeyDisclosure(feedback: RecoveryKeyFeedback) {
   // Read by in-flight disclosures on completion, which need the identity as it
   // is *then* rather than the one captured in their closure.
   const currentIdentityRef = useRef(signingFingerprint);
+  const activeRef = useRef(active);
+  activeRef.current = active;
+
+  const hide = () => {
+    setRevealed(false);
+    setQrRevealed(false);
+    if (revealed || qrRevealed) feedback.setStatus(null);
+  };
+  useHideWhenBackgrounded(() => {
+    hide();
+    setPendingDisclosure(null);
+  });
 
   if (
     authorizedIdentity !== signingFingerprint ||
@@ -44,8 +75,10 @@ export function useRecoveryKeyDisclosure(feedback: RecoveryKeyFeedback) {
     setQrRevealed(false);
     // The status and error lines describe the outgoing identity's key, so they
     // must not linger and read as if they applied to the incoming one.
-    feedback.setError(null);
-    feedback.setStatus(null);
+    if (active) {
+      feedback.setError(null);
+      feedback.setStatus(null);
+    }
   }
 
   const copyRecoveryKey = async (recoveryKey: string) => {
@@ -68,7 +101,7 @@ export function useRecoveryKeyDisclosure(feedback: RecoveryKeyFeedback) {
   // logging — but the status line describes whatever identity is on screen now,
   // and must never claim a key that was never touched.
   const reportIfCurrent = (requestedFor: string | null, report: () => void) => {
-    if (currentIdentityRef.current === requestedFor) {
+    if (activeRef.current && currentIdentityRef.current === requestedFor) {
       report();
     }
   };
@@ -115,13 +148,7 @@ export function useRecoveryKeyDisclosure(feedback: RecoveryKeyFeedback) {
         void runDisclosure(acknowledged);
       }
     },
-    hide: () => {
-      setRevealed(false);
-      setQrRevealed(false);
-      // Leaving "Recovery key revealed." up would describe a key that is no
-      // longer on screen.
-      if (revealed || qrRevealed) feedback.setStatus(null);
-    },
+    hide,
     qrRevealed,
     pendingDisclosure,
     requestDisclosure: setPendingDisclosure,

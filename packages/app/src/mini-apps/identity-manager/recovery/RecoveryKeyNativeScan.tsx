@@ -1,24 +1,11 @@
-import {
-  normalizeIdentitySeedPhrase,
-  validateIdentitySeedPhrase,
-} from "@tearleads/crypto";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   MiniAppButton,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
 import { type Scanner, ScannerPhotoCleanupError } from "../../../host/Scanner";
+import { recoveryKeyScanPhrase } from "../actions/recoveryKeyScanPhrase";
 import { decodeRecoveryKeyPhoto } from "./recoveryKeyPhoto";
-
-function recoveryPhrase(value: string | null): string | null {
-  if (
-    value === null ||
-    value.length > 512 ||
-    !validateIdentitySeedPhrase(value)
-  )
-    return null;
-  return normalizeIdentitySeedPhrase(value);
-}
 
 export function RecoveryKeyNativeScan({
   disabled,
@@ -63,7 +50,7 @@ export function RecoveryKeyNativeScan({
       const photo = await scanner.capturePhoto();
       if (!photo || generation.current !== request) return;
       captured = true;
-      const phrase = recoveryPhrase(await decodeRecoveryKeyPhoto(photo));
+      const phrase = recoveryKeyScanPhrase(await decodeRecoveryKeyPhoto(photo));
       if (generation.current !== request) return;
       if (!phrase) {
         setError(

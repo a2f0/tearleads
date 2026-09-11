@@ -44,7 +44,7 @@ test("QR disclosure is acknowledged, contains only the key, and can be hidden", 
   const image = await view.findByAltText("Recovery key QR code");
   const source = image.getAttribute("src") ?? "";
   expect(decodeURIComponent(source.slice("data:image/svg+xml,".length))).toBe(
-    encodeQR(seedPhrase, "svg", { border: 4, ecc: "medium" }),
+    encodeQR(seedPhrase.toUpperCase(), "svg", { border: 4, ecc: "medium" }),
   );
   fireEvent.click(view.getByRole("button", { name: "Reveal Recovery Key" }));
   fireEvent.change(view.getByLabelText(ACKNOWLEDGEMENT_LABEL), {
@@ -201,3 +201,56 @@ test("losing the seed revokes a pending QR acknowledgement", async () => {
       .disabled,
   ).toBe(true);
 });
+
+test.each(["visibilitychange", "pagehide"])(
+  "%s hides a revealed QR and requires a new acknowledgement on return",
+  async (event) => {
+    const { view } = await renderRecoveryKeyView(0x22);
+    fireEvent.click(
+      view.getByRole("button", { name: "Reveal Recovery QR Code" }),
+    );
+    fireEvent.change(view.getByLabelText(ACKNOWLEDGEMENT_LABEL), {
+      target: { value: "i understand" },
+    });
+    fireEvent.click(view.getByRole("button", { name: "Show QR Code" }));
+    expect(view.getByAltText("Recovery key QR code")).toBeTruthy();
+    fireEvent.click(view.getByRole("tab", { name: "Backup" }));
+    expect(view.getByAltText("Recovery key QR code")).toBeTruthy();
+    const visibility = Object.getOwnPropertyDescriptor(
+      document,
+      "visibilityState",
+    );
+    try {
+      if (event === "visibilitychange") {
+        Object.defineProperty(document, "visibilityState", {
+          configurable: true,
+          value: "hidden",
+        });
+        fireEvent(document, new Event(event));
+        Object.defineProperty(document, "visibilityState", {
+          configurable: true,
+          value: "visible",
+        });
+        fireEvent(document, new Event(event));
+      } else {
+        fireEvent(window, new Event(event));
+        fireEvent(window, new Event("pageshow"));
+      }
+      expect(view.queryByAltText("Recovery key QR code")).toBeNull();
+      fireEvent.click(
+        view.getByRole("button", { name: "Reveal Recovery QR Code" }),
+      );
+      expect(
+        (
+          view.getByRole("button", {
+            name: "Show QR Code",
+          }) as HTMLButtonElement
+        ).disabled,
+      ).toBe(true);
+    } finally {
+      if (visibility)
+        Object.defineProperty(document, "visibilityState", visibility);
+      else Reflect.deleteProperty(document, "visibilityState");
+    }
+  },
+);

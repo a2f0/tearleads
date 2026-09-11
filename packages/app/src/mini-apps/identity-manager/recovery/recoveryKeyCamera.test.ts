@@ -1,10 +1,25 @@
 import { afterEach, expect, mock, test } from "bun:test";
+import { createIdentitySeedPhraseFromEntropy } from "@tearleads/crypto";
 import { waitFor } from "@testing-library/react";
 import { installRecoveryQrCamera } from "../../../../test/helpers/recoveryQrCameraTestKit";
+import { recoveryKeyScanPhrase } from "../actions/recoveryKeyScanPhrase";
 import { startRecoveryKeyCamera } from "./recoveryKeyCamera";
 
 let camera: ReturnType<typeof installRecoveryQrCamera> | undefined;
 let cancel: (() => void) | undefined;
+
+test("both camera paths normalize valid phrases and reject oversized scan payloads", () => {
+  const phrase = createIdentitySeedPhraseFromEntropy(
+    new Uint8Array(32).fill(0x23),
+  );
+  expect(recoveryKeyScanPhrase(phrase.toUpperCase())).toBe(phrase);
+  expect(recoveryKeyScanPhrase(`${" ".repeat(512)}${phrase}`)).toBeNull();
+  expect(recoveryKeyScanPhrase(null)).toBeNull();
+  expect(recoveryKeyScanPhrase("unrelated QR")).toBeNull();
+  expect(
+    recoveryKeyScanPhrase(phrase.split(" ").slice(0, 12).join(" ")),
+  ).toBeNull();
+});
 afterEach(() => {
   cancel?.();
   camera?.restore();

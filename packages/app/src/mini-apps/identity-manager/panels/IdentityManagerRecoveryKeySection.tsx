@@ -33,7 +33,7 @@ export function IdentityManagerRecoveryKeySection() {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const feedback: RecoveryKeyFeedback = { setError, setStatus };
-  const disclosure = useRecoveryKeyDisclosure(feedback);
+  const disclosure = useRecoveryKeyDisclosure(feedback, activeTab === "backup");
   const restore = useRecoveryKeyRestore(feedback);
 
   return (
@@ -48,8 +48,13 @@ export function IdentityManagerRecoveryKeySection() {
         idPrefix={idPrefix}
         label="Recovery key sections"
         onSelect={(tab) => {
+          if (tab === activeTab) return;
           disclosure.hide();
           disclosure.cancelDisclosure();
+          if (tab === "recovery") {
+            setError(null);
+            setStatus(null);
+          }
           if (tab !== "recovery") restore.setRestorePassphrase("");
           setActiveTab(tab);
         }}

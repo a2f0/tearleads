@@ -10,7 +10,7 @@ import {
   renderRecoveryKeyView,
 } from "../../../test/helpers/recoveryKeyTestKit";
 import "../../../test/helpers/mswServer";
-import { RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE } from "./recovery/RecoveryKeyDisclosureDialog";
+import { RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE } from "./actions/recoveryKeyDisclosure";
 
 afterEach(cleanupRecoveryKeyTestEnvironment);
 

@@ -1,7 +1,7 @@
 import { expect } from "bun:test";
 import { fireEvent, waitFor, within } from "@testing-library/react";
 import invariant from "invariant";
-import { RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE } from "../../../src/mini-apps/identity-manager/recovery/RecoveryKeyDisclosureDialog";
+import { RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE } from "../../../src/mini-apps/identity-manager/actions/recoveryKeyDisclosure";
 import { flattenPaneStatusText } from "../paneTestUtils";
 import {
   getExplorerSidebarItem,

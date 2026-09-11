@@ -6,7 +6,7 @@ import {
   MiniAppTextarea,
   MiniAppToolbar,
 } from "../../../components/mini-app/MiniAppLayout";
-import type { RecoveryKeyDisclosure } from "./RecoveryKeyDisclosureDialog";
+import type { RecoveryKeyDisclosure } from "../actions/recoveryKeyDisclosure";
 import { RecoveryKeyQrCode } from "./RecoveryKeyQrCode";
 
 export function RecoveryKeyDisplay({
@@ -71,7 +71,11 @@ export function RecoveryKeyDisplay({
           </MiniAppButton>
         )}
         {(revealed || qrRevealed) && (
-          <MiniAppButton onClick={onHide}>Hide Recovery Key</MiniAppButton>
+          <MiniAppButton onClick={onHide}>
+            {qrRevealed && !revealed
+              ? "Hide Recovery QR Code"
+              : "Hide Recovery Key"}
+          </MiniAppButton>
         )}
       </MiniAppToolbar>
     </div>

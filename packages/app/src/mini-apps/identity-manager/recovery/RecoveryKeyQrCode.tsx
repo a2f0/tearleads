@@ -6,7 +6,8 @@ export function RecoveryKeyQrCode({ seedPhrase }: { seedPhrase: string }) {
   const image = useMemo(
     () =>
       `data:image/svg+xml,${encodeURIComponent(
-        encodeQR(seedPhrase, "svg", { border: 4, ecc: "medium" }),
+        // Alphanumeric mode produces larger modules for easier camera scans.
+        encodeQR(seedPhrase.toUpperCase(), "svg", { border: 4, ecc: "medium" }),
       )}`,
     [seedPhrase],
   );

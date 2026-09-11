@@ -1,3 +1,8 @@
+import type { DecodeOpts } from "qr/decode.js";
+
+// qr@0.7.0 supports these options; bound the deeper still-photo search.
+const PHOTO_DECODE_OPTIONS: DecodeOpts = { effort: Infinity, timeLimit: 250 };
+
 /** Decode a host-captured photo locally and release its decoded pixels. */
 export async function decodeRecoveryKeyPhoto(
   photo: Blob,
@@ -14,8 +19,7 @@ export async function decodeRecoveryKeyPhoto(
     context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
     const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
     try {
-      // A still photo gets deeper search than video, capped at 250 ms.
-      return decodeQR(pixels, { effort: Infinity, timeLimit: 250 });
+      return decodeQR(pixels, PHOTO_DECODE_OPTIONS);
     } catch {
       return null;
     } finally {

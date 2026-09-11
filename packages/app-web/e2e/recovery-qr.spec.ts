@@ -6,8 +6,11 @@ test("a second device scans the displayed recovery QR into its restore form", as
   baseURL,
 }) => {
   test.setTimeout(60_000);
+  if (!baseURL)
+    throw new Error("The browser test requires a configured base URL.");
   await page.setViewportSize({ width: 900, height: 900 });
   await page.goto("/app/identity-manager/recovery-key");
+  // This button only renders once a seed exists, after auto-provisioning.
   const reveal = page.getByRole("button", { name: "Reveal Recovery QR Code" });
   await expect(reveal).toBeVisible({ timeout: 30_000 });
   await reveal.click();
@@ -26,7 +29,7 @@ test("a second device scans the displayed recovery QR into its restore form", as
     .inputValue();
 
   const phone = await browser.newContext({
-    baseURL: baseURL ?? "http://127.0.0.1:3100",
+    baseURL,
     viewport: { width: 390, height: 844 },
   });
   try {

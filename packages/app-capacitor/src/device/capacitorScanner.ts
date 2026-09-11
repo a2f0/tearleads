@@ -22,7 +22,9 @@ async function readCapturedPhoto(
   fetchPhoto: FetchPhoto,
 ): Promise<Blob> {
   if (!result.uri)
-    throw new Error("The camera did not return a removable photo URI.");
+    throw new ScannerPhotoCleanupError({
+      cause: new Error("The camera did not return a removable photo URI."),
+    });
   if (!result.webPath)
     throw new Error("The camera did not return a web-accessible photo path.");
   const response = await fetchPhoto(result.webPath);
@@ -51,6 +53,8 @@ export function createCapacitorScanner(
 ): Scanner {
   const camera = dependencies.camera ?? Camera;
   const fetchPhoto = dependencies.fetchPhoto ?? fetch;
+  // Camera 8 returns a file URL on iOS and an absolute file path on Android.
+  // Filesystem accepts both when directory is omitted; do not use webPath here.
   const deletePhoto =
     dependencies.deletePhoto ??
     ((path: string) => Filesystem.deleteFile({ path }));
