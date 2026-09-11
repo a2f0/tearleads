@@ -27,6 +27,7 @@ function rosterUser(userId: string): OrganizationDirectoryUser {
     disabledByUserId: "admin-user-id",
     encapsulationKeyFingerprint: `encapsulation-${userId}`,
     encapsulationPublicKey: `encapsulation-key-${userId}`,
+    isPersonalOrganizationOwner: false,
     isSelf: false,
     joinedAt: "2026-08-25T12:00:00.000Z",
     profileDocumentId: PROFILE_DOCUMENT_ID,

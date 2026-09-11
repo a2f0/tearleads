@@ -13,4 +13,3 @@
     fail_msg: >-
       Provision this environment's storage stack and configure it with
       ansible/scripts/run-server.sh. Each tier requires its own S3 credentials.
-

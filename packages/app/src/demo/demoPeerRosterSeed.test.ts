@@ -27,6 +27,7 @@ function directoryUser(
     encapsulationPublicKey: "encap-pub",
     encapsulationKeyFingerprint: "encap-fp",
     createdAt: "2026-01-01T00:00:00.000Z",
+    isPersonalOrganizationOwner: false,
     isSelf: false,
     status: "active",
     profileDocumentId: null,

@@ -56,6 +56,7 @@ function rosterUser(input: {
     disabledByUserId: disabled ? "admin-user-id" : null,
     encapsulationKeyFingerprint: `encapsulation-${input.userId}`,
     encapsulationPublicKey: `encapsulation-key-${input.userId}`,
+    isPersonalOrganizationOwner: false,
     isSelf: false,
     joinedAt: "2026-08-25T12:00:00.000Z",
     profileDocumentId: input.profileDocumentId,

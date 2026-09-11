@@ -32,6 +32,7 @@ function attributionProjection(): OrganizationDirectoryAndGroups {
           disabledByUserId: "admin-user-id",
           encapsulationKeyFingerprint: "encapsulation-fingerprint",
           encapsulationPublicKey: "encapsulation-public-key",
+          isPersonalOrganizationOwner: false,
           isSelf: false,
           joinedAt: "2026-08-25T12:00:00.000Z",
           profileDocumentId: PROFILE_DOCUMENT_ID,

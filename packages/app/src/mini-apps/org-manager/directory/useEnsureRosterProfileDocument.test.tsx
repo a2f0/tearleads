@@ -19,6 +19,7 @@ const ROSTER_USER: OrganizationDirectoryUser = {
   disabledByUserId: null,
   encapsulationKeyFingerprint: "encapsulation-fingerprint",
   encapsulationPublicKey: "encapsulation-public-key",
+  isPersonalOrganizationOwner: false,
   isSelf: false,
   joinedAt: "2026-05-20T12:00:00.000Z",
   profileDocumentId: null,

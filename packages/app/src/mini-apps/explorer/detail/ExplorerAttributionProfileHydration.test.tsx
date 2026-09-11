@@ -37,6 +37,7 @@ function rosterUser(
     disabledByUserId: disabled ? "viewer-user-id" : null,
     encapsulationKeyFingerprint: `encapsulation-${userId}`,
     encapsulationPublicKey: `encapsulation-key-${userId}`,
+    isPersonalOrganizationOwner: false,
     isSelf: false,
     joinedAt: "2026-05-20T12:00:00.000Z",
     profileDocumentId: `profile-${index}`,
