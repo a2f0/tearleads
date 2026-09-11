@@ -1,6 +1,7 @@
 import type { DocumentAttachmentUpload } from "@tearleads/client-sdk";
 import { type ChangeEvent, useMemo, useRef, useState } from "react";
 import { MiniAppStatus } from "../../components/mini-app/MiniAppLayout";
+import { ScannerPhotoCleanupError } from "../../host/Scanner";
 import { useAppHostConfig } from "../../providers/host/AppHostConfigProvider";
 import { AttachmentActionButton } from "../shared/AttachmentActionButton";
 import { ContactAvatar } from "./ContactAvatar";
@@ -19,6 +20,12 @@ const CONTACT_AVATAR_LABELS = {
   set: "Set Avatar",
   takePhoto: "Take Photo",
 } as const;
+
+function captureErrorMessage(error: unknown): string {
+  return error instanceof ScannerPhotoCleanupError
+    ? "The photo was captured, but its temporary file could not be removed from this device. Choose a photo instead."
+    : CONTACT_AVATAR_LABELS.cameraError;
+}
 
 // The full avatar affordance for one contact: the circle (silhouette when
 // unset), Set/Replace/Remove actions, the image file picker, and the crop
@@ -41,7 +48,7 @@ export function ContactAvatarControl({
 }) {
   const { createScanner } = useAppHostConfig();
   const scanner = useMemo(() => createScanner?.(), [createScanner]);
-  const [captureError, setCaptureError] = useState(false);
+  const [captureError, setCaptureError] = useState<string | null>(null);
   const [capturing, setCapturing] = useState(false);
   const [pendingSource, setPendingSource] = useState<Blob | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -53,7 +60,7 @@ export function ContactAvatarControl({
     const [file] = Array.from(event.currentTarget.files ?? []);
     event.currentTarget.value = "";
     if (file) {
-      setCaptureError(false);
+      setCaptureError(null);
       setPendingSource(file);
     }
   }
@@ -62,7 +69,7 @@ export function ContactAvatarControl({
     if (!scanner || capturing) {
       return;
     }
-    setCaptureError(false);
+    setCaptureError(null);
     setCapturing(true);
     try {
       const photo = await scanner.capturePhoto();
@@ -70,8 +77,7 @@ export function ContactAvatarControl({
         setPendingSource(photo);
       }
     } catch (error) {
-      console.error("Failed to capture a contact avatar photo:", error);
-      setCaptureError(true);
+      setCaptureError(captureErrorMessage(error));
     } finally {
       setCapturing(false);
     }
@@ -118,7 +124,7 @@ export function ContactAvatarControl({
       />
       {captureError ? (
         <MiniAppStatus role="alert" tone="error">
-          {CONTACT_AVATAR_LABELS.cameraError}
+          {captureError}
         </MiniAppStatus>
       ) : null}
       {pendingSource ? (

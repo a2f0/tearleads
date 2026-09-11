@@ -40,7 +40,7 @@ ls:
     .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-4
 
   packages/app/src/mini-apps/identity-manager/*:
-    .dir: regex:(actions|menu|panels|sessions|switcher|toolbar)
+    .dir: regex:(actions|menu|panels|recovery|sessions|switcher|toolbar)
     .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-8
     .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-3
     .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-2

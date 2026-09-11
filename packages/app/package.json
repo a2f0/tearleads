@@ -21,6 +21,7 @@
     "@tearleads/ui": "workspace:*",
     "@tearleads/validators": "workspace:*",
     "drizzle-orm": "0.45.2",
+    "qr": "0.7.0",
     "react": "catalog:react",
     "react-dom": "catalog:react"
   },

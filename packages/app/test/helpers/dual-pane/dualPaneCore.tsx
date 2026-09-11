@@ -16,7 +16,7 @@ import { PaneProvider } from "../../../src/components/pane/runtime/PaneProvider"
 import { Pane } from "../../../src/components/pane/shell/Pane";
 import { APP_HOST_PROFILES } from "../../../src/host/AppHostConfig";
 import { useRegisterCurrentIdentity } from "../../../src/identity/useRegisterCurrentIdentity";
-import { RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE } from "../../../src/mini-apps/identity-manager/panels/IdentityManagerRecoveryKeySection";
+import { RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE } from "../../../src/mini-apps/identity-manager/actions/recoveryKeyDisclosure";
 import { SystemMonitorDeveloperModeProvider } from "../../../src/mini-apps/system-monitor/systemMonitorDeveloperMode";
 import {
   saveSystemMonitorDeveloperMode,

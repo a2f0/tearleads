@@ -25,6 +25,7 @@
       ]
     },
     "e2e": {
+      "passThroughEnv": ["APP_WEB_PORT"],
       "dependsOn": ["^build"],
       "outputs": [],
       "inputs": [
