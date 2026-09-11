@@ -1,4 +1,4 @@
-import type { FormEvent } from "react";
+import { type FormEvent, useMemo } from "react";
 import {
   MiniAppButton,
   MiniAppField,
@@ -6,12 +6,15 @@ import {
   MiniAppTextarea,
   MiniAppToolbar,
 } from "../../../components/mini-app/MiniAppLayout";
+import { useAppHostConfig } from "../../../providers/host/AppHostConfigProvider";
+import type { RecoveryKeyBusyState } from "../actions/useRecoveryKeyRestore";
+import { RecoveryKeyNativeScan } from "./RecoveryKeyNativeScan";
 import { RecoveryKeyScanControl } from "./RecoveryKeyScanControl";
-import type { RecoveryKeyBusyState } from "./useRecoveryKeyRestore";
 
 export function RecoveryKeyRestoreForm({
   busy,
   canRestore,
+  identityTransitionInFlight,
   localKeyringLocked,
   onRestore,
   restorePassphrase,
@@ -19,11 +22,14 @@ export function RecoveryKeyRestoreForm({
 }: {
   readonly busy: RecoveryKeyBusyState;
   readonly canRestore: boolean;
+  readonly identityTransitionInFlight: boolean;
   readonly localKeyringLocked: boolean;
   readonly onRestore: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   readonly restorePassphrase: string;
   readonly setRestorePassphrase: (passphrase: string) => void;
 }) {
+  const { createScanner } = useAppHostConfig();
+  const scanner = useMemo(() => createScanner?.(), [createScanner]);
   return (
     <form
       className="identity-manager-recovery-key-form"
@@ -48,10 +54,23 @@ export function RecoveryKeyRestoreForm({
           Unlock the local keychain to restore a recovery key.
         </MiniAppStatus>
       )}
-      <RecoveryKeyScanControl
-        disabled={busy !== null || !canRestore}
-        onScan={setRestorePassphrase}
-      />
+      {identityTransitionInFlight && (
+        <MiniAppStatus>
+          Wait for the current identity change to finish.
+        </MiniAppStatus>
+      )}
+      {scanner ? (
+        <RecoveryKeyNativeScan
+          disabled={busy !== null || !canRestore}
+          onScan={setRestorePassphrase}
+          scanner={scanner}
+        />
+      ) : (
+        <RecoveryKeyScanControl
+          disabled={busy !== null || !canRestore}
+          onScan={setRestorePassphrase}
+        />
+      )}
       {restorePassphrase && canRestore && (
         <MiniAppStatus>
           Choose Restore from Passphrase to restore this identity and log in.

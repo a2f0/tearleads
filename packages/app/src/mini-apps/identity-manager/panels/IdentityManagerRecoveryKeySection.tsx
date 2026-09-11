@@ -9,14 +9,14 @@ import {
 } from "../../../components/mini-app/MiniAppLayout";
 import { useIdentity } from "../../../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../../../providers/local-keyring/LocalKeyringLockProvider";
-import { RecoveryKeyDisclosureDialog } from "../recovery/RecoveryKeyDisclosureDialog";
-import { RecoveryKeyDisplay } from "../recovery/RecoveryKeyDisplay";
-import { RecoveryKeyRestoreForm } from "../recovery/RecoveryKeyRestoreForm";
-import { useRecoveryKeyDisclosure } from "../recovery/useRecoveryKeyDisclosure";
+import { useRecoveryKeyDisclosure } from "../actions/useRecoveryKeyDisclosure";
 import {
   type RecoveryKeyFeedback,
   useRecoveryKeyRestore,
-} from "../recovery/useRecoveryKeyRestore";
+} from "../actions/useRecoveryKeyRestore";
+import { RecoveryKeyDisclosureDialog } from "../recovery/RecoveryKeyDisclosureDialog";
+import { RecoveryKeyDisplay } from "../recovery/RecoveryKeyDisplay";
+import { RecoveryKeyRestoreForm } from "../recovery/RecoveryKeyRestoreForm";
 
 type RecoveryKeyTabId = "backup" | "recovery";
 const RECOVERY_KEY_TABS: ReadonlyArray<MiniAppTabDescriptor<RecoveryKeyTabId>> =
@@ -76,6 +76,7 @@ export function IdentityManagerRecoveryKeySection() {
             key={signingFingerprint}
             busy={restore.busy}
             canRestore={restore.canRestore}
+            identityTransitionInFlight={restore.identityTransitionInFlight}
             localKeyringLocked={localKeyringLock.isLocked}
             onRestore={restore.restoreRecoveryKey}
             restorePassphrase={restore.restorePassphrase}

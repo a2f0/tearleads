@@ -65,7 +65,11 @@ function RecoveryKeyCamera({
         playsInline
         ref={videoRef}
       />
-      {error && <MiniAppStatus tone="error">{error}</MiniAppStatus>}
+      {error && (
+        <MiniAppStatus role="alert" tone="error">
+          {error}
+        </MiniAppStatus>
+      )}
       <MiniAppButton onClick={onCancel}>Cancel Scan</MiniAppButton>
     </div>
   );

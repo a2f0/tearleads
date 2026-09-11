@@ -96,6 +96,8 @@ test("missing camera support preserves manual recovery", async () => {
     onDecode: () => true,
     onError,
   });
-  expect(onError).toHaveBeenCalledWith(expect.stringContaining("HTTPS"));
+  expect(onError).toHaveBeenCalledWith(
+    expect.stringContaining("browser or device settings"),
+  );
   expect(camera.getUserMedia).not.toHaveBeenCalled();
 });

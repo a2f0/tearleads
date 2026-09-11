@@ -73,6 +73,7 @@ export function useRecoveryKeyRestore(feedback: RecoveryKeyFeedback) {
   return {
     busy,
     canRestore,
+    identityTransitionInFlight,
     restorePassphrase,
     restoreRecoveryKey,
     setRestorePassphrase,

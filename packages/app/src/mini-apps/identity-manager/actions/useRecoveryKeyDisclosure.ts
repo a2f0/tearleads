@@ -10,7 +10,7 @@ import { unknownErrorMessage } from "../../../utils/unknownErrorMessage";
 import {
   RECOVERY_KEY_DISCLOSURES,
   type RecoveryKeyDisclosure,
-} from "./RecoveryKeyDisclosureDialog";
+} from "../recovery/RecoveryKeyDisclosureDialog";
 import type { RecoveryKeyFeedback } from "./useRecoveryKeyRestore";
 
 export function useRecoveryKeyDisclosure(feedback: RecoveryKeyFeedback) {

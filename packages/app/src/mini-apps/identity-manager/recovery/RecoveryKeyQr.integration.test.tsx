@@ -146,3 +146,30 @@ test("clearing a scanned phrase or leaving Recovery removes staged recovery feed
   ).toBe("");
   expect(view.queryByText(/Choose Restore from Passphrase/u)).toBeNull();
 });
+
+test("losing and restoring the seed for the same identity revokes QR disclosure", async () => {
+  const { tearleads, view } = await renderRecoveryKeyView(0x19);
+  const keyPackage = await tearleads.identity.exportKeyPackage();
+  fireEvent.click(
+    view.getByRole("button", { name: "Reveal Recovery QR Code" }),
+  );
+  fireEvent.change(view.getByLabelText(ACKNOWLEDGEMENT_LABEL), {
+    target: { value: "i understand" },
+  });
+  fireEvent.click(view.getByRole("button", { name: "Show QR Code" }));
+  expect(view.getByAltText("Recovery key QR code")).toBeTruthy();
+  await act(async () => {
+    await tearleads.identity.importKeyPackage({
+      ...keyPackage,
+      seedPhrase: undefined,
+    });
+  });
+  expect(tearleads.identity.signingFingerprint).toBe(
+    keyPackage.signingFingerprint,
+  );
+  expect(view.queryByAltText("Recovery key QR code")).toBeNull();
+  await act(async () => {
+    await tearleads.identity.importKeyPackage(keyPackage);
+  });
+  expect(view.queryByAltText("Recovery key QR code")).toBeNull();
+});

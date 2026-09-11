@@ -70,7 +70,7 @@ export function startRecoveryKeyCamera(
   const start = async () => {
     if (!navigator.mediaDevices?.getUserMedia) {
       fail(
-        "Camera scanning is unavailable here. Open the app over HTTPS or enter your passphrase.",
+        "Camera scanning is unavailable here. Allow camera access in your browser or device settings, or enter your passphrase.",
       );
       return;
     }

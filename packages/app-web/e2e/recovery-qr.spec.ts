@@ -32,6 +32,9 @@ test("a second device scans the displayed recovery QR into its restore form", as
   try {
     const phonePage = await phone.newPage();
     await phonePage.goto("/app/identity-manager/recovery-key");
+    await expect(
+      phonePage.getByRole("button", { name: "Reveal Recovery QR Code" }),
+    ).toBeVisible();
     await phonePage.getByRole("tab", { name: "Recovery", exact: true }).click();
     // Feed the actual rendered SVG into a real video stream. The production
     // canvas reader and QR decoder run unchanged in the second browser context.
@@ -45,9 +48,18 @@ test("a second device scans the displayed recovery QR into its restore form", as
       const context = canvas.getContext("2d");
       if (!context) throw new Error("Canvas unavailable.");
       context.fillStyle = "white";
-      context.fillRect(0, 0, 640, 640);
-      context.drawImage(image, 64, 64, 512, 512);
+      context.imageSmoothingEnabled = false;
+      const draw = () => {
+        context.fillRect(0, 0, 640, 640);
+        context.drawImage(image, 64, 64, 512, 512);
+      };
+      draw();
       const stream = canvas.captureStream(10);
+      // Keep producing frames after the production video starts playing.
+      const timer = setInterval(draw, 100);
+      stream
+        .getVideoTracks()[0]
+        ?.addEventListener("ended", () => clearInterval(timer));
       Object.defineProperty(navigator.mediaDevices, "getUserMedia", {
         value: async () => stream,
       });
