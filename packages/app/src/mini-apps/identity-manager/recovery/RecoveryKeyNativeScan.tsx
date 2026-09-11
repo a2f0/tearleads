@@ -2,13 +2,23 @@ import {
   normalizeIdentitySeedPhrase,
   validateIdentitySeedPhrase,
 } from "@tearleads/crypto";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   MiniAppButton,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
 import type { Scanner } from "../../../host/Scanner";
 import { decodeRecoveryKeyPhoto } from "./recoveryKeyPhoto";
+
+function recoveryPhrase(value: string | null): string | null {
+  if (
+    value === null ||
+    value.length > 512 ||
+    !validateIdentitySeedPhrase(value)
+  )
+    return null;
+  return normalizeIdentitySeedPhrase(value);
+}
 
 export function RecoveryKeyNativeScan({
   disabled,
@@ -29,11 +39,14 @@ export function RecoveryKeyNativeScan({
     },
     [],
   );
-  if (disabled && busy) {
-    generation.current++;
-    busyRef.current = false;
-    setBusy(false);
-  }
+  useLayoutEffect(() => {
+    if (disabled) {
+      generation.current++;
+      busyRef.current = false;
+      setBusy(false);
+      setError(null);
+    }
+  }, [disabled]);
 
   const ifCurrent = (request: number, update: () => void) => {
     if (generation.current === request) update();
@@ -45,22 +58,26 @@ export function RecoveryKeyNativeScan({
     setBusy(true);
     setError(null);
     const request = ++generation.current;
+    let captured = false;
     try {
       const photo = await scanner.capturePhoto();
       if (!photo || generation.current !== request) return;
-      const value = await decodeRecoveryKeyPhoto(photo);
+      captured = true;
+      const phrase = recoveryPhrase(await decodeRecoveryKeyPhoto(photo));
       if (generation.current !== request) return;
-      if (value.length > 512 || !validateIdentitySeedPhrase(value)) {
+      if (!phrase) {
         setError(
           "This photo does not contain a valid recovery key. Capture the QR code shown in Identity Manager.",
         );
         return;
       }
-      onScan(normalizeIdentitySeedPhrase(value));
+      onScan(phrase);
     } catch {
       ifCurrent(request, () => {
         setError(
-          "Could not scan the recovery QR code. Check camera access and try a clear photo of the code, or enter your passphrase.",
+          captured
+            ? "Could not read the captured photo. Try a clear photo of the recovery QR code, or enter your passphrase."
+            : "Could not capture a photo. Check camera access and try again, or enter your passphrase.",
         );
       });
     } finally {

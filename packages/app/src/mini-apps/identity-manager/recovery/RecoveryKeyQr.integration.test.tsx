@@ -173,3 +173,31 @@ test("losing and restoring the seed for the same identity revokes QR disclosure"
   });
   expect(view.queryByAltText("Recovery key QR code")).toBeNull();
 });
+
+test("losing the seed revokes a pending QR acknowledgement", async () => {
+  const { tearleads, view } = await renderRecoveryKeyView(0x21);
+  const keyPackage = await tearleads.identity.exportKeyPackage();
+  fireEvent.click(
+    view.getByRole("button", { name: "Reveal Recovery QR Code" }),
+  );
+  fireEvent.change(view.getByLabelText(ACKNOWLEDGEMENT_LABEL), {
+    target: { value: "i understand" },
+  });
+  await act(async () => {
+    await tearleads.identity.importKeyPackage({
+      ...keyPackage,
+      seedPhrase: undefined,
+    });
+  });
+  expect(view.queryByRole("dialog")).toBeNull();
+  await act(async () => {
+    await tearleads.identity.importKeyPackage(keyPackage);
+  });
+  fireEvent.click(
+    view.getByRole("button", { name: "Reveal Recovery QR Code" }),
+  );
+  expect(
+    (view.getByRole("button", { name: "Show QR Code" }) as HTMLButtonElement)
+      .disabled,
+  ).toBe(true);
+});

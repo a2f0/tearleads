@@ -1,4 +1,4 @@
-import { expect, mock, test } from "bun:test";
+import { beforeEach, expect, mock, test } from "bun:test";
 import type { MediaResult } from "@capacitor/camera";
 
 const EncodingType = { JPEG: 0, PNG: 1 } as const;
@@ -13,17 +13,20 @@ mock.module("@capacitor/camera", () => ({
 }));
 
 const { createCapacitorScanner } = await import("./capacitorScanner");
+const deletePhoto = mock(async (_uri: string) => undefined);
+beforeEach(() => deletePhoto.mockClear());
 
 function cameraResult(
   webPath = "capacitor://localhost/_capacitor_file_/photo.jpg",
 ): MediaResult {
-  return { saved: false, type: 0, webPath };
+  return { saved: false, type: 0, uri: "file:///tmp/photo.jpg", webPath };
 }
 
 test("captures a bounded JPEG from its web-accessible path", async () => {
   const cameraOptions: unknown[] = [];
   const fetchedPaths: string[] = [];
   const scanner = createCapacitorScanner({
+    deletePhoto,
     camera: {
       takePhoto: async (options) => {
         cameraOptions.push(options);
@@ -56,13 +59,21 @@ test("captures a bounded JPEG from its web-accessible path", async () => {
   if (!photo) {
     throw new Error("Expected the camera photo.");
   }
+  expect(deletePhoto).toHaveBeenCalledWith("file:///tmp/photo.jpg");
   expect(photo?.type).toBe("image/jpeg");
   expect([...new Uint8Array(await photo.arrayBuffer())]).toEqual([1, 2, 3]);
 });
 
 test("rejects a capture without a web-accessible path", async () => {
   const scanner = createCapacitorScanner({
-    camera: { takePhoto: async () => ({ saved: false, type: 0 }) },
+    deletePhoto,
+    camera: {
+      takePhoto: async () => ({
+        saved: false,
+        type: 0,
+        uri: "file:///tmp/photo.jpg",
+      }),
+    },
   });
 
   await expect(scanner.capturePhoto()).rejects.toThrow(
@@ -72,6 +83,7 @@ test("rejects a capture without a web-accessible path", async () => {
 
 test("rejects a captured photo that cannot be read", async () => {
   const scanner = createCapacitorScanner({
+    deletePhoto,
     camera: { takePhoto: async () => cameraResult() },
     fetchPhoto: async () => new Response(null, { status: 404 }),
   });
@@ -79,10 +91,12 @@ test("rejects a captured photo that cannot be read", async () => {
   await expect(scanner.capturePhoto()).rejects.toThrow(
     "Could not read the captured photo (404).",
   );
+  expect(deletePhoto).toHaveBeenCalledWith("file:///tmp/photo.jpg");
 });
 
 test("returns null when the native camera is dismissed", async () => {
   const scanner = createCapacitorScanner({
+    deletePhoto,
     camera: {
       takePhoto: async () =>
         Promise.reject({
@@ -100,8 +114,81 @@ test("preserves native camera failures for the calling surface", async () => {
     code: "OS-PLUG-CAMR-0003",
   });
   const scanner = createCapacitorScanner({
+    deletePhoto,
     camera: { takePhoto: async () => Promise.reject(failure) },
   });
 
   await expect(scanner.capturePhoto()).rejects.toBe(failure);
+});
+
+test("deletes the temporary file when fetching or consuming it fails", async () => {
+  for (const fetchPhoto of [
+    async () => {
+      throw new Error("fetch failed");
+    },
+    async () => {
+      const response = new Response();
+      Object.defineProperty(response, "blob", {
+        value: async () => {
+          throw new Error("read failed");
+        },
+      });
+      return response;
+    },
+  ]) {
+    deletePhoto.mockClear();
+    const scanner = createCapacitorScanner({
+      camera: { takePhoto: async () => cameraResult() },
+      deletePhoto,
+      fetchPhoto,
+    });
+    await expect(scanner.capturePhoto()).rejects.toThrow();
+    expect(deletePhoto).toHaveBeenCalledWith("file:///tmp/photo.jpg");
+  }
+});
+
+test("waits for the photo bytes before deleting its file", async () => {
+  const pending = Promise.withResolvers<Blob>();
+  const reading = Promise.withResolvers<void>();
+  const response = new Response();
+  Object.defineProperty(response, "blob", {
+    value: () => {
+      reading.resolve();
+      return pending.promise;
+    },
+  });
+  const scanner = createCapacitorScanner({
+    camera: { takePhoto: async () => cameraResult() },
+    deletePhoto,
+    fetchPhoto: async () => response,
+  });
+  const capture = scanner.capturePhoto();
+  await reading.promise;
+  expect(deletePhoto).not.toHaveBeenCalled();
+  const photo = new Blob(["photo"]);
+  pending.resolve(photo);
+  expect(await capture).toBe(photo);
+  expect(deletePhoto).toHaveBeenCalledTimes(1);
+});
+
+test("does not report success when temporary photo deletion fails", async () => {
+  const scanner = createCapacitorScanner({
+    camera: { takePhoto: async () => cameraResult() },
+    fetchPhoto: async () => new Response("photo"),
+    deletePhoto: async () => {
+      throw new Error("cleanup failed");
+    },
+  });
+  await expect(scanner.capturePhoto()).rejects.toThrow("cleanup failed");
+});
+
+test("rejects a native photo without a removable URI", async () => {
+  const scanner = createCapacitorScanner({
+    camera: {
+      takePhoto: async () => ({ saved: false, type: 0, webPath: "photo.jpg" }),
+    },
+    deletePhoto,
+  });
+  await expect(scanner.capturePhoto()).rejects.toThrow("removable photo URI");
+  expect(deletePhoto).not.toHaveBeenCalled();
 });

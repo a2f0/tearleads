@@ -1,5 +1,7 @@
 /** Decode a host-captured photo locally and release its decoded pixels. */
-export async function decodeRecoveryKeyPhoto(photo: Blob): Promise<string> {
+export async function decodeRecoveryKeyPhoto(
+  photo: Blob,
+): Promise<string | null> {
   const { default: decodeQR } = await import("qr/decode.js");
   const bitmap = await createImageBitmap(photo);
   const canvas = document.createElement("canvas");
@@ -10,10 +12,14 @@ export async function decodeRecoveryKeyPhoto(photo: Blob): Promise<string> {
     const context = canvas.getContext("2d");
     if (!context) throw new Error("Image decoding is unavailable.");
     context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    return decodeQR(context.getImageData(0, 0, canvas.width, canvas.height), {
-      effort: Infinity,
-      timeLimit: 250,
-    });
+    const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+    try {
+      return decodeQR(pixels, { effort: Infinity, timeLimit: 250 });
+    } catch {
+      return null;
+    } finally {
+      pixels.data.fill(0);
+    }
   } finally {
     bitmap.close();
     canvas.width = 0;

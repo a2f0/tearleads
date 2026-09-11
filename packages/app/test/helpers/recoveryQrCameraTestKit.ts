@@ -54,7 +54,7 @@ export function installRecoveryQrCamera(value: string) {
     "getContext",
   ).mockReturnValue({
     drawImage,
-    getImageData: () => pixels,
+    getImageData: () => ({ ...pixels, data: pixels.data.slice() }),
   } as unknown as CanvasRenderingContext2D);
   return {
     getUserMedia,
@@ -63,6 +63,9 @@ export function installRecoveryQrCamera(value: string) {
     stream,
     setCode: (code: string) => {
       pixels = recoveryQrPixels(code);
+    },
+    clearFrame: () => {
+      pixels.data.fill(255);
     },
     restore: () => {
       play.mockRestore();

@@ -35,6 +35,8 @@ function readRecoveryQrFrame(
   } catch {
     // An undecodable frame is normal while the camera focuses.
     return undefined;
+  } finally {
+    pixels.data.fill(0);
   }
 }
 

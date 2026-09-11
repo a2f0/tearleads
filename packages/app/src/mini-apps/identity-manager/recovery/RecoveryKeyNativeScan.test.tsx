@@ -163,3 +163,22 @@ test("a photo decoded after locking is released without delivering the key", asy
   expect(close).toHaveBeenCalledTimes(1);
   expect(onScan).not.toHaveBeenCalled();
 });
+
+test("a photo with no QR code asks for the recovery code without blaming camera access", async () => {
+  photo = installRecoveryQrPhoto(phrase);
+  photo.camera.clearFrame();
+  const onScan = mock(() => undefined);
+  const view = render(
+    <RecoveryKeyNativeScan
+      disabled={false}
+      onScan={onScan}
+      scanner={{ capturePhoto: async () => new Blob() }}
+    />,
+  );
+  fireEvent.click(view.getByRole("button", { name: "Scan QR Code" }));
+  const alert = await view.findByRole("alert");
+  expect(alert.textContent).toContain("does not contain a valid recovery key");
+  expect(alert.textContent).not.toContain("camera access");
+  expect(photo.close).toHaveBeenCalledTimes(1);
+  expect(onScan).not.toHaveBeenCalled();
+});
