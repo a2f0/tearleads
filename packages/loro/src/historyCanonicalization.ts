@@ -1,5 +1,5 @@
 import { bytesToBase64 } from "@tearleads/encoding";
-import type { JsonSchema } from "loro-crdt";
+import type { JsonOp, JsonSchema } from "loro-crdt";
 
 type CanonicalHistoryValue =
   | readonly ["array", CanonicalHistoryValue[]]
@@ -65,12 +65,27 @@ function serializeCanonicalHistoryValue(value: unknown): string {
   return JSON.stringify(canonicalHistoryValue(value));
 }
 
+function canonicalHistoryOperation(operation: JsonOp): JsonOp {
+  const { content } = operation;
+  // Coalesced backspaces use negative lengths. Slicing that run to one
+  // deletion can produce -1 where the original update used +1: both delete
+  // the same element at the same position. Direction still matters for
+  // longer runs, and application values must retain their literal contents.
+  if (content.type === "delete" && "len" in content && content.len === -1) {
+    return { ...operation, content: { ...content, len: 1 } };
+  }
+  return operation;
+}
+
 export function serializeCanonicalHistory(history: JsonSchema): string {
   const canonicalChanges = history.changes
-    .map((change) => ({
-      change,
-      identity: serializeCanonicalHistoryValue(change),
-    }))
+    .map((sourceChange) => {
+      const change = {
+        ...sourceChange,
+        ops: sourceChange.ops.map(canonicalHistoryOperation),
+      };
+      return { change, identity: serializeCanonicalHistoryValue(change) };
+    })
     .sort((left, right) =>
       compareCanonicalIdentity(left.identity, right.identity),
     )
