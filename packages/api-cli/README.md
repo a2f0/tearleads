@@ -174,9 +174,13 @@ bun run build                                # packages/api-cli/dist/tearleads-a
 
 `scripts/buildApiCliExecutable.ts` compiles from the repo root to a single
 executable. The target defaults to `bun-linux-x64` and can be overridden with
-`BUN_COMPILE_TARGET` (`bun-linux-x64`, `bun-linux-arm64`, `bun-linux-aarch64`);
-anything else throws. Targets are Linux-only because the executable exists to run
-on the servers.
+`BUN_COMPILE_TARGET`: Linux x64/arm64/aarch64 for servers, or Darwin x64/arm64
+for local executable tests. `BUN_COMPILE_OUTFILE` selects an isolated output
+path; it defaults to `packages/api-cli/dist/tearleads-api-cli`.
+
+The explicit repository build root preserves the embedded schema asset paths.
+The compiled CLI test runs from outside the checkout and initializes a fresh
+SQLite database twice, so it exercises packaging and idempotent initialization.
 
 Deploy scripts build and `rsync` the executable to `/opt/tearleads/bin` on the
 selected server (both are on `PATH` after sourcing `scripts/session.sh`):
