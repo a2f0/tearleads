@@ -104,12 +104,24 @@ async function runRound(mode: "first" | "reopen"): Promise<void> {
     roundError = error;
   }
   if (app.exitCode === null) {
-    const stop = Bun.spawn(["taskkill", "/PID", String(app.pid), "/T", "/F"], {
+    // Without /F, taskkill requests a normal window close so CEF can flush
+    // localStorage and shut down before the second launch reads that profile.
+    const close = Bun.spawn(["taskkill", "/PID", String(app.pid), "/T"], {
       stdout: "ignore",
-      stderr: "inherit",
+      stderr: "ignore",
     });
-    if ((await stop.exited) !== 0) {
-      throw new Error("Could not stop the Windows app process tree.");
+    await close.exited;
+    const deadline = Date.now() + 15_000;
+    while (app.exitCode === null && Date.now() < deadline) {
+      await Bun.sleep(100);
+    }
+    if (app.exitCode === null) {
+      const force = Bun.spawn(
+        ["taskkill", "/PID", String(app.pid), "/T", "/F"],
+        { stdout: "ignore", stderr: "inherit" },
+      );
+      await force.exited;
+      throw new Error("Windows app did not exit after a graceful close.");
     }
   }
   await app.exited;
