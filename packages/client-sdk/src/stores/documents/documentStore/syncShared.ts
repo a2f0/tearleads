@@ -11,6 +11,7 @@ import {
   resolveDocumentCreateAuthor,
   runSerializedSqlMutation,
 } from "../../../workflows/documents";
+import { reportDocumentSyncQuarantine } from "../../../workflows/documents/reportDocumentSyncQuarantine";
 import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
 import { chainIdentityWrite } from "./identityWriteChain";
 import { persistDocument } from "./persistence";
@@ -74,14 +75,7 @@ export function documentIncomingUpdateIsolationFailureHandler(
     await recordFailure({ message: failure.message, status: null });
     if (generation && !isDocumentStoreSyncGenerationCurrent(state, generation))
       return;
-    try {
-      state.runtime.util.logError?.(
-        "Documents: sync updates quarantined",
-        failure,
-      );
-    } catch {
-      // Diagnostics must not replace the quarantine error or its durable row.
-    }
+    reportDocumentSyncQuarantine(state.runtime.util.logError, failure);
   };
 }
 

@@ -121,6 +121,7 @@ export async function syncRemoteContainerMetadata(
       currentDocument: input.currentDocument,
       execSql,
       isCurrent,
+      logError: runtime.util.logError,
       metadataScope,
     }),
     onOutgoingUpdatesMaterialized: input.onOutgoingUpdatesMaterialized,

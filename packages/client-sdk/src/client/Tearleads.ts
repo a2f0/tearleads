@@ -271,9 +271,8 @@ export class Tearleads {
     this.logHandler(message);
   };
 
-  logError = (message: string | Error, cause?: unknown): void => {
+  logError = (message: string | Error, cause?: unknown): void =>
     this.logErrorHandler(message, cause);
-  };
 
   /**
    * Mint a single-use ticket to authenticate the server-events websocket

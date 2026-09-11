@@ -9,45 +9,58 @@ import type { DocumentState, DocumentStoreState } from "./state";
 import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
 import { documentIncomingUpdateIsolationFailureHandler } from "./syncShared";
 
-for (const loggerThrows of [false, true]) {
-  test(`quarantine reaches the SDK logger and survives reporter failure=${loggerThrows}`, async () => {
-    const database = await createTestExecSql("quarantine-diagnostics");
-    const reported: unknown[] = [];
-    const sdk = new Tearleads({
-      logger: {
-        log: () => undefined,
-        logError: (_message, error) => {
-          reported.push(error);
-          if (loggerThrows) throw new Error("Diagnostic transport unavailable");
+for (const runtimeKind of ["documents", "container-contents"] as const) {
+  test.each(["success", "throw", "reject"])(
+    `quarantine reaches the ${runtimeKind} SDK logger: %s`,
+    async (result) => {
+      const database = await createTestExecSql("quarantine-diagnostics");
+      const reported: unknown[] = [];
+      const sdk = new Tearleads({
+        logger: {
+          log: () => undefined,
+          logError: (_message, error) => {
+            reported.push(error);
+            if (result === "throw")
+              throw new Error("Diagnostic transport unavailable");
+            if (result === "reject")
+              return Promise.reject(
+                new Error("Diagnostic transport unavailable"),
+              );
+          },
         },
-      },
-    });
-    try {
-      await sqlDocumentsPersistence.ensureSchema(database.execSql);
-      const runtime = sdk.documents.workflowRuntime();
-      const state = {
-        localId: "private-local-document",
-        runtime: {
-          ...runtime,
-          infra: { ...runtime.infra, execSql: database.execSql },
-        },
-      } as unknown as DocumentStoreState;
-      const failure = new DocumentSyncUpdateIsolationError({
-        cause: new Error("private decrypted value"),
-        stage: "loro_import",
-        updateId: null,
-        batchUpdateIds: ["private-update"],
       });
-      await documentIncomingUpdateIsolationFailureHandler(state)(failure);
-      expect(reported).toEqual([failure]);
-      expect(await hasRecordedTerminalSyncFailures(database.execSql)).toBe(
-        true,
-      );
-    } finally {
-      sdk.dispose();
-      database.close();
-    }
-  });
+      try {
+        await sqlDocumentsPersistence.ensureSchema(database.execSql);
+        const runtime =
+          runtimeKind === "documents"
+            ? sdk.documents.workflowRuntime()
+            : sdk.containerContents
+                .documentLinks()
+                .documentRuntime("container");
+        const state = {
+          localId: "private-local-document",
+          runtime: {
+            ...runtime,
+            infra: { ...runtime.infra, execSql: database.execSql },
+          },
+        } as unknown as DocumentStoreState;
+        const failure = new DocumentSyncUpdateIsolationError({
+          cause: new Error("private decrypted value"),
+          stage: "loro_import",
+          updateId: null,
+          batchUpdateIds: ["private-update"],
+        });
+        await documentIncomingUpdateIsolationFailureHandler(state)(failure);
+        expect(reported).toEqual([failure]);
+        expect(await hasRecordedTerminalSyncFailures(database.execSql)).toBe(
+          true,
+        );
+      } finally {
+        sdk.dispose();
+        database.close();
+      }
+    },
+  );
 }
 
 test("quarantine queued behind an identity teardown is neither recorded nor reported", async () => {
