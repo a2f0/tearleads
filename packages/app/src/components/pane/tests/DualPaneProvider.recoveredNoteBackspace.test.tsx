@@ -21,6 +21,7 @@ import { openMiniApp } from "../../../../test/helpers/dual-pane/dualPaneMiniAppK
 import {
   createAttachedMiniAppNote,
   documentSyncBatchSizes,
+  editNoteAndWaitForUpload,
   getAttachedNoteDocumentId,
   type NoteEntryPoint,
   selectMiniAppNote,
@@ -115,17 +116,15 @@ for (const creator of apps) {
           let text = initialText;
           for (let count = 0; count < BACKSPACE_COUNT; count += 1) {
             text = text.slice(0, -1);
-            await editSelectedNoteText(recoveredWindow, text);
             // Let each keystroke reach the server so this exercises 51
             // separate updates, even when the receiver misses every hint.
-            await waitForNoPostShareSyncFailures(
-              [primary, secondary],
-              baseline,
-            );
+            await editNoteAndWaitForUpload(recoveredWindow, documentId, text);
           }
           await waitForNoPostShareSyncFailures([primary, secondary], baseline);
           if (delayed) {
             dropUpdates = false;
+            // No HTTP failures are injected: each accepted update publishes
+            // one hint, counted before the router fans it out to the peers.
             expect(dropped.reduce((count, read) => count + read(), 0)).toBe(
               BACKSPACE_COUNT,
             );

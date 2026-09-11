@@ -121,7 +121,7 @@ test("coalesced backspaces still reject a conflicting same-peer deletion", async
     for (const position of [5, 4, 3]) {
       const base = encodeVersionVector(genuine);
       genuine.getText("text").delete(position, 1);
-      conflicting.getText("text").delete(0, 1);
+      conflicting.getText("text").delete(position - 1, 1);
       genuineUpdates.push(exportUpdatesSince(genuine, base));
       conflictingUpdates.push(exportUpdatesSince(conflicting, base));
     }

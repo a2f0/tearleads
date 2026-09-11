@@ -60,6 +60,10 @@ retires every queued checkpoint and its
 matching local-history tail, whether or not its declared frontier is covered,
 because checkpoints are never recovery sources. Every other tail row must match
 the verified rebuild's exact operations for its declared range. This canonical
+comparison treats the two directions of a single-element deletion as equivalent:
+coalescing backspaces can change that span's length from `1` to `-1` without
+changing its target or position. Targets, positions, counters, and multi-element
+deletion order remain exact. The canonical
 comparison is independent of Loro's update-versus-full-snapshot encoding, so a
 settled rotation baseline retained in the tail can be quarantined by a later
 recovery; version-vector coverage alone is insufficient and a same-frontier

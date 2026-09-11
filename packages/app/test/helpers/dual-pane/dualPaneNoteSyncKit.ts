@@ -1,9 +1,13 @@
 import { expect } from "bun:test";
-import { isBlobAttachmentBindResponse } from "@tearleads/validators/response";
+import {
+  isBlobAttachmentBindResponse,
+  isDocumentSyncResponse,
+} from "@tearleads/validators/response";
 import { fireEvent, waitFor, within } from "@testing-library/react";
 import invariant from "invariant";
 import { listProxiedApiRequests } from "../mswServer";
 import type { ProxiedApiRequest } from "../proxiedApiResponse";
+import { waitForCondition } from "../waitForCondition";
 import {
   DUAL_PANE_TEST_TIMEOUT_MS,
   getExplorerWindowRoot,
@@ -11,6 +15,7 @@ import {
 } from "./dualPaneCore";
 import {
   createNoteWithAttachment,
+  editSelectedNoteText,
   openExplorer,
   selectExplorerNoteByName,
 } from "./dualPaneExplorerKit";
@@ -99,10 +104,39 @@ export function documentSyncBatchSizes(requestStartIndex: number): number[] {
     )
     .flatMap((request) => {
       const response = parseResponseBody(request);
-      const updates =
-        response && typeof response === "object"
-          ? Reflect.get(response, "updates")
-          : undefined;
-      return Array.isArray(updates) ? [updates.length] : [];
+      invariant(
+        isDocumentSyncResponse(response),
+        "Expected a document sync response.",
+      );
+      return [response.updates.length];
     });
+}
+
+export async function editNoteAndWaitForUpload(
+  window: HTMLElement,
+  documentId: string,
+  text: string,
+) {
+  const startIndex = listProxiedApiRequests().length;
+  await editSelectedNoteText(window, text);
+  await waitForCondition(
+    () =>
+      listProxiedApiRequests()
+        .slice(startIndex)
+        .some((request) => {
+          if (
+            request.method !== "POST" ||
+            request.status !== 200 ||
+            !request.url.endsWith(`/documents/${documentId}/sync`)
+          )
+            return false;
+          const response = parseResponseBody(request);
+          return (
+            isDocumentSyncResponse(response) &&
+            response.acceptedOutgoingUpdateIds.length > 0
+          );
+        }),
+    "The edited note did not upload its update.",
+    DUAL_PANE_TEST_TIMEOUT_MS,
+  );
 }
