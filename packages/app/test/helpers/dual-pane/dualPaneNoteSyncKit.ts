@@ -1,8 +1,14 @@
 import { expect } from "bun:test";
+import { isBlobAttachmentBindResponse } from "@tearleads/validators/response";
 import { fireEvent, waitFor, within } from "@testing-library/react";
 import invariant from "invariant";
 import { listProxiedApiRequests } from "../mswServer";
-import { getExplorerWindowRoot, interact } from "./dualPaneCore";
+import type { ProxiedApiRequest } from "../proxiedApiResponse";
+import {
+  DUAL_PANE_TEST_TIMEOUT_MS,
+  getExplorerWindowRoot,
+  interact,
+} from "./dualPaneCore";
 import {
   createNoteWithAttachment,
   openExplorer,
@@ -13,7 +19,7 @@ import { waitForRemoteAttachmentBlob } from "./dualPaneSyncKit";
 
 export type NoteEntryPoint = "Notes" | "Explorer";
 
-export async function createBackspaceNote(
+export async function createAttachedMiniAppNote(
   pane: HTMLElement,
   app: NoteEntryPoint,
   title: string,
@@ -54,9 +60,35 @@ export async function selectMiniAppNote(window: HTMLElement, title: string) {
   const note = await within(window).findByRole(
     "button",
     { name: title },
-    { timeout: 20_000 },
+    { timeout: DUAL_PANE_TEST_TIMEOUT_MS },
   );
   await interact(() => fireEvent.click(note));
+}
+
+function parseResponseBody(request: ProxiedApiRequest): unknown {
+  try {
+    return JSON.parse(request.responseBody);
+  } catch (cause) {
+    throw new Error(`Expected JSON from ${request.method} ${request.url}`, {
+      cause,
+    });
+  }
+}
+
+export function getAttachedNoteDocumentId(): string {
+  const request = listProxiedApiRequests().find(
+    (request) =>
+      request.method === "POST" &&
+      request.status === 200 &&
+      request.url.endsWith("/attachment-bindings"),
+  );
+  invariant(request, "Expected the note's successful attachment binding.");
+  const response = parseResponseBody(request);
+  invariant(
+    isBlobAttachmentBindResponse(response),
+    "Expected a document ID in the attachment binding.",
+  );
+  return response.documentId;
 }
 
 export function documentSyncBatchSizes(requestStartIndex: number): number[] {
@@ -66,7 +98,7 @@ export function documentSyncBatchSizes(requestStartIndex: number): number[] {
       (request) => request.url.endsWith("/sync") && request.status === 200,
     )
     .flatMap((request) => {
-      const response: unknown = JSON.parse(request.responseBody);
+      const response = parseResponseBody(request);
       const updates =
         response && typeof response === "object"
           ? Reflect.get(response, "updates")

@@ -17,6 +17,7 @@ import {
   selectExplorerNoteByName,
   waitForSelectedNoteText,
 } from "../../../../test/helpers/dual-pane/dualPaneExplorerKit";
+import { documentSyncBatchSizes } from "../../../../test/helpers/dual-pane/dualPaneNoteSyncKit";
 import {
   downloadPaneRecoveryKey,
   restorePaneRecoveryKey,
@@ -27,7 +28,6 @@ import {
 } from "../../../../test/helpers/dual-pane/dualPaneSyncKit";
 import { dropNextMswServerEventWhere } from "../../../../test/helpers/mswEventRouter";
 import {
-  listProxiedApiRequests,
   resetMockServer,
   useTestApiAppHandlers,
 } from "../../../../test/helpers/mswServer";
@@ -113,21 +113,9 @@ for (const delayed of [false, true]) {
         "Original device did not receive the recovered device's edits.",
       );
       if (delayed) {
-        const batchSizes = listProxiedApiRequests()
-          .slice(baseline.requestStartIndex)
-          .filter(
-            (request) =>
-              request.url.endsWith("/sync") && request.status === 200,
-          )
-          .flatMap((request) => {
-            const response: unknown = JSON.parse(request.responseBody);
-            const updates =
-              response && typeof response === "object"
-                ? Reflect.get(response, "updates")
-                : undefined;
-            return Array.isArray(updates) ? [updates.length] : [];
-          });
-        expect(batchSizes).toContain(24);
+        expect(documentSyncBatchSizes(baseline.requestStartIndex)).toContain(
+          24,
+        );
       }
       expect(within(primary).getByText(attachmentName)).toBeTruthy();
       await waitForNoPostShareSyncFailures([primary, secondary], baseline);

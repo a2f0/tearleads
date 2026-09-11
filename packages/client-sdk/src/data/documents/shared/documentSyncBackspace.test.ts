@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
   createDocument,
   encodeVersionVector,
+  exportFullHistoryIdentity,
   exportFullHistorySnapshot,
   exportUpdatesSince,
   getUpdateVersionVectors,
@@ -61,6 +62,14 @@ test("51 backspace updates on an attached note validate before and after reload"
     });
     expect(reloaded.getText("text").toString()).toBe("aaaa");
     expect(getDocumentAttachments(reloaded)).toEqual([attachment]);
+    // Rotation provenance compares a live, coalesced history with one rebuilt
+    // from the server's individual update blobs, at the live frontier.
+    const liveVersion = encodeVersionVector(restored);
+    for (const rebuilt of [original, reloaded]) {
+      expect(exportFullHistoryIdentity(rebuilt, liveVersion)).toBe(
+        exportFullHistoryIdentity(restored),
+      );
+    }
   } finally {
     original.free();
     restored.free();

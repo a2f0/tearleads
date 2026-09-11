@@ -19,11 +19,12 @@ import {
 } from "../../../../test/helpers/dual-pane/dualPaneExplorerKit";
 import { openMiniApp } from "../../../../test/helpers/dual-pane/dualPaneMiniAppKit";
 import {
-  createBackspaceNote,
+  createAttachedMiniAppNote,
   documentSyncBatchSizes,
+  getAttachedNoteDocumentId,
   type NoteEntryPoint,
   selectMiniAppNote,
-} from "../../../../test/helpers/dual-pane/dualPaneNoteBackspaceKit";
+} from "../../../../test/helpers/dual-pane/dualPaneNoteSyncKit";
 import {
   downloadPaneRecoveryKey,
   restorePaneRecoveryKey,
@@ -45,6 +46,8 @@ afterEach(async () => {
   await resetMockServer();
 });
 
+// Reproduce the reported batch while staying within one sync response page.
+const BACKSPACE_COUNT = 51;
 const apps: readonly NoteEntryPoint[] = ["Notes", "Explorer"];
 for (const creator of apps) {
   for (const editor of apps) {
@@ -61,7 +64,7 @@ for (const creator of apps) {
           const initialText = `${title}\n${"a".repeat(55)}`;
 
           await waitForSinglePaneProvisioning(primary);
-          const originalWindow = await createBackspaceNote(
+          const originalWindow = await createAttachedMiniAppNote(
             primary,
             creator,
             title,
@@ -97,18 +100,20 @@ for (const creator of apps) {
           const baseline = capturePostShareSyncBaseline();
           await waitForNoPostShareSyncFailures([primary, secondary], baseline);
 
+          const documentId = getAttachedNoteDocumentId();
           let dropUpdates = delayed;
           const dropped = delayed
-            ? Array.from({ length: 51 }, () =>
+            ? Array.from({ length: BACKSPACE_COUNT }, () =>
                 dropNextMswServerEventWhere(
                   (event) =>
                     dropUpdates &&
-                    Reflect.get(event, "type") === "document_update_created",
+                    Reflect.get(event, "type") === "document_update_created" &&
+                    Reflect.get(event, "documentId") === documentId,
                 ),
               )
             : [];
           let text = initialText;
-          for (let count = 0; count < 51; count += 1) {
+          for (let count = 0; count < BACKSPACE_COUNT; count += 1) {
             text = text.slice(0, -1);
             await editSelectedNoteText(recoveredWindow, text);
             // Let each keystroke reach the server so this exercises 51
@@ -121,7 +126,9 @@ for (const creator of apps) {
           await waitForNoPostShareSyncFailures([primary, secondary], baseline);
           if (delayed) {
             dropUpdates = false;
-            expect(dropped.reduce((count, read) => count + read(), 0)).toBe(51);
+            expect(dropped.reduce((count, read) => count + read(), 0)).toBe(
+              BACKSPACE_COUNT,
+            );
             await waitForSelectedNoteText(
               originalWindow,
               initialText,
@@ -141,7 +148,7 @@ for (const creator of apps) {
           if (delayed)
             expect(
               documentSyncBatchSizes(baseline.requestStartIndex),
-            ).toContain(51);
+            ).toContain(BACKSPACE_COUNT);
           expect(within(originalWindow).getByText(attachmentName)).toBeTruthy();
           await editSelectedNoteText(
             originalWindow,

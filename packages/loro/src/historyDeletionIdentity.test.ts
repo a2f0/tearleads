@@ -151,9 +151,8 @@ test("direction remains part of multi-element deletion identity", async () => {
     importSnapshot(forward, snapshot);
     const base = encodeVersionVector(backward);
     backward.getText("text").delete(3, 1);
-    backward.commit();
     backward.getText("text").delete(2, 1);
-    forward.getText("text").delete(3, 2);
+    forward.getText("text").delete(2, 2);
 
     expect(backward.toJSON()).toEqual(forward.toJSON());
     expect(encodeVersionVector(backward)).toBe(encodeVersionVector(forward));
