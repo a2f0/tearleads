@@ -21,6 +21,7 @@
     "react-dom": "catalog:react"
   },
   "devDependencies": {
+    "@tearleads/loro": "workspace:*",
     "@types/bun": "catalog:",
     "@types/react-dom": "catalog:react"
   },

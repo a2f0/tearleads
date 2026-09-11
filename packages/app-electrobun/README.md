@@ -40,6 +40,11 @@ WebView2 installation and update cycle. macOS builds use the native WKWebView
 and explicitly disable CEF bundling. These settings apply to both development
 and release builds in `electrobun.config.ts`.
 
+The packaging step emits the renderer HTML and assets together with Bun and
+embeds Loro's WASM, alongside the SQLite worker and WASM. Both packaged and
+development apps use `http://127.0.0.1:3002` so OPFS and localStorage retain the
+same origin after a restart.
+
 The repository's [pre-deployment policy](../../docs/request-budget-closeout.md)
 has no legacy production clients to support; this Windows renderer choice
 establishes the release baseline. Local WebView2 development profiles remain

@@ -9,6 +9,7 @@ on:
       - "packages/app-electrobun/**"
       - "packages/app/**"
       - "packages/client-sdk/**"
+      - "packages/loro/**"
       - "packages/sqlite-instance/**"
       - "packages/sqlite-worker/**"
   workflow_dispatch:
