@@ -34,11 +34,15 @@ the backend events endpoint, and the build wrapper stamps
 `BUN_PUBLIC_APP_VERSION` and `BUN_PUBLIC_GIT_SHA`. Unset settings compile to
 `undefined`, so a WebView never needs a Node `process` global.
 
-Linux and Windows builds bundle and use Electrobun's CEF renderer. macOS builds
-use the native WKWebView and explicitly disable CEF bundling. These settings
-apply to both development and release builds in `electrobun.config.ts`.
-Windows CEF bundling is configured but has not yet been verified in a native
-build.
+Linux and Windows builds bundle and use Electrobun's pinned CEF renderer. On
+Windows, this pins Chromium to the app release independently of the machine's
+WebView2 installation and update cycle. macOS builds use the native WKWebView
+and explicitly disable CEF bundling. These settings apply to both development
+and release builds in `electrobun.config.ts`.
+
+Windows CEF bundling has not yet been verified in a native build. Windows
+validation should include building the app and confirming that a populated
+encrypted identity database reopens after restarting it.
 
 On Linux, the system WebKitGTK renderer can omit worker OPFS APIs required by
 the encrypted SQLite SyncAccessHandle Pool; CEF provides a consistent

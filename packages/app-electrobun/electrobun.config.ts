@@ -17,7 +17,8 @@ export default {
       defaultRenderer: "native",
     },
     win: {
-      // Use the same bundled Chromium renderer as Linux.
+      // Pin Chromium to the app release, independently of the machine's
+      // WebView2 installation and update cycle.
       bundleCEF: true,
       defaultRenderer: "cef",
     },
