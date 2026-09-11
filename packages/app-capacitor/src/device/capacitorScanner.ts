@@ -1,6 +1,11 @@
-import { Camera, CameraErrorCode, EncodingType } from "@capacitor/camera";
+import {
+  Camera,
+  CameraErrorCode,
+  EncodingType,
+  type MediaResult,
+} from "@capacitor/camera";
 import { Filesystem } from "@capacitor/filesystem";
-import type { Scanner } from "app/host/AppHostConfig";
+import { type Scanner, ScannerPhotoCleanupError } from "app/host/AppHostConfig";
 
 const CAPTURE_TARGET_SIZE = 2048;
 
@@ -11,6 +16,21 @@ interface CameraBackend {
 }
 
 type FetchPhoto = (input: string) => Promise<Response>;
+
+async function readCapturedPhoto(
+  result: MediaResult,
+  fetchPhoto: FetchPhoto,
+): Promise<Blob> {
+  if (!result.uri)
+    throw new Error("The camera did not return a removable photo URI.");
+  if (!result.webPath)
+    throw new Error("The camera did not return a web-accessible photo path.");
+  const response = await fetchPhoto(result.webPath);
+  if (!response.ok)
+    throw new Error(`Could not read the captured photo (${response.status}).`);
+  // Fully consume the file before deleting it, then return only memory.
+  return response.blob();
+}
 
 function isCameraCancellation(error: unknown): boolean {
   return (
@@ -46,26 +66,27 @@ export function createCapacitorScanner(
           targetHeight: CAPTURE_TARGET_SIZE,
           targetWidth: CAPTURE_TARGET_SIZE,
         });
+        let readResult: { photo: Blob } | { error: unknown };
         try {
-          if (!result.uri) {
-            throw new Error("The camera did not return a removable photo URI.");
-          }
-          if (!result.webPath) {
-            throw new Error(
-              "The camera did not return a web-accessible photo path.",
-            );
-          }
-          const response = await fetchPhoto(result.webPath);
-          if (!response.ok) {
-            throw new Error(
-              `Could not read the captured photo (${response.status}).`,
-            );
-          }
-          // Fully consume the file before deleting it, then return only memory.
-          return await response.blob();
-        } finally {
-          if (result.uri) await deletePhoto(result.uri);
+          readResult = { photo: await readCapturedPhoto(result, fetchPhoto) };
+        } catch (error) {
+          readResult = { error };
         }
+        try {
+          if (result.uri) await deletePhoto(result.uri);
+        } catch (cleanupFailure) {
+          throw new ScannerPhotoCleanupError({
+            cause:
+              "error" in readResult
+                ? new AggregateError(
+                    [readResult.error, cleanupFailure],
+                    "Photo read and cleanup failed.",
+                  )
+                : cleanupFailure,
+          });
+        }
+        if ("error" in readResult) throw readResult.error;
+        return readResult.photo;
       } catch (error) {
         if (isCameraCancellation(error)) {
           return null;

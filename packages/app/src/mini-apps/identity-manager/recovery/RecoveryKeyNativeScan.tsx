@@ -7,7 +7,7 @@ import {
   MiniAppButton,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
-import type { Scanner } from "../../../host/Scanner";
+import { type Scanner, ScannerPhotoCleanupError } from "../../../host/Scanner";
 import { decodeRecoveryKeyPhoto } from "./recoveryKeyPhoto";
 
 function recoveryPhrase(value: string | null): string | null {
@@ -72,12 +72,14 @@ export function RecoveryKeyNativeScan({
         return;
       }
       onScan(phrase);
-    } catch {
+    } catch (error) {
       ifCurrent(request, () => {
         setError(
-          captured
-            ? "Could not read the captured photo. Try a clear photo of the recovery QR code, or enter your passphrase."
-            : "Could not capture a photo. Check camera access and try again, or enter your passphrase.",
+          error instanceof ScannerPhotoCleanupError
+            ? "The photo was captured, but its temporary file could not be removed from this device. Enter your passphrase instead."
+            : captured
+              ? "Could not read the captured photo. Try a clear photo of the recovery QR code, or enter your passphrase."
+              : "Could not capture a photo. Check camera access and try again, or enter your passphrase.",
         );
       });
     } finally {

@@ -14,6 +14,7 @@ export async function decodeRecoveryKeyPhoto(
     context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
     const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
     try {
+      // A still photo gets deeper search than video, capped at 250 ms.
       return decodeQR(pixels, { effort: Infinity, timeLimit: 250 });
     } catch {
       return null;

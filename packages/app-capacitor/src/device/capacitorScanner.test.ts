@@ -1,5 +1,6 @@
 import { beforeEach, expect, mock, test } from "bun:test";
 import type { MediaResult } from "@capacitor/camera";
+import { ScannerPhotoCleanupError } from "app/host/AppHostConfig";
 
 const EncodingType = { JPEG: 0, PNG: 1 } as const;
 const CameraErrorCode = {
@@ -172,14 +173,42 @@ test("waits for the photo bytes before deleting its file", async () => {
 });
 
 test("does not report success when temporary photo deletion fails", async () => {
+  const failure = new Error("cleanup failed");
   const scanner = createCapacitorScanner({
     camera: { takePhoto: async () => cameraResult() },
     fetchPhoto: async () => new Response("photo"),
     deletePhoto: async () => {
-      throw new Error("cleanup failed");
+      throw failure;
     },
   });
-  await expect(scanner.capturePhoto()).rejects.toThrow("cleanup failed");
+  const error = await scanner.capturePhoto().catch((error: unknown) => error);
+  expect(error).toBeInstanceOf(ScannerPhotoCleanupError);
+  if (!(error instanceof ScannerPhotoCleanupError))
+    throw new Error("Expected cleanup failure");
+  expect(error.cause).toBe(failure);
+  expect(error.message).toContain("remove the temporary camera photo");
+});
+
+test("preserves both read and cleanup failures in a distinct cleanup error", async () => {
+  const readFailure = new Error("read failed");
+  const cleanupFailure = new Error("cleanup failed");
+  const scanner = createCapacitorScanner({
+    camera: { takePhoto: async () => cameraResult() },
+    fetchPhoto: async () => {
+      throw readFailure;
+    },
+    deletePhoto: async () => {
+      throw cleanupFailure;
+    },
+  });
+  const error = await scanner.capturePhoto().catch((error: unknown) => error);
+  expect(error).toBeInstanceOf(ScannerPhotoCleanupError);
+  if (!(error instanceof ScannerPhotoCleanupError))
+    throw new Error("Expected cleanup failure");
+  expect(error.cause).toBeInstanceOf(AggregateError);
+  if (!(error.cause instanceof AggregateError))
+    throw new Error("Expected both causes");
+  expect(error.cause.errors).toEqual([readFailure, cleanupFailure]);
 });
 
 test("rejects a native photo without a removable URI", async () => {

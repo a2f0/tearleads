@@ -19,7 +19,7 @@ import type { CreateScannerFn } from "./Scanner";
 
 export { createAppBuildInfo } from "./AppBuildInfo";
 export type { FileViewer } from "./FileViewer";
-export type { Scanner } from "./Scanner";
+export { type Scanner, ScannerPhotoCleanupError } from "./Scanner";
 
 export type CreateSQLiteRuntimeFn = () => SQLiteRuntime;
 /** @public */

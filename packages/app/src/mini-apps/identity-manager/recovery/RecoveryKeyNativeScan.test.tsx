@@ -9,6 +9,7 @@ import {
 } from "@testing-library/react";
 import { createIdentityManagerHostConfig } from "../../../../test/helpers/identityManagerTestRuntime";
 import { installRecoveryQrPhoto } from "../../../../test/helpers/recoveryQrCameraTestKit";
+import { ScannerPhotoCleanupError } from "../../../host/Scanner";
 import { AppHostConfigProvider } from "../../../providers/host/AppHostConfigProvider";
 import { RecoveryKeyNativeScan } from "./RecoveryKeyNativeScan";
 import { RecoveryKeyRestoreForm } from "./RecoveryKeyRestoreForm";
@@ -161,6 +162,32 @@ test("a photo decoded after locking is released without delivering the key", asy
     pending.resolve({ width: 320, height: 320, close } as ImageBitmap);
   });
   expect(close).toHaveBeenCalledTimes(1);
+  expect(onScan).not.toHaveBeenCalled();
+});
+
+test("native photo cleanup failures explain that the capture remains on the device", async () => {
+  photo = installRecoveryQrPhoto(phrase);
+  const onScan = mock(() => undefined);
+  const view = render(
+    <RecoveryKeyNativeScan
+      disabled={false}
+      onScan={onScan}
+      scanner={{
+        capturePhoto: async () => {
+          throw new ScannerPhotoCleanupError({
+            cause: new Error("private photo path"),
+          });
+        },
+      }}
+    />,
+  );
+  fireEvent.click(view.getByRole("button", { name: "Scan QR Code" }));
+  const alert = await view.findByRole("alert");
+  expect(alert.textContent).toContain("temporary file could not be removed");
+  expect(alert.textContent).toContain("Enter your passphrase instead");
+  expect(alert.textContent).not.toContain("camera access");
+  expect(alert.textContent).not.toContain("private photo path");
+  expect(photo.createBitmap).not.toHaveBeenCalled();
   expect(onScan).not.toHaveBeenCalled();
 });
 
