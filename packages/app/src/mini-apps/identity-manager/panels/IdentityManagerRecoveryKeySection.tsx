@@ -50,6 +50,7 @@ export function IdentityManagerRecoveryKeySection() {
         onSelect={(tab) => {
           disclosure.hide();
           disclosure.cancelDisclosure();
+          if (tab !== "recovery") restore.setRestorePassphrase("");
           setActiveTab(tab);
         }}
         tabs={RECOVERY_KEY_TABS}

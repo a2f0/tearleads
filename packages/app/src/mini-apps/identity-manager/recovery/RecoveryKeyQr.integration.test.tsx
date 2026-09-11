@@ -46,8 +46,16 @@ test("QR disclosure is acknowledged, contains only the key, and can be hidden", 
   expect(decodeURIComponent(source.slice("data:image/svg+xml,".length))).toBe(
     encodeQR(seedPhrase, "svg", { border: 4, ecc: "medium" }),
   );
+  fireEvent.click(view.getByRole("button", { name: "Reveal Recovery Key" }));
+  fireEvent.change(view.getByLabelText(ACKNOWLEDGEMENT_LABEL), {
+    target: { value: "i understand" },
+  });
+  fireEvent.click(view.getByRole("button", { name: "Show Passphrase" }));
+  expect(view.getByDisplayValue(seedPhrase)).toBeTruthy();
+  expect(view.getByAltText("Recovery key QR code")).toBeTruthy();
   fireEvent.click(view.getByRole("button", { name: "Hide Recovery Key" }));
   expect(view.queryByAltText("Recovery key QR code")).toBeNull();
+  expect(view.queryByDisplayValue(seedPhrase)).toBeNull();
 });
 
 test("switching identities or leaving Backup revokes QR disclosure", async () => {
@@ -117,4 +125,24 @@ test("cancelling and changing tabs release the camera", async () => {
   await view.findByText(/does not contain a valid recovery key/u);
   fireEvent.click(view.getByRole("tab", { name: "Backup" }));
   expect(camera.stopTrack).toHaveBeenCalledTimes(2);
+});
+
+test("clearing a scanned phrase or leaving Recovery removes staged recovery feedback", async () => {
+  const { seedPhrase, view } = await renderRecoveryKeyView(0x18);
+  camera = installRecoveryQrCamera(seedPhrase);
+  fireEvent.click(view.getByRole("tab", { name: "Recovery" }));
+  fireEvent.click(view.getByRole("button", { name: "Scan QR Code" }));
+  await view.findByText(/Choose Restore from Passphrase/u);
+  fireEvent.change(view.getByLabelText("Restore passphrase"), {
+    target: { value: "" },
+  });
+  expect(view.queryByText(/Choose Restore from Passphrase/u)).toBeNull();
+  fireEvent.click(view.getByRole("button", { name: "Scan QR Code" }));
+  await view.findByText(/Choose Restore from Passphrase/u);
+  fireEvent.click(view.getByRole("tab", { name: "Backup" }));
+  fireEvent.click(view.getByRole("tab", { name: "Recovery" }));
+  expect(
+    (view.getByLabelText("Restore passphrase") as HTMLTextAreaElement).value,
+  ).toBe("");
+  expect(view.queryByText(/Choose Restore from Passphrase/u)).toBeNull();
 });

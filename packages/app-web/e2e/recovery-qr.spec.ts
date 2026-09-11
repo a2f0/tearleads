@@ -3,7 +3,9 @@ import { expect, test } from "@playwright/test";
 test("a second device scans the displayed recovery QR into its restore form", async ({
   browser,
   page,
+  baseURL,
 }) => {
+  test.setTimeout(60_000);
   await page.setViewportSize({ width: 900, height: 900 });
   await page.goto("/app/identity-manager/recovery-key");
   const reveal = page.getByRole("button", { name: "Reveal Recovery QR Code" });
@@ -16,7 +18,6 @@ test("a second device scans the displayed recovery QR into its restore form", as
   const source = await qr.getAttribute("src");
   if (!source) throw new Error("Missing recovery QR image.");
 
-  await page.getByRole("button", { name: "Hide Recovery Key" }).click();
   await page.getByRole("button", { name: "Reveal Recovery Key" }).click();
   await page.getByLabel(/Type i understand to continue/u).fill("i understand");
   await page.getByRole("button", { name: "Show Passphrase" }).click();
@@ -25,13 +26,12 @@ test("a second device scans the displayed recovery QR into its restore form", as
     .inputValue();
 
   const phone = await browser.newContext({
+    baseURL: baseURL ?? "http://127.0.0.1:3100",
     viewport: { width: 390, height: 844 },
   });
   try {
     const phonePage = await phone.newPage();
-    await phonePage.goto(
-      "http://127.0.0.1:3100/app/identity-manager/recovery-key",
-    );
+    await phonePage.goto("/app/identity-manager/recovery-key");
     await phonePage.getByRole("tab", { name: "Recovery", exact: true }).click();
     // Feed the actual rendered SVG into a real video stream. The production
     // canvas reader and QR decoder run unchanged in the second browser context.

@@ -15,6 +15,29 @@ function cameraErrorMessage(error: unknown): string {
   return "Could not start the camera. Close other apps using it and try again, or enter your passphrase.";
 }
 
+function readRecoveryQrFrame(
+  video: HTMLVideoElement,
+  canvas: HTMLCanvasElement,
+  context: CanvasRenderingContext2D,
+  decode: typeof import("qr/decode.js").default,
+): string | undefined {
+  if (video.readyState < 2 || !video.videoWidth || !video.videoHeight) return;
+  const scale = Math.min(
+    1,
+    960 / Math.max(video.videoWidth, video.videoHeight),
+  );
+  canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+  canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+  context.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+  try {
+    return decode(pixels);
+  } catch {
+    // An undecodable frame is normal while the camera focuses.
+    return undefined;
+  }
+}
+
 /** Own the stream even while permission or video playback is still pending. */
 export function startRecoveryKeyCamera(
   video: HTMLVideoElement,
@@ -52,8 +75,15 @@ export function startRecoveryKeyCamera(
       return;
     }
     // Decoding stays out of the initial bundle and works without BarcodeDetector.
-    const { default: decodeQR } = await import("qr/decode.js");
+    const decoder = await import("qr/decode.js").catch(() => null);
     if (stopped) return;
+    if (!decoder) {
+      fail(
+        "Could not load QR scanning. Check your connection and try again, or enter your passphrase.",
+      );
+      return;
+    }
+    const { default: decodeQR } = decoder;
     const acquired = await navigator.mediaDevices.getUserMedia({
       audio: false,
       video: { facingMode: { ideal: "environment" } },
@@ -77,30 +107,10 @@ export function startRecoveryKeyCamera(
     const scan = () => {
       if (stopped) return;
       try {
-        if (video.readyState >= 2 && video.videoWidth && video.videoHeight) {
-          const scale = Math.min(
-            1,
-            960 / Math.max(video.videoWidth, video.videoHeight),
-          );
-          canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
-          canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
-          context.drawImage(video, 0, 0, canvas.width, canvas.height);
-          const pixels = context.getImageData(
-            0,
-            0,
-            canvas.width,
-            canvas.height,
-          );
-          let decoded: string | undefined;
-          try {
-            decoded = decodeQR(pixels);
-          } catch {
-            // An undecodable frame is normal while the camera focuses.
-          }
-          if (decoded !== undefined && onDecode(decoded)) {
-            stop();
-            return;
-          }
+        const decoded = readRecoveryQrFrame(video, canvas, context, decodeQR);
+        if (decoded !== undefined && onDecode(decoded)) {
+          stop();
+          return;
         }
         timer = setTimeout(scan, 150);
       } catch {

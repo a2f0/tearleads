@@ -65,12 +65,13 @@ export function RecoveryKeyDisplay({
             Reveal Recovery QR Code
           </MiniAppButton>
         )}
-        {revealed || qrRevealed ? (
-          <MiniAppButton onClick={onHide}>Hide Recovery Key</MiniAppButton>
-        ) : (
+        {!revealed && (
           <MiniAppButton onClick={() => onRequestDisclosure("reveal")}>
             Reveal Recovery Key
           </MiniAppButton>
+        )}
+        {(revealed || qrRevealed) && (
+          <MiniAppButton onClick={onHide}>Hide Recovery Key</MiniAppButton>
         )}
       </MiniAppToolbar>
     </div>

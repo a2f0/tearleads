@@ -79,7 +79,6 @@ export function RecoveryKeyScanControl({
   onScan: (phrase: string) => void;
 }) {
   const [scanning, setScanning] = useState(false);
-  const [scanned, setScanned] = useState(false);
   if (disabled && scanning) setScanning(false);
 
   if (scanning && !disabled) {
@@ -88,7 +87,6 @@ export function RecoveryKeyScanControl({
         onCancel={() => setScanning(false)}
         onScan={(phrase) => {
           setScanning(false);
-          setScanned(true);
           onScan(phrase);
         }}
       />
@@ -99,18 +97,11 @@ export function RecoveryKeyScanControl({
       <MiniAppButton
         disabled={disabled}
         onClick={() => {
-          setScanned(false);
           setScanning(true);
         }}
       >
         Scan QR Code
       </MiniAppButton>
-      {scanned && (
-        <MiniAppStatus>
-          Recovery key scanned. Choose Restore from Passphrase to restore this
-          identity and log in.
-        </MiniAppStatus>
-      )}
     </div>
   );
 }

@@ -52,6 +52,11 @@ export function RecoveryKeyRestoreForm({
         disabled={busy !== null || !canRestore}
         onScan={setRestorePassphrase}
       />
+      {restorePassphrase && canRestore && (
+        <MiniAppStatus>
+          Choose Restore from Passphrase to restore this identity and log in.
+        </MiniAppStatus>
+      )}
       <MiniAppToolbar>
         <MiniAppButton disabled={busy !== null || !canRestore} type="submit">
           {busy === "restore" ? "Restoring..." : "Restore from Passphrase"}

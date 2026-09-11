@@ -53,3 +53,33 @@ test("unmounting a scanner releases the camera", async () => {
   view.unmount();
   expect(camera.stopTrack).toHaveBeenCalledTimes(1);
 });
+
+test("backgrounding the app releases the camera without restarting on return", async () => {
+  camera = installRecoveryQrCamera("unrelated QR");
+  const onScan = mock(() => undefined);
+  const view = render(
+    <RecoveryKeyScanControl disabled={false} onScan={onScan} />,
+  );
+  fireEvent.click(view.getByRole("button", { name: "Scan QR Code" }));
+  await view.findByText(/does not contain a valid recovery key/u);
+  const original = Object.getOwnPropertyDescriptor(document, "visibilityState");
+  try {
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "hidden",
+    });
+    fireEvent(document, new Event("visibilitychange"));
+    expect(camera.stopTrack).toHaveBeenCalledTimes(1);
+    expect(view.queryByLabelText("Recovery QR code camera")).toBeNull();
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "visible",
+    });
+    fireEvent(document, new Event("visibilitychange"));
+    expect(camera.getUserMedia).toHaveBeenCalledTimes(1);
+    expect(onScan).not.toHaveBeenCalled();
+  } finally {
+    if (original) Object.defineProperty(document, "visibilityState", original);
+    else Reflect.deleteProperty(document, "visibilityState");
+  }
+});
