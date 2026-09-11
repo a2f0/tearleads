@@ -16,7 +16,7 @@ function usage(): string {
     "Commands:",
     "  blob-store:list-keys [--prefix <prefix>] [--with-size]    List configured S3 blob store keys",
     "  make-admin <fingerprint>      Grant root (global admin) access to the identity with this signing key fingerprint",
-    "  migrate    Run API database migrations",
+    "  migrate    Initialize the current API database schema",
     "  revoke-admin <fingerprint>    Revoke root (global admin) access from the identity with this signing key fingerprint",
   ].join("\n");
 }
@@ -105,18 +105,16 @@ async function runMigrations(): Promise<void> {
   );
   const migrationsFolder =
     await materializeEmbeddedMigrations(migrationDialect);
-  const { closeApiDatabase, db, initializeApiDatabase } = await import(
+  const { closeApiDatabase, initializeApiDatabase } = await import(
     "@tearleads/api-shared/postgres"
   );
-  const { assertCurrentApiSchema } = await import("./assertCurrentSchema");
 
   try {
-    console.log("Running API database migrations...");
+    console.log("Initializing the current API database schema...");
     await initializeApiDatabase(
       migrationsFolder ? { migrationsFolder } : undefined,
     );
-    await assertCurrentApiSchema(db);
-    console.log("API database migrations complete.");
+    console.log("API database schema initialized.");
   } catch (error) {
     await cleanupApiDatabase(closeApiDatabase, migrationsFolder);
     throw error;

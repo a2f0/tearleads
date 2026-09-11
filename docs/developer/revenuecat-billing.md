@@ -67,10 +67,8 @@ billing. The provider subscription id has a unique database index, so only one
 organization can own it. Billing history shows `TRANSFER_OUT` on the source and
 `TRANSFER_IN` on the destination.
 
-This is a greenfield ownership invariant, not a legacy-data migration: the
-initial Postgres and SQLite migrations intentionally add the unique index
-without deduplicating billing rows. Prelaunch environments with conflicting
-fixture data must be reset before applying it. One store subscription funds one
+Both database dialects enforce one owner per provider subscription with a
+unique index. One store subscription funds one
 organization even when Apple or Google exposes the receipt through family
 sharing; restoring it moves that single billing entitlement rather than minting
 capacity for another organization. A stale lifecycle grant for the old
@@ -326,17 +324,15 @@ rows are claimed, and capacity growth is prorated only while Stripe reports the
 subscription `active` or `trialing`; a `past_due` subscription backs off without
 creating another charge.
 
-Greenfield invariant: recreate databases before deployment.
-Resetting billing rows is insufficient; the rewritten
-`0000_greenfield_baseline` is not a forward migration. No compatibility or
-lifecycle backfill path exists.
+Both database dialects initialize billing and lifecycle tables from the current
+`0000_greenfield_baseline`.
 
 The API build emits `packages/api/dist/tearleads-stripe-seat-sync`; the deploy
 scripts copy it to `/opt/tearleads/bin/tearleads-stripe-seat-sync`. Ansible
 installs `tearleads-stripe-seat-sync.service` and its one-minute timer. Each run
 processes up to 100 trials plus 100 Stripe targets and journals
-`{stripeSeatSync, trialExpiry}`. API deploys run migrations; the first rollout
-must run server Ansible to install the timer and render `/etc/tearleads/api.env`.
+`{stripeSeatSync, trialExpiry}`. Full deployments initialize the API schema and
+run server Ansible to install the timer and render `/etc/tearleads/api.env`.
 
 Operational checks:
 

@@ -17,8 +17,8 @@ const user = {
   status: "active",
 };
 
-test("directory ownership accepts booleans and older payloads without the field", () => {
-  for (const isPersonalOrganizationOwner of [true, false, undefined]) {
+test("directory ownership requires an explicit boolean", () => {
+  for (const isPersonalOrganizationOwner of [true, false]) {
     const result = OrganizationDirectoryUserResponseSchema.parse({
       ...user,
       isPersonalOrganizationOwner,
@@ -30,7 +30,14 @@ test("directory ownership accepts booleans and older payloads without the field"
 });
 
 test("directory ownership rejects malformed flags", () => {
-  for (const isPersonalOrganizationOwner of ["true", "false", 0, 1, null]) {
+  for (const isPersonalOrganizationOwner of [
+    "true",
+    "false",
+    0,
+    1,
+    null,
+    undefined,
+  ]) {
     expect(
       OrganizationDirectoryUserResponseSchema.safeParse({
         ...user,

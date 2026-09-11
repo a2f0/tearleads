@@ -64,8 +64,7 @@ test("the group name is committed in the signed payload", async () => {
   );
 });
 
-// A missing name is the pre-name flag-day state, not tampering (the payload
-// hash was verified first), so it is a plain error and files no incident.
+// Payload shape errors remain distinct from signature-verification incidents.
 test("a payload without a committed name fails closed", async () => {
   const { bundle } = await createGroupBundle("Operators");
   const withoutName = {

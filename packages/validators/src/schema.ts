@@ -48,7 +48,7 @@ export const uuidV4StringSchema = registerJsonSchemaFragment(
   },
 );
 
-/** Accepts RFC 4122 UUID versions 1-5, matching the API's legacy route guard. */
+/** Accepts RFC 4122 UUID versions 1-5, matching the API route UUID contract. */
 export const uuidStringSchema = registerJsonSchemaFragment(
   z.string().regex(new RegExp(UUID_PATTERN, "u")),
   {

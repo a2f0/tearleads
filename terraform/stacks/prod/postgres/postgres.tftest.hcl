@@ -1,5 +1,23 @@
+mock_provider "external" {
+  mock_data "external" {
+    defaults = { result = { ready = "true" } }
+  }
+}
+
+mock_provider "restapi" {
+  override_during = apply
+}
+
+override_resource {
+  target          = restapi_object.database
+  override_during = apply
+  values = {
+    id = "tearleads-prod"
+  }
+}
+
 mock_provider "planetscale" {
-  override_during = plan
+  override_during = apply
   mock_resource "planetscale_postgres_branch_role" {
     defaults = {
       access_host_url = "fixture.pg.psdb.cloud"
@@ -12,7 +30,7 @@ mock_provider "planetscale" {
 
 override_resource {
   target          = planetscale_postgres_branch_role.migrations
-  override_during = plan
+  override_during = apply
   values = {
     access_host_url = "fixture.pg.psdb.cloud"
     username        = "migration.fixture-branch"
@@ -20,67 +38,97 @@ override_resource {
   }
 }
 
-override_resource {
-  target = planetscale_postgres_branch.main
+override_data {
+  target = data.planetscale_postgres_branch.main
   values = {
-    replicas = 0
+    replicas           = 0
+    cluster_size       = "PS_5_AWS_ARM"
+    region             = "us-east"
+    name               = "main"
+    deletion_protected = true
   }
-  override_during = plan
 }
 
 variables {
-  planetscale_branch_id    = "existing-main-branch"
   planetscale_cluster_size = "PS_5_AWS_ARM"
 }
 
 run "accept_single_node" {
-  command = plan
+  command   = apply
+  state_key = "accept_single_node"
 
   assert {
-    condition     = planetscale_postgres_branch.main.region == "us-east"
+    condition = (
+      jsondecode(restapi_object.database.data).replicas == 0 &&
+      jsondecode(restapi_object.database.data).kind == "postgresql" &&
+      jsondecode(restapi_object.main_protection.data).deletion_protected &&
+      !jsondecode(restapi_object.main_protection.destroy_data).deletion_protected
+    )
+    error_message = "Creation must request zero replicas and manage branch protection."
+  }
+
+  assert {
+    condition     = data.planetscale_postgres_branch.main.region == "us-east"
     error_message = "The branch must use PlanetScale's AWS us-east-1 region slug."
   }
 
   assert {
-    condition     = planetscale_postgres_branch.main.cluster_size == "PS_5_AWS_ARM"
+    condition     = data.planetscale_postgres_branch.main.cluster_size == "PS_5_AWS_ARM"
     error_message = "The branch must preserve the selected PS-5 ARM size."
   }
 
   assert {
-    condition     = planetscale_postgres_branch.main.deletion_protected
+    condition     = data.planetscale_postgres_branch.main.deletion_protected
     error_message = "The production branch must have deletion protection enabled."
   }
 }
 
 run "reject_ha_branch" {
-  command = plan
+  command   = apply
+  state_key = "reject_ha_branch"
 
-  override_resource {
-    target = planetscale_postgres_branch.main
+  override_data {
+    target = data.planetscale_postgres_branch.main
     values = {
-      replicas = 2
+      replicas           = 2
+      cluster_size       = "PS_5_AWS_ARM"
+      region             = "us-east"
+      name               = "main"
+      deletion_protected = true
     }
-    override_during = plan
   }
 
-  expect_failures = [planetscale_postgres_branch.main]
+  expect_failures = [data.planetscale_postgres_branch.main]
 }
 
 run "preserve_x86_architecture" {
-  command = plan
+  command   = apply
+  state_key = "preserve_x86_architecture"
 
   variables {
     planetscale_cluster_size = "PS_5_AWS_X86"
   }
 
+  override_data {
+    target = data.planetscale_postgres_branch.main
+    values = {
+      replicas           = 0
+      cluster_size       = "PS_5_AWS_X86"
+      region             = "us-east"
+      name               = "main"
+      deletion_protected = true
+    }
+  }
+
   assert {
-    condition     = planetscale_postgres_branch.main.cluster_size == "PS_5_AWS_X86"
-    error_message = "An imported x86 branch must keep its selected architecture."
+    condition     = data.planetscale_postgres_branch.main.cluster_size == "PS_5_AWS_X86"
+    error_message = "The branch must use the selected x86 architecture."
   }
 }
 
 run "reject_larger_size" {
-  command = plan
+  command   = plan
+  state_key = "reject_larger_size"
 
   variables {
     planetscale_cluster_size = "PS_10_AWS_ARM"
@@ -89,24 +137,15 @@ run "reject_larger_size" {
   expect_failures = [var.planetscale_cluster_size]
 }
 
-run "reject_missing_branch_id" {
-  command = plan
-
-  variables {
-    planetscale_branch_id = "  "
-  }
-
-  expect_failures = [var.planetscale_branch_id]
-}
-
 run "api_connection_uses_persistent_branch" {
-  command = plan
+  command   = apply
+  state_key = "api_connection_uses_persistent_branch"
 
   assert {
     condition = (
-      planetscale_postgres_branch_role.runtime.organization == planetscale_postgres_branch.main.organization &&
-      planetscale_postgres_branch_role.runtime.database == planetscale_postgres_branch.main.database &&
-      planetscale_postgres_branch_role.runtime.branch == planetscale_postgres_branch.main.name &&
+      planetscale_postgres_branch_role.runtime.organization == data.planetscale_postgres_branch.main.organization &&
+      planetscale_postgres_branch_role.runtime.database == data.planetscale_postgres_branch.main.database &&
+      planetscale_postgres_branch_role.runtime.branch == data.planetscale_postgres_branch.main.name &&
       planetscale_postgres_branch_role.runtime.ttl == 0 &&
       toset(planetscale_postgres_branch_role.runtime.inherited_roles) == toset(["pg_read_all_data", "pg_write_all_data"]) &&
       toset(planetscale_postgres_branch_role.migrations.inherited_roles) == toset(["postgres"])
@@ -131,11 +170,12 @@ run "api_connection_uses_persistent_branch" {
 }
 
 run "reject_mismatched_role_hosts" {
-  command = plan
+  command   = apply
+  state_key = "reject_mismatched_role_hosts"
 
   override_resource {
     target          = planetscale_postgres_branch_role.migrations
-    override_during = plan
+    override_during = apply
     values = {
       access_host_url = "different.pg.psdb.cloud"
     }

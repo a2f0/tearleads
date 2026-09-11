@@ -1,22 +1,6 @@
 export const BACKUP_PAYLOAD_FORMAT = "tearleads.local-backup.payload";
-// v3: greenfield reset (2026-07). Backups written before the reset carry the
-// pre-reset schema (row-blob content, no durable-history tables) and are
-// rejected outright rather than restored into a shape the runtime no longer
-// understands.
-// v4: history tail rows gained a NOT NULL `origin` provenance column; a v3
-// backup would restore the table without it and break every subsequent
-// history write.
-// v5: container create intents gained a `last_attempted_at` column; a v4
-// backup would restore the table without it and break every create-intent
-// write, whose INSERT/UPDATE statements name the column.
-// v6: the organization read-model group-members cache replaced its
-// `member_principal_type`/`member_principal_id` columns with a single `user_id`
-// when group nesting was removed; a v5 backup would restore the table with the
-// old NOT NULL columns and break every read-model write, whose INSERT
-// statements no longer name them.
-// v7: document rows gained the durable `pull_continuation` column. A v6
-// backup would restore the table without it and break every full record read.
-export const BACKUP_FORMAT_VERSION = 7;
+/** Current local schema, including required directory ownership flags. */
+export const BACKUP_FORMAT_VERSION = 8;
 
 export type BackupSqlValue = string | number | null;
 export type BackupSqlRow = Record<string, BackupSqlValue>;

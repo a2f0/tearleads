@@ -12,8 +12,8 @@ CONTRACT_DIR=$(mktemp -d)
 trap 'rm -rf "$CONTRACT_DIR"' EXIT
 
 jq -se '
-  [.[] | select(.type == "test_plan" and .["@testrun"] == "api_connection_uses_persistent_branch")]
-  | if length == 1 then .[0].test_plan.output_changes.api_connection.after else null end
+  [.[] | select(.type == "test_state" and .["@testrun"] == "api_connection_uses_persistent_branch")]
+  | if length == 1 then .[0].test_state.outputs.api_connection.value else null end
   | select(type == "object")
 ' "$1" >"$CONTRACT_DIR/connection.json"
 

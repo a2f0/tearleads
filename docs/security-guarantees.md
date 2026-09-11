@@ -121,8 +121,7 @@ The signed organization descriptor selects `Admins`; display and read-model
 projections never authorize policy or keying. Root and metadata repairs use
 verified grants.
 
-There is no legacy or unsigned fallback. Pre-contract signed state must be reset
-and its organization reprovisioned, not translated.
+Policy verification requires the current signed state contract.
 
 ### Principal Payload And Projection Binding
 
@@ -135,21 +134,13 @@ set of `{containerId, accessLevel}` grants for that principal. Current and
 historical policy bundle entries carry those grant projections, and both the
 client and API recompute the commitment before accepting them.
 
-This grant-index protocol is a greenfield flag-day. Grant commitments are part
-of signed state hashes and cannot be truthfully backfilled. Deployment must
-drop and recreate pre-grant-index API databases and local client databases;
-the client fails startup with a reset-required error if it detects the legacy
-principal-policy table shape.
+Grant commitments are part of signed state hashes. Local startup validates the
+required principal-policy columns before using cached policies.
 
 Document and attachment events also sign their full authorization paths,
 deduplicated. Verification rebuilds paths by parent id from those citations,
 never from creation-time pins. Missing ancestors or two heads of one container
-are rejected. This is a flag-day: reset and reprovision API and client data
-containing leaf-only document events; there is no translation or leaf fallback.
-With outgoing API instances stopped, the deployment schema check scans retained
-document/attachment events in bounded pages and refuses missing ancestor
-citations with an explicit destroy-and-reprovision error. This is structural
-deployment detection; runtime readers still verify every signature and hash.
+are rejected. Runtime readers verify every signature, hash, and cited path.
 
 The group display name is committed in the signed group payload. The
 `groups.name` column and the organization read model are listing aids; when a
@@ -163,10 +154,8 @@ compromised server cannot mint a signed group, so the client-side check is the
 only one. Two admins creating the same name at once cannot both succeed: each
 creation commits a successor of the signed organization directory, and the
 API rejects a successor that does not cite the current directory head, so the
-loser reloads the directory and re-runs the check. This is also a greenfield
-flag-day. A group signed before names were committed fails every policy
-mutation and every share; reprovisioning is required. With old API instances
-stopped, deployment rejects unnamed group payloads before rollout.
+loser reloads the directory and re-runs the check. Policy mutations and sharing
+require a nonempty display name in the verified group payload.
 
 Membership writes bind the label to the verified signed policy before
 recipient resolution, wrapping, or signing. Add and remove refuse mismatches.
@@ -349,8 +338,6 @@ container IDs for child/document feeds, matching the API's actual scope. An
 organization purge clears the global root cursor and its owned feeds, not feeds
 belonging to other organizations. Viewing a foreign shared container therefore
 cannot leave a cursor in the viewer's namespace after that container is removed.
-Existing organization-prefixed cursor databases require a local reset; this
-flag-day contract does not read or translate those keys.
 
 Every successful re-cite permanently adds one manifest to the descendant's
 history. Writer projections return and re-verify that chain, so repeated
@@ -380,8 +367,7 @@ boundary. It uses constant-size recursive rows and detects duplicate hashes
 after loading, rather than accumulating quadratic visited-path strings. This
 separate write-side bound applies to ordinary grant/move events too. A rekey
 starts a new same-KEK run; it does not compact the signed writer-projection chain.
-This is an intentional greenfield flag day: already-persisted histories above
-the same-key bound are refused too, with no compatibility migration. The bounds
+Persisted histories above the same-key bound are refused. The bounds
 tests construct persisted stable/changing-grant runs before the first read
 and exercise both refusal and recovery after rekey.
 

@@ -1,1 +1,0 @@
-ALTER TABLE "organization_billing" ADD COLUMN "purge_lease_id" uuid;

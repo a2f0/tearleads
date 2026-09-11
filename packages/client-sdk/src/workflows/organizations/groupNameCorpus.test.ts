@@ -59,7 +59,7 @@ test.each([...SIGNED_GROUP_NAME_CASES])(
     };
     const check = () => groupPolicyNameMismatch(bundle, displayName);
     if (name === null || name.trim().length === 0) {
-      expect(check).toThrow("must be reprovisioned");
+      expect(check).toThrow("does not commit a display name");
     } else {
       expect(check()).toBe(allowed ? null : "forbidden_characters");
     }

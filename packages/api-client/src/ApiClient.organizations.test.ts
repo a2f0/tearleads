@@ -282,6 +282,7 @@ testApiClient(
             encapsulationPublicKey: "encapsulation-key",
             encapsulationKeyFingerprint: "encapsulation-fingerprint",
             createdAt: "2026-05-12T12:00:00.000Z",
+            isPersonalOrganizationOwner: false,
             isSelf: true,
             status: "active",
             profileDocumentId: null,

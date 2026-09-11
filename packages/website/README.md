@@ -8,7 +8,6 @@ Workers Static Assets. It has no server runtime or dependency on the API server.
 | Production | `tearleads-website-prod` | `tearleads.com` | `prod/website/terraform.tfstate` |
 | Staging | `tearleads-website-staging` | `website-staging.tearleads.com` | `staging/website/terraform.tfstate` |
 
-These Worker names are separate from the legacy Stealth website Workers.
 Wrangler owns asset deployments; the independent Terraform roots in
 `terraform/stacks/{prod,staging}/website` own custom domains. Rebuilding a server
 leaves the website available. The API, application, and demo still use the server.
@@ -43,16 +42,9 @@ domain teardown leaves the Worker available. Server-only destruction preserves i
 The Terraform wrapper rejects production domain destruction before loading
 credentials. Intentional production removal requires operating the root directly.
 
-For the initial migration, apply the updated server stacks to remove their
-website tunnel DNS records before deploying the website domains. Existing A,
-AAAA, or CNAME records must not compete with a Worker custom domain. The full
-tier scripts already use this order. Ansible removes the obsolete website nginx
-configuration and `/var/www/website` as part of the same migration.
-
 `public/_headers` keeps HTML and the screenshot manifest revalidating while Astro
 bundles and versioned screenshots receive immutable browser caching. Wrangler
-publishes assets as a deployment, so website deploys no longer purge the old
-origin cache. The server's former website cache rules are removed by Terraform.
+publishes assets and their cache headers together as a deployment.
 Favicons also revalidate because their URLs are not versioned; this lets icon
 updates reach returning browsers instead of retaining the old one for a year.
 Cloudflare's [static asset documentation](https://developers.cloudflare.com/workers/static-assets/)

@@ -26,6 +26,7 @@ function directoryUser(
     encapsulationPublicKey: `encapsulation-public-key-${userId}`,
     encapsulationKeyFingerprint: `encapsulation-fingerprint-${userId}`,
     createdAt: CREATED_AT,
+    isPersonalOrganizationOwner: false,
     isSelf: userId === currentUserId,
     status: "active",
     profileDocumentId: `profile-${userId}`,

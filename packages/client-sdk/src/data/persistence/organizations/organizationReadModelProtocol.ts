@@ -1,12 +1,4 @@
-/**
- * Wire version of the organization read-model feed.
- *
- * Bumped 5 -> 6 when container grant subjects lost the `organization` variant.
- * The version makes that flag-day wire change loud: the response assertion
- * rejects any version it does not know, and a cursor minted under the old
- * version no longer validates, so the client falls back to a full snapshot
- * instead of applying deltas onto stale rows.
- */
+/** Wire version required by organization read-model responses and cursors. */
 export const ORGANIZATION_READ_MODEL_PROTOCOL_VERSION = 6 as const;
 
 /**

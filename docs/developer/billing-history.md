@@ -62,9 +62,8 @@ Never derive an invoice total from seats multiplied by unit price. The paid
 total can include prorations, taxes, discounts, credits, and other adjustments;
 only the recorded provider amount is authoritative.
 
-## Greenfield rollout
+## Persistence
 
-Destroy and recreate every environment database before deploying this schema.
-Both dialects intentionally contain one rewritten `0000_greenfield_baseline`;
-there is no forward migration, compatibility shim, or backfill for an existing
-database.
+Both dialects create billing history tables through the current
+`0000_greenfield_baseline`. Billing events write their audit evidence when the
+provider event is processed; initialization does not synthesize historical rows.

@@ -1,0 +1,3 @@
+# Issue: greenfield reset requires isPersonalOrganizationOwner on directory rows.
+# Remove as soon as main contains the required owner-flag response contract.
+GET /organizations/{organizationId}/read-model added `subschema #1, subschema #2` to the response body `oneOf` list for the response status `200`

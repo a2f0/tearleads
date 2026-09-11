@@ -39,9 +39,8 @@ When a signed attachment mutation deactivates an attachment binding through
 Detached attachment bindings are transient replacement metadata. They are not a
 historical attachment log, tombstone store, audit manifest, or recovery index.
 
-This is a clean-break schema contract. The migration intentionally does not
-infer `dereferencedAt` for attachment rows created by an older deployment; the
-greenfield rollout starts with the lifecycle fields present.
+The database baseline includes lifecycle fields. Attachment mutations record
+`dereferencedAt` when the final active binding is removed.
 
 ## Product Semantics
 

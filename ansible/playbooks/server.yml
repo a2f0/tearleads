@@ -64,34 +64,11 @@
     bun_linux_x64_checksum: "sha256:36368faef7527875d5ffa52e53cd48021741f2a83eb6208a8dd64068d422a913"
     nginx_worker_connections: 1024
     blob_storage_managed: true
-    garage_enabled: "{{ lookup('env', 'GARAGE_ENABLED') | default('true', true) }}"
-    garage_version: "{{ lookup('env', 'GARAGE_VERSION') | default('v2.4.0', true) }}"
-    garage_db_engine: "{{ lookup('env', 'GARAGE_DB_ENGINE') | default('lmdb', true) }}"
-    garage_binary_arch_map:
-      aarch64: aarch64-unknown-linux-musl
-      arm64: aarch64-unknown-linux-musl
-      x86_64: x86_64-unknown-linux-musl
-      amd64: x86_64-unknown-linux-musl
-      i386: i686-unknown-linux-musl
-      i686: i686-unknown-linux-musl
-    garage_binary_checksums:
-      v2.4.0:
-        aarch64-unknown-linux-musl: sha256:1d0e5fa62b12eb10fcc26f83c857d762a22ddb45bd436f96cba5d824e2275c24
-        i686-unknown-linux-musl: sha256:e58f4d08dc3679e868eefd5180c044ced5543bf902c92d82fa9e64d84fcc44fd
-        x86_64-unknown-linux-musl: sha256:1a93848b61d3128a6f98aff301b7f23d66cdcc1dc9cf7aa0768e382901eebf37
-    garage_binary_arch: "{{ garage_binary_arch_map.get(ansible_facts['architecture'], ansible_facts['architecture']) }}"
-    garage_default_binary_checksum: "{{ garage_binary_checksums.get(garage_version, {}).get(garage_binary_arch, '') }}"
-    garage_binary_url: "https://garagehq.deuxfleurs.fr/_releases/{{ garage_version }}/{{ garage_binary_arch }}/garage"
-    garage_binary_checksum: "{{ lookup('env', 'GARAGE_BINARY_CHECKSUM') | default(garage_default_binary_checksum, true) }}"
-    garage_rpc_secret: "{{ lookup('env', 'GARAGE_RPC_SECRET') | default('', true) }}"
-    garage_admin_token: "{{ lookup('env', 'GARAGE_ADMIN_TOKEN') | default('', true) }}"
-    garage_metrics_token: "{{ lookup('env', 'GARAGE_METRICS_TOKEN') | default('', true) }}"
-    blob_object_store_default: "{{ 's3' if garage_enabled | bool else 'memory' }}"
-    blob_object_store: "{{ lookup('env', 'BLOB_OBJECT_STORE') | default(blob_object_store_default, true) }}"
-    blob_s3_bucket: "{{ lookup('env', 'BLOB_OBJECT_STORE_S3_BUCKET') | default('tearleads-blobs', true) }}"
-    blob_s3_region: "{{ lookup('env', 'BLOB_OBJECT_STORE_S3_REGION') | default('garage', true) }}"
-    blob_s3_endpoint: "{{ lookup('env', 'BLOB_OBJECT_STORE_S3_ENDPOINT') | default('http://127.0.0.1:3900', true) }}"
-    blob_s3_force_path_style: "{{ lookup('env', 'BLOB_OBJECT_STORE_S3_FORCE_PATH_STYLE') | default('true', true) }}"
+    blob_object_store: s3
+    blob_s3_bucket: "{{ lookup('env', 'BLOB_OBJECT_STORE_S3_BUCKET') | default('tearleads-' ~ deployment_tier, true) }}"
+    blob_s3_region: "{{ lookup('env', 'BLOB_OBJECT_STORE_S3_REGION') | default('us-east-1', true) }}"
+    blob_s3_endpoint: "{{ lookup('env', 'BLOB_OBJECT_STORE_S3_ENDPOINT') | default('', true) }}"
+    blob_s3_force_path_style: "{{ lookup('env', 'BLOB_OBJECT_STORE_S3_FORCE_PATH_STYLE') | default('false', true) }}"
     blob_s3_access_key_id: "{{ lookup('env', 'BLOB_OBJECT_STORE_S3_ACCESS_KEY_ID') | default('', true) }}"
     blob_s3_secret_access_key: "{{ lookup('env', 'BLOB_OBJECT_STORE_S3_SECRET_ACCESS_KEY') | default('', true) }}"
     blob_s3_key_prefix: "{{ lookup('env', 'BLOB_OBJECT_STORE_S3_KEY_PREFIX') | default('', true) }}"
@@ -111,18 +88,10 @@
     stripe_sync_team_5_price_id: "{{ lookup('env', 'STRIPE_SYNC_TEAM_5_PRICE_ID') | default('', true) }}"
     stripe_sync_team_10_price_id: "{{ lookup('env', 'STRIPE_SYNC_TEAM_10_PRICE_ID') | default('', true) }}"
     revenuecat_stripe_public_api_key: "{{ lookup('env', 'REVENUECAT_STRIPE_PUBLIC_API_KEY') | default('', true) }}"
-    garage_s3_region: "{{ blob_s3_region }}"
-    garage_default_access_key: "{{ blob_s3_access_key_id }}"
-    garage_default_secret_key: "{{ blob_s3_secret_access_key }}"
-    garage_default_bucket: "{{ blob_s3_bucket }}"
 
   tasks:
     - name: Validate managed PostgreSQL connection
       ansible.builtin.import_tasks: tasks/managedPostgres.yml
-      when: postgres_managed | bool
-
-    - name: Guard managed PostgreSQL cutover before configuring the host
-      ansible.builtin.import_tasks: tasks/managedPostgresCutover.yml
       when: postgres_managed | bool
 
     - name: Validate managed S3 blob storage
@@ -241,14 +210,6 @@
           - unzip
         state: present
 
-    - name: Remove obsolete certbot packages
-      ansible.builtin.apt:
-        name:
-          - certbot
-          - python3-certbot-nginx
-        state: absent
-        purge: true
-
     - name: Add Cloudflare package signing key
       ansible.builtin.get_url:
         url: https://pkg.cloudflare.com/cloudflare-main.gpg
@@ -338,9 +299,6 @@
         owner: root
         group: root
         mode: "0755"
-
-    - name: Configure Garage S3 object storage
-      ansible.builtin.import_tasks: tasks/garage.yml
 
     - name: Deploy API environment file
       ansible.builtin.template:
@@ -434,12 +392,6 @@
     - name: Reload systemd
       ansible.builtin.systemd:
         daemon_reload: true
-
-    - name: Restart garage
-      ansible.builtin.systemd:
-        name: garage
-        daemon_reload: true
-        state: restarted
 
     - name: Check if tearleads-api binary exists
       ansible.builtin.stat:

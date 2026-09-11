@@ -1,1 +1,0 @@
-ALTER TABLE "organization_billing" ADD COLUMN "native_restore_provisioning_request_sha256" text;

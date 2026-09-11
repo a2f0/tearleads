@@ -85,7 +85,7 @@ run "application_permissions_and_connection" {
 
   assert {
     condition = (
-      output.api_storage.blob_storage_managed && !output.api_storage.garage_enabled &&
+      output.api_storage.blob_storage_managed &&
       output.api_storage.blob_object_store == "s3" &&
       output.api_storage.blob_s3_bucket == var.bucket.id &&
       output.api_storage.blob_s3_region == "us-east-1" &&

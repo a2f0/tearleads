@@ -14,8 +14,6 @@ if ! ansible-playbook -i localhost, --connection local \
   exit 1
 fi
 
-bash "$REPO_ROOT/scripts/checks/checkManagedPostgresCutover.sh"
-bash "$REPO_ROOT/scripts/checks/checkManagedS3Cutover.sh"
 bash "$REPO_ROOT/scripts/checks/checkManagedS3Guard.sh"
 
 require_setting() {
@@ -25,8 +23,7 @@ require_setting() {
   fi
 }
 
-for scenario in 'true true' 'true false' 'false true' 'false false'; do
-  read -r managed garage <<<"$scenario"
+for managed in true false; do
   host=127.0.0.1
   port=5432
   migration_vars=""
@@ -47,28 +44,26 @@ for scenario in 'true true' 'true false' 'false true' 'false false'; do
   "postgres_db": "postgres",
   "redis_bind": "127.0.0.1",
   "api_cors_origins": "https://app.example.test",
-  "document_sync_cursor_hmac_key": "fixture-cursor-key",
-  "garage_enabled": $garage
+  "document_sync_cursor_hmac_key": "fixture-cursor-key"
 }
 EOF
-  python3 - "$RENDER_DIR" "$garage" <<'STORAGE_VARS'
+  python3 - "$RENDER_DIR" <<'STORAGE_VARS'
 import json
 from pathlib import Path
 import sys
 
 root = Path(sys.argv[1])
-garage = sys.argv[2] == "true"
 values = json.loads((root / 'vars.json').read_text())
 secret = """fixture ' "$S3_TOKEN" `touch unexpected` # &; | * ?"""
 values.update({
     "blob_object_store": "s3",
     "blob_s3_bucket": "fixture-blobs",
-    "blob_s3_region": "garage" if garage else "us-east-1",
-    "blob_s3_endpoint": "http://127.0.0.1:3900" if garage else "",
-    "blob_s3_force_path_style": garage,
+    "blob_s3_region": "us-east-1",
+    "blob_s3_endpoint": "",
+    "blob_s3_force_path_style": False,
     "blob_s3_access_key_id": "fixture-access-key",
     "blob_s3_secret_access_key": secret,
-    "blob_s3_key_prefix": "fixture prefix/$literal" if garage else "",
+    "blob_s3_key_prefix": "",
 })
 (root / 'storage-secret').write_text(secret)
 (root / 'vars.json').write_text(json.dumps(values))
@@ -90,7 +85,7 @@ STORAGE_VARS
     fi
   done
 
-  env -i PATH="$PATH" sh -s -- "$RENDER_DIR" "$managed" "$port" "$garage" <<'VERIFY_ENV'
+  env -i PATH="$PATH" sh -s -- "$RENDER_DIR" "$managed" "$port" <<'VERIFY_ENV'
 set -eu
 cd "$1"
 . "$1/api.env"
@@ -99,16 +94,10 @@ test "$BLOB_OBJECT_STORE_S3_BUCKET" = fixture-blobs
 test "$BLOB_OBJECT_STORE_S3_ACCESS_KEY_ID" = fixture-access-key
 test "$BLOB_OBJECT_STORE_S3_SECRET_ACCESS_KEY" = "$(cat storage-secret)"
 test ! -e unexpected
-test "$BLOB_OBJECT_STORE_S3_FORCE_PATH_STYLE" = "$4"
-if [ "$4" = true ]; then
-  test "$BLOB_OBJECT_STORE_S3_REGION" = garage
-  test "$BLOB_OBJECT_STORE_S3_ENDPOINT" = http://127.0.0.1:3900
-  test "$BLOB_OBJECT_STORE_S3_KEY_PREFIX" = 'fixture prefix/$literal'
-else
-  test "$BLOB_OBJECT_STORE_S3_REGION" = us-east-1
-  test -z "$BLOB_OBJECT_STORE_S3_ENDPOINT"
-  test -z "${BLOB_OBJECT_STORE_S3_KEY_PREFIX:-}"
-fi
+test "$BLOB_OBJECT_STORE_S3_FORCE_PATH_STYLE" = false
+test "$BLOB_OBJECT_STORE_S3_REGION" = us-east-1
+test -z "$BLOB_OBJECT_STORE_S3_ENDPOINT"
+test -z "${BLOB_OBJECT_STORE_S3_KEY_PREFIX:-}"
 test "$POSTGRES_SSL" = "$2"
 test "$POSTGRES_SSL_REJECT_UNAUTHORIZED" = true
 test "$POSTGRES_PASSWORD" = "fixture password # with spaces"
@@ -148,15 +137,8 @@ VERIFY_ENV
       require_setting "$service" '^After=.*postgresql.service'
       require_setting "$service" '^Wants=.*postgresql.service'
     fi
-    if [[ "$garage" == true ]]; then
-      require_setting "$service" '^After=.*garage.service'
-      require_setting "$service" '^Wants=.*garage.service'
-    elif grep -q garage.service "$service"; then
-      echo "ERROR: Garage must not be a service dependency when disabled." >&2
-      exit 1
-    fi
   done
-  if [[ "$managed" == true && "$garage" == true ]]; then
+  if [[ "$managed" == true ]]; then
     bash "$REPO_ROOT/scripts/checks/checkManagedPostgresGuard.sh" "$RENDER_DIR/vars.json"
   fi
 done

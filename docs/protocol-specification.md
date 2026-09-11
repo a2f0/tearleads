@@ -23,11 +23,10 @@ replaces signed input.
 Auth challenge and verification use the same contract path:
 `ChallengeRequestSchema`, `VerifyRequestSchema`, and their response schemas are
 the runtime wire grammar, while `challengeOperation` and `verifyOperation` own
-their HTTP metadata. Legacy predicates remain compatibility wrappers over the
-schemas for API client and SDK consumers.
+their HTTP metadata. API client and SDK predicates validate against these schemas.
 
 [`openapi.json`](./openapi.json) and checked generated TypeScript are structural
-views of the operations migrated into the registry. Zod remains runtime
+views of the operations in the registry. Zod remains runtime
 authority; each `x-tearleads-runtime-refinements` gap needs an executable
 OpenAPI-accepts/Zod-rejects witness. Crypto, transactions, convergence, and
 formal guarantees remain separate.

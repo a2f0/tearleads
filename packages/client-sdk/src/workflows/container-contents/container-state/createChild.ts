@@ -291,7 +291,7 @@ export async function createChildContainerState(input: {
   });
   if (input.stillCurrent?.() === false) return null;
   // An initial metadata update and its container identity are one durable unit.
-  // Refuse before any remote create when a legacy/custom adapter cannot provide
+  // Refuse before any remote create when an adapter cannot provide
   // that atomic operation; a SQLite transaction cannot roll back adapter-owned
   // side effects.
   if (queueRemoteSync && !resolveAtomicChildContainerSave(persistence)) {

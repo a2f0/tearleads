@@ -39,7 +39,7 @@ interface GroupPolicyFixture {
   readonly signingKeyPair: ReturnType<typeof generateSigningSeedAndKeyPair>;
 }
 
-test("membership name binding treats an unnamed payload as a flag-day reset, not an incident", async () => {
+test("membership name binding rejects an unnamed payload", async () => {
   const { initialPolicy } = await createGroupPolicyFixture();
   const unnamed = {
     ...initialPolicy,
@@ -51,7 +51,7 @@ test("membership name binding treats an unnamed payload as a flag-day reset, not
     },
   };
   const check = () => assertGroupMembershipName(unnamed, "Operators");
-  expect(check).toThrow("must be reprovisioned");
+  expect(check).toThrow("does not commit a display name");
   try {
     check();
   } catch (error) {

@@ -37,7 +37,7 @@ export const OrganizationDirectoryUserResponseShape = {
   disabledByUserId: z.string().nullable(),
   encapsulationKeyFingerprint: z.string(),
   encapsulationPublicKey: z.string(),
-  isPersonalOrganizationOwner: z.boolean().optional(),
+  isPersonalOrganizationOwner: z.boolean(),
   isSelf: z.boolean(),
   joinedAt: z.string(),
   profileDocumentId: z.string().nullable(),
