@@ -11,11 +11,20 @@ export default {
     exitOnLastWindowClosed: true,
   },
   build: {
+    mac: {
+      bundleCEF: false,
+      defaultRenderer: "native",
+    },
+    win: {
+      bundleCEF: true,
+      defaultRenderer: "cef",
+    },
     linux: {
       // Electrobun's WebKitGTK worker does not reliably expose the OPFS APIs
       // required by SQLite's SyncAccessHandle Pool VFS. Use the bundled Chromium
       // renderer so Linux keeps the encrypted, persistent database contract.
       bundleCEF: true,
+      defaultRenderer: "cef",
     },
     mainProcess: "bun",
     bun: {

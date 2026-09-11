@@ -34,8 +34,12 @@ the backend events endpoint, and the build wrapper stamps
 `BUN_PUBLIC_APP_VERSION` and `BUN_PUBLIC_GIT_SHA`. Unset settings compile to
 `undefined`, so a WebView never needs a Node `process` global.
 
-Linux builds bundle Electrobun's CEF renderer. The system WebKitGTK renderer can
-omit worker OPFS APIs required by the encrypted SQLite SyncAccessHandle Pool;
+Linux and Windows builds bundle and use Electrobun's CEF renderer. macOS builds
+use the native WKWebView and explicitly disable CEF bundling. These settings
+apply to both development and release builds in `electrobun.config.ts`.
+
+On Linux, the system WebKitGTK renderer can omit worker OPFS APIs required by
+the encrypted SQLite SyncAccessHandle Pool;
 CEF provides a consistent persistent-storage backend across Linux installations.
 
 On a Linux desktop, exercise that native boundary and a real process restart:
