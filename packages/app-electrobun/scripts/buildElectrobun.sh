@@ -31,6 +31,7 @@ elif [ ! -x "$ARTIFACT_PATH" ]; then
   exit 1
 fi
 
-bun scripts/packageElectrobunAssets.ts "$ARTIFACT_PATH"
+NODE_ENV=production sh "$REPO_ROOT/scripts/withBuildInfoEnv.sh" \
+  bun scripts/packageElectrobunAssets.ts "$ARTIFACT_PATH"
 
 printf 'Executable build artifact: %s\n' "$ARTIFACT_PATH"

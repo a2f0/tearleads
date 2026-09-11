@@ -34,9 +34,38 @@ the backend events endpoint, and the build wrapper stamps
 `BUN_PUBLIC_APP_VERSION` and `BUN_PUBLIC_GIT_SHA`. Unset settings compile to
 `undefined`, so a WebView never needs a Node `process` global.
 
-Linux builds bundle Electrobun's CEF renderer. The system WebKitGTK renderer can
-omit worker OPFS APIs required by the encrypted SQLite SyncAccessHandle Pool;
-CEF provides a consistent persistent-storage backend across Linux installations.
+Linux and Windows builds bundle and use Electrobun's pinned CEF renderer. On
+Windows, this pins Chromium to the app release independently of the machine's
+WebView2 installation and update cycle. macOS builds use the native WKWebView
+and explicitly disable CEF bundling. These settings apply to both development
+and release builds in `electrobun.config.ts`.
+
+The packaging step emits the renderer HTML and assets together with Bun and
+embeds Loro's WASM, alongside the SQLite worker and WASM. Both packaged and
+development apps use `http://127.0.0.1:3002` so OPFS and localStorage retain the
+same origin after a restart.
+
+The repository's [pre-deployment policy](../../docs/request-budget-closeout.md)
+has no legacy production clients to support; this Windows renderer choice
+establishes the release baseline. Local WebView2 development profiles remain
+separate from CEF profiles and are not migrated by this configuration.
+
+On Windows, exercise the native build and encrypted identity database restart:
+
+```sh
+bun run --cwd packages/app-electrobun test:windows-persistence
+```
+
+The Windows CEF persistence CI job runs this check on a native Windows runner.
+It verifies bundled CEF selection and reuses the Linux storage probe to confirm
+that a populated encrypted identity database reopens after a process restart
+and a nested-route reload.
+The local test requires Bun and Git Bash and isolates storage in a temporary
+`LOCALAPPDATA` directory.
+
+On Linux, the system WebKitGTK renderer can omit worker OPFS APIs required by
+the encrypted SQLite SyncAccessHandle Pool; CEF provides a consistent
+persistent-storage backend across Linux installations.
 
 On a Linux desktop, exercise that native boundary and a real process restart:
 
@@ -48,6 +77,9 @@ The smoke test builds the dev bundle, launches bundled CEF twice with an
 isolated home directory, exercises the database worker's real OPFS
 sync-access-handle backend, and confirms the populated identity database reopens
 after relaunch.
+
+Both smoke tests use CEF's development DevTools endpoint. Electrobun 2.0.1
+[disables remote debugging by default for canary and stable builds](https://github.com/blackboardsh/electrobun/blob/v2.0.1/package/src/native/shared/chromium_flags.test.cpp#L23).
 
 See [dependency upgrade notes](../../docs/dependency-upgrades.md) and the
 [Electrobun migration guide](https://github.com/blackboardsh/electrobun/blob/main/docs/src/content/docs/electrobun/guides/migrating-to-v2.mdx)

@@ -1,0 +1,47 @@
+name: Electrobun Windows
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/electrobun-windows.yml"
+      - "bun.lock"
+      - "package.json"
+      - "packages/app-electrobun/**"
+      - "packages/app/**"
+      - "packages/client-sdk/**"
+      - "packages/loro/**"
+      - "packages/sqlite-instance/**"
+      - "packages/sqlite-worker/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  persistence:
+    name: Windows CEF persistence
+    runs-on: windows-2025
+    timeout-minutes: 20
+
+    steps:
+      - name: Preserve shell script line endings
+        run: git config --global core.autocrlf false
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build and reopen the Windows CEF app
+        shell: bash
+        run: bun run --cwd packages/app-electrobun test:windows-persistence

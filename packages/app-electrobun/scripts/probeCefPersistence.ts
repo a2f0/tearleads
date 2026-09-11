@@ -14,6 +14,7 @@ interface StorageSnapshot {
   readonly databaseName: string | null;
   readonly registry: string | null;
   readonly rootChildren: number;
+  readonly timeOrigin: number;
   readonly userAgent: string;
 }
 
@@ -36,6 +37,7 @@ const storageSnapshotExpression = [
   "    databaseName: databaseMatch?.[1] ?? null,",
   "    registry: registryKey ? localStorage.getItem(registryKey) : null,",
   "    rootChildren: document.getElementById('root')?.children.length ?? 0,",
+  "    timeOrigin: performance.timeOrigin,",
   "    userAgent: navigator.userAgent,",
   "  };",
   "})()",
@@ -96,20 +98,26 @@ async function readTargets(): Promise<readonly DevToolsTarget[]> {
   return (await response.json()) as readonly DevToolsTarget[];
 }
 
-async function readReadySnapshot(reopen: boolean): Promise<StorageSnapshot> {
+async function readPageTarget(): Promise<DevToolsTarget | undefined> {
+  return (await readTargets()).find(
+    (target) =>
+      target.type === "page" &&
+      target.url?.startsWith("http://127.0.0.1:") === true &&
+      target.webSocketDebuggerUrl !== undefined,
+  );
+}
+
+async function readReadySnapshot(
+  reopen: boolean,
+  previousTimeOrigin?: number,
+): Promise<StorageSnapshot> {
   const deadline = Date.now() + startupTimeoutMs;
   let lastSnapshot: StorageSnapshot | null = null;
   let lastError: unknown = null;
 
   while (Date.now() < deadline) {
     try {
-      const targets = await readTargets();
-      const page = targets.find(
-        (target) =>
-          target.type === "page" &&
-          target.url?.startsWith("http://127.0.0.1:") === true &&
-          target.webSocketDebuggerUrl !== undefined,
-      );
+      const page = await readPageTarget();
       if (!page?.webSocketDebuggerUrl) {
         await delay(200);
         continue;
@@ -142,7 +150,8 @@ async function readReadySnapshot(reopen: boolean): Promise<StorageSnapshot> {
         priorSchema &&
         lastSnapshot.databaseName &&
         lastSnapshot.registry &&
-        lastSnapshot.rootChildren > 0
+        lastSnapshot.rootChildren > 0 &&
+        lastSnapshot.timeOrigin !== previousTimeOrigin
       ) {
         return lastSnapshot;
       }
@@ -178,10 +187,22 @@ function toPersistentState(snapshot: StorageSnapshot): PersistentState {
 async function main(): Promise<void> {
   const mode = Bun.argv[2];
   if (mode !== "first" && mode !== "reopen") {
-    throw new Error("Usage: probeLinuxPersistence.ts <first|reopen> [state]");
+    throw new Error("Usage: probeCefPersistence.ts <first|reopen> [state]");
   }
 
-  const current = toPersistentState(await readReadySnapshot(mode === "reopen"));
+  let previousTimeOrigin: number | undefined;
+  if (mode === "reopen") {
+    previousTimeOrigin = (await readReadySnapshot(true)).timeOrigin;
+    const page = await readPageTarget();
+    if (!page?.webSocketDebuggerUrl) throw new Error("No CEF page to reload.");
+    await evaluate<undefined>(
+      page.webSocketDebuggerUrl,
+      "setTimeout(() => location.assign('/app/contacts'), 100); undefined",
+    );
+  }
+  const current = toPersistentState(
+    await readReadySnapshot(mode === "reopen", previousTimeOrigin),
+  );
   if (mode === "first") {
     console.log(JSON.stringify(current));
     return;
@@ -199,7 +220,7 @@ async function main(): Promise<void> {
     throw new Error("Electrobun reopened a different identity database.");
   }
   console.log(
-    `Electrobun reopened ${current.databaseName} from Linux CEF OPFS.`,
+    `Electrobun reopened ${current.databaseName} from CEF OPFS after restart and nested-route reload.`,
   );
 }
 
