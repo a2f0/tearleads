@@ -40,6 +40,11 @@ WebView2 installation and update cycle. macOS builds use the native WKWebView
 and explicitly disable CEF bundling. These settings apply to both development
 and release builds in `electrobun.config.ts`.
 
+The repository's [pre-deployment policy](../../docs/request-budget-closeout.md)
+has no legacy production clients to support; this Windows renderer choice
+establishes the release baseline. Local WebView2 development profiles remain
+separate from CEF profiles and are not migrated by this configuration.
+
 On Windows, exercise the native build and encrypted identity database restart:
 
 ```sh
@@ -66,6 +71,9 @@ The smoke test builds the dev bundle, launches bundled CEF twice with an
 isolated home directory, exercises the database worker's real OPFS
 sync-access-handle backend, and confirms the populated identity database reopens
 after relaunch.
+
+Both smoke tests use CEF's development DevTools endpoint. Electrobun 2.0.1
+[disables remote debugging by default for canary and stable builds](https://github.com/blackboardsh/electrobun/blob/v2.0.1/package/src/native/shared/chromium_flags.test.cpp#L23).
 
 See [dependency upgrade notes](../../docs/dependency-upgrades.md) and the
 [Electrobun migration guide](https://github.com/blackboardsh/electrobun/blob/main/docs/src/content/docs/electrobun/guides/migrating-to-v2.mdx)
