@@ -1,7 +1,7 @@
 import { closeSync, openSync } from "node:fs";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 if (process.platform !== "win32") {
   throw new Error("The Electrobun persistence smoke test requires Windows.");
@@ -28,7 +28,7 @@ const environment = {
   ELECTROBUN_CEF_REMOTE_DEBUGGING_PORT: "9222",
 };
 
-async function buildApp(): Promise<void> {
+async function buildApp(): Promise<string> {
   const build = Bun.spawn(["sh", "scripts/runElectronbun.sh", "build:dev"], {
     cwd: packageDir,
     env: environment,
@@ -52,21 +52,24 @@ async function buildApp(): Promise<void> {
   ) {
     throw new Error("The Windows build did not bundle and select CEF.");
   }
+  return join(dirname(dirname(metadataPath)), "bin", "launcher.exe");
 }
 
-async function runRound(mode: "first" | "reopen"): Promise<void> {
+async function runRound(
+  mode: "first" | "reopen",
+  launcherPath: string,
+): Promise<void> {
   const logPath = join(smokeRoot, `${mode}.log`);
   const logFd = openSync(logPath, "w");
-  const app = Bun.spawn(
-    [process.execPath, "--bun", "run", "electrobun", "dev"],
-    {
-      cwd: packageDir,
-      env: environment,
-      stdin: "ignore",
-      stdout: logFd,
-      stderr: logFd,
-    },
-  );
+  // Launch the completed bundle. `electrobun dev` rebuilds it and bypasses
+  // packageElectrobunAssets.ts, which supplies the packaged SQLite assets.
+  const app = Bun.spawn([launcherPath], {
+    cwd: dirname(launcherPath),
+    env: { ...environment, NODE_ENV: "production" },
+    stdin: "ignore",
+    stdout: logFd,
+    stderr: logFd,
+  });
   closeSync(logFd);
 
   let roundError: unknown = null;
@@ -121,6 +124,7 @@ async function runRound(mode: "first" | "reopen"): Promise<void> {
         { stdout: "ignore", stderr: "inherit" },
       );
       await force.exited;
+      await app.exited;
       throw new Error("Windows app did not exit after a graceful close.");
     }
   }
@@ -130,9 +134,9 @@ async function runRound(mode: "first" | "reopen"): Promise<void> {
 
 try {
   await mkdir(localAppData);
-  await buildApp();
-  await runRound("first");
-  await runRound("reopen");
+  const launcherPath = await buildApp();
+  await runRound("first", launcherPath);
+  await runRound("reopen", launcherPath);
   console.log("Electrobun Windows CEF persistence smoke test passed.");
 } finally {
   await rm(smokeRoot, { recursive: true, force: true, maxRetries: 5 });
