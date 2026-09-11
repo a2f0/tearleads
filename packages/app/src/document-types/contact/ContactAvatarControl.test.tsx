@@ -1,6 +1,10 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
-import { createAppHostConfig, type Scanner } from "../../host/AppHostConfig";
+import {
+  createAppHostConfig,
+  type Scanner,
+  ScannerPhotoCleanupError,
+} from "../../host/AppHostConfig";
 import { AppHostConfigProvider } from "../../providers/host/AppHostConfigProvider";
 import { ContactAvatarControl } from "./ContactAvatarControl";
 
@@ -145,4 +149,30 @@ test("surfaces scanner failures without opening the editor", async () => {
     ),
   );
   expect(view.queryByRole("dialog")).toBeNull();
+});
+
+test("explains photo cleanup failures and allows choosing an avatar instead", async () => {
+  const view = renderControl(
+    {},
+    {
+      capturePhoto: async () => {
+        throw new ScannerPhotoCleanupError({
+          cause: new Error("private photo path"),
+        });
+      },
+    },
+  );
+  fireEvent.click(view.getByRole("button", { name: "Take Photo" }));
+  const alert = await view.findByRole("alert");
+  expect(alert.textContent).toContain("temporary file could not be removed");
+  expect(alert.textContent).toContain("Choose a photo instead");
+  expect(alert.textContent).not.toContain("private photo path");
+  expect(view.queryByRole("dialog")).toBeNull();
+  fireEvent.change(view.getByLabelText("Choose Photo"), {
+    target: {
+      files: [new File(["photo"], "avatar.png", { type: "image/png" })],
+    },
+  });
+  expect(view.queryByRole("alert")).toBeNull();
+  expect(view.getByRole("dialog")).toBeTruthy();
 });

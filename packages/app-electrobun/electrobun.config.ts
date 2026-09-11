@@ -15,6 +15,10 @@ export default {
       // macOS uses its built-in WKWebView.
       bundleCEF: false,
       defaultRenderer: "native",
+      entitlements: {
+        // Hutch also emits NSCameraUsageDescription for this entitlement.
+        "com.apple.security.device.camera": true,
+      },
     },
     win: {
       // Pin Chromium to the app release, independently of the machine's
