@@ -100,12 +100,7 @@ export function canonicalGroupNameKey(name: string): string {
   );
 }
 
-/**
- * The display name committed in a group policy's signed payload. A payload
- * without one is the pre-name flag-day state, not tampering (the payload hash
- * was verified before this runs), so it is a plain error: group mutations run
- * under security-incident reporting, and a legacy group is no incident.
- */
+/** Read the required display name from the verified group policy payload. */
 export function readGroupPolicyPayloadName(
   bundle: PrincipalPolicyBundleResponse,
 ): string {
@@ -122,11 +117,7 @@ export function readGroupPolicyPayloadName(
       ? Reflect.get(parsed, "name")
       : undefined;
   if (typeof name !== "string" || name.trim().length === 0) {
-    // Flag-day: groups signed before display names were committed cannot be
-    // mutated or shared by name; the organization must be reprovisioned.
-    throw new Error(
-      "Group policy payload does not commit a display name; groups signed before this protocol version must be reprovisioned",
-    );
+    throw new Error("Group policy payload does not commit a display name");
   }
   return name;
 }

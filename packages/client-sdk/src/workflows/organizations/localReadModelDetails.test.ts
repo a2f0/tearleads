@@ -103,6 +103,7 @@ function snapshot(): OrganizationReadModelSnapshotResponse {
           encapsulationPublicKey: `encapsulation-key-${userId}`,
           encapsulationKeyFingerprint: `encapsulation-fingerprint-${userId}`,
           createdAt: CREATED_AT,
+          isPersonalOrganizationOwner: false,
           isSelf: userId === CURRENT_USER_ID,
           status: "active" as const,
           profileDocumentId: `profile-${userId}`,

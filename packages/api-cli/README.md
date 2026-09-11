@@ -14,7 +14,7 @@ Usage: tearleads-api-cli <command>
 Commands:
   blob-store:list-keys [--prefix <prefix>] [--with-size]    List configured S3 blob store keys
   make-admin <fingerprint>      Grant root (global admin) access to the identity with this signing key fingerprint
-  migrate    Run API database migrations
+  migrate    Initialize the current API database schema
   revoke-admin <fingerprint>    Revoke root (global admin) access from the identity with this signing key fingerprint
 ```
 
@@ -26,7 +26,8 @@ prints only `Unknown command: <name>` — no usage — and exits `1`. `-h` /
 
 ### `migrate`
 
-Runs the Drizzle migrations for the API's Postgres, local SQLite, or remote
+Initializes the current Drizzle baseline for the API's Postgres, local SQLite,
+or remote
 Turso database. Defaults `API_DATABASE` to `postgres` when unset, then calls
 `initializeApiDatabase` from `@tearleads/api-shared/postgres`. Turso uses the
 SQLite migration bundle.
@@ -62,7 +63,7 @@ sudo /usr/local/bin/tearleads-api-cli migrate
 ```
 
 Run the tier's Ansible playbook before deploying API artifacts for the first
-time or upgrading to the separate migration credentials. It installs the wrapper
+time. It installs the wrapper
 and root-owned `/etc/tearleads/migrations.env`. The full
 `scripts/deployProduction.sh` and `scripts/deployStaging.sh` do this in order;
 `--skip-infra` requires that configuration to exist already. Production migrations
@@ -102,12 +103,12 @@ Requires these environment variables (read at command time, all validated):
 
 With neither credential set, the AWS SDK's default credential chain applies.
 
-For the deployed Garage buckets, use the repo wrapper — it resolves the server
+For the deployed S3 buckets, use the repo wrapper — it resolves the server
 over Tailscale SSH, sources `/etc/tearleads/api.env`, and invokes this command
 remotely:
 
 ```bash
-scripts/listGarageBucketKeys.sh <staging|prod> [prefix] [--with-size]
+scripts/listBlobBucketKeys.sh <staging|prod> [prefix] [--with-size]
 ```
 
 ### `make-admin` / `revoke-admin`
@@ -173,9 +174,13 @@ bun run build                                # packages/api-cli/dist/tearleads-a
 
 `scripts/buildApiCliExecutable.ts` compiles from the repo root to a single
 executable. The target defaults to `bun-linux-x64` and can be overridden with
-`BUN_COMPILE_TARGET` (`bun-linux-x64`, `bun-linux-arm64`, `bun-linux-aarch64`);
-anything else throws. Targets are Linux-only because the executable exists to run
-on the servers.
+`BUN_COMPILE_TARGET`: Linux x64/arm64/aarch64 for servers, or Darwin x64/arm64
+for local executable tests. `BUN_COMPILE_OUTFILE` selects an isolated output
+path; it defaults to `packages/api-cli/dist/tearleads-api-cli`.
+
+The explicit repository build root preserves the embedded schema asset paths.
+The compiled CLI test runs from outside the checkout and initializes a fresh
+SQLite database twice, so it exercises packaging and idempotent initialization.
 
 Deploy scripts build and `rsync` the executable to `/opt/tearleads/bin` on the
 selected server (both are on `PATH` after sourcing `scripts/session.sh`):

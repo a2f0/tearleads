@@ -1,21 +1,10 @@
 #!/usr/bin/env bash
-# Exercise each managed S3 assertion without probing the host's Garage files.
+# Exercise each managed S3 connection assertion.
 set -euo pipefail
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 GUARD_DIR=$(mktemp -d)
 trap 'rm -rf "$GUARD_DIR"' EXIT
 
-# Execute the connection assertion unchanged. Its separate filesystem guard is
-# exercised by checkManagedS3Cutover.sh; the play ordering is checked in Ansible.
-python3 - "$REPO_ROOT/ansible/playbooks/tasks/managedS3.yml" "$GUARD_DIR/guard.yml" <<'PY'
-from pathlib import Path
-import sys
-
-source = Path(sys.argv[1]).read_text()
-boundary = '\n- name: Guard the Garage data cutover before configuring managed S3'
-assert source.count(boundary) == 1
-Path(sys.argv[2]).write_text(source.split(boundary)[0])
-PY
 cat >"$GUARD_DIR/play.yml" <<EOF
 ---
 - name: Verify managed S3 connection assertions
@@ -23,7 +12,7 @@ cat >"$GUARD_DIR/play.yml" <<EOF
   gather_facts: false
   tasks:
     - name: Run connection assertion
-      ansible.builtin.import_tasks: $GUARD_DIR/guard.yml
+      ansible.builtin.import_tasks: $REPO_ROOT/ansible/playbooks/tasks/managedS3.yml
     - name: Mark configuration reached after the assertion
       ansible.builtin.copy:
         content: configured
@@ -31,7 +20,7 @@ cat >"$GUARD_DIR/play.yml" <<EOF
         mode: "0600"
 EOF
 
-for mutation in prod staging garage store bucket region endpoint path_style access_key secret_key key_prefix; do
+for mutation in prod staging store bucket region endpoint path_style access_key secret_key key_prefix; do
   rm -f "$GUARD_DIR/configured"
   python3 - "$GUARD_DIR/vars.json" "$mutation" <<'PY'
 import json
@@ -40,7 +29,6 @@ import sys
 
 values = {
     "deployment_tier": "prod",
-    "garage_enabled": False,
     "blob_object_store": "s3",
     "blob_s3_bucket": "tearleads-prod",
     "blob_s3_region": "us-east-1",
@@ -53,7 +41,6 @@ values = {
 changes = {
     "prod": {},
     "staging": {"deployment_tier": "staging", "blob_s3_bucket": "tearleads-staging"},
-    "garage": {"garage_enabled": True},
     "store": {"blob_object_store": "memory"},
     "bucket": {"blob_s3_bucket": "tearleads-staging"},
     "region": {"blob_s3_region": "eu-west-1"},

@@ -40,27 +40,9 @@ test("website domains and Workers agree across the two independent stacks", asyn
   }
 });
 
-test("Ansible removes only the obsolete website files and retains app hosting", async () => {
+test("Ansible configures application and demo hosting", async () => {
   const tasks = await read("ansible/playbooks/tasks/staticSites.yml");
-  const cleanup = tasks.slice(
-    tasks.indexOf("- name: Remove obsolete server-hosted website files"),
-  );
-  expect(cleanup).toContain("state: absent");
-  expect(cleanup.match(/^ {4}- .+$/gm)).toEqual([
-    "    - /etc/nginx/sites-enabled/website.conf",
-    "    - /etc/nginx/sites-available/website.conf",
-    "    - /var/www/website",
-  ]);
-  expect(cleanup).toContain("notify: Reload nginx");
   expect(tasks).toContain("path: /var/www/app-web");
   expect(tasks).toContain("path: /var/www/app-demo");
   expect(tasks).toContain("src: etc/nginx/sites-available/app.conf.j2");
-  expect(
-    await Bun.file(
-      resolve(
-        root,
-        "ansible/playbooks/templates/etc/nginx/sites-available/website.conf.j2",
-      ),
-    ).exists(),
-  ).toBe(false);
 });

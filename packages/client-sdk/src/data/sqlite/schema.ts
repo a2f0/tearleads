@@ -237,10 +237,7 @@ export const documentHistoryUpdates = sqliteTable(
     // pulled update). Restores use it to advance the outgoing-delta marker
     // across remote rows — their ops are already server-side — while a local
     // row left behind by a crash stays below the marker so the next edit
-    // re-derives and sends it. Added WITHOUT a migration under the greenfield
-    // reset documented on the `documents` table above: no database predating
-    // this column survives the reset, so every history table is created with
-    // it.
+    // re-derives and sends it.
     origin: text("origin").notNull(),
     createdAt: text("created_at").notNull(),
   },
@@ -648,8 +645,6 @@ export const containerCreateIntents = sqliteTable(
     remoteMetadataDocumentId: text("remote_metadata_document_id"),
     remoteMetadataAccessStateHash: text("remote_metadata_access_state_hash"),
     lastError: text("last_error"),
-    // Added WITHOUT a migration under the greenfield reset documented on the
-    // `documents` table: no database predating this column survives it.
     lastAttemptedAt: text("last_attempted_at"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),

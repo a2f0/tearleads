@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "8e7f0df6-5012-4679-920c-51d3be50e88b",
+  "id": "9a0c5c88-3fae-49ac-b195-268228b9b880",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "access_event_dependency_projection": {
@@ -834,6 +834,13 @@
           "notNull": true,
           "autoincrement": false
         },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "sha256": {
           "name": "sha256",
           "type": "text",
@@ -876,6 +883,20 @@
           "notNull": false,
           "autoincrement": false
         },
+        "object_delete_attempted_at": {
+          "name": "object_delete_attempted_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "object_deleted_at": {
+          "name": "object_deleted_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "integer",
@@ -885,7 +906,14 @@
           "default": "(cast((julianday('now') - 2440587.5)*86400000 as integer))"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "blob_audit_objects_pending_delete_idx": {
+          "name": "blob_audit_objects_pending_delete_idx",
+          "columns": ["object_delete_attempted_at", "pruned_at", "blob_id"],
+          "isUnique": false,
+          "where": "\"blob_audit_objects\".\"pruned_at\" is not null and \"blob_audit_objects\".\"object_deleted_at\" is null and \"blob_audit_objects\".\"live_storage_key\" is not null"
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
@@ -1165,6 +1193,13 @@
           "notNull": true,
           "autoincrement": false
         },
+        "authorization": {
+          "name": "authorization",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "integer",
@@ -1218,6 +1253,13 @@
         },
         "owner_user_id": {
           "name": "owner_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "organization_id": {
+          "name": "organization_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -1279,6 +1321,11 @@
           "name": "blob_stages_expires_at_idx",
           "columns": ["expires_at", "id"],
           "isUnique": false
+        },
+        "blob_stages_organization_expires_at_idx": {
+          "name": "blob_stages_organization_expires_at_idx",
+          "columns": ["organization_id", "expires_at", "id"],
+          "isUnique": false
         }
       },
       "foreignKeys": {},
@@ -1331,6 +1378,13 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "reclaim_attempted_at": {
+          "name": "reclaim_attempted_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {
@@ -1344,6 +1398,12 @@
           "columns": ["dereferenced_at"],
           "isUnique": false,
           "where": "\"blobs\".\"dereferenced_at\" is not null"
+        },
+        "blobs_reclaim_attempted_at_idx": {
+          "name": "blobs_reclaim_attempted_at_idx",
+          "columns": ["reclaim_attempted_at", "dereferenced_at", "id"],
+          "isUnique": false,
+          "where": "\"blobs\".\"reclaim_attempted_at\" is not null and \"blobs\".\"dereferenced_at\" is not null"
         }
       },
       "foreignKeys": {},
@@ -2596,6 +2656,13 @@
           "notNull": true,
           "autoincrement": false
         },
+        "authorization_targets": {
+          "name": "authorization_targets",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "integer",
@@ -2630,6 +2697,108 @@
           "name": "document_content_write_headers_nonce_domain_idx",
           "columns": ["document_id", "content_key_epoch", "nonce_domain_hash"],
           "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "document_inline_rekey_commits": {
+      "name": "document_inline_rekey_commits",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "commit_id": {
+          "name": "commit_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "document_id": {
+          "name": "document_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(cast((julianday('now') - 2440587.5)*86400000 as integer))"
+        }
+      },
+      "indexes": {
+        "document_inline_rekey_commits_document_commit_idx": {
+          "name": "document_inline_rekey_commits_document_commit_idx",
+          "columns": ["document_id", "commit_id"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "document_manifest_observations": {
+      "name": "document_manifest_observations",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "document_id": {
+          "name": "document_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "manifest_hash": {
+          "name": "manifest_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "observed_at": {
+          "name": "observed_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(cast((julianday('now') - 2440587.5)*86400000 as integer))"
+        }
+      },
+      "indexes": {
+        "document_manifest_observations_user_document_hash_idx": {
+          "name": "document_manifest_observations_user_document_hash_idx",
+          "columns": ["user_id", "document_id", "manifest_hash"],
+          "isUnique": true
+        },
+        "document_manifest_observations_document_idx": {
+          "name": "document_manifest_observations_document_idx",
+          "columns": ["document_id"],
+          "isUnique": false
         }
       },
       "foreignKeys": {},
@@ -3168,9 +3337,58 @@
           "notNull": false,
           "autoincrement": false
         },
+        "purge_lease_id": {
+          "name": "purge_lease_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "purged_at": {
           "name": "purged_at",
           "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "replacement_organization_id": {
+          "name": "replacement_organization_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "replacement_provisioning_response": {
+          "name": "replacement_provisioning_response",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "native_restore_user_id": {
+          "name": "native_restore_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "native_restore_claimed_at": {
+          "name": "native_restore_claimed_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "native_restore_provisioning_response": {
+          "name": "native_restore_provisioning_response",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "native_restore_provisioning_request_sha256": {
+          "name": "native_restore_provisioning_request_sha256",
+          "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
@@ -4245,6 +4463,87 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+    "principal_container_grant_projection": {
+      "name": "principal_container_grant_projection",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "principal_type": {
+          "name": "principal_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "principal_id": {
+          "name": "principal_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "state_hash": {
+          "name": "state_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "container_id": {
+          "name": "container_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "access_level": {
+          "name": "access_level",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(cast((julianday('now') - 2440587.5)*86400000 as integer))"
+        }
+      },
+      "indexes": {
+        "principal_container_grant_projection_principal_idx": {
+          "name": "principal_container_grant_projection_principal_idx",
+          "columns": ["principal_type", "principal_id"],
+          "isUnique": false
+        },
+        "principal_container_grant_projection_container_idx": {
+          "name": "principal_container_grant_projection_container_idx",
+          "columns": ["container_id"],
+          "isUnique": false
+        },
+        "principal_container_grant_projection_state_container_idx": {
+          "name": "principal_container_grant_projection_state_container_idx",
+          "columns": [
+            "principal_type",
+            "principal_id",
+            "state_hash",
+            "container_id"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "principal_epoch_keys": {
       "name": "principal_epoch_keys",
       "columns": {
@@ -4511,6 +4810,113 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+    "principal_policy_mutation_acknowledgements": {
+      "name": "principal_policy_mutation_acknowledgements",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "principal_type": {
+          "name": "principal_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "principal_id": {
+          "name": "principal_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "state_hash": {
+          "name": "state_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "batch_index": {
+          "name": "batch_index",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "container_id": {
+          "name": "container_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "manifest_hash": {
+          "name": "manifest_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "request_json": {
+          "name": "request_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "response_json": {
+          "name": "response_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(cast((julianday('now') - 2440587.5)*86400000 as integer))"
+        }
+      },
+      "indexes": {
+        "principal_policy_mutation_acks_state_idx": {
+          "name": "principal_policy_mutation_acks_state_idx",
+          "columns": ["principal_type", "principal_id", "state_hash"],
+          "isUnique": false
+        },
+        "principal_policy_mutation_acks_batch_idx": {
+          "name": "principal_policy_mutation_acks_batch_idx",
+          "columns": [
+            "principal_type",
+            "principal_id",
+            "state_hash",
+            "batch_index"
+          ],
+          "isUnique": true
+        },
+        "principal_policy_mutation_acks_container_idx": {
+          "name": "principal_policy_mutation_acks_container_idx",
+          "columns": [
+            "principal_type",
+            "principal_id",
+            "state_hash",
+            "container_id"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "principal_state_payloads": {
       "name": "principal_state_payloads",
       "columns": {
@@ -4676,6 +5082,13 @@
           "notNull": true,
           "autoincrement": false
         },
+        "grant_root": {
+          "name": "grant_root",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "payload_ciphertext_hash": {
           "name": "payload_ciphertext_hash",
           "type": "text",
@@ -4685,6 +5098,13 @@
         },
         "member_count": {
           "name": "member_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "grant_count": {
+          "name": "grant_count",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
@@ -4850,6 +5270,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "source_original_transaction_id": {
+          "name": "source_original_transaction_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "organization_id": {
           "name": "organization_id",
           "type": "text",
@@ -4916,6 +5343,16 @@
           "name": "revenuecat_webhook_events_source_org_idx",
           "columns": ["source_organization_id"],
           "isUnique": false
+        },
+        "revenuecat_webhook_events_native_route_idx": {
+          "name": "revenuecat_webhook_events_native_route_idx",
+          "columns": [
+            "app_user_id",
+            "original_transaction_id",
+            "store",
+            "outcome"
+          ],
+          "isUnique": false
         }
       },
       "foreignKeys": {},
@@ -4975,6 +5412,21 @@
           "notNull": false,
           "autoincrement": false
         },
+        "is_root": {
+          "name": "is_root",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "last_active_at": {
+          "name": "last_active_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "integer",
@@ -4989,6 +5441,16 @@
           "name": "users_fingerprint_unique",
           "columns": ["fingerprint"],
           "isUnique": true
+        },
+        "users_created_at_id_idx": {
+          "name": "users_created_at_id_idx",
+          "columns": ["created_at", "id"],
+          "isUnique": false
+        },
+        "users_default_organization_id_idx": {
+          "name": "users_default_organization_id_idx",
+          "columns": ["default_organization_id"],
+          "isUnique": false
         }
       },
       "foreignKeys": {},

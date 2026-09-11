@@ -3,13 +3,13 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: scripts/listGarageBucketKeys.sh <staging|prod> [prefix] [--with-size]
+Usage: scripts/listBlobBucketKeys.sh <staging|prod> [prefix] [--with-size]
 
-Lists object keys in the Garage-backed blob bucket for the selected server.
+Lists object keys in the S3 blob bucket for the selected server.
 The optional prefix limits the S3 ListObjectsV2 request.
 Pass --with-size to prefix each line with the object size as "<size>\t<key>".
 
-Set GARAGE_SSH_TARGET=user@host to override Tailscale SSH resolution.
+Set BLOB_SSH_TARGET=user@host to override Tailscale SSH resolution.
 EOF
 }
 
@@ -27,12 +27,12 @@ shell_quote() {
   printf "'%s'" "$value"
 }
 
-resolve_garage_ssh_target() {
+resolve_blob_ssh_target() {
   local stack_dir="$1"
 
-  if [[ -n "${GARAGE_SSH_TARGET:-}" ]]; then
-    wait_for_ssh_ready "$GARAGE_SSH_TARGET" >&2 || return 1
-    echo "$GARAGE_SSH_TARGET"
+  if [[ -n "${BLOB_SSH_TARGET:-}" ]]; then
+    wait_for_ssh_ready "$BLOB_SSH_TARGET" >&2 || return 1
+    echo "$BLOB_SSH_TARGET"
     return 0
   fi
 
@@ -87,11 +87,11 @@ main() {
   backend_config="$(get_backend_config)"
 
   terraform -chdir="$stack_dir" init -input=false -no-color -backend-config="$backend_config" >&2
-  ssh_target="$(resolve_garage_ssh_target "$stack_dir")"
+  ssh_target="$(resolve_blob_ssh_target "$stack_dir")"
   remote_prefix_arg="$(shell_quote "$prefix")"
   remote_with_size_arg="$(shell_quote "$with_size")"
 
-  echo "Listing Garage bucket keys for $tier via $ssh_target..." >&2
+  echo "Listing blob bucket keys for $tier via $ssh_target..." >&2
 
   # shellcheck disable=SC2029
   ssh "$ssh_target" "/bin/sh -s -- $remote_prefix_arg $remote_with_size_arg" <<'SH'

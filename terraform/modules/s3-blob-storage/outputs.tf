@@ -3,7 +3,6 @@ output "api_storage" {
   sensitive   = true
   value = {
     blob_storage_managed      = true
-    garage_enabled            = false
     blob_object_store         = "s3"
     blob_s3_bucket            = var.bucket.id
     blob_s3_region            = var.bucket.region

@@ -22,6 +22,7 @@ export function organizationReadModelDirectoryUser(
     encapsulationPublicKey: `encapsulation-public-key-${userId}`,
     encapsulationKeyFingerprint: `encapsulation-fingerprint-${userId}`,
     createdAt: CREATED_AT,
+    isPersonalOrganizationOwner: false,
     isSelf: false,
     status: "active",
     profileDocumentId: `profile-${userId}`,

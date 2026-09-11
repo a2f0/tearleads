@@ -21,6 +21,8 @@ source "$REPO_ROOT/terraform/scripts/common.sh"
 load_secrets_env
 _source_optional_env_file "$REPO_ROOT/.secrets/planetscale.env"
 validate_aws_env
+export TF_VAR_planetscale_service_token_id="${PLANETSCALE_SERVICE_TOKEN_ID:-}"
+export TF_VAR_planetscale_service_token="${PLANETSCALE_SERVICE_TOKEN:-}"
 
 if [[ "$ACTION" == plan || "$ACTION" == apply ]]; then
   if [[ "${PLANETSCALE_SERVICE_TOKEN_ID:+set}" != set || "${PLANETSCALE_SERVICE_TOKEN:+set}" != set ]]; then

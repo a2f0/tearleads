@@ -1,1 +1,0 @@
-ALTER TABLE `organization_billing` ADD `purge_lease_id` text;

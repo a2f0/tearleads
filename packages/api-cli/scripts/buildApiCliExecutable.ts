@@ -10,6 +10,8 @@ const supportedCompileTargets: readonly string[] = [
   "bun-linux-x64",
   "bun-linux-arm64",
   "bun-linux-aarch64",
+  "bun-darwin-arm64",
+  "bun-darwin-x64",
 ];
 
 function isSupportedCompileTarget(
@@ -29,15 +31,17 @@ function readExecutableTarget(): Bun.Build.CompileTarget {
 }
 
 const executableTarget = readExecutableTarget();
+const { BUN_COMPILE_OUTFILE: executableOutfile } = process.env;
 
 const drizzleFiles = migrationAssetPatterns
   .flatMap((pattern) => Array.from(new Glob(pattern).scanSync(".")))
   .sort();
 
 const result = await Bun.build({
+  root: repoRoot,
   entrypoints: ["packages/api-cli/src/index.ts", ...drizzleFiles],
   compile: {
-    outfile: "packages/api-cli/dist/tearleads-api-cli",
+    outfile: executableOutfile ?? "packages/api-cli/dist/tearleads-api-cli",
     target: executableTarget,
   },
   loader: {

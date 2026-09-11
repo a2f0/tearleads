@@ -57,7 +57,7 @@ run_terraform_tests() {
     if [[ "$module_dir" == "$TERRAFORM_DIR/stacks/prod/postgres" ]]; then
       terraform -chdir="$terraform_test_dir" test -json -verbose >"$terraform_test_dir/results.jsonl" || terraform_test_status=$?
       jq -r --argjson exit_code "$terraform_test_status" \
-        'select(.type != "test_plan" and ($exit_code != 0 or .type != "diagnostic" or .diagnostic.severity != "error")) | .["@message"]' \
+        'select(.type != "test_plan" and .type != "test_state" and ($exit_code != 0 or .type != "diagnostic" or .diagnostic.severity != "error")) | .["@message"]' \
         "$terraform_test_dir/results.jsonl"
       if [ "$terraform_test_status" -eq 0 ]; then
         "$SCRIPT_DIR/checkPostgresOutputContract.sh" "$terraform_test_dir/results.jsonl" || terraform_test_status=$?

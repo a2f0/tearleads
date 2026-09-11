@@ -32,13 +32,3 @@
     owner: www-data
     group: www-data
     mode: "0755"
-
-- name: Remove obsolete server-hosted website files
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: absent
-  loop:
-    - /etc/nginx/sites-enabled/website.conf
-    - /etc/nginx/sites-available/website.conf
-    - /var/www/website
-  notify: Reload nginx

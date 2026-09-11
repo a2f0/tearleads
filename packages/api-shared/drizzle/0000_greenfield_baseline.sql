@@ -103,12 +103,15 @@ CREATE TABLE "attachment_bindings" (
 --> statement-breakpoint
 CREATE TABLE "blob_audit_objects" (
 	"blob_id" uuid PRIMARY KEY NOT NULL,
+	"organization_id" uuid NOT NULL,
 	"sha256" text NOT NULL,
 	"byte_length" integer NOT NULL,
 	"live_storage_key" text,
 	"retention_mode" text NOT NULL,
 	"historical_bytes_retained" boolean NOT NULL,
 	"pruned_at" timestamp,
+	"object_delete_attempted_at" timestamp,
+	"object_deleted_at" timestamp,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -147,12 +150,14 @@ CREATE TABLE "blob_content_write_headers" (
 	"nonce_domain_hash" text NOT NULL,
 	"header_hash" text NOT NULL,
 	"header" jsonb NOT NULL,
+	"authorization" jsonb NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "blob_stages" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"owner_user_id" uuid NOT NULL,
+	"organization_id" uuid NOT NULL,
 	"storage_key" text NOT NULL,
 	"upload_id" text NOT NULL,
 	"completed_at" timestamp,
@@ -168,7 +173,8 @@ CREATE TABLE "blobs" (
 	"sha256" text NOT NULL,
 	"byte_length" integer NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
-	"dereferenced_at" timestamp
+	"dereferenced_at" timestamp,
+	"reclaim_attempted_at" timestamp
 );
 --> statement-breakpoint
 CREATE TABLE "container_builtin_grants" (
@@ -341,7 +347,23 @@ CREATE TABLE "document_content_write_headers" (
 	"nonce_domain_hash" text NOT NULL,
 	"header_hash" text NOT NULL,
 	"header" jsonb NOT NULL,
+	"authorization_targets" jsonb NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "document_inline_rekey_commits" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"commit_id" text NOT NULL,
+	"document_id" uuid NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "document_manifest_observations" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"user_id" uuid NOT NULL,
+	"document_id" uuid NOT NULL,
+	"manifest_hash" text NOT NULL,
+	"observed_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "document_update_audit_events" (
@@ -422,7 +444,14 @@ CREATE TABLE "organization_billing" (
 	"disabled_at" timestamp,
 	"purge_after" timestamp,
 	"purge_started_at" timestamp,
+	"purge_lease_id" uuid,
 	"purged_at" timestamp,
+	"replacement_organization_id" uuid,
+	"replacement_provisioning_response" jsonb,
+	"native_restore_user_id" uuid,
+	"native_restore_claimed_at" timestamp,
+	"native_restore_provisioning_response" jsonb,
+	"native_restore_provisioning_request_sha256" text,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
@@ -568,6 +597,16 @@ CREATE TABLE "organizations" (
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "principal_container_grant_projection" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"principal_type" text NOT NULL,
+	"principal_id" uuid NOT NULL,
+	"state_hash" text NOT NULL,
+	"container_id" uuid NOT NULL,
+	"access_level" text NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "principal_epoch_keys" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"principal_type" text NOT NULL,
@@ -602,6 +641,19 @@ CREATE TABLE "principal_membership_projection" (
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "principal_policy_mutation_acknowledgements" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"principal_type" text NOT NULL,
+	"principal_id" uuid NOT NULL,
+	"state_hash" text NOT NULL,
+	"batch_index" integer NOT NULL,
+	"container_id" uuid NOT NULL,
+	"manifest_hash" text NOT NULL,
+	"request_json" text NOT NULL,
+	"response_json" text NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "principal_state_payloads" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"principal_type" text NOT NULL,
@@ -626,8 +678,10 @@ CREATE TABLE "principal_states" (
 	"membership_root" text NOT NULL,
 	"member_envelopes_root" text NOT NULL,
 	"projection_root" text NOT NULL,
+	"grant_root" text NOT NULL,
 	"payload_ciphertext_hash" text NOT NULL,
 	"member_count" integer NOT NULL,
+	"grant_count" integer NOT NULL,
 	"external_authority" jsonb,
 	"state_hash" text NOT NULL,
 	"signed_at" timestamp NOT NULL,
@@ -650,6 +704,7 @@ CREATE TABLE "revenuecat_webhook_events" (
 	"period_type" text,
 	"transaction_id" text,
 	"original_transaction_id" text,
+	"source_original_transaction_id" text,
 	"organization_id" uuid,
 	"source_organization_id" uuid,
 	"outcome" text NOT NULL,
@@ -667,6 +722,8 @@ CREATE TABLE "users" (
 	"encapsulation_key_fingerprint" text NOT NULL,
 	"default_organization_id" uuid NOT NULL,
 	"registration_source_ip_address" text,
+	"is_root" boolean DEFAULT false NOT NULL,
+	"last_active_at" timestamp,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "users_fingerprint_unique" UNIQUE("fingerprint")
 );
@@ -707,6 +764,7 @@ CREATE INDEX "attachment_bindings_blob_idx" ON "attachment_bindings" USING btree
 CREATE INDEX "attachment_bindings_previous_binding_id_idx" ON "attachment_bindings" USING btree ("previous_binding_id");--> statement-breakpoint
 CREATE INDEX "attachment_bindings_attachment_event_hash_idx" ON "attachment_bindings" USING btree ("attachment_event_hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "attachment_bindings_document_slot_active_idx" ON "attachment_bindings" USING btree ("document_id","slot_id") WHERE "attachment_bindings"."detached_at" is null;--> statement-breakpoint
+CREATE INDEX "blob_audit_objects_pending_delete_idx" ON "blob_audit_objects" USING btree ("object_delete_attempted_at","pruned_at","blob_id") WHERE "blob_audit_objects"."pruned_at" is not null and "blob_audit_objects"."object_deleted_at" is null and "blob_audit_objects"."live_storage_key" is not null;--> statement-breakpoint
 CREATE UNIQUE INDEX "blob_content_key_epochs_blob_epoch_idx" ON "blob_content_key_epochs" USING btree ("blob_id","content_key_epoch");--> statement-breakpoint
 CREATE INDEX "blob_content_key_epochs_blob_idx" ON "blob_content_key_epochs" USING btree ("blob_id");--> statement-breakpoint
 CREATE INDEX "blob_content_key_epochs_target_idx" ON "blob_content_key_epochs" USING btree ("target_hash");--> statement-breakpoint
@@ -720,8 +778,10 @@ CREATE UNIQUE INDEX "blob_content_write_headers_header_hash_idx" ON "blob_conten
 CREATE UNIQUE INDEX "blob_content_write_headers_content_record_idx" ON "blob_content_write_headers" USING btree ("blob_id","content_key_epoch","content_record_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "blob_content_write_headers_nonce_domain_idx" ON "blob_content_write_headers" USING btree ("blob_id","content_key_epoch","nonce_domain_hash");--> statement-breakpoint
 CREATE INDEX "blob_stages_expires_at_idx" ON "blob_stages" USING btree ("expires_at","id");--> statement-breakpoint
+CREATE INDEX "blob_stages_organization_expires_at_idx" ON "blob_stages" USING btree ("organization_id","expires_at","id");--> statement-breakpoint
 CREATE UNIQUE INDEX "blobs_storage_key_idx" ON "blobs" USING btree ("storage_key");--> statement-breakpoint
 CREATE INDEX "blobs_dereferenced_at_idx" ON "blobs" USING btree ("dereferenced_at") WHERE "blobs"."dereferenced_at" is not null;--> statement-breakpoint
+CREATE INDEX "blobs_reclaim_attempted_at_idx" ON "blobs" USING btree ("reclaim_attempted_at","dereferenced_at","id") WHERE "blobs"."reclaim_attempted_at" is not null and "blobs"."dereferenced_at" is not null;--> statement-breakpoint
 CREATE INDEX "container_builtin_grants_org_idx" ON "container_builtin_grants" USING btree ("organization_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "container_builtin_grants_identity_idx" ON "container_builtin_grants" USING btree ("container_id","subject_type","subject_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "container_document_sync_tombstones_unique_idx" ON "container_document_sync_tombstones" USING btree ("container_id","document_id");--> statement-breakpoint
@@ -763,6 +823,9 @@ CREATE INDEX "document_content_write_headers_organization_update_idx" ON "docume
 CREATE UNIQUE INDEX "document_content_write_headers_header_hash_idx" ON "document_content_write_headers" USING btree ("header_hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "document_content_write_headers_content_record_idx" ON "document_content_write_headers" USING btree ("document_id","content_key_epoch","content_record_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "document_content_write_headers_nonce_domain_idx" ON "document_content_write_headers" USING btree ("document_id","content_key_epoch","nonce_domain_hash");--> statement-breakpoint
+CREATE UNIQUE INDEX "document_inline_rekey_commits_document_commit_idx" ON "document_inline_rekey_commits" USING btree ("document_id","commit_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "document_manifest_observations_user_document_hash_idx" ON "document_manifest_observations" USING btree ("user_id","document_id","manifest_hash");--> statement-breakpoint
+CREATE INDEX "document_manifest_observations_document_idx" ON "document_manifest_observations" USING btree ("document_id");--> statement-breakpoint
 CREATE INDEX "document_update_spans_peer_counter_idx" ON "document_update_spans" USING btree ("document_id","peer_id","end_counter");--> statement-breakpoint
 CREATE UNIQUE INDEX "document_update_spans_update_peer_idx" ON "document_update_spans" USING btree ("update_id","peer_id");--> statement-breakpoint
 CREATE INDEX "document_updates_document_sequence_idx" ON "document_updates" USING btree ("document_id","sequence");--> statement-breakpoint
@@ -792,6 +855,9 @@ CREATE UNIQUE INDEX "organization_roster_entries_org_user_idx" ON "organization_
 CREATE INDEX "organization_roster_entries_org_status_idx" ON "organization_roster_entries" USING btree ("organization_id","status");--> statement-breakpoint
 CREATE INDEX "organization_roster_entries_profile_document_idx" ON "organization_roster_entries" USING btree ("profile_document_id");--> statement-breakpoint
 CREATE INDEX "organizations_profile_document_idx" ON "organizations" USING btree ("profile_document_id");--> statement-breakpoint
+CREATE INDEX "principal_container_grant_projection_principal_idx" ON "principal_container_grant_projection" USING btree ("principal_type","principal_id");--> statement-breakpoint
+CREATE INDEX "principal_container_grant_projection_container_idx" ON "principal_container_grant_projection" USING btree ("container_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "principal_container_grant_projection_state_container_idx" ON "principal_container_grant_projection" USING btree ("principal_type","principal_id","state_hash","container_id");--> statement-breakpoint
 CREATE INDEX "principal_epoch_keys_principal_idx" ON "principal_epoch_keys" USING btree ("principal_type","principal_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "principal_epoch_keys_principal_epoch_idx" ON "principal_epoch_keys" USING btree ("principal_type","principal_id","epoch");--> statement-breakpoint
 CREATE INDEX "principal_member_envelopes_principal_idx" ON "principal_member_envelopes" USING btree ("principal_type","principal_id");--> statement-breakpoint
@@ -800,6 +866,9 @@ CREATE INDEX "principal_membership_projection_principal_idx" ON "principal_membe
 CREATE INDEX "principal_membership_projection_member_idx" ON "principal_membership_projection" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "principal_membership_projection_member_state_idx" ON "principal_membership_projection" USING btree ("user_id","principal_type","principal_id","state_hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "principal_membership_projection_state_member_idx" ON "principal_membership_projection" USING btree ("principal_type","principal_id","state_hash","user_id");--> statement-breakpoint
+CREATE INDEX "principal_policy_mutation_acks_state_idx" ON "principal_policy_mutation_acknowledgements" USING btree ("principal_type","principal_id","state_hash");--> statement-breakpoint
+CREATE UNIQUE INDEX "principal_policy_mutation_acks_batch_idx" ON "principal_policy_mutation_acknowledgements" USING btree ("principal_type","principal_id","state_hash","batch_index");--> statement-breakpoint
+CREATE UNIQUE INDEX "principal_policy_mutation_acks_container_idx" ON "principal_policy_mutation_acknowledgements" USING btree ("principal_type","principal_id","state_hash","container_id");--> statement-breakpoint
 CREATE INDEX "principal_state_payloads_principal_idx" ON "principal_state_payloads" USING btree ("principal_type","principal_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "principal_state_payloads_principal_state_idx" ON "principal_state_payloads" USING btree ("principal_type","principal_id","state_hash");--> statement-breakpoint
 CREATE INDEX "principal_states_principal_idx" ON "principal_states" USING btree ("principal_type","principal_id");--> statement-breakpoint
@@ -807,4 +876,7 @@ CREATE UNIQUE INDEX "principal_states_principal_version_idx" ON "principal_state
 CREATE UNIQUE INDEX "principal_states_principal_state_hash_idx" ON "principal_states" USING btree ("principal_type","principal_id","state_hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "revenuecat_webhook_events_event_id_idx" ON "revenuecat_webhook_events" USING btree ("event_id");--> statement-breakpoint
 CREATE INDEX "revenuecat_webhook_events_org_idx" ON "revenuecat_webhook_events" USING btree ("organization_id");--> statement-breakpoint
-CREATE INDEX "revenuecat_webhook_events_source_org_idx" ON "revenuecat_webhook_events" USING btree ("source_organization_id");
+CREATE INDEX "revenuecat_webhook_events_source_org_idx" ON "revenuecat_webhook_events" USING btree ("source_organization_id");--> statement-breakpoint
+CREATE INDEX "revenuecat_webhook_events_native_route_idx" ON "revenuecat_webhook_events" USING btree ("app_user_id","original_transaction_id","store","outcome");--> statement-breakpoint
+CREATE INDEX "users_created_at_id_idx" ON "users" USING btree ("created_at","id");--> statement-breakpoint
+CREATE INDEX "users_default_organization_id_idx" ON "users" USING btree ("default_organization_id");

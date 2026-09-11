@@ -28,13 +28,9 @@ organizations and ordinary groups retain their existing membership rules.
 Directory rows expose `isPersonalOrganizationOwner` for UI affordances, including
 when another admin views the owner. It is independent of requester-relative
 `isSelf` and is persisted in the local directory cache. The response field is
-optional for older read-model payloads; the current API always supplies it.
-It does not replace the server-side membership invariant. This is an intentional
-prelaunch flag-day contract change: older clients reject the new field in the
-strict read-model response, so the API and clients must be updated together.
-Local databases from before the owner column was added require reset under the
-current greenfield schema policy. Account deletion and organization purge are
-separate lifecycle operations, not roster removal.
+required and persisted as a non-null boolean. It does not replace the
+server-side membership invariant. Account deletion and organization purge are
+separate lifecycle operations from roster removal.
 
 Deleting a group requires a signed organization-policy successor that removes
 its directory entry. The durable tombstone prevents the deleted ID from being
@@ -52,9 +48,8 @@ authorized states use `null`; externally administered organization groups cite
 the exact signed Admins head used to authorize that state. Historical citations
 are checked against exact signed Admins history without in-chain rollback.
 The API requires current Admins authority at commit; delayed histories remain
-verifiable after Admins advances, including on checkpointed devices. This
-contract has no legacy fallback: pre-contract state requires reset and
-reprovisioning rather than translation.
+verifiable after Admins advances, including on checkpointed devices.
+Verification requires this signed authority field on every state.
 
 Explorer writes must obtain the exact verified policy and access state needed
 to unwrap keys and encrypt content. They must never infer authority from a
@@ -138,17 +133,11 @@ state-bound entity or lane snapshot.
 
 ## Protocol versioning
 
-Version 6 is a clean protocol reset, not a compatibility extension. Responses
-and opaque cursors carry version 6, response validation accepts only the exact
-version 6 lane shapes, and the server rejects other cursor versions. Version 5
-was the previous reset; its grants lane allowed organization subjects, while
-version 6 allows only same-organization groups and active users. Local storage
-contains only the current projection schema; pre-reset databases must be
-discarded rather than upgraded.
-
-There is no translation, dual-read period, or legacy directory, group,
-membership, grants, group-container, user-detail, or raw principal-policy-table
-fallback.
+Responses and opaque cursors carry version 6. Response validation accepts only
+the exact version 6 lane shapes, and the server rejects other cursor versions.
+The grants lane contains only same-organization groups and active users. Local
+storage contains the current projection schema and is populated through this
+snapshot and delta contract.
 
 ## Snapshot and delta contract
 

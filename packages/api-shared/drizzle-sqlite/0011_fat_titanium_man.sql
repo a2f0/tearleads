@@ -1,1 +1,0 @@
-CREATE INDEX `revenuecat_webhook_events_native_route_idx` ON `revenuecat_webhook_events` (`app_user_id`,`original_transaction_id`,`store`,`outcome`);

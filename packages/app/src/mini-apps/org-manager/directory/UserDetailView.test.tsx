@@ -25,6 +25,7 @@ const rosterUser: OrganizationUserDetail["user"] = {
   disabledByUserId: "550e8400-e29b-41d4-a716-446655440002",
   encapsulationKeyFingerprint: "encapsulation-fingerprint",
   encapsulationPublicKey: "encapsulation-public-key",
+  isPersonalOrganizationOwner: false,
   isSelf: false,
   joinedAt: "2026-05-20T12:00:00.000Z",
   profileDocumentId: "550e8400-e29b-41d4-a716-446655440001",

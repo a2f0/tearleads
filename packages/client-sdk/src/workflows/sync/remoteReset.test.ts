@@ -278,6 +278,7 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
       await tx.insert(organizationReadModelDirectoryUsers).values({
         organizationId: "org-old",
         userId: "user-old",
+        isPersonalOrganizationOwner: false,
         sortOrder: 0,
         signingKeyFingerprint: "signing-fingerprint",
         signingPublicKey: "signing-public-key",
@@ -471,29 +472,23 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
         userId: "11111111-1111-4111-8111-111111111111",
       }),
     ]);
-    expect(await db.select().from(documentContainerProjection)).toEqual([]);
-    expect(await db.select().from(documentMoveIntents)).toEqual([]);
-    expect(await db.select().from(containerMoveIntents)).toEqual([]);
-    expect(await db.select().from(containerSyncWatermarks)).toEqual([]);
-    expect(await db.select().from(containerSyncLaneChecks)).toEqual([]);
-    expect(await db.select().from(organizationReadModelState)).toEqual([]);
-    expect(await db.select().from(organizationReadModelRequesters)).toEqual([]);
-    expect(await db.select().from(organizationReadModelDirectoryUsers)).toEqual(
-      [],
-    );
-    expect(await db.select().from(organizationReadModelGroups)).toEqual([]);
-    expect(await db.select().from(organizationReadModelPolicyHeads)).toEqual(
-      [],
-    );
-    expect(
-      await db.select().from(organizationReadModelGroupMemberships),
-    ).toEqual([]);
-    expect(await db.select().from(organizationReadModelGroupMembers)).toEqual(
-      [],
-    );
-    expect(
-      await db.select().from(organizationReadModelContainerGrants),
-    ).toEqual([]);
+    for (const table of [
+      documentContainerProjection,
+      documentMoveIntents,
+      containerMoveIntents,
+      containerSyncWatermarks,
+      containerSyncLaneChecks,
+      organizationReadModelState,
+      organizationReadModelRequesters,
+      organizationReadModelDirectoryUsers,
+      organizationReadModelGroups,
+      organizationReadModelPolicyHeads,
+      organizationReadModelGroupMemberships,
+      organizationReadModelGroupMembers,
+      organizationReadModelContainerGrants,
+    ]) {
+      expect(await db.select().from(table)).toEqual([]);
+    }
   } finally {
     close();
   }

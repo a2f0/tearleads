@@ -1,7 +1,7 @@
 resource "planetscale_postgres_branch_role" "runtime" {
-  organization    = planetscale_postgres_branch.main.organization
-  database        = planetscale_postgres_branch.main.database
-  branch          = planetscale_postgres_branch.main.name
+  organization    = data.planetscale_postgres_branch.main.organization
+  database        = data.planetscale_postgres_branch.main.database
+  branch          = data.planetscale_postgres_branch.main.name
   name            = "tearleads-runtime"
   inherited_roles = ["pg_read_all_data", "pg_write_all_data"]
   ttl             = 0
@@ -12,9 +12,9 @@ resource "planetscale_postgres_branch_role" "runtime" {
 }
 
 resource "planetscale_postgres_branch_role" "migrations" {
-  organization    = planetscale_postgres_branch.main.organization
-  database        = planetscale_postgres_branch.main.database
-  branch          = planetscale_postgres_branch.main.name
+  organization    = data.planetscale_postgres_branch.main.organization
+  database        = data.planetscale_postgres_branch.main.database
+  branch          = data.planetscale_postgres_branch.main.name
   name            = "tearleads-migrations"
   inherited_roles = ["postgres"]
   ttl             = 0

@@ -23,6 +23,7 @@ function rosterUser(): OrganizationDirectoryUser {
     disabledByUserId: null,
     encapsulationKeyFingerprint: "encapsulation-fingerprint",
     encapsulationPublicKey: "encapsulation-key",
+    isPersonalOrganizationOwner: false,
     isSelf: false,
     joinedAt: "2026-05-20T12:00:00.000Z",
     profileDocumentId: PROFILE_ID,

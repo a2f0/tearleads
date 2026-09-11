@@ -261,6 +261,7 @@ export const userDetail: OrganizationUserDetailResponse = {
     encapsulationPublicKey: "encapsulation-key",
     encapsulationKeyFingerprint: "encapsulation-fingerprint",
     createdAt: "2026-05-16T12:00:00.000Z",
+    isPersonalOrganizationOwner: false,
     isSelf: false,
     status: "active",
     profileDocumentId: null,
