@@ -60,7 +60,7 @@ export function documentTerminalSubmitFailureHandler(
   });
 }
 
-/** Persist an incoming poison update as this document's durable blocked row. */
+/** Persist quarantine and report its Error through the host's diagnostics. */
 export function documentIncomingUpdateIsolationFailureHandler(
   state: DocumentStoreState,
   generation?: DocumentStoreSyncGeneration,
@@ -70,8 +70,19 @@ export function documentIncomingUpdateIsolationFailureHandler(
     generation,
     state,
   });
-  return (failure: DocumentSyncUpdateIsolationError) =>
-    recordFailure({ message: failure.message, status: null });
+  return async (failure: DocumentSyncUpdateIsolationError) => {
+    await recordFailure({ message: failure.message, status: null });
+    if (generation && !isDocumentStoreSyncGenerationCurrent(state, generation))
+      return;
+    try {
+      state.runtime.util.logError?.(
+        "Documents: sync updates quarantined",
+        failure,
+      );
+    } catch {
+      // Diagnostics must not replace the quarantine error or its durable row.
+    }
+  };
 }
 
 /**

@@ -31,6 +31,22 @@ rejectionButton.onclick = () => {
 };
 document.body.append(rejectionButton);
 
+const handledButton = document.createElement("button");
+handledButton.textContent = "Report handled quarantine";
+handledButton.onclick = () => {
+  const error = new Error(`Document sync quarantined: ${secret}`, {
+    cause: new Error(secret),
+  });
+  Object.assign(error, {
+    name: "DocumentSyncUpdateIsolationError",
+    documentId: secret,
+    writerUserId: secret,
+    updateId: secret,
+  });
+  diagnostics.captureError(error, { area: "app", source: "log" });
+};
+document.body.append(handledButton);
+
 const primitiveButton = document.createElement("button");
 primitiveButton.textContent = "Reject private string";
 primitiveButton.onclick = () => {
