@@ -107,18 +107,27 @@ async function runRound(
     roundError = error;
   }
   if (app.exitCode === null) {
-    // Without /F, taskkill requests a normal window close so CEF can flush
-    // localStorage and shut down before the second launch reads that profile.
-    const close = Bun.spawn(["taskkill", "/PID", String(app.pid), "/T"], {
-      stdout: "ignore",
-      stderr: "ignore",
-    });
+    // Close the actual app window, leaving the launcher alive to wait for CEF
+    // to flush its profile and exit naturally.
+    const close = Bun.spawn(
+      [
+        "powershell.exe",
+        "-NoProfile",
+        "-NonInteractive",
+        "-File",
+        join(packageDir, "scripts/closeWindowsApp.ps1"),
+        "-AppProcessId",
+        String(app.pid),
+      ],
+      { stdout: "inherit", stderr: "inherit" },
+    );
     await close.exited;
     const deadline = Date.now() + 15_000;
     while (app.exitCode === null && Date.now() < deadline) {
       await Bun.sleep(100);
     }
     if (app.exitCode === null) {
+      process.stderr.write(await Bun.file(logPath).text());
       const force = Bun.spawn(
         ["taskkill", "/PID", String(app.pid), "/T", "/F"],
         { stdout: "ignore", stderr: "inherit" },
@@ -138,6 +147,11 @@ try {
   await runRound("first", launcherPath);
   await runRound("reopen", launcherPath);
   console.log("Electrobun Windows CEF persistence smoke test passed.");
+} catch (error) {
+  // Preserve the primary failure in CI even if Windows still holds a profile
+  // file open during cleanup.
+  console.error(error);
+  throw error;
 } finally {
   await rm(smokeRoot, { recursive: true, force: true, maxRetries: 5 });
 }

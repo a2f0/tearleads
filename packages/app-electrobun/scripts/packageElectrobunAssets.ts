@@ -42,6 +42,7 @@ async function packageElectrobunAssets(artifactPath: string): Promise<void> {
       fileURLToPath(new URL("../src/renderer/index.html", import.meta.url)),
     ),
     outdir: mainViewDir,
+    publicPath: "/",
     plugins: [loroWasmPlugin],
   });
   if (!rendererBuild.success) {

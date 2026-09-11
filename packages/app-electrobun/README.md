@@ -58,7 +58,8 @@ bun run --cwd packages/app-electrobun test:windows-persistence
 
 The Windows CEF persistence CI job runs this check on a native Windows runner.
 It verifies bundled CEF selection and reuses the Linux storage probe to confirm
-that a populated encrypted identity database reopens after a process restart.
+that a populated encrypted identity database reopens after a process restart
+and a nested-route reload.
 The local test requires Bun and Git Bash and isolates storage in a temporary
 `LOCALAPPDATA` directory.
 
