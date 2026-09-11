@@ -17,6 +17,11 @@ size, region, zero replicas, and branch deletion protection. The database,
 protection setting, and roles also have `prevent_destroy` enabled. A deliberate
 teardown releases branch protection before deleting the database.
 
+PlanetScale refuses to delete a role that owns database objects. A deliberate
+reset of a populated database first runs `DROP OWNED BY CURRENT_USER CASCADE`
+through the migration connection, then destroys the roles and database. This
+deletes application data and belongs only in a complete database teardown.
+
 Store these exports in gitignored `.secrets/planetscale.env`, mode `0600`:
 
 ```sh
