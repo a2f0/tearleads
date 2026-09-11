@@ -1,12 +1,12 @@
 import { expect, spyOn, test } from "bun:test";
-import type { ServerErrorSource } from "@tearleads/diagnostics/server";
 import { Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { createApiErrorHandler } from "../diagnostics/errorHandler";
+import * as diagnostics from "../diagnostics/sentry";
 import type { SessionEnv } from "../middleware/session";
 import { respondToStatusError } from "./errorResponse";
 
-const secret = "SYNTHETIC_PRIVATE_OBJECT_STORE_TEXT";
+const secret = "SYNTHETIC_PRIVATE_DOMAIN_TEXT";
 
 class SyntheticDomainError extends Error {
   constructor(
@@ -18,61 +18,96 @@ class SyntheticDomainError extends Error {
   }
 }
 
-const contention = () =>
-  new SyntheticDomainError(secret, 503, {
-    cause: Object.assign(new Error(secret), { code: "SQLITE_BUSY" }),
-  });
-
-test("a 500+ domain error is captured and loses its raw message; client statuses are untouched", async () => {
-  const capture = spyOn(
-    { capture: (_error: unknown, _source: ServerErrorSource) => {} },
-    "capture",
-  );
-  const log = spyOn(console, "error").mockImplementation(() => {});
-  const app = new Hono<SessionEnv>();
-  for (const [path, error] of [
-    ["client", () => new SyntheticDomainError(secret, 404)],
-    ["server", () => new SyntheticDomainError(secret, 500)],
-    ["contended", contention],
-  ] as const) {
-    app.get(`/${path}`, (c) =>
+function app(errors: ReadonlyArray<readonly [string, () => Error]>) {
+  const instance = new Hono<SessionEnv>();
+  for (const [path, error] of errors) {
+    instance.get(`/${path}`, (c) =>
       respondToStatusError(c, error(), SyntheticDomainError, {
         code: "synthetic_not_found",
         status: 404,
       }),
     );
   }
-  app.onError(createApiErrorHandler(capture));
+  instance.onError(createApiErrorHandler(() => {}));
+  return instance;
+}
+
+test("a 500+ domain error is captured where it is answered", async () => {
+  const capture = spyOn(diagnostics, "captureApiError").mockImplementation(
+    () => {},
+  );
   try {
-    const client = await app.request("/client");
-    expect(client.status).toBe(404);
-    expect(await client.json()).toEqual({
+    const response = await app([
+      ["server", () => new SyntheticDomainError(secret, 500)],
+    ]).request("/server");
+    expect(response.status).toBe(500);
+    expect(capture).toHaveBeenCalledTimes(1);
+    const [error, source] = capture.mock.calls[0] ?? [];
+    expect(error).toBeInstanceOf(SyntheticDomainError);
+    expect(source).toBe("request-error");
+  } finally {
+    capture.mockRestore();
+  }
+});
+
+test("a deliberate 503 keeps its retryable status and body", async () => {
+  // Propagating it to the shared handler instead would answer a 500 unless the
+  // cause chain happened to look like driver contention, so a caller that
+  // retries on 503 would stop retrying a transient billing or provisioning
+  // outage. Domain errors of this class carry no cause at all.
+  const capture = spyOn(diagnostics, "captureApiError").mockImplementation(
+    () => {},
+  );
+  try {
+    const response = await app([
+      ["unavailable", () => new SyntheticDomainError(secret, 503)],
+    ]).request("/unavailable");
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: secret });
+    expect(capture).toHaveBeenCalledTimes(1);
+  } finally {
+    capture.mockRestore();
+  }
+});
+
+test("client statuses answer unchanged and are never captured", async () => {
+  const capture = spyOn(diagnostics, "captureApiError").mockImplementation(
+    () => {},
+  );
+  try {
+    const response = await app([
+      ["client", () => new SyntheticDomainError(secret, 404)],
+    ]).request("/client");
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({
       code: "synthetic_not_found",
       error: secret,
     });
     expect(capture).not.toHaveBeenCalled();
-
-    // Before the guard the epilogue returned this body itself, so the real 500
-    // it produced never reached `onError` and was never captured.
-    const server = await app.request("/server");
-    expect(server.status).toBe(500);
-    expect(await server.json()).toEqual({ error: "Internal Server Error" });
-
-    // A 5xx domain error wrapping a driver contention failure still answers with
-    // the retryable status: the shared handler classifies the whole cause chain.
-    const contended = await app.request("/contended");
-    expect(contended.status).toBe(503);
-    expect(await contended.json()).toEqual({
-      error: "Database temporarily unavailable",
-    });
-
-    expect(capture).toHaveBeenCalledTimes(2);
-    for (const [error, source] of capture.mock.calls) {
-      expect(error).toBeInstanceOf(SyntheticDomainError);
-      expect(source).toBe("request-error");
-    }
   } finally {
-    log.mockRestore();
     capture.mockRestore();
+  }
+});
+
+test("a non-domain error still propagates to the shared 500 handler", async () => {
+  const log = spyOn(console, "error").mockImplementation(() => {});
+  const capture = spyOn(diagnostics, "captureApiError").mockImplementation(
+    () => {},
+  );
+  try {
+    const instance = new Hono<SessionEnv>();
+    instance.get("/other", (c) =>
+      respondToStatusError(c, new Error(secret), SyntheticDomainError),
+    );
+    const handler = spyOn({ capture: () => {} }, "capture");
+    instance.onError(createApiErrorHandler(handler));
+    const response = await instance.request("/other");
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: "Internal Server Error" });
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(capture).not.toHaveBeenCalled();
+  } finally {
+    capture.mockRestore();
+    log.mockRestore();
   }
 });

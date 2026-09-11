@@ -1,8 +1,9 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { blobStages, organizationBilling } from "@tearleads/api-shared/schema";
 import { eq } from "drizzle-orm";
 import { createBlobStageOwner } from "../../../test/helpers/blobStageOwner";
 import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
+import * as background from "../../diagnostics/reportBackgroundFailure";
 import { initiateMultipartBlobStage } from "../blobs/multipartStage";
 import { runOrganizationPurgeMaintenance } from "./organizationPurge";
 
@@ -38,11 +39,17 @@ test("organization purge retries failed stage cleanup before finalizing and pres
       return store.abortMultipartUpload(input);
     },
   };
+  // A per-item failure is counted into `failed` and dropped, so it never
+  // reaches the worker's phase catch and the exit status is its only trace.
+  const report = spyOn(background, "reportBackgroundFailure");
   const failed = await runOrganizationPurgeMaintenance(runtime, {
     organizationIds: [first.organizationId],
     now,
   });
   expect(failed).toEqual({ claimed: 1, failed: 1, purged: 0 });
+  expect(report).toHaveBeenCalledTimes(1);
+  expect(report.mock.calls[0]?.[0]).toBeInstanceOf(Error);
+  report.mockRestore();
   const [billing] = await runtime.db
     .select()
     .from(organizationBilling)

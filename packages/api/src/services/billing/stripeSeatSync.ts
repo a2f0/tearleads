@@ -10,6 +10,7 @@ import {
   getSubscriptionBinding,
   type StripeSubscriptionBinding,
 } from "../../billing/stripeSubscriptionBinding";
+import { reportBackgroundFailure } from "../../diagnostics/reportBackgroundFailure";
 import { runBindOrganizationStripeSeatsWorkflow } from "../../workflows/billing/stripeSeatState";
 import {
   claimOrganizationStripeSeatSync,
@@ -315,6 +316,10 @@ export async function runStripeSeatSynchronization(
           `Stripe seat sync for organization ${claim.organizationId} requires attention: ${error.message}`,
         );
       }
+      // Every remaining failure is counted and then dropped, so the exit status
+      // is the only trace a per-minute timer leaves behind. A rebound period is
+      // ordinary contention and already returned above.
+      reportBackgroundFailure(error);
       failed += 1;
       await failOrganizationStripeSeatSync({
         claim,
