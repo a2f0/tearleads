@@ -196,13 +196,18 @@ function runProjectionCheck(): void {
     const policy = traces.find(
       (trace) => trace.scenario === "policy-late-delivery",
     );
-    if (!lateDelivery || !policy) {
+    const group = traces.find(
+      (trace) => trace.scenario === "container-group-late-delivery",
+    );
+    if (!lateDelivery || !policy || !group) {
       projectionFail("negative controls require the late-delivery traces.");
     }
     const negatives = [
       flippedOutcomeTrace(lateDelivery),
       droppedRevocationTrace(lateDelivery),
       flippedOutcomeTrace(policy),
+      flippedOutcomeTrace(group),
+      droppedRevocationTrace(group),
     ];
     for (const negative of negatives) {
       const result = checkTrace(
