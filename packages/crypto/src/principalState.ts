@@ -55,7 +55,8 @@ function isValidNonNegativeInteger(value: number): boolean {
 }
 
 function isValidSignedAt(value: string): boolean {
-  return !Number.isNaN(new Date(value).valueOf());
+  const date = new Date(value);
+  return !Number.isNaN(date.valueOf()) && date.toISOString() === value;
 }
 
 function encodeNormalizedPrincipalStateMembers(
@@ -88,6 +89,7 @@ function encodeUnsignedPrincipalState(
 ): Uint8Array {
   return TEXT_ENCODER.encode(
     JSON.stringify({
+      domain: "tearleads.principal-state",
       principalType: state.principalType,
       principalId: state.principalId,
       version: state.version,

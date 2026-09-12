@@ -3,14 +3,21 @@ import type { PrincipalContainerGrant } from "./principalStateTypes";
 
 const TEXT_ENCODER = new TextEncoder();
 
+function compareCanonicalStrings(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
 function comparePrincipalContainerGrants(
   left: PrincipalContainerGrant,
   right: PrincipalContainerGrant,
 ): number {
-  const containerComparison = left.containerId.localeCompare(right.containerId);
+  const containerComparison = compareCanonicalStrings(
+    left.containerId,
+    right.containerId,
+  );
   return containerComparison !== 0
     ? containerComparison
-    : left.accessLevel.localeCompare(right.accessLevel);
+    : compareCanonicalStrings(left.accessLevel, right.accessLevel);
 }
 
 export function normalizePrincipalContainerGrants(
