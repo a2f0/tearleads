@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { toFingerprint } from "@tearleads/crypto";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
 import {
   preflightSecurityAnchorRestore,
@@ -8,6 +9,19 @@ import {
 
 const UPDATED_AT = "2026-09-12T12:00:00.000Z";
 const HASH = "a".repeat(64);
+const INCIDENT_ID = `incident_v1_${await toFingerprint(
+  new TextEncoder().encode(
+    JSON.stringify([
+      null,
+      "equivocation",
+      "sync",
+      "document",
+      "document-1",
+      "organization-1",
+      "{}",
+    ]),
+  ),
+)}`;
 
 const schema = [
   `CREATE TABLE document_purge_checkpoints (
@@ -35,7 +49,7 @@ test("restoring a database without terminal anchors preserves purge pins and inc
     await target.execSql(
       "INSERT INTO security_incidents VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       [
-        "incident-1",
+        INCIDENT_ID,
         null,
         "equivocation",
         "sync",
@@ -70,7 +84,7 @@ test("restore unions terminal evidence and merges repeated incident observations
       await db.execSql(
         "INSERT INTO security_incidents VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         [
-          "incident-1",
+          INCIDENT_ID,
           null,
           "equivocation",
           "sync",
@@ -176,7 +190,7 @@ test("restore refuses an incident identity collision without erasing local evide
     await target.execSql(
       "INSERT INTO security_incidents VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       [
-        "incident-1",
+        INCIDENT_ID,
         null,
         "equivocation",
         "sync",

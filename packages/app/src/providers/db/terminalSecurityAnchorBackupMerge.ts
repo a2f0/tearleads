@@ -7,6 +7,11 @@ import {
   validateBackupTableColumns,
 } from "./backupTableValidation";
 import type { BackupSqlRow, BackupTable } from "./localBackupFormat";
+import { readProperty } from "./localBackupPayload";
+import {
+  retainSecurityIncidentBackupRows,
+  validateSecurityIncidentBackupIdentity,
+} from "./securityIncidentBackupValidation";
 
 export const DOCUMENT_PURGE_CHECKPOINT_TABLE_NAME =
   "document_purge_checkpoints";
@@ -110,11 +115,11 @@ const incidentIdentityColumns = [
   "evidence_hashes",
 ];
 
-export function mergeSecurityIncidentBackupTables(
+export async function mergeSecurityIncidentBackupTables(
   input: Tables,
-): BackupTable | null {
+): Promise<BackupTable | null> {
   const label = "Security incident";
-  return mergeEvidenceTables(input, {
+  const merged = mergeEvidenceTables(input, {
     tableName: SECURITY_INCIDENT_TABLE_NAME,
     label,
     keyColumn: "id",
@@ -139,8 +144,23 @@ export function mergeSecurityIncidentBackupTables(
       for (const column of ["trust_domain", "object_id", "organization_id"]) {
         if (row[column] !== null) requireBackupString(row, column, label);
       }
-      requireBackupTimestamp(row, "detected_at", label);
-      requireBackupTimestamp(row, "last_detected_at", label);
+      for (const column of ["detected_at", "last_detected_at"]) {
+        requireBackupTimestamp(row, column, label);
+        const value = requireBackupString(row, column, label);
+        if (new Date(value).toISOString() !== value) {
+          throw new Error(
+            `Security incident backup has a non-canonical ${column}`,
+          );
+        }
+      }
+      if (
+        String(readProperty(row, "detected_at")) >
+        String(readProperty(row, "last_detected_at"))
+      ) {
+        throw new Error(
+          "Security incident backup observation times are reversed",
+        );
+      }
       requireBackupPositiveInteger(row, "occurrence_count", label);
     },
     mergeRow: (current, restored) => {
@@ -167,4 +187,7 @@ export function mergeSecurityIncidentBackupTables(
       };
     },
   });
+  if (!merged) return null;
+  await Promise.all(merged.rows.map(validateSecurityIncidentBackupIdentity));
+  return { ...merged, rows: retainSecurityIncidentBackupRows(merged.rows) };
 }

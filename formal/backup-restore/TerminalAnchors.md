@@ -31,3 +31,9 @@ their idempotent maximum-count and enclosing-time-window merge. Deliberate
 ledger retention and deletion of the entire local database are outside the
 restore invariant. Backup encryption, signature checking, SQL schema parsing,
 and blob rollback are also outside this bounded model.
+
+Restore also validates each incident ID against its serialized identity fields,
+requires canonical ISO observation timestamps, and applies the ledger's newest
+1,000 rows per trust-domain limit after the union. Timestamp ties use descending
+incident ID, matching SQLite. These representation and retention rules are
+covered by implementation tests rather than the two-incident abstraction.

@@ -33,10 +33,10 @@ export function isSecurityAnchorTableName(name: string): boolean {
  * Preserve the strongest local trust decision across a full database restore.
  * Missing tables are valid because client security schemas are created lazily.
  */
-export function mergeSecurityAnchorBackupTables(input: {
+export async function mergeSecurityAnchorBackupTables(input: {
   readonly current: ReadonlyArray<BackupTable>;
   readonly restored: ReadonlyArray<BackupTable>;
-}): BackupTable[] {
+}): Promise<BackupTable[]> {
   const mergedAccessCheckpoints = mergeAccessManifestCheckpointBackupTables({
     current: uniqueBackupTableByName(
       input.current,
@@ -80,7 +80,7 @@ export function mergeSecurityAnchorBackupTables(input: {
       DOCUMENT_PURGE_CHECKPOINT_TABLE_NAME,
     ),
   });
-  const mergedIncidents = mergeSecurityIncidentBackupTables({
+  const mergedIncidents = await mergeSecurityIncidentBackupTables({
     current: uniqueBackupTableByName(
       input.current,
       SECURITY_INCIDENT_TABLE_NAME,
