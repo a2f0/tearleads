@@ -172,7 +172,9 @@ async function verifyFreshContainerManifestBundle(
     : null;
 
   const verified = await verifyContainerAccessManifest({
-    authorizationMembership: input.authorizationMembership,
+    // Served manifests were committed under their signed policy references.
+    // Current membership still gates new writes in the API verifier.
+    authorizationMembership: input.authorizationMembership ?? "referenced",
     destinationParentContainerPath: citedAncestors,
     event,
     expectedManifestHash: input.bundle.manifestHash,

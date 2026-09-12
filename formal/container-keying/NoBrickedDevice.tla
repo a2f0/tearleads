@@ -34,6 +34,7 @@ CONSTANTS Devices,
           RefuseFork,                    \* a dependent chain not extending the device checkpoint
           RefuseCitationRegression,      \* a citation below the one its predecessor established
           RefuseServedAuthorityRollback, \* a served authority head older than the cited one
+          RefuseSignerRevokedAtCurrent,  \* withdrawn #2266 rule: signer still belongs now
           RefuseSignerRevokedAtCitation, \* a signer without membership at the cited head
           RefuseStaleHeadCitation,       \* withdrawn #2174 rule: a new head must cite the served authority
           RefuseStaleChainCitation       \* #2173 rule: every new chain entry must cite the served authority
@@ -44,7 +45,8 @@ ASSUME /\ Devices # {}
        /\ MaxDependentVersion \in Nat \ {0}
        /\ {ServerHonest, RefuseRollback, RefuseFork, RefuseCitationRegression,
            RefuseServedAuthorityRollback, RefuseSignerRevokedAtCitation,
-           RefuseStaleHeadCitation, RefuseStaleChainCitation} \subseteq BOOLEAN
+           RefuseSignerRevokedAtCurrent, RefuseStaleHeadCitation,
+           RefuseStaleChainCitation} \subseteq BOOLEAN
 
 AuthorityVersions == 1..MaxAuthorityVersion
 DependentVersions == 1..MaxDependentVersion
@@ -176,6 +178,9 @@ ServedAuthorityOk(d, p) ==
 
 SignerOk(d, p) == ~RefuseSignerRevokedAtCitation \/ MemberAt(p.late, p.cited)
 
+CurrentSignerOk(d, p) ==
+  ~RefuseSignerRevokedAtCurrent \/ MemberAt(p.late, p.authority)
+
 StaleHeadOk(d, p) ==
   \/ ~RefuseStaleHeadCitation
   \/ Fresh(d)
@@ -196,6 +201,7 @@ Accepts(d, p) ==
   /\ CitationOk(d, p)
   /\ ServedAuthorityOk(d, p)
   /\ SignerOk(d, p)
+  /\ CurrentSignerOk(d, p)
   /\ StaleHeadOk(d, p)
   /\ StaleChainOk(d, p)
 

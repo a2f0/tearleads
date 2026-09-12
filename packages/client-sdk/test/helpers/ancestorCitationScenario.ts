@@ -224,6 +224,7 @@ export function verifyPath(
   },
 ) {
   return verifyContainerManifestPath({
+    servedAsCurrent: true,
     bundlesByHash: new Map(
       input.bundles.map((value) => [value.manifestHash, manifestBundle(value)]),
     ),

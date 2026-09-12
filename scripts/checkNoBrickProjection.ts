@@ -36,15 +36,17 @@ import {
 } from "./noBrickTraceModule";
 import { resolveTlcTools, runTlc, type TlcTools } from "./tlcTools";
 
-// Both scenario tests import only source modules and the shared test
+// The scenario tests import only source modules and the shared test
 // helpers, so the projection stays runnable in the always-on lint job
 // without built package dist output or package-local test preloads.
 const SCENARIO_TESTS: readonly string[] = [
   "packages/client-sdk/src/data/keyingProjectionVerification/noBrickContainerProjection.test.ts",
   "packages/client-sdk/src/data/keyingProjectionVerification/noBrickPolicyProjection.test.ts",
+  "packages/client-sdk/src/data/keyingProjectionVerification/noBrickGroupProjection.test.ts",
 ];
 const EXPECTED_TRACES = [
   "container-fresh-device",
+  "container-group-late-delivery",
   "container-late-chain",
   "container-late-delivery",
   "policy-late-delivery",
@@ -194,13 +196,18 @@ function runProjectionCheck(): void {
     const policy = traces.find(
       (trace) => trace.scenario === "policy-late-delivery",
     );
-    if (!lateDelivery || !policy) {
+    const group = traces.find(
+      (trace) => trace.scenario === "container-group-late-delivery",
+    );
+    if (!lateDelivery || !policy || !group) {
       projectionFail("negative controls require the late-delivery traces.");
     }
     const negatives = [
       flippedOutcomeTrace(lateDelivery),
       droppedRevocationTrace(lateDelivery),
       flippedOutcomeTrace(policy),
+      flippedOutcomeTrace(group),
+      droppedRevocationTrace(group),
     ];
     for (const negative of negatives) {
       const result = checkTrace(

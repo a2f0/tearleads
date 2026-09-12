@@ -32,6 +32,14 @@ const NO_BRICK_ADVERSARY =
 
 export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   {
+    id: "no-brick-signer-revoked-at-current",
+    module: NO_BRICK_MODULE,
+    config: NO_BRICK_HONEST,
+    constants: { RefuseSignerRevokedAtCurrent: "TRUE" },
+    expect: { kind: "invariant", name: "HonestServerNeverRefused" },
+    why: "Requiring current membership rejects an honest late-delivered head signed before the group removed its signer (#2266).",
+  },
+  {
     id: "no-brick-stale-head-citation",
     module: NO_BRICK_MODULE,
     config: NO_BRICK_HONEST,

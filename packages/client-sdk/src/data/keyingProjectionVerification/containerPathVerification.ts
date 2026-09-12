@@ -21,6 +21,7 @@ export async function verifyContainerManifestPath(input: {
   readonly bundlesByHash: ReadonlyMap<string, AccessManifestBundleWireResponse>;
   readonly checkpointContext: ProjectionCheckpointContext;
   readonly enforceLocalCheckpoints: boolean;
+  readonly servedAsCurrent: boolean;
   readonly label: string;
   readonly path: readonly AccessManifestBundleWireResponse[];
   readonly principalPolicyCache: PrincipalPolicyCache;
@@ -31,14 +32,8 @@ export async function verifyContainerManifestPath(input: {
     | ReferencedPrincipalPolicyWarmer
     | undefined;
 }): Promise<VerifiedContainerAccessManifest[]> {
-  // A checkpoint-enforced path verified at current membership is the current
-  // one, so the heads it serves above an element must be or descend from the
-  // heads that element's signed event cites. A signed snapshot such as a
-  // purge's authorizing path is verified at referenced membership and is the
-  // path its event cited.
-  const servedAsCurrent =
-    input.enforceLocalCheckpoints &&
-    (input.authorizationMembership ?? "current") === "current";
+  // Historical signer membership and current-path freshness are independent:
+  // current heads may have been signed before a group member was removed.
   const verifiedPath: VerifiedContainerAccessManifest[] = [];
   for (const [index, bundle] of input.path.entries()) {
     const label = `${input.label}[${index}]`;
@@ -67,7 +62,7 @@ export async function verifyContainerManifestPath(input: {
         `${label} parent container does not precede it in the path`,
       );
     }
-    if (servedAsCurrent) {
+    if (input.servedAsCurrent) {
       assertServedAncestorsDescendFromCitations({
         head: verified,
         label,

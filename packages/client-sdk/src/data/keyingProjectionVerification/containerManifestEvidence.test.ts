@@ -192,6 +192,7 @@ test("required purge evidence reaches every recursive container predecessor", as
 
   try {
     const warmPath = await verifyContainerManifestPath({
+      servedAsCurrent: false,
       authorizationMembership: "referenced",
       bundlesByHash,
       checkpointContext: createProjectionCheckpointContext({ execSql }),
@@ -206,6 +207,7 @@ test("required purge evidence reaches every recursive container predecessor", as
 
     await expect(
       verifyContainerManifestPath({
+        servedAsCurrent: false,
         authorizationEvidence: [],
         authorizationMembership: "referenced",
         bundlesByHash,

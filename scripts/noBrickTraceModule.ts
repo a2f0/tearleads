@@ -331,6 +331,7 @@ CONSTANTS
   RefuseCitationRegression = TRUE
   RefuseServedAuthorityRollback = TRUE
   RefuseSignerRevokedAtCitation = TRUE
+  RefuseSignerRevokedAtCurrent = FALSE
   RefuseStaleHeadCitation = FALSE
   RefuseStaleChainCitation = FALSE
 
