@@ -20,6 +20,7 @@ const TLA_LINK_PATTERN = /\(([^()\s]+\.tla)\)/g;
 /** Every document that carries abstraction-map tables, with its exact count. */
 const EXPECTED_TABLES: Readonly<Record<string, number>> = {
   "formal/README.md": 1,
+  "formal/backup-restore/TerminalAnchors.md": 1,
   "formal/container-keying/NoBrickedDevice.md": 1,
   "formal/document-sync/BaselineDominance.md": 1,
   "formal/document-sync/DeferredTailSettlement.md": 1,

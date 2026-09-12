@@ -157,3 +157,10 @@ violation immediately — the lock discipline is load-bearing, not incidental.
 The negative-control check asserts this on every run.
 The bounds stay small (`MaxUpdates = 3`); the state space is tiny because the
 model tracks only the uncovered-update count and the unlink transaction phase.
+
+## Backup Restore Terminal Anchors
+
+[`backup-restore/TerminalAnchors.tla`](./backup-restore/TerminalAnchors.tla)
+models preservation of verified purge decisions and incident evidence across
+full database restores, including observations made after restore preflight.
+See the [mapping and boundaries](./backup-restore/TerminalAnchors.md).

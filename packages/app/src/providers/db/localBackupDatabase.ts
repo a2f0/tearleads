@@ -182,7 +182,7 @@ export async function preflightSecurityAnchorRestore(input: {
         execSql,
         tables: currentDefinitions,
       });
-      mergeSecurityAnchorBackupTables({
+      await mergeSecurityAnchorBackupTables({
         current,
         restored: input.restoredTables,
       });
@@ -239,7 +239,7 @@ export async function restoreBackupDatabase(input: {
         });
         // Repeating the merge under the write transaction closes the gap
         // between the side-effect-free preflight and the authoritative write.
-        const restoredTables = mergeSecurityAnchorBackupTables({
+        const restoredTables = await mergeSecurityAnchorBackupTables({
           current: currentSecurityAnchors,
           restored: input.tables,
         });

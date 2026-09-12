@@ -1,3 +1,4 @@
+formal/backup-restore/TerminalAnchors.tla|formal/backup-restore/TerminalAnchors.cfg
 formal/container-keying/ContainerGrantScope.tla|formal/container-keying/ContainerGrantScope.cfg
 formal/container-keying/KeyringReachability.tla|formal/container-keying/KeyringReachability.cfg
 formal/container-keying/NoBrickedDevice.tla|formal/container-keying/NoBrickedDevice.cfg
