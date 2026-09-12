@@ -5,7 +5,14 @@ import { toFingerprint } from "./fingerprint";
 import { verifySignedAccessEvent } from "./keying/accessEvent";
 import { encodeDomainPayload } from "./keying/canonical";
 import { readSignedAt } from "./keying/shared";
-import { createSignedContainerEvent } from "./keying/testFixtures";
+import {
+  createSignedContainerEvent,
+  createWriteHeaderFixture,
+  fixtureHash,
+  signTransparencyTreeHeadFixture,
+} from "./keying/testFixtures";
+import { verifySignedTransparencyTreeHead } from "./keying/transparency";
+import { verifyWriteHeader } from "./keying/writeHeader";
 import {
   buildPrincipalStateSigningInput,
   computePrincipalStateHash,
@@ -98,6 +105,57 @@ test("principal signing, hashing and verification reject noncanonical timestamps
         signingPublicKey,
       ),
     ).toBe(false);
+  }
+});
+
+test("write headers reject correctly signed noncanonical timestamps", async () => {
+  const signing = generateSigningSeedAndKeyPair();
+  const header = await createWriteHeaderFixture({
+    accessManifestHash: await fixtureHash("timestamp-access"),
+    targetHash: await fixtureHash("timestamp-targets"),
+    objectId: "document-1",
+    organizationId: "organization-1",
+    writerUserId: "alice",
+    signing,
+  });
+  const { signature: _signature, ...original } = header;
+  for (const signedAt of nonCanonicalTimestamps) {
+    const unsigned = { ...original, signedAt };
+    const signature = sign(
+      encodeDomainPayload("tearleads.keying.write-header-signing", unsigned),
+      signing.signingPrivateKey,
+    );
+    expect(
+      await verifyWriteHeader({
+        header: { ...unsigned, signature: bytesToBase64(signature) },
+        writerPublicKey: signing.signingPublicKey,
+      }),
+    ).toMatchObject({ ok: false, error: { code: "invalid_shape" } });
+  }
+});
+
+test("transparency heads reject correctly signed noncanonical timestamps", async () => {
+  const signing = generateSigningSeedAndKeyPair();
+  const { treeHead } = await signTransparencyTreeHeadFixture({
+    leafHashes: [],
+    signing,
+  });
+  const { signature: _signature, ...original } = treeHead;
+  for (const signedAt of nonCanonicalTimestamps) {
+    const unsigned = { ...original, signedAt };
+    const signature = sign(
+      encodeDomainPayload(
+        "tearleads.keying.transparency-tree-head-signing",
+        unsigned,
+      ),
+      signing.signingPrivateKey,
+    );
+    expect(
+      await verifySignedTransparencyTreeHead({
+        treeHead: { ...unsigned, signature: bytesToBase64(signature) },
+        logPublicKey: signing.signingPublicKey,
+      }),
+    ).toMatchObject({ ok: false, error: { code: "invalid_shape" } });
   }
 });
 
