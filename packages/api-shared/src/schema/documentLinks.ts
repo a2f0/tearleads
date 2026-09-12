@@ -67,6 +67,9 @@ export const containerDocumentSyncTombstones = pgTable(
 
 /**
  * One-to-one metadata document reservations retained after container deletion.
+ * Retired ID pairs deliberately outlive whole-organization purge: they carry
+ * no content and prevent another organization from restarting that ID's history.
+ * Billing purge owns the separate retention policy for still-live bindings.
  *
  * Every created container can have a metadata document that describes
  * user-facing container metadata through the regular encrypted document path.

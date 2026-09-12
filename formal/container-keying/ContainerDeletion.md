@@ -12,8 +12,8 @@ must permanently retire its metadata document ID.
 | `CommitCreate` | `insertDocumentAndLinks` commits the document and target links |
 | `BeginDelete` | `deleteContainer` takes an exclusive manifest-head lock |
 | `CommitDelete` / `RefuseNonemptyDelete` | `deleteLeafContainerRow` rejects nonempty containers |
-| `PreserveMetadataReservation` | `teardownContainerMetadataDocument` retains the metadata binding |
-| `ReuseMetadataId` | `assertCreateCanAdvanceDocumentHead` and `assertMetadataDocumentAvailable` reject retired IDs |
+| `PreserveMetadataReservation` | `teardownContainerMetadataDocument` retains the metadata binding (lifecycle-lock mechanics abstracted below) |
+| `ReuseMetadataId` | `assertCreateCanAdvanceDocumentHead` and `assertMetadataDocumentAvailable` reject retired IDs (lifecycle-lock mechanics abstracted below) |
 
 The finite model contains one leaf, its metadata document, and one ordinary
 document. A ready create holds the shared head lock until commit; a ready
