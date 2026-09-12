@@ -33,6 +33,15 @@ The abstraction maps to production at these seams:
 | `ServedAuthorityOk` | `assertServedAncestorsDescendFromCitations` on a checkpoint-enforced current path |
 | `SignerOk` | the signer authorized by `verifyContainerAccessManifest` against the path `resolveCitedAncestorPath` rebuilds from the event's citations; `externalAuthorityIncludesAdminSigner` |
 
+Container authorization can also flow through a group: its signed policy
+reference supplies the signer's membership at commit. The group projection
+trace exercises this instance after the group removes the signer.
+
+`CurrentSignerOk` models the #2266 regression: demanding membership at the
+served current authority rejects valid history after revocation. Its
+`RefuseSignerRevokedAtCurrent` parameter stays `FALSE`; the API still checks
+current membership when committing new work.
+
 `StaleHeadOk` and `StaleChainOk` have no production seam by design. The first
 is the rule #2174 withdrew: a head newer than the device's checkpoint must
 cite the served current authority head. The second is the rule #2173 removed
@@ -68,6 +77,8 @@ dishonest server can simply withhold. The run explores 136,428 generated and
 configuration per entry in `scripts/protocolNegativeControls.ts`, flips a
 single rule, and requires TLC to report exactly the named violation:
 
+- `RefuseSignerRevokedAtCurrent = TRUE` violates `HonestServerNeverRefused`:
+  even a fresh device rejects history signed before the signer was removed.
 - `RefuseStaleHeadCitation = TRUE` violates `DeviceEventuallyCurrent` and, as
   a safety latch, `HonestServerNeverRefused`: a device holding the dependent
   refuses the honest late-delivered head and can only advance after another
@@ -87,7 +98,7 @@ registered configurations only once the liveness run still passes.
 ## Implementation trace projection
 
 `bun run check:no-brick-projection` (part of `check:fast`) replays recorded
-implementation runs through this model. Two scenario tests in
+implementation runs through this model. Three scenario tests in
 `packages/client-sdk` drive the real verifiers and record each run as a
 sequence of the model's actions with the outcome the verifier produced:
 
@@ -99,6 +110,10 @@ sequence of the model's actions with the outcome the verifier produced:
   fork of the held head, a citation regression, and a served root older than
   the cited one are refused; the documented residual is accepted; and a device
   with no history refuses a stale served root on the citation alone.
+- `.../noBrickGroupProjection.test.ts` verifies a child authored by a group
+  admin before removal, delivered to a cold device after the root has adopted
+  the successor group policy. Authorization uses the signed historical group
+  reference while the current ancestor still satisfies citation floors.
 - `.../noBrickPolicyProjection.test.ts` drives `verifyPrincipalPolicyBundle`
   through the #2173 shape: a group successor by a since-removed admin citing
   the older Admins head is accepted after Admins advances, a later successor

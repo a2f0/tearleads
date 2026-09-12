@@ -152,6 +152,7 @@ async function verifyProjectionContainerPaths(input: {
     // document-event authorization. Content-write target lookups below still
     // prefer the checkpoint-enforced path for a served current leaf.
     const verifiedPath = await verifyContainerManifestPath({
+      servedAsCurrent: false,
       authorizationMembership: "referenced",
       bundlesByHash,
       checkpointContext: input.checkpointContext,

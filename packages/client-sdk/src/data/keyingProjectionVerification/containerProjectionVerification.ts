@@ -235,6 +235,7 @@ export async function verifyContainerWriterProjectionWithContext(
   const principalPolicyCache =
     input.principalPolicyCache ?? new Map<string, VerifiedPrincipalPolicy>();
   const verifiedPath = await verifyContainerManifestPath({
+    servedAsCurrent: true,
     bundlesByHash,
     checkpointContext,
     enforceLocalCheckpoints: true,

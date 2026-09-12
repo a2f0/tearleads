@@ -97,6 +97,7 @@ export async function verifyPurgeContainerPaths(input: {
   const bundlesByHash = collectContainerBundles(input.proof);
   const verifiedByHash = new Map<string, VerifiedContainerAccessManifest>();
   const authorizingContainerPath = await verifyContainerManifestPath({
+    servedAsCurrent: false,
     authorizationMembership: "referenced",
     authorizationEvidence: input.authorizationEvidence,
     bundlesByHash,
@@ -131,6 +132,7 @@ export async function verifyPurgeContainerPaths(input: {
     path,
   ] of input.proof.documentManifestContainerPaths.entries()) {
     const verifiedPath = await verifyContainerManifestPath({
+      servedAsCurrent: false,
       authorizationMembership: "referenced",
       authorizationEvidence: input.authorizationEvidence,
       bundlesByHash,
