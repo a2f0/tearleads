@@ -3,7 +3,7 @@ import { requireBackupString } from "./backupTableValidation";
 import type { BackupSqlRow } from "./localBackupFormat";
 import { readProperty } from "./localBackupPayload";
 
-const identityColumns = [
+export const incidentIdentityColumns = [
   "trust_domain",
   "code",
   "operation",
@@ -21,7 +21,12 @@ export async function validateSecurityIncidentBackupIdentity(
     "evidence_hashes",
     "Security incident",
   );
-  const parsed: unknown = JSON.parse(evidence);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(evidence);
+  } catch {
+    throw new Error("Security incident backup has invalid evidence hashes");
+  }
   if (
     !parsed ||
     typeof parsed !== "object" ||
@@ -36,7 +41,9 @@ export async function validateSecurityIncidentBackupIdentity(
   // incident_v1 hashes the stored JSON text, including its key order. Validate
   // that exact identity instead of imposing this device's locale ordering on
   // a backup created by another runtime.
-  const identity = JSON.stringify(identityColumns.map((column) => row[column]));
+  const identity = JSON.stringify(
+    incidentIdentityColumns.map((column) => row[column]),
+  );
   const id = `incident_v1_${await toFingerprint(new TextEncoder().encode(identity))}`;
   if (readProperty(row, "id") !== id)
     throw new Error("Security incident backup id does not match its evidence");
@@ -64,4 +71,23 @@ export function retainSecurityIncidentBackupRows(
       counts.set(domain, count);
       return count <= 1_000;
     });
+}
+
+/** Reject a restored clock that could pin future incidents ahead of new evidence. */
+export function validateRestoredIncidentTimes(
+  rows: readonly BackupSqlRow[],
+): void {
+  const latestAllowed = Date.now() + 5 * 60 * 1000;
+  for (const row of rows) {
+    for (const column of ["detected_at", "last_detected_at"]) {
+      if (
+        Date.parse(requireBackupString(row, column, "Security incident")) >
+        latestAllowed
+      ) {
+        throw new Error(
+          "Security incident backup observation is too far in the future",
+        );
+      }
+    }
+  }
 }

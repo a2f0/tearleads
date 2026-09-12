@@ -9,7 +9,9 @@ import {
 import type { BackupSqlRow, BackupTable } from "./localBackupFormat";
 import { readProperty } from "./localBackupPayload";
 import {
+  incidentIdentityColumns,
   retainSecurityIncidentBackupRows,
+  validateRestoredIncidentTimes,
   validateSecurityIncidentBackupIdentity,
 } from "./securityIncidentBackupValidation";
 
@@ -105,20 +107,11 @@ export function mergeDocumentPurgeCheckpointBackupTables(
   });
 }
 
-const incidentIdentityColumns = [
-  "trust_domain",
-  "code",
-  "operation",
-  "object_kind",
-  "object_id",
-  "organization_id",
-  "evidence_hashes",
-];
-
 export async function mergeSecurityIncidentBackupTables(
   input: Tables,
 ): Promise<BackupTable | null> {
   const label = "Security incident";
+  validateRestoredIncidentTimes(input.restored?.rows ?? []);
   const merged = mergeEvidenceTables(input, {
     tableName: SECURITY_INCIDENT_TABLE_NAME,
     label,

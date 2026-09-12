@@ -48,6 +48,14 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "Replacing security tables with an older backup erases a verified purge decision (#2266).",
   },
   {
+    id: "restore-drops-incident-evidence",
+    module: "formal/backup-restore/TerminalAnchors.tla",
+    config: "formal/backup-restore/TerminalAnchors.cfg",
+    constants: { PreserveAnchors: "FALSE" },
+    expect: { kind: "action", name: "IncidentEvidenceNeverLost" },
+    why: "Replacing security tables with an older backup erases recorded incident evidence (#2266).",
+  },
+  {
     id: "restore-stale-preflight",
     module: "formal/backup-restore/TerminalAnchors.tla",
     config: "formal/backup-restore/TerminalAnchors.cfg",

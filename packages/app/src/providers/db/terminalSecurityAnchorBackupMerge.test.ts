@@ -110,6 +110,7 @@ for (const [label, change] of [
   ["invalid trust domain", { trust_domain: 123 }],
   ["invalid object id", { object_id: 123 }],
   ["invalid evidence", { evidence_hashes: "[]" }],
+  ["malformed evidence", { evidence_hashes: "{" }],
 ] as const) {
   test(`restore rejects an incident with ${label}`, async () => {
     const restored = table([{ ...(await incident()), ...change }]);
@@ -141,4 +142,25 @@ test("either side alone retains validated incident evidence", async () => {
   expect(
     await mergeSecurityIncidentBackupTables({ current: null, restored: value }),
   ).toEqual(value);
+});
+
+test("a future-dated backup flood cannot evict current or subsequent evidence", async () => {
+  const current = table([await incident()]);
+  const future = new Date(Date.now() + 86400000).toISOString();
+  const rows = await Promise.all(
+    Array.from({ length: 1000 }, (_, index) => incident(index + 1)),
+  );
+  const restored = table(
+    rows.map((row) => ({
+      ...row,
+      detected_at: future,
+      last_detected_at: future,
+    })),
+  );
+  await expect(
+    mergeSecurityIncidentBackupTables({ current, restored }),
+  ).rejects.toThrow("too far in the future");
+  await expect(
+    mergeSecurityIncidentBackupTables({ current: null, restored }),
+  ).rejects.toThrow("too far in the future");
 });

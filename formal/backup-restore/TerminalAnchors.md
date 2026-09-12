@@ -24,7 +24,9 @@ observations, and conflicting purge evidence.
 
 `PreserveAnchors = FALSE` reproduces the original table-replacement bug.
 `RecheckAtCommit = FALSE` uses a stale preflight merge and loses a decision
-observed before the write transaction. Both are registered negative controls.
+observed before the write transaction. Registered negative controls exercise
+both the purge-pin and incident-evidence
+properties, as well as the stale-preflight race.
 
 The model abstracts incident counts and timestamps; implementation tests check
 their idempotent maximum-count and enclosing-time-window merge. Deliberate
@@ -37,3 +39,8 @@ requires canonical ISO observation timestamps, and applies the ledger's newest
 1,000 rows per trust-domain limit after the union. Timestamp ties use descending
 incident ID, matching SQLite. These representation and retention rules are
 covered by implementation tests rather than the two-incident abstraction.
+
+Restored incident observations more than five minutes ahead of the restoring
+device are refused, so an imported future clock cannot suppress subsequent
+incidents indefinitely through retention ordering. Correcting that clock and
+retrying restore preserves the evidence without rewriting its timestamps.
