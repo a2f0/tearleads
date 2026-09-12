@@ -13,6 +13,7 @@ import { lockAccessManifestHeadsForUpdate } from "../../access/read/accessManife
 import { uniqueSortedStrings } from "../../utils/array";
 import { uuidValue } from "../../utils/sqlDialect";
 import { assertOrganizationCanSync } from "../billing/organizationSyncEligibility";
+import { lockDocumentLifecycleInTransaction } from "../documents/mutations/documentLifecycleLock";
 import { teardownContainerMetadataDocument } from "../documents/mutations/purgeDocument";
 import {
   appendOrganizationReadModelChangeInTransaction,
@@ -184,6 +185,21 @@ async function deleteLeafContainerRow(input: {
   throw new DeleteContainerError("Container not found", 404);
 }
 
+async function lockMetadataDeletion(
+  executor: DatabaseTransaction,
+  documentId: string,
+): Promise<void> {
+  // The stable lifecycle lock survives metadata-head deletion, so a create
+  // cannot race the permanent metadata-ID reservation becoming retired.
+  await lockDocumentLifecycleInTransaction(executor, documentId);
+  // The full order is container head -> lifecycle -> document head -> row.
+  // A concurrent sync write holds the document head FOR UPDATE and later
+  // updates the linked container row; locking the container row first (via its
+  // delete) and the head second would wait on that sync while it waits on the
+  // row — a deadlock. Head-then-row here matches the sync path's order.
+  await lockAccessManifestHeadsForUpdate("document", [documentId], executor);
+}
+
 async function deleteContainerWithExecutor(input: {
   readonly containerId: string;
   readonly executor: DatabaseTransaction;
@@ -221,6 +237,14 @@ async function deleteContainerWithExecutor(input: {
     throw new Error("Organization read-model cursor head is missing");
   }
 
+  // Document creates and link mutations hold these heads FOR SHARE. Lock
+  // before rechecking access/emptiness, in container -> document -> row order.
+  await lockAccessManifestHeadsForUpdate(
+    "container",
+    [input.containerId],
+    input.executor,
+  );
+
   // Rebuild the writer projection after serializing the organization so a
   // concurrent revocation cannot race the delete authorization.
   const access = await resolveAccess();
@@ -254,15 +278,9 @@ async function deleteContainerWithExecutor(input: {
     updatedAt,
     userIds: [...visibleUserIds.allUserIds, input.userId],
   });
-  // Lock the metadata document's manifest head BEFORE touching the container
-  // row. A concurrent sync write holds the head FOR UPDATE and later
-  // updates the linked container row; locking the container row first (via its
-  // delete) and the head second would wait on that sync while it waits on the
-  // row — a deadlock. Head-then-row here matches the sync path's order.
-  await lockAccessManifestHeadsForUpdate(
-    "document",
-    [targetManifest.state.metadataDocumentId],
+  await lockMetadataDeletion(
     input.executor,
+    targetManifest.state.metadataDocumentId,
   );
   // deleteLeafContainerRow throws on a non-empty container (child or other
   // linked document), so the teardown below only runs once the container is

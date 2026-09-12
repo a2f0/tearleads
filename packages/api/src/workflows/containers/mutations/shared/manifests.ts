@@ -10,6 +10,7 @@ import type {
 } from "@tearleads/validators/request";
 import { getCurrentAccessManifestHead } from "../../../../access/read/accessManifestStore";
 import { readProjectionAccessManifest } from "../../../../keyingProjectionRecords";
+import { loadLiveContainerOrganizations } from "../../liveContainerRows";
 import {
   ContainerMutationError,
   containerManifestAlreadyExists,
@@ -130,6 +131,21 @@ export async function assertCurrentContainerPath(
     path.push(manifest);
   }
 
+  const liveOrganizations = await loadLiveContainerOrganizations(
+    context.executor,
+    path.map((manifest) => manifest.state.containerId),
+  );
+  for (const [index, manifest] of path.entries()) {
+    if (
+      liveOrganizations.get(manifest.state.containerId) !==
+      manifest.state.organizationId
+    ) {
+      throw new ContainerMutationError(
+        `${label}[${index}] container unavailable`,
+        409,
+      );
+    }
+  }
   assertContainerPathEdges(path, label);
   return path;
 }

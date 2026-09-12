@@ -1598,7 +1598,7 @@ test("POST /containers/with-metadata-document creates container and metadata doc
   });
 });
 
-test("DELETE /containers/:id deletes an empty metadata folder and tears down its metadata document", async () => {
+test("DELETE /containers/:id reserves the retired metadata ID", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);
   const root = await bootstrapRoot(owner);
@@ -1654,7 +1654,7 @@ test("DELETE /containers/:id deletes an empty metadata folder and tears down its
       .select({ documentId: containerMetadataDocuments.documentId })
       .from(containerMetadataDocuments)
       .where(eq(containerMetadataDocuments.containerId, containerId)),
-  ).toEqual([]);
+  ).toEqual([{ documentId: metadataDocumentId }]);
   expect(
     await db
       .select({ documentId: documentContainerLinks.documentId })

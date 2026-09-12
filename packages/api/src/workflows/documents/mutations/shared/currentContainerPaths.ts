@@ -5,6 +5,7 @@ import {
   getAccessManifestBundles,
   getCurrentAccessManifestHeads,
 } from "../../../../access/read/accessManifestStore";
+import { loadLiveContainerOrganizations } from "../../../containers/liveContainerRows";
 import { assertContainerPathEdges } from "../../../containers/mutations";
 import { loadContainerManifestBundleByHash } from "../../../containers/writerProjection/accessPaths";
 import { createContainerWriterProjectionContext } from "../../../containers/writerProjection/context";
@@ -84,7 +85,17 @@ async function resolveCurrentContainerManifestRefs(
     executor,
   );
 
+  const liveOrganizations = await loadLiveContainerOrganizations(
+    executor,
+    resolved.map(({ manifest }) => manifest.state.containerId),
+  );
   return resolved.map(({ manifest, refLabel }) => {
+    if (
+      liveOrganizations.get(manifest.state.containerId) !==
+      manifest.state.organizationId
+    ) {
+      throw new DocumentMutationError(`${refLabel} container unavailable`, 409);
+    }
     const head = heads.get(manifest.state.containerId);
     if (!head) {
       throw new DocumentMutationError(`${refLabel} head missing`, 409);

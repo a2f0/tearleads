@@ -69,7 +69,38 @@ export async function insertDocumentAndLinks(input: {
 export async function assertCreateCanAdvanceDocumentHead(
   executor: DatabaseTransaction,
   documentId: string,
+  linkedContainerIds: readonly string[],
 ): Promise<void> {
+  const [metadataBinding] = await executor
+    .select({
+      containerId: containerMetadataDocuments.containerId,
+      liveContainerId: containers.id,
+    })
+    .from(containerMetadataDocuments)
+    .leftJoin(
+      containers,
+      eq(containers.id, containerMetadataDocuments.containerId),
+    )
+    .where(eq(containerMetadataDocuments.documentId, documentId))
+    .limit(1);
+  if (metadataBinding && metadataBinding.liveContainerId === null) {
+    throw new DocumentMutationError(
+      "Document ID belongs to a deleted container",
+      409,
+    );
+  }
+
+  if (
+    metadataBinding &&
+    (linkedContainerIds.length !== 1 ||
+      linkedContainerIds[0] !== metadataBinding.containerId)
+  ) {
+    throw new DocumentMutationError(
+      "Container metadata document must link only to its owning container",
+      409,
+    );
+  }
+
   const purgeEvent = await getStoredAccessEventByObjectType({
     eventType: "document.purge",
     executor,

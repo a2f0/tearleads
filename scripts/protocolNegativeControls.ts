@@ -32,6 +32,14 @@ const NO_BRICK_ADVERSARY =
 
 export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   {
+    id: "container-metadata-without-owner-scope",
+    module: "formal/container-keying/ContainerDeletion.tla",
+    config: "formal/container-keying/ContainerDeletion.cfg",
+    constants: { CheckMetadataScope: "FALSE" },
+    expect: { kind: "invariant", name: "MetadataStaysWithOwner" },
+    why: "A live reserved metadata ID must not be created under an unrelated container whose content would disappear on metadata teardown (#2266).",
+  },
+  {
     id: "no-brick-signer-revoked-at-current",
     module: NO_BRICK_MODULE,
     config: NO_BRICK_HONEST,
@@ -70,6 +78,30 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     constants: { RecheckAtCommit: "FALSE" },
     expect: { kind: "action", name: "IncidentEvidenceNeverLost" },
     why: "Reusing a preflight merge loses incident evidence observed before the database write transaction.",
+  },
+  {
+    id: "container-delete-without-live-row-check",
+    module: "formal/container-keying/ContainerDeletion.tla",
+    config: "formal/container-keying/ContainerDeletion.cfg",
+    constants: { CheckLiveContainer: "FALSE" },
+    expect: { kind: "invariant", name: "LinkedDocumentsHaveLiveContainer" },
+    why: "A retained signed head is insufficient to authorize a new document in a deleted container (#2266).",
+  },
+  {
+    id: "container-delete-without-shared-lock",
+    module: "formal/container-keying/ContainerDeletion.tla",
+    config: "formal/container-keying/ContainerDeletion.cfg",
+    constants: { SerializeDeletion: "FALSE" },
+    expect: { kind: "invariant", name: "LinkedDocumentsHaveLiveContainer" },
+    why: "Deletion can pass its emptiness check while an authorized document create is uncommitted.",
+  },
+  {
+    id: "container-delete-releases-metadata-id",
+    module: "formal/container-keying/ContainerDeletion.tla",
+    config: "formal/container-keying/ContainerDeletion.cfg",
+    constants: { PreserveMetadataReservation: "FALSE" },
+    expect: { kind: "invariant", name: "RetiredMetadataIsNeverRecreated" },
+    why: "Dropping the metadata reservation allows a new history to reuse a retired document ID (#2266).",
   },
   {
     id: "no-brick-stale-head-citation",

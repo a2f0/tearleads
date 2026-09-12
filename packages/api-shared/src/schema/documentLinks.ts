@@ -66,13 +66,19 @@ export const containerDocumentSyncTombstones = pgTable(
 );
 
 /**
- * One-to-one container metadata document bindings.
+ * One-to-one metadata document reservations retained after container deletion.
+ * Retired ID pairs deliberately outlive whole-organization purge: they carry
+ * no content and prevent another organization from restarting that ID's history.
+ * Billing purge owns the separate retention policy for still-live bindings.
  *
  * Every created container can have a metadata document that describes
  * user-facing container metadata through the regular encrypted document path.
  * Metadata documents cannot be structurally relinked as normal documents, so
  * this binding lets document mutation workflows reject relinks for metadata
- * documents.
+ * documents. Bindings survive container deletion as ID tombstones: a binding
+ * whose container no longer exists prevents a new document history from using
+ * the retired metadata ID. Normal document creation still permits metadata
+ * initialization while its reserved container is live.
  *
  * Columns:
  * - `containerId`: Container whose metadata document this row binds. This is

@@ -429,9 +429,8 @@ export async function runPurgeDocumentWorkflow(
  * Tear down a container's OWN metadata document as part of deleting the
  * container. This deliberately bypasses the purge workflow: assertDocumentIsPurgeable
  * hard-rejects metadata documents, but the container itself is being deleted so
- * its metadata document must go with it. It also removes the
- * containerMetadataDocuments binding that the normal document teardown never
- * touches. No purge tombstone is written — metadata documents are withheld from
+ * its metadata document must go with it. The binding remains a permanent ID
+ * reservation. No purge tombstone is written — metadata is withheld from
  * client document discovery, so the per-user container tombstone that
  * deleteContainer already writes is the peer signal.
  *
@@ -462,9 +461,8 @@ export async function teardownContainerMetadataDocument(input: {
     [input.documentId],
     input.executor,
   );
-  await input.executor
-    .delete(containerMetadataDocuments)
-    .where(eq(containerMetadataDocuments.containerId, input.containerId));
+  // Keep the binding as a permanent ID reservation after the container row
+  // disappears. Removing it would let a new document restart this history.
 
   const [metadataDocument] = await input.executor
     .select({ id: documents.id })
