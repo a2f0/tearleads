@@ -7,7 +7,7 @@ import {
   documents,
 } from "@tearleads/api-shared/schema";
 import type { VerifiedDocumentLinkSetManifest } from "@tearleads/crypto";
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import {
   getCurrentAccessManifestHead,
   getStoredAccessEventByObjectType,
@@ -69,24 +69,34 @@ export async function insertDocumentAndLinks(input: {
 export async function assertCreateCanAdvanceDocumentHead(
   executor: DatabaseTransaction,
   documentId: string,
+  linkedContainerIds: readonly string[],
 ): Promise<void> {
-  const [retiredMetadata] = await executor
-    .select({ containerId: containerMetadataDocuments.containerId })
+  const [metadataBinding] = await executor
+    .select({
+      containerId: containerMetadataDocuments.containerId,
+      liveContainerId: containers.id,
+    })
     .from(containerMetadataDocuments)
     .leftJoin(
       containers,
       eq(containers.id, containerMetadataDocuments.containerId),
     )
-    .where(
-      and(
-        eq(containerMetadataDocuments.documentId, documentId),
-        isNull(containers.id),
-      ),
-    )
+    .where(eq(containerMetadataDocuments.documentId, documentId))
     .limit(1);
-  if (retiredMetadata) {
+  if (metadataBinding && metadataBinding.liveContainerId === null) {
     throw new DocumentMutationError(
       "Document ID belongs to a deleted container",
+      409,
+    );
+  }
+
+  if (
+    metadataBinding &&
+    (linkedContainerIds.length !== 1 ||
+      linkedContainerIds[0] !== metadataBinding.containerId)
+  ) {
+    throw new DocumentMutationError(
+      "Container metadata document must link only to its owning container",
       409,
     );
   }

@@ -192,8 +192,8 @@ async function lockMetadataDeletion(
   // The stable lifecycle lock survives metadata-head deletion, so a create
   // cannot race the permanent metadata-ID reservation becoming retired.
   await lockDocumentLifecycleInTransaction(executor, documentId);
-  // Lock the metadata document's manifest head BEFORE touching the container
-  // row. A concurrent sync write holds the head FOR UPDATE and later
+  // The full order is container head -> lifecycle -> document head -> row.
+  // A concurrent sync write holds the document head FOR UPDATE and later
   // updates the linked container row; locking the container row first (via its
   // delete) and the head second would wait on that sync while it waits on the
   // row — a deadlock. Head-then-row here matches the sync path's order.

@@ -80,13 +80,14 @@ for (const first of ["create", "delete"] as const) {
       const responses = await Promise.all(contenders);
       if (synchronizationError) throw synchronizationError;
       expect(responses.map((response) => response.status)).toEqual(
-        first === "create" ? [200, 200] : [200, 409],
+        first === "create" ? [409, 200] : [200, 409],
       );
-      if (first === "delete") {
-        expect(await responses[1]?.json()).toEqual({
-          error: "Document ID belongs to a deleted container",
-        });
-      }
+      expect(await responses[first === "create" ? 0 : 1]?.json()).toEqual({
+        error:
+          first === "create"
+            ? "Container metadata document must link only to its owning container"
+            : "Document ID belongs to a deleted container",
+      });
       expect(
         await db.select().from(documents).where(eq(documents.id, documentId)),
       ).toEqual([]);

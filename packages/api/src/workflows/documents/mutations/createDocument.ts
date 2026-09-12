@@ -134,6 +134,7 @@ export async function createDocumentWithExecutor(input: {
     await assertCreateCanAdvanceDocumentHead(
       input.executor,
       manifest.state.documentId,
+      manifest.state.linkedContainerIds,
     );
     const document = await insertDocumentAndLinks({
       createdByFingerprint: input.fingerprint,

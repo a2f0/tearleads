@@ -16,7 +16,7 @@ lifecycle outside this model. Retired ID pairs survive later organization purge.
 | `CommitDelete` / `RefuseNonemptyDelete` | `deleteLeafContainerRow` rejects nonempty containers |
 | `PreserveMetadataReservation` | `teardownContainerMetadataDocument` retains the metadata binding |
 | `BeginMetadataCreate` | `assertCreateCanAdvanceDocumentHead` rejects retired IDs |
-| `SerializeMetadataLifecycle` | `lockDocumentLifecycleInTransaction` holds the stable document-ID lock |
+| `CheckMetadataScope` | `assertCreateCanAdvanceDocumentHead` binds metadata to its owning container |
 | `CommitMetadataCreate` | `insertDocumentAndLinks` commits metadata creation |
 
 The finite model contains one leaf, its metadata document, and one ordinary
@@ -25,11 +25,11 @@ delete holds the exclusive head lock through its emptiness check and teardown.
 TLC explores both transaction orderings. Turning off the live-row check or
 shared/exclusive serialization independently permits a document to commit into
 a deleted container. Turning off the retained metadata reservation permits a
-fresh history to reuse the retired ID. The metadata-create actor separately
-checks its reservation and commits, through a different writable target whose
-head lock does not overlap the deleted container. Removing its lifecycle lock
-allows the check to pass before deletion and the stale create to commit after
-retirement. All four are registered negative controls.
+fresh history to reuse the retired ID. Metadata creation checks its reservation
+and commits under the stable lifecycle lock. Its target is either the owner or
+another live container. Removing the owner-scope check allows unrelated content
+to occupy a metadata ID and disappear during its owner's teardown. All four
+are registered negative controls.
 
 Each create actor and the delete actor runs once. An idle transition permits
 stuttering in terminal states; this model checks safety, without a fairness or
@@ -42,4 +42,5 @@ below the shared/exclusive transaction locks. It does not model document purge,
 container moves, arbitrary subtree deletion, or advisory-lock key hashing.
 PostgreSQL regressions exercise ordinary and metadata creation in both lock
 orderings, with the metadata create using another live target to isolate the
-lifecycle lock from the container-head lock.
+lifecycle lock from the container-head lock. That unrelated target is refused
+both before and after retirement, with distinct scope and retired-ID errors.
