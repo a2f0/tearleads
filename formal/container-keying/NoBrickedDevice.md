@@ -37,6 +37,19 @@ Container authorization can also flow through a group: its signed policy
 reference supplies the signer's membership at commit. The group projection
 trace exercises this instance after the group removes the signer.
 
+For this instance, a committed group successor and its directly granted
+container heads advance atomically. `putPrincipalPolicy` holds the exclusive
+group-reference lock and runs `applyPrincipalContainerRematerializations` in
+the same transaction. `listRequiredContainerRematerializations` requires a
+grant refresh or rekey for every direct grant whose policy reference changes;
+`rematerializationInputs` rejects an omitted update. The HTTP regression
+[`policyContainerRematerialization.test.ts`](../../packages/api/src/routes/principals/policyContainerRematerialization.test.ts)
+checks that an omitted dependent mutation returns 409 and rolls back the group
+rotation, and that same-key-epoch successors also refresh references. Access
+loss tombstones are an additional effect, not the whole membership transition.
+Descendants without a direct group grant can retain their older signed ancestor
+citations: these are the honestly committed heads the SDK must still accept.
+
 `CurrentSignerOk` models the #2266 regression: demanding membership at the
 served current authority rejects valid history after revocation. Its
 `RefuseSignerRevokedAtCurrent` parameter stays `FALSE`; the API still checks
@@ -129,8 +142,9 @@ cites, its signer, and the served root's epoch. The generated module
 model's `WellFormed` bound on what a server can serve, and the recorded
 outcome per step, and pins the device's initial checkpoint; a sequence, a
 served shape, or an outcome the model's rules disagree with deadlocks TLC and
-fails the check. Three negative controls run every time — a flipped final
-outcome in each late-delivery trace and a dropped revocation — so the oracle
+fails the check. Five negative controls run every time — a flipped final
+outcome in each late-delivery trace and a dropped revocation in both container
+traces — so the oracle
 cannot silently go vacuous. Each trace validates one recorded interleaving,
 not the state space; the registered bounded runs remain the exploration.
 
