@@ -32,6 +32,14 @@ const NO_BRICK_ADVERSARY =
 
 export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   {
+    id: "container-delete-without-metadata-lifecycle-lock",
+    module: "formal/container-keying/ContainerDeletion.tla",
+    config: "formal/container-keying/ContainerDeletion.cfg",
+    constants: { SerializeMetadataLifecycle: "FALSE" },
+    expect: { kind: "invariant", name: "RetiredMetadataIsNeverRecreated" },
+    why: "A metadata create can pass its retired-ID check, then commit after deletion unless both transactions hold the stable lifecycle lock (#2266).",
+  },
+  {
     id: "no-brick-signer-revoked-at-current",
     module: NO_BRICK_MODULE,
     config: NO_BRICK_HONEST,
