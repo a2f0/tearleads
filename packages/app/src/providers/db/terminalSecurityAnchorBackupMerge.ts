@@ -10,6 +10,7 @@ import type { BackupSqlRow, BackupTable } from "./localBackupFormat";
 import { readProperty } from "./localBackupPayload";
 import {
   incidentIdentityColumns,
+  readIncidentText,
   retainSecurityIncidentBackupRows,
   validateRestoredIncidentTimes,
   validateSecurityIncidentBackupIdentity,
@@ -125,17 +126,12 @@ export async function mergeSecurityIncidentBackupTables(
     ],
     immutableColumns: incidentIdentityColumns,
     validateRow: (row) => {
-      for (const column of [
-        "id",
-        "code",
-        "operation",
-        "object_kind",
-        "evidence_hashes",
-      ]) {
+      for (const column of ["id", "code", "object_kind", "evidence_hashes"]) {
         requireBackupString(row, column, label);
       }
+      readIncidentText(row, "operation");
       for (const column of ["trust_domain", "object_id", "organization_id"]) {
-        if (row[column] !== null) requireBackupString(row, column, label);
+        if (row[column] !== null) readIncidentText(row, column);
       }
       for (const column of ["detected_at", "last_detected_at"]) {
         requireBackupTimestamp(row, column, label);
@@ -182,5 +178,15 @@ export async function mergeSecurityIncidentBackupTables(
   });
   if (!merged) return null;
   await Promise.all(merged.rows.map(validateSecurityIncidentBackupIdentity));
-  return { ...merged, rows: retainSecurityIncidentBackupRows(merged.rows) };
+  return {
+    ...merged,
+    rows: retainSecurityIncidentBackupRows(
+      merged.rows,
+      new Set(
+        (input.current?.rows ?? []).map((row) =>
+          requireBackupString(row, "id", label),
+        ),
+      ),
+    ),
+  };
 }

@@ -36,8 +36,10 @@ and blob rollback are also outside this bounded model.
 
 Restore also validates each incident ID against its serialized identity fields,
 requires canonical ISO observation timestamps, and applies the ledger's newest
-1,000 rows per trust-domain limit after the union. Timestamp ties use descending
-incident ID, matching SQLite. These representation and retention rules are
+1,000 rows per trust-domain limit after the union. Existing local incidents
+keep their places; any remaining capacity is filled with the newest imported
+incidents. Timestamp ties use descending incident ID, matching SQLite. These
+representation and retention rules are
 covered by implementation tests rather than the two-incident abstraction.
 
 Restored incident observations more than five minutes ahead of the restoring

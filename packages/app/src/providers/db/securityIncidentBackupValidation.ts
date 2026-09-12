@@ -51,10 +51,18 @@ export async function validateSecurityIncidentBackupIdentity(
 
 export function retainSecurityIncidentBackupRows(
   rows: readonly BackupSqlRow[],
+  localIds: ReadonlySet<string>,
 ): BackupSqlRow[] {
   const counts = new Map<string | null, number>();
   return [...rows]
     .sort((left, right) => {
+      const leftLocal = localIds.has(
+        requireBackupString(left, "id", "Security incident"),
+      );
+      const rightLocal = localIds.has(
+        requireBackupString(right, "id", "Security incident"),
+      );
+      if (leftLocal !== rightLocal) return leftLocal ? -1 : 1;
       for (const column of ["last_detected_at", "id"]) {
         const a = requireBackupString(left, column, "Security incident");
         const b = requireBackupString(right, column, "Security incident");
@@ -66,7 +74,7 @@ export function retainSecurityIncidentBackupRows(
       const domain =
         readProperty(row, "trust_domain") === null
           ? null
-          : requireBackupString(row, "trust_domain", "Security incident");
+          : readIncidentText(row, "trust_domain");
       const count = (counts.get(domain) ?? 0) + 1;
       counts.set(domain, count);
       return count <= 1_000;
@@ -90,4 +98,11 @@ export function validateRestoredIncidentTimes(
       }
     }
   }
+}
+
+export function readIncidentText(row: BackupSqlRow, column: string): string {
+  const value = row[column];
+  if (typeof value !== "string")
+    throw new Error(`Security incident backup has an invalid ${column} value`);
+  return value;
 }

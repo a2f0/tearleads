@@ -51,7 +51,7 @@ test("a backup cannot preseed another incident id with forged evidence", async (
   ).rejects.toThrow("id does not match its evidence");
 });
 
-test("restore keeps only the newest thousand incidents in each trust domain", async () => {
+test("restore preserves local incidents and fills each domain with the newest imports", async () => {
   const rows = await Promise.all(
     [null, "realm"].flatMap((domain) =>
       Array.from({ length: 1005 }, (_, index) => incident(index, domain)),
@@ -75,8 +75,11 @@ test("restore keeps only the newest thousand incidents in each trust domain", as
         (row) => readProperty(row, "trust_domain") === domain,
       ) ?? [];
     expect(kept).toHaveLength(1000);
-    expect(readProperty(kept[0] ?? {}, "object_id")).toBe("document-1004");
-    expect(readProperty(kept.at(-1) ?? {}, "object_id")).toBe("document-5");
+    const ids = new Set(kept.map((row) => readProperty(row, "object_id")));
+    expect(ids.has("document-0")).toBe(true);
+    expect(ids.has("document-699")).toBe(true);
+    expect(ids.has("document-1004")).toBe(true);
+    expect(ids.has("document-700")).toBe(false);
   }
 });
 
@@ -163,4 +166,52 @@ test("a future-dated backup flood cannot evict current or subsequent evidence", 
   await expect(
     mergeSecurityIncidentBackupTables({ current: null, restored }),
   ).rejects.toThrow("too far in the future");
+});
+
+test("near-present imported rows cannot evict the local incident ledger", async () => {
+  const local = await Promise.all(
+    Array.from({ length: 1000 }, (_, index) => incident(index)),
+  );
+  const nearFuture = new Date(Date.now() + 4 * 60000).toISOString();
+  const imported = await Promise.all(
+    Array.from({ length: 1000 }, (_, index) => incident(index + 1000)),
+  );
+  const merged = await mergeSecurityIncidentBackupTables({
+    current: table(local),
+    restored: table(
+      imported.map((row) => ({
+        ...row,
+        detected_at: nearFuture,
+        last_detected_at: nearFuture,
+      })),
+    ),
+  });
+  expect(new Set(merged?.rows.map((row) => readProperty(row, "id")))).toEqual(
+    new Set(local.map((row) => readProperty(row, "id"))),
+  );
+});
+
+test("incident text accepts the empty values permitted by the writer", async () => {
+  const evidence = JSON.stringify({
+    "10": "ten",
+    "9": "nine",
+    manifest: "hash",
+  });
+  const identity = ["", "equivocation", " ", "document", "", "", evidence];
+  const row = {
+    ...(await incident()),
+    trust_domain: "",
+    operation: " ",
+    object_id: "",
+    organization_id: "",
+    evidence_hashes: evidence,
+    id: `incident_v1_${await toFingerprint(new TextEncoder().encode(JSON.stringify(identity)))}`,
+  };
+  const value = table([row]);
+  expect(
+    await mergeSecurityIncidentBackupTables({ current: value, restored: null }),
+  ).toEqual(value);
+  expect(
+    await mergeSecurityIncidentBackupTables({ current: null, restored: value }),
+  ).toEqual(value);
 });

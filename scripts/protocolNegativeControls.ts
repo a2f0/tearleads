@@ -64,6 +64,14 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "Reusing a preflight merge loses a purge observed before the database write transaction.",
   },
   {
+    id: "restore-stale-incident-preflight",
+    module: "formal/backup-restore/TerminalAnchors.tla",
+    config: "formal/backup-restore/TerminalAnchors.cfg",
+    constants: { RecheckAtCommit: "FALSE" },
+    expect: { kind: "action", name: "IncidentEvidenceNeverLost" },
+    why: "Reusing a preflight merge loses incident evidence observed before the database write transaction.",
+  },
+  {
     id: "no-brick-stale-head-citation",
     module: NO_BRICK_MODULE,
     config: NO_BRICK_HONEST,
