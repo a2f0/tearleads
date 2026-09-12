@@ -53,7 +53,7 @@ async function createDirectoryFixture(
         groupKem: generateKemSeedAndKeyPair(),
         memberPublicKey: memberKem.publicKey,
         previousBundle: predecessor,
-        signedAt: "2026-07-18T00:01:00Z",
+        signedAt: "2026-07-18T00:01:00.000Z",
         userId: author.signerUserId,
       })
     : predecessor;

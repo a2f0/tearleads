@@ -199,11 +199,12 @@ corruption and implementation defects can produce the same signal.
 
 ### Member Envelope Binding
 
-The signed `memberEnvelopesRoot` commits one canonical envelope per direct
-member: identity, active state/epoch, recipient fingerprint, KEM ciphertext,
-and wrapped key. Exact ML-KEM-1024/AES-GCM formats are enforced, and state,
-payload, projection, and immutable envelopes commit in one transaction. The
-server still cannot create a valid new wrap without the principal secret key.
+The signed `memberEnvelopesRoot` commits each direct member's identity,
+recipient fingerprint, KEM ciphertext, and wrapped key. The signed state binds
+the root and key epoch; verification checks the envelope bundle's state hash
+and epoch against it. Principal-state signatures and hashes include the
+`tearleads.principal-state` domain. Exact ML-KEM-1024/AES-GCM formats are
+enforced. The server cannot create a valid wrap without the principal secret.
 
 ### Revocation Depends On Principal Key Rotation
 

@@ -237,9 +237,12 @@ export function readSignedAt(
   label: string,
 ): string {
   const value = readString(record, key, label);
-
-  if (Number.isNaN(new Date(value).valueOf())) {
-    throwVerification("invalid_shape", `${label}.${key} must be a timestamp`);
+  const date = new Date(value);
+  if (Number.isNaN(date.valueOf()) || date.toISOString() !== value) {
+    throwVerification(
+      "invalid_shape",
+      `${label}.${key} must be a canonical ISO timestamp`,
+    );
   }
 
   return value;
