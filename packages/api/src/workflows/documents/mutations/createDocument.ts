@@ -14,6 +14,7 @@ import { applyContainerRekeys } from "../../containers/mutations";
 import { assertRosterProfileDocumentIdCanBeCreated } from "../../organizations/rosterProfileBindingInvariant";
 import { lockDocumentLifecycleInTransaction } from "./documentLifecycleLock";
 import { DocumentMutationError, toMutationError } from "./errors";
+import { uniqueSortedContainerIds } from "./linkSetMutationLocks";
 import {
   assertCreateCanAdvanceDocumentHead,
   insertDocumentAndLinks,
@@ -68,12 +69,12 @@ async function lockCreateContainerPath(
   // container heads exclusively before checking emptiness and deleting rows.
   await lockAccessManifestHeadsForShare(
     "container",
-    [
+    uniqueSortedContainerIds([
       ...(request.targetContainerPathRefs ?? []).map((ref) => ref.containerId),
       ...(request.authorizingContainerPathRefs ?? []).flatMap((path) =>
         path.map((ref) => ref.containerId),
       ),
-    ],
+    ]),
     executor,
   );
 }

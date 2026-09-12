@@ -80,6 +80,12 @@ for (const first of ["create", "delete"] as const) {
       const responses = await Promise.all(contenders);
       if (synchronizationError) throw synchronizationError;
       expect(responses.map((response) => response.status)).toEqual([200, 409]);
+      expect(await responses[1]?.json()).toEqual({
+        error:
+          first === "create"
+            ? "Container has linked documents"
+            : "targetContainerPathRefs[1] container unavailable",
+      });
     },
     30_000,
   );

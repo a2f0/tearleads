@@ -51,6 +51,9 @@ test("a deleted container's metadata document ID cannot start a new document his
     await createDocumentRequest({ owner, documentId, root }),
   );
   expect(recreated.status).toBe(409);
+  expect(await recreated.json()).toEqual({
+    error: "Document ID belongs to a deleted container",
+  });
   const newContainer = await routeApp.request("/containers", {
     method: "POST",
     headers: {
@@ -66,4 +69,7 @@ test("a deleted container's metadata document ID cannot start a new document his
     ),
   });
   expect(newContainer.status).toBe(409);
+  expect(await newContainer.json()).toEqual({
+    error: "Container metadata document already exists",
+  });
 });

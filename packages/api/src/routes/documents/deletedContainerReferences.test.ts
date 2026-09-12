@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { buildChildCreateRequest } from "../../../test/helpers/containerMutationArtifactKit";
 import { createChildContainer } from "../../../test/helpers/keyingWriterProjectionChild";
 import {
   bootstrapRoot,
@@ -26,6 +27,15 @@ test("document create rejects a retained manifest belonging to a deleted contain
     },
     containerPath: [root.bundle, child.accessManifest],
   });
+  const childRequest = await buildChildCreateRequest({
+    signer: owner,
+    parentPath: [root.bundle],
+    root: {
+      ...root,
+      bundle: child.accessManifest,
+      kekState: kekStateFromContainerResponse(child),
+    },
+  });
   const deleted = await routeApp.request(`/containers/${child.containerId}`, {
     method: "DELETE",
     headers: { Authorization: `Bearer ${owner.token}` },
@@ -40,4 +50,44 @@ test("document create rejects a retained manifest belonging to a deleted contain
     body: JSON.stringify(request),
   });
   expect(created.status, await created.clone().text()).toBe(409);
+  expect(await created.json()).toEqual({
+    error: "targetContainerPathRefs[1] container unavailable",
+  });
+  const newChild = await routeApp.request("/containers", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${owner.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(childRequest),
+  });
+  expect(newChild.status).toBe(409);
+  expect(await newChild.json()).toEqual({
+    error: "parentContainerPath[1] container unavailable",
+  });
+});
+
+test("document create rejects a malformed path ID before taking UUID locks", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const request = await createDocumentRequest({ owner, root });
+  const response = await routeApp.request("/documents", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${owner.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      ...request,
+      targetContainerPathRefs: [
+        { containerId: "not-a-uuid", manifestHash: root.bundle.manifestHash },
+      ],
+    }),
+  });
+  expect(response.status).toBe(400);
+  expect(await response.json()).toEqual({
+    error: "Document container id is invalid",
+  });
 });

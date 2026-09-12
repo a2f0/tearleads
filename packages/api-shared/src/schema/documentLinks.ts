@@ -66,7 +66,7 @@ export const containerDocumentSyncTombstones = pgTable(
 );
 
 /**
- * Permanent one-to-one container metadata document reservations.
+ * One-to-one metadata document reservations retained after container deletion.
  *
  * Every created container can have a metadata document that describes
  * user-facing container metadata through the regular encrypted document path.

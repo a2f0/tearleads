@@ -1,6 +1,9 @@
 import type { TestUser } from "@tearleads/bob-and-alice";
 import type { ContainerAccessEventBody } from "@tearleads/crypto";
-import type { ContainerMutationRequest } from "@tearleads/validators/request";
+import type {
+  AccessManifestBundleWire,
+  ContainerMutationRequest,
+} from "@tearleads/validators/request";
 import { createTestContainerKekMaterial } from "./containerKekMaterial";
 import {
   asVerifiedContainerManifest,
@@ -16,8 +19,10 @@ export async function buildChildCreateRequest(input: {
   readonly root: StoredRootFixture;
   readonly signer: TestUser;
   readonly metadataDocumentId?: string;
+  readonly parentPath?: readonly AccessManifestBundleWire[];
 }): Promise<ContainerMutationRequest> {
   const parentBundle = input.root.bundle;
+  const parentContainerPath = [...(input.parentPath ?? []), parentBundle];
   const parentManifest = asVerifiedContainerManifest(parentBundle);
   const containerId = crypto.randomUUID();
   const metadataDocumentId = input.metadataDocumentId ?? crypto.randomUUID();
@@ -36,7 +41,9 @@ export async function buildChildCreateRequest(input: {
   };
   const event = await createSignedAccessEvent({
     body,
-    dependencyManifestHashes: [parentBundle.manifestHash],
+    dependencyManifestHashes: parentContainerPath.map(
+      (head) => head.manifestHash,
+    ),
     objectId: containerId,
     objectKind: "container",
     organizationId: parentManifest.state.organizationId,
@@ -71,16 +78,15 @@ export async function buildChildCreateRequest(input: {
     parentKekState: input.root.kekState,
     wrapManifestHash: bundle.manifestHash,
   });
-  const principalPolicies = await loadPrincipalPoliciesForContainerPath([
-    parentBundle,
-  ]);
+  const principalPolicies =
+    await loadPrincipalPoliciesForContainerPath(parentContainerPath);
 
   return {
     event: event.event as unknown as Record<string, unknown>,
     body: body as unknown,
     expectedManifestHash: bundle.manifestHash,
     manifest: bundle.manifest,
-    parentContainerPath: [parentBundle],
+    parentContainerPath,
     principalPolicies: principalPolicies as unknown as Record<
       string,
       unknown
