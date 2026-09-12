@@ -2,7 +2,10 @@ import { expect, test } from "bun:test";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { generateKemSeedAndKeyPair } from "./encapsulation/generateKeyPair";
 import { toFingerprint } from "./fingerprint";
+import { verifySignedAccessEvent } from "./keying/accessEvent";
+import { encodeDomainPayload } from "./keying/canonical";
 import { readSignedAt } from "./keying/shared";
+import { createSignedContainerEvent } from "./keying/testFixtures";
 import {
   buildPrincipalStateSigningInput,
   computePrincipalStateHash,
@@ -53,6 +56,29 @@ test("signed timestamps must survive database ISO serialization unchanged", () =
   }
   const signedAt = "2026-09-12T00:00:00.123Z";
   expect(readSignedAt({ signedAt }, "signedAt", "event")).toBe(signedAt);
+});
+
+test("access event verification rejects a correctly signed noncanonical timestamp", async () => {
+  const fixture = await createSignedContainerEvent({});
+  const { signingPrivateKey, signingPublicKey } =
+    generateSigningSeedAndKeyPair();
+  const { signature: _signature, ...original } = fixture.event;
+  const unsigned = {
+    ...original,
+    signedAt: "2026-09-12T00:00:00Z",
+    signerKeyFingerprint: await toFingerprint(signingPublicKey),
+  };
+  const signature = sign(
+    encodeDomainPayload("tearleads.keying.access-event-signing", unsigned),
+    signingPrivateKey,
+  );
+  expect(
+    await verifySignedAccessEvent({
+      body: fixture.body,
+      event: { ...unsigned, signature: bytesToBase64(signature) },
+      signerPublicKey: signingPublicKey,
+    }),
+  ).toMatchObject({ ok: false, error: { code: "invalid_shape" } });
 });
 
 test("principal signing, hashing and verification reject noncanonical timestamps", async () => {

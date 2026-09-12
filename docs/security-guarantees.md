@@ -202,9 +202,9 @@ corruption and implementation defects can produce the same signal.
 The signed `memberEnvelopesRoot` commits each direct member's identity,
 recipient fingerprint, KEM ciphertext, and wrapped key. The signed state binds
 the root and key epoch; verification checks the envelope bundle's state hash
-and epoch against it. Principal-state signatures and hashes include the
-`tearleads.principal-state` domain. Exact ML-KEM-1024/AES-GCM formats are
-enforced. The server cannot create a valid wrap without the principal secret.
+and epoch. Principal signatures and hashes bind `tearleads.principal-state`.
+Exact ML-KEM-1024/AES-GCM formats are enforced. State, payload, projection, and
+envelopes commit atomically; the server cannot wrap without the principal key.
 
 ### Revocation Depends On Principal Key Rotation
 
