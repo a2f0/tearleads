@@ -66,13 +66,16 @@ export const containerDocumentSyncTombstones = pgTable(
 );
 
 /**
- * One-to-one container metadata document bindings.
+ * Permanent one-to-one container metadata document reservations.
  *
  * Every created container can have a metadata document that describes
  * user-facing container metadata through the regular encrypted document path.
  * Metadata documents cannot be structurally relinked as normal documents, so
  * this binding lets document mutation workflows reject relinks for metadata
- * documents.
+ * documents. Bindings survive container deletion as ID tombstones: a binding
+ * whose container no longer exists prevents a new document history from using
+ * the retired metadata ID. Normal document creation still permits metadata
+ * initialization while its reserved container is live.
  *
  * Columns:
  * - `containerId`: Container whose metadata document this row binds. This is

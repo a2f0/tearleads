@@ -54,6 +54,12 @@ appear exactly once. Keep registered bounds small enough for `check:fast`;
 broader configurations should use a separate scheduled suite rather than
 silently increasing pull-request check time.
 
+## Container Deletion
+
+[`container-keying/ContainerDeletion.tla`](./container-keying/ContainerDeletion.tla)
+models creation racing leaf deletion and the permanent reservation of retired
+metadata document IDs. See the [mapping and boundaries](./container-keying/ContainerDeletion.md).
+
 ## Container Grant Scope
 
 [`container-keying/ContainerGrantScope.tla`](./container-keying/ContainerGrantScope.tla)

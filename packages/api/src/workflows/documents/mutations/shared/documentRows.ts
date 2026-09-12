@@ -7,7 +7,7 @@ import {
   documents,
 } from "@tearleads/api-shared/schema";
 import type { VerifiedDocumentLinkSetManifest } from "@tearleads/crypto";
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import {
   getCurrentAccessManifestHead,
   getStoredAccessEventByObjectType,
@@ -70,6 +70,27 @@ export async function assertCreateCanAdvanceDocumentHead(
   executor: DatabaseTransaction,
   documentId: string,
 ): Promise<void> {
+  const [retiredMetadata] = await executor
+    .select({ containerId: containerMetadataDocuments.containerId })
+    .from(containerMetadataDocuments)
+    .leftJoin(
+      containers,
+      eq(containers.id, containerMetadataDocuments.containerId),
+    )
+    .where(
+      and(
+        eq(containerMetadataDocuments.documentId, documentId),
+        isNull(containers.id),
+      ),
+    )
+    .limit(1);
+  if (retiredMetadata) {
+    throw new DocumentMutationError(
+      "Document ID belongs to a deleted container",
+      409,
+    );
+  }
+
   const purgeEvent = await getStoredAccessEventByObjectType({
     eventType: "document.purge",
     executor,

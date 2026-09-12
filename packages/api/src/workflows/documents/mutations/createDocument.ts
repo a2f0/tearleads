@@ -4,6 +4,7 @@ import type {
 } from "@tearleads/api-shared/postgres";
 import type { DocumentCreateRequest } from "@tearleads/validators/request";
 import type { DocumentCreateResponse } from "@tearleads/validators/response";
+import { lockAccessManifestHeadsForShare } from "../../../access/read/accessManifestStore";
 import { resolveCurrentDocumentKekTargets } from "../../../access/read/documentKekTargets";
 import { storeVerifiedAccessManifestInTransaction } from "../../../access/write/accessManifestStore";
 import { storeDocumentContentKeyBundleInTransaction } from "../../../access/write/documentContentKeyStore";
@@ -59,6 +60,24 @@ export async function runCreateDocumentWorkflow(
   }
 }
 
+async function lockCreateContainerPath(
+  executor: DatabaseTransaction,
+  request: DocumentCreateRequest,
+): Promise<void> {
+  // Freeze the authorizing path through commit. Deletion takes the same
+  // container heads exclusively before checking emptiness and deleting rows.
+  await lockAccessManifestHeadsForShare(
+    "container",
+    [
+      ...(request.targetContainerPathRefs ?? []).map((ref) => ref.containerId),
+      ...(request.authorizingContainerPathRefs ?? []).flatMap((path) =>
+        path.map((ref) => ref.containerId),
+      ),
+    ],
+    executor,
+  );
+}
+
 export async function createDocumentWithExecutor(input: {
   readonly executor: DatabaseTransaction;
   readonly fingerprint: string;
@@ -83,6 +102,7 @@ export async function createDocumentWithExecutor(input: {
       requests: input.request.containerRekeys,
       userId: input.userId,
     });
+    await lockCreateContainerPath(input.executor, input.request);
     const manifest = await verifyDocumentManifestFromRequest({
       event,
       executor: input.executor,

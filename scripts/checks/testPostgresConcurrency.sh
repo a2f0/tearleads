@@ -40,6 +40,7 @@ exec bun test \
   src/routes/containers/reciteConcurrency.pg.test.ts \
   src/routes/containers/rotationConcurrency.pg.test.ts \
   src/routes/documents/accessMutationConcurrency.pg.test.ts \
+  src/routes/documents/deleteCreateConcurrency.pg.test.ts \
   src/routes/documents/grantSyncConcurrency.pg.test.ts \
   src/routes/documents/groupRotationSyncConcurrency.pg.test.ts \
   src/routes/documents/lostAcknowledgmentConcurrency.pg.test.ts \

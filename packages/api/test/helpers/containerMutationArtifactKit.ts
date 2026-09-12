@@ -15,11 +15,12 @@ import {
 export async function buildChildCreateRequest(input: {
   readonly root: StoredRootFixture;
   readonly signer: TestUser;
+  readonly metadataDocumentId?: string;
 }): Promise<ContainerMutationRequest> {
   const parentBundle = input.root.bundle;
   const parentManifest = asVerifiedContainerManifest(parentBundle);
   const containerId = crypto.randomUUID();
-  const metadataDocumentId = crypto.randomUUID();
+  const metadataDocumentId = input.metadataDocumentId ?? crypto.randomUUID();
   const { containerKeyEpochId } = await createTestContainerKekMaterial({
     containerId,
     keyEpoch: 1,

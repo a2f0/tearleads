@@ -1,9 +1,7 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import {
-  containerMetadataDocuments,
   containerSyncTombstones,
   containers,
-  documents,
 } from "@tearleads/api-shared/schema";
 import type {
   ContainerDirectGrant,
@@ -56,6 +54,10 @@ import {
   directGrantKey,
   pruneAccessGrantTombstones,
 } from "./grantTombstonePruning";
+import {
+  assertMetadataDocumentAvailable,
+  insertContainerMetadataBinding,
+} from "./metadataDocumentReservation";
 import { loadMutationContainerKekHistory } from "./mutationKekHistory";
 
 async function loadContainerRow(
@@ -77,43 +79,6 @@ async function loadContainerRow(
     .limit(1);
 
   return row ?? null;
-}
-
-async function assertMetadataDocumentAvailable(
-  executor: DatabaseTransaction,
-  metadataDocumentId: string,
-): Promise<void> {
-  const [existingMetadataDocument] = await executor
-    .select({ id: documents.id })
-    .from(documents)
-    .where(eq(documents.id, metadataDocumentId))
-    .limit(1);
-  if (existingMetadataDocument) {
-    throw new ContainerMutationError(
-      "Container metadata document already exists",
-      409,
-    );
-  }
-}
-
-async function insertContainerMetadataBinding(
-  executor: DatabaseTransaction,
-  state: VerifiedContainerAccessState,
-): Promise<void> {
-  const [metadataBinding] = await executor
-    .insert(containerMetadataDocuments)
-    .values({
-      containerId: state.containerId,
-      documentId: state.metadataDocumentId,
-    })
-    .onConflictDoNothing()
-    .returning({ containerId: containerMetadataDocuments.containerId });
-  if (!metadataBinding) {
-    throw new ContainerMutationError(
-      "Container metadata binding already exists",
-      409,
-    );
-  }
 }
 
 async function persistCreatedContainerStructure(
