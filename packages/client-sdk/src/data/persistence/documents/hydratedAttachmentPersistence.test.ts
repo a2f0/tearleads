@@ -15,6 +15,51 @@ function attachment(storageKey: string): LocalAttachmentRecord {
   };
 }
 
+test("reloading a slot cannot let an older document overwrite newer intent", async () => {
+  const { execSql, close } = await createTestExecSql(
+    "hydration-intent-frontier",
+  );
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.saveDocument(execSql, {
+      accessEpoch: 1,
+      containerId: null,
+      documentId: "remote-document",
+      id: "local-document",
+      snapshotEndVersion: "newer-frontier",
+      text: "",
+    });
+    await sqlDocumentsPersistence.saveLocalAttachment(
+      execSql,
+      attachment("newer-copy"),
+    );
+    for (const expectedSnapshotEndVersion of [
+      "older-frontier",
+      "newer-frontier",
+    ]) {
+      expect(
+        await sqlDocumentsPersistence.saveHydratedAttachment(execSql, {
+          attachment: attachment("downloaded-copy"),
+          expectedStorageKey: "newer-copy",
+          expectedSnapshotEndVersion,
+          stillCurrent: () => true,
+        }),
+      ).toBe(expectedSnapshotEndVersion === "newer-frontier");
+      const rows = await sqlDocumentsPersistence.listLocalAttachments(
+        execSql,
+        "local-document",
+      );
+      expect(rows[0]?.storageKey).toBe(
+        expectedSnapshotEndVersion === "newer-frontier"
+          ? "downloaded-copy"
+          : "newer-copy",
+      );
+    }
+  } finally {
+    close();
+  }
+});
+
 for (const observed of [null, "older-copy"]) {
   test(`a delayed hydration cannot replace a competing durable copy observed as ${observed}`, async () => {
     const { execSql, close } = await createTestExecSql(
@@ -36,6 +81,7 @@ for (const observed of [null, "older-copy"]) {
         await sqlDocumentsPersistence.saveHydratedAttachment(execSql, {
           attachment: attachment("replayed-copy"),
           expectedStorageKey: observed,
+          expectedSnapshotEndVersion: null,
           stillCurrent: () => true,
         }),
       ).toBe(false);
@@ -65,6 +111,7 @@ test("a document changing before the SQL commit rolls the hydrated replacement b
       await sqlDocumentsPersistence.saveHydratedAttachment(execSql, {
         attachment: attachment("replayed-copy"),
         expectedStorageKey: "held-copy",
+        expectedSnapshotEndVersion: null,
         stillCurrent: () => false,
       }),
     ).toBe(false);
@@ -78,6 +125,7 @@ test("a document changing before the SQL commit rolls the hydrated replacement b
       await sqlDocumentsPersistence.saveHydratedAttachment(execSql, {
         attachment: attachment("current-copy"),
         expectedStorageKey: "held-copy",
+        expectedSnapshotEndVersion: null,
         stillCurrent: () => true,
       }),
     ).toBe(true);

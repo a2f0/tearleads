@@ -6,6 +6,7 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type {
+  BlobAttachmentSummary,
   ContainerWriterProjectionResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
@@ -20,7 +21,9 @@ import { readCanonicalJson } from "../../data/keyingCanonicalJson";
 import { requireProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { createAttachmentProofReader } from "../blobs/attachmentDecryptor";
 import { createAttachmentKeyAuthenticator } from "../blobs/attachmentKeyAuthenticator";
+import { verifyRetainedAttachment } from "../blobs/retainedAttachmentVerification";
 
 interface BlobRewrap {
   blobId: string;
@@ -50,9 +53,14 @@ export async function prepareDocumentLinkBlobRewraps(
     input.apiClient,
     documentId,
   );
+  const verifyRetained = createAttachmentProofReader(
+    input.apiClient,
+    documentId,
+    verifyRetainedAttachment,
+  );
   const rewrapByBlob = new Map<string, BlobRewrap>();
   for (const binding of bindings) {
-    const contentKey = await authenticateKey({
+    const verification = {
       binding,
       expectedDocumentId: documentId,
       expectedSlotId: binding.slotId,
@@ -63,16 +71,15 @@ export async function prepareDocumentLinkBlobRewraps(
       ),
       targetSecretKey: input.targetSecretKey,
       writerProjection: input.writerProjection,
-    });
+    };
+    const needsKey = input.targets.some(
+      (target) => !retainedTarget(binding, target, documentId),
+    );
+    const contentKey = needsKey ? await authenticateKey(verification) : null;
+    if (!needsKey) await verifyRetained(verification);
     const targets = await Promise.all(
       input.targets.map(async (target) => {
-        const previous = binding.contentKeyBundle.targets.find(
-          (candidate) =>
-            candidate.bindingId === binding.bindingId &&
-            candidate.documentId === documentId &&
-            candidate.containerId === target.containerId &&
-            candidate.containerKeyEpochId === target.containerKeyEpochId,
-        );
+        const previous = retainedTarget(binding, target, documentId);
         if (previous)
           return {
             ...previous,
@@ -84,6 +91,8 @@ export async function prepareDocumentLinkBlobRewraps(
           };
         const kek = keks.get(target.containerKeyEpochId);
         if (!kek) throw new Error("Attachment destination KEK is unavailable");
+        if (!contentKey)
+          throw new Error("Attachment content key is unavailable");
         const wrapped = await encryptWithDek(contentKey, kek);
         return {
           ...target,
@@ -109,6 +118,20 @@ export async function prepareDocumentLinkBlobRewraps(
     assertProjectionVerificationCurrent(input.stillCurrent);
   }
   return [...rewrapByBlob.values()].sort(compareBlobIds);
+}
+
+function retainedTarget(
+  binding: BlobAttachmentSummary,
+  target: DocumentContentKeyTarget,
+  documentId: string,
+) {
+  return binding.contentKeyBundle.targets.find(
+    (candidate) =>
+      candidate.bindingId === binding.bindingId &&
+      candidate.documentId === documentId &&
+      candidate.containerId === target.containerId &&
+      candidate.containerKeyEpochId === target.containerKeyEpochId,
+  );
 }
 
 async function collectRelinkKeks(

@@ -93,6 +93,7 @@ export function saveHydratedDocumentAttachment(input: {
   persistence: DocumentsPersistence;
   attachment: LocalAttachmentRecord;
   expectedStorageKey: string | null;
+  expectedSnapshotEndVersion: string | null;
   stillCurrent: () => boolean;
 }): Promise<boolean> {
   return input.persistence.saveHydratedAttachment(input.execSql, input);

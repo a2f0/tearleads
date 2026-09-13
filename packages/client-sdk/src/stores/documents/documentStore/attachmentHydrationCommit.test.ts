@@ -94,7 +94,10 @@ for (const changed of ["document", "copy", "generation"]) {
         changed === "copy" ? "newer-copy" : "held-copy",
       );
       expect(state.attachmentStorageKeyBySlotId[intent.slotId]).toBe(
-        "held-copy",
+        changed === "copy" ? "newer-copy" : "held-copy",
+      );
+      expect(state.attachmentBlobIdBySlotId[intent.slotId]).toBe(
+        changed === "copy" ? "newer-blob" : "held-blob",
       );
       const source = await runtime.infra.blobStore.openByteSource("held-copy");
       expect(await source?.read(0, 4)).toEqual(new Uint8Array([2, 2, 2, 2]));

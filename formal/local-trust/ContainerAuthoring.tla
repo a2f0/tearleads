@@ -5,7 +5,7 @@ CONSTANT CheckAuthorAccess
 ASSUME CheckAuthorAccess \in BOOLEAN
 Access == {"read", "write", "admin"}
 Operations == {"childCreate", "systemCreate", "documentCreate", "share",
-               "revoke", "rekey", "move"}
+               "revoke", "rekey", "move", "documentLink"}
 Rank(a) == CASE a = "admin" -> 3 [] a = "write" -> 2 [] OTHER -> 1
 
 VARIABLES sourceAccess, destinationAccess, operation, phase, signedPlan,
@@ -15,8 +15,8 @@ vars == <<sourceAccess, destinationAccess, operation, phase, signedPlan,
 
 CanAuthor ==
   /\ Rank(sourceAccess) >=
-      (IF operation \in {"childCreate", "documentCreate", "rekey"} THEN 2 ELSE 3)
-  /\ (operation # "move" \/ Rank(destinationAccess) >= 2)
+      (IF operation \in {"childCreate", "documentCreate", "rekey", "documentLink"} THEN 2 ELSE 3)
+  /\ (operation \notin {"move", "documentLink"} \/ Rank(destinationAccess) >= 2)
 
 Init ==
   /\ sourceAccess \in Access /\ destinationAccess \in Access
@@ -38,7 +38,7 @@ SignMutation ==
 RefuseMutation ==
   /\ phase = "verified" /\ CheckAuthorAccess /\ ~CanAuthor
   /\ phase' = "refused"
-  /\ terminalFailure' = IF operation = "documentCreate" THEN 403 ELSE 0
+  /\ terminalFailure' = IF operation \in {"documentCreate", "documentLink"} THEN 403 ELSE 0
   /\ UNCHANGED <<sourceAccess, destinationAccess, operation, signedPlan,
                   acknowledged>>
 
@@ -50,7 +50,7 @@ EchoAcknowledgement ==
 
 AcknowledgementsHaveAuthority == acknowledged => CanAuthor
 DocumentRefusalsAreVisible ==
-  (phase = "refused" /\ operation = "documentCreate") => terminalFailure = 403
+  (phase = "refused" /\ operation \in {"documentCreate", "documentLink"}) => terminalFailure = 403
 TypeOK ==
   /\ sourceAccess \in Access /\ destinationAccess \in Access
   /\ operation \in Operations

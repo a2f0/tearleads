@@ -1,6 +1,9 @@
 import { expect, spyOn, test } from "bun:test";
 import { signWriteHeader } from "@tearleads/crypto";
-import { createMockApiClient } from "@tearleads/test-utils";
+import {
+  createContainerWriterProjectionFixture,
+  createMockApiClient,
+} from "@tearleads/test-utils";
 import {
   createBlobBytesResponse,
   createFixtureBinding,
@@ -21,8 +24,18 @@ test("link rewrap authenticates multi-chunk bytes without buffering the response
     },
   );
   try {
-    const target = fixture.writerProjection.authorizingContainerPaths[0];
-    if (!target) throw new Error("Expected target");
+    const identity = await fixture.resolveProjectionUserKey(
+      fixture.author.signerUserId,
+    );
+    if (!identity) throw new Error("Expected identity");
+    const target = await createContainerWriterProjectionFixture({
+      containerId: "new-streamed-destination",
+      encapsulationPublicKey: identity.encapsulationPublicKey,
+      organizationId: fixture.author.organizationId,
+      signerKeyFingerprint: fixture.author.signerKeyFingerprint,
+      signerPrivateKey: fixture.author.signerPrivateKey,
+      userId: fixture.author.signerUserId,
+    });
     const result = await prepareDocumentLinkBlobRewraps({
       apiClient: createMockApiClient({
         listDocumentAttachments: async () => [createFixtureBinding(fixture)],
@@ -41,7 +54,7 @@ test("link rewrap authenticates multi-chunk bytes without buffering the response
       writerProjection: fixture.writerProjection,
     });
     expect(result).toHaveLength(1);
-    expect(result[0]?.targets[0]?.wrappedKey).toBe(
+    expect(result[0]?.targets[0]?.wrappedKey).not.toBe(
       fixture.uploaded.response.contentKeyBundle.targets[0]?.wrappedKey,
     );
     expect(buffer).not.toHaveBeenCalled();
@@ -50,6 +63,37 @@ test("link rewrap authenticates multi-chunk bytes without buffering the response
     fixture.close();
   }
 });
+
+test.each([false, true])(
+  "retaining attachment targets needs no ciphertext (remove all: %s)",
+  async (removeAll) => {
+    const fixture = await createUploadedAttachmentFixture();
+    let downloads = 0;
+    try {
+      const target = fixture.writerProjection.authorizingContainerPaths[0];
+      if (!target) throw new Error("Expected target");
+      const result = await prepareDocumentLinkBlobRewraps({
+        apiClient: createMockApiClient({
+          listDocumentAttachments: async () => [createFixtureBinding(fixture)],
+          getBlobBytes: async () => {
+            downloads++;
+            return null;
+          },
+        }),
+        execSql: fixture.execSql,
+        resolveProjectionUserKey: fixture.resolveProjectionUserKey,
+        targetContainerProjection: target,
+        targetSecretKey: fixture.secretKey,
+        targets: removeAll ? [] : [deriveDocumentTargetFromProjection(target)],
+        writerProjection: fixture.writerProjection,
+      });
+      expect(downloads).toBe(0);
+      expect(result[0]?.targets).toHaveLength(removeAll ? 0 : 1);
+    } finally {
+      fixture.close();
+    }
+  },
+);
 
 for (const failure of [
   "corrupt-tail",

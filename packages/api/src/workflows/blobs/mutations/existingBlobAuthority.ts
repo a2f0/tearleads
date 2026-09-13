@@ -15,7 +15,7 @@ export async function assertExistingBlobSourceAuthority(input: {
   const stored = (
     await listBlobContentWriteHeaders([input.blobId], input.executor)
   ).get(input.blobId);
-  // The verified ciphertext author may revive their own detached upload.
+  // The verified ciphertext author retains source authority for their own bytes.
   // Other callers need current read access through an existing binding.
   if (stored?.header.writerUserId === input.userId) return;
   try {

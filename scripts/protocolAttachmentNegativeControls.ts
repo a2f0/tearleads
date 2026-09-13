@@ -2,6 +2,30 @@ import type { NegativeControl } from "./protocolNegativeControls";
 
 export const ATTACHMENT_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   {
+    id: "hydration-overwrites-newer-document-intent",
+    module: "formal/document-sync/AttachmentContentIdentity.tla",
+    config: "formal/document-sync/AttachmentContentIdentity.cfg",
+    constants: { CheckStoredIntent: "FALSE" },
+    expect: { kind: "action", name: "HeldCopyNeverRegresses" },
+    why: "Reloading a winning slot must not allow an older document view to overwrite the winner on its next hydration attempt.",
+  },
+  {
+    id: "unlink-requires-unavailable-ciphertext",
+    module: "formal/document-sync/AttachmentKeyReachability.tla",
+    config: "formal/document-sync/AttachmentKeyReachability.cfg",
+    constants: { RetainedTargetsNeedCiphertext: "TRUE" },
+    expect: { kind: "liveness", name: "LinkedDocumentCanUnlink" },
+    why: "Removing a retained target must remain possible when attachment ciphertext is unavailable.",
+  },
+  {
+    id: "hydration-keeps-refused-copy",
+    module: "formal/document-sync/AttachmentContentIdentity.tla",
+    config: "formal/document-sync/AttachmentContentIdentity.cfg",
+    constants: { RefreshRefusedCopy: "FALSE" },
+    expect: { kind: "action", name: "RefusedCopyReloaded" },
+    why: "After a competing facade wins, a refused hydration must reload its durable slot before the next attempt.",
+  },
+  {
     id: "link-rejects-retained-wrap",
     module: "formal/document-sync/AttachmentKeyReachability.tla",
     config: "formal/document-sync/AttachmentKeyReachability.cfg",
@@ -62,7 +86,7 @@ export const ATTACHMENT_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     module: "formal/document-sync/AttachmentContentIdentity.tla",
     config: "formal/document-sync/AttachmentContentIdentity.cfg",
     constants: { CompareStoredCopy: "FALSE" },
-    expect: { kind: "action", name: "HeldCopyNeverRegresses" },
+    expect: { kind: "action", name: "StaleCopyCannotReplaceWinner" },
     why: "Another facade can install newer bytes while an older view is still hydrating.",
   },
   {

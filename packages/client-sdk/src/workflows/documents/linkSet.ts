@@ -56,6 +56,7 @@ import {
 } from "../../data/keyingProjectionVerification";
 import { throwKeyingVerificationErrorWithContext } from "../../data/keyingProjectionVerification/error";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { assertDocumentLinkAuthorAccess } from "./linkSetAuthority";
 
 function deriveDocumentLinkSetTargetState(input: {
   operation: DocumentLinkSetMutationOperation;
@@ -359,6 +360,11 @@ export async function buildMaterializedDocumentLinkSetMutationPlan(
     targetContainerProjection: input.targetContainerProjection,
     ...verificationOptions,
   });
+  if (input.resolveProjectionUserKey)
+    assertDocumentLinkAuthorAccess({
+      ...input,
+      principalPolicies: [...principalPolicyCache.values()],
+    });
   const targetState = deriveDocumentLinkSetTargetState({
     operation: input.operation,
     targetContainerProjection: input.targetContainerProjection,

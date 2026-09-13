@@ -429,6 +429,7 @@ export interface DocumentsPersistence {
     input: {
       attachment: LocalAttachmentRecord;
       expectedStorageKey: string | null;
+      expectedSnapshotEndVersion: string | null;
       stillCurrent: () => boolean;
     },
   ) => Promise<boolean>;

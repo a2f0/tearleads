@@ -2,9 +2,10 @@
 EXTENDS Naturals, FiniteSets
 
 CONSTANTS CheckBindingFrontier, RetainPriorWraps, UseHistoricalKeys,
-          IsolateHydration, ReuseRetiredWraps
+          IsolateHydration, ReuseRetiredWraps, RetainedTargetsNeedCiphertext
 ASSUME {CheckBindingFrontier, RetainPriorWraps, UseHistoricalKeys,
-        IsolateHydration, ReuseRetiredWraps} \subseteq BOOLEAN
+        IsolateHydration, ReuseRetiredWraps,
+        RetainedTargetsNeedCiphertext} \subseteq BOOLEAN
 Containers == {"source", "destination"}
 Blobs == {"one", "two"}
 Epochs == 1..2
@@ -49,6 +50,8 @@ CommitLink ==
 
 UnlinkSource ==
   /\ phase = "linked" /\ linked = Containers
+  (* One blob is unavailable; removing a target needs no new key envelope. *)
+  /\ ~RetainedTargetsNeedCiphertext
   /\ linked' = {"destination"}
   /\ wraps' = IF RetainPriorWraps THEN wraps
               ELSE Targets(bindings, {"destination"}, epoch)
@@ -103,5 +106,7 @@ TypeOK ==
 Idle == UNCHANGED vars
 Next == Idle \/ BindSecond \/ PrepareLink \/ CommitLink \/ UnlinkSource \/ RelinkSource \/ Hydrate
         \/ (\E c \in Containers : Rekey(c))
-Spec == Init /\ [][Next]_vars
+LinkedDocumentCanUnlink ==
+  (phase = "linked" /\ linked = Containers) ~> (linked = {"destination"})
+Spec == Init /\ [][Next]_vars /\ WF_vars(UnlinkSource)
 =============================================================================

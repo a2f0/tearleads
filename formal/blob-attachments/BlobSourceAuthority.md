@@ -1,7 +1,8 @@
 # Existing blob source authority
 
 [`BlobSourceAuthority.tla`](./BlobSourceAuthority.tla) covers finding #13
-of issue #2266. Write authority on a new attachment destination does not authorize
+of issue #2266. Write authority on a new attachment destination does not
+authorize
 reuse of arbitrary ciphertext already stored in the organization.
 
 | Model action or predicate | Production seam |
@@ -14,8 +15,10 @@ reuse of arbitrary ciphertext already stored in the organization.
 The bounded model enumerates the three independent authority facts. It
 abstracts signatures, membership and SQL lock acquisition. Production checks
 run under the blob mutation and authorization locks, before the new binding
-could authorize its own source. The ciphertext author may revive their own
-fully detached upload. Readable source bytes may be reused by other callers;
+could authorize its own source. The ciphertext author retains source authority
+for their own bytes, including
+when an earlier binding is still attached or no longer readable. Readable source
+bytes may be reused by other callers;
 the signed destination mutation must still be authorized.
 
 The negative control disables only source authority and demonstrates that a

@@ -29,6 +29,7 @@ export async function commitHydratedAttachment(input: {
     generationIsCurrent,
   } = input;
   const runtime = state.runtime;
+  const expectedSnapshotEndVersion = state.record?.snapshotEndVersion ?? null;
   const stillCurrent = () =>
     generationIsCurrent() &&
     state.doc === currentDoc &&
@@ -60,10 +61,36 @@ export async function commitHydratedAttachment(input: {
         persistence: state.persistence,
         attachment,
         expectedStorageKey,
+        expectedSnapshotEndVersion,
         stillCurrent,
       });
       if (committed && stillCurrent())
         installLocalAttachmentRecords(state, [attachment], currentDoc);
+      else if (!committed && stillCurrent())
+        await refreshRefusedAttachmentSlot(input, stillCurrent);
     },
+  );
+}
+
+async function refreshRefusedAttachmentSlot(
+  input: Parameters<typeof commitHydratedAttachment>[0],
+  stillCurrent: () => boolean,
+): Promise<void> {
+  const { state, currentDoc, hydratedBlob } = input;
+  const rows = await state.persistence.listLocalAttachments(
+    state.runtime.infra.execSql,
+    state.localId,
+  );
+  if (!stillCurrent()) return;
+  const slotId = hydratedBlob.attachment.slotId;
+  const { [slotId]: _blobId, ...blobIds } = state.attachmentBlobIdBySlotId;
+  const { [slotId]: _storageKey, ...storageKeys } =
+    state.attachmentStorageKeyBySlotId;
+  state.attachmentBlobIdBySlotId = blobIds;
+  state.attachmentStorageKeyBySlotId = storageKeys;
+  installLocalAttachmentRecords(
+    state,
+    rows.filter((row) => row.slotId === slotId),
+    currentDoc,
   );
 }

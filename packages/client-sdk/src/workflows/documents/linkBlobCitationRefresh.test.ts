@@ -71,14 +71,18 @@ for (const freshEvidence of [false, true]) {
         }),
         execSql: fixture.execSql,
         resolveProjectionUserKey: fixture.resolveProjectionUserKey,
-        targetContainerProjection: target,
+        targetContainerProjection: extra,
         targetSecretKey: fixture.secretKey,
-        targets: [deriveDocumentTargetFromProjection(target)],
+        targets: [
+          deriveDocumentTargetFromProjection(target),
+          deriveDocumentTargetFromProjection(extra),
+        ],
         writerProjection: fixture.writerProjection,
       });
       if (freshEvidence) {
         const result = await rewraps;
         expect(result).toHaveLength(1);
+        expect(result[0]?.targets).toHaveLength(2);
         expect(result[0]?.targets[0]?.wrappedKey).toBe(
           binding.contentKeyBundle.targets[0]?.wrappedKey,
         );

@@ -1,5 +1,8 @@
 import { and, eq } from "drizzle-orm";
-import { documentAttachmentBlobProjection } from "../../../sqlite/schema";
+import {
+  documentAttachmentBlobProjection,
+  documents,
+} from "../../../sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../../sqlite/sqlitePersistenceRuntime";
 import type { DocumentsPersistence } from "../types";
 import { queueDocumentAttachmentStorageKeys } from "./orphanSideRows";
@@ -11,6 +14,16 @@ export const saveHydratedAttachment: DocumentsPersistence["saveHydratedAttachmen
       execSql,
     ).guardedTransaction(
       async (tx) => {
+        const [document] = await tx
+          .select({ snapshotEndVersion: documents.snapshotEndVersion })
+          .from(documents)
+          .where(eq(documents.localId, attachment.localId))
+          .limit(1);
+        if (
+          (document?.snapshotEndVersion ?? null) !==
+          input.expectedSnapshotEndVersion
+        )
+          return false;
         const [existing] = await tx
           .select({ storageKey: documentAttachmentBlobProjection.storageKey })
           .from(documentAttachmentBlobProjection)

@@ -8,12 +8,20 @@ selected by the current authenticated document.
 | --- | --- |
 | `BeginHydration` / `CheckContentDigest` | `hydrateDocumentAttachmentBlobs` compares `attachmentContentSha256` with the document attachment intent |
 | `AdvanceView` | `addDocumentAttachments` records the content digest inside encrypted Loro content |
+| `PersistView` | `saveDocument` advances the durable document frontier after local content changes |
 | `CheckLiveIntent` | `commitHydratedAttachment` rechecks the current document before the guarded commit |
 | `CompareStoredCopy` | `saveHydratedAttachment` compares the durable slot inside a SQLite transaction |
+| `CheckStoredIntent` | `saveHydratedAttachment` checks the captured document `snapshotEndVersion` in the same transaction |
+| `Cancel` / `RefreshRefusedCopy` / `RefusedCopyReloaded` | `refreshRefusedAttachmentSlot` reloads the durable winner after a refused compare-and-set |
+| `StaleCopyCannotReplaceWinner` | `saveHydratedAttachment` rejects an outdated storage-key comparison even when document intent is unchanged |
 | `CommitHydration` | `guardedTransaction` checks the synchronous guard before dispatching commit |
 | `OtherFacadeInstalls` | `saveLocalAttachment` can install a competing copy while hydration is in flight |
+| `OtherFacadeInstallsSameIntent` | `saveLocalAttachment` can install another copy of the same authenticated content |
 
-The bounds contain two content identities, one slot, and a delayed hydration.
+The bounds contain two content identities, three storage copies, one slot, and
+a delayed hydration. A refreshed slot cannot authorize a stale document view to
+replace newer intent on its next attempt; the durable document frontier is
+checked independently of the storage copy and the live in-memory intent.
 The model checks both current-view intent and preservation of a newer durable
 copy installed by another facade. Each guard has a registered negative control.
 It abstracts authenticated document history, signature verification, collision

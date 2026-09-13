@@ -31,12 +31,10 @@ import {
   requireProjectionUserKeyResolver,
 } from "../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { recordDocumentAuthorAccessFailure } from "./authorAccessFailure";
 import { adoptExistingRemoteDocument } from "./createAdoption";
 import type { DocumentCreateTerminalFailureHandler } from "./createProjectionFetch";
-import {
-  fetchContainerWriterProjectionForCreate,
-  recordDocumentCreateAccessFailure,
-} from "./createProjectionFetch";
+import { fetchContainerWriterProjectionForCreate } from "./createProjectionFetch";
 import {
   isDocumentManifestAlreadyExistsConflict,
   shouldRetryWithFreshProjection,
@@ -354,7 +352,7 @@ export async function createRemoteDocument(
     input.resolveProjectionUserKey,
     "Remote document create",
   );
-  const plannedSubmission = await recordDocumentCreateAccessFailure(
+  const plannedSubmission = await recordDocumentAuthorAccessFailure(
     () =>
       nullOnProjectionVerificationCancellation(() =>
         submitPlannedDocumentCreate(input, resolveProjectionUserKey),
