@@ -21,10 +21,10 @@ Prime ==
 AcknowledgeRoot ==
   /\ ~rootRemote
   /\ rootRemote' = TRUE
-  /\ primeRequested' = primeRequested \/ ReprimeAfterRemoteAcknowledgment
+  /\ primeRequested' = (primeRequested \/ ReprimeAfterRemoteAcknowledgment)
   /\ UNCHANGED documentSynced
 
-Next == Prime \/ AcknowledgeRoot
+Next == Prime \/ AcknowledgeRoot \/ UNCHANGED vars
 Spec == Init /\ [][Next]_vars /\ WF_vars(Prime) /\ WF_vars(AcknowledgeRoot)
 TypeOK == {rootRemote, primeRequested, documentSynced} \subseteq BOOLEAN
 DeferredDocumentsAreScheduled == (rootRemote /\ ~documentSynced) => primeRequested
