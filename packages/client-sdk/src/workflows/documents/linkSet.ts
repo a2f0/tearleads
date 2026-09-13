@@ -56,6 +56,7 @@ import {
 } from "../../data/keyingProjectionVerification";
 import { throwKeyingVerificationErrorWithContext } from "../../data/keyingProjectionVerification/error";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { assertDocumentLinkAuthorAccess } from "./linkSetAuthority";
 
 function deriveDocumentLinkSetTargetState(input: {
   operation: DocumentLinkSetMutationOperation;
@@ -248,6 +249,7 @@ function readDocumentLinkSetPreviousEpoch(
 
 async function buildDocumentLinkSetMutationPlan({
   author,
+  blobRewraps,
   contentKeyEpoch,
   eventId = crypto.randomUUID(),
   operation,
@@ -274,6 +276,7 @@ async function buildDocumentLinkSetMutationPlan({
   );
   const eventPlan = await buildDocumentLinkSetEventPlan({
     author,
+    blobRewraps,
     eventId,
     operation,
     organizationId,
@@ -331,6 +334,9 @@ async function buildDocumentLinkSetMutationPlan({
 export async function buildMaterializedDocumentLinkSetMutationPlan(
   input: {
     author: DocumentCreateAuthor;
+    prepareBlobRewraps: (
+      targets: readonly DocumentContentKeyTarget[],
+    ) => Promise<BuildDocumentLinkSetMutationPlanInput["blobRewraps"]>;
     contentKey?: Uint8Array | undefined;
     eventId?: string | undefined;
     execSql?: ExecSql | undefined;
@@ -354,6 +360,11 @@ export async function buildMaterializedDocumentLinkSetMutationPlan(
     targetContainerProjection: input.targetContainerProjection,
     ...verificationOptions,
   });
+  if (input.resolveProjectionUserKey)
+    assertDocumentLinkAuthorAccess({
+      ...input,
+      principalPolicies: [...principalPolicyCache.values()],
+    });
   const targetState = deriveDocumentLinkSetTargetState({
     operation: input.operation,
     targetContainerProjection: input.targetContainerProjection,
@@ -409,6 +420,7 @@ export async function buildMaterializedDocumentLinkSetMutationPlan(
 
   const plan = await buildDocumentLinkSetMutationPlan({
     author: input.author,
+    blobRewraps: await input.prepareBlobRewraps(targetState.targets),
     contentKeyEpoch:
       input.writerProjection.contentKeyBundle.contentKeyEpoch +
       (contentKeyRotated ? 1 : 0),

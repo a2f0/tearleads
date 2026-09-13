@@ -19,19 +19,13 @@ import {
   type StoredBlobContentKeyBundleWithTargets,
   sortTargetEnvelopes,
   targetEnvelopeEqual,
-  targetEnvelopeMaterialEqual,
-  targetKey,
-  targetKeyMaterialEqual,
 } from "./blobContentKeyTargets";
 import {
   assertBlobKekTargetsCurrent,
   BlobKekTargetError,
 } from "./blobKekTargets";
-import {
-  carryForwardContentKeyTargets,
-  createContentKeyStore,
-  projectLatestContentKeyBundle,
-} from "./contentKeyStore";
+import { createContentKeyStore } from "./contentKeyStore";
+import { resolveRetainedBlobTargetEnvelopes } from "./retainedBlobTargetEnvelopes";
 
 export type {
   BlobContentKeyTargetEnvelope,
@@ -81,6 +75,7 @@ async function loadLatestBlobContentKeyEpochRow(
 
 async function listBlobContentKeyTargetRows(
   blobContentKeyEpochId: string,
+  bundleTargetHash: string,
   executor: DatabaseSession,
 ): Promise<BlobContentKeyTargetEnvelope[]> {
   const rows = await executor
@@ -96,7 +91,10 @@ async function listBlobContentKeyTargetRows(
     })
     .from(blobContentKeyTargets)
     .where(
-      eq(blobContentKeyTargets.blobContentKeyEpochId, blobContentKeyEpochId),
+      and(
+        eq(blobContentKeyTargets.blobContentKeyEpochId, blobContentKeyEpochId),
+        eq(blobContentKeyTargets.bundleTargetHash, bundleTargetHash),
+      ),
     );
 
   return sortTargetEnvelopes(rows);
@@ -110,72 +108,24 @@ async function toStoredBundle(
     blobId: row.blobId,
     contentKeyEpoch: row.contentKeyEpoch,
     targetHash: row.targetHash,
-    targets: await listBlobContentKeyTargetRows(row.id, executor),
+    targets: await listBlobContentKeyTargetRows(
+      row.id,
+      row.targetHash,
+      executor,
+    ),
   };
 }
 
-async function getLatestBlobContentKeyBundle(
+export async function getLatestBlobContentKeyBundle(
   blobId: string,
   executor: DatabaseSession,
 ): Promise<StoredBlobContentKeyBundle | null> {
   return blobContentKeyStore.getLatestBundle(blobId, executor);
 }
 
-function refreshedBundleForCurrentTargets(input: {
-  readonly bundle: StoredBlobContentKeyBundle;
-  readonly currentTargets: CurrentBlobKekTargets;
-}): StoredBlobContentKeyBundle | null {
-  const targets = carryForwardContentKeyTargets({
-    currentTargets: input.currentTargets.targets,
-    previousTargets: input.bundle.targets,
-    sortTargetEnvelopes,
-    targetKey,
-    targetKeyMaterialEqual,
-    toEnvelope: (currentTarget, previousEnvelope) => ({
-      ...currentTarget,
-      wrappedKey: previousEnvelope.wrappedKey,
-      wrappingMetadata: previousEnvelope.wrappingMetadata,
-    }),
-  });
-  if (!targets) {
-    return null;
-  }
-
-  return {
-    ...input.bundle,
-    targetHash: input.currentTargets.blobKeyTargetHash,
-    targets: sortTargetEnvelopes(targets),
-  };
-}
-
-export async function getLatestCurrentBlobContentKeyBundle(
-  input: {
-    readonly blobId: string;
-    readonly currentTargets: CurrentBlobKekTargets;
-  },
-  executor: DatabaseSession,
-): Promise<StoredBlobContentKeyBundle | null> {
-  const projection = await projectLatestContentKeyBundle({
-    assertTargetsCurrent: (bundle) =>
-      assertTargetsMatchCurrent({
-        currentTargets: input.currentTargets,
-        targets: bundle.targets,
-      }),
-    getLatestBundle: () =>
-      getLatestBlobContentKeyBundle(input.blobId, executor),
-    metadataIsCurrent: (bundle) =>
-      bundle.targetHash === input.currentTargets.blobKeyTargetHash,
-    refreshForCurrentTargets: (bundle) =>
-      refreshedBundleForCurrentTargets({
-        bundle,
-        currentTargets: input.currentTargets,
-      }),
-  });
-  return projection?.bundle ?? null;
-}
-
 async function insertBlobContentKeyTargets(input: {
   readonly blobContentKeyEpochId: string;
+  readonly bundleTargetHash: string;
   readonly executor: DatabaseSession;
   readonly targets: readonly BlobContentKeyTargetEnvelope[];
 }) {
@@ -188,6 +138,7 @@ async function insertBlobContentKeyTargets(input: {
     .values(
       input.targets.map((target) => ({
         blobContentKeyEpochId: input.blobContentKeyEpochId,
+        bundleTargetHash: input.bundleTargetHash,
         bindingId: target.bindingId,
         documentId: target.documentId,
         containerId: target.containerId,
@@ -201,6 +152,7 @@ async function insertBlobContentKeyTargets(input: {
     .onConflictDoNothing({
       target: [
         blobContentKeyTargets.blobContentKeyEpochId,
+        blobContentKeyTargets.bundleTargetHash,
         blobContentKeyTargets.bindingId,
         blobContentKeyTargets.documentId,
         blobContentKeyTargets.containerId,
@@ -208,40 +160,27 @@ async function insertBlobContentKeyTargets(input: {
     });
 }
 
-async function replaceBlobContentKeyTargetsForExistingBundle(input: {
+export async function replaceBlobContentKeyTargetsForExistingBundle(input: {
   readonly existingBundle: StoredBlobContentKeyBundle;
   readonly nextBundle: StoreBlobContentKeyBundleInput;
   readonly executor: DatabaseSession;
 }): Promise<StoredBlobContentKeyBundle> {
-  const nextByTargetKey = new Map(
-    input.nextBundle.targets.map((target) => [targetKey(target), target]),
-  );
-
-  for (const target of input.existingBundle.targets) {
-    const nextTarget = nextByTargetKey.get(targetKey(target));
-    if (
-      nextTarget &&
-      targetKeyMaterialEqual(target, nextTarget) &&
-      !targetEnvelopeMaterialEqual(target, nextTarget)
-    ) {
-      throw new BlobContentKeyBundleError(
-        "Blob content-key bundle conflict",
-        409,
-      );
-    }
-  }
-
   const epochRow = await loadBlobContentKeyEpochRow(
     input.nextBundle.blobId,
     input.nextBundle.contentKeyEpoch,
     input.executor,
   );
-  if (!epochRow) {
+  if (!epochRow)
     throw new BlobContentKeyBundleError(
       "Failed to load blob content-key epoch",
       409,
     );
-  }
+  const targets = await resolveRetainedBlobTargetEnvelopes({
+    currentTargets: input.existingBundle.targets,
+    epochId: epochRow.id,
+    executor: input.executor,
+    targets: input.nextBundle.targets,
+  });
 
   await input.executor
     .update(blobContentKeyEpochs)
@@ -250,13 +189,11 @@ async function replaceBlobContentKeyTargetsForExistingBundle(input: {
       updatedAt: new Date(),
     })
     .where(eq(blobContentKeyEpochs.id, epochRow.id));
-  await input.executor
-    .delete(blobContentKeyTargets)
-    .where(eq(blobContentKeyTargets.blobContentKeyEpochId, epochRow.id));
   await insertBlobContentKeyTargets({
     blobContentKeyEpochId: epochRow.id,
+    bundleTargetHash: input.nextBundle.targetHash,
     executor: input.executor,
-    targets: input.nextBundle.targets,
+    targets,
   });
 
   const updatedRow = await loadBlobContentKeyEpochRow(
@@ -373,12 +310,24 @@ const blobContentKeyStore = createContentKeyStore<
       .returning();
     return row ?? null;
   },
-  insertTargets: (epochId, targets, executor) =>
-    insertBlobContentKeyTargets({
+  insertTargets: async (epochId, targets, executor) => {
+    const [row] = await executor
+      .select({ targetHash: blobContentKeyEpochs.targetHash })
+      .from(blobContentKeyEpochs)
+      .where(eq(blobContentKeyEpochs.id, epochId))
+      .limit(1);
+    if (!row)
+      throw new BlobContentKeyBundleError(
+        "Blob content-key epoch is unavailable",
+        409,
+      );
+    await insertBlobContentKeyTargets({
       blobContentKeyEpochId: epochId,
+      bundleTargetHash: row.targetHash,
       executor,
       targets,
-    }),
+    });
+  },
   loadEpochRow: loadBlobContentKeyEpochRow,
   loadLatestEpochRow: loadLatestBlobContentKeyEpochRow,
   prepareStore: ({ input, latestBundle }) => {

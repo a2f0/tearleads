@@ -23,12 +23,14 @@ const slots: ReadonlyArray<DocumentAttachmentSlot> = [
 
 const attachments: ReadonlyArray<DocumentAttachment> = [
   {
+    contentSha256: "1".repeat(64),
     byteLength: 1024,
     mimeType: "image/png",
     name: "front.png",
     slotId: "front",
   },
   {
+    contentSha256: "1".repeat(64),
     byteLength: 2048,
     mimeType: "image/jpeg",
     name: "back.jpg",

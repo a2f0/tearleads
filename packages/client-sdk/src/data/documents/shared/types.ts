@@ -1,3 +1,4 @@
+import type { BlobBytesResponse } from "@tearleads/api-client";
 import type {
   AccessEvent,
   AccessManifest,
@@ -21,6 +22,7 @@ import type {
   DocumentPurgeProofResponse,
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
+  ListDocumentAttachmentsResponse,
 } from "@tearleads/validators/response";
 import type { ContainerMutationAuthor } from "../../containers/shared/types";
 import type {
@@ -235,6 +237,7 @@ export interface DocumentLinkSetTargetState {
 }
 
 export interface BuildDocumentLinkSetMutationPlanInput {
+  blobRewraps: DocumentLinkAccessEventBody["blobRewraps"];
   author: DocumentCreateAuthor;
   contentKeyEpoch: number;
   eventId?: string | undefined;
@@ -297,6 +300,10 @@ type DocumentLinkSetMutationResult =
     };
 
 export interface DocumentLinkSetMutationApi {
+  getBlobBytes(blobId: string): Promise<BlobBytesResponse | null>;
+  listDocumentAttachments(
+    documentId: string,
+  ): Promise<ListDocumentAttachmentsResponse | null>;
   getContainerWriterProjection(
     containerId: string,
   ): Promise<ContainerWriterProjectionResponse | null>;

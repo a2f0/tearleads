@@ -134,6 +134,7 @@ test("write headers prove document write access through committed targets", asyn
   });
   const documentEvent = await createVerifiedDocumentAccessEvent({
     body: {
+      blobRewraps: [],
       eventType: "document.link",
       containerId: container.state.containerId,
       containerManifestHash: container.manifestHash,

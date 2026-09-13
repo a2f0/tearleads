@@ -66,6 +66,7 @@ test("historical content authority uses the cited group membership, while submis
   const event = await createVerifiedDocumentAccessEvent({
     body: {
       eventType: "document.link",
+      blobRewraps: [],
       containerId: "container",
       containerManifestHash: container.manifestHash,
     },

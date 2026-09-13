@@ -195,6 +195,7 @@ test("document store reloads persisted attachment metadata from the note snapsho
 
   expect(secondStore.getSnapshot().attachments).toEqual([
     {
+      contentSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
       byteLength: "persisted attachment".length,
       mimeType: "text/plain",
       name: "persisted.txt",

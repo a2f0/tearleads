@@ -288,6 +288,7 @@ async function createDocumentFixture(input: {
 }): Promise<StoredDocumentFixture> {
   const documentId = input.documentId ?? crypto.randomUUID();
   const body = {
+    blobRewraps: [],
     eventType: "document.link" as const,
     containerId: input.container.bundle.state.containerId,
     containerManifestHash: input.container.bundle.manifestHash,

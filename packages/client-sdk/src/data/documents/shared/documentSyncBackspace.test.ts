@@ -26,6 +26,7 @@ for (const backspacesPerUpdate of [1, 2, 3]) {
     try {
       const initialText = "a".repeat(55);
       const attachment = {
+        contentSha256: "1".repeat(64),
         slotId: "attachment-slot",
         name: "note-attachment.png",
         byteLength: 42,

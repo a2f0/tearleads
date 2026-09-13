@@ -99,6 +99,7 @@ async function runMoveRemoteContainerDocumentFixture(input: {
       typeof moveRemoteContainerDocument
     >[0]["runtime"] = {
       apiClient: createMockApiClient({
+        listDocumentAttachments: async () => [],
         getContainerWriterProjection: async (containerId) => {
           if (containerId === rootProjection.containerId) {
             return rootProjection;

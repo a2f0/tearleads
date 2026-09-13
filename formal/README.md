@@ -190,6 +190,17 @@ container subscriptions require current read access before indexing and cannot
 be restored by an authorization result that outlived revocation or socket close.
 See the [production mapping and bounds](./realtime/ContainerInterest.md).
 
+## Attachment Key Reachability
+
+Attachment key availability across links, unlinks, and container rotations is
+modeled in [AttachmentKeyReachability](./document-sync/AttachmentKeyReachability.md).
+
+## Attachment Content Identity
+
+[`document-sync/AttachmentContentIdentity.tla`](./document-sync/AttachmentContentIdentity.tla)
+models authenticated attachment intent and concurrent hydration. See the
+[mapping and boundaries](./document-sync/AttachmentContentIdentity.md).
+
 ## Historical Write Authority and Organization Scope
 
 [ContentWriteAuthority](./document-sync/ContentWriteAuthority.md) checks delayed
@@ -208,3 +219,9 @@ deferred during root verification are scheduled after remote acknowledgement.
 
 [ContainerAuthoring](./local-trust/ContainerAuthoring.md) separates read proof
 access from local signing authority and models an untrusted server echoing a plan.
+
+## Existing Blob Source Authority
+
+[BlobSourceAuthority](./blob-attachments/BlobSourceAuthority.md) models existing
+ciphertext binding with original-author or source-read authority in addition
+to destination-write authority.

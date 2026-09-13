@@ -5,6 +5,7 @@ import type {
 } from "./documentKinds";
 
 export interface DocumentAttachment {
+  contentSha256: string;
   slotId: string;
   name: string;
   byteLength: number;
@@ -43,12 +44,15 @@ function parseStructuredAttachment(
     return null;
   }
 
+  const contentSha256 = value.get("contentSha256");
   const name = value.get("name");
   const byteLength = value.get("byteLength");
   const mimeType = value.get("mimeType");
   const order = value.get("order");
 
   if (
+    typeof contentSha256 !== "string" ||
+    !/^[0-9a-f]{64}$/.test(contentSha256) ||
     typeof name !== "string" ||
     name.length === 0 ||
     typeof byteLength !== "number" ||
@@ -64,6 +68,7 @@ function parseStructuredAttachment(
   }
 
   return {
+    contentSha256,
     byteLength,
     mimeType: mimeType ?? null,
     name,
@@ -150,6 +155,7 @@ export function addDocumentAttachments(
       getAttachmentMapKey(attachment.slotId),
       new LoroMap(),
     );
+    attachmentMap.set("contentSha256", attachment.contentSha256);
     attachmentMap.set("name", attachment.name);
     attachmentMap.set("byteLength", attachment.byteLength);
     if (attachment.mimeType === null) {
@@ -182,6 +188,7 @@ export function sameDocumentAttachments(
       return (
         nextAttachment !== undefined &&
         attachment.slotId === nextAttachment.slotId &&
+        attachment.contentSha256 === nextAttachment.contentSha256 &&
         attachment.name === nextAttachment.name &&
         attachment.byteLength === nextAttachment.byteLength &&
         attachment.mimeType === nextAttachment.mimeType

@@ -862,6 +862,7 @@ async function createRootMetadataDocumentRequest(input: {
     containerKeyEpoch: targetContainerKek.containerKeyEpoch,
   };
   const body: DocumentLinkAccessEventBody = {
+    blobRewraps: [],
     eventType: "document.link",
     containerId: target.containerId,
     containerManifestHash: target.containerManifestHash,

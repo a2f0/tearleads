@@ -30,6 +30,7 @@ test("relinkRemoteDocument rejects unlink without reading projections when its r
   await expect(
     relinkRemoteDocument({
       apiClient: createMockApiClient({
+        listDocumentAttachments: async () => [],
         getContainerWriterProjection: async () => {
           projectionReads += 1;
           throw new Error("Unexpected container projection read");
@@ -114,6 +115,7 @@ test("relinkRemoteDocument submits a verified signed link-set mutation", async (
 
   const linked = await relinkRemoteDocument({
     apiClient: createMockApiClient({
+      listDocumentAttachments: async () => [],
       getContainerWriterProjection: async (containerId) =>
         containerId === siblingProjection.containerId
           ? siblingProjection
@@ -252,6 +254,7 @@ test("link planning rolls back checkpoints after generation expiry", async () =>
   try {
     const linked = await relinkRemoteDocument({
       apiClient: createMockApiClient({
+        listDocumentAttachments: async () => [],
         getContainerWriterProjection: async () => siblingProjection,
         getDocumentWriterProjection: async () => writerProjection,
         linkDocument: async () => {
@@ -345,6 +348,7 @@ test("relinkRemoteDocument rejects bad unlink target container signatures before
     documentManifest: createdResponse.accessManifest,
   };
   const linked = await buildMaterializedDocumentLinkSetMutationPlan({
+    prepareBlobRewraps: async () => [],
     author,
     operation: "link",
     targetContainerProjection: siblingProjection,
@@ -388,6 +392,7 @@ test("relinkRemoteDocument rejects bad unlink target container signatures before
   await expect(
     relinkRemoteDocument({
       apiClient: createMockApiClient({
+        listDocumentAttachments: async () => [],
         getContainerWriterProjection: async (containerId) =>
           containerId === projection.containerId
             ? tamperedTargetProjection

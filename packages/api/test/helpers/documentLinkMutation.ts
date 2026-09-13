@@ -28,6 +28,7 @@ import {
 } from "./keyingWriterProjectionKit";
 
 export async function buildDocumentLinkRequest(input: {
+  readonly blobRewraps?: DocumentLinkAccessEventBody["blobRewraps"];
   readonly authorizingContainerPath?:
     | readonly AccessManifestBundleWire[]
     | undefined;
@@ -44,6 +45,7 @@ export async function buildDocumentLinkRequest(input: {
     input.root.bundle,
   ];
   const body: DocumentLinkAccessEventBody = {
+    blobRewraps: input.blobRewraps ?? [],
     eventType: "document.link",
     containerId: input.child.containerId,
     containerManifestHash: childBundle.manifestHash,
@@ -145,6 +147,7 @@ export async function buildDocumentLinkRequest(input: {
 }
 
 export async function buildDocumentUnlinkRequest(input: {
+  readonly blobRewraps?: DocumentLinkAccessEventBody["blobRewraps"];
   readonly child: ContainerMutationResponse;
   readonly linkedDocument: DocumentLinkSetMutationResponse;
   readonly owner: TestUser;
@@ -178,6 +181,7 @@ export async function buildDocumentUnlinkRequest(input: {
   const previousState = input.linkedDocument.accessManifest.state;
   const documentId = input.linkedDocument.id;
   const body: DocumentAccessEventBody = {
+    blobRewraps: input.blobRewraps ?? [],
     eventType: "document.unlink",
     containerId: unlinkedContainer.kekState.containerId,
     containerManifestHash: unlinkedContainer.bundle.manifestHash,

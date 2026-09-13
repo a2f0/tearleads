@@ -29,6 +29,7 @@ async function createSnapshot(slotIds: ReadonlyArray<string>) {
   addDocumentAttachments(
     doc,
     slotIds.map((slotId) => ({
+      contentSha256: "1".repeat(64),
       byteLength: 12,
       mimeType: "image/png",
       name: `${slotId}.png`,
@@ -181,6 +182,7 @@ test("clearRemoteSyncState preserves a pending-only attachment upload", async ()
       snapshotSlotIds: ["slot-pending"],
     });
     await db.insert(documentPendingAttachments).values({
+      contentSha256: "0".repeat(64),
       byteLength: 12,
       createdAt: STALE,
       localId: "doc-1",
@@ -235,6 +237,7 @@ test("clearRemoteSyncState queues dropped pending-only bytes for reclaim", async
       snapshotSlotIds: [],
     });
     await db.insert(documentPendingAttachments).values({
+      contentSha256: "0".repeat(64),
       byteLength: 12,
       createdAt: STALE,
       localId: "doc-1",

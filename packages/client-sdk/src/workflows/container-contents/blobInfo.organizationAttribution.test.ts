@@ -94,6 +94,7 @@ test("listBlobInfo attributes blobs to their document container organizations", 
       slotId: "personal-slot",
     });
     await sqlDocumentsPersistence.savePendingAttachment(execSql, {
+      contentSha256: "0".repeat(64),
       byteLength: 24,
       localId: "custom-document",
       mimeType: "application/pdf",

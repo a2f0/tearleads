@@ -29,10 +29,9 @@ import {
 const MAX_HEADER_BYTES = 64 * 1024;
 const TEXT_DECODER = new TextDecoder("utf-8", { fatal: true });
 
-function readHeaderValue(encryptedBytes: Uint8Array<ArrayBuffer>): {
-  readonly headerByteLength: number;
-  readonly value: Record<string, unknown>;
-} {
+export function readBlobEnvelopeHeaderByteLength(
+  encryptedBytes: Uint8Array<ArrayBuffer>,
+): number {
   if (encryptedBytes.byteLength < BLOB_ENVELOPE_PREFIX_BYTES) {
     throw new Error("Blob encrypted bytes envelope is truncated");
   }
@@ -56,7 +55,14 @@ function readHeaderValue(encryptedBytes: Uint8Array<ArrayBuffer>): {
   ) {
     throw new Error("Blob encrypted bytes header length is invalid");
   }
-  const headerByteLength = BLOB_ENVELOPE_PREFIX_BYTES + headerPayloadByteLength;
+  return BLOB_ENVELOPE_PREFIX_BYTES + headerPayloadByteLength;
+}
+
+function readHeaderValue(encryptedBytes: Uint8Array<ArrayBuffer>): {
+  readonly headerByteLength: number;
+  readonly value: Record<string, unknown>;
+} {
+  const headerByteLength = readBlobEnvelopeHeaderByteLength(encryptedBytes);
   if (headerByteLength > encryptedBytes.byteLength) {
     throw new Error("Blob encrypted bytes header is truncated");
   }
@@ -176,7 +182,10 @@ function normalizeHeader(value: Record<string, unknown>): {
 
 function readEncryptedChunks(input: {
   readonly encryptedBytes: Uint8Array<ArrayBuffer>;
-  readonly header: BlobEnvelopeV2Header;
+  readonly header: Pick<
+    BlobEnvelopeV2Header,
+    "byteLength" | "chunkCount" | "chunkSize"
+  >;
   readonly headerByteLength: number;
 }): BlobEncryptedChunk[] {
   let chunkOffset = input.headerByteLength;
@@ -198,7 +207,7 @@ function readEncryptedChunks(input: {
   });
 }
 
-export function parseBlobEnvelopeV2(
+export function parseBlobEnvelopeV2Header(
   encryptedBytes: Uint8Array<ArrayBuffer>,
 ): BlobEncryptedBytesRecord {
   const { headerByteLength, value } = readHeaderValue(encryptedBytes);
@@ -215,21 +224,34 @@ export function parseBlobEnvelopeV2(
     headerByteLength,
     plaintextByteLength: header.byteLength,
   });
-  if (encryptedBytes.byteLength !== expectedByteLength) {
-    throw new Error("Blob encrypted bytes length is invalid");
-  }
   return {
     blobId: header.blobId,
     byteLength: header.byteLength,
     chunkCount: header.chunkCount,
-    chunks: readEncryptedChunks({ encryptedBytes, header, headerByteLength }),
+    chunks: [],
     chunkSize: header.chunkSize,
     contentKeyEpoch: header.contentKeyEpoch,
     contentRecordId: header.contentRecordId,
-    encryptedByteLength: encryptedBytes.byteLength,
+    encryptedByteLength: expectedByteLength,
     headerByteLength,
     iv,
     metadataHash: header.metadataHash,
     nonceDomainHash: header.nonceDomainHash,
+  };
+}
+
+export function parseBlobEnvelopeV2(
+  encryptedBytes: Uint8Array<ArrayBuffer>,
+): BlobEncryptedBytesRecord {
+  const encrypted = parseBlobEnvelopeV2Header(encryptedBytes);
+  if (encryptedBytes.byteLength !== encrypted.encryptedByteLength)
+    throw new Error("Blob encrypted bytes length is invalid");
+  return {
+    ...encrypted,
+    chunks: readEncryptedChunks({
+      encryptedBytes,
+      header: encrypted,
+      headerByteLength: encrypted.headerByteLength,
+    }),
   };
 }

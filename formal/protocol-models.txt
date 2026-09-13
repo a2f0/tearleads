@@ -5,6 +5,7 @@ formal/container-keying/KeyringReachability.tla|formal/container-keying/KeyringR
 formal/container-keying/NoBrickedDevice.tla|formal/container-keying/NoBrickedDevice.cfg
 formal/container-keying/NoBrickedDevice.tla|formal/container-keying/NoBrickedDeviceAdversary.cfg
 formal/container-keying/PrincipalReferenceProgress.tla|formal/container-keying/PrincipalReferenceProgress.cfg
+formal/document-sync/AttachmentKeyReachability.tla|formal/document-sync/AttachmentKeyReachability.cfg
 formal/document-sync/BaselineDominance.tla|formal/document-sync/BaselineDominance.cfg
 formal/document-sync/BaselineDominanceTraceExport.tla|formal/document-sync/BaselineDominanceTraceExport.cfg
 formal/document-sync/ContentWriteAuthority.tla|formal/document-sync/ContentWriteAuthority.cfg
@@ -18,3 +19,5 @@ formal/local-trust/RootDocumentPriming.tla|formal/local-trust/RootDocumentPrimin
 formal/local-trust/SystemDestination.tla|formal/local-trust/SystemDestination.cfg
 formal/local-trust/UnacknowledgedInput.tla|formal/local-trust/UnacknowledgedInput.cfg
 formal/realtime/ContainerInterest.tla|formal/realtime/ContainerInterest.cfg
+formal/document-sync/AttachmentContentIdentity.tla|formal/document-sync/AttachmentContentIdentity.cfg
+formal/blob-attachments/BlobSourceAuthority.tla|formal/blob-attachments/BlobSourceAuthority.cfg

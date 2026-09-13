@@ -59,6 +59,7 @@ export interface PendingAttachmentUploadIdentity {
 
 export interface PendingAttachmentRecord {
   byteLength: number;
+  contentSha256: string;
   localId: string;
   mimeType: string | null;
   name: string;
@@ -421,6 +422,16 @@ export interface DocumentsPersistence {
     options?: {
       expectedDocumentId: string | null;
       expectedRecoveryGeneration: number;
+    },
+  ) => Promise<boolean>;
+  /** Replace a hydrated copy only if its observed durable slot and live document still match. */
+  saveHydratedAttachment: (
+    execSql: ExecSql,
+    input: {
+      attachment: LocalAttachmentRecord;
+      expectedStorageKey: string | null;
+      expectedSnapshotEndVersion: string | null;
+      stillCurrent: () => boolean;
     },
   ) => Promise<boolean>;
   saveLocalAttachment: (

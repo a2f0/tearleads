@@ -73,6 +73,7 @@ async function linkedHeadProjection(
 ): Promise<DocumentWriterProjectionResponse> {
   const { initialProjection, other, parent } = scenario;
   const linked = await buildMaterializedDocumentLinkSetMutationPlan({
+    prepareBlobRewraps: async () => [],
     author: parent.author,
     operation: "link",
     targetContainerProjection: other,
@@ -299,6 +300,7 @@ test("a stale dependency path never replaces the authorizing path for its leaf",
       userId: "mallory",
     });
     const malloryLink = await buildMaterializedDocumentLinkSetMutationPlan({
+      prepareBlobRewraps: async () => [],
       author: mallory.author,
       operation: "link",
       targetContainerProjection: malloryRoot,

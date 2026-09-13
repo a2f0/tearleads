@@ -581,6 +581,7 @@ test("buildMaterializedDocumentSyncPlan verifies linked document manifest histor
     authorizingContainerPaths: [rootProjection],
   };
   const linked = await buildMaterializedDocumentLinkSetMutationPlan({
+    prepareBlobRewraps: async () => [],
     author,
     operation: "link",
     targetContainerProjection: childProjection,

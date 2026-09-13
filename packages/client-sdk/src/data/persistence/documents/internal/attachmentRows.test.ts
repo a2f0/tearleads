@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { mapPendingAttachmentRecord } from "./attachmentRows";
 
 const baseRow = {
+  contentSha256: "0".repeat(64),
   byteLength: 12,
   localId: "local-document",
   mimeType: "application/octet-stream",

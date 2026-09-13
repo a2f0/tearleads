@@ -58,6 +58,7 @@ export async function buildDocumentCreatePlan({
   }
 
   const body: DocumentLinkAccessEventBody = {
+    blobRewraps: [],
     eventType: "document.link",
     containerId: targetContainerId,
     containerManifestHash: targetContainerManifestHash,
@@ -125,6 +126,7 @@ export async function buildDocumentCreatePlan({
 }
 
 export async function buildDocumentLinkSetEventPlan(input: {
+  blobRewraps: DocumentLinkAccessEventBody["blobRewraps"];
   author: DocumentCreateAuthor;
   eventId: string;
   operation: DocumentLinkSetMutationOperation;
@@ -140,6 +142,7 @@ export async function buildDocumentLinkSetEventPlan(input: {
   const eventType =
     input.operation === "link" ? "document.link" : "document.unlink";
   const body: DocumentLinkSetMutationBody = {
+    blobRewraps: input.blobRewraps,
     eventType,
     containerId: input.targetState.target.containerId,
     containerManifestHash: input.targetState.target.containerManifestHash,

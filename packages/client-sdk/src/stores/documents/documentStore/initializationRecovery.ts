@@ -16,6 +16,7 @@ import {
 } from "./persistence";
 import type { DocumentState, DocumentStoreState } from "./state";
 import type { DocumentStoreSyncGeneration } from "./syncGeneration";
+import { isDocumentStoreSyncGenerationCurrent } from "./syncGeneration";
 
 // Re-derive any attachment slot that lives in a durable pending-upload row but
 // is missing (or stale) in the loaded snapshot. The attach write path persists
@@ -24,9 +25,9 @@ import type { DocumentStoreSyncGeneration } from "./syncGeneration";
 // but the slot gone from the document — the attachment would otherwise silently
 // disappear on restart while its bytes upload to a binding nothing references
 // (and a slot replace would keep stale metadata). Because the pending row still
-// carries the slot's name/byteLength/mimeType and the bytes are on disk, we can
-// rebuild the slot exactly and let the normal sync upload it. Runs on init only;
-// a no-op when every pending attachment already matches a slot.
+// carries the slot's metadata and staging digest, we can rebuild the slot without
+// opening bytes; normal upload reports missing sources. Runs on init only; a
+// no-op when every pending attachment already matches a slot.
 export async function recoverDroppedAttachmentSlots(
   state: DocumentStoreState,
   doc: DocumentStoreState["doc"],
@@ -46,15 +47,19 @@ export async function recoverDroppedAttachmentSlots(
   for (const pending of state.pendingAttachments) {
     const mimeType = pending.mimeType ?? null;
     const existing = existingBySlotId.get(pending.slotId);
+    const contentSha256 = pending.contentSha256;
+    if (!isDocumentStoreSyncGenerationCurrent(state, writeGeneration)) return;
     if (
       existing &&
       existing.name === pending.name &&
       existing.byteLength === pending.byteLength &&
-      existing.mimeType === mimeType
+      existing.mimeType === mimeType &&
+      existing.contentSha256 === contentSha256
     ) {
       continue;
     }
     recovered.push({
+      contentSha256,
       byteLength: pending.byteLength,
       mimeType,
       name: pending.name,

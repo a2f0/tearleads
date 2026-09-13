@@ -534,6 +534,7 @@ export const documentPendingAttachments = sqliteTable(
     mimeType: text("mime_type"),
     storageKey: text("storage_key").notNull(),
     byteLength: integer("byte_length").notNull(),
+    contentSha256: text("content_sha256").notNull(),
     createdAt: text("created_at").notNull(),
     // Upload-resume identity, set on the first upload attempt. Reusing the blob
     // id, content key and IV seed makes every encrypted chunk byte-identical, so

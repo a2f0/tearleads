@@ -148,6 +148,11 @@ an explicit readiness probe before reading a ready snapshot. Use
 `tearleads.runtime.input(containerId)` for host runtime input; SDK facades retain
 API access and incident reporting.
 
+Attachment methods persist required `contentSha256` digests in encrypted document
+content and pending-upload rows. Recovery restores slots without reading bytes.
+Hydration installs matching bytes only while the document and durable slot remain
+current; an older valid binding cannot replace the intended attachment content.
+
 For bounded UI hydration, resolve `localId` with
 `tearleads.documents.findLocalIdByDocumentId(documentId)`, open with
 `remoteSyncMode: "on-demand"`, and await `requestRemoteSyncAndWait(signal)`.

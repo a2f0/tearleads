@@ -11,6 +11,7 @@ interface SelectedPendingAttachment {
   mimeType: string | null;
   storageKey: string;
   byteLength: number;
+  contentSha256: string;
   uploadBlobId: string | null;
   uploadContentKey: string | null;
   uploadIv: string | null;
@@ -36,6 +37,7 @@ export function buildPendingAttachmentRow(
 ) {
   return {
     byteLength: attachment.byteLength,
+    contentSha256: attachment.contentSha256,
     createdAt,
     localId: attachment.localId,
     mimeType: attachment.mimeType,
@@ -94,6 +96,7 @@ export function mapPendingAttachmentRecord(
   }
   return {
     byteLength: row.byteLength,
+    contentSha256: row.contentSha256,
     localId: row.localId,
     mimeType: row.mimeType,
     name: row.name,

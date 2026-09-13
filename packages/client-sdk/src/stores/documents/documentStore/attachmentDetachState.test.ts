@@ -18,6 +18,7 @@ async function createDocumentWithSlots(slotIds: ReadonlyArray<string>) {
   addDocumentAttachments(
     doc,
     slotIds.map((slotId) => ({
+      contentSha256: "1".repeat(64),
       byteLength: 12,
       mimeType: "image/png",
       name: `${slotId}.png`,

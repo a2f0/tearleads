@@ -87,3 +87,14 @@ export async function deletePendingDocumentAttachment(input: {
     input.storageKey,
   );
 }
+
+export function saveHydratedDocumentAttachment(input: {
+  execSql: ExecSql;
+  persistence: DocumentsPersistence;
+  attachment: LocalAttachmentRecord;
+  expectedStorageKey: string | null;
+  expectedSnapshotEndVersion: string | null;
+  stillCurrent: () => boolean;
+}): Promise<boolean> {
+  return input.persistence.saveHydratedAttachment(input.execSql, input);
+}

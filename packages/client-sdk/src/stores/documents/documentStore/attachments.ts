@@ -2,10 +2,8 @@ import {
   encodeVersionVector,
   exportFullHistorySnapshot,
 } from "@tearleads/loro";
-import { blobByteSourceInputLength } from "../../../data/blobContracts";
 import {
   addDocumentAttachments,
-  type DocumentAttachment,
   getDocumentAttachments,
   removeDocumentAttachment,
 } from "../../../data/documents/documentContent";
@@ -13,6 +11,10 @@ import { createPendingUpdateFields } from "../../../data/documents/documentSync"
 import type { PendingAttachmentRecord } from "../../../workflows/documents";
 import { requestDocumentStoreSync } from "../registry";
 import type { DocumentAttachmentUpload } from "../types";
+import {
+  buildAttachmentIntent,
+  buildPendingAttachments,
+} from "./attachmentIntents";
 import {
   persistStagedAttachmentMutation,
   restoreFailedAttachmentMutation,
@@ -46,39 +48,6 @@ import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
 // Fixed literal: a reported message must never carry file names or slot ids.
 const ATTACHMENT_FAILURE_MESSAGE = "Documents: attachment mutation failed";
 
-function buildPendingAttachments(
-  localId: string,
-  files: ReadonlyArray<DocumentAttachmentUpload>,
-): {
-  nextAttachments: DocumentAttachment[];
-  nextPendingAttachments: PendingAttachmentRecord[];
-} {
-  const nextPendingAttachments: PendingAttachmentRecord[] = [];
-  const nextAttachments: DocumentAttachment[] = [];
-
-  for (const file of files) {
-    const slotId = crypto.randomUUID();
-    const storageKey = `${localId}-${slotId}`;
-    const byteLength = blobByteSourceInputLength(file.bytes);
-    nextPendingAttachments.push({
-      byteLength,
-      localId,
-      mimeType: file.mimeType,
-      name: file.name,
-      slotId,
-      storageKey,
-    });
-    nextAttachments.push({
-      byteLength,
-      mimeType: file.mimeType,
-      name: file.name,
-      slotId,
-    });
-  }
-
-  return { nextAttachments, nextPendingAttachments };
-}
-
 function logAttachedFiles(state: DocumentStoreState, count: number) {
   state.runtime.util.log(
     state.runtime.state.online && state.runtime.auth.isAuthenticated
@@ -106,10 +75,13 @@ async function persistAttachedFiles(
     return;
   }
 
-  const { nextAttachments, nextPendingAttachments } = buildPendingAttachments(
-    state.localId,
-    files,
-  );
+  const { nextAttachments, nextPendingAttachments } =
+    await buildPendingAttachments(state.localId, files);
+  if (
+    !isAttachmentWriteGenerationCurrent(state, writeGeneration) ||
+    state.doc !== currentDoc
+  )
+    return;
   const rollbackSnapshot = exportFullHistorySnapshot(currentDoc).slice();
   addDocumentAttachments(currentDoc, nextAttachments);
   const attachmentUpdate = pendingDeltaSinceBase(state, currentDoc);
@@ -195,12 +167,12 @@ async function persistSlotAttachmentFile(
     return;
   }
 
-  const replacementAttachment: DocumentAttachment = {
-    byteLength: blobByteSourceInputLength(file.bytes),
-    mimeType: file.mimeType,
-    name: file.name,
-    slotId,
-  };
+  const replacementAttachment = await buildAttachmentIntent(slotId, file);
+  if (
+    !isAttachmentWriteGenerationCurrent(state, writeGeneration) ||
+    state.doc !== currentDoc
+  )
+    return;
   const rollbackSnapshot = exportFullHistorySnapshot(currentDoc).slice();
   addDocumentAttachments(currentDoc, [replacementAttachment]);
   const attachmentUpdate = pendingDeltaSinceBase(state, currentDoc);
@@ -209,6 +181,7 @@ async function persistSlotAttachmentFile(
   const storageKey = `${state.localId}-${slotId}-${crypto.randomUUID()}`;
   const pendingAttachment: PendingAttachmentRecord = {
     byteLength: replacementAttachment.byteLength,
+    contentSha256: replacementAttachment.contentSha256,
     localId: state.localId,
     mimeType: replacementAttachment.mimeType,
     name: replacementAttachment.name,
@@ -335,6 +308,11 @@ async function persistRemovedAttachment(
   }
 
   const storageKey = state.attachmentStorageKeyBySlotId[slotId];
+  if (
+    !isAttachmentWriteGenerationCurrent(state, writeGeneration) ||
+    state.doc !== currentDoc
+  )
+    return;
   const rollbackSnapshot = exportFullHistorySnapshot(currentDoc).slice();
   removeDocumentAttachment(currentDoc, slotId);
   const attachmentUpdate = pendingDeltaSinceBase(state, currentDoc);

@@ -7,6 +7,7 @@ import {
 } from "./contactAvatarSlot";
 
 const avatarAttachment: DocumentAttachment = {
+  contentSha256: "1".repeat(64),
   byteLength: 1024,
   mimeType: "image/png",
   name: "avatar.png",

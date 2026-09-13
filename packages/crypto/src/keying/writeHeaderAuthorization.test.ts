@@ -48,6 +48,7 @@ test("write headers prove blob write access through derived attachment targets",
   });
   const documentEvent = await createVerifiedDocumentAccessEvent({
     body: {
+      blobRewraps: [],
       eventType: "document.link",
       containerId: container.state.containerId,
       containerManifestHash: container.manifestHash,
@@ -201,6 +202,7 @@ test("write header authorization covers every linked container target and histor
   });
   const documentEvent = await createVerifiedDocumentAccessEvent({
     body: {
+      blobRewraps: [],
       eventType: "document.link",
       containerId: writeContainer.state.containerId,
       containerManifestHash: writeContainer.manifestHash,

@@ -94,6 +94,7 @@ async function createBlobContentKeyBundle(input: { blobId: string }) {
   await db.insert(blobContentKeyTargets).values(
     targets.map((target) => ({
       blobContentKeyEpochId: epoch.id,
+      bundleTargetHash: currentTargets.blobKeyTargetHash,
       ...target,
     })),
   );

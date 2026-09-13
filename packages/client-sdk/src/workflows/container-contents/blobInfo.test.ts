@@ -154,6 +154,7 @@ test("listBlobInfo includes pending storage-key blobs", async () => {
       title: "Draft",
     });
     await sqlDocumentsPersistence.savePendingAttachment(execSql, {
+      contentSha256: "0".repeat(64),
       byteLength: 34,
       localId: "local-document-1",
       mimeType: "text/plain",
@@ -254,6 +255,7 @@ test("listBlobInfo sorts grouped rows by MIME type", async () => {
       storageKey: "storage-unknown",
     });
     await sqlDocumentsPersistence.savePendingAttachment(execSql, {
+      contentSha256: "0".repeat(64),
       byteLength: 48,
       localId: "local-document-4",
       mimeType: "application/pdf",

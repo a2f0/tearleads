@@ -37,6 +37,7 @@ async function createOrganizationBlobBinding(input: {
   });
   const documentEvent = await createVerifiedDocumentAccessEvent({
     body: {
+      blobRewraps: [],
       containerId: container.state.containerId,
       containerManifestHash: container.manifestHash,
       eventType: "document.link",

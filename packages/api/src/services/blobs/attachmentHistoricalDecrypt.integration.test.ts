@@ -7,9 +7,12 @@ import {
   createRemoteDocument,
   decryptDocumentAttachmentBlob,
   shareRemoteContainer,
+  unwrapContainerKekPath,
   uploadDocumentAttachment,
 } from "@tearleads/client-sdk";
 import { createTestTrustedUserIdentityResolver } from "@tearleads/client-sdk/testing";
+import { BLOB_CONTENT_KEY_WRAP_SUITE, encryptWithDek } from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";
@@ -21,6 +24,7 @@ import {
 import { addOrganizationMember } from "../../../test/helpers/organizationMembership";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
+import { readKeyingCanonicalJson } from "../../utils/canonicalJson";
 
 test("SDK decrypts a historical binding after ancestor head changes and document relinking", async () => {
   const owner = createTestUser();
@@ -142,9 +146,11 @@ test("SDK decrypts a historical binding after ancestor head changes and document
       );
     apiClient.clearWriterProjectionCaches();
     const plaintext = new Uint8Array([3, 1, 4, 1, 5, 9]);
+    const blobContentKey = crypto.getRandomValues(new Uint8Array(32));
     const uploaded = await uploadDocumentAttachment({
       ...common,
       bytes: plaintext,
+      contentKey: blobContentKey,
       documentId: document.documentId,
       expectedBindingId: null,
       slotId: "preview",
@@ -164,6 +170,23 @@ test("SDK decrypts a historical binding after ancestor head changes and document
     });
     if (!currentAncestor) throw new Error("Expected current ancestor rotation");
     apiClient.clearWriterProjectionCaches();
+    const destination = await apiClient.getContainerWriterProjection(
+      other.containerId,
+    );
+    if (!destination) throw new Error("Expected destination projection");
+    const destinationKeys = await unwrapContainerKekPath({
+      ...common,
+      projection: destination,
+      secretKey: owner.kem.secretKey,
+    });
+    const destinationState = kekStateFromContainerResponse(other.response);
+    const destinationKey = destinationKeys.get(
+      destinationState.containerKeyEpochId,
+    );
+    if (!destinationKey) throw new Error("Expected verified destination KEK");
+    const wrapped = await encryptWithDek(blobContentKey, destinationKey);
+    const originalTarget = uploaded.request.contentKeyBundle.targets[0];
+    if (!originalTarget) throw new Error("Expected uploaded attachment target");
     const relinked = await apiClient.linkDocument(
       document.documentId,
       await buildDocumentLinkRequest({
@@ -179,6 +202,33 @@ test("SDK decrypts a historical binding after ancestor head changes and document
           kekState: kekStateFromContainerResponse(currentAncestor.response),
           principalPolicies: root.principalPolicies,
         },
+        blobRewraps: [
+          {
+            blobId: uploaded.blobId,
+            contentKeyEpoch: 1,
+            targets: [
+              {
+                ...originalTarget,
+                wrappingMetadata: readKeyingCanonicalJson(
+                  originalTarget.wrappingMetadata,
+                  "attachment wrap",
+                ),
+              },
+              {
+                ...originalTarget,
+                containerId: other.containerId,
+                containerManifestHash: destinationState.accessManifestHash,
+                containerKeyEpochId: destinationState.containerKeyEpochId,
+                containerKeyEpoch: destinationState.containerKeyEpoch,
+                wrappedKey: bytesToBase64(wrapped.ciphertext),
+                wrappingMetadata: {
+                  suite: BLOB_CONTENT_KEY_WRAP_SUITE,
+                  iv: bytesToBase64(wrapped.iv),
+                },
+              },
+            ],
+          },
+        ],
       }),
     );
     if (!relinked) throw new Error("Expected document relink");

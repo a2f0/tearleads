@@ -54,6 +54,7 @@ import {
 import { loadStoredDocumentStoreState } from "./internal/documentStoreStatePersistence";
 import { listDocumentSummaries } from "./internal/documentSummaryQueries";
 import { ensureDocumentsSchema } from "./internal/ensureDocumentsSchema";
+import { saveHydratedAttachment } from "./internal/hydratedAttachmentPersistence";
 import {
   loadPendingCreateSummary,
   mapPendingCreateLocalIds,
@@ -308,6 +309,7 @@ export const sqlDocumentsPersistence: DocumentsPersistence = {
   ...documentRowQueryPersistence,
   ...documentSyncQueuePersistence,
   supportsAtomicRecoveryHistoryPruning: true,
+  saveHydratedAttachment,
   createDocumentWithHistoryCheckpoint:
     createStoredDocumentWithHistoryCheckpoint,
   commitDocumentMutation: (execSql, input, saveClientProjection) =>

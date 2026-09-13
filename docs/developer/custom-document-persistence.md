@@ -90,3 +90,14 @@ record to adopt progress written by another pane before retrying from page one.
 This is a flag-day contract. The SDK has no compatibility path for previous
 split-create, split-commit, void-enqueue, or optional identity-probe adapter
 shapes.
+
+`saveHydratedAttachment(...)` compares `expectedStorageKey` with the slot's
+current durable row and `expectedSnapshotEndVersion` with the canonical document
+row for `attachment.localId`, inside one immediate transaction. Either mismatch
+returns `false` without replacing the slot. A `null` expected version means no
+canonical row is expected; it does not disable the document-version check.
+Its synchronous `stillCurrent` guard runs immediately before commit dispatch;
+refusal rolls back the replacement. Replaced or refused byte copies enter the
+reference-checked orphan reclaim queue. Memory adapters must preserve the same
+compare-and-set behavior. Attachment entries require `contentSha256`, the
+plaintext digest stored inside authenticated encrypted document content.

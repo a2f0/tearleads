@@ -66,12 +66,12 @@ test("maintenance sweeps aged orphan rows but preserves fresh and live rows", as
     );
     await execSql(
       `INSERT INTO document_pending_attachments (
-        local_id, slot_id, name, storage_key, byte_length, created_at
+        local_id, slot_id, name, storage_key, byte_length, content_sha256, created_at
       ) VALUES
-        ('live', 'live-slot', 'live.txt', 'live-pending', 1, ?),
-        ('metadata-live', 'metadata-slot', 'metadata.txt', 'metadata-pending', 1, ?),
-        ('orphan', 'orphan-slot', 'orphan.txt', 'orphan-pending', 1, ?),
-        ('fresh', 'fresh-slot', 'fresh.txt', 'fresh-pending', 1, ?)`,
+        ('live', 'live-slot', 'live.txt', 'live-pending', 1, hex(zeroblob(32)), ?),
+        ('metadata-live', 'metadata-slot', 'metadata.txt', 'metadata-pending', 1, hex(zeroblob(32)), ?),
+        ('orphan', 'orphan-slot', 'orphan.txt', 'orphan-pending', 1, hex(zeroblob(32)), ?),
+        ('fresh', 'fresh-slot', 'fresh.txt', 'fresh-pending', 1, hex(zeroblob(32)), ?)`,
       [OLD, OLD, OLD, FRESH],
     );
     await execSql(

@@ -26,6 +26,7 @@ import {
 } from "./authorization";
 import { lockBlobMutationRows } from "./blobMutationLocks";
 import { toMutationError } from "./errors";
+import { assertExistingBlobSourceAuthority } from "./existingBlobAuthority";
 import { finalizeAttachmentMutation } from "./finalizeAttachmentMutation";
 import {
   appendAttachmentAuditEvent,
@@ -210,6 +211,13 @@ async function verifyAndLockBindSlot(input: {
   });
   if (activeBinding?.id !== observedActiveBinding?.id) {
     throw new BlobMutationError("Attachment slot changed concurrently", 409);
+  }
+  if (!input.request.stagedBlob) {
+    await assertExistingBlobSourceAuthority({
+      blobId: input.blobId,
+      executor: input.tx,
+      userId: input.event.signerUserId,
+    });
   }
   return { activeBinding, verifiedBinding };
 }

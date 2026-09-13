@@ -57,6 +57,7 @@ test("deriveDocumentKekTargets resolves every linked container KEK target", asyn
     signerUserId: writerUserId,
   });
   const body: DocumentAccessEventBody = {
+    blobRewraps: [],
     eventType: "document.link",
     containerId: firstContainer.state.containerId,
     containerManifestHash: firstContainer.manifestHash,
@@ -168,6 +169,7 @@ test("deriveBlobKekTargets resolves the union of every active attachment binding
   });
   const firstDocumentEvent = await createVerifiedDocumentAccessEvent({
     body: {
+      blobRewraps: [],
       eventType: "document.link",
       containerId: firstContainer.state.containerId,
       containerManifestHash: firstContainer.manifestHash,
@@ -181,6 +183,7 @@ test("deriveBlobKekTargets resolves the union of every active attachment binding
   });
   const secondDocumentEvent = await createVerifiedDocumentAccessEvent({
     body: {
+      blobRewraps: [],
       eventType: "document.link",
       containerId: secondContainer.state.containerId,
       containerManifestHash: secondContainer.manifestHash,

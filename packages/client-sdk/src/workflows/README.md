@@ -143,6 +143,12 @@ edit's optional attachment rows, outgoing update, matching history tail,
 snapshot frontier, and projections in its complete-record CAS transaction.
 `loadDocumentStoreState(...)` must return the canonical record, history, and
 attachment rows from one database snapshot so startup cannot cross a relink.
+`saveHydratedAttachment(...)` must compare `expectedStorageKey` with the durable
+slot and `expectedSnapshotEndVersion` with the canonical row for the attachment's
+local document id inside one immediate transaction. A `null` expected version
+requires that document row to be absent. Its synchronous current-intent guard runs
+immediately before commit dispatch. Either comparison or guard can refuse the
+commit with `false`; replaced or refused bytes enter reference-checked reclaim.
 `findLocalIdByDocumentId(...)` must preserve a duplicate row carrying queued
 updates or a deferred-sync frontier behind its snapshot; otherwise it selects
 deterministically by descending update time and local id. This lets a restarted

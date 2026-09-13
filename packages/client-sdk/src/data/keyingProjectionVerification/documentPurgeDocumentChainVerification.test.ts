@@ -79,6 +79,7 @@ async function createPurgeChainFixture() {
     userId: fixture.author.signerUserId,
   });
   const linkedPlan = await buildMaterializedDocumentLinkSetMutationPlan({
+    prepareBlobRewraps: async () => [],
     author: fixture.author,
     operation: "link",
     targetContainerProjection: extraProjection,
@@ -97,6 +98,7 @@ async function createPurgeChainFixture() {
     target: extraProjection,
   });
   const unlinkedPlan = await buildMaterializedDocumentLinkSetMutationPlan({
+    prepareBlobRewraps: async () => [],
     author: fixture.author,
     operation: "unlink",
     targetContainerProjection: extraProjection,

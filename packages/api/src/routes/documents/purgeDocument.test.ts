@@ -438,6 +438,7 @@ async function createDocumentRequest(input: {
 }): Promise<DocumentCreateRequest> {
   const documentId = crypto.randomUUID();
   const body: DocumentLinkAccessEventBody = {
+    blobRewraps: [],
     eventType: "document.link",
     containerId: input.root.kekState.containerId,
     containerManifestHash: input.root.bundle.manifestHash,

@@ -1,4 +1,7 @@
-import { verifyAttachmentBindingEvent } from "@tearleads/crypto";
+import {
+  KeyingVerificationError,
+  verifyAttachmentBindingEvent,
+} from "@tearleads/crypto";
 import type { DecryptDocumentAttachmentBlobInput } from "../../data/documents/blob/shared/types";
 import {
   readCanonicalJson,
@@ -98,6 +101,9 @@ export async function assertAttachmentBindingVerified(input: {
       "Attachment binding event bundle",
     ) !== verified.value.event.eventHash
   ) {
-    throw new Error("Attachment binding slot or event hash is inconsistent");
+    throw new KeyingVerificationError(
+      "object_mismatch",
+      "Attachment binding slot or event hash is inconsistent",
+    );
   }
 }

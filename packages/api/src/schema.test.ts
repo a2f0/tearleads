@@ -318,6 +318,7 @@ test("access manifest schema stores critical rows through Drizzle", async () => 
   });
   await db.insert(blobContentKeyTargets).values({
     blobContentKeyEpochId: blobContentEpochId,
+    bundleTargetHash: blobTargetHash,
     bindingId,
     documentId,
     containerId,

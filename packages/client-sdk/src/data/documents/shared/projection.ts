@@ -186,10 +186,9 @@ async function assertDocumentWriterProjectionConsistentInternal(
   input: ProjectionVerificationOptions & {
     /**
      * Accept a projection whose content-key bundle is marked stale (wrapped
-     * to superseded KEK targets after e.g. a revoke rotation). Only the
-     * document sync path opts in — it can heal the bundle by re-wrapping the
-     * content key. Every other consumer fails fast, preserving the behavior
-     * of the former projection-level 409.
+     * to superseded KEK targets after e.g. a revoke rotation). Document sync
+     * opts in to heal the bundle. Attachment reads opt in because their DEK
+     * is independent and opens through verified retained container KEKs.
      */
     allowStaleContentKeyBundle?: boolean | undefined;
     execSql?: ExecSql | undefined;

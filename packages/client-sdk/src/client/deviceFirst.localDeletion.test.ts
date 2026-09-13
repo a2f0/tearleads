@@ -115,6 +115,7 @@ test("local deletion evicts a cached device-first summary until disposal", async
   try {
     await seedCachedDocuments(execSql);
     await defaultDocumentsPersistence.savePendingAttachment(execSql, {
+      contentSha256: "0".repeat(64),
       byteLength: 1,
       localId: "note-1",
       mimeType: "text/plain",

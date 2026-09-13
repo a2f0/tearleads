@@ -1,3 +1,5 @@
+import { normalizeDocumentAccessEventBody } from "@tearleads/crypto";
+
 export {
   readRecordNullableString,
   readRecordString,
@@ -13,7 +15,7 @@ import type {
   DocumentLinkAccessEventBody,
   DocumentUnlinkAccessEventBody,
 } from "@tearleads/crypto";
-import { readCanonicalRecord } from "../keyingCanonicalJson";
+import { readCanonicalJson, readCanonicalRecord } from "../keyingCanonicalJson";
 import {
   readRecordNullableString,
   readRecordPositiveInteger,
@@ -293,21 +295,7 @@ export function readDocumentAccessEventBody(
   value: unknown,
   label: string,
 ): DocumentLinkAccessEventBody | DocumentUnlinkAccessEventBody {
-  return readKeyingVerificationShape(() => {
-    const record = readCanonicalRecord(value, label);
-    const eventType = readRequiredRecordValue(record, "eventType", label);
-    if (eventType !== "document.link" && eventType !== "document.unlink") {
-      throw new Error(`${label}.eventType is invalid`);
-    }
-
-    return {
-      eventType,
-      containerId: readRecordString(record, "containerId", label),
-      containerManifestHash: readRecordString(
-        record,
-        "containerManifestHash",
-        label,
-      ),
-    };
-  });
+  return readKeyingVerificationShape(() =>
+    normalizeDocumentAccessEventBody(readCanonicalJson(value, label)),
+  );
 }

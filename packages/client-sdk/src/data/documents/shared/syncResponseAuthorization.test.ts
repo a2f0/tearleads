@@ -34,6 +34,7 @@ test("a new-to-device document head and its historical write retain cited ancest
   const organizationId = root1.state.organizationId;
   const event = await createVerifiedDocumentAccessEvent({
     body: {
+      blobRewraps: [],
       eventType: "document.link",
       containerId: child1.state.containerId,
       containerManifestHash: child1.manifestHash,

@@ -10,11 +10,13 @@ not. The server may echo any plan the client signs without checking authority.
 | `FetchVerifiedProjection` | `unwrapContainerKekPath` verifies the signed path before exposing keys to the materialized planners |
 | `CanAuthor` / `SignMutation` / `CheckAuthorAccess` | `assertContainerAuthorAccess` checks current membership in the verified path before creating a signed event |
 | `EchoAcknowledgement` / `AcknowledgementsHaveAuthority` | `acknowledgeContainerMutation` and `acknowledgeDocumentMutation` may trust matching local plans only after authoring checked permission |
-| `RefuseMutation` / `DocumentRefusalsAreVisible` | `recordDocumentCreateAccessFailure` records the local permission denial as a terminal 403 for pending document creation |
+| `RefuseMutation` / `DocumentRefusalsAreVisible` | `recordDocumentAuthorAccessFailure` records the local permission denial as a terminal 403 for pending document creation |
 
 The bounded choices cover read, write, and admin grants; child, system, and
-document creation; sharing, revocation, rekeying, and moves. Moves independently
-require admin on the source and write on the destination. Group membership is
+document creation and link/unlink; sharing, revocation, rekeying, and moves.
+Moves independently
+require admin on the source and write on the destination. Document links require
+write on the target and on an existing linked source. Group membership is
 abstracted into its verified effective access. Later policy changes and the
 server's knowledge of current policy remain outside this local authoring model.
 The effective grant belongs to the signed target organization. For child and

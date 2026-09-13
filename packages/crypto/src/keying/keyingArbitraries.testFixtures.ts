@@ -300,6 +300,7 @@ export async function buildLinkedDocument(input: {
   const linked: string[] = [];
   for (const [index, head] of input.heads.entries()) {
     const body: DocumentAccessEventBody = {
+      blobRewraps: [],
       eventType: "document.link",
       containerId: head.state.containerId,
       containerManifestHash: head.manifestHash,

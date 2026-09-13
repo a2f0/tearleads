@@ -82,8 +82,8 @@ test("document startup does not wait for orphan byte maintenance", async () => {
     await defaultDocumentsPersistence.ensureSchema(execSql);
     await execSql(
       `INSERT INTO document_pending_attachments (
-        local_id, slot_id, name, storage_key, byte_length, created_at
-      ) VALUES ('orphan', 'slot', 'orphan.txt', 'orphan-storage', 1, ?)`,
+        local_id, slot_id, name, storage_key, byte_length, content_sha256, created_at
+      ) VALUES ('orphan', 'slot', 'orphan.txt', 'orphan-storage', 1, hex(zeroblob(32)), ?)`,
       ["2000-01-01T00:00:00.000Z"],
     );
     const blobStore = {

@@ -205,6 +205,7 @@ test("loadDocumentSyncState summarizes pending document work", async () => {
       updateData: "update",
     });
     await sqlDocumentsPersistence.savePendingAttachment(execSql, {
+      contentSha256: "0".repeat(64),
       byteLength: 123_456,
       localId: "song-1",
       mimeType: "audio/mpeg",

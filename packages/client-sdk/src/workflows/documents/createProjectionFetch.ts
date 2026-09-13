@@ -1,5 +1,4 @@
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
-import { ContainerAuthorAccessError } from "../../data/containers/shared/authorAccess";
 import type { DocumentCreateApi } from "../../data/documents/shared/types";
 
 export type DocumentCreateTerminalFailureHandler = (failure: {
@@ -38,18 +37,4 @@ export async function fetchContainerWriterProjectionForCreate(input: {
   result.report();
   await input.onTerminalSubmitFailure?.(result);
   return null;
-}
-
-/** A verified read-only path is a local permission refusal, not tampered proof. */
-export async function recordDocumentCreateAccessFailure<T>(
-  build: () => Promise<T>,
-  onFailure: DocumentCreateTerminalFailureHandler | undefined,
-): Promise<T | null> {
-  try {
-    return await build();
-  } catch (error) {
-    if (!(error instanceof ContainerAuthorAccessError)) throw error;
-    await onFailure?.({ message: error.message, status: error.status });
-    return null;
-  }
 }

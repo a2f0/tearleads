@@ -99,6 +99,7 @@ test("moveRemoteContainerDocument can replace every existing link with the targe
       documentManifestHistory: [],
     };
     const extraLink = await buildMaterializedDocumentLinkSetMutationPlan({
+      prepareBlobRewraps: async () => [],
       author,
       execSql,
       operation: "link",
@@ -152,6 +153,7 @@ test("moveRemoteContainerDocument can replace every existing link with the targe
       rotationSnapshot: await createRotationSnapshot(),
       runtime: {
         apiClient: createMockApiClient({
+          listDocumentAttachments: async () => [],
           getContainerWriterProjection: async (containerId) =>
             projectionsById.get(containerId) ?? null,
           getDocumentWriterProjection: async (documentId) =>
