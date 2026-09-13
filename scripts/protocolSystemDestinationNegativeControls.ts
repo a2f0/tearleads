@@ -3,6 +3,14 @@ import type { NegativeControl } from "./protocolNegativeControls";
 export const SYSTEM_DESTINATION_NEGATIVE_CONTROLS: readonly NegativeControl[] =
   [
     {
+      id: "system-slot-created-outside-root",
+      module: "formal/local-trust/SystemDestination.tla",
+      config: "formal/local-trust/SystemDestination.cfg",
+      constants: { RequireSystemRootParent: "FALSE" },
+      expect: { kind: "invariant", name: "OnlyRootChildrenHaveSlots" },
+      why: "A system slot must be a direct root child, even with a truncated parent proof (#2266).",
+    },
+    {
       id: "root-manifest-crosses-organization",
       module: "formal/local-trust/SystemDestination.tla",
       config: "formal/local-trust/SystemDestination.cfg",

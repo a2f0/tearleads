@@ -58,10 +58,10 @@ const ADMIN_GROUP_OPEN_REQUEST_BUDGET: ProxiedApiRequestBudget = {
 // meant to close.
 const ADMIN_GROUP_MUTATION_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // Two held descendants now re-cite the acknowledged root. The measured
-  // mutation has 62 requests, including four extra organization-policy reads
+  // mutation has 63 requests, including four extra organization-policy reads
   // that authenticate refreshed group heads before they enter the cache.
-  total: 62,
-  // Signed destination roles and fresh container-info proofs measure 1.804 MB.
+  total: 63,
+  // Signed destination roles and fresh container-info proofs measure 1.827 MB.
   bodyBytes: { request: 350_000, response: 1_850_000 },
   byRequest: {
     "GET /containers": 0,
@@ -74,8 +74,9 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     "GET /organizations/:organizationId/read-model": 6,
     "GET /organizations/:organizationId/groups/:groupId/containers": 0,
     "GET /organizations/:organizationId/groups/:groupId/members": 1,
-    // Includes first classification of signed system roles and fresh info.
-    "GET /containers/:containerId/writer-projection": 4,
+    // Includes first classification of system roles, newly visible roots,
+    // and fresh container info. A cold newly visible root adds one proof.
+    "GET /containers/:containerId/writer-projection": 5,
     "GET /organizations/:organizationId/directory": 0,
     "GET /organizations/:organizationId/groups": 0,
     "GET /organizations/:organizationId/data-usage": 0,

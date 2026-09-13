@@ -143,8 +143,8 @@
       "bytes": 17421
     },
     "packages/api/src/routes/containers/mutations.test.ts": {
-      "lines": 3831,
-      "bytes": 126479
+      "lines": 3835,
+      "bytes": 126619
     },
     "packages/api/src/routes/documents/purgeDocument.test.ts": {
       "lines": 1275,
@@ -303,8 +303,8 @@
       "bytes": 23592
     },
     "packages/crypto/src/keying/containerAccess.ts": {
-      "lines": 1105,
-      "bytes": 32559
+      "lines": 1109,
+      "bytes": 32653
     },
     "packages/crypto/src/keying/containerKek.test.ts": {
       "lines": 650,

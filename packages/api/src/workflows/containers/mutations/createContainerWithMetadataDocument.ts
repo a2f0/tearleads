@@ -38,7 +38,7 @@ export function assertContainerSystemSlot(
   container: ContainerCreateWithMetadataDocumentResponse["container"],
   slot: string | null,
 ): void {
-  if (container.systemSlot !== slot) {
+  if ((container.systemSlot ?? null) !== slot) {
     throw new ContainerMutationError(
       "System slot does not match the signed container state",
       400,

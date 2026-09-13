@@ -13,7 +13,7 @@ that root, so an ordinary writer cannot create a foreign-organization decoy.
 | `MergeRoot` / `RequireSessionRoot` / `RequireRootScope` | `canUseRemoteRootAsLocalRootReconciliationTarget` checks the session root identity after `verifyRemoteContainerDestination` checks its signed organization |
 | `MoveDestination` / `PreserveDestinationIdentity` | `deriveContainerMoveManifestState` forbids moves of roots and system containers |
 | `UseSystem` / `RequireSystemScope` | `findSystemContainerStateForRoot` selects the authenticated slot in the active organization and acknowledged root |
-| `CreateSystem` / `RequireSystemAdministrator` | `deriveContainerCreateManifestState` requires root-admin authority for slots |
+| `CreateSystem` / `RequireSystemAdministrator` / `RequireSystemRootParent` | `deriveContainerCreateManifestState` requires root-admin authority and a complete root parent path for slots |
 
 The model has four candidate identities, two creator roles, and shared/private
 variants. Signature checks and organization matching are abstracted by the verified
@@ -26,7 +26,7 @@ and must
 also match a signed parentless manifest; an unsigned login response alone is
 insufficient to make an ordinary shared folder a root.
 
-Each of the eight guards has a negative control. The shared-system invariant
+Each of the nine guards has a negative control. The shared-system invariant
 keeps extra recipients from becoming a reason to refuse a legitimate Trash or
 Contacts destination. Runtime regressions exercise forged listing fields using
 real signatures and SQLite persistence, including an ordinary container and a
@@ -54,3 +54,7 @@ on this device. Those roots can serve their own organization system flows withou
 becoming the session's personal merge destination. Root lookup uses the unique
 verified root in such an organization; pre-login reconciliation and stale-root
 recovery continue to require an explicit session acknowledgement.
+
+Slot creation covers both a real root child and an invalid parent shape. The
+crypto regressions reject a slot on a root, a grandchild, and a truncated proof
+that presents a non-root parent as the first path entry.

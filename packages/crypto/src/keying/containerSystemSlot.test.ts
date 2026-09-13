@@ -12,6 +12,79 @@ import {
 import type { ContainerCreateAccessEventBody } from "./types";
 
 const SLOT = `sys_v1_${"a".repeat(43)}`;
+
+test.each(["root", "grandchild", "truncated-grandchild"] as const)(
+  "a system slot cannot be created as a %s",
+  async (kind) => {
+    const signer = generateSigningSeedAndKeyPair();
+    const directGrants = [
+      { subjectType: "user", subjectId: "owner", accessLevel: "admin" },
+    ] as const;
+    const root = await createContainerManifestFixture({
+      containerId: "root",
+      directGrants,
+      signer,
+      signerUserId: "owner",
+    });
+    const parent = await createContainerManifestFixture({
+      containerId: "parent",
+      parentContainerId: root.state.containerId,
+      parentManifestHash: root.manifestHash,
+      directGrants,
+      signer,
+      signerUserId: "owner",
+    });
+    const body: ContainerCreateAccessEventBody = {
+      eventType: "container.create",
+      systemSlot: SLOT,
+      containerKeyEpochId: "key-1",
+      metadataDocumentId: "metadata",
+      parentContainerId: kind === "root" ? null : parent.state.containerId,
+      parentManifestHash: kind === "root" ? null : parent.manifestHash,
+      directGrants: [...directGrants],
+      referencedPrincipalHeads: [],
+    };
+    const event = await createVerifiedContainerAccessEvent({
+      body,
+      objectId: "system",
+      organizationId: root.state.organizationId,
+      previousManifestHash: null,
+      signer,
+      signerUserId: "owner",
+    });
+    const { eventType: _eventType, ...fields } = body;
+    const manifest = await deriveContainerAccessManifest({
+      ...fields,
+      version: 1,
+      containerId: "system",
+      organizationId: root.state.organizationId,
+      epoch: 1,
+      previousManifestHash: null,
+      eventHash: event.eventHash,
+    });
+    const result = await verifyContainerAccessManifest({
+      event,
+      manifest,
+      expectedManifestHash: await computeAccessManifestHash(manifest),
+      parentContainerPath:
+        kind === "root"
+          ? []
+          : kind === "grandchild"
+            ? [root, parent]
+            : [parent],
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("invalid_shape");
+      expect(result.error.message).toBe(
+        kind === "root"
+          ? "root containers cannot have a system slot"
+          : "system container parent must be a root",
+      );
+    }
+  },
+);
+
 for (const accessLevel of ["write", "admin"] as const) {
   for (const systemSlot of [null, SLOT]) {
     test(`a ${accessLevel} member creates a ${systemSlot === null ? "normal" : "system"} container`, async () => {

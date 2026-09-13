@@ -744,7 +744,11 @@ function deriveContainerCreateManifestState(
       principalPolicies: input.principalPolicies,
     });
   } else {
-    if (body.systemSlot !== null && input.parentContainerPath?.length !== 1) {
+    if (
+      body.systemSlot !== null &&
+      (input.parentContainerPath?.length !== 1 ||
+        input.parentContainerPath[0]?.state.parentContainerId !== null)
+    ) {
       throwVerification(
         "invalid_shape",
         "system container parent must be a root",

@@ -8,10 +8,42 @@ import {
   accessManifestFromContainerResponse,
   bootstrapRoot,
   buildRootGrantRequest,
+  createDocumentRequest,
   kekStateFromContainerResponse,
 } from "../../../test/helpers/keyingWriterProjectionKit";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
+
+test("composite creation rejects a slot different from its signed state", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const container = await buildChildCreateRequest({
+    root,
+    signer: owner,
+    systemSlot: `sys_v1_${"a".repeat(43)}`,
+  });
+  const response = await routeApp.request(
+    "/containers/with-metadata-document",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${owner.token}`,
+      },
+      body: JSON.stringify({
+        systemSlot: `sys_v1_${"b".repeat(43)}`,
+        container,
+        metadataDocument: await createDocumentRequest({ owner, root }),
+      }),
+    },
+  );
+  expect(response.status).toBe(400);
+  expect(await response.json()).toEqual({
+    error: "System slot does not match the signed container state",
+  });
+});
 
 test("a root writer can create folders but cannot mint a system destination", async () => {
   const owner = createTestUser();
