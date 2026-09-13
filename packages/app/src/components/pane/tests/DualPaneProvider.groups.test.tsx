@@ -56,6 +56,7 @@ import {
   useTestApiAppHandlers,
 } from "../../../../test/helpers/mswServer";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
+import { waitForPersonalBootstrap } from "../../../../test/helpers/waitForPersonalBootstrap";
 import { ORG_MANAGER_LABELS } from "../../../mini-apps/org-manager/labels";
 
 afterEach(async () => {
@@ -73,7 +74,7 @@ test(
     const rightPane = getPaneRoot(view, "right");
 
     await waitForDualPaneProvisioning(leftPane, rightPane);
-
+    await waitForPersonalBootstrap(2);
     await addPeerToAdminsGroup(leftPane, getPaneUserId(rightPane));
     const postAdminAddBaseline = capturePostShareSyncBaseline();
     await openExplorer(leftPane);
@@ -106,7 +107,7 @@ test(
     const rightPane = getPaneRoot(view, "right");
 
     await waitForDualPaneProvisioning(leftPane, rightPane);
-
+    await waitForPersonalBootstrap(2);
     await addPeerToAdminsGroup(leftPane, getPaneUserId(rightPane));
     const postAdminAddBaseline = capturePostShareSyncBaseline();
 
@@ -133,7 +134,7 @@ test(
     const rightPane = getPaneRoot(view, "right");
 
     await waitForDualPaneProvisioning(leftPane, rightPane);
-
+    await waitForPersonalBootstrap(2);
     // Open the peer explorer BEFORE the membership change so the only thing that
     // can surface the Admins-granted root is the incoming shared_with_you event
     // driving an automatic root re-list. Opening it after the add would mask the
@@ -183,7 +184,7 @@ test(
     const editedNoteText = "Peer two edited admin-shared note";
 
     await waitForDualPaneProvisioning(leftPane, rightPane);
-
+    await waitForPersonalBootstrap(2);
     await addPeerToAdminsGroup(leftPane, getPaneUserId(rightPane));
     await openExplorer(leftPane);
     await createNoteInContainer(leftPane, "/", initialNoteText);
@@ -245,7 +246,7 @@ test(
     const editedNoteText = "Peer two edited admin-shared note without event";
 
     await waitForDualPaneProvisioning(leftPane, rightPane);
-
+    await waitForPersonalBootstrap(2);
     await addPeerToAdminsGroup(leftPane, getPaneUserId(rightPane));
     await openExplorer(leftPane);
     await createNoteInContainer(leftPane, "/", initialNoteText);
@@ -319,7 +320,7 @@ test(
     const noteText = "Exact note content shared through a custom group";
 
     await waitForDualPaneProvisioning(leftPane, rightPane);
-
+    await waitForPersonalBootstrap(2);
     await createGroupAndAddPeer(leftPane, groupName, getPaneUserId(rightPane));
     await openExplorer(leftPane);
     await createNoteInContainer(leftPane, "/", noteText);
@@ -379,7 +380,7 @@ test(
     const groupName = "Pane 2 Readers";
 
     await waitForDualPaneProvisioning(leftPane, rightPane);
-
+    await waitForPersonalBootstrap(2);
     await createGroupAndAddPeer(leftPane, groupName, getPaneUserId(rightPane));
     await openExplorer(rightPane);
     await openExplorer(leftPane);
