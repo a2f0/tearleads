@@ -353,11 +353,21 @@ export async function waitForSelectedNoteText(
   message: string,
   timeoutMs = 15_000,
 ) {
-  await waitForCondition(
-    () => getNoteEditor(pane).value === text,
-    `${message}\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
-    timeoutMs,
-  );
+  try {
+    await waitForCondition(
+      () => getNoteEditor(pane).value === text,
+      message,
+      timeoutMs,
+    );
+  } catch (error) {
+    const requests = summarizeProxiedApiRequests(
+      listProxiedApiRequests().slice(-30),
+    );
+    throw new Error(
+      `${message}\nexpected=${text}\nactual=${getNoteEditor(pane).value}\nrequests=\n${requests}\npane=${truncateText(pane.textContent ?? "")}`,
+      { cause: error },
+    );
+  }
 }
 
 export async function moveContainer(

@@ -39,6 +39,7 @@ async function createBlobWriteHeader(input: {
     }));
 
   return {
+    dependencyManifestHashes: [],
     version: 1,
     organizationId: input.organizationId,
     objectKind: "blob",

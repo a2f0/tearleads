@@ -189,3 +189,10 @@ See the [mapping and boundaries](./backup-restore/TerminalAnchors.md).
 container subscriptions require current read access before indexing and cannot
 be restored by an authorization result that outlived revocation or socket close.
 See the [production mapping and bounds](./realtime/ContainerInterest.md).
+
+## Historical Write Authority and Organization Scope
+
+[ContentWriteAuthority](./document-sync/ContentWriteAuthority.md) checks delayed
+reads across ancestor grants, group removal, and leaf advancement.
+[OrganizationScope](./local-trust/OrganizationScope.md) enumerates directory,
+group-chain, reference, and parent organization choices at the cache boundary.

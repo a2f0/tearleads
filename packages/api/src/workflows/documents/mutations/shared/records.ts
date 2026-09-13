@@ -205,6 +205,11 @@ export function readWriteHeader(value: unknown, label: string): WriteHeader {
 
   return {
     version: 1,
+    dependencyManifestHashes: readProjectionStringArray(
+      readProjectionValue(record, "dependencyManifestHashes"),
+      `${label}.dependencyManifestHashes`,
+      documentShapeError,
+    ),
     organizationId: readWriteHeaderString(record, "organizationId", label),
     objectKind,
     objectId: readWriteHeaderString(record, "objectId", label),
@@ -246,6 +251,7 @@ export function writeHeaderRecord(
     objectKind: header.objectKind,
     objectId: header.objectId,
     accessManifestHash: header.accessManifestHash,
+    dependencyManifestHashes: [...header.dependencyManifestHashes],
     contentKeyEpoch: header.contentKeyEpoch,
     targetHash: header.targetHash,
     encryptionSuite: header.encryptionSuite,

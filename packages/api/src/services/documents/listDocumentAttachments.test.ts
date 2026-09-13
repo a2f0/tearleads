@@ -98,6 +98,7 @@ async function createBlobContentKeyBundle(input: { blobId: string }) {
     })),
   );
   const writeHeader: WriteHeader = {
+    dependencyManifestHashes: [],
     version: 1,
     accessManifestHash: currentTargets.blobAccessManifestHash,
     ciphertextHash: "sha256",

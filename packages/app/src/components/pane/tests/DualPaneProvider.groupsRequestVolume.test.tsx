@@ -58,9 +58,10 @@ const ADMIN_GROUP_OPEN_REQUEST_BUDGET: ProxiedApiRequestBudget = {
 // meant to close.
 const ADMIN_GROUP_MUTATION_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // Two held descendants now re-cite the acknowledged root. The measured
-  // mutation has 56 requests, including those POSTs and their refresh hints.
-  total: 58,
-  bodyBytes: { request: 350_000, response: 1_650_000 },
+  // mutation has 60 requests, including four extra organization-policy reads
+  // that authenticate refreshed group heads before they enter the cache.
+  total: 62,
+  bodyBytes: { request: 350_000, response: 1_800_000 },
   byRequest: {
     "GET /containers": 0,
     "POST /containers/parent-lanes/query": 8,
@@ -78,7 +79,7 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     "GET /organizations/:organizationId/data-usage": 0,
     "GET /organizations/:organizationId/grants": 0,
     "GET /organizations/:organizationId/billing": 1,
-    "GET /principals/organization/:organizationId/policy": 2,
+    "GET /principals/organization/:organizationId/policy": 6,
     "POST /containers/:containerId/share": 0,
     "PUT /organizations/:organizationId/groups/:groupId/policy-commit": 2,
     "POST /containers/:containerId/recite": 2,

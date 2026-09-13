@@ -199,6 +199,9 @@ async function stageAndBindBlobAttachment(input: {
     ),
   });
   const { writeHeader, writeHeaderHash } = await signBlobAttachmentWriteHeader({
+    authorizingContainerPathRefs: authorizingContainerPathRefs(
+      input.material.writerProjection,
+    ),
     author: input.author,
     blobAccessManifestHash: input.material.blobAccessManifestHash,
     blobId: input.blobId,

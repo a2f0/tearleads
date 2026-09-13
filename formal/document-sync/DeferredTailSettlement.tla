@@ -4,7 +4,7 @@ EXTENDS FiniteSets, Naturals
 (* Device-first tail coverage. A guarded durable start linearizes its fixed *)
 (* effect; stale completion cannot publish into a replacement or remove B. *)
 
-CONSTANTS Ops, Identities, MaxGeneration
+CONSTANTS Ops, Identities, MaxGeneration, RequireDurablePublication
 
 (* Each identity is one abstract token for the local/remote identifiers,   *)
 (* container, access epoch/hash/level, and content-keying context.         *)
@@ -61,7 +61,7 @@ DurableOpIsLive ==
     [] OTHER -> TRUE
 TypeOK ==
   /\ snapshot \subseteq Ops /\ durableSnapshot \subseteq Ops
-  /\ snapshot \subseteq durableSnapshot /\ durableBase \subseteq durableSnapshot
+  /\ durableBase \subseteq durableSnapshot
   /\ workingBase \subseteq snapshot /\ queued \subseteq durableSnapshot
   /\ remote \subseteq durableSnapshot
   /\ durableRemoteRows \subseteq durableSnapshot
@@ -291,15 +291,11 @@ RejectIsolatedIncomingResponse ==
                   liveIdentity, liveGeneration, responseIdentity,
                   responseGeneration, durableOpVars, auditVars >>
 
-(* Durable history tail append of the pulled updates — its own durable *)
-(* write, landing BEFORE the record persist, as the implementation *)
-(* orders them: a crash between the two leaves remote-origin tail rows *)
-(* whose coverage the persisted marker does not yet carry. Production *)
-(* runs both writes inside one serialized identity-write chain that *)
-(* rechecks generation and sync context on entry (ResponseIsLive here), *)
-(* so a relink cannot really interleave between them; the model's *)
-(* NoDurableOp gap admits that interleaving anyway — adversarial slack *)
-(* the properties absorb — while keeping the crash window reachable. *)
+(* Conservative durable tail step. Production's continuation CAS commits *)
+(* the pulled history and record atomically inside one SQL mutation. The *)
+(* model permits a separate earlier tail append, adding crash states with *)
+(* extra durable content but no live publication. These additional states *)
+(* test restart provenance and cannot justify uncommitted live imports. *)
 StartResponseTailAppend ==
   /\ localPresent
   /\ responsePending
@@ -337,6 +333,19 @@ StartResponseDurableOp ==
                   lane, captureVars, localPresent,
                   authoritativelyDeleted, liveIdentity, liveGeneration,
                   responseVars, auditVars >>
+
+(* Negative control for importing/publishing before the continuation CAS. *)
+PublishUncommittedResponse ==
+  /\ ~RequireDurablePublication
+  /\ responsePending
+  /\ responseValidated
+  /\ ResponseIsLive
+  /\ NoDurableOp
+  /\ snapshot' = snapshot \cup responseIncoming
+  /\ UNCHANGED << durableSnapshot, durableBase, workingBase, queued, remote,
+                  durableRemoteRows, lane, captureVars, presenceVars,
+                  liveIdentity, liveGeneration, responseVars, durableOpVars,
+                  auditVars >>
 
 CompleteLiveResponsePersist ==
   /\ durableOp = "response"
@@ -462,6 +471,7 @@ Next ==
   \/ CompleteResponseTailAppend
   \/ StartResponseDurableOp
   \/ CompleteLiveResponsePersist
+  \/ PublishUncommittedResponse
   \/ CompleteLiveDeletion
   \/ CompleteStaleResponseDurableOp
   \/ CancelOrIgnoreResponse
@@ -472,6 +482,8 @@ Next ==
   \/ UNCHANGED vars
 
 Spec == Init /\ [][Next]_vars
+PublishedHistoryIsDurable == snapshot \subseteq durableSnapshot
+
 DurableAccountingSound == durableBase \subseteq (remote \cup queued)
 WorkingAccountingSound == workingBase \subseteq (remote \cup queued)
 

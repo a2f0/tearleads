@@ -19,6 +19,7 @@ import {
   cacheReferencedPrincipalPolicies,
 } from "../../src/workflows/principals/policyCache";
 import type { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/registerIdentity";
+import type { PolicyDirectoryFixture } from "./policyDirectoryFixtures";
 import {
   principalPolicyBundleFromState,
   signedPrincipalPolicyBundle,
@@ -29,6 +30,7 @@ type CacheReferencedPoliciesOptions = Omit<
   CacheReferencedPrincipalPoliciesOptions,
   "reportSecurityIncident" | "resolveTrustedUserIdentity"
 > & {
+  readonly directory?: PolicyDirectoryFixture;
   readonly getUserIdentity: (
     userId: string,
   ) => Promise<UserIdentityResponse | null>;
@@ -40,12 +42,27 @@ type CacheReferencedPoliciesOptions = Omit<
 export function cacheReferencedPolicies(
   options: CacheReferencedPoliciesOptions,
 ): Promise<void> {
-  const { getUserIdentity, reportSecurityIncident, ...cacheOptions } = options;
+  const {
+    directory,
+    getUserIdentity,
+    reportSecurityIncident,
+    ...cacheOptions
+  } = options;
   return cacheReferencedPrincipalPolicies({
     ...cacheOptions,
+    getCurrentPrincipalPolicy: (kind, id) =>
+      directory &&
+      kind === "organization" &&
+      id === directory.bundle.currentState.principalId
+        ? Promise.resolve(directory.bundle)
+        : cacheOptions.getCurrentPrincipalPolicy(kind, id),
     reportSecurityIncident: reportSecurityIncident ?? (async () => undefined),
-    resolveTrustedUserIdentity:
-      createMockApiTrustedUserIdentityResolver(getUserIdentity),
+    resolveTrustedUserIdentity: createMockApiTrustedUserIdentityResolver(
+      (userId) =>
+        directory && userId === directory.signer.userId
+          ? Promise.resolve(directory.signer)
+          : getUserIdentity(userId),
+    ),
   });
 }
 
@@ -188,6 +205,7 @@ export async function createSuccessorPrincipalPolicyBundle(
   options: { shrinkWithoutRotation?: boolean } = {},
 ): Promise<{
   bundle: PrincipalPolicyBundleResponse;
+  previousBundle: PrincipalPolicyBundleResponse;
   signerKeyResponse: PolicySignerKeyResponse;
 }> {
   const principalKem = generateKemSeedAndKeyPair();
@@ -268,6 +286,7 @@ export async function createSuccessorPrincipalPolicyBundle(
 
   return {
     bundle,
+    previousBundle,
     signerKeyResponse: {
       userId: signerUserId,
       signingPublicKey: bytesToBase64(signerPublicKey),

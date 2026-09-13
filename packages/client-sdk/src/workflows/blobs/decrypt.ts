@@ -43,6 +43,7 @@ import {
   readRecordString,
   requireProjectionUserKeyResolver,
 } from "../../data/keyingProjectionVerification";
+import { resolveEventContainerPaths } from "../../data/keyingProjectionVerification/documentDependencyPaths";
 
 import { assertAttachmentBindingVerified } from "./attachmentBindingVerification";
 
@@ -370,10 +371,13 @@ async function assertBlobWriteHeaderVerified(input: {
     throw new Error("Attachment blob write header does not match ciphertext");
   }
   const verified = await verifyWriteHeader({
+    authorizationMembership: "referenced",
     blobAuthorization: {
-      authorizingContainerPaths: [
-        ...input.authorization.containerPathByManifestHash.values(),
-      ],
+      authorizingContainerPaths: resolveEventContainerPaths({
+        containerPathByManifestHash:
+          input.authorization.containerPathByManifestHash,
+        dependencyManifestHashes: header.dependencyManifestHashes,
+      }).dependencyContainerPaths,
       blobKekTargets,
       principalPolicies: input.authorization.principalPolicies,
     },

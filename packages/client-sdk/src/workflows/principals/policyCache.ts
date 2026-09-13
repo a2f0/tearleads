@@ -23,7 +23,14 @@ import {
   loadOrganizationExternalAdminPolicy,
   type VerifiedExternalAdminPolicy,
 } from "./externalAdminPolicy";
+import { scopeReferencedPolicyForCache } from "./principalPolicyCacheScope";
 import { validatePrincipalPolicyBundleForCache } from "./principalPolicyCacheValidation";
+import {
+  createPolicyDirectoryLoader,
+  directoryBindsGroupReference,
+  type PolicyDirectoryLoader,
+  type VerifiedPolicyDirectory,
+} from "./principalPolicyOrganizationScope";
 
 export interface CacheReferencedPrincipalPoliciesOptions {
   execSql: ExecSql;
@@ -82,6 +89,7 @@ async function cacheReferencedPrincipalPolicy(
   loadExternalAdminPolicy: () => Promise<VerifiedExternalAdminPolicy | null>,
   organizationId: string,
   stillCurrent: (() => boolean) | undefined,
+  loadDirectory: PolicyDirectoryLoader,
 ): Promise<VerifiedPrincipalPolicy[]> {
   const localCheckpoint = await loadPrincipalPolicyCheckpoint(
     execSql,
@@ -95,7 +103,7 @@ async function cacheReferencedPrincipalPolicy(
     reference,
     localCheckpoint,
   );
-  const bundle =
+  let bundle =
     cachedBundle ??
     (await getCurrentPrincipalPolicy(
       reference.principalType,
@@ -108,7 +116,7 @@ async function cacheReferencedPrincipalPolicy(
     return [];
   }
 
-  const validation = await validatePrincipalPolicyBundleForCache({
+  let validation = await validatePrincipalPolicyBundleForCache({
     bundle,
     loadExternalAdminPolicy,
     localCheckpoint,
@@ -119,11 +127,46 @@ async function cacheReferencedPrincipalPolicy(
     throw validation.error;
   }
 
+  const scoped = await scopeReferencedPolicyForCache({
+    bundle,
+    validation,
+    validationInput: {
+      loadExternalAdminPolicy,
+      localCheckpoint,
+      reference,
+      resolveTrustedUserIdentity,
+    },
+    loadDirectory,
+    organizationId,
+    reloadBundle: cachedBundle
+      ? () => getCurrentPrincipalPolicy("group", reference.principalId)
+      : null,
+  });
+  if (!scoped) {
+    log?.(
+      `Principal policy cache: signed organization directory does not cover ${getReferencedPrincipalKey(reference)}`,
+    );
+    return [];
+  }
+  bundle = scoped.bundle;
+  validation = scoped.validation;
+  const directory = scoped.directory;
   const externalEntries = validation.externalAdminPolicy
-    ? externalAdminPolicyPersistenceEntries(validation.externalAdminPolicy)
+    ? externalAdminPolicyPersistenceEntries(
+        validation.externalAdminPolicy,
+      ).filter(
+        (entry) => !directory || entry.policy.principalType !== "organization",
+      )
+    : [];
+  const directoryEntries = directory
+    ? [{ bundle: directory.bundle, policy: directory.policy }]
     : [];
   await persistVerifiedPrincipalPolicyBundlesAtomically({
-    entries: [...externalEntries, { bundle, policy: validation.policy }],
+    entries: [
+      ...externalEntries,
+      ...directoryEntries,
+      { bundle, policy: validation.policy },
+    ],
     execSql,
     organizationId,
     updatedAt: new Date().toISOString(),
@@ -137,6 +180,7 @@ async function cachePrincipalPolicyBundle(input: {
   readonly execSql: ExecSql;
   readonly loadExternalAdminPolicy: () => Promise<VerifiedExternalAdminPolicy | null>;
   readonly log: ((message: string) => void) | undefined;
+  readonly loadDirectory: PolicyDirectoryLoader;
   readonly organizationId: string;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   readonly stillCurrent?: (() => boolean) | undefined;
@@ -160,12 +204,36 @@ async function cachePrincipalPolicyBundle(input: {
     throw validation.error;
   }
 
+  let directory: VerifiedPolicyDirectory | null = null;
+  if (reference.principalType === "group") {
+    directory = await input.loadDirectory(false);
+    if (!directoryBindsGroupReference(directory, validation.policy, reference))
+      directory = await input.loadDirectory(true);
+    if (
+      !directoryBindsGroupReference(directory, validation.policy, reference)
+    ) {
+      input.log?.(
+        "Principal policy cache: signed organization directory does not cover supplied group",
+      );
+      return [];
+    }
+  } else if (reference.principalId !== input.organizationId) {
+    return [];
+  }
   const externalEntries = validation.externalAdminPolicy
-    ? externalAdminPolicyPersistenceEntries(validation.externalAdminPolicy)
+    ? externalAdminPolicyPersistenceEntries(
+        validation.externalAdminPolicy,
+      ).filter(
+        (entry) => !directory || entry.policy.principalType !== "organization",
+      )
+    : [];
+  const directoryEntries = directory
+    ? [{ bundle: directory.bundle, policy: directory.policy }]
     : [];
   await persistVerifiedPrincipalPolicyBundlesAtomically({
     entries: [
       ...externalEntries,
+      ...directoryEntries,
       { bundle: input.bundle, policy: validation.policy },
     ],
     execSql: input.execSql,
@@ -180,6 +248,7 @@ async function runPrincipalPolicyCache<Item, Result>(input: {
   readonly cacheItem: (
     item: Item,
     loadExternalAdminPolicy: () => Promise<VerifiedExternalAdminPolicy | null>,
+    loadDirectory: PolicyDirectoryLoader,
   ) => Promise<readonly Result[]>;
   readonly dedupe: (items: ReadonlyArray<Item>) => Item[];
   readonly execSql: ExecSql;
@@ -199,6 +268,7 @@ async function runPrincipalPolicyCache<Item, Result>(input: {
   try {
     await ensurePrincipalPolicyTables(input.execSql);
     const uniqueItems = input.dedupe(input.items);
+    const loadDirectory = createPolicyDirectoryLoader(input);
     let externalAdminPolicy: Promise<VerifiedExternalAdminPolicy | null> | null =
       null;
     const loadExternalAdminPolicy = () => {
@@ -216,7 +286,11 @@ async function runPrincipalPolicyCache<Item, Result>(input: {
     const results = await Promise.all(
       uniqueItems.map(async (item) => {
         try {
-          return await input.cacheItem(item, loadExternalAdminPolicy);
+          return await input.cacheItem(
+            item,
+            loadExternalAdminPolicy,
+            loadDirectory,
+          );
         } catch (error) {
           if (isProjectionVerificationCancelledError(error)) return [];
           await reportAndRethrowKeyingVerificationError(
@@ -264,7 +338,7 @@ async function loadReferencedPrincipalPolicies({
   VerifiedPrincipalPolicy[]
 > {
   return runPrincipalPolicyCache({
-    cacheItem: (reference, loadExternalAdminPolicy) =>
+    cacheItem: (reference, loadExternalAdminPolicy, loadDirectory) =>
       cacheReferencedPrincipalPolicy(
         execSql,
         getCurrentPrincipalPolicy,
@@ -274,6 +348,7 @@ async function loadReferencedPrincipalPolicies({
         loadExternalAdminPolicy,
         organizationId,
         stillCurrent,
+        loadDirectory,
       ),
     dedupe: dedupeReferencedPrincipalStates,
     execSql,
@@ -306,11 +381,12 @@ export async function cachePrincipalPolicyBundles({
   stillCurrent,
 }: CachePrincipalPolicyBundlesOptions): Promise<void> {
   await runPrincipalPolicyCache({
-    cacheItem: (bundle, loadExternalAdminPolicy) =>
+    cacheItem: (bundle, loadExternalAdminPolicy, loadDirectory) =>
       cachePrincipalPolicyBundle({
         bundle,
         execSql,
         loadExternalAdminPolicy,
+        loadDirectory,
         log,
         organizationId,
         resolveTrustedUserIdentity,

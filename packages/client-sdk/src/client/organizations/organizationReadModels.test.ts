@@ -17,6 +17,7 @@ import {
   organizationReadModelUserId,
 } from "../../../test/helpers/organizationReadModelProjectionFixtures";
 import { createPrincipalPolicyBundle } from "../../../test/helpers/policyCacheFixtures";
+import { createPolicyDirectoryFixture } from "../../../test/helpers/policyDirectoryFixtures";
 import { trustedUserIdentityFromResponse } from "../../../test/helpers/trustedUserIdentity";
 import { applyOrganizationReadModelResponse } from "../../data/persistence/organizations/organizationReadModelPersistence";
 import type { InternalWorkflowRuntimeInput } from "../workflowRuntime";
@@ -219,6 +220,10 @@ test("policy history cold misses single-flight through verified persistence", as
   );
   const { bundle, signerKeyResponse } = await createPrincipalPolicyBundle();
   const organizationId = "1";
+  const directory = await createPolicyDirectoryFixture({
+    organizationId,
+    group: bundle,
+  });
   const groupId = bundle.currentState.principalId;
   const response = organizationReadModelSnapshot({ organizationId });
   const visibleMembership = response.lanes.groupMemberships.groups.find(
@@ -273,7 +278,8 @@ test("policy history cold misses single-flight through verified persistence", as
     },
   );
   const apiClient = createMockApiClient({
-    async getCurrentPrincipalPolicy() {
+    async getCurrentPrincipalPolicy(kind) {
+      if (kind === "organization") return directory.bundle;
       policyRequests += 1;
       return policyRequest;
     },
@@ -285,7 +291,9 @@ test("policy history cold misses single-flight through verified persistence", as
     resolveTrustedUserIdentity: async (userId: string) =>
       userId === signerKeyResponse.userId
         ? trustedUserIdentityFromResponse(signerKeyResponse)
-        : null,
+        : userId === directory.signer.userId
+          ? trustedUserIdentityFromResponse(directory.signer)
+          : null,
   });
   const runtime = createInternalRuntimeFixture(() => workflowInput);
 

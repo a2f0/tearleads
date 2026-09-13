@@ -110,7 +110,11 @@ export function parseOrganizationAuthorityDescriptor(
       groupHeads.push(head);
     }
     const normalized = [...groupHeads].sort((left, right) =>
-      left.principalId.localeCompare(right.principalId),
+      left.principalId < right.principalId
+        ? -1
+        : left.principalId > right.principalId
+          ? 1
+          : 0,
     );
     if (
       normalized.some(

@@ -3,7 +3,10 @@ import {
   getImportBlobMetadata,
   versionVectorsEqual,
 } from "@tearleads/loro";
-import type { DocumentOutgoingUpdate } from "@tearleads/validators/request";
+import type {
+  ContainerManifestRef,
+  DocumentOutgoingUpdate,
+} from "@tearleads/validators/request";
 import { createPendingUpdateFields } from "../../data/documents/documentSync";
 import { importContentKeyMaterial } from "../../data/documents/shared/contentRecordKeys";
 import { encryptDocumentPendingUpdate } from "../../data/documents/shared/crypto";
@@ -26,6 +29,8 @@ export async function completeLinkSetMutationRequest(input: {
   const rotationBaseline =
     input.operation === "unlink" && input.rotationSnapshot
       ? await buildDocumentRotationBaseline({
+          authorizingContainerPathRefs:
+            input.materializedPlan.plan.request.authorizingContainerPathRefs,
           author: input.author,
           contentKey: input.materializedPlan.contentKey,
           contentKeyEpoch: input.materializedPlan.plan.contentKeyEpoch,
@@ -43,6 +48,7 @@ export async function completeLinkSetMutationRequest(input: {
 }
 
 export async function buildDocumentRotationBaseline(input: {
+  readonly authorizingContainerPathRefs: readonly (readonly ContainerManifestRef[])[];
   readonly author: DocumentCreateAuthor;
   readonly contentKey: Uint8Array;
   readonly contentKeyEpoch: number;
@@ -89,6 +95,7 @@ export async function buildDocumentRotationBaseline(input: {
   });
 
   return signDocumentOutgoingUpdate({
+    authorizingContainerPathRefs: input.authorizingContainerPathRefs,
     author: input.author,
     contentKeyEpoch: input.contentKeyEpoch,
     documentId: input.documentId,

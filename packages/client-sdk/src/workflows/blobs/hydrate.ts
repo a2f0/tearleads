@@ -10,9 +10,10 @@ import type { DocumentAttachment } from "../../data/documents/documentContent";
 import { errorMessage } from "../../data/errorMessage";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import { decryptDocumentAttachmentBlob } from "./decrypt";
+import { createAttachmentDecryptor } from "./attachmentDecryptor";
 
 interface DocumentAttachmentHydrationApi {
+  evictDocumentWriterProjection?(documentId: string): void;
   getBlobBytes(blobId: string): Promise<BlobBytesResponse | null>;
   getDocumentWriterProjection(
     documentId: string,
@@ -187,10 +188,11 @@ function applyLoadedBlobBytesToHydrationTargets(
 async function decryptLoadedDocumentAttachmentBlob(
   input: DocumentAttachmentHydrationContext & {
     loaded: LoadedDocumentAttachmentBlob;
+    decryptAttachment: ReturnType<typeof createAttachmentDecryptor>;
     writerProjection: DocumentWriterProjectionResponse;
   },
 ): Promise<HydratedDocumentAttachmentBlob> {
-  const bytes = await decryptDocumentAttachmentBlob({
+  const bytes = await input.decryptAttachment({
     binding: input.loaded.binding,
     encryptedBytes: input.loaded.encryptedBytes,
     expectedDocumentId: input.documentId,
@@ -263,10 +265,15 @@ export async function hydrateDocumentAttachmentBlobs(
     return [];
   }
 
+  const decryptAttachment = createAttachmentDecryptor(
+    input.apiClient,
+    input.documentId,
+  );
   return Promise.all(
     loadedBlobs.map((loaded) =>
       decryptLoadedDocumentAttachmentBlob({
         ...input,
+        decryptAttachment,
         loaded,
         writerProjection,
       }),

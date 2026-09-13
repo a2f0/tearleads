@@ -27,12 +27,14 @@ import type {
 } from "./types";
 import { makeVerifiedWriteHeader } from "./types";
 import { assertWriteHeaderAuthorizations } from "./writeHeaderAuthorization";
+import { readWriteHeaderCitations } from "./writeHeaderCitations";
 
 function normalizeUnsignedWriteHeader(value: unknown): UnsignedWriteHeader {
   const record = assertExactKeys(
     value,
     [
       "accessManifestHash",
+      "dependencyManifestHashes",
       "ciphertextHash",
       "contentRecordId",
       "contentKeyEpoch",
@@ -54,6 +56,9 @@ function normalizeUnsignedWriteHeader(value: unknown): UnsignedWriteHeader {
 
   return {
     version: readVersion(record, "write header"),
+    dependencyManifestHashes: readWriteHeaderCitations(
+      record.dependencyManifestHashes,
+    ),
     organizationId: readString(record, "organizationId", "write header"),
     objectKind: normalizeContentObjectKind(record.objectKind, "write header"),
     objectId: readString(record, "objectId", "write header"),
@@ -96,6 +101,7 @@ function normalizeWriteHeader(value: unknown): WriteHeader {
     value,
     [
       "accessManifestHash",
+      "dependencyManifestHashes",
       "ciphertextHash",
       "contentRecordId",
       "contentKeyEpoch",
@@ -121,6 +127,7 @@ function normalizeWriteHeader(value: unknown): WriteHeader {
     objectKind: record.objectKind,
     objectId: record.objectId,
     accessManifestHash: record.accessManifestHash,
+    dependencyManifestHashes: record.dependencyManifestHashes,
     contentKeyEpoch: record.contentKeyEpoch,
     targetHash: record.targetHash,
     encryptionSuite: record.encryptionSuite,
@@ -251,6 +258,7 @@ function toUnsignedWriteHeader(header: WriteHeader): UnsignedWriteHeader {
     objectKind: header.objectKind,
     objectId: header.objectId,
     accessManifestHash: header.accessManifestHash,
+    dependencyManifestHashes: header.dependencyManifestHashes,
     contentKeyEpoch: header.contentKeyEpoch,
     targetHash: header.targetHash,
     encryptionSuite: header.encryptionSuite,
@@ -292,6 +300,7 @@ export async function computeWriteHeaderHash(
 }
 
 export async function verifyWriteHeader({
+  authorizationMembership = "current",
   blobAuthorization,
   documentAuthorization,
   expectedAccessManifestHash,
@@ -350,6 +359,7 @@ export async function verifyWriteHeader({
     }
 
     assertWriteHeaderAuthorizations({
+      authorizationMembership,
       blobAuthorization,
       documentAuthorization,
       header: normalizedHeader,

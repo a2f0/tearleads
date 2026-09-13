@@ -377,6 +377,7 @@ export interface BlobAccessManifest {
 }
 
 export interface UnsignedWriteHeader {
+  dependencyManifestHashes: string[];
   version: 1;
   organizationId: string;
   objectKind: ContentObjectKind;
@@ -911,6 +912,7 @@ export interface VerifyAccessEventInput {
 
 export interface VerifyAttachmentBindingEventInput
   extends VerifyAccessEventInput {
+  readonly authorizationMembership?: "current" | "referenced";
   readonly documentManifest: VerifiedDocumentLinkSetManifest;
   readonly authorizingContainerPaths?: readonly (readonly VerifiedContainerAccessManifest[])[];
   readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
@@ -923,6 +925,7 @@ export interface VerifyAttachmentBindingEventInput
 
 export interface VerifyAttachmentDetachEventInput
   extends VerifyAccessEventInput {
+  readonly authorizationMembership?: "current" | "referenced";
   readonly documentManifest: VerifiedDocumentLinkSetManifest;
   readonly authorizingContainerPaths?: readonly (readonly VerifiedContainerAccessManifest[])[];
   readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
@@ -1009,6 +1012,7 @@ export interface DeriveBlobKekTargetsInput {
 }
 
 export interface VerifyWriteHeaderInput {
+  readonly authorizationMembership?: "current" | "referenced";
   readonly header: WriteHeader;
   readonly writerPublicKey: Uint8Array;
   readonly expectedObject?: ExpectedWriteObject;

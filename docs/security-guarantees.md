@@ -279,19 +279,27 @@ signed full-path citations. A checkpoint-enforced current path cannot replace
 an event's cited ancestor. Nor can a citation set mix an older or forked ancestor
 with a descendant whose own signed citations prove a newer ancestor exists.
 Both client and stored-document verification enforce these lineage floors;
-consistent historical snapshots remain valid. Content-write headers instead
-commit leaf targets;
-their index prefers a checkpoint-enforced path for a current leaf and retains
-verified pinned ancestry for historical targets. If that ancestry is incomplete,
-the signed leaf can still authorize its own direct writer; it cannot confer
-inherited authority. Previously, that incomplete-path case refused all writers.
+consistent historical snapshots remain valid. Document and blob content-write
+headers sign the sorted, unique union of the full authorizing container paths.
+The API requires exact current paths at submission and retains their cited
+bundles with the ciphertext. Historical reads reconstruct those signed paths
+with the same lineage floors, using the group membership at each cited head.
+The original parent pin and a newer group snapshot cannot replace write-time
+authority. One authorized linked-container path can prove write access while
+the committed key targets still cover every linked container. Attachment bind
+events likewise use referenced membership when read and current membership
+when submitted. The bounded ContentWriteAuthority model checks this delayed
+read behavior and the submission rule; negative controls reproduce both
+historical refusals and acceptance of a stale submitted path.
 
 The owner-directed scope of #2158 and #1555 excludes semantic-currentness
-witnessing: a new-to-device document head signed by a since-revoked ancestor
-member can be accepted at its complete historical citations. This is also the
-shape of an honestly delayed head. The API enforces current paths at commit;
-clients do not claim to distinguish it from a later forgery assisted by the
-server. Existing document checkpoints still reject rollback and forks.
+witnessing: a new-to-device document head, content-write header, or attachment
+binding signed by a since-revoked member can be accepted at its complete
+historical citations, including a content write whose target leaf has not
+advanced. This is also the shape of an honestly delayed head. The API enforces
+current paths at commit; clients do not claim to distinguish it from a later
+forgery assisted by the server. Existing document checkpoints still reject
+rollback and forks.
 
 Neither container nor principal-policy verification requires a successor new
 to a device to cite the authority's served current head. An honest
@@ -553,8 +561,17 @@ The organization policy also commits an exact sorted directory of current group
 heads. Group mutations issued by supported clients advance the group and this
 directory atomically. Group share and rotation-staleness workflows verify the
 organization policy and require an exact directory match, so replaying only an
-old group head is detected even before that group has a local checkpoint. A
-server that replays a self-consistent older organization policy, reserved
+old group head is detected even before that group has a local checkpoint.
+Policy warming and API-supplied bundle caching also require signed directory
+evidence for the requested organization, even for a self-administered group.
+The directory must authenticate the full bundle head before it is pinned. A
+historical manifest reference may point below that head on the verified group
+chain; it need not equal the newest group state. If the cached group trails the
+directory, warming fetches its newer chain. Missing or concurrently changing
+scope evidence remains a cache miss. Shared create and move verification also
+requires every parent-path manifest to belong to the event's organization.
+Group directory ordering uses code units, independent of runtime locale.
+A server that replays a self-consistent older organization policy, reserved
 Admins policy, and group policy to a device with no organization checkpoint is
 still exercising the cold-start rollback limit above.
 

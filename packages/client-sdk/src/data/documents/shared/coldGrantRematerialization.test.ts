@@ -16,8 +16,12 @@ import {
 } from "../../../../test/helpers/coldGrantPolicyFixtures";
 import { createAuthor } from "../../../../test/helpers/documentFixtures";
 import { rotateRootKekKeyringFixture } from "../../../../test/helpers/keyringRotationFixtures";
+import { createPolicyDirectoryFixture } from "../../../../test/helpers/policyDirectoryFixtures";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
-import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
+import {
+  createTestTrustedUserIdentityResolver,
+  trustedUserIdentityFromResponse,
+} from "../../../../test/helpers/trustedUserIdentity";
 import { withTestExecSql } from "../../../../test/helpers/withTestExecSql";
 import { unwrapDocumentSyncResponseContentKeys } from "../../../workflows/documents/syncContentKeys";
 
@@ -71,10 +75,17 @@ async function managedGrantFixture(input: {
     userId: USER_ID,
   });
 
+  const directory = await createPolicyDirectoryFixture({
+    organizationId: ORGANIZATION_ID,
+    group: policies.current,
+  });
   return {
+    directory,
     policies,
     resolveTrustedUserIdentity: async (userId: string) =>
-      (await resolvePreviousMember(userId)) ?? resolveReader(userId),
+      userId === directory.signer.userId
+        ? trustedUserIdentityFromResponse(directory.signer)
+        : ((await resolvePreviousMember(userId)) ?? resolveReader(userId)),
     wrap,
   };
 }
@@ -107,6 +118,8 @@ for (const grantKind of ["user", "group"] as const) {
           createRuntimePrincipalPolicyWarmer({
             apiClient: {
               getCurrentPrincipalPolicy: async (principalType, principalId) => {
+                if (principalType === "organization")
+                  return managed.directory.bundle;
                 policyGetCount += 1;
                 expect({ principalId, principalType }).toEqual({
                   principalId:
@@ -221,16 +234,25 @@ test("an interrupted client warms a rotated-group policy and recovers in the sam
       "2026-08-12T12:01:00.000Z",
       ORGANIZATION_ID,
     );
-    const resolveTrustedUserIdentity = createTestTrustedUserIdentityResolver({
+    const directory = await createPolicyDirectoryFixture({
+      organizationId: ORGANIZATION_ID,
+      group: policies.current,
+    });
+    const resolveGroupSigner = createTestTrustedUserIdentityResolver({
       encapsulationPublicKey: rotated.fixture.publicKey,
       signingKeyFingerprint: author.signerKeyFingerprint,
       signingPublicKey,
       userId: USER_ID,
     });
+    const resolveTrustedUserIdentity = async (userId: string) =>
+      userId === directory.signer.userId
+        ? trustedUserIdentityFromResponse(directory.signer)
+        : resolveGroupSigner(userId);
     let policyGetCount = 0;
     const warmReferencedPrincipalPolicies = createRuntimePrincipalPolicyWarmer({
       apiClient: {
         getCurrentPrincipalPolicy: async (principalType, principalId) => {
+          if (principalType === "organization") return directory.bundle;
           policyGetCount += 1;
           expect({ principalId, principalType }).toEqual({
             principalId: policies.current.currentState.principalId,

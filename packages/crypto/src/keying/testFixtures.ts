@@ -618,6 +618,7 @@ export async function deriveRequiredBlobKekTargets(input: {
 }
 
 export async function createWriteHeaderFixture(input: {
+  readonly dependencyManifestHashes?: readonly string[];
   readonly accessManifestHash: string;
   readonly contentRecordId?: string;
   readonly contentKeyEpoch?: number;
@@ -635,6 +636,9 @@ export async function createWriteHeaderFixture(input: {
   return signWriteHeader(
     {
       version: 1,
+      dependencyManifestHashes: [
+        ...(input.dependencyManifestHashes ?? []),
+      ].sort(),
       organizationId: input.organizationId,
       objectKind: input.objectKind ?? "document",
       objectId: input.objectId,

@@ -124,6 +124,10 @@ test("a new-to-device document head and its historical write retain cited ancest
     const authorization = await documentWriteAuthorizationForHeader({
       allowMissingAuthorization: false,
       authorizationTargets: targets,
+      dependencyManifestHashes: [
+        root1.manifestHash,
+        child1.manifestHash,
+      ].sort(),
       contentKeyBundle,
       manifestHash: document.manifestHash,
       plan: { documentId, organizationId, documentWriterAuthorization: source },
@@ -131,12 +135,13 @@ test("a new-to-device document head and its historical write retain cited ancest
     });
     if (!authorization) throw new Error("Expected historical authorization");
     expect(
-      authorization.authorizingContainerPaths[0]?.map(
-        (head) => head.manifestHash,
-      ),
+      authorization.authorizingContainerPaths
+        .find((path) => path.at(-1)?.manifestHash === child1.manifestHash)
+        ?.map((head) => head.manifestHash),
     ).toEqual([root1.manifestHash, child1.manifestHash]);
     expect(child1.state.directGrants).toEqual([]);
     const header = await createWriteHeaderFixture({
+      dependencyManifestHashes: [root1.manifestHash, child1.manifestHash],
       accessManifestHash: document.manifestHash,
       objectId: documentId,
       organizationId,
@@ -158,7 +163,7 @@ test("a new-to-device document head and its historical write retain cited ancest
         })
       ).ok,
     ).toBe(true);
-    // Neither a singleton child nor the newer revoked ancestor authorizes it.
+    // Substituting paths without changing the signed citations is refused.
     for (const path of [[child1], [root2, child1]]) {
       const refused = await verifyWriteHeader({
         ...input,
@@ -166,6 +171,43 @@ test("a new-to-device document head and its historical write retain cited ancest
           ...authorization,
           authorizingContainerPaths: [path],
         },
+      });
+      expect(refused.ok).toBe(false);
+      if (!refused.ok) expect(refused.error.code).toBe("hash_mismatch");
+    }
+    // Matching signatures must still fail authority: root2 revoked Mallory,
+    // and root1 alone does not reach the document's committed child target.
+    for (const path of [[root2, child1], [root1]]) {
+      const dependencyManifestHashes = path
+        .map((head) => head.manifestHash)
+        .sort();
+      const citedAuthorization = await documentWriteAuthorizationForHeader({
+        allowMissingAuthorization: false,
+        authorizationTargets: targets,
+        contentKeyBundle,
+        dependencyManifestHashes,
+        manifestHash: document.manifestHash,
+        plan: {
+          documentId,
+          organizationId,
+          documentWriterAuthorization: source,
+        },
+        targetHash,
+      });
+      if (!citedAuthorization) throw new Error("Expected cited authorization");
+      const correctlyCitedHeader = await createWriteHeaderFixture({
+        accessManifestHash: document.manifestHash,
+        dependencyManifestHashes,
+        objectId: documentId,
+        organizationId,
+        signing: mallory.keyPair,
+        targetHash,
+        writerUserId: mallory.userId,
+      });
+      const refused = await verifyWriteHeader({
+        ...input,
+        documentAuthorization: citedAuthorization,
+        header: correctlyCitedHeader,
       });
       expect(refused.ok).toBe(false);
       if (!refused.ok) expect(refused.error.code).toBe("unauthorized");

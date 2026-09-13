@@ -4,14 +4,15 @@
 models the device-first outgoing-delta marker across local edits, durable queue
 writes, restarts, sync preparation, server acceptance, incoming updates, and a
 final clean skip. The marker may safely lag the stored content frontier while
-durable pending rows semantically cover the difference. Pulled updates land in
-the durable history tail (as remote-origin rows) in their own write before the
-record persist, and restart restores the marker from the persisted base
-extended across those remote-origin rows — provenance proves the server holds
-them — so a crash between the two writes never re-enters server-held ops into
-the outgoing delta; accepted local-origin rows are re-derived and re-sent, the
-safe idempotent direction. Before queued rows may be submitted and deleted, the
-document lane must make that accounting durable:
+durable pending rows semantically cover the difference. For conservative crash
+analysis, the model permits a durable remote-origin tail append before record
+marker publication. Production commits the incoming tail and continuation in
+one guarded SQL mutation; the split adds intermediate states with extra
+durable content but no live publication. Restart restores the marker from the
+persisted base extended across surviving remote-origin rows: their provenance
+proves the server holds them. Accepted local-origin rows remain eligible for
+idempotent re-send if their marker was not persisted. Before queued rows may
+be submitted and deleted, the document lane must make that accounting durable:
 
 1. synchronously capture the snapshot frontier, then merge the in-memory base
    and every semantically connected durable queued end vector;
@@ -62,14 +63,15 @@ keeps post-reset returns as explicit stale-completion transitions, and
 separates durable presence from live in-memory presence. Reset may load those
 ordered durable effects; the later stale completion publishes nothing further.
 
-The abstraction coalesces `applyIncomingSyncedUpdates` into live response
-completion. Production performs that synchronous import before the persistence
-helper's pre-adapter awaits. A full reset abandons the captured document, but a
-domain-scope- or resolver-only generation change can retain already-imported,
-authenticated remote operations even when the later durable claim aborts. That
-same-document preparatory mutation is outside
-`StaleDurableCompletionCannotPublish`; the property covers publication after a
-durable mutation has actually been claimed.
+Incoming history remains in an isolated fork until the durable continuation
+claim succeeds. Only then does the still-current store import it into the live
+CRDT and publish it. A rejected claim reloads the winning durable state without
+exposing the rejected candidate as the editor's next authoring basis. Pending
+local writes retain their optimistic text until they settle. The model's
+`PublishedHistoryIsDurable` invariant makes this boundary explicit; disabling
+`RequireDurablePublication` enables `PublishUncommittedResponse` and violates it.
+The SQL regression tests cover a continuation CAS loss and an adapter paused
+before the claim; the model abstracts the rejected claim as a cancelled response.
 
 An edit that lands after capture belongs to the next outgoing frontier. A
 normal write durably queues its delta and requests a coalesced pass; an
@@ -92,6 +94,7 @@ The abstraction maps to production at these seams:
 | `RejectIsolatedIncomingResponse` / `InvalidResponseCannotAdvance` | `DocumentSyncUpdateIsolationError` handling plus `documentIncomingUpdateIsolationFailureHandler`, which records the blocked scope without applying response-derived document or sync progress |
 | `Relink` / `StartedDurableOpSerializesRelink` | document-id, container, access, and keying-context writes sharing `chainIdentityWrite`, so none can overtake a durable operation that already started there |
 | `StartResponseDurableOp` | `canStartDurableMutation` rechecking generation and `documentSyncContextMatches` immediately before `runSerializedSqlMutation` claims the persistence or deletion queue |
+| `PublishedHistoryIsDurable` / `PublishUncommittedResponse` | `persistSyncedDocument` isolates incoming history until `saveDocumentRecord` succeeds, then `applyIncomingSyncedUpdates` and `publishPersistedDocument` publish the committed result |
 | `CompleteLiveResponsePersist` / `CompleteLiveDeletion` | the post-await generation check allowing response publication or `markDocumentStoreRemoved` only into the still-matching generation |
 | `CompleteStaleResponseDurableOp` | a claimed response persist or deletion (`runSerializedSqlMutation`) returning after reset, followed by no additional in-memory publication or effect callback on the replacement store |
 | `CancelOrIgnoreResponse` | response cancellation or `finalizeDocumentSync` returning and re-arming without response-derived snapshot, marker, or queue mutation |
@@ -108,6 +111,7 @@ deletion captured for A followed by relink A -> B before the deletion callback
 obtains the identity-write chain. The invariants and temporal properties
 require that:
 
+- remote history becomes visible only after its durable claim succeeds;
 - persisted and in-memory marker coverage never outrun the union of accepted
   and durably queued operations;
 - every snapshot operation is accepted, durably queued, or still retained by

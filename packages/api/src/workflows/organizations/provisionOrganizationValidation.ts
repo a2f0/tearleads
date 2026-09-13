@@ -119,7 +119,11 @@ async function validateInitialOrganizationPolicyInput(
     })),
   );
   expectedGroupHeads.sort((left, right) =>
-    left.principalId.localeCompare(right.principalId),
+    left.principalId < right.principalId
+      ? -1
+      : left.principalId > right.principalId
+        ? 1
+        : 0,
   );
   const commitsExpectedGroupHeads =
     descriptor.groupHeads.length === expectedGroupHeads.length &&

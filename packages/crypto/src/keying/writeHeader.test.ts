@@ -37,6 +37,7 @@ test("write headers are signed, hashed, and verified against expected targets", 
   });
   const header = await signWriteHeader(
     {
+      dependencyManifestHashes: [],
       version: 1,
       organizationId,
       objectKind: "document",
@@ -162,6 +163,7 @@ test("write headers prove document write access through committed targets", asyn
     linkedContainerManifests: [container],
   });
   const writerHeader = await createWriteHeaderFixture({
+    dependencyManifestHashes: [container.manifestHash],
     accessManifestHash: documentManifest.manifestHash,
     objectId: documentId,
     organizationId,
@@ -182,6 +184,7 @@ test("write headers prove document write access through committed targets", asyn
   expect(verifiedWriter.ok).toBe(true);
 
   const readerHeader = await createWriteHeaderFixture({
+    dependencyManifestHashes: [container.manifestHash],
     accessManifestHash: documentManifest.manifestHash,
     contentRecordId: "22222222-2222-4222-8222-222222222222",
     objectId: documentId,

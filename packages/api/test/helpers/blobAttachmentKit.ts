@@ -97,6 +97,7 @@ function contentKeyTargets(
 }
 
 async function createWriteHeader(input: {
+  readonly dependencyManifestHashes: readonly string[];
   readonly blobId: string;
   readonly contentKeyEpoch: number;
   readonly owner: TestUser;
@@ -106,6 +107,9 @@ async function createWriteHeader(input: {
   return signWriteHeader(
     {
       version: 1,
+      dependencyManifestHashes: [
+        ...new Set(input.dependencyManifestHashes),
+      ].sort(),
       organizationId: input.targets.organizationId,
       objectKind: "blob",
       objectId: input.blobId,
@@ -226,6 +230,7 @@ export async function buildBind(input: {
     request.stagedBlob = {
       stageId: input.stagedBlob.stageId,
       writeHeader: (await createWriteHeader({
+        dependencyManifestHashes: path.map((head) => head.manifestHash),
         blobId: input.blobId,
         contentKeyEpoch,
         owner: input.owner,

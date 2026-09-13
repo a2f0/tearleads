@@ -1,5 +1,5 @@
 import { createDocument } from "@tearleads/loro";
-import { getScopedPeerSeed } from "../../../data/crdtPeerSeed";
+import { getRuntimePeerSeed } from "../../../data/crdtPeerSeed";
 import { ensureDocumentAttachmentStructure } from "../../../data/documents/documentContent";
 import { ensureDocumentRowsStructure } from "../../../data/documents/documentRowList";
 import { DOCUMENTS_APP_KIND } from "../../../workflows/documents";
@@ -17,15 +17,16 @@ async function createStoredDocumentWithSeed(
 export async function createStoredDocument(
   state: DocumentStoreState,
 ): Promise<DocumentState> {
-  // Scope the peer seed per pane so two panes editing the same document derive
-  // distinct Loro peer ids (sharing one would corrupt the CRDT). A null
-  // peerScope (single-pane) keeps the bare scope, so the device-stable peer is
-  // unchanged for the common case.
+  // Persistent pane namespaces retain stable seeds. Concurrent runtimes in one
+  // namespace receive distinct memory-only seeds after the first owner, while
+  // the usual single runtime can reuse its device seed after a page reload.
   const peerScope = state.runtime.state.peerScope;
   const scope = peerScope
     ? `${DOCUMENTS_APP_KIND}:${peerScope}`
     : DOCUMENTS_APP_KIND;
-  return createStoredDocumentWithSeed(await getScopedPeerSeed(scope));
+  return createStoredDocumentWithSeed(
+    await getRuntimePeerSeed(scope, state.runtime.state.domainScope),
+  );
 }
 
 /**

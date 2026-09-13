@@ -35,6 +35,7 @@ import {
   readProjectionPositiveInteger,
   readProjectionRecord,
   readProjectionString,
+  readProjectionStringArray,
   readProjectionValue,
   readProjectionVersion,
 } from "../../../keyingProjectionRecords";
@@ -156,6 +157,11 @@ export function readWriteHeader(value: unknown, label: string): WriteHeader {
 
   return {
     version: 1,
+    dependencyManifestHashes: readProjectionStringArray(
+      readProjectionValue(record, "dependencyManifestHashes"),
+      `${label}.dependencyManifestHashes`,
+      blobShapeError,
+    ),
     organizationId: readWriteHeaderString(record, "organizationId", label),
     objectKind,
     objectId: readWriteHeaderString(record, "objectId", label),

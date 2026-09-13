@@ -22,6 +22,7 @@ function createUsageWriteHeader(input: {
   writerUserId: string;
 }): WriteHeader {
   return {
+    dependencyManifestHashes: [],
     version: 1,
     organizationId: input.organizationId,
     objectKind: input.objectKind,

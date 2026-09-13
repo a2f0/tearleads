@@ -4,11 +4,13 @@ import {
   makeVerifiedDocumentKekTargets,
 } from "@tearleads/crypto";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
+import { resolveEventContainerPaths } from "../../keyingProjectionVerification/documentDependencyPaths";
 import { sortDocumentTargets } from "./readers";
 import type { DocumentSyncPlan } from "./types";
 
 export async function documentWriteAuthorizationForHeader(input: {
   readonly allowMissingAuthorization: boolean;
+  readonly dependencyManifestHashes: readonly string[];
   readonly authorizationTargets: readonly DocumentContentKeyTarget[];
   readonly contentKeyBundle: DocumentSyncResponse["contentKeyBundle"];
   readonly manifestHash: string;
@@ -57,13 +59,21 @@ export async function documentWriteAuthorizationForHeader(input: {
     );
   }
 
-  const authorizingContainerPaths = targets.map((target) => {
-    const path = source.containerPathByManifestHash.get(
-      target.containerManifestHash,
+  const { dependencyContainerPaths } = resolveEventContainerPaths({
+    containerPathByManifestHash: source.containerPathByManifestHash,
+    dependencyManifestHashes: input.dependencyManifestHashes,
+  });
+  // A writer needs one committed target, and can be unable to read another
+  // linked container. Validate the targets that are cited without inventing
+  // paths for uncited targets or dropping signed ancestor evidence.
+  for (const target of targets) {
+    const path = dependencyContainerPaths.find(
+      (candidate) =>
+        candidate.at(-1)?.manifestHash === target.containerManifestHash,
     );
-    const leaf = path?.at(-1);
+    if (!path) continue;
+    const leaf = path.at(-1);
     if (
-      !path ||
       !leaf ||
       leaf.state.containerId !== target.containerId ||
       leaf.state.organizationId !== input.plan.organizationId ||
@@ -73,8 +83,8 @@ export async function documentWriteAuthorizationForHeader(input: {
         "Document sync response write target lacks a verified container path",
       );
     }
-    return path;
-  });
+  }
+  const authorizingContainerPaths = dependencyContainerPaths;
   const documentKekTargets = makeVerifiedDocumentKekTargets({
     documentId: input.contentKeyBundle.documentId,
     documentKeyTargetHash: input.targetHash,

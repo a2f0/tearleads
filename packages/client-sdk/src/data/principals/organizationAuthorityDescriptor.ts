@@ -79,7 +79,11 @@ export function normalizeOrganizationGroupHeads(
   heads: readonly OrganizationGroupHead[],
 ): OrganizationGroupHead[] {
   const sorted = [...heads].sort((left, right) =>
-    left.principalId.localeCompare(right.principalId),
+    left.principalId < right.principalId
+      ? -1
+      : left.principalId > right.principalId
+        ? 1
+        : 0,
   );
   if (
     sorted.some(

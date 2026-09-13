@@ -66,6 +66,7 @@ async function createSignedDocumentSyncRequest(input: {
   const writeHeader = await signWriteHeader(
     {
       version: 1,
+      dependencyManifestHashes: [input.root.bundle.manifestHash],
       organizationId,
       objectKind: "document",
       objectId: input.created.id,

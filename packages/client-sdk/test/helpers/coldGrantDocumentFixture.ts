@@ -105,6 +105,12 @@ async function createDocumentEpochUpdate(input: {
   }
 
   const signed = await signDocumentOutgoingUpdate({
+    authorizingContainerPathRefs: input.bundle.targets.map((target) => [
+      {
+        containerId: target.containerId,
+        manifestHash: target.containerManifestHash,
+      },
+    ]),
     author: input.author,
     contentKeyEpoch: input.bundle.contentKeyEpoch,
     documentId: DOCUMENT_ID,

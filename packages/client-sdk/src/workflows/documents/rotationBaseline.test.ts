@@ -29,6 +29,7 @@ test("buildDocumentRotationBaseline encrypts and signs against the new access bo
   );
   const expectedTargetHash = await fixtureHash("new-target-hash");
   const baseline = await buildDocumentRotationBaseline({
+    authorizingContainerPathRefs: [],
     author,
     contentKey,
     contentKeyEpoch: 2,
@@ -101,6 +102,7 @@ test("buildDocumentRotationBaseline returns null for a zero-span empty document"
   const document = await createDocument("empty-rotation-baseline");
   const snapshot = exportFullHistorySnapshot(document);
   const baseline = await buildDocumentRotationBaseline({
+    authorizingContainerPathRefs: [],
     author,
     contentKey: crypto.getRandomValues(new Uint8Array(32)),
     contentKeyEpoch: 2,

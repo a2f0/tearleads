@@ -24,6 +24,7 @@ import {
   getAccessManifestBundles,
   getCurrentAccessManifestHead,
 } from "../../access/read/accessManifestStore";
+import { listDocumentContentWriteDependencyHashes } from "../../access/read/contentWriteDependencies";
 import {
   DocumentContentKeyBundleError,
   getLatestDocumentContentKeyBundleProjection,
@@ -89,6 +90,7 @@ const {
   readCanonicalRecord,
   readNullableString,
   readPlainRecord,
+  readString,
   readStringArray,
   readValue,
   verifiedAccessEventRecord,
@@ -463,6 +465,7 @@ export async function loadContainerDependencyPath(input: {
 }
 
 export async function loadDocumentContainerDependencyMaterial(input: {
+  readonly additionalDependencyManifestHashes?: readonly string[];
   readonly documentManifest: AccessManifestBundleWireResponse;
   readonly documentManifestHistory: readonly AccessManifestBundleWireResponse[];
   readonly executor: DatabaseSession;
@@ -486,7 +489,10 @@ export async function loadDocumentContainerDependencyMaterial(input: {
   const dependencies = await loadProjectionManifestBundlesByHash({
     cache: input.manifestCache,
     executor: input.executor,
-    manifestHashes: collectDocumentDependencyManifestHashes(documentBundles),
+    manifestHashes: uniqueSortedStrings([
+      ...collectDocumentDependencyManifestHashes(documentBundles),
+      ...(input.additionalDependencyManifestHashes ?? []),
+    ]),
   });
 
   for (const dependency of dependencies) {
@@ -530,6 +536,15 @@ async function loadDocumentWriterProjectionVerificationMaterial(input: {
   });
   const containerMaterial = await loadDocumentContainerDependencyMaterial({
     ...input,
+    additionalDependencyManifestHashes:
+      await listDocumentContentWriteDependencyHashes(
+        readString(
+          input.documentManifest.state,
+          "documentId",
+          "Document manifest state",
+        ),
+        input.executor,
+      ),
     documentManifestHistory,
     manifestCache,
   });

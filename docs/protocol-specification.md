@@ -140,6 +140,7 @@ type WriteHeader = {
   objectKind: "blob" | "document";
   objectId: string;
   accessManifestHash: string;
+  dependencyManifestHashes: string[];
   contentKeyEpoch: number;
   targetHash: string;
   encryptionSuite: "aes-256-gcm-hkdf-sha256-record-key";
@@ -154,6 +155,13 @@ type WriteHeader = {
   signature: string;
 };
 ```
+
+The header's `dependencyManifestHashes` is the sorted, unique union of all
+manifest hashes in the complete authorizing container paths. Submission must
+cite the verified current paths; historical reads rebuild those exact signed
+paths and use referenced group membership. The API retains the dependencies
+of retained document and blob headers for fresh-device verification.
+All signed timestamps use the exact UTC `Date.toISOString()` representation.
 
 The API treats route JSON as untrusted input until the shared verifiers produce
 branded verified values. The app applies the same discipline before persisting
@@ -250,7 +258,10 @@ group. Clients verify the complete bundle again before caching or key use.
 Public keys and envelope fields use canonical base64 and exact ML-KEM-1024
 sizes: 1568-byte public keys/ciphertexts and a 3184-byte wrapped secret plus
 AES-GCM tag. Envelopes cover the direct projection one-to-one and bind each
-member id, recipient fingerprint, ciphertext, active state, and key epoch.
+member id, recipient fingerprint, KEM ciphertext, and wrapped key. The root
+does not commit active state; separate policy validation binds the principal
+and key epoch. Principal-state signing and hashing use the domain
+`tearleads.principal-state`.
 
 `memberEnvelopesRoot` is mandatory; a state missing it, required policy
 material, or envelope material fails closed.
