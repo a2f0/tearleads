@@ -7,7 +7,11 @@ import type {
   SyncRemoteDocumentResult,
 } from "../../data/documents/shared/types";
 import { projectionVerificationOptions } from "../../data/documents/shared/types";
-import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
+import {
+  type ProjectionUserKeyResolver,
+  verifyDocumentWriterProjectionAuthorization,
+} from "../../data/keyingProjectionVerification";
+import { isKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";
 import type { SyncRemoteDocumentInput } from "./readOnlySync";
 import { DocumentRawHistoryUnavailableError } from "./syncContentKeys";
@@ -109,9 +113,10 @@ async function submittedDocumentSyncResult(
   };
 }
 
-async function retryRawHistoryWithFreshProjection(
+async function retrySubmittedResponseWithFreshProjection(
   input: SubmittedDocumentSyncResultInput,
-  unavailableError: DocumentRawHistoryUnavailableError,
+  unavailableError: unknown,
+  refreshAuthorization: boolean,
 ): Promise<SyncRemoteDocumentResult | null> {
   const writerProjection = await refreshSyncAttemptWriterProjection({
     apiClient: input.sync.apiClient,
@@ -124,8 +129,28 @@ async function retryRawHistoryWithFreshProjection(
     unavailableError,
   });
   if (!writerProjection) return null;
+  const materializedPlan = refreshAuthorization
+    ? {
+        ...input.materializedPlan,
+        plan: {
+          ...input.materializedPlan.plan,
+          documentWriterAuthorization:
+            await verifyDocumentWriterProjectionAuthorization({
+              execSql: input.sync.execSql,
+              projection: writerProjection,
+              resolveUserKey: input.resolveProjectionUserKey,
+              stillCurrent: input.sync.stillCurrent,
+              warmReferencedPrincipalPolicies:
+                input.sync.warmReferencedPrincipalPolicies,
+            }),
+        },
+      }
+    : input.materializedPlan;
+  // Keep the submitted request, keys, and response frozen. Only refreshed,
+  // verified evidence may be added; this retry never resubmits outgoing edits.
   return submittedDocumentSyncResult({
     ...input,
+    materializedPlan,
     writerProjection,
   });
 }
@@ -136,12 +161,19 @@ export async function resolveSubmittedDocumentSyncResult(
   try {
     return await submittedDocumentSyncResult(input);
   } catch (error) {
+    const missingDependency =
+      isKeyingVerificationError(error) && error.code === "missing_dependency";
     if (
-      input.sync.historyMode !== "raw" ||
-      !(error instanceof DocumentRawHistoryUnavailableError)
+      !missingDependency &&
+      (input.sync.historyMode !== "raw" ||
+        !(error instanceof DocumentRawHistoryUnavailableError))
     ) {
       throw error;
     }
-    return retryRawHistoryWithFreshProjection(input, error);
+    return retrySubmittedResponseWithFreshProjection(
+      input,
+      error,
+      missingDependency,
+    );
   }
 }

@@ -32,6 +32,14 @@ const NO_BRICK_ADVERSARY =
 
 export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   {
+    id: "content-write-unrefreshed-citations",
+    module: "formal/document-sync/ContentWriteAuthority.tla",
+    config: "formal/document-sync/ContentWriteAuthority.cfg",
+    constants: { RefreshMissingCitations: "FALSE" },
+    expect: { kind: "invariant", name: "HonestWritesRemainReadable" },
+    why: "A write may cite a head committed after the reader fetched its projection; verify one fresh projection before refusing the frozen response.",
+  },
+  {
     id: "stale-reconnect-proof-handoff",
     module: "formal/realtime/ContainerInterest.tla",
     config: "formal/realtime/ContainerInterest.cfg",
