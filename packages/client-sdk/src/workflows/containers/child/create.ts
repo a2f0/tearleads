@@ -323,7 +323,10 @@ export async function buildMaterializedContainerCreatePlan(
     : [];
   if (input.resolveProjectionUserKey) {
     assertContainerAuthorAccess({
-      author: input.author,
+      author: {
+        ...input.author,
+        organizationId: input.parentProjection.organizationId,
+      },
       projection: input.parentProjection,
       principalPolicies,
       minimumAccess: input.systemSlot ? "admin" : "write",

@@ -17,6 +17,9 @@ document creation; sharing, revocation, rekeying, and moves. Moves independently
 require admin on the source and write on the destination. Group membership is
 abstracted into its verified effective access. Later policy changes and the
 server's knowledge of current policy remain outside this local authoring model.
+The effective grant belongs to the signed target organization. For child and
+document creation, the signer's active personal organization does not replace
+that target scope; cross-organization readers still cannot author writes.
 
 The negative control removes the client permission check. A read-only signer
 then creates a plan that a dishonest server can echo into an acknowledgement.
