@@ -30,16 +30,18 @@ container. Document creation signs an empty array. The event signature covers
 the envelopes inline. Clients authenticate the existing blob ciphertext before
 rewrapping its content key for new destination KEKs. Retaining or removing
 existing envelopes verifies signed binding scope without fetching ciphertext.
-This authentication
-streams bounded chunks and checks the complete signed ciphertext hash; it does
+This authentication streams bounded chunks and checks the complete signed
+ciphertext hash; it does
 not retain whole attachments in memory between bindings. The API checks the
 active binding frontier under the document-head lock, then takes sorted blob
 locks and commits links and envelopes atomically. Another document sharing a
 blob retains its own envelopes. Returning to a retired target reuses its
-retained
-wrap for the same key identity; an active target cannot replace its stored key
-material. Stale or incomplete rewraps conflict without
-advancing the document head.
+retained wrap for the same key identity; an active target cannot replace its
+stored key material. The signed event records the proposed envelopes. The API
+validates their target identities and substitutes retained envelopes where
+applicable, so event replay must apply this retention rule rather than copying
+the proposal directly. Readers consume the resulting verified bundle projection.
+Stale or incomplete rewraps conflict without advancing the document head.
 
 An unlink rotates the document content key and must carry a `rotationBaseline`
 — a signed `rotate_baseline` full-history snapshot whose source version vector

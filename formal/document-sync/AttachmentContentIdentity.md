@@ -22,6 +22,10 @@ The bounds contain two content identities, three storage copies, one slot, and
 a delayed hydration. A refreshed slot cannot authorize a stale document view to
 replace newer intent on its next attempt; the durable document frontier is
 checked independently of the storage copy and the live in-memory intent.
+The runtime captures the durable document frontier before its guarded commit,
+after downloading bytes. The model abstracts that version to attachment content
+identity; the separate live-intent guard rejects a changed attachment regardless
+of when unrelated document edits advanced the frontier.
 The model checks both current-view intent and preservation of a newer durable
 copy installed by another facade. Each guard has a registered negative control.
 It abstracts authenticated document history, signature verification, collision
@@ -36,3 +40,9 @@ Pending upload rows persist the staging digest with the bytes and slot metadata.
 byte file, including after the file becomes unavailable. This is the local
 input boundary for the model; runtime crash-recovery tests cover the interrupted
 write and unavailable-file cases.
+Once sync is running, a removed or replaced slot supersedes its pending upload.
+Queue settlement checks that intent before upload and after byte inspection,
+deleting only the obsolete storage identity under the live-generation guard.
+Runtime regressions cover queue progress, a concurrent replacement, cancellation,
+and corruption of bytes that still belong to the current intent. These queue
+availability cases are outside this model's hydration safety claim.

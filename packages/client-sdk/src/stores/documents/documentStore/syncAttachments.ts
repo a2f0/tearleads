@@ -13,8 +13,11 @@ import {
 } from "../../../workflows/documents";
 import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
 import { requestDocumentStoreSync } from "../registry";
-import { deletePendingAttachment } from "./attachmentPersistence";
-import { resolveAttachmentSourceUpload } from "./attachmentSourceUpload";
+import {
+  dropUnavailablePendingAttachment,
+  pendingAttachmentMatchesIntent,
+  resolveAttachmentSourceUpload,
+} from "./attachmentSourceUpload";
 import { uploadAttachmentWithWriterProjectionRetry } from "./attachmentUploadAttempt";
 import {
   type AttachmentUploadLaneReporter,
@@ -389,6 +392,9 @@ async function syncPendingAttachmentUpload(
   ) {
     return "retry";
   }
+  if (!pendingAttachmentMatchesIntent(input)) {
+    return dropUnavailablePendingAttachment(input);
+  }
   if (await recoverCommittedAttachment(input)) {
     return "recovered";
   }
@@ -397,21 +403,7 @@ async function syncPendingAttachmentUpload(
     pendingAttachment.storageKey,
   );
   if (!source) {
-    // The local bytes are gone (rollback that deleted bytes but left the row, or
-    // OPFS eviction), so this upload can never succeed. Drop the row instead of
-    // returning a retry: leaving it would early-return runDocumentSyncPass on
-    // every pass and block ALL of this document's CRDT sync forever, surviving
-    // restarts, with no way to clear it.
-    state.runtime.util.log(
-      `Documents: dropping pending attachment ${pendingAttachment.slotId}; local bytes are missing and it can no longer be uploaded.`,
-    );
-    await deletePendingAttachment(
-      state,
-      pendingAttachment.slotId,
-      pendingAttachment.storageKey,
-      input.attachmentGeneration,
-    );
-    return "dropped";
+    return dropUnavailablePendingAttachment(input);
   }
 
   const author = resolveDocumentCreateAuthor(state.runtime);
@@ -422,7 +414,7 @@ async function syncPendingAttachmentUpload(
     return "retry";
   }
 
-  const { resume, snapshot } = await resolveAttachmentSourceUpload({
+  const prepared = await resolveAttachmentSourceUpload({
     attachmentGeneration: input.attachmentGeneration,
     pendingAttachment,
     source,
@@ -436,6 +428,8 @@ async function syncPendingAttachmentUpload(
   ) {
     return "retry";
   }
+  if (!prepared) return dropUnavailablePendingAttachment(input);
+  const { resume, snapshot } = prepared;
   const uploadLane = createAttachmentUploadLaneReporter({
     blobId: resume.blobId,
     domainScope: state.runtime.state.domainScope,
