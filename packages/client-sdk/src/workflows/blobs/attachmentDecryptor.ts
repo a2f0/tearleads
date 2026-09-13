@@ -1,4 +1,5 @@
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
+import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { isKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import { decryptDocumentAttachmentBlob } from "./decrypt";
 
@@ -7,6 +8,17 @@ interface AttachmentProjectionApi {
   getDocumentWriterProjection(
     documentId: string,
   ): Promise<DocumentWriterProjectionResponse | null>;
+}
+
+/**
+ * Proof material the cached projection lacks, such as a wrap-cited container
+ * manifest that a fresher projection serves. Not integrity evidence.
+ */
+function isRefreshableProofDependency(error: unknown): boolean {
+  return (
+    error instanceof ProjectionDependencyUnavailableError ||
+    (isKeyingVerificationError(error) && error.code === "missing_dependency")
+  );
 }
 
 /** One fresh proof fetch shared by a hydration or key-rewrap run. */
@@ -30,11 +42,7 @@ export function createAttachmentProofReader<
     try {
       return await read(input);
     } catch (error) {
-      if (
-        !isKeyingVerificationError(error) ||
-        error.code !== "missing_dependency"
-      )
-        throw error;
+      if (!isRefreshableProofDependency(error)) throw error;
       const writerProjection = await refresh();
       if (!writerProjection) throw error;
       // Retry the same binding and ciphertext with fully verified fresh proof.

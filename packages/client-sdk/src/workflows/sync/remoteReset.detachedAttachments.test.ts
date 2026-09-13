@@ -48,6 +48,7 @@ function localAttachment(slotId: string, detachedAt: string | null) {
     storageKey: `local/${slotId}`,
     mimeType: "image/png",
     byteLength: 12,
+    contentSha256: "0".repeat(64),
     updatedAt: STALE,
     detachedAt,
   };

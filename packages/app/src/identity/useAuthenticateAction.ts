@@ -2,18 +2,28 @@ import { useCallback, useState } from "react";
 import { useCryptoSession } from "../providers/crypto/CryptoSessionProvider";
 import { useLog } from "../providers/logging/LogProvider";
 import { useTearleads } from "../providers/sdk/TearleadsProvider";
+import {
+  IDENTITY_ACKNOWLEDGMENT_MISMATCH_MESSAGE,
+  isIdentityAcknowledgmentMismatch,
+} from "./identityAcknowledgmentMismatch";
 
 /**
- * Human-facing reason for a failed authentication attempt. A lost connection is
- * the one cause worth calling out on its own: browser and native shells bind a
- * live connectivity source, so an offline store means that source observed a
- * device connectivity loss. A backend request failure alone keeps the store
- * online and reports the generic reason — an unreachable backend is a server
- * problem, not proof that the device has no network.
+ * Human-facing reason for a failed authentication attempt. Two causes are worth
+ * calling out on their own. A server that answered this identity with a
+ * different account is an integrity refusal, never a connectivity problem. A
+ * lost connection: browser and native shells bind a live connectivity source,
+ * so an offline store means that source observed a device connectivity loss. A
+ * backend request failure alone keeps the store online and reports the generic
+ * reason — an unreachable backend is a server problem, not proof that the
+ * device has no network.
  */
 export function describeAuthenticationFailure(input: {
+  readonly identityMismatch?: boolean | undefined;
   readonly online: boolean;
 }): string {
+  if (input.identityMismatch) {
+    return IDENTITY_ACKNOWLEDGMENT_MISMATCH_MESSAGE;
+  }
   return input.online
     ? "Authentication failed."
     : "Authentication failed: no network connection.";
@@ -56,9 +66,18 @@ export function useAuthenticateAction(): AuthenticateAction {
       }
       return authenticated;
     } catch (caught: unknown) {
-      logError("Authentication failed", caught);
+      const identityMismatch = isIdentityAcknowledgmentMismatch(caught);
+      logError(
+        identityMismatch
+          ? "Authentication refused by identity acknowledgment"
+          : "Authentication failed",
+        caught,
+      );
       setError(
-        describeAuthenticationFailure({ online: tearleads.network.online }),
+        describeAuthenticationFailure({
+          identityMismatch,
+          online: tearleads.network.online,
+        }),
       );
       return false;
     } finally {

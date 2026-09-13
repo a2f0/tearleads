@@ -33,6 +33,7 @@ for (const factory of [
         slotId: "slot",
         blobId: "held",
         byteLength: 4,
+        contentSha256: "0".repeat(64),
         mimeType: null,
         detachedAt: null,
         storageKey: "held-copy",

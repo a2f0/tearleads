@@ -5,7 +5,10 @@ import type {
   PendingAttachmentRecord,
 } from "../../../workflows/documents";
 import type { DocumentAttachmentUpload } from "../types";
-import { upsertPendingAttachments } from "./attachmentPersistence";
+import {
+  assignLocalAttachmentSlots,
+  upsertPendingAttachments,
+} from "./attachmentPersistence";
 import { type DocumentStoreState, setReadySnapshot } from "./state";
 import {
   type DocumentStoreSyncGeneration,
@@ -26,6 +29,7 @@ function localAttachmentRecords(
   return pendingAttachments.map((pendingAttachment) => ({
     blobId: null,
     byteLength: pendingAttachment.byteLength,
+    contentSha256: pendingAttachment.contentSha256,
     detachedAt: null,
     localId,
     mimeType: pendingAttachment.mimeType,
@@ -101,24 +105,7 @@ export function installPendingAttachmentRows(input: {
   state: DocumentStoreState;
 }): void {
   const { localAttachments, pendingAttachments, state } = input;
-  state.attachmentBlobIdBySlotId = {
-    ...state.attachmentBlobIdBySlotId,
-    ...Object.fromEntries(
-      localAttachments.map((attachment) => [
-        attachment.slotId,
-        attachment.blobId,
-      ]),
-    ),
-  };
-  state.attachmentStorageKeyBySlotId = {
-    ...state.attachmentStorageKeyBySlotId,
-    ...Object.fromEntries(
-      localAttachments.map((attachment) => [
-        attachment.slotId,
-        attachment.storageKey,
-      ]),
-    ),
-  };
+  assignLocalAttachmentSlots(state, localAttachments);
   upsertPendingAttachments(state, pendingAttachments);
   if (state.doc) {
     setReadySnapshot(

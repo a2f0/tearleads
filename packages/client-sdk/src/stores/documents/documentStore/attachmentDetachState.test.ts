@@ -35,6 +35,7 @@ function createLocalAttachment(
   return {
     blobId: `blob-${slotId}`,
     byteLength: 12,
+    contentSha256: "0".repeat(64),
     detachedAt,
     localId: "local-document-1",
     mimeType: "image/png",

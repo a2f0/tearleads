@@ -28,6 +28,7 @@ interface SelectedLocalAttachment {
   storageKey: string;
   mimeType: string | null;
   byteLength: number;
+  contentSha256: string;
   detachedAt: string | null;
 }
 
@@ -112,6 +113,7 @@ export function mapLocalAttachmentRecord(
   return {
     blobId: row.blobId,
     byteLength: row.byteLength,
+    contentSha256: row.contentSha256,
     detachedAt: row.detachedAt,
     localId: row.localId,
     mimeType: row.mimeType,

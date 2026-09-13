@@ -1,7 +1,10 @@
 import type { BlobStore, DocumentAttachment } from "@tearleads/client-sdk";
 import { useEffect, useMemo, useState } from "react";
 import { MiniAppImageViewer } from "../../components/mini-app/MiniAppLayout";
-import { isAutomaticBlobPreviewAllowed } from "./documentAttachmentUtils";
+import {
+  isAutomaticBlobPreviewAllowed,
+  readAutomaticPreviewBlobBytes,
+} from "./documentAttachmentUtils";
 import {
   getMediaPreviewKind,
   isPreviewableMediaMimeType,
@@ -82,8 +85,9 @@ function useAttachmentMediaUrl(params: {
     let objectUrl: string | null = null;
 
     setMediaUrl(null);
-    void blobStore
-      .readBytes(storageKey)
+    // The held byte source's own size gates the read; the intent's
+    // `byteLength` above is only a pre-filter (see readAutomaticPreviewBlobBytes).
+    void readAutomaticPreviewBlobBytes(blobStore, storageKey)
       .then((bytes) => {
         if (!bytes || cancelled) {
           return;

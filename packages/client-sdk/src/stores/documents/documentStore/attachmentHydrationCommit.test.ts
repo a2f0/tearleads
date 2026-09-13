@@ -41,6 +41,7 @@ for (const changed of ["document", "copy", "generation"]) {
       const held = {
         blobId: "held-blob",
         byteLength: 4,
+        contentSha256: "0".repeat(64),
         detachedAt: null,
         localId: state.localId,
         mimeType: "text/plain",
@@ -83,6 +84,7 @@ for (const changed of ["document", "copy", "generation"]) {
           attachment: intent,
           binding: { blobId: "replayed-blob" },
           bytes: new Uint8Array([1, 1, 1, 1]),
+          contentSha256: intent.contentSha256,
           storageKey: "replayed-copy",
         },
       });
@@ -106,3 +108,59 @@ for (const changed of ["document", "copy", "generation"]) {
     }
   });
 }
+
+test("hydration persists the held bytes' own length, not the intent's", async () => {
+  const { execSql, close } = await createTestExecSql("hydration-commit-length");
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const fixture = await createRemoteHistoryFixture();
+    const baseRuntime = createRotationRecoveryRuntime({ execSql, fixture });
+    const runtime = {
+      ...baseRuntime,
+      infra: { ...baseRuntime.infra, blobStore: createMemoryBlobStore() },
+    };
+    const state = createDocumentStoreState(
+      "local-document",
+      runtime,
+      sqlDocumentsPersistence,
+      noopDocumentStorePersistenceEffects,
+      fixture.writerProjection.documentId,
+    );
+    state.doc = fixture.remoteDocument;
+    // The document intent still describes a 4-byte attachment while a longer
+    // served binding (flagged as an intent mismatch) is being installed.
+    const intent = {
+      byteLength: 4,
+      contentSha256: "1".repeat(64),
+      mimeType: "text/plain",
+      name: "preview",
+      slotId: "preview",
+    };
+    addDocumentAttachments(state.doc, [intent]);
+    const servedBytes = new Uint8Array([9, 9, 9, 9, 9, 9, 9]);
+    await commitHydratedAttachment({
+      state,
+      currentDoc: fixture.remoteDocument,
+      expectedStorageKey: null,
+      generationIsCurrent: () => true,
+      hydratedBlob: {
+        attachment: intent,
+        binding: { blobId: "served-blob" },
+        bytes: servedBytes,
+        contentSha256: "3".repeat(64),
+        storageKey: "served-copy",
+      },
+    });
+    const rows = await sqlDocumentsPersistence.listLocalAttachments(
+      execSql,
+      state.localId,
+    );
+    expect(rows[0]).toMatchObject({
+      byteLength: servedBytes.byteLength,
+      contentSha256: "3".repeat(64),
+      storageKey: "served-copy",
+    });
+  } finally {
+    close();
+  }
+});
