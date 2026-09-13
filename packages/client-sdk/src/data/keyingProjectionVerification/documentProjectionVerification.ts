@@ -371,7 +371,8 @@ async function verifyDocumentWriterProjectionWithContext(
   for (let index = history.length - 1; index >= 0; index -= 1) {
     const bundle = history[index];
     if (!bundle) {
-      throw new Error(
+      throw new KeyingVerificationError(
+        "missing_dependency",
         `Document writer projection manifest history[${index}] is missing`,
       );
     }

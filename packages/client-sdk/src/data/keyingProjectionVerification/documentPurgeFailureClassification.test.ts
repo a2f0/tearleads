@@ -85,16 +85,25 @@ test("an unavailable purge signer is retryable", async () => {
     fixture.writerProjection,
   );
   const database = await createTestExecSql("purge-signer-unavailable");
+  const incidents: unknown[] = [];
   try {
     await expect(
-      verifyDocumentPurgeProof({
-        execSql: database.execSql,
-        expectedDocumentId: proof.documentId,
-        expectedOrganizationId: fixture.author.organizationId,
-        proof: { ...proof, principalPolicySnapshots: [snapshots.admin] },
-        resolveUserKey: async () => null,
-      }),
+      runWithSecurityIncidentReporting(
+        async (error) => {
+          incidents.push(error);
+        },
+        { operation: "document.purge", objectKind: "document", objectId: null },
+        () =>
+          verifyDocumentPurgeProof({
+            execSql: database.execSql,
+            expectedDocumentId: proof.documentId,
+            expectedOrganizationId: fixture.author.organizationId,
+            proof: { ...proof, principalPolicySnapshots: [snapshots.admin] },
+            resolveUserKey: async () => null,
+          }),
+      ),
     ).rejects.toMatchObject({ name: "ProjectionDependencyUnavailableError" });
+    expect(incidents).toEqual([]);
   } finally {
     database.close();
   }

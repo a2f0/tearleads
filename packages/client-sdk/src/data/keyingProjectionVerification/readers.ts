@@ -267,19 +267,21 @@ export function readDocumentAccessEventBody(
   value: unknown,
   label: string,
 ): DocumentLinkAccessEventBody | DocumentUnlinkAccessEventBody {
-  const record = readCanonicalRecord(value, label);
-  const eventType = readRequiredRecordValue(record, "eventType", label);
-  if (eventType !== "document.link" && eventType !== "document.unlink") {
-    throw new Error(`${label}.eventType is invalid`);
-  }
+  return readKeyingVerificationShape(() => {
+    const record = readCanonicalRecord(value, label);
+    const eventType = readRequiredRecordValue(record, "eventType", label);
+    if (eventType !== "document.link" && eventType !== "document.unlink") {
+      throw new Error(`${label}.eventType is invalid`);
+    }
 
-  return {
-    eventType,
-    containerId: readRecordString(record, "containerId", label),
-    containerManifestHash: readRecordString(
-      record,
-      "containerManifestHash",
-      label,
-    ),
-  };
+    return {
+      eventType,
+      containerId: readRecordString(record, "containerId", label),
+      containerManifestHash: readRecordString(
+        record,
+        "containerManifestHash",
+        label,
+      ),
+    };
+  });
 }

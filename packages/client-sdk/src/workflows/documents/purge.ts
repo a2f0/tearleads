@@ -294,8 +294,7 @@ export async function purgeRemoteDocument(input: {
       resolveProjectionUserKey: input.resolveProjectionUserKey,
     });
     if (!proof) {
-      throw new KeyingVerificationError(
-        "missing_dependency",
+      throw new ProjectionDependencyUnavailableError(
         "Purged remote document is missing its signed purge proof",
       );
     }

@@ -1,6 +1,7 @@
-import type {
-  VerifiedDocumentLinkSetManifest,
-  VerifiedDocumentLinkSetSnapshot,
+import {
+  KeyingVerificationError,
+  type VerifiedDocumentLinkSetManifest,
+  type VerifiedDocumentLinkSetSnapshot,
 } from "@tearleads/crypto";
 
 export function requireVerifiedDocumentPredecessor(input: {
@@ -16,7 +17,8 @@ export function requireVerifiedDocumentPredecessor(input: {
     input.verifiedByHash.get(input.previousManifestHash) ??
     input.trustedPredecessorByHash?.get(input.previousManifestHash);
   if (!previousManifest) {
-    throw new Error(
+    throw new KeyingVerificationError(
+      "missing_dependency",
       `${input.label} previous manifest ${input.previousManifestHash} is missing`,
     );
   }
