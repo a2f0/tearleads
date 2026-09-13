@@ -14,7 +14,7 @@ import {
   type DocumentSyncResponse,
 } from "@tearleads/validators/response";
 import { parseWalLsn } from "@tearleads/validators/util";
-import { rethrowDatabaseUnavailableError } from "../../keyingProjectionVerification/error";
+import { rethrowProjectionVerificationBoundaryError } from "../../keyingProjectionVerification/error";
 import {
   readRecordPositiveInteger,
   readRecordString,
@@ -443,7 +443,7 @@ export async function persistedDocumentSyncStateFromResponse(
       options,
     );
   } catch (error) {
-    rethrowDatabaseUnavailableError(error);
+    rethrowProjectionVerificationBoundaryError(error);
     if (
       error instanceof KeyingVerificationError ||
       error instanceof DocumentSyncResponseUpdateContentKeyError

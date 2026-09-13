@@ -5,6 +5,7 @@ import type {
   SecurityIncidentReporter,
 } from "../securityIncidents";
 import { isDatabaseUnavailableError } from "../sync/databaseUnavailable";
+import { ProjectionDependencyUnavailableError } from "./dependencyUnavailable";
 import { rethrowProjectionVerificationCancelled } from "./types";
 
 const KEYING_VERIFICATION_CONTEXT_LIMIT = 16;
@@ -114,6 +115,7 @@ export function rethrowProjectionVerificationBoundaryError(
 ): void {
   rethrowDatabaseUnavailableError(error);
   rethrowProjectionVerificationCancelled(error);
+  if (error instanceof ProjectionDependencyUnavailableError) throw error;
 }
 
 export function throwKeyingVerificationErrorWithContext(
