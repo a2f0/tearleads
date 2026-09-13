@@ -1,7 +1,16 @@
 import { afterEach, expect, test } from "bun:test";
-import { generateSigningSeedAndKeyPair } from "@tearleads/crypto";
+import {
+  generateSigningSeedAndKeyPair,
+  KeyingVerificationError,
+} from "@tearleads/crypto";
+import { setGeneratedIdentity } from "../../../test/helpers/clientTestSupport";
 import { createMemoryBlobStore } from "../../data/blobs/memoryBlobStore";
 import { Tearleads } from "../Tearleads";
+import { createApi, createSessionHarness } from "./session.testFixtures";
+import {
+  acknowledgedSessionRoot,
+  acknowledgeSessionRoot,
+} from "./sessionRootAuthority";
 
 const fingerprint = "a".repeat(64);
 const sdks: Tearleads[] = [];
@@ -90,4 +99,117 @@ test("an identity swap cannot reuse the previous root acknowledgement", async ()
     signingKeyPair: generateSigningSeedAndKeyPair(),
   });
   expect(sdk.runtime.input().auth.rootContainerId).toBeNull();
+});
+
+const personalRoot = {
+  userId: "user",
+  organizationId: "org-personal",
+  rootContainerId: "root-real",
+};
+
+test("an acknowledged organization keeps its root across identical re-acknowledgements", () => {
+  const first = acknowledgeSessionRoot([], personalRoot, fingerprint);
+  const again = acknowledgeSessionRoot(first, personalRoot, fingerprint);
+  expect(again).toEqual([{ ...personalRoot, signingFingerprint: fingerprint }]);
+  const other = acknowledgeSessionRoot(
+    again,
+    { ...personalRoot, organizationId: "org-custom", rootContainerId: "r2" },
+    fingerprint,
+  );
+  expect(other.map((entry) => entry.organizationId).sort()).toEqual([
+    "org-custom",
+    "org-personal",
+  ]);
+});
+
+test("a login that names a different root for an acknowledged organization is refused", () => {
+  const known = acknowledgeSessionRoot([], personalRoot, fingerprint);
+  expect(() =>
+    acknowledgeSessionRoot(
+      known,
+      { ...personalRoot, rootContainerId: "root-attacker" },
+      fingerprint,
+    ),
+  ).toThrow(
+    "Session root acknowledgement changed for an acknowledged organization",
+  );
+  // The refused acknowledgement leaves the original one authoritative.
+  const session = {
+    userId: "user",
+    organizationId: "org-personal",
+    snapshot: { rootAcknowledgments: known },
+  } as unknown as Parameters<typeof acknowledgedSessionRoot>[0];
+  expect(acknowledgedSessionRoot(session, fingerprint)).toBe("root-real");
+  // Another identity's acknowledgements are unrelated to this one's.
+  expect(
+    acknowledgeSessionRoot(
+      known,
+      { ...personalRoot, rootContainerId: "root-attacker" },
+      "b".repeat(64),
+    ),
+  ).toHaveLength(1);
+});
+
+test("a purged root may be acknowledged as gone but never regrows a root", () => {
+  const known = acknowledgeSessionRoot([], personalRoot, fingerprint);
+  const purged = acknowledgeSessionRoot(
+    known,
+    { ...personalRoot, rootContainerId: null },
+    fingerprint,
+  );
+  expect(purged).toEqual([
+    { ...personalRoot, rootContainerId: null, signingFingerprint: fingerprint },
+  ]);
+  for (const rootContainerId of ["root-real", "root-attacker"]) {
+    expect(() =>
+      acknowledgeSessionRoot(
+        purged,
+        { ...personalRoot, rootContainerId },
+        fingerprint,
+      ),
+    ).toThrow(KeyingVerificationError);
+  }
+});
+
+test("login refuses a swapped root for the same organization and records an incident", async () => {
+  const incidents: Array<{ code: unknown; operation: string }> = [];
+  let rootContainerId = "root-real";
+  const api = createApi({
+    authenticate: async () => ({
+      rootContainerId,
+      authenticated: true,
+      isRoot: false,
+      organizationId: "org-personal",
+      token: `token-${rootContainerId}`,
+      userId: "user-1",
+    }),
+  });
+  const { identity, session } = createSessionHarness({
+    api,
+    reportSecurityIncident: async (error, context) => {
+      incidents.push({
+        code: error instanceof KeyingVerificationError ? error.code : error,
+        operation: context.operation,
+      });
+    },
+  });
+  await setGeneratedIdentity(identity);
+
+  await expect(session.login()).resolves.toBe(true);
+  await expect(session.login()).resolves.toBe(true);
+  expect(session.snapshot.rootAcknowledgments).toHaveLength(1);
+  expect(incidents).toEqual([]);
+
+  rootContainerId = "root-attacker";
+  await expect(session.login()).rejects.toThrow(
+    "Session root acknowledgement changed for an acknowledged organization",
+  );
+  expect(incidents).toEqual([
+    { code: "object_mismatch", operation: "session.root.acknowledge" },
+  ]);
+  expect(session.isAuthenticated).toBe(false);
+  expect(session.authToken).toBeNull();
+  expect(session.snapshot.rootAcknowledgments).toEqual([
+    expect.objectContaining({ rootContainerId: "root-real" }),
+  ]);
 });

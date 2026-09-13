@@ -18,7 +18,7 @@ import {
 } from "./sessionPurgeRecovery";
 import {
   acknowledgedSessionRoot,
-  acknowledgeSessionRoot,
+  acknowledgeSessionRootReported,
 } from "./sessionRootAuthority";
 import type {
   CreateOrganizationOptions,
@@ -185,15 +185,12 @@ class SessionService implements Session {
     }
 
     if (!authentication) {
-      this.setContext({
-        authToken: null,
-        isAuthenticated: false,
-        isRoot: false,
-      });
+      this.logout();
       this.dependencies.log("Authentication failed");
       return false;
     }
 
+    let rootAcknowledgments: SessionSnapshot["rootAcknowledgments"];
     try {
       this.identityAcknowledgments.assertMatches(
         authentication.userId,
@@ -207,23 +204,23 @@ class SessionService implements Session {
       if (this.dependencies.identity.snapshot !== identitySnapshot)
         return false;
       this.identityAcknowledgments.remember(authentication.userId, fingerprint);
+      // A root id that differs from this identity's acknowledgement for the
+      // same organization is refused before the token becomes usable.
+      rootAcknowledgments = await acknowledgeSessionRootReported(
+        this.dependencies.reportSecurityIncident,
+        this.snapshotValue.rootAcknowledgments,
+        authentication,
+        fingerprint,
+      );
     } catch (error) {
-      this.setContext({
-        authToken: null,
-        isAuthenticated: false,
-        isRoot: false,
-      });
+      this.logout();
       throw error;
     }
     if (this.dependencies.identity.snapshot !== identitySnapshot) {
       return false;
     }
     this.setContext({
-      rootAcknowledgments: acknowledgeSessionRoot(
-        this.snapshotValue.rootAcknowledgments,
-        authentication,
-        fingerprint,
-      ),
+      rootAcknowledgments,
       authToken: authentication.token,
       defaultOrganizationId: authentication.organizationId,
       isAuthenticated: true,
@@ -331,15 +328,17 @@ class SessionService implements Session {
       encapsulationPublicKey: encapsulationKeyPair.publicKey,
       signingPublicKey: signingKeyPair.signingPublicKey,
     });
+    const rootAcknowledgments = await acknowledgeSessionRootReported(
+      this.dependencies.reportSecurityIncident,
+      this.snapshotValue.rootAcknowledgments,
+      response,
+      identitySnapshot.signingFingerprint,
+    );
     if (this.dependencies.identity.snapshot !== identitySnapshot) {
       return null;
     }
     this.setContext({
-      rootAcknowledgments: acknowledgeSessionRoot(
-        this.snapshotValue.rootAcknowledgments,
-        response,
-        identitySnapshot.signingFingerprint,
-      ),
+      rootAcknowledgments,
       containerId: response.rootContainerId,
       defaultOrganizationId: response.organizationId,
       organizationId: response.organizationId,
@@ -374,17 +373,22 @@ class SessionService implements Session {
       this.dependencies.identity.snapshot !== identitySnapshot
     )
       return null;
-    this.setContext({
-      rootAcknowledgments: acknowledgeSessionRoot(
-        this.snapshotValue.rootAcknowledgments,
-        {
-          userId,
-          organizationId: response.organizationId,
-          rootContainerId: response.containerId,
-        },
-        identitySnapshot.signingFingerprint,
-      ),
-    });
+    const rootAcknowledgments = await acknowledgeSessionRootReported(
+      this.dependencies.reportSecurityIncident,
+      this.snapshotValue.rootAcknowledgments,
+      {
+        userId,
+        organizationId: response.organizationId,
+        rootContainerId: response.containerId,
+      },
+      identitySnapshot.signingFingerprint,
+    );
+    if (
+      this.userId !== userId ||
+      this.dependencies.identity.snapshot !== identitySnapshot
+    )
+      return null;
+    this.setContext({ rootAcknowledgments });
     return response;
   }
 

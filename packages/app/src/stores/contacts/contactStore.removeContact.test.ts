@@ -63,7 +63,10 @@ async function createContactsRuntime(): Promise<
         input.initialText,
         input.initialDocumentKind,
       ),
-    resolveTrashContainerForDocument: async () => TRASH_CONTAINER_ID,
+    resolveTrashContainerForDocument: async () => ({
+      status: "target",
+      trashContainerId: TRASH_CONTAINER_ID,
+    }),
   };
 }
 
@@ -115,12 +118,18 @@ async function loadContactDocumentSummaryForTest(
   );
 }
 
-function createStore(runtime: ContactsRuntime) {
+function createStore(
+  runtime: ContactsRuntime,
+  logError: (message: string | Error, cause?: unknown) => void = (
+    message,
+    cause,
+  ) => {
+    throw new Error(String(message), { cause });
+  },
+) {
   return createContactsStore(runtime, {
     resolveUserIdentity: async () => null,
-    logError: (message, cause) => {
-      throw new Error(String(message), { cause });
-    },
+    logError,
   });
 }
 
@@ -286,15 +295,21 @@ test("contacts store moves removed synced contacts to trash without direct delet
   }
 });
 
-test("contacts store leaves a contact in place when no Trash can be resolved", async () => {
+test("contacts store leaves a contact in place and reports an unavailable Trash", async () => {
   const runtime = await createContactsRuntime();
-  runtime.resolveTrashContainerForDocument = async () => null;
+  runtime.resolveTrashContainerForDocument = async () => ({
+    status: "unavailable",
+    reason: "awaiting-sync",
+  });
   let moveCount = 0;
   runtime.moveDocumentToTrash = async () => {
     moveCount += 1;
     return null;
   };
-  const store = createStore(runtime);
+  const reported: unknown[] = [];
+  const store = createStore(runtime, (message) => {
+    reported.push(message);
+  });
 
   try {
     store.updateRuntime(runtime);
@@ -311,8 +326,16 @@ test("contacts store leaves a contact in place when no Trash can be resolved", a
     await store.removeContact(contactId);
 
     // No Trash resolved -> removal is a no-op (matching the Explorer): the contact
-    // is neither moved nor dropped, and its document keeps its container.
+    // is neither moved nor dropped, and its document keeps its container. The
+    // fresh-device gap is surfaced as a typed error instead of silently.
     expect(moveCount).toBe(0);
+    expect(reported).toEqual([
+      expect.objectContaining({
+        name: "TrashUnavailableError",
+        reason: "awaiting-sync",
+        message: "Trash is unavailable until sync completes.",
+      }),
+    ]);
     expect(
       store.getSnapshot().entries.some((entry) => entry.id === contactId),
     ).toBe(true);

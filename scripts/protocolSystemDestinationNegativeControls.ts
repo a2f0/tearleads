@@ -83,6 +83,25 @@ export const SYSTEM_DESTINATION_NEGATIVE_CONTROLS: readonly NegativeControl[] =
       why: "A different signed root must not adopt the session pre-login content.",
     },
     {
+      id: "root-destination-ignores-creator",
+      module: "formal/local-trust/SystemDestination.tla",
+      config: "formal/local-trust/SystemDestination.cfg",
+      constants: { RequireRootCreator: "FALSE" },
+      expect: {
+        kind: "invariant",
+        name: "OnlyUserCreatedRootReceivesLocalContent",
+      },
+      why: "An acknowledged root another identity created must not adopt the session pre-login content (#2278 M2).",
+    },
+    {
+      id: "login-swaps-acknowledged-root",
+      module: "formal/local-trust/SystemDestination.tla",
+      config: "formal/local-trust/SystemDestination.cfg",
+      constants: { RefuseRootSwap: "FALSE" },
+      expect: { kind: "invariant", name: "OnlyServerRootsAcknowledged" },
+      why: "A later unsigned login must not replace an acknowledged organization's root (#2278 M2).",
+    },
+    {
       id: "system-slot-created-by-writer",
       module: "formal/local-trust/SystemDestination.tla",
       config: "formal/local-trust/SystemDestination.cfg",

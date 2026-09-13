@@ -1,5 +1,6 @@
 import type { ApiClient } from "@tearleads/api-client";
 import { quietLogger } from "../../../test/helpers/clientTestSupport";
+import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import { Database } from "../database";
 import { createIdentity, type Identity } from "../identity";
 import type { Logger } from "../logger";
@@ -50,6 +51,7 @@ export function createSessionHarness(
     database?: Database | undefined;
     identity?: Identity | undefined;
     logger?: TestLogger | undefined;
+    reportSecurityIncident?: SecurityIncidentReporter | undefined;
   } = {},
 ) {
   const logger = options.logger ?? quietLogger;
@@ -69,6 +71,7 @@ export function createSessionHarness(
       log: logger.log,
       logError: logger.logError,
       onUserIdentityAvailable: async () => undefined,
+      reportSecurityIncident: options.reportSecurityIncident,
     }),
   };
 }

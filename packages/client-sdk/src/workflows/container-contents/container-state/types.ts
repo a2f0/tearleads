@@ -73,7 +73,8 @@ export interface ContainerWorkflowRuntime
 
 export interface CreatedRemoteContainerState {
   accessManifestHash: string;
-  systemSlot?: ContainerSystemSlot | null;
+  /** The slot this client signed into the create; never the server's echo. */
+  systemSlot: ContainerSystemSlot | null;
   containerId: string;
   createdAt: string;
   metadataDocumentId: string;

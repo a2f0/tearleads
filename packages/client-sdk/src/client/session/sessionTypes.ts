@@ -1,5 +1,6 @@
 import type { ApiClient } from "@tearleads/api-client";
 import type { DocumentProjectorRegistryInput } from "../../data/documents/documentKinds";
+import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ProvisionedSystemContainerSpec } from "../../workflows/registration";
 import type { ClearRemoteSyncStateResult } from "../../workflows/sync";
 import type { Database } from "../database";
@@ -18,6 +19,8 @@ export interface SessionDependencies {
   provisionedSystemContainers?:
     | ReadonlyArray<ProvisionedSystemContainerSpec>
     | undefined;
+  /** Records a refused root acknowledgement; absent in bare test harnesses. */
+  reportSecurityIncident?: SecurityIncidentReporter | undefined;
 }
 
 export interface SessionContext {
@@ -35,7 +38,11 @@ export interface SessionContext {
 }
 
 export interface SessionSnapshot {
-  /** Server acknowledgements retained independently of the selected container. */
+  /**
+   * Server acknowledgements retained independently of the selected container.
+   * Bound to (signing fingerprint, user, organization): once acknowledged, an
+   * organization's root id may only be re-acknowledged or reported purged.
+   */
   rootAcknowledgments: ReadonlyArray<{
     readonly signingFingerprint: string;
     readonly userId: string;

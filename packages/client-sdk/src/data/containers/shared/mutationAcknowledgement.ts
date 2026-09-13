@@ -81,6 +81,12 @@ function assertResponseIdentity(
   ) {
     throw new Error("Container mutation response object identity mismatch");
   }
+  // The top-level slot column is what local system-container lookups key on,
+  // so it must echo the slot this client signed into the manifest state; an
+  // omitted slot is the server's spelling of null.
+  if ((response.systemSlot ?? null) !== plan.state.systemSlot) {
+    throw new Error("Container mutation response system slot mismatch");
+  }
   if (
     response.manifestHead.epoch !== plan.state.epoch ||
     response.manifestHead.manifestHash !== plan.manifestHash ||

@@ -11,6 +11,8 @@ that root, so an ordinary writer cannot create a foreign-organization decoy.
 | `SelectView` / `PreserveSessionAcknowledgment` | `restoreSessionRoots` restores identity-bound acknowledgements independently of view selections |
 | `Hydrate` / `VerifyDestination` | `verifyRemoteContainerDestination` verifies the projection and reads its signed fields |
 | `MergeRoot` / `RequireSessionRoot` / `RequireRootScope` | `canUseRemoteRootAsLocalRootReconciliationTarget` checks the session root identity after `verifyRemoteContainerDestination` checks its signed organization |
+| `MergeRoot` / `RequireRootCreator` | `assertAcknowledgedRootSigner` requires the acknowledged root's epoch-1 create, found by `verifiedContainerCreateManifest`, to be signed by the session user |
+| `Login` / `RefuseRootSwap` | `acknowledgeSessionRoot` refuses a different root id for an already acknowledged organization; `acknowledgeSessionRootReported` records the incident |
 | `MoveDestination` / `PreserveDestinationIdentity` | `deriveContainerMoveManifestState` forbids moves of roots and system containers |
 | `UseSystem` / `RequireSystemScope` | `findSystemContainerStateForRoot` selects the authenticated slot in the active organization and acknowledged root |
 | `CreateSystem` / `RequireSystemAdministrator` / `RequireSystemRootParent` | `deriveContainerCreateManifestState` requires root-admin authority and a complete root parent path for slots |
@@ -26,7 +28,7 @@ and must
 also match a signed parentless manifest; an unsigned login response alone is
 insufficient to make an ordinary shared folder a root.
 
-Each of the nine guards has a negative control. The shared-system invariant
+Each of the eleven guards has a negative control. The shared-system invariant
 keeps extra recipients from becoming a reason to refuse a legitimate Trash or
 Contacts destination. Runtime regressions exercise forged listing fields using
 real signatures and SQLite persistence, including an ordinary container and a
@@ -39,12 +41,26 @@ key and ordinary-container parent state are never cached by this classifier.
 The model covers the immutability requirement for reuse, not cache eviction.
 
 Session root acknowledgements are stored separately from the local root
-awaiting reconciliation. Login updates the acknowledgement; reconciliation
-updates the view after moving local document references. Local bootstrap and
-view selection cannot replace the acknowledgement. Encrypted session persistence
-retains the per-organization acknowledgements under the signing fingerprint.
-Registration and organization creation also record server acknowledgements;
-organization switching selects among them without trusting listing roots.
+awaiting reconciliation. The first login for an organization records the
+acknowledgement; reconciliation updates the view after moving local document
+references. Local bootstrap and view selection cannot replace the
+acknowledgement. Encrypted session persistence retains the per-organization
+acknowledgements under the signing fingerprint. Registration and organization
+creation also record server acknowledgements; organization switching selects
+among them without trusting listing roots.
+
+The login response is unsigned, so two further rules bind the root it names.
+A later login may repeat an organization's acknowledged root or report it
+purged (null), the only transitions an honest server produces, but a different
+root id for an already acknowledged organization is refused and recorded as a
+security incident; a purged organization never regrows a root. Independently,
+the acknowledged root only becomes the pre-login merge target when its verified
+epoch-1 `container.create` was signed by the session user: every acknowledged
+organization was created by that user, whose device signed the root, so a root
+created by anyone else is a substitution however it is granted. The lineage is
+already verified when the head is, and the creator check also runs on cached
+role reuse. The model keeps `rootCreatorIsUser` as an unconstrained boolean and
+`Login` as a free action; the negative controls flip each rule alone.
 
 A missing root row does not relax destination scope: slot lookup still checks
 the active organization and any acknowledged root id before choosing a target.

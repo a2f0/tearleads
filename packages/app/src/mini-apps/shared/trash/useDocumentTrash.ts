@@ -12,6 +12,7 @@ import {
 import {
   ensureTrashSystemContainer,
   resolveDeleteToTrashTarget,
+  TrashUnavailableError,
 } from "../../../stores/systemContainerTrash";
 
 interface DocumentTrash {
@@ -78,7 +79,7 @@ export function useDocumentTrash(): DocumentTrash {
         return null;
       }
 
-      const targetContainerId = await resolveDeleteToTrashTarget({
+      const target = await resolveDeleteToTrashTarget({
         containerId: document.containerId,
         currentOrganizationId,
         nodes,
@@ -86,9 +87,15 @@ export function useDocumentTrash(): DocumentTrash {
         ensureOwnTrashContainer: () =>
           ensureTrashSystemContainer(store, trashSystemSlot),
       });
-      if (!targetContainerId) {
+      if (target.status === "already-in-trash") {
         return null;
       }
+      // A fresh device has no verified root yet, so its Trash cannot be
+      // resolved; say so instead of silently leaving the document in place.
+      if (target.status === "unavailable") {
+        throw new TrashUnavailableError(target.reason);
+      }
+      const targetContainerId = target.trashContainerId;
 
       const documentLinks = tearleads.containerContents.documentLinks();
       breadcrumb("move-to-trash");

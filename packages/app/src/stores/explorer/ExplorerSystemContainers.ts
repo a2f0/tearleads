@@ -4,7 +4,6 @@ import type {
 } from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import {
-  EXPLORER_TRASH_CONTAINER_NAME,
   findUserSystemContainer,
   isTrashSystemContainerNode,
   isUnderForeignSharedRoot,
@@ -185,18 +184,20 @@ export function getExplorerSystemContainerId<
   );
 }
 
-// Find the "Trash" system folder that belongs to another organization's shared
-// root. The owner's trash carries an opaque per-owner HMAC systemSlot the viewer
-// cannot derive, so — exactly like the shared-folder visibility classifier — it
-// is matched by name plus the presence of *some* systemSlot. Requiring the node
-// to be a direct child of that org's root (parentId === the org root) keeps a
-// same-name user folder nested elsewhere in the tree from being mistaken for the
-// org Trash.
+// Find the Trash system folder under another organization's shared root. Only
+// the verified system slot may choose a delete destination: a name is metadata
+// any writer can edit, so a renamed Contacts would otherwise win over the real
+// Trash. Trash slots are derived from the creator's signing key, so the match
+// succeeds exactly when the viewer's identity created that organization (a
+// custom org viewed from the personal one). Another identity's Trash cannot be
+// told apart from its other system children and is never selected; the caller
+// surfaces that as an unavailable Trash rather than guessing.
 function findForeignOrgTrashContainerId(
   nodes: ReadonlyArray<ContainerNode> | null | undefined,
   organizationId: string,
+  trashSystemSlot: ContainerSystemSlot | null,
 ): string | null {
-  if (!nodes) {
+  if (!nodes || !trashSystemSlot) {
     return null;
   }
 
@@ -212,8 +213,7 @@ function findForeignOrgTrashContainerId(
       (node) =>
         node.parentId === orgRoot.id &&
         node.organizationId === organizationId &&
-        node.name === EXPLORER_TRASH_CONTAINER_NAME &&
-        (node.systemSlot ?? null) !== null,
+        node.systemSlot === trashSystemSlot,
     )?.id ?? null
   );
 }
@@ -233,7 +233,7 @@ interface ExplorerDeleteTrashResolution {
 // trash slot (their own), so without this a document under another org's shared
 // root would be moved into the viewer's PERSONAL Trash — a cross-org re-home.
 // When `containerId` sits under a foreign shared root we instead target the
-// "Trash" system folder under THAT org's root; otherwise we resolve the viewer's
+// slot-verified Trash under THAT org's root; otherwise we resolve the viewer's
 // own Trash by slot (precise and spoof-proof, since the viewer can derive it).
 export function resolveExplorerDeleteTrashTarget(input: {
   containerId: string | null;
@@ -259,6 +259,7 @@ export function resolveExplorerDeleteTrashTarget(input: {
       trashContainerId: findForeignOrgTrashContainerId(
         nodes,
         containerNode.organizationId,
+        trashSystemSlot,
       ),
     };
   }
