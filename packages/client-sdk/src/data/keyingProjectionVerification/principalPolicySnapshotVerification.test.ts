@@ -1,7 +1,10 @@
 import { expect, test } from "bun:test";
+import { generateSigningSeedAndKeyPair } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
 import { createExternallyAuthorizedPrincipalPolicySnapshots } from "../../../test/helpers/principalPolicySnapshots";
 import { loadPrincipalPolicyCheckpoint } from "../persistence/keyingCheckpointPersistence";
+import { savePrincipalPolicyBundle } from "../persistence/principalPolicyPersistence";
 import {
   commitProjectionCheckpoints,
   createProjectionCheckpointContext,
@@ -11,6 +14,51 @@ import {
   enforcePrincipalPolicySnapshotCheckpoints,
   verifyPrincipalPolicySnapshots,
 } from "./principalPolicySnapshotVerification";
+import { collectReferencedPrincipalPolicies } from "./principalPolicyVerification";
+
+test("snapshot signer fingerprint mismatch is typed integrity evidence", async () => {
+  const fixture = await createExternallyAuthorizedPrincipalPolicySnapshots();
+  const wrongKey = generateSigningSeedAndKeyPair().signingPublicKey;
+  await expect(
+    verifyPrincipalPolicySnapshots({
+      snapshots: [fixture.admin],
+      resolveUserKey: async (userId) => {
+        const identity = await fixture.resolveUserKey(userId);
+        return identity ? { ...identity, signingPublicKey: wrongKey } : null;
+      },
+    }),
+  ).rejects.toMatchObject({ code: "signer_mismatch" });
+});
+
+test("cached bundle signer mismatch remains typed through projection verification", async () => {
+  const fixture = await createExternallyAuthorizedPrincipalPolicySnapshots();
+  const database = await createTestExecSql("cached-policy-signer-mismatch");
+  const wrongKey = generateSigningSeedAndKeyPair().signingPublicKey;
+  try {
+    await savePrincipalPolicyBundle(
+      database.execSql,
+      fixture.adminBundle,
+      new Date().toISOString(),
+      "organization",
+    );
+    await expect(
+      collectReferencedPrincipalPolicies({
+        checkpointContext: createProjectionCheckpointContext({
+          execSql: database.execSql,
+        }),
+        organizationId: "organization",
+        principalPolicyCache: new Map(),
+        references: [principalPolicyHead(fixture.adminBundle)],
+        resolveUserKey: async (userId) => {
+          const identity = await fixture.resolveUserKey(userId);
+          return identity ? { ...identity, signingPublicKey: wrongKey } : null;
+        },
+      }),
+    ).rejects.toMatchObject({ code: "signer_mismatch" });
+  } finally {
+    database.close();
+  }
+});
 
 test("verifies a redacted policy through its signed external authority", async () => {
   const fixture = await createExternallyAuthorizedPrincipalPolicySnapshots();

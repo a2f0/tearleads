@@ -66,6 +66,11 @@ export async function createExternallyAuthorizedPrincipalPolicySnapshots() {
     userId: signerUserId,
   });
   return {
+    adminBundle,
+    subjectBundle,
+    signingKeyPair,
+    encapsulationKeyPair,
+    signerUserId,
     admin: snapshotFromBundle(adminBundle),
     resolveUserKey: async (userId: string) =>
       userId === signerUserId ? identity : null,

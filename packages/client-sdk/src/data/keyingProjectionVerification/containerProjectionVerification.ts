@@ -23,6 +23,7 @@ import {
 } from "./checkpointContext";
 import { verifyContainerManifestBundle } from "./containerManifestVerification";
 import { verifyContainerManifestPath } from "./containerPathVerification";
+import { ProjectionDependencyUnavailableError } from "./dependencyUnavailable";
 import { rethrowProjectionVerificationBoundaryError } from "./error";
 import { collectReferencedPrincipalPolicies } from "./principalPolicyVerification";
 import {
@@ -57,7 +58,7 @@ async function collectContainerUserRecipientKeys(input: {
   for (const userId of userIds) {
     const userKey = await input.resolveUserKey(userId);
     if (!userKey) {
-      throw new Error(
+      throw new ProjectionDependencyUnavailableError(
         `Container writer projection recipient key could not be resolved for ${userId}`,
       );
     }

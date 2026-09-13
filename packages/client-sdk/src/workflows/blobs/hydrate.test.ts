@@ -478,7 +478,7 @@ test("decryptDocumentAttachmentBlob rejects bad writer projection signatures", a
       targetSecretKey: fixture.secretKey,
       writerProjection: tamperedProjection,
     }),
-  ).rejects.toThrow("Document writer projection signature verification failed");
+  ).rejects.toMatchObject({ code: "signature_mismatch" });
 });
 
 test("hydrateDocumentAttachmentBlobs rejects a binding reused for another slot", async () => {

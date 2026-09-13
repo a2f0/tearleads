@@ -38,6 +38,7 @@ import {
   verifyDocumentPurgeProofBaseline,
   verifyDocumentWriterProjection,
 } from "../../data/keyingProjectionVerification";
+import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { loadAccessManifestCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
@@ -87,8 +88,7 @@ async function loadCheckpointBoundedDocumentPurgeProof(input: {
   readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
 }): Promise<DocumentPurgeProofResponse | null> {
   if (!input.apiClient.getDocumentPurgeProof) {
-    throw new KeyingVerificationError(
-      "missing_dependency",
+    throw new ProjectionDependencyUnavailableError(
       "Remote document deletion is missing a purge-proof endpoint",
     );
   }
@@ -100,6 +100,9 @@ async function loadCheckpointBoundedDocumentPurgeProof(input: {
     },
   );
   if (!initialProof) {
+    // ApiClient returns null for transport, HTTP and response-shape failures.
+    // Even after a deletion hint, absence cannot prove signed-data tampering.
+    // Keep local data and defer deletion until an actual proof verifies.
     return null;
   }
   const baseline = await verifyDocumentPurgeProofBaseline({
@@ -246,8 +249,7 @@ export function createVerifiedRemoteDocumentDeletionHandler(input: {
       resolveProjectionUserKey: input.resolveProjectionUserKey,
     });
     if (!proof) {
-      throw new KeyingVerificationError(
-        "missing_dependency",
+      throw new ProjectionDependencyUnavailableError(
         "Remote document deletion is missing its signed purge proof",
       );
     }
@@ -294,8 +296,7 @@ export async function purgeRemoteDocument(input: {
       resolveProjectionUserKey: input.resolveProjectionUserKey,
     });
     if (!proof) {
-      throw new KeyingVerificationError(
-        "missing_dependency",
+      throw new ProjectionDependencyUnavailableError(
         "Purged remote document is missing its signed purge proof",
       );
     }

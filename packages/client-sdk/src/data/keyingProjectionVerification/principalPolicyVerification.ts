@@ -30,6 +30,8 @@ import {
   observePrincipalPolicy,
   type ProjectionCheckpointContext,
 } from "./checkpointContext";
+import { ProjectionDependencyUnavailableError } from "./dependencyUnavailable";
+import { rethrowProjectionVerificationBoundaryError } from "./error";
 import {
   filterUncachedPrincipalPolicyReferences,
   referencedPrincipalPolicyKey,
@@ -90,7 +92,7 @@ async function collectPrincipalPolicySignerPublicKeys(input: {
 
     const signerKey = await input.resolveUserKey(state.signerUserId);
     if (!signerKey) {
-      throw new Error(
+      throw new ProjectionDependencyUnavailableError(
         `${input.label} signer key could not be resolved for ${state.signerUserId}`,
       );
     }
@@ -99,7 +101,10 @@ async function collectPrincipalPolicySignerPublicKeys(input: {
       signerKey.signingPublicKey,
     );
     if (signingKeyFingerprint !== state.signerUserKeyFingerprint) {
-      throw new Error(`${input.label} signer key fingerprint mismatch`);
+      throw new KeyingVerificationError(
+        "signer_mismatch",
+        `${input.label} signer key fingerprint mismatch`,
+      );
     }
 
     signerPublicKeysByKey.set(cacheKey, {
@@ -292,6 +297,7 @@ async function loadOrganizationExternalAuthority(
     );
     return organizationAdminExternalAuthority(verifiedAdmins);
   } catch (error) {
+    rethrowProjectionVerificationBoundaryError(error);
     if (error instanceof KeyingVerificationError) {
       throw error;
     }

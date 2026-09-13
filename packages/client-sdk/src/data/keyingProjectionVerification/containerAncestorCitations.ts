@@ -5,6 +5,7 @@ import {
 } from "@tearleads/crypto";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import { readCanonicalRecord } from "../keyingCanonicalJson";
+import { readKeyingVerificationShape } from "./error";
 import { readRecordNullableString } from "./readers";
 
 /**
@@ -48,10 +49,12 @@ function bundleContainerId(
   bundle: AccessManifestBundleWireResponse,
   label: string,
 ): string | null {
-  return readRecordNullableString(
-    readCanonicalRecord(bundle.state, `${label} state`),
-    "containerId",
-    `${label} state`,
+  return readKeyingVerificationShape(() =>
+    readRecordNullableString(
+      readCanonicalRecord(bundle.state, `${label} state`),
+      "containerId",
+      `${label} state`,
+    ),
   );
 }
 

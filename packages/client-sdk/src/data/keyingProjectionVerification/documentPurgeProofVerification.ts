@@ -9,6 +9,7 @@ import type {
   AccessManifestBundleWireResponse,
   DocumentPurgeProofResponse,
 } from "@tearleads/validators/response";
+import { isDocumentPurgeProofResponse } from "@tearleads/validators/response";
 import type { ExecSql } from "../sqlite/sqlSchema";
 import { addBundleByHash } from "./bundleVerification";
 import {
@@ -20,7 +21,6 @@ import {
 import { verifyContainerManifestPath } from "./containerPathVerification";
 import { verifiedContainerManifestsForBundles } from "./containerProjectionVerification";
 import { authenticateDocumentPurgeArtifacts } from "./documentPurgePrincipalEvidence";
-import { rethrowDatabaseUnavailableError } from "./error";
 import {
   enforcePrincipalPolicySnapshotCheckpoints,
   verifyPrincipalPolicySnapshots,
@@ -171,105 +171,105 @@ export async function verifyPurgeContainerPaths(input: {
   };
 }
 
+function requirePurgeProofShape(
+  proof: unknown,
+): asserts proof is DocumentPurgeProofResponse {
+  if (!isDocumentPurgeProofResponse(proof)) {
+    throw new KeyingVerificationError(
+      "invalid_shape",
+      "Document purge proof has an invalid shape",
+    );
+  }
+}
+
 async function verifyDocumentPurgeProofWithMode(
   input: VerifyDocumentPurgeProofInput,
   enforceLocalCheckpoints: boolean,
 ): Promise<VerifiedDocumentPurgeProofCommit> {
-  try {
-    if (
-      input.proof.documentId !== input.expectedDocumentId ||
-      input.proof.documentManifest.manifestHash.length === 0
-    ) {
-      throw new KeyingVerificationError(
-        "object_mismatch",
-        "Document purge proof targets the wrong document",
-      );
-    }
-    const checkpointContext = createProjectionCheckpointContext({
-      execSql: input.execSql,
-      organizationId: input.expectedOrganizationId,
-    });
-    const principalPolicyCache =
-      input.principalPolicyCache ?? new Map<string, VerifiedPrincipalPolicy>();
-    const authorizationEvidence = await verifyPrincipalPolicySnapshots({
-      resolveUserKey: input.resolveUserKey,
-      snapshots: input.proof.principalPolicySnapshots,
-    });
-    const {
-      authorizingContainerPath,
-      containerPathByManifestHash,
-      verifiedContainerManifests,
-    } = await verifyPurgeContainerPaths({
+  requirePurgeProofShape(input.proof);
+  if (
+    input.proof.documentId !== input.expectedDocumentId ||
+    input.proof.documentManifest.manifestHash.length === 0
+  ) {
+    throw new KeyingVerificationError(
+      "object_mismatch",
+      "Document purge proof targets the wrong document",
+    );
+  }
+  const checkpointContext = createProjectionCheckpointContext({
+    execSql: input.execSql,
+    organizationId: input.expectedOrganizationId,
+  });
+  const principalPolicyCache =
+    input.principalPolicyCache ?? new Map<string, VerifiedPrincipalPolicy>();
+  const authorizationEvidence = await verifyPrincipalPolicySnapshots({
+    resolveUserKey: input.resolveUserKey,
+    snapshots: input.proof.principalPolicySnapshots,
+  });
+  const {
+    authorizingContainerPath,
+    containerPathByManifestHash,
+    verifiedContainerManifests,
+  } = await verifyPurgeContainerPaths({
+    authorizationEvidence,
+    checkpointContext,
+    enforceLocalCheckpoints,
+    principalPolicyCache,
+    proof: input.proof,
+    resolveUserKey: input.resolveUserKey,
+  });
+  const { documentManifest, principalPolicies, purgeEventHash } =
+    await authenticateDocumentPurgeArtifacts({
       authorizationEvidence,
+      authorizingContainerPath,
       checkpointContext,
+      containerPathByManifestHash,
       enforceLocalCheckpoints,
+      expectedDocumentId: input.expectedDocumentId,
       principalPolicyCache,
       proof: input.proof,
       resolveUserKey: input.resolveUserKey,
+      verifiedContainerManifests,
     });
-    const { documentManifest, principalPolicies, purgeEventHash } =
-      await authenticateDocumentPurgeArtifacts({
-        authorizationEvidence,
-        authorizingContainerPath,
-        checkpointContext,
-        containerPathByManifestHash,
-        enforceLocalCheckpoints,
-        expectedDocumentId: input.expectedDocumentId,
-        principalPolicyCache,
-        proof: input.proof,
-        resolveUserKey: input.resolveUserKey,
-        verifiedContainerManifests,
-      });
-    if (
-      documentManifest.state.organizationId !== input.expectedOrganizationId
-    ) {
-      throw new KeyingVerificationError(
-        "object_mismatch",
-        "Document purge proof belongs to another organization",
-      );
-    }
-    if (enforceLocalCheckpoints) {
-      const policiesToPin = await enforcePrincipalPolicySnapshotCheckpoints({
-        execSql: input.execSql,
-        policies: principalPolicies,
-      });
-      for (const policy of policiesToPin) {
-        observePrincipalPolicy(
-          checkpointContext,
-          policy,
-          input.expectedOrganizationId,
-        );
-      }
-    }
-    const documentPurgeCheckpoint = {
-      documentId: input.expectedDocumentId,
-      documentManifestHash: documentManifest.manifestHash,
-      organizationId: documentManifest.state.organizationId,
-      purgeEventHash,
-    };
-    return {
-      commitCheckpoints: (execSql = input.execSql) =>
-        commitProjectionCheckpoints(checkpointContext, {
-          documentPurgeCheckpoint,
-          execSql,
-        }),
-      documentCheckpoint: documentManifest.checkpoint,
-    };
-  } catch (error) {
-    rethrowDatabaseUnavailableError(error);
-    if (error instanceof KeyingVerificationError) {
-      throw error;
-    }
+  if (documentManifest.state.organizationId !== input.expectedOrganizationId) {
     throw new KeyingVerificationError(
-      "invalid_shape",
-      error instanceof Error ? error.message : String(error),
+      "object_mismatch",
+      "Document purge proof belongs to another organization",
     );
   }
+  if (enforceLocalCheckpoints) {
+    const policiesToPin = await enforcePrincipalPolicySnapshotCheckpoints({
+      execSql: input.execSql,
+      policies: principalPolicies,
+    });
+    for (const policy of policiesToPin) {
+      observePrincipalPolicy(
+        checkpointContext,
+        policy,
+        input.expectedOrganizationId,
+      );
+    }
+  }
+  const documentPurgeCheckpoint = {
+    documentId: input.expectedDocumentId,
+    documentManifestHash: documentManifest.manifestHash,
+    organizationId: documentManifest.state.organizationId,
+    purgeEventHash,
+  };
+  return {
+    commitCheckpoints: (execSql = input.execSql) =>
+      commitProjectionCheckpoints(checkpointContext, {
+        documentPurgeCheckpoint,
+        execSql,
+      }),
+    documentCheckpoint: documentManifest.checkpoint,
+  };
 }
 
 export async function verifyDocumentPurgeProofBaseline(
   input: VerifyDocumentPurgeProofInput,
 ): Promise<Pick<VerifiedDocumentPurgeProofCommit, "documentCheckpoint">> {
+  requirePurgeProofShape(input.proof);
   if (input.proof.documentManifestPredecessors.length !== 0) {
     throw new KeyingVerificationError(
       "invalid_shape",

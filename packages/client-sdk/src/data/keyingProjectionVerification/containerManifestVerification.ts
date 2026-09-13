@@ -17,6 +17,7 @@ import {
   type CitedLineageInput,
   resolveCitedAncestorPath,
 } from "./containerAncestorCitations";
+import { readKeyingVerificationShape } from "./error";
 import {
   loadManifestCheckpointVerification,
   verifyCachedManifestCheckpoint,
@@ -331,7 +332,10 @@ function assertContainerParentPathMatches(input: {
   if (
     actualParentManifestHash !== input.verifiedManifest.state.parentManifestHash
   ) {
-    throw new Error(`${input.label} parent path mismatch`);
+    throw new KeyingVerificationError(
+      "object_mismatch",
+      `${input.label} parent path mismatch`,
+    );
   }
 }
 
@@ -344,20 +348,22 @@ function readParentReference(
   value: unknown,
   label: string,
 ): ContainerParentReference {
-  const record = readCanonicalRecord(value, label);
+  return readKeyingVerificationShape(() => {
+    const record = readCanonicalRecord(value, label);
 
-  return {
-    parentContainerId: readRecordNullableString(
-      record,
-      "parentContainerId",
-      label,
-    ),
-    parentManifestHash: readRecordNullableString(
-      record,
-      "parentManifestHash",
-      label,
-    ),
-  };
+    return {
+      parentContainerId: readRecordNullableString(
+        record,
+        "parentContainerId",
+        label,
+      ),
+      parentManifestHash: readRecordNullableString(
+        record,
+        "parentManifestHash",
+        label,
+      ),
+    };
+  });
 }
 
 function readContainerManifestParentReference(
@@ -428,7 +434,10 @@ async function resolveContainerManifestVerificationParentPath(input: {
     parentPath: parentParentPath,
   });
   if (verifiedParent.state.containerId !== parentContainerId) {
-    throw new Error(`${input.label} parent manifest container mismatch`);
+    throw new KeyingVerificationError(
+      "object_mismatch",
+      `${input.label} parent manifest container mismatch`,
+    );
   }
 
   return [...parentParentPath, verifiedParent];
@@ -454,7 +463,8 @@ async function verifyPreviousContainerManifest(input: {
 }): Promise<VerifiedContainerAccessManifest> {
   const previousBundle = input.bundlesByHash.get(input.previousManifestHash);
   if (!previousBundle) {
-    throw new Error(
+    throw new KeyingVerificationError(
+      "missing_dependency",
       `${input.label} previous manifest ${input.previousManifestHash} is missing`,
     );
   }

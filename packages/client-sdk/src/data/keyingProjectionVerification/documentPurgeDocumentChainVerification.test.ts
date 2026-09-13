@@ -19,6 +19,7 @@ import { verifyContainerWriterProjection } from "./containerProjectionVerificati
 import { verifyDocumentWriterProjection } from "./documentProjectionVerification";
 import { verifyPurgeDocumentManifest } from "./documentPurgeDocumentChainVerification";
 import { verifyDocumentPurgeProof } from "./documentPurgeProofVerification";
+import { runWithSecurityIncidentReporting } from "./error";
 import { verifyPrincipalPolicySnapshots } from "./principalPolicySnapshotVerification";
 
 function uniqueContainerPaths(
@@ -266,6 +267,49 @@ test("document purge rejects a tampered intermediate signed transition", async (
         resolveUserKey: fixture.resolveProjectionUserKey,
       }),
     ).rejects.toThrow("signature verification failed");
+  } finally {
+    close();
+  }
+});
+
+test("a missing signed purge predecessor is recorded as integrity evidence", async () => {
+  const fixture = await createPurgeChainFixture();
+  const { close, execSql } = await createTestExecSql(
+    "purge-missing-predecessor",
+  );
+  const incidents: unknown[] = [];
+  try {
+    await verifyDocumentWriterProjection({
+      execSql,
+      projection: fixture.writerProjection,
+      resolveUserKey: fixture.resolveProjectionUserKey,
+    });
+    const proof = {
+      ...fixture.proof,
+      documentManifestPredecessors:
+        fixture.proof.documentManifestPredecessors.slice(1),
+    };
+    await expect(
+      runWithSecurityIncidentReporting(
+        async (error) => {
+          incidents.push(error);
+        },
+        {
+          operation: "document.purge",
+          objectKind: "document",
+          objectId: proof.documentId,
+        },
+        () =>
+          verifyDocumentPurgeProof({
+            execSql,
+            expectedDocumentId: proof.documentId,
+            expectedOrganizationId: fixture.author.organizationId,
+            proof,
+            resolveUserKey: fixture.resolveProjectionUserKey,
+          }),
+      ),
+    ).rejects.toMatchObject({ code: "missing_dependency" });
+    expect(incidents).toHaveLength(1);
   } finally {
     close();
   }

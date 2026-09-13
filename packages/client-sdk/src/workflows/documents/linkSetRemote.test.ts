@@ -414,9 +414,7 @@ test("relinkRemoteDocument rejects bad unlink target container signatures before
       targetContainerId: projection.containerId,
       targetSecretKey: keyPair.secretKey,
     }),
-  ).rejects.toThrow(
-    "Container writer projection path[0] signature verification failed",
-  );
+  ).rejects.toMatchObject({ code: "signature_mismatch" });
   expect(unlinkCalled).toBe(false);
   close();
 });
