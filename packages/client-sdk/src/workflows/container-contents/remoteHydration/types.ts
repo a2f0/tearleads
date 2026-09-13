@@ -51,6 +51,8 @@ export interface ContainerState {
     | ContainerWriterProjectionResponse
     | null
     | undefined;
+  /** Bumped by every invalidation; a load installs only if it is unchanged. */
+  containerWriterProjectionGeneration?: number | undefined;
   metadataReferencedPrincipals?:
     | readonly ReferencedPrincipalStateResponse[]
     | undefined;

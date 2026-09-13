@@ -40,6 +40,27 @@ export function getCachedContainerWriterProjection(
     : null;
 }
 
+// A hint can invalidate a container while its load is in flight; each retry
+// re-reads the generation, so this only bounds a pathological hint storm.
+const MAX_PROJECTION_LOAD_ATTEMPTS = 3;
+
+function projectionGeneration(containerState: ContainerState): number {
+  return containerState.containerWriterProjectionGeneration ?? 0;
+}
+
+/**
+ * Drop the cached projection and advance its generation, so a load that
+ * started before this invalidation (and may answer with the pre-hint manifest)
+ * cannot install its result.
+ */
+export function invalidateContainerWriterProjection(
+  containerState: ContainerState,
+): void {
+  containerState.containerWriterProjection = null;
+  containerState.containerWriterProjectionGeneration =
+    projectionGeneration(containerState) + 1;
+}
+
 export async function loadContainerWriterProjectionForState(input: {
   containerState: ContainerState;
   runtime: ContainerWorkflowRuntime;
@@ -51,9 +72,18 @@ export async function loadContainerWriterProjectionForState(input: {
     return cachedProjection;
   }
 
-  const projection = await input.runtime.apiClient.getContainerWriterProjection(
-    input.containerState.container.id,
-  );
-  input.containerState.containerWriterProjection = projection;
+  let projection: ContainerWriterProjectionResponse | null = null;
+  for (let attempt = 0; attempt < MAX_PROJECTION_LOAD_ATTEMPTS; attempt++) {
+    const generation = projectionGeneration(input.containerState);
+    projection = await input.runtime.apiClient.getContainerWriterProjection(
+      input.containerState.container.id,
+    );
+    if (projectionGeneration(input.containerState) === generation) {
+      input.containerState.containerWriterProjection = projection;
+      return projection;
+    }
+    // Invalidated while in flight (the api-client entry went with it): this
+    // answer may predate the hint, so fetch again instead of caching it.
+  }
   return projection;
 }

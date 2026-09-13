@@ -1,3 +1,4 @@
+import { invalidateContainerWriterProjection } from "../../workflows/container-contents/container-state/projectionCache";
 import type { ContainerContentsStoreSyncState } from "./syncAgentTypes";
 
 /**
@@ -31,7 +32,7 @@ export function invalidateCachedProjections(
   for (const id of stale) {
     const containerState = state.containersById.get(id);
     if (containerState) {
-      containerState.containerWriterProjection = null;
+      invalidateContainerWriterProjection(containerState);
       containerState.metadataWriterProjection = null;
       if (containerState.container.metadataDocumentId)
         state.runtime.apiClient.evictDocumentWriterProjection(

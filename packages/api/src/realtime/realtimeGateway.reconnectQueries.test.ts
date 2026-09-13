@@ -3,6 +3,7 @@ import {
   CONTAINER,
   fixture,
   OTHER,
+  recordingSocket,
 } from "../../test/helpers/realtimeContainerAuthorization";
 import * as sentry from "../diagnostics/sentry";
 
@@ -145,4 +146,38 @@ test("a reconnect clears the restore handoff even when its fresh pass fails", as
     capture.mockRestore();
     f.gateway.stop();
   }
+});
+
+test("the first subscription catches up sockets opened before it, not ones opened after", async () => {
+  const f = fixture({ authorize: async (_user, ids) => ids });
+  const early = recordingSocket("early", "session-early");
+  await f.gateway.websocket.open(f.socket);
+  await f.gateway.websocket.open(early.socket);
+  await f.declare("known_containers", [CONTAINER]);
+  await f.declare("known_containers", [OTHER], early.socket);
+  // The subscriber's first subscription holds only now; everything published
+  // before it is gone, so both open sockets resync.
+  f.reconnect();
+  await flush();
+  expect(
+    f.sent.filter((frame) => Reflect.get(frame, "type") === "resync_required"),
+  ).toEqual([{ type: "resync_required", containerIds: [CONTAINER] }]);
+  expect(
+    early.sent.filter(
+      (frame) => Reflect.get(frame, "type") === "resync_required",
+    ),
+  ).toEqual([{ type: "resync_required", containerIds: [OTHER] }]);
+
+  const late = recordingSocket("late", "session-late");
+  await f.gateway.websocket.open(late.socket);
+  await f.declare("known_containers", [OTHER], late.socket);
+  await flush();
+  expect(
+    late.sent.filter(
+      (frame) =>
+        Reflect.get(frame, "type") === "resync_required" ||
+        Reflect.get(frame, "type") === "shared_with_you",
+    ),
+  ).toEqual([]);
+  f.gateway.stop();
 });
