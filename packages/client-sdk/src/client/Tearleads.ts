@@ -100,6 +100,11 @@ export interface ClientOptions {
     | undefined;
 }
 
+const rejectUninitializedIdentityPin: InternalRuntime["pinLocalUserIdentity"] =
+  async () => {
+    throw new Error("Trusted user identity runtime is not initialized");
+  };
+
 export class Tearleads {
   readonly blobs: Blobs;
   readonly database: Database;
@@ -181,9 +186,7 @@ export class Tearleads {
       },
     );
     let pinLocalUserIdentity: InternalRuntime["pinLocalUserIdentity"] =
-      async () => {
-        throw new Error("Trusted user identity runtime is not initialized");
-      };
+      rejectUninitializedIdentityPin;
     session = createSession({
       api: this.apiClient,
       database: this.database,
@@ -194,6 +197,7 @@ export class Tearleads {
       onUserIdentityAvailable: (userId, candidate) =>
         pinLocalUserIdentity(userId, candidate),
       provisionedSystemContainers: options.provisionedSystemContainers,
+      reportSecurityIncident: security.service.report,
     });
     this.session = session;
     const runtime = this.createWorkflowRuntime(

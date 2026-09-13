@@ -1,10 +1,14 @@
-import { isDocumentUpdateCreatedEvent } from "../../../data/documents/documentSync";
+import {
+  isContainerProjectionInvalidationHint,
+  isDocumentUpdateCreatedEvent,
+} from "../../../data/documents/documentSync";
 import { sequenceUnchanged } from "../../../workflows/documents/syncLane";
 import type { DocumentStoreState } from "./state";
 import {
   allowDocumentStoreRemoteSync,
   markDocumentStoreRemoteSyncPending,
 } from "./syncGeneration";
+import { invalidateDocumentWriterProjection } from "./writerProjectionGeneration";
 
 export function hasRemoteDocumentUpdateEvent(
   state: DocumentStoreState,
@@ -65,13 +69,18 @@ export function handleDocumentRemoteEvents(
   state: DocumentStoreState,
   scheduleSync: () => void,
 ): void {
-  if (!state.record?.documentId) {
-    state.lastEventCount = state.runtime.state.events.length;
-    return;
-  }
-
   const nextEvents = state.runtime.state.events.slice(state.lastEventCount);
   state.lastEventCount = state.runtime.state.events.length;
+
+  // A container the document's path cites may have moved its manifest; the
+  // store cannot tell which containers this document links into, so the held
+  // projection goes and the next mutation fetches a fresh one. This runs even
+  // before the document has a remote id: a create in flight captured the
+  // generation when it started and must not install its pre-hint projection.
+  if (nextEvents.some(isContainerProjectionInvalidationHint))
+    invalidateDocumentWriterProjection(state);
+
+  if (!state.record?.documentId) return;
 
   if (hasRemoteDocumentUpdateEvent(state, nextEvents)) {
     allowDocumentStoreRemoteSync(state);

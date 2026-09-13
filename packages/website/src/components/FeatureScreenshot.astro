@@ -1,0 +1,28 @@
+---
+import { projectLabel, type ScreenshotEntry } from "./screenshotsManifest";
+
+interface Props {
+  readonly entry: ScreenshotEntry;
+  readonly alt: string;
+  readonly label: string;
+  readonly priority?: boolean;
+}
+
+const { entry, alt, label, priority = false } = Astro.props;
+---
+
+<figure class="feature-screenshot">
+  <a class="feature-screenshot-image" href={`/screenshots/${entry.name}`}>
+    <img
+      src={entry.src}
+      alt={alt}
+      loading={priority ? "eager" : "lazy"}
+      fetchpriority={priority ? "high" : "auto"}
+      decoding="async"
+    />
+  </a>
+  <figcaption>
+    <span>{label} · {projectLabel(entry.project)} detail</span>
+    <a href={`/screenshots/${entry.name}`}>Full screenshot <span aria-hidden="true">↗</span></a>
+  </figcaption>
+</figure>

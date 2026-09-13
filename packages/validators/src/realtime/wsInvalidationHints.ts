@@ -11,6 +11,11 @@ import { z } from "zod";
  * crosses the websocket boundary.
  */
 
+// Every container id a hint carries is scoped per recipient: the gateway
+// removes ids the receiving socket holds no verified interest in, so a frame
+// never names a container its recipient cannot read. `containerIds` therefore
+// holds only the recipient's own linked containers, and a container hint omits
+// `parentId`/`previousParentId` when the recipient is not indexed on them.
 export const WsDocumentUpdateCreatedHintSchema = z.object({
   type: z.literal("document_update_created"),
   containerIds: z.array(z.string().min(1)),
@@ -31,7 +36,8 @@ export const WsContainerMutationCreatedHintSchema = z.object({
   type: z.literal("container_mutation_created"),
   containerId: z.string().min(1),
   eventType: z.string().min(1),
-  parentId: z.string().min(1).nullable(),
+  // Null is the root; absent means the recipient is not subscribed to it.
+  parentId: z.string().min(1).nullable().optional(),
   previousParentId: z.string().min(1).nullable().optional(),
   updatedAt: z.string().min(1),
 });
@@ -41,6 +47,17 @@ export const WsContainerMutationCreatedHintSchema = z.object({
 export const WsSharedWithYouHintSchema = z.object({
   type: z.literal("shared_with_you"),
   userId: z.string().min(1),
+});
+
+// Derived by the gateway, never published: a container mutation moved the
+// manifest every dependent subscription cites in its writer projection. Grants,
+// rekeys, and recites do not evict those dependents, and a subscriber granted
+// directly at a descendant never receives the ancestor's own hint, so this names
+// the recipient's held containers whose cited path now carries a stale manifest.
+// Invalidation only: drop cached projections, keep the subscriptions.
+const WsContainerPathChangedHintSchema = z.object({
+  type: z.literal("container_path_changed"),
+  containerIds: z.array(z.string().min(1)).min(1),
 });
 
 export const WsUserRegisteredHintSchema = z.object({
@@ -53,6 +70,7 @@ export const WsInvalidationHintSchema = z.discriminatedUnion("type", [
   WsDocumentUpdateCreatedHintSchema,
   WsDocumentMutationCreatedHintSchema,
   WsContainerMutationCreatedHintSchema,
+  WsContainerPathChangedHintSchema,
   WsSharedWithYouHintSchema,
   WsUserRegisteredHintSchema,
 ]);

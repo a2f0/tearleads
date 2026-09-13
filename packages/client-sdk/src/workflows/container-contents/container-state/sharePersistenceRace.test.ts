@@ -110,6 +110,7 @@ for (const variant of ["new share", "duplicate share"] as const) {
               containerState,
               persistence,
               runtime,
+              writerProjectionGeneration: 0,
               shared: {
                 accessEpoch: 2,
                 accessManifestHash: "access-after-share",
@@ -122,6 +123,7 @@ for (const variant of ["new share", "duplicate share"] as const) {
             })
           : await persistDuplicateContainerShare({
               containerState,
+              writerProjectionGeneration: 0,
               grant: {
                 accessEpoch: 2,
                 accessStateHash: "access-after-share",

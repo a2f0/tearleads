@@ -1,5 +1,8 @@
+import { isContainerProjectionInvalidationHint } from "../../data/documents/documentSync";
+
 interface ContainerMutationEventCandidate {
   readonly containerId?: unknown;
+  readonly containerIds?: unknown;
   readonly eventType?: unknown;
   readonly parentId?: unknown;
   readonly previousParentId?: unknown;
@@ -31,7 +34,7 @@ function addHydrationParentId(
 
 function shouldHydrateRootLane(input: {
   eventType: string;
-  parentId: string | null;
+  parentId: string | null | undefined;
   previousParentId: string | null | undefined;
 }): boolean {
   return (
@@ -39,6 +42,36 @@ function shouldHydrateRootLane(input: {
     input.previousParentId === null ||
     input.eventType !== "container.create"
   );
+}
+
+/**
+ * Containers whose cached writer projections a batch of hints invalidates: the
+ * container a `container_mutation_created` hint names, and every held
+ * dependent a gateway `container_path_changed` hint names. Grant, rekey, and
+ * recite no longer evict subscribers, so these hints are the only signal that
+ * a projection's manifest head or cited ancestor path moved under a cached copy.
+ */
+export function listContainerProjectionInvalidationIds(
+  events: ReadonlyArray<unknown>,
+): string[] {
+  const containerIds = new Set<string>();
+  for (const event of events) {
+    if (!isRecord(event) || !isContainerProjectionInvalidationHint(event))
+      continue;
+    if (event.type === "container_mutation_created") {
+      const containerId = readNonEmptyString(event.containerId);
+      if (containerId) containerIds.add(containerId);
+    } else if (
+      event.type === "container_path_changed" &&
+      Array.isArray(event.containerIds)
+    ) {
+      for (const containerId of event.containerIds) {
+        const id = readNonEmptyString(containerId);
+        if (id) containerIds.add(id);
+      }
+    }
+  }
+  return [...containerIds];
 }
 
 export function listContainerParentIdsForEventHydration(
@@ -62,16 +95,22 @@ export function listContainerParentIdsForEventHydration(
     // the other peer until a manual refresh.
     const containerId = readNonEmptyString(event.containerId);
     const eventType = readNonEmptyString(event.eventType);
-    const parentId = readNullableString(event.parentId);
-    if (!containerId || !eventType || parentId === undefined) {
+    if (!containerId || !eventType) {
       continue;
     }
 
+    // The server scopes each hint to the recipient's own interest: a parent or
+    // previous parent this client is not subscribed to is withheld entirely
+    // (undefined), while null still names the root. Hydrate only the lanes the
+    // hint names; the container's own lane resolves its current parent.
+    const parentId = readNullableString(event.parentId);
     const previousParentId = readNullableString(event.previousParentId);
     if (shouldHydrateRootLane({ eventType, parentId, previousParentId })) {
       addHydrationParentId(parentIds, null);
     }
-    addHydrationParentId(parentIds, parentId);
+    if (parentId !== undefined) {
+      addHydrationParentId(parentIds, parentId);
+    }
     addHydrationParentId(parentIds, containerId);
 
     if (previousParentId !== undefined) {

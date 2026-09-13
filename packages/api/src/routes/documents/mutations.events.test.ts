@@ -138,7 +138,9 @@ test("atomic rotation baselines publish a lossy document update hint", async () 
   }
 });
 
-test("inline document rekeys publish normal container and access hints", async () => {
+// A rekey rotates key material without changing membership, so it must not
+// evict every descendant subscriber of the rekeyed container (#2278).
+test("inline document rekeys publish a container hint without evicting subscribers", async () => {
   const events: Record<string, unknown>[] = [];
   await publishDocumentSyncContainerRekeyEvents({
     containerRekeys: [
@@ -168,7 +170,6 @@ test("inline document rekeys publish normal container and access hints", async (
       parentId: null,
       updatedAt: "2026-09-02T12:00:00.000Z",
     },
-    { type: "access_changed", containerId: "container-1" },
   ]);
 });
 

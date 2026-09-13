@@ -16,6 +16,18 @@ export class SessionIdentityAcknowledgments {
     }
   }
 
+  /** True only for a user ID the server acknowledged for this fingerprint. */
+  isAcknowledged(
+    userId: string | null | undefined,
+    fingerprint: string | null,
+  ): boolean {
+    return (
+      !!userId &&
+      !!fingerprint &&
+      this.userIdsByFingerprint.get(fingerprint) === userId
+    );
+  }
+
   remember(
     userId: string | null | undefined,
     fingerprint: string | null,

@@ -339,10 +339,10 @@ async function runDocumentSyncPass(
   if (state.pendingAttachments.length > 0) {
     return;
   }
-  if (attachmentResult.completed) {
-    requestDocumentStoreSync(state);
-    return;
-  }
+  // A settled bind and the content update carrying its digest are two server
+  // writes. Push the content in this same pass rather than re-arming a later
+  // one, so a device lost between them is the only remaining window: peers
+  // otherwise see the old digest against the new binding.
 
   nextRecord = await syncDocumentState(
     state,

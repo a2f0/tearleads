@@ -1,5 +1,6 @@
 import {
   generateKemSeedAndKeyPair,
+  KeyingVerificationError,
   type PrincipalPolicyExternalAuthority,
   toFingerprint,
   unwrapDek,
@@ -12,6 +13,7 @@ import type {
   PutPrincipalPolicyRequest,
 } from "@tearleads/validators/request";
 import { principalSecretKeyMatchesState } from "../../data/principals/principalKeyValidation";
+import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { TrustedUserIdentity } from "../../data/trustedUserIdentity";
 import {
   isDirectGroupAdmin,
@@ -32,8 +34,37 @@ import {
 type BuildAddGroupUserPolicyInput = BuildGroupMembershipMutationInput & {
   readonly currentUsers: ReadonlyArray<TrustedUserIdentity>;
   readonly currentUserSecretKey: Uint8Array;
+  readonly reportSecurityIncident?: SecurityIncidentReporter | undefined;
   readonly targetUser: TrustedUserIdentity;
 };
+
+/**
+ * The signed policy commits both the group's public key and the member
+ * envelopes that are supposed to wrap its secret. An envelope that unwraps to
+ * a different secret means a prior admin (or the server) published a policy
+ * whose envelopes do not match its signed key. Rotating repairs the group, but
+ * the mismatch is evidence and is recorded before the repair proceeds.
+ */
+async function reportPrincipalEnvelopeMismatch(
+  input: BuildAddGroupUserPolicyInput,
+): Promise<void> {
+  const state = input.currentPolicy.currentState;
+  await input.reportSecurityIncident?.(
+    new KeyingVerificationError(
+      "object_mismatch",
+      "Group member envelope does not unwrap the signed principal key",
+    ),
+    {
+      evidenceHashes: {
+        principalKeyFingerprint: state.keyFingerprint,
+        principalStateHash: state.stateHash,
+      },
+      objectId: state.principalId,
+      objectKind: "principal",
+      operation: "group.policy.envelope_mismatch",
+    },
+  );
+}
 
 function hasAdmin(
   projection: ReadonlyArray<PrincipalProjectionMemberRequest>,
@@ -118,6 +149,7 @@ async function buildDirectAdminAddGroupUserPolicyRequest(
       input.currentPolicy.currentState,
     ))
   ) {
+    await reportPrincipalEnvelopeMismatch(input);
     return buildRotatedKeyGroupPolicyRequest(input, projection, [
       ...input.currentUsers,
       input.targetUser,

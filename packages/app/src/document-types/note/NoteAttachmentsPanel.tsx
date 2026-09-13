@@ -19,10 +19,13 @@ export type NoteAttachmentStatusBySlotId = Readonly<
   Record<string, DocumentAttachmentStatus>
 >;
 
-function isSyncingStatus(
+function attachmentBadgeLabel(
   status: DocumentAttachmentStatus | undefined,
-): boolean {
-  return status === "syncing";
+): string | null {
+  if (status === "syncing") return NOTE_DOCUMENT_LABELS.attachmentSyncing;
+  if (status === "intent-mismatch")
+    return NOTE_DOCUMENT_LABELS.attachmentDiffers;
+  return null;
 }
 
 // A single attachment tile: a fixed image thumbnail (or a type icon for
@@ -51,7 +54,7 @@ function NoteAttachmentTile({
     name: attachment.name,
   });
   const { Icon } = fileType;
-  const syncing = isSyncingStatus(status);
+  const badgeLabel = attachmentBadgeLabel(status);
   const removeLabel = NOTE_DOCUMENT_LABELS.removeAttachment(attachment.name);
   const downloadLabel = NOTE_DOCUMENT_LABELS.downloadAttachment(
     attachment.name,
@@ -80,10 +83,8 @@ function NoteAttachmentTile({
               size={28}
             />
           )}
-          {syncing ? (
-            <span className="note-document-attachment-badge">
-              {NOTE_DOCUMENT_LABELS.attachmentSyncing}
-            </span>
+          {badgeLabel ? (
+            <span className="note-document-attachment-badge">{badgeLabel}</span>
           ) : null}
         </span>
         <span className="note-document-attachment-info">

@@ -16,7 +16,10 @@ import {
   renewOrganizationPurgeClaim,
 } from "./organizationPurgeCandidates";
 import { deleteOrganizationRemoteRows } from "./organizationPurgeRows";
-import { loadOrganizationRemotePurgeScope } from "./organizationPurgeScope";
+import {
+  loadOrganizationRemotePurgeScope,
+  type OrganizationRemotePurgeScope,
+} from "./organizationPurgeScope";
 
 export interface OrganizationPurgeInput {
   readonly limit?: number | undefined;
@@ -29,7 +32,9 @@ export async function purgeClaimedOrganizationRemoteData(input: {
   readonly db: ApiDatabase;
   readonly leaseNow?: Date | undefined;
   readonly now: Date;
-}): Promise<readonly string[] | undefined> {
+}): Promise<
+  Pick<OrganizationRemotePurgeScope, "blobIds" | "containerIds"> | undefined
+> {
   return input.db.transaction(async (tx) => {
     if (
       !(await renewOrganizationPurgeClaim(
@@ -50,7 +55,7 @@ export async function purgeClaimedOrganizationRemoteData(input: {
       organizationId: input.claim.organizationId,
       scope,
     });
-    return scope.blobIds;
+    return { blobIds: scope.blobIds, containerIds: scope.containerIds };
   });
 }
 

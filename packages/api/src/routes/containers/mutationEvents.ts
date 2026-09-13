@@ -2,6 +2,7 @@ import type { AccessEventType } from "@tearleads/crypto";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
+import { reportBackgroundFailure } from "../../diagnostics/reportBackgroundFailure";
 import { isAccessEventType } from "../../keyingProjectionRecords";
 import type { PublishedRealtimeEvent } from "../../realtime/publishedRealtimeEvents";
 import { publishBestEffort } from "../../utils/publishBestEffort";
@@ -10,6 +11,37 @@ type MutationEventRequest = Pick<
   ContainerMutationRequest,
   "body" | "previousManifest"
 >;
+
+interface GrantSubject {
+  readonly subjectId: string;
+  readonly subjectType: string;
+}
+
+interface PublishContainerMutationCreatedInput {
+  readonly expectedEventType: AccessEventType;
+  readonly origin: { readonly sessionId: string; readonly userId: string };
+  readonly publish: (event: PublishedRealtimeEvent) => Promise<void>;
+  readonly request: MutationEventRequest;
+  // Current direct members of a granted group; absent where no grant can occur.
+  readonly resolveGroupMemberUserIds?: (
+    groupId: string,
+  ) => Promise<readonly string[]>;
+  readonly response: Pick<
+    ContainerMutationResponse,
+    "containerId" | "parentId" | "updatedAt"
+  >;
+}
+
+// Only mutations that can remove read access evict subscribers. A grant adds a
+// reader, a rekey rotates key material, and a recite refreshes ancestor
+// citations — none changes membership, so evicting on them would resync every
+// descendant subscriber of a hot root for nothing. Their
+// `container_mutation_created` hint still reaches the container's own watchers,
+// who drop their cached writer projection on it, and the gateway fans a
+// `container_path_changed` hint to every subscriber whose cited path includes
+// the container so descendants drop theirs too.
+const EVICTING_EVENT_TYPES: ReadonlySet<AccessEventType> =
+  new Set<AccessEventType>(["container.move", "container.revoke"]);
 
 function readNullableString(value: unknown): string | null | undefined {
   if (value === null) return null;
@@ -33,37 +65,58 @@ function readContainerMutationPreviousParentId(
     : undefined;
 }
 
-// A direct user recipient has not declared interest in this container yet, so
-// the scoped access event cannot reach them. A user-scoped hint fills that gap.
-function readGrantUserRecipientId(
-  request: MutationEventRequest,
-): string | null {
+function readGrantSubject(request: MutationEventRequest): GrantSubject | null {
   if (!isPlainObject(request.body)) return null;
   const grant = Reflect.get(request.body, "grant");
   if (!isPlainObject(grant)) return null;
   const subjectType = Reflect.get(grant, "subjectType");
   const subjectId = Reflect.get(grant, "subjectId");
-  return subjectType === "user" &&
+  return typeof subjectType === "string" &&
     typeof subjectId === "string" &&
     subjectId.length > 0
-    ? subjectId
+    ? { subjectId, subjectType }
     : null;
 }
 
-export async function publishContainerMutationCreated(input: {
-  readonly expectedEventType: AccessEventType;
-  readonly origin: { readonly sessionId: string; readonly userId: string };
-  readonly publish: (event: PublishedRealtimeEvent) => Promise<void>;
-  readonly request: MutationEventRequest;
-  readonly response: Pick<
-    ContainerMutationResponse,
-    "containerId" | "parentId" | "updatedAt"
-  >;
-}) {
+// A grant recipient has not declared interest in this container yet, so the
+// scoped hint cannot reach them. A user-scoped `shared_with_you` fills that gap
+// for a direct user grant and for every current member of a granted group.
+// Membership resolution runs after the commit; a failure there must not turn
+// the committed grant into an error, so it degrades to no notification.
+async function grantRecipientUserIds(
+  input: PublishContainerMutationCreatedInput,
+): Promise<readonly string[]> {
+  const subject = readGrantSubject(input.request);
+  if (!subject) return [];
+  if (subject.subjectType === "user") return [subject.subjectId];
+  if (subject.subjectType !== "group" || !input.resolveGroupMemberUserIds)
+    return [];
+  try {
+    return await input.resolveGroupMemberUserIds(subject.subjectId);
+  } catch (error) {
+    console.error("Failed to resolve group grant recipients:", error);
+    reportBackgroundFailure(error);
+    return [];
+  }
+}
+
+export async function publishContainerMutationCreated(
+  input: PublishContainerMutationCreatedInput,
+) {
   const previousParentId = readContainerMutationPreviousParentId(input.request);
   const eventType =
     readContainerMutationBodyEventType(input.request) ??
     input.expectedEventType;
+
+  // Eviction precedes the hint: a socket that just lost access must not be
+  // handed the revoke or move hint describing what it can no longer read.
+  if (EVICTING_EVENT_TYPES.has(eventType)) {
+    await publishBestEffort(
+      input.publish,
+      { type: "access_changed", containerId: input.response.containerId },
+      "container mutation notification",
+    );
+  }
 
   await publishBestEffort(
     input.publish,
@@ -79,20 +132,11 @@ export async function publishContainerMutationCreated(input: {
     "container mutation notification",
   );
 
-  if (eventType !== "container.create") {
-    await publishBestEffort(
-      input.publish,
-      { type: "access_changed", containerId: input.response.containerId },
-      "container mutation notification",
-    );
-  }
-
   if (eventType === "container.grant") {
-    const recipientUserId = readGrantUserRecipientId(input.request);
-    if (recipientUserId) {
+    for (const userId of await grantRecipientUserIds(input)) {
       await publishBestEffort(
         input.publish,
-        { type: "shared_with_you", userId: recipientUserId },
+        { type: "shared_with_you", userId },
         "container mutation notification",
       );
     }
