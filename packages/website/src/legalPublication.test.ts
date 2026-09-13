@@ -1,22 +1,37 @@
-import { expect, test } from "bun:test";
+import { beforeAll, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { legalDetails } from "./legal";
 
+const website = resolve(import.meta.dir, "..");
+
+beforeAll(() => {
+  // Direct Astro builds skip prebuild; stage its required manifest even on CI
+  // checkouts with no captured screenshots or generated public assets.
+  const preparation = Bun.spawnSync(
+    [process.execPath, "scripts/buildScreenshots.ts"],
+    { cwd: website, stdout: "pipe", stderr: "pipe" },
+  );
+  expect(
+    preparation.exitCode,
+    `${preparation.stdout.toString()}\n${preparation.stderr.toString()}`,
+  ).toBe(0);
+});
+
 for (const environment of ["production", "staging", undefined]) {
   test(`legal drafts have the correct visibility in ${environment ?? "ordinary"} builds`, async () => {
     const output = await mkdtemp(resolve(tmpdir(), "tearleads-legal-build-"));
-    const website = resolve(import.meta.dir, "..");
-    const env = {
+    const env: NodeJS.ProcessEnv = {
       ...process.env,
       // An inherited non-production NODE_ENV must not expose draft build output.
       NODE_ENV: "test",
-      PUBLIC_ENVIRONMENT: environment,
       PUBLIC_STRIPE_CUSTOMER_PORTAL_URL:
         "https://billing.stripe.com/p/login/test",
       ASTRO_TELEMETRY_DISABLED: "1",
     };
+    if (environment === undefined) delete env.PUBLIC_ENVIRONMENT;
+    else env.PUBLIC_ENVIRONMENT = environment;
     const child = Bun.spawn(
       [
         resolve(website, "node_modules/.bin/astro"),

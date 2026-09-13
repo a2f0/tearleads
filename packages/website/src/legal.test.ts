@@ -46,14 +46,6 @@ test("approved documents are visible in production", () => {
 });
 
 test("the human-readable legal date is derived from the ISO date in UTC", () => {
-  const date = new Date(`${legalDetails.updatedAt}T00:00:00Z`);
-  expect(date.toISOString().slice(0, 10)).toBe(legalDetails.updatedAt);
-  expect(legalDetails.updatedLabel).toBe(
-    date.toLocaleDateString("en-US", {
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-      timeZone: "UTC",
-    }),
-  );
+  expect(legalDetails.updatedAt).toBe("2026-09-13");
+  expect(legalDetails.updatedLabel).toBe("September 13, 2026");
 });
