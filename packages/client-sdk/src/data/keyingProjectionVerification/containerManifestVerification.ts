@@ -17,6 +17,7 @@ import {
   type CitedLineageInput,
   resolveCitedAncestorPath,
 } from "./containerAncestorCitations";
+import { readKeyingVerificationShape } from "./error";
 import {
   loadManifestCheckpointVerification,
   verifyCachedManifestCheckpoint,
@@ -347,20 +348,22 @@ function readParentReference(
   value: unknown,
   label: string,
 ): ContainerParentReference {
-  const record = readCanonicalRecord(value, label);
+  return readKeyingVerificationShape(() => {
+    const record = readCanonicalRecord(value, label);
 
-  return {
-    parentContainerId: readRecordNullableString(
-      record,
-      "parentContainerId",
-      label,
-    ),
-    parentManifestHash: readRecordNullableString(
-      record,
-      "parentManifestHash",
-      label,
-    ),
-  };
+    return {
+      parentContainerId: readRecordNullableString(
+        record,
+        "parentContainerId",
+        label,
+      ),
+      parentManifestHash: readRecordNullableString(
+        record,
+        "parentManifestHash",
+        label,
+      ),
+    };
+  });
 }
 
 function readContainerManifestParentReference(

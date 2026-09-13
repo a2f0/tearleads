@@ -138,3 +138,47 @@ test("an unavailable purge proof never commits deletion or records tampering", a
     database.close();
   }
 });
+
+for (const field of ["state", "body"] as const) {
+  test(`a malformed purge container ${field} records exactly one incident`, async () => {
+    const fixture = await createMaterializedSyncFixture();
+    const proof = structuredClone(
+      await createDocumentPurgeProof(fixture.author, fixture.writerProjection),
+    );
+    const bundle = proof.authorizingContainerPath[0];
+    if (!bundle) throw new Error("Expected purge container");
+    const record = field === "state" ? bundle.state : bundle.event.body;
+    if (!record || typeof record !== "object")
+      throw new Error("Expected fixture record");
+    Reflect.set(record, "parentContainerId", 47);
+    const { close, execSql } = await createTestExecSql(
+      "purge-malformed-container",
+    );
+    const incidents: unknown[] = [];
+    try {
+      await expect(
+        runWithSecurityIncidentReporting(
+          async (error) => {
+            incidents.push(error);
+          },
+          {
+            operation: "document.purge",
+            objectKind: "document",
+            objectId: proof.documentId,
+          },
+          () =>
+            verifyDocumentPurgeProof({
+              execSql,
+              expectedDocumentId: proof.documentId,
+              expectedOrganizationId: fixture.author.organizationId,
+              proof,
+              resolveUserKey: fixture.resolveProjectionUserKey,
+            }),
+        ),
+      ).rejects.toMatchObject({ name: "KeyingVerificationError" });
+      expect(incidents).toHaveLength(1);
+    } finally {
+      close();
+    }
+  });
+}

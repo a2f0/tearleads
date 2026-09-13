@@ -171,16 +171,22 @@ export async function verifyPurgeContainerPaths(input: {
   };
 }
 
-async function verifyDocumentPurgeProofWithMode(
-  input: VerifyDocumentPurgeProofInput,
-  enforceLocalCheckpoints: boolean,
-): Promise<VerifiedDocumentPurgeProofCommit> {
-  if (!isDocumentPurgeProofResponse(input.proof)) {
+function requirePurgeProofShape(
+  proof: unknown,
+): asserts proof is DocumentPurgeProofResponse {
+  if (!isDocumentPurgeProofResponse(proof)) {
     throw new KeyingVerificationError(
       "invalid_shape",
       "Document purge proof has an invalid shape",
     );
   }
+}
+
+async function verifyDocumentPurgeProofWithMode(
+  input: VerifyDocumentPurgeProofInput,
+  enforceLocalCheckpoints: boolean,
+): Promise<VerifiedDocumentPurgeProofCommit> {
+  requirePurgeProofShape(input.proof);
   if (
     input.proof.documentId !== input.expectedDocumentId ||
     input.proof.documentManifest.manifestHash.length === 0
@@ -263,6 +269,7 @@ async function verifyDocumentPurgeProofWithMode(
 export async function verifyDocumentPurgeProofBaseline(
   input: VerifyDocumentPurgeProofInput,
 ): Promise<Pick<VerifiedDocumentPurgeProofCommit, "documentCheckpoint">> {
+  requirePurgeProofShape(input.proof);
   if (input.proof.documentManifestPredecessors.length !== 0) {
     throw new KeyingVerificationError(
       "invalid_shape",

@@ -298,10 +298,7 @@ async function loadOrganizationExternalAuthority(
     return organizationAdminExternalAuthority(verifiedAdmins);
   } catch (error) {
     rethrowProjectionVerificationBoundaryError(error);
-    if (
-      error instanceof KeyingVerificationError ||
-      error instanceof ProjectionDependencyUnavailableError
-    ) {
+    if (error instanceof KeyingVerificationError) {
       throw error;
     }
     return null;
