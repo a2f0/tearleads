@@ -56,11 +56,16 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // Measure after provisioning/roster import, including background settlement.
   // Retain headroom for independently scheduled verification/recovery pulls.
   // See docs/request-budget-closeout.md for phase, byte and sync-intent data.
-  total: 67,
+  // Recalibrated after the #2266 audit fixes (#2275-#2277): signed-destination
+  // and historical-path verification re-read a few more projections and
+  // policies. Measured 71-73 on main at fe7f09962.
+  total: 76,
   // A newly visible root adds one signed proof (measured up to 46.5 KB).
-  bodyBytes: { request: 380_000, response: 1_150_000 },
+  // Response bytes measured 1.26-1.43 MB on main at fe7f09962 (served
+  // predecessor manifests and attachment listings from #2277).
+  bodyBytes: { request: 380_000, response: 1_500_000 },
   byRequest: {
-    "GET /documents/:documentId/writer-projection": 9,
+    "GET /documents/:documentId/writer-projection": 11,
     "POST /documents/:documentId/sync": 18,
     "GET /containers/:containerId/documents": 10,
     "GET /containers": 0,
