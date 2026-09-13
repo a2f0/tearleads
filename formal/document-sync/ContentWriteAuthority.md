@@ -16,11 +16,13 @@ The reader can initially hold only the pre-grant proof. A read missing its
 cited ancestor refreshes the served history before it verifies the frozen
 response. Honest fresh projections include all retained cited heads; a second
 missing dependency after the one runtime refresh still fails verification.
+This applies to submitted document responses and attachment ciphertext. An
+attachment hydration run shares one refresh across its concurrent decryptions.
 
 | Model action or predicate | Production seam |
 | --- | --- |
 | `CommitWrite` | `assertWriteHeaderPathCitations`, `resolveCurrentContainerManifestRefs` |
-| `ReadWrite` | `documentWriteAuthorizationForHeader`, `resolveEventContainerPaths`, `resolveSubmittedDocumentSyncResult` |
+| `ReadWrite` | `documentWriteAuthorizationForHeader`, `resolveEventContainerPaths`, `resolveSubmittedDocumentSyncResult`, `createAttachmentDecryptor` |
 | `ReadCurrentMembership` | `resolveHistoricalContainerPathUserAccessLevel` |
 | `HonestWritesRemainReadable` | `verifyWriteHeader`, `verifyAttachmentBindingEvent` |
 | `NewWritesUseCurrentAuthority` | `assertCurrentContainerPath` |
