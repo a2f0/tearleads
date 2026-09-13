@@ -1,79 +1,10 @@
 import { expect, spyOn, test } from "bun:test";
-import type { ServerWebSocket } from "bun";
+import {
+  CONTAINER,
+  fixture,
+  OTHER,
+} from "../../test/helpers/realtimeContainerAuthorization";
 import * as sentry from "../diagnostics/sentry";
-import { createRealtimeGateway } from "./realtimeGateway";
-import type { WebSocketTicketIdentity } from "./wsIdentity";
-import { type AppliedInterest, WsEventRouter } from "./wsRouting";
-
-const CONTAINER = "00000000-0000-4000-8000-000000000001";
-const OTHER = "00000000-0000-4000-8000-000000000002";
-
-function fixture(input: {
-  authorize: (userId: string, ids: string[]) => Promise<string[]>;
-  cached?: string[];
-  paths?: Readonly<Record<string, string[]>>;
-  timeoutMs?: number;
-}) {
-  const sent: Array<Record<string, unknown>> = [];
-  const closed: number[] = [];
-  const persisted: AppliedInterest[] = [];
-  const router = new WsEventRouter();
-  let listener: ((message: string) => void) | undefined;
-  const socket = {
-    data: { userId: "user", sessionId: "session" },
-    send: (message: string) => sent.push(JSON.parse(message)),
-    close: (code: number) => closed.push(code),
-  } as unknown as ServerWebSocket<WebSocketTicketIdentity>;
-  const gateway = createRealtimeGateway({
-    authorizeContainerAccess: async (userId, ids) =>
-      (await input.authorize(userId, ids)).map((containerId) => ({
-        containerId,
-        pathContainerIds: input.paths?.[containerId] ?? [containerId],
-      })),
-    ...(input.timeoutMs === undefined
-      ? {}
-      : { containerAuthorizationTimeoutMs: input.timeoutMs }),
-    interestStore: {
-      load: async () => input.cached ?? [],
-      apply: async (_userId, _sessionId, action) => {
-        persisted.push(action);
-      },
-    },
-    router,
-    subscribe: (callback) => {
-      listener = callback;
-      return () => {
-        listener = undefined;
-      };
-    },
-  });
-  gateway.start();
-  return {
-    closed,
-    gateway,
-    persisted,
-    router,
-    sent,
-    socket,
-    declare(
-      kind = "known_containers.add",
-      ids = [CONTAINER],
-      connection = socket,
-    ) {
-      return gateway.websocket.message(
-        connection,
-        JSON.stringify({
-          type: kind,
-          containerIds: ids,
-          declarationId: "declaration",
-        }),
-      );
-    },
-    publish(event: Record<string, unknown>) {
-      listener?.(JSON.stringify(event));
-    },
-  };
-}
 
 test("denied declarations acknowledge processing without indexing or persisting inaccessible ids", async () => {
   const calls: string[][] = [];
@@ -381,5 +312,123 @@ test("replacing a subscription replaces its verified ancestry", async () => {
       (message) => Reflect.get(message, "type") === "resync_required",
     ),
   ).toHaveLength(1);
+  f.gateway.stop();
+});
+
+test("two tabs sharing a session share identical pending authorization", async () => {
+  const started = Promise.withResolvers<void>();
+  const authorization = Promise.withResolvers<string[]>();
+  let calls = 0;
+  const f = fixture({
+    authorize: () => {
+      calls++;
+      started.resolve();
+      return authorization.promise;
+    },
+  });
+  const second = { ...f.socket };
+  await Promise.all([
+    f.gateway.websocket.open(f.socket),
+    f.gateway.websocket.open(second),
+  ]);
+  const firstPending = f.declare();
+  const secondPending = f.declare("known_containers", [CONTAINER], second);
+  await started.promise;
+  authorization.resolve([CONTAINER]);
+  await Promise.all([firstPending, secondPending]);
+  expect(f.closed).toEqual([]);
+  expect(calls).toBe(1);
+  expect(f.router.interestedSocketCount(CONTAINER)).toBe(2);
+  f.gateway.stop();
+});
+
+test("tabs with different declarations wait without closing the shared session", async () => {
+  const started = Promise.withResolvers<void>();
+  const authorization = Promise.withResolvers<string[]>();
+  const calls: string[][] = [];
+  const f = fixture({
+    authorize: (_user, ids) => {
+      calls.push(ids);
+      started.resolve();
+      return calls.length === 1 ? authorization.promise : Promise.resolve(ids);
+    },
+  });
+  const second = { ...f.socket };
+  await Promise.all([
+    f.gateway.websocket.open(f.socket),
+    f.gateway.websocket.open(second),
+  ]);
+  const firstPending = f.declare();
+  await started.promise;
+  const secondPending = f.declare("known_containers", [OTHER], second);
+  authorization.resolve([CONTAINER]);
+  await Promise.all([firstPending, secondPending]);
+  expect(f.closed).toEqual([]);
+  expect(calls).toEqual([[CONTAINER], [OTHER]]);
+  expect(f.router.interestedSocketCount(CONTAINER)).toBe(1);
+  expect(f.router.interestedSocketCount(OTHER)).toBe(1);
+  f.gateway.stop();
+});
+
+test("an observed grant retries a denied query before acknowledging", async () => {
+  const started = Promise.withResolvers<void>();
+  const authorization = Promise.withResolvers<string[]>();
+  let calls = 0;
+  const f = fixture({
+    authorize: (_user, ids) => {
+      started.resolve();
+      return ++calls === 1 ? authorization.promise : Promise.resolve(ids);
+    },
+  });
+  await f.gateway.websocket.open(f.socket);
+  const pending = f.declare();
+  await started.promise;
+  f.publish({ type: "access_changed", containerId: OTHER });
+  authorization.resolve([]);
+  await pending;
+  expect(calls).toBe(2);
+  expect(f.closed).toEqual([]);
+  expect(f.router.interestedSocketCount(CONTAINER)).toBe(1);
+  f.gateway.stop();
+});
+
+test("shared query invalidation lets both tabs retry with one fresh query", async () => {
+  const started = Promise.withResolvers<void>();
+  const authorization = Promise.withResolvers<string[]>();
+  let calls = 0;
+  const f = fixture({
+    authorize: (_user, ids) => {
+      started.resolve();
+      return ++calls === 1 ? authorization.promise : Promise.resolve(ids);
+    },
+  });
+  const second = { ...f.socket };
+  await Promise.all([
+    f.gateway.websocket.open(f.socket),
+    f.gateway.websocket.open(second),
+  ]);
+  const firstPending = f.declare();
+  const secondPending = f.declare("known_containers", [CONTAINER], second);
+  await started.promise;
+  f.publish({ type: "access_changed", containerId: CONTAINER });
+  authorization.resolve([CONTAINER]);
+  await Promise.all([firstPending, secondPending]);
+  expect(calls).toBe(2);
+  expect(f.closed).toEqual([]);
+  expect(f.router.interestedSocketCount(CONTAINER)).toBe(2);
+  f.gateway.stop();
+});
+
+test("the router indexes only IDs carried by verified proofs", async () => {
+  const f = fixture({ authorize: async () => [] });
+  await f.gateway.websocket.open(f.socket);
+  f.router.applyAuthorizedContainerInterest(
+    f.socket,
+    { kind: "add", containerIds: [CONTAINER] },
+    [],
+  );
+  expect(f.router.interestedSocketCount(CONTAINER)).toBe(0);
+  f.publish({ type: "access_changed", containerId: CONTAINER });
+  expect(f.sent).toEqual([{ type: "interest_state", containerIds: [] }]);
   f.gateway.stop();
 });

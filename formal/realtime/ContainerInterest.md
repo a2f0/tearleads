@@ -20,8 +20,11 @@ authorized through the container named by an access-change event. A second,
 independent subscription represents an unrelated tenant; `ScopeInvalidation`
 keeps it installed when the first container changes. Production indexes the
 verified path of each subscription with `ContainerInterestDependencies`.
-Pending queries record changes until synchronous installation, retry only when
-a returned path intersects those changes, and stop after three attempts.
+Pending queries record changes until synchronous installation and retry when a
+returned path changes or a denial might have become a grant. Retries stop after
+three attempts within one timeout budget. Tabs sharing a session share identical
+queries and wait for different queries; a timed-out raw query retains its slot
+until it actually settles.
 
 The model assumes the HTTP access workflow answers correctly at the query
 snapshot, and models delivery of an access-change notification as the point at

@@ -224,12 +224,13 @@ export class WsEventRouter {
     if (!this.isOpen(ws)) return;
     if (action.kind === "replace") this.dependencies.clear(ws);
     for (const proof of proofs) this.dependencies.set(ws, proof);
+    const verifiedIds = proofs.map((proof) => proof.containerId);
     switch (action.kind) {
       case "replace":
-        this.replaceInterest(ws, action.containerIds);
+        this.replaceInterest(ws, verifiedIds);
         break;
       case "add":
-        this.addInterest(ws, action.containerIds);
+        this.addInterest(ws, verifiedIds);
         break;
       case "remove":
         this.removeInterest(ws, action.containerIds);

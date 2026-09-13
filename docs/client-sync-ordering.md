@@ -113,10 +113,9 @@ before asynchronously persisting it for a later reconnect. The acknowledgment
 confirms processing, including filtered denials; a stale local ID must not block
 the HTTP reconciliation that removes it. Cached reconnect IDs are reauthorized
 through the same signed read-access workflow. Access-change notifications evict
-only interests whose verified container paths depend on the changed head. Until
-that acknowledgement arrives, a cold
-`ready=false` tree cannot remove the restored baseline and the SDK continues to
-report server events as disconnected.
+only interests whose verified container paths depend on the changed head.
+Until that acknowledgment arrives, a cold `ready=false` tree cannot remove the
+restored baseline and the SDK continues to report server events as disconnected.
 
 On every acknowledged reconnect, the client also clears cached writer
 projections and runs one full reconciliation after the live interest set is in

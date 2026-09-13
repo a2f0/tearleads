@@ -9,7 +9,53 @@ const MAX_PENDING_ACCESS_CHANGES = 10_000;
 
 interface ActiveQuery {
   readonly changed: Set<string>;
+  readonly idsKey: string;
+  readonly result: Promise<VerifiedContainerInterest[]>;
+  readonly finished: Promise<void>;
+  readonly finish: () => void;
   overflow: boolean;
+  settled: boolean;
+  stale: boolean;
+  readers: number;
+}
+
+async function beforeDeadline<T>(
+  promise: Promise<T>,
+  deadline: number,
+): Promise<T> {
+  if (Date.now() >= deadline)
+    throw new Error("Container authorization timed out");
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(
+          () => reject(new Error("Container authorization timed out")),
+          Math.max(0, deadline - Date.now()),
+        );
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function authorizationWasInvalidated(
+  query: ActiveQuery,
+  allowed: readonly VerifiedContainerInterest[],
+  requestedCount: number,
+): boolean {
+  // Denials have no verified paths. Any observed change may be the missing
+  // grant, while accepted IDs depend only on their verified ancestry.
+  return (
+    (allowed.length < requestedCount && query.changed.size > 0) ||
+    allowed.some(
+      (proof) =>
+        query.changed.has(proof.containerId) ||
+        proof.pathContainerIds.some((id) => query.changed.has(id)),
+    )
+  );
 }
 
 export class ContainerInterestQueries {
@@ -39,60 +85,77 @@ export class ContainerInterestQueries {
       return;
     }
     const key = socketSessionKey(ws);
-    for (
-      let attempt = 0;
-      attempt < MAX_AUTHORIZATION_ATTEMPTS && isOpen();
-      attempt++
-    ) {
-      if (this.active.has(key))
-        throw new Error("Container authorization already pending for session");
-      const query: ActiveQuery = { changed: new Set(), overflow: false };
-      this.active.set(key, query);
-      // Finally belongs to the raw query, not the timeout race. A hung query
-      // blocks another query for this session even after its socket reconnects.
-      let settled = false;
-      let finished = false;
-      const raw = Promise.resolve()
-        .then(() => this.authorize(ws.data.userId, ids))
-        .finally(() => {
-          settled = true;
-          if (finished) this.active.delete(key);
-        });
-      let timer: ReturnType<typeof setTimeout> | undefined;
+    const idsKey = JSON.stringify([...ids].sort());
+    const deadline = Date.now() + this.timeoutMs;
+    let attempts = 0;
+    while (isOpen() && attempts < MAX_AUTHORIZATION_ATTEMPTS) {
+      if (Date.now() >= deadline)
+        throw new Error("Container authorization timed out");
+      const active = this.active.get(key);
+      if (active && (active.idsKey !== idsKey || active.stale)) {
+        // Different tabs may declare different trees. Wait within the same
+        // deadline instead of rejecting an otherwise healthy shared session.
+        await beforeDeadline(active.finished, deadline);
+        continue;
+      }
+      const query = active ?? this.start(ws, ids, idsKey);
+      query.readers++;
+      attempts++;
       try {
-        const proofs = await Promise.race([
-          raw,
-          new Promise<never>((_resolve, reject) => {
-            timer = setTimeout(
-              () => reject(new Error("Container authorization timed out")),
-              this.timeoutMs,
-            );
-          }),
-        ]);
+        const proofs = await beforeDeadline(query.result, deadline);
         if (query.overflow)
           throw new Error("Too many pending container access changes");
-        const relevantChange = proofs.some(
-          (proof) =>
-            query.changed.has(proof.containerId) ||
-            proof.pathContainerIds.some((id) => query.changed.has(id)),
+        const requested = new Set(ids);
+        const allowed = proofs.filter((proof) =>
+          requested.has(proof.containerId),
         );
-        if (!relevantChange) {
-          const requested = new Set(ids);
-          // Install before releasing the observation window: an access event
-          // must see either this pending query or its installed dependencies.
-          if (isOpen())
-            install(proofs.filter((proof) => requested.has(proof.containerId)));
-          return;
+        if (authorizationWasInvalidated(query, allowed, ids.length)) {
+          query.stale = true;
+          continue;
         }
+        // Keep the query observable until synchronous installation. Every
+        // access event sees either this query or its installed dependencies.
+        if (isOpen()) install(allowed);
+        return;
       } finally {
-        clearTimeout(timer);
-        finished = true;
-        if (settled) this.active.delete(key);
+        query.readers--;
+        this.release(key, query);
       }
     }
     if (isOpen())
       throw new Error(
         "Container access changed repeatedly during authorization",
       );
+  }
+
+  private start(ws: WsConnection, ids: string[], idsKey: string): ActiveQuery {
+    const key = socketSessionKey(ws);
+    const completion = Promise.withResolvers<void>();
+    const query: ActiveQuery = {
+      changed: new Set(),
+      idsKey,
+      overflow: false,
+      readers: 0,
+      settled: false,
+      stale: false,
+      finished: completion.promise,
+      finish: completion.resolve,
+      result: Promise.resolve()
+        .then(() => this.authorize(ws.data.userId, ids))
+        .finally(() => {
+          query.settled = true;
+          this.release(key, query);
+        }),
+    };
+    this.active.set(key, query);
+    return query;
+  }
+
+  private release(key: string, query: ActiveQuery): void {
+    // A socket timeout never frees the raw query slot. Reconnects share or
+    // await that query until it actually settles, preventing SQL amplification.
+    if (!query.settled || query.readers > 0) return;
+    if (this.active.get(key) === query) this.active.delete(key);
+    query.finish();
   }
 }
