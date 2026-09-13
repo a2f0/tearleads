@@ -88,8 +88,7 @@ async function loadCheckpointBoundedDocumentPurgeProof(input: {
   readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
 }): Promise<DocumentPurgeProofResponse | null> {
   if (!input.apiClient.getDocumentPurgeProof) {
-    throw new KeyingVerificationError(
-      "missing_dependency",
+    throw new ProjectionDependencyUnavailableError(
       "Remote document deletion is missing a purge-proof endpoint",
     );
   }
@@ -101,6 +100,9 @@ async function loadCheckpointBoundedDocumentPurgeProof(input: {
     },
   );
   if (!initialProof) {
+    // ApiClient returns null for transport, HTTP and response-shape failures.
+    // Even after a deletion hint, absence cannot prove signed-data tampering.
+    // Keep local data and defer deletion until an actual proof verifies.
     return null;
   }
   const baseline = await verifyDocumentPurgeProofBaseline({

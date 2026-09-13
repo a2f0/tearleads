@@ -52,7 +52,7 @@ test("a malformed unverified purge citation records one integrity incident", asy
       ...leaf,
       event: {
         ...leaf.event,
-        event,
+        event: { ...event },
         eventHash: await computeAccessEventHash(event),
       },
     },
