@@ -208,3 +208,19 @@ test("registration refuses a conflicting acknowledged user before saving the res
     close();
   }
 });
+
+test("a host acknowledgment during login pinning rejects authentication and clears its token", async () => {
+  const harness = await createLoginHarness(async () => {
+    harness.session.setContext({ userId: "restored-during-pin" });
+  });
+  harness.session.setContext({
+    authToken: "prior-token",
+    isAuthenticated: true,
+  });
+  await expect(harness.session.login()).rejects.toMatchObject({
+    code: "object_mismatch",
+  });
+  expect(harness.session.userId).toBe("restored-during-pin");
+  expect(harness.session.isAuthenticated).toBe(false);
+  expect(harness.api.getAuthToken()).toBeNull();
+});

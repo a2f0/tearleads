@@ -218,6 +218,9 @@ class SessionService implements Session {
         signingKeyFingerprint: fingerprint,
         signingPublicKey: signingKeyPair.signingPublicKey,
       });
+      if (this.dependencies.identity.snapshot !== identitySnapshot)
+        return false;
+      this.identityAcknowledgments.remember(authentication.userId, fingerprint);
     } catch (error) {
       this.setContext({
         authToken: null,
@@ -333,10 +336,8 @@ class SessionService implements Session {
       return null;
     }
 
-    this.identityAcknowledgments.assertMatches(
-      response.userId,
-      await toFingerprint(signingKeyPair.signingPublicKey),
-    );
+    const fingerprint = await toFingerprint(signingKeyPair.signingPublicKey);
+    this.identityAcknowledgments.assertMatches(response.userId, fingerprint);
     await pinLocalUserIdentity(response.userId, {
       encapsulationPublicKey: encapsulationKeyPair.publicKey,
       signingPublicKey: signingKeyPair.signingPublicKey,
@@ -344,6 +345,7 @@ class SessionService implements Session {
     if (this.dependencies.identity.snapshot !== identitySnapshot) {
       return null;
     }
+    this.identityAcknowledgments.remember(response.userId, fingerprint);
     this.setContext({
       containerId: response.rootContainerId,
       defaultOrganizationId: response.organizationId,
