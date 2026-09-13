@@ -85,12 +85,18 @@ function assertCreateEventSignedLocally(
       return;
     }
     if (visited.has(bundle.manifestHash)) {
-      throw new Error(`${label} manifest history is cyclic`);
+      throw new KeyingVerificationError(
+        "invalid_shape",
+        `${label} manifest history is cyclic`,
+      );
     }
     visited.add(bundle.manifestHash);
     const previous = historyByHash.get(manifest.previousManifestHash);
     if (!previous) {
-      throw new Error(`${label} does not expose its create event`);
+      throw new KeyingVerificationError(
+        "invalid_shape",
+        `${label} does not expose its create event`,
+      );
     }
     bundle = previous;
   }
