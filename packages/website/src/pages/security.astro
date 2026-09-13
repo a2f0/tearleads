@@ -1,21 +1,99 @@
 ---
 import SecurityArchitectureDiagram from "../components/SecurityArchitectureDiagram.astro";
+import SecuritySharingDiagram from "../components/SecuritySharingDiagram.astro";
+import SecurityTrustDetails from "../components/SecurityTrustDetails.astro";
 import Layout from "../layouts/Layout.astro";
+import "../styles/security.css";
+import "../styles/securityDiagrams.css";
 ---
 
 <Layout
   title="Security architecture | Tearleads"
-  description="How Tearleads keeps local keys and encrypted storage on your device, syncing only ciphertext and signed metadata."
+  description="Explore Tearleads security: local encryption, verified sharing, signed access policies, and the boundaries of trust between your devices and the sync service."
 >
   <main class="website-main">
-    <article class="section" aria-labelledby="page-title">
-      <h1 id="page-title">Security architecture</h1>
-      <p class="section-lede">
-        Tearleads keeps local keys and encrypted storage on your device.
-        Sync moves ciphertext and signed metadata so the service can keep
-        devices up to date without holding content keys.
-      </p>
-      <SecurityArchitectureDiagram />
+    <article class="section security-page" aria-labelledby="page-title">
+      <header class="security-intro">
+        <p class="security-eyebrow">Inside Tearleads</p>
+        <h1 id="page-title">Security architecture</h1>
+        <p class="section-lede">
+          Your content is encrypted on your device. Sharing is backed by signed
+          access rules. Every receiving device verifies the records it uses.
+        </p>
+        <p class="security-intro-detail">
+          Explore where keys live, how access is checked, and what the service
+          can see.
+        </p>
+      </header>
+
+      <nav class="security-page-nav" aria-label="On this page">
+        <a href="#device-boundary"><span>01</span> Devices &amp; service</a>
+        <a href="#verified-sharing"><span>02</span> Verified sharing</a>
+        <a href="#cryptography"><span>03</span> Cryptography</a>
+        <a href="#trust-boundaries"><span>04</span> Trust &amp; limits</a>
+      </nav>
+
+      <section class="security-section" id="device-boundary" aria-labelledby="device-title">
+        <p class="security-eyebrow">01 / Devices &amp; service</p>
+        <h2 id="device-title">Content stays private through sync.</h2>
+        <p class="security-section-intro">
+          Local encryption protects persisted data on your device. End-to-end
+          content encryption lets the service synchronize documents and files
+          without the keys needed to read them.
+        </p>
+        <SecurityArchitectureDiagram />
+        <div class="security-comparison">
+          <div>
+            <h3>What stays encrypted</h3>
+            <p>
+              Document and file contents, encrypted metadata payloads, and the
+              keys wrapped for recipients. Decryption requires the corresponding
+              private keys or unwrapped content keys.
+            </p>
+          </div>
+          <div>
+            <h3>What the service can see</h3>
+            <p>
+              Container, document, and blob structure; identifiers; public keys;
+              and access-policy and grant relationships. Encryption does not hide
+              this structure or traffic patterns such as request timing and size.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="security-section" id="verified-sharing" aria-labelledby="sharing-title">
+        <p class="security-eyebrow">02 / Verified sharing</p>
+        <h2 id="sharing-title">Access is backed by signed evidence.</h2>
+        <p class="security-section-intro">
+          A container groups content and its access rules. Clients derive who can
+          receive its keys from verified access manifests and signed group policies.
+          Editing a server-side membership row is not enough to grant access.
+        </p>
+        <SecuritySharingDiagram />
+        <div class="security-comparison">
+          <div>
+            <h3>Changes leave a verifiable history</h3>
+            <p>
+              Signatures and hash chains bind policies and access changes to their
+              authors and predecessors. Clients remember identity keys and policy
+              and access checkpoints to reject later substitutions, conflicting
+              heads, and rollbacks below the state they have seen.
+            </p>
+          </div>
+          <div>
+            <h3>Revocation looks forward</h3>
+            <p>
+              Removing group members rotates the group and affected container
+              keys in an atomic update. Removing access cannot erase content or
+              keys someone already received. Descendant containers and retained
+              history have additional limits described below.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <SecurityTrustDetails />
     </article>
   </main>
 </Layout>
