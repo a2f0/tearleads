@@ -8,12 +8,21 @@ import {
 import {
   AUTOMATIC_BLOB_PREVIEW_MAX_BYTES,
   getDocumentAttachmentBlobName,
+  getDocumentAttachmentStatusLabel,
   getLatestDocumentAttachmentBySlotId,
   isAutomaticBlobPreviewAllowed,
   isImageDocumentAttachmentBlob,
   readBlobDocumentAttachmentUpload,
   readDocumentAttachmentUpload,
 } from "./documentAttachmentUtils";
+
+test("attachment statuses label queued uploads and unrecorded served bytes", () => {
+  expect(getDocumentAttachmentStatusLabel("syncing")).toBe("Syncing image.");
+  expect(getDocumentAttachmentStatusLabel("intent-mismatch")).toBe(
+    "Image differs from the document's recorded version.",
+  );
+  expect(getDocumentAttachmentStatusLabel(undefined)).toBeNull();
+});
 
 test("automatic blob previews have a fixed memory bound", () => {
   expect(

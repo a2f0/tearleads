@@ -5,7 +5,10 @@ import {
   runSerializedDocumentBlobMutation,
 } from "../../../workflows/documents";
 import { saveHydratedDocumentAttachment } from "../../../workflows/documents/attachmentPersistence";
-import { installLocalAttachmentRecords } from "./attachmentPersistence";
+import {
+  installLocalAttachmentRecords,
+  removeLocalAttachmentSlot,
+} from "./attachmentPersistence";
 import type { DocumentState, DocumentStoreState } from "./state";
 
 type HydratedBlob = NonNullable<
@@ -15,7 +18,10 @@ type HydratedBlob = NonNullable<
 export async function commitHydratedAttachment(input: {
   state: DocumentStoreState;
   currentDoc: DocumentState;
-  hydratedBlob: Pick<HydratedBlob, "attachment" | "bytes" | "storageKey"> & {
+  hydratedBlob: Pick<
+    HydratedBlob,
+    "attachment" | "bytes" | "contentSha256" | "storageKey"
+  > & {
     binding: Pick<HydratedBlob["binding"], "blobId">;
   };
   expectedStorageKey: string | null;
@@ -50,6 +56,7 @@ export async function commitHydratedAttachment(input: {
       const attachment: LocalAttachmentRecord = {
         blobId: hydratedBlob.binding.blobId,
         byteLength: hydratedBlob.attachment.byteLength,
+        contentSha256: hydratedBlob.contentSha256,
         detachedAt: null,
         localId: state.localId,
         mimeType: hydratedBlob.attachment.mimeType,
@@ -83,11 +90,7 @@ async function refreshRefusedAttachmentSlot(
   );
   if (!stillCurrent()) return;
   const slotId = hydratedBlob.attachment.slotId;
-  const { [slotId]: _blobId, ...blobIds } = state.attachmentBlobIdBySlotId;
-  const { [slotId]: _storageKey, ...storageKeys } =
-    state.attachmentStorageKeyBySlotId;
-  state.attachmentBlobIdBySlotId = blobIds;
-  state.attachmentStorageKeyBySlotId = storageKeys;
+  removeLocalAttachmentSlot(state, slotId);
   installLocalAttachmentRecords(
     state,
     rows.filter((row) => row.slotId === slotId),

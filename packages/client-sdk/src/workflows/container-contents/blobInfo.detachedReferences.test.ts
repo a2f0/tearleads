@@ -26,6 +26,7 @@ test("listBlobInfo drops references unlinked before the detach flushes", async (
     await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
       blobId: "blob-shared",
       byteLength: 12,
+      contentSha256: "0".repeat(64),
       detachedAt: null,
       localId: "local-document-1",
       mimeType: "image/png",
@@ -35,6 +36,7 @@ test("listBlobInfo drops references unlinked before the detach flushes", async (
     await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
       blobId: "blob-shared",
       byteLength: 12,
+      contentSha256: "0".repeat(64),
       detachedAt: null,
       localId: "local-document-2",
       mimeType: "image/png",
@@ -94,6 +96,7 @@ test("listBlobInfo restores a reference when a detached slot is refilled", async
     await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
       blobId: "blob-one",
       byteLength: 12,
+      contentSha256: "0".repeat(64),
       detachedAt: null,
       localId: "local-document-1",
       mimeType: "image/png",
@@ -109,6 +112,7 @@ test("listBlobInfo restores a reference when a detached slot is refilled", async
     await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
       blobId: "blob-two",
       byteLength: 20,
+      contentSha256: "0".repeat(64),
       detachedAt: null,
       localId: "local-document-1",
       mimeType: "image/png",

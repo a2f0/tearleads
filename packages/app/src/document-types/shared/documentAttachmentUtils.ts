@@ -100,6 +100,9 @@ export function getDocumentAttachmentStatusLabel(
   if (status === "syncing") {
     return "Syncing image.";
   }
+  if (status === "intent-mismatch") {
+    return "Image differs from the document's recorded version.";
+  }
 
   return null;
 }

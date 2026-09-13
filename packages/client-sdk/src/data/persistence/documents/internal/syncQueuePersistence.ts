@@ -97,6 +97,7 @@ export const documentSyncQueuePersistence: DocumentSyncQueuePersistence = {
         storageKey: documentAttachmentBlobProjection.storageKey,
         mimeType: documentAttachmentBlobProjection.mimeType,
         byteLength: documentAttachmentBlobProjection.byteLength,
+        contentSha256: documentAttachmentBlobProjection.contentSha256,
         detachedAt: documentAttachmentBlobProjection.detachedAt,
       })
       .from(documentAttachmentBlobProjection)
@@ -158,6 +159,7 @@ export const documentSyncQueuePersistence: DocumentSyncQueuePersistence = {
         storageKey: attachment.storageKey,
         mimeType: attachment.mimeType,
         byteLength: attachment.byteLength,
+        contentSha256: attachment.contentSha256,
         updatedAt,
         // Written on every save so re-filling a slot clears a stale detach
         // marker instead of inheriting it from the row it replaces.

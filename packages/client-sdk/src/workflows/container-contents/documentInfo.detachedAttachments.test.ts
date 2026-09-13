@@ -25,6 +25,7 @@ test("loadDocumentInfo hides attachments unlinked before the detach flushes", as
     await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
       blobId: "blob-kept",
       byteLength: 34,
+      contentSha256: "0".repeat(64),
       detachedAt: null,
       localId: "local-document-1",
       mimeType: "image/png",
@@ -34,6 +35,7 @@ test("loadDocumentInfo hides attachments unlinked before the detach flushes", as
     await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
       blobId: "blob-unlinked",
       byteLength: 34,
+      contentSha256: "0".repeat(64),
       detachedAt: null,
       localId: "local-document-1",
       mimeType: "image/png",

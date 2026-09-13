@@ -19,6 +19,7 @@ import {
   persistStagedAttachmentMutation,
   restoreFailedAttachmentMutation,
 } from "./attachmentMutationPersistence";
+import { removeLocalAttachmentSlot } from "./attachmentPersistence";
 import {
   deleteUnreferencedStagedAttachmentBytes,
   installPendingAttachmentRows,
@@ -263,12 +264,7 @@ async function installCommittedAttachmentRemoval(input: {
   ) {
     return;
   }
-  const { [slotId]: _removedStorageKey, ...nextStorageKeys } =
-    state.attachmentStorageKeyBySlotId;
-  const { [slotId]: _removedBlobId, ...nextBlobIds } =
-    state.attachmentBlobIdBySlotId;
-  state.attachmentStorageKeyBySlotId = nextStorageKeys;
-  state.attachmentBlobIdBySlotId = nextBlobIds;
+  removeLocalAttachmentSlot(state, slotId);
   await state.runtime.infra.blobStore
     .deleteBytes(storageKey)
     .catch(() =>

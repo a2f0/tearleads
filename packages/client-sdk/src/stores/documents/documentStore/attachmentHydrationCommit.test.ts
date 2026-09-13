@@ -41,6 +41,7 @@ for (const changed of ["document", "copy", "generation"]) {
       const held = {
         blobId: "held-blob",
         byteLength: 4,
+        contentSha256: "0".repeat(64),
         detachedAt: null,
         localId: state.localId,
         mimeType: "text/plain",
@@ -83,6 +84,7 @@ for (const changed of ["document", "copy", "generation"]) {
           attachment: intent,
           binding: { blobId: "replayed-blob" },
           bytes: new Uint8Array([1, 1, 1, 1]),
+          contentSha256: intent.contentSha256,
           storageKey: "replayed-copy",
         },
       });

@@ -35,6 +35,19 @@ Missing or mismatching bytes are availability failures: a document update can
 arrive before its attachment upload. The model proves safety, not eventual
 availability, network ordering, or garbage collection.
 
+The safety claim is about replacement. An empty slot has no held copy to
+protect, so `hydrateDocumentAttachmentBlobs` installs a validly signed served
+binding whose digest differs from the document intent when the slot holds no
+local bytes, recording the served digest on the local record so the store
+reports the slot as `intent-mismatch` until the content update carrying that
+digest arrives (#2278 M4). The bind and the content update are two server
+writes; an uploader lost between them must not leave the attachment invisible
+forever. `CheckContentDigest` still governs every replacement: a held copy is
+never overwritten or deleted for a mismatching served binding, and that
+binding is remembered per (slot, binding, intent) so it is downloaded once.
+The uploader also pushes the content update in the same sync pass as the bind,
+narrowing the window to a crash between two consecutive requests.
+
 Pending upload rows persist the staging digest with the bytes and slot metadata.
 `recoverDroppedAttachmentSlots` restores that local intent without reading the
 byte file, including after the file becomes unavailable. This is the local

@@ -53,12 +53,7 @@ export async function deleteLocalAttachmentRecord(
   });
 
   if (state.attachmentStorageKeyBySlotId[slotId] === storageKey) {
-    const { [slotId]: _removedStorageKey, ...nextStorageKeys } =
-      state.attachmentStorageKeyBySlotId;
-    const { [slotId]: _removedBlobId, ...nextBlobIds } =
-      state.attachmentBlobIdBySlotId;
-    state.attachmentStorageKeyBySlotId = nextStorageKeys;
-    state.attachmentBlobIdBySlotId = nextBlobIds;
+    removeLocalAttachmentSlot(state, slotId);
   }
 
   if (currentDoc && currentDoc === state.doc) {
@@ -118,26 +113,50 @@ export async function saveLocalAttachmentRecords(
   installLocalAttachmentRecords(state, attachments, currentDoc);
 }
 
+/** Publish the held copy of each record's slot to the store's slot maps. */
+export function assignLocalAttachmentSlots(
+  state: DocumentStoreState,
+  attachments: ReadonlyArray<LocalAttachmentRecord>,
+): void {
+  const entries = <T>(pick: (attachment: LocalAttachmentRecord) => T) =>
+    Object.fromEntries(
+      attachments.map((attachment) => [attachment.slotId, pick(attachment)]),
+    );
+  state.attachmentBlobIdBySlotId = {
+    ...state.attachmentBlobIdBySlotId,
+    ...entries((attachment) => attachment.blobId),
+  };
+  state.attachmentContentSha256BySlotId = {
+    ...state.attachmentContentSha256BySlotId,
+    ...entries((attachment) => attachment.contentSha256),
+  };
+  state.attachmentStorageKeyBySlotId = {
+    ...state.attachmentStorageKeyBySlotId,
+    ...entries((attachment) => attachment.storageKey),
+  };
+}
+
+/** Forget the held copy of one slot without touching its durable row. */
+export function removeLocalAttachmentSlot(
+  state: DocumentStoreState,
+  slotId: string,
+): void {
+  const { [slotId]: _blobId, ...blobIds } = state.attachmentBlobIdBySlotId;
+  const { [slotId]: _contentSha256, ...contentSha256s } =
+    state.attachmentContentSha256BySlotId;
+  const { [slotId]: _storageKey, ...storageKeys } =
+    state.attachmentStorageKeyBySlotId;
+  state.attachmentBlobIdBySlotId = blobIds;
+  state.attachmentContentSha256BySlotId = contentSha256s;
+  state.attachmentStorageKeyBySlotId = storageKeys;
+}
+
 export function installLocalAttachmentRecords(
   state: DocumentStoreState,
   attachments: ReadonlyArray<LocalAttachmentRecord>,
   currentDoc: DocumentState | null,
 ) {
-  state.attachmentBlobIdBySlotId = {
-    ...state.attachmentBlobIdBySlotId,
-    ...Object.fromEntries(
-      attachments.map((attachment) => [attachment.slotId, attachment.blobId]),
-    ),
-  };
-  state.attachmentStorageKeyBySlotId = {
-    ...state.attachmentStorageKeyBySlotId,
-    ...Object.fromEntries(
-      attachments.map((attachment) => [
-        attachment.slotId,
-        attachment.storageKey,
-      ]),
-    ),
-  };
+  assignLocalAttachmentSlots(state, attachments);
 
   if (currentDoc && currentDoc === state.doc) {
     setReadySnapshot(

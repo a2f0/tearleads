@@ -35,6 +35,7 @@ function attachmentRows(storageKey: string, contentSha256 = "0".repeat(64)) {
       {
         blobId: null,
         byteLength: 4,
+        contentSha256: "0".repeat(64),
         detachedAt: null,
         localId: "local-document",
         mimeType: "text/plain",
