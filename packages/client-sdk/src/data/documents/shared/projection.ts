@@ -2,10 +2,7 @@ import type {
   DocumentContentKeyTarget,
   VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
-import {
-  computeDocumentContentKeyTargetHash,
-  KeyingVerificationError,
-} from "@tearleads/crypto";
+import { computeDocumentContentKeyTargetHash } from "@tearleads/crypto";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { errorMessage } from "../../errorMessage";
 import {
@@ -13,7 +10,7 @@ import {
   type PrincipalPolicyCache,
   verifyDocumentWriterProjectionAuthorization,
 } from "../../keyingProjectionVerification";
-import { rethrowProjectionVerificationBoundaryError } from "../../keyingProjectionVerification/error";
+import { throwKeyingVerificationShapeFailure } from "../../keyingProjectionVerification/error";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import {
   currentDocumentTargets,
@@ -277,10 +274,6 @@ export async function assertDocumentWriterProjectionConsistent(
   try {
     return await assertDocumentWriterProjectionConsistentInternal(...input);
   } catch (error) {
-    rethrowProjectionVerificationBoundaryError(error);
-    if (error instanceof KeyingVerificationError) {
-      throw error;
-    }
-    throw new KeyingVerificationError("invalid_shape", errorMessage(error));
+    throwKeyingVerificationShapeFailure(error);
   }
 }

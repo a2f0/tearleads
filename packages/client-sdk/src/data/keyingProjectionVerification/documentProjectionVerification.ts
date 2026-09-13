@@ -38,7 +38,7 @@ import {
 } from "./documentManifestPolicies";
 import { requireVerifiedDocumentPredecessor } from "./documentManifestPredecessor";
 import { rejectPurgedDocumentProjection } from "./documentPurgeCheckpointEnforcement";
-import { rethrowProjectionVerificationBoundaryError } from "./error";
+import { throwKeyingVerificationShapeFailure } from "./error";
 import {
   loadManifestCheckpointVerification,
   verifyCachedManifestCheckpoint,
@@ -451,13 +451,6 @@ export async function verifyDocumentWriterProjectionAuthorization(
     await finalizeProjectionCheckpoints(checkpointContext, input);
     return verified.authorization;
   } catch (error) {
-    rethrowProjectionVerificationBoundaryError(error);
-    if (error instanceof KeyingVerificationError) {
-      throw error;
-    }
-    throw new KeyingVerificationError(
-      "invalid_shape",
-      error instanceof Error ? error.message : String(error),
-    );
+    throwKeyingVerificationShapeFailure(error);
   }
 }

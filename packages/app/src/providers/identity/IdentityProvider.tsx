@@ -12,6 +12,7 @@ import {
 } from "react";
 import {
   clearPersistedCryptoSessionForIdentity,
+  persistableCryptoSessionContext,
   queueCryptoSessionPersistence,
   useLocalCryptoSessionPersistence,
 } from "../crypto/localCryptoSessionPersistence";
@@ -274,7 +275,10 @@ function usePersistCurrentSession(input: {
     while (tearleads.identity.signingFingerprint === signingFingerprint) {
       const sessionSnapshot = tearleads.session.snapshot;
       const persisted = await queueCryptoSessionPersistence({
-        context: { ...sessionSnapshot },
+        context: persistableCryptoSessionContext(
+          sessionSnapshot,
+          tearleads.session.userIdAcknowledged,
+        ),
         localPersistence,
         signingFingerprint,
       });
