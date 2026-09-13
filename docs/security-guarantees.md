@@ -376,7 +376,7 @@ history. Writer projections return and re-verify that chain, so repeated
 ancestor changes can increase per-read bytes and verification cost up to this
 bound even when the descendant itself is never edited. Re-citation also
 advances `metadataAccessStateHash`: each accepted event invalidates the
-organization grants lane and emits the normal container/access hints. It also
+organization grants lane and emits the container hint (no eviction). It also
 advances `containers.updatedAt`, re-emitting the container in incremental lists.
 A full eight-attempt pass can add eight organization-wide refreshes to one
 user mutation. These invalidations are not batched; the per-pass cap and pacing

@@ -13,10 +13,13 @@ import {
 } from "../../data/containers/containerMetadataDocument";
 import { metadataSyncSecurityContextMatches } from "./metadataSyncSettlement";
 import type { ContainerMetadataState } from "./metadataTypes";
+import { projectionGeneration } from "./projectionGeneration";
 
-interface DetachedContainerMetadataState extends ContainerMetadataState {
+export interface DetachedContainerMetadataState extends ContainerMetadataState {
   readonly detachedSource: {
     readonly metadataVersion: string;
+    /** The live state's `writerProjectionGeneration` when it was detached. */
+    readonly writerProjectionGeneration: number;
   };
 }
 
@@ -53,6 +56,13 @@ function mergeConcurrentMetadataRecord(
  */
 export async function createDetachedContainerMetadataState(
   metadataState: ContainerMetadataState,
+  options: {
+    /**
+     * The live generation captured when the surrounding operation began, for
+     * callers that awaited (a request, a policy warm-up) before detaching.
+     */
+    readonly writerProjectionGeneration?: number | undefined;
+  } = {},
 ): Promise<DetachedContainerMetadataState> {
   const doc = await createContainerMetadataDocument(metadataState.container.id);
   importSnapshot(doc, exportFullHistorySnapshot(metadataState.doc));
@@ -61,6 +71,9 @@ export async function createDetachedContainerMetadataState(
     container: { ...metadataState.container },
     detachedSource: {
       metadataVersion: encodeVersionVector(metadataState.doc),
+      writerProjectionGeneration:
+        options.writerProjectionGeneration ??
+        projectionGeneration(metadataState),
     },
     doc,
     record: { ...metadataState.record },
@@ -100,7 +113,14 @@ export function installDetachedContainerMetadataState(
     target.container = candidate.container;
     target.doc = candidate.doc;
   }
-  target.metadataWriterProjection = candidate.metadataWriterProjection;
+  // A hint invalidated the live projections while this candidate was out;
+  // its copy may cite a pre-hint manifest, so the live slot stays as the hint
+  // left it and the next metadata write fetches a fresh projection.
+  if (
+    projectionGeneration(target) ===
+    candidate.detachedSource.writerProjectionGeneration
+  )
+    target.metadataWriterProjection = candidate.metadataWriterProjection;
   target.pullContinuation = preserveConcurrentLiveMetadata
     ? metadataSyncSecurityContextMatches(liveRecord, candidateRecord)
       ? livePullContinuation

@@ -18,6 +18,7 @@ import {
 } from "../../containers";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import type { ContainerContentsPersistence } from "../containerPersistence";
+import { projectionGeneration } from "../projectionGeneration";
 import type { ContainerState } from "../remoteHydration";
 import { loadContainerWriterProjectionForState } from "./projectionCache";
 import { shareRemoteContainer, shareRemoteContainerWithGroup } from "./remote";
@@ -311,6 +312,9 @@ export async function shareContainerState(input: {
   stillCurrent?: (() => boolean) | undefined;
 }): Promise<SharedContainerStateResult | null> {
   if (input.stillCurrent?.() === false) return null;
+  // Before the projection load and the share request: a hint that lands during
+  // either must keep the resulting projection out of the cache.
+  const writerProjectionGeneration = projectionGeneration(input.containerState);
   const shareContext = await loadRemoteContainerShareContext({
     accessLevel: input.accessLevel,
     containerState: input.containerState,
@@ -333,6 +337,7 @@ export async function shareContainerState(input: {
       projection: shareContext.projection,
       runtime: input.runtime,
       stillCurrent: input.stillCurrent,
+      writerProjectionGeneration,
     });
   }
 
@@ -355,6 +360,7 @@ export async function shareContainerState(input: {
     runtime: input.runtime,
     shared,
     stillCurrent: input.stillCurrent,
+    writerProjectionGeneration,
   });
 }
 
@@ -382,6 +388,9 @@ export async function shareContainerStateWithGroup(input: {
     throw new Error("Container group share requires the chosen group name");
   }
   if (input.stillCurrent?.() === false) return null;
+  // Before the projection load and the share request: a hint that lands during
+  // either must keep the resulting projection out of the cache.
+  const writerProjectionGeneration = projectionGeneration(input.containerState);
   const shareContext = await loadRemoteContainerShareContext({
     accessLevel: input.accessLevel,
     containerState: input.containerState,
@@ -412,6 +421,7 @@ export async function shareContainerStateWithGroup(input: {
       projection: shareContext.projection,
       runtime: input.runtime,
       stillCurrent: input.stillCurrent,
+      writerProjectionGeneration,
     });
   }
 
@@ -436,5 +446,6 @@ export async function shareContainerStateWithGroup(input: {
     runtime: input.runtime,
     shared,
     stillCurrent: input.stillCurrent,
+    writerProjectionGeneration,
   });
 }

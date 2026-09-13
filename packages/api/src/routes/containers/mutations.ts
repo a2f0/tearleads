@@ -30,6 +30,7 @@ import {
   createContainerWithMetadataDocument,
   mutateContainer,
 } from "../../services/containers/mutations";
+import { listGroupMemberUserIds } from "../../services/principals/listGroupMemberUserIds";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { jsonRequestValidator } from "../../validators/jsonRequest";
 import { pathParamsValidator } from "../../validators/pathParams";
@@ -104,6 +105,8 @@ function addContainerMutationRoute({
           origin: { sessionId: session.id, userId: session.userId },
           publish,
           request,
+          resolveGroupMemberUserIds: (groupId) =>
+            listGroupMemberUserIds(runtime, groupId),
           response,
         });
 

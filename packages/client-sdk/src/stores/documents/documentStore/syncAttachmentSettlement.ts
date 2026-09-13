@@ -15,6 +15,7 @@ import {
   type DocumentStoreSyncGeneration,
   isDocumentStoreSyncGenerationCurrent,
 } from "./syncGeneration";
+import { installDocumentWriterProjection } from "./writerProjectionGeneration";
 
 export function removeSettledPendingAttachment(
   state: DocumentStoreState,
@@ -49,6 +50,8 @@ export async function settleUploadedAttachment(input: {
   state: DocumentStoreState;
   uploaded: NonNullable<Awaited<ReturnType<typeof uploadDocumentAttachment>>>;
   uploadLane: AttachmentUploadLaneReporter;
+  /** `state.writerProjectionGeneration` when the upload started. */
+  writerProjectionGeneration: number;
 }): Promise<void> {
   const { pendingAttachment, state, uploaded } = input;
   // A teardown (reset/discard) during the upload's awaits deleted the rows
@@ -78,7 +81,11 @@ export async function settleUploadedAttachment(input: {
     writeAuthorization: uploaded.response.writeAuthorization,
     writeHeader: uploaded.response.writeHeader,
   });
-  state.writerProjection = uploaded.writerProjection;
+  installDocumentWriterProjection(
+    state,
+    uploaded.writerProjection,
+    input.writerProjectionGeneration,
+  );
   input.uploadLane.complete();
   state.runtime.util.log(
     `Uploaded attachment ${pendingAttachment.name} for document ${input.remoteDocumentId}.`,

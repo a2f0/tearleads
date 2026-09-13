@@ -48,11 +48,13 @@ function expectInvalidationRouting(event: Record<string, unknown>): void {
   declareInterest(router, unrelatedSession, [UNRELATED]);
   router.routeServerEvent(JSON.stringify(event));
 
+  // Each recipient's frame names only the affected containers it holds.
   const { origin: _origin, ...clientEvent } = event;
-  const clientMessage = JSON.stringify(clientEvent);
+  const scopedTo = (containerId: string) =>
+    JSON.stringify({ ...clientEvent, containerIds: [containerId] });
   expect(author.sent).toEqual([]);
-  expect(sameIdentityPeer.sent).toEqual([clientMessage]);
-  expect(otherContainerPeer.sent).toEqual([clientMessage]);
+  expect(sameIdentityPeer.sent).toEqual([scopedTo(AFFECTED_A)]);
+  expect(otherContainerPeer.sent).toEqual([scopedTo(AFFECTED_B)]);
   expect(unrelatedSession.sent).toEqual([]);
 }
 
