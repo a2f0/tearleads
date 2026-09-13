@@ -431,17 +431,28 @@ class SessionService implements Session {
   }
 
   setContext(context: SessionContext): void {
+    const wasAcknowledged = this.userIdAcknowledged;
     this.identityAcknowledgments.remember(
       context.userId,
       this.dependencies.identity.snapshot.signingFingerprint,
     );
+    const previous = this.snapshotValue;
     this.setSnapshot(
       mergeSessionContext(
-        this.snapshotValue,
+        previous,
         context,
         this.dependencies.identity.snapshot.signingFingerprint,
       ),
     );
+    // Acknowledging a userId the snapshot already held (a prior `setUserId`)
+    // changes `userIdAcknowledged` without changing the snapshot; persistence
+    // subscribers must still observe it.
+    if (
+      this.snapshotValue === previous &&
+      wasAcknowledged !== this.userIdAcknowledged
+    ) {
+      this.listeners.notify();
+    }
   }
 
   setOrganizationId(organizationId: string | null): void {

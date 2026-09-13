@@ -40,32 +40,59 @@ type RemoteDocumentAdoptionInput = {
  * by anyone else is a foreign document colliding on that id (a member with
  * write access on the same container, or a dishonest server), which must not be
  * adopted as if it were the pending local write.
+ *
+ * The create event is located by walking the served head's predecessor chain,
+ * not by scanning the history for any parentless manifest: the history is
+ * server-supplied, so a dishonest server could splice in a genesis this user
+ * signed for a different document. Every manifest on the chain must also name
+ * the requested document.
  */
 function assertCreateEventSignedLocally(
   input: RemoteDocumentAdoptionInput,
   writerProjection: DocumentWriterProjectionResponse,
 ): void {
   const label = "Document create conflict";
-  const createBundle = [
-    writerProjection.documentManifest,
-    ...writerProjection.documentManifestHistory,
-  ].find(
-    (bundle) =>
-      readAccessManifest(bundle.manifest, `${label} manifest`)
-        .previousManifestHash === null,
+  const historyByHash = new Map(
+    writerProjection.documentManifestHistory.map((bundle) => [
+      bundle.manifestHash,
+      bundle,
+    ]),
   );
-  if (!createBundle) {
-    throw new Error(`${label} does not expose its create event`);
-  }
-  const createEvent = readAccessEvent(
-    createBundle.event.event,
-    `${label} create event`,
-  );
-  if (createEvent.signerUserId !== input.expectedSignerUserId) {
-    throw new KeyingVerificationError(
-      "signer_mismatch",
-      `${label} create event was signed by another user`,
-    );
+  const visited = new Set<string>();
+  let bundle = writerProjection.documentManifest;
+  for (;;) {
+    const manifest = readAccessManifest(bundle.manifest, `${label} manifest`);
+    if (
+      manifest.objectKind !== "document" ||
+      manifest.objectId !== input.documentId
+    ) {
+      throw new KeyingVerificationError(
+        "object_mismatch",
+        `${label} manifest chain names another document`,
+      );
+    }
+    if (manifest.previousManifestHash === null) {
+      const createEvent = readAccessEvent(
+        bundle.event.event,
+        `${label} create event`,
+      );
+      if (createEvent.signerUserId !== input.expectedSignerUserId) {
+        throw new KeyingVerificationError(
+          "signer_mismatch",
+          `${label} create event was signed by another user`,
+        );
+      }
+      return;
+    }
+    if (visited.has(bundle.manifestHash)) {
+      throw new Error(`${label} manifest history is cyclic`);
+    }
+    visited.add(bundle.manifestHash);
+    const previous = historyByHash.get(manifest.previousManifestHash);
+    if (!previous) {
+      throw new Error(`${label} does not expose its create event`);
+    }
+    bundle = previous;
   }
 }
 

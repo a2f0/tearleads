@@ -80,6 +80,21 @@ test("only a server-acknowledged user ID counts as acknowledged", async () => {
   expect(session.userIdAcknowledged).toBe(true);
 });
 
+test("acknowledging a user ID the snapshot already holds notifies subscribers", async () => {
+  const { session } = await createLoginHarness(async () => undefined);
+  session.setUserId(USER_ID);
+  expect(session.userIdAcknowledged).toBe(false);
+  const observed: boolean[] = [];
+  session.subscribe(() => {
+    observed.push(session.userIdAcknowledged);
+  });
+  session.setContext({ userId: USER_ID });
+  expect(session.userId).toBe(USER_ID);
+  expect(observed).toEqual([true]);
+  session.setContext({ userId: USER_ID });
+  expect(observed).toEqual([true]);
+});
+
 test("login rejects a user ID different from the restored acknowledged session", async () => {
   const pinned: string[] = [];
   const { api, session } = await createLoginHarness(async (userId) => {
