@@ -13,6 +13,7 @@ import { createListenerSet } from "../listenerSet";
 import {
   requireRegistrationIdentityPinner,
   requireUserIdentityAvailable,
+  SessionIdentityAcknowledgments,
   type UserIdentityAvailable,
 } from "./sessionIdentityTrust";
 import { createSessionOrganization } from "./sessionOrganizationCreation";
@@ -52,6 +53,8 @@ export function createSession(dependencies: SessionDependencies): Session {
 }
 
 class SessionService implements Session {
+  private readonly identityAcknowledgments =
+    new SessionIdentityAcknowledgments();
   private readonly listeners = createListenerSet();
   private syncEnabledValue = true;
   private snapshotValue: SessionSnapshot = {
@@ -205,11 +208,18 @@ class SessionService implements Session {
     }
 
     try {
+      this.identityAcknowledgments.assertMatches(
+        authentication.userId,
+        fingerprint,
+      );
       await pinLocalUserIdentity(authentication.userId, {
         encapsulationPublicKey: encapsulationKeyPair.publicKey,
         signingKeyFingerprint: fingerprint,
         signingPublicKey: signingKeyPair.signingPublicKey,
       });
+      if (this.dependencies.identity.snapshot !== identitySnapshot)
+        return false;
+      this.identityAcknowledgments.remember(authentication.userId, fingerprint);
     } catch (error) {
       this.setContext({
         authToken: null,
@@ -404,6 +414,10 @@ class SessionService implements Session {
   }
 
   setContext(context: SessionContext): void {
+    this.identityAcknowledgments.remember(
+      context.userId,
+      this.dependencies.identity.snapshot.signingFingerprint,
+    );
     this.setSnapshot({
       authToken:
         "authToken" in context

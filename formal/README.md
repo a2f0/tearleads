@@ -60,6 +60,18 @@ silently increasing pull-request check time.
 models creation racing leaf deletion and the permanent reservation of retired
 metadata document IDs. See the [mapping and boundaries](./container-keying/ContainerDeletion.md).
 
+## Unacknowledged Server Input
+
+[`local-trust/UnacknowledgedInput.tla`](./local-trust/UnacknowledgedInput.tla)
+models pending-create adoption and fingerprint-bound login acknowledgments.
+See the [mapping and boundaries](./local-trust/UnacknowledgedInput.md).
+
+## Principal Reference Progress
+
+[`container-keying/PrincipalReferenceProgress.tla`](./container-keying/PrincipalReferenceProgress.tla)
+models current group references at commit and monotone references in signed
+container history. See the [mapping and boundaries](./container-keying/PrincipalReferenceProgress.md).
+
 ## Container Grant Scope
 
 [`container-keying/ContainerGrantScope.tla`](./container-keying/ContainerGrantScope.tla)

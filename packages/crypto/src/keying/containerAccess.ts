@@ -20,6 +20,11 @@ import {
   mergeContainerAccessLevel,
   requireContainerPathUserAccess,
 } from "./containerPathAccess";
+import {
+  assertContainerPrincipalReferencesProgress,
+  removeReferencedPrincipalHead,
+  upsertReferencedPrincipalHead,
+} from "./containerPrincipalReferences";
 
 export {
   containerAccessLevelRank,
@@ -656,36 +661,6 @@ function removeContainerDirectGrant(
   );
 }
 
-function upsertReferencedPrincipalHead(
-  principalHeads: readonly ContainerGrantPrincipalHead[],
-  principalHead: ContainerGrantPrincipalHead,
-): ContainerGrantPrincipalHead[] {
-  const nextPrincipalHeads = principalHeads.filter(
-    (existingHead) =>
-      referencedPrincipalKey(existingHead) !==
-      referencedPrincipalKey(principalHead),
-  );
-  nextPrincipalHeads.push(principalHead);
-  return normalizeContainerGrantPrincipalHeads(nextPrincipalHeads);
-}
-
-function removeReferencedPrincipalHead(
-  principalHeads: readonly ContainerGrantPrincipalHead[],
-  revokedGrant: Pick<ContainerDirectGrant, "subjectId" | "subjectType">,
-): ContainerGrantPrincipalHead[] {
-  if (revokedGrant.subjectType === "user") {
-    return normalizeContainerGrantPrincipalHeads(principalHeads);
-  }
-
-  const revokedReferenceKey = `${revokedGrant.subjectType}:${revokedGrant.subjectId}`;
-  return normalizeContainerGrantPrincipalHeads(
-    principalHeads.filter(
-      (principalHead) =>
-        referencedPrincipalKey(principalHead) !== revokedReferenceKey,
-    ),
-  );
-}
-
 export function requireContainerPathLast(
   path: readonly VerifiedContainerAccessManifest[] | undefined,
   label: string,
@@ -1153,6 +1128,10 @@ export async function verifyContainerAccessManifest({
       previousManifest,
       principalPolicies,
     });
+    assertContainerPrincipalReferencesProgress(
+      previousManifest?.state.referencedPrincipalHeads ?? [],
+      state.referencedPrincipalHeads,
+    );
     const derivedManifest = await deriveContainerAccessManifest(state);
     const derivedManifestHash =
       await computeAccessManifestHash(derivedManifest);

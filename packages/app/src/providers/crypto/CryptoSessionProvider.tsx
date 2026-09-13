@@ -198,7 +198,10 @@ function useRestorePersistedSession(input: {
       signingFingerprint,
     })
       .then((persistedSession) => {
-        if (cancelled) {
+        if (
+          cancelled ||
+          tearleads.identity.signingFingerprint !== signingFingerprint
+        ) {
           clearInFlightFingerprint();
           return;
         }

@@ -32,6 +32,22 @@ const NO_BRICK_ADVERSARY =
 
 export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   {
+    id: "host-restore-binds-a-switched-identity",
+    module: "formal/local-trust/UnacknowledgedInput.tla",
+    config: "formal/local-trust/UnacknowledgedInput.cfg",
+    constants: { CheckRestoreIdentity: "FALSE" },
+    expect: { kind: "invariant", name: "HostRestoresKeepIdentity" },
+    why: "An async host restore can finish after the SDK changes identity but before React cancels the old effect (#2266).",
+  },
+  {
+    id: "discovery-replaces-pending-links",
+    module: "formal/local-trust/UnacknowledgedInput.tla",
+    config: "formal/local-trust/UnacknowledgedInput.cfg",
+    constants: { DeferLinkDiscovery: "FALSE" },
+    expect: { kind: "invariant", name: "PendingLinksKeepIntent" },
+    why: "Deferring the document row is insufficient if discovery still replaces its pending container links (#2266).",
+  },
+  {
     id: "container-metadata-without-owner-scope",
     module: "formal/container-keying/ContainerDeletion.tla",
     config: "formal/container-keying/ContainerDeletion.cfg",
@@ -102,6 +118,38 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     constants: { PreserveMetadataReservation: "FALSE" },
     expect: { kind: "invariant", name: "RetiredMetadataIsNeverRecreated" },
     why: "Dropping the metadata reservation allows a new history to reuse a retired document ID (#2266).",
+  },
+  {
+    id: "discovery-adopts-pending-create",
+    module: "formal/local-trust/UnacknowledgedInput.tla",
+    config: "formal/local-trust/UnacknowledgedInput.cfg",
+    constants: { DeferDiscoveryAdoption: "FALSE" },
+    expect: { kind: "invariant", name: "AdoptionHasVerifiedScope" },
+    why: "An unsigned listing can stamp a pending create and redirect its queued edits (#2266).",
+  },
+  {
+    id: "login-rebinds-acknowledged-identity",
+    module: "formal/local-trust/UnacknowledgedInput.tla",
+    config: "formal/local-trust/UnacknowledgedInput.cfg",
+    constants: { EnforceLoginBinding: "FALSE" },
+    expect: { kind: "action", name: "AcknowledgmentsNeverChange" },
+    why: "A dishonest auth response rebinds a previously acknowledged signing identity to another user ID (#2266).",
+  },
+  {
+    id: "container-grant-selects-old-group-key",
+    module: "formal/container-keying/PrincipalReferenceProgress.tla",
+    config: "formal/container-keying/PrincipalReferenceProgress.cfg",
+    constants: { EnforceCurrent: "FALSE" },
+    expect: { kind: "invariant", name: "CommittedReferencesAreCurrent" },
+    why: "A new grant can select an older group key when only predecessor monotonicity is enforced (#2266).",
+  },
+  {
+    id: "container-successor-regresses-group-reference",
+    module: "formal/container-keying/PrincipalReferenceProgress.tla",
+    config: "formal/container-keying/PrincipalReferenceProgress.cfg",
+    constants: { EnforceProgress: "FALSE" },
+    expect: { kind: "action", name: "HeldReferencesNeverRegress" },
+    why: "A dishonest server can serve a signed successor that reintroduces an older group reference (#2266).",
   },
   {
     id: "no-brick-stale-head-citation",

@@ -38,8 +38,49 @@ async function createLoginHarness(
     logError: () => undefined,
     ...(onUserIdentityAvailable ? { onUserIdentityAvailable } : {}),
   });
-  return { api, session };
+  return { api, identity, session };
 }
+
+test("login rejects a user ID different from the restored acknowledged session", async () => {
+  const pinned: string[] = [];
+  const { api, session } = await createLoginHarness(async (userId) => {
+    pinned.push(userId);
+  });
+  session.setContext({ userId: "acknowledged-user", isAuthenticated: false });
+  await expect(session.login()).rejects.toMatchObject({
+    code: "object_mismatch",
+  });
+  expect(pinned).toEqual([]);
+  expect(session.userId).toBe("acknowledged-user");
+  expect(session.isAuthenticated).toBe(false);
+  expect(api.getAuthToken()).toBeNull();
+});
+
+test("logout retains the acknowledged identity binding for the next login", async () => {
+  const { api, session } = await createLoginHarness(async () => undefined);
+  await expect(session.login()).resolves.toBe(true);
+  session.logout();
+  api.authenticate = async () => ({
+    authenticated: true,
+    isRoot: false,
+    organizationId: "organization-1",
+    token: "other-token",
+    userId: "other-user",
+  });
+  await expect(session.login()).rejects.toMatchObject({
+    code: "object_mismatch",
+  });
+  expect(session.userId).toBe(USER_ID);
+});
+
+test("a new identity and an unacknowledged local user choice do not bind login", async () => {
+  const { identity, session } = await createLoginHarness(async () => undefined);
+  session.setUserId("unacknowledged-local-user");
+  await expect(session.login()).resolves.toBe(true);
+  await setGeneratedIdentity(identity);
+  session.setUserId("previous-identity-user");
+  await expect(session.login()).resolves.toBe(true);
+});
 
 test("login fails before authentication without an identity trust service", async () => {
   const { api, session } = await createLoginHarness();
@@ -130,4 +171,20 @@ test("registration does not publish server context before local identity trust",
   } finally {
     close();
   }
+});
+
+test("a host acknowledgment during login pinning rejects authentication and clears its token", async () => {
+  const harness = await createLoginHarness(async () => {
+    harness.session.setContext({ userId: "restored-during-pin" });
+  });
+  harness.session.setContext({
+    authToken: "prior-token",
+    isAuthenticated: true,
+  });
+  await expect(harness.session.login()).rejects.toMatchObject({
+    code: "object_mismatch",
+  });
+  expect(harness.session.userId).toBe("restored-during-pin");
+  expect(harness.session.isAuthenticated).toBe(false);
+  expect(harness.api.getAuthToken()).toBeNull();
 });

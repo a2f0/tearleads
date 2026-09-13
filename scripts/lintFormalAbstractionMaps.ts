@@ -23,10 +23,12 @@ const EXPECTED_TABLES: Readonly<Record<string, number>> = {
   "formal/backup-restore/TerminalAnchors.md": 1,
   "formal/container-keying/ContainerDeletion.md": 1,
   "formal/container-keying/NoBrickedDevice.md": 1,
+  "formal/container-keying/PrincipalReferenceProgress.md": 1,
   "formal/document-sync/BaselineDominance.md": 1,
   "formal/document-sync/DeferredTailSettlement.md": 1,
   "formal/document-sync/RawHistoryRecovery.md": 1,
   "formal/document-sync/RestartProbeConvergence.md": 1,
+  "formal/local-trust/UnacknowledgedInput.md": 1,
 };
 
 export interface FormalSourceFile {

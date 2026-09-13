@@ -54,7 +54,10 @@ import {
 import { loadStoredDocumentStoreState } from "./internal/documentStoreStatePersistence";
 import { listDocumentSummaries } from "./internal/documentSummaryQueries";
 import { ensureDocumentsSchema } from "./internal/ensureDocumentsSchema";
-import { mapPendingCreateLocalIds } from "./internal/pendingCreateAdoption";
+import {
+  loadPendingCreateSummary,
+  mapPendingCreateLocalIds,
+} from "./internal/pendingCreateAdoption";
 import { documentRowQueryPersistence } from "./internal/rowQueryPersistence";
 import { documentSyncQueuePersistence } from "./internal/syncQueuePersistence";
 import type {
@@ -105,8 +108,13 @@ async function upsertDiscoveredDocumentWithExec(
     DOCUMENTS_APP_KIND,
     input.documentId,
   );
-  const localId =
-    existingLocalId ?? pendingCreates.get(input.documentId) ?? input.documentId;
+  const localId = existingLocalId ?? input.documentId;
+  const pendingLocalId = pendingCreates.get(input.documentId);
+  if (!existingLocalId && pendingLocalId) {
+    const pending = await loadPendingCreateSummary(execSql, pendingLocalId);
+    if (!pending) throw new Error("Pending create projection is unavailable");
+    return pending;
+  }
   const existingDocument = await sqlDocumentsPersistence.loadDocument(
     execSql,
     localId,
