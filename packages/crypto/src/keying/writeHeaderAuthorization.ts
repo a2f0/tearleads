@@ -4,8 +4,10 @@ import {
 } from "./documentAccess";
 import { throwVerification } from "./shared";
 import type { VerifyWriteHeaderInput, WriteHeader } from "./types";
+import { assertWriteHeaderPathCitations } from "./writeHeaderCitations";
 
 function assertDocumentWriteHeaderAuthorization(input: {
+  readonly authorizationMembership: "current" | "referenced";
   readonly authorization: NonNullable<
     VerifyWriteHeaderInput["documentAuthorization"]
   >;
@@ -59,7 +61,12 @@ function assertDocumentWriteHeaderAuthorization(input: {
     );
   }
 
+  assertWriteHeaderPathCitations(
+    header,
+    authorization.authorizingContainerPaths,
+  );
   requireWriteAccessThroughCommittedDocumentTarget({
+    authorizationMembership: input.authorizationMembership,
     documentKekTargets,
     documentManifest,
     label: "write header",
@@ -70,6 +77,7 @@ function assertDocumentWriteHeaderAuthorization(input: {
 }
 
 function assertBlobWriteHeaderAuthorization(input: {
+  readonly authorizationMembership: "current" | "referenced";
   readonly authorization: NonNullable<
     VerifyWriteHeaderInput["blobAuthorization"]
   >;
@@ -113,7 +121,12 @@ function assertBlobWriteHeaderAuthorization(input: {
     );
   }
 
+  assertWriteHeaderPathCitations(
+    header,
+    authorization.authorizingContainerPaths,
+  );
   requireWriteAccessThroughCommittedBlobTarget({
+    authorizationMembership: input.authorizationMembership,
     blobKekTargets,
     header,
     label: "write header",
@@ -123,12 +136,14 @@ function assertBlobWriteHeaderAuthorization(input: {
 }
 
 export function assertWriteHeaderAuthorizations(input: {
+  readonly authorizationMembership: "current" | "referenced";
   readonly blobAuthorization: VerifyWriteHeaderInput["blobAuthorization"];
   readonly documentAuthorization: VerifyWriteHeaderInput["documentAuthorization"];
   readonly header: WriteHeader;
 }): void {
   if (input.documentAuthorization) {
     assertDocumentWriteHeaderAuthorization({
+      authorizationMembership: input.authorizationMembership,
       authorization: input.documentAuthorization,
       header: input.header,
     });
@@ -136,6 +151,7 @@ export function assertWriteHeaderAuthorizations(input: {
 
   if (input.blobAuthorization) {
     assertBlobWriteHeaderAuthorization({
+      authorizationMembership: input.authorizationMembership,
       authorization: input.blobAuthorization,
       header: input.header,
     });

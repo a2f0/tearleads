@@ -43,6 +43,9 @@ export async function buildInitialDocumentSyncRequest(input: {
     update: pendingUpdate,
   });
   const outgoingUpdate = await signDocumentOutgoingUpdate({
+    authorizingContainerPathRefs: [
+      containerPathRefs(input.containerProjection.path),
+    ],
     author: input.author,
     contentKeyEpoch: contentKeyBundle.contentKeyEpoch,
     documentId,

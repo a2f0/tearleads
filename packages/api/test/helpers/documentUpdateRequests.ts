@@ -32,6 +32,7 @@ import { routeApp } from "../../src/routeApp";
 import type { StoredRootFixture } from "./keyingWriterProjectionKit";
 
 async function createSignedOrdinaryUpdate(input: {
+  readonly root: Pick<StoredRootFixture, "bundle">;
   readonly checkpoint: boolean;
   readonly contentKeyBundle?: DocumentCreateResponse["contentKeyBundle"];
   readonly created: DocumentCreateResponse;
@@ -60,6 +61,7 @@ async function createSignedOrdinaryUpdate(input: {
   const writeHeader = await signWriteHeader(
     {
       version: 1,
+      dependencyManifestHashes: [input.root.bundle.manifestHash],
       organizationId,
       objectKind: "document",
       objectId: input.created.id,
@@ -180,6 +182,7 @@ export async function createSignedDocumentSyncRequest(input: {
 }
 
 export async function createSignedAtomicRotationBaseline(input: {
+  readonly dependencyManifestHashes: readonly string[];
   readonly accessManifestHash: string;
   readonly contentKeyEpoch: number;
   readonly documentId: string;
@@ -204,6 +207,7 @@ export async function createSignedAtomicRotationBaseline(input: {
   const writeHeader = await signWriteHeader(
     {
       version: 1,
+      dependencyManifestHashes: [...input.dependencyManifestHashes].sort(),
       organizationId: input.organizationId,
       objectKind: "document",
       objectId: input.documentId,

@@ -1,10 +1,4 @@
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
-import {
-  encodeVersionVector,
-  exportFullHistorySnapshot,
-  exportUpdatesSince,
-  updateMatchesDocumentHistory,
-} from "@tearleads/loro";
+import { encodeVersionVector, exportUpdatesSince } from "@tearleads/loro";
 import { normalizeEffectiveAccessLevel } from "../../../data/accessLevel";
 import { DEFAULT_DOCUMENT_KIND } from "../../../data/documents/documentConstants";
 import {
@@ -15,8 +9,6 @@ import type { DocumentSummary } from "../../../data/documents/documentSummary";
 import { errorMessage } from "../../../data/errorMessage";
 
 import {
-  DOCUMENT_HISTORY_COMPACTION_MAX_BYTES,
-  DOCUMENT_HISTORY_COMPACTION_MAX_ROWS,
   type DocumentRecord,
   defaultDocumentsPersistence,
   type ExecSql,
@@ -27,6 +19,7 @@ import {
   reclaimDocumentOrphanBlobs,
   runSerializedSqlMutation,
 } from "../../../workflows/documents";
+import { maybeCompactDocumentHistory } from "./documentHistoryCompaction";
 import {
   importDurableDocumentHistory,
   installDurableDocumentReload,
@@ -41,7 +34,6 @@ import {
 } from "./state";
 import { createFreshPeerStoredDocument } from "./storedDocument";
 import {
-  captureDocumentStoreSyncGeneration,
   type DocumentStoreSyncGeneration,
   isDocumentStoreSyncGenerationCurrent as isSyncGenerationCurrent,
 } from "./syncGeneration";
@@ -243,6 +235,25 @@ export async function persistDocument(
     expectedGeneration,
     commitSideEffect,
   );
+  return publishPersistedDocument(
+    state,
+    currentDoc,
+    persistedRecord,
+    previousDocumentId,
+    options,
+    isCurrent,
+  );
+}
+
+/** Publish only after the durable claim succeeds and its live context remains. */
+export async function publishPersistedDocument(
+  state: DocumentStoreState,
+  currentDoc: DocumentState,
+  persistedRecord: PersistedDocumentRecord | null,
+  previousDocumentId: string | null,
+  options: SaveDocumentRecordOptions,
+  isCurrent: () => boolean,
+): Promise<PersistedDocumentRecord | null> {
   if (!persistedRecord) return null;
   if (!isCurrent()) return null;
 
@@ -250,12 +261,9 @@ export async function persistDocument(
     persistedRecord.syncIdentitySuperseded ||
     persistedRecord.pullContinuationSuperseded
   ) {
-    // A sync finalize imports remote updates into the live CRDT before its
-    // durable continuation CAS. If that CAS loses, its history rows were not
-    // appended either; keeping the mutated live CRDT would advance the next
-    // request frontier past data that cannot survive a restart. Rebuild from
-    // the winning durable checkpoint/tail for every CAS loss, not only an
-    // identity replacement.
+    // Reload the winning durable checkpoint/tail on every CAS loss, including
+    // another pane's history or security-context changes. A rejected sync
+    // candidate remains isolated from the live document and editor.
     const replacementDoc = await reloadSupersededDocumentState(
       state,
       isCurrent,
@@ -290,88 +298,6 @@ export async function persistDocument(
     );
   }
   return persistedRecord;
-}
-
-/**
- * Refresh the durable full-history checkpoint when the tail has grown past
- * the compaction thresholds, or seed the first checkpoint as soon as the
- * document can export full history (a freshly created or rebuilt document is
- * cheap to export; waiting for the threshold would leave restarts without
- * history until then). The snapshot comes from the LIVE document, which has
- * every tail update imported, so clearing the tail loses nothing.
- */
-async function maybeCompactDocumentHistory(
-  state: DocumentStoreState,
-  currentDoc: DocumentState,
-  stillCurrent?: (() => boolean) | undefined,
-): Promise<void> {
-  const { persistence } = state;
-  // Bind this compaction to the store context it started under: a store
-  // reset or runtime swap mid-compaction must not let the OLD document's
-  // checkpoint overwrite the replacement generation's history (or land in a
-  // newly selected database).
-  const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
-  if (!generation || stillCurrent?.() === false) {
-    return;
-  }
-  const execSql = state.runtime.infra.execSql;
-  const tail = await persistence.readHistoryTailSize(execSql, state.localId);
-  if (
-    tail.hasCheckpoint &&
-    tail.rowCount < DOCUMENT_HISTORY_COMPACTION_MAX_ROWS &&
-    tail.byteLength < DOCUMENT_HISTORY_COMPACTION_MAX_BYTES
-  ) {
-    return;
-  }
-
-  // Capture the tail BEFORE exporting, then prove coverage per row: another
-  // pane can append ops this pane's document has not merged, so blanket
-  // deletion would discard the only durable copy. Unproven rows survive for
-  // a later compaction by whichever pane holds their ops.
-  const tailEntries = await persistence.listHistoryTailEntries(
-    execSql,
-    state.localId,
-  );
-  const snapshot = exportFullHistorySnapshot(currentDoc);
-  if (
-    !isSyncGenerationCurrent(state, generation) ||
-    stillCurrent?.() === false
-  ) {
-    return;
-  }
-  const endVersionVector = encodeVersionVector(currentDoc);
-  await persistence.replaceHistoryCheckpoint(execSql, {
-    coveredTailIds: coveredHistoryTailIds(tailEntries, currentDoc),
-    endVersionVector,
-    localId: state.localId,
-    snapshot: bytesToBase64(snapshot),
-    stillCurrent: () =>
-      isSyncGenerationCurrent(state, generation) && stillCurrent?.() !== false,
-  });
-}
-
-/**
- * Tail rows whose exact operations already belong to the checkpoint document.
- * Version-vector dominance is insufficient: a same-frontier fork has the same
- * declared range, and malformed rows must survive so recovery fails closed
- * instead of compaction deleting the evidence before provenance validation.
- */
-function coveredHistoryTailIds(
-  tailEntries: readonly { id: string; updateData: string }[],
-  document: DocumentState,
-): string[] {
-  return tailEntries.flatMap((entry) => {
-    try {
-      return updateMatchesDocumentHistory(
-        document,
-        base64ToBytes(entry.updateData),
-      )
-        ? [entry.id]
-        : [];
-    } catch {
-      return [];
-    }
-  });
 }
 
 export async function listPendingUpdates(

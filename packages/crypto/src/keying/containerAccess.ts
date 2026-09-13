@@ -1,3 +1,10 @@
+import {
+  requireContainerPathCurrentParent,
+  requireContainerPathLast,
+} from "./containerParentAuthority";
+
+export { requireContainerPathLast } from "./containerParentAuthority";
+
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import {
   computeAccessManifestHash,
@@ -661,18 +668,6 @@ function removeContainerDirectGrant(
   );
 }
 
-export function requireContainerPathLast(
-  path: readonly VerifiedContainerAccessManifest[] | undefined,
-  label: string,
-): VerifiedContainerAccessManifest {
-  const lastManifest = path?.at(-1);
-  if (!lastManifest) {
-    throwVerification("missing_dependency", `${label} path is required`);
-  }
-
-  return lastManifest;
-}
-
 function requirePathLastMatchesManifest(input: {
   readonly path: readonly VerifiedContainerAccessManifest[] | undefined;
   readonly manifest: VerifiedContainerAccessManifest;
@@ -684,31 +679,6 @@ function requirePathLastMatchesManifest(input: {
     throwVerification(
       "missing_dependency",
       `${input.label} path does not end at the expected manifest`,
-    );
-  }
-}
-
-function requireContainerPathCurrentParent(input: {
-  readonly parentContainerId: string | null;
-  readonly parentManifestHash: string | null;
-  readonly path: readonly VerifiedContainerAccessManifest[] | undefined;
-  readonly label: string;
-}): void {
-  if (!input.parentContainerId || !input.parentManifestHash) {
-    throwVerification(
-      "missing_dependency",
-      `${input.label} parent manifest is required`,
-    );
-  }
-
-  const parentManifest = requireContainerPathLast(input.path, input.label);
-  if (
-    parentManifest.state.containerId !== input.parentContainerId ||
-    parentManifest.manifestHash !== input.parentManifestHash
-  ) {
-    throwVerification(
-      "missing_dependency",
-      `${input.label} parent manifest hash mismatch`,
     );
   }
 }
@@ -831,6 +801,7 @@ function deriveContainerCreateManifestState(
   } else {
     requireContainerPathCurrentParent({
       label: "container.create",
+      organizationId: event.event.organizationId,
       parentContainerId: body.parentContainerId,
       parentManifestHash: body.parentManifestHash,
       path: input.parentContainerPath,
@@ -1036,6 +1007,7 @@ function deriveContainerMoveManifestState(
   });
   requireContainerPathCurrentParent({
     label: "container.move destination",
+    organizationId: input.event.event.organizationId,
     parentContainerId: body.parentContainerId,
     parentManifestHash: body.parentManifestHash,
     path: input.destinationParentContainerPath,

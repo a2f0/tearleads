@@ -175,6 +175,9 @@ export async function createProvisionedDocumentFixture(input: {
   const writeHeader = await signWriteHeader(
     {
       ...nonceDomain,
+      dependencyManifestHashes: input.containerProjection.path
+        .map((bundle) => bundle.manifestHash)
+        .sort(),
       accessManifestHash: bundle.linkSetManifestHash,
       targetHash: bundle.targetHash,
       nonceDomainHash: await computeContentRecordNonceDomainHash(nonceDomain),
@@ -284,6 +287,13 @@ export async function makeProvisionedDocumentSeedDependencyBearing(
   const writeHeader = await signWriteHeader(
     {
       ...nonceDomain,
+      dependencyManifestHashes: [
+        ...new Set(
+          (request.initialSync.authorizingContainerPathRefs ?? []).flatMap(
+            (path) => path.map((ref) => ref.manifestHash),
+          ),
+        ),
+      ].sort(),
       accessManifestHash: request.initialSync.expectedLinkSetManifestHash,
       targetHash: request.initialSync.expectedTargetHash,
       nonceDomainHash: await computeContentRecordNonceDomainHash(nonceDomain),

@@ -14,9 +14,9 @@ import {
   createScenario,
   grantBy,
 } from "../../../test/helpers/ancestorCitationScenario";
-import { addHistoricalContainerTargetPaths } from "./historicalContainerTargetPaths";
+import { resolveEventContainerPaths } from "./documentDependencyPaths";
 
-test("an incomplete historical blob path admits only a direct leaf writer, not an inherited writer", async () => {
+test("historical blob writes require complete citations even for a direct leaf writer", async () => {
   const { alice, mallory, root1, child1 } = await createScenario();
   const child = await grantBy({
     cited: [root1.manifestHash, child1.manifestHash],
@@ -57,18 +57,26 @@ test("an incomplete historical blob path admits only a direct leaf writer, not a
     blobAccessManifestHash: await computeBlobAccessManifestHash(manifest),
   });
   const paths = new Map<string, readonly VerifiedContainerAccessManifest[]>();
-  addHistoricalContainerTargetPaths({
+  paths.set(child.manifestHash, [child]);
+  const dependencyManifestHashes = [
+    root1.manifestHash,
+    child.manifestHash,
+  ].sort();
+  expect(() =>
+    resolveEventContainerPaths({
+      containerPathByManifestHash: paths,
+      dependencyManifestHashes,
+    }),
+  ).toThrow("unavailable container manifest");
+  paths.set(root1.manifestHash, [root1]);
+  const { dependencyContainerPaths } = resolveEventContainerPaths({
     containerPathByManifestHash: paths,
-    manifests: new Map([[child.manifestHash, child]]),
+    dependencyManifestHashes,
   });
-  expect(paths.get(child.manifestHash)).toEqual([child]);
-  // Blob decryption passes this exact collection to its write-header verifier.
-  for (const [writer, accepted] of [
-    [mallory, true],
-    [alice, false],
-  ] as const) {
+  for (const writer of [mallory, alice]) {
     const header = await createWriteHeaderFixture({
       accessManifestHash: blobKekTargets.blobAccessManifestHash,
+      dependencyManifestHashes,
       objectId: blobId,
       objectKind: "blob",
       organizationId,
@@ -77,14 +85,14 @@ test("an incomplete historical blob path admits only a direct leaf writer, not a
       writerUserId: writer.userId,
     });
     const result = await verifyWriteHeader({
+      authorizationMembership: "referenced",
       blobAuthorization: {
-        authorizingContainerPaths: [...paths.values()],
+        authorizingContainerPaths: dependencyContainerPaths,
         blobKekTargets,
       },
       header,
       writerPublicKey: writer.keyPair.signingPublicKey,
     });
-    expect(result.ok).toBe(accepted);
-    if (!result.ok) expect(result.error.code).toBe("unauthorized");
+    expect(result.ok).toBe(true);
   }
 });

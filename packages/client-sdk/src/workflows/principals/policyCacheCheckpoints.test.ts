@@ -7,6 +7,7 @@ import {
   predecessorBundleFromSuccessor,
   referencedPrincipalStateFromBundle,
 } from "../../../test/helpers/policyCacheFixtures";
+import { createPolicyDirectoryFixture } from "../../../test/helpers/policyDirectoryFixtures";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import {
   ensurePrincipalPolicyTables,
@@ -20,7 +21,12 @@ test("principal policy sync hard-fails rollback after the mutable bundle cache i
   try {
     const { bundle, signerKeyResponse } =
       await createSuccessorPrincipalPolicyBundle();
+    const directory = await createPolicyDirectoryFixture({
+      organizationId: "org-1",
+      group: bundle,
+    });
     await cacheReferencedPolicies({
+      directory,
       organizationId: "org-1",
       execSql,
       getCurrentPrincipalPolicy: async () => bundle,
@@ -38,6 +44,7 @@ test("principal policy sync hard-fails rollback after the mutable bundle cache i
     const olderBundle = predecessorBundleFromSuccessor(bundle);
     await expect(
       cacheReferencedPolicies({
+        directory,
         organizationId: "org-1",
         execSql,
         getCurrentPrincipalPolicy: async () => olderBundle,
@@ -62,6 +69,10 @@ test("principal policy sync cannot pin a head when its full bundle write fails",
   );
   try {
     const { bundle, signerKeyResponse } = await createPrincipalPolicyBundle();
+    const directory = await createPolicyDirectoryFixture({
+      organizationId: "org-1",
+      group: bundle,
+    });
     await ensurePrincipalPolicyTables(execSql);
     await execSql(`CREATE TRIGGER reject_principal_policy_bundle
       BEFORE INSERT ON principal_policies
@@ -71,6 +82,7 @@ test("principal policy sync cannot pin a head when its full bundle write fails",
     const logs: string[] = [];
 
     await cacheReferencedPolicies({
+      directory,
       organizationId: "org-1",
       execSql,
       getCurrentPrincipalPolicy: async () => bundle,

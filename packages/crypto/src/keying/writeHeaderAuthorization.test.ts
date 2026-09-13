@@ -100,6 +100,7 @@ test("write headers prove blob write access through derived attachment targets",
   );
 
   const writerHeader = await createWriteHeaderFixture({
+    dependencyManifestHashes: [container.manifestHash],
     accessManifestHash: blobKekTargets.blobAccessManifestHash,
     objectId: blobId,
     objectKind: "blob",
@@ -119,6 +120,7 @@ test("write headers prove blob write access through derived attachment targets",
   expect(verifiedWriter.ok).toBe(true);
 
   const readerHeader = await createWriteHeaderFixture({
+    dependencyManifestHashes: [container.manifestHash],
     accessManifestHash: blobKekTargets.blobAccessManifestHash,
     contentRecordId: "22222222-2222-4222-8222-222222222222",
     objectId: blobId,
@@ -141,6 +143,7 @@ test("write headers prove blob write access through derived attachment targets",
   );
 
   const staleHeader = await createWriteHeaderFixture({
+    dependencyManifestHashes: [container.manifestHash],
     accessManifestHash: blobKekTargets.blobAccessManifestHash,
     contentRecordId: "33333333-3333-4333-8333-333333333333",
     objectId: blobId,
@@ -233,6 +236,7 @@ test("write header authorization covers every linked container target and histor
     linkedContainerManifests: [writeContainer, readContainer],
   });
   const header = await createWriteHeaderFixture({
+    dependencyManifestHashes: [writeContainer.manifestHash],
     accessManifestHash: documentManifest.manifestHash,
     objectId: documentId,
     organizationId,
@@ -260,6 +264,7 @@ test("write header authorization covers every linked container target and histor
     firstHistoricalTarget,
   ]);
   const partialHeader = await createWriteHeaderFixture({
+    dependencyManifestHashes: [writeContainer.manifestHash],
     accessManifestHash: documentManifest.manifestHash,
     contentRecordId: "33333333-3333-4333-8333-333333333333",
     objectId: documentId,
@@ -295,6 +300,7 @@ test("write header authorization covers every linked container target and histor
     targets: [firstHistoricalTarget, duplicateHistoricalTarget],
   };
   const duplicateContainerHeader = await createWriteHeaderFixture({
+    dependencyManifestHashes: [writeContainer.manifestHash],
     accessManifestHash: documentManifest.manifestHash,
     contentRecordId: "44444444-4444-4444-8444-444444444444",
     objectId: documentId,

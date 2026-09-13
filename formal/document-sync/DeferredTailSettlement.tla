@@ -4,7 +4,7 @@ EXTENDS FiniteSets, Naturals
 (* Device-first tail coverage. A guarded durable start linearizes its fixed *)
 (* effect; stale completion cannot publish into a replacement or remove B. *)
 
-CONSTANTS Ops, Identities, MaxGeneration
+CONSTANTS Ops, Identities, MaxGeneration, RequireDurablePublication
 
 (* Each identity is one abstract token for the local/remote identifiers,   *)
 (* container, access epoch/hash/level, and content-keying context.         *)
@@ -61,7 +61,7 @@ DurableOpIsLive ==
     [] OTHER -> TRUE
 TypeOK ==
   /\ snapshot \subseteq Ops /\ durableSnapshot \subseteq Ops
-  /\ snapshot \subseteq durableSnapshot /\ durableBase \subseteq durableSnapshot
+  /\ durableBase \subseteq durableSnapshot
   /\ workingBase \subseteq snapshot /\ queued \subseteq durableSnapshot
   /\ remote \subseteq durableSnapshot
   /\ durableRemoteRows \subseteq durableSnapshot
@@ -338,6 +338,19 @@ StartResponseDurableOp ==
                   authoritativelyDeleted, liveIdentity, liveGeneration,
                   responseVars, auditVars >>
 
+(* Negative control for importing/publishing before the continuation CAS. *)
+PublishUncommittedResponse ==
+  /\ ~RequireDurablePublication
+  /\ responsePending
+  /\ responseValidated
+  /\ ResponseIsLive
+  /\ NoDurableOp
+  /\ snapshot' = snapshot \cup responseIncoming
+  /\ UNCHANGED << durableSnapshot, durableBase, workingBase, queued, remote,
+                  durableRemoteRows, lane, captureVars, presenceVars,
+                  liveIdentity, liveGeneration, responseVars, durableOpVars,
+                  auditVars >>
+
 CompleteLiveResponsePersist ==
   /\ durableOp = "response"
   /\ ResponseIsLive
@@ -462,6 +475,7 @@ Next ==
   \/ CompleteResponseTailAppend
   \/ StartResponseDurableOp
   \/ CompleteLiveResponsePersist
+  \/ PublishUncommittedResponse
   \/ CompleteLiveDeletion
   \/ CompleteStaleResponseDurableOp
   \/ CancelOrIgnoreResponse
@@ -472,6 +486,8 @@ Next ==
   \/ UNCHANGED vars
 
 Spec == Init /\ [][Next]_vars
+PublishedHistoryIsDurable == snapshot \subseteq durableSnapshot
+
 DurableAccountingSound == durableBase \subseteq (remote \cup queued)
 WorkingAccountingSound == workingBase \subseteq (remote \cup queued)
 

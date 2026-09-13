@@ -114,6 +114,7 @@ export async function signBlobAttachmentDetachEvent(input: {
 }
 
 export async function signBlobAttachmentWriteHeader(input: {
+  authorizingContainerPathRefs: readonly (readonly ContainerManifestRef[])[];
   author: DocumentCreateAuthor;
   blobAccessManifestHash: string;
   blobId: string;
@@ -126,6 +127,11 @@ export async function signBlobAttachmentWriteHeader(input: {
   const writeHeader = await signWriteHeader(
     {
       version: 1,
+      dependencyManifestHashes: uniqueSortedStrings(
+        input.authorizingContainerPathRefs.flatMap((path) =>
+          path.map((ref) => ref.manifestHash),
+        ),
+      ),
       organizationId: input.manifestIdentity.organizationId,
       objectKind: "blob",
       objectId: input.blobId,

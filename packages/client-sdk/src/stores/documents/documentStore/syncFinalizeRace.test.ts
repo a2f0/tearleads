@@ -140,6 +140,10 @@ test("a superseded finalize keeps its signal and requests another pass", async (
     if (!attempt) throw new Error("Expected a completed sync response");
     expect(await hasRecordedTerminalSyncFailures(execSql)).toBe(true);
     expect(attempt.synced.decryptedUpdates.length).toBeGreaterThan(0);
+    const publishedTexts: string[] = [];
+    state.listeners.add(() => {
+      publishedTexts.push(state.snapshot.text);
+    });
     await finalizeDocumentSync(
       state,
       currentDoc,
@@ -154,6 +158,8 @@ test("a superseded finalize keeps its signal and requests another pass", async (
     expect(state.pullContinuation).toEqual(durableContinuation);
     if (!state.doc) throw new Error("Expected reloaded document state");
     expect(getTextValue(state.doc)).toBe("survives key");
+    expect(publishedTexts.every((text) => text === "survives key")).toBe(true);
+    expect(state.snapshot.text).toBe("survives key");
     expect(state.remoteUpdatePending).toBe(true);
     expect(await hasRecordedTerminalSyncFailures(execSql)).toBe(true);
     expect(requestedSyncCount).toBe(1);
@@ -175,6 +181,101 @@ test("a superseded finalize keeps its signal and requests another pass", async (
       throw new Error("Expected restarted document state");
     expect(getTextValue(restartedState.doc)).toBe("survives key");
   } finally {
+    close();
+  }
+});
+
+test("incoming history stays isolated until its durable claim completes", async () => {
+  const { close, execSql } = await createTestExecSql("sync-publication-claim");
+  let release!: () => void;
+  let entered!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const claimed = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
+  let hold = false;
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const fixture = await createRemoteHistoryFixture();
+    const localId = "sync-publication-claim-local";
+    const behind = await createDocument("sync-publication-claim-behind");
+    importSnapshot(behind, fixture.behindSnapshot);
+    await persistFullHistoryDocument({
+      doc: behind,
+      documentId: fixture.writerProjection.documentId,
+      execSql,
+      localId,
+    });
+    const runtime = createRotationRecoveryRuntime({
+      execSql,
+      fixture,
+      requireRawHistory: false,
+    });
+    const state = createDocumentStoreState(
+      localId,
+      runtime,
+      {
+        ...sqlDocumentsPersistence,
+        async loadDocument(...args) {
+          if (hold) {
+            hold = false;
+            entered();
+            await gate;
+          }
+          return sqlDocumentsPersistence.loadDocument(...args);
+        },
+      },
+      noopDocumentStorePersistenceEffects,
+      fixture.writerProjection.documentId,
+    );
+    expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
+    const currentDoc = state.doc;
+    const currentRecord = state.record;
+    if (!currentDoc || !currentRecord)
+      throw new Error("Expected initialized store");
+    const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
+    if (!generation) throw new Error("Expected current generation");
+    const attempt = await requestRemoteDocumentSync({
+      currentDoc,
+      currentRecord,
+      encapsulationKeyPair: fixture,
+      generation,
+      pendingUpdates: [],
+      state,
+      unavailableWriterLogMessage: "unexpected unavailable writer",
+    });
+    if (!attempt) throw new Error("Expected completed response");
+    expect(attempt.synced.decryptedUpdates.length).toBeGreaterThan(0);
+    const previousBase = state.pendingBaseVersion;
+    hold = true;
+    const finalized = finalizeDocumentSync(
+      state,
+      currentDoc,
+      currentRecord,
+      attempt,
+      0,
+      generation,
+      [],
+      false,
+    );
+    try {
+      await claimed;
+      expect(getTextValue(currentDoc)).toBe("survives key");
+      expect(state.snapshot.text).toBe("survives key");
+      expect(state.pendingBaseVersion).toBe(previousBase);
+    } finally {
+      release();
+      await finalized;
+    }
+    expect(getTextValue(currentDoc)).toBe("survives key rotation");
+    expect(state.snapshot.text).toBe("survives key rotation");
+    expect(
+      (await sqlDocumentsPersistence.loadDocument(execSql, localId))?.text,
+    ).toBe("survives key rotation");
+  } finally {
+    release();
     close();
   }
 });

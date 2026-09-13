@@ -849,6 +849,7 @@ test("storeDocumentContentWriteHeader stores canonical headers by update id", as
     contentRecordId,
   });
   const header: WriteHeader = {
+    dependencyManifestHashes: [],
     version: 1,
     organizationId,
     objectKind: "document",
@@ -997,6 +998,7 @@ test("storeDocumentContentWriteHeader rejects reused content record domains", as
     contentRecordId,
   });
   const header: WriteHeader = {
+    dependencyManifestHashes: [],
     version: 1,
     organizationId,
     objectKind: "document",

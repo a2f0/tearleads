@@ -236,12 +236,14 @@ async function assertDocumentSyncResponseWriteHeaderSignature(input: {
   const documentAuthorization = await documentWriteAuthorizationForHeader({
     allowMissingAuthorization: isAcceptedOutgoingSyncUpdate(plan, update),
     authorizationTargets: update.authorizationTargets,
+    dependencyManifestHashes: header.dependencyManifestHashes,
     contentKeyBundle: input.contentKeyBundle,
     manifestHash: header.accessManifestHash,
     plan,
     targetHash: header.targetHash,
   });
   const verified = await verifyWriteHeader({
+    authorizationMembership: "referenced",
     expectedAccessManifestHash: documentAuthorization
       ? header.accessManifestHash
       : plan.expectedLinkSetManifestHash,

@@ -75,20 +75,20 @@
       "bytes": 2742500
     },
     "docs/protocol-specification.md": {
-      "lines": 601,
-      "bytes": 29809
+      "lines": 611,
+      "bytes": 30424
     },
     "docs/security-guarantees.md": {
-      "lines": 737,
-      "bytes": 41880
+      "lines": 752,
+      "bytes": 42970
     },
     "formal/document-sync/BaselineDominanceTraces.json": {
       "lines": 2059,
       "bytes": 407654
     },
     "formal/document-sync/DeferredTailSettlement.tla": {
-      "lines": 566,
-      "bytes": 23392
+      "lines": 582,
+      "bytes": 23996
     },
     "packages/api-client/src/ApiClient.ts": {
       "lines": 1909,
@@ -119,8 +119,8 @@
       "bytes": 18081
     },
     "packages/api/src/access/write/documentContentKeyStore.test.ts": {
-      "lines": 1070,
-      "bytes": 32909
+      "lines": 1072,
+      "bytes": 32977
     },
     "packages/api/src/access/write/principalStateStore.test.ts": {
       "lines": 922,
@@ -164,23 +164,23 @@
     },
     "packages/api/src/schema.test.ts": {
       "lines": 536,
-      "bytes": 16737
+      "bytes": 16771
     },
     "packages/api/src/services/billing/stripeCheckout.test.ts": {
       "lines": 572,
       "bytes": 18390
     },
     "packages/api/src/services/blobs/blobMutations.test.ts": {
-      "lines": 1291,
-      "bytes": 39050
+      "lines": 1298,
+      "bytes": 39238
     },
     "packages/api/src/workflows/containers/mutations/shared/persistence.ts": {
       "lines": 655,
       "bytes": 19073
     },
     "packages/api/src/workflows/documents/writerProjection.ts": {
-      "lines": 684,
-      "bytes": 21686
+      "lines": 699,
+      "bytes": 22217
     },
     "packages/api/src/workflows/principals/accessLossTombstones.ts": {
       "lines": 539,
@@ -327,16 +327,16 @@
       "bytes": 20630
     },
     "packages/crypto/src/keying/testFixtures.ts": {
-      "lines": 664,
-      "bytes": 22038
+      "lines": 668,
+      "bytes": 22196
     },
     "packages/crypto/src/keying/transparency.ts": {
       "lines": 511,
       "bytes": 13564
     },
     "packages/crypto/src/keying/types.ts": {
-      "lines": 1162,
-      "bytes": 36611
+      "lines": 1166,
+      "bytes": 36837
     },
     "packages/sqlite-worker/src/crossTabRuntime.ts": {
       "lines": 555,

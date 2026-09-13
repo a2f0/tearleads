@@ -67,6 +67,7 @@ export async function assertAttachmentBindingVerified(input: {
     ),
   });
   const verified = await verifyAttachmentBindingEvent({
+    authorizationMembership: "referenced",
     authorizingContainerPaths: dependencyContainerPaths,
     body: readCanonicalJson(
       readRequiredRecordValue(

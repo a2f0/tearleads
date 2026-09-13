@@ -35,6 +35,7 @@ async function rotationBaseline(input: {
     updateId: id,
   });
   const header: WriteHeader = {
+    dependencyManifestHashes: [],
     version: 1,
     organizationId: crypto.randomUUID(),
     objectKind: "document",

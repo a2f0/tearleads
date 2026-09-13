@@ -224,10 +224,10 @@ export function TearleadsProvider({ children }: PropsWithChildren) {
       blobStoreFactory,
       documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
       logger: { log, logError },
-      // Per-pane namespace so each pane derives a distinct Loro peer id; two
-      // panes editing the same document must not share a peer (it corrupts
-      // the CRDT). Undefined for single-pane keeps the bare device peer.
-      peerScope: hostConfig.localIdentityNamespace,
+      // Persistent panes have distinct namespaces. Ephemeral runtimes need
+      // their own scope too: sharing the bare device peer can reuse CRDT
+      // counters when two panes recover and edit the same document.
+      peerScope: hostConfig.localIdentityNamespace ?? crypto.randomUUID(),
       // Every new organization is born with the Explorer Trash bin in the same
       // provisioning transaction as the org itself.
       provisionedSystemContainers: PROVISIONED_SYSTEM_CONTAINER_SPECS,

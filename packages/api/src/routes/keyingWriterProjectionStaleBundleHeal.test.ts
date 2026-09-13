@@ -55,6 +55,7 @@ test("a heal that advances the content-key epoch must carry a newly written base
     Reflect.get(created.accessManifest.state, "organizationId"),
   );
   const preRevokeBaseline = await createSignedAtomicRotationBaseline({
+    dependencyManifestHashes: [root.bundle.manifestHash],
     accessManifestHash: created.contentKeyBundle.linkSetManifestHash,
     contentKeyEpoch: created.contentKeyBundle.contentKeyEpoch,
     documentId: created.id,
@@ -189,6 +190,7 @@ test("a heal that advances the content-key epoch must carry a newly written base
 
   // The device holding the full history heals with a covering baseline.
   const coveringBaseline = await createSignedAtomicRotationBaseline({
+    dependencyManifestHashes: [revokedRoot.bundle.manifestHash],
     accessManifestHash: created.contentKeyBundle.linkSetManifestHash,
     contentKeyEpoch: healedBundle.contentKeyEpoch,
     documentId: created.id,
@@ -266,6 +268,7 @@ test("a heal that advances the content-key epoch must carry a newly written base
   // retry path refetches the healed projection and resubmits against it —
   // never an uncoded terminal 409 that strands the loser's queued writes.
   const losingBaseline = await createSignedAtomicRotationBaseline({
+    dependencyManifestHashes: [revokedRoot.bundle.manifestHash],
     accessManifestHash: created.contentKeyBundle.linkSetManifestHash,
     contentKeyEpoch: healedBundle.contentKeyEpoch,
     documentId: created.id,

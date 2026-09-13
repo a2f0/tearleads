@@ -124,6 +124,10 @@ test("a new-to-device document head and its historical write retain cited ancest
     const authorization = await documentWriteAuthorizationForHeader({
       allowMissingAuthorization: false,
       authorizationTargets: targets,
+      dependencyManifestHashes: [
+        root1.manifestHash,
+        child1.manifestHash,
+      ].sort(),
       contentKeyBundle,
       manifestHash: document.manifestHash,
       plan: { documentId, organizationId, documentWriterAuthorization: source },
@@ -131,12 +135,13 @@ test("a new-to-device document head and its historical write retain cited ancest
     });
     if (!authorization) throw new Error("Expected historical authorization");
     expect(
-      authorization.authorizingContainerPaths[0]?.map(
-        (head) => head.manifestHash,
-      ),
+      authorization.authorizingContainerPaths
+        .find((path) => path.at(-1)?.manifestHash === child1.manifestHash)
+        ?.map((head) => head.manifestHash),
     ).toEqual([root1.manifestHash, child1.manifestHash]);
     expect(child1.state.directGrants).toEqual([]);
     const header = await createWriteHeaderFixture({
+      dependencyManifestHashes: [root1.manifestHash, child1.manifestHash],
       accessManifestHash: document.manifestHash,
       objectId: documentId,
       organizationId,
@@ -168,7 +173,7 @@ test("a new-to-device document head and its historical write retain cited ancest
         },
       });
       expect(refused.ok).toBe(false);
-      if (!refused.ok) expect(refused.error.code).toBe("unauthorized");
+      if (!refused.ok) expect(refused.error.code).toBe("hash_mismatch");
     }
   } finally {
     database.close();

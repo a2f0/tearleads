@@ -390,6 +390,13 @@ async function createBlobWriteHeader(input: {
   return signWriteHeader(
     {
       version: 1,
+      dependencyManifestHashes: [
+        ...new Set(
+          input.blobKekTargets.targets.map(
+            (target) => target.containerManifestHash,
+          ),
+        ),
+      ].sort(),
       organizationId: input.blobKekTargets.organizationId,
       objectKind: "blob",
       objectId: input.blobId,

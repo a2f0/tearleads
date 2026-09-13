@@ -118,6 +118,7 @@ function normalizeAuthorizingContainerPathRefs(
 }
 
 export async function signDocumentOutgoingUpdate(input: {
+  authorizingContainerPathRefs: readonly (readonly ContainerManifestRef[])[];
   author: DocumentCreateAuthor;
   contentKeyEpoch: number;
   documentId: string;
@@ -139,6 +140,13 @@ export async function signDocumentOutgoingUpdate(input: {
   } as const;
   const unsignedHeader: UnsignedWriteHeader = {
     ...nonceDomain,
+    dependencyManifestHashes: [
+      ...new Set(
+        input.authorizingContainerPathRefs.flatMap((path) =>
+          path.map((ref) => ref.manifestHash),
+        ),
+      ),
+    ].sort(),
     accessManifestHash: input.expectedLinkSetManifestHash,
     targetHash: input.expectedTargetHash,
     nonceDomainHash: await computeContentRecordNonceDomainHash(nonceDomain),
@@ -246,6 +254,9 @@ export async function buildDocumentSyncPlan(
   const outgoingUpdates = await Promise.all(
     outgoingUpdateInputs.map((update) =>
       signDocumentOutgoingUpdate({
+        authorizingContainerPathRefs: normalizeAuthorizingContainerPathRefs(
+          input.authorizingContainerPathRefs,
+        ),
         author: input.author,
         contentKeyEpoch: input.contentKeyBundle.contentKeyEpoch,
         documentId,

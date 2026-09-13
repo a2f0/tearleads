@@ -64,6 +64,13 @@ bound.
 
 ## Assumptions and model boundary
 
+Distinct concurrent writers must have distinct peer IDs; otherwise a counter
+does not identify one operation history. The app enforces this assumption in
+`TearleadsProvider`: persistent panes use their separate identity namespaces,
+and each ephemeral runtime receives its own stable scope. The provider's peer
+scope regression checks isolation and stability across renders. This mapping
+does not change the model's version-vector dominance predicate.
+
 This is exhaustive bounded model checking, not an unbounded mathematical proof.
 The model reflects the post-pruning system: the server retains every accepted
 update, a normal-mode read is redirected through the readable current-epoch

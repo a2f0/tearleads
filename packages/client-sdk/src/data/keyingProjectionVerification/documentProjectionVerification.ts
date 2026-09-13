@@ -39,7 +39,7 @@ import {
 import { requireVerifiedDocumentPredecessor } from "./documentManifestPredecessor";
 import { rejectPurgedDocumentProjection } from "./documentPurgeCheckpointEnforcement";
 import { rethrowProjectionVerificationBoundaryError } from "./error";
-import { addHistoricalContainerTargetPaths } from "./historicalContainerTargetPaths";
+
 import {
   loadManifestCheckpointVerification,
   verifyCachedManifestCheckpoint,
@@ -140,17 +140,14 @@ async function verifyProjectionContainerPaths(input: {
       verifiedByHash.set(manifest.manifestHash, manifest);
     }
   }
-  // Current authorizing paths retain precedence in the content-write target
-  // index. Document/attachment events ignore its grouping and select exactly
-  // their own signed ancestor heads through resolveEventContainerPaths.
+  // Grouping supplies evidence only; each signed artifact selects its citations.
   for (const [
     index,
     path,
   ] of input.projection.documentManifestContainerPaths.entries()) {
     // Historical dependency evidence is verified without current checkpoint
     // enforcement. Its grouping cannot substitute an uncited ancestor into
-    // document-event authorization. Content-write target lookups below still
-    // prefer the checkpoint-enforced path for a served current leaf.
+    // document or content-write authorization.
     const verifiedPath = await verifyContainerManifestPath({
       servedAsCurrent: false,
       authorizationMembership: "referenced",
@@ -171,10 +168,12 @@ async function verifyProjectionContainerPaths(input: {
     }
   }
 
-  addHistoricalContainerTargetPaths({
-    containerPathByManifestHash,
-    manifests: verifiedByHash,
-  });
+  // Keep every verified head as evidence. Events and content headers select
+  // their own signed paths through resolveEventContainerPaths.
+  for (const [hash, manifest] of verifiedByHash) {
+    if (!containerPathByManifestHash.has(hash))
+      containerPathByManifestHash.set(hash, [manifest]);
+  }
 
   observeAccessManifestCheckpoints(input.checkpointContext, {
     verifiedHeads: [],

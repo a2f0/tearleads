@@ -8,6 +8,7 @@ import {
   predecessorBundleFromSuccessor,
   referencedPrincipalStateFromBundle,
 } from "../../../test/helpers/policyCacheFixtures";
+import { createPolicyDirectoryFixture } from "../../../test/helpers/policyDirectoryFixtures";
 import {
   loadPrincipalPolicyBundle,
   savePrincipalPolicyBundle,
@@ -19,6 +20,10 @@ test("referenced policy warming re-verifies an exact local bundle without a poli
   );
   try {
     const { bundle, signerKeyResponse } = await createPrincipalPolicyBundle();
+    const directory = await createPolicyDirectoryFixture({
+      organizationId: "org-1",
+      group: bundle,
+    });
     await savePrincipalPolicyBundle(
       execSql,
       bundle,
@@ -28,6 +33,7 @@ test("referenced policy warming re-verifies an exact local bundle without a poli
     let policyGetCount = 0;
 
     await cacheReferencedPolicies({
+      directory,
       organizationId: "org-1",
       execSql,
       getCurrentPrincipalPolicy: async () => {
@@ -52,6 +58,10 @@ test("referenced policy warming performs one policy GET for a local head mismatc
     const { bundle: cachedBundle } = await createPrincipalPolicyBundle();
     const { bundle, signerKeyResponse } =
       await createSuccessorPrincipalPolicyBundle();
+    const directory = await createPolicyDirectoryFixture({
+      organizationId: "org-1",
+      group: bundle,
+    });
     await savePrincipalPolicyBundle(
       execSql,
       cachedBundle,
@@ -61,6 +71,7 @@ test("referenced policy warming performs one policy GET for a local head mismatc
     let policyGetCount = 0;
 
     await cacheReferencedPolicies({
+      directory,
       organizationId: "org-1",
       execSql,
       getCurrentPrincipalPolicy: async () => {
@@ -84,6 +95,10 @@ test("referenced policy warming fetches once when the exact local chain is behin
   try {
     const { bundle, signerKeyResponse } =
       await createSuccessorPrincipalPolicyBundle();
+    const directory = await createPolicyDirectoryFixture({
+      organizationId: "org-1",
+      group: bundle,
+    });
     const cachedBundle = predecessorBundleFromSuccessor(bundle);
     const reference = referencedPrincipalStateFromBundle(cachedBundle);
     await savePrincipalPolicyBundle(
@@ -107,6 +122,7 @@ test("referenced policy warming fetches once when the exact local chain is behin
     let policyGetCount = 0;
 
     await cacheReferencedPolicies({
+      directory,
       organizationId: "org-1",
       execSql,
       getCurrentPrincipalPolicy: async () => {

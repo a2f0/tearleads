@@ -22,6 +22,7 @@ import {
   readRecordPositiveInteger,
   readRecordString,
   readRecordValue,
+  readStringArray,
 } from "../../recordReaders";
 
 export {
@@ -51,6 +52,10 @@ export function readWriteHeader(value: unknown, label: string): WriteHeader {
 
   return {
     version: 1,
+    dependencyManifestHashes: readStringArray(
+      readRecordValue(record, "dependencyManifestHashes"),
+      `${label}.dependencyManifestHashes`,
+    ),
     organizationId: readRecordString(record, "organizationId", label),
     objectKind,
     objectId: readRecordString(record, "objectId", label),

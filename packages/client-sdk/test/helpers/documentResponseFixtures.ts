@@ -1,10 +1,7 @@
 import {
   type AccessEvent,
-  CONTENT_RECORD_ENCRYPTION_SUITE,
   computeAccessEventHash,
-  computeDocumentContentRecordCiphertextHash,
   generateKemSeedAndKeyPair,
-  signWriteHeader,
   type WriteHeader,
 } from "@tearleads/crypto";
 import { createContainerWriterProjectionFixture } from "@tearleads/test-utils";
@@ -23,13 +20,9 @@ import type {
 import { buildDocumentCreatePlan } from "../../src/data/documents/shared/events";
 import { deriveDocumentCreateTargets } from "../../src/data/documents/shared/projection";
 import { targetEnvelopeReference } from "../../src/data/documents/shared/readers";
-import type {
-  DocumentCreateAuthor,
-  DocumentCreatePlan,
-} from "../../src/data/documents/shared/types";
+import type { DocumentCreatePlan } from "../../src/data/documents/shared/types";
 import { buildMaterializedDocumentCreatePlan } from "../../src/workflows/documents/create";
 import type { buildDocumentSyncPlan } from "../../src/workflows/documents/syncPlanIdentity";
-import { createDocumentEncryptedUpdateFixture } from "./documentEncryptedUpdateFixture";
 import {
   createAuthor,
   createProjection,
@@ -432,68 +425,4 @@ export async function createSyncResponse(
   };
 }
 
-export async function createSignedSyncResponseUpdate(input: {
-  accessManifestHash: string;
-  author: DocumentCreateAuthor;
-  contentKeyEpoch?: number | undefined;
-  id?: string | undefined;
-  plan: Awaited<ReturnType<typeof buildDocumentSyncPlan>>;
-  targetHash: string;
-}): Promise<DocumentSyncResponse["updates"][number]> {
-  const id = input.id ?? "550e8400-e29b-41d4-a716-446655440555";
-  const partialStartVersionVector = "{}";
-  const partialEndVersionVector = '{"actor":3}';
-  const plaintextHash = await fixtureHash(`plaintext:${id}`);
-  const contentKeyEpoch = input.contentKeyEpoch ?? input.plan.contentKeyEpoch;
-  const nonceDomain = {
-    version: 1 as const,
-    organizationId: input.plan.organizationId,
-    objectKind: "document" as const,
-    objectId: input.plan.documentId,
-    contentKeyEpoch,
-    encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
-    contentRecordId: id,
-  };
-  const { encryptedData, metadataHash, nonceDomainHash } =
-    await createDocumentEncryptedUpdateFixture({
-      contentKeyEpoch,
-      documentId: input.plan.documentId,
-      id,
-      organizationId: input.plan.organizationId,
-      partialEndVersionVector,
-      partialStartVersionVector,
-      plaintextHash,
-    });
-  const writeHeader = await signWriteHeader(
-    {
-      ...nonceDomain,
-      accessManifestHash: input.accessManifestHash,
-      targetHash: input.targetHash,
-      nonceDomainHash,
-      metadataHash,
-      ciphertextHash:
-        await computeDocumentContentRecordCiphertextHash(encryptedData),
-      writerUserId: input.author.signerUserId,
-      writerDeviceId: input.author.signerDeviceId,
-      writerKeyFingerprint: input.author.signerKeyFingerprint,
-      signedAt: "2026-04-27T00:00:00.000Z",
-    },
-    input.author.signerPrivateKey,
-  );
-
-  return {
-    accessEpoch: 1,
-    authorizationTargets: input.plan.sourceContentKeyBundle.targets.map(
-      targetEnvelopeReference,
-    ),
-    id,
-    documentId: input.plan.documentId,
-    authorFingerprint: input.author.signerKeyFingerprint,
-    encryptedData,
-    partialStartVersionVector,
-    partialEndVersionVector,
-    plaintextHash,
-    createdAt: "2026-04-27T00:00:00.000Z",
-    writeHeader: writeHeader as unknown as Record<string, unknown>,
-  };
-}
+export { createSignedSyncResponseUpdate } from "./signedSyncResponseUpdate";

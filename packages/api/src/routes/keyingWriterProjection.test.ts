@@ -350,6 +350,7 @@ async function buildDocumentUnlinkRequest(input: {
   const contentKeyEpoch =
     input.linkedDocument.contentKeyBundle.contentKeyEpoch + 1;
   const rotationBaseline = await createSignedAtomicRotationBaseline({
+    dependencyManifestHashes: [input.root.bundle.manifestHash],
     accessManifestHash: manifestHash,
     contentKeyEpoch,
     documentId,

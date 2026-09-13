@@ -1,5 +1,9 @@
 import { bytesToBase64 } from "@tearleads/encoding";
-import { getImportBlobMetadata, mergeVersionVectors } from "@tearleads/loro";
+import {
+  encodeVersionVector,
+  getImportBlobMetadata,
+  mergeVersionVectors,
+} from "@tearleads/loro";
 import { readPullContinuation } from "../../../data/documents/shared/syncPagination";
 import {
   type DocumentRecord,
@@ -9,12 +13,13 @@ import {
 import { requestDocumentStoreSync } from "../registry";
 import { hydrateAttachmentBlobs } from "./attachmentHydration";
 import { chainIdentityWrite } from "./identityWriteChain";
-import { persistDocument } from "./persistence";
+import { publishPersistedDocument, saveDocumentRecord } from "./persistence";
 import { logRevalidationApplied as logApplied } from "./remoteRevalidationTelemetry";
 import type {
   DocumentState,
   DocumentStoreState,
   DocumentSyncAttempt,
+  SaveDocumentRecordOptions,
 } from "./state";
 import {
   discardPreRegisteredUpdateIds,
@@ -28,7 +33,9 @@ import { clearConsumedRemoteUpdateSignal } from "./syncRemoteSignals";
 import {
   applyIncomingSyncedUpdates,
   documentSyncContextMatches,
+  importSyncedDocumentUpdates,
 } from "./syncUpdateImport";
+import { extendDocumentVersionCoverage } from "./versionCoverage";
 
 function documentWriterProjectionMatchesSyncResponse(
   writerProjection: NonNullable<
@@ -105,7 +112,7 @@ function coveredSyncFrontier(
 
 function documentSyncSaveOptions(
   syncAttempt: DocumentSyncAttempt,
-): Parameters<typeof persistDocument>[3] {
+): SaveDocumentRecordOptions {
   return {
     acceptedPendingUpdateIds: syncAttempt.synced.settledPendingUpdateIds,
     clearSyncFailure: shouldClearDocumentSyncFailureAfterPass(
@@ -121,6 +128,75 @@ function documentSyncSaveOptions(
     preserveSnapshotStructuredFields: true,
     preserveSnapshotText: true,
   };
+}
+
+async function persistSyncedDocument(
+  state: DocumentStoreState,
+  currentDoc: DocumentState,
+  currentRecord: DocumentRecord,
+  syncAttempt: DocumentSyncAttempt,
+  generation: DocumentStoreSyncGeneration,
+) {
+  const { synced } = syncAttempt;
+  const updates = synced.decryptedUpdates;
+  const candidate = currentDoc.fork();
+  const previousDocumentId = state.record?.documentId ?? null;
+  const options = documentSyncSaveOptions(syncAttempt);
+  const isCurrent = () =>
+    isDocumentStoreSyncGenerationCurrent(state, generation);
+  try {
+    importSyncedDocumentUpdates(candidate, updates);
+    if (state.pendingBaseVersion === null) {
+      throw new Error("Document sync requires an initialized pending base");
+    }
+    const persisted = await saveDocumentRecord(
+      state,
+      candidate,
+      {
+        ...synced.persistedState,
+        lastCommitLsn:
+          synced.response.commitLsn ?? currentRecord.lastCommitLsn ?? null,
+        pullContinuation: readPullContinuation(synced.response),
+        ...coveredSyncFrontier(state, currentRecord, synced),
+      },
+      {
+        ...options,
+        pendingBaseVersionOverride: extendDocumentVersionCoverage({
+          baseVersion: state.pendingBaseVersion,
+          documentVersion: encodeVersionVector(candidate),
+          spans: updates,
+        }),
+      },
+      generation,
+    );
+    if (
+      persisted &&
+      isCurrent() &&
+      !persisted.pullContinuationSuperseded &&
+      !persisted.syncIdentitySuperseded
+    ) {
+      // Publish a remote edit only once its history and continuation commit.
+      // Importing earlier lets a losing CAS expose text that the next local
+      // write authors against an older, reloaded CRDT history.
+      applyIncomingSyncedUpdates(
+        state,
+        currentDoc,
+        persisted.record,
+        syncAttempt,
+        generation,
+      );
+    }
+    return await publishPersistedDocument(
+      state,
+      currentDoc,
+      persisted,
+      previousDocumentId,
+      options,
+      isCurrent,
+    );
+  } finally {
+    candidate.free();
+  }
 }
 
 export function shouldReArmDocumentSync(
@@ -159,7 +235,6 @@ export async function finalizeDocumentSync(
     return state.record ?? currentRecord;
   }
 
-  let mergedDoc = currentDoc;
   // The sent IDs were pre-registered as self-authored before the network call so
   // the redis echo can never beat us. Reconcile against what the server actually
   // accepted: an ID we sent but the server did not accept will never be echoed,
@@ -189,40 +264,15 @@ export async function finalizeDocumentSync(
       return { record: liveRecord ?? currentRecord };
     }
 
-    mergedDoc = applyIncomingSyncedUpdates(
-      state,
-      currentDoc,
-      currentRecord,
-      syncAttempt,
-      generation,
-    );
     state.writerProjection = resolveSyncedDocumentWriterProjection(
       state,
       synced,
     );
-    const pullContinuation = readPullContinuation(synced.response);
-    const persisted = await persistDocument(
+    const persisted = await persistSyncedDocument(
       state,
-      mergedDoc,
-      {
-        ...synced.persistedState,
-        lastCommitLsn:
-          synced.response.commitLsn ?? currentRecord.lastCommitLsn ?? null,
-        pullContinuation,
-        ...coveredSyncFrontier(state, currentRecord, synced),
-      },
-      {
-        // This is a BACKGROUND metadata persist (commit LSN, accepted-update
-        // bookkeeping), not a content change: any genuinely-new remote text was
-        // already folded into the snapshot by applyIncomingSyncedUpdates inside
-        // this serialized identity guard.
-        // Re-deriving text/structured fields from the doc here is exactly what
-        // let a sync pass republish a stale CRDT read over an in-flight
-        // optimistic keystroke — regressing the controlled editor value and
-        // jumping the caret. Preserve the live snapshot so the latest keystroke
-        // always wins.
-        ...documentSyncSaveOptions(syncAttempt),
-      },
+      currentDoc,
+      currentRecord,
+      syncAttempt,
       generation,
     );
     if (
@@ -266,7 +316,7 @@ export async function finalizeDocumentSync(
     requestDocumentStoreSync(state);
   }
 
-  await hydrateAttachmentBlobs(state, mergedDoc, nextRecord, generation);
-  logApplied(state, mergedDoc, synced.decryptedUpdates.length, wasRemoteProbe);
+  await hydrateAttachmentBlobs(state, currentDoc, nextRecord, generation);
+  logApplied(state, currentDoc, synced.decryptedUpdates.length, wasRemoteProbe);
   return nextRecord;
 }
