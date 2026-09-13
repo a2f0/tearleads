@@ -25,3 +25,8 @@ delivery remains covered by `NoBrickedDevice`. This model abstracts signatures,
 key bytes, and same-version hash forks; implementation tests check reference
 version, key epoch, state hash, and fingerprint. Group locking is represented
 by atomic commit and rematerialization actions.
+
+The history comparison covers references present in consecutive signed states.
+A revoked group has no successor reference to compare; a later re-grant still
+passes the API's locked current-head check. This model does not represent revoke
+and re-grant or freshness of a first-seen policy on a dishonest server.

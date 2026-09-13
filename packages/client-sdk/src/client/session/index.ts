@@ -1,5 +1,4 @@
 import type { ApiClient } from "@tearleads/api-client";
-import { toFingerprint } from "@tearleads/crypto";
 import type { DocumentProjectorRegistryInput } from "../../data/documents/documentKinds";
 import { removeNativeSubscriptionRestoreProvisioningAttempt } from "../../workflows/organizations/createOrganization";
 import {
@@ -336,8 +335,6 @@ class SessionService implements Session {
       return null;
     }
 
-    const fingerprint = await toFingerprint(signingKeyPair.signingPublicKey);
-    this.identityAcknowledgments.assertMatches(response.userId, fingerprint);
     await pinLocalUserIdentity(response.userId, {
       encapsulationPublicKey: encapsulationKeyPair.publicKey,
       signingPublicKey: signingKeyPair.signingPublicKey,
@@ -345,7 +342,6 @@ class SessionService implements Session {
     if (this.dependencies.identity.snapshot !== identitySnapshot) {
       return null;
     }
-    this.identityAcknowledgments.remember(response.userId, fingerprint);
     this.setContext({
       containerId: response.rootContainerId,
       defaultOrganizationId: response.organizationId,

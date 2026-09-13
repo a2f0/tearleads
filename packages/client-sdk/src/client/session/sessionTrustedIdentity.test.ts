@@ -173,42 +173,6 @@ test("registration does not publish server context before local identity trust",
   }
 });
 
-test("registration refuses a conflicting acknowledged user before saving the response pin", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "registration-acknowledged-user",
-  );
-  const pinned: string[] = [];
-  const { api, identity } = await createLoginHarness();
-  const session = createSession({
-    api,
-    identity,
-    database: new Database({
-      client: createSqlClient(execSql),
-      id: "registration-acknowledged-user",
-    }),
-    log: () => undefined,
-    logError: () => undefined,
-    onUserIdentityAvailable: async (userId) => {
-      pinned.push(userId);
-    },
-  });
-  try {
-    session.setContext({ userId: USER_ID, containerId: crypto.randomUUID() });
-    const conflictingUserId = "22222222-2222-4222-8222-222222222222";
-    api.registerUser = async (...args) => ({
-      ...(await respondToRegistration(args)),
-      userId: conflictingUserId,
-    });
-    await expect(session.registerIdentity()).rejects.toMatchObject({
-      code: "object_mismatch",
-    });
-    expect(pinned).not.toContain(conflictingUserId);
-    expect(session.userId).toBe(USER_ID);
-  } finally {
-    close();
-  }
-});
-
 test("a host acknowledgment during login pinning rejects authentication and clears its token", async () => {
   const harness = await createLoginHarness(async () => {
     harness.session.setContext({ userId: "restored-during-pin" });

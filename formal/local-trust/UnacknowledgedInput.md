@@ -18,6 +18,7 @@ The configuration has two identities, two user IDs, and two document scopes.
 It begins with one restored identity acknowledgment; the other identity may
 establish its first binding. TLC explores repeated login attempts, switching
 identities while login is pending, unsigned discovery, and verified adoption.
+Failed create verification is modeled as taking no adoption step.
 It checks that adoption preserves the verified intended scope and that no
 existing acknowledgment changes. Both vulnerable rules are registered negative
 controls.
