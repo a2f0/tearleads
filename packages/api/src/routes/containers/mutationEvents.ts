@@ -35,7 +35,9 @@ interface PublishContainerMutationCreatedInput {
 // Only mutations that can remove read access evict subscribers. A grant adds a
 // reader, a rekey rotates key material, and a recite refreshes ancestor
 // citations — none changes membership, so evicting on them would resync every
-// descendant subscriber of a hot root for nothing.
+// descendant subscriber of a hot root for nothing. Their
+// `container_mutation_created` hint still reaches the container's own watchers,
+// who drop their cached writer projection on it.
 const EVICTING_EVENT_TYPES: ReadonlySet<AccessEventType> =
   new Set<AccessEventType>(["container.move", "container.revoke"]);
 

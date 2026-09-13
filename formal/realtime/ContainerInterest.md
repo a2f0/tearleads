@@ -86,8 +86,10 @@ live for at most one interval while verification succeeds and at most exactly
 lifetime. Organization purges publish per-container invalidations for the
 deleted rows. Only revoke, move, and delete evict; grants, rekeys, and recites
 do not remove readers and route their hints without evicting descendant
-subscribers. The eviction is published before the hint so the evicted socket
-never receives it.
+subscribers, and the client drops its cached writer projection for the hinted
+container on that hint so its next share or move fetches a fresh manifest
+instead of conflicting. The eviction is published before the hint so the evicted
+socket never receives it.
 
 Hint frames are scoped per recipient: the router rebuilds each frame with only
 the container ids that socket holds verified interest in (a document hint's

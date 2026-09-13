@@ -41,6 +41,25 @@ function shouldHydrateRootLane(input: {
   );
 }
 
+/**
+ * Containers named by `container_mutation_created` hints. Grant, rekey, and
+ * recite no longer evict subscribers, so this hint is the only signal that a
+ * container's writer projection (manifest head, KEKs) moved under a cached copy.
+ */
+export function listContainerMutationEventContainerIds(
+  events: ReadonlyArray<unknown>,
+): string[] {
+  const containerIds = new Set<string>();
+  for (const event of events) {
+    if (!isRecord(event) || event.type !== "container_mutation_created") {
+      continue;
+    }
+    const containerId = readNonEmptyString(event.containerId);
+    if (containerId) containerIds.add(containerId);
+  }
+  return [...containerIds];
+}
+
 export function listContainerParentIdsForEventHydration(
   events: ReadonlyArray<unknown>,
 ): Array<string | null> {
