@@ -24,8 +24,12 @@ results retry only changes to the requested ID, since they have no verified
 path. An unrelated mutation must never consume that query's retry budget.
 
 Production bounds retries to three attempts within one timeout budget, scaled
-to one base interval per 100 requested IDs. Tabs in
-one session share identical queries and wait for different queries. A timeout
+to one base interval per 100 requested IDs, capped at six intervals (60 seconds
+in production). Each socket retains at most 32 pending operations and 20,000
+declared IDs, including active work. Overflow closes the socket and makes its
+queued operations inert; runtime flood tests cover both limits. This uses the
+model's existing `CloseSocket` transition rather than modeling queue capacity.
+Tabs in one session share identical queries and wait for different queries. A timeout
 retains the raw query's slot until it settles. The separate 10,000-change
 observation cap may reject a query during a pub/sub flood; that availability
 limit is outside this bounded two-change model. Declarations acknowledge the
@@ -33,9 +37,8 @@ accepted IDs even when some were refused. A failed cache load or authorization
 returns an empty live baseline. A matching first full declaration can reuse the
 freshly checked result once, within its timeout window and before any observed
 dependency change; later declarations reauthorize. The client records those
-results
-and
-retries after a tree change or grant notification, without a denial-driven loop.
+results and retries after a tree change or grant notification, without a
+denial-driven loop.
 
 The model assumes the signed HTTP access workflow answers correctly at the
 query snapshot. Notification delivery is the point at which this process

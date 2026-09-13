@@ -14,6 +14,8 @@ import type { wsInterestStore } from "./wsInterestStore";
 import type { AppliedInterest, WsEventRouter } from "./wsRouting";
 
 type Interest = Exclude<AppliedInterest, null>;
+const MAX_PENDING_DECLARATIONS = 32;
+const MAX_PENDING_CONTAINER_IDS = 20_000;
 type PersistInterest = (
   userId: string,
   sessionId: string,
@@ -22,6 +24,8 @@ type PersistInterest = (
 
 interface SocketState {
   pending: Promise<void>;
+  declarations: number;
+  containerIds: number;
 }
 
 export class ContainerInterestAuthorizer {
@@ -44,7 +48,11 @@ export class ContainerInterestAuthorizer {
 
   open(ws: WsConnection): Promise<void> {
     this.restoration.clear(ws);
-    this.states.set(ws, { pending: Promise.resolve() });
+    this.states.set(ws, {
+      pending: Promise.resolve(),
+      declarations: 0,
+      containerIds: 0,
+    });
     return this.enqueue(ws, async () => {
       try {
         const cached = await beforeDeadline(
@@ -122,45 +130,49 @@ export class ContainerInterestAuthorizer {
   }
 
   apply(ws: WsConnection, declaration: Interest): Promise<void> {
-    return this.enqueue(ws, async () => {
-      const ids = [...new Set(declaration.containerIds)];
-      const install = (proofs: VerifiedContainerInterest[]): void => {
-        const containerIds =
-          declaration.kind === "remove"
-            ? ids
-            : proofs.map((proof) => proof.containerId);
-        const action = { ...declaration, containerIds };
-        this.router.applyAuthorizedContainerInterest(ws, declaration, proofs);
-        // An acknowledgement means processing is complete, including denials.
-        // It lets reconnect reconciliation remove stale local IDs over HTTP.
-        if (declaration.declarationId)
-          sendSafely(
-            ws,
-            serializeWsServerMessage({
-              type: "known_containers_ack",
-              containerIds,
-              declarationId: declaration.declarationId,
-            }),
-          );
-        if (declaration.kind === "add") {
-          const accepted = new Set(containerIds);
-          const refused = ids.filter((id) => !accepted.has(id));
-          if (refused.length > 0)
-            this.persist(ws.data.userId, ws.data.sessionId, {
-              kind: "remove",
-              containerIds: refused,
-            });
-        }
-        this.persist(ws.data.userId, ws.data.sessionId, action);
-      };
-      const restored = this.restoration.take(
-        ws,
-        declaration.kind === "replace" ? ids : null,
-      );
-      if (declaration.kind === "remove") install([]);
-      else if (restored) install(restored);
-      else await this.queries.run(ws, ids, () => this.isOpen(ws), install);
-    });
+    return this.enqueue(
+      ws,
+      async () => {
+        const ids = [...new Set(declaration.containerIds)];
+        const install = (proofs: VerifiedContainerInterest[]): void => {
+          const containerIds =
+            declaration.kind === "remove"
+              ? ids
+              : proofs.map((proof) => proof.containerId);
+          const action = { ...declaration, containerIds };
+          this.router.applyAuthorizedContainerInterest(ws, declaration, proofs);
+          // An acknowledgement means processing is complete, including denials.
+          // It lets reconnect reconciliation remove stale local IDs over HTTP.
+          if (declaration.declarationId)
+            sendSafely(
+              ws,
+              serializeWsServerMessage({
+                type: "known_containers_ack",
+                containerIds,
+                declarationId: declaration.declarationId,
+              }),
+            );
+          if (declaration.kind === "add") {
+            const accepted = new Set(containerIds);
+            const refused = ids.filter((id) => !accepted.has(id));
+            if (refused.length > 0)
+              this.persist(ws.data.userId, ws.data.sessionId, {
+                kind: "remove",
+                containerIds: refused,
+              });
+          }
+          this.persist(ws.data.userId, ws.data.sessionId, action);
+        };
+        const restored = this.restoration.take(
+          ws,
+          declaration.kind === "replace" ? ids : null,
+        );
+        if (declaration.kind === "remove") install([]);
+        else if (restored) install(restored);
+        else await this.queries.run(ws, ids, () => this.isOpen(ws), install);
+      },
+      declaration.containerIds.length,
+    );
   }
 
   private isOpen(ws: WsConnection): boolean {
@@ -170,9 +182,21 @@ export class ContainerInterestAuthorizer {
   private enqueue(
     ws: WsConnection,
     operation: () => Promise<void>,
+    containerIds = 0,
   ): Promise<void> {
     const state = this.states.get(ws);
     if (!state) return Promise.resolve();
+    if (
+      state.declarations >= MAX_PENDING_DECLARATIONS ||
+      state.containerIds + containerIds > MAX_PENDING_CONTAINER_IDS
+    ) {
+      this.close(ws);
+      this.router.close(ws);
+      closeSafely(ws, 1013, "Too many pending container declarations");
+      return Promise.resolve();
+    }
+    state.declarations++;
+    state.containerIds += containerIds;
     state.pending = state.pending
       .then(async () => {
         if (this.states.get(ws) !== state || !this.router.isOpen(ws)) return;
@@ -184,6 +208,10 @@ export class ContainerInterestAuthorizer {
         this.close(ws);
         this.router.close(ws);
         closeSafely(ws, 1011, "Container authorization unavailable");
+      })
+      .finally(() => {
+        state.declarations--;
+        state.containerIds -= containerIds;
       });
     return state.pending;
   }

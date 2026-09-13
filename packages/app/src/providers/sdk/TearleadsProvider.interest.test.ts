@@ -385,7 +385,7 @@ test("a grant during initial authorization preserves its acknowledgment barrier"
     containerIds: ["refused"],
   });
   const retry = JSON.parse(sent[1] ?? "null");
-  handle.acknowledge(retry.declarationId, []);
+  expect(handle.acknowledge(retry.declarationId, [])).toBe(false);
   expect(sent).toHaveLength(2);
   handle.stop();
 });

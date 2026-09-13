@@ -13,7 +13,7 @@ export type ContainerContentsStoreRuntime =
 export interface RefreshRootLaneOptions {
   readonly includeActiveRootChildLane?: boolean | undefined;
   // Extra parent lanes to re-list alongside the root lane. Used by the
-  // resync_required handler to re-list a flagged container's parent lane so a
+  // resync_required handler to re-list affected containers' parent lanes so a
   // tombstone only visible there is still applied without the full crawl.
   readonly parentIds?: ReadonlyArray<string | null> | undefined;
 }
