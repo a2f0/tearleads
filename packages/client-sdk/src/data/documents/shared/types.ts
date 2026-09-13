@@ -282,10 +282,10 @@ export interface DocumentLinkSetEventPlan {
  * move-intent queue so a permission failure reads as one, instead of the
  * generic "rejected or unavailable".
  */
-export interface DocumentLinkSetMutationFailure {
-  readonly message: string;
-  readonly status: number | null;
-}
+export type DocumentLinkSetMutationFailure = Pick<
+  DocumentSyncSubmitFailure,
+  "code" | "message" | "status"
+>;
 
 export type DocumentLinkSetFailureHandler = (
   failure: DocumentLinkSetMutationFailure,
@@ -293,11 +293,7 @@ export type DocumentLinkSetFailureHandler = (
 
 type DocumentLinkSetMutationResult =
   | { readonly data: DocumentLinkSetMutationResponse; readonly ok: true }
-  | {
-      readonly message: string;
-      readonly ok: false;
-      readonly status: number | null;
-    };
+  | (DocumentLinkSetMutationFailure & { readonly ok: false });
 
 export interface DocumentLinkSetMutationApi {
   getBlobBytes(blobId: string): Promise<BlobBytesResponse | null>;

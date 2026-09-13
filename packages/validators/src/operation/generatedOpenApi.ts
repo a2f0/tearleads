@@ -7335,7 +7335,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": ({
-                        code?: ("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found");
+                        code?: ("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -7622,7 +7622,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": ({
-                        code?: ("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found");
+                        code?: ("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -8422,7 +8422,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": ({
-                        code?: ("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found");
+                        code?: ("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -8794,7 +8794,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": ({
-                        code?: ("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found");
+                        code?: ("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -9285,7 +9285,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": ({
-                        code?: ("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found");
+                        code?: ("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -9776,7 +9776,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": ({
-                        code?: ("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found");
+                        code?: ("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -10267,7 +10267,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": ({
-                        code?: ("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found");
+                        code?: ("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -11324,7 +11324,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": ({
-                        code?: ("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found");
+                        code?: ("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -11817,7 +11817,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found";
+                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -11831,7 +11831,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found";
+                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -12681,7 +12681,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found";
+                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -12695,7 +12695,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found";
+                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -13042,7 +13042,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found";
+                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -13056,7 +13056,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found";
+                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -13419,7 +13419,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found";
+                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -13433,7 +13433,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found";
+                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -14332,7 +14332,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found";
+                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -14346,7 +14346,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found";
+                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable";
                         error: string;
                     } & {
                         [key: string]: unknown;

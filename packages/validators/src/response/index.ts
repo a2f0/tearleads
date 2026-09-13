@@ -135,6 +135,10 @@ export {
   ListContainerParentLanesResponseSchema,
 } from "./containerParentLanes";
 export {
+  CONTAINER_UNAVAILABLE_ERROR_CODE,
+  type ContainerUnavailableErrorCode,
+} from "./containerUnavailableError";
+export {
   type ContainerDocumentSummary,
   ContainerDocumentSummaryResponseSchema,
   type ContainerDocumentSyncTombstone,

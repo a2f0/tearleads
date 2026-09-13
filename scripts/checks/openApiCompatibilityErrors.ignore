@@ -1,0 +1,22 @@
+# Issue: #2278 (#4 low / M9) adds the coded `container_unavailable` 409 to the
+# document and container mutation failure envelopes (a cited container path
+# element has no live row). Flag-day contract growth under the greenfield policy.
+# Remove as soon as main contains the container_unavailable error code.
+DELETE /containers/{containerId} added `subschema #4` to the `anyOf[subschema #1]/code/anyOf[subschema #2]/` response property `anyOf` list for the response status `409`
+GET /documents/{documentId}/purge added `subschema #4` to the `code` response property `anyOf` list for the response status `404`
+GET /documents/{documentId}/purge added `subschema #4` to the `code` response property `anyOf` list for the response status `409`
+POST /containers added `subschema #4` to the `anyOf[subschema #1]/code/anyOf[subschema #2]/` response property `anyOf` list for the response status `409`
+POST /containers/{containerId}/move added `subschema #4` to the `anyOf[subschema #1]/code/anyOf[subschema #2]/` response property `anyOf` list for the response status `409`
+POST /containers/{containerId}/recite added `subschema #4` to the `anyOf[subschema #1]/code/anyOf[subschema #2]/` response property `anyOf` list for the response status `409`
+POST /containers/{containerId}/rekey added `subschema #4` to the `anyOf[subschema #1]/code/anyOf[subschema #2]/` response property `anyOf` list for the response status `409`
+POST /containers/{containerId}/revoke added `subschema #4` to the `anyOf[subschema #1]/code/anyOf[subschema #2]/` response property `anyOf` list for the response status `409`
+POST /containers/{containerId}/share added `subschema #4` to the `anyOf[subschema #1]/code/anyOf[subschema #2]/` response property `anyOf` list for the response status `409`
+POST /containers/with-metadata-document added `subschema #4` to the `anyOf[subschema #1]/code/anyOf[subschema #2]/` response property `anyOf` list for the response status `409`
+POST /documents added `subschema #4` to the `code` response property `anyOf` list for the response status `404`
+POST /documents added `subschema #4` to the `code` response property `anyOf` list for the response status `409`
+POST /documents/{documentId}/link added `subschema #4` to the `code` response property `anyOf` list for the response status `404`
+POST /documents/{documentId}/link added `subschema #4` to the `code` response property `anyOf` list for the response status `409`
+POST /documents/{documentId}/purge added `subschema #4` to the `code` response property `anyOf` list for the response status `404`
+POST /documents/{documentId}/purge added `subschema #4` to the `code` response property `anyOf` list for the response status `409`
+POST /documents/{documentId}/unlink added `subschema #4` to the `code` response property `anyOf` list for the response status `404`
+POST /documents/{documentId}/unlink added `subschema #4` to the `code` response property `anyOf` list for the response status `409`

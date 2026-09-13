@@ -31,6 +31,34 @@ checks the current table shape, and backup imports require format version 8.
 Request validation and signed-history verification enforce the active protocol
 throughout normal operation.
 
+### Deployment resets
+
+Signed-shape changes are flag days: stored rows in the old shape are refused
+outright (`assertExactKeys`), never migrated or dual-read. Deploying any of the
+following onto a database that predates it requires the greenfield reset above
+(every server database and every client database):
+
+- #2268: signed artifacts (events, manifests, principal states) must carry a
+  canonical millisecond ISO-8601 `signedAt`; any other encoding fails
+  verification.
+- #2275: content write headers require `dependencyManifestHashes`; headers
+  stored without a citation are refused on read and cannot be re-served.
+- #2276: container manifests require `systemSlot`; pre-#2276 manifests fail the
+  exact-key check.
+- #2271: container path references are resolved against live `containers`
+  rows. A document whose only link targets a container deleted before #2271
+  is unreachable for everyone (`document_projection_container_unavailable`),
+  cannot be unlinked (the path needs the deleted container) and cannot be
+  purged. No repair path exists by design; the greenfield reset covers such
+  rows. The 409 is coded `container_unavailable` (#2278).
+
+Organization purge (`status = "purged"`) is terminal and not a reset: the
+organization row survives, but every container, document, and blob mutation in
+that organization is refused with `402 billing_inactive`, and a replacement
+organization is provisioned under a fresh organization id. Purged ids are
+therefore never recreated under the same `(kind, organization, id)` key, so
+client checkpoints keyed that way cannot observe a false rollback (#2278 #17).
+
 ### Connection settings
 
 When `NODE_ENV=production`, `API_DATABASE` must be set explicitly.

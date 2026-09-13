@@ -6,11 +6,16 @@ import {
 } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
 import {
   type DocumentLinkSetFailureHandler,
-  type DocumentLinkSetMutationFailure,
   type DocumentRecord,
   defaultDocumentsPersistence,
 } from "../documents";
 import { moveRemoteContainerDocument } from "./documentLinks";
+import {
+  createDocumentMoveFailureState,
+  type DocumentMoveFailureState,
+  describeRejectedDocumentMove,
+  recordDocumentMoveFailure,
+} from "./documentMoveFailure";
 import { settleDocumentMoveIntent } from "./documentMoveIntentSettlement";
 import type {
   DocumentStructuralMutationLocalStore,
@@ -27,11 +32,6 @@ type DocumentMoveIntentReplayResult =
   | "partial"
   | "blocked"
   | "failed";
-
-interface DocumentMoveFailureState {
-  current: DocumentLinkSetMutationFailure | null;
-  sawPermissionDenial: boolean;
-}
 
 export interface DocumentMoveIntentSyncHost<TRuntime> {
   documentWorkflowRuntime: (containerId: string) => TRuntime;
@@ -202,26 +202,6 @@ async function movePendingDocumentIntent<TRuntime>(input: {
   });
 }
 
-/**
- * The queue-facing description of a failed remote move. The stable prefix is
- * kept so existing consumers keep matching; the captured detail appends the
- * HTTP status when one was seen, so a revoked permission (403) reads
- * differently from an offline blip.
- */
-function describeRejectedDocumentMove(
-  failure: DocumentLinkSetMutationFailure | null,
-): string {
-  const prefix = "Remote document move was rejected or unavailable";
-  if (!failure) {
-    return prefix;
-  }
-  const detail =
-    failure.status === null
-      ? failure.message
-      : `${failure.message} (${failure.status})`;
-  return `${prefix}: ${detail}`;
-}
-
 async function resolveMoveIntentPreflight(input: {
   isRemoteSyncBlocked: (organizationId: string) => boolean;
   isCurrent: () => boolean;
@@ -289,6 +269,12 @@ async function recordRejectedDocumentMove(input: {
   state: DocumentMoveIntentSyncState;
 }): Promise<void> {
   await recordPendingDocumentMoveIntentError({
+    // A vanished container is the remote form of the "missing destination
+    // container" preflight block: the intent can never commit as written, so
+    // it stops counting as lane progress and simply re-records its reason
+    // until hydration tears the deleted container down locally and the
+    // preflight owns the verdict. It is not a transient failure to retry.
+    blocked: input.failure.sawVanishedContainer,
     // A permission denial parks the intent for the access-restored signal
     // instead of replaying on every structural pass (row 7).
     denied: input.failure.sawPermissionDenial,
@@ -296,7 +282,7 @@ async function recordRejectedDocumentMove(input: {
     expectedIntentId: input.intent.id,
     expectedUpdatedAt: input.intent.updatedAt,
     isCurrent: input.isCurrent,
-    message: describeRejectedDocumentMove(input.failure.current),
+    message: describeRejectedDocumentMove(input.failure),
     state: input.state,
   });
 }
@@ -325,20 +311,13 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
   const { existingDocument } = preflight;
 
   try {
-    const lastFailure: DocumentMoveFailureState = {
-      current: null,
-      sawPermissionDenial: false,
-    };
+    const lastFailure = createDocumentMoveFailureState();
     const moved = await movePendingDocumentIntent({
       existingContainerId: existingDocument.containerId,
       host,
       isCurrent: input.isCurrent,
       intent,
-      onFailure: (failure) => {
-        lastFailure.current = failure;
-        lastFailure.sawPermissionDenial =
-          lastFailure.sawPermissionDenial || failure.status === 403;
-      },
+      onFailure: (failure) => recordDocumentMoveFailure(lastFailure, failure),
       state,
     });
     if (moved === "abandoned" || !input.isCurrent()) return "abandoned";

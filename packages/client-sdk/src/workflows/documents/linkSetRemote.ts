@@ -10,6 +10,7 @@ import type {
   DocumentCreateAuthor,
   DocumentLinkSetFailureHandler,
   DocumentLinkSetMutationApi,
+  DocumentLinkSetMutationFailure,
   DocumentLinkSetMutationOperation,
   DocumentSyncSubmitFailure,
   RelinkRemoteDocumentResult,
@@ -49,12 +50,16 @@ async function submitLinkSetMutation(input: {
   if (result.ok) {
     return result.data;
   }
-  input.onFailure?.({ message: result.message, status: result.status });
+  input.onFailure?.({
+    code: result.code,
+    message: result.message,
+    status: result.status,
+  });
   return null;
 }
 
 interface LinkSetProjectionFetch<TProjection> {
-  failure: { message: string; status: number | null } | null;
+  failure: DocumentLinkSetMutationFailure | null;
   projection: TProjection | null;
 }
 
@@ -73,7 +78,11 @@ async function fetchLinkSetProjection<TProjection>(input: {
   }
   result.report();
   return {
-    failure: { message: result.message, status: result.status },
+    failure: {
+      code: result.code,
+      message: result.message,
+      status: result.status,
+    },
     projection: null,
   };
 }
@@ -243,7 +252,7 @@ export async function relinkRemoteDocument(input: {
 }
 
 function preferredProjectionFailure(
-  failures: readonly ({ message: string; status: number | null } | null)[],
+  failures: readonly (DocumentLinkSetMutationFailure | null)[],
 ) {
   return (
     failures.find((failure) => failure?.status === 403) ??
