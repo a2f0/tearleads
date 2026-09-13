@@ -129,6 +129,77 @@ export class ContainerInterestAuthorizer {
     this.queries.invalidate(containerId);
   }
 
+  /**
+   * Re-verify every subscription this socket currently holds against the
+   * signed access workflow, evicting (with `resync_required`) any the workflow
+   * no longer grants. Bounds the window a lost `access_changed` leaves a revoked
+   * subscription live. `resyncAll` additionally tells the client to resync every
+   * held container — used when this process may have missed hints wholesale
+   * (a pub/sub reconnect), not only access changes. Runs on the socket's own
+   * queue so it never interleaves with a declaration; a verification failure
+   * keeps the socket (the next pass retries) instead of closing it.
+   */
+  revalidate(
+    ws: WsConnection,
+    options: { readonly resyncAll?: boolean } = {},
+  ): Promise<void> {
+    const state = this.states.get(ws);
+    if (!state || state.declarations >= MAX_PENDING_DECLARATIONS)
+      return Promise.resolve();
+    return this.enqueue(ws, async () => {
+      const ids = this.router.interestOf(ws);
+      if (ids.length === 0) return;
+      try {
+        await this.queries.run(
+          ws,
+          ids,
+          () => this.isOpen(ws),
+          (proofs) => this.installRevalidated(ws, ids, proofs, options),
+        );
+      } catch (error) {
+        console.error("Failed to revalidate websocket interest:", error);
+        reportBackgroundFailure(error);
+      }
+    });
+  }
+
+  revalidateAll(options: { readonly resyncAll?: boolean } = {}): Promise<void> {
+    return Promise.all(
+      this.router.openSockets().map((ws) => this.revalidate(ws, options)),
+    ).then(() => undefined);
+  }
+
+  private installRevalidated(
+    ws: WsConnection,
+    ids: string[],
+    proofs: VerifiedContainerInterest[],
+    options: { readonly resyncAll?: boolean },
+  ): void {
+    const accepted = new Set(proofs.map((proof) => proof.containerId));
+    const refused = ids.filter((id) => !accepted.has(id));
+    // Re-adding the held set refreshes each surviving proof's dependency path
+    // (a move re-parents it) and drops the refused ids in one step.
+    this.router.applyAuthorizedContainerInterest(
+      ws,
+      { kind: "add", containerIds: ids },
+      proofs,
+    );
+    const resync = options.resyncAll ? ids : refused;
+    if (resync.length > 0)
+      sendSafely(
+        ws,
+        serializeWsServerMessage({
+          type: "resync_required",
+          containerIds: resync,
+        }),
+      );
+    if (refused.length > 0)
+      this.persist(ws.data.userId, ws.data.sessionId, {
+        kind: "remove",
+        containerIds: refused,
+      });
+  }
+
   apply(ws: WsConnection, declaration: Interest): Promise<void> {
     return this.enqueue(
       ws,

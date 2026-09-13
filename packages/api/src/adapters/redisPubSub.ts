@@ -14,12 +14,31 @@ type RedisClient = ReturnType<typeof createRedisClient>;
 type EventListener = (message: string) => void;
 
 const listeners = new Set<EventListener>();
+const reconnectListeners = new Set<() => void>();
 
 let publisher: RedisClient | null = null;
 let subscriber: RedisClient | null = null;
 let publisherConnectPromise: Promise<RedisClient> | null = null;
 let subscriberReadyPromise: Promise<RedisClient> | null = null;
 let subscriberSubscribed = false;
+let subscriberWasReady = false;
+
+// Pub/sub is at-most-once: every message published while the subscriber was
+// disconnected is gone. The client re-subscribes the channel on its own, so
+// the second and later `ready` events mark exactly those gaps.
+function notifySubscriberReconnected(): void {
+  if (!subscriberWasReady) {
+    subscriberWasReady = true;
+    return;
+  }
+  for (const listener of reconnectListeners) {
+    try {
+      listener();
+    } catch (error) {
+      console.error("Redis subscriber reconnect listener error:", error);
+    }
+  }
+}
 
 function getPublisher(): RedisClient {
   if (publisher) {
@@ -43,6 +62,7 @@ function getSubscriber(): RedisClient {
   nextSubscriber.on("error", (err) => {
     console.error("Redis subscriber error:", err);
   });
+  nextSubscriber.on("ready", notifySubscriberReconnected);
   subscriber = nextSubscriber;
   return nextSubscriber;
 }
@@ -125,6 +145,23 @@ export function addListener(listener: EventListener): () => void {
   };
 }
 
+/**
+ * Observe the subscriber re-establishing its connection after a drop. The
+ * in-memory bus never disconnects, so it never fires.
+ */
+export function addSubscriberReconnectListener(
+  listener: () => void,
+): () => void {
+  if (isInMemoryRedisEnabled()) {
+    return () => {};
+  }
+
+  reconnectListeners.add(listener);
+  return () => {
+    reconnectListeners.delete(listener);
+  };
+}
+
 export async function closeRedisPubSub(): Promise<void> {
   if (isInMemoryRedisEnabled()) {
     clearInMemoryRedisPubSub();
@@ -139,6 +176,7 @@ export async function closeRedisPubSub(): Promise<void> {
   publisherConnectPromise = null;
   subscriberReadyPromise = null;
   subscriberSubscribed = false;
+  subscriberWasReady = false;
 
   if (activeSubscriber?.isOpen) {
     await activeSubscriber.close();

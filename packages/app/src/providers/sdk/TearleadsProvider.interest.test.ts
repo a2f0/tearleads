@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import type { Tearleads } from "@tearleads/client-sdk";
+import { MAX_WS_INTEREST_CONTAINER_IDS } from "@tearleads/validators/realtime";
 import {
   createMswEventRouter,
   type MswSocketClient,
@@ -110,6 +111,54 @@ for (const initialPending of [false, true]) {
     handle.stop();
   });
 }
+
+test("splits an oversized declaration at the server cap and clears the barrier on the last ack", () => {
+  const ids = Array.from(
+    { length: MAX_WS_INTEREST_CONTAINER_IDS + 1 },
+    (_, index) => `container-${index}`,
+  );
+  const fakeStore = createFakeStore(ids);
+  const { sent, ws } = fakeSocket(WebSocket.OPEN);
+  const handle = startContainerInterestDeclaration(
+    tearleadsWithStore(() => fakeStore.store),
+    ws,
+    new Set(),
+  );
+  const [first, second] = sent.map((value) => JSON.parse(value));
+  expect(sent).toHaveLength(2);
+  expect(first).toMatchObject({ type: "known_containers" });
+  expect(first.containerIds).toHaveLength(MAX_WS_INTEREST_CONTAINER_IDS);
+  expect(second).toMatchObject({
+    type: "known_containers.add",
+    containerIds: [ids.at(-1)],
+  });
+  expect(first.declarationId).not.toBe(second.declarationId);
+  // Neither chunk alone completes the authoritative declaration.
+  expect(handle.acknowledge(first.declarationId, first.containerIds)).toBe(
+    false,
+  );
+  expect(handle.acknowledge(second.declarationId, second.containerIds)).toBe(
+    true,
+  );
+
+  fakeStore.setNodes([
+    ...ids,
+    ...Array.from(
+      { length: MAX_WS_INTEREST_CONTAINER_IDS + 1 },
+      (_, index) => `later-${index}`,
+    ),
+  ]);
+  const deltas = sent.slice(2).map((value) => JSON.parse(value));
+  expect(deltas.map((delta) => delta.type)).toEqual([
+    "known_containers.add",
+    "known_containers.add",
+  ]);
+  expect(deltas.map((delta) => delta.containerIds.length)).toEqual([
+    MAX_WS_INTEREST_CONTAINER_IDS,
+    1,
+  ]);
+  handle.stop();
+});
 
 test("declares the authoritative ready set, waits for its ack, then sends deltas", () => {
   const fakeStore = createFakeStore(["c1", "c2"]);

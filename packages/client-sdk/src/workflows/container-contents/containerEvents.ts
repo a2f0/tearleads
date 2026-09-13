@@ -31,7 +31,7 @@ function addHydrationParentId(
 
 function shouldHydrateRootLane(input: {
   eventType: string;
-  parentId: string | null;
+  parentId: string | null | undefined;
   previousParentId: string | null | undefined;
 }): boolean {
   return (
@@ -62,16 +62,22 @@ export function listContainerParentIdsForEventHydration(
     // the other peer until a manual refresh.
     const containerId = readNonEmptyString(event.containerId);
     const eventType = readNonEmptyString(event.eventType);
-    const parentId = readNullableString(event.parentId);
-    if (!containerId || !eventType || parentId === undefined) {
+    if (!containerId || !eventType) {
       continue;
     }
 
+    // The server scopes each hint to the recipient's own interest: a parent or
+    // previous parent this client is not subscribed to is withheld entirely
+    // (undefined), while null still names the root. Hydrate only the lanes the
+    // hint names; the container's own lane resolves its current parent.
+    const parentId = readNullableString(event.parentId);
     const previousParentId = readNullableString(event.previousParentId);
     if (shouldHydrateRootLane({ eventType, parentId, previousParentId })) {
       addHydrationParentId(parentIds, null);
     }
-    addHydrationParentId(parentIds, parentId);
+    if (parentId !== undefined) {
+      addHydrationParentId(parentIds, parentId);
+    }
     addHydrationParentId(parentIds, containerId);
 
     if (previousParentId !== undefined) {

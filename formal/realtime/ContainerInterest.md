@@ -14,6 +14,7 @@ closed socket.
 | `RetryAuthorization` | `authorizationWasInvalidated` checks requested IDs and accepted proof dependencies |
 | `ChangeAccess` | Container mutation and principal policy routes publish invalidations; `ContainerInterestAuthorizer.invalidateAccess` and `WsEventRouter.routeServerEvent` observe them |
 | `CloseSocket` | `ContainerInterestAuthorizer.close` and `WsEventRouter.close` |
+| (boundary assumption) lost pub/sub delivery | `ContainerInterestAuthorizer.revalidate` re-verifies installed proofs on the jittered `ContainerInterestRevalidationSchedule` interval and on every subscriber reconnect via `addSubscriberReconnectListener` |
 
 The bounded model has a child subscription that depends on its root and a group
 policy, plus an independent subscription belonging to another socket. A change
@@ -48,6 +49,24 @@ fresh declaration is refused; the missed-hint recovery is exercised at runtime.
 No fairness or eventual-delivery guarantee is claimed. Runtime tests
 cover per-socket ordering, filtered persistence, timeouts, multi-tab sharing,
 principal notifications, accepted-ID acknowledgments, and client retry races.
+
+Production bounds the lost-message window the model leaves open. Pub/sub is
+at-most-once, so an `access_changed` published during a subscriber outage never
+arrives. Each socket re-runs the same signed batch verification over its
+installed proofs on a jittered interval (five minutes by default), evicting
+refusals with `resync_required` exactly as an observed change would, and a
+subscriber reconnect re-verifies every live socket immediately while asking
+each client to resync everything it holds. A lost invalidation therefore leaves
+a revoked subscription live for at most one interval, not the socket lifetime.
+Organization purges publish per-container invalidations for the deleted rows.
+Only revoke, move, and delete evict; grants, rekeys, and recites do not remove
+readers and route their hints without evicting descendant subscribers. The
+eviction is published before the hint so the evicted socket never receives it.
+
+Hint frames are scoped per recipient: the router rebuilds each frame with only
+the container ids that socket holds verified interest in (a document hint's
+linked containers, a container hint's parent and previous parent), so a watcher
+of one side of a move never learns the other side.
 
 Revocation frames batch affected IDs per socket. The app queues each affected
 container once and refreshes root plus distinct parent lanes once per batch;

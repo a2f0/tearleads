@@ -126,11 +126,13 @@ test("malformed and unknown server frames fail closed", () => {
       }),
     ),
   ).toBeNull();
+  // A withheld parent is omitted, never blanked: an empty id fails closed.
   expect(
     parseWsServerMessage(
       JSON.stringify({
         containerId: C1,
         eventType: "container.create",
+        parentId: "",
         type: "container_mutation_created",
         updatedAt: "2026-09-03T00:00:00.000Z",
       }),

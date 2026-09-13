@@ -23,6 +23,7 @@ import { uploadBlobObject } from "../../../test/helpers/blobObjectStore";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
 import { createMemoryBlobObjectStore } from "../../adapters/blobObjectStore";
+import type { PublishedRealtimeEvent } from "../../realtime/publishedRealtimeEvents";
 import { sha256Hex } from "../../utils/sha256";
 import {
   finalizeOrganizationPurge,
@@ -136,13 +137,37 @@ test("organization purge removes one organization's remote state and retains its
       status: "disabled",
     })
     .where(eq(organizationBilling.organizationId, organizationId));
+  const purgedContainerIds = (
+    await db
+      .select({ id: containers.id })
+      .from(containers)
+      .where(eq(containers.organizationId, organizationId))
+  ).map((row) => row.id);
+  expect(purgedContainerIds).not.toEqual([]);
+  const published: PublishedRealtimeEvent[] = [];
 
   expect(
-    await runOrganizationPurgeMaintenance(createServiceTestRuntime(), {
-      now,
-      organizationIds: [organizationId],
-    }),
+    await runOrganizationPurgeMaintenance(
+      {
+        ...createServiceTestRuntime(),
+        eventPublisher: {
+          publish: async (event) => {
+            published.push(event);
+          },
+        },
+      },
+      { now, organizationIds: [organizationId] },
+    ),
   ).toEqual({ claimed: 1, failed: 0, purged: 1 });
+  // Live sockets subscribed to purged containers get the same invalidation a
+  // delete would publish; nothing else tells them the rows are gone.
+  expect(
+    published
+      .flatMap((event) =>
+        event.type === "access_changed" ? [event.containerId] : [],
+      )
+      .sort(),
+  ).toEqual([...purgedContainerIds].sort());
 
   const [billing] = await db
     .select({

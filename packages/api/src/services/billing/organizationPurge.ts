@@ -1,4 +1,6 @@
 import { reportBackgroundFailure } from "../../diagnostics/reportBackgroundFailure";
+import type { PublishedRealtimeEvent } from "../../realtime/publishedRealtimeEvents";
+import { publishBestEffort } from "../../utils/publishBestEffort";
 import {
   claimDueOrganizationPurges,
   finalizeOrganizationPurge,
@@ -40,6 +42,26 @@ function createLeaseGuard(input: {
   };
 }
 
+// The purge deletes container rows without any container mutation, so nothing
+// else tells a live socket its subscription now names a nonexistent container.
+// Publish the same per-container invalidation a delete route would.
+async function publishPurgedContainerAccessChanges(
+  publish: (event: PublishedRealtimeEvent) => Promise<void>,
+  containerIds: readonly string[],
+): Promise<void> {
+  for (const batch of organizationPurgeBatches(containerIds)) {
+    await Promise.all(
+      batch.map((containerId) =>
+        publishBestEffort(
+          publish,
+          { type: "access_changed", containerId },
+          "organization purge container invalidation",
+        ),
+      ),
+    );
+  }
+}
+
 export async function runOrganizationPurgeMaintenance(
   runtime: ApiServiceRuntime,
   input: OrganizationPurgeInput = {},
@@ -51,13 +73,18 @@ export async function runOrganizationPurgeMaintenance(
   let failed = 0;
   for (const claim of claims) {
     try {
-      const blobIds = await purgeClaimedOrganizationRemoteData({
+      const purged = await purgeClaimedOrganizationRemoteData({
         claim,
         db: runtime.db,
         leaseNow: clock(),
         now,
       });
-      if (!blobIds) continue;
+      if (!purged) continue;
+      const { blobIds } = purged;
+      await publishPurgedContainerAccessChanges(
+        runtime.eventPublisher.publish,
+        purged.containerIds,
+      );
       const assertObjectDeletionLease = createLeaseGuard({
         claim,
         clock,

@@ -1,9 +1,15 @@
 import type { Tearleads } from "@tearleads/client-sdk";
 import {
+  MAX_WS_INTEREST_CONTAINER_IDS,
   serializeWsClientDeclaration,
   type WsClientDeclaration,
 } from "@tearleads/validators/realtime";
 import { ContainerInterestAcknowledgments } from "./containerInterestAcknowledgments";
+
+type ContainerDeclarationType = Exclude<
+  WsClientDeclaration,
+  { type: "known_organizations" }
+>["type"];
 
 export interface ContainerInterestDeclaration {
   readonly acknowledge: (
@@ -33,23 +39,53 @@ function diffInterest(
   return { added, removed };
 }
 
+function chunkContainerIds(containerIds: readonly string[]): string[][] {
+  const chunks: string[][] = [];
+  for (
+    let start = 0;
+    start === 0 || start < containerIds.length;
+    start += MAX_WS_INTEREST_CONTAINER_IDS
+  ) {
+    chunks.push(
+      containerIds.slice(start, start + MAX_WS_INTEREST_CONTAINER_IDS),
+    );
+  }
+  return chunks;
+}
+
+/**
+ * Send one declaration as server-cap-sized frames. The server drops an
+ * oversized frame unparsed and never acknowledges it, which would leave the
+ * acknowledgment barrier stuck for the connection's lifetime. A split replace
+ * sends its first chunk as the authoritative `known_containers` and the rest as
+ * `.add`; the socket's server-side queue applies them in order. Returns the
+ * declaration ids sent, or null when the socket is not open.
+ */
 function createInterestSender(
   ws: WebSocket,
   acknowledgments: ContainerInterestAcknowledgments,
   readTreeGeneration: () => number,
 ) {
   return (
-    declaration: Exclude<WsClientDeclaration, { type: "known_organizations" }>,
-  ): boolean => {
-    if (ws.readyState !== WebSocket.OPEN) return false;
-    if (declaration.declarationId)
-      acknowledgments.register(
-        declaration.declarationId,
-        declaration.containerIds ?? [],
-        readTreeGeneration(),
+    type: ContainerDeclarationType,
+    containerIds: readonly string[],
+  ): string[] | null => {
+    if (ws.readyState !== WebSocket.OPEN) return null;
+    return chunkContainerIds(containerIds).map((chunk, index) => {
+      const declarationId = `container-interest-${nextDeclarationId++}`;
+      acknowledgments.register(declarationId, chunk, readTreeGeneration());
+      ws.send(
+        serializeWsClientDeclaration({
+          type:
+            type === "known_containers" && index > 0
+              ? "known_containers.add"
+              : type,
+          containerIds: chunk,
+          declarationId,
+        }),
       );
-    ws.send(serializeWsClientDeclaration(declaration));
-    return true;
+      return declarationId;
+    });
   };
 }
 
@@ -86,7 +122,10 @@ export function startContainerInterestDeclaration(
   const acknowledgments = new ContainerInterestAcknowledgments();
   let treeGeneration = 0;
   let initialAcknowledged = false;
-  let initialDeclarationId: string | null = null;
+  // Every chunk of the initial declaration must be acknowledged before the
+  // connection barrier clears; the authoritative set is not installed until
+  // the last one lands.
+  let initialDeclarationIds = new Set<string>();
   let stopped = false;
   let syncRequested = false;
 
@@ -109,35 +148,17 @@ export function startContainerInterestDeclaration(
     }
     const current = new Set(snapshot.nodes.map((node) => node.id));
     if (!initialAcknowledged) {
-      const declarationId = `container-interest-${nextDeclarationId++}`;
-      if (
-        send({
-          type: "known_containers",
-          containerIds: [...current],
-          declarationId,
-        })
-      ) {
+      const declarationIds = send("known_containers", [...current]);
+      if (declarationIds) {
         declared = current;
-        initialDeclarationId = declarationId;
+        initialDeclarationIds = new Set(declarationIds);
       }
       return;
     }
 
     const { added, removed } = diffInterest(current, declared);
-    if (added.length > 0) {
-      send({
-        type: "known_containers.add",
-        containerIds: added,
-        declarationId: `container-interest-${nextDeclarationId++}`,
-      });
-    }
-    if (removed.length > 0) {
-      send({
-        type: "known_containers.remove",
-        containerIds: removed,
-        declarationId: `container-interest-${nextDeclarationId++}`,
-      });
-    }
+    if (added.length > 0) send("known_containers.add", added);
+    if (removed.length > 0) send("known_containers.remove", removed);
     declared = current;
   };
 
@@ -157,7 +178,9 @@ export function startContainerInterestDeclaration(
       );
       if (!result.processed) return false;
       const initial =
-        !initialAcknowledged && declarationId === initialDeclarationId;
+        !initialAcknowledged &&
+        initialDeclarationIds.delete(declarationId) &&
+        initialDeclarationIds.size === 0;
       if (initial) {
         initialAcknowledged = true;
       }

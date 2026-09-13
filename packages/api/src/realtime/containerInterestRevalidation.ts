@@ -1,0 +1,72 @@
+import { reportBackgroundFailure } from "../diagnostics/reportBackgroundFailure";
+import type { WsConnection } from "./wsConnection";
+
+export const DEFAULT_REVALIDATION_INTERVAL_MS = 5 * 60_000;
+
+export interface RevalidationScheduleOptions {
+  /** Base period between re-verifications of one socket; 0 disables. */
+  readonly intervalMs?: number | undefined;
+  /** Jitter source in [0, 1); injectable for deterministic tests. */
+  readonly random?: (() => number) | undefined;
+}
+
+/**
+ * Per-socket timer that re-runs signed access verification over every
+ * installed subscription. Eviction is otherwise driven by at-most-once pub/sub
+ * (`access_changed`), so a dropped or missed invalidation would leave a revoked
+ * subscription live for the socket's lifetime; the periodic pass bounds that
+ * window to one interval. Ticks are jittered across [½, 1] of the interval so
+ * sockets that connected together do not re-verify together.
+ */
+export class ContainerInterestRevalidationSchedule {
+  private readonly timers = new Map<
+    WsConnection,
+    ReturnType<typeof setTimeout>
+  >();
+  private readonly intervalMs: number;
+  private readonly random: () => number;
+
+  constructor(
+    private readonly revalidate: (ws: WsConnection) => Promise<void>,
+    options: RevalidationScheduleOptions = {},
+  ) {
+    this.intervalMs = options.intervalMs ?? DEFAULT_REVALIDATION_INTERVAL_MS;
+    this.random = options.random ?? Math.random;
+  }
+
+  open(ws: WsConnection): void {
+    this.close(ws);
+    this.schedule(ws);
+  }
+
+  close(ws: WsConnection): void {
+    const timer = this.timers.get(ws);
+    if (timer) clearTimeout(timer);
+    this.timers.delete(ws);
+  }
+
+  stop(): void {
+    for (const timer of this.timers.values()) clearTimeout(timer);
+    this.timers.clear();
+  }
+
+  private schedule(ws: WsConnection): void {
+    if (this.intervalMs <= 0) return;
+    const delay = Math.round(this.intervalMs * (0.5 + 0.5 * this.random()));
+    const timer = setTimeout(() => {
+      void this.revalidate(ws)
+        .catch((error: unknown) => {
+          reportBackgroundFailure(error);
+        })
+        .finally(() => {
+          // The socket may have closed while the pass was running; only a
+          // still-tracked socket re-arms.
+          if (this.timers.get(ws) !== timer) return;
+          this.timers.delete(ws);
+          this.schedule(ws);
+        });
+    }, delay);
+    timer.unref();
+    this.timers.set(ws, timer);
+  }
+}
