@@ -7,9 +7,10 @@ import "../styles/global.css";
 interface Props {
   readonly title: string;
   readonly description: string;
+  readonly noIndex?: boolean;
 }
 
-const { description, title } = Astro.props;
+const { description, title, noIndex = false } = Astro.props;
 // Nav hrefs have no trailing slash (e.g. "/pricing"), but Astro.url.pathname
 // can include one ("/pricing/") depending on trailing-slash config. Normalize
 // so aria-current matching in SiteFrame is reliable in dev and in the build.
@@ -34,7 +35,7 @@ const pathname =
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    {isStaging && <meta name="robots" content="noindex" />}
+    {(isStaging || noIndex) && <meta name="robots" content="noindex" />}
   </head>
   <body>
     <SiteFrame appUrl={appUrl}>

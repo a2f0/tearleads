@@ -1,5 +1,8 @@
 # Website deployment
 
+For the Privacy Policy and Terms of Service drafts, see the
+[legal publication review](./LEGAL_REVIEW.md) before adopting or publishing them.
+
 The Astro website is built once per environment and served directly by Cloudflare
 Workers Static Assets. It has no server runtime or dependency on the API server.
 
