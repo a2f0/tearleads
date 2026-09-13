@@ -32,6 +32,22 @@ const NO_BRICK_ADVERSARY =
 
 export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   {
+    id: "host-restore-binds-a-switched-identity",
+    module: "formal/local-trust/UnacknowledgedInput.tla",
+    config: "formal/local-trust/UnacknowledgedInput.cfg",
+    constants: { CheckRestoreIdentity: "FALSE" },
+    expect: { kind: "invariant", name: "HostRestoresKeepIdentity" },
+    why: "An async host restore can finish after the SDK changes identity but before React cancels the old effect (#2266).",
+  },
+  {
+    id: "discovery-replaces-pending-links",
+    module: "formal/local-trust/UnacknowledgedInput.tla",
+    config: "formal/local-trust/UnacknowledgedInput.cfg",
+    constants: { DeferLinkDiscovery: "FALSE" },
+    expect: { kind: "invariant", name: "PendingLinksKeepIntent" },
+    why: "Deferring the document row is insufficient if discovery still replaces its pending container links (#2266).",
+  },
+  {
     id: "container-metadata-without-owner-scope",
     module: "formal/container-keying/ContainerDeletion.tla",
     config: "formal/container-keying/ContainerDeletion.cfg",

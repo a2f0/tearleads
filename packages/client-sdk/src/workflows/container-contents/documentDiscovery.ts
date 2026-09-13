@@ -5,6 +5,7 @@ import {
   listAllContainerDocuments,
   listContainerDocumentsFromApi,
 } from "./containerDocumentListing";
+import { withoutDeferredDocumentLinks } from "./deferredDocumentLinks";
 import {
   collectDiscoveredDocumentInputs,
   getApplicableDocumentTombstones,
@@ -276,10 +277,13 @@ export async function discoverContainerDocuments({
   );
 
   await replaceDocumentLinksBatch(
-    listedDocuments.items.map((document) => ({
-      documentId: document.id,
-      containerIds: document.linkedContainerIds,
-    })),
+    await withoutDeferredDocumentLinks(
+      listedDocuments.items.map((document) => ({
+        documentId: document.id,
+        containerIds: document.linkedContainerIds,
+      })),
+      discoveredDocuments,
+    ),
   );
 
   const tombstoneDocumentSummaries = await applyContainerDocumentTombstones(
@@ -356,10 +360,13 @@ export async function discoverAllContainerDocuments({
 
   if (discoveredDocumentInputs.length > 0) {
     await replaceDocumentLinksBatch(
-      discoveredDocumentInputs.map((input) => ({
-        documentId: input.documentId,
-        containerIds: input.linkedContainerIds,
-      })),
+      await withoutDeferredDocumentLinks(
+        discoveredDocumentInputs.map((input) => ({
+          documentId: input.documentId,
+          containerIds: input.linkedContainerIds,
+        })),
+        discoveredDocuments,
+      ),
     );
   }
 
