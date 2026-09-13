@@ -149,7 +149,9 @@ export class ContainerInterestAuthorizer {
    * keeps the socket (the next pass retries) instead of closing it, and a
    * pending `resyncAll` survives the failure until a later pass succeeds.
    * Proofs that failing passes leave unconfirmed past `maxProofAgeMs` are
-   * evicted wholesale (`evictUnconfirmed`) rather than kept.
+   * evicted wholesale (`evictUnconfirmed`) rather than kept; a declaration
+   * queue too saturated to run the pass is such a failure, so the age check
+   * does not wait for room in the queue.
    */
   revalidate(
     ws: WsConnection,
@@ -158,8 +160,12 @@ export class ContainerInterestAuthorizer {
     const state = this.states.get(ws);
     if (!state) return Promise.resolve();
     if (options.resyncAll) state.resyncAll = true;
-    if (state.declarations >= MAX_PENDING_DECLARATIONS)
+    if (state.declarations >= MAX_PENDING_DECLARATIONS) {
+      // Only a completed verification re-dates the proofs, so a client that
+      // keeps the queue full cannot shelter a revoked subscription behind it.
+      this.evictUnconfirmed(ws, state, this.router.interestOf(ws));
       return Promise.resolve();
+    }
     return this.enqueue(ws, async () => {
       const ids = this.router.interestOf(ws);
       if (ids.length === 0) {
@@ -196,6 +202,10 @@ export class ContainerInterestAuthorizer {
     const { maxProofAgeMs, now } = this.proofAge;
     if (maxProofAgeMs <= 0 || now() - state.verifiedAt < maxProofAgeMs) return;
     if (!this.isOpen(ws)) return;
+    if (ids.length === 0) {
+      state.verifiedAt = now();
+      return;
+    }
     this.restoration.clear(ws);
     this.router.applyAuthorizedContainerInterest(
       ws,

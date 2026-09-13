@@ -316,3 +316,48 @@ test("repeated periodic timeouts evict a socket's subscriptions instead of keepi
     f.gateway.stop();
   }
 });
+
+test("a saturated declaration queue cannot shelter proofs past the max age", async () => {
+  let now = 0;
+  let hang = false;
+  const pending = Promise.withResolvers<string[]>();
+  const f = fixture({
+    revalidation: { intervalMs: 0, maxProofAgeMs: 30, now: () => now },
+    authorize: async (_user, ids) => (hang ? pending.promise : ids),
+  });
+  let queued: Promise<void>[] = [];
+  try {
+    await f.gateway.websocket.open(f.socket);
+    await f.declare("known_containers", [CONTAINER, OTHER]);
+    // Fill the socket's queue to its limit with declarations that never
+    // complete, so no revalidation pass can be enqueued behind them.
+    hang = true;
+    queued = Array.from({ length: 32 }, () =>
+      f.declare("known_containers.add", [crypto.randomUUID()]),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(f.closed).toEqual([]);
+    now = 29;
+    f.reconnect();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(f.router.interestedSocketCount(CONTAINER)).toBe(1);
+    now = 30;
+    f.reconnect();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(f.router.interestedSocketCount(CONTAINER)).toBe(0);
+    expect(f.router.interestedSocketCount(OTHER)).toBe(0);
+    expect(resyncFrames(f.sent)).toEqual([
+      { type: "resync_required", containerIds: [CONTAINER, OTHER] },
+    ]);
+    expect(f.persisted.at(-1)).toEqual({
+      kind: "remove",
+      containerIds: [CONTAINER, OTHER],
+    });
+    // The overflow close is untouched: the queue is still full, not closed.
+    expect(f.closed).toEqual([]);
+  } finally {
+    pending.resolve([]);
+    await Promise.all(queued);
+    f.gateway.stop();
+  }
+});
