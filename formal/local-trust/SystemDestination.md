@@ -12,7 +12,7 @@ that root, so an ordinary writer cannot create a foreign-organization decoy.
 | `Hydrate` / `VerifyDestination` | `verifyRemoteContainerDestination` verifies the projection and reads its signed fields |
 | `MergeRoot` / `RequireSessionRoot` | `canUseRemoteRootAsLocalRootReconciliationTarget` checks the session root identity |
 | `MoveDestination` / `PreserveDestinationIdentity` | `deriveContainerMoveManifestState` forbids moves of roots and system containers |
-| `UseSystem` | `findSystemContainerStateForRoot` selects the authenticated slot |
+| `UseSystem` / `RequireSystemScope` | `findSystemContainerStateForRoot` selects the authenticated slot in the active organization and acknowledged root |
 | `CreateSystem` / `RequireSystemAdministrator` | `deriveContainerCreateManifestState` requires root-admin authority for slots |
 
 The model has four candidate identities, two creator roles, and shared/private
@@ -26,7 +26,7 @@ and must
 also match a signed parentless manifest; an unsigned login response alone is
 insufficient to make an ordinary shared folder a root.
 
-Each of the six guards has a negative control. The shared-system invariant
+Each of the seven guards has a negative control. The shared-system invariant
 keeps extra recipients from becoming a reason to refuse a legitimate Trash or
 Contacts destination. Runtime regressions exercise forged listing fields using
 real signatures and SQLite persistence, including an ordinary container and a
@@ -45,3 +45,6 @@ view selection cannot replace the acknowledgement. Encrypted session persistence
 retains the per-organization acknowledgements under the signing fingerprint.
 Registration and organization creation also record server acknowledgements;
 organization switching selects among them without trusting listing roots.
+
+A missing root row does not relax destination scope: slot lookup still checks
+the active organization and any acknowledged root id before choosing a target.

@@ -50,18 +50,21 @@ export function findSystemContainerStateForRoot(
   systemSlot: ContainerSystemSlot,
   rootState: ContainerState | null,
 ): ContainerState | null {
-  let fallback: ContainerState | null = null;
+  const { organizationId, rootContainerId } = state.runtime.auth;
+  const expectedRootId = rootState?.container.id ?? rootContainerId;
   for (const containerState of state.containersById.values()) {
-    if ((containerState.container.systemSlot ?? null) === systemSlot) {
-      if (
-        rootState &&
-        containerState.container.parentId === rootState.container.id
-      ) {
-        return containerState;
-      }
-      fallback ??= containerState;
-    }
+    const container = containerState.container;
+    if (container.systemSlot !== systemSlot) continue;
+    if (expectedRootId && container.parentId !== expectedRootId) continue;
+    const isLocalCandidate =
+      rootState && isPreAuthRootState(rootState) && !container.organizationId;
+    if (
+      organizationId &&
+      !isLocalCandidate &&
+      container.organizationId !== organizationId
+    )
+      continue;
+    return containerState;
   }
-
-  return rootState ? null : fallback;
+  return null;
 }
