@@ -1,3 +1,5 @@
+import { isContainerProjectionInvalidationHint } from "../../data/documents/documentSync";
+
 interface ContainerMutationEventCandidate {
   readonly containerId?: unknown;
   readonly containerIds?: unknown;
@@ -54,7 +56,8 @@ export function listContainerProjectionInvalidationIds(
 ): string[] {
   const containerIds = new Set<string>();
   for (const event of events) {
-    if (!isRecord(event)) continue;
+    if (!isRecord(event) || !isContainerProjectionInvalidationHint(event))
+      continue;
     if (event.type === "container_mutation_created") {
       const containerId = readNonEmptyString(event.containerId);
       if (containerId) containerIds.add(containerId);

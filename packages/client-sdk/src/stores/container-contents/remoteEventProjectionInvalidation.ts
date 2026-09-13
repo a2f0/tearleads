@@ -7,8 +7,12 @@ import type { ContainerContentsStoreSyncState } from "./syncAgentTypes";
  * against a stale manifest and conflicting. Descendants cite the same ancestor
  * manifests in their paths, so the locally known subtree under each invalidated
  * container is dropped too (an unhydrated subtree has nothing cached). Both
- * layers go: the in-memory copies on the container state and the api-client
- * entries, for the container and for its metadata document.
+ * layers go: the in-memory copies on each container state, and the api-client's
+ * bounded writer projection caches as a whole. Document writer projections cite
+ * those paths as well, and the store cannot enumerate a container's linked
+ * documents without a query (links live in SQLite), so the api-client caches are
+ * cleared wholesale rather than per id; each open document store drops its own
+ * in-memory copy on the same hint.
  */
 export function invalidateCachedProjections(
   state: Pick<ContainerContentsStoreSyncState, "containersById" | "runtime">,
@@ -34,11 +38,7 @@ export function invalidateCachedProjections(
     if (containerState) {
       invalidateContainerWriterProjection(containerState);
       containerState.metadataWriterProjection = null;
-      if (containerState.container.metadataDocumentId)
-        state.runtime.apiClient.evictDocumentWriterProjection(
-          containerState.container.metadataDocumentId,
-        );
     }
-    state.runtime.apiClient.evictContainerWriterProjection(id);
   }
+  state.runtime.apiClient.clearWriterProjectionCaches();
 }

@@ -1,4 +1,7 @@
-import { isDocumentUpdateCreatedEvent } from "../../../data/documents/documentSync";
+import {
+  isContainerProjectionInvalidationHint,
+  isDocumentUpdateCreatedEvent,
+} from "../../../data/documents/documentSync";
 import { sequenceUnchanged } from "../../../workflows/documents/syncLane";
 import type { DocumentStoreState } from "./state";
 import {
@@ -72,6 +75,12 @@ export function handleDocumentRemoteEvents(
 
   const nextEvents = state.runtime.state.events.slice(state.lastEventCount);
   state.lastEventCount = state.runtime.state.events.length;
+
+  // A container the document's path cites may have moved its manifest; the
+  // store cannot tell which containers this document links into, so the held
+  // projection goes and the next mutation fetches a fresh one.
+  if (nextEvents.some(isContainerProjectionInvalidationHint))
+    state.writerProjection = null;
 
   if (hasRemoteDocumentUpdateEvent(state, nextEvents)) {
     allowDocumentStoreRemoteSync(state);

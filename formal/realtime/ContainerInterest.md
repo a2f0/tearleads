@@ -91,9 +91,12 @@ delete evict; grants, rekeys, and recites do not remove readers and route their
 hints without evicting descendant subscribers, and the client drops its cached
 writer projections for the hinted container and its locally known descendants on
 that hint so their next share or move fetches a fresh manifest instead of
-conflicting. Because a hint routes only to watchers of the mutated container and
-its parents, the gateway also sends each subscriber whose verified path cites
-the mutated container a `container_path_changed` hint naming those held
+conflicting; document writer projections cite the same paths, and since the
+client cannot list a container's linked documents locally it drops every cached
+document projection (the api-client cache and each open document's in-memory
+copy) as well. Because a hint routes only to watchers of the mutated container
+and its parents, the gateway also sends each subscriber whose verified path
+cites the mutated container a `container_path_changed` hint naming those held
 containers; it evicts nothing, so a subtree granted directly at a descendant
 drops its cached projections without losing its subscriptions. The eviction is
 published before the hint so the evicted socket never receives it.

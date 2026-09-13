@@ -30,12 +30,10 @@ function projectionFor(
 test("a peer's grant hint drops the cached writer projection so the next write fetches afresh", async () => {
   const stale = projectionFor(CONTAINER, `access-${CONTAINER}`);
   const fresh = projectionFor(CONTAINER, `access-${CONTAINER}-rotated`);
-  const evictContainerWriterProjection = mock((_containerId: string) => {});
-  const evictDocumentWriterProjection = mock((_documentId: string) => {});
+  const clearWriterProjectionCaches = mock(() => {});
   const getContainerWriterProjection = mock(async () => fresh);
   const apiClient = {
-    evictContainerWriterProjection,
-    evictDocumentWriterProjection,
+    clearWriterProjectionCaches,
     getContainerWriterProjection,
   } as unknown as ContainerContentsWorkflowRuntimeInput["apiClient"];
   const baseRuntime = createContainerContentsTestRuntime({
@@ -78,11 +76,10 @@ test("a peer's grant hint drops the cached writer projection so the next write f
     state,
   });
 
-  expect(evictContainerWriterProjection).toHaveBeenCalledWith(CONTAINER);
-  // The metadata document's projection cites the same path.
-  expect(evictDocumentWriterProjection).toHaveBeenCalledWith(
-    `metadata-${CONTAINER}`,
-  );
+  // Document projections (the metadata document's included) cite the same
+  // path; the store cannot list a container's documents locally, so the
+  // api-client's bounded caches go as a whole.
+  expect(clearWriterProjectionCaches).toHaveBeenCalledTimes(1);
   expect(getCachedContainerWriterProjection(containerState)).toBeNull();
   // The next share/move loads through the API instead of reusing the stale
   // manifest hash.
@@ -96,10 +93,9 @@ test("a peer's grant hint drops the cached writer projection so the next write f
 
 test("hints for other containers leave a cached projection in place", () => {
   const cached = projectionFor(CONTAINER, `access-${CONTAINER}`);
-  const evictContainerWriterProjection = mock((_containerId: string) => {});
+  const clearWriterProjectionCaches = mock(() => {});
   const apiClient = {
-    evictContainerWriterProjection,
-    evictDocumentWriterProjection: () => {},
+    clearWriterProjectionCaches,
   } as unknown as ContainerContentsWorkflowRuntimeInput["apiClient"];
   const baseRuntime = createContainerContentsTestRuntime({
     apiClient,
@@ -145,7 +141,7 @@ test("hints for other containers leave a cached projection in place", () => {
     state,
   });
 
-  expect(evictContainerWriterProjection.mock.calls).toEqual([["container-2"]]);
+  expect(clearWriterProjectionCaches).toHaveBeenCalledTimes(1);
   expect(getCachedContainerWriterProjection(containerState)).toBe(cached);
 });
 
@@ -154,12 +150,11 @@ function treeState(
   nodes: ReadonlyArray<{ id: string; parentId: string | null }>,
   events: ReadonlyArray<unknown>,
 ) {
-  const evicted: string[] = [];
+  let clears = 0;
   const apiClient = {
-    evictContainerWriterProjection: (containerId: string) => {
-      evicted.push(containerId);
+    clearWriterProjectionCaches: () => {
+      clears++;
     },
-    evictDocumentWriterProjection: () => {},
   } as unknown as ContainerContentsWorkflowRuntimeInput["apiClient"];
   const baseRuntime = createContainerContentsTestRuntime({
     apiClient,
@@ -185,11 +180,11 @@ function treeState(
       ? getCachedContainerWriterProjection(containerState) !== null
       : null;
   };
-  return { cached, evicted, state };
+  return { cached, clears: () => clears, state };
 }
 
 test("an ancestor grant hint drops the locally known subtree's projections and leaves a sibling subtree alone", () => {
-  const { cached, evicted, state } = treeState(
+  const { cached, clears, state } = treeState(
     [
       { id: "ancestor", parentId: null },
       { id: "child", parentId: "ancestor" },
@@ -217,14 +212,14 @@ test("an ancestor grant hint drops the locally known subtree's projections and l
   expect(cached("grandchild")).toBe(false);
   expect(cached("sibling")).toBe(true);
   expect(cached("sibling-child")).toBe(true);
-  expect([...evicted].sort()).toEqual(["ancestor", "child", "grandchild"]);
+  expect(clears()).toBe(1);
 });
 
 test("a container_path_changed hint drops exactly the named dependents", () => {
   // The subscriber holds only the granted subtree; the ancestor is unknown
   // locally and its own hint never arrives, so the gateway's path hint is the
   // signal.
-  const { cached, evicted, state } = treeState(
+  const { cached, clears, state } = treeState(
     [
       { id: "granted", parentId: "unknown-ancestor" },
       { id: "granted-child", parentId: "granted" },
@@ -246,5 +241,41 @@ test("a container_path_changed hint drops exactly the named dependents", () => {
   expect(cached("granted")).toBe(false);
   expect(cached("granted-child")).toBe(false);
   expect(cached("sibling")).toBe(true);
-  expect([...evicted].sort()).toEqual(["granted", "granted-child"]);
+  expect(clears()).toBe(1);
+});
+
+test("a batch without container hints leaves the document projection cache alone", () => {
+  const clearWriterProjectionCaches = mock(() => {});
+  const apiClient = {
+    clearWriterProjectionCaches,
+  } as unknown as ContainerContentsWorkflowRuntimeInput["apiClient"];
+  const baseRuntime = createContainerContentsTestRuntime({
+    apiClient,
+    domainScope: createDomainScope(),
+    execSql: mock(async () => []),
+  });
+  const state = createContainerContentsStoreState(
+    {
+      ...baseRuntime,
+      state: {
+        ...baseRuntime.state,
+        events: [
+          {
+            containerIds: [CONTAINER],
+            documentId: "document-1",
+            id: "event-1",
+            type: "document_update_created",
+          },
+        ],
+      },
+    },
+    defaultContainerContentsPersistence,
+  );
+  state.initialized = true;
+  handleContainerContentsRemoteEvents({
+    requestHydration: async () => {},
+    scheduleSync: () => {},
+    state,
+  });
+  expect(clearWriterProjectionCaches).not.toHaveBeenCalled();
 });
