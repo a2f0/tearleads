@@ -3,14 +3,14 @@ EXTENDS Naturals, FiniteSets, TLC
 
 CONSTANTS AuthorizeInterest, InvalidateOnAccessChange, CheckSocketOpen,
           ScopeInvalidation, ScopeQueryChanges, NotifyPrincipalChanges,
-          CheckRestoreGeneration
+          CheckRestoreDependencies
 Containers == {"child", "other"}
 Dependencies(container) == IF container = "child"
                           THEN {"root", "child", "group"} ELSE {"other"}
 VARIABLES access, revision, open, indexed, pending, queryAccess,
-          queryChanged, unrelatedRetry, cached, cacheRevision, cacheReadable
+          queryChanged, unrelatedRetry, cached, cacheInvalidated, cacheReadable
 vars == <<access, revision, open, indexed, pending, queryAccess,
-          queryChanged, unrelatedRetry, cached, cacheRevision, cacheReadable>>
+          queryChanged, unrelatedRetry, cached, cacheInvalidated, cacheReadable>>
 Readable(container) == \A dependency \in Dependencies(container): access[dependency]
 QueryDependencies == IF queryAccess THEN Dependencies("child") ELSE {"child"}
 RelevantQueryChange == queryChanged \cap QueryDependencies # {}
@@ -20,14 +20,14 @@ Init == /\ access = [dependency \in {"root", "child", "group", "other"} |-> depe
         /\ revision = 0 /\ open = TRUE /\ indexed = {"other"}
         /\ pending = FALSE /\ queryAccess = FALSE
         /\ queryChanged = {} /\ unrelatedRetry = FALSE
-        /\ cached = FALSE /\ cacheRevision = 0 /\ cacheReadable = FALSE
+        /\ cached = FALSE /\ cacheInvalidated = FALSE /\ cacheReadable = FALSE
 
 BeginAuthorization ==
     /\ open /\ ~pending
     /\ pending' = TRUE /\ queryAccess' = Readable("child")
     /\ queryChanged' = {}
     /\ UNCHANGED <<access, revision, open, indexed, unrelatedRetry,
-                    cached, cacheRevision, cacheReadable>>
+                    cached, cacheInvalidated, cacheReadable>>
 
 ApplyAuthorization ==
     /\ pending /\ (~CheckSocketOpen \/ open)
@@ -35,7 +35,7 @@ ApplyAuthorization ==
     /\ indexed' = IF ~AuthorizeInterest \/ queryAccess
                    THEN indexed \cup {"child"} ELSE indexed \ {"child"}
     /\ pending' = FALSE
-    /\ cached' = TRUE /\ cacheRevision' = revision /\ cacheReadable' = queryAccess
+    /\ cached' = TRUE /\ cacheInvalidated' = FALSE /\ cacheReadable' = queryAccess
     /\ UNCHANGED <<access, revision, open, queryAccess, queryChanged, unrelatedRetry>>
 
 RetryAuthorization ==
@@ -43,16 +43,16 @@ RetryAuthorization ==
     /\ unrelatedRetry' = (unrelatedRetry \/ ~RelevantQueryChange)
     /\ queryAccess' = Readable("child") /\ queryChanged' = {}
     /\ UNCHANGED <<access, revision, open, indexed, pending,
-                    cached, cacheRevision, cacheReadable>>
+                    cached, cacheInvalidated, cacheReadable>>
 
 ReuseRestoredAuthorization ==
     /\ open /\ ~pending /\ cached
-    /\ (~CheckRestoreGeneration \/ cacheRevision = revision)
+    /\ (~CheckRestoreDependencies \/ ~cacheInvalidated)
     /\ indexed' = IF cacheReadable THEN indexed \cup {"child"}
                    ELSE indexed \ {"child"}
     /\ cached' = FALSE
     /\ UNCHANGED <<access, revision, open, pending, queryAccess, queryChanged,
-                    unrelatedRetry, cacheRevision, cacheReadable>>
+                    unrelatedRetry, cacheInvalidated, cacheReadable>>
 
 ObserveChange(dependency) == InvalidateOnAccessChange /\ (dependency # "group" \/ NotifyPrincipalChanges)
 
@@ -67,13 +67,16 @@ ChangeAccess(dependency) ==
                      ELSE {}
     /\ queryChanged' = IF pending /\ ObserveChange(dependency)
                         THEN queryChanged \cup {dependency} ELSE queryChanged
+    /\ cacheInvalidated' = (cacheInvalidated \/
+         (cached /\ ObserveChange(dependency) /\
+          dependency \in (IF cacheReadable THEN Dependencies("child") ELSE {"child"})))
     /\ UNCHANGED <<open, pending, queryAccess, unrelatedRetry,
-                    cached, cacheRevision, cacheReadable>>
+                    cached, cacheReadable>>
 
 CloseSocket ==
     /\ open /\ open' = FALSE /\ indexed' = indexed \ {"child"}
     /\ UNCHANGED <<access, revision, pending, queryAccess, queryChanged, unrelatedRetry,
-                    cached, cacheRevision, cacheReadable>>
+                    cached, cacheInvalidated, cacheReadable>>
 
 Next == BeginAuthorization \/ ApplyAuthorization \/ RetryAuthorization
         \/ ReuseRestoredAuthorization
@@ -86,7 +89,7 @@ TypeOK == /\ access \in [{"root", "child", "group", "other"} -> BOOLEAN]
           /\ queryChanged \subseteq {"root", "child", "group", "outside"}
           /\ unrelatedRetry \in BOOLEAN
           /\ cached \in BOOLEAN /\ cacheReadable \in BOOLEAN
-          /\ cacheRevision \in 0..2
+          /\ cacheInvalidated \in BOOLEAN
 OnlyReadableInterests == "child" \in indexed => Readable("child")
 ClosedSocketsNeverIndexed == "child" \in indexed => open
 UnrelatedInterestsPreserved == "other" \in indexed

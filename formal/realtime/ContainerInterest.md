@@ -10,7 +10,7 @@ closed socket.
 | `BeginAuthorization` | `ContainerInterestQueries.run` calls `authorizeContainerAccessWithWorkflow` |
 | `Dependencies` | `ContainerInterestDependencies` indexes verified container paths and principal policies |
 | `ApplyAuthorization` | `ContainerInterestAuthorizer.apply` and `ContainerInterestAuthorizer.open` call `WsEventRouter.applyAuthorizedContainerInterest` synchronously within the query observation window |
-| `ReuseRestoredAuthorization` | `ContainerInterestAuthorizer.consumeRestored` checks the access generation for its one-time proof handoff |
+| `ReuseRestoredAuthorization` | `ContainerInterestRestoration.take` checks observed dependency changes for its one-time proof handoff |
 | `RetryAuthorization` | `authorizationWasInvalidated` checks requested IDs and accepted proof dependencies |
 | `ChangeAccess` | Container mutation and principal policy routes publish invalidations; `ContainerInterestAuthorizer.invalidateAccess` and `WsEventRouter.routeServerEvent` observe them |
 | `CloseSocket` | `ContainerInterestAuthorizer.close` and `WsEventRouter.close` |
@@ -23,7 +23,8 @@ changes. Accepted results depend on their verified paths and policies. Denied
 results retry only changes to the requested ID, since they have no verified
 path. An unrelated mutation must never consume that query's retry budget.
 
-Production bounds retries to three attempts within one timeout budget. Tabs in
+Production bounds retries to three attempts within one timeout budget, scaled
+to one base interval per 100 requested IDs. Tabs in
 one session share identical queries and wait for different queries. A timeout
 retains the raw query's slot until it settles. The separate 10,000-change
 observation cap may reject a query during a pub/sub flood; that availability
@@ -31,7 +32,8 @@ limit is outside this bounded two-change model. Declarations acknowledge the
 accepted IDs even when some were refused. A failed cache load or authorization
 returns an empty live baseline. A matching first full declaration can reuse the
 freshly checked result once, within its timeout window and before any observed
-access change; later declarations reauthorize. The client records those results
+dependency change; later declarations reauthorize. The client records those
+results
 and
 retries after a tree change or grant notification, without a denial-driven loop.
 
@@ -59,6 +61,6 @@ Roster updates only replace a profile-document pointer. These guards live in
 
 Negative controls remove authorization, dependency invalidation, the live-socket
 guard, scoped eviction, query relevance, principal-change notification, and the
-reconnect proof generation guard.
+reconnect proof dependency guard.
 Each exposes the corresponding unreadable interest, closed socket, unrelated
 eviction, or unnecessary retry.

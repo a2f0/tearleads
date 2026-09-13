@@ -4,6 +4,7 @@ import {
   beforeDeadline,
   ContainerInterestQueries,
 } from "./containerInterestQueries";
+import { ContainerInterestRestoration } from "./containerInterestRestoration";
 import type {
   AuthorizeContainerAccess,
   VerifiedContainerInterest,
@@ -21,18 +22,12 @@ type PersistInterest = (
 
 interface SocketState {
   pending: Promise<void>;
-  restored: {
-    idsKey: string;
-    proofs: VerifiedContainerInterest[];
-    generation: number;
-    expiresAt: number;
-  } | null;
 }
 
 export class ContainerInterestAuthorizer {
   private readonly states = new WeakMap<WsConnection, SocketState>();
   private readonly queries: ContainerInterestQueries;
-  private accessGeneration = 0;
+  private readonly restoration = new ContainerInterestRestoration();
 
   constructor(
     authorize: AuthorizeContainerAccess,
@@ -48,7 +43,8 @@ export class ContainerInterestAuthorizer {
   }
 
   open(ws: WsConnection): Promise<void> {
-    this.states.set(ws, { pending: Promise.resolve(), restored: null });
+    this.restoration.clear(ws);
+    this.states.set(ws, { pending: Promise.resolve() });
     return this.enqueue(ws, async () => {
       try {
         const cached = await beforeDeadline(
@@ -90,12 +86,12 @@ export class ContainerInterestAuthorizer {
   ): void {
     const state = this.states.get(ws);
     if (!state) return;
-    state.restored = {
-      idsKey: JSON.stringify([...new Set(cached)].sort()),
+    this.restoration.put(
+      ws,
+      cached,
       proofs,
-      generation: this.accessGeneration,
-      expiresAt: Date.now() + this.authorizationTimeoutMs,
-    };
+      Date.now() + this.authorizationTimeoutMs,
+    );
     const containerIds = proofs.map((proof) => proof.containerId);
     this.router.applyAuthorizedContainerInterest(
       ws,
@@ -115,26 +111,13 @@ export class ContainerInterestAuthorizer {
       });
   }
 
-  private consumeRestored(ws: WsConnection, declaration: Interest) {
-    const state = this.states.get(ws);
-    const restored = state?.restored;
-    if (state) state.restored = null;
-    return restored &&
-      declaration.kind === "replace" &&
-      restored.generation === this.accessGeneration &&
-      Date.now() < restored.expiresAt &&
-      restored.idsKey ===
-        JSON.stringify([...new Set(declaration.containerIds)].sort())
-      ? restored.proofs
-      : null;
-  }
-
   close(ws: WsConnection): void {
+    this.restoration.clear(ws);
     this.states.delete(ws);
   }
 
   invalidateAccess(containerId: string): void {
-    this.accessGeneration++;
+    this.restoration.invalidate(containerId);
     this.queries.invalidate(containerId);
   }
 
@@ -170,7 +153,10 @@ export class ContainerInterestAuthorizer {
         }
         this.persist(ws.data.userId, ws.data.sessionId, action);
       };
-      const restored = this.consumeRestored(ws, declaration);
+      const restored = this.restoration.take(
+        ws,
+        declaration.kind === "replace" ? ids : null,
+      );
       if (declaration.kind === "remove") install([]);
       else if (restored) install(restored);
       else await this.queries.run(ws, ids, () => this.isOpen(ws), install);

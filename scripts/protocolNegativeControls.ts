@@ -35,7 +35,7 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     id: "stale-reconnect-proof-handoff",
     module: "formal/realtime/ContainerInterest.tla",
     config: "formal/realtime/ContainerInterest.cfg",
-    constants: { CheckRestoreGeneration: "FALSE" },
+    constants: { CheckRestoreDependencies: "FALSE" },
     expect: { kind: "invariant", name: "OnlyReadableInterests" },
     why: "A fresh reconnect proof may be reused only before an observed access change.",
   },

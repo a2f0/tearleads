@@ -84,7 +84,7 @@ function sharedWithYouUserIds(
     .filter((userId): userId is string => typeof userId === "string");
 }
 
-test("PUT ungranted policy does not publish shared_with_you", async () => {
+test("combined policy commit for an ungranted group does not publish shared_with_you", async () => {
   const actor = createTestUser();
   await registerUser(actor);
   await authenticate(actor);
@@ -125,7 +125,7 @@ test("PUT ungranted policy does not publish shared_with_you", async () => {
   });
 });
 
-test("PUT granted Admins access notifies only the newly reachable user", async () => {
+test("combined policy commit for granted Admins access notifies only the newly reachable user", async () => {
   const actor = createTestUser();
   await registerUser(actor);
   await authenticate(actor);
@@ -155,7 +155,7 @@ test("PUT granted Admins access notifies only the newly reachable user", async (
 
 // The policy and envelopes commit before notification delivery, so a transient
 // publish failure must not turn a real granted access gain into a 500.
-test("PUT granted access still succeeds when shared_with_you publish throws", async () => {
+test("combined policy commit still succeeds when shared_with_you publish throws", async () => {
   const actor = createTestUser();
   await registerUser(actor);
   await authenticate(actor);

@@ -99,3 +99,37 @@ for (const source of ["cache", "authorization"] as const) {
     },
   );
 }
+
+test("an unrelated tenant event preserves the first reconnect proof handoff", async () => {
+  let calls = 0;
+  const f = fixture({
+    cached: [CONTAINER],
+    authorize: async () => {
+      calls++;
+      return [CONTAINER];
+    },
+  });
+  await f.gateway.websocket.open(f.socket);
+  f.publish({ type: "access_changed", containerId: OTHER });
+  await f.declare("known_containers");
+  expect(calls).toBe(1);
+  expect(f.router.interestedSocketCount(CONTAINER)).toBe(1);
+  f.gateway.stop();
+});
+
+test("large declarations receive a proportional signed-verification budget", async () => {
+  const ids = Array.from({ length: 1000 }, () => crypto.randomUUID());
+  const f = fixture({
+    timeoutMs: 50,
+    authorize: async (_user, requested) => {
+      await new Promise((resolve) => setTimeout(resolve, 75));
+      return requested;
+    },
+  });
+  await f.gateway.websocket.open(f.socket);
+  await f.declare("known_containers", ids);
+  expect(f.closed).toEqual([]);
+  expect(f.sent.at(-1)).toMatchObject({ containerIds: ids });
+  expect(f.router.interestedSocketCount(ids[0] ?? "")).toBe(1);
+  f.gateway.stop();
+});
