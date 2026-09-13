@@ -81,6 +81,15 @@ export class ContainerInterestQueries {
     }
   }
 
+  /**
+   * A pub/sub reconnect: every invalidation published during the outage is
+   * gone, so a query already running may answer from pre-revocation access.
+   * Later runs await it (no SQL amplification) but never share its result.
+   */
+  markAllStale(): void {
+    for (const query of this.active.values()) query.stale = true;
+  }
+
   async run(
     ws: WsConnection,
     ids: string[],
@@ -115,7 +124,14 @@ export class ContainerInterestQueries {
       query.readers++;
       attempts++;
       try {
-        const proofs = await beforeDeadline(query.result, deadline);
+        const proofs = await beforeDeadline(query.result, deadline).catch(
+          (error: unknown) => {
+            // A timed-out (or failed) query is never reused: whatever it
+            // eventually answers may predate an invalidation nobody waited for.
+            query.stale = true;
+            throw error;
+          },
+        );
         if (query.overflow)
           throw new Error("Too many pending container access changes");
         const requested = new Set(ids);
@@ -165,8 +181,10 @@ export class ContainerInterestQueries {
   }
 
   private release(key: string, query: ActiveQuery): void {
-    // A socket timeout never frees the raw query slot. Reconnects share or
-    // await that query until it actually settles, preventing SQL amplification.
+    // A socket timeout never frees the raw query slot. Later runs await that
+    // query until it actually settles (preventing SQL amplification) and, since
+    // the timeout marked it stale, start their own afterwards.
+
     if (!query.settled || query.readers > 0) return;
     if (this.active.get(key) === query) this.active.delete(key);
     query.finish();

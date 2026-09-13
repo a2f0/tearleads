@@ -304,6 +304,9 @@ export class ContainerInterestAuthorizer {
   }
 
   revalidateAll(options: { readonly resyncAll?: boolean } = {}): Promise<void> {
+    // Queries already running answer from access read before the outage; the
+    // fresh passes below must await them but never accept their results.
+    if (options.resyncAll) this.queries.markAllStale();
     return Promise.all(
       this.router.openSockets().map((ws) => this.revalidate(ws, options)),
     ).then(() => undefined);

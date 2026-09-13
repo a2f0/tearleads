@@ -16,7 +16,8 @@ import { routeIncomingWsMessage } from "./serverEventsRouting";
 
 export { startContainerInterestDeclaration } from "./containerInterest";
 
-// Revalidate affected contents, then re-list root and distinct parent lanes once.
+// Revalidate affected contents, then re-list the root lane plus each flagged
+// container's parent lane and own child lane once.
 export async function resyncContainerAccess(
   tearleads: Tearleads,
   containerIds: readonly string[],
@@ -33,19 +34,21 @@ export async function resyncContainerAccess(
   }
   try {
     const tree = tearleads.deviceFirst.open().containerStore;
+    const known = tree
+      .getSnapshot()
+      .nodes.filter((node) => flagged.has(node.id));
+    // Nested tombstones are returned by their parent lane, and a child created
+    // while this client missed its hint (a reconnect resync) is returned only
+    // by the flagged container's own lane. Batch both with one root refresh
+    // instead of repeating that refresh for every container.
     const parentIds = [
-      ...new Set(
-        tree
-          .getSnapshot()
-          .nodes.flatMap((node) =>
-            flagged.has(node.id) && node.parentId !== null
-              ? [node.parentId]
-              : [],
-          ),
-      ),
+      ...new Set([
+        ...known.flatMap((node) =>
+          node.parentId !== null ? [node.parentId] : [],
+        ),
+        ...known.map((node) => node.id),
+      ]),
     ];
-    // Nested tombstones are returned by their parent lane. Batch those lanes
-    // with one root refresh instead of repeating that refresh for every child.
     await tree.refreshRootLane(parentIds.length ? { parentIds } : undefined);
   } catch {
     // Runtime not ready; the next reconnect revalidates from a ready tree.

@@ -110,24 +110,41 @@ test("resync_required for a nested container also re-lists its parent lane", asy
 
   await resyncContainerAccess(tearleads, ["nested"]);
 
-  expect(refreshRootLaneOptions).toEqual([{ parentIds: ["root"] }]);
+  expect(refreshRootLaneOptions).toEqual([{ parentIds: ["root", "nested"] }]);
 });
 
-test("resync_required for a top-level container adds no parent lane", async () => {
+test("resync_required re-lists the flagged container's own child lane", async () => {
+  // A reconnect resync names every held container. A child created during the
+  // outage had its hint lost and is returned only by the held container's lane,
+  // so that lane is re-listed (watermarked, so the new child surfaces).
+  const { refreshRootLaneOptions, tearleads } = createResyncHarness({
+    nodes: [
+      { id: "root", parentId: null },
+      { id: "held", parentId: "root" },
+    ],
+  });
+
+  await resyncContainerAccess(tearleads, ["held"]);
+
+  expect(refreshRootLaneOptions).toEqual([{ parentIds: ["root", "held"] }]);
+});
+
+test("resync_required for a top-level container adds its own lane, no parent lane", async () => {
   // A top-level container's tombstone IS returned by the root lane (parentId null
-  // or rootDiscoveryVisible=true), so no extra parent lane is needed.
+  // or rootDiscoveryVisible=true), so no extra parent lane is needed; its own
+  // child lane still is.
   const { refreshRootLaneOptions, tearleads } = createResyncHarness({
     nodes: [{ id: "root", parentId: null }],
   });
 
   await resyncContainerAccess(tearleads, ["root"]);
 
-  expect(refreshRootLaneOptions).toEqual([undefined]);
+  expect(refreshRootLaneOptions).toEqual([{ parentIds: ["root"] }]);
 });
 
-test("resync_required for an unknown container adds no parent lane", async () => {
-  // The flagged container is not in the local tree (nothing to remove locally);
-  // re-list only the root lane so a new top-level grant still surfaces.
+test("resync_required for an unknown container adds no lane", async () => {
+  // The flagged container is not in the local tree (nothing to remove locally
+  // and no lane to list); re-list only the root lane so a new grant surfaces.
   const { refreshRootLaneOptions, tearleads } = createResyncHarness({
     nodes: [{ id: "root", parentId: null }],
   });
@@ -159,7 +176,7 @@ test("resync_required tolerates a not-ready container tree", async () => {
   expect(refreshCalls).toEqual([]);
 });
 
-test("a batched resync revalidates distinct children and refreshes their parents once", async () => {
+test("a batched resync revalidates distinct children and refreshes their parents and lanes once", async () => {
   const { enqueueCalls, refreshCalls, refreshRootLaneOptions, tearleads } =
     createResyncHarness({
       nodes: [
@@ -171,5 +188,7 @@ test("a batched resync revalidates distinct children and refreshes their parents
   await resyncContainerAccess(tearleads, ["a", "b", "c", "a"]);
   expect(enqueueCalls.map((call) => call.containerId)).toEqual(["a", "b", "c"]);
   expect(refreshCalls).toEqual(["refreshRootLane"]);
-  expect(refreshRootLaneOptions).toEqual([{ parentIds: ["root", "branch"] }]);
+  expect(refreshRootLaneOptions).toEqual([
+    { parentIds: ["root", "branch", "a", "b", "c"] },
+  ]);
 });
