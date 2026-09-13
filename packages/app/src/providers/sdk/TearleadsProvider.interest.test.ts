@@ -1,76 +1,16 @@
 import { expect, test } from "bun:test";
-import type { Tearleads } from "@tearleads/client-sdk";
 import { MAX_WS_INTEREST_CONTAINER_IDS } from "@tearleads/validators/realtime";
 import {
   createMswEventRouter,
   type MswSocketClient,
 } from "../../../test/helpers/mswEventRouter";
 import { startContainerInterestDeclaration } from "./serverEventsBinding";
-
-function createFakeStore(initialIds: string[]) {
-  let ids = initialIds;
-  let ready = true;
-  const listeners = new Set<() => void>();
-  return {
-    setNodes(next: string[]) {
-      ids = next;
-      for (const listener of listeners) {
-        listener();
-      }
-    },
-    setReady(next: boolean) {
-      ready = next;
-      for (const listener of listeners) {
-        listener();
-      }
-    },
-    store: {
-      getSnapshot: () => ({ nodes: ids.map((id) => ({ id })), ready }),
-      subscribe: (listener: () => void) => {
-        listeners.add(listener);
-        return () => listeners.delete(listener);
-      },
-    },
-  };
-}
-
-function acknowledgeInitialDeclaration(
-  handle: ReturnType<typeof startContainerInterestDeclaration>,
-  sent: string[],
-): void {
-  const declaration = JSON.parse(sent.at(-1) ?? "null") as {
-    declarationId?: unknown;
-    containerIds: string[];
-  };
-  expect(typeof declaration.declarationId).toBe("string");
-  expect(
-    handle.acknowledge(
-      String(declaration.declarationId),
-      declaration.containerIds,
-    ),
-  ).toBe(true);
-}
-
-function tearleadsWithStore(openTree: () => unknown): Tearleads {
-  return {
-    deviceFirst: {
-      open: () => ({ containerStore: openTree() }),
-    },
-  } as unknown as Tearleads;
-}
-
-function fakeSocket(readyState: number) {
-  const sent: string[] = [];
-  return {
-    sent,
-    ws: {
-      readyState,
-      send: (message: string) => {
-        sent.push(message);
-      },
-    } as unknown as WebSocket,
-  };
-}
+import {
+  acknowledgeInitialDeclaration,
+  createFakeStore,
+  fakeSocket,
+  tearleadsWithStore,
+} from "./test/containerInterestHarness";
 
 for (const initialPending of [false, true]) {
   test(`bulk discovery coalesces behind ${initialPending ? "initial" : "delta"} authorization`, () => {
@@ -124,19 +64,22 @@ test("splits an oversized declaration at the server cap and clears the barrier o
     ws,
     new Set(),
   );
-  const [first, second] = sent.map((value) => JSON.parse(value));
-  expect(sent).toHaveLength(2);
+  // The remainder waits for the first chunk's acknowledgment.
+  expect(sent).toHaveLength(1);
+  const first = JSON.parse(sent[0] ?? "null");
   expect(first).toMatchObject({ type: "known_containers" });
   expect(first.containerIds).toHaveLength(MAX_WS_INTEREST_CONTAINER_IDS);
+  // Neither chunk alone completes the authoritative declaration.
+  expect(handle.acknowledge(first.declarationId, first.containerIds)).toBe(
+    false,
+  );
+  expect(sent).toHaveLength(2);
+  const second = JSON.parse(sent[1] ?? "null");
   expect(second).toMatchObject({
     type: "known_containers.add",
     containerIds: [ids.at(-1)],
   });
   expect(first.declarationId).not.toBe(second.declarationId);
-  // Neither chunk alone completes the authoritative declaration.
-  expect(handle.acknowledge(first.declarationId, first.containerIds)).toBe(
-    false,
-  );
   expect(handle.acknowledge(second.declarationId, second.containerIds)).toBe(
     true,
   );
@@ -148,15 +91,16 @@ test("splits an oversized declaration at the server cap and clears the barrier o
       (_, index) => `later-${index}`,
     ),
   ]);
-  const deltas = sent.slice(2).map((value) => JSON.parse(value));
-  expect(deltas.map((delta) => delta.type)).toEqual([
-    "known_containers.add",
-    "known_containers.add",
-  ]);
-  expect(deltas.map((delta) => delta.containerIds.length)).toEqual([
-    MAX_WS_INTEREST_CONTAINER_IDS,
-    1,
-  ]);
+  expect(sent).toHaveLength(3);
+  const bulk = JSON.parse(sent[2] ?? "null");
+  expect(bulk).toMatchObject({ type: "known_containers.add" });
+  expect(bulk.containerIds).toHaveLength(MAX_WS_INTEREST_CONTAINER_IDS);
+  expect(handle.acknowledge(bulk.declarationId, bulk.containerIds)).toBe(false);
+  expect(JSON.parse(sent[3] ?? "null")).toMatchObject({
+    type: "known_containers.add",
+    containerIds: [`later-${MAX_WS_INTEREST_CONTAINER_IDS}`],
+  });
+  expect(sent).toHaveLength(4);
   handle.stop();
 });
 

@@ -155,3 +155,74 @@ test("a reconnect with no held interest asks nothing", async () => {
   expect(resyncFrames(f.sent)).toEqual([]);
   f.gateway.stop();
 });
+
+test("a revalidation eviction invalidates the reconnect handoff for a matching declaration", async () => {
+  let readable = new Set([CONTAINER, OTHER]);
+  let calls = 0;
+  const f = fixture({
+    cached: [CONTAINER, OTHER],
+    authorize: async (_user, ids) => {
+      calls++;
+      return ids.filter((id) => readable.has(id));
+    },
+  });
+  await f.gateway.websocket.open(f.socket);
+  expect(f.router.interestedSocketCount(CONTAINER)).toBe(1);
+  // Revoked while the subscriber was down: the invalidation never arrives, so
+  // only the reconnect-triggered re-verification evicts it.
+  readable = new Set([OTHER]);
+  f.reconnect();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(calls).toBe(2);
+  expect(f.router.interestedSocketCount(CONTAINER)).toBe(0);
+  // The client's authoritative declaration matches the cached set inside the
+  // handoff window; it must reauthorize instead of reinstalling the stale proof.
+  await f.declare("known_containers", [CONTAINER, OTHER]);
+  expect(calls).toBe(3);
+  expect(f.router.interestedSocketCount(CONTAINER)).toBe(0);
+  expect(f.router.interestedSocketCount(OTHER)).toBe(1);
+  expect(f.sent.at(-1)).toEqual({
+    type: "known_containers_ack",
+    containerIds: [OTHER],
+    declarationId: "declaration",
+  });
+  f.gateway.stop();
+});
+
+test("a failed reconnect verification holds the full resync until a pass succeeds", async () => {
+  const capture = spyOn(sentry, "captureApiError").mockImplementation(
+    () => undefined,
+  );
+  const recovered = Promise.withResolvers<void>();
+  let calls = 0;
+  const f = fixture({
+    revalidation: { intervalMs: 40, random: () => 0 },
+    authorize: async (_user, ids) => {
+      calls++;
+      if (calls === 2) throw new Error("authorization database unavailable");
+      if (calls === 3) recovered.resolve();
+      return ids;
+    },
+  });
+  try {
+    await f.gateway.websocket.open(f.socket);
+    await f.declare("known_containers", [CONTAINER, OTHER]);
+    f.reconnect();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(calls).toBe(2);
+    expect(resyncFrames(f.sent)).toEqual([]);
+    expect(f.closed).toEqual([]);
+    // The next periodic pass finds nothing revoked but still owes the client
+    // the resync the failed reconnect pass could not deliver.
+    await recovered.promise;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(resyncFrames(f.sent)).toEqual([
+      { type: "resync_required", containerIds: [CONTAINER, OTHER] },
+    ]);
+    expect(f.router.interestedSocketCount(CONTAINER)).toBe(1);
+    expect(capture).toHaveBeenCalled();
+  } finally {
+    capture.mockRestore();
+    f.gateway.stop();
+  }
+});

@@ -26,6 +26,8 @@ interface SocketState {
   pending: Promise<void>;
   declarations: number;
   containerIds: number;
+  /** A reconnect asked for a full resync; held until a verification lands. */
+  resyncAll: boolean;
 }
 
 export class ContainerInterestAuthorizer {
@@ -52,6 +54,7 @@ export class ContainerInterestAuthorizer {
       pending: Promise.resolve(),
       declarations: 0,
       containerIds: 0,
+      resyncAll: false,
     });
     return this.enqueue(ws, async () => {
       try {
@@ -137,24 +140,31 @@ export class ContainerInterestAuthorizer {
    * held container — used when this process may have missed hints wholesale
    * (a pub/sub reconnect), not only access changes. Runs on the socket's own
    * queue so it never interleaves with a declaration; a verification failure
-   * keeps the socket (the next pass retries) instead of closing it.
+   * keeps the socket (the next pass retries) instead of closing it, and a
+   * pending `resyncAll` survives the failure until a later pass succeeds.
    */
   revalidate(
     ws: WsConnection,
     options: { readonly resyncAll?: boolean } = {},
   ): Promise<void> {
     const state = this.states.get(ws);
-    if (!state || state.declarations >= MAX_PENDING_DECLARATIONS)
+    if (!state) return Promise.resolve();
+    if (options.resyncAll) state.resyncAll = true;
+    if (state.declarations >= MAX_PENDING_DECLARATIONS)
       return Promise.resolve();
     return this.enqueue(ws, async () => {
       const ids = this.router.interestOf(ws);
-      if (ids.length === 0) return;
+      if (ids.length === 0) {
+        // Nothing held means nothing whose hints could have been missed.
+        state.resyncAll = false;
+        return;
+      }
       try {
         await this.queries.run(
           ws,
           ids,
           () => this.isOpen(ws),
-          (proofs) => this.installRevalidated(ws, ids, proofs, options),
+          (proofs) => this.installRevalidated(ws, ids, proofs),
         );
       } catch (error) {
         console.error("Failed to revalidate websocket interest:", error);
@@ -173,10 +183,14 @@ export class ContainerInterestAuthorizer {
     ws: WsConnection,
     ids: string[],
     proofs: VerifiedContainerInterest[],
-    options: { readonly resyncAll?: boolean },
   ): void {
+    const state = this.states.get(ws);
+    if (!state) return;
     const accepted = new Set(proofs.map((proof) => proof.containerId));
     const refused = ids.filter((id) => !accepted.has(id));
+    // The reconnect handoff predates this verification; a matching declaration
+    // inside its window must reauthorize, not reinstall an evicted proof.
+    this.restoration.clear(ws);
     // Re-adding the held set refreshes each surviving proof's dependency path
     // (a move re-parents it) and drops the refused ids in one step.
     this.router.applyAuthorizedContainerInterest(
@@ -184,7 +198,8 @@ export class ContainerInterestAuthorizer {
       { kind: "add", containerIds: ids },
       proofs,
     );
-    const resync = options.resyncAll ? ids : refused;
+    const resync = state.resyncAll ? ids : refused;
+    state.resyncAll = false;
     if (resync.length > 0)
       sendSafely(
         ws,

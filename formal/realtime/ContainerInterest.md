@@ -56,8 +56,12 @@ arrives. Each socket re-runs the same signed batch verification over its
 installed proofs on a jittered interval (five minutes by default), evicting
 refusals with `resync_required` exactly as an observed change would, and a
 subscriber reconnect re-verifies every live socket immediately while asking
-each client to resync everything it holds. A lost invalidation therefore leaves
-a revoked subscription live for at most one interval, not the socket lifetime.
+each client to resync everything it holds. That resync request is held per
+socket until a verification succeeds, so a failed pass cannot discard it, and a
+successful pass clears the reconnect proof handoff so a matching declaration
+reauthorizes instead of reinstalling an evicted proof. A lost invalidation
+therefore leaves a revoked subscription live for at most one interval, not the
+socket lifetime.
 Organization purges publish per-container invalidations for the deleted rows.
 Only revoke, move, and delete evict; grants, rekeys, and recites do not remove
 readers and route their hints without evicting descendant subscribers. The
