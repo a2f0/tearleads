@@ -1,9 +1,9 @@
 import { reportBackgroundFailure } from "../diagnostics/reportBackgroundFailure";
 import type { WsConnection } from "./wsConnection";
 
-export const DEFAULT_REVALIDATION_INTERVAL_MS = 5 * 60_000;
+const DEFAULT_REVALIDATION_INTERVAL_MS = 5 * 60_000;
 /** Failing passes may keep unconfirmed proofs for this many intervals. */
-export const DEFAULT_MAX_PROOF_AGE_INTERVALS = 3;
+const DEFAULT_MAX_PROOF_AGE_INTERVALS = 3;
 
 /** Arms one timer and returns its cancel; injectable for deterministic tests. */
 export type ScheduleTimer = (

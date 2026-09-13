@@ -55,7 +55,7 @@ export const WsSharedWithYouHintSchema = z.object({
 // directly at a descendant never receives the ancestor's own hint, so this names
 // the recipient's held containers whose cited path now carries a stale manifest.
 // Invalidation only: drop cached projections, keep the subscriptions.
-export const WsContainerPathChangedHintSchema = z.object({
+const WsContainerPathChangedHintSchema = z.object({
   type: z.literal("container_path_changed"),
   containerIds: z.array(z.string().min(1)).min(1),
 });
