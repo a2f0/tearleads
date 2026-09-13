@@ -30,11 +30,20 @@ export function findRootContainerState(
     return defaultRootState ?? rootStates[0] ?? null;
   }
 
-  const organizationRootState = rootStates.find(
-    (containerState) =>
-      containerState.container.organizationId === organizationId &&
-      containerState.container.id === state.runtime.auth.rootContainerId,
+  // Remote root roles have been verified during hydration. An acknowledgement
+  // selects the personal merge destination; other organizations may be first
+  // encountered on this device after joining or creating them elsewhere.
+  const organizationRoots = rootStates.filter(
+    (entry) => entry.container.organizationId === organizationId,
   );
+  const acknowledgedRootId = state.runtime.auth.rootContainerId;
+  const organizationRootState = acknowledgedRootId
+    ? organizationRoots.find(
+        (entry) => entry.container.id === acknowledgedRootId,
+      )
+    : organizationRoots.length === 1
+      ? organizationRoots[0]
+      : null;
   if (organizationRootState) {
     return organizationRootState;
   }
@@ -50,7 +59,9 @@ export function findSystemContainerStateForRoot(
   systemSlot: ContainerSystemSlot,
   rootState: ContainerState | null,
 ): ContainerState | null {
-  const { organizationId, rootContainerId } = state.runtime.auth;
+  const { rootContainerId } = state.runtime.auth;
+  const organizationId =
+    rootState?.container.organizationId || state.runtime.auth.organizationId;
   const expectedRootId = rootState?.container.id ?? rootContainerId;
   for (const containerState of state.containersById.values()) {
     const container = containerState.container;

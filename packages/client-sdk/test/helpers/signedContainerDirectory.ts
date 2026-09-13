@@ -11,6 +11,8 @@ export async function createSignedContainerDirectory(
   input: readonly {
     id: string;
     parentId: string | null;
+    metadataDocumentId?: string;
+    organizationId?: string;
     systemSlot?: string | null;
   }[],
 ) {
@@ -29,8 +31,9 @@ export async function createSignedContainerDirectory(
     const created = (async () =>
       createContainerWriterProjectionFixture({
         containerId: id,
-        metadataDocumentId: `${id}-metadata-document`,
-        organizationId: "org-1",
+        metadataDocumentId:
+          entry.metadataDocumentId ?? `${id}-metadata-document`,
+        organizationId: entry.organizationId ?? "org-1",
         systemSlot: entry.systemSlot ?? null,
         parentProjection: entry.parentId
           ? await load(entry.parentId)

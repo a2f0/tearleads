@@ -35,3 +35,29 @@ for (const [organizationId, parentId, accepted] of [
     );
   });
 }
+
+test("an explicit foreign root keeps its own system-write invalidation scope", () => {
+  const runtime = createContainerContentsTestRuntime({
+    domainScope: createDomainScope(),
+    execSql: async () => [],
+    rootContainerId: "personal-root",
+    organizationId: "personal-org",
+  });
+  const state = createContainerContentsStoreState(
+    runtime,
+    defaultContainerContentsPersistence,
+  );
+  const root = createTestContainerState({
+    id: "foreign-root",
+    organizationId: "foreign-org",
+    parentId: null,
+  });
+  const system = createTestContainerState({
+    id: "foreign-system",
+    organizationId: "foreign-org",
+    parentId: root.container.id,
+  });
+  system.container.systemSlot = slot;
+  state.containersById.set(system.container.id, system);
+  expect(findSystemContainerStateForRoot(state, slot, root)).toBe(system);
+});

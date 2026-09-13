@@ -3,6 +3,14 @@ import type { NegativeControl } from "./protocolNegativeControls";
 export const SYSTEM_DESTINATION_NEGATIVE_CONTROLS: readonly NegativeControl[] =
   [
     {
+      id: "root-manifest-crosses-organization",
+      module: "formal/local-trust/SystemDestination.tla",
+      config: "formal/local-trust/SystemDestination.cfg",
+      constants: { RequireRootScope: "FALSE" },
+      expect: { kind: "invariant", name: "RootWritesStayInOrganization" },
+      why: "A signed foreign root cannot be relabeled by an unsigned projection (#2266).",
+    },
+    {
       id: "system-slot-crosses-organization",
       module: "formal/local-trust/SystemDestination.tla",
       config: "formal/local-trust/SystemDestination.cfg",

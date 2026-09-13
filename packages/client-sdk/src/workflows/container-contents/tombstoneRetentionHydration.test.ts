@@ -22,13 +22,15 @@ import type {
 const T0 = "2026-01-01T00:00:00.000Z";
 const T1 = "2026-01-01T00:00:01.000Z";
 
+// These are ordinary shared folders under an unlisted parent. The metadata
+// replacement cases exercise dormant records, not immutable verified root roles.
 const T2 = "2026-01-01T00:00:02.000Z";
 function remoteContainerItem(
   updatedAt: string,
 ): ListContainersResponse["items"][number] {
   return {
     createdAt: T0,
-    depth: 0,
+    depth: 1,
     effectiveAccessLevel: "write",
     id: "revoked",
     metadataAccessEpoch: 1,
@@ -36,7 +38,7 @@ function remoteContainerItem(
     metadataDocumentId: "metadata-revoked",
     metadataReferencedPrincipals: [],
     organizationId: "peer-organization",
-    parentId: null,
+    parentId: "unlisted-parent",
     updatedAt,
   };
 }
@@ -123,7 +125,7 @@ test("revoke and remote re-list retain and re-attach through hydration", async (
         metadataDocumentId: "metadata-revoked",
         name: "Renamed",
         organizationId: "peer-organization",
-        parentId: null,
+        parentId: "unlisted-parent",
       },
       {
         accessEpoch: 1,
@@ -367,7 +369,7 @@ test("a never-bound dormant record re-attaches instead of purging", async () => 
         metadataDocumentId: "metadata-revoked",
         name: "Renamed",
         organizationId: "peer-organization",
-        parentId: null,
+        parentId: "unlisted-parent",
       },
       {
         accessEpoch: 1,

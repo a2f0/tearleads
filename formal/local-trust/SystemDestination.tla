@@ -1,9 +1,9 @@
 ------------------------- MODULE SystemDestination -------------------------
 EXTENDS Naturals
 CONSTANTS VerifyDestination, RequireSessionRoot, RequireSystemAdministrator,
-          PreserveDestinationIdentity, PreserveSessionAcknowledgment, RejectSharedSystem, RequireSystemScope
+          PreserveDestinationIdentity, PreserveSessionAcknowledgment, RejectSharedSystem, RequireSystemScope, RequireRootScope
 ASSUME {VerifyDestination, RequireSessionRoot, RequireSystemAdministrator,
-        PreserveDestinationIdentity, PreserveSessionAcknowledgment, RejectSharedSystem, RequireSystemScope}
+        PreserveDestinationIdentity, PreserveSessionAcknowledgment, RejectSharedSystem, RequireSystemScope, RequireRootScope}
        \subseteq BOOLEAN
 Candidates == {"ownRoot", "foreignRoot", "ordinary", "system"}
 VARIABLES sameOrganization, acknowledgedRoot, candidate, shared, creatorRole, hydrated, rootRole, systemRole,
@@ -28,6 +28,7 @@ Hydrate ==
   /\ UNCHANGED <<sameOrganization, acknowledgedRoot, candidate, shared, creatorRole, merged, usedSystem,
                   unauthorizedSlot, moved>>
 MergeRoot ==
+  /\ ~RequireRootScope \/ sameOrganization
   /\ hydrated /\ rootRole
   /\ ~RequireSessionRoot \/ candidate = acknowledgedRoot
   /\ merged' = TRUE
@@ -61,6 +62,7 @@ TypeOK ==
   /\ {sameOrganization, shared, hydrated, rootRole, systemRole, merged, usedSystem,
        unauthorizedSlot, moved} \subseteq BOOLEAN
 OnlyServerRootsAcknowledged == acknowledgedRoot = "ownRoot"
+RootWritesStayInOrganization == merged => sameOrganization
 OnlyOwnRootReceivesLocalContent == merged => candidate = "ownRoot"
 SystemWritesStayInOrganization == usedSystem => sameOrganization
 OnlySignedSlotReceivesSystemWrites == usedSystem => candidate = "system"

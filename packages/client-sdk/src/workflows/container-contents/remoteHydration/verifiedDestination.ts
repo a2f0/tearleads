@@ -17,8 +17,8 @@ export function needsVerifiedContainerDestination(input: {
   return (
     !!listed.systemSlot ||
     !!existing?.systemSlot ||
-    ((listed.parentId === null || existing?.parentId === null) &&
-      listed.id === input.state.runtime.auth.rootContainerId)
+    listed.parentId === null ||
+    existing?.parentId === null
   );
 }
 
@@ -63,7 +63,11 @@ export async function verifyRemoteContainerDestination(input: {
       });
       if (isCurrent?.() === false) return null;
       const head = path.at(-1);
-      if (!head || head.state.containerId !== listed.id) {
+      if (
+        !head ||
+        head.state.containerId !== listed.id ||
+        head.state.organizationId !== listed.organizationId
+      ) {
         throw new KeyingVerificationError(
           "object_mismatch",
           "container destination manifest has the wrong identity",
