@@ -37,7 +37,9 @@ interface PublishContainerMutationCreatedInput {
 // citations — none changes membership, so evicting on them would resync every
 // descendant subscriber of a hot root for nothing. Their
 // `container_mutation_created` hint still reaches the container's own watchers,
-// who drop their cached writer projection on it.
+// who drop their cached writer projection on it, and the gateway fans a
+// `container_path_changed` hint to every subscriber whose cited path includes
+// the container so descendants drop theirs too.
 const EVICTING_EVENT_TYPES: ReadonlySet<AccessEventType> =
   new Set<AccessEventType>(["container.move", "container.revoke"]);
 

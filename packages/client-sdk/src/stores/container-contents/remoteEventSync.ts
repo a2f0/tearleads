@@ -1,9 +1,10 @@
 import {
-  listContainerMutationEventContainerIds,
   listContainerParentIdsForEventHydration,
+  listContainerProjectionInvalidationIds,
 } from "../../workflows/container-contents/containerEvents";
 import { listContainerMetadataDocumentUpdateIds } from "../../workflows/container-contents/metadata";
 import { bumpMetadataSyncSeq } from "./metadataSyncSignal";
+import { invalidateCachedProjections } from "./remoteEventProjectionInvalidation";
 import type { ContainerContentsStoreSyncState } from "./syncAgentTypes";
 
 export function handleContainerContentsRemoteEvents(input: {
@@ -20,17 +21,12 @@ export function handleContainerContentsRemoteEvents(input: {
   }
   const nextEvents = state.runtime.state.events.slice(state.lastEventCount);
   state.lastEventCount = state.runtime.state.events.length;
-  // A peer's grant, rekey, or recite changed the container's manifest head
-  // without evicting this subscriber. Drop both cached writer projections now,
-  // before hydration lands, so the next share or move fetches a fresh one
-  // instead of submitting against the stale manifest and conflicting.
-  for (const containerId of listContainerMutationEventContainerIds(
-    nextEvents,
-  )) {
-    const containerState = state.containersById.get(containerId);
-    if (containerState) containerState.containerWriterProjection = null;
-    state.runtime.apiClient.evictContainerWriterProjection(containerId);
-  }
+  // A peer's grant, rekey, or recite changed a manifest this client's cached
+  // projections cite, without evicting this subscriber.
+  invalidateCachedProjections(
+    state,
+    listContainerProjectionInvalidationIds(nextEvents),
+  );
   let addedHydrationLane = false;
   for (const parentId of listContainerParentIdsForEventHydration(nextEvents)) {
     if (!state.containerParentIdsNeedingHydration.has(parentId)) {

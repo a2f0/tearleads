@@ -240,8 +240,38 @@ export class WsEventRouter {
         return [];
       default:
         this.routeHint(event);
+        if (event.type === "container_mutation_created")
+          this.routePathChanged(event.containerId);
         return [];
     }
+  }
+
+  /**
+   * A container mutation moves the manifest every dependent subscription cites
+   * (writer projections embed the ancestor path). Grants, rekeys, and recites
+   * no longer evict those dependents, and a socket granted directly at a
+   * descendant never receives the ancestor's own hint, so tell each dependent
+   * socket which of its held containers now cite a stale manifest. Invalidation
+   * only: nothing is evicted, and the frame names only ids the socket holds.
+   */
+  private routePathChanged(mutatedContainerId: string): void {
+    const affected = new Map<WsConnection, string[]>();
+    for (const { ws, containerId } of this.dependencies.affected(
+      mutatedContainerId,
+    )) {
+      if (containerId === mutatedContainerId) continue;
+      const ids = affected.get(ws) ?? [];
+      ids.push(containerId);
+      affected.set(ws, ids);
+    }
+    for (const [ws, containerIds] of affected)
+      sendSafely(
+        ws,
+        serializeWsServerMessage({
+          containerIds,
+          type: "container_path_changed",
+        }),
+      );
   }
 
   private routeHint(event: PublishedHintEvent): void {

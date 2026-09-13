@@ -49,6 +49,17 @@ export const WsSharedWithYouHintSchema = z.object({
   userId: z.string().min(1),
 });
 
+// Derived by the gateway, never published: a container mutation moved the
+// manifest every dependent subscription cites in its writer projection. Grants,
+// rekeys, and recites do not evict those dependents, and a subscriber granted
+// directly at a descendant never receives the ancestor's own hint, so this names
+// the recipient's held containers whose cited path now carries a stale manifest.
+// Invalidation only: drop cached projections, keep the subscriptions.
+export const WsContainerPathChangedHintSchema = z.object({
+  type: z.literal("container_path_changed"),
+  containerIds: z.array(z.string().min(1)).min(1),
+});
+
 export const WsUserRegisteredHintSchema = z.object({
   type: z.literal("user_registered"),
   userId: z.string().min(1),
@@ -59,6 +70,7 @@ export const WsInvalidationHintSchema = z.discriminatedUnion("type", [
   WsDocumentUpdateCreatedHintSchema,
   WsDocumentMutationCreatedHintSchema,
   WsContainerMutationCreatedHintSchema,
+  WsContainerPathChangedHintSchema,
   WsSharedWithYouHintSchema,
   WsUserRegisteredHintSchema,
 ]);

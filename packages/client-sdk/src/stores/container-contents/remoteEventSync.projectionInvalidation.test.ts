@@ -31,9 +31,11 @@ test("a peer's grant hint drops the cached writer projection so the next write f
   const stale = projectionFor(CONTAINER, `access-${CONTAINER}`);
   const fresh = projectionFor(CONTAINER, `access-${CONTAINER}-rotated`);
   const evictContainerWriterProjection = mock((_containerId: string) => {});
+  const evictDocumentWriterProjection = mock((_documentId: string) => {});
   const getContainerWriterProjection = mock(async () => fresh);
   const apiClient = {
     evictContainerWriterProjection,
+    evictDocumentWriterProjection,
     getContainerWriterProjection,
   } as unknown as ContainerContentsWorkflowRuntimeInput["apiClient"];
   const baseRuntime = createContainerContentsTestRuntime({
@@ -77,6 +79,10 @@ test("a peer's grant hint drops the cached writer projection so the next write f
   });
 
   expect(evictContainerWriterProjection).toHaveBeenCalledWith(CONTAINER);
+  // The metadata document's projection cites the same path.
+  expect(evictDocumentWriterProjection).toHaveBeenCalledWith(
+    `metadata-${CONTAINER}`,
+  );
   expect(getCachedContainerWriterProjection(containerState)).toBeNull();
   // The next share/move loads through the API instead of reusing the stale
   // manifest hash.
@@ -93,6 +99,7 @@ test("hints for other containers leave a cached projection in place", () => {
   const evictContainerWriterProjection = mock((_containerId: string) => {});
   const apiClient = {
     evictContainerWriterProjection,
+    evictDocumentWriterProjection: () => {},
   } as unknown as ContainerContentsWorkflowRuntimeInput["apiClient"];
   const baseRuntime = createContainerContentsTestRuntime({
     apiClient,
@@ -140,4 +147,104 @@ test("hints for other containers leave a cached projection in place", () => {
 
   expect(evictContainerWriterProjection.mock.calls).toEqual([["container-2"]]);
   expect(getCachedContainerWriterProjection(containerState)).toBe(cached);
+});
+
+/** A store holding a tree; every container starts with a cached projection. */
+function treeState(
+  nodes: ReadonlyArray<{ id: string; parentId: string | null }>,
+  events: ReadonlyArray<unknown>,
+) {
+  const evicted: string[] = [];
+  const apiClient = {
+    evictContainerWriterProjection: (containerId: string) => {
+      evicted.push(containerId);
+    },
+    evictDocumentWriterProjection: () => {},
+  } as unknown as ContainerContentsWorkflowRuntimeInput["apiClient"];
+  const baseRuntime = createContainerContentsTestRuntime({
+    apiClient,
+    domainScope: createDomainScope(),
+    execSql: mock(async () => []),
+  });
+  const state = createContainerContentsStoreState(
+    { ...baseRuntime, state: { ...baseRuntime.state, events } },
+    defaultContainerContentsPersistence,
+  );
+  for (const node of nodes) {
+    const containerState = createTestContainerState(node);
+    containerState.containerWriterProjection = projectionFor(
+      node.id,
+      `access-${node.id}`,
+    );
+    state.containersById.set(node.id, containerState);
+  }
+  state.initialized = true;
+  const cached = (id: string) => {
+    const containerState = state.containersById.get(id);
+    return containerState
+      ? getCachedContainerWriterProjection(containerState) !== null
+      : null;
+  };
+  return { cached, evicted, state };
+}
+
+test("an ancestor grant hint drops the locally known subtree's projections and leaves a sibling subtree alone", () => {
+  const { cached, evicted, state } = treeState(
+    [
+      { id: "ancestor", parentId: null },
+      { id: "child", parentId: "ancestor" },
+      { id: "grandchild", parentId: "child" },
+      { id: "sibling", parentId: null },
+      { id: "sibling-child", parentId: "sibling" },
+    ],
+    [
+      {
+        containerId: "ancestor",
+        eventType: "container.grant",
+        id: "event-1",
+        parentId: null,
+        type: "container_mutation_created",
+      },
+    ],
+  );
+  handleContainerContentsRemoteEvents({
+    requestHydration: async () => {},
+    scheduleSync: () => {},
+    state,
+  });
+  expect(cached("ancestor")).toBe(false);
+  expect(cached("child")).toBe(false);
+  expect(cached("grandchild")).toBe(false);
+  expect(cached("sibling")).toBe(true);
+  expect(cached("sibling-child")).toBe(true);
+  expect([...evicted].sort()).toEqual(["ancestor", "child", "grandchild"]);
+});
+
+test("a container_path_changed hint drops exactly the named dependents", () => {
+  // The subscriber holds only the granted subtree; the ancestor is unknown
+  // locally and its own hint never arrives, so the gateway's path hint is the
+  // signal.
+  const { cached, evicted, state } = treeState(
+    [
+      { id: "granted", parentId: "unknown-ancestor" },
+      { id: "granted-child", parentId: "granted" },
+      { id: "sibling", parentId: null },
+    ],
+    [
+      {
+        containerIds: ["granted", "granted-child"],
+        id: "event-1",
+        type: "container_path_changed",
+      },
+    ],
+  );
+  handleContainerContentsRemoteEvents({
+    requestHydration: async () => {},
+    scheduleSync: () => {},
+    state,
+  });
+  expect(cached("granted")).toBe(false);
+  expect(cached("granted-child")).toBe(false);
+  expect(cached("sibling")).toBe(true);
+  expect([...evicted].sort()).toEqual(["granted", "granted-child"]);
 });

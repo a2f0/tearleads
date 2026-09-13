@@ -1,5 +1,6 @@
 interface ContainerMutationEventCandidate {
   readonly containerId?: unknown;
+  readonly containerIds?: unknown;
   readonly eventType?: unknown;
   readonly parentId?: unknown;
   readonly previousParentId?: unknown;
@@ -42,20 +43,30 @@ function shouldHydrateRootLane(input: {
 }
 
 /**
- * Containers named by `container_mutation_created` hints. Grant, rekey, and
- * recite no longer evict subscribers, so this hint is the only signal that a
- * container's writer projection (manifest head, KEKs) moved under a cached copy.
+ * Containers whose cached writer projections a batch of hints invalidates: the
+ * container a `container_mutation_created` hint names, and every held
+ * dependent a gateway `container_path_changed` hint names. Grant, rekey, and
+ * recite no longer evict subscribers, so these hints are the only signal that
+ * a projection's manifest head or cited ancestor path moved under a cached copy.
  */
-export function listContainerMutationEventContainerIds(
+export function listContainerProjectionInvalidationIds(
   events: ReadonlyArray<unknown>,
 ): string[] {
   const containerIds = new Set<string>();
   for (const event of events) {
-    if (!isRecord(event) || event.type !== "container_mutation_created") {
-      continue;
+    if (!isRecord(event)) continue;
+    if (event.type === "container_mutation_created") {
+      const containerId = readNonEmptyString(event.containerId);
+      if (containerId) containerIds.add(containerId);
+    } else if (
+      event.type === "container_path_changed" &&
+      Array.isArray(event.containerIds)
+    ) {
+      for (const containerId of event.containerIds) {
+        const id = readNonEmptyString(containerId);
+        if (id) containerIds.add(id);
+      }
     }
-    const containerId = readNonEmptyString(event.containerId);
-    if (containerId) containerIds.add(containerId);
   }
   return [...containerIds];
 }
