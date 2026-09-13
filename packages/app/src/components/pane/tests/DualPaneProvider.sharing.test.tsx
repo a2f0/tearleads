@@ -57,7 +57,8 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // Retain headroom for independently scheduled verification/recovery pulls.
   // See docs/request-budget-closeout.md for phase, byte and sync-intent data.
   total: 67,
-  bodyBytes: { request: 380_000, response: 1_100_000 },
+  // A newly visible root adds one signed proof (measured up to 46.5 KB).
+  bodyBytes: { request: 380_000, response: 1_150_000 },
   byRequest: {
     "GET /documents/:documentId/writer-projection": 9,
     "POST /documents/:documentId/sync": 18,
@@ -67,8 +68,8 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     "POST /containers/parent-lanes/query": 11,
     "GET /auth/user-identity/:userId": 0,
     "POST /auth/ws-ticket": 0,
-    // Sharing refreshes container info after signed destination classification.
-    "GET /containers/:containerId/writer-projection": 4,
+    // Includes classifying a newly visible root plus fresh container info.
+    "GET /containers/:containerId/writer-projection": 5,
     "GET /documents/:documentId/attachments": 2,
     "GET /organizations/:organizationId/billing": 0,
     "GET /organizations/:organizationId/read-model": 6,
