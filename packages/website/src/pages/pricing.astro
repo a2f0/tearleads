@@ -1,62 +1,12 @@
 ---
-import { SYNC_BILLING_TIERS } from "@tearleads/validators/billing";
 import { PricingTiers } from "../components/PricingTiers";
 import { appUrl } from "../config";
 import Layout from "../layouts/Layout.astro";
+import { createPricingTiers, syncMemberCapacities } from "../pricing";
 import "../styles/product.css";
 import "../styles/pricing.css";
 
-const usd = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  maximumFractionDigits: 0,
-});
-
-const pricingTiers = [
-  {
-    name: "Free Forever",
-    price: "$0",
-    interval: "forever",
-    capacity: "Your local workspace",
-    description:
-      "A place for your notes, contacts, and files, stored locally on your device.",
-    features: [
-      "Notes, contacts, and Explorer",
-      "Local encrypted storage",
-      "Local backup and restore",
-    ],
-    href: appUrl,
-    action: "Start locally",
-  },
-  ...SYNC_BILLING_TIERS.map((tier) => ({
-    name: tier.title,
-    price: usd.format(tier.monthlyPriceUsdCents / 100),
-    interval: "/ month",
-    capacity:
-      tier.seatLimit === 1
-        ? "1 organization member"
-        : `Up to ${tier.seatLimit} organization members`,
-    description:
-      tier.id === "solo"
-        ? "Your local workspace, with encrypted sync to keep your devices connected."
-        : "A shared organization with encrypted sync and control over who can access each container.",
-    features:
-      tier.id === "solo"
-        ? [
-            "Everything in Free Forever",
-            "End-to-end encrypted sync",
-            "Sync across your devices",
-          ]
-        : [
-            "Everything in Free Forever",
-            "End-to-end encrypted sync",
-            "User and group sharing",
-            "Read, write, and admin access",
-          ],
-    href: appUrl,
-    action: "Choose in the app",
-  })),
-];
+const pricingTiers = createPricingTiers(appUrl);
 ---
 
 <Layout
@@ -94,7 +44,7 @@ const pricingTiers = [
             <h3>What is an organization member?</h3>
             <p>
               A member is a user in your organization's active roster. Plans cover
-              a fixed capacity of one, five, or ten members, including admins.
+              a fixed capacity of {syncMemberCapacities} members, including admins.
               Your devices do not each consume another member seat.
             </p>
           </div>
