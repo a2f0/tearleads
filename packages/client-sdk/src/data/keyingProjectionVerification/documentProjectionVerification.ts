@@ -262,7 +262,10 @@ export async function verifyDocumentManifestBundle(input: {
       })
     : null;
   const verified = await verifyDocumentLinkSetManifest({
-    authorizationMembership: input.authorizationMembership,
+    // Served heads and history were committed under the group membership their
+    // cited container heads referenced; a signer removed since must still
+    // verify on a cold device. The API verifier gates new writes at current.
+    authorizationMembership: input.authorizationMembership ?? "referenced",
     authorizingContainerPaths: dependencyContainerPaths,
     event,
     expectedManifestHash: input.bundle.manifestHash,
