@@ -107,3 +107,42 @@ test("a declaration awaiting a pre-outage query discards its answer after reconn
     f.gateway.stop();
   }
 });
+
+test("a reconnect clears the restore handoff even when its fresh pass fails", async () => {
+  const capture = spyOn(sentry, "captureApiError").mockImplementation(
+    () => undefined,
+  );
+  let readable = new Set([CONTAINER, OTHER]);
+  let calls = 0;
+  const f = fixture({
+    cached: [CONTAINER, OTHER],
+    authorize: async (_user, ids) => {
+      if (++calls === 2) throw new Error("authorization database unavailable");
+      return ids.filter((id) => readable.has(id));
+    },
+  });
+  try {
+    await f.gateway.websocket.open(f.socket);
+    expect(f.router.interestedSocketCount(CONTAINER)).toBe(1);
+    // Revoked during the outage; the reconnect pass then fails outright.
+    readable = new Set([OTHER]);
+    f.reconnect();
+    await flush();
+    expect(calls).toBe(2);
+    // The matching authoritative declaration must not consume the pre-outage
+    // handoff: it reauthorizes and the revoked id is refused.
+    await f.declare("known_containers", [CONTAINER, OTHER]);
+    expect(calls).toBe(3);
+    expect(f.router.interestedSocketCount(CONTAINER)).toBe(0);
+    expect(f.router.interestedSocketCount(OTHER)).toBe(1);
+    expect(f.sent.at(-1)).toEqual({
+      type: "known_containers_ack",
+      containerIds: [OTHER],
+      declarationId: "declaration",
+    });
+    expect(f.closed).toEqual([]);
+  } finally {
+    capture.mockRestore();
+    f.gateway.stop();
+  }
+});

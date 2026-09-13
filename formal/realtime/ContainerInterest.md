@@ -57,33 +57,35 @@ installed proofs on a jittered interval (five minutes by default), evicting
 refusals with `resync_required` exactly as an observed change would, and a
 subscriber reconnect re-verifies every live socket immediately while asking each
 client to resync everything it holds. That resync request is held per socket
-until a verification succeeds, so a failed pass cannot discard it, and a
-successful pass clears the reconnect proof handoff so a matching declaration
-reauthorizes instead of reinstalling an evicted proof. Verification failures
-never extend the bound: each socket records when a full verification last
-confirmed its installed proofs and arms a per-socket deadline timer at exactly
-`verifiedAt + maxProofAgeMs` (three intervals, fifteen minutes by default). If
-no verification completes before it fires, every subscription is evicted with
-one `resync_required`, whether the pass that would have confirmed them failed,
-is queued behind slow declarations, is in flight, or could not be enqueued at
-all; the jittered ticks only attempt verification and never gate the bound. Each
-eviction advances a per-socket epoch, so a pass that started earlier discards
-its result instead of reinstalling the evicted ids, and a reconnect discards any
-pass in flight (its proofs may predate the outage) before starting a fresh one
-that carries the resync. A socket holding no interest receives `shared_with_you`
-on reconnect so a share granted during the outage is still discovered, and a
-reconnect marks every running authorization query stale so neither a fresh pass
-nor a reader already waiting on it installs an answer read before the outage;
-both re-query (a timed-out query is marked stale the same way). The client
-answers a reconnect resync by re-listing each held container's parent lane and
-own child lane, so a child created during the outage surfaces. A lost
-invalidation therefore leaves a revoked subscription live for at most one
-interval while verification succeeds and at most exactly `maxProofAgeMs` after
-the last confirmation otherwise, never the socket lifetime. Organization purges
-publish per-container invalidations for the deleted rows. Only revoke, move, and
-delete evict; grants, rekeys, and recites do not remove readers and route their
-hints without evicting descendant subscribers. The eviction is published before
-the hint so the evicted socket never receives it.
+until a verification succeeds, so a failed pass cannot discard it. The reconnect
+proof handoff is cleared the moment a reconnect pass begins and again by every
+successful pass, so a matching declaration reauthorizes instead of reinstalling
+a proof verified before the outage or an evicted one, even when the fresh pass
+fails. Verification failures never extend the bound: each socket records when a
+full verification last confirmed its installed proofs and arms a per-socket
+deadline timer at exactly `verifiedAt + maxProofAgeMs` (three intervals, fifteen
+minutes by default). If no verification completes before it fires, every
+subscription is evicted with one `resync_required`, whether the pass that would
+have confirmed them failed, is queued behind slow declarations, is in flight, or
+could not be enqueued at all; the jittered ticks only attempt verification and
+never gate the bound. Each eviction advances a per-socket epoch, so a pass that
+started earlier discards its result instead of reinstalling the evicted ids, and
+a reconnect discards any pass in flight (its proofs may predate the outage)
+before starting a fresh one that carries the resync. A socket holding no
+interest receives `shared_with_you` on reconnect so a share granted during the
+outage is still discovered, and a reconnect marks every running authorization
+query stale so neither a fresh pass nor a reader already waiting on it installs
+an answer read before the outage; both re-query (a timed-out query is marked
+stale the same way). The client answers a reconnect resync by re-listing each
+held container's parent lane and own child lane, so a child created during the
+outage surfaces. A lost invalidation therefore leaves a revoked subscription
+live for at most one interval while verification succeeds and at most exactly
+`maxProofAgeMs` after the last confirmation otherwise, never the socket
+lifetime. Organization purges publish per-container invalidations for the
+deleted rows. Only revoke, move, and delete evict; grants, rekeys, and recites
+do not remove readers and route their hints without evicting descendant
+subscribers. The eviction is published before the hint so the evicted socket
+never receives it.
 
 Hint frames are scoped per recipient: the router rebuilds each frame with only
 the container ids that socket holds verified interest in (a document hint's

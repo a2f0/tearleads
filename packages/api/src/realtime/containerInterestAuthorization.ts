@@ -220,6 +220,10 @@ export class ContainerInterestAuthorizer {
     if (!state) return Promise.resolve();
     if (options.resyncAll) {
       state.resyncAll = true;
+      // The reconnect handoff was verified before the outage; a matching
+      // declaration during or after the fresh pass must reauthorize even if
+      // that pass fails.
+      this.restoration.clear(ws);
       if (state.revalidation) {
         state.epoch++;
         state.revalidation = null;
