@@ -65,6 +65,24 @@ function authorizationWasInvalidated(
   );
 }
 
+/** The proofs a run may install, or null when it must re-query. */
+function acceptableProofs(
+  query: ActiveQuery,
+  ids: readonly string[],
+  proofs: readonly VerifiedContainerInterest[],
+): VerifiedContainerInterest[] | null {
+  // Marked stale while this reader waited (a reconnect, or another reader's
+  // timeout): the answer may predate a lost invalidation.
+  if (query.stale) return null;
+  const requested = new Set(ids);
+  const allowed = proofs.filter((proof) => requested.has(proof.containerId));
+  if (authorizationWasInvalidated(query, allowed, ids)) {
+    query.stale = true;
+    return null;
+  }
+  return allowed;
+}
+
 export class ContainerInterestQueries {
   private readonly active = new Map<string, ActiveQuery>();
 
@@ -84,7 +102,8 @@ export class ContainerInterestQueries {
   /**
    * A pub/sub reconnect: every invalidation published during the outage is
    * gone, so a query already running may answer from pre-revocation access.
-   * Later runs await it (no SQL amplification) but never share its result.
+   * Later runs await it (no SQL amplification) but never share its result,
+   * and readers already waiting on it discard the answer and re-query.
    */
   markAllStale(): void {
     for (const query of this.active.values()) query.stale = true;
@@ -134,14 +153,8 @@ export class ContainerInterestQueries {
         );
         if (query.overflow)
           throw new Error("Too many pending container access changes");
-        const requested = new Set(ids);
-        const allowed = proofs.filter((proof) =>
-          requested.has(proof.containerId),
-        );
-        if (authorizationWasInvalidated(query, allowed, ids)) {
-          query.stale = true;
-          continue;
-        }
+        const allowed = acceptableProofs(query, ids, proofs);
+        if (!allowed) continue;
         // Keep the query observable until synchronous installation. Every
         // access event sees either this query or its installed dependencies.
         if (isOpen()) install(allowed);

@@ -449,6 +449,7 @@ export function createRealtimeGateway(deps: RealtimeGatewayDeps = {}) {
 
   function stop(): void {
     revalidation.stop();
+    containerInterest.stop();
     unsubscribe?.();
     unsubscribe = undefined;
     unsubscribeReconnect?.();

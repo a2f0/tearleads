@@ -61,3 +61,49 @@ test("a pre-outage query that answers after reconnect is not installed", async (
     f.gateway.stop();
   }
 });
+
+test("a declaration awaiting a pre-outage query discards its answer after reconnect", async () => {
+  let readable = new Set([CONTAINER, OTHER]);
+  const release = Promise.withResolvers<void>();
+  let calls = 0;
+  const f = fixture({
+    authorize: async (_user, ids) => {
+      const granted = ids.filter((id) => readable.has(id));
+      if (++calls === 1) await release.promise;
+      return granted;
+    },
+  });
+  try {
+    await f.gateway.websocket.open(f.socket);
+    const declaration = f.declare("known_containers", [CONTAINER, OTHER]);
+    await flush();
+    expect(calls).toBe(1);
+    // Revoked while the declaration's query is still open; the invalidation
+    // is lost and the subscriber reconnects.
+    readable = new Set([OTHER]);
+    f.reconnect();
+    await flush();
+    release.resolve();
+    await declaration;
+    // The pre-revocation grant was discarded and a fresh query refused the id.
+    const ack = f.sent.find(
+      (frame) => Reflect.get(frame, "type") === "known_containers_ack",
+    );
+    expect(ack).toEqual({
+      type: "known_containers_ack",
+      containerIds: [OTHER],
+      declarationId: "declaration",
+    });
+    expect(calls).toBeGreaterThanOrEqual(2);
+    expect(f.router.interestedSocketCount(CONTAINER)).toBe(0);
+    expect(f.router.interestedSocketCount(OTHER)).toBe(1);
+    // A replace mirrors exactly the accepted set.
+    expect(
+      f.persisted.map((action) => [action?.kind, action?.containerIds]),
+    ).toEqual([["replace", [OTHER]]]);
+    expect(f.closed).toEqual([]);
+  } finally {
+    release.resolve();
+    f.gateway.stop();
+  }
+});

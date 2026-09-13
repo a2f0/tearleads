@@ -41,6 +41,7 @@ interface SocketState {
 
 export class ContainerInterestAuthorizer {
   private readonly states = new WeakMap<WsConnection, SocketState>();
+  private stopped = false;
   private readonly queries: ContainerInterestQueries;
   private readonly restoration = new ContainerInterestRestoration();
 
@@ -144,6 +145,17 @@ export class ContainerInterestAuthorizer {
     this.states.delete(ws);
   }
 
+  /** Gateway shutdown: disarm every proof deadline and arm none afterwards. */
+  stop(): void {
+    this.stopped = true;
+    for (const ws of this.router.openSockets()) {
+      const state = this.states.get(ws);
+      if (!state) continue;
+      state.deadline?.();
+      state.deadline = null;
+    }
+  }
+
   /** A completed verification re-dates the proofs and re-arms their deadline. */
   private confirm(ws: WsConnection, state: SocketState): void {
     state.verifiedAt = this.proofAge.now();
@@ -161,7 +173,7 @@ export class ContainerInterestAuthorizer {
     state.deadline?.();
     state.deadline = null;
     const { maxProofAgeMs, now, schedule } = this.proofAge;
-    if (maxProofAgeMs <= 0) return;
+    if (maxProofAgeMs <= 0 || this.stopped) return;
     state.deadline = schedule(
       () => {
         state.deadline = null;
@@ -247,18 +259,15 @@ export class ContainerInterestAuthorizer {
       this.confirm(ws, state);
       return;
     }
+    // An eviction or reconnect while this pass runs supersedes it: it must
+    // neither install (resurrecting dropped ids) nor re-query on its own.
     const epoch = state.epoch;
     try {
       await this.queries.run(
         ws,
         ids,
-        () => this.isOpen(ws),
-        (proofs) => {
-          // An eviction while this pass ran already dropped these ids and
-          // re-dated the socket; installing them now would resurrect them.
-          if (state.epoch !== epoch) return;
-          this.installRevalidated(ws, ids, proofs);
-        },
+        () => this.isOpen(ws) && state.epoch === epoch,
+        (proofs) => this.installRevalidated(ws, ids, proofs),
       );
     } catch (error) {
       console.error("Failed to revalidate websocket interest:", error);

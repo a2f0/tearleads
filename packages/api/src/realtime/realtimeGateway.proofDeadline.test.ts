@@ -20,6 +20,7 @@ function fakeClock() {
   const timers = new Set<{ at: number; run: () => void }>();
   return {
     now: () => now,
+    pending: () => timers.size,
     schedule: (run: () => void, delayMs: number) => {
       const timer = { at: now + delayMs, run };
       timers.add(timer);
@@ -184,4 +185,32 @@ test("a successful verification re-arms the proof deadline from its own time", a
     capture.mockRestore();
     f.gateway.stop();
   }
+});
+
+test("stopping the gateway disarms every proof deadline", async () => {
+  const clock = fakeClock();
+  let failing = false;
+  const f = fixture({
+    revalidation: {
+      intervalMs: 10,
+      random: () => 1,
+      maxProofAgeMs: 25,
+      now: clock.now,
+      schedule: clock.schedule,
+    },
+    authorize: async (_user, ids) => {
+      if (failing) throw new Error("Container authorization timed out");
+      return ids;
+    },
+  });
+  await f.gateway.websocket.open(f.socket);
+  await f.declare("known_containers", [CONTAINER, OTHER]);
+  failing = true;
+  const framesBeforeStop = f.sent.length;
+  f.gateway.stop();
+  expect(clock.pending()).toBe(0);
+  await clock.advanceTo(60);
+  // Nothing fires from a stopped gateway: no eviction, no frame.
+  expect(f.sent).toHaveLength(framesBeforeStop);
+  expect(f.router.interestedSocketCount(CONTAINER)).toBe(1);
 });

@@ -72,11 +72,12 @@ its result instead of reinstalling the evicted ids, and a reconnect discards any
 pass in flight (its proofs may predate the outage) before starting a fresh one
 that carries the resync. A socket holding no interest receives `shared_with_you`
 on reconnect so a share granted during the outage is still discovered, and a
-reconnect marks every running authorization query stale so no fresh pass shares
-an answer read before the outage (a timed-out query is marked stale the same
-way). The client answers a reconnect resync by re-listing each held container's
-parent lane and own child lane, so a child created during the outage surfaces. A
-lost invalidation therefore leaves a revoked subscription live for at most one
+reconnect marks every running authorization query stale so neither a fresh pass
+nor a reader already waiting on it installs an answer read before the outage;
+both re-query (a timed-out query is marked stale the same way). The client
+answers a reconnect resync by re-listing each held container's parent lane and
+own child lane, so a child created during the outage surfaces. A lost
+invalidation therefore leaves a revoked subscription live for at most one
 interval while verification succeeds and at most exactly `maxProofAgeMs` after
 the last confirmation otherwise, never the socket lifetime. Organization purges
 publish per-container invalidations for the deleted rows. Only revoke, move, and
