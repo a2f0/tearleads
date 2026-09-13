@@ -62,6 +62,31 @@ async function publishMembershipShareNotifications(
   );
 }
 
+// Container grants name groups or users. Organization policies have no grants
+// and must mirror the current Admins projection; only the group mutation can
+// change reachability. Directory-only writes must not wake every org container.
+async function publishPrincipalAccessChanges(
+  publish: PrincipalPolicyRouteDeps["publish"],
+  principals: readonly {
+    principalType: "group" | "organization";
+    principalId: string;
+  }[],
+  sharedWithYouUserIds: readonly string[],
+): Promise<void> {
+  await Promise.all(
+    principals
+      .filter((principal) => principal.principalType === "group")
+      .map((principal) =>
+        publishBestEffort(
+          publish,
+          { type: "principal_access_changed", ...principal },
+          "principal interest invalidation",
+        ),
+      ),
+  );
+  await publishMembershipShareNotifications(publish, sharedWithYouUserIds);
+}
+
 function toPrincipalPolicyErrorResponse(error: unknown): Response | null {
   if (error instanceof PrincipalPolicyError) {
     const body = {
@@ -102,8 +127,9 @@ export function createPrincipalPolicyRoute({
           request: c.req.valid("json"),
           requesterUserId: c.get("session").userId,
         });
-        await publishMembershipShareNotifications(
+        await publishPrincipalAccessChanges(
           publish,
+          [{ principalType: "group", principalId: groupId }],
           result.sharedWithYouUserIds,
         );
         return c.json<CommitOrganizationGroupPolicyResponse>(result.policy);
@@ -115,7 +141,52 @@ export function createPrincipalPolicyRoute({
     },
   );
 
+  registerPolicyReadRoute(principalPolicyRoute, { requireAuth, runtime });
+
   principalPolicyRoute.on(
+    putPrincipalPolicyOperation.method,
+    operationRoutePath(putPrincipalPolicyOperation),
+    requireAuth,
+    jsonRequestValidator(putPrincipalPolicyOperation.body),
+    pathParamsValidator(
+      putPrincipalPolicyOperation.params,
+      "Invalid principal route",
+    ),
+    async (c) => {
+      const { principalId, principalType } = c.req.valid("param");
+
+      try {
+        const result = await putPrincipalPolicy(runtime, {
+          ...c.req.valid("json"),
+          expectedPrincipalType: principalType,
+          expectedPrincipalId: principalId,
+          requesterUserId: c.get("session").userId,
+        });
+        await publishPrincipalAccessChanges(
+          publish,
+          [{ principalType, principalId }],
+          result.sharedWithYouUserIds,
+        );
+        return c.json<PrincipalPolicyBundleResponse>(result.policy);
+      } catch (error) {
+        const response = toPrincipalPolicyErrorResponse(error);
+        if (response) {
+          return response;
+        }
+
+        throw error;
+      }
+    },
+  );
+
+  return principalPolicyRoute;
+}
+
+function registerPolicyReadRoute(
+  route: Hono<SessionEnv>,
+  { requireAuth, runtime }: Omit<PrincipalPolicyRouteDeps, "publish">,
+): void {
+  route.on(
     getPrincipalPolicyOperation.method,
     operationRoutePath(getPrincipalPolicyOperation),
     requireAuth,
@@ -140,41 +211,4 @@ export function createPrincipalPolicyRoute({
       }
     },
   );
-
-  principalPolicyRoute.on(
-    putPrincipalPolicyOperation.method,
-    operationRoutePath(putPrincipalPolicyOperation),
-    requireAuth,
-    jsonRequestValidator(putPrincipalPolicyOperation.body),
-    pathParamsValidator(
-      putPrincipalPolicyOperation.params,
-      "Invalid principal route",
-    ),
-    async (c) => {
-      const { principalId, principalType } = c.req.valid("param");
-
-      try {
-        const result = await putPrincipalPolicy(runtime, {
-          ...c.req.valid("json"),
-          expectedPrincipalType: principalType,
-          expectedPrincipalId: principalId,
-          requesterUserId: c.get("session").userId,
-        });
-        await publishMembershipShareNotifications(
-          publish,
-          result.sharedWithYouUserIds,
-        );
-        return c.json<PrincipalPolicyBundleResponse>(result.policy);
-      } catch (error) {
-        const response = toPrincipalPolicyErrorResponse(error);
-        if (response) {
-          return response;
-        }
-
-        throw error;
-      }
-    },
-  );
-
-  return principalPolicyRoute;
 }

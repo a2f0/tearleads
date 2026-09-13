@@ -39,6 +39,11 @@ const PublishedRealtimeEventSchema = z.discriminatedUnion("type", [
   WsUserRegisteredHintSchema.extend({ origin: wsOriginSchema.optional() }),
   // Server-only control events: consumed by the router, never forwarded.
   z.object({
+    type: z.literal("principal_access_changed"),
+    principalType: z.enum(["group", "organization"]),
+    principalId: z.string().min(1),
+  }),
+  z.object({
     containerId: z.string().min(1),
     type: z.literal("access_changed"),
   }),

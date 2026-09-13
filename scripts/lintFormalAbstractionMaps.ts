@@ -29,6 +29,7 @@ const EXPECTED_TABLES: Readonly<Record<string, number>> = {
   "formal/document-sync/RawHistoryRecovery.md": 1,
   "formal/document-sync/RestartProbeConvergence.md": 1,
   "formal/local-trust/UnacknowledgedInput.md": 1,
+  "formal/realtime/ContainerInterest.md": 1,
 };
 
 export interface FormalSourceFile {

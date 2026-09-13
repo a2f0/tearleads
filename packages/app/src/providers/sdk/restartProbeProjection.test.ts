@@ -86,8 +86,8 @@ function startInterestHarness(
 
   const route = (rawFrame: string): void => {
     routeIncomingWsMessage(rawFrame, {
-      onContainerInterestAcknowledged: (declarationId) => {
-        if (handle?.acknowledge(declarationId)) {
+      onContainerInterestAcknowledged: (declarationId, containerIds) => {
+        if (handle?.acknowledge(declarationId, containerIds)) {
           acknowledged.push(declarationId);
         }
       },
@@ -143,6 +143,7 @@ function acknowledgeFrame(declarationId: string): string {
   return serializeWsServerMessage({
     declarationId,
     type: "known_containers_ack",
+    containerIds: [CONTAINER_ID],
   });
 }
 

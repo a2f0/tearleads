@@ -10,7 +10,10 @@ import {
 export function routeIncomingWsMessage(
   rawData: string,
   handlers: {
-    onContainerInterestAcknowledged: (declarationId: string) => void;
+    onContainerInterestAcknowledged: (
+      declarationId: string,
+      containerIds: string[],
+    ) => void;
     onInterestState: (baseline: string[]) => void;
     onOrganizationInterestAcknowledged: (
       declarationId: string,
@@ -21,7 +24,7 @@ export function routeIncomingWsMessage(
       organizationId: string,
       originatedFromSession: boolean,
     ) => void;
-    onResyncRequired: (containerId: string) => void;
+    onResyncRequired: (containerIds: readonly string[]) => void;
     onSharedWithYou: () => void;
     onServerEvent: (event: WsInvalidationHint) => void;
   },
@@ -36,7 +39,10 @@ export function routeIncomingWsMessage(
       handlers.onInterestState(message.containerIds);
       return;
     case "known_containers_ack":
-      handlers.onContainerInterestAcknowledged(message.declarationId);
+      handlers.onContainerInterestAcknowledged(
+        message.declarationId,
+        message.containerIds,
+      );
       return;
     case "known_organizations_ack":
       handlers.onOrganizationInterestAcknowledged(
@@ -46,7 +52,7 @@ export function routeIncomingWsMessage(
       );
       return;
     case "resync_required":
-      handlers.onResyncRequired(message.containerId);
+      handlers.onResyncRequired(message.containerIds);
       return;
     case "organization_read_model_changed":
       handlers.onOrganizationReadModelChanged(

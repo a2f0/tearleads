@@ -3,6 +3,11 @@ import {
   serializeWsServerMessage,
   type WsInvalidationHint,
 } from "@tearleads/validators/realtime";
+import { ContainerInterestDependencies } from "./containerInterestDependencies";
+import {
+  principalInterestKey,
+  type VerifiedContainerInterest,
+} from "./containerInterestTypes";
 import {
   type PublishedRealtimeEvent,
   parsePublishedRealtimeEvent,
@@ -26,8 +31,8 @@ const SESSION_REVOKED_CLOSE_CODE = 1008;
 const SESSION_REVOKED_CLOSE_REASON = "Session revoked";
 
 /**
- * The interest change a client message applied, returned to the impure shell so
- * it can mirror the change into Redis. Null for malformed or unrelated messages.
+ * A requested interest change. The gateway authorizes it before indexing or
+ * mirroring the change into Redis. Null for malformed or unrelated messages.
  */
 export type AppliedInterest = {
   readonly declarationId?: string | undefined;
@@ -140,6 +145,7 @@ export class WsEventRouter {
   private readonly socketsByUserId = new Map<string, Set<WsConnection>>();
   private readonly socketsByContainerId = new Map<string, Set<WsConnection>>();
   private readonly interestBySocket = new Map<WsConnection, Set<string>>();
+  private readonly dependencies = new ContainerInterestDependencies();
   private readonly organizationRouter = new WsOrganizationRouter();
 
   open(ws: WsConnection): void {
@@ -152,6 +158,7 @@ export class WsEventRouter {
   }
 
   close(ws: WsConnection): void {
+    this.dependencies.clear(ws);
     removeFromIndex(this.socketsBySessionKey, socketSessionKey(ws), ws);
     removeFromIndex(this.socketsByUserId, ws.data.userId, ws);
     const interest = this.interestBySocket.get(ws);
@@ -168,6 +175,7 @@ export class WsEventRouter {
     ws: WsConnection,
     rawMessage: string,
   ): ClientMessageAction {
+    if (!this.isOpen(ws)) return null;
     const declaration = parseWsClientDeclaration(rawMessage);
     if (!declaration) {
       return null;
@@ -175,7 +183,6 @@ export class WsEventRouter {
     switch (declaration.type) {
       case "known_containers": {
         const containerIds = declaration.containerIds ?? [];
-        this.replaceInterest(ws, containerIds);
         return containerInterestAction(
           "replace",
           containerIds,
@@ -184,7 +191,6 @@ export class WsEventRouter {
       }
       case "known_containers.add": {
         const containerIds = declaration.containerIds ?? [];
-        this.addInterest(ws, containerIds);
         return containerInterestAction(
           "add",
           containerIds,
@@ -193,7 +199,6 @@ export class WsEventRouter {
       }
       case "known_containers.remove": {
         const containerIds = declaration.containerIds ?? [];
-        this.removeInterest(ws, containerIds);
         return containerInterestAction(
           "remove",
           containerIds,
@@ -201,10 +206,7 @@ export class WsEventRouter {
         );
       }
       case "known_organizations":
-        // Unlike container interest, an organization declaration is not
-        // applied here. The gateway must authorize the authenticated socket
-        // against the requested organization first, then call
-        // applyAuthorizedOrganizationInterest.
+        // All interest declarations require gateway authorization before indexing.
         return {
           declarationId: declaration.declarationId,
           kind: "organization-replace",
@@ -213,17 +215,33 @@ export class WsEventRouter {
     }
   }
 
-  /**
-   * Seed a reconnecting socket's interest from the server-side persisted set,
-   * so it routes correctly before (or without) the client re-declaring. Uses
-   * union (add) semantics, NOT replace: hydration is awaited asynchronously in
-   * `open`, during which a client `known_containers.add` may already have
-   * declared live interest. Replacing would discard that just-declared interest
-   * until the client noticed and re-sent it. No I/O (the caller loads the
-   * persisted set and keeps the router pure).
-   */
-  hydrateInterest(ws: WsConnection, containerIds: string[]): void {
-    this.addInterest(ws, containerIds);
+  isOpen(ws: WsConnection): boolean {
+    return this.interestBySocket.has(ws);
+  }
+
+  applyAuthorizedContainerInterest(
+    ws: WsConnection,
+    action: Exclude<AppliedInterest, null>,
+    proofs: readonly VerifiedContainerInterest[],
+  ): void {
+    if (!this.isOpen(ws)) return;
+    if (action.kind === "replace") this.dependencies.clear(ws);
+    // A new refusal supersedes an earlier grant even if its revocation hint
+    // was lost. Remove requested additions before installing the verified set.
+    if (action.kind === "add") this.removeInterest(ws, action.containerIds);
+    for (const proof of proofs) this.dependencies.set(ws, proof);
+    const verifiedIds = proofs.map((proof) => proof.containerId);
+    switch (action.kind) {
+      case "replace":
+        this.replaceInterest(ws, verifiedIds);
+        break;
+      case "add":
+        this.addInterest(ws, verifiedIds);
+        break;
+      case "remove":
+        this.removeInterest(ws, action.containerIds);
+        break;
+    }
   }
 
   /**
@@ -255,6 +273,8 @@ export class WsEventRouter {
         return [];
       case "access_changed":
         return this.handleAccessChanged(event.containerId);
+      case "principal_access_changed":
+        return this.handleAccessChanged(principalInterestKey(event));
       case "organization_read_model_changed":
         this.organizationRouter.routeReadModelChanged(event);
         return [];
@@ -292,28 +312,14 @@ export class WsEventRouter {
     }
   }
 
-  /**
-   * A container's access changed (share/revoke/rekey/move/delete). Tell every
-   * socket interested in it to resync and drop it from their interest, so no
-   * further events for that container reach them until they reconcile over HTTP
-   * and (if still authorized) re-declare it. This uses only the process-local
-   * interest index — no member resolution — and over-evicts harmlessly: still-
-   * authorized members simply re-add the container after their resync. The
-   * returned evictions must also be persisted so a reconnect does not restore
-   * the dropped interest.
-   */
-  private handleAccessChanged(containerId: string): InterestEviction[] {
-    const interested = this.socketsByContainerId.get(containerId);
-    if (!interested) {
-      return [];
-    }
-    const resync = serializeWsServerMessage({
-      containerId,
-      type: "resync_required",
-    });
+  /** Evict only subscriptions whose verified read path depends on this head. */
+  private handleAccessChanged(ancestorId: string): InterestEviction[] {
     const evictions: InterestEviction[] = [];
-    for (const ws of [...interested]) {
-      sendSafely(ws, resync);
+    const affected = new Map<WsConnection, string[]>();
+    for (const { ws, containerId } of this.dependencies.affected(ancestorId)) {
+      const ids = affected.get(ws) ?? [];
+      ids.push(containerId);
+      affected.set(ws, ids);
       this.removeInterest(ws, [containerId]);
       evictions.push({
         containerId,
@@ -321,6 +327,11 @@ export class WsEventRouter {
         userId: ws.data.userId,
       });
     }
+    for (const [ws, containerIds] of affected)
+      sendSafely(
+        ws,
+        serializeWsServerMessage({ containerIds, type: "resync_required" }),
+      );
     return evictions;
   }
 
@@ -394,6 +405,7 @@ export class WsEventRouter {
       return;
     }
     for (const containerId of containerIds) {
+      this.dependencies.remove(ws, containerId);
       if (interest.delete(containerId)) {
         removeFromIndex(this.socketsByContainerId, containerId, ws);
       }

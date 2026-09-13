@@ -182,3 +182,10 @@ model tracks only the uncovered-update count and the unlink transaction phase.
 models preservation of verified purge decisions and incident evidence across
 full database restores, including observations made after restore preflight.
 See the [mapping and boundaries](./backup-restore/TerminalAnchors.md).
+
+## Container Interest Authorization
+
+[`realtime/ContainerInterest.tla`](./realtime/ContainerInterest.tla) checks that
+container subscriptions require current read access before indexing and cannot
+be restored by an authorization result that outlived revocation or socket close.
+See the [production mapping and bounds](./realtime/ContainerInterest.md).

@@ -165,6 +165,12 @@ export const subsystems: readonly Subsystem[] = [
     paths: [
       `${api}/realtime/publishedRealtimeEvents.ts`,
       `${api}/realtime/realtimeGateway.ts`,
+      `${api}/realtime/containerInterestAccess.ts`,
+      `${api}/realtime/containerInterestAuthorization.ts`,
+      `${api}/realtime/containerInterestDependencies.ts`,
+      `${api}/realtime/containerInterestQueries.ts`,
+      `${api}/realtime/containerInterestRestoration.ts`,
+      `${api}/realtime/containerInterestTypes.ts`,
       `${api}/realtime/wsConnection.ts`,
       `${api}/realtime/wsOrganizationRouting.ts`,
       `${api}/realtime/wsRouting.ts`,

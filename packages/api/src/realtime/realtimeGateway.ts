@@ -5,6 +5,13 @@ import {
 import type { ServerWebSocket } from "bun";
 import { addListener } from "../adapters/redisPubSub";
 import { reportBackgroundFailure } from "../diagnostics/reportBackgroundFailure";
+import { authorizeContainerAccessWithWorkflow } from "./containerInterestAccess";
+import { ContainerInterestAuthorizer } from "./containerInterestAuthorization";
+import {
+  type AuthorizeContainerAccess,
+  principalInterestKey,
+} from "./containerInterestTypes";
+import { parsePublishedRealtimeEvent } from "./publishedRealtimeEvents";
 import { sendSafely } from "./wsConnection";
 import type { WebSocketTicketIdentity } from "./wsIdentity";
 import { wsInterestStore } from "./wsInterestStore";
@@ -21,9 +28,12 @@ type AuthorizeOrganizationAccess = (
   userId: string,
   organizationId: string,
 ) => Promise<boolean>;
+const CONTAINER_AUTHORIZATION_TIMEOUT_MS = 10_000;
 const ORGANIZATION_AUTHORIZATION_TIMEOUT_MS = 10_000;
 
 interface RealtimeGatewayDeps {
+  readonly authorizeContainerAccess?: AuthorizeContainerAccess;
+  readonly containerAuthorizationTimeoutMs?: number;
   readonly authorizeOrganizationAccess?: AuthorizeOrganizationAccess;
   readonly interestStore?: InterestStore;
   readonly organizationAuthorizationTimeoutMs?: number;
@@ -88,30 +98,6 @@ function createOrderedInterestPersister(interestStore: InterestStore) {
       }
     });
   };
-}
-
-async function hydrateSocketInterest(input: {
-  readonly interestStore: InterestStore;
-  readonly router: WsEventRouter;
-  readonly ws: ServerWebSocket<WebSocketTicketIdentity>;
-}): Promise<void> {
-  let containerIds: string[] = [];
-  try {
-    containerIds = await input.interestStore.load(
-      input.ws.data.userId,
-      input.ws.data.sessionId,
-    );
-    if (containerIds.length > 0) {
-      input.router.hydrateInterest(input.ws, containerIds);
-    }
-  } catch (error) {
-    console.error("Failed to hydrate websocket interest:", error);
-    reportBackgroundFailure(error);
-    containerIds = [];
-  }
-  input.ws.send(
-    serializeWsServerMessage({ type: "interest_state", containerIds }),
-  );
 }
 
 type OrganizationSocket = ServerWebSocket<WebSocketTicketIdentity>;
@@ -315,18 +301,18 @@ class OrganizationInterestAuthorizer {
 }
 
 function createWebsocketHandler(input: {
-  readonly interestStore: InterestStore;
+  readonly containerInterest: ContainerInterestAuthorizer;
   readonly organizationInterest: OrganizationInterestAuthorizer;
-  readonly persistInterest: ReturnType<typeof createOrderedInterestPersister>;
   readonly router: WsEventRouter;
 }) {
   return {
     maxPayloadLength: MAX_WS_CLIENT_MESSAGE_BYTES,
     async open(ws: ServerWebSocket<WebSocketTicketIdentity>) {
       input.router.open(ws);
-      await hydrateSocketInterest({ ...input, ws });
+      await input.containerInterest.open(ws);
     },
     close(ws: ServerWebSocket<WebSocketTicketIdentity>) {
+      input.containerInterest.close(ws);
       input.organizationInterest.close(ws);
       input.router.close(ws);
     },
@@ -345,16 +331,7 @@ function createWebsocketHandler(input: {
         await input.organizationInterest.apply(ws, action);
         return;
       }
-      if (action.declarationId) {
-        sendSafely(
-          ws,
-          serializeWsServerMessage({
-            type: "known_containers_ack",
-            declarationId: action.declarationId,
-          }),
-        );
-      }
-      input.persistInterest(ws.data.userId, ws.data.sessionId, action);
+      await input.containerInterest.apply(ws, action);
     },
   };
 }
@@ -382,10 +359,16 @@ export function createRealtimeGateway(deps: RealtimeGatewayDeps = {}) {
       ORGANIZATION_AUTHORIZATION_TIMEOUT_MS,
     router,
   );
-  const websocket = createWebsocketHandler({
+  const containerInterest = new ContainerInterestAuthorizer(
+    deps.authorizeContainerAccess ?? authorizeContainerAccessWithWorkflow,
+    deps.containerAuthorizationTimeoutMs ?? CONTAINER_AUTHORIZATION_TIMEOUT_MS,
     interestStore,
-    organizationInterest,
     persistInterest,
+    router,
+  );
+  const websocket = createWebsocketHandler({
+    containerInterest,
+    organizationInterest,
     router,
   });
   let unsubscribe: (() => void) | undefined;
@@ -399,6 +382,12 @@ export function createRealtimeGateway(deps: RealtimeGatewayDeps = {}) {
       return;
     }
     const routeMessage = (message: string): void => {
+      const event = parsePublishedRealtimeEvent(message);
+      if (event?.type === "access_changed") {
+        containerInterest.invalidateAccess(event.containerId);
+      } else if (event?.type === "principal_access_changed") {
+        containerInterest.invalidateAccess(principalInterestKey(event));
+      }
       for (const eviction of router.routeServerEvent(message)) {
         persistInterest(eviction.userId, eviction.sessionId, {
           containerIds: [eviction.containerId],

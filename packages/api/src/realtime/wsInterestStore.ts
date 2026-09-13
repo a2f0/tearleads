@@ -5,7 +5,7 @@ import type { AppliedInterest } from "./wsRouting";
 // socket's interest is hydrated server-side instead of requiring the client to
 // resend its (possibly thousands-strong) known set. Keyed by user + session so
 // a re-login (new session) starts clean and an abandoned session self-expires.
-// This is interest, NOT authorization — the HTTP read models gate access.
+// Cached interest is reauthorized against the HTTP access workflow on reconnect.
 const WS_INTEREST_PREFIX = "ws-interest:";
 // Trails the auth session TTL (SESSION_TTL_SECONDS in middleware/session.ts);
 // interest is meaningless once its session is gone, and SADD never sets a TTL so

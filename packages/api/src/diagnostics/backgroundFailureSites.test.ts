@@ -137,6 +137,12 @@ test("post-handshake interest failures are reported and the socket still gets it
   const watch = watchReports();
   const failure = new Error("SYNTHETIC_PRIVATE_INTEREST_VALUE");
   const gateway = createRealtimeGateway({
+    authorizeContainerAccess: async (_userId, ids) =>
+      ids.map((containerId) => ({
+        containerId,
+        pathContainerIds: [containerId],
+        principalKeys: [],
+      })),
     interestStore: failingInterestStore(failure),
     subscribe: () => () => undefined,
   });

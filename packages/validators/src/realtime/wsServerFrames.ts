@@ -23,6 +23,7 @@ export const WsInterestStateFrameSchema = z.object({
 
 export const WsKnownContainersAckFrameSchema = z.object({
   type: z.literal("known_containers_ack"),
+  containerIds: z.array(z.string().min(1)),
   declarationId: wsDeclarationIdSchema,
 });
 
@@ -37,7 +38,7 @@ export const WsKnownOrganizationsAckFrameSchema = z.object({
 // still authorized, re-declare interest.
 export const WsResyncRequiredFrameSchema = z.object({
   type: z.literal("resync_required"),
-  containerId: z.string().min(1),
+  containerIds: z.array(z.string().min(1)).min(1),
 });
 
 export const WsOrganizationReadModelChangedFrameSchema = z.object({

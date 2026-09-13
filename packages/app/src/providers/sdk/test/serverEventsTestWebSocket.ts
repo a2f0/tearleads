@@ -40,6 +40,7 @@ export class ServerEventsTestWebSocket extends EventTarget {
     this.dispatchJsonMessage({
       type: "known_containers_ack",
       declarationId,
+      containerIds: Reflect.get(this.lastSentJson(), "containerIds"),
     });
   }
 

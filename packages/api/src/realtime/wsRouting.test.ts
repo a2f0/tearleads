@@ -1,12 +1,11 @@
 import { expect, test } from "bun:test";
+import { applyContainerInterest } from "../../test/helpers/wsRouting";
 import { type WsConnection, WsEventRouter } from "./wsRouting";
 
 const C1 = "00000000-0000-4000-8000-000000000001";
 const C2 = "00000000-0000-4000-8000-000000000002";
 const CHILD = "00000000-0000-4000-8000-000000000003";
-const LIVE = "00000000-0000-4000-8000-000000000004";
 const PARENT = "00000000-0000-4000-8000-000000000005";
-const PERSISTED = "00000000-0000-4000-8000-000000000006";
 const SHARED = "00000000-0000-4000-8000-000000000007";
 const X = "00000000-0000-4000-8000-000000000008";
 const Y = "00000000-0000-4000-8000-000000000009";
@@ -55,11 +54,13 @@ test("delivers a document event only to sockets interested in its containers", (
   router.open(alice);
   router.open(bob);
 
-  router.handleClientMessage(
+  applyContainerInterest(
+    router,
     alice,
     JSON.stringify({ type: "known_containers", containerIds: [C1, C2] }),
   );
-  router.handleClientMessage(
+  applyContainerInterest(
+    router,
     bob,
     JSON.stringify({ type: "known_containers", containerIds: [C2] }),
   );
@@ -79,11 +80,13 @@ test("excludes the authoring session's own socket from its update echo", () => {
   const otherTab = fakeSocket("alice", "alice-tab-b");
   router.open(authorTab);
   router.open(otherTab);
-  router.handleClientMessage(
+  applyContainerInterest(
+    router,
     authorTab,
     JSON.stringify({ type: "known_containers", containerIds: [C1] }),
   );
-  router.handleClientMessage(
+  applyContainerInterest(
+    router,
     otherTab,
     JSON.stringify({ type: "known_containers", containerIds: [C1] }),
   );
@@ -107,7 +110,8 @@ test("strips origin from the payload forwarded to clients", () => {
   const router = new WsEventRouter();
   const reader = fakeSocket("bob");
   router.open(reader);
-  router.handleClientMessage(
+  applyContainerInterest(
+    router,
     reader,
     JSON.stringify({ type: "known_containers", containerIds: [C1] }),
   );
@@ -140,7 +144,8 @@ test("drops an event with a malformed origin to prevent session id leaks", () =>
   const router = new WsEventRouter();
   const reader = fakeSocket("bob");
   router.open(reader);
-  router.handleClientMessage(
+  applyContainerInterest(
+    router,
     reader,
     JSON.stringify({ type: "known_containers", containerIds: [C1] }),
   );
@@ -168,7 +173,8 @@ test("delivers to every interested socket when no origin is tagged", () => {
   // nobody — the author's own socket included — preserving prior behavior.
   const author = fakeSocket("alice");
   router.open(author);
-  router.handleClientMessage(
+  applyContainerInterest(
+    router,
     author,
     JSON.stringify({ type: "known_containers", containerIds: [C1] }),
   );
@@ -185,11 +191,13 @@ test("delivers a shared-container event to every interested socket once", () => 
   const bob = fakeSocket("bob");
   router.open(alice);
   router.open(bob);
-  router.handleClientMessage(
+  applyContainerInterest(
+    router,
     alice,
     JSON.stringify({ type: "known_containers", containerIds: [SHARED] }),
   );
-  router.handleClientMessage(
+  applyContainerInterest(
+    router,
     bob,
     JSON.stringify({ type: "known_containers", containerIds: [SHARED] }),
   );
@@ -206,7 +214,8 @@ test("routes container events by container, parent, and previous parent", () => 
   const router = new WsEventRouter();
   const parentWatcher = fakeSocket("parent-watcher");
   router.open(parentWatcher);
-  router.handleClientMessage(
+  applyContainerInterest(
+    router,
     parentWatcher,
     JSON.stringify({ type: "known_containers", containerIds: [PARENT] }),
   );
@@ -232,7 +241,8 @@ test("delivers an origin-tagged container create to the author's other session, 
   router.open(recoveredPeer);
   // Both sessions of the same identity already know the parent (root) container.
   for (const ws of [authorTab, recoveredPeer]) {
-    router.handleClientMessage(
+    applyContainerInterest(
+      router,
       ws,
       JSON.stringify({ type: "known_containers", containerIds: [PARENT] }),
     );
@@ -314,14 +324,16 @@ test("applies interest add/remove deltas", () => {
   const alice = fakeSocket("alice");
   router.open(alice);
 
-  router.handleClientMessage(
+  applyContainerInterest(
+    router,
     alice,
     JSON.stringify({ type: "known_containers.add", containerIds: [C1] }),
   );
   router.routeServerEvent(documentEvent([C1]));
   expect(alice.sent).toHaveLength(1);
 
-  router.handleClientMessage(
+  applyContainerInterest(
+    router,
     alice,
     JSON.stringify({ type: "known_containers.remove", containerIds: [C1] }),
   );
@@ -335,7 +347,8 @@ test("drops a closed socket from all routing", () => {
   const router = new WsEventRouter();
   const alice = fakeSocket("alice");
   router.open(alice);
-  router.handleClientMessage(
+  applyContainerInterest(
+    router,
     alice,
     JSON.stringify({ type: "known_containers", containerIds: [C1] }),
   );
@@ -353,59 +366,30 @@ test("reports the applied interest change back to the caller", () => {
   router.open(alice);
 
   expect(
-    router.handleClientMessage(
+    applyContainerInterest(
+      router,
       alice,
       JSON.stringify({ type: "known_containers", containerIds: [C1] }),
     ),
   ).toEqual({ kind: "replace", containerIds: [C1] });
   expect(
-    router.handleClientMessage(
+    applyContainerInterest(
+      router,
       alice,
       JSON.stringify({ type: "known_containers.add", containerIds: [C2] }),
     ),
   ).toEqual({ kind: "add", containerIds: [C2] });
   expect(
-    router.handleClientMessage(
+    applyContainerInterest(
+      router,
       alice,
       JSON.stringify({ type: "known_containers.remove", containerIds: [C1] }),
     ),
   ).toEqual({ kind: "remove", containerIds: [C1] });
-  expect(router.handleClientMessage(alice, "not json")).toBeNull();
+  expect(applyContainerInterest(router, alice, "not json")).toBeNull();
   expect(
-    router.handleClientMessage(alice, JSON.stringify({ type: "other" })),
+    applyContainerInterest(router, alice, JSON.stringify({ type: "other" })),
   ).toBeNull();
-});
-
-test("hydrateInterest seeds a reconnecting socket's interest", () => {
-  const router = new WsEventRouter();
-  const alice = fakeSocket("alice");
-  router.open(alice);
-
-  // Reconnect: the server restores interest from its persisted set, no client
-  // re-declaration needed.
-  router.hydrateInterest(alice, [C1, C2]);
-  router.routeServerEvent(documentEvent([C2]));
-
-  expect(alice.sent).toHaveLength(1);
-  expect(router.interestedSocketCount(C1)).toBe(1);
-  expect(router.interestedSocketCount(C2)).toBe(1);
-});
-
-test("hydrateInterest preserves interest declared during the open window", () => {
-  const router = new WsEventRouter();
-  const alice = fakeSocket("alice");
-  router.open(alice);
-
-  // A client message can arrive while open()'s async hydration is still
-  // pending; that just-declared interest must survive hydration.
-  router.handleClientMessage(
-    alice,
-    JSON.stringify({ type: "known_containers.add", containerIds: [LIVE] }),
-  );
-  router.hydrateInterest(alice, [PERSISTED]);
-
-  expect(router.interestedSocketCount(LIVE)).toBe(1);
-  expect(router.interestedSocketCount(PERSISTED)).toBe(1);
 });
 
 test("access_changed evicts interest and tells interested sockets to resync", () => {
@@ -414,11 +398,13 @@ test("access_changed evicts interest and tells interested sockets to resync", ()
   const bob = fakeSocket("bob");
   router.open(alice);
   router.open(bob);
-  router.handleClientMessage(
+  applyContainerInterest(
+    router,
     alice,
     JSON.stringify({ type: "known_containers", containerIds: [X, Y] }),
   );
-  router.handleClientMessage(
+  applyContainerInterest(
+    router,
     bob,
     JSON.stringify({ type: "known_containers", containerIds: [X] }),
   );
@@ -427,13 +413,11 @@ test("access_changed evicts interest and tells interested sockets to resync", ()
     JSON.stringify({ type: "access_changed", containerId: X }),
   );
 
-  const resync = JSON.stringify({ containerId: X, type: "resync_required" });
-  // Both sockets interested in x are told to resync, and x is dropped from
-  // their interest so no further x events reach them until they re-declare.
+  const resync = JSON.stringify({ containerIds: [X], type: "resync_required" });
+  // Y has an independent verified path and keeps its subscription.
   expect(alice.sent).toEqual([resync]);
   expect(bob.sent).toEqual([resync]);
   expect(router.interestedSocketCount(X)).toBe(0);
-  // Unaffected interest (y) is untouched.
   expect(router.interestedSocketCount(Y)).toBe(1);
   // The evictions are returned so the shell drops them from the persisted set,
   // or a reconnect would restore the just-revoked interest.
@@ -455,7 +439,8 @@ test("session_revoked closes only sockets for that session", () => {
   router.open(aliceA);
   router.open(aliceB);
   router.open(bob);
-  router.handleClientMessage(
+  applyContainerInterest(
+    router,
     aliceA,
     JSON.stringify({ type: "known_containers", containerIds: [C1] }),
   );
@@ -481,8 +466,8 @@ test("ignores malformed client messages and unscoped events", () => {
   const router = new WsEventRouter();
   const alice = fakeSocket("alice");
   router.open(alice);
-  router.handleClientMessage(alice, "not json");
-  router.handleClientMessage(alice, JSON.stringify({ type: "unknown" }));
+  applyContainerInterest(router, alice, "not json");
+  applyContainerInterest(router, alice, JSON.stringify({ type: "unknown" }));
   router.routeServerEvent("not json");
   router.routeServerEvent(JSON.stringify({ type: "mystery" }));
 
@@ -495,7 +480,8 @@ test("rejects malformed and oversized client interest declarations", () => {
   router.open(alice);
 
   expect(
-    router.handleClientMessage(
+    applyContainerInterest(
+      router,
       alice,
       JSON.stringify({
         type: "known_containers",
@@ -506,7 +492,8 @@ test("rejects malformed and oversized client interest declarations", () => {
   expect(router.interestedSocketCount(C1)).toBe(0);
 
   expect(
-    router.handleClientMessage(
+    applyContainerInterest(
+      router,
       alice,
       JSON.stringify({
         type: "known_containers",
