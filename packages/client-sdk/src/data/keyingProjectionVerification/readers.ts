@@ -194,73 +194,99 @@ export function readContainerKeyEpoch(
   value: unknown,
   label: string,
 ): ContainerKeyEpoch {
-  const record = readCanonicalRecord(value, label);
+  return readKeyingVerificationShape(() => {
+    const record = readCanonicalRecord(value, label);
 
-  return {
-    id: readRecordString(record, "id", label),
-    containerId: readRecordString(record, "containerId", label),
-    keyEpoch: readRecordPositiveInteger(record, "keyEpoch", label),
-    accessManifestHash: readRecordString(record, "accessManifestHash", label),
-    parentContainerKeyEpochId: readRecordNullableString(
-      record,
-      "parentContainerKeyEpochId",
-      label,
-    ),
-    createdByEventHash: readRecordString(record, "createdByEventHash", label),
-    createdByManifestHash: readRecordString(
-      record,
-      "createdByManifestHash",
-      label,
-    ),
-  };
+    return {
+      id: readRecordString(record, "id", label),
+      containerId: readRecordString(record, "containerId", label),
+      keyEpoch: readRecordPositiveInteger(record, "keyEpoch", label),
+      accessManifestHash: readRecordString(record, "accessManifestHash", label),
+      parentContainerKeyEpochId: readRecordNullableString(
+        record,
+        "parentContainerKeyEpochId",
+        label,
+      ),
+      createdByEventHash: readRecordString(record, "createdByEventHash", label),
+      createdByManifestHash: readRecordString(
+        record,
+        "createdByManifestHash",
+        label,
+      ),
+    };
+  });
 }
 
 export function readContainerKeyWrap(
   value: unknown,
   label: string,
 ): ContainerKeyWrap {
-  const record = readCanonicalRecord(value, label);
-  const recipientKind = readRequiredRecordValue(record, "recipientKind", label);
-  if (!isRecipientKind(recipientKind)) {
-    throw new Error(`${label}.recipientKind is invalid`);
-  }
-
-  return {
-    containerKeyEpochId: readRecordString(record, "containerKeyEpochId", label),
-    recipientKind,
-    recipientId: readRecordString(record, "recipientId", label),
-    recipientKeyEpochId: readRecordString(record, "recipientKeyEpochId", label),
-    recipientKeyFingerprint: readRecordString(
+  return readKeyingVerificationShape(() => {
+    const record = readCanonicalRecord(value, label);
+    const recipientKind = readRequiredRecordValue(
       record,
-      "recipientKeyFingerprint",
+      "recipientKind",
       label,
-    ),
-    kemCipherText: readRecordString(record, "kemCipherText", label),
-    wrappedKey: readRecordString(record, "wrappedKey", label),
-    wrapManifestHash: readRecordString(record, "wrapManifestHash", label),
-  };
+    );
+    if (!isRecipientKind(recipientKind)) {
+      throw new Error(`${label}.recipientKind is invalid`);
+    }
+
+    return {
+      containerKeyEpochId: readRecordString(
+        record,
+        "containerKeyEpochId",
+        label,
+      ),
+      recipientKind,
+      recipientId: readRecordString(record, "recipientId", label),
+      recipientKeyEpochId: readRecordString(
+        record,
+        "recipientKeyEpochId",
+        label,
+      ),
+      recipientKeyFingerprint: readRecordString(
+        record,
+        "recipientKeyFingerprint",
+        label,
+      ),
+      kemCipherText: readRecordString(record, "kemCipherText", label),
+      wrappedKey: readRecordString(record, "wrappedKey", label),
+      wrapManifestHash: readRecordString(record, "wrapManifestHash", label),
+    };
+  });
 }
 
 export function readContainerKekRecipientTarget(
   value: unknown,
   label: string,
 ): ContainerKekRecipientTarget {
-  const record = readCanonicalRecord(value, label);
-  const recipientKind = readRequiredRecordValue(record, "recipientKind", label);
-  if (!isRecipientKind(recipientKind)) {
-    throw new Error(`${label}.recipientKind is invalid`);
-  }
-
-  return {
-    recipientKind,
-    recipientId: readRecordString(record, "recipientId", label),
-    recipientKeyEpochId: readRecordString(record, "recipientKeyEpochId", label),
-    recipientKeyFingerprint: readRecordString(
+  return readKeyingVerificationShape(() => {
+    const record = readCanonicalRecord(value, label);
+    const recipientKind = readRequiredRecordValue(
       record,
-      "recipientKeyFingerprint",
+      "recipientKind",
       label,
-    ),
-  };
+    );
+    if (!isRecipientKind(recipientKind)) {
+      throw new Error(`${label}.recipientKind is invalid`);
+    }
+
+    return {
+      recipientKind,
+      recipientId: readRecordString(record, "recipientId", label),
+      recipientKeyEpochId: readRecordString(
+        record,
+        "recipientKeyEpochId",
+        label,
+      ),
+      recipientKeyFingerprint: readRecordString(
+        record,
+        "recipientKeyFingerprint",
+        label,
+      ),
+    };
+  });
 }
 
 export function readDocumentAccessEventBody(
