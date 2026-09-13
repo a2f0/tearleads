@@ -12,6 +12,7 @@ export const OTHER = "00000000-0000-4000-8000-000000000002";
 export function fixture(input: {
   authorize: (userId: string, ids: string[]) => Promise<string[]>;
   cached?: string[];
+  load?: () => Promise<string[]>;
   paths?: Readonly<Record<string, string[]>>;
   timeoutMs?: number;
   principalKeys?: readonly string[];
@@ -37,7 +38,7 @@ export function fixture(input: {
       ? {}
       : { containerAuthorizationTimeoutMs: input.timeoutMs }),
     interestStore: {
-      load: async () => input.cached ?? [],
+      load: input.load ?? (async () => input.cached ?? []),
       apply: async (_userId, _sessionId, action) => {
         persisted.push(action);
       },

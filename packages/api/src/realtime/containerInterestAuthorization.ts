@@ -1,6 +1,9 @@
 import { serializeWsServerMessage } from "@tearleads/validators/realtime";
 import { reportBackgroundFailure } from "../diagnostics/reportBackgroundFailure";
-import { ContainerInterestQueries } from "./containerInterestQueries";
+import {
+  beforeDeadline,
+  ContainerInterestQueries,
+} from "./containerInterestQueries";
 import type {
   AuthorizeContainerAccess,
   VerifiedContainerInterest,
@@ -18,15 +21,22 @@ type PersistInterest = (
 
 interface SocketState {
   pending: Promise<void>;
+  restored: {
+    idsKey: string;
+    proofs: VerifiedContainerInterest[];
+    generation: number;
+    expiresAt: number;
+  } | null;
 }
 
 export class ContainerInterestAuthorizer {
   private readonly states = new WeakMap<WsConnection, SocketState>();
   private readonly queries: ContainerInterestQueries;
+  private accessGeneration = 0;
 
   constructor(
     authorize: AuthorizeContainerAccess,
-    authorizationTimeoutMs: number,
+    private readonly authorizationTimeoutMs: number,
     private readonly interestStore: Pick<typeof wsInterestStore, "load">,
     private readonly persist: PersistInterest,
     private readonly router: WsEventRouter,
@@ -38,40 +48,85 @@ export class ContainerInterestAuthorizer {
   }
 
   open(ws: WsConnection): Promise<void> {
-    this.states.set(ws, { pending: Promise.resolve() });
+    this.states.set(ws, { pending: Promise.resolve(), restored: null });
     return this.enqueue(ws, async () => {
-      const cached = await this.interestStore
-        .load(ws.data.userId, ws.data.sessionId)
-        .catch((error: unknown) => {
-          console.error("Failed to hydrate websocket interest:", error);
-          reportBackgroundFailure(error);
-          return [];
-        });
-      await this.queries.run(
-        ws,
-        cached,
-        () => this.isOpen(ws),
-        (proofs) => {
-          const containerIds = proofs.map((proof) => proof.containerId);
-          this.router.applyAuthorizedContainerInterest(
-            ws,
-            { kind: "replace", containerIds },
-            proofs,
-          );
-          sendSafely(
-            ws,
-            serializeWsServerMessage({ type: "interest_state", containerIds }),
-          );
-          const accepted = new Set(containerIds);
-          const refused = cached.filter((id) => !accepted.has(id));
-          if (refused.length > 0)
-            this.persist(ws.data.userId, ws.data.sessionId, {
-              kind: "remove",
-              containerIds: refused,
-            });
-        },
-      );
+      try {
+        const cached = await beforeDeadline(
+          this.interestStore.load(ws.data.userId, ws.data.sessionId),
+          Date.now() + this.authorizationTimeoutMs,
+        );
+        await this.queries.run(
+          ws,
+          cached,
+          () => this.isOpen(ws),
+          (proofs) => this.installRestored(ws, cached, proofs),
+        );
+      } catch (error) {
+        console.error("Failed to hydrate websocket interest:", error);
+        reportBackgroundFailure(error);
+        if (!this.isOpen(ws)) return;
+        // Reconnect cache is only an optimization. An empty baseline lets the
+        // client's authoritative declaration recover without trusting the cache.
+        this.router.applyAuthorizedContainerInterest(
+          ws,
+          { kind: "replace", containerIds: [] },
+          [],
+        );
+        sendSafely(
+          ws,
+          serializeWsServerMessage({
+            type: "interest_state",
+            containerIds: [],
+          }),
+        );
+      }
     });
+  }
+
+  private installRestored(
+    ws: WsConnection,
+    cached: string[],
+    proofs: VerifiedContainerInterest[],
+  ): void {
+    const state = this.states.get(ws);
+    if (!state) return;
+    state.restored = {
+      idsKey: JSON.stringify([...new Set(cached)].sort()),
+      proofs,
+      generation: this.accessGeneration,
+      expiresAt: Date.now() + this.authorizationTimeoutMs,
+    };
+    const containerIds = proofs.map((proof) => proof.containerId);
+    this.router.applyAuthorizedContainerInterest(
+      ws,
+      { kind: "replace", containerIds },
+      proofs,
+    );
+    sendSafely(
+      ws,
+      serializeWsServerMessage({ type: "interest_state", containerIds }),
+    );
+    const accepted = new Set(containerIds);
+    const refused = cached.filter((id) => !accepted.has(id));
+    if (refused.length > 0)
+      this.persist(ws.data.userId, ws.data.sessionId, {
+        kind: "remove",
+        containerIds: refused,
+      });
+  }
+
+  private consumeRestored(ws: WsConnection, declaration: Interest) {
+    const state = this.states.get(ws);
+    const restored = state?.restored;
+    if (state) state.restored = null;
+    return restored &&
+      declaration.kind === "replace" &&
+      restored.generation === this.accessGeneration &&
+      Date.now() < restored.expiresAt &&
+      restored.idsKey ===
+        JSON.stringify([...new Set(declaration.containerIds)].sort())
+      ? restored.proofs
+      : null;
   }
 
   close(ws: WsConnection): void {
@@ -79,6 +134,7 @@ export class ContainerInterestAuthorizer {
   }
 
   invalidateAccess(containerId: string): void {
+    this.accessGeneration++;
     this.queries.invalidate(containerId);
   }
 
@@ -114,7 +170,9 @@ export class ContainerInterestAuthorizer {
         }
         this.persist(ws.data.userId, ws.data.sessionId, action);
       };
+      const restored = this.consumeRestored(ws, declaration);
       if (declaration.kind === "remove") install([]);
+      else if (restored) install(restored);
       else await this.queries.run(ws, ids, () => this.isOpen(ws), install);
     });
   }

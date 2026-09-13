@@ -19,7 +19,7 @@ interface ActiveQuery {
   readers: number;
 }
 
-async function beforeDeadline<T>(
+export async function beforeDeadline<T>(
   promise: Promise<T>,
   deadline: number,
 ): Promise<T> {

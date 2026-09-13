@@ -2,14 +2,15 @@
 EXTENDS Naturals, FiniteSets, TLC
 
 CONSTANTS AuthorizeInterest, InvalidateOnAccessChange, CheckSocketOpen,
-          ScopeInvalidation, ScopeQueryChanges, NotifyPrincipalChanges
+          ScopeInvalidation, ScopeQueryChanges, NotifyPrincipalChanges,
+          CheckRestoreGeneration
 Containers == {"child", "other"}
 Dependencies(container) == IF container = "child"
                           THEN {"root", "child", "group"} ELSE {"other"}
 VARIABLES access, revision, open, indexed, pending, queryAccess,
-          queryChanged, unrelatedRetry
+          queryChanged, unrelatedRetry, cached, cacheRevision, cacheReadable
 vars == <<access, revision, open, indexed, pending, queryAccess,
-          queryChanged, unrelatedRetry>>
+          queryChanged, unrelatedRetry, cached, cacheRevision, cacheReadable>>
 Readable(container) == \A dependency \in Dependencies(container): access[dependency]
 QueryDependencies == IF queryAccess THEN Dependencies("child") ELSE {"child"}
 RelevantQueryChange == queryChanged \cap QueryDependencies # {}
@@ -19,12 +20,14 @@ Init == /\ access = [dependency \in {"root", "child", "group", "other"} |-> depe
         /\ revision = 0 /\ open = TRUE /\ indexed = {"other"}
         /\ pending = FALSE /\ queryAccess = FALSE
         /\ queryChanged = {} /\ unrelatedRetry = FALSE
+        /\ cached = FALSE /\ cacheRevision = 0 /\ cacheReadable = FALSE
 
 BeginAuthorization ==
     /\ open /\ ~pending
     /\ pending' = TRUE /\ queryAccess' = Readable("child")
     /\ queryChanged' = {}
-    /\ UNCHANGED <<access, revision, open, indexed, unrelatedRetry>>
+    /\ UNCHANGED <<access, revision, open, indexed, unrelatedRetry,
+                    cached, cacheRevision, cacheReadable>>
 
 ApplyAuthorization ==
     /\ pending /\ (~CheckSocketOpen \/ open)
@@ -32,13 +35,24 @@ ApplyAuthorization ==
     /\ indexed' = IF ~AuthorizeInterest \/ queryAccess
                    THEN indexed \cup {"child"} ELSE indexed \ {"child"}
     /\ pending' = FALSE
+    /\ cached' = TRUE /\ cacheRevision' = revision /\ cacheReadable' = queryAccess
     /\ UNCHANGED <<access, revision, open, queryAccess, queryChanged, unrelatedRetry>>
 
 RetryAuthorization ==
     /\ open /\ pending /\ NeedsRetry
     /\ unrelatedRetry' = (unrelatedRetry \/ ~RelevantQueryChange)
     /\ queryAccess' = Readable("child") /\ queryChanged' = {}
-    /\ UNCHANGED <<access, revision, open, indexed, pending>>
+    /\ UNCHANGED <<access, revision, open, indexed, pending,
+                    cached, cacheRevision, cacheReadable>>
+
+ReuseRestoredAuthorization ==
+    /\ open /\ ~pending /\ cached
+    /\ (~CheckRestoreGeneration \/ cacheRevision = revision)
+    /\ indexed' = IF cacheReadable THEN indexed \cup {"child"}
+                   ELSE indexed \ {"child"}
+    /\ cached' = FALSE
+    /\ UNCHANGED <<access, revision, open, pending, queryAccess, queryChanged,
+                    unrelatedRetry, cacheRevision, cacheReadable>>
 
 ObserveChange(dependency) == InvalidateOnAccessChange /\ (dependency # "group" \/ NotifyPrincipalChanges)
 
@@ -53,13 +67,16 @@ ChangeAccess(dependency) ==
                      ELSE {}
     /\ queryChanged' = IF pending /\ ObserveChange(dependency)
                         THEN queryChanged \cup {dependency} ELSE queryChanged
-    /\ UNCHANGED <<open, pending, queryAccess, unrelatedRetry>>
+    /\ UNCHANGED <<open, pending, queryAccess, unrelatedRetry,
+                    cached, cacheRevision, cacheReadable>>
 
 CloseSocket ==
     /\ open /\ open' = FALSE /\ indexed' = indexed \ {"child"}
-    /\ UNCHANGED <<access, revision, pending, queryAccess, queryChanged, unrelatedRetry>>
+    /\ UNCHANGED <<access, revision, pending, queryAccess, queryChanged, unrelatedRetry,
+                    cached, cacheRevision, cacheReadable>>
 
 Next == BeginAuthorization \/ ApplyAuthorization \/ RetryAuthorization
+        \/ ReuseRestoredAuthorization
         \/ (\E dependency \in {"root", "child", "group", "outside"}: ChangeAccess(dependency))
         \/ CloseSocket \/ UNCHANGED vars
 Spec == Init /\ [][Next]_vars
@@ -68,6 +85,8 @@ TypeOK == /\ access \in [{"root", "child", "group", "other"} -> BOOLEAN]
           /\ indexed \subseteq Containers /\ revision \in 0..2
           /\ queryChanged \subseteq {"root", "child", "group", "outside"}
           /\ unrelatedRetry \in BOOLEAN
+          /\ cached \in BOOLEAN /\ cacheReadable \in BOOLEAN
+          /\ cacheRevision \in 0..2
 OnlyReadableInterests == "child" \in indexed => Readable("child")
 ClosedSocketsNeverIndexed == "child" \in indexed => open
 UnrelatedInterestsPreserved == "other" \in indexed
