@@ -7,6 +7,7 @@ function attachment(storageKey: string): LocalAttachmentRecord {
   return {
     blobId: storageKey,
     byteLength: 4,
+    contentSha256: "0".repeat(64),
     detachedAt: null,
     localId: "local-document",
     mimeType: "text/plain",

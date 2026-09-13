@@ -1,4 +1,5 @@
 import { bytesToBase64 } from "@tearleads/encoding";
+import { ProjectionDependencyUnavailableError } from "../data/keyingProjectionVerification/dependencyUnavailable";
 import {
   requireTrustedUserIdentityResolver,
   type TrustedUserIdentityResolver,
@@ -13,6 +14,7 @@ export interface ResolvedUserIdentity {
 }
 
 export interface UserIdentities {
+  /** `null` when the user is unknown or currently unresolvable; integrity failures throw. */
   resolve(userId: string): Promise<ResolvedUserIdentity | null>;
 }
 
@@ -26,7 +28,17 @@ export function createUserIdentities(input: {
   return {
     async resolve(userId) {
       input.log(`Loading user identity for userId: ${userId}`);
-      const identity = await resolveTrustedUserIdentity(userId);
+      let identity: Awaited<ReturnType<TrustedUserIdentityResolver>>;
+      try {
+        identity = await resolveTrustedUserIdentity(userId);
+      } catch (error) {
+        if (!(error instanceof ProjectionDependencyUnavailableError))
+          throw error;
+        input.log(
+          `User identity for ${userId} is unavailable: ${error.message}`,
+        );
+        return null;
+      }
       if (!identity) {
         return null;
       }

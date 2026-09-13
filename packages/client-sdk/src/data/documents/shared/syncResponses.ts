@@ -3,7 +3,6 @@ import {
   computeContentRecordNonceDomainHash,
   computeDocumentContentRecordCiphertextHash,
   computeDocumentContentRecordMetadataHash,
-  KeyingVerificationError,
   verifyWriteHeader,
   type WriteHeader,
 } from "@tearleads/crypto";
@@ -14,7 +13,7 @@ import {
   type DocumentSyncResponse,
 } from "@tearleads/validators/response";
 import { parseWalLsn } from "@tearleads/validators/util";
-import { rethrowProjectionVerificationBoundaryError } from "../../keyingProjectionVerification/error";
+import { throwKeyingVerificationShapeFailure } from "../../keyingProjectionVerification/error";
 import {
   readRecordPositiveInteger,
   readRecordString,
@@ -445,17 +444,8 @@ export async function persistedDocumentSyncStateFromResponse(
       options,
     );
   } catch (error) {
-    rethrowProjectionVerificationBoundaryError(error);
-    if (
-      error instanceof KeyingVerificationError ||
-      error instanceof DocumentSyncResponseUpdateContentKeyError
-    ) {
-      throw error;
-    }
-    throw new KeyingVerificationError(
-      "invalid_shape",
-      error instanceof Error ? error.message : String(error),
-    );
+    if (error instanceof DocumentSyncResponseUpdateContentKeyError) throw error;
+    throwKeyingVerificationShapeFailure(error);
   }
 }
 

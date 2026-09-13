@@ -76,12 +76,12 @@ test("maintenance sweeps aged orphan rows but preserves fresh and live rows", as
     );
     await execSql(
       `INSERT INTO document_attachment_blob_projection (
-        local_id, slot_id, storage_key, byte_length, updated_at
+        local_id, slot_id, storage_key, byte_length, content_sha256, updated_at
       ) VALUES
-        ('live', 'live-slot', 'live-local', 1, ?),
-        ('metadata-live', 'metadata-slot', 'metadata-local', 1, ?),
-        ('orphan', 'orphan-slot', 'orphan-local', 1, ?),
-        ('fresh', 'fresh-slot', 'fresh-local', 1, ?)`,
+        ('live', 'live-slot', 'live-local', 1, '', ?),
+        ('metadata-live', 'metadata-slot', 'metadata-local', 1, '', ?),
+        ('orphan', 'orphan-slot', 'orphan-local', 1, '', ?),
+        ('fresh', 'fresh-slot', 'fresh-local', 1, '', ?)`,
       [OLD, OLD, OLD, FRESH],
     );
 

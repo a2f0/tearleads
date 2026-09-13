@@ -1,6 +1,9 @@
 import type { BlobStore, DocumentAttachment } from "@tearleads/client-sdk";
 import { type RefObject, useEffect, useRef, useState } from "react";
-import { isAutomaticBlobPreviewAllowed } from "./documentAttachmentUtils";
+import {
+  isAutomaticBlobPreviewAllowed,
+  readAutomaticPreviewBlobBytes,
+} from "./documentAttachmentUtils";
 
 type AttachmentStorageKeyBySlotId = Readonly<Record<string, string>>;
 type AttachmentImageUrlBySlotId = Readonly<Record<string, string>>;
@@ -44,7 +47,10 @@ async function buildAttachmentImageState(
       continue;
     }
 
-    const blobBytes = await blobStore.readBytes(storageKey);
+    const blobBytes = await readAutomaticPreviewBlobBytes(
+      blobStore,
+      storageKey,
+    );
     if (!blobBytes) {
       continue;
     }

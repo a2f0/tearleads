@@ -9,6 +9,7 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { loadTrustedUserIdentityPin } from "../persistence/trustedUserIdentityPinPersistence";
 import { DatabaseUnavailableError } from "../sync/databaseUnavailable";
+import { createApiUserIdentitySource } from "./apiAdapter";
 import { createTrustedUserIdentityService } from "./service";
 import type {
   LocalUserIdentityCandidate,
@@ -320,6 +321,80 @@ test("uppercase UUID aliases are rejected before lookup or pinning", async () =>
     await expect(
       execSql("SELECT user_id FROM trusted_user_identity_pins"),
     ).resolves.toEqual([{ user_id: USER_ID }]);
+  } finally {
+    close();
+  }
+});
+
+test("pin store lock contention is retryable availability, not identity evidence", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "identity-service-pin-contention",
+  );
+  const candidate = await createCandidate(4);
+  // The overloaded ExecSql signature is passed through untouched; only the
+  // transaction acquisition is made to look permanently contended.
+  const passthrough = execSql as unknown as (
+    ...args: unknown[]
+  ) => Promise<unknown>;
+  const busyExecSql = (async (sql: string, ...args: unknown[]) => {
+    if (sql.trimStart().toUpperCase().startsWith("BEGIN")) {
+      throw new Error("SQLITE_BUSY: database is locked");
+    }
+    return passthrough(sql, ...args);
+  }) as unknown as typeof execSql;
+  const service = createTrustedUserIdentityService(
+    dependencies({ execSql: () => busyExecSql, remote: candidate.remote }),
+  );
+
+  try {
+    let thrown: unknown;
+    try {
+      await service.resolve(USER_ID);
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toBeInstanceOf(DatabaseUnavailableError);
+    expect(thrown).not.toBeInstanceOf(KeyingVerificationError);
+    await expect(
+      loadTrustedUserIdentityPin({
+        execSql,
+        identityTrustDomain: TRUST_DOMAIN,
+        userId: USER_ID,
+      }),
+    ).resolves.toBeNull();
+  } finally {
+    close();
+  }
+});
+
+test("a transport failure while loading a remote identity stays retryable", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "identity-service-transport-failure",
+  );
+  const invalidations: string[] = [];
+  const service = createTrustedUserIdentityService({
+    ...dependencies({ execSql: () => execSql, remote: null }),
+    remoteSource: createApiUserIdentitySource({
+      evictUserIdentity: (userId) => invalidations.push(userId),
+      getUserIdentity: async () => null,
+      getUserIdentityRequestFailure: () => ({
+        kind: "network",
+        message: "GET /auth/user-identity: fetch failed",
+        method: "GET",
+        ok: false,
+        path: `/auth/user-identity/${USER_ID}`,
+        report: () => undefined,
+        status: null,
+        statusText: "",
+      }),
+    }),
+  });
+
+  try {
+    await expect(service.resolve(USER_ID)).rejects.toMatchObject({
+      name: "ProjectionDependencyUnavailableError",
+    });
+    expect(invalidations).toEqual([USER_ID]);
   } finally {
     close();
   }

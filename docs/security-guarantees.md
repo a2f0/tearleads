@@ -278,10 +278,10 @@ with the manifest. For every ancestor, a head must cite a head that is or
 descends, through verified predecessors, from the head an earlier signed
 statement already established, so neither an older head nor a same-epoch fork
 of that ancestor can authorize a later child event. A served path must be a
-root-to-leaf chain of parent edges, checked by container id. Document link
-events are authorized through dependency container paths served the same
-way; those are verified at the membership they referenced and without
-checkpoint enforcement, because a historical link legitimately cites the
+root-to-leaf chain of parent edges, checked by container id. Document
+link-set heads and history, and the dependency container paths served for
+them, are verified at the membership they referenced (the paths without
+checkpoint enforcement), because a historical link legitimately cites the
 container heads current when it was signed. Every document and attachment
 event, including a document head new to this device, selects exactly its
 signed full-path citations. A checkpoint-enforced current path cannot replace

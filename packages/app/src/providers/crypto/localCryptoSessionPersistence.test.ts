@@ -8,6 +8,7 @@ import {
   clearPersistedCryptoSessionForIdentity,
   type LocalCryptoSessionPersistence,
   localCryptoSessionStorageKey,
+  persistableCryptoSessionContext,
   persistCryptoSession,
   queueCryptoSessionPersistence,
   restorePersistedCryptoSession,
@@ -325,4 +326,70 @@ test("server root acknowledgements survive encrypted session restore", async () 
       signingFingerprint,
     }),
   ).toBeNull();
+});
+
+test("an unacknowledged user id is never persisted across an identity switch", async () => {
+  const namespace = `session-switch-${crypto.randomUUID()}`;
+  const signingFingerprint = "f".repeat(64);
+  const keyring = createSharedMemoryLocalKeyringFactory()();
+  const scope = localIdentityScope(namespace);
+  (await keyring.getOrCreateSession(scope)).dispose();
+  const localPersistence: LocalCryptoSessionPersistence = {
+    keyring,
+    scope,
+    storage: createMemoryStorage(),
+    storageKey: localCryptoSessionStorageKey(namespace, signingFingerprint),
+  };
+  const sdk = new Tearleads({
+    blobStoreFactory: () => createMemoryBlobStore(),
+  });
+  try {
+    await sdk.identity.setKeyPairs({
+      signingFingerprint,
+      signingKeyPair: generateSigningSeedAndKeyPair(),
+      encapsulationKeyPair: null,
+    });
+    sdk.session.setContext({ organizationId: "org-switch" });
+    // A locally chosen user id, as the identity switcher's persist-before-
+    // transition path would see it.
+    sdk.session.setUserId("local-choice");
+    expect(sdk.session.userIdAcknowledged).toBe(false);
+    expect(
+      await persistCryptoSession({
+        context: persistableCryptoSessionContext(
+          sdk.session.snapshot,
+          sdk.session.userIdAcknowledged,
+        ),
+        localPersistence,
+        signingFingerprint,
+      }),
+    ).toBe(true);
+    const restored = await restorePersistedCryptoSession({
+      localPersistence,
+      signingFingerprint,
+    });
+    expect(restored?.userId).toBeNull();
+    expect(restored?.organizationId).toBe("org-switch");
+
+    // A server-acknowledged user id survives the same round trip.
+    sdk.session.setContext({ userId: "acknowledged-user" });
+    expect(sdk.session.userIdAcknowledged).toBe(true);
+    expect(
+      await persistCryptoSession({
+        context: persistableCryptoSessionContext(
+          sdk.session.snapshot,
+          sdk.session.userIdAcknowledged,
+        ),
+        localPersistence,
+        signingFingerprint,
+      }),
+    ).toBe(true);
+    const restoredAcknowledged = await restorePersistedCryptoSession({
+      localPersistence,
+      signingFingerprint,
+    });
+    expect(restoredAcknowledged?.userId).toBe("acknowledged-user");
+  } finally {
+    sdk.dispose();
+  }
 });

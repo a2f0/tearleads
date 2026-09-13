@@ -195,6 +195,7 @@ test("reclaim and hydration serialize byte deletion before the live row write", 
         await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
           blobId: "blob-id",
           byteLength: 1,
+          contentSha256: "0".repeat(64),
           detachedAt: null,
           localId: "live",
           mimeType: "application/octet-stream",

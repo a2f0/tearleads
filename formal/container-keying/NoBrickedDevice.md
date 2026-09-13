@@ -26,12 +26,12 @@ The abstraction maps to production at these seams:
 | --- | --- |
 | `AdvanceAuthority` / `RevokeLateSigner` | a share, revoke, rekey, or move committed against the ancestor's current path by `assertCurrentContainerPath`; an Admins successor |
 | `CommitDependent` | `assertAccessEventDependenciesMatchRequest`, which refuses a descendant event whose signed citations are not the current heads at commit |
-| `HonestSync` / `DishonestSync` | `verifyContainerWriterProjection` verifying the served path through `verifyContainerManifestPath`; `verifyPrincipalPolicyBundle` for a group policy |
+| `HonestSync` / `DishonestSync` | `verifyContainerWriterProjection` verifying the served path through `verifyContainerManifestPath`; `verifyDocumentWriterProjection` verifying the served document head and history through `verifyDocumentManifestBundle`; `verifyPrincipalPolicyBundle` for a group policy |
 | `SyncAuthority` | the ancestor's own projection fetched by `ApiClient.getContainerWriterProjection` |
 | `RollbackOk` / `ForkOk` | `verifyAccessManifestLocalCheckpoint` (rollback, equivocation, and a chain that does not extend the checkpoint); `verifyPrincipalPolicyCheckpoint` |
 | `CitationOk` | `assertCitedAncestorsDoNotRegress`; `verifyPrincipalPolicyExternalAuthorityProgress` |
 | `ServedAuthorityOk` | `assertServedAncestorsDescendFromCitations` on a checkpoint-enforced current path |
-| `SignerOk` | the signer authorized by `verifyContainerAccessManifest` against the path `resolveCitedAncestorPath` rebuilds from the event's citations; `externalAuthorityIncludesAdminSigner` |
+| `SignerOk` | the signer authorized by `verifyContainerAccessManifest` against the path `resolveCitedAncestorPath` rebuilds from the event's citations; `verifyDocumentLinkSetManifest` against the linked-container paths a document event cites; `externalAuthorityIncludesAdminSigner` |
 
 Container authorization can also flow through a group: its signed policy
 reference supplies the signer's membership at commit. The group projection

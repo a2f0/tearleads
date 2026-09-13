@@ -2,6 +2,7 @@ import type {
   ContainerAccessEventBody,
   ContainerAccessManifestState,
   VerifiedContainerAccessManifest,
+  VerifiedDocumentLinkSetManifest,
 } from "@tearleads/crypto";
 import {
   computeAccessManifestHash,
@@ -44,7 +45,7 @@ export type Signer = {
 };
 
 export function manifestBundle(
-  value: VerifiedContainerAccessManifest,
+  value: VerifiedContainerAccessManifest | VerifiedDocumentLinkSetManifest,
 ): AccessManifestBundleWireResponse {
   return {
     event: {

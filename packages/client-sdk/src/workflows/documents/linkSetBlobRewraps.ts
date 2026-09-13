@@ -19,6 +19,7 @@ import type {
 import { projectionVerificationOptions } from "../../data/documents/shared/types";
 import { readCanonicalJson } from "../../data/keyingCanonicalJson";
 import { requireProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
+import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { createAttachmentProofReader } from "../blobs/attachmentDecryptor";
@@ -44,8 +45,13 @@ export async function prepareDocumentLinkBlobRewraps(
 ): Promise<DocumentLinkAccessEventBody["blobRewraps"]> {
   const documentId = input.writerProjection.documentId;
   const bindings = await input.apiClient.listDocumentAttachments(documentId);
+  // The API refuses the link unless every active binding is rewrapped, so an
+  // unavailable listing (offline, or a 409 while a bind is mid-flight) is a
+  // retryable availability failure of this mutation, not integrity evidence.
   if (!bindings)
-    throw new Error("Document attachments are unavailable for relinking");
+    throw new ProjectionDependencyUnavailableError(
+      "Document attachments are unavailable for relinking",
+    );
   assertProjectionVerificationCurrent(input.stillCurrent);
   if (bindings.length === 0) return [];
   const keks = await collectRelinkKeks(input);
