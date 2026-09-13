@@ -23,6 +23,7 @@ import type {
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import { assertContainerAuthorAccess } from "../../../data/containers/shared/authorAccess";
 import {
   buildContainerCreateKeyEpoch,
   signContainerMutationEvent,
@@ -192,6 +193,19 @@ export async function buildMaterializedContainerRevokePlan(input: {
     previousState,
     target,
   } = await resolveRotationContext(input, "revoke");
+  const principalPolicies = await collectContainerRevokePrincipalPolicies({
+    execSql: input.execSql,
+    previousProjection: input.previousProjection,
+    resolveUserKey: resolveProjectionUserKey,
+    stillCurrent: input.stillCurrent,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+  });
+  assertContainerAuthorAccess({
+    author: input.author,
+    projection: input.previousProjection,
+    principalPolicies,
+    minimumAccess: "admin",
+  });
   const nextContainerKeyEpoch = target.kek.containerKeyEpoch + 1;
   const { containerKey, containerKeyEpochId, keyring, predecessorBridge } =
     await buildContainerRotationArtifacts({
@@ -236,13 +250,7 @@ export async function buildMaterializedContainerRevokePlan(input: {
     manifestHash,
     parentContainerKeyEpochId: parentKek?.containerKeyEpochId ?? null,
   });
-  const principalPolicies = await collectContainerRevokePrincipalPolicies({
-    execSql: input.execSql,
-    previousProjection: input.previousProjection,
-    resolveUserKey: resolveProjectionUserKey,
-    stillCurrent: input.stillCurrent,
-    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-  });
+
   const replacementPrincipalPolicy = input.replacementPrincipalPolicy;
   if (
     replacementPrincipalPolicy &&

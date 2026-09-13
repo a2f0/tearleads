@@ -205,3 +205,6 @@ root/system parent edges.
 
 [RootDocumentPriming](./local-trust/RootDocumentPriming.md) checks that documents
 deferred during root verification are scheduled after remote acknowledgement.
+
+[ContainerAuthoring](./local-trust/ContainerAuthoring.md) separates read proof
+access from local signing authority and models an untrusted server echoing a plan.
