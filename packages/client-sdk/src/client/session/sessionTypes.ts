@@ -1,5 +1,6 @@
 import type { ApiClient } from "@tearleads/api-client";
 import type { DocumentProjectorRegistryInput } from "../../data/documents/documentKinds";
+import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ProvisionedSystemContainerSpec } from "../../workflows/registration";
 import type { ClearRemoteSyncStateResult } from "../../workflows/sync";
 import type { Database } from "../database";
@@ -14,6 +15,8 @@ export interface SessionDependencies {
   log: (message: string) => void;
   logError: (message: string | Error, cause?: unknown) => void;
   onUserIdentityAvailable?: UserIdentityAvailable | undefined;
+  /** Records a login the server answered with a different account than acknowledged. */
+  reportSecurityIncident?: SecurityIncidentReporter | undefined;
   /** App-owned system containers provisioned with each new organization. */
   provisionedSystemContainers?:
     | ReadonlyArray<ProvisionedSystemContainerSpec>
@@ -121,6 +124,13 @@ export interface Session {
   /** Controls server replication without changing network connectivity. */
   readonly syncEnabled: boolean;
   readonly userId: string | null;
+  /**
+   * Whether `userId` was acknowledged by the server for the active signing
+   * identity (a successful login or a fingerprint-bound host restore). A user
+   * ID chosen locally through `setUserId` is not, and hosts must not persist
+   * it as this identity's account.
+   */
+  readonly userIdAcknowledged: boolean;
   bootstrapLocalRootContainer(): Promise<{
     containerId: string;
     created: boolean;

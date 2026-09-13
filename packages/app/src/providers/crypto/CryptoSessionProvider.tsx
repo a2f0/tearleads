@@ -15,15 +15,18 @@ import { useIdentity } from "../identity/IdentityProvider";
 import { useLocalKeyringLock } from "../local-keyring/LocalKeyringLockProvider";
 import { useLog } from "../logging/LogProvider";
 import { useTearleads } from "../sdk/TearleadsProvider";
-import { useTearleadsStoreSnapshot } from "../sdk/useTearleadsSubscription";
+import {
+  useTearleadsExternalValue,
+  useTearleadsStoreSnapshot,
+} from "../sdk/useTearleadsSubscription";
 import {
   type LocalCryptoSessionPersistence,
   type PersistedCryptoSessionContext,
-  queueCryptoSessionPersistence,
   restorePersistedCryptoSession,
   useLocalCryptoSessionPersistence,
 } from "./localCryptoSessionPersistence";
 import { useEnsureDatabaseForIdentity } from "./useEnsureDatabaseForIdentity";
+import { usePersistCryptoSession } from "./usePersistCryptoSession";
 
 export interface CryptoSessionContextValue {
   userId: string | null;
@@ -240,87 +243,16 @@ function useRestorePersistedSession(input: {
   return checkedFingerprint;
 }
 
-function usePersistCryptoSession(input: {
-  readonly checkedFingerprint: string | null;
-  readonly localPersistence: LocalCryptoSessionPersistence | null;
-  readonly logError: (message: string, error: unknown) => void;
-  readonly sessionState: PersistedCryptoSessionContext;
-  readonly signingFingerprint: string | null;
-}) {
-  const {
-    checkedFingerprint,
-    localPersistence,
-    logError,
-    sessionState: {
-      authToken,
-      containerId,
-      defaultOrganizationId,
-      isAuthenticated,
-      isRoot,
-      organizationId,
-      rootAcknowledgments,
-      userId,
-    },
-    signingFingerprint,
-  } = input;
-  useEffect(() => {
-    if (
-      !localPersistence ||
-      !signingFingerprint ||
-      checkedFingerprint !== signingFingerprint
-    ) {
-      return;
-    }
-
-    // A full empty context is used while locking or switching identities. Keep
-    // the prior per-identity record intact so returning to that identity can
-    // restore its session rather than treating the transition as a logout.
-    if (
-      !authToken &&
-      !containerId &&
-      !defaultOrganizationId &&
-      !organizationId &&
-      !userId
-    ) {
-      return;
-    }
-
-    void queueCryptoSessionPersistence({
-      context: {
-        authToken,
-        containerId,
-        defaultOrganizationId,
-        isAuthenticated,
-        isRoot,
-        organizationId,
-        rootAcknowledgments,
-        userId,
-      },
-      localPersistence,
-      signingFingerprint,
-    }).catch((error: unknown) => {
-      logError("Failed to persist crypto session", error);
-    });
-  }, [
-    authToken,
-    checkedFingerprint,
-    containerId,
-    defaultOrganizationId,
-    isAuthenticated,
-    isRoot,
-    localPersistence,
-    logError,
-    organizationId,
-    rootAcknowledgments,
-    signingFingerprint,
-    userId,
-  ]);
-}
-
 function useSdkBackedCryptoSessionState(
   tearleads: ReturnType<typeof useTearleads>,
 ) {
   const snapshot = useTearleadsStoreSnapshot(tearleads.session);
+  // Acknowledgment is derived from the SDK's fingerprint binding, not stored in
+  // the snapshot, so it is read through the same subscription.
+  const userIdAcknowledged = useTearleadsExternalValue(
+    tearleads.session.subscribe,
+    () => tearleads.session.userIdAcknowledged,
+  );
   const setUserId = useCallback(
     (value: string | null) => {
       tearleads.session.setUserId(value);
@@ -364,6 +296,7 @@ function useSdkBackedCryptoSessionState(
     setOrganizationId,
     setUserId,
     userId: snapshot.userId,
+    userIdAcknowledged,
   };
 }
 

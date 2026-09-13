@@ -90,8 +90,9 @@ async function compareWithDurablePin(input: {
       );
     }
     if (error instanceof TrustedUserIdentityPinContentionError) {
-      throw new KeyingVerificationError(
-        "missing_dependency",
+      // Lock contention says nothing about the identity; the caller retries
+      // once the trust store is free, so this must not be recordable evidence.
+      throw new DatabaseUnavailableError(
         `Trusted user identity pin store is busy for ${input.identity.userId}`,
       );
     }
