@@ -331,6 +331,7 @@ export function createMswEventRouter(
       // denied stale IDs must not block reconnect reconciliation.
       sendSocketEvent(client, {
         type: "known_containers_ack",
+        containerIds,
         declarationId,
       });
     }
@@ -431,11 +432,17 @@ export function createMswEventRouter(
         return;
       }
 
-      if (Reflect.get(event, "type") === "access_changed") {
-        // Follow the injected trusted ancestry, without origin exclusion.
-        // Default fixtures have independent single-container read paths.
-        // Production obtains these dependencies from verified signed manifests.
-        handleAccessChangedEvent(event);
+      const type = Reflect.get(event, "type");
+      if (type === "access_changed" || type === "principal_access_changed") {
+        // Fixtures inject trusted path/principal dependencies; production
+        // derives them from signed read-access verification.
+        handleAccessChangedEvent(
+          type === "access_changed"
+            ? event
+            : {
+                containerId: `principal:${Reflect.get(event, "principalType")}:${Reflect.get(event, "principalId")}`,
+              },
+        );
         return;
       }
 

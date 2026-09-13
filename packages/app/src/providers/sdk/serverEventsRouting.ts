@@ -10,7 +10,10 @@ import {
 export function routeIncomingWsMessage(
   rawData: string,
   handlers: {
-    onContainerInterestAcknowledged: (declarationId: string) => void;
+    onContainerInterestAcknowledged: (
+      declarationId: string,
+      containerIds: string[],
+    ) => void;
     onInterestState: (baseline: string[]) => void;
     onOrganizationInterestAcknowledged: (
       declarationId: string,
@@ -36,7 +39,10 @@ export function routeIncomingWsMessage(
       handlers.onInterestState(message.containerIds);
       return;
     case "known_containers_ack":
-      handlers.onContainerInterestAcknowledged(message.declarationId);
+      handlers.onContainerInterestAcknowledged(
+        message.declarationId,
+        message.containerIds,
+      );
       return;
     case "known_organizations_ack":
       handlers.onOrganizationInterestAcknowledged(

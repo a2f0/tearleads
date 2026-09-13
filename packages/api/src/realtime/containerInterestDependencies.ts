@@ -14,7 +14,13 @@ export class ContainerInterestDependencies {
 
   set(ws: WsConnection, proof: VerifiedContainerInterest): void {
     this.remove(ws, proof.containerId);
-    const path = [...new Set([proof.containerId, ...proof.pathContainerIds])];
+    const path = [
+      ...new Set([
+        proof.containerId,
+        ...proof.pathContainerIds,
+        ...proof.principalKeys,
+      ]),
+    ];
     const interests = this.bySocket.get(ws) ?? new Map();
     interests.set(proof.containerId, path);
     this.bySocket.set(ws, interests);

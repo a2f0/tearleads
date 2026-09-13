@@ -44,16 +44,19 @@ async function beforeDeadline<T>(
 function authorizationWasInvalidated(
   query: ActiveQuery,
   allowed: readonly VerifiedContainerInterest[],
-  requestedCount: number,
+  requestedIds: readonly string[],
 ): boolean {
-  // Denials have no verified paths. Any observed change may be the missing
-  // grant, while accepted IDs depend only on their verified ancestry.
+  // A denied request has no verified dependency path. Retry only a change
+  // to that requested ID; unrelated tenants must not delay its acknowledgment.
+  // A later grant notification triggers the client's discovery/redeclaration.
   return (
-    (allowed.length < requestedCount && query.changed.size > 0) ||
+    requestedIds.some((id) => query.changed.has(id)) ||
     allowed.some(
       (proof) =>
         query.changed.has(proof.containerId) ||
-        proof.pathContainerIds.some((id) => query.changed.has(id)),
+        [...proof.pathContainerIds, ...proof.principalKeys].some((id) =>
+          query.changed.has(id),
+        ),
     )
   );
 }
@@ -109,7 +112,7 @@ export class ContainerInterestQueries {
         const allowed = proofs.filter((proof) =>
           requested.has(proof.containerId),
         );
-        if (authorizationWasInvalidated(query, allowed, ids.length)) {
+        if (authorizationWasInvalidated(query, allowed, ids)) {
           query.stale = true;
           continue;
         }

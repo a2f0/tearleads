@@ -14,6 +14,7 @@ export function fixture(input: {
   cached?: string[];
   paths?: Readonly<Record<string, string[]>>;
   timeoutMs?: number;
+  principalKeys?: readonly string[];
 }) {
   const sent: Array<Record<string, unknown>> = [];
   const closed: number[] = [];
@@ -29,6 +30,7 @@ export function fixture(input: {
     authorizeContainerAccess: async (userId, ids) =>
       (await input.authorize(userId, ids)).map((containerId) => ({
         containerId,
+        principalKeys: input.principalKeys ?? [],
         pathContainerIds: input.paths?.[containerId] ?? [containerId],
       })),
     ...(input.timeoutMs === undefined

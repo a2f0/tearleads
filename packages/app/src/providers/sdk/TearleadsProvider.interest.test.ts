@@ -39,9 +39,15 @@ function acknowledgeInitialDeclaration(
 ): void {
   const declaration = JSON.parse(sent.at(-1) ?? "null") as {
     declarationId?: unknown;
+    containerIds: string[];
   };
   expect(typeof declaration.declarationId).toBe("string");
-  expect(handle.acknowledge(String(declaration.declarationId))).toBe(true);
+  expect(
+    handle.acknowledge(
+      String(declaration.declarationId),
+      declaration.containerIds,
+    ),
+  ).toBe(true);
 }
 
 function tearleadsWithStore(openTree: () => unknown): Tearleads {
@@ -85,12 +91,14 @@ test("declares the authoritative ready set, waits for its ack, then sends deltas
   fakeStore.setNodes(["c1", "c2", "c3"]);
   expect(JSON.parse(sent[1] ?? "null")).toEqual({
     type: "known_containers.add",
+    declarationId: expect.any(String),
     containerIds: ["c3"],
   });
 
   fakeStore.setNodes(["c2", "c3"]);
   expect(JSON.parse(sent[2] ?? "null")).toEqual({
     type: "known_containers.remove",
+    declarationId: expect.any(String),
     containerIds: ["c1"],
   });
 
@@ -121,6 +129,7 @@ test("re-declares an invalidated container on the next tree change", () => {
   fakeStore.setNodes(["a", "b"]);
   expect(JSON.parse(sent[0] ?? "null")).toEqual({
     type: "known_containers.add",
+    declarationId: expect.any(String),
     containerIds: ["b"],
   });
 });
@@ -142,6 +151,7 @@ test("re-declares an invalidated container after an unchanged access recheck", (
 
   expect(JSON.parse(sent[0] ?? "null")).toEqual({
     type: "known_containers.add",
+    declarationId: expect.any(String),
     containerIds: ["b"],
   });
 });
@@ -180,7 +190,7 @@ test("acknowledges an authoritative declaration even when baseline matches", () 
     declarationId: expect.any(String),
   });
   acknowledgeInitialDeclaration(handle, sent);
-  expect(handle.acknowledge("stale")).toBe(false);
+  expect(handle.acknowledge("stale", [])).toBe(false);
 });
 
 test("retains the hydrated baseline until the local tree is ready", () => {
@@ -269,13 +279,73 @@ test("reconnect with a revoked local ID reaches the acknowledgment barrier and r
   if (!ack) throw new Error("Missing declaration acknowledgment");
   const declarationId = Reflect.get(ack, "declarationId");
   expect(declarationId).toBeString();
-  expect(handle.acknowledge(String(declarationId))).toBe(true);
+  expect(handle.acknowledge(String(declarationId), ["readable"])).toBe(true);
   // The production binding starts HTTP catch-up after this barrier. Its tree
   // result drops the revoked ID; the connection remains available for deltas.
   fakeStore.setNodes(["readable"]);
-  expect(sent.at(-1)).toEqual({
-    type: "known_containers.remove",
-    containerIds: ["revoked"],
+  expect(Reflect.get(ack, "containerIds")).toEqual(["readable"]);
+  expect(sent).toHaveLength(1);
+  handle.stop();
+});
+
+test("a denied local container is retried on a later tree change without looping", () => {
+  const fakeStore = createFakeStore(["pending"]);
+  const { sent, ws } = fakeSocket(WebSocket.OPEN);
+  const handle = startContainerInterestDeclaration(
+    tearleadsWithStore(() => fakeStore.store),
+    ws,
+    new Set(),
+  );
+  const first = JSON.parse(sent[0] ?? "null");
+  expect(handle.acknowledge(first.declarationId, [])).toBe(true);
+  expect(sent).toHaveLength(1);
+  fakeStore.setNodes(["pending"]);
+  const retry = JSON.parse(sent[1] ?? "null");
+  expect(retry).toMatchObject({
+    type: "known_containers.add",
+    containerIds: ["pending"],
   });
+  expect(handle.acknowledge(retry.declarationId, ["pending"])).toBe(false);
+  fakeStore.setNodes(["pending"]);
+  expect(sent).toHaveLength(2);
+  handle.stop();
+});
+
+test("a tree change during a refused addition causes exactly one fresh declaration", () => {
+  const fakeStore = createFakeStore([]);
+  const { sent, ws } = fakeSocket(WebSocket.OPEN);
+  const handle = startContainerInterestDeclaration(
+    tearleadsWithStore(() => fakeStore.store),
+    ws,
+    new Set(),
+  );
+  acknowledgeInitialDeclaration(handle, sent);
+  fakeStore.setNodes(["pending"]);
+  const adding = JSON.parse(sent[1] ?? "null");
+  fakeStore.setNodes(["pending"]);
+  expect(sent).toHaveLength(2);
+  expect(handle.acknowledge(adding.declarationId, [])).toBe(false);
+  expect(sent).toHaveLength(3);
+  const retry = JSON.parse(sent[2] ?? "null");
+  expect(handle.acknowledge(retry.declarationId, [])).toBe(false);
+  expect(sent).toHaveLength(3);
+  handle.stop();
+});
+
+test("an older refused declaration cannot erase a newer accepted subscription", () => {
+  const fakeStore = createFakeStore(["a"]);
+  const { sent, ws } = fakeSocket(WebSocket.OPEN);
+  const handle = startContainerInterestDeclaration(
+    tearleadsWithStore(() => fakeStore.store),
+    ws,
+    new Set(),
+  );
+  const earlier = JSON.parse(sent[0] ?? "null");
+  fakeStore.setNodes(["a", "b"]);
+  const later = JSON.parse(sent[1] ?? "null");
+  expect(handle.acknowledge(later.declarationId, ["a", "b"])).toBe(true);
+  expect(handle.acknowledge(earlier.declarationId, [])).toBe(false);
+  fakeStore.setNodes(["a", "b"]);
+  expect(sent).toHaveLength(2);
   handle.stop();
 });

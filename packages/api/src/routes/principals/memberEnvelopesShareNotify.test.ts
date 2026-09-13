@@ -111,6 +111,18 @@ test("PUT ungranted policy does not publish shared_with_you", async () => {
   expect(putPolicyResponse.status).toBe(200);
 
   expect(sharedWithYouUserIds(publishedEvents)).toEqual([]);
+  // Invalidation must not depend on gaining members: removals also reach
+  // existing subscriptions through the changed principal identity.
+  expect(publishedEvents).toContainEqual({
+    type: "principal_access_changed",
+    principalType: "group",
+    principalId,
+  });
+  expect(publishedEvents).toContainEqual({
+    type: "principal_access_changed",
+    principalType: "organization",
+    principalId: organizationId,
+  });
 });
 
 test("PUT granted Admins access notifies only the newly reachable user", async () => {

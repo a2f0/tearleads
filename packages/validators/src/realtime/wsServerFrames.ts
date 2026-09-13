@@ -23,6 +23,7 @@ export const WsInterestStateFrameSchema = z.object({
 
 export const WsKnownContainersAckFrameSchema = z.object({
   type: z.literal("known_containers_ack"),
+  containerIds: z.array(z.string().min(1)),
   declarationId: wsDeclarationIdSchema,
 });
 

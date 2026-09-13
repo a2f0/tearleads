@@ -1,65 +1,75 @@
 ------------------------ MODULE ContainerInterest ------------------------
-EXTENDS Naturals, TLC
+EXTENDS Naturals, FiniteSets, TLC
 
-CONSTANTS AuthorizeInterest, InvalidateOnAccessChange, CheckSocketOpen, ScopeInvalidation
-VARIABLES access, accessVersion, open, indexed, pending, queryAccess,
-          queryVersion, unrelatedIndexed
-vars == <<access, accessVersion, open, indexed, pending, queryAccess,
-          queryVersion, unrelatedIndexed>>
+CONSTANTS AuthorizeInterest, InvalidateOnAccessChange, CheckSocketOpen,
+          ScopeInvalidation, ScopeQueryChanges, NotifyPrincipalChanges
+Containers == {"child", "other"}
+Dependencies(container) == IF container = "child"
+                          THEN {"root", "child", "group"} ELSE {"other"}
+VARIABLES access, revision, open, indexed, pending, queryAccess,
+          queryChanged, unrelatedRetry
+vars == <<access, revision, open, indexed, pending, queryAccess,
+          queryChanged, unrelatedRetry>>
+Readable(container) == \A dependency \in Dependencies(container): access[dependency]
+QueryDependencies == IF queryAccess THEN Dependencies("child") ELSE {"child"}
+RelevantQueryChange == queryChanged \cap QueryDependencies # {}
+NeedsRetry == IF ScopeQueryChanges THEN RelevantQueryChange ELSE queryChanged # {}
 
-Init == /\ access = FALSE
-        /\ accessVersion = 0
-        /\ open = TRUE
-        /\ indexed = FALSE
-        /\ pending = FALSE
-        /\ queryAccess = FALSE
-        /\ queryVersion = 0
-        /\ unrelatedIndexed = TRUE
+Init == /\ access = [dependency \in {"root", "child", "group", "other"} |-> dependency # "root"]
+        /\ revision = 0 /\ open = TRUE /\ indexed = {"other"}
+        /\ pending = FALSE /\ queryAccess = FALSE
+        /\ queryChanged = {} /\ unrelatedRetry = FALSE
 
 BeginAuthorization ==
     /\ open /\ ~pending
-    /\ pending' = TRUE
-    /\ queryAccess' = access
-    /\ queryVersion' = accessVersion
-    /\ UNCHANGED <<access, accessVersion, open, indexed, unrelatedIndexed>>
+    /\ pending' = TRUE /\ queryAccess' = Readable("child")
+    /\ queryChanged' = {}
+    /\ UNCHANGED <<access, revision, open, indexed, unrelatedRetry>>
 
 ApplyAuthorization ==
-    /\ pending
-    /\ (~CheckSocketOpen \/ open)
-    /\ (~InvalidateOnAccessChange \/ queryVersion = accessVersion)
-    /\ indexed' = (~AuthorizeInterest \/ queryAccess)
+    /\ pending /\ (~CheckSocketOpen \/ open)
+    /\ ~NeedsRetry
+    /\ indexed' = IF ~AuthorizeInterest \/ queryAccess
+                   THEN indexed \cup {"child"} ELSE indexed \ {"child"}
     /\ pending' = FALSE
-    /\ UNCHANGED <<access, accessVersion, open, queryAccess, queryVersion, unrelatedIndexed>>
+    /\ UNCHANGED <<access, revision, open, queryAccess, queryChanged, unrelatedRetry>>
 
 RetryAuthorization ==
-    /\ open /\ pending /\ queryVersion # accessVersion
-    /\ queryAccess' = access
-    /\ queryVersion' = accessVersion
-    /\ UNCHANGED <<access, accessVersion, open, indexed, pending, unrelatedIndexed>>
+    /\ open /\ pending /\ NeedsRetry
+    /\ unrelatedRetry' = (unrelatedRetry \/ ~RelevantQueryChange)
+    /\ queryAccess' = Readable("child") /\ queryChanged' = {}
+    /\ UNCHANGED <<access, revision, open, indexed, pending>>
 
-ChangeAccess ==
-    /\ accessVersion < 2
-    /\ access' = ~access
-    /\ accessVersion' = accessVersion + 1
-    /\ indexed' = IF InvalidateOnAccessChange THEN FALSE ELSE indexed
-    /\ unrelatedIndexed' = IF ScopeInvalidation THEN unrelatedIndexed ELSE FALSE
-    /\ UNCHANGED <<open, pending, queryAccess, queryVersion>>
+ObserveChange(dependency) == InvalidateOnAccessChange /\ (dependency # "group" \/ NotifyPrincipalChanges)
+
+ChangeAccess(dependency) ==
+    /\ revision < 2
+    /\ revision' = revision + 1
+    /\ access' = IF dependency = "outside" THEN access
+                  ELSE [access EXCEPT ![dependency] = ~@]
+    /\ indexed' = IF ~ObserveChange(dependency) THEN indexed
+                   ELSE IF ScopeInvalidation
+                     THEN {container \in indexed: dependency \notin Dependencies(container)}
+                     ELSE {}
+    /\ queryChanged' = IF pending /\ ObserveChange(dependency)
+                        THEN queryChanged \cup {dependency} ELSE queryChanged
+    /\ UNCHANGED <<open, pending, queryAccess, unrelatedRetry>>
 
 CloseSocket ==
-    /\ open
-    /\ open' = FALSE
-    /\ indexed' = FALSE
-    /\ UNCHANGED <<access, accessVersion, pending, queryAccess, queryVersion, unrelatedIndexed>>
+    /\ open /\ open' = FALSE /\ indexed' = indexed \ {"child"}
+    /\ UNCHANGED <<access, revision, pending, queryAccess, queryChanged, unrelatedRetry>>
 
 Next == BeginAuthorization \/ ApplyAuthorization \/ RetryAuthorization
-        \/ ChangeAccess \/ CloseSocket \/ UNCHANGED vars
+        \/ (\E dependency \in {"root", "child", "group", "outside"}: ChangeAccess(dependency))
+        \/ CloseSocket \/ UNCHANGED vars
 Spec == Init /\ [][Next]_vars
-
-TypeOK == /\ access \in BOOLEAN /\ open \in BOOLEAN /\ indexed \in BOOLEAN
-          /\ pending \in BOOLEAN /\ queryAccess \in BOOLEAN
-          /\ unrelatedIndexed \in BOOLEAN
-          /\ accessVersion \in 0..2 /\ queryVersion \in 0..2
-OnlyReadableInterests == indexed => access
-ClosedSocketsNeverIndexed == indexed => open
-UnrelatedInterestsPreserved == unrelatedIndexed
+TypeOK == /\ access \in [{"root", "child", "group", "other"} -> BOOLEAN]
+          /\ open \in BOOLEAN /\ pending \in BOOLEAN /\ queryAccess \in BOOLEAN
+          /\ indexed \subseteq Containers /\ revision \in 0..2
+          /\ queryChanged \subseteq {"root", "child", "group", "outside"}
+          /\ unrelatedRetry \in BOOLEAN
+OnlyReadableInterests == "child" \in indexed => Readable("child")
+ClosedSocketsNeverIndexed == "child" \in indexed => open
+UnrelatedInterestsPreserved == "other" \in indexed
+NoUnrelatedRetries == ~unrelatedRetry
 =============================================================================

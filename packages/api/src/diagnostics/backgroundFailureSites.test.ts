@@ -141,6 +141,7 @@ test("post-handshake interest failures are reported and the socket still gets it
       ids.map((containerId) => ({
         containerId,
         pathContainerIds: [containerId],
+        principalKeys: [],
       })),
     interestStore: failingInterestStore(failure),
     subscribe: () => () => undefined,

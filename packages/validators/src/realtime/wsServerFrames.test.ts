@@ -12,7 +12,11 @@ const DOC = "44444444-4444-4444-8444-444444444444";
 const controlFrames: WsServerMessage[] = [
   { containerIds: [C1], type: "interest_state" },
   { containerIds: [], type: "interest_state" },
-  { declarationId: "d-1", type: "known_containers_ack" },
+  {
+    declarationId: "d-1",
+    containerIds: ["container-1"],
+    type: "known_containers_ack",
+  },
   {
     authorized: true,
     declarationId: "d-2",

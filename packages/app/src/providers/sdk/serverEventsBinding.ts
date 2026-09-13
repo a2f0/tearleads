@@ -105,6 +105,27 @@ async function resyncRootContainers(tearleads: Tearleads): Promise<void> {
   }
 }
 
+function resyncDeclaredContainer(
+  tearleads: Tearleads,
+  handle: ContainerInterestDeclaration | null,
+  containerId: string,
+): void {
+  tearleads.events.invalidateAccessState();
+  handle?.invalidate(containerId);
+  void resyncContainerAccess(tearleads, containerId).finally(() =>
+    handle?.sync(),
+  );
+}
+
+function resyncSharedContainerInterest(
+  tearleads: Tearleads,
+  handle: ContainerInterestDeclaration | null,
+): void {
+  handle?.invalidateAll();
+  tearleads.events.invalidateAccessState();
+  void resyncRootContainers(tearleads).finally(() => handle?.sync());
+}
+
 let nextEventId = 0;
 
 function useRefreshGeneration(
@@ -182,8 +203,8 @@ export function useServerEventsBinding(
       },
       onMessage: (ws, event) => {
         routeIncomingWsMessage(String(event.data), {
-          onContainerInterestAcknowledged: (declarationId) => {
-            if (!interestHandle?.acknowledge(declarationId)) {
+          onContainerInterestAcknowledged: (declarationId, containerIds) => {
+            if (!interestHandle?.acknowledge(declarationId, containerIds)) {
               return;
             }
             markServerEventsConnected(tearleads, log);
@@ -224,15 +245,10 @@ export function useServerEventsBinding(
               originatedFromSession,
             );
           },
-          onResyncRequired: (containerId) => {
-            tearleads.events.invalidateAccessState();
-            const handle = interestHandle;
-            handle?.invalidate(containerId);
-            void resyncContainerAccess(tearleads, containerId).finally(() => {
-              handle?.sync();
-            });
-          },
-          onSharedWithYou: () => void resyncRootContainers(tearleads),
+          onResyncRequired: (containerId) =>
+            resyncDeclaredContainer(tearleads, interestHandle, containerId),
+          onSharedWithYou: () =>
+            resyncSharedContainerInterest(tearleads, interestHandle),
           onServerEvent: (data) => {
             tearleads.events.push({ ...data, id: String(nextEventId++) });
           },

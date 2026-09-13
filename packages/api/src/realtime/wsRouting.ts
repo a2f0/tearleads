@@ -4,7 +4,10 @@ import {
   type WsInvalidationHint,
 } from "@tearleads/validators/realtime";
 import { ContainerInterestDependencies } from "./containerInterestDependencies";
-import type { VerifiedContainerInterest } from "./containerInterestTypes";
+import {
+  principalInterestKey,
+  type VerifiedContainerInterest,
+} from "./containerInterestTypes";
 import {
   type PublishedRealtimeEvent,
   parsePublishedRealtimeEvent,
@@ -267,6 +270,8 @@ export class WsEventRouter {
         return [];
       case "access_changed":
         return this.handleAccessChanged(event.containerId);
+      case "principal_access_changed":
+        return this.handleAccessChanged(principalInterestKey(event));
       case "organization_read_model_changed":
         this.organizationRouter.routeReadModelChanged(event);
         return [];

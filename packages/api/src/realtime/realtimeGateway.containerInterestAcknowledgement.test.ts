@@ -31,6 +31,7 @@ test("container interest routing is active before acknowledgement and persistenc
       ids.map((containerId) => ({
         containerId,
         pathContainerIds: [containerId],
+        principalKeys: [],
       })),
     interestStore: {
       async apply(
@@ -60,7 +61,11 @@ test("container interest routing is active before acknowledgement and persistenc
 
   expect(sent.map((message) => JSON.parse(message))).toEqual([
     { type: "interest_state", containerIds: [] },
-    { type: "known_containers_ack", declarationId: "interest-1" },
+    {
+      type: "known_containers_ack",
+      declarationId: "interest-1",
+      containerIds: [CONTAINER_ID],
+    },
   ]);
   expect(routingActiveAtAcknowledgement).toBe(true);
   expect(persistenceStartedAtAcknowledgement).toBe(false);

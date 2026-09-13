@@ -14,6 +14,7 @@ export function applyContainerInterest(
       action.containerIds.map((containerId) => ({
         containerId,
         pathContainerIds: [containerId],
+        principalKeys: [],
       })),
     );
   }

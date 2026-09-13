@@ -97,6 +97,7 @@ export class ContainerInterestAuthorizer {
             ws,
             serializeWsServerMessage({
               type: "known_containers_ack",
+              containerIds,
               declarationId: declaration.declarationId,
             }),
           );

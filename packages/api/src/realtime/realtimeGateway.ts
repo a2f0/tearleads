@@ -7,7 +7,10 @@ import { addListener } from "../adapters/redisPubSub";
 import { reportBackgroundFailure } from "../diagnostics/reportBackgroundFailure";
 import { authorizeContainerAccessWithWorkflow } from "./containerInterestAccess";
 import { ContainerInterestAuthorizer } from "./containerInterestAuthorization";
-import type { AuthorizeContainerAccess } from "./containerInterestTypes";
+import {
+  type AuthorizeContainerAccess,
+  principalInterestKey,
+} from "./containerInterestTypes";
 import { parsePublishedRealtimeEvent } from "./publishedRealtimeEvents";
 import { sendSafely } from "./wsConnection";
 import type { WebSocketTicketIdentity } from "./wsIdentity";
@@ -382,6 +385,8 @@ export function createRealtimeGateway(deps: RealtimeGatewayDeps = {}) {
       const event = parsePublishedRealtimeEvent(message);
       if (event?.type === "access_changed") {
         containerInterest.invalidateAccess(event.containerId);
+      } else if (event?.type === "principal_access_changed") {
+        containerInterest.invalidateAccess(principalInterestKey(event));
       }
       for (const eviction of router.routeServerEvent(message)) {
         persistInterest(eviction.userId, eviction.sessionId, {

@@ -32,6 +32,22 @@ const NO_BRICK_ADVERSARY =
 
 export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   {
+    id: "principal-change-keeps-container-interest",
+    module: "formal/realtime/ContainerInterest.tla",
+    config: "formal/realtime/ContainerInterest.cfg",
+    constants: { NotifyPrincipalChanges: "FALSE" },
+    expect: { kind: "invariant", name: "OnlyReadableInterests" },
+    why: "A group membership removal changes read access even if no container manifest changes; principal notifications must evict its subscriptions (#2266).",
+  },
+  {
+    id: "unrelated-container-authorization-retry",
+    module: "formal/realtime/ContainerInterest.tla",
+    config: "formal/realtime/ContainerInterest.cfg",
+    constants: { ScopeQueryChanges: "FALSE" },
+    expect: { kind: "invariant", name: "NoUnrelatedRetries" },
+    why: "Retrying a denied declaration on another tenant's mutation consumes its retry budget without changing access (#2266).",
+  },
+  {
     id: "unrelated-container-interest-eviction",
     module: "formal/realtime/ContainerInterest.tla",
     config: "formal/realtime/ContainerInterest.cfg",

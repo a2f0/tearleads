@@ -1,4 +1,7 @@
-import type { AuthorizeContainerAccess } from "./containerInterestTypes";
+import {
+  type AuthorizeContainerAccess,
+  principalInterestKey,
+} from "./containerInterestTypes";
 
 export const authorizeContainerAccessWithWorkflow: AuthorizeContainerAccess =
   async (userId, containerIds) => {
@@ -20,6 +23,8 @@ export const authorizeContainerAccessWithWorkflow: AuthorizeContainerAccess =
           return [
             {
               containerId,
+              principalKeys:
+                result.value.principalPolicies.map(principalInterestKey),
               pathContainerIds: result.value.verifiedPath.map(
                 (manifest) => manifest.state.containerId,
               ),

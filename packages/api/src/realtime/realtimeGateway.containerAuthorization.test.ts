@@ -28,6 +28,7 @@ test("denied declarations acknowledge processing without indexing or persisting 
   expect(f.sent).toContainEqual({
     type: "known_containers_ack",
     declarationId: "declaration",
+    containerIds: [],
   });
   expect(
     f.persisted.some((action) => action?.containerIds.includes(CONTAINER)),
@@ -114,6 +115,7 @@ test("ancestor changes invalidate in-flight authorization", async () => {
   expect(f.sent.at(-1)).toEqual({
     type: "known_containers_ack",
     declarationId: "declaration",
+    containerIds: [],
   });
   f.gateway.stop();
 });
@@ -142,6 +144,7 @@ test("a mixed initial declaration filters revoked IDs and remains usable for rec
   expect(f.sent.at(-1)).toEqual({
     type: "known_containers_ack",
     declarationId: "declaration",
+    containerIds: [OTHER],
   });
   await f.declare("known_containers.remove", [CONTAINER]);
   expect(f.router.interestedSocketCount(OTHER)).toBe(1);
@@ -383,7 +386,7 @@ test("an observed grant retries a denied query before acknowledging", async () =
   await f.gateway.websocket.open(f.socket);
   const pending = f.declare();
   await started.promise;
-  f.publish({ type: "access_changed", containerId: OTHER });
+  f.publish({ type: "access_changed", containerId: CONTAINER });
   authorization.resolve([]);
   await pending;
   expect(calls).toBe(2);
@@ -430,5 +433,26 @@ test("the router indexes only IDs carried by verified proofs", async () => {
   expect(f.router.interestedSocketCount(CONTAINER)).toBe(0);
   f.publish({ type: "access_changed", containerId: CONTAINER });
   expect(f.sent).toEqual([{ type: "interest_state", containerIds: [] }]);
+  f.gateway.stop();
+});
+
+test("unrelated changes do not retry a denied declaration", async () => {
+  let calls = 0;
+  const f = fixture({
+    authorize: async () => {
+      calls++;
+      f.publish({ type: "access_changed", containerId: OTHER });
+      return [];
+    },
+  });
+  await f.gateway.websocket.open(f.socket);
+  await f.declare();
+  expect(calls).toBe(1);
+  expect(f.closed).toEqual([]);
+  expect(f.sent.at(-1)).toEqual({
+    type: "known_containers_ack",
+    declarationId: "declaration",
+    containerIds: [],
+  });
   f.gateway.stop();
 });
