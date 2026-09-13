@@ -41,6 +41,30 @@ export interface PersistedCryptoSessionContext {
   readonly userId: string | null;
 }
 
+/**
+ * The context a persistence path may durably record for a signing identity.
+ * A `userId` the SDK session holds without the server having acknowledged it
+ * for the active fingerprint (a local `setUserId`) is never persisted: a later
+ * restore replays the record through the session's fingerprint binding as if
+ * the server had confirmed it, and would then refuse a legitimate login with
+ * `object_mismatch`. Every persistence path must go through this filter.
+ */
+export function persistableCryptoSessionContext(
+  snapshot: PersistedCryptoSessionContext,
+  userIdAcknowledged: boolean,
+): PersistedCryptoSessionContext {
+  return {
+    authToken: snapshot.authToken,
+    containerId: snapshot.containerId,
+    defaultOrganizationId: snapshot.defaultOrganizationId,
+    isAuthenticated: snapshot.isAuthenticated,
+    isRoot: snapshot.isRoot,
+    organizationId: snapshot.organizationId,
+    rootAcknowledgments: snapshot.rootAcknowledgments,
+    userId: userIdAcknowledged ? snapshot.userId : null,
+  };
+}
+
 interface PersistedCryptoSessionEnvelope extends PersistedCryptoSessionContext {
   readonly format: typeof LOCAL_CRYPTO_SESSION_FORMAT;
   readonly signingFingerprint: string;

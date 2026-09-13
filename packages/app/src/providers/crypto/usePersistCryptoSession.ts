@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import {
   type LocalCryptoSessionPersistence,
   type PersistedCryptoSessionContext,
+  persistableCryptoSessionContext,
   queueCryptoSessionPersistence,
 } from "./localCryptoSessionPersistence";
 
@@ -39,7 +40,10 @@ export function usePersistCryptoSession(input: {
     },
     signingFingerprint,
   } = input;
-  const userId = userIdAcknowledged ? input.sessionState.userId : null;
+  const { userId } = persistableCryptoSessionContext(
+    input.sessionState,
+    userIdAcknowledged,
+  );
   useEffect(() => {
     if (
       !localPersistence ||
