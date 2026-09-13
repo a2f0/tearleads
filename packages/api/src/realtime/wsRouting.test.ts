@@ -414,23 +414,21 @@ test("access_changed evicts interest and tells interested sockets to resync", ()
   );
 
   const resync = JSON.stringify({ containerId: X, type: "resync_required" });
-  const resyncY = JSON.stringify({ containerId: Y, type: "resync_required" });
-  // Without an ancestry index, access changes invalidate every container interest.
-  expect(alice.sent).toEqual([resync, resyncY]);
+  // Y has an independent verified path and keeps its subscription.
+  expect(alice.sent).toEqual([resync]);
   expect(bob.sent).toEqual([resync]);
   expect(router.interestedSocketCount(X)).toBe(0);
-  expect(router.interestedSocketCount(Y)).toBe(0);
+  expect(router.interestedSocketCount(Y)).toBe(1);
   // The evictions are returned so the shell drops them from the persisted set,
   // or a reconnect would restore the just-revoked interest.
   expect(evictions).toEqual([
     { containerId: X, sessionId: "alice-session", userId: "alice" },
     { containerId: X, sessionId: "bob-session", userId: "bob" },
-    { containerId: Y, sessionId: "alice-session", userId: "alice" },
   ]);
 
   router.routeServerEvent(documentEvent([X]));
   // No document delivery after eviction.
-  expect(alice.sent).toEqual([resync, resyncY]);
+  expect(alice.sent).toEqual([resync]);
 });
 
 test("session_revoked closes only sockets for that session", () => {

@@ -1,7 +1,4 @@
-export type AuthorizeContainerAccess = (
-  userId: string,
-  containerIds: string[],
-) => Promise<string[]>;
+import type { AuthorizeContainerAccess } from "./containerInterestTypes";
 
 export const authorizeContainerAccessWithWorkflow: AuthorizeContainerAccess =
   async (userId, containerIds) => {
@@ -17,8 +14,17 @@ export const authorizeContainerAccessWithWorkflow: AuthorizeContainerAccess =
           executor,
           userId,
         });
-        return containerIds.filter(
-          (id) => results.get(id)?.status === "fulfilled",
-        );
+        return containerIds.flatMap((containerId) => {
+          const result = results.get(containerId);
+          if (result?.status !== "fulfilled") return [];
+          return [
+            {
+              containerId,
+              pathContainerIds: result.value.verifiedPath.map(
+                (manifest) => manifest.state.containerId,
+              ),
+            },
+          ];
+        });
       });
   };

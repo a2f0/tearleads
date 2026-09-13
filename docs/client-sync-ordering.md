@@ -107,9 +107,14 @@ pull policy; that policy revalidates registered ordinary stores, while returning
 without opening unregistered ones. System-container documents remain the eager
 exception because their projections may have no document window to open them.
 
-The server sends `known_containers_ack` immediately after installing the
-declaration in its process-local event router and before asynchronously
-persisting it for a later reconnect. Until that acknowledgement arrives, a cold
+The server sends `known_containers_ack` immediately after authorizing and
+installing the declaration's readable subset in its process-local event router,
+before asynchronously persisting it for a later reconnect. The acknowledgment
+confirms processing, including filtered denials; a stale local ID must not block
+the HTTP reconciliation that removes it. Cached reconnect IDs are reauthorized
+through the same signed read-access workflow. Access-change notifications evict
+only interests whose verified container paths depend on the changed head. Until
+that acknowledgement arrives, a cold
 `ready=false` tree cannot remove the restored baseline and the SDK continues to
 report server events as disconnected.
 

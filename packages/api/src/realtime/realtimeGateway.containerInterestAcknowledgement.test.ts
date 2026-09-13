@@ -27,7 +27,11 @@ test("container interest routing is active before acknowledgement and persistenc
     },
   } as unknown as ServerWebSocket<WebSocketTicketIdentity>;
   const gateway = createRealtimeGateway({
-    authorizeContainerAccess: async (_userId, ids) => ids,
+    authorizeContainerAccess: async (_userId, ids) =>
+      ids.map((containerId) => ({
+        containerId,
+        pathContainerIds: [containerId],
+      })),
     interestStore: {
       async apply(
         _userId: string,

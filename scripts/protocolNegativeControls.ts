@@ -32,12 +32,20 @@ const NO_BRICK_ADVERSARY =
 
 export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   {
+    id: "unrelated-container-interest-eviction",
+    module: "formal/realtime/ContainerInterest.tla",
+    config: "formal/realtime/ContainerInterest.cfg",
+    constants: { ScopeInvalidation: "FALSE" },
+    expect: { kind: "invariant", name: "UnrelatedInterestsPreserved" },
+    why: "Global eviction removes a different tenant's independent subscription instead of following verified ancestry (#2266).",
+  },
+  {
     id: "unauthorized-container-interest",
     module: "formal/realtime/ContainerInterest.tla",
     config: "formal/realtime/ContainerInterest.cfg",
     constants: { AuthorizeInterest: "FALSE" },
     expect: { kind: "invariant", name: "OnlyReadableInterests" },
-    why: "Removing the AuthorizeInterest gate indexes an unauthorized or closed socket (#2266).",
+    why: "Removing authorization admits a denied subscription and violates OnlyReadableInterests (#2266).",
   },
   {
     id: "stale-container-interest-authorization",
@@ -45,7 +53,7 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     config: "formal/realtime/ContainerInterest.cfg",
     constants: { InvalidateOnAccessChange: "FALSE" },
     expect: { kind: "invariant", name: "OnlyReadableInterests" },
-    why: "Removing the InvalidateOnAccessChange gate indexes an unauthorized or closed socket (#2266).",
+    why: "Removing dependency invalidation keeps a revoked subscription and violates OnlyReadableInterests (#2266).",
   },
   {
     id: "closed-socket-interest-authorization",
@@ -53,7 +61,7 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     config: "formal/realtime/ContainerInterest.cfg",
     constants: { CheckSocketOpen: "FALSE" },
     expect: { kind: "invariant", name: "ClosedSocketsNeverIndexed" },
-    why: "Removing the CheckSocketOpen gate indexes an unauthorized or closed socket (#2266).",
+    why: "Removing the live-socket guard lets a late result violate ClosedSocketsNeverIndexed (#2266).",
   },
   {
     id: "host-restore-binds-a-switched-identity",

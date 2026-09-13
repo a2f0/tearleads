@@ -215,6 +215,9 @@ function shouldDropServerEvent(event: Record<string, unknown>): boolean {
  */
 export function createMswEventRouter(
   options: {
+    // Synchronous trusted proof fixtures. API gateway tests exercise the real
+    // async signed-access workflow and its cancellation/race guards.
+    containerPath?: (containerId: string) => readonly string[] | null;
     resolveTicketIdentity?: (
       ticket: string,
     ) => Promise<MswSocketIdentity | null>;
@@ -291,12 +294,16 @@ export function createMswEventRouter(
       return;
     }
 
-    const containerIds = readContainerIdArray(
+    const requestedIds = readContainerIdArray(
       Reflect.get(message, "containerIds"),
     );
-    if (!containerIds) {
+    if (!requestedIds) {
       return;
     }
+    const containerIds =
+      Reflect.get(message, "type") === "known_containers.remove"
+        ? requestedIds
+        : requestedIds.filter((id) => options.containerPath?.(id) !== null);
 
     const current = socketInterestByClient.get(client) ?? new Set<string>();
     switch (Reflect.get(message, "type")) {
@@ -320,8 +327,8 @@ export function createMswEventRouter(
       Reflect.get(message, "declarationId"),
     );
     if (declarationId) {
-      // Production acknowledges only after the process-local router has
-      // synchronously installed this exact declaration.
+      // Production acknowledges after installing the authorized subset;
+      // denied stale IDs must not block reconnect reconciliation.
       sendSocketEvent(client, {
         type: "known_containers_ack",
         declarationId,
@@ -336,11 +343,12 @@ export function createMswEventRouter(
     }
 
     for (const [client, interest] of socketInterestByClient) {
-      if (!interest.has(containerId)) {
-        continue;
+      for (const id of [...interest]) {
+        const path = options.containerPath?.(id) ?? [id];
+        if (id !== containerId && !path.includes(containerId)) continue;
+        interest.delete(id);
+        sendSocketEvent(client, { containerId: id, type: "resync_required" });
       }
-      interest.delete(containerId);
-      sendSocketEvent(client, { containerId, type: "resync_required" });
     }
   };
 
@@ -424,9 +432,9 @@ export function createMswEventRouter(
       }
 
       if (Reflect.get(event, "type") === "access_changed") {
-        // Mirrors production handleAccessChanged: resync_required fans to every
-        // interested socket with NO origin exclusion, and interest is dropped
-        // until the client reconciles over HTTP and re-declares.
+        // Follow the injected trusted ancestry, without origin exclusion.
+        // Default fixtures have independent single-container read paths.
+        // Production obtains these dependencies from verified signed manifests.
         handleAccessChangedEvent(event);
         return;
       }

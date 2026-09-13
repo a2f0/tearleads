@@ -5,11 +5,9 @@ import {
 import type { ServerWebSocket } from "bun";
 import { addListener } from "../adapters/redisPubSub";
 import { reportBackgroundFailure } from "../diagnostics/reportBackgroundFailure";
-import {
-  type AuthorizeContainerAccess,
-  authorizeContainerAccessWithWorkflow,
-} from "./containerInterestAccess";
+import { authorizeContainerAccessWithWorkflow } from "./containerInterestAccess";
 import { ContainerInterestAuthorizer } from "./containerInterestAuthorization";
+import type { AuthorizeContainerAccess } from "./containerInterestTypes";
 import { parsePublishedRealtimeEvent } from "./publishedRealtimeEvents";
 import { sendSafely } from "./wsConnection";
 import type { WebSocketTicketIdentity } from "./wsIdentity";
@@ -27,6 +25,7 @@ type AuthorizeOrganizationAccess = (
   userId: string,
   organizationId: string,
 ) => Promise<boolean>;
+const CONTAINER_AUTHORIZATION_TIMEOUT_MS = 10_000;
 const ORGANIZATION_AUTHORIZATION_TIMEOUT_MS = 10_000;
 
 interface RealtimeGatewayDeps {
@@ -359,7 +358,7 @@ export function createRealtimeGateway(deps: RealtimeGatewayDeps = {}) {
   );
   const containerInterest = new ContainerInterestAuthorizer(
     deps.authorizeContainerAccess ?? authorizeContainerAccessWithWorkflow,
-    deps.containerAuthorizationTimeoutMs ?? 10_000,
+    deps.containerAuthorizationTimeoutMs ?? CONTAINER_AUTHORIZATION_TIMEOUT_MS,
     interestStore,
     persistInterest,
     router,
@@ -380,8 +379,9 @@ export function createRealtimeGateway(deps: RealtimeGatewayDeps = {}) {
       return;
     }
     const routeMessage = (message: string): void => {
-      if (parsePublishedRealtimeEvent(message)?.type === "access_changed") {
-        containerInterest.invalidateAccess();
+      const event = parsePublishedRealtimeEvent(message);
+      if (event?.type === "access_changed") {
+        containerInterest.invalidateAccess(event.containerId);
       }
       for (const eviction of router.routeServerEvent(message)) {
         persistInterest(eviction.userId, eviction.sessionId, {

@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
 import type { Tearleads } from "@tearleads/client-sdk";
+import {
+  createMswEventRouter,
+  type MswSocketClient,
+} from "../../../test/helpers/mswEventRouter";
 import { startContainerInterestDeclaration } from "./serverEventsBinding";
 
 function createFakeStore(initialIds: string[]) {
@@ -228,4 +232,50 @@ test("does not send while the socket is not open", () => {
   );
 
   expect(sent).toEqual([]);
+});
+
+test("reconnect with a revoked local ID reaches the acknowledgment barrier and reconciles", () => {
+  const fakeStore = createFakeStore(["revoked", "readable"]);
+  const router = createMswEventRouter({
+    containerPath: (id) => (id === "revoked" ? null : [id]),
+  });
+  const serverFrames: Array<Record<string, unknown>> = [];
+  let listener: ((event: { data?: unknown }) => void) | undefined;
+  const client: MswSocketClient = {
+    addEventListener: (type, callback) => {
+      if (type === "message") listener = callback;
+    },
+    send: (data) => {
+      serverFrames.push(JSON.parse(data));
+    },
+  };
+  router.handleConnection(client);
+  const sent: Array<Record<string, unknown>> = [];
+  const ws = {
+    readyState: WebSocket.OPEN,
+    send: (data: string) => {
+      sent.push(JSON.parse(data));
+      listener?.({ data });
+    },
+  } as unknown as WebSocket;
+  const handle = startContainerInterestDeclaration(
+    tearleadsWithStore(() => fakeStore.store),
+    ws,
+    new Set(["readable"]),
+  );
+  const ack = serverFrames.find(
+    (frame) => Reflect.get(frame, "type") === "known_containers_ack",
+  );
+  if (!ack) throw new Error("Missing declaration acknowledgment");
+  const declarationId = Reflect.get(ack, "declarationId");
+  expect(declarationId).toBeString();
+  expect(handle.acknowledge(String(declarationId))).toBe(true);
+  // The production binding starts HTTP catch-up after this barrier. Its tree
+  // result drops the revoked ID; the connection remains available for deltas.
+  fakeStore.setNodes(["readable"]);
+  expect(sent.at(-1)).toEqual({
+    type: "known_containers.remove",
+    containerIds: ["revoked"],
+  });
+  handle.stop();
 });

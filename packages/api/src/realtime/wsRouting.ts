@@ -3,6 +3,8 @@ import {
   serializeWsServerMessage,
   type WsInvalidationHint,
 } from "@tearleads/validators/realtime";
+import { ContainerInterestDependencies } from "./containerInterestDependencies";
+import type { VerifiedContainerInterest } from "./containerInterestTypes";
 import {
   type PublishedRealtimeEvent,
   parsePublishedRealtimeEvent,
@@ -140,6 +142,7 @@ export class WsEventRouter {
   private readonly socketsByUserId = new Map<string, Set<WsConnection>>();
   private readonly socketsByContainerId = new Map<string, Set<WsConnection>>();
   private readonly interestBySocket = new Map<WsConnection, Set<string>>();
+  private readonly dependencies = new ContainerInterestDependencies();
   private readonly organizationRouter = new WsOrganizationRouter();
 
   open(ws: WsConnection): void {
@@ -152,6 +155,7 @@ export class WsEventRouter {
   }
 
   close(ws: WsConnection): void {
+    this.dependencies.clear(ws);
     removeFromIndex(this.socketsBySessionKey, socketSessionKey(ws), ws);
     removeFromIndex(this.socketsByUserId, ws.data.userId, ws);
     const interest = this.interestBySocket.get(ws);
@@ -215,8 +219,11 @@ export class WsEventRouter {
   applyAuthorizedContainerInterest(
     ws: WsConnection,
     action: Exclude<AppliedInterest, null>,
+    proofs: readonly VerifiedContainerInterest[],
   ): void {
     if (!this.isOpen(ws)) return;
+    if (action.kind === "replace") this.dependencies.clear(ws);
+    for (const proof of proofs) this.dependencies.set(ws, proof);
     switch (action.kind) {
       case "replace":
         this.replaceInterest(ws, action.containerIds);
@@ -258,9 +265,7 @@ export class WsEventRouter {
         this.handleSessionRevoked(event.userId, event.sessionId);
         return [];
       case "access_changed":
-        return [...this.socketsByContainerId.keys()].flatMap((containerId) =>
-          this.handleAccessChanged(containerId),
-        );
+        return this.handleAccessChanged(event.containerId);
       case "organization_read_model_changed":
         this.organizationRouter.routeReadModelChanged(event);
         return [];
@@ -298,29 +303,14 @@ export class WsEventRouter {
     }
   }
 
-  /**
-   * On any access change, invalidate all container interests: this router has
-   * no ancestry index, so the changed container can authorize a descendant.
-   * Tell each interested socket to resync and drop its interest, so no
-   * further events for that container reach them until they reconcile over HTTP
-   * and (if still authorized) re-declare it. This uses only the process-local
-   * interest index — no member resolution — and over-evicts harmlessly: still-
-   * authorized members simply re-add the container after their resync. The
-   * returned evictions must also be persisted so a reconnect does not restore
-   * the dropped interest.
-   */
-  private handleAccessChanged(containerId: string): InterestEviction[] {
-    const interested = this.socketsByContainerId.get(containerId);
-    if (!interested) {
-      return [];
-    }
-    const resync = serializeWsServerMessage({
-      containerId,
-      type: "resync_required",
-    });
+  /** Evict only subscriptions whose verified read path depends on this head. */
+  private handleAccessChanged(ancestorId: string): InterestEviction[] {
     const evictions: InterestEviction[] = [];
-    for (const ws of [...interested]) {
-      sendSafely(ws, resync);
+    for (const { ws, containerId } of this.dependencies.affected(ancestorId)) {
+      sendSafely(
+        ws,
+        serializeWsServerMessage({ containerId, type: "resync_required" }),
+      );
       this.removeInterest(ws, [containerId]);
       evictions.push({
         containerId,
@@ -401,6 +391,7 @@ export class WsEventRouter {
       return;
     }
     for (const containerId of containerIds) {
+      this.dependencies.remove(ws, containerId);
       if (interest.delete(containerId)) {
         removeFromIndex(this.socketsByContainerId, containerId, ws);
       }

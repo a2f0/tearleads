@@ -8,7 +8,14 @@ export function applyContainerInterest(
 ) {
   const action = router.handleClientMessage(ws, message);
   if (action && action.kind !== "organization-replace") {
-    router.applyAuthorizedContainerInterest(ws, action);
+    router.applyAuthorizedContainerInterest(
+      ws,
+      action,
+      action.containerIds.map((containerId) => ({
+        containerId,
+        pathContainerIds: [containerId],
+      })),
+    );
   }
   return action;
 }

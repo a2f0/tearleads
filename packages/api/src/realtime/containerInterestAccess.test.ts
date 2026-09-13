@@ -24,7 +24,7 @@ test("realtime container authorization uses the signed HTTP read-access workflow
       containerId,
       missing,
     ]),
-  ).toEqual([containerId]);
+  ).toEqual([{ containerId, pathContainerIds: [containerId] }]);
   expect(
     await authorizeContainerAccessWithWorkflow(outsider.userId, [containerId]),
   ).toEqual([]);

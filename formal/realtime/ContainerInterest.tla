@@ -1,11 +1,11 @@
 ------------------------ MODULE ContainerInterest ------------------------
 EXTENDS Naturals, TLC
 
-CONSTANTS AuthorizeInterest, InvalidateOnAccessChange, CheckSocketOpen
+CONSTANTS AuthorizeInterest, InvalidateOnAccessChange, CheckSocketOpen, ScopeInvalidation
 VARIABLES access, accessVersion, open, indexed, pending, queryAccess,
-          queryVersion
+          queryVersion, unrelatedIndexed
 vars == <<access, accessVersion, open, indexed, pending, queryAccess,
-          queryVersion>>
+          queryVersion, unrelatedIndexed>>
 
 Init == /\ access = FALSE
         /\ accessVersion = 0
@@ -14,13 +14,14 @@ Init == /\ access = FALSE
         /\ pending = FALSE
         /\ queryAccess = FALSE
         /\ queryVersion = 0
+        /\ unrelatedIndexed = TRUE
 
 BeginAuthorization ==
     /\ open /\ ~pending
     /\ pending' = TRUE
     /\ queryAccess' = access
     /\ queryVersion' = accessVersion
-    /\ UNCHANGED <<access, accessVersion, open, indexed>>
+    /\ UNCHANGED <<access, accessVersion, open, indexed, unrelatedIndexed>>
 
 ApplyAuthorization ==
     /\ pending
@@ -28,26 +29,27 @@ ApplyAuthorization ==
     /\ (~InvalidateOnAccessChange \/ queryVersion = accessVersion)
     /\ indexed' = (~AuthorizeInterest \/ queryAccess)
     /\ pending' = FALSE
-    /\ UNCHANGED <<access, accessVersion, open, queryAccess, queryVersion>>
+    /\ UNCHANGED <<access, accessVersion, open, queryAccess, queryVersion, unrelatedIndexed>>
 
 RetryAuthorization ==
     /\ open /\ pending /\ queryVersion # accessVersion
     /\ queryAccess' = access
     /\ queryVersion' = accessVersion
-    /\ UNCHANGED <<access, accessVersion, open, indexed, pending>>
+    /\ UNCHANGED <<access, accessVersion, open, indexed, pending, unrelatedIndexed>>
 
 ChangeAccess ==
     /\ accessVersion < 2
     /\ access' = ~access
     /\ accessVersion' = accessVersion + 1
     /\ indexed' = IF InvalidateOnAccessChange THEN FALSE ELSE indexed
+    /\ unrelatedIndexed' = IF ScopeInvalidation THEN unrelatedIndexed ELSE FALSE
     /\ UNCHANGED <<open, pending, queryAccess, queryVersion>>
 
 CloseSocket ==
     /\ open
     /\ open' = FALSE
     /\ indexed' = FALSE
-    /\ UNCHANGED <<access, accessVersion, pending, queryAccess, queryVersion>>
+    /\ UNCHANGED <<access, accessVersion, pending, queryAccess, queryVersion, unrelatedIndexed>>
 
 Next == BeginAuthorization \/ ApplyAuthorization \/ RetryAuthorization
         \/ ChangeAccess \/ CloseSocket \/ UNCHANGED vars
@@ -55,7 +57,9 @@ Spec == Init /\ [][Next]_vars
 
 TypeOK == /\ access \in BOOLEAN /\ open \in BOOLEAN /\ indexed \in BOOLEAN
           /\ pending \in BOOLEAN /\ queryAccess \in BOOLEAN
+          /\ unrelatedIndexed \in BOOLEAN
           /\ accessVersion \in 0..2 /\ queryVersion \in 0..2
 OnlyReadableInterests == indexed => access
 ClosedSocketsNeverIndexed == indexed => open
+UnrelatedInterestsPreserved == unrelatedIndexed
 =============================================================================

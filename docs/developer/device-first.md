@@ -218,9 +218,9 @@ Three bounded probes close gaps that container discovery cannot observe:
 
 The reconnect handshake retains the server's persisted baseline while the local
 container tree is `ready=false`; its placeholder empty node list is never treated
-as an authoritative removal. `known_containers_ack` is sent after in-memory
-routing changes and before best-effort persistence, so a later event is either
-delivered or causes the in-flight probe's signal sequence to arm a trailing pass.
+as an authoritative removal. `known_containers_ack` follows installation of the
+authorized subset and precedes best-effort persistence. It also acknowledges
+denied stale IDs so reconnect reconciliation can run.
 
 All three probes use normal document sync: verified Loro updates are projected
 before attachments and blob bytes hydrate. A coded `document_not_found` fetches
