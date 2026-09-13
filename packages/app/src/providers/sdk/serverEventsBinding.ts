@@ -121,9 +121,8 @@ function resyncSharedContainerInterest(
   tearleads: Tearleads,
   handle: ContainerInterestDeclaration | null,
 ): void {
-  handle?.invalidateAll();
   tearleads.events.invalidateAccessState();
-  void resyncRootContainers(tearleads).finally(() => handle?.sync());
+  void resyncRootContainers(tearleads).finally(() => handle?.retryRefused());
 }
 
 let nextEventId = 0;

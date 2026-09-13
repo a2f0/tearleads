@@ -62,10 +62,12 @@ export class ContainerInterestAuthorizer {
             ws,
             serializeWsServerMessage({ type: "interest_state", containerIds }),
           );
-          if (cached.length > 0)
+          const accepted = new Set(containerIds);
+          const refused = cached.filter((id) => !accepted.has(id));
+          if (refused.length > 0)
             this.persist(ws.data.userId, ws.data.sessionId, {
-              kind: "replace",
-              containerIds,
+              kind: "remove",
+              containerIds: refused,
             });
         },
       );
@@ -89,7 +91,7 @@ export class ContainerInterestAuthorizer {
             ? ids
             : proofs.map((proof) => proof.containerId);
         const action = { ...declaration, containerIds };
-        this.router.applyAuthorizedContainerInterest(ws, action, proofs);
+        this.router.applyAuthorizedContainerInterest(ws, declaration, proofs);
         // An acknowledgement means processing is complete, including denials.
         // It lets reconnect reconciliation remove stale local IDs over HTTP.
         if (declaration.declarationId)
@@ -101,6 +103,15 @@ export class ContainerInterestAuthorizer {
               declarationId: declaration.declarationId,
             }),
           );
+        if (declaration.kind === "add") {
+          const accepted = new Set(containerIds);
+          const refused = ids.filter((id) => !accepted.has(id));
+          if (refused.length > 0)
+            this.persist(ws.data.userId, ws.data.sessionId, {
+              kind: "remove",
+              containerIds: refused,
+            });
+        }
         this.persist(ws.data.userId, ws.data.sessionId, action);
       };
       if (declaration.kind === "remove") install([]);

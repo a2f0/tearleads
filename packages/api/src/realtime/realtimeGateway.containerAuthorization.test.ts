@@ -31,7 +31,10 @@ test("denied declarations acknowledge processing without indexing or persisting 
     containerIds: [],
   });
   expect(
-    f.persisted.some((action) => action?.containerIds.includes(CONTAINER)),
+    f.persisted.some(
+      (action) =>
+        action?.kind !== "remove" && action?.containerIds.includes(CONTAINER),
+    ),
   ).toBe(false);
   f.gateway.stop();
 });
@@ -47,8 +50,8 @@ test("reconnect reauthorizes cached interest and removes inaccessible ids", asyn
   expect(f.router.interestedSocketCount(OTHER)).toBe(1);
   expect(f.sent).toEqual([{ type: "interest_state", containerIds: [OTHER] }]);
   expect(f.persisted).toContainEqual({
-    kind: "replace",
-    containerIds: [OTHER],
+    kind: "remove",
+    containerIds: [CONTAINER],
   });
   f.gateway.stop();
 });
@@ -454,5 +457,18 @@ test("unrelated changes do not retry a denied declaration", async () => {
     declarationId: "declaration",
     containerIds: [],
   });
+  f.gateway.stop();
+});
+
+test("a fresh denied re-add evicts an earlier subscription after a missed hint", async () => {
+  let readable = true;
+  const f = fixture({ authorize: async (_user, ids) => (readable ? ids : []) });
+  await f.gateway.websocket.open(f.socket);
+  await f.declare();
+  expect(f.router.interestedSocketCount(CONTAINER)).toBe(1);
+  readable = false;
+  await f.declare();
+  expect(f.router.interestedSocketCount(CONTAINER)).toBe(0);
+  expect(f.sent.at(-1)).toMatchObject({ containerIds: [] });
   f.gateway.stop();
 });

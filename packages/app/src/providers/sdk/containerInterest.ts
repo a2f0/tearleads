@@ -13,7 +13,7 @@ export interface ContainerInterestDeclaration {
   readonly stop: () => void;
   readonly sync: () => void;
   readonly invalidate: (containerId: string) => void;
-  readonly invalidateAll: () => void;
+  readonly retryRefused: () => void;
 }
 
 let nextDeclarationId = 0;
@@ -67,7 +67,7 @@ function createInterestSender(
 const INACTIVE_DECLARATION: ContainerInterestDeclaration = {
   acknowledge: () => false,
   invalidate: () => undefined,
-  invalidateAll: () => undefined,
+  retryRefused: () => undefined,
   stop: () => undefined,
   sync: () => undefined,
 };
@@ -171,9 +171,13 @@ export function startContainerInterestDeclaration(
       if (result.retry) syncInterest();
       return initial;
     },
-    invalidateAll: () => {
-      declared.clear();
-      acknowledgments.invalidate();
+    retryRefused: () => {
+      if (stopped) return;
+      // Keep accepted and pending IDs declared. A pending refusal observes
+      // this generation and retries after its acknowledgment, preserving the
+      // initial connection barrier instead of sending another full replace.
+      treeGeneration++;
+      if (initialAcknowledged) syncInterest();
     },
     invalidate: (containerId) => {
       declared.delete(containerId);

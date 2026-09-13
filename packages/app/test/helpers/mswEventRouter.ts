@@ -311,6 +311,7 @@ export function createMswEventRouter(
         socketInterestByClient.set(client, new Set(containerIds));
         break;
       case "known_containers.add":
+        for (const id of requestedIds) current.delete(id);
         for (const containerId of containerIds) {
           current.add(containerId);
         }

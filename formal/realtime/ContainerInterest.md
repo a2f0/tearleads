@@ -31,7 +31,9 @@ retries after a tree change or grant notification, without a denial-driven loop.
 The model assumes the signed HTTP access workflow answers correctly at the
 query snapshot. Notification delivery is the point at which this process
 observes a change; cross-process delay and lost pub/sub messages are outside the
-boundary. No fairness or eventual-delivery guarantee is claimed. Runtime tests
+boundary. `ApplyAuthorization` also removes a previously indexed child when a
+fresh declaration is refused; the missed-hint recovery is exercised at runtime.
+No fairness or eventual-delivery guarantee is claimed. Runtime tests
 cover per-socket ordering, filtered persistence, timeouts, multi-tab sharing,
 principal notifications, accepted-ID acknowledgments, and client retry races.
 

@@ -226,6 +226,9 @@ export class WsEventRouter {
   ): void {
     if (!this.isOpen(ws)) return;
     if (action.kind === "replace") this.dependencies.clear(ws);
+    // A new refusal supersedes an earlier grant even if its revocation hint
+    // was lost. Remove requested additions before installing the verified set.
+    if (action.kind === "add") this.removeInterest(ws, action.containerIds);
     for (const proof of proofs) this.dependencies.set(ws, proof);
     const verifiedIds = proofs.map((proof) => proof.containerId);
     switch (action.kind) {

@@ -349,3 +349,43 @@ test("an older refused declaration cannot erase a newer accepted subscription", 
   expect(sent).toHaveLength(2);
   handle.stop();
 });
+
+test("grant recovery re-declares only refused interests", () => {
+  const fakeStore = createFakeStore(["readable", "refused"]);
+  const { sent, ws } = fakeSocket(WebSocket.OPEN);
+  const handle = startContainerInterestDeclaration(
+    tearleadsWithStore(() => fakeStore.store),
+    ws,
+    new Set(),
+  );
+  const initial = JSON.parse(sent[0] ?? "null");
+  expect(handle.acknowledge(initial.declarationId, ["readable"])).toBe(true);
+  handle.retryRefused();
+  expect(JSON.parse(sent[1] ?? "null")).toMatchObject({
+    type: "known_containers.add",
+    containerIds: ["refused"],
+  });
+  handle.stop();
+});
+
+test("a grant during initial authorization preserves its acknowledgment barrier", () => {
+  const fakeStore = createFakeStore(["readable", "refused"]);
+  const { sent, ws } = fakeSocket(WebSocket.OPEN);
+  const handle = startContainerInterestDeclaration(
+    tearleadsWithStore(() => fakeStore.store),
+    ws,
+    new Set(),
+  );
+  const initial = JSON.parse(sent[0] ?? "null");
+  handle.retryRefused();
+  expect(sent).toHaveLength(1);
+  expect(handle.acknowledge(initial.declarationId, ["readable"])).toBe(true);
+  expect(JSON.parse(sent[1] ?? "null")).toMatchObject({
+    type: "known_containers.add",
+    containerIds: ["refused"],
+  });
+  const retry = JSON.parse(sent[1] ?? "null");
+  handle.acknowledge(retry.declarationId, []);
+  expect(sent).toHaveLength(2);
+  handle.stop();
+});

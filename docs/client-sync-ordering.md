@@ -112,8 +112,9 @@ installing the declaration's readable subset in its process-local event router,
 before asynchronously persisting it for a later reconnect. The acknowledgment
 includes the accepted IDs, so a refused ID is not retained as subscribed. It
 confirms processing despite denials; a stale local ID must not block HTTP
-reconciliation. The client retries a refusal after a tree change or grant
-notification, including a change that arrived while authorization was pending.
+reconciliation. A refused re-add also removes any older subscription. The client
+retries only refused interests after a grant notification or tree change,
+including a change that arrived while authorization was pending.
 Cached reconnect IDs are reauthorized through the same signed read-access
 workflow. Access-change notifications evict
 only interests whose verified container paths depend on the changed head.
