@@ -75,7 +75,7 @@ function createResyncHarness(options?: {
 test("resync_required re-validates only the flagged container via the reconciler", async () => {
   const { enqueueCalls, tearleads } = createResyncHarness();
 
-  await resyncContainerAccess(tearleads, "container-1");
+  await resyncContainerAccess(tearleads, ["container-1"]);
 
   // The scoped re-validation is what actually drops a now-unauthorized container
   // (revocation) or re-syncs a still-authorized one — it must target exactly the
@@ -88,7 +88,7 @@ test("resync_required re-validates only the flagged container via the reconciler
 test("resync_required re-lists the root lane, not the whole tree", async () => {
   const { refreshCalls, tearleads } = createResyncHarness();
 
-  await resyncContainerAccess(tearleads, "container-1");
+  await resyncContainerAccess(tearleads, ["container-1"]);
 
   // A single access change must not trigger the all-parent-lanes crawl
   // (openTree().refresh(), reserved for explicit user refresh); it re-lists the
@@ -108,7 +108,7 @@ test("resync_required for a nested container also re-lists its parent lane", asy
     ],
   });
 
-  await resyncContainerAccess(tearleads, "nested");
+  await resyncContainerAccess(tearleads, ["nested"]);
 
   expect(refreshRootLaneOptions).toEqual([{ parentIds: ["root"] }]);
 });
@@ -120,7 +120,7 @@ test("resync_required for a top-level container adds no parent lane", async () =
     nodes: [{ id: "root", parentId: null }],
   });
 
-  await resyncContainerAccess(tearleads, "root");
+  await resyncContainerAccess(tearleads, ["root"]);
 
   expect(refreshRootLaneOptions).toEqual([undefined]);
 });
@@ -132,7 +132,7 @@ test("resync_required for an unknown container adds no parent lane", async () =>
     nodes: [{ id: "root", parentId: null }],
   });
 
-  await resyncContainerAccess(tearleads, "unknown");
+  await resyncContainerAccess(tearleads, ["unknown"]);
 
   expect(refreshRootLaneOptions).toEqual([undefined]);
 });
@@ -142,7 +142,7 @@ test("resync_required still re-lists the root lane when the reconciler is unavai
     throwOnReconciler: true,
   });
 
-  await resyncContainerAccess(tearleads, "container-1");
+  await resyncContainerAccess(tearleads, ["container-1"]);
 
   expect(enqueueCalls).toEqual([]);
   expect(refreshCalls).toEqual(["refreshRootLane"]);
@@ -154,7 +154,22 @@ test("resync_required tolerates a not-ready container tree", async () => {
   });
 
   await expect(
-    resyncContainerAccess(tearleads, "container-1"),
+    resyncContainerAccess(tearleads, ["container-1"]),
   ).resolves.toBeUndefined();
   expect(refreshCalls).toEqual([]);
+});
+
+test("a batched resync revalidates distinct children and refreshes their parents once", async () => {
+  const { enqueueCalls, refreshCalls, refreshRootLaneOptions, tearleads } =
+    createResyncHarness({
+      nodes: [
+        { id: "a", parentId: "root" },
+        { id: "b", parentId: "root" },
+        { id: "c", parentId: "branch" },
+      ],
+    });
+  await resyncContainerAccess(tearleads, ["a", "b", "c", "a"]);
+  expect(enqueueCalls.map((call) => call.containerId)).toEqual(["a", "b", "c"]);
+  expect(refreshCalls).toEqual(["refreshRootLane"]);
+  expect(refreshRootLaneOptions).toEqual([{ parentIds: ["root", "branch"] }]);
 });

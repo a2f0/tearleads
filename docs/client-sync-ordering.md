@@ -116,9 +116,10 @@ reconciliation. A refused re-add also removes any older subscription. The client
 retries only refused interests after a grant notification or tree change,
 including a change that arrived while authorization was pending.
 Cached reconnect IDs are reauthorized through the same signed read-access
-workflow. Access-change notifications evict
-only interests whose verified container paths depend on the changed head.
-Principal policy commits also invalidate subscriptions using that principal,
+workflow. Access-change notifications evict only interests whose verified paths
+depend on the changed head. One resync frame carries all affected IDs per socket,
+and the client refreshes root and distinct parent lanes once for that batch.
+Group policy commits also invalidate subscriptions using that group,
 including membership removals that do not change any container manifest.
 Until that acknowledgment arrives, a cold `ready=false` tree cannot remove the
 restored baseline and the SDK continues to report server events as disconnected.

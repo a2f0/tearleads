@@ -24,7 +24,9 @@ path. An unrelated mutation must never consume that query's retry budget.
 
 Production bounds retries to three attempts within one timeout budget. Tabs in
 one session share identical queries and wait for different queries. A timeout
-retains the raw query's slot until it settles. Declarations acknowledge the
+retains the raw query's slot until it settles. The separate 10,000-change
+observation cap may reject a query during a pub/sub flood; that availability
+limit is outside this bounded two-change model. Declarations acknowledge the
 accepted IDs even when some were refused. The client records those results and
 retries after a tree change or grant notification, without a denial-driven loop.
 
@@ -36,6 +38,19 @@ fresh declaration is refused; the missed-hint recovery is exercised at runtime.
 No fairness or eventual-delivery guarantee is claimed. Runtime tests
 cover per-socket ordering, filtered persistence, timeouts, multi-tab sharing,
 principal notifications, accepted-ID acknowledgments, and client retry races.
+
+Revocation frames batch affected IDs per socket. The app queues each affected
+container once and refreshes root plus distinct parent lanes once per batch;
+runtime tests cover this cardinality rather than the model.
+
+Only group policy changes affect container reachability. Organization policy
+constraints prohibit grants and require their projection to mirror the current
+Admins group. Creating/deleting an ungranted group changes that directory, not
+read access. Group deletion also rejects built-in groups and current container
+grants, and principals contain only direct users (no nested group edges).
+Roster updates only replace a profile-document pointer. These guards live in
+`principalPolicyAuthorityConstraints.ts`, `groupDeletion.ts`, and
+`rosterMutation.ts`; those operations need no interest invalidation.
 
 Negative controls remove authorization, dependency invalidation, the live-socket
 guard, scoped eviction, query relevance, and principal-change notification.

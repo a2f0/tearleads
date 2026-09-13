@@ -29,7 +29,7 @@ const controlFrames: WsServerMessage[] = [
     organizationId: null,
     type: "known_organizations_ack",
   },
-  { containerId: C1, type: "resync_required" },
+  { containerIds: [C1], type: "resync_required" },
   {
     organizationId: ORG,
     originatedFromSession: false,

@@ -118,7 +118,7 @@ test("PUT ungranted policy does not publish shared_with_you", async () => {
     principalType: "group",
     principalId,
   });
-  expect(publishedEvents).toContainEqual({
+  expect(publishedEvents).not.toContainEqual({
     type: "principal_access_changed",
     principalType: "organization",
     principalId: organizationId,

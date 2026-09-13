@@ -315,11 +315,11 @@ export class WsEventRouter {
   /** Evict only subscriptions whose verified read path depends on this head. */
   private handleAccessChanged(ancestorId: string): InterestEviction[] {
     const evictions: InterestEviction[] = [];
+    const affected = new Map<WsConnection, string[]>();
     for (const { ws, containerId } of this.dependencies.affected(ancestorId)) {
-      sendSafely(
-        ws,
-        serializeWsServerMessage({ containerId, type: "resync_required" }),
-      );
+      const ids = affected.get(ws) ?? [];
+      ids.push(containerId);
+      affected.set(ws, ids);
       this.removeInterest(ws, [containerId]);
       evictions.push({
         containerId,
@@ -327,6 +327,11 @@ export class WsEventRouter {
         userId: ws.data.userId,
       });
     }
+    for (const [ws, containerIds] of affected)
+      sendSafely(
+        ws,
+        serializeWsServerMessage({ containerIds, type: "resync_required" }),
+      );
     return evictions;
   }
 

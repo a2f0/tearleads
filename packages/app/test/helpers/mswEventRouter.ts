@@ -1,4 +1,5 @@
 import { isUuidV4String } from "@tearleads/validators/util";
+import { evictMswContainerInterests } from "./mswContainerInterest";
 
 export interface MswSocketClient {
   addEventListener?: (
@@ -344,14 +345,12 @@ export function createMswEventRouter(
       return;
     }
 
-    for (const [client, interest] of socketInterestByClient) {
-      for (const id of [...interest]) {
-        const path = options.containerPath?.(id) ?? [id];
-        if (id !== containerId && !path.includes(containerId)) continue;
-        interest.delete(id);
-        sendSocketEvent(client, { containerId: id, type: "resync_required" });
-      }
-    }
+    evictMswContainerInterests({
+      ancestorId: containerId,
+      interests: socketInterestByClient,
+      containerPath: options.containerPath,
+      send: sendSocketEvent,
+    });
   };
 
   const handleOrganizationReadModelChanged = async (

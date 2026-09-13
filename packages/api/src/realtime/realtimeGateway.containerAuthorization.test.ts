@@ -181,7 +181,7 @@ test("ancestor eviction reaches descendants and does not affect an unrelated ten
     f.sent.filter(
       (message) => Reflect.get(message, "type") === "resync_required",
     ),
-  ).toEqual([{ type: "resync_required", containerId: CONTAINER }]);
+  ).toEqual([{ type: "resync_required", containerIds: [CONTAINER] }]);
   f.gateway.stop();
 });
 

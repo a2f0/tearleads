@@ -24,7 +24,7 @@ export function routeIncomingWsMessage(
       organizationId: string,
       originatedFromSession: boolean,
     ) => void;
-    onResyncRequired: (containerId: string) => void;
+    onResyncRequired: (containerIds: readonly string[]) => void;
     onSharedWithYou: () => void;
     onServerEvent: (event: WsInvalidationHint) => void;
   },
@@ -52,7 +52,7 @@ export function routeIncomingWsMessage(
       );
       return;
     case "resync_required":
-      handlers.onResyncRequired(message.containerId);
+      handlers.onResyncRequired(message.containerIds);
       return;
     case "organization_read_model_changed":
       handlers.onOrganizationReadModelChanged(

@@ -16,48 +16,40 @@ import { routeIncomingWsMessage } from "./serverEventsRouting";
 
 export { startContainerInterestDeclaration } from "./containerInterest";
 
-// Force a fresh access check + tree re-list for a container the server flagged.
-// HTTP is the source of access truth: a now-unauthorized container drops out of
-// the tree (and interest); a still-authorized one is re-validated.
+// Revalidate affected contents, then re-list root and distinct parent lanes once.
 export async function resyncContainerAccess(
   tearleads: Tearleads,
-  containerId: string,
+  containerIds: readonly string[],
 ): Promise<void> {
-  const resyncTasks: Promise<unknown>[] = [];
-  try {
-    // Re-validate just the affected container (force re-discovery), not the
-    // whole tree; a single access change should not re-sync everything.
-    tearleads.deviceFirst
-      .open()
-      .reconciler.enqueueContainer(containerId, "active", true);
-  } catch {
-    // Reconciler unavailable (runtime not ready); the refresh below still runs.
+  const flagged = new Set(containerIds);
+  for (const containerId of flagged) {
+    try {
+      tearleads.deviceFirst
+        .open()
+        .reconciler.enqueueContainer(containerId, "active", true);
+    } catch {
+      // Runtime not ready; reconnect will revalidate the ready tree.
+    }
   }
   try {
-    // Re-list the root lane plus the flagged container's own parent lane, NOT the
-    // whole tree. The reconciler.enqueueContainer above re-validates the flagged
-    // container's contents; the root lane surfaces a new top-level grant; and the
-    // parent lane applies the flagged container's tombstone when it was deleted —
-    // a deleted nested container's tombstone is only returned by its parent lane
-    // (rootDiscoveryVisible=false), never the root lane. The all-parent crawl
-    // (openTree().refresh()) is reserved for explicit user refresh. Per
-    // resync_required a single access change used to re-list every parent lane on
-    // every event, which is the bulk of the membership-change request storm
-    // (#1281); scoping to root + the one relevant parent lane keeps the
-    // revocation/discovery/deletion guarantees while dropping that crawl.
     const tree = tearleads.deviceFirst.open().containerStore;
-    const flaggedParentId =
-      tree.getSnapshot().nodes.find((node) => node.id === containerId)
-        ?.parentId ?? null;
-    resyncTasks.push(
-      tree.refreshRootLane(
-        flaggedParentId === null ? undefined : { parentIds: [flaggedParentId] },
+    const parentIds = [
+      ...new Set(
+        tree
+          .getSnapshot()
+          .nodes.flatMap((node) =>
+            flagged.has(node.id) && node.parentId !== null
+              ? [node.parentId]
+              : [],
+          ),
       ),
-    );
+    ];
+    // Nested tombstones are returned by their parent lane. Batch those lanes
+    // with one root refresh instead of repeating that refresh for every child.
+    await tree.refreshRootLane(parentIds.length ? { parentIds } : undefined);
   } catch {
-    // Runtime not ready; the next reconnect re-validates from a ready tree.
+    // Runtime not ready; the next reconnect revalidates from a ready tree.
   }
-  await Promise.allSettled(resyncTasks);
 }
 
 // Tracks an in-flight root re-list per Tearleads instance (dual-pane gives each
@@ -108,11 +100,11 @@ async function resyncRootContainers(tearleads: Tearleads): Promise<void> {
 function resyncDeclaredContainer(
   tearleads: Tearleads,
   handle: ContainerInterestDeclaration | null,
-  containerId: string,
+  containerIds: readonly string[],
 ): void {
   tearleads.events.invalidateAccessState();
-  handle?.invalidate(containerId);
-  void resyncContainerAccess(tearleads, containerId).finally(() =>
+  for (const containerId of containerIds) handle?.invalidate(containerId);
+  void resyncContainerAccess(tearleads, containerIds).finally(() =>
     handle?.sync(),
   );
 }
@@ -244,8 +236,8 @@ export function useServerEventsBinding(
               originatedFromSession,
             );
           },
-          onResyncRequired: (containerId) =>
-            resyncDeclaredContainer(tearleads, interestHandle, containerId),
+          onResyncRequired: (containerIds) =>
+            resyncDeclaredContainer(tearleads, interestHandle, containerIds),
           onSharedWithYou: () =>
             resyncSharedContainerInterest(tearleads, interestHandle),
           onServerEvent: (data) => {

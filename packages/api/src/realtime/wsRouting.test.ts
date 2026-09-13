@@ -413,7 +413,7 @@ test("access_changed evicts interest and tells interested sockets to resync", ()
     JSON.stringify({ type: "access_changed", containerId: X }),
   );
 
-  const resync = JSON.stringify({ containerId: X, type: "resync_required" });
+  const resync = JSON.stringify({ containerIds: [X], type: "resync_required" });
   // Y has an independent verified path and keeps its subscription.
   expect(alice.sent).toEqual([resync]);
   expect(bob.sent).toEqual([resync]);

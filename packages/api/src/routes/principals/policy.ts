@@ -62,6 +62,9 @@ async function publishMembershipShareNotifications(
   );
 }
 
+// Container grants name groups or users. Organization policies have no grants
+// and must mirror the current Admins projection; only the group mutation can
+// change reachability. Directory-only writes must not wake every org container.
 async function publishPrincipalAccessChanges(
   publish: PrincipalPolicyRouteDeps["publish"],
   principals: readonly {
@@ -71,13 +74,15 @@ async function publishPrincipalAccessChanges(
   sharedWithYouUserIds: readonly string[],
 ): Promise<void> {
   await Promise.all(
-    principals.map((principal) =>
-      publishBestEffort(
-        publish,
-        { type: "principal_access_changed", ...principal },
-        "principal interest invalidation",
+    principals
+      .filter((principal) => principal.principalType === "group")
+      .map((principal) =>
+        publishBestEffort(
+          publish,
+          { type: "principal_access_changed", ...principal },
+          "principal interest invalidation",
+        ),
       ),
-    ),
   );
   await publishMembershipShareNotifications(publish, sharedWithYouUserIds);
 }
@@ -124,10 +129,7 @@ export function createPrincipalPolicyRoute({
         });
         await publishPrincipalAccessChanges(
           publish,
-          [
-            { principalType: "group", principalId: groupId },
-            { principalType: "organization", principalId: organizationId },
-          ],
+          [{ principalType: "group", principalId: groupId }],
           result.sharedWithYouUserIds,
         );
         return c.json<CommitOrganizationGroupPolicyResponse>(result.policy);

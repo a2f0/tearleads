@@ -23,8 +23,9 @@ export const authorizeContainerAccessWithWorkflow: AuthorizeContainerAccess =
           return [
             {
               containerId,
-              principalKeys:
-                result.value.principalPolicies.map(principalInterestKey),
+              principalKeys: result.value.principalPolicies
+                .filter((policy) => policy.principalType === "group")
+                .map(principalInterestKey),
               pathContainerIds: result.value.verifiedPath.map(
                 (manifest) => manifest.state.containerId,
               ),
