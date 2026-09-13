@@ -1,4 +1,7 @@
-import { verifySignedAccessEvent } from "@tearleads/crypto";
+import {
+  KeyingVerificationError,
+  verifySignedAccessEvent,
+} from "@tearleads/crypto";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import type { AccessEventBundleWireResponse } from "@tearleads/validators/util";
 import {
@@ -6,6 +9,8 @@ import {
   readCanonicalJson,
   readCanonicalRecord,
 } from "../keyingCanonicalJson";
+import { ProjectionDependencyUnavailableError } from "./dependencyUnavailable";
+import { readKeyingVerificationShape } from "./error";
 import {
   readAccessEvent,
   readRecordString,
@@ -13,16 +18,25 @@ import {
 } from "./readers";
 import type { ProjectionUserKeyResolver } from "./types";
 
+function canonicalBundleJson(value: unknown, label: string): string {
+  return readKeyingVerificationShape(() =>
+    canonicalKeyingJsonString(value, label),
+  );
+}
+
 export function assertCanonicalEqual(input: {
   readonly actual: unknown;
   readonly expected: unknown;
   readonly label: string;
 }): void {
   if (
-    canonicalKeyingJsonString(input.actual, `${input.label} actual`) !==
-    canonicalKeyingJsonString(input.expected, `${input.label} expected`)
+    canonicalBundleJson(input.actual, `${input.label} actual`) !==
+    canonicalBundleJson(input.expected, `${input.label} expected`)
   ) {
-    throw new Error(`${input.label} mismatch`);
+    throw new KeyingVerificationError(
+      "hash_mismatch",
+      `${input.label} mismatch`,
+    );
   }
 }
 
@@ -38,13 +52,37 @@ export function addBundleByHash(
   }
 
   if (
-    canonicalKeyingJsonString(existing, `${label} existing`) !==
-    canonicalKeyingJsonString(bundle, `${label} duplicate`)
+    canonicalBundleJson(existing, `${label} existing`) !==
+    canonicalBundleJson(bundle, `${label} duplicate`)
   ) {
-    throw new Error(
+    throw new KeyingVerificationError(
+      "hash_mismatch",
       `Writer projection has equivocal manifest bundle ${bundle.manifestHash}`,
     );
   }
+}
+
+function readStandaloneEventBundle(
+  bundle: AccessEventBundleWireResponse,
+  label: string,
+) {
+  return readKeyingVerificationShape(() => {
+    const eventBundle = readCanonicalRecord(bundle, `${label} event bundle`);
+    const eventHash = readRecordString(
+      eventBundle,
+      "eventHash",
+      `${label} event bundle`,
+    );
+    const event = readAccessEvent(
+      readRequiredRecordValue(eventBundle, "event", `${label} event bundle`),
+      `${label} signed event`,
+    );
+    const body = readCanonicalJson(
+      readRequiredRecordValue(eventBundle, "body", `${label} event bundle`),
+      `${label} event body`,
+    );
+    return { eventHash, event, body };
+  });
 }
 
 export async function verifyStandaloneAccessEventBundle(input: {
@@ -52,30 +90,13 @@ export async function verifyStandaloneAccessEventBundle(input: {
   readonly label: string;
   readonly resolveUserKey: ProjectionUserKeyResolver;
 }) {
-  const eventBundle = readCanonicalRecord(
+  const { eventHash, event, body } = readStandaloneEventBundle(
     input.bundle,
-    `${input.label} event bundle`,
-  );
-  const eventHash = readRecordString(
-    eventBundle,
-    "eventHash",
-    `${input.label} event bundle`,
-  );
-  const event = readAccessEvent(
-    readRequiredRecordValue(
-      eventBundle,
-      "event",
-      `${input.label} event bundle`,
-    ),
-    `${input.label} signed event`,
-  );
-  const body = readCanonicalJson(
-    readRequiredRecordValue(eventBundle, "body", `${input.label} event bundle`),
-    `${input.label} event body`,
+    input.label,
   );
   const userKey = await input.resolveUserKey(event.signerUserId);
   if (!userKey) {
-    throw new Error(
+    throw new ProjectionDependencyUnavailableError(
       `${input.label} signer public key could not be resolved for ${event.signerUserId}`,
     );
   }
@@ -86,10 +107,13 @@ export async function verifyStandaloneAccessEventBundle(input: {
     signerPublicKey: userKey.signingPublicKey,
   });
   if (!verified.ok) {
-    throw new Error(`${input.label} signature verification failed`);
+    throw verified.error;
   }
   if (verified.value.eventHash !== eventHash) {
-    throw new Error(`${input.label} event hash mismatch`);
+    throw new KeyingVerificationError(
+      "hash_mismatch",
+      `${input.label} event hash mismatch`,
+    );
   }
 
   return verified.value;

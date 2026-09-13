@@ -445,9 +445,7 @@ test("createRemoteContainer rejects bad parent projection signatures before send
         resolveTrustedUserIdentity:
           createParentProjectionUserKeyResolver(parent),
       }),
-    ).rejects.toThrow(
-      "Container writer projection path[0] signature verification failed",
-    );
+    ).rejects.toMatchObject({ code: "signature_mismatch" });
     expect(createCalled).toBe(false);
   } finally {
     close();

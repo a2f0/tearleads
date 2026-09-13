@@ -43,9 +43,7 @@ test("moveRemoteContainer rejects bad source projection signatures before sendin
       resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
       targetSecretKey: parent.secretKey,
     }),
-  ).rejects.toThrow(
-    "Container writer projection path[0] signature verification failed",
-  );
+  ).rejects.toMatchObject({ code: "signature_mismatch" });
   expect(moveCalled).toBe(false);
   database.close();
 });
@@ -83,9 +81,7 @@ test("moveRemoteContainer rejects bad destination projection signatures before s
       resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
       targetSecretKey: parent.secretKey,
     }),
-  ).rejects.toThrow(
-    "Container writer projection path[0] signature verification failed",
-  );
+  ).rejects.toMatchObject({ code: "signature_mismatch" });
   expect(moveCalled).toBe(false);
   database.close();
 });

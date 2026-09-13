@@ -15,6 +15,7 @@ import type { PrincipalPolicySnapshotResponse } from "@tearleads/validators/resp
 import { loadPrincipalPolicyCheckpoint } from "../persistence/keyingCheckpointPersistence";
 import { loadPrincipalPolicyBundleForReference } from "../persistence/principalPolicyReferencePersistence";
 import type { ExecSql } from "../sqlite/sqlSchema";
+import { ProjectionDependencyUnavailableError } from "./dependencyUnavailable";
 import type { ProjectionUserKeyResolver } from "./types";
 
 function identityKey(input: {
@@ -57,13 +58,16 @@ async function signerPublicKeys(input: {
     }
     const identity = await input.resolveUserKey(state.signerUserId);
     if (!identity) {
-      throw new Error(
+      throw new ProjectionDependencyUnavailableError(
         `Principal policy snapshot signer ${state.signerUserId} is unavailable`,
       );
     }
     const fingerprint = await toFingerprint(identity.signingPublicKey);
     if (fingerprint !== state.signerUserKeyFingerprint) {
-      throw new Error("Principal policy snapshot signer fingerprint mismatch");
+      throw new KeyingVerificationError(
+        "signer_mismatch",
+        "Principal policy snapshot signer fingerprint mismatch",
+      );
     }
     keys.set(key, {
       userId: state.signerUserId,
@@ -92,7 +96,8 @@ function authorityReference(
         reference.principalType !== first.principalType,
     )
   ) {
-    throw new Error(
+    throw new KeyingVerificationError(
+      "invalid_shape",
       "Principal policy snapshot cites inconsistent external authority",
     );
   }
@@ -110,7 +115,10 @@ function externalAuthority(
       entry.projection.length === 0 ||
       entry.projection.some((member) => member.role !== "admin")
     ) {
-      throw new Error("Principal policy snapshot authority is invalid");
+      throw new KeyingVerificationError(
+        "unauthorized",
+        "Principal policy snapshot authority is invalid",
+      );
     }
     return {
       head: {
@@ -126,7 +134,10 @@ function externalAuthority(
   });
   const current = states.at(-1);
   if (!current) {
-    throw new Error("Principal policy snapshot authority is empty");
+    throw new KeyingVerificationError(
+      "missing_dependency",
+      "Principal policy snapshot authority is empty",
+    );
   }
   return { currentHead: current.head, states };
 }
@@ -161,7 +172,8 @@ async function verifySnapshotAuthorization(input: {
       reference: authorityHead,
     })
   ) {
-    throw new Error(
+    throw new KeyingVerificationError(
+      "missing_dependency",
       "Principal policy snapshot authority omits the referenced head",
     );
   }
@@ -221,7 +233,8 @@ export async function verifyPrincipalPolicySnapshots(input: {
   for (const snapshot of input.snapshots) {
     const key = identityKey(snapshot.currentState);
     if (snapshotsByPrincipal.has(key)) {
-      throw new Error(
+      throw new KeyingVerificationError(
+        "invalid_shape",
         "Principal policy snapshots contain a duplicate principal",
       );
     }
@@ -242,7 +255,10 @@ export async function verifyPrincipalPolicySnapshots(input: {
       return cached;
     }
     if (visiting.has(key)) {
-      throw new Error("Principal policy snapshot authority contains a cycle");
+      throw new KeyingVerificationError(
+        "invalid_shape",
+        "Principal policy snapshot authority contains a cycle",
+      );
     }
     visiting.add(key);
     try {
@@ -256,7 +272,10 @@ export async function verifyPrincipalPolicySnapshots(input: {
             identityKey(reference),
           );
           if (!authoritySnapshot) {
-            throw new Error("Principal policy snapshot authority is missing");
+            throw new KeyingVerificationError(
+              "missing_dependency",
+              "Principal policy snapshot authority is missing",
+            );
           }
           return verifyOne(authoritySnapshot);
         },

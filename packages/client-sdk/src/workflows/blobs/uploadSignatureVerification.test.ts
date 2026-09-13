@@ -49,7 +49,7 @@ test("uploadDocumentAttachment rejects document writer projections with bad sign
       slotId: "preview",
       targetSecretKey: secretKey,
     }),
-  ).rejects.toThrow("Document writer projection signature verification failed");
+  ).rejects.toMatchObject({ code: "signature_mismatch" });
   close();
   expect(stageCalled).toBe(false);
   expect(bindCalled).toBe(false);

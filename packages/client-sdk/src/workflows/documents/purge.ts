@@ -38,6 +38,7 @@ import {
   verifyDocumentPurgeProofBaseline,
   verifyDocumentWriterProjection,
 } from "../../data/keyingProjectionVerification";
+import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { loadAccessManifestCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
@@ -246,8 +247,7 @@ export function createVerifiedRemoteDocumentDeletionHandler(input: {
       resolveProjectionUserKey: input.resolveProjectionUserKey,
     });
     if (!proof) {
-      throw new KeyingVerificationError(
-        "missing_dependency",
+      throw new ProjectionDependencyUnavailableError(
         "Remote document deletion is missing its signed purge proof",
       );
     }

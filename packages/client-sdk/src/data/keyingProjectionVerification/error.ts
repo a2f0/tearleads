@@ -10,6 +10,16 @@ import { rethrowProjectionVerificationCancelled } from "./types";
 const KEYING_VERIFICATION_CONTEXT_LIMIT = 16;
 const KEYING_VERIFICATION_CAUSE_LIMIT = 16;
 
+/** Use only for synchronous parsing of received protocol material. */
+export function readKeyingVerificationShape<T>(read: () => T): T {
+  try {
+    return read();
+  } catch (error) {
+    if (error instanceof KeyingVerificationError) throw error;
+    throw new KeyingVerificationError("invalid_shape", errorMessage(error));
+  }
+}
+
 /**
  * Preserve identity and projection verification failures across workflow
  * boundaries that intentionally soften ordinary transport or availability

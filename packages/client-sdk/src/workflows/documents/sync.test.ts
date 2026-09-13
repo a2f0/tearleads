@@ -443,7 +443,7 @@ test("buildMaterializedDocumentSyncPlan rejects document writer projections with
         },
       },
     }),
-  ).rejects.toThrow("Document writer projection signature verification failed");
+  ).rejects.toMatchObject({ code: "signature_mismatch" });
 });
 
 test("buildMaterializedDocumentSyncPlan rejects substituted KEK material before encrypting updates", async () => {

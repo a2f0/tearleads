@@ -450,9 +450,7 @@ test("createRemoteDocument rejects bad container projection signatures before su
       resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
       targetSecretKey: parent.secretKey,
     }),
-  ).rejects.toThrow(
-    "Container writer projection path[0] signature verification failed",
-  );
+  ).rejects.toMatchObject({ code: "signature_mismatch" });
   expect(createCalled).toBe(false);
   close();
 });

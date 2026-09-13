@@ -21,6 +21,7 @@ import {
   readRequiredRecordValue,
   readStringArray,
 } from "../recordReaders";
+import { readKeyingVerificationShape } from "./error";
 
 function isAccessEventType(value: unknown): value is AccessEvent["eventType"] {
   return (
@@ -51,6 +52,10 @@ function isRecipientKind(
 }
 
 export function readAccessEvent(value: unknown, label: string): AccessEvent {
+  return readKeyingVerificationShape(() => readAccessEventShape(value, label));
+}
+
+function readAccessEventShape(value: unknown, label: string): AccessEvent {
   const record = readCanonicalRecord(value, label);
   const eventType = readRequiredRecordValue(record, "eventType", label);
   const objectKind = readRequiredRecordValue(record, "objectKind", label);
@@ -94,6 +99,15 @@ export function readAccessEvent(value: unknown, label: string): AccessEvent {
 }
 
 export function readAccessManifest(
+  value: unknown,
+  label: string,
+): AccessManifest {
+  return readKeyingVerificationShape(() =>
+    readAccessManifestShape(value, label),
+  );
+}
+
+function readAccessManifestShape(
   value: unknown,
   label: string,
 ): AccessManifest {

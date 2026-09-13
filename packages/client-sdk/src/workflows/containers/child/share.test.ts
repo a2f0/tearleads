@@ -106,9 +106,7 @@ test("shareRemoteContainer rejects bad previous projection signatures before sen
       }),
       targetSecretKey: parent.secretKey,
     }),
-  ).rejects.toThrow(
-    "Container writer projection path[0] signature verification failed",
-  );
+  ).rejects.toMatchObject({ code: "signature_mismatch" });
   database.close();
   expect(shareCalled).toBe(false);
 });
