@@ -163,7 +163,7 @@ test("a new-to-device document head and its historical write retain cited ancest
         })
       ).ok,
     ).toBe(true);
-    // Neither a singleton child nor the newer revoked ancestor authorizes it.
+    // Substituting paths without changing the signed citations is refused.
     for (const path of [[child1], [root2, child1]]) {
       const refused = await verifyWriteHeader({
         ...input,
@@ -174,6 +174,43 @@ test("a new-to-device document head and its historical write retain cited ancest
       });
       expect(refused.ok).toBe(false);
       if (!refused.ok) expect(refused.error.code).toBe("hash_mismatch");
+    }
+    // Matching signatures must still fail authority: root2 revoked Mallory,
+    // and root1 alone does not reach the document's committed child target.
+    for (const path of [[root2, child1], [root1]]) {
+      const dependencyManifestHashes = path
+        .map((head) => head.manifestHash)
+        .sort();
+      const citedAuthorization = await documentWriteAuthorizationForHeader({
+        allowMissingAuthorization: false,
+        authorizationTargets: targets,
+        contentKeyBundle,
+        dependencyManifestHashes,
+        manifestHash: document.manifestHash,
+        plan: {
+          documentId,
+          organizationId,
+          documentWriterAuthorization: source,
+        },
+        targetHash,
+      });
+      if (!citedAuthorization) throw new Error("Expected cited authorization");
+      const correctlyCitedHeader = await createWriteHeaderFixture({
+        accessManifestHash: document.manifestHash,
+        dependencyManifestHashes,
+        objectId: documentId,
+        organizationId,
+        signing: mallory.keyPair,
+        targetHash,
+        writerUserId: mallory.userId,
+      });
+      const refused = await verifyWriteHeader({
+        ...input,
+        documentAuthorization: citedAuthorization,
+        header: correctlyCitedHeader,
+      });
+      expect(refused.ok).toBe(false);
+      if (!refused.ok) expect(refused.error.code).toBe("unauthorized");
     }
   } finally {
     database.close();
