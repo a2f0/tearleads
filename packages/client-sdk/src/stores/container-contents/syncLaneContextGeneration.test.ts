@@ -1,5 +1,6 @@
 import { expect, mock, test } from "bun:test";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { createDomainScope } from "../../data/domainScope";
 import { createTestContainerState } from "../../workflows/container-contents/container-state/containerState.testFixtures";
 import {
@@ -339,10 +340,15 @@ test("the sync lane preserves metadata edits already settled by the workflow", a
     listPendingCreateIntents: async () => [],
     listUnsyncedMoveIntents: async () => [],
   };
+  // The iteration ensures document projection tables (with their required
+  // columns) on the way to settling metadata, so it needs a real schema.
+  const { execSql, close } = await createTestExecSql(
+    "sync-lane-settled-metadata-edit",
+  );
   const runtime = createContainerContentsTestRuntime({
     domainScope: createDomainScope(),
     encapsulationKeyPair: keyPair,
-    execSql: mock(async () => []),
+    execSql,
     organizationId: "org-1",
   });
   const state = createContainerContentsStoreState(runtime, persistence);
@@ -378,19 +384,23 @@ test("the sync lane preserves metadata edits already settled by the workflow", a
     },
   );
 
-  await runContainerContentsStoreSyncIteration({
-    host: {
-      persistContainerState: async () => ({ status: "missing" }),
-      updateSnapshot,
-    },
-    reconcileRestoredAccess: async () => {},
-    requestRemoteReconciliation: () => {},
-    state,
-    syncContainerMetadata: syncContainerMetadata as never,
-  });
+  try {
+    await runContainerContentsStoreSyncIteration({
+      host: {
+        persistContainerState: async () => ({ status: "missing" }),
+        updateSnapshot,
+      },
+      reconcileRestoredAccess: async () => {},
+      requestRemoteReconciliation: () => {},
+      state,
+      syncContainerMetadata: syncContainerMetadata as never,
+    });
 
-  expect(syncContainerMetadata).toHaveBeenCalledTimes(1);
-  expect(containerState.container.name).toBe("Concurrent local edit");
-  expect(containerState.record.lastCommitLsn).toBe("0/3");
-  expect(updateSnapshot).toHaveBeenCalled();
+    expect(syncContainerMetadata).toHaveBeenCalledTimes(1);
+    expect(containerState.container.name).toBe("Concurrent local edit");
+    expect(containerState.record.lastCommitLsn).toBe("0/3");
+    expect(updateSnapshot).toHaveBeenCalled();
+  } finally {
+    close();
+  }
 });

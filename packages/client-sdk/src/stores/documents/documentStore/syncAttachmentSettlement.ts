@@ -128,6 +128,7 @@ async function persistSettledAttachment(
     {
       blobId,
       byteLength: pendingAttachment.byteLength,
+      contentSha256: pendingAttachment.contentSha256,
       detachedAt: null,
       localId: state.localId,
       mimeType: pendingAttachment.mimeType,

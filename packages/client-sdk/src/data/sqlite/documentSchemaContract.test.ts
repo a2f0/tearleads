@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { documentTables } from "./schema";
+import { documentProjectionTables, documentTables } from "./schema";
 import { ensureSqlTables } from "./sqlTableSchema";
 
 const documentsTable = documentTables[0];
@@ -59,3 +59,32 @@ test("a fresh document schema includes current durable progress and recovery fie
     close();
   }
 });
+
+test.each([
+  "document_pending_attachments",
+  "document_attachment_blob_projection",
+])(
+  "obsolete %s schema without content_sha256 requires reset",
+  async (tableName) => {
+    const table = documentProjectionTables.find(
+      (candidate) => candidate.name === tableName,
+    );
+    if (!table) throw new Error(`${tableName} schema is missing`);
+    const { close, execSql } = await createTestExecSql(
+      "attachment-schema-flag-day",
+    );
+    try {
+      const obsoleteSql = table.createSql.replace(
+        '  "content_sha256" TEXT NOT NULL,\n',
+        "",
+      );
+      expect(obsoleteSql).not.toContain("content_sha256");
+      await execSql(obsoleteSql);
+      await expect(ensureSqlTables(execSql, [table])).rejects.toThrow(
+        "reset the local database before continuing",
+      );
+    } finally {
+      close();
+    }
+  },
+);

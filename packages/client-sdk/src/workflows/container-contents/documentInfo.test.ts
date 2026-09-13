@@ -178,7 +178,7 @@ test("loadDocumentInfo reads local runtime, attachment, blob, and remote securit
       },
       { updatedAt: "2026-05-18T10:00:00.000Z" },
     );
-    await sqlDocumentsPersistence.savePendingAttachment(execSql, {
+    const pending = {
       contentSha256: "0".repeat(64),
       byteLength: 12,
       localId: "local-document-1",
@@ -186,13 +186,13 @@ test("loadDocumentInfo reads local runtime, attachment, blob, and remote securit
       name: "pending.png",
       slotId: "slot-pending",
       storageKey: "pending-storage",
-    });
+    };
+    await sqlDocumentsPersistence.savePendingAttachment(execSql, pending);
     await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
+      ...pending,
       blobId: "blob-1",
       byteLength: 34,
       detachedAt: null,
-      localId: "local-document-1",
-      mimeType: "image/png",
       slotId: "slot-local",
       storageKey: "local-storage",
     });
