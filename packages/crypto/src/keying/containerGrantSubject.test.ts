@@ -5,6 +5,7 @@ import { deriveContainerAccessManifest } from "./index";
 test("container manifests reject organization grant subjects", async () => {
   await expect(
     deriveContainerAccessManifest({
+      systemSlot: null,
       version: 1,
       containerId: "container-1",
       organizationId: "organization-1",

@@ -196,3 +196,9 @@ See the [production mapping and bounds](./realtime/ContainerInterest.md).
 reads across ancestor grants, group removal, and leaf advancement.
 [OrganizationScope](./local-trust/OrganizationScope.md) enumerates directory,
 group-chain, reference, and parent organization choices at the cache boundary.
+
+## Verified Root and System Destinations
+
+[SystemDestination](./local-trust/SystemDestination.md) models signed destination
+roles, acknowledged roots, administrator-only slot creation, and immutable
+root/system parent edges.

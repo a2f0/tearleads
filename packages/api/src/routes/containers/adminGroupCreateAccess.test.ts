@@ -278,6 +278,7 @@ async function buildChildCreateRequest(input: {
     1,
   );
   const body: ContainerAccessEventBody = {
+    systemSlot: null,
     eventType: "container.create",
     parentContainerId: parent.state.containerId,
     parentManifestHash: input.parent.manifestHash,
@@ -295,6 +296,7 @@ async function buildChildCreateRequest(input: {
   });
   const childBundle = await createManifestBundle(
     {
+      systemSlot: null,
       version: 1,
       containerId: input.containerId,
       organizationId: parent.state.organizationId,

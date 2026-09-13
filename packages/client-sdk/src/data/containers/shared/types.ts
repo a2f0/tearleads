@@ -63,6 +63,7 @@ export interface BuildContainerCreatePlanInput {
       }
     | undefined;
   metadataDocumentId?: string | undefined;
+  systemSlot?: string | null | undefined;
   parentKekMaterial: Uint8Array;
   parentProjection: ContainerWriterProjectionResponse;
   principalPolicies?: readonly VerifiedPrincipalPolicy[] | undefined;

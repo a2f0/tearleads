@@ -671,6 +671,7 @@ function userRecipientKeysFromKekTargets(
 
 async function buildCreateRequest(input: {
   readonly containerId: string;
+  readonly systemSlot?: string | null;
   readonly dependencyManifestHashesOverride?: readonly string[];
   readonly parent: AccessManifestBundleWire;
   readonly parentContainerPath?: readonly AccessManifestBundleWire[];
@@ -688,6 +689,7 @@ async function buildCreateRequest(input: {
     input.parentManifestHashOverride ?? input.parent.manifestHash;
   const metadataDocumentId = crypto.randomUUID();
   const body: ContainerAccessEventBody = {
+    systemSlot: input.systemSlot ?? null,
     eventType: "container.create",
     parentContainerId: parent.state.containerId,
     parentManifestHash,
@@ -708,6 +710,7 @@ async function buildCreateRequest(input: {
   });
   const bundle = await createManifestBundle(
     {
+      systemSlot: input.systemSlot ?? null,
       version: 1,
       containerId: input.containerId,
       organizationId: parent.state.organizationId,
@@ -787,6 +790,7 @@ async function buildMetadataDocumentCreateRequest(input: {
     manifest: input.containerRequest.manifest,
     manifestHash: input.containerRequest.expectedManifestHash,
     state: {
+      systemSlot: null,
       version: 1,
       containerId: input.containerId,
       organizationId: parentState.organizationId,
@@ -1524,6 +1528,7 @@ test("POST /containers/with-metadata-document creates container and metadata doc
   const root = await bootstrapRoot(owner);
   const containerId = crypto.randomUUID();
   const containerRequest = await buildCreateRequest({
+    systemSlot: TEST_CONTACTS_SYSTEM_SLOT,
     containerId,
     parent: root.bundle,
     parentKekState: root.kekState,

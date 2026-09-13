@@ -20,6 +20,7 @@ export async function buildChildCreateRequest(input: {
   readonly signer: TestUser;
   readonly metadataDocumentId?: string;
   readonly parentPath?: readonly AccessManifestBundleWire[];
+  readonly systemSlot?: string | null;
 }): Promise<ContainerMutationRequest> {
   const parentBundle = input.root.bundle;
   const parentContainerPath = [...(input.parentPath ?? []), parentBundle];
@@ -31,6 +32,7 @@ export async function buildChildCreateRequest(input: {
     keyEpoch: 1,
   });
   const body: ContainerAccessEventBody = {
+    systemSlot: input.systemSlot ?? null,
     eventType: "container.create",
     parentContainerId: parentManifest.state.containerId,
     parentManifestHash: parentBundle.manifestHash,
@@ -52,6 +54,7 @@ export async function buildChildCreateRequest(input: {
   });
   const bundle = await createContainerManifestBundle(
     {
+      systemSlot: input.systemSlot ?? null,
       version: 1,
       containerId,
       organizationId: parentManifest.state.organizationId,

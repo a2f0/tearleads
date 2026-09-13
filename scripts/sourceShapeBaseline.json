@@ -71,16 +71,16 @@
       "bytes": 23535
     },
     "docs/openapi.json": {
-      "lines": 65952,
-      "bytes": 2742500
+      "lines": 65970,
+      "bytes": 2743083
     },
     "docs/protocol-specification.md": {
-      "lines": 611,
-      "bytes": 30424
+      "lines": 627,
+      "bytes": 31497
     },
     "docs/security-guarantees.md": {
-      "lines": 754,
-      "bytes": 43068
+      "lines": 763,
+      "bytes": 43556
     },
     "formal/document-sync/BaselineDominanceTraces.json": {
       "lines": 2059,
@@ -95,8 +95,8 @@
       "bytes": 61410
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
-      "lines": 567,
-      "bytes": 18015
+      "lines": 568,
+      "bytes": 18039
     },
     "packages/api/src/access/shared/internal/accessManifestStore.ts": {
       "lines": 892,
@@ -119,8 +119,8 @@
       "bytes": 18081
     },
     "packages/api/src/access/write/documentContentKeyStore.test.ts": {
-      "lines": 1072,
-      "bytes": 32977
+      "lines": 1073,
+      "bytes": 33001
     },
     "packages/api/src/access/write/principalStateStore.test.ts": {
       "lines": 922,
@@ -139,12 +139,12 @@
       "bytes": 21084
     },
     "packages/api/src/routes/containers/listContainers.test.ts": {
-      "lines": 561,
-      "bytes": 17390
+      "lines": 562,
+      "bytes": 17421
     },
     "packages/api/src/routes/containers/mutations.test.ts": {
-      "lines": 3826,
-      "bytes": 126290
+      "lines": 3831,
+      "bytes": 126479
     },
     "packages/api/src/routes/documents/purgeDocument.test.ts": {
       "lines": 1275,
@@ -163,8 +163,8 @@
       "bytes": 30275
     },
     "packages/api/src/schema.test.ts": {
-      "lines": 536,
-      "bytes": 16771
+      "lines": 538,
+      "bytes": 16815
     },
     "packages/api/src/services/billing/stripeCheckout.test.ts": {
       "lines": 572,
@@ -191,8 +191,8 @@
       "bytes": 16424
     },
     "packages/api/test/helpers/registration.ts": {
-      "lines": 1148,
-      "bytes": 39608
+      "lines": 1164,
+      "bytes": 40127
     },
     "packages/app-capacitor/ios/App/App.xcodeproj/project.pbxproj": {
       "lines": 494,
@@ -259,8 +259,8 @@
       "bytes": 16859
     },
     "packages/client-sdk/src/stores/container-contents/containerContentsStore.rootRefresh.test.ts": {
-      "lines": 592,
-      "bytes": 19608
+      "lines": 620,
+      "bytes": 21639
     },
     "packages/client-sdk/src/stores/documents/documentStore/discard.test.ts": {
       "lines": 545,
@@ -299,12 +299,12 @@
       "bytes": 19460
     },
     "packages/crypto/src/keying/containerAccess.test.ts": {
-      "lines": 748,
-      "bytes": 23438
+      "lines": 755,
+      "bytes": 23592
     },
     "packages/crypto/src/keying/containerAccess.ts": {
-      "lines": 1195,
-      "bytes": 34889
+      "lines": 1105,
+      "bytes": 32559
     },
     "packages/crypto/src/keying/containerKek.test.ts": {
       "lines": 650,
@@ -327,24 +327,24 @@
       "bytes": 20630
     },
     "packages/crypto/src/keying/testFixtures.ts": {
-      "lines": 668,
-      "bytes": 22196
+      "lines": 670,
+      "bytes": 22240
     },
     "packages/crypto/src/keying/transparency.ts": {
       "lines": 511,
       "bytes": 13564
     },
     "packages/crypto/src/keying/types.ts": {
-      "lines": 1166,
-      "bytes": 36837
+      "lines": 1167,
+      "bytes": 36866
     },
     "packages/sqlite-worker/src/crossTabRuntime.ts": {
       "lines": 555,
       "bytes": 19200
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 24929,
-      "bytes": 1033345
+      "lines": 24932,
+      "bytes": 1033500
     },
     "packages/validators/src/response/response.test.ts": {
       "lines": 940,

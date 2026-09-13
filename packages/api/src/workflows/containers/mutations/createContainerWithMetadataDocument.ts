@@ -45,6 +45,15 @@ export async function applyContainerSystemSlot(
     >;
   },
 ): Promise<ContainerCreateWithMetadataDocumentResponse["container"]> {
+  if (
+    Reflect.get(input.container.accessManifest.state, "systemSlot") !==
+    input.slot
+  ) {
+    throw new ContainerMutationError(
+      "System slot does not match the signed container state",
+      400,
+    );
+  }
   if (input.container.parentId === null) {
     throw new ContainerMutationError(
       "System container parent must be the root container",
@@ -131,6 +140,14 @@ export async function runCreateContainerWithMetadataDocumentWorkflow(
       }
 
       const systemSlot = input.request.systemSlot ?? null;
+      if (
+        Reflect.get(container.accessManifest.state, "systemSlot") !== systemSlot
+      ) {
+        throw new ContainerMutationError(
+          "System slot does not match the signed container state",
+          400,
+        );
+      }
       const nextContainer = systemSlot
         ? await applyContainerSystemSlot(tx, {
             container,

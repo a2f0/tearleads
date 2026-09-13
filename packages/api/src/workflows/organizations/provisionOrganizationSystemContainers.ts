@@ -87,6 +87,14 @@ async function createProvisionedSystemContainer(
   });
 
   const systemSlot = input.request.systemSlot ?? null;
+  if (
+    Reflect.get(container.accessManifest.state, "systemSlot") !== systemSlot
+  ) {
+    throw new OrganizationProvisioningError(
+      "System slot does not match the signed container state",
+      400,
+    );
+  }
   const nextContainer = systemSlot
     ? await applyContainerSystemSlot(tx, {
         container,

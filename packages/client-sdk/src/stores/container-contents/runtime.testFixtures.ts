@@ -14,7 +14,16 @@ type ExecSql = Parameters<
 export function createContainerContentsStoreTestRuntime(
   input: ContainerContentsWorkflowRuntimeInput,
 ) {
-  return createContainerContentsStoreWorkflowRuntime(input, () => false);
+  return createContainerContentsStoreWorkflowRuntime(
+    {
+      ...input,
+      auth: {
+        ...input.auth,
+        rootContainerId: input.auth.rootContainerId ?? input.state.containerId,
+      },
+    },
+    () => false,
+  );
 }
 
 /**
@@ -38,6 +47,7 @@ export function createContainerContentsTestRuntime(input: {
   log?: ((message: string) => void) | undefined;
   online?: boolean | undefined;
   organizationId?: string | null | undefined;
+  rootContainerId?: string | null | undefined;
   resolveTrustedUserIdentity?:
     | ContainerContentsWorkflowRuntimeInput["resolveTrustedUserIdentity"]
     | undefined;
@@ -52,6 +62,7 @@ export function createContainerContentsTestRuntime(input: {
       input.apiClient ??
       ({} as ContainerContentsWorkflowRuntimeInput["apiClient"]),
     auth: {
+      rootContainerId: input.rootContainerId ?? input.containerId ?? null,
       isAuthenticated,
       organizationId:
         "organizationId" in input

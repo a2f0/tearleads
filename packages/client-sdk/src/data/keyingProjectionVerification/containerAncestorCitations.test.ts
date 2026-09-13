@@ -186,6 +186,7 @@ test("a create must cite the parent manifest it pins", async () => {
     directGrants: [],
     event: await createVerifiedContainerAccessEvent({
       body: {
+        systemSlot: null,
         eventType: "container.create",
         parentContainerId: ROOT_ID,
         parentManifestHash: scenario.root2.manifestHash,

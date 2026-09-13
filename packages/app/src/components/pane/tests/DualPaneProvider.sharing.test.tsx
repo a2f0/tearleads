@@ -67,7 +67,8 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     "POST /containers/parent-lanes/query": 11,
     "GET /auth/user-identity/:userId": 0,
     "POST /auth/ws-ticket": 0,
-    "GET /containers/:containerId/writer-projection": 3,
+    // Sharing refreshes container info after signed destination classification.
+    "GET /containers/:containerId/writer-projection": 4,
     "GET /documents/:documentId/attachments": 2,
     "GET /organizations/:organizationId/billing": 0,
     "GET /organizations/:organizationId/read-model": 6,

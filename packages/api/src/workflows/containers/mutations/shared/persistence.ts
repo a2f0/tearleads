@@ -108,6 +108,7 @@ async function persistCreatedContainerStructure(
     .insert(containers)
     .values({
       depth: parent.depth + 1,
+      systemSlot: state.systemSlot,
       id: state.containerId,
       organizationId: state.organizationId,
       parentId: state.parentContainerId,

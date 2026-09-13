@@ -1,52 +1,38 @@
-import type { ApiClient } from "@tearleads/api-client";
-import type { DocumentProjectorRegistryInput } from "../../data/documents/documentKinds";
 import { removeNativeSubscriptionRestoreProvisioningAttempt } from "../../workflows/organizations/createOrganization";
 import {
   bootstrapRootContainer,
-  type ProvisionedSystemContainerSpec,
   registerIdentity as registerIdentityWorkflow,
 } from "../../workflows/registration";
 import type { ClearRemoteSyncStateResult } from "../../workflows/sync";
-import type { Database } from "../database";
-import type { Identity } from "../identity";
 import { createListenerSet } from "../listenerSet";
 import {
   requireRegistrationIdentityPinner,
   requireUserIdentityAvailable,
   SessionIdentityAcknowledgments,
-  type UserIdentityAvailable,
 } from "./sessionIdentityTrust";
 import { createSessionOrganization } from "./sessionOrganizationCreation";
 import {
   clearSessionRemoteSyncState,
   recoverPurgedSessionOrganization,
 } from "./sessionPurgeRecovery";
+import {
+  acknowledgedSessionRoot,
+  acknowledgeSessionContextRoot,
+  acknowledgeSessionRoot,
+} from "./sessionRootAuthority";
 import type {
   CreateOrganizationOptions,
   RegisterIdentityOptions,
   Session,
   SessionContext,
   SessionCreateOrganizationResult,
+  SessionDependencies,
   SessionListener,
   SessionRecoverOrganizationResult,
   SessionRegistrationResult,
   SessionSnapshot,
   UserSession,
 } from "./sessionTypes";
-
-interface SessionDependencies {
-  api: ApiClient;
-  database: Database;
-  documentProjectors?: DocumentProjectorRegistryInput | undefined;
-  identity: Identity;
-  log: (message: string) => void;
-  logError: (message: string | Error, cause?: unknown) => void;
-  onUserIdentityAvailable?: UserIdentityAvailable | undefined;
-  /** App-owned system containers provisioned with each new organization. */
-  provisionedSystemContainers?:
-    | ReadonlyArray<ProvisionedSystemContainerSpec>
-    | undefined;
-}
 
 export function createSession(dependencies: SessionDependencies): Session {
   return new SessionService(dependencies);
@@ -109,6 +95,12 @@ class SessionService implements Session {
     containerId: string;
     created: boolean;
   }> {
+    // Recovery can request local bootstrap after login. Preserve the root
+    // acknowledged by that session instead of replacing it with a local id.
+    const acknowledgedRoot = acknowledgedSessionRoot(this);
+    if (this.isAuthenticated && acknowledgedRoot) {
+      return { containerId: acknowledgedRoot, created: false };
+    }
     const result = await bootstrapRootContainer(
       this.dependencies.database.requireExecSql("bootstrapLocalRootContainer"),
     );
@@ -231,6 +223,11 @@ class SessionService implements Session {
     if (this.dependencies.identity.snapshot !== identitySnapshot) {
       return false;
     }
+    acknowledgeSessionRoot(this, {
+      userId: authentication.userId,
+      organizationId: authentication.organizationId,
+      rootContainerId: authentication.rootContainerId,
+    });
     this.setContext({
       authToken: authentication.token,
       defaultOrganizationId: authentication.organizationId,
@@ -418,6 +415,7 @@ class SessionService implements Session {
       context.userId,
       this.dependencies.identity.snapshot.signingFingerprint,
     );
+    acknowledgeSessionContextRoot(this, context);
     this.setSnapshot({
       authToken:
         "authToken" in context

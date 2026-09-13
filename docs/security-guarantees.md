@@ -47,6 +47,15 @@ and `userId`. Later substitutions hard-fail, and policy verification also checks
 the signing fingerprint embedded in signed state. The first accepted response
 is still TOFU, not a key-transparency or out-of-band identity proof.
 
+## Root And System Destinations
+
+Directory listing fields cannot establish a Trash, Contacts, or root role.
+The SDK verifies the container projection before adopting those destinations,
+then takes the slot and parent edge from its signed manifest. Local pre-login
+content merges only into the session's root id in the expected organization.
+Only a root administrator may create a signed system slot. Additional grantees
+are allowed: sharing a legitimate Trash must not disable deletion.
+
 ## Recovery Key Disclosure
 
 Identity Manager's recovery QR contains the plaintext recovery phrase. It is

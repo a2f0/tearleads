@@ -39,7 +39,7 @@ function readHeaderString(
   return value;
 }
 
-async function deriveOrganizationSystemSlot(
+export async function deriveOrganizationSystemSlot(
   namespace: string,
   organizationId: string,
 ): Promise<string> {

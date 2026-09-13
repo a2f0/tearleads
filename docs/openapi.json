@@ -12180,6 +12180,17 @@
                       "type": "string",
                       "minLength": 1
                     },
+                    "rootContainerId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "token": {
                       "type": "string",
                       "minLength": 1
@@ -12193,6 +12204,7 @@
                     "authenticated",
                     "isRoot",
                     "organizationId",
+                    "rootContainerId",
                     "token",
                     "userId"
                   ],
@@ -12240,6 +12252,9 @@
                     "organizationId": {
                       "not": {}
                     },
+                    "rootContainerId": {
+                      "not": {}
+                    },
                     "token": {
                       "not": {}
                     },
@@ -12273,6 +12288,9 @@
                       "not": {}
                     },
                     "organizationId": {
+                      "not": {}
+                    },
+                    "rootContainerId": {
                       "not": {}
                     },
                     "token": {

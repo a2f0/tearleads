@@ -161,6 +161,7 @@ export interface ContainerAccessStructural {
 
 export interface ContainerAccessMetadata {
   metadataDocumentId: string;
+  systemSlot: string | null;
 }
 
 export interface ContainerAccessKeyState {

@@ -86,6 +86,7 @@ test("a cold device accepts a child signed by a since-removed group admin", asyn
     directGrants: [],
     event: await createVerifiedContainerAccessEvent({
       body: {
+        systemSlot: null,
         eventType: "container.create",
         parentContainerId: root1.state.containerId,
         parentManifestHash: root1.manifestHash,

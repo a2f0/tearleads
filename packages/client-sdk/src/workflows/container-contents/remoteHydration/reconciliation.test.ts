@@ -81,6 +81,7 @@ async function reconciliationFixture() {
       },
       auth: {
         defaultOrganizationId: "personal-organization",
+        rootContainerId: "remote-root",
         isAuthenticated: true,
         organizationId: ORGANIZATION_ID,
         userId: "user-1",
@@ -346,4 +347,26 @@ test("orphan healing never adopts a foreign candidate or remote target", async (
     expect(fixture.systemReconciliations).toHaveLength(0);
     expect(documentPrimingRequests).toBe(0);
   }
+});
+
+test("a listed same-org root cannot replace the session's own root", async () => {
+  const fixture = await reconciliationFixture();
+  fixture.state.runtime = {
+    ...fixture.state.runtime,
+    auth: {
+      ...fixture.state.runtime.auth,
+      rootContainerId: "acknowledged-own-root",
+    },
+  };
+  await reconcileLocalOnlyRootContainers({
+    remoteRootState: fixture.remoteRoot,
+    state: fixture.state,
+  });
+  expect(fixture.rootReconciliations).toHaveLength(0);
+  expect(fixture.state.containersById.has(fixture.localRoot.container.id)).toBe(
+    true,
+  );
+  expect(fixture.localSystem.container.parentId).toBe(
+    fixture.localRoot.container.id,
+  );
 });

@@ -54,6 +54,7 @@ describe("session expiry", () => {
 
       if (url.pathname === "/auth/verify") {
         return jsonResponse({
+          rootContainerId: null,
           authenticated: true,
           isRoot: false,
           organizationId: "org-2",

@@ -60,6 +60,7 @@ export async function createContainerKekStoreManifestFixture(input: {
       event: { eventHash },
     } as unknown as VerifiedAccessEvent,
     state: {
+      systemSlot: null,
       version: 1,
       containerId: input.containerId,
       organizationId,

@@ -26,6 +26,7 @@ import type { Identity } from "./identity";
 import { createListenerSet } from "./listenerSet";
 import type { Network } from "./network";
 import { adoptSessionRootContainer } from "./rootContainerAdoption";
+import { acknowledgedSessionRoot } from "./session/sessionRootAuthority";
 import type { Session, SessionSnapshot } from "./session/sessionTypes";
 import type { SyncBillingGate } from "./syncBillingGate";
 
@@ -200,6 +201,7 @@ interface RuntimeInputFactory {
 function sessionAuthInput(session: Session): WorkflowRuntimeAuthInput {
   return {
     defaultOrganizationId: session.defaultOrganizationId,
+    rootContainerId: acknowledgedSessionRoot(session),
     isAuthenticated: session.isAuthenticated,
     isRoot: session.isRoot,
     organizationId: session.organizationId,

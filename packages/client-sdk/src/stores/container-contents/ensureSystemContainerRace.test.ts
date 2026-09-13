@@ -131,6 +131,7 @@ test("a late local system create collapses into a remotely hydrated slot", async
   const runtime = createContainerContentsStoreTestRuntime({
     apiClient: createMockApiClient(),
     auth: {
+      rootContainerId: remoteRoot.container.id,
       isAuthenticated: true,
       organizationId: "organization-id",
       userId: "user-id",
@@ -357,6 +358,7 @@ test("a root-first late create rebases before its remote system slot arrives", a
     const runtime = createContainerContentsStoreTestRuntime({
       apiClient: createMockApiClient(),
       auth: {
+        rootContainerId: remoteRoot.container.id,
         isAuthenticated: true,
         organizationId: "organization-id",
         userId: "user-id",

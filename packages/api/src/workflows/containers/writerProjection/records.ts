@@ -91,6 +91,7 @@ function readContainerDirectGrants(
 }
 
 interface ContainerAccessStateFields {
+  readonly systemSlot: string | null;
   readonly containerId: string;
   readonly containerKeyEpochId: string;
   readonly directGrants: ContainerDirectGrant[];
@@ -128,6 +129,11 @@ function readContainerAccessStateFields(
   readVersion(record, "Container manifest state");
 
   return {
+    systemSlot: readNullableString(
+      record,
+      "systemSlot",
+      "Container manifest state",
+    ),
     containerId: readString(record, "containerId", "Container manifest state"),
     organizationId: readString(
       record,
@@ -239,6 +245,7 @@ function readContainerAccessState(
   assertContainerManifestMatchesState(manifest, state);
 
   return containerAccessManifestStateRecord({
+    systemSlot: state.systemSlot,
     version: 1,
     containerId: state.containerId,
     organizationId: state.organizationId,

@@ -243,6 +243,7 @@ describe("session", () => {
       authenticate: async () => {
         authenticateCalls += 1;
         return {
+          rootContainerId: null,
           authenticated: true,
           isRoot: true,
           organizationId: "org-1",
@@ -273,6 +274,7 @@ describe("session", () => {
       authenticate: async () =>
         authenticated
           ? {
+              rootContainerId: null,
               authenticated: true,
               isRoot: true,
               organizationId: "org-1",
@@ -306,6 +308,7 @@ describe("session", () => {
       authenticate: async () => {
         await switchIdentity();
         return {
+          rootContainerId: null,
           authenticated: true,
           isRoot: false,
           organizationId: "identity-a-organization",

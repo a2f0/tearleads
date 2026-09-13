@@ -184,6 +184,7 @@ async function storeContainerManifest(input: {
         ]
       : input.directGrants;
   const body: ContainerCreateAccessEventBody = {
+    systemSlot: null,
     eventType: "container.create",
     parentContainerId: input.parentContainerId ?? null,
     parentManifestHash: input.parentManifestHash ?? null,
@@ -201,6 +202,7 @@ async function storeContainerManifest(input: {
     signerUserId: input.signerUserId,
   });
   const state: ContainerAccessManifestState = {
+    systemSlot: null,
     version: 1,
     containerId: input.containerId,
     organizationId: input.organizationId,

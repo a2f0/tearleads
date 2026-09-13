@@ -25,6 +25,10 @@ import type {
   RemoteContainerHydrationState,
   SaveContainerOptions,
 } from "./remoteHydration/types";
+import {
+  needsVerifiedContainerDestination,
+  verifyRemoteContainerDestination,
+} from "./remoteHydration/verifiedDestination";
 import { materializeStoredContainerStateReadOnly } from "./storedContainerState";
 
 function applyRemoteContainerTimestamps(
@@ -452,6 +456,11 @@ export async function upsertRemoteContainerState(input: {
   remoteContainer: RemoteContainer;
   state: RemoteContainerHydrationState;
 }): Promise<ContainerState | null> {
+  if (needsVerifiedContainerDestination(input)) {
+    const verified = await verifyRemoteContainerDestination(input);
+    if (!verified || input.isCurrent?.() === false) return null;
+    input = { ...input, remoteContainer: verified };
+  }
   const existingState = input.state.containersById.get(
     input.remoteContainer.id,
   );

@@ -77,6 +77,7 @@ async function storeChildContainerAccessManifest(input: {
 }) {
   const containerKeyEpochId = crypto.randomUUID();
   const body: ContainerCreateAccessEventBody = {
+    systemSlot: null,
     eventType: "container.create",
     parentContainerId: input.parentContainerId,
     parentManifestHash: input.parentManifestHash,
@@ -94,6 +95,7 @@ async function storeChildContainerAccessManifest(input: {
     signerUserId: input.owner.userId,
   });
   const state: ContainerAccessManifestState = {
+    systemSlot: null,
     version: 1,
     containerId: input.childContainerId,
     organizationId: input.organizationId,

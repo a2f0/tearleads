@@ -165,6 +165,7 @@ export async function createScenario() {
     }),
   });
   const childBody: ContainerAccessEventBody = {
+    systemSlot: null,
     eventType: "container.create",
     parentContainerId: ROOT_ID,
     parentManifestHash: root1.manifestHash,
@@ -262,6 +263,7 @@ export async function createGrandchildScenario() {
   const scenario = await createScenario();
   // The child is created under root2, so its pin already proves root2.
   const middleBody: ContainerAccessEventBody = {
+    systemSlot: null,
     eventType: "container.create",
     parentContainerId: ROOT_ID,
     parentManifestHash: scenario.root2.manifestHash,
@@ -290,6 +292,7 @@ export async function createGrandchildScenario() {
     signerUserId: scenario.alice.userId,
   });
   const leafBody: ContainerAccessEventBody = {
+    systemSlot: null,
     eventType: "container.create",
     parentContainerId: middle.state.containerId,
     parentManifestHash: middle.manifestHash,

@@ -5,6 +5,7 @@ import {
   createTestExecSql,
 } from "@tearleads/test-utils";
 import type { ListContainersResponse } from "@tearleads/validators/response";
+import { createSignedContainerDirectory } from "../../../test/helpers/signedContainerDirectory";
 import { waitFor } from "../../../test/helpers/waitFor";
 import type { DomainScope } from "../../data/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
@@ -153,8 +154,25 @@ test("root-lane refresh hydrates the active root's system children", async () =>
       null,
     );
 
+    const signedDirectory = await createSignedContainerDirectory([
+      { id: "active-root", parentId: null },
+      {
+        id: "active-root-trash",
+        parentId: "active-root",
+        systemSlot: "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      },
+      { id: "server-root", parentId: null },
+      {
+        id: "server-trash",
+        parentId: "server-root",
+        systemSlot: "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      },
+    ]);
     const runtime = createContainerContentsTestRuntime({
+      resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
       apiClient: createMockApiClient({
+        getContainerWriterProjection:
+          signedDirectory.getContainerWriterProjection,
         listContainerParentLanes: batchParentLanes(async ({ parentId }) => {
           parentIds.push(parentId);
           return parentId === "active-root"
@@ -208,8 +226,25 @@ test("provisioned root-lane refresh surfaces Trash under the reconciled server r
     // active root id was never re-pointed off the deleted local root.
     await seedLocalRootContainer(execSql, { rootContainerId: "server-root" });
 
+    const signedDirectory = await createSignedContainerDirectory([
+      { id: "active-root", parentId: null },
+      {
+        id: "active-root-trash",
+        parentId: "active-root",
+        systemSlot: "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      },
+      { id: "server-root", parentId: null },
+      {
+        id: "server-trash",
+        parentId: "server-root",
+        systemSlot: "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      },
+    ]);
     const runtime = createContainerContentsTestRuntime({
+      resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
       apiClient: createMockApiClient({
+        getContainerWriterProjection:
+          signedDirectory.getContainerWriterProjection,
         listContainerParentLanes: batchParentLanes(async ({ parentId }) => {
           listedParentIds.push(parentId);
           return parentId === "server-root"
@@ -218,6 +253,7 @@ test("provisioned root-lane refresh surfaces Trash under the reconciled server r
         }),
       }),
       containerId: "stale-local-root",
+      rootContainerId: "server-root",
       domainScope,
       execSql,
     });
@@ -272,8 +308,25 @@ test("refreshLocalContainers surfaces a newly persisted container from local SQL
       null,
     );
 
+    const signedDirectory = await createSignedContainerDirectory([
+      { id: "active-root", parentId: null },
+      {
+        id: "active-root-trash",
+        parentId: "active-root",
+        systemSlot: "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      },
+      { id: "server-root", parentId: null },
+      {
+        id: "server-trash",
+        parentId: "server-root",
+        systemSlot: "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      },
+    ]);
     const runtime = createContainerContentsTestRuntime({
+      resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
       apiClient: createMockApiClient({
+        getContainerWriterProjection:
+          signedDirectory.getContainerWriterProjection,
         listContainerParentLanes: batchParentLanes(async () => {
           parentLaneCalls += 1;
           return emptyListContainersResponse();
@@ -355,8 +408,25 @@ test("resync parent-lane refresh applies a deleted nested container's tombstone"
     await seedLocalRootContainer(execSql, { rootContainerId: "server-root" });
     await saveNestedChildContainer(execSql);
 
+    const signedDirectory = await createSignedContainerDirectory([
+      { id: "active-root", parentId: null },
+      {
+        id: "active-root-trash",
+        parentId: "active-root",
+        systemSlot: "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      },
+      { id: "server-root", parentId: null },
+      {
+        id: "server-trash",
+        parentId: "server-root",
+        systemSlot: "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      },
+    ]);
     const runtime = createContainerContentsTestRuntime({
+      resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
       apiClient: createMockApiClient({
+        getContainerWriterProjection:
+          signedDirectory.getContainerWriterProjection,
         listContainerParentLanes: batchParentLanes(async ({ parentId }) => {
           listedParentIds.push(parentId);
           if (parentId === "server-root") {
@@ -413,8 +483,25 @@ test("root-only refresh leaves a deleted nested container's parent-only tombston
     await seedLocalRootContainer(execSql, { rootContainerId: "server-root" });
     await saveNestedChildContainer(execSql);
 
+    const signedDirectory = await createSignedContainerDirectory([
+      { id: "active-root", parentId: null },
+      {
+        id: "active-root-trash",
+        parentId: "active-root",
+        systemSlot: "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      },
+      { id: "server-root", parentId: null },
+      {
+        id: "server-trash",
+        parentId: "server-root",
+        systemSlot: "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      },
+    ]);
     const runtime = createContainerContentsTestRuntime({
+      resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
       apiClient: createMockApiClient({
+        getContainerWriterProjection:
+          signedDirectory.getContainerWriterProjection,
         listContainerParentLanes: batchParentLanes(async ({ parentId }) => {
           listedParentIds.push(parentId);
           if (parentId === "server-root") {
@@ -473,8 +560,25 @@ test("repeated provisioned root-lane refreshes do not re-list the root lane unwa
     await defaultContainerContentsPersistence.ensureSchema(execSql);
     await seedLocalRootContainer(execSql, { rootContainerId: "server-root" });
 
+    const signedDirectory = await createSignedContainerDirectory([
+      { id: "active-root", parentId: null },
+      {
+        id: "active-root-trash",
+        parentId: "active-root",
+        systemSlot: "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      },
+      { id: "server-root", parentId: null },
+      {
+        id: "server-trash",
+        parentId: "server-root",
+        systemSlot: "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      },
+    ]);
     const runtime = createContainerContentsTestRuntime({
+      resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
       apiClient: createMockApiClient({
+        getContainerWriterProjection:
+          signedDirectory.getContainerWriterProjection,
         listContainerParentLanes: batchParentLanes(
           async ({ parentId, watermark }) => {
             if (parentId === null) {

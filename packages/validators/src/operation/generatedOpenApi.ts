@@ -5377,6 +5377,7 @@ export interface operations {
                         error?: unknown;
                         isRoot: boolean;
                         organizationId: string;
+                        rootContainerId: string | null;
                         token: string;
                         userId: string;
                     } & {
@@ -5409,6 +5410,7 @@ export interface operations {
                         error?: string;
                         isRoot?: unknown;
                         organizationId?: unknown;
+                        rootContainerId?: unknown;
                         token?: unknown;
                         userId?: unknown;
                     } & {
@@ -5428,6 +5430,7 @@ export interface operations {
                         error?: string;
                         isRoot?: unknown;
                         organizationId?: unknown;
+                        rootContainerId?: unknown;
                         token?: unknown;
                         userId?: unknown;
                     } & {

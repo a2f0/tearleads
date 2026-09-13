@@ -101,6 +101,7 @@ export async function createContainerManifestFixture(input: {
   signingPublicKey: Uint8Array;
 }): Promise<VerifiedContainerAccessManifest> {
   const body: ContainerCreateAccessEventBody = {
+    systemSlot: null,
     eventType: "container.create",
     parentContainerId: null,
     parentManifestHash: null,

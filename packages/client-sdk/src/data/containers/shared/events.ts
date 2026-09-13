@@ -33,10 +33,12 @@ import type {
 export function buildContainerCreateBody(input: {
   containerKeyEpochId: string;
   metadataDocumentId: string;
+  systemSlot?: string | null | undefined;
   parentContainerId: string | null;
   parentManifestHash: string | null;
 }): ContainerCreateAccessEventBody {
   return {
+    systemSlot: input.systemSlot ?? null,
     eventType: "container.create",
     parentContainerId: input.parentContainerId,
     parentManifestHash: input.parentManifestHash,
@@ -151,6 +153,7 @@ export async function deriveContainerCreateManifest(input: {
   directGrants?: ContainerCreateAccessEventBody["directGrants"] | undefined;
   eventHash: string;
   metadataDocumentId: string;
+  systemSlot?: string | null | undefined;
   // The parent container's org (see signContainerCreateEvent). Must match the
   // signed event's org or the manifest hash will not reconcile server-side.
   organizationId: string;
@@ -161,6 +164,7 @@ export async function deriveContainerCreateManifest(input: {
     | undefined;
 }): Promise<Pick<ContainerCreatePlan, "manifest" | "manifestHash" | "state">> {
   const state: ContainerAccessManifestState = {
+    systemSlot: input.systemSlot ?? null,
     version: 1,
     containerId: input.containerId,
     organizationId: input.organizationId,

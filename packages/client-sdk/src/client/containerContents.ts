@@ -357,7 +357,9 @@ class ContainerContentsService implements ContainerContents {
           }
         : null;
     const cachedContainerProjection =
-      this.openTree().getCachedContainerWriterProjection(input.containerId);
+      input.remoteInfoMode === "always"
+        ? null
+        : this.openTree().getCachedContainerWriterProjection(input.containerId);
     return loadContainerInfo({
       ...input,
       apiClient: runtime.apiClient,

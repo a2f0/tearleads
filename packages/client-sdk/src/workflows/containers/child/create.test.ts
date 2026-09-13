@@ -64,6 +64,7 @@ test("buildMaterializedContainerCreatePlan signs a child create and wraps the ch
 
   expect(isContainerMutationRequest(plan.request)).toBe(true);
   expect(plan.body).toEqual({
+    systemSlot: null,
     eventType: "container.create",
     parentContainerId: parent.projection.containerId,
     parentManifestHash,

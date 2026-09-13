@@ -5,6 +5,7 @@ test("container state rejects organization principal heads", () => {
   expect(() =>
     readContainerAccessManifestState(
       {
+        systemSlot: null,
         version: 1,
         containerId: "container-1",
         organizationId: "organization-1",

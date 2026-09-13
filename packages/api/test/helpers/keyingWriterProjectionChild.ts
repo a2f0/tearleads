@@ -42,6 +42,7 @@ export async function createChildContainer(input: {
   });
   const parentManifest = asVerifiedContainerManifest(parentBundle);
   const body: ContainerAccessEventBody = {
+    systemSlot: null,
     eventType: "container.create",
     parentContainerId: parentManifest.state.containerId,
     parentManifestHash: parentBundle.manifestHash,
@@ -63,6 +64,7 @@ export async function createChildContainer(input: {
   });
   const bundle = await createContainerManifestBundle(
     {
+      systemSlot: null,
       version: 1,
       containerId,
       organizationId: parentManifest.state.organizationId,

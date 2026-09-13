@@ -1,4 +1,24 @@
+import type { ApiClient } from "@tearleads/api-client";
+import type { DocumentProjectorRegistryInput } from "../../data/documents/documentKinds";
+import type { ProvisionedSystemContainerSpec } from "../../workflows/registration";
 import type { ClearRemoteSyncStateResult } from "../../workflows/sync";
+import type { Database } from "../database";
+import type { Identity } from "../identity";
+import type { UserIdentityAvailable } from "./sessionIdentityTrust";
+
+export interface SessionDependencies {
+  api: ApiClient;
+  database: Database;
+  documentProjectors?: DocumentProjectorRegistryInput | undefined;
+  identity: Identity;
+  log: (message: string) => void;
+  logError: (message: string | Error, cause?: unknown) => void;
+  onUserIdentityAvailable?: UserIdentityAvailable | undefined;
+  /** App-owned system containers provisioned with each new organization. */
+  provisionedSystemContainers?:
+    | ReadonlyArray<ProvisionedSystemContainerSpec>
+    | undefined;
+}
 
 export interface SessionContext {
   authToken?: string | null | undefined;

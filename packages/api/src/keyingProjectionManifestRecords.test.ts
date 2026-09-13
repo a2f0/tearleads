@@ -29,6 +29,7 @@ test("projects the canonical container manifest state field set", () => {
     ignored: "head-extension",
   } satisfies ReferencedPrincipalHead & { readonly ignored: string };
   const state = {
+    systemSlot: null,
     version: 1,
     containerId: "container-id",
     organizationId: "organization-id",
@@ -45,6 +46,7 @@ test("projects the canonical container manifest state field set", () => {
   } satisfies ContainerAccessManifestState & { readonly ignored: string };
 
   expect(containerAccessManifestStateRecord(state)).toEqual({
+    systemSlot: null,
     version: 1,
     containerId: "container-id",
     organizationId: "organization-id",

@@ -18,6 +18,11 @@ import {
 } from "./containerAccessReciteBody";
 import { normalizeContainerRekeyAccessEventBody } from "./containerAccessRekeyBody";
 import {
+  normalizeContainerAccessMetadata,
+  normalizeContainerAccessStructural,
+  normalizeContainerAccessStructuralState,
+} from "./containerAccessStructure";
+import {
   normalizeContainerGrantPrincipalHead,
   normalizeContainerGrantPrincipalHeads,
 } from "./containerGrantPrincipalHead";
@@ -114,76 +119,6 @@ function normalizeContainerDirectGrants(
     containerDirectGrantKey,
     "container direct grants",
   );
-}
-
-function normalizeContainerAccessStructural(
-  value: unknown,
-): ContainerAccessStructural {
-  const record = assertExactKeys(
-    value,
-    ["parentContainerId", "parentManifestHash"],
-    "container access structural state",
-  );
-  const parentContainerId = readNullableString(
-    record,
-    "parentContainerId",
-    "container access structural state",
-  );
-  const parentManifestHash = readNullableHashString(
-    record,
-    "parentManifestHash",
-    "container access structural state",
-  );
-
-  if ((parentContainerId === null) !== (parentManifestHash === null)) {
-    throwVerification(
-      "invalid_shape",
-      "container access parent id and parent manifest hash must both be present or both be null",
-    );
-  }
-
-  return {
-    parentContainerId,
-    parentManifestHash,
-  };
-}
-
-function normalizeContainerAccessMetadata(
-  value: unknown,
-): ContainerAccessMetadata {
-  const record = assertExactKeys(
-    value,
-    ["metadataDocumentId"],
-    "container access metadata state",
-  );
-
-  return {
-    metadataDocumentId: readString(
-      record,
-      "metadataDocumentId",
-      "container access metadata state",
-    ),
-  };
-}
-
-function normalizeContainerAccessStructuralState(
-  value: unknown,
-): ContainerAccessStructural & ContainerAccessMetadata {
-  const record = assertExactKeys(
-    value,
-    ["metadataDocumentId", "parentContainerId", "parentManifestHash"],
-    "container access structural state",
-  );
-
-  return {
-    ...normalizeContainerAccessStructural({
-      parentContainerId: record.parentContainerId,
-      parentManifestHash: record.parentManifestHash,
-    }),
-    ...normalizeContainerAccessMetadata({
-      metadataDocumentId: record.metadataDocumentId,
-    }),
-  };
 }
 
 function normalizeContainerAccessKeyState(
@@ -295,6 +230,7 @@ function normalizeContainerAccessManifestState(
       "epoch",
       "eventHash",
       "metadataDocumentId",
+      "systemSlot",
       "organizationId",
       "parentContainerId",
       "parentManifestHash",
@@ -313,6 +249,7 @@ function normalizeContainerAccessManifestState(
   });
   const metadata = normalizeContainerAccessMetadata({
     metadataDocumentId: record.metadataDocumentId,
+    systemSlot: record.systemSlot,
   });
   const grants = normalizeContainerAccessGrantState({
     directGrants: record.directGrants,
@@ -406,6 +343,7 @@ export async function deriveContainerAccessManifest(
     eventHash: normalizedState.eventHash,
     structuralHash: await computeContainerAccessStructuralHash({
       metadataDocumentId: normalizedState.metadataDocumentId,
+      systemSlot: normalizedState.systemSlot,
       parentContainerId: normalizedState.parentContainerId,
       parentManifestHash: normalizedState.parentManifestHash,
     }),
@@ -429,6 +367,7 @@ function normalizeContainerCreateAccessEventBody(
       "directGrants",
       "eventType",
       "metadataDocumentId",
+      "systemSlot",
       "parentContainerId",
       "parentManifestHash",
       "referencedPrincipalHeads",
@@ -461,6 +400,7 @@ function normalizeContainerCreateAccessEventBody(
   });
   const metadata = normalizeContainerAccessMetadata({
     metadataDocumentId: record.metadataDocumentId,
+    systemSlot: record.systemSlot,
   });
   const normalizedDirectGrants = normalizeContainerDirectGrants(directGrants);
   const normalizedReferencedPrincipalHeads =
@@ -791,6 +731,11 @@ function deriveContainerCreateManifestState(
   }
 
   if (body.parentContainerId === null && body.parentManifestHash === null) {
+    if (body.systemSlot !== null)
+      throwVerification(
+        "invalid_shape",
+        "root containers cannot have a system slot",
+      );
     requireRootCreateSignerAdmin({
       body,
       event,
@@ -799,6 +744,12 @@ function deriveContainerCreateManifestState(
       principalPolicies: input.principalPolicies,
     });
   } else {
+    if (body.systemSlot !== null && input.parentContainerPath?.length !== 1) {
+      throwVerification(
+        "invalid_shape",
+        "system container parent must be a root",
+      );
+    }
     requireContainerPathCurrentParent({
       label: "container.create",
       organizationId: event.event.organizationId,
@@ -808,7 +759,7 @@ function deriveContainerCreateManifestState(
     });
     requireContainerPathUserAccess({
       label: "container.create",
-      minimumAccessLevel: "write",
+      minimumAccessLevel: body.systemSlot === null ? "write" : "admin",
       membershipAt: input.authorizationMembership,
       path: input.parentContainerPath,
       principalPolicies: input.principalPolicies,
@@ -826,6 +777,7 @@ function deriveContainerCreateManifestState(
     parentContainerId: body.parentContainerId,
     parentManifestHash: body.parentManifestHash,
     metadataDocumentId: body.metadataDocumentId,
+    systemSlot: body.systemSlot,
     containerKeyEpochId: body.containerKeyEpochId,
     directGrants: body.directGrants,
     referencedPrincipalHeads: body.referencedPrincipalHeads,
@@ -871,6 +823,7 @@ function preparePreviousContainerAccessTransition(
       parentContainerId: previousState.parentContainerId,
       parentManifestHash: previousState.parentManifestHash,
       metadataDocumentId: previousState.metadataDocumentId,
+      systemSlot: previousState.systemSlot,
     },
   };
 }
@@ -997,6 +950,15 @@ function deriveContainerMoveManifestState(
   body: ContainerMoveAccessEventBody,
   previous: PreviousContainerAccessTransition,
 ): ContainerAccessManifestState {
+  if (
+    previous.previousState.parentContainerId === null ||
+    previous.previousState.systemSlot !== null
+  ) {
+    throwVerification(
+      "invalid_shape",
+      "root and system containers cannot move",
+    );
+  }
   requireContainerPathUserAccess({
     label: "container.move source",
     minimumAccessLevel: "admin",

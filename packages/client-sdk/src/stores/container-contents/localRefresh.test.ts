@@ -41,7 +41,10 @@ function createRefreshState(input: {
       saveContainer,
     } as unknown as ContainerContentsPersistence,
     runtime: {
-      auth: { organizationId: "organization-id" },
+      auth: {
+        organizationId: "organization-id",
+        rootContainerId: "remote-root",
+      },
       infra: {
         dbStatus: "ready",
         execSql: {} as ContainerContentsWorkflowRuntime["infra"]["execSql"],

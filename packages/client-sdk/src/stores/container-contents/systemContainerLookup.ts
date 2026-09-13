@@ -32,7 +32,8 @@ export function findRootContainerState(
 
   const organizationRootState = rootStates.find(
     (containerState) =>
-      containerState.container.organizationId === organizationId,
+      containerState.container.organizationId === organizationId &&
+      containerState.container.id === state.runtime.auth.rootContainerId,
   );
   if (organizationRootState) {
     return organizationRootState;

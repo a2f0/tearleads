@@ -47,12 +47,13 @@ test(
         { method: "POST", path: /^\/documents$/u, count: 1 },
       ],
       budget: {
-        total: 25,
+        // Three system destinations now fetch signed role evidence once.
+        total: 28,
         byRequest: {
           "GET /containers/:containerId/documents": 5,
           "POST /documents/:documentId/sync": 8,
           "POST /containers/parent-lanes/query": 4,
-          "GET /containers/:containerId/writer-projection": 1,
+          "GET /containers/:containerId/writer-projection": 4,
           "GET /documents/:documentId/writer-projection": 1,
           "GET /organizations/:organizationId/billing": 1,
           "POST /auth/register": 1,
