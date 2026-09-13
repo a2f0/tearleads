@@ -361,3 +361,124 @@ test("a saturated declaration queue cannot shelter proofs past the max age", asy
     f.gateway.stop();
   }
 });
+
+test("proof age is enforced by wall clock while a pass waits behind slow declarations", async () => {
+  let now = 0;
+  let slow = false;
+  const release = Promise.withResolvers<void>();
+  const f = fixture({
+    revalidation: { intervalMs: 0, maxProofAgeMs: 30, now: () => now },
+    authorize: async (_user, ids) => {
+      if (slow) await release.promise;
+      return ids;
+    },
+  });
+  let queued: Promise<void>[] = [];
+  try {
+    await f.gateway.websocket.open(f.socket);
+    await f.declare("known_containers", [CONTAINER, OTHER]);
+    // A nearly full queue of slow but successful declarations, then a pass
+    // queued behind them that cannot run until they finish.
+    slow = true;
+    const added = Array.from({ length: 30 }, () => crypto.randomUUID());
+    queued = added.map((id) => f.declare("known_containers.add", [id]));
+    f.reconnect();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(f.router.interestedSocketCount(CONTAINER)).toBe(1);
+    now = 30;
+    f.reconnect();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    // Evicted before any slow declaration resolved.
+    expect(f.router.interestedSocketCount(CONTAINER)).toBe(0);
+    expect(f.router.interestedSocketCount(OTHER)).toBe(0);
+    expect(resyncFrames(f.sent)).toEqual([
+      { type: "resync_required", containerIds: [CONTAINER, OTHER] },
+    ]);
+    expect(f.closed).toEqual([]);
+    release.resolve();
+    await Promise.all(queued);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    // The slow declarations install what they verified; the evicted ids stay
+    // out until the client redeclares them.
+    expect(f.router.interestedSocketCount(CONTAINER)).toBe(0);
+    expect(f.router.interestedSocketCount(added[0] ?? "")).toBe(1);
+    expect(f.closed).toEqual([]);
+  } finally {
+    release.resolve();
+    await Promise.all(queued);
+    f.gateway.stop();
+  }
+});
+
+test("an in-flight pass that outlives the max age cannot reinstall evicted proofs", async () => {
+  let now = 0;
+  let calls = 0;
+  const release = Promise.withResolvers<void>();
+  const f = fixture({
+    revalidation: { intervalMs: 0, maxProofAgeMs: 30, now: () => now },
+    authorize: async (_user, ids) => {
+      if (++calls === 2) await release.promise;
+      return ids;
+    },
+  });
+  try {
+    await f.gateway.websocket.open(f.socket);
+    await f.declare("known_containers", [CONTAINER, OTHER]);
+    f.reconnect();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(calls).toBe(2);
+    now = 30;
+    f.reconnect();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(f.router.interestedSocketCount(CONTAINER)).toBe(0);
+    expect(resyncFrames(f.sent)).toHaveLength(1);
+    // The joined tick did not start a second pass.
+    expect(calls).toBe(2);
+    release.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    // The stale result is discarded: no reinstall, no second resync frame.
+    expect(f.router.interestedSocketCount(CONTAINER)).toBe(0);
+    expect(f.router.interestedSocketCount(OTHER)).toBe(0);
+    expect(resyncFrames(f.sent)).toHaveLength(1);
+    expect(f.persisted.at(-1)).toEqual({
+      kind: "remove",
+      containerIds: [CONTAINER, OTHER],
+    });
+    expect(f.closed).toEqual([]);
+  } finally {
+    release.resolve();
+    f.gateway.stop();
+  }
+});
+
+test("periodic ticks keep checking proof age while a pass is stuck in the queue", async () => {
+  let calls = 0;
+  const release = Promise.withResolvers<void>();
+  const f = fixture({
+    revalidation: { intervalMs: 4, random: () => 0, maxProofAgeMs: 20 },
+    authorize: async (_user, ids) => {
+      if (++calls === 2) await release.promise;
+      return ids;
+    },
+  });
+  let stuck: Promise<void> = Promise.resolve();
+  try {
+    await f.gateway.websocket.open(f.socket);
+    await f.declare("known_containers", [CONTAINER, OTHER]);
+    // One declaration that never finishes blocks the queue; every pass the
+    // scheduler enqueues waits behind it.
+    stuck = f.declare("known_containers.add", [crypto.randomUUID()]);
+    const deadline = Date.now() + 2_000;
+    while (resyncFrames(f.sent).length === 0 && Date.now() < deadline)
+      await new Promise((resolve) => setTimeout(resolve, 2));
+    expect(resyncFrames(f.sent)).toEqual([
+      { type: "resync_required", containerIds: [CONTAINER, OTHER] },
+    ]);
+    expect(f.router.interestedSocketCount(CONTAINER)).toBe(0);
+    expect(f.closed).toEqual([]);
+  } finally {
+    release.resolve();
+    await stuck;
+    f.gateway.stop();
+  }
+});

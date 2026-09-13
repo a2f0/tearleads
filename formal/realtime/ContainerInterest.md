@@ -61,13 +61,17 @@ socket until a verification succeeds, so a failed pass cannot discard it, and a
 successful pass clears the reconnect proof handoff so a matching declaration
 reauthorizes instead of reinstalling an evicted proof. Verification failures
 never extend the bound: each socket records when a full verification last
-confirmed its installed proofs, and a pass that cannot confirm them (a failed
-verification, or a declaration queue too saturated to run one) evicts every
-subscription with one `resync_required` once they are older than
-`maxProofAgeMs` (three intervals, fifteen minutes by default), so the client
-redeclares through fresh authorization. A lost invalidation therefore leaves a
-revoked subscription live for at most one interval while verification succeeds
-and at most three while it fails or is starved, never the socket lifetime.
+confirmed its installed proofs, and every tick checks that age by wall clock
+before queueing anything: once the proofs are older than `maxProofAgeMs` (three
+intervals, fifteen minutes by default) and no verification has completed, every
+subscription is evicted with one `resync_required`, whether the pass that would
+confirm them failed, is queued behind slow declarations, is in flight, or could
+not be enqueued at all. The eviction advances a per-socket epoch, so a pass that
+started earlier discards its result instead of reinstalling the evicted ids; the
+client redeclares through fresh authorization. A lost invalidation therefore
+leaves a revoked subscription live for at most one interval while verification
+succeeds and at most three otherwise, never deferred behind the queue and never
+the socket lifetime.
 Organization purges publish per-container invalidations for the deleted rows.
 Only revoke, move, and delete evict; grants, rekeys, and recites do not remove
 readers and route their hints without evicting descendant subscribers. The

@@ -43,7 +43,10 @@ export function resolveProofAgePolicy(
  * (`access_changed`), so a dropped or missed invalidation would leave a revoked
  * subscription live for the socket's lifetime; the periodic pass bounds that
  * window to one interval. Ticks are jittered across [½, 1] of the interval so
- * sockets that connected together do not re-verify together.
+ * sockets that connected together do not re-verify together, and re-arm on
+ * that cadence rather than on completion: a pass stuck behind the socket's
+ * declaration queue must not stall the wall-clock proof-age check each tick
+ * performs.
  */
 export class ContainerInterestRevalidationSchedule {
   private readonly timers = new Map<
@@ -81,17 +84,13 @@ export class ContainerInterestRevalidationSchedule {
     if (this.intervalMs <= 0) return;
     const delay = Math.round(this.intervalMs * (0.5 + 0.5 * this.random()));
     const timer = setTimeout(() => {
-      void this.revalidate(ws)
-        .catch((error: unknown) => {
-          reportBackgroundFailure(error);
-        })
-        .finally(() => {
-          // The socket may have closed while the pass was running; only a
-          // still-tracked socket re-arms.
-          if (this.timers.get(ws) !== timer) return;
-          this.timers.delete(ws);
-          this.schedule(ws);
-        });
+      // Only a still-tracked socket re-arms.
+      if (this.timers.get(ws) !== timer) return;
+      this.timers.delete(ws);
+      this.schedule(ws);
+      void this.revalidate(ws).catch((error: unknown) => {
+        reportBackgroundFailure(error);
+      });
     }, delay);
     timer.unref();
     this.timers.set(ws, timer);

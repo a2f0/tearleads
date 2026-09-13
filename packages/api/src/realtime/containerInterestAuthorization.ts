@@ -31,6 +31,10 @@ interface SocketState {
   resyncAll: boolean;
   /** When every installed proof was last confirmed by a full verification. */
   verifiedAt: number;
+  /** Bumped by an eviction so a pass that started earlier discards its result. */
+  epoch: number;
+  /** The revalidation pass queued or in flight, if any; passes never stack. */
+  revalidation: Promise<void> | null;
 }
 
 export class ContainerInterestAuthorizer {
@@ -60,6 +64,8 @@ export class ContainerInterestAuthorizer {
       containerIds: 0,
       resyncAll: false,
       verifiedAt: this.proofAge.now(),
+      epoch: 0,
+      revalidation: null,
     });
     return this.enqueue(ws, async () => {
       try {
@@ -148,10 +154,14 @@ export class ContainerInterestAuthorizer {
    * queue so it never interleaves with a declaration; a verification failure
    * keeps the socket (the next pass retries) instead of closing it, and a
    * pending `resyncAll` survives the failure until a later pass succeeds.
-   * Proofs that failing passes leave unconfirmed past `maxProofAgeMs` are
-   * evicted wholesale (`evictUnconfirmed`) rather than kept; a declaration
-   * queue too saturated to run the pass is such a failure, so the age check
-   * does not wait for room in the queue.
+   * Proof age is enforced by wall clock on every call, before anything is
+   * queued: proofs no completed verification has confirmed within
+   * `maxProofAgeMs` are evicted wholesale (`evictUnconfirmed`) whether the
+   * pass that would confirm them is queued behind slow declarations, in
+   * flight, or cannot be enqueued at all. Only a completed verification
+   * re-dates the proofs, so a client cannot shelter a revoked subscription
+   * behind a busy queue. Passes never stack: a tick that finds one queued or
+   * in flight joins it.
    */
   revalidate(
     ws: WsConnection,
@@ -160,33 +170,48 @@ export class ContainerInterestAuthorizer {
     const state = this.states.get(ws);
     if (!state) return Promise.resolve();
     if (options.resyncAll) state.resyncAll = true;
-    if (state.declarations >= MAX_PENDING_DECLARATIONS) {
-      // Only a completed verification re-dates the proofs, so a client that
-      // keeps the queue full cannot shelter a revoked subscription behind it.
-      this.evictUnconfirmed(ws, state, this.router.interestOf(ws));
+    this.evictUnconfirmed(ws, state, this.router.interestOf(ws));
+    if (state.revalidation) return state.revalidation;
+    if (state.declarations >= MAX_PENDING_DECLARATIONS)
       return Promise.resolve();
-    }
-    return this.enqueue(ws, async () => {
-      const ids = this.router.interestOf(ws);
-      if (ids.length === 0) {
-        // Nothing held means nothing whose hints could have been missed.
-        state.resyncAll = false;
-        state.verifiedAt = this.proofAge.now();
-        return;
-      }
-      try {
-        await this.queries.run(
-          ws,
-          ids,
-          () => this.isOpen(ws),
-          (proofs) => this.installRevalidated(ws, ids, proofs),
-        );
-      } catch (error) {
-        console.error("Failed to revalidate websocket interest:", error);
-        reportBackgroundFailure(error);
-        this.evictUnconfirmed(ws, state, ids);
-      }
+    const pass: Promise<void> = this.enqueue(ws, () =>
+      this.runRevalidation(ws, state),
+    ).finally(() => {
+      if (state.revalidation === pass) state.revalidation = null;
     });
+    state.revalidation = pass;
+    return pass;
+  }
+
+  private async runRevalidation(
+    ws: WsConnection,
+    state: SocketState,
+  ): Promise<void> {
+    const ids = this.router.interestOf(ws);
+    if (ids.length === 0) {
+      // Nothing held means nothing whose hints could have been missed.
+      state.resyncAll = false;
+      state.verifiedAt = this.proofAge.now();
+      return;
+    }
+    const epoch = state.epoch;
+    try {
+      await this.queries.run(
+        ws,
+        ids,
+        () => this.isOpen(ws),
+        (proofs) => {
+          // An eviction while this pass ran already dropped these ids and
+          // re-dated the socket; installing them now would resurrect them.
+          if (state.epoch !== epoch) return;
+          this.installRevalidated(ws, ids, proofs);
+        },
+      );
+    } catch (error) {
+      console.error("Failed to revalidate websocket interest:", error);
+      reportBackgroundFailure(error);
+      this.evictUnconfirmed(ws, state, ids);
+    }
   }
 
   /**
@@ -206,6 +231,7 @@ export class ContainerInterestAuthorizer {
       state.verifiedAt = now();
       return;
     }
+    state.epoch++;
     this.restoration.clear(ws);
     this.router.applyAuthorizedContainerInterest(
       ws,
