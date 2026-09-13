@@ -293,6 +293,9 @@ export class ContainerInterestAuthorizer {
     const { maxProofAgeMs, now } = this.proofAge;
     if (maxProofAgeMs <= 0 || now() - state.verifiedAt < maxProofAgeMs) return;
     if (!this.isOpen(ws)) return;
+    // Whatever query this session has in flight predates the bound too; a
+    // declaration waiting on it re-authorizes rather than installing it.
+    this.queries.markStale(ws);
     if (ids.length === 0) {
       this.confirm(ws, state);
       return;

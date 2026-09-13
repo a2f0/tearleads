@@ -109,6 +109,16 @@ export class ContainerInterestQueries {
     for (const query of this.active.values()) query.stale = true;
   }
 
+  /**
+   * A proof-deadline eviction on this socket: its session's running query
+   * read access before the bound expired, so a declaration straddling the
+   * deadline must discard that answer and re-query instead of installing it.
+   */
+  markStale(ws: WsConnection): void {
+    const query = this.active.get(socketSessionKey(ws));
+    if (query) query.stale = true;
+  }
+
   async run(
     ws: WsConnection,
     ids: string[],

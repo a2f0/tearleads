@@ -214,3 +214,59 @@ test("stopping the gateway disarms every proof deadline", async () => {
   expect(f.sent).toHaveLength(framesBeforeStop);
   expect(f.router.interestedSocketCount(CONTAINER)).toBe(1);
 });
+
+test("a declaration straddling the proof deadline re-authorizes instead of installing", async () => {
+  const clock = fakeClock();
+  let readable = new Set([CONTAINER, OTHER]);
+  const release = Promise.withResolvers<void>();
+  let calls = 0;
+  const f = fixture({
+    revalidation: {
+      intervalMs: 0,
+      maxProofAgeMs: 30,
+      now: clock.now,
+      schedule: clock.schedule,
+    },
+    authorize: async (_user, ids) => {
+      // Access is read when the query starts; the held answer carries it.
+      const granted = ids.filter((id) => readable.has(id));
+      if (++calls === 2) await release.promise;
+      return granted;
+    },
+  });
+  try {
+    await f.gateway.websocket.open(f.socket);
+    await f.declare("known_containers", [CONTAINER]);
+    const adding = f.declare("known_containers.add", [OTHER]);
+    await flush();
+    expect(calls).toBe(2);
+    // The deadline passes while the declaration's query is open; the held
+    // subscription is evicted and, meanwhile, the pending grant is revoked
+    // with its invalidation lost.
+    await clock.advanceTo(30);
+    expect(f.router.interestedSocketCount(CONTAINER)).toBe(0);
+    expect(resyncFrames(f.sent)).toEqual([
+      { type: "resync_required", containerIds: [CONTAINER] },
+    ]);
+    readable = new Set();
+    release.resolve();
+    await adding;
+    // The pre-eviction answer was discarded; fresh authorization refused it.
+    expect(calls).toBe(3);
+    expect(f.router.interestedSocketCount(OTHER)).toBe(0);
+    expect(f.sent.at(-1)).toEqual({
+      type: "known_containers_ack",
+      containerIds: [],
+      declarationId: "declaration",
+    });
+    // The client's re-declaration authorizes normally.
+    readable = new Set([CONTAINER, OTHER]);
+    await f.declare("known_containers.add", [CONTAINER]);
+    expect(calls).toBe(4);
+    expect(f.router.interestedSocketCount(CONTAINER)).toBe(1);
+    expect(f.closed).toEqual([]);
+  } finally {
+    release.resolve();
+    f.gateway.stop();
+  }
+});

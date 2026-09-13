@@ -70,8 +70,10 @@ have confirmed them failed, is queued behind slow declarations, is in flight, or
 could not be enqueued at all; the jittered ticks only attempt verification and
 never gate the bound. Each eviction advances a per-socket epoch, so a pass that
 started earlier discards its result instead of reinstalling the evicted ids, and
-a reconnect discards any pass in flight (its proofs may predate the outage)
-before starting a fresh one that carries the resync. A socket holding no
+marks the session's running authorization query stale, so a declaration whose
+query straddles the deadline re-authorizes instead of installing the older
+answer; and a reconnect discards any pass in flight (its proofs may predate the
+outage) before starting a fresh one that carries the resync. A socket holding no
 interest receives `shared_with_you` on reconnect so a share granted during the
 outage is still discovered, and a reconnect marks every running authorization
 query stale so neither a fresh pass nor a reader already waiting on it installs
