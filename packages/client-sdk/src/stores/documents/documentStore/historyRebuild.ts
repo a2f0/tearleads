@@ -14,6 +14,7 @@ import {
   type DocumentStoreSyncGeneration,
   isDocumentStoreSyncGenerationCurrent,
 } from "./syncGeneration";
+import { installDocumentWriterProjection } from "./writerProjectionGeneration";
 
 /**
  * Machinery for reconstructing a full-history document from a verified remote
@@ -29,6 +30,8 @@ export async function installRebuiltDocument(input: {
   rebuiltDoc: DocumentState;
   state: DocumentStoreState;
   synced: NonNullable<Awaited<ReturnType<typeof syncRemoteDocument>>>;
+  /** `state.writerProjectionGeneration` when the recovery pull started. */
+  writerProjectionGeneration: number;
 }): Promise<{
   fullHistorySnapshot: Uint8Array;
   settlementRequiresRetry: boolean;
@@ -92,9 +95,13 @@ export async function installRebuiltDocument(input: {
     input.state.pendingBaseVersion = rebuiltEndVersion;
     input.state.doc = input.rebuiltDoc;
   }
-  input.state.writerProjection = persisted.pullContinuationSuperseded
-    ? null
-    : (input.synced.writerProjection ?? input.state.writerProjection);
+  if (persisted.pullContinuationSuperseded) input.state.writerProjection = null;
+  else
+    installDocumentWriterProjection(
+      input.state,
+      input.synced.writerProjection ?? input.state.writerProjection,
+      input.writerProjectionGeneration,
+    );
   const installedDoc = input.state.doc ?? input.rebuiltDoc;
   return {
     fullHistorySnapshot: persisted.pullContinuationSuperseded

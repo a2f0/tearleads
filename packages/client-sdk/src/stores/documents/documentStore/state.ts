@@ -94,6 +94,8 @@ export interface DocumentSyncAttempt {
   outgoingUpdateCount: number;
   requestRecord: DocumentRecord;
   synced: SyncRemoteDocumentResult;
+  /** `writerProjectionGeneration` when the request left; gates the install. */
+  writerProjectionGeneration: number;
 }
 export interface DocumentStorePersistenceEffects {
   emitPersistedDocument: (
@@ -170,6 +172,12 @@ export interface DocumentStoreState {
   syncLane: DocumentSyncLane | null;
   writeChain: Promise<void>;
   writerProjection: DocumentWriterProjectionResponse | null;
+  /**
+   * Bumped whenever a realtime hint drops `writerProjection`; an operation that
+   * fetched or was handed a projection installs it only if this is unchanged
+   * since it started, so a pre-hint answer never lands after the hint.
+   */
+  writerProjectionGeneration: number;
 }
 const EMPTY_DOCUMENT_SNAPSHOT: DocumentSnapshot = {
   attachments: [],
@@ -277,6 +285,7 @@ export function createDocumentStoreState(
     syncLane: null,
     writeChain: Promise.resolve(),
     writerProjection: null,
+    writerProjectionGeneration: 0,
   };
 }
 

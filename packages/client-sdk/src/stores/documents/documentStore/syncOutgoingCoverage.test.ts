@@ -186,6 +186,7 @@ test("a completed cursor re-arms queued document writes", async () => {
         requestRecord: fixture.state.record as NonNullable<
           typeof fixture.state.record
         >,
+        writerProjectionGeneration: 0,
         synced: {
           acceptedRecoveryBaseline: false,
           exhaustedPendingUpdateCount: 0,

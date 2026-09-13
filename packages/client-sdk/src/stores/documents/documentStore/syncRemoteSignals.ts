@@ -8,6 +8,7 @@ import {
   allowDocumentStoreRemoteSync,
   markDocumentStoreRemoteSyncPending,
 } from "./syncGeneration";
+import { invalidateDocumentWriterProjection } from "./writerProjectionGeneration";
 
 export function hasRemoteDocumentUpdateEvent(
   state: DocumentStoreState,
@@ -80,7 +81,7 @@ export function handleDocumentRemoteEvents(
   // store cannot tell which containers this document links into, so the held
   // projection goes and the next mutation fetches a fresh one.
   if (nextEvents.some(isContainerProjectionInvalidationHint))
-    state.writerProjection = null;
+    invalidateDocumentWriterProjection(state);
 
   if (hasRemoteDocumentUpdateEvent(state, nextEvents)) {
     allowDocumentStoreRemoteSync(state);

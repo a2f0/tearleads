@@ -24,6 +24,7 @@ import {
   type DocumentStoreSyncGeneration,
   isDocumentStoreSyncGenerationCurrent,
 } from "./syncGeneration";
+import { installDocumentWriterProjection } from "./writerProjectionGeneration";
 
 /**
  * Record a refused read-only revalidation on this document's failure row, so
@@ -230,6 +231,7 @@ export async function ensureRemoteDocument(
     (await deriveStableDocumentId(state.localId));
   if (!generationIsCurrent()) return state.record ?? nextRecord;
 
+  const writerProjectionGeneration = state.writerProjectionGeneration;
   const created = await createRemoteDocument({
     apiClient: runtime.apiClient,
     author,
@@ -269,7 +271,11 @@ export async function ensureRemoteDocument(
     }
 
     runtime.util.log(`Created document: ${created.documentId}`);
-    state.writerProjection = created.writerProjection;
+    installDocumentWriterProjection(
+      state,
+      created.writerProjection,
+      writerProjectionGeneration,
+    );
 
     // This persist is a remote-identity write (documentId + content keys), not a
     // content change. It runs after a network round trip, during which the user
