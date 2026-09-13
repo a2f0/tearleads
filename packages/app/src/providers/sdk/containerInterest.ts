@@ -33,17 +33,6 @@ function diffInterest(
   return { added, removed };
 }
 
-function setsEqual(
-  left: ReadonlySet<string>,
-  right: ReadonlySet<string>,
-): boolean {
-  if (left.size !== right.size) return false;
-  for (const value of left) {
-    if (!right.has(value)) return false;
-  }
-  return true;
-}
-
 function createInterestSender(
   ws: WebSocket,
   acknowledgments: ContainerInterestAcknowledgments,
@@ -99,11 +88,19 @@ export function startContainerInterestDeclaration(
   let initialAcknowledged = false;
   let initialDeclarationId: string | null = null;
   let stopped = false;
+  let syncRequested = false;
 
   const send = createInterestSender(ws, acknowledgments, () => treeGeneration);
 
   const syncInterest = (): void => {
     if (stopped) return;
+    // Wait for the current round, then diff the latest tree once. A bulk crawl
+    // can emit hundreds of snapshots while signed authorization is pending.
+    if (acknowledgments.hasPending) {
+      syncRequested = true;
+      return;
+    }
+    syncRequested = false;
     const snapshot = store.getSnapshot();
     if (!snapshot.ready) {
       // A cold tree starts as ready=false/nodes=[]. Removing the hydrated
@@ -112,7 +109,6 @@ export function startContainerInterestDeclaration(
     }
     const current = new Set(snapshot.nodes.map((node) => node.id));
     if (!initialAcknowledged) {
-      if (initialDeclarationId !== null && setsEqual(current, declared)) return;
       const declarationId = `container-interest-${nextDeclarationId++}`;
       if (
         send({
@@ -164,11 +160,10 @@ export function startContainerInterestDeclaration(
         !initialAcknowledged && declarationId === initialDeclarationId;
       if (initial) {
         initialAcknowledged = true;
-        initialDeclarationId = null;
       }
       // A tree change may have made a refused ID available while its request
       // was pending. Retry once for that change, never just because of denial.
-      if (result.retry) syncInterest();
+      if (result.retry || syncRequested) syncInterest();
       return initial;
     },
     retryRefused: () => {

@@ -52,6 +52,11 @@ principal notifications, accepted-ID acknowledgments, and client retry races.
 Revocation frames batch affected IDs per socket. The app queues each affected
 container once and refreshes root plus distinct parent lanes once per batch;
 runtime tests cover this cardinality rather than the model.
+While a declaration round awaits acknowledgment, the client coalesces tree
+changes and sends one diff from the latest snapshot after that round completes.
+Burst tests cover both initial declarations and later add/remove rounds.
+The accepted-ID acknowledgment and batched revocation frames are a flag-day
+wire contract.
 
 Only group policy changes affect container reachability. Organization policy
 constraints prohibit grants and require their projection to mirror the current

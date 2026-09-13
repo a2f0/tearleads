@@ -6,6 +6,10 @@ export class ContainerInterestAcknowledgments {
   >();
   private readonly latestByContainer = new Map<string, string>();
 
+  get hasPending(): boolean {
+    return this.pending.size > 0;
+  }
+
   register(
     declarationId: string,
     ids: readonly string[],

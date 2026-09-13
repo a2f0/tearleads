@@ -71,6 +71,46 @@ function fakeSocket(readyState: number) {
   };
 }
 
+for (const initialPending of [false, true]) {
+  test(`bulk discovery coalesces behind ${initialPending ? "initial" : "delta"} authorization`, () => {
+    const fakeStore = createFakeStore(["root"]);
+    const { sent, ws } = fakeSocket(WebSocket.OPEN);
+    const handle = startContainerInterestDeclaration(
+      tearleadsWithStore(() => fakeStore.store),
+      ws,
+      new Set(),
+    );
+    if (!initialPending) {
+      acknowledgeInitialDeclaration(handle, sent);
+      fakeStore.setNodes(["root", "first"]);
+    }
+    const pending = JSON.parse(sent.at(-1) ?? "null");
+    const sentBefore = sent.length;
+    for (let count = 1; count <= 100; count++) {
+      fakeStore.setNodes([
+        "root",
+        ...Array.from({ length: count }, (_, index) => `child-${index}`),
+      ]);
+    }
+    expect(sent).toHaveLength(sentBefore);
+    expect(
+      handle.acknowledge(pending.declarationId, pending.containerIds),
+    ).toBe(initialPending);
+    const deltas = sent.slice(sentBefore).map((value) => JSON.parse(value));
+    expect(deltas[0]).toMatchObject({
+      type: "known_containers.add",
+      containerIds: Array.from({ length: 100 }, (_, index) => `child-${index}`),
+    });
+    expect(deltas).toHaveLength(initialPending ? 1 : 2);
+    if (!initialPending)
+      expect(deltas[1]).toMatchObject({
+        type: "known_containers.remove",
+        containerIds: ["first"],
+      });
+    handle.stop();
+  });
+}
+
 test("declares the authoritative ready set, waits for its ack, then sends deltas", () => {
   const fakeStore = createFakeStore(["c1", "c2"]);
   const { sent, ws } = fakeSocket(WebSocket.OPEN);
@@ -94,6 +134,9 @@ test("declares the authoritative ready set, waits for its ack, then sends deltas
     declarationId: expect.any(String),
     containerIds: ["c3"],
   });
+
+  const addition = JSON.parse(sent[1] ?? "null");
+  expect(handle.acknowledge(addition.declarationId, ["c3"])).toBe(false);
 
   fakeStore.setNodes(["c2", "c3"]);
   expect(JSON.parse(sent[2] ?? "null")).toEqual({
@@ -342,8 +385,10 @@ test("an older refused declaration cannot erase a newer accepted subscription", 
   );
   const earlier = JSON.parse(sent[0] ?? "null");
   fakeStore.setNodes(["a", "b"]);
+  expect(sent).toHaveLength(1);
+  expect(handle.acknowledge(earlier.declarationId, ["a"])).toBe(true);
   const later = JSON.parse(sent[1] ?? "null");
-  expect(handle.acknowledge(later.declarationId, ["a", "b"])).toBe(true);
+  expect(handle.acknowledge(later.declarationId, ["b"])).toBe(false);
   expect(handle.acknowledge(earlier.declarationId, [])).toBe(false);
   fakeStore.setNodes(["a", "b"]);
   expect(sent).toHaveLength(2);
