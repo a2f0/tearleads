@@ -25,6 +25,7 @@ import {
   toHistoryRestoreState,
 } from "./documentStoreSyncPersistenceState";
 import { commitMemoryDocumentMutation } from "./memoryDocumentMutation";
+import { createMemoryHydratedAttachmentPersistence } from "./memoryHydratedAttachmentPersistence";
 
 export function createDocumentsPersistence(): DocumentsPersistence & {
   getState: () => StoredDocumentsState;
@@ -366,24 +367,13 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
           ),
       );
     },
-    async saveHydratedAttachment(_execSql, input) {
-      const { attachment, expectedStorageKey, stillCurrent } = input;
-      const existing = localAttachments.find(
-        (row) =>
-          row.localId === attachment.localId &&
-          row.slotId === attachment.slotId,
-      );
-      if (
-        (existing?.storageKey ?? null) !== expectedStorageKey ||
-        !stillCurrent()
-      )
-        return false;
-      localAttachments = [
-        ...localAttachments.filter((row) => row !== existing),
-        attachment,
-      ];
-      return true;
-    },
+    saveHydratedAttachment: createMemoryHydratedAttachmentPersistence({
+      getDocument: () => document,
+      getAttachments: () => localAttachments,
+      setAttachments: (rows) => {
+        localAttachments = rows;
+      },
+    }),
     async saveLocalAttachment(_execSql, attachment) {
       localAttachments = [
         ...localAttachments.filter(

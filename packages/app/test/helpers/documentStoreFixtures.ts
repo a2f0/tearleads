@@ -20,6 +20,7 @@ import {
   type StoredDocumentsState,
   type StoredHistoryState,
 } from "./document-store/documentStoreWritePersistence";
+import { createMemoryHydratedAttachmentPersistence } from "./document-store/memoryHydratedAttachmentPersistence";
 import { createFixtureBlobStore } from "./documentStoreBlobStore";
 
 type RuntimeInput = Parameters<typeof createDocumentsWorkflowRuntime>[0];
@@ -194,24 +195,13 @@ function createAttachmentPersistence(
         (attachment) => attachment.localId === localId,
       );
     },
-    async saveHydratedAttachment(_execSql, input) {
-      const { attachment, expectedStorageKey, stillCurrent } = input;
-      const existing = state.localAttachments.find(
-        (row) =>
-          row.localId === attachment.localId &&
-          row.slotId === attachment.slotId,
-      );
-      if (
-        (existing?.storageKey ?? null) !== expectedStorageKey ||
-        !stillCurrent()
-      )
-        return false;
-      state.localAttachments = [
-        ...state.localAttachments.filter((row) => row !== existing),
-        attachment,
-      ];
-      return true;
-    },
+    saveHydratedAttachment: createMemoryHydratedAttachmentPersistence({
+      getDocument: () => state.document,
+      getAttachments: () => state.localAttachments,
+      setAttachments: (rows) => {
+        state.localAttachments = rows;
+      },
+    }),
     async saveLocalAttachment(_execSql, attachment) {
       state.localAttachments = [
         ...state.localAttachments.filter(
