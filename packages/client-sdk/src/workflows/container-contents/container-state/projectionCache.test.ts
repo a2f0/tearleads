@@ -3,7 +3,7 @@ import type { ContainerWriterProjectionResponse } from "@tearleads/validators/re
 import { createTestContainerState } from "./containerState.testFixtures";
 import {
   getCachedContainerWriterProjection,
-  invalidateContainerWriterProjection,
+  invalidateContainerProjections,
   loadContainerWriterProjectionForState,
 } from "./projectionCache";
 import type { ContainerWorkflowRuntime } from "./types";
@@ -51,7 +51,7 @@ test("a load that straddles an invalidating hint fetches again instead of cachin
   await new Promise((resolve) => setTimeout(resolve, 0));
   expect(calls).toBe(1);
   // A peer's grant hint lands while the first fetch is still open.
-  invalidateContainerWriterProjection(containerState);
+  invalidateContainerProjections(containerState);
   held.resolve();
 
   await expect(loading).resolves.toBe(fresh);

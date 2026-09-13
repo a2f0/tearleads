@@ -1,4 +1,5 @@
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import { projectionGeneration } from "../projectionGeneration";
 import type { ContainerState } from "../remoteHydration";
 import type { ContainerWorkflowRuntime } from "./types";
 
@@ -44,21 +45,34 @@ export function getCachedContainerWriterProjection(
 // re-reads the generation, so this only bounds a pathological hint storm.
 const MAX_PROJECTION_LOAD_ATTEMPTS = 3;
 
-function projectionGeneration(containerState: ContainerState): number {
-  return containerState.containerWriterProjectionGeneration ?? 0;
-}
-
 /**
- * Drop the cached projection and advance its generation, so a load that
- * started before this invalidation (and may answer with the pre-hint manifest)
- * cannot install its result.
+ * Drop both cached writer projections (the container's and its metadata
+ * document's) and advance their shared generation, so an operation that
+ * started before this invalidation (and may carry a pre-hint manifest) cannot
+ * install its result.
  */
-export function invalidateContainerWriterProjection(
+export function invalidateContainerProjections(
   containerState: ContainerState,
 ): void {
   containerState.containerWriterProjection = null;
-  containerState.containerWriterProjectionGeneration =
+  containerState.metadataWriterProjection = null;
+  containerState.writerProjectionGeneration =
     projectionGeneration(containerState) + 1;
+}
+
+/**
+ * Install a container projection an operation fetched or was handed back,
+ * unless a hint invalidated the container while that operation ran: its
+ * answer may predate the hint, so the slot is left as the hint left it and the
+ * next operation fetches fresh.
+ */
+export function installContainerWriterProjection(
+  containerState: ContainerState,
+  projection: ContainerWriterProjectionResponse | null,
+  capturedGeneration: number,
+): void {
+  if (projectionGeneration(containerState) !== capturedGeneration) return;
+  containerState.containerWriterProjection = projection;
 }
 
 export async function loadContainerWriterProjectionForState(input: {
@@ -79,7 +93,11 @@ export async function loadContainerWriterProjectionForState(input: {
       input.containerState.container.id,
     );
     if (projectionGeneration(input.containerState) === generation) {
-      input.containerState.containerWriterProjection = projection;
+      installContainerWriterProjection(
+        input.containerState,
+        projection,
+        generation,
+      );
       return projection;
     }
     // Invalidated while in flight (the api-client entry went with it): this

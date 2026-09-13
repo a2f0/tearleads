@@ -13,6 +13,7 @@ import {
   installDetachedContainerMetadataState,
 } from "../metadataStateIsolation";
 import type { ContainerState } from "../remoteHydration";
+import { installContainerWriterProjection } from "./projectionCache";
 import type {
   ContainerWorkflowRuntime,
   SharedContainerStateResult,
@@ -91,8 +92,11 @@ export async function persistSharedContainerState(input: {
       status: "identity-superseded",
     };
   }
-  input.containerState.containerWriterProjection =
-    input.shared.writerProjection;
+  installContainerWriterProjection(
+    input.containerState,
+    input.shared.writerProjection,
+    candidateState.detachedSource.writerProjectionGeneration,
+  );
   return {
     container: input.containerState.container,
     record: input.containerState.record,
@@ -178,7 +182,11 @@ export async function persistDuplicateContainerShare(input: {
       status: "identity-superseded",
     };
   }
-  input.containerState.containerWriterProjection = input.projection;
+  installContainerWriterProjection(
+    input.containerState,
+    input.projection,
+    candidateState.detachedSource.writerProjectionGeneration,
+  );
   return {
     container: input.containerState.container,
     record: input.containerState.record,
