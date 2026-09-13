@@ -4,6 +4,7 @@ import {
   inspectBlobSource,
 } from "../../../data/documents/blob/shared/blobSourceSnapshot";
 import { DEFAULT_BLOB_CHUNK_SIZE_BYTES } from "../../../data/documents/blob/shared/crypto";
+import { getDocumentAttachments } from "../../../data/documents/documentContent";
 import type { PendingAttachmentRecord } from "../../../workflows/documents";
 import {
   type AttachmentUploadResume,
@@ -26,6 +27,16 @@ export async function resolveAttachmentSourceUpload(input: {
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const snapshot = await inspectBlobSource(input.source, chunkSize);
+    const attachment =
+      input.state.doc &&
+      getDocumentAttachments(input.state.doc).find(
+        (item) => item.slotId === input.pendingAttachment.slotId,
+      );
+    if (!attachment || attachment.contentSha256 !== snapshot.sha256) {
+      throw new Error(
+        "Attachment upload bytes differ from the current document content",
+      );
+    }
     const resume = await resolveAttachmentUploadResume(
       input.state,
       input.pendingAttachment,

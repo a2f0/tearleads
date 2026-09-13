@@ -22,6 +22,7 @@ import {
 } from "../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { buildMaterializedDocumentLinkSetMutationPlan } from "./linkSet";
+import { prepareDocumentLinkBlobRewraps } from "./linkSetBlobRewraps";
 import { seedLinkSetWriterProjection } from "./linkSetProjectionSeed";
 import { completeLinkSetMutationRequest } from "./rotationBaseline";
 
@@ -184,11 +185,10 @@ export async function relinkRemoteDocument(input: {
   // A 403 from either fetch wins the report: any permission denial in the
   // pass parks the move (row 7), so a non-403 document failure must not mask
   // a container denial when both fetches fail.
-  const fetchFailures = [writerFetch.failure, targetContainerFetch.failure];
-  const projectionFailure =
-    fetchFailures.find((failure) => failure?.status === 403) ??
-    fetchFailures.find((failure) => failure !== null) ??
-    null;
+  const projectionFailure = preferredProjectionFailure([
+    writerFetch.failure,
+    targetContainerFetch.failure,
+  ]);
   if (!writerFetch.projection || !targetContainerFetch.projection) {
     if (projectionFailure) {
       input.onFailure?.(projectionFailure);
@@ -203,6 +203,13 @@ export async function relinkRemoteDocument(input: {
   const materializedPlan = await nullOnProjectionVerificationCancellation(() =>
     buildMaterializedDocumentLinkSetMutationPlan({
       author: input.author,
+      prepareBlobRewraps: (targets) =>
+        prepareDocumentLinkBlobRewraps({
+          ...input,
+          targets,
+          targetContainerProjection,
+          writerProjection,
+        }),
       contentKey: input.contentKey,
       eventId: input.eventId,
       execSql: input.execSql,
@@ -250,4 +257,14 @@ export async function relinkRemoteDocument(input: {
     targetContainerProjection,
     writerProjection,
   });
+}
+
+function preferredProjectionFailure(
+  failures: readonly ({ message: string; status: number | null } | null)[],
+) {
+  return (
+    failures.find((failure) => failure?.status === 403) ??
+    failures.find((failure) => failure !== null) ??
+    null
+  );
 }

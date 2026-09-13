@@ -2,6 +2,7 @@ import type {
   ApiDatabase,
   DatabaseTransaction,
 } from "@tearleads/api-shared/postgres";
+import { normalizeDocumentAccessEventBody } from "@tearleads/crypto";
 import type { DocumentLinkSetMutationRequest } from "@tearleads/validators/request";
 import type { DocumentLinkSetMutationResponse } from "@tearleads/validators/response";
 import { resolveCurrentDocumentKekTargets } from "../../../access/read/documentKekTargets";
@@ -21,6 +22,10 @@ import {
   assertBaselinelessUnlinkHasEmptyCommittedFrontier,
 } from "./atomicRotationBaseline";
 import { DocumentMutationError, toMutationError } from "./errors";
+import {
+  applyDocumentLinkBlobRewraps,
+  lockDocumentLinkBlobRewraps,
+} from "./linkSetBlobRewraps";
 import { lockDocumentLinkSetMutationHeads } from "./linkSetMutationLocks";
 import {
   assertDocumentCanRelink,
@@ -280,6 +285,7 @@ async function mutateDocumentLinkSetWithExecutor(
         executor: input.executor,
         manifest,
       });
+    const blobRewraps = await prepareDocumentBlobRewraps(input, event.body);
     const rotationBaseline = requireMutationRotationBaseline(input);
     const contentKeyBundle = await advanceDocumentLinkSet({
       baseline: rotationBaseline ?? undefined,
@@ -302,6 +308,7 @@ async function mutateDocumentLinkSetWithExecutor(
       contentKeyBundle,
       rotationBaseline,
     );
+    await applyDocumentLinkBlobRewraps({ ...input, rewraps: blobRewraps });
     await appendRepairedRosterProfileChanges(
       input.executor,
       repairedRosterProfileBindings,
@@ -350,4 +357,17 @@ export async function runDocumentLinkSetMutationWorkflow(
     }
     throw error;
   }
+}
+
+async function prepareDocumentBlobRewraps(
+  input: MutateDocumentLinkSetWithExecutorInput,
+  body: Parameters<typeof normalizeDocumentAccessEventBody>[0],
+) {
+  const { blobRewraps } = normalizeDocumentAccessEventBody(body);
+  await lockDocumentLinkBlobRewraps({
+    documentId: input.documentId,
+    executor: input.executor,
+    rewraps: blobRewraps,
+  });
+  return blobRewraps;
 }

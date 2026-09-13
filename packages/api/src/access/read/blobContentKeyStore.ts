@@ -4,6 +4,6 @@ export type {
 } from "../shared/internal/blobContentKeyStore";
 export {
   BlobContentKeyBundleError,
-  getLatestCurrentBlobContentKeyBundle,
+  getLatestBlobContentKeyBundle,
 } from "../shared/internal/blobContentKeyStore";
 export { listBlobContentWriteHeaders } from "../shared/internal/blobContentWriteHeaderStore";

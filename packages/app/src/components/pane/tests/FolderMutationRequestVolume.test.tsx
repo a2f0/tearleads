@@ -127,7 +127,14 @@ test("folder creation, document linking, unlinking and trash have separate reque
       await expectNote(pane, folder, true);
       await expectNote(pane, "/", true);
     },
-    budget: { total: 1, byRequest: { "POST /documents/:documentId/link": 1 } },
+    // Link-set writes read the complete binding frontier before signing rewraps.
+    budget: {
+      total: 2,
+      byRequest: {
+        "GET /documents/:documentId/attachments": 1,
+        "POST /documents/:documentId/link": 1,
+      },
+    },
     mutations: [
       { method: "POST", path: /^\/documents\/[^/]+\/link$/u, count: 1 },
     ],
@@ -185,8 +192,9 @@ test("folder creation, document linking, unlinking and trash have separate reque
       await expectNote(pane, "/", true);
     },
     budget: {
-      total: 3,
+      total: 4,
       byRequest: {
+        "GET /documents/:documentId/attachments": 1,
         "GET /documents/:documentId/writer-projection": 1,
         "POST /documents/:documentId/sync": 1,
         "POST /documents/:documentId/unlink": 1,
@@ -211,8 +219,9 @@ test("folder creation, document linking, unlinking and trash have separate reque
       await expectNote(pane, "Trash", true);
     },
     budget: {
-      total: 5,
+      total: 7,
       byRequest: {
+        "GET /documents/:documentId/attachments": 2,
         "GET /containers/:containerId/writer-projection": 1,
         "GET /documents/:documentId/writer-projection": 1,
         "POST /documents/:documentId/link": 1,

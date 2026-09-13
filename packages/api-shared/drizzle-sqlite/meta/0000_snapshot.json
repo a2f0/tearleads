@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "9a0c5c88-3fae-49ac-b195-268228b9b880",
+  "id": "d5fc8cf7-f5ef-4eaa-addf-3338fe2a52bf",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "access_event_dependency_projection": {
@@ -1006,6 +1006,13 @@
           "notNull": true,
           "autoincrement": false
         },
+        "bundle_target_hash": {
+          "name": "bundle_target_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "binding_id": {
           "name": "binding_id",
           "type": "text",
@@ -1091,6 +1098,7 @@
           "name": "blob_content_key_targets_epoch_binding_container_idx",
           "columns": [
             "blob_content_key_epoch_id",
+            "bundle_target_hash",
             "binding_id",
             "document_id",
             "container_id"

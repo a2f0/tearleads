@@ -49,6 +49,7 @@ function renderNoteEditorFields(
 }
 
 const attachment: DocumentAttachment = {
+  contentSha256: "1".repeat(64),
   byteLength: 1024,
   mimeType: "image/png",
   name: "diagram.png",
@@ -190,6 +191,7 @@ test("surfaces a syncing attachment status", () => {
 
 test("shows the attachment count in the section header", () => {
   const second: DocumentAttachment = {
+    contentSha256: "1".repeat(64),
     byteLength: 2048,
     mimeType: "application/pdf",
     name: "spec.pdf",
@@ -202,6 +204,7 @@ test("shows the attachment count in the section header", () => {
 
 test("labels each attachment with its kind and size", () => {
   const pdf: DocumentAttachment = {
+    contentSha256: "1".repeat(64),
     byteLength: 2048,
     mimeType: "application/pdf",
     name: "spec.pdf",

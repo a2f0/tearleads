@@ -69,6 +69,10 @@ test("an attachment slot lost to an interrupted write is recovered on init", asy
     storageKey,
   });
 
+  await runtime.infra.blobStore.writeBytes(
+    storageKey,
+    new Uint8Array(localId.startsWith("recovered") ? 15 : 12),
+  );
   const store = createDocumentStore(localId, runtime, persistence);
   // Capture every published snapshot to catch a transient empty-content flash:
   // the recovery persist must derive the snapshot from the loaded doc, not
@@ -152,6 +156,10 @@ test("a creation loser reloads attachment rows installed by the winner", async (
     createOfflineAttachmentRuntime(generateKemSeedAndKeyPair(), "container-a"),
     { infra: { blobStore: createMemoryBlobStore() } },
   );
+  await runtime.infra.blobStore.writeBytes(
+    storageKey,
+    new Uint8Array(localId.startsWith("recovered") ? 15 : 12),
+  );
   const store = createDocumentStore(localId, runtime, persistence);
   store.updateRuntime(runtime);
 
@@ -164,6 +172,7 @@ test("a creation loser reloads attachment rows installed by the winner", async (
     attachmentStorageKeyBySlotId: { [slotId]: storageKey },
     attachments: [
       {
+        contentSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
         byteLength: 12,
         mimeType: "text/plain",
         name: "winner.txt",

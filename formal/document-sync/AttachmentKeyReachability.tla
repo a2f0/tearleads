@@ -1,0 +1,92 @@
+---------------------- MODULE AttachmentKeyReachability ----------------------
+EXTENDS Naturals, FiniteSets
+
+CONSTANTS CheckBindingFrontier, RetainPriorWraps, UseHistoricalKeys,
+          IsolateHydration
+ASSUME {CheckBindingFrontier, RetainPriorWraps, UseHistoricalKeys,
+        IsolateHydration} \subseteq BOOLEAN
+Containers == {"source", "destination"}
+Blobs == {"one", "two"}
+Epochs == 1..2
+
+VARIABLES bindings, linked, epoch, wraps, issued, phase,
+          observedBindings, observedEpoch, planned, hydrated
+vars == <<bindings, linked, epoch, wraps, issued, phase,
+          observedBindings, observedEpoch, planned, hydrated>>
+
+Targets(bs, cs, es) == {<<b, c, es[c]>> : b \in bs, c \in cs}
+Init ==
+  /\ bindings = {"one"} /\ linked = {"source"}
+  /\ epoch = [c \in Containers |-> 1]
+  /\ wraps = Targets(bindings, linked, epoch) /\ issued = wraps
+  /\ phase = "idle" /\ observedBindings = {} /\ observedEpoch = epoch
+  /\ planned = {} /\ hydrated = "pending"
+
+BindSecond ==
+  /\ "two" \notin bindings
+  /\ bindings' = bindings \cup {"two"}
+  /\ wraps' = wraps \cup Targets({"two"}, linked, epoch)
+  /\ issued' = issued \cup wraps'
+  /\ UNCHANGED <<linked, epoch, phase, observedBindings, observedEpoch,
+                  planned, hydrated>>
+
+PrepareLink ==
+  /\ phase \in {"idle", "prepared"}
+  /\ observedBindings' = bindings /\ observedEpoch' = epoch
+  /\ planned' = Targets(bindings, Containers, epoch)
+  /\ phase' = "prepared"
+  /\ UNCHANGED <<bindings, linked, epoch, wraps, issued, hydrated>>
+
+CommitLink ==
+  /\ phase = "prepared" /\ observedEpoch = epoch
+  /\ ~CheckBindingFrontier \/ observedBindings = bindings
+  /\ linked' = Containers
+  /\ wraps' = IF RetainPriorWraps THEN wraps \cup planned ELSE planned
+  /\ issued' = issued \cup wraps'
+  /\ phase' = "linked"
+  /\ UNCHANGED <<bindings, epoch, observedBindings, observedEpoch,
+                  planned, hydrated>>
+
+UnlinkSource ==
+  /\ phase = "linked" /\ linked = Containers
+  /\ linked' = {"destination"}
+  /\ wraps' = IF RetainPriorWraps THEN wraps
+              ELSE Targets(bindings, {"destination"}, epoch)
+  /\ issued' = issued \cup wraps'
+  /\ UNCHANGED <<bindings, epoch, phase, observedBindings, observedEpoch,
+                  planned, hydrated>>
+
+Rekey(c) ==
+  /\ epoch[c] = 1
+  /\ epoch' = [epoch EXCEPT ![c] = 2]
+  /\ UNCHANGED <<bindings, linked, wraps, issued, phase,
+                  observedBindings, observedEpoch, planned, hydrated>>
+
+(* One valid attachment and one unavailable/invalid attachment settle together. *)
+Hydrate ==
+  /\ hydrated = "pending"
+  /\ hydrated' = IF IsolateHydration THEN "validInstalled" ELSE "allLost"
+  /\ UNCHANGED <<bindings, linked, epoch, wraps, issued, phase,
+                  observedBindings, observedEpoch, planned>>
+
+CanOpen(b, c) == \E e \in Epochs :
+  /\ <<b, c, e>> \in wraps
+  /\ IF UseHistoricalKeys THEN e <= epoch[c] ELSE e = epoch[c]
+CurrentReadersCanOpen == \A b \in bindings, c \in linked : CanOpen(b, c)
+PriorWrapsRetained == issued \subseteq wraps
+IndependentHydrationProgress == hydrated # "allLost"
+TypeOK ==
+  /\ bindings \subseteq Blobs /\ linked \subseteq Containers
+  /\ epoch \in [Containers -> Epochs]
+  /\ wraps \subseteq (Blobs \X Containers \X Epochs)
+  /\ issued \subseteq (Blobs \X Containers \X Epochs)
+  /\ phase \in {"idle", "prepared", "linked"}
+  /\ observedBindings \subseteq Blobs /\ observedEpoch \in [Containers -> Epochs]
+  /\ planned \subseteq (Blobs \X Containers \X Epochs)
+  /\ hydrated \in {"pending", "validInstalled", "allLost"}
+
+Idle == UNCHANGED vars
+Next == Idle \/ BindSecond \/ PrepareLink \/ CommitLink \/ UnlinkSource \/ Hydrate
+        \/ (\E c \in Containers : Rekey(c))
+Spec == Init /\ [][Next]_vars
+=============================================================================

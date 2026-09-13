@@ -186,6 +186,7 @@ test("a failed attachment removal restores the document and attachment rows", as
 
   expect(store.getSnapshot().attachments).toEqual([
     {
+      contentSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
       byteLength: pendingAttachment.byteLength,
       mimeType: pendingAttachment.mimeType,
       name: pendingAttachment.name,
@@ -336,6 +337,7 @@ test("a failed slot replacement restores the displaced attachment rows", async (
   await store.setText("edit after failed replacement");
   expect(store.getSnapshot().attachments).toEqual([
     {
+      contentSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
       byteLength: originalPending.byteLength,
       mimeType: originalPending.mimeType,
       name: originalPending.name,

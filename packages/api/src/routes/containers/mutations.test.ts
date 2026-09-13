@@ -812,6 +812,7 @@ async function buildMetadataDocumentCreateRequest(input: {
     containerKeyEpoch: 1,
   };
   const body: DocumentLinkAccessEventBody = {
+    blobRewraps: [],
     eventType: "document.link",
     containerId: target.containerId,
     containerManifestHash: target.containerManifestHash,
@@ -1285,6 +1286,7 @@ async function seedDownstreamContentKeyRows(input: {
   invariant(blobContentKeyEpoch, "expected seeded blob content key epoch");
   await db.insert(blobContentKeyTargets).values({
     blobContentKeyEpochId: blobContentKeyEpoch.id,
+    bundleTargetHash: `blob-targets:${blobId}`,
     bindingId,
     documentId,
     containerId: input.containerId,

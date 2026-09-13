@@ -90,6 +90,7 @@ test("relinkRemoteContainerDocument persists linked container projections after 
       resolveProjectionUserKey,
       runtime: {
         apiClient: createMockApiClient({
+          listDocumentAttachments: async () => [],
           getContainerWriterProjection: async (containerId) =>
             containerId === siblingProjection.containerId
               ? siblingProjection
@@ -227,6 +228,7 @@ test("relinkRemoteContainerDocument propagates identity failures without soft-fa
         resolveProjectionUserKey: async () => null,
         runtime: {
           apiClient: createMockApiClient({
+            listDocumentAttachments: async () => [],
             getContainerWriterProjection: async () => null,
             getDocumentWriterProjection: async () => {
               projectionRequests += 1;

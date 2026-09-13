@@ -6,11 +6,14 @@ import type {
   ListDocumentAttachmentsResponse,
 } from "@tearleads/validators/response";
 import type { BlobBytes } from "../../data/blobContracts";
+import { attachmentContentSha256 } from "../../data/documents/attachmentContentIdentity";
 import type { DocumentAttachment } from "../../data/documents/documentContent";
 import { errorMessage } from "../../data/errorMessage";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
+import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { createAttachmentDecryptor } from "./attachmentDecryptor";
+import { collectHydrationResults } from "./hydrationResults";
 
 interface DocumentAttachmentHydrationApi {
   evictDocumentWriterProjection?(documentId: string): void;
@@ -41,6 +44,7 @@ interface DocumentAttachmentHydrationContext {
   log?: ((message: string) => void) | undefined;
   logPrefix?: string | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
+  reportSecurityIncident?: SecurityIncidentReporter | undefined;
   targetSecretKey: Uint8Array;
 }
 
@@ -152,14 +156,14 @@ async function loadUniqueDocumentAttachmentBlobs(
     }
   }
 
-  const loadedBlobs = await Promise.all(
-    Array.from(targetsByBlobId.values()).map((target) =>
-      loadDocumentAttachmentBlob({
-        ...input,
-        binding: target.binding,
-      }),
-    ),
-  );
+  const loadedBlobs = await collectHydrationResults({
+    ...input,
+    tasks: Array.from(targetsByBlobId.values()).map((target) => ({
+      blobId: target.binding.blobId,
+      run: () =>
+        loadDocumentAttachmentBlob({ ...input, binding: target.binding }),
+    })),
+  });
 
   return new Map(
     loadedBlobs.flatMap((loaded) =>
@@ -191,7 +195,7 @@ async function decryptLoadedDocumentAttachmentBlob(
     decryptAttachment: ReturnType<typeof createAttachmentDecryptor>;
     writerProjection: DocumentWriterProjectionResponse;
   },
-): Promise<HydratedDocumentAttachmentBlob> {
+): Promise<HydratedDocumentAttachmentBlob | null> {
   const bytes = await input.decryptAttachment({
     binding: input.loaded.binding,
     encryptedBytes: input.loaded.encryptedBytes,
@@ -203,6 +207,15 @@ async function decryptLoadedDocumentAttachmentBlob(
     writerProjection: input.writerProjection,
   });
 
+  if (
+    (await attachmentContentSha256(bytes)) !==
+    input.loaded.attachment.contentSha256
+  ) {
+    input.log?.(
+      `${input.logPrefix ?? "Documents"}: attachment bytes for the current document content are unavailable.`,
+    );
+    return null;
+  }
   return {
     attachment: input.loaded.attachment,
     binding: input.loaded.binding,
@@ -269,14 +282,20 @@ export async function hydrateDocumentAttachmentBlobs(
     input.apiClient,
     input.documentId,
   );
-  return Promise.all(
-    loadedBlobs.map((loaded) =>
-      decryptLoadedDocumentAttachmentBlob({
-        ...input,
-        decryptAttachment,
-        loaded,
-        writerProjection,
-      }),
-    ),
+  const hydrated = await collectHydrationResults({
+    ...input,
+    tasks: loadedBlobs.map((loaded) => ({
+      blobId: loaded.binding.blobId,
+      run: () =>
+        decryptLoadedDocumentAttachmentBlob({
+          ...input,
+          decryptAttachment,
+          loaded,
+          writerProjection,
+        }),
+    })),
+  });
+  return hydrated.filter(
+    (item): item is HydratedDocumentAttachmentBlob => item !== null,
   );
 }

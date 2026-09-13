@@ -41,6 +41,7 @@ test("concurrent attachment additions merge by slot id", async () => {
 
   addDocumentAttachments(leftDoc, [
     {
+      contentSha256: "1".repeat(64),
       byteLength: 10,
       mimeType: "image/jpeg",
       name: "front.jpg",
@@ -49,6 +50,7 @@ test("concurrent attachment additions merge by slot id", async () => {
   ]);
   addDocumentAttachments(rightDoc, [
     {
+      contentSha256: "1".repeat(64),
       byteLength: 12,
       mimeType: "image/jpeg",
       name: "back.jpg",
@@ -80,6 +82,7 @@ test("new attachment order follows the highest existing order value", async () =
 
   addDocumentAttachments(doc, [
     {
+      contentSha256: "1".repeat(64),
       byteLength: 10,
       mimeType: "image/jpeg",
       name: "front.jpg",
@@ -95,6 +98,7 @@ test("new attachment order follows the highest existing order value", async () =
 
   addDocumentAttachments(doc, [
     {
+      contentSha256: "1".repeat(64),
       byteLength: 12,
       mimeType: "image/jpeg",
       name: "back.jpg",

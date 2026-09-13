@@ -248,6 +248,7 @@ function readDocumentLinkSetPreviousEpoch(
 
 async function buildDocumentLinkSetMutationPlan({
   author,
+  blobRewraps,
   contentKeyEpoch,
   eventId = crypto.randomUUID(),
   operation,
@@ -274,6 +275,7 @@ async function buildDocumentLinkSetMutationPlan({
   );
   const eventPlan = await buildDocumentLinkSetEventPlan({
     author,
+    blobRewraps,
     eventId,
     operation,
     organizationId,
@@ -331,6 +333,9 @@ async function buildDocumentLinkSetMutationPlan({
 export async function buildMaterializedDocumentLinkSetMutationPlan(
   input: {
     author: DocumentCreateAuthor;
+    prepareBlobRewraps: (
+      targets: readonly DocumentContentKeyTarget[],
+    ) => Promise<BuildDocumentLinkSetMutationPlanInput["blobRewraps"]>;
     contentKey?: Uint8Array | undefined;
     eventId?: string | undefined;
     execSql?: ExecSql | undefined;
@@ -409,6 +414,7 @@ export async function buildMaterializedDocumentLinkSetMutationPlan(
 
   const plan = await buildDocumentLinkSetMutationPlan({
     author: input.author,
+    blobRewraps: await input.prepareBlobRewraps(targetState.targets),
     contentKeyEpoch:
       input.writerProjection.contentKeyBundle.contentKeyEpoch +
       (contentKeyRotated ? 1 : 0),

@@ -50,6 +50,7 @@ test("verifyDocumentLinkSetManifest advances signed link and unlink heads", asyn
   });
   const documentId = "document-1";
   const initialBody: DocumentAccessEventBody = {
+    blobRewraps: [],
     eventType: "document.link",
     containerId: firstContainer.state.containerId,
     containerManifestHash: firstContainer.manifestHash,
@@ -82,6 +83,7 @@ test("verifyDocumentLinkSetManifest advances signed link and unlink heads", asyn
   }
 
   const linkBody: DocumentAccessEventBody = {
+    blobRewraps: [],
     eventType: "document.link",
     containerId: secondContainer.state.containerId,
     containerManifestHash: secondContainer.manifestHash,
@@ -128,6 +130,7 @@ test("verifyDocumentLinkSetManifest advances signed link and unlink heads", asyn
   ]);
 
   const unlinkBody: DocumentAccessEventBody = {
+    blobRewraps: [],
     eventType: "document.unlink",
     containerId: secondContainer.state.containerId,
     containerManifestHash: secondContainer.manifestHash,
@@ -200,6 +203,7 @@ test("verifyDocumentLinkSetManifest rejects forged linked containers", async () 
     signerUserId: writerUserId,
   });
   const initialBody: DocumentAccessEventBody = {
+    blobRewraps: [],
     eventType: "document.link",
     containerId: firstContainer.state.containerId,
     containerManifestHash: firstContainer.manifestHash,
@@ -251,6 +255,7 @@ test("attachment binding events prove signed document write authority", async ()
   });
   const documentEvent = await createVerifiedDocumentAccessEvent({
     body: {
+      blobRewraps: [],
       eventType: "document.link",
       containerId: container.state.containerId,
       containerManifestHash: container.manifestHash,

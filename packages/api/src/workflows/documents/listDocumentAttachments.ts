@@ -10,7 +10,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { getStoredAccessEvents } from "../../access/read/accessManifestStore";
 import {
   BlobContentKeyBundleError,
-  getLatestCurrentBlobContentKeyBundle,
+  getLatestBlobContentKeyBundle,
   listBlobContentWriteHeaders,
 } from "../../access/read/blobContentKeyStore";
 import {
@@ -33,13 +33,13 @@ interface ListDocumentAttachmentsWorkflowInput {
   userId: string;
 }
 
-type CurrentBlobContentKeyBundle = NonNullable<
-  Awaited<ReturnType<typeof getLatestCurrentBlobContentKeyBundle>>
+type AvailableBlobContentKeyBundle = NonNullable<
+  Awaited<ReturnType<typeof getLatestBlobContentKeyBundle>>
 >;
 
 interface BlobContentKeyBundleEntry {
   readonly blobId: string;
-  readonly contentKeyBundle: CurrentBlobContentKeyBundle;
+  readonly contentKeyBundle: AvailableBlobContentKeyBundle;
   readonly currentTargets: Awaited<
     ReturnType<typeof resolveCurrentBlobKekTargets>
   >;
@@ -59,15 +59,15 @@ export class ListDocumentAttachmentsError extends Error {
   }
 }
 
-async function loadCurrentBlobContentKeyBundleEntry(
+async function loadAvailableBlobContentKeyBundleEntry(
   blobId: string,
   writeHeader: BlobContentKeyBundleEntry["writeHeader"] | undefined,
   executor: DatabaseSession,
 ): Promise<BlobContentKeyBundleEntry> {
   try {
     const currentTargets = await resolveCurrentBlobKekTargets(blobId, executor);
-    const contentKeyBundle = await getLatestCurrentBlobContentKeyBundle(
-      { blobId, currentTargets },
+    const contentKeyBundle = await getLatestBlobContentKeyBundle(
+      blobId,
       executor,
     );
     if (!contentKeyBundle) {
@@ -147,7 +147,7 @@ export async function runListDocumentAttachmentsWorkflow(
     executor,
     blobIds,
     (blobId) =>
-      loadCurrentBlobContentKeyBundleEntry(
+      loadAvailableBlobContentKeyBundleEntry(
         blobId,
         writeHeadersByBlobId.get(blobId),
         executor,

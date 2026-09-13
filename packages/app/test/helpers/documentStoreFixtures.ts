@@ -176,6 +176,7 @@ function createAttachmentPersistence(
   | "listPendingAttachments"
   | "listLocalAttachments"
   | "saveLocalAttachment"
+  | "saveHydratedAttachment"
   | "deleteLocalAttachment"
   | "markLocalAttachmentDetached"
   | "savePendingAttachment"
@@ -192,6 +193,24 @@ function createAttachmentPersistence(
       return state.localAttachments.filter(
         (attachment) => attachment.localId === localId,
       );
+    },
+    async saveHydratedAttachment(_execSql, input) {
+      const { attachment, expectedStorageKey, stillCurrent } = input;
+      const existing = state.localAttachments.find(
+        (row) =>
+          row.localId === attachment.localId &&
+          row.slotId === attachment.slotId,
+      );
+      if (
+        (existing?.storageKey ?? null) !== expectedStorageKey ||
+        !stillCurrent()
+      )
+        return false;
+      state.localAttachments = [
+        ...state.localAttachments.filter((row) => row !== existing),
+        attachment,
+      ];
+      return true;
     },
     async saveLocalAttachment(_execSql, attachment) {
       state.localAttachments = [

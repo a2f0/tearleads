@@ -1,5 +1,5 @@
 {
-  "id": "23cb2c01-97f1-49db-8769-ccada75eeef4",
+  "id": "5ee47de6-dd00-40b6-afc9-8170c788bc61",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -1449,6 +1449,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "bundle_target_hash": {
+          "name": "bundle_target_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
         "binding_id": {
           "name": "binding_id",
           "type": "uuid",
@@ -1556,6 +1562,12 @@
           "columns": [
             {
               "expression": "blob_content_key_epoch_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "bundle_target_hash",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

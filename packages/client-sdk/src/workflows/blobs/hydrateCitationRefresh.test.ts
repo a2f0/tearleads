@@ -49,6 +49,7 @@ for (const freshEvidence of [false, true]) {
       let projections = 0;
       let evictions = 0;
       let downloads = 0;
+      const incidents: unknown[] = [];
       const hydration = hydrateDocumentAttachmentBlobs({
         apiClient: {
           evictDocumentWriterProjection: () => {
@@ -66,6 +67,9 @@ for (const freshEvidence of [false, true]) {
           },
           listDocumentAttachments: async () => [binding],
         },
+        reportSecurityIncident: async (error) => {
+          incidents.push(error);
+        },
         attachments: [fixture.attachment],
         documentId: fixture.writerProjection.documentId,
         execSql: fixture.execSql,
@@ -77,7 +81,9 @@ for (const freshEvidence of [false, true]) {
         expect(hydrated).toHaveLength(1);
         expect(hydrated?.[0]?.bytes).toEqual(fixture.bytes);
       } else {
-        await expect(hydration).rejects.toMatchObject({
+        expect(await hydration).toEqual([]);
+        expect(incidents).toHaveLength(1);
+        expect(incidents[0]).toMatchObject({
           code: "missing_dependency",
         });
       }

@@ -1,3 +1,4 @@
+import { ATTACHMENT_NEGATIVE_CONTROLS } from "./protocolAttachmentNegativeControls";
 import { SYSTEM_DESTINATION_NEGATIVE_CONTROLS } from "./protocolSystemDestinationNegativeControls";
 
 /**
@@ -33,6 +34,7 @@ const NO_BRICK_ADVERSARY =
   "formal/container-keying/NoBrickedDeviceAdversary.cfg";
 
 export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
+  ...ATTACHMENT_NEGATIVE_CONTROLS,
   {
     id: "content-write-unrefreshed-citations",
     module: "formal/document-sync/ContentWriteAuthority.tla",
@@ -121,6 +123,7 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     expect: { kind: "invariant", name: "PendingLinksKeepIntent" },
     why: "Deferring the document row is insufficient if discovery still replaces its pending container links (#2266).",
   },
+
   {
     id: "container-metadata-without-owner-scope",
     module: "formal/container-keying/ContainerDeletion.tla",

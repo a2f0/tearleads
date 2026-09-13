@@ -1,0 +1,68 @@
+import type { NegativeControl } from "./protocolNegativeControls";
+
+export const ATTACHMENT_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
+  {
+    id: "link-misses-concurrent-attachment",
+    module: "formal/document-sync/AttachmentKeyReachability.tla",
+    config: "formal/document-sync/AttachmentKeyReachability.cfg",
+    constants: { CheckBindingFrontier: "FALSE" },
+    expect: { kind: "invariant", name: "CurrentReadersCanOpen" },
+    why: "A concurrent binding must be covered before a new destination becomes visible.",
+  },
+  {
+    id: "link-drops-prior-blob-wraps",
+    module: "formal/document-sync/AttachmentKeyReachability.tla",
+    config: "formal/document-sync/AttachmentKeyReachability.cfg",
+    constants: { RetainPriorWraps: "FALSE" },
+    expect: { kind: "invariant", name: "PriorWrapsRetained" },
+    why: "Rewrapping and unlinking must retain earlier encrypted key packages.",
+  },
+  {
+    id: "blob-requires-current-wrap",
+    module: "formal/document-sync/AttachmentKeyReachability.tla",
+    config: "formal/document-sync/AttachmentKeyReachability.cfg",
+    constants: { UseHistoricalKeys: "FALSE" },
+    expect: { kind: "invariant", name: "CurrentReadersCanOpen" },
+    why: "A container rotation must remain readable through its verified historical keyring.",
+  },
+  {
+    id: "attachment-failure-poisons-peers",
+    module: "formal/document-sync/AttachmentKeyReachability.tla",
+    config: "formal/document-sync/AttachmentKeyReachability.cfg",
+    constants: { IsolateHydration: "FALSE" },
+    expect: { kind: "invariant", name: "IndependentHydrationProgress" },
+    why: "One unavailable attachment must not discard independent hydration successes.",
+  },
+  {
+    id: "attachment-accepts-old-content",
+    module: "formal/document-sync/AttachmentContentIdentity.tla",
+    config: "formal/document-sync/AttachmentContentIdentity.cfg",
+    constants: { CheckContentDigest: "FALSE" },
+    expect: { kind: "invariant", name: "InstalledBytesMatchIntent" },
+    why: "A valid historical binding can supply bytes different from the current signed document intent.",
+  },
+  {
+    id: "attachment-commits-stale-intent",
+    module: "formal/document-sync/AttachmentContentIdentity.tla",
+    config: "formal/document-sync/AttachmentContentIdentity.cfg",
+    constants: { CheckLiveIntent: "FALSE" },
+    expect: { kind: "invariant", name: "InstalledBytesMatchIntent" },
+    why: "The document can replace its attachment while hydration is in flight.",
+  },
+  {
+    id: "attachment-overwrites-competing-copy",
+    module: "formal/document-sync/AttachmentContentIdentity.tla",
+    config: "formal/document-sync/AttachmentContentIdentity.cfg",
+    constants: { CompareStoredCopy: "FALSE" },
+    expect: { kind: "action", name: "HeldCopyNeverRegresses" },
+    why: "Another facade can install newer bytes while an older view is still hydrating.",
+  },
+  {
+    id: "blob-bind-without-source-authority",
+    module: "formal/blob-attachments/BlobSourceAuthority.tla",
+    config: "formal/blob-attachments/BlobSourceAuthority.cfg",
+    constants: { CheckSourceAuthority: "FALSE" },
+    expect: { kind: "invariant", name: "BoundBytesHaveSourceAuthority" },
+    why: "Destination write authority alone cannot authorize reuse of a private existing blob (#2266).",
+  },
+];

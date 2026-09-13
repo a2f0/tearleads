@@ -494,8 +494,20 @@ body, the document manifest bundle, authorizing container paths, and optional
 document manifest, authorizing paths, and referenced principal policies before
 detaching the binding and appending audit rows.
 
-The encrypted Loro document may reference slot ids for rendering, but signed
-attachment binding metadata is the server-visible authority for blob access,
+Each encrypted Loro attachment entry carries its slot ID and required lowercase
+SHA-256 `contentSha256` of the intended plaintext. Local attachment creation and
+replacement author this digest before staging; resumable uploads verify their
+source against it. Hydration verifies the signed binding and ciphertext, then
+checks the decrypted plaintext against the current authenticated document entry.
+An older valid binding with different content remains unavailable and cannot
+replace locally held bytes. A mismatch alone is not tampering evidence: the
+current document can arrive before its new blob upload.
+
+Hydration commits only while its document intent is still current and the durable
+slot still names the local copy observed before downloading. SQLite compares the
+slot inside the guarded transaction; a competing facade's replacement is retained.
+Replaced bytes enter the existing reference-checked orphan reclaim queue. Signed
+attachment binding metadata remains the server-visible authority for blob access,
 attachment listing, replacement, detach, and live blob reachability.
 
 ## Blob Read Protocol
@@ -516,6 +528,21 @@ encrypted bytes as `application/octet-stream` and exposes blob id, byte length,
 and SHA-256 digest headers. The app combines the attachment listing's blob
 content-key bundle with verified document/container access material to unwrap
 the blob content key and decrypt the committed bytes.
+
+The stored blob wrap set and current access-target projection are distinct.
+Container rotation does not rotate immutable blob ciphertext: a cold reader may
+use a retained KEK from the verified current keyring to open an older envelope.
+Each envelope's container manifest and KEK identity must resolve through signed
+history. Signed blob write authority and binding history are verified separately.
+The API retains prior envelope sets by target hash; updating the latest set
+never deletes an issued historical wrap. Link/unlink events carry signed
+`blobRewraps` and atomically install destination envelopes with the document's
+new links (see [document link protocol](document-link-and-sync-protocol.md)).
+
+Attachment hydration isolates individual download and verification failures so
+one unavailable or invalid binding cannot suppress unrelated attachments.
+Typed verification failures reach the security reporter. Database closure and
+projection-generation cancellation still abort the whole hydration operation.
 
 ## Delete And Purge Semantics
 

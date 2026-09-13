@@ -76,6 +76,7 @@ test("stored document history uses membership at the referenced group head", asy
 
   async function verifyInitialLink(signerUserId: string) {
     const body: DocumentAccessEventBody = {
+      blobRewraps: [],
       eventType: "document.link",
       containerId: container.state.containerId,
       containerManifestHash: container.manifestHash,

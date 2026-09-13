@@ -1,4 +1,5 @@
 import { encodeVersionVector } from "@tearleads/loro";
+import { attachmentContentSha256 } from "../../../data/documents/attachmentContentIdentity";
 import {
   addDocumentAttachments,
   type DocumentAttachment,
@@ -16,6 +17,7 @@ import {
 } from "./persistence";
 import type { DocumentState, DocumentStoreState } from "./state";
 import type { DocumentStoreSyncGeneration } from "./syncGeneration";
+import { isDocumentStoreSyncGenerationCurrent } from "./syncGeneration";
 
 // Re-derive any attachment slot that lives in a durable pending-upload row but
 // is missing (or stale) in the loaded snapshot. The attach write path persists
@@ -54,7 +56,14 @@ export async function recoverDroppedAttachmentSlots(
     ) {
       continue;
     }
+    const source = await state.runtime.infra.blobStore.openByteSource(
+      pending.storageKey,
+    );
+    if (!source) continue;
+    const contentSha256 = await attachmentContentSha256(source);
+    if (!isDocumentStoreSyncGenerationCurrent(state, writeGeneration)) return;
     recovered.push({
+      contentSha256,
       byteLength: pending.byteLength,
       mimeType,
       name: pending.name,

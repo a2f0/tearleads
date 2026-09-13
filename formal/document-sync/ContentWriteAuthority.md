@@ -17,12 +17,12 @@ cited ancestor refreshes the served history before it verifies the frozen
 response. Honest fresh projections include all retained cited heads; a second
 missing dependency after the one runtime refresh still fails verification.
 This applies to submitted document responses and attachment ciphertext. An
-attachment hydration run shares one refresh across its concurrent decryptions.
+attachment hydration or key-rewrap run shares one refresh across its decryptions.
 
 | Model action or predicate | Production seam |
 | --- | --- |
 | `CommitWrite` | `assertWriteHeaderPathCitations`, `resolveCurrentContainerManifestRefs` |
-| `ReadWrite` | `documentWriteAuthorizationForHeader`, `resolveEventContainerPaths`, `resolveSubmittedDocumentSyncResult`, `createAttachmentDecryptor` |
+| `ReadWrite` | `documentWriteAuthorizationForHeader`, `resolveEventContainerPaths`, `resolveSubmittedDocumentSyncResult`, `createAttachmentProofReader` |
 | `ReadCurrentMembership` | `resolveHistoricalContainerPathUserAccessLevel` |
 | `HonestWritesRemainReadable` | `verifyWriteHeader`, `verifyAttachmentBindingEvent` |
 | `NewWritesUseCurrentAuthority` | `assertCurrentContainerPath` |

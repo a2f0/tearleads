@@ -90,3 +90,11 @@ record to adopt progress written by another pane before retrying from page one.
 This is a flag-day contract. The SDK has no compatibility path for previous
 split-create, split-commit, void-enqueue, or optional identity-probe adapter
 shapes.
+
+`saveHydratedAttachment(...)` compares the slot's observed storage key with the
+current durable row inside an immediate transaction. A mismatch returns `false`.
+Its synchronous `stillCurrent` guard runs immediately before commit dispatch;
+refusal rolls back the replacement. Replaced or refused byte copies enter the
+reference-checked orphan reclaim queue. Memory adapters must preserve the same
+compare-and-set behavior. Attachment entries require `contentSha256`, the
+plaintext digest stored inside authenticated encrypted document content.

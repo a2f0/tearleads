@@ -249,14 +249,25 @@ export interface DocumentLinkSetManifestState
   eventHash: string;
 }
 
+export interface DocumentBlobRewrap {
+  readonly blobId: string;
+  readonly contentKeyEpoch: number;
+  readonly targets: readonly (BlobContentKeyTarget & {
+    readonly wrappedKey: string;
+    readonly wrappingMetadata: KeyingCanonicalJson;
+  })[];
+}
+
 export interface DocumentLinkAccessEventBody {
   eventType: "document.link";
+  blobRewraps: readonly DocumentBlobRewrap[];
   containerId: string;
   containerManifestHash: string;
 }
 
 export interface DocumentUnlinkAccessEventBody {
   eventType: "document.unlink";
+  blobRewraps: readonly DocumentBlobRewrap[];
   containerId: string;
   containerManifestHash: string;
 }

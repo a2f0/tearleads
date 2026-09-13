@@ -1,0 +1,147 @@
+import { expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import { blobContentKeyTargets } from "@tearleads/api-shared/schema";
+import { createTestUser } from "@tearleads/bob-and-alice";
+import { normalizeDocumentAccessEventBody } from "@tearleads/crypto";
+import { isDocumentLinkSetMutationResponse } from "@tearleads/validators/response";
+import { eq } from "drizzle-orm";
+import { authenticate } from "../../../test/helpers/authenticate";
+import {
+  bindForTest,
+  buildBind,
+  stageBlob,
+} from "../../../test/helpers/blobAttachmentKit";
+import {
+  buildDocumentLinkRequest,
+  buildDocumentUnlinkRequest,
+} from "../../../test/helpers/documentLinkMutation";
+import { createChildContainer } from "../../../test/helpers/keyingWriterProjectionChild";
+import {
+  bootstrapRoot,
+  createDocument,
+  kekStateFromContainerResponse,
+} from "../../../test/helpers/keyingWriterProjectionKit";
+import { registerUser } from "../../../test/helpers/registerUser";
+import { getCurrentAccessManifestHead } from "../../access/read/accessManifestStore";
+import { routeApp } from "../../routeApp";
+import { readKeyingCanonicalJson } from "../../utils/canonicalJson";
+
+test("link and unlink atomically cover active blob bindings and retain prior wraps", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const child = await createChildContainer({ parent: root, signer: owner });
+  const document = await createDocument({ owner, root });
+  const blobId = crypto.randomUUID();
+  const stagedBlob = await stageBlob(owner);
+  const { request: bind } = await buildBind({
+    blobId,
+    document,
+    owner,
+    root,
+    stagedBlob,
+  });
+  await bindForTest({ blobId, owner, request: bind });
+  const post = (operation: "link" | "unlink", request: unknown) =>
+    routeApp.request(`/documents/${document.id}/${operation}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(request),
+    });
+  const missing = await buildDocumentLinkRequest({
+    child,
+    createdDocument: document,
+    owner,
+    root,
+  });
+  expect((await post("link", missing)).status).toBe(409);
+  expect(
+    (await getCurrentAccessManifestHead("document", document.id, db))
+      ?.manifestHash,
+  ).toBe(document.accessManifest.manifestHash);
+  const childKek = kekStateFromContainerResponse(child);
+  const rawTarget = bind.contentKeyBundle.targets[0];
+  if (!rawTarget) throw new Error("Expected initial blob target");
+  const target = {
+    ...rawTarget,
+    wrappingMetadata: readKeyingCanonicalJson(
+      rawTarget.wrappingMetadata,
+      "test wrap",
+    ),
+  };
+  const blobRewraps = [
+    {
+      blobId,
+      contentKeyEpoch: 1,
+      targets: [
+        target,
+        {
+          ...target,
+          containerId: child.containerId,
+          containerManifestHash: childKek.accessManifestHash,
+          containerKeyEpochId: childKek.containerKeyEpochId,
+          containerKeyEpoch: childKek.containerKeyEpoch,
+          wrappedKey: "new-child-wrap",
+        },
+      ],
+    },
+  ];
+  const link = await buildDocumentLinkRequest({
+    child,
+    createdDocument: document,
+    owner,
+    root,
+    blobRewraps,
+  });
+  const tampered = structuredClone(link);
+  Reflect.set(tampered, "body", {
+    ...normalizeDocumentAccessEventBody(
+      readKeyingCanonicalJson(link.body, "link body"),
+    ),
+    blobRewraps: [],
+  });
+  expect((await post("link", tampered)).status).not.toBe(200);
+  const response = await post("link", link);
+  const linked = await response.json();
+  expect({ status: response.status, body: linked }).toMatchObject({
+    status: 200,
+  });
+  if (!isDocumentLinkSetMutationResponse(linked))
+    throw new Error("Expected linked document");
+  const wrapsAfterLink = await db
+    .select()
+    .from(blobContentKeyTargets)
+    .where(eq(blobContentKeyTargets.bindingId, target.bindingId));
+  expect(
+    wrapsAfterLink.some((row) => row.wrappedKey === "new-child-wrap"),
+  ).toBe(true);
+  expect(
+    wrapsAfterLink.filter((row) => row.wrappedKey === target.wrappedKey),
+  ).toHaveLength(2);
+  const unlink = await buildDocumentUnlinkRequest({
+    child,
+    linkedDocument: linked,
+    owner,
+    root,
+    blobRewraps: [{ blobId, contentKeyEpoch: 1, targets: [target] }],
+  });
+  const unlinked = await post("unlink", unlink);
+  expect({
+    status: unlinked.status,
+    body: await unlinked.json(),
+  }).toMatchObject({ status: 200 });
+  const wrapsAfterUnlink = await db
+    .select()
+    .from(blobContentKeyTargets)
+    .where(eq(blobContentKeyTargets.bindingId, target.bindingId));
+  expect(
+    wrapsAfterUnlink.some((row) => row.wrappedKey === "new-child-wrap"),
+  ).toBe(true);
+  expect(
+    wrapsAfterUnlink.some((row) => row.wrappedKey === target.wrappedKey),
+  ).toBe(true);
+});

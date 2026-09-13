@@ -55,6 +55,7 @@ function renderNoteEditorFields(
 }
 
 const attachment: DocumentAttachment = {
+  contentSha256: "1".repeat(64),
   byteLength: 1024,
   mimeType: "image/png",
   name: "diagram.png",
@@ -64,6 +65,7 @@ const attachment: DocumentAttachment = {
 // A type the full-screen image viewer cannot draw, so it exercises the panel
 // preview's own chrome rather than being routed away from it.
 const documentAttachment: DocumentAttachment = {
+  contentSha256: "1".repeat(64),
   byteLength: 2048,
   mimeType: "application/pdf",
   name: "spec.pdf",

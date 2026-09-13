@@ -115,6 +115,14 @@ export async function saveLocalAttachmentRecords(
     return;
   }
 
+  installLocalAttachmentRecords(state, attachments, currentDoc);
+}
+
+export function installLocalAttachmentRecords(
+  state: DocumentStoreState,
+  attachments: ReadonlyArray<LocalAttachmentRecord>,
+  currentDoc: DocumentState | null,
+) {
   state.attachmentBlobIdBySlotId = {
     ...state.attachmentBlobIdBySlotId,
     ...Object.fromEntries(

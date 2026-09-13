@@ -23,6 +23,17 @@ principal policies, derives the document link-set manifest, stores the manifest
 head, and validates the submitted content-key bundle against derived document
 KEK targets.
 
+Both link and unlink bodies require `blobRewraps`: one entry per blob actively
+bound to the changed document, with `blobId`, the immutable `contentKeyEpoch`,
+and complete wrapped `targets` for every active binding and resulting linked
+container. Document creation signs an empty array. The event signature covers
+the envelopes inline. Clients authenticate the existing blob ciphertext before
+rewrapping its content key for verified destination KEKs. The API checks the
+active binding frontier under the document-head lock, then takes sorted blob
+locks and commits links and envelopes atomically. Another document sharing a
+blob retains its own envelopes. Stale or incomplete rewraps conflict without
+advancing the document head.
+
 An unlink rotates the document content key and must carry a `rotationBaseline`
 — a signed `rotate_baseline` full-history snapshot whose source version vector
 covers the complete committed update frontier — with one exception: a document

@@ -1,5 +1,6 @@
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { BlobBytes } from "../../src/data/blobContracts";
+import { attachmentContentSha256 } from "../../src/data/documents/attachmentContentIdentity";
 import type { DocumentAttachment } from "../../src/data/documents/documentContent";
 import { uploadDocumentAttachment } from "../../src/workflows/blobs/upload";
 import {
@@ -98,6 +99,7 @@ export async function createUploadedAttachmentFixture() {
   };
 
   const attachment: DocumentAttachment = {
+    contentSha256: await attachmentContentSha256(bytes),
     byteLength: bytes.byteLength,
     mimeType: "text/plain",
     name: "payload.txt",

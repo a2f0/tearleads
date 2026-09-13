@@ -6,6 +6,8 @@ import {
   accessManifestHeads,
   accessManifests,
   attachmentBindings,
+  blobContentKeyEpochs,
+  blobContentKeyTargets,
   containerKeyEpochs,
 } from "@tearleads/api-shared/schema";
 import {
@@ -15,7 +17,7 @@ import {
 import { eq } from "drizzle-orm";
 import {
   type BlobContentKeyTargetEnvelope,
-  getLatestCurrentBlobContentKeyBundle,
+  getLatestBlobContentKeyBundle,
 } from "../read/blobContentKeyStore";
 import { resolveCurrentBlobKekTargets } from "../read/blobKekTargets";
 import {
@@ -424,13 +426,7 @@ test("storeBlobContentKeyBundle rewrites key packages without replacing blob byt
   });
   const rekeyedTargets = await resolveCurrentBlobKekTargets(blobId, db);
   const rekeyedEnvelopes = targetEnvelopes(rekeyedTargets, "rekeyed");
-  const staleBundle = await getLatestCurrentBlobContentKeyBundle(
-    {
-      blobId,
-      currentTargets: rekeyedTargets,
-    },
-    db,
-  );
+  const staleBundle = await getLatestBlobContentKeyBundle(blobId, db);
   expect(staleBundle?.targetHash).toBe(shrunkTargets.blobKeyTargetHash);
   expect(staleBundle?.targets).toEqual(initialEnvelopes);
 
@@ -445,6 +441,17 @@ test("storeBlobContentKeyBundle rewrites key packages without replacing blob byt
   );
   expect(rekeyed.contentKeyEpoch).toBe(1);
   expect(rekeyed.targets).toEqual(rekeyedEnvelopes);
+  const retained = await db
+    .select({ wrappedKey: blobContentKeyTargets.wrappedKey })
+    .from(blobContentKeyTargets)
+    .innerJoin(
+      blobContentKeyEpochs,
+      eq(blobContentKeyTargets.blobContentKeyEpochId, blobContentKeyEpochs.id),
+    )
+    .where(eq(blobContentKeyEpochs.blobId, blobId));
+  for (const prior of initialEnvelopes) {
+    expect(retained.map((row) => row.wrappedKey)).toContain(prior.wrappedKey);
+  }
 
   await expect(
     storeBlobContentKeyBundle(

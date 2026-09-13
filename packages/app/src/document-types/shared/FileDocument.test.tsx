@@ -47,24 +47,28 @@ const readFields = [
   { label: "Source Modified", value: "" },
 ];
 const pngAttachment: DocumentAttachment = {
+  contentSha256: "1".repeat(64),
   byteLength: 1024,
   mimeType: "image/png",
   name: "logo.png",
   slotId: "png-slot",
 };
 const audioAttachment: DocumentAttachment = {
+  contentSha256: "1".repeat(64),
   byteLength: 8192,
   mimeType: "audio/mpeg",
   name: "voice.mp3",
   slotId: "audio-slot",
 };
 const videoAttachment: DocumentAttachment = {
+  contentSha256: "1".repeat(64),
   byteLength: 16_384,
   mimeType: "video/mp4",
   name: "clip.mp4",
   slotId: "video-slot",
 };
 const pdfAttachment: DocumentAttachment = {
+  contentSha256: "1".repeat(64),
   byteLength: 32_768,
   mimeType: "application/pdf",
   name: "paper.pdf",

@@ -17,7 +17,6 @@ import {
 } from "../../data/documents/blob/shared/crypto";
 import { unwrapBlobContentKey } from "../../data/documents/blob/shared/projection";
 import {
-  contentKeyTargetReference,
   parseBlobEncryptedBytes,
   readBlobKekTarget,
   readDocumentManifestIdentity,
@@ -33,7 +32,6 @@ import { assertDocumentWriterProjectionConsistent } from "../../data/documents/s
 import {
   asWebCryptoBytes,
   readWriteHeader,
-  serializeCanonical,
   uniqueSortedStrings,
 } from "../../data/documents/shared/readers";
 import { projectionVerificationOptions } from "../../data/documents/shared/types";
@@ -46,6 +44,7 @@ import {
 import { resolveEventContainerPaths } from "../../data/keyingProjectionVerification/documentDependencyPaths";
 
 import { assertAttachmentBindingVerified } from "./attachmentBindingVerification";
+import { assertBlobWrapScopeVerified } from "./verifiedWrapScope";
 
 async function assertBlobEncryptionMetadata(input: {
   readonly contentKeyBundle: DecryptDocumentAttachmentBlobInput["binding"]["contentKeyBundle"];
@@ -132,7 +131,7 @@ async function decryptBlobChunks(input: {
   return asWebCryptoBytes(decrypted);
 }
 
-export async function decryptDocumentAttachmentBlob({
+export async function decryptDocumentAttachmentBlobWithKey({
   binding,
   encryptedBytes,
   expectedDocumentId,
@@ -141,7 +140,10 @@ export async function decryptDocumentAttachmentBlob({
   resolveProjectionUserKey,
   targetSecretKey,
   writerProjection,
-}: DecryptDocumentAttachmentBlobInput): Promise<BlobBytes> {
+}: DecryptDocumentAttachmentBlobInput): Promise<{
+  bytes: BlobBytes;
+  contentKey: Uint8Array;
+}> {
   const requiredResolveProjectionUserKey = requireProjectionUserKeyResolver(
     resolveProjectionUserKey,
     "Document attachment blob decrypt",
@@ -153,6 +155,7 @@ export async function decryptDocumentAttachmentBlob({
   const encrypted = parseBlobEncryptedBytes(encryptedBytes);
   let documentAuthorization: DocumentWriterProjectionAuthorization | undefined;
   await assertDocumentWriterProjectionConsistent(writerProjection, {
+    allowStaleContentKeyBundle: true,
     execSql,
     onVerifiedAuthorization: (authorization) => {
       documentAuthorization = authorization;
@@ -183,6 +186,13 @@ export async function decryptDocumentAttachmentBlob({
     resolveProjectionUserKey: requiredResolveProjectionUserKey,
   });
 
+  if (!documentAuthorization)
+    throw new Error("Blob document authorization is unavailable");
+  assertBlobWrapScopeVerified({
+    authorization: documentAuthorization,
+    binding,
+    documentId,
+  });
   const contentKey = await unwrapBlobContentKey({
     contentKeyBundle: binding.contentKeyBundle,
     documentId,
@@ -202,12 +212,19 @@ export async function decryptDocumentAttachmentBlob({
     organizationId,
     usage: "decrypt",
   });
-  return decryptBlobChunks({
+  const bytes = await decryptBlobChunks({
     encrypted,
     expectedBlobId: binding.blobId,
     organizationId,
     recordKey,
   });
+  return { bytes, contentKey };
+}
+
+export async function decryptDocumentAttachmentBlob(
+  input: DecryptDocumentAttachmentBlobInput,
+): Promise<BlobBytes> {
+  return (await decryptDocumentAttachmentBlobWithKey(input)).bytes;
 }
 
 function assertStringSetEquals(input: {
@@ -228,7 +245,6 @@ function assertStringSetEquals(input: {
 async function verifiedBlobKekTargetsForBinding(input: {
   readonly binding: DecryptDocumentAttachmentBlobInput["binding"];
   readonly requireBindingMembership: boolean;
-  readonly requireCurrentBundleMatch: boolean;
   readonly projection: BlobKekTargetsResponse | undefined;
 }) {
   const { binding, projection } = input;
@@ -240,22 +256,8 @@ async function verifiedBlobKekTargetsForBinding(input: {
       readBlobKekTarget(target, `Attachment blob KEK target[${index}]`),
     ),
   );
-  const bundleTargets = input.requireCurrentBundleMatch
-    ? sortBlobTargets(
-        binding.contentKeyBundle.targets.map(contentKeyTargetReference),
-      )
-    : null;
-  if (
-    bundleTargets &&
-    serializeCanonical(targets, "Attachment blob KEK targets") !==
-      serializeCanonical(bundleTargets, "Attachment content-key targets")
-  ) {
-    throw new Error("Attachment blob KEK targets differ from wrapped targets");
-  }
   const targetHash = await computeBlobContentKeyTargetHash(targets);
   if (
-    (input.requireCurrentBundleMatch &&
-      targetHash !== binding.contentKeyBundle.targetHash) ||
     targetHash !== projection.blobKeyTargetHash ||
     projection.blobId !== binding.blobId
   ) {
@@ -264,9 +266,6 @@ async function verifiedBlobKekTargetsForBinding(input: {
   if (
     input.requireBindingMembership &&
     (!projection.activeBindingIds.includes(binding.bindingId) ||
-      !projection.documentManifestHashes.includes(
-        binding.documentManifestHash ?? "",
-      ) ||
       !targets.some(
         (target) =>
           target.bindingId === binding.bindingId &&
@@ -342,7 +341,6 @@ async function assertBlobWriteHeaderVerified(input: {
     binding: input.binding,
     projection: input.binding.blobKekTargets,
     requireBindingMembership: true,
-    requireCurrentBundleMatch: true,
   });
   const blobKekTargets = await verifiedBlobKekTargetsForBinding({
     binding: input.binding,
@@ -351,7 +349,6 @@ async function assertBlobWriteHeaderVerified(input: {
     // authorization describes the older target set committed when the bytes
     // were written, so a later valid binding need not appear in that set.
     requireBindingMembership: false,
-    requireCurrentBundleMatch: false,
   });
   const ciphertextHash = bytesToHex(
     new Uint8Array(

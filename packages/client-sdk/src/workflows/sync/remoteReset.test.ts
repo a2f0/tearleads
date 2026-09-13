@@ -53,6 +53,7 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
     doc.getText("text").update("keep this note");
     addDocumentAttachments(doc, [
       {
+        contentSha256: "1".repeat(64),
         byteLength: 12,
         mimeType: "image/png",
         name: "photo.png",

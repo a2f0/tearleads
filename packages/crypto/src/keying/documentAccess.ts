@@ -11,6 +11,10 @@ import {
   requireEventDependency,
 } from "./documentAccessAuthorization";
 import {
+  assertDocumentBlobRewrapScope,
+  normalizeDocumentBlobRewraps,
+} from "./documentBlobRewraps";
+import {
   assertExactKeys,
   normalizeUniqueSortedStrings,
   ok,
@@ -195,12 +199,13 @@ function normalizeDocumentLinkAccessEventBody(
 ): DocumentLinkAccessEventBody {
   const record = assertExactKeys(
     value,
-    ["containerId", "containerManifestHash", "eventType"],
+    ["blobRewraps", "containerId", "containerManifestHash", "eventType"],
     "document.link event body",
   );
 
   return {
     eventType: "document.link",
+    blobRewraps: normalizeDocumentBlobRewraps(record.blobRewraps),
     containerId: readString(record, "containerId", "document.link event body"),
     containerManifestHash: readHashString(
       record,
@@ -215,12 +220,13 @@ function normalizeDocumentUnlinkAccessEventBody(
 ): DocumentUnlinkAccessEventBody {
   const record = assertExactKeys(
     value,
-    ["containerId", "containerManifestHash", "eventType"],
+    ["blobRewraps", "containerId", "containerManifestHash", "eventType"],
     "document.unlink event body",
   );
 
   return {
     eventType: "document.unlink",
+    blobRewraps: normalizeDocumentBlobRewraps(record.blobRewraps),
     containerId: readString(
       record,
       "containerId",
@@ -698,6 +704,12 @@ function deriveInitialDocumentLinkSetManifestState(
   input: DocumentLinkSetManifestDerivationInput,
   body: DocumentLinkAccessEventBody,
 ): DocumentLinkSetManifestState {
+  if (body.blobRewraps.length !== 0) {
+    throwVerification(
+      "invalid_shape",
+      "initial document.link cannot rewrap attachments",
+    );
+  }
   if (input.event.event.previousManifestHash !== null) {
     throwVerification(
       "stale_predecessor",
@@ -861,6 +873,7 @@ export async function verifyDocumentLinkSetManifest({
       principalPolicies,
       targetContainerPath,
     });
+    assertDocumentBlobRewrapScope(body.blobRewraps, state);
     const derivedManifest = await deriveDocumentLinkSetManifest(state);
     const derivedManifestHash =
       await computeAccessManifestHash(derivedManifest);

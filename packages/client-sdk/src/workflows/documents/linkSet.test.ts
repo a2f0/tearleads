@@ -77,6 +77,7 @@ test("buildMaterializedDocumentLinkSetMutationPlan adds links without rotating a
   };
 
   const linked = await buildMaterializedDocumentLinkSetMutationPlan({
+    prepareBlobRewraps: async () => [],
     author,
     operation: "link",
     signedAt: "2026-04-27T00:00:00.000Z",
@@ -118,6 +119,7 @@ test("buildMaterializedDocumentLinkSetMutationPlan adds links without rotating a
   );
   const rotatedContentKey = crypto.getRandomValues(new Uint8Array(32));
   const unlinked = await buildMaterializedDocumentLinkSetMutationPlan({
+    prepareBlobRewraps: async () => [],
     author,
     contentKey: rotatedContentKey,
     operation: "unlink",
@@ -179,6 +181,7 @@ test("buildMaterializedDocumentLinkSetMutationPlan rejects split writer projecti
 
   await expect(
     buildMaterializedDocumentLinkSetMutationPlan({
+      prepareBlobRewraps: async () => [],
       author,
       operation: "link",
       targetContainerProjection: siblingProjection,
@@ -229,6 +232,7 @@ test("buildMaterializedDocumentSyncPlan rejects authorizing paths outside the do
     documentManifest: createdResponse.accessManifest,
   };
   const linked = await buildMaterializedDocumentLinkSetMutationPlan({
+    prepareBlobRewraps: async () => [],
     author,
     operation: "link",
     targetContainerProjection: siblingProjection,
@@ -353,6 +357,7 @@ test("buildMaterializedDocumentLinkSetMutationPlan names inaccessible remaining 
     documentManifest: createdResponse.accessManifest,
   };
   const linked = await buildMaterializedDocumentLinkSetMutationPlan({
+    prepareBlobRewraps: async () => [],
     author,
     operation: "link",
     targetContainerProjection: siblingProjection,
@@ -375,6 +380,7 @@ test("buildMaterializedDocumentLinkSetMutationPlan names inaccessible remaining 
 
   await expect(
     buildMaterializedDocumentLinkSetMutationPlan({
+      prepareBlobRewraps: async () => [],
       author,
       operation: "unlink",
       targetContainerProjection: projection,

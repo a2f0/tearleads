@@ -145,6 +145,7 @@ test.skipIf(databaseKind !== "turso")(
       await db.insert(blobContentKeyTargets).values({
         bindingId: crypto.randomUUID(),
         blobContentKeyEpochId: crypto.randomUUID(),
+        bundleTargetHash: "foreign-key-test-targets",
         containerId: crypto.randomUUID(),
         containerKeyEpoch: 1,
         containerKeyEpochId: crypto.randomUUID(),

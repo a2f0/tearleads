@@ -43,6 +43,7 @@ test("historical content writes retain a grant added after the leaf parent pin",
   const event = await createVerifiedDocumentAccessEvent({
     body: {
       eventType: "document.link",
+      blobRewraps: [],
       containerId: child1.state.containerId,
       containerManifestHash: child1.manifestHash,
     },

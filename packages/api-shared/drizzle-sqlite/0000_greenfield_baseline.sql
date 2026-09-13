@@ -163,6 +163,7 @@ CREATE INDEX `blob_content_key_epochs_target_idx` ON `blob_content_key_epochs` (
 CREATE TABLE `blob_content_key_targets` (
 	`id` text PRIMARY KEY NOT NULL,
 	`blob_content_key_epoch_id` text NOT NULL,
+	`bundle_target_hash` text NOT NULL,
 	`binding_id` text NOT NULL,
 	`document_id` text NOT NULL,
 	`container_id` text NOT NULL,
@@ -178,7 +179,7 @@ CREATE TABLE `blob_content_key_targets` (
 CREATE INDEX `blob_content_key_targets_epoch_idx` ON `blob_content_key_targets` (`blob_content_key_epoch_id`);--> statement-breakpoint
 CREATE INDEX `blob_content_key_targets_binding_idx` ON `blob_content_key_targets` (`binding_id`);--> statement-breakpoint
 CREATE INDEX `blob_content_key_targets_container_epoch_idx` ON `blob_content_key_targets` (`container_key_epoch_id`);--> statement-breakpoint
-CREATE UNIQUE INDEX `blob_content_key_targets_epoch_binding_container_idx` ON `blob_content_key_targets` (`blob_content_key_epoch_id`,`binding_id`,`document_id`,`container_id`);--> statement-breakpoint
+CREATE UNIQUE INDEX `blob_content_key_targets_epoch_binding_container_idx` ON `blob_content_key_targets` (`blob_content_key_epoch_id`,`bundle_target_hash`,`binding_id`,`document_id`,`container_id`);--> statement-breakpoint
 CREATE TABLE `blob_content_write_headers` (
 	`record_id` text PRIMARY KEY NOT NULL,
 	`blob_id` text NOT NULL,

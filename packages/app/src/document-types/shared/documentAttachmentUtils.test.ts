@@ -50,12 +50,14 @@ test("attachment lookup returns the latest slot binding", () => {
   const attachment = getLatestDocumentAttachmentBySlotId(
     [
       {
+        contentSha256: "1".repeat(64),
         byteLength: 10,
         mimeType: "image/jpeg",
         name: "front-original.jpg",
         slotId: "front",
       },
       {
+        contentSha256: "1".repeat(64),
         byteLength: 20,
         mimeType: "image/jpeg",
         name: "front-updated.jpg",
@@ -66,6 +68,7 @@ test("attachment lookup returns the latest slot binding", () => {
   );
 
   expect(attachment).toEqual({
+    contentSha256: "1".repeat(64),
     byteLength: 20,
     mimeType: "image/jpeg",
     name: "front-updated.jpg",

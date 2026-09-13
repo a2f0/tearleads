@@ -194,6 +194,7 @@ async function createVerifiedDocumentLinkSetManifest(input: {
 }): Promise<VerifiedDocumentLinkSetManifest> {
   const event = await createVerifiedEvent({
     body: {
+      blobRewraps: [],
       eventType: "document.link",
       containerId: input.linkedContainerIds[0],
       containerManifestHash: input.containerManifestHashes[0],

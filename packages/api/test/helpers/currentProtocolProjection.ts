@@ -59,6 +59,7 @@ export async function createCurrentDocumentProjection(input: {
       throw new Error("Signed document fixture container head is missing");
     }
     const body: DocumentLinkAccessEventBody = {
+      blobRewraps: [],
       eventType: "document.link",
       containerId,
       containerManifestHash: containerHead.manifestHash,

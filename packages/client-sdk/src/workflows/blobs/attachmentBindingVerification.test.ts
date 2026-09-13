@@ -13,6 +13,7 @@ async function historicalBinding(omitAncestor = false) {
   const { root1, root2, child1, mallory } = scenario;
   const documentEvent = await createVerifiedDocumentAccessEvent({
     body: {
+      blobRewraps: [],
       eventType: "document.link",
       containerId: child1.state.containerId,
       containerManifestHash: child1.manifestHash,

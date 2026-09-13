@@ -5,6 +5,7 @@ import type { FileViewer, ViewFileRequest } from "../../host/FileViewer";
 import { useFileDocumentPdfPreview } from "./FileDocumentPdfPreview";
 
 const attachment: DocumentAttachment = {
+  contentSha256: "1".repeat(64),
   byteLength: 4,
   mimeType: "application/pdf",
   name: "paper.pdf",

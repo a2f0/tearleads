@@ -84,8 +84,9 @@ export const blobContentKeyEpochs = pgTable(
  *
  * Columns:
  * - `id`: Surrogate database primary key. Domain identity is
- *   `(blobContentKeyEpochId, bindingId, documentId, containerId)`.
+ *   `(blobContentKeyEpochId, bundleTargetHash, bindingId, documentId, containerId)`.
  * - `blobContentKeyEpochId`: Parent blob content-key epoch row.
+ * - `bundleTargetHash`: Immutable target-set identity; older sets remain retained.
  * - `bindingId`: Active attachment binding that makes this blob reachable.
  * - `documentId`: Document containing the attachment binding.
  * - `containerId`: Linked container recipient for this target.
@@ -106,7 +107,8 @@ export const blobContentKeyEpochs = pgTable(
  * - `blobContentKeyEpochId` supports loading the full target set for an epoch.
  * - `bindingId` supports attachment-binding oriented fanout and diagnostics.
  * - `containerKeyEpochId` supports reverse lookups by container KEK material.
- * - `(blobContentKeyEpochId, bindingId, documentId, containerId)` is unique so
+ * - `(blobContentKeyEpochId, bundleTargetHash, bindingId, documentId, containerId)`
+ *   is unique so
  *   an epoch has at most one envelope for each binding/document/container
  *   target.
  */
@@ -117,6 +119,7 @@ export const blobContentKeyTargets = pgTable(
     blobContentKeyEpochId: uuid("blob_content_key_epoch_id")
       .notNull()
       .references(() => blobContentKeyEpochs.id),
+    bundleTargetHash: text("bundle_target_hash").notNull(),
     bindingId: uuid("binding_id").notNull(),
     documentId: uuid("document_id").notNull(),
     containerId: uuid("container_id").notNull(),
@@ -137,6 +140,7 @@ export const blobContentKeyTargets = pgTable(
     ),
     uniqueIndex("blob_content_key_targets_epoch_binding_container_idx").on(
       table.blobContentKeyEpochId,
+      table.bundleTargetHash,
       table.bindingId,
       table.documentId,
       table.containerId,

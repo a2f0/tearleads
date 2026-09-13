@@ -200,6 +200,7 @@ async function buildDocumentLinkRequest(input: {
   const previousState = input.createdDocument.accessManifest.state;
   const documentId = input.createdDocument.id;
   const body: DocumentLinkAccessEventBody = {
+    blobRewraps: [],
     eventType: "document.link",
     containerId: input.child.containerId,
     containerManifestHash: childBundle.manifestHash,
@@ -306,6 +307,7 @@ async function buildDocumentUnlinkRequest(input: {
   const previousState = input.linkedDocument.accessManifest.state;
   const documentId = input.linkedDocument.id;
   const body: DocumentAccessEventBody = {
+    blobRewraps: [],
     eventType: "document.unlink",
     containerId: input.child.containerId,
     containerManifestHash: childBundle.manifestHash,
@@ -2197,6 +2199,7 @@ test("POST /documents/:documentId/unlink rejects removing the final signed link"
   const root = await bootstrapRoot(owner);
   const createdDocument = await createDocument({ owner, root });
   const body: DocumentAccessEventBody = {
+    blobRewraps: [],
     eventType: "document.unlink",
     containerId: root.kekState.containerId,
     containerManifestHash: root.bundle.manifestHash,

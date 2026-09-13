@@ -13,7 +13,7 @@ const DOCUMENT_PLAINTEXT_HASH_DOMAIN =
   "tearleads.document.content-record-plaintext";
 
 export function normalizeCanonicalJsonValue(
-  value: KeyingCanonicalJson,
+  value: unknown,
   label: string,
 ): KeyingCanonicalJson {
   if (

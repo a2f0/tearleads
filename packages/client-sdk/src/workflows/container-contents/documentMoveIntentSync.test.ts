@@ -138,6 +138,7 @@ async function runQueuedDocumentMoveFixture(input: {
     const submittedOperations: string[] = [];
     const runtime: ContainerContentsWorkflowRuntime = {
       apiClient: createMockApiClient({
+        listDocumentAttachments: async () => [],
         getContainerWriterProjection: async (containerId: string) => {
           if (containerId === rootProjection.containerId) {
             return rootProjection;
