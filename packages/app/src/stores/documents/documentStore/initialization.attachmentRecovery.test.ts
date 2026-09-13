@@ -22,9 +22,13 @@ import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 // on restart the attachment silently disappeared (and its bytes uploaded to a
 // binding nothing referenced). Init must rebuild the dropped slot from the
 // durable pending row.
-test.each([false, true])(
-  "an interrupted attachment write recovers its content identity (replacing=%s)",
-  async (replacing) => {
+test.each([
+  [false, true],
+  [true, true],
+  [false, false],
+] as const)(
+  "an interrupted attachment write recovers its content identity (replacing=%s, bytes=%s)",
+  async (replacing, bytesAvailable) => {
     const persistence = createDocumentsPersistence();
     const encapsulationKeyPair = generateKemSeedAndKeyPair();
     const localId = `recovered-attachment-note-${replacing}`;
@@ -79,6 +83,11 @@ test.each([false, true])(
     });
     await persistence.savePendingAttachment(runtime.infra.execSql, {
       byteLength: 15,
+      contentSha256: bytesToHex(
+        new Uint8Array(
+          await crypto.subtle.digest("SHA-256", new Uint8Array(15)),
+        ),
+      ),
       localId,
       mimeType: "image/png",
       name: "recovered.png",
@@ -86,10 +95,16 @@ test.each([false, true])(
       storageKey,
     });
 
-    await runtime.infra.blobStore.writeBytes(
-      storageKey,
-      new Uint8Array(localId.startsWith("recovered") ? 15 : 12),
+    if (bytesAvailable)
+      await runtime.infra.blobStore.writeBytes(storageKey, new Uint8Array(15));
+    let byteSourceReads = 0;
+    const openByteSource = runtime.infra.blobStore.openByteSource.bind(
+      runtime.infra.blobStore,
     );
+    runtime.infra.blobStore.openByteSource = async (key) => {
+      byteSourceReads++;
+      return openByteSource(key);
+    };
     const store = createDocumentStore(localId, runtime, persistence);
     // Capture every published snapshot to catch a transient empty-content flash:
     // the recovery persist must derive the snapshot from the loaded doc, not
@@ -113,6 +128,7 @@ test.each([false, true])(
     // is present again instead of silently disappearing.
     const attachments = store.getSnapshot().attachments;
     expect(attachments).toHaveLength(1);
+    expect(byteSourceReads).toBe(0);
     expect(attachments[0]?.slotId).toBe(slotId);
     expect(attachments[0]?.name).toBe("recovered.png");
     expect(attachments[0]?.byteLength).toBe(15);
@@ -158,6 +174,11 @@ test("a creation loser reloads attachment rows installed by the winner", async (
         );
       expect(createdAt).not.toBeNull();
       await basePersistence.savePendingAttachment(execSql, {
+        contentSha256: bytesToHex(
+          new Uint8Array(
+            await crypto.subtle.digest("SHA-256", new Uint8Array(12)),
+          ),
+        ),
         byteLength: 12,
         localId,
         mimeType: "text/plain",
@@ -181,10 +202,7 @@ test("a creation loser reloads attachment rows installed by the winner", async (
     createOfflineAttachmentRuntime(generateKemSeedAndKeyPair(), "container-a"),
     { infra: { blobStore: createMemoryBlobStore() } },
   );
-  await runtime.infra.blobStore.writeBytes(
-    storageKey,
-    new Uint8Array(localId.startsWith("recovered") ? 15 : 12),
-  );
+  await runtime.infra.blobStore.writeBytes(storageKey, new Uint8Array(12));
   const store = createDocumentStore(localId, runtime, persistence);
   store.updateRuntime(runtime);
 

@@ -73,6 +73,7 @@ test("loadPersistedDocumentStoreState uses the provided executor", async () => {
 test("savePendingDocumentAttachment uses the provided executor", async () => {
   const execSql = createNoopExecSql();
   const attachment: PendingAttachmentRecord = {
+    contentSha256: "0".repeat(64),
     byteLength: 12,
     localId: "local-document",
     mimeType: "text/plain",

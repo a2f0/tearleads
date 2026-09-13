@@ -100,6 +100,7 @@ test("an update persist refuses to resurrect a deleted row", async () => {
     const queuedAttachmentWrite = sqlDocumentsPersistence.savePendingAttachment(
       execSql,
       {
+        contentSha256: "0".repeat(64),
         byteLength: 1,
         localId: "victim",
         mimeType: "text/plain",

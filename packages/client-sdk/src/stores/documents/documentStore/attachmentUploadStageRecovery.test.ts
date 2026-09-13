@@ -74,6 +74,7 @@ test("a consumed stage whose committed binding was removed renews the durable up
   const generation = captureDocumentStoreSyncGeneration(state, null);
   if (!generation) throw new Error("Expected live attachment generation");
   const pending: PendingAttachmentRecord = {
+    contentSha256: "0".repeat(64),
     byteLength: 3,
     localId: state.localId,
     mimeType: "application/octet-stream",

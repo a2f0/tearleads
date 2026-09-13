@@ -29,7 +29,7 @@ async function openTestConnection(input: {
   };
 }
 
-function attachmentRows(storageKey: string) {
+function attachmentRows(storageKey: string, contentSha256 = "0".repeat(64)) {
   return {
     localAttachments: [
       {
@@ -44,6 +44,7 @@ function attachmentRows(storageKey: string) {
     ],
     pendingAttachments: [
       {
+        contentSha256,
         byteLength: 4,
         localId: "local-document",
         mimeType: "text/plain",
@@ -267,7 +268,10 @@ test("successful slot replacement queues the displaced blob key", async () => {
       connection.runtime.execSql,
       {
         acceptedPendingUpdateIds: [],
-        attachmentStaging: attachmentRows("replacement-storage"),
+        attachmentStaging: attachmentRows(
+          "replacement-storage",
+          "1".repeat(64),
+        ),
         document: { ...attachedRecord, snapshotEndVersion: "replaced" },
         expectedRecord: attachedRecord,
         settleAcceptedPendingOnConflict: false,
@@ -285,7 +289,9 @@ test("successful slot replacement queues the displaced blob key", async () => {
         connection.runtime.execSql,
         "local-document",
       ),
-    ).toMatchObject([{ storageKey: "replacement-storage" }]);
+    ).toMatchObject([
+      { contentSha256: "1".repeat(64), storageKey: "replacement-storage" },
+    ]);
     expect(
       await sqlDocumentsPersistence.listLocalAttachments(
         connection.runtime.execSql,

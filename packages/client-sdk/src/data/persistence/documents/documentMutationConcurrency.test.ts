@@ -216,6 +216,7 @@ test("startup record, history, and attachments share one database snapshot", asy
     storageKey: "old-local-key",
   };
   const oldPendingAttachment = {
+    contentSha256: "0".repeat(64),
     byteLength: 3,
     localId: original.id,
     mimeType: "text/plain",

@@ -413,6 +413,7 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
       .from(documentPendingAttachments);
     expect(pendingAttachments).toEqual([
       expect.objectContaining({
+        contentSha256: "1".repeat(64),
         byteLength: 12,
         localId: "doc-1",
         mimeType: "image/png",

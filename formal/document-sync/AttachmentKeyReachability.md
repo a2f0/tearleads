@@ -10,6 +10,7 @@ an unrelated document content-key bundle.
 | Model action or predicate | Production seam |
 | --- | --- |
 | `RetainedTargetsNeedCiphertext` / `LinkedDocumentCanUnlink` | `prepareDocumentLinkBlobRewraps` verifies retained binding scope without downloading ciphertext when no new envelope is needed |
+| `RemainingEnvelopesRetained` | `retainedTarget` requires an existing envelope at each remaining destination's current KEK epoch |
 | `PrepareLink` | `prepareDocumentLinkBlobRewraps` authenticates bytes and wraps their DEK to verified targets |
 | `CheckBindingFrontier` | `lockDocumentLinkBlobRewraps` checks all active bindings under the exclusive document head |
 | `CommitLink` / `UnlinkSource` | `applyDocumentLinkBlobRewraps` commits scoped wraps inside the link transaction |
@@ -51,3 +52,8 @@ the complete ciphertext. Retaining or removing existing envelopes verifies their
 signed binding and scope without fetching the bytes; invalid ciphertext does not
 block that removal. Creating a new recipient envelope still requires
 authenticated bytes.
+
+The unlink progress property applies while every remaining destination has an
+envelope for its current KEK epoch. A concurrent or earlier rekey can invalidate
+that precondition; producing the new envelope then requires ciphertext
+authentication even though the operation removes a link.

@@ -1,6 +1,9 @@
 import { createDocument, exportAllUpdates } from "@tearleads/loro";
 import { and, eq, or, sql } from "drizzle-orm";
-import { getDocumentAttachments } from "../../data/documents/documentContent";
+import {
+  type DocumentAttachment,
+  getDocumentAttachments,
+} from "../../data/documents/documentContent";
 import { createPendingUpdateFields } from "../../data/documents/documentSync";
 import { DOCUMENTS_APP_KIND } from "../../data/persistence/documents/documentsPersistence";
 import {
@@ -25,6 +28,7 @@ export interface ResetDocumentUpdate {
 
 export interface ResetAttachmentUpload {
   readonly byteLength: number;
+  readonly contentSha256: string;
   readonly localId: string;
   readonly mimeType: string | null;
   readonly name: string;
@@ -299,7 +303,10 @@ export async function buildResetPlans(
     });
     return update ? [update] : [];
   });
-  const attachmentNameMaps = new Map<string, Map<string, string>>();
+  const attachmentIntentMaps = new Map<
+    string,
+    Map<string, DocumentAttachment>
+  >();
   const attachmentLocalIds = [
     ...new Set(attachmentRows.map((attachment) => attachment.localId)),
   ];
@@ -310,12 +317,12 @@ export async function buildResetPlans(
     if (!doc) {
       continue;
     }
-    attachmentNameMaps.set(
+    attachmentIntentMaps.set(
       localId,
       new Map(
         getDocumentAttachments(doc).map((attachment) => [
           attachment.slotId,
-          attachment.name,
+          attachment,
         ]),
       ),
     );
@@ -329,19 +336,20 @@ export async function buildResetPlans(
   // there the marker is set but the snapshot still advertises the slot, and the
   // reset has to upload it to match the document it is about to republish.
   const attachmentUploads = attachmentRows.flatMap((attachment) => {
-    const name = attachmentNameMaps
+    const intent = attachmentIntentMaps
       .get(attachment.localId)
       ?.get(attachment.slotId);
-    if (name === undefined) {
+    if (intent === undefined) {
       return [];
     }
 
     return [
       {
         byteLength: attachment.byteLength,
+        contentSha256: intent.contentSha256,
         localId: attachment.localId,
         mimeType: attachment.mimeType,
-        name,
+        name: intent.name,
         slotId: attachment.slotId,
         storageKey: attachment.storageKey,
       },

@@ -53,8 +53,8 @@ test("orphan attachment bytes stay queued until local deletion succeeds", async 
     await sqlDocumentsPersistence.ensureSchema(execSql);
     await execSql(
       `INSERT INTO document_pending_attachments (
-        local_id, slot_id, name, storage_key, byte_length, created_at
-      ) VALUES ('orphan', 'slot', 'orphan.txt', 'orphan-storage', 1, ?)`,
+        local_id, slot_id, name, storage_key, byte_length, content_sha256, created_at
+      ) VALUES ('orphan', 'slot', 'orphan.txt', 'orphan-storage', 1, hex(zeroblob(32)), ?)`,
       [OLD],
     );
 
@@ -111,8 +111,8 @@ test("a queued key still referenced by a live row is acknowledged but not delete
     );
     await execSql(
       `INSERT INTO document_pending_attachments (
-        local_id, slot_id, name, storage_key, byte_length, created_at
-      ) VALUES ('live', 'slot', 'live.txt', 'shared-storage', 1, ?)`,
+        local_id, slot_id, name, storage_key, byte_length, content_sha256, created_at
+      ) VALUES ('live', 'slot', 'live.txt', 'shared-storage', 1, hex(zeroblob(32)), ?)`,
       [OLD],
     );
     await execSql(

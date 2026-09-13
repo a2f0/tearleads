@@ -181,8 +181,8 @@ test("listPendingWrites groups every durable source without exposing payloads", 
       `INSERT INTO document_pending_attachments (
         local_id, slot_id, name, mime_type, storage_key, byte_length,
         created_at, upload_blob_id, upload_content_key, upload_iv,
-        upload_content_key_epoch, upload_part_size, upload_stage_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        upload_content_key_epoch, upload_part_size, upload_stage_id, content_sha256
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, hex(zeroblob(32)))`,
       [
         "local-document",
         "attachment-slot",

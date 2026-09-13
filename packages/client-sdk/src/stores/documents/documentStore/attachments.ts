@@ -181,6 +181,7 @@ async function persistSlotAttachmentFile(
   const storageKey = `${state.localId}-${slotId}-${crypto.randomUUID()}`;
   const pendingAttachment: PendingAttachmentRecord = {
     byteLength: replacementAttachment.byteLength,
+    contentSha256: replacementAttachment.contentSha256,
     localId: state.localId,
     mimeType: replacementAttachment.mimeType,
     name: replacementAttachment.name,

@@ -59,6 +59,7 @@ export interface PendingAttachmentUploadIdentity {
 
 export interface PendingAttachmentRecord {
   byteLength: number;
+  contentSha256: string;
   localId: string;
   mimeType: string | null;
   name: string;

@@ -97,6 +97,7 @@ export async function upsertStoredAttachmentStagingRows(input: {
         ],
         set: {
           byteLength: row.byteLength,
+          contentSha256: row.contentSha256,
           mimeType: row.mimeType,
           name: row.name,
           storageKey: row.storageKey,

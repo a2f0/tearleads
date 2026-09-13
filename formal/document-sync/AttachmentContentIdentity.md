@@ -30,3 +30,9 @@ bindings carrying identical plaintext represent the same content identity.
 Missing or mismatching bytes are availability failures: a document update can
 arrive before its attachment upload. The model proves safety, not eventual
 availability, network ordering, or garbage collection.
+
+Pending upload rows persist the staging digest with the bytes and slot metadata.
+`recoverDroppedAttachmentSlots` restores that local intent without reading the
+byte file, including after the file becomes unavailable. This is the local
+input boundary for the model; runtime crash-recovery tests cover the interrupted
+write and unavailable-file cases.

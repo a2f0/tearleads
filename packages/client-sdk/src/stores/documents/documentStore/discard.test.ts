@@ -219,6 +219,7 @@ test("discard keeps server links and reclaims staged upload bytes", async () => 
     // which shares the staged storage key and would otherwise survive as a
     // mapping to the reclaimed bytes.
     await sqlDocumentsPersistence.savePendingAttachment(execSql, {
+      contentSha256: "0".repeat(64),
       byteLength: 5,
       localId,
       mimeType: "text/plain",
@@ -333,6 +334,7 @@ test("a failing byte store cannot fail the discard once rows committed", async (
     await sqlDocumentsPersistence.ensureSchema(execSql);
     await saveSyncedDocumentRecord(execSql, localId, "remote-doc", "folder-a");
     await sqlDocumentsPersistence.savePendingAttachment(execSql, {
+      contentSha256: "0".repeat(64),
       byteLength: 5,
       localId,
       mimeType: "text/plain",
@@ -423,6 +425,7 @@ test("stale writers cannot resurrect rows after a discard", async () => {
     await savePendingAttachmentUpload(
       state,
       {
+        contentSha256: "0".repeat(64),
         byteLength: 3,
         localId,
         mimeType: null,
@@ -493,6 +496,7 @@ test("stale writers cannot resurrect rows after a discard", async () => {
     // The refused-discard direction: rows the refusal preserved must survive
     // a stale delete racing the reset.
     await sqlDocumentsPersistence.savePendingAttachment(execSql, {
+      contentSha256: "0".repeat(64),
       byteLength: 4,
       localId,
       mimeType: null,

@@ -9,6 +9,7 @@ function createPendingAttachment(
   slotId = "attachment",
 ): PendingAttachmentRecord {
   return {
+    contentSha256: "0".repeat(64),
     byteLength: 80,
     localId: "document-local-id",
     mimeType: "application/pdf",

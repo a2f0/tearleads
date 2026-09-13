@@ -48,10 +48,13 @@ CommitLink ==
   /\ UNCHANGED <<bindings, epoch, observedBindings, observedEpoch,
                   planned, hydrated, relinkRejected>>
 
+RemainingEnvelopesRetained ==
+  Targets(bindings, {"destination"}, epoch) \subseteq wraps
+
 UnlinkSource ==
   /\ phase = "linked" /\ linked = Containers
-  (* One blob is unavailable; removing a target needs no new key envelope. *)
-  /\ ~RetainedTargetsNeedCiphertext
+  (* One blob is unavailable. A rekey can require a new envelope even on unlink. *)
+  /\ RemainingEnvelopesRetained /\ ~RetainedTargetsNeedCiphertext
   /\ linked' = {"destination"}
   /\ wraps' = IF RetainPriorWraps THEN wraps
               ELSE Targets(bindings, {"destination"}, epoch)
@@ -107,6 +110,7 @@ Idle == UNCHANGED vars
 Next == Idle \/ BindSecond \/ PrepareLink \/ CommitLink \/ UnlinkSource \/ RelinkSource \/ Hydrate
         \/ (\E c \in Containers : Rekey(c))
 LinkedDocumentCanUnlink ==
-  (phase = "linked" /\ linked = Containers) ~> (linked = {"destination"})
+  (phase = "linked" /\ linked = Containers) ~>
+    (linked = {"destination"} \/ ~RemainingEnvelopesRetained)
 Spec == Init /\ [][Next]_vars /\ WF_vars(UnlinkSource)
 =============================================================================

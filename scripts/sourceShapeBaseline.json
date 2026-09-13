@@ -263,7 +263,7 @@
       "bytes": 19608
     },
     "packages/client-sdk/src/stores/documents/documentStore/discard.test.ts": {
-      "lines": 545,
+      "lines": 549,
       "bytes": 18896
     },
     "packages/client-sdk/src/workflows/container-contents/documentDiscovery.test.ts": {
@@ -272,7 +272,7 @@
     },
     "packages/client-sdk/src/workflows/container-contents/documentInfo.test.ts": {
       "lines": 644,
-      "bytes": 19683
+      "bytes": 19720
     },
     "packages/client-sdk/src/workflows/blobs/hydrate.test.ts": {
       "lines": 572,

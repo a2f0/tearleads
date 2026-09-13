@@ -179,6 +179,7 @@ test("loadDocumentInfo reads local runtime, attachment, blob, and remote securit
       { updatedAt: "2026-05-18T10:00:00.000Z" },
     );
     await sqlDocumentsPersistence.savePendingAttachment(execSql, {
+      contentSha256: "0".repeat(64),
       byteLength: 12,
       localId: "local-document-1",
       mimeType: "image/png",

@@ -6,6 +6,7 @@ import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
 
 function createPendingAttachment(): PendingAttachmentRecord {
   return {
+    contentSha256: "0".repeat(64),
     byteLength: 12,
     localId: "local-document",
     mimeType: "application/octet-stream",

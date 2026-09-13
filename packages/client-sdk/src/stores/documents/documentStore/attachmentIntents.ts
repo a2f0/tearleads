@@ -18,8 +18,10 @@ export async function buildPendingAttachments(
     const slotId = crypto.randomUUID();
     const storageKey = `${localId}-${slotId}`;
     const byteLength = blobByteSourceInputLength(file.bytes);
+    const contentSha256 = await attachmentContentSha256(file.bytes);
     nextPendingAttachments.push({
       byteLength,
+      contentSha256,
       localId,
       mimeType: file.mimeType,
       name: file.name,
@@ -27,7 +29,7 @@ export async function buildPendingAttachments(
       storageKey,
     });
     nextAttachments.push({
-      contentSha256: await attachmentContentSha256(file.bytes),
+      contentSha256,
       byteLength,
       mimeType: file.mimeType,
       name: file.name,
