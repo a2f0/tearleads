@@ -122,6 +122,7 @@ export interface Session {
   ): Promise<SessionRecoverOrganizationResult | null>;
   setAuthToken(authToken: string | null): void;
   setContainerId(containerId: string | null): void;
+  /** Host-restored context must match the active signing identity; conflicting user acknowledgments throw. */
   setContext(context: SessionContext): void;
   setOrganizationId(organizationId: string | null): void;
   setSyncEnabled(enabled: boolean): void;

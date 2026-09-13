@@ -30,6 +30,26 @@ test("discovery cannot adopt or redirect an unacknowledged create", async () => 
     await expect(
       sqlDocumentsPersistence.loadDocument(database.execSql, documentId),
     ).resolves.toBeNull();
+    await database.execSql(
+      "DELETE FROM document_projection WHERE local_id = ?",
+      [pending.id],
+    );
+    const beforeMissingProjection = await sqlDocumentsPersistence.loadDocument(
+      database.execSql,
+      pending.id,
+    );
+    await expect(
+      sqlDocumentsPersistence.upsertDiscoveredDocument(database.execSql, {
+        accessEpoch: 8,
+        containerId: "shared-container",
+        createdAt: new Date().toISOString(),
+        documentId,
+        linkedContainerIds: ["shared-container"],
+      }),
+    ).rejects.toThrow("Pending create projection is unavailable");
+    await expect(
+      sqlDocumentsPersistence.loadDocument(database.execSql, pending.id),
+    ).resolves.toEqual(beforeMissingProjection);
   } finally {
     database.close();
   }

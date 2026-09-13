@@ -108,14 +108,12 @@ async function upsertDiscoveredDocumentWithExec(
     DOCUMENTS_APP_KIND,
     input.documentId,
   );
-  const localId =
-    existingLocalId ?? pendingCreates.get(input.documentId) ?? input.documentId;
-  if (!existingLocalId) {
-    const pending = await loadPendingCreateSummary(
-      execSql,
-      pendingCreates.get(input.documentId),
-    );
-    if (pending) return pending;
+  const localId = existingLocalId ?? input.documentId;
+  const pendingLocalId = pendingCreates.get(input.documentId);
+  if (!existingLocalId && pendingLocalId) {
+    const pending = await loadPendingCreateSummary(execSql, pendingLocalId);
+    if (!pending) throw new Error("Pending create projection is unavailable");
+    return pending;
   }
   const existingDocument = await sqlDocumentsPersistence.loadDocument(
     execSql,

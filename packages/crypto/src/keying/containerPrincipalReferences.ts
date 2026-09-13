@@ -41,10 +41,10 @@ export function assertContainerPrincipalReferencesProgress(
   next: readonly ContainerGrantPrincipalHead[],
 ): void {
   const previousById = new Map(
-    previous.map((head) => [head.principalId, head]),
+    previous.map((head) => [referencedPrincipalKey(head), head]),
   );
   for (const head of next) {
-    const prior = previousById.get(head.principalId);
+    const prior = previousById.get(referencedPrincipalKey(head));
     if (!prior) continue;
     if (head.version < prior.version || head.keyEpoch < prior.keyEpoch) {
       throwVerification(

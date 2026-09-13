@@ -1,4 +1,5 @@
 import type { ApiClient } from "@tearleads/api-client";
+import { toFingerprint } from "@tearleads/crypto";
 import type { DocumentProjectorRegistryInput } from "../../data/documents/documentKinds";
 import { removeNativeSubscriptionRestoreProvisioningAttempt } from "../../workflows/organizations/createOrganization";
 import {
@@ -332,6 +333,10 @@ class SessionService implements Session {
       return null;
     }
 
+    this.identityAcknowledgments.assertMatches(
+      response.userId,
+      await toFingerprint(signingKeyPair.signingPublicKey),
+    );
     await pinLocalUserIdentity(response.userId, {
       encapsulationPublicKey: encapsulationKeyPair.publicKey,
       signingPublicKey: signingKeyPair.signingPublicKey,
