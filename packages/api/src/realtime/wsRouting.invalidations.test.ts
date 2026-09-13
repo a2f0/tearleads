@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { applyContainerInterest } from "../../test/helpers/wsRouting";
 import { type WsConnection, WsEventRouter } from "./wsRouting";
 
 const AFFECTED_A = "00000000-0000-4000-8000-000000000101";
@@ -27,7 +28,8 @@ function declareInterest(
   containerIds: readonly string[],
 ): void {
   router.open(socket);
-  router.handleClientMessage(
+  applyContainerInterest(
+    router,
     socket,
     JSON.stringify({ type: "known_containers", containerIds }),
   );

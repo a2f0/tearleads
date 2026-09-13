@@ -359,8 +359,8 @@
       "bytes": 15349
     },
     "scripts/subsystems.ts": {
-      "lines": 757,
-      "bytes": 28174
+      "lines": 759,
+      "bytes": 28285
     },
     "packages/client-sdk/src/workflows/documents/syncPersistedProjectionIntegrity.test.ts": {
       "lines": 508,

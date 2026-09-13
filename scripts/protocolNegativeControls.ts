@@ -32,6 +32,30 @@ const NO_BRICK_ADVERSARY =
 
 export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   {
+    id: "unauthorized-container-interest",
+    module: "formal/realtime/ContainerInterest.tla",
+    config: "formal/realtime/ContainerInterest.cfg",
+    constants: { AuthorizeInterest: "FALSE" },
+    expect: { kind: "invariant", name: "OnlyReadableInterests" },
+    why: "Removing the AuthorizeInterest gate indexes an unauthorized or closed socket (#2266).",
+  },
+  {
+    id: "stale-container-interest-authorization",
+    module: "formal/realtime/ContainerInterest.tla",
+    config: "formal/realtime/ContainerInterest.cfg",
+    constants: { InvalidateOnAccessChange: "FALSE" },
+    expect: { kind: "invariant", name: "OnlyReadableInterests" },
+    why: "Removing the InvalidateOnAccessChange gate indexes an unauthorized or closed socket (#2266).",
+  },
+  {
+    id: "closed-socket-interest-authorization",
+    module: "formal/realtime/ContainerInterest.tla",
+    config: "formal/realtime/ContainerInterest.cfg",
+    constants: { CheckSocketOpen: "FALSE" },
+    expect: { kind: "invariant", name: "ClosedSocketsNeverIndexed" },
+    why: "Removing the CheckSocketOpen gate indexes an unauthorized or closed socket (#2266).",
+  },
+  {
     id: "host-restore-binds-a-switched-identity",
     module: "formal/local-trust/UnacknowledgedInput.tla",
     config: "formal/local-trust/UnacknowledgedInput.cfg",

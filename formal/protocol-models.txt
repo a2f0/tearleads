@@ -12,3 +12,4 @@ formal/document-sync/EmptyFrontierUnlink.tla|formal/document-sync/EmptyFrontierU
 formal/document-sync/RawHistoryRecovery.tla|formal/document-sync/RawHistoryRecovery.cfg
 formal/document-sync/RestartProbeConvergence.tla|formal/document-sync/RestartProbeConvergence.cfg
 formal/local-trust/UnacknowledgedInput.tla|formal/local-trust/UnacknowledgedInput.cfg
+formal/realtime/ContainerInterest.tla|formal/realtime/ContainerInterest.cfg
