@@ -20,6 +20,7 @@ import {
   createSqlRuntime,
   runtimeWithPatch,
 } from "../../../test/helpers/explorer-provider/explorerProviderHarness";
+import { createSignedExplorerRoots } from "../../../test/helpers/explorer-provider/signedExplorerRoots";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
 
 test("explorer hydration logs a fresh-bootstrap re-pull as reconciling already-local containers, not new downloads", async () => {
@@ -75,6 +76,13 @@ test("explorer hydration logs a fresh-bootstrap re-pull as reconciling already-l
   runtime = runtimeWithPatch(runtime, {
     apiClient: createMockApiClient({
       ...runtime.apiClient,
+      ...(await createSignedExplorerRoots([
+        {
+          id: "root-container",
+          organizationId: "org-2",
+          metadataDocumentId: "root-metadata-document",
+        },
+      ])),
       listContainerParentLanes: createContainerParentLaneBatchMock(
         async (options) =>
           options.parentId === null || options.parentId === undefined

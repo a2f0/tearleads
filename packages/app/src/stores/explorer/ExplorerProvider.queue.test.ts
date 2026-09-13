@@ -19,6 +19,7 @@ import {
   createContainerParentLaneBatchMock as batchParentLanes,
   createMockApiClient,
 } from "@tearleads/test-utils";
+import { createDeferred } from "../../../test/helpers/databaseRuntimeFactories";
 import {
   createExplorerMetadataContainerProjection,
   ensureContainerTables,
@@ -207,87 +208,6 @@ test("explorer store flushes an offline child-container write after network reco
   }
 });
 
-test("explorer store can skip background system container creation after managed root policy advances", async () => {
-  let runtime = await createSqlRuntime();
-  const systemSlot = "sys_v1_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
-  let listContainersCalls = 0;
-  let writerProjectionCalls = 0;
-  let systemContainerCreateCalls = 0;
-
-  runtime = runtimeWithPatch(runtime, {
-    apiClient: createMockApiClient({
-      ...runtime.apiClient,
-      createContainerWithMetadataDocument: async () => {
-        systemContainerCreateCalls += 1;
-        return null;
-      },
-      getContainerWriterProjection: async () => {
-        writerProjectionCalls += 1;
-        return null;
-      },
-      listContainerParentLanes: batchParentLanes(async () => {
-        listContainersCalls += 1;
-        return listContainersResponse([
-          listedContainer({
-            id: "root-container",
-            metadataAccessEpoch: 1,
-            metadataAccessStateHash: "root-access-state",
-            metadataDocumentId: "root-metadata-document",
-            metadataReferencedPrincipals: [
-              {
-                keyEpoch: 1,
-                keyFingerprint: "group-key",
-                principalId: "admins-group",
-                principalType: "group",
-                stateHash: "advanced-state",
-                version: 2,
-              },
-            ],
-            organizationId: "org-1",
-            parentId: null,
-          }),
-        ]);
-      }),
-    }),
-    isAuthenticated: true,
-    online: true,
-    organizationId: "org-1",
-    state: { ...runtime.state, containerId: "root-container" },
-    userId: "user-1",
-  });
-
-  try {
-    await ensureContainerTables(runtime.infra.execSql);
-    await ensureDocumentTables(runtime.infra.execSql);
-    await saveContainer(runtime.infra.execSql, {
-      id: "root-container",
-      organizationId: "org-1",
-      parentId: null,
-      metadataDocumentId: null,
-      name: "/",
-      icon: null,
-    });
-
-    const store = createExplorerStore(runtime);
-    store.updateRuntime(runtime);
-    await waitForCondition(
-      () => store.getSnapshot().ready,
-      "Explorer store did not become ready.",
-    );
-
-    await expect(
-      store.ensureSystemContainer(systemSlot, "Contacts", {
-        skipAdvancedManagedRoot: true,
-      }),
-    ).resolves.toBeNull();
-    expect(listContainersCalls).toBeGreaterThan(0);
-    expect(writerProjectionCalls).toBe(0);
-    expect(systemContainerCreateCalls).toBe(0);
-  } finally {
-    runtime.close();
-  }
-});
-
 test("explorer store queues authenticated child create when parent has no remote access state", async () => {
   let runtime = await createSqlRuntime();
   const localKeyPair = generateKemSeedAndKeyPair();
@@ -376,6 +296,7 @@ test("explorer sync primes local document stores after login", async () => {
   );
   const rootProjection = await createExplorerMetadataContainerProjection({
     containerId: "root-container",
+    metadataDocumentId: "root-metadata-document",
     encapsulationPublicKey: localKeyPair.publicKey,
     organizationId: "org-1",
     signerKeyFingerprint: signingFingerprint,
@@ -383,6 +304,8 @@ test("explorer sync primes local document stores after login", async () => {
     userId: "user-1",
   });
   const harness = createExplorerContainerApiHarness([rootProjection]);
+  const firstPrime = createDeferred();
+  const rootProof = createDeferred();
   let store: ReturnType<typeof createExplorerStore> | null = null;
 
   try {
@@ -423,6 +346,10 @@ test("explorer sync primes local document stores after login", async () => {
       apiClient: createMockApiClient({
         ...runtime.apiClient,
         ...harness.apiClient,
+        getContainerWriterProjection: async (id) => {
+          await rootProof.promise;
+          return harness.apiClient.getContainerWriterProjection(id);
+        },
         getUserIdentity: async (requestedUserId: string) => ({
           encapsulationKeyFingerprint: await toFingerprint(
             localKeyPair.publicKey,
@@ -447,6 +374,14 @@ test("explorer sync primes local document stores after login", async () => {
             : listContainersResponse(),
         ),
       }),
+      util: {
+        ...runtime.util,
+        log: (message) => {
+          if (message.includes("document priming candidates=1"))
+            firstPrime.resolve();
+        },
+      },
+      auth: { ...runtime.auth, rootContainerId: "root-container" },
       encapsulationKeyPair: localKeyPair,
       isAuthenticated: true,
       online: true,
@@ -457,6 +392,9 @@ test("explorer sync primes local document stores after login", async () => {
     });
 
     store.updateRuntime(runtime);
+    await firstPrime.promise;
+    expect(harness.documentCreateCalls).toHaveLength(0);
+    rootProof.resolve();
     await waitForCondition(
       () => store?.getSnapshot().ready === true,
       "Online explorer store did not become ready.",

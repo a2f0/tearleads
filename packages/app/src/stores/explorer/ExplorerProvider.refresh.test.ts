@@ -6,7 +6,6 @@ import {
   loadContainerSyncWatermark as loadExplorerContainerSyncWatermark,
 } from "@tearleads/client-sdk";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
-
 import {
   createContainerParentLaneBatchMock,
   createMockApiClient,
@@ -19,6 +18,7 @@ import {
   createSqlRuntime,
   runtimeWithPatch,
 } from "../../../test/helpers/explorer-provider/explorerProviderHarness";
+import { createSignedExplorerRoots } from "../../../test/helpers/explorer-provider/signedExplorerRoots";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
 
 test("explorer store refreshes remote containers on demand after initialization", async () => {
@@ -30,6 +30,13 @@ test("explorer store refreshes remote containers on demand after initialization"
   runtime = runtimeWithPatch(runtime, {
     apiClient: createMockApiClient({
       ...runtime.apiClient,
+      ...(await createSignedExplorerRoots([
+        {
+          id: "shared-root-container",
+          organizationId: "org-2",
+          metadataDocumentId: "shared-root-metadata-document",
+        },
+      ])),
       listContainerParentLanes: createContainerParentLaneBatchMock(
         async (options) => {
           listContainersCalls += 1;

@@ -154,6 +154,7 @@ export async function saveDocumentRecord(
 
 export async function createExplorerMetadataContainerProjection(input: {
   containerId: string;
+  metadataDocumentId?: string;
   encapsulationPublicKey: Uint8Array;
   organizationId: string;
   parentProjection?: ContainerWriterProjectionResponse;
@@ -164,7 +165,8 @@ export async function createExplorerMetadataContainerProjection(input: {
   return createContainerWriterProjectionFixture({
     containerId: input.containerId,
     encapsulationPublicKey: input.encapsulationPublicKey,
-    metadataDocumentId: `${input.containerId}-metadata-document`,
+    metadataDocumentId:
+      input.metadataDocumentId ?? `${input.containerId}-metadata-document`,
     organizationId: input.organizationId,
     parentProjection: input.parentProjection,
     signerKeyFingerprint: input.signerKeyFingerprint,

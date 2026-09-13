@@ -3,6 +3,14 @@ import type { NegativeControl } from "./protocolNegativeControls";
 export const SYSTEM_DESTINATION_NEGATIVE_CONTROLS: readonly NegativeControl[] =
   [
     {
+      id: "root-acknowledgment-skips-document-priming",
+      module: "formal/local-trust/RootDocumentPriming.tla",
+      config: "formal/local-trust/RootDocumentPriming.cfg",
+      constants: { ReprimeAfterRemoteAcknowledgment: "FALSE" },
+      expect: { kind: "invariant", name: "DeferredDocumentsAreScheduled" },
+      why: "A document deferred during root verification must be scheduled after acknowledgement (#2266).",
+    },
+    {
       id: "system-slot-created-outside-root",
       module: "formal/local-trust/SystemDestination.tla",
       config: "formal/local-trust/SystemDestination.cfg",

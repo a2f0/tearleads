@@ -27,6 +27,7 @@ import {
   useTestApiAppHandlers,
 } from "../../../../test/helpers/mswServer";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
+import { waitForPersonalBootstrap } from "../../../../test/helpers/waitForPersonalBootstrap";
 
 const REALTIME_ORGANIZATION_NAME = "Realtime Organization";
 const SAME_IDENTITY_SETTLE_TIMEOUT_MS = 15_000;
@@ -133,6 +134,7 @@ test(
     const secondaryPane = getPaneRoot(view, "right");
 
     await waitForSinglePaneProvisioning(primaryPane);
+    await waitForPersonalBootstrap();
     const primaryUserId = getPaneUserId(primaryPane);
     await expectAppRuntimeSettled();
     await expectSingleYouContact({ pane: primaryPane, userId: primaryUserId });

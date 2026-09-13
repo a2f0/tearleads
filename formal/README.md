@@ -202,3 +202,6 @@ group-chain, reference, and parent organization choices at the cache boundary.
 [SystemDestination](./local-trust/SystemDestination.md) models signed destination
 roles, acknowledged roots, administrator-only slot creation, and immutable
 root/system parent edges.
+
+[RootDocumentPriming](./local-trust/RootDocumentPriming.md) checks that documents
+deferred during root verification are scheduled after remote acknowledgement.
