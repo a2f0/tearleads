@@ -7,11 +7,79 @@ import {
   referencedPrincipalStateFromBundle,
 } from "../../../test/helpers/policyCacheFixtures";
 import { createPolicyDirectoryFixture } from "../../../test/helpers/policyDirectoryFixtures";
+import { trustedUserIdentityFromResponse } from "../../../test/helpers/trustedUserIdentity";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import {
   loadPrincipalPolicyBundle,
   savePrincipalPolicyBundle,
 } from "../../data/persistence/principalPolicyPersistence";
+import { cachePrincipalPolicyBundles } from "./policyCache";
+
+for (const scenario of [
+  "missing-directory",
+  "matching-directory",
+  "foreign-organization",
+] as const) {
+  test(`API-supplied policy cache checks organization scope: ${scenario}`, async () => {
+    const { close, execSql } = await createTestExecSql(
+      `supplied-policy-${scenario}`,
+    );
+    try {
+      const { bundle, signerKeyResponse } = await createPrincipalPolicyBundle();
+      const directory = await createPolicyDirectoryFixture({
+        organizationId: "org-1",
+        group: bundle,
+      });
+      const supplied =
+        scenario === "foreign-organization" ? directory.bundle : bundle;
+      await cachePrincipalPolicyBundles({
+        bundles: [supplied],
+        execSql,
+        organizationId: scenario === "foreign-organization" ? "org-2" : "org-1",
+        getCurrentPrincipalPolicy: async (kind, id) =>
+          scenario === "matching-directory" &&
+          kind === "organization" &&
+          id === "org-1"
+            ? directory.bundle
+            : null,
+        reportSecurityIncident: async (error) => {
+          throw error;
+        },
+        resolveTrustedUserIdentity: async (id) =>
+          trustedUserIdentityFromResponse(
+            id === directory.signer.userId
+              ? directory.signer
+              : signerKeyResponse,
+          ),
+      });
+      const stored = await loadPrincipalPolicyBundle(
+        execSql,
+        supplied.currentState.principalType,
+        supplied.currentState.principalId,
+      );
+      if (scenario === "matching-directory") {
+        expect(stored?.currentState.stateHash).toBe(
+          bundle.currentState.stateHash,
+        );
+        expect(
+          (await loadPrincipalPolicyBundle(execSql, "organization", "org-1"))
+            ?.currentState.stateHash,
+        ).toBe(directory.bundle.currentState.stateHash);
+      } else {
+        expect(stored).toBeNull();
+        expect(
+          await loadPrincipalPolicyCheckpoint(
+            execSql,
+            supplied.currentState.principalType,
+            supplied.currentState.principalId,
+          ),
+        ).toBeNull();
+      }
+    } finally {
+      close();
+    }
+  });
+}
 
 test("a standalone signed group cannot acquire an arbitrary organization through warming", async () => {
   const { close, execSql } = await createTestExecSql("policy-directory-scope");

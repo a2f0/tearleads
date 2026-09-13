@@ -7,8 +7,10 @@ leaf must not replace the signed write-time path with that original pin.
 A current group snapshot must not replace the membership cited by the write.
 
 The bounded configuration has three parent heads, two leaf heads, one writer,
-and a set of writes identified by their cited parent and leaf. Parent 1 grants
-write; parent 2 removes it and rematerializes the group reference. TLC explores
+and writes carrying their cited parent, leaf, and server head at commit. The
+parent manifests separate grant presence from the referenced group version;
+group version 0 contains the writer and version 1 removes it. Parent 1 adds
+the grant; parent 2 advances the group reference after removal. TLC explores
 all grant, write, leaf advancement, removal, and delayed read interleavings.
 
 | Model action or predicate | Production seam |

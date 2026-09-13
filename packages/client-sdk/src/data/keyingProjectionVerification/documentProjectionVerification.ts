@@ -39,7 +39,6 @@ import {
 import { requireVerifiedDocumentPredecessor } from "./documentManifestPredecessor";
 import { rejectPurgedDocumentProjection } from "./documentPurgeCheckpointEnforcement";
 import { rethrowProjectionVerificationBoundaryError } from "./error";
-
 import {
   loadManifestCheckpointVerification,
   verifyCachedManifestCheckpoint,

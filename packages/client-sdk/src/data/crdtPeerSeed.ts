@@ -67,6 +67,51 @@ const seedCachesByEnvironment = new WeakMap<
   Map<string, Promise<string>>
 >();
 
+const runtimeSeedsByEnvironment = new WeakMap<
+  PeerSeedEnvironment,
+  {
+    owners: Map<string, WeakRef<object>>;
+    seeds: WeakMap<object, Map<string, Promise<string>>>;
+  }
+>();
+
+/** Share a seed across one runtime's documents, never concurrent runtimes. */
+export function getRuntimePeerSeed(
+  scope: string,
+  owner: object,
+  environment?: PeerSeedEnvironment,
+): Promise<string> {
+  let resolvedEnvironment: PeerSeedEnvironment;
+  try {
+    resolvedEnvironment = environment ?? defaultPeerSeedEnvironment();
+  } catch {
+    return Promise.resolve(crypto.randomUUID());
+  }
+  let runtimeSeeds = runtimeSeedsByEnvironment.get(resolvedEnvironment);
+  if (!runtimeSeeds) {
+    runtimeSeeds = { owners: new Map(), seeds: new WeakMap() };
+    runtimeSeedsByEnvironment.set(resolvedEnvironment, runtimeSeeds);
+  }
+  let seeds = runtimeSeeds.seeds.get(owner);
+  if (!seeds) {
+    seeds = new Map();
+    runtimeSeeds.seeds.set(owner, seeds);
+  }
+  const cached = seeds.get(scope);
+  if (cached) return cached;
+  let seed: Promise<string>;
+  if (runtimeSeeds.owners.get(scope)?.deref()) {
+    // A second live runtime in the same tab cannot reuse the device counters.
+    // Its seed is memory-only; random storage namespaces would grow forever.
+    seed = Promise.resolve(crypto.randomUUID());
+  } else {
+    runtimeSeeds.owners.set(scope, new WeakRef(owner));
+    seed = getScopedPeerSeed(scope, resolvedEnvironment);
+  }
+  seeds.set(scope, seed);
+  return seed;
+}
+
 /**
  * Resolve to the device-stable seed only while this tab holds the exclusive
  * device-peer lock for `scope`; otherwise to the per-tab seed. The exclusive

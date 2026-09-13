@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
-import { getScopedPeerSeed, type PeerSeedEnvironment } from "./crdtPeerSeed";
+import {
+  getRuntimePeerSeed,
+  getScopedPeerSeed,
+  type PeerSeedEnvironment,
+} from "./crdtPeerSeed";
 
 function memStorage() {
   const map = new Map<string, string>();
@@ -10,6 +14,46 @@ function memStorage() {
     },
   };
 }
+
+test("concurrent runtimes keep independent peers without growing device storage", async () => {
+  const storedKeys = new Set<string>();
+  const storage = memStorage();
+  const environment: PeerSeedEnvironment = {
+    deviceStorage: {
+      getItem: storage.getItem,
+      setItem(key, value) {
+        storedKeys.add(key);
+        storage.setItem(key, value);
+      },
+    },
+    sessionStorage: memStorage(),
+    locks: grantingLocks,
+  };
+  const owners = Array.from({ length: 20 }, () => ({}));
+  const seeds = await Promise.all(
+    owners.map((owner) => getRuntimePeerSeed("documents", owner, environment)),
+  );
+  expect(new Set(seeds).size).toBe(owners.length);
+  expect(storedKeys.size).toBe(1);
+  expect(storage.getItem("tearleads.documents.device-seed")).toBe(
+    seeds[0] ?? null,
+  );
+  expect(
+    await Promise.all(
+      owners.map((owner) =>
+        getRuntimePeerSeed("documents", owner, environment),
+      ),
+    ),
+  ).toEqual(seeds);
+});
+
+test("a new tab runtime reuses the device seed when its exclusive lock is available", async () => {
+  const environment = seededEnvironment(grantingLocks);
+  const first = await getRuntimePeerSeed("docs", {}, environment);
+  const afterReload = await getRuntimePeerSeed("docs", {}, { ...environment });
+  expect(afterReload).toBe(first);
+  expect(afterReload).toBe("DEVICE");
+});
 
 function seededEnvironment(
   locks: PeerSeedEnvironment["locks"],

@@ -293,11 +293,13 @@ read behavior and the submission rule; negative controls reproduce both
 historical refusals and acceptance of a stale submitted path.
 
 The owner-directed scope of #2158 and #1555 excludes semantic-currentness
-witnessing: a new-to-device document head signed by a since-revoked ancestor
-member can be accepted at its complete historical citations. This is also the
-shape of an honestly delayed head. The API enforces current paths at commit;
-clients do not claim to distinguish it from a later forgery assisted by the
-server. Existing document checkpoints still reject rollback and forks.
+witnessing: a new-to-device document head, content-write header, or attachment
+binding signed by a since-revoked member can be accepted at its complete
+historical citations, including a content write whose target leaf has not
+advanced. This is also the shape of an honestly delayed head. The API enforces
+current paths at commit; clients do not claim to distinguish it from a later
+forgery assisted by the server. Existing document checkpoints still reject
+rollback and forks.
 
 Neither container nor principal-policy verification requires a successor new
 to a device to cite the authority's served current head. An honest

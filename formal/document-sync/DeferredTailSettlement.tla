@@ -291,15 +291,11 @@ RejectIsolatedIncomingResponse ==
                   liveIdentity, liveGeneration, responseIdentity,
                   responseGeneration, durableOpVars, auditVars >>
 
-(* Durable history tail append of the pulled updates — its own durable *)
-(* write, landing BEFORE the record persist, as the implementation *)
-(* orders them: a crash between the two leaves remote-origin tail rows *)
-(* whose coverage the persisted marker does not yet carry. Production *)
-(* runs both writes inside one serialized identity-write chain that *)
-(* rechecks generation and sync context on entry (ResponseIsLive here), *)
-(* so a relink cannot really interleave between them; the model's *)
-(* NoDurableOp gap admits that interleaving anyway — adversarial slack *)
-(* the properties absorb — while keeping the crash window reachable. *)
+(* Conservative durable tail step. Production's continuation CAS commits *)
+(* the pulled history and record atomically inside one SQL mutation. The *)
+(* model permits a separate earlier tail append, adding crash states with *)
+(* extra durable content but no live publication. These additional states *)
+(* test restart provenance and cannot justify uncommitted live imports. *)
 StartResponseTailAppend ==
   /\ localPresent
   /\ responsePending

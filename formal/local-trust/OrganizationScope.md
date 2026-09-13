@@ -17,7 +17,12 @@ head would prevent an honest delayed container from recovering its group key.
 
 The bounds include two organizations, two group versions, a verified two-state
 chain, a historical or current reference, and either organization as a parent.
-TLC explores cache warming and parent selection in either order. Four negative
+The expected organization, served directory organization, and signed group
+chain branch vary independently, including a valid foreign directory, a
+foreign group under the right directory, and a directory naming the wrong
+head. This is a bounded decision-kernel model: signature and directory
+authenticity are boundary inputs, not proved by these predicates. TLC explores
+cache warming and parent selection in either order. Four negative
 controls remove directory identity, directory-head, or parent-scope checks, or
 add an invalid current-reference requirement. The expected invariants fail.
 

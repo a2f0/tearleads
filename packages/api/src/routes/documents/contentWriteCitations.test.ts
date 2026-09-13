@@ -127,6 +127,15 @@ test("a document retains the signed path dependencies of its attachment content"
     stagedBlob,
   });
   await bindForTest({ blobId, owner, request });
+  const documentWrite = await createSignedDocumentSyncRequest({
+    created: document,
+    owner,
+    root,
+  });
+  expect(
+    (await postSync(owner.token, document.id, documentWrite.request)).status,
+  ).toBe(200);
+  // Document and blob headers cite the same root: the SQL union returns it once.
   expect(
     await listDocumentContentWriteDependencyHashes(document.id, db),
   ).toEqual([root.bundle.manifestHash]);

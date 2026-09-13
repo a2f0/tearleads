@@ -4,14 +4,15 @@
 models the device-first outgoing-delta marker across local edits, durable queue
 writes, restarts, sync preparation, server acceptance, incoming updates, and a
 final clean skip. The marker may safely lag the stored content frontier while
-durable pending rows semantically cover the difference. Pulled updates land in
-the durable history tail (as remote-origin rows) in their own write before the
-record persist, and restart restores the marker from the persisted base
-extended across those remote-origin rows — provenance proves the server holds
-them — so a crash between the two writes never re-enters server-held ops into
-the outgoing delta; accepted local-origin rows are re-derived and re-sent, the
-safe idempotent direction. Before queued rows may be submitted and deleted, the
-document lane must make that accounting durable:
+durable pending rows semantically cover the difference. For conservative crash
+analysis, the model permits a durable remote-origin tail append before record
+marker publication. Production commits the incoming tail and continuation in
+one guarded SQL mutation; the split adds intermediate states with extra
+durable content but no live publication. Restart restores the marker from the
+persisted base extended across surviving remote-origin rows: their provenance
+proves the server holds them. Accepted local-origin rows remain eligible for
+idempotent re-send if their marker was not persisted. Before queued rows may
+be submitted and deleted, the document lane must make that accounting durable:
 
 1. synchronously capture the snapshot frontier, then merge the in-memory base
    and every semantically connected durable queued end vector;

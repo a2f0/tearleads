@@ -79,16 +79,16 @@
       "bytes": 30424
     },
     "docs/security-guarantees.md": {
-      "lines": 752,
-      "bytes": 42970
+      "lines": 754,
+      "bytes": 43068
     },
     "formal/document-sync/BaselineDominanceTraces.json": {
       "lines": 2059,
       "bytes": 407654
     },
     "formal/document-sync/DeferredTailSettlement.tla": {
-      "lines": 582,
-      "bytes": 23996
+      "lines": 578,
+      "bytes": 23719
     },
     "packages/api-client/src/ApiClient.ts": {
       "lines": 1909,

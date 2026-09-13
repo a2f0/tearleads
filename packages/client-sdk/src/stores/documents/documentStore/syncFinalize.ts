@@ -178,6 +178,9 @@ async function persistSyncedDocument(
       // Publish a remote edit only once its history and continuation commit.
       // Importing earlier lets a losing CAS expose text that the next local
       // write authors against an older, reloaded CRDT history.
+      // The durable CAS already checked the request's complete context. The
+      // successful row is now live, so publication uses that committed context
+      // (which may contain refreshed keying metadata) and the same generation.
       applyIncomingSyncedUpdates(
         state,
         currentDoc,

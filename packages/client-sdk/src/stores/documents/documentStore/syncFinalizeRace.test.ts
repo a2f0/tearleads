@@ -12,6 +12,7 @@ import {
   noopDocumentStorePersistenceEffects,
 } from "./documentStore.testFixtures";
 import { ensureDocumentStoreReady } from "./initialization";
+import { setDocumentText } from "./mutations";
 import {
   createRotationRecoveryRuntime,
   persistFullHistoryDocument,
@@ -185,97 +186,114 @@ test("a superseded finalize keeps its signal and requests another pass", async (
   }
 });
 
-test("incoming history stays isolated until its durable claim completes", async () => {
-  const { close, execSql } = await createTestExecSql("sync-publication-claim");
-  let release!: () => void;
-  let entered!: () => void;
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  const claimed = new Promise<void>((resolve) => {
-    entered = resolve;
-  });
-  let hold = false;
-  try {
-    await sqlDocumentsPersistence.ensureSchema(execSql);
-    const fixture = await createRemoteHistoryFixture();
-    const localId = "sync-publication-claim-local";
-    const behind = await createDocument("sync-publication-claim-behind");
-    importSnapshot(behind, fixture.behindSnapshot);
-    await persistFullHistoryDocument({
-      doc: behind,
-      documentId: fixture.writerProjection.documentId,
-      execSql,
-      localId,
-    });
-    const runtime = createRotationRecoveryRuntime({
-      execSql,
-      fixture,
-      requireRawHistory: false,
-    });
-    const state = createDocumentStoreState(
-      localId,
-      runtime,
-      {
-        ...sqlDocumentsPersistence,
-        async loadDocument(...args) {
-          if (hold) {
-            hold = false;
-            entered();
-            await gate;
-          }
-          return sqlDocumentsPersistence.loadDocument(...args);
-        },
-      },
-      noopDocumentStorePersistenceEffects,
-      fixture.writerProjection.documentId,
+for (const typeDuringClaim of [false, true]) {
+  test(`incoming history stays isolated until its durable claim completes (typing=${typeDuringClaim})`, async () => {
+    const { close, execSql } = await createTestExecSql(
+      "sync-publication-claim",
     );
-    expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
-    const currentDoc = state.doc;
-    const currentRecord = state.record;
-    if (!currentDoc || !currentRecord)
-      throw new Error("Expected initialized store");
-    const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
-    if (!generation) throw new Error("Expected current generation");
-    const attempt = await requestRemoteDocumentSync({
-      currentDoc,
-      currentRecord,
-      encapsulationKeyPair: fixture,
-      generation,
-      pendingUpdates: [],
-      state,
-      unavailableWriterLogMessage: "unexpected unavailable writer",
+    let release!: () => void;
+    let entered!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
     });
-    if (!attempt) throw new Error("Expected completed response");
-    expect(attempt.synced.decryptedUpdates.length).toBeGreaterThan(0);
-    const previousBase = state.pendingBaseVersion;
-    hold = true;
-    const finalized = finalizeDocumentSync(
-      state,
-      currentDoc,
-      currentRecord,
-      attempt,
-      0,
-      generation,
-      [],
-      false,
-    );
+    const claimed = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    let hold = false;
     try {
-      await claimed;
-      expect(getTextValue(currentDoc)).toBe("survives key");
-      expect(state.snapshot.text).toBe("survives key");
-      expect(state.pendingBaseVersion).toBe(previousBase);
+      await sqlDocumentsPersistence.ensureSchema(execSql);
+      const fixture = await createRemoteHistoryFixture();
+      const localId = "sync-publication-claim-local";
+      const behind = await createDocument("sync-publication-claim-behind");
+      importSnapshot(behind, fixture.behindSnapshot);
+      await persistFullHistoryDocument({
+        doc: behind,
+        documentId: fixture.writerProjection.documentId,
+        execSql,
+        localId,
+      });
+      const runtime = createRotationRecoveryRuntime({
+        execSql,
+        fixture,
+        requireRawHistory: false,
+      });
+      const state = createDocumentStoreState(
+        localId,
+        runtime,
+        {
+          ...sqlDocumentsPersistence,
+          async loadDocument(...args) {
+            if (hold) {
+              hold = false;
+              entered();
+              await gate;
+            }
+            return sqlDocumentsPersistence.loadDocument(...args);
+          },
+        },
+        noopDocumentStorePersistenceEffects,
+        fixture.writerProjection.documentId,
+      );
+      expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
+      const currentDoc = state.doc;
+      const currentRecord = state.record;
+      if (!currentDoc || !currentRecord)
+        throw new Error("Expected initialized store");
+      const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
+      if (!generation) throw new Error("Expected current generation");
+      const attempt = await requestRemoteDocumentSync({
+        currentDoc,
+        currentRecord,
+        encapsulationKeyPair: fixture,
+        generation,
+        pendingUpdates: [],
+        state,
+        unavailableWriterLogMessage: "unexpected unavailable writer",
+      });
+      if (!attempt) throw new Error("Expected completed response");
+      expect(attempt.synced.decryptedUpdates.length).toBeGreaterThan(0);
+      const previousBase = state.pendingBaseVersion;
+      hold = true;
+      const finalized = finalizeDocumentSync(
+        state,
+        currentDoc,
+        currentRecord,
+        attempt,
+        0,
+        generation,
+        [],
+        false,
+      );
+      let localWrite = Promise.resolve();
+      try {
+        await claimed;
+        expect(getTextValue(currentDoc)).toBe("survives key");
+        expect(state.snapshot.text).toBe("survives key");
+        expect(state.pendingBaseVersion).toBe(previousBase);
+        if (typeDuringClaim) {
+          localWrite = setDocumentText(
+            state,
+            () => undefined,
+            "survives key LOCAL",
+          );
+          expect(state.snapshot.text).toBe("survives key LOCAL");
+        }
+      } finally {
+        release();
+        await Promise.all([finalized, localWrite]);
+      }
+      const liveText = getTextValue(currentDoc);
+      if (typeDuringClaim) {
+        expect(liveText).toContain(" LOCAL");
+        expect(liveText).toContain(" rotation");
+      } else expect(liveText).toBe("survives key rotation");
+      expect(state.snapshot.text).toBe(liveText);
+      expect(
+        (await sqlDocumentsPersistence.loadDocument(execSql, localId))?.text,
+      ).toBe(liveText);
     } finally {
       release();
-      await finalized;
+      close();
     }
-    expect(getTextValue(currentDoc)).toBe("survives key rotation");
-    expect(state.snapshot.text).toBe("survives key rotation");
-    expect(
-      (await sqlDocumentsPersistence.loadDocument(execSql, localId))?.text,
-    ).toBe("survives key rotation");
-  } finally {
-    release();
-    close();
-  }
-});
+  });
+}

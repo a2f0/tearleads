@@ -65,11 +65,13 @@ bound.
 ## Assumptions and model boundary
 
 Distinct concurrent writers must have distinct peer IDs; otherwise a counter
-does not identify one operation history. The app enforces this assumption in
-`TearleadsProvider`: persistent panes use their separate identity namespaces,
-and each ephemeral runtime receives its own stable scope. The provider's peer
-scope regression checks isolation and stability across renders. This mapping
-does not change the model's version-vector dominance predicate.
+does not identify one operation history. `getRuntimePeerSeed` grants the
+persisted scoped seed to one live runtime; other concurrent runtimes in that
+scope receive memory-only seeds cached by their domain scope. Persistent pane
+namespaces retain separate device seeds, and the first runtime after a page
+reload can reuse its device seed under the existing tab lock. Runtime seed
+regressions check isolation, stable reuse, and bounded device-storage keys.
+This mapping does not change the version-vector dominance predicate.
 
 This is exhaustive bounded model checking, not an unbounded mathematical proof.
 The model reflects the post-pruning system: the server retains every accepted
