@@ -727,8 +727,14 @@ export const documentMoveIntentTables: ReadonlyArray<SqlTableSchema> = [
 export const documentProjectionTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(documentProjection),
   defineSqlTableSchema(documentProjectionText),
-  defineSqlTableSchema(documentPendingAttachments),
-  defineSqlTableSchema(documentAttachmentBlobProjection),
+  {
+    ...defineSqlTableSchema(documentPendingAttachments),
+    requiredColumns: ["content_sha256"],
+  },
+  {
+    ...defineSqlTableSchema(documentAttachmentBlobProjection),
+    requiredColumns: ["content_sha256"],
+  },
   documentOrphanBlobReclaimTable,
 ];
 

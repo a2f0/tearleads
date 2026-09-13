@@ -12,6 +12,7 @@ import {
   getLatestDocumentAttachmentBySlotId,
   isAutomaticBlobPreviewAllowed,
   isImageDocumentAttachmentBlob,
+  readAutomaticPreviewBlobBytes,
   readBlobDocumentAttachmentUpload,
   readDocumentAttachmentUpload,
 } from "./documentAttachmentUtils";
@@ -153,4 +154,29 @@ test("blob attachment upload opens the existing local blob source", async () => 
   expect(new TextDecoder().decode(bytes)).toBe("blob");
   expect(upload.mimeType).toBe("image/png");
   expect(upload.name).toBe("blob.png");
+});
+
+test("automatic previews read held bytes only within the preview limit", async () => {
+  const held = new Map<string, Uint8Array<ArrayBuffer>>([
+    ["small", new Uint8Array([1, 2, 3])],
+    ["large", new Uint8Array(AUTOMATIC_BLOB_PREVIEW_MAX_BYTES + 1)],
+  ]);
+  const blobStore = {
+    openByteSource: async (storageKey: string) => {
+      const bytes = held.get(storageKey);
+      if (!bytes) return null;
+      return {
+        byteLength: bytes.byteLength,
+        read: async (offset: number, byteLength: number) =>
+          bytes.slice(offset, offset + byteLength),
+      };
+    },
+  };
+  expect(await readAutomaticPreviewBlobBytes(blobStore, "small")).toEqual(
+    new Uint8Array([1, 2, 3]),
+  );
+  // The document intent may still describe a small attachment while the held
+  // (flagged) bytes are larger; the held size gates the read.
+  expect(await readAutomaticPreviewBlobBytes(blobStore, "large")).toBeNull();
+  expect(await readAutomaticPreviewBlobBytes(blobStore, "missing")).toBeNull();
 });
