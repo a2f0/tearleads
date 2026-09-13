@@ -44,7 +44,9 @@ export function createBlobBytesResponse(input: {
   };
 }
 
-export async function createUploadedAttachmentFixture() {
+export async function createUploadedAttachmentFixture(input?: {
+  bytes?: BlobBytes;
+}) {
   const {
     author,
     publicKey,
@@ -55,9 +57,9 @@ export async function createUploadedAttachmentFixture() {
   const blobId = "550e8400-e29b-41d4-a716-446655440560";
   const bindingId = "550e8400-e29b-41d4-a716-446655440561";
   const slotId = "preview";
-  const bytes = new TextEncoder().encode(
-    "remote attachment payload",
-  ) as BlobBytes;
+  const bytes =
+    input?.bytes ??
+    (new TextEncoder().encode("remote attachment payload") as BlobBytes);
   const contentKey = crypto.getRandomValues(new Uint8Array(32));
   const { close, execSql } = await createTestExecSql("attachment-hydration");
   const { getAssembledBytes, ...multipartApi } =

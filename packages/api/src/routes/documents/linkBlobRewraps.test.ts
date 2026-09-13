@@ -130,10 +130,12 @@ test("link and unlink atomically cover active blob bindings and retain prior wra
     blobRewraps: [{ blobId, contentKeyEpoch: 1, targets: [target] }],
   });
   const unlinked = await post("unlink", unlink);
-  expect({
-    status: unlinked.status,
-    body: await unlinked.json(),
-  }).toMatchObject({ status: 200 });
+  const unlinkedBody = await unlinked.json();
+  expect({ status: unlinked.status, body: unlinkedBody }).toMatchObject({
+    status: 200,
+  });
+  if (!isDocumentLinkSetMutationResponse(unlinkedBody))
+    throw new Error("Expected unlinked document");
   const wrapsAfterUnlink = await db
     .select()
     .from(blobContentKeyTargets)
@@ -143,5 +145,59 @@ test("link and unlink atomically cover active blob bindings and retain prior wra
   ).toBe(true);
   expect(
     wrapsAfterUnlink.some((row) => row.wrappedKey === target.wrappedKey),
+  ).toBe(true);
+  const conflicting = await buildDocumentLinkRequest({
+    child,
+    createdDocument: { ...document, ...unlinkedBody },
+    owner,
+    root,
+    blobRewraps: blobRewraps.map((rewrap) => ({
+      ...rewrap,
+      targets: rewrap.targets.map((envelope) =>
+        envelope.containerId === target.containerId
+          ? { ...envelope, wrappedKey: "conflicting-active-root-wrap" }
+          : envelope,
+      ),
+    })),
+  });
+  const refused = await post("link", conflicting);
+  expect(refused.status).toBe(409);
+  expect(await refused.json()).toEqual({
+    error: "Blob content-key bundle conflict",
+  });
+  expect(
+    (await getCurrentAccessManifestHead("document", document.id, db))
+      ?.manifestHash,
+  ).toBe(unlinkedBody.accessManifest.manifestHash);
+  const relink = await buildDocumentLinkRequest({
+    child,
+    createdDocument: { ...document, ...unlinkedBody },
+    owner,
+    root,
+    blobRewraps: blobRewraps.map((rewrap) => ({
+      ...rewrap,
+      targets: rewrap.targets.map((envelope) =>
+        envelope.containerId === child.containerId
+          ? { ...envelope, wrappedKey: "fresh-child-wrap" }
+          : envelope,
+      ),
+    })),
+  });
+  const relinked = await post("link", relink);
+  expect({
+    status: relinked.status,
+    body: await relinked.json(),
+  }).toMatchObject({
+    status: 200,
+  });
+  const wrapsAfterRelink = await db
+    .select()
+    .from(blobContentKeyTargets)
+    .where(eq(blobContentKeyTargets.bindingId, target.bindingId));
+  expect(
+    wrapsAfterRelink.some((row) => row.wrappedKey === "fresh-child-wrap"),
+  ).toBe(false);
+  expect(
+    wrapsAfterRelink.some((row) => row.wrappedKey === "new-child-wrap"),
   ).toBe(true);
 });

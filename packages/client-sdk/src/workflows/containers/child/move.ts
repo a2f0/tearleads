@@ -19,6 +19,7 @@ import type {
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import { assertContainerAuthorAccess } from "../../../data/containers/shared/authorAccess";
 import {
   asContainerManifestBundle,
   getTargetContainerContext,
@@ -47,7 +48,10 @@ import {
   buildMoveRotationWithBody,
   deriveMoveManifestArtifacts,
 } from "./moveArtifacts";
-import { buildContainerMoveWraps } from "./moveWraps";
+import {
+  buildContainerMoveWraps,
+  collectContainerMovePrincipalPolicies,
+} from "./moveWraps";
 import {
   containerMutationRequestCore,
   previousPathRequestFields,
@@ -238,6 +242,28 @@ type MaterializedContainerMoveInput =
       | undefined;
   };
 
+async function collectAuthorizedMovePolicies(
+  input: MaterializedContainerMoveInput,
+) {
+  const principalPolicies = await collectContainerMovePrincipalPolicies({
+    ...input,
+    resolveUserKey: input.resolveProjectionUserKey,
+  });
+  assertContainerAuthorAccess({
+    author: input.author,
+    projection: input.previousProjection,
+    principalPolicies,
+    minimumAccess: "admin",
+  });
+  assertContainerAuthorAccess({
+    author: input.author,
+    projection: input.destinationParentProjection,
+    principalPolicies,
+    minimumAccess: "write",
+  });
+  return principalPolicies;
+}
+
 async function buildMaterializedContainerMovePlan(
   input: MaterializedContainerMoveInput,
 ): Promise<MaterializedContainerMovePlan> {
@@ -260,6 +286,7 @@ async function buildMaterializedContainerMovePlan(
     destinationParent,
     source,
   });
+  const principalPolicies = await collectAuthorizedMovePolicies(input);
   const {
     body,
     containerKey,
@@ -288,21 +315,21 @@ async function buildMaterializedContainerMovePlan(
       },
       source,
     });
-  const { principalPolicies, userRecipientKeys, wraps } =
-    await buildContainerMoveWraps({
-      containerKey,
-      containerKeyEpochId,
-      destinationParentKek: destinationParent.kek,
-      destinationParentKey,
-      destinationParentProjection: input.destinationParentProjection,
-      execSql: input.execSql,
-      manifestHash,
-      previousProjection: input.previousProjection,
-      resolveProjectionUserKey: input.resolveProjectionUserKey,
-      state,
-      stillCurrent: input.stillCurrent,
-      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-    });
+  const { userRecipientKeys, wraps } = await buildContainerMoveWraps({
+    principalPolicies,
+    containerKey,
+    containerKeyEpochId,
+    destinationParentKek: destinationParent.kek,
+    destinationParentKey,
+    destinationParentProjection: input.destinationParentProjection,
+    execSql: input.execSql,
+    manifestHash,
+    previousProjection: input.previousProjection,
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
+    state,
+    stillCurrent: input.stillCurrent,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+  });
 
   return buildContainerMovePlanResult({
     body,

@@ -14,6 +14,7 @@ import type {
   ContainerKekResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import { assertContainerAuthorAccess } from "../../../data/containers/shared/authorAccess";
 import {
   buildContainerCreateBody,
   buildContainerCreateKeyEpoch,
@@ -320,6 +321,17 @@ export async function buildMaterializedContainerCreatePlan(
         warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
       })
     : [];
+  if (input.resolveProjectionUserKey) {
+    assertContainerAuthorAccess({
+      author: {
+        ...input.author,
+        organizationId: input.parentProjection.organizationId,
+      },
+      projection: input.parentProjection,
+      principalPolicies,
+      minimumAccess: input.systemSlot ? "admin" : "write",
+    });
+  }
   const plan = await buildContainerCreatePlan({
     author: input.author,
     containerId: input.containerId,

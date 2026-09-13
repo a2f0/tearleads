@@ -9,10 +9,8 @@ import {
 } from "@tearleads/crypto";
 import type { BlobKekTargetsResponse } from "@tearleads/validators/response";
 import type { BlobBytes } from "../../data/blobContracts";
-import { deriveBlobChunkIv } from "../../data/documents/blob/shared/blobEnvelopeV2";
 import {
   blobContentMetadataHash,
-  contentRecordAdditionalDataBytes,
   deriveBlobContentRecordKey,
 } from "../../data/documents/blob/shared/crypto";
 import { unwrapBlobContentKey } from "../../data/documents/blob/shared/projection";
@@ -44,6 +42,7 @@ import {
 import { resolveEventContainerPaths } from "../../data/keyingProjectionVerification/documentDependencyPaths";
 
 import { assertAttachmentBindingVerified } from "./attachmentBindingVerification";
+import { decryptBlobChunks } from "./blobChunkDecryption";
 import { assertBlobWrapScopeVerified } from "./verifiedWrapScope";
 
 async function assertBlobEncryptionMetadata(input: {
@@ -91,58 +90,27 @@ async function assertBlobEncryptionMetadata(input: {
   }
 }
 
-async function decryptBlobChunks(input: {
-  readonly encrypted: BlobEncryptedBytesRecord;
-  readonly expectedBlobId: string;
-  readonly organizationId: string;
-  readonly recordKey: CryptoKey;
-}): Promise<BlobBytes> {
-  const { encrypted, expectedBlobId, organizationId, recordKey } = input;
-  const decrypted = new Uint8Array(encrypted.byteLength);
-  for (const chunk of encrypted.chunks) {
-    const plaintext = new Uint8Array(
-      await crypto.subtle.decrypt(
-        {
-          name: "AES-GCM",
-          iv: deriveBlobChunkIv(encrypted.iv, chunk.index),
-          additionalData: contentRecordAdditionalDataBytes({
-            blobId: expectedBlobId,
-            chunkCount: encrypted.chunkCount,
-            chunkIndex: chunk.index,
-            chunkPlaintextByteLength: chunk.plaintextByteLength,
-            chunkSize: encrypted.chunkSize,
-            contentKeyEpoch: encrypted.contentKeyEpoch,
-            contentRecordId: encrypted.contentRecordId,
-            metadataHash: encrypted.metadataHash,
-            nonceDomainHash: encrypted.nonceDomainHash,
-            organizationId,
-            plaintextByteLength: encrypted.byteLength,
-          }),
-        },
-        recordKey,
-        asWebCryptoBytes(chunk.ciphertext),
-      ),
-    );
-    if (plaintext.byteLength !== chunk.plaintextByteLength) {
-      throw new Error("Blob decrypted chunk byte length mismatch");
-    }
-    decrypted.set(plaintext, chunk.index * encrypted.chunkSize);
-  }
-  return asWebCryptoBytes(decrypted);
-}
+export type AttachmentBlobDecryptionInput = Omit<
+  DecryptDocumentAttachmentBlobInput,
+  "encryptedBytes"
+> & {
+  encrypted: BlobEncryptedBytesRecord;
+};
 
-export async function decryptDocumentAttachmentBlobWithKey({
+/** Verifies metadata and authority; the caller must still authenticate ciphertext. */
+export async function prepareDocumentAttachmentBlobDecryption({
   binding,
-  encryptedBytes,
+  encrypted,
   expectedDocumentId,
   expectedSlotId,
   execSql,
   resolveProjectionUserKey,
   targetSecretKey,
   writerProjection,
-}: DecryptDocumentAttachmentBlobInput): Promise<{
-  bytes: BlobBytes;
+}: AttachmentBlobDecryptionInput): Promise<{
   contentKey: Uint8Array;
+  recordKey: CryptoKey;
+  organizationId: string;
 }> {
   const requiredResolveProjectionUserKey = requireProjectionUserKeyResolver(
     resolveProjectionUserKey,
@@ -152,7 +120,6 @@ export async function decryptDocumentAttachmentBlobWithKey({
     execSql,
     resolveProjectionUserKey: requiredResolveProjectionUserKey,
   });
-  const encrypted = parseBlobEncryptedBytes(encryptedBytes);
   let documentAuthorization: DocumentWriterProjectionAuthorization | undefined;
   await assertDocumentWriterProjectionConsistent(writerProjection, {
     allowStaleContentKeyBundle: true,
@@ -181,7 +148,6 @@ export async function decryptDocumentAttachmentBlobWithKey({
     authorization: documentAuthorization,
     binding,
     encrypted,
-    encryptedBytes,
     organizationId,
     resolveProjectionUserKey: requiredResolveProjectionUserKey,
   });
@@ -212,13 +178,37 @@ export async function decryptDocumentAttachmentBlobWithKey({
     organizationId,
     usage: "decrypt",
   });
-  const bytes = await decryptBlobChunks({
+  return { contentKey, recordKey, organizationId };
+}
+
+async function decryptDocumentAttachmentBlobWithKey(
+  input: DecryptDocumentAttachmentBlobInput,
+): Promise<{ bytes: BlobBytes; contentKey: Uint8Array }> {
+  const encrypted = parseBlobEncryptedBytes(input.encryptedBytes);
+  const context = await prepareDocumentAttachmentBlobDecryption({
+    ...input,
     encrypted,
-    expectedBlobId: binding.blobId,
-    organizationId,
-    recordKey,
   });
-  return { bytes, contentKey };
+  const header = readWriteHeader(
+    input.binding.writeHeader,
+    "Attachment blob write header",
+  );
+  const ciphertextHash = bytesToHex(
+    new Uint8Array(
+      await crypto.subtle.digest(
+        "SHA-256",
+        asWebCryptoBytes(input.encryptedBytes),
+      ),
+    ),
+  );
+  if (header.ciphertextHash !== ciphertextHash)
+    throw new Error("Attachment blob write header does not match ciphertext");
+  const bytes = await decryptBlobChunks({
+    ...context,
+    encrypted,
+    expectedBlobId: input.binding.blobId,
+  });
+  return { bytes, contentKey: context.contentKey };
 }
 
 export async function decryptDocumentAttachmentBlob(
@@ -320,7 +310,6 @@ async function assertBlobWriteHeaderVerified(input: {
   readonly authorization: DocumentWriterProjectionAuthorization | undefined;
   readonly binding: DecryptDocumentAttachmentBlobInput["binding"];
   readonly encrypted: BlobEncryptedBytesRecord;
-  readonly encryptedBytes: Uint8Array;
   readonly organizationId: string;
   readonly resolveProjectionUserKey: ReturnType<
     typeof requireProjectionUserKeyResolver
@@ -350,16 +339,7 @@ async function assertBlobWriteHeaderVerified(input: {
     // were written, so a later valid binding need not appear in that set.
     requireBindingMembership: false,
   });
-  const ciphertextHash = bytesToHex(
-    new Uint8Array(
-      await crypto.subtle.digest(
-        "SHA-256",
-        asWebCryptoBytes(input.encryptedBytes),
-      ),
-    ),
-  );
   if (
-    header.ciphertextHash !== ciphertextHash ||
     header.metadataHash !== input.encrypted.metadataHash ||
     header.contentKeyEpoch !== input.encrypted.contentKeyEpoch ||
     header.contentRecordId !== input.encrypted.contentRecordId ||

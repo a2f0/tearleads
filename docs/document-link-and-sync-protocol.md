@@ -28,10 +28,14 @@ bound to the changed document, with `blobId`, the immutable `contentKeyEpoch`,
 and complete wrapped `targets` for every active binding and resulting linked
 container. Document creation signs an empty array. The event signature covers
 the envelopes inline. Clients authenticate the existing blob ciphertext before
-rewrapping its content key for verified destination KEKs. The API checks the
+rewrapping its content key for verified destination KEKs. This authentication
+streams bounded chunks and checks the complete signed ciphertext hash; it does
+not retain whole attachments in memory between bindings. The API checks the
 active binding frontier under the document-head lock, then takes sorted blob
 locks and commits links and envelopes atomically. Another document sharing a
-blob retains its own envelopes. Stale or incomplete rewraps conflict without
+blob retains its own envelopes. Returning to a retired target reuses its retained
+wrap for the same key identity; an active target cannot replace its stored key
+material. Stale or incomplete rewraps conflict without
 advancing the document head.
 
 An unlink rotates the document content key and must carry a `rotationBaseline`

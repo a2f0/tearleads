@@ -18,6 +18,7 @@ import type {
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import { assertContainerAuthorAccess } from "../../../data/containers/shared/authorAccess";
 import {
   buildContainerCreateKeyEpoch,
   resolveContainerKekEpochId,
@@ -221,10 +222,17 @@ async function collectRekeyPrincipalPolicies(
     stillCurrent: input.stillCurrent,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
-  return refreshedPrincipalPolicies({
+  const principalPolicies = refreshedPrincipalPolicies({
     previousPolicies,
     replacementPrincipalPolicy: input.replacementPrincipalPolicy,
   });
+  assertContainerAuthorAccess({
+    author: input.author,
+    projection: input.previousProjection,
+    principalPolicies,
+    minimumAccess: "write",
+  });
+  return principalPolicies;
 }
 
 export async function buildMaterializedContainerRekeyPlan(
@@ -257,6 +265,7 @@ export async function buildMaterializedContainerRekeyPlan(
     planningInput,
     resolveProjectionUserKey,
   );
+
   const referencedPrincipalHeads = refreshedPrincipalReferences({
     previousState,
     replacementPrincipalPolicy: input.replacementPrincipalPolicy,

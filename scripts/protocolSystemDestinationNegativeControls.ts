@@ -3,6 +3,14 @@ import type { NegativeControl } from "./protocolNegativeControls";
 export const SYSTEM_DESTINATION_NEGATIVE_CONTROLS: readonly NegativeControl[] =
   [
     {
+      id: "read-projection-authorizes-mutation",
+      module: "formal/local-trust/ContainerAuthoring.tla",
+      config: "formal/local-trust/ContainerAuthoring.cfg",
+      constants: { CheckAuthorAccess: "FALSE" },
+      expect: { kind: "invariant", name: "AcknowledgementsHaveAuthority" },
+      why: "An API read projection must not let a read-only signer trust an echoed mutation (#2266).",
+    },
+    {
       id: "root-acknowledgment-skips-document-priming",
       module: "formal/local-trust/RootDocumentPriming.tla",
       config: "formal/local-trust/RootDocumentPriming.cfg",

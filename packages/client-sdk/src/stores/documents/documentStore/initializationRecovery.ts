@@ -48,20 +48,21 @@ export async function recoverDroppedAttachmentSlots(
   for (const pending of state.pendingAttachments) {
     const mimeType = pending.mimeType ?? null;
     const existing = existingBySlotId.get(pending.slotId);
-    if (
-      existing &&
-      existing.name === pending.name &&
-      existing.byteLength === pending.byteLength &&
-      existing.mimeType === mimeType
-    ) {
-      continue;
-    }
     const source = await state.runtime.infra.blobStore.openByteSource(
       pending.storageKey,
     );
     if (!source) continue;
     const contentSha256 = await attachmentContentSha256(source);
     if (!isDocumentStoreSyncGenerationCurrent(state, writeGeneration)) return;
+    if (
+      existing &&
+      existing.name === pending.name &&
+      existing.byteLength === pending.byteLength &&
+      existing.mimeType === mimeType &&
+      existing.contentSha256 === contentSha256
+    ) {
+      continue;
+    }
     recovered.push({
       contentSha256,
       byteLength: pending.byteLength,

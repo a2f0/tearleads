@@ -11,6 +11,7 @@ import type {
   ContainerKekResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import { assertContainerAuthorAccess } from "../../../data/containers/shared/authorAccess";
 import { signContainerMutationEvent } from "../../../data/containers/shared/events";
 import {
   asContainerManifestBundle,
@@ -168,6 +169,29 @@ async function buildShareTransition(input: {
   };
 }
 
+async function collectAuthorizedSharePolicies(
+  input: BuildMaterializedContainerSharePlanInput,
+) {
+  const principalPolicies = await collectContainerSharePrincipalPolicies({
+    execSql: input.execSql,
+    principalPolicyCache: input.principalPolicyCache,
+    previousProjection: input.previousProjection,
+    ...(input.recipient.subjectType === "user"
+      ? {}
+      : { recipientPolicy: input.recipient.principalPolicy }),
+    resolveUserKey: input.resolveProjectionUserKey,
+    stillCurrent: input.stillCurrent,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+  });
+  assertContainerAuthorAccess({
+    author: input.author,
+    projection: input.previousProjection,
+    principalPolicies,
+    minimumAccess: "admin",
+  });
+  return principalPolicies;
+}
+
 export async function buildMaterializedContainerSharePlan(
   input: BuildMaterializedContainerSharePlanInput,
 ): Promise<MaterializedContainerSharePlan> {
@@ -179,6 +203,7 @@ export async function buildMaterializedContainerSharePlan(
     secretKey: input.targetSecretKey,
     ...projectionVerificationOptions(input),
   });
+  const principalPolicies = await collectAuthorizedSharePolicies(input);
   const target = getTargetContainerContext(input.previousProjection);
   const {
     body,
@@ -216,17 +241,6 @@ export async function buildMaterializedContainerSharePlan(
     target.kek.wraps,
     "Container share previous wraps",
   );
-  const principalPolicies = await collectContainerSharePrincipalPolicies({
-    execSql: input.execSql,
-    principalPolicyCache: input.principalPolicyCache,
-    previousProjection: input.previousProjection,
-    ...(input.recipient.subjectType === "user"
-      ? {}
-      : { recipientPolicy: input.recipient.principalPolicy }),
-    resolveUserKey: input.resolveProjectionUserKey,
-    stillCurrent: input.stillCurrent,
-    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-  });
 
   return buildContainerSharePlanResult({
     body,

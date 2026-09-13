@@ -20,8 +20,7 @@ import { readCanonicalJson } from "../../data/keyingCanonicalJson";
 import { requireProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import { createAttachmentProofReader } from "../blobs/attachmentDecryptor";
-import { decryptDocumentAttachmentBlobWithKey } from "../blobs/decrypt";
+import { createAttachmentKeyAuthenticator } from "../blobs/attachmentKeyAuthenticator";
 
 interface BlobRewrap {
   blobId: string;
@@ -47,27 +46,14 @@ export async function prepareDocumentLinkBlobRewraps(
   assertProjectionVerificationCurrent(input.stillCurrent);
   if (bindings.length === 0) return [];
   const keks = await collectRelinkKeks(input);
-  const decrypt = createAttachmentProofReader(
+  const authenticateKey = createAttachmentKeyAuthenticator(
     input.apiClient,
     documentId,
-    decryptDocumentAttachmentBlobWithKey,
   );
-  const encryptedByBlob = new Map<string, Uint8Array<ArrayBuffer>>();
   const rewrapByBlob = new Map<string, BlobRewrap>();
   for (const binding of bindings) {
-    let encryptedBytes = encryptedByBlob.get(binding.blobId);
-    if (!encryptedBytes) {
-      const blob = await input.apiClient.getBlobBytes(binding.blobId);
-      if (!blob)
-        throw new Error("Attachment ciphertext is unavailable for relinking");
-      encryptedBytes = new Uint8Array(
-        await new Response(blob.encryptedBytes).arrayBuffer(),
-      );
-      encryptedByBlob.set(binding.blobId, encryptedBytes);
-    }
-    const { contentKey } = await decrypt({
+    const contentKey = await authenticateKey({
       binding,
-      encryptedBytes,
       expectedDocumentId: documentId,
       expectedSlotId: binding.slotId,
       execSql: input.execSql,

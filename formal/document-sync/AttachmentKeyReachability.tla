@@ -2,17 +2,17 @@
 EXTENDS Naturals, FiniteSets
 
 CONSTANTS CheckBindingFrontier, RetainPriorWraps, UseHistoricalKeys,
-          IsolateHydration
+          IsolateHydration, ReuseRetiredWraps
 ASSUME {CheckBindingFrontier, RetainPriorWraps, UseHistoricalKeys,
-        IsolateHydration} \subseteq BOOLEAN
+        IsolateHydration, ReuseRetiredWraps} \subseteq BOOLEAN
 Containers == {"source", "destination"}
 Blobs == {"one", "two"}
 Epochs == 1..2
 
 VARIABLES bindings, linked, epoch, wraps, issued, phase,
-          observedBindings, observedEpoch, planned, hydrated
+          observedBindings, observedEpoch, planned, hydrated, relinkRejected
 vars == <<bindings, linked, epoch, wraps, issued, phase,
-          observedBindings, observedEpoch, planned, hydrated>>
+          observedBindings, observedEpoch, planned, hydrated, relinkRejected>>
 
 Targets(bs, cs, es) == {<<b, c, es[c]>> : b \in bs, c \in cs}
 Init ==
@@ -20,7 +20,7 @@ Init ==
   /\ epoch = [c \in Containers |-> 1]
   /\ wraps = Targets(bindings, linked, epoch) /\ issued = wraps
   /\ phase = "idle" /\ observedBindings = {} /\ observedEpoch = epoch
-  /\ planned = {} /\ hydrated = "pending"
+  /\ planned = {} /\ hydrated = "pending" /\ relinkRejected = FALSE
 
 BindSecond ==
   /\ "two" \notin bindings
@@ -28,14 +28,14 @@ BindSecond ==
   /\ wraps' = wraps \cup Targets({"two"}, linked, epoch)
   /\ issued' = issued \cup wraps'
   /\ UNCHANGED <<linked, epoch, phase, observedBindings, observedEpoch,
-                  planned, hydrated>>
+                  planned, hydrated, relinkRejected>>
 
 PrepareLink ==
   /\ phase \in {"idle", "prepared"}
   /\ observedBindings' = bindings /\ observedEpoch' = epoch
   /\ planned' = Targets(bindings, Containers, epoch)
   /\ phase' = "prepared"
-  /\ UNCHANGED <<bindings, linked, epoch, wraps, issued, hydrated>>
+  /\ UNCHANGED <<bindings, linked, epoch, wraps, issued, hydrated, relinkRejected>>
 
 CommitLink ==
   /\ phase = "prepared" /\ observedEpoch = epoch
@@ -45,7 +45,7 @@ CommitLink ==
   /\ issued' = issued \cup wraps'
   /\ phase' = "linked"
   /\ UNCHANGED <<bindings, epoch, observedBindings, observedEpoch,
-                  planned, hydrated>>
+                  planned, hydrated, relinkRejected>>
 
 UnlinkSource ==
   /\ phase = "linked" /\ linked = Containers
@@ -54,20 +54,34 @@ UnlinkSource ==
               ELSE Targets(bindings, {"destination"}, epoch)
   /\ issued' = issued \cup wraps'
   /\ UNCHANGED <<bindings, epoch, phase, observedBindings, observedEpoch,
+                  planned, hydrated, relinkRejected>>
+
+(* Returning to an old key identity reuses its retained randomized envelope. *)
+RelinkSource ==
+  /\ phase = "linked" /\ linked = {"destination"}
+  /\ relinkRejected' = (~ReuseRetiredWraps /\
+        (Targets(bindings, {"source"}, epoch) \cap issued) # {})
+  /\ linked' = IF relinkRejected' THEN linked ELSE Containers
+  /\ wraps' = IF relinkRejected' THEN wraps
+              ELSE wraps \cup Targets(bindings, {"source"}, epoch)
+  /\ issued' = issued \cup wraps'
+  /\ UNCHANGED <<bindings, epoch, phase, observedBindings, observedEpoch,
                   planned, hydrated>>
+
+ReenteredTargetsRemainWritable == ~relinkRejected
 
 Rekey(c) ==
   /\ epoch[c] = 1
   /\ epoch' = [epoch EXCEPT ![c] = 2]
   /\ UNCHANGED <<bindings, linked, wraps, issued, phase,
-                  observedBindings, observedEpoch, planned, hydrated>>
+                  observedBindings, observedEpoch, planned, hydrated, relinkRejected>>
 
 (* One valid attachment and one unavailable/invalid attachment settle together. *)
 Hydrate ==
   /\ hydrated = "pending"
   /\ hydrated' = IF IsolateHydration THEN "validInstalled" ELSE "allLost"
   /\ UNCHANGED <<bindings, linked, epoch, wraps, issued, phase,
-                  observedBindings, observedEpoch, planned>>
+                  observedBindings, observedEpoch, planned, relinkRejected>>
 
 CanOpen(b, c) == \E e \in Epochs :
   /\ <<b, c, e>> \in wraps
@@ -84,9 +98,10 @@ TypeOK ==
   /\ observedBindings \subseteq Blobs /\ observedEpoch \in [Containers -> Epochs]
   /\ planned \subseteq (Blobs \X Containers \X Epochs)
   /\ hydrated \in {"pending", "validInstalled", "allLost"}
+  /\ relinkRejected \in BOOLEAN
 
 Idle == UNCHANGED vars
-Next == Idle \/ BindSecond \/ PrepareLink \/ CommitLink \/ UnlinkSource \/ Hydrate
+Next == Idle \/ BindSecond \/ PrepareLink \/ CommitLink \/ UnlinkSource \/ RelinkSource \/ Hydrate
         \/ (\E c \in Containers : Rekey(c))
 Spec == Init /\ [][Next]_vars
 =============================================================================

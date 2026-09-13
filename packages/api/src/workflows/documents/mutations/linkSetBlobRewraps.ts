@@ -2,7 +2,10 @@ import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { attachmentBindings } from "@tearleads/api-shared/schema";
 import type { DocumentLinkAccessEventBody } from "@tearleads/crypto";
 import { and, eq, isNull } from "drizzle-orm";
-import { rewrapDocumentBlobContentKeyInTransaction } from "../../../access/write/blobContentKeyStore";
+import {
+  BlobContentKeyBundleError,
+  rewrapDocumentBlobContentKeyInTransaction,
+} from "../../../access/write/blobContentKeyStore";
 import { lockBlobMutationRows } from "../../blobs/mutations/blobMutationLocks";
 import { DocumentMutationError } from "./errors";
 
@@ -45,9 +48,18 @@ export async function applyDocumentLinkBlobRewraps(input: {
   rewraps: BlobRewraps;
 }): Promise<void> {
   for (const rewrap of input.rewraps) {
-    await rewrapDocumentBlobContentKeyInTransaction(
-      { documentId: input.documentId, rewrap },
-      input.executor,
-    );
+    try {
+      await rewrapDocumentBlobContentKeyInTransaction(
+        { documentId: input.documentId, rewrap },
+        input.executor,
+      );
+    } catch (error) {
+      if (error instanceof BlobContentKeyBundleError)
+        throw new DocumentMutationError(
+          error.message,
+          error.status === 404 ? 409 : error.status,
+        );
+      throw error;
+    }
   }
 }

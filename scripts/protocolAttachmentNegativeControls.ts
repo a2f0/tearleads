@@ -2,6 +2,14 @@ import type { NegativeControl } from "./protocolNegativeControls";
 
 export const ATTACHMENT_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   {
+    id: "link-rejects-retained-wrap",
+    module: "formal/document-sync/AttachmentKeyReachability.tla",
+    config: "formal/document-sync/AttachmentKeyReachability.cfg",
+    constants: { ReuseRetiredWraps: "FALSE" },
+    expect: { kind: "invariant", name: "ReenteredTargetsRemainWritable" },
+    why: "Returning to a retired destination must reuse its retained envelope instead of conflicting with a freshly randomized wrap.",
+  },
+  {
     id: "link-misses-concurrent-attachment",
     module: "formal/document-sync/AttachmentKeyReachability.tla",
     config: "formal/document-sync/AttachmentKeyReachability.cfg",
