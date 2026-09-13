@@ -15,7 +15,7 @@ import {
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { buildContainerRotationWraps } from "./rotationWraps";
 
-async function collectContainerMovePrincipalPolicies(input: {
+export async function collectContainerMovePrincipalPolicies(input: {
   destinationParentProjection: ContainerWriterProjectionResponse;
   execSql: ExecSql;
   previousProjection: ContainerWriterProjectionResponse;
@@ -46,6 +46,7 @@ async function collectContainerMovePrincipalPolicies(input: {
 }
 
 export async function buildContainerMoveWraps(input: {
+  principalPolicies: readonly VerifiedPrincipalPolicy[];
   containerKey: Uint8Array;
   containerKeyEpochId: string;
   destinationParentKek: ContainerKekResponse;
@@ -59,14 +60,7 @@ export async function buildContainerMoveWraps(input: {
   stillCurrent?: (() => boolean) | undefined;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }) {
-  const principalPolicies = await collectContainerMovePrincipalPolicies({
-    destinationParentProjection: input.destinationParentProjection,
-    execSql: input.execSql,
-    previousProjection: input.previousProjection,
-    resolveUserKey: input.resolveProjectionUserKey,
-    stillCurrent: input.stillCurrent,
-    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-  });
+  const principalPolicies = input.principalPolicies;
   return {
     principalPolicies,
     ...(await buildContainerRotationWraps({

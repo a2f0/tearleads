@@ -168,6 +168,7 @@ test("stale root recovery logs the result and re-arms document priming", async (
         return adoptionCount === 1 ? true : "already-adopted";
       },
       auth: {
+        rootContainerId: "remote-root",
         defaultOrganizationId: "organization-1",
         isAuthenticated: true,
         organizationId: "organization-1",
@@ -198,7 +199,7 @@ test("stale root recovery logs the result and re-arms document priming", async (
   ]);
 });
 
-test("stale root recovery logs status or candidate-count changes", async () => {
+test("stale root recovery coalesces unrelated-root observations", async () => {
   const logs: string[] = [];
   const state = {
     containersById: new Map<string, ContainerState>([
@@ -214,6 +215,7 @@ test("stale root recovery logs status or candidate-count changes", async () => {
     runtime: {
       adoptRootContainer: () => true,
       auth: {
+        rootContainerId: "remote-root",
         defaultOrganizationId: "organization-1",
         isAuthenticated: true,
         organizationId: "organization-1",
@@ -234,9 +236,8 @@ test("stale root recovery logs status or candidate-count changes", async () => {
   await expect(recoverStoreStaleRoot(state)).resolves.toBe("ambiguous");
 
   expect(logs).toEqual([
-    "Container contents: stale root recovery status=ambiguous candidates=2",
-    "Container contents: stale root recovery status=ambiguous candidates=3",
-    "Container contents: stale root recovery status=ambiguous candidates=3 occurrences=2",
+    "Container contents: stale root recovery status=ambiguous candidates=0",
+    "Container contents: stale root recovery status=ambiguous candidates=0 occurrences=2",
   ]);
 });
 
@@ -254,6 +255,7 @@ test("stale root recovery contains transient persistence failures", async () => 
     runtime: {
       adoptRootContainer: () => true,
       auth: {
+        rootContainerId: "remote-root",
         defaultOrganizationId: "organization-1",
         isAuthenticated: true,
         organizationId: "organization-1",
@@ -296,6 +298,7 @@ test("stale root recovery falls back to plain logging", async () => {
     runtime: {
       adoptRootContainer: () => true,
       auth: {
+        rootContainerId: "remote-root",
         defaultOrganizationId: "organization-1",
         isAuthenticated: true,
         organizationId: "organization-1",
@@ -328,6 +331,7 @@ test("stale root recovery rethrows database-unavailable failures", async () => {
     runtime: {
       adoptRootContainer: () => true,
       auth: {
+        rootContainerId: "remote-root",
         defaultOrganizationId: "organization-1",
         isAuthenticated: true,
         organizationId: "organization-1",
@@ -354,6 +358,7 @@ test("stale root recovery retries a rejected adoption only after a runtime updat
   const runtime = {
     adoptRootContainer: () => false,
     auth: {
+      rootContainerId: "remote-root",
       defaultOrganizationId: "organization-1",
       isAuthenticated: true,
       organizationId: "organization-1",

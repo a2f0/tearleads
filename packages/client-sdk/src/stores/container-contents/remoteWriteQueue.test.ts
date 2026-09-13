@@ -18,6 +18,7 @@ import type { ContainerContentsStoreSyncAgent } from "./syncAgent";
 async function createFixture(execSql: ExecSql = (async () => []) as ExecSql) {
   const state = createContainerContentsStoreState(
     createContainerContentsTestRuntime({
+      rootContainerId: "root",
       domainScope: {} as DomainScope,
       execSql,
     }),

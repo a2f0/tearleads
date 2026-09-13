@@ -18,6 +18,7 @@ async function createLoginHarness(
 ) {
   const api = new ApiClient("");
   api.authenticate = async () => ({
+    rootContainerId: null,
     authenticated: true,
     isRoot: false,
     organizationId: "organization-1",
@@ -64,6 +65,7 @@ test("logout retains the acknowledged identity binding for the next login", asyn
     authenticated: true,
     isRoot: false,
     organizationId: "organization-1",
+    rootContainerId: "root-1",
     token: "other-token",
     userId: "other-user",
   });

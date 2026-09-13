@@ -66,6 +66,9 @@ export interface ContainerState {
 }
 
 interface RemoteContainerHydrationApi {
+  getContainerWriterProjection(
+    containerId: string,
+  ): Promise<ContainerWriterProjectionResponse | null>;
   getCurrentPrincipalPolicy(
     principalType: "group" | "organization",
     principalId: string,

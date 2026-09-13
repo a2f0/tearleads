@@ -39,6 +39,7 @@ test("verifyContainerAccessManifest accepts a signed child create under a writab
     signerUserId: adminUserId,
   });
   const createBody: ContainerCreateAccessEventBody = {
+    systemSlot: null,
     eventType: "container.create",
     parentContainerId: parent.state.containerId,
     parentManifestHash: parent.manifestHash,
@@ -62,6 +63,7 @@ test("verifyContainerAccessManifest accepts a signed child create under a writab
     signerUserId: adminUserId,
   });
   const state: ContainerAccessManifestState = {
+    systemSlot: null,
     version: 1,
     containerId: "child-container",
     organizationId: parent.state.organizationId,
@@ -399,6 +401,7 @@ test("verifyContainerAccessManifest rejects child create signed without parent w
     signerUserId: readerUserId,
   });
   const body: ContainerCreateAccessEventBody = {
+    systemSlot: null,
     eventType: "container.create",
     parentContainerId: parent.state.containerId,
     parentManifestHash: parent.manifestHash,
@@ -422,6 +425,7 @@ test("verifyContainerAccessManifest rejects child create signed without parent w
     signerUserId: readerUserId,
   });
   const manifest = await deriveContainerAccessManifest({
+    systemSlot: null,
     version: 1,
     containerId: "child-container",
     organizationId: parent.state.organizationId,
@@ -536,6 +540,7 @@ test("verifyContainerAccessManifest rejects parent manifest hash mismatches", as
   });
   const wrongParentManifestHash = await fixtureHash("wrong-parent-manifest");
   const body: ContainerCreateAccessEventBody = {
+    systemSlot: null,
     eventType: "container.create",
     parentContainerId: parent.state.containerId,
     parentManifestHash: wrongParentManifestHash,
@@ -553,6 +558,7 @@ test("verifyContainerAccessManifest rejects parent manifest hash mismatches", as
     signerUserId: adminUserId,
   });
   const manifest = await deriveContainerAccessManifest({
+    systemSlot: null,
     version: 1,
     containerId: "child-container",
     organizationId: parent.state.organizationId,
@@ -660,6 +666,7 @@ test("container managed-principal grants commit matching principal heads", async
     accessLevel: "write",
   };
   const state: ContainerAccessManifestState = {
+    systemSlot: null,
     version: 1,
     containerId: "container-1",
     organizationId: "organization-1",

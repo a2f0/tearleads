@@ -31,6 +31,7 @@ import { useUserSystemContainers } from "../../providers/system-bootstrap/UserSy
 import { useDeviceFirstContainerContents } from "../device-first/DeviceFirstProvider";
 import { getExplorerSystemContainerId } from "../explorer/ExplorerSystemContainers";
 import {
+  CONTACTS_CONTAINER_ICON,
   CONTACTS_CONTAINER_NAME,
   findUserSystemContainer,
 } from "../systemContainers";
@@ -258,6 +259,7 @@ function useContactsSystemContainerBootstrap(input: {
 
     void store
       .ensureSystemContainer(contactsSystemSlot, CONTACTS_CONTAINER_NAME, {
+        icon: CONTACTS_CONTAINER_ICON,
         deferRemoteBootstrap: true,
         skipAdvancedManagedRoot: true,
       })

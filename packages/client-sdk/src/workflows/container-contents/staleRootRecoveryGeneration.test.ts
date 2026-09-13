@@ -46,6 +46,7 @@ test("stale root recovery cannot adopt after its generation changes", async () =
         return true;
       },
       auth: {
+        rootContainerId: "remote-root",
         defaultOrganizationId: "organization",
         isAuthenticated: true,
         organizationId: "organization",

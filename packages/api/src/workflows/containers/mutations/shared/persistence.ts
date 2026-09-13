@@ -104,25 +104,28 @@ async function persistCreatedContainerStructure(
 
   await assertMetadataDocumentAvailable(executor, state.metadataDocumentId);
 
-  const [inserted] = await executor
-    .insert(containers)
-    .values({
-      depth: parent.depth + 1,
-      id: state.containerId,
-      organizationId: state.organizationId,
-      parentId: state.parentContainerId,
-      updatedAt,
-    })
-    .onConflictDoNothing({ target: containers.id })
-    .returning({
-      createdAt: containers.createdAt,
-      systemSlot: containers.systemSlot,
-      depth: containers.depth,
-      id: containers.id,
-      organizationId: containers.organizationId,
-      parentId: containers.parentId,
-      updatedAt: containers.updatedAt,
-    });
+  const [inserted] = await runConflictBoundary(() =>
+    executor
+      .insert(containers)
+      .values({
+        depth: parent.depth + 1,
+        systemSlot: state.systemSlot,
+        id: state.containerId,
+        organizationId: state.organizationId,
+        parentId: state.parentContainerId,
+        updatedAt,
+      })
+      .onConflictDoNothing({ target: containers.id })
+      .returning({
+        createdAt: containers.createdAt,
+        systemSlot: containers.systemSlot,
+        depth: containers.depth,
+        id: containers.id,
+        organizationId: containers.organizationId,
+        parentId: containers.parentId,
+        updatedAt: containers.updatedAt,
+      }),
+  );
 
   if (!inserted) {
     throw containerManifestAlreadyExists();

@@ -671,6 +671,7 @@ function userRecipientKeysFromKekTargets(
 
 async function buildCreateRequest(input: {
   readonly containerId: string;
+  readonly systemSlot?: string | null;
   readonly dependencyManifestHashesOverride?: readonly string[];
   readonly parent: AccessManifestBundleWire;
   readonly parentContainerPath?: readonly AccessManifestBundleWire[];
@@ -688,6 +689,7 @@ async function buildCreateRequest(input: {
     input.parentManifestHashOverride ?? input.parent.manifestHash;
   const metadataDocumentId = crypto.randomUUID();
   const body: ContainerAccessEventBody = {
+    systemSlot: input.systemSlot ?? null,
     eventType: "container.create",
     parentContainerId: parent.state.containerId,
     parentManifestHash,
@@ -708,6 +710,7 @@ async function buildCreateRequest(input: {
   });
   const bundle = await createManifestBundle(
     {
+      systemSlot: input.systemSlot ?? null,
       version: 1,
       containerId: input.containerId,
       organizationId: parent.state.organizationId,
@@ -787,6 +790,7 @@ async function buildMetadataDocumentCreateRequest(input: {
     manifest: input.containerRequest.manifest,
     manifestHash: input.containerRequest.expectedManifestHash,
     state: {
+      systemSlot: null,
       version: 1,
       containerId: input.containerId,
       organizationId: parentState.organizationId,
@@ -1518,85 +1522,90 @@ test("batch reads work before expired-trial disablement", async () => {
   ).toContain(child.containerId);
 });
 
-test("POST /containers/with-metadata-document creates container and metadata document atomically", async () => {
-  const owner = createTestUser();
-  await registerAndAuthenticate(owner);
-  const root = await bootstrapRoot(owner);
-  const containerId = crypto.randomUUID();
-  const containerRequest = await buildCreateRequest({
-    containerId,
-    parent: root.bundle,
-    parentKekState: root.kekState,
-    signer: owner,
-  });
-  const metadataDocumentRequest = await buildMetadataDocumentCreateRequest({
-    containerId,
-    containerRequest,
-    parent: root.bundle,
-    signer: owner,
-  });
+bunTest.each([null, TEST_CONTACTS_SYSTEM_SLOT])(
+  "POST /containers/with-metadata-document atomically creates slot %s",
+  async (systemSlot) => {
+    const owner = createTestUser();
+    await registerAndAuthenticate(owner);
+    const root = await bootstrapRoot(owner);
+    const containerId = crypto.randomUUID();
+    const containerRequest = await buildCreateRequest({
+      systemSlot,
+      containerId,
+      parent: root.bundle,
+      parentKekState: root.kekState,
+      signer: owner,
+    });
+    const metadataDocumentRequest = await buildMetadataDocumentCreateRequest({
+      containerId,
+      containerRequest,
+      parent: root.bundle,
+      signer: owner,
+    });
 
-  const response = await postJson({
-    path: "/containers/with-metadata-document",
-    request: {
-      systemSlot: TEST_CONTACTS_SYSTEM_SLOT,
-      container: containerRequest,
-      metadataDocument: metadataDocumentRequest,
-    },
-    token: owner.token,
-  });
+    const response = await postJson({
+      path: "/containers/with-metadata-document",
+      request: {
+        ...(systemSlot ? { systemSlot } : {}),
+        container: containerRequest,
+        metadataDocument: metadataDocumentRequest,
+      },
+      token: owner.token,
+    });
 
-  expect(response.status).toBe(200);
-  const body = await response.json();
-  expect(isContainerCreateWithMetadataDocumentResponse(body)).toBe(true);
-  if (!isContainerCreateWithMetadataDocumentResponse(body)) {
-    throw new Error("expected composite container metadata response");
-  }
-  expect(body.container.containerId).toBe(containerId);
-  expect(body.container.systemSlot).toBe(TEST_CONTACTS_SYSTEM_SLOT);
-  expect(body.metadataDocument.id).toBe(
-    (containerRequest.body as { readonly metadataDocumentId: string })
-      .metadataDocumentId,
-  );
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(isContainerCreateWithMetadataDocumentResponse(body)).toBe(true);
+    if (!isContainerCreateWithMetadataDocumentResponse(body)) {
+      throw new Error("expected composite container metadata response");
+    }
+    expect(body.container.containerId).toBe(containerId);
+    expect(body.container.systemSlot).toBe(systemSlot ?? undefined);
+    expect(body.metadataDocument.id).toBe(
+      (containerRequest.body as { readonly metadataDocumentId: string })
+        .metadataDocumentId,
+    );
 
-  const [metadataBinding] = await db
-    .select({
-      containerId: containerMetadataDocuments.containerId,
-      documentId: containerMetadataDocuments.documentId,
-    })
-    .from(containerMetadataDocuments)
-    .where(eq(containerMetadataDocuments.containerId, containerId))
-    .limit(1);
-  expect(metadataBinding).toEqual({
-    containerId,
-    documentId: body.metadataDocument.id,
-  });
-  const [containerRow] = await db
-    .select({
-      systemSlot: containers.systemSlot,
-      parentId: containers.parentId,
-    })
-    .from(containers)
-    .where(eq(containers.id, containerId))
-    .limit(1);
-  expect(containerRow).toEqual({
-    systemSlot: TEST_CONTACTS_SYSTEM_SLOT,
-    parentId: owner.rootContainerId,
-  });
+    const [metadataBinding] = await db
+      .select({
+        containerId: containerMetadataDocuments.containerId,
+        documentId: containerMetadataDocuments.documentId,
+      })
+      .from(containerMetadataDocuments)
+      .where(eq(containerMetadataDocuments.containerId, containerId))
+      .limit(1);
+    expect(metadataBinding).toEqual({
+      containerId,
+      documentId: body.metadataDocument.id,
+    });
+    const [containerRow] = await db
+      .select({
+        systemSlot: containers.systemSlot,
+        parentId: containers.parentId,
+      })
+      .from(containers)
+      .where(eq(containers.id, containerId))
+      .limit(1);
+    expect(containerRow).toEqual({
+      systemSlot,
+      parentId: owner.rootContainerId,
+    });
 
-  const [documentLink] = await db
-    .select({
-      containerId: documentContainerLinks.containerId,
-      documentId: documentContainerLinks.documentId,
-    })
-    .from(documentContainerLinks)
-    .where(eq(documentContainerLinks.documentId, body.metadataDocument.id))
-    .limit(1);
-  expect(documentLink).toEqual({
-    containerId,
-    documentId: body.metadataDocument.id,
-  });
-});
+    const [documentLink] = await db
+      .select({
+        containerId: documentContainerLinks.containerId,
+        documentId: documentContainerLinks.documentId,
+      })
+      .from(documentContainerLinks)
+      .where(eq(documentContainerLinks.documentId, body.metadataDocument.id))
+      .limit(1);
+    expect(documentLink).toEqual({
+      containerId,
+      documentId: body.metadataDocument.id,
+    });
+  },
+  10_000,
+);
 
 test("DELETE /containers/:id reserves the retired metadata ID", async () => {
   const owner = createTestUser();

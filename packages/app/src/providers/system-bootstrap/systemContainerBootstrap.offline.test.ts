@@ -25,6 +25,7 @@ test("bootstrap corrects a cached system-folder icon while the remote queue is s
   const slot = "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
   const runtime = runtimeWithPatch(base, {
     organizationId: "org-1",
+    auth: { ...base.auth, rootContainerId: "root" },
     isAuthenticated: true,
     online: true,
     state: { ...base.state, containerId: "root" },

@@ -81,6 +81,7 @@ function createFixture() {
       adoptRootContainer,
       auth: {
         defaultOrganizationId: ORGANIZATION_ID,
+        rootContainerId: "remote-root",
         isAuthenticated: true,
         organizationId: ORGANIZATION_ID,
         userId: "user-1",
@@ -132,7 +133,7 @@ test("stale root recovery rehomes documents and adopts the remote root", async (
   ]);
 });
 
-test("stale root recovery refuses ambiguous or foreign roots", async () => {
+test("stale root recovery selects only the acknowledged root among unrelated roots", async () => {
   const fixture = createFixture();
   fixture.state.containersById.set(
     "other-root",
@@ -144,12 +145,12 @@ test("stale root recovery refuses ambiguous or foreign roots", async () => {
   );
 
   await expect(recoverStaleSessionRoot(fixture.state)).resolves.toEqual({
-    candidateCount: 2,
-    reassigned: false,
-    status: "ambiguous",
+    candidateCount: 1,
+    reassigned: true,
+    status: "reassigned",
   });
-  expect(fixture.reassignments).toEqual([]);
-  expect(fixture.adoptions).toEqual([]);
+  expect(fixture.reassignments[0]?.toContainerId).toBe("remote-root");
+  expect(fixture.adoptions[0]?.nextContainerId).toBe("remote-root");
 });
 
 test("stale root recovery refuses granted and system roots", async () => {
@@ -379,6 +380,7 @@ test("durable orphan recovery makes the document primeable on relaunch", async (
         adoptRootContainer: () => true,
         auth: {
           defaultOrganizationId: ORGANIZATION_ID,
+          rootContainerId: "remote-root",
           isAuthenticated: true,
           organizationId: ORGANIZATION_ID,
           userId: "user-1",
@@ -437,4 +439,15 @@ test("durable orphan recovery makes the document primeable on relaunch", async (
   } finally {
     close();
   }
+});
+
+test("stale root recovery rejects an admin root absent from the session acknowledgement", async () => {
+  const fixture = createFixture();
+  fixture.state.runtime.auth.rootContainerId = "acknowledged-own-root";
+  await expect(recoverStaleSessionRoot(fixture.state)).resolves.toMatchObject({
+    candidateCount: 0,
+    reassigned: false,
+  });
+  expect(fixture.adoptions).toEqual([]);
+  expect(fixture.reassignments).toEqual([]);
 });

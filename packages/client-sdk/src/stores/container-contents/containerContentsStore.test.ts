@@ -8,6 +8,7 @@ import type {
   ListContainersResponse,
   SyncWatermark,
 } from "@tearleads/validators/response";
+import { createSignedContainerDirectory } from "../../../test/helpers/signedContainerDirectory";
 import { waitFor } from "../../../test/helpers/waitFor";
 import type { DomainScope } from "../../data/domainScope";
 import {
@@ -278,8 +279,14 @@ test("root-lane refresh follows a newly discovered shared root into its children
     );
 
     const childLaneParentIds: Array<string | null | undefined> = [];
+    const signedDirectory = await createSignedContainerDirectory([
+      { id: "owner-root", parentId: null, organizationId: "org-2" },
+    ]);
     const runtime = createContainerContentsTestRuntime({
+      resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
       apiClient: createMockApiClient({
+        getContainerWriterProjection:
+          signedDirectory.getContainerWriterProjection,
         listContainerParentLanes: batchParentLanes(
           async ({ parentId, watermark }) => {
             if (parentId === "owner-root") {
@@ -352,8 +359,14 @@ test("refresh re-lists the root lane unwatermarked to surface a newly shared roo
 
     // The server grants the peer access to the owner's root container, but only
     // returns it when the root lane is probed WITHOUT the stale watermark.
+    const signedDirectory = await createSignedContainerDirectory([
+      { id: "owner-root", parentId: null, organizationId: "org-2" },
+    ]);
     const runtime = createContainerContentsTestRuntime({
+      resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
       apiClient: createMockApiClient({
+        getContainerWriterProjection:
+          signedDirectory.getContainerWriterProjection,
         listContainerParentLanes: batchParentLanes(
           async ({ parentId, watermark }) => {
             if (parentId !== null && parentId !== undefined) {

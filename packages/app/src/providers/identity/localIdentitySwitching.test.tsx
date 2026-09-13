@@ -41,6 +41,7 @@ test("failed identity creation returns to the previous identity", async () => {
     defaultOrganizationId: "default-organization-a",
     isAuthenticated: true,
     isRoot: false,
+    rootAcknowledgments: [],
     organizationId: "organization-a",
     userId: "user-a",
   };
@@ -87,6 +88,7 @@ test("failed target startup rolls back the live identity, session, and active se
     defaultOrganizationId: "default-organization-a",
     isAuthenticated: true,
     isRoot: false,
+    rootAcknowledgments: [],
     organizationId: "organization-a",
     userId: "user-a",
   });
@@ -144,6 +146,7 @@ test("failed target startup rolls back the live identity, session, and active se
     defaultOrganizationId: "default-organization-a",
     isAuthenticated: true,
     isRoot: false,
+    rootAcknowledgments: [],
     organizationId: "organization-a",
     userId: "user-a",
   });
@@ -184,6 +187,7 @@ test("failed key-package import startup leaves the restored identity uncommitted
     defaultOrganizationId: "default-organization-a",
     isAuthenticated: true,
     isRoot: false,
+    rootAcknowledgments: [],
     organizationId: "organization-a",
     userId: "user-a",
   };

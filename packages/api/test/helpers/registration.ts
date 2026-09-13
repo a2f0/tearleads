@@ -50,6 +50,7 @@ import {
   createProvisionedMetadataContainerFixture,
   createProvisionedTrashFixture,
   deriveOrganizationMetadataContainerSystemSlot,
+  deriveOrganizationSystemSlot,
   deriveRosterProfileContainerSystemSlot,
 } from "./provisionedSystemContainer";
 import { rootContainerProjectionFromArtifacts } from "./registrationRootProjection";
@@ -490,6 +491,7 @@ async function createRootContainerArtifacts(input: {
       ]
     : [];
   const body: ContainerCreateAccessEventBody = {
+    systemSlot: null,
     eventType: "container.create",
     parentContainerId: null,
     parentManifestHash: null,
@@ -517,6 +519,7 @@ async function createRootContainerArtifacts(input: {
     signerUserId: input.userId,
   });
   const state: ContainerAccessManifestState = {
+    systemSlot: null,
     version: 1,
     containerId: input.rootContainerId,
     organizationId: input.organizationId,
@@ -607,6 +610,7 @@ async function createRootContainerArtifacts(input: {
 
 async function createChildContainerArtifacts(input: {
   metadataDocumentId: string;
+  systemSlot: string;
   managedGrant?:
     | { accessLevel: "read"; group: CreateOrganizationGroupRequest }
     | undefined;
@@ -636,6 +640,7 @@ async function createChildContainerArtifacts(input: {
       })
     : null;
   const body: ContainerCreateAccessEventBody = {
+    systemSlot: input.systemSlot,
     eventType: "container.create",
     parentContainerId: input.parent.state.containerId,
     parentManifestHash: input.parent.manifestHash,
@@ -669,6 +674,7 @@ async function createChildContainerArtifacts(input: {
     signerUserId: input.userId,
   });
   const state: ContainerAccessManifestState = {
+    systemSlot: input.systemSlot,
     version: 1,
     containerId,
     organizationId: input.parent.state.organizationId,
@@ -963,6 +969,10 @@ export async function createRegistrationBootstrap(
   });
   const trashContainer = input.includeTrashSystemContainer
     ? await createChildContainerArtifacts({
+        systemSlot: await deriveOrganizationSystemSlot(
+          "tearleads.trash",
+          input.organizationId,
+        ),
         metadataDocumentId: crypto.randomUUID(),
         parent: rootContainer,
         parentProjection: rootContainerProjection,
@@ -999,6 +1009,9 @@ export async function createRegistrationBootstrap(
       : undefined;
   const rosterProfileContainer = input.rosterProfileDocumentId
     ? await createChildContainerArtifacts({
+        systemSlot: await deriveRosterProfileContainerSystemSlot(
+          input.organizationId,
+        ),
         metadataDocumentId: crypto.randomUUID(),
         parent: rootContainer,
         parentProjection: rootContainerProjection,
@@ -1062,6 +1075,9 @@ export async function createRegistrationBootstrap(
     });
   const organizationMetadataContainer = input.organizationProfileDocumentId
     ? await createChildContainerArtifacts({
+        systemSlot: await deriveOrganizationMetadataContainerSystemSlot(
+          input.organizationId,
+        ),
         metadataDocumentId:
           input.organizationMetadataContainerId ?? crypto.randomUUID(),
         ...(input.memberGroup

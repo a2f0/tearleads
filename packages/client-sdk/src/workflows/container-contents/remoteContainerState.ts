@@ -2,10 +2,7 @@ import {
   createContainerMetadataDocument,
   getDefaultContainerName,
 } from "../../data/containers/containerMetadataDocument";
-import type {
-  ContainerHydrationTombstone,
-  ContainerRecord,
-} from "./containerPersistence";
+import type { ContainerHydrationTombstone } from "./containerPersistence";
 import { installContainerMetadataRecord } from "./metadataPersistence";
 import {
   addIndexedContainerChild,
@@ -17,42 +14,22 @@ import {
   reconcileLocalOnlyRootContainers,
   reconcileLocalOnlySystemContainers,
 } from "./remoteHydration/reconciliation";
+import {
+  applyRemoteContainerTimestamps,
+  remoteContainerHydrationSaveOptions,
+} from "./remoteHydration/remoteContainerTimestamps";
 import type {
   ContainerChildIndex,
   ContainerState,
   RemoteContainer,
   RemoteContainerHydrationHost,
   RemoteContainerHydrationState,
-  SaveContainerOptions,
 } from "./remoteHydration/types";
+import {
+  needsVerifiedContainerDestination,
+  verifyRemoteContainerDestination,
+} from "./remoteHydration/verifiedDestination";
 import { materializeStoredContainerStateReadOnly } from "./storedContainerState";
-
-function applyRemoteContainerTimestamps(
-  container: ContainerRecord,
-  remoteContainer: RemoteContainer,
-): ContainerRecord {
-  return {
-    ...container,
-    createdAt: remoteContainer.createdAt,
-    effectiveAccessLevel: remoteContainer.effectiveAccessLevel,
-    serverCreatedAt: remoteContainer.createdAt,
-    serverUpdatedAt: remoteContainer.updatedAt,
-    updatedAt: remoteContainer.updatedAt,
-  };
-}
-
-function remoteContainerHydrationSaveOptions(input: {
-  localUpdatedAt?: string | null | undefined;
-  remoteContainer: RemoteContainer;
-}): NonNullable<SaveContainerOptions> {
-  return {
-    localUpdatedAt: input.localUpdatedAt ?? input.remoteContainer.updatedAt,
-    serverTimestamps: {
-      createdAt: input.remoteContainer.createdAt,
-      updatedAt: input.remoteContainer.updatedAt,
-    },
-  };
-}
 
 function resolveRemoteContainerHydrationLocalUpdatedAt(input: {
   containerIdsWithPendingMetadataUpdates: ReadonlySet<string>;
@@ -186,6 +163,24 @@ function createUpdatedRemoteContainerState(
   };
 }
 
+function installUpdatedRemoteContainerState(
+  existingState: ContainerState,
+  nextState: ContainerState,
+  host: RemoteContainerHydrationHost,
+): void {
+  const wasLocalOnly = existingState.container.serverCreatedAt == null;
+  existingState.container = nextState.container;
+  existingState.containerWriterProjection = nextState.containerWriterProjection;
+  existingState.metadataReferencedPrincipals =
+    nextState.metadataReferencedPrincipals;
+  existingState.metadataWriterProjection = nextState.metadataWriterProjection;
+  installContainerMetadataRecord(existingState, nextState.record);
+  // A document pass may have deferred while this root was awaiting proof.
+  // The first durable remote acknowledgement makes its pending creates runnable.
+  if (wasLocalOnly && existingState.container.serverCreatedAt != null)
+    host.requestDocumentPriming?.();
+}
+
 async function updateExistingRemoteContainerState(input: {
   childIdsByParentId?: ContainerChildIndex | undefined;
   containerIdsWithPendingMetadataUpdates: ReadonlySet<string>;
@@ -268,12 +263,7 @@ async function updateExistingRemoteContainerState(input: {
     parentId: nextState.container.parentId,
   };
 
-  existingState.container = nextState.container;
-  existingState.containerWriterProjection = nextState.containerWriterProjection;
-  existingState.metadataReferencedPrincipals =
-    nextState.metadataReferencedPrincipals;
-  existingState.metadataWriterProjection = nextState.metadataWriterProjection;
-  installContainerMetadataRecord(existingState, nextState.record);
+  installUpdatedRemoteContainerState(existingState, nextState, host);
   moveIndexedContainerChild(
     childIdsByParentId,
     remoteContainer.id,
@@ -452,6 +442,11 @@ export async function upsertRemoteContainerState(input: {
   remoteContainer: RemoteContainer;
   state: RemoteContainerHydrationState;
 }): Promise<ContainerState | null> {
+  if (needsVerifiedContainerDestination(input)) {
+    const verified = await verifyRemoteContainerDestination(input);
+    if (!verified || input.isCurrent?.() === false) return null;
+    input = { ...input, remoteContainer: verified };
+  }
   const existingState = input.state.containersById.get(
     input.remoteContainer.id,
   );

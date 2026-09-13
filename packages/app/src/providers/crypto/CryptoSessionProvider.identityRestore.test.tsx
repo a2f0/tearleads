@@ -106,6 +106,7 @@ test("a persisted session cannot bind to an identity switched before React clean
         authToken: null,
         isAuthenticated: false,
         isRoot: false,
+        rootAcknowledgments: [],
         userId: "old-user",
         organizationId: "old-org",
         defaultOrganizationId: "old-org",

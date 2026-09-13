@@ -519,6 +519,12 @@ sessions remain valid until `session.dispose()`.
 `keyring.deleteSession(scope)` removes both the manifest and the wrapping-key
 handle for the scope.
 
+Session snapshots retain `rootAcknowledgments` separately from `containerId`,
+which is the selected local view. Login, registration, and organization creation
+record the server root for the signing fingerprint, user, and organization. A host
+restoring an encrypted session must persist and restore these acknowledgements;
+passing a view container to `setContext` never establishes root authority.
+
 Session state is explicit. `session.registerIdentity()` persists the current
 identity and canonical IDs. Login stores the token and configures API access:
 

@@ -4,6 +4,7 @@ import type {
   ListContainerParentLanesResponse,
   ListContainersResponse,
 } from "@tearleads/validators/response";
+import { createSignedContainerDirectory } from "../../../test/helpers/signedContainerDirectory";
 import {
   createContainerParentSyncLane,
   defaultContainerContentsPersistence,
@@ -16,6 +17,15 @@ import type {
 } from "./remoteHydration/types";
 
 const timestamp = "2026-01-01T00:00:00.000Z";
+
+const signedDirectory = await createSignedContainerDirectory(
+  ["failed", "trailing", "independent-new-container"].map((id) => ({
+    id,
+    parentId: null,
+    organizationId: "organization-1",
+    metadataDocumentId: `metadata-${id}`,
+  })),
+);
 
 function remoteContainer(id: string): ListContainersResponse["items"][number] {
   return {
@@ -73,7 +83,10 @@ test("a failed page upsert does not checkpoint or skip trailing containers", asy
       containersById: new Map([[existingState.container.id, existingState]]),
       persistence: defaultContainerContentsPersistence,
       runtime: {
+        resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
         apiClient: {
+          getContainerWriterProjection:
+            signedDirectory.getContainerWriterProjection,
           getCurrentPrincipalPolicy: async () => null,
           listContainerParentLanes: async (request: {
             lanes: ReadonlyArray<{ laneId: string }>;
@@ -139,7 +152,10 @@ test("a fetched page cannot resurrect a container deleted before apply", async (
       containersById: new Map([[existingState.container.id, existingState]]),
       persistence: defaultContainerContentsPersistence,
       runtime: {
+        resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
         apiClient: {
+          getContainerWriterProjection:
+            signedDirectory.getContainerWriterProjection,
           getCurrentPrincipalPolicy: async () => null,
           listContainerParentLanes: async (request: {
             lanes: ReadonlyArray<{ laneId: string }>;
@@ -208,7 +224,10 @@ test("a fetched page cannot overwrite a container mutated in place during fetch"
       containersById: new Map([[existingState.container.id, existingState]]),
       persistence: defaultContainerContentsPersistence,
       runtime: {
+        resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
         apiClient: {
+          getContainerWriterProjection:
+            signedDirectory.getContainerWriterProjection,
           getCurrentPrincipalPolicy: async () => null,
           listContainerParentLanes: async (request: {
             lanes: ReadonlyArray<{ laneId: string }>;
@@ -274,7 +293,10 @@ test("a stale page item does not starve an independent new container", async () 
       containersById: new Map([[existingState.container.id, existingState]]),
       persistence: defaultContainerContentsPersistence,
       runtime: {
+        resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
         apiClient: {
+          getContainerWriterProjection:
+            signedDirectory.getContainerWriterProjection,
           getCurrentPrincipalPolicy: async () => null,
           listContainerParentLanes: async (request: {
             lanes: ReadonlyArray<{ laneId: string }>;
@@ -344,7 +366,10 @@ test("a stale tombstone cannot delete a container restored during fetch", async 
       containersById: new Map<string, ContainerState>(),
       persistence: defaultContainerContentsPersistence,
       runtime: {
+        resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
         apiClient: {
+          getContainerWriterProjection:
+            signedDirectory.getContainerWriterProjection,
           getCurrentPrincipalPolicy: async () => null,
           listContainerParentLanes: async (request: {
             lanes: ReadonlyArray<{ laneId: string }>;

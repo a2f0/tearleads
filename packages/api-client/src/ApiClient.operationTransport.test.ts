@@ -37,6 +37,7 @@ testApiClient(
       http.post(`${apiBaseUrl}/auth/verify`, async ({ request }) => {
         calls.push(await captureHttpCall(request));
         return HttpResponse.json({
+          rootContainerId: null,
           authenticated: true,
           isRoot: false,
           organizationId: "organization-1",
@@ -51,6 +52,7 @@ testApiClient(
     await expect(
       client.authenticate(fingerprint, signingPrivateKey),
     ).resolves.toEqual({
+      rootContainerId: null,
       authenticated: true,
       isRoot: false,
       organizationId: "organization-1",

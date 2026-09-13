@@ -1,3 +1,5 @@
+import { SYSTEM_DESTINATION_NEGATIVE_CONTROLS } from "./protocolSystemDestinationNegativeControls";
+
 /**
  * Registry and rendering for the protocol negative controls. Each control
  * derives a configuration from a registered model configuration with one
@@ -183,6 +185,7 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     expect: { kind: "invariant", name: "ParentEdgesStayInOrganization" },
     why: "A writable parent in another organization cannot authorize container creation or movement (#2266).",
   },
+  ...SYSTEM_DESTINATION_NEGATIVE_CONTROLS,
   {
     id: "no-brick-signer-revoked-at-current",
     module: NO_BRICK_MODULE,

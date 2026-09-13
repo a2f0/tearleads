@@ -177,7 +177,9 @@ async function openOrgManagerUsage(pane: HTMLElement) {
 }
 
 function getOrgManagerWindowRoot(pane: HTMLElement): HTMLElement {
-  const orgManagerTitle = within(pane).getByText("Org Manager");
+  const orgManagerTitle = within(pane).getByText("Org Manager", {
+    selector: ".window-titlebar-title",
+  });
   const orgManagerWindow = orgManagerTitle.closest<HTMLElement>(".window");
   invariant(orgManagerWindow, "Expected Org Manager window.");
   return orgManagerWindow;
@@ -307,7 +309,15 @@ test(
       },
       `Org Manager usage did not report the bootstrap document baseline.\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
       10_000,
-    );
+    ).catch((error: unknown) => {
+      const latestUsage = listProxiedApiRequests()
+        .filter((request) => requestPath(request.url).endsWith("/data-usage"))
+        .at(-1);
+      throw new Error(
+        `Latest organization usage: ${latestUsage?.responseBody}`,
+        { cause: error },
+      );
+    });
     expect(listPaneErrorLines(pane)).toEqual([]);
   },
   ORG_MANAGER_USAGE_TEST_TIMEOUT_MS,

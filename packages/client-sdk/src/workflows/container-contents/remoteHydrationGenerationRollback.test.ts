@@ -4,6 +4,7 @@ import type {
   ListContainerParentLanesResponse,
   ListContainersResponse,
 } from "@tearleads/validators/response";
+import { createSignedContainerDirectory } from "../../../test/helpers/signedContainerDirectory";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "./containerPersistence";
 import { hydrateRemoteContainers } from "./remoteHydration";
@@ -13,6 +14,15 @@ import type {
 } from "./remoteHydration/types";
 
 const timestamp = "2026-01-01T00:00:00.000Z";
+
+const signedDirectory = await createSignedContainerDirectory(
+  ["expired-insert"].map((id) => ({
+    id,
+    parentId: null,
+    organizationId: "organization-1",
+    metadataDocumentId: `metadata-${id}`,
+  })),
+);
 
 function remoteContainer(id: string): ListContainersResponse["items"][number] {
   return {
@@ -91,7 +101,10 @@ function createState(input: {
     ),
     persistence: defaultContainerContentsPersistence,
     runtime: {
+      resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
       apiClient: {
+        getContainerWriterProjection:
+          signedDirectory.getContainerWriterProjection,
         getCurrentPrincipalPolicy: async () => null,
         listContainerParentLanes: async (request: {
           lanes: ReadonlyArray<{ laneId: string; parentId: string | null }>;

@@ -268,6 +268,22 @@ material, or envelope material fails closed.
 
 ## Container Access And KEK Protocol
 
+Container create bodies and manifest structural state carry a required nullable
+`systemSlot`. A non-null slot is signed, immutable, and allowed only on a root
+child created by a root administrator. Composite create requests must repeat
+the exact signed value. Normal children may still be created by writers.
+
+Before adopting a listed root or system destination, the SDK verifies its
+writer projection and uses the manifest's parent edge, metadata document id,
+and slot. Pre-login content merges only into the session root id with a signed
+parentless manifest in the session organization. Login returns that root id
+(or null after purge); the login response alone does not authenticate its role.
+Shared system containers remain valid destinations. Projection GETs require
+read access; signed mutations still enforce their own write/admin authority.
+Destination classification verifies signed history without advancing write
+checkpoints. Root and system containers cannot move, so their roles and parent
+identity remain stable across later grants, recitations, and rekeys.
+
 Signed container mutation routes are:
 
 - `POST /containers`

@@ -22,6 +22,7 @@ import {
   type ProxiedApiRequestBudget,
   profileProxiedApiRequests,
 } from "../../../test/helpers/proxiedApiRequestBudget";
+import { waitForPersonalBootstrap } from "../../../test/helpers/waitForPersonalBootstrap";
 
 afterEach(async () => {
   await cleanupPaneTestEnvironment();
@@ -82,8 +83,7 @@ test(
     await registerAndWaitForUserId(view);
     const explorer = await openExplorer(view);
 
-    // Settle bootstrap sync so the baseline measures only the upload delta.
-    await waitForPaneRuntimeToSettle(PANE_LONG_ASYNC_TEST_TIMEOUT_MS);
+    await waitForPersonalBootstrap();
 
     const uploadRequestStartIndex = listProxiedApiRequests().length;
     uploadExplorerFile(view, explorer, "/", createTinySvgImageFile());

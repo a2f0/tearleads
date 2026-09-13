@@ -25,6 +25,7 @@ import {
   cleanupPaneTestEnvironment,
   waitForPaneRuntimeToSettle,
 } from "../../../../test/helpers/paneTestUtils";
+import { waitForPersonalBootstrap } from "../../../../test/helpers/waitForPersonalBootstrap";
 import { measureWorkflowRequests } from "../../../../test/helpers/workflowRequestBudget";
 
 afterEach(cleanupPaneTestEnvironment);
@@ -61,6 +62,7 @@ test("folder creation, document linking, unlinking and trash have separate reque
   useTestApiAppHandlers();
   const pane = getPaneRoot(renderSinglePane(), "left");
   await waitForSinglePaneProvisioning(pane);
+  await waitForPersonalBootstrap();
   const registration = listProxiedApiRequests().find(
     (request) =>
       requestPath(request.url) === "/auth/register" && request.status === 200,

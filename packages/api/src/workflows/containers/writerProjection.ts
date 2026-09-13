@@ -120,18 +120,6 @@ export async function resolveContainerReaderProjection(input: {
   });
 }
 
-async function resolveContainerWriterProjection(input: {
-  readonly context?: ContainerWriterProjectionContext;
-  readonly containerId: string;
-  readonly executor: DatabaseSession;
-  readonly userId: string;
-}): Promise<ContainerWriterProjectionResponse> {
-  return resolveContainerProjectionWithAccess({
-    ...input,
-    minimumAccessLevel: "write",
-  });
-}
-
 export async function resolveContainerAccessProjection(input: {
   readonly context?: ContainerWriterProjectionContext;
   readonly containerId: string;
@@ -264,7 +252,7 @@ export async function runContainerWriterProjectionWorkflow(
   },
 ): Promise<ContainerWriterProjectionResponse> {
   return db.transaction((tx) =>
-    resolveContainerWriterProjection({
+    resolveContainerReaderProjection({
       containerId: input.containerId,
       context: createContainerWriterProjectionContext(tx),
       executor: tx,

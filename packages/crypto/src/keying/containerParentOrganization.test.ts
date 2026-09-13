@@ -23,7 +23,16 @@ for (const eventType of ["container.create", "container.move"] as const) {
           accessLevel: "admin" as const,
         },
       ];
+      const originalParent = await createContainerManifestFixture({
+        containerId: "original-root",
+        organizationId: "org",
+        directGrants,
+        signer,
+        signerUserId,
+      });
       const previous = await createContainerManifestFixture({
+        parentContainerId: originalParent.state.containerId,
+        parentManifestHash: originalParent.manifestHash,
         containerId: "child",
         organizationId: "org",
         directGrants,
@@ -43,6 +52,7 @@ for (const eventType of ["container.create", "container.move"] as const) {
               eventType,
               parentContainerId: parent.state.containerId,
               parentManifestHash: parent.manifestHash,
+              systemSlot: null,
               metadataDocumentId: previous.state.metadataDocumentId,
               containerKeyEpochId: "new-key",
               directGrants,
@@ -82,7 +92,7 @@ for (const eventType of ["container.create", "container.move"] as const) {
           ? { parentContainerPath: [parent] }
           : {
               previousManifest: previous,
-              previousContainerPath: [previous],
+              previousContainerPath: [originalParent, previous],
               destinationParentContainerPath: [parent],
             }),
       });

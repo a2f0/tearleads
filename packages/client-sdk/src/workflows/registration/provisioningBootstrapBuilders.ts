@@ -149,6 +149,7 @@ async function buildProvisionedChildContainerCore(input: {
         ? { managedPrincipalGrant: input.managedPrincipalGrant }
         : {}),
       metadataDocumentId: containerId,
+      systemSlot: input.systemSlot,
       parentKekMaterial: input.rootContainer.containerKey,
       parentProjection: input.rootContainerProjection,
       principalPolicies: input.principalPolicies,

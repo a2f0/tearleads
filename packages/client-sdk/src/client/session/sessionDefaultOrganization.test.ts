@@ -14,6 +14,7 @@ test("default organization is stable and distinct from active context", () => {
 
   const input = sdk.runtime.input();
   expect(input.auth).toEqual({
+    rootContainerId: null,
     defaultOrganizationId: "personal-org",
     isAuthenticated: true,
     isRoot: false,

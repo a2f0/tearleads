@@ -196,6 +196,7 @@ const server = setupServer(
     };
     mockAuthContext = context;
     return HttpResponse.json<VerifyResponse>({
+      rootContainerId: null,
       authenticated: true,
       isRoot: false,
       organizationId: context.organizationId,

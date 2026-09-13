@@ -30,10 +30,20 @@ export function findRootContainerState(
     return defaultRootState ?? rootStates[0] ?? null;
   }
 
-  const organizationRootState = rootStates.find(
-    (containerState) =>
-      containerState.container.organizationId === organizationId,
+  // Remote root roles have been verified during hydration. An acknowledgement
+  // selects the personal merge destination; other organizations may be first
+  // encountered on this device after joining or creating them elsewhere.
+  const organizationRoots = rootStates.filter(
+    (entry) => entry.container.organizationId === organizationId,
   );
+  const acknowledgedRootId = state.runtime.auth.rootContainerId;
+  const organizationRootState = acknowledgedRootId
+    ? organizationRoots.find(
+        (entry) => entry.container.id === acknowledgedRootId,
+      )
+    : organizationRoots.length === 1
+      ? organizationRoots[0]
+      : null;
   if (organizationRootState) {
     return organizationRootState;
   }
@@ -49,18 +59,23 @@ export function findSystemContainerStateForRoot(
   systemSlot: ContainerSystemSlot,
   rootState: ContainerState | null,
 ): ContainerState | null {
-  let fallback: ContainerState | null = null;
+  const { rootContainerId } = state.runtime.auth;
+  const organizationId =
+    rootState?.container.organizationId || state.runtime.auth.organizationId;
+  const expectedRootId = rootState?.container.id ?? rootContainerId;
   for (const containerState of state.containersById.values()) {
-    if ((containerState.container.systemSlot ?? null) === systemSlot) {
-      if (
-        rootState &&
-        containerState.container.parentId === rootState.container.id
-      ) {
-        return containerState;
-      }
-      fallback ??= containerState;
-    }
+    const container = containerState.container;
+    if (container.systemSlot !== systemSlot) continue;
+    if (expectedRootId && container.parentId !== expectedRootId) continue;
+    const isLocalCandidate =
+      rootState && isPreAuthRootState(rootState) && !container.organizationId;
+    if (
+      organizationId &&
+      !isLocalCandidate &&
+      container.organizationId !== organizationId
+    )
+      continue;
+    return containerState;
   }
-
-  return rootState ? null : fallback;
+  return null;
 }

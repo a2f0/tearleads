@@ -67,6 +67,7 @@ function deriveMutationState(input: {
   const { body, event, eventHash, request } = input;
   if (body.eventType === "container.create") {
     return {
+      systemSlot: body.systemSlot,
       containerId: event.objectId,
       containerKeyEpochId: body.containerKeyEpochId,
       directGrants: [...body.directGrants],

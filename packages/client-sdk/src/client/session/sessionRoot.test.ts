@@ -358,3 +358,25 @@ test("a token renewal for the same identity keeps root available", async () => {
 
   expect(sdk.root.isAvailable).toBe(true);
 });
+
+test("local bootstrap preserves a restored server root acknowledgement", async () => {
+  const sdk = await createRootSdk();
+  sdk.session.setContext({
+    ...ROOT_CONTEXT,
+    rootAcknowledgments: [
+      {
+        signingFingerprint: ROOT_FINGERPRINT,
+        userId: ROOT_CONTEXT.userId,
+        organizationId: ROOT_CONTEXT.organizationId,
+        rootContainerId: ROOT_CONTEXT.containerId,
+      },
+    ],
+  });
+  expect(await sdk.session.bootstrapLocalRootContainer()).toEqual({
+    containerId: ROOT_CONTEXT.containerId,
+    created: false,
+  });
+  expect(sdk.runtime.input().auth.rootContainerId).toBe(
+    ROOT_CONTEXT.containerId,
+  );
+});

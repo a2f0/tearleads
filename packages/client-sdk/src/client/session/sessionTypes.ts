@@ -1,6 +1,28 @@
+import type { ApiClient } from "@tearleads/api-client";
+import type { DocumentProjectorRegistryInput } from "../../data/documents/documentKinds";
+import type { ProvisionedSystemContainerSpec } from "../../workflows/registration";
 import type { ClearRemoteSyncStateResult } from "../../workflows/sync";
+import type { Database } from "../database";
+import type { Identity } from "../identity";
+import type { UserIdentityAvailable } from "./sessionIdentityTrust";
+
+export interface SessionDependencies {
+  api: ApiClient;
+  database: Database;
+  documentProjectors?: DocumentProjectorRegistryInput | undefined;
+  identity: Identity;
+  log: (message: string) => void;
+  logError: (message: string | Error, cause?: unknown) => void;
+  onUserIdentityAvailable?: UserIdentityAvailable | undefined;
+  /** App-owned system containers provisioned with each new organization. */
+  provisionedSystemContainers?:
+    | ReadonlyArray<ProvisionedSystemContainerSpec>
+    | undefined;
+}
 
 export interface SessionContext {
+  /** Fingerprint-bound host restore only; view selections never acknowledge roots. */
+  rootAcknowledgments?: SessionSnapshot["rootAcknowledgments"] | undefined;
   authToken?: string | null | undefined;
   containerId?: string | null | undefined;
   /** Server-backed personal organization; independent of the active org. */
@@ -13,6 +35,13 @@ export interface SessionContext {
 }
 
 export interface SessionSnapshot {
+  /** Server acknowledgements retained independently of the selected container. */
+  rootAcknowledgments: ReadonlyArray<{
+    readonly signingFingerprint: string;
+    readonly userId: string;
+    readonly organizationId: string;
+    readonly rootContainerId: string | null;
+  }>;
   authToken: string | null;
   containerId: string | null;
   /** Server-backed personal organization; independent of the active org. */

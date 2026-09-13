@@ -31,6 +31,7 @@ export function createVerifyRoute(runtime: ApiServiceRuntime) {
           authenticated: true,
           isRoot: result.isRoot,
           organizationId: result.organizationId,
+          rootContainerId: result.rootContainerId,
           token: result.token,
           userId: result.userId,
         });

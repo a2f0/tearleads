@@ -564,6 +564,7 @@ describe("Tearleads", () => {
       containerId: "container-1",
       isAuthenticated: true,
       isRoot: false,
+      rootAcknowledgments: [],
       organizationId: "organization-1",
       userId: "user-1",
     });
@@ -871,6 +872,7 @@ describe("Tearleads", () => {
         defaultOrganizationId: "organization-1",
         isAuthenticated: false,
         isRoot: false,
+        rootAcknowledgments: [],
         organizationId: "organization-1",
         userId: "user-1",
       },
@@ -880,6 +882,7 @@ describe("Tearleads", () => {
         defaultOrganizationId: "organization-1",
         isAuthenticated: true,
         isRoot: false,
+        rootAcknowledgments: [],
         organizationId: "organization-1",
         userId: "user-1",
       },

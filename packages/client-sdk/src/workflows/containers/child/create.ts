@@ -14,6 +14,7 @@ import type {
   ContainerKekResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import { assertContainerAuthorAccess } from "../../../data/containers/shared/authorAccess";
 import {
   buildContainerCreateBody,
   buildContainerCreateKeyEpoch,
@@ -134,6 +135,7 @@ function buildChildContainerCreateBody(
   managedGrant: BuildContainerCreatePlanInput["managedPrincipalGrant"],
 ): ContainerCreateAccessEventBody {
   const baseBody = buildContainerCreateBody({
+    systemSlot: context.systemSlot ?? null,
     containerKeyEpochId: context.containerKeyEpochId,
     metadataDocumentId: context.metadataDocumentId,
     parentContainerId: context.parentProjection.containerId,
@@ -216,6 +218,7 @@ export async function buildContainerCreatePlan(
   });
   const { manifest, manifestHash, state } = await deriveContainerCreateManifest(
     {
+      systemSlot: context.systemSlot ?? null,
       containerId: context.containerId,
       containerKeyEpochId: context.containerKeyEpochId,
       directGrants: body.directGrants,
@@ -282,6 +285,7 @@ export async function buildMaterializedContainerCreatePlan(
     eventId?: string | undefined;
     execSql?: ExecSql | undefined;
     metadataDocumentId?: string | undefined;
+    systemSlot?: string | null | undefined;
     parentProjection: ContainerWriterProjectionResponse;
     parentSecretKey: Uint8Array;
     signedAt?: string | undefined;
@@ -317,6 +321,17 @@ export async function buildMaterializedContainerCreatePlan(
         warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
       })
     : [];
+  if (input.resolveProjectionUserKey) {
+    assertContainerAuthorAccess({
+      author: {
+        ...input.author,
+        organizationId: input.parentProjection.organizationId,
+      },
+      projection: input.parentProjection,
+      principalPolicies,
+      minimumAccess: input.systemSlot ? "admin" : "write",
+    });
+  }
   const plan = await buildContainerCreatePlan({
     author: input.author,
     containerId: input.containerId,
@@ -324,6 +339,7 @@ export async function buildMaterializedContainerCreatePlan(
     containerKeyEpochId: input.containerKeyEpochId,
     eventId: input.eventId,
     metadataDocumentId: input.metadataDocumentId,
+    systemSlot: input.systemSlot,
     parentKekMaterial,
     parentProjection: input.parentProjection,
     principalPolicies,

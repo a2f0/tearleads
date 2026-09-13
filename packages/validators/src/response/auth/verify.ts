@@ -7,6 +7,7 @@ export const VerifySuccessResponseSchema = loosePlainObject({
   /** Platform-operator flag; gates the root console, enforced server-side. */
   isRoot: z.boolean(),
   organizationId: nonEmptyStringSchema,
+  rootContainerId: nonEmptyStringSchema.nullable(),
   token: nonEmptyStringSchema,
   userId: nonEmptyStringSchema,
 });
@@ -16,6 +17,7 @@ export const VerifyFailureResponseSchema = loosePlainObject({
   error: z.string().optional(),
   isRoot: z.never().optional(),
   organizationId: z.never().optional(),
+  rootContainerId: z.never().optional(),
   token: z.never().optional(),
   userId: z.never().optional(),
 });

@@ -27,6 +27,7 @@ export function containerAccessManifestStateRecord(
   state: ContainerAccessManifestState,
 ) {
   return {
+    systemSlot: state.systemSlot,
     version: state.version,
     containerId: state.containerId,
     organizationId: state.organizationId,

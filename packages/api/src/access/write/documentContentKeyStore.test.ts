@@ -167,6 +167,7 @@ async function createVerifiedContainerManifest(input: {
   return {
     ...verifiedManifest.value,
     state: {
+      systemSlot: null,
       version: 1,
       containerId: input.containerId,
       organizationId: input.organizationId,

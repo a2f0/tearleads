@@ -29,6 +29,7 @@ interface CreateContainerWriterProjectionFixtureInput {
   readonly containerId: string;
   readonly encapsulationPublicKey: Uint8Array;
   readonly metadataDocumentId?: string | undefined;
+  readonly systemSlot?: string | null | undefined;
   readonly organizationId: string;
   readonly parentProjection?: ContainerWriterProjectionResponse | undefined;
   readonly signedAt?: string | undefined;
@@ -190,6 +191,7 @@ export async function createContainerWriterProjectionFixture(
     : null;
   const parentManifestHash = parentManifest?.manifestHash ?? null;
   const body: ContainerCreateAccessEventBody = {
+    systemSlot: input.systemSlot ?? null,
     eventType: "container.create",
     parentContainerId,
     parentManifestHash,
@@ -219,6 +221,7 @@ export async function createContainerWriterProjectionFixture(
     userId: input.userId,
   });
   const state: ContainerAccessManifestState = {
+    systemSlot: input.systemSlot ?? null,
     version: 1,
     containerId: input.containerId,
     organizationId: input.organizationId,

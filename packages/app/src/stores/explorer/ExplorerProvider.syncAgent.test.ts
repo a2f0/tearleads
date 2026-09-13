@@ -23,6 +23,7 @@ import {
   createSqlRuntime,
   runtimeWithPatch,
 } from "../../../test/helpers/explorer-provider/explorerProviderHarness";
+import { createSignedExplorerRoots } from "../../../test/helpers/explorer-provider/signedExplorerRoots";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
 
 test("explorer snapshot update skips notifications when node contents are unchanged", async () => {
@@ -144,6 +145,13 @@ test("explorer sync agent batches concurrent remote ingests into one snapshot up
   const requestedPrincipalPolicies: string[] = [];
   const runtime = runtimeWithPatch(await createSqlRuntime(), {
     apiClient: createMockApiClient({
+      ...(await createSignedExplorerRoots([
+        {
+          id: "container-a",
+          organizationId: "org-1",
+          metadataDocumentId: "metadata-document-a",
+        },
+      ])),
       getCurrentPrincipalPolicy: async (principalType, principalId) => {
         requestedPrincipalPolicies.push(`${principalType}:${principalId}`);
         return null;
@@ -254,6 +262,13 @@ test("explorer sync agent retries remote ingests after a failed batch", async ()
   const requestedPrincipalPolicies: string[] = [];
   const runtime = runtimeWithPatch(await createSqlRuntime(), {
     apiClient: createMockApiClient({
+      ...(await createSignedExplorerRoots([
+        {
+          id: "container-a",
+          organizationId: "org-1",
+          metadataDocumentId: "metadata-document-a",
+        },
+      ])),
       getCurrentPrincipalPolicy: async (principalType, principalId) => {
         requestedPrincipalPolicies.push(`${principalType}:${principalId}`);
         if (requestedPrincipalPolicies.length === 1) {

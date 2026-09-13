@@ -1,11 +1,11 @@
-import { users } from "@tearleads/api-shared/schema";
+import { containers, users } from "@tearleads/api-shared/schema";
 import {
   authChallengeSigningBytes,
   toFingerprint,
   verify,
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import type { ApiServiceRuntime } from "../runtime";
 
 interface VerifyChallengeInput {
@@ -18,6 +18,7 @@ interface VerifyChallengeResult {
   /** Platform-operator flag from `users.is_root`; gates the root console. */
   isRoot: boolean;
   organizationId: string;
+  rootContainerId: string | null;
   token: string;
   userId: string;
 }
@@ -95,7 +96,18 @@ export async function verifyChallenge(
     ipAddress: input.ipAddress,
   });
 
+  const [root] = await runtime.db
+    .select({ id: containers.id })
+    .from(containers)
+    .where(
+      and(
+        eq(containers.organizationId, user.defaultOrganizationId),
+        isNull(containers.parentId),
+      ),
+    )
+    .limit(1);
   return {
+    rootContainerId: root?.id ?? null,
     isRoot: user.isRoot,
     organizationId: user.defaultOrganizationId,
     token,

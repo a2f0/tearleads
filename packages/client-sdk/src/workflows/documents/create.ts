@@ -5,6 +5,7 @@ import {
   type DocumentCreateResponse,
   type DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import { assertContainerAuthorAccess } from "../../data/containers/shared/authorAccess";
 import { buildDocumentCreatePlan } from "../../data/documents/shared/events";
 import { acknowledgeDocumentMutation } from "../../data/documents/shared/mutationAcknowledgement";
 import {
@@ -25,13 +26,17 @@ import type {
   ReferencedPrincipalPolicyWarmer,
 } from "../../data/keyingProjectionVerification";
 import {
+  collectContainerWriterProjectionPrincipalPolicies,
   nullOnProjectionVerificationCancellation,
   requireProjectionUserKeyResolver,
 } from "../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { adoptExistingRemoteDocument } from "./createAdoption";
 import type { DocumentCreateTerminalFailureHandler } from "./createProjectionFetch";
-import { fetchContainerWriterProjectionForCreate } from "./createProjectionFetch";
+import {
+  fetchContainerWriterProjectionForCreate,
+  recordDocumentCreateAccessFailure,
+} from "./createProjectionFetch";
 import {
   isDocumentManifestAlreadyExistsConflict,
   shouldRetryWithFreshProjection,
@@ -66,6 +71,27 @@ export async function buildMaterializedDocumentCreatePlan(
     secretKey: input.targetSecretKey,
     ...projectionVerificationOptions(input),
   });
+  if (input.resolveProjectionUserKey) {
+    const principalPolicies =
+      await collectContainerWriterProjectionPrincipalPolicies({
+        ...projectionVerificationOptions(input),
+        execSql: input.execSql,
+        projection: input.containerProjection,
+        resolveUserKey: input.resolveProjectionUserKey,
+      });
+    assertContainerAuthorAccess({
+      // Document signing derives its organization from the verified target.
+      author: {
+        ...input.author,
+        organizationId: input.containerProjection.organizationId,
+      },
+      projection: input.containerProjection,
+      principalPolicies,
+      minimumAccess: "write",
+    });
+  }
+  // The explicit local-trust variant builds provisioning artifacts before
+  // their new principal policies exist remotely; remote creates cannot use it.
   const plan = await buildDocumentCreatePlan({
     author: input.author,
     containerProjection: input.containerProjection,
@@ -328,8 +354,12 @@ export async function createRemoteDocument(
     input.resolveProjectionUserKey,
     "Remote document create",
   );
-  const plannedSubmission = await nullOnProjectionVerificationCancellation(() =>
-    submitPlannedDocumentCreate(input, resolveProjectionUserKey),
+  const plannedSubmission = await recordDocumentCreateAccessFailure(
+    () =>
+      nullOnProjectionVerificationCancellation(() =>
+        submitPlannedDocumentCreate(input, resolveProjectionUserKey),
+      ),
+    input.onTerminalSubmitFailure,
   );
   if (!plannedSubmission) {
     return null;

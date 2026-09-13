@@ -4,6 +4,7 @@ import type {
   ListContainerParentLanesResponse,
   ListContainersResponse,
 } from "@tearleads/validators/response";
+import { createSignedContainerDirectory } from "../../../test/helpers/signedContainerDirectory";
 import {
   createContainerParentSyncLane,
   defaultContainerContentsPersistence,
@@ -36,6 +37,15 @@ const pageWatermark = {
   updatedAt: timestamp,
 };
 
+const signedDirectory = await createSignedContainerDirectory([
+  {
+    id: containerId,
+    parentId: null,
+    organizationId: "organization-1",
+    metadataDocumentId,
+  },
+]);
+
 function createState(input: {
   execSql: RemoteContainerHydrationState["runtime"]["infra"]["execSql"];
   includeItem?: boolean;
@@ -60,7 +70,10 @@ function createState(input: {
     containersById: new Map(),
     persistence: defaultContainerContentsPersistence,
     runtime: {
+      resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
       apiClient: {
+        getContainerWriterProjection:
+          signedDirectory.getContainerWriterProjection,
         getCurrentPrincipalPolicy: async () => null,
         listContainerParentLanes: async (request: {
           lanes: ReadonlyArray<{

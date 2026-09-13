@@ -14,6 +14,8 @@ export type WorkflowRuntimeDatabaseStatus =
 export interface WorkflowRuntimeAuthInput {
   /** Server-backed personal organization; independent of organizationId. */
   readonly defaultOrganizationId?: string | null;
+  /** Session root identity, independent of a document/pane target. */
+  readonly rootContainerId?: string | null | undefined;
   readonly isAuthenticated: boolean;
   /** Platform-operator flag from the server; the API enforces root access. */
   readonly isRoot?: boolean | undefined;

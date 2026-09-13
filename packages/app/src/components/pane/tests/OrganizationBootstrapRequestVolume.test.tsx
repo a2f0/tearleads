@@ -47,12 +47,14 @@ test(
         { method: "POST", path: /^\/documents$/u, count: 1 },
       ],
       budget: {
-        total: 25,
+        // Root acknowledgement and verified adoption can each schedule a
+        // root-lane pass; signed destination reads remain bounded at four.
+        total: 29,
         byRequest: {
           "GET /containers/:containerId/documents": 5,
           "POST /documents/:documentId/sync": 8,
-          "POST /containers/parent-lanes/query": 4,
-          "GET /containers/:containerId/writer-projection": 1,
+          "POST /containers/parent-lanes/query": 5,
+          "GET /containers/:containerId/writer-projection": 4,
           "GET /documents/:documentId/writer-projection": 1,
           "GET /organizations/:organizationId/billing": 1,
           "POST /auth/register": 1,

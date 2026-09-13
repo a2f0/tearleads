@@ -79,6 +79,12 @@ function readContainerAccessState(
   readProjectionVersion(record, label, mutationShapeError);
 
   return containerAccessManifestStateRecord({
+    systemSlot: readProjectionNullableString(
+      record,
+      "systemSlot",
+      label,
+      mutationShapeError,
+    ),
     version: 1,
     containerId: readProjectionString(
       record,

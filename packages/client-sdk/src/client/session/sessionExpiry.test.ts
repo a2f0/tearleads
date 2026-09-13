@@ -54,6 +54,7 @@ describe("session expiry", () => {
 
       if (url.pathname === "/auth/verify") {
         return jsonResponse({
+          rootContainerId: null,
           authenticated: true,
           isRoot: false,
           organizationId: "org-2",
@@ -85,18 +86,29 @@ describe("session expiry", () => {
         defaultOrganizationId: "org-1",
         isAuthenticated: true,
         isRoot: false,
+        rootAcknowledgments: [],
         organizationId: "org-1",
         userId: "22222222-2222-4222-8222-222222222222",
       });
 
       await expect(sdk.session.listSessions()).resolves.toEqual([]);
 
+      const signingFingerprint = sdk.identity.signingFingerprint;
+      if (!signingFingerprint) throw new Error("expected signing fingerprint");
       expect(sdk.session.snapshot).toEqual({
         authToken: "fresh-token",
         containerId: null,
         defaultOrganizationId: "org-2",
         isAuthenticated: true,
         isRoot: false,
+        rootAcknowledgments: [
+          {
+            signingFingerprint,
+            userId: "22222222-2222-4222-8222-222222222222",
+            organizationId: "org-2",
+            rootContainerId: null,
+          },
+        ],
         organizationId: "org-2",
         userId: "22222222-2222-4222-8222-222222222222",
       });

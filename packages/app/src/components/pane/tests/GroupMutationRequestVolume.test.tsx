@@ -14,6 +14,7 @@ import {
 } from "../../../../test/helpers/dual-pane/dualPaneSharingKit";
 import { useTestApiAppHandlers } from "../../../../test/helpers/mswServer";
 import { cleanupPaneTestEnvironment } from "../../../../test/helpers/paneTestUtils";
+import { waitForPersonalBootstrap } from "../../../../test/helpers/waitForPersonalBootstrap";
 import { measureWorkflowRequests } from "../../../../test/helpers/workflowRequestBudget";
 
 afterEach(cleanupPaneTestEnvironment);
@@ -24,6 +25,7 @@ test("group creation and adding a peer have separate request budgets", async () 
   const pane = getPaneRoot(view, "left");
   const peer = getPaneRoot(view, "right");
   await waitForDualPaneProvisioning(pane, peer);
+  await waitForPersonalBootstrap(2);
   await openOrgManager(pane);
   const peerId = getPaneUserId(peer);
   for (const group of ["first", "second"] as const) {

@@ -7,7 +7,7 @@ import type {
 import type { ContainerCreateWithMetadataDocumentResponse } from "@tearleads/validators/response";
 import { createContainer } from "../containers/mutations/createContainer";
 import {
-  applyContainerSystemSlot,
+  assertContainerSystemSlot,
   readContainerMetadataDocumentId,
 } from "../containers/mutations/createContainerWithMetadataDocument";
 import { createDocumentWithExecutor } from "../documents/mutations";
@@ -63,6 +63,7 @@ async function createProvisionedSystemContainer(
     request: input.request.container,
     userId: input.userId,
   });
+  assertContainerSystemSlot(container, input.request.systemSlot ?? null);
   const metadataDocumentId = readContainerMetadataDocumentId(container);
 
   const metadataDocument = await createDocumentWithExecutor({
@@ -86,15 +87,7 @@ async function createProvisionedSystemContainer(
     userId: input.userId,
   });
 
-  const systemSlot = input.request.systemSlot ?? null;
-  const nextContainer = systemSlot
-    ? await applyContainerSystemSlot(tx, {
-        container,
-        slot: systemSlot,
-      })
-    : container;
-
-  return { container: nextContainer, metadataDocument };
+  return { container, metadataDocument };
 }
 
 export async function createInitialRosterProfileContainer(

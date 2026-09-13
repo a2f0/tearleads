@@ -127,6 +127,7 @@ test("isRegistrationResponse", () => {
 
 test("isVerifyResponse", () => {
   const successResponse = {
+    rootContainerId: null,
     authenticated: true as const,
     extension: true,
     isRoot: false,

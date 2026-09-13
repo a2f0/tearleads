@@ -85,7 +85,9 @@ export function usePromoteLocalSystemContainers(input: {
 
       promotingSystemSlotsRef.current.add(slot);
       void store
-        .ensureSystemContainer(slot, systemContainer.name, {})
+        .ensureSystemContainer(slot, systemContainer.name, {
+          icon: systemContainer.icon,
+        })
         .catch((error: unknown) => {
           logError("Failed to promote system container to remote sync", error);
         })

@@ -26,6 +26,7 @@ import type { Identity } from "./identity";
 import { createListenerSet } from "./listenerSet";
 import type { Network } from "./network";
 import { adoptSessionRootContainer } from "./rootContainerAdoption";
+import { acknowledgedSessionRoot } from "./session/sessionRootAuthority";
 import type { Session, SessionSnapshot } from "./session/sessionTypes";
 import type { SyncBillingGate } from "./syncBillingGate";
 
@@ -197,9 +198,14 @@ interface RuntimeInputFactory {
   ): InternalWorkflowRuntimeInput;
 }
 
-function sessionAuthInput(session: Session): WorkflowRuntimeAuthInput {
+function sessionAuthInput({
+  session,
+  identity,
+}: WorkflowRuntimeDependencies): WorkflowRuntimeAuthInput {
+  const signingFingerprint = identity.snapshot.signingFingerprint;
   return {
     defaultOrganizationId: session.defaultOrganizationId,
+    rootContainerId: acknowledgedSessionRoot(session, signingFingerprint),
     isAuthenticated: session.isAuthenticated,
     isRoot: session.isRoot,
     organizationId: session.organizationId,
@@ -245,7 +251,7 @@ function createRuntimeInputFactory(
         ? dependencies.session.containerId
         : containerId) ?? null;
 
-    auth = reuseIfShallowEqual(auth, sessionAuthInput(dependencies.session));
+    auth = reuseIfShallowEqual(auth, sessionAuthInput(dependencies));
     crypto = reuseIfShallowEqual(crypto, {
       encapsulationKeyPair: dependencies.identity.encapsulationKeyPair,
       signingFingerprint: dependencies.identity.signingFingerprint,

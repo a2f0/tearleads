@@ -39,9 +39,9 @@ function canUseRemoteRootAsLocalRootReconciliationTarget(input: {
   const { remoteRootState, state } = input;
   return (
     remoteRootState.container.parentId === null &&
-    (!state.runtime.auth.organizationId ||
-      remoteRootState.container.organizationId ===
-        state.runtime.auth.organizationId)
+    remoteRootState.container.id === state.runtime.auth.rootContainerId &&
+    remoteRootState.container.organizationId ===
+      state.runtime.auth.organizationId
   );
 }
 

@@ -311,6 +311,7 @@ async function createRemoteContainerWithMetadataDocumentAttempt(input: {
     execSql,
     eventId: input.containerEventId,
     metadataDocumentId: input.containerId,
+    systemSlot: input.systemSlot,
     parentProjection: input.parentProjection,
     parentSecretKey: input.parentSecretKey,
     resolveProjectionUserKey: input.resolveProjectionUserKey,

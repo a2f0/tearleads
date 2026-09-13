@@ -81,6 +81,7 @@ async function ensureContainerHead(input: {
       keyTargetHash: await hashOf(`${label}:key-target`),
       manifestHash,
       state: {
+        systemSlot: null,
         version: 1,
         containerId: input.containerId,
         organizationId: input.organizationId,

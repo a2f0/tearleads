@@ -100,6 +100,7 @@ function buildRootContainerCreateBody(input: {
   metadataDocumentId: string;
 }): ContainerCreateAccessEventBody {
   const baseBody = buildContainerCreateBody({
+    systemSlot: null,
     containerKeyEpochId: input.containerKeyEpochId,
     metadataDocumentId: input.metadataDocumentId,
     parentContainerId: null,
@@ -218,6 +219,7 @@ async function deriveRootCreateArtifacts(input: {
   });
   const { manifest, manifestHash, state } = await deriveContainerCreateManifest(
     {
+      systemSlot: null,
       containerId: input.containerId,
       containerKeyEpochId: input.containerKeyEpochId,
       directGrants: input.body.directGrants,

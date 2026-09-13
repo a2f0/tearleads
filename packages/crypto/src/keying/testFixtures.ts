@@ -407,6 +407,7 @@ export async function createContainerManifestFixture(input: {
   const metadataDocumentId =
     input.metadataDocumentId ?? `${input.containerId}-metadata-document`;
   const body: ContainerCreateAccessEventBody = {
+    systemSlot: null,
     eventType: "container.create",
     parentContainerId: input.parentContainerId ?? null,
     parentManifestHash: input.parentManifestHash ?? null,
@@ -426,6 +427,7 @@ export async function createContainerManifestFixture(input: {
       signerUserId: input.signerUserId ?? "fixture-signer",
     }));
   const state: ContainerAccessManifestState = {
+    systemSlot: null,
     version: 1,
     containerId: input.containerId,
     organizationId,

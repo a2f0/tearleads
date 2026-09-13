@@ -141,6 +141,7 @@ export function readContainerAccessManifestState(
   readRecordVersion(record, label);
 
   return {
+    systemSlot: readRecordNullableString(record, "systemSlot", label),
     version: 1,
     containerId: readRecordString(record, "containerId", label),
     organizationId: readRecordString(record, "organizationId", label),

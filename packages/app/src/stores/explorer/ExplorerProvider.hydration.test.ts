@@ -7,10 +7,15 @@ import {
   defaultContainerContentsPersistence as defaultExplorerPersistence,
   type DocumentRecord as StoredDocumentRecord,
 } from "@tearleads/client-sdk";
-import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import {
+  generateKemSeedAndKeyPair,
+  generateSigningSeedAndKeyPair,
+  toFingerprint,
+} from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createContainerParentLaneBatchMock,
+  createContainerWriterProjectionFixture,
   createMockApiClient,
 } from "@tearleads/test-utils";
 import {
@@ -26,6 +31,7 @@ import {
   createSqlRuntime,
   runtimeWithPatch,
 } from "../../../test/helpers/explorer-provider/explorerProviderHarness";
+import { createSignedExplorerRoots } from "../../../test/helpers/explorer-provider/signedExplorerRoots";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
 
 test("explorer hydration repairs stale local timestamps for remote containers without pending metadata", async () => {
@@ -107,6 +113,13 @@ test("explorer hydration repairs stale local timestamps for remote containers wi
   runtime = runtimeWithPatch(runtime, {
     apiClient: createMockApiClient({
       ...runtime.apiClient,
+      ...(await createSignedExplorerRoots([
+        {
+          id: "shared-root-container",
+          organizationId: "org-2",
+          metadataDocumentId: "shared-root-metadata-document",
+        },
+      ])),
       listContainerParentLanes: createContainerParentLaneBatchMock(
         async (options) =>
           options.parentId === null || options.parentId === undefined
@@ -250,9 +263,25 @@ test("explorer hydration repairs stale local timestamps for remote containers wi
 test("explorer hydration reconciles a restored local-only root into the authenticated remote root", async () => {
   let runtime = await createSqlRuntime();
   const localKeyPair = generateKemSeedAndKeyPair();
+  const signer = generateSigningSeedAndKeyPair();
+  const fingerprint = await toFingerprint(signer.signingPublicKey);
+  const rootProjection = await createContainerWriterProjectionFixture({
+    containerId: "remote-root",
+    metadataDocumentId: "remote-root-metadata-document",
+    organizationId: "org-remote",
+    encapsulationPublicKey: localKeyPair.publicKey,
+    signerKeyFingerprint: fingerprint,
+    signerPrivateKey: signer.signingPrivateKey,
+    userId: "root-owner",
+  });
   runtime = runtimeWithPatch(runtime, {
+    auth: { ...runtime.auth, rootContainerId: "remote-root" },
+    userId: "root-owner",
+    signingKeyPair: signer,
+    signingFingerprint: fingerprint,
     apiClient: createMockApiClient({
       ...runtime.apiClient,
+      getContainerWriterProjection: async () => rootProjection,
       listContainerParentLanes: createContainerParentLaneBatchMock(
         async (options) =>
           options.parentId === null || options.parentId === undefined

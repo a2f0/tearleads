@@ -133,6 +133,7 @@ test("access manifest schema stores critical rows through Drizzle", async () => 
     keyFingerprint: fixtureHash("principal-key"),
   } satisfies ReferencedPrincipalHead;
   const eventBody = {
+    systemSlot: null,
     eventType: "container.create",
     containerKeyEpochId,
     directGrants: [],
@@ -142,6 +143,7 @@ test("access manifest schema stores critical rows through Drizzle", async () => 
     referencedPrincipalHeads: [principalHead],
   } satisfies KeyingCanonicalJson;
   const manifestState = {
+    systemSlot: null,
     version: 1,
     containerId,
     organizationId,

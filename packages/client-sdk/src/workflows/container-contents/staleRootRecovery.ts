@@ -31,7 +31,11 @@ interface StaleRootRecoveryState {
     readonly adoptRootContainer?: ContainerContentsRootAdopter | undefined;
     readonly auth: Pick<
       ContainerContentsWorkflowRuntime["auth"],
-      "defaultOrganizationId" | "isAuthenticated" | "organizationId" | "userId"
+      | "defaultOrganizationId"
+      | "isAuthenticated"
+      | "organizationId"
+      | "userId"
+      | "rootContainerId"
     >;
     readonly infra: Pick<ContainerContentsWorkflowRuntime["infra"], "execSql">;
     readonly state: Pick<
@@ -48,6 +52,7 @@ function hasSameRecoveryContext(
     defaultOrganizationId: string;
     organizationId: string;
     staleContainerId: string;
+    rootContainerId: string | null | undefined;
     userId: string;
   },
 ): boolean {
@@ -56,6 +61,7 @@ function hasSameRecoveryContext(
     state.runtime.auth.defaultOrganizationId === input.defaultOrganizationId &&
     state.runtime.auth.organizationId === input.organizationId &&
     state.runtime.auth.userId === input.userId &&
+    state.runtime.auth.rootContainerId === input.rootContainerId &&
     state.runtime.state.containerId === input.staleContainerId &&
     state.runtime.state.domainScope === input.domainScope
   );
@@ -67,6 +73,7 @@ function listAuthoritativeRootCandidates(
 ): ContainerState[] {
   return Array.from(state.containersById.values()).filter(
     (containerState) =>
+      containerState.container.id === state.runtime.auth.rootContainerId &&
       containerState.container.parentId === null &&
       containerState.container.organizationId === organizationId &&
       (containerState.container.systemSlot ?? null) === null &&
@@ -83,11 +90,8 @@ function listAuthoritativeRootCandidates(
  * beneath that deleted id, so startup priming detects their writes but cannot
  * route them. Recovery is intentionally narrow: the stale id must be absent
  * from both the loaded topology and durable storage, and the active
- * organization must have exactly one owner-administered, non-system,
- * remote-backed top-level root after the authoritative root lane has hydrated.
- * As in normal root reconciliation, the authenticated API topology is the
- * account authority here; root ownership is not independently corroborated by
- * a client-held signature. This recovery path only repairs document
+ * organization must contain the session-acknowledged root after the root lane
+ * has hydrated and verified its signed destination role. This recovery path only repairs document
  * references; structural container descendants remain owned by normal root
  * reconciliation. Durable reassignment deliberately precedes live session
  * adoption so consumers never observe the new root before its documents move.
@@ -123,6 +127,7 @@ export async function recoverStaleSessionRoot(
     organizationId,
     staleContainerId,
     userId,
+    rootContainerId: state.runtime.auth.rootContainerId,
   };
 
   const storedContainerExists = await state.persistence.containerExists(

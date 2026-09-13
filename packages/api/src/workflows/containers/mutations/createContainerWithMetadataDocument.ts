@@ -1,8 +1,5 @@
-import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
-import { containers } from "@tearleads/api-shared/schema";
 import type { ContainerCreateWithMetadataDocumentRequest } from "@tearleads/validators/request";
 import type { ContainerCreateWithMetadataDocumentResponse } from "@tearleads/validators/response";
-import { and, eq } from "drizzle-orm";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import { createDocumentWithExecutor } from "../../documents/mutations/createDocument";
 import { DocumentMutationError } from "../../documents/mutations/errors";
@@ -36,71 +33,17 @@ export function readContainerMetadataDocumentId(
   return metadataDocumentId;
 }
 
-export async function applyContainerSystemSlot(
-  db: DatabaseTransaction,
-  input: {
-    readonly container: ContainerCreateWithMetadataDocumentResponse["container"];
-    readonly slot: NonNullable<
-      ContainerCreateWithMetadataDocumentRequest["systemSlot"]
-    >;
-  },
-): Promise<ContainerCreateWithMetadataDocumentResponse["container"]> {
-  if (input.container.parentId === null) {
+/** The mutation verifier already enforces signed root-child and admin authority. */
+export function assertContainerSystemSlot(
+  container: ContainerCreateWithMetadataDocumentResponse["container"],
+  slot: string | null,
+): void {
+  if ((container.systemSlot ?? null) !== slot) {
     throw new ContainerMutationError(
-      "System container parent must be the root container",
+      "System slot does not match the signed container state",
       400,
     );
   }
-
-  const [parent] = await db
-    .select({
-      id: containers.id,
-      organizationId: containers.organizationId,
-      parentId: containers.parentId,
-    })
-    .from(containers)
-    .where(eq(containers.id, input.container.parentId))
-    .limit(1);
-  if (!parent || parent.parentId !== null) {
-    throw new ContainerMutationError(
-      "System container parent must be the root container",
-      400,
-    );
-  }
-  if (parent.organizationId !== input.container.organizationId) {
-    throw new ContainerMutationError(
-      "System container organization mismatch",
-      409,
-    );
-  }
-
-  const [existing] = await db
-    .select({ id: containers.id })
-    .from(containers)
-    .where(
-      and(
-        eq(containers.organizationId, input.container.organizationId),
-        eq(containers.systemSlot, input.slot),
-      ),
-    )
-    .limit(1);
-  if (existing && existing.id !== input.container.containerId) {
-    throw new ContainerMutationError("System container already exists", 409);
-  }
-
-  const [updated] = await db
-    .update(containers)
-    .set({ systemSlot: input.slot })
-    .where(eq(containers.id, input.container.containerId))
-    .returning({ systemSlot: containers.systemSlot });
-  if (!updated) {
-    throw new ContainerMutationError("Container not found", 404);
-  }
-
-  return {
-    ...input.container,
-    systemSlot: input.slot,
-  };
 }
 
 export async function runCreateContainerWithMetadataDocumentWorkflow(
@@ -115,6 +58,7 @@ export async function runCreateContainerWithMetadataDocumentWorkflow(
         request: input.request.container,
         userId: input.userId,
       });
+      assertContainerSystemSlot(container, input.request.systemSlot ?? null);
       const metadataDocumentId = readContainerMetadataDocumentId(container);
 
       const metadataDocument = await createDocumentWithExecutor({
@@ -130,21 +74,13 @@ export async function runCreateContainerWithMetadataDocumentWorkflow(
         );
       }
 
-      const systemSlot = input.request.systemSlot ?? null;
-      const nextContainer = systemSlot
-        ? await applyContainerSystemSlot(tx, {
-            container,
-            slot: systemSlot,
-          })
-        : container;
-
       await assertOrganizationCanSync(
         tx,
-        nextContainer.organizationId,
+        container.organizationId,
         input.userId,
       );
 
-      return { container: nextContainer, metadataDocument };
+      return { container, metadataDocument };
     });
   } catch (error) {
     const containerMutationError = toMutationError(error);
