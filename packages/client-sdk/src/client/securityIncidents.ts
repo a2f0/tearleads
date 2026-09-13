@@ -1,4 +1,7 @@
-import { isKeyingVerificationCode } from "@tearleads/crypto";
+import {
+  isKeyingVerificationCode,
+  type KeyingVerificationError,
+} from "@tearleads/crypto";
 import { isKeyingVerificationError } from "../data/keyingProjectionVerification/error";
 import {
   appendSecurityIncident,
@@ -29,6 +32,16 @@ const SECURITY_INCIDENT_MAX_RETRY_DELAY_MS = 30_000;
 export interface SecurityIncidents {
   /** Returns null while the local database is unavailable. */
   list(): Promise<ReadonlyArray<SecurityIncident> | null>;
+  /**
+   * Durably record a terminal verification failure the host detected itself,
+   * such as conflicting purge proofs found while merging a local backup. The
+   * report is redacted, coalesced, retained, and buffered exactly like an
+   * SDK-detected incident; one error instance is recorded at most once.
+   */
+  record(
+    error: KeyingVerificationError,
+    context: SecurityIncidentContext,
+  ): Promise<void>;
   subscribe(listener: SecurityIncidentListener): () => void;
 }
 
@@ -355,6 +368,7 @@ export function createSecurityIncidentService(
           ? listSecurityIncidents(execSql, options.trustDomain)
           : null;
       },
+      record: report,
       subscribe: listeners.subscribe,
     },
     report,

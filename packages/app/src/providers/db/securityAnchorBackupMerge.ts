@@ -1,32 +1,45 @@
 import { uniqueBackupTableByName } from "./backupTableValidation";
 import {
+  ACCESS_MANIFEST_CHECKPOINT_COLUMNS,
   ACCESS_MANIFEST_CHECKPOINT_TABLE_NAME,
   mergeAccessManifestCheckpointBackupTables,
   mergePrincipalPolicyCheckpointBackupTables,
+  PRINCIPAL_POLICY_CHECKPOINT_COLUMNS,
   PRINCIPAL_POLICY_CHECKPOINT_TABLE_NAME,
 } from "./keyingCheckpointBackupMerge";
 import type { BackupTable } from "./localBackupFormat";
 import {
+  DOCUMENT_PURGE_CHECKPOINT_COLUMNS,
   DOCUMENT_PURGE_CHECKPOINT_TABLE_NAME,
   mergeDocumentPurgeCheckpointBackupTables,
   mergeSecurityIncidentBackupTables,
+  SECURITY_INCIDENT_COLUMNS,
   SECURITY_INCIDENT_TABLE_NAME,
 } from "./terminalSecurityAnchorBackupMerge";
 import {
   mergeTrustedIdentityPinBackupTables,
+  TRUSTED_IDENTITY_PIN_COLUMNS,
   TRUSTED_IDENTITY_PIN_TABLE_NAME,
 } from "./trustedIdentityPinBackupMerge";
 
-const securityAnchorTableNames = new Set([
-  ACCESS_MANIFEST_CHECKPOINT_TABLE_NAME,
-  PRINCIPAL_POLICY_CHECKPOINT_TABLE_NAME,
-  TRUSTED_IDENTITY_PIN_TABLE_NAME,
-  DOCUMENT_PURGE_CHECKPOINT_TABLE_NAME,
-  SECURITY_INCIDENT_TABLE_NAME,
+/**
+ * Anchor columns each merge requires on both sides. These must stay equal to
+ * the SDK's SQLite schema for the table (asserted by the neighbouring test);
+ * columns added later on either side pass through per `projectBackupRow`.
+ */
+export const securityAnchorBackupColumns: ReadonlyMap<
+  string,
+  ReadonlyArray<string>
+> = new Map([
+  [ACCESS_MANIFEST_CHECKPOINT_TABLE_NAME, ACCESS_MANIFEST_CHECKPOINT_COLUMNS],
+  [PRINCIPAL_POLICY_CHECKPOINT_TABLE_NAME, PRINCIPAL_POLICY_CHECKPOINT_COLUMNS],
+  [TRUSTED_IDENTITY_PIN_TABLE_NAME, TRUSTED_IDENTITY_PIN_COLUMNS],
+  [DOCUMENT_PURGE_CHECKPOINT_TABLE_NAME, DOCUMENT_PURGE_CHECKPOINT_COLUMNS],
+  [SECURITY_INCIDENT_TABLE_NAME, SECURITY_INCIDENT_COLUMNS],
 ]);
 
 export function isSecurityAnchorTableName(name: string): boolean {
-  return securityAnchorTableNames.has(name);
+  return securityAnchorBackupColumns.has(name);
 }
 
 /**

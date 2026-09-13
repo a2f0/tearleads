@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createMemoryBlobStore } from "@tearleads/client-sdk";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { unexpectedSecurityIncidents } from "../../../test/helpers/unexpectedSecurityIncidents";
 import { createBackupPayload, restoreBackupPayload } from "./localBackupData";
 
 test.each([
@@ -28,6 +29,7 @@ test.each([
         restoreBackupPayload({
           blobStore,
           execSql: target.execSql,
+          securityIncidents: unexpectedSecurityIncidents,
           payload: {
             ...payload,
             database: {

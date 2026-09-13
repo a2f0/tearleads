@@ -1,4 +1,8 @@
-import type { BackupSqlRow, BackupTable } from "./localBackupFormat";
+import type {
+  BackupSqlRow,
+  BackupSqlValue,
+  BackupTable,
+} from "./localBackupFormat";
 
 export function requireBackupString(
   row: BackupSqlRow,
@@ -47,6 +51,10 @@ export function requireBackupTimestamp(
   }
 }
 
+/**
+ * The anchor column list is the required subset. Either side may carry further
+ * columns from schema evolution; `projectBackupRow` decides which survive.
+ */
 export function validateBackupTableColumns(input: {
   readonly label: string;
   readonly requiredColumns: ReadonlyArray<string>;
@@ -57,10 +65,7 @@ export function validateBackupTableColumns(input: {
     throw new Error(`${input.label} backup table name is invalid`);
   }
   const columns = new Set(input.table.columns);
-  if (
-    columns.size !== input.requiredColumns.length ||
-    input.table.columns.length !== input.requiredColumns.length
-  ) {
+  if (columns.size !== input.table.columns.length) {
     throw new Error(`${input.label} backup columns are invalid`);
   }
   for (const column of input.requiredColumns) {
@@ -68,6 +73,30 @@ export function validateBackupTableColumns(input: {
       throw new Error(`${input.label} backup is missing the ${column} column`);
     }
   }
+}
+
+/**
+ * Shape a merged anchor row for the surviving table schema (the live table's
+ * when it exists). The winning row supplies every surviving column it has; a
+ * surviving column it lacks keeps the other side's value when that side has
+ * it (a live-only column when the backup row won); a column neither side has
+ * is left out so the INSERT applies the column default. Columns outside the
+ * surviving schema are dropped.
+ */
+export function projectBackupRow(input: {
+  readonly columns: ReadonlyArray<string>;
+  readonly fallback?: BackupSqlRow | undefined;
+  readonly row: BackupSqlRow;
+}): BackupSqlRow {
+  const projected: Record<string, BackupSqlValue> = {};
+  for (const column of input.columns) {
+    if (Object.hasOwn(input.row, column)) {
+      projected[column] = input.row[column] ?? null;
+    } else if (input.fallback && Object.hasOwn(input.fallback, column)) {
+      projected[column] = input.fallback[column] ?? null;
+    }
+  }
+  return projected;
 }
 
 function backupScopeKey(input: {

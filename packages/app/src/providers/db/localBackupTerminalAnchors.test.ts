@@ -1,11 +1,14 @@
 import { expect, test } from "bun:test";
+import { createMemoryBlobStore, Tearleads } from "@tearleads/client-sdk";
 import { toFingerprint } from "@tearleads/crypto";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
+import { createBackupPayload, restoreBackupPayload } from "./localBackupData";
 import {
   preflightSecurityAnchorRestore,
   readBackupDatabase,
   restoreBackupDatabase,
 } from "./localBackupDatabase";
+import { DocumentPurgeCheckpointConflictError } from "./terminalSecurityAnchorBackupMerge";
 
 const UPDATED_AT = "2026-09-12T12:00:00.000Z";
 const HASH = "a".repeat(64);
@@ -252,6 +255,69 @@ test("restore rechecks a terminal decision learned after preflight", async () =>
       ),
     ).toEqual([{ purge_event_hash: "b".repeat(64) }]);
   } finally {
+    source.close();
+    target.close();
+  }
+});
+
+test("a purge proof conflict is recorded in the live incident ledger and surfaces typed", async () => {
+  const target = createNativeTestExecSql();
+  const source = createNativeTestExecSql();
+  const sdk = new Tearleads({
+    apiBaseUrl: "https://api.example.test",
+    database: { execSql: target.execSql },
+    logger: { log() {}, logError() {} },
+  });
+  try {
+    for (const db of [source, target]) {
+      for (const sql of schema) await db.execSql(sql);
+    }
+    await target.execSql(
+      "INSERT INTO document_purge_checkpoints VALUES (?, ?, ?, ?, ?)",
+      ["document-1", "organization-1", HASH, HASH, UPDATED_AT],
+    );
+    await source.execSql(
+      "INSERT INTO document_purge_checkpoints VALUES (?, ?, ?, ?, ?)",
+      ["document-1", "organization-1", HASH, "b".repeat(64), UPDATED_AT],
+    );
+    const payload = await createBackupPayload({
+      blobStore: createMemoryBlobStore(),
+      databaseId: "backup-source",
+      execSql: source.execSql,
+      signingFingerprint: null,
+    });
+    const restore = restoreBackupPayload({
+      blobStore: createMemoryBlobStore(),
+      execSql: target.execSql,
+      payload,
+      securityIncidents: sdk.securityIncidents,
+    });
+    await expect(restore).rejects.toBeInstanceOf(
+      DocumentPurgeCheckpointConflictError,
+    );
+    expect(
+      await target.execSql(
+        "SELECT purge_event_hash FROM document_purge_checkpoints",
+      ),
+    ).toEqual([{ purge_event_hash: HASH }]);
+    expect(await sdk.securityIncidents.list()).toEqual([
+      expect.objectContaining({
+        code: "equivocation",
+        evidenceHashes: {
+          current_document_manifest_hash: HASH,
+          current_purge_event_hash: HASH,
+          restored_document_manifest_hash: HASH,
+          restored_purge_event_hash: "b".repeat(64),
+        },
+        objectId: "document-1",
+        objectKind: "document",
+        occurrenceCount: 1,
+        operation: "backup.restore",
+        organizationId: "organization-1",
+      }),
+    ]);
+  } finally {
+    sdk.dispose();
     source.close();
     target.close();
   }

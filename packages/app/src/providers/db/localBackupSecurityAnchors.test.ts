@@ -8,6 +8,7 @@ import {
 } from "@tearleads/client-sdk";
 import type { ExecSql } from "@tearleads/client-sdk/sqlite";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { unexpectedSecurityIncidents } from "../../../test/helpers/unexpectedSecurityIncidents";
 import { createBackupPayload, restoreBackupPayload } from "./localBackupData";
 
 const HASH_A = "a".repeat(64);
@@ -171,6 +172,7 @@ test("restore preserves current checkpoints when a current backup has no anchor 
     await restoreBackupPayload({
       blobStore: new RecordingBlobStore(),
       execSql: target.execSql,
+      securityIncidents: unexpectedSecurityIncidents,
       payload,
     });
 
@@ -230,6 +232,7 @@ test("restore keeps the strongest checkpoint and imports backup-only scopes", as
     await restoreBackupPayload({
       blobStore: new RecordingBlobStore(),
       execSql: target.execSql,
+      securityIncidents: unexpectedSecurityIncidents,
       payload,
     });
 
@@ -283,6 +286,7 @@ test("restore imports checkpoint tables into a target where they are still lazy"
     await restoreBackupPayload({
       blobStore: new RecordingBlobStore(),
       execSql: target.execSql,
+      securityIncidents: unexpectedSecurityIncidents,
       payload: await createPayload(source.execSql),
     });
 
@@ -347,6 +351,7 @@ test("checkpoint conflict is preflighted before blob writes or table replacement
       restoreBackupPayload({
         blobStore: targetBlobs,
         execSql: target.execSql,
+        securityIncidents: unexpectedSecurityIncidents,
         payload,
       }),
     ).rejects.toThrow("Backup conflicts with an access manifest checkpoint");
@@ -403,6 +408,7 @@ test("checkpoint conflict during blob restore rolls overwritten bytes back", asy
     const restore = restoreBackupPayload({
       blobStore: targetBlobs,
       execSql: target.execSql,
+      securityIncidents: unexpectedSecurityIncidents,
       payload,
     });
     await targetBlobs.writeStarted.promise;

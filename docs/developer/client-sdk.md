@@ -303,16 +303,16 @@ Use `database.client` for a SQLite worker client that implements
 Use `database.execSql` only when the host already owns executor construction.
 
 `onSecurityIncident` is called after a typed keying-verification failure is
-durably appended. The same rows are available through
-`await tearleads.securityIncidents.list()` and detections can be observed with
-`tearleads.securityIncidents.subscribe(listener)`. An incident contains the
-code, operation, first/last timestamps, repeat count, protocol hashes, plus
-object identity and trust domain when known. Equivalent repeat detections are
-coalesced, and the most recently detected 1,000 rows per trust domain are
-retained. It stores no exception messages or content. `list()` returns `null`
-while the local database is unavailable; detections during database startup are
-held in a bounded, redacted memory buffer and flushed once it becomes ready.
-Ordinary transport and database-availability failures do not create incidents.
+durably appended. Read rows with `await tearleads.securityIncidents.list()`,
+watch them with `tearleads.securityIncidents.subscribe(listener)`, and append
+a failure found by the host (two purge proofs for one document in a local
+backup merge) with `securityIncidents.record(error, context)`, given a
+`KeyingVerificationError` and `SecurityIncidentContext`. An incident holds the
+code, operation, first/last timestamps, repeat count, protocol hashes, and
+object identity and trust domain when known; equivalent repeats coalesce, the
+newest 1,000 rows per trust domain are kept, and no error text or content is
+stored. `list()` is `null` while the database is unavailable; startup
+detections wait in a bounded, redacted buffer. Transport errors add none.
 
 `new Tearleads(...)` does not initialize SQLite or call `client.init(...)`. The
 constructor only captures the current database `client`, `execSql`, and `id`,

@@ -11,6 +11,7 @@ import { useFileSaver } from "../../providers/file-saver/FileSaverProvider";
 import { useLog } from "../../providers/logging/LogProvider";
 import { downloadTextAsFile } from "../../utils/downloadFile";
 import { unknownErrorMessage } from "../../utils/unknownErrorMessage";
+import { restoreFailureMessage } from "./restoreFailureMessage";
 
 type BackupRestoreBusyState = "export" | "restore" | null;
 type ExportLocalBackup = ReturnType<
@@ -171,7 +172,7 @@ function useRestoreBackupAction({
       log("Local backup restored");
     } catch (operationError: unknown) {
       logError("Failed to restore local backup", operationError);
-      setError(unknownErrorMessage(operationError));
+      setError(restoreFailureMessage(operationError));
     } finally {
       setBusy(null);
       setProgress(null);

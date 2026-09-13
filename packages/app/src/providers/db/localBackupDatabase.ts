@@ -194,24 +194,27 @@ export async function preflightSecurityAnchorRestore(input: {
   });
 }
 
+// A merged anchor row may omit a live-only column (see `projectBackupRow`);
+// leaving it out of the INSERT lets SQLite apply the column default.
 async function insertBackupTable(input: {
   readonly execSql: ExecSql;
   readonly table: BackupTable;
 }): Promise<void> {
-  if (input.table.rows.length === 0 || input.table.columns.length === 0) {
-    return;
-  }
-
   const tableName = quoteSqlIdentifier(input.table.name);
-  const columns = input.table.columns.map(quoteSqlIdentifier).join(", ");
-  const placeholders = input.table.columns.map(() => "?").join(", ");
-  const sql = `INSERT INTO ${tableName} (${columns}) VALUES (${placeholders})`;
-
   for (const row of input.table.rows) {
-    const values = input.table.columns.map((column) =>
-      normalizeBackupSqlValue(row[column] ?? null),
+    const columns = input.table.columns.filter((column) =>
+      Object.hasOwn(row, column),
     );
-    await input.execSql(sql, values);
+    if (columns.length === 0) {
+      await input.execSql(`INSERT INTO ${tableName} DEFAULT VALUES`);
+      continue;
+    }
+    await input.execSql(
+      `INSERT INTO ${tableName} (${columns
+        .map(quoteSqlIdentifier)
+        .join(", ")}) VALUES (${columns.map(() => "?").join(", ")})`,
+      columns.map((column) => normalizeBackupSqlValue(row[column] ?? null)),
+    );
   }
 }
 

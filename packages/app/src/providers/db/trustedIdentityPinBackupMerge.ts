@@ -1,5 +1,6 @@
 import {
   mapBackupRowsByScope,
+  projectBackupRow,
   requireBackupHash,
   requireBackupPositiveInteger,
   requireBackupString,
@@ -20,11 +21,11 @@ const immutableColumns = [
   "encapsulation_public_key",
   "encapsulation_key_fingerprint",
 ] as const;
-const requiredColumns = [
+export const TRUSTED_IDENTITY_PIN_COLUMNS: ReadonlyArray<string> = [
   ...scopeColumns,
   ...immutableColumns,
   "first_seen_at",
-] as const;
+];
 
 function validateRow(row: BackupSqlRow): void {
   for (const column of scopeColumns) {
@@ -71,7 +72,7 @@ function validateRow(row: BackupSqlRow): void {
 function validateTable(table: BackupTable): void {
   validateBackupTableColumns({
     label: "Trusted identity pin",
-    requiredColumns,
+    requiredColumns: TRUSTED_IDENTITY_PIN_COLUMNS,
     table,
     tableName: TRUSTED_IDENTITY_PIN_TABLE_NAME,
   });
@@ -131,7 +132,10 @@ export function mergeTrustedIdentityPinBackupTables(input: {
     if (current) {
       assertSameIdentity(current, restored);
     } else {
-      currentRows.set(key, restored);
+      currentRows.set(
+        key,
+        projectBackupRow({ columns: template.columns, row: restored }),
+      );
     }
   }
   return { ...template, rows: [...currentRows.values()] };

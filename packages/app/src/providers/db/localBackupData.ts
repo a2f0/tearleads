@@ -1,4 +1,8 @@
-import type { BlobBytes, BlobStore } from "@tearleads/client-sdk";
+import type {
+  BlobBytes,
+  BlobStore,
+  SecurityIncidents,
+} from "@tearleads/client-sdk";
 import {
   type ExecSql,
   runSerializedSqlMutation,
@@ -19,6 +23,7 @@ import {
   type BackupSummary,
   type BackupTable,
 } from "./localBackupFormat";
+import { DocumentPurgeCheckpointConflictError } from "./terminalSecurityAnchorBackupMerge";
 
 export type BackupProgressPhase =
   | "blobs"
@@ -50,6 +55,8 @@ interface RestoreBackupPayloadInput {
   readonly execSql: ExecSql;
   readonly onProgress?: BackupProgressCallback | undefined;
   readonly payload: BackupPayload;
+  /** Live ledger for equivocation evidence the merge uncovers. */
+  readonly securityIncidents: Pick<SecurityIncidents, "record">;
 }
 
 interface BlobRestoreUndo {
@@ -256,7 +263,36 @@ async function writeBackupBlobs(input: {
   }
 }
 
-export async function restoreBackupPayload({
+function purgeCheckpointConflict(
+  error: unknown,
+): DocumentPurgeCheckpointConflictError | null {
+  const candidates: unknown[] =
+    error instanceof AggregateError ? error.errors : [error];
+  return (
+    candidates.find(
+      (candidate): candidate is DocumentPurgeCheckpointConflictError =>
+        candidate instanceof DocumentPurgeCheckpointConflictError,
+    ) ?? null
+  );
+}
+
+export async function restoreBackupPayload(
+  input: RestoreBackupPayloadInput,
+): Promise<BackupSummary> {
+  try {
+    return await restoreValidatedBackupPayload(input);
+  } catch (error) {
+    // Recorded after the restore lock is released: the SDK writer takes the
+    // same serialized connection, and the failed restore left nothing behind.
+    const conflict = purgeCheckpointConflict(error);
+    if (conflict) {
+      await input.securityIncidents.record(conflict, conflict.incident);
+    }
+    throw error;
+  }
+}
+
+async function restoreValidatedBackupPayload({
   blobStore,
   execSql,
   onProgress,
