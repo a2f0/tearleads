@@ -1,4 +1,6 @@
 import { expect, test } from "bun:test";
+import { createMemoryBlobStore, Tearleads } from "@tearleads/client-sdk";
+import { generateSigningSeedAndKeyPair } from "@tearleads/crypto";
 import { createSharedMemoryLocalKeyringFactory } from "../../../test/helpers/sharedMemoryLocalKeyring";
 import { encryptLocalIdentityPayload } from "../identity/localIdentityPackageCrypto";
 import { localIdentityScope } from "../local-keyring/localKeyringScopes";
@@ -50,6 +52,7 @@ test("crypto sessions are persisted independently for each identity", async () =
         defaultOrganizationId: "default-org-a",
         isAuthenticated: true,
         isRoot: false,
+        rootAcknowledgments: [],
         organizationId: "org-a",
         userId: "user-a",
       },
@@ -65,6 +68,7 @@ test("crypto sessions are persisted independently for each identity", async () =
         defaultOrganizationId: "default-org-b",
         isAuthenticated: true,
         isRoot: false,
+        rootAcknowledgments: [],
         organizationId: "org-b",
         userId: "user-b",
       },
@@ -85,6 +89,7 @@ test("crypto sessions are persisted independently for each identity", async () =
     defaultOrganizationId: "default-org-a",
     isAuthenticated: true,
     isRoot: false,
+    rootAcknowledgments: [],
     organizationId: "org-a",
     userId: "user-a",
   });
@@ -99,6 +104,7 @@ test("crypto sessions are persisted independently for each identity", async () =
     defaultOrganizationId: "default-org-b",
     isAuthenticated: true,
     isRoot: false,
+    rootAcknowledgments: [],
     organizationId: "org-b",
     userId: "user-b",
   });
@@ -129,6 +135,7 @@ test("an authenticated session without a default org fails closed", async () => 
       defaultOrganizationId: null,
       isAuthenticated: true,
       isRoot: false,
+      rootAcknowledgments: [],
       organizationId: "active-org",
       userId: "user",
     },
@@ -158,6 +165,7 @@ test("a session write reports unavailable key material", async () => {
         defaultOrganizationId: "default-organization",
         isAuthenticated: true,
         isRoot: false,
+        rootAcknowledgments: [],
         organizationId: "organization",
         userId: "user",
       },
@@ -207,6 +215,7 @@ test("clearing an identity session wins over an older in-flight write", async ()
         defaultOrganizationId: "stale-default-organization",
         isAuthenticated: true,
         isRoot: false,
+        rootAcknowledgments: [],
         organizationId: "stale-organization",
         userId: "stale-user",
       },
@@ -218,7 +227,7 @@ test("clearing an identity session wins over an older in-flight write", async ()
   expect(globalThis.localStorage.getItem(storageKey)).toBeNull();
 });
 
-test("the root flag round-trips and a pre-root envelope restores as non-root", async () => {
+test("server root acknowledgements survive encrypted session restore", async () => {
   const namespace = `session-root-${crypto.randomUUID()}`;
   const signingFingerprint = "e".repeat(64);
   const keyring = createSharedMemoryLocalKeyringFactory()();
@@ -241,6 +250,14 @@ test("the root flag round-trips and a pre-root envelope restores as non-root", a
     defaultOrganizationId: "default-org-root",
     isAuthenticated: true,
     isRoot: true,
+    rootAcknowledgments: [
+      {
+        signingFingerprint,
+        userId: "user-root",
+        organizationId: "org-root",
+        rootContainerId: "server-root",
+      },
+    ],
     organizationId: "org-root",
     userId: "user-root",
   };
@@ -252,16 +269,35 @@ test("the root flag round-trips and a pre-root envelope restores as non-root", a
       signingFingerprint,
     }),
   ).toBe(true);
-  expect(
-    await restorePersistedCryptoSession({
-      localPersistence,
+  const restored = await restorePersistedCryptoSession({
+    localPersistence,
+    signingFingerprint,
+  });
+  expect(restored).toEqual(context);
+  if (!restored) throw new Error("expected persisted session");
+  const sdk = new Tearleads({
+    blobStoreFactory: () => createMemoryBlobStore(),
+  });
+  try {
+    await sdk.identity.setKeyPairs({
       signingFingerprint,
-    }),
-  ).toEqual(context);
+      signingKeyPair: generateSigningSeedAndKeyPair(),
+      encapsulationKeyPair: null,
+    });
+    sdk.session.setContext(restored);
+    expect(sdk.session.containerId).toBe("container-root");
+    expect(sdk.runtime.input().auth.rootContainerId).toBe("server-root");
+    sdk.session.setContext({
+      organizationId: "org-root",
+      containerId: "forged-listed-root",
+    });
+    expect(sdk.runtime.input().auth.rootContainerId).toBe("server-root");
+  } finally {
+    sdk.dispose();
+  }
 
-  // Envelopes written before the flag existed carry no `isRoot`. They must
-  // still restore, as non-root, so an upgrade does not sign everyone out.
-  const { isRoot: _omitted, ...legacyContext } = context;
+  // Missing acknowledgements force a fresh login; never infer one from the view.
+  const { rootAcknowledgments: _omitted, ...incompleteContext } = context;
   const keyringSession = await keyring.loadSession(scope);
   if (!keyringSession) {
     throw new Error("expected keyring session");
@@ -272,7 +308,7 @@ test("the root flag round-trips and a pre-root envelope restores as non-root", a
       await encryptLocalIdentityPayload({
         identityPersistenceKey: keyringSession.identityPersistenceKey,
         payload: {
-          ...legacyContext,
+          ...incompleteContext,
           format: "tearleads.app.crypto-session",
           signingFingerprint,
           storedAt: new Date().toISOString(),
@@ -288,5 +324,5 @@ test("the root flag round-trips and a pre-root envelope restores as non-root", a
       localPersistence,
       signingFingerprint,
     }),
-  ).toEqual({ ...legacyContext, isRoot: false });
+  ).toBeNull();
 });

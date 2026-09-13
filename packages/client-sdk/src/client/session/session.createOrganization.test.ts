@@ -112,6 +112,18 @@ test("createOrganization returns the provisioned organization", async () => {
     session.setContext({ userId: crypto.randomUUID() });
 
     const result = await session.createOrganization();
+    if (!result) throw new Error("expected organization");
+    expect(session.organizationId).toBeNull();
+    const signingFingerprint = identity.signingFingerprint;
+    const userId = session.userId;
+    if (!signingFingerprint || !userId)
+      throw new Error("expected session identity");
+    expect(session.snapshot.rootAcknowledgments).toContainEqual({
+      signingFingerprint,
+      userId,
+      organizationId: result.organizationId,
+      rootContainerId: result.containerId,
+    });
     expect(result).toEqual({
       containerId: expect.any(String),
       organizationId: expect.any(String),

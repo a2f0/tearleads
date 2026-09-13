@@ -1,17 +1,18 @@
 ------------------------- MODULE SystemDestination -------------------------
 EXTENDS Naturals
 CONSTANTS VerifyDestination, RequireSessionRoot, RequireSystemAdministrator,
-          PreserveDestinationIdentity
+          PreserveDestinationIdentity, PreserveSessionAcknowledgment, RejectSharedSystem
 ASSUME {VerifyDestination, RequireSessionRoot, RequireSystemAdministrator,
-        PreserveDestinationIdentity}
+        PreserveDestinationIdentity, PreserveSessionAcknowledgment, RejectSharedSystem}
        \subseteq BOOLEAN
 Candidates == {"ownRoot", "foreignRoot", "ordinary", "system"}
-VARIABLES candidate, shared, creatorRole, hydrated, rootRole, systemRole,
+VARIABLES acknowledgedRoot, candidate, shared, creatorRole, hydrated, rootRole, systemRole,
           merged, usedSystem, unauthorizedSlot, moved
-vars == <<candidate, shared, creatorRole, hydrated, rootRole, systemRole,
+vars == <<acknowledgedRoot, candidate, shared, creatorRole, hydrated, rootRole, systemRole,
           merged, usedSystem, unauthorizedSlot, moved>>
 
 Init ==
+  /\ acknowledgedRoot = "ownRoot"
   /\ candidate \in Candidates /\ shared \in BOOLEAN
   /\ creatorRole \in {"write", "admin"}
   /\ hydrated = FALSE /\ rootRole = FALSE /\ systemRole = FALSE
@@ -22,36 +23,42 @@ Hydrate ==
   /\ ~hydrated /\ hydrated' = TRUE
   /\ rootRole' = IF VerifyDestination
                   THEN candidate \in {"ownRoot", "foreignRoot"} ELSE TRUE
-  /\ systemRole' = IF VerifyDestination THEN candidate = "system" ELSE TRUE
-  /\ UNCHANGED <<candidate, shared, creatorRole, merged, usedSystem,
+  /\ systemRole' = IF VerifyDestination THEN candidate = "system" /\ (~RejectSharedSystem \/ ~shared) ELSE TRUE
+  /\ UNCHANGED <<acknowledgedRoot, candidate, shared, creatorRole, merged, usedSystem,
                   unauthorizedSlot, moved>>
 MergeRoot ==
   /\ hydrated /\ rootRole
-  /\ ~RequireSessionRoot \/ candidate = "ownRoot"
+  /\ ~RequireSessionRoot \/ candidate = acknowledgedRoot
   /\ merged' = TRUE
-  /\ UNCHANGED <<candidate, shared, creatorRole, hydrated, rootRole,
+  /\ UNCHANGED <<acknowledgedRoot, candidate, shared, creatorRole, hydrated, rootRole,
                   systemRole, usedSystem, unauthorizedSlot, moved>>
 UseSystem ==
   /\ hydrated /\ systemRole /\ usedSystem' = TRUE
-  /\ UNCHANGED <<candidate, shared, creatorRole, hydrated, rootRole,
+  /\ UNCHANGED <<acknowledgedRoot, candidate, shared, creatorRole, hydrated, rootRole,
                   systemRole, merged, unauthorizedSlot, moved>>
 CreateSystem ==
   /\ ~RequireSystemAdministrator \/ creatorRole = "admin"
   /\ unauthorizedSlot' = (creatorRole # "admin")
-  /\ UNCHANGED <<candidate, shared, creatorRole, hydrated, rootRole,
+  /\ UNCHANGED <<acknowledgedRoot, candidate, shared, creatorRole, hydrated, rootRole,
                   systemRole, merged, usedSystem, moved>>
 MoveDestination ==
   /\ ~PreserveDestinationIdentity
   /\ candidate \in {"ownRoot", "foreignRoot", "system"}
   /\ moved' = TRUE
-  /\ UNCHANGED <<candidate, shared, creatorRole, hydrated, rootRole,
+  /\ UNCHANGED <<acknowledgedRoot, candidate, shared, creatorRole, hydrated, rootRole,
                   systemRole, merged, usedSystem, unauthorizedSlot>>
-Next == Hydrate \/ MergeRoot \/ UseSystem \/ CreateSystem \/ MoveDestination \/ UNCHANGED vars
+SelectView ==
+  /\ acknowledgedRoot' = IF PreserveSessionAcknowledgment THEN acknowledgedRoot ELSE candidate
+  /\ UNCHANGED <<candidate, shared, creatorRole, hydrated, rootRole, systemRole,
+                  merged, usedSystem, unauthorizedSlot, moved>>
+Next == SelectView \/ Hydrate \/ MergeRoot \/ UseSystem \/ CreateSystem \/ MoveDestination \/ UNCHANGED vars
 Spec == Init /\ [][Next]_vars
 TypeOK ==
+  /\ acknowledgedRoot \in Candidates
   /\ candidate \in Candidates /\ creatorRole \in {"write", "admin"}
   /\ {shared, hydrated, rootRole, systemRole, merged, usedSystem,
        unauthorizedSlot, moved} \subseteq BOOLEAN
+OnlyServerRootsAcknowledged == acknowledgedRoot = "ownRoot"
 OnlyOwnRootReceivesLocalContent == merged => candidate = "ownRoot"
 OnlySignedSlotReceivesSystemWrites == usedSystem => candidate = "system"
 OnlyAdministratorsCreateSlots == ~unauthorizedSlot

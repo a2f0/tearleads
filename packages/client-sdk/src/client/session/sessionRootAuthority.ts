@@ -1,43 +1,69 @@
-import type { Session, SessionContext } from "./sessionTypes";
+import { KeyingVerificationError } from "@tearleads/crypto";
+import type { Session, SessionSnapshot } from "./sessionTypes";
 
-const roots = new WeakMap<Session, Map<string, string | null>>();
+type RootAcknowledgments = SessionSnapshot["rootAcknowledgments"];
 
-/** Session acknowledgements are independent of the local root awaiting reconciliation. */
 export function acknowledgeSessionRoot(
-  session: Session,
-  input: {
-    userId: string;
-    organizationId: string;
-    rootContainerId: string | null;
-  },
-): void {
-  const known = roots.get(session) ?? new Map<string, string | null>();
-  known.set(
-    JSON.stringify([input.userId, input.organizationId]),
-    input.rootContainerId,
-  );
-  roots.set(session, known);
+  known: RootAcknowledgments,
+  input: Omit<RootAcknowledgments[number], "signingFingerprint">,
+  signingFingerprint: string | null,
+): RootAcknowledgments {
+  if (!signingFingerprint)
+    throw new KeyingVerificationError(
+      "missing_dependency",
+      "Session root acknowledgement requires a signing identity",
+    );
+  return [
+    ...known.filter(
+      (entry) =>
+        entry.signingFingerprint === signingFingerprint &&
+        entry.userId === input.userId &&
+        entry.organizationId !== input.organizationId,
+    ),
+    {
+      userId: input.userId,
+      organizationId: input.organizationId,
+      rootContainerId: input.rootContainerId,
+      signingFingerprint,
+    },
+  ];
 }
 
-export function acknowledgedSessionRoot(session: Session): string | null {
-  if (!session.userId || !session.organizationId) return null;
-  return (
-    roots
-      .get(session)
-      ?.get(JSON.stringify([session.userId, session.organizationId])) ?? null
-  );
-}
-
-export function acknowledgeSessionContextRoot(
-  session: Session,
-  context: SessionContext,
-): void {
-  const userId = context.userId ?? session.userId;
-  if (userId && context.organizationId && "containerId" in context) {
-    acknowledgeSessionRoot(session, {
-      userId,
-      organizationId: context.organizationId,
-      rootContainerId: context.containerId ?? null,
-    });
+/** Only the encrypted host restore may supply previously acknowledged roots. */
+export function restoreSessionRoots(
+  known: RootAcknowledgments,
+  restored: RootAcknowledgments | undefined,
+  signingFingerprint: string | null,
+  userId: string | null,
+): RootAcknowledgments {
+  const matches = (entry: RootAcknowledgments[number]) =>
+    entry.signingFingerprint === signingFingerprint && entry.userId === userId;
+  if (restored) {
+    if (
+      !restored.every(matches) ||
+      new Set(restored.map((entry) => entry.organizationId)).size !==
+        restored.length
+    ) {
+      throw new KeyingVerificationError(
+        "object_mismatch",
+        "Restored roots differ from the active identity",
+      );
+    }
+    return restored.map((entry) => ({ ...entry }));
   }
+  return known.every(matches) ? known : known.filter(matches);
+}
+
+export function acknowledgedSessionRoot(
+  session: Session,
+  signingFingerprint: string | null,
+): string | null {
+  return (
+    session.snapshot.rootAcknowledgments.find(
+      (entry) =>
+        entry.signingFingerprint === signingFingerprint &&
+        entry.userId === session.userId &&
+        entry.organizationId === session.organizationId,
+    )?.rootContainerId ?? null
+  );
 }

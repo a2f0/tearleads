@@ -50,6 +50,7 @@ test("authenticates with a valid signature", async () => {
   expect(body.authenticated).toBe(true);
   expect(typeof body.token).toBe("string");
   expect(body.organizationId).toBe(registrationBody.organizationId);
+  expect(body.rootContainerId).toBe(registrationBody.rootContainerId);
   expect(body.userId).toBe(registrationBody.userId);
 });
 

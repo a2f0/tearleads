@@ -198,10 +198,14 @@ interface RuntimeInputFactory {
   ): InternalWorkflowRuntimeInput;
 }
 
-function sessionAuthInput(session: Session): WorkflowRuntimeAuthInput {
+function sessionAuthInput({
+  session,
+  identity,
+}: WorkflowRuntimeDependencies): WorkflowRuntimeAuthInput {
+  const signingFingerprint = identity.snapshot.signingFingerprint;
   return {
     defaultOrganizationId: session.defaultOrganizationId,
-    rootContainerId: acknowledgedSessionRoot(session),
+    rootContainerId: acknowledgedSessionRoot(session, signingFingerprint),
     isAuthenticated: session.isAuthenticated,
     isRoot: session.isRoot,
     organizationId: session.organizationId,
@@ -247,7 +251,7 @@ function createRuntimeInputFactory(
         ? dependencies.session.containerId
         : containerId) ?? null;
 
-    auth = reuseIfShallowEqual(auth, sessionAuthInput(dependencies.session));
+    auth = reuseIfShallowEqual(auth, sessionAuthInput(dependencies));
     crypto = reuseIfShallowEqual(crypto, {
       encapsulationKeyPair: dependencies.identity.encapsulationKeyPair,
       signingFingerprint: dependencies.identity.signingFingerprint,

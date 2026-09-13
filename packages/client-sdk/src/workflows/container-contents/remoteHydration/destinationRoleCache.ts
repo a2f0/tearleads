@@ -25,7 +25,8 @@ export function rememberDestinationRole(
   // Shared verification forbids moves of roots and system containers, and all
   // successors preserve the signed slot and metadata id. Cache only these
   // immutable fields; authority, key material and ordinary parent edges remain
-  // outside this cache. Reuse does not authorize any read or write operation.
+  // outside this cache. Reuse does not authorize any read or write operation,
+  // so logout and identity switches do not need to invalidate these roles.
   if (role.parentId !== null && role.systemSlot === null) return;
   let roles = rolesByDatabase.get(execSql);
   if (!roles) {

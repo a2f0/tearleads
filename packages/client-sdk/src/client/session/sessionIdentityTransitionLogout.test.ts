@@ -36,6 +36,7 @@ test("remote logout does not clear a session for a changed identity", async () =
     defaultOrganizationId: "identity-b-default-organization",
     isAuthenticated: true,
     isRoot: false,
+    rootAcknowledgments: [],
     organizationId: "identity-b-organization",
     userId: "identity-b-user",
   };

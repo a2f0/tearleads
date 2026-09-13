@@ -11,6 +11,7 @@ test("identity transition clears the full session and prior server events", () =
     isAuthenticated: true,
     // Start from a root session so the transition provably clears the flag.
     isRoot: true,
+    rootAcknowledgments: [],
     organizationId: "org-a",
     userId: "user-a",
   });
@@ -24,6 +25,7 @@ test("identity transition clears the full session and prior server events", () =
     defaultOrganizationId: null,
     isAuthenticated: false,
     isRoot: false,
+    rootAcknowledgments: [],
     organizationId: null,
     userId: null,
   });

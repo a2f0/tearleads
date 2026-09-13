@@ -5,6 +5,7 @@ import {
 } from "../../workflows/registration";
 import type { ClearRemoteSyncStateResult } from "../../workflows/sync";
 import { createListenerSet } from "../listenerSet";
+import { emptySessionSnapshot, mergeSessionContext } from "./sessionContext";
 import {
   requireRegistrationIdentityPinner,
   requireUserIdentityAvailable,
@@ -17,7 +18,6 @@ import {
 } from "./sessionPurgeRecovery";
 import {
   acknowledgedSessionRoot,
-  acknowledgeSessionContextRoot,
   acknowledgeSessionRoot,
 } from "./sessionRootAuthority";
 import type {
@@ -43,15 +43,7 @@ class SessionService implements Session {
     new SessionIdentityAcknowledgments();
   private readonly listeners = createListenerSet();
   private syncEnabledValue = true;
-  private snapshotValue: SessionSnapshot = {
-    authToken: null,
-    containerId: null,
-    defaultOrganizationId: null,
-    isAuthenticated: false,
-    isRoot: false,
-    organizationId: null,
-    userId: null,
-  };
+  private snapshotValue = emptySessionSnapshot();
 
   constructor(private readonly dependencies: SessionDependencies) {}
 
@@ -97,7 +89,10 @@ class SessionService implements Session {
   }> {
     // Recovery can request local bootstrap after login. Preserve the root
     // acknowledged by that session instead of replacing it with a local id.
-    const acknowledgedRoot = acknowledgedSessionRoot(this);
+    const acknowledgedRoot = acknowledgedSessionRoot(
+      this,
+      this.dependencies.identity.snapshot.signingFingerprint,
+    );
     if (this.isAuthenticated && acknowledgedRoot) {
       return { containerId: acknowledgedRoot, created: false };
     }
@@ -223,12 +218,12 @@ class SessionService implements Session {
     if (this.dependencies.identity.snapshot !== identitySnapshot) {
       return false;
     }
-    acknowledgeSessionRoot(this, {
-      userId: authentication.userId,
-      organizationId: authentication.organizationId,
-      rootContainerId: authentication.rootContainerId,
-    });
     this.setContext({
+      rootAcknowledgments: acknowledgeSessionRoot(
+        this.snapshotValue.rootAcknowledgments,
+        authentication,
+        fingerprint,
+      ),
       authToken: authentication.token,
       defaultOrganizationId: authentication.organizationId,
       isAuthenticated: true,
@@ -340,6 +335,11 @@ class SessionService implements Session {
       return null;
     }
     this.setContext({
+      rootAcknowledgments: acknowledgeSessionRoot(
+        this.snapshotValue.rootAcknowledgments,
+        response,
+        identitySnapshot.signingFingerprint,
+      ),
       containerId: response.rootContainerId,
       defaultOrganizationId: response.organizationId,
       organizationId: response.organizationId,
@@ -359,12 +359,33 @@ class SessionService implements Session {
     replacesOrganizationId?: string,
     nativeSubscriptionRestore?: boolean,
   ): Promise<SessionCreateOrganizationResult | null> {
-    return createSessionOrganization(this.dependencies, {
+    const identitySnapshot = this.dependencies.identity.snapshot;
+    const userId = this.userId;
+    const response = await createSessionOrganization(this.dependencies, {
       nativeSubscriptionRestore,
       options,
       replacesOrganizationId,
-      userId: this.userId,
+      userId,
     });
+    if (
+      !response ||
+      !userId ||
+      this.userId !== userId ||
+      this.dependencies.identity.snapshot !== identitySnapshot
+    )
+      return null;
+    this.setContext({
+      rootAcknowledgments: acknowledgeSessionRoot(
+        this.snapshotValue.rootAcknowledgments,
+        {
+          userId,
+          organizationId: response.organizationId,
+          rootContainerId: response.containerId,
+        },
+        identitySnapshot.signingFingerprint,
+      ),
+    });
+    return response;
   }
 
   prepareNativeSubscriptionRestoreOrganization(
@@ -415,37 +436,13 @@ class SessionService implements Session {
       context.userId,
       this.dependencies.identity.snapshot.signingFingerprint,
     );
-    acknowledgeSessionContextRoot(this, context);
-    this.setSnapshot({
-      authToken:
-        "authToken" in context
-          ? (context.authToken ?? null)
-          : this.snapshotValue.authToken,
-      containerId:
-        "containerId" in context
-          ? (context.containerId ?? null)
-          : this.snapshotValue.containerId,
-      defaultOrganizationId:
-        "defaultOrganizationId" in context
-          ? (context.defaultOrganizationId ?? null)
-          : this.snapshotValue.defaultOrganizationId,
-      isAuthenticated:
-        "isAuthenticated" in context
-          ? (context.isAuthenticated ?? false)
-          : this.snapshotValue.isAuthenticated,
-      isRoot:
-        "isRoot" in context
-          ? (context.isRoot ?? false)
-          : this.snapshotValue.isRoot,
-      organizationId:
-        "organizationId" in context
-          ? (context.organizationId ?? null)
-          : this.snapshotValue.organizationId,
-      userId:
-        "userId" in context
-          ? (context.userId ?? null)
-          : this.snapshotValue.userId,
-    });
+    this.setSnapshot(
+      mergeSessionContext(
+        this.snapshotValue,
+        context,
+        this.dependencies.identity.snapshot.signingFingerprint,
+      ),
+    );
   }
 
   setOrganizationId(organizationId: string | null): void {
@@ -461,7 +458,13 @@ class SessionService implements Session {
   }
 
   setUserId(userId: string | null): void {
-    this.setSnapshot({ ...this.snapshotValue, userId });
+    this.setSnapshot(
+      mergeSessionContext(
+        this.snapshotValue,
+        { userId },
+        this.dependencies.identity.snapshot.signingFingerprint,
+      ),
+    );
   }
 
   subscribe = (listener: SessionListener): (() => void) =>
@@ -474,6 +477,7 @@ class SessionService implements Session {
     }
 
     if (
+      previous.rootAcknowledgments === next.rootAcknowledgments &&
       previous.authToken === next.authToken &&
       previous.containerId === next.containerId &&
       previous.defaultOrganizationId === next.defaultOrganizationId &&

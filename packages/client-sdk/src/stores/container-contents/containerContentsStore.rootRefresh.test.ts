@@ -17,6 +17,23 @@ import {
   seedLocalRootContainer,
 } from "./runtime.testFixtures";
 
+function rootRefreshDirectory() {
+  return createSignedContainerDirectory([
+    { id: "active-root", parentId: null },
+    {
+      id: "active-root-trash",
+      parentId: "active-root",
+      systemSlot: "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    },
+    { id: "server-root", parentId: null },
+    {
+      id: "server-trash",
+      parentId: "server-root",
+      systemSlot: "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    },
+  ]);
+}
+
 function activeRootChildSummary(): ListContainersResponse {
   return {
     hasMore: false,
@@ -154,20 +171,7 @@ test("root-lane refresh hydrates the active root's system children", async () =>
       null,
     );
 
-    const signedDirectory = await createSignedContainerDirectory([
-      { id: "active-root", parentId: null },
-      {
-        id: "active-root-trash",
-        parentId: "active-root",
-        systemSlot: "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      },
-      { id: "server-root", parentId: null },
-      {
-        id: "server-trash",
-        parentId: "server-root",
-        systemSlot: "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      },
-    ]);
+    const signedDirectory = await rootRefreshDirectory();
     const runtime = createContainerContentsTestRuntime({
       resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
       apiClient: createMockApiClient({
@@ -226,20 +230,7 @@ test("provisioned root-lane refresh surfaces Trash under the reconciled server r
     // active root id was never re-pointed off the deleted local root.
     await seedLocalRootContainer(execSql, { rootContainerId: "server-root" });
 
-    const signedDirectory = await createSignedContainerDirectory([
-      { id: "active-root", parentId: null },
-      {
-        id: "active-root-trash",
-        parentId: "active-root",
-        systemSlot: "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      },
-      { id: "server-root", parentId: null },
-      {
-        id: "server-trash",
-        parentId: "server-root",
-        systemSlot: "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      },
-    ]);
+    const signedDirectory = await rootRefreshDirectory();
     const runtime = createContainerContentsTestRuntime({
       resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
       apiClient: createMockApiClient({
@@ -308,20 +299,7 @@ test("refreshLocalContainers surfaces a newly persisted container from local SQL
       null,
     );
 
-    const signedDirectory = await createSignedContainerDirectory([
-      { id: "active-root", parentId: null },
-      {
-        id: "active-root-trash",
-        parentId: "active-root",
-        systemSlot: "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      },
-      { id: "server-root", parentId: null },
-      {
-        id: "server-trash",
-        parentId: "server-root",
-        systemSlot: "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      },
-    ]);
+    const signedDirectory = await rootRefreshDirectory();
     const runtime = createContainerContentsTestRuntime({
       resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
       apiClient: createMockApiClient({
@@ -408,20 +386,7 @@ test("resync parent-lane refresh applies a deleted nested container's tombstone"
     await seedLocalRootContainer(execSql, { rootContainerId: "server-root" });
     await saveNestedChildContainer(execSql);
 
-    const signedDirectory = await createSignedContainerDirectory([
-      { id: "active-root", parentId: null },
-      {
-        id: "active-root-trash",
-        parentId: "active-root",
-        systemSlot: "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      },
-      { id: "server-root", parentId: null },
-      {
-        id: "server-trash",
-        parentId: "server-root",
-        systemSlot: "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      },
-    ]);
+    const signedDirectory = await rootRefreshDirectory();
     const runtime = createContainerContentsTestRuntime({
       resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
       apiClient: createMockApiClient({
@@ -483,20 +448,7 @@ test("root-only refresh leaves a deleted nested container's parent-only tombston
     await seedLocalRootContainer(execSql, { rootContainerId: "server-root" });
     await saveNestedChildContainer(execSql);
 
-    const signedDirectory = await createSignedContainerDirectory([
-      { id: "active-root", parentId: null },
-      {
-        id: "active-root-trash",
-        parentId: "active-root",
-        systemSlot: "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      },
-      { id: "server-root", parentId: null },
-      {
-        id: "server-trash",
-        parentId: "server-root",
-        systemSlot: "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      },
-    ]);
+    const signedDirectory = await rootRefreshDirectory();
     const runtime = createContainerContentsTestRuntime({
       resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
       apiClient: createMockApiClient({
@@ -560,20 +512,7 @@ test("repeated provisioned root-lane refreshes do not re-list the root lane unwa
     await defaultContainerContentsPersistence.ensureSchema(execSql);
     await seedLocalRootContainer(execSql, { rootContainerId: "server-root" });
 
-    const signedDirectory = await createSignedContainerDirectory([
-      { id: "active-root", parentId: null },
-      {
-        id: "active-root-trash",
-        parentId: "active-root",
-        systemSlot: "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      },
-      { id: "server-root", parentId: null },
-      {
-        id: "server-trash",
-        parentId: "server-root",
-        systemSlot: "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      },
-    ]);
+    const signedDirectory = await rootRefreshDirectory();
     const runtime = createContainerContentsTestRuntime({
       resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
       apiClient: createMockApiClient({

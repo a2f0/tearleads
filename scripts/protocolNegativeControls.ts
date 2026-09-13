@@ -184,6 +184,22 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "A writable parent in another organization cannot authorize container creation or movement (#2266).",
   },
   {
+    id: "session-root-from-view",
+    module: "formal/local-trust/SystemDestination.tla",
+    config: "formal/local-trust/SystemDestination.cfg",
+    constants: { PreserveSessionAcknowledgment: "FALSE" },
+    expect: { kind: "invariant", name: "OnlyServerRootsAcknowledged" },
+    why: "Restoring or switching a local view cannot acknowledge a server root (#2266).",
+  },
+  {
+    id: "shared-system-refused",
+    module: "formal/local-trust/SystemDestination.tla",
+    config: "formal/local-trust/SystemDestination.cfg",
+    constants: { RejectSharedSystem: "TRUE" },
+    expect: { kind: "invariant", name: "SharedSystemRemainsUsable" },
+    why: "Extra recipients must not make a signed system destination unusable (#2266).",
+  },
+  {
     id: "cached-destination-can-move",
     module: "formal/local-trust/SystemDestination.tla",
     config: "formal/local-trust/SystemDestination.cfg",

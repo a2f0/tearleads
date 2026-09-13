@@ -102,4 +102,56 @@ test("a read-only root recipient can verify destination roles", async () => {
   expect(projection.status).toBe(200);
   const body = await projection.json();
   expect(body.path.at(-1).state.parentContainerId).toBeNull();
+  const shared = await granted.json();
+  invariant(isContainerMutationResponse(shared), "expected shared root");
+  const mutation = await routeApp.request("/containers", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${reader.token}`,
+    },
+    body: JSON.stringify(
+      await buildChildCreateRequest({
+        root: {
+          ...root,
+          bundle: accessManifestFromContainerResponse(shared),
+          kekState: kekStateFromContainerResponse(shared),
+        },
+        signer: reader,
+        systemSlot: null,
+      }),
+    ),
+  });
+  expect(mutation.status).toBe(403);
+});
+
+test("duplicate signed system slots return a conflict", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const requests = await Promise.all(
+    [0, 1].map(() =>
+      buildChildCreateRequest({
+        root,
+        signer: owner,
+        systemSlot: `sys_v1_${"d".repeat(43)}`,
+      }),
+    ),
+  );
+  const responses = await Promise.all(
+    requests.map((request) =>
+      routeApp.request("/containers", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${owner.token}`,
+        },
+        body: JSON.stringify(request),
+      }),
+    ),
+  );
+  expect(responses.map((response) => response.status).sort()).toEqual([
+    200, 409,
+  ]);
 });

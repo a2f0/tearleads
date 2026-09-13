@@ -619,7 +619,7 @@ test("container projections and mutations preserve current KEKs across damaged h
   );
 });
 
-test("GET /containers/:containerId/writer-projection rejects users without write access", async () => {
+test("GET /containers/:containerId/writer-projection rejects users without read access", async () => {
   const owner = createTestUser();
   const outsider = createTestUser();
   await registerUser(owner);

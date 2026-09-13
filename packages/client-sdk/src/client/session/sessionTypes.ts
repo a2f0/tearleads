@@ -21,6 +21,8 @@ export interface SessionDependencies {
 }
 
 export interface SessionContext {
+  /** Fingerprint-bound host restore only; view selections never acknowledge roots. */
+  rootAcknowledgments?: SessionSnapshot["rootAcknowledgments"] | undefined;
   authToken?: string | null | undefined;
   containerId?: string | null | undefined;
   /** Server-backed personal organization; independent of the active org. */
@@ -33,6 +35,13 @@ export interface SessionContext {
 }
 
 export interface SessionSnapshot {
+  /** Server acknowledgements retained independently of the selected container. */
+  rootAcknowledgments: ReadonlyArray<{
+    readonly signingFingerprint: string;
+    readonly userId: string;
+    readonly organizationId: string;
+    readonly rootContainerId: string | null;
+  }>;
   authToken: string | null;
   containerId: string | null;
   /** Server-backed personal organization; independent of the active org. */

@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import type { ApiClient } from "@tearleads/api-client";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
   createSqlClient,
@@ -10,77 +9,7 @@ import { respondToRegistration } from "../../../test/helpers/organizationProvisi
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
 import { Database } from "../database";
-import { createIdentity, type Identity } from "../identity";
-import type { Logger } from "../logger";
-import { createSession } from "./index";
-
-type TestLogger = {
-  log: NonNullable<Logger["log"]>;
-  logError: NonNullable<Logger["logError"]>;
-};
-
-type FakeSessionApi = Pick<
-  ApiClient,
-  | "authenticate"
-  | "authenticateWithChallenge"
-  | "clearWriterProjectionCaches"
-  | "destroySession"
-  | "getAuthToken"
-  | "listSessions"
-  | "logout"
-  | "registerUser"
-  | "setAuthToken"
->;
-
-function createApi(
-  overrides: Partial<FakeSessionApi> = {},
-): ApiClient & FakeSessionApi {
-  let authToken: string | null = null;
-  const api: FakeSessionApi = {
-    authenticate: async () => null,
-    authenticateWithChallenge: async () => null,
-    clearWriterProjectionCaches: () => undefined,
-    destroySession: async () => null,
-    getAuthToken: () => authToken,
-    listSessions: async () => null,
-    logout: async () => null,
-    registerUser: async () => null,
-    setAuthToken: (nextAuthToken) => {
-      authToken = nextAuthToken;
-    },
-  };
-
-  return Object.assign(api, overrides) as ApiClient & FakeSessionApi;
-}
-
-function createSessionHarness(
-  options: {
-    api?: (ApiClient & FakeSessionApi) | undefined;
-    database?: Database | undefined;
-    identity?: Identity | undefined;
-    logger?: TestLogger | undefined;
-  } = {},
-) {
-  const logger = options.logger ?? quietLogger;
-  const api = options.api ?? createApi();
-  const database = options.database ?? new Database();
-  const identity =
-    options.identity ?? createIdentity({}, () => undefined, logger.log);
-
-  return {
-    api,
-    database,
-    identity,
-    session: createSession({
-      api,
-      database,
-      identity,
-      log: logger.log,
-      logError: logger.logError,
-      onUserIdentityAvailable: async () => undefined,
-    }),
-  };
-}
+import { createApi, createSessionHarness } from "./session.testFixtures";
 
 describe("session", () => {
   test("registers the current identity through the api client", async () => {
@@ -157,6 +86,7 @@ describe("session", () => {
       defaultOrganizationId: "identity-b-default-organization",
       isAuthenticated: true,
       isRoot: false,
+      rootAcknowledgments: [],
       organizationId: "identity-b-organization",
       userId: "identity-b-user",
     };
@@ -243,7 +173,7 @@ describe("session", () => {
       authenticate: async () => {
         authenticateCalls += 1;
         return {
-          rootContainerId: null,
+          rootContainerId: "server-root",
           authenticated: true,
           isRoot: true,
           organizationId: "org-1",
@@ -255,6 +185,7 @@ describe("session", () => {
     const { identity, session } = createSessionHarness({ api });
     await setGeneratedIdentity(identity);
 
+    session.setContainerId("pending-local-root");
     await expect(session.login()).resolves.toBe(true);
 
     expect(authenticateCalls).toBe(1);
@@ -266,6 +197,21 @@ describe("session", () => {
     expect(session.isRoot).toBe(true);
     expect(session.organizationId).toBe("org-1");
     expect(session.userId).toBe("user-1");
+    session.setContext({ organizationId: "org-1", containerId: "forged-root" });
+    const signingFingerprint = identity.signingFingerprint;
+    if (!signingFingerprint) throw new Error("expected signing fingerprint");
+    expect(session.snapshot.rootAcknowledgments).toEqual([
+      {
+        signingFingerprint,
+        userId: "user-1",
+        organizationId: "org-1",
+        rootContainerId: "server-root",
+      },
+    ]);
+    expect(await session.bootstrapLocalRootContainer()).toEqual({
+      containerId: "server-root",
+      created: false,
+    });
   });
 
   test("a failed login and a logout both clear a prior root flag", async () => {
@@ -324,6 +270,7 @@ describe("session", () => {
       defaultOrganizationId: "identity-b-default-organization",
       isAuthenticated: true,
       isRoot: false,
+      rootAcknowledgments: [],
       organizationId: "identity-b-organization",
       userId: "identity-b-user",
     };

@@ -1,4 +1,8 @@
-import type { LocalKeyring, LocalKeyringScope } from "@tearleads/client-sdk";
+import type {
+  LocalKeyring,
+  LocalKeyringScope,
+  SessionSnapshot,
+} from "@tearleads/client-sdk";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { useMemo } from "react";
 import { getLocalStorage } from "../../utils/storedPreference";
@@ -8,6 +12,7 @@ import {
 } from "../identity/localIdentityPackageCrypto";
 import { createHostLocalKeyring } from "../local-keyring/localKeyringLockSupport";
 import { localIdentityScope } from "../local-keyring/localKeyringScopes";
+import { parsePersistedSessionRoots } from "./persistedSessionRoots";
 
 const LOCAL_CRYPTO_SESSION_FORMAT = "tearleads.app.crypto-session";
 const LOCAL_CRYPTO_SESSION_STORAGE_PREFIX = "tearleads.local-session:";
@@ -25,6 +30,7 @@ type LocalCryptoSessionStorage = Pick<
 >;
 
 export interface PersistedCryptoSessionContext {
+  readonly rootAcknowledgments: SessionSnapshot["rootAcknowledgments"];
   readonly authToken: string | null;
   readonly containerId: string | null;
   readonly defaultOrganizationId: string | null;
@@ -94,11 +100,13 @@ function parsePersistedCryptoSession(
     "defaultOrganizationId",
   );
   const userId = readNullableString(value, "userId");
-  // Envelopes written before the root flag existed omit it. Treat them as
-  // non-root: the flag only offers the root console, and the next login
-  // refreshes it from the server.
-  const isRootValue = Reflect.get(value, "isRoot");
-  const isRoot = isRootValue === undefined ? false : isRootValue;
+  const rootAcknowledgments = parsePersistedSessionRoots(
+    Reflect.get(value, "rootAcknowledgments"),
+    signingFingerprint,
+    userId,
+  );
+  if (!rootAcknowledgments) return null;
+  const isRoot = Reflect.get(value, "isRoot");
   if (typeof isRoot !== "boolean") {
     return null;
   }
@@ -120,6 +128,7 @@ function parsePersistedCryptoSession(
   }
 
   return {
+    rootAcknowledgments,
     authToken,
     containerId,
     defaultOrganizationId,
@@ -226,6 +235,7 @@ export async function restorePersistedCryptoSession(input: {
     }
 
     return {
+      rootAcknowledgments: persistedSession.rootAcknowledgments,
       authToken: persistedSession.authToken,
       containerId: persistedSession.containerId,
       defaultOrganizationId: persistedSession.defaultOrganizationId,
