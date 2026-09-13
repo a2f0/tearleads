@@ -15,6 +15,7 @@ const USER_ID = "11111111-1111-4111-8111-111111111111";
 
 async function createLoginHarness(
   onUserIdentityAvailable?: (userId: string) => Promise<void>,
+  reportSecurityIncident?: (error: unknown, context: unknown) => Promise<void>,
 ) {
   const api = new ApiClient("");
   api.authenticate = async () => ({
@@ -38,9 +39,46 @@ async function createLoginHarness(
     log: () => undefined,
     logError: () => undefined,
     ...(onUserIdentityAvailable ? { onUserIdentityAvailable } : {}),
+    ...(reportSecurityIncident ? { reportSecurityIncident } : {}),
   });
   return { api, identity, session };
 }
+
+test("a login refused by acknowledgment mismatch is recorded as an incident", async () => {
+  const incidents: Array<{ error: unknown; context: unknown }> = [];
+  const { session } = await createLoginHarness(
+    async () => undefined,
+    async (error, context) => {
+      incidents.push({ context, error });
+    },
+  );
+  session.setContext({ userId: "acknowledged-user", isAuthenticated: false });
+  await expect(session.login()).rejects.toMatchObject({
+    code: "object_mismatch",
+  });
+  expect(incidents).toHaveLength(1);
+  expect(incidents[0]?.error).toMatchObject({ code: "object_mismatch" });
+  expect(incidents[0]?.context).toMatchObject({
+    objectId: USER_ID,
+    objectKind: "user",
+    operation: "session.login",
+  });
+});
+
+test("only a server-acknowledged user ID counts as acknowledged", async () => {
+  const { session } = await createLoginHarness(async () => undefined);
+  expect(session.userIdAcknowledged).toBe(false);
+  session.setUserId("unacknowledged-local-user");
+  expect(session.userId).toBe("unacknowledged-local-user");
+  expect(session.userIdAcknowledged).toBe(false);
+  await expect(session.login()).resolves.toBe(true);
+  expect(session.userId).toBe(USER_ID);
+  expect(session.userIdAcknowledged).toBe(true);
+  session.setUserId("another-local-choice");
+  expect(session.userIdAcknowledged).toBe(false);
+  session.setUserId(USER_ID);
+  expect(session.userIdAcknowledged).toBe(true);
+});
 
 test("login rejects a user ID different from the restored acknowledged session", async () => {
   const pinned: string[] = [];

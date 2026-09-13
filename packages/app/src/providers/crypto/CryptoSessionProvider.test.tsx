@@ -16,7 +16,12 @@ test("crypto session context changes only with its exposed state", async () => {
   const login = mock((_challengeHex?: string) => Promise.resolve(true));
   const logout = mock(() => undefined);
   const identity = { signingKeyPair: {} as object | null };
-  let sessionListener: () => void = () => undefined;
+  // The provider subscribes to the session store more than once (snapshot and
+  // acknowledgment), so the mock must fan out like the real listener set.
+  const sessionListeners = new Set<() => void>();
+  const sessionListener = () => {
+    for (const listener of sessionListeners) listener();
+  };
   let sessionSnapshot = {
     authToken: null,
     containerId: null,
@@ -39,8 +44,8 @@ test("crypto session context changes only with its exposed state", async () => {
         return sessionSnapshot;
       },
       subscribe: (listener: () => void) => {
-        sessionListener = listener;
-        return () => undefined;
+        sessionListeners.add(listener);
+        return () => sessionListeners.delete(listener);
       },
     },
   } as unknown as ReturnType<typeof TearleadsProvider.useTearleads>;

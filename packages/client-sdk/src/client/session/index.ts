@@ -1,3 +1,4 @@
+import { reportAndRethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import { removeNativeSubscriptionRestoreProvisioningAttempt } from "../../workflows/organizations/createOrganization";
 import {
   bootstrapRootContainer,
@@ -5,12 +6,17 @@ import {
 } from "../../workflows/registration";
 import type { ClearRemoteSyncStateResult } from "../../workflows/sync";
 import { createListenerSet } from "../listenerSet";
-import { emptySessionSnapshot, mergeSessionContext } from "./sessionContext";
+import {
+  emptySessionSnapshot,
+  mergeSessionContext,
+  sessionSnapshotsEqual,
+} from "./sessionContext";
 import {
   requireRegistrationIdentityPinner,
   requireUserIdentityAvailable,
   SessionIdentityAcknowledgments,
 } from "./sessionIdentityTrust";
+import { userSessionsFromResponse } from "./sessionListing";
 import { createSessionOrganization } from "./sessionOrganizationCreation";
 import {
   clearSessionRemoteSyncState,
@@ -83,6 +89,13 @@ class SessionService implements Session {
     return this.snapshotValue.userId;
   }
 
+  get userIdAcknowledged(): boolean {
+    return this.identityAcknowledgments.isAcknowledged(
+      this.snapshotValue.userId,
+      this.dependencies.identity.snapshot.signingFingerprint,
+    );
+  }
+
   async bootstrapLocalRootContainer(): Promise<{
     containerId: string;
     created: boolean;
@@ -107,30 +120,7 @@ class SessionService implements Session {
   }
 
   async listSessions(): Promise<UserSession[]> {
-    const response = await this.dependencies.api.listSessions();
-    if (!response) {
-      return [];
-    }
-
-    return response.sessions.map(
-      ({
-        createdAt,
-        id,
-        ipAddresses,
-        isCurrent,
-        lastActiveAt,
-        lastActiveIp,
-        signingKeyFingerprint,
-      }) => ({
-        createdAt,
-        id,
-        ipAddresses,
-        isCurrent,
-        lastActiveAt,
-        lastActiveIp,
-        signingKeyFingerprint,
-      }),
-    );
+    return userSessionsFromResponse(await this.dependencies.api.listSessions());
   }
 
   async clearRemoteSyncState(
@@ -208,12 +198,7 @@ class SessionService implements Session {
         return false;
       this.identityAcknowledgments.remember(authentication.userId, fingerprint);
     } catch (error) {
-      this.setContext({
-        authToken: null,
-        isAuthenticated: false,
-        isRoot: false,
-      });
-      throw error;
+      return this.refuseLogin(error, authentication.userId);
     }
     if (this.dependencies.identity.snapshot !== identitySnapshot) {
       return false;
@@ -237,6 +222,20 @@ class SessionService implements Session {
 
   logout(): void {
     this.setContext({ authToken: null, isAuthenticated: false, isRoot: false });
+  }
+
+  /**
+   * A server answering this identity with another account, or an identity
+   * whose durable pin no longer matches, is evidence, not a login failure.
+   */
+  private async refuseLogin(error: unknown, userId: string): Promise<never> {
+    this.setContext({ authToken: null, isAuthenticated: false, isRoot: false });
+    await reportAndRethrowKeyingVerificationError(
+      error,
+      this.dependencies.reportSecurityIncident,
+      { objectId: userId, objectKind: "user", operation: "session.login" },
+    );
+    throw error;
   }
 
   async logoutRemote(): Promise<boolean> {
@@ -476,16 +475,7 @@ class SessionService implements Session {
       this.dependencies.api.setAuthToken(next.authToken);
     }
 
-    if (
-      previous.rootAcknowledgments === next.rootAcknowledgments &&
-      previous.authToken === next.authToken &&
-      previous.containerId === next.containerId &&
-      previous.defaultOrganizationId === next.defaultOrganizationId &&
-      previous.isAuthenticated === next.isAuthenticated &&
-      previous.isRoot === next.isRoot &&
-      previous.organizationId === next.organizationId &&
-      previous.userId === next.userId
-    ) {
+    if (sessionSnapshotsEqual(previous, next)) {
       return;
     }
 

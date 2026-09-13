@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, expect, spyOn, test } from "bun:test";
 import type { Tearleads } from "@tearleads/client-sdk";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
@@ -9,6 +9,10 @@ import {
   TestWebSocket,
 } from "../../test/helpers/identityManagerTestRuntime";
 import "../../test/helpers/mswServer";
+import * as CryptoSessionProvider from "../providers/crypto/CryptoSessionProvider";
+import * as LogProvider from "../providers/logging/LogProvider";
+import * as TearleadsProvider from "../providers/sdk/TearleadsProvider";
+import { IDENTITY_ACKNOWLEDGMENT_MISMATCH_MESSAGE } from "./identityAcknowledgmentMismatch";
 import {
   describeAuthenticationFailure,
   useAuthenticateAction,
@@ -23,6 +27,53 @@ test("describeAuthenticationFailure calls out a lost connection", () => {
   expect(describeAuthenticationFailure({ online: false })).toBe(
     "Authentication failed: no network connection.",
   );
+});
+
+test("describeAuthenticationFailure names an identity acknowledgment refusal over connectivity", () => {
+  expect(
+    describeAuthenticationFailure({ identityMismatch: true, online: false }),
+  ).toBe(IDENTITY_ACKNOWLEDGMENT_MISMATCH_MESSAGE);
+});
+
+test("a login refused for a different acknowledged account is not reported as a network failure", async () => {
+  const refusal = Object.assign(
+    new Error("Login user ID differs from the acknowledged identity"),
+    { code: "object_mismatch", name: "KeyingVerificationError" },
+  );
+  const logged: Array<{ message: string; error: unknown }> = [];
+  const spies = [
+    spyOn(CryptoSessionProvider, "useCryptoSession").mockReturnValue({
+      login: async () => {
+        throw refusal;
+      },
+    } as unknown as CryptoSessionProvider.CryptoSessionContextValue),
+    spyOn(LogProvider, "useLog").mockReturnValue({
+      log: () => undefined,
+      logError: (message: string, error: unknown) => {
+        logged.push({ error, message });
+      },
+    } as unknown as ReturnType<typeof LogProvider.useLog>),
+    spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
+      network: { online: false },
+    } as unknown as ReturnType<typeof TearleadsProvider.useTearleads>),
+  ];
+  try {
+    const view = renderHook(() => useAuthenticateAction());
+    await act(async () => {
+      expect(await view.result.current.authenticate()).toBe(false);
+    });
+    expect(view.result.current.error).toBe(
+      IDENTITY_ACKNOWLEDGMENT_MISMATCH_MESSAGE,
+    );
+    expect(logged).toEqual([
+      {
+        error: refusal,
+        message: "Authentication refused by identity acknowledgment",
+      },
+    ]);
+  } finally {
+    for (const spy of spies) spy.mockRestore();
+  }
 });
 
 async function renderAuthenticateAction() {

@@ -115,6 +115,7 @@ export async function addUserToOrganizationGroup(
             runtime: input.runtime,
             stillCurrent: input.stillCurrent,
           }),
+        reportSecurityIncident: input.runtime.util.reportSecurityIncident,
         resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
         targetUserId: input.targetUserId,
         ...signingContext,

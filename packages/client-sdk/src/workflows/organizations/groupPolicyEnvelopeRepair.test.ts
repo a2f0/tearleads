@@ -64,6 +64,7 @@ for (const forgedPublicPart of [false, true]) {
         signingKeyPair,
       }),
     });
+    const incidents: Array<{ error: unknown; context: unknown }> = [];
     const request = await buildAddGroupUserPolicyRequest({
       currentPolicy,
       currentPolicySignerPublicKeys: [
@@ -75,12 +76,32 @@ for (const forgedPublicPart of [false, true]) {
       ],
       currentUsers: [admin],
       currentUserSecretKey: adminKem.secretKey,
+      reportSecurityIncident: async (error, context) => {
+        incidents.push({ context, error });
+      },
       signerUserId: admin.userId,
       signingFingerprint,
       signingKeyPair,
       targetUser: member,
     });
     expect(request.state.keyEpoch).toBe(2);
+    // The repair is silent to the user but not to the incident ledger: a policy
+    // whose envelopes do not wrap its signed key came from a prior admin or the
+    // server, and that is recorded before the rotation proceeds.
+    expect(incidents).toHaveLength(1);
+    expect(incidents[0]?.error).toMatchObject({
+      code: "object_mismatch",
+      name: "KeyingVerificationError",
+    });
+    expect(incidents[0]?.context).toMatchObject({
+      evidenceHashes: {
+        principalKeyFingerprint: currentPolicy.currentState.keyFingerprint,
+        principalStateHash: currentPolicy.currentState.stateHash,
+      },
+      objectId: "group",
+      objectKind: "principal",
+      operation: "group.policy.envelope_mismatch",
+    });
     const entries = toRecipientEntries(request.memberEnvelopes);
     const adminSecret = await unwrapDek(entries, adminKem.secretKey);
     const memberSecret = await unwrapDek(entries, memberKem.secretKey);
