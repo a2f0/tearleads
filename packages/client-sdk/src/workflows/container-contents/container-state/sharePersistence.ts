@@ -37,6 +37,8 @@ export async function persistSharedContainerState(input: {
   runtime: ContainerWorkflowRuntime;
   shared: SharedRemoteContainerState;
   stillCurrent?: (() => boolean) | undefined;
+  /** `writerProjectionGeneration` captured before the share flow began. */
+  writerProjectionGeneration: number;
 }): Promise<SharedContainerStateResult | null> {
   if (input.stillCurrent?.() === false) return { status: "confirmed" };
   await createRuntimePrincipalPolicyWarmer(input.runtime)({
@@ -47,6 +49,7 @@ export async function persistSharedContainerState(input: {
   if (input.stillCurrent?.() === false) return { status: "confirmed" };
   const candidateState = await createDetachedContainerMetadataState(
     input.containerState,
+    { writerProjectionGeneration: input.writerProjectionGeneration },
   );
   if (input.stillCurrent?.() === false) return { status: "confirmed" };
   candidateState.container = {
@@ -95,7 +98,7 @@ export async function persistSharedContainerState(input: {
   installContainerWriterProjection(
     input.containerState,
     input.shared.writerProjection,
-    candidateState.detachedSource.writerProjectionGeneration,
+    input.writerProjectionGeneration,
   );
   return {
     container: input.containerState.container,
@@ -111,6 +114,8 @@ export async function persistDuplicateContainerShare(input: {
   projection: ContainerWriterProjectionResponse;
   runtime: ContainerWorkflowRuntime;
   stillCurrent?: (() => boolean) | undefined;
+  /** `writerProjectionGeneration` captured before the share flow began. */
+  writerProjectionGeneration: number;
 }): Promise<SharedContainerStateResult | null> {
   if (input.stillCurrent?.() === false) return { status: "confirmed" };
   await createRuntimePrincipalPolicyWarmer(input.runtime)({
@@ -121,6 +126,7 @@ export async function persistDuplicateContainerShare(input: {
   if (input.stillCurrent?.() === false) return { status: "confirmed" };
   const candidateState = await createDetachedContainerMetadataState(
     input.containerState,
+    { writerProjectionGeneration: input.writerProjectionGeneration },
   );
   if (input.stillCurrent?.() === false) return { status: "confirmed" };
   candidateState.container = {
@@ -185,7 +191,7 @@ export async function persistDuplicateContainerShare(input: {
   installContainerWriterProjection(
     input.containerState,
     input.projection,
-    candidateState.detachedSource.writerProjectionGeneration,
+    input.writerProjectionGeneration,
   );
   return {
     container: input.containerState.container,

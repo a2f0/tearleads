@@ -4,6 +4,7 @@ import type { DocumentsRuntime } from "../types";
 import { noopDocumentStorePersistenceEffects } from "./documentStore.testFixtures";
 import { createDocumentStoreState, type DocumentStoreState } from "./state";
 import { handleDocumentRemoteEvents } from "./syncRemoteSignals";
+import { installDocumentWriterProjection } from "./writerProjectionGeneration";
 
 const DOCUMENT_ID = "44444444-4444-4444-8444-444444444444";
 
@@ -74,4 +75,27 @@ test("document update hints leave the writer projection in place", () => {
   });
   handleDocumentRemoteEvents(state, () => undefined);
   expect(state.writerProjection).toBe(projection);
+});
+
+test("a hint during an in-flight create is consumed as an invalidation even before the document has an id", () => {
+  const { events, projection, state } = createOpenDocument();
+  // Creation is in flight: no remote identity yet, and the create captured the
+  // generation when it started.
+  state.record = null;
+  state.writerProjection = null;
+  const capturedGeneration = state.writerProjectionGeneration;
+  events.push({
+    containerId: "container-1",
+    eventType: "container.grant",
+    id: "event-1",
+    parentId: null,
+    type: "container_mutation_created",
+  });
+  handleDocumentRemoteEvents(state, () => undefined);
+  expect(state.lastEventCount).toBe(1);
+  expect(state.writerProjectionGeneration).toBe(capturedGeneration + 1);
+
+  // The create settles with the projection it was handed back.
+  installDocumentWriterProjection(state, projection, capturedGeneration);
+  expect(state.writerProjection).toBeNull();
 });

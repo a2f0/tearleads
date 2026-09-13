@@ -56,6 +56,13 @@ function mergeConcurrentMetadataRecord(
  */
 export async function createDetachedContainerMetadataState(
   metadataState: ContainerMetadataState,
+  options: {
+    /**
+     * The live generation captured when the surrounding operation began, for
+     * callers that awaited (a request, a policy warm-up) before detaching.
+     */
+    readonly writerProjectionGeneration?: number | undefined;
+  } = {},
 ): Promise<DetachedContainerMetadataState> {
   const doc = await createContainerMetadataDocument(metadataState.container.id);
   importSnapshot(doc, exportFullHistorySnapshot(metadataState.doc));
@@ -64,7 +71,9 @@ export async function createDetachedContainerMetadataState(
     container: { ...metadataState.container },
     detachedSource: {
       metadataVersion: encodeVersionVector(metadataState.doc),
-      writerProjectionGeneration: projectionGeneration(metadataState),
+      writerProjectionGeneration:
+        options.writerProjectionGeneration ??
+        projectionGeneration(metadataState),
     },
     doc,
     record: { ...metadataState.record },
