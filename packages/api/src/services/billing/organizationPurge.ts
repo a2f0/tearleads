@@ -42,29 +42,66 @@ function createLeaseGuard(input: {
   };
 }
 
+// Redis publishes run without command timeouts, so a broker outage would
+// otherwise stall this purge, and every purge queued behind it, on a lossy
+// hint. Sockets a skipped invalidation misses lose the purged containers on
+// their next periodic re-verification instead.
+const PURGE_NOTIFICATION_TIMEOUT_MS = 5_000;
+
+interface OrganizationPurgeOptions {
+  readonly notificationTimeoutMs?: number;
+}
+
+async function settlesBefore(work: Promise<unknown>, deadline: number) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([
+    work.then(() => true),
+    new Promise<false>((resolve) => {
+      timer = setTimeout(
+        () => resolve(false),
+        Math.max(0, deadline - Date.now()),
+      );
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
+
 // The purge deletes container rows without any container mutation, so nothing
 // else tells a live socket its subscription now names a nonexistent container.
-// Publish the same per-container invalidation a delete route would.
+// Publish the same per-container invalidation a delete route would, within one
+// bounded stage: once the deadline passes the remaining batches are skipped.
 async function publishPurgedContainerAccessChanges(
   publish: (event: PublishedRealtimeEvent) => Promise<void>,
   containerIds: readonly string[],
+  timeoutMs = PURGE_NOTIFICATION_TIMEOUT_MS,
 ): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
   for (const batch of organizationPurgeBatches(containerIds)) {
-    await Promise.all(
-      batch.map((containerId) =>
-        publishBestEffort(
-          publish,
-          { type: "access_changed", containerId },
-          "organization purge container invalidation",
+    const settled = await settlesBefore(
+      Promise.all(
+        batch.map((containerId) =>
+          publishBestEffort(
+            publish,
+            { type: "access_changed", containerId },
+            "organization purge container invalidation",
+          ),
         ),
       ),
+      deadline,
     );
+    if (settled) continue;
+    const error = new Error(
+      `Organization purge container invalidations abandoned after ${timeoutMs}ms`,
+    );
+    console.error(error.message);
+    reportBackgroundFailure(error);
+    return;
   }
 }
 
 export async function runOrganizationPurgeMaintenance(
   runtime: ApiServiceRuntime,
   input: OrganizationPurgeInput = {},
+  options: OrganizationPurgeOptions = {},
 ): Promise<OrganizationPurgeSummary> {
   const maintenanceStartedAt = Date.now();
   const { claims, now } = await claimDueOrganizationPurges(runtime.db, input);
@@ -84,6 +121,7 @@ export async function runOrganizationPurgeMaintenance(
       await publishPurgedContainerAccessChanges(
         runtime.eventPublisher.publish,
         purged.containerIds,
+        options.notificationTimeoutMs,
       );
       const assertObjectDeletionLease = createLeaseGuard({
         claim,

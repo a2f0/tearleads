@@ -13,6 +13,7 @@ import { ContainerInterestAuthorizer } from "./containerInterestAuthorization";
 import {
   ContainerInterestRevalidationSchedule,
   type RevalidationScheduleOptions,
+  resolveProofAgePolicy,
 } from "./containerInterestRevalidation";
 import {
   type AuthorizeContainerAccess,
@@ -380,6 +381,7 @@ export function createRealtimeGateway(deps: RealtimeGatewayDeps = {}) {
     interestStore,
     persistInterest,
     router,
+    resolveProofAgePolicy(deps.revalidation),
   );
   const revalidation = new ContainerInterestRevalidationSchedule(
     (ws) => containerInterest.revalidate(ws),

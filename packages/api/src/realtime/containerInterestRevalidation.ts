@@ -2,12 +2,39 @@ import { reportBackgroundFailure } from "../diagnostics/reportBackgroundFailure"
 import type { WsConnection } from "./wsConnection";
 
 export const DEFAULT_REVALIDATION_INTERVAL_MS = 5 * 60_000;
+/** Failing passes may keep unconfirmed proofs for this many intervals. */
+export const DEFAULT_MAX_PROOF_AGE_INTERVALS = 3;
 
 export interface RevalidationScheduleOptions {
   /** Base period between re-verifications of one socket; 0 disables. */
   readonly intervalMs?: number | undefined;
   /** Jitter source in [0, 1); injectable for deterministic tests. */
   readonly random?: (() => number) | undefined;
+  /**
+   * Oldest a socket's installed proofs may grow, measured from their last
+   * successful verification, before failing passes evict them all. Defaults
+   * to three intervals; 0 disables.
+   */
+  readonly maxProofAgeMs?: number | undefined;
+  /** Clock for proof age; injectable for deterministic tests. */
+  readonly now?: (() => number) | undefined;
+}
+
+export interface ProofAgePolicy {
+  readonly maxProofAgeMs: number;
+  readonly now: () => number;
+}
+
+export function resolveProofAgePolicy(
+  options: RevalidationScheduleOptions = {},
+): ProofAgePolicy {
+  return {
+    maxProofAgeMs:
+      options.maxProofAgeMs ??
+      (options.intervalMs ?? DEFAULT_REVALIDATION_INTERVAL_MS) *
+        DEFAULT_MAX_PROOF_AGE_INTERVALS,
+    now: options.now ?? Date.now,
+  };
 }
 
 /**

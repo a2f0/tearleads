@@ -5,6 +5,7 @@ import {
   ContainerInterestQueries,
 } from "./containerInterestQueries";
 import { ContainerInterestRestoration } from "./containerInterestRestoration";
+import type { ProofAgePolicy } from "./containerInterestRevalidation";
 import type {
   AuthorizeContainerAccess,
   VerifiedContainerInterest,
@@ -28,6 +29,8 @@ interface SocketState {
   containerIds: number;
   /** A reconnect asked for a full resync; held until a verification lands. */
   resyncAll: boolean;
+  /** When every installed proof was last confirmed by a full verification. */
+  verifiedAt: number;
 }
 
 export class ContainerInterestAuthorizer {
@@ -41,6 +44,7 @@ export class ContainerInterestAuthorizer {
     private readonly interestStore: Pick<typeof wsInterestStore, "load">,
     private readonly persist: PersistInterest,
     private readonly router: WsEventRouter,
+    private readonly proofAge: ProofAgePolicy,
   ) {
     this.queries = new ContainerInterestQueries(
       authorize,
@@ -55,6 +59,7 @@ export class ContainerInterestAuthorizer {
       declarations: 0,
       containerIds: 0,
       resyncAll: false,
+      verifiedAt: this.proofAge.now(),
     });
     return this.enqueue(ws, async () => {
       try {
@@ -97,6 +102,7 @@ export class ContainerInterestAuthorizer {
   ): void {
     const state = this.states.get(ws);
     if (!state) return;
+    state.verifiedAt = this.proofAge.now();
     this.restoration.put(
       ws,
       cached,
@@ -142,6 +148,8 @@ export class ContainerInterestAuthorizer {
    * queue so it never interleaves with a declaration; a verification failure
    * keeps the socket (the next pass retries) instead of closing it, and a
    * pending `resyncAll` survives the failure until a later pass succeeds.
+   * Proofs that failing passes leave unconfirmed past `maxProofAgeMs` are
+   * evicted wholesale (`evictUnconfirmed`) rather than kept.
    */
   revalidate(
     ws: WsConnection,
@@ -157,6 +165,7 @@ export class ContainerInterestAuthorizer {
       if (ids.length === 0) {
         // Nothing held means nothing whose hints could have been missed.
         state.resyncAll = false;
+        state.verifiedAt = this.proofAge.now();
         return;
       }
       try {
@@ -169,8 +178,40 @@ export class ContainerInterestAuthorizer {
       } catch (error) {
         console.error("Failed to revalidate websocket interest:", error);
         reportBackgroundFailure(error);
+        this.evictUnconfirmed(ws, state, ids);
       }
     });
+  }
+
+  /**
+   * Fail closed. Proofs no verification has confirmed within the max age may
+   * hide a lost revocation, so drop them all with one `resync_required`; the
+   * client redeclares through fresh authorization.
+   */
+  private evictUnconfirmed(
+    ws: WsConnection,
+    state: SocketState,
+    ids: string[],
+  ): void {
+    const { maxProofAgeMs, now } = this.proofAge;
+    if (maxProofAgeMs <= 0 || now() - state.verifiedAt < maxProofAgeMs) return;
+    if (!this.isOpen(ws)) return;
+    this.restoration.clear(ws);
+    this.router.applyAuthorizedContainerInterest(
+      ws,
+      { kind: "replace", containerIds: [] },
+      [],
+    );
+    sendSafely(
+      ws,
+      serializeWsServerMessage({ type: "resync_required", containerIds: ids }),
+    );
+    this.persist(ws.data.userId, ws.data.sessionId, {
+      kind: "remove",
+      containerIds: ids,
+    });
+    state.resyncAll = false;
+    state.verifiedAt = now();
   }
 
   revalidateAll(options: { readonly resyncAll?: boolean } = {}): Promise<void> {
@@ -186,6 +227,7 @@ export class ContainerInterestAuthorizer {
   ): void {
     const state = this.states.get(ws);
     if (!state) return;
+    state.verifiedAt = this.proofAge.now();
     const accepted = new Set(proofs.map((proof) => proof.containerId));
     const refused = ids.filter((id) => !accepted.has(id));
     // The reconnect handoff predates this verification; a matching declaration
@@ -227,6 +269,10 @@ export class ContainerInterestAuthorizer {
               : proofs.map((proof) => proof.containerId);
           const action = { ...declaration, containerIds };
           this.router.applyAuthorizedContainerInterest(ws, declaration, proofs);
+          // A replace leaves only proofs verified just now installed.
+          const state = this.states.get(ws);
+          if (state && declaration.kind === "replace")
+            state.verifiedAt = this.proofAge.now();
           // An acknowledgement means processing is complete, including denials.
           // It lets reconnect reconciliation remove stale local IDs over HTTP.
           if (declaration.declarationId)
