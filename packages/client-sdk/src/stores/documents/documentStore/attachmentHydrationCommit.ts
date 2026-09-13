@@ -55,7 +55,10 @@ export async function commitHydratedAttachment(input: {
       );
       const attachment: LocalAttachmentRecord = {
         blobId: hydratedBlob.binding.blobId,
-        byteLength: hydratedBlob.attachment.byteLength,
+        // The held bytes' own size, not the document intent's: a served
+        // binding the intent has not recorded yet may differ in length, and
+        // preview gating reads the local record.
+        byteLength: hydratedBlob.bytes.byteLength,
         contentSha256: hydratedBlob.contentSha256,
         detachedAt: null,
         localId: state.localId,

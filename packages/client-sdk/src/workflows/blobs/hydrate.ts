@@ -119,17 +119,19 @@ function shouldHydrateAttachment(input: {
     | undefined;
   rejectedServedBindings: ReadonlySet<string> | undefined;
 }): boolean {
+  const slotId = input.attachment.slotId;
+  const localStorageKey = input.localStorageKeyBySlotId?.[slotId];
+  // An empty slot always hydrates: a rejection only ever protected a held
+  // copy, so once that copy is gone the served binding is shown (flagged).
+  if (!localStorageKey) {
+    return true;
+  }
   if (
     input.rejectedServedBindings?.has(
       servedBindingRejectionKey(input.attachment, input.binding),
     )
   ) {
     return false;
-  }
-  const slotId = input.attachment.slotId;
-  const localStorageKey = input.localStorageKeyBySlotId?.[slotId];
-  if (!localStorageKey) {
-    return true;
   }
 
   const localBlobId = input.localBlobIdBySlotId?.[slotId];

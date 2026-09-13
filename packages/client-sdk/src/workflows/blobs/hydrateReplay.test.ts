@@ -210,3 +210,45 @@ test("hydration keeps a held copy matching the intent and downloads a rejected b
     storageKey: `blob-${served.binding.blobId}`,
   });
 });
+
+test("a rejected binding hydrates once the held copy is gone", async () => {
+  const fixture = await createUploadedAttachmentFixture();
+  const served = await uploadNewerBinding(fixture);
+  let blobReads = 0;
+  const rejectedServedBindings = new Set<string>();
+  const input = {
+    apiClient: createServedBindingApi(fixture, served, () => {
+      blobReads += 1;
+    }),
+    attachments: [fixture.attachment],
+    documentId: fixture.writerProjection.documentId,
+    execSql: fixture.execSql,
+    rejectedServedBindings,
+    resolveProjectionUserKey: fixture.resolveProjectionUserKey,
+    targetSecretKey: fixture.secretKey,
+  };
+  const rejected = await hydrateDocumentAttachmentBlobs({
+    ...input,
+    localBlobIdBySlotId: { [fixture.attachment.slotId]: fixture.blobId },
+    localStorageKeyBySlotId: {
+      [fixture.attachment.slotId]: `blob-${fixture.blobId}`,
+    },
+  });
+  expect(rejected).toEqual([]);
+  expect(rejectedServedBindings.size).toBe(1);
+  expect(blobReads).toBe(1);
+
+  // The held copy is removed (e.g. blob storage reclaimed): the slot is empty,
+  // so the same served binding is downloaded again and shown flagged.
+  const rehydrated = await hydrateDocumentAttachmentBlobs({
+    ...input,
+    localBlobIdBySlotId: {},
+    localStorageKeyBySlotId: {},
+  });
+  expect(blobReads).toBe(2);
+  expect(rehydrated?.[0]).toMatchObject({
+    contentSha256: served.contentSha256,
+    intentMismatch: true,
+    storageKey: `blob-${served.binding.blobId}`,
+  });
+});
