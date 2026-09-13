@@ -5,6 +5,18 @@ export const DEFAULT_REVALIDATION_INTERVAL_MS = 5 * 60_000;
 /** Failing passes may keep unconfirmed proofs for this many intervals. */
 export const DEFAULT_MAX_PROOF_AGE_INTERVALS = 3;
 
+/** Arms one timer and returns its cancel; injectable for deterministic tests. */
+export type ScheduleTimer = (
+  callback: () => void,
+  delayMs: number,
+) => () => void;
+
+function scheduleUnrefTimeout(callback: () => void, delayMs: number) {
+  const timer = setTimeout(callback, delayMs);
+  timer.unref();
+  return () => clearTimeout(timer);
+}
+
 export interface RevalidationScheduleOptions {
   /** Base period between re-verifications of one socket; 0 disables. */
   readonly intervalMs?: number | undefined;
@@ -18,11 +30,14 @@ export interface RevalidationScheduleOptions {
   readonly maxProofAgeMs?: number | undefined;
   /** Clock for proof age; injectable for deterministic tests. */
   readonly now?: (() => number) | undefined;
+  /** Timer source for ticks and proof deadlines; defaults to unref'd timeouts. */
+  readonly schedule?: ScheduleTimer | undefined;
 }
 
 export interface ProofAgePolicy {
   readonly maxProofAgeMs: number;
   readonly now: () => number;
+  readonly schedule: ScheduleTimer;
 }
 
 export function resolveProofAgePolicy(
@@ -34,6 +49,7 @@ export function resolveProofAgePolicy(
       (options.intervalMs ?? DEFAULT_REVALIDATION_INTERVAL_MS) *
         DEFAULT_MAX_PROOF_AGE_INTERVALS,
     now: options.now ?? Date.now,
+    schedule: options.schedule ?? scheduleUnrefTimeout,
   };
 }
 
@@ -44,17 +60,15 @@ export function resolveProofAgePolicy(
  * subscription live for the socket's lifetime; the periodic pass bounds that
  * window to one interval. Ticks are jittered across [½, 1] of the interval so
  * sockets that connected together do not re-verify together, and re-arm on
- * that cadence rather than on completion: a pass stuck behind the socket's
- * declaration queue must not stall the wall-clock proof-age check each tick
- * performs.
+ * that cadence rather than on completion. Ticks only attempt verification;
+ * the proof-age bound itself is a separate per-socket deadline timer the
+ * authorizer arms at `verifiedAt + maxProofAgeMs`.
  */
 export class ContainerInterestRevalidationSchedule {
-  private readonly timers = new Map<
-    WsConnection,
-    ReturnType<typeof setTimeout>
-  >();
+  private readonly timers = new Map<WsConnection, () => void>();
   private readonly intervalMs: number;
   private readonly random: () => number;
+  private readonly scheduleTimer: ScheduleTimer;
 
   constructor(
     private readonly revalidate: (ws: WsConnection) => Promise<void>,
@@ -62,6 +76,7 @@ export class ContainerInterestRevalidationSchedule {
   ) {
     this.intervalMs = options.intervalMs ?? DEFAULT_REVALIDATION_INTERVAL_MS;
     this.random = options.random ?? Math.random;
+    this.scheduleTimer = options.schedule ?? scheduleUnrefTimeout;
   }
 
   open(ws: WsConnection): void {
@@ -70,29 +85,27 @@ export class ContainerInterestRevalidationSchedule {
   }
 
   close(ws: WsConnection): void {
-    const timer = this.timers.get(ws);
-    if (timer) clearTimeout(timer);
+    this.timers.get(ws)?.();
     this.timers.delete(ws);
   }
 
   stop(): void {
-    for (const timer of this.timers.values()) clearTimeout(timer);
+    for (const cancel of this.timers.values()) cancel();
     this.timers.clear();
   }
 
   private schedule(ws: WsConnection): void {
     if (this.intervalMs <= 0) return;
     const delay = Math.round(this.intervalMs * (0.5 + 0.5 * this.random()));
-    const timer = setTimeout(() => {
+    const cancel = this.scheduleTimer(() => {
       // Only a still-tracked socket re-arms.
-      if (this.timers.get(ws) !== timer) return;
+      if (this.timers.get(ws) !== cancel) return;
       this.timers.delete(ws);
       this.schedule(ws);
       void this.revalidate(ws).catch((error: unknown) => {
         reportBackgroundFailure(error);
       });
     }, delay);
-    timer.unref();
-    this.timers.set(ws, timer);
+    this.timers.set(ws, cancel);
   }
 }

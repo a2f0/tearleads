@@ -140,7 +140,7 @@ test("a pub/sub reconnect re-verifies every live socket and resyncs all it holds
   f.gateway.stop();
 });
 
-test("a reconnect with no held interest asks nothing", async () => {
+test("a reconnect with no held interest verifies nothing but re-lists shares", async () => {
   let calls = 0;
   const f = fixture({
     authorize: async (_user, ids) => {
@@ -153,6 +153,9 @@ test("a reconnect with no held interest asks nothing", async () => {
   await new Promise((resolve) => setTimeout(resolve, 0));
   expect(calls).toBe(0);
   expect(resyncFrames(f.sent)).toEqual([]);
+  // A share granted during the outage reached no socket; the client re-lists
+  // its roots on this frame.
+  expect(f.sent.at(-1)).toEqual({ type: "shared_with_you", userId: "user" });
   f.gateway.stop();
 });
 

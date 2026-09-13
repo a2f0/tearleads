@@ -35,6 +35,8 @@ interface SocketState {
   epoch: number;
   /** The revalidation pass queued or in flight, if any; passes never stack. */
   revalidation: Promise<void> | null;
+  /** Cancels the timer that evicts at `verifiedAt + maxProofAgeMs`. */
+  deadline: (() => void) | null;
 }
 
 export class ContainerInterestAuthorizer {
@@ -66,7 +68,9 @@ export class ContainerInterestAuthorizer {
       verifiedAt: this.proofAge.now(),
       epoch: 0,
       revalidation: null,
+      deadline: null,
     });
+    this.armDeadline(ws, this.states.get(ws));
     return this.enqueue(ws, async () => {
       try {
         const cached = await beforeDeadline(
@@ -108,7 +112,7 @@ export class ContainerInterestAuthorizer {
   ): void {
     const state = this.states.get(ws);
     if (!state) return;
-    state.verifiedAt = this.proofAge.now();
+    this.confirm(ws, state);
     this.restoration.put(
       ws,
       cached,
@@ -136,7 +140,38 @@ export class ContainerInterestAuthorizer {
 
   close(ws: WsConnection): void {
     this.restoration.clear(ws);
+    this.states.get(ws)?.deadline?.();
     this.states.delete(ws);
+  }
+
+  /** A completed verification re-dates the proofs and re-arms their deadline. */
+  private confirm(ws: WsConnection, state: SocketState): void {
+    state.verifiedAt = this.proofAge.now();
+    this.armDeadline(ws, state);
+  }
+
+  /**
+   * The proof-age bound is a wall-clock deadline, not a tick: the timer fires
+   * at exactly `verifiedAt + maxProofAgeMs` and evicts whatever no completed
+   * verification has re-dated by then, independent of the jittered
+   * revalidation ticks and of the declaration queue.
+   */
+  private armDeadline(ws: WsConnection, state: SocketState | undefined): void {
+    if (!state) return;
+    state.deadline?.();
+    state.deadline = null;
+    const { maxProofAgeMs, now, schedule } = this.proofAge;
+    if (maxProofAgeMs <= 0) return;
+    state.deadline = schedule(
+      () => {
+        state.deadline = null;
+        if (this.states.get(ws) !== state) return;
+        this.evictUnconfirmed(ws, state, this.router.interestOf(ws));
+        // Fired ahead of the clock or found nothing due: stay armed.
+        if (!state.deadline) this.armDeadline(ws, state);
+      },
+      Math.max(0, state.verifiedAt + maxProofAgeMs - now()),
+    );
   }
 
   invalidateAccess(containerId: string): void {
@@ -161,7 +196,9 @@ export class ContainerInterestAuthorizer {
    * flight, or cannot be enqueued at all. Only a completed verification
    * re-dates the proofs, so a client cannot shelter a revoked subscription
    * behind a busy queue. Passes never stack: a tick that finds one queued or
-   * in flight joins it.
+   * in flight joins it — except a reconnect, whose in-flight pass may carry
+   * proofs authorized before the outage; that pass is discarded (its epoch
+   * is left behind) and a fresh verification carries the resync request.
    */
   revalidate(
     ws: WsConnection,
@@ -169,7 +206,13 @@ export class ContainerInterestAuthorizer {
   ): Promise<void> {
     const state = this.states.get(ws);
     if (!state) return Promise.resolve();
-    if (options.resyncAll) state.resyncAll = true;
+    if (options.resyncAll) {
+      state.resyncAll = true;
+      if (state.revalidation) {
+        state.epoch++;
+        state.revalidation = null;
+      }
+    }
     this.evictUnconfirmed(ws, state, this.router.interestOf(ws));
     if (state.revalidation) return state.revalidation;
     if (state.declarations >= MAX_PENDING_DECLARATIONS)
@@ -189,9 +232,19 @@ export class ContainerInterestAuthorizer {
   ): Promise<void> {
     const ids = this.router.interestOf(ws);
     if (ids.length === 0) {
-      // Nothing held means nothing whose hints could have been missed.
+      // Nothing held means no container hint could have been missed, but a
+      // share granted during the outage reached no socket either; this is the
+      // frame on which the client re-lists its roots.
+      if (state.resyncAll)
+        sendSafely(
+          ws,
+          serializeWsServerMessage({
+            type: "shared_with_you",
+            userId: ws.data.userId,
+          }),
+        );
       state.resyncAll = false;
-      state.verifiedAt = this.proofAge.now();
+      this.confirm(ws, state);
       return;
     }
     const epoch = state.epoch;
@@ -228,7 +281,7 @@ export class ContainerInterestAuthorizer {
     if (maxProofAgeMs <= 0 || now() - state.verifiedAt < maxProofAgeMs) return;
     if (!this.isOpen(ws)) return;
     if (ids.length === 0) {
-      state.verifiedAt = now();
+      this.confirm(ws, state);
       return;
     }
     state.epoch++;
@@ -247,7 +300,7 @@ export class ContainerInterestAuthorizer {
       containerIds: ids,
     });
     state.resyncAll = false;
-    state.verifiedAt = now();
+    this.confirm(ws, state);
   }
 
   revalidateAll(options: { readonly resyncAll?: boolean } = {}): Promise<void> {
@@ -263,7 +316,7 @@ export class ContainerInterestAuthorizer {
   ): void {
     const state = this.states.get(ws);
     if (!state) return;
-    state.verifiedAt = this.proofAge.now();
+    this.confirm(ws, state);
     const accepted = new Set(proofs.map((proof) => proof.containerId));
     const refused = ids.filter((id) => !accepted.has(id));
     // The reconnect handoff predates this verification; a matching declaration
@@ -307,8 +360,7 @@ export class ContainerInterestAuthorizer {
           this.router.applyAuthorizedContainerInterest(ws, declaration, proofs);
           // A replace leaves only proofs verified just now installed.
           const state = this.states.get(ws);
-          if (state && declaration.kind === "replace")
-            state.verifiedAt = this.proofAge.now();
+          if (state && declaration.kind === "replace") this.confirm(ws, state);
           // An acknowledgement means processing is complete, including denials.
           // It lets reconnect reconciliation remove stale local IDs over HTTP.
           if (declaration.declarationId)
