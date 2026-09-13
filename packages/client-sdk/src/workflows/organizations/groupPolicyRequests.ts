@@ -11,6 +11,7 @@ import type {
   PrincipalProjectionMemberRequest,
   PutPrincipalPolicyRequest,
 } from "@tearleads/validators/request";
+import { principalSecretKeyMatchesState } from "../../data/principals/principalKeyValidation";
 import type { TrustedUserIdentity } from "../../data/trustedUserIdentity";
 import {
   isDirectGroupAdmin,
@@ -111,6 +112,17 @@ async function buildDirectAdminAddGroupUserPolicyRequest(
     toRecipientEntries(input.currentPolicy.currentMemberEnvelopes.envelopes),
     input.currentUserSecretKey,
   );
+  if (
+    !(await principalSecretKeyMatchesState(
+      groupSecretKey,
+      input.currentPolicy.currentState,
+    ))
+  ) {
+    return buildRotatedKeyGroupPolicyRequest(input, projection, [
+      ...input.currentUsers,
+      input.targetUser,
+    ]);
+  }
   const [targetEnvelope] = await wrapDekForRecipients(groupSecretKey, [
     input.targetUser.encapsulationPublicKey,
   ]);

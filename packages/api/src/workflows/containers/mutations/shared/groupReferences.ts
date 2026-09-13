@@ -8,6 +8,7 @@ import type { VerifiedContainerAccessManifest } from "@tearleads/crypto";
 import { and, eq, inArray } from "drizzle-orm";
 import { lockAndFindMissingGroupReferencesInTransaction } from "../../../principals/groupReferenceLock";
 import { ContainerMutationError } from "../errors";
+import { assertGroupReferenceHeadsCurrent } from "./groupReferenceHeads";
 
 function grantSubjectIds(
   manifest: VerifiedContainerAccessManifest,
@@ -64,6 +65,10 @@ async function assertGroupReferencesValid(input: {
       409,
     );
   }
+  await assertGroupReferenceHeadsCurrent(
+    input.executor,
+    input.manifest.state.referencedPrincipalHeads,
+  );
 }
 
 async function assertUserReferencesValid(input: {

@@ -54,7 +54,10 @@ import {
 import { loadStoredDocumentStoreState } from "./internal/documentStoreStatePersistence";
 import { listDocumentSummaries } from "./internal/documentSummaryQueries";
 import { ensureDocumentsSchema } from "./internal/ensureDocumentsSchema";
-import { mapPendingCreateLocalIds } from "./internal/pendingCreateAdoption";
+import {
+  loadPendingCreateSummary,
+  mapPendingCreateLocalIds,
+} from "./internal/pendingCreateAdoption";
 import { documentRowQueryPersistence } from "./internal/rowQueryPersistence";
 import { documentSyncQueuePersistence } from "./internal/syncQueuePersistence";
 import type {
@@ -107,6 +110,13 @@ async function upsertDiscoveredDocumentWithExec(
   );
   const localId =
     existingLocalId ?? pendingCreates.get(input.documentId) ?? input.documentId;
+  if (!existingLocalId) {
+    const pending = await loadPendingCreateSummary(
+      execSql,
+      pendingCreates.get(input.documentId),
+    );
+    if (pending) return pending;
+  }
   const existingDocument = await sqlDocumentsPersistence.loadDocument(
     execSql,
     localId,

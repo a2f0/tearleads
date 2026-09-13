@@ -86,7 +86,7 @@ describe("session expiry", () => {
         isAuthenticated: true,
         isRoot: false,
         organizationId: "org-1",
-        userId: "user-1",
+        userId: "22222222-2222-4222-8222-222222222222",
       });
 
       await expect(sdk.session.listSessions()).resolves.toEqual([]);

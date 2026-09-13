@@ -124,7 +124,7 @@ test("upsertDiscoveredDocument reuses an existing local note bound to the remote
   }
 });
 
-test("upsertDiscoveredDocument adopts a pending-create row whose stable document id matches", async () => {
+test("upsertDiscoveredDocument defers a pending-create row until verified adoption", async () => {
   const { close, execSql } = await createTestExecSql(
     "documents-persistence-behavior-test",
   );
@@ -167,7 +167,7 @@ test("upsertDiscoveredDocument adopts a pending-create row whose stable document
     ).resolves.toMatchObject({
       id: "self_contact_v1_fingerprint",
       containerId: "contacts-container",
-      documentId: stableDocumentId,
+      documentId: null,
       title: "Peer 1",
     });
 
@@ -177,7 +177,7 @@ test("upsertDiscoveredDocument adopts a pending-create row whose stable document
         "self_contact_v1_fingerprint",
       ),
     ).resolves.toMatchObject({
-      documentId: stableDocumentId,
+      documentId: null,
       text: "Peer 1",
     });
     await expect(
