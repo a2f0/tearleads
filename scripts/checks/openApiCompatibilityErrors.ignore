@@ -1,0 +1,19 @@
+# Issue: #2278 M3 / #1 (signedAt canonical range). The runtime already refused
+# every signedAt outside this pattern: the crypto verifiers on both sides
+# required Date#toISOString() form (#2268) and now also a 1970-9999 year, the
+# only range a `timestamp` column stores verbatim. Documenting that rule as a
+# JSON Schema pattern rejects no request an honest client could send, so this
+# is a contract-documentation flag day, not a behaviour change.
+# Remove as soon as origin/main contains the signedAt pattern.
+DELETE /organizations/{organizationId}/groups/{groupId} added the pattern `^(?:19[7-9]\d|[2-9]\d{3})-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$` to the request property `organizationPolicy/state/signedAt`
+POST /auth/register added the pattern `^(?:19[7-9]\d|[2-9]\d{3})-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$` to the request property `initialAdminGroup/initialGroupPolicy/state/signedAt`
+POST /auth/register added the pattern `^(?:19[7-9]\d|[2-9]\d{3})-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$` to the request property `initialMemberGroup/initialGroupPolicy/state/signedAt`
+POST /auth/register added the pattern `^(?:19[7-9]\d|[2-9]\d{3})-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$` to the request property `initialOrganizationPolicy/state/signedAt`
+POST /organizations added the pattern `^(?:19[7-9]\d|[2-9]\d{3})-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$` to the request property `initialAdminGroup/initialGroupPolicy/state/signedAt`
+POST /organizations added the pattern `^(?:19[7-9]\d|[2-9]\d{3})-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$` to the request property `initialMemberGroup/initialGroupPolicy/state/signedAt`
+POST /organizations added the pattern `^(?:19[7-9]\d|[2-9]\d{3})-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$` to the request property `initialOrganizationPolicy/state/signedAt`
+POST /organizations/{organizationId}/groups added the pattern `^(?:19[7-9]\d|[2-9]\d{3})-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$` to the request property `initialGroupPolicy/state/signedAt`
+POST /organizations/{organizationId}/groups added the pattern `^(?:19[7-9]\d|[2-9]\d{3})-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$` to the request property `organizationPolicy/state/signedAt`
+PUT /organizations/{organizationId}/groups/{groupId}/policy-commit added the pattern `^(?:19[7-9]\d|[2-9]\d{3})-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$` to the request property `groupPolicy/state/signedAt`
+PUT /organizations/{organizationId}/groups/{groupId}/policy-commit added the pattern `^(?:19[7-9]\d|[2-9]\d{3})-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$` to the request property `organizationPolicy/state/signedAt`
+PUT /principals/{principalType}/{principalId}/policy added the pattern `^(?:19[7-9]\d|[2-9]\d{3})-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$` to the request property `state/signedAt`

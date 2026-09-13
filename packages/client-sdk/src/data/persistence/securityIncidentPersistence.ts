@@ -1,4 +1,7 @@
-import { isKeyingVerificationCode } from "@tearleads/crypto";
+import {
+  isKeyingVerificationCode,
+  serializeKeyingCanonicalJson,
+} from "@tearleads/crypto";
 import { desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type {
   SecurityIncident,
@@ -26,16 +29,15 @@ interface SecurityIncidentWrite {
 
 const SECURITY_INCIDENT_RETENTION_LIMIT = 1_000;
 
+/**
+ * The incident id hashes this text, so it must be identical on every device:
+ * code-unit key order, no locale collation, and no `Object` property-order
+ * rules (which would float integer-like keys ahead of the sort).
+ */
 function serializeEvidenceHashes(
   evidenceHashes: Readonly<Record<string, string>> | undefined,
 ): string {
-  return JSON.stringify(
-    Object.fromEntries(
-      Object.entries(evidenceHashes ?? {}).sort(([left], [right]) =>
-        left.localeCompare(right),
-      ),
-    ),
-  );
+  return serializeKeyingCanonicalJson(evidenceHashes ?? {});
 }
 
 function parseEvidenceHashes(value: string): Readonly<Record<string, string>> {

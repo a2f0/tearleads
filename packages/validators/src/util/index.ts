@@ -75,5 +75,12 @@ export {
   ML_KEM1024_PUBLIC_KEY_BYTES,
   SHA256_HEX_LENGTH,
 } from "./protocol";
+export {
+  CANONICAL_SIGNED_AT_PATTERN,
+  isCanonicalSignedAt,
+  MAX_SIGNED_AT_YEAR,
+  MIN_SIGNED_AT_YEAR,
+  SIGNED_AT_CONTRACT,
+} from "./signedAt";
 export { isUuidV4String } from "./uuid";
 export { isWalLsnString, parseWalLsn } from "./walLsn";

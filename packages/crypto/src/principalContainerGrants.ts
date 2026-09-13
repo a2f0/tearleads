@@ -1,11 +1,8 @@
+import { compareCanonicalStrings } from "./canonicalOrdering";
 import { toFingerprint } from "./fingerprint";
 import type { PrincipalContainerGrant } from "./principalStateTypes";
 
 const TEXT_ENCODER = new TextEncoder();
-
-function compareCanonicalStrings(left: string, right: string): number {
-  return left < right ? -1 : left > right ? 1 : 0;
-}
 
 function comparePrincipalContainerGrants(
   left: PrincipalContainerGrant,

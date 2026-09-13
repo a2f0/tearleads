@@ -1,3 +1,4 @@
+import { compareCanonicalStrings } from "@tearleads/crypto";
 import type { DocumentEditAttributionRangeResponse } from "@tearleads/validators/response";
 import {
   type DocumentAttributionInterval,
@@ -71,8 +72,11 @@ export function summarizeDocumentContributors(
   return [...byWriter.values()].sort(
     (left, right) =>
       right.opCount - left.opCount ||
-      left.writerUserId.localeCompare(right.writerUserId) ||
-      left.writerKeyFingerprint.localeCompare(right.writerKeyFingerprint),
+      compareCanonicalStrings(left.writerUserId, right.writerUserId) ||
+      compareCanonicalStrings(
+        left.writerKeyFingerprint,
+        right.writerKeyFingerprint,
+      ),
   );
 }
 
@@ -131,7 +135,7 @@ export function listDocumentAttributionSegments(
     (rangesByWriter.get(signingIdentityKey(contributor)) ?? []).sort(
       (left, right) =>
         left.startCounter - right.startCounter ||
-        left.peerId.localeCompare(right.peerId),
+        compareCanonicalStrings(left.peerId, right.peerId),
     ),
   );
 }
@@ -207,5 +211,7 @@ export function summarizeFieldBlame(
         writerKeyFingerprint: writer?.writerKeyFingerprint ?? null,
       };
     })
-    .sort((left, right) => left.fieldKey.localeCompare(right.fieldKey));
+    .sort((left, right) =>
+      compareCanonicalStrings(left.fieldKey, right.fieldKey),
+    );
 }

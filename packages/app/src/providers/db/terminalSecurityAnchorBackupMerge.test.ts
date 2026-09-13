@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { toFingerprint } from "@tearleads/crypto";
+import { serializeKeyingCanonicalJson, toFingerprint } from "@tearleads/crypto";
 import type { BackupSqlRow, BackupTable } from "./localBackupFormat";
 import { readProperty } from "./localBackupPayload";
 import { mergeSecurityIncidentBackupTables } from "./terminalSecurityAnchorBackupMerge";
@@ -114,6 +114,11 @@ for (const [label, change] of [
   ["invalid object id", { object_id: 123 }],
   ["invalid evidence", { evidence_hashes: "[]" }],
   ["malformed evidence", { evidence_hashes: "{" }],
+  [
+    "non-canonical evidence key order",
+    { evidence_hashes: '{"9":"y","10":"x"}' },
+  ],
+  ["locale-ordered evidence keys", { evidence_hashes: '{"b":"1","B":"2"}' }],
 ] as const) {
   test(`restore rejects an incident with ${label}`, async () => {
     const restored = table([{ ...(await incident()), ...change }]);
@@ -192,11 +197,13 @@ test("near-present imported rows cannot evict the local incident ledger", async 
 });
 
 test("incident text accepts the empty values permitted by the writer", async () => {
-  const evidence = JSON.stringify({
-    "10": "ten",
+  // Code-unit key order, as the SDK writer serializes it: "10" < "9" < "manifest".
+  const evidence = serializeKeyingCanonicalJson({
     "9": "nine",
+    "10": "ten",
     manifest: "hash",
   });
+  expect(evidence).toBe('{"10":"ten","9":"nine","manifest":"hash"}');
   const identity = ["", "equivocation", " ", "document", "", "", evidence];
   const row = {
     ...(await incident()),

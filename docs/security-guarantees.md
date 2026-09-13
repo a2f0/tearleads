@@ -118,7 +118,19 @@ encapsulation key, membership/projection/envelope roots, encrypted payload
 hash, member count, signer identity, and timestamp. The server validates this
 before storage; API authorization consumers and clients revalidate complete
 chains before use. Projection rows are therefore not authority by themselves:
-changing them without a matching signed state causes rejection.
+changing them without a matching signed state causes rejection. Every
+principal-state write, including group creation and provisioning, re-verifies
+the stored chain from rows inside the storing transaction before commit.
+
+### Signed Timestamps
+
+Every signed `signedAt` is canonical `Date#toISOString()` form with a year in
+1970-9999, the only range a `timestamp` column serves back verbatim (0001-0099
+hit the two-digit-year pivot; expanded years are rejected). Shared readers
+enforce this on both sides, and the API asserts inside the storing transaction
+that the written row prints the exact submitted string, so an irreproducible
+header never commits. Honest clients sign `Date.now()`, so no honest data is
+refused; a failing header is a malformed request, not an unauthorized signer.
 
 ### Admin-Signer Authorization
 
@@ -205,6 +217,10 @@ as tampering.
 An incident proves that the received or stored material failed a local
 verification rule. It does not by itself prove that the server was malicious;
 corruption and implementation defects can produce the same signal.
+
+Incident identities hash the evidence set in code-unit key order, so the same
+evidence yields one id on every device and locale and repeat observations
+merge; backup restore recomputes that identity and rejects non-canonical text.
 
 ### Member Envelope Binding
 

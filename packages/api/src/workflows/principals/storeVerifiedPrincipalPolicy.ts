@@ -6,11 +6,14 @@ import {
   type StoreVerifiedPrincipalStateOptions,
   storeVerifiedPrincipalStateInTransaction,
 } from "../../access/write/principalStateStore";
+import { getVerifiedPrincipalPolicyForStateWithExecutor } from "./getCurrentPrincipalPolicy";
 
 /**
- * Persists every artifact committed by one signed principal-policy state.
+ * Persists every artifact committed by one signed principal-policy state and
+ * then re-verifies the whole stored chain from rows, exactly as a reader will.
  * Callers own the surrounding transaction and must not publish the new head
- * unless this complete operation succeeds.
+ * unless this complete operation succeeds: a bundle that verified on submission
+ * but not from storage never commits, so no head becomes unreadable.
  */
 export async function storeVerifiedPrincipalPolicyInTransaction(
   input: PrincipalStateBundleInput,
@@ -31,6 +34,7 @@ export async function storeVerifiedPrincipalPolicyInTransaction(
     },
     tx,
   );
+  await getVerifiedPrincipalPolicyForStateWithExecutor(tx, state);
 
   return state;
 }

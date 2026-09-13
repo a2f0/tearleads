@@ -1,11 +1,8 @@
+import { compareCanonicalStrings } from "./canonicalOrdering";
 import type {
   PrincipalProjectionMember,
   PrincipalStateMember,
 } from "./principalStateTypes";
-
-function compareCanonicalStrings(left: string, right: string): number {
-  return left < right ? -1 : left > right ? 1 : 0;
-}
 
 /**
  * Members are ordered by user id alone.
