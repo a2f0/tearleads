@@ -1,18 +1,153 @@
 ---
+import { publicDir } from "astro:config/server";
+import { readFile } from "node:fs/promises";
+import FeatureFoundations from "../components/FeatureFoundations.astro";
+import FeatureScreenshot from "../components/FeatureScreenshot.astro";
+import FeatureTools from "../components/FeatureTools.astro";
+import type { ScreenshotManifest } from "../components/screenshotsManifest";
+import { appUrl } from "../config";
 import Layout from "../layouts/Layout.astro";
+import "../styles/product.css";
+import "../styles/features.css";
+
+// Use the gallery's versioned assets. Prebuild always stages a manifest;
+// builds without captures retain the complete feature copy without empty frames.
+const manifest = JSON.parse(
+  await readFile(
+    new URL("screenshot-gallery/manifest.json", publicDir),
+    "utf8",
+  ),
+) as ScreenshotManifest;
+const explorer = manifest.entries.find(
+  (entry) =>
+    entry.project === "ipad" &&
+    entry.theme === "light" &&
+    entry.name === "explorer",
+);
+const authorship = manifest.entries.find(
+  (entry) =>
+    entry.project === "web" &&
+    entry.theme === "light" &&
+    entry.name === "note-blame",
+);
 ---
 
 <Layout
   title="Features | Tearleads"
-  description="Tearleads features: a window-based workspace with notes, contacts, and file storage, built to stay fast, private, and yours."
+  description="Notes, contacts, and files in one private workspace. Explore offline editing, encrypted sync, controlled sharing, local backups, and flexible layouts in Tearleads."
 >
   <main class="website-main">
-    <section class="section" aria-labelledby="page-title">
-      <h1 id="page-title">Features</h1>
-      <p class="section-lede">
-        A window-based workspace with notes, contacts, and file storage,
-        built to stay fast, private, and yours.
-      </p>
-    </section>
+    <article class="section product-page features-page" aria-labelledby="page-title">
+      <header class:list={["features-hero", { "features-hero--illustrated": explorer }]}>
+        <div>
+          <p class="product-eyebrow">Features / Inside Tearleads</p>
+          <h1 id="page-title">Notes, people, and files.<br /><span>One private workspace.</span></h1>
+          <p class="section-lede">
+            Bring your everyday information together. Work locally, sync across
+            your devices, and share the parts you choose.
+          </p>
+          <div class="product-actions">
+            <a class="product-button" href={appUrl}>Open Tearleads <span aria-hidden="true">→</span></a>
+            <a class="product-text-link" href="/pricing">Explore plans</a>
+          </div>
+          <p class="features-hero-note">The local workspace is free forever.</p>
+        </div>
+        {explorer && (
+          <FeatureScreenshot
+            entry={explorer}
+            alt="Explorer showing a container tree with contacts, notes, and a document list. View the full Explorer screenshot."
+            label="Explorer"
+            priority
+          />
+        )}
+      </header>
+
+      <nav class="product-page-nav" aria-label="On this page">
+        <a href="#everyday-tools">Everyday tools</a>
+        <a href="#your-workspace">Your workspace</a>
+        <a href="#sync-and-sharing">Sync &amp; sharing</a>
+        <a href="#document-authorship">Document authorship</a>
+      </nav>
+
+      <FeatureTools />
+      <FeatureFoundations />
+
+      <section class="product-section" id="sync-and-sharing" aria-labelledby="sharing-title">
+        <div class="feature-sharing-heading">
+          <div>
+            <p class="product-eyebrow">Connected, on your terms</p>
+            <h2 id="sharing-title">Across devices. With your people.</h2>
+          </div>
+          <a class="product-text-link" href="/pricing">View sync &amp; team plans <span aria-hidden="true">→</span></a>
+        </div>
+        <p class="product-section-lede">
+          Add encrypted sync for your devices, or a team plan for a shared
+          organization. Control access at the container level.
+        </p>
+        <div class="feature-sharing-grid">
+          <div>
+            <p class="product-eyebrow">Sync</p>
+            <h3>Pick up where you left off.</h3>
+            <p>
+              Local changes are queued for sync, and remote changes are brought
+              back into your workspace. Document and file contents are encrypted
+              before they reach the service.
+            </p>
+          </div>
+          <div>
+            <p class="product-eyebrow">Sharing</p>
+            <h3>Choose who gets access.</h3>
+            <p>
+              Share containers with users and groups in your organization.
+              Assign read, write, or admin access, and manage the roster,
+              groups, and grants in Org Manager.
+            </p>
+          </div>
+        </div>
+        <aside class="feature-security-link">
+          <div>
+            <h3>Privacy has an architecture.</h3>
+            <p>
+              Local encryption and signed access rules work together. See how
+              keys stay with clients, what the service can see, and where the
+              security guarantees end.
+            </p>
+          </div>
+          <a class="product-text-link" href="/security">Explore the security model <span aria-hidden="true">→</span></a>
+        </aside>
+      </section>
+
+      <section class:list={["product-section", "feature-authorship", { "feature-authorship--illustrated": authorship }]} id="document-authorship" aria-labelledby="authorship-title">
+        <div>
+          <p class="product-eyebrow">A closer look</p>
+          <h2 id="authorship-title">See how a document took shape.</h2>
+          <p class="product-section-lede">
+            Explorer's document information view shows contributors, edit ranges,
+            and character-level authorship. Inspect the contributions behind a
+            note alongside its links, attachments, and security information.
+          </p>
+          <a class="product-text-link" href="/screenshots">Browse the app screenshots <span aria-hidden="true">→</span></a>
+        </div>
+        {authorship && (
+          <FeatureScreenshot
+            entry={authorship}
+            alt="Document information showing contributor counts and note text highlighted by author. View the full authorship screenshot."
+            label="Document authorship"
+          />
+        )}
+      </section>
+
+      <aside class="product-cta" aria-labelledby="features-cta-title">
+        <div>
+          <p class="product-eyebrow">Make it your workspace</p>
+          <h2 id="features-cta-title">Start with what you need today.</h2>
+          <p>Notes, contacts, and files are free to use locally. Add sync or a team plan when you need it.</p>
+        </div>
+        <div class="product-actions">
+          <a class="product-button" href={appUrl}>Open Tearleads <span aria-hidden="true">→</span></a>
+          <a class="product-text-link" href="/pricing">See pricing</a>
+        </div>
+      </aside>
+    </article>
   </main>
 </Layout>
