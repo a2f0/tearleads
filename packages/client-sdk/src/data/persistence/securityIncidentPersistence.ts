@@ -50,14 +50,15 @@ function parseEvidenceHashes(value: string): Readonly<Record<string, string>> {
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
     return {};
   }
-  const evidenceHashes: Record<string, string> = {};
-  for (const [key, item] of Object.entries(parsed)) {
-    if (key.length === 0 || typeof item !== "string") {
-      return {};
-    }
-    evidenceHashes[key] = item;
+  const entries = Object.entries(parsed);
+  if (
+    entries.some(([key, item]) => key.length === 0 || typeof item !== "string")
+  ) {
+    return {};
   }
-  return evidenceHashes;
+  // Object.fromEntries keeps every key, including "__proto__", which an index
+  // assignment on a plain object would silently drop.
+  return Object.fromEntries(entries as Array<[string, string]>);
 }
 
 function parseVerificationCode(value: string): SecurityIncident["code"] {

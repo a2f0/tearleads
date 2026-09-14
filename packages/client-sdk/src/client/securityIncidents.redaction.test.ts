@@ -34,3 +34,43 @@ test("security incident identifiers are bounded before persistence", async () =>
     await close();
   }
 });
+
+test("evidence truncation keeps code-unit-first keys on every locale", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "security-incidents-evidence-truncation-order",
+  );
+  const service = createSecurityIncidentService({
+    database: new Database({ execSql, status: "ready" }),
+    logError: () => undefined,
+    trustDomain: null,
+  });
+
+  try {
+    // 32 lowercase keys plus one uppercase key: code-unit order puts "Z"
+    // (0x5a) before "a" (0x61), locale collation would sort it last and the
+    // truncation to 32 keys would drop it, changing the incident id by locale.
+    const evidenceHashes: Record<string, string> = { Z: "z".repeat(64) };
+    for (let index = 1; index <= 32; index += 1) {
+      evidenceHashes[`a${String(index).padStart(2, "0")}`] = "h".repeat(64);
+    }
+    await service.report(
+      new KeyingVerificationError("rollback", "stale head"),
+      {
+        evidenceHashes,
+        objectId: "object",
+        objectKind: "document",
+        operation: "document.sync",
+        organizationId: "org",
+      },
+    );
+
+    const [incident] = (await service.incidents.list()) ?? [];
+    const keys = Object.keys(incident?.evidenceHashes ?? {});
+    expect(keys).toHaveLength(32);
+    expect(keys).toContain("Z");
+    expect(keys).not.toContain("a32");
+  } finally {
+    service.dispose();
+    await close();
+  }
+});

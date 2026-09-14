@@ -30,13 +30,16 @@ export async function validateSecurityIncidentBackupIdentity(
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
     throw new Error("Security incident backup has invalid evidence hashes");
   }
-  const evidenceHashes: Record<string, string> = {};
-  for (const [key, value] of Object.entries(parsed)) {
-    if (key.length === 0 || typeof value !== "string") {
-      throw new Error("Security incident backup has invalid evidence hashes");
-    }
-    evidenceHashes[key] = value;
-  }
+  // Object.fromEntries keeps every validated key, including "__proto__", which
+  // an index assignment on a plain object would silently drop.
+  const evidenceHashes: Record<string, string> = Object.fromEntries(
+    Object.entries(parsed).map(([key, value]) => {
+      if (key.length === 0 || typeof value !== "string") {
+        throw new Error("Security incident backup has invalid evidence hashes");
+      }
+      return [key, value] as const;
+    }),
+  );
   // incident_v1 hashes the evidence text, and the SDK writer serializes it in
   // code-unit key order on every runtime. A backup whose text differs from that
   // canonical form was not written by the SDK and cannot carry a valid id.
