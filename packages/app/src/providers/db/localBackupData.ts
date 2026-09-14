@@ -11,6 +11,7 @@ import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
   BackupRestoreConflictError,
   purgeCheckpointConflict,
+  type SecurityIncidentRecordingStatus,
 } from "./backupRestoreConflict";
 import { validateBackupSchema } from "./backupSchemaValidation";
 import {
@@ -27,6 +28,7 @@ import {
   type BackupSummary,
   type BackupTable,
 } from "./localBackupFormat";
+import type { DocumentPurgeCheckpointConflictError } from "./terminalSecurityAnchorBackupMerge";
 
 export type BackupProgressPhase =
   | "blobs"
@@ -58,7 +60,7 @@ interface RestoreBackupPayloadInput {
   readonly execSql: ExecSql;
   readonly onProgress?: BackupProgressCallback | undefined;
   readonly payload: BackupPayload;
-  /** Live ledger for equivocation evidence the merge uncovers. */
+  /** Live ledger for the purge pin conflicts the merge uncovers. */
   readonly securityIncidents: Pick<SecurityIncidents, "record">;
 }
 
@@ -266,7 +268,23 @@ async function writeBackupBlobs(input: {
   }
 }
 
-/** Rejects with `BackupRestoreConflictError` when equivocation stops the restore. */
+async function recordConflict(
+  ledger: Pick<SecurityIncidents, "record">,
+  conflict: DocumentPurgeCheckpointConflictError,
+): Promise<{
+  readonly ledgerFailures: ReadonlyArray<unknown>;
+  readonly recording: SecurityIncidentRecordingStatus;
+}> {
+  try {
+    const recording = await ledger.record(conflict, conflict.incident);
+    return { ledgerFailures: [], recording };
+  } catch (ledgerFailure) {
+    // A ledger that throws must not displace the refusal it was asked to keep.
+    return { ledgerFailures: [ledgerFailure], recording: "failed" };
+  }
+}
+
+/** Rejects with `BackupRestoreConflictError` when a purge pin conflict stops the restore. */
 export async function restoreBackupPayload(
   input: RestoreBackupPayloadInput,
 ): Promise<BackupSummary> {
@@ -279,11 +297,8 @@ export async function restoreBackupPayload(
     if (!refusal) throw error;
     throw new BackupRestoreConflictError({
       ...refusal,
+      ...(await recordConflict(input.securityIncidents, refusal.conflict)),
       cause: error,
-      recording: await input.securityIncidents.record(
-        refusal.conflict,
-        refusal.conflict.incident,
-      ),
     });
   }
 }

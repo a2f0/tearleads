@@ -19,7 +19,7 @@ function rollbackOutcome(failures: ReadonlyArray<unknown>): string {
 
 export function restoreFailureMessage(error: unknown): string {
   if (error instanceof BackupRestoreConflictError) {
-    return `Restore refused: this backup carries a different purge proof for document ${error.conflict.documentId} than the one this device already verified. ${RECORDING_OUTCOME[error.recording]} and the local database was left unchanged.${rollbackOutcome(error.rollbackFailures)}`;
+    return `Restore refused: this backup disagrees with this device's purge record for document ${error.conflict.documentId}. ${RECORDING_OUTCOME[error.recording]} and the local database was left unchanged.${rollbackOutcome(error.rollbackFailures)}`;
   }
   return unknownErrorMessage(error);
 }

@@ -179,7 +179,7 @@ function purgeCheckpoint(overrides: Partial<BackupSqlRow> = {}): BackupSqlRow {
   };
 }
 
-test("a second purge proof for a pinned document is typed equivocation evidence", () => {
+test("a differing purge pin for a pinned document is a typed object mismatch", () => {
   const current = purgeCheckpoint();
   const restored = purgeCheckpoint({ purge_event_hash: "c".repeat(64) });
   const purgeTable = (rows: BackupSqlRow[]): BackupTable => ({
@@ -200,9 +200,9 @@ test("a second purge proof for a pinned document is typed equivocation evidence"
   if (!(thrown instanceof DocumentPurgeCheckpointConflictError)) {
     throw new Error("Expected a typed purge checkpoint conflict");
   }
-  expect(thrown.code).toBe("equivocation");
+  expect(thrown.code).toBe("object_mismatch");
   expect(thrown.message).toBe(
-    "Backup conflicts with document purge checkpoint",
+    "Backup disagrees with the local document purge checkpoint",
   );
   expect(thrown.documentId).toBe("document-1");
   expect(thrown.incident).toEqual({

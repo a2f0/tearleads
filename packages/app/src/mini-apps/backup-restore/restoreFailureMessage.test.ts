@@ -15,12 +15,13 @@ const conflict = new DocumentPurgeCheckpointConflictError(row, {
   purge_event_hash: "c".repeat(64),
 });
 const REFUSAL =
-  "Restore refused: this backup carries a different purge proof for document document-1 than the one this device already verified.";
+  "Restore refused: this backup disagrees with this device's purge record for document document-1.";
 
 test("a purge checkpoint conflict tells the user what was refused and recorded", () => {
   const error = new BackupRestoreConflictError({
     cause: conflict,
     conflict,
+    ledgerFailures: [],
     recording: "recorded",
     rollbackFailures: [],
   });
@@ -38,6 +39,7 @@ test("a conflict whose incident did not reach the ledger does not claim it was r
       new BackupRestoreConflictError({
         cause: conflict,
         conflict,
+        ledgerFailures: [],
         recording: "failed",
         rollbackFailures: [],
       }),
@@ -50,6 +52,7 @@ test("a conflict whose incident did not reach the ledger does not claim it was r
       new BackupRestoreConflictError({
         cause: conflict,
         conflict,
+        ledgerFailures: [],
         recording: "buffered",
         rollbackFailures: [],
       }),
@@ -72,6 +75,7 @@ test("a conflict that also left attachment bytes unrolled names the rollback fai
       new BackupRestoreConflictError({
         cause: aggregate,
         conflict,
+        ledgerFailures: [],
         recording: "recorded",
         rollbackFailures: [rollbackFailure],
       }),

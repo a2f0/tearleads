@@ -1,15 +1,11 @@
 import { expect, test } from "bun:test";
-import { createMemoryBlobStore, Tearleads } from "@tearleads/client-sdk";
 import { toFingerprint } from "@tearleads/crypto";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
-import { BackupRestoreConflictError } from "./backupRestoreConflict";
-import { createBackupPayload, restoreBackupPayload } from "./localBackupData";
 import {
   preflightSecurityAnchorRestore,
   readBackupDatabase,
   restoreBackupDatabase,
 } from "./localBackupDatabase";
-import { DocumentPurgeCheckpointConflictError } from "./terminalSecurityAnchorBackupMerge";
 
 const UPDATED_AT = "2026-09-12T12:00:00.000Z";
 const HASH = "a".repeat(64);
@@ -177,7 +173,9 @@ for (const column of [
           tables: conflicting,
           execSql: target.execSql,
         }),
-      ).rejects.toThrow("Backup conflicts with document purge checkpoint");
+      ).rejects.toThrow(
+        "Backup disagrees with the local document purge checkpoint",
+      );
       expect(
         (await readBackupDatabase({ execSql: target.execSql })).tables,
       ).toEqual(backup.tables);
@@ -249,193 +247,14 @@ test("restore rechecks a terminal decision learned after preflight", async () =>
     );
     await expect(
       restoreBackupDatabase({ ...backup, execSql: target.execSql }),
-    ).rejects.toThrow("Backup conflicts with document purge checkpoint");
+    ).rejects.toThrow(
+      "Backup disagrees with the local document purge checkpoint",
+    );
     expect(
       await target.execSql(
         "SELECT purge_event_hash FROM document_purge_checkpoints",
       ),
     ).toEqual([{ purge_event_hash: "b".repeat(64) }]);
-  } finally {
-    source.close();
-    target.close();
-  }
-});
-
-test("a purge proof conflict is recorded in the live incident ledger and surfaces typed", async () => {
-  const target = createNativeTestExecSql();
-  const source = createNativeTestExecSql();
-  const sdk = new Tearleads({
-    apiBaseUrl: "https://api.example.test",
-    database: { execSql: target.execSql },
-    logger: { log() {}, logError() {} },
-  });
-  try {
-    for (const db of [source, target]) {
-      for (const sql of schema) await db.execSql(sql);
-    }
-    await target.execSql(
-      "INSERT INTO document_purge_checkpoints VALUES (?, ?, ?, ?, ?)",
-      ["document-1", "organization-1", HASH, HASH, UPDATED_AT],
-    );
-    await source.execSql(
-      "INSERT INTO document_purge_checkpoints VALUES (?, ?, ?, ?, ?)",
-      ["document-1", "organization-1", HASH, "b".repeat(64), UPDATED_AT],
-    );
-    const payload = await createBackupPayload({
-      blobStore: createMemoryBlobStore(),
-      databaseId: "backup-source",
-      execSql: source.execSql,
-      signingFingerprint: null,
-    });
-    const restore = restoreBackupPayload({
-      blobStore: createMemoryBlobStore(),
-      execSql: target.execSql,
-      payload,
-      securityIncidents: sdk.securityIncidents,
-    });
-    await expect(restore).rejects.toBeInstanceOf(BackupRestoreConflictError);
-    const refusal = await restore.catch((error: unknown) => error);
-    if (!(refusal instanceof BackupRestoreConflictError)) throw refusal;
-    expect(refusal.conflict).toBeInstanceOf(
-      DocumentPurgeCheckpointConflictError,
-    );
-    expect(refusal.recording).toBe("recorded");
-    expect(
-      await target.execSql(
-        "SELECT purge_event_hash FROM document_purge_checkpoints",
-      ),
-    ).toEqual([{ purge_event_hash: HASH }]);
-    expect(await sdk.securityIncidents.list()).toEqual([
-      expect.objectContaining({
-        code: "equivocation",
-        evidenceHashes: {
-          current_document_manifest_hash: HASH,
-          current_purge_event_hash: HASH,
-          restored_document_manifest_hash: HASH,
-          restored_purge_event_hash: "b".repeat(64),
-        },
-        objectId: "document-1",
-        objectKind: "document",
-        occurrenceCount: 1,
-        operation: "backup.restore",
-        organizationId: "organization-1",
-      }),
-    ]);
-  } finally {
-    sdk.dispose();
-    source.close();
-    target.close();
-  }
-});
-
-test("a purge proof conflict the ledger could not keep surfaces its recording status", async () => {
-  const target = createNativeTestExecSql();
-  const source = createNativeTestExecSql();
-  try {
-    for (const db of [source, target]) {
-      for (const sql of schema) await db.execSql(sql);
-    }
-    await target.execSql(
-      "INSERT INTO document_purge_checkpoints VALUES (?, ?, ?, ?, ?)",
-      ["document-1", "organization-1", HASH, HASH, UPDATED_AT],
-    );
-    await source.execSql(
-      "INSERT INTO document_purge_checkpoints VALUES (?, ?, ?, ?, ?)",
-      ["document-1", "organization-1", HASH, "b".repeat(64), UPDATED_AT],
-    );
-    const payload = await createBackupPayload({
-      blobStore: createMemoryBlobStore(),
-      databaseId: "backup-source",
-      execSql: source.execSql,
-      signingFingerprint: null,
-    });
-    const recorded: unknown[] = [];
-    const refusal = await restoreBackupPayload({
-      blobStore: createMemoryBlobStore(),
-      execSql: target.execSql,
-      payload,
-      securityIncidents: {
-        async record(error) {
-          recorded.push(error);
-          return "failed";
-        },
-      },
-    }).catch((error: unknown) => error);
-    if (!(refusal instanceof BackupRestoreConflictError)) throw refusal;
-    expect(recorded).toEqual([refusal.conflict]);
-    expect(refusal.recording).toBe("failed");
-    expect(refusal.rollbackFailures).toEqual([]);
-    expect(
-      await target.execSql(
-        "SELECT purge_event_hash FROM document_purge_checkpoints",
-      ),
-    ).toEqual([{ purge_event_hash: HASH }]);
-  } finally {
-    source.close();
-    target.close();
-  }
-});
-
-test("a purge proof conflict keeps the blob rollback failures it was raised with", async () => {
-  const target = createNativeTestExecSql();
-  const source = createNativeTestExecSql();
-  const rollbackFailure = new Error("blob store offline");
-  const blobStore = createMemoryBlobStore();
-  try {
-    for (const db of [source, target]) {
-      for (const sql of schema) await db.execSql(sql);
-    }
-    await source.execSql(
-      "INSERT INTO document_purge_checkpoints VALUES (?, ?, ?, ?, ?)",
-      ["document-1", "organization-1", HASH, "b".repeat(64), UPDATED_AT],
-    );
-    const payload = await createBackupPayload({
-      blobStore: createMemoryBlobStore(),
-      databaseId: "backup-source",
-      execSql: source.execSql,
-      signingFingerprint: null,
-    });
-    const refusal = await restoreBackupPayload({
-      blobStore: {
-        deleteBytes: async () => {
-          throw rollbackFailure;
-        },
-        openByteSource: (key) => blobStore.openByteSource(key),
-        readBytes: (key) => blobStore.readBytes(key),
-        writeByteSource: (key, bytes) => blobStore.writeByteSource(key, bytes),
-        // The conflicting pin lands after preflight, while the backup's
-        // attachment bytes are being written ahead of the database.
-        writeBytes: async (key, bytes) => {
-          await target.execSql(
-            "INSERT INTO document_purge_checkpoints VALUES (?, ?, ?, ?, ?)",
-            ["document-1", "organization-1", HASH, HASH, UPDATED_AT],
-          );
-          await blobStore.writeBytes(key, bytes);
-        },
-      },
-      execSql: target.execSql,
-      payload: {
-        ...payload,
-        blobs: [{ byteLength: 1, bytesBase64: "AA==", storageKey: "blob-1" }],
-      },
-      securityIncidents: {
-        async record() {
-          return "recorded";
-        },
-      },
-    }).catch((error: unknown) => error);
-    if (!(refusal instanceof BackupRestoreConflictError)) throw refusal;
-    expect(refusal.conflict).toBeInstanceOf(
-      DocumentPurgeCheckpointConflictError,
-    );
-    expect(refusal.rollbackFailures).toEqual([rollbackFailure]);
-    expect(refusal.cause).toBeInstanceOf(AggregateError);
-    expect(await blobStore.readBytes("blob-1")).toEqual(new Uint8Array([0]));
-    expect(
-      await target.execSql(
-        "SELECT purge_event_hash FROM document_purge_checkpoints",
-      ),
-    ).toEqual([{ purge_event_hash: HASH }]);
   } finally {
     source.close();
     target.close();

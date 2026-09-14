@@ -42,17 +42,22 @@ const PURGE_CONFLICT_LABEL = "Document purge checkpoint";
 type SecurityIncidentContext = Parameters<SecurityIncidents["record"]>[1];
 
 /**
- * An honest API issues one signed purge proof per document, so a second proof
- * for a document this device already pinned is equivocation evidence: either
- * the backup or the live pin came from a dishonest server. The restore stops
- * and the caller records `incident` in the live ledger before surfacing this.
+ * An honest API issues one signed purge proof per document, so a backup whose
+ * pin for a document differs from the one this device verified is worth a
+ * hard stop and an incident. The backup rows are only shape-checked, though,
+ * so an edited backup file could manufacture the disagreement; it is recorded
+ * as an object mismatch between the two records, not as server equivocation.
+ * The caller records `incident` in the live ledger before surfacing this.
  */
 export class DocumentPurgeCheckpointConflictError extends KeyingVerificationError {
   readonly documentId: string;
   readonly incident: SecurityIncidentContext;
 
   constructor(current: BackupSqlRow, restored: BackupSqlRow) {
-    super("equivocation", "Backup conflicts with document purge checkpoint");
+    super(
+      "object_mismatch",
+      "Backup disagrees with the local document purge checkpoint",
+    );
     this.name = "DocumentPurgeCheckpointConflictError";
     const hash = (row: BackupSqlRow, column: string) =>
       requireBackupHash(row, column, PURGE_CONFLICT_LABEL);

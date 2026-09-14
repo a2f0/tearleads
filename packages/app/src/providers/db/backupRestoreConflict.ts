@@ -12,25 +12,30 @@ export interface PurgeCheckpointConflict {
 }
 
 /**
- * A restore refused on equivocation evidence, after the conflict was offered
- * to the live incident ledger. `recording` says where that report ended up so
- * the host claims a recorded incident only when the row is durable, and
- * `rollbackFailures` says which blob rollbacks left the device changed.
+ * A restore refused because the backup's purge pin disagrees with the local
+ * one, after the conflict was offered to the live incident ledger. `recording`
+ * says where that report ended up so the host claims a recorded incident only
+ * when the row is durable (`ledgerFailures` holds a rejection the ledger threw
+ * instead of answering), and `rollbackFailures` says which blob rollbacks left
+ * the device changed.
  */
 export class BackupRestoreConflictError extends Error {
   readonly conflict: DocumentPurgeCheckpointConflictError;
+  readonly ledgerFailures: ReadonlyArray<unknown>;
   readonly recording: SecurityIncidentRecordingStatus;
   readonly rollbackFailures: ReadonlyArray<unknown>;
 
   constructor(
     input: PurgeCheckpointConflict & {
       readonly cause: unknown;
+      readonly ledgerFailures: ReadonlyArray<unknown>;
       readonly recording: SecurityIncidentRecordingStatus;
     },
   ) {
     super(input.conflict.message, { cause: input.cause });
     this.name = "BackupRestoreConflictError";
     this.conflict = input.conflict;
+    this.ledgerFailures = input.ledgerFailures;
     this.recording = input.recording;
     this.rollbackFailures = input.rollbackFailures;
   }

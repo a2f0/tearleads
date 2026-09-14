@@ -115,6 +115,20 @@ function useExportBackupAction({
   ]);
 }
 
+function logRestoreFailure(
+  logError: (message: string | Error, cause?: unknown) => void,
+  operationError: unknown,
+): void {
+  logError("Failed to restore local backup", operationError);
+  if (!(operationError instanceof BackupRestoreConflictError)) return;
+  for (const failure of operationError.ledgerFailures) {
+    logError("Security incident ledger rejected the conflict", failure);
+  }
+  for (const failure of operationError.rollbackFailures) {
+    logError("Restored attachment blob could not be rolled back", failure);
+  }
+}
+
 function useRestoreBackupAction({
   log,
   logError,
@@ -172,15 +186,7 @@ function useRestoreBackupAction({
       setStatus(`Backup restored: ${formatSummary(summary)}.`);
       log("Local backup restored");
     } catch (operationError: unknown) {
-      logError("Failed to restore local backup", operationError);
-      if (operationError instanceof BackupRestoreConflictError) {
-        for (const failure of operationError.rollbackFailures) {
-          logError(
-            "Restored attachment blob could not be rolled back",
-            failure,
-          );
-        }
-      }
+      logRestoreFailure(logError, operationError);
       setError(restoreFailureMessage(operationError));
     } finally {
       setBusy(null);
