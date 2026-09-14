@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { hostedSentryEndpoint } from "./sentryCliUpload";
 import {
   fixtureDsn,
   orgAuthToken,
@@ -9,6 +10,7 @@ import {
   startAttacker,
   startFakeSentry,
 } from "./sentrySourceMapUpload.testUtils";
+import { runDesktopSentryRelease } from "./withSentryReleaseEnv";
 
 async function withServers(
   failing: boolean,
@@ -143,18 +145,48 @@ test("sentry-cli never runs below a directory another user can write", async () 
   });
 }, 60000);
 
-test("a release with BUN_OPTIONS stops before building or sending anything", async () => {
-  await withServers(false, async ({ intended, attacker }) => {
-    const run = await runHostileRelease({
-      intended: intended.url,
-      attacker: attacker.url,
-      token: orgAuthToken(intended.url),
-      bunOptions: true,
+test.each(["BUN_OPTIONS", "BUN_INSPECT_PRELOAD"] as const)(
+  "a release with %s stops before building or sending anything",
+  async (launchVariable) => {
+    await withServers(false, async ({ intended, attacker }) => {
+      const run = await runHostileRelease({
+        intended: intended.url,
+        attacker: attacker.url,
+        token: orgAuthToken(intended.url),
+        launchVariable,
+      });
+      expect(run.code).not.toBe(0);
+      expect(run.output).toContain(`must not run with ${launchVariable}`);
+      expect(run.built).toBe(false);
+      expect(intended.requests).toEqual([]);
+      expect(attacker.connections()).toBe(0);
     });
-    expect(run.code).not.toBe(0);
-    expect(run.output).toContain("must not run with BUN_OPTIONS");
-    expect(run.built).toBe(false);
-    expect(intended.requests).toEqual([]);
-    expect(attacker.connections()).toBe(0);
-  });
-}, 60000);
+  },
+  60000,
+);
+
+test.each([
+  "BUN_OPTIONS",
+  "BUN_INSPECT",
+  "BUN_INSPECT_CONNECT_TO",
+  "BUN_INSPECT_NOTIFY",
+  "BUN_INSPECT_PRELOAD",
+])(
+  "a release started with %s refuses it before reading secrets",
+  async (name) => {
+    const root = await mkdtemp(join(tmpdir(), "desktop-release-launch-"));
+    try {
+      await expect(
+        runDesktopSentryRelease({
+          packageRoot: root,
+          repoRoot: root,
+          command: ["false"],
+          env: { ELECTROBUN_RELEASE_TIER: "staging", [name]: "1" },
+          endpoint: hostedSentryEndpoint,
+        }),
+      ).rejects.toThrow(`Desktop Sentry releases must not run with ${name}`);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  },
+);

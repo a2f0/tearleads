@@ -294,7 +294,7 @@ export async function runHostileRelease(
   options: HostileUrls & {
     token: string;
     tmp?: "clean" | "hostileAncestor" | "shared";
-    bunOptions?: boolean;
+    launchVariable?: "BUN_OPTIONS" | "BUN_INSPECT_PRELOAD";
   },
 ): Promise<ReleaseRun> {
   const base = await privateTempBase();
@@ -324,8 +324,14 @@ export async function runHostileRelease(
     }[options.tmp ?? "clean"];
     await Bun.write(join(tmp, ".keep"), "");
     if (options.tmp === "shared") await chmod(tmp, 0o1777);
-    const bunOptions = options.bunOptions
-      ? { BUN_OPTIONS: `--env-file=${join(root, "work/.env")}` }
+    await Bun.write(join(root, "preload.ts"), "export {};\n");
+    const launch = {
+      BUN_OPTIONS: `--env-file=${join(root, "work/.env")}`,
+      BUN_INSPECT_PRELOAD: join(root, "preload.ts"),
+    };
+    const { launchVariable } = options;
+    const launchEnv = launchVariable
+      ? { [launchVariable]: launch[launchVariable] }
       : {};
     const packageDir = join(repoRoot, "packages/app");
     const child = Bun.spawn(
@@ -341,7 +347,7 @@ export async function runHostileRelease(
         cwd: join(root, "work"),
         env: {
           ...env,
-          ...bunOptions,
+          ...launchEnv,
           TMPDIR: tmp,
           ELECTROBUN_RELEASE_TIER: "staging",
         },

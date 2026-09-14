@@ -39,15 +39,29 @@ import {
 
 type Environment = Readonly<Record<string, string | undefined>>;
 
+// Bun options, preload modules and debuggers named by these variables would run
+// in, or attach to, the process that holds the upload token. buildElectrobun.sh
+// unsets them before Bun starts; a wrapper started some other way refuses them.
+const bunLaunchVariables = [
+  "BUN_OPTIONS",
+  "BUN_INSPECT",
+  "BUN_INSPECT_CONNECT_TO",
+  "BUN_INSPECT_NOTIFY",
+  "BUN_INSPECT_PRELOAD",
+];
+
 // Bun loads dotenv files, and any --env-file in BUN_OPTIONS, into this process
 // before it runs, and a build machine may export another project's settings.
 // So every SENTRY_* name, the upload token, organization, project and DSN
 // included, comes only from .secrets; the environment supplies everything else.
 async function releaseInputs(repoRoot: string, env: Environment) {
-  const { ELECTROBUN_RELEASE_TIER: tier, BUN_OPTIONS: bunOptions } = env;
+  const { ELECTROBUN_RELEASE_TIER: tier } = env;
   if (!tier) return { tier, secrets: env, commit: "", upload: undefined };
-  if (bunOptions !== undefined)
-    throw new Error("Desktop Sentry releases must not run with BUN_OPTIONS");
+  const launch = bunLaunchVariables.filter((name) => env[name] !== undefined);
+  if (launch.length > 0)
+    throw new Error(
+      `Desktop Sentry releases must not run with ${launch.join(", ")}`,
+    );
   const ambient = Object.entries(env).filter(
     ([name]) => !name.startsWith("SENTRY_"),
   );
