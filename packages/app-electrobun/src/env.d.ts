@@ -21,3 +21,13 @@ declare namespace NodeJS {
     BUN_PUBLIC_WS_URL?: string;
   }
 }
+
+/**
+ * Main-process Sentry release values, replaced at build time by
+ * electrobun.config.ts (null unless a release tier). Deliberately not
+ * process.env: it has no runtime fallback.
+ */
+declare const TEARLEADS_ELECTROBUN_MAIN_SENTRY:
+  | { commit?: string; dsn?: string; environment?: string }
+  | null
+  | undefined;

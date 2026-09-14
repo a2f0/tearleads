@@ -15,6 +15,10 @@ const releaseDiagnosticsNames = [
   "BUN_PUBLIC_SENTRY_ELECTROBUN_ENVIRONMENT",
 ];
 
+// Set only by scripts/withSentryReleaseEnv.ts for a release tier: where the
+// packaging hook stages source maps outside the app.
+export const sourceMapDirEnvName = "TEARLEADS_ELECTROBUN_SOURCEMAP_DIR";
+
 export function createRendererEnvironmentDefines(
   environment: Readonly<Record<string, string | undefined>>,
 ): Record<string, string> {
@@ -44,5 +48,25 @@ export function createRendererBuildConfig(
     entrypoints: [entrypoint],
     format: "esm",
     target: "browser",
+  };
+}
+
+// Main-process diagnostics use a bare identifier rather than process.env: the
+// Bun main process has a live environment, so a missing process.env define
+// would silently read a developer's shell.
+export function createMainProcessSentryDefine(
+  environment: Readonly<Record<string, string | undefined>>,
+): Record<string, string> {
+  const {
+    NODE_ENV,
+    BUN_PUBLIC_SENTRY_ELECTROBUN_COMMIT: commit,
+    BUN_PUBLIC_SENTRY_ELECTROBUN_DSN: dsn,
+    BUN_PUBLIC_SENTRY_ELECTROBUN_ENVIRONMENT: tier,
+  } = environment;
+  return {
+    TEARLEADS_ELECTROBUN_MAIN_SENTRY:
+      NODE_ENV === "production" && dsn && tier && commit
+        ? JSON.stringify({ commit, dsn, environment: tier })
+        : "null",
   };
 }

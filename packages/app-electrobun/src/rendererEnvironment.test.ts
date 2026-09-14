@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { runInNewContext } from "node:vm";
 import {
+  createMainProcessSentryDefine,
   createRendererBuildConfig,
   createRendererEnvironmentDefines,
 } from "./rendererEnvironment";
@@ -104,4 +105,24 @@ test("the shipped renderer build inlines the desktop Sentry configuration", () =
     expect(define?.[`process.env.${name}`]).toBe(JSON.stringify(value));
   }
   expect(createRendererEnvironmentDefines(release)).toMatchObject(define ?? {});
+});
+
+test("the main-process Sentry define is inlined only for a release build", () => {
+  const release = { ...sentryEnvironment, NODE_ENV: "production" };
+  expect(createMainProcessSentryDefine(release)).toEqual({
+    TEARLEADS_ELECTROBUN_MAIN_SENTRY: JSON.stringify({
+      commit: sentryEnvironment.BUN_PUBLIC_SENTRY_ELECTROBUN_COMMIT,
+      dsn: sentryEnvironment.BUN_PUBLIC_SENTRY_ELECTROBUN_DSN,
+      environment: "staging",
+    }),
+  });
+  expect(createMainProcessSentryDefine(sentryEnvironment)).toEqual({
+    TEARLEADS_ELECTROBUN_MAIN_SENTRY: "null",
+  });
+  expect(
+    createMainProcessSentryDefine({
+      ...release,
+      BUN_PUBLIC_SENTRY_ELECTROBUN_DSN: undefined,
+    }),
+  ).toEqual({ TEARLEADS_ELECTROBUN_MAIN_SENTRY: "null" });
 });

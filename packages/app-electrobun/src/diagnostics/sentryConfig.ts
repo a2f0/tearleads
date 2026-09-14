@@ -5,6 +5,20 @@ import {
   type SentryConfig,
 } from "@tearleads/diagnostics/config";
 
+// The flat Bun HTML bundle's only script; shared by the renderer allowlist and
+// release source-map staging.
+export const rendererScriptPattern = /^\/chunk-[a-z0-9]+\.js$/u;
+
+export function electrobunSentryRelease(commit: string): string {
+  return `tearleads-electrobun@${commit}`;
+}
+
+export function electrobunSentryDist(
+  environment: "staging" | "production",
+): "staging-app" | "production-app" {
+  return `${environment}-app`;
+}
+
 export interface ElectrobunSentryInput {
   dsn: string | undefined;
   environment: string | undefined;
@@ -36,7 +50,7 @@ export function resolveElectrobunSentryConfig(
   // than widening the transmitted allowlist to a directory.
   if (
     script.origin !== input.origin ||
-    !/^\/chunk-[a-z0-9]+\.js$/u.test(script.pathname)
+    !rendererScriptPattern.test(script.pathname)
   )
     return undefined;
   return {
@@ -44,7 +58,7 @@ export function resolveElectrobunSentryConfig(
     origin: input.origin,
     scriptPath: script.pathname,
     environment: input.environment,
-    release: `tearleads-electrobun@${input.commit}`,
-    dist: `${input.environment}-app`,
+    release: electrobunSentryRelease(input.commit),
+    dist: electrobunSentryDist(input.environment),
   };
 }

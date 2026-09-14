@@ -1,7 +1,14 @@
 import type { ElectrobunConfig } from "electrobun";
-import { createRendererEnvironmentDefines } from "./src/rendererEnvironment";
+import {
+  createMainProcessSentryDefine,
+  createRendererEnvironmentDefines,
+  sourceMapDirEnvName,
+} from "./src/rendererEnvironment";
 
-const { ELECTROBUN_RELEASE_TIER: releaseTier } = process.env;
+const {
+  ELECTROBUN_RELEASE_TIER: releaseTier,
+  [sourceMapDirEnvName]: sourceMapDir,
+} = process.env;
 
 export default {
   app: {
@@ -42,6 +49,8 @@ export default {
     mainProcess: "bun",
     bun: {
       entrypoint: "src/bun/index.ts",
+      define: createMainProcessSentryDefine(process.env),
+      ...(sourceMapDir ? { sourcemap: "external" as const } : {}),
     },
     views: {
       mainview: {
