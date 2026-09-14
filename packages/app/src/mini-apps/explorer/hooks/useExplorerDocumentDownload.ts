@@ -2,19 +2,21 @@ import type { BlobStore, DocumentInfo } from "@tearleads/client-sdk";
 import { useCallback } from "react";
 import { downloadResolvedAttachment } from "../../../document-types/shared/fileDownload";
 import { useFileSaver } from "../../../providers/file-saver/FileSaverProvider";
+import { isIgnorableDatabaseWorkerError } from "../../../stores/explorer/documentRuntime";
 
 // The explorer context-menu "Download" for a file document: resolve the file's
 // most recent attachment that has local bytes, then hand them to the platform
 // file saver. loadDocumentInfo reads only local state when offline, so a
 // context-menu download never blocks on the network. A failed info load / blob
-// read is swallowed with a log rather than surfaced as an unhandled rejection —
-// the detail-pane Download button carries the visible error affordance for the
-// same failure.
+// read has no surface of its own — the detail-pane Download button carries the
+// visible error affordance for the same failure — so it is reported through
+// diagnostics rather than surfaced as an unhandled rejection.
 export function useExplorerDocumentDownload(params: {
   blobStore: BlobStore;
   loadDocumentInfo: (localId: string) => Promise<DocumentInfo>;
+  logError: (message: string | Error, cause?: unknown) => void;
 }): (localId: string) => void {
-  const { blobStore, loadDocumentInfo } = params;
+  const { blobStore, loadDocumentInfo, logError } = params;
   const fileSaver = useFileSaver();
   return useCallback(
     (localId: string) => {
@@ -38,10 +40,14 @@ export function useExplorerDocumentDownload(params: {
             fileSaver,
           });
         } catch (error) {
-          console.error("Failed to download document:", error);
+          // An identity switch or database retry releases the runtime under the
+          // in-flight read; that is teardown, not a failed download.
+          if (!isIgnorableDatabaseWorkerError(error)) {
+            logError("Failed to download the explorer document", error);
+          }
         }
       })();
     },
-    [blobStore, fileSaver, loadDocumentInfo],
+    [blobStore, fileSaver, loadDocumentInfo, logError],
   );
 }

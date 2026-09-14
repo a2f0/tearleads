@@ -1,4 +1,5 @@
 import type { OrganizationBillingHistoryEntry } from "@tearleads/client-sdk";
+import { useLog } from "../../../providers/logging/LogProvider";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { useScopedOrganizationLoad } from "./useScopedOrganizationLoad";
@@ -25,6 +26,7 @@ export function useBillingHistory(
   reloadToken?: unknown,
 ): BillingHistorySnapshot {
   const tearleads = useTearleads();
+  const { logError } = useLog();
   const snapshot = useScopedOrganizationLoad<BillingHistorySnapshot>({
     enabled,
     load: async () => {
@@ -38,7 +40,11 @@ export function useBillingHistory(
           loading: false,
         };
       } catch (loadError) {
-        console.error("Failed to load billing history:", loadError);
+        // A background read: offline, the fetch failure is expected, not a
+        // defect worth a diagnostics event.
+        if (tearleads.network.online) {
+          logError("Failed to load billing history", loadError);
+        }
         return {
           entries: null,
           error: ORG_MANAGER_LABELS.failedLoadBillingHistory,

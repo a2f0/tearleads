@@ -2,6 +2,7 @@ import { setUnknownError } from "../refresh";
 
 interface ScopedOrgMutationInput {
   readonly isOperationActive: (organizationId: string) => boolean;
+  readonly logError: (message: string | Error, cause?: unknown) => void;
   readonly operationOrganizationId: string;
   readonly run: () => Promise<void>;
   readonly setError: (error: string | null) => void;
@@ -22,6 +23,7 @@ export async function runScopedOrgMutation(
     await input.run();
   } catch (error) {
     if (isOperationActive(operationOrganizationId)) {
+      input.logError("Organization mutation failed", error);
       setUnknownError(input.setError, error);
     }
   } finally {

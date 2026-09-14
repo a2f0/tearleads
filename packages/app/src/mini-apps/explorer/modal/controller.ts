@@ -1,6 +1,7 @@
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import type { FormEvent, RefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { isIgnorableDatabaseWorkerError } from "../../../stores/explorer/documentRuntime";
 import type { ExplorerContainerRulesContext } from "../model/containerRules";
 import {
   createExplorerTargetLookups,
@@ -180,7 +181,9 @@ function useExplorerModalSubmit(params: ExplorerModalSubmitControllerParams) {
         // so the dispatcher takes them as-is.
         await submitExplorerModalAction(params);
       } catch (error: unknown) {
-        console.error(getExplorerModalLog(modalState.mode), error);
+        if (!isIgnorableDatabaseWorkerError(error)) {
+          params.logError(getExplorerModalLog(modalState.mode), error);
+        }
         setModalError(getExplorerModalError(modalState.mode));
       } finally {
         setIsSubmittingModal(false);

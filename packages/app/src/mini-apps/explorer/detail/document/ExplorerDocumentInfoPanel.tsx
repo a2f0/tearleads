@@ -70,6 +70,7 @@ interface Props {
   loadDocumentInfo: (localId: string) => Promise<DocumentInfo>;
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
   localId: string;
+  logError: (message: string | Error, cause?: unknown) => void;
   nodes: ReadonlyArray<ContainerNode>;
   openBlobBrowserRoute: OpenBlobBrowserRoute;
   requestAttributionProfileHydration: ExplorerAttributionProfileHydrationRequester;
@@ -204,6 +205,7 @@ function ExplorerDocumentInfoTabPanel(params: {
   linkedContainerIds: ReadonlyArray<string>;
   loadDocumentAttributionRanges: ExplorerDocumentAttributionRangesLoader;
   localId: string;
+  logError: (message: string | Error, cause?: unknown) => void;
   nodes: ReadonlyArray<ContainerNode>;
   openBlobBrowserRoute: OpenBlobBrowserRoute;
   requestAttributionProfileHydration: ExplorerAttributionProfileHydrationRequester;
@@ -274,6 +276,7 @@ function ExplorerDocumentInfoTabPanel(params: {
             canActivateSelectedDocument={params.canActivateLinkedContainer}
             canUnlinkSelectedDocument={params.canUnlinkLinkedContainer}
             linkedContainerIds={params.linkedContainerIds}
+            logError={params.logError}
             nodes={params.nodes}
             selectedDocumentId={params.localId}
             setSelectedId={params.setSelectedId}
@@ -440,6 +443,7 @@ export function ExplorerDocumentInfoPanel(params: Props) {
           linkedContainerIds={model.linkedContainerIds}
           loadDocumentAttributionRanges={params.loadDocumentAttributionRanges}
           localId={params.localId}
+          logError={params.logError}
           nodes={params.nodes}
           openBlobBrowserRoute={params.openBlobBrowserRoute}
           requestAttributionProfileHydration={

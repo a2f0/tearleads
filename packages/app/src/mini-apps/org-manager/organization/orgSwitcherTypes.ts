@@ -32,6 +32,8 @@ export interface OrgSwitcherControllerInput {
   enabled: boolean;
   interactionDisabled?: boolean | undefined;
   listLocalOrganizations: () => Promise<LocalOrganizationSummary[]>;
+  /** Reports an unexpected provisioning failure to diagnostics. */
+  logError: (message: string | Error, cause?: unknown) => void;
   organizationIndexRefreshKey: string;
   operationScopeKey: string;
   provisionOrganization: (

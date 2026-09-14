@@ -5,10 +5,12 @@ import type {
 } from "@tearleads/client-sdk";
 import { cleanup, renderHook } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
+import type { AppDiagnostics } from "../../src/host/AppDiagnostics";
 import { createAppHostConfig } from "../../src/host/AppHostConfig";
 import { useDirectCheckoutFlow } from "../../src/mini-apps/org-manager/billing/useDirectCheckout";
 import { DirectCheckoutProvider } from "../../src/providers/direct-checkout/DirectCheckoutProvider";
 import { AppHostConfigProvider } from "../../src/providers/host/AppHostConfigProvider";
+import { LogProvider } from "../../src/providers/logging/LogProvider";
 import * as TearleadsProvider from "../../src/providers/sdk/TearleadsProvider";
 
 // spyOn patches the shared module namespace; bun runs every test file in one
@@ -73,10 +75,26 @@ export function capabilityWith(session: Partial<DirectCheckoutSession>): {
   return { capability, mounted };
 }
 
+/**
+ * A diagnostics fake that records every captured error, so a test can prove
+ * the flow hands the ORIGINAL Error to the adapter (the only path to Sentry).
+ */
+export function createCapturingDiagnostics() {
+  const captured: unknown[] = [];
+  const diagnostics: AppDiagnostics = {
+    addBreadcrumb: () => undefined,
+    captureError: (error) => {
+      captured.push(error);
+    },
+  };
+  return { captured, diagnostics };
+}
+
 export function renderFlow(
   capability: DirectCheckoutCapability,
   onActivated: () => void = () => undefined,
   organizationId = "org-1",
+  diagnostics?: AppDiagnostics,
 ) {
   const hostConfig = createAppHostConfig({
     apiBaseUrl: "http://localhost",
@@ -85,7 +103,9 @@ export function renderFlow(
   });
   const wrapper = ({ children }: PropsWithChildren) => (
     <AppHostConfigProvider value={hostConfig}>
-      <DirectCheckoutProvider>{children}</DirectCheckoutProvider>
+      <LogProvider diagnostics={diagnostics}>
+        <DirectCheckoutProvider>{children}</DirectCheckoutProvider>
+      </LogProvider>
     </AppHostConfigProvider>
   );
   const rendered = renderHook(

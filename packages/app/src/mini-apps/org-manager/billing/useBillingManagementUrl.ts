@@ -1,6 +1,7 @@
 import type { OrganizationBillingManagementUrl } from "@tearleads/client-sdk";
 import { useCallback, useState } from "react";
 import { useAppHostConfig } from "../../../providers/host/AppHostConfigProvider";
+import { useLog } from "../../../providers/logging/LogProvider";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { useScopedOrganizationLoad } from "./useScopedOrganizationLoad";
@@ -31,6 +32,7 @@ export function useBillingManagementUrl(
   reloadToken?: unknown,
 ): ManagementUrlSnapshot {
   const tearleads = useTearleads();
+  const { logError } = useLog();
   const snapshot = useScopedOrganizationLoad<ManagementUrlSnapshot>({
     enabled,
     load: async () => {
@@ -40,7 +42,11 @@ export function useBillingManagementUrl(
           managementUrl: result?.managementUrl ?? null,
         };
       } catch (loadError) {
-        console.error("Failed to load billing management URL:", loadError);
+        // A background read: offline, the fetch failure is expected, not a
+        // defect worth a diagnostics event.
+        if (tearleads.network.online) {
+          logError("Failed to load billing management URL", loadError);
+        }
         return NO_MANAGEMENT_URL;
       }
     },
@@ -67,6 +73,7 @@ export function useOpenSubscriptionManagement(
   readonly open: (url: string) => void;
 } {
   const { openSubscriptionManagement } = useAppHostConfig();
+  const { logError } = useLog();
   const [error, setError] = useState<string | null>(null);
 
   const open = useCallback(
@@ -81,12 +88,12 @@ export function useOpenSubscriptionManagement(
           if (result === "native-closed") onNativeManagementClosed();
         },
         (cause: unknown) => {
-          console.error("Failed to open subscription management:", cause);
+          logError("Failed to open subscription management", cause);
           setError(ORG_MANAGER_LABELS.billingManageSubscriptionFailed);
         },
       );
     },
-    [onNativeManagementClosed, openSubscriptionManagement],
+    [logError, onNativeManagementClosed, openSubscriptionManagement],
   );
   return { error, open };
 }

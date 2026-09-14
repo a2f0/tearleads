@@ -23,6 +23,7 @@ interface UseOrgManagerDisableRosterUserParams {
   groups: ReadonlyArray<OrganizationGroupSummary>;
   invalidateSelectedGroupDetails: Refreshers["invalidateSelectedGroupDetails"];
   isOperationActive: (organizationId: string) => boolean;
+  logError: (message: string | Error, cause?: unknown) => void;
   memberGroupId: string | null;
   orgManagerActions: ReturnType<typeof useOrgManagerActions>;
   refreshDirectoryAndGroups: Refreshers["refreshDirectoryAndGroups"];
@@ -161,6 +162,7 @@ async function disableRosterUser(
   const operationOrganizationId = input.directory.organizationId;
   await runScopedOrgMutation({
     isOperationActive: input.isOperationActive,
+    logError: input.logError,
     operationOrganizationId,
     run: async () => {
       const mutationTargets = await loadRosterDisableMembershipTargets({
@@ -212,6 +214,7 @@ export function useOrgManagerDisableRosterUser(
     groups,
     invalidateSelectedGroupDetails,
     isOperationActive,
+    logError,
     memberGroupId,
     orgManagerActions,
     refreshDirectoryAndGroups,
@@ -232,6 +235,7 @@ export function useOrgManagerDisableRosterUser(
         groups,
         invalidateSelectedGroupDetails,
         isOperationActive,
+        logError,
         memberGroupId,
         orgManagerActions,
         refreshDirectoryAndGroups,
@@ -248,6 +252,7 @@ export function useOrgManagerDisableRosterUser(
       groups,
       invalidateSelectedGroupDetails,
       isOperationActive,
+      logError,
       memberGroupId,
       orgManagerActions,
       refreshDirectoryAndGroups,

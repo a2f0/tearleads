@@ -6,6 +6,7 @@ import type {
 } from "@tearleads/client-sdk";
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback } from "react";
+import { useLog } from "../../../providers/logging/LogProvider";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import {
   removeRevokedGrantFromGrantState,
@@ -36,6 +37,7 @@ export function useOrgManagerRevokeGrant(input: {
     setMutating,
     setUserDetail,
   } = input;
+  const { logError } = useLog();
 
   return useCallback(
     async (grant: OrganizationContainerGrant) => {
@@ -45,6 +47,7 @@ export function useOrgManagerRevokeGrant(input: {
 
       await runScopedOrgMutation({
         isOperationActive,
+        logError,
         operationOrganizationId: organizationId,
         run: async () => {
           await orgManagerActions.revokeGrant(grant);
@@ -67,6 +70,7 @@ export function useOrgManagerRevokeGrant(input: {
     },
     [
       isOperationActive,
+      logError,
       organizationId,
       orgManagerActions,
       setError,

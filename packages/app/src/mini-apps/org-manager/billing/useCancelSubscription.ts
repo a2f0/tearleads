@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { useLog } from "../../../providers/logging/LogProvider";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
 
@@ -42,6 +43,7 @@ export function useCancelSubscription(input: {
   readonly refresh: () => Promise<void>;
 }): CancelSubscriptionState {
   const tearleads = useTearleads();
+  const { logError } = useLog();
   const [phase, setPhase] = useState<CancelPhase>({ kind: "idle" });
   const [error, setError] = useState<string | null>(null);
   const { refresh } = input;
@@ -75,7 +77,7 @@ export function useCancelSubscription(input: {
         // must not fall into the catch and report the cancel as failed.
         setPhase({ kind: "scheduled", cancelAt: result.cancelAt });
       } catch (cancelError) {
-        console.error("Failed to cancel the subscription:", cancelError);
+        logError("Failed to cancel the subscription", cancelError);
         // Stay on the confirm step so the button they pressed is still there.
         setPhase({ kind: "confirming" });
         setError(ORG_MANAGER_LABELS.billingCancelFailed);
@@ -86,10 +88,10 @@ export function useCancelSubscription(input: {
       try {
         await refresh();
       } catch (refreshError) {
-        console.error("Failed to refresh after cancelling:", refreshError);
+        logError("Failed to refresh after cancelling", refreshError);
       }
     })();
-  }, [refresh, tearleads]);
+  }, [logError, refresh, tearleads]);
 
   return { phase, error, ask, dismiss, confirm };
 }

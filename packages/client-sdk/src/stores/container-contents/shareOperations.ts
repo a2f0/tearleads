@@ -7,6 +7,7 @@ import type { SharedContainerStateResult } from "../../workflows/container-conte
 import { installContainerMetadataRecord } from "../../workflows/container-contents/metadata";
 import { getContainerContentsStoreLogLabel } from "./logLabel";
 import { removeMissingContainerState } from "./missingContainerState";
+import { reportContainerShareFailure } from "./reportShareFailure";
 import { updateContainerContentsSnapshot } from "./state";
 import type {
   ContainerContentsStoreSyncAgent,
@@ -48,7 +49,13 @@ export async function shareContainerUsing(
     return false;
   }
 
-  const shared = await share(existingState);
+  let shared: SharedContainerStateResult | null;
+  try {
+    shared = await share(existingState);
+  } catch (error) {
+    reportContainerShareFailure(state, "share", error);
+    throw error;
+  }
   if (!shared || !isCurrent() || shared.status === "confirmed") {
     if (!isCurrent() || shared?.status === "confirmed") {
       state.localContainersNeedRefresh = true;

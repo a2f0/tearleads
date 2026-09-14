@@ -1,19 +1,19 @@
-import type { ContainerDocumentLinks } from "@tearleads/client-sdk";
+import {
+  type ContainerDocumentLinks,
+  isDatabaseUnavailableError,
+  isProjectionVerificationCancelledError,
+} from "@tearleads/client-sdk";
 import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 import { useRuntimeScopedMemo } from "../../providers/sdk/useRuntimeScopedMemo";
 
-export function isDestroyedDatabaseWorkerError(error: unknown): boolean {
-  return (
-    error instanceof Error &&
-    error.message === "Database worker client has been destroyed."
-  );
-}
-
+// Teardown rather than a failed action: the runtime is released under
+// in-flight callers on every identity switch, logout, and Explorer retry, and
+// a projection verification cancelled by a newer generation re-runs on its
+// own. Reporting either would outrank every real failure.
 export function isIgnorableDatabaseWorkerError(error: unknown): boolean {
   return (
-    isDestroyedDatabaseWorkerError(error) ||
-    (error instanceof Error &&
-      error.message === "Database client is unavailable.")
+    isDatabaseUnavailableError(error) ||
+    isProjectionVerificationCancelledError(error)
   );
 }
 

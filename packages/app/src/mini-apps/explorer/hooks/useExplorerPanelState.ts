@@ -145,6 +145,7 @@ export function useExplorerPanelState(params: {
     useExplorerDocumentAttributionRangesLoader();
   const routeState = useExplorerRoute({
     loadDocumentSummary: loadRouteDocumentSummary,
+    logError: appData.util.logError,
     nodes: explorer.nodes,
     selectDocument: selection.selectDocument,
     setSelectedId: selection.setSelectedId,
@@ -216,6 +217,7 @@ export function useExplorerPanelState(params: {
   const selectDocumentProjection = useSelectDocumentProjection({
     activateLinkedDocument: selectedNoteStructuralState.activateLinkedDocument,
     loadDocumentSummary,
+    logError: appData.util.logError,
     selectDocument,
     setSelectedId: routeState.selectExplorerItem,
   });
@@ -269,6 +271,7 @@ export function useExplorerPanelState(params: {
   const modalState = useExplorerDocumentModalState({
     explorer,
     linkDocument: selectedNoteStructuralState.linkDocument,
+    logError: appData.util.logError,
     moveDocument: selectedNoteStructuralState.moveDocument,
     documentSummaries,
     linkedContainerIdsByDocumentId,

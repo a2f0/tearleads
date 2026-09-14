@@ -107,6 +107,7 @@ export function useSubscribeAction({
         refresh,
         scope,
         scopeRef,
+        logError,
         trace: log,
         traceError: logError,
         updateActionState,
@@ -161,7 +162,10 @@ function isUnregisteredPurchaseBridge(error: unknown): boolean {
   );
 }
 
-function reportUnexpectedPurchaseError(error: unknown): void {
+function reportUnexpectedPurchaseError(
+  error: unknown,
+  logError: (message: string | Error, cause?: unknown) => void,
+): void {
   if (
     error instanceof NativePurchaseEligibilityError ||
     error instanceof PurchaseIdentityPendingError ||
@@ -169,7 +173,7 @@ function reportUnexpectedPurchaseError(error: unknown): void {
   ) {
     return;
   }
-  console.error("Failed to complete the organization sync purchase:", error);
+  logError("Failed to complete the organization sync purchase", error);
 }
 
 function purchaseErrorLabel(error: unknown): string {
@@ -260,6 +264,7 @@ function startProviderPurchase(input: {
 async function purchaseForOrganization({
   cancelPurchaseRef,
   checkNativePurchaseEligibility,
+  logError,
   option,
   purchases,
   refresh,
@@ -273,6 +278,8 @@ async function purchaseForOrganization({
 }: {
   cancelPurchaseRef: CancelPurchaseRef;
   checkNativePurchaseEligibility: CheckNativePurchaseEligibility;
+  /** Forwards the real Error to diagnostics; `traceError` only keeps a local line. */
+  logError: (message: string | Error, cause?: unknown) => void;
   option: SyncSubscriptionOption;
   purchases: PurchasesCapability;
   refresh: () => Promise<void>;
@@ -353,7 +360,7 @@ async function purchaseForOrganization({
     // ConfigurationError from a key/offering mismatch) so it is diagnosable,
     // while still surfacing the generic label to the user.
     traceError(formatBillingPurchaseFailure(error));
-    reportUnexpectedPurchaseError(error);
+    reportUnexpectedPurchaseError(error, logError);
     updateActionState(scope, (current) => ({
       ...current,
       actionError: purchaseErrorLabel(error),

@@ -2,6 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook } from "@testing-library/react";
+import type { FormEvent } from "react";
 import { createExplorerContainerRulesContext } from "../model/containerRules";
 import { useExplorerModalController } from "./controller";
 
@@ -53,13 +54,20 @@ function documentSummary(
   };
 }
 
-function renderController(documentSummaries: ReadonlyArray<DocumentSummary>) {
+function renderController(
+  documentSummaries: ReadonlyArray<DocumentSummary>,
+  overrides: {
+    createChild?: () => Promise<ContainerNode | null>;
+    logError?: (message: string | Error, cause?: unknown) => void;
+  } = {},
+) {
   return renderHook(() =>
     useExplorerModalController({
-      createChild: async () => null,
+      createChild: overrides.createChild ?? (async () => null),
       documentSummaries,
       expandNode: () => undefined,
       linkDocument: async () => null,
+      logError: overrides.logError ?? (() => undefined),
       canShareWithPeer: true,
       linkedContainerIdsByDocumentId: new Map(),
       moveContainer: async () => null,
@@ -108,4 +116,61 @@ test("move document modal includes contacts for contact documents", () => {
   expect(
     view.result.current.moveTargetOptions.map((option) => option.id),
   ).toContain(CONTACTS_CONTAINER_ID);
+});
+
+function submitEvent(): FormEvent<HTMLFormElement> {
+  return {
+    preventDefault: () => undefined,
+  } as unknown as FormEvent<HTMLFormElement>;
+}
+
+test("a thrown create reports the original error and keeps the modal error", async () => {
+  const failure = new Error("create failed");
+  const logged: Array<[string | Error, unknown]> = [];
+  const view = renderController([], {
+    createChild: async () => {
+      throw failure;
+    },
+    logError: (message, cause) => {
+      logged.push([message, cause]);
+    },
+  });
+
+  act(() => {
+    view.result.current.openCreateChildModal("user-container");
+    view.result.current.setDraftName("Reports");
+  });
+  await act(async () => {
+    await view.result.current.handleModalSubmit(submitEvent());
+  });
+
+  expect(logged).toEqual([[expect.any(String), failure]]);
+  expect(view.result.current.modalError).toBe(
+    "Failed to create child container.",
+  );
+});
+
+test("a create lost to database teardown keeps the modal error but stays local", async () => {
+  const logged: unknown[] = [];
+  const view = renderController([], {
+    createChild: async () => {
+      throw new Error("Database worker client has been destroyed.");
+    },
+    logError: (_message, cause) => {
+      logged.push(cause);
+    },
+  });
+
+  act(() => {
+    view.result.current.openCreateChildModal("user-container");
+    view.result.current.setDraftName("Reports");
+  });
+  await act(async () => {
+    await view.result.current.handleModalSubmit(submitEvent());
+  });
+
+  expect(logged).toEqual([]);
+  expect(view.result.current.modalError).toBe(
+    "Failed to create child container.",
+  );
 });

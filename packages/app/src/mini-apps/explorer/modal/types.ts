@@ -16,6 +16,9 @@ export type ExplorerModalState =
 // Mutation actions and connectivity state shared by the modal controller and
 // the submit dispatcher (actions.ts), so the two param types cannot drift.
 export interface ExplorerModalMutationParams {
+  // Reports a thrown mutation off the device; the modal's own labels are
+  // fixed literals, so nothing user-typed reaches diagnostics.
+  logError: (message: string | Error, cause?: unknown) => void;
   createChild: (
     parentId: string,
     name: string,
