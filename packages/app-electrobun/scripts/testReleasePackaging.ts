@@ -12,6 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { findPackagedMainViewDir } from "./findPackagedMainViewDir";
+import { verifyPublishedRelease } from "./verifyPublishedRelease";
 
 if (process.platform !== "darwin" || process.arch !== "arm64")
   throw new Error(
@@ -155,6 +156,8 @@ execFileSync("bun", [${JSON.stringify(join(root, "capturePackagedAssets.ts"))}],
   console.log(
     "Native update archive contains the final renderer, SQLite worker, and WASM.",
   );
+
+  await verifyPublishedRelease(root, artifacts, archivedView, env);
 
   await Bun.write(
     join(root, "rejectPostBuild.ts"),
