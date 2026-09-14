@@ -25,6 +25,8 @@ function createBlobStore(value: Uint8Array<ArrayBuffer> | null): BlobStore {
 
 afterEach(cleanup);
 
+const noopLogError = () => undefined;
+
 test("hands local PDF bytes to the native viewer on demand", async () => {
   const requests: ViewFileRequest[] = [];
   const fileViewer: FileViewer = {
@@ -38,6 +40,7 @@ test("hands local PDF bytes to the native viewer on demand", async () => {
       attachmentStorageKeyBySlotId: { "pdf-slot": "local-pdf" },
       blobStore: createBlobStore(bytes),
       fileViewer,
+      logError: noopLogError,
     }),
   );
 
@@ -72,6 +75,7 @@ test("ignores a second open while the first one is still loading", async () => {
       attachmentStorageKeyBySlotId: { "pdf-slot": "local-pdf" },
       blobStore,
       fileViewer,
+      logError: noopLogError,
     }),
   );
 
@@ -105,6 +109,7 @@ test("creates and revokes a browser object URL only after opening", async () => 
         attachmentStorageKeyBySlotId: { "pdf-slot": "local-pdf" },
         blobStore: createBlobStore(bytes),
         fileViewer: null,
+        logError: noopLogError,
       }),
     );
 
@@ -125,25 +130,57 @@ test("creates and revokes a browser object URL only after opening", async () => 
 });
 
 test("reports PDFs whose local bytes are unavailable", async () => {
-  const originalConsoleError = console.error;
-  try {
-    console.error = () => undefined;
-    const hook = renderHook(() =>
-      useFileDocumentPdfPreview({
-        attachments: [attachment],
-        attachmentStorageKeyBySlotId: { "pdf-slot": "local-pdf" },
-        blobStore: createBlobStore(null),
-        fileViewer: null,
-      }),
-    );
+  const logged: [string | Error, unknown][] = [];
+  const hook = renderHook(() =>
+    useFileDocumentPdfPreview({
+      attachments: [attachment],
+      attachmentStorageKeyBySlotId: { "pdf-slot": "local-pdf" },
+      blobStore: createBlobStore(null),
+      fileViewer: null,
+      logError: (message, cause) => {
+        logged.push([message, cause]);
+      },
+    }),
+  );
 
-    act(() => hook.result.current?.onOpen());
-    await waitFor(() =>
-      expect(hook.result.current?.error).toBe(
-        "Couldn't open this PDF. You can still download it.",
-      ),
-    );
-  } finally {
-    console.error = originalConsoleError;
-  }
+  act(() => hook.result.current?.onOpen());
+  await waitFor(() =>
+    expect(hook.result.current?.error).toBe(
+      "Couldn't open this PDF. You can still download it.",
+    ),
+  );
+  // The original Error reaches diagnostics alongside the user-facing message.
+  expect(logged).toHaveLength(1);
+  const [message, cause] = logged[0] ?? [];
+  expect(message).toBe("Failed to open PDF preview");
+  expect(cause).toBeInstanceOf(Error);
+  expect(cause instanceof Error ? cause.message : null).toBe(
+    "PDF bytes are not available locally.",
+  );
+});
+
+test("a PDF read that lost its database shows the error without reporting", async () => {
+  const logged: [string | Error, unknown][] = [];
+  const blobStore = createBlobStore(bytes);
+  blobStore.readBytes = () =>
+    Promise.reject(new Error("Database client is unavailable."));
+  const hook = renderHook(() =>
+    useFileDocumentPdfPreview({
+      attachments: [attachment],
+      attachmentStorageKeyBySlotId: { "pdf-slot": "local-pdf" },
+      blobStore,
+      fileViewer: null,
+      logError: (message, cause) => {
+        logged.push([message, cause]);
+      },
+    }),
+  );
+
+  act(() => hook.result.current?.onOpen());
+  await waitFor(() =>
+    expect(hook.result.current?.error).toBe(
+      "Couldn't open this PDF. You can still download it.",
+    ),
+  );
+  expect(logged).toEqual([]);
 });

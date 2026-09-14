@@ -10,6 +10,7 @@ import type {
 const SCOPE = { namespace: "test" };
 const ENVIRONMENT: LocalKeyringLockEnvironment = {
   canManagePinCode: true,
+  diagnostics: undefined,
   hostCreateLocalKeyring: undefined,
   keyMaterialStorage: undefined,
   manifestStore: null,

@@ -6,8 +6,10 @@ import {
   type OpenSubscriptionManagementFn,
 } from "../../../host/AppHostConfig";
 import { AppHostConfigProvider } from "../../../providers/host/AppHostConfigProvider";
+import * as LogProvider from "../../../providers/logging/LogProvider";
 import * as TearleadsProvider from "../../../providers/sdk/TearleadsProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
+import { useBillingHistory } from "./useBillingHistory";
 import {
   useBillingManagementUrl,
   useOpenSubscriptionManagement,
@@ -24,18 +26,38 @@ afterEach(() => {
   }
 });
 
-function stubOrganizations(organizations: Record<string, unknown>) {
+/** Stubs the log actions and records every `logError` call. */
+function stubLog() {
+  const logged: [string | Error, unknown][] = [];
+  spies.push(
+    spyOn(LogProvider, "useLog").mockReturnValue({
+      log: () => undefined,
+      logError: (message, cause) => {
+        logged.push([message, cause]);
+      },
+    }),
+  );
+  return logged;
+}
+
+function stubOrganizations(
+  organizations: Record<string, unknown>,
+  online = true,
+) {
   spies.push(
     spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
+      network: { online },
       organizations,
     } as never),
   );
+  return stubLog();
 }
 
 function renderOpenManagementHook(
   openSubscriptionManagement?: OpenSubscriptionManagementFn,
 ) {
   const onNativeManagementClosed = mock(() => undefined);
+  const logged = stubLog();
   const hostConfig = createAppHostConfig({
     apiBaseUrl: "http://localhost",
     openSubscriptionManagement,
@@ -52,7 +74,7 @@ function renderOpenManagementHook(
     () => useOpenSubscriptionManagement(onNativeManagementClosed),
     { wrapper: ManagementWrapper },
   );
-  return { ...hook, onNativeManagementClosed };
+  return { ...hook, logged, onNativeManagementClosed };
 }
 
 test("a managed subscription resolves to its provider URL", async () => {
@@ -91,10 +113,11 @@ test("no managed subscription hides the link rather than erroring", async () => 
   );
 });
 
-test("a failed lookup degrades to no link", async () => {
+test("a failed lookup degrades to no link and is reported while online", async () => {
   // The manage link is a convenience; a failure must not break the panel.
-  stubOrganizations({
-    loadBillingManagementUrl: () => Promise.reject(new Error("500")),
+  const failure = new Error("500");
+  const logged = stubOrganizations({
+    loadBillingManagementUrl: () => Promise.reject(failure),
   });
 
   const { result } = renderHook(() => useBillingManagementUrl("org-1", true));
@@ -104,6 +127,28 @@ test("a failed lookup degrades to no link", async () => {
       managementUrl: null,
     }),
   );
+  // The original Error reaches diagnostics; the panel only hides the link.
+  expect(logged).toEqual([["Failed to load billing management URL", failure]]);
+});
+
+test("a failed lookup while offline is not reported", async () => {
+  // Offline, the background read fails on every visit; that is expected.
+  const logged = stubOrganizations(
+    {
+      loadBillingManagementUrl: () =>
+        Promise.reject(new TypeError("Failed to fetch")),
+    },
+    false,
+  );
+
+  const { result } = renderHook(() => useBillingManagementUrl("org-1", true));
+
+  await waitFor(() =>
+    expect(result.current).toEqual({
+      managementUrl: null,
+    }),
+  );
+  expect(logged).toEqual([]);
 });
 
 test("a disabled hook never asks", async () => {
@@ -199,11 +244,7 @@ test("management surfaces a native-sheet failure", async () => {
   window.open = opened as typeof window.open;
   const nativeError = new Error("StoreKit unavailable");
   const openNative = mock(() => Promise.reject(nativeError));
-  const consoleError = spyOn(console, "error").mockImplementation(
-    () => undefined,
-  );
-  spies.push(consoleError);
-  const { result, onNativeManagementClosed } =
+  const { result, logged, onNativeManagementClosed } =
     renderOpenManagementHook(openNative);
   const url = "https://apps.apple.com/account/subscriptions";
 
@@ -215,10 +256,9 @@ test("management surfaces a native-sheet failure", async () => {
     ),
   );
   expect(opened).not.toHaveBeenCalled();
-  expect(consoleError).toHaveBeenCalledWith(
-    "Failed to open subscription management:",
-    nativeError,
-  );
+  expect(logged).toEqual([
+    ["Failed to open subscription management", nativeError],
+  ]);
   expect(onNativeManagementClosed).not.toHaveBeenCalled();
 });
 
@@ -254,4 +294,46 @@ test("replacing the SDK runtime re-fetches for the same organization", async () 
   await waitFor(() =>
     expect(result.current.managementUrl).toBe("https://rc.example/second"),
   );
+});
+
+// `useBillingHistory` is the sibling scoped load with the same offline gate;
+// it shares this harness rather than growing BillingHistory.test.tsx (which
+// covers the presentational component) past the file budget.
+test("a failed history load surfaces the error and is reported while online", async () => {
+  const failure = new Error("500");
+  const logged = stubOrganizations({
+    loadBillingHistory: () => Promise.reject(failure),
+  });
+
+  const { result } = renderHook(() => useBillingHistory("org-1", true));
+
+  await waitFor(() =>
+    expect(result.current.error).toBe(
+      ORG_MANAGER_LABELS.failedLoadBillingHistory,
+    ),
+  );
+  expect(result.current.entries).toBeNull();
+  expect(result.current.loading).toBe(false);
+  // The original Error reaches diagnostics alongside the user-facing label.
+  expect(logged).toEqual([["Failed to load billing history", failure]]);
+});
+
+test("a failed history load while offline is not reported", async () => {
+  // Offline, the background read fails on every visit; that is expected.
+  const logged = stubOrganizations(
+    {
+      loadBillingHistory: () =>
+        Promise.reject(new TypeError("Failed to fetch")),
+    },
+    false,
+  );
+
+  const { result } = renderHook(() => useBillingHistory("org-1", true));
+
+  await waitFor(() =>
+    expect(result.current.error).toBe(
+      ORG_MANAGER_LABELS.failedLoadBillingHistory,
+    ),
+  );
+  expect(logged).toEqual([]);
 });

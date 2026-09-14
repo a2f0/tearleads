@@ -45,6 +45,7 @@ export function createContainerContentsTestRuntime(input: {
   execSql: ExecSql;
   isAuthenticated?: boolean | undefined;
   log?: ((message: string) => void) | undefined;
+  logError?: ((message: string | Error, cause?: unknown) => void) | undefined;
   online?: boolean | undefined;
   organizationId?: string | null | undefined;
   rootContainerId?: string | null | undefined;
@@ -98,6 +99,7 @@ export function createContainerContentsTestRuntime(input: {
     },
     util: {
       log: input.log ?? (() => {}),
+      logError: input.logError,
       reportSecurityIncident: async () => undefined,
     },
   });

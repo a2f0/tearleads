@@ -3,6 +3,7 @@ import { runGroupShareScenario } from "../../../test/helpers/groupShareScenario"
 import { createContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
 import type { DomainScope } from "../../data/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { DatabaseUnavailableError } from "../../data/sync/databaseUnavailable";
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import type { ContainerState } from "../../workflows/container-contents/remoteHydration";
 import { createContainerContentsStoreWorkflowRuntime } from "../../workflows/container-contents/runtime";
@@ -274,4 +275,77 @@ test("a group share reports a signed-name mismatch as a security incident", asyn
     { code: "object_mismatch", operation: "container.share.group" },
   ]);
   expect(shareCalls).toBe(0);
+});
+
+async function shareThatThrows(input: {
+  failure: unknown;
+  logError: (message: string | Error, cause?: unknown) => void;
+  logMessages: string[];
+}): Promise<unknown> {
+  const source = await createRemoteState();
+  const state = createContainerContentsStoreState(
+    createContainerContentsTestRuntime({
+      domainScope: {} as DomainScope,
+      execSql: (async () => []) as ExecSql,
+      log: (message) => input.logMessages.push(message),
+      logError: input.logError,
+    }),
+    defaultContainerContentsPersistence,
+  );
+  state.containersById.set(source.container.id, source);
+  updateContainerContentsSnapshot(state);
+
+  return shareContainerUsing(
+    state,
+    createSyncAgent({ prime: 0, sync: 0 }),
+    source.container.id,
+    async () => {
+      throw input.failure;
+    },
+    "shared",
+  ).then(
+    () => null,
+    (error: unknown) => error,
+  );
+}
+
+test("a thrown share reports the original Error and still rejects", async () => {
+  const failure = new Error("wrap failed");
+  const reported: Array<[string | Error, unknown]> = [];
+  const logMessages: string[] = [];
+
+  const rejection = await shareThatThrows({
+    failure,
+    logError: (message, cause) => {
+      reported.push([message, cause]);
+      throw new Error("Diagnostic transport unavailable");
+    },
+    logMessages,
+  });
+
+  expect(rejection).toBe(failure);
+  expect(reported).toEqual([
+    [expect.stringMatching(/: share failed$/), failure],
+  ]);
+  expect(logMessages).toEqual([]);
+});
+
+test("a share lost to database teardown stays local", async () => {
+  const failure = new DatabaseUnavailableError(
+    "Database client is unavailable.",
+  );
+  const reported: unknown[] = [];
+  const logMessages: string[] = [];
+
+  const rejection = await shareThatThrows({
+    failure,
+    logError: (_message, cause) => {
+      reported.push(cause);
+    },
+    logMessages,
+  });
+
+  expect(rejection).toBe(failure);
+  expect(reported).toEqual([]);
+  expect(logMessages).toEqual([expect.stringMatching(/: share failed$/)]);
 });

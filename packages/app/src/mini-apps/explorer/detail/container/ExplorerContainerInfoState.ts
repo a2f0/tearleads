@@ -169,13 +169,13 @@ export function useExplorerContainerInfo(params: ExplorerContainerInfoParams) {
 
 // The shared submit body of the group and peer share flows: run the share,
 // surface its failure label, and optimistically fold the new grant into the
-// panel's container info on success.
+// panel's container info on success. A thrown share is reported by the SDK
+// before it reaches this catch; only the label is the panel's to choose.
 async function runContainerInfoShare(params: {
   errorLabel: string;
   // A label for a specific thrown error, taking precedence over errorLabel
   // when it returns one.
   errorLabelFor?: ((error: unknown) => string | null) | undefined;
-  errorLogLabel: string;
   failureLabel: string;
   optimisticGrant: NonNullable<
     ReloadExplorerContainerInfoOptions["optimisticGrant"]
@@ -188,7 +188,6 @@ async function runContainerInfoShare(params: {
   const {
     errorLabel,
     errorLabelFor,
-    errorLogLabel,
     failureLabel,
     optimisticGrant,
     reloadContainerInfo,
@@ -207,7 +206,6 @@ async function runContainerInfoShare(params: {
 
     await reloadContainerInfo({ optimisticGrant });
   } catch (error) {
-    console.error(errorLogLabel, error);
     setPanelError(errorLabelFor?.(error) ?? errorLabel);
   } finally {
     setIsSubmitting(false);
@@ -257,7 +255,6 @@ export function useExplorerContainerInfoGroupShare(
           error instanceof GroupShareNameMismatchError
             ? EXPLORER_LABELS.containerInfoShareToGroupNameMismatch
             : null,
-        errorLogLabel: EXPLORER_LABELS.containerInfoShareGenericFailureLog,
         failureLabel: EXPLORER_LABELS.containerInfoShareToGroupFailure,
         optimisticGrant: {
           accessLevel: draftShareAccessLevel,
@@ -314,7 +311,6 @@ export function useExplorerContainerInfoPeerShare(
 
     await runContainerInfoShare({
       errorLabel: EXPLORER_LABELS.containerInfoShareToPeerFailure,
-      errorLogLabel: EXPLORER_LABELS.containerInfoShareToPeerFailureLog,
       failureLabel: EXPLORER_LABELS.containerInfoShareToPeerFailure,
       optimisticGrant: {
         accessLevel: DEFAULT_SHARE_ACCESS_LEVEL,

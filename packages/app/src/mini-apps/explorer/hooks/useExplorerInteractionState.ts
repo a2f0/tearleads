@@ -17,6 +17,7 @@ import { useExplorerViewProjectionSync } from "./useExplorerViewProjectionSync";
 export function useExplorerInteractionState(params: {
   activeContainerId: string | null;
   explorer: ExplorerModelExplorer;
+  logError: (message: string | Error, cause?: unknown) => void;
   mergeDocumentSummaries: (
     nextDocuments: ReadonlyArray<DocumentSummary>,
   ) => void;
@@ -25,6 +26,7 @@ export function useExplorerInteractionState(params: {
   const {
     activeContainerId,
     explorer,
+    logError,
     mergeDocumentSummaries,
     onDocumentLinksChanged,
   } = params;
@@ -39,7 +41,7 @@ export function useExplorerInteractionState(params: {
     view,
   });
 
-  return useExplorerRefreshActions(reconciler);
+  return useExplorerRefreshActions(reconciler, logError);
 }
 
 /**
@@ -51,6 +53,7 @@ export function useExplorerInteractionState(params: {
  */
 function useExplorerRefreshActions(
   reconciler: ExplorerModelExplorer["reconciler"],
+  logError: (message: string | Error, cause?: unknown) => void,
 ) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
@@ -68,7 +71,7 @@ function useExplorerRefreshActions(
         .then(() => true)
         .catch((error: unknown) => {
           if (!isIgnorableDatabaseWorkerError(error)) {
-            console.error("Failed to refresh explorer:", error);
+            logError("Failed to refresh explorer", error);
             setRefreshError("Failed to refresh explorer.");
           }
           return false;
@@ -83,7 +86,7 @@ function useExplorerRefreshActions(
       refreshPromiseRef.current = refreshPromise;
       return refreshPromise;
     },
-    [],
+    [logError],
   );
 
   const handleRefresh = useCallback(

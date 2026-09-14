@@ -39,6 +39,20 @@ function createBlobStore(heldByteLength: number) {
 
 afterEach(cleanup);
 
+const noopLogError = () => undefined;
+
+function rejectingBlobStore(failure: Error): BlobStore {
+  return {
+    deleteBytes: async () => undefined,
+    openByteSource: async () => {
+      throw failure;
+    },
+    readBytes: async () => null,
+    writeByteSource: async () => undefined,
+    writeBytes: async () => undefined,
+  };
+}
+
 test("an oversized held attachment is not read for the automatic preview", async () => {
   // ...while the held (flagged, validly signed) bytes are past the limit.
   const { blobStore, calls } = createBlobStore(
@@ -49,6 +63,7 @@ test("an oversized held attachment is not read for the automatic preview", async
       attachments: [attachment],
       attachmentStorageKeyBySlotId: { "image-slot": "held-image" },
       blobStore,
+      logError: noopLogError,
     }),
   );
   await waitFor(() => expect(calls.opened).toBe(1));
@@ -64,8 +79,48 @@ test("a held attachment within the limit is read for the automatic preview", asy
       attachments: [attachment],
       attachmentStorageKeyBySlotId: { "image-slot": "held-image" },
       blobStore,
+      logError: noopLogError,
     }),
   );
   await waitFor(() => expect(calls.read).toBe(1));
   expect(calls.readBytes).toBe(0);
+});
+
+test("a failed preview read is reported with its original error", async () => {
+  const failure = new Error("corrupt local bytes");
+  const logged: [string | Error, unknown][] = [];
+  const hook = renderHook(() =>
+    useFileDocumentMediaPreview({
+      attachments: [attachment],
+      attachmentStorageKeyBySlotId: { "image-slot": "held-image" },
+      blobStore: rejectingBlobStore(failure),
+      logError: (message, cause) => {
+        logged.push([message, cause]);
+      },
+    }),
+  );
+  await waitFor(() =>
+    expect(logged).toEqual([["Failed to load file preview", failure]]),
+  );
+  expect(hook.result.current?.mediaUrl).toBeNull();
+});
+
+test("a preview read that lost its database is not reported", async () => {
+  // The runtime is rebooted underneath in-flight reads on an identity switch
+  // or Explorer retry; that is a benign outcome, not a defect.
+  const logged: [string | Error, unknown][] = [];
+  const hook = renderHook(() =>
+    useFileDocumentMediaPreview({
+      attachments: [attachment],
+      attachmentStorageKeyBySlotId: { "image-slot": "held-image" },
+      blobStore: rejectingBlobStore(new Error("DB has been closed.")),
+      logError: (message, cause) => {
+        logged.push([message, cause]);
+      },
+    }),
+  );
+  await waitFor(() => expect(hook.result.current?.mediaUrl).toBeNull());
+  // Settle the rejected read before asserting nothing was reported.
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(logged).toEqual([]);
 });

@@ -1,4 +1,8 @@
-import type { BlobStore, DocumentAttachment } from "@tearleads/client-sdk";
+import {
+  type BlobStore,
+  type DocumentAttachment,
+  isDatabaseUnavailableError,
+} from "@tearleads/client-sdk";
 import { useEffect, useMemo, useState } from "react";
 import { MiniAppImageViewer } from "../../components/mini-app/MiniAppLayout";
 import {
@@ -19,6 +23,7 @@ export interface FileDocumentMediaPreview {
 }
 
 type AttachmentStorageKeyBySlotId = Readonly<Record<string, string>>;
+type LogError = (message: string | Error, cause?: unknown) => void;
 
 export function isRenderableFileDocumentMediaMimeType(
   mimeType: string | null | undefined,
@@ -69,10 +74,11 @@ export function resolveFileDocumentMediaPreview(input: {
 
 function useAttachmentMediaUrl(params: {
   blobStore: BlobStore;
+  logError: LogError;
   mimeType: string | null | undefined;
   storageKey: string | null;
 }): string | null {
-  const { blobStore, mimeType, storageKey } = params;
+  const { blobStore, logError, mimeType, storageKey } = params;
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -101,10 +107,15 @@ function useAttachmentMediaUrl(params: {
         setMediaUrl(objectUrl);
       })
       .catch((error: unknown) => {
-        if (!cancelled) {
-          console.error("Failed to load file preview:", error);
-          setMediaUrl(null);
+        if (cancelled) {
+          return;
         }
+        // The database going away mid-read (identity switch, Explorer retry)
+        // is a benign outcome, not a defect worth a diagnostics event.
+        if (!isDatabaseUnavailableError(error)) {
+          logError("Failed to load file preview", error);
+        }
+        setMediaUrl(null);
       });
 
     return () => {
@@ -113,7 +124,7 @@ function useAttachmentMediaUrl(params: {
         URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [blobStore, mimeType, storageKey]);
+  }, [blobStore, logError, mimeType, storageKey]);
 
   return mediaUrl;
 }
@@ -122,8 +133,10 @@ export function useFileDocumentMediaPreview(params: {
   attachmentStorageKeyBySlotId: AttachmentStorageKeyBySlotId;
   attachments: ReadonlyArray<DocumentAttachment>;
   blobStore: BlobStore;
+  logError: LogError;
 }): FileDocumentMediaPreview | null {
-  const { attachmentStorageKeyBySlotId, attachments, blobStore } = params;
+  const { attachmentStorageKeyBySlotId, attachments, blobStore, logError } =
+    params;
   const mediaPreviewCandidate = useMemo(
     () =>
       resolveFileDocumentMediaPreview({
@@ -139,6 +152,7 @@ export function useFileDocumentMediaPreview(params: {
     : null;
   const mediaUrl = useAttachmentMediaUrl({
     blobStore,
+    logError,
     mimeType: mediaPreviewCandidate?.attachment.mimeType,
     storageKey,
   });

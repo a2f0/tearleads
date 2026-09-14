@@ -20,6 +20,7 @@ import {
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../../document-types/projectors";
 import { getDocumentTypeDefinition } from "../../../../document-types/registry";
 import { getViewerRelativeContactDocumentLabel } from "../../../../stores/contacts/contactLabels";
+import { isIgnorableDatabaseWorkerError } from "../../../../stores/explorer/documentRuntime";
 import { getExplorerDocumentSubtitle } from "../../labels";
 import { ExplorerSyncStateBadge } from "../../shared/ExplorerSyncStateBadge";
 
@@ -34,9 +35,11 @@ function getDocumentSummaryKind(
 function useSelectedDocumentSyncState(params: {
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
+  logError: (message: string | Error, cause?: unknown) => void;
   selectedDocument: DocumentSummary;
 }): ContainerDocumentObjectSyncState {
-  const { documentListRevision, documentQueries, selectedDocument } = params;
+  const { documentListRevision, documentQueries, logError, selectedDocument } =
+    params;
   const fallbackSyncState = useMemo(
     () =>
       createContainerDocumentObjectSyncState({
@@ -70,7 +73,9 @@ function useSelectedDocumentSyncState(params: {
         // Apply the fallback on the refresh path too (same document, new
         // revision), not only when the selected document changed — otherwise a
         // failed reload leaves stale sync status with no error surfaced.
-        console.error("Explorer: failed to load document sync state:", error);
+        if (!isIgnorableDatabaseWorkerError(error)) {
+          logError("Failed to load the explorer document sync state", error);
+        }
         setSyncState(fallbackSyncState);
       });
 
@@ -81,6 +86,7 @@ function useSelectedDocumentSyncState(params: {
     documentListRevision,
     documentQueries,
     fallbackSyncState,
+    logError,
     selectedDocument.id,
   ]);
 
@@ -94,6 +100,7 @@ export function ExplorerDocumentDetail(params: {
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
   initialEditing: boolean;
+  logError: (message: string | Error, cause?: unknown) => void;
   nodes: ReadonlyArray<ContainerNode>;
   onInitialEditingConsumed: (localId: string) => void;
   online: boolean;
@@ -121,6 +128,7 @@ export function ExplorerDocumentDetail(params: {
   const selectedDocumentSyncState = useSelectedDocumentSyncState({
     documentListRevision: params.documentListRevision,
     documentQueries: params.documentQueries,
+    logError: params.logError,
     selectedDocument: params.selectedDocument,
   });
   const SelectedDocumentApp =

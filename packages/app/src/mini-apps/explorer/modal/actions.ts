@@ -1,4 +1,5 @@
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
+import { isIgnorableDatabaseWorkerError } from "../../../stores/explorer/documentRuntime";
 import { getExplorerModalError, getExplorerModalLog } from "./labels";
 import type { ExplorerModalMutationParams, ExplorerModalState } from "./types";
 
@@ -192,6 +193,7 @@ function submitExplorerMoveDocumentModal(params: {
     documentId: string,
     targetContainerId: string,
   ) => Promise<DocumentSummary | null>;
+  logError: (message: string | Error, cause?: unknown) => void;
   modalState:
     | { mode: "link-document"; documentLocalId: string }
     | { mode: "move-document"; documentLocalId: string };
@@ -207,6 +209,7 @@ function submitExplorerMoveDocumentModal(params: {
   const {
     clearModal,
     linkDocument,
+    logError,
     modalState,
     moveDocument,
     setBackgroundActionError,
@@ -234,13 +237,17 @@ function submitExplorerMoveDocumentModal(params: {
         return;
       }
 
+      // A resolved null is the mutation's own "refused" answer, not a throw:
+      // the banner already says so, and the local log keeps the trail.
       const message = getExplorerModalError(modalState.mode);
       setBackgroundActionError(message);
-      console.error(message);
+      logError(message);
     })
     .catch((error: unknown) => {
       setBackgroundActionError(getExplorerModalError(modalState.mode));
-      console.error(getExplorerModalLog(modalState.mode), error);
+      if (!isIgnorableDatabaseWorkerError(error)) {
+        logError(getExplorerModalLog(modalState.mode), error);
+      }
     });
   clearModal();
 }
@@ -302,6 +309,7 @@ export async function submitExplorerModalAction(
       submitExplorerMoveDocumentModal({
         clearModal: params.clearModal,
         linkDocument: params.linkDocument,
+        logError: params.logError,
         modalState,
         moveDocument: params.moveDocument,
         setBackgroundActionError: params.setBackgroundActionError,

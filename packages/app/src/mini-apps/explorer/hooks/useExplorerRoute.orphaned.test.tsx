@@ -114,6 +114,7 @@ test("a rejected orphan deep link cannot select a cached foreign document", asyn
       const selection = useExplorerSelection(nodes, [cachedForeignOrphan]);
       useExplorerRoute({
         loadDocumentSummary: rejectOrphanRouteDocument,
+        logError: () => undefined,
         nodes,
         selectDocument: selection.selectDocument,
         setSelectedId: selection.setSelectedId,
@@ -144,6 +145,7 @@ test("an ordinary-container deep link cannot select a cached orphan", async () =
       const selection = useExplorerSelection(nodes, [cachedForeignOrphan]);
       useExplorerRoute({
         loadDocumentSummary: resolveCachedForeignRouteDocument,
+        logError: () => undefined,
         nodes,
         selectDocument: selection.selectDocument,
         setSelectedId: selection.setSelectedId,
@@ -172,6 +174,7 @@ test("an undiscovered deep link remains an optimistic pending selection", async 
       const selection = useExplorerSelection(nodes, []);
       useExplorerRoute({
         loadDocumentSummary: deferUndiscoveredRouteDocument,
+        logError: () => undefined,
         nodes,
         selectDocument: selection.selectDocument,
         setSelectedId: selection.setSelectedId,
@@ -216,6 +219,7 @@ test("a deferred deep link remains pending until the database is ready", async (
       );
       useExplorerRoute({
         loadDocumentSummary,
+        logError: () => undefined,
         nodes,
         selectDocument: selection.selectDocument,
         setSelectedId: selection.setSelectedId,
@@ -231,6 +235,7 @@ test("a deferred deep link remains pending until the database is ready", async (
 });
 
 test("a worker teardown rejection is handled during route restoration", async () => {
+  const teardownReports: unknown[] = [];
   const path =
     "/app/explorer/containers/root-container/documents/foreign-orphan";
   const happyDomWindow = window as typeof window & {
@@ -243,6 +248,9 @@ test("a worker teardown rejection is handled during route restoration", async ()
       const selection = useExplorerSelection(nodes, [cachedForeignOrphan]);
       useExplorerRoute({
         loadDocumentSummary: rejectDestroyedWorkerRouteDocument,
+        logError: (_message, cause) => {
+          teardownReports.push(cause);
+        },
         nodes,
         selectDocument: selection.selectDocument,
         setSelectedId: selection.setSelectedId,
@@ -256,4 +264,46 @@ test("a worker teardown rejection is handled during route restoration", async ()
     expect(routeLoadCalls).toEqual([["foreign-orphan", "root-container"]]);
     expect(view.result.current).toBe("root-container");
   });
+  expect(teardownReports).toEqual([]);
+});
+
+test("a failed route restoration reports the original error", async () => {
+  const failure = new Error("route summary lookup failed");
+  const logged: Array<[string | Error, unknown]> = [];
+  const path =
+    "/app/explorer/containers/root-container/documents/foreign-orphan";
+  const happyDomWindow = window as typeof window & {
+    happyDOM: { setURL: (url: string) => void };
+  };
+  happyDomWindow.happyDOM.setURL(`http://localhost${path}`);
+  window.history.replaceState(null, "", path);
+  const view = renderHook(
+    () => {
+      const selection = useExplorerSelection(nodes, [cachedForeignOrphan]);
+      useExplorerRoute({
+        loadDocumentSummary: () => Promise.reject(failure),
+        logError: (message, cause) => {
+          logged.push([message, cause]);
+        },
+        nodes,
+        selectDocument: selection.selectDocument,
+        setSelectedId: selection.setSelectedId,
+      });
+      return selection.selectedId;
+    },
+    { wrapper: TestProviders },
+  );
+
+  // The selection effect can run more than once per mount; every run reports
+  // the same failure and nothing else.
+  await waitFor(() => {
+    expect(logged).toContainEqual([
+      "Failed to restore the explorer document route",
+      failure,
+    ]);
+  });
+  expect(new Set(logged.map(([message]) => message))).toEqual(
+    new Set(["Failed to restore the explorer document route"]),
+  );
+  expect(view.result.current).toBeNull();
 });

@@ -33,6 +33,7 @@ function createSubmitParams(
     draftTargetContainerId: "",
     expandNode: () => undefined,
     linkDocument: async () => null,
+    logError: () => undefined,
     canShareWithPeer: true,
     modalState: null,
     moveContainer: async () => null,
@@ -206,4 +207,74 @@ test("empty-trash modal refuses while offline", async () => {
 
   expect(emptyStarts).toBe(0);
   expect(backgroundErrors).toEqual(["You must be online to empty the Trash."]);
+});
+
+test("a thrown document link reports the original error after the modal closed", async () => {
+  const failure = new Error("link failed");
+  const logged: Array<[string | Error, unknown]> = [];
+  const bannerErrors: Array<string | null> = [];
+
+  await submitExplorerModalAction(
+    createSubmitParams({
+      draftTargetContainerId: "target-container",
+      linkDocument: async () => {
+        throw failure;
+      },
+      logError: (message, cause) => {
+        logged.push([message, cause]);
+      },
+      modalState: { mode: "link-document", documentLocalId: "note-1" },
+      setBackgroundActionError: (error) => {
+        bannerErrors.push(error);
+      },
+    }),
+  );
+  await Promise.resolve();
+  await Promise.resolve();
+
+  expect(bannerErrors).toEqual(["Failed to link document."]);
+  expect(logged).toEqual([[expect.any(String), failure]]);
+  expect(logged[0]?.[0]).not.toBe("Failed to link document.");
+});
+
+test("a document move lost to database teardown stays local", async () => {
+  const logged: unknown[] = [];
+
+  await submitExplorerModalAction(
+    createSubmitParams({
+      draftTargetContainerId: "target-container",
+      logError: (_message, cause) => {
+        logged.push(cause);
+      },
+      modalState: { mode: "move-document", documentLocalId: "note-1" },
+      moveDocument: async () => {
+        // The SQLite worker client's own teardown message: the runtime was
+        // released under the in-flight move.
+        throw new Error("Database worker client has been destroyed.");
+      },
+    }),
+  );
+  await Promise.resolve();
+  await Promise.resolve();
+
+  expect(logged).toEqual([]);
+});
+
+test("a refused document move logs its label without an error", async () => {
+  const logged: Array<[string | Error, unknown]> = [];
+
+  await submitExplorerModalAction(
+    createSubmitParams({
+      draftTargetContainerId: "target-container",
+      logError: (message, cause) => {
+        logged.push([message, cause]);
+      },
+      modalState: { mode: "move-document", documentLocalId: "note-1" },
+      moveDocument: async () => null,
+    }),
+  );
+  await Promise.resolve();
+  await Promise.resolve();
+
+  expect(logged).toEqual([["Failed to move document.", undefined]]);
 });

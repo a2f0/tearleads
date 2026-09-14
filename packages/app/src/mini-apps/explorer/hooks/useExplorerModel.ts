@@ -191,6 +191,7 @@ export function useExplorerModel(
     useExplorerInteractionState({
       activeContainerId: selection.activeContainerId,
       explorer,
+      logError: appData.util.logError,
       mergeDocumentSummaries,
       onDocumentLinksChanged: handleDocumentLinksChanged,
     });

@@ -28,6 +28,7 @@ test("document projection selection updates immediately before async lookup", as
   let resolveDocument: ((value: DocumentSummary | null) => void) | undefined;
   const { result } = renderHook(() =>
     useSelectDocumentProjection({
+      logError: () => undefined,
       activateLinkedDocument: async (documentId, containerId) => {
         activationCalls.push({ containerId, documentId });
         return createDocumentSummary({ containerId });
@@ -73,6 +74,7 @@ test("document projection selection ignores superseded async lookups", async () 
   >();
   const { result } = renderHook(() =>
     useSelectDocumentProjection({
+      logError: () => undefined,
       activateLinkedDocument: async () => null,
       loadDocumentSummary: async (localId) =>
         new Promise<DocumentSummary | null>((resolve) => {
@@ -111,4 +113,64 @@ test("document projection selection ignores superseded async lookups", async () 
     { containerId: "second-container", id: "document-2" },
   ]);
   expect(selectedIds).toEqual([]);
+});
+
+test("a failed linked-document activation reports the original error", async () => {
+  const failure = new Error("activation failed");
+  const logged: Array<[string | Error, unknown]> = [];
+  const { result } = renderHook(() =>
+    useSelectDocumentProjection({
+      activateLinkedDocument: async () => {
+        throw failure;
+      },
+      loadDocumentSummary: async () =>
+        createDocumentSummary({ containerId: "other-container" }),
+      logError: (message, cause) => {
+        logged.push([message, cause]);
+      },
+      selectDocument: () => undefined,
+      setSelectedId: () => undefined,
+    }),
+  );
+
+  act(() => {
+    result.current("document-1", "linked-container");
+  });
+
+  await waitFor(() => {
+    expect(logged).toEqual([
+      ["Failed to select the linked explorer document", failure],
+    ]);
+  });
+});
+
+test("a linked-document selection lost to database teardown stays local", async () => {
+  const logged: unknown[] = [];
+  let loads = 0;
+  const { result } = renderHook(() =>
+    useSelectDocumentProjection({
+      activateLinkedDocument: async () => null,
+      loadDocumentSummary: async () => {
+        loads += 1;
+        throw new Error("Database worker client has been destroyed.");
+      },
+      logError: (_message, cause) => {
+        logged.push(cause);
+      },
+      selectDocument: () => undefined,
+      setSelectedId: () => undefined,
+    }),
+  );
+
+  act(() => {
+    result.current("document-1", "linked-container");
+  });
+
+  await waitFor(() => {
+    expect(loads).toBe(1);
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  expect(logged).toEqual([]);
 });

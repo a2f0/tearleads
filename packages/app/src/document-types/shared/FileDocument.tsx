@@ -335,7 +335,7 @@ function useFileDocument(params: {
   title: string;
 }) {
   const { extraFieldLabels, initialEditing, title } = params;
-  const { infra } = useTearleadsRuntime();
+  const { infra, util } = useTearleadsRuntime();
   const fileSaver = useFileSaver();
   const fileViewer = useFileViewer();
   const {
@@ -369,12 +369,14 @@ function useFileDocument(params: {
     attachments,
     attachmentStorageKeyBySlotId,
     blobStore: infra.blobStore,
+    logError: util.logError,
   });
   const pdfPreview = useFileDocumentPdfPreview({
     attachments,
     attachmentStorageKeyBySlotId,
     blobStore: infra.blobStore,
     fileViewer,
+    logError: util.logError,
   });
 
   const commitFileName = useCallback(
@@ -409,10 +411,10 @@ function useFileDocument(params: {
       .catch((error: unknown) => {
         // A blob-store read can fail (corrupt/unreadable local bytes); surface
         // it instead of leaving an unhandled rejection.
-        console.error("Failed to download attachment:", error);
+        util.logError("Failed to download attachment", error);
         setDownloadError("Couldn't download this file.");
       });
-  }, [downloadable, fileName, fileSaver, infra.blobStore, title]);
+  }, [downloadable, fileName, fileSaver, infra.blobStore, title, util]);
 
   return {
     attachmentNotice,

@@ -13,6 +13,7 @@ import {
 } from "react";
 import { useOrganizationBillingState } from "../../../providers/billing/BillingProvider";
 import { useIdentity } from "../../../providers/identity/IdentityProvider";
+import { useLog } from "../../../providers/logging/LogProvider";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
 
@@ -37,6 +38,7 @@ interface RecoveryAttempt {
 }
 
 type RecoveryStateSetter = Dispatch<SetStateAction<ScopedRecoveryState>>;
+type LogError = (message: string | Error, cause?: unknown) => void;
 
 function emptyRecoveryState(scopeKey: string): ScopedRecoveryState {
   return {
@@ -70,9 +72,11 @@ function recoveryMessage(state: ScopedRecoveryState): string | null {
 function useReplacementBilling(
   targetOrganizationId: string | null,
   tearleads: ReturnType<typeof useTearleads>,
+  logError: LogError,
 ) {
   const client = useMemo(
     () => ({
+      network: tearleads.network,
       organizations: {
         loadBilling: () =>
           targetOrganizationId
@@ -88,7 +92,11 @@ function useReplacementBilling(
     }),
     [tearleads, targetOrganizationId],
   );
-  const billing = useOrganizationBillingState(client, targetOrganizationId);
+  const billing = useOrganizationBillingState(
+    client,
+    targetOrganizationId,
+    logError,
+  );
   return {
     ...billing,
     view: billing.billing
@@ -99,6 +107,7 @@ function useReplacementBilling(
 
 function handleRecoveryError(input: {
   readonly error: unknown;
+  readonly logError: LogError;
   readonly persistencePending: boolean;
   readonly scopeIsCurrent: boolean;
   readonly scopeKey: string;
@@ -119,7 +128,7 @@ function handleRecoveryError(input: {
     });
     return false;
   }
-  console.error("Failed to recover purged organization:", input.error);
+  input.logError("Failed to recover purged organization", input.error);
   input.setState((current) => {
     const scoped = stateForScope(current, input.scopeKey);
     return {
@@ -148,6 +157,7 @@ function attemptCoversScope(
 }
 
 interface RecoveryAttemptInput {
+  readonly logError: LogError;
   readonly organizationId: string;
   readonly persistenceTarget: RecoveryTarget | null;
   readonly persistSession: () => Promise<boolean>;
@@ -223,6 +233,7 @@ async function executeRecoveryAttempt(
     const target = execution?.target ?? input.persistenceTarget;
     return handleRecoveryError({
       error,
+      logError: input.logError,
       persistencePending: target !== null,
       scopeIsCurrent: attemptCoversScope(
         input.attempt,
@@ -293,6 +304,52 @@ function resolveAutomaticRecoverySignal(input: {
     : null;
 }
 
+function useRecoveryAttemptInput(params: {
+  readonly currentState: ScopedRecoveryState;
+  readonly logError: RecoveryAttemptInput["logError"];
+  readonly organizationId: string;
+  readonly persistSession: RecoveryAttemptInput["persistSession"];
+  readonly scopeKey: string;
+  readonly setState: RecoveryStateSetter;
+  readonly tearleads: RecoveryAttemptInput["tearleads"];
+  readonly userId: string | null;
+}): RecoveryAttemptInput {
+  const {
+    currentState,
+    logError,
+    organizationId,
+    persistSession,
+    scopeKey,
+    setState,
+    tearleads,
+    userId,
+  } = params;
+  return useMemo(
+    () => ({
+      logError,
+      organizationId,
+      persistenceTarget: currentState.persistencePending
+        ? currentState.target
+        : null,
+      persistSession,
+      scopeKey,
+      setState,
+      tearleads,
+      userId,
+    }),
+    [
+      currentState.persistencePending,
+      currentState.target,
+      organizationId,
+      userId,
+      logError,
+      persistSession,
+      scopeKey,
+      tearleads,
+    ],
+  );
+}
+
 /** Coordinates the app-owned handoff around the SDK's durable recovery. */
 export function usePurgedOrganizationRecovery(input: {
   readonly organizationId: string;
@@ -311,6 +368,7 @@ export function usePurgedOrganizationRecovery(input: {
 }) {
   const tearleads = useTearleads();
   const { persistSession } = useIdentity();
+  const { logError } = useLog();
   const scopeKey = recoveryScopeKey(
     input.userId ?? "signed-out",
     input.organizationId,
@@ -323,31 +381,21 @@ export function usePurgedOrganizationRecovery(input: {
   const replacementBilling = useReplacementBilling(
     targetOrganizationId,
     tearleads,
+    logError,
   );
   const attemptedSignalRef = useRef<unknown>(null);
-  const recoveryAttemptInput = useMemo(
-    () => ({
+  const runRecovery = useRecoveryAttempt(
+    useRecoveryAttemptInput({
+      currentState,
+      logError,
       organizationId: input.organizationId,
-      persistenceTarget: currentState.persistencePending
-        ? currentState.target
-        : null,
       persistSession,
       scopeKey,
       setState,
       tearleads,
       userId: input.userId,
     }),
-    [
-      currentState.persistencePending,
-      currentState.target,
-      input.organizationId,
-      input.userId,
-      persistSession,
-      scopeKey,
-      tearleads,
-    ],
   );
-  const runRecovery = useRecoveryAttempt(recoveryAttemptInput);
 
   const sourceIsPurged = input.sourceBilling.view?.status === "purged";
   const recoverySignal = resolveAutomaticRecoverySignal({

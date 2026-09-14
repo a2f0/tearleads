@@ -171,6 +171,19 @@ requests it rejected treat it as the database going away and stay local. The
 crash `Error` is constructed in application code, never from the worker's own
 event, so its stack maps to an allowlisted bundle frame.
 
+User-initiated mini-app actions report the same way once they have thrown:
+Explorer's create, rename, move, link, share, activate, detach, refresh,
+download, and route-restore paths, Organization Manager's create, admin
+mutation, purge recovery, billing, checkout, and cancellation paths, and the
+file document preview and download paths. Each keeps its existing UI outcome
+and passes the original `Error` to the logger with a fixed literal message. A
+database that went away mid-flight and a projection verification cancelled by
+a newer generation are teardown, not failures, and stay local. Container
+shares are reported inside the SDK, where the thrown failure is still in hand,
+rather than at the panel. The local keyring lock provider mounts outside the
+logger and reports through the host diagnostics directly; clearing a PIN now
+verifies it first, so a mistyped PIN is a refusal rather than a report.
+
 All mini-apps record opening and route changes. Explorer additionally records
 root/Trash/folder/document views and explicit context-menu actions. Notes
 records moving documents to Trash; Backup / Restore records export/import

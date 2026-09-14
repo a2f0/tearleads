@@ -1,6 +1,7 @@
 import { afterEach, expect, mock, spyOn, test } from "bun:test";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { createRef } from "react";
+import * as LogProvider from "../../../providers/logging/LogProvider";
 import * as TearleadsProvider from "../../../providers/sdk/TearleadsProvider";
 import { formatPrice } from "../../shared/billingFormatters";
 import { ORG_MANAGER_LABELS } from "../labels";
@@ -17,7 +18,7 @@ afterEach(() => {
   }
 });
 
-/** The idle checkout renders the hosted-link, which reads the SDK facade. */
+/** The idle checkout renders the hosted-link, which reads the SDK facade and the log actions. */
 function stubTearleads(
   createStripeCheckoutSession: (
     returnUrl: string,
@@ -31,6 +32,21 @@ function stubTearleads(
       organizations: { createStripeCheckoutSession },
     } as never),
   );
+  return stubLog();
+}
+
+/** Stubs the log actions and records every `logError` call. */
+function stubLog() {
+  const logged: [string | Error, unknown][] = [];
+  spies.push(
+    spyOn(LogProvider, "useLog").mockReturnValue({
+      log: () => undefined,
+      logError: (message, cause) => {
+        logged.push([message, cause]);
+      },
+    }),
+  );
+  return logged;
 }
 
 const OPTION = {
@@ -381,15 +397,11 @@ test("a null hosted session closes the tab and leaves the buyer on the page", as
 test("a thrown hosted session closes the tab and surfaces the notice", async () => {
   // A rejected mint must not strand the blank tab; it is closed and the notice
   // shown, mirroring the null-result path.
-  const createStripeCheckoutSession = mock(() =>
-    Promise.reject(new Error("boom")),
-  );
-  stubTearleads(createStripeCheckoutSession);
+  const failure = new Error("boom");
+  const createStripeCheckoutSession = mock(() => Promise.reject(failure));
+  const logged = stubTearleads(createStripeCheckoutSession);
   const tab = fakeTab();
   stubOpen(() => tab);
-  // The component logs the rejection; silence it so the run output stays clean.
-  const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
-  spies.push(errorSpy);
 
   const view = render(
     <BillingDirectCheckout checkout={state({})} disabled={false} />,
@@ -402,6 +414,10 @@ test("a thrown hosted session closes the tab and surfaces the notice", async () 
       view.getByText(ORG_MANAGER_LABELS.billingPayOnStripeUnavailable),
     ).toBeDefined(),
   );
+  // The original Error reaches diagnostics, not just the notice.
+  expect(logged).toEqual([
+    ["Failed to open the hosted Stripe checkout", failure],
+  ]);
 });
 
 test("the hosted-checkout link is not offered once the inline flow starts", () => {
