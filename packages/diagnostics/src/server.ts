@@ -16,6 +16,14 @@ export type ServerErrorSource =
   | "request-error"
   | "websocket-error";
 
+// Admitted only for runtime electrobun-main; the sanitizer drops any source
+// foreign to the configured runtime.
+export type MainProcessErrorSource =
+  | "background-error"
+  | "request-error"
+  | "unhandled-error"
+  | "unhandled-rejection";
+
 export function createServerDiagnostics(config: SentryConfig) {
   const client = new ServerRuntimeClient({
     dsn: config.dsn,
@@ -33,7 +41,10 @@ export function createServerDiagnostics(config: SentryConfig) {
   });
   client.init();
   return {
-    captureError(error: unknown, source: ServerErrorSource) {
+    captureError(
+      error: unknown,
+      source: ServerErrorSource | MainProcessErrorSource,
+    ) {
       if (!(error instanceof Error)) return;
       // Each error has an isolated scope. No request or user context is shared.
       const scope = new Scope();

@@ -114,6 +114,82 @@ test("swallowed background failures are admitted as handled and never as a crash
   }
   // Browser-only sources stay unknown to the API runtime and are dropped whole.
   expect(sanitize("log")).toBeNull();
+  expect(sanitize("unhandled-error")).toBeNull();
+});
+
+const mainConfig: SentryConfig = {
+  ...config,
+  release: `tearleads-electrobun@${"b".repeat(40)}`,
+  dist: "staging-app",
+  scriptPaths: new Set(["/bun/index.js"]),
+  serverSourceRoot: "/Applications/Tearleads.app/Contents/Resources/app",
+  runtime: "electrobun-main",
+};
+
+test("the Electrobun main runtime admits process-wide failures as unhandled and drops browser and API-only sources", () => {
+  const sanitize = (source: string) =>
+    sanitizeSentryEvent(
+      {
+        tags: { diagnostic_source: source, area: "explorer" },
+        breadcrumbs: [
+          {
+            category: "app.activity",
+            data: { area: "explorer", action: "open" },
+          },
+        ],
+      },
+      mainConfig,
+    );
+  for (const [source, handled] of [
+    ["background-error", true],
+    ["request-error", true],
+    ["unhandled-error", false],
+    ["unhandled-rejection", false],
+  ] as const) {
+    const event = sanitize(source);
+    expect(event?.exception?.values?.[0]?.mechanism).toEqual({
+      type: "generic",
+      handled,
+    });
+    const { area } = event?.tags ?? {};
+    expect(area).toBe("electrobun-main");
+    expect(event?.breadcrumbs).toEqual([]);
+    // Frameless: the process-wide failure is still reported.
+    expect(event?.exception?.values?.[0]?.stacktrace).toBeUndefined();
+  }
+  for (const source of ["websocket-error", "log", "boundary"])
+    expect(sanitize(source)).toBeNull();
+});
+
+test("only the API runtime keeps relative server frames, and both re-admit sanitized frames", () => {
+  const frames = (runtimeConfig: SentryConfig) =>
+    sanitizeSentryEvent(
+      {
+        tags: { diagnostic_source: "request-error" },
+        exception: {
+          values: [
+            {
+              stacktrace: {
+                frames: [
+                  { filename: "app:///bun/index.js", lineno: 1, colno: 2 },
+                  { filename: "bun/index.js", lineno: 3, colno: 4 },
+                ],
+              },
+            },
+          ],
+        },
+      },
+      runtimeConfig,
+    )?.exception?.values?.[0]?.stacktrace?.frames;
+  expect(
+    frames({ ...config, scriptPaths: new Set(["/bun/index.js"]) }),
+  ).toEqual([
+    { filename: "app:///bun/index.js", lineno: 1, colno: 2, in_app: true },
+    { filename: "app:///bun/index.js", lineno: 3, colno: 4, in_app: true },
+  ]);
+  expect(frames(mainConfig)).toEqual([
+    { filename: "app:///bun/index.js", lineno: 1, colno: 2, in_app: true },
+  ]);
 });
 
 test("API budget resets after an hour so a long-lived server can report recurring failures", () => {
