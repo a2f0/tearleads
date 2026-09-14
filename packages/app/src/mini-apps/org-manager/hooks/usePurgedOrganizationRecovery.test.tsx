@@ -12,6 +12,7 @@ import {
 } from "@testing-library/react";
 import { type PropsWithChildren, useState } from "react";
 import { billingFixture } from "../../../../test/helpers/organizationBillingTestFixtures";
+import type { AppDiagnostics } from "../../../host/AppDiagnostics";
 import { createAppHostConfig } from "../../../host/AppHostConfig";
 import * as BillingProvider from "../../../providers/billing/BillingProvider";
 import { DirectCheckoutProvider } from "../../../providers/direct-checkout/DirectCheckoutProvider";
@@ -72,6 +73,7 @@ function wrapperWithPurchases(
   purchaseSync: (input: {
     organizationId: string;
   }) => Promise<{ syncEntitlementActive: boolean }>,
+  diagnostics?: AppDiagnostics,
 ) {
   return function Wrapper({ children }: PropsWithChildren) {
     const hostConfig = createAppHostConfig({
@@ -105,7 +107,7 @@ function wrapperWithPurchases(
     return (
       <AppHostConfigProvider value={hostConfig}>
         <PurchasesProvider>
-          <LogProvider>
+          <LogProvider diagnostics={diagnostics}>
             <DirectCheckoutProvider>{children}</DirectCheckoutProvider>
           </LogProvider>
         </PurchasesProvider>
@@ -233,6 +235,7 @@ test("surfaces and retries a finalized recovery whose session was not persisted"
       persistSession,
     } as unknown as ReturnType<typeof IdentityProvider.useIdentity>),
     spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
+      network: { online: true },
       organizations: {
         checkNativePurchaseEligibility: () => Promise.resolve(null),
         claimNativeSubscription: () => Promise.resolve(null),
@@ -246,6 +249,13 @@ test("surfaces and retries a finalized recovery whose session was not persisted"
       session: { recoverPurgedOrganization },
     } as never),
   );
+  const captured: unknown[] = [];
+  const diagnostics: AppDiagnostics = {
+    addBreadcrumb: () => undefined,
+    captureError: (error) => {
+      captured.push(error);
+    },
+  };
 
   function SessionEmittingPanel() {
     const [organizationId, setOrganizationId] = useState(
@@ -266,13 +276,23 @@ test("surfaces and retries a finalized recovery whose session was not persisted"
   }
 
   const view = render(<SessionEmittingPanel />, {
-    wrapper: wrapperWithPurchases(() => new Promise(() => undefined)),
+    wrapper: wrapperWithPurchases(
+      () => new Promise(() => undefined),
+      diagnostics,
+    ),
   });
 
   await waitFor(() => expect(persistSession).toHaveBeenCalledTimes(1));
   await act(async () => settleFirstPersistence(false));
   await view.findByText(ORG_MANAGER_LABELS.purgeRecoveryFailed);
   expect(recoverPurgedOrganization).toHaveBeenCalledTimes(1);
+  // The unexpected failure reaches diagnostics as the ORIGINAL Error (the
+  // billing-required handoff above is an expected condition and never does).
+  expect(captured).toHaveLength(1);
+  expect(captured[0]).toBeInstanceOf(Error);
+  expect((captured[0] as Error).message).toBe(
+    "Recovered organization session was not persisted",
+  );
 
   fireEvent.click(
     view.getByRole("button", { name: ORG_MANAGER_LABELS.purgeRecoveryRetry }),

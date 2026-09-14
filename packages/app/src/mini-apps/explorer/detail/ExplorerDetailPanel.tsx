@@ -128,6 +128,7 @@ interface ExplorerDetailPanelProps {
   loadDocumentAttributionRanges: ExplorerDocumentAttributionRangesLoader;
   loadDocumentInfo: (localId: string) => Promise<DocumentInfo>;
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
+  logError: (message: string | Error, cause?: unknown) => void;
   nodes: ReadonlyArray<ContainerNode>;
   online: boolean;
   organizationNamesById: ReadonlyMap<string, string>;
@@ -320,6 +321,7 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
         loadDocumentInfo={params.loadDocumentInfo}
         loadDocumentSummary={params.loadDocumentSummary}
         localId={route.localId}
+        logError={params.logError}
         nodes={params.nodes}
         openBlobBrowserRoute={params.openBlobBrowserRoute}
         requestAttributionProfileHydration={
@@ -364,6 +366,7 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
         currentUserId={params.currentUserId}
         documentListRevision={params.documentListRevision}
         documentQueries={params.documentQueries}
+        logError={params.logError}
         nodes={params.nodes}
         online={params.online}
         initialEditing={params.initialEditingSelectedDocument}

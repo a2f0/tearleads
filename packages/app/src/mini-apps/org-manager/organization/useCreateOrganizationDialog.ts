@@ -9,6 +9,7 @@ import type { CreateOrganizationDialogState } from "./orgSwitcherTypes";
 interface CreateOrganizationDialogOptions {
   interactionDisabled: boolean;
   isScopeGenerationActive: (generation: object) => boolean;
+  logError: (message: string | Error, cause?: unknown) => void;
   provisionOrganization: (
     organizationProfileName: string,
   ) => Promise<SessionCreateOrganizationResult | null>;
@@ -80,7 +81,7 @@ function useCreateOrganizationAction(options: CreateOrganizationActionOptions) {
         if (!isCreateActive()) {
           return;
         }
-        console.error("Failed to create organization:", error);
+        options.logError("Failed to create organization", error);
         options.setCreateOrganizationError(
           ORG_MANAGER_LABELS.failedCreateOrganization,
         );
@@ -99,6 +100,7 @@ function useCreateOrganizationAction(options: CreateOrganizationActionOptions) {
 export function useCreateOrganizationDialog({
   interactionDisabled,
   isScopeGenerationActive,
+  logError,
   provisionOrganization,
   reload,
   retainOrganization,
@@ -147,6 +149,7 @@ export function useCreateOrganizationDialog({
     creatingRef,
     interactionDisabled,
     isScopeGenerationActive,
+    logError,
     provisionOrganization,
     reload,
     retainOrganization,

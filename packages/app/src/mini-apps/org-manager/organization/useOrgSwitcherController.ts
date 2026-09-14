@@ -131,6 +131,7 @@ export function useOrgSwitcherController(
   const createOrganizationDialog = useCreateOrganizationDialog({
     interactionDisabled: baseInteractionsDisabled,
     isScopeGenerationActive: createScope.isActive,
+    logError: input.logError,
     provisionOrganization: input.provisionOrganization,
     reload: localOrganizations.reload,
     retainOrganization: localOrganizations.retainOrganization,

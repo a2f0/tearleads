@@ -96,7 +96,7 @@ interface SpawnSQLiteRuntimeParams {
   log: (message: string) => void;
   logError: (message: string | Error, cause?: unknown) => void;
   onWorkerCrash: (error: Error) => void;
-  onUnreadableDatabase: (dbName: string) => void;
+  onUnreadableDatabase: (dbName: string, cause: unknown) => void;
   onTransientBootFailure: (dbName: string) => boolean;
   onBootSucceeded: (dbName: string) => void;
   persistence: DatabasePersistenceMode;

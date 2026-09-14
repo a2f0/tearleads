@@ -3,6 +3,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
 import {
   capabilityWith,
+  createCapturingDiagnostics,
   OPTION,
   renderFlow,
   restoreDirectCheckoutSpies,
@@ -11,6 +12,7 @@ import {
 import { createAppHostConfig } from "../../../host/AppHostConfig";
 import { DirectCheckoutProvider } from "../../../providers/direct-checkout/DirectCheckoutProvider";
 import { AppHostConfigProvider } from "../../../providers/host/AppHostConfigProvider";
+import { LogProvider } from "../../../providers/logging/LogProvider";
 import { useDirectCheckoutFlow } from "./useDirectCheckout";
 
 afterEach(restoreDirectCheckoutSpies);
@@ -115,17 +117,43 @@ test("unmounting the panel tears the element down", async () => {
 });
 
 test("a failed checkout start surfaces an error and stays idle", async () => {
+  const failure = new Error("500");
   stubTearleads({
-    createStripeCheckout: () => Promise.reject(new Error("500")),
+    createStripeCheckout: () => Promise.reject(failure),
   });
   const { capability } = capabilityWith({});
-  const { result } = renderFlow(capability);
+  const { captured, diagnostics } = createCapturingDiagnostics();
+  const { result } = renderFlow(capability, undefined, "org-1", diagnostics);
   await waitFor(() => expect(result.current.option).toEqual(OPTION));
 
   await act(async () => result.current.begin());
 
   await waitFor(() => expect(result.current.error).not.toBeNull());
   expect(result.current.phase.kind).toBe("idle");
+  // The original Error reaches diagnostics, not just the generic label.
+  expect(captured).toEqual([failure]);
+});
+
+test("a thrown confirm keeps the element mounted and is reported", async () => {
+  stubTearleads();
+  const failure = new Error("network dropped");
+  const unmount = mock(() => undefined);
+  const { capability } = capabilityWith({
+    confirm: () => Promise.reject(failure),
+    unmount,
+  });
+  const { captured, diagnostics } = createCapturingDiagnostics();
+  const { result } = renderFlow(capability, undefined, "org-1", diagnostics);
+  await waitFor(() => expect(result.current.option).toEqual(OPTION));
+  await act(async () => result.current.begin());
+  await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
+
+  await act(async () => result.current.confirm());
+
+  await waitFor(() => expect(result.current.error).not.toBeNull());
+  expect(result.current.phase.kind).toBe("collecting");
+  expect(unmount).not.toHaveBeenCalled();
+  expect(captured).toEqual([failure]);
 });
 
 test("a paid checkout marks activation pending rather than a lone refresh", async () => {
@@ -157,7 +185,9 @@ test("switching organizations tears down an in-flight checkout", async () => {
   });
   const wrapper = ({ children }: PropsWithChildren) => (
     <AppHostConfigProvider value={hostConfig}>
-      <DirectCheckoutProvider>{children}</DirectCheckoutProvider>
+      <LogProvider>
+        <DirectCheckoutProvider>{children}</DirectCheckoutProvider>
+      </LogProvider>
     </AppHostConfigProvider>
   );
   const { result, rerender } = renderHook(
@@ -196,7 +226,9 @@ test("disabling the checkout mid-flow tears the element down", async () => {
   });
   const wrapper = ({ children }: PropsWithChildren) => (
     <AppHostConfigProvider value={hostConfig}>
-      <DirectCheckoutProvider>{children}</DirectCheckoutProvider>
+      <LogProvider>
+        <DirectCheckoutProvider>{children}</DirectCheckoutProvider>
+      </LogProvider>
     </AppHostConfigProvider>
   );
   const { result, rerender } = renderHook(

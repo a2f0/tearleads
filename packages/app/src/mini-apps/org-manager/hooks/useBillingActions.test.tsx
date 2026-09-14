@@ -1,4 +1,4 @@
-import { afterEach, expect, mock, spyOn, test } from "bun:test";
+import { afterEach, expect, mock, test } from "bun:test";
 import {
   PurchaseAlreadyOwnedError,
   PurchaseIdentityPendingError,
@@ -9,6 +9,7 @@ import {
 } from "@tearleads/client-sdk";
 import { act, cleanup, waitFor } from "@testing-library/react";
 import {
+  createCapturingDiagnostics,
   createPurchases,
   OPTION,
   RESTORE_ORGANIZATION,
@@ -47,41 +48,29 @@ test.each<[string, Error, string, boolean]>([
   ],
 ])(
   "%s billing readiness gives actionable guidance",
-  async (_case, error, label, shouldLog) => {
-    const consoleError = spyOn(console, "error").mockImplementation(() => {});
-    try {
-      const purchases: PurchasesCapability = {
-        ...createPurchases({ syncEntitlementActive: false }),
-        purchaseSync: mock(() =>
-          Promise.reject(error),
-        ) as PurchasesCapability["purchaseSync"],
-      };
-      const { result } = renderBillingActions({ purchases });
-      await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+  async (_case, error, label, shouldReport) => {
+    const purchases: PurchasesCapability = {
+      ...createPurchases({ syncEntitlementActive: false }),
+      purchaseSync: mock(() =>
+        Promise.reject(error),
+      ) as PurchasesCapability["purchaseSync"],
+    };
+    const { captured, diagnostics } = createCapturingDiagnostics();
+    const { result } = renderBillingActions({ diagnostics, purchases });
+    await waitFor(() => expect(result.current.options).toEqual([OPTION]));
 
-      await act(async () => {
-        await result.current.subscribe(OPTION);
-      });
-      await waitFor(() => expect(result.current.busy).toBe(null));
-      expect(result.current.actionError).toBe(label);
-      if (error instanceof PurchasesUnavailableError) {
-        expect(result.current.canSubscribe).toBe(true);
-        expect(result.current.options).toEqual([OPTION]);
-      }
-      if (shouldLog) {
-        expect(consoleError).toHaveBeenCalledWith(
-          "Failed to complete the organization sync purchase:",
-          error,
-        );
-      } else {
-        expect(consoleError).not.toHaveBeenCalledWith(
-          "Failed to complete the organization sync purchase:",
-          error,
-        );
-      }
-    } finally {
-      consoleError.mockRestore();
+    await act(async () => {
+      await result.current.subscribe(OPTION);
+    });
+    await waitFor(() => expect(result.current.busy).toBe(null));
+    expect(result.current.actionError).toBe(label);
+    if (error instanceof PurchasesUnavailableError) {
+      expect(result.current.canSubscribe).toBe(true);
+      expect(result.current.options).toEqual([OPTION]);
     }
+    // Expected conditions (identity settling, an unregistered bridge) stay
+    // local; a real provider failure hands the ORIGINAL Error to diagnostics.
+    expect(captured).toEqual(shouldReport ? [error] : []);
   },
 );
 

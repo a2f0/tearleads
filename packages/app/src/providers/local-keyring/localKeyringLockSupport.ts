@@ -12,6 +12,7 @@ import {
   type WrappingKeyKeystore,
   type WrappingKeyMaterialStorage,
 } from "@tearleads/client-sdk";
+import type { AppDiagnostics } from "../../host/AppDiagnostics";
 import { getLocalStorage } from "../../utils/storedPreference";
 
 export type LocalKeyringLockStatus = "unavailable" | "unlocked" | "locked";
@@ -36,6 +37,12 @@ export type LocalKeyringFactory = (() => LocalKeyring) & {
 
 export interface LocalKeyringLockEnvironment {
   readonly canManagePinCode: boolean;
+  /**
+   * Where PIN-action failures are reported. This provider mounts outside
+   * `LogProvider`, so it cannot route them through `useLog` like the rest of
+   * the app; undefined in shells and tests without a diagnostics adapter.
+   */
+  readonly diagnostics: AppDiagnostics | undefined;
   readonly hostCreateLocalKeyring: (() => LocalKeyring) | undefined;
   /**
    * How this shell persists the IndexedDB wrapping key. WKWebView shells
@@ -117,7 +124,7 @@ export function createPlainKeystore(
   return createIndexedDbWrappingKeyKeystore({ keyMaterialStorage });
 }
 
-export function createPinKeystore(input: {
+function createPinKeystore(input: {
   readonly keyMaterialStorage: WrappingKeyMaterialStorage | undefined;
   readonly pinCode: string;
 }): WrappingKeyKeystore {
@@ -311,6 +318,41 @@ export async function rewrapExistingManifests(input: {
       sourceKeystore.close?.();
     }
   }
+}
+
+/**
+ * Rewraps every managed manifest under a PIN keystore and reports whether any
+ * manifest is now PIN-wrapped (false when no scope had a manifest to protect).
+ */
+export async function rewrapExistingManifestsWithPin(input: {
+  readonly keyMaterialStorage: WrappingKeyMaterialStorage | undefined;
+  readonly manifestStore: LocalKeyringManifestStore;
+  readonly pinCode: string;
+  readonly scopes: readonly LocalKeyringScope[];
+  readonly sourcePinCode: string | null;
+}): Promise<boolean> {
+  // Spans every scope, so rewrapExistingManifests cannot close it; this owner
+  // does, to keep the WebView shells from accumulating IndexedDB connections.
+  const targetKeystore = createPinKeystore({
+    keyMaterialStorage: input.keyMaterialStorage,
+    pinCode: input.pinCode,
+  });
+  try {
+    await rewrapExistingManifests({
+      keyMaterialStorage: input.keyMaterialStorage,
+      manifestStore: input.manifestStore,
+      scopes: input.scopes,
+      sourcePinCode: input.sourcePinCode,
+      targetKeystore,
+    });
+  } finally {
+    targetKeystore.close?.();
+  }
+
+  return hasPinWrappedManifest({
+    manifestStore: input.manifestStore,
+    scopes: input.scopes,
+  });
 }
 
 export async function verifyPinCode(input: {

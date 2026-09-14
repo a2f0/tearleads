@@ -4,27 +4,43 @@ import type {
 } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
-import { isDestroyedDatabaseWorkerError } from "../../../stores/explorer/documentRuntime";
+import { isIgnorableDatabaseWorkerError } from "../../../stores/explorer/documentRuntime";
 import {
   areLinkedContainerIdMapsEqual,
   getRequestedDocumentIds,
 } from "../../../stores/explorer/documentSummaryUtils";
+
+// Teardown during an identity switch or database retry is not a failed load.
+function reportProjectionLoadFailure(
+  logError: (message: string | Error, cause?: unknown) => void,
+  error: unknown,
+): void {
+  if (!isIgnorableDatabaseWorkerError(error)) {
+    logError("Failed to load explorer linked container projections", error);
+  }
+}
 
 export function useDocumentLinkedContainerIdsByDocumentId(params: {
   dbStatus: RuntimeSnapshot["infra"]["dbStatus"];
   documentQueries: ContainerDocumentQueries;
   documentLinkProjectionVersion: number;
   documentSummaries: ReadonlyArray<DocumentSummary>;
+  logError: (message: string | Error, cause?: unknown) => void;
 }) {
   const {
     dbStatus,
     documentQueries,
     documentLinkProjectionVersion,
     documentSummaries,
+    logError,
   } = params;
   const [linkedContainerIdsByDocumentId, setLinkedContainerIdsByDocumentId] =
     useState<ReadonlyMap<string, ReadonlyArray<string>>>(new Map());
   const linkedContainerIdsLoadVersionRef = useRef(0);
+  // Read through a ref: the effect reports with the current logger without
+  // re-running when a caller passes a new function identity.
+  const logErrorRef = useRef(logError);
+  logErrorRef.current = logError;
   const requestedDocumentIds = useMemo(
     () => getRequestedDocumentIds(documentSummaries),
     [documentSummaries],
@@ -87,12 +103,7 @@ export function useDocumentLinkedContainerIdsByDocumentId(params: {
           );
         }
       } catch (error: unknown) {
-        if (!cancelled && !isDestroyedDatabaseWorkerError(error)) {
-          console.error(
-            "Explorer: failed to load linked container projections:",
-            error,
-          );
-        }
+        if (!cancelled) reportProjectionLoadFailure(logErrorRef.current, error);
       }
     })();
 

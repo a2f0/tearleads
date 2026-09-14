@@ -10,7 +10,6 @@ import {
   isBootRoundTripTimeoutError,
 } from "./bootSQLiteRuntime";
 import type { ResolveSqliteCipherKey } from "./sqliteCipherKey";
-import { UnreadableDatabaseRecoveryError } from "./sqliteRuntimeErrors";
 import {
   canReuseSQLiteRuntime,
   logSQLiteRuntimeReuseUnavailable,
@@ -110,10 +109,12 @@ interface StartSQLiteRuntimeBootParams {
   /**
    * Invoked when a *persistent* database fails to boot because its on-disk bytes
    * cannot be decrypted with the resolved key (see {@link isUnreadableDatabaseError}).
-   * The handler owns the resulting status (it wipes + recreates), so this boot
-   * does not flip to "error". Omitted for in-memory runtimes (never key-mismatched).
+   * The handler owns the resulting status (it wipes + recreates) and the
+   * report — it alone knows whether this is the first wipe or a recreate that
+   * came back unreadable — so this boot neither flips to "error" nor reports.
+   * Omitted for in-memory runtimes (never key-mismatched).
    */
-  onUnreadableDatabase?: (dbName: string) => void;
+  onUnreadableDatabase?: (dbName: string, cause: unknown) => void;
   /**
    * Invoked when a boot round-trip never answered (a teardown/respawn race, see
    * {@link isBootRoundTripTimeoutError}) rather than a real init failure. Tears
@@ -159,7 +160,7 @@ interface SettleSQLiteRuntimeBootParams {
   persistence: DatabasePersistenceMode;
   log: (message: string) => void;
   logError: LogError;
-  onUnreadableDatabase?: ((dbName: string) => void) | undefined;
+  onUnreadableDatabase?: ((dbName: string, cause: unknown) => void) | undefined;
   onTransientBootFailure?: ((dbName: string) => boolean) | undefined;
   onBootSucceeded?: ((dbName: string) => void) | undefined;
   // Re-run a boot for `dbName` on the reused worker. Called after this boot
@@ -210,15 +211,7 @@ function handleSQLiteRuntimeBootFailure(
     isUnreadableDatabaseError(error)
   ) {
     params.bootingRef.current = false;
-    // The single most visible event this lifecycle can produce: the user's
-    // whole local database is about to be deleted. Reported as a real Error so
-    // it leaves the device, with the SQLite failure as its cause.
-    params.logError(
-      new UnreadableDatabaseRecoveryError("wiping", params.dbName, {
-        cause: error,
-      }),
-    );
-    params.onUnreadableDatabase(params.dbName);
+    params.onUnreadableDatabase(params.dbName, error);
     return;
   }
 

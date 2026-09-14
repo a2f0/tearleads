@@ -79,6 +79,7 @@ export function useExplorerDocumentViewModel(params: {
       documentQueries,
       documentLinkProjectionVersion,
       documentSummaries,
+      logError: appData.util.logError,
     });
   const selection = useExplorerSelection(nodes, documentSummaries);
 

@@ -91,6 +91,7 @@ export function stubEnvironment(
   );
   spies.push(
     spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
+      network: { online: true },
       organizations: {
         claimNativeSubscription: () => Promise.resolve(null),
         loadStripeCheckoutOptions:

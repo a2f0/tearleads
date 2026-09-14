@@ -9,7 +9,6 @@ import {
   createCrashableSQLiteRuntimeFactory,
   createReusableSQLiteRuntimeFactory,
 } from "../../../test/helpers/databaseRuntimeFactories";
-import { UnreadableDatabaseRecoveryError } from "./sqliteRuntimeErrors";
 import { startSQLiteRuntimeBoot } from "./sqliteRuntimeLifecycle";
 
 const DB_A = "identity-a";
@@ -37,7 +36,7 @@ afterEach(() => {
 function createLifecycleHarness(params: {
   createSQLiteRuntime: () => SQLiteRuntime;
   onTransientBootFailure?: (dbName: string) => boolean;
-  onUnreadableDatabase?: (dbName: string) => void;
+  onUnreadableDatabase?: (dbName: string, cause: unknown) => void;
   persistence?: DatabasePersistenceMode;
 }): LifecycleHarness {
   const tearleads = new Tearleads({
@@ -153,34 +152,28 @@ test("a boot failure reports the original error through logError", async () => {
   ]);
 });
 
-test("wiping an unreadable database reports a real Error carrying the SQLite failure", async () => {
+test("an unreadable database hands its SQLite failure to the recovery handler", async () => {
   const sqliteError = new Error("SQLITE_NOTADB: file is not a database");
   const runtimeFactory = createReusableSQLiteRuntimeFactory({
     firstInitError: sqliteError,
   });
-  const wipedDbNames: string[] = [];
+  const wipes: Array<[string, unknown]> = [];
   const harness = createLifecycleHarness({
     createSQLiteRuntime: runtimeFactory.createSQLiteRuntime,
-    onUnreadableDatabase: (dbName) => {
-      wipedDbNames.push(dbName);
+    onUnreadableDatabase: (dbName, cause) => {
+      wipes.push([dbName, cause]);
     },
     persistence: "opfs-sahpool",
   });
 
   harness.boot(DB_A);
   await waitFor(() => {
-    expect(wipedDbNames).toEqual([DB_A]);
+    expect(wipes).toEqual([[DB_A, sqliteError]]);
   });
 
-  expect(harness.logged).toHaveLength(1);
-  const [reported, cause] = harness.logged[0] ?? [];
-  expect(cause).toBeUndefined();
-  expect(reported).toBeInstanceOf(UnreadableDatabaseRecoveryError);
-  expect(reported).toMatchObject({
-    stage: "wiping",
-    cause: sqliteError,
-    message: `Database is unreadable with the resolved cipher key; wiping and recreating ${DB_A}.`,
-  });
+  // The handler decides whether this is a wipe or a recreate that came back
+  // unreadable, so the lifecycle itself reports nothing here.
+  expect(harness.logged).toEqual([]);
 });
 
 test("a worker crash reaches the crash handler only while the runtime is owned", async () => {
