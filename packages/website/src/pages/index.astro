@@ -1,10 +1,15 @@
 ---
+import { AppleLogoIcon } from "@phosphor-icons/react/dist/ssr/AppleLogo";
+import { LinuxLogoIcon } from "@phosphor-icons/react/dist/ssr/LinuxLogo";
 import { isStaging } from "../config";
 import Layout from "../layouts/Layout.astro";
+import { resolveLinuxDownloads } from "../linuxDownloads";
 import { resolveMacosDownloads } from "../macosDownloads";
 
-const { installerUrl: macosDownloadUrl, checksumUrl } =
-  await resolveMacosDownloads(isStaging);
+const [macos, linux] = await Promise.all([
+  resolveMacosDownloads(isStaging),
+  resolveLinuxDownloads(isStaging),
+]);
 ---
 
 <Layout
@@ -18,27 +23,50 @@ const { installerUrl: macosDownloadUrl, checksumUrl } =
         Keep your notes, contacts, and files in one place — local-first,
         synced across your devices, and shared on your terms.
       </p>
-      <div class="desktop-download">
-        <a class="download-button" href={macosDownloadUrl}>
-          {isStaging ? "Download macOS preview" : "Download for macOS"}
-        </a>
-        <p>For Macs with Apple silicon.</p>
-        <a class="download-checksum" href={checksumUrl}>
-          SHA-256 checksum
-        </a>
-      </div>
+      <ul class="desktop-downloads" role="list" aria-label="Downloads">
+        <li class="desktop-download">
+          <a class="download-button" href={macos.installerUrl}>
+            <AppleLogoIcon size={20} aria-hidden="true" focusable="false" />
+            <span>{isStaging ? "Download macOS preview" : "Download for macOS"}</span>
+          </a>
+          <p>For Macs with Apple silicon.</p>
+          <a class="download-checksum" href={macos.checksumUrl} aria-label="SHA-256 checksum for macOS">
+            SHA-256 checksum
+          </a>
+        </li>
+        <li class="desktop-download">
+          <a class="download-button" href={linux.installerUrl}>
+            <LinuxLogoIcon size={20} aria-hidden="true" focusable="false" />
+            <span>{isStaging ? "Download Linux preview" : "Download for Linux"}</span>
+          </a>
+          <p>For Linux x64 (Intel / AMD).</p>
+          <a class="download-checksum" href={linux.checksumUrl} aria-label="SHA-256 checksum for Linux">
+            SHA-256 checksum
+          </a>
+          <p>
+            <a class="download-instructions" href="/downloads/linux">Installation instructions</a>
+          </p>
+        </li>
+      </ul>
     </section>
   </main>
 </Layout>
 
 <style>
-  .desktop-download {
-    margin-top: 32px;
+  .desktop-downloads {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 32px;
+    margin: 32px 0 0;
+    padding: 0;
+    list-style: none;
   }
 
   .download-button {
     display: inline-flex;
     align-items: center;
+    gap: 8px;
     min-height: 48px;
     padding: 12px 24px;
     border-radius: 6px;
@@ -46,6 +74,10 @@ const { installerUrl: macosDownloadUrl, checksumUrl } =
     color: #fff;
     font-weight: 700;
     text-decoration: none;
+  }
+
+  .download-button :global(svg) {
+    flex-shrink: 0;
   }
 
   .download-button:hover {
@@ -62,7 +94,8 @@ const { installerUrl: macosDownloadUrl, checksumUrl } =
     color: #45534e;
   }
 
-  .download-checksum {
+  .download-checksum,
+  .download-instructions {
     color: #244c37;
     font-size: 0.875rem;
   }

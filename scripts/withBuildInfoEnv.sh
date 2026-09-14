@@ -17,7 +17,18 @@
 # says "unknown" is more useful than a build that refuses to compile.
 set -e
 
-BUN_PUBLIC_GIT_SHA="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
+# A source archive has no Git directory; a Linux release container receives the
+# commit it was exported from as BUILD_GIT_SHA. A checkout always shows its own
+# HEAD.
+BUN_PUBLIC_GIT_SHA="$(
+  if git rev-parse --short HEAD 2>/dev/null; then
+    :
+  elif [ -n "${BUILD_GIT_SHA:-}" ]; then
+    printf '%.7s\n' "$BUILD_GIT_SHA"
+  else
+    echo unknown
+  fi
+)"
 # Read without dotenv files or a working-directory bunfig.toml: a desktop
 # release runs this before it checks that its checkout holds no untracked file,
 # so a preload either names would run first.

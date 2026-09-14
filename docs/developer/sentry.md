@@ -269,17 +269,17 @@ For macOS distribution, use `scripts/buildMacosRelease.sh <staging|production>`
 or `scripts/uploadMacosRelease.sh <staging|production>` from the repository root.
 The selected tier also enables signing, notarization, and release icons; these
 wrappers prepare the iconset and signing credentials before invoking the build.
-Only a release build inlines the desktop configuration at all: the dev server
-and Electrobun's own config read the ambient process environment directly, so
-the renderer defines drop these names unless the build is a release one.
+For Linux x64, use `scripts/buildLinuxRelease.sh <staging|production>` or
+`scripts/uploadLinuxRelease.sh <staging|production>`. Docker receives the source
+commit and public desktop DSNs; upload credentials remain on the host.
+Only a release build inlines desktop configuration; other builds drop it.
 `scripts/withSentryReleaseEnv.ts` resolves that tier's DSN and the full commit
 into the public `BUN_PUBLIC_SENTRY_ELECTROBUN_*` renderer defines, and wraps
 the Electrobun build and its inherited `postBuild` packaging hook so they inline
-the same configuration. It drops every inherited Sentry name first, so a shell that
-already exported the web or native release configuration cannot route desktop
-events into another project and the upload token never reaches a renderer
-bundle. A configured tier whose DSN is missing or malformed stops the build
-rather than shipping a desktop app that looks instrumented and is not.
+the same configuration. It drops every inherited Sentry name first, so another
+target's exported configuration cannot route desktop events elsewhere and the
+upload token never reaches a bundle. A configured tier with a missing or
+malformed DSN stops the build.
 
 Release builds emit external maps for the renderer chunk and the main-process
 bundle. The main process reads its configuration from a build-time define with

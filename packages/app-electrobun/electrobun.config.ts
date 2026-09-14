@@ -40,6 +40,11 @@ export default {
       defaultRenderer: "cef",
     },
     linux: {
+      ...(releaseTier ? { icon: "build/release-icons/icon.png" } : {}),
+      // QEMU introduces threads before Chromium can fork its zygote. Launch
+      // renderer processes directly in every Linux build so dev and release
+      // applications behave consistently on native machines and in containers.
+      chromiumFlags: { "no-zygote": true },
       // Electrobun's WebKitGTK worker does not reliably expose the OPFS APIs
       // required by SQLite's SyncAccessHandle Pool VFS. Use the bundled Chromium
       // renderer so Linux keeps the encrypted, persistent database contract.

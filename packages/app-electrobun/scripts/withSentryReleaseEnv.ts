@@ -1,9 +1,11 @@
+import { existsSync } from "node:fs";
 import { rm } from "node:fs/promises";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import {
   electrobunSentryDist,
   electrobunSentryRelease,
 } from "../src/diagnostics/sentryConfig";
+import { desktopSourceCommit } from "./desktopSourceCommit";
 import {
   assertSentryTokenOrganization,
   hostedSentryEndpoint,
@@ -83,6 +85,15 @@ async function releaseInputs(repoRoot: string, env: Environment) {
     )),
     ...Object.fromEntries(ambient),
   };
+  // A checkout releases its own clean HEAD, whatever BUILD_GIT_SHA an earlier
+  // Docker build left exported. A source archive has no Git directory and names
+  // the commit it was exported from, which nothing here can verify, so its maps
+  // must not be uploaded under that release.
+  const { BUILD_GIT_SHA: exportedCommit } = env;
+  if (!existsSync(join(repoRoot, ".git")))
+    throw new Error(
+      `Desktop Sentry source maps upload only from a clean Git checkout, not a source archive of ${desktopSourceCommit(repoRoot, exportedCommit)}`,
+    );
   const commit = desktopSentryCommit(repoRoot);
   const upload = desktopSentryUpload(secrets, tier);
   return { tier, secrets, commit, upload };
