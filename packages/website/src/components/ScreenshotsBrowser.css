@@ -235,7 +235,7 @@
   padding: 10px;
 }
 
-.screenshots-browser__frame--ipad {
+.screenshots-browser__frame--tablet {
   border-radius: 18px;
   padding: 8px;
 }
@@ -251,7 +251,7 @@
   border-radius: 20px;
 }
 
-.screenshots-browser__frame--ipad .screenshots-browser__image {
+.screenshots-browser__frame--tablet .screenshots-browser__image {
   border-radius: 11px;
 }
 
