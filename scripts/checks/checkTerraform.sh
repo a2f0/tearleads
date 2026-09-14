@@ -8,6 +8,7 @@ TERRAFORM_DIR="$REPO_ROOT/terraform"
 errors=0
 
 "$SCRIPT_DIR/checkInfrastructureParity.sh"
+bash "$SCRIPT_DIR/checkDownloadsDeployment.sh"
 
 check_command() {
   local cmd="$1"
@@ -88,6 +89,7 @@ if check_command terraform; then
   for module_dir in \
     "$TERRAFORM_DIR/modules/cloudflare-website" \
     "$TERRAFORM_DIR/modules/s3-blob-storage" \
+    "$TERRAFORM_DIR/modules/s3-downloads" \
     "$TERRAFORM_DIR/stacks/prod/postgres"; do
     if ! run_terraform_tests "$module_dir"; then
       errors=$((errors + 1))

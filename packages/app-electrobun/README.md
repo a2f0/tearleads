@@ -40,15 +40,80 @@ WebView2 installation and update cycle. macOS builds use the native WKWebView
 and explicitly disable CEF bundling. These settings apply to both development
 and release builds in `electrobun.config.ts`.
 
+The repository's [pre-deployment policy](../../docs/request-budget-closeout.md)
+has no legacy production clients to support; this Windows renderer choice
+establishes the release baseline. Local WebView2 development profiles remain
+separate from CEF profiles and are not migrated by this configuration.
+
 The packaging step emits the renderer HTML and assets together with Bun and
 embeds Loro's WASM, alongside the SQLite worker and WASM. Both packaged and
 development apps use `http://127.0.0.1:3002` so OPFS and localStorage retain the
 same origin after a restart.
 
-The repository's [pre-deployment policy](../../docs/request-budget-closeout.md)
-has no legacy production clients to support; this Windows renderer choice
-establishes the release baseline. Local WebView2 development profiles remain
-separate from CEF profiles and are not migrated by this configuration.
+## macOS releases
+
+Build locally on an Apple silicon Mac with Xcode, ImageMagick, Bun, and the AWS
+CLI installed. These scripts load `.secrets/root.env` plus the selected tier's
+environment file and select its API, WebSocket, Sentry, and download bucket.
+
+```sh
+scripts/buildMacosRelease.sh staging
+scripts/buildMacosRelease.sh production
+
+# Build, sign, notarize, verify, and upload to the matching S3 bucket:
+scripts/uploadMacosRelease.sh staging
+scripts/uploadMacosRelease.sh production
+```
+
+Equivalent package commands are `build:staging`, `build:release`,
+`upload:staging`, and `upload:release`. Each upload command builds fresh artifacts
+before publishing. Staging uses Electrobun's `canary` channel and production uses
+`stable`; the apps have separate channel data directories.
+
+Signing uses the installed Developer ID Application identity. Set
+`ELECTROBUN_DEVELOPER_ID` if more than one is installed. Notarization uses
+`APP_STORE_CONNECT_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`, and
+`.secrets/AuthKey_<key-id>.p8`, matching the existing iOS credentials. The
+`ELECTROBUN_APPLEAPIKEY`, `ELECTROBUN_APPLEAPIISSUER`, and
+`ELECTROBUN_APPLEAPIKEYPATH` variables can override those values. The private key
+must be accessible to `codesign`; the existing
+`scripts/keychain/authorizeCodesignPartitionList.sh` helper runs in the owner's
+interactive Terminal when macOS requires keychain authorization.
+
+The `postBuild` hook packages the final renderer, Loro WASM, SQLite worker, and
+SQLite WASM before Electrobun signs or archives the app. Release icons come from
+the shared Tearleads SVG. Artifacts and SHA-256 checksums are written to the
+ignored `build/artifacts/` directory. Uploads publish DMGs, matching checksums,
+and full update archives under
+immutable filenames containing their SHA-256 digests. Update and download
+discovery documents are replaced only after all payloads succeed, so a failed
+upload preserves previously published releases. Discovery uses revalidating
+cache headers; immutable artifacts may be cached for a year.
+Delta patches are disabled; full update archives are published with each build.
+
+| Tier | Bucket | Local installer |
+| --- | --- | --- |
+| Production | `downloads.tearleads.com` | `macos-arm64-Tearleads.dmg` |
+| Staging | `downloads-staging.tearleads.com` | `canary-macos-arm64-Tearleads-canary.dmg` |
+
+Redeploy the website after publishing: its build resolves the environment's
+`<channel>-macos-arm64-download.json` into a matched pair of immutable installer
+and checksum links. An unavailable discovery document falls back to the verified
+first release. Existing legacy filenames are retained and never overwritten by
+this publisher. These local scripts publish macOS ARM64 only. See
+[Electrobun distribution](https://framework.blackboard.sh/electrobun/guides/bundling-and-distribution/)
+for platform packaging and native runner requirements.
+
+Run `bun run --cwd packages/app-electrobun test:release-packaging` on an
+Apple silicon Mac after preparing the devkit to exercise the real native
+packaging pipeline in a temporary project. It verifies the final renderer and
+SQLite assets in the update archive, and confirms a failed packaging hook stops
+before signing or artifact creation. It also publishes through a fake S3 command
+and uses Electrobun's actual updater to validate the manifest, resolve and read
+the published archive, and check its build hash. This probe uses no signing
+or AWS credentials.
+
+## Native persistence checks
 
 On Windows, exercise the native build and encrypted identity database restart:
 

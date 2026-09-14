@@ -121,6 +121,7 @@ assert_document_sync_ingress_cors() {
   local sync_location
   local sync_error_location
   local app_origin_rule="\"https://app.example.test\" \$http_origin;"
+  local desktop_origin_rule="\"http://127.0.0.1:3002\" \$http_origin;"
   local capacitor_origin_rule="\"https://localhost\" \$http_origin;"
 
   render_dir="$(mktemp -d)"
@@ -131,7 +132,7 @@ assert_document_sync_ingress_cors() {
     ansible localhost --connection local \
       -m ansible.builtin.template \
       -a "src=$api_template dest=$rendered_api mode=0600" \
-      -e '{"api_hostname":"api.example.test","api_cors_origins":"https://app.example.test,,https://app.example.test, https://localhost"}' \
+      -e '{"api_hostname":"api.example.test","api_cors_origins":"https://app.example.test,,https://app.example.test, https://localhost,http://127.0.0.1:3002"}' \
       </dev/null >/dev/null 2>"$render_dir/ansible.stderr"; then
     sed -n '1,120p' "$render_dir/ansible.stderr" >&2
     return 1
@@ -149,7 +150,8 @@ assert_document_sync_ingress_cors() {
     ! grep -Fq 'add_header Vary Origin always;' <<<"$sync_error_location" ||
     ! grep -Fq 'return 413' <<<"$sync_error_location" ||
     [ "$(grep -Fc "$app_origin_rule" "$rendered_api")" -ne 1 ] ||
-    [ "$(grep -Fc "$capacitor_origin_rule" "$rendered_api")" -ne 1 ]; then
+    [ "$(grep -Fc "$capacitor_origin_rule" "$rendered_api")" -ne 1 ] ||
+    [ "$(grep -Fc "$desktop_origin_rule" "$rendered_api")" -ne 1 ]; then
     echo "ERROR: Rendered document sync ingress must use an encoded-separator-safe 16 MiB route limit with JSON errors and the deduplicated API CORS allowlist." >&2
     return 1
   fi
@@ -284,11 +286,12 @@ assert_server_tier_defaults() {
       ANSIBLE_INVENTORY_UNPARSED_WARNING=false \
       ansible localhost --connection local \
         -m ansible.builtin.assert \
-        -a '{"that":["expected_cors in api_default_cors_origins", "(postgres_managed | bool) == (deployment_tier == \"prod\")", "not (postgres_ssl | bool)"], "fail_msg":"Server tier defaults must select demo hosts and managed Postgres consistently; managed TLS comes from the persistent output."}' \
+        -a '{"that":["expected_cors in api_default_cors_origins", "desktop_origin in api_default_cors_origins.split(\",\")", "(postgres_managed | bool) == (deployment_tier == \"prod\")", "not (postgres_ssl | bool)"], "fail_msg":"Server tier defaults must select demo hosts and managed Postgres consistently; managed TLS comes from the persistent output."}' \
         -e "@$play_vars" \
         -e "deployment_tier=$tier" \
         -e domain=example.test \
         -e "expected_cors=$cors" \
+        -e desktop_origin=http://127.0.0.1:3002 \
         </dev/null 2>"$render_dir/ansible.stderr")"; then
       printf '%s\n' "$assertion_result" >&2
       sed -n '1,120p' "$render_dir/ansible.stderr" >&2

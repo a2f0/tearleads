@@ -103,9 +103,13 @@ const baseConfig = {
         "electrobun.config.ts",
         "hutch.config.ts",
         "scripts/packageElectrobunAssets.ts",
+        // Hutch executes this hook before signing and creating installers.
+        "scripts/postBuild.ts",
+        // Invoked by the local release wrapper after artifact verification.
+        "scripts/publishMacosRelease.ts",
         // Invoked by the native CEF persistence smoke-test harnesses.
         "scripts/probeCefPersistence.ts",
-        // Wraps both build steps in scripts/buildElectrobun.sh.
+        // Selects diagnostics inherited by the build and its packaging hook.
         "scripts/withSentryReleaseEnv.ts",
         "src/bun/index.ts",
         "src/renderer/index.tsx",
