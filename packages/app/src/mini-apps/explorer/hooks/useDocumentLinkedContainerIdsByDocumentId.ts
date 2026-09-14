@@ -10,6 +10,16 @@ import {
   getRequestedDocumentIds,
 } from "../../../stores/explorer/documentSummaryUtils";
 
+// Teardown during an identity switch or database retry is not a failed load.
+function reportProjectionLoadFailure(
+  logError: (message: string | Error, cause?: unknown) => void,
+  error: unknown,
+): void {
+  if (!isIgnorableDatabaseWorkerError(error)) {
+    logError("Failed to load explorer linked container projections", error);
+  }
+}
+
 export function useDocumentLinkedContainerIdsByDocumentId(params: {
   dbStatus: RuntimeSnapshot["infra"]["dbStatus"];
   documentQueries: ContainerDocumentQueries;
@@ -27,6 +37,10 @@ export function useDocumentLinkedContainerIdsByDocumentId(params: {
   const [linkedContainerIdsByDocumentId, setLinkedContainerIdsByDocumentId] =
     useState<ReadonlyMap<string, ReadonlyArray<string>>>(new Map());
   const linkedContainerIdsLoadVersionRef = useRef(0);
+  // Read through a ref: the effect reports with the current logger without
+  // re-running when a caller passes a new function identity.
+  const logErrorRef = useRef(logError);
+  logErrorRef.current = logError;
   const requestedDocumentIds = useMemo(
     () => getRequestedDocumentIds(documentSummaries),
     [documentSummaries],
@@ -89,12 +103,7 @@ export function useDocumentLinkedContainerIdsByDocumentId(params: {
           );
         }
       } catch (error: unknown) {
-        if (!cancelled && !isIgnorableDatabaseWorkerError(error)) {
-          logError(
-            "Failed to load explorer linked container projections",
-            error,
-          );
-        }
+        if (!cancelled) reportProjectionLoadFailure(logErrorRef.current, error);
       }
     })();
 

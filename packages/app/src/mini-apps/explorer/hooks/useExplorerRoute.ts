@@ -111,6 +111,10 @@ function useExplorerRouteSelectionEffect(params: {
     selectDocument,
     setSelectedId,
   } = params;
+  // Read through a ref: the effect reports with the current logger without
+  // re-running when a caller passes a new function identity.
+  const logErrorRef = useRef(logError);
+  logErrorRef.current = logError;
   const route = parsedAppRoute?.route;
   const documentSelectionContainerId =
     route?.view === "document-selection" ? route.containerId : null;
@@ -159,7 +163,10 @@ function useExplorerRouteSelectionEffect(params: {
           if (!active || isIgnorableDatabaseWorkerError(error)) {
             return;
           }
-          logError("Failed to restore the explorer document route", error);
+          logErrorRef.current(
+            "Failed to restore the explorer document route",
+            error,
+          );
           setSelectedId(null);
         });
       return () => {
