@@ -290,22 +290,22 @@ directory, even after a failure. The release shell unsets its exported upload
 token; after the build, the wrapper reads it from `.secrets/root.env`, uploads
 the staged files with `app:///` URLs, removes them, and exits non-zero on
 failure so nothing is published. Publishing requires a clean checkout before
-building and again before upload. The wrapper starts with `--no-env-file`,
-`--config=/dev/null` and no `BUN_OPTIONS` or `BUN_INSPECT*` (it refuses them),
-and reads every `SENTRY_*` name (token, org, project, DSN) only from `.secrets`,
-so no exported or dotenv value redirects them.
+any Bun process runs (Bun loads a cwd `bunfig.toml` and dotenv files) and again
+before upload. `BUN_OPTIONS` and `BUN_INSPECT*` are unset before then; the
+version read and the wrapper add `--no-env-file --config=/dev/null`. The wrapper
+refuses those variables and `DYLD_*`, and reads every `SENTRY_*` name only from
+`.secrets`.
 
-The upload token reaches only the pinned `sentry-cli` binary. The wrapper
-resolves it through the `@sentry/cli` package rather than `PATH` and runs it
-directly, so no Bun or npm shim loads dotenv files. It starts in a fresh empty
-directory as its working directory and `HOME`, refuses to start if it or any
-ancestor holds `.sentryclirc` or `.env` or is writable by others (`TMPDIR` must
-be private), and receives only the token, `SENTRY_DISABLE_UPDATE_CHECK=1` and
-`SENTRY_LOAD_DOTENV=0`: never `SENTRY_URL`, `SENTRY_ALLOW_FAILURE`,
-`SENTRY_PROPERTIES` or proxy variables. `--url` is pinned to the CLI default,
-`https://sentry.io/`. The CLI prefers an org auth token's (`sntrys_`) embedded
-URL over `--url`, so that URL must be the root of `sentry.io`, `us.sentry.io`
-or `de.sentry.io`, and it is pinned instead.
+The upload token reaches only the pinned `sentry-cli` binary, resolved via
+`@sentry/cli`, not `PATH`, and run without a Bun or npm shim. It runs in a fresh
+empty directory as cwd and `HOME`, refuses to start below a `.sentryclirc`,
+`.env` or a directory others can write (`TMPDIR` must be private), and receives
+only the token, `SENTRY_DISABLE_UPDATE_CHECK=1` and `SENTRY_LOAD_DOTENV=0`: never
+`SENTRY_URL`, `SENTRY_ALLOW_FAILURE`, `SENTRY_PROPERTIES` or proxy variables.
+`--url` is pinned to the CLI default, `https://sentry.io/`. The CLI prefers an
+org auth token's (`sntrys_`) embedded URL and organization over `--url` and
+`--org`, so the URL must be the root of `sentry.io`, `us.sentry.io` or
+`de.sentry.io` (then pinned) and the organization must be `SENTRY_ORG`.
 
 API releases use `tearleads-api@<git-sha>`
 and `staging` / `production`. Bun embeds maps in the executable and resolves

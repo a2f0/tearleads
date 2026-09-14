@@ -18,8 +18,12 @@
 set -e
 
 BUN_PUBLIC_GIT_SHA="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
+# Read without dotenv files or a working-directory bunfig.toml: a desktop
+# release runs this before it checks that its checkout holds no untracked file,
+# so a preload either names would run first.
 BUN_PUBLIC_APP_VERSION="$(
-  bun -e 'console.log(JSON.parse(await Bun.file("package.json").text()).version)' \
+  bun --no-env-file --config=/dev/null \
+    -e 'console.log(JSON.parse(await Bun.file("package.json").text()).version)' \
     2>/dev/null || echo unknown
 )"
 export BUN_PUBLIC_GIT_SHA

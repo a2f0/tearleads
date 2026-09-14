@@ -14,6 +14,18 @@ fi
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 PACKAGE_DIR="$REPO_ROOT/packages/app-electrobun"
+# Bun loads a bunfig.toml and dotenv files from its working directory, and turbo
+# starts Bun in each package before the Sentry wrapper checks the checkout, so
+# an untracked or modified file refuses the release before any Bun process runs.
+# GIT_* variables could point Git at another checkout.
+changes="$(
+  for name in "${!GIT_@}"; do unset "$name"; done
+  git -C "$REPO_ROOT" status --porcelain=v1 --untracked-files=normal
+)"
+if [[ -n "$changes" ]]; then
+  echo "macOS releases require a clean Git checkout; commit changes first." >&2
+  exit 1
+fi
 # shellcheck source=terraform/scripts/common.sh
 source "$REPO_ROOT/terraform/scripts/common.sh"
 TF_TIER="$TIER"
@@ -22,6 +34,9 @@ load_secrets_env "$TF_TIER"
 # load_secrets_env exports every root.env name. Only the Sentry wrapper needs
 # the upload token, and it reads the file itself.
 unset SENTRY_AUTH_TOKEN
+# These add env files, preload modules or a debugger to every Bun process.
+unset BUN_OPTIONS BUN_INSPECT BUN_INSPECT_CONNECT_TO BUN_INSPECT_NOTIFY \
+  BUN_INSPECT_PRELOAD
 # shellcheck source=packages/app-electrobun/scripts/macosSigning.sh
 source "$PACKAGE_DIR/scripts/macosSigning.sh"
 configure_macos_signing

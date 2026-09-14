@@ -171,6 +171,8 @@ test.each([
   "BUN_INSPECT_CONNECT_TO",
   "BUN_INSPECT_NOTIFY",
   "BUN_INSPECT_PRELOAD",
+  "DYLD_INSERT_LIBRARIES",
+  "DYLD_FALLBACK_LIBRARY_PATH",
 ])(
   "a release started with %s refuses it before reading secrets",
   async (name) => {

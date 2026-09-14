@@ -9,12 +9,40 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-// The release shell exports every root.env name; only the Sentry wrapper may
-// hold the upload token, so no other child may inherit it.
-const tokenLeakProbe =
-  '[ -z "$SENTRY_AUTH_TOKEN" ] || echo token-leak >> "$RELEASE_TEST_LOG"';
+export const bunLaunchVariables = [
+  "BUN_OPTIONS",
+  "BUN_INSPECT",
+  "BUN_INSPECT_CONNECT_TO",
+  "BUN_INSPECT_NOTIFY",
+  "BUN_INSPECT_PRELOAD",
+];
 
-export async function runMacosRelease(args: string[], failure = "") {
+// The release shell exports every root.env name; only the Sentry wrapper may
+// hold the upload token, so no other child may inherit it. No child may inherit
+// the Bun variables that add env files, preloads or a debugger either.
+const tokenLeakProbe = [
+  '[ -z "$SENTRY_AUTH_TOKEN" ] || echo token-leak >> "$RELEASE_TEST_LOG"',
+  ...bunLaunchVariables.map(
+    (name) =>
+      `[ -z "\${${name}+x}" ] || echo "bun-launch ${name}" >> "$RELEASE_TEST_LOG"`,
+  ),
+].join("\n");
+
+// The stub Git reports a dirty checkout for the "dirty" failure, unless GIT_DIR
+// points it at another, clean, checkout.
+const gitStub = [
+  "#!/bin/sh",
+  'case "$*" in',
+  '  *" status "*) [ -n "$GIT_DIR" ] || [ "$RELEASE_TEST_FAILURE" != dirty ] || echo "?? bunfig.toml" ;;',
+  '  *) printf "%s\\n" "$RELEASE_TEST_ROOT" ;;',
+  "esac",
+].join("\n");
+
+export async function runMacosRelease(
+  args: string[],
+  failure = "",
+  ambient: Record<string, string> = {},
+) {
   const root = mkdtempSync(join(tmpdir(), "tearleads-macos-release-"));
   const packageDir = join(root, "packages/app-electrobun");
   const log = join(root, "calls.log");
@@ -36,7 +64,7 @@ export async function runMacosRelease(args: string[], failure = "") {
         join(packageDir, "scripts", name),
       );
     }
-    await write("bin/git", '#!/bin/sh\nprintf "%s\\n" "$RELEASE_TEST_ROOT"');
+    await write("bin/git", gitStub);
     symlinkSync(process.execPath, join(root, "bin/bun"));
     await write("bin/uname", '#!/bin/sh\necho "Darwin arm64"');
     await write(
@@ -134,6 +162,7 @@ export async function runMacosRelease(args: string[], failure = "") {
       {
         cwd: root,
         env: {
+          ...ambient,
           PATH: `${root}/bin:/usr/bin:/bin`,
           RELEASE_TEST_ROOT: root,
           RELEASE_TEST_LOG: log,

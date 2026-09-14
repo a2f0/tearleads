@@ -8,14 +8,17 @@ REPO_ROOT="$(CDPATH='' cd -- "$PACKAGE_DIR/../.." && pwd)"
 cd "$PACKAGE_DIR"
 # ELECTROBUN_RELEASE_TIER (staging|production) selects the desktop Sentry DSN;
 # unset builds stay local. The postBuild hook inherits these same defines and
-# packages renderer assets before signing and installer creation. The wrapper
-# holds the upload token, so Bun must not run anything before it: it starts
-# without dotenv files, without a working-directory bunfig.toml preload, and
-# without BUN_OPTIONS or the BUN_INSPECT* variables, which add env files, preload
-# modules or attach a debugger. The wrapper refuses those variables too, but a
-# preload would already have run by then.
+# packages renderer assets before signing and installer creation.
+#
+# The Sentry wrapper holds the upload token and checks for a clean checkout.
+# BUN_OPTIONS and the BUN_INSPECT* variables add env files, preload modules or a
+# debugger to every Bun process, so they are unset before the first one, the
+# version read in withBuildInfoEnv.sh. Bun processes before the wrapper's check,
+# the wrapper included, start without dotenv files or a working-directory
+# bunfig.toml. The wrapper refuses those variables too, but a preload would
+# already have run by then.
+unset BUN_OPTIONS BUN_INSPECT BUN_INSPECT_CONNECT_TO BUN_INSPECT_NOTIFY \
+  BUN_INSPECT_PRELOAD
 NODE_ENV=production exec sh "$REPO_ROOT/scripts/withBuildInfoEnv.sh" \
-  env -u BUN_OPTIONS -u BUN_INSPECT -u BUN_INSPECT_CONNECT_TO \
-  -u BUN_INSPECT_NOTIFY -u BUN_INSPECT_PRELOAD \
   bun --no-env-file --config=/dev/null scripts/withSentryReleaseEnv.ts \
   bun --bun run electrobun build "$@"

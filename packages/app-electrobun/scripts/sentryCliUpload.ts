@@ -46,7 +46,12 @@ export const hostedSentryEndpoint: SentryUploadEndpoint = {
 
 const orgAuthTokenPattern = /^sntrys_([A-Za-z0-9+/]+={0,2})_[A-Za-z0-9]+$/u;
 
-function embeddedTokenUrl(token: string): URL | null {
+interface EmbeddedTokenClaims {
+  readonly url: URL | null;
+  readonly org: string | undefined;
+}
+
+function embeddedTokenClaims(token: string): EmbeddedTokenClaims | null {
   const payload = orgAuthTokenPattern.exec(token)?.[1];
   if (payload === undefined) return null;
   const claims = Buffer.from(payload, "base64");
@@ -55,12 +60,17 @@ function embeddedTokenUrl(token: string): URL | null {
     return null;
   try {
     const parsed: unknown = JSON.parse(claims.toString("utf8"));
-    return typeof parsed === "object" &&
-      parsed !== null &&
-      "url" in parsed &&
-      typeof parsed.url === "string"
-      ? URL.parse(parsed.url)
-      : null;
+    if (typeof parsed !== "object" || parsed === null) return null;
+    return {
+      url:
+        "url" in parsed && typeof parsed.url === "string"
+          ? URL.parse(parsed.url)
+          : null,
+      org:
+        "org" in parsed && typeof parsed.org === "string"
+          ? parsed.org
+          : undefined,
+    };
   } catch {
     return null;
   }
@@ -75,12 +85,22 @@ export function sentryCliUploadUrl(
   endpoint: SentryUploadEndpoint,
 ): string {
   if (!/sntrys_/iu.test(token)) return endpoint.url;
-  const url = embeddedTokenUrl(token);
+  const url = embeddedTokenClaims(token)?.url;
   if (!url || !endpoint.isAllowed(url))
     throw new Error(
       "The Sentry org auth token does not embed an allowed Sentry URL",
     );
   return url.href;
+}
+
+// sentry-cli also replaces --org with an org auth token's embedded organization
+// and still exits 0, so a token issued for another organization would upload
+// the maps there instead of failing the release.
+export function assertSentryTokenOrganization(token: string, org: string) {
+  if (/sntrys_/iu.test(token) && embeddedTokenClaims(token)?.org !== org)
+    throw new Error(
+      "The Sentry org auth token was not issued for the configured organization",
+    );
 }
 
 export function sentryCliCommand(options: {

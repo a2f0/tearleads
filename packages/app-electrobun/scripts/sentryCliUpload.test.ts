@@ -3,6 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import {
+  assertSentryTokenOrganization,
   hostedSentryEndpoint,
   resolveSentryCliBinary,
   sentryCliCommand,
@@ -66,6 +67,24 @@ test("an org auth token's embedded URL is pinned only when it is allowed", () =>
   for (const token of refused)
     expect(() => sentryCliUploadUrl(token, hostedSentryEndpoint)).toThrow(
       /does not embed an allowed Sentry URL/,
+    );
+});
+
+test("an org auth token must be issued for the configured organization", () => {
+  expect(() =>
+    assertSentryTokenOrganization(orgToken("https://sentry.io"), "tearleads"),
+  ).not.toThrow();
+  expect(() =>
+    assertSentryTokenOrganization(`sntryu_${"0".repeat(64)}`, "tearleads"),
+  ).not.toThrow();
+  for (const token of [
+    `sntrys_${claims({ url: "https://sentry.io", org: "other" })}_${"Q".repeat(43)}`,
+    `sntrys_${claims({ iat: 1, url: "https://sentry.io" })}_${"Q".repeat(43)}`,
+    `sntrys_${claims({ url: "https://sentry.io", org: 1 })}_${"Q".repeat(43)}`,
+    `x sntrys_${claims({ org: "tearleads" })}_${"Q".repeat(43)}`,
+  ])
+    expect(() => assertSentryTokenOrganization(token, "tearleads")).toThrow(
+      /not issued for the configured organization/,
     );
 });
 

@@ -5,6 +5,7 @@ import {
   electrobunSentryRelease,
 } from "../src/diagnostics/sentryConfig";
 import {
+  assertSentryTokenOrganization,
   hostedSentryEndpoint,
   resolveSentryCliBinary,
   runSentryCli,
@@ -39,9 +40,11 @@ import {
 
 type Environment = Readonly<Record<string, string | undefined>>;
 
-// Bun options, preload modules and debuggers named by these variables would run
-// in, or attach to, the process that holds the upload token. buildElectrobun.sh
-// unsets them before Bun starts; a wrapper started some other way refuses them.
+// Bun options, preload modules and debuggers named by these variables, and the
+// DYLD_* libraries Bun's entitlements let macOS load, would run in, or attach
+// to, the process that holds the upload token. releaseMacos.sh and
+// buildElectrobun.sh unset the Bun variables before any Bun process starts, and
+// /bin/sh drops DYLD_* variables; a wrapper started some other way refuses them.
 const bunLaunchVariables = [
   "BUN_OPTIONS",
   "BUN_INSPECT",
@@ -57,7 +60,11 @@ const bunLaunchVariables = [
 async function releaseInputs(repoRoot: string, env: Environment) {
   const { ELECTROBUN_RELEASE_TIER: tier } = env;
   if (!tier) return { tier, secrets: env, commit: "", upload: undefined };
-  const launch = bunLaunchVariables.filter((name) => env[name] !== undefined);
+  const launch = Object.keys(env).filter(
+    (name) =>
+      env[name] !== undefined &&
+      (bunLaunchVariables.includes(name) || name.startsWith("DYLD_")),
+  );
   if (launch.length > 0)
     throw new Error(
       `Desktop Sentry releases must not run with ${launch.join(", ")}`,
@@ -100,6 +107,7 @@ export async function runDesktopSentryRelease(options: {
   const binary = upload ? resolveSentryCliBinary() : undefined;
   if (upload) {
     sentryCliUploadUrl(upload.token, endpoint);
+    assertSentryTokenOrganization(upload.token, upload.org);
     await rm(sourceMapDir, { recursive: true, force: true });
   }
   const code = await Bun.spawn([executable, ...args], {

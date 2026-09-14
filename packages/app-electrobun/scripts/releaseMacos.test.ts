@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { runMacosRelease } from "./releaseMacos.testUtils";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { bunLaunchVariables, runMacosRelease } from "./releaseMacos.testUtils";
 
 for (const [tier, channel, bucket, api] of [
   [
@@ -52,6 +55,42 @@ test("build mode verifies artifacts without AWS credentials or publication", asy
   expect(result.calls).not.toContain("credentials");
   expect(result.calls).not.toContain("token-leak");
   expect(result.calls.some((call) => call.startsWith("upload "))).toBe(false);
+});
+
+test("no release step or Bun process inherits Bun launch variables", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "macos-release-launch-"));
+  try {
+    const mark = join(directory, "preloaded");
+    const preload = join(directory, "preload.ts");
+    writeFileSync(
+      preload,
+      `import { writeFileSync } from "node:fs";\nwriteFileSync(${JSON.stringify(mark)}, "");\n`,
+    );
+    const result = await runMacosRelease(["upload", "staging"], "", {
+      ...Object.fromEntries(
+        bunLaunchVariables.map((name) => [name, "hostile"]),
+      ),
+      BUN_OPTIONS: `--preload=${preload}`,
+      BUN_INSPECT_PRELOAD: preload,
+    });
+    expect(
+      result.calls.filter((call) => call.startsWith("bun-launch")),
+    ).toEqual([]);
+    expect(existsSync(mark)).toBe(false);
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(result.stdout).toContain("Download:");
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("a dirty checkout refuses the release before secrets or any Bun process, whatever GIT_DIR says", async () => {
+  const result = await runMacosRelease(["upload", "production"], "dirty", {
+    GIT_DIR: "/clean/checkout/elsewhere",
+  });
+  expect(result.exitCode).not.toBe(0);
+  expect(result.calls).toEqual([]);
+  expect(result.stderr).toContain("require a clean Git checkout");
 });
 
 for (const failure of ["signing", "build", "missing", "notarization"]) {
