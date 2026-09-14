@@ -1,9 +1,9 @@
 # Private error diagnostics
 
-The web app, Android and iOS WebViews, the Electrobun desktop renderer, and
-the API report to separate Sentry projects for staging and production.
-Reporting is disabled without the corresponding DSN. Development, the
-two-identity demo, and the website remain local.
+The web app, Android and iOS WebViews, the Electrobun desktop renderer and main
+process, and the API report to separate Sentry projects for staging and
+production. Reporting is disabled without the corresponding DSN. Development,
+the two-identity demo, and the website remain local.
 
 ## Account setup
 
@@ -190,9 +190,16 @@ captures JavaScript failures inside the WebView.
 
 The Electrobun desktop renderer uses that same private JavaScript client,
 boundaries, and adapter. Frames are restricted to the renderer bundle served
-from the desktop shell's pinned loopback origin. The Bun main process is not
-covered: it would need the compiled source-path allowlist the API builds into
-its executable, which Electrobun's packaging does not produce.
+from the desktop shell's pinned loopback origin.
+
+The Bun main process reports failed downloads, failed reveals, uncaught
+exceptions, and unhandled rejections through the server client. Its only
+admitted frame is `app:///bun/index.js`, located from the running bundle's own
+absolute path; an ASAR or unbundled run reports nothing, and a map left beside
+the bundle, or an install path the stack parser cannot read, yields frameless
+events. An uncaught exception is logged, reported, and flushed for up to two
+seconds before Electrobun's own crash shutdown runs, so the app briefly keeps
+running; a second crash in that window shuts down at once.
 
 The API captures unexpected HTTP errors (500+, including temporary database
 failures) and failures during WebSocket handshakes. A domain error carrying a
@@ -261,8 +268,16 @@ events into another project and the upload token never reaches a renderer
 bundle. A configured tier whose DSN is missing or malformed stops the build
 rather than shipping a desktop app that looks instrumented and is not.
 
-Desktop does not upload source maps yet, so its events carry unsymbolicated
-bundle frames. Maps can be uploaded against the same release later.
+Release builds emit external maps for the renderer chunk and the main-process
+bundle. The main process reads its configuration from a build-time define with
+no runtime environment fallback. Before Electrobun signs or archives the app,
+the packaging hook copies each script and its map, with repository-relative
+sources, to `build/sentry-sourcemaps`, then deletes every map in the build
+directory, even after a failure. The release shell unsets its exported upload
+token; after the build, the wrapper reads it from `.secrets/root.env`, uploads
+the staged files with `app:///` URLs from a minimal environment, removes them,
+and exits non-zero on failure so nothing is published. Publishing requires a
+clean checkout before building and again before upload.
 
 API releases use `tearleads-api@<git-sha>`
 and `staging` / `production`. Bun embeds maps in the executable and resolves
@@ -277,10 +292,12 @@ They exercise the API's injected build configuration and real reporter for both
 tiers, asserting mapped application frames without raw error text or host paths.
 
 Run the tests in `packages/diagnostics/src`, both native and API diagnostics
-folders, and the privacy tests in `packages/app-web/scripts/sentry*.test.ts`,
-the real browser diagnostics test, and the app boundary/logging tests before
-changing this integration. They inspect emitted envelopes with synthetic private
-values. After account setup, deploy staging first and confirm an error event
+folders, `packages/app-electrobun/scripts/sentry*.test.ts`,
+`packages/app-electrobun/src/diagnostics`, the privacy tests in
+`packages/app-web/scripts/sentry*.test.ts`, the real browser diagnostics test,
+and the app boundary/logging tests before changing this integration. They
+inspect emitted envelopes with synthetic private values. After account setup,
+deploy staging first and confirm an error event
 arrives with symbolicated frames, the expected project/release, and only
 approved breadcrumbs before enabling production. SDK transport tests can verify
 sanitization locally; live ingestion and server-side symbolication require the

@@ -81,7 +81,9 @@ must be accessible to `codesign`; the existing
 interactive Terminal when macOS requires keychain authorization.
 
 The `postBuild` hook packages the final renderer, Loro WASM, SQLite worker, and
-SQLite WASM before Electrobun signs or archives the app. Release icons come from
+SQLite WASM before Electrobun signs or archives the app. For a release tier the
+hook also stages source maps outside the app and removes every map before
+signing; the build wrapper uploads them afterwards. Release icons come from
 the shared Tearleads SVG. Artifacts and SHA-256 checksums are written to the
 ignored `build/artifacts/` directory. Uploads publish DMGs, matching checksums,
 and full update archives under
