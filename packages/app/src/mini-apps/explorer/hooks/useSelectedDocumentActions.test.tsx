@@ -235,3 +235,32 @@ test("a failed document download reports the original error", async () => {
     ]);
   });
 });
+
+test("a document download lost to database teardown stays local", async () => {
+  const logged: unknown[] = [];
+  let loads = 0;
+  const { result } = renderHook(() =>
+    useExplorerDocumentDownload({
+      blobStore: {} as BlobStore,
+      loadDocumentInfo: async () => {
+        loads += 1;
+        throw new Error("Database worker client has been destroyed.");
+      },
+      logError: (_message, cause) => {
+        logged.push(cause);
+      },
+    }),
+  );
+
+  act(() => {
+    result.current("local-document-1");
+  });
+
+  await waitFor(() => {
+    expect(loads).toBe(1);
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  expect(logged).toEqual([]);
+});

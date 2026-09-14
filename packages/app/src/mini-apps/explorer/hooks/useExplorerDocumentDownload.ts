@@ -2,6 +2,7 @@ import type { BlobStore, DocumentInfo } from "@tearleads/client-sdk";
 import { useCallback } from "react";
 import { downloadResolvedAttachment } from "../../../document-types/shared/fileDownload";
 import { useFileSaver } from "../../../providers/file-saver/FileSaverProvider";
+import { isIgnorableDatabaseWorkerError } from "../../../stores/explorer/documentRuntime";
 
 // The explorer context-menu "Download" for a file document: resolve the file's
 // most recent attachment that has local bytes, then hand them to the platform
@@ -39,7 +40,11 @@ export function useExplorerDocumentDownload(params: {
             fileSaver,
           });
         } catch (error) {
-          logError("Failed to download the explorer document", error);
+          // An identity switch or database retry releases the runtime under the
+          // in-flight read; that is teardown, not a failed download.
+          if (!isIgnorableDatabaseWorkerError(error)) {
+            logError("Failed to download the explorer document", error);
+          }
         }
       })();
     },
