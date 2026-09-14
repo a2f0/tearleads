@@ -1,28 +1,30 @@
 import type { WorkerLike } from "./client";
 import {
-  type ClientLivenessLock,
+  createLocalClient,
+  dispatchCrashToLocalClient,
+  dispatchResponseToLocalClient,
+  failPendingRemoteRequests,
+  type LocalClient,
+  releaseLocalClient,
+} from "./crossTabLocalClient";
+import {
   canUseCrossTabPrimitives,
-  createClientLivenessLock,
   type LockManagerLike,
   lockManager,
 } from "./crossTabLocks";
 import { CrossTabOwner, type ModuleWorkerConstructor } from "./crossTabOwner";
+import { isOwnerLockHeld, pollForOwner } from "./crossTabOwnership";
 import {
   errorResponse,
   isCrossTabEnvelope,
   requestId,
   requestMethod,
-  responseId,
 } from "./crossTabProtocol";
+import { DatabaseWorkerCrashError } from "./workerCrash";
 
 const CROSS_TAB_CHANNEL_NAME = "tearleads-sqlite-worker";
 const CROSS_TAB_OWNER_LOCK_NAME = "tearleads-sqlite-worker-owner";
 const CROSS_TAB_REQUEST_TIMEOUT_MS = 10_000;
-// How long a non-owner tab polls for an owner to appear before it unblocks
-// routing anyway. Generous enough to cover a same-origin tab winning the
-// ownership bid, short enough never to noticeably delay the first request.
-const OWNER_OBSERVE_BUDGET_MS = 2_000;
-const OWNER_OBSERVE_INTERVAL_MS = 50;
 
 interface CrossTabDatabaseWorker extends WorkerLike {
   close(): void;
@@ -34,17 +36,6 @@ interface CrossTabDatabaseWorker extends WorkerLike {
    * routing into the dead one. See {@link CrossTabCoordinator.forceStopOwnerFor}.
    */
   forceStopOwner(): void;
-}
-
-interface LocalClient {
-  closing: boolean;
-  readonly dispatch: (response: unknown) => void;
-  readonly liveness: ClientLivenessLock;
-  readonly timeoutsByRequestId: Map<number, ReturnType<typeof setTimeout>>;
-  // Request ids this client posted over BroadcastChannel that have not yet been
-  // answered by the owner tab. Used to fail them fast (rather than wait out the
-  // timeout) when this tab is promoted to owner after the previous owner died.
-  readonly pendingRemoteRequestIds: Set<number>;
 }
 
 function isTeardownRequest(request: unknown): boolean {
@@ -89,15 +80,7 @@ class CrossTabCoordinator {
       this.retryOwnershipAfterBid = this.ownershipBidActive;
       this.resetOwnershipGate();
     }
-    this.localClientsById.set(clientId, {
-      closing: false,
-      dispatch: (response) => {
-        events.dispatchEvent(new MessageEvent("message", { data: response }));
-      },
-      liveness: createClientLivenessLock(clientId),
-      timeoutsByRequestId: new Map(),
-      pendingRemoteRequestIds: new Set(),
-    });
+    this.localClientsById.set(clientId, createLocalClient(clientId, events));
     this.hasCreatedClient = true;
     this.contendForOwnership();
 
@@ -256,30 +239,39 @@ class CrossTabCoordinator {
 
   private dispatchLocalResponse(clientId: string, response: unknown): void {
     const localClient = this.localClientsById.get(clientId);
-    if (!localClient) {
-      return;
+    if (localClient) {
+      dispatchResponseToLocalClient(localClient, response);
     }
+  }
 
-    const id = responseId(response);
-    if (id !== null) {
-      const timeoutId = localClient.timeoutsByRequestId.get(id);
-      if (timeoutId !== undefined) {
-        clearTimeout(timeoutId);
-        localClient.timeoutsByRequestId.delete(id);
-      }
-      localClient.pendingRemoteRequestIds.delete(id);
+  private dispatchLocalError(
+    clientId: string,
+    error: DatabaseWorkerCrashError,
+  ): void {
+    const localClient = this.localClientsById.get(clientId);
+    if (localClient) {
+      dispatchCrashToLocalClient(localClient, error);
     }
+  }
 
-    localClient.dispatch(response);
+  // A crashed owner worker is the same failure class as one that never
+  // constructed: record it so routing fails fast instead of rebuilding the
+  // crashed worker on the next bid (`contendForOwnership` and the post-release
+  // retry both stop on `ownerError`), and fail every local client — including
+  // one whose first request has not been routed yet, which is exactly where a
+  // script-load failure lands. The next `createWorker()` (a fresh runtime boot)
+  // clears the error and re-contends.
+  private handleOwnerCrash(error: DatabaseWorkerCrashError): void {
+    this.ownerError = error;
+    for (const localClient of this.localClientsById.values()) {
+      dispatchCrashToLocalClient(localClient, error);
+    }
   }
 
   private unregisterLocalClient(clientId: string): void {
     const localClient = this.localClientsById.get(clientId);
     if (localClient) {
-      for (const timeoutId of localClient.timeoutsByRequestId.values()) {
-        clearTimeout(timeoutId);
-      }
-      localClient.liveness.release();
+      releaseLocalClient(localClient);
     }
 
     this.localClientsById.delete(clientId);
@@ -295,6 +287,14 @@ class CrossTabCoordinator {
       this.owner?.route(envelope.clientId, envelope.request, {
         hasClientLock: envelope.hasClientLock === true,
       });
+      return;
+    }
+
+    if (envelope.type === "error") {
+      this.dispatchLocalError(
+        envelope.clientId,
+        new DatabaseWorkerCrashError(envelope.detail),
+      );
       return;
     }
 
@@ -339,10 +339,16 @@ class CrossTabCoordinator {
             this.channel,
             (clientId, response) =>
               this.dispatchLocalResponse(clientId, response),
+            (error) => this.handleOwnerCrash(error),
             () => {
               if (this.owner === owner) {
                 this.owner = null;
-                this.resetOwnershipGate();
+                // After a crash the gate stays settled: routing fails fast on
+                // the recorded error instead of waiting for a bid that must
+                // not run until a fresh client asks for one.
+                if (!this.ownerError) {
+                  this.resetOwnershipGate();
+                }
               }
               releaseOwner?.();
             },
@@ -403,14 +409,7 @@ class CrossTabCoordinator {
    * Settle the initial routing gate on a tab that did NOT win ownership. Runs
    * concurrently with the blocking bid above; whichever resolves first settles the
    * gate (the bid settles it on the tab that becomes owner, this settles it on
-   * every other tab).
-   *
-   * A single owner-lock query is not enough: at cold start no tab owns yet, so the
-   * query sees nothing held and the bid losers would never settle. Poll on a short
-   * budget instead, settling as soon as an owner is observed — either this tab won
-   * (`this.owner`) or another tab holds the owner lock. After the budget we settle
-   * regardless: by then some tab has almost certainly won, and the worst case is
-   * the first request takes the remote path and relies on the response/timeout.
+   * every other tab). See {@link pollForOwner} for why this polls.
    *
    * Falls back to settling immediately when the lock manager cannot be queried, so
    * routing is never blocked indefinitely.
@@ -426,28 +425,12 @@ class CrossTabCoordinator {
       return;
     }
 
-    void this.pollForOwner(locks, generation);
-  }
-
-  private async pollForOwner(
-    locks: LockManagerLike,
-    generation: number,
-  ): Promise<void> {
-    const deadline = OWNER_OBSERVE_BUDGET_MS / OWNER_OBSERVE_INTERVAL_MS;
-    for (let attempt = 0; attempt < deadline; attempt += 1) {
-      if (this.owner || (await this.isOwnerLockHeld(locks))) {
-        this.settleOwnership(generation);
-        return;
-      }
-
-      await new Promise((resolve) => {
-        setTimeout(resolve, OWNER_OBSERVE_INTERVAL_MS);
-      });
-    }
-
-    // Budget elapsed without observing an owner; settle anyway so routing is never
-    // wedged. A tab has almost certainly won the bid by now.
-    this.settleOwnership(generation);
+    void pollForOwner({
+      locks,
+      lockName: CROSS_TAB_OWNER_LOCK_NAME,
+      hasOwner: () => this.owner !== null,
+      settle: () => this.settleOwnership(generation),
+    });
   }
 
   private resetOwnershipGate(): void {
@@ -478,55 +461,14 @@ class CrossTabCoordinator {
     }
 
     const locks = lockManager();
-    return locks ? this.isOwnerLockHeld(locks) : false;
+    return locks ? isOwnerLockHeld(locks, CROSS_TAB_OWNER_LOCK_NAME) : false;
   }
 
-  private async isOwnerLockHeld(locks: LockManagerLike): Promise<boolean> {
-    if (!locks.query) {
-      return false;
-    }
-
-    let snapshot: unknown;
-    try {
-      snapshot = await locks.query();
-    } catch {
-      return false;
-    }
-
-    if (typeof snapshot !== "object" || snapshot === null) {
-      return false;
-    }
-
-    const held = Reflect.get(snapshot, "held");
-    if (!Array.isArray(held)) {
-      return false;
-    }
-
-    return held.some(
-      (lock) => Reflect.get(lock, "name") === CROSS_TAB_OWNER_LOCK_NAME,
-    );
-  }
-
-  /**
-   * Fail every still-outstanding remote request across all local clients with a
-   * retryable error. Called when this tab is promoted to owner, because the owner
-   * it had posted those requests to is now gone.
-   */
+  // Called when this tab is promoted to owner: the owner its clients had posted
+  // their remote requests to is gone, so fail them fast rather than time out.
   private failPendingRemoteRequests(): void {
-    for (const [clientId, localClient] of this.localClientsById) {
-      if (localClient.pendingRemoteRequestIds.size === 0) {
-        continue;
-      }
-
-      for (const id of [...localClient.pendingRemoteRequestIds]) {
-        this.dispatchLocalResponse(
-          clientId,
-          errorResponse(
-            id,
-            "The database owner tab changed; retry the request.",
-          ),
-        );
-      }
+    for (const localClient of this.localClientsById.values()) {
+      failPendingRemoteRequests(localClient);
     }
   }
 }

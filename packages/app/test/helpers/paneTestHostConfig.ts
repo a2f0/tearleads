@@ -6,6 +6,7 @@ import {
   type CreateSQLiteRuntimeOptions,
   createSQLiteRuntime,
 } from "@tearleads/client-sdk/sqlite";
+import type { AppDiagnostics } from "../../src/host/AppDiagnostics";
 import {
   type AppHostConfig,
   createAppHostConfig,
@@ -23,6 +24,7 @@ const testMessageChannelConstructor =
 interface CreateTestHostConfigOptions {
   readonly autoProvisionIdentity?: boolean | undefined;
   readonly createLocalKeyring?: (() => LocalKeyring) | null | undefined;
+  readonly diagnostics?: AppDiagnostics | undefined;
   readonly localIdentityNamespace?: string | undefined;
   readonly profile?: AppHostConfig["profile"] | undefined;
   readonly reuseDatabaseWorker?: boolean | undefined;
@@ -40,6 +42,7 @@ export function createTestHostConfig(
     apiBaseUrl: "http://localhost:3001",
     createBlobStore: () => createMemoryBlobStore(),
     createLocalKeyring,
+    diagnostics: options.diagnostics,
     createSQLiteRuntime: () =>
       createSQLiteRuntime({
         ...(options.reuseDatabaseWorker

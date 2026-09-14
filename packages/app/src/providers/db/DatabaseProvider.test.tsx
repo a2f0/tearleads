@@ -4,6 +4,7 @@ import { act, cleanup, waitFor } from "@testing-library/react";
 import { renderDatabaseProvider } from "../../../test/helpers/databaseProviderTestHarness";
 import {
   createBootTimeoutSQLiteRuntimeFactory,
+  createCrashableSQLiteRuntimeFactory,
   createRecordingSQLiteRuntimeFactory,
   createRestartSensitiveSQLiteRuntimeFactory,
   createRetryableSQLiteRuntimeFactory,
@@ -11,6 +12,29 @@ import {
   createUnreadableUnwipeableSQLiteRuntimeFactory,
 } from "../../../test/helpers/databaseRuntimeFactories";
 import { createSharedMemoryLocalKeyringFactory } from "../../../test/helpers/sharedMemoryLocalKeyring";
+import type { AppDiagnostics } from "../../host/AppDiagnostics";
+import { UnreadableDatabaseRecoveryError } from "./sqliteRuntimeErrors";
+
+type CapturedError = Parameters<AppDiagnostics["captureError"]>;
+
+// The only path off the device: `LogProvider` forwards real Errors here.
+function createDiagnosticsRecorder() {
+  const captured: CapturedError[] = [];
+  const diagnostics: AppDiagnostics = {
+    addBreadcrumb: () => {},
+    captureError: (error, context) => {
+      captured.push([error, context]);
+    },
+  };
+  return { captured, diagnostics };
+}
+
+function recoveryError(value: unknown): UnreadableDatabaseRecoveryError {
+  if (!(value instanceof UnreadableDatabaseRecoveryError)) {
+    throw new Error("Expected an UnreadableDatabaseRecoveryError.");
+  }
+  return value;
+}
 
 const TEST_SIGNING_FINGERPRINT =
   "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
@@ -276,8 +300,10 @@ test("queued spawnWorker after kill is abandoned when provider unmounts", async 
 
 test("wipes and recreates a persisted database that is unreadable with the resolved key", async () => {
   const runtimeFactory = createUnreadableThenHealedSQLiteRuntimeFactory();
+  const recorder = createDiagnosticsRecorder();
   const view = renderDatabaseProvider({
     createSQLiteRuntime: runtimeFactory.createSQLiteRuntime,
+    diagnostics: recorder.diagnostics,
     storagePersistence: PERSISTENT_STORAGE_POLICY,
   });
 
@@ -297,6 +323,15 @@ test("wipes and recreates a persisted database that is unreadable with the resol
       createCount: 2,
       clientDeleteCount: 1,
     });
+    // Deleting the user's database is the one event that must leave the device:
+    // exactly one wipe report, carrying the SQLite failure as its cause.
+    expect(recorder.captured).toHaveLength(1);
+    const [reported, context] = recorder.captured[0] ?? [];
+    expect(context).toEqual({ area: "app", source: "log" });
+    const wipe = recoveryError(reported);
+    expect(wipe.stage).toBe("wiping");
+    expect(wipe.cause).toBeInstanceOf(Error);
+    expect(String(wipe.cause)).toContain("SQLITE_NOTADB");
   } finally {
     view.unmount();
   }
@@ -304,8 +339,10 @@ test("wipes and recreates a persisted database that is unreadable with the resol
 
 test("surfaces an error when an unreadable database cannot be wiped", async () => {
   const runtimeFactory = createUnreadableUnwipeableSQLiteRuntimeFactory();
+  const recorder = createDiagnosticsRecorder();
   const view = renderDatabaseProvider({
     createSQLiteRuntime: runtimeFactory.createSQLiteRuntime,
+    diagnostics: recorder.diagnostics,
     storagePersistence: PERSISTENT_STORAGE_POLICY,
   });
 
@@ -321,6 +358,51 @@ test("surfaces an error when an unreadable database cannot be wiped", async () =
       expect(view.getControls().status).toBe("error");
     });
     expect(runtimeFactory.getStats().createCount).toBe(1);
+    expect(
+      recorder.captured.map(([error]) => recoveryError(error).stage),
+    ).toEqual(["wiping", "wipe-failed"]);
+    expect(String(recoveryError(recorder.captured[1]?.[0]).cause)).toContain(
+      "planned wipe failure",
+    );
+  } finally {
+    view.unmount();
+  }
+});
+
+test("a worker crash is reported once and retires the runtime so waiters reject", async () => {
+  const runtimeFactory = createCrashableSQLiteRuntimeFactory();
+  const recorder = createDiagnosticsRecorder();
+  const view = renderDatabaseProvider({
+    createSQLiteRuntime: runtimeFactory.createSQLiteRuntime,
+    diagnostics: recorder.diagnostics,
+  });
+
+  try {
+    await view.controlsReady.promise;
+    await act(async () => {
+      await view.getControls().ensureReady();
+    });
+    expect(view.getControls().status).toBe("ready");
+
+    const crash = new Error("Database worker failed. script load failed");
+    act(() => {
+      runtimeFactory.crash(crash);
+    });
+
+    await waitFor(() => {
+      expect(view.getControls().status).toBe("error");
+    });
+    expect(recorder.captured).toEqual([
+      [crash, { area: "app", source: "log" }],
+    ]);
+
+    // The crashed runtime was retired, so a retry boots a fresh one rather than
+    // reattaching the dead worker.
+    await act(async () => {
+      await view.getControls().ensureReady();
+    });
+    expect(view.getControls().status).toBe("ready");
+    expect(runtimeFactory.getStats().createCount).toBe(2);
   } finally {
     view.unmount();
   }

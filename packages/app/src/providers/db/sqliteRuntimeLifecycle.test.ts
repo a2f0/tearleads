@@ -5,7 +5,11 @@ import type {
   SQLiteRuntime,
 } from "@tearleads/client-sdk/sqlite";
 import { waitFor } from "@testing-library/react";
-import { createReusableSQLiteRuntimeFactory } from "../../../test/helpers/databaseRuntimeFactories";
+import {
+  createCrashableSQLiteRuntimeFactory,
+  createReusableSQLiteRuntimeFactory,
+} from "../../../test/helpers/databaseRuntimeFactories";
+import { UnreadableDatabaseRecoveryError } from "./sqliteRuntimeErrors";
 import { startSQLiteRuntimeBoot } from "./sqliteRuntimeLifecycle";
 
 const DB_A = "identity-a";
@@ -13,9 +17,12 @@ const DB_B = "identity-b";
 
 interface LifecycleHarness {
   boot: (dbName: string) => void;
+  crashes: Error[];
   dispose: () => void;
   invalidateBoot: () => void;
+  logged: Array<[string | Error, unknown]>;
   readyRuntimeIds: string[];
+  releaseRuntime: () => void;
   tearleads: Tearleads;
 }
 
@@ -43,6 +50,8 @@ function createLifecycleHarness(params: {
   const currentDbNameRef: { current: string | null } = { current: null };
   const targetDbNameRef = { current: DB_A };
   const readyRuntimeIds: string[] = [];
+  const logged: Array<[string | Error, unknown]> = [];
+  const crashes: Error[] = [];
   const unsubscribe = tearleads.database.subscribe(() => {
     const snapshot = tearleads.database.snapshot;
     if (snapshot.status === "ready" && snapshot.id) {
@@ -60,7 +69,13 @@ function createLifecycleHarness(params: {
       createSQLiteRuntime: params.createSQLiteRuntime,
       currentDbNameRef,
       log() {},
+      logError(message, cause) {
+        logged.push([message, cause]);
+      },
       nextDbName: dbName,
+      onWorkerCrash(error) {
+        crashes.push(error);
+      },
       onTransientBootFailure: params.onTransientBootFailure ?? (() => false),
       onUnreadableDatabase: params.onUnreadableDatabase ?? (() => {}),
       persistence: params.persistence ?? "memory",
@@ -74,6 +89,7 @@ function createLifecycleHarness(params: {
 
   const harness = {
     boot,
+    crashes,
     dispose: () => {
       unsubscribe();
       runtimeRef.current?.terminateNow();
@@ -84,7 +100,12 @@ function createLifecycleHarness(params: {
       bootingRef.current = false;
       tearleads.database.clear("idle");
     },
+    logged,
     readyRuntimeIds,
+    releaseRuntime: () => {
+      runtimeRef.current?.terminateNow();
+      runtimeRef.current = null;
+    },
     tearleads,
   };
   harnesses.push(harness);
@@ -113,32 +134,73 @@ test("a superseded boot never publishes the obsolete database", async () => {
   expect(runtimeFactory.getStats().renewCount).toBe(1);
 });
 
-test("a boot failure logs a serializable error message", async () => {
+test("a boot failure reports the original error through logError", async () => {
+  const initError = new Error("Missing required OPFS APIs.");
   const runtimeFactory = createReusableSQLiteRuntimeFactory({
-    firstInitError: new Error("Missing required OPFS APIs."),
+    firstInitError: initError,
   });
   const harness = createLifecycleHarness({
     createSQLiteRuntime: runtimeFactory.createSQLiteRuntime,
   });
-  const originalConsoleError = console.error;
-  const errors: unknown[][] = [];
-  console.error = (...args: unknown[]) => {
-    errors.push(args);
-  };
 
-  try {
-    harness.boot(DB_A);
-    await waitFor(() => {
-      expect(harness.tearleads.database.status).toBe("error");
-    });
-  } finally {
-    console.error = originalConsoleError;
-  }
+  harness.boot(DB_A);
+  await waitFor(() => {
+    expect(harness.tearleads.database.status).toBe("error");
+  });
 
-  expect(errors).toHaveLength(1);
-  expect(errors[0]?.[0]).toBe("Failed to initialize database worker:");
-  expect(errors[0]?.[1]).toBe("Missing required OPFS APIs.");
-  expect(errors[0]?.[2]).toBeInstanceOf(Error);
+  expect(harness.logged).toEqual([
+    ["Failed to initialize database worker", initError],
+  ]);
+});
+
+test("wiping an unreadable database reports a real Error carrying the SQLite failure", async () => {
+  const sqliteError = new Error("SQLITE_NOTADB: file is not a database");
+  const runtimeFactory = createReusableSQLiteRuntimeFactory({
+    firstInitError: sqliteError,
+  });
+  const wipedDbNames: string[] = [];
+  const harness = createLifecycleHarness({
+    createSQLiteRuntime: runtimeFactory.createSQLiteRuntime,
+    onUnreadableDatabase: (dbName) => {
+      wipedDbNames.push(dbName);
+    },
+    persistence: "opfs-sahpool",
+  });
+
+  harness.boot(DB_A);
+  await waitFor(() => {
+    expect(wipedDbNames).toEqual([DB_A]);
+  });
+
+  expect(harness.logged).toHaveLength(1);
+  const [reported, cause] = harness.logged[0] ?? [];
+  expect(cause).toBeUndefined();
+  expect(reported).toBeInstanceOf(UnreadableDatabaseRecoveryError);
+  expect(reported).toMatchObject({
+    stage: "wiping",
+    cause: sqliteError,
+    message: `Database is unreadable with the resolved cipher key; wiping and recreating ${DB_A}.`,
+  });
+});
+
+test("a worker crash reaches the crash handler only while the runtime is owned", async () => {
+  const runtimeFactory = createCrashableSQLiteRuntimeFactory();
+  const harness = createLifecycleHarness({
+    createSQLiteRuntime: runtimeFactory.createSQLiteRuntime,
+  });
+
+  harness.boot(DB_A);
+  await waitFor(() => {
+    expect(harness.tearleads.database.status).toBe("ready");
+  });
+
+  const crash = new Error("Database worker failed. script load failed");
+  runtimeFactory.crash(crash);
+  expect(harness.crashes).toEqual([crash]);
+
+  harness.releaseRuntime();
+  runtimeFactory.crash(new Error("Database worker failed. after release"));
+  expect(harness.crashes).toEqual([crash]);
 });
 
 test("a superseded unreadable failure boots the latest target without wiping", async () => {

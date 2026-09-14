@@ -10,6 +10,7 @@ import {
   isBootRoundTripTimeoutError,
 } from "./bootSQLiteRuntime";
 import type { ResolveSqliteCipherKey } from "./sqliteCipherKey";
+import { UnreadableDatabaseRecoveryError } from "./sqliteRuntimeErrors";
 import {
   canReuseSQLiteRuntime,
   logSQLiteRuntimeReuseUnavailable,
@@ -20,6 +21,7 @@ import {
 } from "./sqliteRuntimeRetention";
 
 type SQLiteRuntimeStatus = DatabaseStatus;
+type LogError = (message: string | Error, cause?: unknown) => void;
 
 /**
  * Whether a boot error is "the persisted database could not be decrypted with the
@@ -76,20 +78,18 @@ function failSQLiteRuntimeBoot(params: {
   runtimeRef: RefObject<SQLiteRuntime | null>;
   bootingRef: RefObject<boolean>;
   tearleads: Tearleads;
+  logError: LogError;
   error: unknown;
 }) {
-  const { runtime, runtimeRef, bootingRef, tearleads, error } = params;
+  const { runtime, runtimeRef, bootingRef, tearleads, logError, error } =
+    params;
 
   if (runtimeRef.current !== runtime) {
     return;
   }
 
   bootingRef.current = false;
-  console.error(
-    "Failed to initialize database worker:",
-    unknownErrorMessage(error),
-    error,
-  );
+  logError("Failed to initialize database worker", error);
   tearleads.database.clear("error");
 }
 
@@ -99,7 +99,14 @@ interface StartSQLiteRuntimeBootParams {
   createSQLiteRuntime: () => SQLiteRuntime;
   currentDbNameRef: RefObject<string | null>;
   log: (message: string) => void;
+  logError: LogError;
   nextDbName: string;
+  /**
+   * Invoked when the runtime's worker crashes after construction (see
+   * {@link SQLiteRuntime.subscribeWorkerError}). Only fires for the runtime this
+   * boot still owns; a crash of an already-replaced runtime is teardown noise.
+   */
+  onWorkerCrash?: (error: Error) => void;
   /**
    * Invoked when a *persistent* database fails to boot because its on-disk bytes
    * cannot be decrypted with the resolved key (see {@link isUnreadableDatabaseError}).
@@ -151,6 +158,7 @@ interface SettleSQLiteRuntimeBootParams {
   dbName: string;
   persistence: DatabasePersistenceMode;
   log: (message: string) => void;
+  logError: LogError;
   onUnreadableDatabase?: ((dbName: string) => void) | undefined;
   onTransientBootFailure?: ((dbName: string) => boolean) | undefined;
   onBootSucceeded?: ((dbName: string) => void) | undefined;
@@ -179,7 +187,7 @@ function handleSQLiteRuntimeBootFailure(
   if (error instanceof SQLiteRuntimeResetError) {
     params.runtimeRef.current = null;
     params.bootingRef.current = false;
-    console.error("Failed to reset reusable database worker:", error);
+    params.logError("Failed to reset reusable database worker", error);
     if (params.targetDbNameRef.current !== params.dbName) {
       params.tearleads.database.clear("idle");
       params.rebootForDbName(params.targetDbNameRef.current);
@@ -202,10 +210,13 @@ function handleSQLiteRuntimeBootFailure(
     isUnreadableDatabaseError(error)
   ) {
     params.bootingRef.current = false;
-    params.log(
-      `Database is unreadable with the resolved cipher key (${unknownErrorMessage(
-        error,
-      )}); wiping and recreating ${params.dbName}.`,
+    // The single most visible event this lifecycle can produce: the user's
+    // whole local database is about to be deleted. Reported as a real Error so
+    // it leaves the device, with the SQLite failure as its cause.
+    params.logError(
+      new UnreadableDatabaseRecoveryError("wiping", params.dbName, {
+        cause: error,
+      }),
     );
     params.onUnreadableDatabase(params.dbName);
     return;
@@ -225,6 +236,7 @@ function handleSQLiteRuntimeBootFailure(
     runtimeRef: params.runtimeRef,
     bootingRef: params.bootingRef,
     tearleads: params.tearleads,
+    logError: params.logError,
     error,
   });
 }
@@ -276,7 +288,9 @@ function startFreshSQLiteRuntimeBoot(params: StartSQLiteRuntimeBootParams) {
     createSQLiteRuntime,
     currentDbNameRef,
     log,
+    logError,
     nextDbName,
+    onWorkerCrash,
     onUnreadableDatabase,
     onTransientBootFailure,
     onBootSucceeded,
@@ -295,6 +309,14 @@ function startFreshSQLiteRuntimeBoot(params: StartSQLiteRuntimeBootParams) {
     const runtime = createSQLiteRuntime();
     runtimeRef.current = runtime;
     tearleads.database.clear("idle");
+    // Subscribed for the runtime's whole life, including later reuse of the
+    // same worker for another database; the ownership check drops crashes of a
+    // runtime this lifecycle has already released.
+    runtime.subscribeWorkerError?.((error) => {
+      if (runtimeRef.current === runtime) {
+        onWorkerCrash?.(error);
+      }
+    });
 
     settleSQLiteRuntimeBoot({
       bootGeneration: bootGenerationRef.current,
@@ -314,6 +336,7 @@ function startFreshSQLiteRuntimeBoot(params: StartSQLiteRuntimeBootParams) {
       dbName: nextDbName,
       persistence,
       log,
+      logError,
       onUnreadableDatabase,
       onTransientBootFailure,
       onBootSucceeded,
@@ -322,7 +345,7 @@ function startFreshSQLiteRuntimeBoot(params: StartSQLiteRuntimeBootParams) {
     });
   } catch (error) {
     bootingRef.current = false;
-    console.error("Failed to create database worker:", error);
+    logError("Failed to create database worker", error);
     tearleads.database.clear("error");
   }
 }
@@ -340,6 +363,7 @@ function bootReusableSQLiteRuntimeForDbName(
     bootingRef,
     currentDbNameRef,
     log,
+    logError,
     nextDbName,
     onUnreadableDatabase,
     onTransientBootFailure,
@@ -391,6 +415,7 @@ function bootReusableSQLiteRuntimeForDbName(
     dbName: nextDbName,
     persistence,
     log,
+    logError,
     onUnreadableDatabase,
     onTransientBootFailure,
     onBootSucceeded,

@@ -250,6 +250,50 @@ export function createBootTimeoutSQLiteRuntimeFactory(failureCount: number) {
   };
 }
 
+/**
+ * A healthy runtime whose worker can be crashed on demand: `crash(error)` hands
+ * the error to every `subscribeWorkerError` listener, the way a real runtime
+ * forwards its worker's `error` event.
+ */
+export function createCrashableSQLiteRuntimeFactory() {
+  const listeners = new Set<(error: Error) => void>();
+  let createCount = 0;
+
+  return {
+    crash: (error: Error) => {
+      for (const listener of listeners) {
+        listener(error);
+      }
+    },
+    createSQLiteRuntime: (): SQLiteRuntime => {
+      createCount += 1;
+      const client: SQLiteRuntime["client"] = {
+        close: async () => ({ ok: true }),
+        delete: async () => ({ ok: true }),
+        destroy() {},
+        exec: async () => ({ ok: true, rows: [] }),
+        init: async () => ({ ok: true }),
+        ping: async () => ({ ok: true, message: "pong" }),
+      };
+
+      return {
+        client,
+        deleteData: async () => client.destroy(),
+        destroy: () => client.destroy(),
+        id: `crashable-${createCount}`,
+        subscribeWorkerError(listener) {
+          listeners.add(listener);
+          return () => {
+            listeners.delete(listener);
+          };
+        },
+        terminateNow: () => client.destroy(),
+      };
+    },
+    getStats: () => ({ createCount, listenerCount: listeners.size }),
+  };
+}
+
 /** Records the options each init() is called with (cipher key, persistence). */
 export function createRecordingSQLiteRuntimeFactory() {
   const initOptions: Array<Parameters<SQLiteRuntime["client"]["init"]>[0]> = [];

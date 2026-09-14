@@ -9,6 +9,7 @@ import type {
   WorkerMethod,
   WorkerRequestMap,
 } from "./types";
+import { workerCrashErrorFromEvent } from "./workerCrash";
 
 export interface DatabaseWorkerClient {
   ping(): Promise<DatabaseWorkerPingResult>;
@@ -93,14 +94,13 @@ function makeMessageHandler(pending: Map<number, PendingRequest>) {
   };
 }
 
+// A worker crash rejects every in-flight request rather than leaving it to hang:
+// the worker will never answer them. The error is minted on the main thread (see
+// workerCrash.ts) unless the event already carries the instance from the site
+// that observed the crash.
 function makeErrorHandler(pending: Map<number, PendingRequest>) {
   return (event: Event) => {
-    const workerError =
-      event instanceof ErrorEvent
-        ? toError(event.error ?? event.message, "Database worker failed.")
-        : new Error("Database worker failed.");
-
-    rejectPendingRequests(pending, workerError);
+    rejectPendingRequests(pending, workerCrashErrorFromEvent(event));
   };
 }
 

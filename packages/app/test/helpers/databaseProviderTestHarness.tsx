@@ -2,6 +2,7 @@ import type { LocalKeyring } from "@tearleads/client-sdk";
 import type { StoragePersistencePolicy } from "@tearleads/client-sdk/sqlite";
 import { render } from "@testing-library/react";
 import { useEffect } from "react";
+import type { AppDiagnostics } from "../../src/host/AppDiagnostics";
 import type { CreateSQLiteRuntimeFn } from "../../src/host/AppHostConfig";
 import { createAppHostConfig } from "../../src/host/AppHostConfig";
 import {
@@ -42,6 +43,7 @@ function DatabaseProbe({
 export function renderDatabaseProvider(props: {
   readonly createLocalKeyring?: () => LocalKeyring;
   readonly createSQLiteRuntime: CreateSQLiteRuntimeFn;
+  readonly diagnostics?: AppDiagnostics;
   readonly reuseDatabaseWorker?: boolean;
   readonly storagePersistence?: StoragePersistencePolicy;
 }) {
@@ -70,7 +72,7 @@ export function renderDatabaseProvider(props: {
       })}
     >
       <LocalKeyringLockProvider>
-        <LogProvider>
+        <LogProvider diagnostics={props.diagnostics}>
           <SyncModeProvider>
             <TearleadsProvider>
               <DatabaseProvider>

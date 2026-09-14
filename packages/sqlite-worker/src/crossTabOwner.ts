@@ -2,6 +2,10 @@ import type { WorkerLike } from "./client";
 import { queryLiveClientIds } from "./crossTabLocks";
 import { requestId, requestMethod, responseId } from "./crossTabProtocol";
 import { WORKER_CONNECT_PORT_MESSAGE_TYPE } from "./types";
+import {
+  DatabaseWorkerCrashError,
+  describeWorkerErrorEvent,
+} from "./workerCrash";
 
 const CROSS_TAB_CLIENT_SWEEP_INTERVAL_MS = 1_000;
 
@@ -50,9 +54,13 @@ export class CrossTabOwner {
       clientId: string,
       response: unknown,
     ) => void,
+    private readonly onWorkerCrash: (error: DatabaseWorkerCrashError) => void,
     private readonly release: () => void,
   ) {
     this.worker = new workerConstructor(workerUrl, { type: "module" });
+    this.worker.addEventListener("error", (event) => {
+      this.handleWorkerError(event);
+    });
     this.sweepIntervalId = setInterval(() => {
       void this.sweepInactiveClients();
     }, CROSS_TAB_CLIENT_SWEEP_INTERVAL_MS);
@@ -151,6 +159,27 @@ export class CrossTabOwner {
     if (method === "close" || method === "delete") {
       this.closeClient(clientId, { stopWhenIdle: true });
     }
+  }
+
+  // The worker threw outside any request (a failed script load, an uncaught
+  // exception in its message handling), so nothing it was asked will be answered
+  // and nothing it is asked next can be trusted. Tell the remote tabs it was
+  // serving over the channel, hand the crash to the coordinator — which fails
+  // every local client, routed or not, since a script-load failure lands before
+  // the first request — then tear the owner down. Errors thrown inside a Worker
+  // never reach the page's own handlers, so this listener is the only signal a
+  // crash produces.
+  private handleWorkerError(event: Event): void {
+    if (this.stopped) {
+      return;
+    }
+
+    const detail = describeWorkerErrorEvent(event);
+    for (const clientId of this.activeClientIds) {
+      this.channel.postMessage({ type: "error", clientId, detail });
+    }
+    this.onWorkerCrash(new DatabaseWorkerCrashError(detail));
+    this.stop();
   }
 
   private rememberMethod(clientId: string, request: unknown): void {
