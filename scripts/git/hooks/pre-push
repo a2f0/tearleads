@@ -4,8 +4,16 @@ set -e
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
+# A copied hook must match the checked-out version before it can gate a push.
+if ! cmp -s "$0" "$REPO_ROOT/scripts/git/hooks/pre-push"; then
+  echo "Error: pre-push hook is stale. Run sh scripts/git/install-hooks.sh." >&2
+  exit 1
+fi
+
 # shellcheck disable=SC1091
 . "$REPO_ROOT/scripts/stepTimings.sh"
+# shellcheck disable=SC1091
+. "$REPO_ROOT/scripts/checks/fastChecks.sh"
 
 cd "$REPO_ROOT"
 
@@ -60,29 +68,11 @@ step_timings_reset
 
 step_timings_run branch-name bun run lint:branch-name
 
-step_timings_run shellcheck bun run lint:scripts
-
-step_timings_run static-analysis bun run test:static-analysis
+run_fast_checks
 
 step_timings_run terraform "$REPO_ROOT/scripts/checks/checkTerraform.sh"
 
 step_timings_run typescript bun tsc --build --pretty false
-
-step_timings_run biome bun run lint:biome
-
-step_timings_run markdown bun run lint:markdown
-
-step_timings_run package-assertions bun run lint:package-assertions
-
-step_timings_run canonical-ordering bun run lint:canonical-ordering
-
-step_timings_run knip bun run lint:knip:all
-
-step_timings_run knip-production bun run lint:knip:production
-
-step_timings_run architecture bun run lint:architecture
-
-step_timings_run file-names bun run lint:files
 
 step_timings_begin commit-trust "Checking commit signatures and co-authors"
 
@@ -134,8 +124,6 @@ while read -r _ local_sha _ remote_sha; do
   "$REPO_ROOT/scripts/checks/checkBinaryFiles.sh" --range "$range" </dev/null
 done <"$refs_file"
 step_timings_end
-
-step_timings_run ruby bun run lint:ruby
 
 step_timings_run tests bun run test:turbo:affected
 
