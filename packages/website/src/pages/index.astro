@@ -1,10 +1,13 @@
 ---
 import { isStaging } from "../config";
 import Layout from "../layouts/Layout.astro";
+import { resolveLinuxDownloads } from "../linuxDownloads";
 import { resolveMacosDownloads } from "../macosDownloads";
 
-const { installerUrl: macosDownloadUrl, checksumUrl } =
-  await resolveMacosDownloads(isStaging);
+const [macos, linux] = await Promise.all([
+  resolveMacosDownloads(isStaging),
+  resolveLinuxDownloads(isStaging),
+]);
 ---
 
 <Layout
@@ -18,21 +21,38 @@ const { installerUrl: macosDownloadUrl, checksumUrl } =
         Keep your notes, contacts, and files in one place — local-first,
         synced across your devices, and shared on your terms.
       </p>
-      <div class="desktop-download">
-        <a class="download-button" href={macosDownloadUrl}>
-          {isStaging ? "Download macOS preview" : "Download for macOS"}
-        </a>
-        <p>For Macs with Apple silicon.</p>
-        <a class="download-checksum" href={checksumUrl}>
-          SHA-256 checksum
-        </a>
+      <div class="desktop-downloads">
+        <div class="desktop-download">
+          <a class="download-button" href={macos.installerUrl}>
+            {isStaging ? "Download macOS preview" : "Download for macOS"}
+          </a>
+          <p>For Macs with Apple silicon.</p>
+          <a class="download-checksum" href={macos.checksumUrl} aria-label="SHA-256 checksum for macOS">
+            SHA-256 checksum
+          </a>
+        </div>
+        <div class="desktop-download">
+          <a class="download-button" href={linux.installerUrl}>
+            {isStaging ? "Download Linux preview" : "Download for Linux"}
+          </a>
+          <p>For Linux x64 (Intel / AMD).</p>
+          <a class="download-checksum" href={linux.checksumUrl} aria-label="SHA-256 checksum for Linux">
+            SHA-256 checksum
+          </a>
+          <p>
+            <a class="download-checksum" href="/downloads/linux">Installation instructions</a>
+          </p>
+        </div>
       </div>
     </section>
   </main>
 </Layout>
 
 <style>
-  .desktop-download {
+  .desktop-downloads {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 32px;
     margin-top: 32px;
   }
 

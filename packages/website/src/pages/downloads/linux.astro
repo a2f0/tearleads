@@ -1,0 +1,40 @@
+---
+import Layout from "../../layouts/Layout.astro";
+---
+
+<Layout
+  title="Install Tearleads on Linux"
+  description="Download and install Tearleads on Linux x64."
+>
+  <main class="website-main">
+    <h1>Install Tearleads on Linux</h1>
+    <p>
+      The Linux download supports x64 processors from Intel and AMD.
+      We test it on Ubuntu 24.04.
+    </p>
+    <ol>
+      <li>Install the desktop libraries. On Ubuntu 24.04, run:
+        <pre><code>sudo apt install libgtk-3-0 libwebkit2gtk-4.1-0 libayatana-appindicator3-1 librsvg2-2 libnss3 libasound2t64 libgbm1</code></pre>
+      </li>
+      <li><a href="/">Download the Linux archive</a> and its SHA-256 checksum.</li>
+      <li>Verify the download by running <code>sha256sum -c</code> followed by the checksum filename.</li>
+      <li>Extract the <code>.tar.gz</code> archive using your file manager.</li>
+      <li>Open a terminal in the extracted folder and run <code>./installer</code> as your regular user.</li>
+    </ol>
+    <p>
+      The installer adds Tearleads to your application menu and opens the app.
+      A desktop session is required.
+    </p>
+  </main>
+</Layout>
+
+<style>
+  li {
+    margin-block: 16px;
+  }
+  pre {
+    overflow-x: auto;
+    padding: 16px;
+    background: #f3f5f2;
+  }
+</style>
