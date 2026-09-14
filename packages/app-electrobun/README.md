@@ -57,18 +57,23 @@ CLI installed. These scripts load `.secrets/root.env` plus the selected tier's
 environment file and select its API, WebSocket, Sentry, and download bucket.
 
 ```sh
-scripts/buildMacosRelease.sh staging
-scripts/buildMacosRelease.sh production
+scripts/buildMacosStagingRelease.sh
+scripts/buildMacosRelease.sh
 
 # Build, sign, notarize, verify, and upload to the matching S3 bucket:
-scripts/uploadMacosRelease.sh staging
-scripts/uploadMacosRelease.sh production
+scripts/uploadMacosStagingRelease.sh
+scripts/uploadMacosRelease.sh
 ```
 
 Equivalent package commands are `build:staging`, `build:release`,
 `upload:staging`, and `upload:release`. Each upload command builds fresh artifacts
 before publishing. Staging uses Electrobun's `canary` channel and production uses
 `stable`; the apps have separate channel data directories.
+
+Like the iOS and Android wrappers, `*Release.sh` defaults to production and
+`*StagingRelease.sh` selects staging. Each supports `--help`. The original
+`*Release.sh staging` and `*Release.sh production` forms still work; staging
+shortcuts always select staging. Dispatch is shared in `scripts/desktopRelease.sh`.
 
 Signing uses the installed Developer ID Application identity. Set
 `ELECTROBUN_DEVELOPER_ID` if more than one is installed. Notarization uses
@@ -118,14 +123,19 @@ or AWS credentials.
 Run these commands from a checkout with Docker running:
 
 ```sh
-scripts/buildLinuxRelease.sh production
-scripts/uploadLinuxRelease.sh production
-scripts/uploadLinuxRelease.sh staging
+scripts/buildLinuxStagingRelease.sh
+scripts/buildLinuxRelease.sh
+
+# Build, verify, and upload to the matching S3 bucket:
+scripts/uploadLinuxStagingRelease.sh
+scripts/uploadLinuxRelease.sh
 ```
 
 The upload commands build before publishing. Equivalent package commands are
-`bun run --cwd packages/app-electrobun build:linux production` and
-`bun run --cwd packages/app-electrobun upload:linux production` (or `staging`).
+`build:linux:staging`, `build:linux:release`, `upload:linux:staging`, and
+`upload:linux:release`, run with `bun run --cwd packages/app-electrobun <command>`.
+The shorter `build:linux` and `upload:linux` commands default to production and
+still accept an explicit `staging` or `production` argument.
 They build Linux x64 in an Ubuntu 24.04 container with Bun pinned to the
 repository version and Electrobun pinned by the lockfile. On Apple silicon,
 disable Docker Desktop's **Use Rosetta for x86_64/amd64 emulation** setting to
