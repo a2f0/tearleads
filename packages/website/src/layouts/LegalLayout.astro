@@ -22,7 +22,6 @@ const pathname = Astro.url.pathname.replace(/\/$/, "");
 const relatedPages = [
   { href: "/privacy-policy", label: "Privacy Policy" },
   { href: "/terms-of-service", label: "Terms of Service" },
-  { href: "/security", label: "Security architecture" },
 ];
 ---
 
@@ -47,7 +46,7 @@ const relatedPages = [
         )}
       </header>
 
-      <nav class="legal-related" aria-label="Legal and security documents">
+      <nav class="legal-related" aria-label="Legal documents">
         {relatedPages.map(({ href, label }) => (
           <a href={href} aria-current={pathname === href ? "page" : undefined}>{label}</a>
         ))}
