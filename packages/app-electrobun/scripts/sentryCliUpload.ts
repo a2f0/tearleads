@@ -1,4 +1,10 @@
-import { accessSync, constants, existsSync, realpathSync } from "node:fs";
+import {
+  accessSync,
+  constants,
+  existsSync,
+  lstatSync,
+  realpathSync,
+} from "node:fs";
 import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -122,8 +128,22 @@ export function resolveSentryCliBinary(): string {
   return binary;
 }
 
+// sentry-cli reads .sentryclirc from the directory and each ancestor when it
+// starts, after this check. So none may hold one yet, and each must be a real
+// directory that only this user or root can change: under one another user can
+// write, such as a TMPDIR of /tmp, a .sentryclirc could appear in between.
 function assertNoInheritedConfig(directory: string): void {
+  const uid = process.getuid?.();
   for (let current = directory; ; current = dirname(current)) {
+    const stats = lstatSync(current);
+    if (
+      !stats.isDirectory() ||
+      (stats.uid !== uid && stats.uid !== 0) ||
+      (stats.mode & 0o022) !== 0
+    )
+      throw new Error(
+        `Refusing to run sentry-cli below ${current}: another user could write there; set TMPDIR to a private directory`,
+      );
     for (const name of [".sentryclirc", ".env"]) {
       const path = join(current, name);
       if (existsSync(path))

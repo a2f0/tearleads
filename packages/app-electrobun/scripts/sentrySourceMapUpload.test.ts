@@ -3,6 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  fixtureDsn,
   orgAuthToken,
   runHostileRelease,
   startAttacker,
@@ -38,7 +39,7 @@ function manifestFiles(bundlePath: string) {
   return files;
 }
 
-test("the release uploads exactly the renderer and main-process URLs, only to the intended endpoint, whatever the ambient Sentry configuration", async () => {
+test("the release uploads exactly the renderer and main-process URLs, only to the intended endpoint and .secrets organization, whatever the ambient Sentry configuration", async () => {
   await withServers(false, async ({ bundlePath, intended, attacker }) => {
     const token = orgAuthToken(intended.url);
     const run = await runHostileRelease({
@@ -52,6 +53,13 @@ test("the release uploads exactly the renderer and main-process URLs, only to th
       "POST /api/0/organizations/test-org/chunk-upload/",
     );
     expect([...intended.authorizations]).toEqual([`Bearer ${token}`]);
+    expect(
+      intended.requests.filter(
+        (request) => !request.includes(" /api/0/organizations/test-org/"),
+      ),
+    ).toEqual([]);
+    expect([...intended.projects]).toEqual(["tearleads-electrobun-staging"]);
+    expect(run.buildDsn).toBe(fixtureDsn);
     const files = manifestFiles(bundlePath);
     expect(files.map((file) => file.url).sort()).toEqual([
       "app:///bun/index.js",
@@ -109,11 +117,43 @@ test("sentry-cli never runs below an inherited .sentryclirc or .env", async () =
       intended: intended.url,
       attacker: attacker.url,
       token: orgAuthToken(intended.url),
-      tmpUnderHostileAncestor: true,
+      tmp: "hostileAncestor",
     });
     expect(run.code).not.toBe(0);
     expect(run.output).toContain("Refusing to run sentry-cli below");
     expect(run.built).toBe(true);
+    expect(intended.requests).toEqual([]);
+    expect(attacker.connections()).toBe(0);
+  });
+}, 60000);
+
+test("sentry-cli never runs below a directory another user can write", async () => {
+  await withServers(false, async ({ intended, attacker }) => {
+    const run = await runHostileRelease({
+      intended: intended.url,
+      attacker: attacker.url,
+      token: orgAuthToken(intended.url),
+      tmp: "shared",
+    });
+    expect(run.code).not.toBe(0);
+    expect(run.output).toContain("another user could write there");
+    expect(run.built).toBe(true);
+    expect(intended.requests).toEqual([]);
+    expect(attacker.connections()).toBe(0);
+  });
+}, 60000);
+
+test("a release with BUN_OPTIONS stops before building or sending anything", async () => {
+  await withServers(false, async ({ intended, attacker }) => {
+    const run = await runHostileRelease({
+      intended: intended.url,
+      attacker: attacker.url,
+      token: orgAuthToken(intended.url),
+      bunOptions: true,
+    });
+    expect(run.code).not.toBe(0);
+    expect(run.output).toContain("must not run with BUN_OPTIONS");
+    expect(run.built).toBe(false);
     expect(intended.requests).toEqual([]);
     expect(attacker.connections()).toBe(0);
   });

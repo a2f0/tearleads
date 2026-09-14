@@ -1,9 +1,10 @@
 import { expect } from "bun:test";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { chmod, mkdtemp, realpath, rm, symlink } from "node:fs/promises";
+import { realpathSync, statSync } from "node:fs";
+import { chmod, mkdir, mkdtemp, realpath, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 const packageRoot = resolve(import.meta.dirname, "..");
 
@@ -11,6 +12,7 @@ export interface FakeSentry {
   readonly url: string;
   readonly requests: string[];
   readonly authorizations: Set<string>;
+  readonly projects: Set<string>;
   stop(): void;
 }
 
@@ -23,6 +25,7 @@ export function startFakeSentry(
   const chunks = new Map<string, Uint8Array>();
   const requests: string[] = [];
   const authorizations = new Set<string>();
+  const projects = new Set<string>();
   const server = Bun.serve({
     hostname: "127.0.0.1",
     port: 0,
@@ -52,7 +55,10 @@ export function startFakeSentry(
         return new Response("");
       }
       if (pathname.includes("assemble")) {
-        const { chunks: ids }: { chunks: string[] } = await request.json();
+        const body: { chunks: string[]; projects?: string[] } =
+          await request.json();
+        for (const project of body.projects ?? []) projects.add(project);
+        const ids = body.chunks;
         const parts = ids.map((id) => chunks.get(id));
         if (parts.some((part) => !part))
           return Response.json({ state: "not_found", missingChunks: ids });
@@ -69,6 +75,7 @@ export function startFakeSentry(
     url: `http://127.0.0.1:${server.port}`,
     requests,
     authorizations,
+    projects,
     stop: () => server.stop(true),
   };
 }
@@ -95,8 +102,8 @@ export function startAttacker() {
   };
 }
 
-export function orgAuthToken(url: string): string {
-  const claims = JSON.stringify({ iat: 1, url, org: "test-org" });
+export function orgAuthToken(url: string, org = "test-org"): string {
+  const claims = JSON.stringify({ iat: 1, url, org });
   return `sntrys_${Buffer.from(claims).toString("base64")}_${"Q".repeat(43)}`;
 }
 
@@ -109,13 +116,20 @@ const proxyNames = [
   "ALL_PROXY",
 ];
 
+export const fixtureDsn = `https://${"a".repeat(32)}@o1.ingest.us.sentry.io/1`;
+
 // Every ambient source sentry-cli or Bun reads, pointed at the attacker: rc and
 // ini files in HOME, the wrapper's cwd, the package and an ancestor of all of
 // them; Bun and sentry-cli dotenv files; and a PATH whose bun and sentry-cli
-// exit 0 without uploading.
-async function plantHostileConfig(root: string, attacker: string) {
+// exit 0 without uploading. Dotenv files also substitute another organization's
+// token, which embeds the intended URL, and DSN, and the environment exports its
+// organization and project.
+async function plantHostileConfig(root: string, urls: HostileUrls) {
+  const { attacker } = urls;
   const rc = `[defaults]\nurl=${attacker}\n[http]\nproxy_url=${attacker}\n`;
   const dotenv = [
+    `SENTRY_AUTH_TOKEN='${orgAuthToken(urls.intended, "attacker-org")}'`,
+    `SENTRY_ELECTROBUN_STAGING_DSN=https://${"e".repeat(32)}@o666.ingest.de.sentry.io/666`,
     `SENTRY_URL=${attacker}`,
     "SENTRY_ALLOW_FAILURE=1",
     "SENTRY_LOAD_DOTENV=1",
@@ -149,6 +163,8 @@ async function plantHostileConfig(root: string, attacker: string) {
   const { PATH } = process.env;
   return {
     ...Object.fromEntries(proxyNames.map((name) => [name, attacker])),
+    SENTRY_ORG: "attacker-org",
+    SENTRY_ELECTROBUN_STAGING_PROJECT: "attacker-project",
     SENTRY_URL: attacker,
     SENTRY_ALLOW_FAILURE: "1",
     SENTRY_LOAD_DOTENV: "1",
@@ -186,7 +202,6 @@ function git(cwd: string, ...args: string[]) {
 // A committed checkout shaped like this one: tier secrets, and a package with
 // the manifest script and dependencies a Bun-launched sentry-cli would use.
 async function createRepository(repoRoot: string, token: string) {
-  const dsn = `https://${"a".repeat(32)}@o1.ingest.us.sentry.io/1`;
   await Bun.write(
     join(repoRoot, ".gitignore"),
     ".secrets/\nbuild/\nnode_modules\n.env*\n.sentryclirc\n",
@@ -205,7 +220,7 @@ async function createRepository(repoRoot: string, token: string) {
   );
   await Bun.write(
     join(repoRoot, ".secrets/staging.env"),
-    `SENTRY_ELECTROBUN_STAGING_PROJECT=tearleads-electrobun-staging\nSENTRY_ELECTROBUN_STAGING_DSN=${dsn}\n`,
+    `SENTRY_ELECTROBUN_STAGING_PROJECT=tearleads-electrobun-staging\nSENTRY_ELECTROBUN_STAGING_DSN=${fixtureDsn}\n`,
   );
   git(repoRoot, "init", "--quiet");
   git(repoRoot, "add", ".");
@@ -217,7 +232,10 @@ async function createRepository(repoRoot: string, token: string) {
 const stageScript = `import { join } from "node:path";
 const directory = process.env.TEARLEADS_ELECTROBUN_SOURCEMAP_DIR;
 if (!directory) throw new Error("No source-map staging directory");
-await Bun.write(join(import.meta.dirname, "built"), "");
+await Bun.write(
+  join(import.meta.dirname, "built"),
+  process.env.BUN_PUBLIC_SENTRY_ELECTROBUN_DSN ?? "",
+);
 for (const [entry, naming, target] of [
   ["renderer.ts", "chunk-a1b2c3.js", "browser"],
   ["main.ts", "bun/index.js", "bun"],
@@ -241,30 +259,49 @@ process.exit(await runDesktopSentryRelease({
 }));
 `;
 
+interface HostileUrls {
+  readonly intended: string;
+  readonly attacker: string;
+}
+
 export interface ReleaseRun {
   readonly code: number;
   readonly output: string;
   readonly built: boolean;
+  readonly buildDsn: string | undefined;
   readonly packageRoot: string;
+}
+
+// The upload refuses a TMPDIR below a directory another user can write, such as
+// Linux's default /tmp; the git-ignored build directory stands in there.
+async function privateTempBase(): Promise<string> {
+  const base = realpathSync(tmpdir());
+  for (let current = base; ; current = dirname(current)) {
+    if ((statSync(current).mode & 0o022) !== 0) {
+      await mkdir(join(packageRoot, "build"), { recursive: true });
+      return realpath(join(packageRoot, "build"));
+    }
+    if (dirname(current) === current) return base;
+  }
 }
 
 // Runs withSentryReleaseEnv.ts's release flow in a Bun subprocess whose cwd,
 // HOME, environment, PATH and every ancestor carry hostile Sentry settings,
-// with the loopback intended server as its only allowed endpoint.
-export async function runHostileRelease(options: {
-  intended: string;
-  attacker: string;
-  token: string;
-  tmpUnderHostileAncestor?: boolean;
-}): Promise<ReleaseRun> {
-  const root = await realpath(
-    await mkdtemp(join(tmpdir(), "desktop-release-")),
-  );
-  const cleanTmp = await realpath(
-    await mkdtemp(join(tmpdir(), "desktop-tmp-")),
-  );
+// with the loopback intended server as its only allowed endpoint. `tmp` places
+// its TMPDIR in a clean private directory, below a hostile .sentryclirc, or in a
+// world-writable sticky directory with no .sentryclirc above it.
+export async function runHostileRelease(
+  options: HostileUrls & {
+    token: string;
+    tmp?: "clean" | "hostileAncestor" | "shared";
+    bunOptions?: boolean;
+  },
+): Promise<ReleaseRun> {
+  const base = await privateTempBase();
+  const root = await realpath(await mkdtemp(join(base, "desktop-release-")));
+  const cleanTmp = await realpath(await mkdtemp(join(base, "desktop-tmp-")));
   try {
-    const env = await plantHostileConfig(root, options.attacker);
+    const env = await plantHostileConfig(root, options);
     const repoRoot = join(root, "repo");
     await createRepository(repoRoot, options.token);
     await Bun.write(
@@ -280,8 +317,16 @@ export async function runHostileRelease(options: {
       join(root, "harness.ts"),
       harnessScript(join(import.meta.dirname, "withSentryReleaseEnv.ts")),
     );
-    const tmp = options.tmpUnderHostileAncestor ? join(root, "tmp") : cleanTmp;
+    const tmp = {
+      clean: cleanTmp,
+      hostileAncestor: join(root, "tmp"),
+      shared: join(cleanTmp, "shared"),
+    }[options.tmp ?? "clean"];
     await Bun.write(join(tmp, ".keep"), "");
+    if (options.tmp === "shared") await chmod(tmp, 0o1777);
+    const bunOptions = options.bunOptions
+      ? { BUN_OPTIONS: `--env-file=${join(root, "work/.env")}` }
+      : {};
     const packageDir = join(repoRoot, "packages/app");
     const child = Bun.spawn(
       [
@@ -294,7 +339,12 @@ export async function runHostileRelease(options: {
       ],
       {
         cwd: join(root, "work"),
-        env: { ...env, TMPDIR: tmp, ELECTROBUN_RELEASE_TIER: "staging" },
+        env: {
+          ...env,
+          ...bunOptions,
+          TMPDIR: tmp,
+          ELECTROBUN_RELEASE_TIER: "staging",
+        },
         stdout: "pipe",
         stderr: "pipe",
       },
@@ -304,12 +354,19 @@ export async function runHostileRelease(options: {
       new Response(child.stdout).text(),
       new Response(child.stderr).text(),
     ]);
-    const built = await Bun.file(join(root, "built")).exists();
+    const marker = Bun.file(join(root, "built"));
+    const built = await marker.exists();
     const staged = await Bun.file(
       join(packageDir, "build/sentry-sourcemaps/bun/index.js"),
     ).exists();
     expect(staged).toBe(false);
-    return { code, output: stdout + stderr, built, packageRoot: packageDir };
+    return {
+      code,
+      output: stdout + stderr,
+      built,
+      buildDsn: built ? await marker.text() : undefined,
+      packageRoot: packageDir,
+    };
   } finally {
     await rm(root, { recursive: true, force: true });
     await rm(cleanTmp, { recursive: true, force: true });

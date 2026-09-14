@@ -39,9 +39,18 @@ import {
 
 type Environment = Readonly<Record<string, string | undefined>>;
 
+// Bun loads dotenv files, and any --env-file in BUN_OPTIONS, into this process
+// before it runs, and a build machine may export another project's settings.
+// So every SENTRY_* name, the upload token, organization, project and DSN
+// included, comes only from .secrets; the environment supplies everything else.
 async function releaseInputs(repoRoot: string, env: Environment) {
-  const { ELECTROBUN_RELEASE_TIER: tier } = env;
+  const { ELECTROBUN_RELEASE_TIER: tier, BUN_OPTIONS: bunOptions } = env;
   if (!tier) return { tier, secrets: env, commit: "", upload: undefined };
+  if (bunOptions !== undefined)
+    throw new Error("Desktop Sentry releases must not run with BUN_OPTIONS");
+  const ambient = Object.entries(env).filter(
+    ([name]) => !name.startsWith("SENTRY_"),
+  );
   const secrets = {
     ...(await readDesktopSentrySecrets(resolve(repoRoot, ".secrets/root.env"))),
     ...(await readDesktopSentrySecrets(
@@ -51,7 +60,7 @@ async function releaseInputs(repoRoot: string, env: Environment) {
         tier === "production" ? "prod.env" : "staging.env",
       ),
     )),
-    ...env,
+    ...Object.fromEntries(ambient),
   };
   const commit = desktopSentryCommit(repoRoot);
   const upload = desktopSentryUpload(secrets, tier);

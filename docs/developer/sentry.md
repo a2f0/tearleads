@@ -290,13 +290,16 @@ directory, even after a failure. The release shell unsets its exported upload
 token; after the build, the wrapper reads it from `.secrets/root.env`, uploads
 the staged files with `app:///` URLs, removes them, and exits non-zero on
 failure so nothing is published. Publishing requires a clean checkout before
-building and again before upload.
+building and again before upload. The wrapper runs with `--no-env-file`,
+refuses `BUN_OPTIONS`, and reads every `SENTRY_*` name (token, org, project,
+DSN) only from `.secrets`, so no exported or dotenv value redirects them.
 
 The upload token reaches only the pinned `sentry-cli` binary. The wrapper
 resolves it through the `@sentry/cli` package rather than `PATH` and runs it
 directly, so no Bun or npm shim loads dotenv files on the way. It starts in a
 fresh empty directory that is both its working directory and `HOME`, refuses to
-start when that directory or any ancestor holds `.sentryclirc` or `.env`, and
+start when that directory or any ancestor holds `.sentryclirc` or `.env` or is
+writable by others (`TMPDIR` must be private), and
 receives only the token, `SENTRY_DISABLE_UPDATE_CHECK=1` and
 `SENTRY_LOAD_DOTENV=0`: never `SENTRY_URL`, `SENTRY_ALLOW_FAILURE`,
 `SENTRY_PROPERTIES` or proxy variables. `--url` is pinned to the CLI default,
