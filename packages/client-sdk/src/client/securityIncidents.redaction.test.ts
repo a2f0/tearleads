@@ -74,3 +74,41 @@ test("evidence truncation keeps code-unit-first keys on every locale", async () 
     await close();
   }
 });
+
+test("a __proto__ evidence key survives reporting and reading back", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "security-incidents-proto-evidence-key",
+  );
+  const service = createSecurityIncidentService({
+    database: new Database({ execSql, status: "ready" }),
+    logError: () => undefined,
+    trustDomain: null,
+  });
+
+  try {
+    const evidenceHashes = Object.fromEntries([
+      ["__proto__", "p".repeat(64)],
+      ["manifestHash", "m".repeat(64)],
+    ]) as Record<string, string>;
+    expect(Object.hasOwn(evidenceHashes, "__proto__")).toBe(true);
+    await service.report(
+      new KeyingVerificationError("rollback", "stale head"),
+      {
+        evidenceHashes,
+        objectId: "object",
+        objectKind: "document",
+        operation: "document.sync",
+        organizationId: "org",
+      },
+    );
+
+    const [incident] = (await service.incidents.list()) ?? [];
+    const listed = incident?.evidenceHashes ?? {};
+    const { manifestHash } = listed;
+    expect(Object.hasOwn(listed, "__proto__")).toBe(true);
+    expect(manifestHash).toBe("m".repeat(64));
+  } finally {
+    service.dispose();
+    await close();
+  }
+});
