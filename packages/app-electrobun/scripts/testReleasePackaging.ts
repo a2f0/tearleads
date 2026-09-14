@@ -120,6 +120,14 @@ async function build(channel: string) {
 }
 
 try {
+  // Hutch rejects a symlinked .hutch (InvalidProjectStatePath) and projects a
+  // devkit under the temporary root, outside the repository. The main-process
+  // map's devkit sources then resolve only against the package's projection.
+  const sync = Bun.spawn(
+    [process.execPath, "--bun", "run", "electrobun", "sync"],
+    { cwd: packageRoot, env, stdout: "ignore", stderr: "inherit" },
+  );
+  assert.equal(await sync.exited, 0, "The package devkit must be projected");
   for (const name of ["node_modules", "src", "scripts"])
     await symlink(join(packageRoot, name), join(root, name));
   for (const name of ["package.json", "hutch.config.ts"])
