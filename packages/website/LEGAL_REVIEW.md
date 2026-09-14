@@ -1,13 +1,18 @@
 # Legal document publication review
 
-The Privacy Policy and Terms of Service are original review drafts, not a legal
-opinion or a claim that Tearleads meets every jurisdiction's requirements.
-While `src/legal.ts` sets `isDraft: true`, production and ordinary static builds
-render only a publication placeholder and the company's contact details, not the
-draft text or summary. Full drafts are available in the local development server
-(`bun run dev`) and explicitly configured staging builds, marked **not yet
-effective** and carrying `noindex`. They have not been deployed as part of this
-drafting task. Do not treat a successful build as approval to adopt them.
+The owner authorized publication of the current Privacy Policy and Terms of
+Service on September 14, 2026. `src/legal.ts` records that effective date and sets
+`isDraft: false`. Both documents render in full in production, staging, and local
+builds, with an effective date and no draft notice. Staging remains non-indexable.
+
+PR #2283 introduced the documents with `isDraft: true`; its review repair
+`5d06efe7` added the production placeholder. Later deployments retained that
+setting. The publication build tests now require the full documents independently
+of the draft flag so a return to placeholders fails validation.
+
+The original review topics below remain background for future revisions and
+operational follow-up. Publication authorization does not record completion of
+every check or constitute a legal opinion.
 
 ## Confirmed by the owner
 
@@ -17,10 +22,10 @@ drafting task. Do not treat a successful build as approval to adopt them.
 - Sync and Sharing are available, not coming soon.
 - No street mailing address was supplied; none has been invented.
 
-## Decisions to approve before publication
+## Original review topics
 
-Have the owner and qualified counsel review the full documents, including these
-proposed terms. These are drafting choices, not existing business instructions:
+The original drafts called for review of the following terms. Revisit these
+topics when revising the documents:
 
 - **Eligibility:** age 18 and legal capacity, including organizational authority.
 - **Refunds:** no ordinary partial-period refunds, with statutory and store
@@ -73,10 +78,10 @@ proposed terms. These are drafting choices, not existing business instructions:
 
 ## Publication
 
-After approval, update the document text, set the agreed effective date in
-`src/legal.ts`, and change `isDraft` to `false`. The display label is derived in
-UTC. Approval enables full production rendering and removes the review notice
-and document-specific `noindex`; staging remains non-indexable.
+For approved revisions, update the document text and agreed effective date in
+`src/legal.ts`, keeping the published documents available. The display label is
+derived in UTC. `isDraft: false` enables full production rendering without the
+review notice or document-specific `noindex`; staging remains non-indexable.
 Preserve a copy of adopted versions and arrange appropriate notice to users.
 Build and review both pages again, then deploy only when publication is authorized.
 
