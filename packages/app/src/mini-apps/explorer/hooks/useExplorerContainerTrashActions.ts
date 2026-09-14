@@ -1,9 +1,10 @@
 import { useCallback } from "react";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
+import { isExplorerContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";
 import {
-  isExplorerContainerUnderTrash,
-  resolveExplorerDeleteTrashTarget,
-} from "../../../stores/explorer/ExplorerSystemContainers";
+  resolveDeleteToTrashTarget,
+  TrashUnavailableError,
+} from "../../../stores/systemContainerTrash";
 import {
   type ExplorerPurgeRun,
   useExplorerPurgeRun,
@@ -12,9 +13,11 @@ import type { ExplorerModelExplorer } from "./explorerModelTypes";
 
 // Resolve the Trash a delete/trash-move should land in for the source
 // container's OWN organization, lazily creating only the viewer's own Trash
-// (device-first). A foreign org's Trash is never substituted, so an absent one
-// yields undefined and the caller aborts rather than mis-homing the object
-// across orgs.
+// (device-first), through the same shared core as Notes and Contacts. Returns
+// null when the source already lives under that Trash (the caller no-ops). A
+// foreign org's Trash is never substituted, so an unavailable Trash is thrown
+// as the typed TrashUnavailableError: the callers' error path logs it for the
+// user (as the Notes hook does) instead of silently leaving the object in place.
 export async function resolveExplorerTrashDestination(params: {
   containerId: string;
   currentOrganizationId: string | null | undefined;
@@ -22,20 +25,19 @@ export async function resolveExplorerTrashDestination(params: {
     ExplorerModelExplorer,
     "ensureTrashContainer" | "nodes" | "trashSystemSlot"
   >;
-}): Promise<string | undefined> {
+}): Promise<string | null> {
   const { containerId, currentOrganizationId, explorer } = params;
-  const trashResolution = resolveExplorerDeleteTrashTarget({
+  const target = await resolveDeleteToTrashTarget({
     containerId,
     currentOrganizationId,
+    ensureOwnTrashContainer: () => explorer.ensureTrashContainer(),
     nodes: explorer.nodes,
     trashSystemSlot: explorer.trashSystemSlot,
   });
-  return (
-    trashResolution.trashContainerId ??
-    (trashResolution.canFallBackToOwnTrash
-      ? (await explorer.ensureTrashContainer())?.id
-      : undefined)
-  );
+  if (target.status === "unavailable") {
+    throw new TrashUnavailableError(target.reason);
+  }
+  return target.status === "target" ? target.trashContainerId : null;
 }
 
 interface UseExplorerContainerTrashActionsParams {

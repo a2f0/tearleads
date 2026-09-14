@@ -64,7 +64,7 @@ export type DeleteToTrashTarget =
     };
 
 // Typed failure for callers that surface the outcome as an error (the Notes
-// move-to-trash hook); the message is user-facing.
+// move-to-trash hook and Explorer's trash actions); the message is user-facing.
 export class TrashUnavailableError extends Error {
   constructor(readonly reason: DeleteToTrashUnavailableReason) {
     super(DELETE_TO_TRASH_UNAVAILABLE_MESSAGES[reason]);

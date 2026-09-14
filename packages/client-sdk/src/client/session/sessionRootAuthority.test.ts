@@ -4,6 +4,7 @@ import {
   KeyingVerificationError,
 } from "@tearleads/crypto";
 import { setGeneratedIdentity } from "../../../test/helpers/clientTestSupport";
+import { waitFor } from "../../../test/helpers/waitFor";
 import { createMemoryBlobStore } from "../../data/blobs/memoryBlobStore";
 import { Tearleads } from "../Tearleads";
 import { createApi, createSessionHarness } from "./session.testFixtures";
@@ -211,5 +212,89 @@ test("login refuses a swapped root for the same organization and records an inci
   expect(session.authToken).toBeNull();
   expect(session.snapshot.rootAcknowledgments).toEqual([
     expect.objectContaining({ rootContainerId: "root-real" }),
+  ]);
+});
+
+test("overlapping acknowledgements for different organizations are both kept", async () => {
+  // Three logins overlap: the personal org (A), a second org (B), and a swap
+  // attempt for A. Each read of `rootAcknowledgments` must see the writes the
+  // others already committed, otherwise B's (or A's) acknowledgement is lost
+  // and the swap for A passes against a stale, empty view. The identity pins
+  // are released in one synchronous block so the three continuations run
+  // back-to-back with no other work between them.
+  const incidents: Array<{ code: unknown; operation: string }> = [];
+  const responses = [
+    { organizationId: "org-a", rootContainerId: "root-a" },
+    { organizationId: "org-b", rootContainerId: "root-b" },
+    { organizationId: "org-a", rootContainerId: "root-attacker" },
+  ];
+  const api = createApi({
+    authenticate: async () => {
+      const response = responses.shift();
+      if (!response) throw new Error("unexpected authentication");
+      return {
+        ...response,
+        authenticated: true,
+        isRoot: false,
+        token: `token-${response.rootContainerId}`,
+        userId: "user-1",
+      };
+    },
+  });
+  const releasePins: Array<() => void> = [];
+  const { identity, session } = createSessionHarness({
+    api,
+    onUserIdentityAvailable: () =>
+      new Promise<void>((resolve) => {
+        releasePins.push(resolve);
+      }),
+    reportSecurityIncident: async (error, context) => {
+      incidents.push({
+        code: error instanceof KeyingVerificationError ? error.code : error,
+        operation: context.operation,
+      });
+    },
+  });
+  await setGeneratedIdentity(identity);
+
+  // Which login draws which response depends on how the three reach
+  // `authenticate`, so the outcomes are asserted as a set.
+  const outcomes = Promise.allSettled([
+    session.login(),
+    session.login(),
+    session.login(),
+  ]);
+  await waitFor(() => releasePins.length === 3, "expected three pins");
+  for (const release of releasePins) release();
+
+  const settled = await outcomes;
+  expect(
+    settled.filter(
+      (outcome) => outcome.status === "fulfilled" && outcome.value === true,
+    ),
+  ).toHaveLength(2);
+  expect(
+    settled.filter(
+      (outcome) =>
+        outcome.status === "rejected" &&
+        outcome.reason instanceof KeyingVerificationError &&
+        outcome.reason.code === "object_mismatch",
+    ),
+  ).toHaveLength(1);
+  expect(incidents).toEqual([
+    { code: "object_mismatch", operation: "session.root.acknowledge" },
+  ]);
+  expect(
+    session.snapshot.rootAcknowledgments
+      .map(({ organizationId, rootContainerId }) => ({
+        organizationId,
+        rootContainerId,
+      }))
+      .sort((left, right) =>
+        left.organizationId.localeCompare(right.organizationId),
+      ),
+  ).toEqual([
+    { organizationId: "org-a", rootContainerId: "root-a" },
+    { organizationId: "org-b", rootContainerId: "root-b" },
   ]);
 });

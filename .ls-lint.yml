@@ -12,7 +12,7 @@ ls:
   packages/app/src/mini-apps/explorer/*:
     .dir: regex:(context-menu|detail|diagnostics|hooks|modal|model|purge-progress|shared|sidebar|toolbar)
     .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-33
-    .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-16
+    .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-17
     .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-3
 
   packages/app/src/mini-apps/explorer/detail:

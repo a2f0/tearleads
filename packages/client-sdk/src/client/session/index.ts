@@ -24,7 +24,7 @@ import {
 } from "./sessionPurgeRecovery";
 import {
   acknowledgedSessionRoot,
-  acknowledgeSessionRootReported,
+  commitSessionRootAcknowledgment,
 } from "./sessionRootAuthority";
 import type {
   CreateOrganizationOptions,
@@ -180,7 +180,6 @@ class SessionService implements Session {
       return false;
     }
 
-    let rootAcknowledgments: SessionSnapshot["rootAcknowledgments"];
     try {
       this.identityAcknowledgments.assertMatches(
         authentication.userId,
@@ -202,29 +201,26 @@ class SessionService implements Session {
     }
     try {
       // A changed root for this identity+org is refused before the token is
-      // usable; the acknowledgement reports its own incident.
-      rootAcknowledgments = await acknowledgeSessionRootReported(
-        this.dependencies.reportSecurityIncident,
-        this.snapshotValue.rootAcknowledgments,
-        authentication,
-        fingerprint,
-      );
+      // usable. Decision and commit are one synchronous step against the live
+      // snapshot (no await in between); the refusal reports its own incident.
+      await commitSessionRootAcknowledgment({
+        context: {
+          authToken: authentication.token,
+          defaultOrganizationId: authentication.organizationId,
+          isAuthenticated: true,
+          isRoot: authentication.isRoot,
+          organizationId: authentication.organizationId,
+          userId: authentication.userId,
+        },
+        reporter: this.dependencies.reportSecurityIncident,
+        root: authentication,
+        session: this,
+        signingFingerprint: fingerprint,
+      });
     } catch (error) {
       this.logout();
       throw error;
     }
-    if (this.dependencies.identity.snapshot !== identitySnapshot) {
-      return false;
-    }
-    this.setContext({
-      rootAcknowledgments,
-      authToken: authentication.token,
-      defaultOrganizationId: authentication.organizationId,
-      isAuthenticated: true,
-      isRoot: authentication.isRoot,
-      organizationId: authentication.organizationId,
-      userId: authentication.userId,
-    });
     this.dependencies.log("Authentication successful");
     return true;
   }
@@ -325,21 +321,20 @@ class SessionService implements Session {
       encapsulationPublicKey: encapsulationKeyPair.publicKey,
       signingPublicKey: signingKeyPair.signingPublicKey,
     });
-    const rootAcknowledgments = await acknowledgeSessionRootReported(
-      this.dependencies.reportSecurityIncident,
-      this.snapshotValue.rootAcknowledgments,
-      response,
-      identitySnapshot.signingFingerprint,
-    );
     if (this.dependencies.identity.snapshot !== identitySnapshot) {
       return null;
     }
-    this.setContext({
-      rootAcknowledgments,
-      containerId: response.rootContainerId,
-      defaultOrganizationId: response.organizationId,
-      organizationId: response.organizationId,
-      userId: response.userId,
+    await commitSessionRootAcknowledgment({
+      context: {
+        containerId: response.rootContainerId,
+        defaultOrganizationId: response.organizationId,
+        organizationId: response.organizationId,
+        userId: response.userId,
+      },
+      reporter: this.dependencies.reportSecurityIncident,
+      root: response,
+      session: this,
+      signingFingerprint: identitySnapshot.signingFingerprint,
     });
 
     return {
@@ -370,22 +365,16 @@ class SessionService implements Session {
       this.dependencies.identity.snapshot !== identitySnapshot
     )
       return null;
-    const rootAcknowledgments = await acknowledgeSessionRootReported(
-      this.dependencies.reportSecurityIncident,
-      this.snapshotValue.rootAcknowledgments,
-      {
+    await commitSessionRootAcknowledgment({
+      reporter: this.dependencies.reportSecurityIncident,
+      root: {
         userId,
         organizationId: response.organizationId,
         rootContainerId: response.containerId,
       },
-      identitySnapshot.signingFingerprint,
-    );
-    if (
-      this.userId !== userId ||
-      this.dependencies.identity.snapshot !== identitySnapshot
-    )
-      return null;
-    this.setContext({ rootAcknowledgments });
+      session: this,
+      signingFingerprint: identitySnapshot.signingFingerprint,
+    });
     return response;
   }
 

@@ -1,7 +1,7 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { reportKeyingVerificationErrorInCauseChain } from "../../data/keyingProjectionVerification/error";
 import type { SecurityIncidentReporter } from "../../data/securityIncidents";
-import type { Session, SessionSnapshot } from "./sessionTypes";
+import type { Session, SessionContext, SessionSnapshot } from "./sessionTypes";
 
 type RootAcknowledgments = SessionSnapshot["rootAcknowledgments"];
 type RootAcknowledgmentInput = Omit<
@@ -69,26 +69,42 @@ export function acknowledgeSessionRoot(
   ];
 }
 
-/** Records a refused acknowledgement as an incident before failing the login. */
-export async function acknowledgeSessionRootReported(
-  reporter: SecurityIncidentReporter | undefined,
-  known: RootAcknowledgments,
-  input: RootAcknowledgmentInput,
-  signingFingerprint: string | null,
-): Promise<RootAcknowledgments> {
+/**
+ * Decides and commits an acknowledgement against the session's CURRENT
+ * snapshot in one synchronous step: reading `rootAcknowledgments`, deciding,
+ * and `setContext` happen with no await between them, so an overlapping login,
+ * registration or organization creation can never overwrite this entry with a
+ * stale copy (a lost acknowledgement would erase that organization's root-swap
+ * protection). Only the incident report for a refusal is asynchronous, and it
+ * runs after the decision has been made and before the error propagates.
+ */
+export async function commitSessionRootAcknowledgment(input: {
+  readonly context?: Omit<SessionContext, "rootAcknowledgments"> | undefined;
+  readonly reporter: SecurityIncidentReporter | undefined;
+  readonly root: RootAcknowledgmentInput;
+  readonly session: Pick<Session, "setContext" | "snapshot">;
+  readonly signingFingerprint: string | null;
+}): Promise<void> {
+  const { context, reporter, root, session, signingFingerprint } = input;
+  let rootAcknowledgments: RootAcknowledgments;
   try {
-    return acknowledgeSessionRoot(known, input, signingFingerprint);
+    rootAcknowledgments = acknowledgeSessionRoot(
+      session.snapshot.rootAcknowledgments,
+      root,
+      signingFingerprint,
+    );
   } catch (error) {
     if (signingFingerprint) {
       await reportKeyingVerificationErrorInCauseChain(error, reporter, {
-        objectId: input.rootContainerId,
+        objectId: root.rootContainerId,
         objectKind: "container",
         operation: "session.root.acknowledge",
-        organizationId: input.organizationId,
+        organizationId: root.organizationId,
       });
     }
     throw error;
   }
+  session.setContext({ ...context, rootAcknowledgments });
 }
 
 /** Only the encrypted host restore may supply previously acknowledged roots. */

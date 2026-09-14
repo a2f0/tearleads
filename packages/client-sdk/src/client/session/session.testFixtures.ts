@@ -5,6 +5,7 @@ import { Database } from "../database";
 import { createIdentity, type Identity } from "../identity";
 import type { Logger } from "../logger";
 import { createSession } from "./index";
+import type { SessionDependencies } from "./sessionTypes";
 
 type TestLogger = {
   log: NonNullable<Logger["log"]>;
@@ -51,6 +52,7 @@ export function createSessionHarness(
     database?: Database | undefined;
     identity?: Identity | undefined;
     logger?: TestLogger | undefined;
+    onUserIdentityAvailable?: SessionDependencies["onUserIdentityAvailable"];
     reportSecurityIncident?: SecurityIncidentReporter | undefined;
   } = {},
 ) {
@@ -70,7 +72,8 @@ export function createSessionHarness(
       identity,
       log: logger.log,
       logError: logger.logError,
-      onUserIdentityAvailable: async () => undefined,
+      onUserIdentityAvailable:
+        options.onUserIdentityAvailable ?? (async () => undefined),
       reportSecurityIncident: options.reportSecurityIncident,
     }),
   };
