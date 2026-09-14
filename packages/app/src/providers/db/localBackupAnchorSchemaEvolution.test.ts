@@ -49,6 +49,14 @@ async function columnsOf(execSql: ExecSql, table: string): Promise<string[]> {
   return rows.map(({ name }) => String(name));
 }
 
+async function indexesOf(execSql: ExecSql, table: string): Promise<string[]> {
+  const rows = await execSql(
+    "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = ? AND name NOT LIKE 'sqlite_%' ORDER BY name",
+    [table],
+  );
+  return rows.map(({ name }) => String(name));
+}
+
 test("a live anchor table with a column the backup lacks restores and keeps live values", async () => {
   const source = createNativeTestExecSql();
   const target = createNativeTestExecSql();
@@ -143,11 +151,57 @@ test("a backup anchor table with a column the live table lacks restores without 
   }
 });
 
+test("a backup index on a dropped anchor column yields to the live indexes", async () => {
+  const source = createNativeTestExecSql();
+  const target = createNativeTestExecSql();
+  try {
+    await createPurgeTable(source.execSql, ", extra TEXT");
+    await source.execSql(
+      "CREATE INDEX purge_extra_idx ON document_purge_checkpoints (extra)",
+    );
+    await source.execSql(
+      "CREATE INDEX purge_updated_idx ON document_purge_checkpoints (updated_at)",
+    );
+    await source.execSql(
+      "INSERT INTO document_purge_checkpoints VALUES (?, ?, ?, ?, ?, ?)",
+      ["document-1", "organization-1", HASH_A, HASH_A, UPDATED_AT, "dropped"],
+    );
+    await createPurgeTable(target.execSql);
+    await target.execSql(
+      "CREATE INDEX purge_org_idx ON document_purge_checkpoints (organization_id)",
+    );
+    // Non-anchor tables keep the backup's indexes.
+    await source.execSql("CREATE TABLE notes (id TEXT PRIMARY KEY, body TEXT)");
+    await source.execSql("CREATE INDEX notes_body_idx ON notes (body)");
+    const backup = await readBackupDatabase({ execSql: source.execSql });
+    await restoreBackupDatabase({ ...backup, execSql: target.execSql });
+    expect(
+      await indexesOf(target.execSql, "document_purge_checkpoints"),
+    ).toEqual(["purge_org_idx"]);
+    expect(await indexesOf(target.execSql, "notes")).toEqual([
+      "notes_body_idx",
+    ]);
+    expect(
+      await target.execSql(
+        "SELECT document_id, organization_id FROM document_purge_checkpoints",
+      ),
+    ).toEqual([
+      { document_id: "document-1", organization_id: "organization-1" },
+    ]);
+  } finally {
+    source.close();
+    target.close();
+  }
+});
+
 test("a backup anchor table with an extra column is adopted whole where the table is still lazy", async () => {
   const source = createNativeTestExecSql();
   const target = createNativeTestExecSql();
   try {
     await createPurgeTable(source.execSql, ", extra TEXT");
+    await source.execSql(
+      "CREATE INDEX purge_extra_idx ON document_purge_checkpoints (extra)",
+    );
     await source.execSql(
       "INSERT INTO document_purge_checkpoints VALUES (?, ?, ?, ?, ?, ?)",
       ["document-1", "organization-1", HASH_A, HASH_A, UPDATED_AT, "kept"],
@@ -159,6 +213,9 @@ test("a backup anchor table with an extra column is adopted whole where the tabl
         "SELECT document_id, extra FROM document_purge_checkpoints",
       ),
     ).toEqual([{ document_id: "document-1", extra: "kept" }]);
+    expect(
+      await indexesOf(target.execSql, "document_purge_checkpoints"),
+    ).toEqual(["purge_extra_idx"]);
   } finally {
     source.close();
     target.close();

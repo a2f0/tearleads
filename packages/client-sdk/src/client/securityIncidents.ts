@@ -21,6 +21,14 @@ export type { SecurityIncident, SecurityIncidentObjectKind };
 
 export type SecurityIncidentListener = (incident: SecurityIncident) => void;
 
+/**
+ * Where a reported incident ended up: `recorded` rows are durable in the local
+ * ledger, `buffered` ones wait in memory for a retried write, and `failed`
+ * ones were dropped, so only `recorded` justifies telling a user it was kept.
+ * Hosts name it as `Awaited<ReturnType<SecurityIncidents["record"]>>`.
+ */
+type SecurityIncidentRecordingStatus = "buffered" | "failed" | "recorded";
+
 const MAX_BUFFERED_SECURITY_INCIDENTS = 100;
 const MAX_EVIDENCE_HASH_COUNT = 32;
 const MAX_EVIDENCE_HASH_KEY_LENGTH = 64;
@@ -37,12 +45,13 @@ export interface SecurityIncidents {
    * Durably record a terminal verification failure the host detected itself,
    * such as conflicting purge proofs found while merging a local backup. The
    * report is redacted, coalesced, retained, and buffered exactly like an
-   * SDK-detected incident; one error instance is recorded at most once.
+   * SDK-detected incident; one error instance is recorded at most once, and
+   * repeats of it resolve with the status of the first report.
    */
   record(
     error: KeyingVerificationError,
     context: SecurityIncidentContext,
-  ): Promise<void>;
+  ): Promise<SecurityIncidentRecordingStatus>;
   subscribe(listener: SecurityIncidentListener): () => void;
 }
 
@@ -155,8 +164,8 @@ class SecurityIncidentSink {
   async persist(
     code: SecurityIncident["code"],
     context: SecurityIncidentContext,
-  ): Promise<boolean> {
-    if (this.disposed) return false;
+  ): Promise<SecurityIncidentRecordingStatus> {
+    if (this.disposed) return "failed";
     const detectedAt = new Date().toISOString();
     const incident: RedactedIncident = {
       code,
@@ -167,28 +176,35 @@ class SecurityIncidentSink {
     };
     const execSql = this.options.database.execSql;
     if (this.options.database.status !== "ready" || !execSql) {
-      return this.buffer(incident);
+      return this.bufferStatus(incident);
     }
 
     try {
       const persisted = await this.append(execSql, incident);
-      if (persisted) this.notify(persisted);
-      else {
+      if (this.bufferedIncidents.size === 0) this.resetFlushRetry();
+      if (!persisted) {
         this.options.logError(
           "Security incident was dropped by the local retention limit",
         );
+        return "failed";
       }
-      if (this.bufferedIncidents.size === 0) this.resetFlushRetry();
-      return true;
+      this.notify(persisted);
+      return "recorded";
     } catch (persistenceError) {
-      const buffered = this.buffer(incident);
-      if (buffered) this.scheduleFlushRetry();
+      const status = this.bufferStatus(incident);
+      if (status === "buffered") this.scheduleFlushRetry();
       this.options.logError(
         "Security incident could not be persisted",
         persistenceError,
       );
-      return buffered;
+      return status;
     }
+  }
+
+  private bufferStatus(
+    incident: RedactedIncident,
+  ): SecurityIncidentRecordingStatus {
+    return this.buffer(incident) ? "buffered" : "failed";
   }
 
   async flush(): Promise<void> {
@@ -319,17 +335,20 @@ export function createSecurityIncidentService(
   options: SecurityIncidentServiceOptions,
 ): SecurityIncidentServiceResult {
   const listeners = createListenerSet<[SecurityIncident]>();
-  const observedErrors = new WeakSet<object>();
-  const incidentReports = new WeakMap<object, Promise<void>>();
+  const recordedErrors = new WeakMap<object, SecurityIncidentRecordingStatus>();
+  const incidentReports = new WeakMap<
+    object,
+    Promise<SecurityIncidentRecordingStatus>
+  >();
   const sink = new SecurityIncidentSink(options, listeners);
 
   const persistIncident = async (
     error: unknown,
     context: SecurityIncidentContext,
-  ): Promise<boolean> => {
+  ): Promise<SecurityIncidentRecordingStatus> => {
     const code = verificationCode(error);
     if (!code) {
-      return false;
+      return "failed";
     }
     if (code === "unrecognized_verification_code") {
       options.logError(
@@ -340,25 +359,30 @@ export function createSecurityIncidentService(
     return sink.persist(code, context);
   };
 
-  const report: SecurityIncidentReporter = async (error, context) => {
+  const record = async (
+    error: unknown,
+    context: SecurityIncidentContext,
+  ): Promise<SecurityIncidentRecordingStatus> => {
     if (typeof error !== "object" || error === null) {
-      return;
+      return "failed";
     }
-    if (observedErrors.has(error)) return;
+    const recorded = recordedErrors.get(error);
+    if (recorded) return recorded;
     const inFlight = incidentReports.get(error);
-    if (inFlight) {
-      await inFlight;
-      return;
-    }
+    if (inFlight) return inFlight;
     const pending = persistIncident(error, context)
-      .then((retained) => {
-        if (retained) observedErrors.add(error);
+      .then((status) => {
+        if (status !== "failed") recordedErrors.set(error, status);
+        return status;
       })
       .finally(() => {
         incidentReports.delete(error);
       });
     incidentReports.set(error, pending);
-    await pending;
+    return pending;
+  };
+  const report: SecurityIncidentReporter = async (error, context) => {
+    await record(error, context);
   };
 
   return {
@@ -371,7 +395,7 @@ export function createSecurityIncidentService(
           ? listSecurityIncidents(execSql, options.trustDomain)
           : null;
       },
-      record: report,
+      record,
       subscribe: listeners.subscribe,
     },
     report,

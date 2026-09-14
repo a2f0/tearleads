@@ -8,6 +8,10 @@ import {
   runSerializedSqlMutation,
 } from "@tearleads/client-sdk/sqlite";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import {
+  BackupRestoreConflictError,
+  purgeCheckpointConflict,
+} from "./backupRestoreConflict";
 import { validateBackupSchema } from "./backupSchemaValidation";
 import {
   preflightSecurityAnchorRestore,
@@ -23,7 +27,6 @@ import {
   type BackupSummary,
   type BackupTable,
 } from "./localBackupFormat";
-import { DocumentPurgeCheckpointConflictError } from "./terminalSecurityAnchorBackupMerge";
 
 export type BackupProgressPhase =
   | "blobs"
@@ -263,19 +266,7 @@ async function writeBackupBlobs(input: {
   }
 }
 
-function purgeCheckpointConflict(
-  error: unknown,
-): DocumentPurgeCheckpointConflictError | null {
-  const candidates: unknown[] =
-    error instanceof AggregateError ? error.errors : [error];
-  return (
-    candidates.find(
-      (candidate): candidate is DocumentPurgeCheckpointConflictError =>
-        candidate instanceof DocumentPurgeCheckpointConflictError,
-    ) ?? null
-  );
-}
-
+/** Rejects with `BackupRestoreConflictError` when equivocation stops the restore. */
 export async function restoreBackupPayload(
   input: RestoreBackupPayloadInput,
 ): Promise<BackupSummary> {
@@ -285,10 +276,15 @@ export async function restoreBackupPayload(
     // Recorded after the restore lock is released: the SDK writer takes the
     // same serialized connection, and the failed restore left nothing behind.
     const conflict = purgeCheckpointConflict(error);
-    if (conflict) {
-      await input.securityIncidents.record(conflict, conflict.incident);
-    }
-    throw error;
+    if (!conflict) throw error;
+    throw new BackupRestoreConflictError({
+      cause: error,
+      conflict,
+      recording: await input.securityIncidents.record(
+        conflict,
+        conflict.incident,
+      ),
+    });
   }
 }
 

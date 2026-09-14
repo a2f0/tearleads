@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createMemoryBlobStore, Tearleads } from "@tearleads/client-sdk";
 import { toFingerprint } from "@tearleads/crypto";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
+import { BackupRestoreConflictError } from "./backupRestoreConflict";
 import { createBackupPayload, restoreBackupPayload } from "./localBackupData";
 import {
   preflightSecurityAnchorRestore,
@@ -292,9 +293,13 @@ test("a purge proof conflict is recorded in the live incident ledger and surface
       payload,
       securityIncidents: sdk.securityIncidents,
     });
-    await expect(restore).rejects.toBeInstanceOf(
+    await expect(restore).rejects.toBeInstanceOf(BackupRestoreConflictError);
+    const refusal = await restore.catch((error: unknown) => error);
+    if (!(refusal instanceof BackupRestoreConflictError)) throw refusal;
+    expect(refusal.conflict).toBeInstanceOf(
       DocumentPurgeCheckpointConflictError,
     );
+    expect(refusal.recording).toBe("recorded");
     expect(
       await target.execSql(
         "SELECT purge_event_hash FROM document_purge_checkpoints",
@@ -318,6 +323,53 @@ test("a purge proof conflict is recorded in the live incident ledger and surface
     ]);
   } finally {
     sdk.dispose();
+    source.close();
+    target.close();
+  }
+});
+
+test("a purge proof conflict the ledger could not keep surfaces its recording status", async () => {
+  const target = createNativeTestExecSql();
+  const source = createNativeTestExecSql();
+  try {
+    for (const db of [source, target]) {
+      for (const sql of schema) await db.execSql(sql);
+    }
+    await target.execSql(
+      "INSERT INTO document_purge_checkpoints VALUES (?, ?, ?, ?, ?)",
+      ["document-1", "organization-1", HASH, HASH, UPDATED_AT],
+    );
+    await source.execSql(
+      "INSERT INTO document_purge_checkpoints VALUES (?, ?, ?, ?, ?)",
+      ["document-1", "organization-1", HASH, "b".repeat(64), UPDATED_AT],
+    );
+    const payload = await createBackupPayload({
+      blobStore: createMemoryBlobStore(),
+      databaseId: "backup-source",
+      execSql: source.execSql,
+      signingFingerprint: null,
+    });
+    const recorded: unknown[] = [];
+    const refusal = await restoreBackupPayload({
+      blobStore: createMemoryBlobStore(),
+      execSql: target.execSql,
+      payload,
+      securityIncidents: {
+        async record(error) {
+          recorded.push(error);
+          return "failed";
+        },
+      },
+    }).catch((error: unknown) => error);
+    if (!(refusal instanceof BackupRestoreConflictError)) throw refusal;
+    expect(recorded).toEqual([refusal.conflict]);
+    expect(refusal.recording).toBe("failed");
+    expect(
+      await target.execSql(
+        "SELECT purge_event_hash FROM document_purge_checkpoints",
+      ),
+    ).toEqual([{ purge_event_hash: HASH }]);
+  } finally {
     source.close();
     target.close();
   }

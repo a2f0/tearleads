@@ -13,6 +13,7 @@ import type {
 } from "./localBackupFormat";
 import {
   isSecurityAnchorTableName,
+  mergeSecurityAnchorBackupIndexes,
   mergeSecurityAnchorBackupTables,
 } from "./securityAnchorBackupMerge";
 
@@ -246,6 +247,11 @@ export async function restoreBackupDatabase(input: {
           current: currentSecurityAnchors,
           restored: input.tables,
         });
+        const restoredIndexes = mergeSecurityAnchorBackupIndexes({
+          current: await listUserIndexDefinitions(execSql),
+          currentTableNames: new Set(currentTables.map((table) => table.name)),
+          restored: input.indexes,
+        });
         for (const table of [...currentTables].reverse()) {
           await execSql(
             `DROP TABLE IF EXISTS ${quoteSqlIdentifier(table.name)}`,
@@ -257,7 +263,7 @@ export async function restoreBackupDatabase(input: {
         for (const table of restoredTables) {
           await insertBackupTable({ execSql, table });
         }
-        for (const index of input.indexes) {
+        for (const index of restoredIndexes) {
           await execSql(index.sql);
         }
         await execSql("COMMIT");

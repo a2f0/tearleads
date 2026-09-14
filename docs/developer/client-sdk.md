@@ -287,14 +287,13 @@ const tearleads = new Tearleads({
 });
 ```
 
-Every option is optional. Defaults are local and host-neutral: same-origin API
+Every option is optional; defaults are local and host-neutral: same-origin API
 paths, memory blob storage, ignored `log` messages, `console.error` errors, and
 an idle database.
 
-`documentProjectors` may be either a prebuilt `DocumentProjectorRegistry` or a
-readonly array of `DocumentProjectorDefinition` values. Prefer passing
-definitions when integrating an app-owned document type list; the SDK will
-normalize and cache the registry internally.
+`documentProjectors` takes a prebuilt `DocumentProjectorRegistry` or a readonly
+array of `DocumentProjectorDefinition` values; prefer definitions for an
+app-owned document type list, and the SDK normalizes and caches the registry.
 
 HTTP uses `apiBaseUrl`; the API client is internal. See
 [identity trust](./trusted-user-identity.md) for TOFU configuration.
@@ -304,21 +303,22 @@ Use `database.execSql` only when the host already owns executor construction.
 
 `onSecurityIncident` is called after a typed keying-verification failure is
 durably appended. Read rows with `await tearleads.securityIncidents.list()`,
-watch them with `tearleads.securityIncidents.subscribe(listener)`, and append
-a failure found by the host (two purge proofs for one document in a local
-backup merge) with `securityIncidents.record(error, context)`, given a
-`KeyingVerificationError` and `SecurityIncidentContext`. An incident holds the
-code, operation, first/last timestamps, repeat count, protocol hashes, and
-object identity and trust domain when known; equivalent repeats coalesce, the
-newest 1,000 rows per trust domain are kept, and no error text or content is
-stored. `list()` is `null` while the database is unavailable; startup
-detections wait in a bounded, redacted buffer. Transport errors add none.
+watch them with `tearleads.securityIncidents.subscribe(listener)`, and append a
+host-found failure (two purge proofs for one document in a local backup merge)
+with `securityIncidents.record(error, context)`, given a
+`KeyingVerificationError` and `SecurityIncidentContext`; it resolves
+`"recorded"` once durable, else `"buffered"` (retry pending) or `"failed"`, so
+claim a recording only on `"recorded"`. An incident holds the code, operation,
+first/last timestamps, repeat count, protocol hashes, and object identity and
+trust domain when known; equivalent repeats coalesce, the newest 1,000 rows per
+trust domain are kept, and no error text or content is stored. `list()` is
+`null` while the database is unavailable; startup detections wait in a bounded,
+redacted buffer. Transport errors add none.
 
 `new Tearleads(...)` does not initialize SQLite or call `client.init(...)`. The
 constructor only captures the current database `client`, `execSql`, and `id`,
-deriving status unless the host supplies an explicit lifecycle override. If the
-host has already initialized the worker, pass the runtime into the constructor;
-the SDK infers `status: "ready"` from the configured client or executor:
+deriving status unless the host passes a lifecycle override. If the worker is
+already initialized, pass the runtime in; the SDK infers `status: "ready"`:
 
 ```ts
 new Tearleads({

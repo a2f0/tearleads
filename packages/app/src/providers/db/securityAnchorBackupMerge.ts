@@ -7,7 +7,7 @@ import {
   PRINCIPAL_POLICY_CHECKPOINT_COLUMNS,
   PRINCIPAL_POLICY_CHECKPOINT_TABLE_NAME,
 } from "./keyingCheckpointBackupMerge";
-import type { BackupTable } from "./localBackupFormat";
+import type { BackupIndex, BackupTable } from "./localBackupFormat";
 import {
   DOCUMENT_PURGE_CHECKPOINT_COLUMNS,
   DOCUMENT_PURGE_CHECKPOINT_TABLE_NAME,
@@ -40,6 +40,26 @@ export const securityAnchorBackupColumns: ReadonlyMap<
 
 export function isSecurityAnchorTableName(name: string): boolean {
   return securityAnchorBackupColumns.has(name);
+}
+
+/**
+ * An anchor table keeps the live schema whenever the live table exists (each
+ * merge's `template`), so the live indexes are the ones that fit it: a backup
+ * index on that table may name a backup-only column the survivor dropped. A
+ * still-lazy anchor table is adopted whole, indexes included.
+ */
+export function mergeSecurityAnchorBackupIndexes(input: {
+  readonly current: ReadonlyArray<BackupIndex>;
+  readonly currentTableNames: ReadonlySet<string>;
+  readonly restored: ReadonlyArray<BackupIndex>;
+}): BackupIndex[] {
+  const liveAnchorTable = (index: BackupIndex) =>
+    isSecurityAnchorTableName(index.tableName) &&
+    input.currentTableNames.has(index.tableName);
+  return [
+    ...input.restored.filter((index) => !liveAnchorTable(index)),
+    ...input.current.filter(liveAnchorTable),
+  ];
 }
 
 /**
