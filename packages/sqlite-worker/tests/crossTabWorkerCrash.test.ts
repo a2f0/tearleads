@@ -14,6 +14,16 @@ import {
 
 const OWNER_LOCK_NAME = "tearleads-sqlite-worker-owner";
 
+// Counts constructions so a test can prove a crashed worker is not rebuilt.
+class CountingSilentWorker extends SilentPortWorker {
+  static constructions = 0;
+
+  constructor() {
+    super();
+    CountingSilentWorker.constructions += 1;
+  }
+}
+
 function crashLastSilentWorker(message: string): SilentPortWorker {
   const ownerWorker = SilentPortWorker.lastConstructed;
   if (!ownerWorker) {
@@ -94,12 +104,60 @@ test("a crash reaches a remote tab's client and the next boot builds a fresh own
 
     // Ownership was released, so tab B's queued bid is granted and it serves
     // its own requests from a fresh worker.
-    await expect(remoteTabClient.ping()).resolves.toEqual({ ok: true });
+    await expect(remoteTabClient.ping()).resolves.toMatchObject({ ok: true });
     expect(PortAwareWorker.lastConstructed).not.toBeNull();
 
     ownerTabClient.destroy();
     ownerTabWorker.close();
     remoteTabClient.destroy();
     remoteTabWorker.close();
+  });
+});
+
+test("a crash before any request is routed reaches the client and is not rebuilt until a fresh client boots", async () => {
+  const locks = new MockLockManager();
+
+  await withCrossTabGlobals(locks, async () => {
+    SilentPortWorker.lastConstructed = null;
+    CountingSilentWorker.constructions = 0;
+    const workerUrl = uniqueWorkerUrl("crash-before-init");
+    const worker = requireCrossTabWorker(
+      createCrossTabDatabaseWorker(workerUrl, CountingSilentWorker),
+    );
+    const crashes: Event[] = [];
+    worker.addEventListener("error", (event) => {
+      crashes.push(event);
+    });
+    await waitUntil(() => locks.heldLockNames.has(OWNER_LOCK_NAME));
+
+    // The script failed to load: nothing has been routed, so the owner knows no
+    // active client — the crash must still reach this tab's client.
+    crashLastSilentWorker("script load failed");
+
+    expect(crashes).toHaveLength(1);
+    const crash = crashes[0];
+    expect(crash).toBeInstanceOf(ErrorEvent);
+    expect(crash instanceof ErrorEvent ? crash.error : null).toBeInstanceOf(
+      DatabaseWorkerCrashError,
+    );
+
+    // Requests posted afterwards fail fast on the recorded crash rather than
+    // rebuilding the crashed worker; the lock is released for other tabs.
+    const client = createDatabaseWorkerClient(worker);
+    await expect(client.ping()).rejects.toThrow(
+      "Database worker failed. script load failed",
+    );
+    await waitUntil(() => !locks.heldLockNames.has(OWNER_LOCK_NAME));
+    expect(CountingSilentWorker.constructions).toBe(1);
+
+    // A fresh client (the app's next runtime boot) clears the crash and
+    // re-contends, constructing a new worker.
+    client.destroy();
+    worker.close();
+    const nextWorker = requireCrossTabWorker(
+      createCrossTabDatabaseWorker(workerUrl, CountingSilentWorker),
+    );
+    await waitUntil(() => CountingSilentWorker.constructions === 2);
+    nextWorker.close();
   });
 });

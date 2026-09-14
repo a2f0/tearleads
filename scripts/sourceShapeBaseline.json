@@ -334,10 +334,6 @@
       "lines": 1178,
       "bytes": 37210
     },
-    "packages/sqlite-worker/src/crossTabRuntime.ts": {
-      "lines": 537,
-      "bytes": 18627
-    },
     "packages/validators/src/operation/generatedOpenApi.ts": {
       "lines": 24936,
       "bytes": 1034162

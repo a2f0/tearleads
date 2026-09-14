@@ -54,10 +54,7 @@ export class CrossTabOwner {
       clientId: string,
       response: unknown,
     ) => void,
-    private readonly dispatchLocalError: (
-      clientId: string,
-      error: DatabaseWorkerCrashError,
-    ) => void,
+    private readonly onWorkerCrash: (error: DatabaseWorkerCrashError) => void,
     private readonly release: () => void,
   ) {
     this.worker = new workerConstructor(workerUrl, { type: "module" });
@@ -166,23 +163,22 @@ export class CrossTabOwner {
 
   // The worker threw outside any request (a failed script load, an uncaught
   // exception in its message handling), so nothing it was asked will be answered
-  // and nothing it is asked next can be trusted. Fail every client it serves —
-  // locally through a synthetic error event that rejects their in-flight
-  // requests, remotely over the channel — then tear the owner down so the next
-  // boot re-contends and constructs a fresh worker instead of routing into the
-  // dead one. Errors thrown inside a Worker never reach the page's own handlers,
-  // so this listener is the only signal a crash produces.
+  // and nothing it is asked next can be trusted. Tell the remote tabs it was
+  // serving over the channel, hand the crash to the coordinator — which fails
+  // every local client, routed or not, since a script-load failure lands before
+  // the first request — then tear the owner down. Errors thrown inside a Worker
+  // never reach the page's own handlers, so this listener is the only signal a
+  // crash produces.
   private handleWorkerError(event: Event): void {
     if (this.stopped) {
       return;
     }
 
     const detail = describeWorkerErrorEvent(event);
-    const error = new DatabaseWorkerCrashError(detail);
     for (const clientId of this.activeClientIds) {
-      this.dispatchLocalError(clientId, error);
       this.channel.postMessage({ type: "error", clientId, detail });
     }
+    this.onWorkerCrash(new DatabaseWorkerCrashError(detail));
     this.stop();
   }
 

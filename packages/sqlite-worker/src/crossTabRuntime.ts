@@ -1,8 +1,14 @@
 import type { WorkerLike } from "./client";
 import {
-  type ClientLivenessLock,
+  createLocalClient,
+  dispatchCrashToLocalClient,
+  dispatchResponseToLocalClient,
+  failPendingRemoteRequests,
+  type LocalClient,
+  releaseLocalClient,
+} from "./crossTabLocalClient";
+import {
   canUseCrossTabPrimitives,
-  createClientLivenessLock,
   type LockManagerLike,
   lockManager,
 } from "./crossTabLocks";
@@ -13,7 +19,6 @@ import {
   isCrossTabEnvelope,
   requestId,
   requestMethod,
-  responseId,
 } from "./crossTabProtocol";
 import { DatabaseWorkerCrashError } from "./workerCrash";
 
@@ -31,18 +36,6 @@ interface CrossTabDatabaseWorker extends WorkerLike {
    * routing into the dead one. See {@link CrossTabCoordinator.forceStopOwnerFor}.
    */
   forceStopOwner(): void;
-}
-
-interface LocalClient {
-  closing: boolean;
-  readonly dispatch: (response: unknown) => void;
-  readonly dispatchError: (error: DatabaseWorkerCrashError) => void;
-  readonly liveness: ClientLivenessLock;
-  readonly timeoutsByRequestId: Map<number, ReturnType<typeof setTimeout>>;
-  // Request ids this client posted over BroadcastChannel that have not yet been
-  // answered by the owner tab. Used to fail them fast (rather than wait out the
-  // timeout) when this tab is promoted to owner after the previous owner died.
-  readonly pendingRemoteRequestIds: Set<number>;
 }
 
 function isTeardownRequest(request: unknown): boolean {
@@ -87,22 +80,7 @@ class CrossTabCoordinator {
       this.retryOwnershipAfterBid = this.ownershipBidActive;
       this.resetOwnershipGate();
     }
-    this.localClientsById.set(clientId, {
-      closing: false,
-      dispatch: (response) => {
-        events.dispatchEvent(new MessageEvent("message", { data: response }));
-      },
-      // Carries the instance so the client's error handler rejects with the
-      // stack minted where the crash was observed, not one rooted here.
-      dispatchError: (error) => {
-        events.dispatchEvent(
-          new ErrorEvent("error", { error, message: error.message }),
-        );
-      },
-      liveness: createClientLivenessLock(clientId),
-      timeoutsByRequestId: new Map(),
-      pendingRemoteRequestIds: new Set(),
-    });
+    this.localClientsById.set(clientId, createLocalClient(clientId, events));
     this.hasCreatedClient = true;
     this.contendForOwnership();
 
@@ -261,50 +239,39 @@ class CrossTabCoordinator {
 
   private dispatchLocalResponse(clientId: string, response: unknown): void {
     const localClient = this.localClientsById.get(clientId);
-    if (!localClient) {
-      return;
+    if (localClient) {
+      dispatchResponseToLocalClient(localClient, response);
     }
-
-    const id = responseId(response);
-    if (id !== null) {
-      const timeoutId = localClient.timeoutsByRequestId.get(id);
-      if (timeoutId !== undefined) {
-        clearTimeout(timeoutId);
-        localClient.timeoutsByRequestId.delete(id);
-      }
-      localClient.pendingRemoteRequestIds.delete(id);
-    }
-
-    localClient.dispatch(response);
   }
 
-  // Every request this client has outstanding — routed locally or posted to a
-  // remote owner — is lost with the crashed worker, so drop their timeouts too:
-  // the client rejects them all at once and would only ignore the late errors.
   private dispatchLocalError(
     clientId: string,
     error: DatabaseWorkerCrashError,
   ): void {
     const localClient = this.localClientsById.get(clientId);
-    if (!localClient) {
-      return;
+    if (localClient) {
+      dispatchCrashToLocalClient(localClient, error);
     }
+  }
 
-    for (const timeoutId of localClient.timeoutsByRequestId.values()) {
-      clearTimeout(timeoutId);
+  // A crashed owner worker is the same failure class as one that never
+  // constructed: record it so routing fails fast instead of rebuilding the
+  // crashed worker on the next bid (`contendForOwnership` and the post-release
+  // retry both stop on `ownerError`), and fail every local client — including
+  // one whose first request has not been routed yet, which is exactly where a
+  // script-load failure lands. The next `createWorker()` (a fresh runtime boot)
+  // clears the error and re-contends.
+  private handleOwnerCrash(error: DatabaseWorkerCrashError): void {
+    this.ownerError = error;
+    for (const localClient of this.localClientsById.values()) {
+      dispatchCrashToLocalClient(localClient, error);
     }
-    localClient.timeoutsByRequestId.clear();
-    localClient.pendingRemoteRequestIds.clear();
-    localClient.dispatchError(error);
   }
 
   private unregisterLocalClient(clientId: string): void {
     const localClient = this.localClientsById.get(clientId);
     if (localClient) {
-      for (const timeoutId of localClient.timeoutsByRequestId.values()) {
-        clearTimeout(timeoutId);
-      }
-      localClient.liveness.release();
+      releaseLocalClient(localClient);
     }
 
     this.localClientsById.delete(clientId);
@@ -372,11 +339,16 @@ class CrossTabCoordinator {
             this.channel,
             (clientId, response) =>
               this.dispatchLocalResponse(clientId, response),
-            (clientId, error) => this.dispatchLocalError(clientId, error),
+            (error) => this.handleOwnerCrash(error),
             () => {
               if (this.owner === owner) {
                 this.owner = null;
-                this.resetOwnershipGate();
+                // After a crash the gate stays settled: routing fails fast on
+                // the recorded error instead of waiting for a bid that must
+                // not run until a fresh client asks for one.
+                if (!this.ownerError) {
+                  this.resetOwnershipGate();
+                }
               }
               releaseOwner?.();
             },
@@ -492,26 +464,11 @@ class CrossTabCoordinator {
     return locks ? isOwnerLockHeld(locks, CROSS_TAB_OWNER_LOCK_NAME) : false;
   }
 
-  /**
-   * Fail every still-outstanding remote request across all local clients with a
-   * retryable error. Called when this tab is promoted to owner, because the owner
-   * it had posted those requests to is now gone.
-   */
+  // Called when this tab is promoted to owner: the owner its clients had posted
+  // their remote requests to is gone, so fail them fast rather than time out.
   private failPendingRemoteRequests(): void {
-    for (const [clientId, localClient] of this.localClientsById) {
-      if (localClient.pendingRemoteRequestIds.size === 0) {
-        continue;
-      }
-
-      for (const id of [...localClient.pendingRemoteRequestIds]) {
-        this.dispatchLocalResponse(
-          clientId,
-          errorResponse(
-            id,
-            "The database owner tab changed; retry the request.",
-          ),
-        );
-      }
+    for (const localClient of this.localClientsById.values()) {
+      failPendingRemoteRequests(localClient);
     }
   }
 }
