@@ -1,4 +1,8 @@
-#!/usr/bin/env bash
-set -euo pipefail
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-exec bash "$REPO_ROOT/packages/app-electrobun/scripts/releaseMacos.sh" build "$@"
+#!/bin/sh
+set -eu
+
+SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)"
+# shellcheck source=scripts/desktopRelease.sh
+. "$SCRIPT_DIR/desktopRelease.sh"
+
+desktop_release_main macos build production "$@"

@@ -57,8 +57,10 @@ The homepage's macOS and Linux download links select the production or staging
 S3 bucket using `PUBLIC_ENVIRONMENT`. Each build resolves download discovery
 metadata into a matching pair of immutable installer and SHA-256 checksum URLs;
 offline builds retain the verified first release. Build and upload
-the matching release with `scripts/uploadMacosRelease.sh <staging|production>`
-or `scripts/uploadLinuxRelease.sh <staging|production>` from the repository root
-before deploying the website. See the desktop instructions for
+the matching release with `scripts/uploadMacosRelease.sh` or
+`scripts/uploadLinuxRelease.sh` for production; use
+`scripts/uploadMacosStagingRelease.sh` or `scripts/uploadLinuxStagingRelease.sh`
+for staging. Run these from the repository root before deploying the website.
+See the desktop instructions for
 [macOS](../app-electrobun/README.md#macos-releases) and
 [Linux from Docker](../app-electrobun/README.md#linux-releases-from-docker).

@@ -69,7 +69,7 @@ for (const environment of ["production", "staging", undefined]) {
         expect(html).toContain(`mailto:${legalDetails.email}`);
         expect(html).toContain(legalDetails.operator);
         expect(html).toContain(contentMarker);
-        expect(html).toContain('aria-label="At a glance"');
+        expect(html).not.toContain('aria-label="At a glance"');
         expect(html).toContain('id="contents-title"');
         expect(html).toContain(`datetime="${legalDetails.updatedAt}"`);
         expect(html).toMatch(/>\s*Effective\s*<time/);

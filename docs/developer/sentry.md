@@ -267,8 +267,8 @@ target, `<tier>-app-<os>-<arch>`, as a commit's builds share URLs.
 The target is Hutch's `ELECTROBUN_OS`/`ELECTROBUN_ARCH` (`macos-arm64`,
 `linux-x64`, `linux-arm64`; others stop). `ELECTROBUN_RELEASE_TIER` selects
 `staging` or `production`; unset is a local build that reads no secrets and
-reports nothing. Release with `scripts/{build,upload}MacosRelease.sh <tier>` or
-`scripts/{build,upload}LinuxRelease.sh <tier>`.
+reports nothing. Release from the repository root with
+`scripts/{build,upload}{Macos,Linux}{,Staging}Release.sh`.
 `scripts/withSentryReleaseEnv.ts` resolves that tier's DSN and full commit into
 the public `BUN_PUBLIC_SENTRY_ELECTROBUN_*` defines for the Electrobun build and
 its inherited `postBuild` packaging hook. It drops every inherited Sentry name
