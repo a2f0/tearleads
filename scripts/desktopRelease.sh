@@ -9,8 +9,10 @@ Usage: $(basename "$0")${desktop_optional_tier}
        $(basename "$0") -h|--help
 
 Runs the ${desktop_tier} ${desktop_platform} release ${desktop_action}.
-Upload commands build and verify fresh artifacts before publishing to S3.
 EOF
+  if [ "$desktop_action" = upload ]; then
+    echo "Builds and verifies fresh artifacts before publishing to S3."
+  fi
 }
 
 desktop_release_main() {
