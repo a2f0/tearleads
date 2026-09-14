@@ -5,6 +5,9 @@ Service on September 14, 2026. `src/legal.ts` records that effective date and se
 `isDraft: false`. Both documents render in full in production, staging, and local
 builds, with an effective date and no draft notice. Staging remains non-indexable.
 
+The owner's publication instruction was: “can you ship them please? find out
+what reverted them and take the documents live.”
+
 PR #2283 introduced the documents with `isDraft: true`; its review repair
 `5d06efe7` added the production placeholder. Later deployments retained that
 setting. The publication build tests now require the full documents independently
@@ -48,7 +51,7 @@ topics when revising the documents:
    within applicable deadlines. Never request recovery phrases or private keys.
 2. Set and document actual retention schedules for request logs, Sentry events,
    support mail, billing records, backups, and dormant identity/organization rows.
-   Verify the deployed blob-cleanup and billing-lapse grace periods. The draft
+   Verify the deployed blob-cleanup and billing-lapse grace periods. The policy
    discloses current indefinite audit retention; counsel should assess whether
    each retained category is necessary and whether a deletion or minimization
    workflow is needed. No arbitrary deletion deadline has been promised.
@@ -60,7 +63,7 @@ topics when revising the documents:
    privacy laws. If serving EEA/UK users, assess controller/processor roles,
    lawful bases, representatives, necessary processing agreements, and actual
    international-transfer safeguards. Add specific arrangements where applicable;
-   the draft does not assert that transfer agreements or certifications exist.
+   the policy does not assert that transfer agreements or certifications exist.
 5. Decide whether a published mailing address and jurisdiction-specific notices
    are needed. Review child/teen access and store age ratings against the proposed
    adult-only terms; a sentence in a policy is not age-assurance implementation.
@@ -113,7 +116,7 @@ Paths outside this package are relative to the repository root.
 - Online recurring billing requires review of disclosure, consent, and
   cancellation obligations independently of the Terms text.
   [FTC: Restore Online Shoppers' Confidence Act](https://www.ftc.gov/legal-library/browse/statutes/restore-online-shoppers-confidence-act).
-- State privacy rights depend on the law's scope and applicability; the draft
+- State privacy rights depend on the law's scope and applicability; the policy
   does not assume every business is covered.
   [California Attorney General: CCPA](https://www.oag.ca.gov/privacy/ccpa).
 - General-audience services can have children's-privacy obligations when they

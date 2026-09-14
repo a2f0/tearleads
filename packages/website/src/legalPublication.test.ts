@@ -71,7 +71,8 @@ for (const environment of ["production", "staging", undefined]) {
         expect(html).toContain(contentMarker);
         expect(html).toContain('aria-label="At a glance"');
         expect(html).toContain('id="contents-title"');
-        expect(html).toContain('datetime="2026-09-14"');
+        expect(html).toContain(`datetime="${legalDetails.updatedAt}"`);
+        expect(html).toMatch(/>\s*Effective\s*<time/);
         expect(html).not.toContain("being prepared for publication");
         expect(html).not.toContain("Review draft");
         expect(html).not.toContain("Not yet effective");
