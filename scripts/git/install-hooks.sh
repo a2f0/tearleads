@@ -4,7 +4,9 @@ set -e
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 HOOKS_SRC="$REPO_ROOT/scripts/git/hooks"
-HOOKS_DST="$REPO_ROOT/.git/hooks"
+# Linked worktrees have a .git file and share hooks/config with the main checkout.
+HOOKS_DST="$(git rev-parse --path-format=absolute --git-common-dir)/hooks"
+mkdir -p "$HOOKS_DST"
 
 for hook in "$HOOKS_SRC"/*; do
   if [ -f "$hook" ]; then
