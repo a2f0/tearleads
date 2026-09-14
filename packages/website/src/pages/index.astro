@@ -3,7 +3,8 @@ import { isStaging } from "../config";
 import Layout from "../layouts/Layout.astro";
 import { resolveMacosDownloads } from "../macosDownloads";
 
-const { installerUrl: macosDownloadUrl, checksumUrl } = await resolveMacosDownloads(isStaging);
+const { installerUrl: macosDownloadUrl, checksumUrl } =
+  await resolveMacosDownloads(isStaging);
 ---
 
 <Layout
