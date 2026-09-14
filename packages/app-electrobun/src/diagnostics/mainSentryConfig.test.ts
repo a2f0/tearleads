@@ -74,6 +74,7 @@ test("main frames admit only the packaged bundle", () => {
                 { filename: `${root}/bun/index.js.map`, lineno: 1, colno: 1 },
                 { filename: "bun/index.js", lineno: 1, colno: 1 },
                 { filename: "./bun/index.js", lineno: 1, colno: 1 },
+                { filename: "app:///bun/index.js", lineno: 1, colno: 1 },
               ],
             },
           },
@@ -86,6 +87,4 @@ test("main frames admit only the packaged bundle", () => {
     { filename: "app:///bun/index.js", lineno: 4, colno: 26, in_app: true },
   ]);
   expect(JSON.stringify(event)).not.toContain(root);
-  // The private transport sanitizes the rebuilt event a second time.
-  expect(event && sanitizeSentryEvent(event, config)).toEqual(event);
 });

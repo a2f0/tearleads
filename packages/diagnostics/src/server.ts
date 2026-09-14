@@ -31,7 +31,13 @@ export function createServerDiagnostics(config: SentryConfig) {
     release: config.release,
     dist: config.dist,
     stackParser: createStackParser(nodeStackLineParser()),
-    transport: createPrivateSentryTransport(config),
+    // The transport sanitizes again, after beforeSend has rebuilt every frame
+    // under app:///. Only that second pass takes app:// as its root, so a raw
+    // app:/// frame never passes a runtime that requires its absolute root.
+    transport: createPrivateSentryTransport({
+      ...config,
+      serverSourceRoot: "app://",
+    }),
     integrations: [],
     sendDefaultPii: false,
     sendClientReports: false,

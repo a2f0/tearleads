@@ -77,11 +77,10 @@ function safeFrame(
   return safePosition(frame, filename);
 }
 
-// Sanitizing must be idempotent: beforeSend rebuilds frames as app:/// URLs and
-// the private transport sanitizes the event again. The API's compiled
-// executable also reports repository-relative frames; the Electrobun launcher
-// always runs an absolute bundle path, so a relative spelling there is foreign
-// code (for example an eval carrying a borrowed sourceURL).
+// The API's compiled executable also reports app:/// and repository-relative
+// frames. The Electrobun launcher always runs an absolute bundle path, so any
+// other spelling there is foreign code (for example an eval carrying a borrowed
+// sourceURL).
 function serverFrameFilename(
   filename: string,
   runtime: "api" | "electrobun-main",
@@ -89,8 +88,10 @@ function serverFrameFilename(
 ): string {
   if (filename.startsWith(`${serverRoot}/`))
     return filename.slice(serverRoot.length);
-  if (filename.startsWith("app:///")) return filename.slice("app://".length);
-  return runtime === "api" ? `/${filename}` : "";
+  if (runtime !== "api") return "";
+  return filename.startsWith("app:///")
+    ? filename.slice("app://".length)
+    : `/${filename}`;
 }
 
 function safePosition(frame: StackFrame, filename: string): StackFrame | null {
