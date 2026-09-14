@@ -88,7 +88,10 @@ reaches `logError` with the original `Error`, suppressing an identical repeat
 per store and treating a vanished database as teardown rather than a fault.
 The container-contents local refresh and the link/unlink/move/purge choke
 point report the same way, keeping their existing local log line and failure
-contract unchanged.
+contract unchanged. A thrown container share reports before it rethrows.
+Hosts filter their own catches with the documents facade's
+`isDatabaseUnavailableError` and the containers facade's
+`isProjectionVerificationCancelledError`, both exported from the SDK root.
 
 The `sync` facade exposes read-only coordinator snapshots through
 `getDomainSyncCoordinatorSnapshot(...)` and
