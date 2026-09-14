@@ -176,6 +176,7 @@
         "react-dom": "catalog:react",
       },
       "devDependencies": {
+        "@sentry/cli": "3.7.0",
         "@tearleads/loro": "workspace:*",
         "@types/bun": "catalog:",
         "@types/react-dom": "catalog:react",

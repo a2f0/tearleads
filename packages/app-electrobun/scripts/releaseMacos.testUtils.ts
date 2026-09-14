@@ -9,6 +9,11 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
+// The release shell exports every root.env name; only the Sentry wrapper may
+// hold the upload token, so no other child may inherit it.
+const tokenLeakProbe =
+  '[ -z "$SENTRY_AUTH_TOKEN" ] || echo token-leak >> "$RELEASE_TEST_LOG"';
+
 export async function runMacosRelease(args: string[], failure = "") {
   const root = mkdtempSync(join(tmpdir(), "tearleads-macos-release-"));
   const packageDir = join(root, "packages/app-electrobun");
@@ -47,23 +52,24 @@ export async function runMacosRelease(args: string[], failure = "") {
     await write(
       "terraform/scripts/common.sh",
       [
-        'load_secrets_env() { printf "secrets %s\\n" "$1" >> "$RELEASE_TEST_LOG"; }',
+        'load_secrets_env() { printf "secrets %s\\n" "$1" >> "$RELEASE_TEST_LOG"; export SENTRY_AUTH_TOKEN=release-test-token; }',
         'validate_aws_env() { echo credentials >> "$RELEASE_TEST_LOG"; }',
       ].join("\n"),
     );
     await write(
       "bin/bunx",
-      '#!/bin/sh\necho dependencies >> "$RELEASE_TEST_LOG"',
+      `#!/bin/sh\necho dependencies >> "$RELEASE_TEST_LOG"\n${tokenLeakProbe}`,
     );
     await write(
       "packages/app-electrobun/scripts/buildMacosIcon.sh",
-      '#!/bin/sh\necho icons >> "$RELEASE_TEST_LOG"',
+      `#!/bin/sh\necho icons >> "$RELEASE_TEST_LOG"\n${tokenLeakProbe}`,
     );
     await write(
       "packages/app-electrobun/scripts/buildElectrobun.sh",
       [
         "#!/bin/sh",
         'printf "build %s %s %s %s\\n" "$*" "$ELECTROBUN_RELEASE_TIER" "$BUN_PUBLIC_API_BASE_URL" "$BUN_PUBLIC_WS_URL" >> "$RELEASE_TEST_LOG"',
+        tokenLeakProbe,
         '[ "$RELEASE_TEST_FAILURE" != build ] || exit 6',
         'cd "$RELEASE_TEST_ROOT/packages/app-electrobun"',
         '[ -f "$ELECTROBUN_APPLEAPIKEYPATH" ] || exit 9',
@@ -84,6 +90,7 @@ export async function runMacosRelease(args: string[], failure = "") {
       [
         "#!/bin/sh",
         'echo stapler >> "$RELEASE_TEST_LOG"',
+        tokenLeakProbe,
         '[ "$RELEASE_TEST_FAILURE" != notarization ] || exit 7',
       ].join("\n"),
     );
@@ -92,6 +99,7 @@ export async function runMacosRelease(args: string[], failure = "") {
       [
         "#!/bin/sh",
         'printf "upload %s\\n" "$*" >> "$RELEASE_TEST_LOG"',
+        tokenLeakProbe,
         '[ "$RELEASE_TEST_FAILURE" != payload ] || exit 8',
         'case "$3:$RELEASE_TEST_FAILURE" in *.sha256:checksum|*-update.json:metadata) exit 8 ;; esac',
         'cp "$3" "$RELEASE_TEST_ROOT/published/$(basename "$4")"',

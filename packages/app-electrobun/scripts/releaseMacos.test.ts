@@ -50,6 +50,7 @@ test("build mode verifies artifacts without AWS credentials or publication", asy
   expect(result.exitCode, result.stderr).toBe(0);
   expect(result.calls).toContain("stapler");
   expect(result.calls).not.toContain("credentials");
+  expect(result.calls).not.toContain("token-leak");
   expect(result.calls.some((call) => call.startsWith("upload "))).toBe(false);
 });
 

@@ -19,6 +19,9 @@ source "$REPO_ROOT/terraform/scripts/common.sh"
 TF_TIER="$TIER"
 [[ "$TIER" != production ]] || TF_TIER=prod
 load_secrets_env "$TF_TIER"
+# load_secrets_env exports every root.env name. Only the Sentry wrapper needs
+# the upload token, and it reads the file itself.
+unset SENTRY_AUTH_TOKEN
 # shellcheck source=packages/app-electrobun/scripts/macosSigning.sh
 source "$PACKAGE_DIR/scripts/macosSigning.sh"
 configure_macos_signing

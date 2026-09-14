@@ -24,6 +24,8 @@ const root = await mkdtemp(join(tmpdir(), "tearleads-release-packaging-"));
 const configPath = join(root, "electrobun.config.ts");
 const artifacts = join(root, "build/artifacts");
 const signingProbe = join(root, "signing-invoked");
+const stagedMaps = join(root, "build/sentry-sourcemaps");
+const probeCommit = "b".repeat(40);
 const originalConfig = JSON.stringify(
   join(packageRoot, "electrobun.config.ts"),
 );
@@ -41,6 +43,12 @@ const env = {
   DASH_RELEASE_OFFLINE: "1",
   ELECTROBUN_DEVELOPER_ID: "Packaging probe identity (never used)",
   PACKAGING_SIGN_PROBE: signingProbe,
+  // A release tier's diagnostics: this is the only proof that Hutch applies
+  // build.bun.sourcemap and define and that no map is sealed into the app.
+  TEARLEADS_ELECTROBUN_SOURCEMAP_DIR: stagedMaps,
+  BUN_PUBLIC_SENTRY_ELECTROBUN_COMMIT: probeCommit,
+  BUN_PUBLIC_SENTRY_ELECTROBUN_DSN: `https://${"a".repeat(32)}@o1.ingest.us.sentry.io/1`,
+  BUN_PUBLIC_SENTRY_ELECTROBUN_ENVIRONMENT: "staging",
 };
 
 async function config(fail: boolean) {
@@ -56,6 +64,34 @@ export default {
 };
 `,
   );
+}
+
+async function verifySourceMapStaging(archive: string, unpacked: string) {
+  const listing = Bun.spawn(["tar", "-tf", archive], { stdout: "pipe" });
+  const entries = (await new Response(listing.stdout).text()).split("\n");
+  assert.equal(await listing.exited, 0);
+  assert.deepEqual(
+    entries.filter((entry) => entry.endsWith(".map")),
+    [],
+    "No source map may enter the update archive",
+  );
+  const staged = [
+    ...new Bun.Glob("**/*").scanSync({ cwd: stagedMaps, dot: true }),
+  ].sort();
+  assert.equal(staged.length, 4, staged.join(", "));
+  assert.deepEqual(staged.slice(0, 2), ["bun/index.js", "bun/index.js.map"]);
+  assert.match(staged[2] ?? "", /^chunk-[a-z0-9]+\.js$/u);
+  assert.equal(staged[3], `${staged[2]}.map`);
+  const [bundle] = [
+    ...new Bun.Glob("**/Resources/app/bun/index.js").scanSync({
+      cwd: unpacked,
+    }),
+  ];
+  const main = await Bun.file(join(unpacked, bundle ?? "missing")).text();
+  assert.ok(main.includes(probeCommit), "Main process must inline its commit");
+  assert.equal(main.includes("TEARLEADS_ELECTROBUN_MAIN_SENTRY"), false);
+  await rm(stagedMaps, { recursive: true, force: true });
+  console.log("Source maps are staged outside the app and absent from it.");
 }
 
 async function build(channel: string) {
@@ -132,6 +168,7 @@ execFileSync("bun", [${JSON.stringify(join(root, "capturePackagedAssets.ts"))}],
     stderr: "inherit",
   });
   assert.equal(await extraction.exited, 0);
+  await verifySourceMapStaging(archive, unpacked);
   const archivedView = findPackagedMainViewDir(unpacked);
   const builtView = snapshot;
   for (const file of ["index.html", "worker.js", "sqlite3.wasm"]) {
@@ -168,6 +205,16 @@ execFileSync("bun", [${JSON.stringify(join(root, "capturePackagedAssets.ts"))}],
   const failure = await build("canary");
   assert.notEqual(failure.code, 0, "A failed hook must fail the native build");
   assert.match(failure.output, /PACKAGING_FAILURE_PROBE/);
+  assert.deepEqual(
+    [
+      ...new Bun.Glob("**/*.map").scanSync({
+        cwd: join(root, "build"),
+        dot: true,
+      }),
+    ].filter((path) => !path.startsWith("sentry-sourcemaps/")),
+    [],
+    "A failed hook must leave no source map in the build directory",
+  );
   assert.equal(
     existsSync(signingProbe),
     false,
