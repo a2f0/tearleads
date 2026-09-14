@@ -3,6 +3,7 @@ import { createDocument, exportFullHistorySnapshot } from "@tearleads/loro";
 import {
   createContainerWriterProjectionFixture,
   createMockApiClient,
+  createMockRequestFailure,
   createTestExecSql,
 } from "@tearleads/test-utils";
 import type { DocumentLinkSetMutationRequest } from "@tearleads/validators/request";
@@ -41,6 +42,12 @@ export interface QueuedDocumentMovePass {
 
 export async function runQueuedDocumentMoveFixture(input: {
   containerProjectionFailure?: QueuedDocumentMoveFailure | undefined;
+  /**
+   * Which container's writer-projection fetches fail with
+   * `containerProjectionFailure` (default: the trash destination). Other
+   * containers keep resolving normally.
+   */
+  containerProjectionFailureFor?: "root" | "trash" | undefined;
   linkFailure?: QueuedDocumentMoveFailure | undefined;
   /**
    * How many leading link submissions fail with `linkFailure` before the
@@ -54,6 +61,9 @@ export async function runQueuedDocumentMoveFixture(input: {
   sourceContainerId?: string | null | undefined;
   testDbName: string;
   unlinkAvailable: boolean;
+  unlinkFailure?: QueuedDocumentMoveFailure | undefined;
+  /** Leading unlink submissions that fail with `unlinkFailure` (default: all). */
+  unlinkFailureTimes?: number | undefined;
 }) {
   const { close, execSql } = await createTestExecSql(input.testDbName);
 
@@ -158,6 +168,47 @@ export async function runQueuedDocumentMoveFixture(input: {
     let linkFailuresRemaining = input.linkFailure
       ? (input.linkFailureTimes ?? Number.POSITIVE_INFINITY)
       : 0;
+    let unlinkFailuresRemaining = input.unlinkFailure
+      ? (input.unlinkFailureTimes ?? Number.POSITIVE_INFINITY)
+      : 0;
+    const failingProjectionContainerId =
+      input.containerProjectionFailureFor === "root"
+        ? rootProjection.containerId
+        : trashProjection.containerId;
+    // The accepted unlink: shared by the plain mock and by the failing
+    // `unlinkDocumentResult` override once its failure budget is spent.
+    const submitUnlink = async (
+      documentId: string,
+      request: DocumentLinkSetMutationRequest,
+    ) => {
+      submittedOperations.push("unlink");
+      remoteRequests.push("unlink");
+      if (!input.unlinkAvailable) {
+        return null;
+      }
+      const response = await createLinkSetResponseFromRequest(
+        documentId,
+        request,
+      );
+      writerProjection = {
+        authorizingContainerPaths: [trashProjection],
+        contentKeyBundle: response.contentKeyBundle,
+        documentContainerManifestHistory: [
+          ...writerProjection.documentContainerManifestHistory,
+        ],
+        documentId: response.id,
+        documentKekTargets: response.documentKekTargets,
+        documentManifest: response.accessManifest,
+        documentManifestContainerPaths: [
+          ...writerProjection.documentManifestContainerPaths,
+        ],
+        documentManifestHistory: [
+          writerProjection.documentManifest,
+          ...writerProjection.documentManifestHistory,
+        ],
+      };
+      return response;
+    };
     // The accepted link: shared by the plain mock and by the failing
     // `linkDocumentResult` override once its failure budget is spent.
     const submitLink = async (
@@ -225,12 +276,21 @@ export async function runQueuedDocumentMoveFixture(input: {
         },
         ...(input.containerProjectionFailure
           ? {
-              getContainerWriterProjectionResult: async () => {
+              getContainerWriterProjectionResult: async (
+                containerId: string,
+              ) => {
                 remoteRequests.push("container-projection");
+                if (containerId !== failingProjectionContainerId) {
+                  const data =
+                    containerId === rootProjection.containerId
+                      ? rootProjection
+                      : trashProjection;
+                  return { data, ok: true as const };
+                }
                 return {
                   kind: "http" as const,
                   method: "GET" as const,
-                  path: `/containers/${trashProjection.containerId}/writer-projection`,
+                  path: `/containers/${containerId}/writer-projection`,
                   statusText: "Forbidden",
                   code: input.containerProjectionFailure?.code,
                   message: input.containerProjectionFailure?.message ?? "",
@@ -269,39 +329,38 @@ export async function runQueuedDocumentMoveFixture(input: {
               },
             }
           : {}),
+        ...(input.unlinkFailure
+          ? {
+              unlinkDocumentResult: async (
+                documentId: string,
+                request: DocumentLinkSetMutationRequest,
+              ) => {
+                if (unlinkFailuresRemaining <= 0) {
+                  const data = await submitUnlink(documentId, request);
+                  return data
+                    ? { data, ok: true as const }
+                    : createMockRequestFailure({
+                        message: "Mock document unlink unavailable",
+                      });
+                }
+                unlinkFailuresRemaining -= 1;
+                remoteRequests.push("unlink");
+                return {
+                  kind: "http" as const,
+                  method: "POST" as const,
+                  path: `/documents/${writerProjection.documentId}/unlink`,
+                  statusText: "Conflict",
+                  report: () => {},
+                  code: input.unlinkFailure?.code,
+                  message: input.unlinkFailure?.message ?? "",
+                  ok: false as const,
+                  status: input.unlinkFailure?.status ?? null,
+                };
+              },
+            }
+          : {}),
         linkDocument: submitLink,
-        unlinkDocument: async (
-          documentId: string,
-          request: DocumentLinkSetMutationRequest,
-        ) => {
-          submittedOperations.push("unlink");
-          remoteRequests.push("unlink");
-          if (!input.unlinkAvailable) {
-            return null;
-          }
-          const response = await createLinkSetResponseFromRequest(
-            documentId,
-            request,
-          );
-          writerProjection = {
-            authorizingContainerPaths: [trashProjection],
-            contentKeyBundle: response.contentKeyBundle,
-            documentContainerManifestHistory: [
-              ...writerProjection.documentContainerManifestHistory,
-            ],
-            documentId: response.id,
-            documentKekTargets: response.documentKekTargets,
-            documentManifest: response.accessManifest,
-            documentManifestContainerPaths: [
-              ...writerProjection.documentManifestContainerPaths,
-            ],
-            documentManifestHistory: [
-              writerProjection.documentManifest,
-              ...writerProjection.documentManifestHistory,
-            ],
-          };
-          return response;
-        },
+        unlinkDocument: submitUnlink,
       }) as unknown as ContainerContentsWorkflowRuntime["apiClient"],
       auth: {
         isAuthenticated: true,
@@ -414,6 +473,7 @@ export async function runQueuedDocumentMoveFixture(input: {
       passes,
       pendingIntents,
       relinkInputs,
+      rootContainerId: rootProjection.containerId,
       submittedOperations,
       syncedCount,
       trashContainerId: trashProjection.containerId,

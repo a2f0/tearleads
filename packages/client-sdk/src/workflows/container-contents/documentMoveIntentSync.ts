@@ -181,6 +181,7 @@ async function assertMoveIntentRotationPreflight<TRuntime>(input: {
 }
 
 async function movePendingDocumentIntent<TRuntime>(input: {
+  excludeUnlinkContainerIds: readonly string[];
   existingContainerId: string | null | undefined;
   host: DocumentMoveIntentSyncHost<TRuntime>;
   isCurrent: () => boolean;
@@ -196,6 +197,7 @@ async function movePendingDocumentIntent<TRuntime>(input: {
       input.existingContainerId ??
       input.intent.targetContainerId,
     documentId: input.intent.documentId,
+    excludeUnlinkContainerIds: input.excludeUnlinkContainerIds,
     isCurrent: input.isCurrent,
     noteId: input.intent.localId,
     onFailure: input.onFailure,
@@ -373,8 +375,9 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
   try {
     const outcome = await moveWithVanishedContainerRefresh({
       apiClient: state.runtime.apiClient,
-      attempt: (onFailure) =>
+      attempt: (onFailure, retry) =>
         movePendingDocumentIntent({
+          excludeUnlinkContainerIds: retry.excludeUnlinkContainerIds,
           existingContainerId: existingDocument.containerId,
           host,
           isCurrent: input.isCurrent,
@@ -382,9 +385,10 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
           onFailure,
           state,
         }),
-      documentId: intent.documentId,
+      execSql: state.runtime.infra.execSql,
+      existingContainerId: existingDocument.containerId,
+      intent,
       isCurrent: input.isCurrent,
-      targetContainerId: intent.targetContainerId,
     });
     if (outcome === "abandoned" || !input.isCurrent()) return "abandoned";
     if (!outcome.moved) {

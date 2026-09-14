@@ -38,6 +38,7 @@ test("a link refused for a deleted destination parks the move after one refreshe
   expect(fixture.passes[0]?.cacheEvictions).toEqual([
     `container:${fixture.trashContainerId}`,
     `document:${fixture.documentId}`,
+    `container:${fixture.rootContainerId}`,
   ]);
   expect(
     fixture.passes[0]?.remoteRequests.filter((request) => request === "link"),
@@ -75,6 +76,7 @@ test("a stale ancestor path refreshes the destination and completes the move", a
   expect(fixture.passes[0]?.cacheEvictions).toEqual([
     `container:${fixture.trashContainerId}`,
     `document:${fixture.documentId}`,
+    `container:${fixture.rootContainerId}`,
   ]);
   // The failed link, the refreshed probe, then the accepted link and unlink.
   expect(
@@ -136,5 +138,82 @@ test("a coded container 404 on the destination projection parks the move without
     },
   ]);
   expect(fixture.passes[0]?.remoteRequests).toContain("container-projection");
+  expect(fixture.passes[1]?.remoteRequests).toEqual([]);
+});
+
+// The unlink half cites the SOURCE containers' paths, so a source moved under
+// a live parent before its former ancestor was deleted fails the unlink with
+// the same proof. The refresh evicts and re-probes every source the unlink
+// can cite, not only the destination, and the retried unlink with the fresh
+// source path completes the move — nothing parks.
+test("a stale source ancestor path refreshes the sources and completes the move", async () => {
+  const fixture = await runQueuedDocumentMoveFixture({
+    passes: 2,
+    testDbName: "containerContents-document-move-stale-source-ancestor",
+    unlinkAvailable: true,
+    unlinkFailure: {
+      code: CONTAINER_UNAVAILABLE_ERROR_CODE,
+      message: "targetContainerPathRefs[0] container unavailable",
+      status: 409,
+    },
+    unlinkFailureTimes: 1,
+  });
+
+  expect(fixture.syncedCount).toBe(1);
+  expect(fixture.passes[0]?.cacheEvictions).toEqual([
+    `container:${fixture.trashContainerId}`,
+    `document:${fixture.documentId}`,
+    `container:${fixture.rootContainerId}`,
+  ]);
+  // Link accepted, unlink refused (a refused submission is not an accepted
+  // operation), refreshed, then the unlink accepted on the retry.
+  expect(fixture.passes[0]?.submittedOperations).toEqual([
+    "preflight",
+    "link",
+    "preflight",
+    "unlink",
+  ]);
+  expect(
+    fixture.passes[0]?.remoteRequests.filter((request) => request === "unlink"),
+  ).toHaveLength(2);
+  expect(fixture.linkedContainerIds).toEqual([fixture.trashContainerId]);
+  expect(fixture.intentRows).toEqual([]);
+  expect(fixture.passes[1]?.remoteRequests).toEqual([]);
+});
+
+// A source proven gone by its refreshed probe (coded 404) is not terminal for
+// the move: its link died with the container, so the unlink is moot and drops
+// out of the retry's unlink set. The document lands in the live destination
+// instead of parking behind an unlink that can never apply.
+test("a deleted source drops out of the unlink set and the move completes", async () => {
+  const fixture = await runQueuedDocumentMoveFixture({
+    containerProjectionFailure: {
+      code: CONTAINER_NOT_FOUND_ERROR_CODE,
+      message: "Container not found",
+      status: 404,
+    },
+    containerProjectionFailureFor: "root",
+    passes: 2,
+    testDbName: "containerContents-document-move-source-deleted",
+    unlinkAvailable: true,
+  });
+
+  expect(fixture.syncedCount).toBe(1);
+  expect(fixture.passes[0]?.cacheEvictions).toEqual([
+    `container:${fixture.trashContainerId}`,
+    `document:${fixture.documentId}`,
+    `container:${fixture.rootContainerId}`,
+  ]);
+  // The first unlink never reached the server (its source projection 404ed);
+  // the retry skips the dead source entirely.
+  expect(fixture.passes[0]?.submittedOperations).toEqual([
+    "preflight",
+    "link",
+    "preflight",
+  ]);
+  expect(fixture.relinkInputs.at(-1)).toMatchObject({
+    containerId: fixture.trashContainerId,
+  });
+  expect(fixture.intentRows).toEqual([]);
   expect(fixture.passes[1]?.remoteRequests).toEqual([]);
 });
