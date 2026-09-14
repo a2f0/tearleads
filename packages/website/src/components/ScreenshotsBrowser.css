@@ -231,8 +231,9 @@
 }
 
 .screenshots-browser__frame--mobile {
-  border-radius: 28px;
-  padding: 10px;
+  /* Match the 8px screen corner plus the 6px bezel and 1px border. */
+  border-radius: 15px;
+  padding: 6px;
 }
 
 .screenshots-browser__frame--tablet {
@@ -248,7 +249,7 @@
 }
 
 .screenshots-browser__frame--mobile .screenshots-browser__image {
-  border-radius: 20px;
+  border-radius: 8px;
 }
 
 .screenshots-browser__frame--tablet .screenshots-browser__image {
