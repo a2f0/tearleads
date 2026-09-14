@@ -15,6 +15,7 @@ import {
 import { Stage } from "./ScreenshotsStage";
 import {
   entryKey,
+  initialProject,
   type ScreenshotEntry,
   type ScreenshotManifest,
   screenshotPath,
@@ -231,29 +232,6 @@ function useScreenUrlSync(project: string, activeName: string | undefined) {
       );
     }
   }, [project, activeName]);
-}
-
-// Honor the deep-linked platform. Legacy screen-only links select the first
-// project that captured that screen, since the default may not have it.
-function initialProject(
-  manifest: ScreenshotManifest,
-  screen: string | undefined,
-  platform: string | undefined,
-): string {
-  if (platform && manifest.projects.includes(platform)) {
-    return platform;
-  }
-  if (screen) {
-    const withScreen = manifest.projects.find((project) =>
-      manifest.entries.some(
-        (entry) => entry.project === project && entry.name === screen,
-      ),
-    );
-    if (withScreen) {
-      return withScreen;
-    }
-  }
-  return manifest.projects[0] ?? "";
 }
 
 function Gallery({

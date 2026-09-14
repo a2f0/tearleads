@@ -4,8 +4,9 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
 // Stages the captured screenshots as static site assets. The capture run writes
-// to `<repoRoot>/.screenshots/<project>/<theme>/<name>.png` (see
-// packages/app-web/screenshots/capture.spec.ts); this copies canonical captures
+// to `<repoRoot>/.screenshots/<captureProject>/<theme>/<name>.png` (see
+// packages/app-web/screenshots/capture.spec.ts). CAPTURE_PROJECTS maps those
+// runner names to website platforms; this copies canonical captures
 // plus a scanned manifest into the Astro `public/` dir, which Astro serves at
 // the site root in dev and copies into `dist/` on build — the same gitignored,
 // regenerated-on-every-build contract as the favicons (see buildWebImages.sh).

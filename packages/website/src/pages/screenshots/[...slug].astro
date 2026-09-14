@@ -5,6 +5,7 @@ import { ScreenshotsBrowser } from "../../components/ScreenshotsBrowser";
 import {
   projectLabel,
   type ScreenshotManifest,
+  screenshotRoutes,
   titleCase,
 } from "../../components/screenshotsManifest";
 import Layout from "../../layouts/Layout.astro";
@@ -24,20 +25,7 @@ export async function getStaticPaths() {
   const manifest = JSON.parse(
     await readFile(manifestUrl, "utf8"),
   ) as ScreenshotManifest;
-  const captures = new Map(
-    manifest.entries.map((entry) => [`${entry.project}/${entry.name}`, entry]),
-  );
-  return [
-    { params: { slug: undefined } },
-    ...manifest.screens.map((slug) => ({
-      params: { slug },
-      props: { initialScreen: slug },
-    })),
-    ...Array.from(captures, ([slug, entry]) => ({
-      params: { slug },
-      props: { initialPlatform: entry.project, initialScreen: entry.name },
-    })),
-  ];
+  return screenshotRoutes(manifest);
 }
 
 const { initialPlatform, initialScreen } = Astro.props;
@@ -48,6 +36,7 @@ const screenTitle = initialScreen
 
 <Layout
   title={screenTitle}
+  noIndex={Boolean(initialScreen && !initialPlatform)}
   description="Browse Tearleads screenshots in Windowed, Mobile, and Tablet layouts with light and dark themes."
 >
   <main class="website-main">
