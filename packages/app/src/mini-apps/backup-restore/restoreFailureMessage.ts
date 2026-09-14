@@ -11,9 +11,15 @@ const RECORDING_OUTCOME: Record<SecurityIncidentRecordingStatus, string> = {
   recorded: "The conflict was recorded as a security incident",
 };
 
+function rollbackOutcome(failures: ReadonlyArray<unknown>): string {
+  return failures.length === 0
+    ? ""
+    : ` ${failures.length} restored attachment blob(s) could not be rolled back and still hold the backup's bytes.`;
+}
+
 export function restoreFailureMessage(error: unknown): string {
   if (error instanceof BackupRestoreConflictError) {
-    return `Restore refused: this backup carries a different purge proof for document ${error.conflict.documentId} than the one this device already verified. ${RECORDING_OUTCOME[error.recording]} and the local database was left unchanged.`;
+    return `Restore refused: this backup carries a different purge proof for document ${error.conflict.documentId} than the one this device already verified. ${RECORDING_OUTCOME[error.recording]} and the local database was left unchanged.${rollbackOutcome(error.rollbackFailures)}`;
   }
   return unknownErrorMessage(error);
 }

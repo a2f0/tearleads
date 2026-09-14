@@ -275,14 +275,14 @@ export async function restoreBackupPayload(
   } catch (error) {
     // Recorded after the restore lock is released: the SDK writer takes the
     // same serialized connection, and the failed restore left nothing behind.
-    const conflict = purgeCheckpointConflict(error);
-    if (!conflict) throw error;
+    const refusal = purgeCheckpointConflict(error);
+    if (!refusal) throw error;
     throw new BackupRestoreConflictError({
+      ...refusal,
       cause: error,
-      conflict,
       recording: await input.securityIncidents.record(
-        conflict,
-        conflict.incident,
+        refusal.conflict,
+        refusal.conflict.incident,
       ),
     });
   }

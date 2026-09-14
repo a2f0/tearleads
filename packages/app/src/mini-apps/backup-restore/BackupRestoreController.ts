@@ -1,5 +1,6 @@
 import type { FileSaver } from "@tearleads/client-sdk";
 import { type ChangeEvent, useCallback, useRef, useState } from "react";
+import { BackupRestoreConflictError } from "../../providers/db/backupRestoreConflict";
 import { clearRestoredLocalCaches } from "../../providers/db/clearRestoredLocalCaches";
 import {
   type BackupProgress,
@@ -172,6 +173,14 @@ function useRestoreBackupAction({
       log("Local backup restored");
     } catch (operationError: unknown) {
       logError("Failed to restore local backup", operationError);
+      if (operationError instanceof BackupRestoreConflictError) {
+        for (const failure of operationError.rollbackFailures) {
+          logError(
+            "Restored attachment blob could not be rolled back",
+            failure,
+          );
+        }
+      }
       setError(restoreFailureMessage(operationError));
     } finally {
       setBusy(null);

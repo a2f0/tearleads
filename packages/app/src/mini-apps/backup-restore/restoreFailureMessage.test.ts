@@ -22,6 +22,7 @@ test("a purge checkpoint conflict tells the user what was refused and recorded",
     cause: conflict,
     conflict,
     recording: "recorded",
+    rollbackFailures: [],
   });
   expect(restoreFailureMessage(error)).toBe(
     `${REFUSAL} The conflict was recorded as a security incident and the local database was left unchanged.`,
@@ -38,6 +39,7 @@ test("a conflict whose incident did not reach the ledger does not claim it was r
         cause: conflict,
         conflict,
         recording: "failed",
+        rollbackFailures: [],
       }),
     ),
   ).toBe(
@@ -49,6 +51,7 @@ test("a conflict whose incident did not reach the ledger does not claim it was r
         cause: conflict,
         conflict,
         recording: "buffered",
+        rollbackFailures: [],
       }),
     ),
   ).toBe(
@@ -56,4 +59,24 @@ test("a conflict whose incident did not reach the ledger does not claim it was r
   );
   // The bare merge error never reaches the UI; only the recorded envelope does.
   expect(restoreFailureMessage(conflict)).toBe(conflict.message);
+});
+
+test("a conflict that also left attachment bytes unrolled names the rollback failure", () => {
+  const rollbackFailure = new Error("blob store offline");
+  const aggregate = new AggregateError(
+    [conflict, rollbackFailure],
+    "Backup restore failed and 1 blob rollback operation(s) failed",
+  );
+  expect(
+    restoreFailureMessage(
+      new BackupRestoreConflictError({
+        cause: aggregate,
+        conflict,
+        recording: "recorded",
+        rollbackFailures: [rollbackFailure],
+      }),
+    ),
+  ).toBe(
+    `${REFUSAL} The conflict was recorded as a security incident and the local database was left unchanged. 1 restored attachment blob(s) could not be rolled back and still hold the backup's bytes.`,
+  );
 });

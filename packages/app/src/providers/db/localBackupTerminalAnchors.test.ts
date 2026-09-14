@@ -364,6 +364,73 @@ test("a purge proof conflict the ledger could not keep surfaces its recording st
     if (!(refusal instanceof BackupRestoreConflictError)) throw refusal;
     expect(recorded).toEqual([refusal.conflict]);
     expect(refusal.recording).toBe("failed");
+    expect(refusal.rollbackFailures).toEqual([]);
+    expect(
+      await target.execSql(
+        "SELECT purge_event_hash FROM document_purge_checkpoints",
+      ),
+    ).toEqual([{ purge_event_hash: HASH }]);
+  } finally {
+    source.close();
+    target.close();
+  }
+});
+
+test("a purge proof conflict keeps the blob rollback failures it was raised with", async () => {
+  const target = createNativeTestExecSql();
+  const source = createNativeTestExecSql();
+  const rollbackFailure = new Error("blob store offline");
+  const blobStore = createMemoryBlobStore();
+  try {
+    for (const db of [source, target]) {
+      for (const sql of schema) await db.execSql(sql);
+    }
+    await source.execSql(
+      "INSERT INTO document_purge_checkpoints VALUES (?, ?, ?, ?, ?)",
+      ["document-1", "organization-1", HASH, "b".repeat(64), UPDATED_AT],
+    );
+    const payload = await createBackupPayload({
+      blobStore: createMemoryBlobStore(),
+      databaseId: "backup-source",
+      execSql: source.execSql,
+      signingFingerprint: null,
+    });
+    const refusal = await restoreBackupPayload({
+      blobStore: {
+        deleteBytes: async () => {
+          throw rollbackFailure;
+        },
+        openByteSource: (key) => blobStore.openByteSource(key),
+        readBytes: (key) => blobStore.readBytes(key),
+        writeByteSource: (key, bytes) => blobStore.writeByteSource(key, bytes),
+        // The conflicting pin lands after preflight, while the backup's
+        // attachment bytes are being written ahead of the database.
+        writeBytes: async (key, bytes) => {
+          await target.execSql(
+            "INSERT INTO document_purge_checkpoints VALUES (?, ?, ?, ?, ?)",
+            ["document-1", "organization-1", HASH, HASH, UPDATED_AT],
+          );
+          await blobStore.writeBytes(key, bytes);
+        },
+      },
+      execSql: target.execSql,
+      payload: {
+        ...payload,
+        blobs: [{ byteLength: 1, bytesBase64: "AA==", storageKey: "blob-1" }],
+      },
+      securityIncidents: {
+        async record() {
+          return "recorded";
+        },
+      },
+    }).catch((error: unknown) => error);
+    if (!(refusal instanceof BackupRestoreConflictError)) throw refusal;
+    expect(refusal.conflict).toBeInstanceOf(
+      DocumentPurgeCheckpointConflictError,
+    );
+    expect(refusal.rollbackFailures).toEqual([rollbackFailure]);
+    expect(refusal.cause).toBeInstanceOf(AggregateError);
+    expect(await blobStore.readBytes("blob-1")).toEqual(new Uint8Array([0]));
     expect(
       await target.execSql(
         "SELECT purge_event_hash FROM document_purge_checkpoints",
