@@ -20,12 +20,19 @@ function describeStage(
 ): string {
   switch (stage) {
     case "wiping":
-      return `Database is unreadable with the resolved cipher key; wiping and recreating ${dbName}.`;
+      return `Database is unreadable with the resolved cipher key; wiping and recreating ${dbName}`;
     case "wipe-failed":
-      return `Failed to wipe the unreadable database ${dbName}; surfacing error.`;
+      return `Failed to wipe the unreadable database ${dbName}; surfacing error`;
     case "still-unreadable":
-      return `Database ${dbName} is still unreadable after recreate; surfacing error.`;
+      return `Database ${dbName} is still unreadable after recreate; surfacing error`;
   }
+}
+
+// The local log line renders only the message, so the SQLite failure joins it
+// there; diagnostics drop messages and keep the stack, so nothing leaves.
+function describeCause(cause: unknown): string {
+  if (cause === undefined) return "";
+  return ` (${cause instanceof Error ? cause.message : String(cause)})`;
 }
 
 export class UnreadableDatabaseRecoveryError extends Error {
@@ -36,7 +43,10 @@ export class UnreadableDatabaseRecoveryError extends Error {
     dbName: string,
     options?: { cause?: unknown },
   ) {
-    super(describeStage(stage, dbName), options);
+    super(
+      `${describeStage(stage, dbName)}${describeCause(options?.cause)}.`,
+      options,
+    );
     this.name = "UnreadableDatabaseRecoveryError";
     this.stage = stage;
   }

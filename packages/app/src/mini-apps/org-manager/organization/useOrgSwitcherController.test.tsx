@@ -43,6 +43,7 @@ function renderSwitcher(input: {
   databaseReady: boolean;
   interactionDisabled?: boolean | undefined;
   listLocalOrganizations: () => Promise<LocalOrganizationSummary[]>;
+  logError?: (message: string | Error, cause?: unknown) => void;
   provisionOrganization?: (
     organizationProfileName: string,
   ) => Promise<SessionCreateOrganizationResult | null>;
@@ -51,6 +52,7 @@ function renderSwitcher(input: {
   const provisionOrganization =
     input.provisionOrganization ?? mock(async () => null);
   const setSessionContext = input.setSessionContext ?? mock(() => {});
+  const logError = input.logError ?? (() => undefined);
   return renderHook(
     (props: {
       databaseReady: boolean;
@@ -70,6 +72,7 @@ function renderSwitcher(input: {
         enabled: true,
         interactionDisabled: props.interactionDisabled,
         listLocalOrganizations: input.listLocalOrganizations,
+        logError,
         organizationIndexRefreshKey: "organization-index-a",
         operationScopeKey: "session-a",
         provisionOrganization,
@@ -278,6 +281,29 @@ test("keeps the create dialog open when provisioning returns null", async () => 
   expect(view.result.current.createOrganizationError).toBe(
     ORG_MANAGER_LABELS.failedCreateOrganization,
   );
+  expect(view.result.current.isCreateOrganizationDialogOpen).toBe(true);
+});
+
+test("reports a thrown provisioning failure and keeps the dialog open", async () => {
+  const failure = new Error("provision failed");
+  const logged: [string | Error, unknown][] = [];
+  const view = renderSwitcher({
+    databaseReady: true,
+    listLocalOrganizations: mock(async () => [ORGANIZATION_A]),
+    logError: (message, cause) => void logged.push([message, cause]),
+    provisionOrganization: mock(() => Promise.reject(failure)),
+  });
+  await waitFor(() =>
+    expect(view.result.current.organizationsLoading).toBe(false),
+  );
+
+  act(() => view.result.current.openCreateOrganizationDialog());
+  await act(async () => {
+    await view.result.current.createOrganization("Beta");
+  });
+
+  // The original Error reaches diagnostics; the dialog stays open to retry.
+  expect(logged).toEqual([["Failed to create organization", failure]]);
   expect(view.result.current.isCreateOrganizationDialogOpen).toBe(true);
 });
 

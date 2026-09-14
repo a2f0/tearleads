@@ -7,6 +7,7 @@ import {
   MiniAppSection,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
+import { useLog } from "../../../providers/logging/LogProvider";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import { formatPrice } from "../../shared/billingFormatters";
 import { ORG_MANAGER_LABELS } from "../labels";
@@ -38,6 +39,7 @@ function useHostedCheckout(organizationId: string): {
   readonly unavailable: boolean;
 } {
   const tearleads = useTearleads();
+  const { logError } = useLog();
   const [busy, setBusy] = useState(false);
   // A null/failed result would otherwise reset the link silently, leaving a
   // dead-feeling click — e.g. a co-admin whose org is already checking out, or
@@ -77,13 +79,13 @@ function useHostedCheckout(organizationId: string): {
         setUnavailable(true);
         setBusy(false);
       } catch (error) {
-        console.error("Failed to open the hosted Stripe checkout:", error);
+        logError("Failed to open the hosted Stripe checkout", error);
         tab?.close();
         setUnavailable(true);
         setBusy(false);
       }
     })();
-  }, [busy, organizationId, tearleads]);
+  }, [busy, logError, organizationId, tearleads]);
   return { open, busy, unavailable };
 }
 

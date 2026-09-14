@@ -5,6 +5,7 @@ import type {
 import type { StripeSyncOptionResponse } from "@tearleads/validators/response";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDirectCheckout as useDirectCheckoutCapability } from "../../../providers/direct-checkout/DirectCheckoutProvider";
+import { useLog } from "../../../providers/logging/LogProvider";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { checkoutOptionErrorMessage } from "./billingCheckoutErrors";
@@ -179,12 +180,15 @@ interface CheckoutRefs {
   readonly setError: (error: string | null) => void;
 }
 
+type LogError = (message: string | Error, cause?: unknown) => void;
+
 interface BeginCheckoutDeps {
   readonly available: boolean;
   readonly canSubscribe: boolean;
   readonly enabled: boolean;
   readonly organizationId: string;
   readonly capability: DirectCheckoutCapability;
+  readonly logError: LogError;
   readonly tearleads: ReturnType<typeof useTearleads>;
   readonly teardown: () => void;
 }
@@ -252,7 +256,7 @@ function useBeginCheckout(
           refs.sessionRef.current = session;
           refs.setPhase({ kind: "collecting" });
         } catch (mountError) {
-          console.error("Failed to start the direct checkout:", mountError);
+          deps.logError("Failed to start the direct checkout", mountError);
           // Same guard: calling the shared teardown here would bump the token
           // and cancel a newer attempt started after this one failed.
           if (refs.startTokenRef.current !== token) {
@@ -278,6 +282,7 @@ function useConfirmCheckout(
   refs: CheckoutRefs,
   teardown: () => void,
   onPaid: () => void,
+  logError: LogError,
 ): () => void {
   return useCallback(() => {
     const session = refs.sessionRef.current;
@@ -329,7 +334,7 @@ function useConfirmCheckout(
         refs.setError(null);
         onPaid();
       } catch (confirmError) {
-        console.error("Failed to confirm the direct checkout:", confirmError);
+        logError("Failed to confirm the direct checkout", confirmError);
         refs.confirmingRef.current = false;
         if (refs.startTokenRef.current !== token) {
           return;
@@ -338,7 +343,7 @@ function useConfirmCheckout(
         refs.setError(ORG_MANAGER_LABELS.failedSubscribe);
       }
     })();
-  }, [onPaid, refs, teardown]);
+  }, [logError, onPaid, refs, teardown]);
 }
 
 export function useDirectCheckoutFlow(input: {
@@ -356,6 +361,7 @@ export function useDirectCheckoutFlow(input: {
 }): DirectCheckoutState {
   const capability = useDirectCheckoutCapability();
   const tearleads = useTearleads();
+  const { logError } = useLog();
   const hostRef = useRef<HTMLDivElement | null>(null);
   const sessionRef = useRef<DirectCheckoutSession | null>(null);
   /** Bumped by every begin/teardown so a late mount can detect it lost. */
@@ -408,6 +414,7 @@ export function useDirectCheckoutFlow(input: {
       enabled: input.enabled,
       organizationId: input.organizationId,
       capability,
+      logError,
       tearleads,
       teardown,
     }),
@@ -417,6 +424,7 @@ export function useDirectCheckoutFlow(input: {
       input.canSubscribe,
       input.enabled,
       input.organizationId,
+      logError,
       tearleads,
       teardown,
     ],
@@ -429,7 +437,7 @@ export function useDirectCheckoutFlow(input: {
 
   const begin = useBeginCheckout(refs, deps);
 
-  const confirm = useConfirmCheckout(refs, teardown, input.onPaid);
+  const confirm = useConfirmCheckout(refs, teardown, input.onPaid, logError);
 
   return {
     available,

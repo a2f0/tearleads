@@ -9,6 +9,7 @@ import type {
 } from "@tearleads/client-sdk";
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useMemo } from "react";
+import { useLog } from "../../../providers/logging/LogProvider";
 import type { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import { prepareRosterImport } from "../groups/orgManagerMutationOperations";
@@ -106,6 +107,7 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     setOrgManagerView,
     setUserDetail,
   } = params;
+  const { logError } = useLog();
   const operationScope = useMemo(
     () => orgManagerActions.captureOperationScope(),
     [orgManagerActions.captureOperationScope],
@@ -131,6 +133,7 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     const operationOrganizationId = appData.auth.organizationId;
     await runScopedOrgMutation({
       isOperationActive,
+      logError,
       operationOrganizationId,
       run: async () => {
         const createdGroup = await orgManagerActions.createGroup(
@@ -158,6 +161,7 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     appData.crypto.signingKeyPair,
     groupNameDraft,
     isOperationActive,
+    logError,
     openGroupRoute,
     orgManagerActions,
     refreshDirectoryAndGroups,
@@ -177,6 +181,7 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
       const operationOrganizationId = targetGroup.organizationId;
       await runScopedOrgMutation({
         isOperationActive,
+        logError,
         operationOrganizationId,
         run: async () => {
           const wasSelectedGroup = selectedGroupIdRef.current === groupId;
@@ -204,6 +209,7 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
       canDeleteGroup,
       groups,
       isOperationActive,
+      logError,
       orgManagerActions,
       refreshDirectoryAndGroups,
       selectGroup,
@@ -233,6 +239,7 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     const operationOrganizationId = directory.organizationId;
     await runScopedOrgMutation({
       isOperationActive,
+      logError,
       operationOrganizationId,
       run: async () => {
         const targetUser = await prepareRosterImport({
@@ -273,6 +280,7 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     directory,
     importUserIdDraft,
     isOperationActive,
+    logError,
     memberGroupId,
     orgManagerActions,
     refreshDirectoryAndGroups,
@@ -291,6 +299,7 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     directory,
     invalidateSelectedGroupDetails,
     isOperationActive,
+    logError,
     memberGroupId,
     members,
     orgManagerActions,
@@ -312,6 +321,7 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     directory,
     groups,
     invalidateSelectedGroupDetails,
+    logError,
     memberGroupId,
     orgManagerActions,
     refreshDirectoryAndGroups,

@@ -8,6 +8,7 @@ import type {
 import type { OrganizationNativePurchaseEligibilityResponse } from "@tearleads/validators/response";
 import { renderHook } from "@testing-library/react";
 import { type PropsWithChildren, useLayoutEffect } from "react";
+import type { AppDiagnostics } from "../../src/host/AppDiagnostics";
 import {
   type CreatePurchasesFn,
   createAppHostConfig,
@@ -93,7 +94,10 @@ export function createPurchases(
   return purchases;
 }
 
-function wrapper(createPurchasesFn: CreatePurchasesFn) {
+function wrapper(
+  createPurchasesFn: CreatePurchasesFn,
+  diagnostics: AppDiagnostics | undefined,
+) {
   const hostConfig = createAppHostConfig({
     apiBaseUrl: "http://localhost",
     createPurchases: createPurchasesFn,
@@ -105,12 +109,27 @@ function wrapper(createPurchasesFn: CreatePurchasesFn) {
       <AppHostConfigProvider value={hostConfig}>
         <PurchasesProvider>
           <DirectCheckoutProvider>
-            <LogProvider>{children}</LogProvider>
+            <LogProvider diagnostics={diagnostics}>{children}</LogProvider>
           </DirectCheckoutProvider>
         </PurchasesProvider>
       </AppHostConfigProvider>
     );
   };
+}
+
+/**
+ * A diagnostics fake that records every captured error, so a test can prove
+ * the flow hands the ORIGINAL Error to the adapter (the only path to Sentry).
+ */
+export function createCapturingDiagnostics() {
+  const captured: unknown[] = [];
+  const diagnostics: AppDiagnostics = {
+    addBreadcrumb: () => undefined,
+    captureError: (error) => {
+      captured.push(error);
+    },
+  };
+  return { captured, diagnostics };
 }
 
 export function renderBillingActions(input: {
@@ -130,6 +149,8 @@ export function renderBillingActions(input: {
   refresh?: () => Promise<void>;
   startTrial?: () => Promise<boolean>;
   observeLayout?: () => void;
+  /** Receives every Error `logError` forwards; omit to discard them. */
+  diagnostics?: AppDiagnostics;
 }) {
   return renderHook<
     BillingActions & {
@@ -198,7 +219,7 @@ export function renderBillingActions(input: {
         organizationId: "org-1",
         userId: "user-1",
       },
-      wrapper: wrapper(() => input.purchases),
+      wrapper: wrapper(() => input.purchases, input.diagnostics),
     },
   );
 }

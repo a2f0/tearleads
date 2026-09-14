@@ -19,6 +19,7 @@ import {
   useState,
 } from "react";
 import { useCryptoSession } from "../crypto/CryptoSessionProvider";
+import { useLog } from "../logging/LogProvider";
 import { useTearleads } from "../sdk/TearleadsProvider";
 import { BILLING_LABELS } from "./billingLabels";
 
@@ -32,8 +33,12 @@ interface OrganizationBillingContextValue {
   readonly startTrial: () => Promise<boolean>;
 }
 
+type LogError = (message: string | Error, cause?: unknown) => void;
+
 /** The billing methods this provider needs from the SDK facade. */
 interface BillingClient {
+  /** Connectivity, so an offline read failure is not reported as a defect. */
+  readonly network: { readonly online: boolean };
   readonly organizations: {
     readonly loadBilling: () => Promise<OrganizationBilling | null>;
     readonly startTrial: () => Promise<OrganizationBilling | null>;
@@ -107,11 +112,49 @@ function readRequestIsCurrent(
   );
 }
 
+type LoadedBilling = Awaited<
+  ReturnType<BillingClient["organizations"]["loadBilling"]>
+>;
+
+function applyLoadedBilling(
+  setState: Dispatch<SetStateAction<ScopedBillingState>>,
+  organizationId: string,
+  next: LoadedBilling,
+): void {
+  const validBilling = next?.organizationId === organizationId ? next : null;
+  setState({
+    organizationId,
+    billing: validBilling,
+    loading: false,
+    error: validBilling ? null : BILLING_LABELS.failedLoadBilling,
+  });
+}
+
+function applyFailedBillingLoad(params: {
+  client: BillingClient;
+  loadError: unknown;
+  logError: LogError;
+  organizationId: string;
+  setState: Dispatch<SetStateAction<ScopedBillingState>>;
+}): void {
+  // A background read: offline, the fetch failure is expected, not a defect.
+  if (params.client.network.online) {
+    params.logError("Failed to load organization billing", params.loadError);
+  }
+  params.setState({
+    organizationId: params.organizationId,
+    billing: null,
+    loading: false,
+    error: BILLING_LABELS.failedLoadBilling,
+  });
+}
+
 function useBillingRefresh(
   client: BillingClient,
   organizationId: string | null,
   guard: BillingRequestGuard,
   setState: Dispatch<SetStateAction<ScopedBillingState>>,
+  logError: LogError,
 ): () => Promise<void> {
   return useCallback(async () => {
     if (guard.activeOrganizationIdRef.current !== organizationId) {
@@ -136,30 +179,21 @@ function useBillingRefresh(
     }));
     try {
       const next = await client.organizations.loadBilling();
-      if (!readRequestIsCurrent(guard, request)) {
-        return;
+      if (readRequestIsCurrent(guard, request)) {
+        applyLoadedBilling(setState, organizationId, next);
       }
-      const validBilling =
-        next?.organizationId === organizationId ? next : null;
-      setState({
-        organizationId,
-        billing: validBilling,
-        loading: false,
-        error: validBilling ? null : BILLING_LABELS.failedLoadBilling,
-      });
     } catch (loadError) {
-      if (!readRequestIsCurrent(guard, request)) {
-        return;
+      if (readRequestIsCurrent(guard, request)) {
+        applyFailedBillingLoad({
+          client,
+          loadError,
+          logError,
+          organizationId,
+          setState,
+        });
       }
-      console.error("Failed to load organization billing:", loadError);
-      setState({
-        organizationId,
-        billing: null,
-        loading: false,
-        error: BILLING_LABELS.failedLoadBilling,
-      });
     }
-  }, [client, guard, organizationId, setState]);
+  }, [client, guard, logError, organizationId, setState]);
 }
 
 function useStartBillingTrial(
@@ -167,6 +201,7 @@ function useStartBillingTrial(
   organizationId: string | null,
   guard: BillingRequestGuard,
   setState: Dispatch<SetStateAction<ScopedBillingState>>,
+  logError: LogError,
 ): () => Promise<boolean> {
   return useCallback(async (): Promise<boolean> => {
     if (
@@ -218,7 +253,7 @@ function useStartBillingTrial(
         return false;
       }
       guard.billingMutationVersionRef.current++;
-      console.error("Failed to start the free trial:", trialError);
+      logError("Failed to start the free trial", trialError);
       setState((current) => ({
         organizationId,
         billing:
@@ -228,7 +263,7 @@ function useStartBillingTrial(
       }));
     }
     return false;
-  }, [client, guard, organizationId, setState]);
+  }, [client, guard, logError, organizationId, setState]);
 }
 
 /**
@@ -242,6 +277,7 @@ function useStartBillingTrial(
 export function useOrganizationBillingState(
   client: BillingClient,
   organizationId: string | null,
+  logError: LogError,
 ): OrganizationBillingContextValue {
   const [state, setState] = useState<ScopedBillingState>(() =>
     emptyBillingState(organizationId),
@@ -261,12 +297,19 @@ export function useOrganizationBillingState(
     }),
     [],
   );
-  const refresh = useBillingRefresh(client, organizationId, guard, setState);
+  const refresh = useBillingRefresh(
+    client,
+    organizationId,
+    guard,
+    setState,
+    logError,
+  );
   const startTrial = useStartBillingTrial(
     client,
     organizationId,
     guard,
     setState,
+    logError,
   );
 
   useLayoutEffect(() => {
@@ -317,9 +360,14 @@ export function syncBillingBlockAppliesToOrganization(
  */
 export function BillingProvider({ children }: PropsWithChildren) {
   const tearleads = useTearleads();
+  const { logError } = useLog();
   const { isAuthenticated, organizationId } = useCryptoSession();
   const activeOrganizationId = isAuthenticated ? organizationId : null;
-  const value = useOrganizationBillingState(tearleads, activeOrganizationId);
+  const value = useOrganizationBillingState(
+    tearleads,
+    activeOrganizationId,
+    logError,
+  );
   const { billing, refresh } = value;
 
   // When a sync write is rejected for payment (HTTP 402), refetch billing so the

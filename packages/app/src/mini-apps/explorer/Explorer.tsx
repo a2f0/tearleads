@@ -155,6 +155,7 @@ function renderExplorerDetailPanelWithBlobPick(
       loadDocumentAttributionRanges={model.loadDocumentAttributionRanges}
       loadDocumentInfo={model.loadDocumentInfo}
       loadDocumentSummary={model.loadDocumentSummary}
+      logError={appData.util.logError}
       nodes={model.explorer.nodes}
       online={appData.state.online}
       organizationNamesById={model.organizationNamesById}
@@ -343,6 +344,7 @@ function ExplorerContent() {
   const downloadDocument = useExplorerDocumentDownload({
     blobStore: appData.infra.blobStore,
     loadDocumentInfo: model.loadDocumentInfo,
+    logError: appData.util.logError,
   });
   useWindowFileMenuItem({
     disabled:

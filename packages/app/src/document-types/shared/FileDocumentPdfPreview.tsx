@@ -1,5 +1,9 @@
 import { FilePdfIcon } from "@phosphor-icons/react/dist/csr/FilePdf";
-import type { BlobStore, DocumentAttachment } from "@tearleads/client-sdk";
+import {
+  type BlobStore,
+  type DocumentAttachment,
+  isDatabaseUnavailableError,
+} from "@tearleads/client-sdk";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   MiniAppButton,
@@ -46,9 +50,15 @@ export function useFileDocumentPdfPreview(params: {
   attachments: ReadonlyArray<DocumentAttachment>;
   blobStore: BlobStore;
   fileViewer: FileViewer | null;
+  logError: (message: string | Error, cause?: unknown) => void;
 }): FileDocumentPdfPreview | null {
-  const { attachmentStorageKeyBySlotId, attachments, blobStore, fileViewer } =
-    params;
+  const {
+    attachmentStorageKeyBySlotId,
+    attachments,
+    blobStore,
+    fileViewer,
+    logError,
+  } = params;
   const candidate = useMemo(
     () =>
       resolveFileDocumentPdfPreview(attachments, attachmentStorageKeyBySlotId),
@@ -115,7 +125,11 @@ export function useFileDocumentPdfPreview(params: {
       })
       .catch((openError: unknown) => {
         if (generation === generationRef.current) {
-          console.error("Failed to open PDF preview:", openError);
+          // The database going away mid-read (identity switch, Explorer
+          // retry) is a benign outcome, not a defect worth a diagnostics event.
+          if (!isDatabaseUnavailableError(openError)) {
+            logError("Failed to open PDF preview", openError);
+          }
           setError("Couldn't open this PDF. You can still download it.");
         }
       })
@@ -125,7 +139,7 @@ export function useFileDocumentPdfPreview(params: {
           setLoading(false);
         }
       });
-  }, [blobStore, candidate, fileViewer]);
+  }, [blobStore, candidate, fileViewer, logError]);
 
   return candidate
     ? {

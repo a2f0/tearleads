@@ -8,6 +8,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import * as CryptoSessionProvider from "../crypto/CryptoSessionProvider";
+import { LogProvider } from "../logging/LogProvider";
 import * as TearleadsProvider from "../sdk/TearleadsProvider";
 import {
   BillingProvider,
@@ -47,9 +48,20 @@ function makeClient(
   loadBilling: () => Promise<OrganizationBilling | null>,
   startTrial: () => Promise<OrganizationBilling | null> = () =>
     Promise.resolve(null),
+  online = true,
 ) {
-  return { organizations: { loadBilling, startTrial } };
+  return { network: { online }, organizations: { loadBilling, startTrial } };
 }
+
+function logCollector() {
+  const logged: [string | Error, unknown][] = [];
+  const logError = (message: string | Error, cause?: unknown) => {
+    logged.push([message, cause]);
+  };
+  return { logError, logged };
+}
+
+const noopLogError = () => undefined;
 
 test("only recovers a sync billing block in its organization scope", () => {
   expect(
@@ -89,7 +101,7 @@ test("loads billing for the active org", async () => {
   const loadBilling = mock(() => Promise.resolve(snapshot));
   const client = makeClient(loadBilling);
   const { result } = renderHook(() =>
-    useOrganizationBillingState(client, "org-1"),
+    useOrganizationBillingState(client, "org-1", noopLogError),
   );
 
   await waitFor(() => expect(result.current.billing).toEqual(snapshot));
@@ -102,7 +114,7 @@ test("clears billing and resets loading/error when there is no active org", asyn
   const loadBilling = mock(() => Promise.resolve(billing()));
   const client = makeClient(loadBilling);
   const { result } = renderHook(() =>
-    useOrganizationBillingState(client, null),
+    useOrganizationBillingState(client, null, noopLogError),
   );
 
   await waitFor(() => expect(result.current.loading).toBe(false));
@@ -123,6 +135,7 @@ test("loads billing when authentication completes for the unchanged org", async 
   );
   let isAuthenticated = false;
   const tearleads = {
+    network: { online: true },
     organizations: makeClient(loadBilling).organizations,
     syncBillingGate: {
       blockedOrganizationId: null,
@@ -148,7 +161,9 @@ test("loads billing when authentication completes for the unchanged org", async 
   ).mockImplementation(() => tearleads);
 
   try {
-    const view = render(<BillingProvider>child</BillingProvider>);
+    const view = render(<BillingProvider>child</BillingProvider>, {
+      wrapper: LogProvider,
+    });
     await act(async () => Promise.resolve());
     expect(loadBilling).not.toHaveBeenCalled();
 
@@ -176,11 +191,60 @@ test("sets an error when the load returns null", async () => {
   const loadBilling = mock(() => Promise.resolve(null));
   const client = makeClient(loadBilling);
   const { result } = renderHook(() =>
-    useOrganizationBillingState(client, "org-1"),
+    useOrganizationBillingState(client, "org-1", noopLogError),
   );
 
   await waitFor(() => expect(result.current.error).not.toBe(null));
   expect(result.current.billing).toBe(null);
+});
+
+test.each([
+  ["online", true],
+  ["offline", false],
+])("a failed load is reported only while %s", async (_case, online) => {
+  // Offline, the background read fails as "Failed to fetch" on every visit;
+  // that is expected, not a defect worth a diagnostics event.
+  const failure = new Error("500");
+  const client = makeClient(
+    () => Promise.reject(failure),
+    () => Promise.resolve(null),
+    online,
+  );
+  const { logError, logged } = logCollector();
+  const { result } = renderHook(() =>
+    useOrganizationBillingState(client, "org-1", logError),
+  );
+
+  await waitFor(() => expect(result.current.error).not.toBe(null));
+  expect(result.current.billing).toBe(null);
+  expect(result.current.loading).toBe(false);
+  expect(logged).toEqual(
+    online ? [["Failed to load organization billing", failure]] : [],
+  );
+});
+
+test("a thrown startTrial is reported and surfaces an error", async () => {
+  const local = billing({ status: "local", trialEndsAt: null });
+  const failure = new Error("trial 500");
+  const client = makeClient(
+    () => Promise.resolve(local),
+    () => Promise.reject(failure),
+  );
+  const { logError, logged } = logCollector();
+  const { result } = renderHook(() =>
+    useOrganizationBillingState(client, "org-1", logError),
+  );
+  await waitFor(() => expect(result.current.billing).toEqual(local));
+
+  let ok = true;
+  await act(async () => {
+    ok = await result.current.startTrial();
+  });
+
+  expect(ok).toBe(false);
+  expect(result.current.error).not.toBe(null);
+  expect(result.current.billing).toEqual(local);
+  expect(logged).toEqual([["Failed to start the free trial", failure]]);
 });
 
 test("ignores a stale response when the active org changes mid-flight", async () => {
@@ -202,7 +266,7 @@ test("ignores a stale response when the active org changes mid-flight", async ()
   const client = makeClient(loadBilling);
   const { result, rerender } = renderHook(
     ({ orgId }: { orgId: string }) =>
-      useOrganizationBillingState(client, orgId),
+      useOrganizationBillingState(client, orgId, noopLogError),
     { initialProps: { orgId: "org-a" } },
   );
 
@@ -237,7 +301,7 @@ test("rejects a billing response for a different organization", async () => {
   const wrongOrganization = billing({ organizationId: "org-a" });
   const client = makeClient(() => Promise.resolve(wrongOrganization));
   const { result } = renderHook(() =>
-    useOrganizationBillingState(client, "org-b"),
+    useOrganizationBillingState(client, "org-b", noopLogError),
   );
 
   await waitFor(() => expect(result.current.loading).toBe(false));
@@ -252,7 +316,7 @@ test("startTrial stores the returned billing and reports success", async () => {
   const startTrial = mock(() => Promise.resolve(started));
   const client = makeClient(() => Promise.resolve(local), startTrial);
   const { result } = renderHook(() =>
-    useOrganizationBillingState(client, "org-1"),
+    useOrganizationBillingState(client, "org-1", noopLogError),
   );
   await waitFor(() => expect(result.current.billing).toEqual(local));
 
@@ -278,7 +342,7 @@ test("commits a trial result after a newer billing read settles", async () => {
   );
   const client = makeClient(() => Promise.resolve(local), startTrial);
   const { result } = renderHook(() =>
-    useOrganizationBillingState(client, "org-1"),
+    useOrganizationBillingState(client, "org-1", noopLogError),
   );
   await waitFor(() => expect(result.current.billing).toEqual(local));
 
@@ -321,7 +385,7 @@ test("a read started during trial activation cannot overwrite its result", async
   );
   const client = makeClient(loadBilling, startTrial);
   const { result } = renderHook(() =>
-    useOrganizationBillingState(client, "org-1"),
+    useOrganizationBillingState(client, "org-1", noopLogError),
   );
   await waitFor(() => expect(result.current.billing).toEqual(local));
 
@@ -350,7 +414,7 @@ test("does not run an old organization's startTrial callback after a switch", as
   const client = makeClient(loadBilling, startTrial);
   const { result, rerender } = renderHook(
     ({ orgId }: { orgId: string }) =>
-      useOrganizationBillingState(client, orgId),
+      useOrganizationBillingState(client, orgId, noopLogError),
     { initialProps: { orgId: "org-a" } },
   );
   await waitFor(() => expect(result.current.loading).toBe(false));
@@ -390,7 +454,7 @@ test("scope generation rejects an in-flight trial after returning to its organiz
   );
   const { result, rerender } = renderHook(
     ({ orgId }: { orgId: string }) =>
-      useOrganizationBillingState(client, orgId),
+      useOrganizationBillingState(client, orgId, noopLogError),
     { initialProps: { orgId: "org-a" } },
   );
   await waitFor(() => expect(result.current.billing).toEqual(orgA));
@@ -420,7 +484,7 @@ test("startTrial reports failure and sets an error when it returns null", async 
     () => Promise.resolve(null),
   );
   const { result } = renderHook(() =>
-    useOrganizationBillingState(client, "org-1"),
+    useOrganizationBillingState(client, "org-1", noopLogError),
   );
   await waitFor(() => expect(result.current.billing).toEqual(local));
 

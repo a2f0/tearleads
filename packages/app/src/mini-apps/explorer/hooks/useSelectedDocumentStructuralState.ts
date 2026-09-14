@@ -4,6 +4,7 @@ import type {
   DocumentSummary,
 } from "@tearleads/client-sdk";
 import { useCallback, useMemo, useRef } from "react";
+import { isIgnorableDatabaseWorkerError } from "../../../stores/explorer/documentRuntime";
 import { isExplorerDocumentContainerSelection } from "../../../stores/explorer/orphanedDocuments";
 import type { ExplorerContainerRulesContext } from "../model/containerRules";
 import {
@@ -157,6 +158,7 @@ export function useSelectDocumentProjection(params: {
     containerId: string,
   ) => Promise<DocumentSummary | null>;
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
+  logError: (message: string | Error, cause?: unknown) => void;
   selectDocument: (
     id: string,
     containerId: string,
@@ -170,6 +172,7 @@ export function useSelectDocumentProjection(params: {
   const {
     activateLinkedDocument,
     loadDocumentSummary,
+    logError,
     selectDocument,
     setSelectedId,
   } = params;
@@ -222,14 +225,15 @@ export function useSelectDocumentProjection(params: {
       }
 
       void resolveSelection().catch((error: unknown) => {
-        if (isCurrent()) {
-          console.error("Explorer: failed to select linked document:", error);
+        if (isCurrent() && !isIgnorableDatabaseWorkerError(error)) {
+          logError("Failed to select the linked explorer document", error);
         }
       });
     },
     [
       activateLinkedDocument,
       loadDocumentSummary,
+      logError,
       selectDocument,
       setSelectedId,
     ],

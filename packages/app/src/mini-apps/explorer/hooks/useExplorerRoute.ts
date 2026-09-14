@@ -98,6 +98,7 @@ function useExplorerRouteSelectionEffect(params: {
     localId: string,
     routeContainerId: string,
   ) => Promise<ExplorerRouteDocumentSummaryResult>;
+  logError: (message: string | Error, cause?: unknown) => void;
   parsedAppRoute: ExplorerRouteSnapshot | null;
   selectDocument: (id: string, containerId: string) => void;
   setSelectedId: (id: string | null) => void;
@@ -105,10 +106,15 @@ function useExplorerRouteSelectionEffect(params: {
   const {
     appRouteIsRouted,
     loadDocumentSummary,
+    logError,
     parsedAppRoute,
     selectDocument,
     setSelectedId,
   } = params;
+  // Read through a ref: the effect reports with the current logger without
+  // re-running when a caller passes a new function identity.
+  const logErrorRef = useRef(logError);
+  logErrorRef.current = logError;
   const route = parsedAppRoute?.route;
   const documentSelectionContainerId =
     route?.view === "document-selection" ? route.containerId : null;
@@ -157,7 +163,10 @@ function useExplorerRouteSelectionEffect(params: {
           if (!active || isIgnorableDatabaseWorkerError(error)) {
             return;
           }
-          console.error("Explorer: failed to restore document route:", error);
+          logErrorRef.current(
+            "Failed to restore the explorer document route",
+            error,
+          );
           setSelectedId(null);
         });
       return () => {
@@ -418,16 +427,24 @@ export function useExplorerRoute(params: {
     localId: string,
     routeContainerId: string,
   ) => Promise<ExplorerRouteDocumentSummaryResult>;
+  logError: (message: string | Error, cause?: unknown) => void;
   nodes: ReadonlyArray<ContainerNode>;
   selectDocument: (id: string, containerId: string) => void;
   setSelectedId: (id: string | null) => void;
 }): ExplorerRouteState {
-  const { loadDocumentSummary, nodes, selectDocument, setSelectedId } = params;
+  const {
+    loadDocumentSummary,
+    logError,
+    nodes,
+    selectDocument,
+    setSelectedId,
+  } = params;
   const { appRoute, parsedAppRoute, route, routeSnapshot, setRoute } =
     useExplorerRouteBinding();
   useExplorerRouteSelectionEffect({
     appRouteIsRouted: appRoute.isRouted,
     loadDocumentSummary,
+    logError,
     parsedAppRoute,
     selectDocument,
     setSelectedId,

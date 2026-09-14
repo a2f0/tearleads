@@ -22,6 +22,7 @@ interface OrgManagerMembershipMutationsParams {
   readonly directory: OrganizationDirectory | null;
   readonly invalidateSelectedGroupDetails: Refreshers["invalidateSelectedGroupDetails"];
   readonly isOperationActive: (organizationId: string) => boolean;
+  readonly logError: (message: string | Error, cause?: unknown) => void;
   readonly memberGroupId: string | null;
   readonly members: OrganizationGroupMembers | null;
   readonly orgManagerActions: ReturnType<typeof useOrgManagerActions>;
@@ -76,6 +77,7 @@ async function addUserToSelectedGroup(
 
   await runScopedOrgMutation({
     isOperationActive: params.isOperationActive,
+    logError: params.logError,
     operationOrganizationId,
     run: async () => {
       const policyBundle = await addRosterUserToGroup({
@@ -140,6 +142,7 @@ async function removeUserFromSelectedGroup(
   const operationOrganizationId = params.directory.organizationId;
   await runScopedOrgMutation({
     isOperationActive: params.isOperationActive,
+    logError: params.logError,
     operationOrganizationId,
     run: async () => {
       await params.orgManagerActions.removeUserFromGroup(
@@ -177,6 +180,7 @@ export function useOrgManagerMembershipMutations(
       params.directory,
       params.invalidateSelectedGroupDetails,
       params.isOperationActive,
+      params.logError,
       params.memberGroupId,
       params.members,
       params.orgManagerActions,
@@ -201,6 +205,7 @@ export function useOrgManagerMembershipMutations(
       params.directory,
       params.invalidateSelectedGroupDetails,
       params.isOperationActive,
+      params.logError,
       params.memberGroupId,
       params.orgManagerActions,
       params.refreshDirectoryAndGroups,

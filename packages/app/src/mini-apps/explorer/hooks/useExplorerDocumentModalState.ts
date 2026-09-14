@@ -12,6 +12,7 @@ export type ExplorerDocumentModalState = ExplorerModalController;
 export function useExplorerDocumentModalState(params: {
   explorer: ExplorerModelExplorer;
   linkDocument: ExplorerDocumentMutationAction;
+  logError: (message: string | Error, cause?: unknown) => void;
   moveDocument: ExplorerDocumentMutationAction;
   canShareWithPeer: boolean;
   documentSummaries: ReadonlyArray<DocumentSummary>;
@@ -28,6 +29,7 @@ export function useExplorerDocumentModalState(params: {
   const {
     explorer,
     linkDocument,
+    logError,
     moveDocument,
     canShareWithPeer,
     documentSummaries,
@@ -46,6 +48,7 @@ export function useExplorerDocumentModalState(params: {
     createChild: explorer.createChild,
     expandNode: selectionExpandNode,
     linkDocument,
+    logError,
     moveContainer: explorer.moveContainer,
     moveDocument,
     nodes: explorer.nodes,

@@ -1,9 +1,4 @@
-import type {
-  LocalKeyring,
-  LocalKeyringManifestStore,
-  LocalKeyringScope,
-  WrappingKeyMaterialStorage,
-} from "@tearleads/client-sdk";
+import type { LocalKeyring } from "@tearleads/client-sdk";
 import {
   type Dispatch,
   type SetStateAction,
@@ -12,19 +7,19 @@ import {
   useMemo,
   useRef,
 } from "react";
+import { reportLockFailure } from "./localKeyringLockDiagnostics";
 import {
   browserLocalKeyringFactory,
   canRunPinCodeAction,
   createDynamicLocalKeyring,
-  createPinKeystore,
   createPlainKeystore,
-  hasPinWrappedManifest,
   type LocalKeyringFactory,
   type LocalKeyringLockEnvironment,
   type LocalKeyringLockStatus,
   type LockState,
   pinCodeConfigKey,
   rewrapExistingManifests,
+  rewrapExistingManifestsWithPin,
   verifyPinCode,
 } from "./localKeyringLockSupport";
 import { pinCodePolicyError } from "./pinCodePolicy";
@@ -41,37 +36,6 @@ export interface LocalKeyringLockContextValue {
   refresh(): Promise<void>;
   setPinCode(pinCode: string): Promise<boolean>;
   unlock(pinCode: string): Promise<boolean>;
-}
-
-async function rewrapExistingManifestsWithPin(input: {
-  readonly keyMaterialStorage: WrappingKeyMaterialStorage | undefined;
-  readonly manifestStore: LocalKeyringManifestStore;
-  readonly pinCode: string;
-  readonly scopes: readonly LocalKeyringScope[];
-  readonly sourcePinCode: string | null;
-}): Promise<boolean> {
-  // Spans every scope, so rewrapExistingManifests cannot close it; this owner
-  // does, to keep the WebView shells from accumulating IndexedDB connections.
-  const targetKeystore = createPinKeystore({
-    keyMaterialStorage: input.keyMaterialStorage,
-    pinCode: input.pinCode,
-  });
-  try {
-    await rewrapExistingManifests({
-      keyMaterialStorage: input.keyMaterialStorage,
-      manifestStore: input.manifestStore,
-      scopes: input.scopes,
-      sourcePinCode: input.sourcePinCode,
-      targetKeystore,
-    });
-  } finally {
-    targetKeystore.close?.();
-  }
-
-  return hasPinWrappedManifest({
-    manifestStore: input.manifestStore,
-    scopes: input.scopes,
-  });
 }
 
 interface DynamicKeyringState {
@@ -279,6 +243,8 @@ export function useUnlockAction(input: {
         return false;
       }
 
+      // verifyPinCode answers a wrong PIN with false, so anything thrown here
+      // is a manifest-store or keystore failure, never a typo.
       let verified = false;
       try {
         verified = await verifyPinCode({
@@ -287,7 +253,8 @@ export function useUnlockAction(input: {
           pinCode,
           scopes: environment.scopes,
         });
-      } catch {
+      } catch (error) {
+        reportLockFailure(environment, error);
         return false;
       }
       if (!verified) {
@@ -355,6 +322,8 @@ export function useSetPinCodeAction(input: {
         return false;
       }
 
+      // The source PIN is the one this session already unlocked with, so a
+      // throw here is a genuine rewrap failure.
       let protectedAnyManifest = false;
       try {
         protectedAnyManifest = await rewrapExistingManifestsWithPin({
@@ -364,7 +333,8 @@ export function useSetPinCodeAction(input: {
           scopes: environment.scopes,
           sourcePinCode: unlockedPinCode,
         });
-      } catch {
+      } catch (error) {
+        reportLockFailure(environment, error);
         return false;
       }
       if (!protectedAnyManifest) {
@@ -402,6 +372,24 @@ export function useClearPinCodeAction(input: {
         return false;
       }
 
+      // Screen out a wrong PIN before the rewrap: it would otherwise surface as
+      // an unwrap throw mid-rewrap, indistinguishable from a real failure.
+      let verified = false;
+      try {
+        verified = await verifyPinCode({
+          keyMaterialStorage: environment.keyMaterialStorage,
+          manifestStore: environment.manifestStore,
+          pinCode,
+          scopes: environment.scopes,
+        });
+      } catch (error) {
+        reportLockFailure(environment, error);
+        return false;
+      }
+      if (!verified) {
+        return false;
+      }
+
       const targetKeystore = createPlainKeystore(
         environment.keyMaterialStorage,
       );
@@ -413,7 +401,8 @@ export function useClearPinCodeAction(input: {
           sourcePinCode: pinCode,
           targetKeystore,
         });
-      } catch {
+      } catch (error) {
+        reportLockFailure(environment, error);
         return false;
       } finally {
         targetKeystore.close?.();

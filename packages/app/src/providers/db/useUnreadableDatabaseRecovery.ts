@@ -23,7 +23,7 @@ export function useUnreadableDatabaseRecovery(params: {
   logError: (message: string | Error, cause?: unknown) => void;
   purgeCurrentRuntime: () => Promise<void>;
   spawnRuntimeForDbName: RefObject<(dbName: string) => void>;
-}): (dbName: string) => void {
+}): (dbName: string, cause: unknown) => void {
   const {
     destroyCurrentRuntime,
     logError,
@@ -33,12 +33,13 @@ export function useUnreadableDatabaseRecovery(params: {
   const recoveredDbNamesRef = useRef<Set<string>>(new Set());
 
   return useCallback(
-    (unreadableDbName: string) => {
+    (unreadableDbName: string, cause: unknown) => {
       if (recoveredDbNamesRef.current.has(unreadableDbName)) {
         logError(
           new UnreadableDatabaseRecoveryError(
             "still-unreadable",
             unreadableDbName,
+            { cause },
           ),
         );
         destroyCurrentRuntime("error");
@@ -46,6 +47,14 @@ export function useUnreadableDatabaseRecovery(params: {
       }
 
       recoveredDbNamesRef.current.add(unreadableDbName);
+      // The single most visible event this lifecycle can produce: the user's
+      // whole local database is about to be deleted. Reported as a real Error
+      // so it leaves the device, with the SQLite failure as its cause.
+      logError(
+        new UnreadableDatabaseRecoveryError("wiping", unreadableDbName, {
+          cause,
+        }),
+      );
       // If the wipe itself fails (file-system or worker error), surface an error
       // instead of leaving the app wedged in a booting state with no recreate.
       void purgeCurrentRuntime()

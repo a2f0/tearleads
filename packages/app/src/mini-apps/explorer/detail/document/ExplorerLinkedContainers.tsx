@@ -6,6 +6,7 @@ import {
   MiniAppStatus,
 } from "../../../../components/mini-app/MiniAppLayout";
 import { MiniAppRow } from "../../../../components/mini-app/rows/MiniAppRow";
+import { isIgnorableDatabaseWorkerError } from "../../../../stores/explorer/documentRuntime";
 import {
   EXPLORER_LABELS,
   getExplorerActivateLinkedContainerError,
@@ -56,6 +57,7 @@ async function handleActivateLinkedContainer(params: {
     targetContainerId: string,
   ) => Promise<DocumentSummary | null>;
   linkedContainer: LinkedContainerDetail;
+  logError: (message: string | Error, cause?: unknown) => void;
   selectedDocumentId: string;
   setActionError: (error: string | null) => void;
   setActivatingContainerId: (containerId: string | null) => void;
@@ -63,6 +65,7 @@ async function handleActivateLinkedContainer(params: {
   const {
     activateLinkedContainer,
     linkedContainer,
+    logError,
     selectedDocumentId,
     setActionError,
     setActivatingContainerId,
@@ -81,7 +84,9 @@ async function handleActivateLinkedContainer(params: {
       );
     }
   } catch (error: unknown) {
-    console.error("Explorer: failed to activate linked container:", error);
+    if (!isIgnorableDatabaseWorkerError(error)) {
+      logError("Failed to activate the linked explorer container", error);
+    }
     setActionError(
       getExplorerActivateLinkedContainerError(linkedContainer.label),
     );
@@ -92,6 +97,7 @@ async function handleActivateLinkedContainer(params: {
 
 async function handleDetachLinkedContainer(params: {
   linkedContainer: LinkedContainerDetail;
+  logError: (message: string | Error, cause?: unknown) => void;
   selectedDocumentId: string;
   setActionError: (error: string | null) => void;
   setUnlinkingContainerId: (containerId: string | null) => void;
@@ -102,6 +108,7 @@ async function handleDetachLinkedContainer(params: {
 }) {
   const {
     linkedContainer,
+    logError,
     selectedDocumentId,
     setActionError,
     setUnlinkingContainerId,
@@ -121,7 +128,9 @@ async function handleDetachLinkedContainer(params: {
       );
     }
   } catch (error: unknown) {
-    console.error("Explorer: failed to detach linked container:", error);
+    if (!isIgnorableDatabaseWorkerError(error)) {
+      logError("Failed to detach the linked explorer container", error);
+    }
     setActionError(
       getExplorerDetachLinkedContainerError(linkedContainer.label),
     );
@@ -139,6 +148,7 @@ interface ExplorerLinkedContainerRowParams {
   canActivateSelectedDocument: boolean;
   canUnlinkSelectedDocument: boolean;
   linkedContainer: LinkedContainerDetail;
+  logError: (message: string | Error, cause?: unknown) => void;
   selectedDocumentId: string;
   setActivatingContainerId: (containerId: string | null) => void;
   setActionError: (error: string | null) => void;
@@ -159,6 +169,7 @@ function ExplorerLinkedContainerRow(params: ExplorerLinkedContainerRowParams) {
     canActivateSelectedDocument,
     canUnlinkSelectedDocument,
     linkedContainer,
+    logError,
     selectedDocumentId,
     setActivatingContainerId,
     setActionError,
@@ -214,6 +225,7 @@ function ExplorerLinkedContainerRow(params: ExplorerLinkedContainerRowParams) {
 
                 void handleActivateLinkedContainer({
                   activateLinkedContainer,
+                  logError,
                   linkedContainer,
                   selectedDocumentId,
                   setActionError,
@@ -239,6 +251,7 @@ function ExplorerLinkedContainerRow(params: ExplorerLinkedContainerRowParams) {
 
             void handleDetachLinkedContainer({
               linkedContainer,
+              logError,
               selectedDocumentId,
               setActionError,
               setUnlinkingContainerId,
@@ -264,6 +277,7 @@ export function ExplorerLinkedContainerSection(params: {
   canActivateSelectedDocument: boolean;
   canUnlinkSelectedDocument: boolean;
   linkedContainerIds: ReadonlyArray<string>;
+  logError: (message: string | Error, cause?: unknown) => void;
   nodes: ReadonlyArray<ContainerNode>;
   selectedDocumentId: string;
   setSelectedId: (id: string | null) => void;
@@ -279,6 +293,7 @@ export function ExplorerLinkedContainerSection(params: {
     canActivateSelectedDocument,
     canUnlinkSelectedDocument,
     linkedContainerIds,
+    logError,
     nodes,
     selectedDocumentId,
     setSelectedId,
@@ -315,6 +330,7 @@ export function ExplorerLinkedContainerSection(params: {
               canUnlinkSelectedDocument={canUnlinkSelectedDocument}
               key={linkedContainer.id}
               linkedContainer={linkedContainer}
+              logError={logError}
               selectedDocumentId={selectedDocumentId}
               setActivatingContainerId={setActivatingContainerId}
               setActionError={setActionError}

@@ -1,9 +1,24 @@
 import { afterEach, expect, mock, spyOn, test } from "bun:test";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import * as LogProvider from "../../../providers/logging/LogProvider";
 import * as TearleadsProvider from "../../../providers/sdk/TearleadsProvider";
 import { useCancelSubscription } from "./useCancelSubscription";
 
 const spies: { mockRestore: () => void }[] = [];
+
+/** Stubs the log actions and records every `logError` call. */
+function stubLog() {
+  const logged: [string | Error, unknown][] = [];
+  spies.push(
+    spyOn(LogProvider, "useLog").mockReturnValue({
+      log: () => undefined,
+      logError: (message, cause) => {
+        logged.push([message, cause]);
+      },
+    }),
+  );
+  return logged;
+}
 
 afterEach(() => {
   cleanup();
@@ -13,6 +28,7 @@ afterEach(() => {
 });
 
 function stubCancel(cancelStripeSubscription: unknown) {
+  stubLog();
   spies.push(
     spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
       organizations: { cancelStripeSubscription },
@@ -71,7 +87,15 @@ test("a scheduled cancellation re-reads billing rather than assuming", async () 
 
 test("a failed cancellation keeps the confirm step and surfaces the error", async () => {
   // Returning to idle would look like the click was lost.
-  stubCancel(() => Promise.reject(new Error("500")));
+  const failure = new Error("500");
+  const logged = stubLog();
+  spies.push(
+    spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
+      organizations: {
+        cancelStripeSubscription: () => Promise.reject(failure),
+      },
+    } as never),
+  );
   const { result } = renderHook(() =>
     useCancelSubscription({ refresh: () => Promise.resolve() }),
   );
@@ -81,6 +105,8 @@ test("a failed cancellation keeps the confirm step and surfaces the error", asyn
 
   await waitFor(() => expect(result.current.error).not.toBeNull());
   expect(result.current.phase.kind).toBe("confirming");
+  // The original Error reaches diagnostics, not just the generic label.
+  expect(logged).toEqual([["Failed to cancel the subscription", failure]]);
 });
 
 test("nothing cancellable reads as a failure, not a silent no-op", async () => {
@@ -101,7 +127,9 @@ test("nothing cancellable reads as a failure, not a silent no-op", async () => {
 test("a refresh failure after a successful cancel is not reported as a failure", async () => {
   // The cancellation already succeeded; a failing snapshot re-read (a plain
   // GET) must not revert to the confirm step and show "Could not cancel".
-  const refresh = mock(() => Promise.reject(new Error("read failed")));
+  const readFailure = new Error("read failed");
+  const refresh = mock(() => Promise.reject(readFailure));
+  const logged = stubLog();
   spies.push(
     spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
       organizations: {
@@ -117,6 +145,12 @@ test("a refresh failure after a successful cancel is not reported as a failure",
 
   await waitFor(() => expect(result.current.phase.kind).toBe("scheduled"));
   expect(result.current.error).toBeNull();
+  // Not the cancel's failure, but still worth a diagnostics event.
+  await waitFor(() =>
+    expect(logged).toEqual([
+      ["Failed to refresh after cancelling", readFailure],
+    ]),
+  );
 });
 
 test("the scheduled phase carries the period-end date for display", async () => {

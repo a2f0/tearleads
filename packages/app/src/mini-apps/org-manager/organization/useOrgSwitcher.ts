@@ -1,5 +1,6 @@
 import type { DomainScope, SessionContext } from "@tearleads/client-sdk";
 import { useCallback } from "react";
+import { useLog } from "../../../providers/logging/LogProvider";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import type { OrgSwitcherState } from "./orgSwitcherTypes";
 import { useOrganizationIndexRefreshKey } from "./useOrganizationIndexRefreshKey";
@@ -29,6 +30,7 @@ export function useOrgSwitcher({
   scopeKey: DomainScope;
 }): OrgSwitcherState {
   const tearleads = useTearleads();
+  const { logError } = useLog();
   const organizationIndexRefreshKey = useOrganizationIndexRefreshKey({
     scopeKey,
     tearleads,
@@ -54,6 +56,7 @@ export function useOrgSwitcher({
     enabled,
     interactionDisabled,
     listLocalOrganizations,
+    logError,
     organizationIndexRefreshKey,
     operationScopeKey,
     provisionOrganization,

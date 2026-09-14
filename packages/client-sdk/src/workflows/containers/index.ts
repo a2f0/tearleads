@@ -14,6 +14,9 @@ export {
   rebuildKeyringEntriesFromLog,
   recoverKeyringEntryFromWraps,
 } from "../../data/documents/shared/keyringRebuild";
+// A share's projection verification can be cancelled by a newer generation
+// underneath the caller; hosts filter that outcome from their own reporting.
+export { isProjectionVerificationCancelledError } from "../../data/keyingProjectionVerification/types";
 export {
   buildContainerCreatePlan,
   buildMaterializedContainerCreatePlan,

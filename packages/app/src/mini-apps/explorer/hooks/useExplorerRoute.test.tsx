@@ -85,6 +85,7 @@ function ExplorerRouteSelectionHarness() {
   const selection = useExplorerSelection(nodes, []);
   const routeState = useExplorerRoute({
     loadDocumentSummary: loadTestDocumentSummary,
+    logError: () => undefined,
     nodes,
     selectDocument: selection.selectDocument,
     setSelectedId: selection.setSelectedId,

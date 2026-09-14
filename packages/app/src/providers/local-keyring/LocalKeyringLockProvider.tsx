@@ -47,6 +47,7 @@ const DEFAULT_PIN_CODE_CONFIG_NAMESPACE = "default";
 function useLocalKeyringLockEnvironment(): LocalKeyringLockEnvironment {
   const hostConfig = useAppHostConfig();
   const storage = useMemo(() => getBrowserStorage(), []);
+  const diagnostics = hostConfig.diagnostics;
   const localIdentityNamespace = hostConfig.localIdentityNamespace ?? null;
   const hostCreateLocalKeyring = hostConfig.createLocalKeyring;
   const keyMaterialStorage = hostConfig.localKeyringKeyMaterialStorage;
@@ -71,6 +72,7 @@ function useLocalKeyringLockEnvironment(): LocalKeyringLockEnvironment {
   return useMemo(
     () => ({
       canManagePinCode,
+      diagnostics,
       hostCreateLocalKeyring,
       keyMaterialStorage,
       manifestStore,
@@ -80,6 +82,7 @@ function useLocalKeyringLockEnvironment(): LocalKeyringLockEnvironment {
     }),
     [
       canManagePinCode,
+      diagnostics,
       hostCreateLocalKeyring,
       keyMaterialStorage,
       manifestStore,

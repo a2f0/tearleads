@@ -1,13 +1,15 @@
 import { afterEach, expect, test } from "bun:test";
 import type {
+  BlobStore,
   ContainerDocumentLinks,
   ContainerNode,
   DocumentSummary,
   MoveDocumentToContainerInput,
 } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
-import { cleanup, renderHook } from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { createExplorerContainerRulesContext } from "../model/containerRules";
+import { useExplorerDocumentDownload } from "./useExplorerDocumentDownload";
 import { useSelectedDocumentActions } from "./useSelectedDocumentActions";
 
 afterEach(() => cleanup());
@@ -204,4 +206,61 @@ test("move action rejects an orphan outside the active organization scope", asyn
     view.result.current.moveDocument(document.id, "user-container"),
   ).resolves.toBeNull();
   expect(moves).toEqual([]);
+});
+
+// The context-menu download has no UI surface of its own, so a failed info
+// load was invisible; it must reach the logger with the original Error.
+test("a failed document download reports the original error", async () => {
+  const failure = new Error("document info unavailable");
+  const logged: Array<[string | Error, unknown]> = [];
+  const { result } = renderHook(() =>
+    useExplorerDocumentDownload({
+      blobStore: {} as BlobStore,
+      loadDocumentInfo: async () => {
+        throw failure;
+      },
+      logError: (message, cause) => {
+        logged.push([message, cause]);
+      },
+    }),
+  );
+
+  act(() => {
+    result.current("local-document-1");
+  });
+
+  await waitFor(() => {
+    expect(logged).toEqual([
+      ["Failed to download the explorer document", failure],
+    ]);
+  });
+});
+
+test("a document download lost to database teardown stays local", async () => {
+  const logged: unknown[] = [];
+  let loads = 0;
+  const { result } = renderHook(() =>
+    useExplorerDocumentDownload({
+      blobStore: {} as BlobStore,
+      loadDocumentInfo: async () => {
+        loads += 1;
+        throw new Error("Database worker client has been destroyed.");
+      },
+      logError: (_message, cause) => {
+        logged.push(cause);
+      },
+    }),
+  );
+
+  act(() => {
+    result.current("local-document-1");
+  });
+
+  await waitFor(() => {
+    expect(loads).toBe(1);
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  expect(logged).toEqual([]);
 });
