@@ -58,6 +58,7 @@ export async function runLinuxRelease(args: string[], failure = "") {
         'printf "docker %s\\n" "$*" >> "$RELEASE_TEST_LOG"',
         'case "$1" in',
         "  info) exit 0 ;;",
+        '  run) [ "$RELEASE_TEST_FAILURE" != smoke ] || exit 7 ;;',
         "  build)",
         '    tar -tzf - > "$RELEASE_TEST_ROOT/context.txt"',
         '    [ "$RELEASE_TEST_FAILURE" != build ] || exit 7',

@@ -64,5 +64,8 @@ cp "$TEMP_DIR/artifacts/$INSTALLER" "$TEMP_DIR/artifacts/$UPDATE" \
 (cd "$ARTIFACT_DIR" && shasum -a 256 "$INSTALLER" > "$INSTALLER.sha256")
 echo "Built $TIER Linux x64 release: $ARTIFACT_DIR/$INSTALLER"
 if [[ "$ACTION" == build ]]; then exit 0; fi
+docker run --rm --platform linux/amd64 --shm-size=1g --user 1000:1000 \
+  "$(cat "$TEMP_DIR/image-id")" \
+  bash packages/app-electrobun/scripts/testLinuxRelease.sh "$TIER"
 bun "$PACKAGE_DIR/scripts/publishLinuxRelease.ts" "$BUCKET" "$CHANNEL" \
   "$APP_NAME" "$ARTIFACT_DIR/$INSTALLER" "$ARTIFACT_DIR/$UPDATE" "$ARTIFACT_DIR/$ARCHIVE"

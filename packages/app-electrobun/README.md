@@ -130,7 +130,9 @@ They build Linux x64 in an Ubuntu 24.04 container with Bun pinned to the
 repository version and Electrobun pinned by the lockfile. On Apple silicon,
 disable Docker Desktop's **Use Rosetta for x86_64/amd64 emulation** setting to
 use QEMU: the paired Hutch binary fails under Rosetta with `bss_size overflow`.
-Emulated builds take longer than native Linux x64 builds.
+Emulated builds take longer than native Linux x64 builds. Linux CEF launches
+renderer processes directly (`no-zygote`), allowing the packaged app to run
+under QEMU as well as on native Linux.
 
 Only Git-tracked working files enter the Docker context; stage new source files
 before building. Host `node_modules`, ignored build output, `.git`, and
@@ -149,8 +151,9 @@ Redeploy `packages/website` after publishing to refresh its Linux download link.
 The public `/downloads/linux` page explains desktop dependencies and installation.
 
 The build checks the installer contents, the updater's archive hash, and the
-renderer/database assets. To install the archive and reopen the installed CEF
-app twice in an isolated container, run:
+renderer/database assets. Upload also installs the archive and verifies CEF
+persistence before touching S3. To install the archive and reopen the installed
+CEF app twice in an isolated container, run:
 
 ```sh
 docker run --rm --platform linux/amd64 --shm-size=1g --user 1000:1000 \

@@ -36,13 +36,20 @@ for (const tier of ["staging", "production"]) {
   });
 }
 
-for (const failure of ["build", "missing", "payload", "checksum", "metadata"]) {
+for (const failure of [
+  "build",
+  "missing",
+  "smoke",
+  "payload",
+  "checksum",
+  "metadata",
+]) {
   test(`${failure} failure preserves download discovery`, async () => {
     const result = await runLinuxRelease(["upload", "production"], failure);
     expect(result.exitCode).not.toBe(0);
     expect(result.published[result.discovery]).toBe("previous discovery\n");
     expect(result.stdout).not.toContain("Download:");
-    if (["build", "missing"].includes(failure))
+    if (["build", "missing", "smoke"].includes(failure))
       expect(result.calls.some((call) => call.startsWith("upload"))).toBe(
         false,
       );
