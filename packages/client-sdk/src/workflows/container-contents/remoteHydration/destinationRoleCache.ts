@@ -9,12 +9,14 @@ export interface DestinationRole
   /** Signer of the epoch-1 `container.create`; immutable through successors. */
   readonly createSignerUserId: string;
 }
+/** Roles are verified and cached under the container's id and organization. */
+type DestinationIdentity = Pick<RemoteContainer, "id" | "organizationId">;
 const rolesByDatabase = new WeakMap<ExecSql, Map<string, DestinationRole>>();
 const MAX_ROLES = 1_000;
 
 export function cachedDestinationRole(
   execSql: ExecSql,
-  listed: RemoteContainer,
+  listed: DestinationIdentity,
 ): DestinationRole | undefined {
   return rolesByDatabase
     .get(execSql)
@@ -23,7 +25,7 @@ export function cachedDestinationRole(
 
 export function rememberDestinationRole(
   execSql: ExecSql,
-  listed: RemoteContainer,
+  listed: DestinationIdentity,
   role: DestinationRole,
 ): void {
   // Shared verification forbids moves of roots and system containers, and all

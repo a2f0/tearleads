@@ -9,6 +9,7 @@ import type {
   ContainerState,
   RemoteContainerHydrationState,
 } from "./types";
+import { isVerifiedLocalRootReconciliationTarget } from "./verifiedDestination";
 
 export function hasRemoteContainerMetadataState(
   containerState: ContainerState,
@@ -29,19 +30,6 @@ function isLocalOnlyRootContainerState(
   return (
     containerState.container.parentId === null &&
     !hasRemoteContainerMetadataState(containerState)
-  );
-}
-
-function canUseRemoteRootAsLocalRootReconciliationTarget(input: {
-  remoteRootState: ContainerState;
-  state: RemoteContainerHydrationState;
-}): boolean {
-  const { remoteRootState, state } = input;
-  return (
-    remoteRootState.container.parentId === null &&
-    remoteRootState.container.id === state.runtime.auth.rootContainerId &&
-    remoteRootState.container.organizationId ===
-      state.runtime.auth.organizationId
   );
 }
 
@@ -249,12 +237,15 @@ export async function reconcileLocalOnlyRootContainers(input: {
   state: RemoteContainerHydrationState;
 }): Promise<number> {
   const { childIdsByParentId, remoteRootState, state } = input;
+  // The unsigned login answer names the root; only the verified root created
+  // by the session user may absorb local content (see verifiedDestination).
   if (
     input.isCurrent?.() === false ||
-    !canUseRemoteRootAsLocalRootReconciliationTarget({
+    !(await isVerifiedLocalRootReconciliationTarget({
+      isCurrent: input.isCurrent,
       remoteRootState,
       state,
-    })
+    }))
   ) {
     return 0;
   }

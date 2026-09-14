@@ -10,9 +10,9 @@ that root, so an ordinary writer cannot create a foreign-organization decoy.
 | --- | --- |
 | `SelectView` / `PreserveSessionAcknowledgment` | `restoreSessionRoots` restores identity-bound acknowledgements independently of view selections |
 | `Hydrate` / `VerifyDestination` | `verifyRemoteContainerDestination` verifies the projection and reads its signed fields |
-| `MergeRoot` / `RequireSessionRoot` / `RequireRootScope` | `canUseRemoteRootAsLocalRootReconciliationTarget` checks the session root identity after `verifyRemoteContainerDestination` checks its signed organization |
-| `MergeRoot` / `RequireRootCreator` | `assertAcknowledgedRootSigner` requires the acknowledged root's epoch-1 create, found by `verifiedContainerCreateManifest`, to be signed by the session user |
-| `Login` / `RefuseRootSwap` | `acknowledgeSessionRoot` refuses a different root id for an already acknowledged organization; `acknowledgeSessionRootReported` records the incident |
+| `MergeRoot` / `RequireSessionRoot` / `RequireRootScope` | `isVerifiedLocalRootReconciliationTarget` checks the session root identity and organization at the reconciliation boundary, after `verifyRemoteContainerDestination` checks its signed organization |
+| `MergeRoot` / `RequireRootCreator` | `assertRootCreatedBySessionUser` requires the acknowledged root's epoch-1 create, found by `verifiedContainerCreateManifest`, to be signed by the session user; `assertAcknowledgedRootSigner` applies it on hydration and `isVerifiedLocalRootReconciliationTarget` before every local root merge, verifying a persisted root's cached or served projection first |
+| `Login` / `RefuseRootSwap` | `acknowledgeSessionRoot` refuses a different root id for an already acknowledged organization; `commitSessionRootAcknowledgment` decides and commits it against the live snapshot and records the incident |
 | `MoveDestination` / `PreserveDestinationIdentity` | `deriveContainerMoveManifestState` forbids moves of roots and system containers |
 | `UseSystem` / `RequireSystemScope` | `findSystemContainerStateForRoot` selects the authenticated slot in the active organization and acknowledged root |
 | `CreateSystem` / `RequireSystemAdministrator` / `RequireSystemRootParent` | `deriveContainerCreateManifestState` requires root-admin authority and a complete root parent path for slots |

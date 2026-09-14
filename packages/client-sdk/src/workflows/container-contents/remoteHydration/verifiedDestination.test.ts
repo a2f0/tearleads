@@ -11,7 +11,6 @@ import {
 } from "../../../../test/helpers/containerFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { withTestExecSql } from "../../../../test/helpers/withTestExecSql";
-import { createContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
 import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import type { SecurityIncidentContext } from "../../../data/securityIncidents";
 import {
@@ -19,11 +18,8 @@ import {
   childContainerWriterProjectionFromCreatePlan,
 } from "../../containers/child/create";
 import { upsertRemoteContainerState } from "../remoteContainerState";
-import type {
-  ContainerState,
-  RemoteContainer,
-  RemoteContainerHydrationState,
-} from "./types";
+import { localOnlyRootState } from "./localRootState.testFixtures";
+import type { RemoteContainer, RemoteContainerHydrationState } from "./types";
 import { verifyRemoteContainerDestination } from "./verifiedDestination";
 
 const SLOT = `sys_v1_${"a".repeat(43)}`;
@@ -121,34 +117,6 @@ for (const [signedSlot, listedSlot] of [
       expect(projectionReads).toBe(signedSlot === SLOT ? 1 : 2);
     });
   });
-}
-
-async function localOnlyRootState(id: string): Promise<ContainerState> {
-  return {
-    container: {
-      effectiveAccessLevel: "admin",
-      icon: null,
-      id,
-      metadataDocumentId: null,
-      name: "/",
-      organizationId: "",
-      parentId: null,
-      systemSlot: null,
-    },
-    doc: await createContainerMetadataDocument(id),
-    record: {
-      accessEpoch: 1,
-      accessStateHash: null,
-      contentKeyBundle: null,
-      documentId: null,
-      documentKekTargets: null,
-      documentManifestBundle: null,
-      id,
-      lastCommitLsn: null,
-      metadataUpdates: "",
-      snapshotEndVersion: "",
-    },
-  };
 }
 
 test("an acknowledged root created by another identity is never the merge target", async () => {

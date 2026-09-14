@@ -6,14 +6,24 @@ import {
   verifiedContainerCreateManifest,
   verifyContainerDestinationProjection,
 } from "../../../data/keyingProjectionVerification/containerDestinationVerification";
-import { runWithSecurityIncidentReporting } from "../../../data/keyingProjectionVerification/error";
+import {
+  reportKeyingVerificationErrorInCauseChain,
+  runWithSecurityIncidentReporting,
+} from "../../../data/keyingProjectionVerification/error";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import {
   cachedDestinationRole,
   type DestinationRole,
   rememberDestinationRole,
 } from "./destinationRoleCache";
-import type { RemoteContainer, RemoteContainerHydrationState } from "./types";
+import type {
+  ContainerState,
+  RemoteContainer,
+  RemoteContainerHydrationState,
+} from "./types";
+
+/** The identity a role is verified and cached under. */
+type DestinationIdentity = Pick<RemoteContainer, "id" | "organizationId">;
 
 export function needsVerifiedContainerDestination(input: {
   remoteContainer: RemoteContainer;
@@ -30,7 +40,7 @@ export function needsVerifiedContainerDestination(input: {
 }
 
 function destinationRoleFromPath(input: {
-  listed: RemoteContainer;
+  listed: DestinationIdentity;
   path: readonly VerifiedContainerAccessManifest[];
   verifiedByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>;
 }): DestinationRole {
@@ -75,15 +85,10 @@ function destinationRoleFromPath(input: {
  * target for pre-login local content, whatever grants it carries. The check
  * runs on cache reuse too, since the cache is not scoped to the session user.
  */
-function assertAcknowledgedRootSigner(input: {
-  listed: RemoteContainer;
-  role: DestinationRole;
-  runtime: RemoteContainerHydrationState["runtime"];
-}): void {
-  const { listed, role, runtime } = input;
-  if (role.parentId !== null || listed.id !== runtime.auth.rootContainerId) {
-    return;
-  }
+function assertRootCreatedBySessionUser(
+  role: DestinationRole,
+  runtime: RemoteContainerHydrationState["runtime"],
+): void {
   if (role.createSignerUserId !== runtime.auth.userId) {
     throw new KeyingVerificationError(
       "signer_mismatch",
@@ -92,9 +97,21 @@ function assertAcknowledgedRootSigner(input: {
   }
 }
 
+function assertAcknowledgedRootSigner(input: {
+  listed: DestinationIdentity;
+  role: DestinationRole;
+  runtime: RemoteContainerHydrationState["runtime"];
+}): void {
+  const { listed, role, runtime } = input;
+  if (role.parentId !== null || listed.id !== runtime.auth.rootContainerId) {
+    return;
+  }
+  assertRootCreatedBySessionUser(role, runtime);
+}
+
 async function verifyDestinationRole(input: {
   isCurrent?: (() => boolean) | undefined;
-  listed: RemoteContainer;
+  listed: DestinationIdentity;
   runtime: RemoteContainerHydrationState["runtime"];
 }): Promise<DestinationRole | null> {
   const { isCurrent, listed, runtime } = input;
@@ -154,4 +171,61 @@ export async function verifyRemoteContainerDestination(input: {
       };
     },
   );
+}
+
+/**
+ * Whether `remoteRootState` may absorb the pre-login local roots. The unsigned
+ * login answer only names the session root; the merge target must also be the
+ * verified root whose epoch-1 `container.create` the session user signed. A row
+ * persisted earlier as an ordinary shared container (another user's root this
+ * device once hydrated) never passed that check for this session, so the
+ * creator is verified here, at the reconciliation boundary itself, from the
+ * role cache or the served projection before any local content is re-parented.
+ * A different creator is a `signer_mismatch` incident and never a merge: the
+ * refusal is the "no merge" outcome, so the refresh that carried it completes
+ * with the local content left in place. An unavailable projection only defers
+ * the merge; a failed fetch propagates like any other hydration failure.
+ */
+export async function isVerifiedLocalRootReconciliationTarget(input: {
+  isCurrent?: (() => boolean) | undefined;
+  remoteRootState: ContainerState;
+  state: RemoteContainerHydrationState;
+}): Promise<boolean> {
+  const { isCurrent, remoteRootState, state } = input;
+  const { container } = remoteRootState;
+  const runtime = state.runtime;
+  if (
+    container.parentId !== null ||
+    container.id !== runtime.auth.rootContainerId ||
+    container.organizationId !== runtime.auth.organizationId
+  ) {
+    return false;
+  }
+  try {
+    const role =
+      cachedDestinationRole(runtime.infra.execSql, container) ??
+      (await verifyDestinationRole({ isCurrent, listed: container, runtime }));
+    if (!role || isCurrent?.() === false) return false;
+    if (role.parentId !== null) {
+      throw new KeyingVerificationError(
+        "object_mismatch",
+        "session root reconciliation target is not a verified root",
+      );
+    }
+    assertRootCreatedBySessionUser(role, runtime);
+    return true;
+  } catch (error) {
+    const reported = await reportKeyingVerificationErrorInCauseChain(
+      error,
+      runtime.util.reportSecurityIncident,
+      {
+        objectId: container.id,
+        objectKind: "container",
+        operation: "container.root.reconcile",
+        organizationId: container.organizationId,
+      },
+    );
+    if (!reported) throw error;
+    return false;
+  }
 }

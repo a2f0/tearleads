@@ -55,9 +55,13 @@ then takes the slot and parent edge from its signed manifest. Local pre-login
 content merges only into the session's root id in the expected organization,
 and only if that root's epoch-1 `container.create` was signed by the session
 user (the login response naming it is unsigned; every acknowledged organization
-was created by the user). A later login may repeat an acknowledged root or
-report it purged; a different root id is refused as an incident. The default
-organization is not bound, since a purged personal one is legitimately replaced.
+was created by the user). That creator check holds at the reconciliation
+boundary itself, from the cached role or the served projection, so a root this
+device hydrated earlier as another user's shared container is refused as a
+`signer_mismatch` incident and never merged, whichever path reaches it. A later
+login may repeat an acknowledged root or report it purged; a different root id
+is refused as an incident. The default organization is not bound, since a
+purged personal one is legitimately replaced.
 Only a root administrator may create a signed system slot. Additional grantees
 are allowed: sharing a legitimate Trash must not disable deletion. A create
 acknowledgement persists the client-signed slot and refuses a differing echo.
