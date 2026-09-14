@@ -24,6 +24,7 @@ export async function runMacosRelease(args: string[], failure = "") {
       "releaseMacos.sh",
       "macosSigning.sh",
       "publishMacosRelease.ts",
+      "publishDesktopRelease.ts",
     ]) {
       mkdirSync(join(packageDir, "scripts"), { recursive: true });
       cpSync(
@@ -75,7 +76,9 @@ export async function runMacosRelease(args: string[], failure = "") {
         "  channel=stable; app=Tearleads; dmg=macos-arm64-Tearleads.dmg",
         "fi",
         'echo installer > "$artifacts/$dmg"',
-        'printf \'{"channel":"%s","platform":"macos","arch":"arm64","artifact":{"file":"%s-macos-arm64-%s.app.tar.zst"}}\' "$channel" "$channel" "$app" > "$artifacts/$channel-macos-arm64-update.json"',
+        'platform=macos; arch=arm64; manifest_channel="$channel"',
+        'case "$RELEASE_TEST_FAILURE" in manifest-platform) platform=linux ;; manifest-arch) arch=x64 ;; manifest-channel) manifest_channel=dev ;; esac',
+        'printf \'{"channel":"%s","platform":"%s","arch":"%s","artifact":{"file":"%s-macos-arm64-%s.app.tar.zst"}}\' "$manifest_channel" "$platform" "$arch" "$channel" "$app" > "$artifacts/$channel-macos-arm64-update.json"',
         '[ "$RELEASE_TEST_FAILURE" = missing ] || echo archive > "$artifacts/$channel-macos-arm64-$app.app.tar.zst"',
       ].join("\n"),
     );

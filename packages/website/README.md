@@ -53,10 +53,12 @@ updates reach returning browsers instead of retaining the old one for a year.
 Cloudflare's [static asset documentation](https://developers.cloudflare.com/workers/static-assets/)
 describes routing and deployment caching.
 
-The homepage's macOS download link selects the production or staging S3 bucket
-using `PUBLIC_ENVIRONMENT`. Each website build resolves download discovery
+The homepage's macOS and Linux download links select the production or staging
+S3 bucket using `PUBLIC_ENVIRONMENT`. Each build resolves download discovery
 metadata into a matching pair of immutable installer and SHA-256 checksum URLs;
 offline builds retain the verified first release. Build and upload
 the matching release with `scripts/uploadMacosRelease.sh <staging|production>`
-from the repository root before deploying the website. See the
-[desktop release instructions](../app-electrobun/README.md#macos-releases).
+or `scripts/uploadLinuxRelease.sh <staging|production>` from the repository root
+before deploying the website. See the desktop instructions for
+[macOS](../app-electrobun/README.md#macos-releases) and
+[Linux from Docker](../app-electrobun/README.md#linux-releases-from-docker).

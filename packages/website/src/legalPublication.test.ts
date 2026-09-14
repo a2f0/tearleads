@@ -48,6 +48,17 @@ for (const environment of ["production", "staging", undefined]) {
         new Response(child.stderr).text(),
       ]);
       expect(code, `${stdout}\n${stderr}`).toBe(0);
+      const index = await Bun.file(resolve(output, "index.html")).text();
+      const channel = environment === "staging" ? "canary" : "stable";
+      for (const target of ["macos-arm64", "linux-x64"]) {
+        expect(index).toMatch(
+          new RegExp(`${channel}-${target}-[a-f0-9]{64}-Tearleads`),
+        );
+      }
+      expect(index).toContain('href="/downloads/linux"');
+      expect(
+        await Bun.file(resolve(output, "downloads/linux/index.html")).text(),
+      ).toContain("./installer");
       const showDocument = !legalDetails.isDraft || environment === "staging";
       for (const [route, contentMarker] of [
         ["privacy-policy", "Limited error diagnostics"],

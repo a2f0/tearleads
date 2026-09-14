@@ -17,7 +17,15 @@
 # says "unknown" is more useful than a build that refuses to compile.
 set -e
 
-BUN_PUBLIC_GIT_SHA="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
+BUN_PUBLIC_GIT_SHA="$(
+  if git rev-parse --short HEAD 2>/dev/null; then
+    :
+  elif [ -n "${BUILD_GIT_SHA:-}" ]; then
+    printf '%.7s\n' "$BUILD_GIT_SHA"
+  else
+    echo unknown
+  fi
+)"
 BUN_PUBLIC_APP_VERSION="$(
   bun -e 'console.log(JSON.parse(await Bun.file("package.json").text()).version)' \
     2>/dev/null || echo unknown

@@ -16,6 +16,11 @@ script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 package_dir=$(CDPATH='' cd -- "$script_dir/.." && pwd)
 devtools_url="http://127.0.0.1:9222/json"
 original_xauthority=${XAUTHORITY:-}
+release_bundle=${TEARLEADS_LINUX_RELEASE_DIR:-}
+if [ -n "$release_bundle" ] && [ ! -x "$release_bundle/bin/launcher" ]; then
+  echo "Missing packaged Linux launcher: $release_bundle/bin/launcher" >&2
+  exit 1
+fi
 if [ -z "$original_xauthority" ] && [ -n "${HOME:-}" ] && [ -f "$HOME/.Xauthority" ]; then
   original_xauthority="$HOME/.Xauthority"
 fi
@@ -64,6 +69,11 @@ assert_cef_launch() {
 
 start_app() {
   round_log="$smoke_root/$1.log"
+  if [ -n "$release_bundle" ]; then
+    set -- "$release_bundle/bin/launcher"
+  else
+    set -- sh "$package_dir/scripts/runElectronbun.sh" dev
+  fi
   if [ -n "$original_xauthority" ]; then
     setsid env \
       HOME="$smoke_root/home" \
@@ -71,19 +81,21 @@ start_app() {
       XAUTHORITY="$original_xauthority" \
       XDG_CACHE_HOME="$smoke_root/cache" \
       XDG_DATA_HOME="$smoke_root/data" \
-      sh "$package_dir/scripts/runElectronbun.sh" dev >"$round_log" 2>&1 &
+      ELECTROBUN_CEF_REMOTE_DEBUGGING_PORT=9222 \
+      "$@" >"$round_log" 2>&1 &
   else
     setsid env \
       HOME="$smoke_root/home" \
       TEARLEADS_ELECTROBUN_PACKAGE_DIR="$package_dir" \
       XDG_CACHE_HOME="$smoke_root/cache" \
       XDG_DATA_HOME="$smoke_root/data" \
-      sh "$package_dir/scripts/runElectronbun.sh" dev >"$round_log" 2>&1 &
+      ELECTROBUN_CEF_REMOTE_DEBUGGING_PORT=9222 \
+      "$@" >"$round_log" 2>&1 &
   fi
   app_pid=$!
 
   attempt=0
-  while [ "$attempt" -lt 225 ]; do
+  while [ "$attempt" -lt 900 ]; do
     if curl --fail --max-time 1 --silent "$devtools_url" >/dev/null; then
       return
     fi
@@ -110,12 +122,14 @@ smoke_root=$(mktemp -d /tmp/tearleads-electrobun-persistence-XXXXXX)
 mkdir -p "$smoke_root/home" "$smoke_root/cache" "$smoke_root/data"
 first_state="$smoke_root/first-state.json"
 
-env \
-  HOME="$smoke_root/home" \
-  TEARLEADS_ELECTROBUN_PACKAGE_DIR="$package_dir" \
-  XDG_CACHE_HOME="$smoke_root/cache" \
-  XDG_DATA_HOME="$smoke_root/data" \
-  sh "$package_dir/scripts/runElectronbun.sh" build:dev
+if [ -z "$release_bundle" ]; then
+  env \
+    HOME="$smoke_root/home" \
+    TEARLEADS_ELECTROBUN_PACKAGE_DIR="$package_dir" \
+    XDG_CACHE_HOME="$smoke_root/cache" \
+    XDG_DATA_HOME="$smoke_root/data" \
+    sh "$package_dir/scripts/runElectronbun.sh" build:dev
+fi
 
 start_app first
 if ! bun "$script_dir/probeCefPersistence.ts" first >"$first_state"; then

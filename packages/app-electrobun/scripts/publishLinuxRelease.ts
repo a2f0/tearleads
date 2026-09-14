@@ -22,5 +22,5 @@ await publishDesktopRelease({
   installer,
   update,
   archive,
-  target: "macos-arm64",
+  target: "linux-x64",
 });

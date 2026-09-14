@@ -1,5 +1,5 @@
-import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
+import { desktopSourceCommit } from "./desktopSourceCommit";
 import {
   desktopSentryReleaseEnvironment,
   readDesktopSentrySecrets,
@@ -17,7 +17,8 @@ import {
 // one to match an uploaded release.
 const packageRoot = resolve(import.meta.dirname, "..");
 const repoRoot = resolve(packageRoot, "../..");
-const { ELECTROBUN_RELEASE_TIER: tier } = process.env;
+const { ELECTROBUN_RELEASE_TIER: tier, BUILD_GIT_SHA: sourceCommit } =
+  process.env;
 const command = process.argv.slice(2);
 if (!command.length) throw new Error("withSentryReleaseEnv requires a command");
 
@@ -36,12 +37,7 @@ const secrets = tier
       ...process.env,
     }
   : process.env;
-const commit = tier
-  ? execFileSync("git", ["rev-parse", "HEAD"], {
-      cwd: repoRoot,
-      encoding: "utf8",
-    }).trim()
-  : "";
+const commit = tier ? desktopSourceCommit(repoRoot, sourceCommit) : "";
 
 const [executable, ...args] = command;
 const build = Bun.spawn([executable ?? "", ...args], {
