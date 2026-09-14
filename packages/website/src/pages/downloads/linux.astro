@@ -1,5 +1,9 @@
 ---
 import Layout from "../../layouts/Layout.astro";
+import { isStaging } from "../../config";
+import { resolveLinuxDownloads } from "../../linuxDownloads";
+
+const { installerUrl, checksumUrl } = await resolveLinuxDownloads(isStaging);
 ---
 
 <Layout
@@ -16,7 +20,7 @@ import Layout from "../../layouts/Layout.astro";
       <li>Install the desktop libraries. On Ubuntu 24.04, run:
         <pre><code>sudo apt install libgtk-3-0 libwebkit2gtk-4.1-0 libayatana-appindicator3-1 librsvg2-2 libnss3 libasound2t64 libgbm1</code></pre>
       </li>
-      <li><a href="/">Download the Linux archive</a> and its SHA-256 checksum.</li>
+      <li><a href={installerUrl}>Download the Linux archive</a> and its <a href={checksumUrl}>SHA-256 checksum</a>.</li>
       <li>Verify the download by running <code>sha256sum -c</code> followed by the checksum filename.</li>
       <li>Extract the <code>.tar.gz</code> archive using your file manager.</li>
       <li>Open a terminal in the extracted folder and run <code>./installer</code> as your regular user.</li>

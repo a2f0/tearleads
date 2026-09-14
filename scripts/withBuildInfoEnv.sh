@@ -18,10 +18,12 @@
 set -e
 
 BUN_PUBLIC_GIT_SHA="$(
-  if [ -n "${BUILD_GIT_SHA:-}" ]; then
+  if git rev-parse --short HEAD 2>/dev/null; then
+    :
+  elif [ -n "${BUILD_GIT_SHA:-}" ]; then
     printf '%.7s\n' "$BUILD_GIT_SHA"
   else
-    git rev-parse --short HEAD 2>/dev/null || echo unknown
+    echo unknown
   fi
 )"
 BUN_PUBLIC_APP_VERSION="$(

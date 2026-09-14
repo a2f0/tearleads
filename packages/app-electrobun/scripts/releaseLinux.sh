@@ -9,6 +9,10 @@ case "$ACTION:$TIER:$#" in
 esac
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 PACKAGE_DIR="$REPO_ROOT/packages/app-electrobun"
+if [[ "$ACTION" == upload ]] && ! git -C "$REPO_ROOT" diff --quiet HEAD; then
+  echo "Commit source changes before uploading a Linux release." >&2
+  exit 1
+fi
 # shellcheck source=terraform/scripts/common.sh
 source "$REPO_ROOT/terraform/scripts/common.sh"
 TF_TIER="$TIER"
@@ -38,7 +42,9 @@ trap 'exit 1' INT TERM
 cd "$REPO_ROOT"
 # Only tracked working files enter Docker. Stage new source files before building;
 # ignored output, host dependencies, .git, and .secrets never enter the context.
-git ls-files -z | COPYFILE_DISABLE=1 tar --null -T - -czf "$TEMP_DIR/source.tar.gz"
+git ls-files -z | while IFS= read -r -d '' file; do
+  if [[ -e "$file" || -L "$file" ]]; then printf '%s\0' "$file"; fi
+done | COPYFILE_DISABLE=1 tar --null -T - -czf "$TEMP_DIR/source.tar.gz"
 export BUILD_GIT_SHA
 BUILD_GIT_SHA="$(git rev-parse HEAD)"
 docker build --platform linux/amd64 --progress plain \

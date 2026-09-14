@@ -134,11 +134,18 @@ Emulated builds take longer than native Linux x64 builds. Linux CEF launches
 renderer processes directly (`no-zygote`), allowing the packaged app to run
 under QEMU as well as on native Linux.
 
+The pinned [Electrobun 2.0.1 Linux wrapper](https://github.com/blackboardsh/electrobun/blob/v2.0.1/package/src/native/linux/nativeWrapper.cpp#L2548)
+already sets `settings.no_sandbox = true`. `no-zygote` changes process startup
+without changing that sandbox setting. We accept the additional renderer startup
+cost so the exact published application can pass installation and persistence
+checks under QEMU; the application uses one main window.
+
 Only Git-tracked working files enter the Docker context; stage new source files
 before building. Host `node_modules`, ignored build output, `.git`, and
 `.secrets` are excluded. The host supplies the source commit and public desktop
 Sentry DSNs as build arguments; AWS credentials stay on the host. Local source
-edits are included, so use a clean commit for a reproducible release identity.
+edits are included in build mode. Upload refuses staged or unstaged source changes
+so the release identity names the committed source.
 
 Artifacts are copied to `build/linux-x64/<production|staging>/`, separate from
 macOS artifacts. The reusable Docker image is `tearleads-linux-release:<tier>`.

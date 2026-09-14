@@ -105,9 +105,10 @@ const baseConfig = {
         "scripts/packageElectrobunAssets.ts",
         // Hutch executes this hook before signing and creating installers.
         "scripts/postBuild.ts",
-        // Invoked by the local release wrapper after artifact verification.
+        // Invoked by the local release wrappers after artifact verification.
         "scripts/publishMacosRelease.ts",
         "scripts/publishLinuxRelease.ts",
+        // Verifies the native Linux build before exporting its artifacts.
         "scripts/verifyLinuxArtifacts.ts",
         // Invoked by the native CEF persistence smoke-test harnesses.
         "scripts/probeCefPersistence.ts",

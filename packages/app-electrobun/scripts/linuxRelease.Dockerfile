@@ -2,7 +2,7 @@ FROM oven/bun:1.4.2-debian@sha256:4f6e31d1a54d6a3dd312daef655fc998101b5043d52e12
 FROM ubuntu:24.04@sha256:224a1869083a311ef3f13648a154ba79832fbef6364d31493642ca03082da254
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates curl unzip git build-essential file zstd \
+    ca-certificates curl unzip git build-essential file zstd procps \
     libgtk-3-0 libwebkit2gtk-4.1-0 libayatana-appindicator3-1 \
     librsvg2-bin libnss3 libasound2t64 libgbm1 xvfb xauth dbus-x11 \
     && rm -rf /var/lib/apt/lists/*

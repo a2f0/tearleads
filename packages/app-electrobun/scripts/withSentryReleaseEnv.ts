@@ -1,5 +1,5 @@
-import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
+import { desktopSourceCommit } from "./desktopSourceCommit";
 import {
   desktopSentryReleaseEnvironment,
   readDesktopSentrySecrets,
@@ -37,13 +37,7 @@ const secrets = tier
       ...process.env,
     }
   : process.env;
-const commit = tier
-  ? (sourceCommit ??
-    execFileSync("git", ["rev-parse", "HEAD"], {
-      cwd: repoRoot,
-      encoding: "utf8",
-    }).trim())
-  : "";
+const commit = tier ? desktopSourceCommit(repoRoot, sourceCommit) : "";
 
 const [executable, ...args] = command;
 const build = Bun.spawn([executable ?? "", ...args], {

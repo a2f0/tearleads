@@ -50,6 +50,15 @@ export async function runLinuxRelease(args: string[], failure = "") {
     await write(".secrets/root.env", "PRIVATE_FIXTURE=must-not-enter-docker");
     await write("node_modules/host-only", "darwin dependencies");
     await write("untracked.env", "untracked-private-fixture");
+    if (failure === "deleted") await rm(join(root, ".gitignore"));
+    if (failure === "dirty" || failure === "staged") {
+      await Bun.write(
+        join(root, ".gitignore"),
+        ".secrets/\nnode_modules/\nchanged\n",
+      );
+      if (failure === "staged")
+        execFileSync("git", ["add", ".gitignore"], { cwd: root });
+    }
     await write("bin/bun", `#!/bin/sh\nexec '${process.execPath}' "$@"`);
     await write(
       "bin/docker",

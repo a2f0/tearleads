@@ -36,6 +36,8 @@ try {
       "../.hutch/devkit/api/sdks/main/core/Updater.ts",
     )
   );
+  assert.equal(typeof updater.validateUpdateManifest, "function");
+  assert.equal(typeof updater.readUpdateHashFromTar, "function");
   const manifest = updater.validateUpdateManifest(
     await Bun.file(join(artifacts, `${prefix}-update.json`)).json(),
     {

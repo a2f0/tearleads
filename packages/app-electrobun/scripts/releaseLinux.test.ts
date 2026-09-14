@@ -63,6 +63,21 @@ test("build mode leaves AWS untouched", async () => {
   expect(result.calls.some((call) => call.startsWith("upload"))).toBe(false);
 });
 
+test("build mode excludes tracked files deleted in the working tree", async () => {
+  const result = await runLinuxRelease(["build", "production"], "deleted");
+  expect(result.exitCode, result.stderr).toBe(0);
+  expect(result.context).not.toContain(".gitignore");
+});
+
+for (const change of ["dirty", "staged"]) {
+  test(`${change} tracked source cannot be uploaded under HEAD's release identity`, async () => {
+    const result = await runLinuxRelease(["upload", "production"], change);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Commit source changes");
+    expect(result.calls).toEqual([]);
+  });
+}
+
 for (const args of [[], ["upload", "prod"], ["build", "production", "extra"]]) {
   test(`invalid arguments ${args.join(" ")} do not invoke Docker or AWS`, async () => {
     const result = await runLinuxRelease(args);

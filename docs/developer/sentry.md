@@ -249,6 +249,9 @@ For macOS distribution, use `scripts/buildMacosRelease.sh <staging|production>`
 or `scripts/uploadMacosRelease.sh <staging|production>` from the repository root.
 The selected tier also enables signing, notarization, and release icons; these
 wrappers prepare the iconset and signing credentials before invoking the build.
+For Linux x64, use `scripts/buildLinuxRelease.sh <staging|production>` or
+`scripts/uploadLinuxRelease.sh <staging|production>`. Docker receives the source
+commit and public desktop DSNs; upload credentials remain on the host.
 Only a release build inlines the desktop configuration at all: the dev server
 and Electrobun's own config read the ambient process environment directly, so
 the renderer defines drop these names unless the build is a release one.
