@@ -1,4 +1,11 @@
-import { chmodSync, cpSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import {
+  chmodSync,
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  symlinkSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -13,7 +20,11 @@ export async function runMacosRelease(args: string[], failure = "") {
     chmodSync(target, 0o755);
   }
   try {
-    for (const name of ["releaseMacos.sh", "macosSigning.sh"]) {
+    for (const name of [
+      "releaseMacos.sh",
+      "macosSigning.sh",
+      "publishMacosRelease.ts",
+    ]) {
       mkdirSync(join(packageDir, "scripts"), { recursive: true });
       cpSync(
         join(import.meta.dirname, name),
@@ -21,6 +32,7 @@ export async function runMacosRelease(args: string[], failure = "") {
       );
     }
     await write("bin/git", '#!/bin/sh\nprintf "%s\\n" "$RELEASE_TEST_ROOT"');
+    symlinkSync(process.execPath, join(root, "bin/bun"));
     await write("bin/uname", '#!/bin/sh\necho "Darwin arm64"');
     await write(
       "bin/security",
@@ -63,7 +75,7 @@ export async function runMacosRelease(args: string[], failure = "") {
         "  channel=stable; app=Tearleads; dmg=macos-arm64-Tearleads.dmg",
         "fi",
         'echo installer > "$artifacts/$dmg"',
-        'echo metadata > "$artifacts/$channel-macos-arm64-update.json"',
+        'printf \'{"channel":"%s","platform":"macos","arch":"arm64","artifact":{"file":"%s-macos-arm64-%s.app.tar.zst"}}\' "$channel" "$channel" "$app" > "$artifacts/$channel-macos-arm64-update.json"',
         '[ "$RELEASE_TEST_FAILURE" = missing ] || echo archive > "$artifacts/$channel-macos-arm64-$app.app.tar.zst"',
       ].join("\n"),
     );
@@ -82,8 +94,33 @@ export async function runMacosRelease(args: string[], failure = "") {
         'printf "upload %s\\n" "$*" >> "$RELEASE_TEST_LOG"',
         '[ "$RELEASE_TEST_FAILURE" != payload ] || exit 8',
         'case "$3:$RELEASE_TEST_FAILURE" in *.sha256:checksum|*-update.json:metadata) exit 8 ;; esac',
+        'cp "$3" "$RELEASE_TEST_ROOT/published/$(basename "$4")"',
       ].join("\n"),
     );
+    const channel = args[1] === "staging" ? "canary" : "stable";
+    const app = channel === "canary" ? "Tearleads-canary" : "Tearleads";
+    const oldInstaller =
+      channel === "canary"
+        ? "canary-macos-arm64-Tearleads-canary.dmg"
+        : "macos-arm64-Tearleads.dmg";
+    const oldArchive = `${channel}-macos-arm64-${app}.app.tar.zst`;
+    const previous: Record<string, string> = {};
+    for (const [file, content] of Object.entries({
+      [oldInstaller]: "previous installer",
+      [`${oldInstaller}.sha256`]: "previous checksum",
+      [oldArchive]: "previous archive",
+      [`${channel}-macos-arm64-update.json`]: JSON.stringify({
+        artifact: { file: oldArchive },
+        version: "previous",
+      }),
+      [`${channel}-macos-arm64-download.json`]: JSON.stringify({
+        installer: oldInstaller,
+        checksum: `${oldInstaller}.sha256`,
+      }),
+    })) {
+      await write(`published/${file}`, content);
+      previous[file] = `${content}\n`;
+    }
     const child = Bun.spawn(
       ["bash", join(packageDir, "scripts/releaseMacos.sh"), ...args],
       {
@@ -109,7 +146,10 @@ export async function runMacosRelease(args: string[], failure = "") {
     const calls = (await Bun.file(log).exists())
       ? (await Bun.file(log).text()).trim().split("\n")
       : [];
-    return { exitCode, stdout, stderr, calls };
+    const published: Record<string, string> = {};
+    for (const path of new Bun.Glob("*").scanSync(join(root, "published")))
+      published[path] = await Bun.file(join(root, "published", path)).text();
+    return { exitCode, stdout, stderr, calls, published, previous };
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

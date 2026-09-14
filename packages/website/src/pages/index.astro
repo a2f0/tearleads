@@ -1,10 +1,9 @@
 ---
 import { isStaging } from "../config";
 import Layout from "../layouts/Layout.astro";
+import { resolveMacosDownloads } from "../macosDownloads";
 
-const macosDownloadUrl = isStaging
-  ? "https://s3.us-east-1.amazonaws.com/downloads-staging.tearleads.com/canary-macos-arm64-Tearleads-canary.dmg"
-  : "https://s3.us-east-1.amazonaws.com/downloads.tearleads.com/macos-arm64-Tearleads.dmg";
+const { installerUrl: macosDownloadUrl, checksumUrl } = await resolveMacosDownloads(isStaging);
 ---
 
 <Layout
@@ -23,7 +22,7 @@ const macosDownloadUrl = isStaging
           {isStaging ? "Download macOS preview" : "Download for macOS"}
         </a>
         <p>For Macs with Apple silicon.</p>
-        <a class="download-checksum" href={`${macosDownloadUrl}.sha256`}>
+        <a class="download-checksum" href={checksumUrl}>
           SHA-256 checksum
         </a>
       </div>

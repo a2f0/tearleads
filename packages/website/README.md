@@ -54,7 +54,9 @@ Cloudflare's [static asset documentation](https://developers.cloudflare.com/work
 describes routing and deployment caching.
 
 The homepage's macOS download link selects the production or staging S3 bucket
-using `PUBLIC_ENVIRONMENT`, alongside a SHA-256 checksum link. Build and upload
+using `PUBLIC_ENVIRONMENT`. Each website build resolves download discovery
+metadata into a matching pair of immutable installer and SHA-256 checksum URLs;
+offline builds retain the verified first release. Build and upload
 the matching release with `scripts/uploadMacosRelease.sh <staging|production>`
 from the repository root before deploying the website. See the
 [desktop release instructions](../app-electrobun/README.md#macos-releases).

@@ -83,17 +83,24 @@ interactive Terminal when macOS requires keychain authorization.
 The `postBuild` hook packages the final renderer, Loro WASM, SQLite worker, and
 SQLite WASM before Electrobun signs or archives the app. Release icons come from
 the shared Tearleads SVG. Artifacts and SHA-256 checksums are written to the
-ignored `build/artifacts/` directory. Uploads publish DMGs and full update archives
-before update metadata, and use revalidating cache headers for replaceable URLs.
+ignored `build/artifacts/` directory. Uploads publish DMGs, matching checksums,
+and full update archives under
+immutable filenames containing their SHA-256 digests. Update and download
+discovery documents are replaced only after all payloads succeed, so a failed
+upload preserves previously published releases. Discovery uses revalidating
+cache headers; immutable artifacts may be cached for a year.
 Delta patches are disabled; full update archives are published with each build.
 
-| Tier | Bucket | Installer |
+| Tier | Bucket | Local installer |
 | --- | --- | --- |
 | Production | `downloads.tearleads.com` | `macos-arm64-Tearleads.dmg` |
 | Staging | `downloads-staging.tearleads.com` | `canary-macos-arm64-Tearleads-canary.dmg` |
 
-The website homepage selects the matching bucket and installer for its
-environment. These local scripts publish macOS ARM64 only. See
+Redeploy the website after publishing: its build resolves the environment's
+`<channel>-macos-arm64-download.json` into a matched pair of immutable installer
+and checksum links. An unavailable discovery document falls back to the verified
+first release. Existing legacy filenames are retained and never overwritten by
+this publisher. These local scripts publish macOS ARM64 only. See
 [Electrobun distribution](https://framework.blackboard.sh/electrobun/guides/bundling-and-distribution/)
 for platform packaging and native runner requirements.
 

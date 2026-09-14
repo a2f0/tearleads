@@ -57,15 +57,5 @@ shasum -a 256 "$DMG" | sed "s|$ARTIFACT_DIR/||" > "$DMG.sha256"
 echo "Built $TIER macOS release: $DMG"
 if [[ "$ACTION" == build ]]; then exit 0; fi
 
-# Publish payloads before update metadata. Never sync --delete across channels.
-for artifact in "$DMG" "$DMG.sha256" "$ARCHIVE"; do
-  content_type=application/octet-stream
-  [[ "$artifact" != *.sha256 ]] || content_type=text/plain
-  aws s3 cp "$artifact" "s3://$BUCKET/$(basename "$artifact")" \
-    --region us-east-1 --only-show-errors --content-type "$content_type" \
-    --cache-control 'public, max-age=0, must-revalidate'
-done
-aws s3 cp "$UPDATE" "s3://$BUCKET/$(basename "$UPDATE")" \
-  --region us-east-1 --only-show-errors --content-type application/json \
-  --cache-control 'public, max-age=0, must-revalidate'
-echo "Download: https://s3.us-east-1.amazonaws.com/$BUCKET/$INSTALLER"
+bun "$PACKAGE_DIR/scripts/publishMacosRelease.ts" \
+  "$BUCKET" "$CHANNEL" "$APP_NAME" "$DMG" "$UPDATE" "$ARCHIVE"

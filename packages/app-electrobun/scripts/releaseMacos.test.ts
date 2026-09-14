@@ -22,13 +22,23 @@ for (const [tier, channel, bucket, api] of [
       "stapler",
     ]);
     const uploads = result.calls.slice(6);
-    expect(uploads).toHaveLength(4);
+    expect(uploads).toHaveLength(5);
     for (const upload of uploads) expect(upload).toContain(`s3://${bucket}/`);
     expect(uploads[0]).toContain(".dmg ");
     expect(uploads[1]).toContain(".dmg.sha256 ");
     expect(uploads[1]).toContain("--content-type text/plain");
     expect(uploads[2]).toContain(".app.tar.zst ");
     expect(uploads[3]).toContain(`${channel}-macos-arm64-update.json`);
+    expect(uploads[4]).toContain(`${channel}-macos-arm64-download.json`);
+    for (const [key, content] of Object.entries(result.previous))
+      if (!key.endsWith(".json")) expect(result.published[key]).toBe(content);
+    const discovery = JSON.parse(
+      result.published[`${channel}-macos-arm64-download.json`] ?? "{}",
+    );
+    expect(result.published[discovery.installer]).toBe("installer\n");
+    expect(result.published[discovery.checksum]).toContain(
+      `  ${discovery.installer}\n`,
+    );
     expect(result.stdout).toContain(
       `Download: https://s3.us-east-1.amazonaws.com/${bucket}/`,
     );
@@ -61,9 +71,11 @@ for (const [failure, count] of [
 ] as const) {
   test(`${failure} upload failure prevents publishing update metadata`, async () => {
     const result = await runMacosRelease(["upload", "staging"], failure);
-    expect(result.exitCode).toBe(8);
+    expect(result.exitCode).not.toBe(0);
     const uploads = result.calls.filter((call) => call.startsWith("upload "));
     expect(uploads).toHaveLength(count);
+    for (const [key, content] of Object.entries(result.previous))
+      expect(result.published[key]).toBe(content);
     expect(uploads.some((upload) => upload.includes("-update.json"))).toBe(
       false,
     );
@@ -73,7 +85,9 @@ for (const [failure, count] of [
 
 test("metadata upload failure does not report successful publication", async () => {
   const result = await runMacosRelease(["upload", "production"], "metadata");
-  expect(result.exitCode).toBe(8);
+  expect(result.exitCode).not.toBe(0);
+  for (const [key, content] of Object.entries(result.previous))
+    expect(result.published[key]).toBe(content);
   expect(result.stdout).not.toContain("Download:");
 });
 
