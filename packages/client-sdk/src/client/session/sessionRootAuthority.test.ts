@@ -298,3 +298,50 @@ test("overlapping acknowledgements for different organizations are both kept", a
     { organizationId: "org-b", rootContainerId: "root-b" },
   ]);
 });
+
+test("a refused login never logs out a newer login that completed during its report", async () => {
+  const responses = [
+    { organizationId: "org-a", rootContainerId: "root-a" },
+    { organizationId: "org-a", rootContainerId: "root-attacker" },
+    { organizationId: "org-a", rootContainerId: "root-a" },
+  ];
+  const api = createApi({
+    authenticate: async () => {
+      const response = responses.shift();
+      if (!response) throw new Error("unexpected authentication");
+      return {
+        ...response,
+        authenticated: true,
+        isRoot: false,
+        token: `token-${responses.length}`,
+        userId: "user-1",
+      };
+    },
+  });
+  const pendingReports: Array<() => void> = [];
+  const { identity, session } = createSessionHarness({
+    api,
+    reportSecurityIncident: () =>
+      new Promise<void>((resolve) => {
+        pendingReports.push(resolve);
+      }),
+  });
+  await setGeneratedIdentity(identity);
+  await expect(session.login()).resolves.toBe(true);
+  expect(session.authToken).toBe("token-2");
+
+  // The refusal clears the session it is evidence against as soon as it is
+  // decided; its incident report is still pending when a newer login lands.
+  const refused = session.login();
+  await waitFor(() => pendingReports.length === 1, "expected the report");
+  expect(session.isAuthenticated).toBe(false);
+  await expect(session.login()).resolves.toBe(true);
+  expect(session.authToken).toBe("token-0");
+
+  for (const release of pendingReports) release();
+  await expect(refused).rejects.toThrow(
+    "Session root acknowledgement changed for an acknowledged organization",
+  );
+  expect(session.isAuthenticated).toBe(true);
+  expect(session.authToken).toBe("token-0");
+});

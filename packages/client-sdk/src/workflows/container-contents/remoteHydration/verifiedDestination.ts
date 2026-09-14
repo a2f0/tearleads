@@ -173,39 +173,46 @@ export async function verifyRemoteContainerDestination(input: {
   );
 }
 
+/** The root the unsigned login answer named, in the expected organization. */
+export function isSessionRootState(
+  remoteRootState: ContainerState,
+  state: RemoteContainerHydrationState,
+): boolean {
+  const { container } = remoteRootState;
+  const { auth } = state.runtime;
+  return (
+    container.parentId === null &&
+    container.id === auth.rootContainerId &&
+    container.organizationId === auth.organizationId
+  );
+}
+
 /**
- * Whether `remoteRootState` may absorb the pre-login local roots. The unsigned
- * login answer only names the session root; the merge target must also be the
- * verified root whose epoch-1 `container.create` the session user signed. A row
- * persisted earlier as an ordinary shared container (another user's root this
- * device once hydrated) never passed that check for this session, so the
- * creator is verified here, at the reconciliation boundary itself, from the
- * role cache or the served projection before any local content is re-parented.
- * A different creator is a `signer_mismatch` incident and never a merge: the
- * refusal is the "no merge" outcome, so the refresh that carried it completes
- * with the local content left in place. An unavailable projection only defers
- * the merge; a failed fetch propagates like any other hydration failure.
+ * Whether the session root may absorb the pre-login local roots. The unsigned
+ * login answer only names the root; the merge target must also be the verified
+ * root whose epoch-1 `container.create` the session user signed. A row persisted
+ * earlier as an ordinary shared container (another user's root this device once
+ * hydrated) never passed that check for this session, so the creator is checked
+ * here, at the reconciliation boundary itself, before any local content is
+ * re-parented. The role comes only from the cache remote hydration fills when
+ * it verifies the destination: this gate never fetches, so a local refresh stays
+ * independent of the network. Without a cached role the merge is left pending
+ * (no incident) until hydration verifies the root and reconciles from the
+ * cache. A different creator is a `signer_mismatch` incident and never a merge;
+ * the refusal is the "no merge" outcome, so the refresh that carried it
+ * completes with the local content left in place.
  */
 export async function isVerifiedLocalRootReconciliationTarget(input: {
-  isCurrent?: (() => boolean) | undefined;
   remoteRootState: ContainerState;
   state: RemoteContainerHydrationState;
 }): Promise<boolean> {
-  const { isCurrent, remoteRootState, state } = input;
+  const { remoteRootState, state } = input;
   const { container } = remoteRootState;
   const runtime = state.runtime;
-  if (
-    container.parentId !== null ||
-    container.id !== runtime.auth.rootContainerId ||
-    container.organizationId !== runtime.auth.organizationId
-  ) {
-    return false;
-  }
+  if (!isSessionRootState(remoteRootState, state)) return false;
+  const role = cachedDestinationRole(runtime.infra.execSql, container);
+  if (!role) return false;
   try {
-    const role =
-      cachedDestinationRole(runtime.infra.execSql, container) ??
-      (await verifyDestinationRole({ isCurrent, listed: container, runtime }));
-    if (!role || isCurrent?.() === false) return false;
     if (role.parentId !== null) {
       throw new KeyingVerificationError(
         "object_mismatch",

@@ -9,7 +9,10 @@ import type {
   ContainerState,
   RemoteContainerHydrationState,
 } from "./types";
-import { isVerifiedLocalRootReconciliationTarget } from "./verifiedDestination";
+import {
+  isSessionRootState,
+  isVerifiedLocalRootReconciliationTarget,
+} from "./verifiedDestination";
 
 export function hasRemoteContainerMetadataState(
   containerState: ContainerState,
@@ -237,15 +240,9 @@ export async function reconcileLocalOnlyRootContainers(input: {
   state: RemoteContainerHydrationState;
 }): Promise<number> {
   const { childIdsByParentId, remoteRootState, state } = input;
-  // The unsigned login answer names the root; only the verified root created
-  // by the session user may absorb local content (see verifiedDestination).
   if (
     input.isCurrent?.() === false ||
-    !(await isVerifiedLocalRootReconciliationTarget({
-      isCurrent: input.isCurrent,
-      remoteRootState,
-      state,
-    }))
+    !isSessionRootState(remoteRootState, state)
   ) {
     return 0;
   }
@@ -255,6 +252,16 @@ export async function reconcileLocalOnlyRootContainers(input: {
       containerState.container.id !== remoteRootState.container.id &&
       isLocalOnlyRootContainerState(containerState),
   );
+  // The unsigned login answer names the root; only the verified root created
+  // by the session user may absorb local content (see verifiedDestination).
+  // Checked only when there is local root content to merge, from the cached
+  // role alone, so a local refresh never waits on the network.
+  if (
+    localRootStates.length > 0 &&
+    !(await isVerifiedLocalRootReconciliationTarget({ remoteRootState, state }))
+  ) {
+    return 0;
+  }
 
   let reconciledRootContainerCount = 0;
   for (const localRootState of localRootStates) {

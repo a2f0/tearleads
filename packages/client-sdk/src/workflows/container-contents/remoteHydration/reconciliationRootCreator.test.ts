@@ -146,19 +146,34 @@ test("a persisted shared root created by another user never absorbs local conten
     expect(projectionReads).toBe(1);
 
     // After a restart the role cache is cold (it is keyed by the database
-    // handle): the served projection is verified first, and the decision is
-    // the same.
+    // handle). The gate never fetches: the merge stays pending with no
+    // incident and no request, so a local refresh cannot wait on the network.
     infra.execSql = ((...args: Parameters<typeof execSql>) =>
       execSql(...args)) as typeof execSql;
     await expect(reconcile()).resolves.toBe(0);
+    expect(projectionReads).toBe(1);
+    expect(incidents).toHaveLength(1);
+    expect(rootMerges).toEqual([]);
+
+    // Remote hydration is the network-backed path: it verifies the destination,
+    // refuses it as the session root, and leaves the role cached, so the next
+    // reconciliation decides from the cache and refuses again.
+    await expect(
+      verifyRemoteContainerDestination({ remoteContainer: listed, state }),
+    ).rejects.toMatchObject({ code: "signer_mismatch" });
     expect(projectionReads).toBe(2);
-    expect(incidents).toHaveLength(2);
+    await expect(reconcile()).resolves.toBe(0);
+    expect(incidents.map((incident) => incident.operation)).toEqual([
+      "container.root.reconcile",
+      "container.destination.verify",
+      "container.root.reconcile",
+    ]);
     expect(rootMerges).toEqual([]);
 
     // The creator's own device merges its pre-login content into that root.
     auth.userId = owner.userId;
     await expect(reconcile()).resolves.toBe(1);
     expect(rootMerges).toEqual([localRoot.container.id]);
-    expect(incidents).toHaveLength(2);
+    expect(incidents).toHaveLength(3);
   });
 });

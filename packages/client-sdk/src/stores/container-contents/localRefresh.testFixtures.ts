@@ -6,6 +6,7 @@ import { ContainerStateMap } from "./containerStateMap";
 import type { LocalContainerRefreshState } from "./localRefresh";
 
 export function createRefreshState(input: {
+  apiClient?: Partial<ContainerContentsWorkflowRuntime["apiClient"]>;
   containersById?: Map<string, ContainerState>;
   loadContainers: ContainerContentsPersistence["loadContainers"];
   log?: (message: string) => void;
@@ -37,6 +38,7 @@ export function createRefreshState(input: {
       saveContainer,
     } as unknown as ContainerContentsPersistence,
     runtime: {
+      apiClient: input.apiClient,
       auth: {
         organizationId: "organization-id",
         rootContainerId: "remote-root",

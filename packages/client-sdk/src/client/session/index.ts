@@ -143,6 +143,9 @@ class SessionService implements Session {
     if (!fingerprint) {
       return false;
     }
+    // A refusal below clears the session it is evidence against; a session
+    // another login committed meanwhile is not that session and stays.
+    const snapshotAtStart = this.snapshotValue;
     const identitySnapshot = this.dependencies.identity.snapshot;
     const encapsulationKeyPair = identitySnapshot.encapsulationKeyPair;
     if (!encapsulationKeyPair) {
@@ -199,28 +202,27 @@ class SessionService implements Session {
         report: this.dependencies.reportSecurityIncident,
       });
     }
-    try {
-      // A changed root for this identity+org is refused before the token is
-      // usable. Decision and commit are one synchronous step against the live
-      // snapshot (no await in between); the refusal reports its own incident.
-      await commitSessionRootAcknowledgment({
-        context: {
-          authToken: authentication.token,
-          defaultOrganizationId: authentication.organizationId,
-          isAuthenticated: true,
-          isRoot: authentication.isRoot,
-          organizationId: authentication.organizationId,
-          userId: authentication.userId,
-        },
-        reporter: this.dependencies.reportSecurityIncident,
-        root: authentication,
-        session: this,
-        signingFingerprint: fingerprint,
-      });
-    } catch (error) {
-      this.logout();
-      throw error;
-    }
+    // A changed root for this identity+org is refused before the token is
+    // usable. Decision and commit are one synchronous step against the live
+    // snapshot (no await in between); the refusal clears the prior session in
+    // that same step and then reports its own incident.
+    await commitSessionRootAcknowledgment({
+      context: {
+        authToken: authentication.token,
+        defaultOrganizationId: authentication.organizationId,
+        isAuthenticated: true,
+        isRoot: authentication.isRoot,
+        organizationId: authentication.organizationId,
+        userId: authentication.userId,
+      },
+      onRefused: () => {
+        if (this.snapshotValue === snapshotAtStart) this.logout();
+      },
+      reporter: this.dependencies.reportSecurityIncident,
+      root: authentication,
+      session: this,
+      signingFingerprint: fingerprint,
+    });
     this.dependencies.log("Authentication successful");
     return true;
   }

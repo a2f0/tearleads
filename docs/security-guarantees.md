@@ -56,8 +56,9 @@ content merges only into the session's root id in the expected organization,
 and only if that root's epoch-1 `container.create` was signed by the session
 user (the login response naming it is unsigned; every acknowledged organization
 was created by the user). That creator check holds at the reconciliation
-boundary itself, from the cached role or the served projection, so a root this
-device hydrated earlier as another user's shared container is refused as a
+boundary itself, from the role remote hydration verified and cached (a local
+refresh never fetches; an uncached role leaves the merge pending), so a root
+this device hydrated earlier as another user's shared container is refused as a
 `signer_mismatch` incident and never merged, whichever path reaches it. A later
 login may repeat an acknowledged root or report it purged; a different root id
 is refused as an incident. The default organization is not bound, since a

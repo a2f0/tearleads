@@ -76,10 +76,12 @@ export function acknowledgeSessionRoot(
  * registration or organization creation can never overwrite this entry with a
  * stale copy (a lost acknowledgement would erase that organization's root-swap
  * protection). Only the incident report for a refusal is asynchronous, and it
- * runs after the decision has been made and before the error propagates.
+ * runs after the decision has been made and before the error propagates;
+ * `onRefused` runs synchronously with the decision, ahead of that report.
  */
 export async function commitSessionRootAcknowledgment(input: {
   readonly context?: Omit<SessionContext, "rootAcknowledgments"> | undefined;
+  readonly onRefused?: (() => void) | undefined;
   readonly reporter: SecurityIncidentReporter | undefined;
   readonly root: RootAcknowledgmentInput;
   readonly session: Pick<Session, "setContext" | "snapshot">;
@@ -94,6 +96,7 @@ export async function commitSessionRootAcknowledgment(input: {
       signingFingerprint,
     );
   } catch (error) {
+    input.onRefused?.();
     if (signingFingerprint) {
       await reportKeyingVerificationErrorInCauseChain(error, reporter, {
         objectId: root.rootContainerId,
