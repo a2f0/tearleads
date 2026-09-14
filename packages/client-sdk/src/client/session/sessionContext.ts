@@ -37,6 +37,22 @@ export function mergeSessionContext(
   };
 }
 
+export function sessionSnapshotsEqual(
+  previous: SessionSnapshot,
+  next: SessionSnapshot,
+): boolean {
+  return (
+    previous.rootAcknowledgments === next.rootAcknowledgments &&
+    previous.authToken === next.authToken &&
+    previous.containerId === next.containerId &&
+    previous.defaultOrganizationId === next.defaultOrganizationId &&
+    previous.isAuthenticated === next.isAuthenticated &&
+    previous.isRoot === next.isRoot &&
+    previous.organizationId === next.organizationId &&
+    previous.userId === next.userId
+  );
+}
+
 export function emptySessionSnapshot(): SessionSnapshot {
   return {
     rootAcknowledgments: [],

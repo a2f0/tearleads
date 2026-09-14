@@ -1,14 +1,294 @@
 ---
-import Layout from "../layouts/Layout.astro";
+import LegalContact from "../components/LegalContact.astro";
+import LegalLayout from "../layouts/LegalLayout.astro";
+import { legalDetails } from "../legal";
+
+const sections = [
+  { id: "scope", label: "Who we are" },
+  { id: "information", label: "Information we handle" },
+  { id: "purposes", label: "How we use information" },
+  { id: "encryption", label: "Encryption & sharing" },
+  { id: "providers", label: "Providers & disclosures" },
+  { id: "device-storage", label: "Cookies & device storage" },
+  { id: "retention", label: "Retention & deletion" },
+  { id: "rights", label: "Your choices & rights" },
+  { id: "international", label: "International processing" },
+  { id: "children", label: "Children’s privacy" },
+  { id: "updates", label: "Policy updates" },
+  { id: "contact", label: "Contact us" },
+];
 ---
 
-<Layout title="Privacy Policy | Tearleads" description="Tearleads privacy policy.">
-  <main class="website-main">
-    <article class="section" aria-labelledby="page-title">
-      <h1 id="page-title">Privacy Policy</h1>
-      <p class="section-lede">
-        The Tearleads privacy policy will be published here.
-      </p>
-    </article>
-  </main>
-</Layout>
+<LegalLayout
+  title="Privacy Policy"
+  description="How Tearleads handles local data, encrypted sync, service metadata, diagnostics, billing information, and privacy requests."
+  lede="Your content belongs with you. Here’s what stays on your device, what reaches our services, and the choices you have."
+  sections={sections}
+>
+  <ul slot="summary" role="list">
+    <li><strong>Local first. Encrypted in sync.</strong> Local-only content stays on your device. Sync stores encrypted content, alongside the metadata needed to deliver it.</li>
+    <li><strong>Some information is visible.</strong> We handle identity and access records, connection information, billing records, and limited diagnostics.</li>
+    <li><strong>Control comes with limits.</strong> You can export and delete data. Deletion cannot recall copies that someone else has already received.</li>
+  </ul>
+
+  <section id="scope" aria-labelledby="scope-title">
+    <h2 id="scope-title">1. Who we are and what this covers</h2>
+    <p>
+      {legalDetails.operator} (“Tearleads,” “we,” “us,” or “our”), based in{" "}
+      {legalDetails.location}, operates the Tearleads website, applications,
+      and hosted Sync and Sharing services. This policy explains how we handle
+      personal information in those services and when you contact us.
+    </p>
+    <p>
+      It does not describe an independent organization’s use of information you
+      share with it, or a third-party service’s own processing. If an employer or
+      another organization manages your access, its policies may also apply.
+      Our <a href="/terms-of-service">Terms of Service</a> cover use of Tearleads.
+    </p>
+  </section>
+
+  <section id="information" aria-labelledby="information-title">
+    <h2 id="information-title">2. Information we handle</h2>
+    <h3>Content on your device and in sync</h3>
+    <p>
+      Tearleads stores your documents, notes, contacts, files, preferences, and
+      cryptographic identity material locally. Content kept only on your device
+      is not uploaded to our storage unless you use a feature that sends it,
+      such as Sync and Sharing. Local use does not mean the app never connects
+      to the internet: loading the web app, registering an identity, checking
+      service status, and error reporting can involve network requests.
+    </p>
+    <p>
+      When you sync, our services receive encrypted document updates, encrypted
+      files and content metadata, and encrypted key material for authorized
+      recipients. They also receive structural information such as identity,
+      organization, container, document, and file identifiers; public keys and
+      signatures; membership and access records; version information; timestamps;
+      and payload sizes. These records are not all end-to-end encrypted.
+    </p>
+    <h3>Connections and sessions</h3>
+    <p>
+      Our services and infrastructure providers process IP addresses, request
+      times, requested routes, response status, and technical browser or device
+      information. Authenticated sessions include identity references, creation
+      and activity times, and connection IP addresses. These records support
+      authentication, session management, troubleshooting, and abuse prevention.
+      Identity records also retain the registration IP address when available
+      and the most recent activity time, separately from individual sessions.
+    </p>
+    <h3>Subscriptions and communications</h3>
+    <p>
+      If you purchase a subscription, we and our billing providers process
+      billing contact details, customer and organization identifiers, selected
+      plans, subscription status, invoices, transaction amounts, currency, and
+      purchase or refund records. Payment details are entered through Stripe or
+      the applicable app store; Tearleads does not receive your full payment-card
+      number or security code through those payment forms.
+    </p>
+    <p>
+      If you email us or send a support report, we receive your address, message,
+      and anything you choose to attach. Support communications are not covered
+      by the app’s end-to-end encryption. Please do not send private keys,
+      recovery phrases, passwords, or unnecessary personal information.
+    </p>
+    <h3>Limited error diagnostics</h3>
+    <p>
+      Configured production apps and the API send limited error reports to Sentry
+      to help us fix failures. Reports include a generic error type, application
+      code location, release and platform details, and, in the app, a short trail
+      of approved screen names and actions with timestamps.
+    </p>
+    <p>
+      The reporting code excludes document contents, file and contact names,
+      keys, passwords, account identifiers, raw error messages, full page URLs,
+      and request bodies. It does not send session recordings, screenshots, or
+      attachments. A direct connection to Sentry still exposes network information,
+      including your IP address, to its infrastructure. The marketing website
+      does not use this app error-reporting integration.
+    </p>
+  </section>
+
+  <section id="purposes" aria-labelledby="purposes-title">
+    <h2 id="purposes-title">3. How and why we use information</h2>
+    <ul>
+      <li>Provide local app functionality, authenticate identities, deliver encrypted sync, and enforce sharing permissions.</li>
+      <li>Process purchases, manage subscription entitlements, reconcile payments, and maintain billing records.</li>
+      <li>Operate, secure, troubleshoot, and improve the reliability of the services, including investigating misuse.</li>
+      <li>Respond to support and privacy requests and communicate important service or policy changes.</li>
+      <li>Meet legal obligations, resolve disputes, and protect the rights and safety of users and others.</li>
+    </ul>
+    <p>
+      Where applicable law requires a legal basis, we rely on performing our
+      contract for requested services; our legitimate interests in security,
+      reliability, and responding to requests; applicable legal obligations; and
+      consent where required. Where we rely on consent, you may withdraw it
+      without affecting the lawfulness of earlier processing. Information needed
+      to authenticate, sync, or complete a payment is necessary for that feature;
+      without it, we cannot provide that feature.
+    </p>
+    <p>
+      We do not sell personal information or disclose it for targeted or
+      cross-context behavioral advertising. We do not use personal information
+      for automated decisions that produce legal or similarly significant
+      effects, such as decisions about credit or employment.
+    </p>
+  </section>
+
+  <section id="encryption" aria-labelledby="encryption-title">
+    <h2 id="encryption-title">4. What encryption protects</h2>
+    <p>
+      Tearleads encrypts synced content on your device before uploading it.
+      Our hosted services do not receive the unwrapped private keys or content
+      keys needed to read that content. Encryption does not conceal all service
+      metadata, protect an already compromised device, or prevent an authorized
+      recipient from copying what they can read. No system can guarantee
+      absolute security. See our <a href="/security">security architecture</a>{" "}
+      for the design and its limits.
+    </p>
+    <p>
+      When you share, authorized recipients can decrypt the content made
+      available to them. Depending on the permissions you grant, others may be
+      able to edit it or manage access. Organization administrators manage
+      membership and service access; being an administrator does not, by
+      itself, give our servers the keys to decrypt your content.
+    </p>
+    <p class="legal-callout">
+      Removing access is not a recall mechanism. Recipients may retain content
+      or keys already received. New recipients may be able to read retained
+      history available through the content’s current sharing arrangement.
+    </p>
+  </section>
+
+  <section id="providers" aria-labelledby="providers-title">
+    <h2 id="providers-title">5. Providers and other disclosures</h2>
+    <p>
+      We use providers to operate the services. They process information relevant
+      to their roles, not automatically everything described in this policy:
+    </p>
+    <ul>
+      <li><strong>Hosting and delivery:</strong> Cloudflare for website delivery and network services, Hetzner for application infrastructure, PlanetScale for the hosted database, and Amazon Web Services for encrypted file storage.</li>
+      <li><strong>Payments:</strong> <a href="https://stripe.com/privacy">Stripe</a> for web payments and subscription management; <a href="https://www.revenuecat.com/privacy/">RevenueCat</a> for cross-platform subscription entitlements; and Apple or Google when you purchase through their stores. Billing providers may process information for their own fraud-prevention and legal obligations under their policies.</li>
+      <li><strong>Error reporting:</strong> <a href="https://sentry.io/privacy/">Sentry</a> for the limited diagnostics described above.</li>
+      <li><strong>Communications and business support:</strong> email providers and professional advisers when needed to handle your messages, operate the business, or meet legal obligations.</li>
+    </ul>
+    <p>
+      We also disclose information to recipients you authorize through sharing;
+      when reasonably necessary to comply with valid legal process, investigate
+      fraud or security threats, or protect rights and safety; and in connection
+      with a merger, acquisition, financing, or sale of assets, subject to
+      applicable privacy obligations. A legal request cannot give us decryption
+      keys we do not possess. We may disclose other information we do possess.
+    </p>
+  </section>
+
+  <section id="device-storage" aria-labelledby="device-storage-title">
+    <h2 id="device-storage-title">6. Cookies and device storage</h2>
+    <p>
+      The app uses browser or device storage for local databases, encrypted files,
+      saved identity material, settings, and session state. This storage supports
+      functionality and offline use; it is not an advertising profile. Infrastructure
+      and payment providers may use cookies or similar technologies for security,
+      fraud prevention, or checkout under their own policies.
+    </p>
+    <p>
+      The marketing website does not use advertising trackers or analytics
+      cookies. It does not change its behavior in response to the browser’s
+      “Do Not Track” setting; it does not use cross-site advertising tracking.
+      You can manage storage and permissions through your browser or device.
+      Blocking or clearing storage can disable features or permanently remove
+      local keys and unsynced data. Export a backup first if you need to keep them.
+    </p>
+  </section>
+
+  <section id="retention" aria-labelledby="retention-title">
+    <h2 id="retention-title">7. Retention and deletion</h2>
+    <p>
+      Retention depends on the type of information, whether it is still needed
+      to provide the service, security and recovery requirements, billing or
+      legal obligations, and any applicable deletion request. Different copies
+      and records have different lifecycles:
+    </p>
+    <ul>
+      <li><strong>On your devices:</strong> local data remains until you remove it or your browser or device removes it. Destroying a local identity is not a request to erase all remote records or cancel billing.</li>
+      <li><strong>Synced content:</strong> deletion updates live service state, but signed history, deletion evidence, and related metadata may remain. A removed file is eligible for storage cleanup when no active attachment references it; physical deletion follows the cleanup grace period and successful processing.</li>
+      <li><strong>Lapsed subscriptions:</strong> remote organization data may be purged after the service’s billing grace period. This does not necessarily remove local copies. Organization, membership, identity, and billing records can remain after the remote content is purged.</li>
+      <li><strong>Audit records:</strong> some signed access history, deletion records, and identifiers currently have no automatic expiry. They support verification, prevent identifier reuse across organizations, and track unfinished deletion work. Deleting a document does not automatically erase this history.</li>
+      <li><strong>Operational records:</strong> session information, logs, diagnostics, support correspondence, and financial records follow their service configuration and operational or legal needs. Backups and provider-held records may outlast removal from live systems.</li>
+    </ul>
+    <p>
+      We do not promise immediate erasure from every system. Contact us to request
+      deletion or information about retention for a particular record. We will
+      assess the request under applicable law and explain relevant limits.
+      We cannot remotely erase someone else’s exports, backups, or downloaded copies.
+    </p>
+  </section>
+
+  <section id="rights" aria-labelledby="rights-title">
+    <h2 id="rights-title">8. Your choices and privacy rights</h2>
+    <p>
+      You can use local features without buying Sync, export available local
+      data, manage sharing permissions, revoke sessions, and delete local data
+      through the app. You can separately <a href="/manage-subscription">manage
+      or cancel a web subscription</a>; store purchases are managed through the
+      store where you subscribed.
+    </p>
+    <p>
+      Depending on your location and the law that applies, you may have rights
+      to access, correct, delete, or receive a portable copy of personal
+      information; restrict or object to processing; withdraw consent; or appeal
+      a denied request. You may also complain to your local privacy regulator
+      or state attorney general. We will not unlawfully discriminate against
+      you for exercising privacy rights.
+    </p>
+    <p>
+      Send requests, authorized-agent requests, or appeals to{" "}
+      <a href={`mailto:${legalDetails.email}`}>{legalDetails.email}</a>.
+      Include enough information to identify the relevant account or records.
+      We may ask for proportionate proof of identity or authority, but will not
+      ask you to send your private keys or recovery phrase. We will respond
+      within the time required by applicable law and explain any exception or
+      denial. Encryption can limit our ability to locate or return readable
+      content; your own device’s export tools may be the best way to obtain it.
+    </p>
+  </section>
+
+  <section id="international" aria-labelledby="international-title">
+    <h2 id="international-title">9. Where information is processed</h2>
+    <p>
+      Tearleads is based in the United States, and our primary production
+      infrastructure is in the United States. Our providers may process
+      information in other countries, whose privacy laws may differ from those
+      where you live. Where applicable law requires safeguards for a transfer,
+      those requirements still apply; using the service does not waive your
+      rights. Contact us for details about the arrangements relevant to your data.
+    </p>
+  </section>
+
+  <section id="children" aria-labelledby="children-title">
+    <h2 id="children-title">10. Children’s privacy</h2>
+    <p>
+      The services are intended for adults, as described in our Terms of
+      Service, and are not directed to children under 13. We do not knowingly
+      collect personal information from children under 13. If you believe a
+      child has provided personal information to us, contact us so we can
+      investigate and take appropriate steps, including deletion where required.
+    </p>
+  </section>
+
+  <section id="updates" aria-labelledby="updates-title">
+    <h2 id="updates-title">11. Changes to this policy</h2>
+    <p>
+      We may update this policy as the services, our practices, or legal
+      requirements change. We will publish the revised version with a new
+      effective date and give additional notice of material changes through
+      the service or another appropriate channel. Where the law requires
+      consent to a new use of information, we will obtain it before that use.
+    </p>
+  </section>
+
+  <section id="contact" aria-labelledby="contact-title">
+    <h2 id="contact-title">12. Contact us</h2>
+    <p>For privacy questions, data requests, or concerns about this policy:</p>
+    <LegalContact />
+  </section>
+</LegalLayout>

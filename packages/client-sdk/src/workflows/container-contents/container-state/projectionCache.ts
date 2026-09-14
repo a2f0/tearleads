@@ -1,4 +1,5 @@
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import { projectionGeneration } from "../projectionGeneration";
 import type { ContainerState } from "../remoteHydration";
 import type { ContainerWorkflowRuntime } from "./types";
 
@@ -40,6 +41,40 @@ export function getCachedContainerWriterProjection(
     : null;
 }
 
+// A hint can invalidate a container while its load is in flight; each retry
+// re-reads the generation, so this only bounds a pathological hint storm.
+const MAX_PROJECTION_LOAD_ATTEMPTS = 3;
+
+/**
+ * Drop both cached writer projections (the container's and its metadata
+ * document's) and advance their shared generation, so an operation that
+ * started before this invalidation (and may carry a pre-hint manifest) cannot
+ * install its result.
+ */
+export function invalidateContainerProjections(
+  containerState: ContainerState,
+): void {
+  containerState.containerWriterProjection = null;
+  containerState.metadataWriterProjection = null;
+  containerState.writerProjectionGeneration =
+    projectionGeneration(containerState) + 1;
+}
+
+/**
+ * Install a container projection an operation fetched or was handed back,
+ * unless a hint invalidated the container while that operation ran: its
+ * answer may predate the hint, so the slot is left as the hint left it and the
+ * next operation fetches fresh.
+ */
+export function installContainerWriterProjection(
+  containerState: ContainerState,
+  projection: ContainerWriterProjectionResponse | null,
+  capturedGeneration: number,
+): void {
+  if (projectionGeneration(containerState) !== capturedGeneration) return;
+  containerState.containerWriterProjection = projection;
+}
+
 export async function loadContainerWriterProjectionForState(input: {
   containerState: ContainerState;
   runtime: ContainerWorkflowRuntime;
@@ -51,9 +86,22 @@ export async function loadContainerWriterProjectionForState(input: {
     return cachedProjection;
   }
 
-  const projection = await input.runtime.apiClient.getContainerWriterProjection(
-    input.containerState.container.id,
-  );
-  input.containerState.containerWriterProjection = projection;
+  let projection: ContainerWriterProjectionResponse | null = null;
+  for (let attempt = 0; attempt < MAX_PROJECTION_LOAD_ATTEMPTS; attempt++) {
+    const generation = projectionGeneration(input.containerState);
+    projection = await input.runtime.apiClient.getContainerWriterProjection(
+      input.containerState.container.id,
+    );
+    if (projectionGeneration(input.containerState) === generation) {
+      installContainerWriterProjection(
+        input.containerState,
+        projection,
+        generation,
+      );
+      return projection;
+    }
+    // Invalidated while in flight (the api-client entry went with it): this
+    // answer may predate the hint, so fetch again instead of caching it.
+  }
   return projection;
 }

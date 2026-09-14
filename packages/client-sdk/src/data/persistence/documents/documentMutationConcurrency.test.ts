@@ -209,6 +209,7 @@ test("startup record, history, and attachments share one database snapshot", asy
   const oldLocalAttachment = {
     blobId: "old-blob",
     byteLength: 3,
+    contentSha256: "0".repeat(64),
     detachedAt: null,
     localId: original.id,
     mimeType: "text/plain",

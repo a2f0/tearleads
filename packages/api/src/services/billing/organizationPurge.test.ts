@@ -14,15 +14,18 @@ import {
   principalMembershipProjection,
   principalStatePayloads,
   principalStates,
-  users,
 } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import { and, eq, inArray } from "drizzle-orm";
 import invariant from "invariant";
 import { uploadBlobObject } from "../../../test/helpers/blobObjectStore";
-import { registerUser } from "../../../test/helpers/registerUser";
+import {
+  deleteTestBlob,
+  insertDereferencedBlob,
+  registerOrganization,
+} from "../../../test/helpers/organizationPurge";
 import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
 import { createMemoryBlobObjectStore } from "../../adapters/blobObjectStore";
+import type { PublishedRealtimeEvent } from "../../realtime/publishedRealtimeEvents";
 import { sha256Hex } from "../../utils/sha256";
 import {
   finalizeOrganizationPurge,
@@ -37,48 +40,6 @@ import {
   renewOrganizationPurgeClaim,
 } from "../../workflows/billing/organizationPurgeCandidates";
 import { runOrganizationPurgeMaintenance } from "./organizationPurge";
-
-async function registerOrganization(): Promise<string> {
-  const user = createTestUser();
-  await registerUser(user);
-  const [row] = await db
-    .select({ organizationId: users.defaultOrganizationId })
-    .from(users)
-    .where(eq(users.id, user.userId));
-  invariant(row, "expected registered user");
-  return row.organizationId;
-}
-
-async function insertDereferencedBlob(
-  organizationId: string,
-  dereferencedAt: Date,
-): Promise<string> {
-  const blobId = crypto.randomUUID();
-  const storageKey = `organizations/${organizationId}/blob-stages/${blobId}`;
-  const bytes = `blob:${blobId}`;
-  await db.insert(blobs).values({
-    id: blobId,
-    storageKey,
-    sha256: await sha256Hex(bytes),
-    byteLength: bytes.length,
-    dereferencedAt,
-  });
-  await db.insert(blobAuditObjects).values({
-    blobId,
-    byteLength: bytes.length,
-    historicalBytesRetained: false,
-    liveStorageKey: storageKey,
-    organizationId,
-    retentionMode: "live_only",
-    sha256: await sha256Hex(bytes),
-  });
-  return blobId;
-}
-
-async function deleteTestBlob(blobId: string): Promise<void> {
-  await db.delete(blobs).where(eq(blobs.id, blobId));
-  await db.delete(blobAuditObjects).where(eq(blobAuditObjects.blobId, blobId));
-}
 
 test("organization purge removes one organization's remote state and retains its control plane", async () => {
   const organizationId = await registerOrganization();
@@ -136,13 +97,37 @@ test("organization purge removes one organization's remote state and retains its
       status: "disabled",
     })
     .where(eq(organizationBilling.organizationId, organizationId));
+  const purgedContainerIds = (
+    await db
+      .select({ id: containers.id })
+      .from(containers)
+      .where(eq(containers.organizationId, organizationId))
+  ).map((row) => row.id);
+  expect(purgedContainerIds).not.toEqual([]);
+  const published: PublishedRealtimeEvent[] = [];
 
   expect(
-    await runOrganizationPurgeMaintenance(createServiceTestRuntime(), {
-      now,
-      organizationIds: [organizationId],
-    }),
+    await runOrganizationPurgeMaintenance(
+      {
+        ...createServiceTestRuntime(),
+        eventPublisher: {
+          publish: async (event) => {
+            published.push(event);
+          },
+        },
+      },
+      { now, organizationIds: [organizationId] },
+    ),
   ).toEqual({ claimed: 1, failed: 0, purged: 1 });
+  // Live sockets subscribed to purged containers get the same invalidation a
+  // delete would publish; nothing else tells them the rows are gone.
+  expect(
+    published
+      .flatMap((event) =>
+        event.type === "access_changed" ? [event.containerId] : [],
+      )
+      .sort(),
+  ).toEqual([...purgedContainerIds].sort());
 
   const [billing] = await db
     .select({

@@ -19,6 +19,7 @@ async function saveLocalAttachment(input: {
   await sqlDocumentsPersistence.saveLocalAttachment(input.execSql, {
     blobId: input.blobId,
     byteLength: 12,
+    contentSha256: "0".repeat(64),
     detachedAt: null,
     localId: input.localId,
     mimeType: "image/png",

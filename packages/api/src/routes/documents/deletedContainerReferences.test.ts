@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestUser } from "@tearleads/bob-and-alice";
+import { CONTAINER_UNAVAILABLE_ERROR_CODE } from "@tearleads/validators/response";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { buildChildCreateRequest } from "../../../test/helpers/containerMutationArtifactKit";
 import { createChildContainer } from "../../../test/helpers/keyingWriterProjectionChild";
@@ -51,6 +52,7 @@ test("document create rejects a retained manifest belonging to a deleted contain
   });
   expect(created.status, await created.clone().text()).toBe(409);
   expect(await created.json()).toEqual({
+    code: CONTAINER_UNAVAILABLE_ERROR_CODE,
     error: "targetContainerPathRefs[1] container unavailable",
   });
   const newChild = await routeApp.request("/containers", {
@@ -63,6 +65,7 @@ test("document create rejects a retained manifest belonging to a deleted contain
   });
   expect(newChild.status).toBe(409);
   expect(await newChild.json()).toEqual({
+    code: CONTAINER_UNAVAILABLE_ERROR_CODE,
     error: "parentContainerPath[1] container unavailable",
   });
 });

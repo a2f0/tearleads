@@ -29,6 +29,24 @@ export function isAutomaticBlobPreviewAllowed(
   );
 }
 
+/**
+ * Read a held attachment for an automatic preview only when the bytes actually
+ * held are within the preview limit. The document intent's `byteLength` is a
+ * pre-filter, not a guard: a validly signed served binding the intent has not
+ * recorded yet (an `intent-mismatch` slot) can be far larger than the intent
+ * says, so the size of the local byte source is what gates the read.
+ */
+export async function readAutomaticPreviewBlobBytes(
+  blobStore: Pick<BlobStore, "openByteSource">,
+  storageKey: string,
+): Promise<Uint8Array<ArrayBuffer> | null> {
+  const source = await blobStore.openByteSource(storageKey);
+  if (!source || !isAutomaticBlobPreviewAllowed(source)) {
+    return null;
+  }
+  return source.read(0, source.byteLength);
+}
+
 export function createFrontAndBackImageSlots(params: {
   backSlotId: string;
   frontSlotId: string;
@@ -99,6 +117,9 @@ export function getDocumentAttachmentStatusLabel(
 ): string | null {
   if (status === "syncing") {
     return "Syncing image.";
+  }
+  if (status === "intent-mismatch") {
+    return "Image differs from the document's recorded version.";
   }
 
   return null;

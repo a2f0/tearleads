@@ -10,6 +10,9 @@ export const NOTE_DOCUMENT_LABELS = {
   attachmentsEmpty: "No attachments yet.",
   attachmentsEmptyHint: "Drag files here or use Upload to attach them.",
   attachmentSyncing: "Syncing",
+  // Held bytes are a validly signed attachment whose digest differs from the
+  // one the document records; its content update has not arrived.
+  attachmentDiffers: "Differs",
   // Attach controls in the panel header. "Upload" opens the file picker;
   // "Select Blob" opens the host's blob picker (hidden when no blobs exist).
   uploadAttachment: "Upload",

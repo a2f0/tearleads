@@ -425,6 +425,7 @@ export async function createRemoteDocument(
         expectedOrganizationId:
           input.expectedOrganizationId ??
           createPlan.containerProjection.organizationId,
+        expectedSignerUserId: input.author.signerUserId,
         resolveProjectionUserKey,
         stillCurrent: input.stillCurrent,
         targetSecretKey: input.targetSecretKey,

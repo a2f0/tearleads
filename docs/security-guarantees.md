@@ -268,6 +268,10 @@ for key derivation:
 - attachment, document, and blob key targets are derived from verified
   manifests rather than API-provided recipient lists
 
+Clients verify attachment bind events at referenced membership. Detach events
+are verified only by the API: no client-consumed projection serves them (the
+attachments listing returns live bindings and their bind events), so a detach
+is observed as the binding's absence, not as an event the client checks.
 Clients should commit writes to the verified manifest hash and derived target
 hash. Projection hashes may still be useful cache keys, but they are not the
 authorization source.
@@ -294,10 +298,10 @@ with the manifest. For every ancestor, a head must cite a head that is or
 descends, through verified predecessors, from the head an earlier signed
 statement already established, so neither an older head nor a same-epoch fork
 of that ancestor can authorize a later child event. A served path must be a
-root-to-leaf chain of parent edges, checked by container id. Document link
-events are authorized through dependency container paths served the same
-way; those are verified at the membership they referenced and without
-checkpoint enforcement, because a historical link legitimately cites the
+root-to-leaf chain of parent edges, checked by container id. Document
+link-set heads and history, and the dependency container paths served for
+them, are verified at the membership they referenced (the paths without
+checkpoint enforcement), because a historical link legitimately cites the
 container heads current when it was signed. Every document and attachment
 event, including a document head new to this device, selects exactly its
 signed full-path citations. A checkpoint-enforced current path cannot replace
@@ -392,7 +396,7 @@ history. Writer projections return and re-verify that chain, so repeated
 ancestor changes can increase per-read bytes and verification cost up to this
 bound even when the descendant itself is never edited. Re-citation also
 advances `metadataAccessStateHash`: each accepted event invalidates the
-organization grants lane and emits the normal container/access hints. It also
+organization grants lane and emits the container hint (no eviction). It also
 advances `containers.updatedAt`, re-emitting the container in incremental lists.
 A full eight-attempt pass can add eight organization-wide refreshes to one
 user mutation. These invalidations are not batched; the per-pass cap and pacing
@@ -578,7 +582,11 @@ A server that has older valid signed states can replay an older valid chain
 unless the client has an independent monotonic checkpoint, highest-seen
 version/hash pin, or transparency log. Production clients persist checkpoints
 and reject rollbacks or same-version hash conflicts for principal policy and
-access manifest heads. User identity trust currently uses an exact durable
+access manifest heads. Deleted containers retain their metadata-document
+reservation, and organization purge is terminal (the organization's mutations
+stay refused and a replacement receives a fresh organization id), so a
+checkpointed `(kind, organization, id)` is never recreated from version 1.
+User identity trust currently uses an exact durable
 full-bundle TOFU pin: any later change to either public key, fingerprint, suite,
 or format is rejected.
 
@@ -639,6 +647,13 @@ therefore cause only a failed transaction, not a falsely successful rotation.
 A cold client needs only current policy and container state. Group grant revoke
 rotates the group and its remaining grants; standalone group revokes are
 rejected, while grant-level `read`/`write`/`admin` remains unchanged.
+The API also refuses every container mutation (including revoke, move, and
+recite, which carry referenced group heads forward verbatim) unless those heads
+equal the group's current state. That rule is safe only because of the
+atomicity above: a group change that would leave a grant stale is refused, so
+an honest client never holds a container whose heads it cannot carry forward.
+A same-id group restarting at version 1 is refused as a rollback; this is
+benign because tombstoned groups cannot be re-granted.
 Organizations cannot receive container grants. Reserved groups provide broad
 access; all grants stay in-organization.
 

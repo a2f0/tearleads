@@ -171,6 +171,7 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
         storageKey: "local/blob",
         mimeType: "image/png",
         byteLength: 12,
+        contentSha256: "0".repeat(64),
         updatedAt: stale,
       });
       await tx.insert(documentPendingUpdates).values({

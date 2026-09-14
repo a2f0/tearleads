@@ -15,6 +15,7 @@ import {
   isDocumentStoreSyncGenerationCurrent,
 } from "./syncGeneration";
 import { documentSyncContextMatches } from "./syncUpdateImport";
+import { installDocumentWriterProjection } from "./writerProjectionGeneration";
 
 interface DetachedAttachmentMarker {
   slotId: string;
@@ -193,6 +194,7 @@ async function syncDetachedAttachmentBinding(input: {
     state.writerProjection?.documentId === input.remoteDocumentId
       ? state.writerProjection
       : null;
+  const writerProjectionGeneration = state.writerProjectionGeneration;
   let remoteSyncBlocked = false;
   const baseDetachInput = {
     apiClient: state.runtime.apiClient,
@@ -223,7 +225,11 @@ async function syncDetachedAttachmentBinding(input: {
     return false;
   }
 
-  state.writerProjection = detached.writerProjection;
+  installDocumentWriterProjection(
+    state,
+    detached.writerProjection,
+    writerProjectionGeneration,
+  );
   state.runtime.util.log(
     `Detached attachment ${binding.slotId} from document ${input.remoteDocumentId}.`,
   );

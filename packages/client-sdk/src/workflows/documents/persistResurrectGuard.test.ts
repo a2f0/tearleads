@@ -113,6 +113,7 @@ test("an update persist refuses to resurrect a deleted row", async () => {
       sqlDocumentsPersistence.saveLocalAttachment(execSql, {
         blobId: "racing-blob",
         byteLength: 1,
+        contentSha256: "0".repeat(64),
         detachedAt: null,
         localId: "victim",
         mimeType: "text/plain",

@@ -12,6 +12,7 @@ import {
   resolveDocumentCreateAuthor,
 } from "../documents";
 import { createRuntimePrincipalPolicyWarmer } from "../principals/runtimePolicyWarmer";
+import { resolveContainerDocumentMoveUnlinkIds } from "./documentMoveUnlinkIds";
 import type { ContainerContentsWorkflowRuntime } from "./runtime";
 
 type ContainerDocumentLinkApi = Parameters<
@@ -143,25 +144,6 @@ function containerDocumentAlreadyMovedResult(input: {
     remoteState: null,
     status: input.status,
   };
-}
-
-function resolveContainerDocumentMoveUnlinkIds(input: {
-  currentContainerId: string;
-  linkedContainerIds: readonly string[];
-  replaceLinkedContainers?: boolean | undefined;
-  targetContainerId: string;
-}): string[] {
-  const unlinkContainerIds = input.replaceLinkedContainers
-    ? input.linkedContainerIds.filter(
-        (containerId) => containerId !== input.targetContainerId,
-      )
-    : [input.currentContainerId];
-
-  return Array.from(new Set(unlinkContainerIds)).filter(
-    (containerId) =>
-      containerId !== input.targetContainerId &&
-      input.linkedContainerIds.includes(containerId),
-  );
 }
 
 /**
@@ -326,7 +308,6 @@ export async function moveRemoteContainerDocument(input: {
     noteId,
     replaceLinkedContainers,
     resolveProjectionUserKey,
-    rotationSnapshot,
     runtime,
     targetContainerId,
   } = input;
@@ -369,16 +350,71 @@ export async function moveRemoteContainerDocument(input: {
     targetContainerId,
   });
 
+  const unlinked = await unlinkMovedDocumentSources({
+    ...input,
+    latestDocument,
+    latestLinkedContainerIds,
+    unlinkContainerIds,
+  });
+  if (!unlinked) return null;
+  latestDocument = unlinked.latestDocument;
+  latestLinkedContainerIds = unlinked.latestLinkedContainerIds;
+
+  const nextContainerId = resolveActiveDocumentContainerId(
+    latestLinkedContainerIds,
+    targetContainerId,
+  );
+  if (!nextContainerId) {
+    return null;
+  }
+
+  const status =
+    unlinked.failedUnlinkContainerIds.length > 0 ? "partial" : "complete";
+  return latestDocument
+    ? containerDocumentMoveResult({
+        document: latestDocument,
+        nextContainerId,
+        status,
+      })
+    : containerDocumentAlreadyMovedResult({
+        linkedContainerIds: latestLinkedContainerIds,
+        nextContainerId,
+        status,
+      });
+}
+
+// The unlink half of a move: every source is attempted even when an earlier
+// one fails, so one dead source cannot strand the others; a failed unlink
+// leaves the move "partial" for the queue to retry.
+async function unlinkMovedDocumentSources(input: {
+  documentId: string;
+  isCurrent?: (() => boolean) | undefined;
+  latestDocument: RelinkRemoteDocumentResult | null;
+  latestLinkedContainerIds: readonly string[];
+  noteId: string;
+  onFailure?: DocumentLinkSetFailureHandler | undefined;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
+  rotationSnapshot: Uint8Array;
+  runtime: ContainerDocumentLinkRuntime;
+  targetContainerId: string;
+  unlinkContainerIds: readonly string[];
+}): Promise<{
+  failedUnlinkContainerIds: readonly string[];
+  latestDocument: RelinkRemoteDocumentResult | null;
+  latestLinkedContainerIds: readonly string[];
+} | null> {
+  const { noteId, runtime, targetContainerId } = input;
+  let { latestDocument, latestLinkedContainerIds } = input;
   const failedUnlinkContainerIds: string[] = [];
-  for (const unlinkContainerId of unlinkContainerIds) {
+  for (const unlinkContainerId of input.unlinkContainerIds) {
     if (input.isCurrent?.() === false) return null;
     const unlinkedDocument = await unlinkRemoteContainerDocument({
-      documentId,
+      documentId: input.documentId,
       isCurrent: input.isCurrent,
       noteId,
       onFailure: input.onFailure,
-      resolveProjectionUserKey,
-      rotationSnapshot,
+      resolveProjectionUserKey: input.resolveProjectionUserKey,
+      rotationSnapshot: input.rotationSnapshot,
       runtime,
       targetContainerId: unlinkContainerId,
     });
@@ -394,25 +430,5 @@ export async function moveRemoteContainerDocument(input: {
     latestDocument = unlinkedDocument;
     latestLinkedContainerIds = unlinkedDocument.linkedContainerIds;
   }
-
-  const nextContainerId = resolveActiveDocumentContainerId(
-    latestLinkedContainerIds,
-    targetContainerId,
-  );
-  if (!nextContainerId) {
-    return null;
-  }
-
-  const status = failedUnlinkContainerIds.length > 0 ? "partial" : "complete";
-  return latestDocument
-    ? containerDocumentMoveResult({
-        document: latestDocument,
-        nextContainerId,
-        status,
-      })
-    : containerDocumentAlreadyMovedResult({
-        linkedContainerIds: latestLinkedContainerIds,
-        nextContainerId,
-        status,
-      });
+  return { failedUnlinkContainerIds, latestDocument, latestLinkedContainerIds };
 }

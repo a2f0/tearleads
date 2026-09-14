@@ -47,6 +47,7 @@ export async function hydrateAttachmentBlobs(
     localBlobIdBySlotId: state.attachmentBlobIdBySlotId,
     localStorageKeyBySlotId: state.attachmentStorageKeyBySlotId,
     log: runtime.util.log,
+    rejectedServedBindings: state.rejectedServedAttachmentBindings,
     reportSecurityIncident: runtime.util.reportSecurityIncident,
     resolveProjectionUserKey:
       expectedGeneration?.resolveProjectionUserKey ??

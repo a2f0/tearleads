@@ -118,11 +118,39 @@ export function rethrowProjectionVerificationBoundaryError(
   if (error instanceof ProjectionDependencyUnavailableError) throw error;
 }
 
+/**
+ * The verification layer reports a shape or hash failure in received protocol
+ * material with a plain `Error` (or a `SyntaxError` from decoding its JSON).
+ * Anything more specific is not evidence about that material: a boundary error
+ * is retryable, a `TypeError` or other typed runtime failure is a defect, and a
+ * non-Error value is a foreign throw. Those keep their type so callers can
+ * classify them instead of recording them as tampering.
+ */
+function isReceivedMaterialShapeFailure(error: unknown): error is Error {
+  return (
+    error instanceof Error &&
+    (Object.getPrototypeOf(error) === Error.prototype ||
+      error instanceof SyntaxError)
+  );
+}
+
+/** Classify the failure of an async verification pass; never returns. */
+export function throwKeyingVerificationShapeFailure(error: unknown): never {
+  rethrowProjectionVerificationBoundaryError(error);
+  if (
+    isKeyingVerificationError(error) ||
+    !isReceivedMaterialShapeFailure(error)
+  )
+    throw error;
+  throw new KeyingVerificationError("invalid_shape", error.message);
+}
+
 export function throwKeyingVerificationErrorWithContext(
   error: unknown,
   context: string,
 ): never {
-  rethrowProjectionVerificationCancelled(error);
+  // Availability and cancellation keep their retryable types across contexts.
+  rethrowProjectionVerificationBoundaryError(error);
   if (isKeyingVerificationError(error)) {
     // Preserve identity so nested reporting boundaries persist one incident.
     // The incident's operation supplies boundary context without minting a new

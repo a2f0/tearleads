@@ -14551,8 +14551,13 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "code": {
+                      "type": "string",
+                      "const": "container_unavailable"
+                    },
                     "error": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     }
                   },
                   "required": [
@@ -15467,8 +15472,13 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "code": {
+                      "type": "string",
+                      "const": "container_unavailable"
+                    },
                     "error": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     }
                   },
                   "required": [
@@ -17665,6 +17675,10 @@
                                 {
                                   "type": "string",
                                   "const": "document_not_found"
+                                },
+                                {
+                                  "type": "string",
+                                  "const": "container_unavailable"
                                 }
                               ]
                             }
@@ -19787,6 +19801,10 @@
                                 {
                                   "type": "string",
                                   "const": "document_not_found"
+                                },
+                                {
+                                  "type": "string",
+                                  "const": "container_unavailable"
                                 }
                               ]
                             }
@@ -20854,6 +20872,10 @@
                                 {
                                   "type": "string",
                                   "const": "document_not_found"
+                                },
+                                {
+                                  "type": "string",
+                                  "const": "container_unavailable"
                                 }
                               ]
                             }
@@ -22281,6 +22303,10 @@
                                 {
                                   "type": "string",
                                   "const": "document_not_found"
+                                },
+                                {
+                                  "type": "string",
+                                  "const": "container_unavailable"
                                 }
                               ]
                             }
@@ -23714,6 +23740,10 @@
                                 {
                                   "type": "string",
                                   "const": "document_not_found"
+                                },
+                                {
+                                  "type": "string",
+                                  "const": "container_unavailable"
                                 }
                               ]
                             }
@@ -25147,6 +25177,10 @@
                                 {
                                   "type": "string",
                                   "const": "document_not_found"
+                                },
+                                {
+                                  "type": "string",
+                                  "const": "container_unavailable"
                                 }
                               ]
                             }
@@ -26396,6 +26430,10 @@
                                 {
                                   "type": "string",
                                   "const": "document_not_found"
+                                },
+                                {
+                                  "type": "string",
+                                  "const": "container_unavailable"
                                 }
                               ]
                             }
@@ -27812,6 +27850,10 @@
                                 {
                                   "type": "string",
                                   "const": "document_not_found"
+                                },
+                                {
+                                  "type": "string",
+                                  "const": "container_unavailable"
                                 }
                               ]
                             }
@@ -30451,6 +30493,10 @@
                         {
                           "type": "string",
                           "const": "document_not_found"
+                        },
+                        {
+                          "type": "string",
+                          "const": "container_unavailable"
                         }
                       ]
                     },
@@ -30492,6 +30538,10 @@
                         {
                           "type": "string",
                           "const": "document_not_found"
+                        },
+                        {
+                          "type": "string",
+                          "const": "container_unavailable"
                         }
                       ]
                     },
@@ -31452,6 +31502,10 @@
                         {
                           "type": "string",
                           "const": "document_not_found"
+                        },
+                        {
+                          "type": "string",
+                          "const": "container_unavailable"
                         }
                       ]
                     },
@@ -31493,6 +31547,10 @@
                         {
                           "type": "string",
                           "const": "document_not_found"
+                        },
+                        {
+                          "type": "string",
+                          "const": "container_unavailable"
                         }
                       ]
                     },
@@ -32483,6 +32541,10 @@
                         {
                           "type": "string",
                           "const": "document_not_found"
+                        },
+                        {
+                          "type": "string",
+                          "const": "container_unavailable"
                         }
                       ]
                     },
@@ -32524,6 +32586,10 @@
                         {
                           "type": "string",
                           "const": "document_not_found"
+                        },
+                        {
+                          "type": "string",
+                          "const": "container_unavailable"
                         }
                       ]
                     },
@@ -35125,6 +35191,10 @@
                         {
                           "type": "string",
                           "const": "document_not_found"
+                        },
+                        {
+                          "type": "string",
+                          "const": "container_unavailable"
                         }
                       ]
                     },
@@ -35166,6 +35236,10 @@
                         {
                           "type": "string",
                           "const": "document_not_found"
+                        },
+                        {
+                          "type": "string",
+                          "const": "container_unavailable"
                         }
                       ]
                     },
@@ -36856,6 +36930,10 @@
                         {
                           "type": "string",
                           "const": "document_not_found"
+                        },
+                        {
+                          "type": "string",
+                          "const": "container_unavailable"
                         }
                       ]
                     },
@@ -36897,6 +36975,10 @@
                         {
                           "type": "string",
                           "const": "document_not_found"
+                        },
+                        {
+                          "type": "string",
+                          "const": "container_unavailable"
                         }
                       ]
                     },

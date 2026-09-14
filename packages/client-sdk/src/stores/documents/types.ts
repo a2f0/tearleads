@@ -29,7 +29,10 @@ export interface DocumentAttachmentUpload {
   mimeType: string | null;
 }
 
-export type DocumentAttachmentStatus = "syncing";
+// `syncing`: the slot's upload is still queued. `intent-mismatch`: the held
+// bytes are a validly signed served binding whose digest differs from the one
+// the document content records (its content update has not arrived).
+export type DocumentAttachmentStatus = "syncing" | "intent-mismatch";
 
 // Add a row to the document's repeated-row list, returning the new row id.
 export type AddDocumentRow = (

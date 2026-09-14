@@ -67,6 +67,7 @@ const invalidationHints: WsServerMessage[] = [
     type: "container_mutation_created",
     updatedAt: "2026-09-03T00:00:00.000Z",
   },
+  { containerIds: [C1], type: "container_path_changed" },
   { type: "shared_with_you", userId: "user-1" },
   { fingerprint: "fp", type: "user_registered", userId: "user-1" },
 ];
@@ -126,11 +127,19 @@ test("malformed and unknown server frames fail closed", () => {
       }),
     ),
   ).toBeNull();
+  // A path-change hint names at least one held container.
+  expect(
+    parseWsServerMessage(
+      JSON.stringify({ containerIds: [], type: "container_path_changed" }),
+    ),
+  ).toBeNull();
+  // A withheld parent is omitted, never blanked: an empty id fails closed.
   expect(
     parseWsServerMessage(
       JSON.stringify({
         containerId: C1,
         eventType: "container.create",
+        parentId: "",
         type: "container_mutation_created",
         updatedAt: "2026-09-03T00:00:00.000Z",
       }),

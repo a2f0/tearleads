@@ -26,6 +26,7 @@ test("listBlobInfo groups local attachments by blob id and links documents", asy
     await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
       blobId: "blob-shared",
       byteLength: 12,
+      contentSha256: "0".repeat(64),
       detachedAt: null,
       localId: "local-document-1",
       mimeType: "image/png",
@@ -35,6 +36,7 @@ test("listBlobInfo groups local attachments by blob id and links documents", asy
     await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
       blobId: "blob-shared",
       byteLength: 12,
+      contentSha256: "0".repeat(64),
       detachedAt: null,
       localId: "local-document-2",
       mimeType: "image/png",
@@ -102,6 +104,7 @@ test("listBlobInfo keeps every reference when search matches one reference", asy
     await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
       blobId: "blob-shared",
       byteLength: 12,
+      contentSha256: "0".repeat(64),
       detachedAt: null,
       localId: "local-document-1",
       mimeType: "image/png",
@@ -111,6 +114,7 @@ test("listBlobInfo keeps every reference when search matches one reference", asy
     await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
       blobId: "blob-shared",
       byteLength: 12,
+      contentSha256: "0".repeat(64),
       detachedAt: null,
       localId: "local-document-2",
       mimeType: "image/png",
@@ -230,6 +234,7 @@ test("listBlobInfo sorts grouped rows by MIME type", async () => {
     await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
       blobId: "blob-image",
       byteLength: 12,
+      contentSha256: "0".repeat(64),
       detachedAt: null,
       localId: "local-document-1",
       mimeType: "image/png",
@@ -239,6 +244,7 @@ test("listBlobInfo sorts grouped rows by MIME type", async () => {
     await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
       blobId: "blob-text",
       byteLength: 24,
+      contentSha256: "0".repeat(64),
       detachedAt: null,
       localId: "local-document-2",
       mimeType: "text/plain",
@@ -248,6 +254,7 @@ test("listBlobInfo sorts grouped rows by MIME type", async () => {
     await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
       blobId: "blob-unknown",
       byteLength: 36,
+      contentSha256: "0".repeat(64),
       detachedAt: null,
       localId: "local-document-3",
       mimeType: null,
@@ -332,6 +339,7 @@ test("listBlobInfo sorts grouped rows by byte length", async () => {
     await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
       blobId: "blob-small",
       byteLength: 12,
+      contentSha256: "0".repeat(64),
       detachedAt: null,
       localId: "local-document-1",
       mimeType: "image/png",
@@ -341,6 +349,7 @@ test("listBlobInfo sorts grouped rows by byte length", async () => {
     await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
       blobId: "blob-medium",
       byteLength: 240,
+      contentSha256: "0".repeat(64),
       detachedAt: null,
       localId: "local-document-2",
       mimeType: "text/plain",
@@ -350,6 +359,7 @@ test("listBlobInfo sorts grouped rows by byte length", async () => {
     await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
       blobId: "blob-large",
       byteLength: 3600,
+      contentSha256: "0".repeat(64),
       detachedAt: null,
       localId: "local-document-3",
       mimeType: null,
