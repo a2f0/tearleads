@@ -116,6 +116,9 @@ const baseConfig = {
         "src/renderer/databaseWorker.ts",
       ],
       project: ["src/**/*.{ts,tsx}", "scripts/**/*.ts", "*.config.ts"],
+      // scripts/sentryCliUpload.ts resolves the pinned platform binary through
+      // this package by module resolution, never through a script or import.
+      ignoreDependencies: ["@sentry/cli"],
     },
     "packages/bob-and-alice": {
       entry: ["src/**/*.test.ts"],

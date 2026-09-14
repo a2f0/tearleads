@@ -1,9 +1,16 @@
 import { rm } from "node:fs/promises";
-import { relative, resolve } from "node:path";
+import { resolve } from "node:path";
 import {
   electrobunSentryDist,
   electrobunSentryRelease,
 } from "../src/diagnostics/sentryConfig";
+import {
+  hostedSentryEndpoint,
+  resolveSentryCliBinary,
+  runSentryCli,
+  type SentryUploadEndpoint,
+  sentryCliUploadUrl,
+} from "./sentryCliUpload";
 import {
   desktopSentryReleaseEnvironment,
   desktopSentryUpload,
@@ -12,7 +19,6 @@ import {
 import { desktopSentryCommit } from "./sentryReleaseSource";
 import {
   desktopSourceMapUploadArgs,
-  desktopSourceMapUploadEnv,
   uploadDesktopSourceMaps,
 } from "./sentrySourceMaps";
 
@@ -22,79 +28,103 @@ import {
 // selected in one place for `electrobun build`, its main-process bundle, and the
 // packaged renderer rebuild in packageElectrobunAssets.ts: the postBuild hook
 // inherits this environment and stages source maps outside the app. This parent
-// alone holds the upload token and uploads the staged maps after the build.
+// alone holds the upload token and, after the build, uploads the staged maps
+// through the pinned sentry-cli binary in an isolated environment
+// (sentryCliUpload.ts).
 //
 // ELECTROBUN_RELEASE_TIER selects staging or production. Unset is a local build:
 // no secrets are read, no maps are staged or uploaded, and the renderer keeps
 // its local-only System Monitor logging. BUN_PUBLIC_GIT_SHA stays the short
 // display SHA; Sentry needs the full one to match an uploaded release.
-const packageRoot = resolve(import.meta.dirname, "..");
-const repoRoot = resolve(packageRoot, "../..");
-const { ELECTROBUN_RELEASE_TIER: tier } = process.env;
-const command = process.argv.slice(2);
-if (!command.length) throw new Error("withSentryReleaseEnv requires a command");
 
-const secrets = tier
-  ? {
-      ...(await readDesktopSentrySecrets(
-        resolve(repoRoot, ".secrets/root.env"),
-      )),
-      ...(await readDesktopSentrySecrets(
-        resolve(
-          repoRoot,
-          ".secrets",
-          tier === "production" ? "prod.env" : "staging.env",
-        ),
-      )),
-      ...process.env,
-    }
-  : process.env;
-const sourceMapDir = resolve(packageRoot, "build/sentry-sourcemaps");
-const commit = tier ? desktopSentryCommit(repoRoot) : "";
-// Resolved before building, so a release that cannot upload never builds.
-const upload = tier ? desktopSentryUpload(secrets, tier) : undefined;
-if (upload) await rm(sourceMapDir, { recursive: true, force: true });
+type Environment = Readonly<Record<string, string | undefined>>;
 
-const [executable, ...args] = command;
-const build = Bun.spawn([executable ?? "", ...args], {
-  cwd: process.cwd(),
-  env: desktopSentryReleaseEnvironment(
-    secrets,
-    tier,
-    commit,
-    upload ? sourceMapDir : undefined,
-  ),
-  stdout: "inherit",
-  stderr: "inherit",
-});
-const code = await build.exited;
-if (!upload) process.exit(code);
-if (code !== 0) {
-  await rm(sourceMapDir, { recursive: true, force: true });
-  process.exit(code);
+async function releaseInputs(repoRoot: string, env: Environment) {
+  const { ELECTROBUN_RELEASE_TIER: tier } = env;
+  if (!tier) return { tier, secrets: env, commit: "", upload: undefined };
+  const secrets = {
+    ...(await readDesktopSentrySecrets(resolve(repoRoot, ".secrets/root.env"))),
+    ...(await readDesktopSentrySecrets(
+      resolve(
+        repoRoot,
+        ".secrets",
+        tier === "production" ? "prod.env" : "staging.env",
+      ),
+    )),
+    ...env,
+  };
+  const commit = desktopSentryCommit(repoRoot);
+  const upload = desktopSentryUpload(secrets, tier);
+  return { tier, secrets, commit, upload };
 }
-await uploadDesktopSourceMaps(sourceMapDir, () => {
-  if (desktopSentryCommit(repoRoot) !== commit)
-    throw new Error("Source revision changed during the desktop Sentry build");
-  return Bun.spawn(
-    [
-      "bun",
-      "run",
-      "sentry:cli",
-      ...desktopSourceMapUploadArgs({
+
+export async function runDesktopSentryRelease(options: {
+  packageRoot: string;
+  repoRoot: string;
+  command: readonly string[];
+  env: Environment;
+  endpoint: SentryUploadEndpoint;
+}): Promise<number> {
+  const { repoRoot, endpoint } = options;
+  const [executable, ...args] = options.command;
+  if (!executable) throw new Error("withSentryReleaseEnv requires a command");
+  const { tier, secrets, commit, upload } = await releaseInputs(
+    repoRoot,
+    options.env,
+  );
+  const sourceMapDir = resolve(options.packageRoot, "build/sentry-sourcemaps");
+  // Resolved before building, so a release that cannot upload never builds.
+  const binary = upload ? resolveSentryCliBinary() : undefined;
+  if (upload) {
+    sentryCliUploadUrl(upload.token, endpoint);
+    await rm(sourceMapDir, { recursive: true, force: true });
+  }
+  const code = await Bun.spawn([executable, ...args], {
+    cwd: process.cwd(),
+    env: desktopSentryReleaseEnvironment(
+      secrets,
+      tier,
+      commit,
+      upload ? sourceMapDir : undefined,
+    ),
+    stdout: "inherit",
+    stderr: "inherit",
+  }).exited;
+  if (!upload || !binary) return code;
+  if (code !== 0) {
+    await rm(sourceMapDir, { recursive: true, force: true });
+    return code;
+  }
+  await uploadDesktopSourceMaps(sourceMapDir, () => {
+    if (desktopSentryCommit(repoRoot) !== commit)
+      throw new Error(
+        "Source revision changed during the desktop Sentry build",
+      );
+    return runSentryCli({
+      binary,
+      endpoint,
+      token: upload.token,
+      args: desktopSourceMapUploadArgs({
         org: upload.org,
         project: upload.project,
         release: electrobunSentryRelease(commit),
         dist: electrobunSentryDist(upload.environment),
-        directory: relative(packageRoot, sourceMapDir),
+        directory: sourceMapDir,
       }),
-    ],
-    {
-      cwd: packageRoot,
-      env: desktopSourceMapUploadEnv(process.env, upload.token),
-      stdout: "inherit",
-      stderr: "inherit",
-    },
-  ).exited;
-});
-process.exit(0);
+    });
+  });
+  return 0;
+}
+
+if (import.meta.main) {
+  const packageRoot = resolve(import.meta.dirname, "..");
+  process.exit(
+    await runDesktopSentryRelease({
+      packageRoot,
+      repoRoot: resolve(packageRoot, "../.."),
+      command: process.argv.slice(2),
+      env: process.env,
+      endpoint: hostedSentryEndpoint,
+    }),
+  );
+}

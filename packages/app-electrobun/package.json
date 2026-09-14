@@ -12,7 +12,6 @@
     "build:release": "bash scripts/releaseMacos.sh build production",
     "upload:staging": "bash scripts/releaseMacos.sh upload staging",
     "upload:release": "bash scripts/releaseMacos.sh upload production",
-    "sentry:cli": "sentry-cli",
     "test": "bun test scripts src --pass-with-no-tests",
     "test:release-packaging": "bun scripts/testReleasePackaging.ts",
     "test:linux-persistence": "sh scripts/testLinuxPersistence.sh",

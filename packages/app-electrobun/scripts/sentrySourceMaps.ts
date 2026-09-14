@@ -19,7 +19,7 @@ import {
 import { isSentryCommit } from "@tearleads/diagnostics/config";
 import { rendererScriptPattern } from "../src/diagnostics/sentryConfig";
 
-function isInside(root: string, path: string): boolean {
+export function isInside(root: string, path: string): boolean {
   const rel = relative(root, path);
   return (
     rel !== "" &&
@@ -220,22 +220,4 @@ export function desktopSourceMapUploadArgs(options: {
     "60",
     options.directory,
   ];
-}
-
-// sentry-cli honours SENTRY_URL, SENTRY_PROPERTIES, dotenv files, proxy
-// variables and SENTRY_ALLOW_FAILURE (which turns a failed upload into exit 0).
-// The one process holding the token starts from nothing inherited.
-export function desktopSourceMapUploadEnv(
-  env: Readonly<Record<string, string | undefined>>,
-  token: string,
-): Record<string, string> {
-  const { PATH, HOME, TMPDIR } = env;
-  return {
-    ...(PATH ? { PATH } : {}),
-    ...(HOME ? { HOME } : {}),
-    ...(TMPDIR ? { TMPDIR } : {}),
-    SENTRY_AUTH_TOKEN: token,
-    SENTRY_DISABLE_UPDATE_CHECK: "1",
-    SENTRY_LOAD_DOTENV: "0",
-  };
 }

@@ -21,7 +21,6 @@ import {
 import { createRendererBuildConfig } from "../src/rendererEnvironment";
 import {
   desktopSourceMapUploadArgs,
-  desktopSourceMapUploadEnv,
   prepareSourceMapStaging,
   stageMainProcessSourceMap,
   stageRendererSourceMap,
@@ -370,33 +369,6 @@ test("upload runs once over exactly the staged pairs and always removes the stag
       uploadDesktopSourceMaps(stagingDir, unexpected),
     ).rejects.toThrow(/Unexpected/);
     expect(calls).toBe(0);
-  });
-});
-
-test("the upload child env admits no inherited Sentry, proxy, or dotenv override", () => {
-  expect(
-    desktopSourceMapUploadEnv(
-      {
-        PATH: "/usr/bin",
-        HOME: "/home/release",
-        TMPDIR: "/tmp/release",
-        SENTRY_URL: "https://sentry.invalid",
-        SENTRY_ALLOW_FAILURE: "1",
-        SENTRY_PROPERTIES: "/tmp/sentry.properties",
-        SENTRY_DOTENV_PATH: "/tmp/.env",
-        https_proxy: "http://proxy.invalid",
-        HTTP_PROXY: "http://proxy.invalid",
-        SENTRY_AUTH_TOKEN: "ambient",
-      },
-      "upload-token",
-    ),
-  ).toEqual({
-    PATH: "/usr/bin",
-    HOME: "/home/release",
-    TMPDIR: "/tmp/release",
-    SENTRY_AUTH_TOKEN: "upload-token",
-    SENTRY_DISABLE_UPDATE_CHECK: "1",
-    SENTRY_LOAD_DOTENV: "0",
   });
 });
 
