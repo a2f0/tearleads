@@ -258,13 +258,17 @@ URLs provide symbolication without transmitting debug metadata.
 Electrobun events use `tearleads-electrobun@<git-sha>` and `staging-app` /
 `production-app`. `ELECTROBUN_RELEASE_TIER` selects `staging` or `production`;
 unset is an ordinary local build that reads no secrets and reports nothing.
-For macOS distribution, use `scripts/buildMacosRelease.sh <staging|production>`
-or `scripts/uploadMacosRelease.sh <staging|production>` from the repository root.
+For macOS distribution, use `scripts/buildMacosRelease.sh` or
+`scripts/uploadMacosRelease.sh` for production; use
+`scripts/buildMacosStagingRelease.sh` or `scripts/uploadMacosStagingRelease.sh`
+for staging. Run these from the repository root.
 The selected tier also enables signing, notarization, and release icons; these
 wrappers prepare the iconset and signing credentials before invoking the build.
-For Linux x64, use `scripts/buildLinuxRelease.sh <staging|production>` or
-`scripts/uploadLinuxRelease.sh <staging|production>`. Docker receives the source
-commit and public desktop DSNs; upload credentials remain on the host.
+For Linux x64, use `scripts/buildLinuxRelease.sh` or
+`scripts/uploadLinuxRelease.sh` for production; use
+`scripts/buildLinuxStagingRelease.sh` or `scripts/uploadLinuxStagingRelease.sh`
+for staging. Docker receives the source commit and public desktop DSNs; upload
+credentials remain on the host.
 Only a release build inlines the desktop configuration at all: the dev server
 and Electrobun's own config read the ambient process environment directly, so
 the renderer defines drop these names unless the build is a release one.
