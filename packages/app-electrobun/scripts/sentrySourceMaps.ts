@@ -29,6 +29,7 @@ import {
   electrobunSentryTargets,
   hutchBuildTarget,
 } from "../src/diagnostics/sentryTarget";
+import { assertSelfContainedPair } from "./sentrySourceMapContents";
 
 export function isInside(root: string, path: string): boolean {
   const rel = relative(root, path);
@@ -208,8 +209,9 @@ export interface StagedSourceMapIdentity {
 
 // Staging must hold one dist directory for the expected tier and target, with
 // exactly the renderer and main-process pairs, as real, unlinked files in real
-// directories. A Linux release copies staging out of its build container, and a
-// link there would upload a host file instead. Returns the dist.
+// directories, each pair needing no other file (sentrySourceMapContents.ts). A
+// Linux release copies staging out of its build container, and a link or a map
+// reference there would upload a host file instead. Returns the dist.
 export function assertStagedSourceMaps(
   stagingDir: string,
   identity: StagedSourceMapIdentity,
@@ -244,6 +246,8 @@ export function assertStagedSourceMaps(
     throw new Error(
       `Unexpected desktop source-map staging contents: ${entries.join(", ")}; expected ${dists.join(" or ")}`,
     );
+  for (const script of [entries[2], entries[4]])
+    if (script) assertSelfContainedPair(join(stagingDir, script));
   return dist;
 }
 
@@ -286,6 +290,7 @@ export function desktopSourceMapUploadArgs(options: {
     options.dist,
     "--url-prefix",
     "app:///",
+    "--no-rewrite",
     "--validate",
     "--strict",
     "--wait-for",

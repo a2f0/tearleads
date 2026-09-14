@@ -10,6 +10,11 @@ import {
   startAttacker,
   startFakeSentry,
 } from "./sentrySourceMapUpload.testUtils";
+import {
+  bundleFiles,
+  hostileMapVectors,
+  sha256,
+} from "./sentryStagedMaps.testUtils";
 import { runDesktopSentryRelease } from "./withSentryReleaseEnv";
 
 async function withServers(
@@ -82,8 +87,42 @@ test("the release uploads exactly the renderer and main-process URLs, only to th
       const { sourcemap } = headers;
       expect(sourcemap).toBe(`${file.url.split("/").at(-1)}.map`);
     }
+    // Only the staged files' own bytes, never a rewritten map or a host file.
+    const { "manifest.json": manifest, ...uploaded } = bundleFiles(bundlePath);
+    expect(manifest).toBeDefined();
+    expect(
+      Object.fromEntries(
+        Object.entries(uploaded).map(([path, bytes]) => [path, sha256(bytes)]),
+      ),
+    ).toEqual(run.staged ?? {});
+    expect(Buffer.concat(Object.values(uploaded)).includes(run.canary)).toBe(
+      false,
+    );
   });
 }, 60000);
+
+test.each([...hostileMapVectors])(
+  "a staged pair with %s pointing at a host file stops the release before sending anything",
+  async (hostileMap) => {
+    await withServers(false, async ({ intended, attacker }) => {
+      const run = await runHostileRelease({
+        intended: intended.url,
+        attacker: attacker.url,
+        token: orgAuthToken(intended.url),
+        hostileMap,
+      });
+      expect(run.code).not.toBe(0);
+      expect(run.output).toMatch(
+        /Staged (source map|script) chunk-a1b2c3\.js.*release must not be published/,
+      );
+      expect(run.output).not.toContain(run.canary);
+      expect(run.built).toBe(true);
+      expect(intended.requests).toEqual([]);
+      expect(attacker.connections()).toBe(0);
+    });
+  },
+  60000,
+);
 
 test("a failed upload fails the release despite SENTRY_ALLOW_FAILURE in the environment and dotenv files", async () => {
   await withServers(true, async ({ intended, attacker }) => {

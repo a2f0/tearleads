@@ -9,6 +9,13 @@ import {
   plantHostileConfig,
   privateTempBase,
 } from "./sentrySourceMapUpload.testUtils";
+import {
+  applyHostileMap,
+  type HostileMapVector,
+  plantCanary,
+  repositoryRelativeSources,
+  stagedDigests,
+} from "./sentryStagedMaps.testUtils";
 
 export type LinuxUploadCase =
   | "clean"
@@ -67,6 +74,10 @@ async function stage(root: string, commit: string, kind: LinuxUploadCase) {
       sourcemap: "external",
     });
     if (!build.success) throw new AggregateError(build.logs);
+    await repositoryRelativeSources(
+      join(stagingDir, dist, `${naming}.map`),
+      root,
+    );
   }
   if (kind === "linkedMap") {
     await rm(join(stagingDir, dist, "chunk-a1b2c3.js.map"));
@@ -75,14 +86,20 @@ async function stage(root: string, commit: string, kind: LinuxUploadCase) {
       join(stagingDir, dist, "chunk-a1b2c3.js.map"),
     );
   }
-  return stagingDir;
+  return { stagingDir, dist: join(stagingDir, dist) };
 }
 
 // Runs uploadLinuxSourceMaps.ts's flow in a Bun subprocess whose cwd, HOME,
 // environment, PATH and ancestors carry hostile Sentry settings, over a clean
 // checkout of a committed fixture and a staged copy of the container's maps.
+// `hostileMap` points the staged renderer pair at a canary host file outside
+// staging.
 export async function runHostileLinuxUpload(
-  options: HostileUrls & { token: string; kind?: LinuxUploadCase },
+  options: HostileUrls & {
+    token: string;
+    kind?: LinuxUploadCase;
+    hostileMap?: HostileMapVector;
+  },
 ) {
   const kind = options.kind ?? "clean";
   const base = await privateTempBase();
@@ -96,7 +113,16 @@ export async function runHostileLinuxUpload(
       cwd: repoRoot,
       encoding: "utf8",
     }).trim();
-    const stagingDir = await stage(root, head, kind);
+    const { stagingDir, dist } = await stage(root, head, kind);
+    const canary = await plantCanary(join(root, "host"));
+    if (options.hostileMap)
+      await applyHostileMap({
+        script: join(dist, "chunk-a1b2c3.js"),
+        vector: options.hostileMap,
+        canary: canary.path,
+        tmp,
+      });
+    const staged = await stagedDigests(dist);
     if (kind === "dirty") await Bun.write(join(repoRoot, "bunfig.toml"), "");
     if (kind === "otherCommit") {
       await Bun.write(join(repoRoot, "next.ts"), "export {};\n");
@@ -139,7 +165,9 @@ export async function runHostileLinuxUpload(
       code,
       output: stdout + stderr,
       head,
-      staged: existsSync(stagingDir),
+      staged,
+      canary: canary.bytes,
+      removed: !existsSync(stagingDir),
     };
   } finally {
     await rm(root, { recursive: true, force: true });

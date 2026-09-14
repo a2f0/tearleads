@@ -7,17 +7,9 @@ import {
   hutchSourceMapIdentity,
   type StagedSourceMapIdentity,
 } from "./sentrySourceMaps";
+import { stageMinimalPairs } from "./sentryStagedMaps.testUtils";
 
-const pairs = [
-  "bun/index.js",
-  "bun/index.js.map",
-  "chunk-a1.js",
-  "chunk-a1.js.map",
-];
-
-async function stage(directory: string) {
-  for (const path of pairs) await Bun.write(join(directory, path), "content");
-}
+const stage = (directory: string) => stageMinimalPairs(directory);
 
 test("the packaging hook stages under the configured tier and the target Hutch is building", () => {
   const env = {

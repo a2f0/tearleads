@@ -12,6 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { findPackagedMainViewDir } from "./findPackagedMainViewDir";
+import { assertStagedSourceMaps } from "./sentrySourceMaps";
 import { verifyPublishedRelease } from "./verifyPublishedRelease";
 
 if (process.platform !== "darwin" || process.arch !== "arm64")
@@ -102,6 +103,15 @@ async function verifySourceMapStaging(archive: string, unpacked: string) {
     "Main process must inline its target",
   );
   assert.equal(main.includes("TEARLEADS_ELECTROBUN_MAIN_SENTRY"), false);
+  // The real pairs need no other file to upload: embedded, repository-relative
+  // sources and no foreign map reference.
+  assert.equal(
+    assertStagedSourceMaps(stagedMaps, {
+      environment: "staging",
+      target: "macos-arm64",
+    }),
+    dist,
+  );
   await rm(stagedMaps, { recursive: true, force: true });
   console.log("Source maps are staged outside the app and absent from it.");
 }

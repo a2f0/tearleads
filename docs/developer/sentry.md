@@ -269,13 +269,12 @@ The target is Hutch's `ELECTROBUN_OS`/`ELECTROBUN_ARCH` (`macos-arm64`,
 `staging` or `production`; unset is a local build that reads no secrets and
 reports nothing. Release with `scripts/{build,upload}MacosRelease.sh <tier>` or
 `scripts/{build,upload}LinuxRelease.sh <tier>`.
-Only a release build inlines desktop configuration; other builds drop it.
 `scripts/withSentryReleaseEnv.ts` resolves that tier's DSN and full commit into
 the public `BUN_PUBLIC_SENTRY_ELECTROBUN_*` defines for the Electrobun build and
 its inherited `postBuild` packaging hook. It drops every inherited Sentry name
-first, so another target's exported configuration cannot route desktop events
-elsewhere and the upload token never reaches a bundle. A configured tier with a
-missing or malformed DSN stops the build.
+first, so exported configuration cannot reroute events and the token never
+reaches a bundle. A configured tier with a missing or malformed DSN stops the
+build.
 
 Release builds emit external maps for the renderer chunk and the main-process
 bundle. The main process reads its configuration from a build-time define with
@@ -295,12 +294,14 @@ The upload token reaches only the pinned `sentry-cli` binary, resolved via
 `@sentry/cli`, not `PATH`, and run without a Bun or npm shim. It runs in a fresh
 empty directory as cwd and `HOME`, refuses to start below a `.sentryclirc`,
 `.env` or a directory others can write (`TMPDIR` must be private), and receives
-only the token, `SENTRY_DISABLE_UPDATE_CHECK=1` and `SENTRY_LOAD_DOTENV=0`: never
-`SENTRY_URL`, `SENTRY_ALLOW_FAILURE`, `SENTRY_PROPERTIES` or proxy variables.
-`--url` is pinned to the CLI default, `https://sentry.io/`. The CLI prefers an
-org auth token's (`sntrys_`) embedded URL and organization over `--url` and
-`--org`, so the URL must be the root of `sentry.io`, `us.sentry.io` or
-`de.sentry.io` (then pinned) and the organization must be `SENTRY_ORG`.
+only the token, `SENTRY_DISABLE_UPDATE_CHECK=1` and `SENTRY_LOAD_DOTENV=0`.
+`--url` is pinned to `https://sentry.io/`. The CLI prefers an org auth token's
+(`sntrys_`) embedded URL and organization over `--url` and `--org`, so the URL
+must be the root of `sentry.io`, `us.sentry.io` or `de.sentry.io` (then pinned)
+and the organization must be `SENTRY_ORG`. Rewriting inlines files a map names,
+so uploads pass `--no-rewrite`, once each staged map embeds every source at a
+repository-relative path (no `sourceRoot`, sections, URLs or `..`) and each
+script names only its own map.
 
 The Linux container (no `.git` or token) sets
 `TEARLEADS_ELECTROBUN_SOURCEMAP_UPLOAD=deferred`: it stages and sweeps maps

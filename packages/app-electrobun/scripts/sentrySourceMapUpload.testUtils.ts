@@ -5,6 +5,10 @@ import { existsSync, realpathSync, statSync } from "node:fs";
 import { chmod, mkdir, mkdtemp, realpath, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import {
+  type HostileMapVector,
+  plantCanary,
+} from "./sentryStagedMaps.testUtils";
 
 const packageRoot = resolve(import.meta.dirname, "..");
 
@@ -236,10 +240,15 @@ export async function createRepository(repoRoot: string, token: string) {
 }
 
 // The build command: stage the renderer chunk and main-process bundle, with
-// external maps, where the wrapper told the packaging hook to, under the dist
-// of the macOS arm64 build Hutch reports.
-const stageScript = `import { join } from "node:path";
+// external maps and repository-relative sources, where the wrapper told the
+// packaging hook to, under the dist of the macOS arm64 build Hutch reports; it
+// then applies any hostile map and records each staged file's digest.
+const stageScript = (
+  hostileMap: HostileMapVector | undefined,
+  tmp: string,
+) => `import { join } from "node:path";
 import { hutchSourceMapIdentity } from ${JSON.stringify(join(import.meta.dirname, "sentrySourceMaps.ts"))};
+import { applyHostileMap, repositoryRelativeSources, stagedDigests } from ${JSON.stringify(join(import.meta.dirname, "sentryStagedMaps.testUtils.ts"))};
 const directory = process.env.TEARLEADS_ELECTROBUN_SOURCEMAP_DIR;
 if (!directory) throw new Error("No source-map staging directory");
 await Bun.write(
@@ -256,7 +265,12 @@ for (const [entry, naming, target] of [
     outdir: join(directory, dist), naming, target, sourcemap: "external",
   });
   if (!build.success) process.exit(1);
+  await repositoryRelativeSources(join(directory, dist, naming + ".map"), import.meta.dirname);
 }
+const vector = ${JSON.stringify(hostileMap ?? null)};
+if (vector)
+  await applyHostileMap({ script: join(directory, dist, "chunk-a1b2c3.js"), vector, canary: join(import.meta.dirname, "host/canary.env"), tmp: ${JSON.stringify(tmp)} });
+await Bun.write(join(import.meta.dirname, "staged.json"), JSON.stringify(await stagedDigests(join(directory, dist))));
 `;
 
 const harnessScript = (
@@ -281,6 +295,9 @@ export interface ReleaseRun {
   readonly built: boolean;
   readonly buildDsn: string | undefined;
   readonly packageRoot: string;
+  // Digests of the staged files, keyed by path below the dist.
+  readonly staged: Record<string, string> | undefined;
+  readonly canary: string;
 }
 
 // The upload refuses a TMPDIR below a directory another user can write, such as
@@ -300,12 +317,14 @@ export async function privateTempBase(): Promise<string> {
 // HOME, environment, PATH and every ancestor carry hostile Sentry settings,
 // with the loopback intended server as its only allowed endpoint. `tmp` places
 // its TMPDIR in a clean private directory, below a hostile .sentryclirc, or in a
-// world-writable sticky directory with no .sentryclirc above it.
+// world-writable sticky directory with no .sentryclirc above it. `hostileMap`
+// points the staged renderer pair at a canary host file outside staging.
 export async function runHostileRelease(
   options: HostileUrls & {
     token: string;
     tmp?: "clean" | "hostileAncestor" | "shared";
     launchVariable?: "BUN_OPTIONS" | "BUN_INSPECT_PRELOAD";
+    hostileMap?: HostileMapVector;
   },
 ): Promise<ReleaseRun> {
   const base = await privateTempBase();
@@ -323,7 +342,6 @@ export async function runHostileRelease(
       join(root, "sources/main.ts"),
       "export const main = () => process.pid;\nconsole.log(main());\n",
     );
-    await Bun.write(join(root, "stage.ts"), stageScript);
     await Bun.write(
       join(root, "harness.ts"),
       harnessScript(join(import.meta.dirname, "withSentryReleaseEnv.ts")),
@@ -334,6 +352,11 @@ export async function runHostileRelease(
       shared: join(cleanTmp, "shared"),
     }[options.tmp ?? "clean"];
     await Bun.write(join(tmp, ".keep"), "");
+    await Bun.write(
+      join(root, "stage.ts"),
+      stageScript(options.hostileMap, tmp),
+    );
+    const canary = await plantCanary(join(root, "host"));
     if (options.tmp === "shared") await chmod(tmp, 0o1777);
     await Bun.write(join(root, "preload.ts"), "export {};\n");
     const launch = {
@@ -373,6 +396,7 @@ export async function runHostileRelease(
     ]);
     const marker = Bun.file(join(root, "built"));
     const built = await marker.exists();
+    const staged = Bun.file(join(root, "staged.json"));
     expect(existsSync(join(packageDir, "build/sentry-sourcemaps"))).toBe(false);
     return {
       code,
@@ -380,6 +404,8 @@ export async function runHostileRelease(
       built,
       buildDsn: built ? await marker.text() : undefined,
       packageRoot: packageDir,
+      staged: (await staged.exists()) ? await staged.json() : undefined,
+      canary: canary.bytes,
     };
   } finally {
     await rm(root, { recursive: true, force: true });

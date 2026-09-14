@@ -27,6 +27,7 @@ import {
   sweepSourceMaps,
   uploadDesktopSourceMaps,
 } from "./sentrySourceMaps";
+import { stageMinimalPairs } from "./sentryStagedMaps.testUtils";
 
 const commit = "b".repeat(40);
 const dsn = `https://${"a".repeat(32)}@o1.ingest.us.sentry.io/1`;
@@ -331,13 +332,8 @@ test("the sweep deletes every map under the build directory, including hidden di
 const stagedDist = "staging-app-linux-x64";
 
 async function stagePairs(stagingDir: string, extra: string[] = []) {
-  for (const path of [
-    "bun/index.js",
-    "bun/index.js.map",
-    "chunk-a1.js",
-    "chunk-a1.js.map",
-    ...extra,
-  ])
+  await stageMinimalPairs(join(stagingDir, stagedDist));
+  for (const path of extra)
     await Bun.write(join(stagingDir, stagedDist, path), "content");
 }
 
@@ -426,6 +422,7 @@ test("upload arguments carry the runtime release and the build target's own dist
     "staging-app-macos-arm64",
     "--url-prefix",
     "app:///",
+    "--no-rewrite",
     "--validate",
     "--strict",
     "--wait-for",

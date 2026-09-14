@@ -19,12 +19,14 @@ const modulePath = (path: string) => JSON.stringify(join(packageRoot, path));
 // Stands in for Hutch and the packaging hook building one target
 // (<os> <arch> <app directory>): Hutch's own ELECTROBUN_OS and ELECTROBUN_ARCH
 // over the wrapper's environment, the release defines, the real staging dist,
-// external maps, and an app holding only the two scripts. The renderer's
+// external maps with relative sources (from the filesystem root, as the probes
+// bundle this package's modules), and an app holding only the two scripts. The renderer's
 // browser client and script URL are stubbed so the chunk can run in a context.
 const hutchScript = `import { copyFile, mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { createMainProcessSentryDefine, createRendererBuildConfig } from ${modulePath("src/rendererEnvironment.ts")};
 import { hutchSourceMapIdentity } from ${modulePath("scripts/sentrySourceMaps.ts")};
+import { repositoryRelativeSources } from ${modulePath("scripts/sentryStagedMaps.testUtils.ts")};
 const [os, arch, app] = process.argv.slice(2);
 const env = { ...process.env, ELECTROBUN_OS: os, ELECTROBUN_ARCH: arch };
 const staging = join(env.TEARLEADS_ELECTROBUN_SOURCEMAP_DIR, hutchSourceMapIdentity(env).dist);
@@ -39,6 +41,7 @@ for (const [options, naming, packaged] of [
 ]) {
   const build = await Bun.build({ ...options, outdir: staging, naming, sourcemap: "external" });
   if (!build.success) throw new AggregateError(build.logs);
+  await repositoryRelativeSources(join(staging, naming + ".map"), "/");
   await mkdir(dirname(join(app, packaged)), { recursive: true });
   await copyFile(join(staging, naming), join(app, packaged));
 }

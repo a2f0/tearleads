@@ -5,6 +5,7 @@ import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { hostedSentryEndpoint } from "./sentryCliUpload";
+import { minimalSourceMap } from "./sentryStagedMaps.testUtils";
 import { runDesktopSentryRelease } from "./withSentryReleaseEnv";
 
 const { PATH: inheritedPath } = process.env;
@@ -30,7 +31,7 @@ await mkdir(build, { recursive: true });
 await writeFile(join(build, "..", "env.json"), JSON.stringify(process.env));
 for (const file of ${JSON.stringify(staged)}) {
   await mkdir(dirname(join(build, file)), { recursive: true });
-  await writeFile(join(build, file), file);
+  await writeFile(join(build, file), file.endsWith(".map") ? ${JSON.stringify(minimalSourceMap)} : file);
 }
 if (mode === "fail") process.exit(5);
 if (staging) {
