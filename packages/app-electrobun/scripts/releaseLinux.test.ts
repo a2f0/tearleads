@@ -63,6 +63,26 @@ test("build mode leaves AWS untouched", async () => {
   expect(result.calls.some((call) => call.startsWith("upload"))).toBe(false);
 });
 
+for (const field of ["platform", "arch", "channel"]) {
+  test(`Linux rejects an update manifest with the wrong ${field} before publishing`, async () => {
+    const result = await runLinuxRelease(
+      ["upload", "production"],
+      `manifest-${field}`,
+    );
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr).toContain("Update manifest does not match");
+    expect(result.calls.some((call) => call.startsWith("upload"))).toBe(false);
+    expect(result.published[result.discovery]).toBe("previous discovery\n");
+  });
+}
+
+test("container cleanup failure preserves the successful publication result", async () => {
+  const result = await runLinuxRelease(["upload", "production"], "cleanup");
+  expect(result.exitCode, result.stderr).toBe(0);
+  expect(result.stdout).toContain("Download:");
+  expect(result.stderr).toContain("Could not remove release container");
+});
+
 test("build mode excludes tracked files deleted in the working tree", async () => {
   const result = await runLinuxRelease(["build", "production"], "deleted");
   expect(result.exitCode, result.stderr).toBe(0);

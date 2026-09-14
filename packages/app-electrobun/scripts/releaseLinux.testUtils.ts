@@ -80,8 +80,11 @@ export async function runLinuxRelease(args: string[], failure = "") {
         "      channel=canary; app=Tearleads-canary; prefix=canary-linux-x64",
         "    else channel=stable; app=Tearleads; prefix=linux-x64; fi",
         '    echo installer > "$3/$prefix-$app-Setup.tar.gz"',
-        '    printf \'{"channel":"%s","platform":"linux","arch":"x64","artifact":{"file":"%s-linux-x64-%s.tar.zst"}}\' "$channel" "$channel" "$app" > "$3/$channel-linux-x64-update.json"',
+        '    platform=linux; arch=x64; manifest_channel="$channel"',
+        '    case "$RELEASE_TEST_FAILURE" in manifest-platform) platform=macos ;; manifest-arch) arch=arm64 ;; manifest-channel) manifest_channel=dev ;; esac',
+        '    printf \'{"channel":"%s","platform":"%s","arch":"%s","artifact":{"file":"%s-linux-x64-%s.tar.zst"}}\' "$manifest_channel" "$platform" "$arch" "$channel" "$app" > "$3/$channel-linux-x64-update.json"',
         '    [ "$RELEASE_TEST_FAILURE" = missing ] || echo archive > "$3/$channel-linux-x64-$app.tar.zst" ;;',
+        '  rm) [ "$RELEASE_TEST_FAILURE" != cleanup ] || exit 7 ;;',
         "esac",
       ].join("\n"),
     );

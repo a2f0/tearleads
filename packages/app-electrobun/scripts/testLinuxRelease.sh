@@ -30,8 +30,15 @@ for ((attempt = 0; attempt < 100; attempt++)); do
     # The installer launches the app. Stop that process before the isolated probe
     # starts its own instance on the desktop renderer's fixed local port.
     pkill -f "$TEARLEADS_LINUX_RELEASE_DIR/" || true
-    sleep 2
-    pkill -KILL -f "$TEARLEADS_LINUX_RELEASE_DIR/" || true
+    for ((stop = 0; stop < 150; stop++)); do
+      if ! pgrep -f "$TEARLEADS_LINUX_RELEASE_DIR/" >/dev/null; then break; fi
+      if ((stop == 50)); then pkill -KILL -f "$TEARLEADS_LINUX_RELEASE_DIR/" || true; fi
+      sleep 0.2
+    done
+    if pgrep -f "$TEARLEADS_LINUX_RELEASE_DIR/" >/dev/null; then
+      echo "Timed out stopping the app launched by the installer." >&2
+      exit 1
+    fi
     dbus-run-session -- sh "$PACKAGE_DIR/scripts/testLinuxPersistence.sh"
     exit 0
   fi

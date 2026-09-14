@@ -53,6 +53,19 @@ test("build mode verifies artifacts without AWS credentials or publication", asy
   expect(result.calls.some((call) => call.startsWith("upload "))).toBe(false);
 });
 
+for (const field of ["platform", "arch", "channel"]) {
+  test(`macOS rejects an update manifest with the wrong ${field} before publishing`, async () => {
+    const result = await runMacosRelease(
+      ["upload", "production"],
+      `manifest-${field}`,
+    );
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr).toContain("Update manifest does not match");
+    expect(result.calls.some((call) => call.startsWith("upload"))).toBe(false);
+    expect(result.published).toEqual(result.previous);
+  });
+}
+
 for (const failure of ["signing", "build", "missing", "notarization"]) {
   test(`${failure} failure prevents publishing any artifacts`, async () => {
     const result = await runMacosRelease(["upload", "production"], failure);

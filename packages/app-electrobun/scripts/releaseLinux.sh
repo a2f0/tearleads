@@ -34,7 +34,9 @@ docker info >/dev/null
 TEMP_DIR="$(mktemp -d)"
 CONTAINER=""
 cleanup() {
-  if [[ -n "$CONTAINER" ]]; then docker rm "$CONTAINER" >/dev/null; fi
+  if [[ -n "$CONTAINER" ]]; then
+    docker rm "$CONTAINER" >/dev/null || echo "Could not remove release container: $CONTAINER" >&2
+  fi
   rm -rf "$TEMP_DIR"
 }
 trap cleanup EXIT

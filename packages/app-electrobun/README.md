@@ -202,7 +202,9 @@ isolated home directory, exercises the database worker's real OPFS
 sync-access-handle backend, and confirms the populated identity database reopens
 after relaunch.
 
-Both smoke tests use CEF's development DevTools endpoint. Electrobun 2.0.1
+The dev smoke tests use CEF's development DevTools endpoint. The Linux release
+probe enables it only for the launched test process through
+`ELECTROBUN_CEF_REMOTE_DEBUGGING_PORT`. Electrobun 2.0.1
 [disables remote debugging by default for canary and stable builds](https://github.com/blackboardsh/electrobun/blob/v2.0.1/package/src/native/shared/chromium_flags.test.cpp#L23).
 
 See [dependency upgrade notes](../../docs/dependency-upgrades.md) and the
