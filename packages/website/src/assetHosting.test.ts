@@ -31,7 +31,7 @@ for (const tier of ["staging", "prod"]) {
       ["index.html", "<html>website fixture</html>"],
       ["features/index.html", "<html>feature fixture</html>"],
       ["screenshot-gallery/manifest.json", '{"entries":[]}'],
-      ["screenshot-gallery/img/ipad/light/example.png", "image fixture"],
+      ["screenshot-gallery/img/tablet/light/example.png", "image fixture"],
       ["_astro/app.abc123.js", "console.log('fixture')"],
       ["favicon.svg", "<svg />"],
     ]) {
@@ -92,7 +92,7 @@ for (const tier of ["staging", "prod"]) {
           "public, no-cache, must-revalidate",
         ],
         [
-          "/screenshot-gallery/img/ipad/light/example.png?v=abc123",
+          "/screenshot-gallery/img/tablet/light/example.png?v=abc123",
           200,
           "public, max-age=31536000, immutable",
         ],
