@@ -46,6 +46,6 @@ test("approved documents are visible in production", () => {
 });
 
 test("the human-readable legal date is derived from the ISO date in UTC", () => {
-  expect(legalDetails.updatedAt).toBe("2026-09-13");
-  expect(legalDetails.updatedLabel).toBe("September 13, 2026");
+  expect(legalDetails.updatedAt).toBe("2026-09-14");
+  expect(legalDetails.updatedLabel).toBe("September 14, 2026");
 });

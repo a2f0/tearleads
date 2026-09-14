@@ -1,5 +1,5 @@
 /** Update both documents together after the publication review in LEGAL_REVIEW.md. */
-const updatedAt = "2026-09-13";
+const updatedAt = "2026-09-14";
 
 export const legalDetails = {
   operator: "Tearleads, LLC",
@@ -12,7 +12,7 @@ export const legalDetails = {
     year: "numeric",
     timeZone: "UTC",
   }).format(new Date(`${updatedAt}T00:00:00Z`)),
-  isDraft: true,
+  isDraft: false,
 } as const;
 
 export function shouldShowLegalDocument(input: {
