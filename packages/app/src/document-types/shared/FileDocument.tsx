@@ -3,6 +3,7 @@ import type {
   DocumentAttachment,
   DocumentAttachmentStatus,
 } from "@tearleads/client-sdk";
+import { isDatabaseUnavailableError } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import {
   MiniAppInput,
@@ -410,8 +411,11 @@ function useFileDocument(params: {
       })
       .catch((error: unknown) => {
         // A blob-store read can fail (corrupt/unreadable local bytes); surface
-        // it instead of leaving an unhandled rejection.
-        util.logError("Failed to download attachment", error);
+        // it instead of leaving an unhandled rejection. A database released
+        // mid-read by an identity switch is teardown, not a failed download.
+        if (!isDatabaseUnavailableError(error)) {
+          util.logError("Failed to download attachment", error);
+        }
         setDownloadError("Couldn't download this file.");
       });
   }, [downloadable, fileName, fileSaver, infra.blobStore, title, util]);
