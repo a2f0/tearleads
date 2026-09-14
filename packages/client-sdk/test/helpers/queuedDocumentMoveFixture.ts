@@ -7,7 +7,10 @@ import {
   createTestExecSql,
 } from "@tearleads/test-utils";
 import type { DocumentLinkSetMutationRequest } from "@tearleads/validators/request";
-import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
+import type {
+  ContainerWriterProjectionResponse,
+  DocumentWriterProjectionResponse,
+} from "@tearleads/validators/response";
 import { defaultDocumentProjectorRegistry } from "../../src/data/documents/documentKinds";
 import { createDomainScope } from "../../src/data/domainScope";
 import { sqlDocumentMoveIntentPersistence } from "../../src/data/persistence/container-contents/documentMoveIntentPersistence";
@@ -16,13 +19,14 @@ import { createTestContainerState } from "../../src/workflows/container-contents
 import { syncPendingDocumentMoveIntents } from "../../src/workflows/container-contents/documentMoveIntentSync";
 import type { DocumentStructuralMutationRelinkInput } from "../../src/workflows/container-contents/documentStructure";
 import type { ContainerContentsWorkflowRuntime } from "../../src/workflows/container-contents/runtime";
-import { defaultDocumentsPersistence } from "../../src/workflows/documents";
-import { buildMaterializedDocumentCreatePlan } from "../../src/workflows/documents/create";
 import {
-  createAuthor,
-  createLinkSetResponseFromRequest,
-  createResponse,
-} from "./documentFixtures";
+  defaultDocumentsPersistence,
+  relinkRemoteDocument,
+} from "../../src/workflows/documents";
+import { buildMaterializedDocumentCreatePlan } from "../../src/workflows/documents/create";
+import { createRuntimePrincipalPolicyWarmer } from "../../src/workflows/principals/runtimePolicyWarmer";
+import { createAuthor, createResponse } from "./documentFixtures";
+import { createQueuedDocumentMoveRemote } from "./queuedDocumentMoveRemote";
 import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
 
 export interface QueuedDocumentMoveFailure {
@@ -57,6 +61,12 @@ export async function runQueuedDocumentMoveFixture(input: {
   linkFailureTimes?: number | undefined;
   /** Structural passes to run against the same queue (default 1). */
   passes?: number | undefined;
+  /**
+   * Link the document remotely into a third container ("extra") that the
+   * LOCAL link projection does not know about: the verified manifest lists
+   * it, local state does not.
+   */
+  remoteOnlySourceContainer?: boolean | undefined;
   replaceLinkedContainers?: boolean | undefined;
   sourceContainerId?: string | null | undefined;
   testDbName: string;
@@ -70,27 +80,42 @@ export async function runQueuedDocumentMoveFixture(input: {
   try {
     const { author, signingPublicKey } = await createAuthor();
     const keyPair = generateKemSeedAndKeyPair();
-    const rootProjection = await createContainerWriterProjectionFixture({
-      containerId: "queued-move-root-container",
-      encapsulationPublicKey: keyPair.publicKey,
-      organizationId: author.organizationId,
-      signerKeyFingerprint: author.signerKeyFingerprint,
-      signerPrivateKey: author.signerPrivateKey,
-      userId: author.signerUserId,
-    });
-    const trashProjection = await createContainerWriterProjectionFixture({
-      containerId: "queued-move-trash-container",
-      encapsulationPublicKey: keyPair.publicKey,
-      organizationId: author.organizationId,
-      parentProjection: rootProjection,
-      signerKeyFingerprint: author.signerKeyFingerprint,
-      signerPrivateKey: author.signerPrivateKey,
-      userId: author.signerUserId,
-    });
+    const containerFixture = (
+      containerId: string,
+      parentProjection?: ContainerWriterProjectionResponse,
+    ) =>
+      createContainerWriterProjectionFixture({
+        containerId,
+        encapsulationPublicKey: keyPair.publicKey,
+        organizationId: author.organizationId,
+        ...(parentProjection ? { parentProjection } : {}),
+        signerKeyFingerprint: author.signerKeyFingerprint,
+        signerPrivateKey: author.signerPrivateKey,
+        userId: author.signerUserId,
+      });
+    const rootProjection = await containerFixture("queued-move-root-container");
+    const trashProjection = await containerFixture(
+      "queued-move-trash-container",
+      rootProjection,
+    );
+    const extraProjection = input.remoteOnlySourceContainer
+      ? await containerFixture("queued-move-extra-container", rootProjection)
+      : null;
+    const containerProjections = [
+      rootProjection,
+      trashProjection,
+      ...(extraProjection ? [extraProjection] : []),
+    ];
+    const findProjection = (containerId: string) =>
+      containerProjections.find(
+        (projection) => projection.containerId === containerId,
+      ) ?? null;
     const sourceContainerId =
       input.sourceContainerId === undefined
         ? rootProjection.containerId
         : input.sourceContainerId;
+    const localLinkedContainerIds =
+      sourceContainerId === null ? [] : [rootProjection.containerId];
     const resolveProjectionUserKey = async (userId: string) =>
       userId === author.signerUserId
         ? createTestTrustedUserIdentity({
@@ -113,7 +138,7 @@ export async function runQueuedDocumentMoveFixture(input: {
     rotationDocument.getText("text").update("queued move state");
     rotationDocument.commit();
     const rotationSnapshot = exportFullHistorySnapshot(rotationDocument);
-    let writerProjection: DocumentWriterProjectionResponse = {
+    const initialWriterProjection: DocumentWriterProjectionResponse = {
       authorizingContainerPaths: [rootProjection],
       contentKeyBundle: createdResponse.contentKeyBundle,
       documentContainerManifestHistory: [
@@ -128,6 +153,7 @@ export async function runQueuedDocumentMoveFixture(input: {
       documentManifestContainerPaths: [[...rootProjection.path]],
       documentManifestHistory: [],
     };
+    const documentId = initialWriterProjection.documentId;
 
     await defaultDocumentsPersistence.ensureSchema(execSql);
     await defaultDocumentsPersistence.saveDocument(execSql, {
@@ -138,7 +164,7 @@ export async function runQueuedDocumentMoveFixture(input: {
           ? trashProjection.containerId
           : rootProjection.containerId,
       contentKeyBundle: null,
-      documentId: writerProjection.documentId,
+      documentId,
       documentKekTargets: null,
       documentKind: "note",
       documentManifestBundle: null,
@@ -150,11 +176,11 @@ export async function runQueuedDocumentMoveFixture(input: {
     });
     await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
       execSql,
-      writerProjection.documentId,
-      sourceContainerId === null ? [] : [rootProjection.containerId],
+      documentId,
+      localLinkedContainerIds,
     );
     await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
-      documentId: writerProjection.documentId,
+      documentId,
       localId: "queued-move-local",
       replaceLinkedContainers: input.replaceLinkedContainers ?? true,
       sourceContainerId,
@@ -175,76 +201,13 @@ export async function runQueuedDocumentMoveFixture(input: {
       input.containerProjectionFailureFor === "root"
         ? rootProjection.containerId
         : trashProjection.containerId;
-    // The accepted unlink: shared by the plain mock and by the failing
-    // `unlinkDocumentResult` override once its failure budget is spent.
-    const submitUnlink = async (
-      documentId: string,
-      request: DocumentLinkSetMutationRequest,
-    ) => {
-      submittedOperations.push("unlink");
-      remoteRequests.push("unlink");
-      if (!input.unlinkAvailable) {
-        return null;
-      }
-      const response = await createLinkSetResponseFromRequest(
-        documentId,
-        request,
-      );
-      writerProjection = {
-        authorizingContainerPaths: [trashProjection],
-        contentKeyBundle: response.contentKeyBundle,
-        documentContainerManifestHistory: [
-          ...writerProjection.documentContainerManifestHistory,
-        ],
-        documentId: response.id,
-        documentKekTargets: response.documentKekTargets,
-        documentManifest: response.accessManifest,
-        documentManifestContainerPaths: [
-          ...writerProjection.documentManifestContainerPaths,
-        ],
-        documentManifestHistory: [
-          writerProjection.documentManifest,
-          ...writerProjection.documentManifestHistory,
-        ],
-      };
-      return response;
-    };
-    // The accepted link: shared by the plain mock and by the failing
-    // `linkDocumentResult` override once its failure budget is spent.
-    const submitLink = async (
-      documentId: string,
-      request: DocumentLinkSetMutationRequest,
-    ) => {
-      submittedOperations.push("link");
-      remoteRequests.push("link");
-      const response = await createLinkSetResponseFromRequest(
-        documentId,
-        request,
-      );
-      writerProjection = {
-        authorizingContainerPaths: [rootProjection, trashProjection],
-        contentKeyBundle: response.contentKeyBundle,
-        documentContainerManifestHistory: [
-          ...writerProjection.documentContainerManifestHistory,
-          ...trashProjection.path,
-          ...trashProjection.containerKeks.flatMap(
-            (kek) => kek.containerManifestHistory,
-          ),
-        ],
-        documentId: response.id,
-        documentKekTargets: response.documentKekTargets,
-        documentManifest: response.accessManifest,
-        documentManifestContainerPaths: [
-          ...writerProjection.documentManifestContainerPaths,
-          [...trashProjection.path],
-        ],
-        documentManifestHistory: [
-          writerProjection.documentManifest,
-          ...writerProjection.documentManifestHistory,
-        ],
-      };
-      return response;
-    };
+    const remote = createQueuedDocumentMoveRemote({
+      containerProjections,
+      remoteRequests,
+      submittedOperations,
+      unlinkAvailable: input.unlinkAvailable,
+      writerProjection: initialWriterProjection,
+    });
     const runtime: ContainerContentsWorkflowRuntime = {
       apiClient: createMockApiClient({
         listDocumentAttachments: async () => {
@@ -253,26 +216,20 @@ export async function runQueuedDocumentMoveFixture(input: {
         },
         getContainerWriterProjection: async (containerId: string) => {
           remoteRequests.push("container-projection");
-          if (containerId === rootProjection.containerId) {
-            return rootProjection;
-          }
-          if (containerId === trashProjection.containerId) {
-            return trashProjection;
-          }
-          return null;
+          return findProjection(containerId);
         },
-        getDocumentWriterProjection: async (documentId: string) => {
+        getDocumentWriterProjection: async (requestedDocumentId: string) => {
           remoteRequests.push("document-projection");
-          return documentId === writerProjection.documentId
-            ? writerProjection
+          return requestedDocumentId === documentId
+            ? remote.writerProjection
             : null;
         },
         primeDocumentWriterProjection: () => {},
         evictContainerWriterProjection: (containerId: string) => {
           cacheEvictions.push(`container:${containerId}`);
         },
-        evictDocumentWriterProjection: (documentId: string) => {
-          cacheEvictions.push(`document:${documentId}`);
+        evictDocumentWriterProjection: (evictedDocumentId: string) => {
+          cacheEvictions.push(`document:${evictedDocumentId}`);
         },
         ...(input.containerProjectionFailure
           ? {
@@ -280,11 +237,8 @@ export async function runQueuedDocumentMoveFixture(input: {
                 containerId: string,
               ) => {
                 remoteRequests.push("container-projection");
-                if (containerId !== failingProjectionContainerId) {
-                  const data =
-                    containerId === rootProjection.containerId
-                      ? rootProjection
-                      : trashProjection;
+                const data = findProjection(containerId);
+                if (containerId !== failingProjectionContainerId && data) {
                   return { data, ok: true as const };
                 }
                 return {
@@ -304,12 +258,12 @@ export async function runQueuedDocumentMoveFixture(input: {
         ...(input.linkFailure
           ? {
               linkDocumentResult: async (
-                documentId: string,
+                requestedDocumentId: string,
                 request: DocumentLinkSetMutationRequest,
               ) => {
                 if (linkFailuresRemaining <= 0) {
                   return {
-                    data: await submitLink(documentId, request),
+                    data: await remote.submitLink(requestedDocumentId, request),
                     ok: true as const,
                   };
                 }
@@ -318,7 +272,7 @@ export async function runQueuedDocumentMoveFixture(input: {
                 return {
                   kind: "http" as const,
                   method: "POST" as const,
-                  path: `/documents/${writerProjection.documentId}/links`,
+                  path: `/documents/${documentId}/links`,
                   statusText: "Conflict",
                   report: () => {},
                   code: input.linkFailure?.code,
@@ -332,11 +286,14 @@ export async function runQueuedDocumentMoveFixture(input: {
         ...(input.unlinkFailure
           ? {
               unlinkDocumentResult: async (
-                documentId: string,
+                requestedDocumentId: string,
                 request: DocumentLinkSetMutationRequest,
               ) => {
                 if (unlinkFailuresRemaining <= 0) {
-                  const data = await submitUnlink(documentId, request);
+                  const data = await remote.submitUnlink(
+                    requestedDocumentId,
+                    request,
+                  );
                   return data
                     ? { data, ok: true as const }
                     : createMockRequestFailure({
@@ -348,7 +305,7 @@ export async function runQueuedDocumentMoveFixture(input: {
                 return {
                   kind: "http" as const,
                   method: "POST" as const,
-                  path: `/documents/${writerProjection.documentId}/unlink`,
+                  path: `/documents/${documentId}/unlink`,
                   statusText: "Conflict",
                   report: () => {},
                   code: input.unlinkFailure?.code,
@@ -359,8 +316,8 @@ export async function runQueuedDocumentMoveFixture(input: {
               },
             }
           : {}),
-        linkDocument: submitLink,
-        unlinkDocument: submitUnlink,
+        linkDocument: remote.submitLink,
+        unlinkDocument: remote.submitUnlink,
       }) as unknown as ContainerContentsWorkflowRuntime["apiClient"],
       auth: {
         isAuthenticated: true,
@@ -393,6 +350,49 @@ export async function runQueuedDocumentMoveFixture(input: {
         reportSecurityIncident: async () => undefined,
       },
     };
+
+    if (extraProjection) {
+      // Link into "extra" through the real signed link-set path so the
+      // verified manifest lists it, then wind the LOCAL link projection back:
+      // the divergence models a peer's link this device has not hydrated.
+      // Setup traffic must not spend the scenario's failure budgets.
+      const scenarioBudgets = {
+        link: linkFailuresRemaining,
+        unlink: unlinkFailuresRemaining,
+      };
+      linkFailuresRemaining = 0;
+      unlinkFailuresRemaining = 0;
+      const preLinkFailures: string[] = [];
+      const linked = await relinkRemoteDocument({
+        apiClient: runtime.apiClient,
+        author,
+        documentId,
+        execSql,
+        onFailure: (failure) => {
+          preLinkFailures.push(`${failure.message} (${failure.status})`);
+        },
+        operation: "link",
+        resolveProjectionUserKey,
+        targetContainerId: extraProjection.containerId,
+        targetSecretKey: keyPair.secretKey,
+        warmReferencedPrincipalPolicies:
+          createRuntimePrincipalPolicyWarmer(runtime),
+      });
+      if (!linked) {
+        throw new Error(
+          `Fixture pre-link into the remote-only source failed: ${preLinkFailures.join("; ")}`,
+        );
+      }
+      await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
+        execSql,
+        documentId,
+        localLinkedContainerIds,
+      );
+      linkFailuresRemaining = scenarioBudgets.link;
+      unlinkFailuresRemaining = scenarioBudgets.unlink;
+      submittedOperations.length = 0;
+      remoteRequests.length = 0;
+    }
 
     const host: Parameters<typeof syncPendingDocumentMoveIntents>[0]["host"] = {
       documentWorkflowRuntime: (containerId) => `runtime:${containerId}`,
@@ -464,10 +464,11 @@ export async function runQueuedDocumentMoveFixture(input: {
     const linkedContainerIds =
       await sqlDocumentContainerProjectionPersistence.listLinkedContainerIds(
         execSql,
-        writerProjection.documentId,
+        documentId,
       );
     return {
-      documentId: writerProjection.documentId,
+      documentId,
+      extraContainerId: extraProjection?.containerId ?? null,
       intentRows,
       linkedContainerIds,
       passes,

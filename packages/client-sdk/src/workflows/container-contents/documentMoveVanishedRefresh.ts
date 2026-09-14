@@ -1,4 +1,5 @@
 import { isContainerNotFoundFailure } from "../../data/containers/shared/mutationFailures";
+import { readLinkedContainerIdsFromDocumentManifest } from "../../data/documents/shared/projection";
 import type { DocumentMoveIntentRecord } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { DocumentLinkSetFailureHandler } from "../documents";
@@ -15,65 +16,50 @@ export interface VanishedContainerRefreshOutcome<TMoved> {
   readonly moved: TMoved;
   /**
    * Park the intent terminally: the destination itself is gone (coded 404 on
-   * its refreshed projection) or the refreshed retry vanished again.
+   * its refreshed projection) or the refreshed retry produced no move at all
+   * and vanished again on the destination side.
    */
   readonly unavailable: boolean;
 }
 
-export interface VanishedContainerRetryOptions {
-  /** Sources proven deleted by their refreshed probe: their unlink is moot. */
-  readonly excludeUnlinkContainerIds: readonly string[];
-}
-
-type ContainerProjectionProbe = Awaited<
-  ReturnType<
-    ContainerContentsWorkflowRuntime["apiClient"]["getContainerWriterProjectionResult"]
-  >
->;
-
-async function probeRefreshedContainer(input: {
-  apiClient: ContainerContentsWorkflowRuntime["apiClient"];
-  containerId: string;
-  failure: DocumentMoveFailureState;
-}): Promise<ContainerProjectionProbe> {
-  input.apiClient.evictContainerWriterProjection(input.containerId);
-  const probe = await input.apiClient.getContainerWriterProjectionResult(
-    input.containerId,
-    { reportErrors: false },
-  );
-  if (!probe.ok) {
-    probe.report();
-    recordDocumentMoveFailure(input.failure, probe);
-  }
-  return probe;
-}
-
 /**
- * Every container the unlink half of the move can cite: the intent's source,
- * the document's current local placement, and every locally projected link —
- * minus the destination. A superset is harmless (an eviction only forces a
- * refetch), while a miss would leave a stale source path in the retry.
+ * Every container the unlink half of the move can cite. The unlink set is
+ * read off the REMOTE document manifest's link set, so that set — refetched
+ * after eviction so it is current — is the authority; the local link
+ * projection, the intent's source, and the document's local placement are
+ * unioned in so a source known only on one side still gets its cached path
+ * refreshed. A superset is harmless: an eviction only forces a refetch, and
+ * nothing here decides what gets unlinked.
  */
 async function listMoveSourceContainerIds(input: {
+  apiClient: ContainerContentsWorkflowRuntime["apiClient"];
   execSql: ExecSql;
   existingContainerId: string | null | undefined;
   intent: DocumentMoveIntentRecord;
 }): Promise<string[]> {
-  const linkedContainerIds = await listDocumentLinkedContainerIds(
-    input.execSql,
-    input.intent.documentId,
-  );
+  const { documentId, targetContainerId } = input.intent;
+  const [remote, local] = await Promise.all([
+    input.apiClient.getDocumentWriterProjectionResult(documentId, {
+      reportErrors: false,
+    }),
+    listDocumentLinkedContainerIds(input.execSql, documentId),
+  ]);
+  const remoteLinkedContainerIds = remote.ok
+    ? readLinkedContainerIdsFromDocumentManifest(remote.data)
+    : [];
   return Array.from(
     new Set([
-      ...linkedContainerIds,
+      ...remoteLinkedContainerIds,
+      ...local,
       input.intent.sourceContainerId,
       input.existingContainerId,
     ]),
-  ).filter(
-    (containerId): containerId is string =>
-      typeof containerId === "string" &&
-      containerId !== input.intent.targetContainerId,
-  );
+  )
+    .filter(
+      (containerId): containerId is string =>
+        typeof containerId === "string" && containerId !== targetContainerId,
+    )
+    .sort();
 }
 
 /**
@@ -84,20 +70,21 @@ async function listMoveSourceContainerIds(input: {
  * tombstone cascade cannot rescue that intent (it retargets only intents whose
  * source or destination IS the tombstoned container). So refresh before
  * declaring terminal: evict the cached destination, document, and source
- * projections, probe each container, and retry once with the fresh paths.
+ * projections, probe the destination, and retry once with the fresh paths.
  *
- * Only the destination's fate is terminal: a coded 404 on its refreshed probe
- * parks the intent. A source proven gone the same way merely drops out of the
- * retry's unlink set — its link died with the container, so unlinking it is
- * moot. The pass is bounded: the retry's own vanished verdict parks the intent
- * instead of looping, and a transient probe failure leaves it retriable (or
- * denied on 403) for a later pass.
+ * Only the destination's fate is terminal. Sources are evicted, never judged:
+ * the retry's unlink set comes from the verified manifest alone, so a
+ * server-asserted "source gone" can neither skip a revoke nor complete the
+ * move — a retry whose link landed but whose unlink still vanished stays
+ * partial (pending) with a live link the queue keeps trying to revoke. The
+ * pass is bounded: the retry's own vanished verdict on the link side parks the
+ * intent instead of looping, and a transient probe failure leaves it
+ * retriable (or denied on 403) for a later pass.
  */
 export async function moveWithVanishedContainerRefresh<TMoved>(input: {
   apiClient: ContainerContentsWorkflowRuntime["apiClient"];
   attempt: (
     onFailure: DocumentLinkSetFailureHandler,
-    options: VanishedContainerRetryOptions,
   ) => Promise<TMoved | "abandoned">;
   execSql: ExecSql;
   existingContainerId: string | null | undefined;
@@ -106,23 +93,24 @@ export async function moveWithVanishedContainerRefresh<TMoved>(input: {
 }): Promise<VanishedContainerRefreshOutcome<TMoved> | "abandoned"> {
   const { apiClient, intent } = input;
   const firstFailure = createDocumentMoveFailureState();
-  const first = await input.attempt(
-    (failure) => recordDocumentMoveFailure(firstFailure, failure),
-    { excludeUnlinkContainerIds: [] },
+  const first = await input.attempt((failure) =>
+    recordDocumentMoveFailure(firstFailure, failure),
   );
   if (first === "abandoned" || !input.isCurrent()) return "abandoned";
   if (!firstFailure.sawVanishedContainer) {
     return { failure: firstFailure, moved: first, unavailable: false };
   }
 
-  const destination = await probeRefreshedContainer({
-    apiClient,
-    containerId: intent.targetContainerId,
-    failure: firstFailure,
-  });
+  apiClient.evictContainerWriterProjection(intent.targetContainerId);
+  const destination = await apiClient.getContainerWriterProjectionResult(
+    intent.targetContainerId,
+    { reportErrors: false },
+  );
   apiClient.evictDocumentWriterProjection(intent.documentId);
   if (!input.isCurrent()) return "abandoned";
   if (!destination.ok) {
+    destination.report();
+    recordDocumentMoveFailure(firstFailure, destination);
     return {
       failure: firstFailure,
       moved: first,
@@ -130,28 +118,21 @@ export async function moveWithVanishedContainerRefresh<TMoved>(input: {
     };
   }
 
-  const goneSourceIds: string[] = [];
   for (const sourceContainerId of await listMoveSourceContainerIds(input)) {
-    const source = await probeRefreshedContainer({
-      apiClient,
-      containerId: sourceContainerId,
-      failure: firstFailure,
-    });
-    if (!input.isCurrent()) return "abandoned";
-    if (!source.ok && isContainerNotFoundFailure(source)) {
-      goneSourceIds.push(sourceContainerId);
-    }
+    apiClient.evictContainerWriterProjection(sourceContainerId);
   }
+  if (!input.isCurrent()) return "abandoned";
 
   const retryFailure = createDocumentMoveFailureState();
-  const retried = await input.attempt(
-    (failure) => recordDocumentMoveFailure(retryFailure, failure),
-    { excludeUnlinkContainerIds: goneSourceIds },
+  const retried = await input.attempt((failure) =>
+    recordDocumentMoveFailure(retryFailure, failure),
   );
   if (retried === "abandoned" || !input.isCurrent()) return "abandoned";
   return {
     failure: retryFailure,
     moved: retried,
-    unavailable: retryFailure.sawVanishedContainer,
+    // A partial retry (link landed, an unlink vanished) is never terminal:
+    // the destination is fine and the manifest still holds the link.
+    unavailable: retried === null && retryFailure.sawVanishedContainer,
   };
 }

@@ -12,6 +12,7 @@ import {
   resolveDocumentCreateAuthor,
 } from "../documents";
 import { createRuntimePrincipalPolicyWarmer } from "../principals/runtimePolicyWarmer";
+import { resolveContainerDocumentMoveUnlinkIds } from "./documentMoveUnlinkIds";
 import type { ContainerContentsWorkflowRuntime } from "./runtime";
 
 type ContainerDocumentLinkApi = Parameters<
@@ -143,32 +144,6 @@ function containerDocumentAlreadyMovedResult(input: {
     remoteState: null,
     status: input.status,
   };
-}
-
-function resolveContainerDocumentMoveUnlinkIds(input: {
-  currentContainerId: string;
-  /**
-   * Sources the server has proven deleted (coded 404 on their refreshed
-   * projection): their unlink is moot — the link there died with the
-   * container — so the move completes without citing their retained paths.
-   */
-  excludeContainerIds?: readonly string[] | undefined;
-  linkedContainerIds: readonly string[];
-  replaceLinkedContainers?: boolean | undefined;
-  targetContainerId: string;
-}): string[] {
-  const unlinkContainerIds = input.replaceLinkedContainers
-    ? input.linkedContainerIds.filter(
-        (containerId) => containerId !== input.targetContainerId,
-      )
-    : [input.currentContainerId];
-
-  return Array.from(new Set(unlinkContainerIds)).filter(
-    (containerId) =>
-      containerId !== input.targetContainerId &&
-      input.linkedContainerIds.includes(containerId) &&
-      !input.excludeContainerIds?.includes(containerId),
-  );
 }
 
 /**
@@ -318,7 +293,6 @@ export async function unlinkRemoteContainerDocument(input: {
 export async function moveRemoteContainerDocument(input: {
   currentContainerId: string;
   documentId: string;
-  excludeUnlinkContainerIds?: readonly string[] | undefined;
   isCurrent?: (() => boolean) | undefined;
   noteId: string;
   onFailure?: DocumentLinkSetFailureHandler | undefined;
@@ -371,7 +345,6 @@ export async function moveRemoteContainerDocument(input: {
 
   const unlinkContainerIds = resolveContainerDocumentMoveUnlinkIds({
     currentContainerId,
-    excludeContainerIds: input.excludeUnlinkContainerIds,
     linkedContainerIds: latestLinkedContainerIds,
     replaceLinkedContainers,
     targetContainerId,

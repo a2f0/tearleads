@@ -181,11 +181,13 @@ test("a stale source ancestor path refreshes the sources and completes the move"
   expect(fixture.passes[1]?.remoteRequests).toEqual([]);
 });
 
-// A source proven gone by its refreshed probe (coded 404) is not terminal for
-// the move: its link died with the container, so the unlink is moot and drops
-// out of the retry's unlink set. The document lands in the live destination
-// instead of parking behind an unlink that can never apply.
-test("a deleted source drops out of the unlink set and the move completes", async () => {
+// Security (#2278 #4): a source's fate is never taken from the server. Here
+// the server 404s the source's projection while the verified manifest still
+// links it. The unlink must still be attempted — the manifest, not a
+// server-asserted "container gone", governs the unlink set — and the move
+// must not report success while that link remains: it stays partial and
+// pending (the destination is fine, so it does not park as unavailable).
+test("a server-asserted source 404 never skips the unlink or completes the move", async () => {
   const fixture = await runQueuedDocumentMoveFixture({
     containerProjectionFailure: {
       code: CONTAINER_NOT_FOUND_ERROR_CODE,
@@ -193,27 +195,75 @@ test("a deleted source drops out of the unlink set and the move completes", asyn
       status: 404,
     },
     containerProjectionFailureFor: "root",
-    passes: 2,
-    testDbName: "containerContents-document-move-source-deleted",
+    passes: 1,
+    testDbName: "containerContents-document-move-source-404-asserted",
     unlinkAvailable: true,
   });
 
-  expect(fixture.syncedCount).toBe(1);
+  expect(fixture.syncedCount).toBe(0);
+  // The refresh evicted the source but did not judge it: both attempts
+  // tried the unlink (each fetching the source projection and failing).
   expect(fixture.passes[0]?.cacheEvictions).toEqual([
     `container:${fixture.trashContainerId}`,
     `document:${fixture.documentId}`,
     `container:${fixture.rootContainerId}`,
   ]);
-  // The first unlink never reached the server (its source projection 404ed);
-  // the retry skips the dead source entirely.
   expect(fixture.passes[0]?.submittedOperations).toEqual([
     "preflight",
     "link",
     "preflight",
   ]);
-  expect(fixture.relinkInputs.at(-1)).toMatchObject({
-    containerId: fixture.trashContainerId,
+  expect(
+    fixture.passes[0]?.remoteRequests.filter(
+      (request) => request === "container-projection",
+    ).length,
+  ).toBeGreaterThanOrEqual(3);
+  // The link to the "gone" source is still live: not silently dropped.
+  expect(fixture.linkedContainerIds).toContain(fixture.rootContainerId);
+  expect(fixture.intentRows).toEqual([
+    {
+      lastError: "Remote document move partially applied; retry required",
+      syncStatus: "pending",
+    },
+  ]);
+});
+
+// The unlink set is read off the REMOTE manifest, so a source linked by a peer
+// that this device has not hydrated yet is unknown to the local link
+// projection. The refresh must still evict that source's cached path — it is
+// enumerated from the refetched manifest, unioned with the local links — so the
+// retried unlink cites a fresh path and the move completes.
+test("a source linked only remotely is refreshed before the retry", async () => {
+  const fixture = await runQueuedDocumentMoveFixture({
+    linkFailure: {
+      code: CONTAINER_UNAVAILABLE_ERROR_CODE,
+      message: "targetContainerPathRefs[0] container unavailable",
+      status: 409,
+    },
+    linkFailureTimes: 1,
+    passes: 2,
+    remoteOnlySourceContainer: true,
+    testDbName: "containerContents-document-move-remote-only-source",
+    unlinkAvailable: true,
   });
+
+  expect(fixture.extraContainerId).not.toBeNull();
+  expect(fixture.syncedCount).toBe(1);
+  expect(fixture.passes[0]?.cacheEvictions).toEqual([
+    `container:${fixture.trashContainerId}`,
+    `document:${fixture.documentId}`,
+    `container:${fixture.extraContainerId}`,
+    `container:${fixture.rootContainerId}`,
+  ]);
+  // The retry links, then unlinks both the remote-only and the local source.
+  expect(fixture.passes[0]?.submittedOperations).toEqual([
+    "preflight",
+    "preflight",
+    "link",
+    "unlink",
+    "unlink",
+  ]);
+  expect(fixture.linkedContainerIds).toEqual([fixture.trashContainerId]);
   expect(fixture.intentRows).toEqual([]);
   expect(fixture.passes[1]?.remoteRequests).toEqual([]);
 });

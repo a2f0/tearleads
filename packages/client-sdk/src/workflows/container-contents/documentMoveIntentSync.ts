@@ -181,7 +181,6 @@ async function assertMoveIntentRotationPreflight<TRuntime>(input: {
 }
 
 async function movePendingDocumentIntent<TRuntime>(input: {
-  excludeUnlinkContainerIds: readonly string[];
   existingContainerId: string | null | undefined;
   host: DocumentMoveIntentSyncHost<TRuntime>;
   isCurrent: () => boolean;
@@ -197,7 +196,6 @@ async function movePendingDocumentIntent<TRuntime>(input: {
       input.existingContainerId ??
       input.intent.targetContainerId,
     documentId: input.intent.documentId,
-    excludeUnlinkContainerIds: input.excludeUnlinkContainerIds,
     isCurrent: input.isCurrent,
     noteId: input.intent.localId,
     onFailure: input.onFailure,
@@ -375,9 +373,8 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
   try {
     const outcome = await moveWithVanishedContainerRefresh({
       apiClient: state.runtime.apiClient,
-      attempt: (onFailure, retry) =>
+      attempt: (onFailure) =>
         movePendingDocumentIntent({
-          excludeUnlinkContainerIds: retry.excludeUnlinkContainerIds,
           existingContainerId: existingDocument.containerId,
           host,
           isCurrent: input.isCurrent,
