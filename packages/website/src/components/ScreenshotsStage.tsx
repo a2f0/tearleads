@@ -7,7 +7,7 @@ import {
 } from "./screenshotsManifest";
 
 const DEVICE_FRAME_CHROME: Readonly<Record<string, number>> = {
-  mobile: 22,
+  mobile: 14,
   tablet: 18,
 };
 
