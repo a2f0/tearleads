@@ -24,6 +24,7 @@ export async function runMacosRelease(args: string[], failure = "") {
       "releaseMacos.sh",
       "macosSigning.sh",
       "publishMacosRelease.ts",
+      "publishDesktopRelease.ts",
     ]) {
       mkdirSync(join(packageDir, "scripts"), { recursive: true });
       cpSync(

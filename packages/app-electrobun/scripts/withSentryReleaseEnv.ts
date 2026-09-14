@@ -17,7 +17,8 @@ import {
 // one to match an uploaded release.
 const packageRoot = resolve(import.meta.dirname, "..");
 const repoRoot = resolve(packageRoot, "../..");
-const { ELECTROBUN_RELEASE_TIER: tier } = process.env;
+const { ELECTROBUN_RELEASE_TIER: tier, BUILD_GIT_SHA: sourceCommit } =
+  process.env;
 const command = process.argv.slice(2);
 if (!command.length) throw new Error("withSentryReleaseEnv requires a command");
 
@@ -37,10 +38,11 @@ const secrets = tier
     }
   : process.env;
 const commit = tier
-  ? execFileSync("git", ["rev-parse", "HEAD"], {
+  ? (sourceCommit ??
+    execFileSync("git", ["rev-parse", "HEAD"], {
       cwd: repoRoot,
       encoding: "utf8",
-    }).trim()
+    }).trim())
   : "";
 
 const [executable, ...args] = command;

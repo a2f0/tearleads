@@ -100,7 +100,7 @@ Redeploy the website after publishing: its build resolves the environment's
 `<channel>-macos-arm64-download.json` into a matched pair of immutable installer
 and checksum links. An unavailable discovery document falls back to the verified
 first release. Existing legacy filenames are retained and never overwritten by
-this publisher. These local scripts publish macOS ARM64 only. See
+this publisher. The macOS scripts publish macOS ARM64. See
 [Electrobun distribution](https://framework.blackboard.sh/electrobun/guides/bundling-and-distribution/)
 for platform packaging and native runner requirements.
 
@@ -112,6 +112,55 @@ before signing or artifact creation. It also publishes through a fake S3 command
 and uses Electrobun's actual updater to validate the manifest, resolve and read
 the published archive, and check its build hash. This probe uses no signing
 or AWS credentials.
+
+## Linux releases from Docker
+
+Run these commands from a checkout with Docker running:
+
+```sh
+scripts/buildLinuxRelease.sh production
+scripts/uploadLinuxRelease.sh production
+scripts/uploadLinuxRelease.sh staging
+```
+
+The upload commands build before publishing. Equivalent package commands are
+`bun run --cwd packages/app-electrobun build:linux production` and
+`bun run --cwd packages/app-electrobun upload:linux production` (or `staging`).
+They build Linux x64 in an Ubuntu 24.04 container with Bun pinned to the
+repository version and Electrobun pinned by the lockfile. On Apple silicon,
+disable Docker Desktop's **Use Rosetta for x86_64/amd64 emulation** setting to
+use QEMU: the paired Hutch binary fails under Rosetta with `bss_size overflow`.
+Emulated builds take longer than native Linux x64 builds.
+
+Only Git-tracked working files enter the Docker context; stage new source files
+before building. Host `node_modules`, ignored build output, `.git`, and
+`.secrets` are excluded. The host supplies the source commit and public desktop
+Sentry DSNs as build arguments; AWS credentials stay on the host. Local source
+edits are included, so use a clean commit for a reproducible release identity.
+
+Artifacts are copied to `build/linux-x64/<production|staging>/`, separate from
+macOS artifacts. The reusable Docker image is `tearleads-linux-release:<tier>`.
+The installer is a `.tar.gz` containing Electrobun's setup executable; the
+updater uses a separate `.tar.zst`. Both use the same immutable S3 publication
+and matched checksum/discovery scheme as macOS, with the prefix
+`stable-linux-x64` or `canary-linux-x64`.
+
+Redeploy `packages/website` after publishing to refresh its Linux download link.
+The public `/downloads/linux` page explains desktop dependencies and installation.
+
+The build checks the installer contents, the updater's archive hash, and the
+renderer/database assets. To install the archive and reopen the installed CEF
+app twice in an isolated container, run:
+
+```sh
+docker run --rm --platform linux/amd64 --shm-size=1g --user 1000:1000 \
+  tearleads-linux-release:production \
+  bash packages/app-electrobun/scripts/testLinuxRelease.sh production
+```
+
+The test enables CEF's DevTools port only in its child processes and reuses the
+persistence probe to verify that the same encrypted local database survives
+reopening. The published release keeps remote debugging disabled by default.
 
 ## Native persistence checks
 

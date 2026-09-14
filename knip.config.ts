@@ -107,6 +107,8 @@ const baseConfig = {
         "scripts/postBuild.ts",
         // Invoked by the local release wrapper after artifact verification.
         "scripts/publishMacosRelease.ts",
+        "scripts/publishLinuxRelease.ts",
+        "scripts/verifyLinuxArtifacts.ts",
         // Invoked by the native CEF persistence smoke-test harnesses.
         "scripts/probeCefPersistence.ts",
         // Selects diagnostics inherited by the build and its packaging hook.
