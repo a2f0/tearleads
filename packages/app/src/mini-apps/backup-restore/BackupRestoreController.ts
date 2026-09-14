@@ -1,5 +1,6 @@
 import type { FileSaver } from "@tearleads/client-sdk";
 import { type ChangeEvent, useCallback, useRef, useState } from "react";
+import { BackupRestoreConflictError } from "../../providers/db/backupRestoreConflict";
 import { clearRestoredLocalCaches } from "../../providers/db/clearRestoredLocalCaches";
 import {
   type BackupProgress,
@@ -11,6 +12,7 @@ import { useFileSaver } from "../../providers/file-saver/FileSaverProvider";
 import { useLog } from "../../providers/logging/LogProvider";
 import { downloadTextAsFile } from "../../utils/downloadFile";
 import { unknownErrorMessage } from "../../utils/unknownErrorMessage";
+import { restoreFailureMessage } from "./restoreFailureMessage";
 
 type BackupRestoreBusyState = "export" | "restore" | null;
 type ExportLocalBackup = ReturnType<
@@ -113,6 +115,20 @@ function useExportBackupAction({
   ]);
 }
 
+function logRestoreFailure(
+  logError: (message: string | Error, cause?: unknown) => void,
+  operationError: unknown,
+): void {
+  logError("Failed to restore local backup", operationError);
+  if (!(operationError instanceof BackupRestoreConflictError)) return;
+  for (const failure of operationError.ledgerFailures) {
+    logError("Security incident ledger rejected the conflict", failure);
+  }
+  for (const failure of operationError.rollbackFailures) {
+    logError("Restored attachment blob could not be rolled back", failure);
+  }
+}
+
 function useRestoreBackupAction({
   log,
   logError,
@@ -170,8 +186,8 @@ function useRestoreBackupAction({
       setStatus(`Backup restored: ${formatSummary(summary)}.`);
       log("Local backup restored");
     } catch (operationError: unknown) {
-      logError("Failed to restore local backup", operationError);
-      setError(unknownErrorMessage(operationError));
+      logRestoreFailure(logError, operationError);
+      setError(restoreFailureMessage(operationError));
     } finally {
       setBusy(null);
       setProgress(null);

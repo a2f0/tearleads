@@ -2,7 +2,11 @@ import { expect, test } from "bun:test";
 import { serializeKeyingCanonicalJson, toFingerprint } from "@tearleads/crypto";
 import type { BackupSqlRow, BackupTable } from "./localBackupFormat";
 import { readProperty } from "./localBackupPayload";
-import { mergeSecurityIncidentBackupTables } from "./terminalSecurityAnchorBackupMerge";
+import {
+  DocumentPurgeCheckpointConflictError,
+  mergeDocumentPurgeCheckpointBackupTables,
+  mergeSecurityIncidentBackupTables,
+} from "./terminalSecurityAnchorBackupMerge";
 
 async function incident(
   index = 0,
@@ -139,7 +143,80 @@ test("restore rejects duplicate incident identities and invalid column sets", as
   const restored = { ...table([row]), columns: ["id"] };
   await expect(
     mergeSecurityIncidentBackupTables({ current: null, restored }),
+  ).rejects.toThrow("is missing the trust_domain column");
+  const duplicated = {
+    ...table([row]),
+    columns: [...table([row]).columns, "id"],
+  };
+  await expect(
+    mergeSecurityIncidentBackupTables({ current: null, restored: duplicated }),
   ).rejects.toThrow("columns are invalid");
+});
+
+test("incident columns added on one side pass through only when the surviving schema has them", async () => {
+  const row = await incident();
+  const current = table([{ ...row, note: "live" }]);
+  const restored = table([
+    { ...row, occurrence_count: 4 },
+    { ...(await incident(1)), other: "backup-only" },
+  ]);
+  const merged = await mergeSecurityIncidentBackupTables({ current, restored });
+  expect(merged?.columns).toEqual(current.columns);
+  expect(merged?.rows).toEqual([
+    { ...row, note: "live", occurrence_count: 4 },
+    await incident(1),
+  ]);
+});
+
+function purgeCheckpoint(overrides: Partial<BackupSqlRow> = {}): BackupSqlRow {
+  return {
+    document_id: "document-1",
+    organization_id: "organization-1",
+    document_manifest_hash: "a".repeat(64),
+    purge_event_hash: "b".repeat(64),
+    updated_at: "2026-09-12T12:00:00.000Z",
+    ...overrides,
+  };
+}
+
+test("a differing purge pin for a pinned document is a typed object mismatch", () => {
+  const current = purgeCheckpoint();
+  const restored = purgeCheckpoint({ purge_event_hash: "c".repeat(64) });
+  const purgeTable = (rows: BackupSqlRow[]): BackupTable => ({
+    name: "document_purge_checkpoints",
+    sql: "unused in pure merge",
+    columns: Object.keys(rows[0] ?? {}),
+    rows,
+  });
+  let thrown: unknown;
+  try {
+    mergeDocumentPurgeCheckpointBackupTables({
+      current: purgeTable([current]),
+      restored: purgeTable([restored]),
+    });
+  } catch (error) {
+    thrown = error;
+  }
+  if (!(thrown instanceof DocumentPurgeCheckpointConflictError)) {
+    throw new Error("Expected a typed purge checkpoint conflict");
+  }
+  expect(thrown.code).toBe("object_mismatch");
+  expect(thrown.message).toBe(
+    "Backup disagrees with the local document purge checkpoint",
+  );
+  expect(thrown.documentId).toBe("document-1");
+  expect(thrown.incident).toEqual({
+    evidenceHashes: {
+      current_document_manifest_hash: "a".repeat(64),
+      current_purge_event_hash: "b".repeat(64),
+      restored_document_manifest_hash: "a".repeat(64),
+      restored_purge_event_hash: "c".repeat(64),
+    },
+    objectId: "document-1",
+    objectKind: "document",
+    operation: "backup.restore",
+    organizationId: "organization-1",
+  });
 });
 
 test("either side alone retains validated incident evidence", async () => {

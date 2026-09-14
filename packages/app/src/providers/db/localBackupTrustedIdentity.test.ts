@@ -6,6 +6,7 @@ import type {
 } from "@tearleads/client-sdk";
 import type { ExecSql } from "@tearleads/client-sdk/sqlite";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { unexpectedSecurityIncidents } from "../../../test/helpers/unexpectedSecurityIncidents";
 import { createBackupPayload, restoreBackupPayload } from "./localBackupData";
 
 const TRUST_DOMAIN = "https://api.example.test/v1";
@@ -144,6 +145,7 @@ test("real backup restore preserves current first-seen time and imports backup-o
     await restoreBackupPayload({
       blobStore: new EmptyBlobStore(),
       execSql: target.execSql,
+      securityIncidents: unexpectedSecurityIncidents,
       payload,
     });
 
@@ -195,6 +197,7 @@ test("conflicting backup pin rolls back before replacing target tables", async (
       restoreBackupPayload({
         blobStore: new EmptyBlobStore(),
         execSql: target.execSql,
+        securityIncidents: unexpectedSecurityIncidents,
         payload,
       }),
     ).rejects.toThrow("Backup conflicts with a trusted identity pin");

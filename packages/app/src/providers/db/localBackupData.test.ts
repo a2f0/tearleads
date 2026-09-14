@@ -13,6 +13,7 @@ import {
   type SqlTableSchema,
 } from "@tearleads/client-sdk/sqlite";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { unexpectedSecurityIncidents } from "../../../test/helpers/unexpectedSecurityIncidents";
 import { createBackupPayload, restoreBackupPayload } from "./localBackupData";
 import { restoreBackupDatabase } from "./localBackupDatabase";
 import {
@@ -184,6 +185,7 @@ test.each(["test-password", undefined])(
       await restoreBackupPayload({
         blobStore: targetBlobStore,
         execSql: target.execSql as ExecSql,
+        securityIncidents: unexpectedSecurityIncidents,
         payload: decoded,
       });
 

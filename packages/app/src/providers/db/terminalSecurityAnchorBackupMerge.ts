@@ -1,5 +1,8 @@
+import type { SecurityIncidents } from "@tearleads/client-sdk";
+import { KeyingVerificationError } from "@tearleads/crypto";
 import {
   mapBackupRowsByScope,
+  projectBackupRow,
   requireBackupHash,
   requireBackupPositiveInteger,
   requireBackupString,
@@ -19,6 +22,71 @@ import {
 export const DOCUMENT_PURGE_CHECKPOINT_TABLE_NAME =
   "document_purge_checkpoints";
 export const SECURITY_INCIDENT_TABLE_NAME = "security_incidents";
+export const DOCUMENT_PURGE_CHECKPOINT_COLUMNS: ReadonlyArray<string> = [
+  "document_id",
+  "organization_id",
+  "document_manifest_hash",
+  "purge_event_hash",
+  "updated_at",
+];
+export const SECURITY_INCIDENT_COLUMNS: ReadonlyArray<string> = [
+  "id",
+  ...incidentIdentityColumns,
+  "detected_at",
+  "last_detected_at",
+  "occurrence_count",
+];
+
+const PURGE_CONFLICT_LABEL = "Document purge checkpoint";
+
+type SecurityIncidentContext = Parameters<SecurityIncidents["record"]>[1];
+
+/**
+ * An honest API issues one signed purge proof per document, so a backup whose
+ * pin for a document differs from the one this device verified is worth a
+ * hard stop and an incident. The backup rows are only shape-checked, though,
+ * so an edited backup file could manufacture the disagreement; it is recorded
+ * as an object mismatch between the two records, not as server equivocation.
+ * The caller records `incident` in the live ledger before surfacing this.
+ */
+export class DocumentPurgeCheckpointConflictError extends KeyingVerificationError {
+  readonly documentId: string;
+  readonly incident: SecurityIncidentContext;
+
+  constructor(current: BackupSqlRow, restored: BackupSqlRow) {
+    super(
+      "object_mismatch",
+      "Backup disagrees with the local document purge checkpoint",
+    );
+    this.name = "DocumentPurgeCheckpointConflictError";
+    const hash = (row: BackupSqlRow, column: string) =>
+      requireBackupHash(row, column, PURGE_CONFLICT_LABEL);
+    this.documentId = requireBackupString(
+      current,
+      "document_id",
+      PURGE_CONFLICT_LABEL,
+    );
+    this.incident = {
+      evidenceHashes: {
+        current_document_manifest_hash: hash(current, "document_manifest_hash"),
+        current_purge_event_hash: hash(current, "purge_event_hash"),
+        restored_document_manifest_hash: hash(
+          restored,
+          "document_manifest_hash",
+        ),
+        restored_purge_event_hash: hash(restored, "purge_event_hash"),
+      },
+      objectId: this.documentId,
+      objectKind: "document",
+      operation: "backup.restore",
+      organizationId: requireBackupString(
+        current,
+        "organization_id",
+        PURGE_CONFLICT_LABEL,
+      ),
+    };
+  }
+}
 
 type Tables = {
   readonly current: BackupTable | null;
@@ -34,6 +102,7 @@ function mergeEvidenceTables(
     readonly columns: readonly string[];
     readonly immutableColumns: readonly string[];
     readonly validateRow: (row: BackupSqlRow) => void;
+    readonly conflict: (current: BackupSqlRow, restored: BackupSqlRow) => Error;
     readonly mergeRow?: (
       current: BackupSqlRow,
       restored: BackupSqlRow,
@@ -57,11 +126,13 @@ function mergeEvidenceTables(
       validateRow: definition.validateRow,
     });
   };
+  const project = (row: BackupSqlRow, fallback?: BackupSqlRow) =>
+    projectBackupRow({ columns: template.columns, fallback, row });
   const rows = rowsByScope(input.current);
   for (const [key, restored] of rowsByScope(input.restored)) {
     const current = rows.get(key);
     if (!current) {
-      rows.set(key, restored);
+      rows.set(key, project(restored));
       continue;
     }
     if (
@@ -69,11 +140,10 @@ function mergeEvidenceTables(
         (column) => current[column] !== restored[column],
       )
     ) {
-      throw new Error(
-        `Backup conflicts with ${definition.label.toLowerCase()}`,
-      );
+      throw definition.conflict(current, restored);
     }
-    rows.set(key, definition.mergeRow?.(current, restored) ?? current);
+    const merged = definition.mergeRow?.(current, restored);
+    rows.set(key, merged ? project(merged, restored) : current);
   }
   return { ...template, rows: [...rows.values()] };
 }
@@ -81,23 +151,19 @@ function mergeEvidenceTables(
 export function mergeDocumentPurgeCheckpointBackupTables(
   input: Tables,
 ): BackupTable | null {
-  const label = "Document purge checkpoint";
+  const label = PURGE_CONFLICT_LABEL;
   return mergeEvidenceTables(input, {
     tableName: DOCUMENT_PURGE_CHECKPOINT_TABLE_NAME,
     label,
     keyColumn: "document_id",
-    columns: [
-      "document_id",
-      "organization_id",
-      "document_manifest_hash",
-      "purge_event_hash",
-      "updated_at",
-    ],
+    columns: DOCUMENT_PURGE_CHECKPOINT_COLUMNS,
     immutableColumns: [
       "organization_id",
       "document_manifest_hash",
       "purge_event_hash",
     ],
+    conflict: (current, restored) =>
+      new DocumentPurgeCheckpointConflictError(current, restored),
     validateRow: (row) => {
       requireBackupString(row, "document_id", label);
       requireBackupString(row, "organization_id", label);
@@ -117,14 +183,11 @@ export async function mergeSecurityIncidentBackupTables(
     tableName: SECURITY_INCIDENT_TABLE_NAME,
     label,
     keyColumn: "id",
-    columns: [
-      "id",
-      ...incidentIdentityColumns,
-      "detected_at",
-      "last_detected_at",
-      "occurrence_count",
-    ],
+    columns: SECURITY_INCIDENT_COLUMNS,
     immutableColumns: incidentIdentityColumns,
+    // A colliding incident id with different evidence is a forged backup, not
+    // server equivocation, so it stays a plain refusal.
+    conflict: () => new Error("Backup conflicts with security incident"),
     validateRow: (row) => {
       for (const column of ["id", "code", "object_kind", "evidence_hashes"]) {
         requireBackupString(row, column, label);

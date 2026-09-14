@@ -17,6 +17,7 @@ import {
   deriveUserSystemContainers,
   findUserSystemContainer,
 } from "../../src/stores/systemContainers";
+import { unexpectedSecurityIncidents } from "../helpers/unexpectedSecurityIncidents";
 import { buildSeedArtifact } from "./buildSeedArtifact";
 import type { SeedSpec } from "./seedTypes";
 
@@ -127,6 +128,7 @@ test("buildSeedArtifact produces a restorable backup with contacts, notes, and a
       blobStore: targetBlobStore,
       execSql: targetExecSql,
       payload: decoded,
+      securityIncidents: unexpectedSecurityIncidents,
     });
 
     // The restored DB is what a fresh Playwright context would read.

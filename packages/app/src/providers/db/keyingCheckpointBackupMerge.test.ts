@@ -179,7 +179,9 @@ test("checkpoint merge rejects malformed and duplicate restored rows", () => {
         columns: accessColumns.filter((column) => column !== "manifest_hash"),
       },
     }),
-  ).toThrow("Access manifest checkpoint backup columns are invalid");
+  ).toThrow(
+    "Access manifest checkpoint backup is missing the manifest_hash column",
+  );
   expect(() =>
     mergePrincipalPolicyCheckpointBackupTables({
       current: null,

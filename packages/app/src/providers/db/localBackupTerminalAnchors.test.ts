@@ -173,7 +173,9 @@ for (const column of [
           tables: conflicting,
           execSql: target.execSql,
         }),
-      ).rejects.toThrow("Backup conflicts with document purge checkpoint");
+      ).rejects.toThrow(
+        "Backup disagrees with the local document purge checkpoint",
+      );
       expect(
         (await readBackupDatabase({ execSql: target.execSql })).tables,
       ).toEqual(backup.tables);
@@ -245,7 +247,9 @@ test("restore rechecks a terminal decision learned after preflight", async () =>
     );
     await expect(
       restoreBackupDatabase({ ...backup, execSql: target.execSql }),
-    ).rejects.toThrow("Backup conflicts with document purge checkpoint");
+    ).rejects.toThrow(
+      "Backup disagrees with the local document purge checkpoint",
+    );
     expect(
       await target.execSql(
         "SELECT purge_event_hash FROM document_purge_checkpoints",

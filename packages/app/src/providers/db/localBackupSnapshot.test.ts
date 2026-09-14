@@ -5,6 +5,7 @@ import {
   runSerializedSqlMutation,
 } from "@tearleads/client-sdk/sqlite";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { unexpectedSecurityIncidents } from "../../../test/helpers/unexpectedSecurityIncidents";
 import { createBackupPayload, restoreBackupPayload } from "./localBackupData";
 
 test("backup keeps related rows and blob bytes consistent during a concurrent deletion", async () => {
@@ -52,6 +53,7 @@ test("backup keeps related rows and blob bytes consistent during a concurrent de
     await restoreBackupPayload({
       blobStore: restoredBlobs,
       execSql: target.execSql as ExecSql,
+      securityIncidents: unexpectedSecurityIncidents,
       payload,
     });
     expect(await target.execSql("SELECT * FROM documents")).toEqual([

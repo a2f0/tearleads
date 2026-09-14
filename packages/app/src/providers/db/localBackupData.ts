@@ -1,9 +1,18 @@
-import type { BlobBytes, BlobStore } from "@tearleads/client-sdk";
+import type {
+  BlobBytes,
+  BlobStore,
+  SecurityIncidents,
+} from "@tearleads/client-sdk";
 import {
   type ExecSql,
   runSerializedSqlMutation,
 } from "@tearleads/client-sdk/sqlite";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import {
+  BackupRestoreConflictError,
+  purgeCheckpointConflict,
+  type SecurityIncidentRecordingStatus,
+} from "./backupRestoreConflict";
 import { validateBackupSchema } from "./backupSchemaValidation";
 import {
   preflightSecurityAnchorRestore,
@@ -19,6 +28,7 @@ import {
   type BackupSummary,
   type BackupTable,
 } from "./localBackupFormat";
+import type { DocumentPurgeCheckpointConflictError } from "./terminalSecurityAnchorBackupMerge";
 
 export type BackupProgressPhase =
   | "blobs"
@@ -50,6 +60,8 @@ interface RestoreBackupPayloadInput {
   readonly execSql: ExecSql;
   readonly onProgress?: BackupProgressCallback | undefined;
   readonly payload: BackupPayload;
+  /** Live ledger for the purge pin conflicts the merge uncovers. */
+  readonly securityIncidents: Pick<SecurityIncidents, "record">;
 }
 
 interface BlobRestoreUndo {
@@ -256,7 +268,42 @@ async function writeBackupBlobs(input: {
   }
 }
 
-export async function restoreBackupPayload({
+async function recordConflict(
+  ledger: Pick<SecurityIncidents, "record">,
+  conflict: DocumentPurgeCheckpointConflictError,
+): Promise<{
+  readonly ledgerFailures: ReadonlyArray<unknown>;
+  readonly recording: SecurityIncidentRecordingStatus;
+}> {
+  try {
+    const recording = await ledger.record(conflict, conflict.incident);
+    return { ledgerFailures: [], recording };
+  } catch (ledgerFailure) {
+    // A ledger that throws must not displace the refusal it was asked to keep.
+    return { ledgerFailures: [ledgerFailure], recording: "failed" };
+  }
+}
+
+/** Rejects with `BackupRestoreConflictError` when a purge pin conflict stops the restore. */
+export async function restoreBackupPayload(
+  input: RestoreBackupPayloadInput,
+): Promise<BackupSummary> {
+  try {
+    return await restoreValidatedBackupPayload(input);
+  } catch (error) {
+    // Recorded after the restore lock is released: the SDK writer takes the
+    // same serialized connection, and the failed restore left nothing behind.
+    const refusal = purgeCheckpointConflict(error);
+    if (!refusal) throw error;
+    throw new BackupRestoreConflictError({
+      ...refusal,
+      ...(await recordConflict(input.securityIncidents, refusal.conflict)),
+      cause: error,
+    });
+  }
+}
+
+async function restoreValidatedBackupPayload({
   blobStore,
   execSql,
   onProgress,

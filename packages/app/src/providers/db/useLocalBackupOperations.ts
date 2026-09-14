@@ -95,9 +95,10 @@ export function useLocalBackupOperations() {
         execSql: runtime.executor,
         onProgress,
         payload,
+        securityIncidents: tearleads.securityIncidents,
       });
     },
-    [resolveRuntime],
+    [resolveRuntime, tearleads],
   );
 
   return { exportLocalBackup, restoreLocalBackup };

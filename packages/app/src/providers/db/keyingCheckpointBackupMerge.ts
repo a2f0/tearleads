@@ -1,5 +1,6 @@
 import {
   mapBackupRowsByScope,
+  projectBackupRow,
   requireBackupHash,
   requireBackupPositiveInteger,
   requireBackupString,
@@ -89,10 +90,12 @@ function mergeCheckpointTables(
       })
     : new Map<string, BackupSqlRow>();
 
+  const project = (row: BackupSqlRow, fallback?: BackupSqlRow) =>
+    projectBackupRow({ columns: template.columns, fallback, row });
   for (const [key, restored] of restoredRows) {
     const current = mergedRows.get(key);
     if (!current) {
-      mergedRows.set(key, restored);
+      mergedRows.set(key, project(restored));
       continue;
     }
     const currentPosition = requireBackupPositiveInteger(
@@ -106,7 +109,7 @@ function mergeCheckpointTables(
       definition.label,
     );
     if (restoredPosition > currentPosition) {
-      mergedRows.set(key, restored);
+      mergedRows.set(key, project(restored, current));
       continue;
     }
     if (
@@ -120,19 +123,28 @@ function mergeCheckpointTables(
   return { ...template, rows: [...mergedRows.values()] };
 }
 
+export const ACCESS_MANIFEST_CHECKPOINT_COLUMNS: ReadonlyArray<string> = [
+  "object_kind",
+  "organization_id",
+  "object_id",
+  "epoch",
+  "manifest_hash",
+  "updated_at",
+];
+export const PRINCIPAL_POLICY_CHECKPOINT_COLUMNS: ReadonlyArray<string> = [
+  "principal_type",
+  "principal_id",
+  "version",
+  "state_hash",
+  "updated_at",
+];
+
 const accessCheckpointDefinition: MonotonicCheckpointDefinition = {
   conflictMessage: "Backup conflicts with an access manifest checkpoint",
   hashColumn: "manifest_hash",
   label: "Access manifest checkpoint",
   positionColumn: "epoch",
-  requiredColumns: [
-    "object_kind",
-    "organization_id",
-    "object_id",
-    "epoch",
-    "manifest_hash",
-    "updated_at",
-  ],
+  requiredColumns: ACCESS_MANIFEST_CHECKPOINT_COLUMNS,
   scopeColumns: ["object_kind", "organization_id", "object_id"],
   tableName: ACCESS_MANIFEST_CHECKPOINT_TABLE_NAME,
   validateScope: (row) => {
@@ -160,13 +172,7 @@ const principalCheckpointDefinition: MonotonicCheckpointDefinition = {
   hashColumn: "state_hash",
   label: "Principal policy checkpoint",
   positionColumn: "version",
-  requiredColumns: [
-    "principal_type",
-    "principal_id",
-    "version",
-    "state_hash",
-    "updated_at",
-  ],
+  requiredColumns: PRINCIPAL_POLICY_CHECKPOINT_COLUMNS,
   scopeColumns: ["principal_type", "principal_id"],
   tableName: PRINCIPAL_POLICY_CHECKPOINT_TABLE_NAME,
   validateScope: (row) => {
