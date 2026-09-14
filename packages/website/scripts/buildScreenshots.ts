@@ -33,7 +33,23 @@ const MANIFEST_PATH = path.join(OUTPUT_DIR, "manifest.json");
 
 // URL prefix the gallery UI loads images from (served from public/).
 const IMG_URL_PREFIX = "/screenshot-gallery/img/";
-const PROJECTS = ["web", "mobile", "ipad"];
+// Keep capture-runner directory names at this boundary; the website uses
+// platform names consistently in its manifest, assets, and gallery routes.
+const CAPTURE_PROJECTS: Record<string, string> = {
+  windowed: "web",
+  mobile: "mobile",
+  tablet: "ipad",
+};
+const PROJECTS = Object.keys(CAPTURE_PROJECTS);
+
+function capturePath(project: string, theme: string, file = ""): string {
+  return path.join(
+    SCREENSHOTS_DIR,
+    CAPTURE_PROJECTS[project] ?? project,
+    theme,
+    file,
+  );
+}
 
 // Canonical screen order and allowlist, mirroring the capture specs. Treating
 // this as an allowlist keeps removed or renamed themed files from a prior
@@ -115,9 +131,7 @@ const screensPresent = new Set<string>();
 
 for (const project of PROJECTS) {
   for (const theme of THEMES) {
-    const files = (
-      await listDir(path.join(SCREENSHOTS_DIR, project, theme))
-    ).sort();
+    const files = (await listDir(capturePath(project, theme))).sort();
     for (const file of files) {
       if (!file.endsWith(".png")) {
         continue;
@@ -133,7 +147,7 @@ for (const project of PROJECTS) {
         theme,
         name,
         src: `${IMG_URL_PREFIX}${project}/${theme}/${file}?v=${await contentVersion(
-          path.join(SCREENSHOTS_DIR, project, theme, file),
+          capturePath(project, theme, file),
         )}`,
       });
     }
@@ -161,7 +175,10 @@ if (entries.length > 0) {
     );
     const destination = path.join(IMG_DIR, relativePath);
     await mkdir(path.dirname(destination), { recursive: true });
-    await copyFile(path.join(SCREENSHOTS_DIR, relativePath), destination);
+    await copyFile(
+      capturePath(entry.project, entry.theme, `${entry.name}.png`),
+      destination,
+    );
   }
 }
 await Bun.write(MANIFEST_PATH, JSON.stringify(manifest));

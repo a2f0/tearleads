@@ -20,13 +20,13 @@ const manifest = JSON.parse(
 ) as ScreenshotManifest;
 const explorer = manifest.entries.find(
   (entry) =>
-    entry.project === "ipad" &&
+    entry.project === "tablet" &&
     entry.theme === "light" &&
     entry.name === "explorer",
 );
 const authorship = manifest.entries.find(
   (entry) =>
-    entry.project === "web" &&
+    entry.project === "windowed" &&
     entry.theme === "light" &&
     entry.name === "note-blame",
 );

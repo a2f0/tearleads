@@ -17,6 +17,7 @@ import {
   entryKey,
   type ScreenshotEntry,
   type ScreenshotManifest,
+  screenshotPath,
   titleCase,
 } from "./screenshotsManifest";
 
@@ -31,9 +32,11 @@ type LoadState =
 
 export function ScreenshotsBrowser({
   initialScreen,
+  initialPlatform,
 }: {
-  /** Screen name from a /screenshots/<slug> deep link to open with. */
+  /** Selection from a /screenshots/<platform>/<screen> deep link. */
   initialScreen?: string;
+  initialPlatform?: string;
 }) {
   const [load, setLoad] = useState<LoadState>({ status: "loading" });
 
@@ -74,7 +77,13 @@ export function ScreenshotsBrowser({
       />
     );
   }
-  return <Gallery manifest={load.manifest} initialScreen={initialScreen} />;
+  return (
+    <Gallery
+      manifest={load.manifest}
+      initialScreen={initialScreen}
+      initialPlatform={initialPlatform}
+    />
+  );
 }
 
 /** Root chrome for the non-gallery states (loading / error / empty). */
@@ -106,8 +115,8 @@ function useGalleryNavigation(
   initialScreen?: string,
 ) {
   const { themes } = manifest;
-  // The selection is stored by screen name, not index: the web and mobile
-  // captures don't share the same screen list (mobile has `home`, web doesn't),
+  // The selection is stored by screen name, not index: windowed and mobile
+  // captures have different screen lists (mobile has `home`, windowed doesn't),
   // so a numeric index would jump to a different screen when the device toggles.
   const [selectedName, setSelectedName] = useState<string | undefined>(
     initialScreen,
@@ -203,11 +212,11 @@ function useArrowKeys(
   }, [step, containerRef]);
 }
 
-// Reflect the active screen in the address bar (/screenshots/<name>) so the
+// Reflect the platform and screen in /screenshots/<platform>/<name> so the
 // current view is shareable. replaceState, not pushState: stepping through
 // screens should not pile history entries onto the Back button. The first
 // render is skipped so merely loading a screenshots URL does not rewrite it.
-function useScreenUrlSync(activeName: string | undefined) {
+function useScreenUrlSync(project: string, activeName: string | undefined) {
   const first = useRef(true);
   useEffect(() => {
     if (first.current) {
@@ -215,17 +224,25 @@ function useScreenUrlSync(activeName: string | undefined) {
       return;
     }
     if (activeName) {
-      window.history.replaceState(null, "", `/screenshots/${activeName}`);
+      window.history.replaceState(
+        null,
+        "",
+        screenshotPath(project, activeName),
+      );
     }
-  }, [activeName]);
+  }, [project, activeName]);
 }
 
-// Pick the starting device: honor a deep-linked screen by choosing the first
-// project that captured it, since the default project may not have it.
+// Honor the deep-linked platform. Legacy screen-only links select the first
+// project that captured that screen, since the default may not have it.
 function initialProject(
   manifest: ScreenshotManifest,
   screen: string | undefined,
+  platform: string | undefined,
 ): string {
+  if (platform && manifest.projects.includes(platform)) {
+    return platform;
+  }
   if (screen) {
     const withScreen = manifest.projects.find((project) =>
       manifest.entries.some(
@@ -242,20 +259,22 @@ function initialProject(
 function Gallery({
   manifest,
   initialScreen,
+  initialPlatform,
 }: {
   manifest: ScreenshotManifest;
   initialScreen?: string;
+  initialPlatform?: string;
 }) {
   const { projects, themes, entries } = manifest;
   const [project, setProject] = useState<string>(() =>
-    initialProject(manifest, initialScreen),
+    initialProject(manifest, initialScreen, initialPlatform),
   );
   // This state selects captured assets only; it must not theme the website.
   const [theme, setTheme] = useState<string>(() => themes[0] ?? "light");
   const containerRef = useRef<HTMLDivElement>(null);
   const { bySrc, screens, activeName, activeIndex, step, setSelectedName } =
     useGalleryNavigation(manifest, project, containerRef, initialScreen);
-  useScreenUrlSync(activeName);
+  useScreenUrlSync(project, activeName);
 
   if (entries.length === 0) {
     return (

@@ -8,7 +8,7 @@ import {
 
 const DEVICE_FRAME_CHROME: Readonly<Record<string, number>> = {
   mobile: 22,
-  ipad: 18,
+  tablet: 18,
 };
 
 // Measure the stage's content box so the image can be capped in pixels. A CSS
@@ -73,7 +73,7 @@ export function Stage({
   const frameClass = [
     "screenshots-browser__frame",
     project === "mobile" ? "screenshots-browser__frame--mobile" : "",
-    project === "ipad" ? "screenshots-browser__frame--ipad" : "",
+    project === "tablet" ? "screenshots-browser__frame--tablet" : "",
   ]
     .filter(Boolean)
     .join(" ");

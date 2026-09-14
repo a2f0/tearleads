@@ -17,9 +17,9 @@ export interface ScreenshotManifest {
 // Friendlier labels for the device (capture project) toggle; falls back to a
 // title-cased id for any project not listed here.
 const PROJECT_LABELS: Record<string, string> = {
-  web: "Windowed",
-  mobile: "iPhone",
-  ipad: "iPad",
+  windowed: "Windowed",
+  mobile: "Mobile",
+  tablet: "Tablet",
 };
 
 const THEME_LABELS: Record<string, string> = {
@@ -44,4 +44,8 @@ export function themeLabel(theme: string): string {
 
 export function entryKey(project: string, theme: string, name: string): string {
   return `${project} ${theme} ${name}`;
+}
+
+export function screenshotPath(project: string, name: string): string {
+  return `/screenshots/${encodeURIComponent(project)}/${encodeURIComponent(name)}`;
 }

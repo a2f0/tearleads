@@ -8,9 +8,9 @@ import { ThemeInvertIcon } from "@tearleads/ui";
 import { projectLabel, themeLabel } from "./screenshotsManifest";
 
 const PROJECT_ICONS: Readonly<Record<string, Icon>> = {
-  web: DesktopTowerIcon,
+  windowed: DesktopTowerIcon,
   mobile: DeviceMobileIcon,
-  ipad: DeviceTabletIcon,
+  tablet: DeviceTabletIcon,
 };
 
 export function ScreenshotsToolbar({

@@ -1,5 +1,9 @@
 ---
-import { projectLabel, type ScreenshotEntry } from "./screenshotsManifest";
+import {
+  projectLabel,
+  type ScreenshotEntry,
+  screenshotPath,
+} from "./screenshotsManifest";
 
 interface Props {
   readonly entry: ScreenshotEntry;
@@ -9,10 +13,11 @@ interface Props {
 }
 
 const { entry, alt, label, priority = false } = Astro.props;
+const href = screenshotPath(entry.project, entry.name);
 ---
 
 <figure class="feature-screenshot">
-  <a class="feature-screenshot-image" href={`/screenshots/${entry.name}`}>
+  <a class="feature-screenshot-image" href={href}>
     <img
       src={entry.src}
       alt={alt}
@@ -23,6 +28,6 @@ const { entry, alt, label, priority = false } = Astro.props;
   </a>
   <figcaption>
     <span>{label} · {projectLabel(entry.project)} detail</span>
-    <a href={`/screenshots/${entry.name}`}>Full screenshot <span aria-hidden="true">↗</span></a>
+    <a href={href}>Full screenshot <span aria-hidden="true">↗</span></a>
   </figcaption>
 </figure>
