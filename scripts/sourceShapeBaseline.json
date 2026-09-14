@@ -71,16 +71,16 @@
       "bytes": 23535
     },
     "docs/openapi.json": {
-      "lines": 66052,
-      "bytes": 2746519
+      "lines": 66064,
+      "bytes": 2747923
     },
     "docs/protocol-specification.md": {
       "lines": 654,
       "bytes": 33375
     },
     "docs/security-guarantees.md": {
-      "lines": 778,
-      "bytes": 44647
+      "lines": 794,
+      "bytes": 45601
     },
     "formal/document-sync/BaselineDominanceTraces.json": {
       "lines": 2059,

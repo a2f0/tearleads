@@ -13,7 +13,6 @@ import {
   type ManagedRecipientPrincipalType,
   throwPrincipalPolicyValidationError as rejectPrincipalPolicy,
   type SignedPrincipalState,
-  verifySignedPrincipalState,
 } from "@tearleads/crypto";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { firstPerKey, uniqueSortedStrings } from "../../../utils/array";
@@ -21,6 +20,7 @@ import {
   listContainerGrantsForState,
   storePrincipalContainerGrantsForState,
 } from "./principalContainerGrantStore";
+import { storePrincipalEpochKeyForState } from "./principalEpochKeyStore";
 import { listProjectionMembersForState } from "./principalProjectionStore";
 import {
   normalizePrincipalStateWriteInput,
@@ -42,12 +42,14 @@ import {
   toStoredPrincipalState,
   toStoredProjectionMember,
 } from "./principalStateRecords";
+import { assertSignedPrincipalStateVerified } from "./principalStateSignature";
 import { loadPrincipalStateSigner } from "./principalStateSigner";
 import {
   projectionIncludesAdminUser,
   validatePrincipalPolicyTransition,
   validatePrincipalStateArtifacts,
 } from "./principalStateValidation";
+import { assertStoredSignedAtVerbatim } from "./storedSignedAt";
 
 export { listContainerGrantsForState } from "./principalContainerGrantStore";
 export { listProjectionMembersForState } from "./principalProjectionStore";
@@ -89,27 +91,6 @@ async function getPrincipalStateByVersion(
   }
 
   return toStoredPrincipalState(row);
-}
-
-async function getPrincipalEpochKeyByEpoch(
-  principalType: ManagedRecipientPrincipalType,
-  principalId: string,
-  epoch: number,
-  executor: DatabaseSession,
-): Promise<StoredPrincipalEpochKey | null> {
-  const [row] = await executor
-    .select(principalEpochKeySelect)
-    .from(principalEpochKeys)
-    .where(
-      and(
-        eq(principalEpochKeys.principalType, principalType),
-        eq(principalEpochKeys.principalId, principalId),
-        eq(principalEpochKeys.epoch, epoch),
-      ),
-    )
-    .limit(1);
-
-  return row ?? null;
 }
 
 export async function getPrincipalStatePayloadForState(
@@ -438,6 +419,11 @@ async function ensureStoredPrincipalStateMatches(
   if (storedState.stateHash !== input.stateHash) {
     rejectPrincipalPolicy("state_conflict", "Principal state version conflict");
   }
+  assertStoredSignedAtVerbatim(
+    storedState.signedAt,
+    input.normalizedInput.state.signedAt,
+    (message) => rejectPrincipalPolicy("invalid_shape", message),
+  );
 
   return storedState;
 }
@@ -546,52 +532,6 @@ async function ensureStoredPrincipalProjectionMatches(
   }
 }
 
-async function insertPrincipalEpochKeyRow(
-  input: PrincipalStateWriteContext,
-): Promise<void> {
-  await input.executor
-    .insert(principalEpochKeys)
-    .values({
-      principalType: input.normalizedInput.state.principalType,
-      principalId: input.normalizedInput.state.principalId,
-      epoch: input.normalizedInput.state.keyEpoch,
-      introducedByStateHash: input.stateHash,
-      encapsulationPublicKey:
-        input.normalizedInput.state.encapsulationPublicKey,
-      keyFingerprint: input.normalizedInput.state.keyFingerprint,
-    })
-    .onConflictDoNothing({
-      target: [
-        principalEpochKeys.principalType,
-        principalEpochKeys.principalId,
-        principalEpochKeys.epoch,
-      ],
-    });
-}
-
-async function ensureStoredPrincipalEpochKeyMatches(
-  input: PrincipalStateWriteContext,
-): Promise<void> {
-  const storedEpochKey = await getPrincipalEpochKeyByEpoch(
-    input.normalizedInput.state.principalType,
-    input.normalizedInput.state.principalId,
-    input.normalizedInput.state.keyEpoch,
-    input.executor,
-  );
-
-  if (!storedEpochKey) {
-    throw new Error("Failed to load stored principal epoch key");
-  }
-
-  if (
-    storedEpochKey.encapsulationPublicKey !==
-      input.normalizedInput.state.encapsulationPublicKey ||
-    storedEpochKey.keyFingerprint !== input.normalizedInput.state.keyFingerprint
-  ) {
-    rejectPrincipalPolicy("state_conflict", "Principal epoch key conflict");
-  }
-}
-
 export async function storeVerifiedPrincipalStateInTransaction(
   input: PrincipalStateBundleInput,
   executor: DatabaseTransaction,
@@ -603,17 +543,10 @@ export async function storeVerifiedPrincipalStateInTransaction(
     executor,
   );
 
-  if (
-    !(await verifySignedPrincipalState(
-      normalizedInput.state,
-      signer.signingPublicKey,
-    ))
-  ) {
-    rejectPrincipalPolicy(
-      "unauthorized_signer",
-      "Invalid principal state signature",
-    );
-  }
+  await assertSignedPrincipalStateVerified(
+    normalizedInput.state,
+    signer.signingPublicKey,
+  );
 
   await validatePrincipalStateArtifacts(normalizedInput);
 
@@ -657,8 +590,7 @@ export async function storeVerifiedPrincipalStateInTransaction(
   await insertPrincipalProjectionRows(writeContext);
   await ensureStoredPrincipalProjectionMatches(writeContext);
   await storePrincipalContainerGrantsForState(writeContext);
-  await insertPrincipalEpochKeyRow(writeContext);
-  await ensureStoredPrincipalEpochKeyMatches(writeContext);
+  await storePrincipalEpochKeyForState(writeContext);
 
   return storedState;
 }

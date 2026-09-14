@@ -1,4 +1,7 @@
-import { isKeyingVerificationCode } from "@tearleads/crypto";
+import {
+  isKeyingVerificationCode,
+  serializeKeyingCanonicalJson,
+} from "@tearleads/crypto";
 import { desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type {
   SecurityIncident,
@@ -26,16 +29,15 @@ interface SecurityIncidentWrite {
 
 const SECURITY_INCIDENT_RETENTION_LIMIT = 1_000;
 
+/**
+ * The incident id hashes this text, so it must be identical on every device:
+ * code-unit key order, no locale collation, and no `Object` property-order
+ * rules (which would float integer-like keys ahead of the sort).
+ */
 function serializeEvidenceHashes(
   evidenceHashes: Readonly<Record<string, string>> | undefined,
 ): string {
-  return JSON.stringify(
-    Object.fromEntries(
-      Object.entries(evidenceHashes ?? {}).sort(([left], [right]) =>
-        left.localeCompare(right),
-      ),
-    ),
-  );
+  return serializeKeyingCanonicalJson(evidenceHashes ?? {});
 }
 
 function parseEvidenceHashes(value: string): Readonly<Record<string, string>> {
@@ -48,14 +50,16 @@ function parseEvidenceHashes(value: string): Readonly<Record<string, string>> {
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
     return {};
   }
-  const evidenceHashes: Record<string, string> = {};
+  const entries: Array<[string, string]> = [];
   for (const [key, item] of Object.entries(parsed)) {
     if (key.length === 0 || typeof item !== "string") {
       return {};
     }
-    evidenceHashes[key] = item;
+    entries.push([key, item]);
   }
-  return evidenceHashes;
+  // Object.fromEntries keeps every key, including "__proto__", which an index
+  // assignment on a plain object would silently drop.
+  return Object.fromEntries(entries);
 }
 
 function parseVerificationCode(value: string): SecurityIncident["code"] {

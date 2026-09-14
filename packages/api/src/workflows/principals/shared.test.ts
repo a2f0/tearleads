@@ -18,6 +18,11 @@ test("principal policy validation codes determine HTTP status independently of w
       status: 400,
     },
     {
+      code: "invalid_shape",
+      expectedMessage: "wording can change",
+      status: 400,
+    },
+    {
       code: "unauthorized_signer",
       expectedMessage: "wording can change",
       status: 403,

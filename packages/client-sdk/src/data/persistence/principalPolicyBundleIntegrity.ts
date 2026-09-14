@@ -1,4 +1,5 @@
 import {
+  compareCanonicalStrings,
   KeyingVerificationError,
   normalizePrincipalContainerGrants,
   normalizePrincipalProjectionMembers,
@@ -40,7 +41,7 @@ function securityContent(bundle: PrincipalPolicyBundleResponse) {
     currentMemberEnvelopes: {
       ...bundle.currentMemberEnvelopes,
       envelopes: [...bundle.currentMemberEnvelopes.envelopes].sort((a, b) =>
-        canonical(a).localeCompare(canonical(b)),
+        compareCanonicalStrings(canonical(a), canonical(b)),
       ),
     },
     currentPayload: withoutCreatedAt(bundle.currentPayload),

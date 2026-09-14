@@ -30,6 +30,17 @@ design/reference documents can warrant larger budgets when splitting would
 obscure the relationships they describe. The numeric allowance is the enforced
 policy; a category never exempts a file from checking.
 
+## Canonical ordering
+
+`bun run lint:canonical-ordering` scans `packages/crypto/src` and
+`packages/client-sdk/src/data` (non-test sources) for `localeCompare` called
+without a locale and for `Intl.Collator`. Everything sorted under those roots
+feeds a hash, Merkle root, signed encoding, or stored identity, and locale
+collation differs between runtimes, so two honest devices would disagree.
+Sort with `compareCanonicalStrings` from `@tearleads/crypto` instead; a
+display-only sort that genuinely needs collation must pass an explicit locale
+and live outside these roots. Roots live in `scripts/checks/canonicalOrdering.ts`.
+
 ## Shell scripts
 
 `bun run lint:scripts` and pre-push use the same `git ls-files` inventory. It

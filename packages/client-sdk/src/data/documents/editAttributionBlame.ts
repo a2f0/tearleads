@@ -1,3 +1,4 @@
+import { compareCanonicalStrings } from "@tearleads/crypto";
 import {
   type DocumentAttributionInterval,
   signingIdentityKey,
@@ -153,8 +154,11 @@ function finishCharacterSummary(
     writers: [...byWriter.values()].sort(
       (left, right) =>
         right.characterCount - left.characterCount ||
-        left.writerUserId.localeCompare(right.writerUserId) ||
-        left.writerKeyFingerprint.localeCompare(right.writerKeyFingerprint),
+        compareCanonicalStrings(left.writerUserId, right.writerUserId) ||
+        compareCanonicalStrings(
+          left.writerKeyFingerprint,
+          right.writerKeyFingerprint,
+        ),
     ),
     totalCharacterCount,
     unattributedCharacterCount,

@@ -84,8 +84,10 @@ if [ -f "$ERROR_IGNORE_PATH" ]; then
     reduced_ignore=$(mktemp "${TMPDIR:-/tmp}/openapi-ignore.XXXXXX")
     reduced_output=$(mktemp "${TMPDIR:-/tmp}/openapi-output.XXXXXX")
     trap 'rm -f "$reduced_ignore" "$reduced_output"' EXIT
-    awk -v ignored_error="$ignored_error" '
-      BEGIN { removed = 0 }
+    # `awk -v` interprets backslash escapes, so an entry quoting a regex would
+    # never match its own line; ENVIRON hands the text over verbatim.
+    IGNORED_ERROR="$ignored_error" awk '
+      BEGIN { removed = 0; ignored_error = ENVIRON["IGNORED_ERROR"] }
       !removed && $0 == ignored_error { removed = 1; next }
       { print }
     ' "$ERROR_IGNORE_PATH" >"$reduced_ignore"

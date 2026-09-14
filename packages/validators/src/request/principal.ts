@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { registerJsonSchemaFragment } from "../jsonSchema";
 import {
   arraySchema,
   boundedPositiveIntegerSchema,
@@ -6,7 +7,12 @@ import {
   nonNegativeIntegerSchema,
   uuidV4StringSchema,
 } from "../schema";
-import { MAX_PRINCIPAL_STATE_VERSION } from "../util";
+import {
+  CANONICAL_SIGNED_AT_PATTERN,
+  isCanonicalSignedAt,
+  MAX_PRINCIPAL_STATE_VERSION,
+  SIGNED_AT_CONTRACT,
+} from "../util";
 import { ContainerMutationRequestSchema } from "./container";
 
 const PrincipalProjectionMemberRequestSchema = loosePlainObject({
@@ -53,7 +59,12 @@ const PrincipalStateRequestSchema = loosePlainObject({
   principalType: z.literal(["group", "organization"]),
   projectionRoot: z.string(),
   signature: z.string(),
-  signedAt: z.string(),
+  signedAt: registerJsonSchemaFragment(
+    z.string().refine(isCanonicalSignedAt, {
+      message: `signedAt must be ${SIGNED_AT_CONTRACT}`,
+    }),
+    { pattern: CANONICAL_SIGNED_AT_PATTERN.source, type: "string" },
+  ),
   signerUserId: uuidV4StringSchema,
   signerUserKeyFingerprint: z.string(),
   version: boundedPositiveIntegerSchema(MAX_PRINCIPAL_STATE_VERSION),

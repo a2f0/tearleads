@@ -38,6 +38,7 @@ function principalPolicyValidationStatus(
 ): 400 | 403 | 404 | 409 {
   switch (code) {
     case "invalid_artifact":
+    case "invalid_shape":
       return 400;
     case "unauthorized_signer":
       return 403;

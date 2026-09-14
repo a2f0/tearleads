@@ -7,6 +7,7 @@ export {
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
   type ContainerKeyWrap,
+  compareCanonicalStrings,
   type DocumentContentKeyTarget,
   type WriteHeader,
 } from "@tearleads/crypto";
@@ -109,7 +110,7 @@ export function sortTargets<T>(
   keyOf: (target: T) => string,
 ): T[] {
   return [...targets].sort((left, right) =>
-    keyOf(left).localeCompare(keyOf(right)),
+    compareCanonicalStrings(keyOf(left), keyOf(right)),
   );
 }
 
