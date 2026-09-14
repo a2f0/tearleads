@@ -58,6 +58,7 @@ async function recordPendingDocumentMoveIntentError(input: {
   isCurrent: () => boolean;
   message: string;
   state: DocumentMoveIntentSyncState;
+  unavailable?: boolean | undefined;
 }): Promise<boolean> {
   if (!input.isCurrent()) return false;
   await sqlDocumentMoveIntentPersistence.recordMoveIntentError(
@@ -70,6 +71,7 @@ async function recordPendingDocumentMoveIntentError(input: {
       expectedUpdatedAt: input.expectedUpdatedAt,
       message: input.message,
       stillCurrent: input.isCurrent,
+      unavailable: input.unavailable,
     },
   );
   return input.isCurrent();
@@ -269,12 +271,6 @@ async function recordRejectedDocumentMove(input: {
   state: DocumentMoveIntentSyncState;
 }): Promise<void> {
   await recordPendingDocumentMoveIntentError({
-    // A vanished container is the remote form of the "missing destination
-    // container" preflight block: the intent can never commit as written, so
-    // it stops counting as lane progress and simply re-records its reason
-    // until hydration tears the deleted container down locally and the
-    // preflight owns the verdict. It is not a transient failure to retry.
-    blocked: input.failure.sawVanishedContainer,
     // A permission denial parks the intent for the access-restored signal
     // instead of replaying on every structural pass (row 7).
     denied: input.failure.sawPermissionDenial,
@@ -284,6 +280,12 @@ async function recordRejectedDocumentMove(input: {
     isCurrent: input.isCurrent,
     message: describeRejectedDocumentMove(input.failure),
     state: input.state,
+    // A vanished container is terminal: the intent can never commit as
+    // written, and unlike the local "missing destination" block nothing on
+    // this device can heal it, so it leaves the replay set instead of
+    // re-issuing the same doomed requests every pass. The tombstone cascade
+    // retargets it once hydration tears the deleted container down locally.
+    unavailable: input.failure.sawVanishedContainer,
   });
 }
 
@@ -362,6 +364,9 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
         isCurrent: input.isCurrent,
         message: "Remote document move partially applied; retry required",
         state,
+        // An unlink refused because its container is gone can never apply
+        // either; the link already landed, so the move parks terminally.
+        unavailable: lastFailure.sawVanishedContainer,
       });
       return "partial";
     }

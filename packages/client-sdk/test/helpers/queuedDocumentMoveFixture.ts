@@ -30,9 +30,18 @@ export interface QueuedDocumentMoveFailure {
   readonly status: number | null;
 }
 
+export interface QueuedDocumentMovePass {
+  /** Every API call the pass issued, in order (projection fetches included). */
+  readonly remoteRequests: readonly string[];
+  readonly submittedOperations: readonly string[];
+  readonly syncedCount: number;
+}
+
 export async function runQueuedDocumentMoveFixture(input: {
   containerProjectionFailure?: QueuedDocumentMoveFailure | undefined;
   linkFailure?: QueuedDocumentMoveFailure | undefined;
+  /** Structural passes to run against the same queue (default 1). */
+  passes?: number | undefined;
   replaceLinkedContainers?: boolean | undefined;
   sourceContainerId?: string | null | undefined;
   testDbName: string;
@@ -136,10 +145,15 @@ export async function runQueuedDocumentMoveFixture(input: {
 
     const relinkInputs: DocumentStructuralMutationRelinkInput[] = [];
     const submittedOperations: string[] = [];
+    const remoteRequests: string[] = [];
     const runtime: ContainerContentsWorkflowRuntime = {
       apiClient: createMockApiClient({
-        listDocumentAttachments: async () => [],
+        listDocumentAttachments: async () => {
+          remoteRequests.push("attachments");
+          return [];
+        },
         getContainerWriterProjection: async (containerId: string) => {
+          remoteRequests.push("container-projection");
           if (containerId === rootProjection.containerId) {
             return rootProjection;
           }
@@ -148,37 +162,47 @@ export async function runQueuedDocumentMoveFixture(input: {
           }
           return null;
         },
-        getDocumentWriterProjection: async (documentId: string) =>
-          documentId === writerProjection.documentId ? writerProjection : null,
+        getDocumentWriterProjection: async (documentId: string) => {
+          remoteRequests.push("document-projection");
+          return documentId === writerProjection.documentId
+            ? writerProjection
+            : null;
+        },
         primeDocumentWriterProjection: () => {},
         ...(input.containerProjectionFailure
           ? {
-              getContainerWriterProjectionResult: async () => ({
-                kind: "http" as const,
-                method: "GET" as const,
-                path: `/containers/${trashProjection.containerId}/writer-projection`,
-                statusText: "Forbidden",
-                code: input.containerProjectionFailure?.code,
-                message: input.containerProjectionFailure?.message ?? "",
-                ok: false as const,
-                report: () => {},
-                status: input.containerProjectionFailure?.status ?? null,
-              }),
+              getContainerWriterProjectionResult: async () => {
+                remoteRequests.push("container-projection");
+                return {
+                  kind: "http" as const,
+                  method: "GET" as const,
+                  path: `/containers/${trashProjection.containerId}/writer-projection`,
+                  statusText: "Forbidden",
+                  code: input.containerProjectionFailure?.code,
+                  message: input.containerProjectionFailure?.message ?? "",
+                  ok: false as const,
+                  report: () => {},
+                  status: input.containerProjectionFailure?.status ?? null,
+                };
+              },
             }
           : {}),
         ...(input.linkFailure
           ? {
-              linkDocumentResult: async () => ({
-                kind: "http" as const,
-                method: "POST" as const,
-                path: `/documents/${writerProjection.documentId}/links`,
-                statusText: "Conflict",
-                report: () => {},
-                code: input.linkFailure?.code,
-                message: input.linkFailure?.message ?? "",
-                ok: false as const,
-                status: input.linkFailure?.status ?? null,
-              }),
+              linkDocumentResult: async () => {
+                remoteRequests.push("link");
+                return {
+                  kind: "http" as const,
+                  method: "POST" as const,
+                  path: `/documents/${writerProjection.documentId}/links`,
+                  statusText: "Conflict",
+                  report: () => {},
+                  code: input.linkFailure?.code,
+                  message: input.linkFailure?.message ?? "",
+                  ok: false as const,
+                  status: input.linkFailure?.status ?? null,
+                };
+              },
             }
           : {}),
         linkDocument: async (
@@ -186,6 +210,7 @@ export async function runQueuedDocumentMoveFixture(input: {
           request: DocumentLinkSetMutationRequest,
         ) => {
           submittedOperations.push("link");
+          remoteRequests.push("link");
           const response = await createLinkSetResponseFromRequest(
             documentId,
             request,
@@ -219,6 +244,7 @@ export async function runQueuedDocumentMoveFixture(input: {
           request: DocumentLinkSetMutationRequest,
         ) => {
           submittedOperations.push("unlink");
+          remoteRequests.push("unlink");
           if (!input.unlinkAvailable) {
             return null;
           }
@@ -278,46 +304,65 @@ export async function runQueuedDocumentMoveFixture(input: {
       },
     };
 
-    const syncedCount = await syncPendingDocumentMoveIntents({
-      host: {
-        documentWorkflowRuntime: (containerId) => `runtime:${containerId}`,
-        openDocumentStore: () => ({
-          assertCanRotateContentKey: async () => {
-            submittedOperations.push("preflight");
-            return rotationSnapshot;
-          },
-          ensureInitialized: async () => true,
-          relink: async (relinkInput) => {
-            relinkInputs.push(relinkInput);
-            await relinkInput.commitSideEffect?.(execSql);
-            return {
-              containerId: relinkInput.containerId,
-              documentId: relinkInput.documentId,
-              id: relinkInput.localId,
-              title: "Queued move",
-              updatedAt: "2026-06-23T00:00:00.000Z",
-            };
-          },
-          requestSync: () => undefined,
-          updateRuntime: () => undefined,
-        }),
-      },
-      isCurrent: () => true,
-      isRemoteSyncBlocked: () => false,
-      state: {
-        containersById: new Map([
-          [
-            trashProjection.containerId,
-            createTestContainerState({
-              id: trashProjection.containerId,
-              parentId: rootProjection.containerId,
-            }),
-          ],
-        ]),
-        resolveProjectionUserKey,
-        runtime,
-      },
-    });
+    const host: Parameters<typeof syncPendingDocumentMoveIntents>[0]["host"] = {
+      documentWorkflowRuntime: (containerId) => `runtime:${containerId}`,
+      openDocumentStore: () => ({
+        assertCanRotateContentKey: async () => {
+          submittedOperations.push("preflight");
+          return rotationSnapshot;
+        },
+        ensureInitialized: async () => true,
+        relink: async (relinkInput) => {
+          relinkInputs.push(relinkInput);
+          await relinkInput.commitSideEffect?.(execSql);
+          return {
+            containerId: relinkInput.containerId,
+            documentId: relinkInput.documentId,
+            id: relinkInput.localId,
+            title: "Queued move",
+            updatedAt: "2026-06-23T00:00:00.000Z",
+          };
+        },
+        requestSync: () => undefined,
+        updateRuntime: () => undefined,
+      }),
+    };
+    // One state object across passes = one launch (the denied replay runs
+    // once), matching a structural lane re-arming against the same store.
+    const state = {
+      containersById: new Map([
+        [
+          trashProjection.containerId,
+          createTestContainerState({
+            id: trashProjection.containerId,
+            parentId: rootProjection.containerId,
+          }),
+        ],
+      ]),
+      resolveProjectionUserKey,
+      runtime,
+    };
+
+    const passes: QueuedDocumentMovePass[] = [];
+    for (let pass = 0; pass < (input.passes ?? 1); pass += 1) {
+      const remoteRequestsBefore = remoteRequests.length;
+      const submittedBefore = submittedOperations.length;
+      const syncedCount = await syncPendingDocumentMoveIntents({
+        host,
+        isCurrent: () => true,
+        isRemoteSyncBlocked: () => false,
+        state,
+      });
+      passes.push({
+        remoteRequests: remoteRequests.slice(remoteRequestsBefore),
+        submittedOperations: submittedOperations.slice(submittedBefore),
+        syncedCount,
+      });
+    }
+    const syncedCount = passes.reduce(
+      (total, pass) => total + pass.syncedCount,
+      0,
+    );
 
     const pendingIntents =
       await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql);
@@ -333,6 +378,7 @@ export async function runQueuedDocumentMoveFixture(input: {
       documentId: writerProjection.documentId,
       intentRows,
       linkedContainerIds,
+      passes,
       pendingIntents,
       relinkInputs,
       submittedOperations,

@@ -6061,6 +6061,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "container_unavailable";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -6328,6 +6330,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code?: "container_unavailable";
                         error: string;
                     } & {
                         [key: string]: unknown;

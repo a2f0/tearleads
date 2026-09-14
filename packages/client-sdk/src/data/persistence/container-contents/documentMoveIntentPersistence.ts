@@ -35,7 +35,22 @@ const DENIED_INTENT_ORGANIZATION_JOINS_SQL = `
   LEFT JOIN containers projection_container
     ON projection_container.id = projection.container_id`;
 
-export type DocumentMoveIntentSyncStatus = "pending" | "blocked" | "denied";
+/**
+ * - `pending`: replays on every structural pass.
+ * - `blocked`: the last pass could not proceed locally (missing local
+ *   document / destination); replays, since hydration can heal it.
+ * - `denied`: parked on a 403 until the access-restored replay (row 7).
+ * - `unavailable`: terminal — the server proved a cited container was deleted
+ *   (coded 404 / `container_unavailable` 409). Container ids never return, so
+ *   no replay can commit the intent as written; it leaves the replay set
+ *   until the local container tombstone cascade retargets it or the user
+ *   re-enqueues the move.
+ */
+export type DocumentMoveIntentSyncStatus =
+  | "pending"
+  | "blocked"
+  | "denied"
+  | "unavailable";
 
 export interface DocumentMoveIntentRecord {
   id: string;
@@ -79,10 +94,20 @@ interface SelectedDocumentMoveIntentRecord {
 function parseDocumentMoveIntentSyncStatus(
   value: unknown,
 ): DocumentMoveIntentSyncStatus {
-  if (value === "blocked" || value === "denied") {
+  if (value === "blocked" || value === "denied" || value === "unavailable") {
     return value;
   }
   return "pending";
+}
+
+function resolveRecordedSyncStatus(input: {
+  blocked?: boolean | undefined;
+  denied?: boolean | undefined;
+  unavailable?: boolean | undefined;
+}): DocumentMoveIntentSyncStatus {
+  if (input.unavailable) return "unavailable";
+  if (input.denied) return "denied";
+  return input.blocked ? "blocked" : "pending";
 }
 
 function mapDocumentMoveIntentRecord(
@@ -187,6 +212,9 @@ export const sqlDocumentMoveIntentPersistence = {
       // terminal verdict. The blocking condition can heal after hydration or
       // recovery, and re-checking is cheap — a still-blocked intent simply
       // re-records its reason without counting as lane progress.
+      // Unavailable intents never replay: the server proved a cited container
+      // is gone, so every replay would re-issue the same doomed requests
+      // (#2278 #4). Only the tombstone cascade or a re-enqueue revives them.
       .where(
         and(
           inArray(documentMoveIntents.syncStatus, ["pending", "blocked"]),
@@ -246,6 +274,14 @@ export const sqlDocumentMoveIntentPersistence = {
       expectedUpdatedAt?: string | undefined;
       message: string;
       stillCurrent?: (() => boolean) | undefined;
+      /**
+       * Server proof that a cited container was deleted (coded 404 or
+       * `container_unavailable` 409): the intent parks terminally as
+       * `unavailable`, outside every replay, until the tombstone cascade
+       * retargets it or a re-enqueue replaces it. Outranks `denied`: a
+       * restored permission cannot revive a deleted container.
+       */
+      unavailable?: boolean | undefined;
     },
   ): Promise<void> {
     await getClientSQLitePersistenceRuntime(execSql).guardedTransaction(
@@ -256,11 +292,7 @@ export const sqlDocumentMoveIntentPersistence = {
           .set({
             lastAttemptedAt: updatedAt,
             lastError: input.message,
-            syncStatus: input.denied
-              ? "denied"
-              : input.blocked
-                ? "blocked"
-                : "pending",
+            syncStatus: resolveRecordedSyncStatus(input),
             updatedAt,
           })
           .where(

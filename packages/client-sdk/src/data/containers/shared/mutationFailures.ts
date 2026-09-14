@@ -25,7 +25,7 @@ export function isContainerNotFoundFailure(
  * container was deleted before the commit. Container ids are immutable, so
  * this never heals by retrying the same request.
  */
-export function isContainerUnavailableFailure(
+function isContainerUnavailableFailure(
   failure: ContainerBehaviorFailure,
 ): boolean {
   return (

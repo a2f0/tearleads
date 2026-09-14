@@ -7,7 +7,7 @@ import type {
   BlobAttachmentBindResponse,
   BlobAttachmentDetachResponse,
 } from "@tearleads/validators/response";
-import type { MiddlewareHandler } from "hono";
+import type { Context, MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
 import {
@@ -23,6 +23,23 @@ import { respondToStatusError } from "../errorResponse";
 interface BlobMutationsRouteDeps {
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
   readonly runtime: ApiServiceRuntime;
+}
+
+// A blob failure carries at most the shared `container_unavailable` code;
+// render it so a bind/detach refused for a deleted container is coded like the
+// document and container mutations that share the path resolver (#2278 #4).
+function respondToBlobMutationError(
+  c: Context<SessionEnv>,
+  error: unknown,
+): Response {
+  return respondToStatusError(
+    c,
+    error,
+    BlobMutationError,
+    error instanceof BlobMutationError && error.code
+      ? { code: error.code, status: error.status }
+      : undefined,
+  );
 }
 
 export function createBlobMutationsRoute({
@@ -55,7 +72,7 @@ export function createBlobMutationsRoute({
           }),
         );
       } catch (error) {
-        return respondToStatusError(c, error, BlobMutationError);
+        return respondToBlobMutationError(c, error);
       }
     },
   );
@@ -85,7 +102,7 @@ export function createBlobMutationsRoute({
           }),
         );
       } catch (error) {
-        return respondToStatusError(c, error, BlobMutationError);
+        return respondToBlobMutationError(c, error);
       }
     },
   );

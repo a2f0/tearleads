@@ -84,6 +84,12 @@ export {
   UploadMultipartBlobPartResponseSchema,
 } from "./blob";
 export {
+  BLOB_MUTATION_ERROR_CODES,
+  type BlobMutationErrorCode,
+  type BlobMutationFailureResponse,
+  BlobMutationFailureResponseSchema,
+} from "./blobMutationError";
+export {
   type ContainerDeleteResponse,
   ContainerDeleteResponseSchema,
   type ContainerKekKeyringWireResponse,
