@@ -8,6 +8,18 @@ const hookPath = "scripts/git/hooks/pre-push";
 
 function pushFixture(failingCommand: string) {
   const repo = fixture();
+  try {
+    return configurePushFixture(repo, failingCommand);
+  } catch (error) {
+    rmSync(repo.cwd, { recursive: true, force: true });
+    throw error;
+  }
+}
+
+function configurePushFixture(
+  repo: ReturnType<typeof fixture>,
+  failingCommand: string,
+) {
   for (const path of [
     hookPath,
     "scripts/checkFast.sh",
@@ -45,14 +57,15 @@ function pushFixture(failingCommand: string) {
     FAILING_COMMAND: failingCommand,
     PUSH_GATE_TIMINGS_LOG: timings,
   };
-  const run = (...cmd: string[]) =>
+  const runAt = (cwd: string, ...cmd: string[]) =>
     Bun.spawnSync(cmd, {
-      cwd: repo.cwd,
+      cwd,
       env,
       stdin: "ignore",
       stdout: "pipe",
       stderr: "pipe",
     });
+  const run = (...cmd: string[]) => runAt(repo.cwd, ...cmd);
   const install = () => {
     const result = run("sh", "scripts/git/install-hooks.sh");
     expect(result.exitCode, result.stderr.toString()).toBe(0);
@@ -62,7 +75,7 @@ function pushFixture(failingCommand: string) {
   expect(run("git", "init", "--bare", "remote.git").exitCode).toBe(0);
   const push = () =>
     run("git", "push", "./remote.git", "HEAD:refs/heads/probe");
-  return { ...repo, head, log, timings, run, install, push };
+  return { ...repo, head, log, timings, run, runAt, install, push };
 }
 
 test("CI and the installed hook run the same fast checks in order", () => {
@@ -157,6 +170,37 @@ test("stale installed hooks block until the installer refreshes them", () => {
     expect(readFileSync(join(repo.cwd, ".git/hooks/pre-push"), "utf8")).toBe(
       readFileSync(join(repo.cwd, hookPath), "utf8"),
     );
+  } finally {
+    rmSync(repo.cwd, { recursive: true, force: true });
+  }
+});
+
+test("linked worktrees can refresh shared hooks and run the push gate", () => {
+  const repo = pushFixture("run lint:openapi:compatibility");
+  try {
+    const linked = join(repo.cwd, "linked");
+    repo.git("worktree", "add", "-b", "hook-update", linked);
+    const updated = `${readFileSync(join(linked, hookPath), "utf8")}\n# Updated hook\n`;
+    repo.write(`linked/${hookPath}`, updated);
+    const push = () =>
+      repo.runAt(
+        linked,
+        "git",
+        "push",
+        join(repo.cwd, "remote.git"),
+        "HEAD:refs/heads/probe",
+      );
+    expect(push().stderr.toString()).toContain("hook is stale");
+
+    const installed = repo.runAt(linked, "sh", "scripts/git/install-hooks.sh");
+    expect(installed.exitCode, installed.stderr.toString()).toBe(0);
+    expect(readFileSync(join(repo.cwd, ".git/hooks/pre-push"), "utf8")).toBe(
+      updated,
+    );
+    const result = push();
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr.toString()).not.toContain("hook is stale");
+    expect(result.stdout.toString()).toContain("[openapi-compatibility]");
   } finally {
     rmSync(repo.cwd, { recursive: true, force: true });
   }
