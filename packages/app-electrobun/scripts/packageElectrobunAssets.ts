@@ -1,6 +1,5 @@
-import { existsSync } from "node:fs";
 import { copyFile, mkdir, rm } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loroWasmPlugin } from "@tearleads/loro/bun-plugin";
 import {
@@ -8,30 +7,10 @@ import {
   getSqliteWasmAssetUrl,
 } from "@tearleads/sqlite-worker/assets";
 import { createRendererBuildConfig } from "../src/rendererEnvironment";
+import { findPackagedMainViewDir } from "./findPackagedMainViewDir";
 
-function findPackagedMainViewDir(artifactPath: string): string {
-  let searchDir = dirname(artifactPath);
-
-  for (let depth = 0; depth < 8; depth += 1) {
-    const candidate = join(searchDir, "Resources", "app", "views", "mainview");
-    if (existsSync(join(candidate, "index.html"))) {
-      return candidate;
-    }
-
-    const parentDir = dirname(searchDir);
-    if (parentDir === searchDir) {
-      break;
-    }
-    searchDir = parentDir;
-  }
-
-  throw new Error(
-    `Could not locate packaged mainview resources for ${artifactPath}`,
-  );
-}
-
-async function packageElectrobunAssets(artifactPath: string): Promise<void> {
-  const mainViewDir = findPackagedMainViewDir(artifactPath);
+async function packageElectrobunAssets(buildDir: string): Promise<void> {
+  const mainViewDir = findPackagedMainViewDir(buildDir);
   // Emit HTML and its referenced chunks together, including Loro's embedded
   // WASM. Hutch's view output does not preserve Bun's HTML asset layout.
   await rm(mainViewDir, { recursive: true });
@@ -71,9 +50,11 @@ async function packageElectrobunAssets(artifactPath: string): Promise<void> {
   console.log(`Packaged Electrobun renderer assets: ${mainViewDir}`);
 }
 
-const artifactPath = process.argv[2];
-if (!artifactPath) {
-  throw new Error("Usage: bun scripts/packageElectrobunAssets.ts <artifact>");
+const buildDir = process.argv[2];
+if (!buildDir) {
+  throw new Error(
+    "Usage: bun scripts/packageElectrobunAssets.ts <build-directory>",
+  );
 }
 
-await packageElectrobunAssets(artifactPath);
+await packageElectrobunAssets(buildDir);

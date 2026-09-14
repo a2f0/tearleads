@@ -43,6 +43,7 @@ terraform.rc
 
 # Generated Electrobun SDK and toolchain state
 .hutch/
+.cottontail-tmp/
 
 # Wrangler local state
 .wrangler/
