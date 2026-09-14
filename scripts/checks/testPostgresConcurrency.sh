@@ -41,6 +41,7 @@ exec bun test \
   src/routes/containers/rotationConcurrency.pg.test.ts \
   src/routes/documents/accessMutationConcurrency.pg.test.ts \
   src/routes/documents/deleteCreateConcurrency.pg.test.ts \
+  src/routes/documents/linkDeleteConcurrency.pg.test.ts \
   src/routes/documents/metadataDeleteCreateConcurrency.pg.test.ts \
   src/routes/documents/deletedContainerReferences.test.ts \
   src/routes/documents/grantSyncConcurrency.pg.test.ts \

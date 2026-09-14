@@ -84,6 +84,12 @@ export {
   UploadMultipartBlobPartResponseSchema,
 } from "./blob";
 export {
+  BLOB_MUTATION_ERROR_CODES,
+  type BlobMutationErrorCode,
+  type BlobMutationFailureResponse,
+  BlobMutationFailureResponseSchema,
+} from "./blobMutationError";
+export {
   type ContainerDeleteResponse,
   ContainerDeleteResponseSchema,
   type ContainerKekKeyringWireResponse,
@@ -134,6 +140,10 @@ export {
   type ListContainerParentLanesResponse,
   ListContainerParentLanesResponseSchema,
 } from "./containerParentLanes";
+export {
+  CONTAINER_UNAVAILABLE_ERROR_CODE,
+  type ContainerUnavailableErrorCode,
+} from "./containerUnavailableError";
 export {
   type ContainerDocumentSummary,
   ContainerDocumentSummaryResponseSchema,

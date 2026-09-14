@@ -22,9 +22,11 @@ import {
   submitOrganizationGroupPolicyCommit,
 } from "../../../test/helpers/principalPolicy";
 import { registerUser } from "../../../test/helpers/registerUser";
+import { getCurrentAccessManifestHeads } from "../../access/read/accessManifestStore";
 import { getCurrentContainerKeyEpoch } from "../../access/read/containerKekStore";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { routeApp } from "../../routeApp";
+import { assertGroupReferenceHeadsCurrent } from "../../workflows/containers/mutations/shared/groupReferenceHeads";
 
 async function prepareRotation(input: { rotateKey?: boolean } = {}) {
   const owner = createTestUser();
@@ -288,4 +290,51 @@ test("a failed dependent mutation rolls back every policy artifact", async () =>
     (await getCurrentContainerKeyEpoch(prepared.root.kekState.containerId, db))
       ?.id,
   ).toBe(previousKek?.id);
+}, 15_000);
+
+// #2278 #5 negative control for the "must be current" coupling. Every
+// container mutation (including revoke/move/recite, which carry referenced
+// group heads forward verbatim) is refused unless those heads equal the
+// group's current state (groupReferenceHeads.ts). That rule is only safe
+// because a group change that would leave any grant referencing the previous
+// head is itself refused: after the refusal the root's committed head still
+// passes the currency check, so an honest client is never handed a container
+// whose heads it cannot carry forward.
+test("a refused policy change leaves every container grant reference current", async () => {
+  const prepared = await prepareRotation();
+  const response = await putPolicy(prepared, []);
+  expect(response.status).toBe(409);
+
+  const heads = await getCurrentAccessManifestHeads(
+    "container",
+    [prepared.root.kekState.containerId],
+    db,
+  );
+  expect(heads.get(prepared.root.kekState.containerId)?.manifestHash).toBe(
+    prepared.root.bundle.manifestHash,
+  );
+  const referencedHeads = asVerifiedContainerManifest(prepared.root.bundle)
+    .state.referencedPrincipalHeads;
+  const [adminsHead] = referencedHeads;
+  invariant(adminsHead, "expected the root Admins grant reference");
+  await db.transaction((tx) =>
+    assertGroupReferenceHeadsCurrent(tx, referencedHeads),
+  );
+  // The would-be next head never became current, so a manifest citing it is
+  // refused — the client-side rotation wrap assertion relies on this.
+  await expect(
+    db.transaction((tx) =>
+      assertGroupReferenceHeadsCurrent(tx, [
+        {
+          ...adminsHead,
+          keyEpoch: prepared.nextPolicy.keyEpoch,
+          stateHash: prepared.nextPolicy.stateHash,
+          version: prepared.nextPolicy.version,
+        },
+      ]),
+    ),
+  ).rejects.toMatchObject({
+    message: "Container group reference is not current",
+    status: 409,
+  });
 }, 15_000);

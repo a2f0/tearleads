@@ -252,6 +252,10 @@ for key derivation:
 - attachment, document, and blob key targets are derived from verified
   manifests rather than API-provided recipient lists
 
+Clients verify attachment bind events at referenced membership. Detach events
+are verified only by the API: no client-consumed projection serves them (the
+attachments listing returns live bindings and their bind events), so a detach
+is observed as the binding's absence, not as an event the client checks.
 Clients should commit writes to the verified manifest hash and derived target
 hash. Projection hashes may still be useful cache keys, but they are not the
 authorization source.
@@ -562,7 +566,11 @@ A server that has older valid signed states can replay an older valid chain
 unless the client has an independent monotonic checkpoint, highest-seen
 version/hash pin, or transparency log. Production clients persist checkpoints
 and reject rollbacks or same-version hash conflicts for principal policy and
-access manifest heads. User identity trust currently uses an exact durable
+access manifest heads. Deleted containers retain their metadata-document
+reservation, and organization purge is terminal (the organization's mutations
+stay refused and a replacement receives a fresh organization id), so a
+checkpointed `(kind, organization, id)` is never recreated from version 1.
+User identity trust currently uses an exact durable
 full-bundle TOFU pin: any later change to either public key, fingerprint, suite,
 or format is rejected.
 
@@ -623,6 +631,13 @@ therefore cause only a failed transaction, not a falsely successful rotation.
 A cold client needs only current policy and container state. Group grant revoke
 rotates the group and its remaining grants; standalone group revokes are
 rejected, while grant-level `read`/`write`/`admin` remains unchanged.
+The API also refuses every container mutation (including revoke, move, and
+recite, which carry referenced group heads forward verbatim) unless those heads
+equal the group's current state. That rule is safe only because of the
+atomicity above: a group change that would leave a grant stale is refused, so
+an honest client never holds a container whose heads it cannot carry forward.
+A same-id group restarting at version 1 is refused as a rollback; this is
+benign because tombstoned groups cannot be re-granted.
 Organizations cannot receive container grants. Reserved groups provide broad
 access; all grants stay in-organization.
 

@@ -29,7 +29,17 @@ function findPrincipalPolicy(input: {
       candidate.stateHash === input.reference.stateHash,
   );
   if (!policy) {
-    throw new Error(`${input.operationLabel} principal policy is missing`);
+    // Invariant, not a recoverable state: the API commits a container head
+    // only when every referenced group head equals the group's current state
+    // (packages/api groupReferenceHeads.ts), and a group change that would
+    // leave a grant stale is refused unless it rematerializes that container
+    // in the same transaction (principalContainerRematerialization.ts). A
+    // verified projection therefore always carries the policy its manifest
+    // references; a miss means the caller resolved policies for a different
+    // head than the manifest it is rotating.
+    throw new Error(
+      `${input.operationLabel} referenced ${input.reference.principalType} ${input.reference.principalId} at version ${input.reference.version} (key epoch ${input.reference.keyEpoch}), but no verified policy with that head was supplied; the API only commits heads whose group references are current`,
+    );
   }
   return policy;
 }

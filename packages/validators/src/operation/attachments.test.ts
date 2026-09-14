@@ -6,6 +6,7 @@ import {
 import {
   BlobAttachmentBindResponseSchema,
   BlobAttachmentDetachResponseSchema,
+  BlobMutationFailureResponseSchema,
   ErrorResponseSchema,
   ListDocumentAttachmentsResponseSchema,
   PaymentRequiredErrorResponseSchema,
@@ -56,7 +57,9 @@ test("attachment operations own their shared HTTP contracts", () => {
     402: PaymentRequiredErrorResponseSchema,
     403: ErrorResponseSchema,
     404: ErrorResponseSchema,
-    409: ErrorResponseSchema,
+    // Bind/detach share the container path resolver, so their 409 carries the
+    // coded `container_unavailable` envelope (#2278 #4).
+    409: BlobMutationFailureResponseSchema,
     500: ErrorResponseSchema,
     503: ErrorResponseSchema,
   };

@@ -1,8 +1,12 @@
 import { z } from "zod";
+import { CONTAINER_UNAVAILABLE_ERROR_CODE } from "./containerUnavailableError";
 import { DocumentMutationErrorCodeSchema } from "./documentMutationError";
 import { PrincipalPolicyStaleErrorResponseSchema } from "./principal";
 
 export const CONTAINER_MUTATION_ERROR_CODES = {
+  // Same literal as DOCUMENT_MUTATION_ERROR_CODES.containerUnavailable; the
+  // envelope schema below already admits it through the document union.
+  containerUnavailable: CONTAINER_UNAVAILABLE_ERROR_CODE,
   manifestAlreadyExists: "container_manifest_already_exists",
   stateStale: "container_mutation_state_stale",
 } as const;

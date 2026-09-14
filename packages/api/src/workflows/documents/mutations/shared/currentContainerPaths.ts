@@ -12,7 +12,11 @@ import { createContainerWriterProjectionContext } from "../../../containers/writ
 import { toManifestBundleResponse } from "../../../containers/writerProjection/records";
 import { verifyStoredContainerManifest } from "../../../containers/writerProjection/storedManifestVerification";
 import { ContainerWriterProjectionError } from "../../../containers/writerProjection/types";
-import { DocumentMutationError, documentSyncStateStale } from "../errors";
+import {
+  DocumentMutationError,
+  documentContainerUnavailable,
+  documentSyncStateStale,
+} from "../errors";
 
 /**
  * Resolve a flat list of {containerId, manifestHash} references to verified
@@ -94,7 +98,7 @@ async function resolveCurrentContainerManifestRefs(
       liveOrganizations.get(manifest.state.containerId) !==
       manifest.state.organizationId
     ) {
-      throw new DocumentMutationError(`${refLabel} container unavailable`, 409);
+      throw documentContainerUnavailable(refLabel);
     }
     const head = heads.get(manifest.state.containerId);
     if (!head) {
