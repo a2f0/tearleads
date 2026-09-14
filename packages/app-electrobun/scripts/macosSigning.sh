@@ -17,6 +17,8 @@ configure_macos_signing() {
     echo "App Store Connect key ID, issuer, and private key file are required for notarization." >&2
     return 1
   fi
+  ELECTROBUN_APPLEAPIKEYPATH="$(cd -- "$(dirname -- "$ELECTROBUN_APPLEAPIKEYPATH")" && pwd -P)/$(basename -- "$ELECTROBUN_APPLEAPIKEYPATH")"
+  export ELECTROBUN_APPLEAPIKEYPATH
   if [[ -n "${ELECTROBUN_SKIP_NOTARIZATION:-}" ]]; then
     echo "Unset ELECTROBUN_SKIP_NOTARIZATION for a downloadable release." >&2
     return 1

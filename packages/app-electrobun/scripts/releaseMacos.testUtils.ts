@@ -53,6 +53,8 @@ export async function runMacosRelease(args: string[], failure = "") {
         "#!/bin/sh",
         'printf "build %s %s %s %s\\n" "$*" "$ELECTROBUN_RELEASE_TIER" "$BUN_PUBLIC_API_BASE_URL" "$BUN_PUBLIC_WS_URL" >> "$RELEASE_TEST_LOG"',
         '[ "$RELEASE_TEST_FAILURE" != build ] || exit 6',
+        'cd "$RELEASE_TEST_ROOT/packages/app-electrobun"',
+        '[ -f "$ELECTROBUN_APPLEAPIKEYPATH" ] || exit 9',
         'artifacts="$RELEASE_TEST_ROOT/packages/app-electrobun/build/artifacts"',
         'mkdir -p "$artifacts"',
         'if [ "$ELECTROBUN_RELEASE_TIER" = staging ]; then',
@@ -85,6 +87,7 @@ export async function runMacosRelease(args: string[], failure = "") {
     const child = Bun.spawn(
       ["bash", join(packageDir, "scripts/releaseMacos.sh"), ...args],
       {
+        cwd: root,
         env: {
           PATH: `${root}/bin:/usr/bin:/bin`,
           RELEASE_TEST_ROOT: root,
@@ -92,7 +95,7 @@ export async function runMacosRelease(args: string[], failure = "") {
           RELEASE_TEST_FAILURE: failure,
           APP_STORE_CONNECT_KEY_ID: "test-key",
           APP_STORE_CONNECT_ISSUER_ID: "test-issuer",
-          ELECTROBUN_APPLEAPIKEYPATH: join(root, "key.p8"),
+          ELECTROBUN_APPLEAPIKEYPATH: "key.p8",
         },
         stdout: "pipe",
         stderr: "pipe",

@@ -97,6 +97,12 @@ environment. These local scripts publish macOS ARM64 only. See
 [Electrobun distribution](https://framework.blackboard.sh/electrobun/guides/bundling-and-distribution/)
 for platform packaging and native runner requirements.
 
+Run `bun run --cwd packages/app-electrobun test:release-packaging` on an
+Apple silicon Mac after preparing the devkit to exercise the real native
+packaging pipeline in a temporary project. It verifies the final renderer and
+SQLite assets in the update archive, and confirms a failed packaging hook stops
+before signing or artifact creation. This probe uses no signing credentials.
+
 ## Native persistence checks
 
 On Windows, exercise the native build and encrypted identity database restart:
