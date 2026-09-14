@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { KeyingVerificationError } from "@tearleads/crypto";
 import { runGroupShareScenario } from "../../../test/helpers/groupShareScenario";
 import { createContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
 import type { DomainScope } from "../../data/domainScope";
@@ -328,6 +329,27 @@ test("a thrown share reports the original Error and still rejects", async () => 
     [expect.stringMatching(/: share failed$/), failure],
   ]);
   expect(logMessages).toEqual([]);
+});
+
+test("a keying verification refusal stays out of share diagnostics", async () => {
+  const failure = new KeyingVerificationError(
+    "invalid_shape",
+    "access manifest is older than the local checkpoint",
+  );
+  const reported: unknown[] = [];
+  const logMessages: string[] = [];
+
+  const rejection = await shareThatThrows({
+    failure,
+    logError: (_message, cause) => {
+      reported.push(cause);
+    },
+    logMessages,
+  });
+
+  expect(rejection).toBe(failure);
+  expect(reported).toEqual([]);
+  expect(logMessages).toEqual([expect.stringMatching(/: share failed$/)]);
 });
 
 test("a share lost to database teardown stays local", async () => {
