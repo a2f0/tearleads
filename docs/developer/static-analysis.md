@@ -5,6 +5,24 @@ Run `bun run check:fast` for the repository's analysis gates. The additional
 baseline validation, and shell-script discovery; they also run in `check:fast`
 and pre-push.
 
+## CI and the push gate
+
+CI's `check:fast` and pre-push run the same check list in
+`scripts/checks/fastChecks.sh`. Add checks there so both gates pick them up.
+Pre-push also checks the branch name, Terraform, TypeScript, affected tests,
+and the pushed commit ranges. Each check retains its own push timing row.
+
+`sh scripts/git/install-hooks.sh` installs the checked-out hooks and configures
+Git to use them. `ship-pr` runs this through `reset` after a successful merge
+and fast-forward. Pre-push refuses to run a stale installed copy; reinstall
+after updating hook source. Use `scripts/git/showPushGateTimings.sh --head <sha>`
+to find the checks recorded for a particular push in this checkout.
+
+OpenAPI compatibility exceptions expire when the comparison base contains the
+new contract. Remove their entries from
+`scripts/checks/openApiCompatibilityErrors.ignore` at that point; an unused
+exception deliberately fails both gates.
+
 ## Source shape
 
 `bun run lint:source-shape` checks tracked working files. `--staged` checks the
