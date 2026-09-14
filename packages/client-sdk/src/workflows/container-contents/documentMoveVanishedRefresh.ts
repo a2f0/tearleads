@@ -15,9 +15,9 @@ export interface VanishedContainerRefreshOutcome<TMoved> {
   readonly failure: DocumentMoveFailureState;
   readonly moved: TMoved;
   /**
-   * Park the intent terminally: the destination itself is gone (coded 404 on
-   * its refreshed projection) or the refreshed retry produced no move at all
-   * and vanished again on the destination side.
+   * Park the intent terminally. True only when the destination itself is
+   * proven gone: a coded 404 on its projection probe after eviction. No
+   * mutation verdict — first attempt or retry — is ever terminal.
    */
   readonly unavailable: boolean;
 }
@@ -72,13 +72,15 @@ async function listMoveSourceContainerIds(input: {
  * declaring terminal: evict the cached destination, document, and source
  * projections, probe the destination, and retry once with the fresh paths.
  *
- * Only the destination's fate is terminal. Sources are evicted, never judged:
- * the retry's unlink set comes from the verified manifest alone, so a
- * server-asserted "source gone" can neither skip a revoke nor complete the
- * move — a retry whose link landed but whose unlink still vanished stays
- * partial (pending) with a live link the queue keeps trying to revoke. The
- * pass is bounded: the retry's own vanished verdict on the link side parks the
- * intent instead of looping, and a transient probe failure leaves it
+ * Only the destination's fate is terminal, and only as proven by its own
+ * probe. Sources are evicted, never judged: the retry's unlink set comes from
+ * the verified manifest alone, so a server-asserted "source gone" can neither
+ * skip a revoke nor complete the move — a retry whose link landed but whose
+ * unlink still vanished stays partial (pending) with a live link the queue
+ * keeps trying to revoke. The retry's own vanished verdict, on either side, is
+ * likewise never terminal: with the destination live it can only name another
+ * ancestor deleted mid-pass, which the next pass's fresh paths outrun. The
+ * pass is bounded to one retry; a transient probe failure leaves the intent
  * retriable (or denied on 403) for a later pass.
  */
 export async function moveWithVanishedContainerRefresh<TMoved>(input: {
@@ -128,11 +130,11 @@ export async function moveWithVanishedContainerRefresh<TMoved>(input: {
     recordDocumentMoveFailure(retryFailure, failure),
   );
   if (retried === "abandoned" || !input.isCurrent()) return "abandoned";
-  return {
-    failure: retryFailure,
-    moved: retried,
-    // A partial retry (link landed, an unlink vanished) is never terminal:
-    // the destination is fine and the manifest still holds the link.
-    unavailable: retried === null && retryFailure.sawVanishedContainer,
-  };
+  // The retry's own vanished verdict is never terminal. The destination was
+  // just proven live, so a second `container_unavailable` can only name
+  // another ancestor deleted during the refreshed attempt (or a source): the
+  // intent stays pending with its failure recorded and the next pass starts
+  // over with freshly evicted projections. One retry per pass keeps it
+  // bounded; nothing in the queue backs a pending intent off between passes.
+  return { failure: retryFailure, moved: retried, unavailable: false };
 }

@@ -285,11 +285,11 @@ async function recordRejectedDocumentMove(input: {
     message: describeRejectedDocumentMove(input.failure),
     state: input.state,
     // Terminal only after the vanished-container refresh proved the
-    // destination gone (or the fresh-path retry vanished again): the intent
-    // can never commit as written and nothing on this device can heal it, so
-    // it leaves the replay set instead of re-issuing doomed requests every
-    // pass. The tombstone cascade retargets it once hydration tears the
-    // deleted container down locally.
+    // destination itself gone: the intent can never commit as written and
+    // nothing on this device can heal it, so it leaves the replay set instead
+    // of re-issuing doomed requests every pass. The tombstone cascade
+    // retargets it once hydration tears the deleted container down locally.
+    // Every other vanished verdict stays pending for the next pass.
     unavailable: input.unavailable,
   });
 }
@@ -344,9 +344,9 @@ async function settleMovedDocumentIntent<TRuntime>(input: {
       isCurrent: input.isCurrent,
       message: "Remote document move partially applied; retry required",
       state,
-      // An unlink still refused for a vanished container after the
-      // projection refresh can never apply either; the link already
-      // landed, so the move parks terminally.
+      // Terminal only when the refresh proved the destination itself gone
+      // after the link had already landed; a vanished unlink alone stays
+      // pending with its live link for the next pass to revoke.
       unavailable: input.unavailable,
     });
     return "partial";

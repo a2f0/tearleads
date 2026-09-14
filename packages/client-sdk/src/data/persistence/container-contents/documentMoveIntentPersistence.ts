@@ -41,11 +41,12 @@ const DENIED_INTENT_ORGANIZATION_JOINS_SQL = `
  *   document / destination); replays, since hydration can heal it.
  * - `denied`: parked on a 403 until the access-restored replay (row 7).
  * - `unavailable`: terminal — after a projection refresh the destination
- *   itself is proven deleted (coded 404), or the refreshed retry still hit a
- *   vanished container (`container_unavailable` 409). Container ids never
- *   return, so no replay can commit the intent as written; it leaves the
- *   replay set until the local container tombstone cascade retargets it or
- *   the user re-enqueues the move.
+ *   itself is proven deleted (coded 404 on its own projection probe). No
+ *   mutation 409 is ever terminal: with the destination live it can only
+ *   name an ancestor or source, and the next pass's fresh paths outrun it.
+ *   Container ids never return, so no replay can commit the intent as
+ *   written; it leaves the replay set until the local container tombstone
+ *   cascade retargets it or the user re-enqueues the move.
  */
 export type DocumentMoveIntentSyncStatus =
   | "pending"

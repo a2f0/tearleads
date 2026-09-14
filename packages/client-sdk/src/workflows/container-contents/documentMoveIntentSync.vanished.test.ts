@@ -8,13 +8,13 @@ import { runQueuedDocumentMoveFixture } from "../../../test/helpers/queuedDocume
 // #2278 #4: a coded `container_unavailable` 409 is the server's proof that a
 // cited container was deleted between the projection fetch and the commit.
 // The cited container may be a stale ancestor in the cached destination path,
-// so the pass evicts the destination and document projections and retries
-// once with fresh paths. When that retry is refused with the same proof the
-// intent parks terminally as `unavailable`: unlike a local `blocked` verdict
-// it leaves the replay set, so later passes issue no remote requests against
-// the deleted container. Only the local tombstone cascade (retarget) or a
-// fresh enqueue revives it.
-test("a link refused for a deleted destination parks the move after one refreshed retry", async () => {
+// so the pass evicts the destination, document, and source projections,
+// probes the destination, and retries once with fresh paths. A retry refused
+// with the same proof is NOT terminal: the destination was just proven live,
+// so the second 409 can only name another container deleted mid-pass. The
+// intent stays pending with its failure recorded; each pass is bounded to
+// one refreshed retry (two link submissions), and nothing else throttles it.
+test("a link refused twice with a live destination stays pending, one retry per pass", async () => {
   const fixture = await runQueuedDocumentMoveFixture({
     linkFailure: {
       code: CONTAINER_UNAVAILABLE_ERROR_CODE,
@@ -31,26 +31,22 @@ test("a link refused for a deleted destination parks the move after one refreshe
     {
       lastError:
         "Remote document move cites a container deleted on the server: targetContainerPathRefs[1] container unavailable (409)",
-      syncStatus: "unavailable",
+      syncStatus: "pending",
     },
   ]);
-  // Pass 1: refused, refreshed (evict + probe), refused again — bounded.
-  expect(fixture.passes[0]?.cacheEvictions).toEqual([
-    `container:${fixture.trashContainerId}`,
-    `document:${fixture.documentId}`,
-    `container:${fixture.rootContainerId}`,
-  ]);
-  expect(
-    fixture.passes[0]?.remoteRequests.filter((request) => request === "link"),
-  ).toHaveLength(2);
-  // Pass 2 skipped the parked intent entirely: no preflight, no remote call.
-  expect(fixture.passes[1]).toEqual({
-    cacheEvictions: [],
-    remoteRequests: [],
-    submittedOperations: [],
-    syncedCount: 0,
-  });
-  expect(fixture.pendingIntents).toEqual([]);
+  for (const pass of fixture.passes) {
+    // Refused, refreshed (evict + probe), refused again — then the pass ends.
+    expect(pass.cacheEvictions).toEqual([
+      `container:${fixture.trashContainerId}`,
+      `document:${fixture.documentId}`,
+      `container:${fixture.rootContainerId}`,
+    ]);
+    expect(
+      pass.remoteRequests.filter((request) => request === "link"),
+    ).toHaveLength(2);
+    expect(pass.syncedCount).toBe(0);
+  }
+  expect(fixture.pendingIntents).toHaveLength(1);
 });
 
 // The refresh is what makes the verdict safe: when the deleted container was
@@ -266,4 +262,44 @@ test("a source linked only remotely is refreshed before the retry", async () => 
   expect(fixture.linkedContainerIds).toEqual([fixture.trashContainerId]);
   expect(fixture.intentRows).toEqual([]);
   expect(fixture.passes[1]?.remoteRequests).toEqual([]);
+});
+
+// The repeated ancestor race: the first link cites stale ancestor A and is
+// refused; while the pass refreshes, ancestor B is deleted, so the retry is
+// refused too — with the destination live throughout. Parking here would
+// strand a recoverable move (ancestor tombstones never retarget it). The
+// intent stays pending, and the next pass, with clean paths, completes it.
+test("a repeated ancestor race stays pending and completes on the next pass", async () => {
+  const fixture = await runQueuedDocumentMoveFixture({
+    linkFailure: {
+      code: CONTAINER_UNAVAILABLE_ERROR_CODE,
+      message: "targetContainerPathRefs[0] container unavailable",
+      status: 409,
+    },
+    linkFailureTimes: 2,
+    passes: 2,
+    testDbName: "containerContents-document-move-repeated-ancestor-race",
+    unlinkAvailable: true,
+  });
+
+  // Pass 1: refused (A), refreshed, refused (B) — pending, not parked.
+  expect(fixture.passes[0]?.syncedCount).toBe(0);
+  expect(
+    fixture.passes[0]?.remoteRequests.filter((request) => request === "link"),
+  ).toHaveLength(2);
+  expect(fixture.passes[0]?.submittedOperations).toEqual([
+    "preflight",
+    "preflight",
+  ]);
+  // Pass 2: the intent was still pending, so it is attempted again and lands.
+  expect(fixture.passes[1]?.syncedCount).toBe(1);
+  expect(fixture.passes[1]?.cacheEvictions).toEqual([]);
+  expect(fixture.passes[1]?.submittedOperations).toEqual([
+    "preflight",
+    "link",
+    "unlink",
+  ]);
+  expect(fixture.syncedCount).toBe(1);
+  expect(fixture.linkedContainerIds).toEqual([fixture.trashContainerId]);
+  expect(fixture.intentRows).toEqual([]);
 });
