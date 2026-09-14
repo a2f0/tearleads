@@ -17,9 +17,9 @@ export interface ScreenshotManifest {
 // Friendlier labels for the device (capture project) toggle; falls back to a
 // title-cased id for any project not listed here.
 const PROJECT_LABELS: Record<string, string> = {
-  web: "Windowed",
-  mobile: "iPhone",
-  ipad: "iPad",
+  windowed: "Windowed",
+  mobile: "Mobile",
+  tablet: "Tablet",
 };
 
 const THEME_LABELS: Record<string, string> = {
@@ -44,4 +44,57 @@ export function themeLabel(theme: string): string {
 
 export function entryKey(project: string, theme: string, name: string): string {
   return `${project} ${theme} ${name}`;
+}
+
+export function screenshotPath(project: string, name: string): string {
+  return `/screenshots/${encodeURIComponent(project)}/${encodeURIComponent(name)}`;
+}
+
+// Honor the deep-linked platform. Legacy screen-only links select the first
+// project that captured that screen, since the default may not have it.
+export function initialProject(
+  manifest: ScreenshotManifest,
+  screen: string | undefined,
+  platform: string | undefined,
+): string {
+  if (platform && manifest.projects.includes(platform)) {
+    return platform;
+  }
+  if (screen) {
+    const withScreen = manifest.projects.find((project) =>
+      manifest.entries.some(
+        (entry) => entry.project === project && entry.name === screen,
+      ),
+    );
+    if (withScreen) {
+      return withScreen;
+    }
+  }
+  return manifest.projects[0] ?? "";
+}
+
+interface ScreenshotRoute {
+  params: { slug: string | undefined };
+  props: { initialPlatform?: string; initialScreen?: string };
+}
+
+export function screenshotRoutes(
+  manifest: ScreenshotManifest,
+): ScreenshotRoute[] {
+  // Light and dark captures share a route; unavailable platform/screen pairs
+  // must not become valid URLs that silently open a different screenshot.
+  const captures = new Map(
+    manifest.entries.map((entry) => [`${entry.project}/${entry.name}`, entry]),
+  );
+  return [
+    { params: { slug: undefined }, props: {} },
+    ...manifest.screens.map((slug) => ({
+      params: { slug },
+      props: { initialScreen: slug },
+    })),
+    ...Array.from(captures, ([slug, entry]) => ({
+      params: { slug },
+      props: { initialPlatform: entry.project, initialScreen: entry.name },
+    })),
+  ];
 }
