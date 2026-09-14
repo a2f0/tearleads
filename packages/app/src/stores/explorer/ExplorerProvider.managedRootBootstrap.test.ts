@@ -20,13 +20,18 @@ import { waitForCondition } from "../../../test/helpers/waitForCondition";
 
 test("explorer store can skip background system container creation after managed root policy advances", async () => {
   let runtime = await createSqlRuntime();
-  const signedRoots = await createSignedExplorerRoots([
-    {
-      id: "root-container",
-      organizationId: "org-1",
-      metadataDocumentId: "root-metadata-document",
-    },
-  ]);
+  // The session acknowledges this root as its own, so its creator is the
+  // session user.
+  const signedRoots = await createSignedExplorerRoots(
+    [
+      {
+        id: "root-container",
+        organizationId: "org-1",
+        metadataDocumentId: "root-metadata-document",
+      },
+    ],
+    { userId: "user-1" },
+  );
   const systemSlot = "sys_v1_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
   let listContainersCalls = 0;
   let writerProjectionCalls = 0;

@@ -4,6 +4,7 @@ import { createDomainScope } from "../../../data/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { ContainerContentsPersistence } from "../containerPersistence";
 import type { ContainerContentsRootAdoptionInput } from "../runtime";
+import { rememberDestinationRole } from "./destinationRoleCache";
 import {
   reconcileLocalOnlyRootContainers,
   reconcileLocalOnlySystemContainers,
@@ -113,6 +114,14 @@ async function reconciliationFixture() {
     organizationId: ORGANIZATION_ID,
     parentId: null,
     remote: true,
+  });
+  // The root was verified on hydration: its create was signed by the session
+  // user, which is what lets it absorb pre-login local roots at all.
+  rememberDestinationRole(state.runtime.infra.execSql, remoteRoot.container, {
+    createSignerUserId: "user-1",
+    metadataDocumentId: "remote-root-metadata",
+    parentId: null,
+    systemSlot: null,
   });
   const remoteSystem = await containerState({
     id: "remote-contacts",

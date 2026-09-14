@@ -38,6 +38,40 @@ export function ensureTrashSystemContainer(
   );
 }
 
+// Why no Trash could be resolved. "awaiting-sync" is the viewer's own org before
+// its verified root (and so its Trash) has arrived on this device; a fresh
+// device sees it until the first hydration pass completes. "foreign-trash-
+// unverified" is a shared org created by another identity, whose Trash slot the
+// viewer cannot derive, so no destination can be verified.
+export type DeleteToTrashUnavailableReason =
+  | "awaiting-sync"
+  | "foreign-trash-unverified";
+
+const DELETE_TO_TRASH_UNAVAILABLE_MESSAGES: Readonly<
+  Record<DeleteToTrashUnavailableReason, string>
+> = {
+  "awaiting-sync": "Trash is unavailable until sync completes.",
+  "foreign-trash-unverified":
+    "This organization's Trash cannot be verified from this device.",
+};
+
+export type DeleteToTrashTarget =
+  | { readonly status: "target"; readonly trashContainerId: string }
+  | { readonly status: "already-in-trash" }
+  | {
+      readonly status: "unavailable";
+      readonly reason: DeleteToTrashUnavailableReason;
+    };
+
+// Typed failure for callers that surface the outcome as an error (the Notes
+// move-to-trash hook and Explorer's trash actions); the message is user-facing.
+export class TrashUnavailableError extends Error {
+  constructor(readonly reason: DeleteToTrashUnavailableReason) {
+    super(DELETE_TO_TRASH_UNAVAILABLE_MESSAGES[reason]);
+    this.name = "TrashUnavailableError";
+  }
+}
+
 interface ResolveDeleteToTrashTargetInput {
   containerId: string | null;
   currentOrganizationId: string | null | undefined;
@@ -53,11 +87,11 @@ interface ResolveDeleteToTrashTargetInput {
 // org-awarely, and lazily provisioning the viewer's own Trash when needed. This
 // is the shared core of the delete-to-trash sequence used by Explorer, Notes, and
 // Contacts: it deliberately does NOT perform the move, so each caller keeps its
-// own rules/link bookkeeping around it. Returns null (a no-op) when no Trash is
-// resolvable/creatable, or when the document already lives under Trash.
+// own rules/link bookkeeping around it. A non-target outcome says why, so the
+// caller can tell the user instead of silently doing nothing.
 export async function resolveDeleteToTrashTarget(
   input: ResolveDeleteToTrashTargetInput,
-): Promise<string | null> {
+): Promise<DeleteToTrashTarget> {
   const {
     containerId,
     currentOrganizationId,
@@ -78,12 +112,17 @@ export async function resolveDeleteToTrashTarget(
       ? (await ensureOwnTrashContainer())?.id
       : undefined);
 
-  if (
-    !trashContainerId ||
-    isExplorerContainerUnderTrash(nodes, containerId, trashContainerId)
-  ) {
-    return null;
+  if (!trashContainerId) {
+    return {
+      status: "unavailable",
+      reason: trashResolution.canFallBackToOwnTrash
+        ? "awaiting-sync"
+        : "foreign-trash-unverified",
+    };
+  }
+  if (isExplorerContainerUnderTrash(nodes, containerId, trashContainerId)) {
+    return { status: "already-in-trash" };
   }
 
-  return trashContainerId;
+  return { status: "target", trashContainerId };
 }

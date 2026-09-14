@@ -1,4 +1,8 @@
-import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import type { ContainerAccessManifestState } from "@tearleads/crypto";
+import {
+  type ContainerSystemSlot,
+  isContainerSystemSlot,
+} from "@tearleads/validators/containerSystemSlot";
 import type { ContainerCreateWithMetadataDocumentRequest } from "@tearleads/validators/request";
 import type {
   ContainerCreateWithMetadataDocumentResponse,
@@ -207,6 +211,21 @@ function seedChildContainerWriterProjection(input: {
   );
 }
 
+/**
+ * The persisted slot is the one this client signed into the manifest state.
+ * The acknowledgement already refused a response that echoed anything else,
+ * so the server's column never chooses which local record becomes Trash.
+ */
+function signedCreateSystemSlot(
+  state: ContainerAccessManifestState,
+): ContainerSystemSlot | null {
+  if (state.systemSlot === null) return null;
+  if (!isContainerSystemSlot(state.systemSlot)) {
+    throw new Error("Container create plan signed an invalid system slot");
+  }
+  return state.systemSlot;
+}
+
 async function settleContainerWithMetadataCreate(input: {
   readonly childProjection: ContainerWriterProjectionResponse;
   readonly containerPlan: Awaited<
@@ -219,7 +238,6 @@ async function settleContainerWithMetadataCreate(input: {
   readonly response: ContainerCreateWithMetadataDocumentResponse;
   readonly runtime: ContainerWorkflowRuntime;
   readonly stillCurrent?: (() => boolean) | undefined;
-  readonly systemSlot?: ContainerSystemSlot | null | undefined;
 }): Promise<{
   readonly ok: true;
   readonly state: CreatedRemoteContainerState;
@@ -265,8 +283,7 @@ async function settleContainerWithMetadataCreate(input: {
     ok: true,
     state: {
       accessManifestHash: input.response.container.manifestHead.manifestHash,
-      systemSlot:
-        input.response.container.systemSlot ?? input.systemSlot ?? null,
+      systemSlot: signedCreateSystemSlot(input.containerPlan.plan.state),
       containerId: input.response.container.containerId,
       createdAt: input.response.container.createdAt,
       metadataDocumentId,
@@ -361,7 +378,6 @@ async function createRemoteContainerWithMetadataDocumentAttempt(input: {
     response: submitted.response,
     runtime: input.runtime,
     stillCurrent: input.stillCurrent,
-    systemSlot: input.systemSlot,
   });
 }
 

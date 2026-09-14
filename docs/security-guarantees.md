@@ -52,9 +52,22 @@ is still TOFU, not a key-transparency or out-of-band identity proof.
 Directory listing fields cannot establish a Trash, Contacts, or root role.
 The SDK verifies the container projection before adopting those destinations,
 then takes the slot and parent edge from its signed manifest. Local pre-login
-content merges only into the session's root id in the expected organization.
+content merges only into the session's root id in the expected organization,
+and only if that root's epoch-1 `container.create` was signed by the session
+user (the login response naming it is unsigned; every acknowledged organization
+was created by the user). That creator check holds at the reconciliation
+boundary itself, from the role remote hydration verified and cached (a local
+refresh never fetches; an uncached role leaves the merge pending), so a root
+this device hydrated earlier as another user's shared container is refused as a
+`signer_mismatch` incident and never merged, whichever path reaches it. A later
+login may repeat an acknowledged root or report it purged; a different root id
+is refused as an incident. The default organization is not bound, since a
+purged personal one is legitimately replaced.
 Only a root administrator may create a signed system slot. Additional grantees
-are allowed: sharing a legitimate Trash must not disable deletion.
+are allowed: sharing a legitimate Trash must not disable deletion. A create
+acknowledgement persists the client-signed slot and refuses a differing echo.
+The app selects a foreign organization's Trash only by a slot the viewer can
+derive; another identity's Trash is reported unavailable, never matched by name.
 
 ## Recovery Key Disclosure
 

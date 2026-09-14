@@ -10,6 +10,7 @@ import type {
   ContactEntry,
   ContactEntryPatch,
 } from "../../document-types/contact/contactDocumentModel";
+import type { DeleteToTrashTarget } from "../systemContainerTrash";
 import type { EnsureSelfContactInput } from "./selfContact";
 
 export interface ContactsSnapshot {
@@ -30,11 +31,11 @@ export interface ContactsRuntime {
   ) => DocumentStore;
   purgeDocument?: ((document: DocumentSummary) => Promise<boolean>) | undefined;
   // Resolve the Trash a specific contact document should move into, org-awarely
-  // and lazily provisioning the viewer's own Trash. Returning null makes removal a
-  // no-op (nothing to move into) — matching the Explorer. Absent on bootstrap-only
-  // runtimes that never remove contacts.
+  // and lazily provisioning the viewer's own Trash. A non-target outcome leaves
+  // the contact in place and says why. Absent on bootstrap-only runtimes that
+  // never remove contacts.
   resolveTrashContainerForDocument?:
-    | ((document: DocumentSummary) => Promise<string | null>)
+    | ((document: DocumentSummary) => Promise<DeleteToTrashTarget>)
     | undefined;
   subscribeToPersistedDocuments?:
     | ((listener: (document: DocumentSummary) => void) => () => void)

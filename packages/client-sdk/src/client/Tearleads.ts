@@ -100,11 +100,6 @@ export interface ClientOptions {
     | undefined;
 }
 
-const rejectUninitializedIdentityPin: InternalRuntime["pinLocalUserIdentity"] =
-  async () => {
-    throw new Error("Trusted user identity runtime is not initialized");
-  };
-
 export class Tearleads {
   readonly blobs: Blobs;
   readonly database: Database;
@@ -137,6 +132,11 @@ export class Tearleads {
   private autoIdentityProvisioned = false;
   private autoIdentityProvisioningPromise: Promise<void> | null = null;
   private expiredSessionLoginPromise: Promise<boolean> | null = null;
+  // Rebound to the workflow runtime once it exists; the session is created first.
+  private pinLocalUserIdentity: InternalRuntime["pinLocalUserIdentity"] =
+    async () => {
+      throw new Error("Trusted user identity runtime is not initialized");
+    };
 
   constructor(options: ClientOptions = {}) {
     const apiBaseUrl = options.apiBaseUrl ?? "";
@@ -185,8 +185,6 @@ export class Tearleads {
         getUserId: () => session?.userId ?? null,
       },
     );
-    let pinLocalUserIdentity: InternalRuntime["pinLocalUserIdentity"] =
-      rejectUninitializedIdentityPin;
     session = createSession({
       api: this.apiClient,
       database: this.database,
@@ -195,7 +193,7 @@ export class Tearleads {
       log: this.log,
       logError: this.logError,
       onUserIdentityAvailable: (userId, candidate) =>
-        pinLocalUserIdentity(userId, candidate),
+        this.pinLocalUserIdentity(userId, candidate),
       provisionedSystemContainers: options.provisionedSystemContainers,
       reportSecurityIncident: security.service.report,
     });
@@ -205,9 +203,8 @@ export class Tearleads {
       options,
       security.service.report,
     );
-    pinLocalUserIdentity = async (userId, candidate) => {
-      await runtime.pinLocalUserIdentity(userId, candidate);
-    };
+    this.pinLocalUserIdentity = (userId, candidate) =>
+      runtime.pinLocalUserIdentity(userId, candidate);
     this.runtime = runtime.publicRuntime;
     this.documents = createDocuments({
       getDefaultContainerId: () => this.session.containerId,

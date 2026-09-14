@@ -1,16 +1,22 @@
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { RemoteContainer } from "./types";
 
-type DestinationRole = Pick<
-  RemoteContainer,
-  "metadataDocumentId" | "parentId" | "systemSlot"
->;
+export interface DestinationRole
+  extends Pick<
+    RemoteContainer,
+    "metadataDocumentId" | "parentId" | "systemSlot"
+  > {
+  /** Signer of the epoch-1 `container.create`; immutable through successors. */
+  readonly createSignerUserId: string;
+}
+/** Roles are verified and cached under the container's id and organization. */
+type DestinationIdentity = Pick<RemoteContainer, "id" | "organizationId">;
 const rolesByDatabase = new WeakMap<ExecSql, Map<string, DestinationRole>>();
 const MAX_ROLES = 1_000;
 
 export function cachedDestinationRole(
   execSql: ExecSql,
-  listed: RemoteContainer,
+  listed: DestinationIdentity,
 ): DestinationRole | undefined {
   return rolesByDatabase
     .get(execSql)
@@ -19,14 +25,15 @@ export function cachedDestinationRole(
 
 export function rememberDestinationRole(
   execSql: ExecSql,
-  listed: RemoteContainer,
+  listed: DestinationIdentity,
   role: DestinationRole,
 ): void {
   // Shared verification forbids moves of roots and system containers, and all
-  // successors preserve the signed slot and metadata id. Cache only these
-  // immutable fields; authority, key material and ordinary parent edges remain
-  // outside this cache. Reuse does not authorize any read or write operation,
-  // so logout and identity switches do not need to invalidate these roles.
+  // successors preserve the signed slot, metadata id and creator. Cache only
+  // these immutable fields; authority, key material and ordinary parent edges
+  // remain outside this cache. Reuse does not authorize any read or write
+  // operation, so logout and identity switches do not need to invalidate these
+  // roles: the session-root creator check runs on every reuse.
   if (role.parentId !== null && role.systemSlot === null) return;
   let roles = rolesByDatabase.get(execSql);
   if (!roles) {

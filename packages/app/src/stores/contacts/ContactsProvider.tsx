@@ -36,6 +36,7 @@ import {
   findUserSystemContainer,
 } from "../systemContainers";
 import {
+  type DeleteToTrashTarget,
   ensureTrashSystemContainer,
   resolveDeleteToTrashTarget,
 } from "../systemContainerTrash";
@@ -185,7 +186,7 @@ function useContactsTrashResolver(input: {
   contactsOrganizationId: string | null;
   contactsRootContainerId: string | null;
   trashSystemSlot: ContainerSystemSlot | null;
-}): (document: DocumentSummary) => Promise<string | null> {
+}): (document: DocumentSummary) => Promise<DeleteToTrashTarget> {
   const {
     activeRootContainerId,
     containerContentsStore,
@@ -199,7 +200,8 @@ function useContactsTrashResolver(input: {
       activeRootContainerId !== contactsRootContainerId
     ) {
       // ensureSystemContainer would target the active custom root. Fail closed
-      // until personal Trash is visible or the personal root becomes active.
+      // until personal Trash is visible or the personal root becomes active;
+      // the resolver reports this as an unavailable Trash.
       return Promise.resolve(null);
     }
 

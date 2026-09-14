@@ -15,12 +15,15 @@ export interface SessionDependencies {
   log: (message: string) => void;
   logError: (message: string | Error, cause?: unknown) => void;
   onUserIdentityAvailable?: UserIdentityAvailable | undefined;
-  /** Records a login the server answered with a different account than acknowledged. */
-  reportSecurityIncident?: SecurityIncidentReporter | undefined;
   /** App-owned system containers provisioned with each new organization. */
   provisionedSystemContainers?:
     | ReadonlyArray<ProvisionedSystemContainerSpec>
     | undefined;
+  /**
+   * Records a refused login (a different account than acknowledged) or a
+   * refused root acknowledgement; absent in bare test harnesses.
+   */
+  reportSecurityIncident?: SecurityIncidentReporter | undefined;
 }
 
 export interface SessionContext {
@@ -38,7 +41,11 @@ export interface SessionContext {
 }
 
 export interface SessionSnapshot {
-  /** Server acknowledgements retained independently of the selected container. */
+  /**
+   * Server acknowledgements retained independently of the selected container.
+   * Bound to (signing fingerprint, user, organization): once acknowledged, an
+   * organization's root id may only be re-acknowledged or reported purged.
+   */
   rootAcknowledgments: ReadonlyArray<{
     readonly signingFingerprint: string;
     readonly userId: string;

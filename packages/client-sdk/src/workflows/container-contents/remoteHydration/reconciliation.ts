@@ -9,6 +9,10 @@ import type {
   ContainerState,
   RemoteContainerHydrationState,
 } from "./types";
+import {
+  isSessionRootState,
+  isVerifiedLocalRootReconciliationTarget,
+} from "./verifiedDestination";
 
 export function hasRemoteContainerMetadataState(
   containerState: ContainerState,
@@ -29,19 +33,6 @@ function isLocalOnlyRootContainerState(
   return (
     containerState.container.parentId === null &&
     !hasRemoteContainerMetadataState(containerState)
-  );
-}
-
-function canUseRemoteRootAsLocalRootReconciliationTarget(input: {
-  remoteRootState: ContainerState;
-  state: RemoteContainerHydrationState;
-}): boolean {
-  const { remoteRootState, state } = input;
-  return (
-    remoteRootState.container.parentId === null &&
-    remoteRootState.container.id === state.runtime.auth.rootContainerId &&
-    remoteRootState.container.organizationId ===
-      state.runtime.auth.organizationId
   );
 }
 
@@ -251,10 +242,7 @@ export async function reconcileLocalOnlyRootContainers(input: {
   const { childIdsByParentId, remoteRootState, state } = input;
   if (
     input.isCurrent?.() === false ||
-    !canUseRemoteRootAsLocalRootReconciliationTarget({
-      remoteRootState,
-      state,
-    })
+    !isSessionRootState(remoteRootState, state)
   ) {
     return 0;
   }
@@ -264,6 +252,16 @@ export async function reconcileLocalOnlyRootContainers(input: {
       containerState.container.id !== remoteRootState.container.id &&
       isLocalOnlyRootContainerState(containerState),
   );
+  // The unsigned login answer names the root; only the verified root created
+  // by the session user may absorb local content (see verifiedDestination).
+  // Checked only when there is local root content to merge, from the cached
+  // role alone, so a local refresh never waits on the network.
+  if (
+    localRootStates.length > 0 &&
+    !(await isVerifiedLocalRootReconciliationTarget({ remoteRootState, state }))
+  ) {
+    return 0;
+  }
 
   let reconciledRootContainerCount = 0;
   for (const localRootState of localRootStates) {

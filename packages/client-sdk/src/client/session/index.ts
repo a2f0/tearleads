@@ -1,4 +1,3 @@
-import { reportAndRethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import { removeNativeSubscriptionRestoreProvisioningAttempt } from "../../workflows/organizations/createOrganization";
 import {
   bootstrapRootContainer,
@@ -17,6 +16,7 @@ import {
   SessionIdentityAcknowledgments,
 } from "./sessionIdentityTrust";
 import { userSessionsFromResponse } from "./sessionListing";
+import { refuseSessionLogin } from "./sessionLoginRefusal";
 import { createSessionOrganization } from "./sessionOrganizationCreation";
 import {
   clearSessionRemoteSyncState,
@@ -24,7 +24,7 @@ import {
 } from "./sessionPurgeRecovery";
 import {
   acknowledgedSessionRoot,
-  acknowledgeSessionRoot,
+  commitSessionRootAcknowledgment,
 } from "./sessionRootAuthority";
 import type {
   CreateOrganizationOptions,
@@ -143,6 +143,9 @@ class SessionService implements Session {
     if (!fingerprint) {
       return false;
     }
+    // A refusal below clears the session it is evidence against; a session
+    // another login committed meanwhile is not that session and stays.
+    const snapshotAtStart = this.snapshotValue;
     const identitySnapshot = this.dependencies.identity.snapshot;
     const encapsulationKeyPair = identitySnapshot.encapsulationKeyPair;
     if (!encapsulationKeyPair) {
@@ -175,11 +178,7 @@ class SessionService implements Session {
     }
 
     if (!authentication) {
-      this.setContext({
-        authToken: null,
-        isAuthenticated: false,
-        isRoot: false,
-      });
+      this.logout();
       this.dependencies.log("Authentication failed");
       return false;
     }
@@ -198,23 +197,31 @@ class SessionService implements Session {
         return false;
       this.identityAcknowledgments.remember(authentication.userId, fingerprint);
     } catch (error) {
-      return this.refuseLogin(error, authentication.userId);
+      return refuseSessionLogin(error, authentication.userId, {
+        clear: () => this.logout(),
+        report: this.dependencies.reportSecurityIncident,
+      });
     }
-    if (this.dependencies.identity.snapshot !== identitySnapshot) {
-      return false;
-    }
-    this.setContext({
-      rootAcknowledgments: acknowledgeSessionRoot(
-        this.snapshotValue.rootAcknowledgments,
-        authentication,
-        fingerprint,
-      ),
-      authToken: authentication.token,
-      defaultOrganizationId: authentication.organizationId,
-      isAuthenticated: true,
-      isRoot: authentication.isRoot,
-      organizationId: authentication.organizationId,
-      userId: authentication.userId,
+    // A changed root for this identity+org is refused before the token is
+    // usable. Decision and commit are one synchronous step against the live
+    // snapshot (no await in between); the refusal clears the prior session in
+    // that same step and then reports its own incident.
+    await commitSessionRootAcknowledgment({
+      context: {
+        authToken: authentication.token,
+        defaultOrganizationId: authentication.organizationId,
+        isAuthenticated: true,
+        isRoot: authentication.isRoot,
+        organizationId: authentication.organizationId,
+        userId: authentication.userId,
+      },
+      onRefused: () => {
+        if (this.snapshotValue === snapshotAtStart) this.logout();
+      },
+      reporter: this.dependencies.reportSecurityIncident,
+      root: authentication,
+      session: this,
+      signingFingerprint: fingerprint,
     });
     this.dependencies.log("Authentication successful");
     return true;
@@ -222,20 +229,6 @@ class SessionService implements Session {
 
   logout(): void {
     this.setContext({ authToken: null, isAuthenticated: false, isRoot: false });
-  }
-
-  /**
-   * A server answering this identity with another account, or an identity
-   * whose durable pin no longer matches, is evidence, not a login failure.
-   */
-  private async refuseLogin(error: unknown, userId: string): Promise<never> {
-    this.setContext({ authToken: null, isAuthenticated: false, isRoot: false });
-    await reportAndRethrowKeyingVerificationError(
-      error,
-      this.dependencies.reportSecurityIncident,
-      { objectId: userId, objectKind: "user", operation: "session.login" },
-    );
-    throw error;
   }
 
   async logoutRemote(): Promise<boolean> {
@@ -333,16 +326,17 @@ class SessionService implements Session {
     if (this.dependencies.identity.snapshot !== identitySnapshot) {
       return null;
     }
-    this.setContext({
-      rootAcknowledgments: acknowledgeSessionRoot(
-        this.snapshotValue.rootAcknowledgments,
-        response,
-        identitySnapshot.signingFingerprint,
-      ),
-      containerId: response.rootContainerId,
-      defaultOrganizationId: response.organizationId,
-      organizationId: response.organizationId,
-      userId: response.userId,
+    await commitSessionRootAcknowledgment({
+      context: {
+        containerId: response.rootContainerId,
+        defaultOrganizationId: response.organizationId,
+        organizationId: response.organizationId,
+        userId: response.userId,
+      },
+      reporter: this.dependencies.reportSecurityIncident,
+      root: response,
+      session: this,
+      signingFingerprint: identitySnapshot.signingFingerprint,
     });
 
     return {
@@ -373,16 +367,15 @@ class SessionService implements Session {
       this.dependencies.identity.snapshot !== identitySnapshot
     )
       return null;
-    this.setContext({
-      rootAcknowledgments: acknowledgeSessionRoot(
-        this.snapshotValue.rootAcknowledgments,
-        {
-          userId,
-          organizationId: response.organizationId,
-          rootContainerId: response.containerId,
-        },
-        identitySnapshot.signingFingerprint,
-      ),
+    await commitSessionRootAcknowledgment({
+      reporter: this.dependencies.reportSecurityIncident,
+      root: {
+        userId,
+        organizationId: response.organizationId,
+        rootContainerId: response.containerId,
+      },
+      session: this,
+      signingFingerprint: identitySnapshot.signingFingerprint,
     });
     return response;
   }
@@ -444,9 +437,8 @@ class SessionService implements Session {
         this.dependencies.identity.snapshot.signingFingerprint,
       ),
     );
-    // Acknowledging a userId the snapshot already held (a prior `setUserId`)
-    // changes `userIdAcknowledged` without changing the snapshot; persistence
-    // subscribers must still observe it.
+    // Acknowledging an already-held userId changes `userIdAcknowledged` without
+    // changing the snapshot; persistence subscribers must still observe it.
     if (
       this.snapshotValue === previous &&
       wasAcknowledged !== this.userIdAcknowledged
