@@ -1,4 +1,6 @@
 ---
+import { AppleLogoIcon } from "@phosphor-icons/react/dist/ssr/AppleLogo";
+import { LinuxLogoIcon } from "@phosphor-icons/react/dist/ssr/LinuxLogo";
 import { isStaging } from "../config";
 import Layout from "../layouts/Layout.astro";
 import { resolveLinuxDownloads } from "../linuxDownloads";
@@ -21,19 +23,21 @@ const [macos, linux] = await Promise.all([
         Keep your notes, contacts, and files in one place — local-first,
         synced across your devices, and shared on your terms.
       </p>
-      <div class="desktop-downloads">
-        <div class="desktop-download">
+      <ul class="desktop-downloads" role="list" aria-label="Downloads">
+        <li class="desktop-download">
           <a class="download-button" href={macos.installerUrl}>
-            {isStaging ? "Download macOS preview" : "Download for macOS"}
+            <AppleLogoIcon size={20} aria-hidden="true" focusable="false" />
+            <span>{isStaging ? "Download macOS preview" : "Download for macOS"}</span>
           </a>
           <p>For Macs with Apple silicon.</p>
           <a class="download-checksum" href={macos.checksumUrl} aria-label="SHA-256 checksum for macOS">
             SHA-256 checksum
           </a>
-        </div>
-        <div class="desktop-download">
+        </li>
+        <li class="desktop-download">
           <a class="download-button" href={linux.installerUrl}>
-            {isStaging ? "Download Linux preview" : "Download for Linux"}
+            <LinuxLogoIcon size={20} aria-hidden="true" focusable="false" />
+            <span>{isStaging ? "Download Linux preview" : "Download for Linux"}</span>
           </a>
           <p>For Linux x64 (Intel / AMD).</p>
           <a class="download-checksum" href={linux.checksumUrl} aria-label="SHA-256 checksum for Linux">
@@ -42,8 +46,8 @@ const [macos, linux] = await Promise.all([
           <p>
             <a class="download-instructions" href="/downloads/linux">Installation instructions</a>
           </p>
-        </div>
-      </div>
+        </li>
+      </ul>
     </section>
   </main>
 </Layout>
@@ -51,14 +55,18 @@ const [macos, linux] = await Promise.all([
 <style>
   .desktop-downloads {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: flex-start;
     gap: 32px;
-    margin-top: 32px;
+    margin: 32px 0 0;
+    padding: 0;
+    list-style: none;
   }
 
   .download-button {
     display: inline-flex;
     align-items: center;
+    gap: 8px;
     min-height: 48px;
     padding: 12px 24px;
     border-radius: 6px;
@@ -66,6 +74,10 @@ const [macos, linux] = await Promise.all([
     color: #fff;
     font-weight: 700;
     text-decoration: none;
+  }
+
+  .download-button :global(svg) {
+    flex-shrink: 0;
   }
 
   .download-button:hover {
