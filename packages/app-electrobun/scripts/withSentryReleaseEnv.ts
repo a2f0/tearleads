@@ -1,29 +1,22 @@
 import { existsSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import {
-  electrobunSentryDist,
-  electrobunSentryRelease,
-} from "../src/diagnostics/sentryConfig";
 import { desktopSourceCommit } from "./desktopSourceCommit";
 import {
-  assertSentryTokenOrganization,
   hostedSentryEndpoint,
-  resolveSentryCliBinary,
-  runSentryCli,
   type SentryUploadEndpoint,
-  sentryCliUploadUrl,
 } from "./sentryCliUpload";
-import {
-  desktopSentryReleaseEnvironment,
-  desktopSentryUpload,
-  readDesktopSentrySecrets,
-} from "./sentryReleaseEnvironment";
+import { desktopSentryReleaseEnvironment } from "./sentryReleaseEnvironment";
 import { desktopSentryCommit } from "./sentryReleaseSource";
 import {
-  desktopSourceMapUploadArgs,
-  uploadDesktopSourceMaps,
-} from "./sentrySourceMaps";
+  assertNoBunLaunchVariables,
+  type Environment,
+  prepareSourceMapUpload,
+  readReleaseSecrets,
+  type SourceMapUploader,
+  uploadReleaseSourceMaps,
+} from "./sentryReleaseUpload";
+import { assertStagedSourceMaps } from "./sentrySourceMaps";
 
 // Runs a desktop build command with the tier's public Sentry defines set — the
 // diagnostics counterpart to scripts/withBuildInfoEnv.sh, which stamps build
@@ -40,63 +33,84 @@ import {
 // its local-only System Monitor logging. BUN_PUBLIC_GIT_SHA stays the short
 // display SHA; Sentry needs the full one to match an uploaded release.
 
-type Environment = Readonly<Record<string, string | undefined>>;
+// Set only by buildLinuxNative.sh, inside the Linux release container. It is
+// honoured only in a source archive, so a checkout release cannot skip its
+// upload; any other value stops the build.
+const deferredUploadName = "TEARLEADS_ELECTROBUN_SOURCEMAP_UPLOAD";
 
-// Bun options, preload modules and debuggers named by these variables, and the
-// DYLD_* libraries Bun's entitlements let macOS load, would run in, or attach
-// to, the process that holds the upload token. releaseMacos.sh and
-// buildElectrobun.sh unset the Bun variables before any Bun process starts, and
-// /bin/sh drops DYLD_* variables; a wrapper started some other way refuses them.
-const bunLaunchVariables = [
-  "BUN_OPTIONS",
-  "BUN_INSPECT",
-  "BUN_INSPECT_CONNECT_TO",
-  "BUN_INSPECT_NOTIFY",
-  "BUN_INSPECT_PRELOAD",
-];
+interface ReleaseInputs {
+  readonly tier: string | undefined;
+  readonly secrets: Environment;
+  readonly commit: string;
+  readonly uploader?: SourceMapUploader;
+}
 
-// Bun loads dotenv files, and any --env-file in BUN_OPTIONS, into this process
-// before it runs, and a build machine may export another project's settings.
-// So every SENTRY_* name, the upload token, organization, project and DSN
-// included, comes only from .secrets; the environment supplies everything else.
-async function releaseInputs(repoRoot: string, env: Environment) {
-  const { ELECTROBUN_RELEASE_TIER: tier } = env;
-  if (!tier) return { tier, secrets: env, commit: "", upload: undefined };
-  const launch = Object.keys(env).filter(
-    (name) =>
-      env[name] !== undefined &&
-      (bunLaunchVariables.includes(name) || name.startsWith("DYLD_")),
-  );
-  if (launch.length > 0)
-    throw new Error(
-      `Desktop Sentry releases must not run with ${launch.join(", ")}`,
-    );
-  const ambient = Object.entries(env).filter(
-    ([name]) => !name.startsWith("SENTRY_"),
-  );
-  const secrets = {
-    ...(await readDesktopSentrySecrets(resolve(repoRoot, ".secrets/root.env"))),
-    ...(await readDesktopSentrySecrets(
-      resolve(
-        repoRoot,
-        ".secrets",
-        tier === "production" ? "prod.env" : "staging.env",
-      ),
-    )),
-    ...Object.fromEntries(ambient),
-  };
-  // A checkout releases its own clean HEAD, whatever BUILD_GIT_SHA an earlier
-  // Docker build left exported. A source archive has no Git directory and names
-  // the commit it was exported from, which nothing here can verify, so its maps
-  // must not be uploaded under that release.
-  const { BUILD_GIT_SHA: exportedCommit } = env;
+// A checkout release reads .secrets, releases its own clean HEAD whatever
+// BUILD_GIT_SHA an earlier Docker build left exported, and uploads its maps.
+async function checkoutRelease(
+  repoRoot: string,
+  tier: string,
+  env: Environment,
+  endpoint: SentryUploadEndpoint,
+): Promise<ReleaseInputs> {
   if (!existsSync(join(repoRoot, ".git")))
     throw new Error(
-      `Desktop Sentry source maps upload only from a clean Git checkout, not a source archive of ${desktopSourceCommit(repoRoot, exportedCommit)}`,
+      "A desktop release uploads its source maps from a clean Git checkout; only the Linux release container defers that upload",
     );
+  const secrets = await readReleaseSecrets(repoRoot, tier, env);
   const commit = desktopSentryCommit(repoRoot);
-  const upload = desktopSentryUpload(secrets, tier);
-  return { tier, secrets, commit, upload };
+  const uploader = prepareSourceMapUpload(secrets, tier, endpoint);
+  return { tier, secrets, commit, uploader };
+}
+
+// The Linux release container builds a source archive with no Git directory and
+// no upload credentials: releaseLinux.sh passes only the commit and the public
+// DSNs. Its maps are staged and checked here, then copied out and uploaded on
+// the host (uploadLinuxSourceMaps.ts), which verifies the commit against its
+// own clean checkout before anything is published.
+function archiveRelease(
+  repoRoot: string,
+  tier: string,
+  env: Environment,
+): ReleaseInputs {
+  const { BUILD_GIT_SHA: exported, SENTRY_AUTH_TOKEN: token } = env;
+  if (existsSync(join(repoRoot, ".git")))
+    throw new Error(
+      `Only a source archive may set ${deferredUploadName}; a checkout uploads its own source maps`,
+    );
+  if (token !== undefined || existsSync(join(repoRoot, ".secrets")))
+    throw new Error(
+      "A desktop build that defers its source-map upload must not hold upload credentials",
+    );
+  // Without it, Git would look for a checkout above the archive.
+  if (!exported?.trim())
+    throw new Error(
+      "A desktop build that defers its source-map upload requires BUILD_GIT_SHA",
+    );
+  // There is no .secrets to read; the tier's public DSN is a Docker build
+  // argument. Every other SENTRY_* name is still dropped.
+  const dsn = `SENTRY_ELECTROBUN_${tier.toUpperCase()}_DSN`;
+  const secrets = {
+    ...Object.fromEntries(
+      Object.entries(env).filter(([name]) => !name.startsWith("SENTRY_")),
+    ),
+    [dsn]: env[dsn],
+  };
+  return { tier, secrets, commit: desktopSourceCommit(repoRoot, exported) };
+}
+
+async function releaseInputs(
+  repoRoot: string,
+  env: Environment,
+  endpoint: SentryUploadEndpoint,
+): Promise<ReleaseInputs> {
+  const { ELECTROBUN_RELEASE_TIER: tier, [deferredUploadName]: upload } = env;
+  if (!tier) return { tier, secrets: env, commit: "" };
+  assertNoBunLaunchVariables(env);
+  if (upload === "deferred") return archiveRelease(repoRoot, tier, env);
+  if (upload !== undefined)
+    throw new Error(`${deferredUploadName} must be unset or deferred`);
+  return checkoutRelease(repoRoot, tier, env, endpoint);
 }
 
 export async function runDesktopSentryRelease(options: {
@@ -106,55 +120,38 @@ export async function runDesktopSentryRelease(options: {
   env: Environment;
   endpoint: SentryUploadEndpoint;
 }): Promise<number> {
-  const { repoRoot, endpoint } = options;
+  const { repoRoot } = options;
   const [executable, ...args] = options.command;
   if (!executable) throw new Error("withSentryReleaseEnv requires a command");
-  const { tier, secrets, commit, upload } = await releaseInputs(
+  const { tier, secrets, commit, uploader } = await releaseInputs(
     repoRoot,
     options.env,
+    options.endpoint,
   );
-  const sourceMapDir = resolve(options.packageRoot, "build/sentry-sourcemaps");
-  // Resolved before building, so a release that cannot upload never builds.
-  const binary = upload ? resolveSentryCliBinary() : undefined;
-  if (upload) {
-    sentryCliUploadUrl(upload.token, endpoint);
-    assertSentryTokenOrganization(upload.token, upload.org);
-    await rm(sourceMapDir, { recursive: true, force: true });
-  }
+  const stagingDir = tier
+    ? resolve(options.packageRoot, "build/sentry-sourcemaps")
+    : undefined;
+  if (stagingDir) await rm(stagingDir, { recursive: true, force: true });
   const code = await Bun.spawn([executable, ...args], {
     cwd: process.cwd(),
-    env: desktopSentryReleaseEnvironment(
-      secrets,
-      tier,
-      commit,
-      upload ? sourceMapDir : undefined,
-    ),
+    env: desktopSentryReleaseEnvironment(secrets, tier, commit, stagingDir),
     stdout: "inherit",
     stderr: "inherit",
   }).exited;
-  if (!upload || !binary) return code;
+  if (!stagingDir) return code;
   if (code !== 0) {
-    await rm(sourceMapDir, { recursive: true, force: true });
+    await rm(stagingDir, { recursive: true, force: true });
     return code;
   }
-  await uploadDesktopSourceMaps(sourceMapDir, () => {
-    if (desktopSentryCommit(repoRoot) !== commit)
-      throw new Error(
-        "Source revision changed during the desktop Sentry build",
-      );
-    return runSentryCli({
-      binary,
-      endpoint,
-      token: upload.token,
-      args: desktopSourceMapUploadArgs({
-        org: upload.org,
-        project: upload.project,
-        release: electrobunSentryRelease(commit),
-        dist: electrobunSentryDist(upload.environment),
-        directory: sourceMapDir,
-      }),
-    });
-  });
+  try {
+    if (uploader)
+      await uploadReleaseSourceMaps({ uploader, repoRoot, commit, stagingDir });
+    // A deferred build leaves the checked pairs for releaseLinux.sh to copy.
+    else assertStagedSourceMaps(stagingDir);
+  } catch (error) {
+    await rm(stagingDir, { recursive: true, force: true });
+    throw error;
+  }
   return 0;
 }
 

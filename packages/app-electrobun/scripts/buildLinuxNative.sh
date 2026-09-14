@@ -6,6 +6,11 @@ if [[ $# -ne 1 || "$(uname -sm)" != "Linux x86_64" ]]; then
   exit 1
 fi
 export ELECTROBUN_RELEASE_TIER="$1"
+# This container holds no upload token and no Git checkout. The Sentry wrapper
+# still stages and checks source maps outside the app, leaving them for
+# releaseLinux.sh to copy out and upload from the host before publishing. The
+# wrapper honours this only in a source archive and requires BUILD_GIT_SHA.
+export TEARLEADS_ELECTROBUN_SOURCEMAP_UPLOAD=deferred
 case "$1" in
   staging)
     CHANNEL=canary

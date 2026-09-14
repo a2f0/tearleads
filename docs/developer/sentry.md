@@ -265,13 +265,9 @@ URLs provide symbolication without transmitting debug metadata.
 Electrobun events use `tearleads-electrobun@<git-sha>` and `staging-app` /
 `production-app`. `ELECTROBUN_RELEASE_TIER` selects `staging` or `production`;
 unset is an ordinary local build that reads no secrets and reports nothing.
-For macOS distribution, use `scripts/buildMacosRelease.sh <staging|production>`
-or `scripts/uploadMacosRelease.sh <staging|production>` from the repository root.
-The selected tier also enables signing, notarization, and release icons; these
-wrappers prepare the iconset and signing credentials before invoking the build.
-For Linux x64, use `scripts/buildLinuxRelease.sh <staging|production>` or
-`scripts/uploadLinuxRelease.sh <staging|production>`. Docker receives the source
-commit and public desktop DSNs; upload credentials remain on the host.
+Release with `scripts/{build,upload}MacosRelease.sh <tier>` (signed and
+notarized) or `scripts/{build,upload}LinuxRelease.sh <tier>`, whose Docker
+build gets only the source commit and public DSNs.
 Only a release build inlines desktop configuration; other builds drop it.
 `scripts/withSentryReleaseEnv.ts` resolves that tier's DSN and the full commit
 into the public `BUN_PUBLIC_SENTRY_ELECTROBUN_*` renderer defines, and wraps
@@ -291,10 +287,9 @@ token; after the build, the wrapper reads it from `.secrets/root.env`, uploads
 the staged files with `app:///` URLs, removes them, and exits non-zero on
 failure so nothing is published. Publishing requires a clean checkout before
 any Bun process runs (Bun loads a cwd `bunfig.toml` and dotenv files) and again
-before upload. `BUN_OPTIONS` and `BUN_INSPECT*` are unset before then; the
-version read and the wrapper add `--no-env-file --config=/dev/null`. The wrapper
-refuses those variables and `DYLD_*`, and reads every `SENTRY_*` name only from
-`.secrets`.
+before upload. `BUN_OPTIONS` and `BUN_INSPECT*` are unset first; Bun launches
+add `--no-env-file --config=/dev/null`. The wrapper refuses those variables and
+`DYLD_*`, and reads `SENTRY_*` names only from `.secrets`.
 
 The upload token reaches only the pinned `sentry-cli` binary, resolved via
 `@sentry/cli`, not `PATH`, and run without a Bun or npm shim. It runs in a fresh
@@ -306,6 +301,13 @@ only the token, `SENTRY_DISABLE_UPDATE_CHECK=1` and `SENTRY_LOAD_DOTENV=0`: neve
 org auth token's (`sntrys_`) embedded URL and organization over `--url` and
 `--org`, so the URL must be the root of `sentry.io`, `us.sentry.io` or
 `de.sentry.io` (then pinned) and the organization must be `SENTRY_ORG`.
+
+The Linux container (no `.git` or token) sets
+`TEARLEADS_ELECTROBUN_SOURCEMAP_UPLOAD=deferred`: it stages and sweeps maps
+without uploading; a checkout refuses the flag. `releaseLinux.sh upload` applies
+the same checkout, `BUN_*` and token rules, copies staging to a private host
+directory and, before publishing, uploads it via `uploadLinuxSourceMaps.ts`
+(`BUILD_GIT_SHA` must be the clean `HEAD`; exactly two regular-file pairs).
 
 API releases use `tearleads-api@<git-sha>`
 and `staging` / `production`. Bun embeds maps in the executable and resolves

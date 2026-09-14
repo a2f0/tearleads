@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, lstatSync } from "node:fs";
 import {
   copyFile,
   mkdir,
@@ -169,6 +169,33 @@ function isStagedPairSet(files: readonly string[]): boolean {
   );
 }
 
+// Staging must hold exactly the renderer and main-process pairs, as real,
+// unlinked files in real directories. A Linux release copies staging out of its
+// build container, and a link there would upload a host file instead.
+export function assertStagedSourceMaps(stagingDir: string): void {
+  const staged = existsSync(stagingDir) && lstatSync(stagingDir).isDirectory();
+  const entries = staged
+    ? [
+        ...new Bun.Glob("**").scanSync({
+          cwd: stagingDir,
+          dot: true,
+          onlyFiles: false,
+        }),
+      ].sort()
+    : [];
+  const files = entries.filter((path) => path !== "bun");
+  const linked = entries.filter((path) => {
+    const stats = lstatSync(join(stagingDir, path));
+    return path === "bun"
+      ? !stats.isDirectory()
+      : !stats.isFile() || stats.nlink !== 1;
+  });
+  if (!staged || !isStagedPairSet(files) || linked.length > 0)
+    throw new Error(
+      `Unexpected desktop source-map staging contents: ${entries.join(", ")}`,
+    );
+}
+
 // Uploads exactly the renderer and main-process pairs, then removes staging
 // whatever happens. A failed upload must stop the release before publishing.
 export async function uploadDesktopSourceMaps(
@@ -176,15 +203,7 @@ export async function uploadDesktopSourceMaps(
   upload: () => Promise<number>,
 ): Promise<void> {
   try {
-    const files = existsSync(stagingDir)
-      ? [
-          ...new Bun.Glob("**/*").scanSync({ cwd: stagingDir, dot: true }),
-        ].sort()
-      : [];
-    if (!isStagedPairSet(files))
-      throw new Error(
-        `Unexpected desktop source-map staging contents: ${files.join(", ")}`,
-      );
+    assertStagedSourceMaps(stagingDir);
     if ((await upload()) !== 0)
       throw new Error(
         "Desktop source map upload failed; release must not be published",

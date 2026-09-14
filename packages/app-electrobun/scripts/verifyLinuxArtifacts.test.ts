@@ -13,6 +13,9 @@ for (const tier of ["staging", "production"] as const) {
     "index.html",
     "worker.js",
     "sqlite3.wasm",
+    "installer-map",
+    "update-map",
+    "artifact-map",
   ]) {
     test(`${tier} rejects invalid ${failure} artifacts`, async () => {
       await expect(checkLinuxFixture(tier, failure)).rejects.toThrow();

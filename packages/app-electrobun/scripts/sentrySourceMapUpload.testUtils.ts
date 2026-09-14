@@ -13,6 +13,7 @@ export interface FakeSentry {
   readonly requests: string[];
   readonly authorizations: Set<string>;
   readonly projects: Set<string>;
+  readonly releases: Set<string>;
   stop(): void;
 }
 
@@ -26,6 +27,7 @@ export function startFakeSentry(
   const requests: string[] = [];
   const authorizations = new Set<string>();
   const projects = new Set<string>();
+  const releases = new Set<string>();
   const server = Bun.serve({
     hostname: "127.0.0.1",
     port: 0,
@@ -55,9 +57,14 @@ export function startFakeSentry(
         return new Response("");
       }
       if (pathname.includes("assemble")) {
-        const body: { chunks: string[]; projects?: string[] } =
-          await request.json();
+        const body: {
+          chunks: string[];
+          projects?: string[];
+          version?: string;
+          dist?: string;
+        } = await request.json();
         for (const project of body.projects ?? []) projects.add(project);
+        releases.add(`${body.version} ${body.dist}`);
         const ids = body.chunks;
         const parts = ids.map((id) => chunks.get(id));
         if (parts.some((part) => !part))
@@ -76,6 +83,7 @@ export function startFakeSentry(
     requests,
     authorizations,
     projects,
+    releases,
     stop: () => server.stop(true),
   };
 }
@@ -124,7 +132,7 @@ export const fixtureDsn = `https://${"a".repeat(32)}@o1.ingest.us.sentry.io/1`;
 // exit 0 without uploading. Dotenv files also substitute another organization's
 // token, which embeds the intended URL, and DSN, and the environment exports its
 // organization and project.
-async function plantHostileConfig(root: string, urls: HostileUrls) {
+export async function plantHostileConfig(root: string, urls: HostileUrls) {
   const { attacker } = urls;
   const rc = `[defaults]\nurl=${attacker}\n[http]\nproxy_url=${attacker}\n`;
   const dotenv = [
@@ -178,7 +186,7 @@ async function plantHostileConfig(root: string, urls: HostileUrls) {
   };
 }
 
-function git(cwd: string, ...args: string[]) {
+export function git(cwd: string, ...args: string[]) {
   const env = { ...process.env };
   for (const name of Object.keys(env))
     if (name.startsWith("GIT_")) delete env[name];
@@ -201,7 +209,7 @@ function git(cwd: string, ...args: string[]) {
 
 // A committed checkout shaped like this one: tier secrets, and a package with
 // the manifest script and dependencies a Bun-launched sentry-cli would use.
-async function createRepository(repoRoot: string, token: string) {
+export async function createRepository(repoRoot: string, token: string) {
   await Bun.write(
     join(repoRoot, ".gitignore"),
     ".secrets/\nbuild/\nnode_modules\n.env*\n.sentryclirc\n",
@@ -259,7 +267,7 @@ process.exit(await runDesktopSentryRelease({
 }));
 `;
 
-interface HostileUrls {
+export interface HostileUrls {
   readonly intended: string;
   readonly attacker: string;
 }
@@ -274,7 +282,7 @@ export interface ReleaseRun {
 
 // The upload refuses a TMPDIR below a directory another user can write, such as
 // Linux's default /tmp; the git-ignored build directory stands in there.
-async function privateTempBase(): Promise<string> {
+export async function privateTempBase(): Promise<string> {
   const base = realpathSync(tmpdir());
   for (let current = base; ; current = dirname(current)) {
     if ((statSync(current).mode & 0o022) !== 0) {

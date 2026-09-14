@@ -145,9 +145,20 @@ checks under QEMU; the application uses one main window.
 Only Git-tracked working files enter the Docker context; stage new source files
 before building. Host `node_modules`, ignored build output, `.git`, and
 `.secrets` are excluded. The host supplies the source commit and public desktop
-Sentry DSNs as build arguments; AWS credentials stay on the host. Local source
-edits are included in build mode. Upload refuses staged or unstaged source changes
-so the release identity names the committed source.
+Sentry DSNs as build arguments; AWS credentials and the Sentry upload token stay
+on the host. Local source edits are included in build mode. Upload refuses
+staged, unstaged, or untracked files before any Bun process runs, so the release
+identity names the committed source.
+
+The container build stages source maps outside the app and removes every map
+from the build directory, but uploads nothing
+(`TEARLEADS_ELECTROBUN_SOURCEMAP_UPLOAD=deferred`, honoured only without `.git`).
+After the installation check, upload copies the staged maps to a private host
+temporary directory and runs `scripts/uploadLinuxSourceMaps.ts`, which requires
+the source commit to be the clean checkout's `HEAD`, accepts exactly the renderer
+and main-process pairs as regular files, and uploads them with the token from
+`.secrets`. A failed or partial upload stops before S3. Build mode uploads no
+maps. The artifact check refuses any `.map` in the artifacts.
 
 Artifacts are copied to `build/linux-x64/<production|staging>/`, separate from
 macOS artifacts. The reusable Docker image is `tearleads-linux-release:<tier>`.

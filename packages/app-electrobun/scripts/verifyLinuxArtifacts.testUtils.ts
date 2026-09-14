@@ -20,6 +20,7 @@ export async function checkLinuxFixture(
   try {
     await write("setup/installer", "fixture installer");
     await write("setup/README.txt", "fixture readme");
+    if (failure === "installer-map") await write("setup/installer.map", "{}");
     const artifacts = join(root, "build/artifacts");
     await mkdir(artifacts, { recursive: true });
     execFileSync("tar", [
@@ -28,6 +29,7 @@ export async function checkLinuxFixture(
       "-C",
       join(root, "setup"),
       failure === "installer" ? "README.txt" : "installer",
+      ...(failure === "installer-map" ? ["installer.map"] : []),
     ]);
     const view = `payload/${app}/Resources/app/views/mainview`;
     for (const name of ["index.html", "worker.js", "sqlite3.wasm"]) {
@@ -41,6 +43,9 @@ export async function checkLinuxFixture(
       tier === "staging"
         ? "https://api-staging.tearleads.com"
         : "https://api.tearleads.com";
+    if (failure === "update-map") await write(`${view}/main.js.map`, "{}");
+    if (failure === "artifact-map")
+      await write("build/artifacts/main.js.map", "{}");
     await write(
       `${view}/main.js`,
       failure === "api" ? "https://wrong.example.test" : api,

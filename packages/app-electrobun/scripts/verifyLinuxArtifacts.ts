@@ -17,6 +17,12 @@ type Updater = {
   readUpdateHashFromTar(path: string): Promise<string>;
 };
 
+// Source maps are uploaded from staging outside the app; none may ship.
+function assertNoSourceMaps(paths: readonly string[], where: string) {
+  const maps = paths.filter((path) => path.endsWith(".map"));
+  assert.deepEqual(maps, [], `Source maps must not ship in ${where}`);
+}
+
 export async function verifyLinuxArtifacts(
   tier: "staging" | "production",
   packageRoot: string,
@@ -33,6 +39,8 @@ export async function verifyLinuxArtifacts(
       encoding: "utf8",
     });
     assert.match(contents, /(?:^|\/)installer\n/);
+    assertNoSourceMaps(await readdir(artifacts), "the artifact directory");
+    assertNoSourceMaps(contents.split("\n"), "the installer");
     const tar = join(temporary, "update.tar");
     execFileSync(
       "zstd",
@@ -54,6 +62,10 @@ export async function verifyLinuxArtifacts(
       },
     );
     assert.equal(await updater.readUpdateHashFromTar(tar), manifest.hash);
+    assertNoSourceMaps(
+      execFileSync("tar", ["-tf", tar], { encoding: "utf8" }).split("\n"),
+      "the update archive",
+    );
     execFileSync("tar", ["-xf", tar, "-C", temporary]);
     const resources = join(temporary, app, "Resources");
     const view = join(resources, "app/views/mainview");
