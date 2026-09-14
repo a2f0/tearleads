@@ -1,4 +1,8 @@
 import { DownloadSimpleIcon } from "@phosphor-icons/react/dist/csr/DownloadSimple";
+import type {
+  DocumentAttachment,
+  DocumentAttachmentStatus,
+} from "@tearleads/client-sdk";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import {
   MiniAppInput,
@@ -132,8 +136,16 @@ function FileDocumentNameRow(params: {
 }
 
 const FILE_DOCUMENT_DOWNLOAD_LABEL = "Download";
+/**
+ * Shown when the held file bytes are a validly signed attachment whose digest
+ * differs from the one the document content records (an `intent-mismatch`
+ * slot): the file the user sees is not the version the document describes.
+ */
+export const FILE_DOCUMENT_ATTACHMENT_DIFFERS_NOTICE =
+  "This file differs from the document's recorded version.";
 
 export function FileDocumentFields({
+  attachmentNotice = null,
   canWrite,
   downloadDisabled,
   downloadError,
@@ -148,6 +160,7 @@ export function FileDocumentFields({
   onToggleEditing,
   readFields,
 }: {
+  attachmentNotice?: string | null | undefined;
   canWrite: boolean;
   downloadDisabled: boolean;
   downloadError: string | null;
@@ -207,6 +220,11 @@ export function FileDocumentFields({
         />
       ) : null}
       {pdfPreview ? <FileDocumentPdfPreviewPanel preview={pdfPreview} /> : null}
+      {attachmentNotice ? (
+        <MiniAppStatus as="span" tone="muted">
+          {attachmentNotice}
+        </MiniAppStatus>
+      ) : null}
       {downloadError ? (
         <MiniAppStatus as="span" tone="error">
           {downloadError}
@@ -235,6 +253,25 @@ export function FileDocumentFields({
   );
 }
 
+/** The held file is the latest slot with local bytes; report a differing one. */
+export function resolveFileDocumentAttachmentNotice(input: {
+  attachments: ReadonlyArray<Pick<DocumentAttachment, "slotId">>;
+  attachmentStatusBySlotId: Readonly<Record<string, DocumentAttachmentStatus>>;
+  attachmentStorageKeyBySlotId: Readonly<Record<string, string>>;
+}): string | null {
+  for (let index = input.attachments.length - 1; index >= 0; index -= 1) {
+    const attachment = input.attachments[index];
+    if (!attachment || !input.attachmentStorageKeyBySlotId[attachment.slotId]) {
+      continue;
+    }
+    return input.attachmentStatusBySlotId[attachment.slotId] ===
+      "intent-mismatch"
+      ? FILE_DOCUMENT_ATTACHMENT_DIFFERS_NOTICE
+      : null;
+  }
+  return null;
+}
+
 function useFileDocumentReadFields(params: {
   extraFieldLabels: Readonly<Record<string, string>>;
   structuredFields: Readonly<Record<string, string>>;
@@ -260,6 +297,35 @@ function useFileDocumentReadFields(params: {
   }, [extraFieldLabels, structuredFields]);
 }
 
+// The held file (latest slot with local bytes) drives both the download
+// handler and the differs notice.
+function useFileDocumentAttachmentState(input: {
+  attachments: ReadonlyArray<DocumentAttachment>;
+  attachmentStatusBySlotId: Readonly<Record<string, DocumentAttachmentStatus>>;
+  attachmentStorageKeyBySlotId: Readonly<Record<string, string>>;
+}) {
+  const {
+    attachments,
+    attachmentStatusBySlotId,
+    attachmentStorageKeyBySlotId,
+  } = input;
+  const downloadable = useMemo(
+    () =>
+      resolveDownloadableAttachment(attachments, attachmentStorageKeyBySlotId),
+    [attachments, attachmentStorageKeyBySlotId],
+  );
+  const attachmentNotice = useMemo(
+    () =>
+      resolveFileDocumentAttachmentNotice({
+        attachments,
+        attachmentStatusBySlotId,
+        attachmentStorageKeyBySlotId,
+      }),
+    [attachments, attachmentStatusBySlotId, attachmentStorageKeyBySlotId],
+  );
+  return { attachmentNotice, downloadable };
+}
+
 // Derives everything the file view renders from the document store + runtime:
 // the read-only metadata rows, the rename commit, the download handler, and the
 // edit/download enablement. Kept as a hook so the component stays a thin shell.
@@ -274,6 +340,7 @@ function useFileDocument(params: {
   const fileViewer = useFileViewer();
   const {
     attachments,
+    attachmentStatusBySlotId,
     attachmentStorageKeyBySlotId,
     canWrite,
     documentKind,
@@ -293,11 +360,11 @@ function useFileDocument(params: {
     structuredFields,
   });
 
-  const downloadable = useMemo(
-    () =>
-      resolveDownloadableAttachment(attachments, attachmentStorageKeyBySlotId),
-    [attachments, attachmentStorageKeyBySlotId],
-  );
+  const { attachmentNotice, downloadable } = useFileDocumentAttachmentState({
+    attachments,
+    attachmentStatusBySlotId,
+    attachmentStorageKeyBySlotId,
+  });
   const mediaPreview = useFileDocumentMediaPreview({
     attachments,
     attachmentStorageKeyBySlotId,
@@ -348,6 +415,7 @@ function useFileDocument(params: {
   }, [downloadable, fileName, fileSaver, infra.blobStore, title]);
 
   return {
+    attachmentNotice,
     canWrite,
     commitFileName,
     downloadError,
@@ -376,6 +444,7 @@ export function FileDocument(params: {
     <StructuredDocument
       fields={
         <FileDocumentFields
+          attachmentNotice={model.attachmentNotice}
           canWrite={model.canWrite}
           downloadDisabled={model.downloadable === null}
           downloadError={model.downloadError}

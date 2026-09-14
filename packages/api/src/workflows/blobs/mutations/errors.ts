@@ -1,4 +1,8 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
+import {
+  BLOB_MUTATION_ERROR_CODES,
+  type BlobMutationErrorCode,
+} from "@tearleads/validators/response";
 import { BlobKekTargetError } from "../../../access/read/blobKekTargets";
 import { BlobContentKeyBundleError } from "../../../access/write/blobContentKeyStore";
 import { keyingVerificationHttpStatus } from "../../../keyingProjectionRecords";
@@ -7,17 +11,39 @@ import { DocumentMutationError } from "../../documents/mutations";
 import { PrincipalPolicyProjectionError } from "../../principals/principalPolicyProjection";
 import { BlobMutationError } from "./types";
 
+/**
+ * The shared path resolver (`assertCurrentContainerPathRefGroups`) raises the
+ * coded `container_unavailable` 409 as a document or container mutation error;
+ * blob binds/detaches keep that code and drop every other one, which belongs
+ * to the document/container envelopes rather than the blob envelope.
+ */
+function blobMutationErrorCode(
+  code: string | undefined,
+): BlobMutationErrorCode | undefined {
+  return code === BLOB_MUTATION_ERROR_CODES.containerUnavailable
+    ? BLOB_MUTATION_ERROR_CODES.containerUnavailable
+    : undefined;
+}
+
 export function toMutationError(error: unknown): BlobMutationError | null {
   if (error instanceof BlobMutationError) {
     return error;
   }
 
   if (error instanceof DocumentMutationError) {
-    return new BlobMutationError(error.message, error.status);
+    return new BlobMutationError(
+      error.message,
+      error.status,
+      blobMutationErrorCode(error.code),
+    );
   }
 
   if (error instanceof ContainerMutationError) {
-    return new BlobMutationError(error.message, error.status);
+    return new BlobMutationError(
+      error.message,
+      error.status,
+      blobMutationErrorCode(error.body?.code),
+    );
   }
 
   if (error instanceof PrincipalPolicyProjectionError) {

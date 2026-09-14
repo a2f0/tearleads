@@ -144,9 +144,11 @@ function signerPublicKeyLoadFailure(
         message: "signer key fingerprint does not match state signer",
       };
     case "not-found":
+      // The identity source throws for transport failures, so an absent
+      // signer here is the server asserting the cited user does not exist.
       return {
         code: "missing_dependency",
-        message: "failed to fetch signer key",
+        message: "signer identity is unknown to the server",
       };
   }
 }

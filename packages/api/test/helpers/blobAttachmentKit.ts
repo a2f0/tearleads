@@ -40,7 +40,12 @@ import {
 import { getDefaultOrganizationId } from "./organizationMembership";
 import { createServiceTestRuntime } from "./serviceRuntime";
 
-const blobAttachmentTestRuntime = createServiceTestRuntime();
+/**
+ * The runtime every kit helper stages and binds against. Route-level tests
+ * that need the staged bytes visible must mount their route on this runtime:
+ * its in-memory blob object store is not shared with the default app.
+ */
+export const blobAttachmentTestRuntime = createServiceTestRuntime();
 
 function documentManifest(
   document: DocumentCreateResponse,

@@ -1,4 +1,4 @@
-import { toFingerprint } from "@tearleads/crypto";
+import { serializeKeyingCanonicalJson, toFingerprint } from "@tearleads/crypto";
 import { requireBackupString } from "./backupTableValidation";
 import type { BackupSqlRow } from "./localBackupFormat";
 import { readProperty } from "./localBackupPayload";
@@ -27,20 +27,25 @@ export async function validateSecurityIncidentBackupIdentity(
   } catch {
     throw new Error("Security incident backup has invalid evidence hashes");
   }
-  if (
-    !parsed ||
-    typeof parsed !== "object" ||
-    Array.isArray(parsed) ||
-    Object.entries(parsed).some(
-      ([key, value]) => key.length === 0 || typeof value !== "string",
-    ) ||
-    JSON.stringify(parsed) !== evidence
-  ) {
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
     throw new Error("Security incident backup has invalid evidence hashes");
   }
-  // incident_v1 hashes the stored JSON text, including its key order. Validate
-  // that exact identity instead of imposing this device's locale ordering on
-  // a backup created by another runtime.
+  // Object.fromEntries keeps every validated key, including "__proto__", which
+  // an index assignment on a plain object would silently drop.
+  const evidenceHashes: Record<string, string> = Object.fromEntries(
+    Object.entries(parsed).map(([key, value]) => {
+      if (key.length === 0 || typeof value !== "string") {
+        throw new Error("Security incident backup has invalid evidence hashes");
+      }
+      return [key, value] as const;
+    }),
+  );
+  // incident_v1 hashes the evidence text, and the SDK writer serializes it in
+  // code-unit key order on every runtime. A backup whose text differs from that
+  // canonical form was not written by the SDK and cannot carry a valid id.
+  if (serializeKeyingCanonicalJson(evidenceHashes) !== evidence) {
+    throw new Error("Security incident backup has invalid evidence hashes");
+  }
   const identity = JSON.stringify(
     incidentIdentityColumns.map((column) => row[column]),
   );

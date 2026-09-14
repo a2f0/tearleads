@@ -49,6 +49,27 @@ export async function getVerifiedPrincipalPolicyForStateWithExecutor(
   };
 }
 
+/**
+ * Re-verifies a just-stored state from its rows inside the caller's
+ * transaction WITHOUT touching the process-wide verified cache: the rows are
+ * not committed yet, so a cache entry minted here would let a concurrent
+ * request treat an uncommitted (or later rolled back) chain as verified.
+ */
+export async function verifyStoredPrincipalPolicyForStateWithExecutor(
+  executor: DatabaseSession,
+  currentState: StoredPrincipalState,
+): Promise<VerifiedPrincipalPolicy> {
+  const bundle = await buildPrincipalPolicyForStateWithExecutor(
+    executor,
+    currentState,
+  );
+  const source = await loadStoredPrincipalPolicyVerificationSource({
+    bundle,
+    executor,
+  });
+  return verifyStoredPrincipalPolicyBundle({ source });
+}
+
 export async function getPrincipalPolicyForStateWithExecutor(
   executor: DatabaseSession,
   currentState: StoredPrincipalState,

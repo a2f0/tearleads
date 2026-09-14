@@ -1,0 +1,113 @@
+.pricing-page .pricing-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 40px;
+}
+
+.pricing-page .pricing-tier {
+  padding: 24px 20px;
+  border-color: var(--product-line);
+  border-radius: 12px;
+}
+
+.pricing-page .pricing-tier:first-child {
+  background: var(--product-tint);
+  border-color: #b9d0c0;
+}
+
+.pricing-page .pricing-tier-name {
+  font-size: 1.1rem;
+  line-height: 1.4;
+  letter-spacing: -0.015em;
+}
+
+.pricing-page .pricing-tier-price {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 20px;
+  color: var(--product-ink);
+  font-size: 2.5rem;
+  letter-spacing: -0.05em;
+  line-height: 1.2;
+}
+
+.pricing-tier-price span {
+  color: var(--product-muted);
+  font-size: 0.825rem;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.pricing-tier-capacity {
+  min-height: 3em;
+  margin: 12px 0 0;
+  color: var(--product-accent);
+  font-size: 0.825rem;
+  font-weight: 600;
+}
+
+.pricing-page .pricing-tier-description {
+  margin-top: 16px;
+  color: var(--product-muted);
+  font-size: 0.875rem;
+  line-height: 1.65;
+}
+
+.pricing-tier-features {
+  display: grid;
+  gap: 10px;
+  margin: 24px 0;
+  padding: 20px 0 0 16px;
+  border-top: 1px solid var(--product-line);
+  list-style: disc;
+  font-size: 0.8rem;
+}
+
+.pricing-tier-features li::marker {
+  color: var(--product-accent);
+}
+
+.pricing-tier .product-button {
+  margin-top: auto;
+  padding-inline: 10px;
+  font-size: 0.8rem;
+}
+
+.pricing-note {
+  max-width: 850px;
+  margin: 20px 0 0;
+  color: var(--product-muted);
+  font-size: 0.825rem;
+}
+
+.pricing-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 36px;
+  padding-top: 28px;
+  border-top: 1px solid var(--product-line);
+}
+
+.pricing-details p {
+  margin: 12px 0 0;
+  color: var(--product-muted);
+  font-size: 0.925rem;
+}
+
+@media (max-width: 1000px) {
+  .pricing-page .pricing-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .pricing-page .pricing-grid,
+  .pricing-details {
+    grid-template-columns: 1fr;
+  }
+
+  .pricing-tier-capacity {
+    min-height: 0;
+  }
+}

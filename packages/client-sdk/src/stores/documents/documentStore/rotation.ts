@@ -211,6 +211,7 @@ async function collectVerifiedRawHistoryForRotation(input: {
   state: DocumentStoreState;
 }) {
   const consumedPullContinuation = input.state.pullContinuation;
+  const writerProjectionGeneration = input.state.writerProjectionGeneration;
   const rebuiltDocument = await createStoredDocument(input.state);
   try {
     const synced = await pullVerifiedRawHistoryForRotation({
@@ -222,6 +223,7 @@ async function collectVerifiedRawHistoryForRotation(input: {
       currentRecord: input.currentRecord,
       rebuiltDocument,
       synced,
+      writerProjectionGeneration,
     };
   } catch (error) {
     rebuiltDocument.free();
@@ -288,6 +290,7 @@ function installRotationRecovery(input: {
           rebuiltDoc: collection.rebuiltDocument,
           state,
           synced: collection.synced,
+          writerProjectionGeneration: collection.writerProjectionGeneration,
         });
       }),
     );

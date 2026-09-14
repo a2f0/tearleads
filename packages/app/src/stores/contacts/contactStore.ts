@@ -5,6 +5,7 @@ import {
   contactEntryToStructuredFieldPatch,
 } from "../../document-types/contact/contactDocumentModel";
 import { createDocumentDraft } from "../documents/documentDraft";
+import { TrashUnavailableError } from "../systemContainerTrash";
 import { loadContactDocumentSummary } from "./contactDocumentSummary";
 import {
   removeContactAvatarInStore,
@@ -321,20 +322,26 @@ async function removeContactFromRuntime(
       }
 
       // Resolve the Trash for the contact's OWN container (org-aware), lazily
-      // provisioning the viewer's Trash when needed. A null result means there is
-      // nowhere to move it, so leave the contact in place — a no-op, not a purge.
+      // provisioning the viewer's Trash when needed. Without a target the
+      // contact stays in place — never a purge — and an unavailable Trash (a
+      // fresh device before its root syncs) is reported rather than swallowed.
       const resolveTrashContainer =
         state.runtime.resolveTrashContainerForDocument;
-      const trashContainerId = resolveTrashContainer
-        ? await resolveTrashContainer(contactDocument)
-        : null;
-      if (!trashContainerId) {
+      if (!resolveTrashContainer) {
+        return;
+      }
+      const target = await resolveTrashContainer(contactDocument);
+      if (target.status === "unavailable") {
+        state.dependencies.logError(new TrashUnavailableError(target.reason));
+        return;
+      }
+      if (target.status !== "target") {
         return;
       }
 
       const movedContact = await state.runtime.moveDocumentToTrash(
         contactDocument,
-        trashContainerId,
+        target.trashContainerId,
       );
       if (!movedContact) {
         return;

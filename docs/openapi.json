@@ -859,6 +859,7 @@
                                 "type": "string"
                               },
                               "signedAt": {
+                                "pattern": "^(?:19[7-9]\\d|[2-9]\\d{3})-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
                                 "type": "string"
                               },
                               "signerUserId": {
@@ -1445,6 +1446,7 @@
                                 "type": "string"
                               },
                               "signedAt": {
+                                "pattern": "^(?:19[7-9]\\d|[2-9]\\d{3})-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
                                 "type": "string"
                               },
                               "signerUserId": {
@@ -3330,6 +3332,7 @@
                             "type": "string"
                           },
                           "signedAt": {
+                            "pattern": "^(?:19[7-9]\\d|[2-9]\\d{3})-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
                             "type": "string"
                           },
                           "signerUserId": {
@@ -14548,8 +14551,13 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "code": {
+                      "type": "string",
+                      "const": "container_unavailable"
+                    },
                     "error": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     }
                   },
                   "required": [
@@ -15464,8 +15472,13 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "code": {
+                      "type": "string",
+                      "const": "container_unavailable"
+                    },
                     "error": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     }
                   },
                   "required": [
@@ -17662,6 +17675,10 @@
                                 {
                                   "type": "string",
                                   "const": "document_not_found"
+                                },
+                                {
+                                  "type": "string",
+                                  "const": "container_unavailable"
                                 }
                               ]
                             }
@@ -19784,6 +19801,10 @@
                                 {
                                   "type": "string",
                                   "const": "document_not_found"
+                                },
+                                {
+                                  "type": "string",
+                                  "const": "container_unavailable"
                                 }
                               ]
                             }
@@ -20851,6 +20872,10 @@
                                 {
                                   "type": "string",
                                   "const": "document_not_found"
+                                },
+                                {
+                                  "type": "string",
+                                  "const": "container_unavailable"
                                 }
                               ]
                             }
@@ -22278,6 +22303,10 @@
                                 {
                                   "type": "string",
                                   "const": "document_not_found"
+                                },
+                                {
+                                  "type": "string",
+                                  "const": "container_unavailable"
                                 }
                               ]
                             }
@@ -23711,6 +23740,10 @@
                                 {
                                   "type": "string",
                                   "const": "document_not_found"
+                                },
+                                {
+                                  "type": "string",
+                                  "const": "container_unavailable"
                                 }
                               ]
                             }
@@ -25144,6 +25177,10 @@
                                 {
                                   "type": "string",
                                   "const": "document_not_found"
+                                },
+                                {
+                                  "type": "string",
+                                  "const": "container_unavailable"
                                 }
                               ]
                             }
@@ -26393,6 +26430,10 @@
                                 {
                                   "type": "string",
                                   "const": "document_not_found"
+                                },
+                                {
+                                  "type": "string",
+                                  "const": "container_unavailable"
                                 }
                               ]
                             }
@@ -27809,6 +27850,10 @@
                                 {
                                   "type": "string",
                                   "const": "document_not_found"
+                                },
+                                {
+                                  "type": "string",
+                                  "const": "container_unavailable"
                                 }
                               ]
                             }
@@ -30448,6 +30493,10 @@
                         {
                           "type": "string",
                           "const": "document_not_found"
+                        },
+                        {
+                          "type": "string",
+                          "const": "container_unavailable"
                         }
                       ]
                     },
@@ -30489,6 +30538,10 @@
                         {
                           "type": "string",
                           "const": "document_not_found"
+                        },
+                        {
+                          "type": "string",
+                          "const": "container_unavailable"
                         }
                       ]
                     },
@@ -31449,6 +31502,10 @@
                         {
                           "type": "string",
                           "const": "document_not_found"
+                        },
+                        {
+                          "type": "string",
+                          "const": "container_unavailable"
                         }
                       ]
                     },
@@ -31490,6 +31547,10 @@
                         {
                           "type": "string",
                           "const": "document_not_found"
+                        },
+                        {
+                          "type": "string",
+                          "const": "container_unavailable"
                         }
                       ]
                     },
@@ -32480,6 +32541,10 @@
                         {
                           "type": "string",
                           "const": "document_not_found"
+                        },
+                        {
+                          "type": "string",
+                          "const": "container_unavailable"
                         }
                       ]
                     },
@@ -32521,6 +32586,10 @@
                         {
                           "type": "string",
                           "const": "document_not_found"
+                        },
+                        {
+                          "type": "string",
+                          "const": "container_unavailable"
                         }
                       ]
                     },
@@ -35122,6 +35191,10 @@
                         {
                           "type": "string",
                           "const": "document_not_found"
+                        },
+                        {
+                          "type": "string",
+                          "const": "container_unavailable"
                         }
                       ]
                     },
@@ -35163,6 +35236,10 @@
                         {
                           "type": "string",
                           "const": "document_not_found"
+                        },
+                        {
+                          "type": "string",
+                          "const": "container_unavailable"
                         }
                       ]
                     },
@@ -36853,6 +36930,10 @@
                         {
                           "type": "string",
                           "const": "document_not_found"
+                        },
+                        {
+                          "type": "string",
+                          "const": "container_unavailable"
                         }
                       ]
                     },
@@ -36894,6 +36975,10 @@
                         {
                           "type": "string",
                           "const": "document_not_found"
+                        },
+                        {
+                          "type": "string",
+                          "const": "container_unavailable"
                         }
                       ]
                     },
@@ -40997,6 +41082,7 @@
                             "type": "string"
                           },
                           "signedAt": {
+                            "pattern": "^(?:19[7-9]\\d|[2-9]\\d{3})-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
                             "type": "string"
                           },
                           "signerUserId": {
@@ -41565,6 +41651,7 @@
                             "type": "string"
                           },
                           "signedAt": {
+                            "pattern": "^(?:19[7-9]\\d|[2-9]\\d{3})-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
                             "type": "string"
                           },
                           "signerUserId": {
@@ -44140,6 +44227,7 @@
                             "type": "string"
                           },
                           "signedAt": {
+                            "pattern": "^(?:19[7-9]\\d|[2-9]\\d{3})-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
                             "type": "string"
                           },
                           "signerUserId": {
@@ -45820,6 +45908,7 @@
                             "type": "string"
                           },
                           "signedAt": {
+                            "pattern": "^(?:19[7-9]\\d|[2-9]\\d{3})-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
                             "type": "string"
                           },
                           "signerUserId": {
@@ -46392,6 +46481,7 @@
                             "type": "string"
                           },
                           "signedAt": {
+                            "pattern": "^(?:19[7-9]\\d|[2-9]\\d{3})-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
                             "type": "string"
                           },
                           "signerUserId": {
@@ -49988,6 +50078,7 @@
                                 "type": "string"
                               },
                               "signedAt": {
+                                "pattern": "^(?:19[7-9]\\d|[2-9]\\d{3})-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
                                 "type": "string"
                               },
                               "signerUserId": {
@@ -50574,6 +50665,7 @@
                                 "type": "string"
                               },
                               "signedAt": {
+                                "pattern": "^(?:19[7-9]\\d|[2-9]\\d{3})-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
                                 "type": "string"
                               },
                               "signerUserId": {
@@ -52459,6 +52551,7 @@
                             "type": "string"
                           },
                           "signedAt": {
+                            "pattern": "^(?:19[7-9]\\d|[2-9]\\d{3})-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
                             "type": "string"
                           },
                           "signerUserId": {
@@ -62068,6 +62161,7 @@
                         "type": "string"
                       },
                       "signedAt": {
+                        "pattern": "^(?:19[7-9]\\d|[2-9]\\d{3})-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
                         "type": "string"
                       },
                       "signerUserId": {

@@ -71,6 +71,10 @@ export interface PendingAttachmentRecord {
 export interface LocalAttachmentRecord {
   blobId: string | null;
   byteLength: number;
+  // Plaintext digest of the bytes at `storageKey`. Compared with the digest
+  // the document content records for the slot: a held copy that differs is a
+  // validly signed served binding the document has not recorded (yet).
+  contentSha256: string;
   // Set once the slot is unlinked from a synced document and cleared when the
   // slot is written again. The record survives the unlink so the next sync can
   // still detach the remote binding; `detachedAt` is what keeps the local read

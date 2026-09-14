@@ -289,7 +289,7 @@ const PENDING_WRITE_SOURCE_SQL = `
     intent.created_at AS created_at,
     intent.updated_at AS updated_at,
     intent.target_container_id AS target_container_id,
-    CASE WHEN intent.sync_status = 'blocked' THEN 'blocked' ELSE 'pending' END AS operation_status,
+    CASE WHEN intent.sync_status IN ('blocked', 'unavailable') THEN 'blocked' ELSE 'pending' END AS operation_status,
     COALESCE(NULLIF(intent.last_error, ''), failure.message) AS last_error,
     COALESCE(intent.last_attempted_at, failure.attempted_at) AS last_attempted_at,
     'always' AS inclusion

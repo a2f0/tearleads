@@ -3,10 +3,18 @@ import {
   serializeWsServerMessage,
 } from "@tearleads/validators/realtime";
 import type { ServerWebSocket } from "bun";
-import { addListener } from "../adapters/redisPubSub";
+import {
+  addListener,
+  addSubscriberReconnectListener,
+} from "../adapters/redisPubSub";
 import { reportBackgroundFailure } from "../diagnostics/reportBackgroundFailure";
 import { authorizeContainerAccessWithWorkflow } from "./containerInterestAccess";
 import { ContainerInterestAuthorizer } from "./containerInterestAuthorization";
+import {
+  ContainerInterestRevalidationSchedule,
+  type RevalidationScheduleOptions,
+  resolveProofAgePolicy,
+} from "./containerInterestRevalidation";
 import {
   type AuthorizeContainerAccess,
   principalInterestKey,
@@ -24,6 +32,7 @@ import { type AppliedInterest, WsEventRouter } from "./wsRouting";
 
 type InterestStore = Pick<typeof wsInterestStore, "apply" | "load">;
 type Subscribe = typeof addListener;
+type SubscribeReconnect = typeof addSubscriberReconnectListener;
 type AuthorizeOrganizationAccess = (
   userId: string,
   organizationId: string,
@@ -37,8 +46,10 @@ interface RealtimeGatewayDeps {
   readonly authorizeOrganizationAccess?: AuthorizeOrganizationAccess;
   readonly interestStore?: InterestStore;
   readonly organizationAuthorizationTimeoutMs?: number;
+  readonly revalidation?: RevalidationScheduleOptions;
   readonly router?: WsEventRouter;
   readonly subscribe?: Subscribe;
+  readonly subscribeReconnect?: SubscribeReconnect;
 }
 
 async function authorizeOrganizationAccessWithWorkflow(
@@ -303,15 +314,18 @@ class OrganizationInterestAuthorizer {
 function createWebsocketHandler(input: {
   readonly containerInterest: ContainerInterestAuthorizer;
   readonly organizationInterest: OrganizationInterestAuthorizer;
+  readonly revalidation: ContainerInterestRevalidationSchedule;
   readonly router: WsEventRouter;
 }) {
   return {
     maxPayloadLength: MAX_WS_CLIENT_MESSAGE_BYTES,
     async open(ws: ServerWebSocket<WebSocketTicketIdentity>) {
       input.router.open(ws);
+      input.revalidation.open(ws);
       await input.containerInterest.open(ws);
     },
     close(ws: ServerWebSocket<WebSocketTicketIdentity>) {
+      input.revalidation.close(ws);
       input.containerInterest.close(ws);
       input.organizationInterest.close(ws);
       input.router.close(ws);
@@ -350,6 +364,8 @@ export function createRealtimeGateway(deps: RealtimeGatewayDeps = {}) {
   const router = deps.router ?? new WsEventRouter();
   const interestStore = deps.interestStore ?? wsInterestStore;
   const subscribe = deps.subscribe ?? addListener;
+  const subscribeReconnect =
+    deps.subscribeReconnect ?? addSubscriberReconnectListener;
   const authorizeOrganizationAccess =
     deps.authorizeOrganizationAccess ?? authorizeOrganizationAccessWithWorkflow;
   const persistInterest = createOrderedInterestPersister(interestStore);
@@ -365,13 +381,20 @@ export function createRealtimeGateway(deps: RealtimeGatewayDeps = {}) {
     interestStore,
     persistInterest,
     router,
+    resolveProofAgePolicy(deps.revalidation),
+  );
+  const revalidation = new ContainerInterestRevalidationSchedule(
+    (ws) => containerInterest.revalidate(ws),
+    deps.revalidation,
   );
   const websocket = createWebsocketHandler({
     containerInterest,
     organizationInterest,
+    revalidation,
     router,
   });
   let unsubscribe: (() => void) | undefined;
+  let unsubscribeReconnect: (() => void) | undefined;
 
   // Redis pub/sub fans every event to every API process; this process routes
   // each event only to its locally-connected sockets that declared interest. An
@@ -412,11 +435,25 @@ export function createRealtimeGateway(deps: RealtimeGatewayDeps = {}) {
           routeMessage(message);
         });
     });
+    // Every invalidation published during a subscriber outage is lost, so a
+    // reconnect re-verifies each live socket's subscriptions server-side and
+    // asks every client to resync what it holds.
+    unsubscribeReconnect = subscribeReconnect(() => {
+      void containerInterest
+        .revalidateAll({ resyncAll: true })
+        .catch((error: unknown) => {
+          reportBackgroundFailure(error);
+        });
+    });
   }
 
   function stop(): void {
+    revalidation.stop();
+    containerInterest.stop();
     unsubscribe?.();
     unsubscribe = undefined;
+    unsubscribeReconnect?.();
+    unsubscribeReconnect = undefined;
   }
 
   return { start, stop, websocket };

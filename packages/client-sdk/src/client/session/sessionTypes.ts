@@ -1,5 +1,6 @@
 import type { ApiClient } from "@tearleads/api-client";
 import type { DocumentProjectorRegistryInput } from "../../data/documents/documentKinds";
+import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ProvisionedSystemContainerSpec } from "../../workflows/registration";
 import type { ClearRemoteSyncStateResult } from "../../workflows/sync";
 import type { Database } from "../database";
@@ -18,6 +19,11 @@ export interface SessionDependencies {
   provisionedSystemContainers?:
     | ReadonlyArray<ProvisionedSystemContainerSpec>
     | undefined;
+  /**
+   * Records a refused login (a different account than acknowledged) or a
+   * refused root acknowledgement; absent in bare test harnesses.
+   */
+  reportSecurityIncident?: SecurityIncidentReporter | undefined;
 }
 
 export interface SessionContext {
@@ -35,7 +41,11 @@ export interface SessionContext {
 }
 
 export interface SessionSnapshot {
-  /** Server acknowledgements retained independently of the selected container. */
+  /**
+   * Server acknowledgements retained independently of the selected container.
+   * Bound to (signing fingerprint, user, organization): once acknowledged, an
+   * organization's root id may only be re-acknowledged or reported purged.
+   */
   rootAcknowledgments: ReadonlyArray<{
     readonly signingFingerprint: string;
     readonly userId: string;
@@ -121,6 +131,13 @@ export interface Session {
   /** Controls server replication without changing network connectivity. */
   readonly syncEnabled: boolean;
   readonly userId: string | null;
+  /**
+   * Whether `userId` was acknowledged by the server for the active signing
+   * identity (a successful login or a fingerprint-bound host restore). A user
+   * ID chosen locally through `setUserId` is not, and hosts must not persist
+   * it as this identity's account.
+   */
+  readonly userIdAcknowledged: boolean;
   bootstrapLocalRootContainer(): Promise<{
     containerId: string;
     created: boolean;

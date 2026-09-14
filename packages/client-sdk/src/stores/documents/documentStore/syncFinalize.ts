@@ -36,6 +36,7 @@ import {
   importSyncedDocumentUpdates,
 } from "./syncUpdateImport";
 import { extendDocumentVersionCoverage } from "./versionCoverage";
+import { installDocumentWriterProjection } from "./writerProjectionGeneration";
 
 function documentWriterProjectionMatchesSyncResponse(
   writerProjection: NonNullable<
@@ -267,9 +268,10 @@ export async function finalizeDocumentSync(
       return { record: liveRecord ?? currentRecord };
     }
 
-    state.writerProjection = resolveSyncedDocumentWriterProjection(
+    installDocumentWriterProjection(
       state,
-      synced,
+      resolveSyncedDocumentWriterProjection(state, synced),
+      syncAttempt.writerProjectionGeneration,
     );
     const persisted = await persistSyncedDocument(
       state,

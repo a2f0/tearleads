@@ -102,7 +102,7 @@ test("resolves the viewer's own Trash without lazily creating one when it exists
       trashSystemSlot: VIEWER_TRASH_SLOT,
       ensureOwnTrashContainer: spy.ensure,
     }),
-  ).toBe("viewer-trash");
+  ).toEqual({ status: "target", trashContainerId: "viewer-trash" });
   expect(spy.calls).toBe(0);
 });
 
@@ -120,7 +120,30 @@ test("lazily creates the viewer's own Trash when none is resolved", async () => 
       trashSystemSlot: VIEWER_TRASH_SLOT,
       ensureOwnTrashContainer: spy.ensure,
     }),
-  ).toBe("lazily-created-viewer-trash");
+  ).toEqual({
+    status: "target",
+    trashContainerId: "lazily-created-viewer-trash",
+  });
+  expect(spy.calls).toBe(1);
+});
+
+test("a fresh device reports Trash as unavailable until sync instead of no-op", async () => {
+  // Before the root projection verifies, ensureSystemContainer has no root to
+  // hang the Trash on and resolves null; the caller must be told why.
+  const spy = ensureSpy(null);
+  const nodesWithoutTrash = baseNodes.filter(
+    (node) => node.id !== "viewer-trash",
+  );
+
+  expect(
+    await resolveDeleteToTrashTarget({
+      containerId: "viewer-folder",
+      currentOrganizationId: VIEWER_ORG,
+      nodes: nodesWithoutTrash,
+      trashSystemSlot: VIEWER_TRASH_SLOT,
+      ensureOwnTrashContainer: spy.ensure,
+    }),
+  ).toEqual({ status: "unavailable", reason: "awaiting-sync" });
   expect(spy.calls).toBe(1);
 });
 
@@ -135,7 +158,7 @@ test("uses the logical current org when the source is missing and Trash slots co
       trashSystemSlot: VIEWER_TRASH_SLOT,
       ensureOwnTrashContainer: spy.ensure,
     }),
-  ).toBe("viewer-trash");
+  ).toEqual({ status: "target", trashContainerId: "viewer-trash" });
   expect(spy.calls).toBe(0);
 });
 
@@ -153,7 +176,7 @@ test("does not select another org's Trash when the source and own Trash are miss
       trashSystemSlot: VIEWER_TRASH_SLOT,
       ensureOwnTrashContainer: spy.ensure,
     }),
-  ).toBeNull();
+  ).toEqual({ status: "unavailable", reason: "awaiting-sync" });
   expect(spy.calls).toBe(1);
 });
 
@@ -168,7 +191,30 @@ test("never falls back to the viewer's Trash for a foreign-org container with no
       trashSystemSlot: VIEWER_TRASH_SLOT,
       ensureOwnTrashContainer: spy.ensure,
     }),
-  ).toBeNull();
+  ).toEqual({ status: "unavailable", reason: "foreign-trash-unverified" });
+  expect(spy.calls).toBe(0);
+});
+
+test("resolves a custom org's Trash under a foreign root by the viewer's own slot", async () => {
+  const spy = ensureSpy({ id: "must-not-be-used" });
+  const customFolder = {
+    id: "custom-folder",
+    kind: "container" as const,
+    name: "Projects",
+    organizationId: CUSTOM_ORG,
+    parentId: CUSTOM_ROOT,
+    syncState: syncedContainerDocumentObjectSyncState,
+  };
+
+  expect(
+    await resolveDeleteToTrashTarget({
+      containerId: "custom-folder",
+      currentOrganizationId: VIEWER_ORG,
+      nodes: [customFolder, ...nodesWithCollidingCustomTrash],
+      trashSystemSlot: VIEWER_TRASH_SLOT,
+      ensureOwnTrashContainer: spy.ensure,
+    }),
+  ).toEqual({ status: "target", trashContainerId: "custom-trash" });
   expect(spy.calls).toBe(0);
 });
 
@@ -183,6 +229,6 @@ test("no-ops when the document already lives under Trash", async () => {
       trashSystemSlot: VIEWER_TRASH_SLOT,
       ensureOwnTrashContainer: spy.ensure,
     }),
-  ).toBeNull();
+  ).toEqual({ status: "already-in-trash" });
   expect(spy.calls).toBe(0);
 });

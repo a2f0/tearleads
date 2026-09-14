@@ -141,8 +141,7 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
         accessStateHash: created.accessManifestHash,
         lastCommitLsn: null,
         metadataDocumentId: created.metadataDocumentId,
-        systemSlot:
-          created.systemSlot ?? containerState.container.systemSlot ?? null,
+        systemSlot: created.systemSlot,
         organizationId: created.organizationId,
         parentId: created.parentId,
         ...created.persistedMetadataState,
@@ -200,8 +199,7 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
   containerState.container = {
     ...containerState.container,
     metadataDocumentId: created.metadataDocumentId,
-    systemSlot:
-      created.systemSlot ?? containerState.container.systemSlot ?? null,
+    systemSlot: created.systemSlot,
     organizationId: created.organizationId,
     parentId: persistenceCandidate.container.parentId,
     serverCreatedAt: created.createdAt,

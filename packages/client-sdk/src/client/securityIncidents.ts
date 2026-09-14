@@ -1,4 +1,5 @@
 import {
+  compareCanonicalStrings,
   isKeyingVerificationCode,
   type KeyingVerificationError,
 } from "@tearleads/crypto";
@@ -96,7 +97,9 @@ function redactIncidentContext(
             key.length <= MAX_EVIDENCE_HASH_KEY_LENGTH &&
             value.length <= MAX_EVIDENCE_HASH_VALUE_LENGTH,
         )
-        .sort(([left], [right]) => left.localeCompare(right))
+        // Code-unit order: the retained keys feed the incident id hash, so
+        // truncation must pick the same keys on every runtime and locale.
+        .sort(([left], [right]) => compareCanonicalStrings(left, right))
         .slice(0, MAX_EVIDENCE_HASH_COUNT),
     ),
     objectId: boundNullableIncidentText(context.objectId),

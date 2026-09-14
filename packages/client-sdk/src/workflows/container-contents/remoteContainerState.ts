@@ -4,6 +4,7 @@ import {
 } from "../../data/containers/containerMetadataDocument";
 import type { ContainerHydrationTombstone } from "./containerPersistence";
 import { installContainerMetadataRecord } from "./metadataPersistence";
+import { projectionGeneration } from "./projectionGeneration";
 import {
   addIndexedContainerChild,
   moveIndexedContainerChild,
@@ -173,7 +174,10 @@ function installUpdatedRemoteContainerState(
   existingState.containerWriterProjection = nextState.containerWriterProjection;
   existingState.metadataReferencedPrincipals =
     nextState.metadataReferencedPrincipals;
-  existingState.metadataWriterProjection = nextState.metadataWriterProjection;
+  // The snapshot copied the live generation when it was taken; a hint that
+  // landed during the persist leaves the live metadata projection dropped.
+  if (projectionGeneration(existingState) === projectionGeneration(nextState))
+    existingState.metadataWriterProjection = nextState.metadataWriterProjection;
   installContainerMetadataRecord(existingState, nextState.record);
   // A document pass may have deferred while this root was awaiting proof.
   // The first durable remote acknowledgement makes its pending creates runnable.

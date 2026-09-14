@@ -2,93 +2,12 @@ import { expect, mock, test } from "bun:test";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { ContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import type { ContainerState } from "../../workflows/container-contents/remoteHydration";
-import type { ContainerContentsWorkflowRuntime } from "../../workflows/container-contents/runtime";
-import { ContainerStateMap } from "./containerStateMap";
+import { rememberDestinationRole } from "../../workflows/container-contents/remoteHydration/destinationRoleCache";
+import { refreshLocalContainerStates } from "./localRefresh";
 import {
-  type LocalContainerRefreshState,
-  refreshLocalContainerStates,
-} from "./localRefresh";
-
-function createRefreshState(input: {
-  containersById?: Map<string, ContainerState>;
-  loadContainers: ContainerContentsPersistence["loadContainers"];
-  log?: (message: string) => void;
-  reconcileLocalRootContainer?: ContainerContentsPersistence["reconcileLocalRootContainer"];
-  reconcileLocalSystemContainer?: ContainerContentsPersistence["reconcileLocalSystemContainer"];
-}): LocalContainerRefreshState {
-  const saveContainer: ContainerContentsPersistence["saveContainer"] = async (
-    _execSql,
-    container,
-  ) => container;
-
-  return {
-    containersById: new ContainerStateMap(input.containersById),
-    documentStoresNeedPriming: false,
-    initialized: true,
-    lifecycleGeneration: 0,
-    localContainerRefreshGeneration: null,
-    localContainerRefreshPromise: null,
-    localContainerRefreshStructuralGeneration: null,
-    localContainersNeedRefresh: true,
-    persistence: {
-      enqueuePendingUpdate: async () => {},
-      ensureSchema: async () => {},
-      loadContainers: input.loadContainers,
-      reconcileLocalRootContainer:
-        input.reconcileLocalRootContainer ?? (async () => {}),
-      reconcileLocalSystemContainer:
-        input.reconcileLocalSystemContainer ?? (async () => {}),
-      saveContainer,
-    } as unknown as ContainerContentsPersistence,
-    runtime: {
-      auth: {
-        organizationId: "organization-id",
-        rootContainerId: "remote-root",
-      },
-      infra: {
-        dbStatus: "ready",
-        execSql: {} as ContainerContentsWorkflowRuntime["infra"]["execSql"],
-      },
-      util: {
-        log: input.log ?? (() => {}),
-      },
-    } as ContainerContentsWorkflowRuntime,
-    structuralGeneration: 0,
-  };
-}
-
-function createTreeContainerState(input: {
-  id: string;
-  parentId: string | null;
-  remote: boolean;
-  systemSlot?: ContainerSystemSlot | null | undefined;
-}): ContainerState {
-  const documentId = input.remote ? `${input.id}-metadata` : null;
-  return {
-    container: {
-      icon: null,
-      id: input.id,
-      metadataDocumentId: documentId,
-      name: input.parentId === null ? "/" : "Contacts",
-      organizationId: input.remote ? "organization-id" : "",
-      parentId: input.parentId,
-      systemSlot: input.systemSlot ?? null,
-    },
-    doc: {} as ContainerState["doc"],
-    record: {
-      accessEpoch: 1,
-      accessStateHash: input.remote ? `${input.id}-access-state` : null,
-      contentKeyBundle: null,
-      documentId,
-      documentKekTargets: null,
-      documentManifestBundle: null,
-      id: input.id,
-      lastCommitLsn: null,
-      metadataUpdates: "",
-      snapshotEndVersion: "",
-    },
-  };
-}
+  createRefreshState,
+  createTreeContainerState,
+} from "./localRefresh.testFixtures";
 
 function createContainerState(documentId: string | null): ContainerState {
   return {
@@ -480,6 +399,14 @@ test("local refresh reconciles roots and system children loaded after remote sta
     ],
     reconcileLocalRootContainer: rootReconciliations,
     reconcileLocalSystemContainer: systemReconciliations,
+  });
+  // The persisted root's verified role (created by the session user) is what
+  // admits it as the merge target for the late-loaded local root.
+  rememberDestinationRole(state.runtime.infra.execSql, remoteRoot.container, {
+    createSignerUserId: "user-1",
+    metadataDocumentId: "remote-root-metadata",
+    parentId: null,
+    systemSlot: null,
   });
 
   await refreshLocalContainerStates({

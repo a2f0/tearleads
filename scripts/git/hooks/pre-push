@@ -74,6 +74,8 @@ step_timings_run markdown bun run lint:markdown
 
 step_timings_run package-assertions bun run lint:package-assertions
 
+step_timings_run canonical-ordering bun run lint:canonical-ordering
+
 step_timings_run knip bun run lint:knip:all
 
 step_timings_run knip-production bun run lint:knip:production

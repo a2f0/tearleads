@@ -1,0 +1,158 @@
+---
+const docsUrl = "https://github.com/a2f0/tearleads/blob/main/docs";
+const primitives = [
+  {
+    purpose: "Document & blob records",
+    mechanism: "AES-256-GCM + HKDF-SHA256",
+    detail:
+      "Authenticated encryption with a separate derived key for each content record.",
+  },
+  {
+    purpose: "Recipient key delivery",
+    mechanism: "ML-KEM-1024 + AES-256-GCM",
+    detail:
+      "Wraps container keys for users and groups. Content keys are wrapped under container keys with AES-GCM.",
+  },
+  {
+    purpose: "Digital signatures",
+    mechanism: "ML-DSA-87",
+    detail:
+      "Authenticates signed policies, access events, and content-write headers.",
+  },
+  {
+    purpose: "Local key separation",
+    mechanism: "HKDF-SHA256",
+    detail:
+      "Derives purpose-specific storage keys from the wrapped local account root.",
+  },
+];
+---
+
+<section class="security-section" id="cryptography" aria-labelledby="cryptography-title">
+  <p class="security-eyebrow">03 / Cryptography</p>
+  <h2 id="cryptography-title">Different keys for different jobs.</h2>
+  <p class="security-section-intro">
+    Content encryption, recipient key delivery, signatures, and local storage
+    each have a distinct role in the protocol.
+  </p>
+  <div class="security-crypto-table-wrap">
+    <table class="security-crypto-table">
+      <caption class="visually-hidden">Cryptographic primitives and their roles in Tearleads</caption>
+      <thead>
+        <tr><th scope="col">Purpose</th><th scope="col">Mechanism &amp; role</th></tr>
+      </thead>
+      <tbody>
+        {primitives.map((primitive) => (
+          <tr>
+            <th scope="row">{primitive.purpose}</th>
+            <td><strong>{primitive.mechanism}</strong><p>{primitive.detail}</p></td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+  <details class="security-detail">
+    <summary>How local storage and optional PIN protection work</summary>
+    <div>
+      <p>
+        The local keyring stores a wrapped account root and derives keys for
+        encrypted SQLite, local blobs, and identity persistence. Browser data
+        persistence uses the origin-private file system (OPFS); the keyring
+        manifest and wrapping key normally live in IndexedDB.
+      </p>
+      <p>
+        Protection depends on the host keystore. The browser implementation
+        persists a Web Crypto key; the WebView variant defaults to exported key
+        bytes in IndexedDB for compatibility. This is not a universal
+        hardware-backed keychain guarantee.
+      </p>
+      <p>
+        Optional PIN support adds a PBKDF2-SHA256 / AES-GCM wrapper around the
+        host-wrapped root. Reopening then requires both the host key and PIN.
+        The default browser keyring does not require a PIN, and a local PIN
+        does not change remote sharing permissions.
+      </p>
+    </div>
+  </details>
+</section>
+
+<section class="security-section" id="trust-boundaries" aria-labelledby="trust-title">
+  <p class="security-eyebrow">04 / Trust &amp; limits</p>
+  <h2 id="trust-title">The boundaries are part of the design.</h2>
+  <p class="security-section-intro">
+    These properties assume an honest, uncompromised client, authentic identity
+    keys, and working cryptographic primitives. The API and its storage may be
+    compromised; some behaviors still cannot be detected or prevented.
+  </p>
+  <dl class="security-limits">
+    <div>
+      <dt>First contact establishes trust</dt>
+      <dd>
+        Clients pin the first accepted identity bundle and reject later changes.
+        A server that substitutes a key on that first lookup can still establish
+        a false identity. A fingerprint check alone does not prove who owns it.
+      </dd>
+    </div>
+    <div>
+      <dt>Checkpoints need a remembered view</dt>
+      <dd>
+        A new device without a checkpoint can receive old but valid signed
+        history. Signatures alone do not prove that a view is the newest or that
+        all devices see the same view. Independent witnessing or gossip is
+        needed for stronger split-view resistance.
+      </dd>
+    </div>
+    <div>
+      <dt>Encryption does not ensure availability</dt>
+      <dd>
+        The service can withhold ciphertext, policies, or key envelopes and
+        refuse requests. When required verification material is missing, the
+        operation cannot safely proceed.
+      </dd>
+    </div>
+    <div>
+      <dt>An unlocked device can read content</dt>
+      <dd>
+        Local encryption does not protect against malicious code running in an
+        unlocked client or a compromised device. Anyone who obtains the recovery
+        phrase, including its QR representation, can recover that identity.
+      </dd>
+    </div>
+  </dl>
+  <details class="security-detail">
+    <summary>Revocation, nested containers, and historical access</summary>
+    <div>
+      <p>
+        Revocation cannot retract previously learned keys or downloaded content.
+        Rotating a parent container does not automatically rekey every descendant;
+        refreshing a descendant's signed access history does not itself replace
+        its encryption keys or promise confidentiality from a former member.
+      </p>
+      <p>
+        A revoked signer working with a compromised server may still present
+        records under valid historical authority to a device that has not seen
+        newer signed state. Verifying that authority does not prove when the
+        record was actually created.
+      </p>
+      <p>
+        Current container keys also unlock retained predecessor keys so current
+        members can read history. Compromise of a current container key therefore
+        exposes that retained history. These limits matter when evaluating access
+        removal and the impact of a compromised key.
+      </p>
+    </div>
+  </details>
+  <aside class="security-sources" aria-labelledby="security-sources-title">
+    <p class="security-eyebrow">Go deeper</p>
+    <h3 id="security-sources-title">Inspect the protocol.</h3>
+    <p>
+      This page summarizes the implementation. The technical documents describe
+      the verification rules, assumptions, and remaining gaps in more detail.
+    </p>
+    <ul role="list">
+      <li><a href={`${docsUrl}/security-guarantees.md`}>Security guarantees <span aria-hidden="true">↗</span></a></li>
+      <li><a href={`${docsUrl}/keying-design.md`}>Keying design <span aria-hidden="true">↗</span></a></li>
+      <li><a href={`${docsUrl}/protocol-specification.md`}>Protocol specification <span aria-hidden="true">↗</span></a></li>
+    </ul>
+  </aside>
+</section>

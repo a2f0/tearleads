@@ -38,7 +38,7 @@ import {
 } from "./documentManifestPolicies";
 import { requireVerifiedDocumentPredecessor } from "./documentManifestPredecessor";
 import { rejectPurgedDocumentProjection } from "./documentPurgeCheckpointEnforcement";
-import { rethrowProjectionVerificationBoundaryError } from "./error";
+import { throwKeyingVerificationShapeFailure } from "./error";
 import {
   loadManifestCheckpointVerification,
   verifyCachedManifestCheckpoint,
@@ -262,7 +262,10 @@ export async function verifyDocumentManifestBundle(input: {
       })
     : null;
   const verified = await verifyDocumentLinkSetManifest({
-    authorizationMembership: input.authorizationMembership,
+    // Served heads and history were committed under the group membership their
+    // cited container heads referenced; a signer removed since must still
+    // verify on a cold device. The API verifier gates new writes at current.
+    authorizationMembership: input.authorizationMembership ?? "referenced",
     authorizingContainerPaths: dependencyContainerPaths,
     event,
     expectedManifestHash: input.bundle.manifestHash,
@@ -448,13 +451,6 @@ export async function verifyDocumentWriterProjectionAuthorization(
     await finalizeProjectionCheckpoints(checkpointContext, input);
     return verified.authorization;
   } catch (error) {
-    rethrowProjectionVerificationBoundaryError(error);
-    if (error instanceof KeyingVerificationError) {
-      throw error;
-    }
-    throw new KeyingVerificationError(
-      "invalid_shape",
-      error instanceof Error ? error.message : String(error),
-    );
+    throwKeyingVerificationShapeFailure(error);
   }
 }

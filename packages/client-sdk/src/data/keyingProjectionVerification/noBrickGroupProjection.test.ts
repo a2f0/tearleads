@@ -1,17 +1,5 @@
 import { expect, test } from "bun:test";
-import {
-  type ContainerGrantPrincipalHead,
-  generateSigningSeedAndKeyPair,
-  toFingerprint,
-  type VerifiedContainerAccessManifest,
-  type VerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
-import {
-  createContainerManifestFixture,
-  createPrincipalPolicyFixture,
-  createVerifiedContainerAccessEvent,
-  fixtureHash,
-} from "@tearleads/crypto/test-fixtures";
+import type { VerifiedContainerAccessManifest } from "@tearleads/crypto";
 import {
   createNativeTestExecSql,
   createNoBrickTraceRecorder,
@@ -20,116 +8,19 @@ import {
 import {
   grantBy,
   manifestBundle,
-  successor,
 } from "../../../test/helpers/ancestorCitationScenario";
-import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
+import { createGroupHistoricalSignerScenario } from "../../../test/helpers/groupHistoricalSignerScenario";
 import { advanceKeyingCheckpointsAtomically } from "../persistence/keyingCheckpointAdvancePersistence";
 import { createProjectionCheckpointContext } from "./checkpointContext";
 import { verifyContainerManifestPath } from "./containerPathVerification";
 import { principalPolicyCacheForVerifiedPolicies } from "./principalPolicyCache";
 
 test("a cold device accepts a child signed by a since-removed group admin", async () => {
-  const alice = { userId: "alice", keyPair: generateSigningSeedAndKeyPair() };
-  const mallory = {
-    userId: "mallory",
-    keyPair: generateSigningSeedAndKeyPair(),
-  };
-  const firstHead: ContainerGrantPrincipalHead = {
-    principalType: "group",
-    principalId: "historical-admins",
-    version: 1,
-    keyEpoch: 1,
-    stateHash: await fixtureHash("historical-admins-1"),
-    keyFingerprint: await fixtureHash("historical-admins-key-1"),
-  };
-  const currentHead = {
-    ...firstHead,
-    version: 2,
-    keyEpoch: 2,
-    stateHash: await fixtureHash("historical-admins-2"),
-    keyFingerprint: await fixtureHash("historical-admins-key-2"),
-  };
-  const policy = {
-    ...createPrincipalPolicyFixture(currentHead),
-    projection: [{ role: "admin", userId: alice.userId }],
-    history: [
-      {
-        grants: [],
-        projection: [{ role: "admin", userId: mallory.userId }],
-        state: firstHead,
-      },
-      {
-        grants: [],
-        projection: [{ role: "admin", userId: alice.userId }],
-        state: currentHead,
-      },
-    ],
-  } as unknown as VerifiedPrincipalPolicy;
-  const root1 = await createContainerManifestFixture({
-    containerId: "group-root",
-    containerKeyEpochId: "group-root-key-1",
-    directGrants: [
-      {
-        accessLevel: "admin",
-        subjectType: "group",
-        subjectId: firstHead.principalId,
-      },
-      { accessLevel: "admin", subjectType: "user", subjectId: alice.userId },
-    ],
-    referencedPrincipalHeads: [firstHead],
-    signer: alice.keyPair,
-    signerUserId: alice.userId,
-  });
-  const child1 = await createContainerManifestFixture({
-    containerId: "group-child",
-    containerKeyEpochId: "group-child-key-1",
-    directGrants: [],
-    event: await createVerifiedContainerAccessEvent({
-      body: {
-        systemSlot: null,
-        eventType: "container.create",
-        parentContainerId: root1.state.containerId,
-        parentManifestHash: root1.manifestHash,
-        metadataDocumentId: "group-child-metadata-document",
-        containerKeyEpochId: "group-child-key-1",
-        directGrants: [],
-        referencedPrincipalHeads: [],
-      },
-      dependencyManifestHashes: [root1.manifestHash],
-      objectId: "group-child",
-      organizationId: "organization-1",
-      previousManifestHash: null,
-      signer: alice.keyPair,
-      signerUserId: alice.userId,
-    }),
-    parentContainerId: root1.state.containerId,
-    parentManifestHash: root1.manifestHash,
-    signer: alice.keyPair,
-    signerUserId: alice.userId,
-  });
-  const child2 = await grantBy({
-    cited: [root1.manifestHash, child1.manifestHash],
-    previous: child1,
-    signer: mallory,
-    subjectId: "reader",
-  });
-  const root2 = await successor({
-    body: {
-      eventType: "container.rekey",
-      containerKeyEpochId: "group-root-key-2",
-      keyringHash: await fixtureHash("group-root-keyring"),
-      predecessorBridgeHash: await fixtureHash("group-root-bridge"),
-      referencedPrincipalHeads: [currentHead],
-    },
-    cited: [root1.manifestHash],
-    previous: root1,
-    signer: alice,
-    state: () => ({
-      containerKeyEpochId: "group-root-key-2",
-      referencedPrincipalHeads: [currentHead],
-    }),
-  });
-  const bundles = [root1, root2, child1, child2].map(manifestBundle);
+  const scenario = await createGroupHistoricalSignerScenario();
+  const { child2, mallory, root2 } = scenario;
+  const bundles = [scenario.root1, root2, scenario.child1, child2].map(
+    manifestBundle,
+  );
   const { close, execSql } = createNativeTestExecSql();
   const recorder = createNoBrickTraceRecorder("container-group-late-delivery", {
     d1: 0,
@@ -147,21 +38,10 @@ test("a cold device accepts a child signed by a since-removed group admin", asyn
       enforceLocalCheckpoints: true,
       label: "Late group-authored child",
       path: [root2, child2].map(manifestBundle),
-      principalPolicyCache: principalPolicyCacheForVerifiedPolicies([policy]),
-      resolveUserKey: async (userId) => {
-        const signer = [alice, mallory].find(
-          (entry) => entry.userId === userId,
-        );
-        return signer
-          ? createTestTrustedUserIdentity({
-              signingKeyFingerprint: await toFingerprint(
-                signer.keyPair.signingPublicKey,
-              ),
-              signingPublicKey: signer.keyPair.signingPublicKey,
-              userId,
-            })
-          : null;
-      },
+      principalPolicyCache: principalPolicyCacheForVerifiedPolicies([
+        scenario.policy,
+      ]),
+      resolveUserKey: scenario.resolveUserKey,
       verifiedByHash,
     } satisfies Parameters<typeof verifyContainerManifestPath>[0];
     const path = await verifyContainerManifestPath(verificationInput);
@@ -189,7 +69,7 @@ test("a cold device accepts a child signed by a since-removed group admin", asyn
       cited: [root2.manifestHash, child2.manifestHash],
       previous: child2,
       signer: mallory,
-      subjectId: "forged-reader",
+      subjectId: scenario.peer.userId,
     });
     await expect(
       verifyContainerManifestPath({

@@ -41,6 +41,7 @@ test("create adoption does not prime or succeed after content-key unwrap expires
       execSql: database.execSql,
       expectedContainerId: fixture.projection.containerId,
       expectedOrganizationId: fixture.author.organizationId,
+      expectedSignerUserId: fixture.author.signerUserId,
       resolveProjectionUserKey: fixture.resolveProjectionUserKey,
       stillCurrent: () => current,
       targetSecretKey: fixture.secretKey,

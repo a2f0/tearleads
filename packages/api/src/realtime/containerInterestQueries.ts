@@ -65,6 +65,24 @@ function authorizationWasInvalidated(
   );
 }
 
+/** The proofs a run may install, or null when it must re-query. */
+function acceptableProofs(
+  query: ActiveQuery,
+  ids: readonly string[],
+  proofs: readonly VerifiedContainerInterest[],
+): VerifiedContainerInterest[] | null {
+  // Marked stale while this reader waited (a reconnect, or another reader's
+  // timeout): the answer may predate a lost invalidation.
+  if (query.stale) return null;
+  const requested = new Set(ids);
+  const allowed = proofs.filter((proof) => requested.has(proof.containerId));
+  if (authorizationWasInvalidated(query, allowed, ids)) {
+    query.stale = true;
+    return null;
+  }
+  return allowed;
+}
+
 export class ContainerInterestQueries {
   private readonly active = new Map<string, ActiveQuery>();
 
@@ -79,6 +97,26 @@ export class ContainerInterestQueries {
         query.overflow = true;
       else query.changed.add(containerId);
     }
+  }
+
+  /**
+   * A pub/sub reconnect: every invalidation published during the outage is
+   * gone, so a query already running may answer from pre-revocation access.
+   * Later runs await it (no SQL amplification) but never share its result,
+   * and readers already waiting on it discard the answer and re-query.
+   */
+  markAllStale(): void {
+    for (const query of this.active.values()) query.stale = true;
+  }
+
+  /**
+   * A proof-deadline eviction on this socket: its session's running query
+   * read access before the bound expired, so a declaration straddling the
+   * deadline must discard that answer and re-query instead of installing it.
+   */
+  markStale(ws: WsConnection): void {
+    const query = this.active.get(socketSessionKey(ws));
+    if (query) query.stale = true;
   }
 
   async run(
@@ -115,17 +153,18 @@ export class ContainerInterestQueries {
       query.readers++;
       attempts++;
       try {
-        const proofs = await beforeDeadline(query.result, deadline);
+        const proofs = await beforeDeadline(query.result, deadline).catch(
+          (error: unknown) => {
+            // A timed-out (or failed) query is never reused: whatever it
+            // eventually answers may predate an invalidation nobody waited for.
+            query.stale = true;
+            throw error;
+          },
+        );
         if (query.overflow)
           throw new Error("Too many pending container access changes");
-        const requested = new Set(ids);
-        const allowed = proofs.filter((proof) =>
-          requested.has(proof.containerId),
-        );
-        if (authorizationWasInvalidated(query, allowed, ids)) {
-          query.stale = true;
-          continue;
-        }
+        const allowed = acceptableProofs(query, ids, proofs);
+        if (!allowed) continue;
         // Keep the query observable until synchronous installation. Every
         // access event sees either this query or its installed dependencies.
         if (isOpen()) install(allowed);
@@ -165,8 +204,10 @@ export class ContainerInterestQueries {
   }
 
   private release(key: string, query: ActiveQuery): void {
-    // A socket timeout never frees the raw query slot. Reconnects share or
-    // await that query until it actually settles, preventing SQL amplification.
+    // A socket timeout never frees the raw query slot. Later runs await that
+    // query until it actually settles (preventing SQL amplification) and, since
+    // the timeout marked it stale, start their own afterwards.
+
     if (!query.settled || query.readers > 0) return;
     if (this.active.get(key) === query) this.active.delete(key);
     query.finish();

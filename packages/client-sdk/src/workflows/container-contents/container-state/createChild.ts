@@ -109,7 +109,7 @@ async function buildRemoteContainerContentsChildContainerState(input: {
       organizationId: created.organizationId,
       parentId: created.parentId,
       metadataDocumentId: created.metadataDocumentId,
-      systemSlot: created.systemSlot ?? systemSlot ?? null,
+      systemSlot: created.systemSlot,
       name: trimmedName,
       icon,
       createdAt: created.createdAt,

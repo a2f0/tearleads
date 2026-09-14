@@ -150,8 +150,8 @@ API access and incident reporting.
 
 Attachment methods persist required `contentSha256` digests in encrypted document
 content and pending-upload rows. Recovery restores slots without reading bytes.
-Hydration installs matching bytes only while the document and durable slot remain
-current; an older valid binding cannot replace the intended attachment content.
+Hydration replaces a held copy only with bytes matching the document intent; a
+valid served binding the document has not recorded fills only an empty slot.
 
 For bounded UI hydration, resolve `localId` with
 `tearleads.documents.findLocalIdByDocumentId(documentId)`, open with

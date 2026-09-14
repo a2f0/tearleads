@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { getDefaultApiDatabaseKind } from "@tearleads/api-shared/postgres";
 import { createTestUser } from "@tearleads/bob-and-alice";
+import { CONTAINER_UNAVAILABLE_ERROR_CODE } from "@tearleads/validators/response";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { createChildContainer } from "../../../test/helpers/keyingWriterProjectionChild";
 import {
@@ -80,12 +81,14 @@ for (const first of ["create", "delete"] as const) {
       const responses = await Promise.all(contenders);
       if (synchronizationError) throw synchronizationError;
       expect(responses.map((response) => response.status)).toEqual([200, 409]);
-      expect(await responses[1]?.json()).toEqual({
-        error:
-          first === "create"
-            ? "Container has linked documents"
-            : "targetContainerPathRefs[1] container unavailable",
-      });
+      expect(await responses[1]?.json()).toEqual(
+        first === "create"
+          ? { error: "Container has linked documents" }
+          : {
+              code: CONTAINER_UNAVAILABLE_ERROR_CODE,
+              error: "targetContainerPathRefs[1] container unavailable",
+            },
+      );
     },
     30_000,
   );

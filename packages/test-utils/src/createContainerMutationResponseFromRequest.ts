@@ -173,6 +173,8 @@ export async function createContainerMutationResponseFromRequest(
   });
 
   return {
+    // The server echoes the stored slot column exactly when it is non-null.
+    ...(state.systemSlot === null ? {} : { systemSlot: state.systemSlot }),
     containerId: event.objectId,
     createdAt: "2026-05-05T00:00:00.000Z",
     organizationId: event.organizationId,

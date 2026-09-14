@@ -1,0 +1,47 @@
+---
+const steps = [
+  {
+    actor: "Sending device",
+    title: "Verify access",
+    body: "Check signed access manifests, referenced group policies, identity pins, and remembered checkpoints.",
+  },
+  {
+    actor: "Sending device",
+    title: "Encrypt & wrap",
+    body: "Encrypt content. Wrap content keys under container keys, and container keys for the verified recipients.",
+  },
+  {
+    actor: "Sync service",
+    title: "Validate & store",
+    body: "Enforce write authorization and signed commitments. Store ciphertext and wrapped keys for delivery.",
+  },
+  {
+    actor: "Receiving device",
+    title: "Verify & decrypt",
+    body: "Verify the signed records and access path, unwrap the keys, and decrypt content locally.",
+  },
+];
+---
+
+<figure class="security-figure" aria-labelledby="sharing-caption">
+  <ol class="security-sharing-flow" role="list">
+    {steps.map((step, index) => (
+      <li class:list={["security-sharing-step", { "security-sharing-step--service": index === 2 }]}>
+        <span class="security-eyebrow">{step.actor}</span>
+        <span class="security-sharing-number" aria-hidden="true">0{index + 1}</span>
+        <h3>{step.title}</h3>
+        <p>{step.body}</p>
+      </li>
+    ))}
+  </ol>
+  <div class="security-verification-note">
+    <strong>Verification is a gate.</strong>{" "}
+    Invalid required signatures, policy chains, or checkpoint comparisons stop the
+    affected operation. Server-provided recipient lists alone do not authorize sharing.
+  </div>
+  <figcaption id="sharing-caption">
+    <span class="security-figure-label">Figure 02</span>{" "}
+    A simplified shared-content flow. The service checks writes;
+    receiving clients independently verify the records they use.
+  </figcaption>
+</figure>

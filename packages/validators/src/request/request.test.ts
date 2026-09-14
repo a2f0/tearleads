@@ -228,6 +228,18 @@ test("isPutPrincipalPolicyRequest", () => {
   expect(
     isPutPrincipalPolicyRequest({ ...request, memberEnvelopes: undefined }),
   ).toBe(false);
+  for (const signedAt of [
+    "2026-09-12T00:00:00Z",
+    "0050-01-01T00:00:00.000Z",
+    "+010000-01-01T00:00:00.000Z",
+  ]) {
+    expect(
+      isPutPrincipalPolicyRequest({
+        ...request,
+        state: { ...request.state, signedAt },
+      }),
+    ).toBe(false);
+  }
   expect(isPutPrincipalPolicyRequest(null)).toBe(false);
 });
 

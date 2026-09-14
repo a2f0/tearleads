@@ -189,6 +189,7 @@ test("a creation loser reloads attachment rows installed by the winner", async (
       await basePersistence.saveLocalAttachment(execSql, {
         blobId: null,
         byteLength: 12,
+        contentSha256: "0".repeat(64),
         detachedAt: null,
         localId,
         mimeType: "text/plain",

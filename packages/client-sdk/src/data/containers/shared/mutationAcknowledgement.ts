@@ -6,6 +6,7 @@ import {
   type ContainerKekRecipientTarget,
   type ContainerKeyEpoch,
   type ContainerKeyWrap,
+  compareCanonicalStrings,
   computeContainerKekKeyringHash,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
@@ -50,7 +51,8 @@ function assertCanonicalMatch(input: {
 
 function sortedCanonicalValues<T>(values: readonly T[], label: string): T[] {
   return [...values].sort((left, right) =>
-    canonicalKeyingJsonString(left, label).localeCompare(
+    compareCanonicalStrings(
+      canonicalKeyingJsonString(left, label),
       canonicalKeyingJsonString(right, label),
     ),
   );
@@ -80,6 +82,12 @@ function assertResponseIdentity(
     response.parentId !== plan.state.parentContainerId
   ) {
     throw new Error("Container mutation response object identity mismatch");
+  }
+  // The top-level slot column is what local system-container lookups key on,
+  // so it must echo the slot this client signed into the manifest state; an
+  // omitted slot is the server's spelling of null.
+  if ((response.systemSlot ?? null) !== plan.state.systemSlot) {
+    throw new Error("Container mutation response system slot mismatch");
   }
   if (
     response.manifestHead.epoch !== plan.state.epoch ||

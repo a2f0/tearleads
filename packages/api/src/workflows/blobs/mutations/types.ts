@@ -2,7 +2,10 @@ import type {
   BlobAttachmentBindRequest,
   BlobAttachmentDetachRequest,
 } from "@tearleads/validators/request";
-import type { BlobAttachmentDetachResponse } from "@tearleads/validators/response";
+import type {
+  BlobAttachmentDetachResponse,
+  BlobMutationErrorCode,
+} from "@tearleads/validators/response";
 
 type BlobMutationStatus = 400 | 403 | 404 | 409 | 503;
 
@@ -10,6 +13,12 @@ export class BlobMutationError extends Error {
   constructor(
     message: string,
     readonly status: BlobMutationStatus,
+    /**
+     * Behavior-bearing code rendered into the response body. Only the shared
+     * `container_unavailable` proof is carried; every other blob failure is
+     * an uncoded diagnostic (see BlobMutationFailureResponseSchema).
+     */
+    readonly code?: BlobMutationErrorCode | undefined,
   ) {
     super(message);
     this.name = "BlobMutationError";
