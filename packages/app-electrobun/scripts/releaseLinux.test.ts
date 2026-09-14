@@ -141,6 +141,29 @@ for (const failure of [
   });
 }
 
+for (const suffix of ["Setup.tar.gz", "update.json", "tar.zst"]) {
+  test(`a container artifact linked to a host file (${suffix}) is refused before copying`, async () => {
+    const result = await runLinuxRelease(
+      ["build", "production"],
+      `link-${suffix}`,
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("non-regular Linux release artifact");
+    expect(result.built).toEqual([]);
+    const upload = await runLinuxRelease(
+      ["upload", "staging"],
+      `link-${suffix}`,
+    );
+    expect(upload.exitCode).toBe(1);
+    expect(
+      upload.calls.some((call) => /^(upload|sourcemaps|bun)/.test(call)),
+    ).toBe(false);
+    expect(Object.values(upload.published).join()).not.toContain(
+      "SENTRY_AUTH_TOKEN",
+    );
+  });
+}
+
 test("build mode leaves AWS and Sentry untouched", async () => {
   const result = await runLinuxRelease(["build", "production"]);
   expect(result.exitCode, result.stderr).toBe(0);

@@ -78,9 +78,12 @@ docker cp "$CONTAINER:/workspace/packages/app-electrobun/build/artifacts/." "$TE
 ARTIFACT_DIR="$PACKAGE_DIR/build/linux-x64/$TIER"
 UPDATE="$CHANNEL-linux-x64-update.json"
 ARCHIVE="$CHANNEL-linux-x64-$APP_NAME.tar.zst"
+# docker cp keeps the container's symlinks, and a test or copy would follow one
+# to a host file that would then be published. Only non-empty regular files pass.
 for artifact in "$INSTALLER" "$UPDATE" "$ARCHIVE"; do
-  if [[ ! -s "$TEMP_DIR/artifacts/$artifact" ]]; then
-    echo "Missing Linux release artifact: $artifact" >&2
+  path="$TEMP_DIR/artifacts/$artifact"
+  if [[ -L "$path" || ! -f "$path" || ! -s "$path" ]]; then
+    echo "Missing or non-regular Linux release artifact: $artifact" >&2
     exit 1
   fi
 done

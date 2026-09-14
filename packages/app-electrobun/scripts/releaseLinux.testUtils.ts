@@ -60,7 +60,12 @@ const dockerStub = [
   '    platform=linux; arch=x64; manifest_channel="$channel"',
   '    case "$RELEASE_TEST_FAILURE" in manifest-platform) platform=macos ;; manifest-arch) arch=arm64 ;; manifest-channel) manifest_channel=dev ;; esac',
   '    printf \'{"channel":"%s","platform":"%s","arch":"%s","artifact":{"file":"%s-linux-x64-%s.tar.zst"}}\' "$manifest_channel" "$platform" "$arch" "$channel" "$app" > "$3/$channel-linux-x64-update.json"',
-  '    [ "$RELEASE_TEST_FAILURE" = missing ] || echo archive > "$3/$channel-linux-x64-$app.tar.zst" ;;',
+  '    [ "$RELEASE_TEST_FAILURE" = missing ] || echo archive > "$3/$channel-linux-x64-$app.tar.zst"',
+  // link-<suffix> swaps that artifact for a link to a host secret, as a hostile
+  // container can: docker cp keeps the link.
+  '    for file in "$3"/*; do case "$RELEASE_TEST_FAILURE:$file" in',
+  "      link-Setup.tar.gz:*Setup.tar.gz | link-update.json:*update.json | link-tar.zst:*tar.zst)",
+  '        rm "$file"; ln -s "$RELEASE_TEST_ROOT/.secrets/root.env" "$file" ;; esac; done ;;',
   '  rm) [ "$RELEASE_TEST_FAILURE" != cleanup ] || exit 7 ;;',
   "esac",
 ].join("\n");
