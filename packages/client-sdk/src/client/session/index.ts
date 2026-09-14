@@ -5,12 +5,18 @@ import {
 } from "../../workflows/registration";
 import type { ClearRemoteSyncStateResult } from "../../workflows/sync";
 import { createListenerSet } from "../listenerSet";
-import { emptySessionSnapshot, mergeSessionContext } from "./sessionContext";
+import {
+  emptySessionSnapshot,
+  mergeSessionContext,
+  sessionSnapshotsEqual,
+} from "./sessionContext";
 import {
   requireRegistrationIdentityPinner,
   requireUserIdentityAvailable,
   SessionIdentityAcknowledgments,
 } from "./sessionIdentityTrust";
+import { userSessionsFromResponse } from "./sessionListing";
+import { refuseSessionLogin } from "./sessionLoginRefusal";
 import { createSessionOrganization } from "./sessionOrganizationCreation";
 import {
   clearSessionRemoteSyncState,
@@ -83,6 +89,13 @@ class SessionService implements Session {
     return this.snapshotValue.userId;
   }
 
+  get userIdAcknowledged(): boolean {
+    return this.identityAcknowledgments.isAcknowledged(
+      this.snapshotValue.userId,
+      this.dependencies.identity.snapshot.signingFingerprint,
+    );
+  }
+
   async bootstrapLocalRootContainer(): Promise<{
     containerId: string;
     created: boolean;
@@ -107,30 +120,7 @@ class SessionService implements Session {
   }
 
   async listSessions(): Promise<UserSession[]> {
-    const response = await this.dependencies.api.listSessions();
-    if (!response) {
-      return [];
-    }
-
-    return response.sessions.map(
-      ({
-        createdAt,
-        id,
-        ipAddresses,
-        isCurrent,
-        lastActiveAt,
-        lastActiveIp,
-        signingKeyFingerprint,
-      }) => ({
-        createdAt,
-        id,
-        ipAddresses,
-        isCurrent,
-        lastActiveAt,
-        lastActiveIp,
-        signingKeyFingerprint,
-      }),
-    );
+    return userSessionsFromResponse(await this.dependencies.api.listSessions());
   }
 
   async clearRemoteSyncState(
@@ -204,8 +194,15 @@ class SessionService implements Session {
       if (this.dependencies.identity.snapshot !== identitySnapshot)
         return false;
       this.identityAcknowledgments.remember(authentication.userId, fingerprint);
-      // A root id that differs from this identity's acknowledgement for the
-      // same organization is refused before the token becomes usable.
+    } catch (error) {
+      return refuseSessionLogin(error, authentication.userId, {
+        clear: () => this.logout(),
+        report: this.dependencies.reportSecurityIncident,
+      });
+    }
+    try {
+      // A changed root for this identity+org is refused before the token is
+      // usable; the acknowledgement reports its own incident.
       rootAcknowledgments = await acknowledgeSessionRootReported(
         this.dependencies.reportSecurityIncident,
         this.snapshotValue.rootAcknowledgments,
@@ -436,17 +433,27 @@ class SessionService implements Session {
   }
 
   setContext(context: SessionContext): void {
+    const wasAcknowledged = this.userIdAcknowledged;
     this.identityAcknowledgments.remember(
       context.userId,
       this.dependencies.identity.snapshot.signingFingerprint,
     );
+    const previous = this.snapshotValue;
     this.setSnapshot(
       mergeSessionContext(
-        this.snapshotValue,
+        previous,
         context,
         this.dependencies.identity.snapshot.signingFingerprint,
       ),
     );
+    // Acknowledging an already-held userId changes `userIdAcknowledged` without
+    // changing the snapshot; persistence subscribers must still observe it.
+    if (
+      this.snapshotValue === previous &&
+      wasAcknowledged !== this.userIdAcknowledged
+    ) {
+      this.listeners.notify();
+    }
   }
 
   setOrganizationId(organizationId: string | null): void {
@@ -480,16 +487,7 @@ class SessionService implements Session {
       this.dependencies.api.setAuthToken(next.authToken);
     }
 
-    if (
-      previous.rootAcknowledgments === next.rootAcknowledgments &&
-      previous.authToken === next.authToken &&
-      previous.containerId === next.containerId &&
-      previous.defaultOrganizationId === next.defaultOrganizationId &&
-      previous.isAuthenticated === next.isAuthenticated &&
-      previous.isRoot === next.isRoot &&
-      previous.organizationId === next.organizationId &&
-      previous.userId === next.userId
-    ) {
+    if (sessionSnapshotsEqual(previous, next)) {
       return;
     }
 

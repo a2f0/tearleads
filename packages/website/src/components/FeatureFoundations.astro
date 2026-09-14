@@ -1,0 +1,45 @@
+---
+const foundations = [
+  {
+    number: "01",
+    title: "Work from your device",
+    description:
+      "Read locally available content and keep editing offline. Ordinary edits save locally; sync reconciles them when you reconnect. Sharing and other remote operations need a connection.",
+  },
+  {
+    number: "02",
+    title: "Make room for your work",
+    description:
+      "Open tools in separate windows on the desktop layout. On smaller screens, focused views and back navigation keep the workspace easy to move through. Choose a light or dark theme.",
+  },
+  {
+    number: "03",
+    title: "Keep a backup of your own",
+    description:
+      "Export a local backup with password protection and restore it from a file. The backup includes locally stored data and available file bytes, so keep a copy somewhere you control.",
+  },
+  {
+    number: "04",
+    title: "Manage your identity",
+    description:
+      "Create and switch between identities in Identity Manager. Back up a recovery phrase to restore an identity, and keep that phrase private—it grants access to the identity it represents.",
+  },
+];
+---
+
+<section class="product-section" id="your-workspace" aria-labelledby="workspace-title">
+  <p class="product-eyebrow">Built around you</p>
+  <h2 id="workspace-title">Your work, at your pace.</h2>
+  <p class="product-section-lede">
+    Local storage, flexible layouts, and recovery tools are part of the workspace
+    from the start.
+  </p>
+  <dl class="feature-foundations">
+    {foundations.map((feature) => (
+      <div>
+        <dt><span aria-hidden="true">{feature.number}</span>{" "}{feature.title}</dt>
+        <dd>{feature.description}</dd>
+      </div>
+    ))}
+  </dl>
+</section>

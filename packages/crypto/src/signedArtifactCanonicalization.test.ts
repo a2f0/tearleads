@@ -18,11 +18,27 @@ import {
   computePrincipalStateHash,
   serializeUnsignedPrincipalState,
   signPrincipalState,
-  verifySignedPrincipalState,
 } from "./principalState";
+import {
+  verifySignedPrincipalState,
+  verifySignedPrincipalStateResult,
+} from "./principalStateVerification";
 import { generateSigningSeedAndKeyPair } from "./signing/generateKeyPair";
 import { sign } from "./signing/sign";
 import { verify } from "./signing/verify";
+
+// Canonical `toISOString()` output that a `timestamp` column does not store
+// verbatim: two-digit-year pivot (0001-0099), pre-epoch years no honest clock
+// produces, expanded years Postgres rejects, and years past 9999.
+const outOfRangeTimestamps = [
+  "0001-01-01T00:00:00.000Z",
+  "0050-01-01T00:00:00.000Z",
+  "0099-12-31T23:59:59.999Z",
+  "0100-01-01T00:00:00.000Z",
+  "1969-12-31T23:59:59.999Z",
+  "+010000-01-01T00:00:00.000Z",
+  "10000-01-01T00:00:00.000Z",
+];
 
 const nonCanonicalTimestamps = [
   "2026-09-12T00:00:00Z",
@@ -31,6 +47,12 @@ const nonCanonicalTimestamps = [
   "2026-09-12",
   "2026-02-30T00:00:00.000Z",
   "invalid",
+  ...outOfRangeTimestamps,
+];
+
+const boundaryTimestamps = [
+  "1970-01-01T00:00:00.000Z",
+  "9999-12-31T23:59:59.999Z",
 ];
 
 async function createPrincipalInput() {
@@ -59,10 +81,63 @@ async function createPrincipalInput() {
 
 test("signed timestamps must survive database ISO serialization unchanged", () => {
   for (const signedAt of nonCanonicalTimestamps) {
-    expect(() => readSignedAt({ signedAt }, "signedAt", "event")).toThrow();
+    expect(() => readSignedAt({ signedAt }, "signedAt", "event")).toThrow(
+      "event.signedAt must be",
+    );
   }
-  const signedAt = "2026-09-12T00:00:00.123Z";
-  expect(readSignedAt({ signedAt }, "signedAt", "event")).toBe(signedAt);
+  for (const signedAt of [...boundaryTimestamps, "2026-09-12T00:00:00.123Z"]) {
+    expect(readSignedAt({ signedAt }, "signedAt", "event")).toBe(signedAt);
+  }
+});
+
+test("out-of-range years are canonical toISOString output and still refused", () => {
+  // Every vector is exactly what `Date` prints, so `toISOString() === value`
+  // alone would accept it; only the range bound refuses it.
+  for (const signedAt of outOfRangeTimestamps.filter(
+    (value) => !value.startsWith("+") && value.length === 24,
+  )) {
+    expect(new Date(signedAt).toISOString()).toBe(signedAt);
+  }
+  expect(new Date("+010000-01-01T00:00:00.000Z").toISOString()).toBe(
+    "+010000-01-01T00:00:00.000Z",
+  );
+});
+
+test("principal state verification types shape failures apart from signature failures", async () => {
+  const { input, signingPrivateKey, signingPublicKey } =
+    await createPrincipalInput();
+  const signed = await signPrincipalState(input, signingPrivateKey);
+  expect(
+    await verifySignedPrincipalStateResult(signed, signingPublicKey),
+  ).toMatchObject({ ok: true });
+  for (const signedAt of [...nonCanonicalTimestamps, ""]) {
+    expect(
+      await verifySignedPrincipalStateResult(
+        { ...signed, signedAt },
+        signingPublicKey,
+      ),
+    ).toMatchObject({ ok: false, error: { code: "invalid_shape" } });
+  }
+  // An undecodable signature is a bad signature, not a malformed header.
+  expect(
+    await verifySignedPrincipalStateResult(
+      { ...signed, signature: "not base64!" },
+      signingPublicKey,
+    ),
+  ).toMatchObject({ ok: false, error: { code: "signature_mismatch" } });
+  const { signingPublicKey: otherPublicKey } = generateSigningSeedAndKeyPair();
+  expect(
+    await verifySignedPrincipalStateResult(signed, otherPublicKey),
+  ).toMatchObject({ ok: false, error: { code: "signature_mismatch" } });
+  for (const signedAt of boundaryTimestamps) {
+    const boundary = await signPrincipalState(
+      { ...input, signedAt },
+      signingPrivateKey,
+    );
+    expect(
+      await verifySignedPrincipalStateResult(boundary, signingPublicKey),
+    ).toMatchObject({ ok: true });
+  }
 });
 
 test("access event verification rejects a correctly signed noncanonical timestamp", async () => {

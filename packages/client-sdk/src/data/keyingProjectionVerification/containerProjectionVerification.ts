@@ -2,7 +2,6 @@ import {
   type ContainerUserRecipientKey,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
-  KeyingVerificationError,
   toFingerprint,
   type VerifiedContainerAccessManifest,
   type VerifiedContainerKekState,
@@ -24,7 +23,10 @@ import {
 import { verifyContainerManifestBundle } from "./containerManifestVerification";
 import { verifyContainerManifestPath } from "./containerPathVerification";
 import { ProjectionDependencyUnavailableError } from "./dependencyUnavailable";
-import { rethrowProjectionVerificationBoundaryError } from "./error";
+import {
+  rethrowProjectionVerificationBoundaryError,
+  throwKeyingVerificationShapeFailure,
+} from "./error";
 import { collectReferencedPrincipalPolicies } from "./principalPolicyVerification";
 import {
   readContainerKekRecipientTarget,
@@ -321,14 +323,7 @@ export async function verifyContainerWriterProjection(
     assertProjectionVerificationCurrent(input.stillCurrent);
     return verifiedPath;
   } catch (error) {
-    rethrowProjectionVerificationBoundaryError(error);
-    if (error instanceof KeyingVerificationError) {
-      throw error;
-    }
-    throw new KeyingVerificationError(
-      "invalid_shape",
-      error instanceof Error ? error.message : String(error),
-    );
+    throwKeyingVerificationShapeFailure(error);
   }
 }
 

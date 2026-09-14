@@ -36,11 +36,11 @@ import {
   type PendingUpdateInsert,
   resolveDocumentCreateAuthor,
 } from "../../../workflows/documents";
-import type {
-  DocumentAttachmentStatus,
-  DocumentSnapshot,
-  DocumentsRuntime,
-} from "../types";
+import type { DocumentSnapshot, DocumentsRuntime } from "../types";
+import {
+  getAttachmentStatuses,
+  getAttachmentStorageKeys,
+} from "./attachmentSnapshot";
 export type DocumentState = Awaited<ReturnType<typeof createDocument>>;
 export type EncapsulationKeyPair = NonNullable<
   DocumentsRuntime["crypto"]["encapsulationKeyPair"]
@@ -94,6 +94,8 @@ export interface DocumentSyncAttempt {
   outgoingUpdateCount: number;
   requestRecord: DocumentRecord;
   synced: SyncRemoteDocumentResult;
+  /** `writerProjectionGeneration` when the request left; gates the install. */
+  writerProjectionGeneration: number;
 }
 export interface DocumentStorePersistenceEffects {
   emitPersistedDocument: (
@@ -108,6 +110,8 @@ export interface DocumentStorePersistenceEffects {
 }
 export interface DocumentStoreState {
   attachmentBlobIdBySlotId: Record<string, string | null>;
+  /** Plaintext digest of the held bytes per slot; see `getAttachmentStatuses`. */
+  attachmentContentSha256BySlotId: Record<string, string>;
   attachmentStorageKeyBySlotId: Record<string, string>;
   doc: DocumentState | null;
   effects: DocumentStorePersistenceEffects;
@@ -145,6 +149,8 @@ export interface DocumentStoreState {
    */
   pullContinuation: DocumentSyncPullContinuation | null;
   record: DocumentRecord | null;
+  /** Served bindings hydration refused for a held copy; see `hydrate.ts`. */
+  rejectedServedAttachmentBindings: Set<string>;
   /**
    * Consecutive completed sync passes that re-keyed conflicted pending updates
    * without settling anything. Bounds the rekey-driven self re-arm so a server
@@ -166,6 +172,12 @@ export interface DocumentStoreState {
   syncLane: DocumentSyncLane | null;
   writeChain: Promise<void>;
   writerProjection: DocumentWriterProjectionResponse | null;
+  /**
+   * Bumped whenever a realtime hint drops `writerProjection`; an operation that
+   * fetched or was handed a projection installs it only if this is unchanged
+   * since it started, so a pre-hint answer never lands after the hint.
+   */
+  writerProjectionGeneration: number;
 }
 const EMPTY_DOCUMENT_SNAPSHOT: DocumentSnapshot = {
   attachments: [],
@@ -239,6 +251,7 @@ export function createDocumentStoreState(
 ): DocumentStoreState {
   return {
     attachmentBlobIdBySlotId: {},
+    attachmentContentSha256BySlotId: {},
     attachmentStorageKeyBySlotId: {},
     doc: null,
     effects,
@@ -258,6 +271,7 @@ export function createDocumentStoreState(
     persistence,
     pullContinuation: null,
     record: null,
+    rejectedServedAttachmentBindings: new Set(),
     rekeyOnlyPassCount: 0,
     resolveProjectionUserKey:
       createDocumentProjectionUserKeyResolver(initialRuntime),
@@ -271,6 +285,7 @@ export function createDocumentStoreState(
     syncLane: null,
     writeChain: Promise.resolve(),
     writerProjection: null,
+    writerProjectionGeneration: 0,
   };
 }
 
@@ -333,8 +348,10 @@ function clearDocumentStoreState(
   state.pendingLocalWrites = 0;
   state.pullContinuation = null;
   state.attachmentBlobIdBySlotId = {};
+  state.attachmentContentSha256BySlotId = {};
   state.attachmentStorageKeyBySlotId = {};
   state.locallyAcceptedUpdateIds = new Set();
+  state.rejectedServedAttachmentBindings = new Set();
   state.remoteUpdateCompletedSignalSeq = 0;
   state.remoteSyncBlocked = !state.scheduleStartupRemoteSync;
   state.remoteUpdatePending = false;
@@ -384,40 +401,6 @@ function resolveCurrentAuthorId(state: DocumentStoreState): string | null {
   return resolveDocumentCreateAuthor(state.runtime)?.signerUserId ?? null;
 }
 
-function getAttachmentStorageKeys(
-  state: DocumentStoreState,
-  attachments: ReadonlyArray<DocumentAttachment>,
-): Record<string, string> {
-  const nextStorageKeys: Record<string, string> = {};
-
-  for (const attachment of attachments) {
-    const storageKey = state.attachmentStorageKeyBySlotId[attachment.slotId];
-    if (storageKey) {
-      nextStorageKeys[attachment.slotId] = storageKey;
-    }
-  }
-
-  return nextStorageKeys;
-}
-
-function getAttachmentStatuses(
-  state: DocumentStoreState,
-  attachments: ReadonlyArray<DocumentAttachment>,
-): Record<string, DocumentAttachmentStatus> {
-  const pendingAttachmentSlotIds = new Set(
-    state.pendingAttachments.map((attachment) => attachment.slotId),
-  );
-  const nextStatuses: Record<string, DocumentAttachmentStatus> = {};
-
-  for (const attachment of attachments) {
-    if (pendingAttachmentSlotIds.has(attachment.slotId)) {
-      nextStatuses[attachment.slotId] = "syncing";
-    }
-  }
-
-  return nextStatuses;
-}
-
 export function setReadySnapshot(
   state: DocumentStoreState,
   currentDoc: DocumentState,
@@ -449,8 +432,17 @@ export function setReadySnapshot(
 
   setDocumentSnapshot(state, {
     attachments,
-    attachmentStatusBySlotId: getAttachmentStatuses(state, attachments),
-    attachmentStorageKeyBySlotId: getAttachmentStorageKeys(state, attachments),
+    attachmentStatusBySlotId: getAttachmentStatuses({
+      attachments,
+      contentSha256BySlotId: state.attachmentContentSha256BySlotId,
+      pendingSlotIds: new Set(
+        state.pendingAttachments.map((attachment) => attachment.slotId),
+      ),
+    }),
+    attachmentStorageKeyBySlotId: getAttachmentStorageKeys(
+      state.attachmentStorageKeyBySlotId,
+      attachments,
+    ),
     canAttach: canAttachFiles(state),
     canWrite: canWriteDocument(state),
     currentAuthorId: resolveCurrentAuthorId(state),

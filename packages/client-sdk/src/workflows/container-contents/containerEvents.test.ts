@@ -34,6 +34,27 @@ test("container move events mark previous parent hydration lanes", () => {
   ).toEqual([null, "new-parent", "container-1", "old-parent"]);
 });
 
+test("a hint whose parents were withheld hydrates only the lanes it names", () => {
+  // The server scopes each hint to the recipient's interest: a watcher of only
+  // the moved container learns neither parent, and a watcher of only the
+  // destination never learns the source.
+  expect(
+    listContainerParentIdsForEventHydration([
+      {
+        type: "container_mutation_created",
+        containerId: "container-1",
+        eventType: "container.move",
+      },
+      {
+        type: "container_mutation_created",
+        containerId: "container-2",
+        eventType: "container.create",
+        parentId: "destination",
+      },
+    ]),
+  ).toEqual([null, "container-1", "destination", "container-2"]);
+});
+
 test("container mutation hydration reconciles a same-identity create", () => {
   // A sibling peer of the same identity signs container mutations with the same
   // seed-derived key, so the event carries this client's own signing

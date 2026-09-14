@@ -35,6 +35,7 @@ function attachmentRows(storageKey: string, contentSha256 = "0".repeat(64)) {
       {
         blobId: null,
         byteLength: 4,
+        contentSha256,
         detachedAt: null,
         localId: "local-document",
         mimeType: "text/plain",
@@ -297,7 +298,11 @@ test("successful slot replacement queues the displaced blob key", async () => {
         connection.runtime.execSql,
         "local-document",
       ),
-    ).toMatchObject([{ storageKey: "replacement-storage" }]);
+    ).toMatchObject([
+      // The replaced slot's local row carries the replacement's digest, so a
+      // reload does not read the new bytes as an intent mismatch.
+      { contentSha256: "1".repeat(64), storageKey: "replacement-storage" },
+    ]);
   } finally {
     connection.close();
   }

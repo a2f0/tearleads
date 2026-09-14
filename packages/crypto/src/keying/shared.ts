@@ -1,5 +1,10 @@
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import {
+  isCanonicalSignedAt,
+  SIGNED_AT_CONTRACT,
+} from "@tearleads/validators/util";
+import { compareCanonicalStrings } from "../canonicalOrdering";
+import {
   type AccessEventType,
   type AccessObjectKind,
   CONTENT_RECORD_ENCRYPTION_SUITE,
@@ -13,6 +18,10 @@ import {
   type KeyingVerificationResult,
   type ManagedPrincipalKind,
 } from "./types";
+
+// Keying modules take the comparator from here; the single definition lives in
+// canonicalOrdering.ts so principal-state modules share it without a cycle.
+export { compareCanonicalStrings } from "../canonicalOrdering";
 
 export function ok<T>(value: T): KeyingVerificationResult<T> {
   return { ok: true, value };
@@ -56,10 +65,6 @@ export async function runVerifier<T>(
   } catch (error) {
     return toVerificationResult(error);
   }
-}
-
-export function compareCanonicalStrings(left: string, right: string): number {
-  return left < right ? -1 : left > right ? 1 : 0;
 }
 
 export function assertExactKeys<const ExpectedKeys extends readonly string[]>(
@@ -237,11 +242,10 @@ export function readSignedAt(
   label: string,
 ): string {
   const value = readString(record, key, label);
-  const date = new Date(value);
-  if (Number.isNaN(date.valueOf()) || date.toISOString() !== value) {
+  if (!isCanonicalSignedAt(value)) {
     throwVerification(
       "invalid_shape",
-      `${label}.${key} must be a canonical ISO timestamp`,
+      `${label}.${key} must be ${SIGNED_AT_CONTRACT}`,
     );
   }
 

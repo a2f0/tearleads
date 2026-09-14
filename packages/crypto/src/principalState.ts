@@ -1,5 +1,9 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
-import { MAX_PRINCIPAL_STATE_VERSION } from "@tearleads/validators/util";
+import {
+  isCanonicalSignedAt,
+  MAX_PRINCIPAL_STATE_VERSION,
+  SIGNED_AT_CONTRACT,
+} from "@tearleads/validators/util";
 import { ML_KEM1024_PUBLIC_KEY_BYTES } from "./encapsulation/generateKeyPair";
 import { toFingerprint } from "./fingerprint";
 import { computePrincipalContainerGrantRoot } from "./principalContainerGrants";
@@ -24,7 +28,6 @@ import type {
   UnsignedPrincipalState,
 } from "./principalStateTypes";
 import { sign } from "./signing/sign";
-import { verify } from "./signing/verify";
 
 const TEXT_ENCODER = new TextEncoder();
 const TEXT_DECODER = new TextDecoder();
@@ -54,11 +57,6 @@ function isValidNonNegativeInteger(value: number): boolean {
   return Number.isInteger(value) && value >= 0;
 }
 
-function isValidSignedAt(value: string): boolean {
-  const date = new Date(value);
-  return !Number.isNaN(date.valueOf()) && date.toISOString() === value;
-}
-
 function encodeNormalizedPrincipalStateMembers(
   normalizedMembers: ReadonlyArray<PrincipalStateMember>,
 ): Uint8Array {
@@ -84,7 +82,7 @@ function encodeNormalizedPrincipalProjectionMembers(
   );
 }
 
-function encodeUnsignedPrincipalState(
+export function encodeUnsignedPrincipalState(
   state: UnsignedPrincipalState,
 ): Uint8Array {
   return TEXT_ENCODER.encode(
@@ -113,7 +111,7 @@ function encodeUnsignedPrincipalState(
   );
 }
 
-function toUnsignedPrincipalState(
+export function toUnsignedPrincipalState(
   state: UnsignedPrincipalState,
 ): UnsignedPrincipalState {
   return {
@@ -186,8 +184,8 @@ function validatePrincipalStateIdentityFields(
     throw new Error("Principal state signerUserKeyFingerprint cannot be empty");
   }
 
-  if (!isValidSignedAt(state.signedAt)) {
-    throw new Error("Principal state signedAt must be a valid timestamp");
+  if (!isCanonicalSignedAt(state.signedAt)) {
+    throw new Error(`Principal state signedAt must be ${SIGNED_AT_CONTRACT}`);
   }
 }
 
@@ -287,7 +285,7 @@ async function validatePrincipalEncapsulationKey(
   }
 }
 
-async function normalizeUnsignedPrincipalState(
+export async function normalizeUnsignedPrincipalState(
   state: UnsignedPrincipalState,
 ): Promise<UnsignedPrincipalState> {
   validatePrincipalStateIdentityFields(state);
@@ -478,22 +476,4 @@ export async function signPrincipalState(
     ...normalizedState,
     signature: bytesToBase64(signature),
   };
-}
-
-export async function verifySignedPrincipalState(
-  state: SignedPrincipalState,
-  publicKey: Uint8Array,
-): Promise<boolean> {
-  try {
-    const normalizedState = await normalizeUnsignedPrincipalState(
-      toUnsignedPrincipalState(state),
-    );
-    return verify(
-      base64ToBytes(state.signature),
-      encodeUnsignedPrincipalState(normalizedState),
-      publicKey,
-    );
-  } catch {
-    return false;
-  }
 }

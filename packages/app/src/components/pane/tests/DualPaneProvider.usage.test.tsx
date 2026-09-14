@@ -39,7 +39,7 @@ import { DualPaneProvider, PaneSideProvider } from "../dual-pane";
 import { PaneProvider } from "../runtime/PaneProvider";
 import { Pane } from "../shell/Pane";
 
-const ORG_MANAGER_USAGE_TEST_TIMEOUT_MS = 20_000;
+const ORG_MANAGER_USAGE_TEST_TIMEOUT_MS = 60_000;
 const BOOTSTRAP_SYNC_SETTLE_TIMEOUT_MS = 6_000;
 const ORG_MANAGER_RENDER_TIMEOUT_MS = 10_000;
 const NETWORK_IDLE_QUIET_MS = 25;
@@ -308,7 +308,9 @@ test(
         return false;
       },
       `Org Manager usage did not report the bootstrap document baseline.\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
-      10_000,
+      // The post-auth Contacts promotion pass that yields documents 5 and 7 is
+      // verification-gated since #2276 and exceeds 10s under a loaded runner.
+      40_000,
     ).catch((error: unknown) => {
       const latestUsage = listProxiedApiRequests()
         .filter((request) => requestPath(request.url).endsWith("/data-usage"))

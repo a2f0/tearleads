@@ -1,0 +1,9 @@
+---
+import { legalDetails } from "../legal";
+---
+
+<address class="legal-contact">
+  <strong>{legalDetails.operator}</strong>
+  <span>{legalDetails.location}</span>
+  <a href={`mailto:${legalDetails.email}`}>{legalDetails.email}</a>
+</address>

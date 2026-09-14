@@ -1,3 +1,4 @@
+export { compareCanonicalStrings } from "./canonicalOrdering";
 export {
   AUTH_CHALLENGE_BYTES,
   AUTH_CHALLENGE_HEX_LENGTH,
@@ -312,8 +313,11 @@ export {
   normalizePrincipalStateMembers,
   serializeUnsignedPrincipalState,
   signPrincipalState,
-  verifySignedPrincipalState,
 } from "./principalState";
+export {
+  verifySignedPrincipalState,
+  verifySignedPrincipalStateResult,
+} from "./principalStateVerification";
 export type { SigningKeyPair } from "./signing/generateKeyPair";
 export {
   generateSigningKeyPair,

@@ -51,6 +51,13 @@ export interface ContainerState {
     | ContainerWriterProjectionResponse
     | null
     | undefined;
+  /**
+   * Bumped whenever a realtime hint drops this container's cached writer
+   * projections (container and metadata document alike); an operation that
+   * fetched or carried a projection installs it only if this is unchanged
+   * since it started, so a pre-hint answer never lands after the hint.
+   */
+  writerProjectionGeneration?: number | undefined;
   metadataReferencedPrincipals?:
     | readonly ReferencedPrincipalStateResponse[]
     | undefined;

@@ -30,6 +30,17 @@ interface HydratedDocumentAttachmentBlob {
   attachment: DocumentAttachment;
   binding: BlobAttachmentSummary;
   bytes: BlobBytes;
+  /** Plaintext digest of `bytes`. */
+  contentSha256: string;
+  /**
+   * The served binding is validly signed but its plaintext digest differs
+   * from the digest the document content records for the slot. Set only when
+   * the slot held no local bytes: the bind and the content update carrying
+   * its digest are two server writes, and an uploader lost between them must
+   * not leave the attachment permanently invisible. Never a security incident;
+   * an honest crash window is indistinguishable from a served rollback.
+   */
+  intentMismatch: boolean;
   storageKey: string;
 }
 
@@ -43,9 +54,26 @@ interface DocumentAttachmentHydrationContext {
   localStorageKeyBySlotId?: Readonly<Record<string, string | undefined>>;
   log?: ((message: string) => void) | undefined;
   logPrefix?: string | undefined;
+  /**
+   * Served bindings already downloaded and refused for a held copy, keyed per
+   * (slot, binding, intent). Populated here; a later pass skips the download
+   * until the binding or the document intent changes.
+   */
+  rejectedServedBindings?: Set<string> | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   reportSecurityIncident?: SecurityIncidentReporter | undefined;
   targetSecretKey: Uint8Array;
+}
+
+function servedBindingRejectionKey(
+  attachment: DocumentAttachment,
+  binding: BlobAttachmentSummary,
+): string {
+  return JSON.stringify([
+    attachment.slotId,
+    binding.bindingId,
+    attachment.contentSha256,
+  ]);
 }
 
 interface DocumentAttachmentHydrationTarget {
@@ -89,11 +117,21 @@ function shouldHydrateAttachment(input: {
   localStorageKeyBySlotId:
     | Readonly<Record<string, string | undefined>>
     | undefined;
+  rejectedServedBindings: ReadonlySet<string> | undefined;
 }): boolean {
   const slotId = input.attachment.slotId;
   const localStorageKey = input.localStorageKeyBySlotId?.[slotId];
+  // An empty slot always hydrates: a rejection only ever protected a held
+  // copy, so once that copy is gone the served binding is shown (flagged).
   if (!localStorageKey) {
     return true;
+  }
+  if (
+    input.rejectedServedBindings?.has(
+      servedBindingRejectionKey(input.attachment, input.binding),
+    )
+  ) {
+    return false;
   }
 
   const localBlobId = input.localBlobIdBySlotId?.[slotId];
@@ -207,20 +245,32 @@ async function decryptLoadedDocumentAttachmentBlob(
     writerProjection: input.writerProjection,
   });
 
-  if (
-    (await attachmentContentSha256(bytes)) !==
-    input.loaded.attachment.contentSha256
-  ) {
+  const { attachment, binding } = input.loaded;
+  const contentSha256 = await attachmentContentSha256(bytes);
+  const intentMismatch = contentSha256 !== attachment.contentSha256;
+  const logPrefix = input.logPrefix ?? "Documents";
+  if (intentMismatch && input.localStorageKeyBySlotId?.[attachment.slotId]) {
+    // Never replace a held copy with bytes the document does not record.
+    input.rejectedServedBindings?.add(
+      servedBindingRejectionKey(attachment, binding),
+    );
     input.log?.(
-      `${input.logPrefix ?? "Documents"}: attachment bytes for the current document content are unavailable.`,
+      `${logPrefix}: served attachment bytes differ from the current document content; keeping the held copy.`,
     );
     return null;
   }
+  if (intentMismatch) {
+    input.log?.(
+      `${logPrefix}: served attachment bytes differ from the current document content; showing them flagged.`,
+    );
+  }
   return {
-    attachment: input.loaded.attachment,
-    binding: input.loaded.binding,
+    attachment,
+    binding,
     bytes,
-    storageKey: `blob-${input.loaded.binding.blobId}`,
+    contentSha256,
+    intentMismatch,
+    storageKey: `blob-${binding.blobId}`,
   };
 }
 
@@ -248,6 +298,7 @@ export async function hydrateDocumentAttachmentBlobs(
           binding,
           localBlobIdBySlotId: input.localBlobIdBySlotId,
           localStorageKeyBySlotId: input.localStorageKeyBySlotId,
+          rejectedServedBindings: input.rejectedServedBindings,
         })
         ? [{ attachment, binding }]
         : [];

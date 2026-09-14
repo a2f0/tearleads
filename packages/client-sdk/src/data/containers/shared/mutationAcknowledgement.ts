@@ -6,6 +6,7 @@ import {
   type ContainerKekRecipientTarget,
   type ContainerKeyEpoch,
   type ContainerKeyWrap,
+  compareCanonicalStrings,
   computeContainerKekKeyringHash,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
@@ -50,7 +51,8 @@ function assertCanonicalMatch(input: {
 
 function sortedCanonicalValues<T>(values: readonly T[], label: string): T[] {
   return [...values].sort((left, right) =>
-    canonicalKeyingJsonString(left, label).localeCompare(
+    compareCanonicalStrings(
+      canonicalKeyingJsonString(left, label),
       canonicalKeyingJsonString(right, label),
     ),
   );

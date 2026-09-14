@@ -3,6 +3,7 @@ import type { StoredDocumentKind } from "../../data/documents/documentKinds";
 import { errorMessage } from "../../data/errorMessage";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import { reportAndRethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
+import { rethrowProjectionVerificationCancelled } from "../../data/keyingProjectionVerification/types";
 import {
   type DocumentsPersistence,
   defaultDocumentsPersistence,
@@ -169,6 +170,9 @@ export async function purgeRemoteContainerDocument(
     );
     return response;
   } catch (error) {
+    // A cancelled verification is neither a failure nor a completed purge; the
+    // caller that owns the generation decides what to do with it.
+    rethrowProjectionVerificationCancelled(error);
     await reportAndRethrowKeyingVerificationError(
       error,
       runtime.util.reportSecurityIncident,

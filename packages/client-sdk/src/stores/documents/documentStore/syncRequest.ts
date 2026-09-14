@@ -96,6 +96,7 @@ function createDocumentSyncAttempt(input: {
   outgoingUpdateCount: number;
   requestedPullContinuation: DocumentStoreState["pullContinuation"];
   synced: DocumentSyncAttempt["synced"];
+  writerProjectionGeneration: number;
 }): DocumentSyncAttempt {
   return {
     consumedPullContinuation:
@@ -105,6 +106,7 @@ function createDocumentSyncAttempt(input: {
     outgoingUpdateCount: input.outgoingUpdateCount,
     requestRecord: input.currentRecord,
     synced: input.synced,
+    writerProjectionGeneration: input.writerProjectionGeneration,
   };
 }
 
@@ -213,6 +215,9 @@ export async function requestRemoteDocumentSync(
     unavailableWriterLogMessage,
   } = input;
   if (!isDocumentStoreSyncGenerationCurrent(state, generation)) return null;
+  // Captured before the network round trip: a hint that lands meanwhile
+  // must keep the response's projection out of the cache.
+  const writerProjectionGeneration = state.writerProjectionGeneration;
 
   const runtime = state.runtime;
   if (!currentRecord.documentId) return null;
@@ -240,5 +245,6 @@ export async function requestRemoteDocumentSync(
     outgoingUpdateCount,
     requestedPullContinuation,
     synced,
+    writerProjectionGeneration,
   });
 }

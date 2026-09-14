@@ -100,4 +100,14 @@ Its synchronous `stillCurrent` guard runs immediately before commit dispatch;
 refusal rolls back the replacement. Replaced or refused byte copies enter the
 reference-checked orphan reclaim queue. Memory adapters must preserve the same
 compare-and-set behavior. Attachment entries require `contentSha256`, the
-plaintext digest stored inside authenticated encrypted document content.
+plaintext digest stored inside authenticated encrypted document content. Local
+attachment records carry the plaintext digest of the bytes they hold, so read
+models can flag a held copy whose digest differs from the document intent.
+
+When a slot holds no local bytes, hydration installs a validly signed served
+binding even if its digest differs from the document intent, and the store
+reports the slot as `intent-mismatch` instead of hiding it: the binding and
+the content update carrying its digest are two server writes, and an uploader
+lost between them must not make the attachment permanently invisible. A served
+binding refused for a held copy is remembered per (slot, binding, intent) so
+later sync passes do not download it again.

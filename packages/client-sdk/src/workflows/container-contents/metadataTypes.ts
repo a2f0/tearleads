@@ -11,6 +11,8 @@ export interface ContainerMetadataState {
     | DocumentWriterProjectionResponse
     | null
     | undefined;
+  /** See `ContainerState.writerProjectionGeneration`; shared by both caches. */
+  writerProjectionGeneration?: number | undefined;
   /** Durable continuation mirrored from the metadata document record. */
   pullContinuation?: DocumentSyncPullContinuation | null | undefined;
   record: ContainerMetadataRecord;

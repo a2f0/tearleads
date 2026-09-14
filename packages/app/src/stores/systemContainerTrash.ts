@@ -47,7 +47,7 @@ export type DeleteToTrashUnavailableReason =
   | "awaiting-sync"
   | "foreign-trash-unverified";
 
-export const DELETE_TO_TRASH_UNAVAILABLE_MESSAGES: Readonly<
+const DELETE_TO_TRASH_UNAVAILABLE_MESSAGES: Readonly<
   Record<DeleteToTrashUnavailableReason, string>
 > = {
   "awaiting-sync": "Trash is unavailable until sync completes.",

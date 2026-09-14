@@ -15,6 +15,7 @@ import type {
   PrincipalPolicyBundleResponse,
   PrincipalPolicyMutationResponse,
 } from "@tearleads/validators/response";
+import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import { loadOrganizationExternalAdminPolicy } from "../principals/externalAdminPolicy";
@@ -260,6 +261,7 @@ export async function addOrganizationGroupUser(input: {
   readonly expectedGroupName: string;
   readonly groupId: string;
   readonly organizationId: string;
+  readonly reportSecurityIncident?: SecurityIncidentReporter | undefined;
   readonly signerUserId: string;
   readonly signingFingerprint: string;
   readonly signingKeyPair: SigningKeyPair;
@@ -302,6 +304,7 @@ export async function addOrganizationGroupUser(input: {
     currentUsers: identities.filter(
       (identity) => identity.userId !== input.targetUserId,
     ),
+    reportSecurityIncident: input.reportSecurityIncident,
     targetUser,
   });
   return commitAndCacheGroupPolicyMutation({

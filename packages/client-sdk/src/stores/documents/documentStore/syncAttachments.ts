@@ -334,6 +334,7 @@ async function uploadPendingAttachmentBytes(input: {
     state.writerProjection?.documentId === input.pendingUpload.remoteDocumentId
       ? state.writerProjection
       : null;
+  const writerProjectionGeneration = state.writerProjectionGeneration;
 
   try {
     const uploadAttempt = await uploadAttachmentWithWriterProjectionRetry({
@@ -367,6 +368,7 @@ async function uploadPendingAttachmentBytes(input: {
       state,
       uploadLane: input.uploadLane,
       uploaded,
+      writerProjectionGeneration,
     });
     return "uploaded";
   } catch (error) {

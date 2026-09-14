@@ -55,6 +55,19 @@ export function containerManifestAlreadyExists(): ContainerMutationError {
   });
 }
 
+/**
+ * A cited path element's `containers` row is gone (deleted; the manifest head
+ * is retained for history). Coded so clients can tell this permanent
+ * condition from a transient conflict.
+ */
+export function containerUnavailable(label: string): ContainerMutationError {
+  const message = `${label} container unavailable`;
+  return new ContainerMutationError(message, 409, {
+    code: CONTAINER_MUTATION_ERROR_CODES.containerUnavailable,
+    error: message,
+  });
+}
+
 export function mutationShapeError(message: string): ContainerMutationError {
   return new ContainerMutationError(message, 400);
 }

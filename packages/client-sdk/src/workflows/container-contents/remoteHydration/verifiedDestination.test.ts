@@ -350,9 +350,12 @@ test("a root head at a later epoch binds the epoch-1 creator through its served 
       state,
     });
     expect(own?.parentId).toBeNull();
-    expect(own?.metadataDocumentId).toBe(
-      createManifest.state.metadataDocumentId,
-    );
+    const { metadataDocumentId: signedMetadataDocumentId } =
+      createManifest.state;
+    if (typeof signedMetadataDocumentId !== "string") {
+      throw new Error("expected the signed metadata document id");
+    }
+    expect(own?.metadataDocumentId).toBe(signedMetadataDocumentId);
     auth.userId = revokedUserId;
     await expect(
       verifyRemoteContainerDestination({ remoteContainer: listed, state }),

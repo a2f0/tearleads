@@ -88,7 +88,8 @@ const STARTUP_DOCUMENT_SYNC_WORK_SQL = `
       -- every scan (the blocking condition can heal after hydration), and
       -- the once-per-launch replay makes denied moves retriable — so a
       -- relaunch whose only durable work is either kind must still schedule
-      -- the structural pass that re-attempts it (row 7).
+      -- the structural pass that re-attempts it (row 7). Unavailable moves
+      -- are excluded: no pass ever replays them (#2278 #4).
       WHERE intent.sync_status IN ('pending', 'blocked', 'denied')
     )
   LIMIT 1

@@ -12,14 +12,15 @@ import {
   accessManifestPrincipalHeadProjection,
   accessManifests,
 } from "@tearleads/api-shared/schema";
-import type {
-  AccessManifest,
-  AccessObjectKind,
-  AnyVerifiedAccessManifest,
-  ContainerAccessManifestState,
-  KeyingCanonicalJson,
-  ReferencedPrincipalHead,
-  VerifiedAccessEvent,
+import {
+  type AccessManifest,
+  type AccessObjectKind,
+  type AnyVerifiedAccessManifest,
+  type ContainerAccessManifestState,
+  type KeyingCanonicalJson,
+  KeyingVerificationError,
+  type ReferencedPrincipalHead,
+  type VerifiedAccessEvent,
 } from "@tearleads/crypto";
 import { and, asc, eq, inArray, lt } from "drizzle-orm";
 import { uniqueSortedStrings as unique } from "../../../utils/array";
@@ -43,6 +44,7 @@ import {
   referencedPrincipalHeadsCanonicalJson,
 } from "./accessManifestJson";
 import { selectOneOrThrow } from "./selectOneOrThrow";
+import { assertStoredSignedAtVerbatim } from "./storedSignedAt";
 
 /**
  * access projection tables are derived cache only.
@@ -136,7 +138,18 @@ async function insertAccessEvent(
 
   if (!insertedEvent) {
     await ensureStoredAccessEventMatches(verifiedEvent, executor);
+    return;
   }
+  assertStoredSignedAtVerbatim(
+    insertedEvent.signedAt.toISOString(),
+    event.signedAt,
+    (message) => {
+      throw new KeyingVerificationError(
+        "invalid_shape",
+        `Access event ${message}`,
+      );
+    },
+  );
 }
 
 export async function storeVerifiedAccessEventInTransaction(
@@ -181,7 +194,7 @@ async function ensureStoredAccessEventMatches(
     storedEvent.signerDeviceId !== event.signerDeviceId ||
     storedEvent.signerKeyFingerprint !== event.signerKeyFingerprint ||
     storedEvent.signature !== event.signature ||
-    storedEvent.signedAt.getTime() !== new Date(event.signedAt).getTime()
+    storedEvent.signedAt.toISOString() !== event.signedAt
   ) {
     throw new Error("Access event conflict");
   }

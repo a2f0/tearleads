@@ -45,6 +45,10 @@ export interface RemoteUserIdentityCandidate {
 
 export interface RemoteUserIdentitySource {
   invalidate(userId: string): void;
+  /**
+   * `null` only when the server asserts the user does not exist. A transport
+   * or non-404 HTTP failure throws a retryable availability error instead.
+   */
   load(userId: string): Promise<RemoteUserIdentityCandidate | null>;
 }
 

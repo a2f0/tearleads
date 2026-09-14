@@ -1,5 +1,6 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import {
+  CONTAINER_UNAVAILABLE_ERROR_CODE,
   DOCUMENT_MUTATION_ERROR_CODES,
   DOCUMENT_NOT_FOUND_ERROR_CODE,
   DOCUMENT_SYNC_ERROR_CODES,
@@ -69,6 +70,33 @@ export function documentManifestAlreadyExists(): DocumentMutationError {
 }
 
 /**
+ * A cited container path element resolves to a retained manifest whose
+ * `containers` row is gone (deleted). 409 rather than 404 because a
+ * document-route 404 is the client's wipe signal; the code lets the client
+ * tell this permanent condition from a transient conflict.
+ */
+export function documentContainerUnavailable(
+  refLabel: string,
+): DocumentMutationError {
+  return new DocumentMutationError(
+    `${refLabel} container unavailable`,
+    409,
+    DOCUMENT_MUTATION_ERROR_CODES.containerUnavailable,
+  );
+}
+
+function containerMutationErrorCode(
+  error: ContainerMutationError,
+): DocumentMutationErrorCode | undefined {
+  if (error.recovery === "state_stale") {
+    return DOCUMENT_SYNC_ERROR_CODES.stateStale;
+  }
+  return error.body?.code === CONTAINER_UNAVAILABLE_ERROR_CODE
+    ? DOCUMENT_MUTATION_ERROR_CODES.containerUnavailable
+    : undefined;
+}
+
+/**
  * The positively-verified "this document does not exist" failure. Clients
  * answer this code with a destructive local teardown, so it may only be thrown
  * after a direct existence check of the `documents` row — never for a missing
@@ -129,9 +157,7 @@ export function toMutationError(error: unknown): DocumentMutationError | null {
     return new DocumentMutationError(
       error.message,
       nonWipeStatus(error.status),
-      error.recovery === "state_stale"
-        ? DOCUMENT_SYNC_ERROR_CODES.stateStale
-        : undefined,
+      containerMutationErrorCode(error),
       stalePolicyBody
         ? { principalPolicies: stalePolicyBody.principalPolicies }
         : undefined,

@@ -7,8 +7,8 @@ import {
   computePrincipalStateHash,
   computePrincipalStatePayloadCiphertextHash,
   normalizePrincipalProjectionMembers,
-  verifySignedPrincipalState,
 } from "../principalState";
+import { verifySignedPrincipalState } from "../principalStateVerification";
 import {
   verifyPrincipalPolicyGrantCommitments,
   verifyPrincipalPolicyProjectionCommitments,

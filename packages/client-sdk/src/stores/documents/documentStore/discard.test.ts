@@ -218,7 +218,7 @@ test("discard keeps server links and reclaims staged upload bytes", async () => 
     // including the settled local-attachment half a crash can leave behind,
     // which shares the staged storage key and would otherwise survive as a
     // mapping to the reclaimed bytes.
-    await sqlDocumentsPersistence.savePendingAttachment(execSql, {
+    const staged = {
       contentSha256: "0".repeat(64),
       byteLength: 5,
       localId,
@@ -226,33 +226,30 @@ test("discard keeps server links and reclaims staged upload bytes", async () => 
       name: "staged.txt",
       slotId: "slot-1",
       storageKey: "staged-storage-key",
-    });
+    };
+    await sqlDocumentsPersistence.savePendingAttachment(execSql, staged);
     await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
+      ...staged,
       blobId: "staged-blob",
-      byteLength: 5,
       detachedAt: null,
-      localId,
-      mimeType: "text/plain",
-      slotId: "slot-1",
-      storageKey: "staged-storage-key",
     });
     // A detach marker from a discarded local removal: left behind, it would
     // filter the slot out of every projection after the re-pull restores it.
     await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
+      ...staged,
       blobId: "detached-blob",
       byteLength: 7,
       detachedAt: new Date().toISOString(),
-      localId,
       mimeType: "image/png",
       slotId: "slot-2",
       storageKey: "detached-storage-key",
     });
     // A live synced-attachment cache stays: hydration reuses it.
     await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
+      ...staged,
       blobId: "cached-blob",
       byteLength: 9,
       detachedAt: null,
-      localId,
       mimeType: "image/jpeg",
       slotId: "slot-3",
       storageKey: "cached-storage-key",
@@ -441,6 +438,7 @@ test("stale writers cannot resurrect rows after a discard", async () => {
         {
           blobId: "late-blob",
           byteLength: 3,
+          contentSha256: "0".repeat(64),
           detachedAt: null,
           localId,
           mimeType: null,
@@ -477,6 +475,7 @@ test("stale writers cannot resurrect rows after a discard", async () => {
         {
           blobId: "current-blob",
           byteLength: 3,
+          contentSha256: "0".repeat(64),
           detachedAt: null,
           localId,
           mimeType: null,

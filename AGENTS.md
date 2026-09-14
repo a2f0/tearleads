@@ -5,8 +5,8 @@
 Run the smallest command that matches the handoff risk:
 
 - `bun run check:fast`: formatting, OpenAPI generation and compatibility,
-  bounded protocol models, package assertions, Knip, architecture, file names,
-  source shape, binary-file, and Markdown checks.
+  bounded protocol models, package assertions, canonical ordering, Knip,
+  architecture, file names, source shape, binary-file, and Markdown checks.
 - `bun run check:protocol-models`: all bounded TLC checks registered in
   `formal/protocol-models.txt`, using the Java and TLA+ tools pinned in
   `.mise.toml`.
@@ -29,6 +29,9 @@ Run the smallest command that matches the handoff risk:
   fixtures; also included in `check:fast`.
 - `bun run test:static-analysis`: Git snapshot, source-shape baseline, and
   ShellCheck inventory fixtures; included in `check:fast` and pre-push.
+- `bun run lint:canonical-ordering`: bans `localeCompare` without a locale and
+  `Intl.Collator` in hash-adjacent code (`packages/crypto/src`,
+  `packages/client-sdk/src/data`); sort with `compareCanonicalStrings`.
 - `bun run lint:scripts`: ShellCheck over tracked shell files and shell shebangs.
   See [static-analysis maintenance](docs/developer/static-analysis.md) for
   snapshot semantics and explicit script exceptions, and

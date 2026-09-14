@@ -11,8 +11,8 @@ import {
   type SignedPrincipalState,
   serializeUnsignedPrincipalState,
   signPrincipalState,
-  verifySignedPrincipalState,
 } from "./principalState";
+import { verifySignedPrincipalState } from "./principalStateVerification";
 import { generateSigningSeedAndKeyPair } from "./signing/generateKeyPair";
 
 test("signPrincipalState normalizes members and produces a verifiable state hash", async () => {

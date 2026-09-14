@@ -14,6 +14,7 @@ import { loadLiveContainerOrganizations } from "../../liveContainerRows";
 import {
   ContainerMutationError,
   containerManifestAlreadyExists,
+  containerUnavailable,
   mutationShapeError,
   mutationStateStale,
 } from "../errors";
@@ -140,10 +141,7 @@ export async function assertCurrentContainerPath(
       liveOrganizations.get(manifest.state.containerId) !==
       manifest.state.organizationId
     ) {
-      throw new ContainerMutationError(
-        `${label}[${index}] container unavailable`,
-        409,
-      );
+      throw containerUnavailable(`${label}[${index}]`);
     }
   }
   assertContainerPathEdges(path, label);

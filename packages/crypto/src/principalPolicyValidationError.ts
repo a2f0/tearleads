@@ -1,5 +1,6 @@
 export type PrincipalPolicyValidationErrorCode =
   | "invalid_artifact"
+  | "invalid_shape"
   | "missing_state"
   | "state_conflict"
   | "unauthorized_signer";

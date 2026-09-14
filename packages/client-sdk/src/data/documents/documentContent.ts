@@ -1,3 +1,4 @@
+import { compareCanonicalStrings } from "@tearleads/crypto";
 import { LoroMap } from "@tearleads/loro";
 import type {
   StructuredDocumentShape as FullStructuredDocumentShape,
@@ -117,7 +118,7 @@ function listStructuredDocumentAttachments(
         return left.order - right.order;
       }
 
-      return left.slotId.localeCompare(right.slotId);
+      return compareCanonicalStrings(left.slotId, right.slotId);
     });
 }
 

@@ -1,7 +1,6 @@
 import {
   parseWsClientDeclaration,
   serializeWsServerMessage,
-  type WsInvalidationHint,
 } from "@tearleads/validators/realtime";
 import { ContainerInterestDependencies } from "./containerInterestDependencies";
 import {
@@ -9,9 +8,11 @@ import {
   type VerifiedContainerInterest,
 } from "./containerInterestTypes";
 import {
-  type PublishedRealtimeEvent,
-  parsePublishedRealtimeEvent,
-} from "./publishedRealtimeEvents";
+  hintContainerIds,
+  type PublishedHintEvent,
+  scopeHintToInterest,
+} from "./hintScoping";
+import { parsePublishedRealtimeEvent } from "./publishedRealtimeEvents";
 import {
   closeSafely,
   isSameSession,
@@ -53,11 +54,6 @@ interface InterestEviction {
   readonly containerId: string;
 }
 
-type PublishedHintEvent = Extract<
-  PublishedRealtimeEvent,
-  { type: WsInvalidationHint["type"] }
->;
-
 function containerInterestAction(
   kind: Exclude<AppliedInterest, null>["kind"],
   containerIds: string[],
@@ -66,42 +62,6 @@ function containerInterestAction(
   return declarationId
     ? { containerIds, declarationId, kind }
     : { containerIds, kind };
-}
-
-/**
- * Containers a hint is scoped to. Document hints already carry the linked
- * container set resolved during sync; container hints carry the container plus
- * its (previous) parent so a parent's watchers learn about child changes. The
- * router only delivers to sockets that declared interest in one of these.
- */
-function hintContainerIds(event: PublishedHintEvent): string[] {
-  switch (event.type) {
-    case "document_mutation_created":
-    case "document_update_created":
-      return [...new Set(event.containerIds)];
-    case "container_mutation_created":
-      return [
-        ...new Set(
-          [event.containerId, event.parentId, event.previousParentId].filter(
-            (containerId): containerId is string => !!containerId,
-          ),
-        ),
-      ];
-    case "shared_with_you":
-    case "user_registered":
-      return [];
-  }
-}
-
-/**
- * Rebuild the client frame from the shared public schema. The parsed event may
- * carry internal routing metadata (the authoring session `origin`, which holds
- * a per-session identifier that must not leak to clients); reconstructing from
- * the typed hint is what keeps it off the websocket boundary.
- */
-function publicHint(event: PublishedHintEvent): WsInvalidationHint {
-  const { origin: _origin, ...hint } = event;
-  return hint;
 }
 
 function addToIndex<K>(
@@ -280,8 +240,38 @@ export class WsEventRouter {
         return [];
       default:
         this.routeHint(event);
+        if (event.type === "container_mutation_created")
+          this.routePathChanged(event.containerId);
         return [];
     }
+  }
+
+  /**
+   * A container mutation moves the manifest every dependent subscription cites
+   * (writer projections embed the ancestor path). Grants, rekeys, and recites
+   * no longer evict those dependents, and a socket granted directly at a
+   * descendant never receives the ancestor's own hint, so tell each dependent
+   * socket which of its held containers now cite a stale manifest. Invalidation
+   * only: nothing is evicted, and the frame names only ids the socket holds.
+   */
+  private routePathChanged(mutatedContainerId: string): void {
+    const affected = new Map<WsConnection, string[]>();
+    for (const { ws, containerId } of this.dependencies.affected(
+      mutatedContainerId,
+    )) {
+      if (containerId === mutatedContainerId) continue;
+      const ids = affected.get(ws) ?? [];
+      ids.push(containerId);
+      affected.set(ws, ids);
+    }
+    for (const [ws, containerIds] of affected)
+      sendSafely(
+        ws,
+        serializeWsServerMessage({
+          containerIds,
+          type: "container_path_changed",
+        }),
+      );
   }
 
   private routeHint(event: PublishedHintEvent): void {
@@ -302,13 +292,29 @@ export class WsEventRouter {
     // the author's other devices/tabs are distinct sessions and must still
     // receive the event so they sync. Absent `origin` (e.g. attachment-bind
     // events) means "exclude nobody" — every interested socket gets it.
+    //
+    // Each frame is scoped to the ids its recipient holds interest in, so a
+    // watcher of only the destination never learns the source of a move and a
+    // single-container document subscriber never learns the other links.
+    // Recipients holding the same subset share one serialization.
     const origin = event.origin ?? null;
-    const clientMessage = serializeWsServerMessage(publicHint(event));
+    const scopeIds = hintContainerIds(event);
+    const frames = new Map<string, string>();
     for (const ws of recipients) {
       if (origin && isSameSession(ws, origin)) {
         continue;
       }
-      sendSafely(ws, clientMessage);
+      const interest = this.interestBySocket.get(ws);
+      const held = scopeIds.filter((id) => interest?.has(id));
+      const key = held.join(",");
+      let frame = frames.get(key);
+      if (frame === undefined) {
+        frame = serializeWsServerMessage(
+          scopeHintToInterest(event, new Set(held)),
+        );
+        frames.set(key, frame);
+      }
+      sendSafely(ws, frame);
     }
   }
 
@@ -350,6 +356,16 @@ export class WsEventRouter {
   // Test/diagnostics: number of sockets currently interested in a container.
   interestedSocketCount(containerId: string): number {
     return this.socketsByContainerId.get(containerId)?.size ?? 0;
+  }
+
+  /** The verified container ids currently indexed for one open socket. */
+  interestOf(ws: WsConnection): string[] {
+    return [...(this.interestBySocket.get(ws) ?? [])];
+  }
+
+  /** Every socket currently open on this process. */
+  openSockets(): WsConnection[] {
+    return [...this.interestBySocket.keys()];
   }
 
   private recipientsForHint(event: PublishedHintEvent): Set<WsConnection> {
