@@ -7,6 +7,7 @@ import {
   lockManager,
 } from "./crossTabLocks";
 import { CrossTabOwner, type ModuleWorkerConstructor } from "./crossTabOwner";
+import { isOwnerLockHeld, pollForOwner } from "./crossTabOwnership";
 import {
   errorResponse,
   isCrossTabEnvelope,
@@ -14,15 +15,11 @@ import {
   requestMethod,
   responseId,
 } from "./crossTabProtocol";
+import { DatabaseWorkerCrashError } from "./workerCrash";
 
 const CROSS_TAB_CHANNEL_NAME = "tearleads-sqlite-worker";
 const CROSS_TAB_OWNER_LOCK_NAME = "tearleads-sqlite-worker-owner";
 const CROSS_TAB_REQUEST_TIMEOUT_MS = 10_000;
-// How long a non-owner tab polls for an owner to appear before it unblocks
-// routing anyway. Generous enough to cover a same-origin tab winning the
-// ownership bid, short enough never to noticeably delay the first request.
-const OWNER_OBSERVE_BUDGET_MS = 2_000;
-const OWNER_OBSERVE_INTERVAL_MS = 50;
 
 interface CrossTabDatabaseWorker extends WorkerLike {
   close(): void;
@@ -39,6 +36,7 @@ interface CrossTabDatabaseWorker extends WorkerLike {
 interface LocalClient {
   closing: boolean;
   readonly dispatch: (response: unknown) => void;
+  readonly dispatchError: (error: DatabaseWorkerCrashError) => void;
   readonly liveness: ClientLivenessLock;
   readonly timeoutsByRequestId: Map<number, ReturnType<typeof setTimeout>>;
   // Request ids this client posted over BroadcastChannel that have not yet been
@@ -93,6 +91,13 @@ class CrossTabCoordinator {
       closing: false,
       dispatch: (response) => {
         events.dispatchEvent(new MessageEvent("message", { data: response }));
+      },
+      // Carries the instance so the client's error handler rejects with the
+      // stack minted where the crash was observed, not one rooted here.
+      dispatchError: (error) => {
+        events.dispatchEvent(
+          new ErrorEvent("error", { error, message: error.message }),
+        );
       },
       liveness: createClientLivenessLock(clientId),
       timeoutsByRequestId: new Map(),
@@ -273,6 +278,26 @@ class CrossTabCoordinator {
     localClient.dispatch(response);
   }
 
+  // Every request this client has outstanding — routed locally or posted to a
+  // remote owner — is lost with the crashed worker, so drop their timeouts too:
+  // the client rejects them all at once and would only ignore the late errors.
+  private dispatchLocalError(
+    clientId: string,
+    error: DatabaseWorkerCrashError,
+  ): void {
+    const localClient = this.localClientsById.get(clientId);
+    if (!localClient) {
+      return;
+    }
+
+    for (const timeoutId of localClient.timeoutsByRequestId.values()) {
+      clearTimeout(timeoutId);
+    }
+    localClient.timeoutsByRequestId.clear();
+    localClient.pendingRemoteRequestIds.clear();
+    localClient.dispatchError(error);
+  }
+
   private unregisterLocalClient(clientId: string): void {
     const localClient = this.localClientsById.get(clientId);
     if (localClient) {
@@ -295,6 +320,14 @@ class CrossTabCoordinator {
       this.owner?.route(envelope.clientId, envelope.request, {
         hasClientLock: envelope.hasClientLock === true,
       });
+      return;
+    }
+
+    if (envelope.type === "error") {
+      this.dispatchLocalError(
+        envelope.clientId,
+        new DatabaseWorkerCrashError(envelope.detail),
+      );
       return;
     }
 
@@ -339,6 +372,7 @@ class CrossTabCoordinator {
             this.channel,
             (clientId, response) =>
               this.dispatchLocalResponse(clientId, response),
+            (clientId, error) => this.dispatchLocalError(clientId, error),
             () => {
               if (this.owner === owner) {
                 this.owner = null;
@@ -403,14 +437,7 @@ class CrossTabCoordinator {
    * Settle the initial routing gate on a tab that did NOT win ownership. Runs
    * concurrently with the blocking bid above; whichever resolves first settles the
    * gate (the bid settles it on the tab that becomes owner, this settles it on
-   * every other tab).
-   *
-   * A single owner-lock query is not enough: at cold start no tab owns yet, so the
-   * query sees nothing held and the bid losers would never settle. Poll on a short
-   * budget instead, settling as soon as an owner is observed — either this tab won
-   * (`this.owner`) or another tab holds the owner lock. After the budget we settle
-   * regardless: by then some tab has almost certainly won, and the worst case is
-   * the first request takes the remote path and relies on the response/timeout.
+   * every other tab). See {@link pollForOwner} for why this polls.
    *
    * Falls back to settling immediately when the lock manager cannot be queried, so
    * routing is never blocked indefinitely.
@@ -426,28 +453,12 @@ class CrossTabCoordinator {
       return;
     }
 
-    void this.pollForOwner(locks, generation);
-  }
-
-  private async pollForOwner(
-    locks: LockManagerLike,
-    generation: number,
-  ): Promise<void> {
-    const deadline = OWNER_OBSERVE_BUDGET_MS / OWNER_OBSERVE_INTERVAL_MS;
-    for (let attempt = 0; attempt < deadline; attempt += 1) {
-      if (this.owner || (await this.isOwnerLockHeld(locks))) {
-        this.settleOwnership(generation);
-        return;
-      }
-
-      await new Promise((resolve) => {
-        setTimeout(resolve, OWNER_OBSERVE_INTERVAL_MS);
-      });
-    }
-
-    // Budget elapsed without observing an owner; settle anyway so routing is never
-    // wedged. A tab has almost certainly won the bid by now.
-    this.settleOwnership(generation);
+    void pollForOwner({
+      locks,
+      lockName: CROSS_TAB_OWNER_LOCK_NAME,
+      hasOwner: () => this.owner !== null,
+      settle: () => this.settleOwnership(generation),
+    });
   }
 
   private resetOwnershipGate(): void {
@@ -478,33 +489,7 @@ class CrossTabCoordinator {
     }
 
     const locks = lockManager();
-    return locks ? this.isOwnerLockHeld(locks) : false;
-  }
-
-  private async isOwnerLockHeld(locks: LockManagerLike): Promise<boolean> {
-    if (!locks.query) {
-      return false;
-    }
-
-    let snapshot: unknown;
-    try {
-      snapshot = await locks.query();
-    } catch {
-      return false;
-    }
-
-    if (typeof snapshot !== "object" || snapshot === null) {
-      return false;
-    }
-
-    const held = Reflect.get(snapshot, "held");
-    if (!Array.isArray(held)) {
-      return false;
-    }
-
-    return held.some(
-      (lock) => Reflect.get(lock, "name") === CROSS_TAB_OWNER_LOCK_NAME,
-    );
+    return locks ? isOwnerLockHeld(locks, CROSS_TAB_OWNER_LOCK_NAME) : false;
   }
 
   /**

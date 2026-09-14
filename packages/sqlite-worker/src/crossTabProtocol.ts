@@ -1,4 +1,5 @@
 import type { WorkerResponse } from "./types";
+import type { WorkerCrashDetail } from "./workerCrash";
 
 type CrossTabEnvelope =
   | {
@@ -11,6 +12,14 @@ type CrossTabEnvelope =
       readonly type: "response";
       readonly clientId: string;
       readonly response: unknown;
+    }
+  // The owner's worker crashed while serving `clientId` from another tab. An
+  // Error cannot cross the channel, so the receiving tab mints its own from the
+  // detail (see workerCrash.ts).
+  | {
+      readonly type: "error";
+      readonly clientId: string;
+      readonly detail: WorkerCrashDetail;
     };
 
 function isObject(value: unknown): value is object {
@@ -70,6 +79,12 @@ export function isCrossTabEnvelope(value: unknown): value is CrossTabEnvelope {
 
   if (type === "request") {
     return true;
+  }
+
+  if (type === "error") {
+    return (
+      typeof getString(Reflect.get(value, "detail"), "message") === "string"
+    );
   }
 
   return type === "response";

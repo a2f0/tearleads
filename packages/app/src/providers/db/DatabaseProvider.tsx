@@ -32,7 +32,7 @@ export function DatabaseProvider({ children }: PropsWithChildren) {
   } = useAppHostConfig();
   const { createLocalKeyring } = useLocalKeyringLock();
   const tearleads = useTearleads();
-  const { log } = useLog();
+  const { log, logError } = useLog();
   const identity = useTearleadsStoreSnapshot(tearleads.identity);
   const persistencePolicy = usePersistentStoragePolicy(storagePersistence, log);
   const resolveCipherKey = useMemo(
@@ -52,6 +52,7 @@ export function DatabaseProvider({ children }: PropsWithChildren) {
     persistencePolicy,
     resolveCipherKey,
     log,
+    logError,
     tearleads,
     reuseDatabaseWorker,
   );

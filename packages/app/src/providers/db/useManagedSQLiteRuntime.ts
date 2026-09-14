@@ -8,7 +8,7 @@ import type {
   SQLiteRuntime,
   StoragePersistencePolicy,
 } from "@tearleads/client-sdk/sqlite";
-import { type RefObject, useCallback, useEffect, useRef } from "react";
+import { type RefObject, useCallback, useEffect, useMemo, useRef } from "react";
 import { useTearleadsStoreSnapshot } from "../sdk/useTearleadsSubscription";
 import type { ResolveSqliteCipherKey } from "./sqliteCipherKey";
 import { startSQLiteRuntimeBoot } from "./sqliteRuntimeLifecycle";
@@ -88,51 +88,47 @@ function useSQLiteRuntimeLifecycle(
   }, [destroyCurrentRuntime]);
 }
 
-function useSpawnSQLiteRuntimeForDbName(params: {
+interface SpawnSQLiteRuntimeParams {
   bootGenerationRef: RefObject<number>;
   bootingRef: RefObject<boolean>;
   createSQLiteRuntime: () => SQLiteRuntime;
   currentDbNameRef: RefObject<string | null>;
   log: (message: string) => void;
+  logError: (message: string | Error, cause?: unknown) => void;
+  onWorkerCrash: (error: Error) => void;
   onUnreadableDatabase: (dbName: string) => void;
   onTransientBootFailure: (dbName: string) => boolean;
   onBootSucceeded: (dbName: string) => void;
   persistence: DatabasePersistenceMode;
   resolveCipherKey: ResolveSqliteCipherKey;
   reuseWorker: boolean;
-  runtimeOperationRef: RefObject<SQLiteRuntimeOperation | null>;
   runtimeRef: RefObject<SQLiteRuntime | null>;
   targetDbNameRef: RefObject<string>;
   tearleads: Tearleads;
-}) {
+}
+
+// The boot itself; callers gate on mount and pending operations first.
+function useSpawnSQLiteRuntime(params: SpawnSQLiteRuntimeParams) {
   const {
     bootGenerationRef,
     bootingRef,
     createSQLiteRuntime,
     currentDbNameRef,
     log,
+    logError,
+    onWorkerCrash,
     onUnreadableDatabase,
     onTransientBootFailure,
     onBootSucceeded,
     persistence,
     resolveCipherKey,
     reuseWorker,
-    runtimeOperationRef,
     runtimeRef,
     targetDbNameRef,
     tearleads,
   } = params;
-  const mountedRef = useRef(true);
 
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
-
-  // Callers already gate on mountedRef before invoking this.
-  const spawnRuntime = useCallback(
+  return useCallback(
     (nextDbName: string) => {
       startSQLiteRuntimeBoot({
         bootGenerationRef,
@@ -140,7 +136,9 @@ function useSpawnSQLiteRuntimeForDbName(params: {
         createSQLiteRuntime,
         currentDbNameRef,
         log,
+        logError,
         nextDbName,
+        onWorkerCrash,
         onUnreadableDatabase,
         onTransientBootFailure,
         onBootSucceeded,
@@ -158,6 +156,8 @@ function useSpawnSQLiteRuntimeForDbName(params: {
       createSQLiteRuntime,
       currentDbNameRef,
       log,
+      logError,
+      onWorkerCrash,
       onUnreadableDatabase,
       onTransientBootFailure,
       onBootSucceeded,
@@ -169,6 +169,23 @@ function useSpawnSQLiteRuntimeForDbName(params: {
       tearleads,
     ],
   );
+}
+
+function useSpawnSQLiteRuntimeForDbName(
+  params: SpawnSQLiteRuntimeParams & {
+    runtimeOperationRef: RefObject<SQLiteRuntimeOperation | null>;
+  },
+) {
+  const { bootingRef, runtimeOperationRef, targetDbNameRef } = params;
+  const spawnRuntime = useSpawnSQLiteRuntime(params);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   return useCallback(
     (nextDbName: string) => {
@@ -197,12 +214,78 @@ function useSpawnSQLiteRuntimeForDbName(params: {
   );
 }
 
+// A crashed worker answers nothing: report it once (its callers already saw
+// the rejection as the database going away) and retire the runtime so
+// `waitForReadySQLiteRuntime` rejects and the retry surface appears.
+function useWorkerCrashRecovery(params: {
+  destroyCurrentRuntime: (nextStatus: SQLiteRuntimeStatus) => void;
+  logError: (message: string | Error, cause?: unknown) => void;
+}): (error: Error) => void {
+  const { destroyCurrentRuntime, logError } = params;
+  return useCallback(
+    (error: Error) => {
+      logError("Database worker crashed; surfacing error", error);
+      destroyCurrentRuntime("error");
+    },
+    [destroyCurrentRuntime, logError],
+  );
+}
+
+// The boot's recovery handlers, keyed as the spawn params expect them.
+function useSQLiteRuntimeRecovery(params: {
+  destroyCurrentRuntime: (nextStatus: SQLiteRuntimeStatus) => void;
+  log: (message: string) => void;
+  logError: (message: string | Error, cause?: unknown) => void;
+  purgeCurrentRuntime: () => Promise<void>;
+  spawnRuntimeForDbName: RefObject<(dbName: string) => void>;
+}) {
+  const {
+    destroyCurrentRuntime,
+    log,
+    logError,
+    purgeCurrentRuntime,
+    spawnRuntimeForDbName,
+  } = params;
+  const onUnreadableDatabase = useUnreadableDatabaseRecovery({
+    destroyCurrentRuntime,
+    logError,
+    purgeCurrentRuntime,
+    spawnRuntimeForDbName,
+  });
+  const onWorkerCrash = useWorkerCrashRecovery({
+    destroyCurrentRuntime,
+    logError,
+  });
+  const { clearBudget: onBootSucceeded, recoverFromBootTimeout } =
+    useTransientBootFailureRecovery({
+      destroyCurrentRuntime,
+      log,
+      spawnRuntimeForDbName,
+    });
+
+  return useMemo(
+    () => ({
+      onBootSucceeded,
+      onTransientBootFailure: recoverFromBootTimeout,
+      onUnreadableDatabase,
+      onWorkerCrash,
+    }),
+    [
+      onBootSucceeded,
+      recoverFromBootTimeout,
+      onUnreadableDatabase,
+      onWorkerCrash,
+    ],
+  );
+}
+
 export function useManagedSQLiteRuntime(
   createSQLiteRuntime: () => SQLiteRuntime,
   dbName: string,
   persistencePolicy: StoragePersistencePolicy,
   resolveCipherKey: ResolveSqliteCipherKey,
   log: (message: string) => void,
+  logError: (message: string | Error, cause?: unknown) => void,
   tearleads: Tearleads,
   reuseWorker = false,
 ): DatabaseContextValue {
@@ -227,27 +310,21 @@ export function useManagedSQLiteRuntime(
       targetDbNameRef,
       tearleads,
     });
-  const onUnreadableDatabase = useUnreadableDatabaseRecovery({
+  const recovery = useSQLiteRuntimeRecovery({
     destroyCurrentRuntime,
     log,
+    logError,
     purgeCurrentRuntime,
     spawnRuntimeForDbName: spawnRuntimeRef,
   });
-  const { clearBudget: onBootSucceeded, recoverFromBootTimeout } =
-    useTransientBootFailureRecovery({
-      destroyCurrentRuntime,
-      log,
-      spawnRuntimeForDbName: spawnRuntimeRef,
-    });
   const spawnRuntimeForDbName = useSpawnSQLiteRuntimeForDbName({
+    ...recovery,
     bootGenerationRef,
     bootingRef,
     createSQLiteRuntime,
     currentDbNameRef,
     log,
-    onUnreadableDatabase,
-    onTransientBootFailure: recoverFromBootTimeout,
-    onBootSucceeded,
+    logError,
     persistence: persistencePolicy.databasePersistence,
     resolveCipherKey,
     reuseWorker,

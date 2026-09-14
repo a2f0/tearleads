@@ -12,6 +12,7 @@ import {
   type DatabaseRuntimeMessagePort,
   disconnectMessagePort,
 } from "./renewedClientTransport";
+import { workerCrashErrorFromEvent } from "./workerCrash";
 
 const DEFAULT_DATABASE_WORKER_URL = "/worker.js";
 const DEFAULT_SHARED_DATABASE_WORKER_NAME = "tearleads-sqlite-worker";
@@ -82,6 +83,29 @@ export interface DatabaseRuntime {
    * runtime implements this; the cross-tab runtime omits it (it is never reused).
    */
   renewClient?(): void;
+  /**
+   * Observe the worker crashing (an `error` event: a failed script load or an
+   * uncaught exception outside request handling). The client has already
+   * rejected every in-flight request with the same failure; this is the host's
+   * signal to report it and retire the runtime, because errors thrown inside a
+   * Worker never reach the page's own error handlers. Returns an unsubscribe.
+   * Runtimes hosts construct themselves may omit it.
+   */
+  subscribeWorkerError?(listener: (error: Error) => void): () => void;
+}
+
+function subscribeWorkerError(
+  worker: WorkerLike,
+): NonNullable<DatabaseRuntime["subscribeWorkerError"]> {
+  return (listener) => {
+    const handleError = (event: Event) => {
+      listener(workerCrashErrorFromEvent(event));
+    };
+    worker.addEventListener("error", handleError);
+    return () => {
+      worker.removeEventListener("error", handleError);
+    };
+  };
 }
 
 export interface CreateModuleDatabaseRuntimeOptions {
@@ -261,6 +285,7 @@ export function createDatabaseRuntime(
     terminateNow() {
       terminate();
     },
+    subscribeWorkerError: subscribeWorkerError(worker),
   };
 
   if (messageChannelConstructor) {
@@ -396,6 +421,7 @@ export function createSharedDatabaseRuntime(
       postCloseWithoutWaiting(worker);
       forceClose();
     },
+    subscribeWorkerError: subscribeWorkerError(worker),
   };
 }
 

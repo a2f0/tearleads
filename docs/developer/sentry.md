@@ -157,6 +157,20 @@ local, as do offline and expected HTTP outcomes, which never reach these
 paths. Messages are fixed literals: document, row, container, and lane
 identifiers stay in the local log line and are never reported.
 
+The local database lifecycle reports its own failures the same way. Wiping a
+persisted database that cannot be decrypted with the resolved key — the most
+destructive automatic action the client takes — reports a real `Error` whose
+cause is the SQLite failure, and so do a failed wipe and a recreated database
+that comes back unreadable. Boot, reset, and worker-construction failures
+report the original `Error`. A crash of the SQLite worker itself (a failed
+script load or an uncaught exception outside request handling) is observed on
+the main thread on every target: the cross-tab owner forwards it to each
+client, in-flight requests reject instead of hanging, and the app reports it
+once and retires the runtime so the retry surface appears. Callers whose
+requests it rejected treat it as the database going away and stay local. The
+crash `Error` is constructed in application code, never from the worker's own
+event, so its stack maps to an allowlisted bundle frame.
+
 All mini-apps record opening and route changes. Explorer additionally records
 root/Trash/folder/document views and explicit context-menu actions. Notes
 records moving documents to Trash; Backup / Restore records export/import

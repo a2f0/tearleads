@@ -19,10 +19,14 @@ export class DatabaseUnavailableError extends Error {
 }
 
 // These come from the SQLite worker and its client, which raise plain Errors, so
-// they can only be matched on text.
+// they can only be matched on text. A worker crash belongs here too: the app's
+// database lifecycle observes it directly and reports it once, so the callers
+// whose requests it rejected treat it as the database going away rather than
+// each reporting their own copy.
 const DESTROYED_DATABASE_CLIENT_MESSAGES = [
   "Database client is unavailable.",
   "Database worker client has been destroyed.",
+  "Database worker failed.",
   "DB has been closed.",
 ] as const;
 

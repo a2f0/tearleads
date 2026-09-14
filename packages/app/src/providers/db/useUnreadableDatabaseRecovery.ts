@@ -1,6 +1,6 @@
 import type { DatabaseStatus } from "@tearleads/client-sdk";
 import { type RefObject, useCallback, useRef } from "react";
-import { unknownErrorMessage } from "../../utils/unknownErrorMessage";
+import { UnreadableDatabaseRecoveryError } from "./sqliteRuntimeErrors";
 
 type SQLiteRuntimeStatus = DatabaseStatus;
 
@@ -20,13 +20,13 @@ type SQLiteRuntimeStatus = DatabaseStatus;
  */
 export function useUnreadableDatabaseRecovery(params: {
   destroyCurrentRuntime: (nextStatus: SQLiteRuntimeStatus) => void;
-  log: (message: string) => void;
+  logError: (message: string | Error, cause?: unknown) => void;
   purgeCurrentRuntime: () => Promise<void>;
   spawnRuntimeForDbName: RefObject<(dbName: string) => void>;
 }): (dbName: string) => void {
   const {
     destroyCurrentRuntime,
-    log,
+    logError,
     purgeCurrentRuntime,
     spawnRuntimeForDbName,
   } = params;
@@ -35,8 +35,11 @@ export function useUnreadableDatabaseRecovery(params: {
   return useCallback(
     (unreadableDbName: string) => {
       if (recoveredDbNamesRef.current.has(unreadableDbName)) {
-        log(
-          `Database still unreadable after recreate; surfacing error: ${unreadableDbName}`,
+        logError(
+          new UnreadableDatabaseRecoveryError(
+            "still-unreadable",
+            unreadableDbName,
+          ),
         );
         destroyCurrentRuntime("error");
         return;
@@ -50,12 +53,23 @@ export function useUnreadableDatabaseRecovery(params: {
           spawnRuntimeForDbName.current(unreadableDbName);
         })
         .catch((error: unknown) => {
-          log(
-            `Failed to wipe the unreadable database; surfacing error: ${unknownErrorMessage(error)}`,
+          logError(
+            new UnreadableDatabaseRecoveryError(
+              "wipe-failed",
+              unreadableDbName,
+              {
+                cause: error,
+              },
+            ),
           );
           destroyCurrentRuntime("error");
         });
     },
-    [destroyCurrentRuntime, log, purgeCurrentRuntime, spawnRuntimeForDbName],
+    [
+      destroyCurrentRuntime,
+      logError,
+      purgeCurrentRuntime,
+      spawnRuntimeForDbName,
+    ],
   );
 }
