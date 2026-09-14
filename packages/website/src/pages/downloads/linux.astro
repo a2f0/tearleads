@@ -1,6 +1,6 @@
 ---
-import Layout from "../../layouts/Layout.astro";
 import { isStaging } from "../../config";
+import Layout from "../../layouts/Layout.astro";
 import { resolveLinuxDownloads } from "../../linuxDownloads";
 
 const { installerUrl, checksumUrl } = await resolveLinuxDownloads(isStaging);
