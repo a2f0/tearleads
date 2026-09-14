@@ -40,11 +40,12 @@ const DENIED_INTENT_ORGANIZATION_JOINS_SQL = `
  * - `blocked`: the last pass could not proceed locally (missing local
  *   document / destination); replays, since hydration can heal it.
  * - `denied`: parked on a 403 until the access-restored replay (row 7).
- * - `unavailable`: terminal — the server proved a cited container was deleted
- *   (coded 404 / `container_unavailable` 409). Container ids never return, so
- *   no replay can commit the intent as written; it leaves the replay set
- *   until the local container tombstone cascade retargets it or the user
- *   re-enqueues the move.
+ * - `unavailable`: terminal — after a projection refresh the destination
+ *   itself is proven deleted (coded 404), or the refreshed retry still hit a
+ *   vanished container (`container_unavailable` 409). Container ids never
+ *   return, so no replay can commit the intent as written; it leaves the
+ *   replay set until the local container tombstone cascade retargets it or
+ *   the user re-enqueues the move.
  */
 export type DocumentMoveIntentSyncStatus =
   | "pending"

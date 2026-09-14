@@ -192,16 +192,12 @@ export async function relinkRemoteDocument(input: {
     fetchLinkSetDocumentProjection(input.apiClient, input.documentId),
     fetchLinkSetContainerProjection(input.apiClient, input.targetContainerId),
   ]);
-  // A 403 from either fetch wins the report: any permission denial in the
-  // pass parks the move (row 7), so a non-403 document failure must not mask
-  // a container denial when both fetches fail.
-  const projectionFailure = preferredProjectionFailure([
-    writerFetch.failure,
-    targetContainerFetch.failure,
-  ]);
   if (!writerFetch.projection || !targetContainerFetch.projection) {
-    if (projectionFailure) {
-      input.onFailure?.(projectionFailure);
+    for (const failure of orderedProjectionFailures([
+      writerFetch.failure,
+      targetContainerFetch.failure,
+    ])) {
+      input.onFailure?.(failure);
     }
     return null;
   }
@@ -251,14 +247,21 @@ export async function relinkRemoteDocument(input: {
   });
 }
 
-function preferredProjectionFailure(
+// Every projection failure reaches the handler: the queued-move accumulator
+// classifies a vanished container from ANY coded container 404, so a document
+// fetch failure must not hide a container one (or vice versa). A 403 is
+// delivered last, so a single-slot consumer keeps the denial that parks the
+// move (row 7) while the accumulator still sees both.
+function orderedProjectionFailures(
   failures: readonly (DocumentLinkSetMutationFailure | null)[],
-) {
-  return (
-    failures.find((failure) => failure?.status === 403) ??
-    failures.find((failure) => failure !== null) ??
-    null
+): DocumentLinkSetMutationFailure[] {
+  const present = failures.filter(
+    (failure): failure is DocumentLinkSetMutationFailure => failure !== null,
   );
+  return [
+    ...present.filter((failure) => failure.status !== 403),
+    ...present.filter((failure) => failure.status === 403),
+  ];
 }
 
 function prepareRemoteLinkSetMutation(

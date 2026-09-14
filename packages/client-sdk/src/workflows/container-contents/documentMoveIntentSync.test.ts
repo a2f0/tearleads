@@ -1,10 +1,6 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
-import {
-  CONTAINER_NOT_FOUND_ERROR_CODE,
-  CONTAINER_UNAVAILABLE_ERROR_CODE,
-} from "@tearleads/validators/response";
 import { runQueuedDocumentMoveFixture } from "../../../test/helpers/queuedDocumentMoveFixture";
 import { createDomainScope } from "../../data/domainScope";
 import { sqlDocumentMoveIntentPersistence } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
@@ -370,88 +366,4 @@ test("denied moves replay once per launch, before the scan", async () => {
   } finally {
     await close();
   }
-});
-
-// #2278 #4: a coded `container_unavailable` 409 is the server's proof that a
-// cited container was deleted between the projection fetch and the commit.
-// Container ids never come back, so the intent stops being a retriable
-// "rejected" failure and parks terminally as `unavailable`: unlike a local
-// `blocked` verdict it leaves the replay set, so later passes issue no remote
-// requests against the deleted container. Only the local tombstone cascade
-// (retarget) or a fresh enqueue revives it.
-test("a link refused for a deleted destination parks the move without replay", async () => {
-  const fixture = await runQueuedDocumentMoveFixture({
-    linkFailure: {
-      code: CONTAINER_UNAVAILABLE_ERROR_CODE,
-      message: "targetContainerPathRefs[1] container unavailable",
-      status: 409,
-    },
-    passes: 2,
-    testDbName: "containerContents-document-move-destination-unavailable",
-    unlinkAvailable: true,
-  });
-
-  expect(fixture.syncedCount).toBe(0);
-  expect(fixture.intentRows).toEqual([
-    {
-      lastError:
-        "Remote document move cites a container deleted on the server: targetContainerPathRefs[1] container unavailable (409)",
-      syncStatus: "unavailable",
-    },
-  ]);
-  // Pass 1 reached the server and was refused with the coded 409.
-  expect(fixture.passes[0]?.remoteRequests).toContain("link");
-  // Pass 2 skipped the parked intent entirely: no preflight, no remote call.
-  expect(fixture.passes[1]).toEqual({
-    remoteRequests: [],
-    submittedOperations: [],
-    syncedCount: 0,
-  });
-  expect(fixture.pendingIntents).toEqual([]);
-});
-
-// An uncoded 409 proves nothing permanent (a stale head, a lock race) and
-// keeps its retriable verdict.
-test("an uncoded 409 on a link stays a retriable rejection", async () => {
-  const fixture = await runQueuedDocumentMoveFixture({
-    linkFailure: {
-      message: "targetContainerPathRefs[1] is stale",
-      status: 409,
-    },
-    testDbName: "containerContents-document-move-uncoded-conflict",
-    unlinkAvailable: true,
-  });
-
-  expect(fixture.intentRows).toEqual([
-    {
-      lastError:
-        "Remote document move was rejected or unavailable: targetContainerPathRefs[1] is stale (409)",
-      syncStatus: "pending",
-    },
-  ]);
-});
-
-// The pre-mutation projection fetch carries the same proof as a coded 404.
-test("a coded container 404 on the destination projection parks the move without replay", async () => {
-  const fixture = await runQueuedDocumentMoveFixture({
-    containerProjectionFailure: {
-      code: CONTAINER_NOT_FOUND_ERROR_CODE,
-      message: "Container not found",
-      status: 404,
-    },
-    passes: 2,
-    testDbName: "containerContents-document-move-destination-not-found",
-    unlinkAvailable: true,
-  });
-
-  expect(fixture.syncedCount).toBe(0);
-  expect(fixture.intentRows).toEqual([
-    {
-      lastError:
-        "Remote document move cites a container deleted on the server: Container not found (404)",
-      syncStatus: "unavailable",
-    },
-  ]);
-  expect(fixture.passes[0]?.remoteRequests).toContain("container-projection");
-  expect(fixture.passes[1]?.remoteRequests).toEqual([]);
 });

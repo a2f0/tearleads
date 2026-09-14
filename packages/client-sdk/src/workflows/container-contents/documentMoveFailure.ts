@@ -12,8 +12,10 @@ export interface DocumentMoveFailureState {
   sawPermissionDenial: boolean;
   /**
    * The server proved a cited container no longer exists (coded projection
-   * 404 or coded commit 409 `container_unavailable`). Retrying the same
-   * request can never succeed; the intent blocks instead of retrying.
+   * 404 or coded commit 409 `container_unavailable`). Retrying the SAME
+   * request can never succeed — but the cited container may be a stale
+   * ancestor in a cached path, so the verdict triggers a projection refresh
+   * (documentMoveVanishedRefresh) before the intent parks terminally.
    */
   sawVanishedContainer: boolean;
 }

@@ -31,6 +31,8 @@ export interface QueuedDocumentMoveFailure {
 }
 
 export interface QueuedDocumentMovePass {
+  /** Writer-projection cache evictions the pass requested, in order. */
+  readonly cacheEvictions: readonly string[];
   /** Every API call the pass issued, in order (projection fetches included). */
   readonly remoteRequests: readonly string[];
   readonly submittedOperations: readonly string[];
@@ -40,6 +42,12 @@ export interface QueuedDocumentMovePass {
 export async function runQueuedDocumentMoveFixture(input: {
   containerProjectionFailure?: QueuedDocumentMoveFailure | undefined;
   linkFailure?: QueuedDocumentMoveFailure | undefined;
+  /**
+   * How many leading link submissions fail with `linkFailure` before the
+   * mock accepts them (default: every one). A finite count models a stale
+   * cached path that a projection refresh repairs.
+   */
+  linkFailureTimes?: number | undefined;
   /** Structural passes to run against the same queue (default 1). */
   passes?: number | undefined;
   replaceLinkedContainers?: boolean | undefined;
@@ -146,6 +154,46 @@ export async function runQueuedDocumentMoveFixture(input: {
     const relinkInputs: DocumentStructuralMutationRelinkInput[] = [];
     const submittedOperations: string[] = [];
     const remoteRequests: string[] = [];
+    const cacheEvictions: string[] = [];
+    let linkFailuresRemaining = input.linkFailure
+      ? (input.linkFailureTimes ?? Number.POSITIVE_INFINITY)
+      : 0;
+    // The accepted link: shared by the plain mock and by the failing
+    // `linkDocumentResult` override once its failure budget is spent.
+    const submitLink = async (
+      documentId: string,
+      request: DocumentLinkSetMutationRequest,
+    ) => {
+      submittedOperations.push("link");
+      remoteRequests.push("link");
+      const response = await createLinkSetResponseFromRequest(
+        documentId,
+        request,
+      );
+      writerProjection = {
+        authorizingContainerPaths: [rootProjection, trashProjection],
+        contentKeyBundle: response.contentKeyBundle,
+        documentContainerManifestHistory: [
+          ...writerProjection.documentContainerManifestHistory,
+          ...trashProjection.path,
+          ...trashProjection.containerKeks.flatMap(
+            (kek) => kek.containerManifestHistory,
+          ),
+        ],
+        documentId: response.id,
+        documentKekTargets: response.documentKekTargets,
+        documentManifest: response.accessManifest,
+        documentManifestContainerPaths: [
+          ...writerProjection.documentManifestContainerPaths,
+          [...trashProjection.path],
+        ],
+        documentManifestHistory: [
+          writerProjection.documentManifest,
+          ...writerProjection.documentManifestHistory,
+        ],
+      };
+      return response;
+    };
     const runtime: ContainerContentsWorkflowRuntime = {
       apiClient: createMockApiClient({
         listDocumentAttachments: async () => {
@@ -169,6 +217,12 @@ export async function runQueuedDocumentMoveFixture(input: {
             : null;
         },
         primeDocumentWriterProjection: () => {},
+        evictContainerWriterProjection: (containerId: string) => {
+          cacheEvictions.push(`container:${containerId}`);
+        },
+        evictDocumentWriterProjection: (documentId: string) => {
+          cacheEvictions.push(`document:${documentId}`);
+        },
         ...(input.containerProjectionFailure
           ? {
               getContainerWriterProjectionResult: async () => {
@@ -189,7 +243,17 @@ export async function runQueuedDocumentMoveFixture(input: {
           : {}),
         ...(input.linkFailure
           ? {
-              linkDocumentResult: async () => {
+              linkDocumentResult: async (
+                documentId: string,
+                request: DocumentLinkSetMutationRequest,
+              ) => {
+                if (linkFailuresRemaining <= 0) {
+                  return {
+                    data: await submitLink(documentId, request),
+                    ok: true as const,
+                  };
+                }
+                linkFailuresRemaining -= 1;
                 remoteRequests.push("link");
                 return {
                   kind: "http" as const,
@@ -205,40 +269,7 @@ export async function runQueuedDocumentMoveFixture(input: {
               },
             }
           : {}),
-        linkDocument: async (
-          documentId: string,
-          request: DocumentLinkSetMutationRequest,
-        ) => {
-          submittedOperations.push("link");
-          remoteRequests.push("link");
-          const response = await createLinkSetResponseFromRequest(
-            documentId,
-            request,
-          );
-          writerProjection = {
-            authorizingContainerPaths: [rootProjection, trashProjection],
-            contentKeyBundle: response.contentKeyBundle,
-            documentContainerManifestHistory: [
-              ...writerProjection.documentContainerManifestHistory,
-              ...trashProjection.path,
-              ...trashProjection.containerKeks.flatMap(
-                (kek) => kek.containerManifestHistory,
-              ),
-            ],
-            documentId: response.id,
-            documentKekTargets: response.documentKekTargets,
-            documentManifest: response.accessManifest,
-            documentManifestContainerPaths: [
-              ...writerProjection.documentManifestContainerPaths,
-              [...trashProjection.path],
-            ],
-            documentManifestHistory: [
-              writerProjection.documentManifest,
-              ...writerProjection.documentManifestHistory,
-            ],
-          };
-          return response;
-        },
+        linkDocument: submitLink,
         unlinkDocument: async (
           documentId: string,
           request: DocumentLinkSetMutationRequest,
@@ -345,6 +376,7 @@ export async function runQueuedDocumentMoveFixture(input: {
 
     const passes: QueuedDocumentMovePass[] = [];
     for (let pass = 0; pass < (input.passes ?? 1); pass += 1) {
+      const evictionsBefore = cacheEvictions.length;
       const remoteRequestsBefore = remoteRequests.length;
       const submittedBefore = submittedOperations.length;
       const syncedCount = await syncPendingDocumentMoveIntents({
@@ -354,6 +386,7 @@ export async function runQueuedDocumentMoveFixture(input: {
         state,
       });
       passes.push({
+        cacheEvictions: cacheEvictions.slice(evictionsBefore),
         remoteRequests: remoteRequests.slice(remoteRequestsBefore),
         submittedOperations: submittedOperations.slice(submittedBefore),
         syncedCount,
