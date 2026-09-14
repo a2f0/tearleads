@@ -61,6 +61,9 @@ test("the release uploads exactly the renderer and main-process URLs, only to th
       ),
     ).toEqual([]);
     expect([...intended.projects]).toEqual(["tearleads-electrobun-staging"]);
+    expect(
+      [...intended.releases].map((release) => release.split(" ")[1]),
+    ).toEqual(["staging-app-macos-arm64"]);
     expect(run.buildDsn).toBe(fixtureDsn);
     const files = manifestFiles(bundlePath);
     expect(files.map((file) => file.url).sort()).toEqual([

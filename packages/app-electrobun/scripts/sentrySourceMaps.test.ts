@@ -130,13 +130,18 @@ test("main-process map sources resolve against the package root", async () => {
     const packageRoot = join(root, "packages/app-electrobun");
     await Bun.write(join(packageRoot, "src/bun/index.ts"), "export {};\n");
     const appDir = join(root, "build/stable/Resources/app");
-    await writeMainBundle(appDir, `const release = "${commit}";\n`, mainMap);
+    await writeMainBundle(
+      appDir,
+      `const release = "${commit}", target = "linux-x64";\n`,
+      mainMap,
+    );
     const stagingDir = join(root, "sentry-sourcemaps");
     await prepareSourceMapStaging({ stagingDir, buildDir: appDir });
     await stageMainProcessSourceMap({
       appDir,
       stagingDir,
       commit,
+      target: "linux-x64",
       repoRoot: root,
       packageRoot,
     });
@@ -150,7 +155,7 @@ test("main-process map sources resolve against the package root", async () => {
   });
 });
 
-test("a release build fails, writing nothing, when Electrobun ignored the main-process sourcemap or define", async () => {
+test("a release build fails, writing nothing, when Electrobun ignored the main-process sourcemap or define, or defined another target", async () => {
   await withRoot(async (root) => {
     const packageRoot = join(root, "packages/app-electrobun");
     await Bun.write(join(packageRoot, "src/bun/index.ts"), "export {};\n");
@@ -162,16 +167,22 @@ test("a release build fails, writing nothing, when Electrobun ignored the main-p
         appDir,
         stagingDir,
         commit: stagedCommit,
+        target: "linux-x64",
         repoRoot: root,
         packageRoot,
       });
     await writeMainBundle(appDir, `const release = "${commit}";\n`, undefined);
     await expect(stage(commit)).rejects.toThrow(/build\.bun\.sourcemap/);
     expect(await readdir(stagingDir)).toEqual([]);
+    const linux = '"linux-x64"';
     for (const [bundle, stagedCommit] of [
-      [`const c = TEARLEADS_ELECTROBUN_MAIN_SENTRY; // ${commit}`, commit],
-      ["const release = null;", commit],
-      [`const release = "${commit}";`, undefined],
+      [
+        `const c = TEARLEADS_ELECTROBUN_MAIN_SENTRY; // ${commit} ${linux}`,
+        commit,
+      ],
+      [`const release = null; // ${linux}`, commit],
+      [`const release = "${commit}", target = ${linux};`, undefined],
+      [`const release = "${commit}", target = "macos-arm64";`, commit],
     ] as const) {
       await writeMainBundle(appDir, bundle, mainMap);
       await expect(stage(stagedCommit)).rejects.toThrow(/define/);
@@ -317,6 +328,8 @@ test("the sweep deletes every map under the build directory, including hidden di
   });
 });
 
+const stagedDist = "staging-app-linux-x64";
+
 async function stagePairs(stagingDir: string, extra: string[] = []) {
   for (const path of [
     "bun/index.js",
@@ -325,7 +338,7 @@ async function stagePairs(stagingDir: string, extra: string[] = []) {
     "chunk-a1.js.map",
     ...extra,
   ])
-    await Bun.write(join(stagingDir, path), "content");
+    await Bun.write(join(stagingDir, stagedDist, path), "content");
 }
 
 test("upload runs once over exactly the staged pairs and always removes the staging directory", async () => {
@@ -346,10 +359,18 @@ test("upload runs once over exactly the staged pairs and always removes the stag
     for (const [extra, upload, failure] of cases) {
       await stagePairs(stagingDir, extra);
       calls = 0;
-      const run = uploadDesktopSourceMaps(stagingDir, () => {
-        calls += 1;
-        return upload();
-      });
+      const run = uploadDesktopSourceMaps(
+        stagingDir,
+        { environment: "staging" },
+        (dist, directory) => {
+          calls += 1;
+          expect([dist, directory]).toEqual([
+            stagedDist,
+            join(stagingDir, stagedDist),
+          ]);
+          return upload();
+        },
+      );
       if (failure) await expect(run).rejects.toThrow(failure);
       else await run;
       expect(calls).toBe(1);
@@ -362,19 +383,28 @@ test("upload runs once over exactly the staged pairs and always removes the stag
     };
     calls = 0;
     await expect(
-      uploadDesktopSourceMaps(stagingDir, unexpected),
+      uploadDesktopSourceMaps(
+        stagingDir,
+        { environment: "staging" },
+        unexpected,
+      ),
     ).rejects.toThrow(/Unexpected/);
     expect(existsSync(stagingDir)).toBe(false);
     await expect(
-      uploadDesktopSourceMaps(stagingDir, unexpected),
+      uploadDesktopSourceMaps(
+        stagingDir,
+        { environment: "staging" },
+        unexpected,
+      ),
     ).rejects.toThrow(/Unexpected/);
     expect(calls).toBe(0);
   });
 });
 
-test("upload arguments carry the runtime release and dist", () => {
+test("upload arguments carry the runtime release and the build target's own dist", () => {
   const release = electrobunSentryRelease(commit);
-  const dist = electrobunSentryDist("staging");
+  const dist = electrobunSentryDist("staging", "macos-arm64");
+  expect(dist).not.toBe(electrobunSentryDist("staging", "linux-x64"));
   expect(
     desktopSourceMapUploadArgs({
       org: "tearleads",
@@ -393,7 +423,7 @@ test("upload arguments carry the runtime release and dist", () => {
     "--release",
     `tearleads-electrobun@${commit}`,
     "--dist",
-    "staging-app",
+    "staging-app-macos-arm64",
     "--url-prefix",
     "app:///",
     "--validate",
@@ -406,6 +436,7 @@ test("upload arguments carry the runtime release and dist", () => {
     dsn,
     environment: "staging",
     commit,
+    target: "macos-arm64",
     origin: "http://127.0.0.1:3002",
     scriptUrl: "http://127.0.0.1:3002/chunk-a1.js",
   });
@@ -413,6 +444,7 @@ test("upload arguments carry the runtime release and dist", () => {
     dsn,
     environment: "staging",
     commit,
+    target: "macos-arm64",
     moduleUrl: pathToFileURL(
       "/Applications/T.app/Contents/Resources/app/bun/index.js",
     ).href,

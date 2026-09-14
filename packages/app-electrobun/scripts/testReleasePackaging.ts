@@ -75,12 +75,20 @@ async function verifySourceMapStaging(archive: string, unpacked: string) {
     [],
     "No source map may enter the update archive",
   );
+  // Hutch builds macos-arm64 here, so the staging tier stages under that dist.
+  const dist = "staging-app-macos-arm64";
   const staged = [
     ...new Bun.Glob("**/*").scanSync({ cwd: stagedMaps, dot: true }),
   ].sort();
   assert.equal(staged.length, 4, staged.join(", "));
-  assert.deepEqual(staged.slice(0, 2), ["bun/index.js", "bun/index.js.map"]);
-  assert.match(staged[2] ?? "", /^chunk-[a-z0-9]+\.js$/u);
+  assert.deepEqual(staged.slice(0, 2), [
+    `${dist}/bun/index.js`,
+    `${dist}/bun/index.js.map`,
+  ]);
+  assert.match(
+    staged[2] ?? "",
+    /^staging-app-macos-arm64\/chunk-[a-z0-9]+\.js$/u,
+  );
   assert.equal(staged[3], `${staged[2]}.map`);
   const [bundle] = [
     ...new Bun.Glob("**/Resources/app/bun/index.js").scanSync({
@@ -89,6 +97,10 @@ async function verifySourceMapStaging(archive: string, unpacked: string) {
   ];
   const main = await Bun.file(join(unpacked, bundle ?? "missing")).text();
   assert.ok(main.includes(probeCommit), "Main process must inline its commit");
+  assert.ok(
+    main.includes('"macos-arm64"'),
+    "Main process must inline its target",
+  );
   assert.equal(main.includes("TEARLEADS_ELECTROBUN_MAIN_SENTRY"), false);
   await rm(stagedMaps, { recursive: true, force: true });
   console.log("Source maps are staged outside the app and absent from it.");

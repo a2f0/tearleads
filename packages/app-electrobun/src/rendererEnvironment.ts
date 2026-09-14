@@ -1,3 +1,5 @@
+import { hutchBuildTarget } from "./diagnostics/sentryTarget";
+
 const publicEnvironmentNames = [
   "BUN_PUBLIC_API_BASE_URL",
   "BUN_PUBLIC_WS_URL",
@@ -13,7 +15,25 @@ const releaseDiagnosticsNames = [
   "BUN_PUBLIC_SENTRY_ELECTROBUN_COMMIT",
   "BUN_PUBLIC_SENTRY_ELECTROBUN_DSN",
   "BUN_PUBLIC_SENTRY_ELECTROBUN_ENVIRONMENT",
+  "BUN_PUBLIC_SENTRY_ELECTROBUN_TARGET",
 ];
+
+// A configured release build reports the target Hutch is building, never an
+// inherited value, and stops for a target without its own dist. Every other
+// build, an unset tier included, has none.
+function releaseSentryTarget(
+  environment: Readonly<Record<string, string | undefined>>,
+): string | undefined {
+  const {
+    NODE_ENV,
+    BUN_PUBLIC_SENTRY_ELECTROBUN_COMMIT: commit,
+    BUN_PUBLIC_SENTRY_ELECTROBUN_DSN: dsn,
+    BUN_PUBLIC_SENTRY_ELECTROBUN_ENVIRONMENT: tier,
+  } = environment;
+  return NODE_ENV === "production" && dsn && tier && commit
+    ? hutchBuildTarget(environment)
+    : undefined;
+}
 
 // Set only by scripts/withSentryReleaseEnv.ts for a release tier: where the
 // packaging hook stages source maps outside the app.
@@ -29,11 +49,15 @@ export function createRendererEnvironmentDefines(
   // would ship their local session's errors to the release project.
   const { NODE_ENV } = environment;
   const release = NODE_ENV === "production";
+  const values: Readonly<Record<string, string | undefined>> = {
+    ...environment,
+    BUN_PUBLIC_SENTRY_ELECTROBUN_TARGET: releaseSentryTarget(environment),
+  };
   return Object.fromEntries(
     [...publicEnvironmentNames, ...releaseDiagnosticsNames].map((name) => [
       `process.env.${name}`,
       release || !releaseDiagnosticsNames.includes(name)
-        ? (JSON.stringify(environment[name]) ?? "undefined")
+        ? (JSON.stringify(values[name]) ?? "undefined")
         : "undefined",
     ]),
   );
@@ -58,15 +82,14 @@ export function createMainProcessSentryDefine(
   environment: Readonly<Record<string, string | undefined>>,
 ): Record<string, string> {
   const {
-    NODE_ENV,
     BUN_PUBLIC_SENTRY_ELECTROBUN_COMMIT: commit,
     BUN_PUBLIC_SENTRY_ELECTROBUN_DSN: dsn,
     BUN_PUBLIC_SENTRY_ELECTROBUN_ENVIRONMENT: tier,
   } = environment;
+  const target = releaseSentryTarget(environment);
   return {
-    TEARLEADS_ELECTROBUN_MAIN_SENTRY:
-      NODE_ENV === "production" && dsn && tier && commit
-        ? JSON.stringify({ commit, dsn, environment: tier })
-        : "null",
+    TEARLEADS_ELECTROBUN_MAIN_SENTRY: target
+      ? JSON.stringify({ commit, dsn, environment: tier, target })
+      : "null",
   };
 }

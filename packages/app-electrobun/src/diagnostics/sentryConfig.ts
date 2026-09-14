@@ -4,6 +4,10 @@ import {
   isSentryEnvironment,
   type SentryConfig,
 } from "@tearleads/diagnostics/config";
+import {
+  type ElectrobunSentryTarget,
+  isElectrobunSentryTarget,
+} from "./sentryTarget";
 
 // The flat Bun HTML bundle's only script; shared by the renderer allowlist and
 // release source-map staging.
@@ -13,16 +17,21 @@ export function electrobunSentryRelease(commit: string): string {
   return `tearleads-electrobun@${commit}`;
 }
 
+// One dist per tier and build target: the macOS and Linux builds of a commit
+// share its release and their app:/// URLs, so only the dist selects each
+// build's own source maps.
 export function electrobunSentryDist(
   environment: "staging" | "production",
-): "staging-app" | "production-app" {
-  return `${environment}-app`;
+  target: ElectrobunSentryTarget,
+): `${typeof environment}-app-${ElectrobunSentryTarget}` {
+  return `${environment}-app-${target}`;
 }
 
 export interface ElectrobunSentryInput {
   dsn: string | undefined;
   environment: string | undefined;
   commit: string | undefined;
+  target: string | undefined;
   origin: string;
   scriptUrl: string;
 }
@@ -34,7 +43,8 @@ export function resolveElectrobunSentryConfig(
     !input.dsn ||
     !isHostedSentryDsn(input.dsn) ||
     !isSentryEnvironment(input.environment) ||
-    !isSentryCommit(input.commit)
+    !isSentryCommit(input.commit) ||
+    !isElectrobunSentryTarget(input.target)
   )
     return undefined;
   let script: URL;
@@ -59,6 +69,6 @@ export function resolveElectrobunSentryConfig(
     scriptPath: script.pathname,
     environment: input.environment,
     release: electrobunSentryRelease(input.commit),
-    dist: electrobunSentryDist(input.environment),
+    dist: electrobunSentryDist(input.environment, input.target),
   };
 }

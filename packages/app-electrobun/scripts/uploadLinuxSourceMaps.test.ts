@@ -26,7 +26,7 @@ async function withServers(
   }
 }
 
-test("the host uploads the container's staged pairs under the checkout's release and tier dist, only to the intended endpoint", async () => {
+test("the host uploads the container's staged pairs under the checkout's release and the released target's dist, only to the intended endpoint", async () => {
   await withServers(false, async ({ intended, attacker }) => {
     const token = orgAuthToken(intended.url);
     const run = await runHostileLinuxUpload({
@@ -39,7 +39,7 @@ test("the host uploads the container's staged pairs under the checkout's release
     expect([...intended.authorizations]).toEqual([`Bearer ${token}`]);
     expect([...intended.projects]).toEqual(["tearleads-electrobun-staging"]);
     expect([...intended.releases]).toEqual([
-      `tearleads-electrobun@${run.head} staging-app`,
+      `tearleads-electrobun@${run.head} staging-app-linux-x64`,
     ]);
     expect(run.staged).toBe(false);
   });
@@ -65,6 +65,9 @@ test.each([
   ["otherCommit", "not this clean checkout's HEAD"],
   ["linkedMap", "Unexpected desktop source-map staging contents"],
   ["foreignBundle", "not built from the release commit"],
+  ["otherTarget", "expected staging-app-linux-x64"],
+  ["foreignTargetBundle", "not built from the release commit for linux-x64"],
+  ["macosTarget", "Usage: uploadLinuxSourceMaps.ts"],
   ["relativeDir", "Usage: uploadLinuxSourceMaps.ts"],
   ["launch", "must not run with BUN_INSPECT_PRELOAD"],
 ] satisfies [LinuxUploadCase, string][])(

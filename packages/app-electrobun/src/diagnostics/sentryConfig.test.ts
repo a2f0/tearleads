@@ -13,23 +13,27 @@ const input: ElectrobunSentryInput = {
   dsn,
   environment: "staging",
   commit,
+  target: "macos-arm64",
   origin,
   scriptUrl: `${origin}/chunk-abc123.js`,
 };
 
-test("desktop config selects its own release, tier, and served renderer chunk", () => {
+test("desktop config selects its own release, tier and build target, and served renderer chunk", () => {
   expect(resolveElectrobunSentryConfig(input)).toEqual({
     dsn,
     origin,
     scriptPath: "/chunk-abc123.js",
     environment: "staging",
     release: `tearleads-electrobun@${commit}`,
-    dist: "staging-app",
+    dist: "staging-app-macos-arm64",
   });
   expect(
-    resolveElectrobunSentryConfig({ ...input, environment: "production" })
-      ?.dist,
-  ).toBe("production-app");
+    resolveElectrobunSentryConfig({
+      ...input,
+      environment: "production",
+      target: "linux-x64",
+    })?.dist,
+  ).toBe("production-app-linux-x64");
 });
 
 test("desktop config fails closed on every missing or malformed input", () => {
@@ -45,6 +49,11 @@ test("desktop config fails closed on every missing or malformed input", () => {
     { commit: undefined },
     { commit: "unknown" },
     { commit: commit.toUpperCase() },
+    // A build without its own dist would select another target's maps.
+    { target: undefined },
+    { target: "macos-x64" },
+    { target: "windows-x64" },
+    { target: "linux" },
     { scriptUrl: "chunk-abc123.js" },
     { scriptUrl: "https://app.tearleads.com/chunk-abc123.js" },
     { scriptUrl: "http://127.0.0.1:3000/chunk-abc123.js" },

@@ -12,6 +12,7 @@ import {
 } from "../src/rendererEnvironment";
 import { findPackagedMainViewDir } from "./findPackagedMainViewDir";
 import {
+  hutchSourceMapIdentity,
   prepareSourceMapStaging,
   stageMainProcessSourceMap,
   stageRendererSourceMap,
@@ -80,20 +81,24 @@ async function packageElectrobunAssets(buildDir: string): Promise<void> {
     BUN_PUBLIC_SENTRY_ELECTROBUN_COMMIT: commit,
   } = process.env;
   let staged: string | undefined;
+  let distDir: string | undefined;
   try {
     const mainViewDir = findPackagedMainViewDir(buildDir);
     if (sourceMapDir) {
+      const { target, dist } = hutchSourceMapIdentity(process.env);
       await prepareSourceMapStaging({ stagingDir: sourceMapDir, buildDir });
       staged = sourceMapDir;
+      distDir = join(sourceMapDir, dist);
       await stageMainProcessSourceMap({
         appDir: resolve(mainViewDir, "../.."),
-        stagingDir: sourceMapDir,
+        stagingDir: distDir,
         commit,
+        target,
         repoRoot,
         packageRoot,
       });
     }
-    await packageMainView(mainViewDir, sourceMapDir);
+    await packageMainView(mainViewDir, distDir);
   } catch (error) {
     // A failed hook leaves no staged source behind; only a directory this run
     // created is removed.

@@ -49,6 +49,7 @@ worker.addEventListener("close", (event) => process.exit(event.code));
             dsn,
             environment: "staging",
             commit,
+            target: "macos-arm64",
           }),
         }
       : {};
@@ -121,7 +122,7 @@ test("the packaged main process reports rejections and crashes with bundle-only 
   for (const event of events) {
     expect(event.exception.values[0].mechanism.handled).toBe(false);
     expect(event.tags.area).toBe("electrobun-main");
-    expect(event.dist).toBe("staging-app");
+    expect(event.dist).toBe("staging-app-macos-arm64");
     expect(event.release).toBe(`tearleads-electrobun@${commit}`);
     expect(event.breadcrumbs).toEqual([]);
     const frames = event.exception.values[0].stacktrace?.frames ?? [];

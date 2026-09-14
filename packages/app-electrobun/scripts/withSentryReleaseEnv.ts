@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { isSentryEnvironment } from "@tearleads/diagnostics/config";
 import { desktopSourceCommit } from "./desktopSourceCommit";
 import {
   hostedSentryEndpoint,
@@ -38,8 +39,10 @@ import { assertStagedSourceMaps } from "./sentrySourceMaps";
 // upload; any other value stops the build.
 const deferredUploadName = "TEARLEADS_ELECTROBUN_SOURCEMAP_UPLOAD";
 
+type Tier = "staging" | "production";
+
 interface ReleaseInputs {
-  readonly tier: string | undefined;
+  readonly tier: Tier | undefined;
   readonly secrets: Environment;
   readonly commit: string;
   readonly uploader?: SourceMapUploader;
@@ -49,7 +52,7 @@ interface ReleaseInputs {
 // BUILD_GIT_SHA an earlier Docker build left exported, and uploads its maps.
 async function checkoutRelease(
   repoRoot: string,
-  tier: string,
+  tier: Tier,
   env: Environment,
   endpoint: SentryUploadEndpoint,
 ): Promise<ReleaseInputs> {
@@ -70,7 +73,7 @@ async function checkoutRelease(
 // own clean checkout before anything is published.
 function archiveRelease(
   repoRoot: string,
-  tier: string,
+  tier: Tier,
   env: Environment,
 ): ReleaseInputs {
   const { BUILD_GIT_SHA: exported, SENTRY_AUTH_TOKEN: token } = env;
@@ -105,8 +108,10 @@ async function releaseInputs(
   endpoint: SentryUploadEndpoint,
 ): Promise<ReleaseInputs> {
   const { ELECTROBUN_RELEASE_TIER: tier, [deferredUploadName]: upload } = env;
-  if (!tier) return { tier, secrets: env, commit: "" };
+  if (!tier) return { tier: undefined, secrets: env, commit: "" };
   assertNoBunLaunchVariables(env);
+  if (!isSentryEnvironment(tier))
+    throw new Error("Desktop release tier must be staging or production");
   if (upload === "deferred") return archiveRelease(repoRoot, tier, env);
   if (upload !== undefined)
     throw new Error(`${deferredUploadName} must be unset or deferred`);
@@ -138,7 +143,7 @@ export async function runDesktopSentryRelease(options: {
     stdout: "inherit",
     stderr: "inherit",
   }).exited;
-  if (!stagingDir) return code;
+  if (!tier || !stagingDir) return code;
   if (code !== 0) {
     await rm(stagingDir, { recursive: true, force: true });
     return code;
@@ -146,8 +151,9 @@ export async function runDesktopSentryRelease(options: {
   try {
     if (uploader)
       await uploadReleaseSourceMaps({ uploader, repoRoot, commit, stagingDir });
-    // A deferred build leaves the checked pairs for releaseLinux.sh to copy.
-    else assertStagedSourceMaps(stagingDir);
+    // A deferred build leaves the checked pairs, under the dist of the target
+    // Hutch built, for releaseLinux.sh to copy.
+    else assertStagedSourceMaps(stagingDir, { environment: tier });
   } catch (error) {
     await rm(stagingDir, { recursive: true, force: true });
     throw error;

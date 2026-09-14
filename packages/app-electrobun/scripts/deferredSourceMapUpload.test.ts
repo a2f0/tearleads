@@ -19,11 +19,12 @@ const staged = [
 ];
 
 // Stands in for Electrobun and its postBuild hook: writes the app with maps
-// beside its scripts, copies each pair to staging, then sweeps the build
-// directory. "partial" stages one pair; "fail" exits after writing the app.
+// beside its scripts, copies each pair to staging under the dist of Hutch's
+// linux-x64 target, then sweeps the build directory. "partial" stages one pair;
+// "foreign" stages under another tier's dist; "fail" exits after writing the app.
 const hookScript = `import { copyFile, mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { sweepSourceMaps } from ${JSON.stringify(sourceMaps)};
+import { hutchSourceMapIdentity, sweepSourceMaps } from ${JSON.stringify(sourceMaps)};
 const { TEARLEADS_ELECTROBUN_SOURCEMAP_DIR: staging, HOOK_MODE: mode, HOOK_BUILD: build } = process.env;
 await mkdir(build, { recursive: true });
 await writeFile(join(build, "..", "env.json"), JSON.stringify(process.env));
@@ -33,9 +34,11 @@ for (const file of ${JSON.stringify(staged)}) {
 }
 if (mode === "fail") process.exit(5);
 if (staging) {
+  const { dist } = hutchSourceMapIdentity({ ...process.env, ELECTROBUN_OS: "linux", ELECTROBUN_ARCH: "x64" });
+  const target = join(staging, mode === "foreign" ? dist.replace("staging", "production") : dist);
   for (const file of mode === "partial" ? ${JSON.stringify(staged.slice(0, 2))} : ${JSON.stringify(staged)}) {
-    await mkdir(dirname(join(staging, file)), { recursive: true });
-    await copyFile(join(build, file), join(staging, file));
+    await mkdir(dirname(join(target, file)), { recursive: true });
+    await copyFile(join(build, file), join(target, file));
   }
 }
 await sweepSourceMaps(build);
@@ -120,7 +123,9 @@ test("the Linux container's deferred build stages and sweeps its maps but runs n
   } finally {
     spawn.mockRestore();
   }
-  expect(stagedFiles(paths.packageRoot)).toEqual(staged);
+  expect(stagedFiles(paths.packageRoot)).toEqual(
+    staged.map((file) => `staging-app-linux-x64/${file}`),
+  );
   expect([...new Bun.Glob("**/*.map").scanSync({ cwd: paths.build })]).toEqual(
     [],
   );
@@ -190,7 +195,7 @@ test("an unset tier ignores the deferral and stages nothing", async () => {
   expect(stagedFiles(paths.packageRoot)).toEqual([]);
 });
 
-test("a failed or partially staged deferred build removes staging and fails", async () => {
+test("a failed, partially staged or foreign-dist deferred build removes staging and fails", async () => {
   const failed = await fixture({});
   expect(await release(failed, { ...deferred, HOOK_MODE: "fail" })).toBe(5);
   expect(stagedFiles(failed.packageRoot)).toEqual([]);
@@ -200,4 +205,10 @@ test("a failed or partially staged deferred build removes staging and fails", as
     release(partial, { ...deferred, HOOK_MODE: "partial" }),
   ).rejects.toThrow(/Unexpected desktop source-map staging contents/);
   expect(stagedFiles(partial.packageRoot)).toEqual([]);
+  await rm(root, { recursive: true, force: true });
+  const foreign = await fixture({});
+  await expect(
+    release(foreign, { ...deferred, HOOK_MODE: "foreign" }),
+  ).rejects.toThrow(/expected staging-app-/);
+  expect(stagedFiles(foreign.packageRoot)).toEqual([]);
 });

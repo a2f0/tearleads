@@ -7,11 +7,13 @@ import {
   type SentryConfig,
 } from "@tearleads/diagnostics/config";
 import { electrobunSentryDist, electrobunSentryRelease } from "./sentryConfig";
+import { isElectrobunSentryTarget } from "./sentryTarget";
 
 export interface ElectrobunMainSentryInput {
   dsn: string | undefined;
   environment: string | undefined;
   commit: string | undefined;
+  target: string | undefined;
   moduleUrl: string;
 }
 
@@ -33,7 +35,8 @@ export function resolveElectrobunMainSentryConfig(
     !input.dsn ||
     !isHostedSentryDsn(input.dsn) ||
     !isSentryEnvironment(input.environment) ||
-    !isSentryCommit(input.commit)
+    !isSentryCommit(input.commit) ||
+    !isElectrobunSentryTarget(input.target)
   )
     return undefined;
   let bundle: string;
@@ -52,7 +55,7 @@ export function resolveElectrobunMainSentryConfig(
     dsn: input.dsn,
     environment: input.environment,
     release: electrobunSentryRelease(input.commit),
-    dist: electrobunSentryDist(input.environment),
+    dist: electrobunSentryDist(input.environment, input.target),
     runtime: "electrobun-main",
     origin: "",
     scriptPath: "",

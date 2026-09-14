@@ -18,6 +18,7 @@ function inlinedSentryValues() {
     dsn: values?.dsn,
     environment: values?.environment,
     commit: values?.commit,
+    target: values?.target,
   };
 }
 

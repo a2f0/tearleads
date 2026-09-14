@@ -64,6 +64,9 @@ git ls-files -z | while IFS= read -r -d '' file; do
 done | COPYFILE_DISABLE=1 tar --null -T - -czf "$TEMP_DIR/source.tar.gz"
 export BUILD_GIT_SHA
 BUILD_GIT_SHA="$(git rev-parse HEAD)"
+# linux/amd64 is Hutch's linux-x64 target. Its source maps upload under that
+# target's dist, named here rather than taken from this host's platform.
+TARGET=linux-x64
 docker build --platform linux/amd64 --progress plain \
   --file packages/app-electrobun/scripts/linuxRelease.Dockerfile \
   --tag "tearleads-linux-release:$TIER" --iidfile "$TEMP_DIR/image-id" \
@@ -92,10 +95,11 @@ docker run --rm --platform linux/amd64 --shm-size=1g --user 1000:1000 \
   bash packages/app-electrobun/scripts/testLinuxRelease.sh "$TIER"
 # The container staged its source maps outside the app without uploading them.
 # Copy them to this private temporary directory, never next to the artifacts,
-# and upload them under BUILD_GIT_SHA; a failed or partial upload stops here.
+# and upload them under BUILD_GIT_SHA and TARGET; a failed or partial upload
+# stops here.
 docker cp "$CONTAINER:/workspace/packages/app-electrobun/build/sentry-sourcemaps/." \
   "$TEMP_DIR/sentry-sourcemaps"
 bun --no-env-file --config=/dev/null "$PACKAGE_DIR/scripts/uploadLinuxSourceMaps.ts" \
-  "$TIER" "$BUILD_GIT_SHA" "$TEMP_DIR/sentry-sourcemaps"
+  "$TIER" "$TARGET" "$BUILD_GIT_SHA" "$TEMP_DIR/sentry-sourcemaps"
 bun "$PACKAGE_DIR/scripts/publishLinuxRelease.ts" "$BUCKET" "$CHANNEL" \
   "$APP_NAME" "$ARTIFACT_DIR/$INSTALLER" "$ARTIFACT_DIR/$UPDATE" "$ARTIFACT_DIR/$ARCHIVE"

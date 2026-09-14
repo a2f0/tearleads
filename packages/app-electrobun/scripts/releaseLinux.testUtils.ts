@@ -24,13 +24,15 @@ const leakProbe = [
   ),
 ].join("\n");
 
-// The staged pairs the container leaves outside its app. With "unstaged" there
-// is nothing to copy, so docker cp fails; "partial" stages only the main pair.
+// The staged pairs the container leaves outside its app, under its dist. With
+// "unstaged" there is nothing to copy, so docker cp fails; "partial" stages only
+// the main pair.
 const stagedMaps = [
   '[ "$RELEASE_TEST_FAILURE" != unstaged ] || exit 1',
-  'mkdir -p "$3/bun"',
+  'dist="$RELEASE_TEST_TIER-app-linux-x64"',
+  'mkdir -p "$3/$dist/bun"',
   "for file in bun/index.js bun/index.js.map chunk-a1.js chunk-a1.js.map; do",
-  '  case "$RELEASE_TEST_FAILURE:$file" in partial:chunk-*) ;; *) echo "$file" > "$3/$file" ;; esac',
+  '  case "$RELEASE_TEST_FAILURE:$file" in partial:chunk-*) ;; *) echo "$file" > "$3/$dist/$file" ;; esac',
   "done",
 ].join("\n");
 
@@ -67,12 +69,12 @@ const dockerStub = [
 // given and whether the commit is HEAD, and fails like a rejected upload.
 const sourceMapUploadStub = `import { execFileSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
-const [tier, commit, directory] = process.argv.slice(2);
+const [tier, target, commit, directory] = process.argv.slice(2);
 const log = (line) => appendFileSync(process.env.RELEASE_TEST_LOG, line + "\\n");
 if (process.env.SENTRY_AUTH_TOKEN) log("token-leak");
 const head = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
 const files = [...new Bun.Glob("**/*").scanSync({ cwd: directory, dot: true })].sort();
-log(\`sourcemaps \${tier} \${commit === head ? "head" : commit} \${directory.startsWith(process.env.RELEASE_TEST_ROOT) ? "in-repo" : "outside"} \${files.join(",")}\`);
+log(\`sourcemaps \${tier} \${target} \${commit === head ? "head" : commit} \${directory.startsWith(process.env.RELEASE_TEST_ROOT) ? "in-repo" : "outside"} \${files.join(",")}\`);
 if (process.env.RELEASE_TEST_FAILURE === "sourcemap-upload" || files.length !== 4) process.exit(9);
 `;
 

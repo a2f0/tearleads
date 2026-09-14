@@ -82,8 +82,9 @@ interactive Terminal when macOS requires keychain authorization.
 
 The `postBuild` hook packages the final renderer, Loro WASM, SQLite worker, and
 SQLite WASM before Electrobun signs or archives the app. For a release tier the
-hook also stages source maps outside the app and removes every map before
-signing; the build wrapper uploads them afterwards. Release icons come from
+hook also stages source maps outside the app, under a Sentry dist naming the
+tier and the target Hutch built, and removes every map before signing; the
+build wrapper uploads them afterwards. Release icons come from
 the shared Tearleads SVG. Artifacts and SHA-256 checksums are written to the
 ignored `build/artifacts/` directory. Uploads publish DMGs, matching checksums,
 and full update archives under
@@ -155,10 +156,12 @@ from the build directory, but uploads nothing
 (`TEARLEADS_ELECTROBUN_SOURCEMAP_UPLOAD=deferred`, honoured only without `.git`).
 After the installation check, upload copies the staged maps to a private host
 temporary directory and runs `scripts/uploadLinuxSourceMaps.ts`, which requires
-the source commit to be the clean checkout's `HEAD`, accepts exactly the renderer
-and main-process pairs as regular files, and uploads them with the token from
-`.secrets`. A failed or partial upload stops before S3. Build mode uploads no
-maps. The artifact check refuses any `.map` in the artifacts.
+the source commit to be the clean checkout's `HEAD`, accepts exactly the
+renderer and main-process pairs as regular files under the `linux-x64` dist
+that `releaseLinux.sh` names (never the host's own platform), and uploads them
+with the token from `.secrets`. A failed or partial upload stops before S3.
+Build mode uploads no maps. The artifact check refuses any `.map` in the
+artifacts.
 
 Artifacts are copied to `build/linux-x64/<production|staging>/`, separate from
 macOS artifacts. The reusable Docker image is `tearleads-linux-release:<tier>`.

@@ -262,34 +262,34 @@ from `dist` after the upload attempt, including failures. The pinned CLI
 and adds references to uploaded artifacts; matching release, dist, and canonical
 URLs provide symbolication without transmitting debug metadata.
 
-Electrobun events use `tearleads-electrobun@<git-sha>` and `staging-app` /
-`production-app`. `ELECTROBUN_RELEASE_TIER` selects `staging` or `production`;
-unset is an ordinary local build that reads no secrets and reports nothing.
-Release with `scripts/{build,upload}MacosRelease.sh <tier>` (signed and
-notarized) or `scripts/{build,upload}LinuxRelease.sh <tier>`, whose Docker
-build gets only the source commit and public DSNs.
+Electrobun events use `tearleads-electrobun@<git-sha>` and a dist per build
+target, `<tier>-app-<os>-<arch>`, as a commit's builds share URLs.
+The target is Hutch's `ELECTROBUN_OS`/`ELECTROBUN_ARCH` (`macos-arm64`,
+`linux-x64`, `linux-arm64`; others stop). `ELECTROBUN_RELEASE_TIER` selects
+`staging` or `production`; unset is a local build that reads no secrets and
+reports nothing. Release with `scripts/{build,upload}MacosRelease.sh <tier>` or
+`scripts/{build,upload}LinuxRelease.sh <tier>`.
 Only a release build inlines desktop configuration; other builds drop it.
-`scripts/withSentryReleaseEnv.ts` resolves that tier's DSN and the full commit
-into the public `BUN_PUBLIC_SENTRY_ELECTROBUN_*` renderer defines, and wraps
-the Electrobun build and its inherited `postBuild` packaging hook so they inline
-the same configuration. It drops every inherited Sentry name first, so another
-target's exported configuration cannot route desktop events elsewhere and the
-upload token never reaches a bundle. A configured tier with a missing or
-malformed DSN stops the build.
+`scripts/withSentryReleaseEnv.ts` resolves that tier's DSN and full commit into
+the public `BUN_PUBLIC_SENTRY_ELECTROBUN_*` defines for the Electrobun build and
+its inherited `postBuild` packaging hook. It drops every inherited Sentry name
+first, so another target's exported configuration cannot route desktop events
+elsewhere and the upload token never reaches a bundle. A configured tier with a
+missing or malformed DSN stops the build.
 
 Release builds emit external maps for the renderer chunk and the main-process
 bundle. The main process reads its configuration from a build-time define with
 no runtime environment fallback. Before Electrobun signs or archives the app,
 the packaging hook copies each script and its map, with repository-relative
-sources, to `build/sentry-sourcemaps`, then deletes every map in the build
-directory, even after a failure. The release shell unsets its exported upload
-token; after the build, the wrapper reads it from `.secrets/root.env`, uploads
-the staged files with `app:///` URLs, removes them, and exits non-zero on
-failure so nothing is published. Publishing requires a clean checkout before
-any Bun process runs (Bun loads a cwd `bunfig.toml` and dotenv files) and again
-before upload. `BUN_OPTIONS` and `BUN_INSPECT*` are unset first; Bun launches
-add `--no-env-file --config=/dev/null`. The wrapper refuses those variables and
-`DYLD_*`, and reads `SENTRY_*` names only from `.secrets`.
+sources, to `build/sentry-sourcemaps/<dist>`, then deletes every map in the
+build directory, even after a failure. The release shell unsets its exported
+upload token; after the build, the wrapper reads it from `.secrets/root.env`,
+uploads the staged files with `app:///` URLs, removes them, and exits non-zero
+on failure so nothing is published. Publishing requires a clean checkout before
+any Bun process runs and again before upload. `BUN_OPTIONS` and `BUN_INSPECT*`
+are unset first; Bun launches add `--no-env-file --config=/dev/null`. The
+wrapper refuses those variables and `DYLD_*`, and reads `SENTRY_*` names only
+from `.secrets`.
 
 The upload token reaches only the pinned `sentry-cli` binary, resolved via
 `@sentry/cli`, not `PATH`, and run without a Bun or npm shim. It runs in a fresh
@@ -307,7 +307,8 @@ The Linux container (no `.git` or token) sets
 without uploading; a checkout refuses the flag. `releaseLinux.sh upload` applies
 the same checkout, `BUN_*` and token rules, copies staging to a private host
 directory and, before publishing, uploads it via `uploadLinuxSourceMaps.ts`
-(`BUILD_GIT_SHA` must be the clean `HEAD`; exactly two regular-file pairs).
+(`BUILD_GIT_SHA` must be the clean `HEAD`; exactly two regular-file pairs under
+the `linux-x64` dist).
 
 API releases use `tearleads-api@<git-sha>`
 and `staging` / `production`. Bun embeds maps in the executable and resolves

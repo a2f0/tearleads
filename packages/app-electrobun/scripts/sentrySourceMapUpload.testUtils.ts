@@ -1,7 +1,7 @@
 import { expect } from "bun:test";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { realpathSync, statSync } from "node:fs";
+import { existsSync, realpathSync, statSync } from "node:fs";
 import { chmod, mkdir, mkdtemp, realpath, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -236,21 +236,24 @@ export async function createRepository(repoRoot: string, token: string) {
 }
 
 // The build command: stage the renderer chunk and main-process bundle, with
-// external maps, where the wrapper told the packaging hook to.
+// external maps, where the wrapper told the packaging hook to, under the dist
+// of the macOS arm64 build Hutch reports.
 const stageScript = `import { join } from "node:path";
+import { hutchSourceMapIdentity } from ${JSON.stringify(join(import.meta.dirname, "sentrySourceMaps.ts"))};
 const directory = process.env.TEARLEADS_ELECTROBUN_SOURCEMAP_DIR;
 if (!directory) throw new Error("No source-map staging directory");
 await Bun.write(
   join(import.meta.dirname, "built"),
   process.env.BUN_PUBLIC_SENTRY_ELECTROBUN_DSN ?? "",
 );
+const { dist } = hutchSourceMapIdentity({ ...process.env, ELECTROBUN_OS: "macos", ELECTROBUN_ARCH: "arm64" });
 for (const [entry, naming, target] of [
   ["renderer.ts", "chunk-a1b2c3.js", "browser"],
   ["main.ts", "bun/index.js", "bun"],
 ]) {
   const build = await Bun.build({
     entrypoints: [join(import.meta.dirname, "sources", entry)],
-    outdir: directory, naming, target, sourcemap: "external",
+    outdir: join(directory, dist), naming, target, sourcemap: "external",
   });
   if (!build.success) process.exit(1);
 }
@@ -370,10 +373,7 @@ export async function runHostileRelease(
     ]);
     const marker = Bun.file(join(root, "built"));
     const built = await marker.exists();
-    const staged = await Bun.file(
-      join(packageDir, "build/sentry-sourcemaps/bun/index.js"),
-    ).exists();
-    expect(staged).toBe(false);
+    expect(existsSync(join(packageDir, "build/sentry-sourcemaps"))).toBe(false);
     return {
       code,
       output: stdout + stderr,

@@ -6,7 +6,15 @@ export interface SentryPrivacyConfig {
   scriptPath: string;
   environment: "staging" | "production";
   release: string;
-  dist: "staging-app" | "production-app" | "staging" | "production";
+  // Web and mobile report the tier's app dist and the API the bare tier. Each
+  // Electrobun build target has its own app dist, because one commit's builds
+  // serve different bundles at the same app:/// URLs.
+  dist:
+    | "staging-app"
+    | "production-app"
+    | "staging"
+    | "production"
+    | `${"staging" | "production"}-app-${"linux-arm64" | "linux-x64" | "macos-arm64"}`;
   scriptPaths?: ReadonlySet<string>;
   serverSourceRoot?: string;
   runtime?: "api" | "electrobun-main";

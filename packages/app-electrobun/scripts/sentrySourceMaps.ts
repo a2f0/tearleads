@@ -16,8 +16,19 @@ import {
   resolve,
   sep,
 } from "node:path";
-import { isSentryCommit } from "@tearleads/diagnostics/config";
-import { rendererScriptPattern } from "../src/diagnostics/sentryConfig";
+import {
+  isSentryCommit,
+  isSentryEnvironment,
+} from "@tearleads/diagnostics/config";
+import {
+  electrobunSentryDist,
+  rendererScriptPattern,
+} from "../src/diagnostics/sentryConfig";
+import {
+  type ElectrobunSentryTarget,
+  electrobunSentryTargets,
+  hutchBuildTarget,
+} from "../src/diagnostics/sentryTarget";
 
 export function isInside(root: string, path: string): boolean {
   const rel = relative(root, path);
@@ -87,14 +98,28 @@ async function rewriteMapSources(
   throw new Error(`Source map ${name} has sources outside the repository`);
 }
 
+// The packaging hook stages a release under its dist: the tier the wrapper
+// configured and the target Hutch is building. Uploads take the dist from that
+// directory, so the maps go up under the identity their bundles report.
+export function hutchSourceMapIdentity(
+  environment: Readonly<Record<string, string | undefined>>,
+): { target: ElectrobunSentryTarget; dist: string } {
+  const { BUN_PUBLIC_SENTRY_ELECTROBUN_ENVIRONMENT: tier } = environment;
+  if (!isSentryEnvironment(tier))
+    throw new Error("Desktop source-map staging requires a release tier");
+  const target = hutchBuildTarget(environment);
+  return { target, dist: electrobunSentryDist(tier, target) };
+}
+
 export async function stageMainProcessSourceMap(options: {
   appDir: string;
   stagingDir: string;
   commit: string | undefined;
+  target: ElectrobunSentryTarget;
   repoRoot: string;
   packageRoot: string;
 }): Promise<void> {
-  const { appDir, stagingDir, commit } = options;
+  const { appDir, stagingDir, commit, target } = options;
   const bundle = join(appDir, "bun/index.js");
   if (!existsSync(`${bundle}.map`))
     throw new Error(
@@ -104,6 +129,7 @@ export async function stageMainProcessSourceMap(options: {
   if (
     !isSentryCommit(commit) ||
     !text.includes(commit) ||
+    !text.includes(JSON.stringify(target)) ||
     text.includes("TEARLEADS_ELECTROBUN_MAIN_SENTRY")
   )
     throw new Error("Electrobun did not apply the main-process Sentry define");
@@ -158,21 +184,36 @@ export async function sweepSourceMaps(root: string): Promise<void> {
     await unlink(join(root, path));
 }
 
-function isStagedPairSet(files: readonly string[]): boolean {
-  const [main, mainMap, chunk = "", chunkMap] = files;
+function isStagedPairSet(entries: readonly string[], dist: string): boolean {
+  const [root, bunDir, main, mainMap, chunk = "", chunkMap] = entries;
+  const prefix = `${dist}/`;
   return (
-    files.length === 4 &&
-    main === "bun/index.js" &&
-    mainMap === "bun/index.js.map" &&
-    rendererScriptPattern.test(`/${chunk}`) &&
+    entries.length === 6 &&
+    root === dist &&
+    bunDir === `${prefix}bun` &&
+    main === `${prefix}bun/index.js` &&
+    mainMap === `${prefix}bun/index.js.map` &&
+    chunk.startsWith(prefix) &&
+    rendererScriptPattern.test(`/${chunk.slice(prefix.length)}`) &&
     chunkMap === `${chunk}.map`
   );
 }
 
-// Staging must hold exactly the renderer and main-process pairs, as real,
-// unlinked files in real directories. A Linux release copies staging out of its
-// build container, and a link there would upload a host file instead.
-export function assertStagedSourceMaps(stagingDir: string): void {
+export interface StagedSourceMapIdentity {
+  readonly environment: "staging" | "production";
+  // The Linux host names the target it released; a build accepts the target
+  // Hutch staged.
+  readonly target?: ElectrobunSentryTarget;
+}
+
+// Staging must hold one dist directory for the expected tier and target, with
+// exactly the renderer and main-process pairs, as real, unlinked files in real
+// directories. A Linux release copies staging out of its build container, and a
+// link there would upload a host file instead. Returns the dist.
+export function assertStagedSourceMaps(
+  stagingDir: string,
+  identity: StagedSourceMapIdentity,
+): string {
   const staged = existsSync(stagingDir) && lstatSync(stagingDir).isDirectory();
   const entries = staged
     ? [
@@ -183,28 +224,40 @@ export function assertStagedSourceMaps(stagingDir: string): void {
         }),
       ].sort()
     : [];
-  const files = entries.filter((path) => path !== "bun");
+  const [dist = ""] = entries;
+  const directories = [dist, `${dist}/bun`];
   const linked = entries.filter((path) => {
     const stats = lstatSync(join(stagingDir, path));
-    return path === "bun"
+    return directories.includes(path)
       ? !stats.isDirectory()
       : !stats.isFile() || stats.nlink !== 1;
   });
-  if (!staged || !isStagedPairSet(files) || linked.length > 0)
+  const dists = electrobunSentryTargets
+    .filter((target) => (identity.target ?? target) === target)
+    .map((target) => electrobunSentryDist(identity.environment, target));
+  if (
+    !staged ||
+    !dists.some((expected) => expected === dist) ||
+    !isStagedPairSet(entries, dist) ||
+    linked.length > 0
+  )
     throw new Error(
-      `Unexpected desktop source-map staging contents: ${entries.join(", ")}`,
+      `Unexpected desktop source-map staging contents: ${entries.join(", ")}; expected ${dists.join(" or ")}`,
     );
+  return dist;
 }
 
-// Uploads exactly the renderer and main-process pairs, then removes staging
-// whatever happens. A failed upload must stop the release before publishing.
+// Uploads exactly the staged pairs under their dist, from the dist directory,
+// then removes staging whatever happens. A failed upload must stop the release
+// before publishing.
 export async function uploadDesktopSourceMaps(
   stagingDir: string,
-  upload: () => Promise<number>,
+  identity: StagedSourceMapIdentity,
+  upload: (dist: string, directory: string) => Promise<number>,
 ): Promise<void> {
   try {
-    assertStagedSourceMaps(stagingDir);
-    if ((await upload()) !== 0)
+    const dist = assertStagedSourceMaps(stagingDir, identity);
+    if ((await upload(dist, join(stagingDir, dist))) !== 0)
       throw new Error(
         "Desktop source map upload failed; release must not be published",
       );

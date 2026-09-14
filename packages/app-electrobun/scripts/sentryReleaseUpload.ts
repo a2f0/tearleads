@@ -1,8 +1,6 @@
 import { resolve } from "node:path";
-import {
-  electrobunSentryDist,
-  electrobunSentryRelease,
-} from "../src/diagnostics/sentryConfig";
+import { electrobunSentryRelease } from "../src/diagnostics/sentryConfig";
+import type { ElectrobunSentryTarget } from "../src/diagnostics/sentryTarget";
 import {
   assertSentryTokenOrganization,
   resolveSentryCliBinary,
@@ -97,16 +95,19 @@ export function prepareSourceMapUpload(
 }
 
 // Uploads staging under the release of `commit`, which must still be the clean
-// checkout's HEAD, and removes staging whatever happens.
+// checkout's HEAD, and under the dist staged for the tier and, when given, the
+// target; removes staging whatever happens.
 export function uploadReleaseSourceMaps(options: {
   uploader: SourceMapUploader;
   repoRoot: string;
   commit: string;
   stagingDir: string;
+  target?: ElectrobunSentryTarget;
 }): Promise<void> {
-  const { uploader, repoRoot, commit, stagingDir } = options;
+  const { uploader, repoRoot, commit, stagingDir, target } = options;
   const { upload, binary, endpoint } = uploader;
-  return uploadDesktopSourceMaps(stagingDir, () => {
+  const identity = { environment: upload.environment, target };
+  return uploadDesktopSourceMaps(stagingDir, identity, (dist, directory) => {
     if (desktopSentryCommit(repoRoot) !== commit)
       throw new Error(
         "Source revision changed during the desktop Sentry release",
@@ -119,8 +120,8 @@ export function uploadReleaseSourceMaps(options: {
         org: upload.org,
         project: upload.project,
         release: electrobunSentryRelease(commit),
-        dist: electrobunSentryDist(upload.environment),
-        directory: stagingDir,
+        dist,
+        directory,
       }),
     });
   });

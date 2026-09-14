@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdtemp, realpath, rm, symlink } from "node:fs/promises";
 import { join } from "node:path";
 import {
@@ -15,17 +16,20 @@ export type LinuxUploadCase =
   | "otherCommit"
   | "linkedMap"
   | "foreignBundle"
+  | "otherTarget"
+  | "foreignTargetBundle"
+  | "macosTarget"
   | "relativeDir"
   | "launch";
 
-const harness = (
+export const linuxUploadHarness = (
   entry: string,
 ) => `import { runLinuxSourceMapUpload } from ${JSON.stringify(entry)};
-const [intended, repoRoot, tier, commit, stagingDir] = process.argv.slice(2);
+const [intended, repoRoot, tier, target, commit, stagingDir] = process.argv.slice(2);
 const root = new URL(intended).origin + "/";
 try {
   await runLinuxSourceMapUpload({
-    repoRoot, tier, commit, stagingDir, env: process.env,
+    repoRoot, tier, target, commit, stagingDir, env: process.env,
     endpoint: { url: root, isAllowed: (url) => url.href === root },
   });
 } catch (error) {
@@ -35,13 +39,17 @@ try {
 `;
 
 // What the container leaves in staging: the renderer chunk and main-process
-// bundle with external maps, the bundle naming the commit it was built from.
+// bundle with external maps under the build's dist, the bundle naming the
+// commit and target it was built for.
 async function stage(root: string, commit: string, kind: LinuxUploadCase) {
   const stagingDir = join(root, "copied/sentry-sourcemaps");
   const release = kind === "foreignBundle" ? "f".repeat(40) : commit;
+  const arm = kind === "otherTarget" || kind === "foreignTargetBundle";
+  const target = arm ? "linux-arm64" : "linux-x64";
+  const dist = `staging-app-${kind === "otherTarget" ? target : "linux-x64"}`;
   await Bun.write(
     join(root, "sources/main.ts"),
-    `export const release = ${JSON.stringify(release)};\nconsole.log(release);\n`,
+    `export const release = ${JSON.stringify(release)};\nexport const target = ${JSON.stringify(target)};\nconsole.log(release, target);\n`,
   );
   await Bun.write(
     join(root, "sources/renderer.ts"),
@@ -53,7 +61,7 @@ async function stage(root: string, commit: string, kind: LinuxUploadCase) {
   ] as const) {
     const build = await Bun.build({
       entrypoints: [join(root, "sources", entry)],
-      outdir: stagingDir,
+      outdir: join(stagingDir, dist),
       naming,
       target,
       sourcemap: "external",
@@ -61,10 +69,10 @@ async function stage(root: string, commit: string, kind: LinuxUploadCase) {
     if (!build.success) throw new AggregateError(build.logs);
   }
   if (kind === "linkedMap") {
-    await rm(join(stagingDir, "chunk-a1b2c3.js.map"));
+    await rm(join(stagingDir, dist, "chunk-a1b2c3.js.map"));
     await symlink(
       join(root, "repo/.secrets/root.env"),
-      join(stagingDir, "chunk-a1b2c3.js.map"),
+      join(stagingDir, dist, "chunk-a1b2c3.js.map"),
     );
   }
   return stagingDir;
@@ -96,7 +104,7 @@ export async function runHostileLinuxUpload(
       git(repoRoot, "commit", "--quiet", "-m", "Next");
     }
     const entry = join(import.meta.dirname, "uploadLinuxSourceMaps.ts");
-    await Bun.write(join(root, "harness.ts"), harness(entry));
+    await Bun.write(join(root, "harness.ts"), linuxUploadHarness(entry));
     await Bun.write(join(root, "preload.ts"), "export {};\n");
     const child = Bun.spawn(
       [
@@ -105,6 +113,7 @@ export async function runHostileLinuxUpload(
         options.intended,
         repoRoot,
         "staging",
+        kind === "macosTarget" ? "macos-arm64" : "linux-x64",
         head,
         kind === "relativeDir" ? "copied/sentry-sourcemaps" : stagingDir,
       ],
@@ -130,7 +139,7 @@ export async function runHostileLinuxUpload(
       code,
       output: stdout + stderr,
       head,
-      staged: await Bun.file(join(stagingDir, "bun/index.js")).exists(),
+      staged: existsSync(stagingDir),
     };
   } finally {
     await rm(root, { recursive: true, force: true });

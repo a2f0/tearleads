@@ -8,7 +8,14 @@ import {
   runLinuxRelease,
 } from "./releaseLinux.testUtils";
 
-const stagedPairs = "bun/index.js,bun/index.js.map,chunk-a1.js,chunk-a1.js.map";
+const stagedPairs = [
+  "bun/index.js",
+  "bun/index.js.map",
+  "chunk-a1.js",
+  "chunk-a1.js.map",
+]
+  .map((file) => `staging-app-linux-x64/${file}`)
+  .join(",");
 
 for (const tier of ["staging", "production"]) {
   test(`${tier} builds x64 in Docker and publishes a matched installer and updater`, async () => {
@@ -44,7 +51,7 @@ test("the host uploads the container's staged maps under HEAD before publishing,
   const result = await runLinuxRelease(["upload", "staging"]);
   expect(result.exitCode, result.stderr).toBe(0);
   const upload = result.calls.indexOf(
-    `sourcemaps staging head outside ${stagedPairs}`,
+    `sourcemaps staging linux-x64 head outside ${stagedPairs}`,
   );
   expect(upload).toBeGreaterThan(
     result.calls.findIndex((call) => call.startsWith("docker run")),
@@ -55,7 +62,7 @@ test("the host uploads the container's staged maps under HEAD before publishing,
   const bun = result.calls.filter((call) => call.startsWith("bun "));
   expect(bun).toHaveLength(2);
   expect(bun[0]).toStartWith("bun --no-env-file --config=/dev/null /");
-  expect(bun[0]).toContain("/uploadLinuxSourceMaps.ts staging ");
+  expect(bun[0]).toContain("/uploadLinuxSourceMaps.ts staging linux-x64 ");
   expect(bun[1]).toContain("/publishLinuxRelease.ts ");
   expect(result.built.filter((path) => path.endsWith(".map"))).toEqual([]);
 });
