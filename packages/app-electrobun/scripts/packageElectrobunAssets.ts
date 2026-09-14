@@ -1,4 +1,3 @@
-import { existsSync, readdirSync } from "node:fs";
 import { copyFile, mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,31 +7,10 @@ import {
   getSqliteWasmAssetUrl,
 } from "@tearleads/sqlite-worker/assets";
 import { createRendererBuildConfig } from "../src/rendererEnvironment";
+import { findPackagedMainViewDir } from "./findPackagedMainViewDir";
 
-function findPackagedMainViewDir(buildDir: string): string {
-  let directories = [buildDir];
-  const matches: string[] = [];
-  for (let depth = 0; depth < 4; depth += 1) {
-    const children: string[] = [];
-    for (const directory of directories) {
-      const candidate = join(directory, "Resources/app/views/mainview");
-      if (existsSync(join(candidate, "index.html"))) matches.push(candidate);
-      for (const entry of readdirSync(directory, { withFileTypes: true })) {
-        if (entry.isDirectory()) children.push(join(directory, entry.name));
-      }
-    }
-    directories = children;
-  }
-  const [mainViewDir] = matches;
-  if (matches.length !== 1 || !mainViewDir)
-    throw new Error(
-      `Expected one packaged mainview in ${buildDir}, found ${matches.length}`,
-    );
-  return mainViewDir;
-}
-
-async function packageElectrobunAssets(artifactPath: string): Promise<void> {
-  const mainViewDir = findPackagedMainViewDir(artifactPath);
+async function packageElectrobunAssets(buildDir: string): Promise<void> {
+  const mainViewDir = findPackagedMainViewDir(buildDir);
   // Emit HTML and its referenced chunks together, including Loro's embedded
   // WASM. Hutch's view output does not preserve Bun's HTML asset layout.
   await rm(mainViewDir, { recursive: true });
@@ -72,11 +50,11 @@ async function packageElectrobunAssets(artifactPath: string): Promise<void> {
   console.log(`Packaged Electrobun renderer assets: ${mainViewDir}`);
 }
 
-const artifactPath = process.argv[2];
-if (!artifactPath) {
+const buildDir = process.argv[2];
+if (!buildDir) {
   throw new Error(
     "Usage: bun scripts/packageElectrobunAssets.ts <build-directory>",
   );
 }
 
-await packageElectrobunAssets(artifactPath);
+await packageElectrobunAssets(buildDir);

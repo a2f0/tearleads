@@ -1,8 +1,9 @@
 # shellcheck shell=bash
 # Resolve existing local Apple credentials without printing private values.
 configure_macos_signing() {
+  : "${REPO_ROOT:?Set REPO_ROOT before configuring macOS signing}"
   if [[ -z "${ELECTROBUN_DEVELOPER_ID:-}" ]]; then
-    ELECTROBUN_DEVELOPER_ID="$(security find-identity -v -p codesigning | sed -n 's/.*"\(Developer ID Application: [^"]*\)".*/\1/p')"
+    ELECTROBUN_DEVELOPER_ID="$(security find-identity -v -p codesigning | sed -n 's/.*"\(Developer ID Application: [^"]*\)".*/\1/p' | sort -u)"
   fi
   if [[ -z "$ELECTROBUN_DEVELOPER_ID" || "$ELECTROBUN_DEVELOPER_ID" == *$'\n'* ]]; then
     echo "Set ELECTROBUN_DEVELOPER_ID to one installed Developer ID Application identity." >&2

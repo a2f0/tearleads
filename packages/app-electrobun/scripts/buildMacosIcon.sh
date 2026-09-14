@@ -8,7 +8,8 @@ for size in 16 32 128 256 512; do
     pixels=$((size * scale))
     suffix=""
     [[ "$scale" -ne 2 ]] || suffix=@2x
-    magick -background none "$REPO_ROOT/packages/ui/assets/logo.svg" \
+    # Rasterize the 33px SVG above the largest (1024px) icon before resizing.
+    magick -density 3072 -background none "$REPO_ROOT/packages/ui/assets/logo.svg" \
       -resize "${pixels}x${pixels}" \
       "$ICONSET/icon_${size}x${size}${suffix}.png"
   done

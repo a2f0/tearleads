@@ -9,6 +9,6 @@ if (!buildDir)
 // Run before Electrobun signs the app and creates DMG/update archives.
 execFileSync(
   "bun",
-  [resolve("scripts", "packageElectrobunAssets.ts"), buildDir],
+  [resolve(import.meta.dirname, "packageElectrobunAssets.ts"), buildDir],
   { stdio: "inherit" },
 );

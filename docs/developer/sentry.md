@@ -245,13 +245,17 @@ URLs provide symbolication without transmitting debug metadata.
 Electrobun events use `tearleads-electrobun@<git-sha>` and `staging-app` /
 `production-app`. `ELECTROBUN_RELEASE_TIER` selects `staging` or `production`;
 unset is an ordinary local build that reads no secrets and reports nothing.
+For macOS distribution, use `scripts/buildMacosRelease.sh <staging|production>`
+or `scripts/uploadMacosRelease.sh <staging|production>` from the repository root.
+The selected tier also enables signing, notarization, and release icons; these
+wrappers prepare the iconset and signing credentials before invoking the build.
 Only a release build inlines the desktop configuration at all: the dev server
 and Electrobun's own config read the ambient process environment directly, so
 the renderer defines drop these names unless the build is a release one.
 `scripts/withSentryReleaseEnv.ts` resolves that tier's DSN and the full commit
 into the public `BUN_PUBLIC_SENTRY_ELECTROBUN_*` renderer defines, and wraps
-both the Electrobun build and the packaged renderer rebuild so they inline the
-same configuration. It drops every inherited Sentry name first, so a shell that
+the Electrobun build and its inherited `postBuild` packaging hook so they inline
+the same configuration. It drops every inherited Sentry name first, so a shell that
 already exported the web or native release configuration cannot route desktop
 events into another project and the upload token never reaches a renderer
 bundle. A configured tier whose DSN is missing or malformed stops the build

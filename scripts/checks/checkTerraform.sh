@@ -8,6 +8,7 @@ TERRAFORM_DIR="$REPO_ROOT/terraform"
 errors=0
 
 "$SCRIPT_DIR/checkInfrastructureParity.sh"
+bash "$SCRIPT_DIR/checkDownloadsDeployment.sh"
 
 check_command() {
   local cmd="$1"

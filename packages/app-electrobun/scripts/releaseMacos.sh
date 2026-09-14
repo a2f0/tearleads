@@ -59,8 +59,11 @@ if [[ "$ACTION" == build ]]; then exit 0; fi
 
 # Publish payloads before update metadata. Never sync --delete across channels.
 for artifact in "$DMG" "$DMG.sha256" "$ARCHIVE"; do
+  content_type=application/octet-stream
+  [[ "$artifact" != *.sha256 ]] || content_type=text/plain
   aws s3 cp "$artifact" "s3://$BUCKET/$(basename "$artifact")" \
-    --region us-east-1 --only-show-errors --cache-control 'public, max-age=0, must-revalidate'
+    --region us-east-1 --only-show-errors --content-type "$content_type" \
+    --cache-control 'public, max-age=0, must-revalidate'
 done
 aws s3 cp "$UPDATE" "s3://$BUCKET/$(basename "$UPDATE")" \
   --region us-east-1 --only-show-errors --content-type application/json \
