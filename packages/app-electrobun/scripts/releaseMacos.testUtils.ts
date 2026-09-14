@@ -3,6 +3,7 @@ import {
   cpSync,
   mkdirSync,
   mkdtempSync,
+  realpathSync,
   rmSync,
   symlinkSync,
 } from "node:fs";
@@ -33,7 +34,7 @@ const tokenLeakProbe = [
 const gitStub = [
   "#!/bin/sh",
   'case "$*" in',
-  '  *" status "*) [ -n "$GIT_DIR" ] || [ "$RELEASE_TEST_FAILURE" != dirty ] || echo "?? bunfig.toml" ;;',
+  '  "status "* | *" status "*) [ -n "$GIT_DIR" ] || [ "$RELEASE_TEST_FAILURE" != dirty ] || echo "?? bunfig.toml" ;;',
   '  *) printf "%s\\n" "$RELEASE_TEST_ROOT" ;;',
   "esac",
 ].join("\n");
@@ -43,7 +44,10 @@ export async function runMacosRelease(
   failure = "",
   ambient: Record<string, string> = {},
 ) {
-  const root = mkdtempSync(join(tmpdir(), "tearleads-macos-release-"));
+  // The release compares Git's physical top level with its own location.
+  const root = realpathSync(
+    mkdtempSync(join(tmpdir(), "tearleads-macos-release-")),
+  );
   const packageDir = join(root, "packages/app-electrobun");
   const log = join(root, "calls.log");
   async function write(path: string, source: string) {

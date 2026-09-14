@@ -60,6 +60,11 @@ async function fixture(options: { checkout?: boolean; secrets?: boolean }) {
   if (options.secrets)
     await Bun.write(join(repoRoot, ".secrets/root.env"), "SYNTHETIC=1\n");
   if (options.checkout) {
+    // Fixture Git calls run with no GIT_* variable, so none reaches the
+    // repository running these tests.
+    const env = Object.fromEntries(
+      Object.entries(process.env).filter(([name]) => !name.startsWith("GIT_")),
+    );
     const git = (...args: string[]) =>
       execFileSync(
         "git",
@@ -72,7 +77,7 @@ async function fixture(options: { checkout?: boolean; secrets?: boolean }) {
           "user.email=t@example.invalid",
           ...args,
         ],
-        { cwd: repoRoot, stdio: "ignore" },
+        { cwd: repoRoot, env, stdio: "ignore" },
       );
     await Bun.write(join(repoRoot, ".gitignore"), "build/\n");
     git("init", "--quiet");

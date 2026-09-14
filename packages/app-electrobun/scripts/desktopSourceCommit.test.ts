@@ -19,8 +19,19 @@ for (const checkout of [false, true]) {
       await Bun.write(join(root, "package.json"), '{"version":"1.2.3"}');
       let head = "";
       if (checkout) {
+        // Fixture Git calls run with no GIT_* variable, so none reaches the
+        // repository running these tests.
+        const env = Object.fromEntries(
+          Object.entries(process.env).filter(
+            ([name]) => !name.startsWith("GIT_"),
+          ),
+        );
         const git = (...args: string[]) =>
-          execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
+          execFileSync("git", args, {
+            cwd: root,
+            env,
+            encoding: "utf8",
+          }).trim();
         git("init", "-q");
         git("add", ".");
         git(

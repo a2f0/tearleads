@@ -7,16 +7,30 @@ case "$ACTION:$TIER:$#" in
   build:staging:2 | build:production:2 | upload:staging:2 | upload:production:2) ;;
   *) echo "Usage: $0 <build|upload> <staging|production>" >&2; exit 1 ;;
 esac
-# GIT_* variables could point Git at another checkout.
+# GIT_* variables could point Git, and every child, at another checkout, index
+# or object store. The release acts only on the checkout holding this script
+# (links resolved), which must be the top level of its own Git work tree.
 for name in "${!GIT_@}"; do unset "$name"; done
-REPO_ROOT="$(git rev-parse --show-toplevel)"
+script="${BASH_SOURCE[0]}"
+while [[ -L "$script" ]]; do
+  link="$(readlink -- "$script")"
+  [[ "$link" == /* ]] || link="$(dirname -- "$script")/$link"
+  script="$link"
+done
+REPO_ROOT="$(CDPATH='' cd -P -- "$(dirname -- "$script")/../../.." && pwd -P)"
+toplevel="$(git -C "$REPO_ROOT" rev-parse --show-toplevel)" || toplevel=""
+if [[ "$toplevel" != "$REPO_ROOT" ]]; then
+  echo "Linux releases must run from the top level of their own Git checkout." >&2
+  exit 1
+fi
+cd "$REPO_ROOT"
 PACKAGE_DIR="$REPO_ROOT/packages/app-electrobun"
 # Upload publishes under HEAD's release identity and uploads source maps from a
 # host Bun process, which would load a bunfig.toml or dotenv file from its
 # working directory. So staged, modified or untracked files refuse the upload
 # before any Bun process runs. Build mode includes local edits and uploads nothing.
 if [[ "$ACTION" == upload ]]; then
-  changes="$(git -C "$REPO_ROOT" status --porcelain=v1 --untracked-files=normal)"
+  changes="$(git status --porcelain=v1 --untracked-files=normal)"
   if [[ -n "$changes" ]]; then
     echo "Linux uploads require a clean Git checkout; commit source changes first." >&2
     exit 1
@@ -56,7 +70,6 @@ cleanup() {
 }
 trap cleanup EXIT
 trap 'exit 1' INT TERM
-cd "$REPO_ROOT"
 # Only tracked working files enter Docker. Stage new source files before building;
 # ignored output, host dependencies, .git, and .secrets never enter the context.
 git ls-files -z | while IFS= read -r -d '' file; do

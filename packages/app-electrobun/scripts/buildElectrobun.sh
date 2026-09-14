@@ -6,6 +6,9 @@ PACKAGE_DIR="$(CDPATH='' cd -- "$SCRIPT_DIR/.." && pwd)"
 REPO_ROOT="$(CDPATH='' cd -- "$PACKAGE_DIR/../.." && pwd)"
 
 cd "$PACKAGE_DIR"
+# GIT_* variables could point the build identity's Git call, and every child, at
+# another checkout; the Sentry wrapper checks this one.
+for name in $(env | sed -n 's/^\(GIT_[A-Za-z0-9_]*\)=.*/\1/p'); do unset "$name"; done
 # ELECTROBUN_RELEASE_TIER (staging|production) selects the desktop Sentry DSN;
 # unset builds stay local. The postBuild hook inherits these same defines and
 # packages renderer assets before signing and installer creation.

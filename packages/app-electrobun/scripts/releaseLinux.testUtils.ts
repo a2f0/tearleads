@@ -83,23 +83,29 @@ log(\`sourcemaps \${tier} \${target} \${commit === head ? "head" : commit} \${di
 if (process.env.RELEASE_TEST_FAILURE === "sourcemap-upload" || files.length !== 4) process.exit(9);
 `;
 
+// Fixture Git calls run with no GIT_* variable, so none reaches the repository
+// running these tests.
+function fixtureGit(root: string, ...args: string[]) {
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(([name]) => !name.startsWith("GIT_")),
+  );
+  execFileSync("git", args, { cwd: root, env });
+}
+
 async function commitFixture(root: string) {
-  execFileSync("git", ["init", "-q"], { cwd: root });
-  execFileSync("git", ["add", "."], { cwd: root });
-  execFileSync(
-    "git",
-    [
-      "-c",
-      "user.name=Test",
-      "-c",
-      "user.email=test@example.test",
-      "-c",
-      "commit.gpgsign=false",
-      "commit",
-      "-qm",
-      "fixture",
-    ],
-    { cwd: root },
+  fixtureGit(root, "init", "-q");
+  fixtureGit(root, "add", ".");
+  fixtureGit(
+    root,
+    "-c",
+    "user.name=Test",
+    "-c",
+    "user.email=test@example.test",
+    "-c",
+    "commit.gpgsign=false",
+    "commit",
+    "-qm",
+    "fixture",
   );
 }
 
@@ -172,8 +178,7 @@ export async function runLinuxRelease(
         join(root, ".gitignore"),
         ".secrets/\nnode_modules/\nlocal.env\npackages/app-electrobun/build/\nbin/\npublished/\ncalls.log\ncontext.txt\nchanged\n",
       );
-      if (failure === "staged")
-        execFileSync("git", ["add", ".gitignore"], { cwd: root });
+      if (failure === "staged") fixtureGit(root, "add", ".gitignore");
     }
     await write(
       "bin/bun",
