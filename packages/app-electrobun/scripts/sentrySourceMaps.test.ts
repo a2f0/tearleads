@@ -126,7 +126,7 @@ const mainMap = {
   names: [],
 };
 
-test("main-process map sources resolve against the bundler's working directory", async () => {
+test("main-process map sources resolve against the package root", async () => {
   await withRoot(async (root) => {
     const packageRoot = join(root, "packages/app-electrobun");
     await Bun.write(join(packageRoot, "src/bun/index.ts"), "export {};\n");
@@ -181,62 +181,100 @@ test("a release build fails, writing nothing, when Electrobun ignored the main-p
   });
 });
 
+type RendererOutput = Pick<Bun.BuildArtifact, "kind" | "path">;
+
+async function writeRendererFixtures(root: string) {
+  const view = join(root, "build/views/mainview");
+  await Bun.write(join(root, "src/main.ts"), "export {};\n");
+  const map = (sources: string[]) =>
+    JSON.stringify({ version: 3, sources, mappings: "", names: [] });
+  const files: Record<string, string> = {
+    "chunk-a1.js": "a",
+    "chunk-a1.js.map": map(["../../../src/main.ts"]),
+    "chunk-b2.js": "b",
+    "chunk-b2.js.map": map(["../../../src/main.ts"]),
+    "assets/chunk-a1.js": "a",
+    "assets/chunk-a1.js.map": map(["../../../../src/main.ts"]),
+    "chunk-ABC.js": "c",
+    "chunk-ABC.js.map": map(["../../../src/main.ts"]),
+    "chunk-c3.js": "c",
+    "other.js.map": map(["../../../src/main.ts"]),
+    "chunk-d4.js": "d",
+    "chunk-d4.js.map": map(["/etc/hosts"]),
+  };
+  for (const [name, content] of Object.entries(files))
+    await Bun.write(join(view, name), content);
+  return {
+    view,
+    script: (name: string): RendererOutput => ({
+      kind: "entry-point",
+      path: join(view, name),
+    }),
+    sourcemap: (name: string): RendererOutput => ({
+      kind: "sourcemap",
+      path: join(view, name),
+    }),
+  };
+}
+
 test("unexpected renderer outputs stop staging", async () => {
   await withRoot(async (root) => {
-    const view = join(root, "build/views/mainview");
-    const source = join(root, "src/main.ts");
-    await Bun.write(source, "export {};\n");
-    const map = (sources: string[]) =>
-      JSON.stringify({ version: 3, sources, mappings: "", names: [] });
-    const files: Record<string, string> = {
-      "chunk-a1.js": "a",
-      "chunk-a1.js.map": map(["../../../src/main.ts"]),
-      "chunk-b2.js": "b",
-      "chunk-b2.js.map": map(["../../../src/main.ts"]),
-      "assets/chunk-a1.js": "a",
-      "assets/chunk-a1.js.map": map(["../../../../src/main.ts"]),
-      "chunk-ABC.js": "c",
-      "chunk-ABC.js.map": map(["../../../src/main.ts"]),
-      "chunk-c3.js": "c",
-      "other.js.map": map(["../../../src/main.ts"]),
-      "chunk-d4.js": "d",
-      "chunk-d4.js.map": map(["/etc/hosts"]),
+    const { view, script, sourcemap } = await writeRendererFixtures(root);
+    const stage = async (name: string, outputs: RendererOutput[]) => {
+      const stagingDir = join(root, name);
+      await mkdir(stagingDir);
+      const staged = stageRendererSourceMap({
+        mainViewDir: view,
+        stagingDir,
+        outputs,
+        repoRoot: root,
+        packageRoot: root,
+      });
+      return { stagingDir, staged };
     };
-    for (const [name, content] of Object.entries(files))
-      await Bun.write(join(view, name), content);
-    const script = (name: string) => ({
-      kind: "entry-point" as const,
-      path: join(view, name),
-    });
-    const sourcemap = (name: string) => ({
-      kind: "sourcemap" as const,
-      path: join(view, name),
-    });
-    for (const outputs of [
-      [sourcemap("chunk-a1.js.map")],
+    const cases: Array<[RendererOutput[], RegExp]> = [
+      [[sourcemap("chunk-a1.js.map")], /found 0/],
       [
-        script("chunk-a1.js"),
-        script("chunk-b2.js"),
-        sourcemap("chunk-a1.js.map"),
+        [
+          script("chunk-a1.js"),
+          script("chunk-b2.js"),
+          sourcemap("chunk-a1.js.map"),
+        ],
+        /found 2/,
       ],
-      [script("assets/chunk-a1.js"), sourcemap("assets/chunk-a1.js.map")],
-      [script("chunk-ABC.js"), sourcemap("chunk-ABC.js.map")],
-      [script("chunk-c3.js")],
-      [script("chunk-c3.js"), sourcemap("other.js.map")],
-      [script("chunk-d4.js"), sourcemap("chunk-d4.js.map")],
-    ]) {
-      const stagingDir = join(root, `staging-${outputs.length}`);
-      await expect(
-        stageRendererSourceMap({
-          mainViewDir: view,
-          stagingDir,
-          outputs,
-          repoRoot: root,
-          packageRoot: root,
-        }),
-      ).rejects.toThrow();
-      expect(existsSync(stagingDir)).toBe(false);
+      [
+        [script("assets/chunk-a1.js"), sourcemap("assets/chunk-a1.js.map")],
+        /chunk-a1\.js is not the reported script/,
+      ],
+      [
+        [script("chunk-ABC.js"), sourcemap("chunk-ABC.js.map")],
+        /chunk-ABC\.js is not the reported script/,
+      ],
+      [[script("chunk-c3.js")], /chunk-c3\.js\.map beside the renderer chunk/],
+      [
+        [script("chunk-c3.js"), sourcemap("other.js.map")],
+        /chunk-c3\.js\.map beside the renderer chunk/,
+      ],
+      [
+        [script("chunk-d4.js"), sourcemap("chunk-d4.js.map")],
+        /outside the repository/,
+      ],
+    ];
+    for (const [index, [outputs, message]] of cases.entries()) {
+      const { stagingDir, staged } = await stage(`staging-${index}`, outputs);
+      await expect(staged).rejects.toThrow(message);
+      expect(await readdir(stagingDir)).toEqual([]);
     }
+    // The same fixtures stage when valid, so each rejection is its own guard.
+    const valid = await stage("staging-valid", [
+      script("chunk-a1.js"),
+      sourcemap("chunk-a1.js.map"),
+    ]);
+    await valid.staged;
+    expect((await readdir(valid.stagingDir)).sort()).toEqual([
+      "chunk-a1.js",
+      "chunk-a1.js.map",
+    ]);
   });
 });
 
