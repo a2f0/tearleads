@@ -52,3 +52,9 @@ Favicons also revalidate because their URLs are not versioned; this lets icon
 updates reach returning browsers instead of retaining the old one for a year.
 Cloudflare's [static asset documentation](https://developers.cloudflare.com/workers/static-assets/)
 describes routing and deployment caching.
+
+The homepage's macOS download link selects the production or staging S3 bucket
+using `PUBLIC_ENVIRONMENT`, alongside a SHA-256 checksum link. Build and upload
+the matching release with `scripts/uploadMacosRelease.sh <staging|production>`
+from the repository root before deploying the website. See the
+[desktop release instructions](../app-electrobun/README.md#macos-releases).

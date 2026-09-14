@@ -1,6 +1,6 @@
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { copyFile, mkdir, rm } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loroWasmPlugin } from "@tearleads/loro/bun-plugin";
 import {
@@ -9,25 +9,26 @@ import {
 } from "@tearleads/sqlite-worker/assets";
 import { createRendererBuildConfig } from "../src/rendererEnvironment";
 
-function findPackagedMainViewDir(artifactPath: string): string {
-  let searchDir = dirname(artifactPath);
-
-  for (let depth = 0; depth < 8; depth += 1) {
-    const candidate = join(searchDir, "Resources", "app", "views", "mainview");
-    if (existsSync(join(candidate, "index.html"))) {
-      return candidate;
+function findPackagedMainViewDir(buildDir: string): string {
+  let directories = [buildDir];
+  const matches: string[] = [];
+  for (let depth = 0; depth < 4; depth += 1) {
+    const children: string[] = [];
+    for (const directory of directories) {
+      const candidate = join(directory, "Resources/app/views/mainview");
+      if (existsSync(join(candidate, "index.html"))) matches.push(candidate);
+      for (const entry of readdirSync(directory, { withFileTypes: true })) {
+        if (entry.isDirectory()) children.push(join(directory, entry.name));
+      }
     }
-
-    const parentDir = dirname(searchDir);
-    if (parentDir === searchDir) {
-      break;
-    }
-    searchDir = parentDir;
+    directories = children;
   }
-
-  throw new Error(
-    `Could not locate packaged mainview resources for ${artifactPath}`,
-  );
+  const [mainViewDir] = matches;
+  if (matches.length !== 1 || !mainViewDir)
+    throw new Error(
+      `Expected one packaged mainview in ${buildDir}, found ${matches.length}`,
+    );
+  return mainViewDir;
 }
 
 async function packageElectrobunAssets(artifactPath: string): Promise<void> {
@@ -73,7 +74,9 @@ async function packageElectrobunAssets(artifactPath: string): Promise<void> {
 
 const artifactPath = process.argv[2];
 if (!artifactPath) {
-  throw new Error("Usage: bun scripts/packageElectrobunAssets.ts <artifact>");
+  throw new Error(
+    "Usage: bun scripts/packageElectrobunAssets.ts <build-directory>",
+  );
 }
 
 await packageElectrobunAssets(artifactPath);

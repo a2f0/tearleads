@@ -1,6 +1,8 @@
 import type { ElectrobunConfig } from "electrobun";
 import { createRendererEnvironmentDefines } from "./src/rendererEnvironment";
 
+const { ELECTROBUN_RELEASE_TIER: releaseTier } = process.env;
+
 export default {
   app: {
     name: "Tearleads",
@@ -15,11 +17,15 @@ export default {
       // macOS uses its built-in WKWebView.
       bundleCEF: false,
       defaultRenderer: "native",
+      codesign: Boolean(releaseTier),
+      notarize: Boolean(releaseTier),
+      ...(releaseTier ? { icons: "build/release-icons/icon.iconset" } : {}),
       entitlements: {
         // Hutch also emits NSCameraUsageDescription for this entitlement.
         "com.apple.security.device.camera": true,
       },
     },
+    artifactFolder: "build/artifacts",
     win: {
       // Pin Chromium to the app release, independently of the machine's
       // WebView2 installation and update cycle.
@@ -45,5 +51,15 @@ export default {
         define: createRendererEnvironmentDefines(process.env),
       },
     },
+  },
+  scripts: {
+    postBuild: "scripts/postBuild.ts",
+  },
+  release: {
+    baseUrl:
+      releaseTier === "staging"
+        ? "https://s3.us-east-1.amazonaws.com/downloads-staging.tearleads.com"
+        : "https://s3.us-east-1.amazonaws.com/downloads.tearleads.com",
+    generatePatch: false,
   },
 } satisfies ElectrobunConfig;

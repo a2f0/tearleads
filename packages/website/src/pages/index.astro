@@ -1,5 +1,10 @@
 ---
+import { isStaging } from "../config";
 import Layout from "../layouts/Layout.astro";
+
+const macosDownloadUrl = isStaging
+  ? "https://s3.us-east-1.amazonaws.com/downloads-staging.tearleads.com/canary-macos-arm64-Tearleads-canary.dmg"
+  : "https://s3.us-east-1.amazonaws.com/downloads.tearleads.com/macos-arm64-Tearleads.dmg";
 ---
 
 <Layout
@@ -13,6 +18,52 @@ import Layout from "../layouts/Layout.astro";
         Keep your notes, contacts, and files in one place — local-first,
         synced across your devices, and shared on your terms.
       </p>
+      <div class="desktop-download">
+        <a class="download-button" href={macosDownloadUrl}>
+          {isStaging ? "Download macOS preview" : "Download for macOS"}
+        </a>
+        <p>For Macs with Apple silicon.</p>
+        <a class="download-checksum" href={`${macosDownloadUrl}.sha256`}>
+          SHA-256 checksum
+        </a>
+      </div>
     </section>
   </main>
 </Layout>
+
+<style>
+  .desktop-download {
+    margin-top: 32px;
+  }
+
+  .download-button {
+    display: inline-flex;
+    align-items: center;
+    min-height: 48px;
+    padding: 12px 24px;
+    border-radius: 6px;
+    background: #244c37;
+    color: #fff;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .download-button:hover {
+    background: #183526;
+  }
+
+  .download-button:focus-visible {
+    outline: 3px solid #244c37;
+    outline-offset: 4px;
+  }
+
+  .desktop-download p {
+    margin: 12px 0 4px;
+    color: #45534e;
+  }
+
+  .download-checksum {
+    color: #244c37;
+    font-size: 0.875rem;
+  }
+</style>
