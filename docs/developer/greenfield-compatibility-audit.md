@@ -22,7 +22,9 @@ points before the environment reset and coordinated release.
   Screen-only routes and their platform-selection fallback are removed. The
   gallery index and captured platform/screen routes remain available. macOS
   staging download discovery now requires `TLStaging-canary`; its offline
-  fallback pins the verified release with that name.
+  fallback pins the verified release with that name. Its published checksum and
+  local DMG both hash to
+  `5b1981e3d1d11afa6d4c321efe878f5f143fbaccd1603194df630db2d5a41ba2`.
 - **Desktop releases:** root release wrappers select their tier by filename:
   `*StagingRelease.sh` for staging and `*Release.sh` for production. Historical
   positional tier arguments are rejected before any build or upload.

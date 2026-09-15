@@ -43,20 +43,20 @@ const { rootContainerId } = await tearleads.identity.generate();
 
 ## Current Host Contract
 
-Hosts implement current greenfield SDK interfaces. `deviceFirst.open()`
-returns one unified handle without view/reconciler aliases. Container creation
-uses the compound container-plus-metadata endpoint. Create, document link, unlink,
-writer-projection, and sync APIs require structured `Result` methods with complete
-transport failures; unused nullable mutation methods are not required.
+Hosts use current SDK interfaces. `deviceFirst.open()` returns one handle.
+Reconciliation requires scoped hints; `enqueueIdleBackfill()` performs catch-up.
+The force argument and unscoped flush are removed. Creation uses the compound
+container-plus-metadata endpoint. Create, link/unlink, projection and sync APIs
+require structured `Result` methods with complete transport failures.
+Unused nullable mutation methods are not required.
 Container persistence atomically saves pending mutations. An accepted create or
 move must save its state and settle its exact intent revision in one transaction;
 missing settlement acknowledgments are refused. Error recording also checks the
 intent revision; unconditional settlement is not supported.
 
-Local document tables require the current columns at startup. Reset obsolete
-tables instead of expecting additive schema upgrades. Principal-policy warming
-always verifies and persists its cache. Group policy writes require an explicit
-organization owner, pinned atomically with current/history/checkpoint rows.
+Reset local tables with obsolete columns; startup performs no schema upgrades.
+Principal-policy warming verifies and persists its cache. Group policy writes
+atomically pin an organization owner with current/history/checkpoint rows.
 Public policy-cache and bundle-save types require that owner.
 Unowned persisted group evidence requires a full local reset before scoped purge.
 The wire contract requires explicit
