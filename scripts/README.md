@@ -5,6 +5,12 @@ builds and uploads, deployments, screenshots, backups, and maintenance tools.
 For example, run `./scripts/runApp.sh`, `./scripts/buildIosRelease.sh`, or
 `./scripts/deployStaging.sh` from the repository root.
 
+For website-only deployments, run `./scripts/deployStagingWebsite.sh` or
+`./scripts/deployProductionWebsite.sh`. Both use the shared deployment helper in
+`packages/website/scripts/deployWebsite.sh`; see the
+[website deployment guide](../packages/website/README.md) for credentials and
+dry-run options.
+
 Automated checks and supporting code live in subfolders. Use the root
 `package.json` commands, such as `bun run check:fast`, `bun run lint:architecture`,
 or `bun run test:static-analysis`, to run checks and tooling tests.
