@@ -245,7 +245,7 @@ function Gallery({
 }) {
   const { projects, themes, entries } = manifest;
   const [project, setProject] = useState<string>(() =>
-    initialProject(manifest, initialScreen, initialPlatform),
+    initialProject(manifest, initialPlatform),
   );
   // This state selects captured assets only; it must not theme the website.
   const [theme, setTheme] = useState<string>(() => themes[0] ?? "light");

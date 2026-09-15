@@ -1,6 +1,6 @@
 import { expect } from "bun:test";
 import { createDomainScope } from "../../data/domainScope";
-import type { ReconciliationHost } from "./serviceTypes";
+import type { ReconciliationHost, ReconciliationService } from "./serviceTypes";
 
 /** A fully no-op reconciliation host; tests override only what they observe. */
 export function createReconciliationTestHost(
@@ -71,4 +71,14 @@ export function silenceExpectedTransientDiscoveryError(
     console.error = originalConsoleError;
     expect(actualCount).toBe(expectedCount);
   };
+}
+
+/** Queue a scoped event for each known container at the event lane priority. */
+export function forceKnownContainers(
+  service: ReconciliationService,
+  host: ReconciliationHost,
+): void {
+  for (const containerId of host.listKnownContainerIds()) {
+    service.enqueueContainer(containerId, "active", true);
+  }
 }

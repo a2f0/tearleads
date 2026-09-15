@@ -82,8 +82,8 @@ without counting as lane progress, so it cannot hot-loop the pump.
   scope so their sync passes resolve them. Orphans of an organization with no
   active scope (e.g. after the whole organization's access was revoked) stay
   preserved-but-dormant: without that organization's auth context no pass could
-  resolve them. Attributed rows never cross organization scopes; legacy
-  device-first rows with no organization attribution appear in the active
+  resolve them. Attributed rows never cross organization scopes; unattributed
+  device-first rows appear in the active
   scope, matching priming, and adopt that organization when created remotely.
   Recovery classification is projection-based: it includes every non-hidden
   `container_id IS NULL` row with no surviving links, whether detached by a

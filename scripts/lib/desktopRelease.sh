@@ -2,10 +2,8 @@
 # Shared dispatch for desktop build/upload shortcuts; packaging stays in Electrobun.
 
 desktop_release_usage() {
-  desktop_optional_tier=""
-  [ "$desktop_tier" != production ] || desktop_optional_tier=" [staging|production]"
   cat <<EOF
-Usage: $(basename "$0")${desktop_optional_tier}
+Usage: $(basename "$0")
        $(basename "$0") -h|--help
 
 Runs the ${desktop_tier} ${desktop_platform} release ${desktop_action}.
@@ -28,11 +26,6 @@ desktop_release_main() {
   case "$#:${1:-}" in
     0:) ;;
     1:-h | 1:--help) desktop_release_usage; return 0 ;;
-    1:staging | 1:production)
-      # Preserve the explicit-tier form of the original production wrappers.
-      if [ "$desktop_tier" != production ]; then desktop_release_usage >&2; return 1; fi
-      desktop_tier="$1"
-      ;;
     *) desktop_release_usage >&2; return 1 ;;
   esac
 

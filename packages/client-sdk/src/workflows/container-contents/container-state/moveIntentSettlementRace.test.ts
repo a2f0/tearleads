@@ -84,7 +84,7 @@ test("an overtaking move intent prevents stale live-state installation", async (
   expect(child.container).toEqual(originalContainer);
 });
 
-test("a generation change during settlement leaves live state unchanged", async () => {
+test("a generation change in the commit acknowledgment leaves live state unchanged", async () => {
   const child = createTestContainerState({ id: "child", parentId: "root" });
   child.doc = await createContainerMetadataDocument(child.container.id);
   const originalContainer = { ...child.container };
@@ -133,9 +133,7 @@ test("a generation change during settlement leaves live state unchanged", async 
           });
           return {
             get moveIntentSettled(): true {
-              queueMicrotask(() => {
-                current = false;
-              });
+              current = false;
               return true;
             },
             record: child.record,
@@ -168,7 +166,7 @@ test("a generation change during settlement leaves live state unchanged", async 
   expect(child.container).toEqual(originalContainer);
 });
 
-test("move settlement uses revision CAS when persistence is not atomic", async () => {
+test("move persistence rejects a save without atomic intent settlement", async () => {
   const child = createTestContainerState({ id: "child", parentId: "root" });
   child.doc = await createContainerMetadataDocument(child.container.id);
   const revisionSettlements: Array<
@@ -225,8 +223,8 @@ test("move settlement uses revision CAS when persistence is not atomic", async (
     parentId: "parent",
     updatedAt: "2026-05-31T00:01:00.000Z",
   };
-  expect(
-    await persistAcceptedMoveIntent({
+  await expect(
+    persistAcceptedMoveIntent({
       host: {
         persistContainerState: async (candidate) => ({
           record: candidate.record,
@@ -240,15 +238,11 @@ test("move settlement uses revision CAS when persistence is not atomic", async (
       requestRemoteReconciliation: () => {},
       state,
     }),
-  ).toBe(true);
-  expect(revisionSettlements).toHaveLength(1);
-  expect(revisionSettlements[0]).toMatchObject({
-    containerId: intent.containerId,
-    expectedIntentId: intent.id,
-    expectedUpdatedAt: intent.updatedAt,
-  });
-  expect(revisionSettlements[0]?.stillCurrent()).toBe(true);
-  expect(child.container.parentId).toBe("parent");
+  ).rejects.toThrow(
+    "Container move persistence must settle the intent atomically",
+  );
+  expect(revisionSettlements).toHaveLength(0);
+  expect(child.container.parentId).toBe("root");
 
   expect(
     await persistAcceptedMoveIntent({
@@ -267,5 +261,5 @@ test("move settlement uses revision CAS when persistence is not atomic", async (
       state,
     }),
   ).toBe(true);
-  expect(revisionSettlements).toHaveLength(1);
+  expect(revisionSettlements).toHaveLength(0);
 });

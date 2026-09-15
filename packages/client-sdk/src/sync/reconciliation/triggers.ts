@@ -39,7 +39,6 @@ export function connectReconciliationTriggers(input: {
         if (signal.activeContainerId) {
           service.enqueueContainer(signal.activeContainerId, "active");
         }
-        service.flushPendingUnscopedInvalidation();
         break;
       case "remote-containers-added":
         // A cold-cache tree crawl can finish after the auth-edge backfill was
@@ -67,8 +66,7 @@ export function connectReconciliationTriggers(input: {
 /**
  * Translate a batch of server events into reconciler work. Containers named by
  * document content or structural mutation events are reconciled at active
- * priority; an unscoped content update force-reconciles every known container
- * at idle priority because no narrower invalidation scope is available.
+ * priority. Document updates must carry the current container-scoped hint shape.
  *
  * `domainScope`, when provided, suppresses self-echoes: a `document_update_created`
  * whose documentId this client just originated (created/uploaded) is dropped
@@ -83,7 +81,6 @@ export function enqueueReconciliationForEvents(input: {
 }): void {
   const { domainScope, events, knownContainerIds, service } = input;
   const knownContainerIdSet = new Set(knownContainerIds);
-  let needsIdleBackfill = false;
 
   for (const event of events) {
     if (isDocumentMutationCreatedEvent(event)) {
@@ -109,13 +106,6 @@ export function enqueueReconciliationForEvents(input: {
     ) {
       continue;
     }
-    if (event.containerIds === undefined) {
-      // An update with no container scope could touch any container, including
-      // one already settled this session. Force both document discovery and
-      // ordinary content pulls so the lossy hint cannot be suppressed.
-      needsIdleBackfill = true;
-      continue;
-    }
     // Events signal fresh remote data, so force re-discovery even if this
     // container was already reconciled this session.
     enqueueKnownEventContainers({
@@ -123,9 +113,5 @@ export function enqueueReconciliationForEvents(input: {
       knownContainerIds: knownContainerIdSet,
       service,
     });
-  }
-
-  if (needsIdleBackfill) {
-    service.enqueueIdleBackfill(true);
   }
 }

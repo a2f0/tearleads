@@ -11,7 +11,6 @@ import {
   discoverAllContainerDocuments,
   discoverContainerDocuments,
   discoverContainerDocumentsFromApi,
-  hasUndiscoveredDocumentUpdateEvent,
   listAllRemoteContainerIds,
   listAllRemoteContainerIdsFromApi,
   refreshAllContainerDocumentsFromApi,
@@ -78,7 +77,7 @@ function captureInputs(
   });
 }
 
-test("unknown document update events trigger rediscovery for shared container notes", async () => {
+test("document discovery loads shared container notes", async () => {
   const cachedPrincipalReferences: Array<
     ReadonlyArray<ReferencedPrincipalStateResponse>
   > = [];
@@ -90,19 +89,6 @@ test("unknown document update events trigger rediscovery for shared container no
   > = [];
   const upsertDiscoveredDocumentsCalls: Array<ReadonlyArray<CapturedInput>> =
     [];
-  const knownDocumentIds = new Set<string>();
-  const events = [
-    {
-      documentId: "peer-note-document",
-      id: "event-1",
-      type: "document_update_created",
-    },
-  ];
-
-  expect(hasUndiscoveredDocumentUpdateEvent(events, knownDocumentIds)).toBe(
-    true,
-  );
-
   const discovered = await discoverContainerDocuments({
     ...nullContainerDocumentWatermarks,
     cacheReferencedPrincipalPolicies: async (references) => {

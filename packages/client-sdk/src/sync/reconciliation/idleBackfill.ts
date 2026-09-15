@@ -10,8 +10,6 @@ export interface IdleBackfillState {
   initialDocumentProbe: InitialDocumentProbe;
   nextForceGeneration: number;
   queue: ReconcileQueue;
-  unscopedInvalidationActive: boolean;
-  unscopedInvalidatedContainerIds: Set<string>;
 }
 
 export function markContainerForced(
@@ -34,20 +32,6 @@ export function acknowledgeContainerForce(
   }
 }
 
-function needsForcedContainerActivation(
-  state: IdleBackfillState,
-  containerId: string,
-): boolean {
-  if (
-    state.unscopedInvalidationActive &&
-    !state.unscopedInvalidatedContainerIds.has(containerId)
-  ) {
-    state.unscopedInvalidatedContainerIds.add(containerId);
-    return true;
-  }
-  return state.forcedContainerGenerations.has(containerId);
-}
-
 export function activateContainer(
   state: IdleBackfillState,
   containerId: string | null,
@@ -55,46 +39,31 @@ export function activateContainer(
 ): void {
   state.activeContainerId = containerId;
   if (containerId) {
-    enqueue(containerId, needsForcedContainerActivation(state, containerId));
+    enqueue(containerId, state.forcedContainerGenerations.has(containerId));
   }
 }
 
 export function enqueueKnownContainersForIdleBackfill(input: {
-  force: boolean;
   host: ReconciliationHost;
   scheduleDrain: () => void;
   state: IdleBackfillState;
 }): void {
-  const { force, host, scheduleDrain, state } = input;
-  if (force) {
-    state.unscopedInvalidationActive = true;
-    state.unscopedInvalidatedContainerIds.clear();
-  }
-
+  const { host, scheduleDrain, state } = input;
   const knownContainerIds = host.listKnownContainerIds();
   const activeContainerId = state.activeContainerId;
   const backfillContainerIds =
     activeContainerId !== null &&
     !knownContainerIds.includes(activeContainerId) &&
-    (state.unscopedInvalidationActive ||
-      host.canDiscoverContainerDocuments(activeContainerId))
+    host.canDiscoverContainerDocuments(activeContainerId)
       ? [...knownContainerIds, activeContainerId]
       : knownContainerIds;
   state.initialDocumentProbe.arm(
     backfillContainerIds.filter((id) => host.canDiscoverContainerDocuments(id)),
   );
   for (const containerId of backfillContainerIds) {
-    const needsUnscopedForce =
-      state.unscopedInvalidationActive &&
-      !state.unscopedInvalidatedContainerIds.has(containerId);
-    const shouldForce =
-      needsUnscopedForce || state.forcedContainerGenerations.has(containerId);
+    const shouldForce = state.forcedContainerGenerations.has(containerId);
     if (!shouldForce && state.discoveredContainerIds.has(containerId)) {
       continue;
-    }
-    if (needsUnscopedForce) {
-      markContainerForced(state, containerId);
-      state.unscopedInvalidatedContainerIds.add(containerId);
     }
     state.queue.enqueue(containerId, "idle");
   }

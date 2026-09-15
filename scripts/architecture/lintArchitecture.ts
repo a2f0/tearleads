@@ -215,7 +215,7 @@ const architectureChecks: ArchitectureCheck[] = [
     entryPoints: appProductionSourceEntryPoints,
     matches: isClientSdkDocumentsImport,
     message:
-      "App production code should import public document contracts from @tearleads/client-sdk during the entrypoint consolidation migration.",
+      "App production code should import public document contracts from @tearleads/client-sdk.",
     name: "app-production-uses-sdk-root-for-document-facade",
   }),
   createModuleSpecifierCheck({

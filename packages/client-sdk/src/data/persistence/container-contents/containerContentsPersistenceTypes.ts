@@ -431,8 +431,8 @@ export interface ContainerContentsPersistence
     input: ContainerCreateIntentRevisionInput,
   ) => Promise<boolean>;
   /**
-   * Revision-CAS settlement used by asynchronous move replay. Invalid adapters
-   * are rejected before the remote mutation begins.
+   * Explicit revision-CAS settlement. Move replay instead settles inside
+   * commitMetadataMutation and requires its atomic acknowledgment.
    */
   markMoveIntentRevisionSynced: (
     execSql: ExecSql,

@@ -7,10 +7,7 @@ import {
 } from "../metadataStateIsolation";
 import type { ContainerState } from "../remoteHydration";
 import { hasRemoteContainerMetadataState } from "../remoteHydration/reconciliation";
-import {
-  settleContainerCreateIntent,
-  settlePersistedContainerCreateIntent,
-} from "./createIntentSettlement";
+import { settleContainerCreateIntent } from "./createIntentSettlement";
 import { CONTAINER_ALREADY_COMMITTED } from "./createWithMetadata";
 import { createRemoteContainer, deleteRemoteContainer } from "./remote";
 import type {
@@ -19,6 +16,8 @@ import type {
   ContainerCreateIntentSyncState,
   CreatedRemoteContainerState,
 } from "./types";
+
+class IncompleteContainerCreateSettlementError extends Error {}
 
 type CreateIntentSyncResult = "abandoned" | "blocked" | "created" | "failed";
 
@@ -71,7 +70,7 @@ async function recordContainerCreateFailure(input: {
       containerId: input.intent.containerId,
       expectedIntentId: input.intent.id,
       expectedUpdatedAt: input.intent.updatedAt,
-      message: `Remote container create failed: ${errorMessage(input.error)}`,
+      message: `${input.error instanceof IncompleteContainerCreateSettlementError ? "Container create persistence failed" : "Remote container create failed"}: ${errorMessage(input.error)}`,
       stillCurrent: input.isCurrent,
     },
   );
@@ -92,7 +91,6 @@ async function markContainerContentsContainerCreateIntentAlreadySynced(input: {
     return false;
   }
   return settleContainerCreateIntent({
-    alreadySettled: false,
     intent,
     isCurrent: input.isCurrent,
     remoteContainerId: containerState.container.id,
@@ -178,14 +176,11 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
     return "abandoned";
   }
   if (persistenceResult.status !== "persisted") return persistenceResult.status;
-  const settlementFailure = await settlePersistedContainerCreateIntent({
-    alreadySettled: persistenceResult.createIntentSettled === true,
-    created,
-    intent,
-    isCurrent: input.isCurrent,
-    state,
-  });
-  if (settlementFailure) return settlementFailure;
+  if (persistenceResult.createIntentSettled !== true) {
+    throw new IncompleteContainerCreateSettlementError(
+      "Container create persistence must settle the intent atomically",
+    );
+  }
   const { record: nextRecord } = persistenceResult;
   if (!input.isCurrent()) return "abandoned";
   const currentContainerState = state.containersById.get(intent.containerId);
@@ -342,7 +337,23 @@ async function createPendingRemoteContainer(input: {
     syncInput.requestRemoteReconciliation(intent.parentContainerId);
     return "abandoned";
   }
-  return settleRemoteContainerCreate({ containerState, created, syncInput });
+  try {
+    return await settleRemoteContainerCreate({
+      containerState,
+      created,
+      syncInput,
+    });
+  } catch (error) {
+    if (!(error instanceof IncompleteContainerCreateSettlementError))
+      throw error;
+    return recordContainerCreateFailure({
+      error,
+      isCurrent: syncInput.isCurrent,
+      intent,
+      organizationId: parentState.container.organizationId,
+      state,
+    });
+  }
 }
 
 async function trySyncPendingContainerContentsContainerCreateIntent(

@@ -65,14 +65,8 @@ export interface ReconciliationService {
     priority: ReconcilePriority,
     force?: boolean,
   ) => void;
-  /**
-   * Queue known containers at idle priority. A forced call records a global
-   * invalidation so containers materialized by later tree hydration are also
-   * force-reconciled exactly once.
-   */
-  enqueueIdleBackfill: (force?: boolean) => void;
-  /** Flush a recorded unscoped invalidation after tree hydration, if any. */
-  flushPendingUnscopedInvalidation: () => void;
+  /** Queue known containers at idle priority. */
+  enqueueIdleBackfill: () => void;
   /**
    * Forget which containers were reconciled this session so the next enqueue of
    * each re-validates against the server exactly once. Call on the

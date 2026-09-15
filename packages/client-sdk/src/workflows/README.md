@@ -11,11 +11,14 @@ hosts or wire responses. `deviceFirst.open()` is the sole unified tree handle.
 Container creation always commits the container and its metadata document in
 one compound API request. Create, document link/unlink, writer-projection, and
 sync adapters provide their required structured `Result` methods, including
-complete transport failures. Unused nullable mutation methods are neither
-required host members nor an alternative to the structured methods.
+complete transport failures. Unused nullable mutations are not host requirements.
 Container persistence provides atomic `saveContainerWithPendingUpdate` and
-revision-checked create/move settlement and error recording. There is no
-unconditional settlement or three-argument error-recorder fallback.
+revision-checked create/move settlement and error recording. Saving an accepted
+create or move must also settle its intent in the same transaction; an
+acknowledgment without that settlement is rejected. There is no two-step save
+and settle, unconditional settlement, or three-argument error-recorder fallback.
+Reconciliation's `enqueueIdleBackfill()` performs catch-up only; scoped events
+replace the force argument and `flushPendingUnscopedInvalidation()` method.
 
 Local document tables must contain the current required columns; obsolete tables
 require reset, not an additive upgrade. Principal-policy warming verifies and

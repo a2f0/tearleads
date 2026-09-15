@@ -281,8 +281,6 @@ function createReconciliationState(
     probeContinuationCancel: null,
     queue: createReconcileQueue(),
     pendingRefresh: null,
-    unscopedInvalidationActive: false,
-    unscopedInvalidatedContainerIds: new Set(),
   };
 }
 
@@ -302,8 +300,6 @@ function stopReconciliationService(
   // reconciler is being torn down (scope/identity change) or paused across
   // a prerequisite loss, after which every container must be re-validated.
   state.discoveredContainerIds.clear();
-  state.unscopedInvalidationActive = false;
-  state.unscopedInvalidatedContainerIds.clear();
   // Drop pending self-echo originations too — they are session-scoped and a
   // teardown invalidates them.
   clearOriginatedDocuments(host.domainScope);
@@ -350,9 +346,8 @@ export function createReconciliationService(
     scheduleDrain();
   };
 
-  const enqueueIdleBackfill = (force = false) => {
+  const enqueueIdleBackfill = () => {
     enqueueKnownContainersForIdleBackfill({
-      force,
       host,
       scheduleDrain,
       state,
@@ -371,11 +366,6 @@ export function createReconciliationService(
       ),
     enqueueContainer,
     enqueueIdleBackfill,
-    flushPendingUnscopedInvalidation: () => {
-      if (state.unscopedInvalidationActive) {
-        enqueueIdleBackfill();
-      }
-    },
     resetDiscovered: () => {
       state.discoveredContainerIds.clear();
       state.initialDocumentProbe.resetSkippedListings();

@@ -15,14 +15,11 @@ export async function resolveDesktopDownload(
     : "downloads.tearleads.com";
   const base = `https://s3.us-east-1.amazonaws.com/${bucket}`;
   const prefix = `${staging ? "canary" : "stable"}-${target}`;
-  const appName = staging ? "Tearleads-canary" : "Tearleads";
-  // Retain the verified first-release fallback while accepting the renamed
-  // macOS staging app. Linux still publishes Tearleads-canary.
-  // Drop the old macOS name once the pinned fallback is a TLStaging release.
-  const appNamePattern =
-    staging && target === "macos-arm64"
-      ? "(?:TLStaging-canary|Tearleads-canary)"
-      : appName;
+  const appName = staging
+    ? target === "macos-arm64"
+      ? "TLStaging-canary"
+      : "Tearleads-canary"
+    : "Tearleads";
   const extension = target === "macos-arm64" ? ".dmg" : "-Setup.tar.gz";
   const extensionPattern = extension.replaceAll(".", "\\.");
   let installer = `${prefix}-${initialHash}-${appName}${extension}`;
@@ -41,7 +38,7 @@ export async function resolveDesktopDownload(
       !("checksum" in value) ||
       value.checksum !== `${value.installer}.sha256` ||
       !new RegExp(
-        `^${prefix}-[a-f0-9]{64}-${appNamePattern}${extensionPattern}$`,
+        `^${prefix}-[a-f0-9]{64}-${appName}${extensionPattern}$`,
       ).test(value.installer)
     )
       throw new Error("Invalid desktop download discovery");

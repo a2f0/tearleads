@@ -15,9 +15,9 @@ interface Props {
   initialScreen?: string;
 }
 
-// One route per captured platform/screen pair, plus the /screenshots index
-// and legacy screen-only links. Deduplicate light/dark captures so each pair
-// builds only once. The manifest is staged by
+// One route per captured platform/screen pair, plus the /screenshots index.
+// Deduplicate light/dark captures so each pair builds only once. The manifest
+// is staged by
 // scripts/buildScreenshots.ts on predev/prebuild, before Astro runs; with no
 // captures only the index route exists.
 export async function getStaticPaths() {
@@ -36,7 +36,6 @@ const screenTitle = initialScreen
 
 <Layout
   title={screenTitle}
-  noIndex={Boolean(initialScreen && !initialPlatform)}
   description="Browse Tearleads screenshots in Windowed, Mobile, and Tablet layouts with light and dark themes."
 >
   <main class="website-main">

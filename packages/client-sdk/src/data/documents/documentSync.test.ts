@@ -9,6 +9,7 @@ import {
 import {
   createPendingUpdateFields,
   isDocumentMutationCreatedEvent,
+  isDocumentUpdateCreatedEvent,
 } from "./documentSync";
 
 test("isDocumentMutationCreatedEvent validates scoped link-set hints", () => {
@@ -94,4 +95,36 @@ test("createPendingUpdateFields rejects a non-snapshot rotation baseline", async
   expect(() =>
     createPendingUpdateFields(exportAllUpdates(doc), encodeVersionVector(doc)),
   ).toThrow("full-history Loro snapshot");
+});
+
+test("document update hints require the current scoped contract", () => {
+  const hint = { type: "document_update_created", documentId: "document-1" };
+  expect(isDocumentUpdateCreatedEvent(hint)).toBe(false);
+  expect(
+    isDocumentUpdateCreatedEvent({ ...hint, containerIds: ["root"] }),
+  ).toBe(true);
+  expect(
+    isDocumentUpdateCreatedEvent({
+      ...hint,
+      containerIds: [],
+      updateIds: ["update-1"],
+    }),
+  ).toBe(true);
+  expect(isDocumentUpdateCreatedEvent({ ...hint, containerIds: [""] })).toBe(
+    false,
+  );
+  expect(
+    isDocumentUpdateCreatedEvent({
+      ...hint,
+      containerIds: ["root"],
+      documentId: "",
+    }),
+  ).toBe(false);
+  expect(
+    isDocumentUpdateCreatedEvent({
+      ...hint,
+      containerIds: ["root"],
+      updateIds: [""],
+    }),
+  ).toBe(false);
 });

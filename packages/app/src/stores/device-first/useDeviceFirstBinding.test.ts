@@ -47,6 +47,7 @@ test("reconciliation events are processed once per known container", () => {
   const processedEventKeys = new Set<string>();
   const event = {
     containerIds: ["c-1"],
+    documentId: "doc-1",
     id: "event-1",
     type: "document_update_created",
   };
@@ -71,6 +72,7 @@ test("reconciliation events can become pending when containers become known", ()
   const processedEventKeys = new Set<string>();
   const event = {
     containerIds: ["c-1", "c-2"],
+    documentId: "doc-1",
     id: "event-1",
     type: "document_update_created",
   };

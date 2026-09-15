@@ -5,57 +5,26 @@ import type {
   DocumentSummary,
 } from "@tearleads/client-sdk";
 import { enqueueReconciliationForEvents } from "@tearleads/client-sdk";
+import {
+  WsDocumentMutationCreatedHintSchema,
+  WsDocumentUpdateCreatedHintSchema,
+  type WsInvalidationHint,
+} from "@tearleads/validators/realtime";
 import { useEffect, useMemo, useRef } from "react";
 import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
 
-interface DocumentReconciliationEvent {
-  readonly containerIds?: unknown;
-  readonly documentId?: unknown;
-  readonly eventType?: unknown;
-  readonly id?: unknown;
-  readonly type: "document_mutation_created" | "document_update_created";
-}
-
-function isDocumentMutationEvent(
-  event: unknown,
-): event is DocumentReconciliationEvent & {
-  readonly containerIds: string[];
-  readonly documentId: string;
-  readonly eventType: "document.link" | "document.purge" | "document.unlink";
-  readonly type: "document_mutation_created";
-} {
-  return (
-    typeof event === "object" &&
-    event !== null &&
-    "type" in event &&
-    event.type === "document_mutation_created" &&
-    "documentId" in event &&
-    typeof event.documentId === "string" &&
-    event.documentId.length > 0 &&
-    "eventType" in event &&
-    (event.eventType === "document.link" ||
-      event.eventType === "document.purge" ||
-      event.eventType === "document.unlink") &&
-    "containerIds" in event &&
-    Array.isArray(event.containerIds) &&
-    event.containerIds.length > 0 &&
-    event.containerIds.every(
-      (containerId) =>
-        typeof containerId === "string" && containerId.length > 0,
-    )
-  );
-}
+type DocumentReconciliationEvent = Extract<
+  WsInvalidationHint,
+  { type: "document_mutation_created" | "document_update_created" }
+>;
 
 function isDocumentReconciliationEvent(
   event: unknown,
 ): event is DocumentReconciliationEvent {
   return (
-    isDocumentMutationEvent(event) ||
-    (typeof event === "object" &&
-      event !== null &&
-      "type" in event &&
-      event.type === "document_update_created")
+    WsDocumentUpdateCreatedHintSchema.safeParse(event).success ||
+    WsDocumentMutationCreatedHintSchema.safeParse(event).success
   );
 }
 
@@ -261,28 +230,12 @@ export function takePendingReconciliationEvents(input: {
       return;
     }
 
-    const isMutationEvent = isDocumentMutationEvent(event);
+    const isMutationEvent = event.type === "document_mutation_created";
     const eventKey = reconciliationEventKey(event, index);
-    if (event.containerIds === undefined) {
-      const unscopedKey = `${eventKey}:*`;
-      if (!input.processedEventKeys.has(unscopedKey)) {
-        input.processedEventKeys.add(unscopedKey);
-        pendingEvents.push(event);
-      }
-      return;
-    }
-
-    if (!Array.isArray(event.containerIds)) {
-      return;
-    }
-
     const pendingContainerIds = Array.from(
       new Set(
         event.containerIds.filter((containerId): containerId is string => {
-          if (
-            typeof containerId !== "string" ||
-            !knownContainerIds.has(containerId)
-          ) {
+          if (!knownContainerIds.has(containerId)) {
             return false;
           }
           if (input.processedEventKeys.has(`${eventKey}:${containerId}`)) {
@@ -295,12 +248,13 @@ export function takePendingReconciliationEvents(input: {
             return true;
           }
           return !(
-            typeof event.documentId === "string" &&
             // Already present in this container's summaries, or — covering the
             // self-echo window where the summary's documentId still lags —
             // already linked to this container in the reverse index.
-            (getDocumentIdSet(containerId).has(event.documentId) ||
-              isDocumentLinkedToContainer(event.documentId, containerId))
+            (
+              getDocumentIdSet(containerId).has(event.documentId) ||
+              isDocumentLinkedToContainer(event.documentId, containerId)
+            )
           );
         }),
       ),

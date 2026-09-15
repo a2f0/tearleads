@@ -82,7 +82,7 @@ test("idle backfill rechecks remote eligibility when queued work drains", async 
   expect(discovered).toEqual(["candidate"]);
 });
 
-test("forced backfill retains force while a container is ineligible", async () => {
+test("scoped force retains force while a container is ineligible", async () => {
   const contentPulls: boolean[] = [];
   let remoteBacked = false;
   const host = createReconciliationTestHost({
@@ -94,7 +94,7 @@ test("forced backfill retains force while a container is ineligible", async () =
   });
   const service = createReconciliationService(host);
   service.start();
-  service.enqueueIdleBackfill(true);
+  service.enqueueContainer("candidate", "active", true);
   await new Promise((resolve) => setTimeout(resolve, 20));
 
   remoteBacked = true;
@@ -107,7 +107,7 @@ test("forced backfill retains force while a container is ineligible", async () =
   expect(contentPulls).toEqual([true]);
 });
 
-test("forced backfill retains an active write-only container until eligible", async () => {
+test("scoped force retains an active write-only container until eligible", async () => {
   const contentPulls: boolean[] = [];
   let remoteBacked = false;
   const host = createReconciliationTestHost({
@@ -120,7 +120,7 @@ test("forced backfill retains an active write-only container until eligible", as
   const service = createReconciliationService(host);
   service.start();
   service.setActiveContainer("foreign-system");
-  service.enqueueIdleBackfill(true);
+  service.enqueueContainer("foreign-system", "active", true);
   await new Promise((resolve) => setTimeout(resolve, 20));
   expect(contentPulls).toEqual([]);
 
@@ -153,7 +153,7 @@ test("ordinary backfill includes an eligible active write-only container", async
   expect(contentPulls).toEqual([false]);
 });
 
-test("returning to a write-only container consumes an unscoped event", async () => {
+test("returning to a write-only container consumes a scoped event", async () => {
   const contentPulls: boolean[] = [];
   const host = createReconciliationTestHost({
     listKnownContainerIds: () => [],
@@ -168,8 +168,14 @@ test("returning to a write-only container consumes an unscoped event", async () 
   service.setActiveContainer(null);
 
   enqueueReconciliationForEvents({
-    events: [{ type: "document_update_created", documentId: "d-1" }],
-    knownContainerIds: [],
+    events: [
+      {
+        type: "document_update_created",
+        documentId: "d-1",
+        containerIds: ["foreign-system"],
+      },
+    ],
+    knownContainerIds: ["foreign-system"],
     service,
   });
   service.setActiveContainer("foreign-system");
