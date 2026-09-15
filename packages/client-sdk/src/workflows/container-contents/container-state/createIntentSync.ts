@@ -335,7 +335,21 @@ async function createPendingRemoteContainer(input: {
     syncInput.requestRemoteReconciliation(intent.parentContainerId);
     return "abandoned";
   }
-  return settleRemoteContainerCreate({ containerState, created, syncInput });
+  try {
+    return await settleRemoteContainerCreate({
+      containerState,
+      created,
+      syncInput,
+    });
+  } catch (error) {
+    return recordContainerCreateFailure({
+      error,
+      isCurrent: syncInput.isCurrent,
+      intent,
+      organizationId: parentState.container.organizationId,
+      state,
+    });
+  }
 }
 
 async function trySyncPendingContainerContentsContainerCreateIntent(

@@ -88,8 +88,6 @@ export async function persistAcceptedMoveIntent(input: {
   state: ContainerMoveIntentSyncState;
 }): Promise<boolean> {
   const { host, intent, moved, state } = input;
-  const { markMoveIntentRevisionSynced } = state.persistence;
-  if (!markMoveIntentRevisionSynced) return false;
   const abandon = () => {
     input.requestRemoteReconciliation(moved.parentId);
     return false;

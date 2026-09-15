@@ -318,7 +318,11 @@ test("self-echo suppression is single-use", () => {
 
 test("event triggers reject updates without the current container scope", () => {
   let idleBackfills = 0;
+  const enqueued: string[] = [];
   const service = stubService({
+    enqueueContainer: (id) => {
+      enqueued.push(id);
+    },
     enqueueIdleBackfill: () => {
       idleBackfills += 1;
     },
@@ -334,6 +338,7 @@ test("event triggers reject updates without the current container scope", () => 
   });
 
   expect(idleBackfills).toBe(0);
+  expect(enqueued).toEqual([]);
 });
 
 test("obsolete events cannot force reconciliation after later hydration", async () => {
@@ -361,6 +366,7 @@ test("obsolete events cannot force reconciliation after later hydration", async 
     () => contentPulls.length === 1,
     "Expected ordinary active-container hydration",
   );
+  await new Promise((resolve) => setTimeout(resolve, 20));
 
   expect(contentPulls).toEqual([{ containerId: "c-1", force: false }]);
 });

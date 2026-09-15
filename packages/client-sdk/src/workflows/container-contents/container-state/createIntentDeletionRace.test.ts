@@ -212,7 +212,7 @@ async function runCreatePersistenceOutcome(
         };
       },
     };
-    const creation = syncPendingContainerCreateIntents({
+    const createdCount = await syncPendingContainerCreateIntents({
       host,
       isCurrent: () => current,
       isRemoteSyncBlocked: () => false,
@@ -221,14 +221,6 @@ async function runCreatePersistenceOutcome(
       },
       state,
     });
-    let createdCount = 0;
-    if (persistenceStatus === "unsettled") {
-      await expect(creation).rejects.toThrow(
-        "Container create persistence must settle the intent atomically",
-      );
-    } else {
-      createdCount = await creation;
-    }
     return {
       childContainerId,
       childState,
@@ -251,16 +243,18 @@ test("create persistence without atomic intent settlement is rejected", async ()
   expect(result.syncedIntents).toEqual([]);
   expect(result.deletedRemoteIds).toEqual([]);
   expect(result.childState.container).toEqual(result.originalContainer);
-  expect(result.recordedErrors).toEqual([]);
+  expect(result.recordedErrors).toEqual([
+    "Remote container create failed: Container create persistence must settle the intent atomically",
+  ]);
 });
 
 test("incomplete create adapters fail before issuing a remote mutation", async () => {
-  const legacy = await runCreatePersistenceOutcome("capability-missing");
+  const incomplete = await runCreatePersistenceOutcome("capability-missing");
 
-  expect(legacy.createdCount).toBe(0);
-  expect(legacy.remoteCreateCount).toBe(0);
-  expect(legacy.syncedIntents).toEqual([]);
-  expect(legacy.recordedErrors).toEqual([
+  expect(incomplete.createdCount).toBe(0);
+  expect(incomplete.remoteCreateCount).toBe(0);
+  expect(incomplete.syncedIntents).toEqual([]);
+  expect(incomplete.recordedErrors).toEqual([
     "Container create replay requires revision-CAS persistence",
   ]);
 });

@@ -5,6 +5,7 @@ import { createReconciliationService } from "./service";
 import {
   createGate,
   createReconciliationTestHost,
+  forceKnownContainers,
   silenceExpectedTransientDiscoveryError,
 } from "./service.testFixtures";
 
@@ -26,9 +27,7 @@ test("scoped forces retry each named settled container", async () => {
 
   service.enqueueIdleBackfill();
   await waitFor(() => attempts.length === 2, "Expected the initial backfill");
-  for (const containerId of host.listKnownContainerIds()) {
-    service.enqueueContainer(containerId, "active", true);
-  }
+  forceKnownContainers(service, host);
   await waitFor(
     () => attempts.length === 4,
     "Expected scoped force to retry every settled container",
@@ -65,9 +64,7 @@ test("scoped force retains force until a transient retry succeeds", async () => 
     await waitFor(() => attempts.length === 1, "Expected initial backfill");
 
     failNext = true;
-    for (const containerId of host.listKnownContainerIds()) {
-      service.enqueueContainer(containerId, "active", true);
-    }
+    forceKnownContainers(service, host);
     await waitFor(() => attempts.length === 2, "Expected forced failure");
     await waitFor(
       () => attempts.length === 3,
@@ -103,9 +100,7 @@ test("permanent forced failure stops after one automatic retry", async () => {
     });
     const service = createReconciliationService(host);
     service.start();
-    for (const containerId of host.listKnownContainerIds()) {
-      service.enqueueContainer(containerId, "active", true);
-    }
+    forceKnownContainers(service, host);
     await waitFor(() => attempts === 2, "Expected one automatic retry", 2_000);
     // The attempt counter increments before the rejected promise reaches the
     // coordinator's error callback; let that microtask publish its outcome.
@@ -144,9 +139,7 @@ test("failure from a prior lifecycle cannot rearm after restart", async () => {
     });
     const service = createReconciliationService(host);
     service.start();
-    for (const containerId of host.listKnownContainerIds()) {
-      service.enqueueContainer(containerId, "active", true);
-    }
+    forceKnownContainers(service, host);
     await started.wait;
 
     service.stop();
@@ -190,9 +183,7 @@ test("database loss mid-reconciliation preserves pending force", async () => {
   });
   const service = createReconciliationService(host);
   service.start();
-  for (const containerId of host.listKnownContainerIds()) {
-    service.enqueueContainer(containerId, "active", true);
-  }
+  forceKnownContainers(service, host);
   await waitFor(() => !databaseReady, "Expected database loss");
 
   databaseReady = true;
@@ -218,9 +209,7 @@ test("a null production discovery result preserves pending force", async () => {
   });
   const service = createReconciliationService(host);
   service.start();
-  for (const containerId of host.listKnownContainerIds()) {
-    service.enqueueContainer(containerId, "active", true);
-  }
+  forceKnownContainers(service, host);
   await waitFor(() => attempts === 1, "Expected unavailable discovery");
   expect(contentPulls).toEqual([]);
 
@@ -244,9 +233,7 @@ test("scoped invalidation leaves containers hydrated later unforced", async () =
   const service = createReconciliationService(host);
   service.start();
 
-  for (const containerId of host.listKnownContainerIds()) {
-    service.enqueueContainer(containerId, "active", true);
-  }
+  forceKnownContainers(service, host);
   await waitFor(() => attempts.length === 1, "Expected known container force");
   knownContainerIds.push("c-2");
   service.enqueueIdleBackfill();
@@ -347,9 +334,7 @@ test("a failed full refresh preserves pending forced reconciliation", async () =
   });
   const service = createReconciliationService(host);
   service.start();
-  for (const containerId of host.listKnownContainerIds()) {
-    service.enqueueContainer(containerId, "active", true);
-  }
+  forceKnownContainers(service, host);
 
   online = true;
   await expect(service.reconcileNow()).rejects.toThrow("refresh failed");
@@ -385,9 +370,7 @@ test("full refresh failure automatically retries a pending force", async () => {
   });
   const service = createReconciliationService(host);
   service.start();
-  for (const containerId of host.listKnownContainerIds()) {
-    service.enqueueContainer(containerId, "active", true);
-  }
+  forceKnownContainers(service, host);
   online = true;
 
   await expect(service.reconcileNow()).rejects.toThrow(
@@ -431,9 +414,7 @@ test("full refresh defers forced retry until every container settles", async () 
   });
   const service = createReconciliationService(host);
   service.start();
-  for (const containerId of host.listKnownContainerIds()) {
-    service.enqueueContainer(containerId, "active", true);
-  }
+  forceKnownContainers(service, host);
   online = true;
 
   const refresh = service.reconcileNow();

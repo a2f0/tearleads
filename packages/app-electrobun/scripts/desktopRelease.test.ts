@@ -94,7 +94,8 @@ for (const platform of ["Macos", "Linux"]) {
           ["prod"],
           [""],
           ["staging", "extra"],
-          ...(tier === "staging" ? [["production"]] : []),
+          ["staging"],
+          ["production"],
         ]) {
           const result = await run([...command(), ...args]);
           expect(result.exitCode).toBe(1);
@@ -104,22 +105,6 @@ for (const platform of ["Macos", "Linux"]) {
       });
       test(`${name} preserves backend failures`, async () => {
         expect((await run(command(), true)).exitCode).toBe(7);
-      });
-    }
-    for (const tier of ["staging", "production"]) {
-      test(`${action}${platform}Release.sh preserves the explicit ${tier} form`, async () => {
-        const result = await run([
-          "sh",
-          join(root, "scripts", `${action}${platform}Release.sh`),
-          tier,
-        ]);
-        expect(result.exitCode, result.stderr).toBe(0);
-        expect(result.stdout.trim().split("\n")).toEqual([
-          platform.toLowerCase(),
-          root,
-          action,
-          tier,
-        ]);
       });
     }
   }

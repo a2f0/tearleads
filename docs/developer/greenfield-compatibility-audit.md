@@ -17,7 +17,9 @@ points before the environment reset and coordinated release.
   before live state is installed.
 - **Website:** screenshot deep links use `/screenshots/<platform>/<screen>`.
   Screen-only routes and their platform-selection fallback are removed. The
-  gallery index and captured platform/screen routes remain available.
+  gallery index and captured platform/screen routes remain available. macOS
+  staging download discovery now requires `TLStaging-canary`; its offline
+  fallback pins the verified release with that name.
 - **Desktop releases:** root release wrappers select their tier by filename:
   `*StagingRelease.sh` for staging and `*Release.sh` for production. Historical
   positional tier arguments are rejected before any build or upload.
