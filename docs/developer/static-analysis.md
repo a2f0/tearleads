@@ -40,10 +40,11 @@ the right-hand commit. Both partial modes read the baseline from the same Git
 snapshot as the source. Unstaged edits cannot hide a committed violation or
 grant an unstaged allowance. Renames check both the old and new path.
 
-Changing `scripts/checks/sourceShapeBaseline.json` triggers a full scan of the selected
-snapshot, including unchanged source. The baseline rejects unknown fields,
-invalid counts, empty or duplicate export allowances, and unused permissions.
-Remove obsolete suppression counts and star-export specifiers when removing
+Changing `scripts/checks/sourceShapeBaseline.json` triggers a full scan of the
+selected snapshot, including unchanged source. The baseline rejects unknown
+fields, invalid counts, empty or duplicate export allowances, and unused
+permissions. Remove obsolete suppression counts and star-export specifiers when
+removing
 the corresponding source constructs.
 
 File-size allowances remain ceilings: shrinking an over-limit file does not
