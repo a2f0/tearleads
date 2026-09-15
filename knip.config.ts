@@ -108,6 +108,8 @@ const baseConfig = {
         // Invoked by the local release wrappers after artifact verification.
         "scripts/publishMacosRelease.ts",
         "scripts/publishLinuxRelease.ts",
+        // Uploads the Linux container's staged source maps before publishing.
+        "scripts/uploadLinuxSourceMaps.ts",
         // Verifies the native Linux build before exporting its artifacts.
         "scripts/verifyLinuxArtifacts.ts",
         // Invoked by the native CEF persistence smoke-test harnesses.
@@ -119,6 +121,9 @@ const baseConfig = {
         "src/renderer/databaseWorker.ts",
       ],
       project: ["src/**/*.{ts,tsx}", "scripts/**/*.ts", "*.config.ts"],
+      // scripts/sentryCliUpload.ts resolves the pinned platform binary through
+      // this package by module resolution, never through a script or import.
+      ignoreDependencies: ["@sentry/cli"],
     },
     "packages/bob-and-alice": {
       entry: ["src/**/*.test.ts"],

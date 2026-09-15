@@ -16,6 +16,14 @@ export type ServerErrorSource =
   | "request-error"
   | "websocket-error";
 
+// Admitted only for runtime electrobun-main; the sanitizer drops any source
+// foreign to the configured runtime.
+export type MainProcessErrorSource =
+  | "background-error"
+  | "request-error"
+  | "unhandled-error"
+  | "unhandled-rejection";
+
 export function createServerDiagnostics(config: SentryConfig) {
   const client = new ServerRuntimeClient({
     dsn: config.dsn,
@@ -23,7 +31,13 @@ export function createServerDiagnostics(config: SentryConfig) {
     release: config.release,
     dist: config.dist,
     stackParser: createStackParser(nodeStackLineParser()),
-    transport: createPrivateSentryTransport(config),
+    // The transport sanitizes again, after beforeSend has rebuilt every frame
+    // under app:///. Only that second pass takes app:// as its root, so a raw
+    // app:/// frame never passes a runtime that requires its absolute root.
+    transport: createPrivateSentryTransport({
+      ...config,
+      serverSourceRoot: "app://",
+    }),
     integrations: [],
     sendDefaultPii: false,
     sendClientReports: false,
@@ -33,7 +47,10 @@ export function createServerDiagnostics(config: SentryConfig) {
   });
   client.init();
   return {
-    captureError(error: unknown, source: ServerErrorSource) {
+    captureError(
+      error: unknown,
+      source: ServerErrorSource | MainProcessErrorSource,
+    ) {
       if (!(error instanceof Error)) return;
       // Each error has an isolated scope. No request or user context is shared.
       const scope = new Scope();

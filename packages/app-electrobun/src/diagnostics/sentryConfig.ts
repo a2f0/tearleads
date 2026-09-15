@@ -4,11 +4,34 @@ import {
   isSentryEnvironment,
   type SentryConfig,
 } from "@tearleads/diagnostics/config";
+import {
+  type ElectrobunSentryTarget,
+  isElectrobunSentryTarget,
+} from "./sentryTarget";
+
+// The flat Bun HTML bundle's only script; shared by the renderer allowlist and
+// release source-map staging.
+export const rendererScriptPattern = /^\/chunk-[a-z0-9]+\.js$/u;
+
+export function electrobunSentryRelease(commit: string): string {
+  return `tearleads-electrobun@${commit}`;
+}
+
+// One dist per tier and build target: the macOS and Linux builds of a commit
+// share its release and their app:/// URLs, so only the dist selects each
+// build's own source maps.
+export function electrobunSentryDist(
+  environment: "staging" | "production",
+  target: ElectrobunSentryTarget,
+): `${typeof environment}-app-${ElectrobunSentryTarget}` {
+  return `${environment}-app-${target}`;
+}
 
 export interface ElectrobunSentryInput {
   dsn: string | undefined;
   environment: string | undefined;
   commit: string | undefined;
+  target: string | undefined;
   origin: string;
   scriptUrl: string;
 }
@@ -20,7 +43,8 @@ export function resolveElectrobunSentryConfig(
     !input.dsn ||
     !isHostedSentryDsn(input.dsn) ||
     !isSentryEnvironment(input.environment) ||
-    !isSentryCommit(input.commit)
+    !isSentryCommit(input.commit) ||
+    !isElectrobunSentryTarget(input.target)
   )
     return undefined;
   let script: URL;
@@ -36,7 +60,7 @@ export function resolveElectrobunSentryConfig(
   // than widening the transmitted allowlist to a directory.
   if (
     script.origin !== input.origin ||
-    !/^\/chunk-[a-z0-9]+\.js$/u.test(script.pathname)
+    !rendererScriptPattern.test(script.pathname)
   )
     return undefined;
   return {
@@ -44,7 +68,7 @@ export function resolveElectrobunSentryConfig(
     origin: input.origin,
     scriptPath: script.pathname,
     environment: input.environment,
-    release: `tearleads-electrobun@${input.commit}`,
-    dist: `${input.environment}-app`,
+    release: electrobunSentryRelease(input.commit),
+    dist: electrobunSentryDist(input.environment, input.target),
   };
 }

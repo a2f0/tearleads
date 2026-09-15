@@ -11,13 +11,25 @@ declare namespace NodeJS {
     BUN_PUBLIC_GIT_SHA?: string;
     /**
      * Private error diagnostics, inlined only by the packaged release build.
-     * Reporting stays off unless all three are present and well formed; see
-     * docs/developer/sentry.md.
+     * Reporting stays off unless all four are present and well formed; see
+     * docs/developer/sentry.md. The target is Hutch's build target, never read
+     * from the environment.
      */
     BUN_PUBLIC_SENTRY_ELECTROBUN_COMMIT?: string;
     BUN_PUBLIC_SENTRY_ELECTROBUN_DSN?: string;
     BUN_PUBLIC_SENTRY_ELECTROBUN_ENVIRONMENT?: string;
+    BUN_PUBLIC_SENTRY_ELECTROBUN_TARGET?: string;
     /** Websocket override; defaults to the events path of the backend URL. */
     BUN_PUBLIC_WS_URL?: string;
   }
 }
+
+/**
+ * Main-process Sentry release values, replaced at build time by
+ * electrobun.config.ts (null unless a release tier). Deliberately not
+ * process.env: it has no runtime fallback.
+ */
+declare const TEARLEADS_ELECTROBUN_MAIN_SENTRY:
+  | { commit?: string; dsn?: string; environment?: string; target?: string }
+  | null
+  | undefined;

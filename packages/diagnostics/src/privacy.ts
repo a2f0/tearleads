@@ -6,10 +6,18 @@ export interface SentryPrivacyConfig {
   scriptPath: string;
   environment: "staging" | "production";
   release: string;
-  dist: "staging-app" | "production-app" | "staging" | "production";
+  // Web and mobile report the tier's app dist and the API the bare tier. Each
+  // Electrobun build target has its own app dist, because one commit's builds
+  // serve different bundles at the same app:/// URLs.
+  dist:
+    | "staging-app"
+    | "production-app"
+    | "staging"
+    | "production"
+    | `${"staging" | "production"}-app-${"linux-arm64" | "linux-x64" | "macos-arm64"}`;
   scriptPaths?: ReadonlySet<string>;
   serverSourceRoot?: string;
-  runtime?: "api";
+  runtime?: "api" | "electrobun-main";
   budgetResetMs?: number;
 }
 
@@ -23,11 +31,17 @@ const ERROR_TYPES = new Set([
   "EvalError",
   "AggregateError",
 ]);
-const SERVER_SOURCES = new Set([
-  "background-error",
-  "request-error",
-  "websocket-error",
-]);
+// Each server runtime admits only failures its host raises: the API installs no
+// process-wide handlers; the Electrobun main process does.
+const SERVER_SOURCES = {
+  api: new Set(["background-error", "request-error", "websocket-error"]),
+  "electrobun-main": new Set([
+    "background-error",
+    "request-error",
+    "unhandled-error",
+    "unhandled-rejection",
+  ]),
+};
 const SOURCES = new Set([
   "boundary",
   "log",
@@ -41,13 +55,13 @@ function safeFrame(
 ): StackFrame | null {
   if (typeof frame.filename !== "string") return null;
   const serverRoot = config.serverSourceRoot;
-  if (config.runtime === "api" && serverRoot) {
-    const filename = frame.filename.startsWith("app:///")
-      ? frame.filename.slice("app://".length)
-      : frame.filename.startsWith(`${serverRoot}/`)
-        ? frame.filename.slice(serverRoot.length)
-        : `/${frame.filename}`;
-    return config.scriptPaths?.has(filename)
+  if (config.runtime && serverRoot) {
+    const filename = serverFrameFilename(
+      frame.filename,
+      config.runtime,
+      serverRoot,
+    );
+    return filename && config.scriptPaths?.has(filename)
       ? safePosition(frame, filename)
       : null;
   }
@@ -69,6 +83,23 @@ function safeFrame(
   if (filename !== config.scriptPath && !config.scriptPaths?.has(filename))
     return null;
   return safePosition(frame, filename);
+}
+
+// The API's compiled executable also reports app:/// and repository-relative
+// frames. The Electrobun launcher always runs an absolute bundle path, so any
+// other spelling there is foreign code (for example an eval carrying a borrowed
+// sourceURL).
+function serverFrameFilename(
+  filename: string,
+  runtime: "api" | "electrobun-main",
+  serverRoot: string,
+): string {
+  if (filename.startsWith(`${serverRoot}/`))
+    return filename.slice(serverRoot.length);
+  if (runtime !== "api") return "";
+  return filename.startsWith("app:///")
+    ? filename.slice("app://".length)
+    : `/${filename}`;
 }
 
 function safePosition(frame: StackFrame, filename: string): StackFrame | null {
@@ -115,7 +146,7 @@ export function sanitizeSentryEvent(
 ): ErrorEvent | null {
   if (event.type !== undefined) return null;
   const { area, diagnostic_source: source } = event.tags ?? {};
-  const sources = config.runtime === "api" ? SERVER_SOURCES : SOURCES;
+  const sources = config.runtime ? SERVER_SOURCES[config.runtime] : SOURCES;
   if (typeof source !== "string" || !sources.has(source)) return null;
   const frames = (event.exception?.values?.[0]?.stacktrace?.frames ?? [])
     .map((frame) => safeFrame(frame, config))
@@ -123,8 +154,7 @@ export function sanitizeSentryEvent(
     .slice(-40);
   // Includes anonymous Chrome DevTools and extension-only failures. An explicit
   // boundary still reports a generic failure if no usable stack is available.
-  if (!frames.length && source !== "boundary" && config.runtime !== "api")
-    return null;
+  if (!frames.length && source !== "boundary" && !config.runtime) return null;
   const type = event.exception?.values?.[0]?.type ?? "Error";
   return {
     type: undefined,
@@ -144,12 +174,7 @@ export function sanitizeSentryEvent(
     // Prevent Sentry's event ingestion from inferring the sender's IP as a user.
     user: { ip_address: "0.0.0.0" },
     tags: {
-      area:
-        config.runtime === "api"
-          ? "api"
-          : isDiagnosticArea(area)
-            ? area
-            : "app",
+      area: config.runtime ?? (isDiagnosticArea(area) ? area : "app"),
       diagnostic_source: source,
       privacy: "allowlist-v1",
     },
@@ -172,7 +197,7 @@ export function sanitizeSentryEvent(
         },
       ],
     },
-    breadcrumbs: (config.runtime === "api" ? [] : (event.breadcrumbs ?? []))
+    breadcrumbs: (config.runtime ? [] : (event.breadcrumbs ?? []))
       .map(sanitizeBreadcrumb)
       .filter((breadcrumb): breadcrumb is Breadcrumb => breadcrumb !== null)
       .slice(-30),

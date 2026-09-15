@@ -10,6 +10,7 @@ export function configureElectrobunSentry() {
       dsn: process.env.BUN_PUBLIC_SENTRY_ELECTROBUN_DSN,
       environment: process.env.BUN_PUBLIC_SENTRY_ELECTROBUN_ENVIRONMENT,
       commit: process.env.BUN_PUBLIC_SENTRY_ELECTROBUN_COMMIT,
+      target: process.env.BUN_PUBLIC_SENTRY_ELECTROBUN_TARGET,
       origin: window.location.origin,
       scriptUrl: import.meta.url,
     });

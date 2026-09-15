@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { getSqliteWasmAssetUrl } from "@tearleads/sqlite-worker/assets";
 import { serve } from "bun";
 import { BrowserWindow, Utils } from "electrobun/bun";
+import { configureMainProcessDiagnostics } from "../diagnostics/mainProcess";
 import { createRendererBuildConfig } from "../rendererEnvironment";
 import { planSaveFileRequest } from "../saveFileHandler";
 
@@ -12,6 +13,9 @@ const isDev = process.env.NODE_ENV !== "production";
 // Keep the origin stable across launches: OPFS and localStorage are scoped
 // to its port. Stay off app-web's :3000 origin and its service workers.
 const appServerPort = 3002;
+// Inert unless a release tier inlined its configuration; installed before the
+// app server binds.
+const mainDiagnostics = configureMainProcessDiagnostics(import.meta.url);
 
 // The renderer's WKWebView has no browser download destination, so the app posts
 // a file's bytes here (same origin, see src/renderer/electrobunFileSaver.ts) and
@@ -33,6 +37,7 @@ async function handleSaveFileRequest(req: Request): Promise<Response | null> {
     await Bun.write(plan.path, plan.bytes);
   } catch (error) {
     console.error("electrobun: failed to save downloaded file", error);
+    mainDiagnostics?.captureError(error, "request-error");
     return new Response("Failed to save file", { status: 500 });
   }
 
@@ -42,6 +47,7 @@ async function handleSaveFileRequest(req: Request): Promise<Response | null> {
     Utils.showItemInFolder(plan.path);
   } catch (error) {
     console.error("electrobun: failed to reveal downloaded file", error);
+    mainDiagnostics?.captureError(error, "background-error");
   }
 
   return Response.json({ path: plan.path });

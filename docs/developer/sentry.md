@@ -1,9 +1,9 @@
 # Private error diagnostics
 
-The web app, Android and iOS WebViews, the Electrobun desktop renderer, and
-the API report to separate Sentry projects for staging and production.
-Reporting is disabled without the corresponding DSN. Development, the
-two-identity demo, and the website remain local.
+The web app, Android and iOS WebViews, the Electrobun desktop renderer and main
+process, and the API report to separate Sentry projects for staging and
+production. Reporting is disabled without the corresponding DSN. Development,
+the two-identity demo, and the website remain local.
 
 ## Account setup
 
@@ -203,9 +203,16 @@ captures JavaScript failures inside the WebView.
 
 The Electrobun desktop renderer uses that same private JavaScript client,
 boundaries, and adapter. Frames are restricted to the renderer bundle served
-from the desktop shell's pinned loopback origin. The Bun main process is not
-covered: it would need the compiled source-path allowlist the API builds into
-its executable, which Electrobun's packaging does not produce.
+from the desktop shell's pinned loopback origin.
+
+The Bun main process reports failed downloads, failed reveals, uncaught
+exceptions, and unhandled rejections through the server client. Its only
+admitted frame is `app:///bun/index.js`, located from the running bundle's own
+absolute path; an ASAR or unbundled run reports nothing, and a map left beside
+the bundle, or an install path the stack parser cannot read, yields frameless
+events. An uncaught exception is logged, reported, and flushed for up to two
+seconds before Electrobun's own crash shutdown runs, so the app briefly keeps
+running; a second crash in that window shuts down at once.
 
 The API captures unexpected HTTP errors (500+, including temporary database
 failures) and failures during WebSocket handshakes. A domain error carrying a
@@ -255,34 +262,54 @@ from `dist` after the upload attempt, including failures. The pinned CLI
 and adds references to uploaded artifacts; matching release, dist, and canonical
 URLs provide symbolication without transmitting debug metadata.
 
-Electrobun events use `tearleads-electrobun@<git-sha>` and `staging-app` /
-`production-app`. `ELECTROBUN_RELEASE_TIER` selects `staging` or `production`;
-unset is an ordinary local build that reads no secrets and reports nothing.
-For macOS distribution, use `scripts/buildMacosRelease.sh` or
-`scripts/uploadMacosRelease.sh` for production; use
-`scripts/buildMacosStagingRelease.sh` or `scripts/uploadMacosStagingRelease.sh`
-for staging. Run these from the repository root.
-The selected tier also enables signing, notarization, and release icons; these
-wrappers prepare the iconset and signing credentials before invoking the build.
-For Linux x64, use `scripts/buildLinuxRelease.sh` or
-`scripts/uploadLinuxRelease.sh` for production; use
-`scripts/buildLinuxStagingRelease.sh` or `scripts/uploadLinuxStagingRelease.sh`
-for staging. Docker receives the source commit and public desktop DSNs; upload
-credentials remain on the host.
-Only a release build inlines the desktop configuration at all: the dev server
-and Electrobun's own config read the ambient process environment directly, so
-the renderer defines drop these names unless the build is a release one.
-`scripts/withSentryReleaseEnv.ts` resolves that tier's DSN and the full commit
-into the public `BUN_PUBLIC_SENTRY_ELECTROBUN_*` renderer defines, and wraps
-the Electrobun build and its inherited `postBuild` packaging hook so they inline
-the same configuration. It drops every inherited Sentry name first, so a shell that
-already exported the web or native release configuration cannot route desktop
-events into another project and the upload token never reaches a renderer
-bundle. A configured tier whose DSN is missing or malformed stops the build
-rather than shipping a desktop app that looks instrumented and is not.
+Electrobun events use `tearleads-electrobun@<git-sha>` and a dist per build
+target, `<tier>-app-<os>-<arch>`, as a commit's builds share URLs.
+The target is Hutch's `ELECTROBUN_OS`/`ELECTROBUN_ARCH` (`macos-arm64`,
+`linux-x64`, `linux-arm64`; others stop). `ELECTROBUN_RELEASE_TIER` selects
+`staging` or `production`; unset is a local build that reads no secrets and
+reports nothing. Release from the repository root with
+`scripts/{build,upload}{Macos,Linux}{,Staging}Release.sh`.
+`scripts/withSentryReleaseEnv.ts` resolves that tier's DSN and full commit into
+the public `BUN_PUBLIC_SENTRY_ELECTROBUN_*` defines for the Electrobun build and
+its inherited `postBuild` packaging hook. It drops every inherited Sentry name
+first, so exported configuration cannot reroute events and the token never
+reaches a bundle. A configured tier with a missing or malformed DSN stops the
+build.
 
-Desktop does not upload source maps yet, so its events carry unsymbolicated
-bundle frames. Maps can be uploaded against the same release later.
+Release builds emit external maps for the renderer chunk and the main-process
+bundle. The main process reads its configuration from a build-time define with
+no runtime environment fallback. Before Electrobun signs or archives the app,
+the packaging hook copies each script and its map, with repository-relative
+sources, to `build/sentry-sourcemaps/<dist>`, then deletes every map in the
+build directory, even after a failure. The release shell unsets its exported
+upload token; after the build, the wrapper reads it from `.secrets/root.env`,
+uploads the staged files with `app:///` URLs, removes them, and exits non-zero
+on failure so nothing is published. Publishing requires a clean checkout before
+any Bun process runs and again before upload. `BUN_OPTIONS` and `BUN_INSPECT*`
+are unset first; Bun launches add `--no-env-file --config=/dev/null`. The
+wrapper refuses those variables and `DYLD_*`, and reads `SENTRY_*` names only
+from `.secrets`.
+
+The upload token reaches only the pinned `sentry-cli` binary, resolved via
+`@sentry/cli`, not `PATH`, and run without a Bun or npm shim. It runs in a fresh
+empty directory as cwd and `HOME`, refuses to start below a `.sentryclirc`,
+`.env` or a directory others can write (`TMPDIR` must be private), and receives
+only the token, `SENTRY_DISABLE_UPDATE_CHECK=1` and `SENTRY_LOAD_DOTENV=0`.
+`--url` is pinned to `https://sentry.io/`. The CLI prefers an org auth token's
+(`sntrys_`) embedded URL and organization over `--url` and `--org`, so the URL
+must be the root of `sentry.io`, `us.sentry.io` or `de.sentry.io` (then pinned)
+and the organization must be `SENTRY_ORG`. Rewriting inlines files a map names,
+so uploads pass `--no-rewrite`, once each staged map embeds every source at a
+repository-relative path (no `sourceRoot`, sections, URLs or `..`) and each
+script names only its own map.
+
+The Linux container (no `.git` or token) sets
+`TEARLEADS_ELECTROBUN_SOURCEMAP_UPLOAD=deferred`: it stages and sweeps maps
+without uploading; a checkout refuses the flag. `releaseLinux.sh upload` applies
+the same checkout, `BUN_*` and token rules, copies staging to a private host
+directory and, before publishing, uploads it via `uploadLinuxSourceMaps.ts`
+(`BUILD_GIT_SHA` must be the clean `HEAD`; exactly two regular-file pairs under
+the `linux-x64` dist).
 
 API releases use `tearleads-api@<git-sha>`
 and `staging` / `production`. Bun embeds maps in the executable and resolves
@@ -297,10 +324,12 @@ They exercise the API's injected build configuration and real reporter for both
 tiers, asserting mapped application frames without raw error text or host paths.
 
 Run the tests in `packages/diagnostics/src`, both native and API diagnostics
-folders, and the privacy tests in `packages/app-web/scripts/sentry*.test.ts`,
-the real browser diagnostics test, and the app boundary/logging tests before
-changing this integration. They inspect emitted envelopes with synthetic private
-values. After account setup, deploy staging first and confirm an error event
+folders, `packages/app-electrobun/scripts/sentry*.test.ts`,
+`packages/app-electrobun/src/diagnostics`, the privacy tests in
+`packages/app-web/scripts/sentry*.test.ts`, the real browser diagnostics test,
+and the app boundary/logging tests before changing this integration. They
+inspect emitted envelopes with synthetic private values. After account setup,
+deploy staging first and confirm an error event
 arrives with symbolicated frames, the expected project/release, and only
 approved breadcrumbs before enabling production. SDK transport tests can verify
 sanitization locally; live ingestion and server-side symbolication require the

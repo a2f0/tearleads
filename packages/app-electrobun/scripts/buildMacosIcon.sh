@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
-REPO_ROOT="$(git rev-parse --show-toplevel)"
+# The checkout holding this script, whatever the caller's directory or GIT_*.
+REPO_ROOT="$(CDPATH='' cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd -P)"
 ICONSET="$REPO_ROOT/packages/app-electrobun/build/release-icons/icon.iconset"
 mkdir -p "$ICONSET"
 for size in 16 32 128 256 512; do

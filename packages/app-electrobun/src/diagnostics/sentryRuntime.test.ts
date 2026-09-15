@@ -12,6 +12,7 @@ const configured = {
   dsn,
   environment: "staging",
   commit,
+  target: "macos-arm64",
 };
 
 // Stand-ins for everything the renderer mounts, so this drives the real
@@ -48,6 +49,8 @@ const gateCases = `[
   ["foreign-dsn", { dsn: "https://attacker.invalid/1" }],
   ["stale-commit", { commit: "unknown" }],
   ["unknown-tier", { environment: "dev" }],
+  ["no-target", { target: undefined }],
+  ["foreign-target", { target: "windows-x64" }],
   ["foreign-origin", { scriptUrl: "https://app.tearleads.com/chunk-abc123.js" }],
   ["nested-script", { scriptUrl: "${origin}/assets/chunk-abc123.js" }],
   ["factory", { factoryThrow: true }],
@@ -103,6 +106,8 @@ console.log(JSON.stringify({ renderer, gate }));
           "globalThis.fixture.dsn",
         "process.env.BUN_PUBLIC_SENTRY_ELECTROBUN_ENVIRONMENT":
           "globalThis.fixture.environment",
+        "process.env.BUN_PUBLIC_SENTRY_ELECTROBUN_TARGET":
+          "globalThis.fixture.target",
       },
       plugins: [
         {
@@ -145,11 +150,11 @@ console.log(JSON.stringify({ renderer, gate }));
         enabled,
         created: enabled ? 1 : 0,
         release: enabled ? `tearleads-electrobun@${commit}` : undefined,
-        dist: enabled ? "staging-app" : undefined,
+        dist: enabled ? "staging-app-macos-arm64" : undefined,
         origin: enabled ? origin : undefined,
         scriptPath: enabled ? "/chunk-abc123.js" : undefined,
       });
-      expect(gate).toHaveLength(10);
+      expect(gate).toHaveLength(12);
       for (const row of gate) {
         expect(row.enabled).toBe(
           ["configured", "production"].includes(row.name),
@@ -160,7 +165,9 @@ console.log(JSON.stringify({ renderer, gate }));
         if (row.enabled) {
           expect(row.release).toBe(`tearleads-electrobun@${commit}`);
           expect(row.dist).toBe(
-            row.name === "production" ? "production-app" : "staging-app",
+            row.name === "production"
+              ? "production-app-macos-arm64"
+              : "staging-app-macos-arm64",
           );
         }
       }

@@ -12,13 +12,45 @@ if [[ $# -ne 2 || "$(uname -sm)" != "Darwin arm64" ]]; then
   exit 1
 fi
 
-REPO_ROOT="$(git rev-parse --show-toplevel)"
+# GIT_* variables could point Git, and every child, at another checkout, index
+# or object store. The release acts only on the checkout holding this script
+# (links resolved), which must be the top level of its own Git work tree.
+for name in "${!GIT_@}"; do unset "$name"; done
+script="${BASH_SOURCE[0]}"
+while [[ -L "$script" ]]; do
+  link="$(readlink -- "$script")"
+  [[ "$link" == /* ]] || link="$(dirname -- "$script")/$link"
+  script="$link"
+done
+REPO_ROOT="$(CDPATH='' cd -P -- "$(dirname -- "$script")/../../.." && pwd -P)"
+toplevel="$(git -C "$REPO_ROOT" rev-parse --show-toplevel)" || toplevel=""
+if [[ "$toplevel" != "$REPO_ROOT" ]]; then
+  echo "macOS releases must run from the top level of their own Git checkout." >&2
+  exit 1
+fi
+cd "$REPO_ROOT"
 PACKAGE_DIR="$REPO_ROOT/packages/app-electrobun"
+# Bun loads a bunfig.toml and dotenv files from its working directory, and turbo
+# starts Bun in each package before the Sentry wrapper checks the checkout, so
+# an untracked or modified file refuses the release before any Bun process runs.
+# Host ignore rules must not hide Bun configuration, and status must not run a
+# configured filesystem-monitor hook before the checkout has been validated.
+changes="$(git -c core.excludesFile=/dev/null -c core.fsmonitor=false status --porcelain=v1 --untracked-files=normal)"
+if [[ -n "$changes" ]]; then
+  echo "macOS releases require a clean Git checkout; commit changes first." >&2
+  exit 1
+fi
 # shellcheck source=terraform/scripts/common.sh
 source "$REPO_ROOT/terraform/scripts/common.sh"
 TF_TIER="$TIER"
 [[ "$TIER" != production ]] || TF_TIER=prod
 load_secrets_env "$TF_TIER"
+# load_secrets_env exports every root.env name. Only the Sentry wrapper needs
+# the upload token, and it reads the file itself.
+unset SENTRY_AUTH_TOKEN
+# These add env files, preload modules or a debugger to every Bun process.
+unset BUN_OPTIONS BUN_INSPECT BUN_INSPECT_CONNECT_TO BUN_INSPECT_NOTIFY \
+  BUN_INSPECT_PRELOAD
 # shellcheck source=packages/app-electrobun/scripts/macosSigning.sh
 source "$PACKAGE_DIR/scripts/macosSigning.sh"
 configure_macos_signing
@@ -41,7 +73,6 @@ else
   export BUN_PUBLIC_WS_URL=wss://api.tearleads.com/events
 fi
 
-cd "$REPO_ROOT"
 bunx turbo run build --filter='app-electrobun^...'
 bash "$PACKAGE_DIR/scripts/buildMacosIcon.sh"
 sh "$PACKAGE_DIR/scripts/buildElectrobun.sh" --env="$CHANNEL"

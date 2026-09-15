@@ -1,16 +1,28 @@
 import { copyFile, mkdir, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loroWasmPlugin } from "@tearleads/loro/bun-plugin";
 import {
   getDefaultDatabaseWorkerEntrypointUrl,
   getSqliteWasmAssetUrl,
 } from "@tearleads/sqlite-worker/assets";
-import { createRendererBuildConfig } from "../src/rendererEnvironment";
+import {
+  createRendererBuildConfig,
+  sourceMapDirEnvName,
+} from "../src/rendererEnvironment";
 import { findPackagedMainViewDir } from "./findPackagedMainViewDir";
+import {
+  hutchSourceMapIdentity,
+  prepareSourceMapStaging,
+  stageMainProcessSourceMap,
+  stageRendererSourceMap,
+  sweepSourceMaps,
+} from "./sentrySourceMaps";
 
-async function packageElectrobunAssets(buildDir: string): Promise<void> {
-  const mainViewDir = findPackagedMainViewDir(buildDir);
+const packageRoot = resolve(import.meta.dirname, "..");
+const repoRoot = resolve(packageRoot, "../..");
+
+async function buildRenderer(mainViewDir: string, sourceMapDir?: string) {
   // Emit HTML and its referenced chunks together, including Loro's embedded
   // WASM. Hutch's view output does not preserve Bun's HTML asset layout.
   await rm(mainViewDir, { recursive: true });
@@ -23,10 +35,23 @@ async function packageElectrobunAssets(buildDir: string): Promise<void> {
     outdir: mainViewDir,
     publicPath: "/",
     plugins: [loroWasmPlugin],
+    ...(sourceMapDir ? { sourcemap: "external" as const } : {}),
   });
   if (!rendererBuild.success) {
     throw new AggregateError(rendererBuild.logs, "Failed to build renderer");
   }
+  if (sourceMapDir)
+    await stageRendererSourceMap({
+      mainViewDir,
+      stagingDir: sourceMapDir,
+      outputs: rendererBuild.outputs,
+      repoRoot,
+      packageRoot,
+    });
+}
+
+async function packageMainView(mainViewDir: string, sourceMapDir?: string) {
+  await buildRenderer(mainViewDir, sourceMapDir);
 
   const workerBuild = await Bun.build({
     entrypoints: [fileURLToPath(getDefaultDatabaseWorkerEntrypointUrl())],
@@ -48,6 +73,42 @@ async function packageElectrobunAssets(buildDir: string): Promise<void> {
   );
 
   console.log(`Packaged Electrobun renderer assets: ${mainViewDir}`);
+}
+
+async function packageElectrobunAssets(buildDir: string): Promise<void> {
+  const {
+    [sourceMapDirEnvName]: sourceMapDir,
+    BUN_PUBLIC_SENTRY_ELECTROBUN_COMMIT: commit,
+  } = process.env;
+  let staged: string | undefined;
+  let distDir: string | undefined;
+  try {
+    const mainViewDir = findPackagedMainViewDir(buildDir);
+    if (sourceMapDir) {
+      const { target, dist } = hutchSourceMapIdentity(process.env);
+      await prepareSourceMapStaging({ stagingDir: sourceMapDir, buildDir });
+      staged = sourceMapDir;
+      distDir = join(sourceMapDir, dist);
+      await stageMainProcessSourceMap({
+        appDir: resolve(mainViewDir, "../.."),
+        stagingDir: distDir,
+        commit,
+        target,
+        repoRoot,
+        packageRoot,
+      });
+    }
+    await packageMainView(mainViewDir, distDir);
+  } catch (error) {
+    // A failed hook leaves no staged source behind; only a directory this run
+    // created is removed.
+    if (staged) await rm(staged, { recursive: true, force: true });
+    throw error;
+  } finally {
+    // No map may enter the signed app or its archives, including after a
+    // failure.
+    await sweepSourceMaps(buildDir);
+  }
 }
 
 const buildDir = process.argv[2];

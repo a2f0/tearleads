@@ -3,14 +3,51 @@ import {
   cpSync,
   mkdirSync,
   mkdtempSync,
+  realpathSync,
   rmSync,
   symlinkSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-export async function runMacosRelease(args: string[], failure = "") {
-  const root = mkdtempSync(join(tmpdir(), "tearleads-macos-release-"));
+export const bunLaunchVariables = [
+  "BUN_OPTIONS",
+  "BUN_INSPECT",
+  "BUN_INSPECT_CONNECT_TO",
+  "BUN_INSPECT_NOTIFY",
+  "BUN_INSPECT_PRELOAD",
+];
+
+// The release shell exports every root.env name; only the Sentry wrapper may
+// hold the upload token, so no other child may inherit it. No child may inherit
+// the Bun variables that add env files, preloads or a debugger either.
+const tokenLeakProbe = [
+  '[ -z "$SENTRY_AUTH_TOKEN" ] || echo token-leak >> "$RELEASE_TEST_LOG"',
+  ...bunLaunchVariables.map(
+    (name) =>
+      `[ -z "\${${name}+x}" ] || echo "bun-launch ${name}" >> "$RELEASE_TEST_LOG"`,
+  ),
+].join("\n");
+
+// The stub Git reports a dirty checkout for the "dirty" failure, unless GIT_DIR
+// points it at another, clean, checkout.
+const gitStub = [
+  "#!/bin/sh",
+  'case "$*" in',
+  '  "status "* | *" status "*) [ -n "$GIT_DIR" ] || [ "$RELEASE_TEST_FAILURE" != dirty ] || echo "?? bunfig.toml" ;;',
+  '  *) printf "%s\\n" "$RELEASE_TEST_ROOT" ;;',
+  "esac",
+].join("\n");
+
+export async function runMacosRelease(
+  args: string[],
+  failure = "",
+  ambient: Record<string, string> = {},
+) {
+  // The release compares Git's physical top level with its own location.
+  const root = realpathSync(
+    mkdtempSync(join(tmpdir(), "tearleads-macos-release-")),
+  );
   const packageDir = join(root, "packages/app-electrobun");
   const log = join(root, "calls.log");
   async function write(path: string, source: string) {
@@ -32,7 +69,7 @@ export async function runMacosRelease(args: string[], failure = "") {
         join(packageDir, "scripts", name),
       );
     }
-    await write("bin/git", '#!/bin/sh\nprintf "%s\\n" "$RELEASE_TEST_ROOT"');
+    await write("bin/git", gitStub);
     symlinkSync(process.execPath, join(root, "bin/bun"));
     await write("bin/uname", '#!/bin/sh\necho "Darwin arm64"');
     await write(
@@ -48,23 +85,24 @@ export async function runMacosRelease(args: string[], failure = "") {
     await write(
       "terraform/scripts/common.sh",
       [
-        'load_secrets_env() { printf "secrets %s\\n" "$1" >> "$RELEASE_TEST_LOG"; }',
+        'load_secrets_env() { printf "secrets %s\\n" "$1" >> "$RELEASE_TEST_LOG"; export SENTRY_AUTH_TOKEN=release-test-token; }',
         'validate_aws_env() { echo credentials >> "$RELEASE_TEST_LOG"; }',
       ].join("\n"),
     );
     await write(
       "bin/bunx",
-      '#!/bin/sh\necho dependencies >> "$RELEASE_TEST_LOG"',
+      `#!/bin/sh\necho dependencies >> "$RELEASE_TEST_LOG"\n${tokenLeakProbe}`,
     );
     await write(
       "packages/app-electrobun/scripts/buildMacosIcon.sh",
-      '#!/bin/sh\necho icons >> "$RELEASE_TEST_LOG"',
+      `#!/bin/sh\necho icons >> "$RELEASE_TEST_LOG"\n${tokenLeakProbe}`,
     );
     await write(
       "packages/app-electrobun/scripts/buildElectrobun.sh",
       [
         "#!/bin/sh",
         'printf "build %s %s %s %s\\n" "$*" "$ELECTROBUN_RELEASE_TIER" "$BUN_PUBLIC_API_BASE_URL" "$BUN_PUBLIC_WS_URL" >> "$RELEASE_TEST_LOG"',
+        tokenLeakProbe,
         '[ "$RELEASE_TEST_FAILURE" != build ] || exit 6',
         'cd "$RELEASE_TEST_ROOT/packages/app-electrobun"',
         '[ -f "$ELECTROBUN_APPLEAPIKEYPATH" ] || exit 9',
@@ -87,6 +125,7 @@ export async function runMacosRelease(args: string[], failure = "") {
       [
         "#!/bin/sh",
         'echo stapler >> "$RELEASE_TEST_LOG"',
+        tokenLeakProbe,
         '[ "$RELEASE_TEST_FAILURE" != notarization ] || exit 7',
       ].join("\n"),
     );
@@ -95,6 +134,7 @@ export async function runMacosRelease(args: string[], failure = "") {
       [
         "#!/bin/sh",
         'printf "upload %s\\n" "$*" >> "$RELEASE_TEST_LOG"',
+        tokenLeakProbe,
         '[ "$RELEASE_TEST_FAILURE" != payload ] || exit 8',
         'case "$3:$RELEASE_TEST_FAILURE" in *.sha256:checksum|*-update.json:metadata) exit 8 ;; esac',
         'cp "$3" "$RELEASE_TEST_ROOT/published/$(basename "$4")"',
@@ -129,6 +169,7 @@ export async function runMacosRelease(args: string[], failure = "") {
       {
         cwd: root,
         env: {
+          ...ambient,
           PATH: `${root}/bin:/usr/bin:/bin`,
           RELEASE_TEST_ROOT: root,
           RELEASE_TEST_LOG: log,
