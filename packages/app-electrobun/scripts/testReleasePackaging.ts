@@ -28,6 +28,12 @@ const artifacts = join(root, "build/artifacts");
 const signingProbe = join(root, "signing-invoked");
 const stagedMaps = join(root, "build/sentry-sourcemaps");
 const probeCommit = "b".repeat(40);
+const stagingNameProbe = process.argv.includes("--staging");
+const channel = stagingNameProbe ? "canary" : "stable";
+const artifactAppName = stagingNameProbe
+  ? "TLStaging-canary"
+  : "PackagingProbe";
+const bundleName = stagingNameProbe ? "TL Staging-canary" : "PackagingProbe";
 const originalConfig = JSON.stringify(
   join(packageRoot, "electrobun.config.ts"),
 );
@@ -45,6 +51,7 @@ const env = {
   DASH_RELEASE_OFFLINE: "1",
   ELECTROBUN_DEVELOPER_ID: "-",
   PACKAGING_SIGN_PROBE: signingProbe,
+  ...(stagingNameProbe ? { ELECTROBUN_RELEASE_TIER: "staging" } : {}),
   // A release tier's diagnostics: this is the only proof that Hutch applies
   // build.bun.sourcemap and define and that no map is sealed into the app.
   TEARLEADS_ELECTROBUN_SOURCEMAP_DIR: stagedMaps,
@@ -60,8 +67,8 @@ async function config(fail: boolean) {
 import original from ${originalConfig};
 export default {
   ...original,
-  app: { ...original.app, name: "PackagingProbe" },
-  build: { ...original.build, mac: { ...original.build.mac, codesign: true, notarize: false } },
+  app: ${stagingNameProbe ? "original.app" : '{ ...original.app, name: "PackagingProbe" }'},
+  build: { ...original.build, mac: { ...original.build.mac, icons: undefined, codesign: true, notarize: false } },
   scripts: { ...original.scripts, postBuild: ${JSON.stringify(fail ? "rejectPostBuild.ts" : "recordPostBuild.ts")} },
 };
 `,
@@ -104,6 +111,11 @@ async function verifySourceMapStaging(archive: string, unpacked: string) {
     "Main process must inline its target",
   );
   assert.equal(main.includes("TEARLEADS_ELECTROBUN_MAIN_SENTRY"), false);
+  assert.equal(main.includes("TEARLEADS_ELECTROBUN_APP_NAME"), false);
+  assert.match(
+    main,
+    stagingNameProbe ? /title:\s*"TL Staging"/ : /title:\s*"Tearleads"/,
+  );
   // The real pairs need no other file to upload: embedded, repository-relative
   // sources and no foreign map reference.
   assert.equal(
@@ -185,11 +197,11 @@ execFileSync("bun", [${JSON.stringify(join(root, "capturePackagedAssets.ts"))}],
 `,
   );
   await config(false);
-  const success = await build("stable");
+  const success = await build(channel);
   assert.equal(success.code, 0, success.output);
   const archive = join(
     artifacts,
-    "stable-macos-arm64-PackagingProbe.app.tar.zst",
+    `${channel}-macos-arm64-${artifactAppName}.app.tar.zst`,
   );
   assert.ok(existsSync(archive), "Native build must create its update archive");
   const unpacked = join(root, "unpacked");
@@ -225,11 +237,21 @@ execFileSync("bun", [${JSON.stringify(join(root, "capturePackagedAssets.ts"))}],
     "Native update archive contains the final renderer, SQLite worker, and WASM.",
   );
 
-  await verifyPublishedRelease(root, artifacts, archivedView, env);
+  await verifyPublishedRelease(
+    root,
+    artifacts,
+    archivedView,
+    env,
+    channel,
+    artifactAppName,
+  );
   await verifyMacosDmg(
     root,
-    join(artifacts, "macos-arm64-PackagingProbe.dmg"),
-    join(unpacked, "PackagingProbe.app"),
+    join(
+      artifacts,
+      `${stagingNameProbe ? "canary-" : ""}macos-arm64-${artifactAppName}.dmg`,
+    ),
+    join(unpacked, `${bundleName}.app`),
     env,
   );
   await rm(signingProbe);
@@ -240,7 +262,8 @@ execFileSync("bun", [${JSON.stringify(join(root, "capturePackagedAssets.ts"))}],
   );
   const previousArtifacts = new Set(await readdir(artifacts));
   await config(true);
-  const failure = await build("canary");
+  // A different channel keeps failed-build artifact names out of the prior set.
+  const failure = await build(stagingNameProbe ? "stable" : "canary");
   assert.notEqual(failure.code, 0, "A failed hook must fail the native build");
   assert.match(failure.output, /PACKAGING_FAILURE_PROBE/);
   assert.deepEqual(

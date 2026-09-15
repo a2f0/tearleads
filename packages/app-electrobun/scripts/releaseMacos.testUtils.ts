@@ -109,7 +109,7 @@ export async function runMacosRelease(
         'artifacts="$RELEASE_TEST_ROOT/packages/app-electrobun/build/artifacts"',
         'mkdir -p "$artifacts"',
         'if [ "$ELECTROBUN_RELEASE_TIER" = staging ]; then',
-        "  channel=canary; app=Tearleads-canary; dmg=canary-macos-arm64-Tearleads-canary.dmg",
+        "  channel=canary; app=TLStaging-canary; dmg=canary-macos-arm64-TLStaging-canary.dmg",
         "else",
         "  channel=stable; app=Tearleads; dmg=macos-arm64-Tearleads.dmg",
         "fi",

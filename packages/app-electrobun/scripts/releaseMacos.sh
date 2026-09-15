@@ -60,8 +60,8 @@ export ELECTROBUN_RELEASE_TIER="$TIER"
 if [[ "$TIER" == staging ]]; then
   CHANNEL=canary
   BUCKET=downloads-staging.tearleads.com
-  APP_NAME=Tearleads-canary
-  INSTALLER=canary-macos-arm64-Tearleads-canary.dmg
+  APP_NAME=TLStaging-canary
+  INSTALLER=canary-macos-arm64-TLStaging-canary.dmg
   export BUN_PUBLIC_API_BASE_URL=https://api-staging.tearleads.com
   export BUN_PUBLIC_WS_URL=wss://api-staging.tearleads.com/events
 else

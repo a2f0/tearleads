@@ -4,6 +4,34 @@ import { existsSync, readFileSync, readlinkSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { basename, join } from "node:path";
 
+function verifyNames(app: string, mount: string) {
+  const expectedName = basename(app, ".app");
+  const plistName = execFileSync(
+    "/usr/bin/plutil",
+    [
+      "-extract",
+      "CFBundleName",
+      "raw",
+      "-o",
+      "-",
+      join(app, "Contents/Info.plist"),
+    ],
+    { encoding: "utf8" },
+  ).trim();
+  assert.equal(plistName, expectedName);
+  const diskInfo = execFileSync("/usr/sbin/diskutil", [
+    "info",
+    "-plist",
+    mount,
+  ]);
+  const volumeName = execFileSync(
+    "/usr/bin/plutil",
+    ["-extract", "VolumeName", "raw", "-o", "-", "-"],
+    { input: diskInfo, encoding: "utf8" },
+  ).trim();
+  assert.equal(volumeName, expectedName);
+}
+
 export async function verifyMacosDmg(
   root: string,
   dmg: string,
@@ -21,6 +49,7 @@ export async function verifyMacosDmg(
   );
   try {
     const app = join(mount, basename(archivedApp));
+    verifyNames(app, mount);
     execFileSync("/usr/bin/codesign", ["--verify", "--deep", "--strict", app], {
       stdio: ["ignore", "ignore", "inherit"],
     });

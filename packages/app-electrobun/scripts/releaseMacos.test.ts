@@ -38,6 +38,9 @@ for (const [tier, channel, bucket, api] of [
     const discovery = JSON.parse(
       result.published[`${channel}-macos-arm64-download.json`] ?? "{}",
     );
+    expect(discovery.installer).toEndWith(
+      `-${tier === "staging" ? "TLStaging-canary" : "Tearleads"}.dmg`,
+    );
     expect(result.published[discovery.installer]).toBe("installer\n");
     expect(result.published[discovery.checksum]).toContain(
       `  ${discovery.installer}\n`,
