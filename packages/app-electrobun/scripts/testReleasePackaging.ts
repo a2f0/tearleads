@@ -13,6 +13,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { findPackagedMainViewDir } from "./findPackagedMainViewDir";
 import { assertStagedSourceMaps } from "./sentrySourceMaps";
+import { verifyMacosDmg } from "./verifyMacosDmg";
 import { verifyPublishedRelease } from "./verifyPublishedRelease";
 
 if (process.platform !== "darwin" || process.arch !== "arm64")
@@ -61,7 +62,7 @@ export default {
   ...original,
   app: { ...original.app, name: "PackagingProbe" },
   build: { ...original.build, mac: { ...original.build.mac, codesign: ${fail}, notarize: false } },
-  scripts: { postBuild: ${JSON.stringify(fail ? "rejectPostBuild.ts" : "recordPostBuild.ts")} },
+  scripts: { ...original.scripts, postBuild: ${JSON.stringify(fail ? "rejectPostBuild.ts" : "recordPostBuild.ts")} },
 };
 `,
   );
@@ -225,6 +226,12 @@ execFileSync("bun", [${JSON.stringify(join(root, "capturePackagedAssets.ts"))}],
   );
 
   await verifyPublishedRelease(root, artifacts, archivedView, env);
+  await verifyMacosDmg(
+    root,
+    join(artifacts, "macos-arm64-PackagingProbe.dmg"),
+    join(unpacked, "PackagingProbe.app"),
+    env,
+  );
 
   await Bun.write(
     join(root, "rejectPostBuild.ts"),

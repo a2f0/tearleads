@@ -105,6 +105,8 @@ const baseConfig = {
         "scripts/packageElectrobunAssets.ts",
         // Hutch executes this hook before signing and creating installers.
         "scripts/postBuild.ts",
+        "scripts/postWrap.ts",
+        "scripts/prepareMacosDmg.ts",
         // Invoked by the local release wrappers after artifact verification.
         "scripts/publishMacosRelease.ts",
         "scripts/publishLinuxRelease.ts",

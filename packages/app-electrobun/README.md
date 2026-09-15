@@ -90,7 +90,13 @@ SQLite WASM before Electrobun signs or archives the app. For a release tier the
 hook also stages source maps outside the app, under a Sentry dist naming the
 tier and the target Hutch built, and removes every map before signing; the
 build wrapper uploads them afterwards. Release icons come from
-the shared Tearleads SVG. Artifacts and SHA-256 checksums are written to the
+the shared Tearleads SVG, with a transparent 12.5% inset on each macOS icon edge.
+The macOS `postWrap` hook restores the expanded app from the wrapper's payload
+before Hutch signs, notarizes, and creates the DMG. This lets the app launch
+from the read-only disk image; the self-extracting wrapper otherwise fails while
+trying to replace itself there. Drag Tearleads to Applications to install it.
+The compressed update archive is still generated and published by Hutch.
+Artifacts and SHA-256 checksums are written to the
 ignored `build/artifacts/` directory. Uploads publish DMGs, matching checksums,
 and full update archives under
 immutable filenames containing their SHA-256 digests. Update and download
@@ -119,7 +125,9 @@ SQLite assets in the update archive, and confirms a failed packaging hook stops
 before signing or artifact creation. It also publishes through a fake S3 command
 and uses Electrobun's actual updater to validate the manifest, resolve and read
 the published archive, and check its build hash. This probe uses no signing
-or AWS credentials.
+or AWS credentials. It also mounts the DMG read-only, checks its expanded app
+against the update payload, and launches through the native executable into a
+test-only Bun preload with an isolated home directory.
 
 ## Linux releases from Docker
 
