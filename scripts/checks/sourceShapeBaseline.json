@@ -84,7 +84,7 @@
     },
     "formal/document-sync/BaselineDominanceTraces.json": {
       "lines": 2059,
-      "bytes": 407654
+      "bytes": 407663
     },
     "formal/document-sync/DeferredTailSettlement.tla": {
       "lines": 578,
@@ -350,9 +350,9 @@
       "lines": 530,
       "bytes": 15421
     },
-    "scripts/subsystems.ts": {
+    "scripts/architecture/subsystems.ts": {
       "lines": 765,
-      "bytes": 28602
+      "bytes": 28628
     },
     "packages/client-sdk/src/workflows/documents/syncPersistedProjectionIntegrity.test.ts": {
       "lines": 508,

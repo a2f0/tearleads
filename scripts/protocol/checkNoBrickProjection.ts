@@ -5,7 +5,7 @@
  * revocation, rollback, fork, regression, and forged-signer shapes, record
  * each run as a sequence of abstract model actions with the outcome the
  * verifier produced, and write those traces here. For every trace this check
- * generates a TLC module (scripts/noBrickTraceModule.ts) whose next-state
+ * generates a TLC module (scripts/protocol/noBrickTraceModule.ts) whose next-state
  * relation conjoins the model's own action and the recorded outcome per
  * step, so a sequence the model rejects, or an outcome the model's rules
  * disagree with, deadlocks TLC and fails `check:fast`. Deliberately tampered

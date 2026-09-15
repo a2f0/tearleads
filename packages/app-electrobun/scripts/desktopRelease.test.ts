@@ -10,12 +10,12 @@ beforeAll(async () => {
   root = await realpath(
     await mkdtemp(join(tmpdir(), "tearleads desktop wrappers-")),
   );
-  await mkdir(join(root, "scripts"));
+  await mkdir(join(root, "scripts/lib"), { recursive: true });
   const packageScripts = join(root, "packages/app-electrobun/scripts");
   await mkdir(packageScripts, { recursive: true });
   await cp(
-    join(sourceScripts, "desktopRelease.sh"),
-    join(root, "scripts/desktopRelease.sh"),
+    join(sourceScripts, "lib/desktopRelease.sh"),
+    join(root, "scripts/lib/desktopRelease.sh"),
   );
   for (const platform of ["Macos", "Linux"]) {
     await Bun.write(

@@ -294,8 +294,8 @@ chain for a store release.
 
 The dev run-on-device scripts have no Fastlane in the path, so `runIos.sh` and
 `runAndroid.sh` read the same file through
-[`exportRevenueCatKeys.sh`](../../scripts/exportRevenueCatKeys.sh). Without it a
-simulator or device build inlines no key, `createCapacitorPurchases()` returns
+[`exportRevenueCatKeys.sh`](../../scripts/lib/exportRevenueCatKeys.sh). Without
+it a simulator or device build inlines no key, `createCapacitorPurchases()` returns
 the unavailable stub, and the billing panel offers no purchase to exercise. Each
 script prints whether its platform's key made it in. An already-exported value
 wins, so a one-off key can be passed inline.

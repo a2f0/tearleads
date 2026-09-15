@@ -2,7 +2,7 @@
  * The bridge object Capacitor installs on `window`.
  *
  * Declared rather than cast at the call site, so the read stays free of type
- * assertions (see scripts/lintPackageAssertions.ts), and declared inside this
+ * assertions (see scripts/checks/lintPackageAssertions.ts), and declared inside this
  * imported module rather than in a standalone .d.ts for the reason given in
  * mini-apps/system-monitor/environment/environmentSources.ts: the deployment targets compile
  * this package's sources directly, so a global .d.ts nothing imports would only

@@ -1,10 +1,9 @@
 import { cruise, format } from "dependency-cruiser";
-
+import type { ArchitectureCheckResult } from "./checkFactories";
 import {
   createDependencyCruiserOptions,
   dependencyCruiserEntryPoints,
-} from "../dependencyCruiserConfig";
-import type { ArchitectureCheckResult } from "./checkFactories";
+} from "./dependencyCruiserConfig";
 import { findDependencyCruiserGraphHealthViolations } from "./dependencyCruiserGraphHealth";
 
 export async function runDependencyCruiserCheck(): Promise<ArchitectureCheckResult> {

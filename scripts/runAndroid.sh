@@ -26,8 +26,8 @@ echo "Building with VITE_API_BASE_URL=$VITE_API_BASE_URL"
 # loaded dotenv environment; this script reads the same file directly.
 # Without it the build inlines no key and billing degrades to the unavailable
 # stub — a purchase cannot be exercised on the emulator or a device at all.
-# shellcheck source=scripts/exportRevenueCatKeys.sh
-. "$SCRIPT_DIR/exportRevenueCatKeys.sh"
+# shellcheck source=scripts/lib/exportRevenueCatKeys.sh
+. "$SCRIPT_DIR/lib/exportRevenueCatKeys.sh"
 export_revenuecat_keys "$SCRIPT_DIR/../.secrets/root.env"
 report_revenuecat_key VITE_REVENUECAT_ANDROID_API_KEY
 

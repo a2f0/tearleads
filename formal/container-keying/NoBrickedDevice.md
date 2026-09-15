@@ -87,8 +87,8 @@ dishonest server can simply withhold. The run explores 136,428 generated and
 ## Negative controls
 
 `bun run check:protocol-negative-controls` (part of `check:fast`) derives one
-configuration per entry in `scripts/protocolNegativeControls.ts`, flips a
-single rule, and requires TLC to report exactly the named violation:
+configuration per entry in `scripts/protocol/protocolNegativeControls.ts`, flips
+a single rule, and requires TLC to report exactly the named violation:
 
 - `RefuseSignerRevokedAtCurrent = TRUE` violates `HonestServerNeverRefused`:
   even a fresh device rejects history signed before the signer was removed.
@@ -138,7 +138,7 @@ Each recorded verification becomes one `HonestSync` or `Verify` step whose
 projection the recorder derives from the served bundles: the head's epoch,
 how far its chain agrees with the honest chain, the root head its event
 cites, its signer, and the served root's epoch. The generated module
-(`scripts/noBrickTraceModule.ts`) conjoins the model's own action, the
+(`scripts/protocol/noBrickTraceModule.ts`) conjoins the model's own action, the
 model's `WellFormed` bound on what a server can serve, and the recorded
 outcome per step, and pins the device's initial checkpoint; a sequence, a
 served shape, or an outcome the model's rules disagree with deadlocks TLC and

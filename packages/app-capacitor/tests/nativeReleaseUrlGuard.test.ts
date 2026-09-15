@@ -2,7 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { resolve } from "node:path";
 
 const repositoryRoot = resolve(import.meta.dir, "../../..");
-const nativeReleaseScript = resolve(repositoryRoot, "scripts/nativeRelease.sh");
+const nativeReleaseScript = resolve(
+  repositoryRoot,
+  "scripts/lib/nativeRelease.sh",
+);
 
 async function nativeDefaultApi(tier: "production" | "staging") {
   const child = Bun.spawn(

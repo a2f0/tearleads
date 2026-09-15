@@ -54,9 +54,9 @@ CAPTURE_FILES=()
 
 trap 'rm -f "${CAPTURE_FILES[@]+"${CAPTURE_FILES[@]}"}"' EXIT
 
-# shellcheck source=stepTimings.sh
+# shellcheck source=scripts/lib/stepTimings.sh
 # shellcheck disable=SC1091
-. "$SCRIPT_DIR/stepTimings.sh"
+. "$SCRIPT_DIR/lib/stepTimings.sh"
 step_timings_reset
 
 # Same as step_timings_run, but also records the build number the upload script

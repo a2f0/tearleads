@@ -4,7 +4,7 @@
  * one recorded trace into a TLC module whose next-state relation conjoins the
  * model's own action (plus recorded observation bits) per step. The
  * orchestration — running the scenario tests, invoking TLC, negative
- * controls — lives in scripts/checkRestartProbeProjection.ts.
+ * controls — lives in scripts/protocol/checkRestartProbeProjection.ts.
  */
 
 export const RESTART_PROBE_MODEL_PATH =

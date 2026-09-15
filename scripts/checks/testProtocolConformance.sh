@@ -20,10 +20,10 @@ cd "$(git rev-parse --show-toplevel)"
 
 exec bun test \
   packages/api/src/documents/documentBaselineDominance.test.ts \
-  scripts/lintFormalAbstractionMaps.test.ts \
-  scripts/restartProbeTraceModule.test.ts \
-  scripts/protocolNegativeControls.test.ts \
-  scripts/noBrickTraceModule.test.ts \
+  scripts/protocol/lintFormalAbstractionMaps.test.ts \
+  scripts/protocol/restartProbeTraceModule.test.ts \
+  scripts/protocol/protocolNegativeControls.test.ts \
+  scripts/protocol/noBrickTraceModule.test.ts \
   packages/api/src/documents/documentBaselineDominanceTraceReplay.test.ts \
   packages/crypto/src/keying/transparencyProofs.test.ts \
   packages/crypto/src/keying/transparencyProofMutations.test.ts \

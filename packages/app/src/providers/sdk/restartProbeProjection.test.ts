@@ -21,7 +21,7 @@ import { routeIncomingWsMessage } from "./serverEventsRouting";
  * parses the frames, `startContainerInterestDeclaration` decides when the
  * authoritative declaration is sent and which acknowledgement matches. The
  * recorded trace is replayed through TLC by
- * scripts/checkRestartProbeProjection.ts, so an ordering the model rejects —
+ * scripts/protocol/checkRestartProbeProjection.ts, so an ordering the model rejects —
  * a declaration before the interest baseline, an acknowledgement without a
  * declaration — fails `check:fast`. Probe-side actions are recorded by the
  * client-sdk scenario that owns those kernels.

@@ -20,7 +20,7 @@ import {
 import { assertStagedSourceMaps } from "./sentrySourceMaps";
 
 // Runs a desktop build command with the tier's public Sentry defines set — the
-// diagnostics counterpart to scripts/withBuildInfoEnv.sh, which stamps build
+// diagnostics counterpart to scripts/lib/withBuildInfoEnv.sh, which stamps build
 // identity. It is a wrapper rather than part of the build script so the DSN is
 // selected in one place for `electrobun build`, its main-process bundle, and the
 // packaged renderer rebuild in packageElectrobunAssets.ts: the postBuild hook

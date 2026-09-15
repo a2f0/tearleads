@@ -8,16 +8,16 @@ to say _where a feature lives_ and _who owns it_.
 A subsystem is **descriptive, not a new boundary**. It is an ownership and
 navigation index laid over paths that already exist. Import direction stays
 enforced by the lanes, layers, and planes in `dependency-cruiser.config.ts`; the
-file-size and barrel rules stay in `scripts/lintSourceShape.ts`. A subsystem may
-deliberately span several layers — `Containers` covers its routes, its service
+file-size and barrel rules stay in `scripts/checks/lintSourceShape.ts`. A subsystem
+may deliberately span several layers — `Containers` covers its routes, its service
 facade, and its transaction-orchestration workflows — which is exactly the
 scatter the registry makes greppable. See AGENTS.md "## Subsystems" for how this
 term relates to plane / layer / lane / facade.
 
 ## How it is kept honest
 
-- `scripts/subsystems.ts` is the machine-readable manifest: each subsystem lists
-  the path prefixes and exact files it owns.
+- `scripts/architecture/subsystems.ts` is the machine-readable manifest: each
+  subsystem lists the path prefixes and exact files it owns.
 - The `subsystem-registry-covers-every-source-file` architecture check requires
   every production source file in a registered package to map to **exactly one**
   subsystem, so a newly added file that finds no home fails `bun run
@@ -100,8 +100,8 @@ Rolled out package by package. Registered: `packages/api`,
 
 ## Adding or changing a subsystem
 
-1. Edit `scripts/subsystems.ts` so the owning subsystem's `paths` claim the new
-   file (or add a new subsystem entry).
+1. Edit `scripts/architecture/subsystems.ts` so the owning subsystem's `paths`
+   claim the new file (or add a new subsystem entry).
 2. Mirror the change in the table above.
 3. Run `bun run lint:architecture`. The coverage check tells you about any file
    that maps to zero or more than one subsystem; the docs check tells you about

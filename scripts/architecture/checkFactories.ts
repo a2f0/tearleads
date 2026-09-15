@@ -5,7 +5,7 @@ import * as ts from "typescript";
 import {
   productionSourceFilePattern,
   testFilePattern,
-} from "../dependencySourceRoots";
+} from "./dependencySourceRoots";
 
 type SourceFileLister = (dirPath: string) => Promise<string[]>;
 

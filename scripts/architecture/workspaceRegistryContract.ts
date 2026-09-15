@@ -5,12 +5,12 @@ import { dirname, join, relative, resolve } from "node:path";
 import * as ts from "typescript";
 
 import { knipWorkspacePaths } from "../../knip.config";
-import { dependencyCruiserEntryPoints } from "../dependencySourceRoots";
+import { dependencyCruiserEntryPoints } from "./dependencySourceRoots";
 import {
   workspacePaths,
   workspaceRegistry,
   workspaceSourcePaths,
-} from "../workspaceRegistry";
+} from "./workspaceRegistry";
 
 interface PackageJsonShape {
   readonly name?: unknown;
@@ -335,7 +335,7 @@ function registryDefinitionViolations(): WorkspaceRegistryViolation[] {
   return fields.flatMap(({ field, values }) =>
     duplicateValues(values).map((value) => ({
       detail: `${field} ${JSON.stringify(value)} is duplicated`,
-      surface: "scripts/workspaceRegistry.ts",
+      surface: "scripts/architecture/workspaceRegistry.ts",
     })),
   );
 }

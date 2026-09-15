@@ -13,7 +13,7 @@ echo "Checking file names..."
 bun run lint:files
 
 echo "Checking source shape..."
-bun scripts/lintSourceShape.ts --staged
+bun scripts/checks/lintSourceShape.ts --staged
 
 echo "Checking for binary files..."
 "$REPO_ROOT/scripts/checks/checkBinaryFiles.sh" --staged

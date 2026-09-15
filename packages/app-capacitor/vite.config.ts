@@ -8,7 +8,7 @@ import wasm from "vite-plugin-wasm";
 import { sentryAssetsPlugin } from "./scripts/sentryAssetsPlugin";
 
 // Build identity for the System Monitor's Environment tab and support report.
-// The web and electrobun targets get these from scripts/withBuildInfoEnv.sh,
+// The web and electrobun targets get these from scripts/lib/withBuildInfoEnv.sh,
 // which exports `BUN_PUBLIC_*` for Bun's bundler to inline; Vite has no
 // equivalent passthrough, so this config resolves the same two values and
 // `define`s them. Both degrade to "unknown" rather than failing the build, since

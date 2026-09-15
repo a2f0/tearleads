@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import dependencyCruiserConfig from "../../dependency-cruiser.config";
-import { workspaceRegistry } from "../workspaceRegistry";
+import { workspaceRegistry } from "./workspaceRegistry";
 
 const cruiserBin = resolve(
   import.meta.dir,

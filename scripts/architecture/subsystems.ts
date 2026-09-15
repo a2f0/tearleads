@@ -745,7 +745,7 @@ export async function findSubsystemDocsViolations(): Promise<
     if (!documentedNames.has(name)) {
       violations.push({
         detail:
-          "is defined in scripts/subsystems.ts but has no row in the docs/subsystems.md registry table",
+          "is defined in scripts/architecture/subsystems.ts but has no row in the docs/subsystems.md registry table",
         name,
       });
     }
@@ -755,7 +755,7 @@ export async function findSubsystemDocsViolations(): Promise<
     if (!manifestNames.has(name)) {
       violations.push({
         detail:
-          "has a docs/subsystems.md registry row but is not defined in scripts/subsystems.ts",
+          "has a docs/subsystems.md registry row but is not defined in scripts/architecture/subsystems.ts",
         name,
       });
     }

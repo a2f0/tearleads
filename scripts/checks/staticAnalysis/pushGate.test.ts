@@ -22,9 +22,9 @@ function configurePushFixture(
 ) {
   for (const path of [
     hookPath,
-    "scripts/checkFast.sh",
+    "scripts/checks/checkFast.sh",
     "scripts/checks/fastChecks.sh",
-    "scripts/stepTimings.sh",
+    "scripts/lib/stepTimings.sh",
     "scripts/git/showPushGateTimings.sh",
     "scripts/git/install-hooks.sh",
   ]) {
@@ -81,7 +81,7 @@ function configurePushFixture(
 test("CI and the installed hook run the same fast checks in order", () => {
   const repo = pushFixture("run lint:markdown");
   try {
-    const ci = repo.run("sh", "scripts/checkFast.sh");
+    const ci = repo.run("sh", "scripts/checks/checkFast.sh");
     expect(ci.exitCode).toBe(23);
     const ciCommands = readFileSync(repo.log, "utf8").trim().split("\n");
     expect(ciCommands).toContain("run lint:openapi:compatibility");

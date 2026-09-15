@@ -17,4 +17,4 @@ OUTPUT_DIR="$PACKAGE_DIR/public"
 
 # Invoke via sh (like package.json calls this script) so it works even if the
 # executable bit is not preserved on checkout.
-exec sh "$REPO_ROOT/scripts/buildFaviconImages.sh" "$SVG_SOURCE" "$OUTPUT_DIR"
+exec sh "$REPO_ROOT/scripts/lib/buildFaviconImages.sh" "$SVG_SOURCE" "$OUTPUT_DIR"

@@ -65,11 +65,11 @@ for (const fixture of fixtures) {
       const binDirectory = resolve(root, "bin");
 
       try {
-        await mkdir(dirname(script), { recursive: true });
+        await mkdir(resolve(root, "scripts/lib"), { recursive: true });
         await cp(fixture.sourceScript, script);
         await cp(
-          resolve(dirname(fixture.sourceScript), "stepTimings.sh"),
-          resolve(root, "scripts/stepTimings.sh"),
+          resolve(dirname(fixture.sourceScript), "lib/stepTimings.sh"),
+          resolve(root, "scripts/lib/stepTimings.sh"),
         );
         await chmod(script, 0o755);
         await writeExecutable(

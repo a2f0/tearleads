@@ -21,7 +21,7 @@ interface CliOptions {
 
 function usage(): string {
   return [
-    "Usage: bun scripts/reportDependencyGraph.ts [--format err|json|mermaid|archi] [--output path]",
+    "Usage: bun scripts/architecture/reportDependencyGraph.ts [--format err|json|mermaid|archi] [--output path]",
     "",
     "Formats:",
     "  err      CI-oriented rule violation output",
