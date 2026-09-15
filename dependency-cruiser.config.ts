@@ -1,12 +1,12 @@
 import type { IConfiguration } from "dependency-cruiser";
-import { dependencyCruiserDeploymentRules } from "./scripts/dependencyCruiserDeploymentRules";
-import { runtimeDependencyRule } from "./scripts/dependencyCruiserRuntimeRule";
+import { dependencyCruiserDeploymentRules } from "./scripts/architecture/dependencyCruiserDeploymentRules";
+import { runtimeDependencyRule } from "./scripts/architecture/dependencyCruiserRuntimeRule";
 import {
   allPackageSourceRoots,
   deploymentTargetSourceRoots,
   packageSourceRoot as sourceRoot,
   testFilePattern,
-} from "./scripts/dependencySourceRoots";
+} from "./scripts/architecture/dependencySourceRoots";
 
 type ForbiddenRules = NonNullable<IConfiguration["forbidden"]>;
 
@@ -616,7 +616,7 @@ const dependencyCruiserConfig = {
     // client-sdk's public exports intentionally point at gitignored build
     // output. Source aliases keep architecture checks build-order independent.
     tsConfig: {
-      fileName: "scripts/dependencyCruiser.tsconfig.json",
+      fileName: "scripts/architecture/dependencyCruiser.tsconfig.json",
     },
     tsPreCompilationDeps: "specify",
   },

@@ -39,7 +39,7 @@ if (import.meta.hot)
 const hostConfig = createAppHostConfig({
   diagnostics,
   apiBaseUrl,
-  // Stamped by scripts/withBuildInfoEnv.sh and inlined by `bun build --env`.
+  // Stamped by scripts/lib/withBuildInfoEnv.sh and inlined by `bun build --env`.
   buildInfo: createAppBuildInfo({
     commit: process.env.BUN_PUBLIC_GIT_SHA,
     target: "web",

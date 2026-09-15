@@ -22,6 +22,6 @@ for name in $(env | sed -n 's/^\(GIT_[A-Za-z0-9_]*\)=.*/\1/p'); do unset "$name"
 # already have run by then.
 unset BUN_OPTIONS BUN_INSPECT BUN_INSPECT_CONNECT_TO BUN_INSPECT_NOTIFY \
   BUN_INSPECT_PRELOAD
-NODE_ENV=production exec sh "$REPO_ROOT/scripts/withBuildInfoEnv.sh" \
+NODE_ENV=production exec sh "$REPO_ROOT/scripts/lib/withBuildInfoEnv.sh" \
   bun --no-env-file --config=/dev/null scripts/withSentryReleaseEnv.ts \
   bun --bun run electrobun build "$@"

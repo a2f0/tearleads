@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 
-export const baselinePath = "scripts/sourceShapeBaseline.json";
+export const baselinePath = "scripts/checks/sourceShapeBaseline.json";
 export const cleanSource = "export const value = 1;\n";
 export const suppressedSource = ["//", " @ts-ignore\n", cleanSource].join("");
 export const emptyBaseline = {
@@ -11,7 +11,7 @@ export const emptyBaseline = {
   suppressions: {},
   approvedStarExports: {},
 };
-const checker = resolve(import.meta.dir, "../../lintSourceShape.ts");
+const checker = resolve(import.meta.dir, "../lintSourceShape.ts");
 
 export function fixture() {
   const cwd = mkdtempSync(join(tmpdir(), "tearleads-static-analysis-"));

@@ -6,7 +6,7 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
 # shellcheck disable=SC1091
-. "$REPO_ROOT/scripts/stepTimings.sh"
+. "$REPO_ROOT/scripts/lib/stepTimings.sh"
 # shellcheck disable=SC1091
 . "$REPO_ROOT/scripts/checks/fastChecks.sh"
 

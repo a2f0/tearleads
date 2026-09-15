@@ -338,14 +338,14 @@ export function verifyAbstractionMaps(input: {
     const found = tablesByDoc.get(doc) ?? 0;
     if (found !== expected) {
       problems.push(
-        `${doc}: expected ${expected} abstraction-map tables, found ${found}. Update the registry in scripts/lintFormalAbstractionMaps.ts alongside intentional map changes.`,
+        `${doc}: expected ${expected} abstraction-map tables, found ${found}. Update the registry in scripts/protocol/lintFormalAbstractionMaps.ts alongside intentional map changes.`,
       );
     }
   }
   for (const [doc, found] of tablesByDoc) {
     if (!(doc in input.expectedTables)) {
       problems.push(
-        `${doc}: carries ${found} abstraction-map tables but is not registered in scripts/lintFormalAbstractionMaps.ts.`,
+        `${doc}: carries ${found} abstraction-map tables but is not registered in scripts/protocol/lintFormalAbstractionMaps.ts.`,
       );
     }
   }

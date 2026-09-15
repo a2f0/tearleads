@@ -19,8 +19,8 @@ bun run test:protocol-models             # checker script self-tests
 Read `formal/README.md` and the documentation of every module you change.
 
 To print a counterexample trace, run TLC the way `runTlc` in
-`scripts/tlcTools.ts` does, on a copy of the registered configuration with the
-vulnerable constant substituted. Write the copy outside the checkout:
+`scripts/protocol/tlcTools.ts` does, on a copy of the registered configuration
+with the vulnerable constant substituted. Write the copy outside the checkout:
 
 ```sh
 "$(mise which java)" -XX:+UseParallelGC \
@@ -72,7 +72,7 @@ and make the vulnerable rule a negative control.
    `bun run check:protocol-models`. If the fixed rule also violates a property,
    the proposed fix is wrong; revise it before reporting. This is how the
    #2173 and #2174 currency rules were shown to brick devices.
-3. Add an entry to `NEGATIVE_CONTROLS` in `scripts/protocolNegativeControls.ts`
+3. Add an entry to `NEGATIVE_CONTROLS` in `scripts/protocol/protocolNegativeControls.ts`
    with the vulnerable value, the exact expected violation kind and name, and a
    `why` that cites the issue and the production seam that currently behaves
    that way. Run `bun run check:protocol-negative-controls`.
@@ -93,7 +93,7 @@ and make the vulnerable rule a negative control.
 - State that production currently behaves like negative control `<id>` until
   the issue is fixed. The production fix PR removes that sentence.
 - A new document with map tables needs its exact table count in
-  `EXPECTED_TABLES` in `scripts/lintFormalAbstractionMaps.ts`.
+  `EXPECTED_TABLES` in `scripts/protocol/lintFormalAbstractionMaps.ts`.
 - When the finding sits on a seam with a trace projection
   (`check:no-brick-projection` or `check:protocol-projection`), add a recorded
   scenario for the vulnerable shape if the real verifier can drive it.

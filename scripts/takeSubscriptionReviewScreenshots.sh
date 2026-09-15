@@ -37,10 +37,10 @@ command -v sips >/dev/null 2>&1 || {
 
 # Store releases load this public SDK key through Fastlane. The review capture
 # uses the same selectively loaded value without sourcing unrelated secrets.
-# shellcheck source=scripts/exportRevenueCatKeys.sh
-. "$REPO_ROOT/scripts/exportRevenueCatKeys.sh"
-# shellcheck source=scripts/releaseGuards.sh
-. "$REPO_ROOT/scripts/releaseGuards.sh"
+# shellcheck source=scripts/lib/exportRevenueCatKeys.sh
+. "$REPO_ROOT/scripts/lib/exportRevenueCatKeys.sh"
+# shellcheck source=scripts/lib/releaseGuards.sh
+. "$REPO_ROOT/scripts/lib/releaseGuards.sh"
 export_revenuecat_keys "$REVENUECAT_ENV_FILE"
 [ -n "${VITE_REVENUECAT_IOS_API_KEY:-}" ] || {
   echo "VITE_REVENUECAT_IOS_API_KEY is required for native billing screenshots." >&2

@@ -290,8 +290,8 @@ native_release_main() {
   native_package_dir="$native_script_dir/../packages/app-capacitor"
   cd "$native_package_dir" || return 1
 
-  # shellcheck source=scripts/releaseGuards.sh
-  . "$native_script_dir/releaseGuards.sh"
+  # shellcheck source=scripts/lib/releaseGuards.sh
+  . "$native_script_dir/lib/releaseGuards.sh"
 
   export NATIVE_RELEASE_TIER="$native_tier"
   native_release_guard_environment "$native_platform" "$native_tier"

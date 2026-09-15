@@ -6,7 +6,7 @@ import { join } from "node:path";
  * NoBrickedDevice model. Scenario tests that drive the real client verifiers
  * record one step per abstract model action, with the outcome the verifier
  * produced; when NO_BRICK_TRACE_DIR is set the traces are written as JSON for
- * scripts/checkNoBrickProjection.ts, which generates a TLC trace-check module
+ * scripts/protocol/checkNoBrickProjection.ts, which generates a TLC trace-check module
  * per trace and fails on any sequence or outcome the model rejects.
  */
 

@@ -4,7 +4,7 @@
  * probe-signal kernels and interest-barrier seams, record each run as a
  * sequence of abstract model actions (with implementation-projected state
  * bits), and write those traces here. For every trace this check generates a
- * TLC module (scripts/restartProbeTraceModule.ts) whose next-state relation
+ * TLC module (scripts/protocol/restartProbeTraceModule.ts) whose next-state relation
  * conjoins the model's own action per recorded step, so a sequence — or a
  * projected bit — the model rejects deadlocks TLC and fails `check:fast`.
  * Deliberately tampered traces are validated as negative controls on every

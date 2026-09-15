@@ -1,7 +1,7 @@
 import {
   canonicalOrderingRoots,
   scanCanonicalOrdering,
-} from "./checks/canonicalOrdering";
+} from "./canonicalOrdering";
 
 const violations = scanCanonicalOrdering(process.cwd());
 

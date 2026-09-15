@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { resolve } from "node:path";
 
 const repositoryRoot = resolve(import.meta.dir, "../../..");
-const guardPath = resolve(repositoryRoot, "scripts/releaseGuards.sh");
+const guardPath = resolve(repositoryRoot, "scripts/lib/releaseGuards.sh");
 const fastlaneGuardPath = resolve(
   repositoryRoot,
   "packages/app-capacitor/fastlane/lib/revenuecat_release_key.rb",
@@ -118,7 +118,7 @@ async function buildNumberSelection(
       "-c",
       '. "$1"; if native_release_build_number_chosen "$2" "$3"; then printf chosen; else printf unselected; fi',
       "sh",
-      resolve(repositoryRoot, "scripts/nativeRelease.sh"),
+      resolve(repositoryRoot, "scripts/lib/nativeRelease.sh"),
       platform,
       option,
     ],
@@ -146,7 +146,7 @@ async function nativeBunCommand(
       "-c",
       '. "$1"; native_release_bun_command "$2" "$3" "$4"',
       "sh",
-      resolve(repositoryRoot, "scripts/nativeRelease.sh"),
+      resolve(repositoryRoot, "scripts/lib/nativeRelease.sh"),
       platform,
       action,
       tier,
@@ -276,14 +276,14 @@ describe("RevenueCat store-release safety", () => {
         resolve(repositoryRoot, "scripts", scriptName),
       ).text();
 
-      expect(script).toContain('. "$SCRIPT_DIR/nativeRelease.sh"');
+      expect(script).toContain('. "$SCRIPT_DIR/lib/nativeRelease.sh"');
       expect(script).toContain(`native_release_main ${target} "$@"`);
     });
   }
 
   test("the shared runner guards both platform keys", async () => {
     const script = await Bun.file(
-      resolve(repositoryRoot, "scripts/nativeRelease.sh"),
+      resolve(repositoryRoot, "scripts/lib/nativeRelease.sh"),
     ).text();
     const normalizedScript = script
       .replace(/\\\n\s*/g, " ")

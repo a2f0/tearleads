@@ -128,7 +128,7 @@ A subsystem is **descriptive, not a new enforcement axis**. It indexes paths
 that already exist and may deliberately span several layers (`Containers` covers
 its routes, its service facade, and its transaction-orchestration workflows).
 Import direction stays enforced by the lanes/layers/planes in
-`dependency-cruiser.config.ts`. The registry lives in `scripts/subsystems.ts`
+`dependency-cruiser.config.ts`. The registry lives in `scripts/architecture/subsystems.ts`
 and `docs/subsystems.md`; `bun run lint:architecture` fails if a production file
 maps to zero or more than one subsystem, or if the manifest and docs drift.
 Registered: `packages/api`, `packages/client-sdk`, and `packages/app`.
@@ -176,12 +176,12 @@ Do not edit generated or build output directly:
 - Keep changes inside one ownership lane when possible. If a change crosses
   lanes, explain the dependency direction in the PR body.
 - Prefer small source files and focused modules. New or modified files are
-  checked by `scripts/lintSourceShape.ts`.
-- File-size, suppression, and approved barrel baselines live in `scripts/sourceShapeBaseline.json`.
+  checked by `scripts/checks/lintSourceShape.ts`.
+- File-size, suppression, and approved barrel baselines live in `scripts/checks/sourceShapeBaseline.json`.
 - Do not grow an over-limit file as an incidental edit. Split by behavior,
   storage concern, workflow step, or UI subcomponent. If an over-limit file
   intentionally grows, update its line/byte budget in
-  `scripts/sourceShapeBaseline.json` with reviewer context.
+  `scripts/checks/sourceShapeBaseline.json` with reviewer context.
 - Treat package root barrels and workflow facades as API policy. Add explicit
   named exports; new `export *` barrels must be added to the source-shape
   baseline intentionally.

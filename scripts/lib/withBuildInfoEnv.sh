@@ -1,6 +1,6 @@
 #!/bin/sh
 # Runs a client bundle command with the build-identity env vars set, then execs
-# it: `sh scripts/withBuildInfoEnv.sh bun build ...`.
+# it: `sh scripts/lib/withBuildInfoEnv.sh bun build ...`.
 #
 # The App Host Config's `buildInfo` is what the System Monitor's Environment tab
 # and its support report show, and each deployment target stamps it at its own

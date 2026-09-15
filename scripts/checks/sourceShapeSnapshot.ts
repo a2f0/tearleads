@@ -1,7 +1,7 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 
-const baselinePath = "scripts/sourceShapeBaseline.json";
+const baselinePath = "scripts/checks/sourceShapeBaseline.json";
 
 function git(args: readonly string[], input?: string): Buffer {
   return execFileSync("git", args, { input, maxBuffer: 128 * 1024 * 1024 });

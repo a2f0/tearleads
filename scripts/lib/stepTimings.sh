@@ -3,7 +3,7 @@
 # pre-push gate. Not executable on its own: source it, wrap each step, then
 # print the summary.
 #
-#   . "$REPO_ROOT/scripts/stepTimings.sh"
+#   . "$REPO_ROOT/scripts/lib/stepTimings.sh"
 #   step_timings_reset
 #   step_timings_run typescript bun tsc --build
 #   step_timings_summary

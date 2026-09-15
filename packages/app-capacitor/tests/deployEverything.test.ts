@@ -64,11 +64,11 @@ async function runHarness(
   const logPath = resolve(root, "calls.log");
   const binDirectory = resolve(root, "bin");
 
-  await mkdir(dirname(script), { recursive: true });
+  await mkdir(resolve(root, "scripts/lib"), { recursive: true });
   await cp(sourceScript, script);
   await cp(
-    resolve(dirname(sourceScript), "stepTimings.sh"),
-    resolve(root, "scripts/stepTimings.sh"),
+    resolve(dirname(sourceScript), "lib/stepTimings.sh"),
+    resolve(root, "scripts/lib/stepTimings.sh"),
   );
   await chmod(script, 0o755);
   await writeExecutable(

@@ -3,7 +3,7 @@ declare namespace NodeJS {
     /** Backend URL; defaults to http://localhost:3001 when unset. */
     BUN_PUBLIC_API_BASE_URL?: string;
     /**
-     * Build identity, stamped by scripts/withBuildInfoEnv.sh and inlined by the
+     * Build identity, stamped by scripts/lib/withBuildInfoEnv.sh and inlined by the
      * renderer defines (including unset values) declared in
      * electrobun.config.ts.
      */

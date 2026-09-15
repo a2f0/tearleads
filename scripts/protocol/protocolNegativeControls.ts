@@ -8,7 +8,7 @@ import { SYSTEM_DESTINATION_NEGATIVE_CONTROLS } from "./protocolSystemDestinatio
  * the single invariant or property TLC must then report as violated. The
  * registered runs prove the production rule set satisfies the invariants;
  * these runs prove each invariant is not vacuous and name the rule that
- * carries it. scripts/checkProtocolNegativeControls.ts runs the registry.
+ * carries it. scripts/protocol/checkProtocolNegativeControls.ts runs the registry.
  */
 
 export type ExpectedViolation =

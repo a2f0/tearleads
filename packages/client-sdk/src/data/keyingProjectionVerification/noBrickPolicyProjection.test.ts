@@ -24,7 +24,7 @@ import {
  * policy the dependent, and a removed admin the late signer. Every
  * verification is `verifyPrincipalPolicyBundle` against this device's local
  * checkpoint and the served Admins history; the outcome it produced is
- * recorded, and scripts/checkNoBrickProjection.ts replays the trace through
+ * recorded, and scripts/protocol/checkNoBrickProjection.ts replays the trace through
  * TLC. The principal-policy twin of the container scenario, so the #2173
  * shape is projected from the seam #2173 changed.
  */

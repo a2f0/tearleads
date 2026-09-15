@@ -20,7 +20,7 @@ SVG_SOURCE="$REPO_ROOT/packages/ui/assets/logo.svg"
 OUTPUT_DIR="$PACKAGE_DIR/dist"
 INDEX_HTML="$OUTPUT_DIR/index.html"
 
-"$REPO_ROOT/scripts/buildFaviconImages.sh" "$SVG_SOURCE" "$OUTPUT_DIR"
+"$REPO_ROOT/scripts/lib/buildFaviconImages.sh" "$SVG_SOURCE" "$OUTPUT_DIR"
 
 if command -v magick > /dev/null 2>&1; then
   MAGICK_CMD="magick"

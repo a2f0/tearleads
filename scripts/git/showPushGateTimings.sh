@@ -10,9 +10,9 @@ set -e
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
-# shellcheck source=../stepTimings.sh
+# shellcheck source=scripts/lib/stepTimings.sh
 # shellcheck disable=SC1091
-. "$REPO_ROOT/scripts/stepTimings.sh"
+. "$REPO_ROOT/scripts/lib/stepTimings.sh"
 
 HEAD_SHA=""
 LOG_FILE=""

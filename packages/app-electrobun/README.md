@@ -85,7 +85,7 @@ installs.
 Like the iOS and Android wrappers, `*Release.sh` defaults to production and
 `*StagingRelease.sh` selects staging. Each supports `--help`. The original
 `*Release.sh staging` and `*Release.sh production` forms still work; staging
-shortcuts always select staging. Dispatch is shared in `scripts/desktopRelease.sh`.
+shortcuts always select staging. Dispatch is shared in `scripts/lib/desktopRelease.sh`.
 
 Signing uses the installed Developer ID Application identity. Set
 `ELECTROBUN_DEVELOPER_ID` if more than one is installed. Notarization uses

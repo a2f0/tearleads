@@ -24,7 +24,7 @@ deterministically, and gives each TLC invocation an isolated state directory.
 
 Model documentation that maps abstract actions to production seams does so in
 `Model action … | Production …` tables; the registry in
-`scripts/lintFormalAbstractionMaps.ts` pins which documents carry them.
+`scripts/protocol/lintFormalAbstractionMaps.ts` pins which documents carry them.
 `bun run lint:formal-maps` (part of `check:fast`) verifies every backticked
 model token is declared in the module the table documents and every backticked
 production seam occurs in production package source code, so a rename or
@@ -41,7 +41,7 @@ trace the model rejects. See the
 recorded scenarios, negative controls, and boundaries.
 
 `bun run check:protocol-negative-controls` (part of `check:fast`) proves the
-invariants are not vacuous: each entry in `scripts/protocolNegativeControls.ts`
+invariants are not vacuous: each entry in `scripts/protocol/protocolNegativeControls.ts`
 flips one rule or lock in a registered configuration and requires TLC to
 report exactly the named violation. `bun run check:no-brick-projection` (also
 in `check:fast`) replays recorded runs of the real container-path and

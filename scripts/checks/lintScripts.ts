@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { shellScriptInventory } from "./checks/shellScripts";
+import { shellScriptInventory } from "./shellScripts";
 
 const { root, files } = shellScriptInventory(process.cwd());
 console.log(`ShellCheck: ${files.length} tracked shell scripts`);
