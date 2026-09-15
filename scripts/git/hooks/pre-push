@@ -11,7 +11,7 @@ if ! cmp -s "$0" "$REPO_ROOT/scripts/git/hooks/pre-push"; then
 fi
 
 # shellcheck disable=SC1091
-. "$REPO_ROOT/scripts/stepTimings.sh"
+. "$REPO_ROOT/scripts/lib/stepTimings.sh"
 # shellcheck disable=SC1091
 . "$REPO_ROOT/scripts/checks/fastChecks.sh"
 
@@ -104,7 +104,7 @@ while read -r _ local_sha _ remote_sha; do
     range="$remote_sha..$local_sha"
   fi
 
-  bun scripts/lintSourceShape.ts --range "$range" </dev/null
+  bun scripts/checks/lintSourceShape.ts --range "$range" </dev/null
 done <"$refs_file"
 step_timings_end
 

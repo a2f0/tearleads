@@ -119,7 +119,7 @@ test("a vanished or unregistered table fails the registry", () => {
 
   const unregistered = { ...cleanInput, expectedTables: {} };
   expect(verifyAbstractionMaps(unregistered)[0]).toContain(
-    "not registered in scripts/lintFormalAbstractionMaps.ts",
+    "not registered in scripts/protocol/lintFormalAbstractionMaps.ts",
   );
 });
 

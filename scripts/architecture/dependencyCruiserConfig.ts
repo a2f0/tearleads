@@ -4,7 +4,7 @@ import type {
   OutputType,
 } from "dependency-cruiser";
 
-import dependencyCruiserConfig from "../dependency-cruiser.config";
+import dependencyCruiserConfig from "../../dependency-cruiser.config";
 
 export { dependencyCruiserEntryPoints } from "./dependencySourceRoots";
 

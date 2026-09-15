@@ -7,7 +7,7 @@ import {
   scanCanonicalOrdering,
 } from "../canonicalOrdering";
 
-const linter = resolve(import.meta.dir, "../../lintCanonicalOrdering.ts");
+const linter = resolve(import.meta.dir, "../lintCanonicalOrdering.ts");
 const repoRoot = resolve(import.meta.dir, "../../..");
 
 function fixture(files: Record<string, string>) {

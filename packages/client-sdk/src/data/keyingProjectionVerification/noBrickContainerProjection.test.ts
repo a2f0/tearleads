@@ -25,7 +25,7 @@ import { advanceKeyingCheckpointsAtomically } from "../persistence/keyingCheckpo
  * the honest child chain its dependent, and Mallory its late signer. Every
  * verification below is made by `verifyContainerManifestPath` against this
  * device's persisted checkpoints, then recorded with the outcome it
- * produced; scripts/checkNoBrickProjection.ts replays the recorded trace
+ * produced; scripts/protocol/checkNoBrickProjection.ts replays the recorded trace
  * through TLC, so a sequence or an outcome the model's rules disagree with
  * fails `check:fast`. Each scenario is one device; the model's other devices
  * are the writers the honest API accepts commits from.

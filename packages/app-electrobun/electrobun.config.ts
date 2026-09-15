@@ -61,7 +61,7 @@ export default {
       mainview: {
         entrypoint: "src/renderer/index.html",
         // Hutch's bundler uses explicit defines for the existing public build
-        // environment supplied by scripts/withBuildInfoEnv.sh.
+        // environment supplied by scripts/lib/withBuildInfoEnv.sh.
         define: createRendererEnvironmentDefines(process.env),
       },
     },

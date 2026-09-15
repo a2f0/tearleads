@@ -10,13 +10,13 @@
     "e2e": "env -u NO_COLOR -u FORCE_COLOR playwright test",
     "test:e2e": "bun run e2e",
     "predev": "bun run build:client-sdk",
-    "dev": "sh ../../scripts/withBuildInfoEnv.sh bun --hot src/servers/devServer.ts",
+    "dev": "sh ../../scripts/lib/withBuildInfoEnv.sh bun --hot src/servers/devServer.ts",
     "prescreenshots": "bun run build:client-sdk && bun run --cwd ../.. screenshots:seed",
     "screenshots": "env -u NO_COLOR -u FORCE_COLOR playwright test --config=playwright.screenshots.config.ts",
     "prebuild": "bun run build:client-sdk",
-    "build": "export NODE_ENV=production && rm -rf dist && sh ../../scripts/withBuildInfoEnv.sh bun scripts/buildApp.ts && bun scripts/buildStaticAssets.ts && sh scripts/buildWebImages.sh && bun scripts/buildServiceWorker.ts",
+    "build": "export NODE_ENV=production && rm -rf dist && sh ../../scripts/lib/withBuildInfoEnv.sh bun scripts/buildApp.ts && bun scripts/buildStaticAssets.ts && sh scripts/buildWebImages.sh && bun scripts/buildServiceWorker.ts",
     "prestart": "bun run build:client-sdk",
-    "start": "sh ../../scripts/withBuildInfoEnv.sh bun src/servers/devServer.ts",
+    "start": "sh ../../scripts/lib/withBuildInfoEnv.sh bun src/servers/devServer.ts",
     "test": "bun test scripts --max-concurrency=1"
   },
   "dependencies": {

@@ -3,17 +3,17 @@ import {
   parseSourceShapeBaseline,
   type SuppressionCounts,
   suppressionKinds,
-} from "./checks/sourceShapeBaseline";
-import { sourceShapeSnapshot } from "./checks/sourceShapeSnapshot";
+} from "./sourceShapeBaseline";
+import { sourceShapeSnapshot } from "./sourceShapeSnapshot";
 
 const lineLimit = 500;
 const byteLimit = 20_000;
 
 const snapshot = sourceShapeSnapshot(process.argv.slice(2));
-const baselineBuffer = snapshot.read("scripts/sourceShapeBaseline.json");
+const baselineBuffer = snapshot.read("scripts/checks/sourceShapeBaseline.json");
 if (!baselineBuffer)
   throw new Error(
-    "Missing scripts/sourceShapeBaseline.json in selected snapshot",
+    "Missing scripts/checks/sourceShapeBaseline.json in selected snapshot",
   );
 const sourceShapeBaseline = parseSourceShapeBaseline(
   baselineBuffer.toString("utf8"),
@@ -66,8 +66,8 @@ const ignoredPathPatterns = [
   /^packages\/api-shared\/drizzle-sqlite\/meta\/[^/]+\.json$/,
   /^packages\/website\/\.astro\//,
   /^playwright-report\//,
-  /^scripts\/lintSourceShape\.ts$/,
-  /^scripts\/sourceShapeBaseline\.json$/,
+  /^scripts\/checks\/lintSourceShape\.ts$/,
+  /^scripts\/checks\/sourceShapeBaseline\.json$/,
   /^test-results\//,
   /\.min\.js$/,
   /\.map$/,

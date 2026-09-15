@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 
 const nativeReleaseScript = resolve(
   import.meta.dir,
-  "../../../scripts/nativeRelease.sh",
+  "../../../scripts/lib/nativeRelease.sh",
 );
 const stagingAndroidWrapper = resolve(
   import.meta.dir,

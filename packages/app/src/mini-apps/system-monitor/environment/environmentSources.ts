@@ -17,7 +17,7 @@ import { UNKNOWN_ENVIRONMENT_VALUE } from "./environment";
  * Navigator APIs lib.dom does not declare yet.
  *
  * Declared rather than cast at the call site, so these reads stay free of type
- * assertions (see scripts/lintPackageAssertions.ts). It lives here, inside an
+ * assertions (see scripts/checks/lintPackageAssertions.ts). It lives here, inside an
  * imported module, rather than in a standalone .d.ts: the deployment targets
  * compile this package's sources directly instead of through project
  * references, and a global .d.ts that nothing imports would only load in this

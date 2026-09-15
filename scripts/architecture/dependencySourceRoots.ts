@@ -5,8 +5,8 @@ function packageSourceRootPattern(sourcePath: string): string {
 }
 
 // Shared file-name patterns. Single source of truth for the architecture lint
-// harness (scripts/lintArchitecture.ts), the subsystem manifest
-// (scripts/subsystems.ts), and the dependency-cruiser config (which consumes the
+// harness (scripts/architecture/lintArchitecture.ts), the subsystem manifest
+// (scripts/architecture/subsystems.ts), and the dependency-cruiser config (which consumes the
 // `.source` string form).
 export const productionSourceFilePattern = /\.[cm]?[tj]sx?$/;
 export const testFilePattern = /\.test\.[tj]sx?$/;

@@ -1,6 +1,6 @@
 # shellcheck shell=sh
 # Shared helper for the dev run-on-device scripts. Not executable on its own —
-# source it: `. "$SCRIPT_DIR/exportRevenueCatKeys.sh"`.
+# source it: `. "$SCRIPT_DIR/lib/exportRevenueCatKeys.sh"`.
 #
 # Vite inlines VITE_* from the build process's environment, so a RevenueCat
 # public SDK key that is not exported when `bun run build` runs is simply absent

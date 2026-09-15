@@ -3,8 +3,8 @@ import { chmodSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const repoRoot = join(import.meta.dir, "..");
-const library = join(repoRoot, "scripts/stepTimings.sh");
+const repoRoot = join(import.meta.dir, "../..");
+const library = join(repoRoot, "scripts/lib/stepTimings.sh");
 const reader = join(repoRoot, "scripts/git/showPushGateTimings.sh");
 
 function runSh(

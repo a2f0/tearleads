@@ -48,7 +48,7 @@ renderApp(createRoot(elem), {
     // resolved this is undefined and the app keeps its local-only System
     // Monitor logging, exactly as before.
     diagnostics: configureElectrobunSentry(),
-    // Stamped by scripts/withBuildInfoEnv.sh and inlined by the renderer defines
+    // Stamped by scripts/lib/withBuildInfoEnv.sh and inlined by the renderer defines
     // in electrobun.config.ts.
     buildInfo: createAppBuildInfo({
       commit: process.env.BUN_PUBLIC_GIT_SHA,

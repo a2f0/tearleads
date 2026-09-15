@@ -9,7 +9,7 @@ const exportedCommit = "1234567890abcdef1234567890abcdef12345678";
 const buildInfoWrapper = resolve(
   import.meta.dirname,
   "../../..",
-  "scripts/withBuildInfoEnv.sh",
+  "scripts/lib/withBuildInfoEnv.sh",
 );
 
 for (const checkout of [false, true]) {

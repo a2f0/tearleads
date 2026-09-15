@@ -1,8 +1,8 @@
 ------------------ MODULE BaselineDominanceTraceExport ------------------
 (* Exports every served behavior of the bounded BaselineDominance model as *)
 (* one machine-readable line while TLC checks the base invariants. The     *)
-(* generator in scripts/generateBaselineDominanceTraces.ts runs this       *)
-(* configuration, canonicalizes the printed lines, and writes the          *)
+(* generator in scripts/protocol/generateBaselineDominanceTraces.ts runs   *)
+(* this configuration, canonicalizes the printed lines, and writes the    *)
 (* committed fixture BaselineDominanceTraces.json, which the TypeScript    *)
 (* replay suite drives through the real dominance and redirect kernels.    *)
 (* A mutation that weakens Dominated, Older, or the raw-mode serve rule    *)

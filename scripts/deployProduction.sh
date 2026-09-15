@@ -68,9 +68,9 @@ done
 . "$REPO_ROOT/terraform/scripts/common.sh"
 validate_tier_ssh_target_override prod
 
-# shellcheck source=stepTimings.sh
+# shellcheck source=scripts/lib/stepTimings.sh
 # shellcheck disable=SC1091
-. "$REPO_ROOT/scripts/stepTimings.sh"
+. "$REPO_ROOT/scripts/lib/stepTimings.sh"
 step_timings_reset
 
 echo "=== Tearleads Production Deployment ==="

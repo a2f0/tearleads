@@ -31,9 +31,9 @@ async function withLauncher(
       Bun.file(join(import.meta.dirname, "buildElectrobun.sh")),
     );
     await Bun.write(
-      join(root, "scripts/withBuildInfoEnv.sh"),
+      join(root, "scripts/lib/withBuildInfoEnv.sh"),
       Bun.file(
-        join(import.meta.dirname, "../../../scripts/withBuildInfoEnv.sh"),
+        join(import.meta.dirname, "../../../scripts/lib/withBuildInfoEnv.sh"),
       ),
     );
     await Bun.write(join(packageDir, "package.json"), '{"version":"1.2.3"}\n');

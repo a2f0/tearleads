@@ -22,7 +22,7 @@ import {
  * below — arming on a delivered hint, suppressing an author echo, retaining a
  * signal that moved mid-flight, clearing a consumed one — is made by the
  * production kernels, then recorded with the implementation-projected
- * `probeRequested` bit. scripts/checkRestartProbeProjection.ts replays the
+ * `probeRequested` bit. scripts/protocol/checkRestartProbeProjection.ts replays the
  * recorded trace through TLC, so a sequence or a projected bit the model
  * rejects fails `check:fast`. Interest-barrier steps are scripted here (the
  * app package records those seams from its own scenario); the restart

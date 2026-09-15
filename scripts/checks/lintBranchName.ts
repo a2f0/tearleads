@@ -44,7 +44,7 @@ function isCommitlintConfigModule(
 
 async function loadCommitlintConfigModule(): Promise<CommitlintConfigModule> {
   const module: unknown = await import(
-    new URL("../commitlint.config.mts", import.meta.url).href
+    new URL("../../commitlint.config.mts", import.meta.url).href
   );
 
   if (!isCommitlintConfigModule(module)) {

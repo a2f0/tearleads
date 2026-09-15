@@ -6,7 +6,7 @@ import { join } from "node:path";
  * RestartProbeConvergence model. Scenario tests in the packages that own the
  * seams record one step per abstract model action; when
  * RESTART_PROBE_TRACE_DIR is set the recorded traces are written as JSON for
- * scripts/checkRestartProbeProjection.ts, which generates a TLC trace-check
+ * scripts/protocol/checkRestartProbeProjection.ts, which generates a TLC trace-check
  * module per trace and fails on any sequence the model rejects.
  */
 

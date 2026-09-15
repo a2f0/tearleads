@@ -9,7 +9,7 @@
         "$TURBO_ROOT$/scripts/buildLinuxStagingRelease.sh",
         "$TURBO_ROOT$/scripts/buildMacosRelease.sh",
         "$TURBO_ROOT$/scripts/buildMacosStagingRelease.sh",
-        "$TURBO_ROOT$/scripts/desktopRelease.sh",
+        "$TURBO_ROOT$/scripts/lib/desktopRelease.sh",
         "$TURBO_ROOT$/scripts/uploadLinuxRelease.sh",
         "$TURBO_ROOT$/scripts/uploadLinuxStagingRelease.sh",
         "$TURBO_ROOT$/scripts/uploadMacosRelease.sh",

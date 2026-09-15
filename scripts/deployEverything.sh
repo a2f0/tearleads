@@ -254,9 +254,9 @@ if [[ -n "$STAGING_PREFLIGHT_SSH_TARGET" && -n "$PRODUCTION_PREFLIGHT_SSH_TARGET
     "$STAGING_PREFLIGHT_SSH_TARGET" "$PRODUCTION_PREFLIGHT_SSH_TARGET"
 fi
 
-# shellcheck source=stepTimings.sh
+# shellcheck source=scripts/lib/stepTimings.sh
 # shellcheck disable=SC1091
-. "$REPO_ROOT/scripts/stepTimings.sh"
+. "$REPO_ROOT/scripts/lib/stepTimings.sh"
 step_timings_reset
 
 run_tier_step() {

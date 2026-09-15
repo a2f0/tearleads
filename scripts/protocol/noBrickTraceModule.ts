@@ -4,7 +4,7 @@
  * recorded trace into a TLC module whose next-state relation conjoins the
  * model's own action (plus the recorded verification outcome) per step. The
  * orchestration — running the scenario tests, invoking TLC, negative controls
- * — lives in scripts/checkNoBrickProjection.ts.
+ * — lives in scripts/protocol/checkNoBrickProjection.ts.
  */
 
 export const NO_BRICK_MODEL_PATH =
