@@ -24,6 +24,9 @@ declare namespace NodeJS {
   }
 }
 
+/** Desktop window title, inlined by electrobun.config.ts. */
+declare const TEARLEADS_ELECTROBUN_APP_NAME: string;
+
 /**
  * Main-process Sentry release values, replaced at build time by
  * electrobun.config.ts (null unless a release tier). Deliberately not

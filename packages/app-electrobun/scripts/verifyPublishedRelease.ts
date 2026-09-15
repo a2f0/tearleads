@@ -7,6 +7,8 @@ async function publishProbe(
   root: string,
   artifacts: string,
   env: Record<string, string | undefined>,
+  channel: "stable" | "canary",
+  appName: string,
 ) {
   const published = join(root, "published");
   await mkdir(published);
@@ -15,17 +17,20 @@ async function publishProbe(
     '#!/bin/sh\ncp "$3" "$PUBLICATION_PROBE_DIR/$(basename "$4")"\n',
   );
   await chmod(join(root, "bin/aws"), 0o755);
-  const prefix = "stable-macos-arm64";
-  const archive = join(artifacts, `${prefix}-PackagingProbe.app.tar.zst`);
+  const prefix = `${channel}-macos-arm64`;
+  const archive = join(artifacts, `${prefix}-${appName}.app.tar.zst`);
   const update = join(artifacts, `${prefix}-update.json`);
   const publisher = Bun.spawn(
     [
       process.execPath,
       join(import.meta.dirname, "publishMacosRelease.ts"),
       "downloads.example.test",
-      "stable",
-      "PackagingProbe",
-      join(artifacts, "macos-arm64-PackagingProbe.dmg"),
+      channel,
+      appName,
+      join(
+        artifacts,
+        `${channel === "canary" ? "canary-" : ""}macos-arm64-${appName}.dmg`,
+      ),
       update,
       archive,
     ],
@@ -49,11 +54,15 @@ export async function verifyPublishedRelease(
   artifacts: string,
   archivedView: string,
   env: Record<string, string | undefined>,
+  channel: "stable" | "canary",
+  appName: string,
 ) {
   const { published, prefix, archive, update } = await publishProbe(
     root,
     artifacts,
     env,
+    channel,
+    appName,
   );
 
   // Import the pinned vendor implementation at runtime without adding its
@@ -70,7 +79,7 @@ export async function verifyPublishedRelease(
   ).json();
   const manifest = updater.validateUpdateManifest(document, {
     identifier: original.identifier,
-    channel: "stable",
+    channel,
     platform: "macos",
     arch: "arm64",
   });

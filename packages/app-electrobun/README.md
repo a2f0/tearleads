@@ -70,6 +70,18 @@ Equivalent package commands are `build:staging`, `build:release`,
 before publishing. Staging uses Electrobun's `canary` channel and production uses
 `stable`; the apps have separate channel data directories.
 
+On macOS, staging uses the app name **TL Staging**, matching mobile, and the
+window title **TL Staging**. Hutch adds its channel suffix to the bundle and
+volume (`TL Staging-canary.app` / `TL Staging-canary`) and removes spaces from
+artifact filenames. Production uses **Tearleads**. The bundle identifier and
+channel data directories stay the same, so this rename preserves existing data.
+
+For this rename, quit `Tearleads-canary.app`, drag `TL Staging-canary.app` from
+the new DMG into Applications, then remove the old app bundle. Keep the app's
+data directories. Migration across the bundle rename through Electrobun's
+updater has not been verified; use this manual installation for existing staging
+installs.
+
 Like the iOS and Android wrappers, `*Release.sh` defaults to production and
 `*StagingRelease.sh` selects staging. Each supports `--help`. The original
 `*Release.sh staging` and `*Release.sh production` forms still work; staging
@@ -108,7 +120,7 @@ Delta patches are disabled; full update archives are published with each build.
 | Tier | Bucket | Local installer |
 | --- | --- | --- |
 | Production | `downloads.tearleads.com` | `macos-arm64-Tearleads.dmg` |
-| Staging | `downloads-staging.tearleads.com` | `canary-macos-arm64-Tearleads-canary.dmg` |
+| Staging | `downloads-staging.tearleads.com` | `canary-macos-arm64-TLStaging-canary.dmg` |
 
 Redeploy the website after publishing: its build resolves the environment's
 `<channel>-macos-arm64-download.json` into a matched pair of immutable installer
@@ -129,6 +141,12 @@ or AWS credentials: the app uses ad-hoc signing and skips notarization. It also
 mounts the DMG read-only, verifies the app's code signature, checks its expanded
 app against the update payload, and launches through the native executable into
 a test-only Bun preload with an isolated home directory.
+Pass `--staging` to exercise the actual TL Staging configuration, its window
+title, bundle and DMG volume names, and renamed updater/download artifacts:
+
+```sh
+bun run --cwd packages/app-electrobun test:release-packaging --staging
+```
 
 ## Linux releases from Docker
 
