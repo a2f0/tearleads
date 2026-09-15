@@ -328,9 +328,9 @@ folders, `packages/app-electrobun/scripts/sentry*.test.ts`,
 `packages/app-electrobun/src/diagnostics`, the privacy tests in
 `packages/app-web/scripts/sentry*.test.ts`, the real browser diagnostics test,
 and the app boundary/logging tests before changing this integration. They
-inspect emitted envelopes with synthetic private values. After account setup,
-deploy staging first and confirm an error event
-arrives with symbolicated frames, the expected project/release, and only
-approved breadcrumbs before enabling production. SDK transport tests can verify
-sanitization locally; live ingestion and server-side symbolication require the
-account values above.
+inspect emitted envelopes with synthetic private values. Deploy staging first.
+Confirm a symbolicated event in the expected project and release with only
+approved breadcrumbs before enabling production. Transport tests verify
+sanitization locally; live verification needs the account configuration above.
+
+See [desktop staging evidence](electrobun-diagnostics-verification.md).
