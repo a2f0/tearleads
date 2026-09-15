@@ -329,7 +329,7 @@ test("a move whose source is not synced yet stays pending and retryable", async 
   expect(errors[0]?.blocked).toBeFalsy();
 });
 
-test("legacy move adapters fail before issuing a remote mutation", async () => {
+test("move replay does not require a standalone settlement adapter", async () => {
   const errors: MoveIntentError[] = [];
   let projectionRequests = 0;
   const containersById = new Map([
@@ -353,7 +353,7 @@ test("legacy move adapters fail before issuing a remote mutation", async () => {
   const movedCount = await syncPendingContainerMoveIntents({
     host: {
       persistContainerState: async () => {
-        throw new Error("legacy persistence must fail before local mutation");
+        throw new Error("unexpected local mutation");
       },
       updateSnapshot: () => {},
     },
@@ -370,9 +370,9 @@ test("legacy move adapters fail before issuing a remote mutation", async () => {
   });
 
   expect(movedCount).toBe(0);
-  expect(projectionRequests).toBe(0);
+  expect(projectionRequests).toBe(1);
   expect(errors.map((error) => error.message)).toEqual([
-    "Container move replay requires revision-CAS persistence",
+    "Failed to sync container move: projection unavailable",
   ]);
 });
 

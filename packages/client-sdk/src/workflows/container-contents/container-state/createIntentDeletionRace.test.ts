@@ -244,7 +244,7 @@ test("create persistence without atomic intent settlement is rejected", async ()
   expect(result.deletedRemoteIds).toEqual([]);
   expect(result.childState.container).toEqual(result.originalContainer);
   expect(result.recordedErrors).toEqual([
-    "Remote container create failed: Container create persistence must settle the intent atomically",
+    "Container create persistence failed: Container create persistence must settle the intent atomically",
   ]);
 });
 

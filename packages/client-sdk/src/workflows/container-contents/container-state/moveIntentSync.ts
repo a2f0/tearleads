@@ -193,17 +193,6 @@ async function movePendingRemoteContainer(input: {
     }
     return "abandoned" as const;
   };
-  if (typeof state.persistence.markMoveIntentRevisionSynced !== "function") {
-    await recordPendingMoveIntentError({
-      containerId: intent.containerId,
-      expectedIntentId: intent.id,
-      expectedUpdatedAt: intent.updatedAt,
-      isCurrent: syncInput.isCurrent,
-      message: "Container move replay requires revision-CAS persistence",
-      state,
-    });
-    return currentMoveResult(syncInput.isCurrent, "failed");
-  }
   try {
     const moved = await moveRemoteContainer({
       containerId: intent.containerId,

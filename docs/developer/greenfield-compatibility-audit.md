@@ -14,7 +14,10 @@ points before the environment reset and coordinated release.
 - **Containers:** create and move persistence must acknowledge that the pending
   intent was settled in the same transaction as the container save. The
   historical second settlement write is removed; incomplete commits are refused
-  before live state is installed.
+  before live state is installed. A failed acknowledgment leaves the intent
+  pending for normal replay; if a remote create was already accepted, replay
+  reconciles that identity. Production adapters always acknowledge atomic
+  settlement. Flags remain optional on generic saves that request no settlement.
 - **Website:** screenshot deep links use `/screenshots/<platform>/<screen>`.
   Screen-only routes and their platform-selection fallback are removed. The
   gallery index and captured platform/screen routes remain available. macOS

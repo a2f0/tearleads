@@ -17,6 +17,8 @@ import type {
   CreatedRemoteContainerState,
 } from "./types";
 
+class IncompleteContainerCreateSettlementError extends Error {}
+
 type CreateIntentSyncResult = "abandoned" | "blocked" | "created" | "failed";
 
 function currentCreateResult<
@@ -68,7 +70,7 @@ async function recordContainerCreateFailure(input: {
       containerId: input.intent.containerId,
       expectedIntentId: input.intent.id,
       expectedUpdatedAt: input.intent.updatedAt,
-      message: `Remote container create failed: ${errorMessage(input.error)}`,
+      message: `${input.error instanceof IncompleteContainerCreateSettlementError ? "Container create persistence failed" : "Remote container create failed"}: ${errorMessage(input.error)}`,
       stillCurrent: input.isCurrent,
     },
   );
@@ -175,7 +177,7 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
   }
   if (persistenceResult.status !== "persisted") return persistenceResult.status;
   if (persistenceResult.createIntentSettled !== true) {
-    throw new Error(
+    throw new IncompleteContainerCreateSettlementError(
       "Container create persistence must settle the intent atomically",
     );
   }
@@ -342,6 +344,8 @@ async function createPendingRemoteContainer(input: {
       syncInput,
     });
   } catch (error) {
+    if (!(error instanceof IncompleteContainerCreateSettlementError))
+      throw error;
     return recordContainerCreateFailure({
       error,
       isCurrent: syncInput.isCurrent,

@@ -10,6 +10,7 @@ import type {
 import { createLocalProjectionStore } from "../../stores/local-projection/localProjectionStore";
 import { createReconciliationService } from "./service";
 import { createReconciliationTestHost } from "./service.testFixtures";
+import type { ReconciliationService } from "./serviceTypes";
 import {
   connectReconciliationTriggers,
   enqueueReconciliationForEvents,
@@ -39,6 +40,7 @@ test("initial hydration ignores obsolete events and keeps inactive containers la
   const { close, execSql } = await createTestExecSql(
     "reconciliation-hydration-order-test",
   );
+  let service: ReconciliationService | undefined;
   try {
     let emitContainerStore = () => {};
     let nodes: ReadonlyArray<ContainerNode> = [];
@@ -61,7 +63,7 @@ test("initial hydration ignores obsolete events and keeps inactive containers la
     });
     const store = createLocalProjectionStore({ containerStore, runtime });
     const contentPulls: Array<{ containerId: string; force: boolean }> = [];
-    const service = createReconciliationService(
+    service = createReconciliationService(
       createReconciliationTestHost({
         listKnownContainerIds: () =>
           store.getSnapshot().containers.map((container) => container.id),
@@ -89,8 +91,8 @@ test("initial hydration ignores obsolete events and keeps inactive containers la
     store.setActiveContainer("c-1");
     await waitFor(() => contentPulls.length === 1, "Expected active discovery");
     expect(contentPulls).toEqual([{ containerId: "c-1", force: false }]);
-    service.stop();
   } finally {
+    service?.stop();
     close();
   }
 });

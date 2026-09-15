@@ -73,6 +73,7 @@ export function silenceExpectedTransientDiscoveryError(
   };
 }
 
+/** Queue a scoped event for each known container at the event lane priority. */
 export function forceKnownContainers(
   service: ReconciliationService,
   host: ReconciliationHost,
