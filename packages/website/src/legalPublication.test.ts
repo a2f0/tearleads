@@ -51,8 +51,12 @@ for (const environment of ["production", "staging", undefined]) {
       const index = await Bun.file(resolve(output, "index.html")).text();
       const channel = environment === "staging" ? "canary" : "stable";
       for (const target of ["macos-arm64", "linux-x64"]) {
+        const appName =
+          environment === "staging" && target === "macos-arm64"
+            ? "(?:TLStaging|Tearleads)"
+            : "Tearleads";
         expect(index).toMatch(
-          new RegExp(`${channel}-${target}-[a-f0-9]{64}-Tearleads`),
+          new RegExp(`${channel}-${target}-[a-f0-9]{64}-${appName}`),
         );
       }
       expect(index).toContain('href="/downloads/linux"');
