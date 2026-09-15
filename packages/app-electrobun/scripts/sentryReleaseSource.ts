@@ -22,6 +22,12 @@ export function desktopSentryCommit(root: string): string {
       "Desktop Sentry source-map publishing must run from the top level of its own Git checkout",
     );
   const changes = git(
+    // Host exclusions cannot hide uncommitted sources; Git must not launch a
+    // filesystem-monitor hook in this process's token-holding environment.
+    "-c",
+    "core.excludesFile=/dev/null",
+    "-c",
+    "core.fsmonitor=false",
     "status",
     "--porcelain=v1",
     "-z",

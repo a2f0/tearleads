@@ -30,7 +30,8 @@ PACKAGE_DIR="$REPO_ROOT/packages/app-electrobun"
 # working directory. So staged, modified or untracked files refuse the upload
 # before any Bun process runs. Build mode includes local edits and uploads nothing.
 if [[ "$ACTION" == upload ]]; then
-  changes="$(git status --porcelain=v1 --untracked-files=normal)"
+  # Ignore host exclusions and never execute a configured filesystem monitor.
+  changes="$(git -c core.excludesFile=/dev/null -c core.fsmonitor=false status --porcelain=v1 --untracked-files=normal)"
   if [[ -n "$changes" ]]; then
     echo "Linux uploads require a clean Git checkout; commit source changes first." >&2
     exit 1
@@ -72,7 +73,7 @@ trap cleanup EXIT
 trap 'exit 1' INT TERM
 # Only tracked working files enter Docker. Stage new source files before building;
 # ignored output, host dependencies, .git, and .secrets never enter the context.
-git ls-files -z | while IFS= read -r -d '' file; do
+git -c core.fsmonitor=false ls-files -z | while IFS= read -r -d '' file; do
   if [[ -e "$file" || -L "$file" ]]; then printf '%s\0' "$file"; fi
 done | COPYFILE_DISABLE=1 tar --null -T - -czf "$TEMP_DIR/source.tar.gz"
 export BUILD_GIT_SHA

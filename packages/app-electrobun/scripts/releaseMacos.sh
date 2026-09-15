@@ -33,7 +33,9 @@ PACKAGE_DIR="$REPO_ROOT/packages/app-electrobun"
 # Bun loads a bunfig.toml and dotenv files from its working directory, and turbo
 # starts Bun in each package before the Sentry wrapper checks the checkout, so
 # an untracked or modified file refuses the release before any Bun process runs.
-changes="$(git status --porcelain=v1 --untracked-files=normal)"
+# Host ignore rules must not hide Bun configuration, and status must not run a
+# configured filesystem-monitor hook before the checkout has been validated.
+changes="$(git -c core.excludesFile=/dev/null -c core.fsmonitor=false status --porcelain=v1 --untracked-files=normal)"
 if [[ -n "$changes" ]]; then
   echo "macOS releases require a clean Git checkout; commit changes first." >&2
   exit 1

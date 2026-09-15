@@ -159,7 +159,11 @@ before building. Host `node_modules`, ignored build output, `.git`, and
 Sentry DSNs as build arguments; AWS credentials and the Sentry upload token stay
 on the host. Local source edits are included in build mode. Upload refuses
 staged, unstaged, or untracked files before any Bun process runs, so the release
-identity names the committed source.
+identity names the committed source. Both release drivers resolve their own
+checkout through symlinks and clear inherited `GIT_*` variables. Clean-source
+checks disable `core.excludesFile` and `core.fsmonitor`: host ignore rules cannot
+hide untracked Bun configuration, and Git cannot run a filesystem-monitor hook.
+The Linux Docker context listing also disables filesystem-monitor hooks.
 
 The container build stages source maps outside the app and removes every map
 from the build directory, but uploads nothing
