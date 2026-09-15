@@ -1,11 +1,9 @@
 import type {
   ContainerCreateIntentSyncInput,
   ContainerCreateIntentSyncState,
-  CreatedRemoteContainerState,
 } from "./types";
 
 export async function settleContainerCreateIntent(input: {
-  alreadySettled: boolean;
   intent: ContainerCreateIntentSyncInput["intent"];
   isCurrent: () => boolean;
   remoteContainerId: string;
@@ -14,7 +12,6 @@ export async function settleContainerCreateIntent(input: {
   state: ContainerCreateIntentSyncState;
   supersededMovePreviousParentId: string | null;
 }): Promise<boolean> {
-  if (input.alreadySettled) return input.isCurrent();
   if (!input.isCurrent()) return false;
   const settleRevision = input.state.persistence.markCreateIntentRevisionSynced;
   if (!settleRevision) return false;
@@ -29,24 +26,4 @@ export async function settleContainerCreateIntent(input: {
     supersededMovePreviousParentId: input.supersededMovePreviousParentId,
   });
   return settled && input.isCurrent();
-}
-
-export async function settlePersistedContainerCreateIntent(input: {
-  alreadySettled: boolean;
-  created: CreatedRemoteContainerState;
-  intent: ContainerCreateIntentSyncInput["intent"];
-  isCurrent: () => boolean;
-  state: ContainerCreateIntentSyncState;
-}): Promise<"abandoned" | "intent-superseded" | null> {
-  const settled = await settleContainerCreateIntent({
-    alreadySettled: input.alreadySettled,
-    intent: input.intent,
-    isCurrent: input.isCurrent,
-    remoteContainerId: input.created.containerId,
-    remoteMetadataAccessStateHash: input.created.accessManifestHash,
-    remoteMetadataDocumentId: input.created.metadataDocumentId,
-    state: input.state,
-    supersededMovePreviousParentId: input.created.parentId,
-  });
-  return settled ? null : input.isCurrent() ? "intent-superseded" : "abandoned";
 }

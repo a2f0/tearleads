@@ -43,21 +43,21 @@ const { rootContainerId } = await tearleads.identity.generate();
 
 ## Current Host Contract
 
-This is a greenfield, flag-day SDK: custom hosts implement current interfaces,
-not older adapter shapes. `deviceFirst.open()` supplies the unified handle;
-there are no separate view/reconciler aliases. Container creation always uses
-the compound container-plus-metadata endpoint. Custom create, document link,
-unlink, writer-projection, and sync APIs must implement the structured `Result`
-methods and return complete transport failures; unused nullable mutation
-methods are not required host members. Container persistence must
-atomically save pending mutations and settle or record errors against the exact
+Hosts implement current greenfield SDK interfaces. `deviceFirst.open()`
+returns one unified handle without view/reconciler aliases. Container creation
+uses the compound container-plus-metadata endpoint. Create, document link, unlink,
+writer-projection, and sync APIs require structured `Result` methods with complete
+transport failures; unused nullable mutation methods are not required.
+Container persistence atomically saves pending mutations. An accepted create or
+move must save its state and settle its exact intent revision in one transaction;
+missing settlement acknowledgments are refused. Error recording also checks the
 intent revision; unconditional settlement is not supported.
 
 Local document tables require the current columns at startup. Reset obsolete
 tables instead of expecting additive schema upgrades. Principal-policy warming
 always verifies and persists its cache. Group policy writes require an explicit
 organization owner, pinned atomically with current/history/checkpoint rows.
-The public policy-cache and bundle-save interfaces require that owner in their types.
+Public policy-cache and bundle-save types require that owner.
 Unowned persisted group evidence requires a full local reset before scoped purge.
 The wire contract requires explicit
 commit-LSN mode, inline-rekey commit markers for nonempty batches, and original

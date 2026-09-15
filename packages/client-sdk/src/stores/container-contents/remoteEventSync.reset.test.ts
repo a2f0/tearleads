@@ -66,6 +66,7 @@ test("replacement initialization replays buffered metadata events", () => {
           documentId: "metadata-container-1",
           id: "event-1",
           type: "document_update_created",
+          containerIds: ["container-1"],
         },
       ],
     },

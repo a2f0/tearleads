@@ -25,8 +25,8 @@ async function runCreatePersistenceOutcome(
     | "deleted-during-settlement"
     | "identity-superseded"
     | "intent-superseded"
-    | "legacy-capability-missing"
-    | "legacy-persisted"
+    | "capability-missing"
+    | "unsettled"
     | "missing"
     | "planning-stale"
     | "response-stale"
@@ -142,7 +142,7 @@ async function runCreatePersistenceOutcome(
       return input.stillCurrent();
     },
   };
-  if (persistenceStatus === "legacy-capability-missing") {
+  if (persistenceStatus === "capability-missing") {
     Reflect.deleteProperty(persistence, "markCreateIntentRevisionSynced");
   }
   const parentState = createTestContainerState({
@@ -192,7 +192,7 @@ async function runCreatePersistenceOutcome(
         if (persistenceStatus === "intent-superseded") {
           throw new ContainerCreateIntentSupersededError();
         }
-        if (persistenceStatus === "legacy-persisted") {
+        if (persistenceStatus === "unsettled") {
           return {
             record: {
               ...childState.record,
@@ -212,7 +212,7 @@ async function runCreatePersistenceOutcome(
         };
       },
     };
-    const createdCount = await syncPendingContainerCreateIntents({
+    const creation = syncPendingContainerCreateIntents({
       host,
       isCurrent: () => current,
       isRemoteSyncBlocked: () => false,
@@ -221,6 +221,14 @@ async function runCreatePersistenceOutcome(
       },
       state,
     });
+    let createdCount = 0;
+    if (persistenceStatus === "unsettled") {
+      await expect(creation).rejects.toThrow(
+        "Container create persistence must settle the intent atomically",
+      );
+    } else {
+      createdCount = await creation;
+    }
     return {
       childContainerId,
       childState,
@@ -237,16 +245,17 @@ async function runCreatePersistenceOutcome(
   }
 }
 
-test("legacy create persistence settles the accepted intent explicitly", async () => {
-  const legacy = await runCreatePersistenceOutcome("legacy-persisted");
-
-  expect(legacy.createdCount).toBe(1);
-  expect(legacy.syncedIntents).toEqual([legacy.childContainerId]);
-  expect(legacy.deletedRemoteIds).toEqual([]);
+test("create persistence without atomic intent settlement is rejected", async () => {
+  const result = await runCreatePersistenceOutcome("unsettled");
+  expect(result.createdCount).toBe(0);
+  expect(result.syncedIntents).toEqual([]);
+  expect(result.deletedRemoteIds).toEqual([]);
+  expect(result.childState.container).toEqual(result.originalContainer);
+  expect(result.recordedErrors).toEqual([]);
 });
 
-test("legacy create adapters fail before issuing a remote mutation", async () => {
-  const legacy = await runCreatePersistenceOutcome("legacy-capability-missing");
+test("incomplete create adapters fail before issuing a remote mutation", async () => {
+  const legacy = await runCreatePersistenceOutcome("capability-missing");
 
   expect(legacy.createdCount).toBe(0);
   expect(legacy.remoteCreateCount).toBe(0);

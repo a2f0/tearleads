@@ -191,6 +191,7 @@ test("streamed peer text publishes after a local write settles", async () => {
               documentId: receiverStore.getSnapshot().documentId,
               id: "live-peer-update",
               type: "document_update_created",
+              containerIds: ["container-1"],
             },
           ],
         },

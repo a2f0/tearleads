@@ -35,7 +35,7 @@ function remoteContainer(id: string): ContainerNode {
   };
 }
 
-test("initial hydration flushes unscoped invalidation over the fresh tree", async () => {
+test("initial hydration ignores obsolete events and keeps inactive containers lazy", async () => {
   const { close, execSql } = await createTestExecSql(
     "reconciliation-hydration-order-test",
   );
@@ -82,14 +82,14 @@ test("initial hydration flushes unscoped invalidation over the fresh tree", asyn
     ready = true;
     emitContainerStore();
     await waitFor(
-      () => contentPulls.length === 2,
-      "Expected hydration backfill",
+      () => store.getSnapshot().containers.length === 2,
+      "Expected the hydrated tree",
     );
-
-    expect(contentPulls).toEqual([
-      { containerId: "c-1", force: true },
-      { containerId: "c-2", force: true },
-    ]);
+    expect(contentPulls).toEqual([]);
+    store.setActiveContainer("c-1");
+    await waitFor(() => contentPulls.length === 1, "Expected active discovery");
+    expect(contentPulls).toEqual([{ containerId: "c-1", force: false }]);
+    service.stop();
   } finally {
     close();
   }

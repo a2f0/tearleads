@@ -43,10 +43,12 @@ test("hasRemoteDocumentUpdateEvent cleans local echo ids after earlier remote ev
       {
         documentId: "document-1",
         type: "document_update_created",
+        containerIds: ["container-1"],
       },
       {
         documentId: "document-1",
         type: "document_update_created",
+        containerIds: ["container-1"],
         updateIds: ["local-update-1"],
       },
     ]),
@@ -63,6 +65,7 @@ test("hasRemoteDocumentUpdateEvent cleans local ids from mixed update events", (
       {
         documentId: "document-1",
         type: "document_update_created",
+        containerIds: ["container-1"],
         updateIds: ["local-update-1", "remote-update-1", "local-update-2"],
       },
     ]),
@@ -73,7 +76,11 @@ test("hasRemoteDocumentUpdateEvent cleans local ids from mixed update events", (
 
 test("handleDocumentRemoteEvents bumps the signal sequence when a remote update arrives", () => {
   const state = createRemoteEventState([
-    { documentId: "document-1", type: "document_update_created" },
+    {
+      documentId: "document-1",
+      type: "document_update_created",
+      containerIds: ["container-1"],
+    },
   ]);
 
   let scheduled = 0;
@@ -102,7 +109,11 @@ test("a remote event arriving mid-pass keeps the signal set so the re-run fetche
   // E2 arrives during the pass's await window: handleDocumentRemoteEvents
   // re-sets the signal and advances the sequence past what the pass consumed.
   const state = createRemoteEventState([
-    { documentId: "document-1", type: "document_update_created" },
+    {
+      documentId: "document-1",
+      type: "document_update_created",
+      containerIds: ["container-1"],
+    },
   ]);
   handleDocumentRemoteEvents(state, () => {});
   expect(state.remoteUpdateSignalSeq).toBe(1);

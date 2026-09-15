@@ -1,6 +1,5 @@
 import { errorMessage } from "../../../data/errorMessage";
 import { reportAndRethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
-import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import {
   createDetachedContainerMetadataState,
@@ -80,27 +79,6 @@ async function resolveMoveIntentLocalUpdatedAt(input: {
     : input.remoteUpdatedAt;
 }
 
-async function settleAcceptedMoveIntentAfterPersistence(input: {
-  alreadySettled: boolean;
-  execSql: ExecSql;
-  intent: ContainerMoveIntentSyncInput["intent"];
-  isCurrent: () => boolean;
-  markMoveIntentRevisionSynced: NonNullable<
-    ContainerMoveIntentSyncState["persistence"]["markMoveIntentRevisionSynced"]
-  >;
-}): Promise<boolean> {
-  if (input.alreadySettled) {
-    return true;
-  }
-  const settled = await input.markMoveIntentRevisionSynced(input.execSql, {
-    containerId: input.intent.containerId,
-    expectedIntentId: input.intent.id,
-    expectedUpdatedAt: input.intent.updatedAt,
-    stillCurrent: input.isCurrent,
-  });
-  return input.isCurrent() && settled;
-}
-
 export async function persistAcceptedMoveIntent(input: {
   host: ContainerMoveIntentSyncHost;
   isCurrent: () => boolean;
@@ -151,7 +129,6 @@ export async function persistAcceptedMoveIntent(input: {
     serverUpdatedAt: moved.updatedAt,
     updatedAt: moved.updatedAt,
   };
-  const execSql = state.runtime.infra.execSql;
   const persistenceResult = await host.persistContainerState(
     persistenceCandidate,
     {
@@ -184,14 +161,12 @@ export async function persistAcceptedMoveIntent(input: {
   if (!input.isCurrent() || persistenceResult.status !== "persisted") {
     return abandon();
   }
-  const intentSettled = await settleAcceptedMoveIntentAfterPersistence({
-    alreadySettled: persistenceResult.moveIntentSettled === true,
-    execSql,
-    intent,
-    isCurrent: input.isCurrent,
-    markMoveIntentRevisionSynced,
-  });
-  if (!input.isCurrent() || !intentSettled) return abandon();
+  if (persistenceResult.moveIntentSettled !== true) {
+    throw new Error(
+      "Container move persistence must settle the intent atomically",
+    );
+  }
+  if (!input.isCurrent()) return abandon();
   const { record: nextRecord } = persistenceResult;
   installDetachedContainerMetadataState(containerState, persistenceCandidate, {
     candidateRecord: nextRecord,

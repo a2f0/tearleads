@@ -14,8 +14,10 @@ sync adapters provide their required structured `Result` methods, including
 complete transport failures. Unused nullable mutation methods are neither
 required host members nor an alternative to the structured methods.
 Container persistence provides atomic `saveContainerWithPendingUpdate` and
-revision-checked create/move settlement and error recording. There is no
-unconditional settlement or three-argument error-recorder fallback.
+revision-checked create/move settlement and error recording. Saving an accepted
+create or move must also settle its intent in the same transaction; an
+acknowledgment without that settlement is rejected. There is no two-step save
+and settle, unconditional settlement, or three-argument error-recorder fallback.
 
 Local document tables must contain the current required columns; obsolete tables
 require reset, not an additive upgrade. Principal-policy warming verifies and

@@ -7,10 +7,7 @@ import {
 } from "../metadataStateIsolation";
 import type { ContainerState } from "../remoteHydration";
 import { hasRemoteContainerMetadataState } from "../remoteHydration/reconciliation";
-import {
-  settleContainerCreateIntent,
-  settlePersistedContainerCreateIntent,
-} from "./createIntentSettlement";
+import { settleContainerCreateIntent } from "./createIntentSettlement";
 import { CONTAINER_ALREADY_COMMITTED } from "./createWithMetadata";
 import { createRemoteContainer, deleteRemoteContainer } from "./remote";
 import type {
@@ -92,7 +89,6 @@ async function markContainerContentsContainerCreateIntentAlreadySynced(input: {
     return false;
   }
   return settleContainerCreateIntent({
-    alreadySettled: false,
     intent,
     isCurrent: input.isCurrent,
     remoteContainerId: containerState.container.id,
@@ -178,14 +174,11 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
     return "abandoned";
   }
   if (persistenceResult.status !== "persisted") return persistenceResult.status;
-  const settlementFailure = await settlePersistedContainerCreateIntent({
-    alreadySettled: persistenceResult.createIntentSettled === true,
-    created,
-    intent,
-    isCurrent: input.isCurrent,
-    state,
-  });
-  if (settlementFailure) return settlementFailure;
+  if (persistenceResult.createIntentSettled !== true) {
+    throw new Error(
+      "Container create persistence must settle the intent atomically",
+    );
+  }
   const { record: nextRecord } = persistenceResult;
   if (!input.isCurrent()) return "abandoned";
   const currentContainerState = state.containersById.get(intent.containerId);

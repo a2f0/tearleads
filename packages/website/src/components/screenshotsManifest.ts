@@ -50,27 +50,14 @@ export function screenshotPath(project: string, name: string): string {
   return `/screenshots/${encodeURIComponent(project)}/${encodeURIComponent(name)}`;
 }
 
-// Honor the deep-linked platform. Legacy screen-only links select the first
-// project that captured that screen, since the default may not have it.
+// Deep links always include the capture platform; the index uses the first.
 export function initialProject(
   manifest: ScreenshotManifest,
-  screen: string | undefined,
   platform: string | undefined,
 ): string {
-  if (platform && manifest.projects.includes(platform)) {
-    return platform;
-  }
-  if (screen) {
-    const withScreen = manifest.projects.find((project) =>
-      manifest.entries.some(
-        (entry) => entry.project === project && entry.name === screen,
-      ),
-    );
-    if (withScreen) {
-      return withScreen;
-    }
-  }
-  return manifest.projects[0] ?? "";
+  return platform && manifest.projects.includes(platform)
+    ? platform
+    : (manifest.projects[0] ?? "");
 }
 
 interface ScreenshotRoute {
@@ -88,10 +75,6 @@ export function screenshotRoutes(
   );
   return [
     { params: { slug: undefined }, props: {} },
-    ...manifest.screens.map((slug) => ({
-      params: { slug },
-      props: { initialScreen: slug },
-    })),
     ...Array.from(captures, ([slug, entry]) => ({
       params: { slug },
       props: { initialPlatform: entry.project, initialScreen: entry.name },

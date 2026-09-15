@@ -29,13 +29,9 @@ test("deep links preserve the selected platform when several captured the same s
     );
     expect(route).toBeDefined();
     expect(route?.props.initialScreen).toBe("explorer");
-    expect(
-      initialProject(
-        manifest,
-        route?.props.initialScreen,
-        route?.props.initialPlatform,
-      ),
-    ).toBe(platform);
+    expect(initialProject(manifest, route?.props.initialPlatform)).toBe(
+      platform,
+    );
   }
 });
 
@@ -43,8 +39,6 @@ test("routes deduplicate themes and include only captured platform/screen pairs"
   const slugs = screenshotRoutes(manifest).map((route) => route.params.slug);
   expect(slugs).toEqual([
     undefined,
-    "home",
-    "explorer",
     "windowed/explorer",
     "mobile/explorer",
     "mobile/home",
@@ -52,25 +46,10 @@ test("routes deduplicate themes and include only captured platform/screen pairs"
   ]);
 });
 
-test("legacy links select a platform that captured the requested screen", () => {
-  const route = screenshotRoutes(manifest).find(
-    (candidate) => candidate.params.slug === "home",
-  );
-  expect(route?.props).toEqual({ initialScreen: "home" });
-  expect(
-    initialProject(
-      manifest,
-      route?.props.initialScreen,
-      route?.props.initialPlatform,
-    ),
-  ).toBe("mobile");
-});
-
-test("explicit platforms take precedence over screen fallback and unknown platforms do not", () => {
-  expect(initialProject(manifest, "home", "tablet")).toBe("tablet");
-  expect(initialProject(manifest, "home", "unknown")).toBe("mobile");
-  expect(initialProject(manifest, "unknown", undefined)).toBe("windowed");
-  expect(initialProject(manifest, undefined, undefined)).toBe("windowed");
+test("the gallery index uses the default platform and deep links honor their platform", () => {
+  expect(initialProject(manifest, "tablet")).toBe("tablet");
+  expect(initialProject(manifest, "unknown")).toBe("windowed");
+  expect(initialProject(manifest, undefined)).toBe("windowed");
 });
 
 test("a build without captures retains only the gallery index", () => {
@@ -83,7 +62,7 @@ test("a build without captures retains only the gallery index", () => {
   expect(screenshotRoutes(empty)).toEqual([
     { params: { slug: undefined }, props: {} },
   ]);
-  expect(initialProject(empty, undefined, undefined)).toBe("");
+  expect(initialProject(empty, undefined)).toBe("");
 });
 
 test("screenshot names cannot add path segments, queries, or fragments to links", () => {

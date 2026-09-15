@@ -22,7 +22,6 @@ function stubService(
   return {
     enqueueContainer: () => {},
     enqueueIdleBackfill: () => {},
-    flushPendingUnscopedInvalidation: () => {},
     setActiveContainer: () => {},
     ...overrides,
   } as ReconciliationService;
@@ -79,7 +78,6 @@ test("prerequisites-regained trigger resets the discovered set first", () => {
 test("hydrated trigger reconciles only the active container", () => {
   const calls: Array<{ containerId: string; priority: string }> = [];
   let idleBackfills = 0;
-  let invalidationFlushes = 0;
   const reconcileListener = connectListener(
     stubService({
       enqueueContainer: (containerId, priority) => {
@@ -87,9 +85,6 @@ test("hydrated trigger reconciles only the active container", () => {
       },
       enqueueIdleBackfill: () => {
         idleBackfills += 1;
-      },
-      flushPendingUnscopedInvalidation: () => {
-        invalidationFlushes += 1;
       },
     }),
   );
@@ -101,15 +96,14 @@ test("hydrated trigger reconciles only the active container", () => {
 
   expect(calls).toEqual([{ containerId: "c-1", priority: "active" }]);
   expect(idleBackfills).toBe(0);
-  expect(invalidationFlushes).toBe(1);
 });
 
 test("remote container growth queues one idle backfill", () => {
-  const idleBackfills: Array<boolean | undefined> = [];
+  let idleBackfills = 0;
   const reconcileListener = connectListener(
     stubService({
-      enqueueIdleBackfill: (force) => {
-        idleBackfills.push(force);
+      enqueueIdleBackfill: () => {
+        idleBackfills += 1;
       },
     }),
   );
@@ -118,7 +112,7 @@ test("remote container growth queues one idle backfill", () => {
     reason: "remote-containers-added",
   });
 
-  expect(idleBackfills).toEqual([undefined]);
+  expect(idleBackfills).toBe(1);
 });
 
 test("event triggers enqueue the named container at active priority", () => {
@@ -322,11 +316,11 @@ test("self-echo suppression is single-use", () => {
   expect(enqueued).toEqual(["c-1"]);
 });
 
-test("event triggers backfill when an update has no container scope", () => {
-  const idleBackfills: Array<boolean | undefined> = [];
+test("event triggers reject updates without the current container scope", () => {
+  let idleBackfills = 0;
   const service = stubService({
-    enqueueIdleBackfill: (force) => {
-      idleBackfills.push(force);
+    enqueueIdleBackfill: () => {
+      idleBackfills += 1;
     },
   });
 
@@ -339,10 +333,10 @@ test("event triggers backfill when an update has no container scope", () => {
     service,
   });
 
-  expect(idleBackfills).toEqual([true]);
+  expect(idleBackfills).toBe(0);
 });
 
-test("hydration flushes an unscoped event received before the tree", async () => {
+test("obsolete events cannot force reconciliation after later hydration", async () => {
   const contentPulls: Array<{ containerId: string; force: boolean }> = [];
   const knownContainerIds: string[] = [];
   const service = createReconciliationService(
@@ -364,12 +358,9 @@ test("hydration flushes an unscoped event received before the tree", async () =>
   knownContainerIds.push("c-1", "c-2");
   reconcileListener({ activeContainerId: "c-1", reason: "hydrated" });
   await waitFor(
-    () => contentPulls.length === 2,
-    "Expected hydration to flush the global invalidation",
+    () => contentPulls.length === 1,
+    "Expected ordinary active-container hydration",
   );
 
-  expect(contentPulls).toEqual([
-    { containerId: "c-1", force: true },
-    { containerId: "c-2", force: true },
-  ]);
+  expect(contentPulls).toEqual([{ containerId: "c-1", force: false }]);
 });
