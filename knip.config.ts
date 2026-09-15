@@ -105,6 +105,9 @@ const baseConfig = {
         "scripts/packageElectrobunAssets.ts",
         // Hutch executes this hook before signing and creating installers.
         "scripts/postBuild.ts",
+        "scripts/postWrap.ts",
+        // postWrap invokes Bun to expand the macOS DMG payload.
+        "scripts/prepareMacosDmg.ts",
         // Invoked by the local release wrappers after artifact verification.
         "scripts/publishMacosRelease.ts",
         "scripts/publishLinuxRelease.ts",
