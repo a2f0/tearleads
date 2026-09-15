@@ -18,8 +18,12 @@ request a reset.
   any destructive operation.
 - An explicit request to destroy and rebuild an identified environment already
   authorizes its application database, blob storage, server, and replacement
-  runtime credentials. Do not ask for that permission again. A completed past
-  reset does not authorize a new reset task.
+  runtime credentials. Immediately before each destructive phase, summarize
+  the inspected plan and live server/database/bucket identities and verify they
+  still match that request. Continue under the existing authorization when
+  they match. If the scope or identities differ, stop and resolve that concrete
+  discrepancy before deletion. A completed past reset does not authorize a new
+  reset task.
 - A full invocation includes the compatibility scrub, `ship-pr` for necessary
   source changes, infrastructure rebuild, all supported release targets, and
   website refresh. Honor explicit narrower scope, including plan-only requests.

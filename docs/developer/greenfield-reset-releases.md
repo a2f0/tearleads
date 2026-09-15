@@ -15,11 +15,10 @@ Check `bundle check` in the native package's documented context. Check signing
 assets, Apple API credentials, Google Play service account and track access,
 Sentry source-map upload credentials, and both selected download buckets.
 
-On the September 2026 macOS host, `mise exec -- bundle ...` selected a different
-Ruby from `mise which ruby`. If that recurs, prepend the directories returned
-by `mise which ruby` and `mise which bun` to this run's `PATH`, then verify the
-actual versions again. Do not hardcode that run's versions or change global
-tooling to work around a per-process mismatch.
+If Bundler resolves a different Ruby from `mise which ruby`, prepend the
+directories returned by `mise which ruby` and `mise which bun` to this run's
+`PATH`, then verify the actual versions again. Do not hardcode versions from a
+previous run or change global tooling to work around a per-process mismatch.
 
 Freeze one clean merged source SHA for the run. The root desktop upload scripts
 refuse staged, unstaged, or untracked source changes; preserve their checks.

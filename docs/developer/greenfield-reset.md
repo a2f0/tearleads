@@ -2,8 +2,8 @@
 
 Operational reference for the `greenfield-reset` skill in Codex and Claude.
 This procedure replaces the selected environment's application data and servers.
-It uses current repository scripts; the September 2026 run is experience, not a
-source of reusable server IDs, credentials, build numbers, or Terraform plans.
+Use current repository scripts and live resource identities. Never reuse server
+IDs, credentials, build numbers, or Terraform plans from a previous run.
 
 ## Reset boundary
 
@@ -53,6 +53,13 @@ Check these before teardown:
   live state changes, refresh the plans and inspect them again. Resource counts
   from an earlier reset are not acceptance criteria.
 
+Immediately before each destructive phase, report the tier, frozen source SHA,
+old server ID, database branch ID where applicable, exact bucket name, and the
+saved plan to be applied. Recheck those identities against current provider/state
+readback and the user's authorized scope. If they differ, stop and resolve the
+specific discrepancy before deletion. An earlier preflight or a successful
+`ship-pr` run does not replace this check.
+
 If the requested reset discards data, proceed on that basis; do not create or
 restore a data backup implicitly. Retain Terraform state and private operational
 records needed for recovery. When backup retention is requested, record its
@@ -87,13 +94,22 @@ temporary lifecycle override. Keep the wrapper's ordinary protections intact.
 
 Use the selected tier's wrappers. `TIER` must be exactly `prod` or `staging`;
 `RUN_DIR` must be the absolute path of this run's private directory.
+Run examples from the repository root.
 
 ### 1. Remove old writers
 
 Prepare the server destruction plan using the same environment loader and
-backend as its wrapper. `run-server-stack.sh` has no `plan` action:
+backend as its wrapper. `run-server-stack.sh` has no `plan` action. Execute this
+whole block in one tool call/Bash invocation, including when the host defaults
+to zsh; its private environment contains the tier's exported secrets:
 
 ```bash
+bash -s -- "$TIER" "$RUN_DIR" <<'RESET_PLAN'
+set -euo pipefail
+TIER="$1"
+RUN_DIR="$2"
+case "$TIER" in prod | staging) ;; *) exit 1 ;; esac
+test -d "$RUN_DIR"
 source terraform/scripts/common.sh
 load_secrets_env "$TIER"
 validate_aws_env
@@ -105,9 +121,10 @@ validate_tailscale_auth_key_env
 terraform/scripts/run-server-stack.sh "$TIER" init
 terraform -chdir="terraform/stacks/$TIER/server" plan -input=false -destroy \
   -out="$RUN_DIR/$TIER-server-destroy.tfplan"
+RESET_PLAN
 ```
 
-Run the validators in this same shell: `validate_hetzner_env` exports the
+Keep the validators in this same Bash process: `validate_hetzner_env` exports the
 persistent SSH host keys, which an `init` child process cannot export back to
 the parent running `plan`. Keep those keys private and retain them for rebuild.
 

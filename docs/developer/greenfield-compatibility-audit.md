@@ -58,9 +58,6 @@ database, and `tearleads-prod` blob bucket with its runtime credentials.
 Staging also starts fresh by replacing its server (including local PostgreSQL)
 and independent blob storage stack.
 
-The reusable [greenfield reset runbook](greenfield-reset.md) covers teardown,
-rebuild, external state, and coordinated release verification.
-
 Terraform backend state, downloadable release buckets, store registrations,
 payment-provider configuration, and signing credentials remain dependencies of
 the rebuild. Production database and storage stacks must be provisioned before
@@ -70,3 +67,6 @@ running `scripts/deployProduction.sh`.
 macOS and Linux uploads additionally require their staging and production root
 release scripts. Website and web-app deployment are included in each tier's
 deployment script.
+
+The reusable [greenfield reset runbook](greenfield-reset.md) covers teardown,
+rebuild, external state, and coordinated release verification.
