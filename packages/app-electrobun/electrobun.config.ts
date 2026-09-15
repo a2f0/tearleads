@@ -10,9 +10,14 @@ const {
   [sourceMapDirEnvName]: sourceMapDir,
 } = process.env;
 
+const appName =
+  process.platform === "darwin" && releaseTier === "staging"
+    ? "TL Staging"
+    : "Tearleads";
+
 export default {
   app: {
-    name: "Tearleads",
+    name: appName,
     identifier: "com.tearleads.app",
     version: "0.0.1",
   },
@@ -54,7 +59,10 @@ export default {
     mainProcess: "bun",
     bun: {
       entrypoint: "src/bun/index.ts",
-      define: createMainProcessSentryDefine(process.env),
+      define: {
+        ...createMainProcessSentryDefine(process.env),
+        TEARLEADS_ELECTROBUN_APP_NAME: JSON.stringify(appName),
+      },
       ...(sourceMapDir ? { sourcemap: "external" as const } : {}),
     },
     views: {

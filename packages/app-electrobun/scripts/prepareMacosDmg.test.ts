@@ -8,7 +8,7 @@ import { dirname, join } from "node:path";
 const hook = join(import.meta.dirname, "postWrap.ts");
 const path = `${dirname(process.execPath)}:/usr/bin:/bin`;
 
-for (const name of ["Tearleads", "Tearleads-canary"]) {
+for (const name of ["Tearleads", "TL Staging-canary"]) {
   for (const valid of [true, false]) {
     test(`${name} ${valid ? "restores its expanded app" : "rejects a mismatched payload without deleting its wrapper"}`, async () => {
       const root = await mkdtemp(join(tmpdir(), "macos-post-wrap-"));

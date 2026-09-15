@@ -4,7 +4,7 @@ import { resolveMacosDownloads } from "./macosDownloads";
 for (const staging of [true, false]) {
   test(`website resolves a matched immutable ${staging ? "staging" : "production"} release`, async () => {
     const prefix = `${staging ? "canary" : "stable"}-macos-arm64`;
-    const app = staging ? "Tearleads-canary" : "Tearleads";
+    const app = staging ? "TLStaging-canary" : "Tearleads";
     const installer = `${prefix}-${"a".repeat(64)}-${app}.dmg`;
     const links = await resolveMacosDownloads(staging, async (url) => {
       expect(url).toEndWith(`${prefix}-download.json`);
@@ -14,6 +14,14 @@ for (const staging of [true, false]) {
     expect(links.checksumUrl).toBe(`${links.installerUrl}.sha256`);
   });
 }
+
+test("staging discovery accepts the existing name during the rollout", async () => {
+  const installer = `canary-macos-arm64-${"a".repeat(64)}-Tearleads-canary.dmg`;
+  const links = await resolveMacosDownloads(true, async () =>
+    Response.json({ installer, checksum: `${installer}.sha256` }),
+  );
+  expect(links.installerUrl).toEndWith(installer);
+});
 
 for (const response of [
   { installer: "https://untrusted.example/app.dmg", checksum: "wrong" },
@@ -41,5 +49,6 @@ test("offline website builds retain a matched first-release download", async () 
   expect(links.installerUrl).toContain(
     "downloads-staging.tearleads.com/canary-macos-arm64-",
   );
+  expect(links.installerUrl).toEndWith("-Tearleads-canary.dmg");
   expect(links.checksumUrl).toBe(`${links.installerUrl}.sha256`);
 });

@@ -254,7 +254,7 @@ const appServer = serve({
 console.log(`Electrobun app server running at ${appServer.url}`);
 
 new BrowserWindow({
-  title: "Tearleads",
+  title: TEARLEADS_ELECTROBUN_APP_NAME,
   url: appServer.url.href,
   frame: {
     x: 0,
