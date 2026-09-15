@@ -13,6 +13,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { findPackagedMainViewDir } from "./findPackagedMainViewDir";
 import { assertStagedSourceMaps } from "./sentrySourceMaps";
+import { verifyMacosDmg } from "./verifyMacosDmg";
 import { verifyPublishedRelease } from "./verifyPublishedRelease";
 
 if (process.platform !== "darwin" || process.arch !== "arm64")
@@ -42,7 +43,7 @@ const env = {
   PATH: `${root}/bin:${inheritedPath}`,
   NODE_ENV: "production",
   DASH_RELEASE_OFFLINE: "1",
-  ELECTROBUN_DEVELOPER_ID: "Packaging probe identity (never used)",
+  ELECTROBUN_DEVELOPER_ID: "-",
   PACKAGING_SIGN_PROBE: signingProbe,
   // A release tier's diagnostics: this is the only proof that Hutch applies
   // build.bun.sourcemap and define and that no map is sealed into the app.
@@ -60,8 +61,8 @@ import original from ${originalConfig};
 export default {
   ...original,
   app: { ...original.app, name: "PackagingProbe" },
-  build: { ...original.build, mac: { ...original.build.mac, codesign: ${fail}, notarize: false } },
-  scripts: { postBuild: ${JSON.stringify(fail ? "rejectPostBuild.ts" : "recordPostBuild.ts")} },
+  build: { ...original.build, mac: { ...original.build.mac, codesign: true, notarize: false } },
+  scripts: { ...original.scripts, postBuild: ${JSON.stringify(fail ? "rejectPostBuild.ts" : "recordPostBuild.ts")} },
 };
 `,
   );
@@ -157,7 +158,7 @@ try {
   await mkdir(join(root, "bin"));
   await Bun.write(
     join(root, "bin/codesign"),
-    '#!/bin/sh\necho invoked > "$PACKAGING_SIGN_PROBE"\nexit 93\n',
+    '#!/bin/sh\necho invoked > "$PACKAGING_SIGN_PROBE"\nexec /usr/bin/codesign "$@"\n',
   );
   await chmod(join(root, "bin/codesign"), 0o755);
 
@@ -225,6 +226,13 @@ execFileSync("bun", [${JSON.stringify(join(root, "capturePackagedAssets.ts"))}],
   );
 
   await verifyPublishedRelease(root, artifacts, archivedView, env);
+  await verifyMacosDmg(
+    root,
+    join(artifacts, "macos-arm64-PackagingProbe.dmg"),
+    join(unpacked, "PackagingProbe.app"),
+    env,
+  );
+  await rm(signingProbe);
 
   await Bun.write(
     join(root, "rejectPostBuild.ts"),

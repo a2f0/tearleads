@@ -68,6 +68,7 @@ export default {
   },
   scripts: {
     postBuild: "scripts/postBuild.ts",
+    postWrap: "scripts/postWrap.ts",
   },
   release: {
     baseUrl:
