@@ -18,6 +18,7 @@ export async function resolveDesktopDownload(
   const appName = staging ? "Tearleads-canary" : "Tearleads";
   // Retain the verified first-release fallback while accepting the renamed
   // macOS staging app. Linux still publishes Tearleads-canary.
+  // Drop the old macOS name once the pinned fallback is a TLStaging release.
   const appNamePattern =
     staging && target === "macos-arm64"
       ? "(?:TLStaging-canary|Tearleads-canary)"

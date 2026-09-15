@@ -112,7 +112,10 @@ async function verifySourceMapStaging(archive: string, unpacked: string) {
   );
   assert.equal(main.includes("TEARLEADS_ELECTROBUN_MAIN_SENTRY"), false);
   assert.equal(main.includes("TEARLEADS_ELECTROBUN_APP_NAME"), false);
-  assert.ok(main.includes(stagingNameProbe ? '"TL Staging"' : '"Tearleads"'));
+  assert.match(
+    main,
+    stagingNameProbe ? /title:\s*"TL Staging"/ : /title:\s*"Tearleads"/,
+  );
   // The real pairs need no other file to upload: embedded, repository-relative
   // sources and no foreign map reference.
   assert.equal(
@@ -259,6 +262,7 @@ execFileSync("bun", [${JSON.stringify(join(root, "capturePackagedAssets.ts"))}],
   );
   const previousArtifacts = new Set(await readdir(artifacts));
   await config(true);
+  // A different channel keeps failed-build artifact names out of the prior set.
   const failure = await build(stagingNameProbe ? "stable" : "canary");
   assert.notEqual(failure.code, 0, "A failed hook must fail the native build");
   assert.match(failure.output, /PACKAGING_FAILURE_PROBE/);

@@ -76,6 +76,12 @@ volume (`TL Staging-canary.app` / `TL Staging-canary`) and removes spaces from
 artifact filenames. Production uses **Tearleads**. The bundle identifier and
 channel data directories stay the same, so this rename preserves existing data.
 
+For this rename, quit `Tearleads-canary.app`, drag `TL Staging-canary.app` from
+the new DMG into Applications, then remove the old app bundle. Keep the app's
+data directories. Migration across the bundle rename through Electrobun's
+updater has not been verified; use this manual installation for existing staging
+installs.
+
 Like the iOS and Android wrappers, `*Release.sh` defaults to production and
 `*StagingRelease.sh` selects staging. Each supports `--help`. The original
 `*Release.sh staging` and `*Release.sh production` forms still work; staging
