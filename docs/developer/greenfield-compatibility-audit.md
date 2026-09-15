@@ -57,6 +57,10 @@ The production reset targets the application server, PlanetScale application
 database, and `tearleads-prod` blob bucket with its runtime credentials.
 Staging also starts fresh by replacing its server (including local PostgreSQL)
 and independent blob storage stack.
+
+The reusable [greenfield reset runbook](greenfield-reset.md) covers teardown,
+rebuild, external state, and coordinated release verification.
+
 Terraform backend state, downloadable release buckets, store registrations,
 payment-provider configuration, and signing credentials remain dependencies of
 the rebuild. Production database and storage stacks must be provisioned before
