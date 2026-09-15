@@ -111,9 +111,9 @@ fi
 
 step_timings_run "api" "${REPO_ROOT}/packages/api/scripts/deployProductionApi.sh"
 if [[ "$SKIP_INFRA" == true ]]; then
-  step_timings_run "website" "${REPO_ROOT}/packages/website/scripts/deployProductionWebsite.sh" --skip-terraform
+  step_timings_run "website" "${REPO_ROOT}/scripts/deployProductionWebsite.sh" --skip-terraform
 else
-  step_timings_run "website" "${REPO_ROOT}/packages/website/scripts/deployProductionWebsite.sh"
+  step_timings_run "website" "${REPO_ROOT}/scripts/deployProductionWebsite.sh"
 fi
 step_timings_run "app-web" "${REPO_ROOT}/packages/app-web/scripts/deployProductionAppWeb.sh"
 

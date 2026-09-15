@@ -13,8 +13,8 @@ async function runWebsite(script: string, args: string[] = [], failure = "") {
   try {
     for (const path of [
       "packages/website/scripts/deployWebsite.sh",
-      "packages/website/scripts/deployStagingWebsite.sh",
-      "packages/website/scripts/deployProductionWebsite.sh",
+      "scripts/deployStagingWebsite.sh",
+      "scripts/deployProductionWebsite.sh",
       "packages/website/scripts/destroyStagingWebsite.sh",
       "terraform/scripts/run-website-stack.sh",
     ]) {
@@ -89,7 +89,7 @@ for (const [label, tier, environment, portal] of [
   ["Staging", "staging", "staging", "test_00w7sKaemgcfdhb5lR0x200"],
   ["Production", "prod", "production", "live_fixture"],
 ]) {
-  const script = `packages/website/scripts/deploy${label}Website.sh`;
+  const script = `scripts/deploy${label}Website.sh`;
   test(`${tier} builds, publishes assets, then attaches its independent domain`, async () => {
     const result = await runWebsite(script);
     expect(result.exitCode, result.stderr).toBe(0);

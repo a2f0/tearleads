@@ -16,8 +16,8 @@ Wrangler owns asset deployments; the independent Terraform roots in
 leaves the website available. The API, application, and demo still use the server.
 
 ```sh
-packages/website/scripts/deployStagingWebsite.sh
-packages/website/scripts/deployProductionWebsite.sh
+scripts/deployStagingWebsite.sh
+scripts/deployProductionWebsite.sh
 ```
 
 Each script loads `.secrets/root.env` and its tier environment, builds Astro with
