@@ -17,10 +17,13 @@ export async function verifyMacosDmg(
   execFileSync(
     "/usr/bin/hdiutil",
     ["attach", "-readonly", "-nobrowse", "-mountpoint", mount, dmg],
-    { stdio: "ignore" },
+    { stdio: ["ignore", "ignore", "inherit"] },
   );
   try {
     const app = join(mount, basename(archivedApp));
+    execFileSync("/usr/bin/codesign", ["--verify", "--deep", "--strict", app], {
+      stdio: ["ignore", "ignore", "inherit"],
+    });
     assert.equal(readlinkSync(join(mount, "Applications")), "/Applications");
     assert.equal(
       existsSync(join(app, "Contents/Resources/metadata.json")),
@@ -49,6 +52,8 @@ export async function verifyMacosDmg(
     // Reach the bundled Bun through the native launcher on a read-only volume.
     // Exit in a test-only preload before opening windows, binding the app port,
     // or contacting services; all installer records go into the isolated home.
+    // Electrobun 2.0.1's launcher inherits its environment into Bun; its
+    // extractor honors ELECTROBUN_INSTALLER_UI_AUTOCLOSE for failure probes.
     const marker = join(root, "dmg-launched");
     const preload = join(root, "launchProbe.ts");
     await Bun.write(
@@ -68,6 +73,8 @@ export async function verifyMacosDmg(
     assert.equal(readFileSync(marker, "utf8"), "launched");
     console.log("The expanded DMG app launches from a read-only volume.");
   } finally {
-    execFileSync("/usr/bin/hdiutil", ["detach", mount], { stdio: "ignore" });
+    execFileSync("/usr/bin/hdiutil", ["detach", "-force", mount], {
+      stdio: ["ignore", "ignore", "inherit"],
+    });
   }
 }

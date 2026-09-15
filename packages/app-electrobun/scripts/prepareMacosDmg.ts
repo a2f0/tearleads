@@ -20,13 +20,14 @@ if (os === "macos") {
     throw new Error("Electrobun did not provide its macOS wrapper bundle");
 
   const resources = join(wrapper, "Contents/Resources");
-  const { hash } = JSON.parse(
+  const { hash }: { hash?: unknown } = JSON.parse(
     readFileSync(join(resources, "metadata.json"), "utf8"),
   );
   if (typeof hash !== "string" || !/^[a-z0-9]+$/iu.test(hash))
     throw new Error("Invalid macOS wrapper build hash");
 
   const staging = mkdtempSync(join(buildDir, ".macos-dmg-"));
+  let removeStaging = true;
   try {
     execFileSync("/usr/bin/tar", ["-xf", "-", "-C", staging], {
       input: Bun.zstdDecompressSync(
@@ -35,14 +36,24 @@ if (os === "macos") {
       stdio: ["pipe", "inherit", "inherit"],
     });
     const app = join(staging, basename(wrapper));
-    const version = JSON.parse(
+    const version: { hash?: unknown } = JSON.parse(
       readFileSync(join(app, "Contents/Resources/version.json"), "utf8"),
     );
     if (version.hash !== hash)
       throw new Error("macOS DMG payload does not match its wrapper");
-    rmSync(wrapper, { recursive: true });
-    renameSync(app, wrapper);
+    const previous = join(staging, ".wrapper");
+    renameSync(wrapper, previous);
+    try {
+      renameSync(app, wrapper);
+    } catch (error) {
+      // Retain the backup if even the rollback fails; a failed hook cannot
+      // proceed to signing or publish an incomplete app.
+      removeStaging = false;
+      renameSync(previous, wrapper);
+      removeStaging = true;
+      throw error;
+    }
   } finally {
-    rmSync(staging, { recursive: true, force: true });
+    if (removeStaging) rmSync(staging, { recursive: true, force: true });
   }
 }

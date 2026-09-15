@@ -125,9 +125,10 @@ SQLite assets in the update archive, and confirms a failed packaging hook stops
 before signing or artifact creation. It also publishes through a fake S3 command
 and uses Electrobun's actual updater to validate the manifest, resolve and read
 the published archive, and check its build hash. This probe uses no signing
-or AWS credentials. It also mounts the DMG read-only, checks its expanded app
-against the update payload, and launches through the native executable into a
-test-only Bun preload with an isolated home directory.
+or AWS credentials: the app uses ad-hoc signing and skips notarization. It also
+mounts the DMG read-only, verifies the app's code signature, checks its expanded
+app against the update payload, and launches through the native executable into
+a test-only Bun preload with an isolated home directory.
 
 ## Linux releases from Docker
 
