@@ -12,6 +12,7 @@ formal/document-sync/ContentWriteAuthority.tla|formal/document-sync/ContentWrite
 formal/document-sync/DeferredTailSettlement.tla|formal/document-sync/DeferredTailSettlement.cfg
 formal/document-sync/EmptyFrontierUnlink.tla|formal/document-sync/EmptyFrontierUnlink.cfg
 formal/document-sync/RawHistoryRecovery.tla|formal/document-sync/RawHistoryRecovery.cfg
+formal/document-sync/RawHistoryRecovery.tla|formal/document-sync/RawHistoryRecoveryProgress.cfg
 formal/document-sync/RestartProbeConvergence.tla|formal/document-sync/RestartProbeConvergence.cfg
 formal/local-trust/OrganizationScope.tla|formal/local-trust/OrganizationScope.cfg
 formal/local-trust/ContainerAuthoring.tla|formal/local-trust/ContainerAuthoring.cfg

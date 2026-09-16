@@ -40,13 +40,17 @@ trace the model rejects. See the
 [trace projection section](./document-sync/RestartProbeConvergence.md) for the
 recorded scenarios, negative controls, and boundaries.
 
-`bun run check:protocol-negative-controls` (part of `check:fast`) proves the
-invariants are not vacuous: each entry in `scripts/protocol/protocolNegativeControls.ts`
+`bun run check:protocol-negative-controls` (part of `check:fast`) checks selected
+properties for sensitivity to faults: each entry in `scripts/protocol/protocolNegativeControls.ts`
 flips one rule or lock in a registered configuration and requires TLC to
 report exactly the named violation. `bun run check:no-brick-projection` (also
 in `check:fast`) replays recorded runs of the real container-path and
 principal-policy verifiers through `NoBrickedDevice` the way the restart-probe
 projection does; see the [trace projection section](./container-keying/NoBrickedDevice.md).
+
+Negative controls do not establish non-vacuity for every property or prove
+that all intended actions are reachable. See the [September 2026 audit](./audit-2026-09.md)
+for the coverage inventory, improvements, and prioritized remaining work.
 
 To add a model, commit its `.tla` and bounded `.cfg` files and register the pair.
 One module may appear with multiple configurations, but each configuration must
@@ -136,6 +140,10 @@ never publish into a replacement generation. See the
 [production mapping, explored orderings, invariants, and bounds](./document-sync/DeferredTailSettlement.md).
 
 ## Opened-Document Recovery Probes
+
+Raw-history reconstruction before key rotation is covered separately by
+[RawHistoryRecovery](./document-sync/RawHistoryRecovery.md), including install
+ownership, checkpoint retirement, waiting writers, and fair worker termination.
 
 [`document-sync/RestartProbeConvergence.tla`](./document-sync/RestartProbeConvergence.tla)
 models startup and acknowledged-reconnect probes, peer writes during the

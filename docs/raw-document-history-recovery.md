@@ -172,7 +172,7 @@ durable history for three updates, two epochs, and two pages.
 | `RejectSupersededInstall` | a newer durable record or checkpoint lacking the stored operation-log prefix rejects and rolls back the guarded install |
 | `AppendCheckpointArtifact` | a checkpoint arriving before the install transaction acquires its write lock is selected and retired without entering recovered history |
 | `BeginBlockedWriter` / `CommitBlockedWriterBeforeRecovery` | a writer that wins the queue before recovery becomes an unverified artifact and atomically aborts publication |
-| `RejectBlockedWriterAfterRecovery` / `blockedWriterFence` | recovery advances the durable generation, so a writer that captured the prior generation and resumes afterward is rejected without a side effect |
+| `FinishBlockedWriterAfterRecovery` / `blockedWriterFence` | recovery advances the durable generation, so a writer that captured the prior generation is rejected; the model fault control disables this check and lets its stale checkpoint overwrite recovered history |
 | `PublishRecovery` | identity-write-serialized final verification and guarded `installRebuiltDocument`, including commit-time generation revalidation and atomic quarantine of every queued checkpoint artifact |
 | `ordinaryUpdates` | raw decrypted updates without `rotate_baseline` checkpoints |
 

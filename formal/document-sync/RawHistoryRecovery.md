@@ -31,7 +31,7 @@ generation and reject its stale enqueue or save.
 | `RejectSupersededInstall` | record and checkpoint compare-and-set guards in `commitStoredDocumentMutation` persistence |
 | `hasUnverifiedLocalGap` / `RejectUnverifiedLocalGap` | exact `updateMatchesDocumentHistory` compaction coverage plus recovery's exact-history rejection; unmatched and malformed tail rows remain durable evidence |
 | `AppendCheckpointArtifact` | a checkpoint row racing collection; the atomic install (`installRebuiltDocument`) retires the selected artifact without importing it as history |
-| `BeginBlockedWriter` / `RejectBlockedWriterAfterRecovery` | the durable `recoveryGeneration` captured by enqueue/save preparation and rechecked by settlement and commit paths |
+| `BeginBlockedWriter` / `FinishBlockedWriterAfterRecovery` | the durable `recoveryGeneration` captured by enqueue/save preparation and rechecked by settlement and commit paths |
 
 ## Checked Properties and Bounds
 
@@ -53,9 +53,45 @@ a remote update racing settlement. The maximal initial durable-history set is
 the representative for preservation checks, so any pre-completion clear or
 overwrite remains observable without multiplying equivalent initial subsets.
 
-TLC explores 7,749,072 generated states, 4,408,696 distinct states, and depth
-14 without an invariant violation. Sets abstract operation-log identity and page
+The safety configuration explores 7,749,072 generated states, 4,408,696 distinct
+states, and depth 14. Sets abstract operation-log identity and page
 membership; production tests remain responsible for cryptographic verification,
 canonical operation bytes, Loro import semantics, SQLite transactionality,
 pagination-token parsing, and projection-cache refetch behavior. This is
 exhaustive bounded model checking, not an unbounded proof.
+
+## Progress and Negative Controls
+
+`RawHistoryRecoveryProgress.cfg` checks `RecoveryEventuallyTerminates` with two
+updates, two epochs, and two pages. Every fair recovery eventually either
+publishes or explicitly fails. `FairSpec` adds weak fairness only for
+`RecoveryStep`, the worker's validation, settlement, rejection, and publication
+actions. It does not require a reset, a competing write, or a waiting writer to
+run. Each worker step advances a bounded page/phase or terminates; the model
+contains no worker retry cycle that could satisfy fairness without progress.
+This assumes awaited worker operations eventually return. It does not prove
+network availability, successful recovery for invalid input, or completion
+under unbounded retries.
+
+The smaller progress run explores 292,008 generated states, 168,712 distinct
+states, and depth 13. The original three-update safety configuration remains
+registered and checks the larger frontier without adding temporal-check cost.
+
+Five fault switches are `TRUE` in both registered configurations. Automated
+negative controls independently flip them and require these failures:
+
+| Disabled switch | Expected violation |
+| --- | --- |
+| `RequireCurrentGeneration` | `ChangedGenerationNeverPublishes` |
+| `RequireWinningInstall` | `SupersededInstallNeverPublishes` |
+| `RetireCheckpoints` | `CompleteRecoveryRetiresQueuedCheckpoints` |
+| `FenceBlockedWriters` | `CompleteRecoveryContainsAllOrdinaryHistory` |
+| `FinishVerifiedRecovery` | `RecoveryEventuallyTerminates` |
+
+The first four mutate the install guards or effects. The last suppresses the
+verified publication step: safety still permits waiting forever in `ready`, but
+the temporal check rejects it even though an external reset could end recovery.
+These are model fault switches, not runtime configuration options. The writer
+completion now represents both rejection and an erroneously committed stale
+write that restores the pre-recovery checkpoint. The control must violate exact
+durable-history preservation, independently of the writer's status label.
