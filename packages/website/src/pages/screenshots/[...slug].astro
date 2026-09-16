@@ -1,4 +1,5 @@
 ---
+import { publicDir } from "astro:config/server";
 import PageHeader from "../../components/PageHeader.astro";
 import { ScreenshotsBrowser } from "../../components/ScreenshotsBrowser";
 import {
@@ -18,7 +19,7 @@ interface Props {
 // Light and dark captures share a route. With no captures only the index
 // route exists.
 export async function getStaticPaths() {
-  return screenshotRoutes(await loadScreenshotManifest());
+  return screenshotRoutes(await loadScreenshotManifest(publicDir));
 }
 
 const { initialPlatform, initialScreen } = Astro.props;

@@ -1,4 +1,5 @@
 ---
+import { publicDir } from "astro:config/server";
 import { loadScreenshotManifest } from "../screenshots";
 import { findScreenshot, screenshotPath } from "./screenshotsManifest";
 
@@ -43,7 +44,7 @@ const {
   priority = false,
 } = Astro.props;
 
-const manifest = await loadScreenshotManifest();
+const manifest = await loadScreenshotManifest(publicDir);
 const light = findScreenshot(manifest, "windowed", "light", name);
 const dark = findScreenshot(manifest, "windowed", "dark", name);
 const mobileLight = phone
