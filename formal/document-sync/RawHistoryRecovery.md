@@ -85,7 +85,7 @@ negative controls independently flip them and require these failures:
 | `RequireCurrentGeneration` | `ChangedGenerationNeverPublishes` |
 | `RequireWinningInstall` | `SupersededInstallNeverPublishes` |
 | `RetireCheckpoints` | `CompleteRecoveryRetiresQueuedCheckpoints` |
-| `FenceBlockedWriters` | `BlockedWriterCannotCrossRecoveryFence` |
+| `FenceBlockedWriters` | `CompleteRecoveryContainsAllOrdinaryHistory` |
 | `FinishVerifiedRecovery` | `RecoveryEventuallyTerminates` |
 
 The first four mutate the install guards or effects. The last suppresses the
@@ -93,4 +93,5 @@ verified publication step: safety still permits waiting forever in `ready`, but
 the temporal check rejects it even though an external reset could end recovery.
 These are model fault switches, not runtime configuration options. The writer
 completion now represents both rejection and an erroneously committed stale
-write, so its invariant is exercised against an explicit competing outcome.
+write that restores the pre-recovery checkpoint. The control must violate exact
+durable-history preservation, independently of the writer's status label.

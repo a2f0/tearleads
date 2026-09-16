@@ -19,6 +19,14 @@ export const SYSTEM_DESTINATION_NEGATIVE_CONTROLS: readonly NegativeControl[] =
       why: "A document deferred during root verification must be scheduled after acknowledgement (#2266).",
     },
     {
+      id: "root-acknowledgment-never-reprimes-document",
+      module: "formal/local-trust/RootDocumentPriming.tla",
+      config: "formal/local-trust/RootDocumentPriming.cfg",
+      constants: { ReprimeAfterRemoteAcknowledgment: "FALSE" },
+      expect: { kind: "liveness", name: "DocumentEventuallySyncs" },
+      why: "A document pass deferred before root acknowledgment must be scheduled again even if no further edit occurs.",
+    },
+    {
       id: "system-slot-created-outside-root",
       module: "formal/local-trust/SystemDestination.tla",
       config: "formal/local-trust/SystemDestination.cfg",

@@ -1,12 +1,13 @@
 --------------------- MODULE RawHistoryRecovery ---------------------
 EXTENDS Naturals
 
-(* Recovery verifies ordinary history, settles proven rows, and pulls again *)
-(* to include races. Checkpoints are authenticated but never reconstructed. *)
-(* updateValid abstracts identity, dependency closure and encrypted bindings. *)
-(* hasUnverifiedLocalGap includes malformed/forked uncompacted tail rows. *)
-(* Publication checks exact history, generation and record/checkpoint CAS, *)
-(* then advances the fence captured by waiting writers. See RawHistoryRecovery.md. *)
+(* Every served update is authenticated: updateValid abstracts identity, *)
+(* dependency closure, encrypted bindings, isolation priority and unresolved *)
+(* dependencies. Recovery verifies history, settles proven rows, and pulls *)
+(* again for races; checkpoints never supply ordinary provenance. *)
+(* hasUnverifiedLocalGap includes malformed/forked tail rows. Publication *)
+(* checks exact history, generation and CAS, then fences waiting writers. *)
+(* See RawHistoryRecovery.md for mapping and bounds. *)
 
 CONSTANTS MaxUpdate, MaxEpoch, MaxPage, RequireCurrentGeneration,
           RequireWinningInstall, RetireCheckpoints, FenceBlockedWriters,
@@ -16,7 +17,8 @@ ASSUME /\ MaxUpdate \in Nat \ {0}
        /\ MaxEpoch \in Nat \ {0}
        /\ MaxPage \in Nat \ {0}
        /\ {RequireCurrentGeneration, RequireWinningInstall,
-           RetireCheckpoints, FenceBlockedWriters, FinishVerifiedRecovery} \subseteq BOOLEAN
+           RetireCheckpoints, FenceBlockedWriters,
+           FinishVerifiedRecovery} \subseteq BOOLEAN
 
 UpdateIds == 1..MaxUpdate
 Epochs == 1..MaxEpoch
@@ -42,12 +44,10 @@ fixedModel == << pageOf, updateEpoch, updateValid, epochAvailable,
 (* Preliminary proof is retained with commit state after verification. *)
 durableState == << durableHistory, durablePublished, preliminaryProven >>
 PageUpdates(page) == {id \in UpdateIds : pageOf[id] = page}
-(* MaxUpdate is the bounded representative for a retained ordinary update    *)
-(* that commits after preliminary validation but before the definitive pull. *)
+(* MaxUpdate represents a remote update racing the two pulls. *)
 LateRemoteUpdates == ordinaryUpdates \cap {MaxUpdate}
 PreliminaryOrdinaryUpdates == ordinaryUpdates \ LateRemoteUpdates
-(* Local pending operations are absent from the preliminary server history.  *)
-(* Successful settlement makes them part of the definitive raw pull.         *)
+(* Pending rows reach the definitive server frontier after settlement. *)
 DefinitiveOrdinaryUpdates == ordinaryUpdates \cup initialLocalPending
 RotationCheckpoints ==
   UpdateIds \ (ordinaryUpdates \cup initialLocalPending)
@@ -383,11 +383,14 @@ PublishRecovery ==
 FinishBlockedWriterAfterRecovery ==
   /\ phase = "complete"
   /\ blockedWriterFence = "stale"
-  /\ blockedWriterFence' = IF FenceBlockedWriters THEN "rejected" ELSE "committed"
+  /\ blockedWriterFence' =
+       IF FenceBlockedWriters THEN "rejected" ELSE "committed"
+  /\ durableHistory' =
+       IF FenceBlockedWriters THEN durableHistory ELSE initialDurableHistory
   /\ UNCHANGED << phase, fixedModel, nextPage, localPending,
                   queuedCheckpoints, hasUnverifiedLocalGap,
-                  generationCurrent, scratchHistory, durableState,
-                  reportedUnavailableEpoch >>
+                  generationCurrent, scratchHistory, durablePublished,
+                  preliminaryProven, reportedUnavailableEpoch >>
 
 RemainTerminal ==
   /\ phase \in {"preliminary_failed", "failed", "complete"}
@@ -425,7 +428,8 @@ Next == RecoveryStep
 
 Spec == Init /\ [][Next]_vars
 FairSpec == Spec /\ WF_vars(RecoveryStep)
-RecoveryEventuallyTerminates == <> (phase \in {"preliminary_failed", "failed", "complete"})
+RecoveryEventuallyTerminates ==
+  <> (phase \in {"preliminary_failed", "failed", "complete"})
 NoDurableMutationBeforeComplete ==
   phase = "complete" \/
     (~durablePublished /\ durableHistory = initialDurableHistory /\

@@ -46,16 +46,8 @@ export const RECOVERY_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     constants: { FenceBlockedWriters: "FALSE" },
     expect: {
       kind: "invariant",
-      name: "BlockedWriterCannotCrossRecoveryFence",
+      name: "CompleteRecoveryContainsAllOrdinaryHistory",
     },
-    why: "A writer captured before recovery publication must reject its stale generation when it resumes.",
-  },
-  {
-    id: "root-acknowledgment-never-reprimes-document",
-    module: "formal/local-trust/RootDocumentPriming.tla",
-    config: "formal/local-trust/RootDocumentPriming.cfg",
-    constants: { ReprimeAfterRemoteAcknowledgment: "FALSE" },
-    expect: { kind: "liveness", name: "DocumentEventuallySyncs" },
-    why: "A document pass deferred before root acknowledgment must be scheduled again even if no further edit occurs.",
+    why: "A resumed writer must not overwrite the recovered checkpoint with its stale pre-recovery history.",
   },
 ];
