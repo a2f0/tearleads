@@ -11,7 +11,7 @@ The existing [NoBrickedDevice model and mapping](./container-keying/NoBrickedDev
 already satisfy F1. One dependent/authority relation represents either a
 descendant container citing an ancestor or a group policy citing Admins.
 The implementation traces exercise both interpretations and a container's
-historical group membership. No additional refusal rule is needed.
+historical group membership. No additional currency rule is needed.
 
 | Requirement | Executable evidence |
 | --- | --- |
@@ -22,8 +22,9 @@ historical group membership. No additional refusal rule is needed.
 | Implementation-to-model projection | [Projection runner](../scripts/protocol/checkNoBrickProjection.ts): five recorded traces, including container ancestor citations, group membership, and principal-policy citations; five deliberately corrupted projections must fail |
 | Registration, checked mapping, and push gate | Both configurations in [protocol-models.txt](./protocol-models.txt); mapping registered in [lintFormalAbstractionMaps.ts](../scripts/protocol/lintFormalAbstractionMaps.ts); all checks in `check:fast` |
 
-The honest configuration explores two devices and three versions of each
-object: 78,678 generated states, 16,016 distinct states, depth 9. The adversary
+Rechecked from model revision `1e450d026259666586ea932897fcd72faf8ab26b`
+on 2026-09-16, the honest configuration explores two devices and three versions
+of each object: 78,678 generated states, 16,016 distinct states, depth 9. The adversary
 configuration explores one device and the same version bounds: 136,428
 generated states, 4,676 distinct states, depth 7. All nine model negative
 controls remain registered. The authority's genuine history is abstracted as
@@ -46,7 +47,7 @@ verifiers. The conformance runner includes every suite below.
 | Forged grant, omitted target, swapped recipient key | [keyingProperties.test.ts](../packages/crypto/src/keying/keyingProperties.test.ts): mutated grants, missing document KEK targets, and swapped recipient fingerprints |
 | Split projection, key-epoch reuse after shrink | Same suite: unsigned policy projection members and signed shrink without key rotation |
 | Same-epoch fork and rollback below checkpoint | Same suite: container and policy checkpoint checks against independently valid signed alternatives |
-| Stale manifest and inherited path authority | [keyingPathProperties.test.ts](../packages/crypto/src/keying/keyingPathProperties.test.ts): old signed manifest under a requested newer hash, removal of the authorizing root, and removal of the cited parent |
+| Stale manifest and inherited path authority | [keyingPathProperties.test.ts](../packages/crypto/src/keying/keyingPathProperties.test.ts): old signed manifest under a requested newer hash, removal of the authorizing root or cited parent, and splicing an unrelated authorizing root |
 | Exhaustive Merkle prefix and inclusion matrix | [transparencyProofs.test.ts](../packages/crypto/src/keying/transparencyProofs.test.ts): all 2,145 pairs `0 <= m <= n <= 64`, all 2,080 leaf positions through size 64, independent iterative root oracle, and explicit 5-to-6 proof shape |
 | Merkle mutation negatives | [transparencyProofMutations.test.ts](../packages/crypto/src/keying/transparencyProofMutations.test.ts): every node position of every nontrivial prefix and every inclusion proof through size 32; deletion, replacement, adjacent swaps, extra nodes, wrong leaves/positions, and decoy checkpoints |
 
@@ -56,6 +57,17 @@ selected one replacement and swap position per proof despite a test name
 claiming every position. The audit expanded that coverage, added genuine
 ancestor paths (the earlier generators only built roots), and distinguished
 requested-hash freshness from rollback against a local checkpoint.
+
+Independent review also found that the crypto authorization helpers combined
+grants from individually verified heads without checking their path structure.
+A generated spliced-root regression failed before the fix. Shared crypto
+authorization now requires a root, contiguous parent IDs, one organization,
+and no repeated container IDs. The current and historical access folds enforce
+this before combining grants; the state-only fold remains a calculation over
+already-trusted states. The API and SDK already check path structure, so this
+closes a standalone kernel gap, not a demonstrated endpoint bypass. Creation-time
+parent hashes need not equal served heads: honest ancestor advancement and
+historical citations remain accepted, as the F1 projection tests verify.
 
 Keying properties run eight successful generated cases each; transparency
 properties run forty each with trees up to 192 leaves. These randomized runs

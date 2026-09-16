@@ -44,6 +44,7 @@ interface PoolSigner {
 }
 
 export const POOL_SIZE = 4;
+export const KEYING_PROPERTY_RUNS = 8;
 let poolPromise: Promise<readonly PoolSigner[]> | undefined;
 
 /** The creator is always `pool[0]`; the others are grantees or forgers. */

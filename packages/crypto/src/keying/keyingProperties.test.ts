@@ -18,6 +18,7 @@ import {
   checkpointOf,
   containerChainPlanArb,
   containerSuccessor,
+  KEYING_PROPERTY_RUNS,
   signerPool,
   sortedGrants,
 } from "./keyingArbitraries.testFixtures";
@@ -42,7 +43,6 @@ import { expectVerificationError } from "./testFixtures";
  * device checkpoint.
  */
 
-const RUNS = 8;
 let runId = 0;
 function label(prefix: string): string {
   runId += 1;
@@ -96,7 +96,7 @@ test("property: a manifest whose grants differ from its signed event is refused"
         expect(forged.ok).toBe(false);
       },
     ),
-    { numRuns: RUNS },
+    { numRuns: KEYING_PROPERTY_RUNS },
   );
 });
 
@@ -144,7 +144,7 @@ test("property: a document key target set missing a linked container is refused"
         expectVerificationError(forged, "missing_dependency");
       },
     ),
-    { numRuns: RUNS },
+    { numRuns: KEYING_PROPERTY_RUNS },
   );
 });
 
@@ -180,7 +180,7 @@ test("property: a key wrap addressed to a swapped recipient key is refused", asy
       });
       expectVerificationError(swapped, "hash_mismatch");
     }),
-    { numRuns: RUNS },
+    { numRuns: KEYING_PROPERTY_RUNS },
   );
 });
 
@@ -227,7 +227,7 @@ test("property: a manifest below a device checkpoint is a rollback; the head ext
         ).not.toThrow();
       },
     ),
-    { numRuns: RUNS },
+    { numRuns: KEYING_PROPERTY_RUNS },
   );
 });
 
@@ -286,7 +286,7 @@ test("property: a same-epoch fork of a checkpointed container head is an equivoc
       });
       expectVerificationError(forked, "equivocation");
     }),
-    { numRuns: RUNS },
+    { numRuns: KEYING_PROPERTY_RUNS },
   );
 });
 
@@ -343,7 +343,7 @@ test("property: removing a policy member without a new key epoch is refused; wit
       });
       expect(rotated.ok).toBe(true);
     }),
-    { numRuns: RUNS },
+    { numRuns: KEYING_PROPERTY_RUNS },
   );
 });
 
@@ -371,7 +371,7 @@ test("property: a served projection row the signed policy state does not commit 
       });
       expectVerificationError(split, "hash_mismatch");
     }),
-    { numRuns: RUNS },
+    { numRuns: KEYING_PROPERTY_RUNS },
   );
 });
 
@@ -433,6 +433,6 @@ test("property: a second signed policy state at a checkpointed version is an equ
         }
       },
     ),
-    { numRuns: RUNS },
+    { numRuns: KEYING_PROPERTY_RUNS },
   );
 });

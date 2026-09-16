@@ -1,17 +1,20 @@
 import { expect, test } from "bun:test";
 import fc from "fast-check";
-import { verifyContainerAccessManifest } from "./index";
+import {
+  resolveContainerPathUserAccessLevel,
+  resolveHistoricalContainerPathUserAccessLevel,
+  verifyContainerAccessManifest,
+} from "./index";
 import {
   buildContainerChain,
   containerChainPlanArb,
+  KEYING_PROPERTY_RUNS,
 } from "./keyingArbitraries.testFixtures";
 import {
   buildContainerPath,
   containerPathPlanArb,
 } from "./keyingPathArbitraries.testFixtures";
 import { expectVerificationError } from "./testFixtures";
-
-const RUNS = 8;
 
 test("property: inherited creation requires its authorizing root and cited parent", async () => {
   await fc.assert(
@@ -33,14 +36,32 @@ test("property: inherited creation requires its authorizing root and cited paren
       expect((await verify(parentPath)).ok).toBe(true);
       expectVerificationError(
         await verify(parentPath.slice(1)),
-        "unauthorized",
+        "missing_dependency",
       );
       expectVerificationError(
         await verify(parentPath.slice(0, -1)),
         "missing_dependency",
       );
+      const unrelated = await buildContainerChain(plan.root, "unrelated-root");
+      const unrelatedRoot = unrelated.manifests.at(-1);
+      if (!unrelatedRoot) throw new Error("root chain is never empty");
+      // Every entry is authentic, and the endpoint is still the cited parent,
+      // but the signer cannot borrow authority from a different root's grants.
+      const spliced = [unrelatedRoot, ...parentPath.slice(1)];
+      expectVerificationError(await verify(spliced), "missing_dependency");
+      // Document authorization also uses the public current/historical folds.
+      for (const resolve of [
+        resolveContainerPathUserAccessLevel,
+        resolveHistoricalContainerPathUserAccessLevel,
+      ]) {
+        const userId = leaf.event.event.signerUserId;
+        expect(resolve({ path: parentPath, userId })).toBe("admin");
+        expect(() => resolve({ path: spliced, userId })).toThrow(
+          "not contiguous",
+        );
+      }
     }),
-    { numRuns: RUNS },
+    { numRuns: KEYING_PROPERTY_RUNS },
   );
 });
 
@@ -71,17 +92,20 @@ test("property: an authentic stale manifest cannot satisfy a requested head hash
       const stale = chain.manifests[staleIndex];
       if (!stale) throw new Error("stale index must name an earlier manifest");
       const stalePrevious = chain.manifests[staleIndex - 1] ?? null;
-      expectVerificationError(
-        await verifyContainerAccessManifest({
+      const verifyStale = (expectedManifestHash: string) =>
+        verifyContainerAccessManifest({
           manifest: stale.manifest,
-          expectedManifestHash: head.manifestHash,
+          expectedManifestHash,
           event: stale.event,
           previousManifest: stalePrevious,
           previousContainerPath: stalePrevious ? [stalePrevious] : [],
-        }),
+        });
+      expect((await verifyStale(stale.manifestHash)).ok).toBe(true);
+      expectVerificationError(
+        await verifyStale(head.manifestHash),
         "hash_mismatch",
       );
     }),
-    { numRuns: RUNS },
+    { numRuns: KEYING_PROPERTY_RUNS },
   );
 });

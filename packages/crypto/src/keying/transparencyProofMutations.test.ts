@@ -105,7 +105,8 @@ test("consistency mutations at every node position through size 32 are refused",
       cases += 2;
     }
   }
-  expect(cases).toBeGreaterThanOrEqual(496 * 5);
+  // For each 1 <= m < n <= 32: 3 * node count + 2 mutations.
+  expect(cases).toBe(7661);
 });
 
 test("inclusion mutations at every node position through size 32 are refused", async () => {
@@ -187,5 +188,6 @@ test("inclusion mutations at every node position through size 32 are refused", a
       }
     }
   }
-  expect(cases).toBeGreaterThanOrEqual(528 * 4);
+  // Every leaf through size 32, including the empty path at size 1.
+  expect(cases).toBe(9168);
 });
