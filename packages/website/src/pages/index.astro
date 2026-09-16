@@ -1,102 +1,77 @@
 ---
-import { AppleLogoIcon } from "@phosphor-icons/react/dist/ssr/AppleLogo";
-import { LinuxLogoIcon } from "@phosphor-icons/react/dist/ssr/LinuxLogo";
-import { isStaging } from "../config";
+import DownloadList from "../components/DownloadList.astro";
+import HomeClosing from "../components/HomeClosing.astro";
+import HomePricing from "../components/HomePricing.astro";
+import HomeProduct from "../components/HomeProduct.astro";
+import HomeSecuritySummary from "../components/HomeSecuritySummary.astro";
+import HomeSteps from "../components/HomeSteps.astro";
+import HomeZero from "../components/HomeZero.astro";
+import PageHeader from "../components/PageHeader.astro";
+import Screenshot from "../components/Screenshot.astro";
+import StatusNotice from "../components/StatusNotice.astro";
+import { appUrl } from "../config";
 import Layout from "../layouts/Layout.astro";
-import { resolveLinuxDownloads } from "../linuxDownloads";
-import { resolveMacosDownloads } from "../macosDownloads";
+import { startingSyncPrice } from "../pricing";
+import "../styles/home.css";
+import "../styles/homeSections.css";
+import { tagline, taglineLines } from "../tagline";
 
-const [macos, linux] = await Promise.all([
-  resolveMacosDownloads(isStaging),
-  resolveLinuxDownloads(isStaging),
-]);
+const metaItems = [
+  "Free on your device",
+  `Sync from ${startingSyncPrice}/month`,
+  "macOS",
+  "Linux",
+  "Web",
+];
 ---
 
 <Layout
-  title="Tearleads"
-  description="Tearleads is a local-first workspace for your notes, contacts, and files."
+  title={`Tearleads | ${tagline}`}
+  description="Notes, contacts, and files encrypted on your device. No signup, email, or password. Free locally; paid plans add end-to-end encrypted sync. macOS, Linux, web."
 >
-  <main class="website-main">
-    <section class="intro" aria-labelledby="page-title">
-      <h1 id="page-title">Tearleads</h1>
-      <p class="lede">
-        Keep your notes, contacts, and files in one place — local-first,
-        synced across your devices, and shared on your terms.
-      </p>
-      <ul class="desktop-downloads" role="list" aria-label="Downloads">
-        <li class="desktop-download">
-          <a class="download-button" href={macos.installerUrl}>
-            <AppleLogoIcon size={20} aria-hidden="true" focusable="false" />
-            <span>{isStaging ? "Download macOS preview" : "Download for macOS"}</span>
+  <div class="site-page home">
+    <section class="home-hero" aria-labelledby="page-title">
+      <PageHeader
+        display
+        title={tagline}
+        lede="Notes, contacts, and files, encrypted on your device before they sync. No email, no password, no signup form: open Tearleads and start working."
+      >
+        <Fragment slot="title">
+          {taglineLines.map((line, index) => (
+            <>
+              {index > 0 && " "}
+              <span class="home-hero-line">{line}</span>
+            </>
+          ))}
+        </Fragment>
+        <div class="site-actions">
+          <a class="site-button site-button--primary" href={appUrl}>Open web app</a>
+          <a class="site-button site-button--secondary" href="#download">
+            Download for desktop
           </a>
-          <p>For Macs with Apple silicon.</p>
-          <a class="download-checksum" href={macos.checksumUrl} aria-label="SHA-256 checksum for macOS">
-            SHA-256 checksum
-          </a>
-        </li>
-        <li class="desktop-download">
-          <a class="download-button" href={linux.installerUrl}>
-            <LinuxLogoIcon size={20} aria-hidden="true" focusable="false" />
-            <span>{isStaging ? "Download Linux preview" : "Download for Linux"}</span>
-          </a>
-          <p>For Linux x64 (Intel / AMD).</p>
-          <a class="download-checksum" href={linux.checksumUrl} aria-label="SHA-256 checksum for Linux">
-            SHA-256 checksum
-          </a>
-          <p>
-            <a class="download-instructions" href="/downloads/linux">Installation instructions</a>
-          </p>
-        </li>
-      </ul>
+        </div>
+        <ul class="site-meta home-meta home-dot-list" role="list">
+          {metaItems.map((item) => <li>{item}</li>)}
+        </ul>
+        <StatusNotice />
+      </PageHeader>
+      <Screenshot
+        name="explorer"
+        crop="2880 / 860"
+        phoneCrop="1170 / 1580"
+        tabletZoom
+        priority
+        caption="Explorer"
+        alt="Tearleads Explorer listing Contacts and Trash folders, a driver's license record, and three notes, with each item's type."
+      />
     </section>
-  </main>
+
+    <HomeZero />
+    <HomeProduct />
+    <HomeSteps />
+    <HomeSecuritySummary />
+    <HomePricing />
+    <DownloadList />
+    <HomeClosing />
+  </div>
 </Layout>
-
-<style>
-  .desktop-downloads {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 32px;
-    margin: 32px 0 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .download-button {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    min-height: 48px;
-    padding: 12px 24px;
-    border-radius: 6px;
-    background: #244c37;
-    color: #fff;
-    font-weight: 700;
-    text-decoration: none;
-  }
-
-  .download-button :global(svg) {
-    flex-shrink: 0;
-  }
-
-  .download-button:hover {
-    background: #183526;
-  }
-
-  .download-button:focus-visible {
-    outline: 3px solid #244c37;
-    outline-offset: 4px;
-  }
-
-  .desktop-download p {
-    margin: 12px 0 4px;
-    color: #45534e;
-  }
-
-  .download-checksum,
-  .download-instructions {
-    color: #244c37;
-    font-size: 0.875rem;
-  }
-</style>

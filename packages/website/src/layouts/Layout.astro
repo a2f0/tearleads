@@ -2,18 +2,27 @@
 import { SiteFrame } from "../components/SiteFrame";
 import { SiteNav } from "../components/SiteNav";
 import { appUrl, isStaging } from "../config";
+// SiteFrame brings in the @tearleads/ui CSS; site rules that override it are
+// scoped (.site-frame, html body) to win whatever the order. Astro can also emit
+// a page's own stylesheet before these shared sheets (it orders CSS by import
+// position), so a page rule that overrides a shared class must be more specific
+// than the shared rule, e.g. `.site-spec.security-limits dt`, never equal.
+import "../styles/tokens.css";
 import "../styles/global.css";
+import "../styles/frame.css";
+import "../styles/components.css";
+import "../styles/content.css";
 
 interface Props {
   readonly title: string;
   readonly description: string;
-  readonly noIndex?: boolean;
+  readonly noIndex?: boolean | undefined;
 }
 
 const { description, title, noIndex = false } = Astro.props;
 // Nav hrefs have no trailing slash (e.g. "/pricing"), but Astro.url.pathname
 // can include one ("/pricing/") depending on trailing-slash config. Normalize
-// so aria-current matching in SiteFrame is reliable in dev and in the build.
+// so aria-current matching in SiteNav is reliable in dev and in the build.
 const rawPathname = Astro.url.pathname;
 const pathname =
   rawPathname.length > 1 ? rawPathname.replace(/\/$/, "") : rawPathname;
@@ -25,6 +34,10 @@ const pathname =
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
+    <meta name="color-scheme" content="light dark" />
+    <!-- Matches the header band: --site-chrome in tokens.css. -->
+    <meta name="theme-color" content="#333333" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#161616" media="(prefers-color-scheme: dark)" />
     <!-- Same reason as the app shells: keep iOS data detectors from rewriting
          plain copy into blue links. See packages/app-capacitor/index.html. -->
     <meta
@@ -32,15 +45,21 @@ const pathname =
       content="telephone=no, date=no, address=no, email=no"
     />
     <title>{title}</title>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     {(isStaging || noIndex) && <meta name="robots" content="noindex" />}
   </head>
   <body>
+    <a class="skip-link" href="#main">Skip to content</a>
     <SiteFrame appUrl={appUrl}>
       <SiteNav client:media="(max-width: 700px)" pathname={pathname} slot="nav" />
-      <slot />
+      <main id="main" tabindex="-1" class="website-main">
+        <slot />
+      </main>
     </SiteFrame>
   </body>
 </html>

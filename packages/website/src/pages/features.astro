@@ -1,153 +1,179 @@
 ---
-import { publicDir } from "astro:config/server";
-import { readFile } from "node:fs/promises";
-import FeatureFoundations from "../components/FeatureFoundations.astro";
-import FeatureScreenshot from "../components/FeatureScreenshot.astro";
-import FeatureTools from "../components/FeatureTools.astro";
-import type { ScreenshotManifest } from "../components/screenshotsManifest";
+import PageHeader from "../components/PageHeader.astro";
+import Screenshot from "../components/Screenshot.astro";
+import SectionHeader from "../components/SectionHeader.astro";
 import { appUrl } from "../config";
 import Layout from "../layouts/Layout.astro";
-import "../styles/product.css";
+import { startingSyncPrice } from "../pricing";
 import "../styles/features.css";
 
-// Use the gallery's versioned assets. Prebuild always stages a manifest;
-// builds without captures retain the complete feature copy without empty frames.
-const manifest = JSON.parse(
-  await readFile(
-    new URL("screenshot-gallery/manifest.json", publicDir),
-    "utf8",
-  ),
-) as ScreenshotManifest;
-const explorer = manifest.entries.find(
-  (entry) =>
-    entry.project === "tablet" &&
-    entry.theme === "light" &&
-    entry.name === "explorer",
-);
-const authorship = manifest.entries.find(
-  (entry) =>
-    entry.project === "windowed" &&
-    entry.theme === "light" &&
-    entry.name === "note-blame",
-);
+// Tool names match the app's launcher labels (packages/app/src/mini-apps/registry.ts).
+const tools = [
+  {
+    name: "Explorer",
+    text: "Organize notes, contacts, files, and structured records such as driver's licenses and passports in nested folders. Import files, download them again, and move removed items to Trash.",
+  },
+  {
+    name: "Notes",
+    text: "Write plain-text notes and attach files, with image previews.",
+  },
+  {
+    name: "Contacts",
+    text: "Keep names, nicknames, and profile photos. Import another Tearleads user by user ID to link the contact to their identity.",
+  },
+  {
+    name: "Identity Manager",
+    text: "Create and switch identities, back up your recovery phrase, set a PIN lock, and review active sessions.",
+  },
+  {
+    name: "Backup / Restore",
+    text: "Export a password-protected backup of your local data and the file contents stored on the device, and restore it from the file.",
+  },
+  {
+    name: "Org Manager",
+    text: "Manage your organization's roster, groups, access grants, usage, and billing.",
+  },
+] as const;
 ---
 
 <Layout
   title="Features | Tearleads"
-  description="Notes, contacts, and files in one private workspace. Explore offline editing, encrypted sync, controlled sharing, local backups, and flexible layouts in Tearleads."
+  description="What Tearleads does: notes, contacts, files, and records in nested folders, offline editing, password-protected backups, end-to-end encrypted sync, and sharing."
 >
-  <main class="website-main">
-    <article class="section product-page features-page" aria-labelledby="page-title">
-      <header class:list={["features-hero", { "features-hero--illustrated": explorer }]}>
-        <div>
-          <p class="product-eyebrow">Features / Inside Tearleads</p>
-          <h1 id="page-title">Notes, people, and files.<br /><span>One private workspace.</span></h1>
-          <p class="section-lede">
-            Bring your everyday information together. Work locally, sync across
-            your devices, and share the parts you choose.
-          </p>
-          <div class="product-actions">
-            <a class="product-button" href={appUrl}>Open Tearleads <span aria-hidden="true">→</span></a>
-            <a class="product-text-link" href="/pricing">Explore plans</a>
-          </div>
-          <p class="features-hero-note">The local workspace is free forever.</p>
-        </div>
-        {explorer && (
-          <FeatureScreenshot
-            entry={explorer}
-            alt="Explorer showing a container tree with contacts, notes, and a document list. View the full Explorer screenshot."
-            label="Explorer"
-            priority
-          />
-        )}
-      </header>
+  <div class="site-page features-page">
+    <PageHeader
+      title="Features"
+      lede="Notes, contacts, files, and records in one folder tree, stored encrypted on your device and editable offline. Sync comes with paid plans, and sharing with Team plans."
+    />
 
-      <nav class="product-page-nav" aria-label="On this page">
-        <a href="#everyday-tools">Everyday tools</a>
-        <a href="#your-workspace">Your workspace</a>
-        <a href="#sync-and-sharing">Sync &amp; sharing</a>
-        <a href="#document-authorship">Document authorship</a>
-      </nav>
+    <section class="site-section" id="tools" aria-labelledby="tools-title">
+      <div class="features-split">
+        <SectionHeader
+          titleId="tools-title"
+          title="Tools"
+          lede="On desktop, each tool opens in its own window. On phones and tablets, tools open one at a time, with back navigation. Light and dark themes are included."
+        />
+        <dl class="site-spec">
+          {tools.map((tool) => (
+            <div>
+              <dt>{tool.name}</dt>
+              <dd>{tool.text}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+      <Screenshot
+        name="explorer"
+        crop="2880 / 860"
+        phoneCrop="1170 / 1580"
+        tabletZoom
+        caption="Explorer, root folder"
+        alt="Explorer showing the root folder: Contacts and Trash folders, a driver's license record, and three notes, each with its type."
+      />
+    </section>
 
-      <FeatureTools />
-      <FeatureFoundations />
-
-      <section class="product-section" id="sync-and-sharing" aria-labelledby="sharing-title">
-        <div class="feature-sharing-heading">
-          <div>
-            <p class="product-eyebrow">Connected, on your terms</p>
-            <h2 id="sharing-title">Across devices. With your people.</h2>
-          </div>
-          <a class="product-text-link" href="/pricing">View sync &amp; team plans <span aria-hidden="true">→</span></a>
-        </div>
-        <p class="product-section-lede">
-          Add encrypted sync for your devices, or a team plan for a shared
-          organization. Control access at the container level.
-        </p>
-        <div class="feature-sharing-grid">
-          <div>
-            <p class="product-eyebrow">Sync</p>
-            <h3>Pick up where you left off.</h3>
-            <p>
-              Local changes are queued for sync, and remote changes are brought
-              back into your workspace. Document and file contents are encrypted
-              before they reach the service.
-            </p>
-          </div>
-          <div>
-            <p class="product-eyebrow">Sharing</p>
-            <h3>Choose who gets access.</h3>
-            <p>
-              Share containers with users and groups in your organization.
-              Assign read, write, or admin access, and manage the roster,
-              groups, and grants in Org Manager.
-            </p>
+    <section class="site-section" id="on-your-device" aria-labelledby="device-title">
+      <div class="features-split">
+        <SectionHeader
+          titleId="device-title"
+          title="On your device"
+          lede="Content stored on your device is encrypted, and you can read and edit it offline. Edits save locally and sync when you reconnect; sharing and other remote actions need a connection."
+        />
+        <div class="features-split-body">
+          <dl class="site-spec">
+            <div>
+              <dt>Encrypted storage</dt>
+              <dd>
+                The app reads and writes through an encrypted database and file
+                store. How strongly the local key is protected depends on the
+                platform: <a href="/security#local-storage">Local storage and PIN protection</a>.
+              </dd>
+            </div>
+            <div>
+              <dt>Backups</dt>
+              <dd>
+                Keep a backup file somewhere you control. It includes your local
+                data and the file contents stored on the device.
+              </dd>
+            </div>
+          </dl>
+          <div class="site-note" role="note">
+            <strong class="site-note-label">Recovery phrase.</strong> Your 24-word
+            recovery phrase, or its QR code, restores your identity for anyone who
+            has it. Keep it private.
           </div>
         </div>
-        <aside class="feature-security-link">
-          <div>
-            <h3>Privacy has an architecture.</h3>
-            <p>
-              Local encryption and signed access rules work together. See how
-              keys stay with clients, what the service can see, and where the
-              security guarantees end.
-            </p>
+      </div>
+    </section>
+
+    <section class="site-section" id="sync-and-sharing" aria-labelledby="sharing-title">
+      <div class="features-split">
+        <SectionHeader
+          titleId="sharing-title"
+          title="Sync and sharing"
+          lede="After a 7-day free trial, sync needs a paid plan, and sharing with other people needs a Team plan."
+        />
+        <div class="features-split-body">
+          <div class="features-pair">
+            <div>
+              <h3>Sync</h3>
+              <p>
+                Changes you make are queued on your device and sent when you're
+                online, and changes from your other devices are merged in.
+                Document and file contents are encrypted before they reach the
+                service.
+              </p>
+            </div>
+            <div>
+              <h3>Sharing</h3>
+              <p>
+                Share a folder with users and groups in your organization, with
+                read, write, or admin access. To share with someone, first add
+                them to your organization's roster; each roster member counts
+                toward your plan's capacity.
+              </p>
+            </div>
           </div>
-          <a class="product-text-link" href="/security">Explore the security model <span aria-hidden="true">→</span></a>
-        </aside>
-      </section>
+          <a class="site-link features-action" href="/security#verified-sharing">
+            How sharing is verified<span aria-hidden="true"> →</span>
+          </a>
+        </div>
+      </div>
+      <Screenshot
+        name="org-manager-grants"
+        crop="2880 / 700"
+        phoneCrop="1170 / 1200"
+        caption="Org Manager, Grants"
+        alt="Org Manager's Grants view: the Members group has read access to Organization Metadata, and the Admins group has admin access to the root folder."
+      />
+    </section>
 
-      <section class:list={["product-section", "feature-authorship", { "feature-authorship--illustrated": authorship }]} id="document-authorship" aria-labelledby="authorship-title">
-        <div>
-          <p class="product-eyebrow">A closer look</p>
-          <h2 id="authorship-title">See how a document took shape.</h2>
-          <p class="product-section-lede">
-            Explorer's document information view shows contributors, edit ranges,
-            and character-level authorship. Inspect the contributions behind a
-            note alongside its links, attachments, and security information.
-          </p>
-          <a class="product-text-link" href="/screenshots">Browse the app screenshots <span aria-hidden="true">→</span></a>
-        </div>
-        {authorship && (
-          <FeatureScreenshot
-            entry={authorship}
-            alt="Document information showing contributor counts and note text highlighted by author. View the full authorship screenshot."
-            label="Document authorship"
-          />
-        )}
-      </section>
+    <section
+      class="site-section features-split features-authorship"
+      id="document-authorship"
+      aria-labelledby="authorship-title"
+    >
+      <SectionHeader
+        titleId="authorship-title"
+        title="Authorship"
+        lede="Document Info in Explorer lists a note's contributors with their edit counts and highlights which contributor wrote each character. The same view shows the note's links, attachments, and security details."
+      />
+      <Screenshot
+        name="note-blame"
+        crop="1440 / 1280"
+        phoneCrop="1170 / 1740"
+        size="narrow"
+        caption="Document Info, authorship"
+        alt="Document Info for a note: edit and character counts for two contributors, and the note's text highlighted in each author's color."
+      />
+    </section>
 
-      <aside class="product-cta" aria-labelledby="features-cta-title">
-        <div>
-          <p class="product-eyebrow">Make it your workspace</p>
-          <h2 id="features-cta-title">Start with what you need today.</h2>
-          <p>Notes, contacts, and files are free to use locally. Add sync or a team plan when you need it.</p>
-        </div>
-        <div class="product-actions">
-          <a class="product-button" href={appUrl}>Open Tearleads <span aria-hidden="true">→</span></a>
-          <a class="product-text-link" href="/pricing">See pricing</a>
-        </div>
-      </aside>
-    </article>
-  </main>
+    <div class="site-cta">
+      <p>Free on your device. Sync from {startingSyncPrice}/month.</p>
+      <div class="site-actions">
+        <a class="site-button site-button--primary" href={appUrl}>Open web app</a>
+        <a class="site-link" href="/pricing">Compare plans<span aria-hidden="true"> →</span></a>
+      </div>
+    </div>
+  </div>
 </Layout>

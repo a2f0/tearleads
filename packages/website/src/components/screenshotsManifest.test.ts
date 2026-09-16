@@ -1,7 +1,10 @@
 import { expect, test } from "bun:test";
 import {
+  findScreenshot,
   initialProject,
+  projectLabel,
   type ScreenshotManifest,
+  screenLabel,
   screenshotPath,
   screenshotRoutes,
 } from "./screenshotsManifest";
@@ -11,11 +14,46 @@ const manifest: ScreenshotManifest = {
   themes: ["light", "dark"],
   screens: ["home", "explorer"],
   entries: [
-    { project: "windowed", theme: "light", name: "explorer", src: "windowed" },
-    { project: "mobile", theme: "light", name: "explorer", src: "mobile" },
-    { project: "mobile", theme: "dark", name: "explorer", src: "mobile-dark" },
-    { project: "mobile", theme: "light", name: "home", src: "mobile-home" },
-    { project: "tablet", theme: "dark", name: "explorer", src: "tablet-dark" },
+    {
+      project: "windowed",
+      theme: "light",
+      name: "explorer",
+      src: "windowed",
+      width: 2880,
+      height: 1658,
+    },
+    {
+      project: "mobile",
+      theme: "light",
+      name: "explorer",
+      src: "mobile",
+      width: 1170,
+      height: 1992,
+    },
+    {
+      project: "mobile",
+      theme: "dark",
+      name: "explorer",
+      src: "mobile-dark",
+      width: 1170,
+      height: 1992,
+    },
+    {
+      project: "mobile",
+      theme: "light",
+      name: "home",
+      src: "mobile-home",
+      width: 1170,
+      height: 1992,
+    },
+    {
+      project: "tablet",
+      theme: "dark",
+      name: "explorer",
+      src: "tablet-dark",
+      width: 1668,
+      height: 2388,
+    },
   ],
 };
 
@@ -69,4 +107,30 @@ test("screenshot names cannot add path segments, queries, or fragments to links"
   expect(screenshotPath("mobile", "notes/shared?view=full#detail")).toBe(
     "/screenshots/mobile/notes%2Fshared%3Fview%3Dfull%23detail",
   );
+});
+
+test("findScreenshot matches project, theme, and screen exactly", () => {
+  expect(findScreenshot(manifest, "mobile", "dark", "explorer")).toEqual({
+    project: "mobile",
+    theme: "dark",
+    name: "explorer",
+    src: "mobile-dark",
+    width: 1170,
+    height: 1992,
+  });
+  expect(findScreenshot(manifest, "windowed", "dark", "explorer")).toBe(
+    undefined,
+  );
+  expect(findScreenshot(manifest, "tablet", "dark", "home")).toBe(undefined);
+});
+
+test("screen and layout labels use human names with a title-case fallback", () => {
+  expect(screenLabel("drivers-license-detail")).toBe("Driver's license");
+  expect(screenLabel("org-manager-grants")).toBe("Org Manager: Grants");
+  expect(screenLabel("backup-restore")).toBe("Backup / Restore");
+  expect(screenLabel("new-screen")).toBe("New Screen");
+  expect(screenLabel("constructor")).toBe("Constructor");
+  expect(projectLabel("windowed")).toBe("Desktop");
+  expect(projectLabel("mobile")).toBe("Phone");
+  expect(projectLabel("tablet")).toBe("Tablet");
 });

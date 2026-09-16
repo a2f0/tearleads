@@ -1,0 +1,14 @@
+---
+import { releaseNotice } from "../config";
+
+/**
+ * The release notice (Home hero, Pricing header, Linux install header).
+ * Renders nothing when `releaseNotice` in src/config.ts is null.
+ */
+---
+
+{releaseNotice !== null && (
+  <div class="site-note site-note--status" role="note">
+    <strong class="site-note-label">Early testing.</strong> {releaseNotice}
+  </div>
+)}

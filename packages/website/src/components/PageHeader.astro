@@ -1,0 +1,25 @@
+---
+/**
+ * The page title block. Slots: `before` (a breadcrumb); `title` (optional
+ * markup for the h1 text, e.g. a line break, replacing `title`); and the
+ * default slot (actions, a .site-meta line, <StatusNotice />), each spaced
+ * below the lede.
+ */
+interface Props {
+  readonly title: string;
+  readonly lede?: string | undefined;
+  /** Home hero only: the largest type on the site. */
+  readonly display?: boolean | undefined;
+  /** Defaults to "page-title", which pages reference in aria-labelledby. */
+  readonly titleId?: string | undefined;
+}
+
+const { title, lede, display = false, titleId = "page-title" } = Astro.props;
+---
+
+<header class:list={["site-page-header", { "site-page-header--display": display }]}>
+  <slot name="before" />
+  <h1 id={titleId} class={display ? "site-display" : "site-h1"}><slot name="title">{title}</slot></h1>
+  {lede && <p class="site-lede">{lede}</p>}
+  <slot />
+</header>

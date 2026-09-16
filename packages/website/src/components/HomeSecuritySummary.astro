@@ -1,0 +1,69 @@
+---
+import { securitySummary } from "../securitySummary";
+import SectionHeader from "./SectionHeader.astro";
+
+/**
+ * Home: the claim-and-limit ledger. Every protection is shown with its limit;
+ * the rows and their sources live in src/securitySummary.ts. The algorithm
+ * sentence follows docs/cipher-suites.md, scoped to the keying path.
+ */
+const rows = securitySummary.map((row) => {
+  if (!row.limitLink) return { row, before: row.limit, after: "" };
+  const at = row.limit.indexOf(row.limitLink.label);
+  if (at < 0) {
+    throw new Error(
+      `Limit link "${row.limitLink.label}" not found in ${row.id}`,
+    );
+  }
+  return {
+    row,
+    before: row.limit.slice(0, at),
+    after: row.limit.slice(at + row.limitLink.label.length),
+  };
+});
+---
+
+<section
+  class="site-section"
+  id="security-summary"
+  aria-labelledby="security-summary-title"
+>
+  <SectionHeader
+    titleId="security-summary-title"
+    title="What's protected, and where it stops"
+    lede="Each protection is listed with its limit."
+  >
+    <a slot="action" class="site-link" href="/security">
+      How the security model works<span aria-hidden="true"> →</span>
+    </a>
+  </SectionHeader>
+  <div class="site-note site-ledger-assumptions" role="note">
+    <strong class="site-note-label">Assumptions.</strong> These properties assume
+    an honest, uncompromised app on your device, uncompromised private keys,
+    authentic identity keys, and working cryptography. The server and its
+    storage may be compromised.
+  </div>
+  <ul class="site-ledger" role="list">
+    {rows.map(({ row, before, after }) => (
+      <li class="site-ledger-row">
+        <h3 class="site-ledger-title">{row.title}</h3>
+        <p>
+          <span class="site-ledger-label">Protection</span>{" "}
+          {row.protection}
+        </p>
+        <p>
+          <span class="site-ledger-label">Limit</span>{" "}
+          {before}{row.limitLink && <a href={row.limitLink.href}>{row.limitLink.label}</a>}{after}
+        </p>
+      </li>
+    ))}
+  </ul>
+  <p class="site-ledger-algorithms">
+    Public-key operations in the Tearleads client and API keying protocol use
+    only post-quantum algorithms: <span class="site-mono">ML-KEM-1024</span> for
+    key delivery and <span class="site-mono">ML-DSA-87</span> for signatures
+    (NIST FIPS 203 and 204). TLS connections and deployment tooling are outside
+    that statement. Synced document and file contents are encrypted with <span
+      class="site-mono">AES-256-GCM</span>.
+  </p>
+</section>

@@ -1,0 +1,280 @@
+/*
+ * Shared content blocks: spec lists, tables, code blocks, numbered steps, and
+ * screenshot figures.
+ */
+
+/* --- Spec list: <dl class="site-spec"><div><dt>…</dt><dd>…</dd></div></dl> --- */
+
+/* No margin reset here: the zero-specificity element reset in global.css
+   already zeroes it, so container rules such as .site-page-header > * + *
+   can still space the list. The same holds for .site-steps. */
+.site-spec {
+  border-top: 1px solid var(--site-ink);
+}
+
+.site-spec > div {
+  display: grid;
+  grid-template-columns: 11rem minmax(0, 1fr);
+  gap: var(--site-space-5);
+  padding: var(--site-space-4) 0;
+  border-bottom: 1px solid var(--site-line);
+}
+
+.site-spec--wide-key > div {
+  grid-template-columns: 14rem minmax(0, 1fr);
+}
+
+.site-spec dt {
+  min-width: 0;
+  color: var(--site-ink);
+  font: 600 var(--site-text-mono) / 1.55 var(--site-font-mono);
+  overflow-wrap: anywhere;
+}
+
+.site-spec dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--site-ink-2);
+}
+
+/* A trailing action inside a value: "… <a class="site-link">Manage →</a>". */
+.site-spec dd > .site-link {
+  margin-top: var(--site-space-1);
+}
+
+@media (max-width: 699px) {
+  .site-spec > div,
+  .site-spec--wide-key > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--site-space-1);
+  }
+}
+
+/* --- Table --- */
+
+.site-table {
+  width: 100%;
+  border-collapse: collapse;
+  border-top: 1px solid var(--site-ink);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.site-table th,
+.site-table td {
+  padding: var(--site-space-3) var(--site-space-4) var(--site-space-3) 0;
+  border-bottom: 1px solid var(--site-line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.site-table :is(th, td):last-child {
+  padding-right: 0;
+}
+
+.site-table thead th {
+  color: var(--site-ink-3);
+  font: 500 var(--site-text-mono-sm) / 1.45 var(--site-font-mono);
+}
+
+.site-table th[scope="row"] {
+  font-weight: 600;
+}
+
+/* Algorithm names: each token stays whole, so a combined mechanism wraps only
+   between tokens. Markup: <td class="site-table-mono"><span>AES-256-GCM</span>
+   + <span>HKDF-SHA256</span></td>. */
+.site-table-mono {
+  font-family: var(--site-font-mono);
+  font-size: var(--site-text-mono);
+  font-weight: 600;
+}
+
+.site-table-mono > span {
+  white-space: nowrap;
+}
+
+.site-table .site-table-num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+@media (max-width: 699px) {
+  .site-table,
+  .site-table thead,
+  .site-table tbody,
+  .site-table tr,
+  .site-table th,
+  .site-table td {
+    display: block;
+  }
+
+  .site-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .site-table tr {
+    padding: var(--site-space-3) 0;
+    border-bottom: 1px solid var(--site-line);
+  }
+
+  .site-table th,
+  .site-table td,
+  .site-table .site-table-num {
+    padding: 0;
+    border-bottom: 0;
+    text-align: left;
+  }
+
+  .site-table tbody :is(th, td) + :is(th, td) {
+    margin-top: var(--site-space-2);
+  }
+
+  /* Every stacked cell needs a data-label naming its column. */
+  .site-table td[data-label]::before {
+    display: block;
+    color: var(--site-ink-3);
+    content: attr(data-label);
+    font: 500 var(--site-text-mono-sm) / 1.45 var(--site-font-mono);
+  }
+}
+
+/* --- Code block --- */
+
+/* Write commands with real line breaks so they fit at 320px. No copy button:
+   that would need JS. */
+.site-code {
+  max-width: 100%;
+  margin: var(--site-space-3) 0 0;
+  padding: var(--site-space-3) var(--site-space-4);
+  border: 1px solid var(--site-line-strong);
+  background: var(--site-surface);
+  color: var(--site-ink);
+  font: 400 0.8125rem / 1.6 var(--site-font-mono);
+  overflow-wrap: anywhere;
+  tab-size: 2;
+  white-space: pre-wrap;
+}
+
+.site-code code {
+  font: inherit;
+}
+
+/* --- Numbered steps --- */
+
+.site-steps {
+  padding: 0;
+  border-top: 1px solid var(--site-ink);
+  counter-reset: step;
+  list-style: none;
+}
+
+.site-steps > li {
+  position: relative;
+  min-width: 0;
+  margin: 0;
+  padding: var(--site-space-5) 0 var(--site-space-5) 3.5rem;
+  border-bottom: 1px solid var(--site-line);
+  counter-increment: step;
+}
+
+.site-steps > li::before {
+  position: absolute;
+  top: var(--site-space-5);
+  left: 0;
+  color: var(--site-ink-3);
+  content: counter(step, decimal-leading-zero);
+  /* Line box matches .site-step-title, so the number sits on its first line. */
+  font:
+    500 var(--site-text-mono) / calc(var(--site-text-h3) * 1.35)
+    var(--site-font-mono);
+}
+
+.site-step-title {
+  margin: 0 0 var(--site-space-2);
+  font-size: var(--site-text-h3);
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+@media (max-width: 699px) {
+  .site-steps > li {
+    padding-left: 2.5rem;
+  }
+}
+
+/* --- Screenshot figure (Screenshot.astro) --- */
+
+.site-shot {
+  min-width: 0;
+  margin: var(--site-space-6) 0 0;
+}
+
+.site-shot--narrow {
+  max-width: 36rem;
+}
+
+.site-shot-frame {
+  overflow: hidden;
+  border: 1px solid var(--site-line-strong);
+  background: var(--site-surface);
+}
+
+.site-shot picture {
+  display: block;
+}
+
+/* Crops are CSS aspect ratios anchored top-left (see Screenshot.astro). */
+.site-shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: var(--shot-crop);
+  object-fit: cover;
+  object-position: left top;
+}
+
+.site-shot figcaption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0 var(--site-space-4);
+  margin-top: var(--site-space-1);
+  color: var(--site-ink-3);
+  font: 500 var(--site-text-mono-sm) / 1.45 var(--site-font-mono);
+}
+
+.site-shot figcaption .site-link {
+  color: var(--site-ink);
+  font-size: var(--site-text-mono-sm);
+}
+
+/* Tablet widths still get the 2880px windowed capture, which would render the
+   app's text at a third of its size. data-tablet-zoom (Screenshot.astro
+   tabletZoom) shows it at 1.5x, anchored top-left: the frame keeps the column
+   width and its height follows the zoomed image, so the crop's right third is
+   clipped. */
+@media (min-width: 700px) and (max-width: 1023px) {
+  .site-shot[data-tablet-zoom] img {
+    width: 150%;
+    max-width: none;
+  }
+}
+
+@media (max-width: 699px) {
+  .site-shot[data-phone] .site-shot-frame,
+  .site-shot[data-phone] figcaption {
+    max-width: 20rem;
+    margin-inline: auto;
+  }
+
+  .site-shot[data-phone] img {
+    aspect-ratio: var(--shot-phone-crop);
+  }
+}

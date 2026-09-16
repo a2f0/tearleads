@@ -1,0 +1,30 @@
+---
+import { appUrl } from "../config";
+import { taglineLines } from "../tagline";
+
+/**
+ * Home's closing band: the tagline again on the charcoal chrome, with one
+ * primary action. .site-chrome-band (components.css) inverts the button and
+ * focus ring for both color schemes.
+ */
+---
+
+<section class="home-closing site-chrome-band" aria-labelledby="closing-title">
+  <div class="home-closing-copy">
+    <h2 id="closing-title" class="home-closing-title">
+      {taglineLines.map((line, index) => (
+        <>
+          {index > 0 && " "}
+          <span class="home-closing-line">{line}</span>
+        </>
+      ))}
+    </h2>
+    <p class="home-closing-text">
+      Free on your device. Open Tearleads in your browser, or install it on
+      macOS or Linux.
+    </p>
+  </div>
+  <div class="site-actions home-closing-actions">
+    <a class="site-button site-button--primary" href={appUrl}>Open web app</a>
+  </div>
+</section>

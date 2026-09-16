@@ -1,0 +1,27 @@
+---
+/**
+ * A section's h2, optional lede, and optional `action` slot (a .site-link),
+ * which sits beside the heading at 1024px and up and below it otherwise. Use
+ * inside <section class="site-section" id="…" aria-labelledby={titleId}>.
+ */
+interface Props {
+  readonly titleId: string;
+  readonly title: string;
+  readonly lede?: string | undefined;
+  /** "01" etc.: /security only. */
+  readonly index?: string | undefined;
+}
+
+const { titleId, title, lede, index } = Astro.props;
+const hasAction = Astro.slots.has("action");
+---
+
+<div class="site-section-header">
+  <div>
+    <h2 id={titleId}>
+      {index && <span class="site-index" aria-hidden="true">{index}</span>}{title}
+    </h2>
+    {lede && <p class="site-section-lede">{lede}</p>}
+  </div>
+  {hasAction && <div class="site-section-action"><slot name="action" /></div>}
+</div>

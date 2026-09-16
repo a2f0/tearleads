@@ -1,0 +1,322 @@
+/*
+ * Home, part 2: the security ledger, the plan table, the download list, and
+ * the closing band. Part 1 is home.css.
+ */
+
+/* --- Security ledger: each protection beside its limit --- */
+
+.site-ledger-assumptions {
+  margin-bottom: var(--site-space-6);
+}
+
+.site-ledger {
+  border-top: 1px solid var(--site-ink);
+}
+
+.site-ledger-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--site-space-3);
+  margin: 0;
+  padding-block: var(--site-space-5);
+  border-bottom: 1px solid var(--site-line);
+}
+
+.site-ledger-title {
+  font-size: var(--site-text-h3);
+}
+
+.site-ledger-row p {
+  min-width: 0;
+  margin: 0;
+}
+
+.site-ledger-label {
+  display: block;
+  margin-bottom: var(--site-space-1);
+  color: var(--site-ink-3);
+  font: 500 var(--site-text-mono-sm) / 1.45 var(--site-font-mono);
+}
+
+.site-ledger-algorithms {
+  max-width: var(--site-measure);
+  margin-top: var(--site-space-5);
+  color: var(--site-ink-2);
+  font-size: var(--site-text-small);
+  line-height: 1.6;
+}
+
+.site-ledger-algorithms .site-mono {
+  color: var(--site-ink);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+@media (min-width: 700px) {
+  .site-ledger-row {
+    grid-template-columns: 10rem minmax(0, 1fr);
+    column-gap: var(--site-space-5);
+  }
+
+  .site-ledger-row p {
+    grid-column: 2;
+  }
+
+  .site-ledger-title {
+    grid-row: 1 / span 2;
+  }
+}
+
+@media (min-width: 1024px) {
+  .site-ledger-row {
+    grid-template-columns: 10rem minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--site-space-6);
+  }
+
+  .site-ledger-row p {
+    grid-column: auto;
+  }
+
+  .site-ledger-title {
+    grid-row: auto;
+  }
+}
+
+/* --- Plans table ---
+   Overrides of .site-table carry both classes: Astro can emit this sheet
+   before the shared one, so equal specificity would lose. */
+
+.site-table.home-plans th[scope="row"] {
+  font-family: var(--site-font-mono);
+  font-size: var(--site-text-mono);
+}
+
+.home-plan-price {
+  font-size: 1.25rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.home-plan-interval {
+  color: var(--site-ink-3);
+  font-size: var(--site-text-small);
+}
+
+.home-plans-note {
+  max-width: var(--site-measure);
+  margin-top: var(--site-space-4);
+  color: var(--site-ink-2);
+  font-size: var(--site-text-small);
+}
+
+@media (min-width: 700px) {
+  .site-table.home-plans :is(th, td) {
+    padding-block: var(--site-space-4);
+    vertical-align: baseline;
+  }
+
+  .site-table.home-plans th[scope="row"] {
+    width: 30%;
+  }
+
+  .site-table.home-plans .site-table-num {
+    width: 10rem;
+    padding-right: var(--site-space-7);
+  }
+}
+
+@media (max-width: 699px) {
+  /* Stacked: the plan name and price share a line, with the summary below,
+     so the column labels are redundant. */
+  .site-table.home-plans tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: var(--site-space-1) var(--site-space-4);
+    padding-block: var(--site-space-4);
+  }
+
+  .site-table.home-plans tbody :is(th, td) + :is(th, td) {
+    margin-top: 0;
+  }
+
+  .site-table.home-plans td[data-label]::before {
+    content: none;
+  }
+
+  .site-table.home-plans td[data-label="Includes"] {
+    grid-column: 1 / -1;
+    color: var(--site-ink-2);
+  }
+}
+
+/* --- Downloads --- */
+
+.site-downloads {
+  border-top: 1px solid var(--site-ink);
+}
+
+.site-download {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--site-space-3);
+  margin: 0;
+  padding-block: var(--site-space-5);
+  border-bottom: 1px solid var(--site-line);
+}
+
+.site-download-platform {
+  min-width: 0;
+}
+
+.site-download-platform h3 {
+  font-size: 1.25rem;
+  line-height: 1.3;
+}
+
+.site-download-detail {
+  margin-top: var(--site-space-1);
+  color: var(--site-ink-3);
+  font: 500 var(--site-text-mono-sm) / 1.6 var(--site-font-mono);
+}
+
+.site-download-links,
+.site-download-remark {
+  min-width: 0;
+  margin: 0;
+  color: var(--site-ink-3);
+  font: 400 var(--site-text-mono) / 1.4 var(--site-font-mono);
+}
+
+.site-download-remark {
+  display: flex;
+  align-items: center;
+  min-height: var(--site-target);
+}
+
+/* The underline, its offset, and its focus and hover thickness come from the
+   shared running-text link rule in global.css. */
+.site-download-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--site-target);
+  color: var(--site-ink);
+}
+
+.site-downloads-note {
+  max-width: var(--site-measure);
+  margin-top: var(--site-space-4);
+  color: var(--site-ink-3);
+  font-size: var(--site-text-small);
+}
+
+@media (max-width: 699px) {
+  .site-download .site-button {
+    width: 100%;
+  }
+}
+
+@media (min-width: 700px) {
+  .site-download {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: var(--site-space-5);
+    row-gap: 0;
+  }
+
+  .site-download-links,
+  .site-download-remark {
+    grid-column: 1;
+  }
+
+  .site-download .site-button {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    /* Wider than every label, staging's "Download … preview" included, so the
+       buttons share one width and left edge. */
+    min-width: 17rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .site-download {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 4fr) auto;
+    column-gap: var(--site-space-6);
+  }
+
+  .site-download-links,
+  .site-download-remark {
+    grid-column: 2;
+  }
+
+  .site-download .site-button {
+    grid-column: 3;
+    grid-row: auto;
+  }
+}
+
+/* --- Closing band --- */
+
+.home-closing {
+  display: grid;
+  gap: var(--site-space-6);
+  margin-top: var(--site-space-9);
+  padding: var(--site-space-8) var(--site-space-7);
+}
+
+.home-closing-title {
+  max-width: none;
+  font-size: clamp(2rem, 1rem + 3.4vw, 3.5rem);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+
+.home-closing-line {
+  display: block;
+}
+
+.home-closing-text {
+  max-width: 34rem;
+  margin-top: var(--site-space-4);
+  color: var(--site-chrome-ink-2);
+  font-size: var(--site-text-lede);
+  line-height: 1.5;
+}
+
+/* The band's one action carries the right column on its own, so it is a size
+   up from a standard button, and as wide as the download buttons above it. */
+.home-closing-actions .site-button {
+  min-height: 3.25rem;
+  padding-inline: var(--site-space-6);
+  font-size: 1rem;
+}
+
+@media (min-width: 700px) {
+  .home-closing-actions .site-button {
+    min-width: 17rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .home-closing {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: var(--site-space-7);
+  }
+}
+
+@media (max-width: 699px) {
+  .home-closing {
+    margin-top: var(--site-space-8);
+    padding: var(--site-space-7) var(--site-space-5);
+  }
+}
+
+@media print {
+  /* A call to action on a charcoal band: nothing to act on in print. */
+  .home-closing {
+    display: none;
+  }
+}

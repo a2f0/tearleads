@@ -1,0 +1,86 @@
+---
+/**
+ * Home: what each half of the tagline means, side by side at 1024px and up.
+ * Each column carries its own honest qualifier: "zero knowledge" is about
+ * content (never a zero-knowledge proof, never hidden metadata), and "zero
+ * onboarding" still leaves a recovery phrase to back up.
+ *
+ * Sources: docs/keying-design.md "Design Properties" and "Boundaries";
+ * docs/security-guarantees.md (organization and group names are listing aids);
+ * packages/app/src/host/AppHostConfig.ts (the app profile sets
+ * autoGenerateIdentity and autoRegisterIdentity);
+ * packages/app/src/identity/IdentityAutopilot.tsx and
+ * packages/api/src/workflows/auth/registration.ts (registration stores the
+ * public keys); packages/crypto identitySeedPhrase.ts (24 words); org-manager
+ * labels.ts (billing email at web checkout).
+ */
+interface Fact {
+  readonly key: string;
+  readonly value: string;
+}
+
+const knowledgeFacts: readonly Fact[] = [
+  { key: "Content", value: "Encrypted before it syncs" },
+  { key: "Service stores", value: "Encrypted content and wrapped keys" },
+  { key: "Access", value: "From verified signed records" },
+];
+
+const onboardingFacts: readonly Fact[] = [
+  { key: "Sign-up", value: "No email, no password" },
+  { key: "Identity", value: "Created on your device" },
+  { key: "Recovery", value: "24-word recovery phrase" },
+];
+---
+
+<div class="home-zero" id="zero">
+  <section class="home-zero-column" aria-labelledby="zero-knowledge-title">
+    <h2 id="zero-knowledge-title" class="home-zero-title">Zero knowledge</h2>
+    <p class="home-zero-lede">
+      Document and file contents are encrypted on your device before they sync.
+      The service stores ciphertext and wrapped keys and holds no plaintext
+      content keys. The app derives who can receive keys from signed access
+      records it verifies, not from server-provided lists.
+    </p>
+    <dl class="home-facts">
+      {knowledgeFacts.map((fact) => (
+        <div>
+          <dt>{fact.key}</dt>
+          <dd>{fact.value}</dd>
+        </div>
+      ))}
+    </dl>
+    <p class="home-zero-note">
+      The service still sees organization and group names, membership, and
+      structure such as identifiers, sizes, access relationships, and timing.
+    </p>
+    <a class="site-link" href="/security#device-boundary">
+      What the service can see<span aria-hidden="true"> →</span>
+    </a>
+  </section>
+
+  <section class="home-zero-column" aria-labelledby="zero-onboarding-title">
+    <h2 id="zero-onboarding-title" class="home-zero-title">Zero onboarding</h2>
+    <p class="home-zero-lede">
+      The first time you open Tearleads, it creates your identity keys on your
+      device and, once you're online, registers their public keys with the
+      service. Those keys sign you in instead of a password, so there is no
+      account form to fill in and you can start working right away.
+    </p>
+    <dl class="home-facts">
+      {onboardingFacts.map((fact) => (
+        <div>
+          <dt>{fact.key}</dt>
+          <dd>{fact.value}</dd>
+        </div>
+      ))}
+    </dl>
+    <p class="home-zero-note">
+      Back up your recovery phrase in Identity Manager when you're ready, and
+      keep it private: anyone who has it can restore your identity. A paid web
+      plan asks for a billing email at checkout.
+    </p>
+    <a class="site-link" href="#how-it-works">
+      How it works<span aria-hidden="true"> →</span>
+    </a>
+  </section>
+</div>

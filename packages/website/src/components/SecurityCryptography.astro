@@ -1,0 +1,162 @@
+---
+import SectionHeader from "./SectionHeader.astro";
+
+/**
+ * Section 04 on /security. Sources: docs/cipher-suites.md (primitives and
+ * where they apply), docs/security-guarantees.md "Local At-Rest Key
+ * Wrapping", packages/app-electrobun/src/renderer/index.tsx and
+ * packages/app-capacitor/src/index.tsx (localKeyringKeyMaterialStorage:
+ * "raw-bytes"), client-sdk localKeyring/types.ts WrappingKeyMaterialStorage,
+ * and packages/app/src/providers/local-keyring/pinCodePolicy.ts.
+ */
+interface Primitive {
+  readonly purpose: string;
+  /** Algorithm tokens; each one stays whole and wraps only between tokens. */
+  readonly tokens: readonly string[];
+  readonly joiner?: string;
+  readonly role: string;
+}
+
+const tables: readonly {
+  readonly title: string;
+  readonly caption: string;
+  readonly rows: readonly Primitive[];
+}[] = [
+  {
+    title: "Synced content and sharing",
+    caption: "Cryptographic primitives for synced content and sharing",
+    rows: [
+      {
+        purpose: "Document and file records",
+        tokens: ["AES-256-GCM", "HKDF-SHA256"],
+        role: "Authenticated encryption with a separate derived key for each content record.",
+      },
+      {
+        purpose: "Recipient key delivery",
+        tokens: ["ML-KEM-1024", "AES-256-GCM"],
+        role: "Wraps container keys for users and groups. Content keys are wrapped under container keys with AES-256-GCM.",
+      },
+      {
+        purpose: "Digital signatures",
+        tokens: ["ML-DSA-87"],
+        role: "Authenticates signed policies, access events, and content-write headers.",
+      },
+      {
+        purpose: "Local key separation",
+        tokens: ["HKDF-SHA256"],
+        role: "Derives purpose-specific storage keys from the wrapped local account root key.",
+      },
+    ],
+  },
+  {
+    title: "On your device",
+    caption: "Cryptographic primitives for local storage and recovery",
+    rows: [
+      {
+        purpose: "Local database",
+        tokens: ["ChaCha20", "(SQLite3MultipleCiphers)"],
+        joiner: " ",
+        role: "Encrypts the SQLite database file at rest.",
+      },
+      {
+        purpose: "Local file store",
+        tokens: ["AES-256-GCM"],
+        role: "Encrypts stored file bytes in authenticated chunks.",
+      },
+      {
+        purpose: "PIN lock",
+        tokens: ["PBKDF2-SHA256", "AES-256-GCM"],
+        role: "Derives a wrapping key from the PIN.",
+      },
+      {
+        purpose: "Password-protected backups",
+        tokens: ["PBKDF2-SHA256", "AES-256-GCM"],
+        role: "Derives the backup key from the backup password.",
+      },
+      {
+        purpose: "Recovery phrase",
+        tokens: ["BIP39", "24 words"],
+        joiner: ", ",
+        role: "Encodes the entropy from which an identity's signing and key-encapsulation keys are derived.",
+      },
+    ],
+  },
+];
+---
+
+<section class="site-section security-section" id="cryptography" aria-labelledby="cryptography-title">
+  <SectionHeader
+    index="04"
+    titleId="cryptography-title"
+    title="Cryptography"
+    lede="Content encryption, recipient key delivery, signatures, and local storage each have a distinct role in the protocol."
+  />
+  <p class="site-prose security-pq">
+    Public-key operations in the client and API keying protocol are post-quantum
+    only: <span class="site-mono">ML-KEM-1024</span> (FIPS 203) for key delivery
+    and <span class="site-mono">ML-DSA-87</span> (FIPS 204) for signatures. That
+    statement covers the keying path, not TLS connections or deployment tooling.
+  </p>
+
+  {tables.map((table) => (
+    <div class="security-crypto">
+      <h3>{table.title}</h3>
+      <table class="site-table security-crypto-table">
+        <caption class="visually-hidden">{table.caption}</caption>
+        <thead>
+          <tr>
+            <th scope="col">Purpose</th>
+            <th scope="col">Mechanism</th>
+            <th scope="col">Role</th>
+          </tr>
+        </thead>
+        <tbody>
+          {table.rows.map((row) => (
+            <tr>
+              <th scope="row">{row.purpose}</th>
+              <td class="site-table-mono" data-label="Mechanism">
+                {row.tokens.map((token, index) => (
+                  <Fragment>
+                    {index > 0 && (row.joiner ?? " + ")}
+                    <span>{token}</span>
+                  </Fragment>
+                ))}
+              </td>
+              <td data-label="Role">{row.role}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  ))}
+
+  <div class="security-local">
+    <h3 id="local-storage">Local storage and PIN protection</h3>
+    <div class="site-prose">
+      <p>
+        The local keyring stores a wrapped account root key and derives keys for
+        the encrypted SQLite database, local files, and identity persistence. In
+        the browser, data is stored in the origin-private file system (OPFS);
+        the keyring manifest and wrapping key normally live in IndexedDB.
+      </p>
+      <p>
+        Protection depends on the host keystore. The web app persists a Web
+        Crypto key. The desktop and mobile apps store exported key bytes in
+        IndexedDB instead. Tearleads does not keep this key in a
+        hardware-backed keychain on any platform; its protection depends on how
+        the browser, WebView, and operating system protect the app's stored
+        data.
+      </p>
+      <p>
+        An optional PIN adds a PBKDF2-SHA256 and AES-256-GCM wrapper around the
+        host-wrapped root key, so reopening requires both the host key and the
+        PIN. On the desktop and mobile apps, which store the wrapping key as raw
+        bytes, someone with a copy of the app's stored data, such as a device
+        backup, can try PINs offline, and without a PIN can decrypt that copy
+        directly. In a browser, a copy of the browser's stored data may allow
+        the same. No PIN is required by default, and a local PIN does not change
+        remote sharing permissions.
+      </p>
+    </div>
+  </div>
+</section>

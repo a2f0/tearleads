@@ -1,76 +1,116 @@
 ---
-import { PricingTiers } from "../components/PricingTiers";
+import { getLargestSyncBillingTier } from "@tearleads/validators/billing";
+import PageHeader from "../components/PageHeader.astro";
+import PricingTiers from "../components/PricingTiers.astro";
+import SectionHeader from "../components/SectionHeader.astro";
+import StatusNotice from "../components/StatusNotice.astro";
 import { appUrl } from "../config";
 import Layout from "../layouts/Layout.astro";
 import { createPricingTiers, syncMemberCapacities } from "../pricing";
-import "../styles/product.css";
 import "../styles/pricing.css";
 
-const pricingTiers = createPricingTiers(appUrl);
+const pricingTiers = createPricingTiers();
+// Trials and web checkout both top out at the largest plan's capacity
+// (packages/api organizationSeatCapacity.ts, workflows/billing/stripeCheckout.ts).
+// The personal organization starts its trial at registration
+// (workflows/auth/registration.ts); other organizations start local, and the
+// Billing view offers the trial only then.
+const largestCapacity = getLargestSyncBillingTier().seatLimit;
 ---
 
 <Layout
   title="Pricing | Tearleads"
-  description="Start with Tearleads free forever on your device. Add encrypted sync with Solo, or share an organization with a Team plan. Compare monthly USD prices and member capacity."
+  description="Tearleads is free on your device. Paid plans add end-to-end encrypted sync for one organization, and Team plans add sharing. Monthly USD prices."
 >
-  <main class="website-main">
-    <article class="section product-page pricing-page" aria-labelledby="page-title">
-      <header>
-        <p class="product-eyebrow">Pricing / Find your fit</p>
-        <h1 id="page-title">Start local. Grow together.</h1>
-        <p class="section-lede">
-          Your local workspace is free forever. Add encrypted sync for yourself,
-          or choose a team plan to share an organization with others.
-        </p>
-      </header>
+  <div class="site-page">
+    <PageHeader
+      title="Pricing"
+      lede="Tearleads is free on your device. Paid plans add end-to-end encrypted sync for one organization and are priced by member capacity, not per member."
+    >
+      <StatusNotice />
+    </PageHeader>
+
+    <section class="pricing-plans-section" aria-labelledby="plans-title">
+      <h2 id="plans-title" class="visually-hidden">Plans</h2>
       <PricingTiers tiers={pricingTiers} />
       <p class="pricing-note">
-        Prices shown are monthly USD list prices. Each paid price covers one
-        organization with the member capacity shown; it is not a per-member price.
-        Confirm the final price and any applicable taxes in checkout. App store
-        pricing may vary by region.
+        Monthly list prices in US dollars. Each paid plan covers one
+        organization with the member capacity shown; it is not a per-member
+        price. Checkout shows the final price and any taxes.
       </p>
-
-      <section class="product-section" aria-labelledby="choose-plan-title">
-        <p class="product-eyebrow">Getting started</p>
-        <h2 id="choose-plan-title">Choose your plan inside Tearleads.</h2>
-        <p class="product-section-lede">
-          Open Org Manager, select your organization, and go to Billing to see
-          eligible plans and subscribe. Your organization's administrators manage
-          its subscription and member capacity.
+      <div class="site-cta">
+        <p>
+          Subscribe in the web app: open Org Manager, choose your organization,
+          and go to Billing. The desktop apps can't take payment.
         </p>
-        <div class="pricing-details">
-          <div>
-            <h3>What is an organization member?</h3>
-            <p>
-              A member is a user in your organization's active roster. Plans cover
-              a fixed capacity of {syncMemberCapacities} members, including admins.
-              Your devices do not each consume another member seat.
-            </p>
-          </div>
-          <div>
-            <h3>How do I manage a subscription?</h3>
-            <p>
-              Use Billing in Org Manager to manage your plan. Web subscriptions
-              can also be managed through the Stripe email login portal;
-              subscriptions purchased through an app store are managed there.
-            </p>
-            <a class="product-text-link" href="/manage-subscription">Manage a web subscription <span aria-hidden="true">→</span></a>
-          </div>
+        <div class="site-actions">
+          <a class="site-button site-button--primary" href={appUrl}>Open web app</a>
         </div>
-      </section>
+      </div>
+    </section>
 
-      <aside class="product-cta" aria-labelledby="pricing-cta-title">
+    <section class="site-section pricing-billing" id="billing" aria-labelledby="billing-title">
+      <SectionHeader titleId="billing-title" title="How billing works" />
+      <dl class="site-spec site-spec--wide-key">
         <div>
-          <p class="product-eyebrow">Take a closer look</p>
-          <h2 id="pricing-cta-title">Get to know your workspace.</h2>
-          <p>Explore the tools, or see how encryption and verified sharing protect your content.</p>
+          <dt>Who manages billing</dt>
+          <dd>Organization admins manage the subscription.</dd>
         </div>
-        <div class="product-actions">
-          <a class="product-button" href="/features">Explore features</a>
-          <a class="product-text-link" href="/security">Security architecture</a>
+        <div>
+          <dt>Free trial</dt>
+          <dd>
+            Your personal organization starts a 7-day free sync trial when the
+            app first registers your identity. For any other organization, an
+            admin can start one from the same Billing view. A trial covers
+            up to {largestCapacity} members.
+          </dd>
         </div>
-      </aside>
-    </article>
-  </main>
+        <div>
+          <dt>Who counts as a member</dt>
+          <dd>
+            Anyone on your organization's active roster, including admins. Your
+            devices don't count. Plans cover a fixed capacity of
+            {" "}{syncMemberCapacities} members, which the app's Billing view
+            calls seats.
+          </dd>
+        </div>
+        <div>
+          <dt>Which plan you get</dt>
+          <dd>
+            On the web, checkout picks the smallest plan that covers your roster
+            when you subscribe. Checkout isn't available for a roster of more
+            than {largestCapacity} members.
+          </dd>
+        </div>
+        <div>
+          <dt>When the roster grows</dt>
+          <dd>
+            A plan's capacity doesn't grow with the roster. Once every seat is in
+            use, a new member can't sync until someone leaves the roster.
+          </dd>
+        </div>
+        <div>
+          <dt>Manage or cancel</dt>
+          <dd>
+            <p>
+              Admins can cancel in Org Manager → Billing, and sync continues
+              until the paid period ends. You can also manage a web subscription
+              through Stripe with your billing email, even without your
+              Tearleads keys.
+            </p>
+            <a class="site-link" href="/manage-subscription">Manage a web subscription<span aria-hidden="true"> →</span></a>
+          </dd>
+        </div>
+        <div>
+          <dt>If a trial or subscription ends</dt>
+          <dd>
+            Sync stops accepting changes, and synced data can still be
+            downloaded during a grace period. After that, the service
+            permanently deletes the organization's synced documents and files.
+            Data on your devices stays.
+          </dd>
+        </div>
+      </dl>
+    </section>
+  </div>
 </Layout>

@@ -1,0 +1,54 @@
+---
+import { createPricingTiers } from "../pricing";
+import SectionHeader from "./SectionHeader.astro";
+
+/**
+ * Home: the plan table. Every value comes from createPricingTiers() (which
+ * reads @tearleads/validators), so nothing here is hand-typed. The 7-day trial
+ * is FREE_TRIAL_MS in packages/api/src/billing/organizationBilling.ts. The
+ * personal organization starts on it at registration
+ * (packages/api/src/workflows/auth/registration.ts, initialBilling "trial");
+ * other organizations start local, and Org Manager → Billing offers the trial
+ * only then (org-manager billing/BillingView.tsx).
+ */
+const tiers = createPricingTiers();
+---
+
+<section class="site-section" id="pricing" aria-labelledby="pricing-title">
+  <SectionHeader
+    titleId="pricing-title"
+    title="Pricing"
+    lede="Free on your device. Paid plans add sync for one organization and are priced by member capacity, not per member."
+  >
+    <a slot="action" class="site-link" href="/pricing">
+      Compare plans<span aria-hidden="true"> →</span>
+    </a>
+  </SectionHeader>
+  <table class="site-table home-plans">
+    <caption class="visually-hidden">Tearleads plans</caption>
+    <thead>
+      <tr>
+        <th scope="col">Plan</th>
+        <th scope="col" class="site-table-num">Price</th>
+        <th scope="col">Includes</th>
+      </tr>
+    </thead>
+    <tbody>
+      {tiers.map((tier) => (
+        <tr>
+          <th scope="row">{tier.name}</th>
+          <td class="site-table-num" data-label="Price">
+            <span class="home-plan-price">{tier.price}</span>
+            {tier.interval && <span class="home-plan-interval"> {tier.interval}</span>}
+          </td>
+          <td data-label="Includes">{tier.summary}</td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+  <p class="home-plans-note">
+    Your personal organization starts a 7-day free sync trial when the app
+    first registers your identity. For any other organization, an admin can
+    start one in Org Manager → Billing.
+  </p>
+</section>

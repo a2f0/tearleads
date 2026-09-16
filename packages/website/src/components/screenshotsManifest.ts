@@ -5,6 +5,9 @@ export interface ScreenshotEntry {
   theme: string;
   name: string;
   src: string;
+  /** Pixel dimensions read from the PNG header at staging time. */
+  width: number;
+  height: number;
 }
 
 export interface ScreenshotManifest {
@@ -14,20 +17,43 @@ export interface ScreenshotManifest {
   entries: ScreenshotEntry[];
 }
 
-// Friendlier labels for the device (capture project) toggle; falls back to a
-// title-cased id for any project not listed here.
+// Human labels for the capture projects (layouts); falls back to a title-cased
+// id for any project not listed here. Route slugs keep the project ids.
 const PROJECT_LABELS: Record<string, string> = {
-  windowed: "Windowed",
-  mobile: "Mobile",
+  windowed: "Desktop",
+  mobile: "Phone",
   tablet: "Tablet",
 };
+
+// Human labels for screen ids, matching the app's own names for each view. A
+// Map, so an id such as "constructor" can never resolve to a prototype member.
+const SCREEN_LABELS: ReadonlyMap<string, string> = new Map([
+  ["home", "Home"],
+  ["explorer", "Explorer"],
+  ["contacts", "Contacts"],
+  ["org-manager", "Org Manager"],
+  ["org-manager-roster", "Org Manager: Roster"],
+  ["org-manager-groups", "Org Manager: Groups"],
+  ["org-manager-grants", "Org Manager: Grants"],
+  ["org-manager-organization", "Org Manager: Organization"],
+  ["org-manager-usage", "Org Manager: Usage"],
+  ["org-manager-billing", "Org Manager: Billing"],
+  ["notes", "Notes"],
+  ["identity-manager", "Identity Manager"],
+  ["backup-restore", "Backup / Restore"],
+  ["system-monitor", "System Monitor"],
+  ["note-detail", "Note"],
+  ["note-blame", "Note authorship"],
+  ["contact-detail", "Contact"],
+  ["drivers-license-detail", "Driver's license"],
+]);
 
 const THEME_LABELS: Record<string, string> = {
   light: "Light",
   dark: "Dark",
 };
 
-export function titleCase(value: string): string {
+function titleCase(value: string): string {
   return value
     .split("-")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
@@ -40,6 +66,22 @@ export function projectLabel(project: string): string {
 
 export function themeLabel(theme: string): string {
   return THEME_LABELS[theme] ?? titleCase(theme);
+}
+
+export function screenLabel(name: string): string {
+  return SCREEN_LABELS.get(name) ?? titleCase(name);
+}
+
+export function findScreenshot(
+  manifest: ScreenshotManifest,
+  project: string,
+  theme: string,
+  name: string,
+): ScreenshotEntry | undefined {
+  return manifest.entries.find(
+    (entry) =>
+      entry.project === project && entry.theme === theme && entry.name === name,
+  );
 }
 
 export function entryKey(project: string, theme: string, name: string): string {

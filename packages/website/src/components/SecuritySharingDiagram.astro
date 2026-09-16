@@ -1,47 +1,61 @@
 ---
+/**
+ * Fig. 2 on /security: a simplified flow for shared content, as a strip of
+ * square cells with shared borders. The service cell is dashed, matching the
+ * service frame in Fig. 1; the caption says so in words.
+ */
 const steps = [
   {
     actor: "Sending device",
     title: "Verify access",
-    body: "Check signed access manifests, referenced group policies, identity pins, and remembered checkpoints.",
+    body: "Check signed access manifests, the group policies they reference, pinned identity keys, and remembered checkpoints.",
   },
   {
     actor: "Sending device",
-    title: "Encrypt & wrap",
-    body: "Encrypt content. Wrap content keys under container keys, and container keys for the verified recipients.",
+    title: "Encrypt and wrap",
+    body: "Encrypt the content. Wrap content keys under container keys, and wrap container keys for the verified recipients.",
   },
   {
     actor: "Sync service",
-    title: "Validate & store",
+    title: "Validate and store",
     body: "Enforce write authorization and signed commitments. Store ciphertext and wrapped keys for delivery.",
+    service: true,
   },
   {
     actor: "Receiving device",
-    title: "Verify & decrypt",
-    body: "Verify the signed records and access path, unwrap the keys, and decrypt content locally.",
+    title: "Verify and decrypt",
+    body: "Verify the signed records and access path, unwrap the keys, and decrypt the content locally.",
   },
 ];
 ---
 
 <figure class="security-figure" aria-labelledby="sharing-caption">
-  <ol class="security-sharing-flow" role="list">
+  <ol class="security-flow" role="list">
     {steps.map((step, index) => (
-      <li class:list={["security-sharing-step", { "security-sharing-step--service": index === 2 }]}>
-        <span class="security-eyebrow">{step.actor}</span>
-        <span class="security-sharing-number" aria-hidden="true">0{index + 1}</span>
+      <li class:list={["security-flow-step", { "security-flow-step--service": step.service }]}>
+        <p class="security-flow-meta">
+          <span class="security-flow-number" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
+          <span class="security-flow-actor">{step.actor}</span>
+        </p>
         <h3>{step.title}</h3>
         <p>{step.body}</p>
+        {index < steps.length - 1 && (
+          <svg class="security-flow-arrow" viewBox="0 0 16 16" fill="none" aria-hidden="true" focusable="false">
+            <path d="M2 8h11m-4-4 4 4-4 4" stroke="currentColor" />
+          </svg>
+        )}
       </li>
     ))}
   </ol>
-  <div class="security-verification-note">
-    <strong>Verification is a gate.</strong>{" "}
-    Invalid required signatures, policy chains, or checkpoint comparisons stop the
-    affected operation. Server-provided recipient lists alone do not authorize sharing.
-  </div>
   <figcaption id="sharing-caption">
-    <span class="security-figure-label">Figure 02</span>{" "}
-    A simplified shared-content flow. The service checks writes;
-    receiving clients independently verify the records they use.
+    <span class="security-figure-label">Fig. 2</span> A simplified flow for shared content. The service checks writes; the
+    receiving app verifies the signed records it uses. Dashed frame: the
+    service.
   </figcaption>
 </figure>
+
+<div class="site-note security-gate-note" role="note">
+  <strong class="site-note-label">Verification is a gate.</strong> Invalid required signatures, policy chains, or checkpoint comparisons stop the
+  affected operation. Server-provided recipient lists alone do not authorize
+  sharing.
+</div>
