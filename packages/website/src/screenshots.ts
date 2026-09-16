@@ -12,6 +12,6 @@ export function loadScreenshotManifest(): Promise<ScreenshotManifest> {
   manifest ??= readFile(
     new URL("screenshot-gallery/manifest.json", publicDir),
     "utf8",
-  ).then((text) => JSON.parse(text) as ScreenshotManifest);
+  ).then((text): ScreenshotManifest => JSON.parse(text));
   return manifest;
 }
