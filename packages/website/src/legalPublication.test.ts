@@ -2,6 +2,7 @@ import { beforeAll, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
+import { releaseNotice } from "./config";
 import { legalDetails } from "./legal";
 
 const website = resolve(import.meta.dir, "..");
@@ -83,6 +84,13 @@ for (const environment of ["production", "staging", undefined]) {
       ).text();
       expect(features).toContain('id="sync-and-sharing"');
       expect(features).toContain('id="document-authorship"');
+      // Pages whose figures crop phone captures above the in-app test banner
+      // carry the release notice while it is set.
+      if (releaseNotice !== null) {
+        for (const html of [index, features]) {
+          expect(html).toContain(releaseNotice);
+        }
+      }
       expect(
         await Bun.file(resolve(output, "downloads/linux/index.html")).text(),
       ).toContain("./installer");

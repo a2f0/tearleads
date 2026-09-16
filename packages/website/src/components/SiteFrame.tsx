@@ -1,6 +1,7 @@
 import { TearleadsFrame, TearleadsLogo } from "@tearleads/ui";
 import type { PropsWithChildren, ReactNode } from "react";
 import { legalDetails } from "../legal";
+import { FOOTER_NAV_ID } from "./SiteNav";
 
 interface SiteFrameProps {
   readonly appUrl: string;
@@ -64,7 +65,11 @@ function SiteFooter({ appUrl }: { readonly appUrl: string }) {
   const location = legalDetails.location.replace(/, United States$/, "");
   return (
     <div className="site-footer">
-      <nav aria-label="Footer" className="site-footer-groups">
+      <nav
+        aria-label="Footer"
+        className="site-footer-groups"
+        id={FOOTER_NAV_ID}
+      >
         {footerGroups(appUrl).map((group) => (
           <div key={group.heading}>
             <h2 className="site-footer-heading">{group.heading}</h2>

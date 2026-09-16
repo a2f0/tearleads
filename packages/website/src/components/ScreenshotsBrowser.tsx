@@ -20,6 +20,7 @@ import {
   type ScreenshotManifest,
   screenLabel,
   screenshotPath,
+  startingTheme,
 } from "./screenshotsManifest";
 
 // Manifest URL, staged into Astro's public/ by scripts/buildScreenshots.ts and
@@ -136,15 +137,6 @@ function startingProject(
     return "mobile";
   }
   return initialProject(manifest, platform);
-}
-
-// Show captures in the visitor's color scheme when both themes exist. This
-// selects captured assets only; it never themes the website itself.
-function startingTheme(themes: string[]): string {
-  if (themes.includes("dark") && prefersMedia("(prefers-color-scheme: dark)")) {
-    return "dark";
-  }
-  return themes[0] ?? "light";
 }
 
 // Index entries by project+theme+name and derive the selected-device screen
@@ -288,7 +280,16 @@ function Gallery({
   const [project, setProject] = useState<string>(() =>
     startingProject(manifest, initialPlatform),
   );
-  const [theme, setTheme] = useState<string>(() => startingTheme(themes));
+  // Captures follow the visitor's color scheme where the opening screen exists
+  // in it. This selects captured assets only; it never themes the website.
+  const [theme, setTheme] = useState<string>(() =>
+    startingTheme(
+      manifest,
+      startingProject(manifest, initialPlatform),
+      initialScreen,
+      prefersMedia("(prefers-color-scheme: dark)"),
+    ),
+  );
   const containerRef = useRef<HTMLDivElement>(null);
   const { bySrc, screens, activeName, activeIndex, step, setSelectedName } =
     useGalleryNavigation(manifest, project, containerRef, initialScreen);

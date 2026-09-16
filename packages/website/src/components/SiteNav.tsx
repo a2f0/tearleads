@@ -7,6 +7,9 @@ import {
   useState,
 } from "react";
 
+/** Id of the footer navigation, the pre-hydration target of the menu toggle. */
+export const FOOTER_NAV_ID = "footer-navigation";
+
 interface NavItem {
   readonly href: string;
   readonly label: string;
@@ -117,18 +120,24 @@ function useDismissableMenu(
  *
  * The layout hydrates this as its own island (slot="nav" with client:media), so
  * the toggle, Escape-to-close, and closing on an outside press or on focus
- * leaving the nav work on phones while the rest of the page stays static. The
- * toggle is part of the static HTML, so the header keeps its size while the
- * island hydrates; with scripting disabled, CSS hides it and shows the inline
- * list instead.
+ * leaving the nav work on phones while the rest of the page stays static. A
+ * same-sized toggle is part of the static HTML, so the header keeps its size
+ * while the island hydrates. Until hydration it is a link to the footer
+ * navigation, which lists the same pages, so the menu still works if the island
+ * script never loads; hydration swaps in the button. With scripting disabled,
+ * CSS hides the toggle and shows the inline list instead.
  */
 export function SiteNav({ pathname = "" }: SiteNavProps) {
   const [open, setOpen] = useState(false);
+  // False in the static HTML and on the first client render, so hydration
+  // matches; the effect then swaps the fallback link for the button.
+  const [hydrated, setHydrated] = useState(false);
   const listId = useId();
   const containerRef = useRef<HTMLElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const closeMenu = useCallback(() => setOpen(false), []);
   useDismissableMenu(open, closeMenu, containerRef, toggleRef);
+  useEffect(() => setHydrated(true), []);
 
   return (
     <nav
@@ -137,17 +146,24 @@ export function SiteNav({ pathname = "" }: SiteNavProps) {
       data-open={open ? "true" : undefined}
       ref={containerRef}
     >
-      <button
-        aria-controls={listId}
-        aria-expanded={open}
-        aria-label={open ? "Close menu" : "Open menu"}
-        className="site-nav-toggle"
-        onClick={() => setOpen((value) => !value)}
-        ref={toggleRef}
-        type="button"
-      >
-        <span aria-hidden="true" className="site-nav-toggle-icon" />
-      </button>
+      {hydrated ? (
+        <button
+          aria-controls={listId}
+          aria-expanded={open}
+          aria-label={open ? "Close menu" : "Open menu"}
+          className="site-nav-toggle"
+          onClick={() => setOpen((value) => !value)}
+          ref={toggleRef}
+          type="button"
+        >
+          <span aria-hidden="true" className="site-nav-toggle-icon" />
+        </button>
+      ) : (
+        <a className="site-nav-toggle" href={`#${FOOTER_NAV_ID}`}>
+          <span aria-hidden="true" className="site-nav-toggle-icon" />
+          <span className="visually-hidden">Menu</span>
+        </a>
+      )}
       {/* No role="list" needed: WebKit keeps list semantics inside <nav>. */}
       <ul className="site-nav-list" id={listId}>
         {NAV_ITEMS.map((item) => (

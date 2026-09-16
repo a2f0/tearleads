@@ -175,6 +175,8 @@
     border: 1px solid var(--site-chrome-ink-2);
     background: transparent;
     color: inherit;
+    /* Before hydration the toggle is a link to the footer navigation. */
+    text-decoration: none;
     cursor: pointer;
   }
 

@@ -2,6 +2,7 @@
 import PageHeader from "../components/PageHeader.astro";
 import Screenshot from "../components/Screenshot.astro";
 import SectionHeader from "../components/SectionHeader.astro";
+import StatusNotice from "../components/StatusNotice.astro";
 import { appUrl } from "../config";
 import Layout from "../layouts/Layout.astro";
 import { startingSyncPrice } from "../pricing";
@@ -44,7 +45,9 @@ const tools = [
     <PageHeader
       title="Features"
       lede="Notes, contacts, files, and records in one folder tree, stored encrypted on your device and editable offline. Sync comes with paid plans, and sharing with Team plans."
-    />
+    >
+      <StatusNotice />
+    </PageHeader>
 
     <section class="site-section" id="tools" aria-labelledby="tools-title">
       <div class="features-split">

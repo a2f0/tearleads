@@ -102,6 +102,38 @@ export function initialProject(
     : (manifest.projects[0] ?? "");
 }
 
+// The gallery opens in the visitor's color scheme only when the screen it opens
+// on was captured in that theme; otherwise it uses the first theme that has the
+// capture, so a partial manifest never opens on a missing-capture placeholder.
+// The opening screen mirrors the gallery: the requested screen when this
+// platform captured it, else the platform's first captured screen.
+export function startingTheme(
+  manifest: ScreenshotManifest,
+  project: string,
+  screen: string | undefined,
+  prefersDark: boolean,
+): string {
+  const captured = (theme: string, name: string) =>
+    manifest.entries.some(
+      (entry) =>
+        entry.project === project &&
+        entry.theme === theme &&
+        entry.name === name,
+    );
+  const screens = manifest.screens.filter((name) =>
+    manifest.themes.some((theme) => captured(theme, name)),
+  );
+  const opening =
+    screen !== undefined && screens.includes(screen) ? screen : screens[0];
+  const order = prefersDark ? ["dark", ...manifest.themes] : manifest.themes;
+  const theme = order.find(
+    (candidate) =>
+      manifest.themes.includes(candidate) &&
+      (opening === undefined || captured(candidate, opening)),
+  );
+  return theme ?? manifest.themes[0] ?? "light";
+}
+
 interface ScreenshotRoute {
   params: { slug: string | undefined };
   props: { initialPlatform?: string; initialScreen?: string };

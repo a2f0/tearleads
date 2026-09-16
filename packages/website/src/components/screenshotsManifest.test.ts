@@ -7,6 +7,7 @@ import {
   screenLabel,
   screenshotPath,
   screenshotRoutes,
+  startingTheme,
 } from "./screenshotsManifest";
 
 const manifest: ScreenshotManifest = {
@@ -133,4 +134,16 @@ test("screen and layout labels use human names with a title-case fallback", () =
   expect(projectLabel("windowed")).toBe("Desktop");
   expect(projectLabel("mobile")).toBe("Phone");
   expect(projectLabel("tablet")).toBe("Tablet");
+});
+
+test("the gallery opens in a theme that captured its opening screen", () => {
+  // A dark-scheme visitor sees dark only where the opening screen has it.
+  expect(startingTheme(manifest, "mobile", "explorer", true)).toBe("dark");
+  expect(startingTheme(manifest, "windowed", "explorer", true)).toBe("light");
+  // Without a requested screen the gallery opens on the platform's first
+  // captured screen: mobile "home", which has no dark capture.
+  expect(startingTheme(manifest, "mobile", undefined, true)).toBe("light");
+  // A light-scheme visitor still gets dark when only dark was captured.
+  expect(startingTheme(manifest, "tablet", "explorer", false)).toBe("dark");
+  expect(startingTheme(manifest, "mobile", "explorer", false)).toBe("light");
 });
