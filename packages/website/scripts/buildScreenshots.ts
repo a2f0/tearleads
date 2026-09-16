@@ -15,20 +15,24 @@ import { fileURLToPath } from "node:url";
 // `astro build` still succeeds in CI without a prior `bun run screenshots`.
 //
 // This script lives at packages/website/scripts/, so the repo root is three
-// levels up.
+// levels up. SCREENSHOTS_CAPTURE_DIR and SCREENSHOTS_OUTPUT_DIR redirect the
+// input and output, so tests can stage fixtures without touching either.
 const REPO_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
   "..",
   "..",
 );
-const SCREENSHOTS_DIR = path.join(REPO_ROOT, ".screenshots");
-const OUTPUT_DIR = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "..",
-  "public",
-  "screenshot-gallery",
-);
+const SCREENSHOTS_DIR =
+  process.env.SCREENSHOTS_CAPTURE_DIR ?? path.join(REPO_ROOT, ".screenshots");
+const OUTPUT_DIR =
+  process.env.SCREENSHOTS_OUTPUT_DIR ??
+  path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "..",
+    "public",
+    "screenshot-gallery",
+  );
 const IMG_DIR = path.join(OUTPUT_DIR, "img");
 const MANIFEST_PATH = path.join(OUTPUT_DIR, "manifest.json");
 

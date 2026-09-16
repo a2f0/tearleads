@@ -50,16 +50,19 @@ const dark = findScreenshot(manifest, "windowed", "dark", name);
 const mobileLight = phone
   ? findScreenshot(manifest, "mobile", "light", name)
   : undefined;
-const mobileDark = mobileLight
+const mobileDark = phone
   ? findScreenshot(manifest, "mobile", "dark", name)
   : undefined;
+// Phones get a phone capture whenever one exists: dark-scheme phones prefer the
+// dark one, and a capture in only one theme serves both, as desktop does.
+const mobileAny = mobileLight ?? mobileDark;
 const style = `--shot-crop: ${crop}; --shot-phone-crop: ${phoneCrop};`;
 ---
 
 {light && (
   <figure
     class:list={["site-shot", `site-shot--${size}`]}
-    data-phone={mobileLight ? "" : undefined}
+    data-phone={mobileAny ? "" : undefined}
     data-tablet-zoom={tabletZoom ? "" : undefined}
     style={style}
   >
@@ -73,12 +76,12 @@ const style = `--shot-crop: ${crop}; --shot-phone-crop: ${phoneCrop};`;
             height={mobileDark.height}
           />
         )}
-        {mobileLight && (
+        {mobileAny && (
           <source
             media="(max-width: 699px)"
-            srcset={mobileLight.src}
-            width={mobileLight.width}
-            height={mobileLight.height}
+            srcset={mobileAny.src}
+            width={mobileAny.width}
+            height={mobileAny.height}
           />
         )}
         {dark && (
