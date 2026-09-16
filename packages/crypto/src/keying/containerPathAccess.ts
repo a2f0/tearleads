@@ -1,3 +1,4 @@
+import { assertContainerPathIntegrity } from "./containerParentAuthority";
 import { principalPolicyEntryForReference } from "./principalPolicyReference";
 import { throwVerification } from "./shared";
 import type {
@@ -122,6 +123,7 @@ export function resolveContainerPathUserAccessLevel(
     "membershipAt" | "path"
   > & { readonly path: readonly VerifiedContainerAccessManifest[] },
 ): ContainerAccessLevel | null {
+  assertContainerPathIntegrity(input.path, "container authorization");
   return resolveContainerPathUserAccessLevelAt({
     ...input,
     membershipAt: "current",
@@ -134,6 +136,10 @@ export function resolveHistoricalContainerPathUserAccessLevel(
     "membershipAt" | "path"
   > & { readonly path: readonly VerifiedContainerAccessManifest[] },
 ): ContainerAccessLevel | null {
+  assertContainerPathIntegrity(
+    input.path,
+    "historical container authorization",
+  );
   return resolveContainerPathUserAccessLevelAt({
     ...input,
     membershipAt: "referenced",
@@ -153,6 +159,7 @@ export function requireContainerPathUserAccess(input: {
     throwVerification("missing_dependency", `${input.label} path is required`);
   }
 
+  assertContainerPathIntegrity(path, input.label);
   const accessLevel = resolveContainerPathUserAccessLevelAt({
     membershipAt: input.membershipAt ?? "current",
     path,

@@ -28,5 +28,6 @@ exec bun test \
   packages/crypto/src/keying/transparencyProofs.test.ts \
   packages/crypto/src/keying/transparencyProofMutations.test.ts \
   packages/crypto/src/keying/keyingProperties.test.ts \
+  packages/crypto/src/keying/keyingPathProperties.test.ts \
   packages/api-client/src/operationTransportSurface.test.ts \
   packages/validators/src
