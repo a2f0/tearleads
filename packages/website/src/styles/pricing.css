@@ -1,113 +1,145 @@
-.pricing-page .pricing-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin-top: 40px;
+/*
+ * /pricing: the plan grid and the billing spec list. Shared pieces (page
+ * header, notes, CTA row, spec list) come from components.css and content.css.
+ */
+
+.pricing-plans-section {
+  margin-top: var(--site-space-7);
 }
 
-.pricing-page .pricing-tier {
-  padding: 24px 20px;
-  border-color: var(--product-line);
-  border-radius: 12px;
+/* --- Plan grid ---
+   Cells share 1px hairlines: the list's background shows through a 1px gap
+   between opaque cells, inside a 1px ink frame. */
+
+.pricing-plans {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--site-ink);
+  background: var(--site-line);
+  list-style: none;
 }
 
-.pricing-page .pricing-tier:first-child {
-  background: var(--product-tint);
-  border-color: #b9d0c0;
+.pricing-plan {
+  display: flex;
+  flex-direction: column;
+  gap: var(--site-space-3);
+  min-width: 0;
+  margin: 0;
+  padding: var(--site-space-5);
+  background: var(--site-surface);
 }
 
-.pricing-page .pricing-tier-name {
-  font-size: 1.1rem;
-  line-height: 1.4;
-  letter-spacing: -0.015em;
+/* The default `li + li` flow spacing doesn't apply inside the grid. */
+.pricing-plans > .pricing-plan + .pricing-plan {
+  margin-top: 0;
 }
 
-.pricing-page .pricing-tier-price {
+.pricing-plan-name {
+  color: var(--site-ink);
+  font: 600 1rem / 1.4 var(--site-font-mono);
+  text-wrap: balance;
+}
+
+.pricing-plan-price {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 6px;
-  margin-top: 20px;
-  color: var(--product-ink);
-  font-size: 2.5rem;
-  letter-spacing: -0.05em;
-  line-height: 1.2;
+  column-gap: var(--site-space-2);
+  margin: var(--site-space-2) 0 0;
+  color: var(--site-ink);
+  font: 650 clamp(2rem, 1.6rem + 1vw, 2.5rem) / 1 var(--site-font-sans);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }
 
-.pricing-tier-price span {
-  color: var(--product-muted);
-  font-size: 0.825rem;
-  font-weight: 400;
+.pricing-plan-interval {
+  color: var(--site-ink-3);
+  font: 400 var(--site-text-small) / 1.5 var(--site-font-sans);
   letter-spacing: 0;
 }
 
-.pricing-tier-capacity {
-  min-height: 3em;
-  margin: 12px 0 0;
-  color: var(--product-accent);
-  font-size: 0.825rem;
-  font-weight: 600;
+.pricing-plan-capacity {
+  margin: var(--site-space-2) 0 0;
+  padding-top: var(--site-space-3);
+  border-top: 1px solid var(--site-line);
+  color: var(--site-ink);
+  font: 500 var(--site-text-mono-sm) / 1.45 var(--site-font-mono);
 }
 
-.pricing-page .pricing-tier-description {
-  margin-top: 16px;
-  color: var(--product-muted);
-  font-size: 0.875rem;
-  line-height: 1.65;
-}
-
-.pricing-tier-features {
+.pricing-plan-features {
   display: grid;
-  gap: 10px;
-  margin: 24px 0;
-  padding: 20px 0 0 16px;
-  border-top: 1px solid var(--product-line);
-  list-style: disc;
-  font-size: 0.8rem;
+  align-content: start;
+  gap: var(--site-space-2);
+  margin: 0;
+  padding: 0;
+  color: var(--site-ink-2);
+  font-size: var(--site-text-small);
+  line-height: 1.5;
+  list-style: none;
 }
 
-.pricing-tier-features li::marker {
-  color: var(--product-accent);
+.pricing-plan-features > li {
+  position: relative;
+  margin: 0;
+  padding-left: 1.5em;
 }
 
-.pricing-tier .product-button {
-  margin-top: auto;
-  padding-inline: 10px;
-  font-size: 0.8rem;
+.pricing-plan-features > li::before {
+  position: absolute;
+  left: 0;
+  color: var(--site-ink-3);
+  content: "—" / "";
 }
 
-.pricing-note {
-  max-width: 850px;
-  margin: 20px 0 0;
-  color: var(--product-muted);
-  font-size: 0.825rem;
+@supports not (content: "—" / "") {
+  .pricing-plan-features > li::before {
+    content: "—";
+  }
 }
 
-.pricing-details {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 36px;
-  padding-top: 28px;
-  border-top: 1px solid var(--product-line);
-}
-
-.pricing-details p {
-  margin: 12px 0 0;
-  color: var(--product-muted);
-  font-size: 0.925rem;
-}
-
-@media (max-width: 1000px) {
-  .pricing-page .pricing-grid {
+@media (min-width: 700px) {
+  .pricing-plans {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 600px) {
-  .pricing-page .pricing-grid,
-  .pricing-details {
-    grid-template-columns: 1fr;
+@media (min-width: 1024px) {
+  .pricing-plans {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
+}
 
-  .pricing-tier-capacity {
-    min-height: 0;
+/* Side by side, align each row (name, price, capacity, features) across the
+   cells, so a capacity that wraps doesn't push one list out of line. */
+@supports (grid-template-rows: subgrid) {
+  @media (min-width: 700px) {
+    .pricing-plan {
+      display: grid;
+      grid-row: span 4;
+      grid-template-rows: subgrid;
+      row-gap: var(--site-space-3);
+    }
   }
+}
+
+.pricing-note {
+  max-width: var(--site-measure);
+  margin-top: var(--site-space-4);
+  color: var(--site-ink-3);
+  font-size: var(--site-text-small);
+  line-height: 1.5;
+}
+
+/* --- How billing works --- */
+
+.pricing-billing dd {
+  max-width: var(--site-measure);
+}
+
+/* The value text is --site-ink-2; the action inside it reads at full ink. */
+.pricing-billing dd > .site-link {
+  color: var(--site-ink);
 }

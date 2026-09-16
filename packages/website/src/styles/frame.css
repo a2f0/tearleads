@@ -1,0 +1,437 @@
+/*
+ * Site chrome: the @tearleads/ui frame (header and footer bands), the primary
+ * navigation island, the header "Open app" button, and the footer.
+ *
+ * Every rule that overrides @tearleads/ui is prefixed with `.site-frame` (and
+ * the frame's own rule with `.tearleads-frame.site-frame`), so it wins whatever
+ * order the bundler emits the stylesheets in.
+ */
+
+/* --- Frame grid --- */
+
+/* minmax(0, 1fr) lets wide content (tables, code) shrink instead of widening
+   the whole page past the viewport. */
+.tearleads-frame.site-frame {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.site-frame .website-main {
+  min-width: 0;
+}
+
+/* --- Chrome bands --- */
+
+.site-frame .tearleads-header,
+.site-frame .tearleads-footer {
+  --site-focus: var(--site-chrome-ink);
+  /* Inner content aligns with the 75rem page column; the gutters keep the
+     device safe-area insets. */
+  padding-inline: max(
+      calc(var(--site-gutter) + var(--safe-area-left)),
+      (100% - var(--site-max)) /
+      2
+    )
+    max(
+      calc(var(--site-gutter) + var(--safe-area-right)),
+      (100% - var(--site-max)) /
+      2
+    );
+  font-family: var(--site-font-mono);
+}
+
+.site-frame .tearleads-header {
+  position: relative;
+  gap: var(--site-space-4);
+  border-bottom: 1px solid var(--site-chrome-edge);
+  padding-block: var(--site-space-2);
+  padding-top: calc(var(--site-space-2) + var(--safe-area-top));
+}
+
+.site-frame .tearleads-brand {
+  gap: var(--site-space-2);
+  min-height: var(--site-target);
+}
+
+.site-frame .tearleads-brand-mark {
+  font: 700 1.25rem / 1 var(--site-font-mono);
+}
+
+.site-frame .tearleads-brand-logo svg {
+  height: 1.75rem;
+}
+
+.site-frame .tearleads-header-actions {
+  gap: var(--site-space-2);
+}
+
+/* --- Header "Open app" button --- */
+
+.site-app-button {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--site-target);
+  padding-inline: var(--site-space-3);
+  border: 1px solid var(--site-chrome-ink-2);
+  color: inherit;
+  font: 600 0.9375rem / 1 var(--site-font-mono);
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.site-app-button:focus-visible {
+  background: var(--tearleads-action-hover-surface);
+  color: var(--tearleads-action-hover-text);
+}
+
+/* --- Primary navigation --- */
+
+.site-nav {
+  display: flex;
+  align-items: center;
+}
+
+.site-nav-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--site-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.site-nav-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--site-target);
+  padding-inline: var(--site-space-2);
+  color: inherit;
+  font: 400 0.9375rem / 1 var(--site-font-mono);
+  white-space: nowrap;
+  text-decoration: none;
+  text-underline-offset: 6px;
+}
+
+.site-nav-link:focus-visible {
+  text-decoration: underline 1px;
+}
+
+/* Current page, or the section the current page belongs to. */
+.site-nav-link[aria-current] {
+  text-decoration: underline 2px;
+}
+
+.site-nav-toggle {
+  display: none;
+}
+
+@media (min-width: 701px) {
+  .site-nav {
+    margin-right: var(--site-space-3);
+  }
+}
+
+@media (hover: hover) {
+  .site-app-button:hover {
+    background: var(--tearleads-action-hover-surface);
+    color: var(--tearleads-action-hover-text);
+  }
+
+  .site-nav-link:not([aria-current]):hover {
+    text-decoration: underline 1px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .site-app-button,
+  .site-nav-toggle,
+  .site-nav-link {
+    transition:
+      background-color 120ms,
+      color 120ms,
+      text-decoration-thickness 120ms;
+  }
+}
+
+/* Must match the island's client:media="(max-width: 700px)" in Layout.astro. */
+@media (max-width: 700px) {
+  /* If the row ever runs out of room (large default fonts, or the inline list
+     with scripting disabled), wrap instead of scrolling the page sideways. */
+  .site-frame .tearleads-header {
+    flex-wrap: wrap;
+    row-gap: 0;
+  }
+
+  .site-nav-list {
+    display: none;
+  }
+
+  .site-nav-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--site-target);
+    height: var(--site-target);
+    padding: 0;
+    border: 1px solid var(--site-chrome-ink-2);
+    background: transparent;
+    color: inherit;
+    /* Before hydration the toggle is a link to the footer navigation. */
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .site-nav-toggle[aria-expanded="true"] {
+    background: var(--site-chrome-hover);
+  }
+
+  /* After the expanded state, so hover fully inverts the toggle either way. */
+  @media (hover: hover) {
+    .site-nav-toggle:hover {
+      background: var(--tearleads-action-hover-surface);
+      color: var(--tearleads-action-hover-text);
+    }
+  }
+
+  /* Three 2px bars drawn with currentColor; an X while the menu is open. */
+  .site-nav-toggle-icon,
+  .site-nav-toggle-icon::before,
+  .site-nav-toggle-icon::after {
+    display: block;
+    width: 1.125rem;
+    height: 2px;
+    background: currentColor;
+  }
+
+  .site-nav-toggle-icon {
+    position: relative;
+  }
+
+  .site-nav-toggle-icon::before,
+  .site-nav-toggle-icon::after {
+    position: absolute;
+    left: 0;
+    content: "";
+  }
+
+  .site-nav-toggle-icon::before {
+    top: -6px;
+  }
+
+  .site-nav-toggle-icon::after {
+    top: 6px;
+  }
+
+  .site-nav-toggle[aria-expanded="true"] .site-nav-toggle-icon {
+    background: transparent;
+  }
+
+  .site-nav-toggle[aria-expanded="true"] .site-nav-toggle-icon::before {
+    top: 0;
+    transform: rotate(45deg);
+  }
+
+  .site-nav-toggle[aria-expanded="true"] .site-nav-toggle-icon::after {
+    top: 0;
+    transform: rotate(-45deg);
+  }
+
+  /* The open panel drops below the header band, full width. The header is its
+     positioning context. */
+  .site-nav[data-open="true"] .site-nav-list {
+    position: absolute;
+    top: 100%;
+    inset-inline: 0;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 0 calc(var(--site-gutter) + var(--safe-area-right))
+      var(--site-space-3) calc(var(--site-gutter) + var(--safe-area-left));
+    border-block: 1px solid var(--site-chrome-line);
+    background: var(--site-chrome);
+  }
+
+  .site-nav[data-open="true"] .site-nav-link {
+    width: 100%;
+    border-bottom: 1px solid var(--site-chrome-line);
+    font-size: 1rem;
+  }
+
+  .site-nav[data-open="true"] li:last-child .site-nav-link {
+    border-bottom: 0;
+  }
+}
+
+/* Without scripting the toggle can never open: show the inline list on its own
+   row under the brand and the "Open app" button. */
+@media (max-width: 700px) and (scripting: none) {
+  .site-frame .tearleads-header-actions {
+    display: contents;
+  }
+
+  .site-app-button {
+    margin-left: auto;
+  }
+
+  .site-nav {
+    flex-basis: 100%;
+    order: 1;
+  }
+
+  .site-nav-toggle {
+    display: none;
+  }
+
+  .site-nav-list {
+    display: flex;
+    margin-inline: calc(-1 * var(--site-space-2));
+  }
+}
+
+@media (max-width: 360px) {
+  .site-frame .tearleads-header {
+    gap: var(--site-space-2);
+  }
+
+  .site-frame .tearleads-brand-mark {
+    font-size: 1rem;
+  }
+
+  .site-app-button {
+    padding-inline: 0.625rem;
+  }
+}
+
+/* --- Footer --- */
+
+.site-frame .tearleads-footer {
+  border-top: 1px solid var(--site-chrome-edge);
+  padding-block: 0;
+  padding-bottom: var(--safe-area-bottom);
+}
+
+.site-frame .tearleads-footer-start {
+  flex: 1;
+}
+
+.site-footer {
+  display: grid;
+  gap: var(--site-space-6);
+  width: 100%;
+  padding-block: var(--site-space-7) var(--site-space-4);
+}
+
+.site-footer-groups {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--site-space-5);
+}
+
+.site-footer-heading {
+  margin: 0 0 var(--site-space-1);
+  color: var(--site-chrome-ink);
+  font: 600 var(--site-text-mono-sm) / 1.45 var(--site-font-mono);
+}
+
+.site-footer-list {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.site-footer-link {
+  display: inline-flex;
+  align-items: center;
+  /* Restores the space before the external-link arrow that flex layout drops. */
+  gap: 1ch;
+  min-height: var(--site-target);
+  color: var(--site-chrome-ink-2);
+  font: 400 var(--site-text-mono) / 1.3 var(--site-font-mono);
+  text-decoration: none;
+  text-underline-offset: 4px;
+}
+
+.site-footer-link:focus-visible {
+  color: var(--site-chrome-ink);
+  text-decoration: underline 1px;
+}
+
+.site-footer-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--site-space-2) var(--site-space-5);
+  padding-top: var(--site-space-3);
+  border-top: 1px solid var(--site-chrome-line);
+  color: var(--site-chrome-ink-2);
+  font: 400 var(--site-text-mono-sm) / 1.45 var(--site-font-mono);
+}
+
+.site-footer-meta p {
+  margin: 0;
+}
+
+/* Keeps a name or place ("Chattanooga, Tennessee") on one line. */
+.site-nowrap {
+  white-space: nowrap;
+}
+
+/* A prose link inside chrome: underlined, never marked by color alone. */
+.site-footer-meta a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--site-target);
+  color: inherit;
+  text-decoration: underline 1px;
+  text-underline-offset: 3px;
+}
+
+.site-footer-meta a:focus-visible {
+  color: var(--site-chrome-ink);
+  text-decoration-thickness: 2px;
+}
+
+@media (hover: hover) {
+  .site-footer-link:hover {
+    color: var(--site-chrome-ink);
+    text-decoration: underline 1px;
+  }
+
+  .site-footer-meta a:hover {
+    color: var(--site-chrome-ink);
+    text-decoration-thickness: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .site-footer-link,
+  .site-footer-meta a {
+    transition:
+      color 120ms,
+      text-decoration-thickness 120ms;
+  }
+}
+
+@media (max-width: 699px) {
+  .site-footer {
+    gap: var(--site-space-5);
+    padding-top: var(--site-space-6);
+  }
+
+  .site-footer-groups {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--site-space-4);
+  }
+
+  /* Rows of links that wrap keep every target at 44px without turning the
+     footer into a full screen of single-link rows. */
+  .site-footer-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0 var(--site-space-5);
+  }
+}

@@ -1,0 +1,133 @@
+---
+import { AppleLogoIcon } from "@phosphor-icons/react/dist/ssr/AppleLogo";
+import { LinuxLogoIcon } from "@phosphor-icons/react/dist/ssr/LinuxLogo";
+import { appUrl, isStaging } from "../config";
+import { resolveLinuxDownloads } from "../linuxDownloads";
+import { resolveMacosDownloads } from "../macosDownloads";
+import SectionHeader from "./SectionHeader.astro";
+
+/**
+ * Home's download section (`id="download"`: the nav and footer link to
+ * /#download). It resolves the current installer and checksum URLs at build
+ * time; src/legalPublication.test.ts expects both installer URLs and the
+ * literal href="/downloads/linux" in the built index.html.
+ *
+ * "Signed and notarized": packages/app-electrobun/electrobun.config.ts sets
+ * codesign and notarize for every release tier, and releaseMacos.sh builds
+ * both staging and production with a tier.
+ */
+const [macos, linux] = await Promise.all([
+  resolveMacosDownloads(isStaging),
+  resolveLinuxDownloads(isStaging),
+]);
+
+interface DownloadLink {
+  readonly href: string;
+  readonly label: string;
+  readonly ariaLabel?: string;
+}
+
+interface DownloadRow {
+  readonly platform: string;
+  readonly details: readonly string[];
+  readonly links: readonly DownloadLink[];
+  /** Shown instead of links when there is nothing to fetch. */
+  readonly remark?: string;
+  readonly action: {
+    readonly href: string;
+    readonly label: string;
+    readonly variant: "primary" | "secondary";
+    readonly icon?: typeof AppleLogoIcon;
+  };
+}
+
+const rows: readonly DownloadRow[] = [
+  {
+    platform: "macOS",
+    details: ["Apple silicon", ".dmg", "Signed and notarized"],
+    links: [
+      {
+        href: macos.checksumUrl,
+        label: "SHA-256 checksum",
+        ariaLabel: "SHA-256 checksum for macOS",
+      },
+    ],
+    action: {
+      href: macos.installerUrl,
+      label: isStaging ? "Download macOS preview" : "Download for macOS",
+      variant: "primary",
+      icon: AppleLogoIcon,
+    },
+  },
+  {
+    platform: "Linux",
+    details: ["x64 (Intel, AMD)", ".tar.gz", "Tested on Ubuntu 24.04"],
+    links: [
+      {
+        href: linux.checksumUrl,
+        label: "SHA-256 checksum",
+        ariaLabel: "SHA-256 checksum for Linux",
+      },
+      { href: "/downloads/linux", label: "Install guide" },
+    ],
+    action: {
+      href: linux.installerUrl,
+      label: isStaging ? "Download Linux preview" : "Download for Linux",
+      variant: "primary",
+      icon: LinuxLogoIcon,
+    },
+  },
+  {
+    platform: "Web",
+    details: [new URL(appUrl).host],
+    links: [],
+    remark: "Nothing to install.",
+    action: { href: appUrl, label: "Open web app", variant: "secondary" },
+  },
+];
+---
+
+<section class="site-section" id="download" aria-labelledby="download-title">
+  <SectionHeader
+    titleId="download-title"
+    title="Download"
+    lede="Install Tearleads on macOS or Linux, or use it in your browser."
+  />
+  <ul class="site-downloads" role="list" aria-label="Downloads">
+    {rows.map((row) => {
+      const Icon = row.action.icon;
+      return (
+        <li class="site-download">
+          <div class="site-download-platform">
+            <h3>{row.platform}</h3>
+            <ul class="site-download-detail home-dot-list" role="list">
+              {row.details.map((detail) => <li>{detail}</li>)}
+            </ul>
+          </div>
+          {row.remark ? (
+            <p class="site-download-remark">{row.remark}</p>
+          ) : (
+            <ul class="site-download-links home-dot-list" role="list">
+              {row.links.map((link) => (
+                <li>
+                  <a href={link.href} aria-label={link.ariaLabel}>{link.label}</a>
+                </li>
+              ))}
+            </ul>
+          )}
+          <a
+            class:list={["site-button", `site-button--${row.action.variant}`]}
+            href={row.action.href}
+          >
+            {Icon && <Icon size={18} aria-hidden="true" focusable="false" />}
+            <span>{row.action.label}</span>
+          </a>
+        </li>
+      );
+    })}
+  </ul>
+  <p class="site-downloads-note">
+    Check each download against its SHA-256 checksum before you install. The <a
+      href="/downloads/linux">Linux install guide</a> shows the command.
+  </p>
+</section>

@@ -1,37 +1,16 @@
-import {
-  SYNC_BILLING_TIERS,
-  type SyncBillingTierId,
-} from "@tearleads/validators/billing";
+import { SYNC_BILLING_TIERS } from "@tearleads/validators/billing";
 
-interface TierCopy {
-  readonly description: string;
+export interface PricingTier {
+  readonly name: string;
+  readonly price: string;
+  readonly interval: string;
+  readonly capacity: string;
+  readonly summary: string;
   readonly features: readonly string[];
 }
 
-const teamCopy: TierCopy = {
-  description:
-    "A shared organization with encrypted sync and control over who can access each container.",
-  features: [
-    "Everything in Free Forever",
-    "End-to-end encrypted sync",
-    "User and group sharing",
-    "Read, write, and admin access",
-  ],
-};
-
-const tierCopy: Record<SyncBillingTierId, TierCopy> = {
-  solo: {
-    description:
-      "Your local workspace, with encrypted sync to keep your devices connected.",
-    features: [
-      "Everything in Free Forever",
-      "End-to-end encrypted sync",
-      "Sync across your devices",
-    ],
-  },
-  team_5: teamCopy,
-  team_10: teamCopy,
-};
+const disjunction = new Intl.ListFormat("en-US", { type: "disjunction" });
+const seatLimits = SYNC_BILLING_TIERS.map((tier) => tier.seatLimit);
 
 export function formatUsdCents(cents: number): string {
   if (!Number.isSafeInteger(cents) || cents < 0) {
@@ -47,38 +26,67 @@ export function formatUsdCents(cents: number): string {
   }).format(cents / 100);
 }
 
-export const syncMemberCapacities = new Intl.ListFormat("en-US", {
-  type: "disjunction",
-}).format(SYNC_BILLING_TIERS.map((tier) => String(tier.seatLimit)));
+/** Every plan capacity, e.g. "1, 5, or 10". */
+export const syncMemberCapacities = disjunction.format(seatLimits.map(String));
 
-export function createPricingTiers(appUrl: string) {
+/** The lowest monthly sync price, e.g. "$5". */
+export const startingSyncPrice = formatUsdCents(
+  Math.min(...SYNC_BILLING_TIERS.map((tier) => tier.monthlyPriceUsdCents)),
+);
+
+const freeTier: PricingTier = {
+  name: "Free Forever",
+  price: formatUsdCents(0),
+  interval: "",
+  capacity: "Local only, no sync",
+  summary: "Your device only, no sync",
+  features: [
+    "Notes, contacts, files, and records",
+    "Encrypted storage on your device",
+    "Offline editing",
+    "Password-protected backups",
+  ],
+};
+
+// Plan cross-references follow the canonical names, so renaming a tier can't
+// leave a card pointing at a plan that no longer exists.
+const soloTitle =
+  SYNC_BILLING_TIERS.find((tier) => tier.seatLimit === 1)?.title ??
+  freeTier.name;
+
+const soloFeatures: readonly string[] = [
+  `Everything in ${freeTier.name}`,
+  "End-to-end encrypted sync across your devices",
+];
+
+const teamFeatures: readonly string[] = [
+  `Everything in ${soloTitle}`,
+  "Share folders with users and groups",
+  "Read, write, or admin access per folder",
+];
+
+export function createPricingTiers(): readonly PricingTier[] {
   return [
-    {
-      name: "Free Forever",
-      price: formatUsdCents(0),
-      interval: "forever",
-      capacity: "Your local workspace",
-      description:
-        "A place for your notes, contacts, and files, stored locally on your device.",
-      features: [
-        "Notes, contacts, and Explorer",
-        "Local encrypted storage",
-        "Local backup and restore",
-      ],
-      href: appUrl,
-      action: "Start locally",
-    },
-    ...SYNC_BILLING_TIERS.map((tier) => ({
-      name: tier.title,
-      price: formatUsdCents(tier.monthlyPriceUsdCents),
-      interval: "/ month",
-      capacity:
+    freeTier,
+    ...SYNC_BILLING_TIERS.map(
+      (tier): PricingTier =>
         tier.seatLimit === 1
-          ? "1 organization member"
-          : `Up to ${tier.seatLimit} organization members`,
-      ...tierCopy[tier.id],
-      href: appUrl,
-      action: "Choose in the app",
-    })),
+          ? {
+              name: tier.title,
+              price: formatUsdCents(tier.monthlyPriceUsdCents),
+              interval: "/ month",
+              capacity: "1 organization member",
+              summary: "Encrypted sync for 1 member",
+              features: soloFeatures,
+            }
+          : {
+              name: tier.title,
+              price: formatUsdCents(tier.monthlyPriceUsdCents),
+              interval: "/ month",
+              capacity: `Up to ${tier.seatLimit} organization members`,
+              summary: `Encrypted sync and sharing for up to ${tier.seatLimit} members`,
+              features: teamFeatures,
+            },
+    ),
   ];
 }

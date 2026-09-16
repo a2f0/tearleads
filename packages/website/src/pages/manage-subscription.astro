@@ -1,40 +1,87 @@
 ---
+import PageHeader from "../components/PageHeader.astro";
 import { stripeCustomerPortalUrl } from "../config";
 import Layout from "../layouts/Layout.astro";
+import { legalDetails } from "../legal";
+import "../styles/install.css";
+
+const portalHost = stripeCustomerPortalUrl
+  ? new URL(stripeCustomerPortalUrl).host
+  : null;
 ---
 
 <Layout
   title="Manage subscription | Tearleads"
-  description="Manage or cancel a Tearleads web subscription through Stripe."
+  description="Manage or cancel a Tearleads web subscription through Stripe, using the billing email from checkout."
 >
-  <main class="website-main">
-    <article class="section" aria-labelledby="page-title">
-      <h1 id="page-title">Manage a web subscription</h1>
-      <p class="section-lede">
-        Enter the billing email you used at checkout. Stripe will email you a
-        secure login link, even if you no longer have your Tearleads keys.
-      </p>
-      <p>
-        You can cancel at the end of the current billing period. You can
-        subscribe again later with a new Tearleads identity.
-      </p>
+  <div class="site-page site-page--narrow install-page">
+    <PageHeader
+      title="Manage a web subscription"
+      lede="For subscriptions bought on the web. Continue to Stripe and enter the billing email you used at checkout. Stripe emails you a sign-in link, which works even if you no longer have your Tearleads keys."
+    >
+      <nav slot="before" class="site-breadcrumb" aria-label="Breadcrumb">
+        <ol role="list">
+          <li><a href="/pricing">Pricing</a></li>
+          <li aria-current="page">Manage subscription</li>
+        </ol>
+      </nav>
       {
         stripeCustomerPortalUrl ? (
-          <p>
-            <a
-              class="tearleads-action-button"
-              href={stripeCustomerPortalUrl}
-              rel="noreferrer"
-            >
-              Open Stripe subscription management
-            </a>
-          </p>
+          <div class="account-portal">
+            <div class="site-actions">
+              <a
+                class="site-button site-button--primary"
+                href={stripeCustomerPortalUrl}
+                rel="noreferrer"
+              >
+                Continue to Stripe
+              </a>
+            </div>
+            <p class="site-meta">{portalHost}</p>
+          </div>
         ) : (
-          <p role="status">
-            Stripe email-based subscription management is not configured yet.
+          <p class="site-note" role="status">
+            <strong class="site-note-label">Not available.</strong> Stripe
+            subscription management isn't configured for this build.
           </p>
         )
       }
-    </article>
-  </main>
+    </PageHeader>
+
+    <section
+      class="account-section"
+      id="before-you-cancel"
+      aria-labelledby="before-you-cancel-title"
+    >
+      <h2 id="before-you-cancel-title">Before you cancel</h2>
+      <ul class="account-list" role="list">
+        <li>
+          Canceling stops future renewals. Paid access generally continues
+          through the current billing period.
+        </li>
+        <li>
+          Deleting the app, removing a local identity, or leaving an
+          organization does not cancel a subscription.
+        </li>
+        <li>You can subscribe again later with a new Tearleads identity.</li>
+        <li>
+          If more than one web subscription uses the same billing email, Stripe
+          opens the billing account created most recently that still has an
+          active subscription, which may not be the one you want. If you can't
+          reach a subscription through Stripe, email{" "}
+          <a href={`mailto:${legalDetails.email}`}>{legalDetails.email}</a>.
+        </li>
+        <li>
+          Organization admins can also manage billing in Org Manager → Billing.
+        </li>
+        <li>
+          If you subscribed through an app store, cancel in that store's
+          subscription settings.
+        </li>
+      </ul>
+      <a class="site-link account-terms" href="/terms-of-service#billing">
+        Subscription terms<span aria-hidden="true"> →</span>
+      </a>
+    </section>
+  </div>
 </Layout>

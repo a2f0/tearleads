@@ -1,233 +1,279 @@
-.legal-header .section-lede {
-  max-width: 730px;
-}
+/*
+ * Legal reading layout (LegalLayout.astro): page header, related-document tabs,
+ * the "On this page" contents, and the document copy. The copy also carries
+ * .site-prose (global.css) for prose type and printed link URLs.
+ */
+
+/* --- Header --- */
 
 .legal-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 8px;
-  margin: 24px 0 0;
-  color: var(--product-muted);
-  font-size: 0.8rem;
+  gap: var(--site-space-1) var(--site-space-2);
+  color: var(--site-ink-3);
+  font: 500 var(--site-text-mono-sm) / 1.6 var(--site-font-mono);
 }
+
+/* --- Related documents --- */
 
 .legal-related {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 28px;
-  margin-top: 32px;
-  padding-block: 12px;
-  border-block: 1px solid var(--product-line);
-  font-size: 0.85rem;
-  font-weight: 600;
+  gap: 0 var(--site-space-5);
+  margin-top: var(--site-space-6);
+  border-bottom: 1px solid var(--site-line);
 }
 
 .legal-related a {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  min-height: 36px;
-}
-
-.legal-related a[aria-current="page"],
-.legal-related a:hover {
-  color: var(--product-accent);
-  text-decoration: underline;
+  min-height: var(--site-target);
+  color: var(--site-ink-2);
+  font: 500 var(--site-text-mono) / 1.2 var(--site-font-mono);
+  text-decoration: none;
   text-underline-offset: 6px;
 }
 
+.legal-related a[aria-current="page"] {
+  color: var(--site-ink);
+  text-decoration: underline 2px;
+}
+
+.legal-related a:not([aria-current]):focus-visible {
+  color: var(--site-ink);
+  text-decoration: underline 1px;
+}
+
+@media (hover: hover) {
+  .legal-related a:not([aria-current]):hover {
+    color: var(--site-ink);
+    text-decoration: underline 1px;
+  }
+}
+
+/* --- Draft status (draft builds only) --- */
+
 .legal-draft {
-  margin-top: 28px;
-  padding: 16px 20px;
-  border: 1px solid #dfd5b8;
-  border-radius: 8px;
-  background: #f7f2e5;
-  color: #65542c;
-  font-size: 0.85rem;
+  max-width: var(--site-measure);
+  margin-top: var(--site-space-6);
+  padding: var(--site-space-3) var(--site-space-4);
+  border-left: 2px solid var(--site-ink);
+  background: var(--site-surface-muted);
+  font-size: var(--site-text-small);
+  line-height: 1.55;
+}
+
+.legal-draft strong {
+  font-family: var(--site-font-mono);
 }
 
 .legal-draft p {
-  margin: 4px 0 0;
+  margin-top: var(--site-space-1);
 }
+
+/* --- Reading layout --- */
 
 .legal-reading-layout {
   display: grid;
-  grid-template-columns: minmax(0, 190px) minmax(0, 1fr);
-  align-items: start;
-  gap: 48px;
-  margin-top: 48px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--site-space-7);
+  margin-top: var(--site-space-7);
 }
 
+/* Contents: a muted box before the copy on narrow screens, a sticky column
+   beside it from 1024px. */
 .legal-contents {
-  position: sticky;
-  top: 24px;
-  max-height: calc(100dvh - 48px);
-  overflow-y: auto;
-  padding: 6px;
-  margin: -6px;
+  padding: var(--site-space-4) var(--site-space-4) var(--site-space-2);
+  background: var(--site-surface-muted);
 }
 
 .legal-contents > p {
-  margin: 0 0 14px;
-  color: var(--product-muted);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  color: var(--site-ink);
+  font: 600 var(--site-text-mono-sm) / 1.45 var(--site-font-mono);
 }
 
 .legal-contents ol {
-  display: grid;
-  gap: 4px;
-  margin: 0;
-  padding-left: 24px;
-  list-style: decimal-leading-zero;
+  margin-top: var(--site-space-2);
+  /* Room for two-digit markers ("10. "). */
+  padding-left: 4ch;
+  list-style: decimal;
+  font: 400 var(--site-text-mono-sm) / 1.45 var(--site-font-mono);
+}
+
+.legal-contents li + li {
+  margin-top: 0;
 }
 
 .legal-contents li::marker {
-  color: var(--product-muted);
-  font-size: 0.7rem;
+  color: var(--site-ink-3);
 }
 
 .legal-contents a {
-  display: block;
-  padding: 6px 0 6px 4px;
-  font-size: 0.8rem;
-  line-height: 1.5;
-}
-
-.legal-contents a:hover {
-  text-decoration: underline;
-  text-underline-offset: 4px;
-}
-
-.legal-copy {
-  min-width: 0;
-  font-size: 0.95rem;
-  line-height: 1.8;
-  overflow-wrap: anywhere;
-}
-
-.legal-copy section {
-  scroll-margin-top: 28px;
-}
-
-.legal-copy section + section {
-  margin-top: 36px;
-  padding-top: 36px;
-  border-top: 1px solid var(--product-line);
-}
-
-.legal-page .legal-copy h2 {
-  font-size: 1.45rem;
-  line-height: 1.35;
-  letter-spacing: -0.025em;
-}
-
-.legal-page .legal-copy h3 {
-  margin-top: 24px;
-  font-size: 1rem;
-}
-
-.legal-copy p,
-.legal-copy ul {
-  margin: 16px 0 0;
-}
-
-.legal-copy ul {
-  padding-left: 22px;
-  list-style: disc;
-}
-
-.legal-copy li + li {
-  margin-top: 10px;
-}
-
-.legal-copy a {
-  color: var(--product-accent);
-  text-decoration: underline;
+  display: flex;
+  align-items: center;
+  min-height: var(--site-target);
+  color: var(--site-ink-2);
+  text-decoration: none;
   text-underline-offset: 3px;
 }
 
+.legal-contents a:focus-visible {
+  color: var(--site-ink);
+  text-decoration: underline 1px;
+}
+
+@media (hover: hover) {
+  .legal-contents a:hover {
+    color: var(--site-ink);
+    text-decoration: underline 1px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .legal-related a,
+  .legal-contents a {
+    transition: color 120ms;
+  }
+}
+
+/* Two columns keep the contents box short on tablets. */
+@media (min-width: 700px) and (max-width: 1023px) {
+  .legal-contents ol {
+    column-gap: var(--site-space-7);
+    columns: 2;
+  }
+
+  .legal-contents li {
+    break-inside: avoid;
+  }
+}
+
+@media (min-width: 1024px) {
+  .legal-reading-layout {
+    /* 15rem fits the longest label ("Availability & warranties") on one
+       line; with the gap and measure it still fits the 960px column at 1024. */
+    grid-template-columns: 15rem minmax(0, var(--site-measure));
+    align-items: start;
+  }
+
+  .legal-contents {
+    position: sticky;
+    top: var(--site-space-5);
+    max-height: calc(100dvh - 2 * var(--site-space-5));
+    overflow-y: auto;
+    padding: var(--site-space-5) 0 var(--site-space-1);
+    border-top: 1px solid var(--site-line);
+    background: none;
+  }
+
+  /* Keep link focus rings inside the scroll box. */
+  .legal-contents ol {
+    padding-right: var(--site-space-1);
+  }
+}
+
+/* --- Document copy --- */
+
+.legal-copy {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.legal-copy section {
+  scroll-margin-top: var(--site-space-5);
+}
+
+.legal-copy h2 {
+  max-width: none;
+  margin-top: var(--site-space-7);
+  padding-top: var(--site-space-5);
+  border-top: 1px solid var(--site-line);
+  font-size: 1.375rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.legal-copy section:first-child h2 {
+  margin-top: 0;
+}
+
+.legal-copy h3 {
+  font-size: var(--site-text-prose);
+  font-weight: 600;
+}
+
+.legal-copy h2 + h3 {
+  margin-top: var(--site-space-4);
+}
+
+.legal-copy li + li {
+  margin-top: var(--site-space-3);
+}
+
+/* Same treatment as .site-note (components.css); the class lives in the
+   document markup. */
 .legal-callout {
-  padding: 16px 20px;
-  border-left: 3px solid var(--product-accent);
-  border-radius: 0 6px 6px 0;
-  background: var(--product-tint);
+  max-width: var(--site-measure);
+  padding: var(--site-space-3) var(--site-space-4);
+  border-left: 2px solid var(--site-ink);
+  background: var(--site-surface-muted);
+  font-size: var(--site-text-small);
+  line-height: 1.55;
 }
 
 .legal-contact {
   display: grid;
   justify-items: start;
-  gap: 4px;
-  margin-top: 20px;
+  margin-top: var(--site-space-4);
+  font: 400 var(--site-text-mono-sm) / 1.6 var(--site-font-mono);
   font-style: normal;
 }
 
-.legal-back-to-top {
-  display: inline-flex;
-  gap: 12px;
-  align-items: center;
-  min-height: 44px;
-  margin-top: 40px;
-  font-size: 0.85rem;
+.legal-contact strong {
   font-weight: 600;
 }
 
-@media (max-width: 760px) {
-  .legal-reading-layout {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 36px;
-    margin-top: 36px;
-  }
+.legal-contact a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--site-target);
+  text-decoration: underline 1px;
+  text-underline-offset: 3px;
+}
 
-  .legal-contents {
-    position: static;
-    max-height: none;
-    padding: 0 0 28px;
-    margin: 0;
-    border-bottom: 1px solid var(--product-line);
-  }
+.legal-contact a:focus-visible {
+  text-decoration-thickness: 2px;
+}
 
-  .legal-contents ol {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    column-gap: 32px;
-  }
-
-  .legal-contents a {
-    display: flex;
-    align-items: center;
-    min-height: 44px;
+@media (hover: hover) {
+  .legal-contact a:hover {
+    text-decoration-thickness: 2px;
   }
 }
 
+.legal-back-to-top {
+  margin-top: var(--site-space-5);
+}
+
+/* --- Print (chrome is hidden by global.css) --- */
+
 @media print {
-  .tearleads-header,
-  .tearleads-footer,
   .legal-related,
   .legal-contents,
   .legal-back-to-top {
     display: none;
   }
 
-  .website-main.legal-page {
-    display: block;
-    padding: 0;
-    color: #000;
-  }
-
   .legal-reading-layout {
     display: block;
-    margin-top: 28px;
+    margin-top: var(--site-space-5);
   }
 
-  .legal-copy {
-    font-size: 10pt;
+  /* Outranks .site-prose, whatever order the stylesheets are bundled in. */
+  .legal-page .legal-copy {
+    max-width: none;
+    font-size: 10.5pt;
     line-height: 1.6;
-  }
-
-  .legal-page .legal-copy h2,
-  .legal-page .legal-copy h3 {
-    break-after: avoid;
   }
 
   .legal-copy p,
@@ -236,8 +282,9 @@
     widows: 3;
   }
 
-  .legal-draft,
-  .legal-contact {
+  .legal-callout,
+  .legal-contact,
+  .legal-draft {
     break-inside: avoid;
   }
 }

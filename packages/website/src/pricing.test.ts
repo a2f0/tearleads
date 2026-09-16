@@ -3,6 +3,7 @@ import { SYNC_BILLING_TIERS } from "@tearleads/validators/billing";
 import {
   createPricingTiers,
   formatUsdCents,
+  startingSyncPrice,
   syncMemberCapacities,
 } from "./pricing";
 
@@ -23,14 +24,14 @@ test("prices preserve cents without adding decimals to whole-dollar tiers", () =
 });
 
 test("the pricing page maps every canonical tier and the local free plan", () => {
-  const appUrl = "https://app-staging.tearleads.com";
-  const tiers = createPricingTiers(appUrl);
+  const tiers = createPricingTiers();
   expect(tiers).toHaveLength(SYNC_BILLING_TIERS.length + 1);
   expect(tiers[0]).toMatchObject({
     name: "Free Forever",
     price: "$0",
-    interval: "forever",
-    href: appUrl,
+    interval: "",
+    capacity: "Local only, no sync",
+    summary: "Your device only, no sync",
   });
   for (const [index, tier] of SYNC_BILLING_TIERS.entries()) {
     expect(tiers[index + 1]).toMatchObject({
@@ -41,18 +42,53 @@ test("the pricing page maps every canonical tier and the local free plan", () =>
         tier.seatLimit === 1
           ? "1 organization member"
           : `Up to ${tier.seatLimit} organization members`,
-      href: appUrl,
+      summary:
+        tier.seatLimit === 1
+          ? "Encrypted sync for 1 member"
+          : `Encrypted sync and sharing for up to ${tier.seatLimit} members`,
     });
-    expect(tiers[index + 1]?.features).toContain("End-to-end encrypted sync");
   }
-  expect(tiers[1]?.features).toContain("Sync across your devices");
-  expect(tiers[2]?.features).toContain("User and group sharing");
-  expect(tiers[3]?.features).toContain("User and group sharing");
+  expect(tiers[1]?.features).toContain(
+    "End-to-end encrypted sync across your devices",
+  );
+  expect(tiers[2]?.features).toContain("Share folders with users and groups");
+  expect(tiers[3]?.features).toContain("Share folders with users and groups");
+});
+
+test("every plan cross-reference names an earlier plan", () => {
+  const tiers = createPricingTiers();
+  let references = 0;
+  for (const [index, tier] of tiers.entries()) {
+    const earlier = tiers.slice(0, index).map((previous) => previous.name);
+    for (const feature of tier.features) {
+      const referenced = /^Everything in (.+)$/.exec(feature)?.[1];
+      if (referenced === undefined) continue;
+      references += 1;
+      expect(earlier).toContain(referenced);
+    }
+  }
+  expect(references).toBeGreaterThan(0);
+});
+
+test("plans carry no per-tier actions or marketing descriptions", () => {
+  for (const tier of createPricingTiers()) {
+    expect(tier).not.toHaveProperty("href");
+    expect(tier).not.toHaveProperty("action");
+    expect(tier).not.toHaveProperty("description");
+  }
 });
 
 test("the member-capacity explanation follows canonical tier limits", () => {
   const capacities = SYNC_BILLING_TIERS.map((tier) => String(tier.seatLimit));
   expect(syncMemberCapacities).toBe(
     new Intl.ListFormat("en-US", { type: "disjunction" }).format(capacities),
+  );
+});
+
+test("the starting sync price is the cheapest canonical tier", () => {
+  expect(startingSyncPrice).toBe(
+    formatUsdCents(
+      Math.min(...SYNC_BILLING_TIERS.map((tier) => tier.monthlyPriceUsdCents)),
+    ),
   );
 });

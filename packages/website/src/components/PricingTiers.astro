@@ -1,0 +1,31 @@
+---
+import type { PricingTier } from "../pricing";
+
+/**
+ * The plan grid on /pricing. It has no per-plan buttons: web checkout picks
+ * the plan from the organization's roster, so the page offers one action
+ * below the grid instead. Both lists drop their markers in pricing.css, so they
+ * carry role="list" to keep list semantics in Safari.
+ */
+interface Props {
+  readonly tiers: readonly PricingTier[];
+}
+
+const { tiers } = Astro.props;
+---
+
+<ul aria-label="Plans" class="pricing-plans" role="list">
+  {tiers.map((tier) => (
+    <li class="pricing-plan">
+      <h3 class="pricing-plan-name">{tier.name}</h3>
+      <p class="pricing-plan-price">
+        {tier.price}
+        {tier.interval && <span class="pricing-plan-interval"> {tier.interval}</span>}
+      </p>
+      <p class="pricing-plan-capacity">{tier.capacity}</p>
+      <ul class="pricing-plan-features" role="list">
+        {tier.features.map((feature) => <li>{feature}</li>)}
+      </ul>
+    </li>
+  ))}
+</ul>

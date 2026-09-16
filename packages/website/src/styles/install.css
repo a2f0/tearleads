@@ -1,0 +1,112 @@
+/*
+ * Linux install (downloads/linux.astro) and Manage subscription
+ * (manage-subscription.astro): narrow task pages built from the shared header,
+ * spec list, steps, and code blocks. Each page body is one ink-ruled list
+ * (the steps, or the cancellation notes) below the header, so neither page
+ * adds a second section rule above it.
+ */
+
+/* Notes span the narrow column, so their right edge lines up with the lists
+   and code blocks around them. */
+.install-page .site-note {
+  max-width: none;
+}
+
+/* --- Linux install --- */
+
+/* The requirements sit inside the page header, a little further below the
+   lede than other header children; a hairline top leaves the ink rule to the
+   steps below. */
+.site-page-header > .install-requirements {
+  margin-top: var(--site-space-6);
+  border-top-color: var(--site-line);
+}
+
+.site-spec.install-requirements > div {
+  grid-template-columns: 8rem minmax(0, 1fr);
+  padding-block: var(--site-space-3);
+}
+
+.site-spec.install-requirements dd {
+  color: var(--site-ink);
+}
+
+.site-steps.install-steps {
+  margin-top: var(--site-space-8);
+}
+
+/* Flow spacing inside a step: prose, then a command, then any follow-up. */
+.install-steps > li > .site-step-title + * {
+  margin-top: 0;
+}
+
+.install-steps > li > .site-code + p {
+  margin-top: var(--site-space-3);
+}
+
+.install-after {
+  margin-top: var(--site-space-5);
+}
+
+.install-after > .site-link,
+.site-link.account-terms {
+  display: flex;
+  width: fit-content;
+  margin-top: var(--site-space-2);
+}
+
+@media (max-width: 699px) {
+  /* The values are short: keep key and value on one row at phone widths. */
+  .site-spec.install-requirements > div {
+    grid-template-columns: 6rem minmax(0, 1fr);
+    gap: var(--site-space-4);
+  }
+
+  .site-steps.install-steps {
+    margin-top: var(--site-space-7);
+  }
+}
+
+/* Below 375px the step indent leaves too little room for the longest apt line
+   ("  libayatana-appindicator3-1 \"), which would wrap mid-name. The number
+   stays beside the title and the step body uses the full width. */
+@media (max-width: 374px) {
+  .site-steps.install-steps > li {
+    padding-left: 0;
+  }
+
+  .install-steps > li > .site-step-title {
+    padding-left: 2.5rem;
+  }
+}
+
+/* --- Manage subscription --- */
+
+.account-portal > .site-meta {
+  margin-top: var(--site-space-2);
+}
+
+.account-section {
+  margin-top: var(--site-space-8);
+  scroll-margin-top: var(--site-space-5);
+}
+
+.account-list {
+  border-top: 1px solid var(--site-ink);
+}
+
+.account-section > h2 + .account-list {
+  margin-top: var(--site-space-5);
+}
+
+.account-list > li {
+  margin: 0;
+  padding-block: var(--site-space-3);
+  border-bottom: 1px solid var(--site-line);
+}
+
+@media (max-width: 699px) {
+  .account-section {
+    margin-top: var(--site-space-7);
+  }
+}

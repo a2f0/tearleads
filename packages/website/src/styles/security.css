@@ -1,305 +1,191 @@
-.security-page {
-  --security-ink: #182b24;
-  --security-muted: #4d6057;
-  --security-accent: #315e49;
-  --security-line: #d6e0d8;
-  --security-tint: #edf4ee;
-  color: var(--security-ink);
-  line-height: 1.65;
+/*
+ * /security page layout: header note, contents, comparison pairs, crypto
+ * tables, limits, and technical documents. Fig. 1 and Fig. 2 live in
+ * securityDiagrams.css. Colors come from tokens.css only.
+ *
+ * Reading text stays at --site-measure; figures, tables, and spec lists may
+ * use up to 60rem of the page column.
+ */
+
+/* --- Header --- */
+
+.security-header-note {
+  max-width: 60ch;
+  color: var(--site-ink-2);
+  font-size: var(--site-text-small);
+  line-height: 1.55;
 }
 
-.security-page .security-eyebrow {
-  display: block;
-  margin: 0 0 12px;
-  color: var(--security-accent);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  line-height: 1.5;
-  text-transform: uppercase;
+.security-contents {
+  margin-top: var(--site-space-7);
 }
 
-.security-intro h1 {
-  letter-spacing: -0.04em;
+/* The contents list already closes the header with a rule. */
+.site-section.security-section--first {
+  margin-top: var(--site-space-7);
 }
 
-.security-intro .section-lede {
-  max-width: 720px;
-  margin-top: 24px;
-  font-size: clamp(1.15rem, 2.5vw, 1.4rem);
-  line-height: 1.6;
+.security-section h3[id] {
+  scroll-margin-top: var(--site-space-5);
 }
 
-.security-intro-detail {
-  margin: 16px 0 0;
-  color: var(--security-muted);
-}
+/* --- Two-column comparisons (sections 02 and 03) --- */
 
-.security-page-nav {
-  display: flex;
-  flex-wrap: wrap;
-  column-gap: 28px;
-  margin-top: 36px;
-  padding-block: 12px;
-  border-block: 1px solid var(--security-line);
-}
-
-.security-page-nav a {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 8px;
-  padding-block: 8px;
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-
-.security-page-nav span {
-  color: var(--security-muted);
-  font-size: 0.72rem;
-  font-variant-numeric: tabular-nums;
-}
-
-.security-page a:hover {
-  color: var(--security-accent);
-  text-decoration: underline;
-  text-underline-offset: 4px;
-}
-
-.security-page a:focus-visible,
-.security-detail summary:focus-visible {
-  outline: 2px solid var(--security-accent);
-  outline-offset: 5px;
-  border-radius: 2px;
-}
-
-.security-section {
-  padding-top: 56px;
-  scroll-margin-top: 28px;
-}
-
-.security-section + .security-section {
-  margin-top: 56px;
-  border-top: 1px solid var(--security-line);
-}
-
-.security-section h2 {
-  max-width: 800px;
-  font-size: clamp(1.6rem, 3.6vw, 2.1rem);
-  letter-spacing: -0.035em;
-  line-height: 1.2;
-  text-wrap: balance;
-}
-
-.security-section-intro {
-  max-width: 740px;
-  margin: 16px 0 28px;
-  color: var(--security-muted);
-  font-size: 1.025rem;
-}
-
-.security-page h3,
-.security-page h4 {
-  margin: 0;
-  color: var(--security-ink);
-  line-height: 1.4;
-}
-
-.security-comparison {
+.security-pair {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 36px;
-  margin-top: 28px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--site-space-6);
+  max-width: var(--site-wide);
+  margin-top: var(--site-space-7);
 }
 
-.security-comparison h3 {
-  font-size: 1rem;
+.security-pair > div {
+  min-width: 0;
+  padding-top: var(--site-space-4);
+  border-top: 1px solid var(--site-line);
 }
 
-.security-comparison p {
-  margin: 8px 0 0;
-  color: var(--security-muted);
-  font-size: 0.925rem;
+/* Stacked columns keep a reading measure; side by side, each is narrower. */
+.security-pair > div > * {
+  max-width: var(--site-measure);
 }
 
-.security-crypto-table-wrap {
-  border: 1px solid var(--security-line);
-  border-radius: 12px;
-  background: #fff;
+.security-pair h3 {
+  font-size: var(--site-text-h3);
 }
 
-.security-crypto-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.925rem;
-  text-align: left;
+.security-pair p {
+  color: var(--site-ink-2);
+}
+
+.security-inventory {
+  margin-top: var(--site-space-3);
+}
+
+.security-inventory > li {
+  position: relative;
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.security-inventory > li + li {
+  margin-top: var(--site-space-2);
+}
+
+.security-inventory > li::before {
+  position: absolute;
+  left: 0;
+  color: var(--site-ink-3);
+  content: "—" / "";
+}
+
+.security-inventory + p {
+  margin-top: var(--site-space-4);
+  font-size: var(--site-text-small);
+  line-height: 1.55;
+}
+
+@media (min-width: 1024px) {
+  .security-pair {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--site-space-7);
+  }
+}
+
+/* --- Cryptography (SecurityCryptography.astro) --- */
+
+.security-pq {
+  color: var(--site-ink);
+}
+
+.security-pq .site-mono {
+  white-space: nowrap;
+}
+
+.security-crypto {
+  max-width: var(--site-wide);
+  margin-top: var(--site-space-7);
+}
+
+.security-crypto h3 + .site-table {
+  margin-top: var(--site-space-4);
+}
+
+@media (min-width: 700px) {
+  .security-crypto-table th:nth-child(1) {
+    width: 26%;
+  }
+
+  .security-crypto-table th:nth-child(2) {
+    width: 32%;
+  }
+}
+
+.security-crypto-table td:not(.site-table-mono) {
+  color: var(--site-ink-2);
+}
+
+.security-local,
+.security-revocation {
+  margin-top: var(--site-space-7);
+}
+
+.security-local > .site-prose,
+.security-revocation > .site-prose {
+  margin-top: var(--site-space-3);
+}
+
+/* --- Limits (SecurityLimits.astro) --- */
+
+.security-limits {
+  max-width: var(--site-wide);
+}
+
+.site-spec.security-limits dt {
+  font: 600 var(--site-text-body) / 1.5 var(--site-font-sans);
+  overflow-wrap: normal;
+}
+
+@media (min-width: 700px) {
+  .site-spec.security-limits > div {
+    grid-template-columns: 14rem minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .site-spec.security-limits > div {
+    grid-template-columns: 18rem minmax(0, 1fr);
+  }
+}
+
+/* --- Technical documents --- */
+
+.security-documents {
+  max-width: var(--site-wide);
+}
+
+.site-spec.security-documents > div {
+  align-items: center;
+}
+
+.security-documents-path {
+  display: block;
+  margin-top: var(--site-space-1);
+  color: var(--site-ink-3);
+  font: 500 var(--site-text-mono-sm) / 1.45 var(--site-font-mono);
   overflow-wrap: anywhere;
 }
 
-.security-crypto-table th,
-.security-crypto-table td {
-  padding: 20px 24px;
-  vertical-align: top;
-}
-
-.security-crypto-table thead th {
-  padding-block: 14px;
-  color: var(--security-muted);
-  font-size: 0.75rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.security-crypto-table tbody tr {
-  border-top: 1px solid var(--security-line);
-}
-
-.security-crypto-table tbody th {
-  width: 30%;
-  font-weight: 600;
-}
-
-.security-crypto-table strong {
-  color: var(--security-accent);
-  font-size: 0.875rem;
-  font-weight: 600;
-}
-
-.security-crypto-table p {
-  margin: 6px 0 0;
-  color: var(--security-muted);
-}
-
-.security-detail {
-  margin-top: 20px;
-  border-block: 1px solid var(--security-line);
-}
-
-.security-detail summary {
-  padding: 18px 4px;
-  cursor: pointer;
-  font-size: 0.925rem;
-  font-weight: 600;
-}
-
-.security-detail summary::marker {
-  color: var(--security-accent);
-}
-
-.security-detail summary:hover {
-  color: var(--security-accent);
-}
-
-.security-detail > div {
-  max-width: 760px;
-  padding: 0 4px 12px;
-  color: var(--security-muted);
-  font-size: 0.925rem;
-}
-
-.security-detail p {
-  margin: 0 0 16px;
-}
-
-.security-limits {
-  margin: 0;
-}
-
-.security-limits > div {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
-  gap: 36px;
-  padding-block: 24px;
-  border-top: 1px solid var(--security-line);
-}
-
-.security-limits dt {
-  font-size: 0.975rem;
-  font-weight: 600;
-}
-
-.security-limits dd {
-  margin: 0;
-  color: var(--security-muted);
-  font-size: 0.925rem;
-}
-
-.security-sources {
-  margin-top: 40px;
-  padding: 28px 32px;
-  border-left: 3px solid var(--security-accent);
-  background: var(--security-tint);
-}
-
-.security-sources h3 {
-  font-size: 1.4rem;
-  letter-spacing: -0.02em;
-}
-
-.security-sources > p:not(.security-eyebrow) {
-  max-width: 700px;
-  margin: 12px 0 0;
-  color: var(--security-muted);
-  font-size: 0.925rem;
-}
-
-.security-sources ul {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 24px;
-  margin: 16px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.security-sources a {
-  display: inline-block;
-  padding-block: 4px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 4px;
-}
-
-@media (max-width: 700px) {
-  .security-page-nav {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0 12px;
+@media (max-width: 699px) {
+  .site-spec.security-documents > div {
+    gap: 0;
   }
+}
 
-  .security-page-nav a {
-    min-height: 44px;
-    padding-block: 10px;
-  }
-
-  .security-section {
-    padding-top: 40px;
-  }
-
-  .security-section + .security-section {
-    margin-top: 40px;
-  }
-
-  .security-comparison,
-  .security-limits > div {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-
-  .security-comparison {
-    gap: 24px;
-  }
-
-  .security-crypto-table th,
-  .security-crypto-table td {
-    padding: 16px 12px;
-  }
-
-  .security-crypto-table tbody th {
-    width: 34%;
-  }
-
-  .security-sources {
-    padding: 24px;
+@media print {
+  .security-documents a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-weight: 400;
+    overflow-wrap: anywhere;
   }
 }

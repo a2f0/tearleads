@@ -1,70 +1,95 @@
+---
+/**
+ * Fig. 1 on /security: the client and service boundaries drawn as two app
+ * windows. Solid frame: plaintext is available after unlock. Dashed frame: the
+ * service stores and delivers encrypted records. The caption states both, so
+ * the meaning never rests on the border style alone.
+ */
+const localSteps = [
+  {
+    title: "Unlock the local keyring",
+    body: "A host wrapping key protects the account root key. An optional PIN adds another layer.",
+  },
+  {
+    title: "Derive separate local keys",
+    body: "One key each for the database, the local file store, and the saved identity.",
+  },
+  {
+    title: "Keep local storage encrypted",
+    body: "The app reads and writes through the encrypted database and file store.",
+  },
+];
+
+const serviceRecords = [
+  {
+    term: "Encrypted payloads",
+    body: "Document updates, files, and encrypted metadata.",
+  },
+  {
+    term: "Wrapped keys",
+    body: "Encrypted key envelopes that authorized clients can open.",
+  },
+  {
+    term: "Signed access records",
+    body: "Signed policies, grants, and content-write headers.",
+  },
+];
+---
+
 <figure class="security-figure" aria-labelledby="architecture-caption">
   <div class="security-boundaries">
     <div class="security-zone security-zone--device">
-      <div class="security-zone-heading">
-        <span class="security-eyebrow">Client boundary</span>
+      <div class="security-zone-bar">
         <h3>Your device</h3>
-        <p>Keys are opened and content is decrypted here.</p>
+        <span class="security-zone-label">Client boundary</span>
       </div>
-      <ol class="security-local-flow" role="list">
-        <li>
-          <span class="security-step-number" aria-hidden="true">01</span>
-          <div>
-            <h4>Unlock the local keyring</h4>
-            <p>A host wrapping key protects the account root. A PIN can add another layer.</p>
-          </div>
-        </li>
-        <li>
-          <span class="security-step-number" aria-hidden="true">02</span>
-          <div>
-            <h4>Derive separate local keys</h4>
-            <p>Dedicated keys for the database, blob store, and identity persistence.</p>
-          </div>
-        </li>
-        <li>
-          <span class="security-step-number" aria-hidden="true">03</span>
-          <div>
-            <h4>Keep local storage encrypted</h4>
-            <p>The app reads and writes through encrypted database and blob storage.</p>
-          </div>
-        </li>
-      </ol>
-      <p class="security-zone-note">Plaintext is available to the unlocked app.</p>
+      <div class="security-zone-body">
+        <p class="security-zone-intro">Keys are unwrapped and content is decrypted here.</p>
+        <ol class="security-local-flow" role="list">
+          {localSteps.map((step, index) => (
+            <li>
+              <span class="security-step-number" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
+              <div>
+                <h4>{step.title}</h4>
+                <p>{step.body}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+        <p class="security-zone-note">The unlocked app can read plaintext.</p>
+      </div>
     </div>
 
-    <div class="security-sync-bridge">
-      <span>Encrypted<br />sync</span>
-      <svg viewBox="0 0 80 32" fill="none" aria-hidden="true" focusable="false">
-        <path d="M4 10h70m-7-6 7 6-7 6M76 23H6m7-6-7 6 7 6" />
+    <div class="security-bridge">
+      <span class="security-bridge-label">Encrypted sync</span>
+      <svg viewBox="0 0 64 24" fill="none" aria-hidden="true" focusable="false">
+        <path d="M2 7h58m-6-5 6 5-6 5M62 17H4m6-5-6 5 6 5" stroke="currentColor" />
       </svg>
     </div>
 
     <div class="security-zone security-zone--service">
-      <div class="security-zone-heading">
-        <span class="security-eyebrow">Service boundary</span>
-        <h3>Sync &amp; storage</h3>
-        <p>The API stores and delivers encrypted records.</p>
+      <div class="security-zone-bar">
+        <h3>Sync and storage</h3>
+        <span class="security-zone-label">Service boundary</span>
       </div>
-      <dl class="security-service-records">
-        <div>
-          <dt>Encrypted payloads</dt>
-          <dd>Document updates, files, and encrypted metadata.</dd>
-        </div>
-        <div>
-          <dt>Wrapped keys</dt>
-          <dd>Encrypted key envelopes that authorized clients can open.</dd>
-        </div>
-        <div>
-          <dt>Signed access records</dt>
-          <dd>Verifiable policies, grants, and content-write commitments.</dd>
-        </div>
-      </dl>
-      <p class="security-zone-note">No plaintext content keys held by the service.</p>
+      <div class="security-zone-body">
+        <p class="security-zone-intro">The API stores and delivers encrypted records.</p>
+        <dl class="security-service-records">
+          {serviceRecords.map((record) => (
+            <div>
+              <dt>{record.term}</dt>
+              <dd>{record.body}</dd>
+            </div>
+          ))}
+        </dl>
+        <p class="security-zone-note">The service holds no plaintext content keys.</p>
+      </div>
     </div>
   </div>
   <figcaption id="architecture-caption">
-    <span class="security-figure-label">Figure 01</span>{" "}
-    Local storage and remote content encryption use separate key layers.
-    Sync exchanges encrypted records and access metadata, not the local database.
+    <span class="security-figure-label">Fig. 1</span> Local storage and synced content use separate key layers. Sync exchanges
+    encrypted records and access metadata, not the local database. Solid frame:
+    plaintext is available after unlock. Dashed frame: the service stores and
+    delivers encrypted records.
   </figcaption>
 </figure>

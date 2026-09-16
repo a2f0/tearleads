@@ -1,0 +1,68 @@
+---
+import Screenshot from "./Screenshot.astro";
+import SectionHeader from "./SectionHeader.astro";
+
+/**
+ * Home: what the app does, as a grid of square cells with shared hairlines,
+ * followed by the driver's license record capture. Copy is the verified spec
+ * E.1 table (records: document-types/registry.ts; backups: backup-restore).
+ */
+interface Capability {
+  readonly title: string;
+  readonly text: string;
+}
+
+const capabilities: readonly Capability[] = [
+  {
+    title: "Notes",
+    text: "Plain-text notes with attached files and image previews.",
+  },
+  {
+    title: "Contacts",
+    text: "Names, nicknames, and profile photos. Add a Tearleads user ID to link a contact to that person's identity.",
+  },
+  {
+    title: "Files",
+    text: "Import images, PDFs, audio, and video into nested folders, download them again, and recover removed items from Trash.",
+  },
+  {
+    title: "Records",
+    text: "Structured records such as driver's licenses and passports, each with its own fields and images.",
+  },
+  {
+    title: "Offline",
+    text: "Edits save on your device first and sync when you reconnect. Sharing and other online actions need a connection.",
+  },
+  {
+    title: "Backups",
+    text: "Export a password-protected backup file and restore from it.",
+  },
+];
+---
+
+<section class="site-section" id="product" aria-labelledby="product-title">
+  <SectionHeader
+    titleId="product-title"
+    title="What's in Tearleads"
+    lede="Everything lives in one folder tree in Explorer."
+  >
+    <a slot="action" class="site-link" href="/features">
+      All features<span aria-hidden="true"> →</span>
+    </a>
+  </SectionHeader>
+  <ul class="home-grid" role="list">
+    {capabilities.map((capability) => (
+      <li class="home-cell">
+        <h3 class="home-cell-title">{capability.title}</h3>
+        <p>{capability.text}</p>
+      </li>
+    ))}
+  </ul>
+  <Screenshot
+    name="drivers-license-detail"
+    crop="2880 / 1470"
+    phoneCrop="1170 / 1740"
+    caption="Explorer, driver's license record"
+    alt="A driver's license record in Explorer with its license number, expiration date, and front and back images of a specimen card."
+  />
+</section>

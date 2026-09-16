@@ -1,14 +1,14 @@
 ---
 import { publicDir } from "astro:config/server";
-import { readFile } from "node:fs/promises";
+import PageHeader from "../../components/PageHeader.astro";
 import { ScreenshotsBrowser } from "../../components/ScreenshotsBrowser";
 import {
   projectLabel,
-  type ScreenshotManifest,
+  screenLabel,
   screenshotRoutes,
-  titleCase,
 } from "../../components/screenshotsManifest";
 import Layout from "../../layouts/Layout.astro";
+import { loadScreenshotManifest } from "../../screenshots";
 
 interface Props {
   initialPlatform?: string;
@@ -16,36 +16,31 @@ interface Props {
 }
 
 // One route per captured platform/screen pair, plus the /screenshots index.
-// Deduplicate light/dark captures so each pair builds only once. The manifest
-// is staged by
-// scripts/buildScreenshots.ts on predev/prebuild, before Astro runs; with no
-// captures only the index route exists.
+// Light and dark captures share a route. With no captures only the index
+// route exists.
 export async function getStaticPaths() {
-  const manifestUrl = new URL("screenshot-gallery/manifest.json", publicDir);
-  const manifest = JSON.parse(
-    await readFile(manifestUrl, "utf8"),
-  ) as ScreenshotManifest;
-  return screenshotRoutes(manifest);
+  return screenshotRoutes(await loadScreenshotManifest(publicDir));
 }
 
 const { initialPlatform, initialScreen } = Astro.props;
-const screenTitle = initialScreen
-  ? `${titleCase(initialScreen)}${initialPlatform ? ` (${projectLabel(initialPlatform)})` : ""} Screenshot | Tearleads`
-  : "Screenshots | Tearleads";
+const title =
+  initialScreen && initialPlatform
+    ? `${screenLabel(initialScreen)}, ${projectLabel(initialPlatform).toLowerCase()} screenshot | Tearleads`
+    : "Screenshots | Tearleads";
 ---
 
 <Layout
-  title={screenTitle}
-  description="Browse Tearleads screenshots in Windowed, Mobile, and Tablet layouts with light and dark themes."
+  title={title}
+  description="Tearleads screens in desktop, tablet, and phone layouts, in light and dark themes."
 >
-  <main class="website-main">
-    <section class="section" aria-labelledby="page-title">
-      <h1 id="page-title">Screenshots</h1>
-      <p class="section-lede">
-        A look at Tearleads across Windowed, Mobile, and Tablet layouts, in light
-        and dark themes.
-      </p>
-      <ScreenshotsBrowser client:load initialScreen={initialScreen} initialPlatform={initialPlatform} />
-    </section>
-  </main>
+  <div class="site-page">
+    <PageHeader
+      title="Screenshots"
+      lede="Every captured screen in desktop, phone, and tablet layouts, in light and dark themes."
+    />
+    <ScreenshotsBrowser client:load initialScreen={initialScreen} initialPlatform={initialPlatform} />
+    <noscript>
+      <p class="site-note screenshots-noscript">The screenshot gallery needs JavaScript.</p>
+    </noscript>
+  </div>
 </Layout>

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { copyFile, mkdir, readdir, readFile, rm } from "node:fs/promises";
+import { copyFile, mkdir, open, readdir, readFile, rm } from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -15,20 +15,24 @@ import { fileURLToPath } from "node:url";
 // `astro build` still succeeds in CI without a prior `bun run screenshots`.
 //
 // This script lives at packages/website/scripts/, so the repo root is three
-// levels up.
+// levels up. SCREENSHOTS_CAPTURE_DIR and SCREENSHOTS_OUTPUT_DIR redirect the
+// input and output, so tests can stage fixtures without touching either.
 const REPO_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
   "..",
   "..",
 );
-const SCREENSHOTS_DIR = path.join(REPO_ROOT, ".screenshots");
-const OUTPUT_DIR = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "..",
-  "public",
-  "screenshot-gallery",
-);
+const SCREENSHOTS_DIR =
+  process.env.SCREENSHOTS_CAPTURE_DIR ?? path.join(REPO_ROOT, ".screenshots");
+const OUTPUT_DIR =
+  process.env.SCREENSHOTS_OUTPUT_DIR ??
+  path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "..",
+    "public",
+    "screenshot-gallery",
+  );
 const IMG_DIR = path.join(OUTPUT_DIR, "img");
 const MANIFEST_PATH = path.join(OUTPUT_DIR, "manifest.json");
 
@@ -84,6 +88,8 @@ interface ScreenshotEntry {
   theme: string;
   name: string;
   src: string;
+  width: number;
+  height: number;
 }
 
 async function listDir(dir: string): Promise<string[]> {
@@ -116,6 +122,33 @@ async function contentVersion(filePath: string): Promise<string> {
     .slice(0, 8);
 }
 
+const PNG_SIGNATURE = Buffer.from([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+]);
+
+// Pixel dimensions from the PNG header: the 8-byte signature, then the IHDR
+// chunk, whose width and height are big-endian uint32s at bytes 16 and 20.
+// Pages set them on <img>/<source> so figures reserve space before they load.
+async function pngDimensions(
+  filePath: string,
+): Promise<{ width: number; height: number }> {
+  const file = await open(filePath, "r");
+  try {
+    const header = Buffer.alloc(24);
+    const { bytesRead } = await file.read(header, 0, header.length, 0);
+    if (
+      bytesRead < header.length ||
+      !header.subarray(0, 8).equals(PNG_SIGNATURE) ||
+      header.toString("latin1", 12, 16) !== "IHDR"
+    ) {
+      throw new Error(`${filePath} is not a PNG image`);
+    }
+    return { width: header.readUInt32BE(16), height: header.readUInt32BE(20) };
+  } finally {
+    await file.close();
+  }
+}
+
 function screenRank(name: string): number {
   const index = SCREEN_ORDER.indexOf(name);
   return index === -1 ? SCREEN_ORDER.length : index;
@@ -141,15 +174,15 @@ for (const project of PROJECTS) {
       if (!CANONICAL_SCREENS.has(name)) {
         continue;
       }
+      const source = capturePath(project, theme, file);
       themesPresent.add(theme);
       screensPresent.add(name);
       entries.push({
         project,
         theme,
         name,
-        src: `${IMG_URL_PREFIX}${project}/${theme}/${file}?v=${await contentVersion(
-          capturePath(project, theme, file),
-        )}`,
+        src: `${IMG_URL_PREFIX}${project}/${theme}/${file}?v=${await contentVersion(source)}`,
+        ...(await pngDimensions(source)),
       });
     }
   }

@@ -1,0 +1,306 @@
+/*
+ * Home, part 1: the hero, the two zeros, the capability grid, and the steps.
+ * Part 2 (homeSections.css): the security ledger, plans, downloads, and the
+ * closing band.
+ */
+
+/* --- Shared: a row of exact values separated by middle dots --- */
+
+.home-dot-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.home-dot-list > li {
+  margin: 0;
+}
+
+/* The dot trails each item except the last, so a wrapped row never starts with
+   a separator. It is decorative; the empty alternative keeps screen readers
+   quiet. */
+.home-dot-list > li:not(:last-child)::after {
+  margin-inline: 0.625em;
+  content: "·" / "";
+}
+
+@supports not (content: "·" / "") {
+  .home-dot-list > li:not(:last-child)::after {
+    content: "·";
+  }
+}
+
+/* --- Hero --- */
+
+.home-hero .site-page-header {
+  max-width: none;
+}
+
+.home-hero .site-display {
+  max-width: none;
+  font-size: clamp(2.25rem, 0.75rem + 5.8vw, 5.25rem);
+  letter-spacing: -0.025em;
+  line-height: 1;
+}
+
+.home-hero-line {
+  display: block;
+}
+
+.home-hero .site-page-header > .site-lede {
+  max-width: 36rem;
+  margin-top: var(--site-space-5);
+  color: var(--site-ink-2);
+  font-size: clamp(1.125rem, 1rem + 0.45vw, 1.375rem);
+  line-height: 1.5;
+}
+
+.home-hero .site-page-header > .site-actions {
+  margin-top: var(--site-space-6);
+}
+
+.home-hero .site-page-header > .home-meta {
+  margin-top: var(--site-space-4);
+}
+
+.home-meta {
+  row-gap: var(--site-space-1);
+}
+
+.home-hero .site-page-header > .site-note {
+  margin-top: var(--site-space-6);
+}
+
+.home-hero .site-shot {
+  margin-top: var(--site-space-7);
+}
+
+/* --- The two zeros --- */
+
+.home-zero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  margin-top: var(--site-space-9);
+  border-top: 1px solid var(--site-ink);
+}
+
+.home-zero-column {
+  min-width: 0;
+  padding-top: var(--site-space-7);
+}
+
+.home-zero-column + .home-zero-column {
+  margin-top: var(--site-space-7);
+  border-top: 1px solid var(--site-line);
+}
+
+.home-zero-title {
+  max-width: none;
+  font-size: var(--site-text-h1);
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  line-height: 1.1;
+}
+
+.home-zero-lede {
+  max-width: 34rem;
+  margin-top: var(--site-space-4);
+  color: var(--site-ink-2);
+  font-size: var(--site-text-lede);
+  line-height: 1.55;
+}
+
+.home-facts {
+  max-width: 34rem;
+  margin-top: var(--site-space-6);
+  border-top: 1px solid var(--site-ink);
+}
+
+.home-facts > div {
+  display: grid;
+  grid-template-columns: 8.5rem minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--site-space-4);
+  padding-block: var(--site-space-3);
+  border-bottom: 1px solid var(--site-line);
+}
+
+.home-facts dt {
+  color: var(--site-ink-3);
+  font: 500 var(--site-text-mono-sm) / 1.5 var(--site-font-mono);
+}
+
+.home-facts dd {
+  margin: 0;
+  color: var(--site-ink);
+  font: 600 var(--site-text-mono) / 1.5 var(--site-font-mono);
+}
+
+.home-zero-note {
+  max-width: 34rem;
+  margin-top: var(--site-space-5);
+  color: var(--site-ink-2);
+  font-size: var(--site-text-small);
+  line-height: 1.55;
+}
+
+.home-zero-column > .site-link {
+  margin-top: var(--site-space-2);
+}
+
+@media (min-width: 1024px) {
+  .home-zero {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .home-zero-column {
+    padding-bottom: var(--site-space-2);
+  }
+
+  .home-zero-column:first-child {
+    padding-right: var(--site-space-7);
+  }
+
+  .home-zero-column + .home-zero-column {
+    margin-top: 0;
+    padding-left: var(--site-space-7);
+    border-top: 0;
+    border-left: 1px solid var(--site-line);
+  }
+}
+
+@media (min-width: 700px) and (max-width: 1023px) {
+  /* Stacked on tablets: the fact lists span the column. */
+  .home-zero-lede,
+  .home-zero-note {
+    max-width: 40rem;
+  }
+
+  .home-facts {
+    max-width: none;
+  }
+}
+
+@media (max-width: 699px) {
+  .home-zero {
+    margin-top: var(--site-space-8);
+  }
+
+  .home-zero-column {
+    padding-top: var(--site-space-6);
+  }
+
+  .home-zero-column + .home-zero-column {
+    margin-top: var(--site-space-6);
+  }
+
+  .home-facts > div {
+    grid-template-columns: 7rem minmax(0, 1fr);
+    gap: var(--site-space-3);
+  }
+}
+
+@media (max-width: 399px) {
+  /* Too narrow for two columns: each value sits under its key. */
+  .home-facts > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+}
+
+/* --- Capability grid: square cells with shared hairlines --- */
+
+.home-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1px;
+  border: 1px solid var(--site-line);
+  background: var(--site-line);
+}
+
+.home-cell {
+  min-width: 0;
+  margin: 0;
+  padding: var(--site-space-5);
+  background: var(--site-surface);
+}
+
+.home-cell-title {
+  font: 600 var(--site-text-mono) / 1.4 var(--site-font-mono);
+}
+
+.home-cell p {
+  margin-top: var(--site-space-2);
+  color: var(--site-ink-2);
+}
+
+@media (min-width: 700px) {
+  .home-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .home-cell {
+    padding: var(--site-space-6) var(--site-space-5);
+  }
+}
+
+@media (min-width: 1024px) {
+  .home-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .home-cell {
+    padding: var(--site-space-6);
+  }
+}
+
+/* --- How it works --- */
+
+.home-steps {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--site-space-5);
+}
+
+.home-step {
+  min-width: 0;
+  margin: 0;
+  padding-top: var(--site-space-5);
+  border-top: 1px solid var(--site-ink);
+}
+
+.home-step-number {
+  display: block;
+  color: var(--site-ink-3);
+  font: 500 1.25rem / 1 var(--site-font-mono);
+}
+
+.home-step-title {
+  margin-top: var(--site-space-4);
+  font-size: 1.25rem;
+  line-height: 1.3;
+}
+
+.home-step p {
+  max-width: 36rem;
+  margin-top: var(--site-space-2);
+  color: var(--site-ink-2);
+}
+
+@media (min-width: 1024px) {
+  .home-steps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--site-space-6);
+  }
+}
+
+@media (max-width: 1023px) {
+  /* Stacked, the steps read as one list: an ink rule on top, hairlines
+     between. */
+  .home-step + .home-step {
+    border-top-color: var(--site-line);
+  }
+}

@@ -1,0 +1,16 @@
+---
+import { releaseNotice } from "../config";
+
+/**
+ * The release notice (Home hero and the Features, Pricing, and Linux install
+ * headers: every page that crops phone captures above the in-app test banner,
+ * plus the pages that sell or install the app).
+ * Renders nothing when `releaseNotice` in src/config.ts is null.
+ */
+---
+
+{releaseNotice !== null && (
+  <div class="site-note site-note--status" role="note">
+    <strong class="site-note-label">Early testing.</strong> {releaseNotice}
+  </div>
+)}

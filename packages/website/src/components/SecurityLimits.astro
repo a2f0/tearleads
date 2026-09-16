@@ -1,0 +1,75 @@
+---
+import SectionHeader from "./SectionHeader.astro";
+
+/**
+ * Section 05 on /security. Sources: docs/security-guarantees.md "Threat
+ * Model", "Boundaries", "Recovery Key Disclosure", "Content Confidentiality",
+ * "Held descendant re-citation"; docs/keying-design.md "Current access is
+ * history-inclusive"; docs/developer/trusted-user-identity.md (pins are per
+ * trust store, and resetting the local database resets them). The
+ * #trust-boundaries id is linked from Home.
+ */
+const limits = [
+  {
+    term: "First contact establishes trust",
+    body: "Each device pins the first identity bundle it accepts and rejects later changes. A server that substitutes a key on that first lookup can still establish a false identity. Matching a key to its fingerprint in signed state does not prove who controls it. The app shows signing-key fingerprints, but it has no step for confirming a key out of band before it pins that key.",
+  },
+  {
+    term: "Checkpoints only cover what a device has seen",
+    body: "A device with no checkpoint for a policy or folder (a new device, a folder or organization it is seeing for the first time, or a device whose local data was reset) can receive old but validly signed history. Signatures alone do not prove that a view is the newest or that all devices see the same view. Stronger split-view resistance needs independent witnessing or gossip.",
+  },
+  {
+    term: "Encryption does not ensure availability",
+    body: "The service can withhold ciphertext, policies, or key envelopes and refuse requests. When required verification material is missing, the operation cannot safely proceed, so it stops.",
+  },
+  {
+    term: "An unlocked device can read content",
+    body: "Local encryption does not protect against malicious code running in an unlocked client or a compromised device. Anyone who obtains the recovery phrase, including its QR code, can recover that identity.",
+  },
+  {
+    term: "New members can read retained history",
+    body: "Access includes history: a member added to a container can read the history that container retains, not only changes made after they joined.",
+  },
+];
+---
+
+<section class="site-section security-section" id="trust-boundaries" aria-labelledby="trust-title">
+  <SectionHeader
+    index="05"
+    titleId="trust-title"
+    title="Limits"
+    lede="What the design does not detect, prevent, or promise, even under the assumptions above."
+  />
+  <dl class="site-spec security-limits">
+    {limits.map((limit) => (
+      <div>
+        <dt>{limit.term}</dt>
+        <dd>{limit.body}</dd>
+      </div>
+    ))}
+  </dl>
+
+  <div class="security-revocation">
+    <h3>Revocation, nested containers, and historical access</h3>
+    <div class="site-prose">
+      <p>
+        Revocation cannot retract keys someone already learned or content they
+        already downloaded. Rotating a parent container does not automatically
+        rekey every nested container, and refreshing a nested container's signed
+        access history does not itself replace its encryption keys or promise
+        confidentiality from a former member.
+      </p>
+      <p>
+        A revoked signer working with a compromised server may still present
+        records under valid historical authority to a device that has not seen
+        newer signed state. Verifying that authority does not prove when the
+        record was actually created.
+      </p>
+      <p>
+        Current container keys also unlock retained predecessor keys, so current
+        members can read history. A compromised current container key therefore
+        exposes that retained history.
+      </p>
+    </div>
+  </div>
+</section>

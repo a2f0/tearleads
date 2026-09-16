@@ -1,0 +1,47 @@
+---
+import SectionHeader from "./SectionHeader.astro";
+
+/**
+ * Home: the real order of use, so the numbers are a sequence, not eyebrows.
+ * Sources: AppHostConfig.ts (identity created and registered on first open, no
+ * sign-up), the desktop downloads (macOS, Linux), local encrypted storage and
+ * offline edits (docs/security-guarantees.md "Local At-Rest Key Wrapping"),
+ * the personal organization's sync trial at registration
+ * (packages/api/src/workflows/auth/registration.ts), and the plan contract in
+ * src/pricing.ts (sync on paid plans, sharing on Team plans).
+ */
+interface Step {
+  readonly title: string;
+  readonly text: string;
+}
+
+const steps: readonly Step[] = [
+  {
+    title: "Open Tearleads",
+    text: "Use the web app in your browser, or install the desktop app for macOS or Linux. There is nothing to sign up for.",
+  },
+  {
+    title: "Work on your device",
+    text: "Your notes, contacts, and files are stored encrypted on your device and stay editable offline. Export a password-protected backup whenever you like.",
+  },
+  {
+    title: "Sync and share",
+    text: "Your personal organization gets a 7-day free sync trial when the app registers your identity. After that, paid plans keep end-to-end encrypted sync across your devices, and Team plans add folder sharing with users and groups in your organization.",
+  },
+];
+---
+
+<section class="site-section" id="how-it-works" aria-labelledby="how-it-works-title">
+  <SectionHeader titleId="how-it-works-title" title="How it works" />
+  <ol class="home-steps" role="list">
+    {steps.map((step, index) => (
+      <li class="home-step">
+        <span class="home-step-number" aria-hidden="true">
+          {String(index + 1).padStart(2, "0")}
+        </span>
+        <h3 class="home-step-title">{step.title}</h3>
+        <p>{step.text}</p>
+      </li>
+    ))}
+  </ol>
+</section>

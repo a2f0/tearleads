@@ -1,0 +1,404 @@
+/*
+ * Shared page components: buttons, text links, page and section headers,
+ * notes, the CTA row, the on-page contents list, and breadcrumbs.
+ */
+
+/* --- Buttons --- */
+
+.site-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--site-space-2);
+  min-height: var(--site-target);
+  padding: 0 1.25rem;
+  border: 1px solid;
+  border-radius: 0;
+  font: 600 0.9375rem / 1.2 var(--site-font-mono);
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.site-button svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+
+.site-button--primary {
+  border-color: var(--site-ink);
+  background: var(--site-ink);
+  color: var(--site-bg);
+}
+
+.site-button--secondary {
+  border-color: var(--site-ink);
+  background: transparent;
+  color: var(--site-ink);
+}
+
+@media (hover: hover) {
+  .site-button--primary:hover {
+    border-color: var(--site-ink-hover);
+    background: var(--site-ink-hover);
+  }
+
+  .site-button--secondary:hover {
+    background: var(--site-surface-muted);
+  }
+}
+
+.site-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--site-space-3);
+}
+
+@media (max-width: 419px) {
+  .site-actions > .site-button {
+    flex: 1 1 100%;
+  }
+
+  /* In a CTA row the action group is itself a flex item sized to its content;
+     let it take the row so its buttons can go full width too. */
+  .site-cta > .site-actions {
+    flex: 1 1 100%;
+  }
+}
+
+/* --- Chrome band: a charcoal block inside the page (e.g. a closing band) --- */
+
+.site-chrome-band {
+  --site-focus: var(--site-chrome-ink);
+  border: 1px solid var(--site-chrome-edge);
+  background: var(--site-chrome);
+  color: var(--site-chrome-ink);
+}
+
+.site-chrome-band :where(h1, h2, h3, h4) {
+  color: var(--site-chrome-ink);
+}
+
+.site-chrome-band .site-button--primary {
+  border-color: var(--site-chrome-ink);
+  background: var(--site-chrome-ink);
+  color: var(--site-chrome);
+}
+
+.site-chrome-band .site-button--secondary {
+  border-color: var(--site-chrome-ink-2);
+  background: transparent;
+  color: var(--site-chrome-ink);
+}
+
+@media (hover: hover) {
+  .site-chrome-band .site-button--primary:hover {
+    border-color: var(--site-chrome-ink-2);
+    background: var(--site-chrome-ink-2);
+  }
+
+  .site-chrome-band .site-button--secondary:hover {
+    background: var(--site-chrome-hover);
+  }
+}
+
+/* --- Text links --- */
+
+/* A standalone directional or external link:
+   <a class="site-link" href="/pricing">Compare plans<span aria-hidden="true"> →</span></a>.
+   Flex layout would drop the space at the start of the arrow span; preserving
+   it keeps one continuous underline under the label and its arrow. */
+.site-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--site-target);
+  color: inherit;
+  font: 600 var(--site-text-mono) / 1.2 var(--site-font-mono);
+  text-decoration: underline 1px;
+  text-underline-offset: 4px;
+}
+
+.site-link > [aria-hidden="true"] {
+  white-space: pre;
+}
+
+.site-link:focus-visible {
+  text-decoration-thickness: 2px;
+}
+
+@media (hover: hover) {
+  .site-link:hover {
+    text-decoration-thickness: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .site-button,
+  .site-link,
+  .site-contents a,
+  .site-breadcrumb a {
+    transition:
+      background-color 120ms,
+      color 120ms,
+      text-decoration-thickness 120ms;
+  }
+}
+
+/* --- Page header --- */
+
+.site-page-header {
+  max-width: 48rem;
+}
+
+.site-page-header--display {
+  max-width: 60rem;
+}
+
+.site-page-header > * + * {
+  margin-top: var(--site-space-5);
+}
+
+.site-page-header > .site-lede {
+  margin-top: var(--site-space-4);
+}
+
+.site-page-header > .site-breadcrumb + * {
+  margin-top: var(--site-space-3);
+}
+
+.site-h1 {
+  font-family: var(--site-font-sans);
+  font-size: var(--site-text-h1);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+  text-wrap: balance;
+}
+
+.site-display {
+  max-width: 20ch;
+  font-family: var(--site-font-sans);
+  font-size: var(--site-text-display);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.06;
+  text-wrap: balance;
+}
+
+.site-lede {
+  max-width: 60ch;
+  color: var(--site-ink-2);
+  font-size: var(--site-text-lede);
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+/* A line of exact values: "Free on your device · macOS · Linux · Web". Put each
+   separator in <span aria-hidden="true"> · </span>. */
+.site-meta {
+  color: var(--site-ink-3);
+  font: 500 var(--site-text-mono-sm) / 1.6 var(--site-font-mono);
+}
+
+/* --- Section header --- */
+
+.site-section-header {
+  margin-bottom: var(--site-space-6);
+}
+
+.site-section-header h2 {
+  scroll-margin-top: var(--site-space-5);
+}
+
+.site-section-lede {
+  max-width: 60ch;
+  margin-top: var(--site-space-3);
+  color: var(--site-ink-2);
+  font-size: var(--site-text-lede);
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+.site-section-action {
+  margin-top: var(--site-space-3);
+}
+
+@media (min-width: 1024px) {
+  .site-section-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: var(--site-space-5);
+  }
+
+  .site-section-action {
+    margin-top: 0;
+  }
+}
+
+/* Section numbers (/security only): part of the heading line, never an
+   eyebrow. */
+.site-index {
+  margin-right: 0.75em;
+  color: var(--site-ink-3);
+  font: 500 var(--site-text-mono-sm) / 1 var(--site-font-mono);
+  vertical-align: 0.3em;
+}
+
+/* In a section heading the title wraps as its own column, so a second line
+   starts under the title, not under the number. A flex item ignores
+   vertical-align, so a relative offset keeps the number raised. */
+.site-section-header h2:has(> .site-index) {
+  display: flex;
+  align-items: baseline;
+}
+
+.site-section-header h2 > .site-index {
+  position: relative;
+  top: -0.3em;
+  flex: none;
+}
+
+/* --- Notes --- */
+
+.site-note {
+  max-width: var(--site-measure);
+  padding: var(--site-space-3) var(--site-space-4);
+  border-left: 2px solid var(--site-ink);
+  background: var(--site-surface-muted);
+  color: var(--site-ink);
+  font-size: var(--site-text-small);
+  line-height: 1.55;
+}
+
+.site-note-label {
+  font-family: var(--site-font-mono);
+  font-weight: 600;
+}
+
+/* The release notice: the same calm note, marked with a small danger square
+   before its text label (color is never the only signal). */
+.site-note--status .site-note-label::before {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-right: 0.5rem;
+  background: var(--site-danger);
+  content: "";
+  vertical-align: 0.05em;
+}
+
+/* --- CTA row --- */
+
+.site-cta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--site-space-4);
+  margin-top: var(--site-space-7);
+  padding-top: var(--site-space-5);
+  border-top: 1px solid var(--site-line);
+}
+
+.site-cta > p {
+  max-width: 60ch;
+  margin: 0;
+  font-size: var(--site-text-lede);
+  line-height: 1.5;
+}
+
+/* --- On-page contents (/security) --- */
+
+.site-contents {
+  padding-block: var(--site-space-2);
+  border-block: 1px solid var(--site-line);
+}
+
+.site-contents ol,
+.site-contents ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--site-space-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.site-contents li {
+  margin: 0;
+}
+
+.site-contents a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--site-target);
+  color: inherit;
+  font: 400 var(--site-text-mono) / 1.3 var(--site-font-mono);
+  text-decoration: none;
+  text-underline-offset: 4px;
+}
+
+.site-contents a:focus-visible {
+  text-decoration: underline 1px;
+}
+
+@media (hover: hover) {
+  .site-contents a:hover {
+    text-decoration: underline 1px;
+  }
+}
+
+/* --- Breadcrumb --- */
+
+.site-breadcrumb ol {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  color: var(--site-ink-3);
+  font: 500 var(--site-text-mono-sm) / 1.45 var(--site-font-mono);
+  list-style: none;
+}
+
+.site-breadcrumb li {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+}
+
+/* The "/" separator is decorative; the empty alternative text keeps screen
+   readers from announcing "slash" between items. */
+.site-breadcrumb li + li::before {
+  margin-inline: 0.5em;
+  content: "/" / "";
+}
+
+@supports not (content: "/" / "") {
+  .site-breadcrumb li + li::before {
+    content: "/";
+  }
+}
+
+.site-breadcrumb a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--site-target);
+  color: var(--site-ink);
+  text-decoration: underline 1px;
+  text-underline-offset: 3px;
+}
+
+.site-breadcrumb a:focus-visible {
+  text-decoration-thickness: 2px;
+}
+
+@media (hover: hover) {
+  .site-breadcrumb a:hover {
+    text-decoration-thickness: 2px;
+  }
+}

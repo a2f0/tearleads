@@ -1,99 +1,205 @@
 ---
+import PageHeader from "../components/PageHeader.astro";
+import SectionHeader from "../components/SectionHeader.astro";
 import SecurityArchitectureDiagram from "../components/SecurityArchitectureDiagram.astro";
+import SecurityCryptography from "../components/SecurityCryptography.astro";
+import SecurityLimits from "../components/SecurityLimits.astro";
 import SecuritySharingDiagram from "../components/SecuritySharingDiagram.astro";
-import SecurityTrustDetails from "../components/SecurityTrustDetails.astro";
 import Layout from "../layouts/Layout.astro";
 import "../styles/security.css";
 import "../styles/securityDiagrams.css";
+
+// Section ids are linked from Home, Features, and older URLs: keep them stable.
+const contents = [
+  { href: "#threat-model", label: "Assumptions" },
+  { href: "#device-boundary", label: "Device and service" },
+  { href: "#verified-sharing", label: "Verified sharing" },
+  { href: "#cryptography", label: "Cryptography" },
+  { href: "#trust-boundaries", label: "Limits" },
+  { href: "#documents", label: "Technical documents" },
+];
+
+const docsBaseUrl = "https://github.com/a2f0/tearleads/blob/main";
+const documents = [
+  {
+    title: "Security guarantees",
+    path: "docs/security-guarantees.md",
+    body: "What each property protects, the threat model, and the known gaps.",
+  },
+  {
+    title: "Keying design",
+    path: "docs/keying-design.md",
+    body: "How content keys, container keys, and recipients fit together.",
+  },
+  {
+    title: "Protocol specification",
+    path: "docs/protocol-specification.md",
+    body: "Messages, proofs, validation rules, and failure semantics.",
+  },
+  {
+    title: "Cipher suites",
+    path: "docs/cipher-suites.md",
+    body: "The cryptographic primitives and where each one is used.",
+  },
+  {
+    title: "Protocol models (TLA+)",
+    path: "formal/README.md",
+    body: "Bounded models of protocol safety rules that complement, not replace, tests.",
+  },
+];
 ---
 
 <Layout
-  title="Security architecture | Tearleads"
-  description="Explore Tearleads security: local encryption, verified sharing, signed access policies, and the boundaries of trust between your devices and the sync service."
+  title="Security | Tearleads"
+  description="How Tearleads encrypts content on your device, how the app verifies signed access records, what the sync service can see, and where the guarantees stop."
 >
-  <main class="website-main">
-    <article class="section security-page" aria-labelledby="page-title">
-      <header class="security-intro">
-        <p class="security-eyebrow">Inside Tearleads</p>
-        <h1 id="page-title">Security architecture</h1>
-        <p class="section-lede">
-          Your content is encrypted on your device. Sharing is backed by signed
-          access rules. Every receiving device verifies the records it uses.
-        </p>
-        <p class="security-intro-detail">
-          Explore where keys live, how access is checked, and what the service
-          can see.
-        </p>
-      </header>
+  <div class="site-page">
+    <PageHeader
+      title="Security"
+      lede="Your content is encrypted on your device. Sharing is backed by signed access rules: the app verifies the signed policies, access manifests, and write signatures on the records it uses."
+    >
+      <p class="security-header-note">
+        This page summarizes the implementation.
+        The <a href="#documents">technical documents</a> define the rules and
+        known gaps in detail.
+      </p>
+    </PageHeader>
 
-      <nav class="security-page-nav" aria-label="On this page">
-        <a href="#device-boundary"><span>01</span> Devices &amp; service</a>
-        <a href="#verified-sharing"><span>02</span> Verified sharing</a>
-        <a href="#cryptography"><span>03</span> Cryptography</a>
-        <a href="#trust-boundaries"><span>04</span> Trust &amp; limits</a>
-      </nav>
+    <nav class="site-contents security-contents" aria-label="On this page">
+      <ol role="list">
+        {contents.map((item, index) => (
+          <li>
+            <a href={item.href}>
+              <span class="site-index" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>{item.label}
+            </a>
+          </li>
+        ))}
+      </ol>
+    </nav>
 
-      <section class="security-section" id="device-boundary" aria-labelledby="device-title">
-        <p class="security-eyebrow">01 / Devices &amp; service</p>
-        <h2 id="device-title">Content stays private through sync.</h2>
-        <p class="security-section-intro">
-          Local encryption protects persisted data on your device. End-to-end
-          content encryption lets the service synchronize documents and files
-          without the keys needed to read them.
-        </p>
-        <SecurityArchitectureDiagram />
-        <div class="security-comparison">
-          <div>
-            <h3>What stays encrypted</h3>
-            <p>
-              Document and file contents, encrypted metadata payloads, and the
-              keys wrapped for recipients. Decryption requires the corresponding
-              private keys or unwrapped content keys.
-            </p>
-          </div>
-          <div>
-            <h3>What the service can see</h3>
-            <p>
-              Container, document, and blob structure; identifiers; public keys;
-              and access-policy and grant relationships. Encryption does not hide
-              this structure or traffic patterns such as request timing and size.
-            </p>
-          </div>
+    <section class="site-section security-section security-section--first" id="threat-model" aria-labelledby="threat-model-title">
+      <SectionHeader index="01" titleId="threat-model-title" title="Assumptions" />
+      <p class="site-prose">
+        These properties assume an honest, uncompromised client that runs its
+        validation checks, uncompromised user private keys, authentic identity
+        keys, and working cryptographic primitives. The API and its storage may
+        be compromised. Some behaviors still cannot be detected or prevented;
+        they are listed under <a href="#trust-boundaries">Limits</a>.
+      </p>
+    </section>
+
+    <section class="site-section security-section" id="device-boundary" aria-labelledby="device-title">
+      <SectionHeader
+        index="02"
+        titleId="device-title"
+        title="Your device and the sync service"
+        lede="Local encryption protects data stored on your device. End-to-end content encryption lets the service sync documents and files without the keys needed to read them."
+      />
+      <SecurityArchitectureDiagram />
+      <div class="security-pair">
+        <div>
+          <h3>Encrypted</h3>
+          <ul class="security-inventory" role="list">
+            <li>Document and file contents</li>
+            <li>Encrypted metadata, such as folder names</li>
+            <li>The keys wrapped for recipients</li>
+          </ul>
+          <p>
+            Decrypting them requires the matching private keys or unwrapped
+            content keys.
+          </p>
         </div>
-      </section>
-
-      <section class="security-section" id="verified-sharing" aria-labelledby="sharing-title">
-        <p class="security-eyebrow">02 / Verified sharing</p>
-        <h2 id="sharing-title">Access is backed by signed evidence.</h2>
-        <p class="security-section-intro">
-          A container groups content and its access rules. Clients derive who can
-          receive its keys from verified access manifests and signed group policies.
-          Editing a server-side membership row is not enough to grant access.
-        </p>
-        <SecuritySharingDiagram />
-        <div class="security-comparison">
-          <div>
-            <h3>Changes leave a verifiable history</h3>
-            <p>
-              Signatures and hash chains bind policies and access changes to their
-              authors and predecessors. Clients remember identity keys and policy
-              and access checkpoints to reject later substitutions, conflicting
-              heads, and rollbacks below the state they have seen.
-            </p>
-          </div>
-          <div>
-            <h3>Revocation looks forward</h3>
-            <p>
-              Removing group members rotates the group and affected container
-              keys in an atomic update. Removing access cannot erase content or
-              keys someone already received. Descendant containers and retained
-              history have additional limits described below.
-            </p>
-          </div>
+        <div>
+          <h3>Visible to the service</h3>
+          <ul class="security-inventory" role="list">
+            <li>Organization and group names</li>
+            <li>Roster and group membership</li>
+            <li>
+              The structure of folders, documents, and files, including which
+              attachments belong to which documents
+            </li>
+            <li>Identifiers and public keys</li>
+            <li>Access-policy and grant relationships</li>
+            <li>
+              Which user and device signed each access change and write, with
+              its signed timestamp
+            </li>
+            <li>The metadata that orders document updates</li>
+            <li>Ciphertext sizes and storage usage</li>
+            <li>
+              IP addresses, session and activity times, and the IP address
+              recorded when your identity is registered
+            </li>
+            <li>
+              Subscription and billing records, including the billing email for
+              a web subscription
+            </li>
+          </ul>
+          <p>
+            Encryption does not hide this information or traffic patterns such
+            as request timing and size.
+          </p>
         </div>
-      </section>
+      </div>
+    </section>
 
-      <SecurityTrustDetails />
-    </article>
-  </main>
+    <section class="site-section security-section" id="verified-sharing" aria-labelledby="sharing-title">
+      <SectionHeader
+        index="03"
+        titleId="sharing-title"
+        title="Verified sharing"
+        lede="A container (a folder in Explorer) groups content and its access rules. Clients derive who can receive its keys from verified access manifests and signed group policies. Editing a server-side membership row is not enough to grant access."
+      />
+      <SecuritySharingDiagram />
+      <div class="security-pair">
+        <div>
+          <h3>Signed history and checkpoints</h3>
+          <p>
+            Signatures and hash chains bind policies and access changes to their
+            authors and predecessors. Clients remember identity keys and policy
+            and access checkpoints, and reject later substitutions, conflicting
+            versions of the same history, and rollbacks below the state they
+            have seen.
+          </p>
+        </div>
+        <div>
+          <h3>Revocation applies going forward</h3>
+          <p>
+            Removing group members rotates the group key and the affected
+            container keys in one atomic update. Removing access cannot erase
+            content or keys someone already received. Nested containers and
+            retained history have further limits, listed under <a href="#trust-boundaries">Limits</a>.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <SecurityCryptography />
+
+    <SecurityLimits />
+
+    <section class="site-section security-section" id="documents" aria-labelledby="documents-title">
+      <SectionHeader
+        index="06"
+        titleId="documents-title"
+        title="Technical documents"
+        lede="These documents in the public Tearleads repository on GitHub define the verification rules, assumptions, and remaining gaps in more detail."
+      />
+      <dl class="site-spec site-spec--wide-key security-documents">
+        {documents.map((doc) => (
+          <div>
+            <dt>
+              <a class="site-link" href={`${docsBaseUrl}/${doc.path}`}>
+                {doc.title}<span aria-hidden="true"> ↗</span><span class="visually-hidden"> (GitHub)</span>
+              </a>
+            </dt>
+            <dd>
+              {doc.body}
+              <span class="security-documents-path">{doc.path}</span>
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  </div>
 </Layout>

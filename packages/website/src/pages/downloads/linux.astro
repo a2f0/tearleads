@@ -1,44 +1,107 @@
 ---
+import { LinuxLogoIcon } from "@phosphor-icons/react/dist/ssr/LinuxLogo";
+import PageHeader from "../../components/PageHeader.astro";
+import StatusNotice from "../../components/StatusNotice.astro";
 import { isStaging } from "../../config";
 import Layout from "../../layouts/Layout.astro";
 import { resolveLinuxDownloads } from "../../linuxDownloads";
+import "../../styles/install.css";
 
 const { installerUrl, checksumUrl } = await resolveLinuxDownloads(isStaging);
+// The published names are content-addressed, and the checksum file lists the
+// archive under its published name, so both commands use the names as saved.
+const fileName = (url: string) => new URL(url).pathname.split("/").pop();
+const archiveFileName = fileName(installerUrl);
+const checksumFileName = fileName(checksumUrl);
 ---
 
 <Layout
-  title="Install Tearleads on Linux"
-  description="Download and install Tearleads on Linux x64."
+  title="Install on Linux | Tearleads"
+  description="Download, verify, and install Tearleads on x64 Linux. Tested on Ubuntu 24.04."
 >
-  <main class="website-main">
-    <h1>Install Tearleads on Linux</h1>
-    <p>
-      The Linux download supports x64 processors from Intel and AMD.
-      We test it on Ubuntu 24.04.
-    </p>
-    <ol>
-      <li>Install the desktop libraries. On Ubuntu 24.04, run:
-        <pre><code>sudo apt install libgtk-3-0 libwebkit2gtk-4.1-0 libayatana-appindicator3-1 librsvg2-2 libnss3 libasound2t64 libgbm1</code></pre>
-      </li>
-      <li><a href={installerUrl}>Download the Linux archive</a> and its <a href={checksumUrl}>SHA-256 checksum</a>.</li>
-      <li>Verify the download by running <code>sha256sum -c</code> followed by the checksum filename.</li>
-      <li>Extract the <code>.tar.gz</code> archive using your file manager.</li>
-      <li>Open a terminal in the extracted folder and run <code>./installer</code> as your regular user.</li>
-    </ol>
-    <p>
-      The installer adds Tearleads to your application menu and opens the app.
-      A desktop session is required.
-    </p>
-  </main>
-</Layout>
+  <div class="site-page site-page--narrow install-page">
+    <PageHeader
+      title="Install Tearleads on Linux"
+      lede="For x64 computers with Intel or AMD processors. We test the Linux build on Ubuntu 24.04."
+    >
+      <nav slot="before" class="site-breadcrumb" aria-label="Breadcrumb">
+        <ol role="list">
+          <li><a href="/#download">Download</a></li>
+          <li aria-current="page">Linux</li>
+        </ol>
+      </nav>
+      <dl class="site-spec install-requirements">
+        <div><dt>Processor</dt><dd>x64 (Intel or AMD)</dd></div>
+        <div><dt>Tested on</dt><dd>Ubuntu 24.04</dd></div>
+        <div><dt>Session</dt><dd>A graphical desktop session</dd></div>
+      </dl>
+      <div class="site-actions">
+        <a class="site-button site-button--primary" href={installerUrl}>
+          <LinuxLogoIcon size={18} aria-hidden="true" focusable="false" />
+          {isStaging ? "Download Linux preview" : "Download for Linux"}
+        </a>
+        <a class="site-button site-button--secondary" href={checksumUrl}>
+          SHA-256 checksum
+        </a>
+      </div>
+      <StatusNotice />
+    </PageHeader>
 
-<style>
-  li {
-    margin-block: 16px;
-  }
-  pre {
-    overflow-x: auto;
-    padding: 16px;
-    background: #f3f5f2;
-  }
-</style>
+    <ol class="site-steps install-steps" role="list">
+      <li>
+        <h2 class="site-step-title">Install the desktop libraries</h2>
+        <p>On Ubuntu 24.04, refresh the package lists and install the libraries:</p>
+        <pre class="site-code"><code>sudo apt update
+sudo apt install \
+  libgtk-3-0 \
+  libwebkit2gtk-4.1-0 \
+  libayatana-appindicator3-1 \
+  librsvg2-2 \
+  libnss3 \
+  libasound2t64 \
+  libgbm1</code></pre>
+      </li>
+      <li>
+        <h2 class="site-step-title">Download the archive and its checksum</h2>
+        <p>
+          Save the <a href={installerUrl}>Linux archive</a> and its{" "}
+          <a href={checksumUrl}>SHA-256 checksum file</a> in the same folder. If your
+          browser shows the checksum file as text instead of saving it,
+          right-click the link and save the linked file.
+        </p>
+      </li>
+      <li>
+        <h2 class="site-step-title">Verify the download</h2>
+        <p>Open a terminal in that folder and run:</p>
+        <pre class="site-code"><code>sha256sum -c {checksumFileName}</code></pre>
+        <p>
+          It prints <code>OK</code> after the archive name when the file
+          matches.
+        </p>
+      </li>
+      <li>
+        <h2 class="site-step-title">Extract the archive</h2>
+        <p>
+          Extract the <code>.tar.gz</code> archive with your file manager, or
+          run this in the same terminal:
+        </p>
+        <pre class="site-code"><code>tar -xzf {archiveFileName}</code></pre>
+      </li>
+      <li>
+        <h2 class="site-step-title">Run the installer</h2>
+        <p>
+          Open a terminal in the folder with the extracted <code>installer</code>{" "}
+          file. Don't use <code>sudo</code>; run it as your regular user:
+        </p>
+        <pre class="site-code"><code>./installer</code></pre>
+      </li>
+    </ol>
+
+    <div class="install-after">
+      <p>When it finishes, the installer opens Tearleads.</p>
+      <a class="site-link" href="/#download">
+        Other downloads<span aria-hidden="true"> →</span>
+      </a>
+    </div>
+  </div>
+</Layout>

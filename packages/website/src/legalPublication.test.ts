@@ -2,6 +2,7 @@ import { beforeAll, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
+import { releaseNotice } from "./config";
 import { legalDetails } from "./legal";
 
 const website = resolve(import.meta.dir, "..");
@@ -60,6 +61,36 @@ for (const environment of ["production", "staging", undefined]) {
         );
       }
       expect(index).toContain('href="/downloads/linux"');
+      // The nav, footer, and other pages link to these anchors.
+      expect(index).toContain('id="download"');
+      expect(index).toContain('id="security-summary"');
+      const security = await Bun.file(
+        resolve(output, "security/index.html"),
+      ).text();
+      for (const anchor of [
+        "threat-model",
+        "device-boundary",
+        "verified-sharing",
+        "cryptography",
+        "local-storage",
+        "trust-boundaries",
+        "documents",
+      ]) {
+        expect(security).toContain(`id="${anchor}"`);
+      }
+      expect(security).not.toContain("<details");
+      const features = await Bun.file(
+        resolve(output, "features/index.html"),
+      ).text();
+      expect(features).toContain('id="sync-and-sharing"');
+      expect(features).toContain('id="document-authorship"');
+      // Pages whose figures crop phone captures above the in-app test banner
+      // carry the release notice while it is set.
+      if (releaseNotice !== null) {
+        for (const html of [index, features]) {
+          expect(html).toContain(releaseNotice);
+        }
+      }
       expect(
         await Bun.file(resolve(output, "downloads/linux/index.html")).text(),
       ).toContain("./installer");

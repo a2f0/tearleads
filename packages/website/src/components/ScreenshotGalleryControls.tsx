@@ -5,7 +5,7 @@ import { DeviceMobileIcon } from "@phosphor-icons/react/dist/csr/DeviceMobile";
 import { DeviceTabletIcon } from "@phosphor-icons/react/dist/csr/DeviceTablet";
 import type { Icon } from "@phosphor-icons/react/dist/lib/types";
 import { ThemeInvertIcon } from "@tearleads/ui";
-import { projectLabel, themeLabel } from "./screenshotsManifest";
+import { projectLabel, screenLabel, themeLabel } from "./screenshotsManifest";
 
 const PROJECT_ICONS: Readonly<Record<string, Icon>> = {
   windowed: DesktopTowerIcon,
@@ -18,34 +18,33 @@ export function ScreenshotsToolbar({
   themes,
   project,
   theme,
+  activeName,
   onProjectChange,
   onThemeChange,
-  position,
 }: {
   projects: string[];
   themes: string[];
   project: string;
   theme: string;
+  activeName: string | undefined;
   onProjectChange: (id: string) => void;
   onThemeChange: (id: string) => void;
-  position: string;
 }) {
   return (
     <header className="screenshots-browser__toolbar">
-      <div className="screenshots-browser__title">Screenshots</div>
+      {/* Announces the new screen when the arrows or filmstrip step. */}
+      <p className="screenshots-browser__title" aria-live="polite">
+        {activeName ? screenLabel(activeName) : "No screens"}
+      </p>
       <fieldset className="screenshots-browser__toggle">
-        <legend className="screenshots-browser__toggle-legend">Device</legend>
+        <legend className="visually-hidden">Layout</legend>
         {projects.map((id) => {
           const ProjectIcon = PROJECT_ICONS[id];
           return (
             <button
               key={id}
               type="button"
-              className={
-                id === project
-                  ? "screenshots-browser__toggle-button screenshots-browser__toggle-button--active"
-                  : "screenshots-browser__toggle-button"
-              }
+              className="screenshots-browser__toggle-button"
               onClick={() => onProjectChange(id)}
               aria-pressed={id === project}
             >
@@ -58,7 +57,6 @@ export function ScreenshotsToolbar({
         })}
       </fieldset>
       <ThemeSwitcher themes={themes} theme={theme} onChange={onThemeChange} />
-      <div className="screenshots-browser__counter">{position}</div>
     </header>
   );
 }
@@ -80,12 +78,12 @@ function ThemeSwitcher({
   if (!nextTheme) {
     return null;
   }
-  const label = `Switch screenshots to ${themeLabel(nextTheme)} theme`;
+  const label = `Show ${themeLabel(nextTheme).toLowerCase()} theme`;
 
   return (
     <button
       type="button"
-      className="screenshots-browser__theme-button"
+      className="screenshots-browser__icon-button"
       onClick={() => onChange(nextTheme)}
       aria-label={label}
       title={label}
@@ -98,24 +96,28 @@ function ThemeSwitcher({
 export function ScreenshotStepControls({
   canStep,
   onStep,
+  position,
 }: {
   canStep: boolean;
   onStep: (delta: number) => void;
+  /** "3 / 17": the active screen's place in the current layout's list. */
+  position: string;
 }) {
   return (
     <div className="screenshots-browser__navrow">
       <button
         type="button"
-        className="screenshots-browser__nav"
+        className="screenshots-browser__icon-button"
         onClick={() => onStep(-1)}
         disabled={!canStep}
         aria-label="Previous screen"
       >
         <CaretLeftIcon aria-hidden="true" size={20} />
       </button>
+      <p className="screenshots-browser__counter">{position}</p>
       <button
         type="button"
-        className="screenshots-browser__nav"
+        className="screenshots-browser__icon-button"
         onClick={() => onStep(1)}
         disabled={!canStep}
         aria-label="Next screen"

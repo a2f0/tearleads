@@ -18,8 +18,9 @@ import {
   initialProject,
   type ScreenshotEntry,
   type ScreenshotManifest,
+  screenLabel,
   screenshotPath,
-  titleCase,
+  startingTheme,
 } from "./screenshotsManifest";
 
 // Manifest URL, staged into Astro's public/ by scripts/buildScreenshots.ts and
@@ -28,7 +29,7 @@ const MANIFEST_URL = "/screenshot-gallery/manifest.json";
 
 type LoadState =
   | { status: "loading" }
-  | { status: "error"; message: string }
+  | { status: "error" }
   | { status: "ready"; manifest: ScreenshotManifest };
 
 export function ScreenshotsBrowser({
@@ -57,10 +58,8 @@ export function ScreenshotsBrowser({
       })
       .catch((error: unknown) => {
         if (!cancelled) {
-          setLoad({
-            status: "error",
-            message: error instanceof Error ? error.message : String(error),
-          });
+          console.error("Screenshot manifest failed to load", error);
+          setLoad({ status: "error" });
         }
       });
     return () => {
@@ -69,13 +68,17 @@ export function ScreenshotsBrowser({
   }, []);
 
   if (load.status === "loading") {
-    return <Shell status="Loading screenshots…" />;
+    return (
+      <Shell loading>
+        <p>Loading screenshots…</p>
+      </Shell>
+    );
   }
   if (load.status === "error") {
     return (
-      <Shell
-        status={`Could not load the screenshot manifest: ${load.message}`}
-      />
+      <Shell>
+        <p>Screenshots didn't load. Refresh to try again.</p>
+      </Shell>
     );
   }
   return (
@@ -87,23 +90,53 @@ export function ScreenshotsBrowser({
   );
 }
 
-/** Root chrome for the non-gallery states (loading / error / empty). */
+/**
+ * Root chrome for the non-gallery states. Loading reserves the gallery's full
+ * height so the page doesn't jump when it arrives; error and empty are compact.
+ */
 function Shell({
-  status,
   children,
+  loading = false,
 }: {
-  status?: string;
-  children?: ReactNode;
+  children: ReactNode;
+  loading?: boolean;
 }) {
   return (
-    <div className="screenshots-browser">
-      {status ? (
-        <p className="screenshots-browser__status">{status}</p>
-      ) : (
-        children
-      )}
+    <div
+      className={
+        loading
+          ? "screenshots-browser"
+          : "screenshots-browser screenshots-browser--compact"
+      }
+    >
+      <div className="screenshots-browser__status" role="status">
+        {children}
+      </div>
     </div>
   );
+}
+
+// Media queries read once, when the gallery first renders. The gallery only
+// renders after the client fetches the manifest (the server renders the loading
+// shell), so these never cause a hydration mismatch.
+function prefersMedia(query: string): boolean {
+  return typeof window !== "undefined" && window.matchMedia(query).matches;
+}
+
+// Deep links keep their platform. The index starts phones on phone captures,
+// which fit a narrow screen far better than a scaled-down desktop window.
+function startingProject(
+  manifest: ScreenshotManifest,
+  platform: string | undefined,
+): string {
+  if (
+    !platform &&
+    manifest.projects.includes("mobile") &&
+    prefersMedia("(max-width: 699px)")
+  ) {
+    return "mobile";
+  }
+  return initialProject(manifest, platform);
 }
 
 // Index entries by project+theme+name and derive the selected-device screen
@@ -245,10 +278,18 @@ function Gallery({
 }) {
   const { projects, themes, entries } = manifest;
   const [project, setProject] = useState<string>(() =>
-    initialProject(manifest, initialPlatform),
+    startingProject(manifest, initialPlatform),
   );
-  // This state selects captured assets only; it must not theme the website.
-  const [theme, setTheme] = useState<string>(() => themes[0] ?? "light");
+  // Captures follow the visitor's color scheme where the opening screen exists
+  // in it. This selects captured assets only; it never themes the website.
+  const [theme, setTheme] = useState<string>(() =>
+    startingTheme(
+      manifest,
+      startingProject(manifest, initialPlatform),
+      initialScreen,
+      prefersMedia("(prefers-color-scheme: dark)"),
+    ),
+  );
   const containerRef = useRef<HTMLDivElement>(null);
   const { bySrc, screens, activeName, activeIndex, step, setSelectedName } =
     useGalleryNavigation(manifest, project, containerRef, initialScreen);
@@ -257,14 +298,13 @@ function Gallery({
   if (entries.length === 0) {
     return (
       <Shell>
-        <div className="screenshots-browser__empty">
-          <h1>No screenshots yet</h1>
+        <p>Screenshots aren't available yet.</p>
+        {import.meta.env.DEV ? (
           <p>
-            Run <code>bun run screenshots</code> from the repo root to capture
-            them, then restart the dev server (the gallery is staged on
-            <code>predev</code>) or rebuild.
+            Run <code>bun run screenshots</code> from the repo root, then
+            restart the dev server or rebuild.
           </p>
-        </div>
+        ) : null}
       </Shell>
     );
   }
@@ -280,13 +320,9 @@ function Gallery({
         themes={themes}
         project={project}
         theme={theme}
+        activeName={activeName}
         onProjectChange={setProject}
         onThemeChange={setTheme}
-        position={
-          screens.length === 0
-            ? "0 / 0"
-            : `${activeIndex + 1} / ${screens.length}`
-        }
       />
 
       <div className="screenshots-browser__body">
@@ -296,7 +332,15 @@ function Gallery({
           name={activeName}
           entry={currentEntry}
         />
-        <ScreenshotStepControls canStep={screens.length > 1} onStep={step} />
+        <ScreenshotStepControls
+          canStep={screens.length > 1}
+          onStep={step}
+          position={
+            screens.length === 0
+              ? "0 / 0"
+              : `${activeIndex + 1} / ${screens.length}`
+          }
+        />
         <Filmstrip
           screens={screens}
           activeIndex={activeIndex}
@@ -356,11 +400,7 @@ function Filmstrip({
           <button
             key={name}
             type="button"
-            className={
-              index === activeIndex
-                ? "screenshots-browser__thumb screenshots-browser__thumb--active"
-                : "screenshots-browser__thumb"
-            }
+            className="screenshots-browser__thumb"
             onClick={() => onSelect(index)}
             aria-current={index === activeIndex}
           >
@@ -370,7 +410,7 @@ function Filmstrip({
               <span className="screenshots-browser__thumb-missing" />
             )}
             <span className="screenshots-browser__thumb-label">
-              {titleCase(name)}
+              {screenLabel(name)}
             </span>
           </button>
         );

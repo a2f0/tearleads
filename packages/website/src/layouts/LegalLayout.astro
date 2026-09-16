@@ -1,8 +1,8 @@
 ---
 import LegalContact from "../components/LegalContact.astro";
+import PageHeader from "../components/PageHeader.astro";
 import { legalDetails, shouldShowLegalDocument } from "../legal";
 import Layout from "./Layout.astro";
-import "../styles/product.css";
 import "../styles/legal.css";
 
 interface Props {
@@ -30,56 +30,56 @@ const relatedPages = [
   description={showDocument ? description : `${title} publication status and legal contact for Tearleads, LLC.`}
   noIndex={legalDetails.isDraft}
 >
-  <main class="website-main product-page legal-page">
-    <article class="section" aria-labelledby="page-title">
-      <header class="legal-header">
-        <p class="product-eyebrow">Trust &amp; transparency</p>
-        <h1 id="page-title">{title}</h1>
-        <p class="section-lede">{showDocument ? lede : "This document is being prepared for publication and is not yet in effect."}</p>
-        {showDocument && (
-          <p class="legal-meta">
-            {legalDetails.isDraft ? "Draft updated" : "Effective"}
-            <time datetime={legalDetails.updatedAt}>{legalDetails.updatedLabel}</time>
-            <span aria-hidden="true">·</span>
-            {legalDetails.operator}
-          </p>
-        )}
-      </header>
-
-      <nav class="legal-related" aria-label="Legal documents">
-        {relatedPages.map(({ href, label }) => (
-          <a href={href} aria-current={pathname === href ? "page" : undefined}>{label}</a>
-        ))}
-      </nav>
-
-      {showDocument ? (
-        <Fragment>
-          {legalDetails.isDraft && (
-            <aside class="legal-draft" aria-label="Document status">
-              <strong>Review draft · Not yet effective</strong>
-              <p>Prepared for review. This document has not yet been adopted as the service’s policy.</p>
-            </aside>
-          )}
-
-          <div class="legal-reading-layout">
-            <nav class="legal-contents" aria-labelledby="contents-title">
-              <p id="contents-title">On this page</p>
-              <ol>
-                {sections.map(({ id, label }) => <li><a href={`#${id}`}>{label}</a></li>)}
-              </ol>
-            </nav>
-            <div class="legal-copy">
-              <slot />
-              <a class="legal-back-to-top" href="#page-title">Back to top <span aria-hidden="true">↑</span></a>
-            </div>
-          </div>
-        </Fragment>
-      ) : (
-        <div class="legal-copy">
-          <p>For privacy questions or legal inquiries, please contact us:</p>
-          <LegalContact />
-        </div>
+  <article class="site-page legal-page" aria-labelledby="page-title">
+    <PageHeader
+      title={title}
+      lede={showDocument ? lede : "This document is being prepared for publication and is not yet in effect."}
+    >
+      {showDocument && (
+        <p class="legal-meta">
+          {/* Real spaces between the items: flex layout ignores them, but copied
+              text and screen readers need them. */}
+          {legalDetails.isDraft ? "Draft updated" : "Effective"}{" "}
+          <time datetime={legalDetails.updatedAt}>{legalDetails.updatedLabel}</time>{" "}
+          <span aria-hidden="true">·</span>{" "}
+          {legalDetails.operator}
+        </p>
       )}
-    </article>
-  </main>
+    </PageHeader>
+
+    <nav class="legal-related" aria-label="Legal documents">
+      {relatedPages.map(({ href, label }) => (
+        <a href={href} aria-current={pathname === href ? "page" : undefined}>{label}</a>
+      ))}
+    </nav>
+
+    {showDocument ? (
+      <Fragment>
+        {legalDetails.isDraft && (
+          <aside class="legal-draft" aria-label="Document status">
+            <strong>Review draft · Not yet effective</strong>
+            <p>Prepared for review. This document has not yet been adopted as the service’s policy.</p>
+          </aside>
+        )}
+
+        <div class="legal-reading-layout">
+          <nav class="legal-contents" aria-labelledby="contents-title">
+            <p id="contents-title">On this page</p>
+            <ol>
+              {sections.map(({ id, label }) => <li><a href={`#${id}`}>{label}</a></li>)}
+            </ol>
+          </nav>
+          <div class="legal-copy site-prose">
+            <slot />
+            <a class="legal-back-to-top site-link" href="#page-title">Back to top<span aria-hidden="true"> ↑</span></a>
+          </div>
+        </div>
+      </Fragment>
+    ) : (
+      <div class="legal-copy site-prose">
+        <p>For privacy questions or legal inquiries, please contact us:</p>
+        <LegalContact />
+      </div>
+    )}
+  </article>
 </Layout>

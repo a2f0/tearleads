@@ -1,0 +1,114 @@
+---
+import { publicDir } from "astro:config/server";
+import { loadScreenshotManifest } from "../screenshots";
+import { findScreenshot, screenshotPath } from "./screenshotsManifest";
+
+/**
+ * A marketing figure: the windowed (desktop) capture of one screen in light and
+ * dark, plus the matching phone capture below 700px. Renders nothing when the
+ * light windowed capture is missing (CI and test builds stage an empty
+ * manifest), so the surrounding copy must read well without it.
+ */
+interface Props {
+  /** Manifest screen id, e.g. "explorer". */
+  readonly name: string;
+  readonly alt: string;
+  /** Short mono caption, e.g. "Explorer, desktop layout". */
+  readonly caption: string;
+  /** CSS aspect ratio of the visible windowed crop, e.g. "2880 / 860". */
+  readonly crop: string;
+  /** CSS aspect ratio of the phone crop; the default stays above the in-app
+      test banner (y ≈ 1765 of 1992). */
+  readonly phoneCrop?: string | undefined;
+  /** Serve the mobile capture below 700px when it exists. Default true. */
+  readonly phone?: boolean | undefined;
+  /** "narrow" caps the figure at 36rem. */
+  readonly size?: "full" | "narrow" | undefined;
+  /** Show the windowed capture at 1.5x from 700px to 1023px, keeping its left
+      two thirds (content.css). Use it only when the clipped right third holds
+      nothing the alt text describes. */
+  readonly tabletZoom?: boolean | undefined;
+  /** Only the first figure on a page (the hero) loads eagerly. */
+  readonly priority?: boolean | undefined;
+}
+
+const {
+  name,
+  alt,
+  caption,
+  crop,
+  phoneCrop = "1170 / 1740",
+  phone = true,
+  size = "full",
+  tabletZoom = false,
+  priority = false,
+} = Astro.props;
+
+const manifest = await loadScreenshotManifest(publicDir);
+const light = findScreenshot(manifest, "windowed", "light", name);
+const dark = findScreenshot(manifest, "windowed", "dark", name);
+const mobileLight = phone
+  ? findScreenshot(manifest, "mobile", "light", name)
+  : undefined;
+const mobileDark = phone
+  ? findScreenshot(manifest, "mobile", "dark", name)
+  : undefined;
+// Phones get a phone capture whenever one exists: dark-scheme phones prefer the
+// dark one, and a capture in only one theme serves both, as desktop does.
+const mobileAny = mobileLight ?? mobileDark;
+const style = `--shot-crop: ${crop}; --shot-phone-crop: ${phoneCrop};`;
+---
+
+{light && (
+  <figure
+    class:list={["site-shot", `site-shot--${size}`]}
+    data-phone={mobileAny ? "" : undefined}
+    data-tablet-zoom={tabletZoom ? "" : undefined}
+    style={style}
+  >
+    <div class="site-shot-frame">
+      <picture>
+        {mobileDark && (
+          <source
+            media="(max-width: 699px) and (prefers-color-scheme: dark)"
+            srcset={mobileDark.src}
+            width={mobileDark.width}
+            height={mobileDark.height}
+          />
+        )}
+        {mobileAny && (
+          <source
+            media="(max-width: 699px)"
+            srcset={mobileAny.src}
+            width={mobileAny.width}
+            height={mobileAny.height}
+          />
+        )}
+        {dark && (
+          <source
+            media="(prefers-color-scheme: dark)"
+            srcset={dark.src}
+            width={dark.width}
+            height={dark.height}
+          />
+        )}
+        <img
+          src={light.src}
+          alt={alt}
+          width={light.width}
+          height={light.height}
+          loading={priority ? "eager" : "lazy"}
+          fetchpriority={priority ? "high" : "auto"}
+          decoding="async"
+        />
+      </picture>
+    </div>
+    <figcaption>
+      <span>{caption}</span>
+      <a class="site-link" href={screenshotPath("windowed", name)}>
+        View full size<span class="visually-hidden">: {caption}</span><span
+          aria-hidden="true"> →</span>
+      </a>
+    </figcaption>
+  </figure>
+)}
