@@ -1,47 +1,32 @@
 --------------------- MODULE RawHistoryRecovery ---------------------
 EXTENDS Naturals
 
-(* Recovery proves ordinary history, settles proven pending rows, then pulls  *)
-(* again to include races. Every served update is authenticated; checkpoints *)
-(* are excluded only from reconstruction. Publication requires exact history, *)
-(* current ownership, and winning record/checkpoint comparisons.              *)
-(* updateValid abstracts operation identity, dependency closure, encrypted    *)
-(* record/header bindings, isolation priority, and unresolved dependencies.   *)
-(* hasUnverifiedLocalGap includes malformed or forked uncompacted tail rows.  *)
-(* blockedWriterFence is captured before a writer waits; publication advances *)
-(* it so the older writer cannot append or save its stale record.             *)
-(* Production mapping and checked bounds: RawHistoryRecovery.md.              *)
+(* Recovery verifies ordinary history, settles proven rows, and pulls again *)
+(* to include races. Checkpoints are authenticated but never reconstructed. *)
+(* updateValid abstracts identity, dependency closure and encrypted bindings. *)
+(* hasUnverifiedLocalGap includes malformed/forked uncompacted tail rows. *)
+(* Publication checks exact history, generation and record/checkpoint CAS, *)
+(* then advances the fence captured by waiting writers. See RawHistoryRecovery.md. *)
 
-CONSTANTS MaxUpdate, MaxEpoch, MaxPage
+CONSTANTS MaxUpdate, MaxEpoch, MaxPage, RequireCurrentGeneration,
+          RequireWinningInstall, RetireCheckpoints, FenceBlockedWriters,
+          FinishVerifiedRecovery
 
 ASSUME /\ MaxUpdate \in Nat \ {0}
        /\ MaxEpoch \in Nat \ {0}
        /\ MaxPage \in Nat \ {0}
+       /\ {RequireCurrentGeneration, RequireWinningInstall,
+           RetireCheckpoints, FenceBlockedWriters, FinishVerifiedRecovery} \subseteq BOOLEAN
 
 UpdateIds == 1..MaxUpdate
 Epochs == 1..MaxEpoch
 Pages == 1..MaxPage
-VARIABLES phase,
-          nextPage,
-          pageOf,
-          updateEpoch,
-          updateValid,
-          epochAvailable,
-          ordinaryUpdates,
-          initialLocalPending,
-          localPending,
-          queuedCheckpoints,
-          initialQueuedCheckpoints,
-          hasUnverifiedLocalGap,
-          generationCurrent,
-          installSuperseded,
-          scratchHistory,
-          preliminaryProven,
-          initialDurableHistory,
-          durableHistory,
-          durablePublished,
-          reportedUnavailableEpoch,
-          blockedWriterFence
+VARIABLES phase, nextPage, pageOf, updateEpoch, updateValid, epochAvailable,
+          ordinaryUpdates, initialLocalPending, localPending,
+          queuedCheckpoints, initialQueuedCheckpoints, hasUnverifiedLocalGap,
+          generationCurrent, installSuperseded, scratchHistory, preliminaryProven,
+          initialDurableHistory, durableHistory, durablePublished,
+          reportedUnavailableEpoch, blockedWriterFence
 
 vars == << phase, nextPage, pageOf, updateEpoch, updateValid,
            epochAvailable, ordinaryUpdates, initialLocalPending, localPending,
@@ -379,14 +364,15 @@ CommitBlockedWriterBeforeRecovery ==
 
 PublishRecovery ==
   /\ phase = "ready"
+  /\ FinishVerifiedRecovery
   /\ nextPage = MaxPage + 1
   /\ ~hasUnverifiedLocalGap
-  /\ generationCurrent
-  /\ ~installSuperseded
+  /\ ~RequireCurrentGeneration \/ generationCurrent
+  /\ ~RequireWinningInstall \/ ~installSuperseded
   /\ phase' = "complete"
   /\ durableHistory' = scratchHistory
   /\ durablePublished' = TRUE
-  /\ queuedCheckpoints' = {}
+  /\ queuedCheckpoints' = IF RetireCheckpoints THEN {} ELSE queuedCheckpoints
   /\ blockedWriterFence' =
        IF blockedWriterFence = "current" THEN "stale"
        ELSE blockedWriterFence
@@ -394,10 +380,10 @@ PublishRecovery ==
                   hasUnverifiedLocalGap, generationCurrent, scratchHistory,
                   preliminaryProven, reportedUnavailableEpoch >>
 
-RejectBlockedWriterAfterRecovery ==
+FinishBlockedWriterAfterRecovery ==
   /\ phase = "complete"
   /\ blockedWriterFence = "stale"
-  /\ blockedWriterFence' = "rejected"
+  /\ blockedWriterFence' = IF FenceBlockedWriters THEN "rejected" ELSE "committed"
   /\ UNCHANGED << phase, fixedModel, nextPage, localPending,
                   queuedCheckpoints, hasUnverifiedLocalGap,
                   generationCurrent, scratchHistory, durableState,
@@ -407,13 +393,13 @@ RemainTerminal ==
   /\ phase \in {"preliminary_failed", "failed", "complete"}
   /\ UNCHANGED vars
 
-Next ==
+(* Only recovery's own worker is fair; racing writers and resets are not. *)
+RecoveryStep ==
   \/ ValidatePreliminaryPage
   \/ VerifyOrdinaryProvenance
   \/ RejectPreliminaryUnavailablePage
   \/ RejectPreliminaryInvalidPage
   \/ RejectInvalidLocalPendingProvenance
-  \/ RejectUnprovenPendingAppend
   \/ StartRawCollection
   \/ CommitPendingOrdinary
   \/ RejectPendingSettlement
@@ -421,20 +407,25 @@ Next ==
   \/ RejectUnavailablePage
   \/ RejectInvalidPage
   \/ RejectUnverifiedLocalGap
-  \/ ChangeGeneration
   \/ RejectChangedGeneration
   \/ RejectSupersededInstall
-  \/ AppendUnprovenLocalArtifactBeforeInstall
   \/ RejectUnprovenLocalArtifactBeforeInstall
   \/ VerifyExactLocalHistoryBeforeInstall
+  \/ PublishRecovery
+
+Next == RecoveryStep
+  \/ RejectUnprovenPendingAppend
+  \/ ChangeGeneration
+  \/ AppendUnprovenLocalArtifactBeforeInstall
   \/ AppendCheckpointArtifact
   \/ BeginBlockedWriter
   \/ CommitBlockedWriterBeforeRecovery
-  \/ PublishRecovery
-  \/ RejectBlockedWriterAfterRecovery
+  \/ FinishBlockedWriterAfterRecovery
   \/ RemainTerminal
 
 Spec == Init /\ [][Next]_vars
+FairSpec == Spec /\ WF_vars(RecoveryStep)
+RecoveryEventuallyTerminates == <> (phase \in {"preliminary_failed", "failed", "complete"})
 NoDurableMutationBeforeComplete ==
   phase = "complete" \/
     (~durablePublished /\ durableHistory = initialDurableHistory /\

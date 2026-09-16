@@ -1,4 +1,5 @@
 import { ATTACHMENT_NEGATIVE_CONTROLS } from "./protocolAttachmentNegativeControls";
+import { RECOVERY_NEGATIVE_CONTROLS } from "./protocolRecoveryNegativeControls";
 import { SYSTEM_DESTINATION_NEGATIVE_CONTROLS } from "./protocolSystemDestinationNegativeControls";
 
 /**
@@ -6,9 +7,9 @@ import { SYSTEM_DESTINATION_NEGATIVE_CONTROLS } from "./protocolSystemDestinatio
  * derives a configuration from a registered model configuration with one
  * refusal rule or lock flipped away from its production value, and names
  * the single invariant or property TLC must then report as violated. The
- * registered runs prove the production rule set satisfies the invariants;
- * these runs prove each invariant is not vacuous and name the rule that
- * carries it. scripts/protocol/checkProtocolNegativeControls.ts runs the registry.
+ * registered runs check the production rule set within its bounds;
+ * controls show that each selected property detects its modeled fault.
+ * scripts/protocol/checkProtocolNegativeControls.ts runs the registry.
  */
 
 export type ExpectedViolation =
@@ -35,6 +36,7 @@ const NO_BRICK_ADVERSARY =
 
 export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   ...ATTACHMENT_NEGATIVE_CONTROLS,
+  ...RECOVERY_NEGATIVE_CONTROLS,
   {
     id: "content-write-unrefreshed-citations",
     module: "formal/document-sync/ContentWriteAuthority.tla",

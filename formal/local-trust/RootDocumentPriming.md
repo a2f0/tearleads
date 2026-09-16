@@ -15,5 +15,8 @@ The model assumes a valid root proof eventually arrives and the scheduled
 document pass runs fairly. It abstracts network failures, document contents,
 and subsequent container mutations. The negative control removes the priming
 notification and strands a document whose first pass ran before acknowledgement.
+Separate automated controls require both `DeferredDocumentsAreScheduled` and
+`DocumentEventuallySyncs` to fail, so the safety check cannot mask a vacuous
+eventual-sync property.
 The app regression pauses the real signed root projection until the first
 document-priming pass has finished, then requires the local document to sync.
