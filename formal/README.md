@@ -52,6 +52,10 @@ Negative controls do not establish non-vacuity for every property or prove
 that all intended actions are reachable. See the [September 2026 audit](./audit-2026-09.md)
 for the coverage inventory, improvements, and prioritized remaining work.
 
+The [F1/F2 gate audit](./verification-gates.md) maps #2192's no-brick and
+verifier-property requirements to executable evidence, records their bounds,
+and identifies the remaining Lean proof and vector work.
+
 To add a model, commit its `.tla` and bounded `.cfg` files and register the pair.
 One module may appear with multiple configurations, but each configuration must
 appear exactly once. Keep registered bounds small enough for `check:fast`;

@@ -22,12 +22,12 @@ import {
 
 /**
  * Mutation negatives for every prefix and every leaf through size 32: each
- * honest proof is verified in transparencyProofs.test.ts, and here every
- * single-node change to it, plus decoy checkpoints, must be refused with
- * the specific code the verifier documents.
+ * honest proof is accepted here before deleting or replacing each node,
+ * swapping each adjacent pair, or appending a foreign node. These mutations
+ * and decoy checkpoints must be refused with the documented error code.
  */
 
-test("every single-node mutation of a prefix consistency proof through size 32 is refused", async () => {
+test("consistency mutations at every node position through size 32 are refused", async () => {
   const leaves = await leafHashes();
   const foreign = await foreignNodeHash();
   let cases = 0;
@@ -39,30 +39,37 @@ test("every single-node mutation of a prefix consistency proof through size 32 i
       const verify = (proof: TransparencyConsistencyProof) =>
         verifyTransparencyConsistencyProof({ ...honest, proof });
 
-      expectCode(
-        `${label} dropped node`,
-        await verify(withNodes(honest.proof, nodes.slice(0, -1))),
-        "missing_dependency",
-      );
+      expect((await verify(honest.proof)).ok).toBe(true);
       expectCode(
         `${label} appended node`,
         await verify(withNodes(honest.proof, [...nodes, foreign])),
         "invalid_shape",
       );
-      const replacedIndex = (previous + treeSize) % nodes.length;
-      expectCode(
-        `${label} replaced node ${replacedIndex}`,
-        await verify(
-          withNodes(honest.proof, replaced(nodes, replacedIndex, foreign)),
-        ),
-        "hash_mismatch",
-      );
-      cases += 3;
-      if (nodes.length >= 2) {
-        const swapIndex = (previous + treeSize) % (nodes.length - 1);
+      cases += 1;
+      for (let index = 0; index < nodes.length; index += 1) {
         expectCode(
-          `${label} swapped nodes ${swapIndex},${swapIndex + 1}`,
-          await verify(withNodes(honest.proof, swapped(nodes, swapIndex))),
+          `${label} dropped node ${index}`,
+          await verify(
+            withNodes(
+              honest.proof,
+              nodes.filter((_, at) => at !== index),
+            ),
+          ),
+          "missing_dependency",
+        );
+        expectCode(
+          `${label} replaced node ${index}`,
+          await verify(
+            withNodes(honest.proof, replaced(nodes, index, foreign)),
+          ),
+          "hash_mismatch",
+        );
+        cases += 2;
+      }
+      for (let index = 0; index + 1 < nodes.length; index += 1) {
+        expectCode(
+          `${label} swapped nodes ${index},${index + 1}`,
+          await verify(withNodes(honest.proof, swapped(nodes, index))),
           "hash_mismatch",
         );
         cases += 1;
@@ -101,7 +108,7 @@ test("every single-node mutation of a prefix consistency proof through size 32 i
   expect(cases).toBeGreaterThanOrEqual(496 * 5);
 });
 
-test("every single-node mutation of an inclusion proof through size 32 is refused", async () => {
+test("inclusion mutations at every node position through size 32 are refused", async () => {
   const foreign = await foreignNodeHash();
   let cases = 0;
   for (let treeSize = 1; treeSize <= MUTATION_TREE_SIZE; treeSize += 1) {
@@ -112,6 +119,7 @@ test("every single-node mutation of an inclusion proof through size 32 is refuse
       const verify = (proof: TransparencyInclusionProof) =>
         verifyTransparencyInclusionProof({ ...honest, proof });
 
+      expect((await verify(honest.proof)).ok).toBe(true);
       expectCode(
         `${label} foreign leaf`,
         await verifyTransparencyInclusionProof({
@@ -139,21 +147,33 @@ test("every single-node mutation of an inclusion proof through size 32 is refuse
         "object_mismatch",
       );
       cases += 4;
-      if (path.length > 0) {
+      for (let index = 0; index < path.length; index += 1) {
         expectCode(
-          `${label} dropped node`,
-          await verify(withAuditPath(honest.proof, path.slice(0, -1))),
+          `${label} dropped node ${index}`,
+          await verify(
+            withAuditPath(
+              honest.proof,
+              path.filter((_, at) => at !== index),
+            ),
+          ),
           "missing_dependency",
         );
-        const replacedIndex = (leafIndex + treeSize) % path.length;
         expectCode(
-          `${label} replaced node ${replacedIndex}`,
+          `${label} replaced node ${index}`,
           await verify(
-            withAuditPath(honest.proof, replaced(path, replacedIndex, foreign)),
+            withAuditPath(honest.proof, replaced(path, index, foreign)),
           ),
           "hash_mismatch",
         );
         cases += 2;
+      }
+      for (let index = 0; index + 1 < path.length; index += 1) {
+        expectCode(
+          `${label} swapped nodes ${index},${index + 1}`,
+          await verify(withAuditPath(honest.proof, swapped(path, index))),
+          "hash_mismatch",
+        );
+        cases += 1;
       }
       if (treeSize > 1) {
         // The path belongs to one leaf position; another position either
