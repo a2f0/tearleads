@@ -137,6 +137,24 @@
   margin-right: auto;
 }
 
+.file-document-pdf-password {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm);
+  border-bottom: var(--border);
+}
+
+.file-document-pdf-password-message {
+  flex-basis: 100%;
+}
+
+.file-document-pdf-password .mini-app-input {
+  flex: 1;
+  min-width: 8rem;
+}
+
 .file-document-pdf-viewport {
   position: relative;
   flex: 1;

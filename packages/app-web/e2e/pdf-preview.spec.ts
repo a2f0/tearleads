@@ -37,3 +37,80 @@ test("predefined CJK maps and decoder assets are served to the viewer", async ({
     expect((await response.body()).byteLength).toBeGreaterThan(0);
   }
 });
+
+test("closing and reopening PDFs releases their workers", async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.addInitScript(() => {
+    const NativeWorker = globalThis.Worker;
+    let created = 0;
+    let terminated = 0;
+    Object.defineProperty(globalThis, "__pdfWorkersCreated", {
+      get: () => created,
+    });
+    Object.defineProperty(globalThis, "__pdfWorkersTerminated", {
+      get: () => terminated,
+    });
+    globalThis.Worker = class extends NativeWorker {
+      private readonly pdfWorker: boolean;
+
+      constructor(url: string | URL, options?: WorkerOptions) {
+        super(url, options);
+        this.pdfWorker = String(url).includes("/pdf.worker.js");
+        if (this.pdfWorker) created += 1;
+      }
+
+      override terminate() {
+        if (this.pdfWorker) terminated += 1;
+        super.terminate();
+      }
+    };
+  });
+
+  const { preview, window } = await uploadAndOpenPdf(
+    page,
+    "reopen.pdf",
+    twoPagePdf(),
+  );
+  await expect(preview.locator(".pdfViewer canvas").first()).toBeVisible();
+  await window.locator(".window-close").click();
+  await page.waitForFunction(() => {
+    const state = globalThis as typeof globalThis & {
+      __pdfWorkersCreated?: number;
+      __pdfWorkersTerminated?: number;
+    };
+    return (
+      state.__pdfWorkersCreated === state.__pdfWorkersTerminated &&
+      (state.__pdfWorkersCreated ?? 0) > 0
+    );
+  });
+  const firstWorkerCount = await page.evaluate(
+    () =>
+      (globalThis as typeof globalThis & { __pdfWorkersCreated?: number })
+        .__pdfWorkersCreated ?? 0,
+  );
+
+  await page.locator(".pane-footer-menu-button").first().click();
+  await page
+    .locator(".menu")
+    .getByRole("button", { name: "Explorer", exact: true })
+    .click();
+  const reopenedWindow = page.locator(".window").first();
+  await reopenedWindow
+    .locator(".explorer-item-row-button", { hasText: "reopen.pdf" })
+    .first()
+    .click();
+  await expect(
+    reopenedWindow.locator(".pdfViewer canvas").first(),
+  ).toBeVisible();
+  await reopenedWindow.locator(".window-close").click();
+  await page.waitForFunction((previousCount) => {
+    const state = globalThis as typeof globalThis & {
+      __pdfWorkersCreated?: number;
+      __pdfWorkersTerminated?: number;
+    };
+    return (
+      state.__pdfWorkersCreated === state.__pdfWorkersTerminated &&
+      (state.__pdfWorkersCreated ?? 0) > previousCount
+    );
+  }, firstWorkerCount);
+});
