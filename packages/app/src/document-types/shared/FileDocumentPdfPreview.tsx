@@ -116,6 +116,7 @@ export function useFileDocumentPdfPreview(params: {
 
   const onOpenExternal = useCallback(() => {
     if (!bytes || !candidate || !fileViewer) return;
+    setFailure(null);
     void fileViewer
       .viewFile({
         data: bytes,
