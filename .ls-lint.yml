@@ -90,14 +90,17 @@ ls:
   packages/app/src/mini-apps/system-monitor/*/*:
     .dir: exists:0
 
-# A leading `**/` ignore forces ls-lint to walk the entire tree (including every
-# nested node_modules) to expand the glob before it can prune anything. Anchoring
-# these patterns to the depths where the directories actually live lets ls-lint
-# prune during traversal instead, cutting this check from ~16s to ~3s.
+# A `**/` ignore makes ls-lint walk generated trees before it can prune them.
+# Bound hidden-file matches to the depths used in this repo, and ignore generated
+# directories by name rather than using a trailing `/**`.
 ignore:
   - .git
   - .serena
-  - "**/.*"
+  - ".*"
+  - "*/.*"
+  - "*/*/.*"
+  - "*/*/*/.*"
+  - "*/*/*/*/.*"
   - node_modules
   - packages/*/node_modules
   - dist
@@ -111,7 +114,7 @@ ignore:
   - target
   - playwright-report
   - test-results
-  - "packages/app-capacitor/android/**"
-  - "packages/app-capacitor/ios/**"
-  - "packages/app-capacitor/public/**"
-  - "packages/app-capacitor/vendor/bundle/**"
+  - packages/app-capacitor/android
+  - packages/app-capacitor/ios
+  - packages/app-capacitor/public
+  - packages/app-capacitor/vendor/bundle

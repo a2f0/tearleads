@@ -6,6 +6,10 @@ import {
 } from "@tearleads/sqlite-worker/assets";
 
 const publicDir = new URL("../public/", import.meta.url);
+const pdfWorkerSource = new URL(
+  "../node_modules/pdfjs-dist/legacy/build/pdf.worker.min.mjs",
+  import.meta.url,
+);
 
 await mkdir(publicDir, { recursive: true });
 
@@ -26,5 +30,9 @@ await Bun.write(new URL("worker.js", publicDir), workerArtifact);
 
 const wasmSrc = fileURLToPath(getSqliteWasmAssetUrl());
 await copyFile(wasmSrc, fileURLToPath(new URL("sqlite3.wasm", publicDir)));
+await copyFile(
+  fileURLToPath(pdfWorkerSource),
+  fileURLToPath(new URL("pdf.worker.js", publicDir)),
+);
 
-console.log("Worker and WASM assets built successfully.");
+console.log("Database and PDF worker assets built successfully.");

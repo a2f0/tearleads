@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { moduleDeclaresToken } from "./lintFormalAbstractionMaps";
 import {
   NEGATIVE_CONTROLS,
@@ -7,6 +8,8 @@ import {
   renderNegativeControlConfig,
   violationPattern,
 } from "./protocolNegativeControls";
+
+const repoRoot = join(import.meta.dir, "../..");
 
 const SAMPLE = `SPECIFICATION Spec
 
@@ -121,16 +124,18 @@ test("every registered control names files, constants, and checks that exist", (
   for (const control of NEGATIVE_CONTROLS) {
     expect(ids.has(control.id)).toBe(false);
     ids.add(control.id);
-    expect(existsSync(control.module)).toBe(true);
-    expect(existsSync(control.config)).toBe(true);
-    const module = readFileSync(control.module, "utf8");
+    const modulePath = join(repoRoot, control.module);
+    const configPath = join(repoRoot, control.config);
+    expect(existsSync(modulePath)).toBe(true);
+    expect(existsSync(configPath)).toBe(true);
+    const module = readFileSync(modulePath, "utf8");
     for (const name of Object.keys(control.constants)) {
       expect(moduleDeclaresToken(module, name)).toBe(true);
     }
     expect(moduleDeclaresToken(module, control.expect.name)).toBe(true);
     expect(() =>
       renderNegativeControlConfig(
-        parseConfig(readFileSync(control.config, "utf8")),
+        parseConfig(readFileSync(configPath, "utf8")),
         control,
       ),
     ).not.toThrow();

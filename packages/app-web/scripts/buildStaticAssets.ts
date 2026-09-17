@@ -8,6 +8,10 @@ import {
 const distDir = new URL("../dist/", import.meta.url);
 const workerOutput = new URL("worker.js", distDir);
 const sqliteWasmOutput = new URL("sqlite3.wasm", distDir);
+const pdfWorkerSource = new URL(
+  "../node_modules/pdfjs-dist/legacy/build/pdf.worker.min.mjs",
+  import.meta.url,
+);
 
 await mkdir(distDir, { recursive: true });
 
@@ -31,4 +35,8 @@ await Bun.write(workerOutput, workerScript);
 await copyFile(
   fileURLToPath(getSqliteWasmAssetUrl()),
   fileURLToPath(sqliteWasmOutput),
+);
+await copyFile(
+  fileURLToPath(pdfWorkerSource),
+  fileURLToPath(new URL("pdf.worker.js", distDir)),
 );

@@ -35,13 +35,13 @@ import {
 } from "./restartProbeTraceModule";
 import { resolveTlcTools, runTlc, type TlcTools } from "./tlcTools";
 
-// Both scenario tests run from the repository root in one invocation: they
-// import only source modules (the app scenario's client-sdk import is
-// type-only), so the projection stays runnable in the always-on lint job
-// without built package dist output or package-local test preloads.
+// Run both scenario tests from the app package in one invocation. Bun's test
+// discovery from the repository root can exhaust memory on a populated
+// checkout, even when given explicit test paths. Both tests import only source
+// modules, so this still needs no built package dist output.
 const SCENARIO_TESTS: readonly string[] = [
-  "packages/client-sdk/src/stores/documents/documentStore/restartProbeProjection.test.ts",
-  "packages/app/src/providers/sdk/restartProbeProjection.test.ts",
+  "../client-sdk/src/stores/documents/documentStore/restartProbeProjection.test.ts",
+  "src/providers/sdk/restartProbeProjection.test.ts",
 ];
 const EXPECTED_TRACES = ["interest-barrier-seams", "probe-signal-kernels"];
 
@@ -68,7 +68,7 @@ function assertVocabularyMatchesModel(root: string): void {
 
 function recordScenarioTraces(root: string, traceDirectory: string): void {
   const result = spawnSync("bun", ["test", ...SCENARIO_TESTS], {
-    cwd: root,
+    cwd: join(root, "packages/app"),
     encoding: "utf8",
     env: { ...process.env, RESTART_PROBE_TRACE_DIR: traceDirectory },
     maxBuffer: 64 * 1024 * 1024,

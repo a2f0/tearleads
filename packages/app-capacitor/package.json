@@ -59,6 +59,7 @@
     "@tearleads/encoding": "workspace:*",
     "@tearleads/validators": "workspace:*",
     "app": "workspace:*",
+    "pdfjs-dist": "6.3.289",
     "react": "catalog:react",
     "react-dom": "catalog:react"
   },

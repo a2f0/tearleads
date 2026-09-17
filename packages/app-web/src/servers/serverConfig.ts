@@ -18,6 +18,12 @@ if (!workerBuild.success || !workerScript) {
 }
 
 const sqliteWasm = Bun.file(getSqliteWasmAssetUrl());
+const pdfWorker = Bun.file(
+  new URL(
+    "../../node_modules/pdfjs-dist/legacy/build/pdf.worker.min.mjs",
+    import.meta.url,
+  ),
+);
 
 export const coreRoutes = {
   "/worker.js": new Response(workerScript, {
@@ -25,6 +31,9 @@ export const coreRoutes = {
   }),
   "/sqlite3.wasm": new Response(sqliteWasm, {
     headers: { "Content-Type": "application/wasm" },
+  }),
+  "/pdf.worker.js": new Response(pdfWorker, {
+    headers: { "Content-Type": "application/javascript" },
   }),
 };
 

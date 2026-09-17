@@ -10,7 +10,7 @@
  * map fails this check instead of silently making the documentation
  * prose-only.
  */
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { lstatSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 
 const TABLE_HEADER_PATTERN =
@@ -407,7 +407,11 @@ function walkFiles(root: string, matches: (path: string) => boolean): string[] {
         continue;
       }
       const path = join(directory, name);
-      if (statSync(path).isDirectory()) {
+      const entry = lstatSync(path);
+      if (entry.isSymbolicLink()) {
+        continue;
+      }
+      if (entry.isDirectory()) {
         pending.push(path);
       } else if (matches(path)) {
         found.push(path);

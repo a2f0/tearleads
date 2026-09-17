@@ -195,6 +195,12 @@ async function createDevServerConfig() {
   // hanging every /sqlite3.wasm request (a streaming Bun.file of a nonexistent
   // path never completes).
   const sqliteWasm = await Bun.file(getSqliteWasmFilePath()).arrayBuffer();
+  const pdfWorker = Bun.file(
+    new URL(
+      "../../node_modules/pdfjs-dist/legacy/build/pdf.worker.min.mjs",
+      import.meta.url,
+    ),
+  );
 
   const webOutputs = new Map(
     webBuild.outputs.map((output) => [
@@ -219,6 +225,12 @@ async function createDevServerConfig() {
 
       if (pathname === "/worker.js") {
         return new Response(workerScript, {
+          headers: { "Content-Type": "application/javascript" },
+        });
+      }
+
+      if (pathname === "/pdf.worker.js") {
+        return new Response(pdfWorker, {
           headers: { "Content-Type": "application/javascript" },
         });
       }

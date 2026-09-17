@@ -25,6 +25,7 @@
     "@tearleads/diagnostics": "workspace:*",
     "@tearleads/sqlite-worker": "workspace:*",
     "app": "workspace:*",
+    "pdfjs-dist": "6.3.289",
     "react-dom": "catalog:react"
   },
   "devDependencies": {

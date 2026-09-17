@@ -1,7 +1,8 @@
 export {};
 
 const child = Bun.spawn({
-  cmd: [process.execPath, "test", "scripts/checks/staticAnalysis"],
+  cmd: [process.execPath, "test", "staticAnalysis"],
+  cwd: `${import.meta.dir}/../checks`,
   stderr: "inherit",
   stdout: "inherit",
 });

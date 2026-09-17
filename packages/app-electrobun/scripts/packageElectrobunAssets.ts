@@ -71,6 +71,15 @@ async function packageMainView(mainViewDir: string, sourceMapDir?: string) {
     fileURLToPath(getSqliteWasmAssetUrl()),
     join(mainViewDir, "sqlite3.wasm"),
   );
+  await copyFile(
+    fileURLToPath(
+      new URL(
+        "../node_modules/pdfjs-dist/legacy/build/pdf.worker.min.mjs",
+        import.meta.url,
+      ),
+    ),
+    join(mainViewDir, "pdf.worker.js"),
+  );
 
   console.log(`Packaged Electrobun renderer assets: ${mainViewDir}`);
 }

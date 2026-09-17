@@ -1,11 +1,19 @@
 export {};
 
-for (const cmd of [
-  [process.execPath, "run", "--cwd", "packages/client-sdk", "build"],
-  [process.execPath, "test", "scripts/checks/biome"],
+for (const { cmd, cwd } of [
+  { cmd: [process.execPath, "run", "--cwd", "packages/client-sdk", "build"] },
+  {
+    cmd: [process.execPath, "test", "production.test.ts"],
+    cwd: `${import.meta.dir}/../checks/biome`,
+  },
 ]) {
   console.log(`[biome:promises] bun ${cmd.slice(1).join(" ")}`);
-  const child = Bun.spawn({ cmd, stderr: "inherit", stdout: "inherit" });
+  const child = Bun.spawn({
+    cmd,
+    cwd: cwd ?? process.cwd(),
+    stderr: "inherit",
+    stdout: "inherit",
+  });
   const exitCode = await child.exited;
   if (exitCode !== 0) {
     process.exitCode = exitCode;
