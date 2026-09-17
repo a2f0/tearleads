@@ -1,5 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { cjkPdf, twoPagePdf, uploadAndOpenPdf } from "./pdfFixtures";
+import {
+  cjkPdf,
+  passwordProtectedPdf,
+  twoPagePdf,
+  uploadAndOpenPdf,
+} from "./pdfFixtures";
 
 test("PDF pages render inline without an open action", async ({ page }) => {
   test.setTimeout(90_000);
@@ -36,6 +41,80 @@ test("predefined CJK maps and decoder assets are served to the viewer", async ({
     expect(response.ok()).toBe(true);
     expect((await response.body()).byteLength).toBeGreaterThan(0);
   }
+});
+
+test("password-protected PDFs support retry and unlock", async ({ page }) => {
+  const { preview } = await uploadAndOpenPdf(
+    page,
+    "encrypted.pdf",
+    passwordProtectedPdf(),
+  );
+  await expect(
+    preview.getByText("This PDF requires a password."),
+  ).toBeVisible();
+  await preview.getByLabel("PDF password").fill("wrong");
+  await preview.getByRole("button", { name: "Unlock" }).click();
+  await expect(
+    preview.getByText("Incorrect PDF password. Try again."),
+  ).toBeVisible();
+  await preview.getByLabel("PDF password").fill("secret");
+  await preview.getByRole("button", { name: "Unlock" }).click();
+  await expect(preview.getByText("1 / 1")).toBeVisible();
+  await expect(preview.locator(".pdfViewer canvas")).toBeVisible();
+});
+
+test("password prompt can be cancelled", async ({ page }) => {
+  const { preview } = await uploadAndOpenPdf(
+    page,
+    "cancel-encrypted.pdf",
+    passwordProtectedPdf(),
+  );
+  await expect(
+    preview.getByText("This PDF requires a password."),
+  ).toBeVisible();
+  await preview.getByRole("button", { name: "Cancel" }).click();
+  await expect(preview.getByText("PDF preview cancelled.")).toBeVisible();
+  await expect(preview.getByText("PDF preview unavailable")).toBeVisible();
+  await expect(preview.getByText("Loading PDF...")).toHaveCount(0);
+});
+
+test("closing while awaiting a password releases the PDF worker", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const NativeWorker = globalThis.Worker;
+    let terminated = 0;
+    Object.defineProperty(globalThis, "__pdfWorkersTerminated", {
+      get: () => terminated,
+    });
+    globalThis.Worker = class extends NativeWorker {
+      private readonly pdfWorker: boolean;
+
+      constructor(url: string | URL, options?: WorkerOptions) {
+        super(url, options);
+        this.pdfWorker = String(url).includes("/pdf.worker.js");
+      }
+
+      override terminate() {
+        if (this.pdfWorker) terminated += 1;
+        super.terminate();
+      }
+    };
+  });
+  const { preview, window } = await uploadAndOpenPdf(
+    page,
+    "close-encrypted.pdf",
+    passwordProtectedPdf(),
+  );
+  await expect(
+    preview.getByText("This PDF requires a password."),
+  ).toBeVisible();
+  await window.locator(".window-close").click();
+  await page.waitForFunction(
+    () =>
+      (globalThis as typeof globalThis & { __pdfWorkersTerminated?: number })
+        .__pdfWorkersTerminated === 1,
+  );
 });
 
 test("closing and reopening PDFs releases their workers", async ({ page }) => {

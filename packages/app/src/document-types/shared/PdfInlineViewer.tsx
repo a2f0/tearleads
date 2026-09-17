@@ -33,7 +33,13 @@ export default function PdfInlineViewer({
     <section className="file-document-pdf-widget" aria-label={fileName}>
       <div className="file-document-pdf-toolbar">
         <span className="file-document-pdf-page-count">
-          {pageCount ? `${pageNumber} / ${pageCount}` : "Loading PDF..."}
+          {pageCount
+            ? `${pageNumber} / ${pageCount}`
+            : error
+              ? "PDF preview unavailable"
+              : passwordPrompt
+                ? "Password required"
+                : "Loading PDF..."}
         </span>
         <MiniAppButton disabled={!pageCount} onClick={() => zoom(0.8)}>
           −
