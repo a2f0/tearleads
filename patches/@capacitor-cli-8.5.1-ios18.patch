@@ -1,0 +1,23 @@
+diff --git a/dist/util/spm.js b/dist/util/spm.js
+--- a/dist/util/spm.js
++++ b/dist/util/spm.js
+@@ -97,7 +97,7 @@ async function generatePackageText(config, plugins) {
+ // DO NOT MODIFY THIS FILE - managed by Capacitor CLI commands
+ let package = Package(
+     name: "CapApp-SPM",
+-    platforms: [.iOS(.v${iosVersion})],
++    platforms: [.iOS("${iosVersion}.0")],
+     products: [
+         .library(
+             name: "CapApp-SPM",
+diff --git a/dist/ios/update.js b/dist/ios/update.js
+--- a/dist/ios/update.js
++++ b/dist/ios/update.js
+@@ -237,6 +237,6 @@ function generatePluginPackageText(p, config) {
+ let package = Package(
+     name: "${p.name}",
+-    platforms: [.iOS(.v${iosVersion})],
++    platforms: [.iOS("${iosVersion}.0")],
+     products: [
+         .library(
+             name: "${p.name}",${libraryTypeText}

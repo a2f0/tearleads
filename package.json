@@ -145,6 +145,7 @@
     }
   },
   "patchedDependencies": {
+    "@capacitor/cli@8.5.1": "patches/@capacitor-cli-8.5.1-ios18.patch",
     "knip@6.34.0": "patches/knip-6.34.0.patch"
   }
 }
