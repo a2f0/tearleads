@@ -21,7 +21,9 @@ async function bootstrapRootContainerFromExecSql(
   return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
     await ensureContainerTables(lockedExecSql);
     const containers = await loadContainers(lockedExecSql);
-    const root = containers.find((container) => container.parentId === null);
+    const root = containers.find(
+      (container) => container.parentId === null && !container.systemSlot,
+    );
 
     if (root) {
       return {

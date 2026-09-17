@@ -27,7 +27,7 @@ export const ROOT_TEST_IDENTITIES: RootIdentitiesResponse["identities"] = [
 export const ROOT_TEST_ORGANIZATION: RootOrganizationDetailResponse = {
   organization: {
     organizationId: "44444444-4444-4444-8444-444444444444",
-    name: "Root Test Org",
+
     createdAt: "2026-08-01T00:00:00.000Z",
     billingStatus: "trialing",
   },

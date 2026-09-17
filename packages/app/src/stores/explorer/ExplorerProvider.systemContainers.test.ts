@@ -386,3 +386,24 @@ test("explorer resolves local-only trash containers", () => {
     ),
   ).toBe("trash-container");
 });
+
+test("system container provisioning rejects an organization metadata root", () => {
+  expect(
+    canProvisionExplorerSystemContainers({
+      isAuthenticated: true,
+      nodes: [
+        {
+          id: "metadata-root",
+          kind: "container",
+          name: "Organization Metadata",
+          organizationId: "org-1",
+          parentId: null,
+          syncState: syncedContainerDocumentObjectSyncState,
+          systemSlot: "sys_v1_org_metadata",
+        },
+      ],
+      organizationId: "org-1",
+      rootContainerId: "metadata-root",
+    }),
+  ).toBe(false);
+});

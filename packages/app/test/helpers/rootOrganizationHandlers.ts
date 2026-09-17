@@ -60,7 +60,7 @@ export const rootOrganizationHandlers = [
           {
             organization: {
               ...organization,
-              name: "Empty Org",
+
               organizationId: "55555555-5555-4555-8555-555555555555",
             },
             dataUsage: {
@@ -95,7 +95,7 @@ export const rootOrganizationHandlers = [
     const org = ROOT_TEST_ORGANIZATION.organization;
     return HttpResponse.json<RootOrganizationsResponse>({
       organizations:
-        org.name.toLowerCase().includes(search) || search === org.organizationId
+        search.length === 0 || org.organizationId.toLowerCase() === search
           ? [org]
           : [],
       nextCursor: null,

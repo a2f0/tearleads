@@ -85,7 +85,6 @@ export const RootIdentityOrganizationResponseSchema = loosePlainObject({
   billing: RootIdentityOrganizationBillingResponseSchema.nullable(),
   createdAt: z.string(),
   isDefaultOrganization: z.boolean(),
-  name: z.string(),
   organizationId: nonEmptyStringSchema,
   roster: RootRosterSchema,
 });

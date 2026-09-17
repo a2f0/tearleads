@@ -1,5 +1,8 @@
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
-import { findSystemContainerStateForRoot } from "./systemContainerLookup";
+import {
+  findOrganizationSystemRootState,
+  findSystemContainerStateForRoot,
+} from "./systemContainerLookup";
 import type { ContainerContentsStoreState } from "./types";
 import { isContainerInSubtree } from "./utils";
 
@@ -30,10 +33,19 @@ export function invalidateRemoteContainerWrites(
     if (typeof write.scope === "object") {
       const root = state.containersById.get(write.scope.rootId);
       if (root) {
-        rootId = findSystemContainerStateForRoot(
-          state,
-          write.scope.systemSlot,
-          root,
+        rootId = (
+          findSystemContainerStateForRoot(
+            state,
+            write.scope.systemSlot,
+            root,
+          ) ??
+          findOrganizationSystemRootState(
+            state,
+            root.container.organizationId ||
+              state.runtime.auth.organizationId ||
+              "",
+            write.scope.systemSlot,
+          )
         )?.container.id;
       }
     } else {

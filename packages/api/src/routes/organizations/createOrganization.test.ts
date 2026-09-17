@@ -179,7 +179,7 @@ test("POST /organizations notifies the caller's other sessions to discover the n
   const publishedEvents: Array<Record<string, unknown>> = [];
   const app = createRouteApp({
     publish: async (event) => {
-      publishedEvents.push(event);
+      if (event.type === "shared_with_you") publishedEvents.push(event);
     },
   });
   const body = await createOrganizationRequestBody(user);

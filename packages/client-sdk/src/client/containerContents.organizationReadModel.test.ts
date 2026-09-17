@@ -83,9 +83,9 @@ test("container info reads groups strictly from the durable local projection", a
       ok: true,
     });
     const organizationProjection = await directoryAndGroups;
-    expect(organizationProjection?.groups.map((group) => group.name)).toEqual([
-      "Operators",
-    ]);
+    expect(
+      organizationProjection?.groups.map((group) => group.groupId),
+    ).toEqual([`group-${organizationId}`]);
 
     const [firstWarmInfo, secondWarmInfo] = await Promise.all([
       containerContents.loadContainerInfo({
@@ -95,9 +95,9 @@ test("container info reads groups strictly from the durable local projection", a
         containerId: parent.projection.containerId,
       }),
     ]);
-    expect(firstWarmInfo.remoteInfo?.groups.map((group) => group.name)).toEqual(
-      ["Operators"],
-    );
+    expect(
+      firstWarmInfo.remoteInfo?.groups.map((group) => group.groupId),
+    ).toEqual([`group-${organizationId}`]);
     expect(secondWarmInfo.remoteInfo?.groups).toEqual(
       firstWarmInfo.remoteInfo?.groups,
     );
@@ -173,8 +173,8 @@ test("container info does not reconcile or cross an identity scope change", asyn
         await containerContents.loadContainerInfo({
           containerId: parent.projection.containerId,
         })
-      ).remoteInfo?.groups.map((group) => group.name),
-    ).toEqual(["Operators"]);
+      ).remoteInfo?.groups.map((group) => group.groupId),
+    ).toEqual([`group-${parent.projection.organizationId}`]);
 
     const organizationALoad = containerContents.loadContainerInfo({
       containerId: parent.projection.containerId,

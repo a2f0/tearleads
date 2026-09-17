@@ -89,3 +89,18 @@ export function requireContainerPathCurrentParent(input: {
     );
   }
 }
+
+export function requirePathLastMatchesManifest(input: {
+  readonly path: readonly VerifiedContainerAccessManifest[] | undefined;
+  readonly manifest: VerifiedContainerAccessManifest;
+  readonly label: string;
+}): void {
+  const lastManifest = requireContainerPathLast(input.path, input.label);
+
+  if (lastManifest.manifestHash !== input.manifest.manifestHash) {
+    throwVerification(
+      "missing_dependency",
+      `${input.label} path does not end at the expected manifest`,
+    );
+  }
+}

@@ -155,7 +155,6 @@ export async function createPolicyTestGroup(
 ): Promise<void> {
   await db.insert(groups).values({
     id: groupId,
-    name: `Policy test ${groupId}`,
     organizationId: await getDefaultOrganizationId(ownerUserId),
   });
 }

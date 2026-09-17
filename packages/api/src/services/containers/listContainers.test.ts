@@ -295,7 +295,6 @@ test("listContainers admits users added by current managed grants when they exte
     adminGroupId: groupId,
     id: organizationId,
     memberGroupId,
-    name: "Manifest Reference Test",
   });
   await db
     .insert(organizationBilling)
@@ -366,7 +365,6 @@ test("listContainers keeps valid containers when a sibling candidate uses a hist
     adminGroupId: groupId,
     id: organizationId,
     memberGroupId,
-    name: "Mixed Batch Manifest Reference Test",
   });
   await db
     .insert(organizationBilling)

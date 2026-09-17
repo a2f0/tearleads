@@ -7,7 +7,8 @@ import type {
   PrincipalPolicyBundleResponse,
   PrincipalPolicySnapshotResponse,
 } from "@tearleads/validators/response";
-import { buildInitialGroupPolicyRequest } from "../../src/workflows/organizations/principalPolicy";
+import { buildInitialGroupPolicyRequest } from "./groupMetadata";
+
 import {
   policyBundleFromInitialRequest,
   principalPolicyHead,

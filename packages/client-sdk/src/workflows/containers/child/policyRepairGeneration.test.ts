@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import { createAuthor } from "../../../../test/helpers/containerFixtures";
+import { buildInitialGroupPolicyRequest } from "../../../../test/helpers/groupMetadata";
 import {
   policyBundleFromInitialRequest,
   principalPolicyHead,
@@ -9,7 +10,7 @@ import {
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
 import { loadPrincipalPolicyBundleForReference } from "../../../data/persistence/principalPolicyReferencePersistence";
-import { buildInitialGroupPolicyRequest } from "../../organizations/principalPolicy";
+
 import { cacheRemoteContainerCreatePolicyRepair } from "./policyRepair";
 
 test("stale-policy repair rolls back when its generation expires during verification", async () => {

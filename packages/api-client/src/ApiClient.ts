@@ -445,9 +445,9 @@ export class ApiClient {
     initialOrganizationPolicy: RegistrationRequest["initialOrganizationPolicy"],
     initialRootContainer: RegistrationRequest["initialRootContainer"],
     initialRootMetadataDocument: RegistrationRequest["initialRootMetadataDocument"],
-    initialRosterProfileContainer?: RegistrationRequest["initialRosterProfileContainer"],
-    initialRosterProfileDocument?: RegistrationRequest["initialRosterProfileDocument"],
-    initialOrganizationMetadataContainer?: RegistrationRequest["initialOrganizationMetadataContainer"],
+    initialRosterProfileContainer: RegistrationRequest["initialRosterProfileContainer"],
+    initialRosterProfileDocument: RegistrationRequest["initialRosterProfileDocument"],
+    initialOrganizationMetadataContainer: RegistrationRequest["initialOrganizationMetadataContainer"],
     initialOrganizationProfileDocument?: RegistrationRequest["initialOrganizationProfileDocument"],
     initialSystemContainers?: RegistrationRequest["initialSystemContainers"],
   ) {

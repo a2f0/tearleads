@@ -74,8 +74,8 @@ test("createOrganization provisions a new org for the existing user and persists
     // A fresh organization + root container are minted.
     expect(request.organizationId).not.toBe(userId);
     expect(request.rootContainerId).not.toBe(request.organizationId);
-    expect(request.initialAdminGroup.name).toBe("Admins");
-    expect(request.initialMemberGroup.name).toBe("Members");
+    expect(request.initialAdminGroup).not.toHaveProperty("name");
+    expect(request.initialMemberGroup).not.toHaveProperty("name");
     expect(request.initialOrganizationPolicy.projection).toEqual([
       { userId: userId, role: "admin" },
     ]);
@@ -176,7 +176,7 @@ test("createOrganization provisions a new org for the existing user and persists
       }),
     );
 
-    // The Members-granted metadata container is persisted as a child of root and
+    // The Members-granted metadata container is persisted as an independent root and
     // is discoverable by the deterministic system slot the org-name reader keys
     // its cross-org fallback on.
     const metadataSystemSlot =
@@ -189,7 +189,7 @@ test("createOrganization provisions a new org for the existing user and persists
     expect(metadataContainerState?.container).toEqual(
       expect.objectContaining({
         organizationId: request.organizationId,
-        parentId: request.rootContainerId,
+        parentId: null,
       }),
     );
     for (const { container } of containers) {

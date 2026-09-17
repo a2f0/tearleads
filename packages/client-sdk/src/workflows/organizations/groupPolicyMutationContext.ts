@@ -27,6 +27,7 @@ import {
   loadOrganizationExternalAdminPolicy,
   type VerifiedExternalAdminPolicy,
 } from "../principals/externalAdminPolicy";
+import { assertGroupMetadataBinding } from "./groupMetadataBinding";
 import { requireSignerCanManageGroup } from "./groupMutationAuthorization";
 import {
   acknowledgeGroupPolicyState,
@@ -203,6 +204,7 @@ export async function loadGroupPolicyMutationContext(input: {
         localPolicyCheckpoint: verification.localPolicyCheckpoint,
         signerPublicKeys: verification.currentPolicySignerPublicKeys,
       });
+  assertGroupMetadataBinding(currentPolicy, adminPolicy.descriptor);
   requireSignerCanManageGroup(
     currentPolicy,
     currentOrgAdminUserIds,

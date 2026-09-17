@@ -4,7 +4,6 @@ export function toGroupSummary(input: {
   createdAt: Date;
   groupId: string;
   isBuiltin: boolean;
-  name: string;
   organizationId: string;
   state:
     | {
@@ -20,7 +19,6 @@ export function toGroupSummary(input: {
   return {
     groupId: input.groupId,
     organizationId: input.organizationId,
-    name: input.name,
     createdAt: input.createdAt.toISOString(),
     isBuiltin: input.isBuiltin,
     currentState: input.state

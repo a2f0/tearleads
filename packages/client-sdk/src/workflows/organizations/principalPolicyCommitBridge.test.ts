@@ -8,6 +8,11 @@ import {
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
+  buildInitialGroupPolicyRequest,
+  readTestGroupName,
+  testGroupMetadataKey,
+} from "../../../test/helpers/groupMetadata";
+import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleAfterMutation,
   policyBundleFromInitialRequest,
@@ -24,7 +29,6 @@ import { buildInitialOrganizationPolicyRequest } from "../registration/registerI
 import { buildAddGroupUserPolicyRequest } from "./groupPolicyRequests";
 import {
   addOrganizationGroupUser,
-  buildInitialGroupPolicyRequest,
   removeOrganizationGroupUser,
 } from "./principalPolicy";
 
@@ -56,6 +60,7 @@ test("remove group user bridges committed policy writes before caching the rotat
     signingKeyPair.signingPublicKey,
   );
   const initialRequest = await buildInitialGroupPolicyRequest({
+    metadataKey: testGroupMetadataKey(organizationId),
     creatorEncapsulationKeyPair: remainingUserKem,
     groupId,
     name: "Operators",
@@ -66,6 +71,7 @@ test("remove group user bridges committed policy writes before caching the rotat
   const initialPolicy = await policyBundleFromInitialRequest(initialRequest);
   const adminPolicy = await policyBundleFromInitialRequest(
     await buildInitialGroupPolicyRequest({
+      metadataKey: testGroupMetadataKey(organizationId),
       creatorEncapsulationKeyPair: remainingUserKem,
       groupId: adminGroupId,
       name: "Admins",
@@ -200,6 +206,7 @@ test("remove group user bridges committed policy writes before caching the rotat
     );
 
     const returnedPolicy = await removeOrganizationGroupUser({
+      readEncryptedName: readTestGroupName,
       expectedGroupName: "Operators",
       afterPolicyCommitBeforeCache: async () => {
         calls.push("bridge");
@@ -317,6 +324,7 @@ test("remove group user bridges committed policy writes before caching the rotat
     };
     await expect(
       addOrganizationGroupUser({
+        readEncryptedName: readTestGroupName,
         afterPolicyCommitBeforeCache: async () => {
           await savePrincipalPolicyBundle(
             execSql,

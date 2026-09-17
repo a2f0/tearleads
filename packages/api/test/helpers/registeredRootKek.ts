@@ -1,20 +1,27 @@
 import { db } from "@tearleads/api-shared/postgres";
 import type { TestUser } from "@tearleads/bob-and-alice";
-import type { ContainerKekKeyringEntry } from "@tearleads/crypto";
+import type {
+  ContainerKekKeyringEntry,
+  VerifiedContainerKekState,
+  VerifiedPrincipalPolicy,
+} from "@tearleads/crypto";
 import { unwrapDek } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
+import type { AccessManifestBundleWire } from "@tearleads/validators/request";
 import invariant from "invariant";
 import { listCurrentPrincipalMemberEnvelopes } from "../../src/access/read/principalMemberEnvelopes";
-import type { StoredRootFixture } from "./keyingWriterProjectionKit";
 
-export interface DecryptableStoredRootFixture extends StoredRootFixture {
+export interface DecryptableStoredRootFixture {
+  readonly bundle: AccessManifestBundleWire;
+  readonly kekState: VerifiedContainerKekState;
+  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
   readonly keyringEntries?: readonly ContainerKekKeyringEntry[];
   readonly plaintextKek: Uint8Array;
 }
 
 export async function recoverRegisteredRootKek(input: {
   owner: TestUser;
-  root: StoredRootFixture;
+  root: Omit<DecryptableStoredRootFixture, "plaintextKek">;
 }): Promise<DecryptableStoredRootFixture> {
   const adminWrap = input.root.kekState.wraps.find(
     (wrap) => wrap.recipientKind === "group",

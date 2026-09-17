@@ -9,7 +9,7 @@ import type {
 import type { ContainerContentsStoreState } from "./types";
 
 // Best-effort remote probe for an already-existing system container. System
-// containers only live under the root, so this probes the root lanes (not a
+// containers occupy root lanes, so this probes those lanes (not a
 // full-tree refresh). Device-first: a network failure must not abort
 // provisioning, or a caller that waits on this container never observes it.
 export async function probeExistingSystemContainer(input: {
@@ -18,12 +18,15 @@ export async function probeExistingSystemContainer(input: {
   readonly state: ContainerContentsStoreState;
   readonly syncAgent: ContainerContentsStoreSyncAgent;
   readonly systemSlot: ContainerSystemSlot;
+  readonly independentRoot?: boolean;
 }): Promise<void> {
   try {
     await input.syncAgent.requestRemoteHydration({
-      parentIds: input.rootState
-        ? [null, input.rootState.container.id]
-        : [null],
+      ...(input.independentRoot ? { followDiscoveredParentLanes: false } : {}),
+      parentIds:
+        input.rootState && !input.independentRoot
+          ? [null, input.rootState.container.id]
+          : [null],
     });
   } catch (error) {
     await reportAndRethrowKeyingVerificationError(
@@ -39,7 +42,7 @@ export async function probeExistingSystemContainer(input: {
     if (!isDatabaseUnavailableError(error)) {
       const reason = errorMessage(error);
       input.state.runtime.util.log(
-        `${input.logLabel}: remote probe for "${input.systemSlot}" failed (${reason}); creating it locally`,
+        `${input.logLabel}: remote probe for "${input.systemSlot}" failed (${reason})`,
       );
     }
   }

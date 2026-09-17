@@ -13,6 +13,7 @@ import {
   shareRemoteContainerWithGroup as shareRemoteContainerWithGroupMutation,
 } from "../../containers";
 import { resolveDocumentCreateAuthor } from "../../documents";
+import { createRuntimeGroupMetadataAccess } from "../../organizations/groupMetadataRuntime";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import {
   type ContainerAlreadyCommitted,
@@ -181,6 +182,12 @@ export async function shareRemoteContainerWithGroup(input: {
     containerId: input.containerId,
     execSql,
     expectedGroupName: input.expectedGroupName ?? null,
+    readEncryptedName: (bundle) =>
+      createRuntimeGroupMetadataAccess(
+        input.runtime,
+        author.organizationId,
+        input.stillCurrent,
+      ).readName(bundle),
     knownContainerKeks: input.knownContainerKeks,
     previousProjection: input.previousProjection,
     recipientGroupId: input.recipientGroupId,

@@ -138,27 +138,22 @@ export async function createRegistrationRequestBody(
   const userId = options.userId ?? crypto.randomUUID();
   const organizationId = options.organizationId ?? crypto.randomUUID();
   const rootContainerId = options.rootContainerId ?? crypto.randomUUID();
-  const organizationMetadataContainerId =
-    options.includeOrganizationProfileDocument
-      ? crypto.randomUUID()
-      : undefined;
+  const organizationMetadataContainerId = crypto.randomUUID();
   const initialAdminGroup = await createInitialAdminGroupRequest({
     encapsulationPublicKey,
-    grants: [{ containerId: rootContainerId, accessLevel: "admin" }],
+    grants: [
+      { containerId: rootContainerId, accessLevel: "admin" },
+      { containerId: organizationMetadataContainerId, accessLevel: "admin" },
+    ],
     signingPrivateKey,
     signingPublicKey,
     userId,
   });
   const initialMemberGroup = await createInitialMemberGroupRequest({
     encapsulationPublicKey,
-    grants: organizationMetadataContainerId
-      ? [
-          {
-            containerId: organizationMetadataContainerId,
-            accessLevel: "read",
-          },
-        ]
-      : [],
+    grants: [
+      { containerId: organizationMetadataContainerId, accessLevel: "read" },
+    ],
     signingPrivateKey,
     signingPublicKey,
     userId,
@@ -230,12 +225,8 @@ export async function createRegistrationRequestBody(
             rootBootstrap.initialRosterProfileDocument,
         }
       : {}),
-    ...(rootBootstrap.initialOrganizationMetadataContainer
-      ? {
-          initialOrganizationMetadataContainer:
-            rootBootstrap.initialOrganizationMetadataContainer,
-        }
-      : {}),
+    initialOrganizationMetadataContainer:
+      rootBootstrap.initialOrganizationMetadataContainer,
     ...(rootBootstrap.initialOrganizationProfileDocument
       ? {
           initialOrganizationProfileDocument:

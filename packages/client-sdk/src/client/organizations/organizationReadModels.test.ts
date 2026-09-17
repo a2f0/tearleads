@@ -79,7 +79,9 @@ test("concurrent read-model reconciliation is single-flight", async () => {
     const [firstResult, secondResult] = await Promise.all([first, second]);
 
     expect(firstResult).toEqual(secondResult);
-    expect(firstResult?.groups[0]?.name).toBe("Admins");
+    expect(firstResult?.groups[0]?.currentState?.stateHash).toBe(
+      "state-Admins",
+    );
     expect(readModelRequests).toBe(1);
 
     workflowInput = {
@@ -192,7 +194,9 @@ test("post-mutation reconciliation waits for an older request and coalesces one 
     expect(olderResult?.readModelCursor).toBe("cursor-1");
     expect(trailingResultA?.readModelCursor).toBe("cursor-2");
     expect(trailingResultB?.readModelCursor).toBe("cursor-2");
-    expect(trailingResultA?.groups[0]?.name).toBe("Admins after mutation");
+    expect(trailingResultA?.groups[0]?.currentState?.stateHash).toBe(
+      "state-Admins after mutation",
+    );
     expect(readModelRequests).toBe(2);
 
     const olderScopeRequest = coordinator.reconcile();

@@ -23,10 +23,10 @@ import type { ContainerSyncTombstoneReason } from "./shared";
  * - `id`: Stable container id.
  * - `organizationId`: Organization boundary for the container. Parent and child
  *   containers must stay within the same organization.
- * - `parentId`: Parent container id, or `null` for the organization's root
- *   container.
+ * - `parentId`: Parent container id, or `null` for the personal or metadata
+ *   root container.
  * - `systemSlot`: Optional opaque app-owned system slot. System containers
- *   are rooted under the organization root and cannot be removed through the
+ *   are root children except for the independent metadata root, and cannot be removed through the
  *   public container delete API.
  * - `depth`: Materialized distance from the root container. Roots are `0`.
  * - `createdAt`: Server-side insertion timestamp.
@@ -34,8 +34,8 @@ import type { ContainerSyncTombstoneReason } from "./shared";
  *   metadata document, or visible contents change.
  *
  * Indexes:
- * - `organizationId where parentId is null` is unique so an organization has
- *   one root container.
+ * - `organizationId where parentId and systemSlot are null` is unique so an
+ *   organization has one personal root container.
  * - `organizationId, systemSlot where systemSlot is not null` keeps each
  *   system slot unique per organization.
  * - `parentId` supports direct child lookups and move validation.
@@ -57,7 +57,7 @@ export const containers = pgTable(
   (table) => [
     uniqueIndex("containers_org_root_idx")
       .on(table.organizationId)
-      .where(sql`${table.parentId} is null`),
+      .where(sql`${table.parentId} is null and ${table.systemSlot} is null`),
     uniqueIndex("containers_org_system_slot_idx")
       .on(table.organizationId, table.systemSlot)
       .where(sql`${table.systemSlot} is not null`),

@@ -105,7 +105,6 @@ export const OrganizationGroupSummaryResponseShape = {
   currentState: OrganizationGroupCurrentStateResponseSchema.nullable(),
   groupId: z.string(),
   isBuiltin: z.boolean(),
-  name: z.string(),
   organizationId: z.string(),
 };
 
@@ -208,7 +207,6 @@ export type OrganizationGroupContainersResponse = z.infer<
 export const OrganizationContainerGrantResponseShape = {
   ...OrganizationGroupContainerResponseShape,
   groupId: z.string().nullable(),
-  groupName: z.string().nullable(),
   signingKeyFingerprint: z.string().nullable(),
   subjectId: z.string(),
   subjectType: OrganizationContainerGrantSubjectTypeSchema,

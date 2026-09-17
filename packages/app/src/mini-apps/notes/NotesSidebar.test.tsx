@@ -29,6 +29,7 @@ test("notes list home shows note metadata and drills into a note", () => {
       handleNoteContextMenu={(event) => event.preventDefault()}
       notes={notes}
       ready
+      primeVisibleNotes={() => {}}
       selectedNoteId={null}
       selectNote={(noteId) => selectedNoteIds.push(noteId)}
     />,
@@ -60,6 +61,7 @@ test("notes list home offers an empty-state tile that creates the first note", (
       handleNoteContextMenu={(event) => event.preventDefault()}
       notes={[]}
       ready
+      primeVisibleNotes={() => {}}
       selectedNoteId={null}
       selectNote={() => {}}
     />,
@@ -91,6 +93,7 @@ test("notes list home shows loading rather than the empty tile before notes load
       handleNoteContextMenu={(event) => event.preventDefault()}
       notes={[]}
       ready={false}
+      primeVisibleNotes={() => {}}
       selectedNoteId={null}
       selectNote={() => {}}
     />,
@@ -100,4 +103,43 @@ test("notes list home shows loading rather than the empty tile before notes load
     view.queryByRole("button", { name: NOTES_LABELS.sidebarEmptyCreate }),
   ).toBeNull();
   expect(view.getByText(NOTES_LABELS.sidebarLoading)).toBeTruthy();
+});
+
+test("content demand follows only visible virtual rows and waits for directory readiness", () => {
+  const template = notes[0];
+  if (!template) throw new Error("Missing note fixture");
+  const directory = Array.from({ length: 1000 }, (_, index) => ({
+    ...template,
+    id: `note-${index}`,
+    documentId: `remote-${index}`,
+    title: `Note ${index}`,
+  }));
+  const demanded: ReadonlyArray<DocumentSummary>[] = [];
+  const props = {
+    createNote: () => {},
+    handleAreaContextMenu: () => {},
+    handleNoteContextMenu: () => {},
+    notes: directory,
+    primeVisibleNotes: (rows: ReadonlyArray<DocumentSummary>) =>
+      demanded.push(rows),
+    selectedNoteId: null,
+    selectNote: () => {},
+  };
+  const view = render(<NotesListHome {...props} ready={false} />);
+  expect(demanded).toEqual([]);
+  view.rerender(<NotesListHome {...props} ready />);
+  expect(demanded).toHaveLength(1);
+  expect(demanded[0]?.map((note) => note.id)).toEqual(
+    directory.slice(0, 24).map((note) => note.id),
+  );
+  view.rerender(<NotesListHome {...props} ready />);
+  expect(demanded).toHaveLength(1);
+  const frame = view.container.querySelector<HTMLElement>(
+    ".mini-app-virtual-list-frame",
+  );
+  if (!frame) throw new Error("Missing virtual list frame");
+  fireEvent.scroll(frame, { target: { scrollTop: 48 * 100 } });
+  expect(demanded.at(-1)?.map((note) => note.id)).toEqual(
+    directory.slice(92, 116).map((note) => note.id),
+  );
 });

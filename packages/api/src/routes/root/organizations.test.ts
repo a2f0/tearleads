@@ -28,7 +28,6 @@ const member = createTestUser();
 let organizationId: string;
 let rootOrganizationId: string;
 const missingId = "00000000-0000-4000-8000-000000000000";
-const orgName = `Root Org 100%_${randomUUID()}`;
 const headers = (token = root.token) => ({ Authorization: `Bearer ${token}` });
 const request = (path: string) =>
   routeApp.request(path, { headers: headers() });
@@ -37,10 +36,6 @@ beforeAll(async () => {
   rootOrganizationId = await registerAndAuthenticate(root);
   organizationId = await registerAndAuthenticate(member);
   await db.update(users).set({ isRoot: true }).where(eq(users.id, root.userId));
-  await db
-    .update(organizations)
-    .set({ name: orgName })
-    .where(eq(organizations.id, organizationId));
   await db
     .update(organizationBilling)
     .set({
@@ -100,8 +95,8 @@ test("all organization routes enforce authentication and root standing", async (
   }
 });
 
-test("searches organization names literally and supports exact IDs", async () => {
-  for (const search of [orgName.toUpperCase(), organizationId]) {
+test("searches only exact organization IDs", async () => {
+  for (const search of [organizationId.toUpperCase(), organizationId]) {
     const response = await request(
       `/root/organizations?search=${encodeURIComponent(search)}`,
     );
@@ -113,7 +108,7 @@ test("searches organization names literally and supports exact IDs", async () =>
     expect(page.organizations[0]?.billingStatus).toBe("trialing");
   }
   const response = await request(
-    `/root/organizations?search=${encodeURIComponent(orgName.replace("%_", ""))}`,
+    `/root/organizations?search=${encodeURIComponent("private org name")}`,
   );
   expect((await response.json()).organizations).toEqual([]);
 });
@@ -151,7 +146,7 @@ test("an operator outside the org reads detailed billing and scoped history with
   const detail = RootOrganizationDetailResponseSchema.parse(
     await response.json(),
   );
-  expect(detail.organization.name).toBe(orgName);
+  expect(detail.organization).not.toHaveProperty("name");
   expect(detail.billing?.providerCustomerId).toBe("cus_root_test");
   expect(detail.billing?.seatCount).toBe(5);
   expect(detail.stripe).toMatchObject({
@@ -229,9 +224,7 @@ test("missing billing is distinct from a missing organization", async () => {
     .where(eq(organizations.id, organizationId));
   if (!source) throw new Error("Expected organization fixture");
   const id = randomUUID();
-  await db
-    .insert(organizations)
-    .values({ ...source, id, name: "No billing record" });
+  await db.insert(organizations).values({ ...source, id });
   const response = await request(`/root/organizations/${id}`);
   expect(response.status).toBe(200);
   expect(
@@ -266,46 +259,14 @@ test("invalid queries fail without querying unbounded listings", async () => {
   ).toBe(400);
 });
 
-test("long searches have usable cursors that cannot be reused for a different search", async () => {
-  const [source] = await db
-    .select()
-    .from(organizations)
-    .where(eq(organizations.id, organizationId));
-  if (!source) throw new Error("Expected organization fixture");
+test("long non-ID searches return no organizations", async () => {
   for (const search of ["組".repeat(200), '"'.repeat(200)]) {
-    const ids = [randomUUID(), randomUUID()];
-    for (const id of ids)
-      await db.insert(organizations).values({ ...source, id, name: search });
-    const firstResponse = await request(
-      `/root/organizations?limit=1&search=${encodeURIComponent(search)}`,
+    const response = await request(
+      `/root/organizations?search=${encodeURIComponent(search)}`,
     );
-    expect(firstResponse.status).toBe(200);
-    const first = RootOrganizationsResponseSchema.parse(
-      await firstResponse.json(),
-    );
-    expect(first.nextCursor).not.toBeNull();
-    const cursor = encodeURIComponent(first.nextCursor ?? "");
-    const secondResponse = await request(
-      `/root/organizations?limit=1&search=${encodeURIComponent(search)}&cursor=${cursor}`,
-    );
-    expect(secondResponse.status).toBe(200);
-    const second = RootOrganizationsResponseSchema.parse(
-      await secondResponse.json(),
-    );
-    expect(second.nextCursor).toBeNull();
+    expect(response.status).toBe(200);
     expect(
-      new Set(
-        [...first.organizations, ...second.organizations].map(
-          (org) => org.organizationId,
-        ),
-      ),
-    ).toEqual(new Set(ids));
-    expect(
-      (
-        await request(
-          `/root/organizations?limit=1&search=different&cursor=${cursor}`,
-        )
-      ).status,
-    ).toBe(400);
+      RootOrganizationsResponseSchema.parse(await response.json()),
+    ).toMatchObject({ organizations: [], nextCursor: null });
   }
 });

@@ -29,8 +29,11 @@ import {
   requireTrustedUserIdentityResolver,
   type TrustedUserIdentityResolver,
 } from "../../../data/trustedUserIdentity";
+import { createGroupMetadataAccess } from "../../organizations/groupMetadataAccess";
+import { createGroupMetadataContainerVerifier } from "../../organizations/groupMetadataContainerAuthority";
 import { preparePrincipalContainerRematerializationBatch } from "../../organizations/principalContainerRematerialization";
 import { setOrganizationGroupContainerGrant } from "../../organizations/principalPolicy";
+import type { GroupPolicyNameReader } from "../../organizations/principalPolicyRequest";
 import { submitAcknowledgedContainerMutation } from "./mutationSubmit";
 import { buildMaterializedContainerSharePlan } from "./shareMaterialization";
 import {
@@ -144,6 +147,7 @@ interface RemoteContainerGroupShareInput {
    * name is refused.
    */
   expectedGroupName: string | null;
+  readEncryptedName?: GroupPolicyNameReader | undefined;
   knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
   previousProjection?: ContainerWriterProjectionResponse | undefined;
   recipientGroupId: string;
@@ -311,6 +315,29 @@ function assertGrantMintNamed(expectedGroupName: string | null): void {
   }
 }
 
+function loadShareGroupPolicy(input: RemoteContainerGroupShareInput) {
+  return loadVerifiedGroupSharePrincipalPolicy({
+    apiClient: input.apiClient,
+    execSql: input.execSql,
+    expectedGroupName: input.expectedGroupName ?? undefined,
+    readEncryptedName:
+      input.readEncryptedName ??
+      createGroupMetadataAccess({
+        ...input,
+        organizationId: input.author.organizationId,
+        verifyMetadataContainer: createGroupMetadataContainerVerifier({
+          ...input,
+          organizationId: input.author.organizationId,
+          stillCurrent: input.stillCurrent ?? (() => true),
+        }),
+      }).readName,
+    groupId: input.recipientGroupId,
+    organizationId: input.author.organizationId,
+    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+    stillCurrent: input.stillCurrent,
+  });
+}
+
 export async function shareRemoteContainerWithGroup(
   input: RemoteContainerGroupShareInput,
 ): Promise<RemoteContainerGroupShareResult | null> {
@@ -325,15 +352,7 @@ export async function shareRemoteContainerWithGroup(
   if (!previousProjection || input.stillCurrent?.() === false) {
     return null;
   }
-  const verifiedPrincipalPolicy = await loadVerifiedGroupSharePrincipalPolicy({
-    apiClient: input.apiClient,
-    execSql: input.execSql,
-    expectedGroupName: input.expectedGroupName ?? undefined,
-    groupId: input.recipientGroupId,
-    organizationId: input.author.organizationId,
-    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
-    stillCurrent: input.stillCurrent,
-  });
+  const verifiedPrincipalPolicy = await loadShareGroupPolicy(input);
   if (input.stillCurrent?.() === false) return null;
   await advanceVerifiedSharePolicies(
     input.execSql,

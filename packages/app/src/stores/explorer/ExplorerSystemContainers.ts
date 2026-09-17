@@ -202,7 +202,10 @@ function findForeignOrgTrashContainerId(
   }
 
   const orgRoot = nodes.find(
-    (node) => node.parentId === null && node.organizationId === organizationId,
+    (node) =>
+      node.parentId === null &&
+      !node.systemSlot &&
+      node.organizationId === organizationId,
   );
   if (!orgRoot) {
     return null;
@@ -427,7 +430,10 @@ export function canProvisionExplorerSystemContainers(input: {
 
   return (
     input.nodes?.some(
-      (node) => node.id === input.rootContainerId && node.parentId === null,
+      (node) =>
+        node.id === input.rootContainerId &&
+        node.parentId === null &&
+        !node.systemSlot,
     ) ?? false
   );
 }

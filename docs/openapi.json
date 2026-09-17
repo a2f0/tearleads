@@ -908,18 +908,13 @@
                           "state"
                         ],
                         "additionalProperties": {}
-                      },
-                      "name": {
-                        "type": "string",
-                        "minLength": 1
                       }
                     },
                     "required": [
                       "groupId",
-                      "initialGroupPolicy",
-                      "name"
+                      "initialGroupPolicy"
                     ],
-                    "additionalProperties": {}
+                    "additionalProperties": false
                   },
                   "initialMemberGroup": {
                     "type": "object",
@@ -1495,18 +1490,13 @@
                           "state"
                         ],
                         "additionalProperties": {}
-                      },
-                      "name": {
-                        "type": "string",
-                        "minLength": 1
                       }
                     },
                     "required": [
                       "groupId",
-                      "initialGroupPolicy",
-                      "name"
+                      "initialGroupPolicy"
                     ],
-                    "additionalProperties": {}
+                    "additionalProperties": false
                   },
                   "initialOrganizationMetadataContainer": {
                     "type": "object",
@@ -9281,6 +9271,7 @@
                 "required": [
                   "initialAdminGroup",
                   "initialMemberGroup",
+                  "initialOrganizationMetadataContainer",
                   "initialOrganizationPolicy",
                   "initialRootContainer",
                   "initialRootMetadataDocument",
@@ -11500,6 +11491,8 @@
                     "committedCoreMetadataUpdateIds",
                     "committedProfileUpdateIds",
                     "organizationId",
+                    "organizationMetadataContainer",
+                    "organizationMetadataContainerId",
                     "rootContainerId",
                     "rootMetadataAccessEpoch",
                     "rootMetadataAccessStateHash",
@@ -11671,10 +11664,6 @@
           {
             "description": "each provisioned document seed must contain exactly one outgoing update and no container rekeys",
             "id": "request.organization-provisioning-document-seed"
-          },
-          {
-            "description": "organization provisioning group names must not be blank",
-            "id": "request.organization-provisioning-non-blank-group-name"
           },
           {
             "description": "core and profile metadata update id arrays contain no duplicates",
@@ -45958,10 +45947,6 @@
                     ],
                     "additionalProperties": {}
                   },
-                  "name": {
-                    "type": "string",
-                    "minLength": 1
-                  },
                   "organizationPolicy": {
                     "type": "object",
                     "properties": {
@@ -46535,10 +46520,9 @@
                 "required": [
                   "groupId",
                   "initialGroupPolicy",
-                  "name",
                   "organizationPolicy"
                 ],
-                "additionalProperties": {}
+                "additionalProperties": false
               }
             }
           },
@@ -46605,9 +46589,6 @@
                         "isBuiltin": {
                           "type": "boolean"
                         },
-                        "name": {
-                          "type": "string"
-                        },
                         "organizationId": {
                           "type": "string"
                         }
@@ -46617,7 +46598,6 @@
                         "currentState",
                         "groupId",
                         "isBuiltin",
-                        "name",
                         "organizationId"
                       ],
                       "additionalProperties": {}
@@ -47676,10 +47656,6 @@
           {
             "description": "a container response keyring is null exactly for container key epoch 1",
             "id": "response.organization-provisioning-container-keyring"
-          },
-          {
-            "description": "organization provisioning group names must not be blank",
-            "id": "request.organization-provisioning-non-blank-group-name"
           }
         ]
       }
@@ -48169,16 +48145,6 @@
                                           }
                                         ]
                                       },
-                                      "groupName": {
-                                        "anyOf": [
-                                          {
-                                            "type": "string"
-                                          },
-                                          {
-                                            "type": "null"
-                                          }
-                                        ]
-                                      },
                                       "signingKeyFingerprint": {
                                         "anyOf": [
                                           {
@@ -48222,7 +48188,6 @@
                                       "parentId",
                                       "updatedAt",
                                       "groupId",
-                                      "groupName",
                                       "signingKeyFingerprint",
                                       "subjectId",
                                       "subjectType",
@@ -48409,9 +48374,6 @@
                                       "isBuiltin": {
                                         "type": "boolean"
                                       },
-                                      "name": {
-                                        "type": "string"
-                                      },
                                       "organizationId": {
                                         "type": "string"
                                       }
@@ -48421,7 +48383,6 @@
                                       "currentState",
                                       "groupId",
                                       "isBuiltin",
-                                      "name",
                                       "organizationId"
                                     ],
                                     "additionalProperties": false
@@ -48730,16 +48691,6 @@
                                           }
                                         ]
                                       },
-                                      "groupName": {
-                                        "anyOf": [
-                                          {
-                                            "type": "string"
-                                          },
-                                          {
-                                            "type": "null"
-                                          }
-                                        ]
-                                      },
                                       "signingKeyFingerprint": {
                                         "anyOf": [
                                           {
@@ -48783,7 +48734,6 @@
                                       "parentId",
                                       "updatedAt",
                                       "groupId",
-                                      "groupName",
                                       "signingKeyFingerprint",
                                       "subjectId",
                                       "subjectType",
@@ -48970,9 +48920,6 @@
                                       "isBuiltin": {
                                         "type": "boolean"
                                       },
-                                      "name": {
-                                        "type": "string"
-                                      },
                                       "organizationId": {
                                         "type": "string"
                                       }
@@ -48982,7 +48929,6 @@
                                       "currentState",
                                       "groupId",
                                       "isBuiltin",
-                                      "name",
                                       "organizationId"
                                     ],
                                     "additionalProperties": false
@@ -50127,18 +50073,13 @@
                           "state"
                         ],
                         "additionalProperties": {}
-                      },
-                      "name": {
-                        "type": "string",
-                        "minLength": 1
                       }
                     },
                     "required": [
                       "groupId",
-                      "initialGroupPolicy",
-                      "name"
+                      "initialGroupPolicy"
                     ],
-                    "additionalProperties": {}
+                    "additionalProperties": false
                   },
                   "initialMemberGroup": {
                     "type": "object",
@@ -50714,18 +50655,13 @@
                           "state"
                         ],
                         "additionalProperties": {}
-                      },
-                      "name": {
-                        "type": "string",
-                        "minLength": 1
                       }
                     },
                     "required": [
                       "groupId",
-                      "initialGroupPolicy",
-                      "name"
+                      "initialGroupPolicy"
                     ],
-                    "additionalProperties": {}
+                    "additionalProperties": false
                   },
                   "initialOrganizationMetadataContainer": {
                     "type": "object",
@@ -58491,6 +58427,7 @@
                 "required": [
                   "initialAdminGroup",
                   "initialMemberGroup",
+                  "initialOrganizationMetadataContainer",
                   "initialOrganizationPolicy",
                   "initialRootContainer",
                   "initialRootMetadataDocument",
@@ -60702,6 +60639,8 @@
                     "committedCoreMetadataUpdateIds",
                     "committedProfileUpdateIds",
                     "organizationId",
+                    "organizationMetadataContainer",
+                    "organizationMetadataContainerId",
                     "rootContainerId",
                     "rootMetadataAccessEpoch",
                     "rootMetadataAccessStateHash",
@@ -60900,10 +60839,6 @@
           {
             "description": "each provisioned document seed must contain exactly one outgoing update and no container rekeys",
             "id": "request.organization-provisioning-document-seed"
-          },
-          {
-            "description": "organization provisioning group names must not be blank",
-            "id": "request.organization-provisioning-non-blank-group-name"
           },
           {
             "description": "core and profile metadata update id arrays contain no duplicates",
@@ -63438,9 +63373,6 @@
                           "isDefaultOrganization": {
                             "type": "boolean"
                           },
-                          "name": {
-                            "type": "string"
-                          },
                           "organizationId": {
                             "type": "string",
                             "minLength": 1
@@ -63481,7 +63413,6 @@
                           "billing",
                           "createdAt",
                           "isDefaultOrganization",
-                          "name",
                           "organizationId",
                           "roster"
                         ],
@@ -64723,9 +64654,6 @@
                           "type": "string",
                           "minLength": 1
                         },
-                        "name": {
-                          "type": "string"
-                        },
                         "createdAt": {
                           "type": "string"
                         },
@@ -64750,7 +64678,6 @@
                       },
                       "required": [
                         "organizationId",
-                        "name",
                         "createdAt",
                         "billingStatus"
                       ],
@@ -65527,9 +65454,6 @@
                             "type": "string",
                             "minLength": 1
                           },
-                          "name": {
-                            "type": "string"
-                          },
                           "createdAt": {
                             "type": "string"
                           },
@@ -65554,7 +65478,6 @@
                         },
                         "required": [
                           "organizationId",
-                          "name",
                           "createdAt",
                           "billingStatus"
                         ],
@@ -65767,9 +65690,6 @@
                                 "type": "string",
                                 "minLength": 1
                               },
-                              "name": {
-                                "type": "string"
-                              },
                               "createdAt": {
                                 "type": "string"
                               },
@@ -65794,7 +65714,6 @@
                             },
                             "required": [
                               "organizationId",
-                              "name",
                               "createdAt",
                               "billingStatus"
                             ],

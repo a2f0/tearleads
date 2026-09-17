@@ -22,7 +22,6 @@ import { routeApp } from "../../routeApp";
 
 const root = createTestUser();
 const member = createTestUser();
-const prefix = `Usage %_ ${randomUUID()}`;
 const emptyId = randomUUID();
 let organizationId: string;
 let expected: Awaited<ReturnType<typeof seedOrganizationDataUsage>>;
@@ -30,19 +29,14 @@ const headers = (token = root.token) => ({ Authorization: `Bearer ${token}` });
 const request = (path: string) =>
   routeApp.request(path, { headers: headers() });
 const reportPath = (suffix = "") =>
-  `/root/reports/data-usage?search=${encodeURIComponent(prefix)}${suffix}`;
+  `/root/reports/data-usage?limit=200${suffix}`;
 
 beforeAll(async () => {
   await registerAndAuthenticate(root);
   organizationId = await registerAndAuthenticate(member);
   await db.update(users).set({ isRoot: true }).where(eq(users.id, root.userId));
-  await db
-    .update(organizations)
-    .set({ name: `${prefix} used` })
-    .where(eq(organizations.id, organizationId));
   await db.insert(organizations).values({
     id: emptyId,
-    name: `${prefix} empty`,
     memberGroupId: randomUUID(),
     adminGroupId: randomUUID(),
   });
@@ -81,24 +75,19 @@ test("root can read a non-member organization's usage with the same accounting a
 });
 
 test("reports page through used and empty organizations, with scoped cursors and literal search", async () => {
-  const firstResponse = await request(reportPath("&limit=1"));
-  expect(firstResponse.status).toBe(200);
-  const first = RootDataUsageReportResponseSchema.parse(
-    await firstResponse.json(),
-  );
-  expect(first.organizations).toHaveLength(1);
-  expect(first.nextCursor).toBeString();
-  const secondResponse = await request(
-    reportPath(`&limit=1&cursor=${encodeURIComponent(first.nextCursor ?? "")}`),
-  );
-  expect(secondResponse.status).toBe(200);
-  const second = RootDataUsageReportResponseSchema.parse(
-    await secondResponse.json(),
-  );
-  expect(second.nextCursor).toBeNull();
-  const rows = [...first.organizations, ...second.organizations];
-  expect(rows.map((row) => row.organization.organizationId).sort()).toEqual(
-    [organizationId, emptyId].sort(),
+  const rows = [];
+  let cursor: string | null = null;
+  do {
+    const response = await request(
+      `/root/reports/data-usage?limit=5${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
+    );
+    expect(response.status).toBe(200);
+    const page = RootDataUsageReportResponseSchema.parse(await response.json());
+    rows.push(...page.organizations);
+    cursor = page.nextCursor;
+  } while (cursor);
+  expect(new Set(rows.map((row) => row.organization.organizationId)).size).toBe(
+    rows.length,
   );
   expect(
     rows.find((row) => row.organization.organizationId === organizationId)
@@ -108,18 +97,14 @@ test("reports page through used and empty organizations, with scoped cursors and
     rows.find((row) => row.organization.organizationId === emptyId)?.dataUsage
       .totalByteLength,
   ).toBe(0);
-  const cursor = encodeURIComponent(first.nextCursor ?? "");
+  const exact = RootDataUsageReportResponseSchema.parse(
+    await (
+      await request(`/root/reports/data-usage?search=${organizationId}`)
+    ).json(),
+  );
   expect(
-    (
-      await request(
-        `/root/organizations?search=${encodeURIComponent(prefix)}&cursor=${cursor}`,
-      )
-    ).status,
-  ).toBe(400);
-  expect(
-    (await request(`/root/reports/data-usage?search=changed&cursor=${cursor}`))
-      .status,
-  ).toBe(400);
+    exact.organizations.map((row) => row.organization.organizationId),
+  ).toEqual([organizationId]);
   const missing = await request(
     `/root/reports/data-usage?search=${randomUUID()}`,
   );
@@ -130,18 +115,15 @@ test("batched usage scopes metadata and deduplicates shared blobs per organizati
   const actor = createTestUser();
   const usedId = await registerAndAuthenticate(actor);
   const sharedId = randomUUID();
-  const batchPrefix = `Batch usage ${randomUUID()}`;
-  await db
-    .update(organizations)
-    .set({ name: `${batchPrefix} used` })
-    .where(eq(organizations.id, usedId));
   await db.insert(organizations).values({
     id: sharedId,
-    name: `${batchPrefix} shared`,
     memberGroupId: randomUUID(),
     adminGroupId: randomUUID(),
   });
-  await seedOrganizationDataUsage({ actor, organizationId: usedId });
+  const usedBaseline = await seedOrganizationDataUsage({
+    actor,
+    organizationId: usedId,
+  });
   const [source] = await db
     .select()
     .from(blobContentWriteHeaders)
@@ -196,12 +178,12 @@ test("batched usage scopes metadata and deduplicates shared blobs per organizati
     userId: actor.userId,
     profileDocumentId: rosterProfileId,
   });
-  const response = await request(
-    `/root/reports/data-usage?search=${encodeURIComponent(batchPrefix)}`,
-  );
+  const response = await request(reportPath());
   expect(response.status).toBe(200);
   const report = RootDataUsageReportResponseSchema.parse(await response.json());
-  expect(report.organizations).toHaveLength(2);
+  expect(
+    report.organizations.map((row) => row.organization.organizationId),
+  ).toEqual(expect.arrayContaining([usedId, sharedId]));
   const shared = report.organizations.find(
     (row) => row.organization.organizationId === sharedId,
   )?.dataUsage;
@@ -231,7 +213,7 @@ test("batched usage scopes metadata and deduplicates shared blobs per organizati
   const used = report.organizations.find(
     (row) => row.organization.organizationId === usedId,
   )?.dataUsage;
-  expect(used?.totalByteLength).toBe(176);
+  expect(used?.totalByteLength).toBe(usedBaseline.totalByteLength + 31 + 37);
   expect(
     used?.documents.breakdown.find((entry) => entry.category === "user"),
   ).toEqual({

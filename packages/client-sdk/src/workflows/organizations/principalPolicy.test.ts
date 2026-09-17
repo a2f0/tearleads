@@ -9,6 +9,10 @@ import {
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import {
+  buildInitialGroupPolicyRequest,
+  testGroupMetadataAccess,
+} from "../../../test/helpers/groupMetadata";
+import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleAfterMutation,
   policyBundleFromInitialRequest,
@@ -25,10 +29,7 @@ import {
   buildRemoveGroupUserPolicyRequest,
 } from "./groupPolicyRequests";
 import { importOrganizationUser } from "./organizationUserImport";
-import {
-  buildInitialGroupPolicyRequest,
-  createOrganizationGroup,
-} from "./principalPolicy";
+import { createOrganizationGroup } from "./principalPolicy";
 
 function policySignerPublicKeys(input: {
   readonly signerUserId: string;
@@ -43,65 +44,6 @@ function policySignerPublicKeys(input: {
     },
   ];
 }
-
-test("buildInitialGroupPolicyRequest creates an admin-only initial group policy", async () => {
-  const signingKeyPair = generateSigningSeedAndKeyPair();
-  const encapsulationKeyPair = generateKemSeedAndKeyPair();
-  const userId = crypto.randomUUID();
-  const groupId = crypto.randomUUID();
-  const signingFingerprint = await toFingerprint(
-    signingKeyPair.signingPublicKey,
-  );
-
-  const request = await buildInitialGroupPolicyRequest({
-    creatorEncapsulationKeyPair: encapsulationKeyPair,
-    groupId,
-    name: " Operators ",
-    signerUserId: userId,
-    signingFingerprint,
-    signingKeyPair,
-  });
-
-  expect(request.name).toBe("Operators");
-  expect(request.initialGroupPolicy.state.principalType).toBe("group");
-  expect(request.initialGroupPolicy.state.principalId).toBe(groupId);
-  expect(request.initialGroupPolicy.state.version).toBe(1);
-  expect(request.initialGroupPolicy.projection).toEqual([
-    {
-      userId: userId,
-      role: "admin",
-    },
-  ]);
-  expect(request.initialGroupPolicy.memberEnvelopes[0]?.userId).toBe(userId);
-});
-
-test("buildInitialGroupPolicyRequest can create an externally-administered empty initial group policy", async () => {
-  const signingKeyPair = generateSigningSeedAndKeyPair();
-  const encapsulationKeyPair = generateKemSeedAndKeyPair();
-  const userId = crypto.randomUUID();
-  const groupId = crypto.randomUUID();
-  const signingFingerprint = await toFingerprint(
-    signingKeyPair.signingPublicKey,
-  );
-
-  const request = await buildInitialGroupPolicyRequest({
-    creatorEncapsulationKeyPair: encapsulationKeyPair,
-    groupId,
-    includeSignerAsAdmin: false,
-    name: " Operators ",
-    signerUserId: userId,
-    signingFingerprint,
-    signingKeyPair,
-  });
-
-  expect(request.name).toBe("Operators");
-  expect(request.initialGroupPolicy.state.principalType).toBe("group");
-  expect(request.initialGroupPolicy.state.principalId).toBe(groupId);
-  expect(request.initialGroupPolicy.state.version).toBe(1);
-  expect(request.initialGroupPolicy.state.memberCount).toBe(0);
-  expect(request.initialGroupPolicy.projection).toEqual([]);
-  expect(request.initialGroupPolicy.memberEnvelopes).toEqual([]);
-});
 
 test("importOrganizationUser resolves a trusted identity by id", async () => {
   const userId = crypto.randomUUID();
@@ -208,7 +150,6 @@ test("group creation and deletion persist authenticated organization directory s
           group: {
             groupId: request.groupId,
             organizationId: nextOrganizationId,
-            name: request.name,
             createdAt: "2026-05-12T12:00:00.000Z",
             isBuiltin: false,
             currentState: {
@@ -246,6 +187,7 @@ test("group creation and deletion persist authenticated organization directory s
 
   try {
     const createdGroup = await createOrganizationGroup({
+      metadataAccess: testGroupMetadataAccess(organizationId),
       apiClient,
       creatorEncapsulationKeyPair: creatorKem,
       execSql,

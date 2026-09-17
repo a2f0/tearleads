@@ -168,3 +168,36 @@ test("root refresh ignores a foreign-organization root when resolving the child 
 
   expect(requests[0]?.parentIds).toEqual([null, "local-root"]);
 });
+
+test("root child-lane refresh skips the independent metadata root", async () => {
+  const requests: RefreshOptions[] = [];
+  const metadata = serverRootContainer({
+    id: "metadata-root",
+    organizationId: "org-1",
+  });
+  await refreshRootRemoteHydration({
+    includeActiveRootChildLane: true,
+    requestHydration: async (options) => {
+      requests.push(options);
+    },
+    state: readyRefreshState("stale-local-root", {
+      organizationId: "org-1",
+      containers: [
+        [
+          "metadata-root",
+          {
+            container: {
+              ...metadata.container,
+              systemSlot: `sys_v1_${"a".repeat(43)}`,
+            },
+          },
+        ],
+        [
+          "personal-root",
+          serverRootContainer({ id: "personal-root", organizationId: "org-1" }),
+        ],
+      ],
+    }),
+  });
+  expect(requests[0]?.parentIds).toEqual([null, "personal-root"]);
+});

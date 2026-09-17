@@ -54,9 +54,9 @@ export interface RegistrationApi {
     initialOrganizationPolicy: RegistrationRequest["initialOrganizationPolicy"],
     initialRootContainer: RegistrationRequest["initialRootContainer"],
     initialRootMetadataDocument: ProvisionedDocumentRequest,
-    initialRosterProfileContainer?: ProvisionedSystemContainerRequest,
-    initialRosterProfileDocument?: ProvisionedDocumentRequest | undefined,
-    initialOrganizationMetadataContainer?: ProvisionedSystemContainerRequest,
+    initialRosterProfileContainer: RegistrationRequest["initialRosterProfileContainer"],
+    initialRosterProfileDocument: ProvisionedDocumentRequest | undefined,
+    initialOrganizationMetadataContainer: ProvisionedSystemContainerRequest,
     initialOrganizationProfileDocument?: ProvisionedDocumentRequest | undefined,
     initialSystemContainers?: ProvisionedSystemContainerRequest[] | undefined,
   ): Promise<RegistrationResponse | null>;
@@ -233,8 +233,15 @@ async function createOrganizationPrincipalPolicies(input: {
   const initialAdminGroup = await buildInitialGroupPolicyRequest({
     creatorEncapsulationKeyPair: input.encapsulationKeyPair,
     groupId: crypto.randomUUID(),
-    grants: [{ containerId: input.rootContainerId, accessLevel: "admin" }],
+    grants: [
+      { containerId: input.rootContainerId, accessLevel: "admin" },
+      {
+        containerId: input.organizationMetadataContainerId,
+        accessLevel: "admin",
+      },
+    ],
     name: "Admins",
+    builtinRole: "admins",
     signerUserId: input.userId,
     signingFingerprint,
     signingKeyPair: input.signingKeyPair,

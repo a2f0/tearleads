@@ -32,7 +32,6 @@ export async function createWebhookBillingOrganization(
       id: organizationId,
       adminGroupId: "22222222-2222-4222-8222-222222222222",
       memberGroupId: "33333333-3333-4333-8333-333333333333",
-      name: "Webhook organization",
     })
     .onConflictDoNothing();
   await db

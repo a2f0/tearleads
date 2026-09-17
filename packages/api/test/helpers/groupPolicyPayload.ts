@@ -1,19 +1,44 @@
 import { db } from "@tearleads/api-shared/postgres";
 import { groups } from "@tearleads/api-shared/schema";
+import { encryptGroupMetadata } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
+import {
+  getCurrentPrincipalState,
+  getPrincipalStatePayloadForState,
+} from "../../src/access/read/principalStateStore";
 
-/** Sign the existing fixture group's actual label, just as the SDK does. */
+/** Mutations retain encrypted metadata; genesis fixtures use a test-only key. */
 export async function groupPolicyPayload(
   groupId: string,
-  members: unknown,
+  _members: unknown,
   nameForNewGroup?: string,
+  organizationIdForNewGroup?: string,
 ): Promise<string> {
+  const current = await getCurrentPrincipalState("group", groupId, db);
+  if (current) {
+    const payload = await getPrincipalStatePayloadForState(
+      "group",
+      groupId,
+      current.stateHash,
+      db,
+    );
+    if (!payload) throw new Error("Expected test group payload");
+    return payload.ciphertext;
+  }
   const [group] = await db
-    .select({ name: groups.name })
+    .select()
     .from(groups)
     .where(eq(groups.id, groupId))
     .limit(1);
-  const name = group?.name ?? nameForNewGroup;
-  if (name === undefined) throw new Error("Expected a named test group");
-  return Buffer.from(JSON.stringify({ name, members })).toString("base64");
+  return encryptGroupMetadata({
+    key: {
+      organizationId:
+        group?.organizationId ?? organizationIdForNewGroup ?? groupId,
+      containerId: "test-metadata-container",
+      containerKeyEpochId: "test-metadata-epoch",
+      keyMaterial: new Uint8Array(32).fill(7),
+    },
+    groupId,
+    name: nameForNewGroup ?? "Test group",
+  });
 }

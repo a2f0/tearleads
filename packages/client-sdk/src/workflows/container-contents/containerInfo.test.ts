@@ -66,7 +66,10 @@ test("loadContainerInfo reads direct grants, organization groups, and local sync
           currentUserId: organizationReadModelUserId,
           groupName: "Operators",
           organizationId: parent.projection.organizationId,
-        }).lanes.groups.groups,
+        }).lanes.groups.groups.map((group) => ({
+          ...group,
+          name: "Operators",
+        })),
       parentId: null,
     });
 

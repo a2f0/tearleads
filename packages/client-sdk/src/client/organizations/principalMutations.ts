@@ -8,6 +8,7 @@ import {
   revokeOrganizationContainerGrant,
   rotateOrganizationGroupForAccessSetShrink,
 } from "../../workflows/organizations";
+import { createRuntimeGroupMetadataAccess } from "../../workflows/organizations/groupMetadataRuntime";
 import { createRuntimePrincipalPolicyWarmer } from "../../workflows/principals/runtimePolicyWarmer";
 import type { ContainerContents } from "../containerContents";
 import type { InternalWorkflowRuntimeInput } from "../workflowRuntime";
@@ -105,6 +106,11 @@ export async function addUserToOrganizationGroup(
           .secretKey,
         execSql: input.runtime.infra.execSql,
         expectedGroupName: input.expectedGroupName,
+        readEncryptedName: createRuntimeGroupMetadataAccess(
+          input.runtime,
+          signingContext.organizationId,
+          input.stillCurrent,
+        ).readName,
         groupId: input.groupId,
         prepareContainerMutations: ({ currentPolicy, nextPolicy }) =>
           preparePrincipalContainerMutations({
@@ -154,6 +160,10 @@ export function createGroupForOrganization(input: {
         creatorEncapsulationKeyPair: requireEncapsulationKeyPair(input.runtime),
         execSql: input.runtime.infra.execSql,
         name: input.name,
+        metadataAccess: createRuntimeGroupMetadataAccess(
+          input.runtime,
+          signingContext.organizationId,
+        ),
         resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
         ...signingContext,
       }),
@@ -205,6 +215,11 @@ export async function removeUserFromOrganizationGroup(
         },
         execSql: input.runtime.infra.execSql,
         expectedGroupName: input.expectedGroupName,
+        readEncryptedName: createRuntimeGroupMetadataAccess(
+          input.runtime,
+          signingContext.organizationId,
+          input.stillCurrent,
+        ).readName,
         groupId: input.groupId,
         prepareContainerMutations: ({ currentPolicy, nextPolicy }) =>
           preparePrincipalContainerMutations({

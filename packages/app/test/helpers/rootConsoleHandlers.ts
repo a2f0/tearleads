@@ -67,7 +67,7 @@ export const rootConsoleHandlers = [
             },
             createdAt: "2026-08-01T00:00:00.000Z",
             isDefaultOrganization: true,
-            name: "Root Test Org",
+
             organizationId: identity.defaultOrganizationId,
             roster: {
               disabledAt: null,

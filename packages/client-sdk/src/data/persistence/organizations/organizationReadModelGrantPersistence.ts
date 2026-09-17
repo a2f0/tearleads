@@ -30,8 +30,7 @@ function hasValidGrantSubjectBinding(
   const validUser =
     grant.subjectType === "user" &&
     grant.userId === grant.subjectId &&
-    grant.groupId === null &&
-    grant.groupName === null;
+    grant.groupId === null;
   const validGroup =
     grant.subjectType === "group" &&
     grant.userId === null &&
@@ -116,7 +115,6 @@ function toGrant(row: SelectedGrant): OrganizationContainerGrantResponse {
     userId: row.userId,
     signingKeyFingerprint: row.signingKeyFingerprint,
     groupId: row.groupId,
-    groupName: row.groupName,
   };
   if (!hasValidGrantSubjectBinding(grant)) {
     throw new OrganizationReadModelIntegrityError(

@@ -1,5 +1,5 @@
 {
-  "id": "5ee47de6-dd00-40b6-afc9-8170c788bc61",
+  "id": "114a6cdf-efc6-44c9-8525-595308f85305",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -2857,7 +2857,7 @@
             }
           ],
           "isUnique": true,
-          "where": "\"containers\".\"parent_id\" is null",
+          "where": "\"containers\".\"parent_id\" is null and \"containers\".\"system_slot\" is null",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -4469,12 +4469,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -4484,17 +4478,11 @@
         }
       },
       "indexes": {
-        "groups_organization_name_idx": {
-          "name": "groups_organization_name_idx",
+        "groups_organization_id_idx": {
+          "name": "groups_organization_id_idx",
           "columns": [
             {
               "expression": "organization_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "name",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -6059,12 +6047,6 @@
         "member_group_id": {
           "name": "member_group_id",
           "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
           "primaryKey": false,
           "notNull": true
         },

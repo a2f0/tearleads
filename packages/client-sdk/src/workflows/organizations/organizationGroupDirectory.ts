@@ -38,7 +38,10 @@ import {
 import type { OrganizationPrincipalPolicyApi } from "./groupPolicyMutationContext";
 import { groupPolicyMutationHead } from "./groupPolicyMutationHead";
 import { rewrapProjectionMemberEnvelopes } from "./principalPolicyRecipients";
-import type { buildInitialGroupPolicyRequest } from "./principalPolicyRequest";
+import type {
+  buildInitialGroupPolicyRequest,
+  GroupPolicyNameReader,
+} from "./principalPolicyRequest";
 import {
   projectionUserIds,
   resolveRequiredUserIdentities,
@@ -148,6 +151,8 @@ export async function buildOrganizationGroupDirectoryPolicyRequest(input: {
 }
 
 export async function commitCreatedGroupToDirectory(input: {
+  readonly name: string;
+  readonly readEncryptedName?: GroupPolicyNameReader;
   readonly apiClient: OrganizationPrincipalPolicyApi;
   readonly execSql: ExecSql;
   readonly externalAdminPolicy: NonNullable<
@@ -170,7 +175,8 @@ export async function commitCreatedGroupToDirectory(input: {
     descriptor: input.externalAdminPolicy.descriptor,
     execSql: input.execSql,
     externalAuthority: input.externalAdminPolicy.externalAuthority,
-    name: input.request.name,
+    name: input.name,
+    readEncryptedName: input.readEncryptedName,
     organizationId: input.organizationId,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });

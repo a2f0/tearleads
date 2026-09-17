@@ -380,14 +380,18 @@ test("a delayed pre-denial read-model response cannot apply or restore", async (
         execSql,
         organizationId,
       }),
-    ).resolves.toMatchObject({ groups: [{ name: "Restored" }] });
+    ).resolves.toMatchObject({
+      groups: [{ currentState: { stateHash: "state-Restored" } }],
+    });
     await expect(
       loadLocalOrganizationDirectoryAndGroups({
         currentUserId: requesterUserId,
         execSql,
         organizationId,
       }),
-    ).resolves.toMatchObject({ groups: [{ name: "Restored" }] });
+    ).resolves.toMatchObject({
+      groups: [{ currentState: { stateHash: "state-Restored" } }],
+    });
   } finally {
     close();
   }

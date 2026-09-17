@@ -63,7 +63,6 @@ function grant(input: {
       ? `signing-fingerprint-${input.subjectId}`
       : null,
     groupId: isGroup ? input.subjectId : null,
-    groupName: isGroup ? `Group ${input.subjectId}` : null,
   };
 }
 
@@ -121,7 +120,7 @@ function snapshot(): OrganizationReadModelSnapshotResponse {
           {
             groupId: CYCLE_GROUP_ID,
             organizationId: ORGANIZATION_ID,
-            name: "Cycle",
+
             createdAt: CREATED_AT,
             isBuiltin: false,
             currentState: {

@@ -33,8 +33,10 @@ test("group creation and adding a peer have separate request budgets", async () 
       label: `create ${group} organization group`,
       operation: () => createOrganizationGroup(pane, `Budget ${group} group`),
       budget: {
-        total: 6,
+        // Obtain the verified organization metadata key before encrypting the name.
+        total: 7,
         byRequest: {
+          "GET /containers/:containerId/writer-projection": 1,
           "GET /organizations/:organizationId/read-model": 2,
           "GET /principals/group/:groupId/policy": 2,
           "GET /principals/organization/:organizationId/policy": 1,
@@ -73,8 +75,10 @@ test("group creation and adding a peer have separate request budgets", async () 
         );
       },
       budget: {
-        total: group === "first" ? 9 : 8,
+        // Verify the selected encrypted name with the shared metadata key.
+        total: group === "first" ? 10 : 9,
         byRequest: {
+          "GET /containers/:containerId/writer-projection": 1,
           "GET /organizations/:organizationId/read-model": 3,
           "GET /principals/group/:groupId/policy": 3,
           "GET /auth/user-identity/:userId": group === "first" ? 1 : 0,

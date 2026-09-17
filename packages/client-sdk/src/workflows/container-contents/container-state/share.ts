@@ -16,6 +16,7 @@ import {
   advanceVerifiedSharePolicies,
   loadVerifiedGroupSharePrincipalPolicy,
 } from "../../containers";
+import { createRuntimeGroupMetadataAccess } from "../../organizations/groupMetadataRuntime";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import type { ContainerContentsPersistence } from "../containerPersistence";
 import { projectionGeneration } from "../projectionGeneration";
@@ -62,6 +63,12 @@ async function resolveCurrentGroupKeyEpoch(input: {
     apiClient: input.runtime.apiClient,
     execSql: input.runtime.infra.execSql,
     expectedGroupName: input.expectedGroupName,
+    readEncryptedName: (bundle) =>
+      createRuntimeGroupMetadataAccess(
+        input.runtime,
+        input.organizationId,
+        input.stillCurrent,
+      ).readName(bundle),
     groupId: input.groupId,
     organizationId: input.organizationId,
     resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,

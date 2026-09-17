@@ -9,7 +9,6 @@ test("missing membership delta targets converge as deletions", async () => {
   const statelessGroupId = crypto.randomUUID();
   await db.insert(groups).values({
     id: statelessGroupId,
-    name: "Stateless",
     organizationId,
   });
 

@@ -12,8 +12,8 @@ import { DocumentCreateResponseSchema } from "./documentMutation";
 
 /**
  * The bootstrapped state of a freshly provisioned organization: the ids and
- * signed root metadata the client needs to open the organization locally, plus
- * the optional roster/organization profile artifacts.
+ * signed personal and organization metadata roots the client needs to open the
+ * organization locally, plus the optional roster/organization profile artifacts.
  *
  * Shared by user registration (which additionally issues an auth challenge, see
  * {@link RegistrationResponse}) and creating an additional organization for an
@@ -26,8 +26,8 @@ export const organizationProvisioningResponseShape = {
   committedProfileUpdateIds: committedUpdateIdsSchema,
   organizationId: z.string(),
   organizationMetadataContainer:
-    ContainerCreateWithMetadataDocumentResponseSchema.optional(),
-  organizationMetadataContainerId: z.string().optional(),
+    ContainerCreateWithMetadataDocumentResponseSchema,
+  organizationMetadataContainerId: z.string(),
   organizationProfileDocument: DocumentCreateResponseSchema.optional(),
   organizationProfileDocumentId: z.string().optional(),
   rootContainerId: z.string(),

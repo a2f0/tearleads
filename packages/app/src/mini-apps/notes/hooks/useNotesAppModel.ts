@@ -1,6 +1,7 @@
 import type { DocumentSummary } from "@tearleads/client-sdk";
 import { useCompactRoutedMode } from "../../../navigation/useCompactRoutedMode";
 import { useMiniAppRouteState } from "../../../navigation/useMiniAppRouteState";
+import { useDocumentSummaryPrimer } from "../../../stores/documents/useDocumentSummaryPrimer";
 import {
   type NotesContextMenuModel,
   useNotesContextMenu,
@@ -22,6 +23,7 @@ interface NotesAppModel {
   createNote: () => void;
   isContainerTrashed: (containerId: string | null | undefined) => boolean;
   notes: ReadonlyArray<DocumentSummary>;
+  primeVisibleNotes: (notes: ReadonlyArray<DocumentSummary>) => void;
   ready: boolean;
   selectedNoteId: string | null;
   selectNote: (noteId: string) => void;
@@ -46,6 +48,7 @@ export function useNotesAppModel(
   setSidebar: NotesSetSidebar,
 ): NotesAppModel {
   const compactRoutedMode = useCompactRoutedMode();
+  const primeVisibleNotes = useDocumentSummaryPrimer();
   const { explicitSelection, selectNoteRoute } = useNotesRouteState(props);
   const {
     createNote,
@@ -72,6 +75,7 @@ export function useNotesAppModel(
     handleAreaContextMenu: contextMenu.handleAreaContextMenu,
     handleNoteContextMenu: contextMenu.handleNoteContextMenu,
     notes,
+    primeVisibleNotes,
     ready,
     selectNote,
     selectedNoteId,
@@ -84,6 +88,7 @@ export function useNotesAppModel(
     createNote,
     isContainerTrashed,
     notes,
+    primeVisibleNotes,
     ready,
     selectedNoteId,
     selectNote,

@@ -168,6 +168,7 @@ function NotesAppContent(props: NotesAppProps) {
           handleAreaContextMenu={model.contextMenu.handleAreaContextMenu}
           handleNoteContextMenu={model.contextMenu.handleNoteContextMenu}
           notes={model.notes}
+          primeVisibleNotes={model.primeVisibleNotes}
           ready={model.ready}
           selectNote={model.selectNote}
           selectedNoteId={model.selectedNoteId}

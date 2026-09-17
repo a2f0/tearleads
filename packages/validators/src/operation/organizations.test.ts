@@ -1,9 +1,6 @@
 import { expect, test } from "bun:test";
 import { organizationDataUsageResponseRuntimeRefinements } from "../organizationDataUsageRefinements";
-import {
-  organizationProvisioningContainerKeyringRefinement,
-  organizationProvisioningGroupNameRefinement,
-} from "../organizationProvisioningRefinements";
+import { organizationProvisioningContainerKeyringRefinement } from "../organizationProvisioningRefinements";
 import { organizationReadModelResponseRuntimeRefinements } from "../organizationReadModelRefinements";
 import {
   CreateOrganizationGroupWithPolicyRequestSchema,
@@ -191,10 +188,7 @@ test("organization management operations own their HTTP contracts", () => {
     method: "POST",
     params: OrganizationPathParamsSchema,
     responses: { 200: CreateOrganizationGroupResponseSchema },
-    runtimeRefinements: [
-      organizationProvisioningContainerKeyringRefinement,
-      organizationProvisioningGroupNameRefinement,
-    ],
+    runtimeRefinements: [organizationProvisioningContainerKeyringRefinement],
   });
   expect(createOrganizationGroupOperation.failureResponses).toEqual({
     400: ErrorResponseSchema,

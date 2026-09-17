@@ -16,7 +16,6 @@ import {
 
 export const RootOrganizationSummaryResponseSchema = loosePlainObject({
   organizationId: nonEmptyStringSchema,
-  name: z.string(),
   createdAt: z.string(),
   billingStatus: OrganizationBillingStatusSchema.nullable(),
 });

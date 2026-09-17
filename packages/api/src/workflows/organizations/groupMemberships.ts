@@ -15,7 +15,6 @@ import { loadUsersById, type UserKeyRow } from "./users";
 
 interface OrganizationGroupCatalogRow {
   readonly groupId: string;
-  readonly groupName: string;
 }
 
 interface GroupMembershipLoadInput {
@@ -47,7 +46,6 @@ async function loadOrganizationGroupRows(
   const rows = await input.executor
     .select({
       groupId: groupsTable.id,
-      groupName: groupsTable.name,
     })
     .from(groupsTable)
     .where(
@@ -58,7 +56,7 @@ async function loadOrganizationGroupRows(
           )
         : eq(groupsTable.organizationId, input.organizationId),
     )
-    .orderBy(asc(groupsTable.name), asc(groupsTable.id));
+    .orderBy(asc(groupsTable.id));
   return rows;
 }
 

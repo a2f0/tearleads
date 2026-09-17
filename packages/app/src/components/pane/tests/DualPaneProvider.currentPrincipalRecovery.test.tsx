@@ -13,6 +13,7 @@ import {
   getPaneUserId,
   interact,
   listExplorerContainerItems,
+  openWindowMenuDialog,
   POST_SHARE_NETWORK_IDLE_QUIET_MS,
   POST_SHARE_SYNC_SETTLE_TIMEOUT_MS,
   renderDualPane,
@@ -158,9 +159,30 @@ async function addGroupMember(
   await waitForPrincipalRematerialization();
 }
 
-test(
-  "a fresh recovery uses the current group head after removal and re-addition",
-  async () => {
+async function createEmptyGroup(pane: HTMLElement, groupName: string) {
+  const scope = pane
+    .querySelector<HTMLElement>(".org-manager-main")
+    ?.closest<HTMLElement>(".window");
+  invariant(scope, "Expected organization manager window");
+  const dialog = await openWindowMenuDialog({
+    dialogName: "New Group",
+    itemName: "New Group",
+    scope,
+  });
+  await interact(() => {
+    fireEvent.change(within(dialog).getByLabelText("Group name"), {
+      target: { value: groupName },
+    });
+  });
+  await interact(() => {
+    fireEvent.click(within(dialog).getByRole("button", { name: "Create" }));
+  });
+  await within(scope).findByText(groupName, undefined, { timeout: 15000 });
+}
+
+test.each([false, true])(
+  "current group recovery and post-rotation share=%s",
+  async (shareAfterRotation) => {
     useTestApiAppHandlers();
     const view = renderDualPane();
     const ownerPane = getPaneRoot(view, "left");
@@ -169,6 +191,7 @@ test(
     const peerUserId = getPaneUserId(peerPane);
 
     await createGroupAndAddPeer(ownerPane, GROUP_NAME, peerUserId);
+    if (shareAfterRotation) await createEmptyGroup(ownerPane, "Other readers");
     await openExplorer(ownerPane);
     await createNoteInContainer(ownerPane, "/", NOTE_TEXT);
     await openExplorer(peerPane);
@@ -212,6 +235,13 @@ test(
       "Peer did not regain historical data through the current group head.",
       20_000,
     );
+
+    // A new share must still bind the chosen encrypted label after rotation.
+    if (shareAfterRotation) {
+      await shareContainerWithGroup(ownerPane, "/", "Other readers", "read");
+      await waitForPrincipalRematerialization();
+      return;
+    }
 
     const recoveryKey = await downloadPaneRecoveryKey(peerPane);
     const recoveryRequestStart = listProxiedApiRequests().length;
